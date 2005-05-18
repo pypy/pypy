@@ -429,7 +429,7 @@ http://codespeak.net/svn/pypy/dist/pypy/rpython/
 Overview
 --------
 
-The RPython Typer is the bridge between the _Annotator and the low-level code generators.  The annotator computes types (or "annotations") that are high-level, in the sense that they describe RPython types like lists or instances of user-defined classes.  In general, though, to emit code we need to represent these high-level annotations into the low-level model of the target language; for C, this means structures and pointers and arrays.  The Typer both determines the appropriate low-level type for each annotation, and tries to replace *all* operations in the control flow graphs with one or a few low-level operations.  Just like low-level types, there is only a fairly restricted set of low-level operations, along the lines of reading or writing from or to a field of a structure.
+The RPython Typer is the bridge between the Annotator_ and the low-level code generators.  The annotator computes types (or "annotations") that are high-level, in the sense that they describe RPython types like lists or instances of user-defined classes.  In general, though, to emit code we need to represent these high-level annotations into the low-level model of the target language; for C, this means structures and pointers and arrays.  The Typer both determines the appropriate low-level type for each annotation, and tries to replace *all* operations in the control flow graphs with one or a few low-level operations.  Just like low-level types, there is only a fairly restricted set of low-level operations, along the lines of reading or writing from or to a field of a structure.
 
 In theory, this step is optional; some code generators might be able to read directly the high-level types.  However, we expect that case to be the exception.  "Compiling" high-level types into low-level ones is rather more messy than one would expect.  This was the motivation for making this step explicit and isolated in a single place.  After Typing, the graphs can only contain very few operations, which makes the job of the code generators much simpler.
 
@@ -569,6 +569,7 @@ See for example http://codespeak.net/svn/pypy/dist/pypy/rpython/rlist.py.
 
 
 .. _C:
+.. _GenC:
 
 The C Back-End
 ==============

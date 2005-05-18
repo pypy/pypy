@@ -5,9 +5,12 @@ PyPy Coding Guide
 .. contents::
 .. sectnum::
 
+
 This document describes coding requirements and conventions for 
 working with the PyPy code base.  Please read it carefully and 
 ask back any questions you might have. 
+
+.. _`RPython`: 
 
 Restricted Python
 ==================
@@ -403,6 +406,9 @@ This construct catches all application-level exceptions, so we have to match it 
 
 We are thinking about replacing ``OperationError`` with a family of common exception classes (e.g. ``AppKeyError``, ``AppIndexError``...) so that we can more easily catch them.  The generic ``AppError`` would stand for all other application-level classes.
 
+
+.. _`modules`: 
+
 Modules in PyPy 
 =============== 
 
@@ -413,7 +419,7 @@ sometimes need to `modify modules`_ and - more often - regression tests
 because they rely on implementation details of CPython.  
 
 If we don't just modify an original CPython module but need to rewrite
-it from scratch we put it into `pypy/lib`_ as a pure application level
+it from scratch we put it into `pypy/lib/`_ as a pure application level
 module.  
 
 When we need access to interpreter-level objects we put the module into
@@ -501,6 +507,7 @@ These copying operation is important because it keeps the original
 CPython tree clean and makes it obvious what we had to change. 
 
 .. _`mixed module mechanism`: 
+.. _`mixed modules`: 
 
 Implementing a mixed interpreter/application level Module 
 --------------------------------------------------------- 
@@ -566,7 +573,6 @@ expression directly (instead of pulling it indirectly from a file)::
 The interpreter level expression has a ``space`` binding when
 it is executed. 
 
-
 Testing modules in ``pypy/lib``
 --------------------------------
 
@@ -574,7 +580,7 @@ You can go to the `pypy/lib/test2`_ directory and invoke the testing tool
 ("py.test" or "python ../../test_all.py") to run tests against the
 pypy/lib hierarchy.  Note, that tests in `pypy/lib/test2`_ are allowed
 and encouraged to let their tests run at interpreter level although
-``pypy/lib`` modules eventually live at PyPy's application level.  
+`pypy/lib/`_ modules eventually live at PyPy's application level.  
 This allows us to quickly test our python-coded reimplementations 
 against CPython.   
 
@@ -595,8 +601,8 @@ the testing tool in order to start compliance tests.
 (XXX ensure windows compatibility for producing test 
 reports). 
 
-Naming and directory layout 
-===========================
+Naming conventions and directory layout 
+===========================================
 
 Directory and File Naming 
 -------------------------
@@ -611,7 +617,6 @@ Directory and File Naming
 - don't use more than 4 directory nesting levels
 
 - keep filenames concise and completion-friendly. 
-
 
 Naming of python objects
 ------------------------
@@ -645,6 +650,98 @@ Committing
 
 .. _`this document`: svn-help.html
 
+
+Annotated directory structure of PyPy 
+------------------------------------- 
+
+Here is a fully annotated alphabetical two-level deep 
+directory verview of PyPy: 
+
+============================   =========================================== 
+Directory                      explanation/links
+============================   =========================================== 
+`annotation/`_                 type inferencing code for `RPython`_ programs 
+
+`documentation/`_              text versions of PyPy `documentation`_ files shown on the website 
+
+`documentation/revreport/`_    the source code for the `revision report`_ 
+
+`documentation/website/`_      text versions of the navigation webpages 
+
+`interpreter/`_                bytecode interpreter and related objects (frames, functions, modules,...) 
+
+`lib/`_                        PyPy's wholesale reimplementations of CPython modules_
+
+`lib/test2/`_                  tests running at interp-level against the reimplementations 
+
+`module/`_                     contains `mixed modules`_ implementing core modules with 
+                               both application and interpreter level code 
+
+`module/_sre_pypy/`_           an experimental approach wrapping CPython's ``_sre`` module 
+                               without using faking 
+
+`module/builtin/`_             full implementation of CPython's ``__builtin__`` module. 
+
+`module/parser/`_              parser package from Jonathan David Riehl's `basil`_ package
+
+`module/recparser/`_           parser package from Logilab 
+
+`module/sys2/`_                implementation of CPython's ``sys`` module.  
+
+`objspace/`_                   `object space`_ implementations
+
+`objspace/trace.py`_           the `trace object space`_ monitoring bytecode and space operations
+
+`objspace/thunk.py`_           the `thunk object space`_, providing unique object features 
+
+`objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`
+
+`objspace/std/`_               the StdObjSpace_ implementing CPython's objects and types
+
+`rpython/`_                    the `RPython Typer`_ 
+
+`tool/`_                       various utilities and hacks used from various places 
+
+`tool/pytest/`_                support code for our `testing methods`_
+
+`tool/tb_server/`_             a somewhat outdated http-server for presenting 
+                               tracebacks in a helpful manner 
+
+`translator/`_                 translation_ backends and support code
+
+`translator/genc/`_            the `GenC backend`_ producing a CPython C-extension 
+                               module from a given RPython program. 
+
+`translator/java/`_            experimental code to utilize Java for annotation 
+
+`translator/llvm/`_            contains the `LLVM backend`_ producing LLVM assembler 
+                               from fully annotated RPython programs 
+
+`translator/tool/`_            helper tools for translation 
+
+``*/test/``                    many directories have a test subdirectory containing test 
+                               modules (see `Testing in PyPy`_) 
+
+``_cache/``                    holds cache files from internally translating application 
+                               level to interpreterlevel code.  (XXXM0.5 insert link here 
+                               when geninterp documentation is there). 
+
+============================   =========================================== 
+
+.. _`basil`: http://people.cs.uchicago.edu/~jriehl/BasilTalk.pdf
+.. _`object space`: objspace.html
+.. _`documentation`: index.html
+.. _FlowObjSpace: objspace.html#the-flow-object-space 
+.. _`trace object space`: objspace.html#the-trace-object-space 
+.. _`thunk object space`: objspace.html#the-thunk-object-space 
+.. _StdObjSpace: objspace.html#the-standard-object-space 
+.. _`abstract interpretation`: theory.html#abstract-interpretation
+.. _`RPython Typer`: translation.html#rpython-typer 
+.. _`testing methods`: coding-guide.html#testing-in-pypy
+.. _`translation`: translation.html 
+.. _`GenC backend`: translation.html#genc 
+.. _`LLVM backend`: translation.html#llvm 
+.. _`revision report`: http://codespeak.net/pypy/rev/current 
 
 .. _`using development tracker`: 
 
@@ -831,3 +928,4 @@ the documentation issue::
 which will check that remote URLs are reachable.  
 
 
+.. include:: _ref.txt
