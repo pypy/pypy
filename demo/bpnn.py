@@ -17,7 +17,6 @@
 # Modifications to the original (Armin Rigo):
 #   * import random from PyPy's lib, which is Python 2.2's plain
 #     Python implementation
-#   * use sys.stdout.write() instead of print statements for now
 #   * starts the Translator instead of the demo by default.
 
 import sys
@@ -136,16 +135,16 @@ class NN:
 
     def test(self, patterns):
         for p in patterns:
-            print_('%s -> %s' % (p[0], self.update(p[0])))
+            print p[0], '->', self.update(p[0])
 
     def weights(self):
-        print_('Input weights:')
+        print 'Input weights:'
         for i in range(self.ni):
-            print_(self.wi[i])
-        print_()
-        print_('Output weights:')
+            print self.wi[i]
+        print
+        print 'Output weights:'
         for j in range(self.nh):
-            print_(self.wo[j])
+            print self.wo[j]
 
     def train(self, patterns, iterations=2000, N=0.5, M=0.1):
         # N: learning rate
@@ -158,10 +157,7 @@ class NN:
                 self.update(inputs)
                 error = error + self.backPropagate(targets, N, M)
             if i % 100 == 0:
-                print_('error %-14f' % error)
-
-def print_(s):
-    sys.stdout.write(s+'\n')
+                print 'error %-14f' % error
 
 
 def demo():
