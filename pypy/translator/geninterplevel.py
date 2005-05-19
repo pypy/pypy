@@ -1,5 +1,6 @@
 """
-Implementation of a translator from application Python to interpreter level RPython.
+Implementation of a translator from application Python to
+interpreter level RPython.
 
 The idea is that we can automatically transform app-space implementations
 of methods into some equivalent representation at interpreter level.
@@ -10,10 +11,24 @@ Note that the appspace functions are treated as rpythonic, in a sense
 that globals are constants, for instance. This definition is not
 exact and might change.
 
-Integration of this module will be done half-automatically
-using a simple caching mechanism. The generated files are
-not meant to be checked into svn, although this currently
-still happens.
+The interface for this module is
+
+    (initfunc, newsrc) = translate_as_module(
+                                sourcetext,
+                                filename=None,
+                                modname="app2interpexec",
+                                tmpname=None)
+
+The returned newsrc is the generated source text.
+It is used in gateway.py's caching mechanism.
+The initfunc result is a function named "init"+modname
+It must be called with a space instance and returns
+a wrapped dict which is suitable to use as a module dict,
+containing all trnaslatedobjects with their originalname.
+
+Integration of this module is finished.
+There are no longer hand-generated source
+pieces in pypy svn.
 """
 
 from __future__ import generators
@@ -1232,255 +1247,8 @@ if __name__ == "__main__":
 
 # _____________________________________________________________________
 
-## this should go into some test file
-
-def somefunc(arg):
-    pass
-
-# XXX problem with local functions:
-def randint(low, high, seed = 1234567): # really not a real random
-    return (seed % (high-low)) + low
-
-def small_loop():
-    ''' this is a test for small loops.
-    How would we generate small blocks which call
-    each other? Hey, and """ is a doc string test """
-    '''
-    #from random import randint
-    # does not work. flowspace really complains on random.
-    # XXX we also seem to have problems with local functions
-    #def randint(low, high, seed = 1234567): # really not a real random
-    #    return (seed % (high-low)) + low
-                
-    for i in range(10000):
-        r = randint(0, 10000)
-        if r > 9000:
-            return r
-
-def f(a,b):
-##    print "start"
-    a = []
-    a.append(3)
-    for i in range(3):
-        pass#print i
-    if a > b:
-        try:
-            if b == 123:
-                raise ValueError
-            elif b == 321:
-                raise IndexError
-            return 123
-        except ValueError:
-            raise TypeError
-    else:
-        dummy = somefunc(23)
-        return 42
-
-class TestClass:pass
-
-def ff(a, b, c=3,*rest):
-    """ this is
-    some
-    docstring
-"""
-    try:
-        try:
-            if rest:
-                raise SystemError, 42
-            return a+b
-        finally:
-            a = 7
-            if rest:
-                return len(rest),c
-    except TypeError:
-        print "eek"
-
-glob = 100
-def fff():
-    global glob
-    return 42+glob
-
-def app_mod__String_ANY(format, values):
-    import _formatting
-    if isinstance(values, tuple):
-        return _formatting.format(format, values, None)
-    else:
-        if hasattr(values, 'keys'):
-            return _formatting.format(format, (values,), values)
-        else:
-            return _formatting.format(format, (values,), None)
-
-def app_str_decode__String_ANY_ANY(str, encoding=None, errors=None):
-    if encoding is None and errors is None:
-        return unicode(str)
-    elif errors is None:
-        return unicode(str, encoding)
-    else:
-        return unicode(str, encoding, errors)
-        
-
-def test_md5():
-    #import md5
-    # how do I avoid the builtin module?
-    from pypy.appspace import md5
-    digest = md5.new("hello").hexdigest()
-    return digest
-
-def test_mod():
-    return app_mod__String_ANY("-%s-", ["hallo"])
-
-def test_join():
-    return " ".join(["hi", "there"])
-
-# cannot nest local classes, yet
-# this appears to be a problem in flow space.
-class AnIterClass(object):
-    def __init__(self):
-        self.lis = [c for c in "test"]
-    def next(self):
-        if self.lis:
-            return self.lis.pop()
-        raise StopIteration
-    def __iter__(self):
-        return self
-    
-def test_iter():
-    res = []
-    for i in "hallo":
-        res.append(i)
-    for i in AnIterClass():
-        res.append(i)
-    return res
-
-def test_loop():
-    res = []
-    i = 0
-    while 1:
-        i += 1
-        res.append(i)
-        if i == 42:
-            break
-        res.append(-i)
-    return res
-
-def test_exc(a=5):
-    try:
-        b = 0
-        return a / b
-    except ZeroDivisionError:
-        return 42
-
-def test_struct():
-    from pypy.appspace import struct
-    import struct as stru
-    res1 = stru.pack('f',1.23), struct.pack('f',1.23)
-    res2 = struct.unpack('f', struct.pack('f',1.23))
-    return res1, res2
-
-def exceptions_helper():
-    import pypy
-    prefix = os.path.dirname(pypy.__file__)
-    libdir = os.path.join(prefix, "lib")
-    fname = "_exceptions.py"
-    fpath = os.path.join(libdir, fname)
-    dic = {"__name__": "exceptions"}
-    execfile(fpath, dic)
-    #del dic["__builtins__"]
-    def test_exceptions():
-        """ enumerate all exceptions """
-        return dic.keys()
-        #return [thing for thing in _exceptions.__dict__.values()]
-    return dic, test_exceptions
-
-def make_class_instance_helper():
-    import pypy
-    prefix = os.path.dirname(pypy.__file__)
-    libdir = os.path.join(prefix, "lib")
-    hold = sys.path
-    sys.path.insert(0, libdir)
-    import _classobj
-    sys.path = hold
-    def make_class_instance():
-        return _classobj.classobj, _classobj.instance
-    return None, make_class_instance
-
-def test_complex():
-    return 1j
-
-def test_NoneType():
-    return types.NoneType
-    
-def all_entries():
-    res = [func() for func in entrypoints[:-1]]
-    return res
-
-entrypoints = (small_loop,
-                lambda: f(2, 3),
-                lambda: ff(2, 3, 5),
-                fff,
-                lambda: app_str_decode__String_ANY_ANY("hugo"),
-                test_mod,
-                test_md5,
-                test_join,
-                test_iter,
-                test_loop,
-                test_exc,
-                test_struct,
-                exceptions_helper,
-                make_class_instance_helper,
-                test_complex,
-                test_NoneType,
-                all_entries)
-entrypoint = entrypoints[5]
-
-if False and __name__ == "__main__":
-    # XXX TODO:
-    # extract certain stuff like a general module maker
-    # and put this into tools/compile_exceptions, maybe???
-    dic, entrypoint = exceptions_helper()
-    t = Translator(None, verbose=False, simplifying=needed_passes,
-                   builtins_can_raise_exceptions=True)
-    gen = GenRpy(t, entrypoint)
-    gen.moddict = dic
-    gen.gen_source('/tmp/look.py')
-    
-    _oldcodetogointotestcases = '''
-    import os, sys
-    from pypy.interpreter import autopath
-    srcdir = os.path.dirname(autopath.pypydir)
-    appdir = os.path.join(autopath.pypydir, 'appspace')
-
-    if appdir not in sys.path:
-        sys.path.insert(0, appdir)
-
-    dic = None
-    if entrypoint.__name__.endswith("_helper"):
-        dic, entrypoint = entrypoint()
-    t = Translator(entrypoint, verbose=False, simplifying=needed_passes, builtins_can_raise_exceptions=True)
-    gen = GenRpy(t)
-    gen.use_fast_call = True
-    if dic: gen.moddict = dic
-    import pypy.appspace.generated as tmp
-    pth = os.path.dirname(tmp.__file__)
-    ftmpname = "/tmp/look.py"
-    fname = os.path.join(pth, gen.modname+".py")
-    gen.gen_source(fname, ftmpname)
-    '''
-
-def crazy_test():
-    """ this thingy is generating the whole interpreter in itself"""
-    dic = {"__builtins__": __builtins__, "__name__": "__main__"}
-    execfile("/tmp/look.py", dic)
-
-    entrypoint = dic[gen.entrypoint]
-    def test():
-        entrypoint()
-        
-    t = Translator(test, verbose=False, simplifying=needed_passes,
-                   builtins_can_raise_exceptions=True)
-    gen2 = GenRpy(t)
-    gen2.gen_source("/tmp/look2.py")
-
+# implementation of the interface that is finally only
+# used: translate_as_module
 
 import py.code
 import cStringIO as StringIO
