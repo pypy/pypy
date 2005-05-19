@@ -1,9 +1,18 @@
-Overview on PyPy's current architecture (Mar. 2005)
-===================================================
+==================================================
+Overview of PyPy's current architecture (May 2005)
+==================================================
+
+.. contents::
+.. sectnum::
+
+This document gives an overview of the goals and architecture of PyPy.
+See also `getting started`_ for a practical introduction.
+
+.. _`getting started`: getting_started.html
 
 
 PyPy - an implementation of Python in Python
---------------------------------------------
+============================================
 
 It has become a tradition in the development of computer languages to
 implement each language in itself. This serves many purposes. By doing so,
@@ -12,20 +21,22 @@ large projects.  A compiler/interpreter is close to as complex as software
 ever gets.
 
 The PyPy project aims to do this for Python and has made some significant
-progress. In a number of one week sprints, each attracting approximately
+progress. In a number of one week sprints, attracting approximately
 10 developers each, we made an almost complete implementation of Python in
 Python. Currently it is rather slow, benchmarking at a factor 4000 times
 slower than regular Python (henceforth referred to as CPython).
 
-In the next step of the project, we will generate C code from the source
-of PyPy, thereby reducing the speed penalty.
+For some time now the bleeding edge PyPy work has been focused on generating
+reasonably efficient C code from the source of PyPy, thereby reducing the
+speed penalty.  This goal is no longer far away.
 
-Later in the project, we will introduce optimisation (following the ideas
+Later in the project, we will introduce optimisations (following the ideas
 of Psyco) that should make PyPy run faster than CPython.
 
 An important aspect of implementing Python in Python is the high level of
 abstraction and compactness of the language. This yields an implementation
-that is easier to understand than the one done in C.
+that is, in some respects, easier to understand and play with than the one
+done in C.
 
 Another carrying idea in PyPy is to build the implementation in the form
 of a number of independent modules with clearly defined API's. This eases
@@ -33,65 +44,85 @@ reuse and allows experimenting with multiple implementations of specific
 features.
 
 Our rather complete and 2.3-compliant interpreter is about 22000 lines of
-code, with another 7000 lines of unit tests (we also pass a number of
-CPython's own tests).  If we include the tools, the parts related to code
-analysis and generation, and the standard library modules ported from C,
-PyPy is now 55000 lines of code and 20000 lines of tests.
+code, with another 7000 lines of unit tests.  If we include the tools, the
+parts related to code analysis and generation, and the standard library
+modules ported from C, PyPy is now 55000 lines of code and 20000 lines of
+tests.
+
+We also pass a number of CPython's own tests, including 90% of the "core"
+tests not depending on C extension modules (most of the remaining 10% are
+arguably dependant on very obscure implementation details of CPython).
 
 
 Higher level picture
--------------------------------------
+====================
 
 The various parts of PyPy have always been under more or less heavy
 refactoring since its inception. However, the higher level architecture
 remains rather simple and unchanged.  There are two independent basic
 subsystems:
 
-- the *standard interpreter* which implements the Python language 
-  and is composed out of two components:
+The Standard Interpreter
+------------------------
 
-  - the *plain interpreter* which is responsible for interpreting 
-    code objects and implementing bytecodes,
+The *standard interpreter* is the subsystem implementing the Python language.
+It is divided in two components:
 
-  - the *standard object space* which implements creation, access and
-    modification of application level objects,
+- the `plain interpreter`_ which is responsible for interpreting 
+  code objects and implementing bytecodes,
 
-  Note that the *standard interpreter* can run fine on top of CPython 
-  (the C Implementation of Python led by Guido van Rossum) but of course
-  the double-interpretation penalty lets us interpret python programs
-  rather slowly. 
+- the `standard object space`_ which implements creation, access and
+  modification of application level objects,
 
-- the *translation process* which aims at producing a different (low-level)
-  representation of our standard interpreter.  The *translation process* 
-  is done in three steps: 
-
-  - producing a *flow graph* representation of the standard interpreter. 
-    A combination of a *plain interpreter* and a *flow object space*
-    performs "abstract interpretation" to record the flow of objects
-    and execution throughout a python program into such a *flow graph*. 
-
-  - the *annotator* which performs type inference on the flow graph 
-
-  - the *translator* which translates the (annotated) flow graph into
-    another language, currently Pyrex/C and LISP.  
+Note that the *standard interpreter* can run fine on top of CPython 
+(the C Implementation of Python led by Guido van Rossum), if one is
+willing to pay for the double-interpretation performance penalty.
 
 Please note that we are using the term *interpreter* most often in
 reference to the *plain interpreter* which just knows enough to read,
 dispatch and implement *bytecodes* thus shuffling objects around on the
 stack and between namespaces.  The (plain) interpreter is completly
 ignorant of how to access, modify or construct objects and their
-structure and thus delegates such operations to a so called "Object Space". 
+structure and thus delegates such operations to a so called `Object Space`_.
 
-XXX mention Parser and compiler (we have a parser module from the PyCon 2005
-sprint, but it's not used by the rest of the core)
+In addition, the standard interpreter requires a parser and bytecode compiler
+to turn the user's Python source code into a form amenable to
+interpretation.  This is currently still borrowed from CPython, but we
+have two experimental parser modules in the source tree which are in the
+process of being integrated.
+
+The Translation Process
+-----------------------
+
+The *translation process* aims at producing a different (low-level)
+representation of our standard interpreter.  The *translation process* 
+is done in four steps:
+
+- producing a *flow graph* representation of the standard interpreter. 
+  A combination of a `plain interpreter`_ and a *flow object space*
+  performs *abstract interpretation* to record the flow of objects
+  and execution throughout a python program into such a *flow graph*.
+
+- the *annotator* which performs type inference on the flow graph 
+
+- the *typer* which, based on the type annotations, turns the flow graph
+  into one using only low-level, C-like operations
+
+- the *code generator* which translates the resulting flow graph into
+  another language, currently C or LLVM.
+
+See below for the `translation process in more details`_.
+
+
+.. _`plain interpreter`:
 
 The Interpreter
 ===============
 
-The interpreter handles python code objects. The interpreter can build
+The *plain interpreter* handles python code objects. The interpreter can build
 code objects from Python sources, when needed, by invoking Python's
 builtin compiler (we also have a way of constructing those code objects
-from python code only, but we have not integrated it yet).  Code objects
+from python source only, but we have not integrated it yet).  Code objects
 are a nicely preprocessed, structured representation of source code, and
 their main content is *bytecode*.  In addition, code objects also know
 how to create a *frame* object which has the responsibility to
@@ -99,7 +130,17 @@ how to create a *frame* object which has the responsibility to
 python function, which, in turn, delegates operations on
 application-level objects to an object space. 
 
+This part is implemented in the `interpreter/`_ directory.  People familiar
+with the CPython implementation of the above concepts will easily recognize
+them there.  The major differences are the overall usage of the `Object Space`_
+indirection to perform operations on objects, and the organization of the
+built-in modules (described `here`_).
+
+.. _`here`: coding-guide.html#modules
+
+
 .. _`objectspace`: 
+.. _`Object Space`: 
 
 The Object Space
 ================
@@ -112,10 +153,11 @@ operation is *add*: add's implementations are, for example, responsible
 for performing numeric addition when add works on numbers, concatenation
 when add works on built-in sequences.
 
-All object-space operations take and return "application level" objects.
-There is only one, very simple, object-space operation which allows the
+All object-space operations take and return `application-level`_ objects.
+There are only a few, very simple, object-space operation which allows the
 interpreter to gain some knowledge about the value of an
-application-level object: ``is_true()``, which returns a boolean
+application-level object.
+The most important one is ``is_true()``, which returns a boolean
 interpreter-level value.  This is necessary to implement, for example,
 if-statements (or rather, to be pedantic, to implement the
 conditional-branching bytecodes into which if-statements get compiled). 
@@ -123,86 +165,58 @@ conditional-branching bytecodes into which if-statements get compiled).
 We currently have four working object spaces which can be plugged into
 the interpreter:
 
-- The Standard Object Space, which is an almost complete implementation 
-  of the various Python objects. This is the main focus of this
-  document, since the Standard Object Space, together with the
-  interpreter, is the foundation of our Python implementation. 
+.. _`standard object space`:
 
-- the Flow Object Space, which transforms a python program into a
-  flow-graph representation.  The Flow Object Space performs this
-  transformation task through "abstract interpretation", which we will
-  explain later in this document.
+- The *Standard Object Space* is a complete implementation 
+  of the various built-in types and objects of Python.  The Standard Object
+  Space, together with the interpreter, is the foundation of our Python
+  implementation.  Internally, it is a set of `interpreter-level`_ classes
+  implementing the various `application-level`_ objects -- integers, strings,
+  lists, types, etc.  To draw a comparison with CPython, the Standard Object
+  Space provides the equivalent of the C structures ``PyIntObject``,
+  ``PyListObject``, etc.
 
-- the Trace Object Space, which wraps e.g. the standard 
+- the *Trace Object Space* wraps e.g. the standard 
   object space in order to trace the execution of bytecodes, 
   frames and object space operations.
 
-- the Thunk Object Space, which wraps another object space (e.g. the standard
+- the *Thunk Object Space* wraps another object space (e.g. the standard
   one) and adds two capabilities: lazily computed objects (computed only when
   an operation is performed on them), and "become", which completely and
   globally replaces an object with another.
 
-The Standard Object Space
-=========================
+- the *Flow Object Space* transforms a Python program into a
+  flow-graph representation, by recording all operations that the interpreter
+  would like to perform when it is shown the given Python program.  This
+  technique is explained `later in this document`_.
 
-The Standard Object Space implements python objects and types, and all
-operations on them.  It is thus an essential component in order to reach
-CPython compatibility. 
+For a complete description of the object spaces, please see the
+`objspace document`_.  The sources of PyPy contain the various object spaces
+in the directory `objspace/`_.
 
-The implementations of ints, floats, strings, dicts, lists, etc, all
-live in separate files, and are bound together by a "multimethod"
-mechanism.  Multimethods allow a caller - most notably the interpreter -
-to stay free from knowing anything about objects' implementations.  Thus
-multimethods implement a way of delegating to the right implementation
-based on the passed in objects (objects previously created by the same
-subsystem).  We examine how the multimethod mechanism works through an
-example.
+.. _`objspace document`: objspace.html
 
-We consider the add-operation of ``int`` and ``float`` objects, and
-disregard all other object types for the moment.  There is one
-multimethod ``add``, and both relevant implementations, ``add(intimpl,
-intimpl)`` and ``add(floatimpl, floatimpl)``, *register* with that one
-``add`` multimethod.
 
-When we have the expression ``2+3`` in our application program, the
-interpreter creates an application-level object containing ("wrapping")
-the value ``2`` and another one containing the value ``3``.  We talk
-about them as ``W_Int(2)`` and ``W_Int(3)`` respectively. The
-interpreter then calls the Standard Object Space with ``add(W_Int(2),
-W_Int(3))``.
-
-The Object Space then examines the objects passed in, and delegates
-directly to the ``add(intimpl, intimpl)`` function: since this is a
-"direct hit", the multimethod immediately dispatches the operation to
-the correct implementation, i.e., the one registered as the
-implementation for this signature.
-
-If the multimethod doesn't have any registered functions for the exact
-given signature, as would be the case for example for the expression
-``2+3.0``, the multimethod tests if it can use coercion to find a
-function with a signature that works. In this case we would coerce
-``W_Int(2)`` to ``W_Float(2.0)`` in order to find a function in the
-multimethod that has a correct signature. Note that the multimethod
-mechanism is still considered a major refactoring target, since it is
-not easy to get it completly right, fast and accurate.  
+.. _`application-level`:
+.. _`interpreter-level`:
 
 Application-level and interpreter-level execution and objects
 =============================================================
 
 Since Python is used for implementing all of our code base, there is a
 crucial distinction to be aware of: *interpreter-level* objects versus
-*application level* objects.  The latter are the ones that you deal with
+*application-level* objects.  The latter are the ones that you deal with
 when you write normal python programs.  Interpreter-level code, however,
 cannot invoke operations nor access attributes from application-level
 objects.  You will immediately recognize any interpreter level code in
-PyPy, because all variable and object names start with a ``w_``, which
-indicates that they are "wrapped" application-level values. 
+PyPy, because half the variable and object names start with a ``w_``, which
+indicates that they are `wrapped`_ application-level values. 
 
 Let's show the difference with a simple example.  To sum the contents of
 two variables ``a`` and ``b``, typical application-level code is ``a+b``
 -- in sharp contrast, typical interpreter-level code is ``space.add(w_a,
 w_b)``, where ``space`` is an instance of an object space, and ``w_a``
-and ``w_b`` are typical names for the *wrapped* versions of the two
+and ``w_b`` are typical names for the `wrapped`_ versions of the two
 variables.  
 
 It helps to remember how CPython deals with the same issue: interpreter
@@ -214,8 +228,8 @@ our interpreter-level code in Python.
 Moreover, in PyPy we have to make a sharp distinction between
 interpreter- and application-level *exceptions*: application exceptions
 are always contained inside an instance of ``OperationError``.  This
-makes it easy to distinguish failures in our interpreter-level code from
-failures appearing in a python application level program that we are
+makes it easy to distinguish failures (or bugs) in our interpreter-level code
+from failures appearing in a python application level program that we are
 interpreting.
 
 
@@ -240,8 +254,12 @@ something much lower-level and involved, say something like::
         w_keys = space.call_method(w_other, 'keys')
         w_iter = space.iter(w_keys)
         while True:
-            try: w_key = space.next(w_iter)
-            except NoValue: break
+            try:
+                w_key = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise       # re-raise other app-level exceptions
+                break
             w_value = space.getitem(w_other, w_key)
             space.setitem(w_self, w_key, w_value)
 
@@ -260,6 +278,9 @@ level code is usually preferable.  We have an abstraction (called
 whether a particular function is implemented at application or
 interpreter level. 
 
+
+.. _`wrapped`:
+
 Wrapping
 ========
 
@@ -273,7 +294,8 @@ built-in types; each object space also implements other Python types
 with suitable interpreter-level classes with some amount of internal
 structure.
 
-For example, an application-level Python ``list`` is implemented as an
+For example, an application-level Python ``list``
+is implemented by the standard object space`_ as an
 instance of ``W_ListObject``, which has an instance attribute
 ``ob_item`` (an interpreter-level list which contains the
 application-level list's items as wrapped objects) and another attribute
@@ -284,13 +306,18 @@ of performance that lead CPython to do it, and therefore the length of
 application-level list -- it is for this reason that the length in
 question has to be explicitly recorded in ``ob_size``).
 
-See ``wrapping.txt`` for more details.
+The rules are described in more details `in the coding guide`_.
 
+.. _`in the coding guide`: coding-guide.html#wrapping-rules
+
+
+.. _`translation process in more details`:
+.. _`later in this document`:
 
 RPython, the Flow Object Space and translation
 ==============================================
 
-One of PyPy's -term objectives is to enable translation of our
+One of PyPy's now-short-term objectives is to enable translation of our
 interpreter and standard object space into a lower-level language.  In
 order for our translation and type inference mechanisms to work
 effectively, we need to restrict the dynamism of our interpreter-level
@@ -299,8 +326,8 @@ completly free to use all kind of nice python constructs, including
 metaclasses and execution of dynamically constructed strings.  However,
 when the initialization phase (mainly, the function
 ``objspace.initialize()``) finishes, all code objects involved need to
-adhere to a (non-formally defined) more static subset of Python:
-Restricted Python, also known as 'RPython'. 
+adhere to a more static subset of Python:
+Restricted Python, also known as `RPython`_. 
 
 The Flow Object Space then, with the help of our plain interpreter,
 works through those initialized "RPython" code objects.  The result of
@@ -313,42 +340,36 @@ each basic block to other basic blocks.
 
 The flow graphs are fed as input into the Annotator. The Annotator,
 given entry point types, infers the types of values that flow through
-the program variables.  Here, one of the informal definitions of RPython
-comes into play: RPython code is restricted in such a way that the
-translator is able to compile low-level **typed** code.  How much
+the program variables.  Here, the definition of `RPython`_ comes
+again into play: RPython code is restricted in such a way that the
+Annotator is able to infer consistent types.  In total, how much
 dynamism we allow in RPython depends, and is restricted by, the Flow
 Object Space and the Annotator implementation.  The more we can improve
 this translation phase, the more dynamism we can allow.  In some cases,
 however, it will probably be more feasible and practical to just get rid
 of some of the dynamism we use in our interpreter level code.  It is
-mainly because of this trade-off situation that we don't currently try
-to formally define 'RPython'. 
+mainly because of this trade-off situation that the definition of
+`RPython`_ has been shifting quite a bit.  Although the Annotator is
+pretty stable now, and able to process the whole of PyPy, the `RPython`_
+definition will probably continue to shift marginally as we improve it.
 
 The actual low-level code (and, in fact, also other high-level code) is
 emitted by "visiting" the type-annotated flow graph. Currently, we have
-a Pyrex-producing backend, and a Lisp-producing backend.  We use (a
-slightly hacked version of) Pyrex to generate C libraries.  Since Pyrex
-also accepts plain non-typed python code, we can test translation even
-though type annotation is not complete.  
+a C-producing backend, and an LLVM-producing backend.  The former also
+accept non-annotated or partially-annotated graphs, which allow us to
+test it on a larger class of programs than what the Annotator can (or
+ever will) fully process.
 
+A new piece of this puzzle, still being integrated (May 2005), is the
+*Typer*, which inputs the high-level types inferred by the Annotator and
+uses them to modify the flow graph in-place to replace its operations with
+low-level ones, directly manipulating C-like values and data structures.
+
+The complete translation process is described in more details in the
+`translation document`_.
+
+.. _`RPython`: coding-guide.html#rpython
 .. _`abstract interpretation`: theory.html#abstract-interpretation
+.. _`translation document`: translation.html
 
-Trace Object Space 
-==================
-
-A recent addition is the Trace Object space, which wraps a standard  
-object space in order to trace all object space operations,
-frame creation, deletion and bytecode execution.  The ease with which
-the Trace Object Space was implemented at the Amsterdam Sprint
-underlines the power of the Object Space abstraction.  (Of course, the
-previously-implemented Flow Object Space producing the flow graph
-already was proof enough). 
-
-There are certainly many more possibly useful Object Space ideas, such
-as a ProxySpace that connects to a remote machine where the actual
-operations are performed. At the other end, we wouldn't need to change
-object spaces at all in order to extend or modify the interpreter, e.g.
-by adding or removing some bytecodes.  Thus, the interpreter and
-object-space cooperation nicely splits the python runtime into two
-reasonably-independent halves, cooperating along a reasonably narrow
-interface, and suitable for multiple separate implementations.
+.. include:: _ref.txt
