@@ -2,15 +2,12 @@
 PyPy - a Python_ implementation written in Python 
 =================================================
 
-
 .. _Python: http://www.python.org/dev/doc/maint24/ref/ref.html
-
-Here are some good entry points into PyPy's world: 
 
 architecture_ gives a complete view of PyPy's basic design. 
 
 `getting started`_ provides hands-on instructions 
-including a two-liner to run PyPy on your computer. 
+including a two-liner to run PyPy on your system. 
 
 coding-guide_ helps you to write code for PyPy. 
 

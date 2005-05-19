@@ -1,9 +1,9 @@
 [
-    'getting_started.html', 
     'architecture.html', 
+    'getting_started.html', 
     'coding-guide.html', 
     'objspace.html',
     'translation.html',
-    'misc.html', 
+#    'misc.html', 
     'theory.html', 
 ]
