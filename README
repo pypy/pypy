@@ -9,6 +9,7 @@ We invested a lot of time in improving the documentation and
 website and thus invite you to head over to our getting-started
 document 
 
+    pypy/documentation/getting_started.txt  or 
     http://codespeak.net/pypy/index.cgi?getting-started
 
 which gives you many good starting and entry points into
@@ -16,16 +17,19 @@ playing with PyPy.  It will also point you to our
 documentation section of which you can find the source ReST 
 files in the following directory: 
 
-    pypy/documentation
+    pypy/documentation/index.txt or 
+    http://codespeak.net/pypy/index.cgi?doc 
 
 Our online release announcement has some more  
 information about the specific PyPy-0.6 release: 
 
+    pypy/documentation/release-0.6.txt or 
     http://codespeak.net/pypy/index.cgi?doc/release-0.6.html 
 
 Please freel free to contact or join us in one of the ways
 listed in our contact page: 
 
+    pypy/documentation/website/contact.txt or 
     http://codespeak.net/pypy/index.cgi?contact
 
 Enjoy and send us feedback! 
