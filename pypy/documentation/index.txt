@@ -20,12 +20,13 @@ Here are some good entry points into PyPy's world:
  * translation_ offers the beginnings of documentation 
    about our low level code generator backends. 
 
- * recently-modified_ shows a list of recently modified 
-   documentation 
-
  * `compliance test report`_ shows status information 
    about recent runs of CPython's regression tests against PyPy. 
 
+ * `license`_ tells you that basically all of PyPy is licensed 
+   under the OSI-approved very liberal MIT-license 
+
+.. _`license`: http://codespeak.net/svn/pypy/dist/LICENSE 
 .. _`compliance test report`: http://codespeak.net/~hpk/pypy-testresult/
 .. _`objspace`: objspace.html 
 .. _`translation`: translation.html 
