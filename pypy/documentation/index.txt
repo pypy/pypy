@@ -9,25 +9,25 @@ architecture_ gives a complete view of PyPy's basic design.
 `getting started`_ provides hands-on instructions 
 including a two-liner to run PyPy on your system. 
 
-coding-guide_ helps you to write code for PyPy. 
+`coding guide`_ helps you to write code for PyPy. 
 
-objspace_ discusses the object space interface 
+`object spaces`_ discusses the object space interface 
 and several implementations. 
 
-translation_ offers the beginnings of documentation 
+`translation`_ offers the beginnings of documentation 
 about our low level code generator backends. 
 
-`compliance test report`_ shows status information 
+`compliance test status`_ shows outcome information 
 about recent runs of CPython's regression tests against PyPy. 
 
 `license`_ tells you that basically all of PyPy is licensed 
 under the OSI-approved very liberal MIT-license. 
 
 .. _`license`: http://codespeak.net/svn/pypy/dist/LICENSE 
-.. _`compliance test report`: http://codespeak.net/~hpk/pypy-testresult/
-.. _`objspace`: objspace.html 
+.. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
+.. _`object spaces`: objspace.html 
 .. _`translation`: translation.html 
-.. _`coding-guide`: coding-guide.html 
+.. _`coding guide`: coding-guide.html 
 .. _`architecture`: architecture.html 
 .. _`revision report`: http://codespeak.net/pypy/rev/current 
 .. _`getting started`: getting_started.html 
