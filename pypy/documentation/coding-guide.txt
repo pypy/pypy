@@ -95,10 +95,12 @@ Flow restrictions
 
 **variables**
   
-  variables should contain values of at most one type as described in `Object restrictions`_
-  at each control flow point, that means that joining control paths using the same variable
-  to contain both a float and a int should be avoided. Mixing None (basically with the role of
-  a null pointer) and `wrapped objects` and class instances is allowed.
+  variables should contain values of at most one type as described in
+  `Object restrictions`_ at each control flow point, that means for
+  example that joining control paths using the same variable to
+  contain both a float and a int should be avoided. Mixing None
+  (basically with the role of a null pointer) and `wrapped objects`
+  and class instances is allowed.
 
 **constants**
   
