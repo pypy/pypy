@@ -1,3 +1,6 @@
+# this module can still be used, but it is no
+# longer needed to bootstrap pypy.
+
 import autopath
 import sys
 import optparse
