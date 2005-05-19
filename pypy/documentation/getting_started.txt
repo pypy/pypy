@@ -458,8 +458,8 @@ Optional tools
     run into problems with the installation the `LLVM mailing list`_ is very
     helpful and friendly.
 
-    Note that the PyPy LLVM backend was developed using LLVM 1.4. The
-    newest version (LLVM 1.5) will probably work, too.
+    Note that the PyPy LLVM backend was developed using LLVM 1.4 and is known
+    to work with LLVM 1.5. Nobody ever tried an older version.
 
 *CLISP* 
 
