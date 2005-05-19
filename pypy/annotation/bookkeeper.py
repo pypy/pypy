@@ -3,6 +3,7 @@ The Bookkeeper class.
 """
 
 from __future__ import generators
+import sys
 from types import FunctionType, ClassType, MethodType
 from types import BuiltinMethodType
 from pypy.tool.ansi_print import ansi_print
@@ -125,6 +126,8 @@ class Bookkeeper:
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
         immutable value x."""
+        if x is sys: # special case constant sys to someobject
+            return SomeObject()
         tp = type(x)
         if tp is bool:
             result = SomeBool()
