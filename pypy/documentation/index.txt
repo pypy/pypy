@@ -7,24 +7,24 @@ PyPy - a Python_ implementation written in Python
 
 Here are some good entry points into PyPy's world: 
 
- * architecture_ gives a complete view of PyPy's basic design. 
+architecture_ gives a complete view of PyPy's basic design. 
 
- * `getting started`_ provides hands-on instructions 
-   including a two-liner to run PyPy on your computer. 
+`getting started`_ provides hands-on instructions 
+including a two-liner to run PyPy on your computer. 
 
- * coding-guide_ helps you to write code for PyPy. 
+coding-guide_ helps you to write code for PyPy. 
 
- * objspace_ discusses the object space interface 
-   and several implementations. 
+objspace_ discusses the object space interface 
+and several implementations. 
 
- * translation_ offers the beginnings of documentation 
-   about our low level code generator backends. 
+translation_ offers the beginnings of documentation 
+about our low level code generator backends. 
 
- * `compliance test report`_ shows status information 
-   about recent runs of CPython's regression tests against PyPy. 
+`compliance test report`_ shows status information 
+about recent runs of CPython's regression tests against PyPy. 
 
- * `license`_ tells you that basically all of PyPy is licensed 
-   under the OSI-approved very liberal MIT-license 
+`license`_ tells you that basically all of PyPy is licensed 
+under the OSI-approved very liberal MIT-license 
 
 .. _`license`: http://codespeak.net/svn/pypy/dist/LICENSE 
 .. _`compliance test report`: http://codespeak.net/~hpk/pypy-testresult/
