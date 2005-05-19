@@ -44,7 +44,7 @@ Some history (Chris):
 
 As a first approach to break this thing down, I slottified
 all of these objects. The result was not overwhelming:
-A savingof 5MB,but four percent of slowdown, since object
+A savingof 5MB, but four percent of slowdown, since object
 comparison got much more expensive, by lacking a __dict__.
 
 So I trashed 8 hours of work, without a check-in. (Just
@@ -52,8 +52,9 @@ writing this here to leave *some* trace of work).
 
 Then I tried to make allinstances unique and wrote a lot
 of attribute tracking code here, locked write access
-outside of __init__, and patched manz modules and serveral
+outside of __init__, and patched many modules and several
 hundred lines of code.
+Finally I came up with a better concept, which is postponed.
 
 """
 
