@@ -3,6 +3,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, BaseWrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.interpreter.typedef import instantiate
+from pypy.interpreter.gateway import PyPyCacheDir
 from pypy.tool.cache import Cache 
 from pypy.objspace.std.model import W_Object, UnwrapError
 from pypy.objspace.std.model import W_ANY, MultiMethod, StdTypeModel
@@ -11,7 +12,7 @@ from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
 import types
 import sys
-
+import os
 
 def registerimplementation(implcls):
     # this function should ultimately register the implementation class somewhere
@@ -118,7 +119,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def setup_exceptions(self):
         """NOT_RPYTHON"""
         ## hacking things in
-        from pypy.module import exceptionsinterp as ex
+        class Fake: pass
+        fake = Fake()
+        import pypy.lib as lib
+        fname = os.path.join(os.path.split(lib.__file__)[0], '_exceptions.py')
+        fake.filename = fname
+        fake.source = file(fname).read()
+        fake.modname = 'exceptions'
         def call(w_type, w_args):
             space = self
             # too early for unpackiterable as well :-(
@@ -134,7 +141,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         try:
             # note that we hide the real call method by an instance variable!
             self.call = call
-            w_dic = ex.initexceptions(self)
+            w_dic = PyPyCacheDir.build_applevelinterp_dict(fake, self)
 
             self.w_IndexError = self.getitem(w_dic, self.wrap("IndexError"))
             self.w_StopIteration = self.getitem(w_dic, self.wrap("StopIteration"))
