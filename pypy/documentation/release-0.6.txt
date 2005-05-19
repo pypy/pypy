@@ -94,7 +94,7 @@ raise questions.
 
 have fun, 
 
-    Armin Rigo, Samuele Pedronis, 
+    Armin Rigo, Samuele Pedroni, 
 
     Holger Krekel, Christian Tismer, 
 
