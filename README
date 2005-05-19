@@ -11,11 +11,14 @@ document
 
     http://codespeak.net/pypy/index.cgi?getting-started
 
-which gives you many good starting and entry points into 
-using and playing with PyPy.   
+which gives you many good starting and entry points into
+playing with PyPy.  It will also point you to our
+documentation section which you can also directly enter here: 
 
-Our release announcement has more in-depth information 
-about this release. 
+    http://codespeak.net/pypy/index.cgi?doc
+
+Our online release announcement has some more  
+information about the specific 0.6 release: 
 
     http://codespeak.net/pypy/index.cgi?doc/release-0.6.html 
 
