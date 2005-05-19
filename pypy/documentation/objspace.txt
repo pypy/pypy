@@ -341,3 +341,5 @@ The FlowObjSpace works by recording all operations issued by the interpreter int
 * If the interpreter calls ``is_true()``, the FlowObjSpace doesn't generally know if the answer should be True or False, so it puts a conditional jump and generates two successor blocks for the current basic block.  There is some trickery involved so that the interpreter is fooled into thinking that ``is_true()`` first returns False (and the subsequent operations are recorded in the first successor block), and later the *same* call to ``is_true()`` also returns True (and the subsequent operations go this time to the other successor block).
 
 (This section to be extended...)
+
+.. include:: _ref.txt

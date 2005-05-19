@@ -270,11 +270,10 @@ from the lib-python-2.3.4/test directory.
 Demos
 +++++
 
-   The directory ``demo`` contains examples of various aspects of PyPy,
-   from regular Python programs that we used as goals while developing
-   the interpreter to applications of the thunk object space to an
-   example allowing you to `try out the translator`_.
-
+The `demo/`_ directory contains examples of various aspects of PyPy,
+ranging from running regular Python programs (that we used as compliance goals) 
+over experimental distribution mechanisms to examples translating 
+sufficiently static programs into low level code. 
 
 .. _`try out the translator`:
 
@@ -472,7 +471,6 @@ Optional tools
 
 .. _Dot Graphviz:           http://www.research.att.com/sw/tools/graphviz/
 .. _Pygame:                 http://www.pygame.org/
-.. _pypy/interpreter:   http://codespeak.net/svn/pypy/dist/pypy/interpreter/
 .. _pyopcode.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
 .. _eval.py:                http://codespeak.net/svn/pypy/dist/pypy/interpreter/eval.py
 .. _pyframe.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyframe.py
@@ -482,17 +480,12 @@ Optional tools
 .. _module.py:              http://codespeak.net/svn/pypy/dist/pypy/interpreter/module.py
 .. _mixedmodule.py:          http://codespeak.net/svn/pypy/dist/pypy/interpreter/mixedmodule.py
 .. _typedef.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/typedef.py
-.. _pypy/objspace/std:  http://codespeak.net/svn/pypy/dist/pypy/objspace/std/
 .. _Standard object space:  http://codespeak.net/pypy/index.cgi?doc/stdobjspace.html
 .. _objspace.py:            http://codespeak.net/svn/pypy/dist/pypy/objspace/std/objspace.py
-.. _pypy/objspace:      http://codespeak.net/svn/pypy/dist/pypy/objspace/
 .. _thunk:                  http://codespeak.net/svn/pypy/dist/pypy/objspace/thunk.py
 .. _trace:                  http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
 .. _flow:                   http://codespeak.net/svn/pypy/dist/pypy/objspace/flow/
-.. _pypy/translator:    http://codespeak.net/svn/pypy/dist/pypy/translator/
 .. _translator.py:          http://codespeak.net/svn/pypy/dist/pypy/translator/translator.py
-.. _pypy/annotation:    http://codespeak.net/svn/pypy/dist/pypy/annotation/
-.. _pypy/translator/annrpython.py: http://codespeak.net/svn/pypy/dist/pypy/translator/annrpython.py
 .. _mailing lists:          http://codespeak.net/pypy/index.cgi?lists
 .. _documentation:          index.html 
 .. _wiki:                   http://codespeak.net/moin/pypy/moin.cgi/FrontPage?action=show

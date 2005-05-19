@@ -428,10 +428,6 @@ which makes it convenient to use both interpreter- and applicationlevel
 parts for the implementation.  Note that there is no extra facility for
 pure-interpreter level modules because we haven't needed it so far. 
 
-.. _`lib-python`: http://codespeak.net/svn/pypy/dist/lib-python/
-.. _`pypy/module`: http://codespeak.net/svn/pypy/dist/pypy/module/ 
-.. _`pypy/lib`: http://codespeak.net/svn/pypy/dist/pypy/lib/ 
-
 Determining the location of a module implementation 
 --------------------------------------------------- 
 
@@ -597,7 +593,7 @@ Testing modules in ``lib-python``
 -----------------------------------
 
 In order to let CPython's regression tests run against PyPy 
-you can switch to the `lib-python`_ directory and run 
+you can switch to the `lib-python/`_ directory and run 
 the testing tool in order to start compliance tests. 
 (XXX check windows compatibility for producing test reports). 
 
