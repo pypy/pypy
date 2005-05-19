@@ -463,8 +463,8 @@ Optional tools
 
 *CLISP* 
 
-    (used for the optional Lisp translation backend)
-	http://clisp.cons.org/_
+    (used for the optional Lisp translation backend) 
+    http://clisp.cons.org/ 
 
 
 .. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
