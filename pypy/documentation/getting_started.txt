@@ -198,9 +198,9 @@ it, set ``__pytrace__=1`` on the interactive PyPy console::
 lazily computed objects 
 +++++++++++++++++++++++
 
-One of the original features provided by the py.py interpreter that are
-without equivalent in CPython is the "thunk" object space, providing
-lazily-computed objects in a transparent manner::
+One of the original features provided by PyPy is the "thunk" 
+object space, providing lazily-computed objects in a fully
+transparent manner::
 
     cd pypy/bin
     python py.py -o thunk
