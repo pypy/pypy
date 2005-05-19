@@ -12,8 +12,6 @@ General
   - running interp-level py-test style regrtests 
   - running doctests with py.test modules 
 
-* not all of CPython's exceptions use the same __init__!
-
 * review whatever you like 
 
 StdObjSpace
