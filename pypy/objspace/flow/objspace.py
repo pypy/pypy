@@ -309,7 +309,12 @@ class FlowObjSpace(ObjSpace):
             spaceop.offset = self.executioncontext.crnt_offset
             self.executioncontext.recorder.append(spaceop)
         return spaceop.result
-    
+
+    def do_operation_with_implicit_exceptions(self, name, *args_w):
+        w_result = self.do_operation(name, *args_w)
+        self.handle_implicit_exceptions(implicit_exceptions.get(name))
+        return w_result
+
     def is_true(self, w_obj):
         try:
             obj = self.unwrap_for_computation(w_obj)
@@ -509,8 +514,6 @@ def make_op(name, symbol, arity, specialnames):
     else:
         if debug: print "Can constant-fold operation: %s" % name
 
-    exceptions = implicit_exceptions.get(name)
-
     def generic_operator(self, *args_w):
         assert len(args_w) == arity, name+" got the wrong number of arguments"
         if op:
@@ -542,8 +545,7 @@ def make_op(name, symbol, arity, specialnames):
                         pass
 
         #print >> sys.stderr, 'Variable operation', name, args_w
-        w_result = self.do_operation(name, *args_w)
-        self.handle_implicit_exceptions(exceptions)
+        w_result = self.do_operation_with_implicit_exceptions(name, *args_w)
         return w_result
 
     setattr(FlowObjSpace, name, generic_operator)
@@ -553,20 +555,12 @@ for line in ObjSpace.MethodTable:
 
 # override getattr for not really const objects
 
-def unspecialize(obj):
-    # turn a constant into SomeObject
-    # XXX this may become harder when the annotator gets smarter
-    # maybe we need to add a special treatment like for ovfcheck.
-    if id(0) != id(None):
-        return obj
-
 def override():
     def getattr(self, w_obj, w_name):
         if w_obj in self.not_really_const:
             const_w = self.not_really_const[w_obj]
             if w_name not in const_w:
-                w_obj = self.do_operation('simple_call',
-                                          Constant(unspecialize), w_obj)
+                return self.do_operation_with_implicit_exceptions('getattr', w_obj, w_name)
         return self.regular_getattr(w_obj, w_name)
     FlowObjSpace.regular_getattr = FlowObjSpace.getattr
     FlowObjSpace.getattr = getattr
