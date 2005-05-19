@@ -1,4 +1,5 @@
 """
+NOT_RPYTHON
 Plain Python definition of the builtin functions related to run-time
 program introspection.
 """
@@ -82,7 +83,10 @@ def callable(ob):
     import __builtin__
     for c in type(ob).__mro__:
         if '__call__' in c.__dict__:
-            if isinstance(ob, __builtin__._instance): # old style instance!
+            # after do_imports_immediately is always true,
+            # this is no longer RPython, because _instance
+            # does not exist at compile time.
+	    if isinstance(ob, __builtin__._instance): # old style instance!
                 return getattr(ob, '__call__', None) is not None
             return True
     else:

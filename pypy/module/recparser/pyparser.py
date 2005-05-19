@@ -88,7 +88,7 @@ app = applevel("""
         import compiler
         gen = compiler.pycodegen.ModuleCodeGenerator(compileAST)
         return gen.getCode() 
-""", filename=__file__, do_imports=False)
+""", filename=__file__)
 
 mycompile = app.interphook("mycompile")
 exprcompile = app.interphook("exprcompile")

@@ -2,32 +2,23 @@ import types, operator, sys
 from pypy.interpreter import pyframe, baseobjspace
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.objspace import UnwrapException
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, Variable
 from pypy.objspace.flow.operation import OperationName, Arity
-
-def unspecialize(obj):
-    # turn a constant into SomeObject
-    # XXX this may become harder when the annotator gets smarter
-    # maybe we need to add a special function like ovfcheck.
-    if id(0) != id(None):
-        return obj
+from pypy.interpreter import pyopcode
+from pypy.interpreter.gateway import ApplevelClass
+from pypy.tool.cache import Cache
+from pypy.tool.sourcetools import NiceCompile, compile2
 
 def sc_import(space, fn, args):
     w_name, w_glob, w_loc, w_frm = args.fixedunpack(4)
-    mod = __import__(space.unwrap(w_name), space.unwrap(w_glob),
-                     space.unwrap(w_loc), space.unwrap(w_frm))
-    if mod is sys:
-        return space.do_operation('simple_call', Constant(unspecialize),
-                                  Constant(sys))
-    else:
-        return space.wrap(mod)
-
-def sc_write(space, fn, args):
-    args_w, kwds_w = args.unpack()
-    assert kwds_w == {}, "should not call %r with keyword arguments" % (fn,)
-    # make sure that we write to the basic sys.__stdout__
-    syswrite = sys.__stdout__.write
-    return space.do_operation('simple_call', Constant(syswrite), *args_w)
+    try:
+        mod = __import__(space.unwrap(w_name), space.unwrap(w_glob),
+                         space.unwrap(w_loc), space.unwrap(w_frm))
+    except UnwrapException:
+        # import * in a function gives us the locals as Variable
+        # we forbid it as a SyntaxError
+        raise SyntaxError, "RPython: import * is not allowed in functions"
+    return space.wrap(mod)
 
 def sc_operator(space, fn, args):
     args_w, kwds_w = args.unpack()
@@ -52,15 +43,45 @@ def sc_operator(space, fn, args):
         return getattr(space, opname)(*args_w)
 
 
+# This is not a space cache.
+# It is just collecting the compiled functions from all the source snippets.
+
+class FunctionCache(Cache):
+    """A cache mapping applevel instances to dicts with simple functions"""
+
+    def _build(app):
+        """NOT_RPYTHON.
+        Called indirectly by ApplevelClass.interphook().appcaller()."""
+        dic = {}
+        first = "\n".join(app.source.split("\n", 3)[:3])
+        if "NOT_RPYTHON" in first:
+            return None
+        if app.filename is None:
+            code = py.code.Source(app.source).compile()
+        else:
+            code = NiceCompile(app.filename)(app.source)
+            dic['__file__'] = app.filename
+        dic['__name__'] = app.modname
+        exec code in dic
+        return dic
+    _build = staticmethod(_build)
+
+compiled_funcs = FunctionCache()
+
+def sc_applevel(space, app, name, args_w):
+    dic = compiled_funcs.getorbuild(app)
+    if not dic:
+        return None # signal that this is not RPython
+    func = dic[name]
+    return space.do_operation('simple_call', Constant(func), *args_w)
+
 def setup(space):
     # fn = pyframe.normalize_exception.get_function(space)
     # this is now routed through the objspace, directly.
     # space.specialcases[fn] = sc_normalize_exception
-    if space.do_imports_immediately:
-        space.specialcases[__import__] = sc_import
-    # support sys.stdout
-    space.specialcases[sys.stdout.write] = sc_write
-    space.specialcases[sys.__stdout__.write] = sc_write
+    space.specialcases[__import__] = sc_import
+    # redirect ApplevelClass for print et al.
+    space.specialcases[ApplevelClass] = sc_applevel
     # turn calls to built-in functions to the corresponding operation,
     # if possible
     for fn in OperationName:

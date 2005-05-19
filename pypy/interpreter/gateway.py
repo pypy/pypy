@@ -508,11 +508,10 @@ class ApplevelClass:
     hidden_applevel = True
     use_geninterp = True    # change this to disable geninterp globally
 
-    def __init__(self, source, filename = None, modname = '__builtin__', do_imports=False):
+    def __init__(self, source, filename = None, modname = '__builtin__'):
         self.filename = filename
         self.source = source
         self.modname = modname
-        self.do_imports = do_imports
         # look at the first three lines for a NOT_RPYTHON tag
         first = source.split("\n", 3)[:3]
         for line in first:
@@ -535,6 +534,13 @@ class ApplevelClass:
         def appcaller(space, *args_w):
             if not isinstance(space, ObjSpace): 
                 raise TypeError("first argument must be a space instance.")
+            # redirect if the space handles this specially
+            if hasattr(space, 'specialcases'):
+                sc = space.specialcases
+                if ApplevelClass in sc:
+                    ret_w = sc[ApplevelClass](space, self, name, args_w)
+                    if ret_w is not None: # it was RPython
+                        return ret_w
             args = Arguments(space, list(args_w))
             w_func = self.wget(space, name) 
             return space.call_args(w_func, args)
@@ -612,7 +618,7 @@ class PyPyCacheDir:
         if not initfunc:
             # build it and put it into a file
             initfunc, newsrc = translate_as_module(
-                self.source, self.filename, self.modname, self.do_imports)
+                self.source, self.filename, self.modname)
             fname = cls.cache_path.join(name+".py").strpath
             f = file(fname, "w")
             print >> f, """\

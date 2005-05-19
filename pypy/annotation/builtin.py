@@ -195,9 +195,6 @@ def pathpart(*args):
 def time_func():
     return SomeFloat()
 
-def write_func(*args):
-    return SomeBool()
-     # XXX I would like to use SomeNone here. How?
 
 # collect all functions
 import __builtin__
@@ -235,9 +232,6 @@ BUILTIN_ANALYZERS[os.path.isdir] = test
 # time stuff
 BUILTIN_ANALYZERS[time.time] = time_func
 BUILTIN_ANALYZERS[time.clock] = time_func
-
-# sys.stdout
-BUILTIN_ANALYZERS[sys.stdout.write] = write_func
 
 # annotation of low-level types
 from pypy.annotation.model import SomePtr

@@ -50,7 +50,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.0.6'  # bump this for substantial changes
+GI_VERSION = '1.0.7'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -772,9 +772,6 @@ class GenRpy:
 
     def nameof_dict(self, dic):
         assert dic is not __builtins__
-        if dic is not self.entrypoint:
-            assert '__builtins__' not in dic, 'Seems to be the globals of %s' %(
-                dic.get('__name__', '?'),)
         name = self.uniquename('g%ddict' % len(dic))
         self.register_early(dic, name)
         self.initcode.append('%s = space.newdict([])' % (name,))
@@ -1087,7 +1084,8 @@ class GenRpy:
 
         if not self.translator.frozen:
             # this is only to keep the RAM consumption under control
-            del self.translator.flowgraphs[func]
+            pass # del self.translator.flowgraphs[func]
+        # got duplicate flowgraphs when doing this!
 
     def rpyfunction_body(self, func, localscope):
         try:
@@ -1441,8 +1439,7 @@ if False and __name__ == "__main__":
     # and put this into tools/compile_exceptions, maybe???
     dic, entrypoint = exceptions_helper()
     t = Translator(None, verbose=False, simplifying=needed_passes,
-                   builtins_can_raise_exceptions=True,
-                   do_imports_immediately=False)
+                   builtins_can_raise_exceptions=True)
     gen = GenRpy(t, entrypoint)
     gen.moddict = dic
     gen.gen_source('/tmp/look.py')
@@ -1480,8 +1477,7 @@ def crazy_test():
         entrypoint()
         
     t = Translator(test, verbose=False, simplifying=needed_passes,
-                   builtins_can_raise_exceptions=True,
-                   do_imports_immediately=False)
+                   builtins_can_raise_exceptions=True)
     gen2 = GenRpy(t)
     gen2.gen_source("/tmp/look2.py")
 
@@ -1509,7 +1505,7 @@ class memfile(object):
         pass
 
 def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
-                        do_imports=False, tmpname=None):
+                        tmpname=None):
     """ compile sourcetext as a module, translating to interp level.
     The result is the init function that creates the wrapped module dict,
     together with the generated source text.
@@ -1531,13 +1527,9 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         code = NiceCompile(filename)(sourcetext)
     dic = {'__name__': modname}
     exec code in dic
-    #del dic['__builtins__']
     entrypoint = dic
     t = Translator(None, verbose=False, simplifying=needed_passes,
-                   builtins_can_raise_exceptions=True,
-                   do_imports_immediately=do_imports)
-    hold = sys.path
-    libdir = os.path.join(pypy.__path__[0], "lib")
+                   builtins_can_raise_exceptions=True)
     gen = GenRpy(t, entrypoint, modname, dic)
     if tmpname:
         _file = file
@@ -1546,6 +1538,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         tmpname = 'nada'
     out = _file(tmpname, 'w')
     gen.f = out
+    libdir = os.path.join(pypy.__path__[0], "lib")
     hold = sys.path[:]
     sys.path.insert(0, libdir)
     gen.gen_source(tmpname, file=_file)

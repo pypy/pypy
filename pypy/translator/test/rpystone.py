@@ -54,9 +54,7 @@ LOOPS = 50000
 class G:pass
 g = G()
 
-# import sys
-# we cannot import sys here
-# because flow space must produce a late lookup
+import sys
 
 from time import clock
 
@@ -84,10 +82,9 @@ FALSE = 0
 def main(loops=LOOPS):
     benchtime, stones = pystones(abs(loops))
     if loops >= 0:
-        import sys
-        sys.stdout.write("Pystone(%s) time for %d passes = %g\n" % \
-              (__version__, loops, benchtime) )
-        sys.stdout.write("This machine benchmarks at %g pystones/second\n" % stones)
+        print "Pystone(%s) time for %d passes = %g" % \
+              (__version__, loops, benchtime)
+        print "This machine benchmarks at %g pystones/second" % stones
 
 
 def pystones(loops=LOOPS):
@@ -277,13 +274,11 @@ def Func3(EnumParIn):
     return FALSE
 
 def error(msg):
-    import sys
-    sys.stderr.write(msg+" ")
-    sys.stderr.write("usage: %s [number_of_loops]\n" % sys.argv[0])
+    print >> sys.stderr, msg,
+    print >> sys.stderr, "usage: %s [number_of_loops]" % sys.argv[0]
     sys.exit(100)
 
 def entrypoint(loops=None):
-    import sys
     if loops is None:
         loops = LOOPS  # initialize early, for slow space
         nargs = len(sys.argv) - 1

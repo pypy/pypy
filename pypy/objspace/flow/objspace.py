@@ -32,8 +32,6 @@ class FlowObjSpace(ObjSpace):
 
     builtins_can_raise_exceptions = False
 
-    do_imports_immediately = True  # overridden in geninterplevel
-
     def initialize(self):
         import __builtin__
         self.concrete_mode = 1
@@ -62,6 +60,19 @@ class FlowObjSpace(ObjSpace):
         self.specialcases = {}
         #self.make_builtins()
         #self.make_sys()
+        # objects which should keep their SomeObjectness
+        self.not_really_const = {
+            Constant(sys): {
+                Constant('maxint'): True,
+                Constant('maxunicode'): True,
+                Constant('api_version'): True,
+                Constant('exit'): True,
+                Constant('exc_info'): True,
+                # this is an incomplete list of true constants.
+                # if we add much more, a dedicated class
+                # might be considered for special objects.
+                }
+            }
 
     def enter_cache_building_mode(self):
         # when populating the caches, the flow space switches to
@@ -330,7 +341,6 @@ class FlowObjSpace(ObjSpace):
             except UnwrapException:
                 pass
         return self.do_operation('setitem', w_obj, w_key, w_val)
-                
 
     def call_args(self, w_callable, args):
         try:
@@ -540,6 +550,28 @@ def make_op(name, symbol, arity, specialnames):
 
 for line in ObjSpace.MethodTable:
     make_op(*line)
+
+# override getattr for not really const objects
+
+def unspecialize(obj):
+    # turn a constant into SomeObject
+    # XXX this may become harder when the annotator gets smarter
+    # maybe we need to add a special treatment like for ovfcheck.
+    if id(0) != id(None):
+        return obj
+
+def override():
+    def getattr(self, w_obj, w_name):
+        if w_obj in self.not_really_const:
+            const_w = self.not_really_const[w_obj]
+            if w_name not in const_w:
+                w_obj = self.do_operation('simple_call',
+                                          Constant(unspecialize), w_obj)
+        return self.regular_getattr(w_obj, w_name)
+    FlowObjSpace.regular_getattr = FlowObjSpace.getattr
+    FlowObjSpace.getattr = getattr
+
+override()
 
 # ______________________________________________________________________
 # End of objspace.py

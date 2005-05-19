@@ -1019,7 +1019,7 @@ app2 = gateway.applevel('''
                 return _formatting.format(format, (values,), values)
             else:
                 return _formatting.format(format, (values,), None)
-''', filename=__file__, do_imports=True)
+''', filename=__file__)
 
 str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
 str_decode__String_ANY_ANY = app.interphook('str_decode__String_ANY_ANY') 
