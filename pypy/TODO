@@ -1,21 +1,5 @@
 General
 =======
 
-* extend the testing mechanisms to specifically allow: 
-  - running plain CPython regrtests (including outputtests, 
-    unittests, doctests, ...)  
-  - running modified CPython regrtests againat CPython 
-    as well as against PyPy 
-  - running pure app-level py-test style regrtests 
-  - running interp-level py-test style regrtests 
-  - running doctests with py.test modules 
-
 * review whatever you like 
-
-StdObjSpace
-===========
-
-* String formatting is agonizingly slow.
-
-* (documentation) generate a nice dot-graph from the structure of PyPy
 
