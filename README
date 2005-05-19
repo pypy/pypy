@@ -17,6 +17,11 @@ documentation section which you can also directly enter here:
 
     http://codespeak.net/pypy/index.cgi?doc
 
+All the documentation files (in ReST format) can also be found
+in the following directory of the PyPy source tree:
+
+    pypy/documentation
+
 Our online release announcement has some more  
 information about the specific 0.6 release: 
 
