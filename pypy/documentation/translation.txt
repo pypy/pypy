@@ -40,7 +40,7 @@ Here are the steps we follow to translate a given program:
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`control flow graph`: objspace.html#the-flow-model
 .. _`Common Lisp`: http://codespeak.net/svn/pypy/dist/pypy/translator/gencl.py
-.. _Pyrex: http://codespeak.net/svn/pypy/dist/pypy/translator/genpyrex.py
+.. _Pyrex: http://codespeak.net/svn/pypy/dist/pypy/translator/pyrex/genpyrex.py
 .. _Java: http://codespeak.net/svn/pypy/dist/pypy/translator/java/
 .. _`Python again`: http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
 
