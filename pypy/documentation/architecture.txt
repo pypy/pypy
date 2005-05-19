@@ -20,10 +20,10 @@ you demonstrate the versatility of the language, and its applicability for
 large projects.  A compiler/interpreter is close to as complex as software
 ever gets.
 
-The PyPy project aims to do this for Python and has made some significant
+The PyPy project aims to do this for Python_ and has made some significant
 progress. In a number of one week sprints, attracting approximately
 10 developers each, we made an almost complete implementation of Python in
-Python. Currently it is rather slow, benchmarking at a factor 4000 times
+Python. Currently it is rather slow, benchmarking at a factor 2000 times
 slower than regular Python (henceforth referred to as CPython).
 
 For some time now the bleeding edge PyPy work has been focused on generating
@@ -39,9 +39,9 @@ that is, in some respects, easier to understand and play with than the one
 done in C.
 
 Another carrying idea in PyPy is to build the implementation in the form
-of a number of independent modules with clearly defined API's. This eases
-reuse and allows experimenting with multiple implementations of specific
-features.
+of a number of independent modules with clearly defined and well tested API's. 
+This eases reuse and allows experimenting with multiple implementations 
+of specific features.
 
 Our rather complete and 2.3-compliant interpreter is about 22000 lines of
 code, with another 7000 lines of unit tests.  If we include the tools, the
@@ -53,6 +53,7 @@ We also pass a number of CPython's own tests, including 90% of the "core"
 tests not depending on C extension modules (most of the remaining 10% are
 arguably dependant on very obscure implementation details of CPython).
 
+.. _Python: http://www.python.org/doc/2.4.1/ref/ref.html
 
 Higher level picture
 ====================
@@ -190,7 +191,7 @@ the interpreter:
   would like to perform when it is shown the given Python program.  This
   technique is explained `later in this document`_.
 
-For a complete description of the object spaces, please see the
+For a description of the object spaces, please see the
 `objspace document`_.  The sources of PyPy contain the various object spaces
 in the directory `objspace/`_.
 
@@ -216,7 +217,7 @@ Let's show the difference with a simple example.  To sum the contents of
 two variables ``a`` and ``b``, typical application-level code is ``a+b``
 -- in sharp contrast, typical interpreter-level code is ``space.add(w_a,
 w_b)``, where ``space`` is an instance of an object space, and ``w_a``
-and ``w_b`` are typical names for the `wrapped`_ versions of the two
+and ``w_b`` are typical names for the wrapped versions of the two
 variables.  
 
 It helps to remember how CPython deals with the same issue: interpreter
@@ -264,9 +265,12 @@ something much lower-level and involved, say something like::
             space.setitem(w_self, w_key, w_value)
 
 This interpreter-level implementation looks much more similar to the C
-source code, although it is probably still more readable.  In any case,
-it should be obvious that the application-level implementation is
-definitely more readable, more elegant and more maintainable than the
+source code.  It is still more readable than it's C counterpart because 
+it doesn't contain memory management details and can use Python's native 
+exception mechanism. 
+
+In any case, it should be obvious that the application-level implementation 
+is definitely more readable, more elegant and more maintainable than the
 interpreter-level one.
 
 In fact, in almost all parts of PyPy, you find application level code in
@@ -282,7 +286,7 @@ interpreter level.
 .. _`wrapped`:
 
 Wrapping
-========
+--------- 
 
 The ``w_`` prefixes so lavishly used in the previous example indicate,
 by PyPy coding convention, that we are dealing with *wrapped* objects,
@@ -295,7 +299,7 @@ with suitable interpreter-level classes with some amount of internal
 structure.
 
 For example, an application-level Python ``list``
-is implemented by the standard object space`_ as an
+is implemented by the `standard object space`_ as an
 instance of ``W_ListObject``, which has an instance attribute
 ``ob_item`` (an interpreter-level list which contains the
 application-level list's items as wrapped objects) and another attribute
@@ -330,7 +334,7 @@ adhere to a more static subset of Python:
 Restricted Python, also known as `RPython`_. 
 
 The Flow Object Space then, with the help of our plain interpreter,
-works through those initialized "RPython" code objects.  The result of
+works through those initialized RPython code objects.  The result of
 this `abstract interpretation`_ is a flow graph: yet another
 representation of a python program, but one which is suitable for
 applying translation and type inference techniques.  The nodes of the
@@ -349,14 +353,14 @@ this translation phase, the more dynamism we can allow.  In some cases,
 however, it will probably be more feasible and practical to just get rid
 of some of the dynamism we use in our interpreter level code.  It is
 mainly because of this trade-off situation that the definition of
-`RPython`_ has been shifting quite a bit.  Although the Annotator is
-pretty stable now, and able to process the whole of PyPy, the `RPython`_
+RPython has been shifting quite a bit.  Although the Annotator is
+pretty stable now, and able to process the whole of PyPy, the RPython
 definition will probably continue to shift marginally as we improve it.
 
 The actual low-level code (and, in fact, also other high-level code) is
 emitted by "visiting" the type-annotated flow graph. Currently, we have
 a C-producing backend, and an LLVM-producing backend.  The former also
-accept non-annotated or partially-annotated graphs, which allow us to
+accepts non-annotated or partially-annotated graphs, which allow us to
 test it on a larger class of programs than what the Annotator can (or
 ever will) fully process.
 
