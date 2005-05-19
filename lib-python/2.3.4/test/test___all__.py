@@ -136,7 +136,7 @@ class AllTest(unittest.TestCase):
         self.check_all("pre")  # deprecated
         self.check_all("profile")
         self.check_all("pstats")
-        self.check_all("pty")
+    
         self.check_all("py_compile")
         self.check_all("pyclbr")
         self.check_all("quopri")
@@ -173,7 +173,6 @@ class AllTest(unittest.TestCase):
         self.check_all("toaiff")
         self.check_all("tokenize")
         self.check_all("traceback")
-        self.check_all("tty")
         self.check_all("unittest")
         self.check_all("urllib")
         self.check_all("urlparse")
@@ -185,6 +184,9 @@ class AllTest(unittest.TestCase):
         self.check_all("xdrlib")
         self.check_all("zipfile")
 
+        if not sys.platform == 'win32':
+            self.check_all("pty")
+            self.check_all("tty")
         # rlcompleter needs special consideration; it import readline which
         # initializes GNU readline which calls setlocale(LC_CTYPE, "")... :-(
         try:
