@@ -53,15 +53,15 @@ low-level translation and experimenting with unique features.
   PyPy comes with experimental object spaces augmenting the
   standard one through delegation:
 
-    - an experimental object space that does extensive tracing of
-      bytecode and object operations;
+  * an experimental object space that does extensive tracing of
+    bytecode and object operations;
 
-    - the 'thunk' object space that implements lazy values and a 'become'
-      operation that can exchange object identities.
+  * the 'thunk' object space that implements lazy values and a 'become'
+    operation that can exchange object identities.
   
-  *These spaces already give a glimpse in the flexibility potential of
-  PyPy*.  (See demo/fibonacci.py and demo/sharedref.py for examples
-  about the 'thunk' object space.)
+  These spaces already give a glimpse in the flexibility potential of
+  PyPy.  See demo/fibonacci.py and demo/sharedref.py for examples
+  about the 'thunk' object space.
 
 * The 0.6 release also contains a snapshot of our translation-efforts 
   to lower level languages.  For that we have developed an
