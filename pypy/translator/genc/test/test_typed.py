@@ -28,16 +28,16 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
 
     def test_int_overflow(self):
         fn = self.getcompiled(snippet.add_func)
-        raises(OverflowError, fn, sys.maxint)
+        raises(OverflowError, fn, sys_maxint())
 
     def test_int_div_ovf_zer(self): # 
-        py.test.skip("right now aborting python wiht Floating Point Error!")
+        py.test.skip("right now aborting python with Floating Point Error!")
         fn = self.getcompiled(snippet.div_func)
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)
 
     def test_int_mod_ovf_zer(self):
-        py.test.skip("right now aborting python wiht Floating Point Error!")        
+        py.test.skip("right now aborting python with Floating Point Error!")        
         fn = self.getcompiled(snippet.mod_func)
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)
@@ -55,5 +55,10 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         fn = self.getcompiled(snippet.unary_func)
         for i in range(-3,3):
             assert fn(i) == (-(i), abs(i-1))
-        raises (OverflowError, fn, -sys.maxint-1)
-        raises (OverflowError, fn, -sys.maxint)
+        raises (OverflowError, fn, -sys_maxint()-1)
+        raises (OverflowError, fn, -sys_maxint())
+
+def sys_maxint():
+    if sys.maxint != 2147483647:
+        py.test.skip("genc ovf incomplete: int might differ from long")
+    return sys.maxint
