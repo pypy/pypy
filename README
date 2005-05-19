@@ -1,0 +1,29 @@
+PyPy: Python in Python implementation Version 0.6 
+================================================= 
+
+Welcome to PyPy!   PyPy-0.6 is the first public release 
+after two years of spare-time and half a year of European Union 
+funded development from a multitude of people and organizations.  
+
+We invested a lot of time in improving the documentation and
+website and thus invite you to head over to our getting-started
+document 
+
+    http://codespeak.net/pypy/index.cgi?getting-started
+
+which gives you many good starting and entry points into 
+using and playing with PyPy.   
+
+Our release announcement has more in-depth information 
+about this release. 
+
+    http://codespeak.net/pypy/index.cgi?doc/release-0.6.html 
+
+Please freel free to contact or join us in one of the ways
+listed in our contact page: 
+
+    http://codespeak.net/pypy/index.cgi?contact
+
+Enjoy and send us feedback! 
+
+    the pypy-dev team <pypy-dev@codespeak.net>
