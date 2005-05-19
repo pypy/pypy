@@ -1,0 +1,43 @@
+
+Contributors to PyPy 
+==================== 
+
+Here is a list of developers who have committed to the PyPy source 
+code base, ordered by number of commits (which is certainly not a very 
+appropriate measure but it's something):: 
+
+    Armin Rigo
+    Samuele Pedroni
+    Holger Krekel
+    Michael Hudson
+    Christian Tismer
+    Seo Sanghyeon
+    Alex Martelli
+    Stefan Schwarzer
+    Tomek Meka
+    Patrick Maupin
+    Carl Friedrich Bolz
+    Bob Ippolito
+    Anders Chrigstrom
+    Jacob Hallen
+    Marius Gedminas
+    Laura Creighton
+    Guido Van Rossum
+    Richard Emslie
+    Ludovic Aubry
+    Adrien Di Mascio
+    Stephan Diehl
+    Dinu Gherman
+    Guenter Jantzen
+    Anders Lehmann
+    Rocco Moretti
+    Olivier Dormond
+    Brian Dorsey
+    Jonathan David Riehl
+    Andreas Friedge
+    Jens-Uwe Mager
+    Alan McIntyre
+    Lutz Paelike
+    Jacek Generowicz
+    Ben Young
+    Michael Chermside

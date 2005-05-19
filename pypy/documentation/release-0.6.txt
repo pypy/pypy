@@ -84,24 +84,31 @@ next months, our plan is to produce a PyPy version in August/September
 that does not need to be interpreted by CPython anymore and will 
 thus run considerably faster than the 0.6 preview release. 
 
-Please feel free to give feedback and raise questions. Here is 
-how you can contact or join us:
-
-    http://codespeak.net/pypy/index.cgi?contact
-
 PyPy has been a community effort from the start and it would
 not have got that far without the coding and feedback support
-from numerous people. (XXX insert some link here?)
+from numerous people.   Please feel free to give feedback and 
+raise questions. 
+
+    contact points: http://codespeak.net/pypy/index.cgi?contact
+    contributor list: http://codespeak.net/pypy/index.cgi?doc/contributor.html 
 
 have fun, 
 
-    the PyPy Development Team
+    Armin Rigo, Samuele Pedronis, 
+
+    Holger Krekel, Christian Tismer, 
+
+    Carl Friedrich Bolz 
 
 
-Project Setup and Acknowledgements:
+    PyPy development and activities happen as an open source project under
+    the http://codespeak.net/ umbrella and with the support of a
+    consortium funded by a EU IST research grant. Here is a list of 
+    partners of the EU project: 
+        
+        Heinrich-Heine University (Germany), AB Strakt (Sweden)
 
-PyPy development and activities happens as open source project under
-the http://codespeak.net/ umbrella and with the support of a
-consortium funded by a EU IST research grant:
+        merlinux GmbH (Germany), tismerysoft GmbH(Germany) 
 
-**(xxx consortium partners?? )**
+        Logilab Paris (France), DFKI GmbH (Germany)
+    
