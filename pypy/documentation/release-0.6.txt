@@ -97,10 +97,11 @@ have fun,
 
     the PyPy Development Team
 
-Disclaimer: 
 
-PyPy development and activities happens as open source source
-project under the http://codespeak.net/ umbrella and with
-the support of a consortium funded by a EU IST research grant:
+Project Setup and Acknowledgements:
+
+PyPy development and activities happens as open source project under
+the http://codespeak.net/ umbrella and with the support of a
+consortium funded by a EU IST research grant:
 
 **(xxx consortium partners?? )**
