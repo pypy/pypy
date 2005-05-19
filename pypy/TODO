@@ -1,8 +1,6 @@
 General
 =======
 
-* mark debugging variables to make our code more readable 
-
 * extend the testing mechanisms to specifically allow: 
   - running plain CPython regrtests (including outputtests, 
     unittests, doctests, ...)  
