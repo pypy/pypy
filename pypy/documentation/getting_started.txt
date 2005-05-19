@@ -454,9 +454,12 @@ Optional tools
     LLVM can be quite annoying to install: you need a fairly recent version of
     GCC to compile it and there can be severe problems under windows. There are
     detailed instructions on `how to install LLVM`_. To use the LLVM backend
-    you don't need the GCC front end of LLVM, only LLVM itself. If you run
-    into problems with the installation the `LLVM mailing list`_ is very
+    of PyPy you don't need the GCC front end of LLVM, only LLVM itself. If you
+    run into problems with the installation the `LLVM mailing list`_ is very
     helpful and friendly.
+
+    Note that the PyPy LLVM backend was developed using LLVM 1.4. The
+    newest version (LLVM 1.5) will probably work, too.
 
 *CLISP* 
 
