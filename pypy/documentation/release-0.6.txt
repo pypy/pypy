@@ -43,13 +43,13 @@ low-level translation and experimenting with unique features.
 
 * By default, PyPy is a Python version that works completely with
   new-style-classes semantics.  However, support for old-style classes
-  is still available, Implementations, mostly as user-level code, of
+  is still available.  Implementations, mostly as user-level code, of
   their metaclass and instance object are included and can be re-made
-  the default with an option.
+  the default with the ``--oldstyle`` option.
 
 * In PyPy, bytecode interpretation and object manipulations 
   are well separated between a bytecode interpreter and an 
-  object space which implements operations on objects. 
+  *object space* which implements operations on objects. 
   PyPy comes with experimental object spaces augmenting the
   standard one through delegation:
 
@@ -70,8 +70,8 @@ low-level translation and experimenting with unique features.
   capable of successfully type annotating basically *all* of
   PyPy code-base, and is included with 0.6.  
 
-* From type annotated code low-level code needs to be generated,
-  backends for various targets (C, LLVM,...) are included, they are
+* From type annotated code, low-level code needs to be generated.
+  Backends for various targets (C, LLVM,...) are included; they are
   all somehow incomplete and have been and are quite in flux. What is
   shipped with 0.6 is able to deal with more or less small/medium examples.
 
@@ -80,7 +80,7 @@ Ongoing work and near term goals
 ---------------------------------
 
 Generating low-level code is the main area we are hammering on in the
-next months, our plan is to produce a PyPy version in August/September 
+next months; our plan is to produce a PyPy version in August/September 
 that does not need to be interpreted by CPython anymore and will 
 thus run considerably faster than the 0.6 preview release. 
 
@@ -90,6 +90,7 @@ from numerous people.   Please feel free to give feedback and
 raise questions. 
 
     contact points: http://codespeak.net/pypy/index.cgi?contact
+
     contributor list: http://codespeak.net/pypy/index.cgi?doc/contributor.html 
 
 have fun, 
@@ -111,4 +112,6 @@ have fun,
         merlinux GmbH (Germany), tismerysoft GmbH(Germany) 
 
         Logilab Paris (France), DFKI GmbH (Germany)
-    
+
+        ChangeMaker (Sweden)
+
