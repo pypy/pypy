@@ -41,9 +41,11 @@ Interesting bits and highlights
 The release is also a snap-shot of our ongoing efforts towards 
 low-level translation and experimenting with unique features. 
 
-* By default, PyPy is a Python version that works completely 
-  with new-style-classes semantics.  However, there is some support 
-  for old-style classes through a custom metaclass. 
+* By default, PyPy is a Python version that works completely with
+  new-style-classes semantics.  However, support for old-style classes
+  is still available, Implementations, mostly as user-level code, of
+  their metaclass and instance object are included and can be re-made
+  the default with an option.
 
 * In PyPy, bytecode interpretation and object manipulations 
   are well separated between a bytecode interpreter and an 
