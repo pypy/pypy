@@ -1526,6 +1526,8 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     else: 
         code = NiceCompile(filename)(sourcetext)
     dic = {'__name__': modname}
+    if filename:
+        dic['__file__'] = filename
     exec code in dic
     entrypoint = dic
     t = Translator(None, verbose=False, simplifying=needed_passes,

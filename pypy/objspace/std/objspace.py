@@ -106,12 +106,21 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def setup_old_style_classes(self):
         """NOT_RPYTHON"""
-        from pypy.module import classobjinterp
         # sanity check that this approach is working and is not too late
         assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_classobj'))),"app-level code has seen dummy old style classes"
         assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_instance'))),"app-level code has seen dummy old style classes"
-        w_setup = classobjinterp.initclassobj(self)
-        w_classobj, w_instance, w_purify = self.unpackiterable(w_setup)
+        # generate on-the-fly
+        class Fake: pass
+        fake = Fake()
+        import pypy.lib as lib
+        fname = os.path.join(os.path.split(lib.__file__)[0], '_classobj.py')
+        fake.filename = fname
+        fake.source = file(fname).read()
+        fake.modname = 'classobj'
+        w_dic = PyPyCacheDir.build_applevelinterp_dict(fake, self)
+        w_purify = self.getitem(w_dic, self.wrap('purify'))
+        w_classobj = self.getitem(w_dic, self.wrap('classobj'))
+        w_instance = self.getitem(w_dic, self.wrap('instance'))
         self.call_function(w_purify)
         self.w_classobj = w_classobj
         self.w_instance = w_instance
@@ -119,13 +128,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def setup_exceptions(self):
         """NOT_RPYTHON"""
         ## hacking things in
-        class Fake: pass
-        fake = Fake()
-        import pypy.lib as lib
-        fname = os.path.join(os.path.split(lib.__file__)[0], '_exceptions.py')
-        fake.filename = fname
-        fake.source = file(fname).read()
-        fake.modname = 'exceptions'
         def call(w_type, w_args):
             space = self
             # too early for unpackiterable as well :-(
@@ -138,6 +140,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 bases = [space.w_object]
             res = W_TypeObject(space, name, bases, dic)
             return res
+        # generate on-the-fly
+        class Fake: pass
+        fake = Fake()
+        import pypy.lib as lib
+        fname = os.path.join(os.path.split(lib.__file__)[0], '_exceptions.py')
+        fake.filename = fname
+        fake.source = file(fname).read()
+        fake.modname = 'exceptions'
         try:
             # note that we hide the real call method by an instance variable!
             self.call = call
