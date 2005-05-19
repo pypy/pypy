@@ -1025,6 +1025,20 @@ class TestAnnotateTestCase:
         assert a.binding(et) == t
         assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef.cls == Exception
 
+    def test_sys_attrs(self):
+        import sys
+        def f():
+            return sys.argv[0]
+        a = self.RPythonAnnotator()
+        try:
+            oldvalue = sys.argv
+            sys.argv = []
+            s = a.build_types(f, [])
+        finally:
+            sys.argv = oldvalue
+        assert s is not None
+            
+
 
 def g(n):
     return [0,1,2,n]
