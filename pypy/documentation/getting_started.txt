@@ -102,7 +102,7 @@ more detailed information on specific features of the tracker.
 Interesting Starting Points in PyPy 
 ===================================
 
-The following assumes that you have successfully downloaded and exctracted the
+The following assumes that you have successfully downloaded and extracted the
 PyPy release or have checked out PyPy using svn. It assumes that you are in
 the top level directory of the PyPy source tree, e.g. pypy-x.x (if you
 got a release) or pypy-dist (if you checked out the most recent version using
