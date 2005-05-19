@@ -90,22 +90,47 @@ free to mail us at pypy-dev at codespeak net.
 
 .. _`wrapped object`: coding-guide.html#wrapping-rules
 
-Object restrictions
+Flow restrictions
 -------------------------
-
-We are using
 
 **variables**
   
-  the same variable in the same context can receive values of different types, 
-  at a possible overhead cost. For example, a variable that can contain a 
-  `wrapped object`_ or None is efficiently implemented as a PyObject* pointer that 
-  can be NULL, but a variable that can contain either an integer or a float must 
-  be implemented as a union with a type tag in C.
+  variables should contain values of at most one type as described in `Object restrictions`_
+  at each control flow point, that means that joining control paths using the same variable
+  to contain both a float and a int should be avoided. Mixing None (basically with the role of
+  a null pointer) and `wrapped objects` and class instances is allowed.
 
 **constants**
   
   all module globals are considered constants.
+
+**control structures**
+  
+  all allowed
+
+**range**
+  
+  does not create an array. It is only allowed in for loops. The step argument 
+  must be a constant.
+
+**definitions**
+
+  run-time definition of classes or functions is not allowed.
+
+**generators**
+
+  generators are not supported.
+
+**exceptions**
+
++ fully supported
++ see below `Exception rules`_ for restrictions on exceptions raised by built-in operations
+
+
+Object restrictions
+-------------------------
+
+We are using
 
 **integer, float, string, boolean**
   
@@ -114,7 +139,8 @@ We are using
 **tuples**
   
   no variable-length tuples; use them to store or return pairs or n-tuples of 
-  values
+  values. Each combination of types for elements and length constitute a separate
+  and not mixable type.
 
 **lists**
   
@@ -129,9 +155,6 @@ We are using
   interned in CPython, i.e. short strings that look like identifiers).  The
   implementation could safely decide that all dict keys should be interned.
 
-**control structures**
-  
-  all allowed
 
 **list comprehensions**
   
@@ -153,11 +176,6 @@ We are using
   A few builtin functions will be used, while this set is not defined 
   completely, yet. Some builtin functions are special forms:
 
-**range**
-  
-  does not create an array. It is only allowed in for loops. The step argument 
-  must be a constant.
-
 **len**
 
 + may be used with basic types that have a length. But len is a special form 
@@ -175,11 +193,6 @@ We are using
 + methods and other class attributes do not change after startup
 + inheritance is supported
 + classes are first-class objects too
-
-**exceptions**
-
-+ fully supported
-+ see below for restrictions on exceptions raised by built-in operations
 
 **objects**
 
