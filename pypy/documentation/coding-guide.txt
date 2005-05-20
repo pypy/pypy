@@ -408,8 +408,8 @@ The most common ones are ``space.w_None`` and
 (e.g. ``space.w_KeyError``, ``space.w_IndexError``, etc.).
 
 
-Inspecting ``w_xxx`` objects
-----------------------------
+Inspecting and unwrapping ``w_xxx`` objects
+--------------------------------------------
 
 The most delicate operation is for the interpreter to inspect
 a wrapped object, which must be done via the object space.
