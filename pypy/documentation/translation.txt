@@ -852,7 +852,7 @@ The return value is 'g3dict', which contains a module name and the function we a
 
 Let's have a look at the body of this code: The first definition of g is just
 for the argument parsing and is used as f_g in the gateway.interp2app.
-We look at the second definition, fastf_f, which does the actual
+We look at the second definition, fastf_g, which does the actual
 computation. Comparing to the flowgraph from above_,
 you see a code block for every block in the graph.
 Since Python has no goto statement, the jumps between the blocks are implemented
