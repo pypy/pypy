@@ -285,94 +285,115 @@ Trying out the translator
 ------------------------- 
 
 The translator is a tool based on the PyPy interpreter which can translate
-sufficiently static Python programs into low-level code.
+sufficiently static Python programs into low-level code. To be able to use it
+you need to:
 
-1. Download and install `Dot Graphviz`_.
+  * Download and install `Dot Graphviz`_.
 
-2. Download and install Pygame_ if you do not already have it.
+  * Download and install Pygame_ if you do not already have it.
 
-3. Type::
+To start the interactive translator do::
 
-        cd pypy/bin
-        python translator.py
+    cd pypy/bin
+    python translator.py
 
-   Test snippets of translatable code are provided in the file
-   ``pypy/translator/test/snippet.py``, which is imported under the name
-   ``test``.  For example::
+Test snippets of translatable code are provided in the file
+``pypy/translator/test/snippet.py``, which is imported under the name
+``test``.  For example::
 
-        >>> t = Translator(test.is_perfect_number)
-        >>> t.view()
+    >>> t = Translator(test.is_perfect_number)
+    >>> t.view()
         
 .. >>> from pypy.translator.translator import Translator 
 .. >>> from pypy.translator.test import snippet as test 
 
-4. We have a type annotator that can completely infer types for functions like
-   ``is_perfect_number`` (as well as for much larger examples)::
 
-        >>> a = t.annotate([int])
-        >>> t.view()
+trying out the type annotator
++++++++++++++++++++++++++++++
 
-   Move the mouse over variable names (in red) to see their inferred types. To
-   perform simplifications based on the annotation you can do::
+We have a type annotator that can completely infer types for functions like
+``is_perfect_number`` (as well as for much larger examples)::
 
-        >>> a.simplify()
+    >>> a = t.annotate([int])
+    >>> t.view()
 
-5. The graph can be turned into C code::
+Move the mouse over variable names (in red) to see their inferred types. To
+perform simplifications based on the annotation you can do::
 
-       >>> a.specialize()
-       >>> f = t.ccompile()
+    >>> a.simplify()
 
-   The first command replaces operations with variables of types that are
-   avaiable in C (e.g. int) with low level versions. This can be ommited if no
-   annotation (step 4) has been performed.
 
-6. If you feel adventureous (and have `LLVM installed`_ and on your path) you can
-   also try to compile the graph with LLVM. This is still quite experimental
-   and only works with some functions: One of the most visible restriction is
-   that return type of the entry function has to be and int, float or bool. To
-   try it do::
+translating the flow graph to C code
+++++++++++++++++++++++++++++++++++++
 
-       >>> print t.llvm()
-       >>> f = t.llvmcompile(optimize=True)
-       >>> f(28)
-       1
+The graph can be turned into C code::
 
-   This works only with fully annotated graphs.
+   >>> a.specialize()
+   >>> f = t.ccompile()
 
-7. There is a small-to-medium demo showing the translator and the annotator::
+The first command replaces operations with variables of types that are
+avaiable in C (e.g. int) with low level versions. This can be ommited if no
+annotation (step 4) has been performed.
 
-       cd demo
-       python bpnn.py
 
-   This causes ``bpnn.py`` to display itself as a call graph and class
-   hierarchy.  Clicking on functions shows the flow graph of the particular
-   function.  Clicking on a class shows the attributes of its instances.  All
-   this information (call graph, local variables' types, attributes of
-   instances) is computed by the annotator.
+translating the flow graph to LLVM code
++++++++++++++++++++++++++++++++++++++++
 
-8. Not for the faint of heart nor the owner of a very old machine: you can
-   run the annotator over the whole PyPy interpreter itself.  This is the
-   largest and ultimate example of source that our annotator can (very
-   successfully!) process::
+If you feel adventureous (and have `LLVM installed`_ and on your path) you can
+also try to compile the graph with LLVM. This is still quite experimental
+and only works with some functions: One of the most visible restriction is
+that return type of the entry function has to be and int, float or bool. To
+try it do::
 
-       cd pypy/translator/goal
-       python translate_pypy.py -no-t -no-c
+   >>> print t.llvm()
+   >>> f = t.llvmcompile(optimize=True)
+   >>> f(28)
+   1
 
-   Moving around is difficult because of the sheer size of the result.
-   For this reason, the debugger prompt you get at the end has been
-   enhanced with commands to facilitate locating functions and classes.
-   Type ``help graphs`` for a list of the new commands.  Help is also
-   available on each of these new commands.
+This works only with fully annotated graphs.
 
-   The ``translate_pypy`` script itself takes a number of options controlling
-   what to translate and how.  See ``translate_pypy.py -h``.  Try out::
+a slightly larger example
++++++++++++++++++++++++++
 
-       cd pypy/translator/goal
-       python translate_pypy.py targetrpystone
+There is a small-to-medium demo showing the translator and the annotator::
 
-   or a simplified, scaled-down version::
+    cd demo
+    python bpnn.py
 
-       python translate_pypy.py targetrpystone2
+This causes ``bpnn.py`` to display itself as a call graph and class
+hierarchy.  Clicking on functions shows the flow graph of the particular
+function.  Clicking on a class shows the attributes of its instances.  All
+this information (call graph, local variables' types, attributes of
+instances) is computed by the annotator.
+
+translating the PyPy interpreter
+++++++++++++++++++++++++++++++++
+
+Not for the faint of heart nor the owner of a very old machine: you can
+run the annotator over the whole PyPy interpreter itself.  This is the
+largest and ultimate example of source that our annotator can (very
+successfully!) process::
+
+    cd pypy/translator/goal
+    python translate_pypy.py -no-t -no-c
+
+Moving around is difficult because of the sheer size of the result.
+For this reason, the debugger prompt you get at the end has been
+enhanced with commands to facilitate locating functions and classes.
+Type ``help graphs`` for a list of the new commands.  Help is also
+available on each of these new commands.
+
+The ``translate_pypy`` script itself takes a number of options controlling
+what to translate and how.  See ``translate_pypy.py -h``.  Try out::
+
+    cd pypy/translator/goal
+    python translate_pypy.py targetrpystone
+
+or a simplified, scaled-down version::
+
+    python translate_pypy.py targetrpystone2
+
+
 
 Where to start reading the sources
 ---------------------------------- 
