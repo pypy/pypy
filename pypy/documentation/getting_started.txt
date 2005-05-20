@@ -451,7 +451,7 @@ CLISP
 
 The CLISP backend is optional and not quite uptodate with the rest of
 PyPy. Still there are a few examples you can try our backend out on. 
-Here is a link of a version that should work: 
+Here is a link to a LISP implementation that should basically work: 
 
     http://clisp.cons.org/ 
 
