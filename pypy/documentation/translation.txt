@@ -848,15 +848,15 @@ function that you will call with a space as argument. It defines a few functions
 does a number of initialization steps, builds the global objects the function need,
 and produces the interface function gfunc_g to be called from interpreter level.
 
-The return value is 'g3dict', which contains a module name and the function we asked for.
+The return value is ``g3dict``, which contains a module name and the function we asked for.
 
-Let's have a look at the body of this code: The first definition of g is just
-for the argument parsing and is used as f_g in the gateway.interp2app.
-We look at the second definition, fastf_g, which does the actual
+Let's have a look at the body of this code: The first definition of ``g`` is just
+for the argument parsing and is used as ``f_g`` in the gateway.interp2app.
+We look at the second definition, ``fastf_g``, which does the actual
 computation. Comparing to the flowgraph from above_,
 you see a code block for every block in the graph.
 Since Python has no goto statement, the jumps between the blocks are implemented
-by a loop that switches over a "goto" variable.
+by a loop that switches over a ``goto`` variable.
 
 ::
 
@@ -870,7 +870,7 @@ by a loop that switches over a "goto" variable.
                     w_1 = w_i
                     goto = 4
 
-This is the implementation of the ``while n:``. There is no implicit state,
+This is the implementation of the "``while n:``". There is no implicit state,
 everything is passed over to the next block by initializing its
 input variables. This directly resembles the nature of flowgraphs.
 They are completely stateless.
@@ -885,7 +885,7 @@ They are completely stateless.
                 goto = 1
                 continue
 
-The ``i = i + n`` and ``n = n - 1`` instructions.
+The "``i = i + n``" and "``n = n - 1``" instructions.
 You see how every instruction produces a new variable.
 The state is again shuffled around by assigning to the
 input variables ``w_n`` and ``w_i`` of the next target, block 1.
