@@ -5,7 +5,7 @@ from pypy.annotation import model as annmodel
 from pypy.interpreter import error
 from pypy.interpreter import pyframe
 from pypy.objspace.std import fake
-from pypy.module.sys2 import state as sys_state
+from pypy.module.sys import state as sys_state
 import pypy.interpreter.typedef as itypedef
 import pypy.interpreter.pycode as pycode
 import pypy.interpreter.compiler as icompiler

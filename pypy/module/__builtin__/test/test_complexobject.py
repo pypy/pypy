@@ -25,7 +25,7 @@ import cmath
 import sys
 import types
 
-from pypy.module.builtin.app_complex import complex as pycomplex
+from pypy.module.__builtin__.app_complex import complex as pycomplex
 
 try:
     unicode

@@ -451,7 +451,7 @@ here are examples for the possible locations::
 
     >>>> import sys
     >>>> sys.__file__
-    '/home/hpk/pypy-dist/pypy/module/sys2/__init__.pyc'
+    '/home/hpk/pypy-dist/pypy/module/sys/__init__.pyc'
 
     >>>> import operator
     >>>> operator.__file__
@@ -476,7 +476,7 @@ Here is the order in which PyPy looks up Python modules:
 *pypy/modules* 
 
     mixed interpreter/app-level builtin modules, such as 
-    the sys and builtin module. 
+    the ``sys`` and ``__builtin__`` module. 
 
 *contents of PYTHONPATH* 
     
