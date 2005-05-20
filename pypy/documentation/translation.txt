@@ -860,8 +860,7 @@ by a loop that switches over a "goto" variable.
 
 ::
 
-    .
-            if goto == 1:
+    .       if goto == 1:
                 v0 = space.is_true(w_n)
                 if v0 == True:
                     w_n_1, w_0 = w_n, w_i
@@ -871,16 +870,31 @@ by a loop that switches over a "goto" variable.
                     w_1 = w_i
                     goto = 4
 
-This is the implementation of the ``while n:``. You see how every
-instruction produces a new variable. There is no implicit state,
+This is the implementation of the ``while n:``. There is no implicit state,
 everything is passed over to the next block by initializing its
 input variables. This directly resembles the nature of flowgraphs.
 They are completely stateless.
 
+
+::
+
+    .       if goto == 2:
+                w_2 = space.add(w_0, w_n_1)
+                w_3 = space.sub(w_n_1, space.w_True)
+                w_n, w_i = w_3, w_2
+                goto = 1
+                continue
+
+The ``i = i + n`` and ``n = n - 1`` instructions.
+You see how every instruction produces a new variable.
+The state is again shuffled around by assigning to the
+input variables ``w_n`` and ``w_i`` of the next target, block 1.
+
 Note that it is possible to rewrite this by re-using variables,
 trying to produce nested blocks instead of the goto construction
-and much more. For the C backend, this makes no sense since the
-compiler does it for us. For the Python interpreter it could
+and much more. The source would look much more like what we
+used to write by hand. For the C backend, this doesn'r make much
+sense since the compiler optimizes it for us. For the Python interpreter it could
 give a bit more speed. But this is a temporary format and will
 get optimized anyway when we produce the executable.
 
