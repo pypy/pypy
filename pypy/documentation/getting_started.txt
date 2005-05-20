@@ -586,8 +586,8 @@ Directory                      explanation/links
 .. _`thunk object space`: objspace.html#the-thunk-object-space 
 .. _StdObjSpace: objspace.html#the-standard-object-space 
 .. _`abstract interpretation`: theory.html#abstract-interpretation
-.. _`rpython`: coding-guide#rpython 
-.. _`type inferencing code`: translation#the-annotation-pass 
+.. _`rpython`: coding-guide.html#rpython 
+.. _`type inferencing code`: translation.html#the-annotation-pass 
 .. _`RPython Typer`: translation.html#rpython-typer 
 .. _`testing methods`: coding-guide.html#testing-in-pypy
 .. _`translation`: translation.html 
