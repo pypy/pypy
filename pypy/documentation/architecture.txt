@@ -1,5 +1,5 @@
 ==================================================
-PyPy - architecture overview 
+PyPy - Architecture Overview 
 ==================================================
 
 .. contents::
