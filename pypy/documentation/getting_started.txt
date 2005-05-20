@@ -15,11 +15,12 @@ getting & running the PyPy 0.6 release
 
 Download one of the following release files and unpack it: 
 
-*pypy-0.6 (not released yet)*
+*pypy-0.6 (05/20/2005)*
     
-    * download `pypy-0.6.zip` or `pypy-0.6.tar.gz` and unpack it 
+    * download one of `pypy-0.6.tar.bz2`_, `pypy-0.6.tar.gz`_ or 
+      `pypy-0.6.zip`_ and unpack it 
     
-    * alternatively run ``svn co http://codespeak.net/svn/pypy/tag/0.6 pypy-0.6`` 
+    * alternatively run ``svn co http://codespeak.net/svn/pypy/release/0.6 pypy-0.6`` 
 
 then change to the ``pypy-0.6`` directory
 and execute the following command line:: 
@@ -37,6 +38,9 @@ Have a look at `interesting starting points`_
 for guidance on how to continue. 
 
 .. _`90% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
+.. _`pypy-0.6.tar.bz2`: http://codespeak.net/download/pypy/pypy-0.6.tar.bz2
+.. _`pypy-0.6.zip`: http://codespeak.net/download/pypy/pypy-0.6.zip
+.. _`pypy-0.6.tar.gz`: http://codespeak.net/download/pypy/pypy-0.6.tar.gz
 
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
