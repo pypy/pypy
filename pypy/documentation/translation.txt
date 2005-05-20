@@ -835,9 +835,10 @@ and produces the interface function gfunc_g to be called from interpreter level.
 
 The return value is 'g3dict', which contains a module name and the function we asked for.
 
-Let's have a look at the meatof this code: The first definition of g is just
+Let's have a look at the body of this code: The first definition of g is just
 for the argument parsing and is used as f_g in the gateway.interp2app.
-We look at the second definition, fastf_f. Comparing to the flowgraph from above_,
+We look at the second definition, fastf_f, which does the actual
+computation. Comparing to the flowgraph from above_,
 you see a code block for every block in the graph.
 Since Python has no goto statement, the jumps between the blocks are implemented
 by a loop that switches over a "goto" variable.
