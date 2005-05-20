@@ -102,10 +102,9 @@ have fun,
     Carl Friedrich Bolz 
 
 
-    PyPy development and activities happen as an open source project under
-    the http://codespeak.net/ umbrella and with the support of a
-    consortium funded by a EU IST research grant. Here is a list of 
-    partners of the EU project: 
+    PyPy development and activities happen as an open source project  
+    and with the support of a consortium funded by a two year EU IST 
+    research grant. Here is a list of partners of the EU project: 
         
         Heinrich-Heine University (Germany), AB Strakt (Sweden)
 
