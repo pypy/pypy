@@ -514,7 +514,8 @@ class ApplevelClass:
         self.modname = modname
         # look at the first three lines for a NOT_RPYTHON tag
         first = "\n".join(source.split("\n", 3)[:3])
-        self.use_geninterp = self.use_geninterp and "NOT_RPYTHON" not in first
+        if "NOT_RPYTHON" in first:
+            self.use_geninterp = False
 
     def getwdict(self, space):
         return space.fromcache(ApplevelCache).getorbuild(self)
