@@ -80,13 +80,11 @@ def hasattr(ob, attr):
         return False
 
 def callable(ob):
-    import __builtin__
     for c in type(ob).__mro__:
         if '__call__' in c.__dict__:
-            # after do_imports_immediately is always true,
-            # this is no longer RPython, because _instance
-            # does not exist at compile time.
-	    if isinstance(ob, __builtin__._instance): # old style instance!
+            # NB. this is not RPython, because _instance
+            # does not exist when the flow graph sees it
+            if isinstance(ob, _instance): # old style instance!
                 return getattr(ob, '__call__', None) is not None
             return True
     else:
