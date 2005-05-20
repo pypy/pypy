@@ -737,19 +737,26 @@ Certain pieces of PyPy are implemented in PyPy itself. That is, when interpretin
 .. _oldstyle: http://codespeak.net/svn/pypy/dist/pypy/lib/_classobj.py
 
 
-Examples are exceptions_ and oldstyle_ classes. They are needed in a very early phase of bootstrapping StdObjspace, but for simplicity, they are written as RPythonic application level code. This implies that the interpreter must be quite completely initialized to execute this code – impossible in the early phase, where we have neither exceptions implemented nor classes available.
+Examples are exceptions_ and oldstyle_ classes. They are needed in a very early phase of bootstrapping StdObjspace, but for simplicity, they are written as RPythonic application level code. This implies that the interpreter must be quite completely initialized to execute this code, which is impossible in the early phase, where we have neither exceptions implemented nor classes available.
 
 Solution
 --------
 
-This bootstrap issue is solved by invoking a new interpreter which runs on FlowObjspace. FlowObjspace is complete without complicated initialization. It is able to do abstract interpretation of any Rpythonic code, without actually implementing anything. It just records all the operations the interpreter ’would’ have done by building flowgraphs for all the code. What the Python backend does is just to produce correct Python code from these flowgraphs and return it as source code.
+This bootstrap issue is solved by invoking a new interpreter which
+runs on FlowObjspace. FlowObjspace is complete without complicated
+initialization. It is able to do abstract interpretation of any
+Rpythonic code, without actually implementing anything. It just
+records all the operations the interpreter would have done by
+building flowgraphs for all the code. What the Python backend does is
+just to produce correct Python code from these flowgraphs and return
+it as source code.
 
 Example
 -------
 
 .. _implementation: http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
 
-Let’s try the little example from above_. You might want to look at the 
+Let's try the little example from above_. You might want to look at the 
 flowgraph that it produces. Here, we directly run the Python translation 
 and look at the generated source. See also the header section of the implementation_ 
 for the interface::
