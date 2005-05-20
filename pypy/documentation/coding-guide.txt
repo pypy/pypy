@@ -247,7 +247,7 @@ helpers:
   of its argument, masking away anything that doesn't fit in a C "signed long int".
   Its purpose is, in Python, to convert from a Python ``long`` that resulted from a 
   previous operation back to a Python ``int``.  The code generators ignore
-  intmask() entierely, as they are doing wrap-around signed arithmetic all the time
+  intmask() entirely, as they are doing wrap-around signed arithmetic all the time
   by default anyway.  (We have no equivalent of the "int" versus "long int"
   distinction of C at the moment and assume "long ints" everywhere.)
 
