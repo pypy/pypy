@@ -858,6 +858,33 @@ you see a code block for every block in the graph.
 Since Python has no goto statement, the jumps between the blocks are implemented
 by a loop that switches over a "goto" variable.
 
+::
+
+    .
+            if goto == 1:
+                v0 = space.is_true(w_n)
+                if v0 == True:
+                    w_n_1, w_0 = w_n, w_i
+                    goto = 2
+                else:
+                    assert v0 == False
+                    w_1 = w_i
+                    goto = 4
+
+This is the implementation of the ``while n:``. You see how every
+instruction produces a new variable. There is no implicit state,
+everything is passed over to the next block by initializing its
+input variables. This directly resembles the nature of flowgraphs.
+They are completely stateless.
+
+Note that it is possible to rewrite this by re-using variables,
+trying to produce nested blocks instead of the goto construction
+and much more. For the C backend, this makes no sense since the
+compiler does it for us. For the Python interpreter it could
+give a bit more speed. But this is a temporary format and will
+get optimized anyway when we produce the executable.
+
+
 How it works
 ------------
 
