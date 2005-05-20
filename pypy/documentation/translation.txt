@@ -726,18 +726,28 @@ http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
 Motivation
 ----------
 
-Translation from Python to Python: Why should we do this, since we have an interpreter already? 
+PyPy often makes use of `application-level`_ helper methods.  
+The idea of the 'geninterplevel' backend is to automatically transform 
+such application level implementations to their equivalent representation 
+at interpreter level.  Then, the RPython to C translation hopefully can 
+produce more efficient code than always re-interpreting these methods.
 
-The advantage of translation from Python to Python is, that the produced code does the same thing as the corresponding interpreted code, but no interpreter is needed any longer to execute this code.
+One property of translation from application level Python to
+Python is, that the produced code does the same thing as the
+corresponding interpreted code, but no interpreter is needed
+any longer to execute this code.
 
-Certain pieces of PyPy are implemented in PyPy itself. That is, when interpreting some operations which are not given in our interpreter level implementation, they are implemented by excuting code in application level.
-
+.. _`application-level`: architecture.html#app-preferable
 .. _exceptions: http://codespeak.net/svn/pypy/dist/pypy/lib/_exceptions.py
-
 .. _oldstyle: http://codespeak.net/svn/pypy/dist/pypy/lib/_classobj.py
 
-
-Examples are exceptions_ and oldstyle_ classes. They are needed in a very early phase of bootstrapping StdObjspace, but for simplicity, they are written as RPythonic application level code. This implies that the interpreter must be quite completely initialized to execute this code, which is impossible in the early phase, where we have neither exceptions implemented nor classes available.
+Examples are exceptions_ and oldstyle_ classes. They are
+needed in a very early phase of bootstrapping StdObjspace, but
+for simplicity, they are written as RPythonic application
+level code. This implies that the interpreter must be quite
+completely initialized to execute this code, which is
+impossible in the early phase, where we have neither
+exceptions implemented nor classes available.
 
 Solution
 --------

@@ -257,6 +257,8 @@ from failures appearing in a python application level program that we are
 interpreting.
 
 
+.. _`app-preferable`: 
+
 Application level is often preferable 
 -------------------------------------
 
