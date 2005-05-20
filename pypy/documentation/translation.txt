@@ -893,7 +893,7 @@ input variables ``w_n`` and ``w_i`` of the next target, block 1.
 Note that it is possible to rewrite this by re-using variables,
 trying to produce nested blocks instead of the goto construction
 and much more. The source would look much more like what we
-used to write by hand. For the C backend, this doesn'r make much
+used to write by hand. For the C backend, this doesn't make much
 sense since the compiler optimizes it for us. For the Python interpreter it could
 give a bit more speed. But this is a temporary format and will
 get optimized anyway when we produce the executable.
