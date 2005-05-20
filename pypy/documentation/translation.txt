@@ -42,7 +42,6 @@ Here are the steps we follow to translate a given program:
 .. _`Common Lisp`: http://codespeak.net/svn/pypy/dist/pypy/translator/gencl.py
 .. _Pyrex: http://codespeak.net/svn/pypy/dist/pypy/translator/pyrex/genpyrex.py
 .. _Java: http://codespeak.net/svn/pypy/dist/pypy/translator/java/
-.. _`Python again`: http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
 
 
 
@@ -582,7 +581,7 @@ Overview
 
 The task of GenC is to convert a flow graph into C code.  By itself, GenC does not use the annotations in the graph.  It can actually convert unannotated graphs to C.  However, to make use of the annotations if they are present, an extra pass is needed: the `RPython Typer`_, whose task is to modify the flow graph according to the annotations, replacing operations with lower-level C-ish equivalents.
 
-XXX GenC is currently in the process of being updated to use the RPython Typer. more documentation needed when this is done.
+XXX GenC is currently in the process of being updated to use the RPython Typer. more documentation needed when this is done. But the basic principle of creating code from flowgraphs is similar to the `Python back-end`_.
 
 
 
@@ -715,4 +714,136 @@ XXX More to come.
 
 .. _`tiny function`: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/operations.ll
 .. _`written in C`: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/list.c
+
+.. _`Python again`:
+.. _`Python back-end`:
+
+The Python Back-End
+===================
+
+http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
+
+Motivation
+----------
+
+Translation from Python to Python: Why should we do this, since we have an interpreter already? 
+
+The advantage of translation from Python to Python is, that the produced code does the same thing as the corresponding interpreted code, but no interpreter is needed any longer to execute this code.
+
+Certain pieces of PyPy are implemented in PyPy itself. That is, when interpreting some operations which are not given in our interpreter level implementation, they are implemented by excuting code in application level.
+
+.. _exceptions: http://codespeak.net/svn/pypy/dist/pypy/lib/_exceptions.py
+
+.. _oldstyle: http://codespeak.net/svn/pypy/dist/pypy/lib/_classobj.py
+
+
+Examples are exceptions_ and oldstyle_ classes. They are needed in a very early phase of bootstrapping StdObjspace, but for simplicity, they are written as RPythonic application level code. This implies that the interpreter must be quite completely initialized to execute this code – impossible in the early phase, where we have neither exceptions implemented nor classes available.
+
+Solution
+--------
+
+This bootstrap issue is solved by invoking a new interpreter which runs on FlowObjspace. FlowObjspace is complete without complicated initialization. It is able to do abstract interpretation of any Rpythonic code, without actually implementing anything. It just records all the operations the interpreter ’would’ have done by building flowgraphs for all the code. What the Python backend does is just to produce correct Python code from these flowgraphs and return it as source code.
+
+Example
+-------
+
+.. _implementation: http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
+
+Let’s try the little example from above_. You might want to look at the 
+flowgraph that it produces. Here, we directly run the Python translation 
+and look at the generated source. See also the header section of the implementation_ 
+for the interface::
+
+    >>> from pypy.translator.geninterplevel import translate_as_module
+    >>> entrypoint, source = translate_as_module("""
+    ... 
+    ... def g(n):
+    ...     i = 0
+    ...     while n:
+    ...         i = i + n
+    ...         n = n - 1
+    ...     return i
+    ... 
+    ... """)
+    
+This call has invoked a PyPy interpreter running on FlowObjspace, recorded every
+possible codepath into a flowgraph, and then rendered the following source code::
+    
+    >>> print source
+    #!/bin/env python
+    # -*- coding: LATIN-1 -*-
+
+    #*************************************************************
+
+    def initapp2interpexec(space):
+      """NOT_RPYTHON"""
+
+      def g(space, __args__):
+        funcname = "g"
+        signature = ['n'], None, None
+        defaults_w = []
+        w_n_2, = __args__.parse(funcname, signature, defaults_w)
+        return fastf_g(space, w_n_2)
+
+      f_g = g
+
+      def g(space, w_n_2):
+        goto = 3 # startblock
+        while True:
+
+            if goto == 1:
+                v0 = space.is_true(w_n)
+                if v0 == True:
+                    w_n_1, w_0 = w_n, w_i
+                    goto = 2
+                else:
+                    assert v0 == False
+                    w_1 = w_i
+                    goto = 4
+
+            if goto == 2:
+                w_2 = space.add(w_0, w_n_1)
+                w_3 = space.sub(w_n_1, space.w_True)
+                w_n, w_i = w_3, w_2
+                goto = 1
+                continue
+
+            if goto == 3:
+                w_n, w_i = w_n_2, space.w_False
+                goto = 1
+                continue
+
+            if goto == 4:
+                return w_1
+
+      fastf_g = g
+
+      g3dict = space.newdict([])
+      gs___name__ = space.wrap('__name__')
+      gs_app2interpexec = space.wrap('app2interpexec')
+      space.setitem(g3dict, gs___name__, gs_app2interpexec)
+      gs_g = space.wrap('g')
+      from pypy.interpreter import gateway
+      gfunc_g = space.wrap(gateway.interp2app(f_g, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
+      space.setitem(g3dict, gs_g, gfunc_g)
+      return g3dict
+
+You see that actually a single function is produced: 'initapp2interpexec'. This is the
+function that you will call with a space as argument. It defines a few functions and then
+does a number of initialization steps, builds the global objects the function need,
+and produces the interface function gfunc_g to be called from interpreter level.
+
+The return value is 'g3dict', which contains a module name and the function we asked for.
+
+Let's have a look at the meatof this code: The first definition of g is just
+for the argument parsing and is used as f_g in the gateway.interp2app.
+We look at the second definition, fastf_f. Comparing to the flowgraph from above_,
+you see a code block for every block in the graph.
+Since Python has no goto statement, the jumps between the blocks are implemented
+by a loop that switches over a "goto" variable.
+
+How it works
+------------
+
+XXX to be added later
 
