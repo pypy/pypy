@@ -113,7 +113,6 @@ Directory                      explanation/links
 ``_cache/``                    holds cache files from internally translating application 
                                level to interpreterlevel code.  (insert link when 
                                `issue40`_ is resolved). 
-                               when geninterp documentation is there). 
 ============================   =========================================== 
 
 .. _documentation: index.html
