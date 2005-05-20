@@ -364,7 +364,7 @@ new debugging opensource tools.
 
 - automated (unit-)testing framework with html/pdf reports 
 
-**Synchronisation with Standard Python**
+**Synchronization with Standard Python**
 
 - Keeping PyPy in sync with potential changes to Standard Python.
 
@@ -617,7 +617,7 @@ which would impair the objectives of RPython.
 
 **Stackless Integration  + More Performance Hacks**
 
-- Identification and Implementation of Optimisations through modifications 
+- Identification and Implementation of Optimizations through modifications 
   of the Translator.
   
 - Enable Massive Parallelism in a Single Thread.
@@ -663,7 +663,7 @@ which would impair the objectives of RPython.
   machine code for multiple processor architectures.  Enable dynamic
   foreign function calls.
 
-- Research optimisation heuristics for the Just-In-Time compiler.
+- Research optimization heuristics for the Just-In-Time compiler.
 
 - A Just-In-Time compiler for PyPy !!! Outperform the
   state-of-the art (Psyco, Stackless).
