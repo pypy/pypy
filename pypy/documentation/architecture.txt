@@ -1,5 +1,5 @@
 ==================================================
-Overview of PyPy's current architecture (May 2005)
+PyPy - architecture overview 
 ==================================================
 
 .. contents::

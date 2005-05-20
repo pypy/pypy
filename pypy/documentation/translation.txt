@@ -1,5 +1,5 @@
 =====================
-   PyPy Translation
+ PyPy - Translation
 =====================
 
 .. contents::

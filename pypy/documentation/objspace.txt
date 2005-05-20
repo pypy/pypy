@@ -1,6 +1,6 @@
-==================
-PyPy Object Spaces
-==================
+======================
+PyPy - Object Spaces
+======================
 
 .. contents::
 .. sectnum::
