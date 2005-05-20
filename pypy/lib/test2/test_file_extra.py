@@ -102,11 +102,12 @@ class TestFile:
         assert f.read() == 'hello\nworld\n'
         f.close()
 
-    def test_rw_universal(self):
+    def test_r_universal(self):
         # XXX tests in progress
         fn = str(udir.join('temptestfile'))
-        f = _file.file(fn, 'w+U')
+        f = open(fn, 'wb')
         f.write('hello\r\nworld\r\n')
-        f.seek(0)
+        f.close()
+        f = _file.file(fn, 'rU')
         assert f.read() == 'hello\nworld\n'
         f.close()
