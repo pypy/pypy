@@ -99,7 +99,10 @@ def builtin_hasattr(s_obj, s_attr):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
         getbookkeeper().warning('hasattr(%r, %r) is not RPythonic enough' %
                                 (s_obj, s_attr))
-    return SomeBool()
+    r = SomeBool()
+    if s_obj.is_constant():
+        r.const = hasattr(s_obj.const, s_attr.const)
+    return r
 
 def builtin_callable(s_obj):
     return SomeBool()

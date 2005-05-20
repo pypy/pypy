@@ -532,7 +532,6 @@ class ApplevelClass:
         def appcaller(space, *args_w):
             if not isinstance(space, ObjSpace): 
                 raise TypeError("first argument must be a space instance.")
-            # redirect if the space handles this specially
             if hasattr(space, 'specialcases'):
                 sc = space.specialcases
                 if ApplevelClass in sc:
