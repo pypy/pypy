@@ -23,7 +23,7 @@ Talks and Presentations
 .. _`Architecture introduction slides`: http://codespeak.net/svn/pypy/extradoc/talk/amsterdam-sprint-intro.pdf
 .. _`EU funding for FOSS`: http://codespeak.net/svn/pypy/extradoc/talk/2004-21C3-pypy-EU-hpk.pdf
 .. _`py lib slides`: http://codespeak.net/svn/pypy/extradoc/talk/2005-pycon-py.pdf
-.. _`PyCon 2005`: http://codespeak.net/svn/pypy/extradoc/talk/pypy-talk-pycon2005/
+.. _`PyCon 2005`: http://codespeak.net/pypy/index.cgi?extradoc/talk/pypy-talk-pycon2005/README.html
 
 Related projects 
 ----------------------------------
