@@ -17,8 +17,8 @@ Download one of the following release files and unpack it:
 
 *pypy-0.6 (05/20/2005)*
     
-    * download one of `pypy-0.6.tar.bz2`, `pypy-0.6.tar.gz` or 
-      `pypy-0.6.zip` and unpack it 
+    * download one of `pypy-0.6.tar.bz2`_, `pypy-0.6.tar.gz`_ or 
+      `pypy-0.6.zip`_ and unpack it 
     
     * alternatively run ``svn co http://codespeak.net/svn/pypy/release/0.6 pypy-0.6`` 
 
