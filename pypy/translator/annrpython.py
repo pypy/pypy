@@ -154,12 +154,9 @@ class RPythonAnnotator:
                         traceback.print_exception(*self.why_not_annotated[block])
                         print '-+' * 30
                         print
-            print "++-" * 20
-            print ('%d blocks are still blocked' %
+                print "++-" * 20
+            raise AnnotatorError('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
-            print "continuing anyway ...."
-            print "++-" * 20
-            
 
     def binding(self, arg, extquery=False):
         "Gives the SomeValue corresponding to the given Variable or Constant."

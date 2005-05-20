@@ -55,10 +55,8 @@ def analyse(target):
     if listen_port:
         run_async_server()
     if not options['-no-a']:
-        try:
-            a = t.annotate(inputtypes, overrides=pypy_overrides)
-        finally:
-            worstblocks_topten(t.annotator)
+        a = t.annotate(inputtypes, overrides=pypy_overrides)
+        worstblocks_topten(a)
         if not options['-no-s']:
             a.simplify()
         if not options['-no-t']:
