@@ -14,6 +14,7 @@
 .. _`module/`:
 .. _`pypy/module`: http://codespeak.net/svn/pypy/dist/pypy/module
 .. _`module/__builtin__/`: http://codespeak.net/svn/pypy/dist/pypy/module/__builtin__
+.. _`pypy/module/__builtin__/__init__.py`: http://codespeak.net/svn/pypy/dist/pypy/module/__builtin__/__init__.py
 .. _`module/_sre_pypy/`: http://codespeak.net/svn/pypy/dist/pypy/module/_sre_pypy
 .. _`module/parser/`: http://codespeak.net/svn/pypy/dist/pypy/module/parser
 .. _`module/recparser/`: http://codespeak.net/svn/pypy/dist/pypy/module/recparser

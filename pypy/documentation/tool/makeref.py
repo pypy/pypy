@@ -29,6 +29,9 @@ for textfile in docdir.visit(lambda x: x.ext == '.txt',
             if cand.check(): 
                 target = dist_url + cand.relto(distdir)
                 addlink(linkname, target) 
+                break
+        else: 
+            print "WARNING %s: link %r may be bogus" %(textfile, linkname) 
 
 items = name2target.items() 
 items.sort() 
@@ -40,5 +43,6 @@ for linktarget, linknamelist in items:
     lines.append(".. _`%s`: %s" %(linknamelist[-1], linktarget))
 
 reffile.write("\n".join(lines))
-print "last ten lines"
-for x in lines[-10:]: print x
+print "wrote %d references to %r" %(len(lines), reffile)
+#print "last ten lines"
+#for x in lines[-10:]: print x
