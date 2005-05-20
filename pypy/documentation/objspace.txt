@@ -201,25 +201,46 @@ The goal of the above module layout is to cleanly separate the Python type objec
 The Trace Object Space
 ======================
 
-The Trace Object space is a proxy object space, intercepting and memorizing 
-space operations.  It also traces frame creation, deletion and bytecode execution.  
-It's implementation delegates to another object space - usually the standard 
-object space - in order to  carry out the operations.  The ease with which
-the Trace Object Space was implemented in `pypy/objspace/trace.py`_  
-underlines the power of the Object Space abstraction.   
+The Trace Object Space was first written at the Amsterdam sprint.  The ease
+with which the Trace Object Space was implemented in `pypy/objspace/trace.py`_
+underlines the power of the Object Space abstraction.  Effectively it is a
+simple proxy object space.  It has gone through various refactors to reach its
+original objective, which was to show how bytecode in code objects ultimately
+performs computation via an object space.
+
+This space will intercept space operations in realtime and as a side effect
+will memorize them.  It also traces frame creation, deletion and bytecode
+execution.  Its implementation delegates to another object space - usually the
+standard object space - in order to carry out the operations.
+
+The pretty printing aims to be a graphical way of introducing programmers, and
+especially ones familiar with CPython, to how PyPy works from a bytecode and
+frames perspective.  As a result one can grasp an intuitive idea of how
+`Abstract Interpretation`_ records via tracing all execution paths of the
+individual operations if one removes the bytecode out of the equation.  This is
+the purpose of the `Flow Object Space`_.
+
+Another educational use of Trace Object Space is that it allows a Python user
+who has little understanding of how the interpreter works, a rapid way of
+understanding what bytecodes are and what an object space is.  When a statement
+or expression is typed on the command line, one can see what is happening
+behind the scenes.  This will hopefully give users a better mental framework
+when they are writing code.
 
 To make use of the tracing facilities you can at runtime switch
 your interactive session to tracing mode by typing:: 
 
     >>> __pytrace__ = 1 
 
-(Also see the `trace example`_). 
-
 Note that tracing mode will not show or record all space operations 
 by default to avoid presenting too much information.  Only non-helper 
 operations are usually shown.   
 
-.. _`trace example`: getting_started.html#trace-example
+A quick introduction on how to use the trace object space can be `found here`_.
+
+.. _`found here` : getting_started.html#tracing-bytecode-and-operations-on-objects
+.. _`Abstract Interpretation`: theory.html#abstract-interpretation
+
 
 The Thunk Object Space
 ======================
@@ -244,6 +265,8 @@ Example usage::
     computing...
     <pypy type 'int'>
 
+
+>> _`flow object space`:
 
 The Flow Object Space
 =====================
