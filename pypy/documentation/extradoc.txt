@@ -35,6 +35,10 @@ Related projects
   Gregory Sullivan et. al., 
   `Dynamic Native Optimization of Native Interpreters`_. IVME 03. 2003.
 
+* Stackless_ is a recursion-free version of Python.
+
+* Psyco_ is a just-in-time specializer for Python.
+
 * JikesRVM_ a research dynamic optimizing Java VM written in Java.
 
 * `Squeak`_ is a Smalltalk-80 implementation written in
@@ -45,12 +49,16 @@ Related projects
   
 * spyweb_ translates Python programs to Scheme. 
 
+* Jython_ is a Python implementation in Java.
+
 * `Iron Python`_ a new Python implementation compiling Python into 
   Microsofts Common Language Runtime (CLR) Intermediate Language (IL).
 
 * `GNU lightning`_ generates assembly language at runtime. 
 
-
+.. _Stackless: http://stackless.com 
+.. _Psyco: http://psyco.sourceforge.net
+.. _Jython: http://www.jython.org
 .. _`Squeak`: http://www.squeak.org/
 .. _`Croquet`: http://www.opencroquet.org/
 .. _`Iron Python`: http://www.gotdotnet.com/workspaces/workspace.aspx?id=ad7acff7-ab1e-4bcb-99c0-57ac5a3a9742

@@ -1,16 +1,13 @@
 
 
-    The PyPy project aims at producing a simple runtime-system for the Python
-    language.  We want to express the basic abstractions within the
-    Python Language itself.  We later want to have a minimal
-    core which is not written in Python and doesn't need CPython anymore.
-    We want to take care that technologies such as `Psyco`_ and `Stackless`_
-    will easily integrate.  Simplicity and Flexibilty are the foremost goals. 
-    Rumors have it that the secret goal is being faster-than-C which is 
-    nonsense, isn't it?
+    The PyPy project aims at producing a flexible and fast Python_
+    implementation.  The guiding idea is to translate a Python-level
+    description of the Python language itself to lower level languages.
+    Rumors have it that the secret goal is being faster-than-C which is
+    nonsense, isn't it?  `more...`_
 
-.. _Psyco: http://psyco.sf.net
-.. _Stackless: http://stackless.com 
+.. _Python: http://www.python.org/doc/current/ref/ref.html
+.. _`more...`: ../architecture.html#goals
 
 
 Next Sprint after EuroPython 2005 1st-7th July 

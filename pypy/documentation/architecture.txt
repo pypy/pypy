@@ -11,6 +11,19 @@ See also `getting started`_ for a practical introduction.
 .. _`getting started`: getting_started.html
 
 
+Goals
+=====
+
+PyPy is a reimplementation of Python_ written in Python itself, flexible and
+easy to experiment with.  Our long-term goals are to target a large variety of
+platforms, small and large, by providing a compiler toolsuite that can produce
+custom Python versions.  Platform, Memory and Threading models are to become
+aspects of the translation process - as opposed to encoding low level details
+into a language implementation itself.  Then dynamic optimization techniques
+- implemented as another translation aspect - should become robust against
+language changes.
+
+
 PyPy - an implementation of Python in Python
 ============================================
 
@@ -30,8 +43,8 @@ For some time now the bleeding edge PyPy work has been focused on generating
 reasonably efficient C code from the source of PyPy, thereby reducing the
 speed penalty.  This goal is no longer far away.
 
-Later in the project, we will introduce optimisations (following the ideas
-of Psyco) that should make PyPy run faster than CPython.
+Later in the project, we will introduce optimizations (following the ideas
+of Psyco_ and Stackless_) that should make PyPy run faster than CPython.
 
 An important aspect of implementing Python in Python is the high level of
 abstraction and compactness of the language. This yields an implementation
@@ -53,7 +66,10 @@ We also pass a number of CPython's own tests, including 90% of the "core"
 tests not depending on C extension modules (most of the remaining 10% are
 arguably dependant on very obscure implementation details of CPython).
 
-.. _Python: http://www.python.org/doc/2.4.1/ref/ref.html
+.. _Python: http://www.python.org/doc/current/ref/ref.html
+.. _Psyco: http://psyco.sourceforge.net
+.. _Stackless: http://stackless.com 
+
 
 Higher level picture
 ====================
