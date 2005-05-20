@@ -33,7 +33,7 @@ class Bytecode:
     def __ne__(self, other):
         return not (self == other)
 
-    def reprargstring(self):
+    def reprargstring(self, space = None):
         """ return a string representation of any arguments. (empty for no args)"""
         oparg = self.oparg
         if oparg is None:
@@ -43,12 +43,8 @@ class Bytecode:
         
         s = repr(oparg).rjust(5) + " "
         if op in hasconst:
-            # support both real code objects and PyCode objects
-            try:
-                consts = co.co_consts
-            except AttributeError:
-                consts = co.co_consts_w
-            s += '(' + `consts[oparg]` + ')'
+            consts = self.get_consts(space)
+            s += '(' + consts[oparg] + ')'
         elif op in hasname:
             s +=  '(' + co.co_names[oparg] + ')'
         elif op in hasjrel:
@@ -62,6 +58,21 @@ class Bytecode:
             free = co.co_cellvars + co.co_freevars
             s +=  '(' + free[oparg] + ')'
         return s 
+
+    def get_consts(self, space=None):
+        # support both real code objects and PyCode objects
+        co = self.disresult.code
+        if hasattr(co, "co_consts"):
+            return [repr(c) for c in co.co_consts]
+
+        if space is None:
+            return [repr(c) for c in co.co_consts_w]
+        
+        r = lambda x: space.str_w(space.repr(x))
+        return [r(c) for c in co.co_consts_w]
+
+    def repr_with_space(self, space):
+        return self.name + self.reprargstring(space)
 
     def __repr__(self):
         return self.name + self.reprargstring()
@@ -113,12 +124,15 @@ def pydis(co):
     if hasattr(co, 'func_code'):
         co = co.func_code 
 
+    if hasattr(co, 'code'):
+        co = co.code 
+
     disresult = DisResult(co)
     code = co.co_code
 
     byte_increments = [ord(c) for c in co.co_lnotab[0::2]]
     line_increments = [ord(c) for c in co.co_lnotab[1::2]]
-    table_length = len(byte_increments) # == len(line_increments)
+    table_length = len(byte_increments)
 
     lineno = co.co_firstlineno
     table_index = 0
