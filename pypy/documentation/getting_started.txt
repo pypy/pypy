@@ -172,6 +172,8 @@ prompt with the affix ``w_``::
 Note that the prompt of the interpreter-level console is only '>>>' since
 it runs on CPython level. To return to PyPy, press <Ctrl-D>.
 
+.. _`trace example`: 
+
 Tracing bytecode and operations on objects
 ++++++++++++++++++++++++++++++++++++++++++ 
 
@@ -527,13 +529,13 @@ Directory                      explanation/links
 `module/_sre_pypy/`_           an experimental approach wrapping CPython's ``_sre`` module 
                                without using faking 
 
-`module/builtin/`_             full implementation of CPython's ``__builtin__`` module. 
+`module/__builtin__/`_         full implementation of CPython's ``__builtin__`` module. 
 
 `module/parser/`_              parser package from Jonathan David Riehl's `basil`_ package
 
 `module/recparser/`_           parser package from Logilab 
 
-`module/sys2/`_                implementation of CPython's ``sys`` module.  
+`module/sys/`_                 implementation of CPython's ``sys`` module.  
 
 `objspace/`_                   `object space`_ implementations
 

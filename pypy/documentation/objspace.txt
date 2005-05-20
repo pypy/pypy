@@ -201,16 +201,25 @@ The goal of the above module layout is to cleanly separate the Python type objec
 The Trace Object Space
 ======================
 
-The Trace Object space is a proxy object space, delegating most operations to
-another one -- usually a standard object space -- while tracing them.  It also
-traces frame creation, deletion and bytecode execution.  The ease with which
-the Trace Object Space was implemented at the Amsterdam Sprint
-underlines the power of the Object Space abstraction.  (Of course, the
-previously-implemented Flow Object Space producing the flow graph
-already was proof enough). 
+The Trace Object space is a proxy object space, intercepting and memorizing 
+space operations.  It also traces frame creation, deletion and bytecode execution.  
+It's implementation delegates to another object space - usually the standard 
+object space - in order to  carry out the operations.  The ease with which
+the Trace Object Space was implemented in `pypy/objspace/trace.py`_  
+underlines the power of the Object Space abstraction.   
 
-In an interactive PyPy prompt, type ``__pytrace__ = 1`` to enable it.
+To make use of the tracing facilities you can at runtime switch
+your interactive session to tracing mode by typing:: 
 
+    >>> __pytrace__ = 1 
+
+(Also see the `trace example`_). 
+
+Note that tracing mode will not show or record all space operations 
+by default to avoid presenting too much information.  Only non-helper 
+operations are usually shown.   
+
+.. _`trace example`: getting_started.html#trace-example
 
 The Thunk Object Space
 ======================

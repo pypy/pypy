@@ -13,19 +13,19 @@
 .. _`pypy/lib/test2`: http://codespeak.net/svn/pypy/dist/pypy/lib/test2
 .. _`module/`:
 .. _`pypy/module`: http://codespeak.net/svn/pypy/dist/pypy/module
+.. _`module/__builtin__/`: http://codespeak.net/svn/pypy/dist/pypy/module/__builtin__
 .. _`module/_sre_pypy/`: http://codespeak.net/svn/pypy/dist/pypy/module/_sre_pypy
-.. _`module/builtin/`: http://codespeak.net/svn/pypy/dist/pypy/module/builtin
-.. _`pypy/module/builtin/__init__.py`: http://codespeak.net/svn/pypy/dist/pypy/module/builtin/__init__.py
 .. _`module/parser/`: http://codespeak.net/svn/pypy/dist/pypy/module/parser
 .. _`module/recparser/`: http://codespeak.net/svn/pypy/dist/pypy/module/recparser
-.. _`module/sys2/`: http://codespeak.net/svn/pypy/dist/pypy/module/sys2
+.. _`module/sys/`: http://codespeak.net/svn/pypy/dist/pypy/module/sys
 .. _`pypy/objspace`:
 .. _`objspace/`: http://codespeak.net/svn/pypy/dist/pypy/objspace
 .. _`objspace/flow/`: http://codespeak.net/svn/pypy/dist/pypy/objspace/flow
 .. _`pypy/objspace/std`:
 .. _`objspace/std/`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std
 .. _`objspace/thunk.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/thunk.py
-.. _`objspace/trace.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
+.. _`objspace/trace.py`:
+.. _`pypy/objspace/trace.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
 .. _`rpython/`: http://codespeak.net/svn/pypy/dist/pypy/rpython
 .. _`tool/`: http://codespeak.net/svn/pypy/dist/pypy/tool
 .. _`tool/pytest/`: http://codespeak.net/svn/pypy/dist/pypy/tool/pytest
