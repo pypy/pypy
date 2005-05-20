@@ -85,8 +85,6 @@ you can simply run PyPy's large test suite with::
 test_all.py is just another name for `py.test`_ which is the
 testing tool that we are using and enhancing for PyPy.   
 
-.. _`py.test`: http://codespeak.net/py/current/doc/test.html 
-
 Filing bugs or feature requests 
 -------------------------------
 
@@ -324,7 +322,7 @@ sufficiently static Python programs into low-level code.
    avaiable in C (e.g. int) with low level versions. This can be ommited if no
    annotation (step 4) has been performed.
 
-6. If you feel adventureous (and have LLVM installed and on your path) you can
+6. If you feel adventureous (and have `LLVM installed`_ and on your path) you can
    also try to compile the graph with LLVM. This is still quite experimental
    and only works with some functions: One of the most visible restriction is
    that return type of the entry function has to be and int, float or bool. To
@@ -427,48 +425,66 @@ To learn more
 Additional Tools for running (and hacking) PyPy 
 -----------------------------------------------
 
-We use some optional tools for working on pypy. They are not required to run 
+We use some optional tools for developing PyPy. They are not required to run 
 the basic tests or to get an interactive PyPy prompt but they help to
 understand  and debug PyPy especially for the ongoing translation work.  
 
-Recommended tools 
-+++++++++++++++++
+graphviz & pygame for flowgraph viewing (highly recommended)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-*graphviz* 
+graphviz and pygame are both neccessary if you
+want to look at generated flowgraphs: 
 
-	(used for visualizing the control-flow)
-	http://www.research.att.com/sw/tools/graphviz/download.html 
+	graphviz: http://www.research.att.com/sw/tools/graphviz/download.html 
 
-*pygame*
+	pygame: http://www.pygame.org/download.shtml
 
-	(to visualize control flow and annotation analysis of python programs)
-	http://www.pygame.org/download.shtml
+.. _`LLVM installed`: 
 
-Optional tools 
-++++++++++++++ 
+LLVM  
++++++ 
 
-*llvm* 
+LLVM is used by the optional `PyPy/LLVM backend`_ to generate processor 
+indepdendant machine level code for the `low level virtual machine`_ 
+to generate processor independant machine level code.  LLVM can be quite 
+annoying to install: you need a fairly recent version of GCC to compile 
+it and there can be severe problems under windows. Here are detailed 
+instructions on how to install: 
 
-    (used for the optional LLVM translation backend)
-    One of our backends uses the `low level virtual machine`_ to generate
-    processor independant machine level code.
+    http://llvm.cs.uiuc.edu/docs/GettingStarted.html
 
-    LLVM can be quite annoying to install: you need a fairly recent version of
-    GCC to compile it and there can be severe problems under windows. There are
-    detailed instructions on `how to install LLVM`_. To use the LLVM backend
-    of PyPy you don't need the GCC front end of LLVM, only LLVM itself. If you
-    run into problems with the installation the `LLVM mailing list`_ is very
-    helpful and friendly.
+**NOTE: To use the LLVM backend of PyPy you don't need the GCC front end 
+of LLVM, only LLVM itself**. If you run into problems with the installation 
+the `LLVM mailing list`_ is very helpful and friendly.  Note also that 
+the PyPy LLVM backend was developed using LLVM 1.4 but it seems to work 
+with LLVM 1.5. Nobody ever tried an older version.
 
-    Note that the PyPy LLVM backend was developed using LLVM 1.4 and it seems
-    to work with LLVM 1.5. Nobody ever tried an older version.
+CLISP
++++++++
 
-*CLISP* 
+The CLISP backend is optional and not quite uptodate with the rest of
+PyPy. Still there are a few examples you can try our backend out on. 
+Here is a link of a version that should work: 
 
-    (used for the optional Lisp translation backend) 
     http://clisp.cons.org/ 
 
 
+.. _`py.test`:  
+
+py.test and the py lib 
++++++++++++++++++++++++
+
+The `py library`_ is used for supporting PyPy development and 
+running our tests against code and documentation as well as
+compliancy tests.  You don't need to install the py library because 
+it ships with PyPy and `pypy/test_all.py`_ is an alias for ``py.test``
+but if you want to have the ``py.test`` tool generally in your 
+path, you might like to visit: 
+
+    http://codespeak.net/py/current/doc/getting-started.html
+
+.. _`py library`: http://codespeak.net/py 
+.. _`PyPy/LLVM backend`: translation.html#llvm 
 .. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
 .. _`how to install LLVM`: http://llvm.cs.uiuc.edu/docs/GettingStarted.html
 .. _`LLVM mailing list`: http://mail.cs.uiuc.edu/mailman/listinfo/llvmdev

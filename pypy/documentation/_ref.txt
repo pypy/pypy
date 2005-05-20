@@ -28,6 +28,7 @@
 .. _`objspace/trace.py`:
 .. _`pypy/objspace/trace.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
 .. _`rpython/`: http://codespeak.net/svn/pypy/dist/pypy/rpython
+.. _`pypy/test_all.py`: http://codespeak.net/svn/pypy/dist/pypy/test_all.py
 .. _`tool/`: http://codespeak.net/svn/pypy/dist/pypy/tool
 .. _`tool/pytest/`: http://codespeak.net/svn/pypy/dist/pypy/tool/pytest
 .. _`tool/tb_server/`: http://codespeak.net/svn/pypy/dist/pypy/tool/tb_server
