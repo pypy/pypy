@@ -2,14 +2,15 @@
 Implementation of a translator from application Python to
 interpreter level RPython.
 
-The idea is that we can automatically transform app-space implementations
-of methods into some equivalent representation at interpreter level.
-Then, the RPython to C translation might hopefully spit out some
-more efficient code than always interpreting these methods.
+The idea is that we can automatically transform application level
+implementations of methods into some equivalent representation at
+interpreter level. Then, the RPython to C translation might
+hopefully spit out some more efficient code than always interpreting
+these methods.
 
-Note that the appspace functions are treated as rpythonic, in a sense
-that globals are constants, for instance. This definition is not
-exact and might change.
+Note that the application level functions are treated as rpythonic,
+in a sense that globals are constants, for instance. This definition
+is not exact and might change.
 
 The interface for this module is
 
@@ -18,6 +19,17 @@ The interface for this module is
                                 filename=None,
                                 modname="app2interpexec",
                                 tmpname=None)
+
+If filename is given, it is used as a reference where
+this sourcetext can be literally found, to produce
+real line numbers. It cannot be just any name but
+must exist and contain the source code somewhere.
+
+modname is optional and will be put into the dictionary
+to be created.
+
+tmpname is optional. If given, a temporary file will
+be created for debugging purposes.
 
 The returned newsrc is the generated source text.
 It is used in gateway.py's caching mechanism.
