@@ -790,10 +790,6 @@ possible codepath into a flowgraph, and then rendered the following source code:
     #!/bin/env python
     # -*- coding: LATIN-1 -*-
 
-    #*************************************************************
-
-the single gobal function::
-
     def initapp2interpexec(space):
       """NOT_RPYTHON"""
 
@@ -805,6 +801,8 @@ the single gobal function::
         return fastf_g(space, w_n_2)
 
       f_g = g
+
+``The meat of the code``::
 
       def g(space, w_n_2):
         goto = 3 # startblock
@@ -836,6 +834,8 @@ the single gobal function::
                 return w_1
 
       fastf_g = g
+
+``Initialisation code``::
 
       g3dict = space.newdict([])
       gs___name__ = space.wrap('__name__')
