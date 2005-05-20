@@ -1,0 +1,65 @@
+=================================================
+PyPy - talks and related projects 
+=================================================
+
+Talks and Presentations 
+----------------------------------
+
+* oscon2003-paper_ an early paper presented at Oscon 2003 describing 
+  what the PyPy project is about and why you should care. 
+
+* `Architecture introduction slides`_ a mostly up-to-date
+  introduction for the Amsterdam PyPy-Sprint Dec 2003. 
+
+* `EU funding for FOSS`_ talk on Chaos Communication
+  Conference in Berlin, Dec 2004. 
+
+* `py lib slides`_ from the py lib talk at Pycon 2005 
+  (py is used as a support/testing library for PyPy). 
+
+.. _oscon2003-paper: http://codespeak.net/pypy/index.cgi?extradoc/talk/oscon2003-paper.html
+.. _`Architecture introduction slides`: http://codespeak.net/svn/pypy/extradoc/talk/amsterdam-sprint-intro.pdf
+.. _`EU funding for FOSS`: http://codespeak.net/svn/pypy/extradoc/talk/2004-21C3-pypy-EU-hpk.pdf
+.. _`py lib slides`: http://codespeak.net/svn/pypy/extradoc/talk/2005-pycon-py.pdf
+
+Related projects 
+----------------------------------
+
+* Dynamo_ showcased `transparent dynamic optimization`_
+  generating an optimized version of a binary program at runtime. 
+
+* Tailoring Dynamo_ to interpreter implementations and challenges -
+  Gregory Sullivan et. al., 
+  `Dynamic Native Optimization of Native Interpreters`_. IVME 03. 2003.
+
+* JikesRVM_ a research dynamic optimizing Java VM written in Java.
+
+* `Squeak`_ is a Smalltalk-80 implementation written in
+  Smalltalk, being used in `Croquet`_, an experimental 
+  distributed multi-user/multi-programmer virtual world. 
+
+* `LLVM`_ the low level virtual machine project. 
+  
+* spyweb_ translates Python programs to Scheme. 
+
+* `Iron Python`_ a new Python implementation compiling Python into 
+  Microsofts Common Language Runtime (CLR) Intermediate Language (IL).
+
+* `GNU lightning`_ generates assembly language at runtime. 
+
+
+.. _`Squeak`: http://www.squeak.org/
+.. _`Croquet`: http://www.opencroquet.org/
+.. _`Iron Python`: http://www.gotdotnet.com/workspaces/workspace.aspx?id=ad7acff7-ab1e-4bcb-99c0-57ac5a3a9742
+.. _`transparent dynamic optimization`: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
+.. _Dynamo: http://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
+.. _optionaltool: http://codespeak.net/pypy/index.cgi?doc/optionaltool.html
+.. _testdesign: http://codespeak.net/pypy/index.cgi?doc/testdesign.html
+.. _feasible: http://codespeak.net/pipermail/pypy-dev/2004q2/001289.html
+.. _rock: http://codespeak.net/pipermail/pypy-dev/2004q1/001255.html
+.. _spyweb: http://spyweb.hopto.org/
+.. _`GNU lightning`: http://www.gnu.org/software/lightning/lightning.html
+.. _LLVM: http://llvm.cs.uiuc.edu/
+.. _IronPython: http://www.python.org/pycon/dc2004/papers/9/
+.. _`Dynamic Native Optimization of Native Interpreters`: http://www.ai.mit.edu/~gregs/dynamorio.html
+.. _JikesRVM: http://jikesrvm.sf.net

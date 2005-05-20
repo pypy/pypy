@@ -63,6 +63,7 @@ Have a look at `interesting starting points`_
 for some guidance on how to continue. 
 
 .. _`help on installing subversion`: svn-help.html
+.. _subversion: svn-help.html
 
 Understanding PyPy's architecture
 ---------------------------------
@@ -374,11 +375,12 @@ sufficiently static Python programs into low-level code.
 .. _`start reading sources`: 
    
 Where to start reading the sources
----------------------------------- 
+================================== 
 
 PyPy is made from parts that are relatively independent from each other.
 You should start looking at the part that attracts you most (all parts are
-relative to the PyPy toplevel directory):
+relative to the PyPy toplevel directory).  You may look at our `directory reference`_ 
+or start off at one of the following points:
 
 *  `pypy/interpreter`_ contains the basic interpreter: bytecode dispatcher
    in pyopcode.py_, frame and code objects in eval.py_ and pyframe.py_,
@@ -405,21 +407,6 @@ relative to the PyPy toplevel directory):
    `pypy/translator/annrpython.py`_.
 
 
-To learn more
-------------- 
-
-* To learn more about PyPy and its development process,  
-  read around in the documentation_ and consider 
-  subscribing to the `mailing lists`_ (or simply
-  read the archives online) 
-  
-* show up on irc.freenode.net:6667, channel #pypy and ask
-  questions.  The logs of the channel can be found at 
-  http://nimrod.terra-link.net/pypy/_.
-
-* To help PyPy become Python-the-next-generation, you 
-  are invited to participate in its development. 
-   
 .. _optionaltool: 
 
 Additional Tools for running (and hacking) PyPy 
@@ -513,104 +500,22 @@ path, you might like to visit:
 .. _unit tests:             http://codespeak.net/pypy/index.cgi?doc/testdesign.html
 .. _bug reports:            https://codespeak.net/issue/pypy-dev/
 
+.. _`directory reference`: index.html#directory-reference
 
-.. _`directory reference`: 
+To learn more / get in contact
+============================== 
 
-PyPy directory reference 
-======================================================
+* To learn more about PyPy and its development process,  
+  read around in the documentation_ and consider 
+  subscribing to the `mailing lists`_ (or simply
+  read the archives online) 
+  
+* show up on irc.freenode.net:6667, channel #pypy and ask
+  questions.  The logs of the channel can be found at 
+  http://nimrod.terra-link.net/pypy/
 
-Here is a fully referenced alphabetical two-level deep 
-directory overview of PyPy: 
-
-============================   =========================================== 
-Directory                      explanation/links
-============================   =========================================== 
-`annotation/`_                 `type inferencing code`_ for `RPython`_ programs 
-
-`documentation/`_              text versions of PyPy `documentation`_ files shown on the website 
-
-`documentation/revreport/`_    the source code for the `revision report`_ 
-
-`documentation/website/`_      text versions of the navigation webpages 
-
-`interpreter/`_                bytecode interpreter and related objects (frames, functions, modules,...) 
-
-`lib/`_                        PyPy's wholesale reimplementations of CPython modules_
-
-`lib/test2/`_                  tests running at interp-level against the reimplementations 
-
-`module/`_                     contains `mixed modules`_ implementing core modules with 
-                               both application and interpreter level code 
-
-`module/_sre_pypy/`_           an experimental approach wrapping CPython's ``_sre`` module 
-                               without using faking 
-
-`module/__builtin__/`_         full implementation of CPython's ``__builtin__`` module. 
-
-`module/parser/`_              parser package from Jonathan David Riehl's `basil`_ package
-
-`module/recparser/`_           parser package from Logilab 
-
-`module/sys/`_                 implementation of CPython's ``sys`` module.  
-
-`objspace/`_                   `object space`_ implementations
-
-`objspace/trace.py`_           the `trace object space`_ monitoring bytecode and space operations
-
-`objspace/thunk.py`_           the `thunk object space`_, providing unique object features 
-
-`objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`
-
-`objspace/std/`_               the StdObjSpace_ implementing CPython's objects and types
-
-`rpython/`_                    the `RPython Typer`_ 
-
-`tool/`_                       various utilities and hacks used from various places 
-
-`tool/pytest/`_                support code for our `testing methods`_
-
-`tool/tb_server/`_             a somewhat outdated http-server for presenting 
-                               tracebacks in a helpful manner 
-
-`translator/`_                 translation_ backends and support code
-
-`translator/genc/`_            the `GenC backend`_ producing a CPython C-extension 
-                               module from a given RPython program. 
-
-`translator/java/`_            experimental code to utilize Java for annotation 
-
-`translator/llvm/`_            contains the `LLVM backend`_ producing LLVM assembler 
-                               from fully annotated RPython programs 
-
-`translator/tool/`_            helper tools for translation 
-
-``*/test/``                    many directories have a test subdirectory containing test 
-                               modules (see `Testing in PyPy`_) 
-
-``_cache/``                    holds cache files from internally translating application 
-                               level to interpreterlevel code.  (XXXM0.5 insert link here 
-                               when geninterp documentation is there). 
-============================   =========================================== 
-
-.. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 
-.. _`mixed modules`: coding-guide.html#mixed-modules 
-.. _`modules`: coding-guide.html#modules 
-.. _`basil`: http://people.cs.uchicago.edu/~jriehl/BasilTalk.pdf
-.. _`object space`: objspace.html
-.. _FlowObjSpace: objspace.html#the-flow-object-space 
-.. _`trace object space`: objspace.html#the-trace-object-space 
-.. _`thunk object space`: objspace.html#the-thunk-object-space 
-.. _StdObjSpace: objspace.html#the-standard-object-space 
-.. _`abstract interpretation`: theory.html#abstract-interpretation
-.. _`rpython`: coding-guide.html#rpython 
-.. _`type inferencing code`: translation.html#the-annotation-pass 
-.. _`RPython Typer`: translation.html#rpython-typer 
-.. _`testing methods`: coding-guide.html#testing-in-pypy
-.. _`translation`: translation.html 
-.. _`GenC backend`: translation.html#genc 
-.. _`LLVM backend`: translation.html#llvm 
-.. _`revision report`: http://codespeak.net/pypy/rev/current 
-
-.. _subversion: svn-help.html
+* To help PyPy become Python-the-next-generation, you 
+  are invited to participate in its development. 
+   
 
 .. include:: _ref.txt
