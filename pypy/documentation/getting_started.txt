@@ -198,7 +198,9 @@ it, set ``__pytrace__=1`` on the interactive PyPy console::
     |- 6    BINARY_ADD
       |-    add(W_IntObject(1), W_IntObject(2))   -> W_IntObject(3)
     |- 7    STORE_NAME    0 (a)
-      |-    setitem(W_DictObject([<Entry 3098577608L,W_StringObject('__builtins__'),<pypy.module..., W_StringObject('a'), W_IntObject(3))   -> <W_NoneObject()>
+      |-    setitem(W_DictObject([<Entry 3098577608L,W_StringObject('__builtins__'),
+                    <pypy.module..., W_StringObject('a'), W_IntObject(3))   
+            -> <W_NoneObject()>
     |-10    LOAD_CONST    2 (<W_NoneObject()>)
     |-13    RETURN_VALUE
     |- <<<< leave <inline>a = 1 + 2 @ 1 >>>>
