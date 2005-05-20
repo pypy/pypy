@@ -163,7 +163,7 @@ There are a few extra features of the PyPy console: If you press
 <Ctrl-C> on the console you enter the interpreter-level console, a
 usual CPython console.  You can then access internal objects of PyPy
 (e.g. the object space) and any variables you have created on the PyPy
-prompt with the affix ``w_``:: 
+prompt with the prefix ``w_``:: 
 
     >>>> a = 123
     >>>> <Ctrl-C>
@@ -172,7 +172,13 @@ prompt with the affix ``w_``::
     W_IntObject(123)
 
 Note that the prompt of the interpreter-level console is only '>>>' since
-it runs on CPython level. To return to PyPy, press <Ctrl-D>.
+it runs on CPython level. If you want to return to PyPy, press <Ctrl-D> (under
+Linux) or <Ctrl-Z>, <Enter> (under Windows).
+
+You may be interested in reading more about the distinction between
+`interpreter-level and app-level`_.
+
+.. _`interpreter-level and app-level`: architecture.html#interpreter-level
 
 .. _`trace example`: 
 
@@ -186,18 +192,17 @@ it, set ``__pytrace__=1`` on the interactive PyPy console::
     >>>> __pytrace__ = 1
     Tracing enabled
     >>>> a = 1 + 2
-    |-<<<<<enter <inline>a = 1 + 2 @ 1>>>>>>>
+    |- <<<< enter <inline>a = 1 + 2 @ 1 >>>>
     |- 0    LOAD_CONST    0 (W_IntObject(1))
     |- 3    LOAD_CONST    1 (W_IntObject(2))
     |- 6    BINARY_ADD
-      |-                 >> add(W_IntObject(1), W_IntObject(2))
-      |-                    add =: W_IntObject(3)
+      |-    add(W_IntObject(1), W_IntObject(2))   -> W_IntObject(3)
     |- 7    STORE_NAME    0 (a)
-      |-                 >> setitem(globals(), W_StringObject('a'), W_IntObject(3))
-      |-                    setitem =: <W_NoneObject()>
+      |-    setitem(W_DictObject([<Entry 3098577608L,W_StringObject('__builtins__'),<pypy.module..., W_StringObject('a'), W_IntObject(3))   -> <W_NoneObject()>
     |-10    LOAD_CONST    2 (<W_NoneObject()>)
     |-13    RETURN_VALUE
-    |-<<<<<leave <inline>a = 1 + 2 @ 1>>>>>>>
+    |- <<<< leave <inline>a = 1 + 2 @ 1 >>>>
+
 
 lazily computed objects 
 +++++++++++++++++++++++
