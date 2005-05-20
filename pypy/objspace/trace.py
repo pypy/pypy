@@ -53,11 +53,11 @@ class CallException(object):
                 
 class TraceResult(object):
     """ This is the state of tracing-in-progress. """
-    def __init__(self, tracespace):
+    def __init__(self, tracespace, **printer_options):
         self.events = []
         self.reentrant = True
         self.tracespace = tracespace
-        self.printer = ResultPrinter()
+        self.printer = ResultPrinter(**printer_options)
 
     def append(self, event):
         if self.reentrant:
@@ -164,7 +164,7 @@ def get_operations():
             operations[name] = name
 
     # Remove list
-    for name in ["wrap", "unwrap"]:
+    for name in ["wrap", "unwrap", "interpclass_w"]:
         if name in operations:
             del operations[name]
     return operations
@@ -190,36 +190,55 @@ def create_trace_space(space = None, operations = None):
 
         def __getattribute__(self, name):
             obj = super(Trace, self).__getattribute__(name)
-            if name in operations:
-                assert callable(obj)
-                obj = CallableTracer(self._result, name, obj)
+            if name in operations and not self._in_cache:
+                    assert callable(obj)
+                    obj = CallableTracer(self._result, name, obj)
             return obj
 
         def __pypytrace__(self):
             pass
 
+        def enter_cache_building_mode(self):
+            self._in_cache += 1
+
+        def leave_cache_building_mode(self, val):
+            self._in_cache -= 1
+
         def settrace(self):
-            self._result = TraceResult(self)
+            self._result = TraceResult(self, **self._config_options)
 
         def getresult(self):
             return self._result
             
         def getexecutioncontext(self):
             ec = super(Trace, self).getexecutioncontext()
-            assert not isinstance(ec, ExecutionContextTracer)
-            return ExecutionContextTracer(self._result, ec)
+            if not self._in_cache:
+                assert not isinstance(ec, ExecutionContextTracer)
+                ec = ExecutionContextTracer(self._result, ec)
+            return ec
         
         def reset_trace(self):
             """ Returns the class to it's original form. """
             space.__class__ = space.__oldclass__
             del space.__oldclass__
 
-            if hasattr(self, "_result"):
-                del self._result            
+            for k in ["_result", "_in_cache", "_config_options"]:               
+                if hasattr(self, k):
+                    delattr(self, k)
 
     trace_clz = type("Trace%s" % repr(space), (Trace,), {})
     space.__oldclass__, space.__class__ = space.__class__, trace_clz
-    
+
+    # XXX TEMP - also if we do use a config file, should use execfile
+    from pypy.tool.traceconfig import config
+    config_options = {}
+    config_options.update(config)
+
+    # Avoid __getattribute__() woes
+    space._in_cache = 0
+    space._config_options = config_options
+    space._result = None
+
     space.settrace()
     return space
 
