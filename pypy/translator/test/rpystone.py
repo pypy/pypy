@@ -279,6 +279,8 @@ def error(msg):
     sys.exit(100)
 
 def entrypoint(loops=None):
+    import string # just a little test
+    print string.replace("import works", "s", "x")
     if loops is None:
         loops = LOOPS  # initialize early, for slow space
         nargs = len(sys.argv) - 1

@@ -100,7 +100,7 @@ class Frame(Wrappable):
     def setfastscope(self, scope_w):
         """Abstract. Initialize the fast locals from a list of values,
         where the order is according to self.code.signature()."""
-        raise TypeError, "abstract"        
+        raise TypeError, "abstract"
 
     def fast2locals(self):
         # Copy values from self.fastlocals_w to self.w_locals

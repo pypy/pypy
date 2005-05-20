@@ -9,6 +9,8 @@ from pypy.interpreter.gateway import ApplevelClass
 from pypy.tool.cache import Cache
 from pypy.tool.sourcetools import NiceCompile, compile2
 
+EAGER_IMPORTS = True
+
 def sc_import(space, fn, args):
     w_name, w_glob, w_loc, w_frm = args.fixedunpack(4)
     try:
@@ -18,7 +20,12 @@ def sc_import(space, fn, args):
         # import * in a function gives us the locals as Variable
         # we forbid it as a SyntaxError
         raise SyntaxError, "RPython: import * is not allowed in functions"
-    return space.wrap(mod)
+    if EAGER_IMPORTS:
+        return space.wrap(mod)
+    # redirect it, but avoid showing the globals
+    w_glob = Constant({})
+    return space.do_operation('simple_call', Constant(__import__),
+                              w_name, w_glob, w_loc, w_frm)
 
 def sc_operator(space, fn, args):
     args_w, kwds_w = args.unpack()

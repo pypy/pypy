@@ -379,7 +379,6 @@ class TestFlowObjSpace:
     #__________________________________________________________
     
     def specialcases(x):
-        import operator
         operator.lt(x,3)
         operator.le(x,3)
         operator.eq(x,3)

@@ -198,6 +198,8 @@ def pathpart(*args):
 def time_func():
     return SomeFloat()
 
+def import_func(*args):
+    return SomeObject()
 
 # collect all functions
 import __builtin__
@@ -235,6 +237,9 @@ BUILTIN_ANALYZERS[os.path.isdir] = test
 # time stuff
 BUILTIN_ANALYZERS[time.time] = time_func
 BUILTIN_ANALYZERS[time.clock] = time_func
+
+# import
+BUILTIN_ANALYZERS[__import__] = import_func
 
 # annotation of low-level types
 from pypy.annotation.model import SomePtr
