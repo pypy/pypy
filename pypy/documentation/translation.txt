@@ -802,10 +802,6 @@ possible codepath into a flowgraph, and then rendered the following source code:
 
       f_g = g
 
-``the real code body is here:``
-
-::
-
       def g(space, w_n_2):
         goto = 3 # startblock
         while True:
@@ -836,10 +832,6 @@ possible codepath into a flowgraph, and then rendered the following source code:
                 return w_1
 
       fastf_g = g
-
-``the rest is initialization:``
-
-::
 
       g3dict = space.newdict([])
       gs___name__ = space.wrap('__name__')
