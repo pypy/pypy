@@ -42,7 +42,7 @@ Further reading / related projects
 * Dynamo_ showcased `transparent dynamic optimization`_
   generating an optimized version of a binary program at runtime. 
 
-* Tayloring Dynamo_ to interpreter implementations and challenges,
+* Tayloring Dynamo_ to interpreter implementations and challenges -
   Gregory Sullivan et. al., 
   `Dynamic Native Optimization of Native Interpreters`_. IVME 03. 2003.
 
