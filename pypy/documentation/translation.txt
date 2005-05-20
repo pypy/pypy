@@ -792,6 +792,8 @@ possible codepath into a flowgraph, and then rendered the following source code:
 
     #*************************************************************
 
+the single gobal function::
+
     def initapp2interpexec(space):
       """NOT_RPYTHON"""
 
