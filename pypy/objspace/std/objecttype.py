@@ -79,6 +79,7 @@ def descr__reduce_ex__(space, w_obj, proto=0):
     return reduce_1(space, w_obj, w_proto)
 
 app = gateway.applevel(r'''
+# NOT_RPYTHON
 def reduce_1(obj, proto):
     import copy_reg
     return copy_reg._reduce_ex(obj, proto)
