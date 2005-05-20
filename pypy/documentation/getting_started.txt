@@ -107,7 +107,7 @@ the top level directory of the PyPy source tree, e.g. pypy-x.x (if you
 got a release) or pypy-dist (if you checked out the most recent version using
 subversion).
 
-Main entry point / special PyPy features 
+Main entry point  
 ------------------------------------------
 
 The py.py interpreter
@@ -152,6 +152,9 @@ Alternatively, as with regular Python, you can simply give a
 script name on the command line::
 
     python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
+
+special PyPy features 
+-------------------------- 
 
 Interpreter-level console
 +++++++++++++++++++++++++
@@ -371,11 +374,8 @@ sufficiently static Python programs into low-level code.
 
        python translate_pypy.py targetrpystone2
 
-
-.. _`start reading sources`: 
-   
 Where to start reading the sources
-================================== 
+---------------------------------- 
 
 PyPy is made from parts that are relatively independent from each other.
 You should start looking at the part that attracts you most (all parts are
@@ -470,6 +470,22 @@ path, you might like to visit:
 
     http://codespeak.net/py/current/doc/getting-started.html
 
+
+
+.. _`start reading sources`: 
+   
+Getting involved 
+================================== 
+
+PyPy employs an open development process.  You are invited 
+to join our `pypy-dev mailing list`_ or look at the other 
+`contact possibilities`_.   We are also doing coding Sprints
+which are separatedly announced and often happen around Python
+conferences such as EuroPython or Pycon. 
+
+.. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`contact possibilities`: http://codespeak.net/pypy/index.cgi?contact
+
 .. _`py library`: http://codespeak.net/py 
 .. _`PyPy/LLVM backend`: translation.html#llvm 
 .. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
@@ -501,21 +517,5 @@ path, you might like to visit:
 .. _bug reports:            https://codespeak.net/issue/pypy-dev/
 
 .. _`directory reference`: index.html#directory-reference
-
-To learn more / get in contact
-============================== 
-
-* To learn more about PyPy and its development process,  
-  read around in the documentation_ and consider 
-  subscribing to the `mailing lists`_ (or simply
-  read the archives online) 
-  
-* show up on irc.freenode.net:6667, channel #pypy and ask
-  questions.  The logs of the channel can be found at 
-  http://nimrod.terra-link.net/pypy/
-
-* To help PyPy become Python-the-next-generation, you 
-  are invited to participate in its development. 
-   
 
 .. include:: _ref.txt
