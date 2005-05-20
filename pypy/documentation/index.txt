@@ -33,11 +33,26 @@ under the OSI-approved very liberal MIT-license.
 .. _`getting started`: getting_started.html 
 .. _`theory`: theory.html
 
-Further reading / related projects 
+Talks and Presentations 
 ----------------------------------
 
 * oscon2003-paper_ is a early paper presented at Oscon 2003 describing 
   what the pypy project is about and why you should care
+
+* `Architecture introduction slides`_ for the Amsterdam Sprint introduction Dec 2003. 
+
+* `EU funding for FOSS`_ talk on Chaos Communication Conference Dec 2004. 
+
+* `py lib slides`_ from the py lib talk at Pycon 2005 (py is used as a 
+  support/testing library for PyPy) 
+
+.. _oscon2003-paper: http://codespeak.net/pypy/index.cgi?extradoc/talk/oscon2003-paper.html
+.. _`Architecture introduction slides`: http://codespeak.net/svn/pypy/extradoc/talk/amsterdam-sprint-intro.pdf
+.. _`EU funding for FOSS`: http://codespeak.net/svn/pypy/extradoc/talk/2004-21C3-pypy-EU-hpk.pdf
+.. _`py lib slides`: http://codespeak.net/svn/pypy/extradoc/talk/2005-pycon-py.pdf
+
+Related projects 
+----------------------------------
 
 * Dynamo_ showcased `transparent dynamic optimization`_
   generating an optimized version of a binary program at runtime. 
@@ -67,7 +82,6 @@ Further reading / related projects
 .. _`Iron Python`: http://www.gotdotnet.com/workspaces/workspace.aspx?id=ad7acff7-ab1e-4bcb-99c0-57ac5a3a9742
 .. _`transparent dynamic optimization`: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
 .. _Dynamo: http://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
-.. _oscon2003-paper: http://codespeak.net/pypy/index.cgi?extradoc/talk/oscon2003-paper.html
 .. _optionaltool: http://codespeak.net/pypy/index.cgi?doc/optionaltool.html
 .. _testdesign: http://codespeak.net/pypy/index.cgi?doc/testdesign.html
 .. _feasible: http://codespeak.net/pipermail/pypy-dev/2004q2/001289.html
