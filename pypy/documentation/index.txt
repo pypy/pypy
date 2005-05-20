@@ -111,7 +111,8 @@ Directory                      explanation/links
                                modules (see `Testing in PyPy`_) 
 
 ``_cache/``                    holds cache files from internally translating application 
-                               level to interpreterlevel code.  (XXXM0.5 insert link here 
+                               level to interpreterlevel code.  (insert link when 
+                               `issue40`_ is resolved). 
                                when geninterp documentation is there). 
 ============================   =========================================== 
 

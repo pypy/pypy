@@ -1,3 +1,4 @@
+.. _`issue40`: http://codespeak.net/issue/pypy-dev/issue40
 .. _`demo/`: http://codespeak.net/svn/pypy/dist/demo
 .. _`lib-python/`: http://codespeak.net/svn/pypy/dist/lib-python
 .. _`pypy/annotation`:
