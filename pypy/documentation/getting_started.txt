@@ -28,7 +28,7 @@ and execute the following command line::
 
 This will give you a PyPy prompt, i.e. a very compliant 
 Python interpreter implemented in Python.  Because this version
-of PyPy still runs on top of CPython, it runs around 3000-4000
+of PyPy still runs on top of CPython, it runs around 2000
 times slower than the original CPython.  The 0.6 release focus 
 really was on compliancy: PyPy passes around `90% of CPythons core 
 language regression tests`_. 
@@ -252,12 +252,12 @@ and running them individually::
     python test_all.py module/test/test_builtin.py
 
 ``test_all.py`` is actually just a synonym for `py.test`_ which is 
-our external testing tool. If you have installed that then you 
+our external testing tool. If you have installed that you 
 can as well just issue ``py.test DIRECTORY_OR_FILE`` in order 
 to perform test runs or simply start it without arguments to 
 run all tests below the current directory. 
 
-Finally, there are standard regression tests which you can 
+Finally, there are the CPython regression tests which you can 
 run like this::
 
     cd lib-python-2.3.4/test 
@@ -333,7 +333,7 @@ The graph can be turned into C code::
 
 The first command replaces operations with variables of types that are
 avaiable in C (e.g. int) with low level versions. This can be ommited if no
-annotation (step 4) has been performed.
+annotation (see last subsection) has been performed.
 
 
 translating the flow graph to LLVM code
@@ -365,6 +365,9 @@ hierarchy.  Clicking on functions shows the flow graph of the particular
 function.  Clicking on a class shows the attributes of its instances.  All
 this information (call graph, local variables' types, attributes of
 instances) is computed by the annotator.
+
+As soon as you close the PyGame window, the function is turned into C code,
+compiled and executed.
 
 translating the PyPy interpreter
 ++++++++++++++++++++++++++++++++
