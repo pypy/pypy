@@ -20,11 +20,10 @@ about our low level code generator backends.
 `talks and related projects`_ lists presentations 
 and related projects. 
 
-`compliance test status`_ shows outcome information 
-about recent runs of CPython's regression tests against PyPy. 
+`compliance test status`_ shows outcomes of 
+recent compliance test runs against PyPy. 
 
-`license`_ tells you that basically all of PyPy is licensed 
-under the OSI-approved very liberal MIT-license. 
+`license`_ contains licensing details (basically a straight MIT-license). 
 
 .. _`talks and related projects`: extradoc.html
 .. _`license`: http://codespeak.net/svn/pypy/dist/LICENSE 
