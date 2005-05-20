@@ -451,7 +451,7 @@ then obviously we want to type it and replace it with::
 
     v3 = int_add(v1, v2)
 
-where -- in C notation -- all three variables v1, v2 and v3 are typed ``int``.  This is done by attaching an attribute ``concretetype`` to v1, v2 and v3 (which might be instances of Variable or possibly Constant).  In our model, this ``concretetype`` is ``pypy.rpython.lltypes.Signed``.  Of course, the purpose of replacing the operation called ``int`` with ``int_add`` is that code generators no longer have to worry about what kind of addition (or concatenation maybe?) it means.
+where -- in C notation -- all three variables v1, v2 and v3 are typed ``int``.  This is done by attaching an attribute ``concretetype`` to v1, v2 and v3 (which might be instances of Variable or possibly Constant).  In our model, this ``concretetype`` is ``pypy.rpython.lltypes.Signed``.  Of course, the purpose of replacing the operation called ``add`` with ``int_add`` is that code generators no longer have to worry about what kind of addition (or concatenation maybe?) it means.
 
 
 The process in more details
@@ -619,7 +619,7 @@ blocks...) an LLVM 'representation'. This representation knows how to
 represent the corresponding object in LLVM and knows what code to generate for
 space operations on the object, what global definitions the object needs etc.
 
-Some examples to make this cleare: A `ClassRepr`_ object represents a class, a
+Some examples to make this clearer: A `ClassRepr`_ object represents a class, a
 `FuncRepr`_ object represent a function (or method). The following happens if
 the space operation ``simple_call`` is performed on a function: An appropriate
 ``FuncRepr`` object is constructed which generates LLVM code for the function
