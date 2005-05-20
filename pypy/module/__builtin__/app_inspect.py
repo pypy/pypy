@@ -1,5 +1,4 @@
 """
-NOT_RPYTHON
 Plain Python definition of the builtin functions related to run-time
 program introspection.
 """
@@ -80,11 +79,10 @@ def hasattr(ob, attr):
         return False
 
 def callable(ob):
+    import __builtin__ # XXX this is insane but required for now for geninterp
     for c in type(ob).__mro__:
         if '__call__' in c.__dict__:
-            # NB. this is not RPython, because _instance
-            # does not exist when the flow graph sees it
-            if isinstance(ob, _instance): # old style instance!
+            if isinstance(ob, __builtin__._instance): # old style instance!
                 return getattr(ob, '__call__', None) is not None
             return True
     else:

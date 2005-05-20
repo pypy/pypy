@@ -79,7 +79,8 @@ def setup(space):
     # fn = pyframe.normalize_exception.get_function(space)
     # this is now routed through the objspace, directly.
     # space.specialcases[fn] = sc_normalize_exception
-    space.specialcases[__import__] = sc_import
+    if space.do_imports_immediately:
+        space.specialcases[__import__] = sc_import
     # redirect ApplevelClass for print et al.
     space.specialcases[ApplevelClass] = sc_applevel
     # turn calls to built-in functions to the corresponding operation,

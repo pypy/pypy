@@ -65,7 +65,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.0.8'  # bump this for substantial changes
+GI_VERSION = '1.0.9'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -1296,9 +1296,19 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     dic = {'__name__': modname}
     if filename:
         dic['__file__'] = filename
-    exec code in dic
+
+    # XXX allow the app-level code to contain e.g. "import _formatting"
+    libdir = os.path.join(pypy.__path__[0], "lib")
+    hold = sys.path[:]
+    sys.path.insert(0, libdir)
+    try:
+        exec code in dic
+    finally:
+        sys.path[:] = hold
+
     entrypoint = dic
     t = Translator(None, verbose=False, simplifying=needed_passes,
+                   do_imports_immediately=False,
                    builtins_can_raise_exceptions=True)
     gen = GenRpy(t, entrypoint, modname, dic)
     if tmpname:
@@ -1308,11 +1318,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         tmpname = 'nada'
     out = _file(tmpname, 'w')
     gen.f = out
-    libdir = os.path.join(pypy.__path__[0], "lib")
-    hold = sys.path[:]
-    sys.path.insert(0, libdir)
     gen.gen_source(tmpname, file=_file)
-    sys.path[:] = hold
     out.close()
     newsrc = _file(tmpname).read()
     code = py.code.Source(newsrc).compile()

@@ -1009,9 +1009,9 @@ app = gateway.applevel(r'''
 
 # this one should do the import of _formatting:
 app2 = gateway.applevel('''
+    import _formatting
 
     def mod__String_ANY(format, values):
-        import _formatting
         if isinstance(values, tuple):
             return _formatting.format(format, values, None)
         else:

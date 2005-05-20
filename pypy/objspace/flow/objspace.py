@@ -31,6 +31,7 @@ class FlowObjSpace(ObjSpace):
     full_exceptions = False
 
     builtins_can_raise_exceptions = False
+    do_imports_immediately = True
 
     def initialize(self):
         import __builtin__
