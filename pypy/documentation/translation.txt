@@ -718,8 +718,8 @@ XXX More to come.
 .. _`Python again`:
 .. _`Python back-end`:
 
-The Python Back-End
-===================
+The Interplevel Back-End
+========================
 
 http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
 
