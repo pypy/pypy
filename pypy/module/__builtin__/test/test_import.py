@@ -154,6 +154,8 @@ class AppTestImport:
         raises(ImportError,imp_b)
        
 def test_PYTHONPATH_takes_precedence(space): 
+    if sys.platform == "win32":
+        py.test.skip("unresolved issues with win32 shell quoting rules")
     from pypy.interpreter.test.test_py import pypypath 
     extrapath = udir.ensure("pythonpath", dir=1) 
     extrapath.join("urllib.py").write("print 42\n")
