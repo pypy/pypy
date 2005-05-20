@@ -76,6 +76,8 @@ class K(object):
 """
 
 def test_tb_normalization():
+    if sys.platform == "win32":
+        py.test.skip("cannot detect process exit code for now")
     tmpfilepath = str(udir.join("test_py_script.py"))
     tmpfile = file( tmpfilepath, "w" )
     tmpfile.write(TB_NORMALIZATION_CHK)
