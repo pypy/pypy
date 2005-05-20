@@ -7,7 +7,7 @@
     nonsense, isn't it?  `more...`_
 
 .. _Python: http://www.python.org/doc/current/ref/ref.html
-.. _`more...`: ../architecture.html#goals
+.. _`more...`: ../architecture.html#mission-statement 
 
 
 Next Sprint after EuroPython 2005 1st-7th July 
