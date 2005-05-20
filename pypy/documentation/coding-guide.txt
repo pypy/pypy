@@ -45,7 +45,7 @@ our runtime interpreter is "restricted python"
 
 In order to make a C code generator feasible we restrict ourselves to a
 subset of the Python language, and we adhere to some rules which make
-translation to lower level langauges more obvious. 
+translation to lower level languages more obvious. 
 
 Unlike source-to-source translations (like e.g. Starkiller_) we start
 translation from live python code objects which constitute our Python
@@ -57,13 +57,13 @@ implementation must behave in a static way often referenced as
 
 However, when the PyPy interpreter is started as a Python program, it
 can use all of the Python language until it reaches interpretation
-runtime. That is, during initialisation our program is free to use the
+runtime. That is, during initialization our program is free to use the
 full dynamism of Python, including dynamic code generation. 
 
 An example can be found in the current implementation which is quite
 elegant: For the definition of all the opcodes of the Python
 interpreter, the module ``dis`` is imported and used to initialize our
-bytecode interpreter.  (See ``__initclass_`` in `pyopcode.py`_).  This
+bytecode interpreter.  (See ``__initclass__`` in `pyopcode.py`_).  This
 saves us from adding extra modules to PyPy. The import code is run at
 startup time, and we are allowed to use the CPython builtin import
 function.
@@ -153,7 +153,7 @@ We are using
 
 **dicts**
   
-  dicts with string keys only (preferrably the kind of strings that are usually
+  dicts with string keys only (preferably the kind of strings that are usually
   interned in CPython, i.e. short strings that look like identifiers).  The
   implementation could safely decide that all dict keys should be interned.
 
@@ -213,7 +213,7 @@ integers are quite in flux in CPython right now. Starting on Python 2.2,
 integers mutate into longs on overflow.  However, shifting to the left truncates
 up to 2.3 but extends to longs as well in 2.4.  By contrast, we need a way to
 perform wrap-around machine-sized arithmetic by default, while still being
-able to check for overflow when we need it explicitely.  Moreover, we need a
+able to check for overflow when we need it explicitly.  Moreover, we need a
 consistent behavior before and after translation.
 
 We use normal integers for signed arithmetic.  It means that before
@@ -282,7 +282,7 @@ Exceptions are by default not generated for simple cases.::
             # complain
 
 Code with no exception handlers does not raise exceptions (after it has been
-translated, that is.  When you run it on top of CPython, it always may raise
+translated, that is.  When you run it on top of CPython, it may raise
 exceptions, of course). By supplying an exception handler, you ask for error
 checking. Without, you assure the system that the operation cannot fail.
 This rule does not apply to *function calls*: any called function is
@@ -303,11 +303,11 @@ But::
     try:
         z = some_other_function(x, y)
     except IndexError:
-        # only catches explicitely-raised IndexErrors in some_other_function()
+        # only catches explicitly-raised IndexErrors in some_other_function()
         # other exceptions can be raised, too, and will not be caught here.
 
 The ovfcheck() function described above follows the same rule: in case of
-overflow, it explicitely raise OverflowError, which can be caught anywhere.
+overflow, it explicitly raise OverflowError, which can be caught anywhere.
 
 Exceptions explicitly raised or re-raised will always be generated.
 
@@ -326,7 +326,7 @@ Wrapping rules
 
 PyPy is made of Python source code at two levels: there is on the one hand *application-level code* that looks like normal Python code, and that implements some functionalities as one would expect from Python code (e.g. one can give a pure Python implementation of some built-in functions like ``zip()``).  There is also *interpreter-level code* for the functionalities that must more directly manipulate interpreter data and objects (e.g. the main loop of the interpreter, and the various object spaces).
 
-Application-level code doesn't see object spaces explicitely: it runs using an object space to support the objects it manipulates, but this is implicit.  There is no need for particular conventions for application-level code.  The sequel is only about interpreter-level code.  (Ideally, no application-level variable should be called ``space`` or ``w_xxx`` to avoid confusion.)
+Application-level code doesn't see object spaces explicitly: it runs using an object space to support the objects it manipulates, but this is implicit.  There is no need for particular conventions for application-level code.  The sequel is only about interpreter-level code.  (Ideally, no application-level variable should be called ``space`` or ``w_xxx`` to avoid confusion.)
 
 
 Naming conventions
@@ -336,7 +336,7 @@ Naming conventions
   interpreter-level code, where it is by convention passed around by the name ``space``. 
 
 * ``w_xxx``: any object seen by application-level code is an
-  object explicitely managed by the object space.  From the
+  object explicitly managed by the object space.  From the
   interpreter-level point of view, this is called a *wrapped*
   object.  The ``w_`` prefix is used for any type of
   application-level object.   
@@ -589,7 +589,7 @@ Here is the order in which PyPy looks up Python modules:
 Modifying a CPython library module or regression test 
 ------------------------------------------------------- 
 
-Although PyPy is very compatible to CPython we sometimes need 
+Although PyPy is very compatible with CPython we sometimes need 
 to change modules contained in our copy of the standard library, 
 often due to the fact that PyPy works with all new-style classes 
 by default and CPython has a number of places where it relies 
@@ -602,7 +602,7 @@ directory first.  In subversion commandline terms this reads::
     svn cp lib-python/2.3.4/somemodule.py lib-python/modified-2.3.4/ 
 
 and subsequently you edit and commit ``lib-python/modified-2.3.4/somemodule.py``. 
-These copying operation is important because it keeps the original 
+This copying operation is important because it keeps the original 
 CPython tree clean and makes it obvious what we had to change. 
 
 .. _`mixed module mechanism`: 
@@ -622,7 +622,7 @@ namespace.
 application level definitions
 .............................
 
-Application level specifiations are found in the `appleveldefs` 
+Application level specifications are found in the `appleveldefs` 
 dictionary found in ``__init__.py`` files of directories in ``pypy/module``. 
 For example, in `pypy/module/__builtin__/__init__.py`_ you find the following 
 entry specifying where ``__builtin__.locals`` comes from:: 
@@ -638,7 +638,7 @@ will be extracted accordingly.
 interpreter level definitions
 .............................
 
-Interpreter level specifiations are found in the ``interpleveldefs`` 
+Interpreter level specifications are found in the ``interpleveldefs`` 
 dictionary found in ``__init__.py`` files of directories in ``pypy/module``. 
 For example, in `pypy/module/__builtin__/__init__.py`_ the following 
 entry specifies where ``__builtin__.len`` comes from:: 
