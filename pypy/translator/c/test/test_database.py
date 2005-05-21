@@ -17,7 +17,7 @@ def test_struct():
     s = malloc(S)
     s.x = 42
     assert db.get(s).startswith('&g_')
-    assert db.containernodes.keys() == [s]
+    assert db.containernodes.keys() == [s._obj]
     assert db.structdefnodes.keys() == [S]
 
 def test_inlined_struct():
@@ -26,7 +26,7 @@ def test_inlined_struct():
     s = malloc(S)
     s.x.y = 42
     assert db.get(s).startswith('&g_')
-    assert db.containernodes.keys() == [s]
+    assert db.containernodes.keys() == [s._obj]
     assert len(db.structdefnodes) == 2
     assert S in db.structdefnodes
     assert S.x in db.structdefnodes
@@ -39,11 +39,30 @@ def test_complete():
     s.x = malloc(T)
     s.x.y = 42
     assert db.get(s).startswith('&g_')
-    assert db.containernodes.keys() == [s]
+    assert db.containernodes.keys() == [s._obj]
     db.complete()
     assert len(db.containernodes) == 2
-    assert s in db.containernodes
-    assert s.x in db.containernodes
+    assert s._obj in db.containernodes
+    assert s.x._obj in db.containernodes
     assert len(db.structdefnodes) == 2
     assert S in db.structdefnodes
     assert S.x.TO in db.structdefnodes
+
+def test_codegen():
+    db = LowLevelDatabase()
+    U = Struct('inlined', ('z', Signed))
+    T = GcStruct('subtest', ('y', Signed))
+    S = GcStruct('test', ('x', GcPtr(T)), ('u', U), ('p', NonGcPtr(U)))
+    s = malloc(S)
+    s.x = malloc(T)
+    s.x.y = 42
+    s.u.z = -100
+    s.p = cast_flags(NonGcPtr(U), s.u)
+    db.get(s)
+    db.complete()
+    for node in db.structdeflist:
+        print '\n'.join(node.definition())
+    for node in db.globalcontainers():
+        print '\n'.join(node.forward_declaration())
+    for node in db.globalcontainers():
+        print '\n'.join(node.implementation())

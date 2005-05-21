@@ -310,6 +310,17 @@ def _expose(val, can_have_gc=False):
             val = _ptr(_TmpPtr(T), val)
     return val
 
+def parentlink(container):
+    parent = container._check()
+    if parent is not None:
+        assert isinstance(parent, _struct)
+        for name in parent._TYPE._names:
+            if getattr(parent, name) is container:
+                return parent, name
+        raise RuntimeError("lost ourselves")
+    else:
+        return None, None
+
 
 class _ptr(object):
 
@@ -447,6 +458,8 @@ class _struct(object):
                                    % (self, self._wrparent_type))
             else:
                 parent._check()
+                return parent
+        return None
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -464,7 +477,6 @@ class _struct(object):
 
     def __str__(self):
         return 'struct %s { %s }' % (self._TYPE._name, self._str_fields())
-
 
 class _array(object):
     _wrparent = None
@@ -489,6 +501,8 @@ class _array(object):
                                    % (self, self._wrparent_type))
             else:
                 parent._check()
+                return parent
+        return None
 
     def __repr__(self):
         return '<%s>' % (self,)

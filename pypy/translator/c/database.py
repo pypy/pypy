@@ -1,6 +1,7 @@
 from pypy.translator.gensupp import NameManager
 from pypy.rpython.lltypes import Primitive, _PtrType, typeOf
 from pypy.rpython.lltypes import Struct, Array, FuncType, PyObject
+from pypy.rpython.lltypes import ContainerType
 from pypy.rpython.typer import PyObjPtr
 from pypy.objspace.flow.model import Constant
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
@@ -31,6 +32,20 @@ class LowLevelDatabase:
            else      register  union
            ''')
 
+    def gettypedefnode(self, T):
+        try:
+            node = self.structdefnodes[T]
+        except KeyError:
+            if isinstance(T, Struct):
+                node = StructDefNode(self, T)
+            elif isinstance(T, Array):
+                node = ArrayDefNode(self, T)
+            else:
+                raise Exception("don't know about %r" % (T,))
+            self.structdefnodes[T] = node
+            self.structdeflist.append(node)
+        return node
+
     def gettype(self, T, who_asks=None):
         if isinstance(T, Primitive):
             return PrimitiveType[T]
@@ -38,15 +53,7 @@ class LowLevelDatabase:
             typename = self.gettype(T.TO)   # who_asks not propagated
             return typename.replace('@', '*@')
         elif isinstance(T, (Struct, Array)):
-            try:
-                node = self.structdefnodes[T]
-            except KeyError:
-                if isinstance(T, Struct):
-                    node = StructDefNode(self, T)
-                else:
-                    node = ArrayDefNode(self, T)
-                self.structdefnodes[T] = node
-                self.structdeflist.append(node)
+            node = self.gettypedefnode(T)
             if who_asks is not None:
                 who_asks.dependencies[node] = True
             return 'struct %s @' % node.name
@@ -64,23 +71,36 @@ class LowLevelDatabase:
         else:
             raise Exception("don't know about type %r" % (T,))
 
+    def getcontainernode(self, container):
+        try:
+            node = self.containernodes[container]
+        except KeyError:
+            T = typeOf(container)
+            nodecls = ContainerNodeClass[T.__class__]
+            node = nodecls(self, T, container)
+            self.containernodes[container] = node
+            self.containerlist.append(node)
+        return node
+
     def get(self, obj):
         T = typeOf(obj)
         if isinstance(T, Primitive):
             return PrimitiveName[T](obj)
         elif isinstance(T, _PtrType):
-            try:
-                node = self.containernodes[obj]
-            except KeyError:
-                nodecls = ContainerNodeClass[T.TO.__class__]
-                node = nodecls(self, T.TO, obj)
-                self.containernodes[obj] = node
-                self.containerlist.append(node)
+            node = self.getcontainernode(obj._obj)
             return node.ptrname
         else:
             raise Exception("don't know about %r" % (obj,))
 
     def complete(self):
         for node in self.containerlist:
-            for value in node.enum_dependencies(self):
-                self.get(value)
+            for value in node.enum_dependencies():
+                if isinstance(typeOf(value), ContainerType):
+                    self.getcontainernode(value)
+                else:
+                    self.get(value)
+
+    def globalcontainers(self):
+        for node in self.containerlist:
+            if node.globalcontainer:
+                yield node
