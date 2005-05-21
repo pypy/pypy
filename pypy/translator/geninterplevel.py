@@ -1326,15 +1326,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     dic = {'__name__': modname}
     if filename:
         dic['__file__'] = filename
-
-    # XXX allow the app-level code to contain e.g. "import _formatting"
-    libdir = os.path.join(pypy.__path__[0], "lib")
-    hold = sys.path[:]
-    sys.path.insert(0, libdir)
-    try:
-        exec code in dic
-    finally:
-        sys.path[:] = hold
+    exec code in dic
 
     entrypoint = dic
     t = Translator(None, verbose=False, simplifying=needed_passes,

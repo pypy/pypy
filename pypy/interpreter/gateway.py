@@ -7,7 +7,7 @@ Gateway between app-level and interpreter-level:
 
 """
 
-import types, sys, md5, os
+import types, sys, md5, os, autopath
 
 NoneNotWrapped = object()
 
@@ -595,32 +595,38 @@ class PyPyCacheDir:
             cls._setup()
 
         from pypy.translator.geninterplevel import translate_as_module
-        scramble = md5.new(cls.seed)
-        scramble.update(self.source)
-        key = scramble.hexdigest()
-        initfunc = cls.known_source.get(key)
-        if not initfunc:
-            # try to get it from file
-            name = key
-            if self.filename:
-                prename = os.path.splitext(os.path.basename(self.filename))[0]
-            else:
-                prename = 'zznoname'
-            name = "%s_%s" % (prename, name)
-            try:
-                __import__("pypy._cache."+name)
-            except ImportError, x:
-                # print x
-                pass
-            else:
-                initfunc = cls.known_source[key]
-        if not initfunc:
-            # build it and put it into a file
-            initfunc, newsrc = translate_as_module(
-                self.source, self.filename, self.modname)
-            fname = cls.cache_path.join(name+".py").strpath
-            f = file(fname, "w")
-            print >> f, """\
+
+        # XXX HACK HACK HACK XXX
+        # XXX allow the app-level code to contain e.g. "import _formatting"
+        libdir = os.path.join(autopath.pypydir, "lib")
+        sys.path.append(libdir)
+        try:
+            scramble = md5.new(cls.seed)
+            scramble.update(self.source)
+            key = scramble.hexdigest()
+            initfunc = cls.known_source.get(key)
+            if not initfunc:
+                # try to get it from file
+                name = key
+                if self.filename:
+                    prename = os.path.splitext(os.path.basename(self.filename))[0]
+                else:
+                    prename = 'zznoname'
+                name = "%s_%s" % (prename, name)
+                try:
+                    __import__("pypy._cache."+name)
+                except ImportError, x:
+                    # print x
+                    pass
+                else:
+                    initfunc = cls.known_source[key]
+            if not initfunc:
+                # build it and put it into a file
+                initfunc, newsrc = translate_as_module(
+                    self.source, self.filename, self.modname)
+                fname = cls.cache_path.join(name+".py").strpath
+                f = file(fname, "w")
+                print >> f, """\
 # self-destruct on double-click:
 if __name__ == "__main__":
     from pypy import _cache
@@ -631,11 +637,14 @@ if __name__ == "__main__":
             os.unlink(namestart+ending)
         except os.error:
             pass""" % name
-            print >> f
-            print >> f, newsrc
-            print >> f, "from pypy._cache import known_source"
-            print >> f, "known_source[%r] = %s" % (key, initfunc.__name__)
-        w_glob = initfunc(space)
+                print >> f
+                print >> f, newsrc
+                print >> f, "from pypy._cache import known_source"
+                print >> f, "known_source[%r] = %s" % (key, initfunc.__name__)
+            w_glob = initfunc(space)
+        finally:
+            if libdir in sys.path:
+                sys.path.remove(libdir)
         return w_glob
     build_applevelinterp_dict = classmethod(build_applevelinterp_dict)
 
