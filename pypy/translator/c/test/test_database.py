@@ -13,7 +13,7 @@ def test_primitive():
 
 def test_struct():
     db = LowLevelDatabase()
-    S = Struct('test', ('x', Signed))
+    S = GcStruct('test', ('x', Signed))
     s = malloc(S)
     s.x = 42
     assert db.get(s).startswith('&g_')
@@ -22,7 +22,7 @@ def test_struct():
 
 def test_inlined_struct():
     db = LowLevelDatabase()
-    S = Struct('test', ('x', Struct('subtest', ('y', Signed))))
+    S = GcStruct('test', ('x', Struct('subtest', ('y', Signed))))
     s = malloc(S)
     s.x.y = 42
     assert db.get(s).startswith('&g_')
@@ -33,8 +33,8 @@ def test_inlined_struct():
 
 def test_complete():
     db = LowLevelDatabase()
-    T = Struct('subtest', ('y', Signed))
-    S = Struct('test', ('x', GcPtr(T)))
+    T = GcStruct('subtest', ('y', Signed))
+    S = GcStruct('test', ('x', GcPtr(T)))
     s = malloc(S)
     s.x = malloc(T)
     s.x.y = 42

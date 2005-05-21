@@ -1,6 +1,7 @@
 from __future__ import generators
 from pypy.translator.gensupp import C_IDENTIFIER
 from pypy.rpython.lltypes import Struct, Array, FuncType, PyObject
+from pypy.rpython.lltypes import GcStruct, GcArray
 
 
 class StructDefNode:
@@ -61,7 +62,9 @@ class PyObjectNode(ContainerNode):
 
 ContainerNodeClass = {
     Struct:   StructNode,
+    GcStruct: StructNode,
     Array:    ArrayNode,
+    GcArray:  ArrayNode,
     FuncType: FuncNode,
     PyObject: PyObjectNode,
     }
