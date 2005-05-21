@@ -23,18 +23,33 @@ of the translation process.  It is available as an interactive utility to
 
 Here are the steps we follow to translate a given program:
 
-1. The complete program is imported.  If needed, extra initialization is performed.  Once this is done, the program must be present in memory is a form that is "static enough" in the sense of RPython_.
+1. The complete program is imported.  If needed, extra initialization is
+   performed.  Once this is done, the program must be present in memory is
+   a form that is "static enough" in the sense of RPython_.
 
-2. The `Flow Object Space`_ processes the input program, turning each function independently into a `control flow graph`_ data structure recording sequences of basic operations in "single-style assignment".
+2. The `Flow Object Space`_ processes the input program, turning each
+   function independently into a `control flow graph`_ data structure
+   recording sequences of basic operations in 
+   static single assignment form `SSA`_.
 
-3. Optionally, the Annotator_ performs global type inference on the control flow graphs.  Each variable gets annotated with an inferred type.
+3. Optionally, the Annotator_ performs global type inference on the
+   control flow graphs.  Each variable gets annotated with an inferred
+   type.
 
-4. The `RPython typer`_ can use the high-level types inferred by the Annotator to turn the operations in the control flow graphs into low-level operations over low-level types (close to the C types: struct, array, pointer...).
+4. The `RPython typer`_ can use the high-level types inferred by the
+   Annotator to turn the operations in the control flow graphs into
+   low-level operations over low-level types (close to the C types: struct,
+   array, pointer...).
 
-5. One of the Code Generators (XXX not documented yet) turns the optionally annotated/typed flow graphs and produces a source file in a lower-level language: C_, LLVM_, `Common Lisp`_, Pyrex_, Java_, or `Python again`_ (this is used in PyPy to turn sufficiently RPythonic app-level code into interp-level code).
+   One of the Code Generators (XXX not documented yet) turns the
+   optionally annotated/typed flow graphs and produces a source file in
+   a lower-level language: C_, LLVM_, `Common Lisp`_, Pyrex_, Java_, or
+   `Python again`_ (this is used in PyPy to turn sufficiently RPythonic
+   app-level code into interp-level code).
 
 6. This lower-level source file is compiled to produce an executable.
 
+.. _`SSA`: http://en.wikipedia.org/wiki/Static_single_assignment_form
 .. _`translator.py`: http://codespeak.net/svn/pypy/dist/pypy/translator/translator.py
 .. _`play around`: getting_started.html#trying-out-the-translator
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
