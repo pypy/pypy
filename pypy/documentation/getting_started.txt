@@ -10,19 +10,22 @@ PyPy - Getting Started
 Just the facts 
 ============== 
 
-getting & running the PyPy 0.6 release 
----------------------------------------
+getting & running the PyPy 0.6.1 release 
+-----------------------------------------
+
+    Note that the 0.6 release was broken and 
+    thus you find only the 0.6.1 release here. 
 
 Download one of the following release files and unpack it: 
 
-*pypy-0.6 (05/20/2005)*
+*pypy-0.6.1 (05/21/2005)*
     
-    * download one of `pypy-0.6.tar.bz2`_, `pypy-0.6.tar.gz`_ or 
-      `pypy-0.6.zip`_ and unpack it 
+  * download one of `pypy-0.6.1.tar.bz2`_, `pypy-0.6.1.tar.gz`_ or
+    `pypy-0.6.1.zip`_ (windows line-endings) and unpack it 
     
-    * alternatively run ``svn co http://codespeak.net/svn/pypy/release/0.6 pypy-0.6`` 
+  * alternatively run ``svn co http://codespeak.net/svn/pypy/release/0.6.1 pypy-0.6.1`` 
 
-then change to the ``pypy-0.6`` directory
+then change to the ``pypy-0.6.1`` directory
 and execute the following command line:: 
 
     python pypy/bin/py.py 
@@ -30,7 +33,7 @@ and execute the following command line::
 This will give you a PyPy prompt, i.e. a very compliant 
 Python interpreter implemented in Python.  Because this version
 of PyPy still runs on top of CPython, it runs around 2000
-times slower than the original CPython.  The 0.6 release focus 
+times slower than the original CPython.  The release focus 
 really was on compliancy: PyPy passes around `90% of CPythons core 
 language regression tests`_. 
 
@@ -38,9 +41,9 @@ Have a look at `interesting starting points`_
 for guidance on how to continue. 
 
 .. _`90% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
-.. _`pypy-0.6.tar.bz2`: http://codespeak.net/download/pypy/pypy-0.6.tar.bz2
-.. _`pypy-0.6.zip`: http://codespeak.net/download/pypy/pypy-0.6.zip
-.. _`pypy-0.6.tar.gz`: http://codespeak.net/download/pypy/pypy-0.6.tar.gz
+.. _`pypy-0.6.1.tar.bz2`: http://codespeak.net/download/pypy/pypy-0.6.1.tar.bz2
+.. _`pypy-0.6.1.zip`: http://codespeak.net/download/pypy/pypy-0.6.1.zip
+.. _`pypy-0.6.1.tar.gz`: http://codespeak.net/download/pypy/pypy-0.6.1.tar.gz
 
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
