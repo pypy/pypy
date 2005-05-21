@@ -77,7 +77,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.0.9'  # bump this for substantial changes
+GI_VERSION = '1.1.0'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -406,8 +406,26 @@ class GenRpy:
                     value.__file__.endswith('.py') or
                     value.__file__.endswith('.pyo')) :
             return bltinmod_helper(self, value)
+        # we might have createda reference to a module
+        # that is non-standard.
+        # check whether we can import
+        try:
+            import value
+            need_extra_path = False
+        except ImportError:
+            need_extra_path = True
         name = self.uniquename('mod_%s' % value.__name__)
-        self.initcode.append1('import %s as _tmp' % value.__name__)
+        if need_extra_path:
+            self.initcode.append1('import pypy')
+            self.initcode.append1('import sys')
+            self.initcode.append1('import os')
+            self.initcode.append1('libdir = os.path.join(pypy.__path__[0], "lib")\n'
+                                  'hold = sys.path[:]\n'
+                                  'sys.path.insert(0, libdir)\n'
+                                  'import %s as _tmp\n'
+                                  'sys.path[:] = hold\n' % value.__name__)
+        else:
+            self.initcode.append1('import %s as _tmp' % value.__name__)
         self.initcode.append1('%s = space.wrap(_tmp)' % (name))
         return name
         
@@ -1285,7 +1303,7 @@ class memfile(object):
         pass
 
 def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
-                        tmpname=None):
+                        do_imports_immediately=False, tmpname=None):
     """ compile sourcetext as a module, translating to interp level.
     The result is the init function that creates the wrapped module dict,
     together with the generated source text.
@@ -1320,7 +1338,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
 
     entrypoint = dic
     t = Translator(None, verbose=False, simplifying=needed_passes,
-                   do_imports_immediately=False,
+                   do_imports_immediately=do_imports_immediately,
                    builtins_can_raise_exceptions=True)
     gen = GenRpy(t, entrypoint, modname, dic)
     if tmpname:
