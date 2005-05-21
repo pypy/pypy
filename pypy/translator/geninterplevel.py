@@ -77,7 +77,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.0'  # bump this for substantial changes
+GI_VERSION = '1.1.1'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -420,10 +420,12 @@ class GenRpy:
             self.initcode.append1('import sys')
             self.initcode.append1('import os')
             self.initcode.append1('libdir = os.path.join(pypy.__path__[0], "lib")\n'
-                                  'hold = sys.path[:]\n'
                                   'sys.path.insert(0, libdir)\n'
-                                  'import %s as _tmp\n'
-                                  'sys.path[:] = hold\n' % value.__name__)
+                                  'try:\n'
+                                  '    import %s as _tmp\n'
+                                  'finally:\n'
+                                  '    if libdir in sys.path:\n'
+                                  '        sys.path.remove(libdir)\n' % value.__name__)
         else:
             self.initcode.append1('import %s as _tmp' % value.__name__)
         self.initcode.append1('%s = space.wrap(_tmp)' % (name))
@@ -1329,12 +1331,12 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
 
     # XXX allow the app-level code to contain e.g. "import _formatting"
     libdir = os.path.join(pypy.__path__[0], "lib")
-    hold = sys.path[:]
     sys.path.insert(0, libdir)
     try:
         exec code in dic
     finally:
-        sys.path[:] = hold
+        if libdir in sys.path:
+            sys.path.remove(libdir)
 
     entrypoint = dic
     t = Translator(None, verbose=False, simplifying=needed_passes,
