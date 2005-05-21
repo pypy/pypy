@@ -66,3 +66,22 @@ def test_codegen():
         print '\n'.join(node.forward_declaration())
     for node in db.globalcontainers():
         print '\n'.join(node.implementation())
+
+def test_codegen_2():
+    db = LowLevelDatabase()
+    A = GcArray(('x', Signed))
+    S = GcStruct('test', ('aptr', GcPtr(A)))
+    a = malloc(A, 3)
+    a[0].x = 100
+    a[1].x = 101
+    a[2].x = 102
+    s = malloc(S)
+    s.aptr = a
+    db.get(s)
+    db.complete()
+    for node in db.structdeflist:
+        print '\n'.join(node.definition())
+    for node in db.globalcontainers():
+        print '\n'.join(node.forward_declaration())
+    for node in db.globalcontainers():
+        print '\n'.join(node.implementation())

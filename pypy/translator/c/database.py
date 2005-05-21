@@ -32,28 +32,33 @@ class LowLevelDatabase:
            else      register  union
            ''')
 
-    def gettypedefnode(self, T):
+    def gettypedefnode(self, T, varlength=1):
+        if varlength <= 1:
+            varlength = 1   # it's C after all
+            key = T
+        else:
+            key = T, varlength
         try:
-            node = self.structdefnodes[T]
+            node = self.structdefnodes[key]
         except KeyError:
             if isinstance(T, Struct):
                 node = StructDefNode(self, T)
             elif isinstance(T, Array):
-                node = ArrayDefNode(self, T)
+                node = ArrayDefNode(self, T, varlength)
             else:
                 raise Exception("don't know about %r" % (T,))
-            self.structdefnodes[T] = node
+            self.structdefnodes[key] = node
             self.structdeflist.append(node)
         return node
 
-    def gettype(self, T, who_asks=None):
+    def gettype(self, T, varlength=1, who_asks=None):
         if isinstance(T, Primitive):
             return PrimitiveType[T]
         elif isinstance(T, _PtrType):
             typename = self.gettype(T.TO)   # who_asks not propagated
             return typename.replace('@', '*@')
         elif isinstance(T, (Struct, Array)):
-            node = self.gettypedefnode(T)
+            node = self.gettypedefnode(T, varlength=varlength)
             if who_asks is not None:
                 who_asks.dependencies[node] = True
             return 'struct %s @' % node.name

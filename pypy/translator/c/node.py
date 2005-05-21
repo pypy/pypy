@@ -40,6 +40,10 @@ class StructDefNode:
     def c_struct_field_name(self, name):
         return self.prefix + name
 
+    def access_expr(self, baseexpr, fldname):
+        fldname = self.c_struct_field_name(fldname)
+        return '%s.%s' % (baseexpr, fldname)
+
     def definition(self):
         yield 'struct %s {' % self.name
         if needs_refcount(self.STRUCT):
@@ -51,18 +55,28 @@ class StructDefNode:
 
 class ArrayDefNode:
 
-    def __init__(self, db, ARRAY):
+    def __init__(self, db, ARRAY, varlength):
         self.ARRAY = ARRAY
-        self.name = db.namespace.uniquename('array')
+        if varlength == 1:
+            basename = 'array'
+        else:
+            basename = db.gettypedefnode(ARRAY).name
+            basename = '%s_len%d' % (basename, varlength)
+        self.name = db.namespace.uniquename(basename)
         self.dependencies = {}
         self.structname = db.gettype(ARRAY.OF, who_asks=self)
+        self.varlength = varlength
+
+    def access_expr(self, baseexpr, index):
+        return '%s.items[%d]' % (baseexpr, index)
 
     def definition(self):
         yield 'struct %s {' % self.name
         if needs_refcount(self.ARRAY):
             yield '\tlong refcount;'
         yield '\tlong length;'
-        yield '\t%s;' % self.structname.replace('@', 'items[1]')
+        yield '\t%s;' % self.structname.replace('@', 'items[%d]' %
+                                                self.varlength)
         yield '};'
 
 
@@ -74,26 +88,35 @@ class ContainerNode:
         self.obj = obj
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
-        parent, fldname = parentlink(obj)
+        self.implementationtypename = db.gettype(T, varlength=self.getlength())
+        parent, parentindex = parentlink(obj)
         if parent is None:
             self.name = db.namespace.uniquename('g_' + self.basename())
             self.globalcontainer = True
         else:
+            self.globalcontainer = False
             parentnode = db.getcontainernode(parent)
             defnode = db.gettypedefnode(parentnode.T)
-            fldname = defnode.c_struct_field_name(fldname)
-            self.name = parentnode.name + '.' + fldname
-            self.globalcontainer = False
+            self.name = defnode.access_expr(parentnode.name, parentindex)
         self.ptrname = '&%s' % self.name
+        if self.typename != self.implementationtypename:
+            self.ptrname = '((%s)(void*)%s)' % (self.typename.replace('@', '*'),
+                                                self.ptrname)
 
     def forward_declaration(self):
-        yield '%s; /* forward */' % self.typename.replace('@', self.name)
+        yield '%s; /* forward */' % (
+            self.implementationtypename.replace('@', self.name))
 
     def implementation(self):
         lines = list(self.initializationexpr())
-        lines[0] = '%s = %s' % (self.typename.replace('@', self.name), lines[0])
+        lines[0] = '%s = %s' % (
+            self.implementationtypename.replace('@', self.name),
+            lines[0])
         lines[-1] += ';'
         return lines
+
+    def getlength(self):
+        return 1
 
 
 class StructNode(ContainerNode):
@@ -126,11 +149,28 @@ class StructNode(ContainerNode):
 
 
 class ArrayNode(ContainerNode):
+
     def basename(self):
         return 'array'
+
     def enum_dependencies(self):
-        for i in range(len(self.obj)):
-            yield self.obj[i]
+        return self.obj.items
+
+    def getlength(self):
+        return len(self.obj.items)
+
+    def initializationexpr(self, prefix=''):
+        yield '{'
+        if needs_refcount(self.T):
+            yield '\t1,'
+        yield '\t%d,' % len(self.obj.items)
+        for j in range(len(self.obj.items)):
+            node = self.db.getcontainernode(self.obj.items[j])
+            expr = '\n'.join(node.initializationexpr('%s%d.' % (prefix, j)))
+            expr += ','
+            expr = expr.replace('\n', '\n\t')      # indentation
+            yield '\t%s' % expr
+        yield '}'
 
 class FuncNode(ContainerNode):
     def basename(self):

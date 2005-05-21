@@ -27,7 +27,7 @@ class LowLevelType(object):
     def __str__(self):
         return self.__class__.__name__
 
-    def _defl(self, parent=None):
+    def _defl(self, parent=None, parentindex=None):
         raise NotImplementedError
 
     def _freeze_(self):
@@ -95,8 +95,8 @@ class Struct(ContainerType):
         return "%s %s { %s }" % (self.__class__.__name__,
                                  self._name, self._str_fields())
 
-    def _defl(self, parent=None):
-        return _struct(self, parent=parent)
+    def _defl(self, parent=None, parentindex=None):
+        return _struct(self, parent=parent, parentindex=parentindex)
 
     def _container_example(self):
         if self._arrayfld is None:
@@ -173,7 +173,7 @@ class Primitive(LowLevelType):
     def __str__(self):
         return self._name
 
-    def _defl(self, parent=None):
+    def _defl(self, parent=None, parentindex=None):
         return self._default
     
     _example = _defl
@@ -211,7 +211,7 @@ class _PtrType(LowLevelType):
     def __str__(self):
         return 'ptr(%s) to %s' % (self._str_flags(), self.TO)
 
-    def _defl(self, parent=None):
+    def _defl(self, parent=None, parentindex=None):
         return _ptr(self, None)
 
     def _example(self):
@@ -313,11 +313,16 @@ def _expose(val, can_have_gc=False):
 def parentlink(container):
     parent = container._check()
     if parent is not None:
-        assert isinstance(parent, _struct)
-        for name in parent._TYPE._names:
-            if getattr(parent, name) is container:
-                return parent, name
-        raise RuntimeError("lost ourselves")
+        return parent, container._wrparent_index
+##        if isinstance(parent, _struct):
+##            for name in parent._TYPE._names:
+##                if getattr(parent, name) is container:
+##                    return parent, name
+##            raise RuntimeError("lost ourselves")
+##        if isinstance(parent, _array):
+##            raise TypeError("cannot fish a pointer to an array item or an "
+##                            "inlined substructure of it")
+##        raise AssertionError("don't know about %r" % (parent,))
     else:
         return None, None
 
@@ -431,7 +436,7 @@ class _ptr(object):
 class _struct(object):
     _wrparent = None
 
-    def __init__(self, TYPE, n=None, parent=None):
+    def __init__(self, TYPE, n=None, parent=None, parentindex=None):
         self._TYPE = TYPE
         if n is not None and TYPE._arrayfld is None:
             raise TypeError("%r is not variable-sized" % (TYPE,))
@@ -439,15 +444,16 @@ class _struct(object):
             raise TypeError("%r is variable-sized" % (TYPE,))
         for fld, typ in TYPE._flds.items():
             if isinstance(typ, Struct):
-                value = _struct(typ, parent=self)
+                value = _struct(typ, parent=self, parentindex=fld)
             elif fld == TYPE._arrayfld:
-                value = _array(typ, n, parent=self)
+                value = _array(typ, n, parent=self, parentindex=fld)
             else:
                 value = typ._defl()
             setattr(self, fld, value)
         if parent is not None:
             self._wrparent_type = typeOf(parent)
             self._wrparent = weakref.ref(parent)
+            self._wrparent_index = parentindex
 
     def _check(self):
         if self._wrparent is not None:
@@ -481,16 +487,18 @@ class _struct(object):
 class _array(object):
     _wrparent = None
 
-    def __init__(self, TYPE, n, parent=None):
+    def __init__(self, TYPE, n, parent=None, parentindex=None):
         if not isinstance(n, int):
             raise TypeError, "array length must be an int"
         if n < 0:
             raise ValueError, "negative array length"
         self._TYPE = TYPE
-        self.items = [TYPE.OF._defl(parent=self) for j in range(n)]
+        self.items = [TYPE.OF._defl(parent=self, parentindex=j)
+                      for j in range(n)]
         if parent is not None:
             self._wrparent_type = typeOf(parent)
             self._wrparent = weakref.ref(parent)
+            self._wrparent_index = parentindex
 
     def _check(self):
         if self._wrparent is not None:
