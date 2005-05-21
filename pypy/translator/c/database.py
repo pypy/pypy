@@ -42,7 +42,7 @@ class LowLevelDatabase:
             node = self.structdefnodes[key]
         except KeyError:
             if isinstance(T, Struct):
-                node = StructDefNode(self, T)
+                node = StructDefNode(self, T, varlength)
             elif isinstance(T, Array):
                 node = ArrayDefNode(self, T, varlength)
             else:

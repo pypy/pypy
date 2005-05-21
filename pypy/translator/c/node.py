@@ -26,15 +26,23 @@ def somelettersfrom(s):
 
 class StructDefNode:
 
-    def __init__(self, db, STRUCT):
+    def __init__(self, db, STRUCT, varlength=1):
         self.STRUCT = STRUCT
-        self.name = db.namespace.uniquename(STRUCT._name)
+        if varlength == 1:
+            basename = STRUCT._name
+        else:
+            basename = db.gettypedefnode(STRUCT).name
+            basename = '%s_len%d' % (basename, varlength)
+        self.name = db.namespace.uniquename(basename)
         self.dependencies = {}
         self.fields = []
         self.prefix = somelettersfrom(STRUCT._name) + '_'
         for name in STRUCT._names:
             T = STRUCT._flds[name]
-            typename = db.gettype(T, who_asks=self)
+            if name == STRUCT._arrayfld:
+                typename = db.gettype(T, varlength=varlength, who_asks=self)
+            else:
+                typename = db.gettype(T, who_asks=self)
             self.fields.append((self.c_struct_field_name(name), typename))
 
     def c_struct_field_name(self, name):
@@ -55,7 +63,7 @@ class StructDefNode:
 
 class ArrayDefNode:
 
-    def __init__(self, db, ARRAY, varlength):
+    def __init__(self, db, ARRAY, varlength=1):
         self.ARRAY = ARRAY
         if varlength == 1:
             basename = 'array'
@@ -128,6 +136,13 @@ class StructNode(ContainerNode):
         for name in self.T._names:
             yield getattr(self.obj, name)
 
+    def getlength(self):
+        if self.T._arrayfld is None:
+            return 1
+        else:
+            array = getattr(self.obj, self.T._arrayfld)
+            return len(array.items)
+
     def initializationexpr(self, prefix=''):
         yield '{'
         if needs_refcount(self.T):
@@ -171,6 +186,7 @@ class ArrayNode(ContainerNode):
             expr = expr.replace('\n', '\n\t')      # indentation
             yield '\t%s' % expr
         yield '}'
+
 
 class FuncNode(ContainerNode):
     def basename(self):
