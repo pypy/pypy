@@ -411,6 +411,7 @@ or a simplified, scaled-down version::
     python translate_pypy.py targetrpystone2
 
 
+.. _`start reading sources`: 
 
 Where to start reading the sources
 ---------------------------------- 
@@ -512,8 +513,6 @@ path, you might like to visit:
 
 
 
-.. _`start reading sources`: 
-   
 Getting involved 
 ================================== 
 
