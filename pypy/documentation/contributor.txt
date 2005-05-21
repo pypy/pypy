@@ -22,7 +22,7 @@ appropriate measure but it's something)::
     Jacob Hallen
     Marius Gedminas
     Laura Creighton
-    Guido Van Rossum
+    Guido van Rossum
     Richard Emslie
     Ludovic Aubry
     Adrien Di Mascio
