@@ -56,11 +56,18 @@ class Struct(ContainerType):
             if name in flds:
                 raise TypeError("%s: repeated field name" % self._name)
             flds[name] = typ
- 
+            if isinstance(typ, GC_CONTAINER):
+                if name == fields[0][0] and isinstance(self, GC_CONTAINER):
+                    pass  # can inline a GC_CONTAINER as 1st field of GcStruct
+                else:
+                    raise TypeError("%s: cannot inline GC container %r" % (
+                        self._name, typ))
+
         # look if we have an inlined variable-sized array as the last field
         if fields:
             for name, typ in fields[:-1]:
                 typ._inline_is_varsize(False)
+                first = False
             name, typ = fields[-1]
             if typ._inline_is_varsize(True):
                 self._arrayfld = name
@@ -85,7 +92,8 @@ class Struct(ContainerType):
                           for name in self._names])
 
     def __str__(self):
-        return "Struct %s { %s }" % (self._name, self._str_fields())
+        return "%s %s { %s }" % (self.__class__.__name__,
+                                 self._name, self._str_fields())
 
     def _defl(self, parent=None):
         return _struct(self, parent=parent)
@@ -96,6 +104,9 @@ class Struct(ContainerType):
         else:
             n = 1
         return _struct(self, n)
+
+class GcStruct(Struct):
+    pass
 
 class Array(ContainerType):
     def __init__(self, *fields):
@@ -109,10 +120,15 @@ class Array(ContainerType):
         return True
 
     def __str__(self):
-        return "Array of { %s }" % (self.OF._str_fields(),)
+        return "%s of { %s }" % (self.__class__.__name__,
+                                 self.OF._str_fields(),)
 
     def _container_example(self):
         return _array(self, 1)
+
+class GcArray(Array):
+    def _inline_is_varsize(self, last):
+        raise TypeError("cannot inline a GC array inside a structure")
 
 class FuncType(ContainerType):
     def __init__(self, args, result):
@@ -140,8 +156,13 @@ PyObject = PyObjectType()
 
 class ForwardReference(ContainerType):
     def become(self, realcontainertype):
+        if not isinstance(realcontainertype, GC_CONTAINER):
+            raise TypeError("ForwardReference can only be to GcStruct or "
+                            "GcArray, not %r" % (realcontainertype,))
         self.__class__ = realcontainertype.__class__
         self.__dict__ = realcontainertype.__dict__
+
+GC_CONTAINER = (GcStruct, GcArray, PyObjectType, ForwardReference)
 
 
 class Primitive(LowLevelType):
@@ -170,10 +191,12 @@ class _PtrType(LowLevelType):
         if not isinstance(TO, ContainerType):
             raise TypeError, ("can only point to a Struct or an Array or a FuncType, "
                               "not to %s" % (TO,))
+        if 'gc' in flags:
+            if not isinstance(TO, GC_CONTAINER):
+                raise TypeError, ("GcPtr can only point to GcStruct, GcArray or"
+                                  " PyObject, not to %s" % (TO,))
         self.TO = TO
         self.flags = frozendict(flags)
-        if isinstance(TO, FuncType) and 'gc' in self.flags:
-            raise TypeError, "function pointers are not gc-able"
 
     def _str_flags(self):
         flags = self.flags.keys()
@@ -261,7 +284,9 @@ def cast_parent(PTRTYPE, ptr):
     # * converting from TO-structure to a parent TO-structure whose first
     #     field is the original structure
     if (not isinstance(CURTYPE.TO, Struct) or
-        not isinstance(PTRTYPE.TO, Struct)):
+        not isinstance(PTRTYPE.TO, Struct) or
+        len(PTRTYPE.TO._names) == 0 or
+        PTRTYPE.TO._flds[PTRTYPE.TO._names[0]] != CURTYPE.TO):
         raise InvalidCast(CURTYPE, PTRTYPE)
     ptr._check()
     parent = ptr._obj._wrparent()
@@ -279,7 +304,7 @@ def _expose(val, can_have_gc=False):
     T = typeOf(val)
     if isinstance(T, ContainerType):
         assert not isinstance(T, FuncType), "functions cannot be substructures"
-        if can_have_gc and isinstance(T, Struct):
+        if can_have_gc and isinstance(T, GcStruct):
             val = _ptr(GcPtr(T), val)
         else:
             val = _ptr(_TmpPtr(T), val)
@@ -323,10 +348,21 @@ class _ptr(object):
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
 
-    def _first(self):
+    def _setfirst(self, p):
         if isinstance(self._T, Struct) and self._T._names:
-            return self.__getattr__(self._T._names[0])
-        raise AttributeError("%r instance has no first field" % (self._T,))
+            if not isinstance(p, _ptr) or not isinstance(p._obj, _struct):
+                raise InvalidCast(typeOf(p), typeOf(self))
+            field_name = self._T._names[0]
+            T1 = self._T._flds[field_name]
+            T2 = typeOf(p._obj)
+            if T1 != T2:
+                raise InvalidCast(typeOf(p), typeOf(self))
+            self._check()
+            setattr(self._obj, field_name, p._obj)
+            p._obj._wrparent = weakref.ref(self._obj)
+            p._obj._wrparent_type = typeOf(self._obj)
+            return
+        raise TypeError("%r instance has no first field" % (self._T,))
 
     def __setattr__(self, field_name, val):
         if isinstance(self._T, Struct):

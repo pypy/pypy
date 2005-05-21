@@ -203,7 +203,9 @@ def get_primitive_type(translator, lltype):
 
 ll2concretetypemap = {
     lltypes.Struct: CStructType,
+    lltypes.GcStruct: CStructType,
     lltypes.Array: CArrayType,
+    lltypes.GcArray: CArrayType,
     lltypes._PtrType: CPtrType,
     lltypes.Primitive: get_primitive_type,
     }

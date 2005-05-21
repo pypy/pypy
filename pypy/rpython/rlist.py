@@ -19,8 +19,8 @@ class ListType:
         LISTPTR = self.LISTPTR
         LIST    = self.LIST
         ITEM    = self.ITEM
-        LIST.become(Struct("list",
-                           ("items", GcPtr(Array(('item', ITEM))))))
+        LIST.become(GcStruct("list",
+                             ("items", GcPtr(GcArray(('item', ITEM))))))
 
         def getitem(l, i):
             return l.items[i].item

@@ -18,7 +18,7 @@ class TestLowLevelType:
         return skip_missing_compiler(t.ccompile)
 
     def test_simple(self):
-        S = Struct("s", ('v', Signed))
+        S = GcStruct("s", ('v', Signed))
         def llf():
             s = malloc(S)
             return s.v
@@ -27,7 +27,7 @@ class TestLowLevelType:
 
     def test_simple2(self):
         S = Struct("s", ('v', Signed))
-        S2 = Struct("s2", ('a',S), ('b',S))
+        S2 = GcStruct("s2", ('a',S), ('b',S))
         def llf():
             s = malloc(S2)
             s.a.v = 6
