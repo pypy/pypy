@@ -1,7 +1,8 @@
-import autopath
+import autopath, sys
 from pypy.rpython.lltypes import *
 from pypy.translator.c.database import LowLevelDatabase
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
+from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.rpython.lltypes import Struct, Array, malloc
 
 
@@ -60,12 +61,8 @@ def test_codegen():
     s.p = cast_flags(NonGcPtr(U), s.u)
     db.get(s)
     db.complete()
-    for node in db.structdeflist:
-        print '\n'.join(node.definition())
-    for node in db.globalcontainers():
-        print '\n'.join(node.forward_declaration())
-    for node in db.globalcontainers():
-        print '\n'.join(node.implementation())
+    db.write_all_declarations(sys.stdout)
+    db.write_all_implementations(sys.stdout)
 
 def test_codegen_2():
     db = LowLevelDatabase()
@@ -79,12 +76,8 @@ def test_codegen_2():
     s.aptr = a
     db.get(s)
     db.complete()
-    for node in db.structdeflist:
-        print '\n'.join(node.definition())
-    for node in db.globalcontainers():
-        print '\n'.join(node.forward_declaration())
-    for node in db.globalcontainers():
-        print '\n'.join(node.implementation())
+    db.write_all_declarations(sys.stdout)
+    db.write_all_implementations(sys.stdout)
 
 def test_codegen_3():
     db = LowLevelDatabase()
@@ -103,9 +96,40 @@ def test_codegen_3():
     s.anarray = cast_flags(NonGcPtr(A.y), a.y)
     db.get(s)
     db.complete()
-    for node in db.structdeflist:
-        print '\n'.join(node.definition())
-    for node in db.globalcontainers():
-        print '\n'.join(node.forward_declaration())
-    for node in db.globalcontainers():
-        print '\n'.join(node.implementation())
+    db.write_all_declarations(sys.stdout)
+    db.write_all_implementations(sys.stdout)
+
+def test_func_simple():
+    # -------------------- flowgraph building --------------------
+    #     def f(x):
+    #         return x+1
+    x = Variable("x")
+    x.concretetype = Signed
+    result = Variable("result")
+    result.concretetype = Signed
+    one = Constant(1)
+    one.concretetype = Signed
+    op = SpaceOperation("int_add", [x, one], result)
+    block = Block([x])
+    graph = FunctionGraph("f", block)
+    block.operations.append(op)
+    block.closeblock(Link([result], graph.returnblock))
+    graph.getreturnvar().concretetype = Signed
+    # --------------------         end        --------------------
+    
+    F = FuncType([Signed], Signed)
+    f = function(F, "f", graph=graph)
+    db = LowLevelDatabase()
+    db.get(f)
+    db.complete()
+    db.write_all_declarations(sys.stdout)
+    db.write_all_implementations(sys.stdout)
+
+    S = GcStruct('testing', ('fptr', NonGcPtr(F)))
+    s = malloc(S)
+    s.fptr = f
+    db = LowLevelDatabase()
+    db.get(s)
+    db.complete()
+    db.write_all_declarations(sys.stdout)
+    db.write_all_implementations(sys.stdout)

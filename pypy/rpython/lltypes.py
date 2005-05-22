@@ -311,7 +311,7 @@ def _expose(val, can_have_gc=False):
     return val
 
 def parentlink(container):
-    parent = container._check()
+    parent = container._parentstructure()
     if parent is not None:
         return parent, container._wrparent_index
 ##        if isinstance(parent, _struct):
@@ -455,17 +455,20 @@ class _struct(object):
             self._wrparent = weakref.ref(parent)
             self._wrparent_index = parentindex
 
-    def _check(self):
+    def _parentstructure(self):
         if self._wrparent is not None:
             parent = self._wrparent()
             if parent is None:
                 raise RuntimeError("accessing substructure %r,\n"
                                    "but already garbage collected parent %r"
                                    % (self, self._wrparent_type))
-            else:
-                parent._check()
-                return parent
+            return parent
         return None
+
+    def _check(self):
+        parent = self._parentstructure()
+        if parent is not None:
+            parent._check()
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -500,17 +503,20 @@ class _array(object):
             self._wrparent = weakref.ref(parent)
             self._wrparent_index = parentindex
 
-    def _check(self):
+    def _parentstructure(self):
         if self._wrparent is not None:
             parent = self._wrparent()
             if parent is None:
                 raise RuntimeError("accessing subarray %r,\n"
                                    "but already garbage collected parent %r"
                                    % (self, self._wrparent_type))
-            else:
-                parent._check()
-                return parent
+            return parent
         return None
+
+    def _check(self):
+        parent = self._parentstructure()
+        if parent is not None:
+            parent._check()
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -525,6 +531,9 @@ class _func(object):
         self._name = "?"
         self._callable = None
         self.__dict__.update(attrs)
+
+    def _parentstructure(self):
+        return None
 
     def _check(self):
         if self._callable is None:
@@ -545,3 +554,8 @@ def malloc(T, n=None):
         raise TypeError, "malloc for Structs and Arrays only"
     return _ptr(GcPtr(T), o)
 
+def function(TYPE, name, **attrs):
+    if not isinstance(TYPE, FuncType):
+        raise TypeError, "function() for FuncTypes only"
+    o = _func(TYPE, _name=name, **attrs)
+    return _ptr(NonGcPtr(TYPE), o)

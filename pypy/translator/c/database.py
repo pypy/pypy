@@ -1,12 +1,12 @@
 from pypy.translator.gensupp import NameManager
 from pypy.rpython.lltypes import Primitive, _PtrType, typeOf
-from pypy.rpython.lltypes import Struct, Array, FuncType, PyObject
+from pypy.rpython.lltypes import Struct, Array, FuncType, PyObject, Void
 from pypy.rpython.lltypes import ContainerType
 from pypy.rpython.typer import PyObjPtr
 from pypy.objspace.flow.model import Constant
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
-from pypy.translator.c.node import ContainerNodeClass
+from pypy.translator.c.node import ContainerNodeClass, cdecl
 
 # ____________________________________________________________
 
@@ -51,7 +51,7 @@ class LowLevelDatabase:
             self.structdeflist.append(node)
         return node
 
-    def gettype(self, T, varlength=1, who_asks=None):
+    def gettype(self, T, varlength=1, who_asks=None, argnames=[]):
         if isinstance(T, Primitive):
             return PrimitiveType[T]
         elif isinstance(T, _PtrType):
@@ -62,16 +62,20 @@ class LowLevelDatabase:
             if who_asks is not None:
                 who_asks.dependencies[node] = True
             return 'struct %s @' % node.name
-        elif isinstance(T, PyObject):
+        elif T == PyObject:
             return 'PyObject'
         elif isinstance(T, FuncType):
             resulttype = self.gettype(T.RESULT)
-            argtypes = ', '.join([self.gettype(ARG) for ARG in T.ARGS
-                                                    if ARG != Void])
-            if argtypes:
-                argtypes = argtypes.replace('@', '')
-            else:
-                argtypes = 'void'
+            argtypes = []
+            for i in range(len(T.ARGS)):
+                if T.ARGS[i] != Void:
+                    argtype = self.gettype(T.ARGS[i])
+                    try:
+                        argname = argnames[i]
+                    except IndexError:
+                        argname = ''
+                    argtypes.append(cdecl(argtype, argname))
+            argtypes = ', '.join(argtypes) or 'void'
             return resulttype.replace('@', '(@)(%s)' % argtypes)
         else:
             raise Exception("don't know about type %r" % (T,))
@@ -92,8 +96,11 @@ class LowLevelDatabase:
         if isinstance(T, Primitive):
             return PrimitiveName[T](obj)
         elif isinstance(T, _PtrType):
-            node = self.getcontainernode(obj._obj)
-            return node.ptrname
+            if obj:   # test if the ptr is non-NULL
+                node = self.getcontainernode(obj._obj)
+                return node.ptrname
+            else:
+                return 'NULL'
         else:
             raise Exception("don't know about %r" % (obj,))
 
@@ -109,3 +116,25 @@ class LowLevelDatabase:
         for node in self.containerlist:
             if node.globalcontainer:
                 yield node
+
+    def write_all_declarations(self, f):
+        print >> f
+        print >> f, '/********************************************************/'
+        print >> f, '/***  Structures definition                           ***/'
+        print >> f
+        for node in self.structdeflist:
+            print >> f, '\n'.join(node.definition())
+        print >> f
+        print >> f, '/********************************************************/'
+        print >> f, '/***  Forward declarations                            ***/'
+        print >> f
+        for node in self.globalcontainers():
+            print >> f, '\n'.join(node.forward_declaration())
+
+    def write_all_implementations(self, f):
+        print >> f
+        print >> f, '/********************************************************/'
+        print >> f, '/***  Implementations                                 ***/'
+        print >> f
+        for node in self.globalcontainers():
+            print >> f, '\n'.join(node.implementation())

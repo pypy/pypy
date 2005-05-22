@@ -57,7 +57,7 @@ class StructDefNode:
         if needs_refcount(self.STRUCT):
             yield '\tlong refcount;'
         for name, typename in self.fields:
-            yield '\t%s;' % typename.replace('@', name)
+            yield '\t%s;' % cdecl(typename, name)
         yield '};'
 
 
@@ -83,8 +83,7 @@ class ArrayDefNode:
         if needs_refcount(self.ARRAY):
             yield '\tlong refcount;'
         yield '\tlong length;'
-        yield '\t%s;' % self.structname.replace('@', 'items[%d]' %
-                                                self.varlength)
+        yield '\t%s;' % cdecl(self.structname, 'items[%d]' % self.varlength)
         yield '};'
 
 
@@ -113,12 +112,12 @@ class ContainerNode:
 
     def forward_declaration(self):
         yield '%s; /* forward */' % (
-            self.implementationtypename.replace('@', self.name))
+            cdecl(self.implementationtypename, self.name))
 
     def implementation(self):
         lines = list(self.initializationexpr())
         lines[0] = '%s = %s' % (
-            self.implementationtypename.replace('@', self.name),
+            cdecl(self.implementationtypename, self.name),
             lines[0])
         lines[-1] += ';'
         return lines
@@ -188,11 +187,56 @@ class ArrayNode(ContainerNode):
         yield '}'
 
 
+# XXX move FuncNode to funcdef.py
+from pypy.objspace.flow.model import *
+
 class FuncNode(ContainerNode):
+
+    def __init__(self, db, T, obj):
+        graph = obj.graph # only user-defined functions with graphs for now
+        argnames = [v.name for v in graph.getargs()]
+        self.db = db
+        self.T = T
+        self.obj = obj
+        #self.dependencies = {}
+        self.typename = db.gettype(T)  #, who_asks=self)
+        self.implementationtypename = db.gettype(T, argnames=argnames)
+        self.name = db.namespace.uniquename('g_' + self.basename())
+        self.globalcontainer = True
+        self.ptrname = self.name
+        # collect all variables and constants used in the body,
+        # and get their types now
+        result = []
+        def visit(block):
+            if isinstance(block, Block):
+                result.extend(block.inputargs)
+                for op in block.operations:
+                    result.extend(op.args)
+                for link in block.exits:
+                    result.extend(link.args)
+        traverse(visit, graph)
+        self.varmap = {}
+        for v in uniqueitems(result):
+            T = v.concretetype
+            self.varmap[v] = self.db.gettype(T)
+
     def basename(self):
         return self.obj._name
+
+    def allvariables(self):
+        return [v for v in self.varmap if isinstance(v, Variable)]
+
+    def allconstants(self):
+        return [v for v in self.varmap if isinstance(v, Constant)]
+
     def enum_dependencies(self):
-        Booom
+        return [c.value for c in self.allconstants()]
+
+    def implementation(self):
+        yield '%s {' % cdecl(self.implementationtypename, self.name)
+        yield '\tlots-of-strange-code'
+        yield '}'
+
 
 class PyObjectNode(ContainerNode):
     basename = 'BOOOM'
@@ -206,3 +250,16 @@ ContainerNodeClass = {
     FuncType: FuncNode,
     PyObject: PyObjectNode,
     }
+
+#
+# helper
+#
+def cdecl(ctype, cname):
+    """
+    Produce a C declaration from a 'type template' and an identifier.
+    The type template must contain a '@' sign at the place where the
+    name should be inserted, according to the strange C syntax rules.
+    """
+    # the (@) case is for functions, where if there is a plain (@) around
+    # the function name, we don't need the very confusing parenthesis
+    return ctype.replace('(@)', '@').replace('@', cname).strip()
