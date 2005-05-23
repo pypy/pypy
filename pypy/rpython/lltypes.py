@@ -1,6 +1,7 @@
 import weakref
 import py
 from pypy.rpython.rarithmetic import r_uint
+from pypy.tool.uid import Hashable
 
 class frozendict(dict):
 
@@ -545,6 +546,22 @@ class _func(object):
     def __str__(self):
         return "func %s" % self._name
 
+class _pyobject(Hashable):
+    _TYPE = PyObject
+
+    def _parentstructure(self):
+        return None
+
+    def _check(self):
+        pass
+
+    def __repr__(self):
+        return '<%s>' % (self,)
+
+    def __str__(self):
+        return "pyobject %s" % (super(_pyobject, self).__str__(),)
+
+
 def malloc(T, n=None):
     if isinstance(T, Struct):
         o = _struct(T, n)
@@ -559,3 +576,8 @@ def function(TYPE, name, **attrs):
         raise TypeError, "function() for FuncTypes only"
     o = _func(TYPE, _name=name, **attrs)
     return _ptr(NonGcPtr(TYPE), o)
+
+def pyobject(obj, **flags):
+    T = _PtrType(PyObject, **flags)
+    o = _pyobject(obj)
+    return _ptr(T, o)

@@ -1,5 +1,5 @@
 from __future__ import generators
-from pypy.rpython.lltypes import Struct, Array, FuncType, PyObject, typeOf
+from pypy.rpython.lltypes import Struct, Array, FuncType, PyObjectType, typeOf
 from pypy.rpython.lltypes import GcStruct, GcArray, GC_CONTAINER, ContainerType
 from pypy.rpython.lltypes import parentlink
 from pypy.translator.c.funcgen import FunctionCodeGenerator
@@ -247,14 +247,24 @@ class FuncNode(ContainerNode):
 
 
 class PyObjectNode(ContainerNode):
-    basename = 'BOOOM'
+    globalcontainer = True
+    typename = 'PyObject @'
+    implementationtypename = 'PyObject *@'
+
+    def __init__(self, db, T, obj):
+        # obj is a _pyobject here; obj.value is the underlying CPython object
+        self.db = db
+        self.T = T
+        self.obj = obj
+        self.name = db.namespace.uniquename('g_' + WORKING_ON_IT)
+        self.ptrname = self.name
 
 
 ContainerNodeClass = {
-    Struct:   StructNode,
-    GcStruct: StructNode,
-    Array:    ArrayNode,
-    GcArray:  ArrayNode,
-    FuncType: FuncNode,
-    PyObject: PyObjectNode,
+    Struct:       StructNode,
+    GcStruct:     StructNode,
+    Array:        ArrayNode,
+    GcArray:      ArrayNode,
+    FuncType:     FuncNode,
+    PyObjectType: PyObjectNode,
     }

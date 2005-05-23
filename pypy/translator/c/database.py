@@ -8,6 +8,7 @@ from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
 from pypy.translator.c.node import ContainerNodeClass
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
+#from pypy.translator.c.pyobj import PyObjMaker
 
 # ____________________________________________________________
 
@@ -19,6 +20,7 @@ class LowLevelDatabase:
         self.containernodes = {}
         self.containerlist = []
         self.namespace = CNameManager()
+        #self.pyobjmaker = PyObjMaker(self.namespace)
 
     def gettypedefnode(self, T, varlength=1):
         if varlength <= 1:
@@ -51,7 +53,7 @@ class LowLevelDatabase:
                 who_asks.dependencies[node] = True
             return 'struct %s @' % node.name
         elif T == PyObject:
-            return 'PyObject'
+            return 'PyObject @'
         elif isinstance(T, FuncType):
             resulttype = self.gettype(T.RESULT)
             argtypes = []
@@ -84,8 +86,10 @@ class LowLevelDatabase:
             T = obj.TYPE
             if isinstance(T, Primitive):
                 return PrimitiveErrorValue[T]
-            else:
+            elif isinstance(T, _PtrType):
                 return 'NULL'
+            else:
+                raise Exception("don't know about %r" % (T,))
         else:
             T = typeOf(obj)
             if isinstance(T, Primitive):

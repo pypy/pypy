@@ -1,3 +1,4 @@
+from pypy.rpython import lltypes
 from pypy.translator.gensupp import NameManager
 
 class ErrorValue:
@@ -27,6 +28,16 @@ def somelettersfrom(s):
         return ''.join(upcase).lower()
     else:
         return s[:2].lower()
+
+
+def llvalue_from_constant(c):
+    try:
+        T = c.concretetype
+    except AttributeError:
+        return lltypes.pyobject(c.value)
+    else:
+        assert lltypes.typeOf(c.value) == T
+        return c.value
 
 
 class CNameManager(NameManager):

@@ -1,12 +1,14 @@
 from __future__ import generators
-from pypy.rpython.lltypes import PyObject, GcPtr
 from pypy.translator.gensupp import ordered_blocks
 from pypy.translator.c.support import cdecl, ErrorValue
+from pypy.translator.c.support import llvalue_from_constant
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import traverse, uniqueitems
+from pypy.rpython.lltypes import GcPtr, NonGcPtr, PyObject
 
 
-PyObjPtr = GcPtr(PyObject)   # default type for untyped Vars and Consts
+PyObjGcPtr    = GcPtr(PyObject)
+PyObjNonGcPtr = NonGcPtr(PyObject)
 
 
 class FunctionCodeGenerator:
@@ -18,7 +20,7 @@ class FunctionCodeGenerator:
     def __init__(self, graph, gettype, getvalue):
         self.graph = graph
         self.getvalue = getvalue
-        self.typemap = self.collecttypes(gettype)
+        self.typemap, self.returntype = self.collecttypes(gettype)
 
     def collecttypes(self, gettype):
         # collect all variables and constants used in the body,
@@ -33,10 +35,17 @@ class FunctionCodeGenerator:
                     result.extend(link.args)
         traverse(visit, self.graph)
         typemap = {}
+        returnvar = self.graph.getreturnvar()
+        result.append(returnvar)
         for v in uniqueitems(result):
-            T = getattr(v, 'concretetype', PyObjPtr)
+            if isinstance(v, Variable):
+                T = getattr(v, 'concretetype', PyObjGcPtr)
+            else:
+                T = getattr(v, 'concretetype', PyObjNonGcPtr)
             typemap[v] = gettype(T)
-        return typemap
+            if v is returnvar:
+                returntype = T
+        return typemap, returntype
 
     def argnames(self):
         return [v.name for v in self.graph.getargs()]
@@ -50,7 +59,7 @@ class FunctionCodeGenerator:
     def allconstantvalues(self):
         for v, T in self.typemap.iteritems():
             if isinstance(v, Constant):
-                yield v.value
+                yield llvalue_from_constant(v)
 
     def decl(self, v):
         assert isinstance(v, Variable), repr(v)
@@ -65,8 +74,7 @@ class FunctionCodeGenerator:
             raise TypeError, "expr(%r)" % (v,)
 
     def error_return_value(self):
-        T = self.typemap[self.graph.getreturnvar()]
-        return self.getvalue(ErrorValue(T))
+        return self.getvalue(ErrorValue(self.returntype))
 
     # ____________________________________________________________
 

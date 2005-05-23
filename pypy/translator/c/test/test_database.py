@@ -1,5 +1,6 @@
 import autopath, sys
 from pypy.rpython.lltypes import *
+from pypy.translator.translator import Translator
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
@@ -118,6 +119,29 @@ def test_func_simple():
     # --------------------         end        --------------------
     
     F = FuncType([Signed], Signed)
+    f = function(F, "f", graph=graph)
+    db = LowLevelDatabase()
+    db.get(f)
+    db.complete()
+    db.write_all_declarations(sys.stdout)
+    db.write_all_implementations(sys.stdout)
+
+    S = GcStruct('testing', ('fptr', NonGcPtr(F)))
+    s = malloc(S)
+    s.fptr = f
+    db = LowLevelDatabase()
+    db.get(s)
+    db.complete()
+    db.write_all_declarations(sys.stdout)
+    db.write_all_implementations(sys.stdout)
+
+def WORKING_ON_test_untyped_func():
+    def f(x):
+        return x+1
+    t = Translator(f)
+    graph = t.getflowgraph()
+
+    F = FuncType([GcPtr(PyObject)], GcPtr(PyObject))
     f = function(F, "f", graph=graph)
     db = LowLevelDatabase()
     db.get(f)

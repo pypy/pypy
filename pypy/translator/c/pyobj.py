@@ -4,9 +4,6 @@ from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.gensupp import builtin_base, NameManager
-from pypy.translator.c.repr import Repr
-
-from pypy.translator.gensupp import builtin_base, NameManager
 
 from pypy.rpython.rarithmetic import r_int, r_uint
 
@@ -17,29 +14,15 @@ from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.interpreter.baseobjspace import ObjSpace
 
 
-class ReprPyObject(Repr):
-    """Handles 'PyObject*'; factored out from GenC.
+class PyObjMaker:
+    """Handles 'PyObject*'; factored out from LowLevelDatabase.
     This class contains all the nameof_xxx() methods that allow a wild variety
     of Python objects to be 'pickled' as Python source code that will
     reconstruct them.
     """
 
-    def __init__(self, translator):
-        self.translator = translator
-        self.namespace = NameManager()
-        # keywords cannot be reused.  This is the C99 draft's list.
-        self.namespace.make_reserved_names('''
-           auto      enum      restrict  unsigned
-           break     extern    return    void
-           case      float     short     volatile
-           char      for       signed    while
-           const     goto      sizeof    _Bool
-           continue  if        static    _Complex
-           default   inline    struct    _Imaginary
-           do        int       switch
-           double    long      typedef
-           else      register  union
-           ''')
+    def __init__(self, namespace):
+        self.namespace = namespace
         self.cnames = {Constant(None).key:  'Py_None',
                        Constant(False).key: 'Py_False',
                        Constant(True).key:  'Py_True',
