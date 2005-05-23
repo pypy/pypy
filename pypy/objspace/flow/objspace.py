@@ -69,6 +69,8 @@ class FlowObjSpace(ObjSpace):
                 Constant('api_version'): True,
                 Constant('exit'): True,
                 Constant('exc_info'): True,
+                Constant('getrefcount'): True,
+                Constant('getdefaultencoding'): True,
                 # this is an incomplete list of true constants.
                 # if we add much more, a dedicated class
                 # might be considered for special objects.
