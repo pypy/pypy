@@ -19,7 +19,7 @@ def lookup(space, w_name):
     except KeyError:
         msg = space.mod(space.wrap("undefined character name '%s'"), w_name)
         raise OperationError(space.w_KeyError, msg)
-    return space.call_function(space.getattr(space.w_builtin, 'unichr'),
+    return space.call_function(space.builtin.get('unichr'),
                                space.wrap(code))
 
 def name(space, w_unichr, w_default=NoneNotWrapped):
