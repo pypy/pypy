@@ -140,6 +140,8 @@ class Bookkeeper:
                 result = SomeChar()
             else:
                 result = SomeString()
+        elif tp is unicode and len(x) == 1:
+            result = SomeUnicodeCodePoint()
         elif tp is tuple:
             result = SomeTuple(items = [self.immutablevalue(e) for e in x])
         elif tp is float:

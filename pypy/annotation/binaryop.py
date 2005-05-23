@@ -5,6 +5,7 @@ Binary operations between SomeValues.
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
+from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat
@@ -246,6 +247,11 @@ class __extend__(pairtype(SomeChar, SomeChar)):
 
     def union((chr1, chr2)):
         return SomeChar()
+
+class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
+
+    def union((uchr1, uchr2)):
+        return SomeUnicodeCodePoint()
 
 class __extend__(pairtype(SomeString, SomeObject)):
 

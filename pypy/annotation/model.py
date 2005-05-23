@@ -180,6 +180,9 @@ class SomeString(SomeObject):
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
 
+class SomeUnicodeCodePoint(SomeObject):
+    knowntype = unicode
+    "Stands for an object known to be a unicode codepoint."
 
 class SomeList(SomeObject):
     "Stands for a homogenous list of any length."

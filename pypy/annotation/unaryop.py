@@ -7,6 +7,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
+from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeFloat
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
@@ -241,6 +242,9 @@ class __extend__(SomeDict):
     def iter(dct):
         return SomeIterator(dct.dictdef.read_key())
 
+    def method_get(dct, key, dfl):
+        return unionof(dct.dictdef.read_value(), dfl)
+
     def method_copy(dct):
         return dct
 
@@ -284,6 +288,11 @@ class __extend__(SomeChar):
 
     def len(chr):
         return immutablevalue(1)
+
+class __extend__(SomeUnicodeCodePoint):
+
+    def ord(uchr):
+        return SomeInteger(nonneg=True)
 
 
 class __extend__(SomeIterator):

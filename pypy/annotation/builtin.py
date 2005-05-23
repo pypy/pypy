@@ -7,6 +7,7 @@ import sys, math, os, time
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
+from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Constant
@@ -42,8 +43,11 @@ def builtin_long(s_obj):
 def builtin_chr(s_int):
     return SomeChar()
 
-def builtin_unicode(s_obj): # XXX
-    return SomeString() 
+def builtin_unichr(s_int):
+    return SomeUnicodeCodePoint()
+
+def builtin_unicode(s_obj):
+    raise TypeError, "unicode() calls should not happen at interp-level"
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
@@ -187,7 +191,7 @@ def rarith_ovfcheck_lshift(s_obj1, s_obj2):
     return SomeInteger()
 
 def unicodedata_decimal(s_uchr):
-    return SomeInteger()
+    raise TypeError, "unicodedate.decimal() calls should not happen at interp-level"    
 
 def test(*args):
     return SomeBool()
