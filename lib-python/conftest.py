@@ -131,11 +131,7 @@ app = ApplevelClass('''
         return namemethodlist, doctestlist 
 
     def run_testcase_method(method): 
-        method.setUp()
-        try: 
-            method()
-        finally: 
-            method.tearDown()
+        method()
 
     def set_argv(filename): 
         sys.argv[:] = ['python', filename]
