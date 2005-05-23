@@ -20,9 +20,8 @@ def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
                                      space.wrap(e.msg))
         elif space.is_true(space.isinstance(w_value, space.w_unicode)):
             try:
-                # XXX can produce unwrapped long
                 from unicodeobject import unicode_to_decimal_w
-                value = string_to_long(unicode_to_decimal_w(space, w_value))
+                w_value = string_to_w_long(space, unicode_to_decimal_w(space, w_value))
             except ParseStringError, e:
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))

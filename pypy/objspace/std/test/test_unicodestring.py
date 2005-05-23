@@ -64,3 +64,12 @@ class AppTestUnicodeString:
         assert (u'this!is!the!split!function'.split('!') ==
                 [u'this', u'is', u'the', u'split', u'function'])
     
+    def test_long_from_unicode(self):
+        assert long(u'12345678901234567890') == 12345678901234567890
+        assert int(u'12345678901234567890') == 12345678901234567890
+
+    def test_int_from_unicode(self):
+        assert int(u'12345') == 12345
+
+    def test_float_from_unicode(self):
+        assert float(u'123.456e89') == 123.456e89
