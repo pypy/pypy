@@ -102,6 +102,8 @@ def descr__new__(space, w_unicodetype, w_obj=None, w_encoding=None, w_errors=Non
             w_value = unicode_from_object(space, w_obj)
     else:
         w_value = unicode_from_encoded_object(space, w_obj, w_encoding, w_errors)
+    # help the annotator! also the ._value depends on W_UnicodeObject layout
+    assert isinstance(w_value, W_UnicodeObject)
     w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
     w_newobj.__init__(space, w_value._value)
     return w_newobj

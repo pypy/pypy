@@ -31,6 +31,9 @@ registerimplementation(W_UnicodeObject)
 
 # Helper for converting int/long
 def unicode_to_decimal_w(space, w_unistr):
+    if not isinstance(w_unistr, W_UnicodeObject):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expected unicode"))
     unistr = w_unistr._value
     result = ['\0'] * len(unistr)
     digits = [ '0', '1', '2', '3', '4',
@@ -52,7 +55,9 @@ def unicode_to_decimal_w(space, w_unistr):
 # string-to-unicode delegation
 def delegate_String2Unicode(w_str):
     space = w_str.space
-    return space.call_function(space.w_unicode, w_str)
+    w_uni =  space.call_function(space.w_unicode, w_str)
+    assert isinstance(w_uni, W_UnicodeObject) # help the annotator!
+    return w_uni
 
 def str_w__Unicode(space, w_uni):
     return space.str_w(space.str(w_uni))
@@ -150,33 +155,38 @@ def unicode_join__Unicode_ANY(space, w_self, w_list):
     totlen = 0
     if len(list) == 0:
         return W_UnicodeObject(space, [])
+    values_list = [None] * len(list)
+    values_list[0] = [u'\0']
     for i in range(len(list)):
         item = list[i]
         if space.is_true(space.isinstance(item, space.w_unicode)):
-            list[i] = item._value
+            pass
         elif space.is_true(space.isinstance(item, space.w_str)):
-            list[i] = space.call_function(space.w_unicode, item)._value
+            item = space.call_function(space.w_unicode, item)
         else:
             w_msg = space.mod(space.wrap('sequence item %d: expected string or Unicode'),
                               space.wrap(i))
             raise OperationError(space.w_TypeError, w_msg)
-        totlen += len(list[i])
-    totlen += len(delim) * (len(list) - 1)
-    if len(list) == 1:
-        return W_UnicodeObject(space, list[0])
+        assert isinstance(item, W_UnicodeObject)
+        item = item._value
+        totlen += len(item)
+        values_list[i] = item
+    totlen += len(delim) * (len(values_list) - 1)
+    if len(values_list) == 1:
+        return W_UnicodeObject(space, values_list[0])
     # Allocate result
     result = [u'\0'] * totlen
-    first = list[0]
+    first = values_list[0]
     for i in range(len(first)):
         result[i] = first[i]
     offset = len(first)
-    for i in range(1, len(list)):
-        item = list[i]
+    for i in range(1, len(values_list)):
+        item = values_list[i]
         # Add delimiter
         for j in range(len(delim)):
             result[offset + j] = delim[j]
         offset += len(delim)
-        # Add item from list
+        # Add item from values_list
         for j in range(len(item)):
             result[offset + j] = item[j]
         offset += len(item)
