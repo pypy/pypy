@@ -199,6 +199,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_IntObject(self, x)
         if isinstance(x, str):
             return W_StringObject(self, x)
+        if isinstance(x, unicode):
+            return W_UnicodeObject(self, [u for u in x])
         if isinstance(x, dict):
             items_w = [(self.wrap(k), self.wrap(v)) for (k, v) in x.iteritems()]
             return W_DictObject(self, items_w)
@@ -282,6 +284,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise OperationError(self.w_ValueError,
                                  self.wrap("character code not in range(256)"))
         return W_StringObject(self, ''.join(chars))
+
+    def newunicode(self, chars_w):
+        try:
+            chars = [unichr(self.int_w(w_c)) for w_c in chars_w]
+        except ValueError, e:  # unichr(out-of-range)
+            raise OperationError(self.w_ValueError,
+                                 self.wrap("character code not in range(0x110000)"))
+        return W_UnicodeObject(self, chars)
 
     def newseqiter(self, w_obj):
         return W_SeqIterObject(self, w_obj)

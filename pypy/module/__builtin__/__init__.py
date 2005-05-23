@@ -47,7 +47,6 @@ class Module(MixedModule):
         'complex'       : 'app_complex.complex',
 
         'intern'        : 'app_misc.intern',
-        'unichr'        : 'app_misc.unichr',
         'buffer'        : 'app_buffer.buffer',
         'reload'        : 'app_misc.reload',
     }
@@ -64,7 +63,7 @@ class Module(MixedModule):
         'object'        : '(space.w_object)',
         'file'          : '(space.wrap(file))',
         'open'          : '(space.wrap(file))',
-        'unicode'       : '(space.wrap(unicode))',  # XXX faked
+        'unicode'       : '(space.w_unicode)',
 
         # old-style classes dummy support
         '_classobj'     : 'space.w_classobj',
@@ -76,6 +75,7 @@ class Module(MixedModule):
         # interp-level function definitions
         'abs'           : 'operation.abs',
         'chr'           : 'operation.chr',
+        'unichr'        : 'operation.unichr',
         'len'           : 'operation.len',
         'ord'           : 'operation.ord',
         'pow'           : 'operation.pow',

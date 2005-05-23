@@ -11,13 +11,6 @@ def intern(s):
     return _stringtable.setdefault(s,s)
 
 
-def unichr(code):
-    import sys
-    if (code < 0 or code > sys.maxunicode):
-        raise ValueError('unichr() arg not in range(%#x)'%(sys.maxunicode + 1))
-    return unicode('\\U%08x' %(code), 'unicode-escape')
-
-
 def reload(module):
     import imp, sys, errno
 

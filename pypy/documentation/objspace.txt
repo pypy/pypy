@@ -93,6 +93,9 @@ Creation of Application Level objects
 **newstring(asciilist):**
   Creates a string from a list of wrapped integers.
 
+**newunicode(codelist):**
+  Creates a unicode string from a list of wrapped integers.
+
 Conversions from Application Level to Interpreter Level
 ----------------------------------------------------------
 

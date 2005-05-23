@@ -129,6 +129,7 @@ class ObjSpace(object):
         w_builtin = self.wrap(self.builtin)
         self.setitem(w_modules, w_name, w_builtin) 
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
+        self.setbuiltinmodule('unicodedata')
 
         # XXX we need to resolve unwrapping issues to 
         #     make this the default _sre module
@@ -532,6 +533,7 @@ ObjSpace.ExceptionTable = [
 #                  newtuple([w_1, w_2,...]) -> w_tuple
 #                   newlist([w_1, w_2,...]) -> w_list
 #                 newstring([w_1, w_2,...]) -> w_string from ascii numbers (bytes)
+#                newunicode([w_1, w_2,...]) -> w_unicode from numbers
 #            newdict([(w_key,w_value),...]) -> w_dict
 #           newslice(w_start,w_stop,w_step) -> w_slice
 #              call_args(w_obj,Arguments()) -> w_result
@@ -549,6 +551,7 @@ ObjSpace.IrregularOpTable = [
     'newtuple',
     'newlist',
     'newstring',
+    'newunicode',
     'newdict',
     'newslice',
     'call_args'
