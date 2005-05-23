@@ -9,7 +9,7 @@ from pypy.interpreter.gateway import NoneNotWrapped
 
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
     if space.is_true(space.isinstance(w_source, space.w_unicode)):
-        str_ = u''.join(w_source._value) # Bad exposing of unicode internals
+        str_ = space.unwrap(w_source) # Bad exposing of unicode internals
     else:
         str_ = space.str_w(w_source)
 

@@ -1,6 +1,5 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from pypy.objspace.std.fake import wrap_exception
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject
@@ -22,6 +21,11 @@ class W_UnicodeObject(W_Object):
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "%s(%r)" % (w_self.__class__.__name__, w_self._value)
+
+    def unwrap(w_self):
+        # For faked functions taking unicodearguments.
+        # Remove when we no longer need faking.
+        return u''.join(w_self._value)
 
 registerimplementation(W_UnicodeObject)
 
@@ -178,23 +182,6 @@ def unicode_join__Unicode_ANY(space, w_self, w_list):
         offset += len(item)
     return W_UnicodeObject(space, result)
 
-def unicode_encode__Unicode_String_String(space, w_self, w_encoding, w_errors):
-    try:
-        return space.wrap(u''.join(w_self._value).encode(space.str_w(w_encoding), space.str_w(w_errors)))
-    except:
-        wrap_exception(space)
-
-def unicode_encode__Unicode_String_None(space, w_self, w_encoding, w_none):
-    try:
-        return space.wrap(u''.join(w_self._value).encode(space.str_w(w_encoding)))
-    except:
-        wrap_exception(space)
-
-def unicode_encode__Unicode_None_None(space, w_self, w_encoding, w_errors):
-    try:
-        return space.wrap(u''.join(w_self._value).encode())
-    except:
-        wrap_exception(space)
 
 def hash__Unicode(space, w_uni):
     if w_uni.w_hash is None:
@@ -770,13 +757,29 @@ def mod__Unicode_ANY(format, values):
     import _formatting
     if isinstance(values, tuple):
         return _formatting.format(format, values, None, do_unicode=True)
-    if hasattr(values, 'keys'):
+    if hasattr(values, "keys"):
         return _formatting.format(format, (values,), values, do_unicode=True)
     return _formatting.format(format, (values,), None, do_unicode=True)
+
+def unicode_encode__Unicode_ANY_ANY(unistr, encoding=None, errors=None):
+    import codecs, sys
+    if encoding is None:
+        encoding = sys.getdefaultencoding()
+
+    encoder = codecs.getencoder(encoding)
+    if errors is None:
+        retval, lenght = encoder(unistr)
+    else:
+        retval, length = encoder(unistr, errors)
+
+    return retval
+
 ''')
 unicode_expandtabs__Unicode_ANY = app.interphook('unicode_expandtabs__Unicode_ANY')
 unicode_translate__Unicode_ANY = app.interphook('unicode_translate__Unicode_ANY')
 mod__Unicode_ANY = app.interphook('mod__Unicode_ANY')
+
+unicode_encode__Unicode_ANY_ANY = app.interphook('unicode_encode__Unicode_ANY_ANY')
 
 import unicodetype
 register_all(vars(), unicodetype)
