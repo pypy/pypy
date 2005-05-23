@@ -8,7 +8,7 @@ from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
 from pypy.translator.c.node import ContainerNodeClass
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
-#from pypy.translator.c.pyobj import PyObjMaker
+from pypy.translator.c.pyobj import PyObjMaker
 
 # ____________________________________________________________
 
@@ -20,7 +20,7 @@ class LowLevelDatabase:
         self.containernodes = {}
         self.containerlist = []
         self.namespace = CNameManager()
-        #self.pyobjmaker = PyObjMaker(self.namespace)
+        self.pyobjmaker = PyObjMaker(self.namespace, self.get)
 
     def gettypedefnode(self, T, varlength=1):
         if varlength <= 1:
@@ -104,39 +104,20 @@ class LowLevelDatabase:
                 raise Exception("don't know about %r" % (obj,))
 
     def complete(self):
-        for node in self.containerlist:
+        i = 0
+        while True:
+            self.pyobjmaker.collect_initcode()
+            if i == len(self.containerlist):
+                break
+            node = self.containerlist[i]
             for value in node.enum_dependencies():
                 if isinstance(typeOf(value), ContainerType):
                     self.getcontainernode(value)
                 else:
                     self.get(value)
+            i += 1
 
     def globalcontainers(self):
         for node in self.containerlist:
             if node.globalcontainer:
                 yield node
-
-    def write_all_declarations(self, f):
-        print >> f
-        print >> f, '/********************************************************/'
-        print >> f, '/***  Structure definitions                           ***/'
-        print >> f
-        for node in self.structdeflist:
-            for line in node.definition():
-                print >> f, line
-        print >> f
-        print >> f, '/********************************************************/'
-        print >> f, '/***  Forward declarations                            ***/'
-        print >> f
-        for node in self.globalcontainers():
-            for line in node.forward_declaration():
-                print >> f, line
-
-    def write_all_implementations(self, f):
-        print >> f
-        print >> f, '/********************************************************/'
-        print >> f, '/***  Implementations                                 ***/'
-        for node in self.globalcontainers():
-            print >> f
-            for line in node.implementation():
-                print >> f, line

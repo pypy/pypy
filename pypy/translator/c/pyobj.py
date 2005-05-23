@@ -6,6 +6,7 @@ from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.gensupp import builtin_base, NameManager
 
 from pypy.rpython.rarithmetic import r_int, r_uint
+from pypy.rpython.lltypes import pyobject
 
 # XXX maybe this can be done more elegantly:
 # needed to convince should_translate_attr
@@ -21,60 +22,48 @@ class PyObjMaker:
     reconstruct them.
     """
 
-    def __init__(self, namespace):
+    def __init__(self, namespace, getvalue):
         self.namespace = namespace
-        self.cnames = {Constant(None).key:  'Py_None',
-                       Constant(False).key: 'Py_False',
-                       Constant(True).key:  'Py_True',
-                       }
+        self.getvalue = getvalue
         self.initcode = [      # list of lines for the module's initxxx()
             'import new, types, sys',
-            'Py_None  = None',
-            'Py_False = False',
-            'Py_True  = True',
             ]
 
-        self.globaldecl = []
         self.latercode = []    # list of generators generating extra lines
                                #   for later in initxxx() -- for recursive
                                #   objects
-        self.globalobjects = []
         self.debugstack = ()  # linked list of nested nameof()
 
     def nameof(self, obj, debug=None):
-        key = Constant(obj).key
+        if debug:
+            stackentry = debug, obj
+        else:
+            stackentry = obj
+        self.debugstack = (self.debugstack, stackentry)
         try:
-            return self.cnames[key]
-        except KeyError:
-            if debug:
-                stackentry = debug, obj
-            else:
-                stackentry = obj
-            self.debugstack = (self.debugstack, stackentry)
-            obj_builtin_base = builtin_base(obj)
-            if obj_builtin_base in (object, int, long) and type(obj) is not obj_builtin_base:
-                # assume it's a user defined thingy
-                name = self.nameof_instance(obj)
-            else:
-                for cls in type(obj).__mro__:
-                    meth = getattr(self,
-                                   'nameof_' + cls.__name__.replace(' ', ''),
-                                   None)
-                    if meth:
-                        break
-                else:
-                    raise Exception, "nameof(%r)" % (obj,)
-                name = meth(obj)
+            return self.getvalue(pyobject(obj))
+        finally:
             self.debugstack, x = self.debugstack
             assert x is stackentry
-            self.cnames[key] = name
-            return name
+
+    def computenameof(self, obj):
+        obj_builtin_base = builtin_base(obj)
+        if obj_builtin_base in (object, int, long) and type(obj) is not obj_builtin_base:
+            # assume it's a user defined thingy
+            return self.nameof_instance(obj)
+        else:
+            for cls in type(obj).__mro__:
+                meth = getattr(self,
+                               'nameof_' + cls.__name__.replace(' ', ''),
+                               None)
+                if meth:
+                    break
+            else:
+                raise Exception, "nameof(%r)" % (obj,)
+            return meth(obj)
 
     def uniquename(self, basename):
-        name = self.namespace.uniquename(basename)
-        self.globalobjects.append(name)
-        self.globaldecl.append('static PyObject *%s;' % (name,))
-        return name
+        return self.namespace.uniquename(basename)
 
     def initcode_python(self, name, pyexpr):
         # generate init code that will evaluate the given Python expression
@@ -420,36 +409,26 @@ class PyObjMaker:
     def later(self, gen):
         self.latercode.append((gen, self.debugstack))
 
-    def collect_globals(self, genc):
+    def collect_initcode(self):
         while self.latercode:
             gen, self.debugstack = self.latercode.pop()
             #self.initcode.extend(gen) -- eats TypeError! bad CPython!
             for line in gen:
                 self.initcode.append(line)
             self.debugstack = ()
-        if genc.f2 is not None:
-            for line in self.initcode:
-                print >> genc.f2, line
-            del self.initcode[:]
-        result = self.globaldecl
-        self.globaldecl = []
-        return result
 
-    def getfrozenbytecode(self, genc):
-        if genc.f2 is not None:
-            genc.f2.seek(0)
-            self.initcode.insert(0, genc.f2.read())
+    def getfrozenbytecode(self):
         self.initcode.append('')
         source = '\n'.join(self.initcode)
         del self.initcode[:]
-        co = compile(source, genc.modname, 'exec')
-        del source
+        co = compile(source, '<initcode>', 'exec')
+        originalsource = source
         small = zlib.compress(marshal.dumps(co))
         source = """if 1:
             import zlib, marshal
             exec marshal.loads(zlib.decompress(%r))""" % small
         # Python 2.2 SyntaxError without newline: Bug #501622
         source += '\n'
-        co = compile(source, genc.modname, 'exec')
+        co = compile(source, '<initcode>', 'exec')
         del source
-        return marshal.dumps(co)
+        return marshal.dumps(co), originalsource

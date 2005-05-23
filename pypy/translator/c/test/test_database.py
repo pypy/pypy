@@ -7,6 +7,20 @@ from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.rpython.lltypes import Struct, Array, malloc
 
 
+def dump_on_stdout(database):
+    print '/*********************************/'
+    for node in database.structdeflist:
+        for line in node.definition():
+            print line
+    print
+    for node in database.globalcontainers():
+        for line in node.forward_declaration():
+            print line
+    for node in database.globalcontainers():
+        print
+        for line in node.implementation():
+            print line
+
 
 def test_primitive():
     db = LowLevelDatabase()
@@ -62,8 +76,7 @@ def test_codegen():
     s.p = cast_flags(NonGcPtr(U), s.u)
     db.get(s)
     db.complete()
-    db.write_all_declarations(sys.stdout)
-    db.write_all_implementations(sys.stdout)
+    dump_on_stdout(db)
 
 def test_codegen_2():
     db = LowLevelDatabase()
@@ -77,8 +90,7 @@ def test_codegen_2():
     s.aptr = a
     db.get(s)
     db.complete()
-    db.write_all_declarations(sys.stdout)
-    db.write_all_implementations(sys.stdout)
+    dump_on_stdout(db)
 
 def test_codegen_3():
     db = LowLevelDatabase()
@@ -97,8 +109,7 @@ def test_codegen_3():
     s.anarray = cast_flags(NonGcPtr(A.y), a.y)
     db.get(s)
     db.complete()
-    db.write_all_declarations(sys.stdout)
-    db.write_all_implementations(sys.stdout)
+    dump_on_stdout(db)
 
 def test_func_simple():
     # -------------------- flowgraph building --------------------
@@ -123,8 +134,7 @@ def test_func_simple():
     db = LowLevelDatabase()
     db.get(f)
     db.complete()
-    db.write_all_declarations(sys.stdout)
-    db.write_all_implementations(sys.stdout)
+    dump_on_stdout(db)
 
     S = GcStruct('testing', ('fptr', NonGcPtr(F)))
     s = malloc(S)
@@ -132,10 +142,9 @@ def test_func_simple():
     db = LowLevelDatabase()
     db.get(s)
     db.complete()
-    db.write_all_declarations(sys.stdout)
-    db.write_all_implementations(sys.stdout)
+    dump_on_stdout(db)
 
-def WORKING_ON_test_untyped_func():
+def test_untyped_func():
     def f(x):
         return x+1
     t = Translator(f)
@@ -146,8 +155,7 @@ def WORKING_ON_test_untyped_func():
     db = LowLevelDatabase()
     db.get(f)
     db.complete()
-    db.write_all_declarations(sys.stdout)
-    db.write_all_implementations(sys.stdout)
+    dump_on_stdout(db)
 
     S = GcStruct('testing', ('fptr', NonGcPtr(F)))
     s = malloc(S)
@@ -155,5 +163,4 @@ def WORKING_ON_test_untyped_func():
     db = LowLevelDatabase()
     db.get(s)
     db.complete()
-    db.write_all_declarations(sys.stdout)
-    db.write_all_implementations(sys.stdout)
+    dump_on_stdout(db)

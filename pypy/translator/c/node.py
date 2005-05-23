@@ -256,8 +256,14 @@ class PyObjectNode(ContainerNode):
         self.db = db
         self.T = T
         self.obj = obj
-        self.name = db.namespace.uniquename('g_' + WORKING_ON_IT)
+        self.name = db.pyobjmaker.computenameof(obj.value)
         self.ptrname = self.name
+
+    def enum_dependencies(self):
+        return []
+
+    def implementation(self):
+        return []
 
 
 ContainerNodeClass = {

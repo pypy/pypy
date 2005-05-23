@@ -69,7 +69,7 @@ class FunctionCodeGenerator:
         if isinstance(v, Variable):
             return v.name
         elif isinstance(v, Constant):
-            return self.getvalue(v.value)
+            return self.getvalue(llvalue_from_constant(v))
         else:
             raise TypeError, "expr(%r)" % (v,)
 
