@@ -1,12 +1,13 @@
-from pypy.translator.gensupp import NameManager
 from pypy.rpython.lltypes import Primitive, _PtrType, typeOf
 from pypy.rpython.lltypes import Struct, Array, FuncType, PyObject, Void
 from pypy.rpython.lltypes import ContainerType
 from pypy.rpython.typer import PyObjPtr
 from pypy.objspace.flow.model import Constant
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
+from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
-from pypy.translator.c.node import ContainerNodeClass, cdecl
+from pypy.translator.c.node import ContainerNodeClass
+from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 
 # ____________________________________________________________
 
@@ -17,20 +18,7 @@ class LowLevelDatabase:
         self.structdeflist = []
         self.containernodes = {}
         self.containerlist = []
-        self.namespace = NameManager()
-        # keywords cannot be reused.  This is the C99 draft's list.
-        self.namespace.make_reserved_names('''
-           auto      enum      restrict  unsigned
-           break     extern    return    void
-           case      float     short     volatile
-           char      for       signed    while
-           const     goto      sizeof    _Bool
-           continue  if        static    _Complex
-           default   inline    struct    _Imaginary
-           do        int       switch
-           double    long      typedef
-           else      register  union
-           ''')
+        self.namespace = CNameManager()
 
     def gettypedefnode(self, T, varlength=1):
         if varlength <= 1:
@@ -92,17 +80,24 @@ class LowLevelDatabase:
         return node
 
     def get(self, obj):
-        T = typeOf(obj)
-        if isinstance(T, Primitive):
-            return PrimitiveName[T](obj)
-        elif isinstance(T, _PtrType):
-            if obj:   # test if the ptr is non-NULL
-                node = self.getcontainernode(obj._obj)
-                return node.ptrname
+        if isinstance(obj, ErrorValue):
+            T = obj.TYPE
+            if isinstance(T, Primitive):
+                return PrimitiveErrorValue[T]
             else:
                 return 'NULL'
         else:
-            raise Exception("don't know about %r" % (obj,))
+            T = typeOf(obj)
+            if isinstance(T, Primitive):
+                return PrimitiveName[T](obj)
+            elif isinstance(T, _PtrType):
+                if obj:   # test if the ptr is non-NULL
+                    node = self.getcontainernode(obj._obj)
+                    return node.ptrname
+                else:
+                    return 'NULL'
+            else:
+                raise Exception("don't know about %r" % (obj,))
 
     def complete(self):
         for node in self.containerlist:
@@ -120,21 +115,24 @@ class LowLevelDatabase:
     def write_all_declarations(self, f):
         print >> f
         print >> f, '/********************************************************/'
-        print >> f, '/***  Structures definition                           ***/'
+        print >> f, '/***  Structure definitions                           ***/'
         print >> f
         for node in self.structdeflist:
-            print >> f, '\n'.join(node.definition())
+            for line in node.definition():
+                print >> f, line
         print >> f
         print >> f, '/********************************************************/'
         print >> f, '/***  Forward declarations                            ***/'
         print >> f
         for node in self.globalcontainers():
-            print >> f, '\n'.join(node.forward_declaration())
+            for line in node.forward_declaration():
+                print >> f, line
 
     def write_all_implementations(self, f):
         print >> f
         print >> f, '/********************************************************/'
         print >> f, '/***  Implementations                                 ***/'
-        print >> f
         for node in self.globalcontainers():
-            print >> f, '\n'.join(node.implementation())
+            print >> f
+            for line in node.implementation():
+                print >> f, line

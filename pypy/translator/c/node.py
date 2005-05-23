@@ -1,8 +1,9 @@
 from __future__ import generators
-from pypy.translator.gensupp import C_IDENTIFIER
 from pypy.rpython.lltypes import Struct, Array, FuncType, PyObject, typeOf
 from pypy.rpython.lltypes import GcStruct, GcArray, GC_CONTAINER, ContainerType
 from pypy.rpython.lltypes import parentlink
+from pypy.translator.c.funcgen import FunctionCodeGenerator
+from pypy.translator.c.support import cdecl, somelettersfrom
 
 
 def needs_refcount(T):
@@ -12,16 +13,6 @@ def needs_refcount(T):
         if T._names and isinstance(T._flds[T._names[0]], GC_CONTAINER):
             return False   # refcount already in the first first
     return True
-
-def somelettersfrom(s):
-    upcase = [c for c in s if c.isupper()]
-    if not upcase:
-        upcase = [c for c in s.title() if c.isupper()]
-    locase = [c for c in s if c.islower()]
-    if locase and upcase:
-        return ''.join(upcase).lower()
-    else:
-        return s[:2].lower()
 
 
 class StructDefNode:
@@ -86,6 +77,8 @@ class ArrayDefNode:
         yield '\t%s;' % cdecl(self.structname, 'items[%d]' % self.varlength)
         yield '};'
 
+# ____________________________________________________________
+
 
 class ContainerNode:
 
@@ -111,7 +104,7 @@ class ContainerNode:
                                                 self.ptrname)
 
     def forward_declaration(self):
-        yield '%s; /* forward */' % (
+        yield '%s;' % (
             cdecl(self.implementationtypename, self.name))
 
     def implementation(self):
@@ -187,54 +180,69 @@ class ArrayNode(ContainerNode):
         yield '}'
 
 
-# XXX move FuncNode to funcdef.py
-from pypy.objspace.flow.model import *
-
 class FuncNode(ContainerNode):
+    globalcontainer = True
 
     def __init__(self, db, T, obj):
         graph = obj.graph # only user-defined functions with graphs for now
-        argnames = [v.name for v in graph.getargs()]
+        self.funcgen = FunctionCodeGenerator(graph, db.gettype, db.get)
         self.db = db
         self.T = T
         self.obj = obj
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
+        argnames = self.funcgen.argnames()
         self.implementationtypename = db.gettype(T, argnames=argnames)
         self.name = db.namespace.uniquename('g_' + self.basename())
-        self.globalcontainer = True
         self.ptrname = self.name
-        # collect all variables and constants used in the body,
-        # and get their types now
-        result = []
-        def visit(block):
-            if isinstance(block, Block):
-                result.extend(block.inputargs)
-                for op in block.operations:
-                    result.extend(op.args)
-                for link in block.exits:
-                    result.extend(link.args)
-        traverse(visit, graph)
-        self.varmap = {}
-        for v in uniqueitems(result):
-            T = v.concretetype
-            self.varmap[v] = self.db.gettype(T)
 
     def basename(self):
         return self.obj._name
 
-    def allvariables(self):
-        return [v for v in self.varmap if isinstance(v, Variable)]
-
-    def allconstants(self):
-        return [v for v in self.varmap if isinstance(v, Constant)]
-
     def enum_dependencies(self):
-        return [c.value for c in self.allconstants()]
+        return self.funcgen.allconstantvalues()
 
     def implementation(self):
+        funcgen = self.funcgen
         yield '%s {' % cdecl(self.implementationtypename, self.name)
-        yield '\tlots-of-strange-code'
+        #
+        # declare the local variables
+        #
+        localnames = list(funcgen.cfunction_declarations())
+        lengths = [len(a) for a in localnames]
+        lengths.append(9999)
+        start = 0
+        while start < len(localnames):
+            # pack the local declarations over a few lines as possible
+            total = lengths[start] + 8
+            end = start+1
+            while total + lengths[end] < 77:
+                total += lengths[end] + 1
+                end += 1
+            yield '\t' + ' '.join(localnames[start:end])
+            start = end
+        #
+        # generate the body itself
+        #
+        lineprefix = ''
+        for line in funcgen.cfunction_body():
+            # performs some formatting on the generated body:
+            # indent normal lines with tabs; indent labels less than the rest
+            if line.endswith(':'):
+                if line.startswith('err'):
+                    lineprefix += '\t' + line
+                    continue  # merge this 'err:' label with the following line
+                else:
+                    fmt = '%s    %s'
+            elif line:
+                fmt = '%s\t%s'
+            else:
+                fmt = '%s%s'
+            yield fmt % (lineprefix, line)
+            lineprefix = ''
+
+        if lineprefix:         # unlikely
+            yield lineprefix
         yield '}'
 
 
@@ -250,16 +258,3 @@ ContainerNodeClass = {
     FuncType: FuncNode,
     PyObject: PyObjectNode,
     }
-
-#
-# helper
-#
-def cdecl(ctype, cname):
-    """
-    Produce a C declaration from a 'type template' and an identifier.
-    The type template must contain a '@' sign at the place where the
-    name should be inserted, according to the strange C syntax rules.
-    """
-    # the (@) case is for functions, where if there is a plain (@) around
-    # the function name, we don't need the very confusing parenthesis
-    return ctype.replace('(@)', '@').replace('@', cname).strip()

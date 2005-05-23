@@ -40,3 +40,11 @@ PrimitiveType = {
     Bool:     'char @',
     Void:     'void @',
     }
+
+PrimitiveErrorValue = {
+    Signed:   '-1',
+    Unsigned: '((unsigned) -1)',
+    Char:     '((char) -1)',
+    Bool:     '((char) -1)',
+    Void:     '/* error */',
+    }
