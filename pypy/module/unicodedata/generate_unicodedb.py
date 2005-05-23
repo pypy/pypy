@@ -208,19 +208,19 @@ def decimal(code):
     return _decimal[code]
 
 def isdecimal(code):
-    return _decimal.has_key(code)
+    return code in _decimal
 
 def digit(code):
     return _digit[code]
 
 def isdigit(code):
-    return _digit.has_key(code)
+    return code in _digit
 
 def numeric(code):
     return _numeric[code]
 
 def isnumeric(code):
-    return _numeric.has_key(code)
+    return code in _numeric
 
 '''
     # Combining
@@ -308,7 +308,7 @@ if __name__ == '__main__':
 
     table = read_unicodedata(infile)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
-    print >> outfile, '# This file was genrated with the command:'
+    print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
     print >> outfile
     writeUnicodedata(unidata_version, table, outfile)

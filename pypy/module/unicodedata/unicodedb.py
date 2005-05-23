@@ -1,5 +1,5 @@
 # UNICODE CHARACTER DATABASE
-# This file was genrated with the command:
+# This file was generated with the command:
 #     ./generate_unicodedb.py -o unicodedb.py UnicodeData-3.2.0.txt CompositionExclusions-3.2.0.txt
 
 version = '3.2.0'
@@ -15889,19 +15889,19 @@ def decimal(code):
     return _decimal[code]
 
 def isdecimal(code):
-    return _decimal.has_key(code)
+    return code in _decimal
 
 def digit(code):
     return _digit[code]
 
 def isdigit(code):
-    return _digit.has_key(code)
+    return code in _digit
 
 def numeric(code):
     return _numeric[code]
 
 def isnumeric(code):
-    return _numeric.has_key(code)
+    return code in _numeric
 
 
 _combining = {
