@@ -4,17 +4,17 @@ class Module(MixedModule):
     appleveldefs = {
     }
     interpleveldefs = {
-        'lookup'          : 'functions.lookup',
-        'name'            : 'functions.name',
-        'decimal'         : 'functions.decimal',
-        'digit'           : 'functions.digit',
-        'numeric'         : 'functions.numeric',
-        'category'        : 'functions.category',
-        'bidirectional'   : 'functions.bidirectional',
-        'combining'       : 'functions.combining',
-        'mirrored'        : 'functions.mirrored',
-        'decomposition'   : 'functions.decomposition',
-        'normalize'       : 'functions.normalize',
+        'lookup'          : 'function.lookup',
+        'name'            : 'function.name',
+        'decimal'         : 'function.decimal',
+        'digit'           : 'function.digit',
+        'numeric'         : 'function.numeric',
+        'category'        : 'function.category',
+        'bidirectional'   : 'function.bidirectional',
+        'combining'       : 'function.combining',
+        'mirrored'        : 'function.mirrored',
+        'decomposition'   : 'function.decomposition',
+        'normalize'       : 'function.normalize',
         'unidata_version' : 'space.wrap(unicodedb.version)',
         '__doc__'         : "space.wrap('unicode character database')",
     }
