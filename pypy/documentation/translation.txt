@@ -858,15 +858,15 @@ possible codepath into a flowgraph, and then rendered the following source code:
       space.setitem(g3dict, gs_g, gfunc_g)
       return g3dict
 
-You see that actually a single function is produced: 'initapp2interpexec'. This is the
+You see that actually a single function is produced: ``initapp2interpexec``. This is the
 function that you will call with a space as argument. It defines a few functions and then
 does a number of initialization steps, builds the global objects the function need,
-and produces the interface function gfunc_g to be called from interpreter level.
+and produces the interface function ``gfunc_g`` to be called from interpreter level.
 
 The return value is ``g3dict``, which contains a module name and the function we asked for.
 
 Let's have a look at the body of this code: The first definition of ``g`` is just
-for the argument parsing and is used as ``f_g`` in the gateway.interp2app.
+for the argument parsing and is used as ``f_g`` in the ``gateway.interp2app``.
 We look at the second definition, ``fastf_g``, which does the actual
 computation. Comparing to the flowgraph from above_,
 you see a code block for every block in the graph.
@@ -912,6 +912,30 @@ used to write by hand. For the C backend, this doesn't make much
 sense since the compiler optimizes it for us. For the Python interpreter it could
 give a bit more speed. But this is a temporary format and will
 get optimized anyway when we produce the executable.
+
+Interplevel Snippets in the Sources
+-----------------------------------
+
+.. _`_exceptions.py`: http://codespeak.net/svn/pypy/dist/pypy/lib/_exceptions.py
+.. _`_classobj.py`: http://codespeak.net/svn/pypy/dist/pypy/lib/_classobj.py
+
+Code written in application space can consist of complete files
+to be translated (`_exceptions.py`_, `_classobj.py`_), or they
+can be tiny snippets scattered all over a source file, similar
+to our example from above.
+
+Translation of these snippets is done automatically and cached
+in pypy/_cache with the modulename and the md5 checksum appended
+to it as file name. If you have run your copy of pypy already,
+this folder should exist and have some generated files in it.
+These files consist of the generated code plus a little code
+that auto-destructs the cached file (plus .pyc/.pyo versions)
+if it is executed as __main__. On windows this means you can wipe
+a cached code snippet clear by double-clicking it. Note also that
+the auto-generated __init__.py file wipes the whole directory
+when executed.
+
+XXX this should go into some interpreter.doc, where gateway should be explained
 
 
 How it works
