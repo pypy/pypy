@@ -116,14 +116,11 @@ class PyObjMaker:
 
     def nameof_str(self, value):
         name = self.uniquename('gstr_' + value[:32])
-##        if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\']:
-##            # non-printable string
-##            s = 'chr_%s' % name
-##            self.globaldecl.append('static char %s[] = { %s };' % (
-##                s, ', '.join(['%d' % ord(c) for c in value])))
-##        else:
-##            # printable string
-##            s = '"%s"' % value
+        self.initcode_python(name, repr(value))
+        return name
+
+    def nameof_unicode(self, value):
+        name = self.uniquename('guni_' + str(value[:32]))
         self.initcode_python(name, repr(value))
         return name
 
