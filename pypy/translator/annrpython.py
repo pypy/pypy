@@ -435,6 +435,7 @@ class RPythonAnnotator:
             
             if isinstance(link.exitcase, (types.ClassType, type)) \
                    and issubclass(link.exitcase, Exception):
+                assert last_exception_var and last_exc_value_var
                 last_exception_object = annmodel.SomeObject()
                 last_exception_object.knowntype = type
                 if isinstance(last_exception_var, Constant):
@@ -454,10 +455,10 @@ class RPythonAnnotator:
             for a,v in zip(link.args,link.target.inputargs):
                 renaming.setdefault(a, []).append(v)
             for a,v in zip(link.args,link.target.inputargs):
-                if a is last_exception_var:
+                if a == last_exception_var:
                     assert in_except_block
                     cells.append(last_exception_object)
-                elif a is last_exc_value_var:
+                elif a == last_exc_value_var:
                     assert in_except_block
                     cells.append(last_exc_value_object)
                     last_exc_value_vars.append(v)

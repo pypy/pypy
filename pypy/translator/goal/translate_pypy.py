@@ -56,6 +56,7 @@ def analyse(target):
         run_async_server()
     if not options['-no-a']:
         a = t.annotate(inputtypes, overrides=pypy_overrides)
+        sanity_check_exceptblocks(t)
         worstblocks_topten(a)
         if not options['-no-s']:
             a.simplify()
@@ -66,6 +67,25 @@ def analyse(target):
             options['-no-mark-some-objects'] = True # Do not do this again
             find_someobjects(t)
 
+def sanity_check_exceptblocks(translator):
+    annotator = translator.annotator
+    irreg = 0
+    for graph in translator.flowgraphs.itervalues():
+        et, ev = graph.exceptblock.inputargs
+        s_et = annotator.binding(et, extquery=True)
+        s_ev = annotator.binding(ev, extquery=True)
+        if s_et:
+            if s_et.knowntype == type:
+                if s_et.__class__ == SomeObject:
+                    if hasattr(s_et, 'is_type_of') and  s_et.is_type_of == [ev]:
+                        continue
+                else:
+                    if s_et.__class__ == annmodel.SomePBC:
+                        continue
+            print "*****", graph.name, "exceptblock is not completely sane"
+            irreg += 1
+    if irreg == 0:
+        print "*** All exceptblocks seem sane."
 
 def find_someobjects(translator, quiet=False):
     """Find all functions in that have SomeObject in their signature."""
