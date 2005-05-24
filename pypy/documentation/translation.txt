@@ -384,7 +384,7 @@ Prebuilt Constants and instance methods
 +++++++++++++++++++++++++++++++++++++++
 
 Constants in the flowgraph are annotated with a corresponding
-``SomeXxx`` instance with 'const' attribute set to the their value.
+``SomeXxx`` instance with 'const' attribute set to their value.
 
 Constant instances of user-defined classes, callables (which include
 functions but also class types themself) and staticmethod are treated
