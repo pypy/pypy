@@ -1,231 +1,297 @@
-import types
-from pypy.rpython.lltype import *
-from pypy.annotation.model import *
-from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.translator.typer import Specializer, flatten_ops, TyperError
-from pypy.rpython.rlist import ListType, substitute_newlist
+from pypy.annotation.pairtype import pair
+from pypy.annotation import model as annmodel
+from pypy.objspace.flow.model import Variable, Constant, Block, Link
+from pypy.objspace.flow.model import SpaceOperation
+from pypy.rpython.lltype import Void, LowLevelType, NonGcPtr
+from pypy.rpython.lltype import FuncType, functionptr
+from pypy.tool.tls import tlsobject
+from pypy.tool.sourcetools import func_with_new_name, valid_identifier
+from pypy.translator.unsimplify import insert_empty_block
+
+TLS = tlsobject()
 
 
-PyObjPtr = GcPtr(PyObject)
+# XXX copied from pypy.translator.typer and modified.
+#     We'll remove pypy.translator.typer at some point.
+#     It also borrows a bit from pypy.translator.annrpython.
 
-class Retry(Exception):
-    """Raised by substitute_*() after they have inserted new patterns
-    in the typer's registry.  This asks the typer to try again from
-    scratch to specialize the current operation."""
+class TyperError(Exception):
+    def __str__(self):
+        result = Exception.__str__(self)
+        if hasattr(self, 'where'):
+            result += '\n.. %r\n.. %r' % self.where
+        return result
 
 
-class RPythonTyper(Specializer):
-    Retry = Retry
+class RPythonTyper:
 
     def __init__(self, annotator):
-        # initialization
-        Specializer.__init__(self, annotator, defaultconcretetype=PyObjPtr,
-                             typematches = [], specializationtable = [],
-                             )
-        self.registry = {}
-        self.typecache = {}
-        SINT = SomeInteger()
-        self['add', SINT, SINT] = 'int_add', Signed, Signed, Signed
-        #self['add', UINT, UINT] = 'int_add', Unsigned, Unsigned, Unsigned
+        self.annotator = annotator
+        self.specialized_ll_functions = {}
 
-        s_malloc = annotator.bookkeeper.immutablevalue(malloc)
-        self['simple_call', s_malloc, ...] = substitute_malloc
-        
-        # ____________________ lists ____________________
-        self['newlist', ...] = substitute_newlist
+    def specialize(self):
+        """Main entry point: specialize all annotated blocks of the program."""
+        # new blocks can be created as a result of specialize_block(), so
+        # we need to be careful about the loop here.
+        already_seen = {}
+        pending = self.annotator.annotated.keys()
+        while pending:
+            for block in pending:
+                if block.operations != ():
+                    self.specialize_block(block)
+                already_seen[block] = True
+            pending = [block for block in self.annotator.annotated
+                             if block not in already_seen]
 
-        # ____________________ conversions ____________________
-        self.concreteconversions = {
-            (Signed, PyObjPtr): ('int2obj', Signed, PyObjPtr),
-            (PyObjPtr, Signed): ('obj2int', PyObjPtr, Signed),
-            }
+    def setconcretetype(self, v):
+        assert isinstance(v, Variable)
+        s_value = self.annotator.binding(v, True)
+        if s_value is not None:
+            v.concretetype = s_value.lowleveltype()
 
-    def __setitem__(self, pattern, substitution):
-        patternlist = self.registry.setdefault(pattern[0], [])
-        # items inserted last have higher priority
-        patternlist.insert(0, (pattern[1:], substitution))
+    def enter_operation(self, op, newops):
+        TLS.rtyper = self
+        TLS.currentoperation = op
+        TLS.newops = newops
 
-    def registermethod(self, pattern, substitution):
-        # method calls are decomposed in two operations that must be
-        # handled separately:
-        #
-        #  v1 = getattr(self, 'method_name') --> v1 = cast_flags(self)
-        #  v2 = simple_call(v1, ...)         --> v2 = simple_call(meth, v1, ...)
-        #
-        # where 'v1' becomes a pointer with the (method='method_name') flag.
-        # It points to 'self', but the flag modifies its meaning to
-        # "pointer to the method 'method_name' of self" instead of just
-        # "pointer to self".
-        #
-        method_name = pattern[0]
-        s_self      = pattern[1]
-        method      = substitution[0]
-        SELFPTR     = substitution[1]
-        METHODPTR   = SELFPTR.withflags(method=method_name)
-        s_method_name = self.annotator.bookkeeper.immutablevalue(method_name)
+    def leave_operation(self):
+        del TLS.rtyper
+        del TLS.currentoperation
+        del TLS.newops
 
-        self['getattr',    s_self,  s_method_name] = (
-             'cast_flags', SELFPTR,     None,     METHODPTR)
+    def specialize_block(self, block):
+        # give the best possible types to the input args
+        for a in block.inputargs:
+            self.setconcretetype(a)
 
-        s_method = s_self.find_method(method_name)
-        self[('simple_call', s_method) + pattern[2:]] = (
-               method,       SELFPTR)  + substitution[2:]
-
-    def maketype(self, cls, s_annotation):
-        try:
-            return self.typecache[cls, s_annotation]
-        except KeyError:
-            newtype = cls(s_annotation)
-            self.typecache[cls, s_annotation] = newtype
-            newtype.define(self)
-            return newtype
-
-    def annotation2concretetype(self, s_value):
-        try:
-            return annotation_to_lltype(s_value)
-        except ValueError:
-            if isinstance(s_value, SomeList):
-                return self.maketype(ListType, s_value).LISTPTR
-            return PyObjPtr
-
-    def convertvar(self, v, concretetype):
-        """Get the operation(s) needed to convert 'v' to the given type."""
-        ops = []
-        v_concretetype = getattr(v, 'concretetype', PyObjPtr)
-        if isinstance(v, Constant):
-            # we should never modify a Constant in-place
-            v = Constant(v.value)
-            v.concretetype = concretetype
-
-        elif v_concretetype != concretetype:
+        # specialize all the operations, as far as possible
+        newops = []
+        varmapping = {}
+        for op in block.operations:
             try:
-                subst = self.concreteconversions[v_concretetype, concretetype]
-            except KeyError:
-                raise TyperError("cannot convert from %r\n"
-                                 "to %r" % (v_concretetype, concretetype))
-            vresult = Variable()
-            op = SpaceOperation('?', [v], vresult)
-            flatten_ops(self.substitute_op(op, subst), ops)
-            v = vresult
-
-        return v, ops
-
-    def specialized_op(self, op, bindings):
-        assert len(op.args) == len(bindings)
-
-        # first check for direct low-level operations on pointers
-        if op.args and isinstance(bindings[0], SomePtr):
-            PTR = bindings[0].ll_ptrtype
-
-            if op.opname == 'getitem':
-                s_result = self.annotator.binding(op.result)
-                T = annotation_to_lltype(s_result, 'getitem')
-                return self.typed_op(op, [PTR, Signed], T,
-                                     newopname='getarrayitem')
-
-            if op.opname == 'len':
-                return self.typed_op(op, [PTR], Signed,
-                                     newopname='getarraysize')
-
-            if op.opname == 'getattr':
-                assert isinstance(op.args[1], Constant)
-                s_result = self.annotator.binding(op.result)
-                FIELD_TYPE = PTR.TO._flds[op.args[1].value]
-                T = annotation_to_lltype(s_result, 'getattr')
-                if isinstance(FIELD_TYPE, ContainerType):
-                    newopname = 'getsubstruct'
-                else:
-                    newopname = 'getfield'
-                return self.typed_op(op, [PTR, Void], T, newopname=newopname)
-
-            if op.opname == 'setattr':
-                assert isinstance(op.args[1], Constant)
-                FIELD_TYPE = PTR.TO._flds[op.args[1].value]
-                assert not isinstance(FIELD_TYPE, ContainerType)
-                return self.typed_op(op, [PTR, Void, FIELD_TYPE], Void,
-                                     newopname='setfield')
-
-            if op.opname == 'eq':
-                return self.typed_op(op, [PTR, PTR], Bool,
-                                     newopname='ptr_eq')
-            if op.opname == 'ne':
-                return self.typed_op(op, [PTR, PTR], Bool,
-                                     newopname='ptr_ne')
-
-        # generic specialization based on the registration table
-        patternlist = self.registry.get(op.opname, [])
-        for pattern, substitution in patternlist:
-            if pattern and pattern[-1] is Ellipsis:
-                pattern = pattern[:-1]
-                if len(pattern) > len(op.args):
-                    continue
-            elif len(pattern) != len(op.args):
-                continue
-            for s_match, s_value in zip(pattern, bindings):
-                if not s_match.contains(s_value):
-                    break
-            else:
-                # match!
-                try:
-                    return self.substitute_op(op, substitution)
-                except Retry:
-                    return self.specialized_op(op, bindings)
-
-        # specialization not found
-        argtypes = [self.defaultconcretetype] * len(op.args)
-        return self.typed_op(op, argtypes, self.defaultconcretetype)
-
-    def substitute_op(self, op, substitution):
-        if isinstance(substitution, tuple):
-            newopname = substitution[0]
-            argtypes = substitution[1:-1]
-            resulttype = substitution[-1]
-            assert len(argtypes) == len(op.args)
-            # None in the substitution list means "remove this argument"
-            while None in argtypes:
-                argtypes = list(argtypes)
-                i = argtypes.index(None)
-                del argtypes[i]
                 args = list(op.args)
-                del args[i]
-                op = SpaceOperation(op.opname, args, op.result)
-            return self.typed_op(op, argtypes, resulttype,
-                                 newopname = newopname)
-        else:
-            assert callable(substitution), "type error in the registry tables"
-            return substitution(self, op)
+                bindings = [self.annotator.binding(a, True) for a in args]
 
-    def typed_op(self, op, argtypes, restype, newopname=None):
-        if isinstance(newopname, types.FunctionType):
-            python_function = newopname
-            newargs = [Constant(python_function)] + op.args
-            op = SpaceOperation('simple_call', newargs, op.result)
+                self.enter_operation(op, newops)
+                try:
+                    self.consider_op(op, varmapping)
+                finally:
+                    self.leave_operation()
+
+            except TyperError, e:
+                e.where = (block, op)
+                raise
+
+        block.operations[:] = newops
+        block.renamevariables(varmapping)
+        self.insert_link_conversions(block)
+
+    def insert_link_conversions(self, block):
+        # insert the needed conversions on the links
+        can_insert_here = block.exitswitch is None and len(block.exits) == 1
+        for link in block.exits:
             try:
-                functyp = python_function.TYPE
-            except AttributeError:
-                inputargs_s = [ll_to_annotation(t._example())
-                               for t in argtypes]
-                s_returnvalue = self.annotator.build_types(python_function,
-                                                           inputargs_s)
-                inferred_type = annotation_to_lltype(s_returnvalue,
-                                                     info=python_function)
-                if inferred_type != restype:
-                    raise TyperError("%r return type mismatch:\n"
-                                     "declared %r\n"
-                                     "inferred %r" % (python_function,
-                                                      inferred_type, restype))
-                functyp = NonGcPtr(FuncType(argtypes, restype))
-                python_function.TYPE = functyp
-            argtypes = [functyp] + list(argtypes)
-            newopname = None
-        return Specializer.typed_op(self, op, argtypes, restype, newopname)
+                for i in range(len(link.args)):
+                    a1 = link.args[i]
+                    ##if a1 in (link.last_exception, link.last_exc_value):# treated specially in gen_link
+                    ##    continue
+                    a2 = link.target.inputargs[i]
+                    s_a1 = self.annotator.binding(a1)
+                    s_a2 = self.annotator.binding(a2)
+                    if s_a1 == s_a2:
+                        continue   # no conversion needed
+                    newops = []
+                    self.enter_operation(None, newops)
+                    try:
+                        a1 = self.convertvar(a1, s_a1, s_a2)
+                    finally:
+                        self.leave_operation()
+                    if newops and not can_insert_here:
+                        # cannot insert conversion operations around a single
+                        # link, unless it is the only exit of this block.
+                        # create a new block along the link...
+                        newblock = insert_empty_block(self.annotator.translator,
+                                                      link)
+                        # ...and do the conversions there.
+                        self.insert_link_conversions(newblock)
+                        break   # done with this link
+                    else:
+                        block.operations.extend(newops)
+                        link.args[i] = a1
+            except TyperError, e:
+                e.where = (block, link)
+                raise
+
+    def consider_op(self, op, varmapping):
+        argcells = [self.annotator.binding(a) for a in op.args]
+        consider_meth = getattr(self, 'consider_op_'+op.opname)
+        resultvar = consider_meth(*argcells)
+        s_expected = self.annotator.binding(op.result)
+        if resultvar is None:
+            # no return value
+            if s_expected != annmodel.SomeImpossibleValue():
+                raise TyperError("the annotator doesn't agree that '%s' "
+                                 "has no return value" % op.opname)
+            op.result.concretetype = Void
+        elif isinstance(resultvar, Variable):
+            # for simplicity of the consider_meth, resultvar is usually not
+            # op.result here.  We have to replace resultvar with op.result
+            # in all generated operations.
+            varmapping[resultvar] = op.result
+            resulttype = resultvar.concretetype
+            op.result.concretetype = s_expected.lowleveltype()
+            if op.result.concretetype != resulttype:
+                raise TyperError("inconsistent type for the result of '%s':\n"
+                                 "annotator says %r\n"
+                                 "   rtyper says %r" % (op.opname,
+                                                        op.result.concretetype,
+                                                        resulttype))
+        else:
+            # consider_meth() can actually generate no operation and return
+            # a Constant.
+            if not s_expected.is_constant():
+                raise TyperError("the annotator doesn't agree that '%s' "
+                                 "returns a constant" % op.opname)
+            if resultvar.value != s_expected.const:
+                raise TyperError("constant mismatch: %r vs %r" % (
+                    resultvar.value, s_expected.const))
+            op.result.concretetype = s_expected.lowleveltype()
+
+    # __________ regular operations __________
+
+    def _registeroperations(loc):
+        # All unary operations
+        for opname in annmodel.UNARY_OPERATIONS:
+            exec """
+def consider_op_%s(self, arg, *args):
+    return arg.rtype_%s(*args)
+""" % (opname, opname) in globals(), loc
+        # All binary operations
+        for opname in annmodel.BINARY_OPERATIONS:
+            exec """
+def consider_op_%s(self, arg1, arg2, *args):
+    return pair(arg1,arg2).rtype_%s(*args)
+""" % (opname, opname) in globals(), loc
+
+    _registeroperations(locals())
+    del _registeroperations
+
+    # __________ irregular operations __________
+
+    def consider_op_newlist(self, *items_s):
+        return rlist.rtype_newlist(*items_s)
 
 
-def substitute_malloc(typer, op):
-    s_result = typer.annotator.binding(op.result)
-    T = annotation_to_lltype(s_result, 'malloc')
-    if len(op.args) == 2:
-        substitution = 'malloc', None, Void, T
+# ____________________________________________________________
+#
+#  Global helpers, working on the current operation (as stored in TLS)
+
+def _requestedtype(s_requested):
+    if isinstance(s_requested, LowLevelType):
+        lowleveltype = s_requested
+        s_requested = annmodel.lltype_to_annotation(lowleveltype)
+    elif isinstance(s_requested, annmodel.SomeObject):
+        lowleveltype = s_requested.lowleveltype()
     else:
-        substitution = 'malloc_varsize', None, Void, Signed, T
-    return typer.substitute_op(op, substitution)
+        raise TypeError("SomeObject or LowLevelType expected, got %r" % (
+            s_requested,))
+    return s_requested, lowleveltype
+
+def receiveconst(s_requested, value):
+    """Return a Constant with the given value, of the requested type.
+    s_requested can be a SomeXxx annotation or a primitive low-level type.
+    """
+    if isinstance(s_requested, LowLevelType):
+        lowleveltype = s_requested
+    else:
+        lowleveltype = s_requested.lowleveltype()
+    c = Constant(value)
+    c.concretetype = lowleveltype
+    return c
+
+def receive(s_requested, arg):
+    """Returns the arg'th input argument of the current operation,
+    as a Variable or Constant converted to the requested type.
+    s_requested can be a SomeXxx annotation or a primitive low-level type.
+    """
+    v = TLS.currentoperation.args[arg]
+    if isinstance(v, Constant):
+        return receiveconst(s_requested, v.value)
+
+    s_binding = TLS.rtyper.annotator.binding(v, True)
+    if s_binding is None:
+        s_binding = annmodel.SomeObject()
+    if s_binding.is_constant():
+        return receiveconst(s_requested, s_binding.const)
+
+    s_requested, lowleveltype = _requestedtype(s_requested)
+    return convertvar(v, s_binding, s_requested)
+
+def convertvar(v, s_from, s_to):
+    if s_from != s_to:
+        v = pair(s_from, s_to).rtype_convert_from_to(v)
+    return v
+
+
+def peek_at_result_annotation():
+    return TLS.rtyper.annotator.binding(TLS.currentoperation.result)
+
+
+def direct_call(ll_function, *args_v):
+    annotator = TLS.rtyper.annotator
+    spec_key = [ll_function]
+    spec_name = [ll_function.func_name]
+    args_s = []
+    for v in args_v:
+        s_value = annotator.binding(v, True)
+        if s_value is None:
+            s_value = annmodel.SomeObject()
+        if v.concretetype == Void:
+            if not s_value.is_constant():
+                raise TyperError("non-constant variable of type Void")
+            key = s_value.const       # specialize by constant value
+            args_s.append(s_value)
+            suffix = 'Const'
+        else:
+            key = v.concretetype      # specialize by low-level type
+            args_s.append(annmodel.lltype_to_annotation(key))
+            suffix = ''
+        spec_key.append(key)
+        spec_name.append(valid_identifier(getattr(key, '__name__', key))+suffix)
+    spec_key = tuple(spec_key)
+    try:
+        spec_function, resulttype = (
+            TLS.rtyper.specialized_ll_functions[spec_key])
+    except KeyError:
+        name = '_'.join(spec_name)
+        spec_function = func_with_new_name(ll_function, name)
+        # flow and annotate (the copy of) the low-level function
+        s_returnvalue = annotator.build_types(spec_function, args_s)
+        resulttype = annmodel.annotation_to_lltype(s_returnvalue,
+                                           "%s: " % ll_function.func_name)
+        # cache the result
+        TLS.rtyper.specialized_ll_functions[spec_key] = (
+            spec_function, resulttype)
+
+    # build the 'direct_call' operation
+    lltypes = [v.concretetype for v in args_v]
+    FT = FuncType(lltypes, resulttype)
+    c = Constant(functionptr(FT, ll_function.func_name, _callable=spec_function))
+    c.concretetype = NonGcPtr(FT)
+    return direct_op('direct_call', [c]+list(args_v), resulttype=resulttype)
+
+
+def direct_op(opname, args, resulttype=None):
+    v = Variable()
+    TLS.newops.append(SpaceOperation(opname, args, v))
+    if resulttype is None:
+        v.concretetype = Void
+        return None
+    else:
+        v.concretetype = resulttype
+        return v
+
+
+# _______________________________________________________________________
+# this has the side-effect of registering the unary and binary operations
+from pypy.rpython import robject, rlist, rptr, rbuiltin, rint

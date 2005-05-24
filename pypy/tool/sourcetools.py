@@ -221,5 +221,17 @@ if (sys.version_info >= (2, 3) and
             f.func_dict.update(func.func_dict) 
         return f 
 else:
-    def func_with_new_name(func, newname):
-        return func
+    raise Exception("sorry, Python 2.2 not supported")
+    # because we need to return a new function object -- impossible in 2.2,
+    # cannot create functions with closures without using veeeery strange code
+
+PY_IDENTIFIER = ''.join([(('0' <= chr(i) <= '9' or
+                           'a' <= chr(i) <= 'z' or
+                           'A' <= chr(i) <= 'Z') and chr(i) or '_')
+                         for i in range(256)])
+
+def valid_identifier(stuff):
+    stuff = str(stuff).translate(PY_IDENTIFIER)
+    if not stuff or ('0' <= stuff[0] <= '9'):
+        stuff = '_' + stuff
+    return stuff

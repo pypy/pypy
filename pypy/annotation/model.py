@@ -355,6 +355,9 @@ def ll_to_annotation(v):
        else:
            return s
 
+def lltype_to_annotation(T):
+    return ll_to_annotation(T._example())
+
 
 # ____________________________________________________________
 

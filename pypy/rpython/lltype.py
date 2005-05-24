@@ -45,7 +45,7 @@ class ContainerType(LowLevelType):
 
 class Struct(ContainerType):
     def __init__(self, name, *fields):
-        self._name = name
+        self._name = self.__name__ = name
         flds = {}
         names = []
         self._arrayfld = None
@@ -110,6 +110,7 @@ class GcStruct(Struct):
     pass
 
 class Array(ContainerType):
+    __name__ = 'array'
     def __init__(self, *fields):
         self.OF = Struct("<arrayitem>", *fields)
         if self.OF._arrayfld is not None:
@@ -132,6 +133,7 @@ class GcArray(Array):
         raise TypeError("cannot inline a GC array inside a structure")
 
 class FuncType(ContainerType):
+    __name__ = 'func'
     def __init__(self, args, result):
         for arg in args:
             if isinstance(arg, ContainerType):
@@ -151,6 +153,7 @@ class FuncType(ContainerType):
         return _func(self, _callable=ex)
 
 class PyObjectType(ContainerType):
+    __name__ = 'PyObject'
     def __str__(self):
         return "PyObject"
 PyObject = PyObjectType()
@@ -168,7 +171,7 @@ GC_CONTAINER = (GcStruct, GcArray, PyObjectType, ForwardReference)
 
 class Primitive(LowLevelType):
     def __init__(self, name, default):
-        self._name = name
+        self._name = self.__name__ = name
         self._default = default
 
     def __str__(self):
@@ -188,6 +191,8 @@ Void     = Primitive("Void", None)
 
 
 class _PtrType(LowLevelType):
+    __name__ = property(lambda self: '%sPtr' % self.TO.__name__)
+
     def __init__(self, TO, **flags):
         if not isinstance(TO, ContainerType):
             raise TypeError, ("can only point to a Container type, "
