@@ -3,7 +3,7 @@ import autopath, os, sys, __builtin__, marshal, zlib
 from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.translator.gensupp import builtin_base, NameManager
+from pypy.translator.gensupp import builtin_base
 
 from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.rpython.lltype import pyobjectptr
