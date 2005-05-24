@@ -25,5 +25,7 @@
     'basicblock.asc'        : 'objspace.html#the-flow-model',
 
     'coding-style.html'     : 'coding-guide.html',
+
+    'controlflow.html'      : 'objspace.html#the-flow-model',
 }
 
