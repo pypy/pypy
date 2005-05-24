@@ -388,6 +388,12 @@ def checkgraph(graph):
                     assert len(link.args) == len(link.target.inputargs)
                     assert link.prevblock is block
                     exc_link = link in exc_links
+                    if exc_link:
+                        assert link.last_exception is not None
+                        assert link.last_exc_value is not None
+                    else:
+                        assert link.last_exception is None
+                        assert link.last_exc_value is None
                     for v in link.args:
                         assert isinstance(v, (Constant, Variable))
                         if isinstance(v, Variable):
