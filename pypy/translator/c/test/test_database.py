@@ -1,10 +1,9 @@
 import autopath, sys
-from pypy.rpython.lltypes import *
+from pypy.rpython.lltype import *
 from pypy.translator.translator import Translator
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
-from pypy.rpython.lltypes import Struct, Array, malloc
 
 
 def dump_on_stdout(database):
@@ -130,7 +129,7 @@ def test_func_simple():
     # --------------------         end        --------------------
     
     F = FuncType([Signed], Signed)
-    f = function(F, "f", graph=graph)
+    f = functionptr(F, "f", graph=graph)
     db = LowLevelDatabase()
     db.get(f)
     db.complete()
@@ -151,7 +150,7 @@ def test_untyped_func():
     graph = t.getflowgraph()
 
     F = FuncType([GcPtr(PyObject)], GcPtr(PyObject))
-    f = function(F, "f", graph=graph)
+    f = functionptr(F, "f", graph=graph)
     db = LowLevelDatabase()
     db.get(f)
     db.complete()

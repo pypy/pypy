@@ -1,5 +1,5 @@
 import types
-from pypy.rpython.lltypes import *
+from pypy.rpython.lltype import *
 from pypy.annotation.model import *
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.translator.typer import Specializer, flatten_ops, TyperError
@@ -203,8 +203,10 @@ class RPythonTyper(Specializer):
             try:
                 functyp = python_function.TYPE
             except AttributeError:
+                inputargs_s = [ll_to_annotation(t._example())
+                               for t in argtypes]
                 s_returnvalue = self.annotator.build_types(python_function,
-                                                           argtypes)
+                                                           inputargs_s)
                 inferred_type = annotation_to_lltype(s_returnvalue,
                                                      info=python_function)
                 if inferred_type != restype:

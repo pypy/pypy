@@ -435,7 +435,6 @@ class CallPatternTooComplex(Exception):
     pass
 
 # annotation of low-level types
-from pypy.rpython import lltypes
 from pypy.annotation.model import SomePtr, ll_to_annotation, annotation_to_lltype
 class __extend__(SomePtr):
 

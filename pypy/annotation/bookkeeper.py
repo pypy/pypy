@@ -16,7 +16,6 @@ from pypy.interpreter.pycode import CO_VARARGS
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import ArgErr
 from pypy.rpython.rarithmetic import r_uint
-from pypy.rpython import lltypes
 from pypy.tool.unionfind import UnionFind
 
 import inspect, new
@@ -224,8 +223,6 @@ class Bookkeeper:
     def valueoftype(self, t):
         """The most precise SomeValue instance that contains all
         objects of type t."""
-        if isinstance(t, lltypes.LowLevelType):
-            return ll_to_annotation(t._example())
         assert isinstance(t, (type, ClassType))
         if t is bool:
             return SomeBool()

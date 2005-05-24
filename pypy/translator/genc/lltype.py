@@ -2,7 +2,7 @@ from __future__ import generators
 from pypy.translator.genc.basetype import CType
 from pypy.translator.gensupp import C_IDENTIFIER
 from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
-from pypy.rpython import lltypes
+from pypy.rpython import lltype
 
 
 class CLiteral(CType):   # HACK! TEMPORARY
@@ -12,7 +12,7 @@ class CLiteral(CType):   # HACK! TEMPORARY
 
 class CLiteralTypeName(CType):   # HACK! TEMPORARY
     def nameof(self, obj, debug=None):
-        assert isinstance(obj, lltypes.LowLevelType)
+        assert isinstance(obj, lltype.LowLevelType)
         ct = ll2concretetype(self.translator, obj)
         return ct.typename
 
@@ -69,7 +69,7 @@ class CPtrType(CLLType):
         cliteral = typer.annotator.translator.getconcretetype(CLiteral)
         s_result = typer.annotator.binding(op.result)
         ctresult = typer.annotation2concretetype(s_result)
-        if isinstance(attrtype, lltypes.ContainerType):
+        if isinstance(attrtype, lltype.ContainerType):
             yield typer.typed_op(op, [self, cliteral], ctresult,
                                  newopname='getsubstruct')
         else:
@@ -87,7 +87,7 @@ class CPtrType(CLLType):
         attrname = v_attrname.value
         attrtype = self.lltype.TO._flds[attrname]
         cliteral = typer.annotator.translator.getconcretetype(CLiteral)
-        if isinstance(attrtype, lltypes.ContainerType):
+        if isinstance(attrtype, lltype.ContainerType):
             raise AssertionError("cannot setattr to a substructure")
         ctinput = ll2concretetype(typer.annotator.translator, attrtype)
         yield typer.typed_op(op, [self, cliteral, ctinput], typer.TNone,
@@ -190,11 +190,11 @@ class CArrayType(CLLType):
 from pypy.translator.genc import inttype, nonetype
 
 primitivetypemap = {
-    lltypes.Signed: inttype.CIntType,
-    lltypes.Unsigned: inttype.CUnsignedType,
-    #lltypes.Char: ...
-    lltypes.Bool: inttype.CIntType,
-    lltypes.Void: nonetype.CNoneType,
+    lltype.Signed: inttype.CIntType,
+    lltype.Unsigned: inttype.CUnsignedType,
+    #lltype.Char: ...
+    lltype.Bool: inttype.CIntType,
+    lltype.Void: nonetype.CNoneType,
     }
 
 def get_primitive_type(translator, lltype):
@@ -202,12 +202,12 @@ def get_primitive_type(translator, lltype):
     return translator.getconcretetype(cls)
 
 ll2concretetypemap = {
-    lltypes.Struct: CStructType,
-    lltypes.GcStruct: CStructType,
-    lltypes.Array: CArrayType,
-    lltypes.GcArray: CArrayType,
-    lltypes._PtrType: CPtrType,
-    lltypes.Primitive: get_primitive_type,
+    lltype.Struct: CStructType,
+    lltype.GcStruct: CStructType,
+    lltype.Array: CArrayType,
+    lltype.GcArray: CArrayType,
+    lltype._PtrType: CPtrType,
+    lltype.Primitive: get_primitive_type,
     }
 
 def ll2concretetype(translator, lltype):

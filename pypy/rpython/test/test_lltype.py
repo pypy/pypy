@@ -1,5 +1,5 @@
-from pypy.rpython.lltypes import *
-from pypy.rpython.lltypes import _TmpPtr
+from pypy.rpython.lltype import *
+from pypy.rpython.lltype import _TmpPtr
 
 def test_basics():
     S0 = GcStruct("s0", ('a', Signed), ('b', Signed))

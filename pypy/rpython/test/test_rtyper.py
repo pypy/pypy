@@ -1,6 +1,6 @@
 from pypy.translator.translator import Translator
-from pypy.rpython.lltypes import *
-from pypy.rpython.typer import RPythonTyper
+from pypy.rpython.lltype import *
+from pypy.rpython.rtyper import RPythonTyper
 
 
 def test_simple():

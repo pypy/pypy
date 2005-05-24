@@ -1,4 +1,4 @@
-from pypy.rpython import lltypes
+from pypy.rpython import lltype
 from pypy.translator.gensupp import NameManager
 
 class ErrorValue:
@@ -34,9 +34,9 @@ def llvalue_from_constant(c):
     try:
         T = c.concretetype
     except AttributeError:
-        return lltypes.pyobject(c.value)
+        return lltype.pyobjectptr(c.value)
     else:
-        assert lltypes.typeOf(c.value) == T
+        assert lltype.typeOf(c.value) == T
         return c.value
 
 

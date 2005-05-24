@@ -1,6 +1,6 @@
 import py
 from pypy.annotation.model import *
-from pypy.rpython.lltypes import *
+from pypy.rpython.lltype import *
 from pypy.tool.sourcetools import compile_template
 
 

@@ -16,7 +16,7 @@ from pypy.translator.genc.listtype import CListType
 from pypy.translator.genc.classtype import CClassPtrType
 from pypy.translator.genc.instancetype import CInstanceType
 from pypy.translator.genc.lltype import CPtrType, CLiteralTypeName
-from pypy.rpython import lltypes
+from pypy.rpython import lltype
 import types
 from pypy.interpreter.pycode import CO_VARARGS
 
@@ -131,7 +131,7 @@ class GenCSpecializer(Specializer):
         if op.opname == 'simple_call' and isinstance(op.args[0], Constant):
             # XXX move me elsewhere
             func = op.args[0].value
-            if func is lltypes.malloc:
+            if func is lltype.malloc:
                 s_result = self.annotator.binding(op.result)
                 ctliteral = self.annotator.translator.getconcretetype(
                     CLiteralTypeName)
@@ -142,12 +142,12 @@ class GenCSpecializer(Specializer):
                             [ctliteral], self.annotation2concretetype(s_result))
                         ]
                 else:
-                    if isinstance(ct, lltypes.Struct):
+                    if isinstance(ct, lltype.Struct):
                         assert ct._arrayfld is not None
                         sizefield = ct._arrayfld + '.size'
                         varstruct = ct._flds[ct._arrayfld].OF
                     else:
-                        assert isinstance(ct, lltypes.Array)
+                        assert isinstance(ct, lltype.Array)
                         sizefield = 'size'
                         varstruct = ct.OF
                         

@@ -1,7 +1,7 @@
 from __future__ import generators
-from pypy.rpython.lltypes import Struct, Array, FuncType, PyObjectType, typeOf
-from pypy.rpython.lltypes import GcStruct, GcArray, GC_CONTAINER, ContainerType
-from pypy.rpython.lltypes import parentlink
+from pypy.rpython.lltype import Struct, Array, FuncType, PyObjectType, typeOf
+from pypy.rpython.lltype import GcStruct, GcArray, GC_CONTAINER, ContainerType
+from pypy.rpython.lltype import parentlink
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.support import cdecl, somelettersfrom
 

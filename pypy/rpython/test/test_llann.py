@@ -1,4 +1,4 @@
-from pypy.rpython.lltypes import *
+from pypy.rpython.lltype import *
 from pypy.annotation import model as annmodel
 
 
@@ -94,6 +94,6 @@ class TestLowLevelAnnotateTestCase:
         def llf(p):
             return p(0)
         a = self.RPythonAnnotator()
-        s = a.build_types(llf, [PF])
+        s = a.build_types(llf, [annmodel.SomePtr(PF)])
         assert s.knowntype == int
  

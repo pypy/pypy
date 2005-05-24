@@ -247,15 +247,15 @@ BUILTIN_ANALYZERS[__import__] = import_func
 
 # annotation of low-level types
 from pypy.annotation.model import SomePtr
-from pypy.rpython import lltypes
+from pypy.rpython import lltype
 
 def malloc(T, n=None):
     assert n is None or n.knowntype == int
     assert T.is_constant()
     if n is not None:
         n = 1
-    p = lltypes.malloc(T.const, n)
-    r = SomePtr(lltypes.typeOf(p))
+    p = lltype.malloc(T.const, n)
+    r = SomePtr(lltype.typeOf(p))
     #print "MALLOC", r
     return r
 
@@ -263,7 +263,7 @@ def cast_flags(PtrT, s_p):
     #print "CAST", s_p
     assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
     assert PtrT.is_constant()
-    return SomePtr(ll_ptrtype=lltypes.typeOf(lltypes.cast_flags(PtrT.const, s_p.ll_ptrtype._example())))
+    return SomePtr(ll_ptrtype=lltype.typeOf(lltype.cast_flags(PtrT.const, s_p.ll_ptrtype._example())))
 
 def cast_parent(PtrT, s_p):
     assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
@@ -272,9 +272,9 @@ def cast_parent(PtrT, s_p):
     parent_p = PtrT._example()
     candidate_p = s_p.ll_ptrtype._example()
     parent_p._setfirst(candidate_p)
-    return SomePtr(ll_ptrtype=lltypes.typeOf(lltypes.cast_parent(PtrT, candidate_p)))
+    return SomePtr(ll_ptrtype=lltype.typeOf(lltype.cast_parent(PtrT, candidate_p)))
 
-BUILTIN_ANALYZERS[lltypes.malloc] = malloc
-BUILTIN_ANALYZERS[lltypes.cast_flags] = cast_flags
-BUILTIN_ANALYZERS[lltypes.cast_parent] = cast_parent
+BUILTIN_ANALYZERS[lltype.malloc] = malloc
+BUILTIN_ANALYZERS[lltype.cast_flags] = cast_flags
+BUILTIN_ANALYZERS[lltype.cast_parent] = cast_parent
 

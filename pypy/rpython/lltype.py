@@ -190,7 +190,7 @@ Void     = Primitive("Void", None)
 class _PtrType(LowLevelType):
     def __init__(self, TO, **flags):
         if not isinstance(TO, ContainerType):
-            raise TypeError, ("can only point to a Struct or an Array or a FuncType, "
+            raise TypeError, ("can only point to a Container type, "
                               "not to %s" % (TO,))
         if 'gc' in flags:
             if not isinstance(TO, GC_CONTAINER):
@@ -571,13 +571,13 @@ def malloc(T, n=None):
         raise TypeError, "malloc for Structs and Arrays only"
     return _ptr(GcPtr(T), o)
 
-def function(TYPE, name, **attrs):
+def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
         raise TypeError, "function() for FuncTypes only"
     o = _func(TYPE, _name=name, **attrs)
     return _ptr(NonGcPtr(TYPE), o)
 
-def pyobject(obj, **flags):
+def pyobjectptr(obj, **flags):
     T = _PtrType(PyObject, **flags)
     o = _pyobject(obj)
     return _ptr(T, o)

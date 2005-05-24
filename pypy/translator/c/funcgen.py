@@ -4,7 +4,7 @@ from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import traverse, uniqueitems
-from pypy.rpython.lltypes import GcPtr, NonGcPtr, PyObject
+from pypy.rpython.lltype import GcPtr, NonGcPtr, PyObject
 
 
 PyObjGcPtr    = GcPtr(PyObject)

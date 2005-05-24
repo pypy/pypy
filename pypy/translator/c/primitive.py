@@ -1,4 +1,4 @@
-from pypy.rpython.lltypes import *
+from pypy.rpython.lltype import *
 
 # ____________________________________________________________
 #

@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.gensupp import builtin_base, NameManager
 
 from pypy.rpython.rarithmetic import r_int, r_uint
-from pypy.rpython.lltypes import pyobject
+from pypy.rpython.lltype import pyobjectptr
 
 # XXX maybe this can be done more elegantly:
 # needed to convince should_translate_attr
@@ -41,7 +41,7 @@ class PyObjMaker:
             stackentry = obj
         self.debugstack = (self.debugstack, stackentry)
         try:
-            return self.getvalue(pyobject(obj))
+            return self.getvalue(pyobjectptr(obj))
         finally:
             self.debugstack, x = self.debugstack
             assert x is stackentry

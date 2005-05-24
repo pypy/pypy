@@ -477,7 +477,6 @@ class __extend__(pairtype(SomePBC, SomeString    )):
         return pair(s, pbc).union()
 
 # annotation of low-level types
-from pypy.rpython import lltypes
 from pypy.annotation.model import SomePtr, ll_to_annotation
 
 class __extend__(pairtype(SomePtr, SomePtr)):

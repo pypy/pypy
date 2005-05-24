@@ -320,14 +320,14 @@ class SomePtr(SomeObject):
         self.ll_ptrtype = ll_ptrtype
 
 
-from pypy.rpython import lltypes
+from pypy.rpython import lltype
 
 annotation_to_ll_map = [
-    (SomeBool(), lltypes.Bool),
-    (SomeInteger(), lltypes.Signed),
-    (SomeInteger(nonneg=True, unsigned=True), lltypes.Unsigned),    
-    (SomeChar(), lltypes.Char),
-    (SomePBC({None: True}), lltypes.Void),
+    (SomeBool(), lltype.Bool),
+    (SomeInteger(), lltype.Signed),
+    (SomeInteger(nonneg=True, unsigned=True), lltype.Unsigned),    
+    (SomeChar(), lltype.Char),
+    (SomePBC({None: True}), lltype.Void),
 ]
 
 def annotation_to_lltype(s_val, info=None):
@@ -348,7 +348,7 @@ ll_to_annotation_map = dict([(ll, ann) for ann,ll in annotation_to_ll_map])
 def ll_to_annotation(v):
        if v is None:
             raise ValueError, "cannot retrieve Void low-level type value"
-       typ = lltypes.typeOf(v)
+       typ = lltype.typeOf(v)
        s = ll_to_annotation_map.get(typ)
        if s is None:
            return SomePtr(typ)

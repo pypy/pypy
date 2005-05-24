@@ -103,21 +103,21 @@ def test_list_contains():
     assert s1 != s2
 
 def test_ll_to_annotation():
-    s_z = ll_to_annotation(lltypes.Signed._defl())
+    s_z = ll_to_annotation(lltype.Signed._defl())
     s_s = SomeInteger()
     s_u = SomeInteger(nonneg=True, unsigned=True)
     assert s_z.contains(s_s)
     assert not s_z.contains(s_u)
-    s_uz = ll_to_annotation(lltypes.Unsigned._defl())
+    s_uz = ll_to_annotation(lltype.Unsigned._defl())
     assert s_uz.contains(s_u)
-    assert ll_to_annotation(lltypes.Bool._defl()).contains(SomeBool())
-    assert ll_to_annotation(lltypes.Char._defl()).contains(SomeChar())
-    S = lltypes.GcStruct('s')
-    A = lltypes.GcArray()
-    s_p = ll_to_annotation(lltypes.malloc(S))
-    assert isinstance(s_p, SomePtr) and s_p.ll_ptrtype == lltypes.GcPtr(S)
-    s_p = ll_to_annotation(lltypes.malloc(A, 0))
-    assert isinstance(s_p, SomePtr) and s_p.ll_ptrtype == lltypes.GcPtr(A)
+    assert ll_to_annotation(lltype.Bool._defl()).contains(SomeBool())
+    assert ll_to_annotation(lltype.Char._defl()).contains(SomeChar())
+    S = lltype.GcStruct('s')
+    A = lltype.GcArray()
+    s_p = ll_to_annotation(lltype.malloc(S))
+    assert isinstance(s_p, SomePtr) and s_p.ll_ptrtype == lltype.GcPtr(S)
+    s_p = ll_to_annotation(lltype.malloc(A, 0))
+    assert isinstance(s_p, SomePtr) and s_p.ll_ptrtype == lltype.GcPtr(A)
 
 def test_annotation_to_lltype():
     from pypy.rpython.rarithmetic import r_uint
@@ -128,25 +128,25 @@ def test_annotation_to_lltype():
     s_u = SomeInteger(nonneg=True, unsigned=True); 
     s_u1 = SomeInteger(nonneg=True, unsigned=True); 
     s_u1.const = r_uint(1)
-    assert annotation_to_lltype(s_i) == lltypes.Signed
-    assert annotation_to_lltype(s_pos) == lltypes.Signed
-    assert annotation_to_lltype(s_1) == lltypes.Signed
-    assert annotation_to_lltype(s_m1) == lltypes.Signed
-    assert annotation_to_lltype(s_u) == lltypes.Unsigned
-    assert annotation_to_lltype(s_u1) == lltypes.Unsigned
-    assert annotation_to_lltype(SomeBool()) == lltypes.Bool
-    assert annotation_to_lltype(SomeChar()) == lltypes.Char
-    PS = lltypes.GcPtr(lltypes.GcStruct('s'))
+    assert annotation_to_lltype(s_i) == lltype.Signed
+    assert annotation_to_lltype(s_pos) == lltype.Signed
+    assert annotation_to_lltype(s_1) == lltype.Signed
+    assert annotation_to_lltype(s_m1) == lltype.Signed
+    assert annotation_to_lltype(s_u) == lltype.Unsigned
+    assert annotation_to_lltype(s_u1) == lltype.Unsigned
+    assert annotation_to_lltype(SomeBool()) == lltype.Bool
+    assert annotation_to_lltype(SomeChar()) == lltype.Char
+    PS = lltype.GcPtr(lltype.GcStruct('s'))
     s_p = SomePtr(ll_ptrtype=PS)
     assert annotation_to_lltype(s_p) == PS
     py.test.raises(ValueError, "annotation_to_lltype(si0)")
     
 def test_ll_union():
-    PS1 = lltypes.GcPtr(lltypes.GcStruct('s'))
-    PS2 = lltypes.GcPtr(lltypes.GcStruct('s'))
-    PS3 = lltypes.GcPtr(lltypes.GcStruct('s3'))
-    PA1 = lltypes.GcPtr(lltypes.GcArray())
-    PA2 = lltypes.GcPtr(lltypes.GcArray())
+    PS1 = lltype.GcPtr(lltype.GcStruct('s'))
+    PS2 = lltype.GcPtr(lltype.GcStruct('s'))
+    PS3 = lltype.GcPtr(lltype.GcStruct('s3'))
+    PA1 = lltype.GcPtr(lltype.GcArray())
+    PA2 = lltype.GcPtr(lltype.GcArray())
 
     assert unionof(SomePtr(PS1),SomePtr(PS1)) == SomePtr(PS1)
     assert unionof(SomePtr(PS1),SomePtr(PS2)) == SomePtr(PS2)
