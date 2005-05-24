@@ -732,8 +732,8 @@ Naming of python objects
   includes w_self.  Don't use ``w_`` in application level
   python only code.
 
-Committing
-----------
+Committing & Branching to the repository
+-----------------------------------------------------
 
 - write good log messages because several people
   are reading the diffs. 
@@ -742,6 +742,19 @@ Committing
   pypy/tool/fixeol in that directory.  This will make sure 
   that the property 'svn:eol-style' is set to native which 
   allows checkin/checkout in native line-ending format.
+
+- branching (aka "svn copy") of source code should usually
+  happen at ``svn/pypy/dist`` level in order to have a full
+  self-contained pypy checkout for each branch.   For branching
+  a ``try1`` branch you would for example do:: 
+
+    svn cp http://codespeak.net/svn/pypy/dist \
+           http://codespeak.net/svn/pypy/branch/try1 
+
+  This allows to checkout the ``try1`` branch and receive a 
+  self-contained working-copy for the branch.   Note that 
+  branching/copying is a cheap operation with subversion, as it 
+  takes constant time irrespective of the size of the tree. 
 
 - To learn more about how to use subversion read `this document`_.
 
