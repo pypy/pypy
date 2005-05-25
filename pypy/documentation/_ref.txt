@@ -1,8 +1,8 @@
-.. _`issue40`: http://codespeak.net/issue/pypy-dev/issue40
 .. _`demo/`: http://codespeak.net/svn/pypy/dist/demo
 .. _`lib-python/`: http://codespeak.net/svn/pypy/dist/lib-python
 .. _`pypy/annotation`:
 .. _`annotation/`: http://codespeak.net/svn/pypy/dist/pypy/annotation
+.. _`annotation/binaryop.py`: http://codespeak.net/svn/pypy/dist/pypy/annotation/binaryop.py
 .. _`documentation/`: http://codespeak.net/svn/pypy/dist/pypy/documentation
 .. _`documentation/revreport/`: http://codespeak.net/svn/pypy/dist/pypy/documentation/revreport
 .. _`documentation/website/`: http://codespeak.net/svn/pypy/dist/pypy/documentation/website
@@ -26,9 +26,11 @@
 .. _`pypy/objspace/std`:
 .. _`objspace/std/`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std
 .. _`objspace/thunk.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/thunk.py
-.. _`objspace/trace.py`:
-.. _`pypy/objspace/trace.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
+.. _`pypy/objspace/trace.py`:
+.. _`objspace/trace.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
 .. _`rpython/`: http://codespeak.net/svn/pypy/dist/pypy/rpython
+.. _`rpython/lltype.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/lltype.py
+.. _`rpython/rlist.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/rlist.py
 .. _`pypy/test_all.py`: http://codespeak.net/svn/pypy/dist/pypy/test_all.py
 .. _`tool/`: http://codespeak.net/svn/pypy/dist/pypy/tool
 .. _`tool/pytest/`: http://codespeak.net/svn/pypy/dist/pypy/tool/pytest
