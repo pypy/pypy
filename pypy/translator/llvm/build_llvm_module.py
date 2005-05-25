@@ -14,7 +14,7 @@ from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.translator.tool.buildpyxmodule import make_c_from_pyxfile
 from pypy.translator.tool import stdoutcapture
 
-debug = 1
+debug = False
 
 class CompileError(exceptions.Exception):
     pass
@@ -27,22 +27,31 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=False):
     lastdir = path.local()
     os.chdir(str(dirpath))
     modname = pyxfile.purebasename
-    ops1 = ["llvm-as %s -f -o %s.bc" % (llvmfile, llvmfile.purebasename), 
-            "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES,
-                                                    llvmfile.purebasename,
-                                                    llvmfile.purebasename),
-            "llc -enable-correct-eh-support %s_optimized.bc -f -o %s.s" % \
-            (llvmfile.purebasename, llvmfile.purebasename),
-            "as %s.s -o %s.o" % (llvmfile.purebasename, llvmfile.purebasename)]
-    if not optimize:
-        ops1 = ["llvm-as %s -f" % llvmfile,
-                "llc -enable-correct-eh-support %s.bc -f -o %s.s" % \
-                (llvmfile.purebasename, llvmfile.purebasename),
-                "as %s.s -o %s.o" % (llvmfile.purebasename,
-                                     llvmfile.purebasename)]
-    ops2 = ["gcc -c -fPIC -I/usr/include/python2.3 %s.c" % pyxfile.purebasename,
-           "gcc -shared %s.o %s.o -o %s.so" % (llvmfile.purebasename,
-                                               modname, modname)]
+    b = llvmfile.purebasename
+
+    if sys.maxint == 2147483647:        #32 bit platform
+        if optimize:
+            ops1 = ["llvm-as %s.ll -f -o %s.bc" % (b, b), 
+                    "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES, b, b),
+                    "llc -enable-correct-eh-support %s_optimized.bc -f -o %s.s" % (b, b),
+                    "as %s.s -o %s.o" % (b, b)]
+        else:
+            ops1 = ["llvm-as %s.ll -f -o %s.bc" % (b, b),
+                    "llc -enable-correct-eh-support %s.bc -f -o %s.s" % (b, b),
+                    "as %s.s -o %s.o" % (b, b)]
+        ops2 = ["gcc -c -shared -I/usr/include/python2.3 %s.c" % pyxfile.purebasename,
+                "gcc -shared %s.o %s.o -o %s.so" % (b, modname, modname)]
+    else:       #assume 64 bit platform (x86-64?)
+        #this special case for x86-64 (called ia64 in llvm) can go as soon as llc supports ia64 assembly output!
+        if optimize:
+            ops1 = ["llvm-as %s.ll -f -o %s.bc" % (b, b), 
+                    "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES, b, b),
+                    "llc -enable-correct-eh-support %s_optimized.bc -march=c -f -o %s.c" % (b, b)]
+        else:
+            ops1 = ["llvm-as %s.ll -f -o %s.bc" % (b, b),
+                    "llc -enable-correct-eh-support %s.bc -march=c -f -o %s.c" % (b, b)]
+        ops2 = ["gcc -shared -fPIC -I/usr/include/python2.3 %s.c %s.c -o %s.so" % (b, modname, modname)]
+
     try:
         if debug: print "modname", modname
         c = stdoutcapture.Capture(mixed_out_err = True)
@@ -50,11 +59,11 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=False):
         try:
             try:
                 for op in ops1:
-                    print op
+                    if debug: print op
                     cmdexec(op)
                 make_c_from_pyxfile(pyxfile)
                 for op in ops2:
-                    print op
+                    if debug: print op
                     cmdexec(op)
             finally:
                 foutput, foutput = c.done()
