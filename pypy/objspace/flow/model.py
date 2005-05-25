@@ -367,7 +367,7 @@ def checkgraph(graph):
                         if isinstance(v, Variable):
                             assert v in vars
                         else:
-                            assert v.value != last_exception
+                            assert v.value is not last_exception
                             #assert v.value != last_exc_value
                 exc_links = {}
                 if block.exitswitch is None:
@@ -402,7 +402,7 @@ def checkgraph(graph):
                                 assert v != block.operations[-1].result
                         else:
                             if not exc_link:
-                                assert v.value != last_exception
+                                assert v.value is not last_exception
                                 #assert v.value != last_exc_value
                 vars_previous_blocks.update(vars)
 

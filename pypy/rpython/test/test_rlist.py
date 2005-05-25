@@ -13,7 +13,7 @@ def test_simple():
     typer = RPythonTyper(t.annotator)
     typer.specialize()
     #t.view()
-    assert "did not crash"
+    t.checkgraphs()
 
 
 def test_append():
@@ -28,4 +28,4 @@ def test_append():
     typer = RPythonTyper(t.annotator)
     typer.specialize()
     #t.view()
-    assert "did not crash"
+    t.checkgraphs()

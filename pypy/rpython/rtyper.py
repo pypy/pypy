@@ -146,7 +146,6 @@ class RPythonTyper:
             # for simplicity of the consider_meth, resultvar is usually not
             # op.result here.  We have to replace resultvar with op.result
             # in all generated operations.
-            varmapping[resultvar] = op.result
             resulttype = resultvar.concretetype
             op.result.concretetype = s_expected.lowleveltype()
             if op.result.concretetype != resulttype:
@@ -155,6 +154,9 @@ class RPythonTyper:
                                  "   rtyper says %r" % (op.opname,
                                                         op.result.concretetype,
                                                         resulttype))
+            while resultvar in varmapping:
+                resultvar = varmapping[resultvar]
+            varmapping[resultvar] = op.result
         else:
             # consider_meth() can actually generate no operation and return
             # a Constant.
