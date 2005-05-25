@@ -34,8 +34,7 @@ Written by Marc-Andre Lemburg (mal@lemburg.com).
 Copyright (c) Corporation for National Research Initiatives.
 
 """
-from unicodecodec_ import *
-
+from unicodecodec import *
 #/* --- Registry ----------------------------------------------------------- */
 codec_search_path = []
 codec_search_cache = {}
@@ -61,12 +60,24 @@ def codec_lookup(encoding):
     
     result = codec_search_cache.get(encoding,None)
     if not result:
+        if len(codec_search_path) == 0:
+            import encodings
+            if len(codec_search_path) == 0:
+                raise LookupError("no codec search functions registered: can't find encoding")
+        if not isinstance(encoding,str):
+            raise TypeError("Encoding must be a string")
         for search in codec_search_path:
             result=search(encoding)
             if result :
-                codec_search_cache[encoding] = result 
-                break
+                if not( type(result) == tuple and len(result) == 4):
+                    raise TypeError("codec search functions must return 4-tuples")
+                else:
+                    codec_search_cache[encoding] = result 
+                    return result
+        if not result:
+            raise LookupError( "unknown encoding: %s", encoding)
     return result
+    
 
 lookup = codec_lookup
 
@@ -80,11 +91,15 @@ def encode(v, encoding='defaultencoding',errors='strict'):
     'xmlcharrefreplace' as well as any other name registered with
     codecs.register_error that can handle ValueErrors.
     """
-    
-    encoder = lookup(encoding)[0]
-    if encoder :
-        res = encoder(v,errors)
-    return res[0]
+    if isinstance(encoding,str):
+        encoder = lookup(encoding)[0]
+        if encoder and isinstance(errors,str):
+            res = encoder(v,errors)
+            return res[0]
+        else:
+            raise TypeError("Errors must be a string")
+    else:
+        raise TypeError("Encoding must be a string")
 
 def decode(obj,encoding='defaultencoding',errors='strict'):
     """decode(obj, [encoding[,errors]]) -> object
@@ -96,12 +111,15 @@ def decode(obj,encoding='defaultencoding',errors='strict'):
     as well as any other name registerd with codecs.register_error that is
     able to handle ValueErrors.
     """
-    decoder = lookup(encoding)[1]
-    if decoder:
-        res = decoder(obj,errors)
+    if isinstance(encoding,str):
+        decoder = lookup(encoding)[1]
+        if decoder and isinstance(errors,str):
+            res = decoder(v,errors)
+            return res[0]
+        else:
+            raise TypeError("Errors must be a string")
     else:
-        raise LookupError("No such encoding")
-    return res[0]
+        raise TypeError("Encoding must be a string")
 
 def latin_1_encode( obj,errors='strict'):
     """None
@@ -132,7 +150,7 @@ def utf_8_decode( data,errors='strict',final=None):
     """None
     """
     res = PyUnicode_DecodeUTF8Stateful(data, len(data), errors, final)
-    res = ''.join(res)
+    res = u''.join(res)
     return res,len(res)
 
 def raw_unicode_escape_decode( data,errors='strict'):
@@ -145,7 +163,7 @@ def raw_unicode_escape_decode( data,errors='strict'):
 def utf_7_decode( data,errors='strict'):
     """None
     """
-    res = PyUnicode_DecodeUTF7(data,errors='strict')
+    res = PyUnicode_DecodeUTF7(data,len(data),errors='strict')
     res = ''.join(res)
     return res,len(res)
 
@@ -160,7 +178,7 @@ def latin_1_decode( data,errors='strict'):
     """None
     """
     res = PyUnicode_DecodeLatin1(data,len(data),errors)
-    res = ''.join(res)
+    res = u''.join(res)
     return res, len(res)
 
 def utf_16_decode( data,errors='strict',final=None):
@@ -182,7 +200,7 @@ def ascii_decode( data,errors='strict'):
     """None
     """
     res = PyUnicode_DecodeASCII(data,len(data),errors)
-    res = ''.join(res)
+    res = u''.join(res)
     return res, len(res)
 
 def charmap_encode(obj,errors='strict',mapping='latin-1'):

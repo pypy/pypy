@@ -190,8 +190,8 @@ def PyUnicode_DecodeUTF7(s, size, errors):
             i+=1
 
     if (inShift) :
-        outpos = p-PyUnicode_AS_UNICODE(unicode);
-        endinpos = size;
+        #XXX This aint right
+        endinpos = size
         raise UnicodeDecodeError, "unterminated shift sequence"
         
     return p
@@ -232,8 +232,8 @@ def PyUnicode_EncodeUTF7(s, size, encodeSetO, encodeWhiteSpace, errors):
             else:
                 bitsleft += 16
                 charsleft += ch #((ord(charsleft) << 16) | ord(ch))
-                out, charsleft, bitsleft =  ENCODE(out, charsleft, bitsleft)
-
+                p, bitsleft =  ENCODE(charsleft, bitsleft)
+                out += p
 ##                /* If the next character is special then we dont' need to terminate
 ##                   the shift sequence. If the next character is not a BASE64 character
 ##                   or '-' then the shift sequence will be terminated implicitly and we
@@ -401,22 +401,22 @@ def PyUnicode_DecodeASCII(s, size, errors):
 
 #    /* ASCII is equivalent to the first 128 ordinals in Unicode. */
     if (size == 1 and ord(s) < 128) :
-        return PyUnicode_FromUnicode(unicode(s), 1)
+        return [unichr(ord(s))]
     if (size == 0):
-        return unicode('')
+        return [u''] #unicode('')
     p = []
     pos = 0
     while pos < len(s):
         c = s[pos]
         if ord(c) < 128:
-            p += c
+            p += unichr(ord(c))
             pos += 1
         else:
             
             res = unicode_call_errorhandler(
                     errors, "ascii", "ordinal not in range(128)",
                     s,  pos, pos+1)
-            p += res[0]
+            p += unicode(res[0])
             pos = res[1]
     return p
 
@@ -565,7 +565,7 @@ def PyUnicode_EncodeUTF16(s,size,errors,byteorder='little'):
         
     p = []
     bom = sys.byteorder
-    if (byteorder == 0):
+    if (byteorder == 'native'):
         
         bom = sys.byteorder
         p += STORECHAR(0xFEFF,bom)
@@ -573,12 +573,12 @@ def PyUnicode_EncodeUTF16(s,size,errors,byteorder='little'):
     if (size == 0):
         return ""
 
-    if (byteorder == -1):
+    if (byteorder == 'little' ):
         bom = 'little'
-    elif (byteorder == 1):
+    elif (byteorder == 'big'):
         bom = 'big'
 
-    
+
     for c in s:
         ch = ord(c)
         ch2 = 0
@@ -845,7 +845,7 @@ def PyUnicode_DecodeUTF8Stateful(s,size,errors,consumed):
 
 def PyUnicode_EncodeUTF8(s,size,errors):
 
-    assert(s != None)
+    #assert(s != None)
     assert(size >= 0)
     p = []
     i = 0
@@ -892,12 +892,12 @@ def encodeUCS4(ch):
 
 def PyUnicode_DecodeLatin1(s, size, errors):
     #/* Latin-1 is equivalent to the first 256 ordinals in Unicode. */
-    if (size == 1):
-        return [PyUnicode_FromUnicode(s, 1)]
+##    if (size == 1):
+##        return [PyUnicode_FromUnicode(s, 1)]
     pos = 0
     p = []
     while (pos < size):
-        p += s[pos]
+        p += unichr(ord(s[pos]))
         pos += 1
     return p
 
@@ -911,16 +911,13 @@ def unicode_encode_ucs1(p,size,errors,limit):
         encoding = "ascii"
     
     if (size == 0):
-        return ''
+        return ['']
     res = []
     pos=0
     while pos < len(p):
     #for ch in p:
         ch = p[pos]
-        try:
-            ord(ch)
-        except TypeError:
-            print "Typeerror",ch,type(ch)
+        
         if ord(ch) < limit:
             res += chr(ord(ch))
             pos += 1
@@ -933,6 +930,7 @@ def unicode_encode_ucs1(p,size,errors,limit):
             x = unicode_call_errorhandler(errors,encoding,reason,p,collstart,collend,False)
             res += str(x[0])
             pos = x[1]
+    
     return res
 
 def PyUnicode_EncodeLatin1(p,size,errors):
@@ -983,7 +981,7 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
 
     if (size == 0):
         return u''
-
+    
     p = []
     pos = 0
     while (pos < size): 
@@ -1044,7 +1042,7 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
     
           #  /* \UXXXXXXXX */
             elif ch == 'U':
-                digits = 8;
+                digits = 8
                 message = "truncated \\UXXXXXXXX escape";
                 x = hexescape(s,pos+1,digits,message,errors)
                 p += x[0]
@@ -1052,6 +1050,7 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
 ##        /* \N{name} */
             elif ch == 'N':
                 message = "malformed \\N character escape"
+                pos += 1
                 try:
                     import unicodedata
                 except ImportError:
@@ -1068,8 +1067,9 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
                         look += 1
                         try:
                             chr = unicodedata.lookup(s[pos:look])
+                            #x = hexescape(chr,pos+1,8,message,errors)
                         except KeyError:
-                            x=unicode_call_errorhandler(errors,"unicodeescape",message,s,pos-1,size)
+                            x=unicode_call_errorhandler(errors,"unicodeescape",message,s,pos-1,look)
                         else:
                             x = hexescape(s,pos+1,look-pos,message,errors)
                         p += x[0]
@@ -1115,15 +1115,13 @@ def charmapencode_output(c,mapping):
 
     
     rep = mapping[c]
-    if not rep:
-        raise UnicodeError
     if isinstance(rep,(int,long)):
         if rep<256:
             return chr(rep)
         else:
             raise TypeError
-    elif isinstance(rep,unicode):
-        raise TypeError
+##    elif isinstance(rep,unicode):
+##        raise TypeError
     else:
         return rep
 
