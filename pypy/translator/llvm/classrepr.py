@@ -21,8 +21,8 @@ from pypy.translator.llvm.funcrepr import FunctionRepr, BoundMethodRepr
 from pypy.translator.llvm.funcrepr import VirtualMethodRepr
 from pypy.translator.llvm.memorylayout import MemoryLayout
 
-debug = True
-lazy_debug = True
+debug = False
+lazy_debug = False
 
 class ClassRepr(TypeRepr):
     l_classes = {}
@@ -122,7 +122,7 @@ class ClassRepr(TypeRepr):
 
     def get_globals(self):
         s = "\n%s = internal global %%std.class {%%std.class* null, uint %i}"
-        s = s % (self.objectname, abs(id(self)))
+        s = s % (self.objectname, abs(id(self)) & 0xFFFFFFF)
         return self.definition + s
 
     def collect_init_code(self, lblock, l_func):
@@ -247,7 +247,7 @@ class ExceptionTypeRepr(TypeRepr):
         self.objectname = gen.get_global_tmp("class.%s.object" %
                                              self.exception.__name__)
         s = "%s = internal global %%std.class {%%std.class* null, uint %i}"
-        self.definition = s % (self.objectname, abs(id(exception)))
+        self.definition = s % (self.objectname, abs(id(exception)) & 0xFFFFFFF)
         self.dependencies = sets.Set()
 
     lazy_attributes = ['l_base', 'memlayout']

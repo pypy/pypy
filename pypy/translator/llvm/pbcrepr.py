@@ -85,7 +85,7 @@ class PBCTypeRepr(TypeRepr):
         self.memlayout = MemoryLayout(attribs, l_types, self.gen)
         self.definition = "%s = %s" % (self.name, self.memlayout.definition())
         s = "\n%s = internal global %%std.class {%%std.class* null, uint %i}"
-        self.definition += s % (self.objectname, abs(id(self)))
+        self.definition += s % (self.objectname, abs(id(self)) & 0xFFFFFFF)
 
     def llvmtype(self):
         return "%std.class*"

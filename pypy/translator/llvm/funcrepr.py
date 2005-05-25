@@ -342,7 +342,7 @@ class TryBlockRepr(BlockRepr):
         if len(l_exits) == 1 and self.pyblock.exits[1].exitcase == Exception:
             lexcblock.uncond_branch("%" + l_exits[0].toblock)
         else:
-            sw = [(str(abs(id(ex.exitcase))), "%" + l_l.toblock)
+            sw = [(str(abs(id(ex.exitcase)) & 0xFFFFFFF), "%" + l_l.toblock)
                   for ex, l_l in zip(self.pyblock.exits[1:], l_exits)]
             lexcblock.switch(l_ui, "%" + self.lblock.label + ".unwind", sw)
             lunwindblock = llvmbc.BasicBlock(self.lblock.label + ".unwind")
@@ -628,7 +628,7 @@ class VirtualMethodRepr(LLVMRepr):
         entryblock.getelementptr(l_uip, l_cl, [0, 1])
         entryblock.load(l_ui, l_uip)
         entryblock.switch(l_ui, "%" + self.l_commonbase.classdef.cls.__name__,
-                          [(str(abs(id(l_c))), "%" + l_c.classdef.cls.__name__)
+                          [(str(abs(id(l_c)) & 0xFFFFFFF), "%" + l_c.classdef.cls.__name__)
                            for l_c in self.l_classes])
         lfunc = llvmbc.Function(self.llvmfuncdef(), entryblock)
         for i, l_cls in enumerate(self.l_classes):
