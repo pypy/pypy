@@ -303,9 +303,10 @@ class SomePBC(SomeObject):
 class SomeBuiltin(SomeObject):
     "Stands for a built-in function or method with special-cased analysis."
     knowntype = BuiltinFunctionType  # == BuiltinMethodType
-    def __init__(self, analyser, s_self=None):
+    def __init__(self, analyser, s_self=None, methodname=None):
         self.analyser = analyser
         self.s_self = s_self
+        self.methodname = methodname
 
 
 class SomeImpossibleValue(SomeObject):

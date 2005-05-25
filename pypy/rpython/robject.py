@@ -3,7 +3,7 @@ from pypy.annotation.model import SomeObject, annotation_to_lltype
 from pypy.annotation.model import SomePBC
 from pypy.rpython.lltype import PyObject, GcPtr, Void
 from pypy.rpython.rtyper import TyperError, peek_at_result_annotation
-from pypy.rpython.rtyper import receiveconst
+from pypy.rpython.rtyper import receiveconst, receive
 
 
 PyObjPtr = GcPtr(PyObject)
@@ -19,6 +19,19 @@ class __extend__(SomeObject):
                 return Void
             else:
                 return PyObjPtr
+
+    def rtype_getattr(s_obj, s_attr):
+        if s_attr.is_constant() and isinstance(s_attr.const, str):
+            attr = s_attr.const
+            try:
+                s_obj.find_method(attr)   # just to check it is here
+            except AttributeError:
+                raise TyperError("no method %s on %r" % (attr, s_obj))
+            else:
+                # implement methods (of a known name) as just their 'self'
+                return receive(s_obj, arg=0)
+        else:
+            raise TyperError("getattr() with a non-constant attribute name")
 
 
 class __extend__(pairtype(SomeObject, SomeObject)):

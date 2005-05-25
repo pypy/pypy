@@ -83,6 +83,15 @@ class RPythonTyper:
                 raise
 
         block.operations[:] = newops
+        # multiple renamings (v1->v2->v3->...) are possible
+        while True:
+            done = True
+            for v1, v2 in varmapping.items():
+                if v2 in varmapping:
+                    varmapping[v1] = varmapping[v2]
+                    done = False
+            if done:
+                break
         block.renamevariables(varmapping)
         self.insert_link_conversions(block)
 
@@ -103,7 +112,7 @@ class RPythonTyper:
                     newops = []
                     self.enter_operation(None, newops)
                     try:
-                        a1 = self.convertvar(a1, s_a1, s_a2)
+                        a1 = convertvar(a1, s_a1, s_a2)
                     finally:
                         self.leave_operation()
                     if newops and not can_insert_here:

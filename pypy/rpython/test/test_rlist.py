@@ -16,7 +16,7 @@ def test_simple():
     assert "did not crash"
 
 
-def NOT_READY_test_append():
+def test_append():
     def dummyfn():
         l = []
         l.append(5)
@@ -27,5 +27,5 @@ def NOT_READY_test_append():
     t.annotate([])
     typer = RPythonTyper(t.annotator)
     typer.specialize()
-    t.view()
+    #t.view()
     assert "did not crash"

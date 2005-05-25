@@ -32,6 +32,12 @@ class __extend__(SomePtr):
         v_value = receive(FIELD_TYPE, arg=2)
         direct_op('setfield', [v_ptr, v_attr, v_value])
 
+    def rtype_len(s_ptr):
+        v_ptr = receive(s_ptr, arg=0)
+        s_result = peek_at_result_annotation()
+        return direct_op('getarraysize', [v_ptr],
+                         resulttype = s_result.lowleveltype())
+
 
 class __extend__(pairtype(SomePtr, SomeInteger)):
 

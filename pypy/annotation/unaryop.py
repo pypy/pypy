@@ -102,7 +102,7 @@ class __extend__(SomeObject):
     def find_method(obj, name):
         "Look for a special-case implementation for the named method."
         analyser = getattr(obj.__class__, 'method_' + name)
-        return SomeBuiltin(analyser, obj)
+        return SomeBuiltin(analyser, obj, name)
 
     def getattr(obj, s_attr):
         # get a SomeBuiltin if the SomeObject has

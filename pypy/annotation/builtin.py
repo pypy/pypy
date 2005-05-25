@@ -9,6 +9,7 @@ from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeFloat, unionof
+from pypy.annotation.model import annotation_to_lltype
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Constant
 import pypy.rpython.rarithmetic
@@ -274,7 +275,12 @@ def cast_parent(PtrT, s_p):
     parent_p._setfirst(candidate_p)
     return SomePtr(ll_ptrtype=lltype.typeOf(lltype.cast_parent(PtrT, candidate_p)))
 
+def typeOf(s_val):
+    lltype = annotation_to_lltype(s_val, info="in typeOf(): ")
+    return immutablevalue(lltype)
+
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
 BUILTIN_ANALYZERS[lltype.cast_flags] = cast_flags
 BUILTIN_ANALYZERS[lltype.cast_parent] = cast_parent
+BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 
