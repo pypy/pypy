@@ -53,7 +53,7 @@ def unicode_from_encoded_object(obj, encoding, errors):
         encoding = sys.getdefaultencoding()
     decoder = codecs.getdecoder(encoding)
     if errors is None:
-        retval, lenght = decoder(obj)
+        retval, length = decoder(obj)
     else:
         retval, length = decoder(obj, errors)
     if not isinstance(retval, unicode):
