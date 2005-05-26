@@ -37,8 +37,7 @@ class RPythonTyper:
         pending = self.annotator.annotated.keys()
         while pending:
             for block in pending:
-                if block.operations != ():
-                    self.specialize_block(block)
+                self.specialize_block(block)
                 already_seen[block] = True
             pending = [block for block in self.annotator.annotated
                              if block not in already_seen]
@@ -65,6 +64,8 @@ class RPythonTyper:
             self.setconcretetype(a)
 
         # specialize all the operations, as far as possible
+        if block.operations == ():   # return or except block
+            return
         newops = []
         varmapping = {}
         for op in block.operations:
