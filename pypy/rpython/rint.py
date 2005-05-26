@@ -24,6 +24,18 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
     rtype_inplace_add = rtype_add
 
+    def rtype_sub((s_int1, s_int2)):
+        if s_int1.unsigned or s_int2.unsigned:
+            v_int1 = receive(Unsigned, arg=0)
+            v_int2 = receive(Unsigned, arg=1)
+            return direct_op('uint_sub', [v_int1, v_int2], resulttype=Unsigned)
+        else:
+            v_int1 = receive(Signed, arg=0)
+            v_int2 = receive(Signed, arg=1)
+            return direct_op('int_sub', [v_int1, v_int2], resulttype=Signed)
+
+    rtype_inplace_sub = rtype_sub
+
     def rtype_lt((s_int1, s_int2)):
         if s_int1.unsigned or s_int2.unsigned:
             if not s_int1.nonneg or not s_int2.nonneg:
@@ -36,6 +48,12 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
             v_int2 = receive(Signed, arg=1)
             return direct_op('int_lt', [v_int1, v_int2], resulttype=Bool)
 
+
+class __extend__(SomeInteger):
+
+    def rtype_is_true(s_int):
+        v_int = receive(Signed, arg=0)
+        return direct_op('int_is_true', [v_int], resulttype=Bool)
 
 
 class __extend__(SomeBool):
