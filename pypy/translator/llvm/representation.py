@@ -21,14 +21,19 @@ import sets
 
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import last_exception
-# this is only used as a token for the pointer to the last exception object
-last_exc_value = object()
+
+from pypy.rpython import lltype
 
 from pypy.annotation import model as annmodel
 from pypy.translator.llvm.lazyattribute import MetaLazyRepr
+
 LLVM_SIMPLE_TYPES = {annmodel.SomeChar: "sbyte",
                      annmodel.SomeBool: "bool",
                      annmodel.SomeFloat: "double"}
+
+# this is only used as a token for the pointer to the last exception object
+last_exc_value = object()
+
 
 debug = False
 
@@ -65,6 +70,14 @@ class LLVMRepr(object):
     def llvmtype(self):
         return self.type.typename()
 
+    def llvmsize(self):
+        raise NotImplementedError, "This object has no size!"
+
+    def op(self, opname, l_target, args, lblock, l_func):
+        if hasattr(self, "type") and hasattr(self.type, "t_op"):
+            return self.type.t_op(opname, l_target, args, lblock, l_func)
+        raise CompileError, "op '%s' not supported" % opname
+
     def typed_name(self):
         return self.llvmtype() + " " + self.llvmname()
 
@@ -74,7 +87,68 @@ class LLVMRepr(object):
         except AttributeError:
             return sets.Set()
 
+class SignedRepr(LLVMRepr):
+    def __init__(self, value, gen):
+        if debug:
+            print "SignedRepr: %d" % value
+        self.value = value
+        self.gen = gen
+        self.type = self.gen.get_repr(lltype.Signed)
 
+    def llvmname(self):
+        return str(self.value)
+
+    def get_dependencies(self):
+        return [self.type]
+
+class UnsignedRepr(LLVMRepr):
+    def __init__(self, value, gen):
+        if debug:
+            print "UnsignedRepr: %d" % value
+        self.value = value
+        self.gen = gen
+        self.type = self.gen.get_repr(lltype.Unsigned)
+
+    def llvmname(self):
+        return str(self.value)
+
+    def get_dependencies(self):
+        return [self.type]
+
+class BoolRepr(LLVMRepr):
+    def __init__(self, value, gen):
+        if debug:
+            print "BoolRepr: %d" % value
+        self.value = bool(value)
+        self.gen = gen
+        self.type = self.gen.get_repr(lltype.Bool)
+
+    def llvmname(self):
+        return str(self.value).lower()
+        
+    def get_dependencies(self):
+        return [self.type]
+
+class CharRepr(LLVMRepr):
+    def __init__(self, value, gen):
+        if debug:
+            print "CharRepr: %d" % value
+        assert len(value) == 1
+        self.value = value
+        self.gen = gen
+        self.type = self.gen.get_repr(lltype.Char)
+
+    def llvmname(self):
+        value = value
+        if ' ' <= value < '\x7f':
+            return "'%s'" % (value.replace("'", r"\'"),)
+        else:
+            return '%d' % ord(value)
+        
+    def get_dependencies(self):
+        return [self.type]
+
+       
 class SimpleRepr(LLVMRepr):
     """Representation of values that only need simple representation:
 bool, char (string of length 1), last_exception, last_exc_value"""
@@ -163,14 +237,19 @@ class VariableRepr(LLVMRepr):
         if debug:
             print "VariableRepr: %s" % (var.name)
         self.var = var
-        type_ = gen.annotator.binding(var)
+        try:
+            type_ = var.concretetype
+        except AttributeError:
+            type_ = gen.annotator.binding(var.c)
         self.type = gen.get_repr(type_)
+        print "XXXXXXXXXXXXXXXX", self.type
         self.dependencies = sets.Set([self.type])
 
     def llvmname(self):
         return "%" + self.var.name
 
     def __getattr__(self, name):
+        print "$%%%%%%%%%%%%%%%%%getattr called", name, self.type.typename()
         if name.startswith("op_"):
             return getattr(self.type, "t_" + name, None)
         elif name.startswith("cast_"):

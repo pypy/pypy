@@ -250,15 +250,22 @@ class BlockRepr(object):
         l_op = getattr(l_arg0, "op_" + op.opname, None)
         if l_op is not None:
             l_op(l_target, op.args, self.lblock, self.l_func)
-        elif op.opname in INTRINSIC_OPS:
+            return
+        try:
+            l_arg0.op(op.opname, l_target, op.args, self.lblock, self.l_func)
+        except NotImplementedError:
+            pass
+        except CompileError:
+            pass
+        if op.opname in INTRINSIC_OPS:
             l_args = [self.gen.get_repr(arg) for arg in op.args[1:]]
             self.l_func.dependencies.update(l_args)
             self.lblock.spaceop(l_target, op.opname, [l_arg0] + l_args)
-        else:
-            s = "SpaceOperation %s not supported. Target: %s " \
-                "Args: %s " % (op.opname, l_target, op.args) + \
-                "Dispatched on: %s" % l_arg0
-            raise CompileError, s
+            return
+        s = "SpaceOperation %s not supported. Target: %s " \
+            "Args: %s " % (op.opname, l_target, op.args) + \
+            "Dispatched on: %s" % l_arg0
+        raise CompileError, s
 
     def create_terminator_instr(self):
         if debug:

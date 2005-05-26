@@ -86,6 +86,14 @@ class BasicBlock(object):
         self.phi_done = True
         self.instructions.append("unwind")
 
+    #Arithmetic instructions
+    def binary_instruction(self, instr, l_target, l_a, l_b):
+        self.phi_done = True
+        assert l_a.llvmtype() == l_b.llvmtype()
+        s = "%s = %s %s, %s" % (l_target.llvmname(), instr,
+                                   l_a.typed_name(), l_b.llvmname())
+        self.instructions.append(s)
+
     #Memory access instructions
     def load(self, l_target, l_pter):
         self.phi_done = True

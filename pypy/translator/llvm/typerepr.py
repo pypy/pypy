@@ -16,6 +16,12 @@ from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
 from pypy.translator.llvm.representation import LLVM_SIMPLE_TYPES
 
 
+import sys
+if 2147483647 == sys.maxint:
+    BYTES_IN_INT = 4
+else:
+    BYTES_IN_INT = 8
+
 
 class TypeRepr(LLVMRepr):
     def get(obj, gen):
@@ -56,10 +62,92 @@ class TypeRepr(LLVMRepr):
         return self.name
 
     def llvmname(self):
-        raise CompileError, "This type is not an object."
+        raise NotImplementedError, "This type is not an object."
 
     def llvmtype(self):
-        raise CompileError, "This type is not an object."
+        raise NotImplementedError, \
+              "This type is not an object. %s" % self.__class__
+
+    def llvmsize(self):
+        raise NotImplementedError, "This type does not have a size."
+        
+
+class SignedTypeRepr(TypeRepr):
+    directly_supported_ops = {
+        "int_add": "add",
+        "int_sub": "sub",
+        "int_mul": "mul",
+        "int_div": "div",
+        "int_mod": "rem",
+        "int_xor": "xor",
+        "int_and_": "and",
+        "int_eq": "seteq",
+        "int_ne": "setne",
+        "int_gt": "setgt",
+        "int_ge": "setge",
+        "int_lt": "setlt",
+        "int_le": "setle"}
+        
+    def __init__(self, gen):
+        if debug:
+            print "SignedTypeRepr"
+        self.gen = gen
+
+    def t_op(self, opname, l_target, args, lblock, l_func):
+        if opname in SignedTypeRepr.directly_supported_ops:
+            assert len(args) == 2
+            l_args = [self.gen.get_repr(arg) for arg in args]
+            l_func.dependencies.update(l_args)
+            lblock.binary_instruction(
+                SignedTypeRepr.directly_supported_ops[opname], l_target,
+                l_args[0], l_args[1])
+
+    def t_op_int_is_true(self, l_target, args, lblock, l_func):
+        l_arg = self.gen.get_repr(args[0])
+        l_func.dependencies.add(l_arg)
+        lblock.cast(l_target, l_arg)
+
+    def typename(self):
+        return "int"
+
+    def llvmsize(self):
+        return BYTES_IN_INT
+
+class UnsignedTypeRepr(TypeRepr):
+    def __init__(self, gen):
+        if debug:
+            print "UnsignedTypeRepr"
+        self.gen = gen
+
+    def typename(self):
+        return "uint"
+
+    def llvmsize(self):
+        return BYTES_IN_INT
+
+class BoolTypeRepr(TypeRepr):
+    def __init__(self, gen):
+        if debug:
+            print "BoolTypeRepr"
+        self.gen = gen
+
+    def typename(self):
+        return "bool"
+
+    def llvmsize(self):
+        return 1
+
+class CharTypeRepr(TypeRepr):
+    def __init__(self, gen):
+        if debug:
+            print "CharTypeRepr"
+        self.gen = gen
+
+    def typename(self):
+        return "sbyte"
+
+    def llvmsize(self):
+        return 1
 
 
 class StringTypeRepr(TypeRepr):

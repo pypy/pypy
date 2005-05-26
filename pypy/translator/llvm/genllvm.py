@@ -13,8 +13,11 @@ object.
 import autopath
 import sets, StringIO
 
-from pypy.objspace.flow.model import Constant 
+from pypy.objspace.flow.model import Constant, Variable
 from pypy.annotation import model as annmodel
+
+from pypy.rpython import rtyper, lltype
+
 from pypy.translator import transform
 from pypy.translator.translator import Translator
 from pypy.translator.llvm import llvmbc
@@ -29,7 +32,9 @@ from pypy.translator.llvm.representation import LLVMRepr, TmpVariableRepr
 from pypy.translator.llvm.representation import CompileError
 from pypy.translator.llvm.funcrepr import EntryFunctionRepr
 
-debug = False
+from pypy.translator.llvm import reprmap
+
+debug = True
 
 
 def llvmcompile(transl, optimize=False):
@@ -37,6 +42,9 @@ def llvmcompile(transl, optimize=False):
     return gen.compile(optimize)
 
 def get_key(obj):
+    if isinstance(obj, list):
+        return id(obj)
+    return obj
     #XXX Get rid of this:
     #LLVMGenerator should only cache gen_repr requestes,
     #the Repr classes should be responsible for deciding which queries
@@ -60,6 +68,8 @@ class LLVMGenerator(object):
     def __init__(self, transl):
         self.translator = transl
         self.annotator = self.translator.annotator
+        self.rtyper = rtyper.RPythonTyper(self.annotator)
+        self.rtyper.specialize()
         self.global_counts = {}
         self.local_counts = {}
         self.repr_classes = []
@@ -75,8 +85,8 @@ class LLVMGenerator(object):
         self.l_entrypoint = EntryFunctionRepr("%__entry__" + self.entryname,
                                               self.translator.functions[0],
                                               self)
-        classrepr.create_builtin_exceptions(self,
-                                            self.l_entrypoint.dependencies)
+##         classrepr.create_builtin_exceptions(
+##             self, self.l_entrypoint.get_dependencies())
         self.local_counts[self.l_entrypoint] = 0
         self.l_entrypoint.setup()
 
@@ -107,11 +117,12 @@ class LLVMGenerator(object):
 
     def get_local_tmp(self, type, l_function):
         self.local_counts[l_function] += 1
-        return TmpVariableRepr("tmp_%i" % self.local_counts[l_function], type,
+        return TmpVariableRepr("tmp.%i" % self.local_counts[l_function], type,
                                self)
 
     def get_repr(self, obj):
         self.depth += 1
+        key = get_key(obj)
         if debug:
             print "  " * self.depth,
             print "looking for object", obj, type(obj).__name__,
@@ -119,24 +130,44 @@ class LLVMGenerator(object):
         if isinstance(obj, LLVMRepr):
             self.depth -= 1
             return obj
-        if get_key(obj) in self.llvm_reprs:
+        if key in self.llvm_reprs:
             self.depth -= 1
             if debug:
-                print "->exists already:", self.llvm_reprs[get_key(obj)]
-            return self.llvm_reprs[get_key(obj)]
+                print "->exists already:", self.llvm_reprs[key]
+            return self.llvm_reprs[key]
+        elif isinstance(obj, Variable):
+            try:
+                obj.concretetype
+            except AttributeError:
+                self.rtyper.setconcretetype(obj)
+            result = representation.VariableRepr(obj, self)
+            self.llvm_reprs[result] = result
+            self.depth -= 1
+            return result
+        elif isinstance(obj, lltype.Primitive):
+            result = reprmap.PRIMITIVE_TYPES[obj](self)
+            self.llvm_reprs[key] = result
+            self.depth -= 1
+            return result
+        if isinstance(obj, Constant):
+            try:
+                T = lltype.typeOf(obj)
+                if isinstance(T, lltype.Primitive):
+                    result = reprmap.PRIMITIVE_REPRS[concretetype](obj, self)
+                    self.llvm_reprs[key] = result
+                    self.depth -= 1
+                    return result
+                #XXX find the right type if it is not a Primitive
+            except AttributeError:
+                pass
         for cl in self.repr_classes:
             try:
                 g = cl.get(obj, self)
             except AttributeError:
                 continue
             if g is not None:
-                self.llvm_reprs[get_key(obj)] = g
+                self.llvm_reprs[key] = g
                 self.local_counts[g] = 0
-##                 if not hasattr(g.__class__, "lazy_attributes"):
-##                     if debug:
-##                         print "  " * self.depth,
-##                         print "calling setup of %s, repr of %s" % (g, obj)
-##                     g.setup()
                 self.depth -= 1
                 return g
         raise CompileError, "Can't get repr of %s, %s" % (obj, obj.__class__)
@@ -182,7 +213,7 @@ class LLVMGenerator(object):
     def unlazyify(self):
         if debug:
             print 
-            print "$$$$$$$$$$$$$$ unlazyify"
+            print "unlazyify"
         while len(self.lazy_objects):
             obj = self.lazy_objects.pop()
             if debug:
@@ -226,3 +257,11 @@ def remove_loops(l_repr, seen_repr):
             remove_loops(l_dep, seen_repr.union(sets.Set([l_repr])))
     deps.difference_update(remove)
 
+## def f():
+##     l = [10,20,30]
+##     return l[2]
+
+## t = Translator(f)
+## a = t.annotate([])
+
+## flg = t.getflowgraph()
