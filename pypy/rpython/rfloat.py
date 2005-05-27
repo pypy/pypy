@@ -7,6 +7,8 @@ from pypy.rpython.rtyper import TyperError
 
 class __extend__(pairtype(SomeFloat, SomeFloat)):
 
+    #Arithmetic
+
     def rtype_add(args):
         return _rtype_template(args, 'add')
 
@@ -40,6 +42,28 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
 
     rtype_inplace_pow = rtype_pow
 
+    #comparisons: eq is_ ne lt le gt ge
+
+    def rtype_eq(args):
+        return _rtype_compare_template(args, 'eq')
+
+    #rtype_is_ = rtype_eq
+
+    def rtype_ne(args):
+        return _rtype_compare_template(args, 'ne')
+
+    def rtype_lt(args):
+        return _rtype_compare_template(args, 'lt')
+
+    def rtype_le(args):
+        return _rtype_compare_template(args, 'le')
+
+    def rtype_gt(args):
+        return _rtype_compare_template(args, 'gt')
+
+    def rtype_ge(args):
+        return _rtype_compare_template(args, 'ge')
+
 
 #Helpers SomeFloat,Somefloat
 
@@ -48,11 +72,26 @@ def _rtype_template((s_float1, s_float2), func):
         v_float2 = receive(Float, arg=1)
         return direct_op('float_'+func, [v_float1, v_float2], resulttype=Float)
 
+def _rtype_compare_template((s_float1, s_float2), func):
+    v_float1 = receive(Float, arg=0)
+    v_float2 = receive(Float, arg=1)
+    return direct_op('float_'+func, [v_float1, v_float2], resulttype=Bool)
+
 
 #
 
 class __extend__(pairtype(SomeFloat, SomeInteger)):
-    pass
+
+    def rtype_convert_from_to((s_from, s_to), v):
+        #XXX TODO convert SomeFloat->SomeInteger
+        return v
+
+
+class __extend__(pairtype(SomeFloat, SomeBool)):
+
+    def rtype_convert_from_to((s_from, s_to), v):
+        #XXX TODO convert SomeFloat->SomeBool
+        return v
 
 
 class __extend__(SomeFloat):
