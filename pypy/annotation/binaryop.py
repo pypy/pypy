@@ -84,7 +84,8 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def inplace_floordiv((obj1, obj2)): return pair(obj1, obj2).floordiv()
     def inplace_div((obj1, obj2)):      return pair(obj1, obj2).div()
     def inplace_mod((obj1, obj2)):      return pair(obj1, obj2).mod()
-    def inplace_pow((obj1, obj2), obj3):return pair(obj1, obj2).pow(obj3)
+    def inplace_pow((obj1, obj2)):      return pair(obj1, obj2).pow(
+                                                      SomePBC({None: True}))
     def inplace_lshift((obj1, obj2)):   return pair(obj1, obj2).lshift()
     def inplace_rshift((obj1, obj2)):   return pair(obj1, obj2).rshift()
     def inplace_and((obj1, obj2)):      return pair(obj1, obj2).and_()

@@ -1037,7 +1037,15 @@ class TestAnnotateTestCase:
         finally:
             sys.argv = oldvalue
         assert s is not None
-            
+
+    def test_pow(self):
+        def f(n):
+            n **= 2
+            return 2 ** n
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        # result should be an integer
+        assert s.knowntype == int
 
 
 def g(n):
