@@ -75,7 +75,7 @@ def codec_lookup(encoding):
                     codec_search_cache[encoding] = result 
                     return result
         if not result:
-            raise LookupError( "unknown encoding: %s", encoding)
+            raise LookupError( "unknown encoding: %s" % encoding)
     return result
     
 
@@ -115,6 +115,8 @@ def decode(obj,encoding='defaultencoding',errors='strict'):
         decoder = lookup(encoding)[1]
         if decoder and isinstance(errors,str):
             res = decoder(v,errors)
+            if not isinstance(res,tuple) or len(res) != 2:
+                raise TypeError("encoder must return a tuple (object,integer)")
             return res[0]
         else:
             raise TypeError("Errors must be a string")
