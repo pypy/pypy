@@ -1,7 +1,7 @@
 import types
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomePBC
-from pypy.rpython.lltype import Void, FuncType, functionptr
+from pypy.rpython.lltype import Void, FuncType, functionptr, NonGcPtr
 from pypy.rpython.rtyper import TLS, receive, receiveconst, direct_op
 from pypy.rpython.rtyper import peek_at_result_annotation
 
@@ -32,7 +32,7 @@ class __extend__(SomePBC):
         else:
             lloutput = s_output.lowleveltype()
         FT = FuncType(llinputs, lloutput)
-        f = functionptr(FT, func.func_name, _callable=func)
+        f = functionptr(FT, func.func_name, graph = graph, _callable = func)
         args_v = [receive(llinputs[i], arg=i+1) for i in range(len(args_s))]
-        c = receiveconst(FT, f)
+        c = receiveconst(NonGcPtr(FT), f)
         return direct_op('direct_call', [c] + args_v, resulttype=lloutput)

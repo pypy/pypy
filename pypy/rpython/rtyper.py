@@ -2,7 +2,7 @@ from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation
-from pypy.rpython.lltype import Void, LowLevelType, NonGcPtr
+from pypy.rpython.lltype import Void, LowLevelType, NonGcPtr, ContainerType
 from pypy.rpython.lltype import FuncType, functionptr
 from pypy.tool.tls import tlsobject
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
@@ -217,6 +217,9 @@ def receiveconst(s_requested, value):
         lowleveltype = s_requested
     else:
         lowleveltype = s_requested.lowleveltype()
+    assert not isinstance(lowleveltype, ContainerType), (
+        "missing a GcPtr or NonGcPtr in the type specification of %r" %
+        (lowleveltype,))
     c = Constant(value)
     c.concretetype = lowleveltype
     return c
@@ -272,24 +275,26 @@ def direct_call(ll_function, *args_v):
         spec_name.append(valid_identifier(getattr(key, '__name__', key))+suffix)
     spec_key = tuple(spec_key)
     try:
-        spec_function, resulttype = (
+        spec_function, spec_graph, resulttype = (
             TLS.rtyper.specialized_ll_functions[spec_key])
     except KeyError:
         name = '_'.join(spec_name)
         spec_function = func_with_new_name(ll_function, name)
         # flow and annotate (the copy of) the low-level function
+        spec_graph = annotator.translator.getflowgraph(spec_function)
         s_returnvalue = annotator.build_types(spec_function, args_s)
         resulttype = annmodel.annotation_to_lltype(s_returnvalue,
                                            "%s: " % ll_function.func_name)
         # cache the result
         TLS.rtyper.specialized_ll_functions[spec_key] = (
-            spec_function, resulttype)
+            spec_function, spec_graph, resulttype)
 
     # build the 'direct_call' operation
     lltypes = [v.concretetype for v in args_v]
     FT = FuncType(lltypes, resulttype)
-    c = Constant(functionptr(FT, ll_function.func_name, _callable=spec_function))
-    c.concretetype = NonGcPtr(FT)
+    f = functionptr(FT, ll_function.func_name, graph = spec_graph,
+                                           _callable = spec_function)
+    c = receiveconst(NonGcPtr(FT), f)
     return direct_op('direct_call', [c]+list(args_v), resulttype=resulttype)
 
 
