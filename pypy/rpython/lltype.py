@@ -185,6 +185,7 @@ class Primitive(LowLevelType):
 
 Signed   = Primitive("Signed", 0)
 Unsigned = Primitive("Unsigned", r_uint(0))
+Float    = Primitive("Float", 0.0)
 Char     = Primitive("Char", '\x00')
 Bool     = Primitive("Bool", False)
 Void     = Primitive("Void", None)
@@ -246,6 +247,8 @@ def typeOf(val):
         return Unsigned
     if isinstance(val, int):
         return Signed
+    if isinstance(val, float):
+        return Float
     if isinstance(val, str):
         assert len(val) == 1
         return Char

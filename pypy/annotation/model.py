@@ -327,6 +327,7 @@ annotation_to_ll_map = [
     (SomeBool(), lltype.Bool),
     (SomeInteger(), lltype.Signed),
     (SomeInteger(nonneg=True, unsigned=True), lltype.Unsigned),    
+    (SomeFloat(), lltype.Float),
     (SomeChar(), lltype.Char),
     (SomePBC({None: True}), lltype.Void),
 ]
