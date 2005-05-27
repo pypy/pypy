@@ -1,8 +1,7 @@
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, annotation_to_lltype
-from pypy.annotation.model import SomePBC
 from pypy.rpython.lltype import PyObject, GcPtr, Void
-from pypy.rpython.rtyper import TyperError, peek_at_result_annotation
+from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rtyper import receiveconst, receive
 
 
@@ -44,14 +43,3 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         else:
             raise TyperError("don't know how to convert from %r to %r" % (
                 s_from, s_to))
-
-
-class __extend__(SomePBC):
-
-    def rtype_getattr(s_pbc, s_attr):
-        attr = s_attr.const
-        s_result = peek_at_result_annotation()
-        if s_result.is_constant():
-            return receiveconst(s_result, s_result.const)
-        else:
-            NotImplementedYet
