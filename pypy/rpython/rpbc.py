@@ -1,7 +1,7 @@
 import types
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomePBC
-from pypy.rpython.lltype import Void, FuncType, functionptr, NonGcPtr
+from pypy.rpython.lltype import typeOf
 from pypy.rpython.rtyper import TLS, receive, receiveconst, direct_op
 from pypy.rpython.rtyper import peek_at_result_annotation
 
@@ -23,16 +23,10 @@ class __extend__(SomePBC):
         if not isinstance(func, types.FunctionType):
             NotImplementedYet
         # XXX hackish
-        a = TLS.rtyper.annotator
-        graph = a.translator.getflowgraph(func)
-        llinputs = [a.binding(v).lowleveltype() for v in graph.getargs()]
-        s_output = a.binding(graph.getreturnvar(), None)
-        if s_output is None:
-            lloutput = Void
-        else:
-            lloutput = s_output.lowleveltype()
-        FT = FuncType(llinputs, lloutput)
-        f = functionptr(FT, func.func_name, graph = graph, _callable = func)
-        args_v = [receive(llinputs[i], arg=i+1) for i in range(len(args_s))]
-        c = receiveconst(NonGcPtr(FT), f)
-        return direct_op('direct_call', [c] + args_v, resulttype=lloutput)
+        f = TLS.rtyper.getfunctionptr(func)
+        FUNCPTR = typeOf(f)
+        args_v = [receive(FUNCPTR.TO.ARGS[i], arg=i+1)
+                  for i in range(len(args_s))]
+        c = receiveconst(FUNCPTR, f)
+        return direct_op('direct_call', [c] + args_v,
+                         resulttype = FUNCPTR.TO.RESULT)

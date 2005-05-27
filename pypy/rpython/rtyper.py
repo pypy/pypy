@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.rpython.lltype import Void, LowLevelType, NonGcPtr, ContainerType
-from pypy.rpython.lltype import FuncType, functionptr
+from pypy.rpython.lltype import FuncType, functionptr, typeOf
 from pypy.tool.tls import tlsobject
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
@@ -193,6 +193,20 @@ def consider_op_%s(self, arg1, arg2, *args):
     def consider_op_newlist(self, *items_s):
         return rlist.rtype_newlist(*items_s)
 
+    # __________ utilities __________
+
+    def getfunctionptr(self, func):
+        """Make a functionptr from the given Python function."""
+        a = self.annotator
+        graph = a.translator.getflowgraph(func)
+        llinputs = [a.binding(v).lowleveltype() for v in graph.getargs()]
+        s_output = a.binding(graph.getreturnvar(), None)
+        if s_output is None:
+            lloutput = Void
+        else:
+            lloutput = s_output.lowleveltype()
+        FT = FuncType(llinputs, lloutput)
+        return functionptr(FT, func.func_name, graph = graph, _callable = func)
 
 # ____________________________________________________________
 #
@@ -275,27 +289,21 @@ def direct_call(ll_function, *args_v):
         spec_name.append(valid_identifier(getattr(key, '__name__', key))+suffix)
     spec_key = tuple(spec_key)
     try:
-        spec_function, spec_graph, resulttype = (
-            TLS.rtyper.specialized_ll_functions[spec_key])
+        spec_function = TLS.rtyper.specialized_ll_functions[spec_key]
     except KeyError:
         name = '_'.join(spec_name)
         spec_function = func_with_new_name(ll_function, name)
         # flow and annotate (the copy of) the low-level function
         spec_graph = annotator.translator.getflowgraph(spec_function)
-        s_returnvalue = annotator.build_types(spec_function, args_s)
-        resulttype = annmodel.annotation_to_lltype(s_returnvalue,
-                                           "%s: " % ll_function.func_name)
+        annotator.build_types(spec_function, args_s)
         # cache the result
-        TLS.rtyper.specialized_ll_functions[spec_key] = (
-            spec_function, spec_graph, resulttype)
+        TLS.rtyper.specialized_ll_functions[spec_key] = spec_function
 
     # build the 'direct_call' operation
-    lltypes = [v.concretetype for v in args_v]
-    FT = FuncType(lltypes, resulttype)
-    f = functionptr(FT, ll_function.func_name, graph = spec_graph,
-                                           _callable = spec_function)
-    c = receiveconst(NonGcPtr(FT), f)
-    return direct_op('direct_call', [c]+list(args_v), resulttype=resulttype)
+    f = TLS.rtyper.getfunctionptr(spec_function)
+    c = receiveconst(typeOf(f), f)
+    return direct_op('direct_call', [c]+list(args_v),
+                     resulttype = typeOf(f).TO.RESULT)
 
 
 def direct_op(opname, args, resulttype=None):
