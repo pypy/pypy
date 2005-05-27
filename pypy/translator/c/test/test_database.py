@@ -1,5 +1,6 @@
 import autopath, sys
 from pypy.rpython.lltype import *
+from pypy.rpython.rtyper import RPythonTyper
 from pypy.translator.translator import Translator
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
@@ -161,5 +162,29 @@ def test_untyped_func():
     s.fptr = f
     db = LowLevelDatabase()
     db.get(s)
+    db.complete()
+    dump_on_stdout(db)
+
+def test_function_call():
+    def g(x, y):
+        return x-y
+    def f(x):
+        return g(1, x)
+    t = Translator(f)
+    a = t.annotate([int])
+    RPythonTyper(t.annotator).specialize()
+
+    F = FuncType([Signed], Signed)
+    f = functionptr(F, "f", graph=t.getflowgraph())
+    db = LowLevelDatabase()
+    db.get(f)
+    db.complete()
+    dump_on_stdout(db)
+
+def INPROGRESS_test_func_as_pyobject():
+    def f(x):
+        return x+1
+    db = LowLevelDatabase()
+    db.get(pyobjectptr(f))
     db.complete()
     dump_on_stdout(db)
