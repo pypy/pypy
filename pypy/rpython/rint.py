@@ -5,11 +5,20 @@ from pypy.rpython.rtyper import peek_at_result_annotation, receive, direct_op
 from pypy.rpython.rtyper import TyperError
 
 
+debug = True
+
 class __extend__(pairtype(SomeInteger, SomeInteger)):
 
-    def rtype_convert_from_to((s_from, s_to), v):
-        # assume that converting between signed and unsigned doesn't need
-        # an operation for now
+    def rtype_convert_from_to((s_from, s_to), v):   #XXX What is v here?
+        if s_from.unsigned != s_to.unsigned:
+            if s_to.unsigned:
+                if debug: print 'explicit cast Signed->Unsigned'
+                v_int = receive(Signed, arg=0)
+                return direct_op('cast_int_to_uint', [v_int], resulttype=Unsigned)
+            else:
+                if debug: print 'explicit cast Unsigned->Signed'
+                v_int = receive(Unsigned, arg=0)
+                return direct_op('cast_uint_to_int', [v_int], resulttype=Signed)
         return v
 
     #arithmetic
@@ -255,11 +264,11 @@ class __extend__(SomeInteger):
             v_int = receive(Unsigned, arg=0)
         else:
             v_int = receive(Signed, arg=0)
-        return direct_op('int_abs', [v_int], resulttype=Signed)
+        return direct_op('int_abs', [v_int], resulttype=Signed) #XXX I would like to make this Unsigned, but the annotator insists it is Signed!
 
     def rtype_abs_ovf(s_int):
         v_int = receive(Signed, arg=0)
-        return direct_op('int_abs_ovf', [v_int], resulttype=Signed)
+        return direct_op('int_abs_ovf', [v_int], resulttype=Signed) #XXX I would like to make this Unsigned, but the annotator insists it is Signed!
 
     def rtype_invert(s_int):
         v_int = receive(Signed, arg=0)

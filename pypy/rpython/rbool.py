@@ -4,17 +4,19 @@ from pypy.rpython.lltype import Bool
 from pypy.rpython.rtyper import receive
 
 
+debug = True
+
 class __extend__(pairtype(SomeBool, SomeInteger)):
 
     def rtype_convert_from_to((s_from, s_to), v):
-        # XXX TODO convert SomeBool->SomeInteger
+        if debug: print 'XXX TODO cast SomeBool->SomeInteger'
         return v
 
 
 class __extend__(pairtype(SomeBool, SomeFloat)):
 
     def rtype_convert_from_to((s_from, s_to), v):
-        # XXX TODO convert SomeBool->SomeFloat
+        if debug: print 'XXX TODO cast SomeBool->SomeFloat'
         return v
 
 

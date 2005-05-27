@@ -5,6 +5,8 @@ from pypy.rpython.rtyper import peek_at_result_annotation, receive, direct_op
 from pypy.rpython.rtyper import TyperError
 
 
+debug = True
+
 class __extend__(pairtype(SomeFloat, SomeFloat)):
 
     #Arithmetic
@@ -47,7 +49,7 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
     def rtype_eq(args):
         return _rtype_compare_template(args, 'eq')
 
-    #rtype_is_ = rtype_eq
+    rtype_is_ = rtype_eq
 
     def rtype_ne(args):
         return _rtype_compare_template(args, 'ne')
@@ -83,22 +85,39 @@ def _rtype_compare_template((s_float1, s_float2), func):
 class __extend__(pairtype(SomeFloat, SomeInteger)):
 
     def rtype_convert_from_to((s_from, s_to), v):
-        #XXX TODO convert SomeFloat->SomeInteger
+        if debug: print 'XXX TODO cast SomeFloat->SomeInteger'
         return v
 
+
+#
+
+class __extend__(pairtype(SomeInteger, SomeFloat)):
+
+    def rtype_convert_from_to((s_from, s_to), v):
+        if debug: print 'XXX TODO cast SomeInteger->SomeFloat'
+        return v
+
+
+#
 
 class __extend__(pairtype(SomeFloat, SomeBool)):
 
     def rtype_convert_from_to((s_from, s_to), v):
-        #XXX TODO convert SomeFloat->SomeBool
+        if debug: print 'XXX TODO cast SomeFloat->SomeBool'
         return v
 
+
+#
 
 class __extend__(SomeFloat):
 
     def rtype_is_true(s_float):
         v_float = receive(Float, arg=0)
         return direct_op('float_is_true', [v_float], resulttype=Bool)
+
+    def rtype_nonzero(s_float):
+        v_float = receive(Float, arg=0)
+        return direct_op('float_nonzero', [v_float], resulttype=Bool)
 
     def rtype_neg(s_int):
         v_int = receive(Float, arg=0)
