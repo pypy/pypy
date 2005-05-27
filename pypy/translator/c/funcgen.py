@@ -4,7 +4,7 @@ from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import traverse, uniqueitems
-from pypy.rpython.lltype import GcPtr, NonGcPtr, PyObject
+from pypy.rpython.lltype import GcPtr, NonGcPtr, PyObject, Void, Primitive
 
 
 PyObjGcPtr    = GcPtr(PyObject)
@@ -20,9 +20,12 @@ class FunctionCodeGenerator:
     def __init__(self, graph, gettype, getvalue):
         self.graph = graph
         self.getvalue = getvalue
-        self.typemap, self.returntype = self.collecttypes(gettype)
+        self.lltypemap = self.collecttypes()
+        self.typemap = {}
+        for v, T in self.lltypemap.items():
+            self.typemap[v] = gettype(T)
 
-    def collecttypes(self, gettype):
+    def collecttypes(self):
         # collect all variables and constants used in the body,
         # and get their types now
         result = []
@@ -34,18 +37,15 @@ class FunctionCodeGenerator:
                 for link in block.exits:
                     result.extend(link.args)
         traverse(visit, self.graph)
-        typemap = {}
-        returnvar = self.graph.getreturnvar()
-        result.append(returnvar)
+        resultvar = self.graph.getreturnvar()
+        lltypemap = {resultvar: Void}   # default value, normally overridden
         for v in uniqueitems(result):
             if isinstance(v, Variable):
                 T = getattr(v, 'concretetype', PyObjGcPtr)
             else:
                 T = getattr(v, 'concretetype', PyObjNonGcPtr)
-            typemap[v] = gettype(T)
-            if v is returnvar:
-                returntype = T
-        return typemap, returntype
+            lltypemap[v] = T
+        return lltypemap
 
     def argnames(self):
         return [v.name for v in self.graph.getargs()]
@@ -57,7 +57,7 @@ class FunctionCodeGenerator:
         return [v for v in self.typemap if isinstance(v, Constant)]
 
     def allconstantvalues(self):
-        for v, T in self.typemap.iteritems():
+        for v in self.typemap:
             if isinstance(v, Constant):
                 yield llvalue_from_constant(v)
 
@@ -74,7 +74,8 @@ class FunctionCodeGenerator:
             raise TypeError, "expr(%r)" % (v,)
 
     def error_return_value(self):
-        return self.getvalue(ErrorValue(self.returntype))
+        returnlltype = self.lltypemap[self.graph.getreturnvar()]
+        return self.getvalue(ErrorValue(returnlltype))
 
     # ____________________________________________________________
 
@@ -95,7 +96,9 @@ class FunctionCodeGenerator:
 
         # generate an incref for each input argument
         for a in self.graph.getargs():
-            yield self.cincref(a)
+            line = self.cincref(a)
+            if line:
+                yield line
 
         def gen_link(link, linklocalvars=None):
             "Generate the code to jump across the given Link."
@@ -143,7 +146,7 @@ class FunctionCodeGenerator:
                     lst = [self.expr(v) for v in op.args]
                     lst.append(self.expr(op.result))
                     lst.append(err)
-                    yield '%s(%s);' % (macro, ', '.join(lst))
+                    yield '%s(%s)' % (macro, ', '.join(lst))
                 to_release.append(op.result)
 
             err_reachable = False
@@ -301,7 +304,21 @@ class FunctionCodeGenerator:
         return self.cdecref(op.args[0])
 
     def cincref(self, v):
-        return '/*XXX INCREF*/'
+        T = self.lltypemap[v]
+        if not isinstance(T, Primitive) and 'gc' in T.flags:
+            if T.TO == PyObject:
+                return 'Py_INCREF(%s);' % v.name
+            else:
+                return '/*XXX INCREF*/'
+        else:
+            return ''
 
     def cdecref(self, v, expr=None):
-        return '/*XXX DECREF*/'
+        T = self.lltypemap[v]
+        if not isinstance(T, Primitive) and 'gc' in T.flags:
+            if T.TO == PyObject:
+                return 'Py_DECREF(%s);' % v.name
+            else:
+                return '/*XXX DECREF*/'
+        else:
+            return ''
