@@ -306,4 +306,4 @@ def direct_op(opname, args, resulttype=None):
 
 # _______________________________________________________________________
 # this has the side-effect of registering the unary and binary operations
-from pypy.rpython import robject, rlist, rptr, rbuiltin, rint
+from pypy.rpython import robject, rlist, rptr, rbuiltin, rint, rbool, rfloat

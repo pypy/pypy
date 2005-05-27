@@ -1,5 +1,5 @@
 from pypy.annotation.pairtype import pair, pairtype
-from pypy.annotation.model import SomeInteger, SomeBool
+from pypy.annotation.model import SomeInteger, SomeBool, SomePBC
 from pypy.rpython.lltype import Signed, Unsigned, Bool
 from pypy.rpython.rtyper import peek_at_result_annotation, receive, direct_op
 from pypy.rpython.rtyper import TyperError
@@ -135,7 +135,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     rtype_inplace_or = rtype_or_
 
     def rtype_lshift((s_int1, s_int2)):
-        if s_int1.unsigned or s_int2.unsigned:
+        if s_int1.unsigned:
             v_int1 = receive(Unsigned, arg=0)
             v_int2 = receive(Unsigned, arg=1)
             return direct_op('uint_lshift', [v_int1, v_int2], resulttype=Unsigned)
@@ -147,7 +147,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     rtype_inplace_lshift = rtype_lshift
 
     def rtype_rshift((s_int1, s_int2)):
-        if s_int1.unsigned or s_int2.unsigned:
+        if s_int1.unsigned:
             v_int1 = receive(Unsigned, arg=0)
             v_int2 = receive(Unsigned, arg=1)
             return direct_op('uint_rshift', [v_int1, v_int2], resulttype=Unsigned)
@@ -159,7 +159,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     rtype_inplace_rshift = rtype_rshift
 
     def rtype_lshift_ovf((s_int1, s_int2)):
-        if s_int1.unsigned or s_int2.unsigned:
+        if s_int1.unsigned:
             v_int1 = receive(Unsigned, arg=0)
             v_int2 = receive(Unsigned, arg=1)
             return direct_op('uint_lshift_ovf', [v_int1, v_int2], resulttype=Unsigned)
@@ -171,7 +171,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     rtype_inplace_lshift_ovf = rtype_lshift_ovf
 
     def rtype_rshift_ovf((s_int1, s_int2)):
-        if s_int1.unsigned or s_int2.unsigned:
+        if s_int1.unsigned:
             v_int1 = receive(Unsigned, arg=0)
             v_int2 = receive(Unsigned, arg=1)
             return direct_op('uint_rshift_ovf', [v_int1, v_int2], resulttype=Unsigned)
@@ -182,81 +182,65 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
     rtype_inplace_rshift_ovf = rtype_rshift_ovf
 
-    def rtype_pow((s_int1, s_int2)):
-        #XXX RPythonTyper gives this error: TypeError: rtype_pow() takes exactly 1 argument (2 given)
+    def rtype_pow((s_int1, s_int2), s_int3=SomePBC({None: True})):
+        if isinstance(s_int3, SomeInteger):
+            if s_int3.unsigned:
+                v_int3_list = [receive(Unsigned, arg=2)]
+            else:
+                v_int3_list = [receive(Signed, arg=2)]
+        elif s_int3.is_constant() and s_int3.const is None:
+            v_int3_list = []
+        else:
+            raise TyperError("pow() 3rd argument must be int or None")
         if s_int1.unsigned or s_int2.unsigned:
             v_int1 = receive(Unsigned, arg=0)
             v_int2 = receive(Unsigned, arg=1)
-            return direct_op('uint_pow', [v_int1, v_int2], resulttype=Unsigned)
+            return direct_op('uint_pow', [v_int1, v_int2] + v_int3_list, resulttype=Unsigned)
         else:
             v_int1 = receive(Signed, arg=0)
             v_int2 = receive(Signed, arg=1)
-            return direct_op('int_pow', [v_int1, v_int2], resulttype=Signed)
+            return direct_op('int_pow', [v_int1, v_int2] + v_int3_list, resulttype=Signed)
 
     rtype_inplace_pow = rtype_pow
 
     #comparisons: eq is_ ne lt le gt ge
 
-    def rtype_eq((s_int1, s_int2)):
-        v_int1 = receive(Signed, arg=0)
-        v_int2 = receive(Signed, arg=1)
-        return direct_op('int_eq', [v_int1, v_int2], resulttype=Bool)
-        
+    def rtype_eq(args): 
+        return _rtype_compare_template(args, 'eq')
+
     rtype_is_ = rtype_eq
 
-    def rtype_ne((s_int1, s_int2)):
+    def rtype_ne(args):
+        return _rtype_compare_template(args, 'ne')
+
+    def rtype_lt(args):
+        return _rtype_compare_template(args, 'lt')
+
+    def rtype_le(args):
+        return _rtype_compare_template(args, 'le')
+
+    def rtype_gt(args):
+        return _rtype_compare_template(args, 'gt')
+
+    def rtype_ge(args):
+        return _rtype_compare_template(args, 'ge')
+
+#Helper functions for comparisons
+
+def _rtype_compare_template((s_int1, s_int2), func):
+    if s_int1.unsigned or s_int2.unsigned:
+        if not s_int1.nonneg or not s_int2.nonneg:
+            raise TyperError("comparing a signed and an unsigned number")
+        v_int1 = receive(Unsigned, arg=0)
+        v_int2 = receive(Unsigned, arg=1)
+        return direct_op('uint_'+func, [v_int1, v_int2], resulttype=Bool)
+    else:
         v_int1 = receive(Signed, arg=0)
         v_int2 = receive(Signed, arg=1)
-        return direct_op('int_ne', [v_int1, v_int2], resulttype=Bool)
+        return direct_op('int_'+func, [v_int1, v_int2], resulttype=Bool)
 
-    def rtype_lt((s_int1, s_int2)):
-        if s_int1.unsigned or s_int2.unsigned:
-            if not s_int1.nonneg or not s_int2.nonneg:
-                raise TyperError("comparing a signed and an unsigned number")
-            v_int1 = receive(Unsigned, arg=0)
-            v_int2 = receive(Unsigned, arg=1)
-            return direct_op('uint_lt', [v_int1, v_int2], resulttype=Bool)
-        else:
-            v_int1 = receive(Signed, arg=0)
-            v_int2 = receive(Signed, arg=1)
-            return direct_op('int_lt', [v_int1, v_int2], resulttype=Bool)
 
-    def rtype_le((s_int1, s_int2)):
-        if s_int1.unsigned or s_int2.unsigned:
-            if not s_int1.nonneg or not s_int2.nonneg:
-                raise TyperError("comparing a signed and an unsigned number")
-            v_int1 = receive(Unsigned, arg=0)
-            v_int2 = receive(Unsigned, arg=1)
-            return direct_op('uint_le', [v_int1, v_int2], resulttype=Bool)
-        else:
-            v_int1 = receive(Signed, arg=0)
-            v_int2 = receive(Signed, arg=1)
-            return direct_op('int_le', [v_int1, v_int2], resulttype=Bool)
-
-    def rtype_gt((s_int1, s_int2)):
-        if s_int1.unsigned or s_int2.unsigned:
-            if not s_int1.nonneg or not s_int2.nonneg:
-                raise TyperError("comparing a signed and an unsigned number")
-            v_int1 = receive(Unsigned, arg=0)
-            v_int2 = receive(Unsigned, arg=1)
-            return direct_op('uint_gt', [v_int1, v_int2], resulttype=Bool)
-        else:
-            v_int1 = receive(Signed, arg=0)
-            v_int2 = receive(Signed, arg=1)
-            return direct_op('int_gt', [v_int1, v_int2], resulttype=Bool)
-
-    def rtype_ge((s_int1, s_int2)):
-        if s_int1.unsigned or s_int2.unsigned:
-            if not s_int1.nonneg or not s_int2.nonneg:
-                raise TyperError("comparing a signed and an unsigned number")
-            v_int1 = receive(Unsigned, arg=0)
-            v_int2 = receive(Unsigned, arg=1)
-            return direct_op('uint_ge', [v_int1, v_int2], resulttype=Bool)
-        else:
-            v_int1 = receive(Signed, arg=0)
-            v_int2 = receive(Signed, arg=1)
-            return direct_op('int_ge', [v_int1, v_int2], resulttype=Bool)
-
+#
 
 class __extend__(SomeInteger):
 
@@ -267,7 +251,10 @@ class __extend__(SomeInteger):
     #Unary arithmetic operations    
     
     def rtype_abs(s_int):
-        v_int = receive(Signed, arg=0)
+        if s_int.unsigned:
+            v_int = receive(Unsigned, arg=0)
+        else:
+            v_int = receive(Signed, arg=0)
         return direct_op('int_abs', [v_int], resulttype=Signed)
 
     def rtype_abs_ovf(s_int):
@@ -283,13 +270,7 @@ class __extend__(SomeInteger):
         return direct_op('int_neg', [v_int], resulttype=Signed)
 
     def rtype_pos(s_int):
-        #XXX I think this is a nop and should really be removed from the graph
-        v_int = receive(Signed, arg=0)
-        return direct_op('int_pos', [v_int], resulttype=Signed)
-
-
-class __extend__(SomeBool):
-
-    def rtype_is_true(s_bool):
-        v_bool = receive(Bool, arg=0)
-        return v_bool
+        if s_int.unsigned:
+            return receive(Unsigned, arg=0)
+        else:
+            return receive(Signed, arg=0)
