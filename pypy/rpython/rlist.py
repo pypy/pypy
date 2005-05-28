@@ -1,8 +1,6 @@
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeList, SomeInteger
 from pypy.rpython.lltype import *
-from pypy.rpython.rtyper import receive, receiveconst
-from pypy.rpython.rtyper import peek_at_result_annotation, direct_call
 
 # ____________________________________________________________
 #
@@ -26,25 +24,24 @@ class __extend__(SomeList):
     def get_s_items(s_list):
         return s_list.listdef.listitem.s_value
 
-    def rtype_len(s_lst):
-        v_lst = receive(s_lst, arg=0)
-        return direct_call(ll_len, v_lst)
+    def rtype_len(s_lst, hop):
+        v_lst = hop.inputargs(s_lst)
+        return hop.gendirectcall(ll_len, v_lst)
 
-    def rtype_method_append(s_lst, s_value):
-        v_lst = receive(s_lst, arg=0)
-        v_value = receive(s_lst.get_s_items(), arg=1)
-        direct_call(ll_append, v_lst, v_value)
+    def rtype_method_append(s_lst, hop):
+        v_lst, v_value = hop.inputargs(s_lst, s_lst.get_s_items())
+        hop.gendirectcall(ll_append, v_lst, v_value)
 
 
 class __extend__(pairtype(SomeList, SomeInteger)):
 
-    def rtype_getitem((s_lst1, s_int2)):
-        v_lst = receive(s_lst1, arg=0)
-        v_index = receive(Signed, arg=1)
+    def rtype_getitem((s_lst1, s_int2), hop):
+        v_lst, v_index = hop.inputargs(s_lst1, Signed)
         if s_int2.nonneg:
-            return direct_call(ll_getitem_nonneg, v_lst, v_index)
+            llfn = ll_getitem_nonneg
         else:
-            return direct_call(ll_getitem, v_lst, v_index)
+            llfn = ll_getitem
+        return hop.gendirectcall(llfn, v_lst, v_index)
 
 
 # ____________________________________________________________
@@ -86,15 +83,15 @@ def ll_newlist(LISTPTR, length):
     l.items = malloc(LISTPTR.TO.items.TO, length)
     return l
 
-def rtype_newlist(*items_s):
-    nb_args = len(items_s)
-    s_list = peek_at_result_annotation()
+def rtype_newlist(hop):
+    nb_args = hop.nb_args
+    s_list = hop.s_result
     s_listitem = s_list.get_s_items()
-    items_v = [receive(s_listitem, arg=i) for i in range(nb_args)]
-    c1 = receiveconst(Void, s_list.lowleveltype())
-    v_result = direct_call(ll_newlist, c1, receiveconst(Signed, nb_args))
+    c1 = hop.inputconst(Void, s_list.lowleveltype())
+    c2 = hop.inputconst(Signed, nb_args)
+    v_result = hop.gendirectcall(ll_newlist, c1, c2)
     for i in range(nb_args):
-        direct_call(ll_setitem_nonneg, v_result,
-                                       receiveconst(Signed, i),
-                                       items_v[i])
+        ci = hop.inputconst(Signed, i)
+        v_item = hop.inputarg(s_listitem, arg=i)
+        hop.gendirectcall(ll_setitem_nonneg, v_result, ci, v_item)
     return v_result
