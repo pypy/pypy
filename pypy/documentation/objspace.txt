@@ -269,7 +269,7 @@ Example usage::
     <pypy type 'int'>
 
 
->> _`flow object space`:
+.. _`flow object space`:
 
 The Flow Object Space
 =====================
