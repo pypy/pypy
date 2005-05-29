@@ -1,6 +1,6 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation.model import SomeFloat, SomeInteger, SomeBool, SomePBC
-from pypy.rpython.lltype import Signed, Unsigned, Bool, Float
+from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void
 from pypy.rpython.rtyper import TyperError
 
 
@@ -189,7 +189,7 @@ class __extend__(SomeInteger):
             return hop.genop('int_neg', vlist, resulttype=Signed)
 
     def rtype_pos(_, hop):
-        if s_int.unsigned:
+        if hop.s_result.unsigned:
             vlist = hop.inputargs(Unsigned)
         else:
             vlist = hop.inputargs(Signed)

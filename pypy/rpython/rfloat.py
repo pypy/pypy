@@ -1,6 +1,6 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation.model import SomeFloat, SomeInteger, SomeBool, SomePBC
-from pypy.rpython.lltype import Signed, Unsigned, Bool, Float
+from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void
 from pypy.rpython.rtyper import TyperError
 
 
@@ -122,10 +122,10 @@ class __extend__(SomeFloat):
 
     rtype_nonzero = rtype_is_true
 
-    def rtype_neg(s_int):
-        vlist = receive(Float)
+    def rtype_neg(_, hop):
+        vlist = hop.inputargs(Float)
         return hop.genop('float_neg', vlist, resulttype=Float)
 
-    def rtype_pos(s_int):
-        v_list = receive(Float)
+    def rtype_pos(_, hop):
+        vlist = hop.inputargs(Float)
         return vlist[0]
