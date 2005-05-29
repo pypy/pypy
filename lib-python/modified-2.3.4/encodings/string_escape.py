@@ -9,8 +9,8 @@ import codecs
 
 class Codec(codecs.Codec):
 
-    encode = codecs.escape_encode
-    decode = codecs.escape_decode
+    encode = staticmethod(codecs.escape_encode)
+    decode = staticmethod(codecs.escape_decode)
 
 class StreamWriter(Codec,codecs.StreamWriter):
     pass
