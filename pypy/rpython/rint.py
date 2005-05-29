@@ -1,7 +1,9 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation.model import SomeFloat, SomeInteger, SomeBool, SomePBC
+from pypy.annotation.model import SomeObject
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void
 from pypy.rpython.rtyper import TyperError
+from pypy.rpython.robject import PyObjPtr
 
 
 debug = False
@@ -194,3 +196,30 @@ class __extend__(SomeInteger):
         else:
             vlist = hop.inputargs(Signed)
         return vlist[0]
+
+#
+
+class __extend__(pairtype(SomeObject, SomeInteger)):
+
+    def rtype_convert_from_to((s_obj, s_int), v, llops):
+        if s_obj.lowleveltype() != PyObjPtr:
+            return NotImplemented
+        if s_int.unsigned:
+            return llops.gencapicall('PyLong_AsUnsignedLong', [v],
+                                     resulttype=Unsigned)
+        else:
+            return llops.gencapicall('PyInt_AsLong', [v],
+                                     resulttype=Signed)
+
+
+class __extend__(pairtype(SomeInteger, SomeObject)):
+
+    def rtype_convert_from_to((s_int, s_obj), v, llops):
+        if s_obj.lowleveltype() != PyObjPtr:
+            return NotImplemented
+        if s_int.unsigned:
+            return llops.gencapicall('PyLong_FromUnsignedLong', [v],
+                                     resulttype=PyObjPtr)
+        else:
+            return llops.gencapicall('PyInt_FromLong', [v],
+                                     resulttype=PyObjPtr)

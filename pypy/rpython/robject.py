@@ -41,5 +41,4 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if PyObjPtr == FROM == TO:
             return v
         else:
-            raise TyperError("don't know how to convert from %r to %r" % (
-                s_from, s_to))
+            return NotImplemented

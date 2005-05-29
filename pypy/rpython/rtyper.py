@@ -271,6 +271,9 @@ class LowLevelOpList(list):
     def convertvar(self, v, s_from, s_to):
         if s_from != s_to:
             v = pair(s_from, s_to).rtype_convert_from_to(v, self)
+            if v is NotImplemented:
+                raise TyperError("don't know how to convert from %r to %r" % (
+                    s_from, s_to))
         return v
 
     def genop(self, opname, args_v, resulttype=None):
@@ -322,6 +325,13 @@ class LowLevelOpList(list):
         c = inputconst(typeOf(f), f)
         return self.genop('direct_call', [c]+list(args_v),
                           resulttype = typeOf(f).TO.RESULT)
+
+    def gencapicall(self, cfnname, args_v, resulttype):
+        argtypes = [v.concretetype for v in args_v]
+        FUNCTYPE = FuncType(argtypes, resulttype)
+        f = functionptr(FUNCTYPE, cfnname, external="C")
+        cf = inputconst(typeOf(f), f)
+        return self.genop('direct_call', [cf]+list(args_v), resulttype)
 
 
 # _______________________________________________________________________
