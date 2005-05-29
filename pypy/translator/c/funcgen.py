@@ -34,6 +34,7 @@ class FunctionCodeGenerator:
                 result.extend(block.inputargs)
                 for op in block.operations:
                     result.extend(op.args)
+                    result.append(op.result)
                 for link in block.exits:
                     result.extend(link.args)
         traverse(visit, self.graph)
@@ -61,10 +62,6 @@ class FunctionCodeGenerator:
             if isinstance(v, Constant):
                 yield llvalue_from_constant(v)
 
-    def decl(self, v):
-        assert isinstance(v, Variable), repr(v)
-        return cdecl(self.typemap[v], v.name)
-
     def expr(self, v):
         if isinstance(v, Variable):
             return v.name
@@ -87,7 +84,10 @@ class FunctionCodeGenerator:
 
         for v in self.allvariables():
             if v not in inputargset:
-                yield '%s;' % self.decl(v)
+                result = cdecl(self.typemap[v], v.name) + ';'
+                if self.lltypemap[v] == Void:
+                    result = '/*%s*/' % result
+                yield result
 
     # ____________________________________________________________
 
@@ -122,7 +122,9 @@ class FunctionCodeGenerator:
                     line += '\t' + self.cincref(a2)
                 yield line
             for v in has_ref:
-                yield self.cdecref(v, linklocalvars[v])
+                line = self.cdecref(v, linklocalvars[v])
+                if line:
+                    yield line
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks

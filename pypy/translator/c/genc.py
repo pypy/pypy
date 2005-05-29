@@ -44,6 +44,7 @@ def gen_source(database, modulename, targetdir):
     #
     # PyObject support (strange) code
     #
+    pyobjmaker = database.pyobjmaker
     print >> f
     print >> f, '/***********************************************************/'
     print >> f, '/***  Table of global PyObjects                          ***/'
@@ -52,7 +53,7 @@ def gen_source(database, modulename, targetdir):
     for node in database.globalcontainers():
         if isinstance(node, PyObjectNode):
             name = node.name
-            if not name.startswith('gfunc_'):
+            if name not in pyobjmaker.wrappers:
                 print >> f, '\t{&%s, "%s"},' % (name, name)
     print >> f, '\t{ NULL }\t/* Sentinel */'
     print >> f, '};'
@@ -61,7 +62,14 @@ def gen_source(database, modulename, targetdir):
     print >> f, '/***  Table of functions                                 ***/'
     print >> f
     print >> f, 'static globalfunctiondef_t globalfunctiondefs[] = {'
-    print >> f, '\t/* XXX */'
+    wrappers = pyobjmaker.wrappers.items()
+    wrappers.sort()
+    for globalobject_name, (base_name, wrapper_name) in wrappers:
+        print >> f, ('\t{&%s, {"%s", (PyCFunction)%s, '
+                     'METH_VARARGS|METH_KEYWORDS}},' % (
+            globalobject_name,
+            base_name,
+            wrapper_name))
     print >> f, '\t{ NULL }\t/* Sentinel */'
     print >> f, '};'
     print >> f

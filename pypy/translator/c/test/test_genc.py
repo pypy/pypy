@@ -1,5 +1,6 @@
-import autopath, sys, os
+import autopath, sys, os, py
 from pypy.rpython.lltype import *
+from pypy.rpython.rtyper import RPythonTyper
 from pypy.translator.translator import Translator
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.genc import gen_source
@@ -14,8 +15,9 @@ def compile_db(db):
     modulename = uniquemodulename('testing')
     targetdir = udir.join(modulename).ensure(dir=1)
     gen_source(db, modulename, str(targetdir))
-    make_module_from_c(targetdir.join(modulename+'.c'),
-                       include_dirs = [os.path.dirname(autopath.this_dir)])
+    m = make_module_from_c(targetdir.join(modulename+'.c'),
+                           include_dirs = [os.path.dirname(autopath.this_dir)])
+    return m
 
 
 def test_untyped_func():
@@ -33,3 +35,26 @@ def test_untyped_func():
     db.get(s)
     db.complete()
     compile_db(db)
+
+
+def test_func_as_pyobject():
+    def f(x):
+        return x*2
+    t = Translator(f)
+    a = t.annotate([int])
+    rtyper = RPythonTyper(t.annotator)
+    rtyper.specialize()
+
+    db = LowLevelDatabase(rtyper)
+    entrypoint = db.get(pyobjectptr(f))
+    db.complete()
+    module = compile_db(db)
+
+    f1 = getattr(module, entrypoint)
+    assert f1(5) == 10
+    assert f1(x=5) == 10
+    assert f1(-123) == -246
+    py.test.raises(TypeError, f1, "world")  # check that it's really typed
+    py.test.raises(TypeError, f1)
+    py.test.raises(TypeError, f1, 2, 3)
+    py.test.raises(TypeError, f1, 2, x=2)

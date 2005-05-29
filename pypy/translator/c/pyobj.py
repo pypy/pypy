@@ -22,9 +22,10 @@ class PyObjMaker:
     reconstruct them.
     """
 
-    def __init__(self, namespace, getvalue):
+    def __init__(self, namespace, getvalue, rtyper=None):
         self.namespace = namespace
         self.getvalue = getvalue
+        self.rtyper = rtyper
         self.initcode = [      # list of lines for the module's initxxx()
             'import new, types, sys',
             ]
@@ -33,6 +34,7 @@ class PyObjMaker:
                                #   for later in initxxx() -- for recursive
                                #   objects
         self.debugstack = ()  # linked list of nested nameof()
+        self.wrappers = {}    # {'pycfunctionvariable': ('name', 'wrapperfn')}
 
     def nameof(self, obj, debug=None):
         if debug:
@@ -141,16 +143,25 @@ class PyObjMaker:
         self.initcode.append('  raise NotImplementedError')
         return name
 
-    def nameof_function(self, func, progress=['-\x08', '\\\x08',
-                                              '|\x08', '/\x08']):
-        funcdef = self.genc().getfuncdef(func)
-        if funcdef is None:
-            return self.skipped_function(func)
-        if not self.translator.frozen:
-            p = progress.pop(0)
-            sys.stderr.write(p)
-            progress.append(p)
-        return funcdef.get_globalobject()
+    def nameof_function(self, func):
+        assert self.rtyper is not None, (
+            "for now, rtyper must be specified to build a PyObject "
+            "wrapper for %r" % (func,))
+        # look for skipped functions
+        a = self.rtyper.annotator
+        if a.translator.frozen:
+            if func not in a.translator.flowgraphs:
+                return self.skipped_function(func)
+        else:
+            if (func.func_doc and
+                func.func_doc.lstrip().startswith('NOT_RPYTHON')):
+                return self.skipped_function(func)
+
+        from pypy.translator.c.wrapper import gen_wrapper
+        fwrapper = gen_wrapper(func, self.rtyper)
+        pycfunctionobj = self.uniquename('gfunc_' + func.__name__)
+        self.wrappers[pycfunctionobj] = func.__name__, self.getvalue(fwrapper)
+        return pycfunctionobj
 
     def nameof_staticmethod(self, sm):
         # XXX XXX XXXX

@@ -181,10 +181,15 @@ def test_function_call():
     db.complete()
     dump_on_stdout(db)
 
-def INPROGRESS_test_func_as_pyobject():
+def test_func_as_pyobject():
     def f(x):
         return x+1
-    db = LowLevelDatabase()
+    t = Translator(f)
+    a = t.annotate([int])
+    rtyper = RPythonTyper(t.annotator)
+    rtyper.specialize()
+
+    db = LowLevelDatabase(rtyper)
     db.get(pyobjectptr(f))
     db.complete()
     dump_on_stdout(db)

@@ -246,6 +246,41 @@ class FuncNode(ContainerNode):
         yield '}'
 
 
+class CExternalFuncNode(ContainerNode):
+    globalcontainer = True
+
+    def __init__(self, db, T, obj):
+        self.db = db
+        self.T = T
+        self.obj = obj
+        #self.dependencies = {}
+        self.typename = db.gettype(T)  #, who_asks=self)
+        self.name = obj._name
+        self.ptrname = self.name
+
+    def enum_dependencies(self):
+        return []
+
+    def implementation(self):
+        return []
+
+    def forward_declaration(self):
+        return []
+
+    def implementation(self):
+        return []
+
+
+def funcnodemaker(db, T, obj):
+    if hasattr(obj, 'graph'):
+        cls = FuncNode
+    elif getattr(obj, 'external', None) == 'C':
+        cls = CExternalFuncNode
+    else:
+        raise ValueError, "don't know about %r" % (obj,)
+    return cls(db, T, obj)
+
+
 class PyObjectNode(ContainerNode):
     globalcontainer = True
     typename = 'PyObject @'
@@ -271,6 +306,6 @@ ContainerNodeClass = {
     GcStruct:     StructNode,
     Array:        ArrayNode,
     GcArray:      ArrayNode,
-    FuncType:     FuncNode,
+    FuncType:     funcnodemaker,
     PyObjectType: PyObjectNode,
     }

@@ -9,8 +9,6 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
 
-#define MOVE(x, y)             y = x;
-
 #define FAIL_EXCEPTION(err, exc, msg) \
 	{ \
 		PyErr_SetString(exc, msg); \
@@ -336,7 +334,7 @@ static PyObject* decode_arg(PyObject* fname, int position, PyObject* name,
 	}
 	PyErr_Format(PyExc_TypeError, "%s() got only %d argument(s)",
 		     PyString_AS_STRING(fname),
-		     position-1);
+		     position);
 	return NULL;
 }
 

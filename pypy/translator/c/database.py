@@ -13,13 +13,13 @@ from pypy.translator.c.pyobj import PyObjMaker
 
 class LowLevelDatabase:
 
-    def __init__(self):
+    def __init__(self, rtyper=None):
         self.structdefnodes = {}
         self.structdeflist = []
         self.containernodes = {}
         self.containerlist = []
         self.namespace = CNameManager()
-        self.pyobjmaker = PyObjMaker(self.namespace, self.get)
+        self.pyobjmaker = PyObjMaker(self.namespace, self.get, rtyper)
 
     def gettypedefnode(self, T, varlength=1):
         if varlength <= 1:

@@ -14,4 +14,5 @@
 #include "g_support.h"
 #include "g_module.h"
 
+#include "int_include.h"
 #include "pyobj_include.h"
