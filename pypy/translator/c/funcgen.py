@@ -1,10 +1,10 @@
 from __future__ import generators
-from pypy.translator.gensupp import ordered_blocks
 from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant
 from pypy.objspace.flow.model import Variable, Constant, Block
-from pypy.objspace.flow.model import traverse, uniqueitems
+from pypy.objspace.flow.model import traverse, uniqueitems, last_exception
 from pypy.rpython.lltype import GcPtr, NonGcPtr, PyObject, Void, Primitive
+from pypy.rpython.lltype import pyobjectptr, Struct, Array
 
 
 PyObjGcPtr    = GcPtr(PyObject)
@@ -17,13 +17,13 @@ class FunctionCodeGenerator:
     from a flow graph.
     """
 
-    def __init__(self, graph, gettype, getvalue):
+    def __init__(self, graph, db):
         self.graph = graph
-        self.getvalue = getvalue
+        self.db = db
         self.lltypemap = self.collecttypes()
         self.typemap = {}
         for v, T in self.lltypemap.items():
-            self.typemap[v] = gettype(T)
+            self.typemap[v] = db.gettype(T)
 
     def collecttypes(self):
         # collect all variables and constants used in the body,
@@ -64,15 +64,18 @@ class FunctionCodeGenerator:
 
     def expr(self, v):
         if isinstance(v, Variable):
-            return v.name
+            if self.lltypemap[v] == Void:
+                return '/* nothing */'
+            else:
+                return v.name
         elif isinstance(v, Constant):
-            return self.getvalue(llvalue_from_constant(v))
+            return self.db.get(llvalue_from_constant(v))
         else:
             raise TypeError, "expr(%r)" % (v,)
 
     def error_return_value(self):
         returnlltype = self.lltypemap[self.graph.getreturnvar()]
-        return self.getvalue(ErrorValue(returnlltype))
+        return self.db.get(ErrorValue(returnlltype))
 
     # ____________________________________________________________
 
@@ -94,6 +97,9 @@ class FunctionCodeGenerator:
     def cfunction_body(self):
         graph = self.graph
 
+        blocknum = {}
+        allblocks = []
+
         # generate an incref for each input argument
         for a in self.graph.getargs():
             line = self.cincref(a)
@@ -108,6 +114,8 @@ class FunctionCodeGenerator:
                 linklocalvars[v] = self.expr(v)
             has_ref = linklocalvars.copy()
             for a1, a2 in zip(link.args, link.target.inputargs):
+                if self.lltypemap[a2] == Void:
+                    continue
                 if a1 in linklocalvars:
                     src = linklocalvars[a1]
                 else:
@@ -116,9 +124,7 @@ class FunctionCodeGenerator:
                 if a1 in has_ref:
                     del has_ref[a1]
                 else:
-                    ct1 = self.ctypeof(a1)
-                    ct2 = self.ctypeof(a2)
-                    assert ct1 == ct2
+                    assert self.lltypemap[a1] == self.lltypemap[a2]
                     line += '\t' + self.cincref(a2)
                 yield line
             for v in has_ref:
@@ -128,10 +134,13 @@ class FunctionCodeGenerator:
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
-        allblocks = ordered_blocks(graph)
-        blocknum = {}
-        for block in allblocks:
-            blocknum[block] = len(blocknum)
+        def visit(block):
+            if isinstance(block, Block):
+                allblocks.append(block)
+                blocknum[block] = len(blocknum)
+        traverse(visit, graph)
+
+        assert graph.startblock is allblocks[0]
 
         # generate the body of each block
         for block in allblocks:
@@ -186,7 +195,7 @@ class FunctionCodeGenerator:
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
                     yield 'if (PyErr_ExceptionMatches(%s)) {' % (
-                        self.genc.nameofvalue(link.exitcase),)
+                        self.db.get(pyobjectptr(link.exitcase)),)
                     yield '\tPyObject *exc_cls, *exc_value, *exc_tb;'
                     yield '\tPyErr_Fetch(&exc_cls, &exc_value, &exc_tb);'
                     yield '\tif (exc_value == NULL) {'
@@ -202,18 +211,20 @@ class FunctionCodeGenerator:
                 err_reachable = True
             else:
                 # block ending in a switch on a value
-                ct = self.ctypeof(block.exitswitch)
+                TYPE = self.lltypemap[block.exitswitch]
                 for link in block.exits[:-1]:
                     assert link.exitcase in (False, True)
-                    yield 'if (%s == %s) {' % (self.expr(block.exitswitch),
-                                       self.genc.nameofvalue(link.exitcase, ct))
+                    expr = self.expr(block.exitswitch)
+                    if not link.exitcase:
+                        expr = '!' + expr
+                    yield 'if (%s) {' % expr
                     for op in gen_link(link):
                         yield '\t' + op
                     yield '}'
                 link = block.exits[-1]
                 assert link.exitcase in (False, True)
-                yield 'assert(%s == %s);' % (self.expr(block.exitswitch),
-                                       self.genc.nameofvalue(link.exitcase, ct))
+                #yield 'assert(%s == %s);' % (self.expr(block.exitswitch),
+                #                       self.genc.nameofvalue(link.exitcase, ct))
                 for op in gen_link(block.exits[-1]):
                     yield op
                 yield ''
@@ -269,41 +280,83 @@ class FunctionCodeGenerator:
         return 'OP_CALL_ARGS((%s), %s, %s)' % (', '.join(args), r, err)
 
     def OP_DIRECT_CALL(self, op, err):
-        args = [self.expr(v) for v in op.args]
-        r = self.expr(op.result)
-        return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
-            r, args[0], ', '.join(args[1:]), err)
+        # skip 'void' arguments
+        args = [self.expr(v) for v in op.args if self.lltypemap[v] != Void]
+        if self.lltypemap[op.result] == Void:
+            # skip assignment of 'void' return value
+            return '%s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
+                args[0], ', '.join(args[1:]), err)
+        else:
+            r = self.expr(op.result)
+            return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
+                r, args[0], ', '.join(args[1:]), err)
 
-    def OP_INST_GETATTR(self, op, err):
-        return '%s = INST_ATTR_%s__%s(%s);' % (
-            self.expr(op.result),
-            op.args[0].concretetype.typename,
-            op.args[1].value,
-            self.expr(op.args[0]))
+    # low-level operations
+    def OP_GETFIELD(self, op, err):
+        assert isinstance(op.args[1], Constant)
+        STRUCT = self.lltypemap[op.args[0]].TO
+        structdef = self.db.gettypedefnode(STRUCT)
+        fieldname = structdef.c_struct_field_name(op.args[1].value)
+        return '%s = %s->%s;' % (self.expr(op.result),
+                                 self.expr(op.args[0]),
+                                 fieldname)
 
-    def OP_INST_SETATTR(self, op, err):
-        return 'INST_ATTR_%s__%s(%s) = %s;' % (
-            op.args[0].concretetype.typename,
-            op.args[1].value,
-            self.expr(op.args[0]),
-            self.expr(op.args[2]))
+    def OP_SETFIELD(self, op, err):
+        assert isinstance(op.args[1], Constant)
+        STRUCT = self.lltypemap[op.args[0]].TO
+        structdef = self.db.gettypedefnode(STRUCT)
+        fieldname = structdef.c_struct_field_name(op.args[1].value)
+        return '%s->%s = %s;' % (self.expr(op.args[0]),
+                                 fieldname,
+                                 self.expr(op.args[2]))
 
-    def OP_CONV_TO_OBJ(self, op, err):
-        v = op.args[0]
-        return '%s = CONV_TO_OBJ_%s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
-            self.expr(op.result), self.ctypeof(v).typename, self.expr(v), err)
+    def OP_GETSUBSTRUCT(self, op, err):
+        assert isinstance(op.args[1], Constant)
+        STRUCT = self.lltypemap[op.args[0]].TO
+        structdef = self.db.gettypedefnode(STRUCT)
+        fieldname = structdef.c_struct_field_name(op.args[1].value)
+        return '%s = &%s->%s;' % (self.expr(op.result),
+                                  self.expr(op.args[0]),
+                                  fieldname)
 
-    def OP_CONV_FROM_OBJ(self, op, err):
-        v = op.args[0]
-        return '%s = CONV_FROM_OBJ_%s(%s); if (PyErr_Occurred()) FAIL(%s)' %(
-            self.expr(op.result), self.ctypeof(op.result).typename,
-            self.expr(v), err)
+    def OP_GETARRAYITEM(self, op, err):
+        return '%s = %s->items + %s;' % (self.expr(op.result),
+                                         self.expr(op.args[0]),
+                                         self.expr(op.args[1]))
 
-    def OP_INCREF(self, op, err):
-        return self.cincref(op.args[0])
+    def OP_GETARRAYSIZE(self, op, err):
+        return '%s = %s->length;' % (self.expr(op.result),
+                                     self.expr(op.args[0]))
 
-    def OP_DECREF(self, op, err):
-        return self.cdecref(op.args[0])
+    def OP_MALLOC(self, op, err):
+        TYPE = self.lltypemap[op.result].TO
+        typename = self.db.gettype(TYPE)
+        eresult = self.expr(op.result)
+        result = ['OP_ZERO_MALLOC(sizeof(%s), %s, %s)' % (cdecl(typename, ''),
+                                                          eresult,
+                                                          err),
+                  self.cincref(op.result)]
+        return '\t'.join(result)
+
+    def OP_MALLOC_VARSIZE(self, op, err):
+        TYPE = self.lltypemap[op.result].TO
+        typename = self.db.gettype(TYPE)
+        if isinstance(TYPE, Struct):
+            TYPE = TYPE._arrayfld
+        assert isinstance(TYPE, Array)
+        itemtypename = self.db.gettype(TYPE.OF)
+        elength = self.expr(op.args[1])
+        eresult = self.expr(op.result)
+        size = 'sizeof(%s)+((%s-1)*sizeof(%s))' % (cdecl(typename, ''),
+                                                   elength,
+                                                   cdecl(itemtypename, ''))
+        result = ['OP_ZERO_MALLOC(%s, %s, %s)' % (size,
+                                                  eresult,
+                                                  err),
+                  '%s->length = %s;' % (eresult,
+                                        elength),
+                  self.cincref(op.result)]
+        return '\t'.join(result)
 
     def cincref(self, v):
         T = self.lltypemap[v]
@@ -311,7 +364,7 @@ class FunctionCodeGenerator:
             if T.TO == PyObject:
                 return 'Py_INCREF(%s);' % v.name
             else:
-                return '/*XXX INCREF*/'
+                return '/*XXX INCREF %s*/' % v.name
         else:
             return ''
 
@@ -321,6 +374,6 @@ class FunctionCodeGenerator:
             if T.TO == PyObject:
                 return 'Py_DECREF(%s);' % v.name
             else:
-                return '/*XXX DECREF*/'
+                return '/*XXX DECREF %s*/' % v.name
         else:
             return ''

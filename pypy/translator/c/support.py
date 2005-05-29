@@ -36,8 +36,11 @@ def llvalue_from_constant(c):
     except AttributeError:
         return lltype.pyobjectptr(c.value)
     else:
-        assert lltype.typeOf(c.value) == T
-        return c.value
+        if T == lltype.Void:
+            return None
+        else:
+            assert lltype.typeOf(c.value) == T
+            return c.value
 
 
 class CNameManager(NameManager):

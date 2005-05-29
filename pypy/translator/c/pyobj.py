@@ -79,6 +79,17 @@ class PyObjMaker:
         self.initcode_python(name, "object()")
         return name
 
+    def nameof_NoneType(self, value):
+        assert value is None
+        return 'Py_None'
+
+    def nameof_bool(self, value):
+        assert value is False or value is True
+        if value:
+            return 'Py_True'
+        else:
+            return 'Py_False'
+
     def nameof_module(self, value):
         assert value is os or not hasattr(value, "__file__") or \
                not (value.__file__.endswith('.pyc') or

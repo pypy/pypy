@@ -185,7 +185,7 @@ class FuncNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         graph = obj.graph # only user-defined functions with graphs for now
-        self.funcgen = FunctionCodeGenerator(graph, db.gettype, db.get)
+        self.funcgen = FunctionCodeGenerator(graph, db)
         self.db = db
         self.T = T
         self.obj = obj

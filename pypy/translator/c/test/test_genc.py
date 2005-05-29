@@ -10,6 +10,10 @@ from pypy.tool.udir import udir
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
 from pypy.translator.gensupp import uniquemodulename
 
+# XXX this tries to make compiling faster for full-scale testing
+from pypy.translator.tool import buildpyxmodule
+buildpyxmodule.enable_fast_compilation()
+
 
 def compile_db(db):
     modulename = uniquemodulename('testing')
@@ -58,3 +62,24 @@ def test_func_as_pyobject():
     py.test.raises(TypeError, f1)
     py.test.raises(TypeError, f1, 2, 3)
     py.test.raises(TypeError, f1, 2, x=2)
+
+
+def test_rlist():
+    def f(x):
+        l = [x]
+        l.append(x+1)
+        return l[0] * l[-1]
+    t = Translator(f)
+    a = t.annotate([int])
+    rtyper = RPythonTyper(t.annotator)
+    rtyper.specialize()
+
+    db = LowLevelDatabase(rtyper)
+    entrypoint = db.get(pyobjectptr(f))
+    db.complete()
+    #t.view()
+    module = compile_db(db)
+
+    f1 = getattr(module, entrypoint)
+    assert f1(5) == 30
+    assert f1(x=5) == 30
