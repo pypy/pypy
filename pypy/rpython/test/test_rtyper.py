@@ -27,3 +27,30 @@ def test_function_call():
     typer.specialize()
     #t.view()
     t.checkgraphs()
+
+
+def test_retval():
+    def f(x):
+        return x
+    t = Translator(f)
+    t.annotate([int])
+    typer = RPythonTyper(t.annotator)
+    typer.specialize()
+    #t.view()
+    t.checkgraphs()
+    graph = t.getflowgraph(f)
+    assert graph.getreturnvar().concretetype == Signed
+    assert graph.startblock.exits[0].args[0].concretetype == Signed
+
+def test_retval_None():
+    def f(x):
+        pass
+    t = Translator(f)
+    t.annotate([int])
+    typer = RPythonTyper(t.annotator)
+    typer.specialize()
+    #t.view()
+    t.checkgraphs()
+    graph = t.getflowgraph(f)
+    assert graph.getreturnvar().concretetype == Void
+    assert graph.startblock.exits[0].args[0].concretetype == Void

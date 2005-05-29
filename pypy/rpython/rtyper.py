@@ -86,8 +86,11 @@ class RPythonTyper:
                     ##if a1 in (link.last_exception, link.last_exc_value):# treated specially in gen_link
                     ##    continue
                     a2 = link.target.inputargs[i]
-                    s_a1 = self.annotator.binding(a1)
                     s_a2 = self.annotator.binding(a2)
+                    if isinstance(a1, Constant):
+                        link.args[i] = inputconst(s_a2.lowleveltype(), a1.value)
+                        continue   # the Constant was typed, done
+                    s_a1 = self.annotator.binding(a1)
                     if s_a1 == s_a2:
                         continue   # no conversion needed
                     newops = LowLevelOpList(self)
@@ -269,6 +272,7 @@ class LowLevelOpList(list):
         self.rtyper = rtyper
 
     def convertvar(self, v, s_from, s_to):
+        assert isinstance(v, Variable)
         if s_from != s_to:
             v = pair(s_from, s_to).rtype_convert_from_to(v, self)
             if v is NotImplemented:
