@@ -165,14 +165,14 @@ def raw_unicode_escape_decode( data,errors='strict'):
 def utf_7_decode( data,errors='strict'):
     """None
     """
-    res = PyUnicode_DecodeUTF7(data,len(data),errors='strict')
+    res = PyUnicode_DecodeUTF7(data,len(data),errors)
     res = ''.join(res)
     return res,len(res)
 
 def unicode_escape_encode( obj,errors='strict'):
     """None
     """
-    res = PyUnicode_EncodeUnicodeEscape(data,len(data),errors)
+    res = unicodeescape_string(obj,len(obj),0)
     res = ''.join(res)
     return res, len(res)
 
