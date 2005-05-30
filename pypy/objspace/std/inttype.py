@@ -29,9 +29,10 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
             except ParseStringOverflowError, e:
                  w_longval = retry_to_w_long(space, e.parser)                
         elif space.is_true(space.isinstance(w_value, space.w_unicode)):
+            from unicodeobject import unicode_to_decimal_w
+            string = unicode_to_decimal_w(space, w_value)
             try:
-                from unicodeobject import unicode_to_decimal_w
-                value = string_to_int(space, unicode_to_decimal_w(space, w_value))
+                value = string_to_int(space, string)
             except ParseStringError, e:
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
