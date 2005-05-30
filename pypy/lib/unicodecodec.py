@@ -143,14 +143,16 @@ def PyUnicode_DecodeUTF7(s, size, errors):
                         bitsleft = 0
                         break
                     else:
-                        out +=  unichr(outCh )
-                p += out
+                        p +=  unichr(outCh )
+                        #p += out
                 if (bitsleft >= 6):
 ##                    /* The shift sequence has a partial character in it. If
 ##                       bitsleft < 6 then we could just classify it as padding
 ##                       but that is not the case here */
                     print errors, s, bitsleft,p,i
-                    raise UnicodeDecodeError, "partial character in shift sequence"
+                    msg = "partial character in shift sequence"
+                    out,x = unicode_call_errorhandler(errors,'utf-7',msg,s,i-1,i)
+                    
 ##                /* According to RFC2152 the remaining bits should be zero. We
 ##                   choose to signal an error/insert a replacement character
 ##                   here so indicate the potential of a misencoded character. */
@@ -1089,8 +1091,10 @@ def charmapencode_output(c,mapping):
             return chr(rep)
         else:
             raise TypeError("character mapping must be in range(256)")
-    elif isinstance(rep,str) or rep == None:
+    elif isinstance(rep,str):
         return rep
+    elif rep == None:
+        raise KeyError("character maps to <undefined>")
     else:
         raise TypeError("character mapping must return integer, None or str")
 
@@ -1120,15 +1124,15 @@ def PyUnicode_EncodeCharmap(p,size,mapping='latin-1',errors='strict'):
             except KeyError:
                 raise UnicodeEncodeError("charmap",p,inpos,inpos+1,
                                         "character maps to <undefined>")
-        except TypeError,err:
-            x = unicode_call_errorhandler(errors,"charmap",
-            err,p,inpos,inpos+1,False)
-            try:
-                res += [charmapencode_output(ord(y),mapping) for y in x[0]]
-            except KeyError:
-                raise UnicodeEncodeError("charmap",p,inpos,inpos+1,
-                                        "character maps to <undefined>")
-    
+##        except TypeError,err:
+##            x = unicode_call_errorhandler(errors,"charmap",
+##            err,p,inpos,inpos+1,False)
+##            try:
+##                res += [charmapencode_output(ord(y),mapping) for y in x[0]]
+##            except KeyError:
+##                raise UnicodeEncodeError("charmap",p,inpos,inpos+1,
+##                                        "character maps to <undefined>")
+##    
 	    #/* done with this character => adjust input position */
         inpos+=1
     return res
