@@ -147,10 +147,90 @@ def writeUnicodedata(version, table, outfile):
     
 _code_by_name = dict(zip(_charnames.itervalues(), _charnames.iterkeys()))
 
+_cjk_prefix = "CJK UNIFIED IDEOGRAPH-"
+_hangul_prefix = 'HANGUL SYLLABLE '
+
+_hangul_L = ['G', 'GG', 'N', 'D', 'DD', 'R', 'M', 'B', 'BB',
+            'S', 'SS', '', 'J', 'JJ', 'C', 'K', 'T', 'P', 'H']
+_hangul_V = ['A', 'AE', 'YA', 'YAE', 'EO', 'E', 'YEO', 'YE', 'O', 'WA', 'WAE',
+            'OE', 'YO', 'U', 'WEO', 'WE', 'WI', 'YU', 'EU', 'YI', 'I']
+_hangul_T = ['', 'G', 'GG', 'GS', 'N', 'NJ', 'NH', 'D', 'L', 'LG', 'LM',
+            'LB', 'LS', 'LT', 'LP', 'LH', 'M', 'B', 'BS', 'S', 'SS',
+            'NG', 'J', 'C', 'K', 'T', 'P', 'H']
+
+def _lookup_hangul(syllables):
+    l_code = v_code = t_code = -1
+    for i in range(len(_hangul_L)):
+        jamo = _hangul_L[i]
+        if (syllables[:len(jamo)] == jamo and
+            (l_code < 0 or len(jamo) > len(_hangul_L[l_code]))):
+            l_code = i
+    if l_code < 0:
+        raise KeyError
+    start = len(_hangul_L[l_code])
+
+    for i in range(len(_hangul_V)):
+        jamo = _hangul_V[i]
+        if (syllables[start:start + len(jamo)] == jamo and
+            (v_code < 0 or len(jamo) > len(_hangul_V[v_code]))):
+            v_code = i
+    if v_code < 0:
+        raise KeyError
+    start += len(_hangul_V[v_code])
+
+    for i in range(len(_hangul_T)):
+        jamo = _hangul_T[i]
+        if (syllables[start:start + len(jamo)] == jamo and
+            (t_code < 0 or len(jamo) > len(_hangul_T[t_code]))):
+            t_code = i
+    if t_code < 0:
+        raise KeyError
+    start += len(_hangul_T[t_code])
+
+    if len(syllables[start:]):
+        raise KeyError
+    return 0xAC00 + (l_code * 21 + v_code) * 28 + t_code
+
+_hexdigits = "0123456789ABCDEF"
+def _lookup_cjk(cjk_code):
+    if len(cjk_code) not in  (4,5):
+        raise KeyError
+    for c in cjk_code:
+        if c not in _hexdigits:
+            raise KeyError
+    code = int(cjk_code, 16)
+    if (0x3400 <= code <= 0x4DB5 or
+        0x4E00 <= code <= 0x9FA5 or # 9FBB in Unicode 4.1
+        0x20000 <= code <= 0x2A6D6):
+        return code
+    raise KeyError
+
 def lookup(name):
+    if name[:len(_cjk_prefix)] == _cjk_prefix:
+        return _lookup_cjk(name[len(_cjk_prefix):])
+    if name[:len(_hangul_prefix)] == _hangul_prefix:
+        return _lookup_hangul(name[len(_hangul_prefix):])
     return _code_by_name[name]
 
 def name(code):
+    if (0x3400 <= code <= 0x4DB5 or
+        0x4E00 <= code <= 0x9FA5):
+        return "CJK UNIFIED IDEOGRAPH-" + (_hexdigits[(code >> 12) & 0xf] +
+                                           _hexdigits[(code >> 8) & 0xf] +
+                                           _hexdigits[(code >> 4) & 0xf] +
+                                           _hexdigits[code & 0xf])
+    
+    if 0x20000 <= code <= 0x2A6D6:
+        return "CJK UNIFIED IDEOGRAPH-2" + (_hexdigits[(code >> 12) & 0xf] +
+                                            _hexdigits[(code >> 8) & 0xf] +
+                                            _hexdigits[(code >> 4) & 0xf] +
+                                            _hexdigits[code & 0xf])
+    if 0xAC00 <= code <= 0xD7A3:
+        vl_code, t_code = divmod(code - 0xAC00, len(_hangul_T))
+        l_code, v_code = divmod(vl_code,  len(_hangul_V))
+        return ("HANGUL SYLLABLE " + _hangul_L[l_code] +
+                _hangul_V[v_code] + _hangul_T[t_code])
+    
     return _charnames[code]
 '''
 
