@@ -8,3 +8,5 @@
     if (r == NULL) { PyErr_NoMemory(); FAIL(err) }      \
     memset((void*) r, 0, size);                         \
   }
+
+#define OP_FREE(p)	PyObject_Free(p);

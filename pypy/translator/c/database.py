@@ -102,6 +102,28 @@ class LowLevelDatabase:
             else:
                 raise Exception("don't know about %r" % (obj,))
 
+    def cincrefstmt(self, expr, T):
+        if isinstance(T, _PtrType) and 'gc' in T.flags:
+            if T.TO == PyObject:
+                return 'Py_INCREF(%s);' % expr
+            else:
+                defnode = self.gettypedefnode(T.TO)
+                if defnode.refcount is not None:
+                    return '%s->%s++;' % (expr, defnode.refcount)
+        return ''
+
+    def cdecrefstmt(self, expr, T):
+        if isinstance(T, _PtrType) and 'gc' in T.flags:
+            if T.TO == PyObject:
+                return 'Py_DECREF(%s);' % expr
+            else:
+                defnode = self.gettypedefnode(T.TO)
+                if defnode.refcount is not None:
+                    return 'if (!--%s->%s) %s(%s);' % (expr, defnode.refcount,
+                                               defnode.deallocator or 'OP_FREE',
+                                                       expr)
+        return ''
+
     def complete(self):
         i = 0
         while True:

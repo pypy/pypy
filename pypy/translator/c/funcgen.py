@@ -3,7 +3,7 @@ from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import traverse, uniqueitems, last_exception
-from pypy.rpython.lltype import GcPtr, NonGcPtr, PyObject, Void, Primitive
+from pypy.rpython.lltype import GcPtr, NonGcPtr, PyObject, Void
 from pypy.rpython.lltype import pyobjectptr, Struct, Array
 
 
@@ -292,32 +292,49 @@ class FunctionCodeGenerator:
                 r, args[0], ', '.join(args[1:]), err)
 
     # low-level operations
-    def OP_GETFIELD(self, op, err):
+    def OP_GETFIELD(self, op, err, ampersand=''):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap[op.args[0]].TO
         structdef = self.db.gettypedefnode(STRUCT)
         fieldname = structdef.c_struct_field_name(op.args[1].value)
-        return '%s = %s->%s;' % (self.expr(op.result),
-                                 self.expr(op.args[0]),
-                                 fieldname)
+        newvalue = self.expr(op.result)
+        result = ['%s = %s%s->%s;' % (newvalue,
+                                      ampersand,
+                                      self.expr(op.args[0]),
+                                      fieldname)]
+        # need to adjust the refcount of the result
+        T = self.lltypemap[op.result]
+        increfstmt = self.db.cincrefstmt(newvalue, T)
+        if increfstmt:
+            result.append(increfstmt)
+        return '\t'.join(result)
 
     def OP_SETFIELD(self, op, err):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap[op.args[0]].TO
         structdef = self.db.gettypedefnode(STRUCT)
         fieldname = structdef.c_struct_field_name(op.args[1].value)
-        return '%s->%s = %s;' % (self.expr(op.args[0]),
-                                 fieldname,
-                                 self.expr(op.args[2]))
+        oldvalue = '%s->%s' % (self.expr(op.args[0]),
+                               fieldname)
+        newvalue = self.expr(op.args[2])
+        result = ['%s = %s;' % (oldvalue, newvalue)]
+
+        # need to adjust some refcounts
+        T = structdef.c_struct_field_type(op.args[1].value)
+        decrefstmt = self.db.cdecrefstmt('prev', T)
+        increfstmt = self.db.cincrefstmt(newvalue, T)
+        if increfstmt:
+            result.append(increfstmt)
+        if decrefstmt:
+            result.insert(0, '{ %s = %s;' % (
+                cdecl(self.typemap[op.args[2]], 'prev'),
+                oldvalue))
+            result.append('if (prev) ' + decrefstmt)
+            result.append('}')
+        return '\t'.join(result)
 
     def OP_GETSUBSTRUCT(self, op, err):
-        assert isinstance(op.args[1], Constant)
-        STRUCT = self.lltypemap[op.args[0]].TO
-        structdef = self.db.gettypedefnode(STRUCT)
-        fieldname = structdef.c_struct_field_name(op.args[1].value)
-        return '%s = &%s->%s;' % (self.expr(op.result),
-                                  self.expr(op.args[0]),
-                                  fieldname)
+        return self.OP_GETFIELD(op, err, ampersand='&')
 
     def OP_GETARRAYITEM(self, op, err):
         return '%s = %s->items + %s;' % (self.expr(op.result),
@@ -335,7 +352,9 @@ class FunctionCodeGenerator:
         result = ['OP_ZERO_MALLOC(sizeof(%s), %s, %s)' % (cdecl(typename, ''),
                                                           eresult,
                                                           err),
-                  self.cincref(op.result)]
+                  '%s->%s = 1;' % (eresult,
+                                   self.db.gettypedefnode(TYPE).refcount),
+                  ]
         return '\t'.join(result)
 
     def OP_MALLOC_VARSIZE(self, op, err):
@@ -355,25 +374,15 @@ class FunctionCodeGenerator:
                                                   err),
                   '%s->length = %s;' % (eresult,
                                         elength),
-                  self.cincref(op.result)]
+                  '%s->%s = 1;' % (eresult,
+                                   self.db.gettypedefnode(TYPE).refcount),
+                  ]
         return '\t'.join(result)
 
     def cincref(self, v):
         T = self.lltypemap[v]
-        if not isinstance(T, Primitive) and 'gc' in T.flags:
-            if T.TO == PyObject:
-                return 'Py_INCREF(%s);' % v.name
-            else:
-                return '/*XXX INCREF %s*/' % v.name
-        else:
-            return ''
+        return self.db.cincrefstmt(v.name, T)
 
     def cdecref(self, v, expr=None):
         T = self.lltypemap[v]
-        if not isinstance(T, Primitive) and 'gc' in T.flags:
-            if T.TO == PyObject:
-                return 'Py_DECREF(%s);' % v.name
-            else:
-                return '/*XXX DECREF %s*/' % v.name
-        else:
-            return ''
+        return self.db.cdecrefstmt(expr or v.name, T)

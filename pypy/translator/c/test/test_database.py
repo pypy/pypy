@@ -193,3 +193,72 @@ def test_func_as_pyobject():
     db.get(pyobjectptr(f))
     db.complete()
     dump_on_stdout(db)
+
+
+def test_malloc():
+    S = GcStruct('testing', ('x', Signed), ('y', Signed))
+    def ll_f(x):
+        p = malloc(S)
+        p.x = x
+        p.y = x+1
+        return p.x * p.y
+    t = Translator(ll_f)
+    a = t.annotate([int])
+    rtyper = RPythonTyper(t.annotator)
+    rtyper.specialize()
+    db = LowLevelDatabase(rtyper)
+    db.get(rtyper.getfunctionptr(ll_f))
+    db.complete()
+    dump_on_stdout(db)
+
+def test_multiple_malloc():
+    S1 = GcStruct('testing1', ('x', Signed), ('y', Signed))
+    S = GcStruct('testing', ('ptr1', GcPtr(S1)),
+                            ('ptr2', GcPtr(S1)),
+                            ('z', Signed))
+    def ll_f(x):
+        ptr1 = malloc(S1)
+        ptr1.x = x
+        ptr2 = malloc(S1)
+        ptr2.x = x+1
+        s = malloc(S)
+        s.ptr1 = ptr1
+        s.ptr2 = ptr2
+        return s.ptr1.x * s.ptr2.x
+    t = Translator(ll_f)
+    a = t.annotate([int])
+    rtyper = RPythonTyper(t.annotator)
+    rtyper.specialize()
+    db = LowLevelDatabase(rtyper)
+    db.get(rtyper.getfunctionptr(ll_f))
+    db.complete()
+    dump_on_stdout(db)
+
+def test_nested_gcstruct():
+    S1 = GcStruct('inlined', ('x', Signed), ('y', GcPtr(PyObject)))
+    S = GcStruct('testing', ('head', S1),
+                            ('ptr2', GcPtr(S1)),
+                            ('z', Signed))
+    def ll_f(x):
+        ptr2 = malloc(S1)
+        ptr2.x = x+1
+        s = malloc(S)
+        s.head.x = x
+        s.ptr2 = ptr2
+        return s.head.x * s.ptr2.x
+    t = Translator(ll_f)
+    a = t.annotate([int])
+    rtyper = RPythonTyper(t.annotator)
+    rtyper.specialize()
+    db = LowLevelDatabase(rtyper)
+    db.get(rtyper.getfunctionptr(ll_f))
+    db.complete()
+    dump_on_stdout(db)
+
+def test_array():
+    A = GcArray(('obj', GcPtr(PyObject)))
+    a = malloc(A, 10)
+    db = LowLevelDatabase()
+    db.get(a)
+    db.complete()
+    dump_on_stdout(db)

@@ -1,7 +1,7 @@
 from __future__ import generators
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObjectType, typeOf
 from pypy.rpython.lltype import GcStruct, GcArray, GC_CONTAINER, ContainerType
-from pypy.rpython.lltype import parentlink
+from pypy.rpython.lltype import parentlink, _PtrType
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.support import cdecl, somelettersfrom
 
@@ -11,13 +11,16 @@ def needs_refcount(T):
         return False
     if isinstance(T, GcStruct):
         if T._names and isinstance(T._flds[T._names[0]], GC_CONTAINER):
-            return False   # refcount already in the first first
+            return False   # refcount already in the first field
     return True
 
 
 class StructDefNode:
+    refcount = None
+    deallocator = None
 
     def __init__(self, db, STRUCT, varlength=1):
+        self.db = db
         self.STRUCT = STRUCT
         if varlength == 1:
             basename = STRUCT._name
@@ -29,15 +32,33 @@ class StructDefNode:
         self.fields = []
         self.prefix = somelettersfrom(STRUCT._name) + '_'
         for name in STRUCT._names:
-            T = STRUCT._flds[name]
+            T = self.c_struct_field_type(name)
             if name == STRUCT._arrayfld:
                 typename = db.gettype(T, varlength=varlength, who_asks=self)
             else:
                 typename = db.gettype(T, who_asks=self)
             self.fields.append((self.c_struct_field_name(name), typename))
 
+        # look up the reference counter field
+        if needs_refcount(STRUCT):
+            self.refcount = 'refcount'
+        elif isinstance(STRUCT, GcStruct):
+            # refcount in the first field
+            T = self.c_struct_field_type(STRUCT._names[0])
+            assert isinstance(T, GC_CONTAINER)
+            firstfieldname, firstfieldtype = self.fields[0]
+            firstdefnode = db.gettypedefnode(T)
+            self.refcount = '%s.%s' % (firstfieldname, firstdefnode.refcount)
+
+        # is a specific deallocator needed?
+        if self.refcount and varlength == 1 and list(self.deallocator_lines('')):
+            self.deallocator = db.namespace.uniquename('dealloc_'+self.name)
+
     def c_struct_field_name(self, name):
         return self.prefix + name
+
+    def c_struct_field_type(self, name):
+        return self.STRUCT._flds[name]
 
     def access_expr(self, baseexpr, fldname):
         fldname = self.c_struct_field_name(fldname)
@@ -50,11 +71,35 @@ class StructDefNode:
         for name, typename in self.fields:
             yield '\t%s;' % cdecl(typename, name)
         yield '};'
+        if self.deallocator:
+            yield 'void %s(struct %s *p) {' % (self.deallocator, self.name)
+            for line in self.deallocator_lines('p->'):
+                yield '\t' + line
+            yield '\tOP_FREE(p);'
+            yield '}'
+
+    def deallocator_lines(self, prefix):
+        STRUCT = self.STRUCT
+        for name in STRUCT._names:
+            FIELD_T = self.c_struct_field_type(name)
+            if isinstance(FIELD_T, _PtrType) and 'gc' in FIELD_T.flags:
+                cname = self.c_struct_field_name(name)
+                line = self.db.cdecrefstmt('%s%s' % (prefix, cname), FIELD_T)
+                if line:
+                    yield line
+            elif isinstance(FIELD_T, ContainerType):
+                defnode = self.db.gettypedefnode(FIELD_T)
+                cname = self.c_struct_field_name(name)
+                for line in defnode.deallocator_lines('%s%s.' %(prefix, cname)):
+                    yield line
 
 
 class ArrayDefNode:
+    refcount = None
+    deallocator = None
 
     def __init__(self, db, ARRAY, varlength=1):
+        self.db = db
         self.ARRAY = ARRAY
         if varlength == 1:
             basename = 'array'
@@ -66,6 +111,14 @@ class ArrayDefNode:
         self.structname = db.gettype(ARRAY.OF, who_asks=self)
         self.varlength = varlength
 
+        # look up the reference counter field
+        if needs_refcount(ARRAY):
+            self.refcount = 'refcount'
+
+        # is a specific deallocator needed?
+        if self.refcount and varlength == 1 and list(self.deallocator_lines('')):
+            self.deallocator = db.namespace.uniquename('dealloc_'+self.name)
+
     def access_expr(self, baseexpr, index):
         return '%s.items[%d]' % (baseexpr, index)
 
@@ -76,6 +129,33 @@ class ArrayDefNode:
         yield '\tlong length;'
         yield '\t%s;' % cdecl(self.structname, 'items[%d]' % self.varlength)
         yield '};'
+        if self.deallocator:
+            yield 'void %s(struct %s *a) {' % (self.deallocator, self.name)
+            for line in self.deallocator_lines('a->'):
+                yield '\t' + line
+            yield '\tOP_FREE(a);'
+            yield '}'
+
+    def deallocator_lines(self, prefix):
+        ARRAY = self.ARRAY
+        defnode = self.db.gettypedefnode(ARRAY.OF)
+        varname = 'p%d' % len(prefix)
+        body = list(defnode.deallocator_lines('%s->' % varname))
+        if body:
+            yield '{'
+            yield '\tstruct %s *%s = %sitems;' % (defnode.name,
+                                                  varname,
+                                                  prefix)
+            yield '\tstruct %s *%s_end = %s + %slength;' % (defnode.name,
+                                                            varname,
+                                                            varname,
+                                                            prefix)
+            yield '\twhile (%s != %s_end) {' % (varname, varname)
+            for line in body:
+                yield '\t\t' + line
+            yield '\t\t%s++;' % varname
+            yield '\t}'
+            yield '}'
 
 # ____________________________________________________________
 
