@@ -18,7 +18,7 @@ buildpyxmodule.enable_fast_compilation()
 def compile_db(db):
     modulename = uniquemodulename('testing')
     targetdir = udir.join(modulename).ensure(dir=1)
-    gen_source(db, modulename, str(targetdir))
+    gen_source(db, modulename, str(targetdir), defines={'COUNT_OP_MALLOCS': 1})
     m = make_module_from_c(targetdir.join(modulename+'.c'),
                            include_dirs = [os.path.dirname(autopath.this_dir)])
     return m
@@ -62,6 +62,7 @@ def test_func_as_pyobject():
     py.test.raises(TypeError, f1)
     py.test.raises(TypeError, f1, 2, 3)
     py.test.raises(TypeError, f1, 2, x=2)
+    assert module.malloc_counters() == (0, 0)
 
 
 def test_rlist():
@@ -83,3 +84,5 @@ def test_rlist():
     f1 = getattr(module, entrypoint)
     assert f1(5) == 30
     assert f1(x=5) == 30
+    mallocs, frees = module.malloc_counters()
+    assert mallocs == frees

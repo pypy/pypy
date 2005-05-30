@@ -3,12 +3,20 @@
  /***  C header subsection: CPython-extension-module-ness  ***/
 
 
-#define MODULE_INITFUNC(modname) \
-	static PyMethodDef no_methods[] = { (char *)NULL, (PyCFunction)NULL }; \
+#ifndef COUNT_OP_MALLOCS
+# define MODULE_INITFUNC(modname) \
+	static PyMethodDef my_methods[] = { (char *)NULL, (PyCFunction)NULL }; \
 	PyMODINIT_FUNC init##modname(void)
+#else
+# define MODULE_INITFUNC(modname) \
+	static PyMethodDef my_methods[] = { \
+		{ "malloc_counters", malloc_counters }, \
+		{ (char *)NULL, (PyCFunction)NULL } }; \
+	PyMODINIT_FUNC init##modname(void)
+#endif
 
 #define SETUP_MODULE(modname)					\
-	PyObject *m = Py_InitModule(#modname, no_methods); \
+	PyObject *m = Py_InitModule(#modname, my_methods); \
 	PyModule_AddStringConstant(m, "__sourcefile__", __FILE__); \
 	this_module_globals = PyModule_GetDict(m); \
 	PyGenCFunction_Type.tp_base = &PyCFunction_Type;	\

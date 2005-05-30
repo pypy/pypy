@@ -3,13 +3,15 @@ import os
 from pypy.translator.c.node import PyObjectNode
 
 
-def gen_source(database, modulename, targetdir):
+def gen_source(database, modulename, targetdir, defines={}):
     filename = os.path.join(targetdir, modulename + '.c')
     f = open(filename, 'w')
 
     #
     # Header
     #
+    for key, value in defines.items():
+        print >> f, '#define %s %s' % (key, value)
     print >> f, '#include "g_include.h"'
 
     #
