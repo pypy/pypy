@@ -7,7 +7,7 @@ from pypy.rpython.lltype import *
 #  Concrete implementation of RPython strings:
 #
 #    struct str {
-#        hash: Unsigned
+#        hash: Signed
 #        chars: array {
 #            item {
 #                Char ch
@@ -15,7 +15,7 @@ from pypy.rpython.lltype import *
 #        }
 #    }
 
-STR = GcStruct('str', ('hash',  Unsigned),
+STR = GcStruct('str', ('hash',  Signed),
                       ('chars', Array(('ch', Char))))
 STRPTR = GcPtr(STR)
 
@@ -36,6 +36,16 @@ class __extend__(SomeString):
         else:
             # defaults to checking the length
             return SomeObject.rtype_is_true(s_str, hop)
+
+    def rtype_ord(_, hop):
+        v_str, = hop.inputargs(SomeString())
+        c_zero = inputconst(Signed, 0)
+        v_chr = hop.gendirectcall(ll_stritem_nonneg, v_str, c_zero)
+        return hop.genop('cast_char_to_int', [v_chr], resulttype=Signed)
+
+    def rtype_hash(_, hop):
+        v_str, = hop.inputargs(SomeString())
+        return hop.gendirectcall(ll_strhash, v_str)
 
 
 class __extend__(pairtype(SomeString, SomeInteger)):
@@ -60,6 +70,10 @@ class __extend__(SomeChar):
     def rtype_is_true(s_chr, hop):
         assert not s_chr.can_be_None
         return hop.inputconst(Bool, True)
+
+    def rtype_ord(_, hop):
+        vlist = hop.inputargs(Char)
+        return hop.genop('cast_char_to_int', vlist, resulttype=Signed)
 
 
 class __extend__(pairtype(SomeChar, SomeString)):
@@ -102,3 +116,24 @@ def ll_chr2str(ch):
     s = malloc(STR, 1)
     s.chars[0].ch = ch
     return s
+
+def ll_strhash(s):
+    # unlike CPython, there is no reason to avoid to return -1
+    # but our malloc initializes the memory to zero, so we use zero as the
+    # special non-computed-yet value.
+    x = s.hash
+    if x == 0:
+        length = len(s.chars)
+        if length == 0:
+            x = -1
+        else:
+            x = ord(s.chars[0].ch) << 7
+            i = 1
+            while i < length:
+                x = (1000003*x) ^ ord(s.chars[i].ch)
+                i += 1
+            x ^= length
+            if x == 0:
+                x = -1
+        s.hash = x
+    return x

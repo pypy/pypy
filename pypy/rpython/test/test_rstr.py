@@ -31,3 +31,14 @@ def test_nonzero():
     typer.specialize()
     #t.view()
     t.checkgraphs()
+
+def test_hash():
+    def dummyfn(s):
+        return hash(s)
+
+    t = Translator(dummyfn)
+    t.annotate([str])
+    typer = RPythonTyper(t.annotator)
+    typer.specialize()
+    t.view()
+    t.checkgraphs()
