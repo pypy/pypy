@@ -23,7 +23,7 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'truediv', 'floordiv', 'divmod', 'pow',
                          'and_', 'or_', 'xor',
                          'lshift', 'rshift',
-                         'getitem', 'setitem',
+                         'getitem', 'setitem', 'delitem',
                          'inplace_add', 'inplace_sub', 'inplace_mul',
                          'inplace_truediv', 'inplace_floordiv', 'inplace_div',
                          'inplace_mod', 'inplace_pow',
@@ -320,6 +320,9 @@ class __extend__(pairtype(SomeDict, SomeObject)):
         dic1.dictdef.generalize_key(obj2)
         dic1.dictdef.generalize_value(s_value)
 
+    def delitem((dic1, obj1)):
+        pass
+
 
 class __extend__(pairtype(SomeSlice, SomeSlice)):
 
@@ -353,12 +356,16 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         lst1.listdef.mutate()
         lst1.listdef.generalize(s_value)
 
+    def delitem((lst1, int2)):
+        lst1.listdef.resize()
 
 class __extend__(pairtype(SomeList, SomeSlice)):
 
     def getitem((lst, slic)):
         return getbookkeeper().newlist(lst.listdef.read_item())
 
+    def delitem((lst1, slic)):
+        lst1.listdef.resize()
 
 class __extend__(pairtype(SomeString, SomeSlice)):
 

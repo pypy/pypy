@@ -493,10 +493,13 @@ class RPythonAnnotator:
 
     #___ creating the annotations based on operations ______
 
-    def consider_op(self,op):
+    def consider_op(self, op):
         argcells = [self.binding(a) for a in op.args]
         consider_meth = getattr(self,'consider_op_'+op.opname,
-                                self.default_consider_op)
+                                None)
+        if not consider_meth:
+            raise Exception,"unknown op: %r" % op
+
         # let's be careful about avoiding propagated SomeImpossibleValues
         # to enter an op; the latter can result in violations of the
         # more general results invariant: e.g. if SomeImpossibleValue enters is_
@@ -514,9 +517,6 @@ class RPythonAnnotator:
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result
-
-    def default_consider_op(self, *args):
-        return annmodel.SomeObject()
 
     def _registeroperations(loc):
         # All unary operations
