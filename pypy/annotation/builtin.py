@@ -49,7 +49,7 @@ def builtin_int(s_obj):
     return constpropagate(int, [s_obj], SomeInteger())
 
 def restricted_uint(s_obj):    # for r_uint
-    return constpropagate(r_uint, [s_obj],
+    return constpropagate(pypy.rpython.rarithmetic.r_uint, [s_obj],
                           SomeInteger(nonneg=True, unsigned=True))
 
 def builtin_float(s_obj):
