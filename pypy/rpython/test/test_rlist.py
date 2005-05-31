@@ -78,17 +78,16 @@ def test_len():
     t.checkgraphs()
 
 
-def test_range():
+def DONT_YET_test_range():
     def dummyfn(N):
         total = 0
-        total = len(range(N))
-        #for i in :
-        #    total += i
+        for i in range(N):
+            total += i
         return total
 
     t = Translator(dummyfn)
     t.annotate([])
     typer = RPythonTyper(t.annotator)
     typer.specialize()
-    #t.view()
+    t.view()
     t.checkgraphs()

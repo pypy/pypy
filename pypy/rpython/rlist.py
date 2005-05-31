@@ -56,6 +56,10 @@ class __extend__(SomeList):
         v_lst, v_value = hop.inputargs(s_lst, s_lst.get_s_items())
         hop.gendirectcall(ll_append, v_lst, v_value)
 
+    def rtype_iter(s_lst):
+        s_itr = hop.s_result
+        return s_itr.getiteratorkind().rtype_new_iter(hop)
+
 
 class __extend__(pairtype(SomeList, SomeInteger)):
 
