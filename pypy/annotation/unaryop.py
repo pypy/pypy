@@ -456,3 +456,6 @@ class __extend__(SomePtr):
         llargs = [annotation_to_lltype(arg_s)._example() for arg_s in args_s]
         v = p.ll_ptrtype._example()(*llargs)
         return ll_to_annotation(v)
+
+    def is_true(p):
+        return SomeBool()
