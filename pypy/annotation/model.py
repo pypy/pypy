@@ -415,9 +415,16 @@ def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
 
 def missing_operation(cls, name):
     def default_op(*args):
-        #print '* warning, no type available for %s(%s)' % (
-        #    name, ', '.join([repr(a) for a in args]))
-        return SomeObject()
+        if args and isinstance(args[0], tuple):
+            flattened = tuple(args[0]) + args[1:]
+        else:
+            flattened = args
+        for arg in flattened:
+            if arg.__class__ == SomeObject and arg.knowntype == object:
+                return  SomeObject()
+        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
+        bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
+        return SomeImpossibleValue()
     setattr(cls, name, default_op)
 
 # this has the side-effect of registering the unary and binary operations
