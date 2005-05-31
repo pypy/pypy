@@ -40,5 +40,5 @@ def test_len():
     t.annotate([])
     typer = RPythonTyper(t.annotator)
     typer.specialize()
-    t.view()
+    #t.view()
     t.checkgraphs()

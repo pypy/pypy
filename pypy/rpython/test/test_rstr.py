@@ -29,5 +29,5 @@ def test_nonzero():
     t.annotate([int, str])
     typer = RPythonTyper(t.annotator)
     typer.specialize()
-    t.view()
+    #t.view()
     t.checkgraphs()
