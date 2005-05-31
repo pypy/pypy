@@ -1,10 +1,22 @@
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, annotation_to_lltype
+from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import PyObject, GcPtr, Void
 from pypy.rpython.rtyper import TyperError
 
 
 PyObjPtr = GcPtr(PyObject)
+
+
+def missing_rtype_operation(args, hop):
+    raise TyperError("unimplemented operation: '%s' on %r" % (
+        hop.spaceop.opname, args))
+
+for opname in annmodel.UNARY_OPERATIONS:
+    setattr(SomeObject, 'rtype_' + opname, missing_rtype_operation)
+for opname in annmodel.BINARY_OPERATIONS:
+    setattr(pairtype(SomeObject, SomeObject),
+            'rtype_' + opname, missing_rtype_operation)
 
 
 class __extend__(SomeObject):

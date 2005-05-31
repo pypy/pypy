@@ -19,12 +19,20 @@ class __extend__(SomeBuiltin):
         if s_blt.s_self is None:
             if not s_blt.is_constant():
                 raise TyperError("non-constant built-in")
-            bltintyper = BUILTIN_TYPER[s_blt.const]
+            try:
+                bltintyper = BUILTIN_TYPER[s_blt.const]
+            except KeyError:
+                raise TyperError("don't know about built-in function %r" % (
+                    s_blt.const,))
             hop.s_popfirstarg()
         else:
             # methods: look up the rtype_method_xxx()
             name = 'rtype_method_' + s_blt.methodname
-            bltintyper = getattr(s_blt.s_self, name)
+            try:
+                bltintyper = getattr(s_blt.s_self, name)
+            except AttributeError:
+                raise TyperError("missing %s.%s" % (
+                    s_blt.s_self.__class__.__name__, name))
         return bltintyper(hop)
 
 
