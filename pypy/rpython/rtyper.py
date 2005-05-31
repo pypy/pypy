@@ -26,6 +26,7 @@ class RPythonTyper:
     def __init__(self, annotator):
         self.annotator = annotator
         self.specialized_ll_functions = {}
+        self.rclassdefs = {}
         self.typererror = None
 
     def specialize(self):

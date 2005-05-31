@@ -2,6 +2,7 @@ import types
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomePBC
 from pypy.rpython.lltype import typeOf
+from pypy.rpython import rclass
 
 
 class __extend__(SomePBC):
@@ -18,12 +19,13 @@ class __extend__(SomePBC):
         if not s_func.is_constant():
             NotImplementedYet
         func = s_func.const
-        if not isinstance(func, types.FunctionType):
-            NotImplementedYet
-        # XXX hackish
-        f = hop.rtyper.getfunctionptr(func)
-        FUNCPTR = typeOf(f)
-        args_v = hop.inputargs(*FUNCPTR.TO.ARGS)
-        c = hop.inputconst(FUNCPTR, f)
-        return hop.genop('direct_call', [c] + args_v,
-                         resulttype = FUNCPTR.TO.RESULT)
+        if isinstance(func, types.FunctionType):
+            # XXX hackish
+            f = hop.rtyper.getfunctionptr(func)
+            FUNCPTR = typeOf(f)
+            args_v = hop.inputargs(*FUNCPTR.TO.ARGS)
+            c = hop.inputconst(FUNCPTR, f)
+            return hop.genop('direct_call', [c] + args_v,
+                             resulttype = FUNCPTR.TO.RESULT)
+        elif isinstance(func, (types.ClassType, type)):
+            return rclass.rtype_new_instance(s_func, hop)

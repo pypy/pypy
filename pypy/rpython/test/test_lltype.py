@@ -112,11 +112,15 @@ def test_varsizestruct():
     py.test.raises(TypeError, "Struct('invalid', ('x', S1))")
 
 def test_substructure_ptr():
-    S2 = Struct("s2", ('a', Signed))
+    S3 = Struct("s3", ('a', Signed))
+    S2 = Struct("s2", ('s3', S3))
     S1 = GcStruct("s1", ('sub1', S2), ('sub2', S2))
     p1 = malloc(S1)
     assert typeOf(p1.sub1) == _TmpPtr(S2)
     assert typeOf(p1.sub2) == _TmpPtr(S2)
+    assert typeOf(p1.sub1.s3) == _TmpPtr(S3)
+    p2 = cast_flags(NonGcPtr(S2), p1.sub1)
+    assert typeOf(p2.s3) == _TmpPtr(S3)
 
 def test_gc_substructure_ptr():
     S1 = GcStruct("s2", ('a', Signed))
