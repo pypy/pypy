@@ -257,3 +257,9 @@ def test_forward_reference():
     F.become(S)
     assert S.x == GcPtr(S)
     py.test.raises(TypeError, "ForwardReference().become(Struct('abc'))")
+
+
+def test_nullptr():
+    S = Struct('s')
+    p0 = nullptr(S)
+    assert not p0
