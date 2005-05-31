@@ -160,13 +160,21 @@ PyObject = PyObjectType()
 
 class ForwardReference(ContainerType):
     def become(self, realcontainertype):
+        if not isinstance(realcontainertype, ContainerType):
+            raise TypeError("ForwardReference can only be to a container, "
+                            "not %r" % (realcontainertype,))
+        self.__class__ = realcontainertype.__class__
+        self.__dict__ = realcontainertype.__dict__
+
+class GcForwardReference(ForwardReference):
+    def become(self, realcontainertype):
         if not isinstance(realcontainertype, GC_CONTAINER):
-            raise TypeError("ForwardReference can only be to GcStruct or "
+            raise TypeError("GcForwardReference can only be to GcStruct or "
                             "GcArray, not %r" % (realcontainertype,))
         self.__class__ = realcontainertype.__class__
         self.__dict__ = realcontainertype.__dict__
 
-GC_CONTAINER = (GcStruct, GcArray, PyObjectType, ForwardReference)
+GC_CONTAINER = (GcStruct, GcArray, PyObjectType, GcForwardReference)
 
 
 class Primitive(LowLevelType):
@@ -573,14 +581,18 @@ class _pyobject(Hashable):
         return "pyobject %s" % (super(_pyobject, self).__str__(),)
 
 
-def malloc(T, n=None):
+def malloc(T, n=None, immortal=False):
     if isinstance(T, Struct):
         o = _struct(T, n)
     elif isinstance(T, Array):
         o = _array(T, n)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
-    return _ptr(GcPtr(T), o)
+    if immortal:
+        T = NonGcPtr(T)
+    else:
+        T = GcPtr(T)
+    return _ptr(T, o)
 
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):

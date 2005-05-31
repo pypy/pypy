@@ -252,11 +252,12 @@ def test_inconsistent_gc_containers():
     py.test.raises(TypeError, "GcStruct('a', ('x', A))")
 
 def test_forward_reference():
-    F = ForwardReference()
+    F = GcForwardReference()
     S = GcStruct('abc', ('x', GcPtr(F)))
     F.become(S)
     assert S.x == GcPtr(S)
-    py.test.raises(TypeError, "ForwardReference().become(Struct('abc'))")
+    py.test.raises(TypeError, "GcForwardReference().become(Struct('abc'))")
+    ForwardReference().become(Struct('abc'))
 
 
 def test_nullptr():
