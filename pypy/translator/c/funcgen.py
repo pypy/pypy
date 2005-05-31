@@ -329,7 +329,7 @@ class FunctionCodeGenerator:
             result.insert(0, '{ %s = %s;' % (
                 cdecl(self.typemap[op.args[2]], 'prev'),
                 oldvalue))
-            result.append('if (prev) ' + decrefstmt)
+            result.append(decrefstmt)
             result.append('}')
         return '\t'.join(result)
 
@@ -344,6 +344,20 @@ class FunctionCodeGenerator:
     def OP_GETARRAYSIZE(self, op, err):
         return '%s = %s->length;' % (self.expr(op.result),
                                      self.expr(op.args[0]))
+
+    def OP_PTR_NONZERO(self, op, err):
+        return '%s = (%s != NULL);' % (self.expr(op.result),
+                                       self.expr(op.args[0]))
+
+    def OP_PTR_EQ(self, op, err):
+        return '%s = (%s == %s);' % (self.expr(op.result),
+                                     self.expr(op.args[0]),
+                                     self.expr(op.args[1]))
+
+    def OP_PTR_NE(self, op, err):
+        return '%s = (%s != %s);' % (self.expr(op.result),
+                                     self.expr(op.args[0]),
+                                     self.expr(op.args[1]))
 
     def OP_MALLOC(self, op, err):
         TYPE = self.lltypemap[op.result].TO

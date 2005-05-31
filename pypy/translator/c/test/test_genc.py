@@ -62,6 +62,7 @@ def test_func_as_pyobject():
     py.test.raises(TypeError, f1)
     py.test.raises(TypeError, f1, 2, 3)
     py.test.raises(TypeError, f1, 2, x=2)
+    #py.test.raises(TypeError, f1, 2, y=2)   XXX missing a check at the moment
     assert module.malloc_counters() == (0, 0)
 
 
@@ -84,5 +85,39 @@ def test_rlist():
     f1 = getattr(module, entrypoint)
     assert f1(5) == 30
     assert f1(x=5) == 30
+    mallocs, frees = module.malloc_counters()
+    assert mallocs == frees
+
+
+def test_rptr():
+    S = GcStruct('testing', ('x', Signed), ('y', Signed))
+    def f(i):
+        if i < 0:
+            p = nullgcptr(S)
+        else:
+            p = malloc(S)
+            p.x = i*2
+        if i > 0:
+            return p.x
+        else:
+            return -42
+    t = Translator(f)
+    a = t.annotate([int])
+    rtyper = RPythonTyper(t.annotator)
+    rtyper.specialize()
+
+    db = LowLevelDatabase(rtyper)
+    entrypoint = db.get(pyobjectptr(f))
+    db.complete()
+    #t.view()
+    module = compile_db(db)
+
+    f1 = getattr(module, entrypoint)
+    assert f1(5) == 10
+    assert f1(i=5) == 10
+    assert f1(1) == 2
+    assert f1(0) == -42
+    assert f1(-1) == -42
+    assert f1(-5) == -42
     mallocs, frees = module.malloc_counters()
     assert mallocs == frees

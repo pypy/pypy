@@ -105,23 +105,24 @@ class LowLevelDatabase:
     def cincrefstmt(self, expr, T):
         if isinstance(T, _PtrType) and 'gc' in T.flags:
             if T.TO == PyObject:
-                return 'Py_INCREF(%s);' % expr
+                return 'Py_XINCREF(%s);' % expr
             else:
                 defnode = self.gettypedefnode(T.TO)
                 if defnode.refcount is not None:
-                    return '%s->%s++;' % (expr, defnode.refcount)
+                    return 'if (%s) %s->%s++;' % (expr, expr, defnode.refcount)
         return ''
 
     def cdecrefstmt(self, expr, T):
         if isinstance(T, _PtrType) and 'gc' in T.flags:
             if T.TO == PyObject:
-                return 'Py_DECREF(%s);' % expr
+                return 'Py_XDECREF(%s);' % expr
             else:
                 defnode = self.gettypedefnode(T.TO)
                 if defnode.refcount is not None:
-                    return 'if (!--%s->%s) %s(%s);' % (expr, defnode.refcount,
+                    return 'if (%s && !--%s->%s) %s(%s);' % (expr, expr,
+                                                             defnode.refcount,
                                                defnode.deallocator or 'OP_FREE',
-                                                       expr)
+                                                             expr)
         return ''
 
     def complete(self):
