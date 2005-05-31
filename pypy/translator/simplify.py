@@ -472,12 +472,59 @@ def remove_identical_vars(graph):
                         consider_blocks[link.target] = True
                     break
 
+def coalesce_is_true(graph):
+    """coalesce paths that go through an is_true and a directly successive
+       is_true both on the same value, transforming the link into the
+       second is_true from the first to directly jump to the correct
+       target out of the second."""
+    candidates = []
+
+    def has_is_true_exitpath(block):
+        tgts = []
+        start_op = block.operations[-1]
+        cond_v = start_op.args[0]
+        if block.exitswitch == start_op.result:
+            for exit in block.exits:
+                tgt = exit.target
+                if tgt == block:
+                    continue
+                rrenaming = dict(zip(tgt.inputargs,exit.args))
+                if len(tgt.operations) == 1 and tgt.operations[0].opname == 'is_true':
+                    tgt_op = tgt.operations[0]
+                    if tgt.exitswitch == tgt_op.result and rrenaming.get(tgt_op.args[0]) == cond_v:
+                        tgts.append((exit.exitcase, tgt))
+        return tgts
+
+    def visit(block):
+        if isinstance(block, Block) and block.operations and block.operations[-1].opname == 'is_true':
+            tgts = has_is_true_exitpath(block)
+            if tgts:
+                candidates.append((block, tgts))
+    traverse(visit, graph)
+
+    while candidates:
+        cand, tgts = candidates.pop()
+        newexits = list(cand.exits) 
+        for case, tgt in tgts:
+            exit = cand.exits[case]
+            rrenaming = dict(zip(tgt.inputargs,exit.args))
+            rrenaming[tgt.operations[0].result] = cand.operations[-1].result
+            def rename(v):
+                return rrenaming.get(v,v)
+            newlink = tgt.exits[case].copy(rename)
+            newexits[case] = newlink
+        cand.recloseblock(*newexits)
+        newtgts = has_is_true_exitpath(cand)
+        if newtgts:
+            candidates.append((cand, newtgts))
+            
 # ____ all passes & simplify_graph
 
 all_passes = [
     eliminate_empty_blocks,
     remove_assertion_errors,
     join_blocks,
+    coalesce_is_true,
     transform_dead_op_vars,
     remove_identical_vars,
     transform_ovfcheck,
