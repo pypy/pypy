@@ -125,7 +125,7 @@ def PyUnicode_DecodeUTF7(s, size, errors):
             if ((ch == '-') or not B64CHAR(ch)):
                 inShift = 0
                 i += 1
-
+                
                 while (bitsleft >= 16):
                     outCh =  ((charsleft) >> (bitsleft-16)) & 0xffff
                     bitsleft -= 16
@@ -140,6 +140,7 @@ def PyUnicode_DecodeUTF7(s, size, errors):
                         surrogate = 1
                         msg = "code pairs are not supported"
                         out,x = unicode_call_errorhandler(errors,'utf-7',msg,s,i-1,i)
+                        p += out
                         bitsleft = 0
                         break
                     else:
@@ -149,7 +150,6 @@ def PyUnicode_DecodeUTF7(s, size, errors):
 ##                    /* The shift sequence has a partial character in it. If
 ##                       bitsleft < 6 then we could just classify it as padding
 ##                       but that is not the case here */
-                    print errors, s, bitsleft,p,i
                     msg = "partial character in shift sequence"
                     out,x = unicode_call_errorhandler(errors,'utf-7',msg,s,i-1,i)
                     
@@ -328,7 +328,6 @@ def PyUnicode_FromEncodedObject(obj, encoding,errors):
 
 def unicodeescape_string(s, size, quotes):
 
-
     p = []
     if (quotes) :
         p += 'u'
@@ -363,6 +362,7 @@ def unicodeescape_string(s, size, quotes):
                 p += '\\'
                 p += 'U'
                 p += '%08x'%ucs
+                pos += 1
                 continue
 	   
 	    #/* Fall through: isolated surrogates are copied as-is */
@@ -457,6 +457,7 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
 ##       mark is skipped, in all other modes, it is copied to the output
 ##       stream as-is (giving a ZWNBSP character). */
     q = 0
+    p = []
     if byteorder == 'native':
         if (size >= 2):
             bom = (ord(s[ihi]) << 8) | ord(s[ilo])
@@ -503,7 +504,7 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
 ##    	    /* The remaining input chars are ignored if the callback
 ##    	       chooses to skip the input */
     
-    	ch = (s[q+ihi] << 8) | s[q+ilo]
+    	ch = (ord(s[q+ihi]) << 8) | ord(s[q+ilo])
     	q += 2
     
     	if (ch < 0xD800 or ch > 0xDFFF):
@@ -511,14 +512,14 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
     	   continue
     
 	#/* UTF-16 code pair: */
-        if (q >= e):
+        if (q >= len(s)):
             errmsg = "unexpected end of data";
             startinpos = q-2
             endinpos = len(s)
             unicode_call_errorhandler
 
     	if (0xD800 <= ch and ch <= 0xDBFF):
-            ch2 = (s[q+ihi] << 8) | s[q+ilo]
+            ch2 = (ord(s[q+ihi]) << 8) | ord(s[q+ilo])
             q += 2
             if (0xDC00 <= ch2 and ch2 <= 0xDFFF):
     #ifndef Py_UNICODE_WIDE
@@ -752,11 +753,10 @@ def PyUnicode_DecodeUTF8Stateful(s,size,errors,consumed):
                     p += unichr(c)
                     pos += n
         elif n == 4:
-                
 ##        case 4:
-            if ((ord(s[1]) & 0xc0) != 0x80 or
-                (ord(s[2]) & 0xc0) != 0x80 or
-                (ord(s[3]) & 0xc0) != 0x80):
+            if ((ord(s[pos+1]) & 0xc0) != 0x80 or
+                (ord(s[pos+2]) & 0xc0) != 0x80 or
+                (ord(s[pos+3]) & 0xc0) != 0x80):
                 
                 errmsg = "invalid data"
                 startinpos = pos
@@ -767,8 +767,8 @@ def PyUnicode_DecodeUTF8Stateful(s,size,errors,consumed):
                 p += res[0]
                 pos = res[1]
             else:
-                c = ((ord(s[0]) & 0x7) << 18) + ((ord(s[1]) & 0x3f) << 12) +\
-                     ((ord(s[2]) & 0x3f) << 6) + (ord(s[3]) & 0x3f)
+                c = ((ord(s[pos+0]) & 0x7) << 18) + ((ord(s[pos+1]) & 0x3f) << 12) +\
+                     ((ord(s[pos+2]) & 0x3f) << 6) + (ord(s[pos+3]) & 0x3f)
                 #/* validate and convert to UTF-16 */
                 if ((c < 0x10000) or (c > 0x10ffff)):
                     #/* minimum value allowed for 4 byte encoding */

@@ -166,7 +166,7 @@ def utf_7_decode( data,errors='strict'):
     """None
     """
     res = PyUnicode_DecodeUTF7(data,len(data),errors)
-    res = ''.join(res)
+    res = u''.join(res)
     return res,len(res)
 
 def unicode_escape_encode( obj,errors='strict'):
