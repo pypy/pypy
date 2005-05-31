@@ -258,7 +258,7 @@ def test_forward_reference():
     assert S.x == GcPtr(S)
     py.test.raises(TypeError, "GcForwardReference().become(Struct('abc'))")
     ForwardReference().become(Struct('abc'))
-
+    hash(S)
 
 def test_nullptr():
     S = Struct('s')

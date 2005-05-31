@@ -2,6 +2,25 @@ import weakref
 import py
 from pypy.rpython.rarithmetic import r_uint
 from pypy.tool.uid import Hashable
+from pypy.tool.tls import tlsobject
+
+TLS = tlsobject()
+
+def saferecursive(func, defl):
+    def safe(*args):
+        try:
+            seeing = TLS.seeing
+        except AttributeError:
+            seeing = TLS.seeing = {}
+        seeingkey = tuple([func] + [id(arg) for arg in args])
+        if seeingkey in seeing:
+            return defl
+        seeing[seeingkey] = True
+        try:
+            return func(*args)
+        finally:
+            del seeing[seeingkey]
+    return safe
 
 class frozendict(dict):
 
@@ -9,11 +28,14 @@ class frozendict(dict):
         items = self.items()
         items.sort()
         return hash(tuple(items))
+    __hash__ = saferecursive(__hash__, 0)
 
 
 class LowLevelType(object):
     def __eq__(self, other):
         return self.__class__ is other.__class__ and self.__dict__ == other.__dict__
+    __eq__ = saferecursive(__eq__, True)
+
     def __ne__(self, other):
         return not (self == other)
 
@@ -21,6 +43,7 @@ class LowLevelType(object):
         items = self.__dict__.items()
         items.sort()
         return hash((self.__class__,) + tuple(items))
+    __hash__ = saferecursive(__hash__, 0)
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -91,6 +114,7 @@ class Struct(ContainerType):
     def _str_fields(self):
         return ', '.join(['%s: %s' % (name, self._flds[name])
                           for name in self._names])
+    _str_fields = saferecursive(_str_fields, '...')
 
     def __str__(self):
         return "%s %s { %s }" % (self.__class__.__name__,
