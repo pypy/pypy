@@ -1078,7 +1078,6 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int, str, float, list,  a.bookkeeper.immutablevalue(1.0), a.bookkeeper.immutablevalue('d'), a.bookkeeper.immutablevalue('e')])
         assert s == annmodel.SomeTuple([annmodel.SomeChar(), a.bookkeeper.immutablevalue(1.0)])
         assert not [b for b in a.bindings.itervalues() if b.__class__ == annmodel.SomeObject]
-        a.translator.view()
 
     def test_is_true_coalesce_sanity(self):
         def f(a):
