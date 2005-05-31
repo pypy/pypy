@@ -736,6 +736,7 @@ class TestAnnotateTestCase:
             if isinstance(s_value, annmodel.SomeList):
                 assert not s_value.listdef.listitem.resized
                 assert not s_value.listdef.listitem.mutated
+                assert s_value.listdef.listitem.is_range
 
     def test_bool(self):
         def f(a,b):

@@ -3,6 +3,7 @@ from pypy.annotation.model import SomeBuiltin, SomeObject, SomeString
 from pypy.rpython.lltype import malloc, typeOf, nullptr, nullgcptr
 from pypy.rpython.lltype import Void, Signed
 from pypy.rpython.rtyper import TyperError
+from pypy.rpython.rlist import rtype_builtin_range
 
 
 class __extend__(SomeBuiltin):
@@ -59,6 +60,8 @@ def rtype_builtin_int(hop):
 def rtype_builtin_float(hop):
     assert hop.nb_args == 1
     return hop.args_s[0].rtype_float(hop)
+
+#def rtype_builtin_range(hop): see rlist.py
 
 
 # collect all functions

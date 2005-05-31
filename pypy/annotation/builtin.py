@@ -38,7 +38,27 @@ def constpropagate(func, args_s, s_result):
 # ____________________________________________________________
 
 def builtin_range(*args):
-    return getbookkeeper().newlist(SomeInteger())  # XXX nonneg=...
+    s_step = immutablevalue(1)
+    if len(args) == 1:
+        s_start = immutablevalue(0)
+        s_stop = args[0]
+    elif len(args) == 2:
+        s_start, s_stop = args
+    elif len(args) == 3:
+        s_start, s_stop = args[:2]
+        s_step = args[2]
+    else:
+        raise Exception, "range() takes 1 to 3 arguments"
+    if not s_step.is_constant():
+        raise Exception, "range() step argument should be a constant"
+    step = s_step.const
+    if step == 0:
+        raise Exception, "range() with step zero"
+    elif step > 0:
+        nonneg = s_start.nonneg
+    else:
+        nonneg = s_stop.nonneg or (s_stop.is_constant() and s_stop.const >= -1)
+    return getbookkeeper().newlist(SomeInteger(nonneg=nonneg), range_step=step)
 
 builtin_xrange = builtin_range # xxx for now allow it
 

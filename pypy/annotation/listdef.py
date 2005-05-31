@@ -5,6 +5,7 @@ from pypy.annotation.model import tracking_unionof, TLS, UnionError
 class ListItem:
     mutated = False    # True for lists mutated after creation
     resized = False    # True for lists resized after creation
+    range_step = None  # the step -- only for lists only created by a range()
 
     def __init__(self, bookkeeper, s_value):
         self.s_value = s_value
@@ -18,6 +19,8 @@ class ListItem:
                 raise UnionError("merging list/dict items")
             self.mutated |= other.mutated
             self.resized |= other.resized
+            if other.range_step != self.range_step:
+                self.range_step = None
             self.itemof.update(other.itemof)
             self.read_locations.update(other.read_locations)
             self.patch()    # which should patch all refs to 'other'

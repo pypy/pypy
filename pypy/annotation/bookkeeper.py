@@ -87,18 +87,19 @@ class Bookkeeper:
             self.userclasseslist.append(cdef)
             return self.userclasses[cls]
 
-    def getlistdef(self):
+    def getlistdef(self, **flags):
         """Get the ListDef associated with the current position."""
         try:
             listdef = self.listdefs[self.position_key]
         except KeyError:
             listdef = self.listdefs[self.position_key] = ListDef(self)
+            listdef.listitem.__dict__.update(flags)
         return listdef
 
-    def newlist(self, *s_values):
+    def newlist(self, *s_values, **flags):
         """Make a SomeList associated with the current position, general
         enough to contain the s_values as items."""
-        listdef = self.getlistdef()
+        listdef = self.getlistdef(**flags)
         for s_value in s_values:
             listdef.generalize(s_value)
         return SomeList(listdef)

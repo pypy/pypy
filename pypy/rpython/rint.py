@@ -46,6 +46,10 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         return _rtype_template(hop, 'div')
     rtype_inplace_div = rtype_div
 
+    def rtype_floordiv(_, hop):
+        return _rtype_template(hop, 'floordiv')
+    rtype_inplace_floordiv = rtype_floordiv
+
     def rtype_mod(_, hop):
         return _rtype_template(hop, 'mod')
     rtype_inplace_mod = rtype_mod
