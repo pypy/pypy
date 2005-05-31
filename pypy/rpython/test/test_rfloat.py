@@ -12,12 +12,14 @@ class TestSnippet(object):
         typer = RPythonTyper(t.annotator)
         typer.specialize()
         t.checkgraphs() 
+        #if func == snippet.float_cast1:
+        #    t.view()
 
     def test_not1(self):
-        self._test(snippet.not1, [int])
+        self._test(snippet.not1, [float])
 
     def test_not2(self):
-        self._test(snippet.not2, [int])
+        self._test(snippet.not2, [float])
 
     def test_float1(self):
         self._test(snippet.float1, [float])

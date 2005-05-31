@@ -11,13 +11,15 @@ class TestSnippet(object):
         t.annotate(types)
         typer = RPythonTyper(t.annotator)
         typer.specialize()
-        t.checkgraphs()    
+        t.checkgraphs()  
+        #if func == snippet.bool_cast1:
+        #    t.view()
 
     def test_not1(self):
-        self._test(snippet.not1, [int])
+        self._test(snippet.not1, [bool])
 
     def test_not2(self):
-        self._test(snippet.not2, [int])
+        self._test(snippet.not2, [bool])
 
     def test_bool1(self):
         self._test(snippet.bool1, [bool])

@@ -12,6 +12,8 @@ class TestSnippet(object):
         typer = RPythonTyper(t.annotator)
         typer.specialize()
         t.checkgraphs() 
+        #if func == snippet.int_cast1:
+        #    t.view()
     
     def test_not1(self):
         self._test(snippet.not1, [int])
