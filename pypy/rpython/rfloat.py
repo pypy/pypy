@@ -120,8 +120,6 @@ class __extend__(SomeFloat):
         vlist = hop.inputargs(Float)
         return hop.genop('float_is_true', vlist, resulttype=Bool)
 
-    rtype_nonzero = rtype_is_true
-
     def rtype_neg(_, hop):
         vlist = hop.inputargs(Float)
         return hop.genop('float_neg', vlist, resulttype=Float)

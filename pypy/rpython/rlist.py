@@ -25,7 +25,7 @@ class __extend__(SomeList):
         return s_list.listdef.listitem.s_value
 
     def rtype_len(s_lst, hop):
-        v_lst = hop.inputargs(s_lst)
+        v_lst, = hop.inputargs(s_lst)
         return hop.gendirectcall(ll_len, v_lst)
 
     def rtype_method_append(s_lst, hop):

@@ -154,8 +154,6 @@ class __extend__(SomeInteger):
             vlist = hop.inputargs(Signed)
             return hop.genop('int_is_true', vlist, resulttype=Bool)
 
-    rtype_nonzero = rtype_is_true
-
     #Unary arithmetic operations    
     
     def rtype_abs(_, hop):

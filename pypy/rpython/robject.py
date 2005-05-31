@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, annotation_to_lltype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import PyObject, GcPtr, Void
+from pypy.rpython.lltype import PyObject, GcPtr, Void, Bool
 from pypy.rpython.rtyper import TyperError
 
 
@@ -43,6 +43,16 @@ class __extend__(SomeObject):
                 return hop.inputarg(s_obj, arg=0)
         else:
             raise TyperError("getattr() with a non-constant attribute name")
+
+    def rtype_is_true(s_obj, hop):
+        if hasattr(s_obj, "rtype_len"):
+            vlen = s_obj.rtype_len(hop)
+            return hop.genop('int_is_true', [vlen], resulttype=Bool)
+        else:
+            return hop.inputconst(Bool, True)
+
+    def rtype_nonzero(s_obj, hop):
+        return s_obj.rtype_is_true(hop)   # can call a subclass' rtype_is_true()
 
 
 class __extend__(pairtype(SomeObject, SomeObject)):

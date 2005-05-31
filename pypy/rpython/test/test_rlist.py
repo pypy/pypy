@@ -29,3 +29,16 @@ def test_append():
     typer.specialize()
     #t.view()
     t.checkgraphs()
+
+
+def test_len():
+    def dummyfn():
+        l = [5,10]
+        return len(l)
+
+    t = Translator(dummyfn)
+    t.annotate([])
+    typer = RPythonTyper(t.annotator)
+    typer.specialize()
+    t.view()
+    t.checkgraphs()
