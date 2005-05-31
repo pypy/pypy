@@ -364,6 +364,11 @@ class __extend__(pairtype(SomeList, SomeSlice)):
     def getitem((lst, slic)):
         return getbookkeeper().newlist(lst.listdef.read_item())
 
+    def setitem((lst, slic), s_iterable):
+        lst.listdef.resize()
+        s_iter = s_iterable.iter()
+        pair(lst, SomeInteger()).setitem(s_iter.next())
+
     def delitem((lst1, slic)):
         lst1.listdef.resize()
 
