@@ -731,6 +731,11 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.harmonic, [int])
         assert s.knowntype == float
+        # check that the list produced by range() is not mutated or resized
+        for s_value in a.bindings.values():
+            if isinstance(s_value, annmodel.SomeList):
+                assert not s_value.listdef.listitem.resized
+                assert not s_value.listdef.listitem.mutated
 
     def test_bool(self):
         def f(a,b):
@@ -1046,6 +1051,11 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         # result should be an integer
         assert s.knowntype == int
+
+    def test_prime(self):
+        a = self.RPythonAnnotator()
+        s = a.build_types(snippet.prime, [int])
+        assert s == annmodel.SomeBool()
 
 
 def g(n):

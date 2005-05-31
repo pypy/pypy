@@ -3,6 +3,8 @@ from pypy.annotation.model import tracking_unionof, TLS, UnionError
 
 
 class ListItem:
+    mutated = False    # True for lists mutated after creation
+    resized = False    # True for lists resized after creation
 
     def __init__(self, bookkeeper, s_value):
         self.s_value = s_value
@@ -14,6 +16,8 @@ class ListItem:
         if self is not other:
             if getattr(TLS, 'no_side_effects_in_union', 0):
                 raise UnionError("merging list/dict items")
+            self.mutated |= other.mutated
+            self.resized |= other.resized
             self.itemof.update(other.itemof)
             self.read_locations.update(other.read_locations)
             self.patch()    # which should patch all refs to 'other'
@@ -68,6 +72,13 @@ class ListDef:
 
     def __repr__(self):
         return '<%r>' % (self.listitem.s_value,)
+
+    def mutate(self):
+        self.listitem.mutated = True
+
+    def resize(self):
+        self.listitem.mutated = True
+        self.listitem.resized = True
 
 
 MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())

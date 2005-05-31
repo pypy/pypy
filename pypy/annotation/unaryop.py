@@ -199,19 +199,23 @@ class __extend__(SomeTuple):
 class __extend__(SomeList):
 
     def method_append(lst, s_value):
+        lst.listdef.resize()
         pair(lst, SomeInteger()).setitem(s_value)
 
     def method_extend(lst, s_iterable):
+        lst.listdef.resize()
         s_iter = s_iterable.iter()
         pair(lst, SomeInteger()).setitem(s_iter.next())
 
     def method_reverse(lst):
-        pass
+        lst.listdef.mutate()
 
     def method_insert(lst, s_index, s_value):
+        lst.listdef.resize()
         pair(lst, SomeInteger()).setitem(s_value)
         
     def method_pop(lst, s_index=None):
+        lst.listdef.resize()
         return lst.listdef.read_item()
 
     def method_index(lst, el):

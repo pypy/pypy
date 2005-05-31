@@ -282,11 +282,13 @@ class __extend__(pairtype(SomeList, SomeList)):
 class __extend__(pairtype(SomeList, SomeObject)):
 
     def inplace_add((lst1, obj2)):
+        lst1.listdef.resize()
         s_iter = obj2.iter()
         pair(lst1, SomeInteger()).setitem(s_iter.next())
         return lst1
 
     def inplace_mul((lst1, obj2)):
+        lst1.listdef.resize()
         return lst1
 
 
@@ -342,19 +344,22 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
 class __extend__(pairtype(SomeList, SomeInteger)):
     
     def mul((lst1, int2)):
-        return lst1
+        # NB. return a new SomeList instead of lst1 in case lst1 is a SomeRange
+        return SomeList(lst1.listdef)
 
     def getitem((lst1, int2)):
         return lst1.listdef.read_item()
 
     def setitem((lst1, int2), s_value):
+        lst1.listdef.mutate()
         lst1.listdef.generalize(s_value)
 
 
 class __extend__(pairtype(SomeList, SomeSlice)):
 
     def getitem((lst, slic)):
-        return lst
+        # NB. return a new SomeList instead of lst in case lst is a SomeRange
+        return SomeList(lst.listdef)
 
 
 class __extend__(pairtype(SomeString, SomeSlice)):
@@ -378,7 +383,8 @@ class __extend__(pairtype(SomeInteger, SomeString)):
 class __extend__(pairtype(SomeInteger, SomeList)):
     
     def mul((int1, lst2)):
-        return lst2
+        # NB. return a new SomeList instead of lst2 in case lst2 is a SomeRange
+        return SomeList(lst2.listdef)
 
 
 class __extend__(pairtype(SomeInstance, SomeInstance)):
