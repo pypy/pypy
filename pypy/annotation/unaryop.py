@@ -193,7 +193,10 @@ class __extend__(SomeTuple):
         return immutablevalue(len(tup.items))
 
     def iter(tup):
-        return SomeIterator(unionof(*tup.items))
+        return SomeIterator(tup)
+
+    def getanyitem(tup):
+        return unionof(*tup.items)
 
 
 class __extend__(SomeList):
@@ -230,7 +233,10 @@ class __extend__(SomeList):
         return SomeObject.len(lst)
 
     def iter(lst):
-        return SomeIterator(lst.listdef.read_item())
+        return SomeIterator(lst)
+
+    def getanyitem(lst):
+        return lst.listdef.read_item()
 
 class __extend__(SomeDict):
 
@@ -244,7 +250,10 @@ class __extend__(SomeDict):
         return SomeObject.len(dct)
     
     def iter(dct):
-        return SomeIterator(dct.dictdef.read_key())
+        return SomeIterator(dct)
+
+    def getanyitem(dct):
+        return dct.dictdef.read_key()
 
     def method_get(dct, key, dfl):
         return unionof(dct.dictdef.read_value(), dfl)
@@ -279,7 +288,10 @@ class __extend__(SomeString):
         return SomeString()
 
     def iter(str):
-        return SomeIterator(SomeChar())
+        return SomeIterator(str)
+
+    def getanyitem(str):
+        return SomeChar()
 
     def ord(str):
         return SomeInteger(nonneg=True)
@@ -302,7 +314,7 @@ class __extend__(SomeUnicodeCodePoint):
 class __extend__(SomeIterator):
 
     def next(itr):
-        return itr.s_item
+        return itr.s_container.getanyitem()
 
 
 class __extend__(SomeInstance):

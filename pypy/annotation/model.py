@@ -225,10 +225,10 @@ class SomeDict(SomeObject):
 
 
 class SomeIterator(SomeObject):
-    "Stands for an iterator returning objects of a known type."
+    "Stands for an iterator returning objects from a given container."
     knowntype = type(iter([]))  # arbitrarily chose seqiter as the type
-    def __init__(self, s_item=SomeObject()):
-        self.s_item = s_item
+    def __init__(self, s_container):
+        self.s_container = s_container
 
 
 class SomeInstance(SomeObject):

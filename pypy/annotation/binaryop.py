@@ -408,7 +408,7 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 
     def union((iter1, iter2)):
-        return SomeIterator(unionof(iter1.s_item, iter2.s_item))
+        return SomeIterator(unionof(iter1.s_container, iter2.s_container))
 
 
 class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
