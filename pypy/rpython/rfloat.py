@@ -129,3 +129,9 @@ class __extend__(SomeFloat):
     def rtype_pos(_, hop):
         vlist = hop.inputargs(Float)
         return vlist[0]
+
+    def rtype_int(_, hop):
+        vlist = hop.inputargs(Float)
+        return hop.genop('cast_float_to_int', vlist, resulttype=Signed)
+
+    rtype_float = rtype_pos

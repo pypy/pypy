@@ -197,6 +197,16 @@ class __extend__(SomeInteger):
             vlist = hop.inputargs(Signed)
         return vlist[0]
 
+    def rtype_int(s_int, hop):
+        if s_int.unsigned:
+            raise TyperError("use intmask() instead of int(r_uint(...))")
+        vlist = hop.inputargs(Signed)
+        return vlist[0]
+
+    def rtype_float(_, hop):
+        vlist = hop.inputargs(Float)
+        return vlist[0]
+
 #
 
 class __extend__(pairtype(SomeObject, SomeInteger)):

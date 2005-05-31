@@ -18,34 +18,51 @@ import pypy.rpython.rarithmetic
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
+def constpropagate(func, args_s, s_result):
+    """Returns s_result unless all args are constants, in which case the
+    func() is called and a constant result is returned (it must be contained
+    in s_result).
+    """
+    args = []
+    for s in args_s:
+        if not s.is_constant():
+            return s_result
+        args.append(s.const)
+    realresult = func(*args)
+    s_realresult = immutablevalue(realresult)
+    if not s_result.contains(s_realresult):
+        raise Exception("%s%r returned %r, which is not contained in %s" % (
+            func, args, realresult, s_result))
+    return s_realresult
+
+# ____________________________________________________________
+
 def builtin_range(*args):
     return getbookkeeper().newlist(SomeInteger())  # XXX nonneg=...
 
 builtin_xrange = builtin_range # xxx for now allow it
 
 def builtin_bool(s_obj):
-    r = SomeBool()
-    if s_obj.is_constant():
-        r.const = bool(s_obj.const)
-    return r
+    return constpropagate(bool, [s_obj], SomeBool())
 
 def builtin_int(s_obj):
-    return SomeInteger()
+    return constpropagate(int, [s_obj], SomeInteger())
 
 def restricted_uint(s_obj):    # for r_uint
-    return SomeInteger(nonneg=True, unsigned=True)
+    return constpropagate(r_uint, [s_obj],
+                          SomeInteger(nonneg=True, unsigned=True))
 
 def builtin_float(s_obj):
-    return SomeFloat()
+    return constpropagate(float, [s_obj], SomeFloat())
 
 def builtin_long(s_obj):
-    return SomeObject()
+    return SomeObject()   # XXX go away
 
 def builtin_chr(s_int):
-    return SomeChar()
+    return constpropagate(chr, [s_int], SomeChar())
 
 def builtin_unichr(s_int):
-    return SomeUnicodeCodePoint()
+    return constpropagate(unichr, [s_int], SomeUnicodeCodePoint())
 
 def builtin_unicode(s_obj):
     raise TypeError, "unicode() calls should not happen at interp-level"

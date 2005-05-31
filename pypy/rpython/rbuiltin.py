@@ -1,5 +1,5 @@
 from pypy.annotation.pairtype import pair, pairtype
-from pypy.annotation.model import SomeBuiltin, SomeObject
+from pypy.annotation.model import SomeBuiltin, SomeObject, SomeString
 from pypy.rpython.lltype import malloc, typeOf, Void, Signed
 from pypy.rpython.rtyper import TyperError
 
@@ -45,6 +45,31 @@ class __extend__(pairtype(SomeBuiltin, SomeObject)):
 
 # ____________________________________________________________
 
+def rtype_builtin_bool(hop):
+    assert hop.nb_args == 1
+    return hop.args_s[0].rtype_is_true(hop)
+
+def rtype_builtin_int(hop):
+    if isinstance(hop.args_s[0], SomeString):
+        raise TyperError('int("string") not supported')
+    assert hop.nb_args == 1
+    return hop.args_s[0].rtype_int(hop)
+
+def rtype_builtin_float(hop):
+    assert hop.nb_args == 1
+    return hop.args_s[0].rtype_float(hop)
+
+
+# collect all functions
+import __builtin__
+BUILTIN_TYPER = {}
+for name, value in globals().items():
+    if name.startswith('rtype_builtin_'):
+        original = getattr(__builtin__, name[14:])
+        BUILTIN_TYPER[original] = value
+
+# annotation of low-level types
+
 def rtype_malloc(hop):
     assert hop.args_s[0].is_constant()
     if hop.nb_args == 1:
@@ -60,7 +85,5 @@ def rtype_typeOf(hop):
     return hop.inputconst(Void, hop.s_result.const)
 
 
-BUILTIN_TYPER = {
-    malloc: rtype_malloc,
-    typeOf: rtype_typeOf,
-    }
+BUILTIN_TYPER[malloc] = rtype_malloc
+BUILTIN_TYPER[typeOf] = rtype_typeOf

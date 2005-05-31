@@ -29,3 +29,11 @@ class __extend__(SomeBool):
     def rtype_is_true(_, hop):
         vlist = hop.inputargs(Bool)
         return vlist[0]
+
+    def rtype_int(_, hop):
+        vlist = hop.inputargs(Signed)
+        return vlist[0]
+
+    def rtype_float(_, hop):
+        vlist = hop.inputargs(Float)
+        return vlist[0]
