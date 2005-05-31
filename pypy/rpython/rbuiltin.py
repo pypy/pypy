@@ -1,6 +1,7 @@
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeBuiltin, SomeObject, SomeString
-from pypy.rpython.lltype import malloc, typeOf, Void, Signed
+from pypy.rpython.lltype import malloc, typeOf, nullptr, nullgcptr
+from pypy.rpython.lltype import Void, Signed
 from pypy.rpython.rtyper import TyperError
 
 
@@ -81,9 +82,11 @@ def rtype_malloc(hop):
         return hop.genop('malloc_varsize', vlist,
                          resulttype = hop.s_result.lowleveltype())
 
-def rtype_typeOf(hop):
+def rtype_const_result(hop):
     return hop.inputconst(Void, hop.s_result.const)
 
 
 BUILTIN_TYPER[malloc] = rtype_malloc
-BUILTIN_TYPER[typeOf] = rtype_typeOf
+BUILTIN_TYPER[typeOf] = rtype_const_result
+BUILTIN_TYPER[nullptr] = rtype_const_result
+BUILTIN_TYPER[nullgcptr] = rtype_const_result

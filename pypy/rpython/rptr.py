@@ -6,7 +6,10 @@ from pypy.rpython.lltype import ContainerType, Void, Signed, Bool
 class __extend__(SomePtr):
 
     def lowleveltype(s_ptr):
-        return s_ptr.ll_ptrtype
+        if s_ptr.is_constant():   # constant NULL
+            return Void
+        else:
+            return s_ptr.ll_ptrtype
 
     def rtype_getattr(s_ptr, hop):
         attr = hop.args_s[1].const

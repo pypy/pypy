@@ -2,7 +2,7 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, annotation_to_lltype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import PyObject, GcPtr, Void, Bool
-from pypy.rpython.rtyper import TyperError
+from pypy.rpython.rtyper import TyperError, inputconst
 
 
 PyObjPtr = GcPtr(PyObject)
@@ -62,5 +62,8 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         TO   = s_to.lowleveltype()
         if PyObjPtr == FROM == TO:
             return v
+        elif FROM == Void and s_from.is_constant() and s_to.contains(s_from):
+            # convert from a constant to a non-constant
+            return inputconst(TO, s_from.const)
         else:
             return NotImplemented

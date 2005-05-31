@@ -296,8 +296,23 @@ def typeOf(s_val):
     lltype = annotation_to_lltype(s_val, info="in typeOf(): ")
     return immutablevalue(lltype)
 
+def nullptr(T):
+    assert T.is_constant()
+    p = lltype.nullptr(T.const)
+    r = SomePtr(lltype.typeOf(p))
+    r.const = p
+    return r
+
+def nullgcptr(T):
+    assert T.is_constant()
+    p = lltype.nullgcptr(T.const)
+    r = SomePtr(lltype.typeOf(p))
+    r.const = p
+    return r
+
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
 BUILTIN_ANALYZERS[lltype.cast_flags] = cast_flags
 BUILTIN_ANALYZERS[lltype.cast_parent] = cast_parent
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
-
+BUILTIN_ANALYZERS[lltype.nullptr] = nullptr
+BUILTIN_ANALYZERS[lltype.nullgcptr] = nullgcptr
