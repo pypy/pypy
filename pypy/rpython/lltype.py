@@ -588,11 +588,16 @@ def functionptr(TYPE, name, **attrs):
     o = _func(TYPE, _name=name, **attrs)
     return _ptr(NonGcPtr(TYPE), o)
 
-def nullptr(T, **flags):
-    T = _PtrType(T, **flags)
-    return _ptr(T, None)
+def nullptr(T):
+    return _ptr(NonGcPtr(T), None)
 
-def pyobjectptr(obj, **flags):
-    T = _PtrType(PyObject, **flags)
+def nullgcptr(T):
+    return _ptr(GcPtr(T), None)
+
+def pyobjectptr(obj):
     o = _pyobject(obj)
-    return _ptr(T, o)
+    return _ptr(NonGcPtr(PyObject), o)
+
+def pyobjectgcptr(obj):
+    o = _pyobject(obj)
+    return _ptr(GcPtr(PyObject), o)
