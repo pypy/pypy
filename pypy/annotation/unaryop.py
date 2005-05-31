@@ -313,6 +313,9 @@ class __extend__(SomeUnicodeCodePoint):
 
 class __extend__(SomeIterator):
 
+    def iter(itr):
+        return itr
+
     def next(itr):
         return itr.s_container.getanyitem()
 
