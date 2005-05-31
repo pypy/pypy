@@ -215,8 +215,11 @@ class _PtrType(LowLevelType):
             result.append(flag)
         return ', '.join(result)
 
+    def _str_flavor(self):
+        return 'ptr(%s)' % self._str_flags()
+
     def __str__(self):
-        return 'ptr(%s) to %s' % (self._str_flags(), self.TO)
+        return '%s to %s' % (self._str_flavor(), self.TO)
 
     def _defl(self, parent=None, parentindex=None):
         return _ptr(self, None)
@@ -428,7 +431,7 @@ class _ptr(object):
         return '<%s>' % (self,)
 
     def __str__(self):
-        return '%s to %s' % (self._TYPE.__class__.__name__.lower(), self._obj)
+        return '%s to %s' % (self._TYPE._str_flavor(), self._obj)
 
     def __call__(self, *args):
         if isinstance(self._T, FuncType):
