@@ -4,7 +4,7 @@ The purpose is to create something that allows
 to restart code generation after flowing and maybe
 annotation.
 """
-import autopath, os, sys, new, __builtin__
+import os, sys, new, __builtin__
 
 from pypy.translator.gensupp import uniquemodulename, NameManager, UniqueList
 from pypy.translator.gensupp import builtin_base
@@ -460,15 +460,19 @@ class GenPickle:
             if (func.func_doc and
                 func.func_doc.lstrip().startswith('NOT_RPYTHON')):
                 return self.skipped_function(func)
-        # we produce an almost equivalent function,
-        # omitting the closure for now (how to do cells?)
         args = (func.func_code, func.func_globals, func.func_name,
-                func.func_defaults, ) #func.func_closure) # closure omitted
+                func.func_defaults, func.func_closure)
         pyfuncobj = self.uniquename('gfunc_' + func.__name__)
         self.initcode.append('%s = new.function(*%s)' % (pyfuncobj,
                             self.nameof(args)) )
         return pyfuncobj
 
+    def nameof_cell(self, cel):
+        obj = break_cell(cel)
+        pycell = self.uniquename('gcell_' + self.nameof(obj))
+        self.initcode.append('%s = %s(%s)' % (pycell, self.nameof(make_cell),
+                                              self.nameof(obj))
+            
     def nameof_code(self, code):
         args = (code.co_argcount, code.co_nlocals, code.co_stacksize,
                 code.co_flags, code.co_code, code.co_consts, code.co_names,
@@ -525,3 +529,17 @@ class GenPickle:
         co = compile(source, '<initcode>', 'exec')
         del source
         return marshal.dumps(co), originalsource
+
+def make_cell(obj):
+    def func():
+        return obj
+    return func.func_closure[0]
+
+def break_cell(cel):
+    obj = None
+    def func():
+        return obj
+    args = (func.func_code, func.func_globals, func.func_name,
+            func.func_defaults, (cel,))
+    func = new.function(*args)
+    return func()
