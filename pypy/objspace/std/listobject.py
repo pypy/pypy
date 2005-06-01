@@ -236,21 +236,48 @@ def delitem__List_ANY(space, w_list, w_idx):
 
 def delitem__List_Slice(space, w_list, w_slice):
     start, stop, step, slicelength = slicetype.indices4(space, w_slice, w_list.ob_size)
-    if step == 1:
-        return _setitem_slice_helper(space, w_list, w_slice, [], 0)
 
-    # The current code starts from the top, to simplify
-    # coding.  A later optimization could be to start from
-    # the bottom, which would reduce the list motion.
-    # A further later optimization would be to special-case
-    # a step of -1, because this version will perform a LOT
-    # of extra motion for this case.  Anybody with a real-life
-    # use-case for this is welcome to write the special case.
-    r = range(start, stop, step)
-    if step > 0:
-        r.reverse()
-    for i in r:
-        _del_slice(w_list, i, i+1)
+    if slicelength==0:
+        return
+
+    if step<0:
+        start = start+step*(slicelength-1)
+        step = -step
+        # stop is invalid
+        
+    if step == 1:
+        _del_slice(w_list, start, start+slicelength)
+    else:
+        items = w_list.ob_item
+        n = w_list.ob_size
+
+        recycle = [None] * slicelength
+        i = start
+
+        # keep a reference to the objects to be removed,
+        # preventing side effects during destruction
+        recycle[0] = items[i]
+        
+        for discard in range(1, slicelength):
+            j = i+1
+            i += step
+            while j<i:
+                items[j-discard] = items[j]
+                j += 1
+            recycle[discard] = items[i]
+
+        j = i+1
+        while j<n:
+            items[j-slicelength] = items[j]            
+            j += 1
+        # make sure entries after ob_size are None, to avoid keeping references
+        w_list.ob_size -= slicelength
+        for i in range(w_list.ob_size, n):
+            items[i] = None
+        # now we can destruct recycle safely, regardless of
+        # side-effects to the list
+        del recycle[:]
+
     return space.w_None
 
 def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
