@@ -26,7 +26,37 @@ Command-line options for translate_pypy:
    -huge=%    Threshold in the number of functions after which only a local call
               graph and not a full one is displayed
 """
-import autopath, sys, threading, pdb, os
+import autopath, sys, os
+
+# xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+basedir = autopath.this_dir
+
+pypy_translation_snapshot_dir = os.path.join(basedir, 'pypy-translation-snapshot')
+
+if not os.path.isdir(pypy_translation_snapshot_dir):
+    print """
+Translation is performed on a specific revision of PyPy which lives on
+a branch. This needs to be checked out into translator/goal with:
+
+svn co http://codespeak.net/svn/pypy/branch/pypy-translation-snapshot
+"""[1:]
+    sys.exit(2)
+
+# override imports from pypy head with imports from pypy-translation-snapshot
+import pypy
+pypy.__path__.insert(0, pypy_translation_snapshot_dir)
+
+# complement imports from pypy.objspace (from pypy-translation-snapshot)
+# with pypy head objspace/
+import pypy.objspace
+pypy.objspace.__path__.append(os.path.join(autopath.pypydir, 'objspace'))
+
+print "imports redirected to pypy-translation-snapshot."
+
+# xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+import threading, pdb
 
 from pypy.translator.translator import Translator
 from pypy.translator.ann_override import pypy_overrides
