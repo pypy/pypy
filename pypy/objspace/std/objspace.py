@@ -219,6 +219,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, long):
             from pypy.objspace.std.longobject import args_from_long
             return W_LongObject(self, *args_from_long(x))
+        if isinstance(x, slice):
+            return W_SliceObject(self, self.wrap(x.start),
+                                       self.wrap(x.stop),
+                                       self.wrap(x.step))
         if isinstance(x, complex):
             # XXX is this right?   YYY no, this is wrong right now  (CT)
             # ZZZ hum, seems necessary for complex literals in co_consts (AR)

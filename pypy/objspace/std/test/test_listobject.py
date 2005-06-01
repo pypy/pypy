@@ -1,5 +1,5 @@
 #from __future__ import nested_scopes
-import autopath
+import autopath, random
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
@@ -39,6 +39,30 @@ class TestW_ListObject:
                             self.space.getitem, w_list, w(42))
         self.space.raises_w(self.space.w_IndexError,
                             self.space.getitem, w_list, w(-3))
+
+    def test_random_getitem(self):
+        w = self.space.wrap
+        s = list('qedx387tn3uixhvt 7fh387fymh3dh238 dwd-wq.dwq9')
+        w_list = W_ListObject(self.space, map(w, s))
+        keys = range(-len(s)-5, len(s)+5)
+        choices = keys + [None]*12
+        stepchoices = [None, None, None, 1, 1, -1, -1, 2, -2,
+                       len(s)-1, len(s), len(s)+1,
+                       -len(s)-1, -len(s), -len(s)+1]
+        for i in range(40):
+            keys.append(slice(random.choice(choices),
+                              random.choice(choices),
+                              random.choice(stepchoices)))
+        random.shuffle(keys)
+        for key in keys:
+            try:
+                expected = s[key]
+            except IndexError:
+                self.space.raises_w(self.space.w_IndexError,
+                                    self.space.getitem, w_list, w(key))
+            else:
+                w_result = self.space.getitem(w_list, w(key))
+                assert self.space.unwrap(w_result) == expected
 
     def test_iter(self):
         w = self.space.wrap
@@ -141,6 +165,58 @@ class TestW_ListObject:
                             self.space.setitem, w_list, w(2), w(5))
         self.space.raises_w(self.space.w_IndexError,
                             self.space.setitem, w_list, w(-3), w(5))
+
+    def test_random_setitem_delitem(self):
+        w = self.space.wrap
+        s = range(39)
+        w_list = W_ListObject(self.space, map(w, s))
+        expected = list(s)
+        keys = range(-len(s)-5, len(s)+5)
+        choices = keys + [None]*12
+        stepchoices = [None, None, None, 1, 1, -1, -1, 2, -2,
+                       len(s)-1, len(s), len(s)+1,
+                       -len(s)-1, -len(s), -len(s)+1]
+        for i in range(50):
+            keys.append(slice(random.choice(choices),
+                              random.choice(choices),
+                              random.choice(stepchoices)))
+        random.shuffle(keys)
+        n = len(s)
+        for key in keys:
+            if random.random() < 0.15:
+                random.shuffle(s)
+                w_list = W_ListObject(self.space, map(w, s))
+                expected = list(s)
+            try:
+                value = expected[key]
+            except IndexError:
+                self.space.raises_w(self.space.w_IndexError,
+                                    self.space.setitem, w_list, w(key), w(42))
+            else:
+                if isinstance(value, int):   # non-slicing
+                    if random.random() < 0.25:   # deleting
+                        self.space.delitem(w_list, w(key))
+                        del expected[key]
+                    else:
+                        self.space.setitem(w_list, w(key), w(n))
+                        expected[key] = n
+                        n += 1
+                else:        # slice assignment
+                    mode = random.choice(['samesize', 'resize', 'delete'])
+                    if mode == 'delete':
+                        self.space.delitem(w_list, w(key))
+                        del expected[key]
+                    elif mode == 'samesize':
+                        newvalue = range(n, n+len(value))
+                        self.space.setitem(w_list, w(key), w(newvalue))
+                        expected[key] = newvalue
+                        n += len(newvalue)
+                    elif mode == 'resize' and key.step is None:
+                        newvalue = range(n, n+random.randrange(0, 20))
+                        self.space.setitem(w_list, w(key), w(newvalue))
+                        expected[key] = newvalue
+                        n += len(newvalue)
+            assert self.space.unwrap(w_list) == expected
 
     def test_eq(self):
         w = self.space.wrap
@@ -288,6 +364,13 @@ class TestW_ListObject:
         assert w_list.ob_item == [None]*len(w_list.ob_item)
 
 class AppTestW_ListObject:
+    def test_call_list(self):
+        assert list('') == []
+        assert list('abc') == ['a', 'b', 'c']
+        assert list((1, 2)) == [1, 2]
+        l = []
+        assert list(l) is not l
+
     def test_explicit_new_init(self):
         l = l0 = list.__new__(list)
         l.__init__([1,2])
@@ -401,9 +484,20 @@ class AppTestW_ListObject:
         assert l == []
 
     def test_index(self):
-        l = ['a', 'b', 'c', 'd', 'e', 'f']
-        raises(TypeError, l.index, 'c', 0, 4.3)
-        raises(TypeError, l.index, 'c', 1.0, 5.6)
+        c = list('hello world')
+        assert c.index('l') == 2
+        raises(ValueError, c.index, '!')
+        assert c.index('l', 3) == 3
+        assert c.index('l', 4) == 9
+        raises(ValueError, c.index, 'l', 10)
+        assert c.index('l', -5) == 9
+        assert c.index('l', -25) == 2
+        assert c.index('o', 1, 5) == 4
+        raises(ValueError, c.index, 'o', 1, 4)
+        assert c.index('o', 1, 5-11) == 4
+        raises(ValueError, c.index, 'o', 1, 4-11)
+        raises(TypeError, c.index, 'c', 0, 4.3)
+        raises(TypeError, c.index, 'c', 1.0, 5.6)
 
     def test_ass_slice(self):
         l = range(6)
@@ -418,4 +512,50 @@ class AppTestW_ListObject:
         assert repr(l) == '[]'
         l.append(l)
         assert repr(l) == '[[...]]'
-        
+
+    def test_append(self):
+        l = []
+        l.append('X')
+        assert l == ['X']
+        l.append('Y')
+        l.append('Z')
+        assert l == ['X', 'Y', 'Z']
+
+    def test_count(self):
+        c = list('hello')
+        assert c.count('l') == 2
+        assert c.count('h') == 1
+        assert c.count('w') == 0
+
+    def test_insert(self):
+        c = list('hello world')
+        c.insert(0, 'X')
+        assert c[:4] == ['X', 'h', 'e', 'l']
+        c.insert(2, 'Y')
+        c.insert(-2, 'Z')
+        assert ''.join(c) == 'XhYello worZld'
+
+    def test_pop(self):
+        c = list('hello world')
+        s = ''
+        for i in range(11):
+            s += c.pop()
+        assert s == 'dlrow olleh'
+        raises(IndexError, c.pop)
+        assert len(c) == 0
+
+    def test_remove(self):
+        c = list('hello world')
+        c.remove('l')
+        assert ''.join(c) == 'helo world'
+        c.remove('l')
+        assert ''.join(c) == 'heo world'
+        c.remove('l')
+        assert ''.join(c) == 'heo word'
+        raises(ValueError, c.remove, 'l')
+        assert ''.join(c) == 'heo word'
+
+    def test_reverse(self):
+        c = list('hello world')
+        c.reverse()
+        assert ''.join(c) == 'dlrow olleh'
