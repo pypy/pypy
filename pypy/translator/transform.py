@@ -274,6 +274,12 @@ def transform_dead_code(self):
                 if len(block.exits) == 1:
                     block.exitswitch = None
                     block.exits[0].exitcase = None
+    # make sure that the return variables of all graphs is annotated
+    if self.translator is not None:
+        for graph in self.translator.flowgraphs.values():
+            v = graph.getreturnvar()
+            if v not in self.bindings:
+                self.setbinding(v, annmodel.SomeImpossibleValue())
 
 def cutoff_alwaysraising_block(self, block):
     "Fix a block whose end can never be reached at run-time."
@@ -303,8 +309,14 @@ def cutoff_alwaysraising_block(self, block):
     c2 = Constant(AssertionError(msg))
     errlink = Link([c1, c2], graph.exceptblock)
     block.recloseblock(errlink, *block.exits)
-    # XXX do something about the annotation of the
-    #     exceptblock.inputargs
+    # fix the annotation of the exceptblock.inputargs
+    etype, evalue = graph.exceptblock.inputargs
+    s_type = annmodel.SomeObject()
+    s_type.knowntype = type
+    s_type.is_type_of = [evalue]
+    s_value = annmodel.SomeInstance(self.bookkeeper.getclassdef(Exception))
+    self.setbinding(etype, s_type)
+    self.setbinding(evalue, s_value)
 
 
 def transform_graph(ann):

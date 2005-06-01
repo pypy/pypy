@@ -90,6 +90,15 @@ class Link:
         self.last_exception = last_exception
         self.last_exc_value = last_exc_value
 
+    def getextravars(self):
+        "Return the extra vars created by this Link."
+        result = []
+        if isinstance(self.last_exception, Variable):
+            result.append(self.last_exception)
+        if isinstance(self.last_exc_value, Variable):
+            result.append(self.last_exc_value)
+        return result
+
     def copy(self, rename=lambda x: x):
         newargs = [rename(a) for a in self.args]
         newlink = Link(newargs, self.target, self.exitcase)
@@ -354,21 +363,32 @@ def checkgraph(graph):
                 if not block.exits:
                     assert block in exitblocks
                 vars = {}
-                resultvars = [op.result for op in block.operations]
-                for v in block.inputargs + resultvars:
+
+                def definevar(v, only_in_link=None):
                     assert isinstance(v, Variable)
                     assert v not in vars, "duplicate variable %r" % (v,)
                     assert v not in vars_previous_blocks, (
                         "variable %r used in more than one block" % (v,))
-                    vars[v] = True
+                    vars[v] = only_in_link
+
+                def usevar(v, in_link=None):
+                    assert v in vars
+                    if in_link is not None:
+                        assert vars[v] is None or vars[v] is in_link
+
+                for v in block.inputargs:
+                    definevar(v)
+
                 for op in block.operations:
                     for v in op.args:
                         assert isinstance(v, (Constant, Variable))
                         if isinstance(v, Variable):
-                            assert v in vars
+                            usevar(v)
                         else:
                             assert v.value is not last_exception
                             #assert v.value != last_exc_value
+                    definevar(op.result)
+
                 exc_links = {}
                 if block.exitswitch is None:
                     assert len(block.exits) <= 1
@@ -384,26 +404,29 @@ def checkgraph(graph):
                 else:
                     assert isinstance(block.exitswitch, Variable)
                     assert block.exitswitch in vars
+
                 for link in block.exits:
                     assert len(link.args) == len(link.target.inputargs)
                     assert link.prevblock is block
                     exc_link = link in exc_links
                     if exc_link:
-                        assert link.last_exception is not None
-                        assert link.last_exc_value is not None
+                        for v in [link.last_exception, link.last_exc_value]:
+                            assert isinstance(v, (Variable, Constant))
+                            if isinstance(v, Variable):
+                                definevar(v, only_in_link=link)
                     else:
                         assert link.last_exception is None
                         assert link.last_exc_value is None
                     for v in link.args:
                         assert isinstance(v, (Constant, Variable))
                         if isinstance(v, Variable):
-                            assert v in vars or (exc_link and v in (link.last_exception, link.last_exc_value))
+                            usevar(v, in_link=link)
                             if exc_link:
                                 assert v != block.operations[-1].result
-                        else:
-                            if not exc_link:
-                                assert v.value is not last_exception
-                                #assert v.value != last_exc_value
+                        #else:
+                        #    if not exc_link:
+                        #        assert v.value is not last_exception
+                        #        #assert v.value != last_exc_value
                 vars_previous_blocks.update(vars)
 
         try:

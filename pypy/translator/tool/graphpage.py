@@ -1,5 +1,5 @@
 import inspect, types
-from pypy.objspace.flow.model import traverse, Block
+from pypy.objspace.flow.model import traverse, Block, Link
 from pypy.translator.tool.make_dot import DotGen, make_dot, make_dot_graphs
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model
@@ -126,11 +126,16 @@ class FlowGraphPage(GraphPage):
 
         def visit(node):
             if isinstance(node, Block):
-                for var in node.getvariables():
-                    if hasattr(var, 'concretetype'):
-                        info = self.links.get(var.name, var.name)
-                        info = '(%s) %s' % (var.concretetype, info)
-                        self.links[var.name] = info
+                vars = node.getvariables()
+            elif isinstance(node, Link):
+                vars = node.getextravars()
+            else:
+                return
+            for var in vars:
+                if hasattr(var, 'concretetype'):
+                    info = self.links.get(var.name, var.name)
+                    info = '(%s) %s' % (var.concretetype, info)
+                    self.links[var.name] = info
         for graph in graphs:
             traverse(visit, graph)
 

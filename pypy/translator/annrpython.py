@@ -436,6 +436,16 @@ class RPythonAnnotator:
             if isinstance(link.exitcase, (types.ClassType, type)) \
                    and issubclass(link.exitcase, Exception):
                 assert last_exception_var and last_exc_value_var
+                last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
+                last_exception_object = annmodel.SomeObject()
+                last_exception_object.knowntype = type
+                if isinstance(last_exception_var, Constant):
+                    last_exception_object.const = last_exception_var.value
+                last_exception_object.is_type_of = [last_exc_value_var]
+
+                self.setbinding(last_exception_var, last_exception_object)
+                self.setbinding(last_exc_value_var, last_exc_value_object)
+
                 last_exception_object = annmodel.SomeObject()
                 last_exception_object.knowntype = type
                 if isinstance(last_exception_var, Constant):
@@ -443,12 +453,8 @@ class RPythonAnnotator:
                 #if link.exitcase is Exception:
                 #    last_exc_value_object = annmodel.SomeObject()
                 #else:
-                last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
                 last_exc_value_vars = []
                 in_except_block = True
-                # not needed!
-                #self.setbinding(last_exception_var, last_exception_object)
-                #self.setbinding(last_exc_value_var, last_exc_value_object)
 
             cells = []
             renaming = {}

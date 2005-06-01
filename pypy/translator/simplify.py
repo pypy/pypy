@@ -209,6 +209,13 @@ def simplify_exceptions(graph):
             if case is not None:
                 link.last_exception = last_exception
                 link.last_exc_value = last_exc_value
+                # make the above two variables unique
+                renaming2 = {}
+                def rename2(v):
+                    return renaming2.get(v, v)
+                for v in link.getextravars():
+                    renaming2[v] = Variable(v)
+                link = link.copy(rename2)
             link.exitcase = case
             link.prevblock = block
             exits.append(link)
