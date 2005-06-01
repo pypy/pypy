@@ -118,3 +118,11 @@ class __extend__(SomeInstance):
     def lowleveltype(s_ins):
         rclassdef = getrclassdef(s_ins.classdef)
         return GcPtr(rclassdef.object_type)
+
+    def rtype_type(s_ins, hop):
+        rclassdef = getrclassdef(s_ins.classdef)
+        vptr, = hop.inputargs(s_ins)
+        vptr_as_object = rclassdef.parent_cast(None, vptr, hop.llops)
+        typeptr_name = inputconst(Void, "typeptr")
+        return hop.genop('getfield', [vptr_as_object, typeptr_name],
+                         resulttype=TYPEPTR)

@@ -3,6 +3,7 @@ from pypy.annotation.model import SomeObject, annotation_to_lltype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import PyObject, GcPtr, Void, Bool
 from pypy.rpython.rtyper import TyperError, inputconst
+from pypy.rpython import rclass
 
 
 PyObjPtr = GcPtr(PyObject)
@@ -27,6 +28,8 @@ class __extend__(SomeObject):
         except ValueError:
             if s_obj.is_constant():
                 return Void
+            elif s_obj.knowntype is type:
+                return rclass.TYPEPTR
             else:
                 return PyObjPtr
 
@@ -60,7 +63,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def rtype_convert_from_to((s_from, s_to), v, llops):
         FROM = s_from.lowleveltype()
         TO   = s_to.lowleveltype()
-        if PyObjPtr == FROM == TO:
+        if (PyObjPtr == FROM == TO) or (rclass.TYPEPTR == FROM == TO):
             return v
         elif FROM == Void and s_from.is_constant() and s_to.contains(s_from):
             # convert from a constant to a non-constant

@@ -324,12 +324,12 @@ class SomePtr(SomeObject):
 from pypy.rpython import lltype
 
 annotation_to_ll_map = [
+    (SomePBC({None: True}), lltype.Void),   # also matches SomeImpossibleValue()
     (SomeBool(), lltype.Bool),
     (SomeInteger(), lltype.Signed),
     (SomeInteger(nonneg=True, unsigned=True), lltype.Unsigned),    
     (SomeFloat(), lltype.Float),
     (SomeChar(), lltype.Char),
-    (SomePBC({None: True}), lltype.Void),
 ]
 
 def annotation_to_lltype(s_val, info=None):

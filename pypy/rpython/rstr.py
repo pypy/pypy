@@ -9,9 +9,7 @@ from pypy.rpython.lltype import *
 #    struct str {
 #        hash: Signed
 #        chars: array {
-#            item {
-#                Char ch
-#            }
+#            Char ch
 #        }
 #    }
 

@@ -3,18 +3,22 @@ from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
 
 
-
-class EmptyBase(object):
+class MyException(Exception):
     pass
 
 
 def test_simple():
+    def g():
+        raise MyException
     def dummyfn():
-        x = EmptyBase()
-        return x
+        try:
+            return g()
+        except MyException:
+            pass
 
     t = Translator(dummyfn)
-    t.annotate([])
+    a = t.annotate([])
+    a.simplify()
     typer = RPythonTyper(t.annotator)
     typer.specialize()
     #t.view()

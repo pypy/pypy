@@ -87,10 +87,11 @@ class RPythonTyper:
         # insert the needed conversions on the links
         can_insert_here = block.exitswitch is None and len(block.exits) == 1
         for link in block.exits:
+            for a in [link.last_exception, link.last_exc_value]:
+                if isinstance(a, Variable):
+                    self.setconcretetype(a)
             for i in range(len(link.args)):
                 a1 = link.args[i]
-                ##if a1 in (link.last_exception, link.last_exc_value):# treated specially in gen_link
-                ##    continue
                 a2 = link.target.inputargs[i]
                 s_a2 = self.annotator.binding(a2)
                 if isinstance(a1, Constant):
