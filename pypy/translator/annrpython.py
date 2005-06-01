@@ -443,8 +443,10 @@ class RPythonAnnotator:
                     last_exception_object.const = last_exception_var.value
                 last_exception_object.is_type_of = [last_exc_value_var]
 
-                self.setbinding(last_exception_var, last_exception_object)
-                self.setbinding(last_exc_value_var, last_exc_value_object)
+                if isinstance(last_exception_var, Variable):
+                    self.setbinding(last_exception_var, last_exception_object)
+                if isinstance(last_exc_value_var, Variable):
+                    self.setbinding(last_exc_value_var, last_exc_value_object)
 
                 last_exception_object = annmodel.SomeObject()
                 last_exception_object.knowntype = type
