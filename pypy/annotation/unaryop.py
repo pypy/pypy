@@ -22,7 +22,7 @@ from pypy.annotation.binaryop import _clone ## XXX where to put this?
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'hash',
+UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'delattr', 'hash',
                         'simple_call', 'call_args', 'str', 'repr',
                         'iter', 'next', 'invert', 'type', 'issubtype',
                         'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
@@ -98,6 +98,12 @@ class __extend__(SomeObject):
 
     def long(obj):
         return SomeObject()   # XXX
+
+    def delattr(obj, s_attr):
+        if obj.__class__ != SomeObject or obj.knowntype != object:
+            getbookkeeper().warning(
+                ("delattr on potentally non-SomeObjects is not RPythonic: delattr(%r,%r)" %
+                 (obj, s_attr)))
 
     def find_method(obj, name):
         "Look for a special-case implementation for the named method."
