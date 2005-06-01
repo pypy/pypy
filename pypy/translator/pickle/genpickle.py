@@ -17,6 +17,7 @@ from pickle import whichmodule, PicklingError
 import pickle
 
 from types import *
+import types
 
 # ____________________________________________________________
 
@@ -90,15 +91,10 @@ class GenPickle:
         return name
 
     def nameof_module(self, value):
-        assert value is os or not hasattr(value, "__file__") or \
-               not (value.__file__.endswith('.pyc') or
-                    value.__file__.endswith('.py') or
-                    value.__file__.endswith('.pyo')), \
-               "%r is not a builtin module (probably :)"%value
+        # all allowed here, we reproduce ourselves
         name = self.uniquename('mod%s'%value.__name__)
         self.initcode_python(name, "__import__(%r)" % (value.__name__,))
         return name
-        
 
     def nameof_int(self, value):
         return repr(value)
@@ -156,6 +152,7 @@ class GenPickle:
                 func, ob, typ))
             return name
 
+    # old version:
     def should_translate_attr(self, pbc, attr):
         ann = self.translator.annotator
         if ann is None or isinstance(pbc, ObjSpace):
@@ -169,16 +166,27 @@ class GenPickle:
             return True
         return False
 
+    # new version: save if we don't know
+    def should_translate_attr(self, pbc, attr):
+        ann = self.translator.annotator
+        if ann:
+            classdef = ann.getuserclasses().get(pbc.__class__)
+        else:
+            classdef = None
+        ignore = getattr(pbc.__class__, 'NOT_RPYTHON_ATTRIBUTES', [])
+        if attr in ignore:
+            return False
+        if classdef:
+            return classdef.about_attribute(attr) is not None
+        # by default, render if we don't know anything
+        return True
+
     def nameof_builtin_function_or_method(self, func):
         if func.__self__ is None:
             # builtin function
             # where does it come from? Python2.2 doesn't have func.__module__
             for modname, module in sys.modules.items():
-                if hasattr(module, '__file__'):
-                    if (module.__file__.endswith('.py') or
-                        module.__file__.endswith('.pyc') or
-                        module.__file__.endswith('.pyo')):
-                        continue    # skip non-builtin modules
+                # here we don't ignore extension modules
                 if func is getattr(module, func.__name__, None):
                     break
             else:
@@ -280,6 +288,8 @@ class GenPickle:
         type(type.__dict__['__dict__']): "type(type.__dict__['__dict__'])",
         # type 'member_descriptor':
         type(type.__dict__['__basicsize__']): "type(type.__dict__['__basicsize__'])",
+        # type 'instancemethod':
+        type(Exception().__init__): 'type(Exception().__init__)',
         }
 
     def nameof_type(self, cls):
@@ -288,6 +298,13 @@ class GenPickle:
         name = self.uniquename('gtype_%s' % cls.__name__)
         if getattr(__builtin__, cls.__name__, None) is cls:
             expr = cls.__name__    # type available from __builtin__
+        elif cls in types.__dict__.values():
+            for key, value in types.__dict__.items():
+                if value is cls:
+                    break
+            self.initcode.append('from types import %s as %s' % (
+                key, name))
+            return name
         else:
             expr = self.typename_mapping[cls]
         self.initcode_python(name, expr)
@@ -318,7 +335,7 @@ class GenPickle:
             try:
                 __import__(module)
                 mod = sys.modules[module]
-            except (ImportError, KeyError):
+            except (ImportError, KeyError, TypeError):
                 pass
             else:
                 if dic is mod.__dict__:
@@ -363,7 +380,14 @@ class GenPickle:
             base_class = None
             base = cls
         def initinstance():
-            content = instance.__dict__.items()
+            if hasattr(instance, '__setstate__'):
+                # the instance knows what to do
+                args = self.nameof(restorestate)
+                yield '%s.__setstate__(%s)' % (name, args)
+                return
+            assert type(restorestate) is dict, (
+                "%s has no dict and no __setstate__" % name)
+            content = restorestate.items()
             content.sort()
             for key, value in content:
                 if self.should_translate_attr(instance, key):
@@ -374,18 +398,23 @@ class GenPickle:
             restorer = reduced[0]
             restorename = self.save_global(restorer)
             restoreargs = reduced[1]
+            if len(reduced) > 2:
+                restorestate = reduced[2]
+            else:
+                restorestate = None
             # ignore possible dict, handled later by initinstance filtering
             # in other cases, we expect that the class knows what to pickle.
         else:
             restoreargs = (base, cls)
             restorename = '%s.__new__' % base
+            restorestate = instance.__dict__
         restoreargsname = self.nameof(restoreargs)
-        if isinstance(cls, type):
+        if isinstance(klass, type):
             self.initcode.append('%s = %s(*%s)' % (name, restorename,
                                                    restoreargsname))
         else:
             self.initcode.append('%s = new.instance(%s)' % (name, cls))
-        if hasattr(instance, '__dict__'):
+        if restorestate is not None:
             self.later(initinstance())
         return name
 
@@ -461,7 +490,7 @@ class GenPickle:
         self.initcode.append('%s = %r' % (lnostrname, lnostr))
         argobj = self.nameof(args)
         codeobj = self.uniquename('gcode_' + code.co_name)
-        self.initcode.append('%s = new.code(%s)' % (codeobj, argobj))
+        self.initcode.append('%s = new.code(*%s)' % (codeobj, argobj))
         return codeobj
 
     def nameof_file(self, fil):

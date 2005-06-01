@@ -8,7 +8,7 @@ from pypy.tool.uid import Hashable
 
 """
     memory size before and after introduction of __slots__
-    using targetpypymain
+    using targetpypymain with -no-c
 
     slottified          annotation  ann+genc
     -------------------------------------------
@@ -26,9 +26,28 @@ from pypy.tool.uid import Hashable
     Probably an effect of less fragmentation.
 """
 
+COUNTOBJECTS = False
+
 __metaclass__ = type
 
-class FunctionGraph:
+class Missing:
+    pass
+
+class Slotted:
+    __slots__ = []
+    from copy_reg import _slotnames
+    _slotnames = classmethod(_slotnames)
+    def __getstate__(self):
+        names = self._slotnames()
+        return tuple([getattr(self, name, Missing) for name in names])
+    def __setstate__(self, args):
+        names = self._slotnames()
+        [setattr(self, name, value) for name, value in zip(names, args)
+         if value is not Missing]
+        
+class FunctionGraph(Slotted):
+    __slots__ = """func source name startblock returnblock exceptblock""".split()
+    
     def __init__(self, name, startblock, return_var=None):
         self.name        = name    # function name (possibly mangled already)
         self.startblock  = startblock
@@ -69,7 +88,7 @@ class FunctionGraph:
         from pypy.translator.tool.graphpage import SingleGraphPage
         SingleGraphPage(self).display()
 
-class Link:
+class Link(Slotted):
 
     __slots__ = """args target exitcase prevblock
                 last_exception last_exc_value""".split()
@@ -110,7 +129,7 @@ class Link:
     def __repr__(self):
         return "link from %s to %s" % (str(self.prevblock), str(self.target))
 
-class Block:
+class Block(Slotted):
     __slots__ = """isstartblock inputargs operations exitswitch
                 exits exc_handler""".split()
     
@@ -180,12 +199,13 @@ class Block:
         self.exits = exits
 
 
-class Variable:
+class Variable(Slotted):
     __slots__ = ["_name", "concretetype"]
-    
+
     countall = 0
-    countmax = 0
-    countcurr = 0
+    if COUNTOBJECTS:
+        countmax = 0
+        countcurr = 0
 
     def name(self):
         name = self._name
@@ -201,13 +221,15 @@ class Variable:
     def __init__(self, name=None):
         self._name = Variable.countall
         Variable.countall += 1
-        Variable.countcurr += 1
-        Variable.countmax = max(Variable.countmax, Variable.countcurr)
+        if COUNTOBJECTS:
+            Variable.countcurr += 1
+            Variable.countmax = max(Variable.countmax, Variable.countcurr)
         if name is not None:
             self.rename(name)
 
-    def __del__(self):
-        Variable.countcurr -= 1
+    if COUNTOBJECTS:
+        def __del__(self):
+            Variable.countcurr -= 1
 
     def __repr__(self):
         return '%s' % self.name
@@ -228,18 +250,18 @@ class Variable:
         self._name = name + '_' + self.name[1:]
 
 
-class Constant(Hashable):
+class Constant(Hashable, Slotted):
     __slots__ = ["concretetype"]
 
 
-class SpaceOperation:
+class SpaceOperation(Slotted):
     __slots__ = "opname args result offset".split()
-    
-    def __init__(self, opname, args, result):
+
+    def __init__(self, opname, args, result, offset=-1):
         self.opname = opname      # operation name
         self.args   = list(args)  # mixed list of var/const
         self.result = result      # either Variable or Constant instance
-        self.offset = -1          # offset in code string, to be added later
+        self.offset = offset      # offset in code string
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and 
@@ -256,11 +278,12 @@ class SpaceOperation:
     def __repr__(self):
         return "%r = %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
 
-class Atom(object):
+class Atom:
     def __init__(self, name):
         self.name = name
     def __repr__(self):
         return self.name
+
 last_exception = Atom('last_exception')
 # if Block().exitswitch == Constant(last_exception), it means that we are
 # interested in catching the exception that the *last operation* of the
