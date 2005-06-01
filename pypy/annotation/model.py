@@ -420,7 +420,7 @@ def missing_operation(cls, name):
         else:
             flattened = args
         for arg in flattened:
-            if arg.__class__ == SomeObject and arg.knowntype == object:
+            if arg.__class__ == SomeObject and arg.knowntype != type:
                 return  SomeObject()
         bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
         bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
