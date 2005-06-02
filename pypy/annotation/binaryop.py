@@ -9,7 +9,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat
-from pypy.annotation.model import unionof, UnionError, set, missing_operation
+from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Constant
@@ -463,6 +463,8 @@ class __extend__(pairtype(SomeInstance, SomePBC)):
         if classdef is None:
             # print warning?
             return SomeObject()
+        if not getattr(TLS, 'no_side_effects_in_union', 0):
+            raise UnionError("mixing pbc and instance not supported anymore:  %s %s" % (pbc, ins))
         return SomeInstance(classdef)
 
 class __extend__(pairtype(SomePBC, SomeInstance)):
