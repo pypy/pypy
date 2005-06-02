@@ -1,4 +1,5 @@
 # functions to query information out of the translator and annotator from the debug prompt of translate_pypy
+import types
 
 import pypy.annotation.model as annmodel
 import pypy.objspace.flow.model as flowmodel
@@ -48,14 +49,37 @@ def polluted(translator):
 
 def rep(bunch):
     if len(bunch) == 1:
-        return "one", iter(bunch).next()
+        return ["one", iter(bunch).next()]
     else:
         t = dict.fromkeys([getattr(x, '__class__', type(x)) for x in bunch]).keys()
-        return "of types", t
+        return ["of type(s)"] + t
+
+def strfy(x):
+    try:
+        return x.__name__
+    except AttributeError:
+        return str(x)
 
 def pbcaccess(translator):
     bk = translator.annotator.bookkeeper
     for inf in bk.pbc_maximal_access_sets.root_info.itervalues():
         objs = inf.objects
-        print len(objs), ' '.join(map(str,rep(objs))), inf.attrs.keys()
-        
+        print len(objs), ' '.join(map(strfy,rep(objs))), inf.attrs.keys()
+
+# PBCs
+def pbcs(translator):
+    bk = translator.annotator.bookkeeper
+    xs = bk.pbccache.keys()
+    funcs = [x for x in xs if isinstance(x, types.FunctionType)]
+    staticmethods = [x for x in xs if isinstance(x, staticmethod)]
+    instancemethods = [x for x in xs if isinstance(x, types.MethodType)]
+    typs = [x for x in xs if isinstance(x, (type, types.ClassType))]
+    rest = [x for x in xs if not isinstance(x, (types.FunctionType, staticmethod, types.MethodType, type, types.ClassType))]
+    for objs in (funcs, staticmethods, instancemethods, typs, rest):
+        print len(objs), ' '.join(map(strfy,rep(objs)))
+
+# mutable captured "constants")
+def mutables(translator):
+    bk = translator.annotator.bookkeeper
+    xs = bk.seen_mutable.keys()
+    print len(xs), ' '.join(map(strfy,rep(xs)))
