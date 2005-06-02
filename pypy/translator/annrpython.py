@@ -474,7 +474,8 @@ class RPythonAnnotator:
                     cell = self.binding(a)
                     if link.exitcase is True and knownvars is not None and a in knownvars \
                             and not knownvarvalue.contains(cell):
-                        cell = knownvarvalue
+                        if cell.contains(knownvarvalue): # sanity check
+                            cell = knownvarvalue
                     if hasattr(cell,'is_type_of'):
                         renamed_is_type_of = []
                         for v in cell.is_type_of:

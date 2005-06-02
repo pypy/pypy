@@ -364,7 +364,7 @@ class TestAnnotateTestCase:
 
     def test_is_and_knowntype_data(self): 
         a = self.RPythonAnnotator()
-        s = a.build_types(snippet.is_and_knowntype, [bool])
+        s = a.build_types(snippet.is_and_knowntype, [str])
         #a.simplify()
         #a.translator.view()
         assert s == a.bookkeeper.immutablevalue(None)
