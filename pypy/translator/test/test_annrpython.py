@@ -806,6 +806,86 @@ class TestAnnotateTestCase:
 
         assert access_sets[c1] is acc1
         py.test.raises(KeyError, "access_sets[object()]")
+
+    def test_simple_pbc_call(self):
+        def f1(x,y=0):
+            pass
+        def f2(x):
+            pass
+        def f3(x):
+            pass
+        def g(f):
+            f(1)
+        def h():
+            f1(1)
+            f1(1,2)
+            g(f2)
+            g(f3)
+        
+        a = self.RPythonAnnotator()
+        s = a.build_types(h, [])
+        
+        call_families = a.getpbccallfamilies()
+        
+        ign, rep1, fam1 = call_families.find(f1)
+        ign, rep2, fam2 = call_families.find(f2)
+        ign, rep3, fam3 = call_families.find(f3)
+
+        assert rep1 is not rep2
+        assert rep1 is not rep3
+        assert rep3 is rep2
+
+        assert fam1 is not fam2
+        assert fam1 is not fam3
+        assert fam3 is fam2
+        
+        assert len(fam1.patterns) == 2
+        assert len(fam2.patterns) == 1
+
+        assert fam1.patterns == {(None, (2, (), False, False)): True, (None, (1, (), False, False)): True}
+        assert fam2.patterns == {(None, (1, (), False, False)): True}
+
+    def test_pbc_call_ins(self):
+        class A(object):
+            def m(self):
+                pass
+        class B(A):
+            def n(self):
+                pass
+        class C(A):
+            def m(self):
+                pass
+        def f(x):
+            b = B()
+            c = C()
+            b.n()
+            if x:
+                a = b
+            else:
+                a = c
+            a.m()
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        
+        call_families = a.getpbccallfamilies()
+        
+        ign, repA_m, famA_m = call_families.find(A.m.im_func)
+        ign, repC_m, famC_m = call_families.find(C.m.im_func)
+        ign, repB_n, famB_n = call_families.find(B.n.im_func)
+        
+        assert famA_m is famC_m
+        assert famB_n is not famA_m
+
+        assert len(famB_n.patterns) == 1
+        assert len(famC_m.patterns) == 2
+
+        Aclsdef = a.getuserclasses()[A]
+        Bclsdef = a.getuserclasses()[B]
+        Cclsdef = a.getuserclasses()[C]
+
+        assert famB_n.patterns == {(Bclsdef, (0, (), False, False)): True}
+        assert famA_m.patterns == {(Aclsdef, (0, (), False, False)): True, (Cclsdef, (0, (), False, False)): True}
         
     def test_isinstance_usigned(self):
         def f(x):

@@ -8,7 +8,7 @@ from types import FunctionType, ClassType, MethodType
 from types import BuiltinMethodType
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import *
-from pypy.annotation.classdef import ClassDef
+from pypy.annotation.classdef import ClassDef, isclassdef
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 from pypy.tool.sourcetools import func_with_new_name
@@ -31,6 +31,14 @@ class PBCAccessSet:
         self.read_locations.update(other.read_locations)        
         self.attrs.update(other.attrs)
 
+class PBCCallFamily:
+    def __init__(self, obj):
+        self.objects = { obj: True }
+        self.patterns = {}
+
+    def update(self, other):
+        self.objects.update(other.objects)
+        self.patterns.update(other.patterns)
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
@@ -56,6 +64,7 @@ class Bookkeeper:
         self.argtypes_spec_callsite_results = {}
 
         self.pbc_maximal_access_sets = UnionFind(PBCAccessSet)
+        self.pbc_maximal_call_families = UnionFind(PBCCallFamily)
         
         # import ordering hack
         global BUILTIN_ANALYZERS
@@ -287,6 +296,39 @@ class Bookkeeper:
                 self.annotator.reflowfromposition(position)
                 
         return unionof(*actuals)        
+
+    def pbc_call(self, pbc, args):
+        nonnullcallables = []
+        patterns = {}
+        results = []
+        # extract args shape
+        shape = args.rawshape()
+        
+        for func, classdef in pbc.prebuiltinstances.items():
+            if func is None:
+                continue
+            if isclassdef(classdef): 
+                s_self = SomeInstance(classdef)
+                args1 = args.prepend(s_self)
+                pattern = (classdef, shape)
+            else:
+                args1 = args
+                pattern = (None, shape)
+            results.append(self.pycall(func, args1))
+            
+            nonnullcallables.append(func)
+            patterns[pattern] = True
+        
+        if nonnullcallables:
+            call_families = self.pbc_maximal_call_families
+
+            dontcare, rep, callfamily = call_families.find(nonnullcallables[0])
+            for obj in nonnullcallables:
+                    dontcare, rep, callfamily = call_families.union(rep, obj)
+
+            callfamily.patterns.update(patterns)             
+
+        return unionof(*results) 
 
     def pycall(self, func, args):
         if func is None:   # consider None as a NULL function pointer
