@@ -255,21 +255,32 @@ class Bookkeeper:
 
         access_sets = self.pbc_maximal_access_sets
         objects = pbc.prebuiltinstances.keys()
-
-        change, rep, access = access_sets.find(objects[0])
+        access = None
+        first = None
+        change = False
+        
         for obj in objects:
-            change1, rep, access = access_sets.union(rep, obj)
-            change = change or change1
+            if obj is not None:
+                first = obj
+                break
 
-        access.attrs[attr] = True
-        position = self.position_key
-        access.read_locations[position] = True
+        if first is not None:
+            change, rep, access = access_sets.find(objects[0])
+            for obj in objects:
+                if obj is not None:
+                    change1, rep, access = access_sets.union(rep, obj)
+                    change = change or change1
+
+            access.attrs[attr] = True
+            position = self.position_key
+            access.read_locations[position] = True
 
         actuals = []
 
-        for c in access.objects:
-            if hasattr(c, attr):
-                actuals.append(self.immutablevalue(getattr(c, attr)))
+        if access:
+            for c in access.objects:
+                if hasattr(c, attr):
+                    actuals.append(self.immutablevalue(getattr(c, attr)))
 
         if change:
             for position in access.read_locations:
