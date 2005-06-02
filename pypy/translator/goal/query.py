@@ -124,7 +124,12 @@ def pbccall(translator):
         if len(patts) != 1:
             rest.append((len(fam.objects), fam.objects, patts.keys()))
         else:
-            cntrs = one_pattern_fams.setdefault(patts.keys()[0], [0,0])
+            kinds = dict.fromkeys([getattr(obj, '__class__', type(obj)) for obj in fam.objects]).keys()
+            kinds.sort()
+
+            flavor = tuple(kinds), patts.keys()[0]
+
+            cntrs = one_pattern_fams.setdefault(flavor, [0,0])
             cntrs[0] += 1
             cntrs[1] += len(fam.objects)
 
@@ -134,11 +139,11 @@ def pbccall(translator):
         else:
             return "%d families" % nfam
 
-    def pretty_nels(nels):
+    def pretty_nels(kinds, nels):
         if nels == 1:
-            return "one callable"
+            return "one %s" % kinds[0].__name__.title()
         else:
-            return "in total %d callables" % nels
+            return "in total %d %s" % (nels, '|'.join([kind.__name__.title()+'(s)' for kind in kinds]))
 
     def pretty_els(objs):
         accum = []
@@ -149,8 +154,8 @@ def pbccall(translator):
                 accum.append(str(obj))
         return "{%s}" % ' '.join(accum)
         
-    for patt, (nfam, nels) in one_pattern_fams.iteritems():
-        print pretty_nfam(nfam), "with", pretty_nels(nels), "with one call-pattern:",  prettypatt([patt])
+    for (kinds, patt), (nfam, nels) in one_pattern_fams.iteritems():
+        print pretty_nfam(nfam), "with", pretty_nels(kinds, nels), "with one call-pattern:",  prettypatt([patt])
 
     print "- * -"
 
