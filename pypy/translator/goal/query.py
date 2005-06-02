@@ -45,7 +45,17 @@ def polluted(translator):
             print f.__module__ or '?', f.__name__
             c += 1
     print c
-        
 
+def rep(bunch):
+    if len(bunch) == 1:
+        return "one", iter(bunch).next()
+    else:
+        t = dict.fromkeys([getattr(x, '__class__', type(x)) for x in bunch]).keys()
+        return "of types", t
 
+def pbcaccess(translator):
+    bk = translator.annotator.bookkeeper
+    for inf in bk.pbc_maximal_access_sets.root_info.itervalues():
+        objs = inf.objects
+        print len(objs), ' '.join(map(str,rep(objs))), inf.attrs.keys()
         
