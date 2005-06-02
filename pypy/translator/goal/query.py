@@ -47,24 +47,47 @@ def polluted(translator):
             c += 1
     print c
 
+class typerep(object):
+    
+    def __init__(self, x):
+        self.typ = getattr(x, '__class__', type(x))
+        self.bound = None
+        if hasattr(x, 'im_self'):
+            self.bound = x.im_self is not None
+        elif hasattr(x, '__self__'):
+            self.bound = x.__self__ is not None
+
+    def __hash__(self):
+        return hash(self.typ)
+
+    def __cmp__(self, other):
+        return cmp((self.typ.__name__, self.bound, self.typ), (other.typ.__name__, other.bound, other.typ))
+
+    def __str__(self):
+        if self.bound is None:
+            return self.typ.__name__
+        elif self.bound:
+            return 'bound-%s' % self.typ.__name__
+        else:
+            return 'unbound-%s' % self.typ.__name__
+
+def typereps(bunch):
+    t = dict.fromkeys([typerep(x) for x in bunch]).keys()
+    t.sort()
+    return t
+
 def rep(bunch):
     if len(bunch) == 1:
-        return ["one", iter(bunch).next()]
+        parts = ["one", iter(bunch).next()]
     else:
-        t = dict.fromkeys([getattr(x, '__class__', type(x)) for x in bunch]).keys()
-        return ["of type(s)"] + t
-
-def strfy(x):
-    try:
-        return x.__name__
-    except AttributeError:
-        return str(x)
+        parts = ["of type(s)"] + typereps(bunch)
+    return ' '.join(map(str, parts))
 
 def pbcaccess(translator):
     annotator = translator.annotator
     for inf in annotator.getpbcaccesssets().root_info.itervalues():
         objs = inf.objects
-        print len(objs), ' '.join(map(strfy,rep(objs))), inf.attrs.keys()
+        print len(objs), rep(objs), inf.attrs.keys()
 
 # PBCs
 def pbcs(translator):
@@ -72,17 +95,18 @@ def pbcs(translator):
     xs = bk.pbccache.keys()
     funcs = [x for x in xs if isinstance(x, types.FunctionType)]
     staticmethods = [x for x in xs if isinstance(x, staticmethod)]
-    instancemethods = [x for x in xs if isinstance(x, types.MethodType)]
+    binstancemethods = [x for x in xs if isinstance(x, types.MethodType) and x.im_self]
+    ubinstancemethods = [x for x in xs if isinstance(x, types.MethodType) and not x.im_self]
     typs = [x for x in xs if isinstance(x, (type, types.ClassType))]
     rest = [x for x in xs if not isinstance(x, (types.FunctionType, staticmethod, types.MethodType, type, types.ClassType))]
-    for objs in (funcs, staticmethods, instancemethods, typs, rest):
-        print len(objs), ' '.join(map(strfy,rep(objs)))
+    for objs in (funcs, staticmethods, binstancemethods, ubinstancemethods, typs, rest):
+        print len(objs), rep(objs)
 
 # mutable captured "constants")
 def mutables(translator):
     bk = translator.annotator.bookkeeper
     xs = bk.seen_mutable.keys()
-    print len(xs), ' '.join(map(strfy,rep(xs)))
+    print len(xs), rep(xs)
 
 def prettypatt(patts):
     accum = []
@@ -105,7 +129,7 @@ def prettypatt(patts):
            arg.append('**')
         accum.append("(%s)" % ', '.join(arg))
     if wslf and woslf:
-        accum.append("!!!")
+        accum.append("!with and without self")
     return ' '.join(accum)
         
 
@@ -124,8 +148,7 @@ def pbccall(translator):
         if len(patts) != 1:
             rest.append((len(fam.objects), fam.objects, patts.keys()))
         else:
-            kinds = dict.fromkeys([getattr(obj, '__class__', type(obj)) for obj in fam.objects]).keys()
-            kinds.sort()
+            kinds = typereps(fam.objects)
 
             flavor = tuple(kinds), patts.keys()[0]
 
@@ -141,9 +164,9 @@ def pbccall(translator):
 
     def pretty_nels(kinds, nels):
         if nels == 1:
-            return "one %s" % kinds[0].__name__.title()
+            return "one %s" % str(kinds[0]).title()
         else:
-            return "in total %d %s" % (nels, '|'.join([kind.__name__.title()+'(s)' for kind in kinds]))
+            return "in total %d %s" % (nels, '|'.join([str(kind).title()+'(s)' for kind in kinds]))
 
     def pretty_els(objs):
         accum = []
@@ -153,13 +176,17 @@ def pbccall(translator):
             else:
                 accum.append(str(obj))
         return "{%s}" % ' '.join(accum)
-        
-    for (kinds, patt), (nfam, nels) in one_pattern_fams.iteritems():
+
+    items = one_pattern_fams.items()
+
+    items.sort(lambda a,b: cmp((a[0][1],a[1][1]), (b[0][1],b[1][1])))
+
+    for (kinds, patt), (nfam, nels) in items:
         print pretty_nfam(nfam), "with", pretty_nels(kinds, nels), "with one call-pattern:",  prettypatt([patt])
 
     print "- * -"
 
-    rest.sort(lambda a,b: cmp(a[0], b[0]))
+    rest.sort(lambda a,b: cmp((a[0],a[2]), (b[0],b[2])))
 
     for n, objs, patts in rest:
         print "family of", pretty_els(objs), "with call-patterns:", prettypatt(patts)
