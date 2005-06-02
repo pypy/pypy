@@ -263,12 +263,14 @@ class SomePBC(SomeObject):
         if self.isNone():
             self.knowntype = type(None)
         else:
-            self.knowntype = reduce(commonbase,
-                                    [new_or_old_class(x)
-                                     for x in prebuiltinstances
-                                     if x is not None])
-            if self.knowntype == type(Exception):
-                self.knowntype = type
+            knowntype = reduce(commonbase,
+                               [new_or_old_class(x)
+                                for x in prebuiltinstances
+                                if x is not None])
+            if knowntype == type(Exception):
+                knowntype = type
+            if knowntype != object:
+                self.knowntype = knowntype
         if prebuiltinstances.values() == [True]:
             # hack for the convenience of direct callers to SomePBC():
             # only if there is a single object in prebuiltinstances and

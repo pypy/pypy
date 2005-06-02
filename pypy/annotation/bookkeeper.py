@@ -240,12 +240,13 @@ class Bookkeeper:
         elif t is dict:
             return SomeDict(MOST_GENERAL_DICTDEF)
         # can't do tuple
-        elif t.__module__ != '__builtin__':
+        elif t.__module__ != '__builtin__' and t not in self.pbctypes:
             classdef = self.getclassdef(t)
             return SomeInstance(classdef)
         else:
             o = SomeObject()
-            o.knowntype = t
+            if t != object:
+                o.knowntype = t
             return o
 
     def pbc_getattr(self, pbc, s_attr):
