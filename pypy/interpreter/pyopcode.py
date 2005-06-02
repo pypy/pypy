@@ -692,7 +692,10 @@ class PyInterpFrame(pyframe.PyFrame):
             raise pyframe.BytecodeCorruption            
         fn(f, oparg)
 
-    def MISSING_OPCODE(f, oparg=-1):
+    def MISSING_OPCODE(f):
+        raise pyframe.BytecodeCorruption, "unknown opcode"
+
+    def MISSING_OPCODE_W_ARG(f, oparg):
         raise pyframe.BytecodeCorruption, "unknown opcode"
 
     ### dispatch_table ###
@@ -710,9 +713,10 @@ class PyInterpFrame(pyframe.PyFrame):
         dispatch_table_no_arg = []
         dispatch_table_w_arg = []
         missing_opcode = cls.MISSING_OPCODE
+        missing_opcode_w_arg = cls.MISSING_OPCODE_W_ARG
         for i in range(256):
             opname = dis.opname[i].replace('+', '_')
-            fn = getattr(cls, opname, missing_opcode)
+            fn = getattr(cls, opname, None)
             fn = getattr(fn, 'im_func',fn)
             has_arg = i >= dis.HAVE_ARGUMENT
             #if fn is missing_opcode and not opname.startswith('<') and i>0:
@@ -720,9 +724,11 @@ class PyInterpFrame(pyframe.PyFrame):
             #    warnings.warn("* Warning, missing opcode %s" % opname)
             opcode_has_arg.append(has_arg)
             if has_arg:
+                fn = fn or missing_opcode_w_arg
                 dispatch_table_w_arg.append(fn)
                 dispatch_table_no_arg.append(None)
             else:
+                fn = fn or missing_opcode
                 dispatch_table_no_arg.append(fn)
                 dispatch_table_w_arg.append(None)
 
