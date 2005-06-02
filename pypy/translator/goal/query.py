@@ -61,8 +61,8 @@ def strfy(x):
         return str(x)
 
 def pbcaccess(translator):
-    bk = translator.annotator.bookkeeper
-    for inf in bk.pbc_maximal_access_sets.root_info.itervalues():
+    annotator = translator.annotator
+    for inf in annotator.getpbcaccesssets().root_info.itervalues():
         objs = inf.objects
         print len(objs), ' '.join(map(strfy,rep(objs))), inf.attrs.keys()
 
