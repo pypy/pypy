@@ -222,17 +222,22 @@ class Arguments:
 
     ### Argument <-> list of w_objects together with "shape" information
 
-    def flatten(self):
+    def rawshape(self):
         shape_cnt  = len(self.arguments_w)        # Number of positional args
         shape_keys = self.kwds_w.keys()           # List of keywords (strings)
         shape_star = self.w_stararg is not None   # Flag: presence of *arg
         shape_stst = self.w_starstararg is not None # Flag: presence of **kwds
+        shape_keys.sort()
+        return shape_cnt, tuple(shape_keys), shape_star, shape_stst # shape_keys are sorted
+
+    def flatten(self):
+        shape_cnt, shape_keys, shape_star, shape_stst = self.rawshape()
         data_w = self.arguments_w + [self.kwds_w[key] for key in shape_keys]
         if shape_star:
             data_w.append(self.w_stararg)
         if shape_stst:
             data_w.append(self.w_starstararg)
-        return (shape_cnt, tuple(shape_keys), shape_star, shape_stst), data_w
+        return (shape_cnt, shape_keys, shape_star, shape_stst), data_w
 
     def fromshape(space, (shape_cnt,shape_keys,shape_star,shape_stst), data_w):
         args_w = data_w[:shape_cnt]
@@ -253,8 +258,6 @@ class Arguments:
             w_starstar = None
         return Arguments(space, args_w, kwds_w, w_star, w_starstar)
     fromshape = staticmethod(fromshape)
-    # XXX the "shape" tuple should be considered as a black box from
-    #     other code, but translator/genc.h examines it.
 
 
 #
