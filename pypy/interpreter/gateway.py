@@ -261,9 +261,6 @@ class BuiltinFrame(eval.Frame):
         """Subclasses with behavior specific for an unwrap spec are generated"""
         raise TypeError, "abstract"
 
-class FuncBox(object):
-    pass
-
 class BuiltinCodeSignature(Signature):
     "NOT_RPYTHON"
 
@@ -279,9 +276,9 @@ class BuiltinCodeSignature(Signature):
     def _make_unwrap_frame_class(self, cache={}):
         try:
             key = tuple(self.unwrap_spec)
-            frame_cls, box_cls,  run_args = cache[key]
+            frame_cls, run_args = cache[key]
             assert run_args == self.run_args,"unexpected: same spec, different run_args"
-            return frame_cls, box_cls
+            return frame_cls
         except KeyError:
             parts = []          
             for el in self.unwrap_spec:
@@ -309,22 +306,19 @@ class BuiltinCodeSignature(Signature):
             self.miniglobals['OperationError'] = OperationError
             source = """if 1: 
                 def _run_UWS_%s(self):
-                    return self.box.func(%s)
+                    return self.behavior(%s)
                 \n""" % (label, ','.join(self.run_args))
             exec compile2(source) in self.miniglobals, d
             d['_run'] = d['_run_UWS_%s' % label]
             del d['_run_UWS_%s' % label]
             frame_cls = type("BuiltinFrame_UWS_%s" % label, (BuiltinFrame,), d)
-            box_cls = type("FuncBox_UWS_%s" % label, (FuncBox,), {})
-            cache[key] = frame_cls, box_cls, self.run_args
-            return frame_cls, box_cls
+            cache[key] = frame_cls, self.run_args
+            return frame_cls
 
     def make_frame_class(self, func, cache={}):
-        frame_uw_cls, box_cls = self._make_unwrap_frame_class()
-        box = box_cls()
-        box.func = func
+        frame_uw_cls = self._make_unwrap_frame_class()
         return type("BuiltinFrame_for_%s" % self.name,
-                    (frame_uw_cls,),{'box': box})
+                    (frame_uw_cls,),{'behavior': staticmethod(func)})
         
 def make_builtin_frame_class(func, orig_sig, unwrap_spec):
     "NOT_RPYTHON"
@@ -402,7 +396,6 @@ class BuiltinCode(eval.Code):
 
     def getdocstring(self):
         return self.docstring
-
 
 class interp2app(Wrappable):
     """Build a gateway that calls 'f' at interp-level."""
