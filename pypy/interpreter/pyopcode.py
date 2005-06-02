@@ -712,8 +712,8 @@ class PyInterpFrame(pyframe.PyFrame):
         opcode_has_arg = []
         dispatch_table_no_arg = []
         dispatch_table_w_arg = []
-        missing_opcode = cls.MISSING_OPCODE
-        missing_opcode_w_arg = cls.MISSING_OPCODE_W_ARG
+        missing_opcode = cls.MISSING_OPCODE.im_func
+        missing_opcode_w_arg = cls.MISSING_OPCODE_W_ARG.im_func
         for i in range(256):
             opname = dis.opname[i].replace('+', '_')
             fn = getattr(cls, opname, None)
