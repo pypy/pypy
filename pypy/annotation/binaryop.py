@@ -494,6 +494,12 @@ class __extend__(pairtype(SomePBC, SomeString    )):
     def union((pbc, s)):
         return pair(s, pbc).union()
 
+# getitem on SomePBCs, in particular None fails
+
+class __extend__(pairtype(SomePBC, SomeObject)):
+    def getitem((pbc, o)):
+        return SomeImpossibleValue()
+
 # annotation of low-level types
 from pypy.annotation.model import SomePtr, ll_to_annotation
 
