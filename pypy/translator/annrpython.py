@@ -120,6 +120,10 @@ class RPythonAnnotator:
     def getpbcaccesssets(self):
         """Return mapping const obj -> PBCAccessSet"""
         return self.bookkeeper.pbc_maximal_access_sets
+    
+    def getpbccallfamilies(self):
+        """Return mapping const obj -> PBCCallFamily"""
+        return self.bookkeeper.pbc_maximal_call_families
 
     #___ medium-level interface ____________________________
 
