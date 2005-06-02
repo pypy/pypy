@@ -1011,17 +1011,17 @@ def PyUnicode_EncodeRawUnicodeEscape(s,size):
         if (ord(ch) >= 0x10000):
             p += '\\'
             p += 'U'
-            p += hex(ord(ch))
+            p += '%08x'%(ord(ch))
         elif (ord(ch) >= 256) :
 #	/* Map 16-bit characters to '\uxxxx' */
             p += '\\'
             p += 'u'
-            p += hex(ord(ch))
+            p += '%04x'%(ord(ch))
 #	/* Copy everything else as-is */
         else:
             p += chr(ord(ch))
     
-    p += '\\0'
+    #p += '\0'
     return p
 
 def charmapencode_output(c,mapping):
@@ -1126,25 +1126,26 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size,errors):
     p = []
     while (pos < len(s)):
         ch = s[pos]
-	#/* Non-escape characters are interpreted as Unicode ordinals */
+    #/* Non-escape characters are interpreted as Unicode ordinals */
         if (ch != '\\'):
-            p += ch
+            p += unichr(ord(ch))
             pos += 1
             continue        
         startinpos = pos
-        pos += 1
+        #pos += 1
 ##	/* \u-escapes are only interpreted iff the number of leading
 ##	   backslashes is odd */
         bs = pos
         while pos < size:
             if (s[pos] != '\\'):
                 break;
-            p += s[pos]
+            p += unichr(ord(s[pos]))
             pos += 1
     
         if (((pos - bs) & 1) == 0 or
             pos >= size or
             (s[pos] != 'u' and s[pos] != 'U')) :
+            p += s[pos]
             pos += 1
             continue
         
@@ -1156,9 +1157,9 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size,errors):
         pos += 1
 
 	#/* \uXXXX with 4 hex digits, \Uxxxxxxxx with 8 */
-    	
-    	i = 0
-    	x = 0
+
+        i = 0
+        x = 0
         try:
             x = int(s[pos:pos+count],16)
         except ValueError:
@@ -1189,5 +1190,5 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size,errors):
                 else:
                     p += unichr(x)
                     pos += count
-	
+
     return p
