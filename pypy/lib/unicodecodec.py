@@ -54,22 +54,6 @@ def register_error(errors, handler):
     else:
         raise TypeError("handler must be callable")
     
-    
-def PyUnicode_Check(op):
-    return type(op) == unicode
-def PyUnicode_CheckExact(op):
-    return (type(op) == unicode)
-
-
-def PyUnicode_GET_SIZE(op):
-        return len(unicode(op))
-def PyUnicode_GET_DATA_SIZE(op):
-        return len(unicode(op)) * len(u' ')
-def PyUnicode_AS_UNICODE(op):
-        unicode(op)
-def PyUnicode_AS_DATA(op):
-        buffer(unicode(op)) #XXX This is a read only buffer
-
 def SPECIAL(c, encodeO, encodeWS):
     c = ord(c)
     return (c>127 or utf7_special[c] == 1) or \
@@ -220,7 +204,7 @@ def PyUnicode_EncodeUTF7(s, size, encodeSetO, encodeWhiteSpace, errors):
                 out += p
                 inShift = bitsleft > 0
             else:
-                out += ch
+                out += chr(ord(ch))
         else:
             if (not SPECIAL(ch, encodeSetO, encodeWhiteSpace)):
                 out += B64((charsleft) << (6-bitsleft))
@@ -231,7 +215,7 @@ def PyUnicode_EncodeUTF7(s, size, encodeSetO, encodeWhiteSpace, errors):
                 if (B64CHAR(ch) or ch == '-'):
                     out += '-'
                 inShift = False
-                out += ch
+                out += chr(ord(ch))
             else:
                 bitsleft += 16
                 charsleft = (((charsleft) << 16) | ord(ch))
@@ -264,46 +248,8 @@ def PyUnicode_EncodeUTF7(s, size, encodeSetO, encodeWhiteSpace, errors):
 
     return out
 
-def PyUnicode_FromOrdinal(ordinal):
-    
-    if (ordinal < 0 or ordinal > 0x10ffff):
-        raise ValueError, "unichr() arg not in range(0x110000) (wide Python build)"
-	
-##    if (ordinal < 0 or ordinal > 0xffff):
-##        raise ValueError, "unichr() arg not in range(0x1000) (narrow Python build)"
-	
-    s = unichr(ordinal)
-    return s,1
-
-def PyUnicode_FromObject(obj):
-
-##    /* XXX Perhaps we should make this API an alias of
-##           PyObject_Unicode() instead ?! */
-    if (PyUnicode_CheckExact(obj)):
-        return obj
-    
-    if (PyUnicode_Check(obj)):
-##	/* For a Unicode subtype that's not a Unicode object,
-##	   return a true Unicode object with the same data. */
-        return PyUnicode_FromUnicode(PyUnicode_AS_UNICODE(obj),PyUnicode_GET_SIZE(obj))
-    return PyUnicode_FromEncodedObject(obj, None, "strict")
-
 unicode_empty=u''
 
-def PyUnicode_FromUnicode(u, size):
-
-##    /* If the Unicode data is known at construction time, we can apply
-##       some optimizations which share commonly used objects. */
-    if (u):
-
-##	/* Optimization for empty strings */
-    	if (size == 0 and unicode_empty != None) :
-    	    return unicode_empty
-    
-    ##	/* Single character Unicode objects in the Latin-1 range are
-    ##	   shared when using this constructor */
-        return unicode(u)
-    
 def PyUnicode_Decode(s,size,encoding,errors):
 
     if (encoding == None):
@@ -316,15 +262,9 @@ def PyUnicode_Decode(s,size,encoding,errors):
 ##    /* Decode via the codec registry */
     buf = buffer(s)
     result = PyCodec_Decode(buf, encoding, errors);
-    if (not PyUnicode_Check(result)):
+    if (not isinstance(result,unicode)):
         raise UnicodeDecodeError, "decoder did not return an unicode object (type=%.400s)"%type(result)
     return result
-
-def PyUnicode_FromEncodedObject(obj, encoding,errors):
-    
-    s = str(obj)
-    v = PyUnicode_Decode(s, len(s), encoding, errors)
-    return v
 
 def unicodeescape_string(s, size, quotes):
 
@@ -342,6 +282,7 @@ def unicodeescape_string(s, size, quotes):
         if (quotes and (ch == p[1] or ch == '\\')):
             p += '\\'
             p += ch
+            pos += 1
             continue
 
 #ifdef Py_UNICODE_WIDE
@@ -350,6 +291,7 @@ def unicodeescape_string(s, size, quotes):
             p += '\\'
             p += 'U'
             p += '%08x'%ord(ch)
+            pos += 1
             continue        
 #endif
 	#/* Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes */
@@ -395,7 +337,7 @@ def unicodeescape_string(s, size, quotes):
         #/* Copy everything else as-is */
         else:
             p += ch
-            
+        pos += 1
     if (quotes):
         p += p[1]
     return p
@@ -430,8 +372,8 @@ def PyUnicode_EncodeASCII(p,size,errors):
 def PyUnicode_AsASCIIString(unistr):
 
     if not type(unistr) == unicode:
-        raise BadArgumnentError
-    return PyUnicode_EncodeASCII(PyUnicode_AS_UNICODE(unistr),
+        raise TypeError
+    return PyUnicode_EncodeASCII(unicode(unistr),
 				 len(unicode),
 				None)
 
@@ -462,20 +404,20 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
         if (size >= 2):
             bom = (ord(s[ihi]) << 8) | ord(s[ilo])
 #ifdef BYTEORDER_IS_LITTLE_ENDIAN
-        if sys.byteorder == 'little':
-    	    if (bom == 0xFEFF): 
-                q += 2
-                bo = -1
-    	    elif bom == 0xFFFE:
-                q += 2
-                bo = 1
-        else:
-    	    if bom == 0xFEFF:
-                q += 2
-                bo = 1
-    	    elif bom == 0xFFFE:
-                q += 2
-                bo = -1
+            if sys.byteorder == 'little':
+        	    if (bom == 0xFEFF):
+        	        q += 2
+        	        bo = -1
+        	    elif bom == 0xFFFE:
+        	        q += 2
+        	        bo = 1
+            else:
+        	    if bom == 0xFEFF:
+        	        q += 2
+        	        bo = 1
+        	    elif bom == 0xFFFE:
+        	        q += 2
+        	        bo = -1
     elif byteorder == 'little':
         bo = -1
     else:
@@ -1050,7 +992,7 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
                     message = "\\ at end of string"
                     handler = lookup_error(errors)
                     x = handler(UnicodeDecodeError("unicodeescape",s,pos,
-                                pos+digits,message))
+                                size,message))
                     p += x[0]
                     pos = x[1]
                 else:
@@ -1061,7 +1003,7 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
 def PyUnicode_EncodeRawUnicodeEscape(s,size):
     
     if (size == 0):
-        return u''
+        return ''
 
     p = []
     for ch in s:
@@ -1077,9 +1019,9 @@ def PyUnicode_EncodeRawUnicodeEscape(s,size):
             p += hex(ord(ch))
 #	/* Copy everything else as-is */
         else:
-            p += ch
+            p += chr(ord(ch))
     
-    p += '\0'
+    p += '\\0'
     return p
 
 def charmapencode_output(c,mapping):
@@ -1187,9 +1129,10 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size,errors):
 	#/* Non-escape characters are interpreted as Unicode ordinals */
         if (ch != '\\'):
             p += ch
-                    
+            pos += 1
+            continue        
         startinpos = pos
-
+        pos += 1
 ##	/* \u-escapes are only interpreted iff the number of leading
 ##	   backslashes is odd */
         bs = pos
