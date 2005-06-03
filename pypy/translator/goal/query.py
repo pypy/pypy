@@ -43,7 +43,7 @@ def polluted(translator):
         try:
             flowmodel.traverse(visit, g)
         except Found:
-            print f.__module__ or '?', f.__name__
+            print prettycallable((None, f))
             c += 1
     print c
 
@@ -65,18 +65,90 @@ class typerep(object):
 
     def __str__(self):
         if self.bound is None:
-            return self.typ.__name__
+            s = self.typ.__name__
         elif self.bound:
-            return 'bound-%s' % self.typ.__name__
+            s = 'bound-%s' % self.typ.__name__
         else:
-            return 'unbound-%s' % self.typ.__name__
+            s = 'unbound-%s' % self.typ.__name__
+
+        if self.typ.__module__ == '__builtin__':
+            s = "*%s*" % s
+
+        return s
 
 def typereps(bunch):
     t = dict.fromkeys([typerep(x) for x in bunch]).keys()
     t.sort()
     return t
 
-def rep(bunch):
+def roots(classes):
+    # find independent hierarchy roots in classes,
+    # preserve None if it's part of classes
+    work = list(classes)
+    res = []
+
+    notbound = False
+    
+    while None in work:
+        work.remove(None)
+        notbound = True
+
+    if len(work) == 1:
+        return notbound, classes[0]
+
+    while work:
+        cand = work.pop()
+        for cls in work:
+            if issubclass(cls, cand):
+                continue
+            if issubclass(cand, cls):
+                cand = cls
+                continue
+        res.append(cand)
+        work = [cls for cls in work if not issubclass(cls, cand)]
+
+
+    for x in res:
+        for y in res:
+            if x != y:
+                assert not issubclass(x, y), "%s %s %s" % (classes, x,y)
+                assert not issubclass(y, x), "%s %s %s" % (classes, x,y)
+
+    return notbound, tuple(res)
+            
+def callablereps(bunch):
+    callables = [func for clsdef, func in bunch]
+    classes = [clsdef and clsdef.cls for clsdef, func in bunch]
+    return roots(classes), tuple(typereps(callables))
+
+def prettycallable((cls, obj)):
+    if cls is None or cls == (True, ()):
+        cls = None
+    else:
+        notbound = False
+        if isinstance(cls, tuple) and isinstance(cls[0], bool):
+            notbound, cls = cls
+        if isinstance(cls, tuple):
+            cls = "[%s]" % '|'.join([x.__name__ for x in cls])
+        else:
+            cls = cls.__name__
+        if notbound:
+            cls = "_|%s" % cls
+
+    if isinstance(obj, types.FunctionType):
+        obj = "(%s)%s" % (getattr(obj, '__module__', None) or '?', getattr(obj, '__name__', None) or 'UNKNOWN')
+    elif isinstance(obj, tuple):
+        obj = "[%s]" % '|'.join([str(x) for x in obj])
+    else:
+        obj = str(obj)
+
+    if cls is None:
+        return str(obj)
+    else:
+        return "%s::%s" % (cls, obj)
+
+
+def prettybunch(bunch):
     if len(bunch) == 1:
         parts = ["one", iter(bunch).next()]
     else:
@@ -87,7 +159,7 @@ def pbcaccess(translator):
     annotator = translator.annotator
     for inf in annotator.getpbcaccesssets().root_info.itervalues():
         objs = inf.objects
-        print len(objs), rep(objs), inf.attrs.keys()
+        print len(objs), prettybunch(objs), inf.attrs.keys()
 
 # PBCs
 def pbcs(translator):
@@ -100,26 +172,19 @@ def pbcs(translator):
     typs = [x for x in xs if isinstance(x, (type, types.ClassType))]
     rest = [x for x in xs if not isinstance(x, (types.FunctionType, staticmethod, types.MethodType, type, types.ClassType))]
     for objs in (funcs, staticmethods, binstancemethods, ubinstancemethods, typs, rest):
-        print len(objs), rep(objs)
+        print len(objs), prettybunch(objs)
 
 # mutable captured "constants")
 def mutables(translator):
     bk = translator.annotator.bookkeeper
     xs = bk.seen_mutable.keys()
-    print len(xs), rep(xs)
+    print len(xs), prettybunch(xs)
 
 def prettypatt(patts):
     accum = []
-    wslf = False
-    woslf = False
     patts.sort()
-    for slf, (sh_cnt, sh_ks, sh_st, sh_stst)  in patts:
+    for (sh_cnt, sh_ks, sh_st, sh_stst)  in patts:
         arg = []
-        if slf is None:
-            woslf = True
-        else:
-            wslf = True
-            arg.append(slf)
         arg.append("+%d" % sh_cnt)
         for kw in sh_ks:
             arg.append("%s=" % kw)
@@ -128,8 +193,6 @@ def prettypatt(patts):
         if sh_stst:
            arg.append('**')
         accum.append("(%s)" % ', '.join(arg))
-    if wslf and woslf:
-        accum.append("!with and without self")
     return ' '.join(accum)
         
 
@@ -138,20 +201,15 @@ def pbccall(translator):
     one_pattern_fams = {}
     rest = []
     for fam in fams:
-        patts = {}
-        for clsdef, sh in fam.patterns:
-            if clsdef is None:
-                slf = None
-            else:
-                slf = 'self'
-            patts[(slf, sh)] = True
-        if len(patts) != 1:
-            rest.append((len(fam.objects), fam.objects, patts.keys()))
+        shapes = fam.patterns
+
+        if len(shapes) != 1:
+            rest.append((len(fam.objects), fam.objects, shapes.keys()))
         else:
-            kinds = typereps(fam.objects)
+            kinds = callablereps(fam.objects)
 
-            flavor = tuple(kinds), patts.keys()[0]
-
+            flavor = tuple(kinds), shapes.keys()[0]
+                
             cntrs = one_pattern_fams.setdefault(flavor, [0,0])
             cntrs[0] += 1
             cntrs[1] += len(fam.objects)
@@ -164,22 +222,20 @@ def pbccall(translator):
 
     def pretty_nels(kinds, nels):
         if nels == 1:
-            return "one %s" % str(kinds[0]).title()
+            return "one %s" % prettycallable(kinds)
         else:
-            return "in total %d %s" % (nels, '|'.join([str(kind).title()+'(s)' for kind in kinds]))
+            return "in total %d %s" % (nels, prettycallable(kinds))
 
     def pretty_els(objs):
         accum = []
-        for obj in objs:
-            if isinstance(obj, types.FunctionType):
-                accum.append("%s:%s" % (obj.__module__ or '?',  obj.__name__))
-            else:
-                accum.append(str(obj))
+        for classdef, obj in objs:
+            cls = classdef and classdef.cls
+            accum.append(prettycallable((cls, obj)))
         return "{%s}" % ' '.join(accum)
 
     items = one_pattern_fams.items()
 
-    items.sort(lambda a,b: cmp((a[0][1],a[1][1]), (b[0][1],b[1][1])))
+    items.sort(lambda a,b: cmp((a[0][1],a[1][1]), (b[0][1],b[1][1]))) # sort by pattern and then by els
 
     for (kinds, patt), (nfam, nels) in items:
         print pretty_nfam(nfam), "with", pretty_nels(kinds, nels), "with one call-pattern:",  prettypatt([patt])
@@ -190,6 +246,11 @@ def pbccall(translator):
 
     for n, objs, patts in rest:
         print "family of", pretty_els(objs), "with call-patterns:", prettypatt(patts)
-        
-        
-    
+
+# debug helper
+def tryout(f, *args):
+    try:
+        f(*args)
+    except:
+        import traceback
+        traceback.print_exc()

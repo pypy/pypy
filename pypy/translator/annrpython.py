@@ -120,9 +120,17 @@ class RPythonAnnotator:
     def getpbcaccesssets(self):
         """Return mapping const obj -> PBCAccessSet"""
         return self.bookkeeper.pbc_maximal_access_sets
+
+    def getpbccallables(self):
+        """Return mapping callable -> {(ClassDef|None, callable'): True...},
+        callable' == callable unless callable' is an unbound method then callable is callable'.im_func.
+
+        The tuples are indices in getpbcfamilies returned mapping
+        """
+        return self.bookkeeper.pbc_callables
     
     def getpbccallfamilies(self):
-        """Return mapping const obj -> PBCCallFamily"""
+        """Return mapping (ClassDef|None, callable) -> PBCCallFamily"""
         return self.bookkeeper.pbc_maximal_call_families
 
     #___ medium-level interface ____________________________

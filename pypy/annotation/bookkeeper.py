@@ -65,6 +65,7 @@ class Bookkeeper:
 
         self.pbc_maximal_access_sets = UnionFind(PBCAccessSet)
         self.pbc_maximal_call_families = UnionFind(PBCCallFamily)
+        self.pbc_callables = {}
         
         # import ordering hack
         global BUILTIN_ANALYZERS
@@ -297,6 +298,15 @@ class Bookkeeper:
                 
         return unionof(*actuals)        
 
+    def mark_callable(self, callable):
+        classdef, func = callable
+        
+        if hasattr(func, 'im_func') and func.im_self is None:
+            # consider unbound methods and the undelying functions as the same
+            func = func.im_func
+
+        self.pbc_callables.setdefault(func,{})[callable] = True
+
     def pbc_call(self, pbc, args):
         nonnullcallables = []
         patterns = {}
@@ -310,14 +320,15 @@ class Bookkeeper:
             if isclassdef(classdef): 
                 s_self = SomeInstance(classdef)
                 args1 = args.prepend(s_self)
-                pattern = (classdef, shape)
             else:
+                classdef = None
                 args1 = args
-                pattern = (None, shape)
             results.append(self.pycall(func, args1))
-            
-            nonnullcallables.append(func)
-            patterns[pattern] = True
+
+            callable = (classdef, func)
+            self.mark_callable(callable)
+            nonnullcallables.append(callable)
+            patterns[shape] = True
         
         if nonnullcallables:
             call_families = self.pbc_maximal_call_families

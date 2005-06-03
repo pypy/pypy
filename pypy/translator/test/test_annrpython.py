@@ -824,12 +824,18 @@ class TestAnnotateTestCase:
         
         a = self.RPythonAnnotator()
         s = a.build_types(h, [])
-        
+
+        callables = a.getpbccallables()
         call_families = a.getpbccallfamilies()
+
+        fc = lambda x: {(None, x): True}
+
+        assert len(callables) == 4
+        assert callables == {g: fc(g), f1: fc(f1), f2: fc(f2), f3: fc(f3)}
         
-        ign, rep1, fam1 = call_families.find(f1)
-        ign, rep2, fam2 = call_families.find(f2)
-        ign, rep3, fam3 = call_families.find(f3)
+        ign, rep1, fam1 = call_families.find((None, f1))
+        ign, rep2, fam2 = call_families.find((None, f2))
+        ign, rep3, fam3 = call_families.find((None, f3))
 
         assert rep1 is not rep2
         assert rep1 is not rep3
@@ -842,8 +848,8 @@ class TestAnnotateTestCase:
         assert len(fam1.patterns) == 2
         assert len(fam2.patterns) == 1
 
-        assert fam1.patterns == {(None, (2, (), False, False)): True, (None, (1, (), False, False)): True}
-        assert fam2.patterns == {(None, (1, (), False, False)): True}
+        assert fam1.patterns == {(2, (), False, False): True, (1, (), False, False): True}
+        assert fam2.patterns == {(1, (), False, False): True}
 
     def test_pbc_call_ins(self):
         class A(object):
@@ -867,25 +873,33 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         s = a.build_types(f, [bool])
-        
+
+        callables = a.getpbccallables()        
         call_families = a.getpbccallfamilies()
+
+        clsdef = lambda cls: a.getuserclasses()[cls]
+
+        fc = lambda x: {(None, x): True}
+        mc = lambda x: {(clsdef(x.im_class), x.im_func): True}
+
+        assert len(callables) == 5
+        assert callables == { B: fc(B), C: fc(C),
+                             A.m.im_func: mc(A.m),
+                             C.m.im_func: mc(C.m),
+                             B.n.im_func: mc(B.n) }
         
-        ign, repA_m, famA_m = call_families.find(A.m.im_func)
-        ign, repC_m, famC_m = call_families.find(C.m.im_func)
-        ign, repB_n, famB_n = call_families.find(B.n.im_func)
+        ign, repA_m, famA_m = call_families.find((clsdef(A), A.m.im_func))
+        ign, repC_m, famC_m = call_families.find((clsdef(C), C.m.im_func))
+        ign, repB_n, famB_n = call_families.find((clsdef(B), B.n.im_func))
         
         assert famA_m is famC_m
         assert famB_n is not famA_m
 
         assert len(famB_n.patterns) == 1
-        assert len(famC_m.patterns) == 2
+        assert len(famC_m.patterns) == 1
 
-        Aclsdef = a.getuserclasses()[A]
-        Bclsdef = a.getuserclasses()[B]
-        Cclsdef = a.getuserclasses()[C]
-
-        assert famB_n.patterns == {(Bclsdef, (0, (), False, False)): True}
-        assert famA_m.patterns == {(Aclsdef, (0, (), False, False)): True, (Cclsdef, (0, (), False, False)): True}
+        assert famB_n.patterns == {(0, (), False, False): True }
+        assert famA_m.patterns == {(0, (), False, False): True }
         
     def test_isinstance_usigned(self):
         def f(x):
