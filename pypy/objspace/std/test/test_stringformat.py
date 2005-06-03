@@ -31,6 +31,14 @@ class AppTestStringObjectWithDict:
         d = {'i': 23}
         raises(KeyError, 'a%(x)sb'.__mod__, d) 
 
+    def test_format_error(self):
+        assert '' % {} == ''
+        raises(TypeError, "'' % 5")
+        class MyMapping(object):
+            def __getitem__(self, key):
+                py.test.fail('should not be here')
+        assert '' % MyMapping() == ''
+
 class AppTestStringObject:
 
     def test_format_item(self):

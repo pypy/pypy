@@ -1015,7 +1015,10 @@ app2 = gateway.applevel('''
         if isinstance(values, tuple):
             return _formatting.format(format, values, None)
         else:
-            if hasattr(values, 'keys'):
+            # CPython's logic for deciding if  ""%values  is
+            # an error (1 value, 0 %-formatters) or not
+            # (values is of a mapping type)
+            if hasattr(values, '__getitem__') and not isinstance(values, str):
                 return _formatting.format(format, (values,), values)
             else:
                 return _formatting.format(format, (values,), None)
