@@ -274,7 +274,7 @@ run all tests below the current directory.
 Finally, there are the CPython regression tests which you can 
 run like this::
 
-    cd lib-python-2.3.4/test 
+    cd lib-python/2.3.4/test 
     python ../../pypy/test_all.py -E
 
 or if you have `installed py.test`_ then you simply say::
