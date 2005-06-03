@@ -159,7 +159,7 @@ def raw_unicode_escape_decode( data,errors='strict'):
     """None
     """
     res = PyUnicode_DecodeRawUnicodeEscape(data, len(data), errors)
-    res = ''.join(res)
+    res = u''.join(res)
     return res,len(res)
 
 def utf_7_decode( data,errors='strict'):
@@ -212,13 +212,39 @@ def charmap_encode(obj,errors='strict',mapping='latin-1'):
     res = ''.join(res)
     return res, len(res)
 
+unicode_bytes = (len(hex(sys.maxunicode))-1)/2
+
 def unicode_internal_encode( obj,errors='strict'):
     """None
     """
     if type(obj) == unicode:
-        return obj, len(obj)
+        p = []
+        t = [ord(x) for x in obj]
+        for i in t:
+            for j in xrange(unicode_bytes):
+                p += chr(i%256)
+                i >>= 8
+        res = ''.join(p)
+        return res, len(res)
     else:
         return ''.join(PyUnicode_FromUnicode(obj,size),size)
+
+def unicode_internal_decode( unistr,errors='strict'):
+    """None
+    """
+    if type(unistr) == unicode:
+        return unistr,len(unistr)
+    else:
+        p=[]
+        i=0
+        while i < len(unistr)-unicode_bytes+1:
+            t = 0
+            for j in range(unicode_bytes):
+                t += ord(unistr[i+j])<<(j*8)
+            i += j+1
+            p += unichr(t)
+        res = u''.join(p)
+        return res, len(res)
 
 def utf_16_ex_decode( data,errors='strict'):
     """None
@@ -305,14 +331,6 @@ def utf_16_be_encode( obj,errors='strict'):
     res = PyUnicode_EncodeUTF16(obj,len(obj),errors,'big')
     res = ''.join(res)
     return res, len(res)
-
-def unicode_internal_decode( unistr,errors='strict'):
-    """None
-    """
-    if type(unistr) == unicode:
-        return unistr,len(unistr)
-    else:
-        return unicode(unistr),len(unistr)
 
 def utf_16_le_decode( data,errors='strict'):
     """None
