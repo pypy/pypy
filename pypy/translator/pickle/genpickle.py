@@ -75,6 +75,10 @@ class GenPickle:
             self.picklenames[key] = name
             return name
 
+    def nameofargs(self, tup):
+        """ a string with the nameofs, concatenated """
+        return ', '.join([self.nameof(arg) for arg in tup])
+
     def uniquename(self, basename):
         return self.namespace.uniquename(basename)
 
@@ -322,9 +326,11 @@ class GenPickle:
     def nameof_list(self, lis):
         name = self.uniquename('g%dlist' % len(lis))
         def initlist():
-            for i in range(len(lis)):
-                item = self.nameof(lis[i])
-                yield '%s.append(%s)' % (name, item)
+            extname = self.nameof(extendlist)
+            for i in range(0, len(lis), 5):
+                items = lis[i:i+5]
+                itemstr = self.nameofargs(items)
+                yield '%s(%s, %s)' % (extname, name, itemstr)
         self.initcode_python(name, '[]')
         self.later(initlist())
         return name
@@ -382,8 +388,14 @@ class GenPickle:
         def initinstance():
             if hasattr(instance, '__setstate__'):
                 # the instance knows what to do
-                args = self.nameof(restorestate)
-                yield '%s.__setstate__(%s)' % (name, args)
+                if type(restorestate) is tuple:
+                    # be a little shorter
+                    setstatename = self.nameof(setstate)
+                    argstr = self.nameofargs(restorestate)
+                    yield '%s(%s, %s)' % (setstatename, name, argstr)
+                else:
+                    args = self.nameof(restorestate)
+                    yield '%s.__setstate__(%s)' % (name, args)
                 return
             assert type(restorestate) is dict, (
                 "%s has no dict and no __setstate__" % name)
@@ -396,7 +408,7 @@ class GenPickle:
         if hasattr(instance, '__reduce_ex__'):
             reduced = instance.__reduce_ex__()
             restorer = reduced[0]
-            restorename = self.save_global(restorer)
+            restorename = self.nameof(restorer)
             restoreargs = reduced[1]
             if len(reduced) > 2:
                 restorestate = reduced[2]
@@ -408,10 +420,10 @@ class GenPickle:
             restoreargs = (base, cls)
             restorename = '%s.__new__' % base
             restorestate = instance.__dict__
-        restoreargsname = self.nameof(restoreargs)
+        restoreargstr = self.nameofargs(restoreargs)
         if isinstance(klass, type):
-            self.initcode.append('%s = %s(*%s)' % (name, restorename,
-                                                   restoreargsname))
+            self.initcode.append('%s = %s(%s)' % (name, restorename,
+                                                   restoreargstr))
         else:
             self.initcode.append('%s = new.instance(%s)' % (name, cls))
         if restorestate is not None:
@@ -460,19 +472,27 @@ class GenPickle:
             if (func.func_doc and
                 func.func_doc.lstrip().startswith('NOT_RPYTHON')):
                 return self.skipped_function(func)
+        try:
+            return self.save_global(func)
+        except PicklingError:
+            pass
         args = (func.func_code, func.func_globals, func.func_name,
                 func.func_defaults, func.func_closure)
         pyfuncobj = self.uniquename('gfunc_' + func.__name__)
-        self.initcode.append('%s = new.function(*%s)' % (pyfuncobj,
-                            self.nameof(args)) )
+        self.initcode.append('%s = new.function(%s)' % (pyfuncobj,
+                             self.nameofargs(args)) )
+        if func.__dict__:
+            self.initcode.append('%s.__dict__.update(%s)' % (
+                pyfuncobj, self.nameof(func.__dict__)) )
         return pyfuncobj
 
     def nameof_cell(self, cel):
         obj = break_cell(cel)
         pycell = self.uniquename('gcell_' + self.nameof(obj))
         self.initcode.append('%s = %s(%s)' % (pycell, self.nameof(make_cell),
-                                              self.nameof(obj))
-            
+                                              self.nameof(obj)) )
+        return pycell
+
     def nameof_code(self, code):
         args = (code.co_argcount, code.co_nlocals, code.co_stacksize,
                 code.co_flags, code.co_code, code.co_consts, code.co_names,
@@ -492,9 +512,9 @@ class GenPickle:
         lnostrname = self.uniquename('glnotab_' + code.co_name)
         self.picklenames[Constant(lnostr)] = lnostrname
         self.initcode.append('%s = %r' % (lnostrname, lnostr))
-        argobj = self.nameof(args)
+        argstr = self.nameofargs(args)
         codeobj = self.uniquename('gcode_' + code.co_name)
-        self.initcode.append('%s = new.code(*%s)' % (codeobj, argobj))
+        self.initcode.append('%s = new.code(%s)' % (codeobj, argstr))
         return codeobj
 
     def nameof_file(self, fil):
@@ -543,3 +563,11 @@ def break_cell(cel):
             func.func_defaults, (cel,))
     func = new.function(*args)
     return func()
+
+# save creation of many tuples
+
+def setstate(obj, *args):
+    obj.__setstate__(args)
+
+def extendlist(obj, *args):
+    obj.extend(args)
