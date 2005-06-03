@@ -141,6 +141,8 @@ def prettycallable((cls, obj)):
         obj = "[%s]" % '|'.join([str(x) for x in obj])
     else:
         obj = str(obj)
+        if obj.startswith('<'):
+            obj = obj[1:-1]
 
     if cls is None:
         return str(obj)
@@ -220,8 +222,8 @@ def pbccall(translator):
         else:
             return "%d families" % nfam
 
-    def pretty_nels(kinds, nels):
-        if nels == 1:
+    def pretty_nels(kinds, nels, nfam):
+        if nels == 1 or nels == nfam:
             return "one %s" % prettycallable(kinds)
         else:
             return "in total %d %s" % (nels, prettycallable(kinds))
@@ -231,14 +233,18 @@ def pbccall(translator):
         for classdef, obj in objs:
             cls = classdef and classdef.cls
             accum.append(prettycallable((cls, obj)))
-        return "{%s}" % ' '.join(accum)
+        els = ' '.join(accum)
+        if len(accum) == 1:
+            return els
+        else:
+            return "{%s}" % els
 
     items = one_pattern_fams.items()
 
     items.sort(lambda a,b: cmp((a[0][1],a[1][1]), (b[0][1],b[1][1]))) # sort by pattern and then by els
 
     for (kinds, patt), (nfam, nels) in items:
-        print pretty_nfam(nfam), "with", pretty_nels(kinds, nels), "with one call-pattern:",  prettypatt([patt])
+        print pretty_nfam(nfam), "with", pretty_nels(kinds, nels, nfam), "with one call-pattern:",  prettypatt([patt])
 
     print "- * -"
 
