@@ -156,6 +156,9 @@ class GraphDisplay(Display):
 
     def initialize_keys(self):
         pygame.key.set_repeat(*self.KEY_REPEAT)
+        
+        mask = 0
+
         for strnames, methodname in self.KEYS.iteritems():
             names = strnames.split()
             if not isinstance(methodname, basestring):
@@ -190,11 +193,15 @@ class GraphDisplay(Display):
                 if isinstance(key, int):
                     for mod in permute_mods(basemod, mods):
                         self.key_cache[(key, mod)] = (method, args)
+                        mask |= mod
                 else:
                     for mod in permute_mods(basemod, mods):
                         char = key.lower()
                         mod = mod & ~KMOD_SHIFT
                         self.ascii_key_cache[(char, mod)] = (method, args)
+                        mask |= mod
+            
+        self.key_mask = mask
 
     def help(self):
         """Show a help window and wait for a key or a mouse press."""
@@ -610,10 +617,11 @@ class GraphDisplay(Display):
         self.notifymousepos(event.pos)
 
     def process_KeyDown(self, event):
-        method, args = self.key_cache.get((event.key, event.mod), (None, None))
+        mod = event.mod & self.key_mask
+        method, args = self.key_cache.get((event.key, mod), (None, None))
         if method is None and event.unicode:
             char = event.unicode.lower()
-            mod = event.mod & ~ KMOD_SHIFT
+            mod = mod & ~ KMOD_SHIFT
             method, args = self.ascii_key_cache.get((char, mod), (None, None))
         if method is not None:
             method(*args)
