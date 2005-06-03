@@ -349,19 +349,17 @@ def annotation_to_lltype(s_val, info=None):
 
 ll_to_annotation_map = dict([(ll, ann) for ann,ll in annotation_to_ll_map])
 
-def ll_to_annotation(v):
-       if v is None:
-            raise ValueError, "cannot retrieve Void low-level type value"
-       typ = lltype.typeOf(v)
-       s = ll_to_annotation_map.get(typ)
-       if s is None:
-           return SomePtr(typ)
-       else:
-           return s
-
 def lltype_to_annotation(T):
-    return ll_to_annotation(T._example())
+    s = ll_to_annotation_map.get(T)
+    if s is None:
+        return SomePtr(T)
+    else:
+        return s
 
+def ll_to_annotation(v):
+    if v is None:
+        raise ValueError, "cannot retrieve Void low-level type value"
+    return lltype_to_annotation(lltype.typeOf(v))
 
 # ____________________________________________________________
 
