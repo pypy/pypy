@@ -383,7 +383,18 @@ def tracking_unionof(ctxt, *somevalues):
         s1.origin = ctxt+(0,)
     return s1
         
-    
+# make knowntypedata dictionary
+
+def add_knowntypedata(ktd, truth, vars, s_obj):
+    for v in vars:
+        ktd[(truth, v)] = s_obj
+
+def merge_knowntypedata(ktd1, ktd2):
+    r = {}
+    for truth_v in ktd1:
+        if truth_v in ktd2:
+            r[truth_v] = unionof(ktd1[truth_v], ktd2[truth_v])
+    return r
 
 # ____________________________________________________________
 # internal

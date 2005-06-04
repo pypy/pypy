@@ -10,6 +10,7 @@ from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.model import annotation_to_lltype
+from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Constant
 import pypy.rpython.rarithmetic
@@ -134,7 +135,8 @@ def builtin_isinstance(s_obj, s_type, variables=None):
             variables = [op.args[1]]
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
-        r.knowntypedata = (variables, bk.valueoftype(typ))
+        r.knowntypedata = {}
+        add_knowntypedata(r.knowntypedata, True, variables, bk.valueoftype(typ))
     return r
 
 def builtin_hasattr(s_obj, s_attr):

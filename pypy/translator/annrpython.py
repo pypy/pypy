@@ -409,8 +409,11 @@ class RPythonAnnotator:
                 if s_exitswitch.is_constant():
                     exits = [link for link in exits
                                   if link.exitcase == s_exitswitch.const]
-        knownvars, knownvarvalue = getattr(self.bindings.get(block.exitswitch),
-                                          "knowntypedata", (None, None))
+
+        # mapping (exitcase, variable) -> s_annotation
+        # that can be attached to booleans, exitswitches
+        knowntypedata = getattr(self.bindings.get(block.exitswitch),
+                                "knowntypedata", {})
 
         # filter out those exceptions which cannot
         # occour for this specific, typed operation.
@@ -485,10 +488,12 @@ class RPythonAnnotator:
                     last_exc_value_vars.append(v)
                 else:
                     cell = self.binding(a)
-                    if link.exitcase is True and knownvars is not None and a in knownvars \
-                            and not knownvarvalue.contains(cell):
-                        if cell.contains(knownvarvalue): # sanity check
+                    if (link.exitcase, a) in knowntypedata:
+                        knownvarvalue = knowntypedata[(link.exitcase, a)]
+                        if not knownvarvalue.contains(cell) and \
+                           cell.contains(knownvarvalue): # sanity check
                             cell = knownvarvalue
+
                     if hasattr(cell,'is_type_of'):
                         renamed_is_type_of = []
                         for v in cell.is_type_of:

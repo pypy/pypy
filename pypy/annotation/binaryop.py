@@ -10,6 +10,7 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
+from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Constant
@@ -135,9 +136,6 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             return SomeInteger()
 
     def is_((obj1, obj2)):
-        # XXX assumption: for "X is Y" we for simplification 
-        #     assume that X is possibly variable and Y constant 
-        #     (and not the other way round) 
         r = SomeBool()
         if obj2.is_constant():
             if obj1.is_constant(): 
@@ -152,16 +150,23 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         # XXX HACK HACK HACK
         bk = getbookkeeper()
         if bk is not None: # for testing
-            if hasattr(obj1,'is_type_of') and obj2.is_constant():
-                r.knowntypedata = (obj1.is_type_of, bk.valueoftype(obj2.const))
-                return r
-            fn, block, i = bk.position_key
-            annotator = bk.annotator
-            op = block.operations[i]
-            assert op.opname == "is_" 
-            assert len(op.args) == 2
-            assert annotator.binding(op.args[0]) == obj1 
-            r.knowntypedata = ([op.args[0]], obj2)
+            knowntypedata = r.knowntypedata = {}
+            def bind(src_obj, tgt_obj, tgt_arg):
+                if hasattr(tgt_obj, 'is_type_of') and src_obj.is_constant():
+                    add_knowntypedata(knowntypedata, True, tgt_obj.is_type_of, 
+                                      bk.valueoftype(src_obj.const))
+
+                fn, block, i = bk.position_key
+                annotator = bk.annotator
+                op = block.operations[i]
+                assert op.opname == "is_" 
+                assert len(op.args) == 2                
+                assert annotator.binding(op.args[tgt_arg]) == tgt_obj
+                add_knowntypedata(knowntypedata, True, [op.args[tgt_arg]], src_obj)
+
+            bind(obj2, obj1, 0)
+            bind(obj1, obj2, 1)
+                
         return r
 
     def divmod((obj1, obj2)):
@@ -229,11 +234,10 @@ class __extend__(pairtype(SomeBool, SomeBool)):
         if getattr(boo1, 'const', -1) == getattr(boo2, 'const', -2): 
             s.const = boo1.const 
         if hasattr(boo1, 'knowntypedata') and \
-           hasattr(boo2, 'knowntypedata') and \
-           boo1.knowntypedata[0] == boo2.knowntypedata[0]: 
-            s.knowntypedata = (
-                boo1.knowntypedata[0], 
-                unionof(boo1.knowntypedata[1], boo2.knowntypedata[1]))
+           hasattr(boo2, 'knowntypedata'):
+            ktd = merge_knowntypedata(boo1.knowntypedata, boo2.knowntypedata)
+            if ktd:
+                s.knowntypedata = ktd
         return s 
 
 class __extend__(pairtype(SomeString, SomeString)):
