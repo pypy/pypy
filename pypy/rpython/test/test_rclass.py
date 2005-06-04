@@ -33,3 +33,20 @@ def test_instanceattr():
     typer.specialize()
     #t.view()
     t.checkgraphs()
+
+
+class Random:
+    xyzzy = 12
+    yadda = 21
+
+def test_classattr():
+    def dummyfn():
+        x = Random()
+        return x.xyzzy
+
+    t = Translator(dummyfn)
+    t.annotate([])
+    typer = RPythonTyper(t.annotator)
+    typer.specialize()
+    #t.view()
+    t.checkgraphs()

@@ -63,16 +63,27 @@ class ClassRepr(Repr):
 
     def __init__(self, rtyper, classdef):
         self.classdef = classdef
+        self.clsfields = {}
         if classdef is None:
             # 'object' root type
             self.vtable_type = OBJECT_VTABLE
             self.typeptr = nullptr(OBJECT_VTABLE)
         else:
+            # instance attributes
+            llfields = []
+            attrs = classdef.attrs.items()
+            attrs.sort()
+            for name, attrdef in attrs:
+                if attrdef.readonly:
+                    r = rtyper.getrepr(attrdef.s_value)
+                    mangled_name = name + '_C'
+                    self.clsfields[name] = mangled_name, r
+                    llfields.append((mangled_name, r.lowleveltype))
+            #
             self.rbase = getclassrepr(rtyper, classdef.basedef)
             self.vtable_type = Struct('%s_vtable' % classdef.cls.__name__,
                                       ('super', self.rbase.vtable_type),
-                                      # XXX class attributes
-                                      )
+                                      *llfields)
         self.lowleveltype = NonGcPtr(self.vtable_type)
         self.vtable = None
 
@@ -102,6 +113,55 @@ class ClassRepr(Repr):
             # then initialize the 'super' portion of the vtable
             self.rbase.setup_vtable(vtable.super, rsubcls)
 
+    def fromparentpart(self, v_vtableptr, llops):
+        """Return the vtable pointer cast from the parent vtable's type
+        to self's vtable type."""
+        ctype = inputconst(Void, self.lowleveltype)
+        return llops.genop('cast_parent', [ctype, v_vtableptr],
+                           resulttype=self.lowleveltype)
+
+    def fromtypeptr(self, vcls, llops):
+        """Return the type pointer cast to self's vtable type."""
+        if self.classdef is None:
+            return vcls
+        else:
+            v_vtableptr = self.rbase.fromtypeptr(vcls, llops)
+            return self.fromparentpart(v_vtableptr, llops)
+
+    def getclsfieldrepr(self, attr):
+        """Return the repr used for the given attribute."""
+        if attr in self.clsfields:
+            mangled_name, r = self.clsfields[attr]
+            return r
+        else:
+            if self.classdef is None:
+                raise MissingRTypeAttribute(attr)
+            return self.rbase.getfieldrepr(attr)
+
+    def getclsfield(self, vcls, attr, llops):
+        """Read the given attribute of 'vcls'."""
+        if attr in self.clsfields:
+            mangled_name, r = self.clsfields[attr]
+            v_vtable = self.fromtypeptr(vcls, llops)
+            cname = inputconst(Void, mangled_name)
+            return llops.genop('getfield', [v_vtable, cname], resulttype=r)
+        else:
+            if self.classdef is None:
+                raise MissingRTypeAttribute(attr)
+            return self.rbase.getclsfield(vcls, attr, llops)
+
+    def setclsfield(self, vcls, attr, vvalue, llops):
+        """Write the given attribute of 'vcls'."""
+        if attr in self.clsfields:
+            mangled_name, r = self.clsfields[attr]
+            v_vtable = self.fromtypeptr(vcls, llops)
+            cname = inputconst(Void, mangled_name)
+            llops.genop('setfield', [v_vtable, cname, vvalue])
+        else:
+            if self.classdef is None:
+                raise MissingRTypeAttribute(attr)
+            self.rbase.setclsfield(vcls, attr, vvalue, llops)
+
 
 root_class_repr = ClassRepr(None, None)
 type_repr = root_class_repr
@@ -120,49 +180,44 @@ class InstanceRepr(Repr):
         self.classdef = classdef
         self.rclass = getclassrepr(rtyper, classdef)
         self.fields = {}
+        self.allinstancefields = {}
         if self.classdef is None:
             self.fields['__class__'] = 'typeptr', TYPEPTR
             self.object_type = OBJECT
         else:
-            # instance attributes  (XXX remove class attributes from here)
+            # instance attributes
             llfields = []
             attrs = classdef.attrs.items()
             attrs.sort()
             for name, attrdef in attrs:
-                r = rtyper.getrepr(attrdef.s_value)
-                mangled_name = name + '_'
-                self.fields[name] = mangled_name, r
-                llfields.append((mangled_name, r.lowleveltype))
+                if not attrdef.readonly:
+                    r = rtyper.getrepr(attrdef.s_value)
+                    mangled_name = name + '_'
+                    self.fields[name] = mangled_name, r
+                    llfields.append((mangled_name, r.lowleveltype))
             #
             self.rbase = getinstancerepr(rtyper, classdef.basedef)
             self.object_type = GcStruct(classdef.cls.__name__,
                                         ('super', self.rbase.object_type),
                                         *llfields)
+            self.allinstancefields.update(self.rbase.allinstancefields)
         self.lowleveltype = GcPtr(self.object_type)
+        self.allinstancefields.update(self.fields)
 
     def parentpart(self, vinst, llops):
         """Return the pointer 'vinst' cast to the parent type."""
-        try:
-            supercache = llops.__super_cache
-        except AttributeError:
-            supercache = llops.__super_cache = {}
-        #
-        if vinst not in supercache:
-            cname = inputconst(Void, 'super')
-            supercache[vinst] = llops.genop('getsubstruct', [vinst, cname],
-                                            resulttype=self.rbase.lowleveltype)
-        return supercache[vinst]
+        cname = inputconst(Void, 'super')
+        return llops.genop('getsubstruct', [vinst, cname],
+                           resulttype=self.rbase.lowleveltype)
 
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
-        if self.classdef is None:
-            if attr == '__class__':
-                return TYPEPTR
-            raise MissingRTypeAttribute(attr)
-        elif attr in self.fields:
+        if attr in self.fields:
             mangled_name, r = self.fields[attr]
             return r
         else:
+            if self.classdef is None:
+                raise MissingRTypeAttribute(attr)
             return self.rbase.getfieldrepr(attr)
 
     def getfield(self, vinst, attr, llops):
@@ -206,7 +261,11 @@ class InstanceRepr(Repr):
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
         vinst, vattr = hop.inputargs(self, Void)
-        return self.getfield(vinst, attr, hop.llops)
+        if attr in self.allinstancefields:
+            return self.getfield(vinst, attr, hop.llops)
+        else:
+            vcls = self.getfield(vinst, '__class__', hop.llops)
+            return self.rclass.getclsfield(vcls, attr, hop.llops)
 
     def rtype_setattr(self, hop):
         attr = hop.args_s[1].const
