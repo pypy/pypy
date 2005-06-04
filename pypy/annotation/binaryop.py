@@ -437,6 +437,7 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                         classdef = classdef.commonbase(d[x])
                         for cand in classdef.getmro():
                             if x in cand.cls.__dict__.values():
+                                classdef = cand
                                 break
                         else:
                             raise UnionError(
