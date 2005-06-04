@@ -37,35 +37,38 @@ OBJECT_VTABLE.become(Struct('object_vtable', ('parenttypeptr', TYPEPTR)))
 OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
 
 
-def getclassrepr(classdef):
+def getclassrepr(rtyper, classdef):
     if classdef is None:
         return root_class_repr
     try:
-        return classdef._rtype_classrepr_
-    except AttributeError:
-        classdef._rtype_classrepr_ = result = ClassRepr(classdef)
-        return result
+        result = rtyper.class_reprs[classdef]
+    except KeyError:
+        result = rtyper.class_reprs[classdef] = ClassRepr(rtyper, classdef)
+    return result
 
-def getinstancerepr(classdef):
+def getinstancerepr(rtyper, classdef):
     if classdef is None:
         return root_instance_repr
     try:
-        return classdef._rtype_instancerepr_
-    except AttributeError:
-        classdef._rtype_instancerepr_ = result = InstanceRepr(classdef)
-        return result
+        result = rtyper.instance_reprs[classdef]
+    except KeyError:
+        result = rtyper.instance_reprs[classdef] = InstanceRepr(rtyper,classdef)
+    return result
+
+class MissingRTypeAttribute(TyperError):
+    pass
 
 
 class ClassRepr(Repr):
 
-    def __init__(self, classdef):
+    def __init__(self, rtyper, classdef):
         self.classdef = classdef
         if classdef is None:
             # 'object' root type
             self.vtable_type = OBJECT_VTABLE
             self.typeptr = nullptr(OBJECT_VTABLE)
         else:
-            self.rbase = getclassrepr(classdef.basedef)
+            self.rbase = getclassrepr(rtyper, classdef.basedef)
             self.vtable_type = Struct('%s_vtable' % classdef.cls.__name__,
                                       ('super', self.rbase.vtable_type),
                                       # XXX class attributes
@@ -78,7 +81,7 @@ class ClassRepr(Repr):
         if self.vtable is None:
             self.vtable = malloc(self.vtable_type, immortal=True)
             if self.classdef is not None:
-                self.setup_vtable(self.vtable, self.classdef)
+                self.setup_vtable(self.vtable, self)
         #
         vtable = self.vtable
         if cast_to_typeptr:
@@ -88,20 +91,19 @@ class ClassRepr(Repr):
                 vtable = cast_flags(r.lowleveltype, vtable.super)
         return vtable
 
-    def setup_vtable(self, vtable, subclsdef):
+    def setup_vtable(self, vtable, rsubcls):
         """Initialize the 'self' portion of the 'vtable' belonging to the
-        'subclsdef'."""
+        given subclass."""
         if self.classdef is None:
             # initialize the 'parenttypeptr' field
-            rbase = getclassrepr(subclsdef.basedef)
-            vtable.parenttypeptr = rbase.getvtable()
+            vtable.parenttypeptr = rsubcls.rbase.getvtable()
         else:
             # XXX setup class attributes
             # then initialize the 'super' portion of the vtable
-            self.rbase.setup_vtable(vtable.super, subclsdef)
+            self.rbase.setup_vtable(vtable.super, rsubcls)
 
 
-root_class_repr = ClassRepr(None)
+root_class_repr = ClassRepr(None, None)
 type_repr = root_class_repr
 
 # ____________________________________________________________
@@ -109,22 +111,33 @@ type_repr = root_class_repr
 
 class __extend__(annmodel.SomeInstance):
     def rtyper_makerepr(self, rtyper):
-        return getinstancerepr(self.classdef)
+        return getinstancerepr(rtyper, self.classdef)
 
 
 class InstanceRepr(Repr):
 
-    def __init__(self, classdef):
+    def __init__(self, rtyper, classdef):
         self.classdef = classdef
-        self.rclass = getclassrepr(classdef)
+        self.rclass = getclassrepr(rtyper, classdef)
+        self.fields = {}
         if self.classdef is None:
+            self.fields['__class__'] = 'typeptr', TYPEPTR
             self.object_type = OBJECT
         else:
-            self.rbase = getinstancerepr(classdef.basedef)
+            # instance attributes  (XXX remove class attributes from here)
+            llfields = []
+            attrs = classdef.attrs.items()
+            attrs.sort()
+            for name, attrdef in attrs:
+                r = rtyper.getrepr(attrdef.s_value)
+                mangled_name = name + '_'
+                self.fields[name] = mangled_name, r
+                llfields.append((mangled_name, r.lowleveltype))
+            #
+            self.rbase = getinstancerepr(rtyper, classdef.basedef)
             self.object_type = GcStruct(classdef.cls.__name__,
                                         ('super', self.rbase.object_type),
-                                        # XXX instance attributes
-                                        )
+                                        *llfields)
         self.lowleveltype = GcPtr(self.object_type)
 
     def parentpart(self, vinst, llops):
@@ -140,29 +153,41 @@ class InstanceRepr(Repr):
                                             resulttype=self.rbase.lowleveltype)
         return supercache[vinst]
 
+    def getfieldrepr(self, attr):
+        """Return the repr used for the given attribute."""
+        if self.classdef is None:
+            if attr == '__class__':
+                return TYPEPTR
+            raise MissingRTypeAttribute(attr)
+        elif attr in self.fields:
+            mangled_name, r = self.fields[attr]
+            return r
+        else:
+            return self.rbase.getfieldrepr(attr)
+
     def getfield(self, vinst, attr, llops):
         """Read the given attribute (or __class__ for the type) of 'vinst'."""
-        if self.classdef is None:
-            if attr != '__class__':
-                raise TyperError("attribute error: %s" % attr)
-            cname = inputconst(Void, 'typeptr')
-            return llops.genop('getfield', [vinst, cname], resulttype=TYPEPTR)
+        if attr in self.fields:
+            mangled_name, r = self.fields[attr]
+            cname = inputconst(Void, mangled_name)
+            return llops.genop('getfield', [vinst, cname], resulttype=r)
         else:
-            # XXX instance attributes
+            if self.classdef is None:
+                raise MissingRTypeAttribute(attr)
             vsuper = self.parentpart(vinst, llops)
             return self.rbase.getfield(vsuper, attr, llops)
 
     def setfield(self, vinst, attr, vvalue, llops):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
-        if self.classdef is None:
-            if attr != '__class__':
-                raise TyperError("attribute error: %s" % attr)
-            cname = inputconst(Void, 'typeptr')
+        if attr in self.fields:
+            mangled_name, r = self.fields[attr]
+            cname = inputconst(Void, mangled_name)
             llops.genop('setfield', [vinst, cname, vvalue])
         else:
-            # XXX instance attributes
+            if self.classdef is None:
+                raise MissingRTypeAttribute(attr)
             vsuper = self.parentpart(vinst, llops)
-            self.rbase.getfield(vsuper, attr, llops)
+            self.rbase.setfield(vsuper, attr, vvalue, llops)
 
     def new_instance(self, llops):
         """Build a new instance, without calling __init__."""
@@ -178,12 +203,23 @@ class InstanceRepr(Repr):
         vinst, = hop.inputargs(self)
         return self.getfield(vinst, '__class__', hop.llops)
 
+    def rtype_getattr(self, hop):
+        attr = hop.args_s[1].const
+        vinst, vattr = hop.inputargs(self, Void)
+        return self.getfield(vinst, attr, hop.llops)
 
-root_instance_repr = InstanceRepr(None)
+    def rtype_setattr(self, hop):
+        attr = hop.args_s[1].const
+        r_value = self.getfieldrepr(attr)
+        vinst, vattr, vvalue = hop.inputargs(self, Void, r_value)
+        self.setfield(vinst, attr, vvalue, hop.llops)
+
+
+root_instance_repr = InstanceRepr(None, None)
 
 # ____________________________________________________________
 
 def rtype_new_instance(cls, hop):
     classdef = hop.rtyper.annotator.getuserclasses()[cls]
-    rinstance = getinstancerepr(classdef)
+    rinstance = getinstancerepr(hop.rtyper, classdef)
     return rinstance.new_instance(hop.llops)

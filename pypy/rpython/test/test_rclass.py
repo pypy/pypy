@@ -19,3 +19,17 @@ def test_simple():
     typer.specialize()
     #t.view()
     t.checkgraphs()
+
+def test_instanceattr():
+    def dummyfn():
+        x = EmptyBase()
+        x.a = 5
+        x.a += 1
+        return x.a
+
+    t = Translator(dummyfn)
+    t.annotate([])
+    typer = RPythonTyper(t.annotator)
+    typer.specialize()
+    #t.view()
+    t.checkgraphs()

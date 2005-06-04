@@ -61,6 +61,10 @@ class __extend__(annmodel.SomeIterator):
         r_container = rtyper.getrepr(self.s_container)
         return r_container.make_iterator_repr()
 
+class __extend__(annmodel.SomeImpossibleValue):
+    def rtyper_makerepr(self, rtyper):
+        return impossible_repr
+
 # ____________________________________________________________
 
 class TyperError(Exception):
@@ -110,6 +114,10 @@ class StringRepr(Repr):
 
 class CharRepr(StringRepr):
     lowleveltype = Char
+
+class VoidRepr(Repr):
+    lowleveltype = Void
+impossible_repr = VoidRepr()
 
 # ____________________________________________________________
 
