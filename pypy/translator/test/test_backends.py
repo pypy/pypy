@@ -2,7 +2,7 @@
 Test conditions that all backends should do correct.
 '''
 
-import autopath, os, sys
+import autopath, os, sys, py
 from pypy.translator.translator import Translator
 from pypy.rpython.rtyper import *
 from pypy.rpython.rarithmetic import *
@@ -13,6 +13,8 @@ backends = 'source c cl llvm pyrex'.split()
 functions = 'forty_two'.split() #XXX add more functions here when RPythonTyper can handle them
 
 regenerate_code = '''def test_regenerate_%(function)s_%(backend)s():
+    if %(backend)r == "c":
+        py.test.skip("the old genc back-end is on the way out")
     t = Translator(%(function)s)
     t.simplify()
     a = t.annotate([])
