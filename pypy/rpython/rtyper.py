@@ -3,31 +3,69 @@ from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation
-from pypy.rpython.lltype import Void, LowLevelType, NonGcPtr, ContainerType
+from pypy.rpython.lltype import Signed, Unsigned, Float, Char, Bool, Void
+from pypy.rpython.lltype import LowLevelType, NonGcPtr, ContainerType
 from pypy.rpython.lltype import FuncType, functionptr, typeOf
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
+from pypy.rpython.rmodel import Repr, inputconst, TyperError
 
+
+debug = False
+crash_on_first_typeerror = False
 
 # XXX copied from pypy.translator.typer and modified.
 #     We'll remove pypy.translator.typer at some point.
 #     It also borrows a bit from pypy.translator.annrpython.
 
-class TyperError(Exception):
-    def __str__(self):
-        result = Exception.__str__(self)
-        if hasattr(self, 'where'):
-            result += '\n.. %r\n.. %r' % self.where
-        return result
-
-
 class RPythonTyper:
 
     def __init__(self, annotator):
         self.annotator = annotator
+        self.reprs_by_id = {}
+        self.reprs_by_content = {}
         self.specialized_ll_functions = {}
         self.rclassdefs = {}
         self.typererror = None
+        # make the primitive_to_repr constant mapping
+        self.primitive_to_repr = {}
+        for s_primitive, lltype in annmodel.annotation_to_ll_map:
+            r = self.getrepr(s_primitive)
+            self.primitive_to_repr[r.lowleveltype] = r
+
+    def getrepr(self, s_obj):
+        # s_objs are not hashable... try hard to find a hash anyway
+        try:
+            result, s_obj = self.reprs_by_id[id(s_obj)]
+        except KeyError:
+            key = [s_obj.__class__]
+            items = s_obj.__dict__.items()
+            items.sort()
+            for name, value in items:
+                key.append(name)
+                key.append(Constant(value))
+            key = tuple(key)
+            try:
+                result = self.reprs_by_content[key]
+            except KeyError:
+                # here is the code that actually builds a Repr instance
+                result = s_obj.rtyper_makerepr(self)
+                assert not isinstance(result.lowleveltype, ContainerType), (
+                    "missing a GcPtr or NonGcPtr in the type specification "
+                    "of %s:\n%r" % (s_obj, result.lowleveltype))
+                self.reprs_by_content[key] = result
+                result.setup()
+            self.reprs_by_id[id(s_obj)] = result, s_obj
+        return result
+
+    def binding(self, var):
+        s_obj = self.annotator.binding(var, True)
+        if s_obj is None:
+            s_obj = annmodel.SomeObject()
+        return s_obj
+
+    def bindingrepr(self, var):
+        return self.getrepr(self.binding(var))
 
     def specialize(self):
         """Main entry point: specialize all annotated blocks of the program."""
@@ -49,9 +87,7 @@ class RPythonTyper:
 
     def setconcretetype(self, v):
         assert isinstance(v, Variable)
-        s_value = self.annotator.binding(v, True)
-        if s_value is not None:
-            v.concretetype = s_value.lowleveltype()
+        v.concretetype = self.bindingrepr(v).lowleveltype
 
     def specialize_block(self, block):
         # give the best possible types to the input args
@@ -69,6 +105,7 @@ class RPythonTyper:
                 self.translate_hl_to_ll(hop, varmapping)
             except TyperError, e:
                 self.gottypererror(e, block, op, newops)
+                return  # cannot continue this block: no op.result.concretetype
 
         block.operations[:] = newops
         # multiple renamings (v1->v2->v3->...) are possible
@@ -93,16 +130,16 @@ class RPythonTyper:
             for i in range(len(link.args)):
                 a1 = link.args[i]
                 a2 = link.target.inputargs[i]
-                s_a2 = self.annotator.binding(a2)
+                r_a2 = self.bindingrepr(a2)
                 if isinstance(a1, Constant):
-                    link.args[i] = inputconst(s_a2.lowleveltype(), a1.value)
+                    link.args[i] = inputconst(r_a2, a1.value)
                     continue   # the Constant was typed, done
-                s_a1 = self.annotator.binding(a1)
-                if s_a1 == s_a2:
+                r_a1 = self.bindingrepr(a1)
+                if r_a1 == r_a2:
                     continue   # no conversion needed
                 newops = LowLevelOpList(self)
                 try:
-                    a1 = newops.convertvar(a1, s_a1, s_a2)
+                    a1 = newops.convertvar(a1, r_a1, r_a2)
                 except TyperError, e:
                     self.gottypererror(e, block, link, newops)
 
@@ -120,6 +157,8 @@ class RPythonTyper:
                     link.args[i] = a1
 
     def translate_hl_to_ll(self, hop, varmapping):
+        if debug:
+            print hop.spaceop.opname, hop.args_s
         op = hop.spaceop
         translate_meth = getattr(self, 'translate_op_'+op.opname,
                                  self.missing_operation)
@@ -135,31 +174,35 @@ class RPythonTyper:
             # op.result here.  We have to replace resultvar with op.result
             # in all generated operations.
             resulttype = resultvar.concretetype
-            op.result.concretetype = hop.s_result.lowleveltype()
+            op.result.concretetype = hop.r_result.lowleveltype
             if op.result.concretetype != resulttype:
                 raise TyperError("inconsistent type for the result of '%s':\n"
-                                 "annotator says %r\n"
-                                 "   rtyper says %r" % (op.opname,
-                                                        op.result.concretetype,
-                                                        resulttype))
+                                 "annotator says  %s,\n"
+                                 "whose lltype is %r\n"
+                                 "but rtype* says %r" % (
+                    op.opname, hop.s_result,
+                    op.result.concretetype, resulttype))
             while resultvar in varmapping:
                 resultvar = varmapping[resultvar]
             varmapping[resultvar] = op.result
         else:
             # translate_meth() returned a Constant
+            assert isinstance(resultvar, Constant)
             if not hop.s_result.is_constant():
                 raise TyperError("the annotator doesn't agree that '%s' "
                                  "returns a constant" % op.opname)
             if resultvar.value != hop.s_result.const:
                 raise TyperError("constant mismatch: %r vs %r" % (
                     resultvar.value, hop.s_result.const))
-            op.result.concretetype = hop.s_result.lowleveltype()
+            op.result.concretetype = hop.r_result.lowleveltype
 
     def gottypererror(self, e, block, position, llops):
         """Record a TyperError without crashing immediately.
         Put a 'TyperError' operation in the graph instead.
         """
         e.where = (block, position)
+        if crash_on_first_typeerror:
+            raise
         if self.typererror is None:
             self.typererror = sys.exc_info()
         c1 = inputconst(Void, Exception.__str__(e))
@@ -172,16 +215,16 @@ class RPythonTyper:
         for opname in annmodel.UNARY_OPERATIONS:
             exec """
 def translate_op_%s(self, hop):
-    s_arg1 = hop.args_s[0]
-    return s_arg1.rtype_%s(hop)
+    r_arg1 = hop.args_r[0]
+    return r_arg1.rtype_%s(hop)
 """ % (opname, opname) in globals(), loc
         # All binary operations
         for opname in annmodel.BINARY_OPERATIONS:
             exec """
 def translate_op_%s(self, hop):
-    s_arg1 = hop.args_s[0]
-    s_arg2 = hop.args_s[1]
-    return pair(s_arg1, s_arg2).rtype_%s(hop)
+    r_arg1 = hop.args_r[0]
+    r_arg2 = hop.args_r[1]
+    return pair(r_arg1, r_arg2).rtype_%s(hop)
 """ % (opname, opname) in globals(), loc
 
     _registeroperations(locals())
@@ -201,34 +244,18 @@ def translate_op_%s(self, hop):
         """Make a functionptr from the given Python function."""
         a = self.annotator
         graph = a.translator.getflowgraph(func)
-        llinputs = [a.binding(v).lowleveltype() for v in graph.getargs()]
+        llinputs = [self.bindingrepr(v).lowleveltype for v in graph.getargs()]
         s_output = a.binding(graph.getreturnvar(), None)
         if s_output is None:
             lloutput = Void
         else:
-            lloutput = s_output.lowleveltype()
+            lloutput = self.getrepr(s_output).lowleveltype
         FT = FuncType(llinputs, lloutput)
         return functionptr(FT, func.func_name, graph = graph, _callable = func)
 
 
 # ____________________________________________________________
 
-def inputconst(type, value):
-    """Return a Constant with the given value, of the requested type.
-    'type' can be a SomeXxx annotation or a low-level type.
-    """
-    if isinstance(type, LowLevelType):
-        lowleveltype = type
-    else:
-        lowleveltype = type.lowleveltype()
-    assert not isinstance(lowleveltype, ContainerType), (
-        "missing a GcPtr or NonGcPtr in the type specification of %r" %
-        (lowleveltype,))
-    c = Constant(value)
-    c.concretetype = lowleveltype
-    return c
-
-# ____________________________________________________________
 
 class HighLevelOp:
     nb_popped = 0
@@ -238,28 +265,32 @@ class HighLevelOp:
         self.spaceop  = spaceop
         self.nb_args  = len(spaceop.args)
         self.llops    = llops
-        self.args_s   = [rtyper.annotator.binding(a) for a in spaceop.args]
-        self.s_result = rtyper.annotator.binding(spaceop.result)
+        self.args_s   = [rtyper.binding(a) for a in spaceop.args]
+        self.s_result = rtyper.binding(spaceop.result)
+        self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
+        self.r_result = rtyper.getrepr(self.s_result)
 
     def inputarg(self, converted_to, arg):
         """Returns the arg'th input argument of the current operation,
         as a Variable or Constant converted to the requested type.
-        'converted_to' can be a SomeXxx annotation or a primitive low-level
+        'converted_to' should be a Repr instance or a Primitive low-level
         type.
         """
         v = self.spaceop.args[self.nb_popped + arg]
         if isinstance(v, Constant):
             return inputconst(converted_to, v.value)
+        assert hasattr(v, 'concretetype')
 
         s_binding = self.args_s[arg]
-        if s_binding is None:
-            s_binding = annmodel.SomeObject()
         if s_binding.is_constant():
             return inputconst(converted_to, s_binding.const)
 
-        if isinstance(converted_to, LowLevelType):
-            converted_to = annmodel.lltype_to_annotation(converted_to)
-        return self.llops.convertvar(v, s_binding, converted_to)
+        if not isinstance(converted_to, Repr):
+            converted_to = self.rtyper.primitive_to_repr[converted_to]
+        r_binding = self.args_r[arg]
+        return self.llops.convertvar(v, r_binding, converted_to)
+
+    inputconst = staticmethod(inputconst)    # export via the HighLevelOp class
 
     def inputargs(self, *converted_to):
         assert len(converted_to) == self.nb_args, (
@@ -270,19 +301,17 @@ class HighLevelOp:
             vars.append(self.inputarg(converted_to[i], i))
         return vars
 
-    inputconst = staticmethod(inputconst)    # export via the HighLevelOp class
-
     def genop(self, opname, args_v, resulttype=None):
         return self.llops.genop(opname, args_v, resulttype)
 
     def gendirectcall(self, ll_function, *args_v):
         return self.llops.gendirectcall(ll_function, *args_v)
 
-    def s_popfirstarg(self):
+    def r_s_popfirstarg(self):
         "Return and discard the first argument."
         self.nb_popped += 1
         self.nb_args -= 1
-        return self.args_s.pop(0)
+        return self.args_r.pop(0), self.args_s.pop(0)
 
 # ____________________________________________________________
 
@@ -293,13 +322,13 @@ class LowLevelOpList(list):
     def __init__(self, rtyper):
         self.rtyper = rtyper
 
-    def convertvar(self, v, s_from, s_to):
+    def convertvar(self, v, r_from, r_to):
         assert isinstance(v, Variable)
-        if s_from != s_to:
-            v = pair(s_from, s_to).rtype_convert_from_to(v, self)
+        if r_from != r_to:
+            v = pair(r_from, r_to).convert_from_to(v, self)
             if v is NotImplemented:
-                raise TyperError("don't know how to convert from %r to %r" % (
-                    s_from, s_to))
+                raise TyperError("don't know how to convert from %r to %r" %
+                                 (r_from, r_to))
         return v
 
     def genop(self, opname, args_v, resulttype=None):
@@ -309,19 +338,20 @@ class LowLevelOpList(list):
             vresult.concretetype = Void
             return None
         else:
+            if isinstance(resulttype, Repr):
+                resulttype = resulttype.lowleveltype
+            assert isinstance(resulttype, LowLevelType)
             vresult.concretetype = resulttype
             return vresult
 
     def gendirectcall(self, ll_function, *args_v):
-        annotator = self.rtyper.annotator
+        rtyper = self.rtyper
         spec_key = [ll_function]
         spec_name = [ll_function.func_name]
         args_s = []
         for v in args_v:
-            s_value = annotator.binding(v, True)
-            if s_value is None:
-                s_value = annmodel.SomeObject()
             if v.concretetype == Void:
+                s_value = rtyper.binding(v)
                 if not s_value.is_constant():
                     raise TyperError("non-constant variable of type Void")
                 key = s_value.const       # specialize by constant value
@@ -341,8 +371,8 @@ class LowLevelOpList(list):
             name = '_'.join(spec_name)
             spec_function = func_with_new_name(ll_function, name)
             # flow and annotate (the copy of) the low-level function
-            spec_graph = annotator.translator.getflowgraph(spec_function)
-            annotator.build_types(spec_function, args_s)
+            spec_graph = rtyper.annotator.translator.getflowgraph(spec_function)
+            rtyper.annotator.build_types(spec_function, args_s)
             # cache the result
             self.rtyper.specialized_ll_functions[spec_key] = spec_function
 
@@ -353,6 +383,8 @@ class LowLevelOpList(list):
                           resulttype = typeOf(f).TO.RESULT)
 
     def gencapicall(self, cfnname, args_v, resulttype):
+        if isinstance(resulttype, Repr):
+            resulttype = resulttype.lowleveltype
         argtypes = [v.concretetype for v in args_v]
         FUNCTYPE = FuncType(argtypes, resulttype)
         f = functionptr(FUNCTYPE, cfnname, external="C")
@@ -362,5 +394,9 @@ class LowLevelOpList(list):
 
 # _______________________________________________________________________
 # this has the side-effect of registering the unary and binary operations
-from pypy.rpython import robject, rlist, rptr, rbuiltin, rint, rbool, rfloat
-from pypy.rpython import rpbc, rstr, riter
+# and the rtyper_chooserepr() methods
+from pypy.rpython import robject
+from pypy.rpython import rint, rbool, rfloat
+from pypy.rpython import rlist, rstr
+from pypy.rpython import rbuiltin, rpbc
+from pypy.rpython import rptr

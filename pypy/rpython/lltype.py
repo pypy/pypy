@@ -160,9 +160,11 @@ class FuncType(ContainerType):
     __name__ = 'func'
     def __init__(self, args, result):
         for arg in args:
+            assert isinstance(arg, LowLevelType)
             if isinstance(arg, ContainerType):
                 raise TypeError, "function arguments can only be primitives or pointers"
         self.ARGS = tuple(args)
+        assert isinstance(result, LowLevelType)
         if isinstance(result, ContainerType):
             raise TypeError, "function result can only be primitive or pointer"
         self.RESULT = result

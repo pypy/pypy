@@ -1,30 +1,19 @@
 from pypy.annotation.pairtype import pairtype
-from pypy.annotation.model import SomeFloat, SomeInteger, SomeBool, SomePBC
+from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float
-from pypy.rpython.rtyper import TyperError
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, BoolRepr
 
 
 debug = False
 
-class __extend__(pairtype(SomeBool, SomeInteger)):
+class __extend__(annmodel.SomeBool):
+    def rtyper_makerepr(self, rtyper):
+        return bool_repr
 
-    def rtype_convert_from_to((s_from, s_to), v, llops):
-        if s_to.unsigned:
-            if debug: print 'explicit cast_bool_to_uint'
-            return llops.genop('cast_bool_to_uint', [v], resulttype=Unsigned)
-        else:
-            if debug: print 'explicit cast_bool_to_int'
-            return llops.genop('cast_bool_to_int', [v], resulttype=Signed)
+bool_repr = BoolRepr()
 
 
-class __extend__(pairtype(SomeBool, SomeFloat)):
-
-    def rtype_convert_from_to((s_from, s_to), v, llops):
-        if debug: print 'explicit cast_bool_to_float'
-        return llops.genop('cast_bool_to_float', [v], resulttype=Float)
-
-
-class __extend__(SomeBool):
+class __extend__(BoolRepr):
 
     def rtype_is_true(_, hop):
         vlist = hop.inputargs(Bool)
@@ -37,3 +26,15 @@ class __extend__(SomeBool):
     def rtype_float(_, hop):
         vlist = hop.inputargs(Float)
         return vlist[0]
+
+#
+# _________________________ Conversions _________________________
+
+class __extend__(pairtype(BoolRepr, IntegerRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_to.lowleveltype == Unsigned:
+            if debug: print 'explicit cast_bool_to_uint'
+            return llops.genop('cast_bool_to_uint', [v], resulttype=Unsigned)
+        else:
+            if debug: print 'explicit cast_bool_to_int'
+            return llops.genop('cast_bool_to_int', [v], resulttype=Signed)

@@ -1,6 +1,8 @@
-from pypy.annotation.pairtype import pair, pairtype
-from pypy.annotation.model import SomeString, SomeChar, SomeInteger, SomeObject
+from pypy.annotation.pairtype import pairtype
+from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import *
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
+from pypy.rpython.rmodel import StringRepr, CharRepr
 
 # ____________________________________________________________
 #
@@ -15,79 +17,75 @@ from pypy.rpython.lltype import *
 
 STR = GcStruct('str', ('hash',  Signed),
                       ('chars', Array(('ch', Char))))
-STRPTR = GcPtr(STR)
 
 
-class __extend__(SomeString):
+class __extend__(annmodel.SomeString):
+    def rtyper_makerepr(self, rtyper):
+        return string_repr
 
-    def lowleveltype(self):
-        return STRPTR
+class __extend__(annmodel.SomeChar):
+    def rtyper_makerepr(self, rtyper):
+        return char_repr
+
+
+class __extend__(StringRepr):
+    lowleveltype = GcPtr(STR)
 
     def rtype_len(_, hop):
-        v_str, = hop.inputargs(SomeString())
+        v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(ll_strlen, v_str)
 
-    def rtype_is_true(s_str, hop):
+    def rtype_is_true(self, hop):
+        s_str = hop.args_s[0]
         if s_str.can_be_None:
-            v_str, = hop.inputargs(SomeString())
+            v_str, = hop.inputargs(string_repr)
             return hop.gendirectcall(ll_str_is_true, v_str)
         else:
             # defaults to checking the length
-            return SomeObject.rtype_is_true(s_str, hop)
+            return super(StringRepr, self).rtype_is_true(hop)
 
     def rtype_ord(_, hop):
-        v_str, = hop.inputargs(SomeString())
+        v_str, = hop.inputargs(string_repr)
         c_zero = inputconst(Signed, 0)
         v_chr = hop.gendirectcall(ll_stritem_nonneg, v_str, c_zero)
         return hop.genop('cast_char_to_int', [v_chr], resulttype=Signed)
 
     def rtype_hash(_, hop):
-        v_str, = hop.inputargs(SomeString())
+        v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(ll_strhash, v_str)
 
 
-class __extend__(pairtype(SomeString, SomeInteger)):
-
-    def rtype_getitem((_, s_int), hop):
-        v_str, v_index = hop.inputargs(SomeString(), Signed)
-        if s_int.nonneg:
+class __extend__(pairtype(StringRepr, IntegerRepr)):
+    def rtype_getitem(_, hop):
+        v_str, v_index = hop.inputargs(string_repr, Signed)
+        if hop.args_s[1].nonneg:
             llfn = ll_stritem_nonneg
         else:
             llfn = ll_stritem
         return hop.gendirectcall(llfn, v_str, v_index)
 
 
-class __extend__(SomeChar):
-
-    def lowleveltype(self):
-        return Char
+class __extend__(CharRepr):
 
     def rtype_len(_, hop):
         return hop.inputconst(Signed, 1)
 
-    def rtype_is_true(s_chr, hop):
-        assert not s_chr.can_be_None
+    def rtype_is_true(_, hop):
+        assert not hop.args_s[0].can_be_None
         return hop.inputconst(Bool, True)
 
     def rtype_ord(_, hop):
-        vlist = hop.inputargs(Char)
+        vlist = hop.inputargs(char_repr)
         return hop.genop('cast_char_to_int', vlist, resulttype=Signed)
 
 
-class __extend__(pairtype(SomeChar, SomeString)):
-
-    def rtype_convert_from_to((s_chr, s_str), v, llops):
+class __extend__(pairtype(CharRepr, StringRepr)):
+    def convert_from_to(_, v, llops):
         return hop.gendirectcall(ll_chr2str, v)
 
 
-class __extend__(pairtype(SomeString, SomeString)):
-
-    def rtype_convert_from_to((s_str1, s_str2), v, llops):
-        # converting between SomeString(can_be_None=False)
-        #                and SomeString(can_be_None=True)
-        assert s_str1.__class__ is s_str2.__class__ is SomeString
-        return v
-
+string_repr = StringRepr()
+char_repr   = CharRepr()
 
 # ____________________________________________________________
 #

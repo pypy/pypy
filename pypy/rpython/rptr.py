@@ -1,58 +1,97 @@
-from pypy.annotation.pairtype import pair, pairtype
-from pypy.annotation.model import SomePtr, SomeInteger
+from pypy.annotation.pairtype import pairtype
+from pypy.annotation import model as annmodel
+from pypy.rpython.lltype import _PtrType, _ptr
 from pypy.rpython.lltype import ContainerType, Void, Signed, Bool
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 
 
-class __extend__(SomePtr):
-
-    def lowleveltype(s_ptr):
-        if s_ptr.is_constant():   # constant NULL
-            return Void
+class __extend__(annmodel.SomePtr):
+    def rtyper_makerepr(self, rtyper):
+        if self.is_constant():   # constant NULL
+            return nullptr_repr
         else:
-            return s_ptr.ll_ptrtype
+            return PtrRepr(self.ll_ptrtype)
 
-    def rtype_getattr(s_ptr, hop):
+
+class PtrRepr(Repr):
+
+    def __init__(self, ptrtype):
+        assert isinstance(ptrtype, _PtrType)
+        self.lowleveltype = ptrtype
+
+    def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
-        FIELD_TYPE = getattr(s_ptr.ll_ptrtype.TO, attr)
+        FIELD_TYPE = getattr(self.lowleveltype.TO, attr)
         if isinstance(FIELD_TYPE, ContainerType):
             newopname = 'getsubstruct'
         else:
             newopname = 'getfield'
-        vlist = hop.inputargs(s_ptr, Void)
+        vlist = hop.inputargs(self, Void)
         return hop.genop(newopname, vlist,
-                         resulttype = hop.s_result.lowleveltype())
+                         resulttype = hop.r_result.lowleveltype)
 
-    def rtype_setattr(s_ptr, hop):
+    def rtype_setattr(self, hop):
         attr = hop.args_s[1].const
-        FIELD_TYPE = getattr(s_ptr.ll_ptrtype.TO, attr)
+        FIELD_TYPE = getattr(self.lowleveltype.TO, attr)
         assert not isinstance(FIELD_TYPE, ContainerType)
-        vlist = hop.inputargs(s_ptr, Void, FIELD_TYPE)
+        vlist = hop.inputargs(self, Void, hop.args_r[2])
         hop.genop('setfield', vlist)
 
-    def rtype_len(s_ptr, hop):
-        vlist = hop.inputargs(s_ptr)
+    def rtype_len(self, hop):
+        vlist = hop.inputargs(self)
         return hop.genop('getarraysize', vlist,
-                         resulttype = hop.s_result.lowleveltype())
+                         resulttype = hop.r_result.lowleveltype)
 
-    def rtype_is_true(s_ptr, hop):
-        vlist = hop.inputargs(s_ptr)
+    def rtype_is_true(self, hop):
+        vlist = hop.inputargs(self)
         return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
 
 
-class __extend__(pairtype(SomePtr, SomeInteger)):
+class __extend__(pairtype(PtrRepr, IntegerRepr)):
 
-    def rtype_getitem((s_ptr, s_int), hop):
-        vlist = hop.inputargs(s_ptr, Signed)
+    def rtype_getitem((r_ptr, r_int), hop):
+        vlist = hop.inputargs(r_ptr, Signed)
         return hop.genop('getarrayitem', vlist,
-                         resulttype = hop.s_result.lowleveltype())
+                         resulttype = hop.r_result.lowleveltype)
 
+# ____________________________________________________________
+#
+#  Null Pointers
 
-class __extend__(pairtype(SomePtr, SomePtr)):
+class NullPtrRepr(Repr):
+    lowleveltype = Void
 
-    def rtype_eq(_, hop):
-        vlist = hop.inputargs(SomePtr(), SomePtr())
+    def rtype_is_true(self, hop):
+        return hop.inputconst(Bool, False)
+
+nullptr_repr = NullPtrRepr()
+
+class __extend__(pairtype(NullPtrRepr, PtrRepr)):
+    def convert_from_to((r_null, r_ptr), v, llops):
+        # nullptr to general pointer
+        return inputconst(r_ptr, _ptr(r_ptr.lowleveltype, None))
+
+# ____________________________________________________________
+#
+#  Comparisons
+
+class __extend__(pairtype(PtrRepr, Repr)):
+
+    def rtype_eq((r_ptr, r_any), hop):
+        vlist = hop.inputargs(r_ptr, r_ptr)
         return hop.genop('ptr_eq', vlist, resulttype=Bool)
 
-    def rtype_ne(_, hop):
-        vlist = hop.inputargs(SomePtr(), SomePtr())
+    def rtype_ne((r_ptr, r_any), hop):
+        vlist = hop.inputargs(r_ptr, r_ptr)
+        return hop.genop('ptr_ne', vlist, resulttype=Bool)
+
+
+class __extend__(pairtype(Repr, PtrRepr)):
+
+    def rtype_eq((r_any, r_ptr), hop):
+        vlist = hop.inputargs(r_ptr, r_ptr)
+        return hop.genop('ptr_eq', vlist, resulttype=Bool)
+
+    def rtype_ne((r_any, r_ptr), hop):
+        vlist = hop.inputargs(r_ptr, r_ptr)
         return hop.genop('ptr_ne', vlist, resulttype=Bool)

@@ -1,13 +1,14 @@
 from pypy.translator.translator import Translator
-from pypy.annotation.listdef import ListDef
 from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rlist import *
+from pypy.rpython.rint import signed_repr
 
 
 def test_rlist():
-    s = SomeList(ListDef(None, SomeInteger()))
-    l = ll_newlist(s.lowleveltype(), 3)
+    rlist = ListRepr(signed_repr)
+    rlist.setup()
+    l = ll_newlist(rlist.lowleveltype, 3)
     ll_setitem(l, 0, 42)
     ll_setitem(l, -2, 43)
     ll_setitem_nonneg(l, 2, 44)
@@ -17,23 +18,6 @@ def test_rlist():
     assert ll_getitem(l, 2) == 44
     assert ll_getitem(l, 3) == 45
     assert ll_len(l) == 4
-
-def test_rlist_range():
-    def test1(start, stop, step):
-        expected = range(start, stop, step)
-        length = len(expected)
-        l = ll_newrange(start, stop)
-        assert ll_rangelen(l, step) == length
-        lst = [ll_rangeitem(l, i, step) for i in range(length)]
-        assert lst == expected
-        lst = [ll_rangeitem(l, i-length, step) for i in range(length)]
-        assert lst == expected
-
-    for start in (-10, 0, 1, 10):
-        for stop in (-8, 0, 4, 8, 25):
-            for step in (1, 2, 3, -1, -2):
-                test1(start, stop, step)
-
 
 # ____________________________________________________________
 

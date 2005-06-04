@@ -1,7 +1,9 @@
-from pypy.annotation.pairtype import pair, pairtype
-from pypy.annotation.model import SomeList, SomeInteger
+from pypy.annotation.pairtype import pairtype
+from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import *
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
+from pypy.rpython import rrange
 
 # ____________________________________________________________
 #
@@ -14,68 +16,55 @@ from pypy.rpython.lltype import *
 #    'items' points to a C-like array in memory preceded by a 'length' header,
 #    where each item contains a primitive value or pointer to the actual list
 #    item.
-#
-#    Lists returned by range() and never mutated use a simpler implementation:
-#
-#    struct range {
-#        Signed start, stop;    // step is always constant
-#    }
 
-RANGE = GcStruct("range", ("start", Signed), ("stop", Signed))
-
-
-class __extend__(SomeList):
-
-    def ll_range_step(s_list):
-        return (not s_list.listdef.listitem.mutated
-                and s_list.listdef.listitem.range_step)
-
-    def lowleveltype(s_list):
-        if s_list.ll_range_step():
-            assert isinstance(s_list.get_s_items(), SomeInteger)
-            return GcPtr(RANGE)
+class __extend__(annmodel.SomeList):
+    def rtyper_makerepr(self, rtyper):
+        listitem = self.listdef.listitem
+        if listitem.range_step and not listitem.mutated:
+            return rrange.RangeRepr(listitem.range_step)
         else:
-            ITEM = s_list.get_s_items().lowleveltype()
-            LIST = GcStruct("list", ("items", GcPtr(GcArray(("item", ITEM)))))
-            return GcPtr(LIST)
+            # cannot do the rtyper.getrepr() call immediately, for the case
+            # of recursive structures -- i.e. if the listdef contains itself
+            return ListRepr(lambda: rtyper.getrepr(listitem.s_value))
 
-    def get_s_items(s_list):
-        return s_list.listdef.listitem.s_value
 
-    def rtype_len(s_lst, hop):
-        v_lst, = hop.inputargs(s_lst)
-        step = s_lst.ll_range_step()
-        if step:
-            cstep = hop.inputconst(Signed, step)
-            return hop.gendirectcall(ll_rangelen, v_lst, cstep)
-        else:
-            return hop.gendirectcall(ll_len, v_lst)
+class ListRepr(Repr):
 
-    def rtype_method_append(s_lst, hop):
-        assert not s_lst.ll_range_step()
-        v_lst, v_value = hop.inputargs(s_lst, s_lst.get_s_items())
+    def __init__(self, item_repr):
+        self.LIST = GcForwardReference()
+        self.lowleveltype = GcPtr(self.LIST)
+        self.item_repr = item_repr   # possibly uncomputed at this point!
+        # setup() needs to be called to finish this initialization
+
+    def setup(self):
+        if callable(self.item_repr):
+            self.item_repr = self.item_repr()
+        if isinstance(self.LIST, GcForwardReference):
+            ITEM = self.item_repr.lowleveltype
+            ITEMARRAY = GcArray(("item", ITEM))
+            self.LIST.become(GcStruct("list", ("items", GcPtr(ITEMARRAY))))
+
+    def rtype_len(self, hop):
+        v_lst, = hop.inputargs(self)
+        return hop.gendirectcall(ll_len, v_lst)
+
+    def rtype_method_append(self, hop):
+        v_lst, v_value = hop.inputargs(self, self.item_repr)
         hop.gendirectcall(ll_append, v_lst, v_value)
 
-    def rtype_iter(s_lst):
-        s_itr = hop.s_result
-        return s_itr.getiteratorkind().rtype_new_iter(hop)
+    def make_iterator_repr(self):
+        return ListIteratorRepr(self)
 
 
-class __extend__(pairtype(SomeList, SomeInteger)):
+class __extend__(pairtype(ListRepr, IntegerRepr)):
 
-    def rtype_getitem((s_lst1, s_int2), hop):
-        v_lst, v_index = hop.inputargs(s_lst1, Signed)
-        step = s_lst1.ll_range_step()
-        if step:
-            cstep = hop.inputconst(Signed, step)
-            return hop.gendirectcall(ll_rangeitem, v_lst, v_index, cstep)
+    def rtype_getitem((r_lst, r_int), hop):
+        v_lst, v_index = hop.inputargs(r_lst, Signed)
+        if hop.args_s[1].nonneg:
+            llfn = ll_getitem_nonneg
         else:
-            if s_int2.nonneg:
-                llfn = ll_getitem_nonneg
-            else:
-                llfn = ll_getitem
-            return hop.gendirectcall(llfn, v_lst, v_index)
-
+            llfn = ll_getitem
+        return hop.gendirectcall(llfn, v_lst, v_index)
 
 # ____________________________________________________________
 #
@@ -112,28 +101,6 @@ def ll_setitem(l, i, newitem):
 def ll_setitem_nonneg(l, i, newitem):
     l.items[i].item = newitem
 
-# __________ range __________
-
-def ll_rangelen(l, step):
-    if step > 0:
-        result = (l.stop - l.start + (step-1)) // step
-    else:
-        result = (l.start - l.stop - (step+1)) // (-step)
-    if result < 0:
-        result = 0
-    return result
-
-def ll_rangeitem(l, i, step):
-    if i<0:
-        # XXX ack. cannot call ll_rangelen() here for now :-(
-        if step > 0:
-            length = (l.stop - l.start + (step-1)) // step
-        else:
-            length = (l.start - l.stop - (step+1)) // (-step)
-        #assert length >= 0
-        i += length
-    return l.start + i*step
-
 # ____________________________________________________________
 #
 #  Irregular operations.
@@ -145,34 +112,48 @@ def ll_newlist(LISTPTR, length):
 
 def rtype_newlist(hop):
     nb_args = hop.nb_args
-    s_list = hop.s_result
-    s_listitem = s_list.get_s_items()
-    c1 = hop.inputconst(Void, s_list.lowleveltype())
+    r_list = hop.r_result
+    r_listitem = r_list.item_repr
+    c1 = hop.inputconst(Void, r_list.lowleveltype)
     c2 = hop.inputconst(Signed, nb_args)
     v_result = hop.gendirectcall(ll_newlist, c1, c2)
     for i in range(nb_args):
         ci = hop.inputconst(Signed, i)
-        v_item = hop.inputarg(s_listitem, arg=i)
+        v_item = hop.inputarg(r_listitem, arg=i)
         hop.gendirectcall(ll_setitem_nonneg, v_result, ci, v_item)
     return v_result
 
-def ll_newrange(start, stop):
-    l = malloc(RANGE)
-    l.start = start
-    l.stop = stop
-    return l
+# ____________________________________________________________
+#
+#  Iteration.
 
-def rtype_builtin_range(hop):
-    s_range = hop.s_result
-    step = s_range.listdef.listitem.range_step
-    if step is None:   # cannot build a RANGE object, needs a real list
-        raise TyperError("range() list used too dynamically")
-    if hop.nb_args == 1:
-        vstart = hop.inputconst(Signed, 0)
-        vstop, = hop.inputargs(Signed)
-    elif hop.nb_args == 2:
-        vstart, vstop = hop.inputargs(Signed, Signed)
-    else:
-        vstart, vstop, vstep = hop.inputargs(Signed, Signed, Signed)
-        assert isinstance(vstep, Constant) and vstep.value == step
-    return hop.gendirectcall(ll_newrange, vstart, vstop)
+class ListIteratorRepr(Repr):
+
+    def __init__(self, r_list):
+        self.r_list = r_list
+        self.lowleveltype = GcPtr(GcStruct('listiter',
+                                           ('list', r_list.lowleveltype),
+                                           ('index', Signed)))
+
+    def newiter(self, hop):
+        v_lst, = hop.inputargs(self.r_list)
+        citerptr = hop.inputconst(Void, self.lowleveltype)
+        return hop.gendirectcall(ll_listiter, citerptr, v_lst)
+
+    def next(self, hop):
+        v_iter = hop.inputargs(self)
+        return hop.gendirectcall(ll_listnext, v_iter)
+
+def ll_listiter(ITERPTR, lst):
+    iter = malloc(ITERPTR.TO)
+    iter.list = lst
+    iter.index = 0
+    return iter
+
+def ll_listnext(iter):
+    l = iter.list
+    index = iter.index
+    if index >= len(l.items):
+        raise StopIteration
+    iter.index = index + 1
+    return l.items[index]

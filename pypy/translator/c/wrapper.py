@@ -4,6 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import GcPtr, NonGcPtr, PyObject, typeOf, Signed, Void
 from pypy.rpython.lltype import FuncType, functionptr
 from pypy.rpython.rtyper import LowLevelOpList, inputconst
+from pypy.rpython.robject import pyobj_repr
 from pypy.interpreter.pycode import CO_VARARGS
 
 
@@ -80,22 +81,20 @@ def gen_wrapper(func, rtyper):
     inputargs = f._obj.graph.getargs()
     for i in range(len(varguments)):
         # "argument_i = type_conversion_operations(argument_i)"
-        s_arg = rtyper.annotator.binding(inputargs[i], True)
-        if s_arg is not None:
-            varguments[i] = newops.convertvar(varguments[i],
-                                              s_from = annmodel.SomeObject(),
-                                                s_to = s_arg)
+        r_arg = rtyper.bindingrepr(inputargs[i])
+        varguments[i] = newops.convertvar(varguments[i],
+                                          r_from = pyobj_repr,
+                                            r_to = r_arg)
 
     # "result = direct_call(func, argument_0, argument_1, ..)"
     vlist = [inputconst(typeOf(f), f)] + varguments
     vresult = newops.genop('direct_call', vlist, resulttype=FUNCTYPE.RESULT)
 
     # convert "result" back to a PyObject
-    s_result = rtyper.annotator.binding(f._obj.graph.getreturnvar(), True)
-    if s_result is not None:
-        vresult = newops.convertvar(vresult,
-                                    s_from = s_result,
-                                      s_to = annmodel.SomeObject())
+    r_result = rtyper.bindingrepr(f._obj.graph.getreturnvar())
+    vresult = newops.convertvar(vresult,
+                                r_from = r_result,
+                                  r_to = pyobj_repr)
 
     # "return result"
     block = Block([vself, vargs, vkwds])

@@ -1,12 +1,20 @@
 from pypy.annotation.pairtype import pairtype
-from pypy.annotation.model import SomeFloat, SomeInteger, SomeBool, SomePBC
+from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void
-from pypy.rpython.rtyper import TyperError
+from pypy.rpython.rmodel import Repr, TyperError, FloatRepr
+from pypy.rpython.rmodel import IntegerRepr, BoolRepr
 
 
 debug = False
 
-class __extend__(pairtype(SomeFloat, SomeFloat)):
+class __extend__(annmodel.SomeFloat):
+    def rtyper_makerepr(self, rtyper):
+        return float_repr
+
+float_repr = FloatRepr()
+
+
+class __extend__(pairtype(FloatRepr, FloatRepr)):
 
     #Arithmetic
 
@@ -64,7 +72,7 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
         return _rtype_compare_template(hop, 'ge')
 
 
-#Helpers SomeFloat,Somefloat
+#Helpers FloatRepr,FloatRepr
 
 def _rtype_template(hop, func):
     vlist = hop.inputargs(Float, Float)
@@ -74,47 +82,9 @@ def _rtype_compare_template(hop, func):
     vlist = hop.inputargs(Float, Float)
     return hop.genop('float_'+func, vlist, resulttype=Bool)
 
-
 #
 
-## XXX we have probably no implicit casts from float to integer
-##class __extend__(pairtype(SomeFloat, SomeInteger)):
-
-##    def rtype_convert_from_to((s_from, s_to), v):
-##        if s_to.unsigned:
-##            if debug: print 'explicit cast_float_to_uint'
-##            return direct_op('cast_float_to_uint', [v], resulttype=Unsigned)
-##        else:
-##            if debug: print 'explicit cast_float_to_int'
-##            return direct_op('cast_float_to_int', [v], resulttype=Signed)
-
-
-#
-
-class __extend__(pairtype(SomeInteger, SomeFloat)):
-
-    def rtype_convert_from_to((s_from, s_to), v, llops):
-        if s_from.unsigned:
-            if debug: print 'explicit cast_uint_to_float'
-            return llops.genop('cast_uint_to_float', [v], resulttype=Float)
-        else:
-            if debug: print 'explicit cast_int_to_float'
-            return llops.genop('cast_int_to_float', [v], resulttype=Float)
-
-
-#
-
-## XXX we have probably no implicit casts from float to bool
-##class __extend__(pairtype(SomeFloat, SomeBool)):
-
-##    def rtype_convert_from_to((s_from, s_to), v):
-##        if debug: print 'explicit cast_float_to_bool'
-##        return direct_op('cast_float_to_bool', [v], resulttype=Bool)  #XXX or can 'float_is_true' be reused here? 
-
-
-#
-
-class __extend__(SomeFloat):
+class __extend__(FloatRepr):
 
     def rtype_is_true(_, hop):
         vlist = hop.inputargs(Float)
@@ -133,3 +103,20 @@ class __extend__(SomeFloat):
         return hop.genop('cast_float_to_int', vlist, resulttype=Signed)
 
     rtype_float = rtype_pos
+
+#
+# _________________________ Conversions _________________________
+
+class __extend__(pairtype(IntegerRepr, FloatRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Unsigned:
+            if debug: print 'explicit cast_uint_to_float'
+            return llops.genop('cast_uint_to_float', [v], resulttype=Float)
+        else:
+            if debug: print 'explicit cast_int_to_float'
+            return llops.genop('cast_int_to_float', [v], resulttype=Float)
+
+class __extend__(pairtype(BoolRepr, FloatRepr)):
+    def convert_from_to(_, v, llops):
+        if debug: print 'explicit cast_bool_to_float'
+        return llops.genop('cast_bool_to_float', [v], resulttype=Float)

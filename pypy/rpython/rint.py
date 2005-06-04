@@ -1,18 +1,29 @@
 from pypy.annotation.pairtype import pairtype
-from pypy.annotation.model import SomeFloat, SomeInteger, SomeBool, SomePBC
-from pypy.annotation.model import SomeObject
+from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void
-from pypy.rpython.rtyper import TyperError
-from pypy.rpython.robject import PyObjPtr
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
+from pypy.rpython.robject import PyObjRepr, pyobj_repr
 
 
 debug = False
 
-class __extend__(pairtype(SomeInteger, SomeInteger)):
+class __extend__(annmodel.SomeInteger):
+    def rtyper_makerepr(self, rtyper):
+        if self.unsigned:
+            return unsigned_repr
+        else:
+            return signed_repr
 
-    def rtype_convert_from_to((s_from, s_to), v, llops):
-        if s_from.unsigned != s_to.unsigned:
-            if s_to.unsigned:
+signed_repr = IntegerRepr()
+unsigned_repr = IntegerRepr()
+unsigned_repr.lowleveltype = Unsigned
+
+
+class __extend__(pairtype(IntegerRepr, IntegerRepr)):
+
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype != r_to.lowleveltype:
+            if r_to.lowleveltype == Unsigned:
                 if debug: print 'explicit cast_int_to_uint'
                 return llops.genop('cast_int_to_uint', [v], resulttype=Unsigned)
             else:
@@ -148,10 +159,14 @@ def _rtype_compare_template(hop, func):
 
 #
 
-class __extend__(SomeInteger):
+class __extend__(IntegerRepr):
 
-    def rtype_is_true(s_int, hop):
-        if s_int.unsigned:
+    def rtype_float(_, hop):
+        vlist = hop.inputargs(Float)
+        return vlist[0]
+
+    def rtype_is_true(self, hop):
+        if self.lowleveltype == Unsigned:
             vlist = hop.inputargs(Unsigned)
             return hop.genop('uint_is_true', vlist, resulttype=Bool)
         else:
@@ -199,8 +214,8 @@ class __extend__(SomeInteger):
             vlist = hop.inputargs(Signed)
         return vlist[0]
 
-    def rtype_int(s_int, hop):
-        if s_int.unsigned:
+    def rtype_int(r_int, hop):
+        if r_int.lowleveltype == Unsigned:
             raise TyperError("use intmask() instead of int(r_uint(...))")
         vlist = hop.inputargs(Signed)
         return vlist[0]
@@ -210,28 +225,22 @@ class __extend__(SomeInteger):
         return vlist[0]
 
 #
+# _________________________ Conversions _________________________
 
-class __extend__(pairtype(SomeObject, SomeInteger)):
-
-    def rtype_convert_from_to((s_obj, s_int), v, llops):
-        if s_obj.lowleveltype() != PyObjPtr:
-            return NotImplemented
-        if s_int.unsigned:
+class __extend__(pairtype(PyObjRepr, IntegerRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_to.lowleveltype == Unsigned:
             return llops.gencapicall('PyLong_AsUnsignedLong', [v],
                                      resulttype=Unsigned)
         else:
             return llops.gencapicall('PyInt_AsLong', [v],
                                      resulttype=Signed)
 
-
-class __extend__(pairtype(SomeInteger, SomeObject)):
-
-    def rtype_convert_from_to((s_int, s_obj), v, llops):
-        if s_obj.lowleveltype() != PyObjPtr:
-            return NotImplemented
-        if s_int.unsigned:
+class __extend__(pairtype(IntegerRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Unsigned:
             return llops.gencapicall('PyLong_FromUnsignedLong', [v],
-                                     resulttype=PyObjPtr)
+                                     resulttype=pyobj_repr)
         else:
             return llops.gencapicall('PyInt_FromLong', [v],
-                                     resulttype=PyObjPtr)
+                                     resulttype=pyobj_repr)
