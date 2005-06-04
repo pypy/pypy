@@ -859,6 +859,8 @@ class TestAnnotateTestCase:
             def n(self):
                 pass
         class C(A):
+            def __init__(self):
+                pass
             def m(self):
                 pass
         def f(x):
@@ -882,11 +884,12 @@ class TestAnnotateTestCase:
         fc = lambda x: {(None, x): True}
         mc = lambda x: {(clsdef(x.im_class), x.im_func): True}
 
-        assert len(callables) == 5
-        assert callables == { B: fc(B), C: fc(C),
-                             A.m.im_func: mc(A.m),
-                             C.m.im_func: mc(C.m),
-                             B.n.im_func: mc(B.n) }
+        assert len(callables) == 6
+        assert callables == { B: fc(B), C: fc(C), 
+                              C.__init__.im_func: fc(C.__init__.im_func),
+                              A.m.im_func: mc(A.m),
+                              C.m.im_func: mc(C.m),
+                              B.n.im_func: mc(B.n) }
         
         ign, repA_m, famA_m = call_families.find((clsdef(A), A.m.im_func))
         ign, repC_m, famC_m = call_families.find((clsdef(C), C.m.im_func))
@@ -900,6 +903,9 @@ class TestAnnotateTestCase:
 
         assert famB_n.patterns == {(0, (), False, False): True }
         assert famA_m.patterns == {(0, (), False, False): True }
+
+        ign, repCinit, famCinit = call_families.find((None, C.__init__.im_func))
+        assert famCinit.patterns == {(1, (), False, False): True }
         
     def test_isinstance_usigned(self):
         def f(x):

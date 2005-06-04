@@ -169,6 +169,7 @@ class RPythonAnnotator:
                 print "++-" * 20
             raise AnnotatorError('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
+        self.bookkeeper.compute_at_fixpoint()
 
     def binding(self, arg, extquery=False):
         "Gives the SomeValue corresponding to the given Variable or Constant."

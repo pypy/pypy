@@ -64,8 +64,13 @@ class Bookkeeper:
         self.argtypes_spec_callsite_results = {}
 
         self.pbc_maximal_access_sets = UnionFind(PBCAccessSet)
-        self.pbc_maximal_call_families = UnionFind(PBCCallFamily)
-        self.pbc_callables = {}
+        # can be precisely computed only at fix-point, see
+        # compute_at_fixpoint
+        self.pbc_maximal_call_families = None
+        self.pbc_callables = None
+        
+        self.pbc_call_sites = {}
+
         
         # import ordering hack
         global BUILTIN_ANALYZERS
@@ -81,6 +86,15 @@ class Bookkeeper:
         """End of an operation."""
         del TLS.bookkeeper
         del self.position_key
+
+    def compute_at_fixpoint(self):
+        self.pbc_maximal_call_families = UnionFind(PBCCallFamily)
+        self.pbc_callables = {}
+
+        for (fn, block, i), shape in self.pbc_call_sites.iteritems():
+            assert block.operations[i].opname in ('call_args', 'simple_call')
+            pbc = self.annotator.binding(block.operations[i].args[0], extquery=True)
+            self.consider_pbc_call(pbc, shape, position=(fn, block, i))
 
     def getclassdef(self, cls):
         """Get the ClassDef associated with the given user cls."""
@@ -298,38 +312,33 @@ class Bookkeeper:
                 
         return unionof(*actuals)        
 
-    def mark_callable(self, callable):
-        classdef, func = callable
-        
-        if hasattr(func, 'im_func') and func.im_self is None:
-            # consider unbound methods and the undelying functions as the same
-            func = func.im_func
+    def consider_pbc_call(self, pbc, shape, position=None): # computation done at fix-point
+        if not isinstance(pbc, SomePBC):
+            return
 
-        self.pbc_callables.setdefault(func,{})[callable] = True
-
-    def pbc_call(self, pbc, args):
         nonnullcallables = []
-        patterns = {}
-        results = []
-        # extract args shape
-        shape = args.rawshape()
-        
         for func, classdef in pbc.prebuiltinstances.items():
             if func is None:
                 continue
-            if isclassdef(classdef): 
-                s_self = SomeInstance(classdef)
-                args1 = args.prepend(s_self)
-            else:
+            if not isclassdef(classdef): 
                 classdef = None
-                args1 = args
-            results.append(self.pycall(func, args1))
+
+            # if class => consider __init__ too
+            if isinstance(func, (type, ClassType)) and \
+                    func.__module__ != '__builtin__':
+                assert classdef is None
+                dontcare, s_init = self.get_s_init(func, position=position)
+                if s_init is not None:
+                    init_shape = (shape[0]+1,) + shape[1:]
+                    self.consider_pbc_call(s_init, init_shape) 
 
             callable = (classdef, func)
-            self.mark_callable(callable)
+            if hasattr(func, 'im_func') and func.im_self is None:
+                # consider unbound methods and the undelying functions as the same
+                func = func.im_func
+            self.pbc_callables.setdefault(func,{})[callable] = True
             nonnullcallables.append(callable)
-            patterns[shape] = True
-        
+
         if nonnullcallables:
             call_families = self.pbc_maximal_call_families
 
@@ -337,46 +346,77 @@ class Bookkeeper:
             for obj in nonnullcallables:
                     dontcare, rep, callfamily = call_families.union(rep, obj)
 
-            callfamily.patterns.update(patterns)             
+            callfamily.patterns.update({shape: True})
+ 
+    def pbc_call(self, pbc, args, implicit_init):
+        if not implicit_init:
+            fn, block, i = self.position_key
+            assert block.operations[i].opname in ('call_args', 'simple_call')
+            assert self.annotator.binding(block.operations[i].args[0], extquery=True) is pbc
+            
+            # extract shape from args
+            shape = args.rawshape()
+            if self.position_key in self.pbc_call_sites:
+                assert self.pbc_call_sites[self.position_key] == shape
+            else:
+                self.pbc_call_sites[self.position_key] = shape
+
+        results = []        
+        for func, classdef in pbc.prebuiltinstances.items():
+            if func is None:
+                continue
+            if isclassdef(classdef): 
+                s_self = SomeInstance(classdef)
+                args1 = args.prepend(s_self)
+            else:
+                args1 = args
+            results.append(self.pycall(func, args1))
 
         return unionof(*results) 
 
+    def get_s_init(self, cls, position=None):
+        specialize = getattr(cls, "_specialize_", False)
+        if specialize:
+            if specialize == "location":
+                cls = self.specialize_by_key(cls, position, 
+                                             name="%s__At_%s" % (cls.__name__, 
+                                                                 position_name(position)))
+            else:
+                raise Exception, \
+                      "unsupported specialization type '%s'"%(specialize,)
+
+        classdef = self.getclassdef(cls)
+        init = getattr(cls, '__init__', None)
+        if init is not None and init != object.__init__:
+            # don't record the access of __init__ on the classdef
+            # because it is not a dynamic attribute look-up, but
+            # merely a static function call
+            if hasattr(init, 'im_func'):
+                init = init.im_func
+            else:
+                assert isinstance(init, BuiltinMethodType)
+            s_init = self.immutablevalue(init)
+            return classdef, s_init
+        else:
+            return classdef, None
+ 
     def pycall(self, func, args):
         if func is None:   # consider None as a NULL function pointer
             return SomeImpossibleValue()
         if isinstance(func, (type, ClassType)) and \
             func.__module__ != '__builtin__':
-            cls = func
-            specialize = getattr(cls, "_specialize_", False)
-            if specialize:
-                if specialize == "location":
-                    cls = self.specialize_by_key(cls, self.position_key, 
-                                                 name="%s__At_%s" % (cls.__name__, 
-                                                                     position_name(self.position_key)))
-                else:
-                    raise Exception, \
-                          "unsupported specialization type '%s'"%(specialize,)
-
-            classdef = self.getclassdef(cls)
+            classdef, s_init = self.get_s_init(func, position=self.position_key)
             s_instance = SomeInstance(classdef)
             # flow into __init__() if the class has got one
-            init = getattr(cls, '__init__', None)
-            if init is not None and init != object.__init__:
-                # don't record the access of __init__ on the classdef
-                # because it is not a dynamic attribute look-up, but
-                # merely a static function call
-                if hasattr(init, 'im_func'):
-                    init = init.im_func
-                else:
-                    assert isinstance(init, BuiltinMethodType)
-                s_init = self.immutablevalue(init)
-                s_init.call(args.prepend(s_instance))
+            if s_init is not None:
+                s_init.call(args.prepend(s_instance), implicit_init=True)
             else:
                 try:
                     args.fixedunpack(0)
                 except ValueError:
                     raise Exception, "no __init__ found in %r" % (cls,)
             return s_instance
+
         if hasattr(func, '__call__') and \
            isinstance(func.__call__, MethodType):
             func = func.__call__

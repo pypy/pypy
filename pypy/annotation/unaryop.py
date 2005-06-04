@@ -138,7 +138,7 @@ class __extend__(SomeObject):
         space = RPythonCallsSpace()
         return obj.call(Arguments.fromshape(space, s_shape.const, args_s))
 
-    def call(obj, args):
+    def call(obj, args, implicit_init=False):
         #raise Exception, "cannot follow call_args%r" % ((obj, args),)
         getbookkeeper().warning("cannot follow call(%r, %r)" % (obj, args))
         return SomeObject()
@@ -367,7 +367,7 @@ class __extend__(SomeBuiltin):
         else:
             return bltn.analyser(*args)
 
-    def call(bltn, args):
+    def call(bltn, args, implicit_init=False):
         args, kw = args.unpack()
         assert not kw, "don't call builtins with keywords arguments"
         if bltn.s_self is not None:
@@ -385,9 +385,9 @@ class __extend__(SomePBC):
     def setattr(pbc, s_attr, s_value):
         getbookkeeper().warning("setattr not wanted on %r" % (pbc,))
 
-    def call(pbc, args):
+    def call(pbc, args, implicit_init=False):
         bookkeeper = getbookkeeper()
-        return bookkeeper.pbc_call(pbc, args)
+        return bookkeeper.pbc_call(pbc, args, implicit_init=implicit_init)
 
         #bookkeeper = getbookkeeper()
         #results = []
