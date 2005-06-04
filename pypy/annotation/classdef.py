@@ -93,8 +93,25 @@ class ClassDef:
                     value.class_ = cls # remember that this is really a method
             self.add_source_for_attribute(name, sources.get(name, cls), self)
 
+    def attr_mutated(self, homedef, attrdef): # reflow from attr read positions
+        s_newvalue = attrdef.getvalue()
+        # check for method demotion
+        if isinstance(s_newvalue, SomePBC):
+            attr = attrdef.name
+            meth = False
+            for func, classdef  in s_newvalue.prebuiltinstances.items():
+                if isclassdef(classdef):
+                    meth = True
+                    break
+            if meth and getattr(homedef.cls, attr, None) is None:
+                self.bookkeeper.warning("demoting method %s to base class %s" % (attrdef.name, homedef))
+
+        for position in attrdef.read_locations:
+            self.bookkeeper.annotator.reflowfromposition(position)        
+
     def add_source_for_attribute(self, attr, source, clsdef=None):
-        attrdef = self.find_attribute(attr)
+        homedef = self.locate_attribute(attr)
+        attrdef = homedef.attrs[attr]
         attrdef.sources[source] = clsdef
         if attrdef.read_locations:
             # we should reflow from all the reader's position,
@@ -103,8 +120,7 @@ class ClassDef:
             s_prev_value = attrdef.s_value
             s_next_value = attrdef.getvalue()
             if s_prev_value != s_next_value:
-                for position in attrdef.read_locations:
-                    self.bookkeeper.annotator.reflowfromposition(position)
+                self.attr_mutated(homedef, attrdef)
 
     def locate_attribute(self, attr):
         for cdef in self.getmro():
@@ -176,9 +192,8 @@ class ClassDef:
             newattr.merge(subattr)
         self.attrs[attr] = newattr
 
-        # reflow from all factories
-        for position in newattr.read_locations:
-            self.bookkeeper.annotator.reflowfromposition(position)
+        # reflow from all read positions
+        self.attr_mutated(self, newattr)
 
     def generalize_attr(self, attr, s_value=None):
         # if the attribute exists in a superclass, generalize there.
@@ -224,8 +239,7 @@ class ClassDef:
         if uplookup is not None:
             d[upfunc] = uplookup
         elif meth:
-            if not self.check_missing_attribute_update(name):
-                self.bookkeeper.warning("demoting method %s to base class %s" % (name,self))
+            self.check_missing_attribute_update(name)
         if d:
             return SomePBC(d)
         else:
