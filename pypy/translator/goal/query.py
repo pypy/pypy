@@ -197,6 +197,60 @@ def prettypatt(patts):
         accum.append("(%s)" % ', '.join(arg))
     return ' '.join(accum)
         
+def pbccallsanity(translator):
+    callb = translator.annotator.getpbccallables()
+    bk = translator.annotator.bookkeeper
+    typs = [x for x in callb if isinstance(x, (type, types.ClassType))]
+    for t in typs:
+        assert len(callb[t]) == 1
+        assert callb[t] == {(None,t): True}
+    print len(typs), "of ",prettycallable(callablereps([(None, Exception), (None, object)]))
+    ubm = [x for x in callb if isinstance(x, types.MethodType) and x.im_self is None]
+    assert len(ubm) == 0
+    bm = [x for x in callb if isinstance(x, types.MethodType) and x.im_self is not None]
+    frompbc = 0
+    notfrompbc = []
+    for b in bm:
+        assert len(callb[b]) == 1
+        assert callb[b] == {(None,b): True}
+        if b.im_class in bk.pbctypes or (b.im_class is None and b.im_self in bk.pbccache):
+            frompbc += 1
+        else:
+            notfrompbc.append(b)
+    class A:
+        def m():
+            pass
+    print frompbc, "of", prettycallable(callablereps([(None, A().m)])), "from PBCs"
+    print len(bm)-frompbc, "of", prettycallable(callablereps([(None, A().m)])), "not from PBCs"
+    if len(notfrompbc) < 40:
+        for b in notfrompbc:
+            print " "*4, prettycallable((None, b))
+    fs = [x for x in callb if isinstance(x, types.FunctionType)]
+    assert len(fs) + len(typs) + frompbc + len(notfrompbc) == len(callb)
+    plain = []
+    r = []
+    for x in fs:
+        if len(callb[x]) == 1 and callb[x].keys()[0][0] == None:
+            r.extend(callb[x].keys())
+            plain.append(x)
+    print len(plain), "of", prettycallable(callablereps(r))
+    r = []
+    for x in fs:
+        if x not in plain and len(callb[x]) == 1:
+            r.extend(callb[x].keys())
+    print len(r), "of", prettycallable(callablereps(r))
+    r = []
+    b_nb = []
+    for x in fs:
+        if len(callb[x]) == 2 and [1 for clsdef, f in callb[x].keys() if clsdef is None]:
+            r.extend(callb[x].keys())
+            b_nb.append(x)
+    print len(r), "of", prettycallable(callablereps(r))
+    print "- other -"
+    for x in fs:
+        if len(callb[x]) >= 2 and x not in b_nb:
+            print ' '.join([prettycallable((classdef and classdef.cls, func)) for (classdef,func) in callb[x].keys()])
+
 
 def pbccall(translator):
     fams = translator.annotator.getpbccallfamilies().root_info.itervalues()
