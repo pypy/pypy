@@ -146,12 +146,19 @@ class SomeObject:
     def __setattr__(self, key, value):
         object.__setattr__(self, key, value)
 
+    def can_be_none(self):
+        return True
+        
+    def nonnoneify(self):
+        return self
 
 class SomeFloat(SomeObject):
     "Stands for a float or an integer."
     knowntype = float   # if we don't know if it's a float or an int,
                         # pretend it's a float.
 
+    def can_be_none(self):
+        return False
 
 class SomeInteger(SomeFloat):
     "Stands for an object which is known to be an integer."
@@ -169,13 +176,17 @@ class SomeBool(SomeInteger):
     def __init__(self):
         pass
 
-
 class SomeString(SomeObject):
     "Stands for an object which is known to be a string."
     knowntype = str
     def __init__(self, can_be_None=False):
         self.can_be_None = can_be_None
 
+    def can_be_none(self):
+        return self.can_be_None
+
+    def nonnoneify(self):
+        return SomeString(can_be_None=False)
 
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
@@ -183,6 +194,9 @@ class SomeChar(SomeString):
 class SomeUnicodeCodePoint(SomeObject):
     knowntype = unicode
     "Stands for an object known to be a unicode codepoint."
+
+    def can_be_none(self):
+        return False
 
 class SomeList(SomeObject):
     "Stands for a homogenous list of any length."
@@ -193,6 +207,8 @@ class SomeList(SomeObject):
         return (self.__class__ is other.__class__ and
                 self.listdef.same_as(other.listdef))
 
+    def can_be_none(self):
+        return False
 
 class SomeSlice(SomeObject):
     knowntype = slice
@@ -201,6 +217,8 @@ class SomeSlice(SomeObject):
         self.stop = stop
         self.step = step
 
+    def can_be_none(self):
+        return False
 
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
@@ -213,6 +231,8 @@ class SomeTuple(SomeObject):
         else:
             self.const = tuple([i.const for i in items])
 
+    def can_be_none(self):
+        return False
 
 class SomeDict(SomeObject):
     "Stands for a dict."
@@ -223,6 +243,8 @@ class SomeDict(SomeObject):
         return (self.__class__ is other.__class__ and
                 self.dictdef.same_as(other.dictdef))
 
+    def can_be_none(self):
+        return False
 
 class SomeIterator(SomeObject):
     "Stands for an iterator returning objects from a given container."
@@ -230,6 +252,8 @@ class SomeIterator(SomeObject):
     def __init__(self, s_container):
         self.s_container = s_container
 
+    def can_be_none(self):
+        return False
 
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
@@ -241,6 +265,13 @@ class SomeInstance(SomeObject):
         return None
     def fmt_classdef(self, cd):
         return cd.cls.__name__
+
+    def can_be_none(self):
+        return self.can_be_None
+
+    def nonnoneify(self):
+        return SomeInstance(self.classdef, can_be_None=False)
+
 
 def new_or_old_class(c):
     if hasattr(c, '__class__'):
@@ -289,6 +320,17 @@ class SomePBC(SomeObject):
     def isNone(self):
         return self.prebuiltinstances == {None:True}
 
+    def can_be_none(self):
+        return None in self.prebuiltinstances
+
+    def nonnoneify(self):
+        prebuiltinstances = self.prebuiltinstances.copy()
+        del prebuiltinstances[None]
+        if not prebuiltinstances:
+            return SomeImpossibleValue()
+        else:
+            return SomePBC(prebuiltinstances)
+
     def fmt_prebuiltinstances(self, pbis):
         if hasattr(self, 'const'):
             return None
@@ -310,10 +352,15 @@ class SomeBuiltin(SomeObject):
         self.s_self = s_self
         self.methodname = methodname
 
+    def can_be_none(self):
+        return False
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
+
+    def can_be_none(self):
+        return False
 
 #____________________________________________________________
 # annotation of low-level types
@@ -322,6 +369,8 @@ class SomePtr(SomeObject):
     def __init__(self, ll_ptrtype):
         self.ll_ptrtype = ll_ptrtype
 
+    def can_be_none(self):
+        return False
 
 from pypy.rpython import lltype
 

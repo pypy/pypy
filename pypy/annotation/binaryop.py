@@ -140,10 +140,10 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if obj2.is_constant():
             if obj1.is_constant(): 
                 r.const = obj1.const is obj2.const
-            if obj2.const is None and not getattr(obj1, 'can_be_None', True):
+            if obj2.const is None and not obj1.can_be_none():
                 r.const = False
         elif obj1.is_constant():
-            if obj1.const is None and not getattr(obj2, 'can_be_None', True):
+            if obj1.const is None and not obj2.can_be_none():
                 r.const = False
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
@@ -151,18 +151,26 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         bk = getbookkeeper()
         if bk is not None: # for testing
             knowntypedata = r.knowntypedata = {}
+            fn, block, i = bk.position_key
+
+            annotator = bk.annotator
+            op = block.operations[i]
+            assert op.opname == "is_" 
+            assert len(op.args) == 2                
+
             def bind(src_obj, tgt_obj, tgt_arg):
                 if hasattr(tgt_obj, 'is_type_of') and src_obj.is_constant():
                     add_knowntypedata(knowntypedata, True, tgt_obj.is_type_of, 
                                       bk.valueoftype(src_obj.const))
 
-                fn, block, i = bk.position_key
-                annotator = bk.annotator
-                op = block.operations[i]
-                assert op.opname == "is_" 
-                assert len(op.args) == 2                
                 assert annotator.binding(op.args[tgt_arg]) == tgt_obj
                 add_knowntypedata(knowntypedata, True, [op.args[tgt_arg]], src_obj)
+
+                nonnone_obj = tgt_obj
+                if src_obj.is_constant() and src_obj.const is None and tgt_obj.can_be_none():
+                    nonnone_obj = tgt_obj.nonnoneify()
+
+                add_knowntypedata(knowntypedata, False, [op.args[tgt_arg]], nonnone_obj)
 
             bind(obj2, obj1, 0)
             bind(obj1, obj2, 1)

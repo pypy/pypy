@@ -1188,6 +1188,24 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s == a.bookkeeper.immutablevalue(None)
 
+    def test_non_None_path(self):
+        class C:
+            pass
+        def g(c):
+            if c is None:
+                return C()
+            return c
+        def f(x):
+            if x:
+                c = None
+            else:
+                c = C()
+            return g(c)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert s.can_be_none() == False
+            
+
 def g(n):
     return [0,1,2,n]
 
