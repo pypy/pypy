@@ -118,7 +118,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
                 "for integers only isinstance(.,int|r_uint) are supported")
             if s_obj.is_constant():
                 r.const = isinstance(s_obj.const, typ)
-            elif our_issubclass(s_obj.knowntype, typ):
+            elif our_issubclass(s_obj.knowntype, typ) and not s_obj.can_be_none():
                 r.const = True 
             elif not our_issubclass(typ, s_obj.knowntype): 
                 r.const = False 

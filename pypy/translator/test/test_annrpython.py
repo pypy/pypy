@@ -1204,6 +1204,20 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [bool])
         assert s.can_be_none() == False
+
+    def test_can_be_None_path(self):
+        class C:
+            pass
+        def f(x):
+            if x:
+                c = None
+            else:
+                c = C()
+            return isinstance(c, C)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert not s.is_constant()
+        
             
 
 def g(n):
