@@ -361,23 +361,25 @@ class Bookkeeper:
             else:
                 self.pbc_call_sites[self.position_key] = shape
 
-        results = []        
-        for func, classdef in pbc.prebuiltinstances.items():
-            if func is None:
-                continue
+        results = []
+        nonnullcallables = [(func, classdef) for func, classdef in pbc.prebuiltinstances.items()]
+        mono = len(nonnullcallables) == 1
+
+        for func, classdef in nonnullcallables:
             if isclassdef(classdef): 
                 s_self = SomeInstance(classdef)
                 args1 = args.prepend(s_self)
             else:
                 args1 = args
-            results.append(self.pycall(func, args1))
+            results.append(self.pycall(func, args1, mono))
 
         return unionof(*results) 
 
-    def get_s_init(self, cls, position=None):
+    def get_s_init(self, cls, position=None, mono=True):
         specialize = getattr(cls, "_specialize_", False)
         if specialize:
             if specialize == "location":
+                assert mono, "not-static construction of specialized class %s" % cls
                 cls = self.specialize_by_key(cls, position, 
                                              name="%s__At_%s" % (cls.__name__, 
                                                                  position_name(position)))
@@ -400,12 +402,12 @@ class Bookkeeper:
         else:
             return classdef, None
  
-    def pycall(self, func, args):
+    def pycall(self, func, args, mono):
         if func is None:   # consider None as a NULL function pointer
             return SomeImpossibleValue()
         if isinstance(func, (type, ClassType)) and \
             func.__module__ != '__builtin__':
-            classdef, s_init = self.get_s_init(func, position=self.position_key)
+            classdef, s_init = self.get_s_init(func, position=self.position_key, mono=mono)
             s_instance = SomeInstance(classdef)
             # flow into __init__() if the class has got one
             if s_init is not None:
@@ -437,6 +439,7 @@ class Bookkeeper:
         specialize = getattr(func, '_specialize_', False)
 
         if specialize:
+            assert mono, "not-static call to specialized %s" % func
             base_func = func
             if specialize == 'argtypes':
                 key = short_type_name(args)
@@ -462,6 +465,7 @@ class Bookkeeper:
 
         elif func.func_code.co_flags & CO_VARARGS:
             # calls to *arg functions: create one version per number of args
+            assert mono, "not-static call to *arg function %s" % func
             assert not args.has_keywords(), (
                 "keyword forbidden in calls to *arg functions")
             nbargs = len(args.arguments_w)
