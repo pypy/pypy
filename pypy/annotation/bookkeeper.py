@@ -11,7 +11,7 @@ from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef, isclassdef
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
-from pypy.tool.sourcetools import func_with_new_name
+from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import ArgErr
@@ -350,7 +350,9 @@ class Bookkeeper:
             specialize = getattr(cls, "_specialize_", False)
             if specialize:
                 if specialize == "location":
-                    cls = self.specialize_by_key(cls, self.position_key)
+                    cls = self.specialize_by_key(cls, self.position_key, 
+                                                 name="%s__At_%s" % (cls.__name__, 
+                                                                     position_name(self.position_key)))
                 else:
                     raise Exception, \
                           "unsupported specialization type '%s'"%(specialize,)
@@ -402,7 +404,9 @@ class Bookkeeper:
                                               func.__name__+'__'+key)
             elif specialize == "location":
                 # fully specialize: create one version per call position
-                func = self.specialize_by_key(func, self.position_key)
+                func = self.specialize_by_key(func, self.position_key,
+                                              name="%s__At_%s" % (func.__name__, 
+                                                                  position_name(self.position_key)))
             elif specialize == "memo":
                 # call the function now, and collect possible results
                 arglist_s, kwds_s = args.unpack()
@@ -536,6 +540,11 @@ def short_type_name(args):
             name = x.__class__.__name__
         l.append(name)
     return "__".join(l)
+
+def position_name((fn, block, i)):
+    mod = valid_identifier(getattr(fn, '__module__', 'SYNTH'))
+    name = valid_identifier(getattr(fn, '__name__', 'UNKNOWN'))
+    return "%s_%s_Giving_%s" % (mod, name, block.operations[i].result)
 
 def possible_arguments(args):
     # enumerate all tuples (x1,..xn) of concrete values that are contained
