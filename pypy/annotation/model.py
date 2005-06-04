@@ -208,7 +208,7 @@ class SomeList(SomeObject):
                 self.listdef.same_as(other.listdef))
 
     def can_be_none(self):
-        return False
+        return True
 
 class SomeSlice(SomeObject):
     knowntype = slice
