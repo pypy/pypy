@@ -114,7 +114,7 @@ def decode(obj,encoding='defaultencoding',errors='strict'):
     if isinstance(encoding,str):
         decoder = lookup(encoding)[1]
         if decoder and isinstance(errors,str):
-            res = decoder(v,errors)
+            res = decoder(obj,errors)
             if not isinstance(res,tuple) or len(res) != 2:
                 raise TypeError("encoder must return a tuple (object,integer)")
             return res[0]
@@ -227,7 +227,8 @@ def unicode_internal_encode( obj,errors='strict'):
         res = ''.join(p)
         return res, len(res)
     else:
-        return ''.join(PyUnicode_FromUnicode(obj,size),size)
+        res = "You can do better than this" # XXX make this right
+        return res,len(res)
 
 def unicode_internal_decode( unistr,errors='strict'):
     """None
@@ -241,7 +242,7 @@ def unicode_internal_decode( unistr,errors='strict'):
             t = 0
             for j in range(unicode_bytes):
                 t += ord(unistr[i+j])<<(j*8)
-            i += j+1
+            i += unicode_bytes
             p += unichr(t)
         res = u''.join(p)
         return res, len(res)
@@ -283,11 +284,12 @@ def utf_7_encode( obj,errors='strict'):
 def mbcs_encode( obj,errors='strict'):
     """None
     """
-    return (PyUnicode_EncodeMBCS(
-			       PyUnicode_AS_UNICODE(obj), 
-			       PyUnicode_GET_SIZE(obj),
-			       errors),
-		    PyUnicode_GET_SIZE(obj));
+    pass
+##    return (PyUnicode_EncodeMBCS(
+##			       (obj), 
+##			       len(obj),
+##			       errors),
+##		    len(obj))
     
 
 def ascii_encode( obj,errors='strict'):
