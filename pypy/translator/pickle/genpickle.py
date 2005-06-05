@@ -313,6 +313,7 @@ class GenPickle:
         if '__slots__' in cls.__dict__:
             ini += '\n  __slots__ = %r' % cls.__slots__
         self.initcode.append(ini)
+        self.initcode.append('%s.name = %r' % (name, cls.__name__))
         # squeeze it out, now# self.later(initclassobj())
         self.picklenames[Constant(cls)] = name
         for line in initclassobj():
