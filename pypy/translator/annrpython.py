@@ -39,11 +39,21 @@ class RPythonAnnotator:
                 # bindingshistory
         self.reflowcounter = {}
         self.return_bindings = {} # map return Variables to functions
-        # user-supplied annotation logic for functions we don't want to flow into
-        self.overrides = overrides
         # --- end of debugging information ---
         self.bookkeeper = Bookkeeper(self)
+        # user-supplied annotation logic for functions we don't want to flow into
+        self.overrides = overrides
 
+    def __getstate__(self):
+        attrs = """translator pendingblocks bindings annotated links_followed
+        notify bookkeeper overrides""".split()
+        ret = self.__dict__.copy()
+        for key, value in ret.items():
+            if key not in attrs:
+                assert type(value) is dict, ("please update %s.__getstate__" %
+                                             self.__class__.__name__)
+                ret[key] = {}
+        return ret
 
     def _register_returnvar(self, flowgraph, func):
         if annmodel.DEBUG:
