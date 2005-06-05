@@ -93,7 +93,7 @@ class MultiMethodTable:
 # ____________________________________________________________
 
 class Installer:
-    """NOT_RPYTHON"
+    """NOT_RPYTHON"""
 
     mmfunccache = {}
 
