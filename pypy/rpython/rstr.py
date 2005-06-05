@@ -1,8 +1,10 @@
+from weakref import WeakValueDictionary
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import *
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython.rmodel import StringRepr, CharRepr
+from pypy.rpython.rarithmetic import intmask
 
 # ____________________________________________________________
 #
@@ -28,8 +30,25 @@ class __extend__(annmodel.SomeChar):
         return char_repr
 
 
+CONST_STR_CACHE = WeakValueDictionary()
+
 class __extend__(StringRepr):
     lowleveltype = GcPtr(STR)
+
+    def convert_const(self, value):
+        if value is None:
+            return nullgcptr(STR)
+        if not isinstance(value, str):
+            raise TyperError("not a str: %r" % (value,))
+        try:
+            return CONST_STR_CACHE[value]
+        except KeyError:
+            p = malloc(STR, len(value))
+            for i in range(len(value)):
+                p.chars[i].ch = value[i]
+            ll_strhash(p)   # precompute the hash
+            CONST_STR_CACHE[value] = p
+            return p
 
     def rtype_len(_, hop):
         v_str, = hop.inputargs(string_repr)
@@ -131,5 +150,5 @@ def ll_strhash(s):
             x ^= length
             if x == 0:
                 x = -1
-        s.hash = x
+        s.hash = intmask(x)
     return x

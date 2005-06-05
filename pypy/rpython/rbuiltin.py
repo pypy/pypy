@@ -1,6 +1,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import malloc, typeOf, nullptr, nullgcptr
+from pypy.rpython import lltype
+from pypy.rpython import rarithmetic
 from pypy.rpython.lltype import Void, Signed
 from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range
@@ -84,6 +85,10 @@ def rtype_builtin_float(hop):
 
 #def rtype_builtin_range(hop): see rrange.py
 
+def rtype_intmask(hop):
+    vlist = hop.inputargs(Signed)
+    return vlist[0]
+
 
 # collect all functions
 import __builtin__
@@ -110,7 +115,8 @@ def rtype_const_result(hop):
     return hop.inputconst(Void, hop.s_result.const)
 
 
-BUILTIN_TYPER[malloc] = rtype_malloc
-BUILTIN_TYPER[typeOf] = rtype_const_result
-BUILTIN_TYPER[nullptr] = rtype_const_result
-BUILTIN_TYPER[nullgcptr] = rtype_const_result
+BUILTIN_TYPER[lltype.malloc] = rtype_malloc
+BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
+BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
+BUILTIN_TYPER[lltype.nullgcptr] = rtype_const_result
+BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask

@@ -15,6 +15,11 @@ bool_repr = BoolRepr()
 
 class __extend__(BoolRepr):
 
+    def convert_const(self, value):
+        if not isinstance(value, bool):
+            raise TyperError("not a bool: %r" % (value,))
+        return value
+
     def rtype_is_true(_, hop):
         vlist = hop.inputargs(Bool)
         return vlist[0]

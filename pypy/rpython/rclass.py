@@ -1,3 +1,4 @@
+import types
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import *
@@ -38,54 +39,89 @@ OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
 
 
 def getclassrepr(rtyper, classdef):
-    if classdef is None:
-        return root_class_repr
     try:
         result = rtyper.class_reprs[classdef]
     except KeyError:
         result = rtyper.class_reprs[classdef] = ClassRepr(rtyper, classdef)
+        result.setup()
     return result
 
 def getinstancerepr(rtyper, classdef):
-    if classdef is None:
-        return root_instance_repr
     try:
         result = rtyper.instance_reprs[classdef]
     except KeyError:
         result = rtyper.instance_reprs[classdef] = InstanceRepr(rtyper,classdef)
+        result.setup()
     return result
 
 class MissingRTypeAttribute(TyperError):
     pass
 
 
+def cast_vtable_to_typeptr(vtable):
+    while typeOf(vtable).TO != OBJECT_VTABLE:
+        vtable = vtable.super
+    if typeOf(vtable) != TYPEPTR:
+        vtable = cast_flags(TYPEPTR, vtable)
+    return vtable
+
+
 class ClassRepr(Repr):
+    initialized = False
 
     def __init__(self, rtyper, classdef):
+        self.rtyper = rtyper
         self.classdef = classdef
-        self.clsfields = {}
-        if classdef is None:
-            # 'object' root type
-            self.vtable_type = OBJECT_VTABLE
-            self.typeptr = nullptr(OBJECT_VTABLE)
+        self.vtable_type = ForwardReference()
+        self.lowleveltype = NonGcPtr(self.vtable_type)
+
+    def __repr__(self):
+        if self.classdef is None:
+            cls = object
         else:
-            # instance attributes
+            cls = self.classdef.cls
+        return '<ClassRepr for %s.%s>' % (cls.__module__, cls.__name__)
+
+    def setup(self):
+        if self.initialized:
+            return   # already initialized
+        self.clsfields = {}
+        if self.classdef is None:
+            # 'object' root type
+            self.vtable_type.become(OBJECT_VTABLE)
+        else:
+            # class attributes
             llfields = []
-            attrs = classdef.attrs.items()
+            attrs = self.classdef.attrs.items()
             attrs.sort()
             for name, attrdef in attrs:
                 if attrdef.readonly:
-                    r = rtyper.getrepr(attrdef.s_value)
-                    mangled_name = name + '_C'
+                    r = self.rtyper.getrepr(attrdef.s_value)
+                    mangled_name = 'cls_' + name
                     self.clsfields[name] = mangled_name, r
                     llfields.append((mangled_name, r.lowleveltype))
             #
-            self.rbase = getclassrepr(rtyper, classdef.basedef)
-            self.vtable_type = Struct('%s_vtable' % classdef.cls.__name__,
-                                      ('super', self.rbase.vtable_type),
-                                      *llfields)
-        self.lowleveltype = NonGcPtr(self.vtable_type)
+            self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
+            vtable_type = Struct('%s_vtable' % self.classdef.cls.__name__,
+                                 ('super', self.rbase.vtable_type),
+                                 *llfields)
+            self.vtable_type.become(vtable_type)
         self.vtable = None
+        self.initialized = True
+
+    def convert_const(self, value):
+        if not isinstance(value, (type, types.ClassType)):
+            raise TyperError("not a class: %r" % (value,))
+        try:
+            subclassdef = self.rtyper.annotator.getuserclasses()[value]
+        except KeyError:
+            raise TyperError("no classdef: %r" % (value,))
+        if self.classdef is not None:
+            if self.classdef.commonbase(subclassdef) != self.classdef:
+                raise TyperError("not a subclass of %r: %r" % (
+                    self.classdef.cls, value))
+        #
+        return getclassrepr(self.rtyper, subclassdef).getvtable()
 
     def getvtable(self, cast_to_typeptr=True):
         """Return a ptr to the vtable of this type."""
@@ -96,10 +132,7 @@ class ClassRepr(Repr):
         #
         vtable = self.vtable
         if cast_to_typeptr:
-            r = self
-            while r is not root_class_repr:
-                r = r.rbase
-                vtable = cast_flags(r.lowleveltype, vtable.super)
+            vtable = cast_vtable_to_typeptr(vtable)
         return vtable
 
     def setup_vtable(self, vtable, rsubcls):
@@ -163,8 +196,8 @@ class ClassRepr(Repr):
             self.rbase.setclsfield(vcls, attr, vvalue, llops)
 
 
-root_class_repr = ClassRepr(None, None)
-type_repr = root_class_repr
+def get_type_repr(rtyper):
+    return getclassrepr(rtyper, None)
 
 # ____________________________________________________________
 
@@ -175,34 +208,72 @@ class __extend__(annmodel.SomeInstance):
 
 
 class InstanceRepr(Repr):
+    initialized = False
 
     def __init__(self, rtyper, classdef):
+        self.rtyper = rtyper
         self.classdef = classdef
-        self.rclass = getclassrepr(rtyper, classdef)
+        self.object_type = GcForwardReference()
+        self.lowleveltype = GcPtr(self.object_type)
+
+    def __repr__(self):
+        if self.classdef is None:
+            cls = object
+        else:
+            cls = self.classdef.cls
+        return '<InstanceRepr for %s.%s>' % (cls.__module__, cls.__name__)
+
+    def setup(self):
+        if self.initialized:
+            return   # already initialized
+        self.rclass = getclassrepr(self.rtyper, self.classdef)
         self.fields = {}
         self.allinstancefields = {}
         if self.classdef is None:
             self.fields['__class__'] = 'typeptr', TYPEPTR
-            self.object_type = OBJECT
+            self.object_type.become(OBJECT)
         else:
             # instance attributes
             llfields = []
-            attrs = classdef.attrs.items()
+            attrs = self.classdef.attrs.items()
             attrs.sort()
             for name, attrdef in attrs:
                 if not attrdef.readonly:
-                    r = rtyper.getrepr(attrdef.s_value)
-                    mangled_name = name + '_'
+                    r = self.rtyper.getrepr(attrdef.s_value)
+                    mangled_name = 'inst_' + name
                     self.fields[name] = mangled_name, r
                     llfields.append((mangled_name, r.lowleveltype))
             #
-            self.rbase = getinstancerepr(rtyper, classdef.basedef)
-            self.object_type = GcStruct(classdef.cls.__name__,
-                                        ('super', self.rbase.object_type),
-                                        *llfields)
+            self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef)
+            object_type = GcStruct(self.classdef.cls.__name__,
+                                   ('super', self.rbase.object_type),
+                                   *llfields)
+            self.object_type.become(object_type)
             self.allinstancefields.update(self.rbase.allinstancefields)
-        self.lowleveltype = GcPtr(self.object_type)
         self.allinstancefields.update(self.fields)
+        self.initialized = True
+
+    def convert_const(self, value, targetptr=None, vtable=None):
+        if value is None:
+            return nullgcptr(self.object_type)
+        # we will need the vtable pointer, so ask it first, to let
+        # ClassRepr.convert_const() perform all the necessary checks on 'value'
+        if vtable is None:
+            vtable = self.rclass.convert_const(value.__class__)
+        if targetptr is None:
+            targetptr = malloc(self.object_type)
+        #
+        if self.classdef is None:
+            # instantiate 'object': should be disallowed, but it's convenient
+            # to write convert_const() this way and use itself recursively
+            targetptr.typeptr = cast_vtable_to_typeptr(vtable)
+        else:
+            # build the parent part of the instance
+            self.rbase.convert_const(value,
+                                     targetptr = targetptr.super,
+                                     vtable = vtable)
+            # XXX add instance attributes from this level
+        return targetptr
 
     def parentpart(self, vinst, llops):
         """Return the pointer 'vinst' cast to the parent type."""
@@ -273,8 +344,6 @@ class InstanceRepr(Repr):
         vinst, vattr, vvalue = hop.inputargs(self, Void, r_value)
         self.setfield(vinst, attr, vvalue, hop.llops)
 
-
-root_instance_repr = InstanceRepr(None, None)
 
 # ____________________________________________________________
 

@@ -10,7 +10,7 @@ class __extend__(annmodel.SomeObject):
         if self.is_constant():
             return constpyobj_repr
         if self.knowntype is type:
-            return rclass.type_repr
+            return rclass.get_type_repr(rtyper)
         else:
             return pyobj_repr
 

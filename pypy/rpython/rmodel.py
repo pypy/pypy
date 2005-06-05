@@ -2,6 +2,7 @@ from pypy.annotation.pairtype import pair, pairtype, extendabletype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import Void, Bool, Float, Signed, Char
+from pypy.rpython.lltype import typeOf, LowLevelType
 
 
 class Repr:
@@ -19,6 +20,18 @@ class Repr:
 
     def setup(self):
         "For recursive data structure, which must be initialized in two steps."
+
+    def convert_const(self, value):
+        "Convert the given constant value to the low-level repr of 'self'."
+        if self.lowleveltype != Void:
+            try:
+                realtype = typeOf(value)
+            except (AssertionError, AttributeError):
+                realtype = '???'
+            if realtype != self.lowleveltype:
+                raise TyperError("convert_const(self = %r, value = %r)" % (
+                    self, value))
+        return value
 
     # default implementation of some operations
 
@@ -126,12 +139,22 @@ def inputconst(reqtype, value):
     which can be a Repr instance or a low-level type.
     """
     if isinstance(reqtype, Repr):
-        reqtype = reqtype.lowleveltype
+        value = reqtype.convert_const(value)
+        lltype = reqtype.lowleveltype
+    elif isinstance(reqtype, LowLevelType):
+        lltype = reqtype
+    else:
+        raise TypeError(repr(reqtype))
     # Void Constants can hold any value;
     # non-Void Constants must hold a correctly ll-typed value
-    # XXX ---- not enforced yet ----
-    #if reqtype is not Void:
-    #    assert typeOf(value) == reqtype
+    if lltype != Void:
+        try:
+            realtype = typeOf(value)
+        except (AssertionError, AttributeError):
+            realtype = '???'
+        if realtype != lltype:
+            raise TyperError("inputconst(reqtype = %s, value = %s)" % (
+                reqtype, value))
     c = Constant(value)
-    c.concretetype = reqtype
+    c.concretetype = lltype
     return c

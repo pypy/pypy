@@ -277,6 +277,8 @@ class HighLevelOp:
         'converted_to' should be a Repr instance or a Primitive low-level
         type.
         """
+        if not isinstance(converted_to, Repr):
+            converted_to = self.rtyper.primitive_to_repr[converted_to]
         v = self.spaceop.args[self.nb_popped + arg]
         if isinstance(v, Constant):
             return inputconst(converted_to, v.value)
@@ -286,8 +288,6 @@ class HighLevelOp:
         if s_binding.is_constant():
             return inputconst(converted_to, s_binding.const)
 
-        if not isinstance(converted_to, Repr):
-            converted_to = self.rtyper.primitive_to_repr[converted_to]
         r_binding = self.args_r[arg]
         return self.llops.convertvar(v, r_binding, converted_to)
 

@@ -161,6 +161,11 @@ def _rtype_compare_template(hop, func):
 
 class __extend__(IntegerRepr):
 
+    def convert_const(self, value):
+        if not isinstance(value, int):   # can be bool
+            raise TyperError("not an integer: %r" % (value,))
+        return int(value)
+
     def rtype_float(_, hop):
         vlist = hop.inputargs(Float)
         return vlist[0]

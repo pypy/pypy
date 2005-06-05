@@ -86,6 +86,11 @@ def _rtype_compare_template(hop, func):
 
 class __extend__(FloatRepr):
 
+    def convert_const(self, value):
+        if not isinstance(value, (int, float)):  # can be bool too
+            raise TyperError("not a float: %r" % (value,))
+        return float(value)
+
     def rtype_is_true(_, hop):
         vlist = hop.inputargs(Float)
         return hop.genop('float_is_true', vlist, resulttype=Bool)
