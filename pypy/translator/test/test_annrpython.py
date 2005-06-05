@@ -293,11 +293,6 @@ class TestAnnotateTestCase:
         a.simplify()
         #a.translator.view()
 
-    def test_call_pbc(self):
-        a = self.RPythonAnnotator()
-        s = a.build_types(snippet.call_cpbc, [])
-        assert s == a.bookkeeper.immutablevalue(42)
-
     def test_flow_type_info(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.flow_type_info, [object])

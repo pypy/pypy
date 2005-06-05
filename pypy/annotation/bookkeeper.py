@@ -375,6 +375,10 @@ class Bookkeeper:
 
         return unionof(*results) 
 
+    # decide_callable(position, func, args, mono) -> callb, key
+    # query_spaceop_callable(spaceop) -> pbc
+    # get_s_init(decided_cls) -> classdef, s_undecided_init
+
     def get_s_init(self, cls, position=None, mono=True):
         specialize = getattr(cls, "_specialize_", False)
         if specialize:
@@ -419,9 +423,6 @@ class Bookkeeper:
                     raise Exception, "no __init__ found in %r" % (cls,)
             return s_instance
 
-        if hasattr(func, '__call__') and \
-           isinstance(func.__call__, MethodType):
-            func = func.__call__
         if hasattr(func, 'im_func'):
             if func.im_self is not None:
                 s_self = self.immutablevalue(func.im_self)
