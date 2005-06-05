@@ -53,6 +53,10 @@ class RPythonAnnotator:
                 assert type(value) is dict, ("please update %s.__getstate__" %
                                              self.__class__.__name__)
                 ret[key] = {}
+        # special case: clean up the overrides which would trigger bad imports
+        overrides = ret['overrides'] = {}
+        for key in self.overrides:
+            overrides[key] = None
         return ret
 
     def _register_returnvar(self, flowgraph, func):
