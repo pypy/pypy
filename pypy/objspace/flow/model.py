@@ -6,6 +6,8 @@
 from __future__ import generators
 from pypy.tool.uid import Hashable
 
+from pypy.translator.pickle.slotted import Slotted
+
 """
     memory size before and after introduction of __slots__
     using targetpypymain with -no-c
@@ -30,21 +32,6 @@ COUNTOBJECTS = False
 
 __metaclass__ = type
 
-class Missing:
-    pass
-
-class Slotted:
-    __slots__ = []
-    from copy_reg import _slotnames
-    _slotnames = classmethod(_slotnames)
-    def __getstate__(self):
-        names = self._slotnames()
-        return tuple([getattr(self, name, Missing) for name in names])
-    def __setstate__(self, args):
-        names = self._slotnames()
-        [setattr(self, name, value) for name, value in zip(names, args)
-         if value is not Missing]
-        
 class FunctionGraph(Slotted):
     __slots__ = """func source name startblock returnblock exceptblock""".split()
     
