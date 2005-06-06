@@ -66,4 +66,4 @@ def test_recursive():
             l = [l]
             N -= 1
         return len(l)
-    rtype(dummyfn, [int]).view()
+    rtype(dummyfn, [int]) #.view()
