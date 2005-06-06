@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.interpreter.gateway import app2interp_temp 
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import appsupport 
@@ -138,6 +138,8 @@ class PyPyTestFunction(py.test.Function):
                 raise self.Failed(excinfo=appsupport.AppExceptionInfo(space, e))
             raise 
 
+_pygame_warned = False
+
 class IntTestFunction(PyPyTestFunction):
     def execute(self, target, *args):
         co = target.func_code
@@ -147,6 +149,12 @@ class IntTestFunction(PyPyTestFunction):
             target(space, *args)  
         else:
             target(*args)
+        if 'pygame' in sys.modules:
+            global _pygame_warned
+            if not _pygame_warned:
+                _pygame_warned = True
+                py.test.skip("DO NOT FORGET to remove the Pygame invocation "
+                             "before checking in :-)")
 
 class AppTestFunction(PyPyTestFunction): 
     def execute(self, target, *args):
