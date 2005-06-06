@@ -9,6 +9,8 @@ from pypy.rpython.lltype import FuncType, functionptr, typeOf
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython.rmodel import Repr, inputconst, TyperError
+from pypy.rpython.normalizecalls import perform_normalizations
+from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 
 
 debug = False
@@ -71,6 +73,9 @@ class RPythonTyper:
 
     def specialize(self):
         """Main entry point: specialize all annotated blocks of the program."""
+        # first make sure that all functions called in a group have exactly
+        # the same signature, by hacking their flow graphs if needed
+        perform_normalizations(self.annotator)
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
         already_seen = {}
@@ -340,6 +345,10 @@ class LowLevelOpList(list):
             if v is NotImplemented:
                 raise TyperError("don't know how to convert from %r to %r" %
                                  (r_from, r_to))
+            if v.concretetype != r_to.lowleveltype:
+                raise TyperError("bug in convertion from %r to %r: "
+                                 "returned a %r" % (r_from, r_to,
+                                                    v.concretetype))
         return v
 
     def genop(self, opname, args_v, resulttype=None):
@@ -383,8 +392,7 @@ class LowLevelOpList(list):
             spec_function = func_with_new_name(ll_function, name)
             # flow and annotate (the copy of) the low-level function
             self.rtyper.call_all_setups()  # compute ForwardReferences now
-            spec_graph = rtyper.annotator.translator.getflowgraph(spec_function)
-            rtyper.annotator.build_types(spec_function, args_s)
+            annotate_lowlevel_helper(rtyper.annotator, spec_function, args_s)
             # cache the result
             self.rtyper.specialized_ll_functions[spec_key] = spec_function
 

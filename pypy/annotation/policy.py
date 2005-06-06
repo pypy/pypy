@@ -1,7 +1,8 @@
 # base annotation policy for overrides and specialization
 from pypy.annotation.specialize import memo, ctr_location, default_specialize as default
+from pypy.translator.annrpython import BasicAnnotatorPolicy
 
-class AnnotatorPolicy:
+class AnnotatorPolicy(BasicAnnotatorPolicy):
     """
     Possibly subclass and pass an instance to the annotator to control special casing during annotation
     """

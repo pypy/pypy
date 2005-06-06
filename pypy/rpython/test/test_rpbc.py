@@ -8,7 +8,6 @@ def rtype(fn, argtypes=[]):
     t.annotate(argtypes)
     typer = RPythonTyper(t.annotator)
     typer.specialize()
-    #t.view()
     t.checkgraphs()
     return t
 
@@ -38,9 +37,23 @@ class MyBase:
     def m(self, x):
         return self.z + x
 
+class MySubclass(MyBase):
+    def m(self, x):
+        return self.z - x
+
 def test_method_call():
     def f(a, b):
         obj = MyBase()
         obj.z = a
         return obj.m(b)
-    rtype(f, [int, int]) #.view()
+    rtype(f, [int, int])
+
+def PROGRESSING_ON_test_virtual_method_call():
+    def f(a, b):
+        if a > 0:
+            obj = MyBase()
+        else:
+            obj = MySubclass()
+        obj.z = a
+        return obj.m(b)
+    rtype(f, [int, int]).view()

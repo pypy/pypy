@@ -122,7 +122,13 @@ class ClassRepr(Repr):
         self.initialized = True
 
     def prepare_method(self, name, s_value, allmethods):
-        # special-casing for methods
+        # special-casing for methods:
+        #  - a class (read-only) attribute that would contain a PBC
+        #    with {func: classdef...} is probably meant to be used as a
+        #    method, but in corner cases it could be a constant object
+        #    of type MethodType that just sits here in the class.  But
+        #    as MethodType has a custom __get__ too and we don't support
+        #    it, it's a very bad idea anyway.
         if isinstance(s_value, annmodel.SomePBC):
             debound = {}
             count = 0

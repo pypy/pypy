@@ -198,7 +198,7 @@ class MethodsPBCRepr(Repr):
             vfunc = hop.inputconst(typeOf(f), f)
         else:
             vinst = vlist[0]
-            vcls = self.getfield(vinst, '__class__', hop.llops)
+            vcls = self.r_instance.getfield(vinst, '__class__', hop.llops)
             vfunc = r_class.getclsfield(vcls, self.methodname, hop.llops)
         vlist.insert(0, vfunc)
         return hop.genop('direct_call', vlist, resulttype = rresult)

@@ -19,6 +19,18 @@ class UnionFind(object):
 
         return access
 
+    def __contains__(self, obj):
+        return obj in self.link_to_parent
+
+    def __iter__(self):
+        return iter(self.link_to_parent)
+
+    def keys(self):
+        return self.link_to_parent.keys()
+
+    def infos(self):
+        return self.root_info.values()
+
     def find(self, obj):  # -> new_root, obj, info
         if obj not in self.link_to_parent:
             info = self.root_info[obj] = self.info_factory(obj)

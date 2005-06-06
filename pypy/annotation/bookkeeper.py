@@ -85,14 +85,17 @@ class Bookkeeper:
         del self.position_key
 
     def compute_at_fixpoint(self):
-        self.pbc_maximal_call_families = UnionFind(PBCCallFamily)
-        self.pbc_callables = {}
+        if self.pbc_maximal_call_families is None:
+            self.pbc_maximal_call_families = UnionFind(PBCCallFamily)
+        if self.pbc_callables is None:
+            self.pbc_callables = {}
 
         for (fn, block, i), shape in self.pbc_call_sites.iteritems():
             spaceop = block.operations[i]
             assert spaceop.opname in ('call_args', 'simple_call')
             pbc = self.annotator.binding(spaceop.args[0], extquery=True)
             self.consider_pbc_call(pbc, shape, spaceop)
+        self.pbc_call_sites = {}
 
     def getclassdef(self, cls):
         """Get the ClassDef associated with the given user cls."""

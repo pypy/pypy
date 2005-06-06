@@ -12,12 +12,16 @@ from pypy.objspace.flow.model import last_exception
 class AnnotatorError(Exception):
     pass
 
-class NullAnnotatorPolicy:
+class BasicAnnotatorPolicy:
     def override(pol, func, inputcells):
         return None
     
     def specialize(pol, bookkeeper, spaceop, func, args, mono):
         return None
+
+    def compute_at_fixpoint(pol, annotator):
+        annotator.bookkeeper.compute_at_fixpoint()
+
 
 class RPythonAnnotator:
     """Block annotator for RPython.
@@ -47,9 +51,10 @@ class RPythonAnnotator:
         self.return_bindings = {} # map return Variables to functions
         # --- end of debugging information ---
         self.bookkeeper = Bookkeeper(self)
+        self.frozen = False
         # user-supplied annotation logic for functions we don't want to flow into
         if policy is None:
-            self.policy = NullAnnotatorPolicy()
+            self.policy = BasicAnnotatorPolicy()
         else:
             self.policy = policy
 
@@ -156,6 +161,7 @@ class RPythonAnnotator:
     def addpendingblock(self, fn, block, cells, called_from=None):
         """Register an entry point into block with the given input cells."""
         assert self.translator is None or fn in self.translator.flowgraphs
+        assert not self.frozen
         for a in cells:
             assert isinstance(a, annmodel.SomeObject)
         if block not in self.annotated:
@@ -187,7 +193,7 @@ class RPythonAnnotator:
                 print "++-" * 20
             raise AnnotatorError('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
-        self.bookkeeper.compute_at_fixpoint()
+        self.policy.compute_at_fixpoint(self)
 
     def binding(self, arg, extquery=False):
         "Gives the SomeValue corresponding to the given Variable or Constant."
@@ -341,6 +347,7 @@ class RPythonAnnotator:
             raise
 
     def reflowpendingblock(self, fn, block):
+        assert not self.frozen
         self.pendingblocks[block] = fn
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow

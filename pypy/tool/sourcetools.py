@@ -235,3 +235,14 @@ def valid_identifier(stuff):
     if not stuff or ('0' <= stuff[0] <= '9'):
         stuff = '_' + stuff
     return stuff
+
+CO_VARARGS      = 0x0004
+CO_VARKEYWORDS  = 0x0008
+
+def has_varargs(func):
+    func = getattr(func, 'func_code', func)
+    return (func.co_flags & CO_VARARGS) != 0
+
+def has_varkeywords(func):
+    func = getattr(func, 'func_code', func)
+    return (func.co_flags & CO_VARKEYWORDS) != 0
