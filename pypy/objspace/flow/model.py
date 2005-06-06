@@ -236,12 +236,12 @@ class Variable(object):
 
     def __reduce_ex__(self, *args):
         if hasattr(self, 'concretetype'):
-            return _buildvar, (self._name, self.concretetype)
+            return _bv, (self._name, self.concretetype)
         else:
-            return _buildvar, (self._name,)
+            return _bv, (self._name,)
     __reduce__ = __reduce_ex__
 
-def _buildvar(_name, concretetype=None):
+def _bv(_name, concretetype=None):
     v = Variable.__new__(Variable, object)
     v._name = _name
     if concretetype is not None:

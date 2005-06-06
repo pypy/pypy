@@ -15,6 +15,8 @@ from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.flowcontext import SpamBlock, EggBlock
+from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
+from pypy.annotation.model import SomeList, SomeString, SomeTuple
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.translator.pickle import slotted
 
@@ -74,6 +76,13 @@ class GenPickle:
             EggBlock:       'EB',
             Link:           'L',
             FunctionGraph:  'F',
+            SomeInteger:    'SI',
+            SomeObject:     'SO',
+            SomeChar:       'SC',
+            SomeBool:       'SB',
+            SomeList:       'SL',
+            SomeString:     'SS',
+            SomeTuple:      'ST',
             }
         self.outfile = outfile
         self._partition = 1234
