@@ -6,8 +6,6 @@
 from __future__ import generators
 from pypy.tool.uid import Hashable
 
-from pypy.translator.pickle.slotted import Slotted
-
 """
     memory size before and after introduction of __slots__
     using targetpypymain with -no-c
@@ -32,7 +30,7 @@ COUNTOBJECTS = False
 
 __metaclass__ = type
 
-class FunctionGraph(Slotted):
+class FunctionGraph(object):
     __slots__ = """func source name startblock returnblock exceptblock""".split()
     
     def __init__(self, name, startblock, return_var=None):
@@ -75,7 +73,7 @@ class FunctionGraph(Slotted):
         from pypy.translator.tool.graphpage import SingleGraphPage
         SingleGraphPage(self).display()
 
-class Link(Slotted):
+class Link(object):
 
     __slots__ = """args target exitcase prevblock
                 last_exception last_exc_value""".split()
@@ -116,7 +114,7 @@ class Link(Slotted):
     def __repr__(self):
         return "link from %s to %s" % (str(self.prevblock), str(self.target))
 
-class Block(Slotted):
+class Block(object):
     __slots__ = """isstartblock inputargs operations exitswitch
                 exits exc_handler""".split()
     
@@ -186,7 +184,7 @@ class Block(Slotted):
         self.exits = exits
 
 
-class Variable(Slotted):
+class Variable(object):
     __slots__ = ["_name", "concretetype"]
 
     countall = 0
@@ -236,12 +234,41 @@ class Variable(Slotted):
             name = '_' + name
         self._name = name + '_' + self.name[1:]
 
+    def __reduce_ex__(self, *args):
+        if hasattr(self, 'concretetype'):
+            return _buildvar, (self._name, self.concretetype)
+        else:
+            return _buildvar, (self._name,)
+    __reduce__ = __reduce_ex__
 
-class Constant(Hashable, Slotted):
+def _buildvar(_name, concretetype=None):
+    v = Variable.__new__(Variable, object)
+    v._name = _name
+    if concretetype is not None:
+        v.concretetype = concretetype
+    if type(_name) is int:
+        if _name > Variable.countall:
+            Variable.countall = _name
+        if COUNTOBJECTS:
+            Variable.countcurr += 1
+            Variable.countmax = max(Variable.countmax, Variable.countcurr)
+    return v
+
+class Constant(Hashable):
     __slots__ = ["concretetype"]
 
+    def __init__(self, value, concretetype = None):
+        Hashable.__init__(self, value)
+        if concretetype is not None:
+            self.concretetype = concretetype
+    def __reduce_ex__(self, *args):
+        if hasattr(self, 'concretetype'):
+            return Constant, (self.value, self.concretetype)
+        else:
+            return Constant, (self.value,)
+    __reduce__ = __reduce_ex__
 
-class SpaceOperation(Slotted):
+class SpaceOperation(object):
     __slots__ = "opname args result offset".split()
 
     def __init__(self, opname, args, result, offset=-1):
@@ -264,6 +291,9 @@ class SpaceOperation(Slotted):
 
     def __repr__(self):
         return "%r = %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
+
+    def __reduce_ex__(self, *args):
+        return SpaceOperation, (self.opname, self.args, self.result, self.offset)
 
 class Atom:
     def __init__(self, name):

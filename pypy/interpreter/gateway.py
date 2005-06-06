@@ -493,7 +493,8 @@ class interp2app_temp(interp2app):
 #
 
 class ApplevelClass:
-    """A container for app-level source code that should be executed
+    """NOT_RPYTHON
+    A container for app-level source code that should be executed
     as a module in the object space;  interphook() builds a static
     interp-level function that invokes the callable with the given
     name at app-level."""
@@ -548,7 +549,8 @@ class ApplevelClass:
 
 
 class ApplevelCache(SpaceCache):
-    """The cache mapping each applevel instance to its lazily built w_dict"""
+    """NOT_RPYTHON
+    The cache mapping each applevel instance to its lazily built w_dict"""
 
     def build(self, app):
         "NOT_RPYTHON.  Called indirectly by Applevel.getwdict()."
@@ -577,6 +579,7 @@ def build_applevel_dict(self, space):
 # __________ geninterplevel version __________
 
 class PyPyCacheDir:
+    "NOT_RPYTHON"
     # similar to applevel, but using translation to interp-level.
     # This version maintains a cache folder with single files.
 

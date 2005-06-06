@@ -14,6 +14,7 @@ from pypy.translator.gensupp import builtin_base
 from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
+from pypy.objspace.flow.flowcontext import SpamBlock, EggBlock
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.translator.pickle import slotted
 
@@ -64,6 +65,16 @@ class GenPickle:
             'pypy.module.',
             '__main__',
             )
+        self.shortnames = {
+            SpaceOperation: 'S',
+            Variable:       'V',
+            Constant:       'C',
+            Block:          'B',
+            SpamBlock:      'SB',
+            EggBlock:       'EB',
+            Link:           'L',
+            FunctionGraph:  'F',
+            }
         self.outfile = outfile
         self._partition = 1234
 
@@ -387,13 +398,14 @@ class GenPickle:
         return name
 
     def nameof_list(self, lis):
-        name = self.uniquename('g%dlist' % len(lis))
+        name = self.uniquename('L%d' % len(lis))
+        extend = self.nameof(_ex)
         def initlist():
             chunk = 20
             for i in range(0, len(lis), chunk):
                 items = lis[i:i+chunk]
                 itemstr = self.nameofargs(items)
-                yield '%s.extend([%s])' % (name, itemstr)
+                yield '%s(%s, %s)' % (extend, name, itemstr)
         self.initcode_python(name, '[]')
         self.later(initlist())
         return name
@@ -420,7 +432,7 @@ class GenPickle:
                             module, dictname) )
                     self.picklenames[Constant(dic)] = dictname
                     return dictname
-        name = self.uniquename('g%ddict' % len(dic))
+        name = self.uniquename('D%d' % len(dic))
         def initdict():
             for k in dic:
                 try:
@@ -449,7 +461,10 @@ class GenPickle:
 
     def nameof_instance(self, instance):
         klass = instance.__class__
-        name = self.uniquename('ginst_' + klass.__name__)
+        if klass in self.shortnames:
+            name = self.uniquename(self.shortnames[klass])
+        else:
+            name = self.uniquename('ginst_' + klass.__name__)
         cls = self.nameof(klass)
         if hasattr(klass, '__base__'):
             base_class = builtin_base(instance)
@@ -464,7 +479,9 @@ class GenPickle:
                 yield '%s.__setstate__(%s)' % (name, args)
                 return
             elif type(restorestate) is tuple:
-                slotted.__setstate__(instance, restorestate)
+                setstate = self.nameof(slotted.__setstate__)
+                args = self.nameof(restorestate)
+                yield '%s(%s, %s)' % (setstate, name, args)
                 return
             assert type(restorestate) is dict, (
                 "%s has no dict and no __setstate__" % name)
@@ -491,10 +508,12 @@ class GenPickle:
                     ' about __slots__ in %s instance without __setstate__,'
                     ' please update %s' % (cls.__name__, __name__) )
                 restorestate = slotted.__getstate__(instance)
-                restorer = _reconstructor
+                restorer = _rec
                 restoreargs = klass, object, None
             else:
                 restorer = reduced[0]
+                if restorer is _reconstructor:
+                    restorer = _rec
                 restoreargs = reduced[1]
                 if len(reduced) > 2:
                     restorestate = reduced[2]
@@ -702,3 +721,11 @@ def break_cell(cel):
             func.func_defaults, (cel,))
     func = new.function(*args)
     return func()
+
+# some shortcuts, to make the pickle smaller
+
+def _ex(lis, *args):
+    lis.extend(args)
+
+def _rec(*args):
+    return _reconstructor(*args)
