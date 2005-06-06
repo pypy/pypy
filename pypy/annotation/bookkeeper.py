@@ -11,14 +11,12 @@ from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef, isclassdef
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
-from pypy.tool.sourcetools import func_with_new_name, valid_identifier
-from pypy.interpreter.pycode import CO_VARARGS
 from pypy.interpreter.pycode import cpython_code_signature
-from pypy.interpreter.argument import ArgErr
+from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_uint
 from pypy.tool.unionfind import UnionFind
 
-import inspect, new
+from pypy.annotation.specialize import decide_callable
 
 class PBCAccessSet:
     def __init__(self, obj):
@@ -59,9 +57,8 @@ class Bookkeeper:
         self.listdefs = {}       # map position_keys to ListDefs
         self.dictdefs = {}       # map position_keys to DictDefs
         
-        # mapping position -> most general result, for call sites calling
-        # argtypes specialized functions
-        self.argtypes_spec_callsite_results = {}
+        # mapping position -> key, prev_result for specializations
+        self.spec_callsite_keys_results = {}
 
         self.pbc_maximal_access_sets = UnionFind(PBCAccessSet)
         # can be precisely computed only at fix-point, see
@@ -92,9 +89,10 @@ class Bookkeeper:
         self.pbc_callables = {}
 
         for (fn, block, i), shape in self.pbc_call_sites.iteritems():
-            assert block.operations[i].opname in ('call_args', 'simple_call')
-            pbc = self.annotator.binding(block.operations[i].args[0], extquery=True)
-            self.consider_pbc_call(pbc, shape, position=(fn, block, i))
+            spaceop = block.operations[i]
+            assert spaceop.opname in ('call_args', 'simple_call')
+            pbc = self.annotator.binding(spaceop.args[0], extquery=True)
+            self.consider_pbc_call(pbc, shape, spaceop)
 
     def getclassdef(self, cls):
         """Get the ClassDef associated with the given user cls."""
@@ -312,9 +310,18 @@ class Bookkeeper:
                 
         return unionof(*actuals)        
 
-    def consider_pbc_call(self, pbc, shape, position=None): # computation done at fix-point
+    def consider_pbc_call(self, pbc, shape, spaceop=None, implicit_init=None): # computation done at fix-point
         if not isinstance(pbc, SomePBC):
             return
+        
+        if implicit_init:
+            implicit_init = pbc, implicit_init
+            shape = (shape[0]+1,) + shape[1:]
+        else:
+            implicit_init = None
+
+        pbc, dontcarememo = self.query_spaceop_callable(spaceop,
+                                                        implicit_init=implicit_init) 
 
         nonnullcallables = []
         for func, classdef in pbc.prebuiltinstances.items():
@@ -327,10 +334,9 @@ class Bookkeeper:
             if isinstance(func, (type, ClassType)) and \
                     func.__module__ != '__builtin__':
                 assert classdef is None
-                dontcare, s_init = self.get_s_init(func, position=position)
+                init_classdef, s_init = self.get_s_init(func)
                 if s_init is not None:
-                    init_shape = (shape[0]+1,) + shape[1:]
-                    self.consider_pbc_call(s_init, init_shape) 
+                    self.consider_pbc_call(s_init, shape, spaceop, implicit_init=init_classdef) 
 
             callable = (classdef, func)
             if hasattr(func, 'im_func') and func.im_self is None:
@@ -376,21 +382,52 @@ class Bookkeeper:
         return unionof(*results) 
 
     # decide_callable(position, func, args, mono) -> callb, key
-    # query_spaceop_callable(spaceop) -> pbc
+    # query_spaceop_callable(spaceop) -> pbc, memo
     # get_s_init(decided_cls) -> classdef, s_undecided_init
 
-    def get_s_init(self, cls, position=None, mono=True):
-        specialize = getattr(cls, "_specialize_", False)
-        if specialize:
-            if specialize == "location":
-                assert mono, "not-static construction of specialized class %s" % cls
-                cls = self.specialize_by_key(cls, position, 
-                                             name="%s__At_%s" % (cls.__name__, 
-                                                                 position_name(position)))
+    def query_spaceop_callable(self, spaceop, implicit_init=None): # -> s_pbc, memo
+        self.enter(None)
+        try:
+            if implicit_init is None:
+                assert spaceop.opname in ("simple_call", "call_args")
+                obj = spaceop.args[0]
+                s_obj = self.annotator.binding(obj, extquery=True)
+                init_classdef = None
             else:
-                raise Exception, \
-                      "unsupported specialization type '%s'"%(specialize,)
+                s_obj, init_classdef = implicit_init
 
+            assert isinstance(s_obj, SomePBC)
+            if len(s_obj.prebuiltinstances) > 1: # no specialization expected
+                return s_obj, False
+
+            argsvars = spaceop.args[1:]
+            args_s = [self.annotator.binding(v) for v in argsvars]
+            args = self.build_args(spaceop.opname, args_s)
+            if init_classdef:
+                args = args.prepend(SomeInstance(init_classdef))
+
+            func, classdef = s_obj.prebuiltinstances.items()[0]
+            func, key = decide_callable(self, spaceop, func, args, mono=True)
+
+            if key is None:
+                return s_obj, False
+
+            if func is None: # specialisation computes annotation direclty
+                return s_obj, True
+
+            return SomePBC({func: classdef}), False
+        finally:
+            self.leave()
+
+    def build_args(self, op, args_s):
+        space = RPythonCallsSpace()
+        if op == "simple_call":
+            return Arguments(space, args_s)
+        elif op == "call_args":
+            return Arguments.fromshape(space, args_s[0].const, # shape
+                                       args_s[1:])
+
+    def get_s_init(self, cls):
         classdef = self.getclassdef(cls)
         init = getattr(cls, '__init__', None)
         if init is not None and init != object.__init__:
@@ -409,9 +446,20 @@ class Bookkeeper:
     def pycall(self, func, args, mono):
         if func is None:   # consider None as a NULL function pointer
             return SomeImpossibleValue()
+
+        # decide and pick if necessary a specialized version
+        base_func = func
+        func, key = decide_callable(self, self.position_key, func, args, mono, unpacked=True)
+        
+        if func is None:
+            assert isinstance(key, SomeObject)
+            return key
+
+        func, args = func # method unpacking done by decide_callable
+            
         if isinstance(func, (type, ClassType)) and \
             func.__module__ != '__builtin__':
-            classdef, s_init = self.get_s_init(func, position=self.position_key, mono=mono)
+            classdef, s_init = self.get_s_init(func)
             s_instance = SomeInstance(classdef)
             # flow into __init__() if the class has got one
             if s_init is not None:
@@ -423,60 +471,7 @@ class Bookkeeper:
                     raise Exception, "no __init__ found in %r" % (cls,)
             return s_instance
 
-        if hasattr(func, 'im_func'):
-            if func.im_self is not None:
-                s_self = self.immutablevalue(func.im_self)
-                args = args.prepend(s_self)
-            # for debugging only, but useful to keep anyway:
-            try:
-                func.im_func.class_ = func.im_class
-            except AttributeError:
-                # probably a builtin function, we don't care to preserve
-                # class information then
-                pass
-            func = func.im_func
         assert isinstance(func, FunctionType), "[%s] expected function, got %r" % (self.whereami(), func)
-        # do we need to specialize this function in several versions?
-        specialize = getattr(func, '_specialize_', False)
-
-        if specialize:
-            assert mono, "not-static call to specialized %s" % func
-            base_func = func
-            if specialize == 'argtypes':
-                key = short_type_name(args)
-                func = self.specialize_by_key(func, key,
-                                              func.__name__+'__'+key)
-            elif specialize == "location":
-                # fully specialize: create one version per call position
-                func = self.specialize_by_key(func, self.position_key,
-                                              name="%s__At_%s" % (func.__name__, 
-                                                                  position_name(self.position_key)))
-            elif specialize == "memo":
-                # call the function now, and collect possible results
-                arglist_s, kwds_s = args.unpack()
-                assert not kwds_s, ("no ** args in call to function "
-                                    "marked specialize='concrete'")
-                possible_results = []
-                for arglist in possible_arguments(arglist_s):
-                    result = func(*arglist)
-                    possible_results.append(self.immutablevalue(result))
-                return unionof(*possible_results)
-            else:
-                raise Exception, "unsupported specialization type '%s'"%(specialize,)
-
-        elif func.func_code.co_flags & CO_VARARGS:
-            # calls to *arg functions: create one version per number of args
-            assert mono, "not-static call to *arg function %s" % func
-            assert not args.has_keywords(), (
-                "keyword forbidden in calls to *arg functions")
-            nbargs = len(args.arguments_w)
-            if args.w_stararg is not None:
-                s_len = args.w_stararg.len()
-                assert s_len.is_constant(), "calls require known number of args"
-                nbargs += s_len.const
-            func = self.specialize_by_key(func, nbargs,
-                                          name='%s__%d' % (func.func_name,
-                                                           nbargs))
 
         # parse the arguments according to the function we are calling
         signature = cpython_code_signature(func.func_code)
@@ -492,18 +487,20 @@ class Bookkeeper:
 
         r = self.annotator.recursivecall(func, self.position_key, inputcells)
 
-        # in the case of argtypes specialisation we may have been calling a
-        # different function for the site which could also be just partially analysed,
-        # we need to force unifying all past and present results for the site
-        # in order to guarantee the more general results invariant.
-        if specialize == 'argtypes':
-            key = (base_func, self.position_key)
-            prev_r = self.argtypes_spec_callsite_results.get(key)
-            if prev_r is not None:
-                r = unionof(prev_r, r)
-            self.argtypes_spec_callsite_results[key] = r
+        # if we got different specializations keys for a same site, mix previous results for stability
+        if key is not None:
+            occurence = (base_func, self.position_key)
+            try:
+                prev_key, prev_r = self.spec_callsite_keys_results[occurence]
+            except KeyError:
+                self.spec_callsite_keys_results[occurence] = key, r
+            else:
+                if prev_key != key:
+                    r = unionof(r, prev_r)
+                    prev_key = None
+                self.spec_callsite_keys_results[occurence] = prev_key, r
+
         return r
-        
         
 
     def whereami(self):
@@ -516,56 +513,6 @@ class Bookkeeper:
             pos = '?'
         ansi_print("*** WARNING: [%s] %s" % (pos, msg), esc="31") # RED
 
-    def specialize_by_key(self, thing, key, name=None):
-        key = thing, key
-        try:
-            thing = self.cachespecializations[key]
-        except KeyError:
-            if isinstance(thing, FunctionType):
-                # XXX XXX XXX HAAAAAAAAAAAACK
-                # xxx we need a way to let know subsequent phases (the
-                # generator) about the specialized function.
-                # The caller flowgraph, as it is, doesn't know.
-                # This line just avoids that the flowgraph of the original
-                # function (which is what will be considered and compiled for
-                # now) will be computed during generation itself.
-                self.annotator.translator.getflowgraph(thing)
-                #
-                thing = func_with_new_name(thing, name or thing.func_name)
-            elif isinstance(thing, (type, ClassType)):
-                superclasses = iter(inspect.getmro(thing))
-                superclasses.next() # skip thing itself
-                for cls in superclasses:
-                    assert not hasattr(cls, "_specialize_"), "for now specialization only for leaf classes"
-                
-                newdict = {}
-                for attrname,val in thing.__dict__.iteritems():
-                    if attrname == '_specialize_': # don't copy the marker
-                        continue
-                    if isinstance(val, FunctionType):
-                        fname = val.func_name
-                        if name:
-                            fname = "%s_for_%s" % (fname, name)
-                        newval = func_with_new_name(val, fname)
-                    # xxx more special cases
-                    else: 
-                        newval  = val
-                    newdict[attrname] = newval
-
-                thing = type(thing)(name or thing.__name__, (thing,), newdict)
-            else:
-                raise Exception, "specializing %r?? why??"%thing
-            self.cachespecializations[key] = thing
-        return thing
-
-
-def getbookkeeper():
-    """Get the current Bookkeeper.
-    Only works during the analysis of an operation."""
-    try:
-        return TLS.bookkeeper
-    except AttributeError:
-        return None
 
 def ishashable(x):
     try:
@@ -575,41 +522,35 @@ def ishashable(x):
     else:
         return True
 
-def short_type_name(args):
-    l = []
-    shape, args_w = args.flatten()
-    for x in args_w:
-        if isinstance(x, SomeInstance) and hasattr(x, 'knowntype'):
-            name = "SI_" + x.knowntype.__name__
-        else:
-            name = x.__class__.__name__
-        l.append(name)
-    return "__".join(l)
+# for parsing call arguments
+class RPythonCallsSpace:
+    """Pseudo Object Space providing almost no real operation.
+    For the Arguments class: if it really needs other operations, it means
+    that the call pattern is too complex for R-Python.
+    """
+    def newtuple(self, items_s):
+        return SomeTuple(items_s)
 
-def position_name((fn, block, i)):
-    mod = valid_identifier(getattr(fn, '__module__', 'SYNTH'))
-    name = valid_identifier(getattr(fn, '__name__', 'UNKNOWN'))
-    return "%s_%s_Giving_%s" % (mod, name, block.operations[i].result)
+    def newdict(self, stuff):
+        raise CallPatternTooComplex, "'**' argument"
 
-def possible_arguments(args):
-    # enumerate all tuples (x1,..xn) of concrete values that are contained
-    # in a tuple args=(s1,..sn) of SomeXxx.  Requires that each s be either
-    # a constant or SomePBC.
-    if not args:
-        yield ()
-        return
-    s = args[0]
-    if s.is_constant():
-        possible_values = [s.const]
-    elif isinstance(s, SomePBC):
-        for value in s.prebuiltinstances.values():
-            assert value is True, ("concrete call with a method bound "
-                                   "on a non-constant instance")
-        possible_values = s.prebuiltinstances.keys()
-    elif isinstance(s, SomeBool):
-        possible_values = [False, True]
-    else:
-        raise AssertionError, "concrete call with a non-constant arg %r" % (s,)
-    for tuple_tail in possible_arguments(args[1:]):
-        for value in possible_values:
-            yield (value,) + tuple_tail
+    def unpackiterable(self, s_obj, expected_length=None):
+        if isinstance(s_obj, SomeTuple):
+            if (expected_length is not None and
+                expected_length != len(s_obj.items)):
+                raise ValueError
+            return s_obj.items
+        raise CallPatternTooComplex, "'*' argument must be SomeTuple"
+
+class CallPatternTooComplex(Exception):
+    pass
+
+# get current bookkeeper
+
+def getbookkeeper():
+    """Get the current Bookkeeper.
+    Only works during the analysis of an operation."""
+    try:
+        return TLS.bookkeeper
+    except AttributeError:
+        return None

@@ -1,55 +1,39 @@
 # overrides for annotation specific to PyPy codebase
+from pypy.annotation.policy import AnnotatorPolicy
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import model as annmodel
+from pypy.annotation import specialize
 
-from pypy.interpreter import error
-from pypy.interpreter import pyframe
-from pypy.objspace.std import fake
-from pypy.module.sys import state as sys_state
-import pypy.interpreter.typedef as itypedef
-import pypy.interpreter.pycode as pycode
-import pypy.interpreter.compiler as icompiler
-from pypy.objspace.std.objspace import StdObjSpace
+class PyPyAnnotatorPolicy(AnnotatorPolicy):
 
-def ignore(*args):
-    bk = getbookkeeper()
-    return bk.immutablevalue(None)
+    def override__ignore(pol, *args):
+        bk = getbookkeeper()
+        return bk.immutablevalue(None)
 
-def instantiate(clspbc):
-    assert isinstance(clspbc, annmodel.SomePBC)
-    clsdef = None
-    for cls, v in clspbc.prebuiltinstances.items():
-        if not clsdef:
-            clsdef = getbookkeeper().getclassdef(cls)
-        else:
-            clsdef = clsdef.commonbase(getbookkeeper().getclassdef(cls))
-    return annmodel.SomeInstance(clsdef)
+    def override__instantiate(pol, clspbc):
+        assert isinstance(clspbc, annmodel.SomePBC)
+        clsdef = None
+        for cls, v in clspbc.prebuiltinstances.items():
+            if not clsdef:
+                clsdef = getbookkeeper().getclassdef(cls)
+            else:
+                clsdef = clsdef.commonbase(getbookkeeper().getclassdef(cls))
+        return annmodel.SomeInstance(clsdef)
 
-def wrap_exception_cls(space, x):
-    import pypy.objspace.std.typeobject as typeobject
-    clsdef = getbookkeeper().getclassdef(typeobject.W_TypeObject)
-    return annmodel.SomeInstance(clsdef, can_be_None=True)
+    def override__wrap_exception_cls(pol, space, x):
+        import pypy.objspace.std.typeobject as typeobject
+        clsdef = getbookkeeper().getclassdef(typeobject.W_TypeObject)
+        return annmodel.SomeInstance(clsdef, can_be_None=True)
 
-def fake_object(space, x):
-    clsdef = getbookkeeper().getclassdef(itypedef.W_Root)
-    return annmodel.SomeInstance(clsdef)    
+    def override__fake_object(pol, space, x):
+        from pypy.interpreter import typedef
+        clsdef = getbookkeeper().getclassdef(typedef.W_Root)
+        return annmodel.SomeInstance(clsdef)    
 
-def cpy_compile(self, source, filename, mode, flags):
-    clsdef = getbookkeeper().getclassdef(pycode.PyCode)
-    return annmodel.SomeInstance(clsdef)    
+    def override__cpy_compile(pol, self, source, filename, mode, flags):
+        from pypy.interpreter import pycode
+        clsdef = getbookkeeper().getclassdef(pycode.PyCode)
+        return annmodel.SomeInstance(clsdef)    
 
-pypy_overrides = {}
-
-def install(tgt, override):
-    if hasattr(tgt, 'im_func'):
-        tgt = tgt.im_func
-    pypy_overrides[tgt] = override
-
-install(pyframe.cpython_tb, ignore)
-install(error.OperationError.record_interpreter_traceback, ignore)
-install(sys_state.pypy_getudir, ignore)
-install(fake.wrap_exception, ignore)
-install(fake.fake_object, fake_object)
-install(itypedef.instantiate, instantiate)
-install(StdObjSpace.wrap_exception_cls, wrap_exception_cls)
-install(icompiler.CPythonCompiler.compile, cpy_compile)
+    specialize__arg1 = staticmethod(specialize.argvalue(1))
+    specialize__argtype1 = staticmethod(specialize.argtype(1))

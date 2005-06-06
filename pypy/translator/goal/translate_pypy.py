@@ -59,7 +59,7 @@ print "imports redirected to pypy-translation-snapshot."
 import threading, pdb
 
 from pypy.translator.translator import Translator
-from pypy.translator.ann_override import pypy_overrides
+from pypy.translator.ann_override import PyPyAnnotatorPolicy
 from pypy.annotation import model as annmodel
 from pypy.tool.cache import Cache
 from pypy.annotation.model import SomeObject
@@ -85,7 +85,7 @@ def analyse(target):
     if listen_port:
         run_async_server()
     if not options['-no-a']:
-        a = t.annotate(inputtypes, overrides=pypy_overrides)
+        a = t.annotate(inputtypes, policy=PyPyAnnotatorPolicy())
         sanity_check_exceptblocks(t)
         worstblocks_topten(a)
         if not options['-no-s']:

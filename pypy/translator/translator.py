@@ -114,14 +114,14 @@ class Translator:
             graph = self.getflowgraph(func)
             simplify_graph(graph, passes)
             
-    def annotate(self, input_args_types, func=None, overrides={}):
+    def annotate(self, input_args_types, func=None, policy=None):
         """annotate(self, input_arg_types[, func]) -> Annotator
 
         Provides type information of arguments. Returns annotator.
         """
         func = func or self.entrypoint
         if self.annotator is None:
-            self.annotator = RPythonAnnotator(self, overrides=overrides)
+            self.annotator = RPythonAnnotator(self, policy=policy)
         graph = self.getflowgraph(func)
         self.annotator.build_types(graph, input_args_types, func)
         return self.annotator

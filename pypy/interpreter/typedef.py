@@ -33,7 +33,7 @@ def get_unique_interplevel_subclass(cls, hasdict, wants_slots):
         subcls = _buildusercls(cls, hasdict, wants_slots)
         subclass_cache[key] = subcls
         return subcls
-get_unique_interplevel_subclass._specialize_ = "memo"
+get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 
 def _buildusercls(cls, hasdict, wants_slots):
     "NOT_RPYTHON: initialization-time only"
@@ -109,6 +109,7 @@ def instantiate(cls):
         return object.__new__(cls)
     else:
         return new.instance(cls)
+instantiate._annspecialcase_ = "override:instantiate"
 
 def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
     if func is None:

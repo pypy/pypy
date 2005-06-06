@@ -238,7 +238,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from fake import fake_object
         return fake_object(self, x)
 
-    wrap._specialize_ = "argtypes"
+    wrap._annspecialcase_ = "specialize:argtype1"
 
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""
@@ -246,6 +246,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = getattr(self, 'w_' + x.__name__)            
             return w_result
         return None
+    wrap_exception_cls._annspecialcase_ = "override:wrap_exception_cls"
         
     def unwrap(self, w_obj):
         if isinstance(w_obj, BaseWrappable):
@@ -324,8 +325,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             instance.user_setup(self, w_subtype, w_subtype.nslots)
         assert isinstance(instance, cls)
         return instance
-    allocate_instance._specialize_ = "location"
-            
+    allocate_instance._annspecialcase_ = "specialize:arg1"
 
     def unpacktuple(self, w_tuple, expected_length=-1):
         assert isinstance(w_tuple, W_TupleObject)

@@ -80,6 +80,7 @@ def pypy_getudir(space):
     """NOT_RPYTHON"""
     from pypy.tool.udir import udir
     return space.wrap(str(udir))
+pypy_getudir._annspecialcase_ = "override:ignore"
 
 def getdefaultencoding(space): 
     return space.wrap(sys.getdefaultencoding())

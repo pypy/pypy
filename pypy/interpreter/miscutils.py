@@ -8,7 +8,7 @@ import types
 class Stack:
     """Utility class implementing a stack."""
 
-    _specialize_ = 'location' # polymorphic
+    _annspecialcase_ = "specialize:ctr_location" # polymorphic
 
     def __init__(self):
         self.items = []

@@ -1136,7 +1136,7 @@ def flow_rev_numbers(n):
 # class specialization
 
 class PolyStk:
-    _specialize_ = 'location'
+    _annspecialcase_ = "specialize:ctr_location"
 
     def __init__(self):
         self.itms = []

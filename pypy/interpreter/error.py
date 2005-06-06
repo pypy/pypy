@@ -70,6 +70,7 @@ class OperationError(Exception):
         application."""
         if RECORD_INTERPLEVEL_TRACEBACK:
             self.debug_excs.append(sys.exc_info())
+    record_interpreter_traceback._annspecialcase_ = "override:ignore"
 
     def print_application_traceback(self, space, file=None):
         "NOT_RPYTHON: Dump a standard application-level traceback."

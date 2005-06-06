@@ -12,7 +12,7 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeFloat
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.bookkeeper import getbookkeeper
+from pypy.annotation.bookkeeper import getbookkeeper, RPythonCallsSpace
 from pypy.annotation.classdef import isclassdef
 from pypy.annotation import builtin
 
@@ -131,12 +131,10 @@ class __extend__(SomeObject):
         return obj   # default unbound __get__ implementation
 
     def simple_call(obj, *args_s):
-        space = RPythonCallsSpace()
-        return obj.call(Arguments(space, args_s))
+        return obj.call(getbookkeeper().build_args("simple_call", args_s))
 
-    def call_args(obj, s_shape, *args_s):
-        space = RPythonCallsSpace()
-        return obj.call(Arguments.fromshape(space, s_shape.const, args_s))
+    def call_args(obj, *args_s):
+        return obj.call(getbookkeeper().build_args("call_args", args_s))
 
     def call(obj, args, implicit_init=False):
         #raise Exception, "cannot follow call_args%r" % ((obj, args),)
@@ -428,28 +426,6 @@ class __extend__(SomePBC):
         return immutablevalue(outcome)
             
             
-class RPythonCallsSpace:
-    """Pseudo Object Space providing almost no real operation.
-    For the Arguments class: if it really needs other operations, it means
-    that the call pattern is too complex for R-Python.
-    """
-    def newtuple(self, items_s):
-        return SomeTuple(items_s)
-
-    def newdict(self, stuff):
-        raise CallPatternTooComplex, "'**' argument"
-
-    def unpackiterable(self, s_obj, expected_length=None):
-        if isinstance(s_obj, SomeTuple):
-            if (expected_length is not None and
-                expected_length != len(s_obj.items)):
-                raise ValueError
-            return s_obj.items
-        raise CallPatternTooComplex, "'*' argument must be SomeTuple"
-
-class CallPatternTooComplex(Exception):
-    pass
-
 # annotation of low-level types
 from pypy.annotation.model import SomePtr, ll_to_annotation, annotation_to_lltype
 class __extend__(SomePtr):

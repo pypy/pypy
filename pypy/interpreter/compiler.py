@@ -112,6 +112,7 @@ class CPythonCompiler(Compiler):
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
         from pypy.interpreter.pycode import PyCode
         return space.wrap(PyCode(space)._from_code(c))
+    compile._annspecialcase_ = "override:cpy_compile"
 
     def getcodeflags(self, code):
         from pypy.interpreter.pycode import PyCode

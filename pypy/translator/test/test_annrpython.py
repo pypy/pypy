@@ -5,6 +5,8 @@ from pypy.tool.udir import udir
 
 from pypy.translator.annrpython import annmodel
 from pypy.translator.translator import Translator
+from pypy.annotation import policy
+from pypy.annotation import specialize
 from pypy.annotation.listdef import ListDef
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
@@ -589,7 +591,7 @@ class TestAnnotateTestCase:
         assert s == a.bookkeeper.immutablevalue(42)
 
     def test_class_spec(self):
-        a = self.RPythonAnnotator()
+        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
         s = a.build_types(snippet.class_spec, [])
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == str
@@ -668,6 +670,7 @@ class TestAnnotateTestCase:
         def record_exc(e):
             """NOT_RPYTHON"""
             excs.append(sys.exc_info)
+        record_exc._annspecialcase_ = "override:record_exc"
         def g():
             pass
         def f():
@@ -675,9 +678,12 @@ class TestAnnotateTestCase:
                 g()
             except Exception, e:
                 record_exc(e)
-        def ann_record_exc(s_e):
-            return a.bookkeeper.immutablevalue(None)
-        a = self.RPythonAnnotator(overrides={record_exc: ann_record_exc})
+        class MyAnnotatorPolicy(policy.AnnotatorPolicy):
+
+            def override__record_exc(pol, s_e):
+                return a.bookkeeper.immutablevalue(None)
+            
+        a = self.RPythonAnnotator(policy=MyAnnotatorPolicy())
         s = a.build_types(f, [])
         assert s.const is None
 
@@ -925,16 +931,36 @@ class TestAnnotateTestCase:
             i = inst(cls)
             assert isinstance(i, cls)
             return i
-        alloc._specialize_ = "location"
+        alloc._annspecialcase_ = "specialize:arg0"
 
         def f():
             c1 = alloc(C1)
             c2 = alloc(C2)
             return c1,c2
-        a = self.RPythonAnnotator()
+
+        class MyAnnotatorPolicy(policy.AnnotatorPolicy):
+
+            specialize__arg0 = staticmethod(specialize.argvalue(0))
+
+        a = self.RPythonAnnotator(policy=MyAnnotatorPolicy())
         s = a.build_types(f, [])
         assert s.items[0].knowntype == C1
         assert s.items[1].knowntype == C2
+
+        callb = a.getpbccallables()
+        assert alloc not in callb
+        def visit(block):
+            if isinstance(block, Block):
+                for spaceop in block.operations:
+                    if spaceop.opname == "simple_call" and spaceop.args[0] == Constant(alloc):
+                        spec_alloc, memo = a.bookkeeper.query_spaceop_callable(spaceop)
+                        assert not memo
+                        spec_alloc = spec_alloc.const
+                        assert spec_alloc in callb
+                        assert callb[spec_alloc] == {(None, spec_alloc): True}
+                        assert (a.binding(a.translator.getflowgraph(spec_alloc).getreturnvar()).knowntype 
+                                == spaceop.args[1].value)
+        traverse(visit, a.translator.getflowgraph(f))
 
     def test_assert_list_doesnt_lose_info(self):
         class T(object):

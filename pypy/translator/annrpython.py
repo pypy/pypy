@@ -12,12 +12,18 @@ from pypy.objspace.flow.model import last_exception
 class AnnotatorError(Exception):
     pass
 
+class NullAnnotatorPolicy:
+    def override(pol, func, inputcells):
+        return None
+    
+    def specialize(pol, bookkeeper, spaceop, func, args, mono):
+        return None
 
 class RPythonAnnotator:
     """Block annotator for RPython.
     See description in doc/translation/annotation.txt."""
 
-    def __init__(self, translator=None, overrides={}):
+    def __init__(self, translator=None, policy = None):
         self.translator = translator
         self.pendingblocks = {}  # map {block: function}
         self.bindings = {}       # map Variables to SomeValues
@@ -42,21 +48,20 @@ class RPythonAnnotator:
         # --- end of debugging information ---
         self.bookkeeper = Bookkeeper(self)
         # user-supplied annotation logic for functions we don't want to flow into
-        self.overrides = overrides
+        if policy is None:
+            self.policy = NullAnnotatorPolicy()
+        else:
+            self.policy = policy
 
     def __getstate__(self):
         attrs = """translator pendingblocks bindings annotated links_followed
-        notify bookkeeper overrides""".split()
+        notify bookkeeper policy""".split()
         ret = self.__dict__.copy()
         for key, value in ret.items():
             if key not in attrs:
                 assert type(value) is dict, ("please update %s.__getstate__" %
                                              self.__class__.__name__)
                 ret[key] = {}
-        # special case: clean up the overrides which would trigger bad imports
-        overrides = ret['overrides'] = {}
-        for key in self.overrides:
-            overrides[key] = None
         return ret
 
     def _register_returnvar(self, flowgraph, func):
@@ -232,9 +237,9 @@ class RPythonAnnotator:
     #___ interface for annotator.bookkeeper _______
 
     def recursivecall(self, func, position_key, inputcells):
-        override = self.overrides.get(func, None)
-        if override is not None:
-            return override(*inputcells)
+        overriden = self.policy.override(func, inputcells)
+        if overriden is not None:
+            return overriden
         parent_fn, parent_block, parent_index = position_key
         graph = self.getflowgraph(func, parent_fn, position_key)
         # self.notify[graph.returnblock] is a dictionary of call

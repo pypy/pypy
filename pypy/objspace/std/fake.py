@@ -17,7 +17,7 @@ def fake_object(space, x):
         return space.gettypeobject(ft.typedef)
     ft = fake_type(type(x))
     return ft(space, x)
-
+fake_object._annspecialcase_ = "override:fake_object"
 
 import sys
 
@@ -43,6 +43,7 @@ def wrap_exception(space):
         w_exc = space.wrap(exc)
         w_value = space.wrap(value)
     raise OperationError, OperationError(w_exc, w_value), tb
+wrap_exception._annspecialcase_ = "override:ignore"
 
 def fake_type(cpy_type):
     assert type(cpy_type) is type

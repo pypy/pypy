@@ -19,6 +19,7 @@ def cpython_tb():
    """NOT_RPYTHON"""
    import sys
    return sys.exc_info()[2]   
+cpython_tb._annspecialcase_ = "override:ignore"
 
 class PyFrame(eval.Frame):
     """Represents a frame for a regular Python function

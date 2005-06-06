@@ -37,7 +37,7 @@ class Cache(object):
             result = self._build(key)
             self.content[key] = result
             return result
-    getorbuild._specialize_ = "memo"
+    getorbuild._annspecialcase_ = "specialize:memo"
 
     def _freeze_(self):
         # needs to be SomePBC, but otherwise we can't really freeze the
