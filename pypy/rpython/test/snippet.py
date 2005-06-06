@@ -114,7 +114,7 @@ def float1(n):
     if n < 12.5:
         n += 666
 
-    while n:
+    while n >= 0:
         i = i + n
         n = n - 1
     return i
@@ -128,3 +128,19 @@ def float_cast1(n):
     n += float(6)
     n += float(7.8)
     n += float(n)
+
+
+def main(args=[]):
+    b = True
+    i = 23
+    f = 45.6
+    b1 = bool1(b)
+    i1 = int1(i)
+    f1 = float1(f)
+    #print 'bool1(%d)'  % b, b1
+    #print 'int1(%d)'   % i, i1
+    #print 'float1(%s)' % f, f1
+
+
+if __name__ == '__main__':
+    main()
