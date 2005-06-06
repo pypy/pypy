@@ -300,11 +300,15 @@ def pbccall(translator):
     for (kinds, patt), (nfam, nels) in items:
         print pretty_nfam(nfam), "with", pretty_nels(kinds, nels, nfam), "with one call-pattern:",  prettypatt([patt])
 
-    print "- * -"
+    print "- many patterns  -"
 
+    manycallb = False
     rest.sort(lambda a,b: cmp((a[0],a[2]), (b[0],b[2])))
 
     for n, objs, patts in rest:
+        if len(objs) > 1 and not manycallb:
+            manycallb = True
+            print " - many callables, many patterns -"
         print "family of", pretty_els(objs), "with call-patterns:", prettypatt(patts)
 
 # debug helper
