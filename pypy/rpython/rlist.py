@@ -140,8 +140,8 @@ class ListIteratorRepr(Repr):
         citerptr = hop.inputconst(Void, self.lowleveltype)
         return hop.gendirectcall(ll_listiter, citerptr, v_lst)
 
-    def next(self, hop):
-        v_iter = hop.inputargs(self)
+    def rtype_next(self, hop):
+        v_iter, = hop.inputargs(self)
         return hop.gendirectcall(ll_listnext, v_iter)
 
 def ll_listiter(ITERPTR, lst):
@@ -156,4 +156,4 @@ def ll_listnext(iter):
     if index >= len(l.items):
         raise StopIteration
     iter.index = index + 1
-    return l.items[index]
+    return l.items[index].item

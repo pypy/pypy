@@ -21,18 +21,21 @@ def test_rlist():
 
 # ____________________________________________________________
 
-def test_simple():
-    def dummyfn():
-        l = [10,20,30]
-        return l[2]
-
-    t = Translator(dummyfn)
-    t.annotate([])
+def rtype(fn, argtypes=[]):
+    t = Translator(fn)
+    t.annotate(argtypes)
     typer = RPythonTyper(t.annotator)
     typer.specialize()
     #t.view()
     t.checkgraphs()
+    return t
 
+
+def test_simple():
+    def dummyfn():
+        l = [10,20,30]
+        return l[2]
+    rtype(dummyfn)
 
 def test_append():
     def dummyfn():
@@ -40,38 +43,19 @@ def test_append():
         l.append(5)
         l.append(6)
         return l[0]
-
-    t = Translator(dummyfn)
-    t.annotate([])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
-
+    rtype(dummyfn)
 
 def test_len():
     def dummyfn():
         l = [5,10]
         return len(l)
+    rtype(dummyfn)
 
-    t = Translator(dummyfn)
-    t.annotate([])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
-
-
-def DONT_YET_test_range():
-    def dummyfn(N):
+def test_iterate():
+    def dummyfn():
         total = 0
-        for i in range(N):
-            total += i
+        for x in [1,3,5,7,9]:
+            total += x
         return total
+    rtype(dummyfn)
 
-    t = Translator(dummyfn)
-    t.annotate([])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    t.view()
-    t.checkgraphs()

@@ -13,10 +13,11 @@ from pypy.rpython.lltype import *
 #    }
 
 RANGE = GcStruct("range", ("start", Signed), ("stop", Signed))
+RANGEITER = GcStruct("range", ("next", Signed), ("stop", Signed))
 
 
 class RangeRepr(Repr):
-    lowlevelrepr = GcPtr(RANGE)
+    lowleveltype = GcPtr(RANGE)
 
     def __init__(self, step):
         self.step = step
@@ -27,7 +28,7 @@ class RangeRepr(Repr):
         return hop.gendirectcall(ll_rangelen, v_rng, cstep)
 
     def make_iterator_repr(self):
-        return riter.RangeIteratorRepr(self)
+        return RangeIteratorRepr(self)
 
 class __extend__(pairtype(RangeRepr, IntegerRepr)):
 
@@ -95,3 +96,47 @@ def rtype_builtin_range(hop):
         raise TyperError("range() result used as a normal list: "
                          "XXX not implemented")
         #return hop.gendirectcall(ll_range2list, vstart, vstop, vstep)
+
+# ____________________________________________________________
+#
+#  Iteration.
+
+class RangeIteratorRepr(Repr):
+    lowleveltype = GcPtr(RANGEITER)
+
+    def __init__(self, r_rng):
+        self.r_rng = r_rng
+
+    def newiter(self, hop):
+        v_rng, = hop.inputargs(self.r_rng)
+        citerptr = hop.inputconst(Void, self.lowleveltype)
+        return hop.gendirectcall(ll_rangeiter, citerptr, v_rng)
+
+    def rtype_next(self, hop):
+        v_iter, = hop.inputargs(self)
+        cstep = hop.inputconst(Signed, self.r_rng.step)
+        if self.r_rng.step > 0:
+            llfn = ll_rangenext_up
+        else:
+            llfn = ll_rangenext_down
+        return hop.gendirectcall(llfn, v_iter, cstep)
+
+def ll_rangeiter(ITERPTR, rng):
+    iter = malloc(ITERPTR.TO)
+    iter.next = rng.start
+    iter.stop = rng.stop
+    return iter
+
+def ll_rangenext_up(iter, step):
+    next = iter.next
+    if next >= iter.stop:
+        raise StopIteration
+    iter.next = next + step
+    return next
+
+def ll_rangenext_down(iter, step):
+    next = iter.next
+    if next <= iter.stop:
+        raise StopIteration
+    iter.next = next + step
+    return next
