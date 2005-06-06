@@ -25,15 +25,17 @@ class __extend__(annmodel.SomeList):
         else:
             # cannot do the rtyper.getrepr() call immediately, for the case
             # of recursive structures -- i.e. if the listdef contains itself
-            return ListRepr(lambda: rtyper.getrepr(listitem.s_value))
+            return ListRepr(lambda: rtyper.getrepr(listitem.s_value),
+                            self.listdef)
 
 
 class ListRepr(Repr):
 
-    def __init__(self, item_repr):
+    def __init__(self, item_repr, listdef=None):
         self.LIST = GcForwardReference()
         self.lowleveltype = GcPtr(self.LIST)
         self.item_repr = item_repr   # possibly uncomputed at this point!
+        self.listdef = listdef
         # setup() needs to be called to finish this initialization
 
     def setup(self):
@@ -65,6 +67,15 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
         else:
             llfn = ll_getitem
         return hop.gendirectcall(llfn, v_lst, v_index)
+
+
+class __extend__(pairtype(ListRepr, ListRepr)):
+    def convert_from_to((r_lst1, r_lst2), v, llops):
+        if r_lst1.listdef is None or r_lst2.listdef is None:
+            return NotImplemented
+        if not r_lst1.listdef.same_as(r_lst2.listdef):
+            return NotImplemented
+        return v
 
 # ____________________________________________________________
 #

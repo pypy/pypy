@@ -59,3 +59,11 @@ def test_iterate():
         return total
     rtype(dummyfn)
 
+def test_recursive():
+    def dummyfn(N):
+        l = []
+        while N > 0:
+            l = [l]
+            N -= 1
+        return len(l)
+    rtype(dummyfn, [int]).view()
