@@ -37,9 +37,10 @@ class __extend__(BoolRepr):
 
 class __extend__(pairtype(BoolRepr, IntegerRepr)):
     def convert_from_to((r_from, r_to), v, llops):
-        if r_to.lowleveltype == Unsigned:
+        if r_from.lowleveltype == Bool and r_to.lowleveltype == Unsigned:
             if debug: print 'explicit cast_bool_to_uint'
             return llops.genop('cast_bool_to_uint', [v], resulttype=Unsigned)
-        else:
+        if r_from.lowleveltype == Bool and r_to.lowleveltype == Signed:
             if debug: print 'explicit cast_bool_to_int'
             return llops.genop('cast_bool_to_int', [v], resulttype=Signed)
+        return NotImplemented

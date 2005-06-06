@@ -3,7 +3,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import *
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
-from pypy.rpython.rmodel import StringRepr, CharRepr
+from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst
 from pypy.rpython.rarithmetic import intmask
 
 # ____________________________________________________________
@@ -99,8 +99,17 @@ class __extend__(CharRepr):
 
 
 class __extend__(pairtype(CharRepr, StringRepr)):
-    def convert_from_to(_, v, llops):
-        return hop.gendirectcall(ll_chr2str, v)
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from == char_repr and r_to == string_repr:
+            return llops.gendirectcall(ll_chr2str, v)
+        return NotImplemented
+
+class __extend__(pairtype(StringRepr, CharRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from == string_repr and r_to == char_repr:
+            c_zero = inputconst(Signed, 0)
+            return llops.gendirectcall(ll_stritem_nonneg, v, c_zero)
+        return NotImplemented
 
 
 string_repr = StringRepr()

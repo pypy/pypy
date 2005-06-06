@@ -114,14 +114,17 @@ class __extend__(FloatRepr):
 
 class __extend__(pairtype(IntegerRepr, FloatRepr)):
     def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype == Unsigned:
+        if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Float:
             if debug: print 'explicit cast_uint_to_float'
             return llops.genop('cast_uint_to_float', [v], resulttype=Float)
-        else:
+        if r_from.lowleveltype == Signed and r_to.lowleveltype == Float:
             if debug: print 'explicit cast_int_to_float'
             return llops.genop('cast_int_to_float', [v], resulttype=Float)
+        return NotImplemented
 
 class __extend__(pairtype(BoolRepr, FloatRepr)):
-    def convert_from_to(_, v, llops):
-        if debug: print 'explicit cast_bool_to_float'
-        return llops.genop('cast_bool_to_float', [v], resulttype=Float)
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Bool and r_to.lowleveltype == Float:
+            if debug: print 'explicit cast_bool_to_float'
+            return llops.genop('cast_bool_to_float', [v], resulttype=Float)
+        return NotImplemented

@@ -22,13 +22,12 @@ unsigned_repr.lowleveltype = Unsigned
 class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype != r_to.lowleveltype:
-            if r_to.lowleveltype == Unsigned:
-                if debug: print 'explicit cast_int_to_uint'
-                return llops.genop('cast_int_to_uint', [v], resulttype=Unsigned)
-            else:
-                if debug: print 'explicit cast_uint_to_int'
-                return llops.genop('cast_uint_to_int', [v], resulttype=Signed)
+        if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Signed:
+            if debug: print 'explicit cast_int_to_uint'
+            return llops.genop('cast_int_to_uint', [v], resulttype=Unsigned)
+        if r_from.lowleveltype == Signed and r_to.lowleveltype == Unsigned:
+            if debug: print 'explicit cast_uint_to_int'
+            return llops.genop('cast_uint_to_int', [v], resulttype=Signed)
         return v
 
     #arithmetic
@@ -237,15 +236,17 @@ class __extend__(pairtype(PyObjRepr, IntegerRepr)):
         if r_to.lowleveltype == Unsigned:
             return llops.gencapicall('PyLong_AsUnsignedLong', [v],
                                      resulttype=Unsigned)
-        else:
+        if r_to.lowleveltype == Signed:
             return llops.gencapicall('PyInt_AsLong', [v],
                                      resulttype=Signed)
+        return NotImplemented
 
 class __extend__(pairtype(IntegerRepr, PyObjRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_from.lowleveltype == Unsigned:
             return llops.gencapicall('PyLong_FromUnsignedLong', [v],
                                      resulttype=pyobj_repr)
-        else:
+        if r_from.lowleveltype == Signed:
             return llops.gencapicall('PyInt_FromLong', [v],
                                      resulttype=pyobj_repr)
+        return NotImplemented
