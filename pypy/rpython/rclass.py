@@ -322,7 +322,18 @@ class InstanceRepr(Repr):
                            resulttype = GcPtr(self.object_type))
         ctypeptr = inputconst(TYPEPTR, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)
-        # XXX instance attributes
+        # initialize instance attributes from their defaults from the class
+        flds = self.allinstancefields.keys()
+        flds.sort()
+        mro = list(self.classdef.getmro())
+        mro.reverse()
+        for clsdef in mro:
+            for fldname in flds:
+                if fldname in clsdef.cls.__dict__:
+                    mangled_name, r = self.allinstancefields[fldname]
+                    value = clsdef.cls.__dict__[fldname]
+                    cvalue = inputconst(r, value)
+                    self.setfield(vptr, fldname, cvalue, llops)
         return vptr
 
     def rtype_type(self, hop):

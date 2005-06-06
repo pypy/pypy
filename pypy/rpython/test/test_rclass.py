@@ -3,6 +3,15 @@ from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
 
 
+def rtype(fn, argtypes=[]):
+    t = Translator(fn)
+    t.annotate(argtypes)
+    typer = RPythonTyper(t.annotator)
+    typer.specialize()
+    #t.view()
+    t.checkgraphs()
+    return t
+
 
 class EmptyBase(object):
     pass
@@ -12,13 +21,7 @@ def test_simple():
     def dummyfn():
         x = EmptyBase()
         return x
-
-    t = Translator(dummyfn)
-    t.annotate([])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
+    rtype(dummyfn)
 
 def test_instanceattr():
     def dummyfn():
@@ -26,13 +29,7 @@ def test_instanceattr():
         x.a = 5
         x.a += 1
         return x.a
-
-    t = Translator(dummyfn)
-    t.annotate([])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
+    rtype(dummyfn)
 
 
 class Random:
@@ -43,10 +40,11 @@ def test_classattr():
     def dummyfn():
         x = Random()
         return x.xyzzy
+    rtype(dummyfn)
 
-    t = Translator(dummyfn)
-    t.annotate([])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
+def test_classattr_as_defaults():
+    def dummyfn():
+        x = Random()
+        x.xyzzy += 1
+        return x.xyzzy
+    rtype(dummyfn).view()
