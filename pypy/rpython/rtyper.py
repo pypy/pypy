@@ -12,7 +12,7 @@ from pypy.rpython.rmodel import Repr, inputconst, TyperError
 
 
 debug = False
-crash_on_first_typeerror = False
+crash_on_first_typeerror = True
 
 # XXX copied from pypy.translator.typer and modified.
 #     We'll remove pypy.translator.typer at some point.

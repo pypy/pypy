@@ -47,4 +47,4 @@ def test_classattr_as_defaults():
         x = Random()
         x.xyzzy += 1
         return x.xyzzy
-    rtype(dummyfn).view()
+    rtype(dummyfn)
