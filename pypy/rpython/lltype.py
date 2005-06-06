@@ -334,8 +334,8 @@ def cast_parent(PTRTYPE, ptr):
         len(PTRTYPE.TO._names) == 0 or
         PTRTYPE.TO._flds[PTRTYPE.TO._names[0]] != CURTYPE.TO):
         raise InvalidCast(CURTYPE, PTRTYPE)
-    ptr._check()
-    parent = ptr._obj._wrparent()
+    parent = ptr._obj._parentstructure()
+    parent._check()
     PARENTTYPE = ptr._obj._wrparent_type
     if getattr(parent, PARENTTYPE._names[0]) is not ptr._obj:
         raise InvalidCast(CURTYPE, PTRTYPE)
