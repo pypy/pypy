@@ -336,7 +336,7 @@ def cast_parent(PTRTYPE, ptr):
         raise InvalidCast(CURTYPE, PTRTYPE)
     parent = ptr._obj._parentstructure()
     parent._check()
-    PARENTTYPE = ptr._obj._wrparent_type
+    PARENTTYPE = ptr._obj._parent_type
     if getattr(parent, PARENTTYPE._names[0]) is not ptr._obj:
         raise InvalidCast(CURTYPE, PTRTYPE)
     return _ptr(PTRTYPE, parent)
@@ -359,7 +359,7 @@ def _expose(val, can_have_gc=False):
 def parentlink(container):
     parent = container._parentstructure()
     if parent is not None:
-        return parent, container._wrparent_index
+        return parent, container._parent_index
 ##        if isinstance(parent, _struct):
 ##            for name in parent._TYPE._names:
 ##                if getattr(parent, name) is container:
@@ -422,7 +422,7 @@ class _ptr(object):
             self._check()
             setattr(self._obj, field_name, p._obj)
             p._obj._wrparent = weakref.ref(self._obj)
-            p._obj._wrparent_type = typeOf(self._obj)
+            p._obj._parent_type = typeOf(self._obj)
             return
         raise TypeError("%r instance has no first field" % (self._T,))
 
@@ -497,9 +497,9 @@ class _struct(object):
                 value = typ._defl()
             setattr(self, fld, value)
         if parent is not None:
-            self._wrparent_type = typeOf(parent)
+            self._parent_type = typeOf(parent)
             self._wrparent = weakref.ref(parent)
-            self._wrparent_index = parentindex
+            self._parent_index = parentindex
 
     def _parentstructure(self):
         if self._wrparent is not None:
@@ -507,7 +507,7 @@ class _struct(object):
             if parent is None:
                 raise RuntimeError("accessing substructure %r,\n"
                                    "but already garbage collected parent %r"
-                                   % (self, self._wrparent_type))
+                                   % (self, self._parent_type))
             return parent
         return None
 
@@ -545,9 +545,9 @@ class _array(object):
         self.items = [TYPE.OF._defl(parent=self, parentindex=j)
                       for j in range(n)]
         if parent is not None:
-            self._wrparent_type = typeOf(parent)
+            self._parent_type = typeOf(parent)
             self._wrparent = weakref.ref(parent)
-            self._wrparent_index = parentindex
+            self._parent_index = parentindex
 
     def _parentstructure(self):
         if self._wrparent is not None:
@@ -555,7 +555,7 @@ class _array(object):
             if parent is None:
                 raise RuntimeError("accessing subarray %r,\n"
                                    "but already garbage collected parent %r"
-                                   % (self, self._wrparent_type))
+                                   % (self, self._parent_type))
             return parent
         return None
 
