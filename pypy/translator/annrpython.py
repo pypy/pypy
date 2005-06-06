@@ -141,9 +141,8 @@ class RPythonAnnotator:
         return self.bookkeeper.pbc_maximal_access_sets
 
     def getpbccallables(self):
-        """Return mapping callable -> {(ClassDef|None, callable'): True...},
-        callable' == callable unless callable' is an unbound method then callable is callable'.im_func.
-
+        """Return mapping callable -> {(ClassDef|None, callable): True...},
+ 
         The tuples are indices in getpbcfamilies returned mapping
         """
         return self.bookkeeper.pbc_callables

@@ -148,6 +148,10 @@ class Bookkeeper:
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
         immutable value x."""
+        # convert unbound methods to the underlying function
+        if hasattr(x, 'im_self') and x.im_self is None:
+            x = x.im_func
+            assert not hasattr(x, 'im_self')
         if x is sys: # special case constant sys to someobject
             return SomeObject()
         tp = type(x)
@@ -339,9 +343,7 @@ class Bookkeeper:
                     self.consider_pbc_call(s_init, shape, spaceop, implicit_init=init_classdef) 
 
             callable = (classdef, func)
-            if hasattr(func, 'im_func') and func.im_self is None:
-                # consider unbound methods and the undelying functions as the same
-                func = func.im_func
+            assert not hasattr(func, 'im_func') or func.im_self is not None
             self.pbc_callables.setdefault(func,{})[callable] = True
             nonnullcallables.append(callable)
 
@@ -434,10 +436,6 @@ class Bookkeeper:
             # don't record the access of __init__ on the classdef
             # because it is not a dynamic attribute look-up, but
             # merely a static function call
-            if hasattr(init, 'im_func'):
-                init = init.im_func
-            else:
-                assert isinstance(init, BuiltinMethodType)
             s_init = self.immutablevalue(init)
             return classdef, s_init
         else:
