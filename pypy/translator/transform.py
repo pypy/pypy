@@ -317,6 +317,8 @@ def cutoff_alwaysraising_block(self, block):
     s_value = annmodel.SomeInstance(self.bookkeeper.getclassdef(Exception))
     self.setbinding(etype, s_type)
     self.setbinding(evalue, s_value)
+    # make sure the bookkeeper knows about AssertionError
+    self.bookkeeper.getclassdef(AssertionError)
 
 
 def transform_graph(ann):
