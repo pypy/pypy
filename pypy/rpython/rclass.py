@@ -1,6 +1,7 @@
 import types
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
+from pypy.annotation.classdef import isclassdef
 from pypy.rpython.lltype import *
 from pypy.rpython.rmodel import Repr, TyperError, inputconst
 
@@ -43,7 +44,6 @@ def getclassrepr(rtyper, classdef):
         result = rtyper.class_reprs[classdef]
     except KeyError:
         result = rtyper.class_reprs[classdef] = ClassRepr(rtyper, classdef)
-        result.setup()
     return result
 
 def getinstancerepr(rtyper, classdef):
@@ -51,7 +51,6 @@ def getinstancerepr(rtyper, classdef):
         result = rtyper.instance_reprs[classdef]
     except KeyError:
         result = rtyper.instance_reprs[classdef] = InstanceRepr(rtyper,classdef)
-        result.setup()
     return result
 
 class MissingRTypeAttribute(TyperError):
@@ -84,8 +83,15 @@ class ClassRepr(Repr):
 
     def setup(self):
         if self.initialized:
-            return   # already initialized
-        self.clsfields = {}
+            assert self.initialized == True
+            return
+        self.initialized = "in progress"
+        # NOTE: don't store mutable objects like the dicts below on 'self'
+        #       before they are fully built, to avoid strange bugs in case
+        #       of recursion where other code would uses these
+        #       partially-initialized dicts.
+        clsfields = {}
+        allmethods = {}
         if self.classdef is None:
             # 'object' root type
             self.vtable_type.become(OBJECT_VTABLE)
@@ -96,18 +102,47 @@ class ClassRepr(Repr):
             attrs.sort()
             for name, attrdef in attrs:
                 if attrdef.readonly:
-                    r = self.rtyper.getrepr(attrdef.s_value)
+                    s_value = attrdef.s_value
+                    s_value = self.prepare_method(name, s_value, allmethods)
+                    r = self.rtyper.getrepr(s_value)
                     mangled_name = 'cls_' + name
-                    self.clsfields[name] = mangled_name, r
+                    clsfields[name] = mangled_name, r
                     llfields.append((mangled_name, r.lowleveltype))
             #
             self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
+            self.rbase.setup()
             vtable_type = Struct('%s_vtable' % self.classdef.cls.__name__,
                                  ('super', self.rbase.vtable_type),
                                  *llfields)
             self.vtable_type.become(vtable_type)
+            allmethods.update(self.rbase.allmethods)
+        self.clsfields = clsfields
+        self.allmethods = allmethods
         self.vtable = None
         self.initialized = True
+
+    def prepare_method(self, name, s_value, allmethods):
+        # special-casing for methods
+        if isinstance(s_value, annmodel.SomePBC):
+            debound = {}
+            count = 0
+            for x, classdef in s_value.prebuiltinstances.items():
+                if isclassdef(classdef):
+                    if classdef.commonbase(self.classdef) != self.classdef:
+                        raise TyperError("methods from PBC set %r don't belong "
+                                         "in %r" % (s_value.prebuiltinstances,
+                                                    self.classdef.cls))
+                    count += 1
+                    classdef = True
+                debound[x] = classdef
+            if count > 0:
+                if count != len(s_value.prebuiltinstances):
+                    raise TyperError("mixing functions and methods "
+                                     "in PBC set %r" % (
+                        s_value.prebuiltinstances,))
+                s_value = annmodel.SomePBC(debound)
+                allmethods[name] = True
+        return s_value
 
     def convert_const(self, value):
         if not isinstance(value, (type, types.ClassType)):
@@ -225,12 +260,18 @@ class InstanceRepr(Repr):
 
     def setup(self):
         if self.initialized:
-            return   # already initialized
+            assert self.initialized == True
+            return
+        self.initialized = "in progress"
+        # NOTE: don't store mutable objects like the dicts below on 'self'
+        #       before they are fully built, to avoid strange bugs in case
+        #       of recursion where other code would uses these
+        #       partially-initialized dicts.
         self.rclass = getclassrepr(self.rtyper, self.classdef)
-        self.fields = {}
-        self.allinstancefields = {}
+        fields = {}
+        allinstancefields = {}
         if self.classdef is None:
-            self.fields['__class__'] = 'typeptr', TYPEPTR
+            fields['__class__'] = 'typeptr', TYPEPTR
             self.object_type.become(OBJECT)
         else:
             # instance attributes
@@ -241,16 +282,19 @@ class InstanceRepr(Repr):
                 if not attrdef.readonly:
                     r = self.rtyper.getrepr(attrdef.s_value)
                     mangled_name = 'inst_' + name
-                    self.fields[name] = mangled_name, r
+                    fields[name] = mangled_name, r
                     llfields.append((mangled_name, r.lowleveltype))
             #
             self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef)
+            self.rbase.setup()
             object_type = GcStruct(self.classdef.cls.__name__,
                                    ('super', self.rbase.object_type),
                                    *llfields)
             self.object_type.become(object_type)
-            self.allinstancefields.update(self.rbase.allinstancefields)
-        self.allinstancefields.update(self.fields)
+            allinstancefields.update(self.rbase.allinstancefields)
+        allinstancefields.update(fields)
+        self.fields = fields
+        self.allinstancefields = allinstancefields
         self.initialized = True
 
     def convert_const(self, value, targetptr=None, vtable=None):
@@ -345,6 +389,10 @@ class InstanceRepr(Repr):
         vinst, vattr = hop.inputargs(self, Void)
         if attr in self.allinstancefields:
             return self.getfield(vinst, attr, hop.llops)
+        elif attr in self.rclass.allmethods:
+            # special case for methods: represented as their 'self' only
+            # (see MethodsPBCRepr)
+            return vinst
         else:
             vcls = self.getfield(vinst, '__class__', hop.llops)
             return self.rclass.getclsfield(vcls, attr, hop.llops)

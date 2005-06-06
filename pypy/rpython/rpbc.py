@@ -136,6 +136,76 @@ class FunctionsPBCRepr(Repr):
 
 # ____________________________________________________________
 
+def commonbase(classdefs):
+    result = classdefs[0]
+    for cdef in classdefs[1:]:
+        result = result.commonbase(cdef)
+        if result is None:
+            raise TyperError("no common base class in %r" % (classdefs,))
+    return result
+
+def allattributenames(classdef):
+    for cdef1 in classdef.getmro():
+        for attrname in cdef1.attrs:
+            yield cdef1, attrname
+
+
+class MethodsPBCRepr(Repr):
+    """Representation selected for a PBC of the form {func: classdef...}.
+    It assumes that all the methods come from the same name in a base
+    classdef."""
+
+    def __init__(self, rtyper, s_pbc):
+        self.rtyper = rtyper
+        self.s_pbc = s_pbc
+        basedef = commonbase(s_pbc.prebuiltinstances.values())
+        for classdef1, name in allattributenames(basedef):
+            # don't trust the func.func_names and see if this 'name' would be
+            # the one under which we can find all these methods
+            for func, classdef in s_pbc.prebuiltinstances.items():
+                try:
+                    if func != getattr(classdef.cls, name).im_func:
+                        break
+                except AttributeError:
+                    break
+            else:
+                # yes!
+                self.methodname = name
+                self.classdef = classdef1   # where the Attribute is defined
+                break
+        else:
+            raise TyperError("cannot find a unique name under which the "
+                             "methods can be found: %r" % (
+                s_pbc.prebuiltinstances,))
+        # the low-level representation is just the bound 'self' argument.
+        self.r_instance = rclass.getinstancerepr(rtyper, self.classdef)
+        self.lowleveltype = self.r_instance.lowleveltype
+
+    def rtype_simple_call(self, hop):
+        # XXX the graph of functions used as methods may need to be hacked
+        # XXX so that its 'self' argument accepts a pointer to an instance of
+        # XXX the common base class.  This is needed to make the direct_call
+        # XXX below well-typed.
+        r_class = self.r_instance.rclass
+        mangled_name, r_func = r_class.clsfields[self.methodname]
+        assert isinstance(r_func, FunctionsPBCRepr)
+        #
+        # XXX try to unify with FunctionsPBCRepr.rtype_simple_call()
+        f, rinputs, rresult = r_func.function_signatures.itervalues().next()
+        vlist = hop.inputargs(self, *rinputs[1:])  # ignore the self from r_func
+        if r_func.lowleveltype == Void:
+            assert len(r_func.function_signatures) == 1
+            vfunc = hop.inputconst(typeOf(f), f)
+        else:
+            vinst = vlist[0]
+            vcls = self.getfield(vinst, '__class__', hop.llops)
+            vfunc = r_class.getclsfield(vcls, self.methodname, hop.llops)
+        vlist.insert(0, vfunc)
+        return hop.genop('direct_call', vlist, resulttype = rresult)
+
+
+# ____________________________________________________________
+
 
 class ClassesPBCRepr(Repr):
     """Representation selected for a PBC of class(es)."""

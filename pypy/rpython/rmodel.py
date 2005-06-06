@@ -21,6 +21,16 @@ class Repr:
     def setup(self):
         "For recursive data structure, which must be initialized in two steps."
 
+    def __getattr__(self, name):
+        # Assume that when an attribute is missing, it's because setup() needs
+        # to be called
+        self.setup()
+        try:
+            return self.__dict__[name]
+        except KeyError:
+            raise AttributeError("%s instance has no attribute %s" % (
+                self.__class__.__name__, name))
+
     def convert_const(self, value):
         "Convert the given constant value to the low-level repr of 'self'."
         if self.lowleveltype != Void:

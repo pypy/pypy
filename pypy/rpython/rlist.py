@@ -34,13 +34,17 @@ class ListRepr(Repr):
     def __init__(self, item_repr, listdef=None):
         self.LIST = GcForwardReference()
         self.lowleveltype = GcPtr(self.LIST)
-        self.item_repr = item_repr   # possibly uncomputed at this point!
+        if not isinstance(item_repr, Repr):  # not computed yet, done by setup()
+            assert callable(item_repr)
+            self._item_repr_computer = item_repr
+        else:
+            self.item_repr = item_repr
         self.listdef = listdef
         # setup() needs to be called to finish this initialization
 
     def setup(self):
-        if callable(self.item_repr):
-            self.item_repr = self.item_repr()
+        if 'item_repr' not in self.__dict__:
+            self.item_repr = self._item_repr_computer()
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
             ITEMARRAY = GcArray(("item", ITEM))

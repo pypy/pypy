@@ -32,3 +32,15 @@ def test_multiple_call():
             f = f2
         return f(y+3)
     rtype(g, [int])
+
+
+class MyBase:
+    def m(self, x):
+        return self.z + x
+
+def test_method_call():
+    def f(a, b):
+        obj = MyBase()
+        obj.z = a
+        return obj.m(b)
+    rtype(f, [int, int]).view()

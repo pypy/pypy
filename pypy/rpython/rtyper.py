@@ -24,6 +24,7 @@ class RPythonTyper:
         self.annotator = annotator
         self.reprs_by_id = {}
         self.reprs_by_content = {}
+        self.reprs_must_call_setup = []
         self.specialized_ll_functions = {}
         self.class_reprs = {}
         self.instance_reprs = {}
@@ -55,7 +56,7 @@ class RPythonTyper:
                     "missing a GcPtr or NonGcPtr in the type specification "
                     "of %s:\n%r" % (s_obj, result.lowleveltype))
                 self.reprs_by_content[key] = result
-                result.setup()
+                self.reprs_must_call_setup.append(result)
             self.reprs_by_id[id(s_obj)] = result, s_obj
         return result
 
@@ -75,9 +76,13 @@ class RPythonTyper:
         already_seen = {}
         pending = self.annotator.annotated.keys()
         while pending:
+            # specialize all blocks in the 'pending' list
             for block in pending:
                 self.specialize_block(block)
                 already_seen[block] = True
+            # make sure all reprs so far have had their setup() called
+            self.call_all_setups()
+            # look for newly created blocks
             pending = [block for block in self.annotator.annotated
                              if block not in already_seen]
         if self.typererror:
@@ -85,6 +90,11 @@ class RPythonTyper:
             self.typererror = None
             #self.annotator.translator.view()
             raise exc, value, tb
+
+    def call_all_setups(self):
+        # make sure all reprs so far have had their setup() called
+        while self.reprs_must_call_setup:
+            self.reprs_must_call_setup.pop().setup()
 
     def setconcretetype(self, v):
         assert isinstance(v, Variable)
@@ -372,6 +382,7 @@ class LowLevelOpList(list):
             name = '_'.join(spec_name)
             spec_function = func_with_new_name(ll_function, name)
             # flow and annotate (the copy of) the low-level function
+            self.rtyper.call_all_setups()  # compute ForwardReferences now
             spec_graph = rtyper.annotator.translator.getflowgraph(spec_function)
             rtyper.annotator.build_types(spec_function, args_s)
             # cache the result
