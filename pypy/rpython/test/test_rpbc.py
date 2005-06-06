@@ -43,4 +43,4 @@ def test_method_call():
         obj = MyBase()
         obj.z = a
         return obj.m(b)
-    rtype(f, [int, int]).view()
+    rtype(f, [int, int]) #.view()
