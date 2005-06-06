@@ -3,6 +3,10 @@ Generate a Python source file from the flowmodel.
 The purpose is to create something that allows
 to restart code generation after flowing and maybe
 annotation.
+
+The generated source appeared to be way too large
+for the CPython compiler. Therefore, we cut the
+source into pieces and compile them seperately.
 """
 from __future__ import generators, division, nested_scopes
 import __future__
@@ -17,11 +21,12 @@ from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.flowcontext import SpamBlock, EggBlock
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple
+from pypy.annotation.unaryop import SomeInstance
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.translator.pickle import slotted
 
 from pickle import whichmodule, PicklingError
-from copy_reg import _reduce_ex, _reconstructor
+from copy_reg import _reconstructor
 
 import pickle
 
@@ -33,7 +38,7 @@ import types
 
 class GenPickle:
 
-    def __init__(self, translator, outfile = None):
+    def __init__(self, translator, writer = None):
         self.translator = translator
         self.initcode = [
             'from __future__ import %s\n' % ', '.join(all_feature_names) +
@@ -56,8 +61,6 @@ class GenPickle:
         self.namespace.make_reserved_names('None False True')
         self.namespace.make_reserved_names('new types sys')
         self.namespace.make_reserved_names(' '.join(all_feature_names))
-        self.inline_consts = True # save lots of space
-        self._nesting = 0 # for formatting nested tuples etc.
         # we distinguish between the "user program" and other stuff.
         # "user program" will never use save_global.
         self.domains = (
@@ -68,7 +71,7 @@ class GenPickle:
             '__main__',
             )
         self.shortnames = {
-            SpaceOperation: 'S',
+            SpaceOperation: 'SOP',
             Variable:       'V',
             Constant:       'C',
             Block:          'B',
@@ -83,9 +86,9 @@ class GenPickle:
             SomeList:       'SL',
             SomeString:     'SS',
             SomeTuple:      'ST',
+            SomeInstance:   'SIN',
             }
-        self.outfile = outfile
-        self._partition = 1234
+        self.writer = writer
 
     def nameof(self, obj, debug=None, namehint=None):
         key = Constant(obj)
@@ -125,21 +128,20 @@ class GenPickle:
                 self.picklenames[key] = name
             return name
 
-    def nameofargs(self, tup):
+    def nameofargs(self, tup, plain_tuple = False):
         """ a string with the nameofs, concatenated """
-        if len(tup) < 5:
-            # see if there is nesting to be expected
-            for each in tup:
-                if type(each) is tuple:
-                    break
-            else:
-                return ', '.join([self.nameof(arg) for arg in tup])
-        # we always wrap into multi-lines, this is simple and readable
-        self._nesting += 1
-        space = '  ' * self._nesting
-        ret = '\n' + space + (',\n' + space).join(
-            [self.nameof(arg) for arg in tup]) + ',\n' + space
-        self._nesting -= 1
+        # see if we can build a compact representation
+        for each in tup:
+            if type(each) is tuple and len(each) > 2:
+                break
+        else:
+            ret = ', '.join([self.nameof(arg) for arg in tup])
+            if plain_tuple and len(tup) == 1:
+                ret += ','
+            if len(ret) <= 90:
+                return ret
+        ret = '\n ' + (',\n ').join(
+            [self.nameof(arg) for arg in tup]) + ',\n '
         return ret
 
     def uniquename(self, basename):
@@ -184,27 +186,18 @@ class GenPickle:
     # the compiler folds the consts the same way as we do.
     # note that true pickling is more exact, here.
     nameof_long = nameof_float = nameof_bool = nameof_NoneType = nameof_int
-
-    def nameof_str(self, value):
-        if self.inline_consts:
-            return repr(value)
-        name = self.uniquename('gstr_' + value[:32])
-        self.initcode_python(name, repr(value))
-        return name
-
-    def nameof_unicode(self, value):
-        if self.inline_consts:
-            return repr(value)
-        name = self.uniquename('guni_' + str(value[:32]))
-        self.initcode_python(name, repr(value))
-        return name
+    nameof_str = nameof_unicode = nameof_int
 
     def skipped_function(self, func):
-        # debugging only!  Generates a placeholder for missing functions
+        # Generates a placeholder for missing functions
         # that raises an exception when called.
+        # The original code object is retained in an
+        # attribute '_skipped_code'
         name = self.uniquename('gskippedfunc_' + func.__name__)
+        codename = self.nameof(func.func_code)
         self.initcode.append('def %s(*a,**k):\n' 
                              '  raise NotImplementedError' % name)
+        self.initcode.append('%s._skipped_code = %s' % (name, codename) )
         return name
 
     def nameof_staticmethod(self, sm):
@@ -390,31 +383,23 @@ class GenPickle:
         return name
 
     def nameof_tuple(self, tup):
-        # instead of defining myriads of tuples, it seems to
-        # be cheaper to create them inline, although they don't
-        # get constant folded like strings and numbers.
-        if self.inline_consts:
-            argstr = self.nameofargs(tup)
-            if len(tup) == 1 and not argstr.rstrip().endswith(','):
-                argstr += ','
-            return '(%s)' % argstr
-        name = self.uniquename('g%dtuple' % len(tup))
-        args = [self.nameof(x) for x in tup]
-        args = ', '.join(args)
-        if args:
-            args += ','
-        self.initcode_python(name, '(%s)' % args)
+        chunk = 20
+        name = self.uniquename('T%d' % len(tup))
+        argstr = self.nameofargs(tup[:chunk], True)
+        self.initcode_python(name, '(%s)' % argstr)
+        for i in range(chunk, len(tup), chunk):
+            argstr = self.nameofargs(tup[i:i+chunk], True)
+            self.initcode.append('%s += (%s)' % (name, argstr) )
         return name
 
     def nameof_list(self, lis):
+        chunk = 20
         name = self.uniquename('L%d' % len(lis))
-        extend = self.nameof(_ex)
         def initlist():
             chunk = 20
             for i in range(0, len(lis), chunk):
-                items = lis[i:i+chunk]
-                itemstr = self.nameofargs(items)
-                yield '%s(%s, %s)' % (extend, name, itemstr)
+                argstr = self.nameofargs(lis[i:i+chunk])
+                yield '%s += [%s]' % (name, argstr)
         self.initcode_python(name, '[]')
         self.later(initlist())
         return name
@@ -488,9 +473,9 @@ class GenPickle:
                 yield '%s.__setstate__(%s)' % (name, args)
                 return
             elif type(restorestate) is tuple:
-                setstate = self.nameof(slotted.__setstate__)
-                args = self.nameof(restorestate)
-                yield '%s(%s, %s)' % (setstate, name, args)
+                setstate = self.nameof(_set)
+                argstr = self.nameofargs(restorestate)
+                yield '%s(%s, %s)' % (setstate, name, argstr)
                 return
             assert type(restorestate) is dict, (
                 "%s has no dict and no __setstate__" % name)
@@ -518,12 +503,14 @@ class GenPickle:
                     ' please update %s' % (cls.__name__, __name__) )
                 restorestate = slotted.__getstate__(instance)
                 restorer = _rec
-                restoreargs = klass, object, None
+                restoreargs = klass,
             else:
                 restorer = reduced[0]
+                restoreargs = reduced[1]
                 if restorer is _reconstructor:
                     restorer = _rec
-                restoreargs = reduced[1]
+                    if restoreargs[1:] == (object, None):
+                        restoreargs = restoreargs[:1]
                 if len(reduced) > 2:
                     restorestate = reduced[2]
                 else:
@@ -603,8 +590,6 @@ class GenPickle:
         args = (func.func_code, func.func_globals, func.func_name,
                 func.func_defaults, func.func_closure)
         pyfuncobj = self.uniquename('gfunc_' + func.__name__)
-        # touch code,to avoid extra indentation
-        self.nameof(func.func_code)
         self.initcode.append('%s = new.function(%s)' % (pyfuncobj,
                              self.nameofargs(args)) )
         if func.__dict__:
@@ -635,20 +620,6 @@ class GenPickle:
                 code.co_varnames, code.co_filename, code.co_name,
                 code.co_firstlineno, code.co_lnotab, code.co_freevars,
                 code.co_cellvars)
-        if not self.inline_consts:
-            # make the code, filename and lnotab strings nicer
-            codestr = code.co_code
-            codestrname = self.uniquename('gcodestr_' + code.co_name)
-            self.picklenames[Constant(codestr)] = codestrname
-            self.initcode.append('%s = %r' % (codestrname, codestr))
-            fnstr = code.co_filename
-            fnstrname = self.uniquename('gfname_' + code.co_name)
-            self.picklenames[Constant(fnstr)] = fnstrname
-            self.initcode.append('%s = %r' % (fnstrname, fnstr))
-            lnostr = code.co_lnotab
-            lnostrname = self.uniquename('glnotab_' + code.co_name)
-            self.picklenames[Constant(lnostr)] = lnostrname
-            self.initcode.append('%s = %r' % (lnostrname, lnostr))
         argstr = self.nameofargs(args)
         codeobj = self.uniquename('gcode_' + code.co_name)
         self.initcode.append('%s = new.code(%s)' % (codeobj, argstr))
@@ -672,34 +643,20 @@ class GenPickle:
     def later(self, gen):
         self.latercode.append((gen, self.debugstack))
 
-    def spill_source(self, final):
-        def write_block(lines):
-            if not lines:
-                return
-            txt = '\n'.join(lines)
-            print >> self.outfile, txt
-            print >> self.outfile, '## SECTION ##'
-
-        if not self.outfile:
-            return
-        chunk = self._partition
-        while len(self.initcode) >= chunk:
-            write_block(self.initcode[:chunk])
-            del self.initcode[:chunk]
-        if final and self.initcode:
-            write_block(self.initcode)
-            del self.initcode[:]
-
     def collect_initcode(self):
+        writer = self.writer
         while self.latercode:
             gen, self.debugstack = self.latercode.pop()
             #self.initcode.extend(gen) -- eats TypeError! bad CPython!
             for line in gen:
                 self.initcode.append(line)
             self.debugstack = ()
-            if len(self.initcode) >= self._partition:
-                self.spill_source(False)
-        self.spill_source(True)
+            if writer:
+                for line in self.initcode:
+                    writer.write(line)
+                del self.initcode[:]
+        if writer:
+            writer.close()
 
     def getfrozenbytecode(self):
         self.initcode.append('')
@@ -733,8 +690,8 @@ def break_cell(cel):
 
 # some shortcuts, to make the pickle smaller
 
-def _ex(lis, *args):
-    lis.extend(args)
+def _rec(klass, base=object, state=None):
+    return _reconstructor(klass, base, state)
 
-def _rec(*args):
-    return _reconstructor(*args)
+def _set(obj, *args):
+    slotted.__setstate__(obj, args)

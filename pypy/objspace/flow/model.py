@@ -293,7 +293,13 @@ class SpaceOperation(object):
         return "%r = %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
 
     def __reduce_ex__(self, *args):
-        return SpaceOperation, (self.opname, self.args, self.result, self.offset)
+        # avoid lots of useless list entities
+        return _sop, (self.opname, self.result, self.offset) + tuple(self.args)
+    __reduce__ = __reduce_ex__
+
+# a small and efficient restorer
+def _sop(opname, result, offset, *args):
+    return SpaceOperation(opname, args, result, offset)
 
 class Atom:
     def __init__(self, name):
