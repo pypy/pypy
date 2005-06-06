@@ -497,9 +497,12 @@ class _struct(object):
                 value = typ._defl()
             setattr(self, fld, value)
         if parent is not None:
-            self._parent_type = typeOf(parent)
-            self._wrparent = weakref.ref(parent)
-            self._parent_index = parentindex
+            self._setparentstructure(parent, parentindex)
+
+    def _setparentstructure(self, parent, parentindex):
+        self._wrparent = weakref.ref(parent)
+        self._parent_type = typeOf(parent)
+        self._parent_index = parentindex
 
     def _parentstructure(self):
         if self._wrparent is not None:
@@ -545,9 +548,12 @@ class _array(object):
         self.items = [TYPE.OF._defl(parent=self, parentindex=j)
                       for j in range(n)]
         if parent is not None:
-            self._parent_type = typeOf(parent)
-            self._wrparent = weakref.ref(parent)
-            self._parent_index = parentindex
+            self._setparentstructure(parent, parentindex)
+
+    def _setparentstructure(self, parent, parentindex):
+        self._wrparent = weakref.ref(parent)
+        self._parent_type = typeOf(parent)
+        self._parent_index = parentindex
 
     def _parentstructure(self):
         if self._wrparent is not None:
