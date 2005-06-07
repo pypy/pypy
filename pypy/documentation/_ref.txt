@@ -30,7 +30,9 @@
 .. _`objspace/trace.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
 .. _`rpython/`: http://codespeak.net/svn/pypy/dist/pypy/rpython
 .. _`rpython/lltype.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/lltype.py
+.. _`rpython/rint.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/rint.py
 .. _`rpython/rlist.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/rlist.py
+.. _`rpython/rmodel.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/rmodel.py
 .. _`pypy/test_all.py`: http://codespeak.net/svn/pypy/dist/pypy/test_all.py
 .. _`tool/`: http://codespeak.net/svn/pypy/dist/pypy/tool
 .. _`tool/pytest/`: http://codespeak.net/svn/pypy/dist/pypy/tool/pytest

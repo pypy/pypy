@@ -471,12 +471,30 @@ where -- in C notation -- all three variables v1, v2 and v3 are typed ``int``.  
 The process in more details
 ---------------------------
 
-The RPython Typer has a structure similar to that of the Annotator_: both consider each block of the flow graphs in turn, and perform some analysis on each operation.  In both cases the analysis of an operation depends on the annotations of its input arguments.  This is reflected in the usage of the same ``__extend__`` syntax in the source files (compare e.g. `annotation/binaryop.py`_ and `rpython/rlist.py`_).
+The RPython Typer has a structure similar to that of the Annotator_: both consider each block of the flow graphs in turn, and perform some analysis on each operation.  In both cases the analysis of an operation depends on the annotations of its input arguments.  This is reflected in the usage of the same ``__extend__`` syntax in the source files (compare e.g. `annotation/binaryop.py`_ and `rpython/rint.py`_).
 
 The analogy stops here, though: while it runs, the Annotator is in the middle of computing the annotations, so it might need to reflow and generalize until a fixpoint is reached.  The Typer, by contrast, works on the final annotations that the Annotator computed, without changing them, assuming that they are globally consistent.  There is no need to reflow: the Typer considers each block only once.  And unlike the Annotator, the Typer completely modifies the flow graph, by replacing each operation with some low-level operations.
 
-The main assumption of the RTyper, for the time being, is that each SomeXxx annotation has a canonical low-level representation.  For example, all variables annotated with SomeInteger() will correspond to the ``Signed`` low-level type.  The RTyper computes the canonical low-level type for each Variable based on its annotation, and stores it in the attribute ``concretetype``.  It also computes a ``concretetype`` for Constants, to match the way they are used in the low-level operations (for example, ``int_add(x, 1)`` requires a ``Constant(1)`` with ``concretetype=Signed``, but an untyped ``add(x, 1)`` works with a ``Constant(1)`` that must actually be a PyObject at run-time).
+In addition to replacing operations, the RTyper creates a ``concretetype`` attribute on all Variables and Constants in the flow graphs, which tells code generators which type to use for each of them.  This attribute is a `low-level type`_, as described below.
 
+
+Representations
+---------------
+
+Representations -- the Repr classes -- are the most important internal classes used by the RTyper.  (They are internal in the sense that they are an "implementation detail" and their instances just go away after the RTyper is finished; the code generators should only use the ``concretetype`` attributes, which are not Repr instances but `low-level types`_.)
+
+A representation contains all the logic about mapping a specific SomeXxx() annotation to a specific low-level type.  For the time being, the RTyper assumes that each SomeXxx() instance needs only one "canonical" representation.  For example, all variables annotated with SomeInteger() will correspond to the ``Signed`` low-level type via the ``IntegerRepr`` representation.  More subtly, variables annotated SomeList() can correspond either to a structure holding an array of items of the correct type, or -- if the list in question is just a range() with a constant step -- a structure with just start and stop fields.
+
+This example shows that two representations may need very different low-level implementations for the same high-level operations.  This is the reason for turning representations into explicit objects.
+
+The base Repr class is defined in `rpython/rmodel.py`_.  Most of the ``rpython/r*.py`` files define one or a few subclasses of Repr.  The method getrepr() of the RTyper will build and cache a single Repr instance per SomeXxx() instance; moreover, two SomeXxx() instances that are equal get the same Repr instance.
+
+The key attribute of a Repr instance is called ``lowleveltype``, which is what gets copied into the attribute ``concretetype`` of the Variables that have been given this representation.  The RTyper also computes a ``concretetype`` for Constants, to match the way they are used in the low-level operations (for example, ``int_add(x, 1)`` requires a ``Constant(1)`` with ``concretetype=Signed``, but an untyped ``add(x, 1)`` works with a ``Constant(1)`` that must actually be a PyObject at run-time).
+
+In addition to ``lowleveltype``, each Repr subclass provides a set of methods called ``rtype_op_xxx()`` which define how each high-level operation ``op_xxx`` is turned into low-level operations.
+
+
+.. _`low-level type`:
 
 Low-Level Types
 ---------------
