@@ -15,13 +15,17 @@ from pypy.annotation.listdef import ListDef
 from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
 from pypy.translator.llvm.representation import LLVM_SIMPLE_TYPES
 
+from pypy.rpython import lltype
 
 import sys
+
 if 2147483647 == sys.maxint:
     BYTES_IN_INT = 4
 else:
     BYTES_IN_INT = 8
 
+lazy_debug = True
+debug = True
 
 class TypeRepr(LLVMRepr):
     def get(obj, gen):
@@ -137,6 +141,18 @@ class BoolTypeRepr(TypeRepr):
     def llvmsize(self):
         return 1
 
+class FloatTypeRepr(TypeRepr):
+    def __init__(self, gen):
+        if debug:
+            print "FloatTypeRepr"
+        self.gen = gen
+
+    def typename(self):
+        return "double"
+
+    def llvmsize(self):
+        return 8
+
 class CharTypeRepr(TypeRepr):
     def __init__(self, gen):
         if debug:
@@ -149,6 +165,25 @@ class CharTypeRepr(TypeRepr):
     def llvmsize(self):
         return 1
 
+class FuncTypeRepr(TypeRepr):
+    def get(obj, gen):
+        if obj.__class__ is lltype.FuncType:
+            return FuncTypeRepr(obj, gen)
+    get = staticmethod(get)
+
+    def __init__(self, functype, gen):
+        if debug:
+            print "FuncTypeRepr: %s" % functype
+        self.gen = gen
+        self.functype = functype
+        self.l_returntype = self.gen.get_repr(functype.RESULT)
+        self.l_args = [self.gen.get_repr(arg) for arg in functype.ARGS]
+        self.dependencies = sets.Set(self.l_args + [self.l_returntype])
+
+    def typename(self):
+        args = ", ".join([l_arg.llvmname() for arg in self.l_args])
+        return "%s (%s)" % (self.l_returntype.llvmname(), args)
+        
 
 class StringTypeRepr(TypeRepr):
     def get(obj, gen):

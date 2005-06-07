@@ -77,7 +77,11 @@ class LLVMGenerator(object):
                     pbcrepr]:
             self.repr_classes += [getattr(mod, s)
                                   for s in dir(mod) if "Repr" in s]
+        #if debug:
+        #    print 'LLVMGenerator before repr_classes=', len(self.repr_classes), self.repr_classes
         self.repr_classes = [c for c in self.repr_classes if hasattr(c, "get")]
+        #if debug:
+        #    print 'LLVMGenerator after  repr_classes=', len(self.repr_classes), self.repr_classes
         self.llvm_reprs = {}
         self.depth = 0
         self.entryname = self.translator.functions[0].__name__
@@ -85,10 +89,8 @@ class LLVMGenerator(object):
         self.l_entrypoint = EntryFunctionRepr("%__entry__" + self.entryname,
                                               self.translator.functions[0],
                                               self)
-##         classrepr.create_builtin_exceptions(
-##             self, self.l_entrypoint.get_dependencies())
         self.local_counts[self.l_entrypoint] = 0
-        self.l_entrypoint.setup()
+        #self.l_entrypoint.setup()
 
     def compile(self, optimize=False):
         from pypy.tool.udir import udir
@@ -136,12 +138,8 @@ class LLVMGenerator(object):
                 print "->exists already:", self.llvm_reprs[key]
             return self.llvm_reprs[key]
         elif isinstance(obj, Variable):
-            try:
-                obj.concretetype
-            except AttributeError:
-                self.rtyper.setconcretetype(obj)
             result = representation.VariableRepr(obj, self)
-            self.llvm_reprs[result] = result
+            self.llvm_reprs[key] = result
             self.depth -= 1
             return result
         elif isinstance(obj, lltype.Primitive):
@@ -151,8 +149,8 @@ class LLVMGenerator(object):
             return result
         if isinstance(obj, Constant):
             try:
-                T = lltype.typeOf(obj)
-                if isinstance(T, lltype.Primitive):
+                concretetype = obj.concretetype
+                if isinstance(concretetype, lltype.Primitive):
                     result = reprmap.PRIMITIVE_REPRS[concretetype](obj, self)
                     self.llvm_reprs[key] = result
                     self.depth -= 1
@@ -161,14 +159,22 @@ class LLVMGenerator(object):
             except AttributeError:
                 pass
         for cl in self.repr_classes:
+            if 0: #debug:
+                print 'try cl.get(obj, self) where cl=', cl
             try:
                 g = cl.get(obj, self)
+                #if debug:
+                #    print 'A) g=', g
             except AttributeError:
                 continue
+            #if debug:
+            #    print 'B) g=', g
             if g is not None:
                 self.llvm_reprs[key] = g
                 self.local_counts[g] = 0
                 self.depth -= 1
+                #if debug:
+                #    print 'C) should return here'
                 return g
         raise CompileError, "Can't get repr of %s, %s" % (obj, obj.__class__)
 
@@ -257,11 +263,3 @@ def remove_loops(l_repr, seen_repr):
             remove_loops(l_dep, seen_repr.union(sets.Set([l_repr])))
     deps.difference_update(remove)
 
-## def f():
-##     l = [10,20,30]
-##     return l[2]
-
-## t = Translator(f)
-## a = t.annotate([])
-
-## flg = t.getflowgraph()

@@ -55,30 +55,30 @@ class LLVMRepr(object):
     def setup(self):
         pass
     
-    def get_globals(self):
+    def get_globals(self): #this is called when the global definitions are collected
         return ""
 
-    def get_functions(self):
+    def get_functions(self): #this is called, when functions are collected
         return ""
 
-    def collect_init_code(self, lblock, l_func):
-        pass
+    def collect_init_code(self, lblock, l_func): #this collects init code
+        pass                                     #it is only executed once at module import time
 
-    def llvmname(self):
+    def llvmname(self):  #this is the name of the object in LLVM world: "5" for the int 5
         return self.name
 
-    def llvmtype(self):
+    def llvmtype(self):  #this is the name of the type of the object: "long" for and int
         return self.type.typename()
 
-    def llvmsize(self):
+    def llvmsize(self):  #this is the size in bytes -- not really used yet, but will be soon
         raise NotImplementedError, "This object has no size!"
 
-    def op(self, opname, l_target, args, lblock, l_func):
-        if hasattr(self, "type") and hasattr(self.type, "t_op"):
+    def op(self, opname, l_target, args, lblock, l_func): #This is used when code is generated:
+        if hasattr(self, "type") and hasattr(self.type, "t_op"): #I'll tell you about it soon
             return self.type.t_op(opname, l_target, args, lblock, l_func)
         raise CompileError, "op '%s' not supported" % opname
 
-    def typed_name(self):
+    def typed_name(self): #helper function: gives "int 5" for the int 5
         return self.llvmtype() + " " + self.llvmname()
 
     def get_dependencies(self):
@@ -99,7 +99,7 @@ class SignedRepr(LLVMRepr):
         return str(self.value)
 
     def get_dependencies(self):
-        return [self.type]
+        return sets.Set([self.type])
 
 class UnsignedRepr(LLVMRepr):
     def __init__(self, value, gen):
@@ -113,7 +113,7 @@ class UnsignedRepr(LLVMRepr):
         return str(self.value)
 
     def get_dependencies(self):
-        return [self.type]
+        return sets.Set([self.type])
 
 class BoolRepr(LLVMRepr):
     def __init__(self, value, gen):
@@ -127,7 +127,21 @@ class BoolRepr(LLVMRepr):
         return str(self.value).lower()
         
     def get_dependencies(self):
-        return [self.type]
+        return sets.Set([self.type])
+
+class FloatRepr(LLVMRepr):
+    def __init__(self, value, gen):
+        if debug:
+            print "FloatRepr: %f" % value
+        self.value = float(value)
+        self.gen = gen
+        self.type = self.gen.get_repr(lltype.Float)
+
+    def llvmname(self):
+        return str(self.value).lower()
+        
+    def get_dependencies(self):
+        return sets.Set([self.type])
 
 class CharRepr(LLVMRepr):
     def __init__(self, value, gen):
@@ -146,7 +160,7 @@ class CharRepr(LLVMRepr):
             return '%d' % ord(value)
         
     def get_dependencies(self):
-        return [self.type]
+        return sets.Set([self.type])
 
        
 class SimpleRepr(LLVMRepr):

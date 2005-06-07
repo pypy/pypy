@@ -2,6 +2,8 @@ import autopath
 
 import sets
 
+debug = True
+
 def create_property(cls, la, name):
     def get(self):
         self.setup()
@@ -27,7 +29,7 @@ class MetaLazyRepr(type):
             def setup(self):
                 if self.__setup_called__:
                     return
-                if getattr(cls.__module__, "lazy_debug", None):
+                if debug:
                     print "calling setup of class", name
                 self.__setup_called__ = True
                 self.gen.lazy_objects.discard(self)

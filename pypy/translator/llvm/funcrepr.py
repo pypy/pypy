@@ -11,15 +11,18 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import traverse, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.annotation.builtin import BUILTIN_ANALYZERS
-from pypy.translator.llvm import llvmbc
-from pypy.translator.unsimplify import remove_double_links
 
+from pypy.rpython import lltype
+
+from pypy.translator.unsimplify import remove_double_links
+from pypy.translator.llvm import llvmbc
 from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
 from pypy.translator.llvm.representation import last_exception, last_exc_value
 from pypy.translator.llvm.representation import SimpleRepr
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 
-debug = False
+debug = True
+lazy_debug = True
 
 INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
                  "neg", "pos", "invert", "add", "sub", "mul", "truediv",
@@ -74,10 +77,18 @@ class BuiltinFunctionRepr(LLVMRepr):
             l_args[1] = l_tmp
         lblock.call(l_target, l_args[0], l_args[1:])
 
+
 class FunctionRepr(LLVMRepr):
     l_functions = {}
     def get(obj, gen):
-        name = None
+        if isinstance(obj, lltype._func):
+            print "1a)"
+            if obj._callable not in FunctionRepr.l_functions:
+                print "1b)"
+                FunctionRepr.l_functions[obj._callable] = FunctionRepr(obj, gen)
+            return FunctionRepr.l_functions[obj._callable]
+        return None
+        name = None #ZZZZ this can probably be removed
         if (isinstance(obj, annmodel.SomePBC) and
             len(obj.prebuiltinstances) == 1 and
             isinstance(obj.prebuiltinstances.keys()[0], FunctionType)):
@@ -98,38 +109,47 @@ class FunctionRepr(LLVMRepr):
         return None
     get = staticmethod(get)
 
-    def __init__(self, name, function, gen):
+    def __init__(self, function, gen):
         if debug:
-            print "FunctionRepr: %s" % name
+            print "FunctionRepr: %s" % function
         self.gen = gen
         self.func = function
         self.translator = gen.translator
-        self.name = gen.get_global_tmp(name)
-        self.graph = self.translator.getflowgraph(self.func)
+        if debug: print "init 1a)"
+        #if debug: print 'QQQ',function.name,'QQQ'
+        #if debug: print "init 1b)"
+        print function, function.__class__
+        self.name = gen.get_global_tmp(function._name)
+        if debug: print "init 2)"
+        self.graph = function.graph
         self.annotator = gen.translator.annotator
         self.blocknum = {}
         self.allblocks = []
         self.pyrex_source = ""
         self.dependencies = sets.Set()
-        self.l_retvalue = self.gen.get_repr(
-            self.graph.returnblock.inputargs[0])
-        self.dependencies.add(self.l_retvalue)
-        self.l_args = [self.gen.get_repr(ar)
-                       for ar in self.graph.startblock.inputargs]
+        if debug: print "init 3)"
+        self.type = self.gen.get_repr(function._TYPE)
+        if debug: print "init 4)"
+        self.l_args = self.type.l_args
+        self.dependencies.add(self.type)
         self.dependencies.update(self.l_args)
+        if debug: print "init 8)"
         self.l_default_args = None
         remove_double_links(self.translator, self.graph)
+        print "init 9)"
         self.get_bbs()
+        print "init done"
 
-    lazy_attributes = ['llvm_func', 'lblocks']
+    lazy_attributes = ['llvm_func', 'lblocks'] 
 
     def setup(self):
+        print "setup"
         self.se = True
         self.lblocks = []
         self.build_bbs()
 
     def get_returntype():
-        return self.rettype.llvmname()
+        return self.type.l_returntype.typename()
 
     def get_bbs(self):
         def visit(node):
@@ -137,7 +157,7 @@ class FunctionRepr(LLVMRepr):
                 self.allblocks.append(node)
                 self.blocknum[node] = len(self.blocknum)
         traverse(visit, self.graph)
-        self.same_origin_block = [False] * len(self.allblocks)
+#        self.same_origin_block = [False] * len(self.allblocks)
 
     def build_bbs(self):
         for number, pyblock in enumerate(self.allblocks):
@@ -159,11 +179,11 @@ class FunctionRepr(LLVMRepr):
         self.lblocks.append(lblock)
 
     def llvmfuncdef(self):
-        s = "internal %s %s(" % (self.l_retvalue.llvmtype(), self.name)
+        s = "internal %s %s(" % (self.type.l_returntype.typename(), self.name)
         return s + ", ".join([a.typed_name() for a in self.l_args]) + ")"
 
     def rettype(self):
-        return self.l_retvalue.llvmtype()
+        return self.type.l_rettype.llvmname()
 
     def get_functions(self):
         return str(self.llvm_func)
@@ -460,7 +480,9 @@ class EntryFunctionRepr(LLVMRepr):
     lazy_attributes = ['l_function', 'llvm_func', 'init_block', 'exceptblock']
 
     def setup(self):
-        self.l_function = self.gen.get_repr(self.function)
+        f = self.gen.rtyper.getfunctionptr(self.function)._obj
+        print "EntryFunctionRepr", f
+        self.l_function = self.gen.get_repr(f)
         self.dependencies.add(self.l_function)
         #XXX clean this up
         #create entry block
@@ -476,18 +498,19 @@ class EntryFunctionRepr(LLVMRepr):
         self.llvm_func.basic_block(self.init_block)
         #create the block that calls the "real" function
         real_entry = llvmbc.TryBasicBlock("real_entry", "retblock", "exc")
-        l_ret = self.gen.get_local_tmp(self.l_function.l_retvalue.type,
+        l_ret = self.gen.get_local_tmp(self.l_function.type.l_returntype,
                                        self)
         real_entry.last_op = True
         self.l_function.op_simple_call(
-            l_ret, [self.function] + self.l_function.l_args, real_entry, self)
+            l_ret, [self.gen.rtyper.getfunctionptr(self.function)._obj] +
+            self.l_function.l_args, real_entry, self)
         self.llvm_func.basic_block(real_entry)
         #create the block that catches remaining unwinds and sets
         #pypy____uncaught_exception to 1
         self.exceptblock = llvmbc.BasicBlock("exc")
         ins = """store int 1, int* %%pypy__uncaught_exception
 \t%%dummy_ret = cast int 0 to %s
-\tret %s %%dummy_ret""" % tuple([self.l_function.l_retvalue.llvmtype()] * 2)
+\tret %s %%dummy_ret""" % tuple([self.l_function.type.l_returntype.typename()] * 2)
         self.exceptblock.instruction(ins)
         self.exceptblock.closed = True
         self.llvm_func.basic_block(self.exceptblock)
@@ -503,8 +526,8 @@ class EntryFunctionRepr(LLVMRepr):
             rettype_c = C_SIMPLE_TYPES[a.binding(retv).__class__]
             self.void = False
         except KeyError:
-            l_retv = self.l_function.l_retvalue
-            if l_retv.llvmtype() == "%std.void*":
+            l_rett = self.l_function.type.l_returntype
+            if l_retv.llvmname() == "%std.void*":
                 rettype_c = "void"
                 self.void = True
             else:
@@ -516,7 +539,7 @@ class EntryFunctionRepr(LLVMRepr):
         return fd
 
     def llvmfuncdef(self):
-        s = "%s %s(" % (self.l_function.l_retvalue.llvmtype(), self.name)
+        s = "%s %s(" % (self.l_function.type.l_returntype.typename(), self.name)
         s += ", ".join([a.typed_name() for a in self.l_function.l_args]) + ")"
         return s
 
@@ -549,7 +572,7 @@ class EntryFunctionRepr(LLVMRepr):
         return self.pyrex_source
 
     def rettype(self):
-        return self.l_function.l_retvalue.llvmtype()
+        return self.l_function.type.l_returntype.typename()
 
     def get_functions(self):
         if not self.branch_added:
@@ -573,6 +596,7 @@ class VirtualMethodRepr(LLVMRepr):
     # to the appropriate class
     # Should be replaced by function pointers
     def get(obj, gen):
+        return None #this function will go away, I just disable it for now
         if (isinstance(obj, annmodel.SomePBC) and
             len(obj.prebuiltinstances) > 1 and
             isinstance(obj.prebuiltinstances.keys()[0], FunctionType)):
