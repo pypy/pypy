@@ -130,7 +130,8 @@ class ObjSpace(object):
         self.setitem(w_modules, w_name, w_builtin) 
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
         self.setbuiltinmodule('unicodedata')
-
+        #  Uncomment the following line to enable the builtin _codecs module
+        #self.setbuiltinmodule('_codecs')
         # XXX we need to resolve unwrapping issues to 
         #     make this the default _sre module
         #self.setbuiltinmodule("_sre", "_sre_pypy") 
