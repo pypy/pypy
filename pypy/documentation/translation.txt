@@ -501,15 +501,13 @@ Low-Level Types
 
 The RPython Typer uses a standard low-level model which we believe can correspond rather directly to various target languages from C to LLVM to Java.  This model is implemented in the first part of `rpython/lltype.py`_.
 
-The second part of `rpython/lltype.py`_ is a runnable implementation of these types, for testing purposes.  It allows us to write and test plain Python code using a malloc() function to obtain and manipulate structures and arrays.  This is useful for example to implement RPython types like 'list' with its operations and methods.
+The second part of `rpython/lltype.py`_ is a runnable implementation of these types, for testing purposes.  It allows us to write and test plain Python code using a malloc() function to obtain and manipulate structures and arrays.  This is useful for example to implement and test RPython types like 'list' with its operations and methods.
 
 The basic assumption is that Variables (i.e. local variables and function arguments and return value) all contain "simple" values: basically, just integers or pointers.  All the "container" data structures (struct and array) are allocated in the heap, and they are always manipulated via pointers.  (There is no equivalent to the C notion of local variable of a ``struct`` type.)
 
-Here is a quick tour::
+Here is a quick tour (NOTE: this is up-to-date with the Subversion head.  If you have some older version, the ``lltype`` module might be called ``lltypes`` and you may need to add or remove a few ``Gc`` prefixes here and there)::
 
     >>> from pypy.rpython.lltype import *
-
-(The module is called ``lltypes`` in PyPy release 0.6.)
 
 Here are a few primitive low-level types, and the typeOf() function to figure them out::
 
@@ -528,18 +526,18 @@ Let's say that we want to build a type "point", which is a structure with two in
     >>> POINT
     <GcStruct point { x: Signed, y: Signed }>
 
-The structure is a ``GcStruct``, which means a structure that can be allocated in the heap and eventually freed by some garbage collector.  (For platforms where we use reference counting, think about ``GcStruct`` as a struct with an additional reference counter field.) (NB. in PyPy release 0.6, GcStruct and GcArray don't exist; you must use Struct and Array instead.)
+The structure is a ``GcStruct``, which means a structure that can be allocated in the heap and eventually freed by some garbage collector.  (For platforms where we use reference counting, think about ``GcStruct`` as a struct with an additional reference counter field.)
 
 Giving a name ('point') to the GcStruct is only for clarity: it is used in the representation.
 
     >>> p = malloc(POINT)
     >>> p
-    <_ptrtype to struct point { x=0, y=0 }>
+    <ptr(gc) to struct point { x=0, y=0 }>
     >>> p.x = 5
     >>> p.x
     5
     >>> p
-    <_ptrtype to struct point { x=5, y=0 }>
+    <ptr(gc) to struct point { x=5, y=0 }>
 
 ``malloc()`` allocates a structure from the heap, initalizes it to 0 (currently), and returns a pointer to it.  The point of all this is to work with a very limited, easily controllable set of types, and define implementations of types like list in this elementary world.  The ``malloc()`` function is a kind of placeholder, which must eventually be provided by the code generator for the target platform; but as we have just seen its Python implementation in `rpython/lltype.py`_ works too, which is primarily useful for testing, interactive exploring, etc.
 
@@ -550,12 +548,12 @@ The argument to ``malloc()`` is the structure type directly, but it returns a po
 
 For the purpose of creating structures with pointers to other structures, we can declare pointer types explicitely::
 
-    >>> typeOf(p) == GcPtr(POINT)
+    >>> typeOf(p) == Ptr(POINT)
     True
-    >>> BIZARRE = GcStruct('bizarre', ('p1', GcPtr(POINT)), ('p2', GcPtr(POINT)))
+    >>> BIZARRE = GcStruct('bizarre', ('p1', Ptr(POINT)), ('p2', Ptr(POINT)))
     >>> b = malloc(BIZARRE)
     >>> b.p1
-    <_ptrtype to None>
+    <ptr(gc) to None>
     >>> b.p1 = b.p2 = p
     >>> b.p1.y = 42
     >>> b.p2.y
@@ -577,7 +575,7 @@ Char
     a single character (``char``)
 
 Bool
-    a boolean value (could be ``char`` as well in C)
+    a boolean value
 
 Void
     a constant.  Meant for variables and function arguments that should
@@ -598,7 +596,7 @@ By contrast, the fields themselves can be of primitive, pointer or container typ
 
 A structure can also contain an inlined array (see below), but only as its last field: in this case it is a "variable-sized" structure, whose memory layout starts with the non-variable fields and ends with a variable number of array items.  This number is determined when a structure is allocated in the heap.  Variable-sized structures cannot be inlined in other structures.
 
-GcStructs have a platform-specific GC header (e.g. a reference counter); only these can be malloc()ed.  Structs have no header, and are suitable for being embedded ("inlined") inside other structures.  As an exception, a GcStruct can be embedded as the first field of a GcStruct: the parent structure uses the same GC header as the substructure.
+GcStructs have a platform-specific GC header (e.g. a reference counter); only these can be dynamically malloc()ed.  The non-GC version of Struct does not have any header, and is suitable for being embedded ("inlined") inside other structures.  As an exception, a GcStruct can be embedded as the first field of a GcStruct: the parent structure uses the same GC header as the substructure.
 
 
 Array Types
@@ -609,24 +607,23 @@ An array type is built as an instance of ``pypy.rpython.lltype.Array``::
     MyArrayType = Array(('field1', Type1), ('field2', Type2)...)
     MyArrayType = GcArray(('field1', Type1), ('field2', Type2)...)
 
-The items of an array are always structures; the arguments to Array() give the fields of these structures (it can of course be a single field).  The allowed field types follow the same rules as for Struct(), but this particular structure cannot be variable-sized.
+The items of an array are always structures; the arguments to Array() give the fields of these structures (it can of course be a single field).  The allowed field types follow the same rules as for Struct(), except that you cannot inline an array into the items' structure.
 
-For now, each array stores its length explicitely in a header.  An array can never be resized: it occupies a fixed amount of bytes determined when it is allocated.
+GcArrays can be malloc()ed.  The length must be specified when malloc() is called, and arrays cannot be resized; this length is stored explicitely in a header.
 
-GcArrays can be malloc()ed (the length must be specified when malloc() is called, and arrays cannot be resized).  Plain Arrays cannot be malloc()ed but can be used as the last field of a structure, to make a variable-sized structure.  The whole structure can then be malloc()ed, and the length of the array is specified at this time.
+The non-GC version of Array can be used as the last field of a structure, to make a variable-sized structure.  The whole structure can then be malloc()ed, and the length of the array is specified at this time.
 
 
 Pointer Types
 +++++++++++++
 
-As in C, pointers provide the indirection needed to make a reference modifiable or sharable.  Pointers can only point to a structure, an array, a function (see below) or a PyObject (see below).  Pointers to primitive types, if needed, must be done by pointing to a structure with a single field of the required type.  Pointer types are declared using one of::
+As in C, pointers provide the indirection needed to make a reference modifiable or sharable.  Pointers can only point to a structure, an array, a function (see below) or a PyObject (see below).  Pointers to primitive types, if needed, must be done by pointing to a structure with a single field of the required type.  Pointer types are declared by::
 
-   GcPtr(T, **flags)
-   NonGcPtr(T, **flags)
+   Ptr(TYPE)
 
-The so-called GC pointers are the ones that hold a reference to the object they point to.  Only GcStruct, GcArray and PyObject can have GcPtrs to them.  Typically, the malloc() operation allocates and returns a GcPtr to a new structure or array.  In a refcounting implementation, malloc() would allocate enough space for a reference counter before the actual structure, and initialize it to 1.  Actually, GC pointers can only point to a malloc()ed structure or array.  Non-GC pointers are used when you know that a pointer doesn't hold a (counted) reference to an object, usually because the object has no reference counter at all: for example, functions don't have one; more importantly, inlined substructures don't have one either.  For them, care must be taken to ensure that the bigger structure of which they are part of isn't freed while the NonGcPtr to the substructure is still in use.
+At run-time, pointers to GC structures (GcStruct, GcArray and PyObject) hold a reference to what they are pointing to.  Pointers to non-GC structures that can go away when their container is deallocated (Struct, Array) must be handled with care: the bigger structure of which they are part of could be freed while the Ptr to the substructure is still in use.  In general, it is a good idea to avoid passing around pointers to inlined substructures of malloc()ed structures.  (The testing implementation of `rpython/lltype.py`_ checks to some extend that you are not trying to use a pointer to a structure after its container has been freed, using weak references.  But pointers to non-GC structures are not officially meant to be weak references: using them after what they point to has been freed just crashes.)
 
-All pointer types can also have additional flags, whose meaning is unspecified at this level (apart from the flag ``gc=True`` which GcPtrs have and NonGcPtrs miss).  Types with different flags are incompatible, but the cast_flags() operation is provided to perform explicit casts.  The intention is for example to represent the high-level object "the method append() of this list" as the type ``GcPtr(ListType, method='append')`` -- i.e. a pointer to the list in question with an additional flag specifying that the pointer represents the method append() of that list, as opposed to the list itself.
+The malloc() operation allocates and returns a Ptr to a new GC structure or array.  In a refcounting implementation, malloc() would allocate enough space for a reference counter before the actual structure, and initialize it to 1.  Note that the testing implementation also allows malloc() to allocate a non-GC structure or array with a keyword argument ``immortal=True``.  Its purpose is to declare and initialize prebuilt data structures which the code generators will turn into static immortal non-GC'ed data.
 
 
 Function Types
@@ -636,21 +633,28 @@ The declaration::
 
     MyFuncType = FuncType([Type1, Type2, ...], ResultType)
 
-declares a function type taking arguments of the given types and returning a result of the given type.  All these types must be primitives or pointers.  The function type itself is considered to be a "container" type: if you wish, a function contains the bytes that make up its executable code.  As with structures and arrays, they can only be manipulated through pointers.  More precisely, the only thing you can do -- more or less -- with MyFuncType is to embbed it in a NonGcPtr.
+declares a function type taking arguments of the given types and returning a result of the given type.  All these types must be primitives or pointers.  The function type itself is considered to be a "container" type: if you wish, a function contains the bytes that make up its executable code.  As with structures and arrays, they can only be manipulated through pointers.
+
+The testing implementation allows you to "create" functions by calling ``functionptr(TYPE, name, **attrs)``.  The extra attributes describe the function in a way that isn't fully specified now, but the following attributes *might* be present:
+
+    :_callable:  a Python callable, typically a function object.
+    :graph:      the flow graph of the function.
 
 
 The PyObject Type
 +++++++++++++++++
 
-This is a special type, for compatibility with CPython: it stands for a structure compatible with PyObject.  It should be manipulated via GcPtr or NonGcPtr, depending on whether the CPython reference counter should be updated or not.  A typed graph can still contain generic space operations (add, getitem, etc.) provided they are applied on objects whose low-level type is a pointer to ``PyObject``.  In fact, code generators that support this should consider that the default type of a variable, if none is specified, is ``GcPtr(PyObject)``.  In this way, they can generate the correct code for fully-untyped flow graphs.
+This is a special type, for compatibility with CPython: it stands for a structure compatible with PyObject.  This is also a "container" type (thinking about C, this is ``PyObject``, not ``PyObject*``), so it is usually manipulated via a Ptr.  A typed graph can still contain generic space operations (add, getitem, etc.) provided they are applied on objects whose low-level type is ``Ptr(PyObject)``.  In fact, code generators that support this should consider that the default type of a variable, if none is specified, is ``Ptr(PyObject)``.  In this way, they can generate the correct code for fully-untyped flow graphs.
+
+The testing implementation allows you to "create" PyObjects by calling ``pyobjectptr(obj)``.
 
 
 Implementing RPython types
 --------------------------
 
-As hinted above, the RPython types (e.g. 'list') are implemented in some "restricted-restricted Python" format by manipulating only low-level types, as provided by the "testing" concrete implementation of malloc() and friends.  What occurs then is that the same (tested!) very-low-level Python code -- which looks really just like C -- is then transformed into a flow graph and integrated with the rest of the user program.  In other words, we replace an operation like ``add`` between two variables annotated as SomeList, with a ``simple_call`` operation invoking this very-low-level list concatenation.
+As hinted above, the RPython types (e.g. 'list') are implemented in some "restricted-restricted Python" format by manipulating only low-level types, as provided by the testing implementation of malloc() and friends.  What occurs then is that the same (tested!) very-low-level Python code -- which looks really just like C -- is then transformed into a flow graph and integrated with the rest of the user program.  In other words, we replace an operation like ``add`` between two variables annotated as SomeList, with a ``direct_call`` operation invoking this very-low-level list concatenation.
 
-This list concatenation flow graph is then annotated as usual, with one difference: the annotator has to be taught about malloc() and the way the pointer thus obtained can be manipulated.  This generates a flow graph which is hopefully completely annotated with the SomePtr annotation.  Introduced just for this case, SomePtr maps directly to a low-level pointer type.  This is the only change needed to the Annotator to allow it to perform type inferrence of our very-low-level snippets of code.
+This list concatenation flow graph is then annotated as usual, with one difference: the annotator has to be taught about malloc() and the way the pointer thus obtained can be manipulated.  This generates a flow graph which is hopefully completely annotated with SomePtr() annotation.  Introduced just for this case, SomePtr maps directly to a low-level pointer type.  This is the only change needed to the Annotator to allow it to perform type inference of our very-low-level snippets of code.
 
 See for example `rpython/rlist.py`_.
 
