@@ -33,11 +33,11 @@ class __extend__(annmodel.SomeChar):
 CONST_STR_CACHE = WeakValueDictionary()
 
 class __extend__(StringRepr):
-    lowleveltype = GcPtr(STR)
+    lowleveltype = Ptr(STR)
 
     def convert_const(self, value):
         if value is None:
-            return nullgcptr(STR)
+            return nullptr(STR)
         if not isinstance(value, str):
             raise TyperError("not a str: %r" % (value,))
         try:

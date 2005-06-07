@@ -1,12 +1,14 @@
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import GcPtr, NonGcPtr, PyObject, typeOf, Signed, Void
+from pypy.rpython.lltype import Ptr, PyObject, typeOf, Signed, Void
 from pypy.rpython.lltype import FuncType, functionptr
 from pypy.rpython.rtyper import LowLevelOpList, inputconst
 from pypy.rpython.robject import pyobj_repr
 from pypy.interpreter.pycode import CO_VARARGS
 
+
+PyObjPtr = Ptr(PyObject)
 
 def gen_wrapper(func, rtyper):
     """generate a wrapper function for 'func' that can be put in a
@@ -33,9 +35,9 @@ def gen_wrapper(func, rtyper):
     vkwds = Variable('kwds')
     vfname = Constant(func.func_name)
     # avoid incref/decref on the arguments: 'self' and 'kwds' can be NULL
-    vself.concretetype = NonGcPtr(PyObject)
-    vargs.concretetype = NonGcPtr(PyObject)
-    vkwds.concretetype = NonGcPtr(PyObject)
+    vself.concretetype = PyObjPtr
+    vargs.concretetype = PyObjPtr
+    vkwds.concretetype = PyObjPtr
 
     varguments = []
     varnames = func.func_code.co_varnames
@@ -56,7 +58,7 @@ def gen_wrapper(func, rtyper):
             opname = 'decode_arg_def'
             vlist.append(Constant(default_value))
 
-        v = newops.genop(opname, vlist, resulttype=GcPtr(PyObject))
+        v = newops.genop(opname, vlist, resulttype=Ptr(PyObject))
         v._name = 'a%d' % i
         varguments.append(v)
 
@@ -66,7 +68,7 @@ def gen_wrapper(func, rtyper):
                  Constant(nb_positional_args),
                  Constant(None),
                  ]
-        vararg = newops.genop('getslice', vlist, resulttype=GcPtr(PyObject))
+        vararg = newops.genop('getslice', vlist, resulttype=Ptr(PyObject))
         vararg._name = 'vararg'
         varguments.append(vararg)
     else:
@@ -103,9 +105,9 @@ def gen_wrapper(func, rtyper):
     block.closeblock(Link([vresult], wgraph.returnblock))
     checkgraph(wgraph)
 
-    return functionptr(FuncType([NonGcPtr(PyObject),
-                                 NonGcPtr(PyObject),
-                                 NonGcPtr(PyObject)],
-                                GcPtr(PyObject)),
+    return functionptr(FuncType([PyObjPtr,
+                                 PyObjPtr,
+                                 PyObjPtr],
+                                PyObjPtr),
                        wgraph.name,
                        graph = wgraph)

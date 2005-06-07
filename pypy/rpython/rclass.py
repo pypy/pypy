@@ -33,7 +33,7 @@ from pypy.rpython.rmodel import Repr, TyperError, inputconst
 #
 
 OBJECT_VTABLE = ForwardReference()
-TYPEPTR = NonGcPtr(OBJECT_VTABLE)
+TYPEPTR = Ptr(OBJECT_VTABLE)
 OBJECT_VTABLE.become(Struct('object_vtable', ('parenttypeptr', TYPEPTR)))
 
 OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
@@ -60,8 +60,6 @@ class MissingRTypeAttribute(TyperError):
 def cast_vtable_to_typeptr(vtable):
     while typeOf(vtable).TO != OBJECT_VTABLE:
         vtable = vtable.super
-    if typeOf(vtable) != TYPEPTR:
-        vtable = cast_flags(TYPEPTR, vtable)
     return vtable
 
 
@@ -72,7 +70,7 @@ class ClassRepr(Repr):
         self.rtyper = rtyper
         self.classdef = classdef
         self.vtable_type = ForwardReference()
-        self.lowleveltype = NonGcPtr(self.vtable_type)
+        self.lowleveltype = Ptr(self.vtable_type)
 
     def __repr__(self):
         if self.classdef is None:
@@ -255,7 +253,7 @@ class InstanceRepr(Repr):
         self.rtyper = rtyper
         self.classdef = classdef
         self.object_type = GcForwardReference()
-        self.lowleveltype = GcPtr(self.object_type)
+        self.lowleveltype = Ptr(self.object_type)
 
     def __repr__(self):
         if self.classdef is None:
@@ -305,7 +303,7 @@ class InstanceRepr(Repr):
 
     def convert_const(self, value, targetptr=None, vtable=None):
         if value is None:
-            return nullgcptr(self.object_type)
+            return nullptr(self.object_type)
         # we will need the vtable pointer, so ask it first, to let
         # ClassRepr.convert_const() perform all the necessary checks on 'value'
         if vtable is None:
@@ -369,7 +367,7 @@ class InstanceRepr(Repr):
         """Build a new instance, without calling __init__."""
         ctype = inputconst(Void, self.object_type)
         vptr = llops.genop('malloc', [ctype],
-                           resulttype = GcPtr(self.object_type))
+                           resulttype = Ptr(self.object_type))
         ctypeptr = inputconst(TYPEPTR, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)
         # initialize instance attributes from their defaults from the class

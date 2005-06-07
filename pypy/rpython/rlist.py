@@ -33,7 +33,7 @@ class ListRepr(Repr):
 
     def __init__(self, item_repr, listdef=None):
         self.LIST = GcForwardReference()
-        self.lowleveltype = GcPtr(self.LIST)
+        self.lowleveltype = Ptr(self.LIST)
         if not isinstance(item_repr, Repr):  # not computed yet, done by setup()
             assert callable(item_repr)
             self._item_repr_computer = item_repr
@@ -48,7 +48,7 @@ class ListRepr(Repr):
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
             ITEMARRAY = GcArray(("item", ITEM))
-            self.LIST.become(GcStruct("list", ("items", GcPtr(ITEMARRAY))))
+            self.LIST.become(GcStruct("list", ("items", Ptr(ITEMARRAY))))
 
     def rtype_len(self, hop):
         v_lst, = hop.inputargs(self)
@@ -146,9 +146,9 @@ class ListIteratorRepr(Repr):
 
     def __init__(self, r_list):
         self.r_list = r_list
-        self.lowleveltype = GcPtr(GcStruct('listiter',
-                                           ('list', r_list.lowleveltype),
-                                           ('index', Signed)))
+        self.lowleveltype = Ptr(GcStruct('listiter',
+                                         ('list', r_list.lowleveltype),
+                                         ('index', Signed)))
 
     def newiter(self, hop):
         v_lst, = hop.inputargs(self.r_list)

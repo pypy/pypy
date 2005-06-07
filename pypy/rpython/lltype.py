@@ -62,9 +62,11 @@ class LowLevelType(object):
 
 
 class ContainerType(LowLevelType):
+    def _gcstatus(self):
+        return isinstance(self, GC_CONTAINER)
+
     def _inline_is_varsize(self, last):
         raise TypeError, "%r cannot be inlined in structure" % self
-
 
 class Struct(ContainerType):
     def __init__(self, name, *fields):
@@ -228,26 +230,20 @@ Void     = Primitive("Void", None)
 class _PtrType(LowLevelType):
     __name__ = property(lambda self: '%sPtr' % self.TO.__name__)
 
-    def __init__(self, TO, **flags):
+    def __init__(self, TO):
         if not isinstance(TO, ContainerType):
             raise TypeError, ("can only point to a Container type, "
                               "not to %s" % (TO,))
-        if 'gc' in flags:
-            if not isinstance(TO, GC_CONTAINER):
-                raise TypeError, ("GcPtr can only point to GcStruct, GcArray or"
-                                  " PyObject, not to %s" % (TO,))
         self.TO = TO
-        self.flags = frozendict(flags)
+
+    def _needsgc(self):
+        return self.TO._gcstatus()
 
     def _str_flags(self):
-        flags = self.flags.keys()
-        flags.sort()
-        result = []
-        for flag in flags:
-            if self.flags[flag] is not True:
-                flag = '%s=%r' % (flag, self.flags[flag])
-            result.append(flag)
-        return ', '.join(result)
+        if self._needsgc():
+            return 'gc'
+        else:
+            return ''
 
     def _str_flavor(self):
         return 'ptr(%s)' % self._str_flags()
@@ -260,18 +256,10 @@ class _PtrType(LowLevelType):
 
     def _example(self):
         o = self.TO._container_example()
-        return _ptr(self, o)
+        return _ptr(self, o, immortal=True)
 
-    def withflags(self, **flags):
-        newflags = self.flags.copy()
-        newflags.update(flags)
-        return _PtrType(self.TO, **newflags)
-
-def GcPtr(TO, **flags):
-    return _PtrType(TO, gc=True, **flags)
-
-def NonGcPtr(TO, **flags):
-    return _PtrType(TO, **flags)
+def Ptr(TO):
+    return _PtrType(TO)
 
 
 # ____________________________________________________________
@@ -296,37 +284,13 @@ def typeOf(val):
 class InvalidCast(TypeError):
     pass
 
-def cast_flags(PTRTYPE, ptr):
-    if not isinstance(ptr, _ptr) or not isinstance(PTRTYPE, _PtrType):
-        raise TypeError, "can only cast pointers to other pointers"
-    CURTYPE = ptr._TYPE
-    if CURTYPE.TO != PTRTYPE.TO:
-        raise TypeError, "cast_flags only between pointers to the same type"
-    # allowed direct casts (for others, you need several casts):
-    # * adding one flag
-    curflags = CURTYPE.flags
-    newflags = PTRTYPE.flags
-    if len(curflags) + 1 == len(newflags):
-        for key in curflags:
-            if key not in newflags or curflags[key] != newflags[key]:
-                raise InvalidCast(CURTYPE, PTRTYPE)
-    # * removing one flag
-    elif len(curflags) - 1 == len(newflags):
-        for key in newflags:
-            if key not in curflags or curflags[key] != newflags[key]:
-                raise InvalidCast(CURTYPE, PTRTYPE)
-    # end
-    else:
-        raise InvalidCast(CURTYPE, PTRTYPE)
-    return _ptr(PTRTYPE, ptr._obj)
-
 def cast_parent(PTRTYPE, ptr):
     if not isinstance(ptr, _ptr) or not isinstance(PTRTYPE, _PtrType):
         raise TypeError, "can only cast pointers to other pointers"
     CURTYPE = ptr._TYPE
-    if CURTYPE.flags != PTRTYPE.flags:
-        raise TypeError("cast_parent() cannot change the flags (%s) to (%s)"
-                        % (CURTYPE._str_flags(), PTRTYPE._str_flags()))
+    if CURTYPE._needsgc() != PTRTYPE._needsgc():
+        raise TypeError("cast_parent() cannot change the gc status: %s to %s"
+                        % (CURTYPE, PTRTYPE))
     # * converting from TO-structure to a parent TO-structure whose first
     #     field is the original structure
     if (not isinstance(CURTYPE.TO, Struct) or
@@ -342,19 +306,11 @@ def cast_parent(PTRTYPE, ptr):
         raise InvalidCast(CURTYPE, PTRTYPE)
     return _ptr(PTRTYPE, parent)
 
-
-def _TmpPtr(TO):
-    return _PtrType(TO, _tmp=True)
-
-def _expose(val, can_have_gc=False):
+def _expose(val):
     """XXX A nice docstring here"""
     T = typeOf(val)
     if isinstance(T, ContainerType):
-        assert not isinstance(T, FuncType), "functions cannot be substructures"
-        if can_have_gc and isinstance(T, GcStruct):
-            val = _ptr(GcPtr(T), val)
-        else:
-            val = _ptr(_TmpPtr(T), val)
+        val = _ptr(Ptr(T), val)
     return val
 
 def parentlink(container):
@@ -375,11 +331,15 @@ def parentlink(container):
 
 
 class _ptr(object):
+    _weak = False
 
-    def __init__(self, TYPE, pointing_to):
+    def _needsgc(self):
+        return self._TYPE._needsgc() # xxx other rules?
+
+    def __init__(self, TYPE, pointing_to, immortal=False):
         self.__dict__['_TYPE'] = TYPE
         self.__dict__['_T'] = TYPE.TO
-        self.__dict__['_obj0'] = pointing_to
+        self._setobj(pointing_to, immortal)
 
     def __eq__(self, other):
         if not isinstance(other, _ptr):
@@ -395,9 +355,24 @@ class _ptr(object):
     def __nonzero__(self):
         return self._obj is not None
 
+    def _setobj(self, pointing_to, immortal=False):        
+        if pointing_to is None:
+            obj0 = None
+        elif immortal or isinstance(self._T, (GC_CONTAINER, FuncType)):
+            obj0 = pointing_to
+        else:
+            self.__dict__['_weak'] = True
+            obj0 = weakref.ref(pointing_to)
+        self.__dict__['_immortal'] = immortal
+        self.__dict__['_obj0'] = obj0
+        
     def _getobj(self):
         obj = self._obj0
-        if obj is not None:
+        if obj is not None and self._weak:
+            obj = obj()
+            if obj is None:
+                raise RuntimeError("accessing already garbage collected %r"
+                                   % (self._T,))                
             obj._check()
         return obj
     _obj = property(_getobj)
@@ -406,9 +381,7 @@ class _ptr(object):
         if isinstance(self._T, Struct):
             if field_name in self._T._flds:
                 o = getattr(self._obj, field_name)
-                can_have_gc = (field_name == self._T._names[0] and
-                               'gc' in self._TYPE.flags)
-                return _expose(o, can_have_gc)
+                return _expose(o)
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
 
@@ -422,8 +395,7 @@ class _ptr(object):
             if T1 != T2:
                 raise InvalidCast(typeOf(p), typeOf(self))
             setattr(self._obj, field_name, p._obj)
-            p._obj._wrparent = weakref.ref(self._obj)
-            p._obj._parent_type = typeOf(self._obj)
+            p._obj._setparentstructure(self._obj, 0)
             return
         raise TypeError("%r instance has no first field" % (self._T,))
 
@@ -477,10 +449,37 @@ class _ptr(object):
                 raise RuntimeError,"calling undefined function"
             return callb(*args)
         raise TypeError("%r instance is not a function" % (self._T,))
-            
 
-class _struct(object):
+
+class _parentable(object):
     _wrparent = None
+    _kind = "?"
+
+    def _setparentstructure(self, parent, parentindex):
+        self._wrparent = weakref.ref(parent)
+        self._parent_type = typeOf(parent)
+        self._parent_index = parentindex
+        if parentindex == 0 and self._TYPE._gcstatus() == typeOf(parent)._gcstatus():
+            # keep strong reference to parent, we share the same allocation
+            self._keepparent = parent 
+
+    def _parentstructure(self):
+        if self._wrparent is not None:
+            parent = self._wrparent()
+            if parent is None:
+                raise RuntimeError("accessing sub%s %r,\n"
+                                   "but already garbage collected parent %r"
+                                   % (self._kind, self, self._parent_type))
+            parent._check()
+            return parent
+        return None
+
+    def _check(self):
+        self._parentstructure()
+
+            
+class _struct(_parentable):
+    _kind = "structure"
 
     def __init__(self, TYPE, n=None, parent=None, parentindex=None):
         self._TYPE = TYPE
@@ -499,25 +498,6 @@ class _struct(object):
         if parent is not None:
             self._setparentstructure(parent, parentindex)
 
-    def _setparentstructure(self, parent, parentindex):
-        self._wrparent = weakref.ref(parent)
-        self._parent_type = typeOf(parent)
-        self._parent_index = parentindex
-
-    def _parentstructure(self):
-        if self._wrparent is not None:
-            parent = self._wrparent()
-            if parent is None:
-                raise RuntimeError("accessing substructure %r,\n"
-                                   "but already garbage collected parent %r"
-                                   % (self, self._parent_type))
-            parent._check()
-            return parent
-        return None
-
-    def _check(self):
-        self._parentstructure()
-
     def __repr__(self):
         return '<%s>' % (self,)
 
@@ -535,8 +515,8 @@ class _struct(object):
     def __str__(self):
         return 'struct %s { %s }' % (self._TYPE._name, self._str_fields())
 
-class _array(object):
-    _wrparent = None
+class _array(_parentable):
+    _kind = "array"
 
     def __init__(self, TYPE, n, parent=None, parentindex=None):
         if not isinstance(n, int):
@@ -548,25 +528,6 @@ class _array(object):
                       for j in range(n)]
         if parent is not None:
             self._setparentstructure(parent, parentindex)
-
-    def _setparentstructure(self, parent, parentindex):
-        self._wrparent = weakref.ref(parent)
-        self._parent_type = typeOf(parent)
-        self._parent_index = parentindex
-
-    def _parentstructure(self):
-        if self._wrparent is not None:
-            parent = self._wrparent()
-            if parent is None:
-                raise RuntimeError("accessing subarray %r,\n"
-                                   "but already garbage collected parent %r"
-                                   % (self, self._parent_type))
-            parent._check()
-            return parent
-        return None
-
-    def _check(self):
-        self._parentstructure()
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -617,28 +578,18 @@ def malloc(T, n=None, immortal=False):
         o = _array(T, n)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
-    if immortal:
-        T = NonGcPtr(T)
-    else:
-        T = GcPtr(T)
-    return _ptr(T, o)
+    return _ptr(Ptr(T), o, immortal)
 
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
         raise TypeError, "function() for FuncTypes only"
     o = _func(TYPE, _name=name, **attrs)
-    return _ptr(NonGcPtr(TYPE), o)
+    return _ptr(Ptr(TYPE), o)
 
 def nullptr(T):
-    return _ptr(NonGcPtr(T), None)
-
-def nullgcptr(T):
-    return _ptr(GcPtr(T), None)
+    return _ptr(Ptr(T), None)
 
 def pyobjectptr(obj):
     o = _pyobject(obj)
-    return _ptr(NonGcPtr(PyObject), o)
+    return _ptr(Ptr(PyObject), o) # xxx was non-gc
 
-def pyobjectgcptr(obj):
-    o = _pyobject(obj)
-    return _ptr(GcPtr(PyObject), o)

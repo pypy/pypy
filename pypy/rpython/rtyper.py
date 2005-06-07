@@ -4,7 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.rpython.lltype import Signed, Unsigned, Float, Char, Bool, Void
-from pypy.rpython.lltype import LowLevelType, NonGcPtr, ContainerType
+from pypy.rpython.lltype import LowLevelType, Ptr, ContainerType
 from pypy.rpython.lltype import FuncType, functionptr, typeOf
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
@@ -55,7 +55,7 @@ class RPythonTyper:
                 # here is the code that actually builds a Repr instance
                 result = s_obj.rtyper_makerepr(self)
                 assert not isinstance(result.lowleveltype, ContainerType), (
-                    "missing a GcPtr or NonGcPtr in the type specification "
+                    "missing a Ptr in the type specification "
                     "of %s:\n%r" % (s_obj, result.lowleveltype))
                 self.reprs_by_content[key] = result
                 self.reprs_must_call_setup.append(result)
@@ -376,6 +376,7 @@ class LowLevelOpList(list):
                     raise TyperError("non-constant variable of type Void")
                 key = s_value.const       # specialize by constant value
                 args_s.append(s_value)
+                assert isinstance(s_value, annmodel.SomePBC)
                 suffix = 'Const'
             else:
                 key = v.concretetype      # specialize by low-level type

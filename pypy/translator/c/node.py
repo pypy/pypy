@@ -82,7 +82,7 @@ class StructDefNode:
         STRUCT = self.STRUCT
         for name in STRUCT._names:
             FIELD_T = self.c_struct_field_type(name)
-            if isinstance(FIELD_T, _PtrType) and 'gc' in FIELD_T.flags:
+            if isinstance(FIELD_T, _PtrType) and FIELD_T._needsgc():
                 cname = self.c_struct_field_name(name)
                 line = self.db.cdecrefstmt('%s%s' % (prefix, cname), FIELD_T)
                 if line:

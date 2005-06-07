@@ -3,13 +3,11 @@ from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import traverse, uniqueitems, last_exception
-from pypy.rpython.lltype import GcPtr, NonGcPtr, PyObject, Void
+from pypy.rpython.lltype import Ptr, PyObject, Void
 from pypy.rpython.lltype import pyobjectptr, Struct, Array
 
 
-PyObjGcPtr    = GcPtr(PyObject)
-PyObjNonGcPtr = NonGcPtr(PyObject)
-
+PyObjPtr = Ptr(PyObject)
 
 class FunctionCodeGenerator:
     """
@@ -41,10 +39,8 @@ class FunctionCodeGenerator:
         resultvar = self.graph.getreturnvar()
         lltypemap = {resultvar: Void}   # default value, normally overridden
         for v in uniqueitems(result):
-            if isinstance(v, Variable):
-                T = getattr(v, 'concretetype', PyObjGcPtr)
-            else:
-                T = getattr(v, 'concretetype', PyObjNonGcPtr)
+            # xxx what kind of pointer for constants?
+            T = getattr(v, 'concretetype', PyObjPtr)           
             lltypemap[v] = T
         return lltypemap
 

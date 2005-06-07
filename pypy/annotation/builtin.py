@@ -299,12 +299,6 @@ def malloc(T, n=None):
     #print "MALLOC", r
     return r
 
-def cast_flags(PtrT, s_p):
-    #print "CAST", s_p
-    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
-    assert PtrT.is_constant()
-    return SomePtr(ll_ptrtype=lltype.typeOf(lltype.cast_flags(PtrT.const, s_p.ll_ptrtype._example())))
-
 def cast_parent(PtrT, s_p):
     assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
     assert PtrT.is_constant()
@@ -325,16 +319,8 @@ def nullptr(T):
     r.const = p
     return r
 
-def nullgcptr(T):
-    assert T.is_constant()
-    p = lltype.nullgcptr(T.const)
-    r = SomePtr(lltype.typeOf(p))
-    r.const = p
-    return r
-
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
-BUILTIN_ANALYZERS[lltype.cast_flags] = cast_flags
 BUILTIN_ANALYZERS[lltype.cast_parent] = cast_parent
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr
-BUILTIN_ANALYZERS[lltype.nullgcptr] = nullgcptr
+

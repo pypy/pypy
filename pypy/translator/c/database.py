@@ -103,7 +103,7 @@ class LowLevelDatabase:
                 raise Exception("don't know about %r" % (obj,))
 
     def cincrefstmt(self, expr, T):
-        if isinstance(T, _PtrType) and 'gc' in T.flags:
+        if isinstance(T, _PtrType) and T._needsgc():
             if T.TO == PyObject:
                 return 'Py_XINCREF(%s);' % expr
             else:
@@ -113,7 +113,7 @@ class LowLevelDatabase:
         return ''
 
     def cdecrefstmt(self, expr, T):
-        if isinstance(T, _PtrType) and 'gc' in T.flags:
+        if isinstance(T, _PtrType) and T._needsgc():
             if T.TO == PyObject:
                 return 'Py_XDECREF(%s);' % expr
             else:

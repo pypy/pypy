@@ -50,7 +50,7 @@ def test_inlined_struct():
 def test_complete():
     db = LowLevelDatabase()
     T = GcStruct('subtest', ('y', Signed))
-    S = GcStruct('test', ('x', GcPtr(T)))
+    S = GcStruct('test', ('x', Ptr(T)))
     s = malloc(S)
     s.x = malloc(T)
     s.x.y = 42
@@ -68,12 +68,12 @@ def test_codegen():
     db = LowLevelDatabase()
     U = Struct('inlined', ('z', Signed))
     T = GcStruct('subtest', ('y', Signed))
-    S = GcStruct('test', ('x', GcPtr(T)), ('u', U), ('p', NonGcPtr(U)))
+    S = GcStruct('test', ('x', Ptr(T)), ('u', U), ('p', Ptr(U)))
     s = malloc(S)
     s.x = malloc(T)
     s.x.y = 42
     s.u.z = -100
-    s.p = cast_flags(NonGcPtr(U), s.u)
+    s.p = s.u
     db.get(s)
     db.complete()
     dump_on_stdout(db)
@@ -81,7 +81,7 @@ def test_codegen():
 def test_codegen_2():
     db = LowLevelDatabase()
     A = GcArray(('x', Signed))
-    S = GcStruct('test', ('aptr', GcPtr(A)))
+    S = GcStruct('test', ('aptr', Ptr(A)))
     a = malloc(A, 3)
     a[0].x = 100
     a[1].x = 101
@@ -95,9 +95,9 @@ def test_codegen_2():
 def test_codegen_3():
     db = LowLevelDatabase()
     A = GcStruct('varsizedstuff', ('x', Signed), ('y', Array(('i', Signed))))
-    S = GcStruct('test', ('aptr', GcPtr(A)),
-                         ('anitem', NonGcPtr(A.y.OF)),
-                         ('anarray', NonGcPtr(A.y)))
+    S = GcStruct('test', ('aptr', Ptr(A)),
+                         ('anitem', Ptr(A.y.OF)),
+                         ('anarray', Ptr(A.y)))
     a = malloc(A, 3)
     a.x = 99
     a.y[0].i = 100
@@ -105,8 +105,8 @@ def test_codegen_3():
     a.y[2].i = 102
     s = malloc(S)
     s.aptr = a
-    s.anitem = cast_flags(NonGcPtr(A.y.OF), a.y[1])
-    s.anarray = cast_flags(NonGcPtr(A.y), a.y)
+    s.anitem =  a.y[1]
+    s.anarray = a.y
     db.get(s)
     db.complete()
     dump_on_stdout(db)
@@ -136,7 +136,7 @@ def test_func_simple():
     db.complete()
     dump_on_stdout(db)
 
-    S = GcStruct('testing', ('fptr', NonGcPtr(F)))
+    S = GcStruct('testing', ('fptr', Ptr(F)))
     s = malloc(S)
     s.fptr = f
     db = LowLevelDatabase()
@@ -150,14 +150,14 @@ def test_untyped_func():
     t = Translator(f)
     graph = t.getflowgraph()
 
-    F = FuncType([GcPtr(PyObject)], GcPtr(PyObject))
+    F = FuncType([Ptr(PyObject)], Ptr(PyObject))
     f = functionptr(F, "f", graph=graph)
     db = LowLevelDatabase()
     db.get(f)
     db.complete()
     dump_on_stdout(db)
 
-    S = GcStruct('testing', ('fptr', NonGcPtr(F)))
+    S = GcStruct('testing', ('fptr', Ptr(F)))
     s = malloc(S)
     s.fptr = f
     db = LowLevelDatabase()
@@ -213,8 +213,8 @@ def test_malloc():
 
 def test_multiple_malloc():
     S1 = GcStruct('testing1', ('x', Signed), ('y', Signed))
-    S = GcStruct('testing', ('ptr1', GcPtr(S1)),
-                            ('ptr2', GcPtr(S1)),
+    S = GcStruct('testing', ('ptr1', Ptr(S1)),
+                            ('ptr2', Ptr(S1)),
                             ('z', Signed))
     def ll_f(x):
         ptr1 = malloc(S1)
@@ -235,9 +235,9 @@ def test_multiple_malloc():
     dump_on_stdout(db)
 
 def test_nested_gcstruct():
-    S1 = GcStruct('inlined', ('x', Signed), ('y', GcPtr(PyObject)))
+    S1 = GcStruct('inlined', ('x', Signed), ('y', Ptr(PyObject)))
     S = GcStruct('testing', ('head', S1),
-                            ('ptr2', GcPtr(S1)),
+                            ('ptr2', Ptr(S1)),
                             ('z', Signed))
     def ll_f(x):
         ptr2 = malloc(S1)
@@ -256,7 +256,7 @@ def test_nested_gcstruct():
     dump_on_stdout(db)
 
 def test_array():
-    A = GcArray(('obj', GcPtr(PyObject)))
+    A = GcArray(('obj', Ptr(PyObject)))
     a = malloc(A, 10)
     db = LowLevelDatabase()
     db.get(a)

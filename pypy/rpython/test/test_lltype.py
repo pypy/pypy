@@ -1,5 +1,7 @@
 from pypy.rpython.lltype import *
-from pypy.rpython.lltype import _TmpPtr
+
+def isweak(p, T):
+    return p._weak and typeOf(p).TO == T
 
 def test_basics():
     S0 = GcStruct("s0", ('a', Signed), ('b', Signed))
@@ -7,7 +9,7 @@ def test_basics():
     assert S0.b == Signed
     s0 = malloc(S0)
     print s0
-    assert typeOf(s0) == GcPtr(S0)
+    assert typeOf(s0) == Ptr(S0)
     assert s0.a == 0
     assert s0.b == 0
     assert typeOf(s0.a) == Signed
@@ -22,8 +24,8 @@ def test_basics():
     assert len(x) == 0
     x = malloc(Ar,3)
     print x
-    assert typeOf(x) == GcPtr(Ar)
-    assert typeOf(x[0]) == _TmpPtr(Ar.OF)
+    assert typeOf(x) == Ptr(Ar)
+    assert isweak(x[0], Ar.OF)
     assert typeOf(x[0].v) == Signed
     assert x[0].v == 0
     x[0].v = 1
@@ -33,7 +35,7 @@ def test_basics():
     #
     def define_list(T):
         List_typ = GcStruct("list",
-                ("items", GcPtr(GcArray(('item',T)))))
+                ("items", Ptr(GcArray(('item',T)))))
         def newlist():
             l = malloc(List_typ)
             items = malloc(List_typ.items.TO, 0)
@@ -58,7 +60,7 @@ def test_basics():
     List_typ, inewlist, iappend, iitem = define_list(Signed)
 
     l = inewlist()
-    assert typeOf(l) == GcPtr(List_typ)
+    assert typeOf(l) == Ptr(List_typ)
     iappend(l, 2)
     iappend(l, 3)
     assert len(l.items) == 2
@@ -66,10 +68,10 @@ def test_basics():
     assert iitem(l, 1) == 3
 
     IWrap = GcStruct("iwrap", ('v', Signed))
-    List_typ, iwnewlist, iwappend, iwitem = define_list(GcPtr(IWrap))
+    List_typ, iwnewlist, iwappend, iwitem = define_list(Ptr(IWrap))
 
     l = iwnewlist()
-    assert typeOf(l) == GcPtr(List_typ)
+    assert typeOf(l) == Ptr(List_typ)
     iw2 = malloc(IWrap)
     iw3 = malloc(IWrap)
     iw2.v = 2
@@ -93,9 +95,9 @@ def test_varsizestruct():
     py.test.raises(TypeError, "malloc(S1)")
     s1 = malloc(S1, 4)
     assert s1.a == 0
-    assert typeOf(s1.rest) == _TmpPtr(S1.rest)
+    assert isweak(s1.rest, S1.rest)
     assert len(s1.rest) == 4
-    assert typeOf(s1.rest[0]) == _TmpPtr(S1.rest.OF)
+    assert isweak(s1.rest[0], S1.rest.OF)
     assert typeOf(s1.rest[0].v) == Signed
     assert s1.rest[0].v == 0
     py.test.raises(IndexError, "s1.rest[4]")
@@ -116,73 +118,45 @@ def test_substructure_ptr():
     S2 = Struct("s2", ('s3', S3))
     S1 = GcStruct("s1", ('sub1', S2), ('sub2', S2))
     p1 = malloc(S1)
-    assert typeOf(p1.sub1) == _TmpPtr(S2)
-    assert typeOf(p1.sub2) == _TmpPtr(S2)
-    assert typeOf(p1.sub1.s3) == _TmpPtr(S3)
-    p2 = cast_flags(NonGcPtr(S2), p1.sub1)
-    assert typeOf(p2.s3) == _TmpPtr(S3)
+    assert isweak(p1.sub1, S2)
+    assert isweak(p1.sub2, S2)
+    assert isweak(p1.sub1.s3, S3)
+    p2 = p1.sub1
+    assert isweak(p2.s3, S3)
 
 def test_gc_substructure_ptr():
     S1 = GcStruct("s2", ('a', Signed))
     S2 = Struct("s3", ('a', Signed))
     S0 = GcStruct("s1", ('sub1', S1), ('sub2', S2))
     p1 = malloc(S0)
-    assert typeOf(p1.sub1) == GcPtr(S1)
-    assert typeOf(p1.sub2) == _TmpPtr(S2)
-
-def test_tagged_pointer():
-    S1 = GcStruct("s1", ('a', Signed), ('b', Unsigned))
-    PList = [
-        GcPtr(S1),
-        NonGcPtr(S1),
-        GcPtr(S1, mytag=True),
-        NonGcPtr(S1, mytag=True),
-        GcPtr(S1, myothertag=True),
-        ]
-    for P1 in PList:
-        for P2 in PList:
-            assert (P1 == P2) == (P1 is P2)
-    assert PList[2] == GcPtr(S1, mytag=True)
-
-def test_cast_flags():
-    S1 = GcStruct("s1", ('a', Signed), ('b', Unsigned))
-    p1 = malloc(S1)
-    p2 = cast_flags(NonGcPtr(S1), p1)
-    assert typeOf(p2) == NonGcPtr(S1)
-    p3 = cast_flags(GcPtr(S1), p2)
-    assert typeOf(p3) == GcPtr(S1)
-    assert p1 == p3
-    py.test.raises(TypeError, "p1 == p2")
-    py.test.raises(TypeError, "p2 == p3")
-
-    PT = GcPtr(S1, mytag=True)
-    p2 = cast_flags(PT, p1)
-    assert typeOf(p2) == PT
-    p3 = cast_flags(GcPtr(S1), p2)
-    assert typeOf(p3) == GcPtr(S1)
-    assert p1 == p3
-    py.test.raises(TypeError, "p1 == p2")
-    py.test.raises(TypeError, "p2 == p3")
+    assert typeOf(p1.sub1) == Ptr(S1)
+    assert isweak(p1.sub2, S2)
 
 def test_cast_parent():
     S2 = Struct("s2", ('a', Signed))
-    S1 = GcStruct("s1", ('sub1', S2), ('sub2', S2))
+    S1 = Struct("s1", ('sub1', S2), ('sub2', S2))
+    p1 = malloc(S1, immortal=True)
+    p2 = p1.sub1
+    p3 = p2
+    assert typeOf(p3) == Ptr(S2)
+    p4 = cast_parent(Ptr(S1), p3)
+    assert typeOf(p4) == Ptr(S1)
+    assert p4 == p1
+    py.test.raises(TypeError, "cast_parent(Ptr(S1), p1.sub2)")
+    py.test.raises(TypeError, "cast_parent(Ptr(S2), p3)")
+    SUnrelated = Struct("unrelated")
+    py.test.raises(TypeError, "cast_parent(Ptr(SUnrelated), p3)")
+
+def test_cast_parent2():
+    S2 = GcStruct("s2", ('a', Signed))
+    S1 = GcStruct("s1", ('sub1', S2))
     p1 = malloc(S1)
     p2 = p1.sub1
-    assert typeOf(p2) == _TmpPtr(S2)
-    p3 = cast_flags(NonGcPtr(S2), p2)
-    assert typeOf(p3) == NonGcPtr(S2)
-    p4 = cast_parent(NonGcPtr(S1), p3)
-    assert typeOf(p4) == NonGcPtr(S1)
-    p5 = cast_flags(GcPtr(S1), p4)
-    assert typeOf(p5) == GcPtr(S1)
-    assert p5 == p1
-    py.test.raises(TypeError, "cast_parent(GcPtr(S1), p1.sub1)")
-    py.test.raises(TypeError, "cast_parent(GcPtr(S1), p1.sub2)")
-    py.test.raises(TypeError, "cast_parent(_TmpPtr(S1), p1.sub2)")
-    py.test.raises(TypeError, "cast_parent(NonGcPtr(S2), p3)")
-    SUnrelated = Struct("unrelated")
-    py.test.raises(TypeError, "cast_parent(NonGcPtr(SUnrelated), p3)")
+    assert typeOf(p2) == Ptr(S2)
+    p3 = cast_parent(Ptr(S1), p2)
+    assert p3 == p1
+    p2 = malloc(S2)
+    py.test.raises(RuntimeError, "cast_parent(Ptr(S1), p2)")
 
 def test_best_effort_gced_parent_detection():
     S2 = Struct("s2", ('a', Signed))
@@ -217,9 +191,9 @@ def test_examples():
     S = GcStruct("s", ('v', Signed))
     St = GcStruct("st", ('v', Signed),('trail', Array(('v', Signed))))
 
-    PA1 = GcPtr(A1)
-    PS = GcPtr(S)
-    PSt = GcPtr(St)
+    PA1 = Ptr(A1)
+    PS = Ptr(S)
+    PSt = Ptr(St)
 
     ex_pa1 = PA1._example()
     ex_ps  = PS._example()
@@ -238,7 +212,7 @@ def test_functions():
     F = FuncType((Signed,), Signed)
     py.test.raises(TypeError, "Struct('x', ('x', F))")
 
-    PF = NonGcPtr(F)
+    PF = Ptr(F)
     pf = PF._example()
     assert pf(0) == 0
     py.test.raises(TypeError, pf, 0, 0)
@@ -247,7 +221,6 @@ def test_functions():
 def test_inconsistent_gc_containers():
     A = GcArray(('y', Signed))
     S = GcStruct('b', ('y', Signed))
-    py.test.raises(TypeError, "GcPtr(Struct('a', ('x', Signed)))")
     py.test.raises(TypeError, "Struct('a', ('x', S))")
     py.test.raises(TypeError, "GcStruct('a', ('x', Signed), ('y', S))")
     py.test.raises(TypeError, "Array(('x', S))")
@@ -257,9 +230,9 @@ def test_inconsistent_gc_containers():
 
 def test_forward_reference():
     F = GcForwardReference()
-    S = GcStruct('abc', ('x', GcPtr(F)))
+    S = GcStruct('abc', ('x', Ptr(F)))
     F.become(S)
-    assert S.x == GcPtr(S)
+    assert S.x == Ptr(S)
     py.test.raises(TypeError, "GcForwardReference().become(Struct('abc'))")
     ForwardReference().become(Struct('abc'))
     hash(S)

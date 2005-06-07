@@ -30,8 +30,8 @@ def test_untyped_func():
     t = Translator(f)
     graph = t.getflowgraph()
 
-    F = FuncType([GcPtr(PyObject)], GcPtr(PyObject))
-    S = GcStruct('testing', ('fptr', NonGcPtr(F)))
+    F = FuncType([Ptr(PyObject)], Ptr(PyObject))
+    S = GcStruct('testing', ('fptr', Ptr(F)))
     f = functionptr(F, "f", graph=graph)
     s = malloc(S)
     s.fptr = f
@@ -93,7 +93,7 @@ def test_rptr():
     S = GcStruct('testing', ('x', Signed), ('y', Signed))
     def f(i):
         if i < 0:
-            p = nullgcptr(S)
+            p = nullptr(S)
         else:
             p = malloc(S)
             p.x = i*2

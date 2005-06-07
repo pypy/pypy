@@ -17,7 +17,7 @@ RANGEITER = GcStruct("range", ("next", Signed), ("stop", Signed))
 
 
 class RangeRepr(Repr):
-    lowleveltype = GcPtr(RANGE)
+    lowleveltype = Ptr(RANGE)
 
     def __init__(self, step):
         self.step = step
@@ -102,7 +102,7 @@ def rtype_builtin_range(hop):
 #  Iteration.
 
 class RangeIteratorRepr(Repr):
-    lowleveltype = GcPtr(RANGEITER)
+    lowleveltype = Ptr(RANGEITER)
 
     def __init__(self, r_rng):
         self.r_rng = r_rng

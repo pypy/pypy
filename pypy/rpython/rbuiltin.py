@@ -118,5 +118,4 @@ def rtype_const_result(hop):
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
-BUILTIN_TYPER[lltype.nullgcptr] = rtype_const_result
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
