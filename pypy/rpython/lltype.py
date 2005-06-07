@@ -475,7 +475,10 @@ class _ptr(object):
             for a, ARG in zip(args, self._T.ARGS):
                 if typeOf(a) != ARG:
                     raise TypeError,"calling %r with wrong argument types: %r" % (self._T, args)
-            return self._obj._callable(*args)
+            callb = self._obj._callable
+            if callb is None:
+                raise RuntimeError,"calling undefined function"
+            return callb(*args)
         raise TypeError("%r instance is not a function" % (self._T,))
             
 
@@ -588,8 +591,7 @@ class _func(object):
         return None
 
     def _check(self):
-        if self._callable is None:
-            raise RuntimeError,"calling undefined function"
+        pass
 
     def __repr__(self):
         return '<%s>' % (self,)
