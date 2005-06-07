@@ -335,6 +335,8 @@ def cast_parent(PTRTYPE, ptr):
         PTRTYPE.TO._flds[PTRTYPE.TO._names[0]] != CURTYPE.TO):
         raise InvalidCast(CURTYPE, PTRTYPE)
     parent = ptr._obj._parentstructure()
+    if parent is None:
+        raise RuntimeError("widening to trash: %r" % ptr)
     PARENTTYPE = ptr._obj._parent_type
     if getattr(parent, PARENTTYPE._names[0]) is not ptr._obj:
         raise InvalidCast(CURTYPE, PTRTYPE)
