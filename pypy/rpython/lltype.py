@@ -335,7 +335,6 @@ def cast_parent(PTRTYPE, ptr):
         PTRTYPE.TO._flds[PTRTYPE.TO._names[0]] != CURTYPE.TO):
         raise InvalidCast(CURTYPE, PTRTYPE)
     parent = ptr._obj._parentstructure()
-    parent._check()
     PARENTTYPE = ptr._obj._parent_type
     if getattr(parent, PARENTTYPE._names[0]) is not ptr._obj:
         raise InvalidCast(CURTYPE, PTRTYPE)
@@ -514,13 +513,12 @@ class _struct(object):
                 raise RuntimeError("accessing substructure %r,\n"
                                    "but already garbage collected parent %r"
                                    % (self, self._parent_type))
+            parent._check()
             return parent
         return None
 
     def _check(self):
-        parent = self._parentstructure()
-        if parent is not None:
-            parent._check()
+        self._parentstructure()
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -565,13 +563,12 @@ class _array(object):
                 raise RuntimeError("accessing subarray %r,\n"
                                    "but already garbage collected parent %r"
                                    % (self, self._parent_type))
+            parent._check()
             return parent
         return None
 
     def _check(self):
-        parent = self._parentstructure()
-        if parent is not None:
-            parent._check()
+        self._parentstructure()
 
     def __repr__(self):
         return '<%s>' % (self,)
