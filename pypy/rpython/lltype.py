@@ -379,7 +379,7 @@ class _ptr(object):
     def __init__(self, TYPE, pointing_to):
         self.__dict__['_TYPE'] = TYPE
         self.__dict__['_T'] = TYPE.TO
-        self.__dict__['_obj'] = pointing_to
+        self.__dict__['_obj0'] = pointing_to
 
     def __eq__(self, other):
         if not isinstance(other, _ptr):
@@ -395,15 +395,16 @@ class _ptr(object):
     def __nonzero__(self):
         return self._obj is not None
 
-    def _check(self):
-        if self._obj is None:
-            raise RuntimeError("dereferencing 'NULL' pointer to %r" % (self._T,))
-        self._obj._check()
+    def _getobj(self):
+        obj = self._obj0
+        if obj is not None:
+            obj._check()
+        return obj
+    _obj = property(_getobj)
 
     def __getattr__(self, field_name): # ! can only return basic or ptr !
         if isinstance(self._T, Struct):
             if field_name in self._T._flds:
-                self._check()
                 o = getattr(self._obj, field_name)
                 can_have_gc = (field_name == self._T._names[0] and
                                'gc' in self._TYPE.flags)
@@ -420,7 +421,6 @@ class _ptr(object):
             T2 = typeOf(p._obj)
             if T1 != T2:
                 raise InvalidCast(typeOf(p), typeOf(self))
-            self._check()
             setattr(self._obj, field_name, p._obj)
             p._obj._wrparent = weakref.ref(self._obj)
             p._obj._parent_type = typeOf(self._obj)
@@ -436,7 +436,6 @@ class _ptr(object):
                     raise TypeError("%r instance field %r:\n"
                                     "expects %r\n"
                                     "    got %r" % (self._T, field_name, T1, T2))
-                self._check()
                 setattr(self._obj, field_name, val)
                 return
         raise AttributeError("%r instance has no field %r" % (self._T,
@@ -444,7 +443,6 @@ class _ptr(object):
 
     def __getitem__(self, i): # ! can only return basic or ptr !
         if isinstance(self._T, Array):
-            self._check()
             if not (0 <= i < len(self._obj.items)):
                 raise IndexError("array index out of bounds")
             o = self._obj.items[i]
@@ -458,7 +456,6 @@ class _ptr(object):
 
     def __len__(self):
         if isinstance(self._T, Array):
-            self._check()
             return len(self._obj.items)
         raise TypeError("%r instance is not an array" % (self._T,))
 
@@ -470,7 +467,6 @@ class _ptr(object):
 
     def __call__(self, *args):
         if isinstance(self._T, FuncType):
-            self._check()
             if len(args) != len(self._T.ARGS):
                 raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
             for a, ARG in zip(args, self._T.ARGS):
