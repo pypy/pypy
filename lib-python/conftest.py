@@ -677,7 +677,7 @@ testmap = [
         
     RegrTest('test_ucn.py', enabled=False),
     RegrTest('test_unary.py', enabled=True, core=True),
-    RegrTest('test_unicode.py', enabled=False),
+    RegrTest('test_unicode.py', enabled=False), #, core=True),
     RegrTest('test_unicode_file.py', enabled=False),
     RegrTest('test_unicodedata.py', enabled=False),
     RegrTest('test_univnewlines.py', enabled=True, core=True),
@@ -863,13 +863,19 @@ class ReallyRunFileExternal(py.test.Item):
         try: 
             stdout = tempdir.join(self.fspath.basename) + '.out'
             stderr = tempdir.join(self.fspath.basename) + '.err'
-            
-            status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
-            if os.WIFEXITED(status):
-                status = os.WEXITSTATUS(status)
+            if sys.platform == 'win32':
+                status = os.system("%s >%s 2>%s" %(cmd, stdout, stderr))
+                if status>=0:
+                    status = status
+                else:
+                    status = 'abnormal termination 0x%x' % status
             else:
-                status = 'abnormal termination 0x%x' % status
-            return status, stdout.read(), stderr.read()
+                status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
+                if os.WIFEXITED(status):
+                    status = os.WEXITSTATUS(status)
+                else:
+                    status = 'abnormal termination 0x%x' % status
+            return status, stdout.read(mode='rU'), stderr.read(mode='rU')
         finally: 
             tempdir.remove()
 
@@ -898,7 +904,7 @@ class ReallyRunFileExternal(py.test.Item):
         expectedpath = regrtest.getoutputpath()
         if not exit_status: 
             if expectedpath is not None: 
-                expected = expectedpath.read(mode='r')
+                expected = expectedpath.read(mode='rU')
                 test_stdout = "%s\n%s" % (self.fspath.purebasename, test_stdout)     
                 if test_stdout != expected: 
                     exit_status = 2  
