@@ -781,7 +781,9 @@ def unicode_encode__Unicode_ANY_ANY(unistr, encoding=None, errors=None):
         retval, lenght = encoder(unistr)
     else:
         retval, length = encoder(unistr, errors)
-
+    if not isinstance(retval,str):
+        raise TypeError("encoder did not return an unicode object (type=%s)" %
+                        type(retval).__name__)
     return retval
 
 ''')
