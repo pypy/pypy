@@ -36,7 +36,7 @@ class Result(object):
     def repr_short_error(self): 
         if not self.isok(): 
             if 'reportdiff' in self._blocks: 
-                return "output comaprison failed, see reportdiff"
+                return "output comparison failed, see reportdiff"
             else: 
                 text = self.getnamedtext('stderr') 
                 lines = text.strip().split('\n')
