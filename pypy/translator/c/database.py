@@ -1,4 +1,4 @@
-from pypy.rpython.lltype import Primitive, _PtrType, typeOf
+from pypy.rpython.lltype import Primitive, Ptr, typeOf
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObject, Void
 from pypy.rpython.lltype import ContainerType
 from pypy.objspace.flow.model import Constant
@@ -43,7 +43,7 @@ class LowLevelDatabase:
     def gettype(self, T, varlength=1, who_asks=None, argnames=[]):
         if isinstance(T, Primitive):
             return PrimitiveType[T]
-        elif isinstance(T, _PtrType):
+        elif isinstance(T, Ptr):
             typename = self.gettype(T.TO)   # who_asks not propagated
             return typename.replace('@', '*@')
         elif isinstance(T, (Struct, Array)):
@@ -85,7 +85,7 @@ class LowLevelDatabase:
             T = obj.TYPE
             if isinstance(T, Primitive):
                 return PrimitiveErrorValue[T]
-            elif isinstance(T, _PtrType):
+            elif isinstance(T, Ptr):
                 return 'NULL'
             else:
                 raise Exception("don't know about %r" % (T,))
@@ -93,7 +93,7 @@ class LowLevelDatabase:
             T = typeOf(obj)
             if isinstance(T, Primitive):
                 return PrimitiveName[T](obj)
-            elif isinstance(T, _PtrType):
+            elif isinstance(T, Ptr):
                 if obj:   # test if the ptr is non-NULL
                     node = self.getcontainernode(obj._obj)
                     return node.ptrname
@@ -103,7 +103,7 @@ class LowLevelDatabase:
                 raise Exception("don't know about %r" % (obj,))
 
     def cincrefstmt(self, expr, T):
-        if isinstance(T, _PtrType) and T._needsgc():
+        if isinstance(T, Ptr) and T._needsgc():
             if T.TO == PyObject:
                 return 'Py_XINCREF(%s);' % expr
             else:
@@ -113,7 +113,7 @@ class LowLevelDatabase:
         return ''
 
     def cdecrefstmt(self, expr, T):
-        if isinstance(T, _PtrType) and T._needsgc():
+        if isinstance(T, Ptr) and T._needsgc():
             if T.TO == PyObject:
                 return 'Py_XDECREF(%s);' % expr
             else:

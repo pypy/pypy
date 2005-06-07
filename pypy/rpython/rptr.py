@@ -1,6 +1,6 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import _PtrType, _ptr
+from pypy.rpython.lltype import Ptr, _ptr
 from pypy.rpython.lltype import ContainerType, Void, Signed, Bool
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 
@@ -16,7 +16,7 @@ class __extend__(annmodel.SomePtr):
 class PtrRepr(Repr):
 
     def __init__(self, ptrtype):
-        assert isinstance(ptrtype, _PtrType)
+        assert isinstance(ptrtype, Ptr)
         self.lowleveltype = ptrtype
 
     def rtype_getattr(self, hop):

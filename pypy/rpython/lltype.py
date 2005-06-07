@@ -227,7 +227,7 @@ Bool     = Primitive("Bool", False)
 Void     = Primitive("Void", None)
 
 
-class _PtrType(LowLevelType):
+class Ptr(LowLevelType):
     __name__ = property(lambda self: '%sPtr' % self.TO.__name__)
 
     def __init__(self, TO):
@@ -258,9 +258,6 @@ class _PtrType(LowLevelType):
         o = self.TO._container_example()
         return _ptr(self, o, immortal=True)
 
-def Ptr(TO):
-    return _PtrType(TO)
-
 
 # ____________________________________________________________
 
@@ -285,7 +282,7 @@ class InvalidCast(TypeError):
     pass
 
 def cast_parent(PTRTYPE, ptr):
-    if not isinstance(ptr, _ptr) or not isinstance(PTRTYPE, _PtrType):
+    if not isinstance(ptr, _ptr) or not isinstance(PTRTYPE, Ptr):
         raise TypeError, "can only cast pointers to other pointers"
     CURTYPE = ptr._TYPE
     if CURTYPE._needsgc() != PTRTYPE._needsgc():

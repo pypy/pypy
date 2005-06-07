@@ -1,7 +1,7 @@
 from __future__ import generators
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObjectType, typeOf
 from pypy.rpython.lltype import GcStruct, GcArray, GC_CONTAINER, ContainerType
-from pypy.rpython.lltype import parentlink, _PtrType
+from pypy.rpython.lltype import parentlink, Ptr
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.support import cdecl, somelettersfrom
 
@@ -82,7 +82,7 @@ class StructDefNode:
         STRUCT = self.STRUCT
         for name in STRUCT._names:
             FIELD_T = self.c_struct_field_type(name)
-            if isinstance(FIELD_T, _PtrType) and FIELD_T._needsgc():
+            if isinstance(FIELD_T, Ptr) and FIELD_T._needsgc():
                 cname = self.c_struct_field_name(name)
                 line = self.db.cdecrefstmt('%s%s' % (prefix, cname), FIELD_T)
                 if line:

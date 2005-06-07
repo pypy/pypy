@@ -35,7 +35,7 @@ class CLLType(CType):
 
 
 def needs_refcount(ct):
-    return isinstance(ct, CPtrType) and 'gc' in ct.lltype.flags
+    return isinstance(ct, CPtrType) and ct.lltype._needsgc()
 
 
 class CPtrType(CLLType):
@@ -52,7 +52,7 @@ class CPtrType(CLLType):
     def init_globals(self, genc):
         ct = ll2concretetype(genc.translator, self.lltype.TO)
         yield 'typedef %s* %s;' % (ct.typename, self.typename)
-        if 'gc' in self.lltype.flags:
+        if self.lltype._needsgc():
             yield '#define OP_INCREF_%s(p) if (p) REFCNT(%s, p)++;' % (
                 self.typename, ct.typename)
             yield '#define OP_DECREF_%s(p) if (p && !--REFCNT(%s, p)) %s(p);' %(
@@ -206,7 +206,7 @@ ll2concretetypemap = {
     lltype.GcStruct: CStructType,
     lltype.Array: CArrayType,
     lltype.GcArray: CArrayType,
-    lltype._PtrType: CPtrType,
+    lltype.Ptr: CPtrType,
     lltype.Primitive: get_primitive_type,
     }
 
