@@ -1,5 +1,13 @@
 # generic
 
+def simple1():
+    return 1
+
+
+def simple2():
+    return False
+
+
 def not1(n):
     return not n
 
@@ -27,6 +35,7 @@ def bool_cast1(n):
     n += bool(6)
     n += bool(7.8)
     n += bool(n)
+    return n
 
 
 #ints
@@ -89,6 +98,7 @@ def int_cast1(n):
     n += int(8)
     n += int(5.7)
     n += int(n)
+    return n
 
 
 # floats
@@ -128,6 +138,7 @@ def float_cast1(n):
     n += float(6)
     n += float(7.8)
     n += float(n)
+    return n
 
 
 def main(args=[]):
@@ -137,9 +148,7 @@ def main(args=[]):
     b1 = bool1(b)
     i1 = int1(i)
     f1 = float1(f)
-    #print 'bool1(%d)'  % b, b1
-    #print 'int1(%d)'   % i, i1
-    #print 'float1(%s)' % f, f1
+    return 0
 
 
 if __name__ == '__main__':
