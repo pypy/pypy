@@ -215,6 +215,8 @@ class RPythonTyper:
                 raise TyperError("constant mismatch: %r vs %r" % (
                     resultvar.value, hop.s_result.const))
             op.result.concretetype = hop.r_result.lowleveltype
+            hop.llops.append(SpaceOperation('same_as', [resultvar],
+                                            op.result))
 
     def gottypererror(self, e, block, position, llops):
         """Record a TyperError without crashing immediately.
@@ -254,6 +256,9 @@ def translate_op_%s(self, hop):
 
     def translate_op_newlist(self, hop):
         return rlist.rtype_newlist(hop)
+
+    def translate_op_newtuple(self, hop):
+        return rtuple.rtype_newtuple(hop)
 
     def missing_operation(self, hop):
         raise TyperError("unimplemented operation: '%s'" % hop.spaceop.opname)
@@ -414,6 +419,6 @@ class LowLevelOpList(list):
 # and the rtyper_chooserepr() methods
 from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
-from pypy.rpython import rlist, rstr
+from pypy.rpython import rlist, rstr, rtuple
 from pypy.rpython import rbuiltin, rpbc
 from pypy.rpython import rptr
