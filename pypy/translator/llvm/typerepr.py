@@ -177,12 +177,12 @@ class FuncTypeRepr(TypeRepr):
         self.gen = gen
         self.functype = functype
         self.l_returntype = self.gen.get_repr(functype.RESULT)
-        self.l_args = [self.gen.get_repr(arg) for arg in functype.ARGS]
-        self.dependencies = sets.Set(self.l_args + [self.l_returntype])
+        self.l_argtypes = [self.gen.get_repr(arg) for arg in functype.ARGS]
+        self.dependencies = sets.Set(self.l_argtypes + [self.l_returntype])
 
     def typename(self):
-        args = ", ".join([l_arg.llvmname() for arg in self.l_args])
-        return "%s (%s)" % (self.l_returntype.llvmname(), args)
+        argtypes = ", ".join([l_arg.llvmname() for arg in self.l_argtypes])
+        return "%s (%s)" % (self.l_returntype.llvmname(), argtypes)
         
 
 class StringTypeRepr(TypeRepr):

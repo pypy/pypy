@@ -151,7 +151,8 @@ class LLVMGenerator(object):
             try:
                 concretetype = obj.concretetype
                 if isinstance(concretetype, lltype.Primitive):
-                    result = reprmap.PRIMITIVE_REPRS[concretetype](obj, self)
+                    result = reprmap.PRIMITIVE_REPRS[concretetype](obj.value,
+                                                                   self)
                     self.llvm_reprs[key] = result
                     self.depth -= 1
                     return result

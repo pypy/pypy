@@ -130,7 +130,8 @@ class FunctionRepr(LLVMRepr):
         if debug: print "init 3)"
         self.type = self.gen.get_repr(function._TYPE)
         if debug: print "init 4)"
-        self.l_args = self.type.l_args
+        self.l_args = [self.gen.get_repr(ar)
+                       for ar in self.graph.startblock.inputargs]
         self.dependencies.add(self.type)
         self.dependencies.update(self.l_args)
         if debug: print "init 8)"
@@ -539,6 +540,7 @@ class EntryFunctionRepr(LLVMRepr):
         return fd
 
     def llvmfuncdef(self):
+        print self.l_function.l_args
         s = "%s %s(" % (self.l_function.type.l_returntype.typename(), self.name)
         s += ", ".join([a.typed_name() for a in self.l_function.l_args]) + ")"
         return s
