@@ -74,6 +74,13 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
             llfn = ll_getitem
         return hop.gendirectcall(llfn, v_lst, v_index)
 
+    def rtype_setitem((r_lst, r_int), hop):
+        v_lst, v_index, v_item = hop.inputargs(r_lst, Signed, r_lst.item_repr)
+        if hop.args_s[1].nonneg:
+            llfn = ll_setitem_nonneg
+        else:
+            llfn = ll_setitem
+        return hop.gendirectcall(llfn, v_lst, v_index, v_item)
 
 class __extend__(pairtype(ListRepr, ListRepr)):
     def convert_from_to((r_lst1, r_lst2), v, llops):
