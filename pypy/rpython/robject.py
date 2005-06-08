@@ -1,6 +1,6 @@
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import PyObject, Ptr, Void, Bool
+from pypy.rpython.lltype import PyObject, Ptr, Void, Bool, pyobjectptr
 from pypy.rpython.rmodel import Repr, TyperError
 from pypy.rpython import rclass
 
@@ -17,6 +17,9 @@ class __extend__(annmodel.SomeObject):
 
 class PyObjRepr(Repr):
     lowleveltype = Ptr(PyObject)
+
+    def convert_const(self, value):
+        return pyobjectptr(value)
 
 pyobj_repr = PyObjRepr()
 

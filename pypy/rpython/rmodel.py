@@ -2,7 +2,8 @@ from pypy.annotation.pairtype import pair, pairtype, extendabletype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import Void, Bool, Float, Signed, Char
-from pypy.rpython.lltype import typeOf, LowLevelType
+from pypy.rpython.lltype import typeOf, LowLevelType, Ptr, PyObject
+from pypy.rpython.lltype import FuncType, functionptr
 
 
 class Repr:
@@ -168,3 +169,18 @@ def inputconst(reqtype, value):
     c = Constant(value)
     c.concretetype = lltype
     return c
+
+# __________ utilities __________
+
+PyObjPtr = Ptr(PyObject)
+
+def getconcretetype(v):
+    return getattr(v, 'concretetype', PyObjPtr)
+
+def getfunctionptr(translator, func, getconcretetype=getconcretetype):
+    """Make a functionptr from the given Python function."""
+    graph = translator.getflowgraph(func)
+    llinputs = [getconcretetype(v) for v in graph.getargs()]
+    lloutput = getconcretetype(graph.getreturnvar())
+    FT = FuncType(llinputs, lloutput)
+    return functionptr(FT, func.func_name, graph = graph, _callable = func)

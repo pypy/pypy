@@ -8,7 +8,7 @@ from pypy.rpython.lltype import LowLevelType, Ptr, ContainerType
 from pypy.rpython.lltype import FuncType, functionptr, typeOf
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
-from pypy.rpython.rmodel import Repr, inputconst, TyperError
+from pypy.rpython.rmodel import Repr, inputconst, TyperError, getfunctionptr
 from pypy.rpython.normalizecalls import perform_normalizations
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 
@@ -95,6 +95,10 @@ class RPythonTyper:
             self.typererror = None
             #self.annotator.translator.view()
             raise exc, value, tb
+        # make sure that the return variables of all graphs are concretetype'd
+        for graph in self.annotator.translator.flowgraphs.values():
+            v = graph.getreturnvar()
+            self.setconcretetype(v)
 
     def call_all_setups(self):
         # make sure all reprs so far have had their setup() called
@@ -257,17 +261,9 @@ def translate_op_%s(self, hop):
     # __________ utilities __________
 
     def getfunctionptr(self, func):
-        """Make a functionptr from the given Python function."""
-        a = self.annotator
-        graph = a.translator.getflowgraph(func)
-        llinputs = [self.bindingrepr(v).lowleveltype for v in graph.getargs()]
-        s_output = a.binding(graph.getreturnvar(), None)
-        if s_output is None:
-            lloutput = Void
-        else:
-            lloutput = self.getrepr(s_output).lowleveltype
-        FT = FuncType(llinputs, lloutput)
-        return functionptr(FT, func.func_name, graph = graph, _callable = func)
+        def getconcretetype(v):
+            return self.bindingrepr(v).lowleveltype
+        return getfunctionptr(self.annotator.translator, func, getconcretetype)
 
 
 # ____________________________________________________________
