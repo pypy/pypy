@@ -18,6 +18,9 @@ from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 class __extend__(annmodel.SomeTuple):
     def rtyper_makerepr(self, rtyper):
         return TupleRepr([rtyper.getrepr(s_item) for s_item in self.items])
+    def rtyper_makekey(self):
+        keys = [s_item.rtyper_makekey() for s_item in self.items]
+        return tuple(keys)
 
 
 class TupleRepr(Repr):

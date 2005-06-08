@@ -11,6 +11,11 @@ class __extend__(annmodel.SomePtr):
             return nullptr_repr
         else:
             return PtrRepr(self.ll_ptrtype)
+    def rtyper_makekey(self):
+        if self.is_constant():
+            return None
+        else:
+            return self.ll_ptrtype
 
 
 class PtrRepr(Repr):

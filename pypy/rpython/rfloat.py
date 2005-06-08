@@ -10,6 +10,9 @@ debug = False
 class __extend__(annmodel.SomeFloat):
     def rtyper_makerepr(self, rtyper):
         return float_repr
+    def rtyper_makekey(self):
+        return None
+
 
 float_repr = FloatRepr()
 

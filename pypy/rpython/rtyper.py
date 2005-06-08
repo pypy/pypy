@@ -24,8 +24,7 @@ class RPythonTyper:
 
     def __init__(self, annotator):
         self.annotator = annotator
-        self.reprs_by_id = {}
-        self.reprs_by_content = {}
+        self.reprs = {}
         self.reprs_must_call_setup = []
         self.specialized_ll_functions = {}
         self.class_reprs = {}
@@ -38,28 +37,17 @@ class RPythonTyper:
             self.primitive_to_repr[r.lowleveltype] = r
 
     def getrepr(self, s_obj):
-        # s_objs are not hashable... try hard to find a hash anyway
+        # s_objs are not hashable... try hard to find a unique key anyway
+        key = s_obj.__class__, s_obj.rtyper_makekey()
         try:
-            result, s_obj = self.reprs_by_id[id(s_obj)]
+            result = self.reprs[key]
         except KeyError:
-            key = [s_obj.__class__]
-            items = s_obj.__dict__.items()
-            items.sort()
-            for name, value in items:
-                key.append(name)
-                key.append(Constant(value))
-            key = tuple(key)
-            try:
-                result = self.reprs_by_content[key]
-            except KeyError:
-                # here is the code that actually builds a Repr instance
-                result = s_obj.rtyper_makerepr(self)
-                assert not isinstance(result.lowleveltype, ContainerType), (
-                    "missing a Ptr in the type specification "
-                    "of %s:\n%r" % (s_obj, result.lowleveltype))
-                self.reprs_by_content[key] = result
-                self.reprs_must_call_setup.append(result)
-            self.reprs_by_id[id(s_obj)] = result, s_obj
+            result = s_obj.rtyper_makerepr(self)
+            assert not isinstance(result.lowleveltype, ContainerType), (
+                "missing a Ptr in the type specification "
+                "of %s:\n%r" % (s_obj, result.lowleveltype))
+            self.reprs[key] = result
+            self.reprs_must_call_setup.append(result)
         return result
 
     def binding(self, var):

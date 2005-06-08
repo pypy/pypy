@@ -84,10 +84,14 @@ class __extend__(annmodel.SomeIterator):
     def rtyper_makerepr(self, rtyper):
         r_container = rtyper.getrepr(self.s_container)
         return r_container.make_iterator_repr()
+    def rtyper_makekey(self):
+        return self.s_container.rtyper_makekey()
 
 class __extend__(annmodel.SomeImpossibleValue):
     def rtyper_makerepr(self, rtyper):
         return impossible_repr
+    def rtyper_makekey(self):
+        return None
 
 # ____________________________________________________________
 

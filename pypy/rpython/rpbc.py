@@ -51,6 +51,11 @@ class __extend__(annmodel.SomePBC):
         reprcls, = choices
         return reprcls(rtyper, self)
 
+    def rtyper_makekey(self):
+        lst = self.prebuiltinstances.items()
+        lst.sort()
+        return tuple(lst)
+
 
 # ____________________________________________________________
 

@@ -245,6 +245,8 @@ def get_type_repr(rtyper):
 class __extend__(annmodel.SomeInstance):
     def rtyper_makerepr(self, rtyper):
         return getinstancerepr(rtyper, self.classdef)
+    def rtyper_makekey(self):
+        return self.classdef
 
 
 class InstanceRepr(Repr):

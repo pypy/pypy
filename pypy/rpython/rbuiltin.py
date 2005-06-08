@@ -20,6 +20,11 @@ class __extend__(annmodel.SomeBuiltin):
             assert self.methodname is not None
             return BuiltinMethodRepr(rtyper.getrepr(self.s_self),
                                      self.methodname)
+    def rtyper_makekey(self):
+        key = (getattr(self, 'const', None), self.methodname)
+        if self.s_self is not None:
+            key += (self.s_self.rtyper_makekey(),)
+        return key
 
 
 class BuiltinFunctionRepr(Repr):

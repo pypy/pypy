@@ -13,6 +13,8 @@ class __extend__(annmodel.SomeInteger):
             return unsigned_repr
         else:
             return signed_repr
+    def rtyper_makekey(self):
+        return self.unsigned
 
 signed_repr = IntegerRepr()
 unsigned_repr = IntegerRepr()

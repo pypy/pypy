@@ -9,6 +9,8 @@ debug = False
 class __extend__(annmodel.SomeBool):
     def rtyper_makerepr(self, rtyper):
         return bool_repr
+    def rtyper_makekey(self):
+        return None
 
 bool_repr = BoolRepr()
 
