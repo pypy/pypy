@@ -2,7 +2,8 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import *
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
+from pypy.rpython.robject import PyObjRepr, pyobj_repr
 
 # ____________________________________________________________
 #
@@ -32,6 +33,13 @@ class TupleRepr(Repr):
         fields = zip(self.fieldnames, self.lltypes)
         self.lowleveltype = Ptr(GcStruct('tuple%d' % len(items_r), *fields))
 
+    def convert_const(self, value):
+        assert isinstance(value, tuple) and len(value) == len(self.items_r)
+        p = malloc(self.lowleveltype.TO)
+        for obj, r, name in zip(value, self.items_r, self.fieldnames):
+            setattr(p, name, r.convert_const(obj))
+        return p
+
     def rtype_len(self, hop):
         return hop.inputconst(Signed, len(self.items_r))
 
@@ -52,13 +60,46 @@ class __extend__(pairtype(TupleRepr, IntegerRepr)):
 #
 #  Irregular operations.
 
-def rtype_newtuple(hop):
-    nb_args = hop.nb_args
-    r_tuple = hop.r_result
-    c1 = hop.inputconst(Void, r_tuple.lowleveltype)
-    v_result = hop.genop('malloc', [c1], resulttype = r_tuple.lowleveltype)
-    for i in range(nb_args):
-        cname = hop.inputconst(Void, r_tuple.fieldnames[i])
-        v_item = hop.inputarg(r_tuple.items_r[i], arg=i)
-        hop.genop('setfield', [v_result, cname, v_item])
+def newtuple(llops, r_tuple, items_v):
+    c1 = inputconst(Void, r_tuple.lowleveltype)
+    v_result = llops.genop('malloc', [c1], resulttype = r_tuple.lowleveltype)
+    for i in range(len(r_tuple.items_r)):
+        cname = inputconst(Void, r_tuple.fieldnames[i])
+        llops.genop('setfield', [v_result, cname, items_v[i]])
     return v_result
+
+def rtype_newtuple(hop):
+    r_tuple = hop.r_result
+    vlist = hop.inputargs(*r_tuple.items_r)
+    return newtuple(hop.llops, r_tuple, vlist)
+
+#
+# _________________________ Conversions _________________________
+
+class __extend__(pairtype(PyObjRepr, TupleRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        vlist = []
+        for i in range(len(r_to.items_r)):
+            ci = inputconst(Signed, i)
+            v_item = llops.gencapicall('PyTuple_GetItem_WithIncref', [v, ci],
+                                       resulttype = pyobj_repr)
+            v_converted = llops.convertvar(v_item, pyobj_repr,
+                                           r_to.items_r[i])
+            vlist.append(v_converted)
+        return newtuple(llops, r_to, vlist)
+
+class __extend__(pairtype(TupleRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        ci = inputconst(Signed, len(r_from.items_r))
+        v_result = llops.gencapicall('PyTuple_New', [ci],
+                                     resulttype = pyobj_repr)
+        for i in range(len(r_from.items_r)):
+            cname = inputconst(Void, r_from.fieldnames[i])
+            v_item = llops.genop('getfield', [v, cname],
+                                 resulttype = r_from.items_r[i].lowleveltype)
+            v_converted = llops.convertvar(v_item, r_from.items_r[i],
+                                           pyobj_repr)
+            ci = inputconst(Signed, i)
+            llops.gencapicall('PyTuple_SetItem_WithIncref', [v_result, ci,
+                                                             v_converted])
+        return v_result

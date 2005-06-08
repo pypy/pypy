@@ -392,11 +392,11 @@ class LowLevelOpList(list):
         return self.genop('direct_call', [c]+list(args_v),
                           resulttype = typeOf(f).TO.RESULT)
 
-    def gencapicall(self, cfnname, args_v, resulttype):
+    def gencapicall(self, cfnname, args_v, resulttype=None):
         if isinstance(resulttype, Repr):
             resulttype = resulttype.lowleveltype
         argtypes = [v.concretetype for v in args_v]
-        FUNCTYPE = FuncType(argtypes, resulttype)
+        FUNCTYPE = FuncType(argtypes, resulttype or Void)
         f = functionptr(FUNCTYPE, cfnname, external="C")
         cf = inputconst(typeOf(f), f)
         return self.genop('direct_call', [cf]+list(args_v), resulttype)
