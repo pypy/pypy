@@ -74,7 +74,16 @@ def main(argv=[]):
     modname = options.python_script.replace('/', '.')
     if modname[-3:] == '.py':
         modname = modname[:-3]
-    exec "import %(modname)s as testmodule" % locals()
+
+    if modname[0] == '.':   #absolute path
+        #print imp.find_module(options.python_script)
+        sys.path.append('/')  #XXX may not work on all platforms
+        #print sys.path
+        absmodname = modname[1:]
+        exec "import %(absmodname)s as testmodule" % locals()
+        ##print 'pop',sys.path.pop()
+    else:   #relative path
+        exec "import %(modname)s as testmodule" % locals()
 
     if '(' in options.entry_function:
         entry_function, arguments = options.entry_function.split('(',1)
