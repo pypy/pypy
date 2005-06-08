@@ -69,7 +69,11 @@ class ClassRepr(Repr):
     def __init__(self, rtyper, classdef):
         self.rtyper = rtyper
         self.classdef = classdef
-        self.vtable_type = ForwardReference()
+        if classdef is None:
+            # 'object' root type
+            self.vtable_type = OBJECT_VTABLE
+        else:
+            self.vtable_type = ForwardReference()
         self.lowleveltype = Ptr(self.vtable_type)
 
     def __repr__(self):
@@ -90,10 +94,7 @@ class ClassRepr(Repr):
         #       partially-initialized dicts.
         clsfields = {}
         allmethods = {}
-        if self.classdef is None:
-            # 'object' root type
-            self.vtable_type.become(OBJECT_VTABLE)
-        else:
+        if self.classdef is not None:
             # class attributes
             llfields = []
             attrs = self.classdef.attrs.items()
@@ -252,7 +253,10 @@ class InstanceRepr(Repr):
     def __init__(self, rtyper, classdef):
         self.rtyper = rtyper
         self.classdef = classdef
-        self.object_type = GcForwardReference()
+        if classdef is None:
+            self.object_type = OBJECT
+        else:
+            self.object_type = GcForwardReference()
         self.lowleveltype = Ptr(self.object_type)
 
     def __repr__(self):
@@ -276,7 +280,6 @@ class InstanceRepr(Repr):
         allinstancefields = {}
         if self.classdef is None:
             fields['__class__'] = 'typeptr', TYPEPTR
-            self.object_type.become(OBJECT)
         else:
             # instance attributes
             llfields = []
