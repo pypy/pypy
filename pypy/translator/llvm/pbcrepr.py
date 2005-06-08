@@ -25,6 +25,7 @@ debug = False
 
 class PBCTypeRepr(TypeRepr):
     def get(obj, gen):
+        return None #disabling for now: this class will go away
         if (isinstance(obj, annmodel.SomePBC) and
             len(obj.prebuiltinstances) == 1 and   #only one pb instance for now
             not isinstance(obj.prebuiltinstances.keys()[0],

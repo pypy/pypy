@@ -26,7 +26,7 @@ from pypy.translator.test import snippet as test
 from pypy.translator.llvm.test import llvmsnippet as test2
 
 from pypy.translator.llvm import representation, funcrepr, typerepr, seqrepr
-from pypy.translator.llvm import classrepr, pbcrepr
+from pypy.translator.llvm import classrepr, pbcrepr, pointerrepr
 
 from pypy.translator.llvm.representation import LLVMRepr, TmpVariableRepr
 from pypy.translator.llvm.representation import CompileError
@@ -74,7 +74,7 @@ class LLVMGenerator(object):
         self.local_counts = {}
         self.repr_classes = []
         for mod in [representation, funcrepr, typerepr, seqrepr, classrepr,
-                    pbcrepr]:
+                    pbcrepr, pointerrepr]:
             self.repr_classes += [getattr(mod, s)
                                   for s in dir(mod) if "Repr" in s]
         #if debug:
@@ -156,6 +156,8 @@ class LLVMGenerator(object):
                     self.llvm_reprs[key] = result
                     self.depth -= 1
                     return result
+                if isinstance(concretetype, lltype.Ptr):
+                    return pointerrepr.PointerRepr(obj.value, self)
                 #XXX find the right type if it is not a Primitive
             except AttributeError:
                 pass

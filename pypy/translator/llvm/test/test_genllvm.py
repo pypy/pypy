@@ -62,7 +62,7 @@ class TestGenLLVM(object):
         f = compile_function(llvmsnippet.simple2, [])
         assert f() == 0
 
-    def DONOTtest_simple4(self):
+    def test_simple4(self):
         f = compile_function(llvmsnippet.simple4, [])
         assert f() == 4
 
@@ -71,7 +71,7 @@ class TestGenLLVM(object):
         assert f(1) == 12
         assert f(0) == 13
 
-    def DONOTtest_ackermann(self):
+    def test_ackermann(self):
         f = compile_function(llvmsnippet.ackermann, [int, int])
         for i in range(10):
             assert f(0, i) == i + 1
@@ -79,7 +79,7 @@ class TestGenLLVM(object):
             assert f(2, i) == 2 * i + 3
             assert f(3, i) == 2 ** (i + 3) - 3
 
-    def DONOTtest_calling(self):
+    def test_calling(self):
         f = compile_function(llvmsnippet.calling1, [int])
         assert f(10) == 1
 
@@ -99,7 +99,6 @@ class TestGenLLVM(object):
 
 class TestFloat(object):
     def setup_method(self, method):
-        py.test.skip("nothing works for now")
         if not llvm_found:
             py.test.skip("llvm-as not found on path.")
 

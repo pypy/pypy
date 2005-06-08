@@ -94,12 +94,17 @@ class SignedRepr(LLVMRepr):
         self.value = value
         self.gen = gen
         self.type = self.gen.get_repr(lltype.Signed)
+        self.dependencies = sets.Set([self.type])
 
     def llvmname(self):
         return str(self.value)
 
-    def get_dependencies(self):
-        return sets.Set([self.type])
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("SignedRepr instance has no attribute %s" %
+                                   repr(name))
 
 class UnsignedRepr(LLVMRepr):
     def __init__(self, value, gen):
@@ -108,12 +113,17 @@ class UnsignedRepr(LLVMRepr):
         self.value = value
         self.gen = gen
         self.type = self.gen.get_repr(lltype.Unsigned)
+        self.dependencies = sets.Set([self.type])
 
     def llvmname(self):
         return str(self.value)
 
-    def get_dependencies(self):
-        return sets.Set([self.type])
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("UnsignedRepr instance has no attribute %s"
+                                   % repr(name))
 
 class BoolRepr(LLVMRepr):
     def __init__(self, value, gen):
@@ -122,12 +132,17 @@ class BoolRepr(LLVMRepr):
         self.value = bool(value)
         self.gen = gen
         self.type = self.gen.get_repr(lltype.Bool)
+        self.dependencies = sets.Set([self.type])
 
     def llvmname(self):
         return str(self.value).lower()
-        
-    def get_dependencies(self):
-        return sets.Set([self.type])
+
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("BoolRepr instance has no attribute %s"
+                                   % repr(name))
 
 class FloatRepr(LLVMRepr):
     def __init__(self, value, gen):
@@ -136,12 +151,17 @@ class FloatRepr(LLVMRepr):
         self.value = float(value)
         self.gen = gen
         self.type = self.gen.get_repr(lltype.Float)
+        self.dependencies = sets.Set([self.type])
 
     def llvmname(self):
         return str(self.value).lower()
-        
-    def get_dependencies(self):
-        return sets.Set([self.type])
+
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("FloatRepr instance has no attribute %s"
+                                   % repr(name))
 
 class CharRepr(LLVMRepr):
     def __init__(self, value, gen):
@@ -151,6 +171,7 @@ class CharRepr(LLVMRepr):
         self.value = value
         self.gen = gen
         self.type = self.gen.get_repr(lltype.Char)
+        self.dependencies = sets.Set([self.type])
 
     def llvmname(self):
         value = value
@@ -158,9 +179,13 @@ class CharRepr(LLVMRepr):
             return "'%s'" % (value.replace("'", r"\'"),)
         else:
             return '%d' % ord(value)
-        
-    def get_dependencies(self):
-        return sets.Set([self.type])
+
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("CharRepr instance has no attribute %s"
+                                   % repr(name))
 
        
 class SimpleRepr(LLVMRepr):
@@ -256,14 +281,15 @@ class VariableRepr(LLVMRepr):
         except AttributeError:
             type_ = gen.annotator.binding(var.c)
         self.type = gen.get_repr(type_)
-        print "XXXXXXXXXXXXXXXX", self.type
+        if debug:
+            print "XXXXXXXXXXXXXXXX", self.type
         self.dependencies = sets.Set([self.type])
 
     def llvmname(self):
         return "%" + self.var.name
 
     def __getattr__(self, name):
-        print "$%%%%%%%%%%%%%%%%%getattr called", name, self.type.typename()
+        print "getattr called", name, self.type.typename()
         if name.startswith("op_"):
             return getattr(self.type, "t_" + name, None)
         elif name.startswith("cast_"):

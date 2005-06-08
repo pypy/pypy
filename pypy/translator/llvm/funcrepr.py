@@ -217,6 +217,9 @@ class FunctionRepr(LLVMRepr):
         l_func.dependencies.update(l_args)
         lblock.call(l_target, l_args[0], l_args[1:])
 
+    op_direct_call = op_simple_call #XXX is simple_call still used?
+
+
 class BlockRepr(object):
     def __init__(self, l_func, pyblock, gen):
         if debug:
@@ -274,6 +277,7 @@ class BlockRepr(object):
             return
         try:
             l_arg0.op(op.opname, l_target, op.args, self.lblock, self.l_func)
+            return
         except NotImplementedError:
             pass
         except CompileError:

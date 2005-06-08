@@ -142,6 +142,21 @@ class BoolTypeRepr(TypeRepr):
         return 1
 
 class FloatTypeRepr(TypeRepr):
+    directly_supported_ops = {
+        "float_add": "add",
+        "float_sub": "sub",
+        "float_mul": "mul",
+        "float_div": "div",
+        "float_mod": "rem",
+        "float_xor": "xor",
+        "float_and_": "and",
+        "float_eq": "seteq",
+        "float_ne": "setne",
+        "float_gt": "setgt",
+        "float_ge": "setge",
+        "float_lt": "setlt",
+        "float_le": "setle"}
+        
     def __init__(self, gen):
         if debug:
             print "FloatTypeRepr"
@@ -149,6 +164,15 @@ class FloatTypeRepr(TypeRepr):
 
     def typename(self):
         return "double"
+
+    def t_op(self, opname, l_target, args, lblock, l_func):
+        if opname in FloatTypeRepr.directly_supported_ops:
+            assert len(args) == 2
+            l_args = [self.gen.get_repr(arg) for arg in args]
+            l_func.dependencies.update(l_args)
+            lblock.binary_instruction(
+                FloatTypeRepr.directly_supported_ops[opname], l_target,
+                l_args[0], l_args[1])
 
     def llvmsize(self):
         return 8
