@@ -119,6 +119,9 @@ class RPythonTyper:
             return
         newops = LowLevelOpList(self)
         varmapping = {}
+        for v in block.getvariables():
+            varmapping[v] = v    # records existing Variables
+
         for op in block.operations:
             try:
                 hop = HighLevelOp(self, op, newops)
@@ -128,15 +131,6 @@ class RPythonTyper:
                 return  # cannot continue this block: no op.result.concretetype
 
         block.operations[:] = newops
-        # multiple renamings (v1->v2->v3->...) are possible
-        while True:
-            done = True
-            for v1, v2 in varmapping.items():
-                if v2 in varmapping:
-                    varmapping[v1] = varmapping[v2]
-                    done = False
-            if done:
-                break
         block.renamevariables(varmapping)
         self.insert_link_conversions(block)
 
@@ -202,9 +196,15 @@ class RPythonTyper:
                                  "but rtype* says %r" % (
                     op.opname, hop.s_result,
                     op.result.concretetype, resulttype))
-            while resultvar in varmapping:
-                resultvar = varmapping[resultvar]
-            varmapping[resultvar] = op.result
+            # figure out if the resultvar is a completely fresh Variable or not
+            if (resultvar not in self.annotator.bindings and
+                resultvar not in varmapping):
+                # fresh Variable: rename it to the previously existing op.result
+                varmapping[resultvar] = op.result
+            else:
+                # renaming unsafe.  Insert a 'same_as' operation...
+                hop.llops.append(SpaceOperation('same_as', [resultvar],
+                                                op.result))
         else:
             # translate_meth() returned a Constant
             assert isinstance(resultvar, Constant)

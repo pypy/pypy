@@ -411,6 +411,35 @@ class InstanceRepr(Repr):
         self.setfield(vinst, attr, vvalue, hop.llops)
 
 
+class __extend__(pairtype(InstanceRepr, InstanceRepr)):
+    def convert_from_to((r_ins1, r_ins2), v, llops):
+        # which is a subclass of which?
+        if r_ins1.classdef is None or r_ins2.classdef is None:
+            return NotImplemented
+        basedef = r_ins1.classdef.commonbase(r_ins2.classdef)
+        if basedef == r_ins2.classdef:
+            # r_ins1 is an instance of the subclass: converting to parent
+            while r_ins1 != r_ins2:
+                v = r_ins1.parentpart(v, llops)
+                r_ins1 = r_ins1.rbase
+            return v
+        elif basedef == r_ins1.classdef:
+            # r_ins2 is an instance of the subclass: potentially unsafe
+            # casting, but we do it anyway (e.g. the annotator produces
+            # such casts after a successful isinstance() check)
+            cast_chain = []
+            while r_ins2 != r_ins1:
+                cast_chain.append(r_ins2)
+                r_ins2 = r_ins2.rbase
+            cast_chain.reverse()
+            for r in cast_chain:
+                ctype = inputconst(Void, r.lowleveltype)
+                v = llops.genop('cast_parent', [ctype, v],
+                                resulttype = r.lowleveltype)
+            return v
+        else:
+            return NotImplemented
+
 # ____________________________________________________________
 
 def rtype_new_instance(cls, hop):

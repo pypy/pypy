@@ -171,6 +171,7 @@ class Block(object):
         for op in self.operations:
             op.args = [mapping.get(a, a) for a in op.args]
             op.result = mapping.get(op.result, op.result)
+        self.exitswitch = mapping.get(self.exitswitch, self.exitswitch)
         for link in self.exits:
             link.args = [mapping.get(a, a) for a in link.args]
 

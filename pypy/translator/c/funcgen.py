@@ -389,6 +389,14 @@ class FunctionCodeGenerator:
                   ]
         return '\t'.join(result)
 
+    def OP_SAME_AS(self, op, err):
+        result = ['%s = %s;' % (self.expr(op.result),
+                                self.expr(op.args[0]))]
+        line = self.cincref(op.result)
+        if line:
+            result.append(line)
+        return '\t'.join(result)
+
     def cincref(self, v):
         T = self.lltypemap[v]
         return self.db.cincrefstmt(v.name, T)

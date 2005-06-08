@@ -48,7 +48,7 @@ def test_method_call():
         return obj.m(b)
     rtype(f, [int, int])
 
-def PROGRESSING_ON_test_virtual_method_call():
+def test_virtual_method_call():
     def f(a, b):
         if a > 0:
             obj = MyBase()
@@ -56,4 +56,4 @@ def PROGRESSING_ON_test_virtual_method_call():
             obj = MySubclass()
         obj.z = a
         return obj.m(b)
-    rtype(f, [int, int]).view()
+    rtype(f, [int, int])
