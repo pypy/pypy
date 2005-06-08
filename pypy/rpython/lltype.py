@@ -28,7 +28,6 @@ class frozendict(dict):
         items = self.items()
         items.sort()
         return hash(tuple(items))
-    __hash__ = saferecursive(__hash__, 0)
 
 
 class LowLevelType(object):
@@ -40,10 +39,21 @@ class LowLevelType(object):
         return not (self == other)
 
     def __hash__(self):
+        # cannot use saferecursive() -- see test_lltype.test_hash().
+        # this version uses a compromize between computation time and
+        # collision-avoidance that can be customized if needed.
+        try:
+            if TLS.nested_hash_level >= 3:
+                return 0
+        except AttributeError:
+            TLS.nested_hash_level = 0
         items = self.__dict__.items()
         items.sort()
-        return hash((self.__class__,) + tuple(items))
-    __hash__ = saferecursive(__hash__, 0)
+        TLS.nested_hash_level += 1
+        try:
+            return hash((self.__class__,) + tuple(items))
+        finally:
+            TLS.nested_hash_level -= 1
 
     def __repr__(self):
         return '<%s>' % (self,)

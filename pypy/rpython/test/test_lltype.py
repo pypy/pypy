@@ -241,3 +241,12 @@ def test_nullptr():
     S = Struct('s')
     p0 = nullptr(S)
     assert not p0
+
+def test_hash():
+    S = ForwardReference()
+    S.become(Struct('S', ('p', Ptr(S))))
+    assert S == S
+    S1 = Struct('S', ('p', Ptr(S)))
+    assert S1 == S
+    assert S == S1
+    assert hash(S1) == hash(S)
