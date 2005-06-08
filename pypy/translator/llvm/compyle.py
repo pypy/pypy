@@ -1,6 +1,6 @@
 #!/usr/bin/python 
 
-"""PyPy compiler to be used as a wrapper around the various backend translators.
+"""PyPy compiler to be used as a wrapper around the various backend translators. As a sideeffect the entry function of the compiled code will be run.
 
 options:
     -h(elp)
@@ -71,11 +71,9 @@ class Options(object):
 def main(argv=[]):
     options = Options(argv)
 
-    modname = options.python_script
-    if '/' in modname:
-        modname = modname.replace('/', '.')
-        if modname[-3:] == '.py':
-            modname = modname[:-3]
+    modname = options.python_script.replace('/', '.')
+    if modname[-3:] == '.py':
+        modname = modname[:-3]
     exec "import %(modname)s as testmodule" % locals()
 
     if '(' in options.entry_function:
@@ -147,10 +145,14 @@ def main(argv=[]):
 
         assert f
         print 'Backend', options.backend, 'compilation successful!'
+        backendReturn = t.call(*arguments)
 
-        if f and options.test_compiled:
-            #assert f(arg) == t.call(arg)       # sanity check  #XXX make args a commandline argument!!!
-            print 'Backend', options.backend, 'test successful! (not tested actually)'
+        if options.test_compiled:
+            pythonReturn = f(*arguments)
+            assert backendReturn == pythonReturn
+            print 'Backend', options.backend, 'compiled code returns same as python script (%s)' % backendReturn
+        else:
+            print 'Backend', options.backend, 'compiled code returns (%s)' % backendReturn, '[use -t to perform a sanity check]'
 
 
 if __name__ == '__main__':
