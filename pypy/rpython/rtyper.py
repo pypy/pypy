@@ -245,6 +245,9 @@ def translate_op_%s(self, hop):
     def translate_op_newlist(self, hop):
         return rlist.rtype_newlist(hop)
 
+    def translate_op_alloc_and_set(self, hop):
+        return rlist.rtype_alloc_and_set(hop)
+
     def translate_op_newtuple(self, hop):
         return rtuple.rtype_newtuple(hop)
 

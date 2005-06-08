@@ -140,6 +140,21 @@ def rtype_newlist(hop):
         hop.gendirectcall(ll_setitem_nonneg, v_result, ci, v_item)
     return v_result
 
+def ll_alloc_and_set(LISTPTR, count, item):
+    l = malloc(LISTPTR.TO)
+    l.items = malloc(LISTPTR.TO.items.TO, count)
+    i = 0
+    while i < count:
+        l.items[i].item = item
+        i += 1
+    return l
+
+def rtype_alloc_and_set(hop):
+    r_list = hop.r_result
+    v_count, v_item = hop.inputargs(Signed, r_list.item_repr)
+    c1 = hop.inputconst(Void, r_list.lowleveltype)
+    return hop.gendirectcall(ll_alloc_and_set, c1, v_count, v_item)
+
 # ____________________________________________________________
 #
 #  Iteration.
