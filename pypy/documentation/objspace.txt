@@ -94,7 +94,7 @@ Creation of Application Level objects
   Creates a string from a list of wrapped integers.
 
 **newunicode(codelist):**
-  Creates a unicode string from a list of wrapped integers.
+  Creates a unicode string from a list of integers.
 
 Conversions from Application Level to Interpreter Level
 ----------------------------------------------------------

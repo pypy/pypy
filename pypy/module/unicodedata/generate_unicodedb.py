@@ -12,9 +12,21 @@ class Unicodechar:
         if data[3]:
             self.combining = int(data[3])
         self.bidirectional = data[4]
-        self.decomposition = None
+        self.raw_decomposition = ''
+        self.decomposition = []
+        self.isCompatibility = False
+        self.canonical_decomp = None
+        self.compat_decomp = None
+        self.excluded = False
+        self.decompositionTag = ''
         if data[5]:
-            self.decomposition = data[5]
+            self.raw_decomposition = data[5]
+            if data[5][0] == '<':
+                self.isCompatibility = True
+                self.decompositionTag, decomp = data[5].split(None, 1)
+            else:
+                decomp = data[5]
+            self.decomposition = map(lambda x:int(x, 16), decomp.split())
         self.decimal = None
         if data[6]:
             self.decimal = int(data[6])
@@ -38,12 +50,33 @@ class Unicodechar:
         self.title = None
         if data[14]:
             self.title = int(data[14], 16)
+        
 
-def read_unicodedata(infile):
+def get_compat_decomposition(table, code):
+    if not table[code].decomposition:
+        return [code]
+    if not table[code].compat_decomp:
+        result = []
+        for decomp in table[code].decomposition:
+            result.extend(get_compat_decomposition(table, decomp))
+        table[code].compat_decomp = result
+    return table[code].compat_decomp
+
+def get_canonical_decomposition(table, code):
+    if not table[code].decomposition or table[code].isCompatibility:
+        return [code]
+    if not table[code].canonical_decomp:
+        result = []
+        for decomp in table[code].decomposition:
+            result.extend(get_canonical_decomposition(table, decomp))
+        table[code].canonical_decomp = result
+    return table[code].canonical_decomp
+
+def read_unicodedata(unicodedata_file, exclusions_file):
     rangeFirst = {}
     rangeLast = {}
     table = [Unicodechar(['0000', None, 'Cn'] + [''] * 12)] * (sys.maxunicode + 1)
-    for line in infile:
+    for line in unicodedata_file:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
@@ -67,6 +100,17 @@ def read_unicodedata(infile):
         unichar = Unicodechar(['0000', None] + data[2:])
         for code in range(start, end + 1):
             table[code] = unichar
+    # Read exclusions
+    for line in exclusions_file:
+        line = line.split('#', 1)[0].strip()
+        if not line:
+            continue
+        table[int(line, 16)].excluded = True
+        
+    # Compute full decompositions.
+    for code in range(len(table)):
+        get_canonical_decomposition(table, code)
+        get_compat_decomposition(table, code)
 
     return table
 
@@ -138,6 +182,10 @@ def writeUnicodedata(version, table, outfile):
     print >> outfile, 'version = %r' % version
     print >> outfile
 
+    cjk_end = 0x9FA5
+    if version >= "4.1":
+        cjk_end = 0x9FBB
+
     # Character names
     print >> outfile, '_charnames = {'
     for code in range(len(table)):
@@ -200,7 +248,7 @@ def _lookup_cjk(cjk_code):
             raise KeyError
     code = int(cjk_code, 16)
     if (0x3400 <= code <= 0x4DB5 or
-        0x4E00 <= code <= 0x9FA5 or # 9FBB in Unicode 4.1
+        0x4E00 <= code <= 0x%X or 0x9FA5 or # 9FBB in Unicode 4.1
         0x20000 <= code <= 0x2A6D6):
         return code
     raise KeyError
@@ -232,7 +280,7 @@ def name(code):
                 _hangul_V[v_code] + _hangul_T[t_code])
     
     return _charnames[code]
-'''
+''' % cjk_end
 
     # Categories
     categories = {}
@@ -346,19 +394,43 @@ def tolower(code):
     return _tolower.get(code, code)
 def totitle(code):
     return _totitle.get(code, code)
-
 '''
     # Decomposition
     decomposition = {}
     for code in range(len(table)):
-        if table[code].decomposition:
-            decomposition[code] = table[code].decomposition
-    writeDict(outfile, '_decomposition', decomposition)
+        if table[code].raw_decomposition:
+            decomposition[code] = table[code].raw_decomposition
+    writeDict(outfile, '_raw_decomposition', decomposition)
     print >> outfile, '''
-def decompisition(code):
-    return _decomposition.get(code,'')
+def decomposition(code):
+    return _raw_decomposition.get(code,'')
 
 '''
+    # Collect the composition pairs.
+    compositions = {}
+    for code in range(len(table)):
+        unichar = table[code]
+        if (not unichar.decomposition or
+            unichar.isCompatibility or
+            unichar.excluded or
+            len(unichar.decomposition) != 2 or
+            table[unichar.decomposition[0]].combining):
+            continue
+        compositions[tuple(unichar.decomposition)] = code
+    writeDict(outfile, '_composition', compositions)
+
+    decomposition = {}
+    for code in range(len(table)):
+        if table[code].canonical_decomp:
+            decomposition[code] = table[code].canonical_decomp
+    writeDict(outfile, '_canon_decomposition', decomposition)
+
+    decomposition = {}
+    for code in range(len(table)):
+        if table[code].compat_decomp:
+            decomposition[code] = table[code].compat_decomp
+    writeDict(outfile, '_compat_decomposition', decomposition)
+
 
 if __name__ == '__main__':
     import getopt, re
@@ -378,6 +450,7 @@ if __name__ == '__main__':
     
     infilename = args[0]
     infile = open(infilename, 'r')
+    exclusions = open(args[1])
     if unidata_version is None:
         m = re.search(r'-([0-9]+\.)+', infilename)
         if m:
@@ -386,7 +459,7 @@ if __name__ == '__main__':
     if unidata_version is None:
         raise ValueError('No version specified')
 
-    table = read_unicodedata(infile)
+    table = read_unicodedata(infile, exclusions)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)

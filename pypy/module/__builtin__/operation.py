@@ -16,7 +16,7 @@ def chr(space, w_ascii):
     return w_character
 
 def unichr(space, w_code):
-    return space.newunicode([w_code])
+    return space.newunicode([space.int_w(w_code)])
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
