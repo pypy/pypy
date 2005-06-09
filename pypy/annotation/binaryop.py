@@ -545,7 +545,7 @@ class __extend__(pairtype(SomePtr, SomeObject)):
         assert False,"ptr %r getitem index not an int: %r" % (p.ll_ptrtype, obj)
 
     def settitem((p, obj)):
-        assert False,"ptr setitem with index is not a valid operation"
+        assert False,"ptr %r setitem index not an int: %r" % (p.ll_ptrtype, obj)
 
 class __extend__(pairtype(SomeObject, SomePtr)):
     def union((obj, p2)):
