@@ -5,6 +5,7 @@ from pypy.rpython.lltype import *
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst
 from pypy.rpython.rarithmetic import intmask
+from pypy.rpython.robject import PyObjRepr, pyobj_repr
 
 # ____________________________________________________________
 #
@@ -123,6 +124,28 @@ class __extend__(pairtype(StringRepr, CharRepr)):
 
 string_repr = StringRepr()
 char_repr   = CharRepr()
+
+#
+# _________________________ Conversions _________________________
+
+##class __extend__(pairtype(PyObjRepr, StringRepr)):
+##    def convert_from_to((r_from, r_to), v, llops):
+##        XXX
+
+class __extend__(pairtype(StringRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        v = llops.convertvar(v, r_from, string_repr)
+        cchars = inputconst(Void, "chars")
+        v_chars = llops.genop('getsubstruct', [v, cchars],
+                              resulttype=Ptr(STR.chars))
+        v_size = llops.genop('getarraysize', [v_chars],
+                             resulttype=Signed)
+        czero = inputconst(Signed, 0)
+        v_char0ptr = llops.genop('getarrayitem', [v_chars, czero],
+                                 resulttype=Ptr(STR.chars.OF))
+        return llops.gencapicall('PyString_FromStringAndSize_Hack',
+                                 [v_char0ptr, v_size],
+                                 resulttype=pyobj_repr)
 
 # ____________________________________________________________
 #
