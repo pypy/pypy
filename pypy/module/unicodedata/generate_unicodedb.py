@@ -8,6 +8,7 @@ class Unicodechar:
         else:
             self.name = data[1]
         self.category = data[2]
+        self.east_asian_width = 'N'
         self.combining = 0
         if data[3]:
             self.combining = int(data[3])
@@ -59,7 +60,7 @@ def get_compat_decomposition(table, code):
         result = []
         for decomp in table[code].decomposition:
             result.extend(get_compat_decomposition(table, decomp))
-        table[code].compat_decomp = result
+        table[code].compat_decomp = tuple(result)
     return table[code].compat_decomp
 
 def get_canonical_decomposition(table, code):
@@ -69,13 +70,13 @@ def get_canonical_decomposition(table, code):
         result = []
         for decomp in table[code].decomposition:
             result.extend(get_canonical_decomposition(table, decomp))
-        table[code].canonical_decomp = result
+        table[code].canonical_decomp = tuple(result)
     return table[code].canonical_decomp
 
-def read_unicodedata(unicodedata_file, exclusions_file):
+def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file):
     rangeFirst = {}
     rangeLast = {}
-    table = [Unicodechar(['0000', None, 'Cn'] + [''] * 12)] * (sys.maxunicode + 1)
+    table = [None] * (sys.maxunicode + 1)
     for line in unicodedata_file:
         line = line.split('#', 1)[0].strip()
         if not line:
@@ -92,14 +93,16 @@ def read_unicodedata(unicodedata_file, exclusions_file):
             continue
         code = int(data[0], 16)
         u = Unicodechar(data)
+        assert table[code] is None, 'Multiply defined character %04X' % code
         table[code] = u
 
-    # Expand ranges
+    # Collect ranges
+    ranges = {}
     for name, (start, data) in rangeFirst.iteritems():
         end = rangeLast[name]
         unichar = Unicodechar(['0000', None] + data[2:])
-        for code in range(start, end + 1):
-            table[code] = unichar
+        ranges[(start, end)] = unichar
+
     # Read exclusions
     for line in exclusions_file:
         line = line.split('#', 1)[0].strip()
@@ -107,6 +110,35 @@ def read_unicodedata(unicodedata_file, exclusions_file):
             continue
         table[int(line, 16)].excluded = True
         
+    # Read east asian width
+    for line in east_asian_width_file:
+        line = line.split('#', 1)[0].strip()
+        if not line:
+            continue
+        code, width = line.split(';')
+        if '..' in code:
+            first, last = map(lambda x:int(x,16), code.split('..'))
+            try:
+                ranges[(first, last)].east_asian_width = width
+            except KeyError:
+                ch = Unicodechar(['0000', None, 'Cn'] + [''] * 12)
+                ch.east_asian_width = width
+                ranges[(first, last)] = ch
+        else:
+            table[int(code, 16)].east_asian_width = width
+
+    # Expand ranges
+    for (first, last), char in ranges.iteritems():
+        for code in range(first, last + 1):
+            assert table[code] is None, 'Multiply defined character %04X' % code
+
+            table[code] = char
+
+    defaultChar = Unicodechar(['0000', None, 'Cn'] + [''] * 12)
+    for code in range(len(table)):
+        if table[code] is None:
+            table[code] = defaultChar
+            
     # Compute full decompositions.
     for code in range(len(table)):
         get_canonical_decomposition(table, code)
@@ -136,26 +168,67 @@ class Cache:
             self._strings.append(string)
             return index
 
-def writeCategory(outfile, table, name, categoryNames):
+def writeDbRecord(outfile, table):
     pgbits = 8
     chunksize = 64
     pgsize = 1 << pgbits
     bytemask = ~(-1 << pgbits)
+    IS_SPACE = 1
+    IS_ALPHA = 2
+    IS_LINEBREAK = 4
+    IS_UPPER = 8
+    IS_TITLE = 16
+    IS_LOWER = 32
+    IS_NUMERIC = 64
+    IS_DIGIT = 128
+    IS_DECIMAL = 256
+    IS_MIRRORED = 512
+    # Create the records
+    db_records = {}
+    for code in range(len(table)):
+        char = table[code]
+        flags = 0
+        if char.category == "Zs" or char.bidirectional in ("WS", "B", "S"):
+            flags |= IS_SPACE
+        if char.category in ("Lm", "Lt", "Lu", "Ll", "Lo"):
+            flags |= IS_ALPHA
+        if char.category == "Zl" or char.bidirectional == "B":
+            flags |= IS_LINEBREAK
+        if char.numeric is not None:
+            flags |= IS_NUMERIC
+        if char.digit is not None:
+            flags |= IS_DIGIT
+        if char.decimal is not None:
+            flags |= IS_DECIMAL
+        if char.category == "Lu":
+            flags |= IS_UPPER
+        if char.category == "Lt":
+            flags |= IS_TITLE
+        if char.category == "Ll":
+            flags |= IS_LOWER
+        if char.mirrored:
+            flags |= IS_MIRRORED
+        char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags, char.combining)
+        db_records[char.db_record] = 1
+    db_records = db_records.keys()
+    print >> outfile, '_db_records = ('
+    for record in db_records:
+        print >> outfile, '%r,'%(record,)
+    print >> outfile, ')'
+    print >> outfile, '_db_pgtbl = "".join(['
     pages = []
-    print >> outfile, '_%s_names = %r' % (name, categoryNames)
-    print >> outfile, '_%s_pgtbl = "".join([' % name
     line = []
     for i in range(0, len(table), pgsize):
         result = []
         for char in table[i:i + pgsize]:
-            result.append(chr(categoryNames.index(getattr(char, name))))
+            result.append(chr(db_records.index(char.db_record)))
         categorytbl = ''.join(result)
         try:
             page = pages.index(categorytbl)
         except ValueError:
             page = len(pages)
             pages.append(categorytbl)
-            assert len(pages) < 256, 'Too many unique pages for category %s.' % name
+            assert len(pages) < 256, 'Too many unique pages for db_record.'
         line.append(chr(page))
         if len(line) >= chunksize:
             print >> outfile, repr(''.join(line))
@@ -163,9 +236,8 @@ def writeCategory(outfile, table, name, categoryNames):
     if len(line) > 0:
         print >> outfile, repr(''.join(line))
     print >> outfile, '])'
-
     # Dump pgtbl
-    print >> outfile, '_%s = ( ' % name
+    print >> outfile, '_db_pages = ( '
     for page_string in pages:
         print >> outfile, '"".join(['
         for index in range(0, len(page_string), chunksize):
@@ -173,9 +245,25 @@ def writeCategory(outfile, table, name, categoryNames):
         print >> outfile, ']),'
     print >> outfile, ')'
     print >> outfile, '''
-def %s(code):
-    return _%s_names[ord(_%s[ord(_%s_pgtbl[code >> %d])][code & %d])]
-'''%(name, name, name, name, pgbits, bytemask)
+def _get_record(code):
+    return _db_records[ord(_db_pages[ord(_db_pgtbl[code >> %d])][code & %d])]
+'''%(pgbits, bytemask)
+    print >> outfile, 'def category(code): return _get_record(code)[0]'
+    print >> outfile, 'def bidirectional(code): return _get_record(code)[1]'
+    print >> outfile, 'def east_asian_width(code): return _get_record(code)[2]'
+    print >> outfile, 'def isspace(code): return _get_record(code)[3] & %d != 0'% IS_SPACE
+    print >> outfile, 'def isalpha(code): return _get_record(code)[3] & %d != 0'% IS_ALPHA
+    print >> outfile, 'def islinebreak(code): return _get_record(code)[3] & %d != 0'% IS_LINEBREAK
+    print >> outfile, 'def isnumeric(code): return _get_record(code)[3] & %d != 0'% IS_NUMERIC
+    print >> outfile, 'def isdigit(code): return _get_record(code)[3] & %d != 0'% IS_DIGIT
+    print >> outfile, 'def isdecimal(code): return _get_record(code)[3] & %d != 0'% IS_DECIMAL
+    print >> outfile, 'def isalunm(code): return _get_record(code)[3] & %d != 0'% (IS_ALPHA | IS_NUMERIC)
+    print >> outfile, 'def isupper(code): return _get_record(code)[3] & %d != 0'% IS_UPPER
+    print >> outfile, 'def istitle(code): return _get_record(code)[3] & %d != 0'% IS_TITLE
+    print >> outfile, 'def islower(code): return _get_record(code)[3] & %d != 0'% IS_LOWER
+    print >> outfile, 'def iscased(code): return _get_record(code)[3] & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER)
+    print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
+    print >> outfile, 'def combining(code): return _get_record(code)[4]'
 
 def writeUnicodedata(version, table, outfile):
     # Version
@@ -248,7 +336,7 @@ def _lookup_cjk(cjk_code):
             raise KeyError
     code = int(cjk_code, 16)
     if (0x3400 <= code <= 0x4DB5 or
-        0x4E00 <= code <= 0x%X or 0x9FA5 or # 9FBB in Unicode 4.1
+        0x4E00 <= code <= 0x%X or
         0x20000 <= code <= 0x2A6D6):
         return code
     raise KeyError
@@ -262,7 +350,7 @@ def lookup(name):
 
 def name(code):
     if (0x3400 <= code <= 0x4DB5 or
-        0x4E00 <= code <= 0x9FA5):
+        0x4E00 <= code <= 0x%X):
         return "CJK UNIFIED IDEOGRAPH-" + (_hexdigits[(code >> 12) & 0xf] +
                                            _hexdigits[(code >> 8) & 0xf] +
                                            _hexdigits[(code >> 4) & 0xf] +
@@ -280,43 +368,11 @@ def name(code):
                 _hangul_V[v_code] + _hangul_T[t_code])
     
     return _charnames[code]
-''' % cjk_end
+''' % (cjk_end, cjk_end)
 
     # Categories
-    categories = {}
-    bidirs = {}
-    for char in table:
-        categories[char.category] = 1
-        bidirs[char.bidirectional] = 1
-    category_names = categories.keys()
-    category_names.sort()
-    if len(category_names) > 32:
-        raise RuntimeError('Too many general categories defined.')
-    bidirectional_names = bidirs.keys()
-    bidirectional_names.sort()
-    if len(bidirectional_names) > 32:
-        raise RuntimeError('Too many bidirectional categories defined.')
-
-    writeCategory(outfile, table, 'category', category_names)
-    writeCategory(outfile, table, 'bidirectional', bidirectional_names)
-    print >> outfile, '''
-def isspace(code):
-    return category(code) == "Zs" or bidirectional(code) in ("WS", "B", "S")
-def islower(code):
-    return category(code) == "Ll"
-def isupper(code):
-    return category(code) == "Lu"
-def istitle(code):
-    return category(code) == "Lt"
-def iscased(code):
-    return category(code) in ("Ll", "Lu", "Lt")
-def isalpha(code):
-    return category(code) in ("Lm", "Lt", "Lu", "Ll", "Lo")
-def islinebreak(code):
-    return category(code) == "Zl" or bidirectional(code) == "B"
-'''
-    
-    # Numeric characters
+    writeDbRecord(outfile, table)
+        # Numeric characters
     decimal = {}
     digit = {}
     numeric = {}
@@ -335,43 +391,11 @@ def islinebreak(code):
 def decimal(code):
     return _decimal[code]
 
-def isdecimal(code):
-    return code in _decimal
-
 def digit(code):
     return _digit[code]
 
-def isdigit(code):
-    return code in _digit
-
 def numeric(code):
     return _numeric[code]
-
-def isnumeric(code):
-    return code in _numeric
-
-'''
-    # Combining
-    combining = {}
-    for code in range(len(table)):
-        if table[code].combining:
-            combining[code] = table[code].combining
-    writeDict(outfile, '_combining', combining)
-    print >> outfile, '''
-def combining(code):
-    return _combining.get(code, 0)
-
-'''
-    # Mirrored
-    mirrored = {}
-    for code in range(len(table)):
-        if table[code].mirrored:
-            mirrored[code] = 1
-    writeDict(outfile, '_mirrored', mirrored)
-    print >> outfile, '''
-def mirrored(code):
-    return _mirrored.get(code, 0)
-
 '''
     # Case conversion
     toupper = {}
@@ -445,12 +469,13 @@ if __name__ == '__main__':
         if opt in ('-v', '--version'):
             unidata_version = val
 
-    if len(args) != 2:
-        raise RuntimeError('Usage: %s [-o outfile] [-v version] UnicodeDataFile CompositionExclutionsFile')
+    if len(args) != 3:
+        raise RuntimeError('Usage: %s [-o outfile] [-v version] UnicodeDataFile CompositionExclutionsFile EastAsianWidthFile')
     
     infilename = args[0]
     infile = open(infilename, 'r')
     exclusions = open(args[1])
+    east_asian_width = file(args[2])
     if unidata_version is None:
         m = re.search(r'-([0-9]+\.)+', infilename)
         if m:
@@ -459,7 +484,7 @@ if __name__ == '__main__':
     if unidata_version is None:
         raise ValueError('No version specified')
 
-    table = read_unicodedata(infile, exclusions)
+    table = read_unicodedata(infile, exclusions, east_asian_width)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)

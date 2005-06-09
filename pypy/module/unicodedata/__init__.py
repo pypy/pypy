@@ -11,6 +11,7 @@ class Module(MixedModule):
         'numeric'         : 'function.numeric',
         'category'        : 'function.category',
         'bidirectional'   : 'function.bidirectional',
+        'east_asian_width': 'function.east_asian_width',
         'combining'       : 'function.combining',
         'mirrored'        : 'function.mirrored',
         'decomposition'   : 'function.decomposition',

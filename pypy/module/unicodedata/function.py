@@ -68,6 +68,10 @@ def category(space, w_unichr):
     code = unichr_to_code_w(space, w_unichr)
     return space.wrap(unicodedb.category(code))
 
+def east_asian_width(space, w_unichr):
+    code = unichr_to_code_w(space, w_unichr)
+    return space.wrap(unicodedb.east_asian_width(code))
+
 def bidirectional(space, w_unichr):
     code = unichr_to_code_w(space, w_unichr)
     return space.wrap(unicodedb.bidirectional(code))
