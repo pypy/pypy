@@ -88,6 +88,14 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
             llfn = ll_setitem
         return hop.gendirectcall(llfn, v_lst, v_index, v_item)
 
+    def rtype_delitem((r_lst, r_int), hop):
+        v_lst, v_index = hop.inputargs(r_lst, Signed)
+        if hop.args_s[1].nonneg:
+            llfn = ll_delitem_nonneg
+        else:
+            llfn = ll_delitem
+        return hop.gendirectcall(llfn, v_lst, v_index)
+
 class __extend__(pairtype(ListRepr, SliceRepr)):
 
     def rtype_getitem((r_lst, r_slic), hop):
@@ -143,13 +151,39 @@ def ll_getitem(l, i):
         i += len(l.items)
     return l.items[i].item
 
+def ll_setitem_nonneg(l, i, newitem):
+    l.items[i].item = newitem
+
 def ll_setitem(l, i, newitem):
     if i<0:
         i += len(l.items)
     l.items[i].item = newitem
 
-def ll_setitem_nonneg(l, i, newitem):
-    l.items[i].item = newitem
+def ll_delitem(l, i):
+    if i < 0:
+        i += len(l.items)
+    newlength = len(l.items) - 1
+    newitems = malloc(typeOf(l).TO.items.TO, newlength)
+    j = 0
+    while j < i:
+        newitems[j].item = l.items[j].item
+        j += 1
+    while j < newlength:
+        newitems[j].item = l.items[j+1].item
+        j += 1
+    l.items = newitems
+
+def ll_delitem_nonneg(l, i):
+    newlength = len(l.items) - 1
+    newitems = malloc(typeOf(l).TO.items.TO, newlength)
+    j = 0
+    while j < i:
+        newitems[j].item = l.items[j].item
+        j += 1
+    while j < newlength:
+        newitems[j].item = l.items[j+1].item
+        j += 1
+    l.items = newitems
 
 def ll_concat(l1, l2):
     len1 = len(l1.items)

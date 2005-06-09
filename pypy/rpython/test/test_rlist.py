@@ -30,6 +30,21 @@ def test_rlist_basic():
     assert ll_len(l) == 4
     check_list(l, [42, 43, 44, 45])
 
+def test_rlist_set_del():
+    l = sample_list()
+    ll_setitem(l, -1, 99)
+    check_list(l, [42, 43, 44, 99])
+    ll_setitem_nonneg(l, 1, 77)
+    check_list(l, [42, 77, 44, 99])
+    ll_delitem_nonneg(l, 0)
+    check_list(l, [77, 44, 99])
+    ll_delitem(l, -2)
+    check_list(l, [77, 99])
+    ll_delitem(l, 1)
+    check_list(l, [77])
+    ll_delitem(l, 0)
+    check_list(l, [])
+
 def test_rlist_extend_concat():
     l = sample_list()
     ll_extend(l, l)
@@ -110,4 +125,13 @@ def test_slice():
     def dummyfn():
         l = [5, 6, 7, 8, 9]
         return l[:2], l[1:4], l[3:]
-    rtype(dummyfn).view()
+    rtype(dummyfn)
+
+def test_set_del_item():
+    def dummyfn():
+        l = [5, 6, 7]
+        l[1] = 55
+        l[-1] = 66
+        del l[0]
+        del l[-1]
+    rtype(dummyfn)
