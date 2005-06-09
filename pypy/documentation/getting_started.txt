@@ -342,7 +342,7 @@ translating the flow graph to C code
 
 The graph can be turned into C code::
 
-   >>> a.specialize()
+   >>> t.specialize()
    >>> f = t.ccompile()
 
 The first command replaces operations with variables of types that are
