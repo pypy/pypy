@@ -215,7 +215,7 @@ def writeDbRecord(outfile, table):
     for record in db_records:
         print >> outfile, '%r,'%(record,)
     print >> outfile, ')'
-    print >> outfile, '_db_pgtbl = "".join(['
+    print >> outfile, '_db_pgtbl = ('
     pages = []
     line = []
     for i in range(0, len(table), pgsize):
@@ -235,14 +235,13 @@ def writeDbRecord(outfile, table):
             line = []
     if len(line) > 0:
         print >> outfile, repr(''.join(line))
-    print >> outfile, '])'
+    print >> outfile, ')'
     # Dump pgtbl
     print >> outfile, '_db_pages = ( '
     for page_string in pages:
-        print >> outfile, '"".join(['
         for index in range(0, len(page_string), chunksize):
             print >> outfile, repr(page_string[index:index + chunksize])
-        print >> outfile, ']),'
+        print >> outfile, ','
     print >> outfile, ')'
     print >> outfile, '''
 def _get_record(code):
@@ -281,7 +280,7 @@ def writeUnicodedata(version, table, outfile):
             print >> outfile, '%r: %r,'%(code, table[code].name)
     print >> outfile, '''}
     
-_code_by_name = dict(zip(_charnames.itervalues(), _charnames.iterkeys()))
+_code_by_name = dict(map(lambda x:(x[1],x[0]), _charnames.iteritems()))
 
 _cjk_prefix = "CJK UNIFIED IDEOGRAPH-"
 _hangul_prefix = 'HANGUL SYLLABLE '
