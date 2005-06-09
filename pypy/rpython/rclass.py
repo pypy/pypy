@@ -182,7 +182,19 @@ class ClassRepr(Repr):
             # initialize the 'parenttypeptr' field
             vtable.parenttypeptr = rsubcls.rbase.getvtable()
         else:
-            # XXX setup class attributes
+            # setup class attributes: for each attribute name at the level
+            # of 'self', look up its value in the subclass rsubcls
+            mro = list(rsubcls.classdef.getmro())
+            for fldname in self.clsfields:
+                mangled_name, r = self.clsfields[fldname]
+                if r.lowleveltype == Void:
+                    continue
+                for clsdef in mro:
+                    if fldname in clsdef.cls.__dict__:
+                        value = clsdef.cls.__dict__[fldname]
+                        llvalue = r.convert_const(value)
+                        setattr(vtable, mangled_name, llvalue)
+                        break
             # then initialize the 'super' portion of the vtable
             self.rbase.setup_vtable(vtable.super, rsubcls)
 
@@ -280,7 +292,7 @@ class InstanceRepr(Repr):
         fields = {}
         allinstancefields = {}
         if self.classdef is None:
-            fields['__class__'] = 'typeptr', TYPEPTR
+            fields['__class__'] = 'typeptr', get_type_repr(self.rtyper)
         else:
             # instance attributes
             llfields = []
@@ -324,7 +336,12 @@ class InstanceRepr(Repr):
             self.rbase.convert_const(value,
                                      targetptr = targetptr.super,
                                      vtable = vtable)
-            # XXX add instance attributes from this level
+            # add instance attributes from this level
+            for name, (mangled_name, r) in self.fields.items():
+                attrvalue = getattr(value, name)
+                # XXX RECURSIVE PREBUILT DATA STRUCTURES XXX
+                llattrvalue = r.convert_const(attrvalue)
+                setattr(targetptr, mangled_name, llattrvalue)
         return targetptr
 
     def parentpart(self, vinst, llops):
@@ -378,14 +395,18 @@ class InstanceRepr(Repr):
         flds = self.allinstancefields.keys()
         flds.sort()
         mro = list(self.classdef.getmro())
-        mro.reverse()
-        for clsdef in mro:
-            for fldname in flds:
+        for fldname in flds:
+            if fldname == '__class__':
+                continue
+            mangled_name, r = self.allinstancefields[fldname]
+            if r.lowleveltype == Void:
+                continue
+            for clsdef in mro:
                 if fldname in clsdef.cls.__dict__:
-                    mangled_name, r = self.allinstancefields[fldname]
                     value = clsdef.cls.__dict__[fldname]
                     cvalue = inputconst(r, value)
                     self.setfield(vptr, fldname, cvalue, llops)
+                    break
         return vptr
 
     def rtype_type(self, hop):
