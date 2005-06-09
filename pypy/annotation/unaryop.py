@@ -442,7 +442,7 @@ class __extend__(SomePtr):
         assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % p.ll_ptrtype
         v_lltype = annotation_to_lltype(s_value)
         setattr(p.ll_ptrtype._example(), s_attr.const,
-                v_lltype._example())
+                v_lltype._defl())
 
     def simple_call(p, *args_s):
         llargs = [annotation_to_lltype(arg_s)._example() for arg_s in args_s]
