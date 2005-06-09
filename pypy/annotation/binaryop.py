@@ -290,6 +290,11 @@ class __extend__(pairtype(SomeList, SomeList)):
 
     add = union
 
+    def inplace_add((lst1, lst2)):   # force the union of lst1 and lst2
+        lst1.listdef.resize()
+        lst1.listdef.union(lst2.listdef)
+        return lst1
+
 
 class __extend__(pairtype(SomeList, SomeObject)):
 

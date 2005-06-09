@@ -18,6 +18,15 @@ def test_rlist():
     assert ll_getitem(l, 2) == 44
     assert ll_getitem(l, 3) == 45
     assert ll_len(l) == 4
+    ll_extend(l, l)
+    assert ll_len(l) == 8
+    for i, x in zip(range(8), [42, 43, 44, 45, 42, 43, 44, 45]):
+        assert ll_getitem_nonneg(l, i) == x
+    l1 = ll_concat(l, l)
+    assert l1 != l
+    assert ll_len(l1) == 16
+    for i, x in zip(range(16), [42, 43, 44, 45] * 4):
+        assert ll_getitem_nonneg(l1, i) == x
 
 # ____________________________________________________________
 
@@ -67,3 +76,10 @@ def test_recursive():
             N -= 1
         return len(l)
     rtype(dummyfn, [int]) #.view()
+
+def test_add():
+    def dummyfn():
+        l = [5]
+        l += [6,7]
+        return l + [8]
+    rtype(dummyfn)

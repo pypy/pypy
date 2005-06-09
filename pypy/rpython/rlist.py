@@ -60,6 +60,10 @@ class ListRepr(Repr):
         v_lst, v_value = hop.inputargs(self, self.item_repr)
         hop.gendirectcall(ll_append, v_lst, v_value)
 
+    def rtype_method_extend(self, hop):
+        v_lst1, v_lst2 = hop.inputargs(self, self)
+        hop.gendirectcall(ll_extend, v_lst1, v_lst2)
+
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
 
@@ -89,6 +93,15 @@ class __extend__(pairtype(ListRepr, ListRepr)):
         if r_lst1.listitem is not r_lst2.listitem:
             return NotImplemented
         return v
+
+    def rtype_add((self, _), hop):
+        v_lst1, v_lst2 = hop.inputargs(self, self)
+        return hop.gendirectcall(ll_concat, v_lst1, v_lst2)
+
+    def rtype_inplace_add((self, _), hop):
+        v_lst1, v_lst2 = hop.inputargs(self, self)
+        hop.gendirectcall(ll_extend, v_lst1, v_lst2)
+        return v_lst1
 
 # ____________________________________________________________
 #
@@ -124,6 +137,38 @@ def ll_setitem(l, i, newitem):
 
 def ll_setitem_nonneg(l, i, newitem):
     l.items[i].item = newitem
+
+def ll_concat(l1, l2):
+    len1 = len(l1.items)
+    len2 = len(l2.items)
+    newitems = malloc(typeOf(l1).TO.items.TO, len1 + len2)
+    j = 0
+    while j < len1:
+        newitems[j].item = l1.items[j].item
+        j += 1
+    i = 0
+    while i < len2:
+        newitems[j].item = l2.items[i].item
+        i += 1
+        j += 1
+    l = malloc(typeOf(l1).TO)
+    l.items = newitems
+    return l
+
+def ll_extend(l1, l2):
+    len1 = len(l1.items)
+    len2 = len(l2.items)
+    newitems = malloc(typeOf(l1).TO.items.TO, len1 + len2)
+    j = 0
+    while j < len1:
+        newitems[j].item = l1.items[j].item
+        j += 1
+    i = 0
+    while i < len2:
+        newitems[j].item = l2.items[i].item
+        i += 1
+        j += 1
+    l1.items = newitems
 
 # ____________________________________________________________
 #
