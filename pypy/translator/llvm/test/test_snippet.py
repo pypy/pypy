@@ -14,7 +14,6 @@ def setup_module(mod):
 
 class TestSnippet(object):
     def setup_method(self, method):
-        py.test.skip("nothing works for now")
         if not llvm_found:
             py.test.skip("llvm-as not found on path.")
         
@@ -41,10 +40,12 @@ class TestSnippet(object):
         assert f(0) == 0
 
     def test_two_plus_two(self):
+        py.test.skip("two_plus_two not working yet")
         f = compile_function(test.two_plus_two, [])
         assert f() == 4
 
     def test_sieve_of_eratosthenes(self):
+        py.test.skip("sieve_of_eratosthenes not working yet")
         f = compile_function(test.sieve_of_eratosthenes, [])
         assert f() == 1028
 
@@ -76,6 +77,7 @@ class TestSnippet(object):
         assert factorial(5) == 120
 
     def test_set_attr(self):
+        py.test.skip("set_attr not working yet")
         set_attr = compile_function(test.set_attr, [])
         assert set_attr() == 2
 
@@ -85,14 +87,17 @@ class TestSnippet(object):
             assert try_raise_choose(i) == i
 
     def test_merge_setattr(self):
+        py.test.skip("merge_setattr not working yet")
         merge_setattr = compile_function(test.merge_setattr, [bool])
         assert merge_setattr(1) == 1
 
     def test_simple_method(self):
+        py.test.skip("simple_method not working yet")
         simple_method = compile_function(test.simple_method, [int])
         assert simple_method(65) == 65
 
     def test_with_init(self):
+        py.test.skip("with_init not working yet")
         with_init = compile_function(test.with_init, [int])
         assert with_init(42) == 42
 
