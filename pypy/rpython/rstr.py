@@ -93,6 +93,7 @@ class __extend__(pairtype(StringRepr, StringRepr)):
     def rtype_add(_, hop):
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         return hop.gendirectcall(ll_strconcat, v_str1, v_str2)
+    rtype_inplace_add = rtype_add
 
 class __extend__(CharRepr):
 
