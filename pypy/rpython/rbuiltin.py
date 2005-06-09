@@ -6,6 +6,7 @@ from pypy.rpython.lltype import Void, Signed
 from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range
 from pypy.rpython.rmodel import Repr, TyperError
+from pypy.rpython import rptr
 
 
 class __extend__(annmodel.SomeBuiltin):
@@ -119,8 +120,16 @@ def rtype_malloc(hop):
 def rtype_const_result(hop):
     return hop.inputconst(Void, hop.s_result.const)
 
+def rtype_cast_parent(hop):
+    assert hop.args_s[0].is_constant()
+    assert isinstance(hop.args_r[1], rptr.PtrRepr)
+    v_type, v_input = hop.inputargs(Void, hop.args_r[1])
+    return hop.genop('cast_parent', [v_input],    # v_type implicit in r_result
+                     resulttype = hop.r_result.lowleveltype)
+
 
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
+BUILTIN_TYPER[lltype.cast_parent] = rtype_cast_parent
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask

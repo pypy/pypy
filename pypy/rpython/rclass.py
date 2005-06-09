@@ -189,8 +189,7 @@ class ClassRepr(Repr):
     def fromparentpart(self, v_vtableptr, llops):
         """Return the vtable pointer cast from the parent vtable's type
         to self's vtable type."""
-        ctype = inputconst(Void, self.lowleveltype)
-        return llops.genop('cast_parent', [ctype, v_vtableptr],
+        return llops.genop('cast_parent', [v_vtableptr],
                            resulttype=self.lowleveltype)
 
     def fromtypeptr(self, vcls, llops):
@@ -435,8 +434,7 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
                 r_ins2 = r_ins2.rbase
             cast_chain.reverse()
             for r in cast_chain:
-                ctype = inputconst(Void, r.lowleveltype)
-                v = llops.genop('cast_parent', [ctype, v],
+                v = llops.genop('cast_parent', [v],
                                 resulttype = r.lowleveltype)
             return v
         else:
