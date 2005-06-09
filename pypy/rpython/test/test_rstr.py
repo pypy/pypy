@@ -42,3 +42,14 @@ def test_hash():
     typer.specialize()
     #t.view()
     t.checkgraphs()
+
+def test_concat():
+    def dummyfn(s1, s2):
+        return s1 + s2
+
+    t = Translator(dummyfn)
+    t.annotate([str, str])
+    typer = RPythonTyper(t.annotator)
+    typer.specialize()
+    #t.view()
+    t.checkgraphs()

@@ -88,6 +88,11 @@ class __extend__(pairtype(StringRepr, IntegerRepr)):
         return hop.gendirectcall(llfn, v_str, v_index)
 
 
+class __extend__(pairtype(StringRepr, StringRepr)):
+    def rtype_add(_, hop):
+        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        return hop.gendirectcall(ll_strconcat, v_str1, v_str2)
+
 class __extend__(CharRepr):
 
     def rtype_len(_, hop):
@@ -165,3 +170,22 @@ def ll_strhash(s):
                 x = -1
         s.hash = intmask(x)
     return x
+
+def ll_strconcat(s1, s2):
+    len1 = len(s1.chars)
+    len2 = len(s2.chars)
+    newstr = malloc(STR, len1 + len2)
+    i = 0
+    j = 0
+    while i < len1:
+        newstr.chars[j].ch = s1.chars[i].ch
+        i += 1
+        j += 1
+    i = 0
+    while i < len2:
+        newstr.chars[j].ch = s2.chars[i].ch
+        i += 1
+        j += 1
+    return newstr
+
+    
