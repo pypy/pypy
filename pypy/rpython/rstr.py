@@ -175,11 +175,9 @@ def ll_strconcat(s1, s2):
     len1 = len(s1.chars)
     len2 = len(s2.chars)
     newstr = malloc(STR, len1 + len2)
-    i = 0
     j = 0
-    while i < len1:
-        newstr.chars[j].ch = s1.chars[i].ch
-        i += 1
+    while j < len1:
+        newstr.chars[j].ch = s1.chars[j].ch
         j += 1
     i = 0
     while i < len2:
