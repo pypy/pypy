@@ -142,7 +142,7 @@ class __extend__(pairtype(StringRepr, PyObjRepr)):
         v_size = llops.genop('getarraysize', [v_chars],
                              resulttype=Signed)
         czero = inputconst(Signed, 0)
-        v_char0ptr = llops.genop('getarrayitem', [v_chars, czero],
+        v_char0ptr = llops.genop('getarraysubstruct', [v_chars, czero],
                                  resulttype=Ptr(STR.chars.OF))
         return llops.gencapicall('PyString_FromStringAndSize_Hack',
                                  [v_char0ptr, v_size],

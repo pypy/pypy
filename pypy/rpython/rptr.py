@@ -55,9 +55,22 @@ class PtrRepr(Repr):
 class __extend__(pairtype(PtrRepr, IntegerRepr)):
 
     def rtype_getitem((r_ptr, r_int), hop):
+        ARRAY = r_ptr.lowleveltype.TO
+        ITEM_TYPE = ARRAY.OF
+        if isinstance(ITEM_TYPE, ContainerType):
+            newopname = 'getarraysubstruct'
+        else:
+            newopname = 'getarrayitem'
         vlist = hop.inputargs(r_ptr, Signed)
-        return hop.genop('getarrayitem', vlist,
+        return hop.genop(newopname, vlist,
                          resulttype = hop.r_result.lowleveltype)
+
+    def rtype_setitem((r_ptr, r_int), hop):
+        ARRAY = r_ptr.lowleveltype.TO
+        ITEM_TYPE = ARRAY.OF
+        assert not isinstance(ITEM_TYPE, ContainerType)
+        vlist = hop.inputargs(r_ptr, Signed, hop.args_r[2])
+        hop.genop('setarrayitem', vlist)
 
 # ____________________________________________________________
 #
