@@ -107,6 +107,17 @@ class __extend__(pairtype(ListRepr, SliceRepr)):
             return hop.gendirectcall(ll_listslice, v_lst, v_slice)
         raise TyperError(r_slic)
 
+    def rtype_delitem((r_lst, r_slic), hop):
+        if r_slic == startonly_slice_repr:
+            v_lst, v_start = hop.inputargs(r_lst, startonly_slice_repr)
+            hop.gendirectcall(ll_listdelslice_startonly, v_lst, v_start)
+            return
+        if r_slic == startstop_slice_repr:
+            v_lst, v_slice = hop.inputargs(r_lst, startstop_slice_repr)
+            hop.gendirectcall(ll_listdelslice, v_lst, v_slice)
+            return
+        raise TyperError(r_slic)
+
 class __extend__(pairtype(ListRepr, ListRepr)):
     def convert_from_to((r_lst1, r_lst2), v, llops):
         if r_lst1.listitem is None or r_lst2.listitem is None:
@@ -241,6 +252,29 @@ def ll_listslice(l1, slice):
     l = malloc(typeOf(l1).TO)
     l.items = newitems
     return l
+
+def ll_listdelslice_startonly(l1, start):
+    newitems = malloc(typeOf(l1).TO.items.TO, start)
+    j = 0
+    while j < start:
+        newitems[j].item = l1.items[j].item
+        j += 1
+    l1.items = newitems
+
+def ll_listdelslice(l1, slice):
+    start = slice.start
+    stop = slice.stop
+    newlength = len(l1.items) - (stop-start)
+    newitems = malloc(typeOf(l1).TO.items.TO, newlength)
+    j = 0
+    while j < start:
+        newitems[j].item = l1.items[j].item
+        j += 1
+    while j < newlength:
+        newitems[j].item = l1.items[stop].item
+        stop += 1
+        j += 1
+    l1.items = newitems
 
 # ____________________________________________________________
 #
