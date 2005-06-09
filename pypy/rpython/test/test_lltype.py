@@ -250,3 +250,28 @@ def test_hash():
     assert S1 == S
     assert S == S1
     assert hash(S1) == hash(S)
+
+def test_array_with_non_container_elements():
+    As = GcArray(Signed)
+    a = malloc(As, 3)
+    assert typeOf(a) == Ptr(As)
+    assert a[0] == 0
+    assert a[1] == 0
+    assert a[2] == 0
+    a[1] = 3
+    assert a[1] == 3
+    S = GcStruct('s', ('x', Signed))
+    s = malloc(S)
+    py.test.raises(TypeError, "a[1] = s")
+    S = GcStruct('s', ('x', Signed))
+    py.test.raises(TypeError, "Array(S)")
+    py.test.raises(TypeError, "Array(As)")
+    S = Struct('s', ('x', Signed))
+    A = Array(S)
+    a = malloc(A, 2)
+    s = S._container_example() # should not happen anyway
+    py.test.raises(TypeError, "a[0] = s")
+    S = Struct('s', ('last', A))
+    py.test.raises(TypeError, "Array(S)")
+    
+    

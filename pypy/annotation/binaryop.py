@@ -519,7 +519,7 @@ class __extend__(pairtype(SomePBC, SomeObject)):
         return SomeImpossibleValue()
 
 # annotation of low-level types
-from pypy.annotation.model import SomePtr, ll_to_annotation
+from pypy.annotation.model import SomePtr, ll_to_annotation, annotation_to_lltype
 
 class __extend__(pairtype(SomePtr, SomePtr)):
     def union((p1, p2)):
@@ -533,6 +533,10 @@ class __extend__(pairtype(SomePtr, SomeInteger)):
         v = p.ll_ptrtype._example()[0]
         return ll_to_annotation(v)
 
+    def setitem((p, int1), s_value):
+        v_lltype = annotation_to_lltype(s_value)
+        p.ll_ptrtype._example()[0] = v_lltype._defl()
+
 class __extend__(pairtype(SomePtr, SomeObject)):
     def union((p, obj)):
         assert False, ("mixing pointer type %r with something else %r" % (p.ll_ptrtype, obj))
@@ -541,7 +545,7 @@ class __extend__(pairtype(SomePtr, SomeObject)):
         assert False,"ptr %r getitem index not an int: %r" % (p.ll_ptrtype, obj)
 
     def settitem((p, obj)):
-        assert False,"ptr setitem is not a valid operation"
+        assert False,"ptr setitem with index is not a valid operation"
 
 class __extend__(pairtype(SomeObject, SomePtr)):
     def union((obj, p2)):

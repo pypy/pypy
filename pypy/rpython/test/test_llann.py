@@ -34,6 +34,25 @@ class TestLowLevelAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(llf, [])
         assert s.knowntype == int
+
+    def test_prim_array(self):
+        A = GcArray(Signed)
+        def llf():
+            a = malloc(A, 1)
+            return a[0]
+        a = self.RPythonAnnotator()
+        s = a.build_types(llf, [])
+        assert s.knowntype == int
+
+    def test_prim_array_setitem(self):
+        A = GcArray(Signed)
+        def llf():
+            a = malloc(A, 1)
+            a[0] = 3
+            return a[0]
+        a = self.RPythonAnnotator()
+        s = a.build_types(llf, [])
+        assert s.knowntype == int        
         
     def test_cast_parent(self):
         S2 = Struct("s2", ('a', Signed))

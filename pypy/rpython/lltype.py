@@ -113,7 +113,7 @@ class Struct(ContainerType):
     def _inline_is_varsize(self, last):
         if self._arrayfld:
             raise TypeError("cannot inline a var-sized struct "
-                            "inside another struct")
+                            "inside another container")
         return False
 
     def __getattr__(self, name):
@@ -147,19 +147,37 @@ class GcStruct(Struct):
 
 class Array(ContainerType):
     __name__ = 'array'
+    _anonym_struct = False
+    
     def __init__(self, *fields):
-        self.OF = Struct("<arrayitem>", *fields)
-        if self.OF._arrayfld is not None:
-            raise TypeError("array cannot contain an inlined array")
+        if len(fields) == 1 and isinstance(fields[0], LowLevelType):
+            self.OF = fields[0]
+        else:
+            self.OF = Struct("<arrayitem>", *fields)
+            self._anonym_struct = True
+        if isinstance(self.OF, GcStruct):
+            raise TypeError("cannot have a GC structure as array item type")
+        self.OF._inline_is_varsize(False)
 
     def _inline_is_varsize(self, last):
         if not last:
-            raise TypeError("array field must be last")
+            raise TypeError("cannot inline an array in another container"
+                            " unless as the last field of a structure")
         return True
 
+    def _str_fields(self):
+        if isinstance(self.OF, Struct):
+            of = self.OF
+            if self._anonym_struct:
+                return "{ %s }" % of._str_fields()
+            else:
+                return "%s { %s }" % (of._name, of._str_fields())
+        else:
+            return self.OF
+
     def __str__(self):
-        return "%s of { %s }" % (self.__class__.__name__,
-                                 self.OF._str_fields(),)
+        return "%s of %s " % (self.__class__.__name__,
+                               self._str_fields(),)
 
     def _container_example(self):
         return _array(self, 1)
@@ -430,7 +448,18 @@ class _ptr(object):
 
     def __setitem__(self, i, val): # ! not allowed !
         if isinstance(self._T, Array):
-            raise TypeError("cannot directly assign to array items")
+            T1 = self._T.OF
+            if isinstance(T1, ContainerType):
+                raise TypeError("cannot directly assign to container array items")
+            T2 = typeOf(val)
+            if T2 != T1:
+                    raise TypeError("%r items:\n"
+                                    "expect %r\n"
+                                    "   got %r" % (self._T, T1, T2))                
+            if not (0 <= i < len(self._obj.items)):
+                raise IndexError("array index out of bounds")
+            self._obj.items[i] = val
+            return
         raise TypeError("%r instance is not an array" % (self._T,))
 
     def __len__(self):
@@ -539,8 +568,18 @@ class _array(_parentable):
     def __repr__(self):
         return '<%s>' % (self,)
 
+    def _str_item(self, item):
+        if isinstance(self._TYPE.OF, Struct):
+            of = self._TYPE.OF
+            if self._TYPE._anonym_struct:
+                return "{%s}" % item._str_fields()
+            else:
+                return "%s {%s}" % (of._name, item._str_fields())
+        else:
+            return item
+
     def __str__(self):
-        return 'array [ %s ]' % (', '.join(['{%s}' % item._str_fields()
+        return 'array [ %s ]' % (', '.join(['%s' % self._str_item(item)
                                             for item in self.items]),)
 
 class _func(object):
