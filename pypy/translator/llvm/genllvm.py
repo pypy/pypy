@@ -72,8 +72,7 @@ class LLVMGenerator(object):
         self.global_counts = {}
         self.local_counts = {}
         self.repr_classes = []
-        for mod in [representation, funcrepr, typerepr, seqrepr, classrepr,
-                    pbcrepr, pointerrepr]:
+        for mod in [representation, funcrepr, typerepr, pointerrepr]:
             self.repr_classes += [getattr(mod, s)
                                   for s in dir(mod) if "Repr" in s]
         #if debug:
@@ -188,7 +187,7 @@ class LLVMGenerator(object):
         for l_repr in traverse_dependencies(self.l_entrypoint, seen_reprs):
             l_repr.collect_init_code(init_block, self.l_entrypoint)
         if include == True:
-            include_files = ["operations.ll", "class.ll"]
+            include_files = ["class.ll"]
         else:
             include_files = []
         for i, fn in enumerate(include_files):
