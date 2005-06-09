@@ -138,8 +138,15 @@ class BoolTypeRepr(TypeRepr):
     def typename(self):
         return "bool"
 
+    def t_op_same_as(self, l_target, args, lblock, l_func):
+        l_arg0 = self.gen.get_repr(args[0])
+        l_func.dependencies.add(l_arg0)
+        lblock.instruction("%s = or %s, false" % (l_target.llvmname(),
+                                                  l_arg0.typed_name()))
+
     def llvmsize(self):
         return 1
+
 
 class FloatTypeRepr(TypeRepr):
     directly_supported_ops = {

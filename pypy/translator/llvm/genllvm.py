@@ -1,6 +1,5 @@
 """
-This is the entry point of genllvm. This file can also be used with python -i
-to interactively test genllvm.
+This is the entry point of genllvm.d
 
 The class LLVMGenerator coordinates the creation of LLVM representations and
 drives the creation of the .ll file and the compilation:
@@ -158,7 +157,6 @@ class LLVMGenerator(object):
                     return result
                 if isinstance(concretetype, lltype.Ptr):
                     return pointerrepr.PointerRepr(obj.value, self)
-                #XXX find the right type if it is not a Primitive
             except AttributeError:
                 pass
         for cl in self.repr_classes:

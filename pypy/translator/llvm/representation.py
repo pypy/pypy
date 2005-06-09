@@ -55,26 +55,27 @@ class LLVMRepr(object):
     def setup(self):
         pass
     
-    def get_globals(self): #this is called when the global definitions are collected
+    def get_globals(self): # this is called to collect global definitions
         return ""
 
-    def get_functions(self): #this is called, when functions are collected
+    def get_functions(self): # this is called, when functions are collected
         return ""
 
-    def collect_init_code(self, lblock, l_func): #this collects init code
-        pass                                     #it is only executed once at module import time
+    def collect_init_code(self, lblock, l_func): # this collects init code
+        pass                                     # it is only executed once at
+                                                 # module import time
 
-    def llvmname(self):  #this is the name of the object in LLVM world: "5" for the int 5
-        return self.name
+    def llvmname(self):  # this is the name of the object in LLVM world:
+        return self.name # "5" for the int 5
 
-    def llvmtype(self):  #this is the name of the type of the object: "long" for and int
-        return self.type.typename()
+    def llvmtype(self):             # this is the name of the type of
+        return self.type.typename() # the object: "long" for and int
 
-    def llvmsize(self):  #this is the size in bytes -- not really used yet, but will be soon
+    def llvmsize(self):  #this is the size in bytes -- used for allocation
         raise NotImplementedError, "This object has no size!"
 
-    def op(self, opname, l_target, args, lblock, l_func): #This is used when code is generated:
-        if hasattr(self, "type") and hasattr(self.type, "t_op"): #I'll tell you about it soon
+    def op(self, opname, l_target, args, lblock, l_func):
+        if hasattr(self, "type") and hasattr(self.type, "t_op"):
             return self.type.t_op(opname, l_target, args, lblock, l_func)
         raise CompileError, "op '%s' not supported" % opname
 
