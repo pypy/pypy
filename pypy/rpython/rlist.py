@@ -4,6 +4,8 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import *
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython import rrange
+from pypy.rpython.rslice import SliceRepr
+from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 
 # ____________________________________________________________
 #
@@ -85,6 +87,17 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
         else:
             llfn = ll_setitem
         return hop.gendirectcall(llfn, v_lst, v_index, v_item)
+
+class __extend__(pairtype(ListRepr, SliceRepr)):
+
+    def rtype_getitem((r_lst, r_slic), hop):
+        if r_slic == startonly_slice_repr:
+            v_lst, v_start = hop.inputargs(r_lst, startonly_slice_repr)
+            return hop.gendirectcall(ll_listslice_startonly, v_lst, v_start)
+        if r_slic == startstop_slice_repr:
+            v_lst, v_slice = hop.inputargs(r_lst, startstop_slice_repr)
+            return hop.gendirectcall(ll_listslice, v_lst, v_slice)
+        raise TyperError(r_slic)
 
 class __extend__(pairtype(ListRepr, ListRepr)):
     def convert_from_to((r_lst1, r_lst2), v, llops):
@@ -169,6 +182,31 @@ def ll_extend(l1, l2):
         i += 1
         j += 1
     l1.items = newitems
+
+def ll_listslice_startonly(l1, start):
+    len1 = len(l1.items)
+    newitems = malloc(typeOf(l1).TO.items.TO, len1 - start)
+    j = 0
+    while start < len1:
+        newitems[j].item = l1.items[start].item
+        start += 1
+        j += 1
+    l = malloc(typeOf(l1).TO)
+    l.items = newitems
+    return l
+
+def ll_listslice(l1, slice):
+    start = slice.start
+    stop = slice.stop
+    newitems = malloc(typeOf(l1).TO.items.TO, stop - start)
+    j = 0
+    while start < stop:
+        newitems[j].item = l1.items[start].item
+        start += 1
+        j += 1
+    l = malloc(typeOf(l1).TO)
+    l.items = newitems
+    return l
 
 # ____________________________________________________________
 #

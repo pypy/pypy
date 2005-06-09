@@ -251,6 +251,9 @@ def translate_op_%s(self, hop):
     def translate_op_newtuple(self, hop):
         return rtuple.rtype_newtuple(hop)
 
+    def translate_op_newslice(self, hop):
+        return rslice.rtype_newslice(hop)
+
     def missing_operation(self, hop):
         raise TyperError("unimplemented operation: '%s'" % hop.spaceop.opname)
 
@@ -410,6 +413,7 @@ class LowLevelOpList(list):
 # and the rtyper_chooserepr() methods
 from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
+from pypy.rpython import rslice
 from pypy.rpython import rlist, rstr, rtuple
 from pypy.rpython import rbuiltin, rpbc
 from pypy.rpython import rptr
