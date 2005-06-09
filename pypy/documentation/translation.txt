@@ -604,10 +604,15 @@ Array Types
 
 An array type is built as an instance of ``pypy.rpython.lltype.Array``::
 
-    MyArrayType = Array(('field1', Type1), ('field2', Type2)...)
-    MyArrayType = GcArray(('field1', Type1), ('field2', Type2)...)
+    MyIntArray = Array(Signed)
+    MyOtherArray = Array(MyItemType)
+    MyOtherArray = GcArray(MyItemType)
 
-The items of an array are always structures; the arguments to Array() give the fields of these structures (it can of course be a single field).  The allowed field types follow the same rules as for Struct(), except that you cannot inline an array into the items' structure.
+Or, for arrays whose items are structures, as a shortcut::
+
+    MyArrayType = Array(('field1', Type1), ('field2', Type2)...)
+
+You can build arrays whose items are either primitive or pointer types, or (non-GC non-varsize) structures.
 
 GcArrays can be malloc()ed.  The length must be specified when malloc() is called, and arrays cannot be resized; this length is stored explicitely in a header.
 

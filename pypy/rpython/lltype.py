@@ -624,6 +624,8 @@ def malloc(T, n=None, immortal=False):
         o = _array(T, n)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
+    if not isinstance(T, GC_CONTAINER) and not immortal:
+        raise TypeError, "malloc of a non-GC non-immortal structure"
     return _ptr(Ptr(T), o, immortal)
 
 def functionptr(TYPE, name, **attrs):

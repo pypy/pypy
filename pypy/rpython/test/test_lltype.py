@@ -267,11 +267,11 @@ def test_array_with_non_container_elements():
     py.test.raises(TypeError, "Array(S)")
     py.test.raises(TypeError, "Array(As)")
     S = Struct('s', ('x', Signed))
-    A = Array(S)
+    A = GcArray(S)
     a = malloc(A, 2)
     s = S._container_example() # should not happen anyway
     py.test.raises(TypeError, "a[0] = s")
-    S = Struct('s', ('last', A))
+    S = Struct('s', ('last', Array(S)))
     py.test.raises(TypeError, "Array(S)")
     
     
