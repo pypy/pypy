@@ -36,19 +36,33 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         assert result == (1, 5)
 
     def test_get_set_del_slice(self):
-        def get_set_del_nonneg_slice(l=list): # no neg slices for now!
+        def get_set_del_nonneg_slice(): # no neg slices for now!
+            l = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
             del l[:1]
-            del l[len(l)-1:]
+            bound = len(l)-1
+            if bound >= 0:
+                del l[bound:]
             del l[2:4]
-            l[:1] = [3]
-            l[len(l)-1:] = [9]
-            l[2:4] = [8,11]
-            return l[:2], l[5:], l[3:5]        
+            #l[:1] = [3]
+            #bound = len(l)-1
+            #assert bound >= 0
+            #l[bound:] = [9]    no setting slice into lists for now
+            #l[2:4] = [8,11]
+            l[0], l[-1], l[2], l[3] = 3, 9, 8, 11
+
+            list_3_c = l[:2]
+            list_9 = l[5:]
+            list_11_h = l[3:5]
+            return (len(l), l[0], l[1], l[2], l[3], l[4], l[5],
+                    len(list_3_c),  list_3_c[0],  list_3_c[1],
+                    len(list_9),    list_9[0],
+                    len(list_11_h), list_11_h[0], list_11_h[1])
         fn = self.getcompiled(get_set_del_nonneg_slice)
-        l = list('abcdefghij')
-        result = fn(l)
-        assert l == [3, 'c', 8, 11, 'h', 9]
-        assert result == ([3, 'c'], [9], [11, 'h'])
+        result = fn()
+        assert result == (6, 3, 'c', 8, 11, 'h', 9,
+                          2, 3, 'c',
+                          1, 9,
+                          2, 11, 'h')
 
     def test_slice_long(self):
         "the parent's test_slice_long() makes no sense here"

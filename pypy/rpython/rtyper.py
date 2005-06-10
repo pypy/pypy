@@ -280,6 +280,8 @@ class HighLevelOp:
         self.s_result = rtyper.binding(spaceop.result)
         self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
         self.r_result = rtyper.getrepr(self.s_result)
+        for r in self.args_r + [self.r_result]:
+            r.setup()
 
     def inputarg(self, converted_to, arg):
         """Returns the arg'th input argument of the current operation,
