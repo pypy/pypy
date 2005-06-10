@@ -31,7 +31,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         def wrapper():
             lst = snippet.call_five()
             return len(lst), lst[0]
-        call_five = self.getcompiled(snippet.call_five)
+        call_five = self.getcompiled(wrapper)
         result = call_five()
         assert result == (1, 5)
 
