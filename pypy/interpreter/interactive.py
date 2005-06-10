@@ -99,7 +99,9 @@ class PyPyConsole(code.InteractiveConsole):
         if completer:
             self.enable_command_line_completer()
 
-        space.exec_("__pytrace__ = 0", self.w_globals, self.w_globals) 
+        # forbidden:
+        #space.exec_("__pytrace__ = 0", self.w_globals, self.w_globals)
+        space.setitem(self.w_globals, space.wrap('__pytrace__'),space.wrap(0))
         self.tracelevel = 0
 
     def enable_command_line_completer(self):
