@@ -3,6 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import PyObject, Ptr, Void, Bool, pyobjectptr
 from pypy.rpython.rmodel import Repr, TyperError
 from pypy.rpython import rclass
+from pypy.tool.sourcetools import func_with_new_name
 
 
 class __extend__(annmodel.SomeObject):
@@ -23,15 +24,35 @@ class __extend__(annmodel.SomeObject):
 
 
 class PyObjRepr(Repr):
-    lowleveltype = Ptr(PyObject)
-
     def convert_const(self, value):
         return pyobjectptr(value)
 
 pyobj_repr = PyObjRepr()
+pyobj_repr.lowleveltype = Ptr(PyObject)
+constpyobj_repr = PyObjRepr()
+constpyobj_repr.lowleveltype = Void
+
+# ____________________________________________________________
+#
+#  All operations involving a PyObjRepr are "replaced" by themselves,
+#  after converting all other arguments to PyObjRepr as well.  This
+#  basically defers the operations to the care of the code generator.
+
+def make_operation(opname, cls=PyObjRepr):
+    def rtype_op(_, hop):
+        vlist = hop.inputargs(*([pyobj_repr]*hop.nb_args))
+        v = hop.genop(opname, vlist, resulttype = pyobj_repr)
+        return hop.llops.convertvar(v, pyobj_repr, hop.r_result)
+
+    funcname = 'rtype_' + opname
+    func = func_with_new_name(rtype_op, funcname)
+    assert funcname not in cls.__dict__  # can be in Repr; overriden then.
+    setattr(cls, funcname, func)
 
 
-class ConstPyObjRepr(Repr):
-    lowleveltype = Void
+for opname in annmodel.UNARY_OPERATIONS:
+    make_operation(opname)
 
-constpyobj_repr = ConstPyObjRepr()
+for opname in annmodel.BINARY_OPERATIONS:
+    make_operation(opname, pairtype(PyObjRepr, Repr))
+    make_operation(opname, pairtype(Repr, PyObjRepr))
