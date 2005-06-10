@@ -60,12 +60,13 @@ class RPythonAnnotator:
 
     def __getstate__(self):
         attrs = """translator pendingblocks bindings annotated links_followed
-        notify bookkeeper policy""".split()
+        notify bookkeeper frozen policy""".split()
         ret = self.__dict__.copy()
         for key, value in ret.items():
             if key not in attrs:
-                assert type(value) is dict, ("please update %s.__getstate__" %
-                                             self.__class__.__name__)
+                assert type(value) is dict, (
+                    "%r is not dict. please update %s.__getstate__" %
+                    (key, self.__class__.__name__))
                 ret[key] = {}
         return ret
 
