@@ -273,7 +273,7 @@ class SpaceOperation(object):
     __slots__ = "opname args result offset".split()
 
     def __init__(self, opname, args, result, offset=-1):
-        self.opname = opname      # operation name
+        self.opname = intern(opname)      # operation name
         self.args   = list(args)  # mixed list of var/const
         self.result = result      # either Variable or Constant instance
         self.offset = offset      # offset in code string
