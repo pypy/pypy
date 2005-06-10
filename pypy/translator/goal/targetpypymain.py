@@ -15,6 +15,10 @@ this_dir = os.path.dirname(sys.argv[0])
 def entry_point(argv):
     w_argv = space.newlist([space.wrap(s) for s in argv])
     w_exitcode = space.call(w_entry_point, w_argv)
+    # try to pull it all in
+##    from pypy.interpreter import main, interactive, error
+##    con = interactive.PyPyConsole(space)
+##    con.interact()
     return space.int_w(w_exitcode)
 
 # _____ Define and setup target ___
@@ -25,6 +29,7 @@ def target():
     StdObjSpace.setup_old_style_classes = lambda self: None
     # disable geninterp for now -- we have faaar toooo much interp-level code
     # for the poor translator already
+    # XXX why can't I enable this? crashes the annotator!
     gateway.ApplevelClass.use_geninterp = False
 
     space = StdObjSpace()
