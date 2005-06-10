@@ -94,6 +94,15 @@ class BasicBlock(object):
                                    l_a.typed_name(), l_b.llvmname())
         self.instructions.append(s)
 
+    #Shift instructions
+    def shift_instruction(self, instr, l_target, l_a, l_b):
+        self.phi_done = True
+        assert l_target.llvmtype() == l_a.llvmtype()
+        #assert l_b.llvmtype() == 'ubyte'   #or cast to ubyte or assuma nothing goes wrong
+        s = "%s = %s %s, ubyte %s" % (l_target.llvmname(), instr,
+                                      l_a.typed_name(), l_b.llvmname())
+        self.instructions.append(s)
+
     #Memory access instructions
     def load(self, l_target, l_pter):
         self.phi_done = True

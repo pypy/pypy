@@ -11,7 +11,7 @@ from pypy.annotation import model as annmodel
 from pypy.translator.llvm import representation
 from pypy.translator.llvm import typerepr
 
-debug = True
+debug = False
 
 class PointerRepr(representation.LLVMRepr):
     def __init__(self, ptr, gen):

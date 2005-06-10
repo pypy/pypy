@@ -21,8 +21,8 @@ from pypy.translator.llvm.representation import last_exception, last_exc_value
 from pypy.translator.llvm.representation import SimpleRepr
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 
-debug = True
-lazy_debug = True
+debug = False
+lazy_debug = False
 
 INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
                  "neg", "pos", "invert", "add", "sub", "mul", "truediv",
@@ -31,7 +31,7 @@ INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
                  "inplace_truediv", "inplace_floordiv", "inplace_div",
                  "inplace_mod", "inplace_pow", "inplace_lshift",
                  "inplace_rshift", "inplace_and", "inplace_or", "inplace_xor",
-                 "contains", "alloc_and_set", "issubtype", "type", "ord"]
+                 "contains", "alloc_and_set", "issubtype", "type", "ord" ]
 
 C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
                   annmodel.SomeString: "char*",
@@ -82,9 +82,7 @@ class FunctionRepr(LLVMRepr):
     l_functions = {}
     def get(obj, gen):
         if isinstance(obj, lltype._func):
-            print "1a)"
             if obj._callable not in FunctionRepr.l_functions:
-                print "1b)"
                 FunctionRepr.l_functions[obj._callable] = FunctionRepr(obj, gen)
             return FunctionRepr.l_functions[obj._callable]
         return None
@@ -115,36 +113,29 @@ class FunctionRepr(LLVMRepr):
         self.gen = gen
         self.func = function
         self.translator = gen.translator
-        if debug: print "init 1a)"
-        #if debug: print 'QQQ',function.name,'QQQ'
-        #if debug: print "init 1b)"
-        print function, function.__class__
+        if debug:
+            print function, function.__class__
         self.name = gen.get_global_tmp(function._name)
-        if debug: print "init 2)"
         self.graph = function.graph
         self.annotator = gen.translator.annotator
         self.blocknum = {}
         self.allblocks = []
         self.pyrex_source = ""
         self.dependencies = sets.Set()
-        if debug: print "init 3)"
         self.type = self.gen.get_repr(function._TYPE)
-        if debug: print "init 4)"
         self.l_args = [self.gen.get_repr(ar)
                        for ar in self.graph.startblock.inputargs]
         self.dependencies.add(self.type)
         self.dependencies.update(self.l_args)
-        if debug: print "init 8)"
         self.l_default_args = None
         remove_double_links(self.translator, self.graph)
-        print "init 9)"
         self.get_bbs()
-        print "init done"
 
     lazy_attributes = ['llvm_func', 'lblocks'] 
 
     def setup(self):
-        print "setup"
+        if debug:
+            print "setup"
         self.se = True
         self.lblocks = []
         self.build_bbs()
@@ -197,10 +188,11 @@ class FunctionRepr(LLVMRepr):
         l_args = [self.gen.get_repr(arg) for arg in args]
         if len(l_args) - 1 < len(self.l_args):
             if self.func.func_defaults is None:
-                for l_a in l_args:
-                    print l_a, l_a.llvmname(), 
-                for l_a in self.l_args:
-                    print l_a, l_a.llvmname(),
+                if debug:
+                    for l_a in l_args:
+                        print l_a, l_a.llvmname(), 
+                    for l_a in self.l_args:
+                        print l_a, l_a.llvmname(),
                 assert self.func.func_defaults is not None
             if self.l_default_args is None:
                 self.l_default_args = [self.gen.get_repr(Constant(de))
@@ -271,6 +263,9 @@ class BlockRepr(object):
             return
         l_arg0 = self.gen.get_repr(op.args[0])
         self.l_func.dependencies.add(l_arg0)
+        if op.opname.startswith("cast_") or op.opname.startswith("same_as") or op.opname.endswith("_is_true"):
+            self.lblock.cast(l_target, l_arg0)
+            return
         l_op = getattr(l_arg0, "op_" + op.opname, None)
         if l_op is not None:
             l_op(l_target, op.args, self.lblock, self.l_func)
@@ -486,7 +481,8 @@ class EntryFunctionRepr(LLVMRepr):
 
     def setup(self):
         f = self.gen.rtyper.getfunctionptr(self.function)._obj
-        print "EntryFunctionRepr", f
+        if debug:
+            print "EntryFunctionRepr", f
         self.l_function = self.gen.get_repr(f)
         self.dependencies.add(self.l_function)
         #XXX clean this up
@@ -544,7 +540,8 @@ class EntryFunctionRepr(LLVMRepr):
         return fd
 
     def llvmfuncdef(self):
-        print self.l_function.l_args
+        if debug:
+            print self.l_function.l_args
         s = "%s %s(" % (self.l_function.type.l_returntype.typename(), self.name)
         s += ", ".join([a.typed_name() for a in self.l_function.l_args]) + ")"
         return s

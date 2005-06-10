@@ -2,7 +2,7 @@ import autopath
 
 import sets
 
-debug = True
+debug = False
 
 def create_property(cls, la, name):
     def get(self):

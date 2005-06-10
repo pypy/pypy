@@ -272,7 +272,7 @@ class TupleTypeRepr(TypeRepr):
         l_func.dependencies.update(l_args)
         l_tmp = self.gen.get_local_tmp(PointerTypeRepr(l_target.llvmtype(),
                                                        self.gen), l_func)
-        cast = getattr(l_args[1], "cast_to_unsigned", None)
+        cast = getattr(l_args[1], "cast_to_unsigned", None) #XXX that method is gone now, need to change this too!
         if cast is not None:
             l_unsigned = cast(l_args[1], lblock, l_func)
         else:

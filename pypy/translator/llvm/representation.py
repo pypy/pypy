@@ -253,18 +253,18 @@ class IntRepr(LLVMRepr):
     def llvmname(self):
         return repr(self.value)
 
-    def cast_to_unsigned(self, l_val, lblock, l_function):
-        if self.type.annotation.unsigned:
-            return self
-        else:
-            return IntRepr(annmodel.SomeInteger(True, True),
-                           self.value, self.gen)
-
-    def cast_to_signed(self, l_val, lblock, l_function):
-        if not self.type.annotation.unsigned:
-            return self
-        else:
-            return IntRepr(annmodel.SomeInteger(), self.value, self.gen)
+    #def cast_to_unsigned(self, l_val, lblock, l_function):
+    #    if self.type.annotation.unsigned:
+    #        return self
+    #    else:
+    #        return IntRepr(annmodel.SomeInteger(True, True),
+    #                       self.value, self.gen)
+    #
+    #def cast_to_signed(self, l_val, lblock, l_function):
+    #    if not self.type.annotation.unsigned:
+    #        return self
+    #    else:
+    #        return IntRepr(annmodel.SomeInteger(), self.value, self.gen)
 
 class VariableRepr(LLVMRepr):
     def get(obj, gen):
@@ -290,11 +290,10 @@ class VariableRepr(LLVMRepr):
         return "%" + self.var.name
 
     def __getattr__(self, name):
-        print "getattr called", name, self.type.typename()
+        if debug:
+            print "getattr called", name, self.type.typename()
         if name.startswith("op_"):
             return getattr(self.type, "t_" + name, None)
-        elif name.startswith("cast_"):
-            return getattr(self.type, name, None)
         else:
             raise AttributeError, ("VariableRepr instance has no attribute %s"
                                    % repr(name))
@@ -363,6 +362,6 @@ sbyte* getelementptr ([%(len)i x sbyte]* %(gv1)s, uint 0, uint 0)}"""
         if name.startswith("op_"):
             return getattr(self.type, "t_" + name, None)
         else:
-            raise AttributeError, ("VariableRepr instance has no attribute %s"
+            raise AttributeError, ("StringRepr instance has no attribute %s"
                                    % repr(name))
 

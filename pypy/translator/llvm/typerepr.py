@@ -24,8 +24,8 @@ if 2147483647 == sys.maxint:
 else:
     BYTES_IN_INT = 8
 
-lazy_debug = True
-debug = True
+lazy_debug = False
+debug = False
 
 class TypeRepr(LLVMRepr):
     def get(obj, gen):
@@ -77,39 +77,64 @@ class TypeRepr(LLVMRepr):
         
 
 class SignedTypeRepr(TypeRepr):
-    directly_supported_ops = {
+    directly_supported_binary_ops = {
         "int_add": "add",
         "int_sub": "sub",
         "int_mul": "mul",
         "int_div": "div",
         "int_mod": "rem",
         "int_xor": "xor",
-        "int_and_": "and",
+        "int_and": "and",
+        "int_lshift": "shl",
+        "int_rshift": "shr",
+        "int_or": "or",
         "int_eq": "seteq",
         "int_ne": "setne",
         "int_gt": "setgt",
         "int_ge": "setge",
         "int_lt": "setlt",
         "int_le": "setle"}
-        
+
     def __init__(self, gen):
         if debug:
             print "SignedTypeRepr"
         self.gen = gen
 
     def t_op(self, opname, l_target, args, lblock, l_func):
-        if opname in SignedTypeRepr.directly_supported_ops:
+        if opname in SignedTypeRepr.directly_supported_binary_ops:
             assert len(args) == 2
             l_args = [self.gen.get_repr(arg) for arg in args]
             l_func.dependencies.update(l_args)
-            lblock.binary_instruction(
-                SignedTypeRepr.directly_supported_ops[opname], l_target,
-                l_args[0], l_args[1])
+            l_op = SignedTypeRepr.directly_supported_binary_ops[opname]
+            if l_op in ('shl', 'shr'):  #feel free to refactor this
+                lblock.shift_instruction(
+                    l_op, l_target,
+                    l_args[0], l_args[1])
+            else:
+                lblock.binary_instruction(
+                    l_op, l_target,
+                    l_args[0], l_args[1])
 
-    def t_op_int_is_true(self, l_target, args, lblock, l_func):
+    def t_op_int_pos(self, l_target, args, lblock, l_func):
+        pass
+
+    def t_op_int_neg(self, l_target, args, lblock, l_func):
         l_arg = self.gen.get_repr(args[0])
         l_func.dependencies.add(l_arg)
-        lblock.cast(l_target, l_arg)
+        lblock.instruction("%s = sub int 0, %s" % (l_target.llvmname(),
+                                                   l_arg.llvmname()))
+
+    def t_op_int_invert(self, l_target, args, lblock, l_func):
+        l_arg = self.gen.get_repr(args[0])
+        l_func.dependencies.add(l_arg)
+        lblock.instruction("%s = xor int -1, %s" % (l_target.llvmname(),
+                                                   l_arg.llvmname()))
+
+    def t_op_int_abs(self, l_target, args, lblock, l_func):
+        l_arg = self.gen.get_repr(args[0])
+        l_func.dependencies.add(l_arg)
+        lblock.instruction("%s = and int 2147483647, %s" % (l_target.llvmname(),
+                                                            l_arg.llvmname()))
 
     def typename(self):
         return "int"
@@ -138,18 +163,12 @@ class BoolTypeRepr(TypeRepr):
     def typename(self):
         return "bool"
 
-    def t_op_same_as(self, l_target, args, lblock, l_func):
-        l_arg0 = self.gen.get_repr(args[0])
-        l_func.dependencies.add(l_arg0)
-        lblock.instruction("%s = or %s, false" % (l_target.llvmname(),
-                                                  l_arg0.typed_name()))
-
     def llvmsize(self):
         return 1
 
 
 class FloatTypeRepr(TypeRepr):
-    directly_supported_ops = {
+    directly_supported_binary_ops = {
         "float_add": "add",
         "float_sub": "sub",
         "float_mul": "mul",
@@ -173,12 +192,12 @@ class FloatTypeRepr(TypeRepr):
         return "double"
 
     def t_op(self, opname, l_target, args, lblock, l_func):
-        if opname in FloatTypeRepr.directly_supported_ops:
+        if opname in FloatTypeRepr.directly_supported_binary_ops:
             assert len(args) == 2
             l_args = [self.gen.get_repr(arg) for arg in args]
             l_func.dependencies.update(l_args)
             lblock.binary_instruction(
-                FloatTypeRepr.directly_supported_ops[opname], l_target,
+                FloatTypeRepr.directly_supported_binary_ops[opname], l_target,
                 l_args[0], l_args[1])
 
     def llvmsize(self):
@@ -268,25 +287,25 @@ class IntTypeRepr(TypeRepr):
     def typename(self):
         return self.name
 
-    def cast_to_signed(self, l_val, lblock, l_function):
-        if not self.annotation.unsigned:
-            return l_val
-        ann = annmodel.SomeInteger()
-        l_type = self.gen.get_repr(ann)
-        l_tmp = self.gen.get_local_tmp(l_type, l_function)
-        l_function.dependencies.update([l_type, l_tmp])
-        lblock.cast(l_tmp, l_val, l_type)
-        return l_tmp
-
-    def cast_to_unsigned(self, l_val, lblock, l_function):
-        if self.annotation.unsigned:
-            return l_val
-        ann = annmodel.SomeInteger(True, True)
-        l_type = self.gen.get_repr(ann)
-        l_tmp = self.gen.get_local_tmp(l_type, l_function)
-        l_function.dependencies.update([l_type, l_tmp])
-        lblock.cast(l_tmp, l_val, l_type)
-        return l_tmp
+    #def cast_to_signed(self, l_val, lblock, l_function):
+    #    if not self.annotation.unsigned:
+    #        return l_val
+    #    ann = annmodel.SomeInteger()
+    #    l_type = self.gen.get_repr(ann)
+    #    l_tmp = self.gen.get_local_tmp(l_type, l_function)
+    #    l_function.dependencies.update([l_type, l_tmp])
+    #    lblock.cast(l_tmp, l_val, l_type)
+    #    return l_tmp
+    #
+    #def cast_to_unsigned(self, l_val, lblock, l_function):
+    #    if self.annotation.unsigned:
+    #        return l_val
+    #    ann = annmodel.SomeInteger(True, True)
+    #    l_type = self.gen.get_repr(ann)
+    #    l_tmp = self.gen.get_local_tmp(l_type, l_function)
+    #    l_function.dependencies.update([l_type, l_tmp])
+    #    lblock.cast(l_tmp, l_val, l_type)
+    #    return l_tmp
 
 class SimpleTypeRepr(TypeRepr):
     def get(obj, gen):

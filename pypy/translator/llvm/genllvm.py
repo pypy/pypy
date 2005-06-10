@@ -33,7 +33,7 @@ from pypy.translator.llvm.funcrepr import EntryFunctionRepr
 
 from pypy.translator.llvm import reprmap
 
-debug = True
+debug = False
 
 
 def llvmcompile(transl, optimize=False):
@@ -75,11 +75,7 @@ class LLVMGenerator(object):
         for mod in [representation, funcrepr, typerepr, pointerrepr]:
             self.repr_classes += [getattr(mod, s)
                                   for s in dir(mod) if "Repr" in s]
-        #if debug:
-        #    print 'LLVMGenerator before repr_classes=', len(self.repr_classes), self.repr_classes
         self.repr_classes = [c for c in self.repr_classes if hasattr(c, "get")]
-        #if debug:
-        #    print 'LLVMGenerator after  repr_classes=', len(self.repr_classes), self.repr_classes
         self.llvm_reprs = {}
         self.depth = 0
         self.entryname = self.translator.functions[0].__name__
@@ -94,6 +90,8 @@ class LLVMGenerator(object):
         from pypy.tool.udir import udir
         name = self.entryname
         llvmfile = udir.join('%s.ll' % name)
+        if debug:
+            print "llvmfile:", llvmfile
         f = llvmfile.open('w')
         self.write(f)
         f.close()
@@ -159,22 +157,16 @@ class LLVMGenerator(object):
             except AttributeError:
                 pass
         for cl in self.repr_classes:
-            if 0: #debug:
+            if debug and 0:
                 print 'try cl.get(obj, self) where cl=', cl
             try:
                 g = cl.get(obj, self)
-                #if debug:
-                #    print 'A) g=', g
             except AttributeError:
                 continue
-            #if debug:
-            #    print 'B) g=', g
             if g is not None:
                 self.llvm_reprs[key] = g
                 self.local_counts[g] = 0
                 self.depth -= 1
-                #if debug:
-                #    print 'C) should return here'
                 return g
         raise CompileError, "Can't get repr of %s, %s" % (obj, obj.__class__)
 
