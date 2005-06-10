@@ -98,7 +98,7 @@ class Options(object):
                     self.test_compiled = True
             
                 else:
-                    print __doc__
+                    print extra_help
                     sys.exit(0)
                 
             else:
