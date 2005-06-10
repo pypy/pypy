@@ -173,13 +173,18 @@ def main(argv=[]):
 
         elif options.backend == 'llvm':
             print t.llvm()
+            #note: this is a workaround because genllvm calls the RPythonTyper which is not smart enough right now to leave already lltyped blocks alone
+            t = Translator(entry_function)
+            t.simplify()
+            a = t.annotate(argumentTypes)
+            a.simplify()
 
         elif options.backend == 'pyrex':
             print t.pyrex()
 
     if options.compile:
         if options.backend == 'c':
-            a.specialize()                     # use low level operations (for C only)
+            #a.specialize()                     # use low level operations (for C only)
             f = t.ccompile()
 
         elif options.backend == 'llvm':
