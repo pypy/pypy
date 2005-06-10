@@ -80,20 +80,22 @@ class TestAnnotateTestCase:
                 i = i - 1
             return i
         """
-        i = Variable("i")
+        i1 = Variable("i1")
+        i2 = Variable("i2")
+        i3 = Variable("i3")
         conditionres = Variable("conditionres")
-        conditionop = SpaceOperation("gt", [i, Constant(0)], conditionres)
-        decop = SpaceOperation("add", [i, Constant(-1)], i)
-        headerblock = Block([i])
-        whileblock = Block([i])
+        conditionop = SpaceOperation("gt", [i1, Constant(0)], conditionres)
+        decop = SpaceOperation("add", [i2, Constant(-1)], i3)
+        headerblock = Block([i1])
+        whileblock = Block([i2])
 
         fun = FunctionGraph("f", headerblock)
         headerblock.operations.append(conditionop)
         headerblock.exitswitch = conditionres
-        headerblock.closeblock(Link([i], fun.returnblock, False),
-                               Link([i], whileblock, True))
+        headerblock.closeblock(Link([i1], fun.returnblock, False),
+                               Link([i1], whileblock, True))
         whileblock.operations.append(decop)
-        whileblock.closeblock(Link([i], headerblock))
+        whileblock.closeblock(Link([i3], headerblock))
 
         a = self.RPythonAnnotator()
         a.build_types(fun, [int])
@@ -109,26 +111,31 @@ class TestAnnotateTestCase:
                 i = i - 1
             return sum
         """
-        i = Variable("i")
-        sum = Variable("sum")
+        i1 = Variable("i1")
+        i2 = Variable("i2")
+        i3 = Variable("i3")
+        i4 = Variable("i4")
+        sum2 = Variable("sum2")
+        sum3 = Variable("sum3")
+        sum4 = Variable("sum4")
 
         conditionres = Variable("conditionres")
-        conditionop = SpaceOperation("gt", [i, Constant(0)], conditionres)
-        decop = SpaceOperation("add", [i, Constant(-1)], i)
-        addop = SpaceOperation("add", [i, sum], sum)
-        startblock = Block([i])
-        headerblock = Block([i, sum])
-        whileblock = Block([i, sum])
+        conditionop = SpaceOperation("gt", [i2, Constant(0)], conditionres)
+        decop = SpaceOperation("add", [i3, Constant(-1)], i4)
+        addop = SpaceOperation("add", [i3, sum3], sum4)
+        startblock = Block([i1])
+        headerblock = Block([i2, sum2])
+        whileblock = Block([i3, sum3])
 
         fun = FunctionGraph("f", startblock)
-        startblock.closeblock(Link([i, Constant(0)], headerblock))
+        startblock.closeblock(Link([i1, Constant(0)], headerblock))
         headerblock.operations.append(conditionop)
         headerblock.exitswitch = conditionres
-        headerblock.closeblock(Link([sum], fun.returnblock, False),
-                               Link([i, sum], whileblock, True))
+        headerblock.closeblock(Link([sum2], fun.returnblock, False),
+                               Link([i2, sum2], whileblock, True))
         whileblock.operations.append(addop)
         whileblock.operations.append(decop)
-        whileblock.closeblock(Link([i, sum], headerblock))
+        whileblock.closeblock(Link([i4, sum4], headerblock))
 
         a = self.RPythonAnnotator()
         a.build_types(fun, [int])
@@ -1177,7 +1184,7 @@ class TestAnnotateTestCase:
     def test_prime(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.prime, [int])
-        assert s == annmodel.SomeBool()
+        assert s.knowntype == bool
 
     def test_and_is_true_coalesce(self):
         def f(a,b,c,d,e):
@@ -1238,8 +1245,25 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [bool])
         assert not s.is_constant()
-        
-            
+
+    def test_nonneg_cleverness(self):
+        def f(a, b, c, d, e, f, g, h):
+            if a < 0: a = 0
+            if b <= 0: b = 0
+            if c >= 0:
+                pass
+            else:
+                c = 0
+            if d < a: d = a
+            if e <= b: e = 1
+            if c > f: f = 2
+            if d >= g: g = 3
+            if h != a: h = 0
+            return a, b, c, d, e, f, g, h
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int]*8)
+        assert s == annmodel.SomeTuple([annmodel.SomeInteger(nonneg=True)] * 8)
+
 
 def g(n):
     return [0,1,2,n]

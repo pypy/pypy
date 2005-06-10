@@ -7,7 +7,7 @@ from pypy.annotation.model import pair
 from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
-from pypy.objspace.flow.model import last_exception
+from pypy.objspace.flow.model import last_exception, checkgraph
 
 class AnnotatorError(Exception):
     pass
@@ -86,6 +86,7 @@ class RPythonAnnotator:
         """Recursively build annotations about the specific entry point."""
         if isinstance(func_or_flowgraph, FunctionGraph):
             flowgraph = func_or_flowgraph
+            checkgraph(flowgraph)
             self._register_returnvar(flowgraph, func)
         else:
             func = func_or_flowgraph

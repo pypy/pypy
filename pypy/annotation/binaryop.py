@@ -2,6 +2,7 @@
 Binary operations between SomeValues.
 """
 
+import operator
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
@@ -13,7 +14,7 @@ from pypy.annotation.model import unionof, UnionError, set, missing_operation, T
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, Variable
 
 # convenience only!
 def immutablevalue(x):
@@ -234,6 +235,38 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         return SomeInteger()
     pow.can_only_throw = [ZeroDivisionError]
     pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
+
+    def _compare_helper((int1, int2), opname, operation):
+        if int1.is_constant() and int2.is_constant():
+            r = immutablevalue(operation(int1.const, int2.const))
+        else:
+            r = SomeBool()
+        knowntypedata = {}
+        # XXX HACK HACK HACK
+        # propagate nonneg information between the two arguments
+        fn, block, i = getbookkeeper().position_key
+        op = block.operations[i]
+        assert op.opname == opname
+        assert len(op.args) == 2
+        if int1.nonneg and isinstance(op.args[1], Variable):
+            case = opname in ('lt', 'le', 'eq')
+            add_knowntypedata(knowntypedata, case, [op.args[1]],
+                              SomeInteger(nonneg=True))
+        if int2.nonneg and isinstance(op.args[0], Variable):
+            case = opname in ('gt', 'ge', 'eq')
+            add_knowntypedata(knowntypedata, case, [op.args[0]],
+                              SomeInteger(nonneg=True))
+        if knowntypedata:
+            r.knowntypedata = knowntypedata
+        return r
+
+    def lt(intint): return intint._compare_helper('lt', operator.lt)
+    def le(intint): return intint._compare_helper('le', operator.le)
+    def eq(intint): return intint._compare_helper('eq', operator.eq)
+    def ne(intint): return intint._compare_helper('ne', operator.ne)
+    def gt(intint): return intint._compare_helper('gt', operator.gt)
+    def ge(intint): return intint._compare_helper('ge', operator.ge)
+
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 
