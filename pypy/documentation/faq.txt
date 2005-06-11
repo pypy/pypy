@@ -1,0 +1,13 @@
+
+Frequently Asked Questions 
+========================== 
+
+How fast is PyPy?   
+
+    As of June 2005, PyPy still runs on top of CPython and thus
+    is slower by a factor of 2000 compared to CPython.  We don't 
+    know yet how fast it will be once we complete our translation
+    efforts, aimed at a first static self-contained low-level 
+    translated version. 
+    
+
