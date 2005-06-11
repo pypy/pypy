@@ -303,6 +303,8 @@ def cutoff_alwaysraising_block(self, block):
     c2 = Constant(AssertionError(msg))
     errlink = Link([c1, c2], graph.exceptblock)
     block.recloseblock(errlink, *block.exits)
+    # record new link to make the transformation idempotent
+    self.links_followed[errlink] = True
     # fix the annotation of the exceptblock.inputargs
     etype, evalue = graph.exceptblock.inputargs
     s_type = annmodel.SomeObject()

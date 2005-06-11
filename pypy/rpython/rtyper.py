@@ -61,6 +61,8 @@ class RPythonTyper:
 
     def specialize(self):
         """Main entry point: specialize all annotated blocks of the program."""
+        # specialize depends on annotator simplifications
+        self.annotator.simplify()
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
         perform_normalizations(self.annotator)
