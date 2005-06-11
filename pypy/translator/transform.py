@@ -316,7 +316,25 @@ def cutoff_alwaysraising_block(self, block):
     # make sure the bookkeeper knows about AssertionError
     self.bookkeeper.getclassdef(AssertionError)
 
+def transform_specialization(self):
+    for block in fully_annotated_blocks(self):
+        for op in block.operations:
+            if op.opname in ('simple_call', 'call_args'):
+                callb = self.binding(op.args[0], extquery=True)
+                if isinstance(callb, annmodel.SomePBC):
+                    if len(callb.prebuiltinstances) == 1:
+                        specialized_callb, specialcase = self.bookkeeper.query_spaceop_callable(op)
+                        if specialcase or callb != specialized_callb:
+                            if not specialcase:
+                                op.args[0] = Constant(specialized_callb.prebuiltinstances.keys()[0])
+                            else:
+                                if op.opname == 'simple_call':
+                                    op.opname = intern('simple_specialcase')
+                                else:
+                                    op.opname = intern('specialcase_args')
+
 default_extra_passes = [
+    transform_specialization,
     transform_allocate,
     ]
 

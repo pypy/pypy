@@ -28,10 +28,14 @@ def decide_callable(bookkeeper, position, func, args, mono=True, unpacked=False)
             try:
                 func = bookkeeper.cachespecializations[key]
             except KeyError:
-                postfix = key
-                if postfix[0] is func:
-                    postfix = postfix[1:]
-                func = bookkeeper.cachespecializations[key] = clone(func, postfix)
+                if key[0] is func:
+                    postfix = key[1:]
+                else:
+                    postfix = key
+                newfunc = clone(func, postfix)
+                if key[0] is func:
+                    bookkeeper.cachespecializations[(newfunc,) + postfix] = newfunc
+                func = bookkeeper.cachespecializations[key] = newfunc
         elif isinstance(key, str): 
             # specialization explicit in operation annotation
             postfix = key
