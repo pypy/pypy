@@ -19,10 +19,10 @@ def decide_callable(bookkeeper, position, func, args, mono=True, unpacked=False)
 
     key = bookkeeper.annotator.policy.specialize(bookkeeper, spaceop, func, args, mono)
     if key is not None:
-        assert mono, "not-static call to specialized %s" % func
         if isinstance(key, SomeObject): 
             # direct computation
             return None, key
+        assert mono, "not-static call to specialized %s" % func
         if isinstance(key, tuple): 
             # cache specialization
             try:
@@ -47,7 +47,7 @@ def decide_callable(bookkeeper, position, func, args, mono=True, unpacked=False)
 
     return func, key
 
-def default_specialize(bookkeeper, spaceop, func, args, mono):
+def default_specialize(bookkeeper, dontcare, spaceop, func, args, mono):
     from pypy.interpreter.pycode import CO_VARARGS
     if isinstance(func, types.FunctionType) and func.func_code.co_flags & CO_VARARGS:
         # calls to *arg functions: create one version per number of args
@@ -121,8 +121,9 @@ def clone(callb, postfix):
 # ____________________________________________________________________________
 # specializations
 
-def memo(bookkeeper, spaceop, func, args, mono):
+def memo(bookkeeper, mod, spaceop, func, args, mono):
     """NOT_RPYTHON"""
+    assert mono, "not-static call to memoized %s" % func
     from pypy.annotation.model import unionof
     # call the function now, and collect possible results
     arglist_s, kwds_s = args.unpack()
@@ -171,7 +172,7 @@ def possible_arguments(args):
 #        l.append(name)
 #    return func, "__".join(l)
 
-def ctr_location(bookkeeper, spaceop, orig_cls, args, mono):
+def ctr_location(bookkeeper, mod, spaceop, orig_cls, args, mono):
     """NOT_RPYTHON"""
     from pypy.annotation.model import SomeInstance
     v = spaceop.result
@@ -185,14 +186,14 @@ def ctr_location(bookkeeper, spaceop, orig_cls, args, mono):
         return cls
 
 def argvalue(i):
-    def specialize_argvalue(bookkeeper, spaceop, func, args, mono):
+    def specialize_argvalue(bookkeeper, mod, spaceop, func, args, mono):
         """NOT_RPYTHON"""
         ignore, args_w = args.flatten()
         return func, args_w[i].const
     return specialize_argvalue
 
 def argtype(i):
-    def specialize_argtype(bookkeeper, spaceop, func, args, mono):
+    def specialize_argtype(bookkeeper, mod, spaceop, func, args, mono):
         """NOT_RPYTHON"""
         ignore, args_w = args.flatten()
         return func, args_w[i].knowntype

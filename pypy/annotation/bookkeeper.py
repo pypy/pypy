@@ -327,8 +327,8 @@ class Bookkeeper:
         else:
             implicit_init = None
 
-        pbc, dontcarememo = self.query_spaceop_callable(spaceop,
-                                                        implicit_init=implicit_init) 
+        pbc, dontcaresc = self.query_spaceop_callable(spaceop,
+                                                      implicit_init=implicit_init) 
 
         nonnullcallables = []
         for func, classdef in pbc.prebuiltinstances.items():
@@ -387,10 +387,10 @@ class Bookkeeper:
         return unionof(*results) 
 
     # decide_callable(position, func, args, mono) -> callb, key
-    # query_spaceop_callable(spaceop) -> pbc, memo
+    # query_spaceop_callable(spaceop) -> pbc, isspecialcase
     # get_s_init(decided_cls) -> classdef, s_undecided_init
 
-    def query_spaceop_callable(self, spaceop, implicit_init=None): # -> s_pbc, memo
+    def query_spaceop_callable(self, spaceop, implicit_init=None): # -> s_pbc, specialcase
         self.enter(None)
         try:
             if implicit_init is None:
@@ -408,10 +408,15 @@ class Bookkeeper:
             argsvars = spaceop.args[1:]
             args_s = [self.annotator.binding(v) for v in argsvars]
             args = self.build_args(spaceop.opname, args_s)
-            if init_classdef:
-                args = args.prepend(SomeInstance(init_classdef))
 
             func, classdef = s_obj.prebuiltinstances.items()[0]
+
+            if init_classdef:
+                args = args.prepend(SomeInstance(init_classdef))
+            elif isclassdef(classdef): 
+                s_self = SomeInstance(classdef)
+                args = args.prepend(s_self)
+            
             func, key = decide_callable(self, spaceop, func, args, mono=True)
 
             if key is None:
@@ -444,6 +449,21 @@ class Bookkeeper:
         else:
             return classdef, None
  
+    def get_inputcells(self, func, args):
+        # parse the arguments according to the function we are calling
+        signature = cpython_code_signature(func.func_code)
+        defs_s = []
+        if func.func_defaults:
+            for x in func.func_defaults:
+                defs_s.append(self.immutablevalue(x))
+        try:
+            inputcells = args.match_signature(signature, defs_s)
+        except ArgErr, e:
+            raise TypeError, "signature mismatch: %s" % e.getmsg(args, func.__name__)
+
+        return inputcells
+ 
+
     def pycall(self, func, args, mono):
         if func is None:   # consider None as a NULL function pointer
             return SomeImpossibleValue()
@@ -474,17 +494,7 @@ class Bookkeeper:
 
         assert isinstance(func, FunctionType), "[%s] expected function, got %r" % (self.whereami(), func)
 
-        # parse the arguments according to the function we are calling
-        signature = cpython_code_signature(func.func_code)
-        defs_s = []
-        if func.func_defaults:
-            for x in func.func_defaults:
-                defs_s.append(self.immutablevalue(x))
-        try:
-            inputcells = args.match_signature(signature, defs_s)
-        except ArgErr, e:
-            assert False, 'ABOUT TO IGNORE %r' % e     # we should take care that we don't end up here anymore
-            return SomeImpossibleValue()
+        inputcells = self.get_inputcells(func, args)
 
         r = self.annotator.recursivecall(func, self.position_key, inputcells)
 

@@ -7,38 +7,41 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     Possibly subclass and pass an instance to the annotator to control special casing during annotation
     """
 
-    def getspecialcase(pol, kind, obj):
-        if hasattr(obj, '_annspecialcase_'):
-            sc = obj._annspecialcase_.split(':')
-            assert len(sc) ==2, "_annspecialcase_ should have the form kind:tag"
-            if sc[0] == kind:
-                return sc[1]
-            assert sc[0] in ('override', 'specialize'), "_annspecialcase_ kinds are only 'override', 'specialize'"
-        return None
-
-    def override(pol, func, inputcells):
-        tag = pol.getspecialcase('override', func)
-        if tag is None:
-            return None
-        try:
-            override = getattr(pol, 'override__%s' % tag)
-        except AttributeError:
-            raise AttributeError, "%s override tag found in user program but not defined in annotation policy %s" % (tag, pol) 
-
-        return override(*inputcells)
-
     def specialize(pol, bookkeeper, spaceop, func, args, mono):
-        tag = pol.getspecialcase('specialize', func)
-        if tag is None:
-            return pol.default_specialize(bookkeeper, spaceop, func, args, mono)
+        if hasattr(func, '_annspecialcase_'):
+            directive = func._annspecialcase_
+            if directive.startswith('specialize:'):
+                directive = directive[len('specialize:'):]
+            tag_mod = directive.split(':', 1)
+            if len(tag_mod) == 1:
+                tag, = tag_mod
+                mod = None
+            else:
+                tag, mod = tag_mod
+        else:
+            return pol.default_specialize(bookkeeper, None, spaceop, func, args, mono)
         
         try:
             specialize = getattr(pol, 'specialize__%s' % tag)
         except AttributeError:
             raise AttributeError, "%s specialize tag found in user program but not defined in annotation policy %s" % (tag, pol) 
 
-        return specialize(bookkeeper, spaceop, func, args, mono)
-        
+        return specialize(bookkeeper, mod, spaceop, func, args, mono)
+
+    def specialize__override(pol, bookkeeper, mod, spaceop, func, args, mono):
+        from pypy.annotation.model import SomeObject
+        override_tag = mod
+
+        try:
+            override = getattr(pol, 'override__%s' % override_tag)
+        except AttributeError:
+            raise AttributeError, "'override:%s'  found in user program but not defined in annotation policy %s" % (override_tag, pol) 
+
+        inputcells = bookkeeper.get_inputcells(func, args)
+        r = override(*inputcells)
+
+        assert isinstance(r, SomeObject)
+        return r
         
     # common specializations
 

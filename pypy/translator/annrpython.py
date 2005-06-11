@@ -13,8 +13,6 @@ class AnnotatorError(Exception):
     pass
 
 class BasicAnnotatorPolicy:
-    def override(pol, func, inputcells):
-        return None
     
     def specialize(pol, bookkeeper, spaceop, func, args, mono):
         return None
@@ -251,9 +249,6 @@ class RPythonAnnotator:
     #___ interface for annotator.bookkeeper _______
 
     def recursivecall(self, func, position_key, inputcells):
-        overriden = self.policy.override(func, inputcells)
-        if overriden is not None:
-            return overriden
         parent_fn, parent_block, parent_index = position_key
         graph = self.getflowgraph(func, parent_fn, position_key)
         # self.notify[graph.returnblock] is a dictionary of call
