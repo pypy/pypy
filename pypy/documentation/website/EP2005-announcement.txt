@@ -1,0 +1,116 @@
+Post-EuroPython 2005 PyPy Sprint 1st - 7th July 2005 
+======================================================
+
+The next PyPy sprint is scheduled right after EuroPython 2005
+in Gothenborg, Sweden.  Its main focus is translation to 
+lower level backends but there are also other possible topics. 
+We'll give newcomer-friendly introductions.  To learn more
+about the new PyPy Python-in-Python implementation look here: 
+
+    http://codespeak.net/pypy 
+
+On a side note, there are a number of sub projects that may be
+interesting for participating in google's summer-of-code event
+(deadline June 14th!).  The PyPy group is willing to mentor
+projects that have some link with PyPy, so if you are accepted
+in such a project, the sprint could also serve as a good
+meeting and kick-off point.  Further down you'll find some
+examples, but there are certainly more and bigger ones :-)
+
+Goals and topics of the sprint 
+------------------------------
+
+The main, though not the only, focus of the sprint will be on
+the "translation" aspect of PyPy.   The goal here is to
+progress towards a completely translated PyPy.  How much will
+already have been done before EuroPython is unknown; as a
+guess, we will be left with:
+ 
+- completing the "rtyper", the piece of code that assigns low-level
+  C-like types to high-level RPython objects (lists, dicts, instances,
+  etc.) and low-level control flow graphs to high-level ones;
+   
+- polish off the GenC and GenLLVM back-ends, responsible for turning
+  the low-level C-like flow graphs into real C or LLVM source code.
+
+See http://codespeak.net/pipermail/pypy-dev/2005q2/002136.html for more
+information (10th of June status).
+ 
+Non-translation-related topics are welcome too.  Here are some suggestions
+from the issue tracker (https://codespeak.net/issue/pypy-dev/):
+   
+- integrate the parser module, possibly making it RPython
+  conformant;
+ 
+- rewrite in Python a C module you are familiar with
+  (partial list of missing/incomplete modules: os, math, array,
+  regular expressions, binascii...)
+
+- implement Python 2.3's import hook extensions (zip-imports etc.)
+
+- fix Windows-related issues, '%'-formatting rounding errors,
+  add missing docstrings on app-level built-in types and functions,
+  etc.
+
+- weakrefs (but this requires discussion and planning on pypy-dev
+  before the sprint! feel free to start such a discussion, though.)
+
+
+Location & Accomodation  
+------------------------ 
+
+The sprint will be held in the former Math Center building
+near the crossing of Gibraltargatan and Eklandagatan. Entrance
+is on the middle of the side facing Gibraltargatan. The doors
+to the building are normally locked, so you need the phone number
+of somebody inside to get in. Instructions on whom to call will be
+posted on the door.
+
+The sprint will be co-located with several other sprints. See the 
+`EuroPython Wiki`_, to find out what other sprints will be running.
+
+Nearest, and probably cheapest is to book accomodation at SGS Veckobostäder
+through the Europython website. This option will be available until about
+20 June.
+
+.. _`EuroPython special accomodation`: http://www.europython.org/sections/accomodation/special_accomodation
+.. _`EuroPython Wiki`: http://www.europython.org/sections/sprints_and_wiki
+
+Exact times 
+-----------
+
+The public Pypy sprint is held Friday 1st July - Thursday 7 July 2005.
+Hours will be from 09:00 until people have had enough. It's a good 
+idea to arrive a day before the sprint starts.   
+
+(There is a sprint for people who are familiar with the Pypy codebase
+before Europython as well. This will be held at Jacob & Laura's home
+on Götabergsgatan 22.)
+
+
+Network, Food, currency 
+------------------------ 
+
+Sweden is not part of the Euro zone. One SEK (krona in singular, kronor
+in plural) is roughly 1/10th of a Euro (9.15 SEK to 1 Euro).
+
+There are some pizzerias, kebab places and the like close to the venue.
+Their food is edible and cheap, but not very good. For good food, you need to
+go downtown.
+
+You need a wireless network card to access the network. You will be 
+issued a login to the Chalmers NOMAD network. This will allow you to 
+use access points all over Chalmers.  However, we can likely provide 
+a wireless/ethernet bridge.  
+
+Sweden uses the same kind of plugs as Germany. 230V AC.
+
+Registration etc.pp. 
+-------------------- 
+
+Please subscribe to the `PyPy sprint mailing list`_, introduce
+yourself and post a note that you want to come.  Feel free
+to ask any questions there! 
+
+.. _`PyPy sprint mailing list`: http://codespeak.net/mailman/listinfo/pypy-sprint
+
