@@ -62,4 +62,11 @@ def test_ll_calling_ll():
     a, vTs = tst.test_ll_calling_ll()
     a.translator.specialize()
     assert [vT.concretetype for vT in vTs] == [Void] * 4
+
+def test_ll_calling_ll2():
+    import test_llann
+    tst = test_llann.TestLowLevelAnnotateTestCase()
+    a, vTs = tst.test_ll_calling_ll2()
+    a.translator.specialize()
+    assert [vT.concretetype for vT in vTs] == [Void] * 3
     

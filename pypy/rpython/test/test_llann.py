@@ -151,4 +151,68 @@ class TestLowLevelAnnotateTestCase:
                 assert a.binding(rv) == annmodel.lltype_to_annotation(T.OF)
         return a, vTs
  
- 
+    def test_ll_calling_ll2(self):
+        A = GcArray(Float)
+        B = GcArray(Signed)
+        def ll_make(T, n):
+            x = malloc(T, n)
+            return x
+        def ll_get(x, i):
+            return x[i]
+        def makelen4(T):
+            return ll_make(T, 4)
+        def llf():
+            a = ll_make(A, 3)
+            b = ll_make(B, 2)
+            a[0] = 1.0
+            b[1] = 3
+            y0 = ll_get(a, 1)
+            y1 = ll_get(b, 1)
+            #
+            a2 = makelen4(A)
+            a2[0] = 2.0
+            return ll_get(a2, 1)
+        a = self.RPythonAnnotator()
+        s, llf2 = annotate_lowlevel_helper(a, llf, [])
+        assert llf2 is llf
+        assert s == annmodel.SomeFloat()
+        g = a.translator.getflowgraph(llf)
+        for_ = {}
+        def q(v):
+            s = a.binding(v)
+            if s.is_constant():
+                return s.const
+            else:
+                return s.ll_ptrtype
+                
+        for block in a.annotated:
+            for op in block.operations:
+                if op.opname == 'simple_call':
+                    if op.args[0].value.__name__.startswith("ll_"):
+                        for_[tuple([q(x) for x in op.args[0:2]])] = True
+                    elif op.args[0].value.__name__.startswith("makelen4"):
+                        for_[tuple([q(x) for x in op.args[0:2]])] = True
+        assert len(for_) == 5
+        vTs = []
+        for func, T in for_.keys():
+            g = a.translator.getflowgraph(func)
+            args = g.getargs()
+            rv = g.getreturnvar()
+            if isinstance(T, ContainerType):
+                if len(args) == 2:
+                    vT, vn = args
+                    vTs.append(vT)
+                    assert a.binding(vT) == annmodel.SomePBC({T: True})
+                    assert a.binding(vn).knowntype == int
+                    assert a.binding(rv).ll_ptrtype.TO == T
+                else:
+                    vT, = args
+                    vTs.append(vT)
+                    assert a.binding(vT) == annmodel.SomePBC({T: True})
+                    assert a.binding(rv).ll_ptrtype.TO == T
+            else:
+                vp, vi = args
+                assert a.binding(vi).knowntype == int
+                assert a.binding(vp).ll_ptrtype == T
+                assert a.binding(rv) == annmodel.lltype_to_annotation(T.TO.OF)
+        return a, vTs
