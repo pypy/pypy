@@ -15,7 +15,7 @@ class AnnotatorError(Exception):
 class BasicAnnotatorPolicy:
     
     def specialize(pol, bookkeeper, spaceop, func, args, mono):
-        return None
+        return None, None
 
     def compute_at_fixpoint(pol, annotator):
         annotator.bookkeeper.compute_at_fixpoint()

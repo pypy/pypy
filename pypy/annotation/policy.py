@@ -41,7 +41,7 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
         r = override(*inputcells)
 
         assert isinstance(r, SomeObject)
-        return r
+        return r, None
         
     # common specializations
 

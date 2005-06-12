@@ -365,36 +365,19 @@ class LowLevelOpList(list):
 
     def gendirectcall(self, ll_function, *args_v):
         rtyper = self.rtyper
-        spec_key = [ll_function]
-        spec_name = [ll_function.func_name]
         args_s = []
         for v in args_v:
             if v.concretetype == Void:
                 s_value = rtyper.binding(v)
                 if not s_value.is_constant():
                     raise TyperError("non-constant variable of type Void")
-                key = s_value.const       # specialize by constant value
                 args_s.append(s_value)
                 assert isinstance(s_value, annmodel.SomePBC)
-                suffix = 'Const'
             else:
-                key = v.concretetype      # specialize by low-level type
-                args_s.append(annmodel.lltype_to_annotation(key))
-                suffix = ''
-            spec_key.append(key)
-            spec_name.append(valid_identifier(getattr(key, '__name__', key))
-                             + suffix)
-        spec_key = tuple(spec_key)
-        try:
-            spec_function = self.rtyper.specialized_ll_functions[spec_key]
-        except KeyError:
-            name = '_'.join(spec_name)
-            spec_function = func_with_new_name(ll_function, name)
-            # flow and annotate (the copy of) the low-level function
-            self.rtyper.call_all_setups()  # compute ForwardReferences now
-            annotate_lowlevel_helper(rtyper.annotator, spec_function, args_s)
-            # cache the result
-            self.rtyper.specialized_ll_functions[spec_key] = spec_function
+                args_s.append(annmodel.lltype_to_annotation(v.concretetype))
+        
+        self.rtyper.call_all_setups()  # compute ForwardReferences now
+        dontcare, spec_function = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s)
 
         # build the 'direct_call' operation
         f = self.rtyper.getfunctionptr(spec_function)

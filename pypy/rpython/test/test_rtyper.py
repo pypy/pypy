@@ -55,3 +55,11 @@ def test_retval_None():
     graph = t.getflowgraph(f)
     assert graph.getreturnvar().concretetype == Void
     assert graph.startblock.exits[0].args[0].concretetype == Void
+
+def test_ll_calling_ll():
+    import test_llann
+    tst = test_llann.TestLowLevelAnnotateTestCase()
+    a, vTs = tst.test_ll_calling_ll()
+    a.translator.specialize()
+    assert [vT.concretetype for vT in vTs] == [Void] * 4
+    
