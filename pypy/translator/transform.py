@@ -29,9 +29,9 @@ def fully_annotated_blocks(self):
 # -->
 # d = alloc_and_set(b, a)
 
-def transform_allocate(self):
+def transform_allocate(self, block_subset):
     """Transforms [a] * b to alloc_and_set(b, a) where b is int."""
-    for block in fully_annotated_blocks(self):
+    for block in block_subset:
         operations = block.operations[:]
         n_op = len(operations)
         for i in range(0, n_op-1):
@@ -54,9 +54,9 @@ def transform_allocate(self):
 # -->
 # e = getslice(a, b, c)
 
-def transform_slice(self):
+def transform_slice(self, block_subset):
     """Transforms a[b:c] to getslice(a, b, c)."""
-    for block in fully_annotated_blocks(self):
+    for block in block_subset:
         operations = block.operations[:]
         n_op = len(operations)
         for i in range(0, n_op-1):
@@ -71,193 +71,18 @@ def transform_slice(self):
                                         op2.result)
                 block.operations[i+1:i+2] = [new_op]
 
-# a(*b)
-# -->
-# c = newtuple(*b)
-# d = newdict()
-# e = call(function a, c, d)
-# -->
-# e = simple_call(a, *b)
-
-# ----------------------------------------------------------------------
-# The 'call_args' operation is the strangest one.  The meaning of its
-# arguments is as follows:
-#
-#      call_args(<callable>, <shape>, <arg0>, <arg1>, <arg2>...)
-#
-# The shape must be a constant object, which describes how the remaining
-# arguments are regrouped.  The class pypy.interpreter.argument.Arguments
-# has a method 'fromshape(shape, list-of-args)' that reconstructs a complete
-# Arguments instance from this information.  Don't try to interpret the
-# shape anywhere else, but for reference, it is a 3-tuple:
-# (number-of-pos-arg, tuple-of-keyword-names, flag-presence-of-*-arg)
-# ----------------------------------------------------------------------
-
-## REMOVED: now FlowObjSpace produces 'call_args' operations only
-##def transform_simple_call(self):
-##    """Transforms call(a, (...), {}) to simple_call(a, ...)"""
-##    for block in self.annotated:
-##        known_vars = block.inputargs[:]
-##        operations = []
-##        for op in block.operations:
-##            try:
-##                if op.opname != 'call':
-##                    raise CannotSimplify
-##                varargs_cell = self.binding(op.args[1])
-##                varkwds_cell = self.binding(op.args[2])
-##                arg_cells = self.decode_simple_call(varargs_cell,
-##                                                    varkwds_cell)
-##                if arg_cells is None:
-##                    raise CannotSimplify
-
-##                args = [self.reverse_binding(known_vars, c) for c in arg_cells]
-##                args.insert(0, op.args[0])
-##                new_ops = [SpaceOperation('simple_call', args, op.result)]
-                
-##            except CannotSimplify:
-##                new_ops = [op]
-
-##            for op in new_ops:
-##                operations.append(op)
-##                known_vars.append(op.result)
-
-##        block.operations = operations
-
-def transform_dead_op_vars(self):
+def transform_dead_op_vars(self, block_subset):
     # we redo the same simplification from simplify.py,
     # to kill dead (never-followed) links,
     # which can possibly remove more variables.
     from pypy.translator.simplify import transform_dead_op_vars_in_blocks
-    transform_dead_op_vars_in_blocks(self.annotated)
+    transform_dead_op_vars_in_blocks(block_subset)
 
-# expands the += operation between lists into a basic block loop.
-#    a = inplace_add(b, c)
-# becomes the following graph:
-#
-#  clen = len(c)
-#  growlist(b, clen)     # ensure there is enough space for clen new items
-#        |
-#        |  (pass all variables to next block, plus i=0)
-#        V
-#  ,--> z = lt(i, clen)
-#  |    exitswitch(z):
-#  |     |          |        False
-#  |     | True     `------------------>  ...sequel...
-#  |     V
-#  |    x = getitem(c, i)
-#  |    fastappend(b, x)
-#  |    i1 = add(i, 1)
-#  |     |
-#  `-----'  (pass all variables, with i=i1)
-#
-##def transform_listextend(self):
-##    allblocks = list(self.annotated)
-##    for block in allblocks:
-##        for j in range(len(block.operations)):
-##            op = block.operations[j]
-##            if op.opname != 'inplace_add':
-##                continue
-##            a = op.result
-##            b, c = op.args
-##            s_list = self.bindings.get(b)
-##            if not isinstance(s_list, annmodel.SomeList):
-##                continue
-
-##            # new variables
-##            clen  = Variable()
-##            i     = Variable()
-##            i1    = Variable()
-##            z     = Variable()
-##            x     = Variable()
-##            dummy = Variable()
-##            self.setbinding(clen,  annmodel.SomeInteger(nonneg=True))
-##            self.setbinding(i,     annmodel.SomeInteger(nonneg=True))
-##            self.setbinding(i1,    annmodel.SomeInteger(nonneg=True))
-##            self.setbinding(z,     annmodel.SomeBool())
-##            self.setbinding(x,     s_list.s_item)
-##            self.setbinding(dummy, annmodel.SomeImpossibleValue())
-
-##            sequel_operations = block.operations[j+1:]
-##            sequel_exitswitch = block.exitswitch
-##            sequel_exits      = block.exits
-
-##            del block.operations[j:]
-##            block.operations += [
-##                SpaceOperation('len', [c], clen),
-##                SpaceOperation('growlist', [b, clen], dummy),
-##                ]
-##            block.exitswitch = None
-##            allvars = block.getvariables()
-
-##            condition_block = Block(allvars+[i])
-##            condition_block.operations += [
-##                SpaceOperation('lt', [i, clen], z),
-##                ]
-##            condition_block.exitswitch = z
-
-##            loopbody_block = Block(allvars+[i])
-##            loopbody_block.operations += [
-##                SpaceOperation('getitem', [c, i], x),
-##                SpaceOperation('fastappend', [b, x], dummy),
-##                SpaceOperation('add', [i, Constant(1)], i1),
-##                ]
-
-##            sequel_block = Block(allvars+[a])
-##            sequel_block.operations = sequel_operations
-##            sequel_block.exitswitch = sequel_exitswitch
-
-##            # link the blocks together
-##            block.recloseblock(
-##                Link(allvars+[Constant(0)], condition_block),
-##                )
-##            condition_block.closeblock(
-##                Link(allvars+[i],           loopbody_block,  exitcase=True),
-##                Link(allvars+[b],           sequel_block,    exitcase=False),
-##                )
-##            loopbody_block.closeblock(
-##                Link(allvars+[i1],          condition_block),
-##                )
-##            sequel_block.closeblock(*sequel_exits)
-
-##            # now rename the variables -- so far all blocks use the
-##            # same variables, which is forbidden
-##            renamevariables(self, condition_block)
-##            renamevariables(self, loopbody_block)
-##            renamevariables(self, sequel_block)
-
-##            allblocks.append(sequel_block)
-##            break
-
-##def renamevariables(self, block):
-##    """Utility to rename the variables in a block to fresh variables.
-##    The annotations are carried over from the old to the new vars."""
-##    varmap = {}
-##    block.inputargs = [varmap.setdefault(a, Variable())
-##                       for a in block.inputargs]
-##    operations = []
-##    for op in block.operations:
-##        result = varmap.setdefault(op.result, Variable())
-##        args = [varmap.get(a, a) for a in op.args]
-##        op = SpaceOperation(op.opname, args, result)
-##        operations.append(op)
-##    block.operations = operations
-##    block.exitswitch = varmap.get(block.exitswitch, block.exitswitch)
-##    exits = []
-##    for exit in block.exits:
-##        args = [varmap.get(a, a) for a in exit.args]
-##        exits.append(Link(args, exit.target, exit.exitcase))
-##    block.recloseblock(*exits)
-##    # carry over the annotations
-##    for a1, a2 in varmap.items():
-##        if a1 in self.bindings:
-##            self.setbinding(a2, self.bindings[a1])
-##    self.annotated[block] = True
-
-def transform_dead_code(self):
+def transform_dead_code(self, block_subset):
     """Remove dead code: these are the blocks that are not annotated at all
     because the annotation considered that no conditional jump could reach
     them."""
-    for block in fully_annotated_blocks(self):
+    for block in block_subset:
         for link in block.exits:
             if link not in self.links_followed:
                 lst = list(block.exits)
@@ -316,8 +141,8 @@ def cutoff_alwaysraising_block(self, block):
     # make sure the bookkeeper knows about AssertionError
     self.bookkeeper.getclassdef(AssertionError)
 
-def transform_specialization(self):
-    for block in fully_annotated_blocks(self):
+def transform_specialization(self, block_subset):
+    for block in block_subset:
         for op in block.operations:
             if op.opname in ('simple_call', 'call_args'):
                 callb = self.binding(op.args[0], extquery=True)
@@ -338,18 +163,20 @@ default_extra_passes = [
     transform_allocate,
     ]
 
-def transform_graph(ann, extra_passes=default_extra_passes):
+def transform_graph(ann, extra_passes=default_extra_passes, block_subset=None):
     """Apply set of transformations available."""
     # WARNING: this produces incorrect results if the graph has been
     #          modified by t.simplify() after it had been annotated.
     if ann.translator:
         ann.translator.checkgraphs()
-    transform_dead_code(ann)
+    if block_subset is None:
+        block_subset = list(fully_annotated_blocks(ann))
+        print block_subset
+    transform_dead_code(ann, block_subset)
     for pass_ in extra_passes:
-        pass_(ann)
-    ##transform_listextend(ann)
+        pass_(ann, block_subset)
     # do this last, after the previous transformations had a
     # chance to remove dependency on certain variables
-    transform_dead_op_vars(ann)
+    transform_dead_op_vars(ann, block_subset)
     if ann.translator:
         ann.translator.checkgraphs()

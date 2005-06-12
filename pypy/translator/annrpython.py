@@ -301,10 +301,10 @@ class RPythonAnnotator:
             else:
                 raise CannotSimplify
 
-    def simplify(self):
+    def simplify(self, block_subset=None):
         # Generic simplifications
         from pypy.translator import transform
-        transform.transform_graph(self)
+        transform.transform_graph(self, block_subset=block_subset)
         from pypy.translator import simplify 
         for graph in self.translator.flowgraphs.values(): 
             simplify.eliminate_empty_blocks(graph)
