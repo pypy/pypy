@@ -306,7 +306,15 @@ class RPythonAnnotator:
         from pypy.translator import transform
         transform.transform_graph(self, block_subset=block_subset)
         from pypy.translator import simplify 
-        for graph in self.translator.flowgraphs.values(): 
+        if block_subset is None:
+            graphs = self.translator.flowgraphs.values()
+        else:
+            graphs = {}
+            for block in block_subset:
+                fn = self.annotated.get(block)
+                if fn in self.translator.flowgraphs:
+                    graphs[self.translator.flowgraphs[fn]] = True
+        for graph in graphs:
             simplify.eliminate_empty_blocks(graph)
 
 
