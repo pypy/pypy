@@ -1,18 +1,18 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Ptr, _ptr
-from pypy.rpython.lltype import ContainerType, Void, Signed, Bool
+from pypy.rpython.lltype import ContainerType, Void, Signed, Bool, FuncType
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 
 
 class __extend__(annmodel.SomePtr):
     def rtyper_makerepr(self, rtyper):
-        if self.is_constant():   # constant NULL
+        if self.is_constant() and not self.const:   # constant NULL
             return nullptr_repr
         else:
             return PtrRepr(self.ll_ptrtype)
     def rtyper_makekey(self):
-        if self.is_constant():
+        if self.is_constant() and not self.const:
             return None
         else:
             return self.ll_ptrtype
@@ -50,6 +50,13 @@ class PtrRepr(Repr):
     def rtype_is_true(self, hop):
         vlist = hop.inputargs(self)
         return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
+
+    def rtype_simple_call(self, hop):
+        if not isinstance(self.lowleveltype.TO, FuncType):
+            raise TyperError("calling a non-function %r", self.lowleveltype.TO)
+        vlist = hop.inputargs(*hop.args_r)
+        return hop.genop('direct_call', vlist,
+                         resulttype = self.lowleveltype.TO.RESULT)
 
 
 class __extend__(pairtype(PtrRepr, IntegerRepr)):

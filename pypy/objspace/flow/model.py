@@ -75,7 +75,7 @@ class FunctionGraph(object):
 
 class Link(object):
 
-    __slots__ = """args target exitcase prevblock
+    __slots__ = """args target exitcase llexitcase prevblock
                 last_exception last_exc_value""".split()
 
     def __init__(self, args, target, exitcase=None):

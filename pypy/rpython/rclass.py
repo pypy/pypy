@@ -37,20 +37,36 @@ TYPEPTR = Ptr(OBJECT_VTABLE)
 OBJECT_VTABLE.become(Struct('object_vtable', ('parenttypeptr', TYPEPTR)))
 
 OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
-
+OBJECTPTR = Ptr(OBJECT)
 
 def getclassrepr(rtyper, classdef):
     try:
         result = rtyper.class_reprs[classdef]
     except KeyError:
-        result = rtyper.class_reprs[classdef] = ClassRepr(rtyper, classdef)
+        if classdef and classdef.cls is Exception:
+            # skip Exception as a base class and go directly to 'object'.
+            # the goal is to allow any class anywhere in the hierarchy
+            # to have Exception as a second base class.  It should be an
+            # empty class anyway.
+            if classdef.attrs:
+                raise TyperError("the Exception class should not "
+                                 "have any attribute attached to it")
+            result = getclassrepr(rtyper, None)
+        else:
+            result = ClassRepr(rtyper, classdef)
+        rtyper.class_reprs[classdef] = result
     return result
 
 def getinstancerepr(rtyper, classdef):
     try:
         result = rtyper.instance_reprs[classdef]
     except KeyError:
-        result = rtyper.instance_reprs[classdef] = InstanceRepr(rtyper,classdef)
+        if classdef and classdef.cls is Exception:
+            # see getclassrepr()
+            result = getinstancerepr(rtyper, None)
+        else:
+            result = InstanceRepr(rtyper,classdef)
+        rtyper.instance_reprs[classdef] = result
     return result
 
 class MissingRTypeAttribute(TyperError):
@@ -467,3 +483,25 @@ def rtype_new_instance(cls, hop):
     classdef = hop.rtyper.annotator.getuserclasses()[cls]
     rinstance = getinstancerepr(hop.rtyper, classdef)
     return rinstance.new_instance(hop.llops)
+
+# ____________________________________________________________
+#
+#  Low-level implementation of operations on classes and instances
+
+def ll_cast_to_object(obj):
+    # This strange recursive version is type-safe :-)
+    # Each ll_cast_to_object() call below is done with a different type.
+    if typeOf(obj) == OBJECTPTR:
+        return obj
+    else:
+        return ll_cast_to_object(obj.super)
+
+def ll_type(obj):
+    return ll_cast_to_object(obj).typeptr
+
+def ll_issubclass(subcls, cls):
+    while subcls != cls:
+        if not subcls:
+            return False
+        subcls = subcls.parenttypeptr
+    return True

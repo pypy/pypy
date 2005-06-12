@@ -6,6 +6,9 @@ from pypy.rpython.rtyper import RPythonTyper
 class MyException(Exception):
     pass
 
+class MyStrangeException:   # no (Exception) here
+    pass
+
 
 def test_simple():
     def g():
@@ -23,3 +26,27 @@ def test_simple():
     typer.specialize()
     #t.view()
     t.checkgraphs()
+
+
+def test_exception_data():
+    def f(n):
+        raise OverflowError()
+
+    t = Translator(f)
+    a = t.annotate([int])
+    t.specialize()
+    data = t.rtyper.getexceptiondata()
+    #t.view()
+    ovferr_inst = data.ll_pyexcclass2exc(pyobjectptr(OverflowError))
+    classdef = a.bookkeeper.getclassdef(OverflowError)
+    assert ovferr_inst.typeptr == t.rtyper.class_reprs[classdef].getvtable()
+
+    keyerr_inst = data.ll_pyexcclass2exc(pyobjectptr(KeyError))
+    classdef = a.bookkeeper.getclassdef(StandardError) # most precise class seen
+    assert keyerr_inst.typeptr == t.rtyper.class_reprs[classdef].getvtable()
+
+    myerr_inst = data.ll_pyexcclass2exc(pyobjectptr(MyException))
+    assert myerr_inst.typeptr == t.rtyper.class_reprs[None].getvtable()
+
+    strgerr_inst = data.ll_pyexcclass2exc(pyobjectptr(MyStrangeException))
+    assert strgerr_inst.typeptr == t.rtyper.class_reprs[None].getvtable()

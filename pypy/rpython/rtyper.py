@@ -2,7 +2,7 @@ import sys
 from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation
+from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.rpython.lltype import Signed, Unsigned, Float, Char, Bool, Void
 from pypy.rpython.lltype import LowLevelType, Ptr, ContainerType
 from pypy.rpython.lltype import FuncType, functionptr, typeOf
@@ -11,6 +11,7 @@ from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython.rmodel import Repr, inputconst, TyperError, getfunctionptr
 from pypy.rpython.normalizecalls import perform_normalizations
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
+from pypy.rpython.exceptiondata import ExceptionData
 
 
 debug = False
@@ -35,6 +36,9 @@ class RPythonTyper:
         for s_primitive, lltype in annmodel.annotation_to_ll_map:
             r = self.getrepr(s_primitive)
             self.primitive_to_repr[r.lowleveltype] = r
+
+    def getexceptiondata(self):
+        return self.exceptiondata    # built at the end of specialize()
 
     def getrepr(self, s_obj):
         # s_objs are not hashable... try hard to find a unique key anyway
@@ -69,17 +73,25 @@ class RPythonTyper:
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
         already_seen = {}
-        pending = self.annotator.annotated.keys()
-        while pending:
-            # specialize all blocks in the 'pending' list
-            for block in pending:
-                self.specialize_block(block)
-                already_seen[block] = True
-            # make sure all reprs so far have had their setup() called
-            self.call_all_setups()
-            # look for newly created blocks
-            pending = [block for block in self.annotator.annotated
-                             if block not in already_seen]
+
+        def specialize_more_blocks():
+            while True:
+                # look for blocks not specialized yet
+                pending = [block for block in self.annotator.annotated
+                                 if block not in already_seen]
+                if not pending:
+                    break
+                # specialize all blocks in the 'pending' list
+                for block in pending:
+                    self.specialize_block(block)
+                    already_seen[block] = True
+                # make sure all reprs so far have had their setup() called
+                self.call_all_setups()
+
+        specialize_more_blocks()
+        self.exceptiondata = ExceptionData(self)
+        specialize_more_blocks()
+
         if self.typererror:
             exc, value, tb = self.typererror
             self.typererror = None
@@ -128,6 +140,13 @@ class RPythonTyper:
         # insert the needed conversions on the links
         can_insert_here = block.exitswitch is None and len(block.exits) == 1
         for link in block.exits:
+            if block.exitswitch is not None and link.exitcase is not None:
+                if isinstance(block.exitswitch, Variable):
+                    r_case = self.bindingrepr(block.exitswitch)
+                else:
+                    assert block.exitswitch == Constant(last_exception)
+                    r_case = rclass.get_type_repr(self)
+                link.llexitcase = r_case.convert_const(link.exitcase)
             for a in [link.last_exception, link.last_exc_value]:
                 if isinstance(a, Variable):
                     self.setconcretetype(a)
@@ -282,8 +301,7 @@ class HighLevelOp:
         self.s_result = rtyper.binding(spaceop.result)
         self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
         self.r_result = rtyper.getrepr(self.s_result)
-        for r in self.args_r + [self.r_result]:
-            r.setup()
+        rtyper.call_all_setups()  # compute ForwardReferences now
 
     def inputarg(self, converted_to, arg):
         """Returns the arg'th input argument of the current operation,
@@ -402,5 +420,5 @@ from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rslice
 from pypy.rpython import rlist, rstr, rtuple
-from pypy.rpython import rbuiltin, rpbc
+from pypy.rpython import rclass, rbuiltin, rpbc
 from pypy.rpython import rptr
