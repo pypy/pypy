@@ -222,6 +222,9 @@ class ForwardReference(ContainerType):
         self.__class__ = realcontainertype.__class__
         self.__dict__ = realcontainertype.__dict__
 
+    def __hash__(self):
+        raise TypeError("%r object is not hashable" % self.__class__.__name__)
+
 class GcForwardReference(ForwardReference):
     def become(self, realcontainertype):
         if not isinstance(realcontainertype, GC_CONTAINER):
