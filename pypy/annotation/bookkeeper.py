@@ -15,6 +15,7 @@ from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_uint
 from pypy.tool.unionfind import UnionFind
+from pypy.rpython import lltype
 
 from pypy.annotation.specialize import decide_callable
 
@@ -193,6 +194,8 @@ class Bookkeeper:
                 self.immutable_cache[id(x)] = result
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x])
+        elif isinstance(x, lltype._ptr):
+            result = SomePtr(lltype.typeOf(x))
         elif callable(x) or isinstance(x, staticmethod): # XXX
             # maybe 'x' is a method bound to a not-yet-frozen cache?
             # fun fun fun.
