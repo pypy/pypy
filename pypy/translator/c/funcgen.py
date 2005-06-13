@@ -445,6 +445,13 @@ class FunctionCodeGenerator:
                                  cdecl(typename, ''),
                                  self.expr(op.args[0]))
 
+    def OP_CAST_POINTER(self, op, err):
+        TYPE = self.lltypemap[op.result]
+        typename = self.db.gettype(TYPE)
+        return '%s = (%s)%s;' % (self.expr(op.result),
+                                 cdecl(typename, ''),
+                                 self.expr(op.args[0]))    
+
     def OP_SAME_AS(self, op, err):
         result = []
         assert self.lltypemap[op.args[0]] == self.lltypemap[op.result]
