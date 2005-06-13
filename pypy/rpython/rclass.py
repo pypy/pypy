@@ -214,19 +214,15 @@ class ClassRepr(Repr):
             # then initialize the 'super' portion of the vtable
             self.rbase.setup_vtable(vtable.super, rsubcls)
 
-    def fromparentpart(self, v_vtableptr, llops):
-        """Return the vtable pointer cast from the parent vtable's type
-        to self's vtable type."""
-        return llops.genop('cast_parent', [v_vtableptr],
-                           resulttype=self.lowleveltype)
+    #def fromparentpart(self, v_vtableptr, llops):
+    #    """Return the vtable pointer cast from the parent vtable's type
+    #    to self's vtable type."""
 
     def fromtypeptr(self, vcls, llops):
         """Return the type pointer cast to self's vtable type."""
-        if self.classdef is None:
-            return vcls
-        else:
-            v_vtableptr = self.rbase.fromtypeptr(vcls, llops)
-            return self.fromparentpart(v_vtableptr, llops)
+        castable(self.lowleveltype, vcls.concretetype) # sanity check
+        return llops.genop('cast_pointer', [vcls],
+                           resulttype=self.lowleveltype)
 
     def getclsfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
@@ -360,11 +356,11 @@ class InstanceRepr(Repr):
                 setattr(targetptr, mangled_name, llattrvalue)
         return targetptr
 
-    def parentpart(self, vinst, llops):
-        """Return the pointer 'vinst' cast to the parent type."""
-        cname = inputconst(Void, 'super')
-        return llops.genop('getsubstruct', [vinst, cname],
-                           resulttype=self.rbase.lowleveltype)
+    #def parentpart(self, vinst, llops):
+    #    """Return the pointer 'vinst' cast to the parent type."""
+    #    cname = inputconst(Void, 'super')
+    #    return llops.genop('getsubstruct', [vinst, cname],
+    #                       resulttype=self.rbase.lowleveltype)
 
     def getfieldrepr(self, attr):
         """Return the repr used for the given attribute."""
@@ -376,29 +372,33 @@ class InstanceRepr(Repr):
                 raise MissingRTypeAttribute(attr)
             return self.rbase.getfieldrepr(attr)
 
-    def getfield(self, vinst, attr, llops):
+    def getfield(self, vinst, attr, llops, start_repr=None):
         """Read the given attribute (or __class__ for the type) of 'vinst'."""
+        if start_repr is None:
+            start_repr = self
         if attr in self.fields:
             mangled_name, r = self.fields[attr]
             cname = inputconst(Void, mangled_name)
+            vinst = llops.convertvar(vinst, start_repr, self)
             return llops.genop('getfield', [vinst, cname], resulttype=r)
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
-            vsuper = self.parentpart(vinst, llops)
-            return self.rbase.getfield(vsuper, attr, llops)
+            return self.rbase.getfield(vinst, attr, llops, start_repr=start_repr)
 
-    def setfield(self, vinst, attr, vvalue, llops):
+    def setfield(self, vinst, attr, vvalue, llops, start_repr=None):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
+        if start_repr is None:
+            start_repr = self        
         if attr in self.fields:
             mangled_name, r = self.fields[attr]
             cname = inputconst(Void, mangled_name)
+            vinst = llops.convertvar(vinst, start_repr, self)            
             llops.genop('setfield', [vinst, cname, vvalue])
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
-            vsuper = self.parentpart(vinst, llops)
-            self.rbase.setfield(vsuper, attr, vvalue, llops)
+            self.rbase.setfield(vinst, attr, vvalue, llops, start_repr=start_repr)
 
     def new_instance(self, llops):
         """Build a new instance, without calling __init__."""
@@ -453,26 +453,20 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
     def convert_from_to((r_ins1, r_ins2), v, llops):
         # which is a subclass of which?
         if r_ins1.classdef is None or r_ins2.classdef is None:
-            return NotImplemented
-        basedef = r_ins1.classdef.commonbase(r_ins2.classdef)
+            basedef = None
+        else:
+            basedef = r_ins1.classdef.commonbase(r_ins2.classdef)
         if basedef == r_ins2.classdef:
             # r_ins1 is an instance of the subclass: converting to parent
-            while r_ins1 != r_ins2:
-                v = r_ins1.parentpart(v, llops)
-                r_ins1 = r_ins1.rbase
+            v = llops.genop('cast_pointer', [v],
+                            resulttype = r_ins2.lowleveltype)
             return v
         elif basedef == r_ins1.classdef:
             # r_ins2 is an instance of the subclass: potentially unsafe
             # casting, but we do it anyway (e.g. the annotator produces
             # such casts after a successful isinstance() check)
-            cast_chain = []
-            while r_ins2 != r_ins1:
-                cast_chain.append(r_ins2)
-                r_ins2 = r_ins2.rbase
-            cast_chain.reverse()
-            for r in cast_chain:
-                v = llops.genop('cast_parent', [v],
-                                resulttype = r.lowleveltype)
+            v = llops.genop('cast_pointer', [v],
+                            resulttype = r_ins2.lowleveltype)
             return v
         else:
             return NotImplemented
