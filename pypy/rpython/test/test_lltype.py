@@ -132,35 +132,34 @@ def test_gc_substructure_ptr():
     assert typeOf(p1.sub1) == Ptr(S1)
     assert isweak(p1.sub2, S2)
 
-def test_cast_parent():
+def test_cast_simple_widening():
     S2 = Struct("s2", ('a', Signed))
     S1 = Struct("s1", ('sub1', S2), ('sub2', S2))
     p1 = malloc(S1, immortal=True)
     p2 = p1.sub1
     p3 = p2
     assert typeOf(p3) == Ptr(S2)
-    p4 = cast_parent(Ptr(S1), p3)
+    p4 = cast_pointer(Ptr(S1), p3)
     assert typeOf(p4) == Ptr(S1)
     assert p4 == p1
-    py.test.raises(TypeError, "cast_parent(Ptr(S1), p1.sub2)")
-    py.test.raises(TypeError, "cast_parent(Ptr(S2), p3)")
+    py.test.raises(TypeError, "cast_pointer(Ptr(S1), p1.sub2)")
     SUnrelated = Struct("unrelated")
-    py.test.raises(TypeError, "cast_parent(Ptr(SUnrelated), p3)")
+    py.test.raises(TypeError, "cast_pointer(Ptr(SUnrelated), p3)")
     S1bis = Struct("s1b", ('sub1', S2))
     p1b = malloc(S1bis, immortal=True)
     p2 = p1b.sub1
-    py.test.raises(TypeError, "cast_parent(Ptr(S1), p2)")
+    py.test.raises(TypeError, "cast_pointer(Ptr(S1), p2)")
 
-def test_cast_parent2():
+def test_cast_simple_widening2():
     S2 = GcStruct("s2", ('a', Signed))
     S1 = GcStruct("s1", ('sub1', S2))
     p1 = malloc(S1)
     p2 = p1.sub1
     assert typeOf(p2) == Ptr(S2)
-    p3 = cast_parent(Ptr(S1), p2)
+    p3 = cast_pointer(Ptr(S1), p2)
     assert p3 == p1
     p2 = malloc(S2)
-    py.test.raises(RuntimeError, "cast_parent(Ptr(S1), p2)")
+    py.test.raises(RuntimeError, "cast_pointer(Ptr(S1), p2)")
 
 def test_cast_pointer():
     S3 = GcStruct("s3", ('a', Signed))

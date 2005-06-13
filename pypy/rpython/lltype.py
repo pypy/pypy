@@ -320,33 +320,6 @@ def typeOf(val):
 class InvalidCast(TypeError):
     pass
 
-def cast_parent(PTRTYPE, ptr):
-    if not isinstance(ptr, _ptr) or not isinstance(PTRTYPE, Ptr):
-        raise TypeError, "can only cast pointers to other pointers"
-    CURTYPE = ptr._TYPE
-    if castable(PTRTYPE, CURTYPE) != -1: # xxx makes some of the rest superfluous
-        raise InvalidCast(CURTYPE, PTRTYPE)
-    if CURTYPE._needsgc() != PTRTYPE._needsgc():
-        raise TypeError("cast_parent() cannot change the gc status: %s to %s"
-                        % (CURTYPE, PTRTYPE))
-    # * converting from TO-structure to a parent TO-structure whose first
-    #     field is the original structure
-    if (not isinstance(CURTYPE.TO, Struct) or
-        not isinstance(PTRTYPE.TO, Struct) or
-        len(PTRTYPE.TO._names) == 0 or
-        PTRTYPE.TO._flds[PTRTYPE.TO._names[0]] != CURTYPE.TO):
-        raise InvalidCast(CURTYPE, PTRTYPE)
-    parent = ptr._obj._parentstructure()
-    if parent is None:
-        raise RuntimeError("widening to trash: %r" % ptr)
-    PARENTTYPE = ptr._obj._parent_type
-    if getattr(parent, PARENTTYPE._names[0]) is not ptr._obj:
-        raise InvalidCast(CURTYPE, PTRTYPE)
-    if PARENTTYPE != PTRTYPE.TO:
-        raise TypeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
-    return _ptr(PTRTYPE, parent)
-
-
 def _castdepth(OUTSIDE, INSIDE):
     if OUTSIDE == INSIDE:
         return 0
@@ -486,19 +459,19 @@ class _ptr(object):
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
 
-    def _setfirst(self, p):
-        if isinstance(self._T, Struct) and self._T._names:
-            if not isinstance(p, _ptr) or not isinstance(p._obj, _struct):
-                raise InvalidCast(typeOf(p), typeOf(self))
-            field_name = self._T._names[0]
-            T1 = self._T._flds[field_name]
-            T2 = typeOf(p._obj)
-            if T1 != T2:
-                raise InvalidCast(typeOf(p), typeOf(self))
-            setattr(self._obj, field_name, p._obj)
-            p._obj._setparentstructure(self._obj, 0)
-            return
-        raise TypeError("%r instance has no first field" % (self._T,))
+    #def _setfirst(self, p):
+    #    if isinstance(self._T, Struct) and self._T._names:
+    #        if not isinstance(p, _ptr) or not isinstance(p._obj, _struct):
+    #            raise InvalidCast(typeOf(p), typeOf(self))
+    #        field_name = self._T._names[0]
+    #        T1 = self._T._flds[field_name]
+    #        T2 = typeOf(p._obj)
+    #        if T1 != T2:
+    #            raise InvalidCast(typeOf(p), typeOf(self))
+    #        setattr(self._obj, field_name, p._obj)
+    #        p._obj._setparentstructure(self._obj, 0)
+    #        return
+    #    raise TypeError("%r instance has no first field" % (self._T,))
 
     def __setattr__(self, field_name, val):
         if isinstance(self._T, Struct):

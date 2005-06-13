@@ -450,8 +450,6 @@ class FunctionCodeGenerator:
             result.append(line)        
         return '\t'.join(result)
 
-    OP_CAST_PARENT = OP_CAST_POINTER
-
     def OP_SAME_AS(self, op, err):
         result = []
         assert self.lltypemap[op.args[0]] == self.lltypemap[op.result]

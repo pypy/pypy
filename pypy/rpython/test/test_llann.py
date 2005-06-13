@@ -68,28 +68,28 @@ class TestLowLevelAnnotateTestCase:
         s, dontcare = annotate_lowlevel_helper(a, llf, [])
         assert s.knowntype == int        
         
-    def test_cast_parent(self):
+    def test_cast_simple_widening(self):
         S2 = Struct("s2", ('a', Signed))
         S1 = Struct("s1", ('sub1', S2), ('sub2', S2))
         PS1 = Ptr(S1)
         PS2 = Ptr(S2)
         def llf(p1):
             p2 = p1.sub1
-            p3 = cast_parent(PS1, p2)
+            p3 = cast_pointer(PS1, p2)
             return p3
         a = self.RPythonAnnotator()
         s, dontcare = annotate_lowlevel_helper(a, llf, [annmodel.SomePtr(PS1)])
         assert isinstance(s, annmodel.SomePtr)
         assert s.ll_ptrtype == PS1
 
-    def test_cast_parent_from_gc(self):
+    def test_cast_simple_widening_from_gc(self):
         S2 = GcStruct("s2", ('a', Signed))
         S1 = GcStruct("s1", ('sub1', S2), ('x', Signed))
         PS1 = Ptr(S1)
         def llf():
             p1 = malloc(S1)
             p2 = p1.sub1
-            p3 = cast_parent(PS1, p2)
+            p3 = cast_pointer(PS1, p2)
             return p3
         a = self.RPythonAnnotator()
         s, dontcare = annotate_lowlevel_helper(a, llf, [])

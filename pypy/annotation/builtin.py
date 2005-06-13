@@ -299,15 +299,6 @@ def malloc(T, n=None):
     #print "MALLOC", r
     return r
 
-def cast_parent(PtrT, s_p):
-    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
-    assert PtrT.is_constant()
-    PtrT = PtrT.const
-    parent_p = PtrT._example()
-    candidate_p = s_p.ll_ptrtype._example()
-    parent_p._setfirst(candidate_p)
-    return SomePtr(ll_ptrtype=lltype.typeOf(lltype.cast_parent(PtrT, candidate_p)))
-
 def typeOf(s_val):
     lltype = annotation_to_lltype(s_val, info="in typeOf(): ")
     return immutablevalue(lltype)
@@ -327,7 +318,6 @@ def cast_pointer(PtrT, s_p):
 
 
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
-BUILTIN_ANALYZERS[lltype.cast_parent] = cast_parent
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr
 BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
