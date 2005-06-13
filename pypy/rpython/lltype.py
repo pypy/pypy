@@ -110,6 +110,14 @@ class Struct(ContainerType):
         self._flds = frozendict(flds)
         self._names = tuple(names)
 
+    def _first_struct(self):
+        if self._names:
+            first = self._names[0]
+            FIRSTTYPE = self._flds[first]
+            if isinstance(FIRSTTYPE, Struct) and self._gcstatus() == FIRSTTYPE._gcstatus():
+                return first, FIRSTTYPE
+        return None, None
+
     def _inline_is_varsize(self, last):
         if self._arrayfld:
             raise TypeError("cannot inline a var-sized struct "
@@ -316,6 +324,8 @@ def cast_parent(PTRTYPE, ptr):
     if not isinstance(ptr, _ptr) or not isinstance(PTRTYPE, Ptr):
         raise TypeError, "can only cast pointers to other pointers"
     CURTYPE = ptr._TYPE
+    if castable(PTRTYPE, CURTYPE) != -1: # xxx makes some of the rest superfluous
+        raise InvalidCast(CURTYPE, PTRTYPE)
     if CURTYPE._needsgc() != PTRTYPE._needsgc():
         raise TypeError("cast_parent() cannot change the gc status: %s to %s"
                         % (CURTYPE, PTRTYPE))
@@ -332,7 +342,68 @@ def cast_parent(PTRTYPE, ptr):
     PARENTTYPE = ptr._obj._parent_type
     if getattr(parent, PARENTTYPE._names[0]) is not ptr._obj:
         raise InvalidCast(CURTYPE, PTRTYPE)
+    if PARENTTYPE != PTRTYPE.TO:
+        raise TypeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
     return _ptr(PTRTYPE, parent)
+
+
+def _castdepth(OUTSIDE, INSIDE):
+    if OUTSIDE == INSIDE:
+        return 0
+    dwn = 0
+    while True:
+        first, FIRSTTYPE = OUTSIDE._first_struct()
+        if first is None:
+            return -1
+        dwn += 1
+        if FIRSTTYPE == INSIDE:
+            return dwn
+        OUTSIDE = getattr(OUTSIDE, first)
+ 
+def castable(PTRTYPE, CURTYPE):
+    if CURTYPE._needsgc() != PTRTYPE._needsgc():
+        raise TypeError("cast_pointer() cannot change the gc status: %s to %s"
+                        % (CURTYPE, PTRTYPE))
+    if (not isinstance(CURTYPE.TO, Struct) or
+        not isinstance(PTRTYPE.TO, Struct)):
+        raise InvalidCast(CURTYPE, PTRTYPE)
+    CURSTRUC = CURTYPE.TO
+    PTRSTRUC = PTRTYPE.TO
+    d = _castdepth(CURSTRUC, PTRSTRUC)
+    if d >= 0:
+        return d
+    u = _castdepth(PTRSTRUC, CURSTRUC)
+    if u == -1:
+        raise InvalidCast(CURTYPE, PTRTYPE)
+    return -u
+
+def cast_pointer(PTRTYPE, ptr):
+    if not isinstance(ptr, _ptr) or not isinstance(PTRTYPE, Ptr):
+        raise TypeError, "can only cast pointers to other pointers"
+    CURTYPE = ptr._TYPE
+    down_or_up = castable(PTRTYPE, CURTYPE)
+    if down_or_up == 0:
+        return ptr
+    elif down_or_up > 0:
+        p = ptr
+        while down_or_up:
+            p = getattr(p, typeOf(p).TO._names[0])
+            down_or_up -= 1
+        return _ptr(PTRTYPE, p._obj)
+    u = -down_or_up
+    struc = ptr._obj
+    while u:
+        parent = struc._parentstructure()
+        if parent is None:
+            raise RuntimeError("widening to trash: %r" % ptr)
+        PARENTTYPE = struc._parent_type
+        if getattr(parent, PARENTTYPE._names[0]) is not struc:
+            raise InvalidCast(CURTYPE, PTRTYPE) # xxx different exception perhaps?
+        struc = parent
+        u -= 1
+    if PARENTTYPE != PTRTYPE.TO:
+        raise TypeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
+    return _ptr(PTRTYPE, struc)
 
 def _expose(val):
     """XXX A nice docstring here"""
@@ -642,5 +713,5 @@ def nullptr(T):
 
 def pyobjectptr(obj):
     o = _pyobject(obj)
-    return _ptr(Ptr(PyObject), o) # xxx was non-gc
+    return _ptr(Ptr(PyObject), o) 
 

@@ -146,6 +146,10 @@ def test_cast_parent():
     py.test.raises(TypeError, "cast_parent(Ptr(S2), p3)")
     SUnrelated = Struct("unrelated")
     py.test.raises(TypeError, "cast_parent(Ptr(SUnrelated), p3)")
+    S1bis = Struct("s1b", ('sub1', S2))
+    p1b = malloc(S1bis, immortal=True)
+    p2 = p1b.sub1
+    py.test.raises(TypeError, "cast_parent(Ptr(S1), p2)")
 
 def test_cast_parent2():
     S2 = GcStruct("s2", ('a', Signed))
@@ -157,6 +161,46 @@ def test_cast_parent2():
     assert p3 == p1
     p2 = malloc(S2)
     py.test.raises(RuntimeError, "cast_parent(Ptr(S1), p2)")
+
+def test_cast_pointer():
+    S3 = GcStruct("s3", ('a', Signed))
+    S2 = GcStruct("s3", ('sub', S3))
+    S1 = GcStruct("s1", ('sub', S2))
+    p1 = malloc(S1)
+    p2 = p1.sub
+    p3 = p2.sub
+    assert typeOf(p3) == Ptr(S3)
+    assert typeOf(p2) == Ptr(S2)
+    p12 = cast_pointer(Ptr(S1), p2)
+    assert p12 == p1
+    p13 = cast_pointer(Ptr(S1), p3)
+    assert p13 == p1
+    p21 = cast_pointer(Ptr(S2), p1)
+    assert p21 == p2
+    p23 = cast_pointer(Ptr(S2), p3)
+    assert p23 == p2
+    p31 = cast_pointer(Ptr(S3), p1)
+    assert p31 == p3
+    p32 = cast_pointer(Ptr(S3), p2)
+    assert p32 == p3
+    p3 = malloc(S3)
+    p2 = malloc(S2)
+    py.test.raises(RuntimeError, "cast_pointer(Ptr(S1), p3)")
+    py.test.raises(RuntimeError, "cast_pointer(Ptr(S1), p2)")
+    py.test.raises(RuntimeError, "cast_pointer(Ptr(S2), p3)")
+    S0 = GcStruct("s0", ('sub', S1))
+    p0 = malloc(S0)
+    assert p0 == cast_pointer(Ptr(S0), p0)
+    p3 = cast_pointer(Ptr(S3), p0)
+    p03 = cast_pointer(Ptr(S0), p3)
+    assert p0 == p03
+    S1bis = GcStruct("s1b", ('sub', S2))
+    assert S1bis != S1
+    p1b = malloc(S1bis)
+    p3 = p1b.sub.sub
+    assert typeOf(p3) == Ptr(S3)
+    assert p1b == cast_pointer(Ptr(S1bis), p3)
+    py.test.raises(TypeError, "cast_pointer(Ptr(S1), p3)")
 
 def test_best_effort_gced_parent_detection():
     S2 = Struct("s2", ('a', Signed))
