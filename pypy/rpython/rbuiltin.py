@@ -127,9 +127,17 @@ def rtype_cast_parent(hop):
     return hop.genop('cast_parent', [v_input],    # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
+def rtype_cast_pointer(hop):
+    assert hop.args_s[0].is_constant()
+    assert isinstance(hop.args_r[1], rptr.PtrRepr)
+    v_type, v_input = hop.inputargs(Void, hop.args_r[1])
+    return hop.genop('cast_pointer', [v_input],    # v_type implicit in r_result
+                     resulttype = hop.r_result.lowleveltype)
+
 
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.cast_parent] = rtype_cast_parent
+BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
