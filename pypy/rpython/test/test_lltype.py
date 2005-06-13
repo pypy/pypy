@@ -285,6 +285,18 @@ def test_nullptr():
     S = Struct('s')
     p0 = nullptr(S)
     assert not p0
+    assert typeOf(p0) == Ptr(S)
+
+
+def test_nullptr_cast():
+    S = Struct('s')
+    p0 = nullptr(S)
+    assert not p0
+    S1 = Struct("s1", ('s', S))
+    p10 = cast_pointer(Ptr(S1), p0)
+    assert typeOf(p10) == Ptr(S1)
+    assert not p10
+    
 
 def test_hash():
     S = ForwardReference()

@@ -384,7 +384,9 @@ def cast_pointer(PTRTYPE, ptr):
     down_or_up = castable(PTRTYPE, CURTYPE)
     if down_or_up == 0:
         return ptr
-    elif down_or_up > 0:
+    if not ptr: # null pointer cast
+        return PTRTYPE._defl()
+    if down_or_up > 0:
         p = ptr
         while down_or_up:
             p = getattr(p, typeOf(p).TO._names[0])
@@ -709,7 +711,7 @@ def functionptr(TYPE, name, **attrs):
     return _ptr(Ptr(TYPE), o)
 
 def nullptr(T):
-    return _ptr(Ptr(T), None)
+    return Ptr(T)._defl()
 
 def pyobjectptr(obj):
     o = _pyobject(obj)
