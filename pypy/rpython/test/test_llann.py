@@ -2,6 +2,20 @@ from pypy.rpython.lltype import *
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 
+# helpers
+
+def annotated_calls(ann, ops=('simple_call,')):
+    for block in ann.annotated:
+        for op in block.operations:
+            if op.opname in ops:
+                yield op
+
+def derived(op, orig):
+    if op.args[0].value.__name__.startswith(orig):
+        return op.args[0].value
+    else:
+        return None
+
 class TestLowLevelAnnotateTestCase:
     objspacename = 'flow'
 
@@ -82,6 +96,38 @@ class TestLowLevelAnnotateTestCase:
         assert isinstance(s, annmodel.SomePtr)
         assert s.ll_ptrtype == PS1
 
+    def test_cast_pointer(self):
+        S3 = GcStruct("s3", ('a', Signed))
+        S2 = GcStruct("s3", ('sub', S3))
+        S1 = GcStruct("s1", ('sub', S2))
+        PS1 = Ptr(S1)
+        PS2 = Ptr(S2)
+        PS3 = Ptr(S3)
+        def llwitness(p12, p13, p21, p23, p31, p32):
+            pass
+        def llf():
+            p1 = malloc(S1)
+            p2 = p1.sub
+            p3 = p2.sub
+            p12 = cast_pointer(PS1, p2)
+            p13 = cast_pointer(PS1, p3)
+            p21 = cast_pointer(PS2, p1)
+            p23 = cast_pointer(PS2, p3)
+            p31 = cast_pointer(PS3, p1)
+            p32 = cast_pointer(PS3, p2)
+            llwitness(p12, p13, p21, p23, p31, p32)
+        a = self.RPythonAnnotator()
+        s, dontcare = annotate_lowlevel_helper(a, llf, [])
+        
+        spec_llwitness = None
+        for call in annotated_calls(a):
+            spec_llwitness = derived(call, 'llwitness')
+
+        g = a.translator.flowgraphs[spec_llwitness]
+        bindings = [a.binding(v) for v in g.getargs()]
+        assert [x.ll_ptrtype for x in bindings] == [PS1, PS1, PS2, PS2, PS3, PS3]
+            
+
     def test_array_length(self):
         A = GcArray(('v', Signed))
         def llf():
@@ -126,10 +172,9 @@ class TestLowLevelAnnotateTestCase:
         assert s == annmodel.SomeFloat()
         g = a.translator.getflowgraph(llf)
         for_ = {}
-        for block in a.annotated:
-            for op in block.operations:
-                if op.opname == 'simple_call' and op.args[0].value.__name__.startswith("ll_"):
-                    for_[tuple([x.value for x in op.args[0:2]])] = True
+        for call in annotated_calls(a):
+            if derived(call, "ll_"):
+                    for_[tuple([x.value for x in call.args[0:2]])] = True
         assert len(for_) == 4
         vTs = []
         for func, T in for_.keys():
@@ -184,14 +229,11 @@ class TestLowLevelAnnotateTestCase:
                 return s.const
             else:
                 return s.ll_ptrtype
+
+        for call in annotated_calls(a):
+            if derived(call, "ll_") or derived(call, "makelen4"):
+                for_[tuple([q(x) for x in call.args[0:2]])] = True
                 
-        for block in a.annotated:
-            for op in block.operations:
-                if op.opname == 'simple_call':
-                    if op.args[0].value.__name__.startswith("ll_"):
-                        for_[tuple([q(x) for x in op.args[0:2]])] = True
-                    elif op.args[0].value.__name__.startswith("makelen4"):
-                        for_[tuple([q(x) for x in op.args[0:2]])] = True
         assert len(for_) == 5
         vTs = []
         for func, T in for_.keys():

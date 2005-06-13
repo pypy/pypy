@@ -319,8 +319,16 @@ def nullptr(T):
     r.const = p
     return r
 
+def cast_pointer(PtrT, s_p):
+    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
+    assert PtrT.is_constant()
+    cast_p = lltype.cast_pointer(PtrT.const, s_p.ll_ptrtype._defl())
+    return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
+
+
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
 BUILTIN_ANALYZERS[lltype.cast_parent] = cast_parent
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr
+BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
 
