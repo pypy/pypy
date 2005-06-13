@@ -438,19 +438,19 @@ class FunctionCodeGenerator:
                   ]
         return '\t'.join(result)
 
-    def OP_CAST_PARENT(self, op, err):
-        TYPE = self.lltypemap[op.result]
-        typename = self.db.gettype(TYPE)
-        return '%s = (%s)%s;' % (self.expr(op.result),
-                                 cdecl(typename, ''),
-                                 self.expr(op.args[0]))
-
     def OP_CAST_POINTER(self, op, err):
         TYPE = self.lltypemap[op.result]
         typename = self.db.gettype(TYPE)
-        return '%s = (%s)%s;' % (self.expr(op.result),
-                                 cdecl(typename, ''),
-                                 self.expr(op.args[0]))    
+        result = []
+        result.append('%s = (%s)%s;' % (self.expr(op.result),
+                                        cdecl(typename, ''),
+                                        self.expr(op.args[0])))
+        line = self.cincref(op.result)
+        if line:
+            result.append(line)        
+        return '\t'.join(result)
+
+    OP_CAST_PARENT = OP_CAST_POINTER
 
     def OP_SAME_AS(self, op, err):
         result = []
