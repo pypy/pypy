@@ -211,8 +211,12 @@ def main(argv=[]):
 
 def setup_readline():
     import readline
-    import rlcompleter
-    readline.parse_and_bind("tab: complete")
+    try:
+        import rlcompleter2
+        rlcompleter2.setup()
+    except ImportError:
+        import rlcompleter
+        readline.parse_and_bind("tab: complete")
     import os
     histfile = os.path.join(os.environ["HOME"], ".pypytrhist")
     try:
