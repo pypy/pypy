@@ -160,11 +160,7 @@ def _rtype_template(hop, func, implicit_excs=[]):
     func1 = func
     for implicit_exc in implicit_excs:
         if hop.has_implicit_exception(implicit_exc):
-            for appendix, klass in op_appendices.items():
-                if klass is implicit_exc:
-                    break
-            else:
-                raise ValueError("can't find implicit exc %r" % (implicit_exc,))
+            appendix = op_appendices[implicit_exc]
             func += '_' + appendix
     if hop.s_result.unsigned:
         if func1.endswith('_ovf'):
