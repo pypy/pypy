@@ -44,3 +44,8 @@ def test_len():
 ##            total += x
 ##        return total
 ##    rtype(dummyfn)
+
+def test_return_tuple():
+    def dummyfn(x, y):
+        return (x<y, x>y)
+    rtype(dummyfn, [int, int]).view()

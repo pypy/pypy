@@ -61,7 +61,7 @@ class __extend__(pairtype(TupleRepr, IntegerRepr)):
 #  Irregular operations.
 
 def newtuple(llops, r_tuple, items_v):
-    c1 = inputconst(Void, r_tuple.lowleveltype)
+    c1 = inputconst(Void, r_tuple.lowleveltype.TO)
     v_result = llops.genop('malloc', [c1], resulttype = r_tuple.lowleveltype)
     for i in range(len(r_tuple.items_r)):
         cname = inputconst(Void, r_tuple.fieldnames[i])
