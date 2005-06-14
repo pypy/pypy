@@ -178,12 +178,19 @@ class RPythonTyper:
                     r_case = rclass.get_type_repr(self)
                 link.llexitcase = r_case.convert_const(link.exitcase)
 
-            for attr in ('last_exception', 'last_exc_value'):
-                a = getattr(link, attr)
-                if isinstance(a, Variable):
-                    self.setconcretetype(a)
-                elif isinstance(a, Constant):
-                    setattr(link, attr, self.typedconstant(a))
+            a = link.last_exception
+            if isinstance(a, Variable):
+                a.concretetype = self.exceptiondata.lltype_of_exception_type
+            elif isinstance(a, Constant):
+                link.last_exception = self.typedconstant(
+                    a, using_repr=self.exceptiondata.r_exception_type)
+
+            a = link.last_exc_value
+            if isinstance(a, Variable):
+                a.concretetype = self.exceptiondata.lltype_of_exception_value
+            elif isinstance(a, Constant):
+                link.last_exc_value = self.typedconstant(
+                    a, using_repr=self.exceptiondata.r_exception_value)
 
             inputargs_reprs = self.setup_block_entry(link.target)
             for i in range(len(link.args)):
