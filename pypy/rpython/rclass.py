@@ -408,21 +408,22 @@ class InstanceRepr(Repr):
         ctypeptr = inputconst(TYPEPTR, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)
         # initialize instance attributes from their defaults from the class
-        flds = self.allinstancefields.keys()
-        flds.sort()
-        mro = list(self.classdef.getmro())
-        for fldname in flds:
-            if fldname == '__class__':
-                continue
-            mangled_name, r = self.allinstancefields[fldname]
-            if r.lowleveltype == Void:
-                continue
-            for clsdef in mro:
-                if fldname in clsdef.cls.__dict__:
-                    value = clsdef.cls.__dict__[fldname]
-                    cvalue = inputconst(r, value)
-                    self.setfield(vptr, fldname, cvalue, llops)
-                    break
+        if self.classdef is not None:
+            flds = self.allinstancefields.keys()
+            flds.sort()
+            mro = list(self.classdef.getmro())
+            for fldname in flds:
+                if fldname == '__class__':
+                    continue
+                mangled_name, r = self.allinstancefields[fldname]
+                if r.lowleveltype == Void:
+                    continue
+                for clsdef in mro:
+                    if fldname in clsdef.cls.__dict__:
+                        value = clsdef.cls.__dict__[fldname]
+                        cvalue = inputconst(r, value)
+                        self.setfield(vptr, fldname, cvalue, llops)
+                        break
         return vptr
 
     def rtype_type(self, hop):
