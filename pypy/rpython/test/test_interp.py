@@ -14,21 +14,28 @@ def gengraph(func, argtypes=[]):
     t.checkgraphs()
     return t
     
-def test_int_adding(): 
-    t = gengraph(int_adding, [int])
+def test_int_ops(): 
+    t = gengraph(number_ops, [int])
     interp = LLInterpreter(t.flowgraphs)
-    res = interp.eval_function(int_adding, [3])
-    assert res == 6 
+    res = interp.eval_function(number_ops, [3])
+    assert res == 4 
+
+def test_float_ops(): 
+    t = gengraph(number_ops, [float])
+    interp = LLInterpreter(t.flowgraphs)
+    res = interp.eval_function(number_ops, [3.5])
+    assert res == 4.5 
+
 
 #__________________________________________________________________
 # example functions for testing the LLInterpreter 
 _snap = globals().copy()
 
-def int_adding(i): 
+def number_ops(i): 
     j = i + 2
-    return j + 1 
-
-
+    k = j * 2 
+    m = k / 2
+    return m - 1
 
 #__________________________________________________________________
 # interactive playing 
@@ -40,9 +47,9 @@ if __name__ == '__main__':
     except ImportError: 
         pass
 
-    t = gengraph(int_adding, [int])
+    t = gengraph(number_ops, [int])
     interp = LLInterpreter(t.flowgraphs)
-    res = interp.eval_function(int_adding, [3])
+    res = interp.eval_function(number_ops, [3])
     assert res == 6 
     for name, value in globals().items(): 
         if name not in _snap and name[0] != '_': 

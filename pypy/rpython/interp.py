@@ -71,7 +71,16 @@ class LLInterpreter(object):
         self.setvar(operation.result, retval)
 
 ##############################
-# int operations 
+# primitive operations 
+import operator
 
-def int_add(x, y): 
-    return x + y 
+for typ in (float, int): 
+    typname = typ.__name__
+    for opname in 'add', 'sub', 'mul', 'div': 
+        assert hasattr(operator, opname)
+        exec py.code.Source("""
+            def %(typname)s_%(opname)s(x,y): 
+                assert isinstance(x, %(typname)s)
+                assert isinstance(y, %(typname)s)
+                return operator.%(opname)s(x, y) 
+        """ % locals()).compile()
