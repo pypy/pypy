@@ -58,12 +58,12 @@ def test_func_as_pyobject():
     assert f1(5) == 10
     assert f1(x=5) == 10
     assert f1(-123) == -246
-    py.test.raises(TypeError, f1, "world")  # check that it's really typed
-    py.test.raises(TypeError, f1)
-    py.test.raises(TypeError, f1, 2, 3)
-    py.test.raises(TypeError, f1, 2, x=2)
-    #py.test.raises(TypeError, f1, 2, y=2)   XXX missing a check at the moment
     assert module.malloc_counters() == (0, 0)
+    py.test.raises(Exception, f1, "world")  # check that it's really typed
+    py.test.raises(Exception, f1)
+    py.test.raises(Exception, f1, 2, 3)
+    py.test.raises(Exception, f1, 2, x=2)
+    #py.test.raises(Exception, f1, 2, y=2)   XXX missing a check at the moment
 
 
 def test_rlist():

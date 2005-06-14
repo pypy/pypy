@@ -118,4 +118,5 @@ def gen_wrapper(func, translator):
                                  PyObjPtr],
                                 PyObjPtr),
                        wgraph.name,
-                       graph = wgraph)
+                       graph = wgraph,
+                       exception_policy = "CPython")

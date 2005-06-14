@@ -10,6 +10,7 @@
 #include "marshal.h"
 #include "eval.h"
 
+#include "g_exception.h"
 #include "g_trace.h"
 #include "g_support.h"
 #include "g_module.h"

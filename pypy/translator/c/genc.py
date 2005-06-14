@@ -43,6 +43,7 @@ def genc(translator, targetdir=None, modulename=None, compile=True):
 # ____________________________________________________________
 
 def gen_readable_parts_of_main_c_file(f, database):
+    lines = list(database.pre_include_code_lines())
     #
     # All declarations
     #
@@ -53,9 +54,6 @@ def gen_readable_parts_of_main_c_file(f, database):
     for node in database.structdeflist:
         for line in node.definition(phase=1):
             print >> f, line
-    for node in database.structdeflist:
-        for line in node.definition(phase=2):
-            print >> f, line
     print >> f
     print >> f, '/***********************************************************/'
     print >> f, '/***  Forward declarations                               ***/'
@@ -63,13 +61,23 @@ def gen_readable_parts_of_main_c_file(f, database):
     for node in database.globalcontainers():
         for line in node.forward_declaration():
             print >> f, line
+
     #
     # Implementation of functions and global structures and arrays
     #
     print >> f
     print >> f, '/***********************************************************/'
     print >> f, '/***  Implementations                                    ***/'
-    blank = True
+    print >> f
+    for line in lines:
+        print >> f, line
+    print >> f, '#include "g_include.h"'
+    print >> f
+    blank = False
+    for node in database.structdeflist:
+        for line in node.definition(phase=2):
+            print >> f, line
+        blank = True
     for node in database.globalcontainers():
         if blank:
             print >> f
@@ -90,7 +98,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={}):
     #
     for key, value in defines.items():
         print >> f, '#define %s %s' % (key, value)
-    print >> f, '#include "g_include.h"'
+    print >> f, '#include "Python.h"'
 
     #
     # 1) All declarations

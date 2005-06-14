@@ -11,12 +11,13 @@
 
 #define FAIL_EXCEPTION(err, exc, msg) \
 	{ \
-		PyErr_SetString(exc, msg); \
+		RaiseSimpleException(exc, msg); \
 		FAIL(err) \
 	}
-#define FAIL_OVF(err, msg) FAIL_EXCEPTION(err, PyExc_OverflowError, msg)
-#define FAIL_VAL(err, msg) FAIL_EXCEPTION(err, PyExc_ValueError, msg)
-#define FAIL_ZER(err, msg) FAIL_EXCEPTION(err, PyExc_ZeroDivisionError, msg)
+#define FAIL_OVF(err, msg) FAIL_EXCEPTION(err, Exc_OverflowError, msg)
+#define FAIL_VAL(err, msg) FAIL_EXCEPTION(err, Exc_ValueError, msg)
+#define FAIL_ZER(err, msg) FAIL_EXCEPTION(err, Exc_ZeroDivisionError, msg)
+#define CFAIL(err)         { ConvertExceptionFromCPython(); FAIL(err) }
 
 /* we need a subclass of 'builtin_function_or_method' which can be used
    as methods: builtin function objects that can be bound on instances */

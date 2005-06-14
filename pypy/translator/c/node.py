@@ -3,6 +3,7 @@ from pypy.rpython.lltype import Struct, Array, FuncType, PyObjectType, typeOf
 from pypy.rpython.lltype import GcStruct, GcArray, GC_CONTAINER, ContainerType
 from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void
 from pypy.translator.c.funcgen import FunctionCodeGenerator
+from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import cdecl, somelettersfrom
 from pypy.translator.c.primitive import PrimitiveType
 
@@ -318,8 +319,7 @@ class FuncNode(ContainerNode):
     globalcontainer = True
 
     def __init__(self, db, T, obj):
-        graph = obj.graph # only user-defined functions with graphs for now
-        self.funcgen = FunctionCodeGenerator(graph, db)
+        self.funcgen = select_function_code_generator(obj, db)
         self.db = db
         self.T = T
         self.obj = obj
@@ -380,39 +380,14 @@ class FuncNode(ContainerNode):
         yield '}'
 
 
-class CExternalFuncNode(ContainerNode):
-    globalcontainer = True
-
-    def __init__(self, db, T, obj):
-        self.db = db
-        self.T = T
-        self.obj = obj
-        #self.dependencies = {}
-        self.typename = db.gettype(T)  #, who_asks=self)
-        self.name = obj._name
-        self.ptrname = self.name
-
-    def enum_dependencies(self):
-        return []
-
-    def implementation(self):
-        return []
-
-    def forward_declaration(self):
-        return []
-
-    def implementation(self):
-        return []
-
-
-def funcnodemaker(db, T, obj):
-    if hasattr(obj, 'graph'):
-        cls = FuncNode
-    elif getattr(obj, 'external', None) == 'C':
-        cls = CExternalFuncNode
+def select_function_code_generator(fnptr, db):
+    if hasattr(fnptr, 'graph'):
+        cpython_exc = getattr(fnptr, 'exception_policy', None) == "CPython"
+        return FunctionCodeGenerator(fnptr.graph, db, cpython_exc)
+    elif getattr(fnptr, 'external', None) == 'C':
+        return CExternalFunctionCodeGenerator(fnptr, db)
     else:
-        raise ValueError, "don't know about %r" % (obj,)
-    return cls(db, T, obj)
+        raise ValueError, "don't know how to generate code for %r" % (fnptr,)
 
 
 class PyObjectNode(ContainerNode):
@@ -446,6 +421,6 @@ ContainerNodeClass = {
     GcStruct:     StructNode,
     Array:        ArrayNode,
     GcArray:      ArrayNode,
-    FuncType:     funcnodemaker,
+    FuncType:     FuncNode,
     PyObjectType: PyObjectNode,
     }

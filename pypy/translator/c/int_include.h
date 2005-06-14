@@ -4,11 +4,6 @@
 
 /*** unary operations ***/
 
-#define OP_INCREF_int(x)          /* nothing */
-#define OP_DECREF_int(x)          /* nothing */
-#define CONV_TO_OBJ_int           PyInt_FromLong
-#define CONV_FROM_OBJ_int         PyInt_AS_LONG
-
 #define OP_INT_IS_TRUE(x,r,err)   OP_INT_NE(x,0,r,err)
 
 #define OP_INT_INVERT(x,r,err)    r = ~((long)(x));

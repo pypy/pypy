@@ -2,7 +2,7 @@ from __future__ import generators
 from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant
 from pypy.objspace.flow.model import Variable, Constant, Block
-from pypy.objspace.flow.model import traverse, uniqueitems, last_exception
+from pypy.objspace.flow.model import traverse, last_exception
 from pypy.rpython.lltype import Ptr, PyObject, Void, Bool
 from pypy.rpython.lltype import pyobjectptr, Struct, Array
 from pypy.translator.unsimplify import remove_direct_loops
@@ -16,55 +16,72 @@ class FunctionCodeGenerator:
     from a flow graph.
     """
 
-    def __init__(self, graph, db):
+    def __init__(self, graph, db, cpython_exc=False):
         self.graph = graph
         remove_direct_loops(None, graph)
         self.db = db
-        self.lltypemap = self.collecttypes()
-        self.typemap = {}
-        for v, T in self.lltypemap.items():
-            self.typemap[v] = db.gettype(T)
-
-    def collecttypes(self):
+        self.cpython_exc = cpython_exc
+        #
         # collect all variables and constants used in the body,
         # and get their types now
-        result = []
+        #
+        # NOTE: cannot use dictionaries with Constants has keys, because
+        #       Constants may hash and compare equal but have different lltypes
+        mix = []
+        self.more_ll_values = {}
         def visit(block):
             if isinstance(block, Block):
-                result.extend(block.inputargs)
+                mix.extend(block.inputargs)
                 for op in block.operations:
-                    result.extend(op.args)
-                    result.append(op.result)
+                    mix.extend(op.args)
+                    mix.append(op.result)
                 for link in block.exits:
-                    result.extend(link.getextravars())
-                    result.extend(link.args)
-                    result.append(Constant(link.exitcase))
-        traverse(visit, self.graph)
-        resultvar = self.graph.getreturnvar()
-        lltypemap = {resultvar: Void}   # default value, normally overridden
-        for v in uniqueitems(result):
-            # xxx what kind of pointer for constants?
-            T = getattr(v, 'concretetype', PyObjPtr)           
-            lltypemap[v] = T
-        return lltypemap
+                    mix.extend(link.getextravars())
+                    mix.extend(link.args)
+                    mix.append(Constant(link.exitcase))
+                    if hasattr(link, 'llexitcase'):
+                        self.more_ll_values[link.llexitcase] = True
+        traverse(visit, graph)
+        resultvar = graph.getreturnvar()
+
+        self.lltypes = {
+            # default, normally overridden:
+            id(resultvar): (resultvar, Void, db.gettype(Void)),
+            }
+        for v in mix:
+            T = getattr(v, 'concretetype', PyObjPtr)
+            typename = db.gettype(T)
+            self.lltypes[id(v)] = v, T, typename
 
     def argnames(self):
         return [v.name for v in self.graph.getargs()]
 
     def allvariables(self):
-        return [v for v in self.typemap if isinstance(v, Variable)]
+        return [v for v, T, typename in self.lltypes.values()
+                  if isinstance(v, Variable)]
 
     def allconstants(self):
-        return [v for v in self.typemap if isinstance(v, Constant)]
+        return [c for c, T, typename in self.lltypes.values()
+                  if isinstance(c, Constant)]
 
     def allconstantvalues(self):
-        for v in self.typemap:
-            if isinstance(v, Constant):
-                yield llvalue_from_constant(v)
+        for c, T, typename in self.lltypes.values():
+            if isinstance(c, Constant):
+                yield llvalue_from_constant(c)
+        for llvalue in self.more_ll_values:
+            yield llvalue
+
+    def lltypemap(self, v):
+        v, T, typename = self.lltypes[id(v)]
+        return T
+
+    def lltypename(self, v):
+        v, T, typename = self.lltypes[id(v)]
+        return typename
 
     def expr(self, v):
         if isinstance(v, Variable):
-            if self.lltypemap[v] == Void:
+            if self.lltypemap(v) == Void:
                 return '/* nothing */'
             else:
                 return v.name
@@ -74,8 +91,12 @@ class FunctionCodeGenerator:
             raise TypeError, "expr(%r)" % (v,)
 
     def error_return_value(self):
-        returnlltype = self.lltypemap[self.graph.getreturnvar()]
-        return self.db.get(ErrorValue(returnlltype))
+        if self.cpython_exc:
+            assert self.lltypemap(self.graph.getreturnvar()) == PyObjPtr
+            return 'ConvertExceptionToCPython()'
+        else:
+            returnlltype = self.lltypemap(self.graph.getreturnvar())
+            return self.db.get(ErrorValue(returnlltype))
 
     # ____________________________________________________________
 
@@ -88,8 +109,8 @@ class FunctionCodeGenerator:
         result_by_name = []
         for v in self.allvariables():
             if v not in inputargset:
-                result = cdecl(self.typemap[v], v.name) + ';'
-                if self.lltypemap[v] == Void:
+                result = cdecl(self.lltypename(v), v.name) + ';'
+                if self.lltypemap(v) == Void:
                     result = '/*%s*/' % result
                 result_by_name.append((v._name, result))
         result_by_name.sort()
@@ -117,7 +138,7 @@ class FunctionCodeGenerator:
                 linklocalvars[v] = self.expr(v)
             has_ref = linklocalvars.copy()
             for a1, a2 in zip(link.args, link.target.inputargs):
-                if self.lltypemap[a2] == Void:
+                if self.lltypemap(a2) == Void:
                     continue
                 if a1 in linklocalvars:
                     src = linklocalvars[a1]
@@ -127,7 +148,7 @@ class FunctionCodeGenerator:
                 if a1 in has_ref:
                     del has_ref[a1]
                 else:
-                    assert self.lltypemap[a1] == self.lltypemap[a2]
+                    assert self.lltypemap(a1) == self.lltypemap(a2)
                     line += '\t' + self.cincref(a2)
                 yield line
             for v in has_ref:
@@ -169,7 +190,7 @@ class FunctionCodeGenerator:
                     # exceptional return block
                     exc_cls   = self.expr(block.inputargs[0])
                     exc_value = self.expr(block.inputargs[1])
-                    yield 'PyErr_Restore(%s, %s, NULL);' % (exc_cls, exc_value)
+                    yield 'RaiseException(%s, %s);' % (exc_cls, exc_value)
                     yield 'return %s;' % self.error_return_value()
                 else:
                     # regular return block
@@ -197,31 +218,40 @@ class FunctionCodeGenerator:
                 yield ''
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
-                    yield 'if (PyErr_ExceptionMatches(%s)) {' % (
-                        self.db.get(pyobjectptr(link.exitcase)),)
-                    yield '\tPyObject *exc_cls, *exc_value, *exc_tb;'
-                    yield '\tPyErr_Fetch(&exc_cls, &exc_value, &exc_tb);'
-                    yield '\tif (exc_value == NULL) {'
-                    yield '\t\texc_value = Py_None;'
-                    yield '\t\tPy_INCREF(Py_None);'
-                    yield '\t}'
-                    yield '\tPy_XDECREF(exc_tb);'
+                    try:
+                        etype = link.llexitcase
+                    except AttributeError:
+                        etype = pyobjectptr(link.exitcase)
+                        T1 = PyObjPtr
+                        T2 = PyObjPtr
+                    else:
+                        assert hasattr(link.last_exception, 'concretetype')
+                        assert hasattr(link.last_exc_value, 'concretetype')
+                        T1 = link.last_exception.concretetype
+                        T2 = link.last_exc_value.concretetype
+                    typ1 = self.db.gettype(T1)
+                    typ2 = self.db.gettype(T2)
+                    yield 'if (MatchException(%s)) {' % (self.db.get(etype),)
+                    yield '\t%s;' % cdecl(typ1, 'exc_cls')
+                    yield '\t%s;' % cdecl(typ2, 'exc_value')
+                    yield '\tFetchException(exc_cls, exc_value, %s);' % (
+                        cdecl(typ2, ''))
                     d = {}
                     if isinstance(link.last_exception, Variable):
                         d[link.last_exception] = 'exc_cls'
                     else:
-                        yield '\tPy_XDECREF(exc_cls);'
+                        yield '\t' + self.db.cdecrefstmt('exc_cls', T1)
                     if isinstance(link.last_exc_value, Variable):
                         d[link.last_exc_value] = 'exc_value'
                     else:
-                        yield '\tPy_XDECREF(exc_value);'
+                        yield '\t' + self.db.cdecrefstmt('exc_value', T2)
                     for op in gen_link(link, d):
                         yield '\t' + op
                     yield '}'
                 err_reachable = True
             else:
                 # block ending in a switch on a value
-                TYPE = self.lltypemap[block.exitswitch]
+                TYPE = self.lltypemap(block.exitswitch)
                 for link in block.exits[:-1]:
                     assert link.exitcase in (False, True)
                     expr = self.expr(block.exitswitch)
@@ -302,14 +332,14 @@ class FunctionCodeGenerator:
 
     def OP_DIRECT_CALL(self, op, err):
         # skip 'void' arguments
-        args = [self.expr(v) for v in op.args if self.lltypemap[v] != Void]
-        if self.lltypemap[op.result] == Void:
+        args = [self.expr(v) for v in op.args if self.lltypemap(v) != Void]
+        if self.lltypemap(op.result) == Void:
             # skip assignment of 'void' return value
-            return '%s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
+            return '%s(%s); if (ExceptionOccurred()) FAIL(%s)' % (
                 args[0], ', '.join(args[1:]), err)
         else:
             r = self.expr(op.result)
-            return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
+            return '%s = %s(%s); if (ExceptionOccurred()) FAIL(%s)' % (
                 r, args[0], ', '.join(args[1:]), err)
 
     # low-level operations
@@ -317,7 +347,7 @@ class FunctionCodeGenerator:
         newvalue = self.expr(op.result)
         result = ['%s = %s;' % (newvalue, sourceexpr)]
         # need to adjust the refcount of the result
-        T = self.lltypemap[op.result]
+        T = self.lltypemap(op.result)
         increfstmt = self.db.cincrefstmt(newvalue, T)
         if increfstmt:
             result.append(increfstmt)
@@ -330,14 +360,14 @@ class FunctionCodeGenerator:
         newvalue = self.expr(op.args[2])
         result = ['%s = %s;' % (targetexpr, newvalue)]
         # need to adjust some refcounts
-        T = self.lltypemap[op.args[2]]
+        T = self.lltypemap(op.args[2])
         decrefstmt = self.db.cdecrefstmt('prev', T)
         increfstmt = self.db.cincrefstmt(newvalue, T)
         if increfstmt:
             result.append(increfstmt)
         if decrefstmt:
             result.insert(0, '{ %s = %s;' % (
-                cdecl(self.typemap[op.args[2]], 'prev'),
+                cdecl(self.lltypename(op.args[2]), 'prev'),
                 targetexpr))
             result.append(decrefstmt)
             result.append('}')
@@ -348,7 +378,7 @@ class FunctionCodeGenerator:
 
     def OP_GETFIELD(self, op, err, ampersand=''):
         assert isinstance(op.args[1], Constant)
-        STRUCT = self.lltypemap[op.args[0]].TO
+        STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
         fieldname = structdef.c_struct_field_name(op.args[1].value)
         return self.generic_get(op, '%s%s->%s' % (ampersand,
@@ -357,7 +387,7 @@ class FunctionCodeGenerator:
 
     def OP_SETFIELD(self, op, err):
         assert isinstance(op.args[1], Constant)
-        STRUCT = self.lltypemap[op.args[0]].TO
+        STRUCT = self.lltypemap(op.args[0]).TO
         structdef = self.db.gettypedefnode(STRUCT)
         fieldname = structdef.c_struct_field_name(op.args[1].value)
         return self.generic_set(op, '%s->%s' % (self.expr(op.args[0]),
@@ -398,7 +428,7 @@ class FunctionCodeGenerator:
                                      self.expr(op.args[1]))
 
     def OP_MALLOC(self, op, err):
-        TYPE = self.lltypemap[op.result].TO
+        TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
         eresult = self.expr(op.result)
         result = ['OP_ZERO_MALLOC(sizeof(%s), %s, %s)' % (cdecl(typename, ''),
@@ -410,7 +440,7 @@ class FunctionCodeGenerator:
         return '\t'.join(result)
 
     def OP_MALLOC_VARSIZE(self, op, err):
-        TYPE = self.lltypemap[op.result].TO
+        TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
         lenfld = 'length'
         nodedef = self.db.gettypedefnode(TYPE)
@@ -439,7 +469,7 @@ class FunctionCodeGenerator:
         return '\t'.join(result)
 
     def OP_CAST_POINTER(self, op, err):
-        TYPE = self.lltypemap[op.result]
+        TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
         result = []
         result.append('%s = (%s)%s;' % (self.expr(op.result),
@@ -452,8 +482,8 @@ class FunctionCodeGenerator:
 
     def OP_SAME_AS(self, op, err):
         result = []
-        assert self.lltypemap[op.args[0]] == self.lltypemap[op.result]
-        if self.lltypemap[op.result] != Void:
+        assert self.lltypemap(op.args[0]) == self.lltypemap(op.result)
+        if self.lltypemap(op.result) != Void:
             result.append('%s = %s;' % (self.expr(op.result),
                                         self.expr(op.args[0])))
             line = self.cincref(op.result)
@@ -462,9 +492,9 @@ class FunctionCodeGenerator:
         return '\t'.join(result)
 
     def cincref(self, v):
-        T = self.lltypemap[v]
+        T = self.lltypemap(v)
         return self.db.cincrefstmt(v.name, T)
 
     def cdecref(self, v, expr=None):
-        T = self.lltypemap[v]
+        T = self.lltypemap(v)
         return self.db.cdecrefstmt(expr or v.name, T)

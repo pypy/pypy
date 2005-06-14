@@ -15,12 +15,17 @@
 	PyMODINIT_FUNC init##modname(void)
 #endif
 
-#define SETUP_MODULE(modname)					\
+#define SETUP_MODULE(modname)	\
 	PyObject *m = Py_InitModule(#modname, my_methods); \
 	PyModule_AddStringConstant(m, "__sourcefile__", __FILE__); \
 	this_module_globals = PyModule_GetDict(m); \
 	PyGenCFunction_Type.tp_base = &PyCFunction_Type;	\
 	PyType_Ready(&PyGenCFunction_Type);	\
+	RPythonError = PyErr_NewException(#modname ".RPythonError", \
+					  NULL, NULL); \
+	if (RPythonError == NULL) \
+		return; \
+	PyModule_AddObject(m, "RPythonError", RPythonError); \
 	if (setup_globalfunctions(globalfunctiondefs) < 0) \
 		return;	\
 	if (setup_initcode(frozen_initcode, FROZEN_INITCODE_SIZE) < 0) \

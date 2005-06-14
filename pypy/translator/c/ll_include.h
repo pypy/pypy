@@ -3,11 +3,11 @@
  /***  C header subsection: operations on LowLevelTypes    ***/
 
 
-#define OP_ZERO_MALLOC(size, r, err)  {                 \
-    r = (void*) PyObject_Malloc(size);                  \
-    if (r == NULL) { PyErr_NoMemory(); FAIL(err) }      \
-    memset((void*) r, 0, size);                         \
-    COUNT_MALLOC                                        \
+#define OP_ZERO_MALLOC(size, r, err)  {                                 \
+    r = (void*) PyObject_Malloc(size);                                  \
+    if (r == NULL) FAIL_EXCEPTION(err, Exc_MemoryError, "out of memory")\
+    memset((void*) r, 0, size);                                         \
+    COUNT_MALLOC                                                        \
   }
 
 #define OP_FREE(p)	{ PyObject_Free(p); COUNT_FREE }
