@@ -5,7 +5,7 @@ from pypy.translator.translator import Translator
 from pypy.translator.test import snippet 
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
 
-from pypy.translator.genc.test.test_annotated import TestAnnotatedTestCase as _TestAnnotatedTestCase
+from pypy.translator.c.test.test_annotated import TestAnnotatedTestCase as _TestAnnotatedTestCase
 
 
 class TestTypedTestCase(_TestAnnotatedTestCase):
