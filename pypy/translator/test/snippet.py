@@ -363,7 +363,7 @@ def raise_choose(n):
         raise Exception
     return 0
 
-def try_raise_choose(n):
+def try_raise_choose(n=int):
     try:
         raise_choose(n)
     except E1:

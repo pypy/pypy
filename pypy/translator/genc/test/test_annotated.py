@@ -123,6 +123,8 @@ class TestAnnotatedTestCase:
         assert abs(fn(7) + 0.8584) < 1E-5
 
     def test_do_try_raise_choose(self):
-        fn = self.getcompiled(snippet.do_try_raise_choose)
-        result = fn()
+        fn = self.getcompiled(snippet.try_raise_choose)
+        result = []
+        for n in [-1,0,1,2]:
+            result.append(fn(n))
         assert result == [-1,0,1,2]    
