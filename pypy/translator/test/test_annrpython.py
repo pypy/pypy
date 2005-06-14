@@ -1297,6 +1297,20 @@ class TestAnnotateTestCase:
         assert s.can_be_None
         assert s.classdef.cls is A
 
+    def test_attr_recursive_getvalue(self):
+        class A: pass
+        a2 = A()
+        a2.stuff = None
+        a1 = A()
+        a1.stuff = a2
+        def f():
+            return a1.stuff
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.can_be_None
+        assert s.classdef.cls is A
+
 
 def g(n):
     return [0,1,2,n]

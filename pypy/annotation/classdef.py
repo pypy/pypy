@@ -34,7 +34,10 @@ class Attribute:
             # warning: 'source' should not be removed from the dict before
             # immutablevalue() finished, because the latter can move attrdefs
             # around and this would gets this source lost
-            del self.sources[source]
+            try:
+                del self.sources[source]
+            except KeyError:
+                pass
             if classdef:
                 s_value = s_value.bindcallables(classdef)
             self.s_value = tracking_unionof(self, self.s_value, s_value)
