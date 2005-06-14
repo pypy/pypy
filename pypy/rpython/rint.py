@@ -74,9 +74,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
         return _rtype_template(hop, 'truediv', [ZeroDivisionError])
     rtype_inplace_truediv = rtype_truediv
 
-    def rtype_truediv_ovf(_, hop):
-        return _rtype_template(hop, 'truediv_ovf', [ZeroDivisionError])
-
     def rtype_mod(_, hop):
         return _rtype_template(hop, 'mod', [ZeroDivisionError])
     rtype_inplace_mod = rtype_mod

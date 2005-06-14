@@ -465,11 +465,12 @@ _add_exceptions("""add sub mul truediv floordiv div mod divmod pow
                    inplace_add inplace_sub inplace_mul inplace_truediv
                    inplace_floordiv inplace_div inplace_mod inplace_divmod
                    inplace_pow""", FloatingPointError)
-_add_except_ovf("""neg abs invert add sub mul truediv
-                   floordiv div mod divmod pow lshift
+_add_exceptions("""truediv divmod
                    inplace_add inplace_sub inplace_mul inplace_truediv
                    inplace_floordiv inplace_div inplace_mod inplace_pow
-                   inplace_lshift""")
+                   inplace_lshift""", OverflowError) # without a _ovf version
+_add_except_ovf("""neg abs add sub mul
+                   floordiv div mod pow lshift""")   # with a _ovf version
 del _add_exceptions, _add_except_ovf
 
 def extract_cell_content(c):

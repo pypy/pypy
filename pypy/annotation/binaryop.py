@@ -35,8 +35,7 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'coerce',
                          ]
                         +[opname+'_ovf' for opname in
-                          """add sub mul truediv
-                           floordiv div mod divmod pow lshift
+                          """add sub mul floordiv div mod pow lshift
                            """.split()
                           ])
 

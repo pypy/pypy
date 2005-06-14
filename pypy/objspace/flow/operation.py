@@ -5,6 +5,7 @@ built-in functions (or type constructors) implementing them.
 from pypy.interpreter.baseobjspace import ObjSpace
 import operator, types, __future__
 from pypy.tool.sourcetools import compile2
+from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift
 
 FunctionByName = {}   # dict {"operation_name": <built-in function>}
 OperationName  = {}   # dict {<built-in function>: "operation_name"}
@@ -100,6 +101,36 @@ def delete(x, y):
 def userdel(x):
     x.__del__()
 
+def neg_ovf(x):
+    return ovfcheck(-x)
+
+def abs_ovf(x):
+    return ovfcheck(abs(x))
+
+def add_ovf(x, y):
+    return ovfcheck(x + y)
+
+def sub_ovf(x, y):
+    return ovfcheck(x - y)
+
+def mul_ovf(x, y):
+    return ovfcheck(x * y)
+
+def floordiv_ovf(x, y):
+    return ovfcheck(operator.floordiv(x, y))
+
+def div_ovf(x, y):
+    return ovfcheck(operator.div(x, y))
+
+def mod_ovf(x, y):
+    return ovfcheck(x % y)
+
+def pow_ovf(*two_or_three_args):
+    return ovfcheck(pow(*two_or_three_args))
+
+def lshift_ovf(x, y):
+    return ovfcheck_lshift(x, y)
+
 # ____________________________________________________________
 
 # The following table can list several times the same operation name,
@@ -122,6 +153,8 @@ Table = [
     ('delattr',         delattr),
     ('nonzero',         bool),
     ('nonzero',         operator.truth),
+    ('is_true',         bool),
+    ('is_true',         operator.truth),
     ('abs' ,            abs),
     ('hex',             hex),
     ('oct',             oct),
@@ -152,6 +185,17 @@ Table = [
     ('set',             set),
     ('delete',          delete),
     ('userdel',         userdel),
+    # --- operations added by graph transformations ---
+    ('neg_ovf',         neg_ovf),
+    ('abs_ovf',         abs_ovf),
+    ('add_ovf',         add_ovf),
+    ('sub_ovf',         sub_ovf),
+    ('mul_ovf',         mul_ovf),
+    ('floordiv_ovf',    floordiv_ovf),
+    ('div_ovf',         div_ovf),
+    ('mod_ovf',         mod_ovf),
+    ('pow_ovf',         pow_ovf),
+    ('lshift_ovf',      lshift_ovf),
     ]
 
 def setup():
@@ -166,8 +210,8 @@ def setup():
     for name, func in Table:
         if name not in FunctionByName:
             FunctionByName[name] = func
-        assert func not in OperationName
-        OperationName[func] = name
+        if func not in OperationName:
+            OperationName[func] = name
     # check that the result is complete
     for line in ObjSpace.MethodTable:
         name = line[0]
