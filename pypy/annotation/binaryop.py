@@ -32,14 +32,12 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'inplace_lshift', 'inplace_rshift',
                          'inplace_and', 'inplace_or', 'inplace_xor',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_', 'cmp',
-                         'union', 'coerce',
+                         'coerce',
                          ]
                         +[opname+'_ovf' for opname in
                           """add sub mul truediv
                            floordiv div mod divmod pow lshift
-                           inplace_add inplace_sub inplace_mul inplace_truediv
-                           inplace_floordiv inplace_div inplace_mod inplace_pow
-                           inplace_lshift""".split()
+                           """.split()
                           ])
 
 for opname in BINARY_OPERATIONS:

@@ -1,5 +1,6 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
+from pypy.objspace.flow.objspace import op_appendices
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
@@ -40,7 +41,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def rtype_add_ovf(_, hop):
         return _rtype_template(hop, 'add_ovf')
-    rtype_inplace_add_ovf = rtype_add_ovf
 
     def rtype_sub(_, hop):
         return _rtype_template(hop, 'sub')
@@ -48,7 +48,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def rtype_sub_ovf(_, hop):
         return _rtype_template(hop, 'sub_ovf')
-    rtype_inplace_sub_ovf = rtype_sub_ovf
 
     def rtype_mul(_, hop):
         return _rtype_template(hop, 'mul')
@@ -56,7 +55,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def rtype_mul_ovf(_, hop):
         return _rtype_template(hop, 'mul_ovf')
-    rtype_inplace_mul_ovf = rtype_mul_ovf
 
     def rtype_div(_, hop):
         return _rtype_template(hop, 'div', [ZeroDivisionError])
@@ -64,7 +62,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def rtype_div_ovf(_, hop):
         return _rtype_template(hop, 'div_ovf', [ZeroDivisionError])
-    rtype_inplace_div_ovf = rtype_div_ovf
 
     def rtype_floordiv(_, hop):
         return _rtype_template(hop, 'floordiv', [ZeroDivisionError])
@@ -72,7 +69,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def rtype_floordiv_ovf(_, hop):
         return _rtype_template(hop, 'floordiv_ovf', [ZeroDivisionError])
-    rtype_inplace_floordiv_ovf = rtype_floordiv_ovf
 
     def rtype_truediv(_, hop):
         return _rtype_template(hop, 'truediv', [ZeroDivisionError])
@@ -80,7 +76,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def rtype_truediv_ovf(_, hop):
         return _rtype_template(hop, 'truediv_ovf', [ZeroDivisionError])
-    rtype_inplace_truediv_ovf = rtype_truediv_ovf
 
     def rtype_mod(_, hop):
         return _rtype_template(hop, 'mod', [ZeroDivisionError])
@@ -88,7 +83,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def rtype_mod_ovf(_, hop):
         return _rtype_template(hop, 'mod_ovf', [ZeroDivisionError])
-    rtype_inplace_mod_ovf = rtype_mod_ovf
 
     def rtype_xor(_, hop):
         return _rtype_template(hop, 'xor')
@@ -108,7 +102,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def rtype_lshift_ovf(_, hop):
         return _rtype_template(hop, 'lshift_ovf', [ValueError])
-    rtype_inplace_lshift_ovf = rtype_lshift_ovf
 
     def rtype_rshift(_, hop):
         return _rtype_template(hop, 'rshift', [ValueError])
@@ -139,9 +132,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     def rtype_inplace_pow(_, hop):
         return _rtype_template(hop, 'pow', [ZeroDivisionError])
 
-    def rtype_inplace_pow_ovf(_, hop):
-        return _rtype_template(hop, 'pow_ovf', [ZeroDivisionError])
-
     #comparisons: eq is_ ne lt le gt ge
 
     def rtype_eq(_, hop): 
@@ -170,7 +160,12 @@ def _rtype_template(hop, func, implicit_excs=[]):
     func1 = func
     for implicit_exc in implicit_excs:
         if hop.has_implicit_exception(implicit_exc):
-            func += '_' + implicit_exc.__name__[:3].lower()
+            for appendix, klass in op_appendices.items():
+                if klass is implicit_exc:
+                    break
+            else:
+                raise ValueError("can't find implicit exc %r" % (implicit_exc,))
+            func += '_' + appendix
     if hop.s_result.unsigned:
         if func1.endswith('_ovf'):
             raise TyperError("forbidden uint_" + func)

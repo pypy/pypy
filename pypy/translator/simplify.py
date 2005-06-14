@@ -52,7 +52,7 @@ def transform_ovfcheck(graph):
     Example:
 
     try:
-        ovfcheck(array1[idx-1] += array2[idx+1])
+        array1[idx-1] = ovfcheck(array1[idx-1] + array2[idx+1])
     except OverflowError:
         ...
 
