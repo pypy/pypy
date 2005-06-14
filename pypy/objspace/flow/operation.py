@@ -106,6 +106,8 @@ def userdel(x):
 # if multiple built-in functions correspond to it.  The first one should
 # be picked, though, as the best built-in for the given operation name.
 # Lines ('name', operator.name) are added automatically.
+
+# INTERNAL ONLY, use the dicts declared at the top of the file.
 Table = [
     ('id',              id),
     ('type',            new_style_type),
@@ -172,3 +174,4 @@ def setup():
         Arity[name] = line[2]
         assert name in FunctionByName
 setup()
+del Table   # INTERNAL ONLY, use the dicts declared at the top of the file
