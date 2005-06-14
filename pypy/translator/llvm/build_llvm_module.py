@@ -14,7 +14,7 @@ from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.translator.tool.buildpyxmodule import make_c_from_pyxfile
 from pypy.translator.tool import stdoutcapture
 
-debug = False
+debug = True
 
 class CompileError(exceptions.Exception):
     pass

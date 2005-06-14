@@ -62,6 +62,13 @@ def call_list_default_argument(i1):
 def return_none():
     pass
 
+def shiftleft(i, j):
+    return i << j
+
+def shiftright(i, j):
+    return i << j
+
+
 #float snippets
 
 def float_f1(x):

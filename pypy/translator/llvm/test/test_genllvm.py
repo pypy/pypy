@@ -1,5 +1,7 @@
 from __future__ import division
 import autopath
+import sys
+
 import py
 
 from pypy.translator.translator import Translator
@@ -96,6 +98,14 @@ class TestGenLLVM(object):
     def DONOTtest_return_none(self):
         f = compile_function(llvmsnippet.return_none, [])
         assert f() is None
+
+    def test_shift(self):
+        shl = compile_function(llvmsnippet.shiftleft, [int, int])
+        shr = compile_function(llvmsnippet.shiftright, [int, int])
+        for i in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
+            for j in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
+                assert shl(i, j) == i << j
+                assert shr(i, j) == i >> j
 
 class TestFloat(object):
     def setup_method(self, method):

@@ -85,8 +85,6 @@ class SignedTypeRepr(TypeRepr):
         "int_mod": "rem",
         "int_xor": "xor",
         "int_and": "and",
-        "int_lshift": "shl",
-        "int_rshift": "shr",
         "int_or": "or",
         "int_eq": "seteq",
         "int_ne": "setne",
@@ -105,15 +103,51 @@ class SignedTypeRepr(TypeRepr):
             assert len(args) == 2
             l_args = [self.gen.get_repr(arg) for arg in args]
             l_func.dependencies.update(l_args)
-            l_op = SignedTypeRepr.directly_supported_binary_ops[opname]
-            if l_op in ('shl', 'shr'):  #feel free to refactor this
-                lblock.shift_instruction(
-                    l_op, l_target,
-                    l_args[0], l_args[1])
-            else:
-                lblock.binary_instruction(
-                    l_op, l_target,
-                    l_args[0], l_args[1])
+            lblock.binary_instruction(
+                SignedTypeRepr.directly_supported_binary_ops[opname], l_target,
+                l_args[0], l_args[1])
+
+    def t_op_int_lshift(self, l_target, args, lblock, l_func):
+        # XXX hack: llvm only supports shifts by ubyte args
+        # so we have to jump through some loops
+        # someone on the LLVM list said this would change in the future
+        assert len(args) == 2
+        l_tmp1 = self.gen.get_local_tmp(None, l_func) #using only the name
+        l_tmp2 = self.gen.get_local_tmp(None, l_func)
+        l_tmp3 = self.gen.get_local_tmp(None, l_func)
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        l_func.dependencies.update(l_args)
+        lblock.instruction("%s = setge %s, %s" % (l_tmp1.llvmname(),
+                                                  l_args[1].typed_name(),
+                                                  8 * BYTES_IN_INT))
+        lblock.instruction("%s = cast int %s to ubyte" %
+                           (l_tmp2.llvmname(), l_args[1].llvmname()))
+        lblock.shift_instruction("shl", l_tmp3, l_args[0], l_tmp2)
+        lblock.instruction("%s = select bool %s, int 0, int %s" %
+                           (l_target.llvmname(), l_tmp1.llvmname(),
+                            l_tmp3.llvmname()))
+        lblock.phi_done = True
+
+    def t_op_int_rshift(self, l_target, args, lblock, l_func):
+        # XXX hack: llvm only supports shifts by ubyte args
+        # so we have to jump through some loops
+        # someone on the LLVM list said this would change in the future
+        assert len(args) == 2
+        l_tmp1 = self.gen.get_local_tmp(None, l_func) #using only the name
+        l_tmp2 = self.gen.get_local_tmp(None, l_func)
+        l_tmp3 = self.gen.get_local_tmp(None, l_func)
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        l_func.dependencies.update(l_args)
+        lblock.instruction("%s = setge %s, %s" % (l_tmp1.llvmname(),
+                                                  l_args[1].typed_name(),
+                                                  8 * BYTES_IN_INT))
+        lblock.instruction("%s = cast int %s to ubyte" % (l_tmp2.llvmname(),
+                                                      l_args[1].llvmname()))
+        lblock.shift_instruction("shr", l_tmp3, l_args[0], l_tmp2)
+        lblock.instruction("%s = select bool %s, int 0, int %s" %
+                           (l_target.llvmname(), l_tmp1.llvmname(),
+                            l_tmp3.llvmname()))
+        lblock.phi_done = True
 
     def t_op_int_pos(self, l_target, args, lblock, l_func):
         pass
@@ -133,8 +167,9 @@ class SignedTypeRepr(TypeRepr):
     def t_op_int_abs(self, l_target, args, lblock, l_func):
         l_arg = self.gen.get_repr(args[0])
         l_func.dependencies.add(l_arg)
-        lblock.instruction("%s = and int 2147483647, %s" % (l_target.llvmname(),
-                                                            l_arg.llvmname()))
+        lblock.instruction("%s = and int %s, %s" % (l_target.llvmname(),
+                                                    sys.maxint - 1,
+                                                    l_arg.llvmname()))
 
     def typename(self):
         return "int"

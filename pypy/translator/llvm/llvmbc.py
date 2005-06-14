@@ -97,8 +97,7 @@ class BasicBlock(object):
     #Shift instructions
     def shift_instruction(self, instr, l_target, l_a, l_b):
         self.phi_done = True
-        assert l_target.llvmtype() == l_a.llvmtype()
-        #assert l_b.llvmtype() == 'ubyte'   #or cast to ubyte or assuma nothing goes wrong
+        # XXX hack: just assume that l_b is of the appropriate type
         s = "%s = %s %s, ubyte %s" % (l_target.llvmname(), instr,
                                       l_a.typed_name(), l_b.llvmname())
         self.instructions.append(s)
