@@ -36,6 +36,7 @@ class RPythonTyper:
         for s_primitive, lltype in annmodel.annotation_to_ll_map:
             r = self.getrepr(s_primitive)
             self.primitive_to_repr[r.lowleveltype] = r
+        self.exceptiondata = ExceptionData(self)
 
     def getexceptiondata(self):
         return self.exceptiondata    # built at the end of specialize()
@@ -89,8 +90,8 @@ class RPythonTyper:
                 self.call_all_setups()
 
         specialize_more_blocks()
-        self.exceptiondata = ExceptionData(self)
-        specialize_more_blocks()
+        self.exceptiondata.make_helpers(self)
+        specialize_more_blocks()   # for the helpers just made
 
         if self.typererror:
             exc, value, tb = self.typererror
@@ -111,10 +112,39 @@ class RPythonTyper:
         assert isinstance(v, Variable)
         v.concretetype = self.bindingrepr(v).lowleveltype
 
+    def typedconstant(self, c, using_repr=None):
+        """Make a copy of the Constant 'c' and give it a concretetype."""
+        assert isinstance(c, Constant)
+        if using_repr is None:
+            using_repr = self.bindingrepr(c)
+        if not hasattr(c, 'concretetype'):
+            c = inputconst(using_repr, c.value)
+        else:
+            if c.concretetype != Void:
+                assert typeOf(c.value) == using_repr.lowleveltype
+        return c
+
+    def setup_block_entry(self, block):
+        if block.operations == () and len(block.inputargs) == 2:
+            # special case for exception blocks: force them to return an
+            # exception type and value in a standardized format
+            v1, v2 = block.inputargs
+            v1.concretetype = self.exceptiondata.lltype_of_exception_type
+            v2.concretetype = self.exceptiondata.lltype_of_exception_value
+            return [self.exceptiondata.r_exception_type,
+                    self.exceptiondata.r_exception_value]
+        else:
+            # normal path
+            result = []
+            for a in block.inputargs:
+                r = self.bindingrepr(a)
+                a.concretetype = r.lowleveltype
+                result.append(r)
+            return result
+
     def specialize_block(self, block):
         # give the best possible types to the input args
-        for a in block.inputargs:
-            self.setconcretetype(a)
+        self.setup_block_entry(block)
 
         # specialize all the operations, as far as possible
         if block.operations == ():   # return or except block
@@ -147,15 +177,20 @@ class RPythonTyper:
                     assert block.exitswitch == Constant(last_exception)
                     r_case = rclass.get_type_repr(self)
                 link.llexitcase = r_case.convert_const(link.exitcase)
-            for a in [link.last_exception, link.last_exc_value]:
+
+            for attr in ('last_exception', 'last_exc_value'):
+                a = getattr(link, attr)
                 if isinstance(a, Variable):
                     self.setconcretetype(a)
+                elif isinstance(a, Constant):
+                    setattr(link, attr, self.typedconstant(a))
+
+            inputargs_reprs = self.setup_block_entry(link.target)
             for i in range(len(link.args)):
                 a1 = link.args[i]
-                a2 = link.target.inputargs[i]
-                r_a2 = self.bindingrepr(a2)
+                r_a2 = inputargs_reprs[i]
                 if isinstance(a1, Constant):
-                    link.args[i] = inputconst(r_a2, a1.value)
+                    link.args[i] = self.typedconstant(a1, using_repr=r_a2)
                     continue   # the Constant was typed, done
                 r_a1 = self.bindingrepr(a1)
                 if r_a1 == r_a2:

@@ -14,10 +14,10 @@ static RPYTHON_EXCEPTION	rpython_exc_value = NULL;
 
 #define ExceptionOccurred()	(rpython_exc_type != NULL)
 
-#define RaiseException(etype, evalue)					\
-		assert(!ExceptionOccurred());				\
-		rpython_exc_type = (RPYTHON_EXCEPTION_VTABLE)(etype);	\
-		rpython_exc_value = (RPYTHON_EXCEPTION)(evalue)
+#define RaiseException(etype, evalue)		\
+		assert(!ExceptionOccurred());	\
+		rpython_exc_type = etype;	\
+		rpython_exc_value = evalue
 
 #define FetchException(etypevar, evaluevar, type_of_evaluevar)		\
 		etypevar = rpython_exc_type;				\
