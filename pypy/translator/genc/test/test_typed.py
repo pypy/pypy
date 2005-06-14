@@ -72,13 +72,11 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         raises(OverflowError, fn, sys_maxint())
 
     def test_int_div_ovf_zer(self): # 
-        py.test.skip("right now aborting python with Floating Point Error!")
         fn = self.getcompiled(snippet.div_func)
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)
 
     def test_int_mod_ovf_zer(self):
-        py.test.skip("right now aborting python with Floating Point Error!")        
         fn = self.getcompiled(snippet.mod_func)
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)
