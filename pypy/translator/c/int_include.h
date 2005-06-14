@@ -106,7 +106,7 @@
 #define OP_INT_FLOORDIV(x,y,r,err) r = op_divmod_adj(x, y, NULL);
 
 #define OP_INT_FLOORDIV_OVF(x,y,r,err) \
-	if ((long)(y) == -1 && (long)(x) < 0 && (long)(x) == -(long)(x)) \
+	if ((long)(y) == -1 && (long)(x) < 0 && ((unsigned long)(x) << 1) == 0) \
 		FAIL_OVF(err, "integer division") \
 	OP_INT_FLOORDIV(x,y,r,err)
 
@@ -123,7 +123,7 @@
 #define OP_INT_MOD(x,y,r,err)     op_divmod_adj(x, y, &r);
 
 #define OP_INT_MOD_OVF(x,y,r,err) \
-	if ((long)(y) == -1 && (long)(x) < 0 && (long)x == -(long)(x)) \
+	if ((long)(y) == -1 && (long)(x) < 0 && ((unsigned long)(x) << 1) == 0) \
 		FAIL_OVF(err, "integer modulo") \
 	OP_INT_MOD(x,y,r,err);
 

@@ -69,7 +69,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
 
     def test_int_overflow(self):
         fn = self.getcompiled(snippet.add_func)
-        raises(OverflowError, fn, sys_maxint())
+        raises(OverflowError, fn, sys.maxint)
 
     def test_int_div_ovf_zer(self): # 
         fn = self.getcompiled(snippet.div_func)
@@ -94,10 +94,5 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         fn = self.getcompiled(snippet.unary_func)
         for i in range(-3,3):
             assert fn(i) == (-(i), abs(i-1))
-        raises (OverflowError, fn, -sys_maxint()-1)
-        raises (OverflowError, fn, -sys_maxint())
-
-def sys_maxint():
-    if sys.maxint != 2147483647:
-        py.test.skip("genc ovf incomplete: int might differ from long")
-    return sys.maxint
+        raises (OverflowError, fn, -sys.maxint-1)
+        raises (OverflowError, fn, -sys.maxint)
