@@ -34,17 +34,17 @@ class LLInterpreter(object):
 
     def eval_function(self, func, args=()): 
         graph = self.flowgraphs[func]
-        # inputargs 
-        self.fillvars(graph.startblock, args) 
-        # run startblock 
         nextblock = graph.startblock
         while 1: 
-            nextblock, values = self.eval_block(nextblock) 
+            self.fillvars(nextblock, args) 
+            nextblock, args = self.eval_block(nextblock) 
             if nextblock is None: 
-                return values
-            self.fillvars(nextblock, values) 
+                return args 
 
     def eval_block(self, block): 
+        """ return (nextblock, values) tuple. If nextblock 
+            is None, values is the concrete return value. 
+        """
         for op in block.operations: 
             self.eval_operation(op) 
 
