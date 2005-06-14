@@ -203,6 +203,7 @@ class ClassDef:
                 break
         else:
             self._generalize_attr(attr, s_value)
+            assert attr in self.attrs
 
     def about_attribute(self, name):
         """This is the interface for the code generators to ask about
