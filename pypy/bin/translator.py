@@ -209,11 +209,28 @@ def main(argv=[]):
             print 'Backend', options.backend, 'compiled code returns (%s)' % backendReturn, '[use -t to perform a sanity check]'
 
 
+def setup_readline():
+    import readline
+    import rlcompleter
+    readline.parse_and_bind("tab: complete")
+    import os
+    histfile = os.path.join(os.environ["HOME"], ".pypytrhist")
+    try:
+        readline.read_history_file(histfile)
+    except IOError:
+        pass
+    import atexit
+    atexit.register(readline.write_history_file, histfile)
+
 
 if __name__ == '__main__':
     from pypy.translator.test import snippet as test
     from pypy.translator.llvm.test import llvmsnippet as test2
     from pypy.rpython.rtyper import RPythonTyper
+    try:
+        setup_readline()
+    except ImportError, err:
+        print "Disabling readline support (%s)" % err
     if (os.getcwd() not in sys.path and
         os.path.curdir not in sys.path):
         sys.path.insert(0, os.getcwd())
