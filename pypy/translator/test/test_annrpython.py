@@ -1264,6 +1264,39 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int]*8)
         assert s == annmodel.SomeTuple([annmodel.SomeInteger(nonneg=True)] * 8)
 
+    def test_attr_moving_into_parent(self):
+        class A: pass
+        class B(A): pass
+        a1 = A()
+        b1 = B()
+        b1.stuff = a1
+        a1.stuff = None
+        def f():
+            return b1.stuff
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.can_be_None
+        assert s.classdef.cls is A
+
+    def test_attr_moving_from_subclass_to_class_to_parent(self):
+        class A: pass
+        class B(A): pass
+        class C(B): pass
+        a1 = A()
+        a1.stuff = None
+        c1 = C()
+        c1.stuff = a1
+        def f():
+            b = B()
+            b.consider_me = c1
+            return b.stuff
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.can_be_None
+        assert s.classdef.cls is A
+
 
 def g(n):
     return [0,1,2,n]

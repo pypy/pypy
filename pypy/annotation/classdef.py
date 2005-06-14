@@ -28,9 +28,13 @@ class Attribute:
 
     def getvalue(self):
         while self.sources:
-            source, classdef = self.sources.popitem()
+            source, classdef = self.sources.iteritems().next()
             s_value = self.bookkeeper.immutablevalue(
                 source.__dict__[self.name])
+            # warning: 'source' should not be removed from the dict before
+            # immutablevalue() finished, because the latter can move attrdefs
+            # around and this would gets this source lost
+            del self.sources[source]
             if classdef:
                 s_value = s_value.bindcallables(classdef)
             self.s_value = tracking_unionof(self, self.s_value, s_value)
@@ -123,11 +127,13 @@ class ClassDef:
                 self.attr_mutated(homedef, attrdef)
 
     def locate_attribute(self, attr):
-        for cdef in self.getmro():
-            if attr in cdef.attrs:
-                return cdef
-        self.generalize_attr(attr)
-        return self
+        while True:
+            for cdef in self.getmro():
+                if attr in cdef.attrs:
+                    return cdef
+            self.generalize_attr(attr)
+            # the return value will likely be 'self' now, but not always -- see
+            # test_annrpython.test_attr_moving_from_subclass_to_class_to_parent
 
     def find_attribute(self, attr):
         return self.locate_attribute(attr).attrs[attr]
@@ -203,7 +209,6 @@ class ClassDef:
                 break
         else:
             self._generalize_attr(attr, s_value)
-            assert attr in self.attrs
 
     def about_attribute(self, name):
         """This is the interface for the code generators to ask about
