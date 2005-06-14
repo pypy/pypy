@@ -11,6 +11,7 @@ from pypy.rpython.rmodel import Repr, TyperError, inputconst
 #
 #      struct object_vtable {
 #          struct object_vtable* parenttypeptr;
+#          array { char } * name;
 #      }
 #
 #  Every other class X, with parent Y, has the structure:
@@ -34,7 +35,9 @@ from pypy.rpython.rmodel import Repr, TyperError, inputconst
 
 OBJECT_VTABLE = ForwardReference()
 TYPEPTR = Ptr(OBJECT_VTABLE)
-OBJECT_VTABLE.become(Struct('object_vtable', ('parenttypeptr', TYPEPTR)))
+OBJECT_VTABLE.become(Struct('object_vtable',
+                            ('parenttypeptr', TYPEPTR),
+                            ('name', Ptr(Array(Char)))))
 
 OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
 OBJECTPTR = Ptr(OBJECT)
@@ -195,8 +198,16 @@ class ClassRepr(Repr):
         """Initialize the 'self' portion of the 'vtable' belonging to the
         given subclass."""
         if self.classdef is None:
-            # initialize the 'parenttypeptr' field
+            # initialize the 'parenttypeptr' and 'name' fields
             vtable.parenttypeptr = rsubcls.rbase.getvtable()
+            if rsubcls.classdef is None:
+                name = 'object'
+            else:
+                name = rsubcls.classdef.cls.__name__
+            vtable.name = malloc(Array(Char), len(name)+1, immortal=True)
+            for i in range(len(name)):
+                vtable.name[i] = name[i]
+            vtable.name[len(name)] = '\x00'
         else:
             # setup class attributes: for each attribute name at the level
             # of 'self', look up its value in the subclass rsubcls

@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import PyObject, Ptr, Void, Bool, pyobjectptr
-from pypy.rpython.rmodel import Repr, TyperError
+from pypy.rpython.lltype import PyObject, Ptr, Void, Bool, pyobjectptr, nullptr
+from pypy.rpython.rmodel import Repr, TyperError, VoidRepr, inputconst
 from pypy.rpython import rclass
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -32,6 +32,14 @@ pyobj_repr.lowleveltype = Ptr(PyObject)
 constpyobj_repr = PyObjRepr()
 constpyobj_repr.lowleveltype = Void
 
+
+class __extend__(pairtype(VoidRepr, PyObjRepr)):
+    # conversion used to return a PyObject* when a function can really only
+    # raise an exception, in which case the return value is a VoidRepr
+    def convert_from_to(_, v, llops):
+        return inputconst(Ptr(PyObject), nullptr(PyObject))
+
+
 # ____________________________________________________________
 #
 #  All operations involving a PyObjRepr are "replaced" by themselves,
@@ -46,7 +54,7 @@ def make_operation(opname, cls=PyObjRepr):
 
     funcname = 'rtype_' + opname
     func = func_with_new_name(rtype_op, funcname)
-    assert funcname not in cls.__dict__  # can be in Repr; overriden then.
+    assert funcname not in cls.__dict__  # can be in Repr; overridden then.
     setattr(cls, funcname, func)
 
 

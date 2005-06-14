@@ -42,11 +42,23 @@ static void ConvertExceptionFromCPython(void)
 
 static PyObject *ConvertExceptionToCPython(void)
 {
+	/* XXX 1. uses officially bad fishing */
+	/* XXX 2. looks for exception classes by name, fragile */
+	char* clsname;
+	PyObject* pycls;
 	assert(ExceptionOccurred());
 	assert(!PyErr_Occurred());
+	clsname = rpython_exc_type->ov_name->items;
+	pycls = PyDict_GetItemString(PyEval_GetBuiltins(), clsname);
+	if (pycls != NULL && PyClass_Check(pycls) &&
+	    PyClass_IsSubclass(pycls, PyExc_Exception)) {
+		PyErr_SetNone(pycls);
+	}
+	else {
+		PyErr_SetString(RPythonError, clsname);
+	}
 	rpython_exc_type = NULL;    /* XXX leaks! */
 	rpython_exc_value = NULL;
-	PyErr_SetNone(RPythonError);
 	return NULL;
 }
 
