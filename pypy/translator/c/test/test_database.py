@@ -27,7 +27,7 @@ def dump_on_stdout(database):
 
 def test_primitive():
     db = LowLevelDatabase()
-    assert db.get(5) == '5'
+    assert db.get(5) == '5L'
     assert db.get(True) == '1'
 
 def test_struct():

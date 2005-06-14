@@ -1,3 +1,4 @@
+import sys
 from pypy.rpython.lltype import *
 
 # ____________________________________________________________
@@ -5,20 +6,22 @@ from pypy.rpython.lltype import *
 # Primitives
 
 def name_signed(value):
-    return '%d' % value
+    if value == -sys.maxint-1:   # blame C
+        return '(-%dL-1L)' % sys.maxint
+    else:
+        return '%dL' % value
 
 def name_unsigned(value):
     assert value >= 0
-    return '%d' % value
+    return '%dUL' % value
 
 def name_float(value):
     return repr(value)
 
 def name_char(value):
-    value = value
     assert type(value) is str and len(value) == 1
     if ' ' <= value < '\x7f':
-        return "'%s'" % (value.replace("'", r"\'"),)
+        return "'%s'" % (value.replace("'", r"\'").replace("\\", r"\\"),)
     else:
         return '%d' % ord(value)
 
