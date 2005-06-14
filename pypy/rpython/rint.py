@@ -54,17 +54,41 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
         return _rtype_template(hop, 'mul')
     rtype_inplace_mul = rtype_mul
 
+    def rtype_mul_ovf(_, hop):
+        return _rtype_template(hop, 'mul_ovf')
+    rtype_inplace_mul_ovf = rtype_mul_ovf
+
     def rtype_div(_, hop):
-        return _rtype_template(hop, 'div')
+        return _rtype_template(hop, 'div', [ZeroDivisionError])
     rtype_inplace_div = rtype_div
 
+    def rtype_div_ovf(_, hop):
+        return _rtype_template(hop, 'div_ovf', [ZeroDivisionError])
+    rtype_inplace_div_ovf = rtype_div_ovf
+
     def rtype_floordiv(_, hop):
-        return _rtype_template(hop, 'floordiv')
+        return _rtype_template(hop, 'floordiv', [ZeroDivisionError])
     rtype_inplace_floordiv = rtype_floordiv
 
+    def rtype_floordiv_ovf(_, hop):
+        return _rtype_template(hop, 'floordiv_ovf', [ZeroDivisionError])
+    rtype_inplace_floordiv_ovf = rtype_floordiv_ovf
+
+    def rtype_truediv(_, hop):
+        return _rtype_template(hop, 'truediv', [ZeroDivisionError])
+    rtype_inplace_truediv = rtype_truediv
+
+    def rtype_truediv_ovf(_, hop):
+        return _rtype_template(hop, 'truediv_ovf', [ZeroDivisionError])
+    rtype_inplace_truediv_ovf = rtype_truediv_ovf
+
     def rtype_mod(_, hop):
-        return _rtype_template(hop, 'mod')
+        return _rtype_template(hop, 'mod', [ZeroDivisionError])
     rtype_inplace_mod = rtype_mod
+
+    def rtype_mod_ovf(_, hop):
+        return _rtype_template(hop, 'mod_ovf', [ZeroDivisionError])
+    rtype_inplace_mod_ovf = rtype_mod_ovf
 
     def rtype_xor(_, hop):
         return _rtype_template(hop, 'xor')
@@ -79,38 +103,44 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     rtype_inplace_or = rtype_or_
 
     def rtype_lshift(_, hop):
-        return _rtype_template(hop, 'lshift')
+        return _rtype_template(hop, 'lshift', [ValueError])
     rtype_inplace_lshift = rtype_lshift
 
     def rtype_lshift_ovf(_, hop):
-        return _rtype_template(hop, 'lshift_ovf')
+        return _rtype_template(hop, 'lshift_ovf', [ValueError])
     rtype_inplace_lshift_ovf = rtype_lshift_ovf
 
     def rtype_rshift(_, hop):
-        return _rtype_template(hop, 'rshift')
+        return _rtype_template(hop, 'rshift', [ValueError])
     rtype_inplace_rshift = rtype_rshift
 
-    def rtype_rshift_ovf(_, hop):
-        return _rtype_template(hop, 'rshift_ovf')
-    rtype_inplace_rshift_ovf = rtype_rshift_ovf
-
-    def rtype_pow(_, hop):
+    def rtype_pow(_, hop, suffix=''):
+        if hop.has_implicit_exception(ZeroDivisionError):
+            suffix += '_zer'
         s_int3 = hop.args_s[2]
         if hop.s_result.unsigned:
             if s_int3.is_constant() and s_int3.const is None:
                 vlist = hop.inputargs(Unsigned, Unsigned, Void)[:2]
             else:
                 vlist = hop.inputargs(Unsigned, Unsigned, Unsigned)
-            return hop.genop('uint_pow', vlist, resulttype=Unsigned)
+            return hop.genop('uint_pow' + suffix, vlist, resulttype=Unsigned)
         else:
             if s_int3.is_constant() and s_int3.const is None:
                 vlist = hop.inputargs(Signed, Signed, Void)[:2]
             else:
                 vlist = hop.inputargs(Signed, Signed, Signed)
-            return hop.genop('int_pow', vlist, resulttype=Signed)
+            return hop.genop('int_pow' + suffix, vlist, resulttype=Signed)
+
+    def rtype_pow_ovf(_, hop):
+        if hop.s_result.unsigned:
+            raise TyperError("forbidden uint_pow_ovf")
+        return self.rtype_pow(_, hop, suffix='_ovf')
 
     def rtype_inplace_pow(_, hop):
-        return _rtype_template(hop, 'pow')
+        return _rtype_template(hop, 'pow', [ZeroDivisionError])
+
+    def rtype_inplace_pow_ovf(_, hop):
+        return _rtype_template(hop, 'pow_ovf', [ZeroDivisionError])
 
     #comparisons: eq is_ ne lt le gt ge
 
@@ -136,8 +166,14 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
 #Helper functions
 
-def _rtype_template(hop, func):
+def _rtype_template(hop, func, implicit_excs=[]):
+    func1 = func
+    for implicit_exc in implicit_excs:
+        if hop.has_implicit_exception(implicit_exc):
+            func += '_' + implicit_exc.__name__[:3].lower()
     if hop.s_result.unsigned:
+        if func1.endswith('_ovf'):
+            raise TyperError("forbidden uint_" + func)
         vlist = hop.inputargs(Unsigned, Unsigned)
         return hop.genop('uint_'+func, vlist, resulttype=Unsigned)
     else:
@@ -191,8 +227,7 @@ class __extend__(IntegerRepr):
 
     def rtype_abs_ovf(_, hop):
         if hop.s_result.unsigned:
-            vlist = hop.inputargs(Unsigned)
-            return vlist[0]
+            raise TyperError("forbidden uint_abs_ovf")
         else:
             vlist = hop.inputargs(Signed)
             return hop.genop('int_abs_ovf', vlist, resulttype=Signed)
@@ -212,6 +247,13 @@ class __extend__(IntegerRepr):
         else:
             vlist = hop.inputargs(Signed)
             return hop.genop('int_neg', vlist, resulttype=Signed)
+
+    def rtype_neg_ovf(_, hop):
+        if hop.s_result.unsigned:
+            raise TyperError("forbidden uint_neg_ovf")
+        else:
+            vlist = hop.inputargs(Signed)
+            return hop.genop('int_neg_ovf', vlist, resulttype=Signed)
 
     def rtype_pos(_, hop):
         if hop.s_result.unsigned:

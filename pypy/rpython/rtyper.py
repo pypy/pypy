@@ -1,3 +1,4 @@
+from __future__ import generators
 import sys
 from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
@@ -154,12 +155,11 @@ class RPythonTyper:
         for v in block.getvariables():
             varmapping[v] = v    # records existing Variables
 
-        for op in block.operations:
+        for hop in self.highlevelops(block, newops):
             try:
-                hop = HighLevelOp(self, op, newops)
                 self.translate_hl_to_ll(hop, varmapping)
             except TyperError, e:
-                self.gottypererror(e, block, op, newops)
+                self.gottypererror(e, block, hop.spaceop, newops)
                 return  # cannot continue this block: no op.result.concretetype
 
         block.operations[:] = newops
@@ -213,6 +213,18 @@ class RPythonTyper:
                 else:
                     block.operations.extend(newops)
                     link.args[i] = a1
+
+    def highlevelops(self, block, llops):
+        # enumerate the HighLevelOps in a block.
+        if block.operations:
+            for op in block.operations[:-1]:
+                yield HighLevelOp(self, op, [], llops)
+            # look for exception links for the last operation
+            if block.exitswitch == Constant(last_exception):
+                exclinks = block.exits[1:]
+            else:
+                exclinks = []
+            yield HighLevelOp(self, block.operations[-1], exclinks, llops)
 
     def translate_hl_to_ll(self, hop, varmapping):
         if debug:
@@ -327,7 +339,7 @@ def translate_op_%s(self, hop):
 class HighLevelOp:
     nb_popped = 0
 
-    def __init__(self, rtyper, spaceop, llops):
+    def __init__(self, rtyper, spaceop, exceptionlinks, llops):
         self.rtyper   = rtyper
         self.spaceop  = spaceop
         self.nb_args  = len(spaceop.args)
@@ -337,6 +349,7 @@ class HighLevelOp:
         self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
         self.r_result = rtyper.getrepr(self.s_result)
         rtyper.call_all_setups()  # compute ForwardReferences now
+        self.exceptionlinks = exceptionlinks
 
     def inputarg(self, converted_to, arg):
         """Returns the arg'th input argument of the current operation,
@@ -380,6 +393,12 @@ class HighLevelOp:
         self.nb_popped += 1
         self.nb_args -= 1
         return self.args_r.pop(0), self.args_s.pop(0)
+
+    def has_implicit_exception(self, exc_cls):
+        for link in self.exceptionlinks:
+            if issubclass(exc_cls, link.exitcase):
+                return True
+        return False
 
 # ____________________________________________________________
 
