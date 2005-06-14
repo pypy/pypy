@@ -483,15 +483,10 @@ def rtype_new_instance(cls, hop):
 #  Low-level implementation of operations on classes and instances
 
 def ll_cast_to_object(obj):
-    # This strange recursive version is type-safe :-)
-    # Each ll_cast_to_object() call below is done with a different type.
-    if typeOf(obj) == OBJECTPTR:
-        return obj
-    else:
-        return ll_cast_to_object(obj.super)
+    return cast_pointer(OBJECTPTR, obj)
 
 def ll_type(obj):
-    return ll_cast_to_object(obj).typeptr
+    return cast_pointer(OBJECTPTR, obj).typeptr
 
 def ll_issubclass(subcls, cls):
     while subcls != cls:

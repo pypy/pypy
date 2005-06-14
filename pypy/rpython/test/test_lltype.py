@@ -328,5 +328,13 @@ def test_array_with_non_container_elements():
     py.test.raises(TypeError, "a[0] = s")
     S = Struct('s', ('last', Array(S)))
     py.test.raises(TypeError, "Array(S)")
-    
-    
+
+def test_immortal_parent():
+    S1 = GcStruct('substruct', ('x', Signed))
+    S  = GcStruct('parentstruct', ('s1', S1))
+    p = malloc(S, immortal=True)
+    p1 = p.s1
+    p1.x = 5
+    del p
+    p = cast_pointer(Ptr(S), p1)
+    assert p.s1.x == 5

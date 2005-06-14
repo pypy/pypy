@@ -544,7 +544,9 @@ class _parentable(object):
         self._wrparent = weakref.ref(parent)
         self._parent_type = typeOf(parent)
         self._parent_index = parentindex
-        if parentindex == 0 and self._TYPE._gcstatus() == typeOf(parent)._gcstatus():
+        if (isinstance(self._parent_type, Struct)
+            and parentindex == self._parent_type._names[0]
+            and self._TYPE._gcstatus() == typeOf(parent)._gcstatus()):
             # keep strong reference to parent, we share the same allocation
             self._keepparent = parent 
 
