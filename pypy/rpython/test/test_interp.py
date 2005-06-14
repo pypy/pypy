@@ -13,6 +13,9 @@ def gengraph(func, argtypes=[]):
     #t.view()
     t.checkgraphs()
     return t
+
+#__________________________________________________________________
+# tests 
     
 def test_int_ops(): 
     t = gengraph(number_ops, [int])
@@ -26,7 +29,23 @@ def test_float_ops():
     res = interp.eval_function(number_ops, [3.5])
     assert res == 4.5 
 
+def interpret(func, values): 
+    t = gengraph(func, [type(x) for x in values])
+    interp = LLInterpreter(t.flowgraphs)
+    res = interp.eval_function(func, values) 
+    return res 
 
+def test_ifs(): 
+    res = interpret(simple_ifs, [0])
+    assert res == 43 
+    res = interpret(simple_ifs, [1])
+    assert res == 42 
+
+def test_while_simple(): 
+    res = interpret(while_simple, [3])
+    assert res == 6
+    
+    
 #__________________________________________________________________
 # example functions for testing the LLInterpreter 
 _snap = globals().copy()
@@ -36,6 +55,19 @@ def number_ops(i):
     k = j * 2 
     m = k / 2
     return m - 1
+
+def simple_ifs(i): 
+    if i: 
+        return 42 
+    else: 
+        return 43 
+
+def while_simple(i): 
+    sum = 0
+    while i > 0: 
+        sum += i
+        i -= 1
+    return sum 
 
 #__________________________________________________________________
 # interactive playing 

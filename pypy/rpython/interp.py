@@ -20,7 +20,6 @@ class LLInterpreter(object):
         
     def setvar(self, var, val): 
         # XXX assert that val "matches" lowlevel type 
-        assert var not in self.bindings 
         self.bindings[var] = val 
 
     def getval(self, varorconst): 
@@ -63,6 +62,7 @@ class LLInterpreter(object):
     def eval_operation(self, operation): 
         g = globals()
         opname = operation.opname
+        print "considering", operation
         assert opname in g, (
                 "cannot handle operation %r yet" %(opname,))
         ophandler = g[opname]
@@ -72,15 +72,29 @@ class LLInterpreter(object):
 
 ##############################
 # primitive operations 
-import operator
+from pypy.objspace.flow.operation import FunctionByName 
+opimpls = FunctionByName.copy()
+opimpls['is_true'] = bool 
+
+def same_as(x): 
+    return x
 
 for typ in (float, int): 
     typname = typ.__name__
-    for opname in 'add', 'sub', 'mul', 'div': 
-        assert hasattr(operator, opname)
+    for opname in 'add', 'sub', 'mul', 'div', 'gt', 'lt': 
+        assert opname in opimpls 
         exec py.code.Source("""
-            def %(typname)s_%(opname)s(x,y): 
+            def %(typname)s_%(opname)s(x, y): 
                 assert isinstance(x, %(typname)s)
                 assert isinstance(y, %(typname)s)
-                return operator.%(opname)s(x, y) 
+                func = opimpls[%(opname)r]
+                return func(x, y) 
+        """ % locals()).compile()
+    for opname in 'is_true',: 
+        assert opname in opimpls 
+        exec py.code.Source("""
+            def %(typname)s_%(opname)s(x): 
+                assert isinstance(x, %(typname)s)
+                func = opimpls[%(opname)r]
+                return func(x) 
         """ % locals()).compile()
