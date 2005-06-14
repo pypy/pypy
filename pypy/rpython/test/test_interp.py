@@ -14,26 +14,22 @@ def gengraph(func, argtypes=[]):
     t.checkgraphs()
     return t
 
-#__________________________________________________________________
-# tests 
-    
-def test_int_ops(): 
-    t = gengraph(number_ops, [int])
-    interp = LLInterpreter(t.flowgraphs)
-    res = interp.eval_function(number_ops, [3])
-    assert res == 4 
-
-def test_float_ops(): 
-    t = gengraph(number_ops, [float])
-    interp = LLInterpreter(t.flowgraphs)
-    res = interp.eval_function(number_ops, [3.5])
-    assert res == 4.5 
-
 def interpret(func, values): 
     t = gengraph(func, [type(x) for x in values])
     interp = LLInterpreter(t.flowgraphs)
     res = interp.eval_function(func, values) 
     return res 
+
+#__________________________________________________________________
+# tests 
+    
+def test_int_ops(): 
+    res = interpret(number_ops, [3])
+    assert res == 4 
+
+def test_float_ops(): 
+    res = interpret(number_ops, [3.5])
+    assert res == 4.5 
 
 def test_ifs(): 
     res = interpret(simple_ifs, [0])
@@ -44,7 +40,21 @@ def test_ifs():
 def test_while_simple(): 
     res = interpret(while_simple, [3])
     assert res == 6
-    
+
+def test_number_comparisons(): 
+    for t in float, int: 
+        val1 = t(3)
+        val2 = t(4)
+        gcres = interpret(comparisons, [val1, val2])
+        res = [getattr(gcres._obj0, x) for x in gcres._obj0._TYPE._names]
+        assert res == [True, True, False, True, False, False]
+
+def XXXtest_some_builtin(): 
+    def f(i, j): 
+        x = range(i) 
+        return x[j]
+    res = interpret(f, [10, 7])
+    assert res == 6
     
 #__________________________________________________________________
 # example functions for testing the LLInterpreter 
@@ -55,6 +65,17 @@ def number_ops(i):
     k = j * 2 
     m = k / 2
     return m - 1
+
+def comparisons(x, y): 
+    return (x < y, 
+            x <= y, 
+            x == y, 
+            x != y, 
+            #x is None,  
+            #x is not None, 
+            x >= y, 
+            x > y, 
+            )
 
 def simple_ifs(i): 
     if i: 

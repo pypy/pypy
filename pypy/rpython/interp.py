@@ -1,8 +1,11 @@
 from pypy.rpython.lltype import * 
+import py
 
 
 class LLInterpreter(object): 
     """ low level interpreter working with concrete values. """ 
+    log = py.log.Producer('llinterp') 
+
     def __init__(self, flowgraphs): 
         self.flowgraphs = flowgraphs 
         self.bindings = {}
@@ -29,6 +32,18 @@ class LLInterpreter(object):
             return self.bindings[varorconst]
 
     # _______________________________________________________
+    # other helpers 
+    def getoperationhandler(self, opname): 
+        try: 
+            return getattr(self, 'op_' + opname) 
+        except AttributeError: 
+            g = globals()
+            assert opname in g, (
+                    "cannot handle operation %r yet" %(opname,))
+            ophandler = g[opname]
+            return ophandler
+
+    # _______________________________________________________
     # evaling functions 
 
     def eval_function(self, func, args=()): 
@@ -50,8 +65,10 @@ class LLInterpreter(object):
         # determine nextblock and/or return value 
         if len(block.exits) == 0: 
             # return block 
-            resvar, = block.getvariables()
-            return None, self.getval(resvar) 
+            resultvar, = block.getvariables()
+            result = self.getval(resultvar) 
+            self.log.operation("returning", result) 
+            return None, result 
         elif len(block.exits) == 1: 
             index = 0 
         else: 
@@ -60,28 +77,33 @@ class LLInterpreter(object):
         return link.target, [self.getval(x) for x in link.args]
     
     def eval_operation(self, operation): 
-        g = globals()
-        opname = operation.opname
-        print "considering", operation
-        assert opname in g, (
-                "cannot handle operation %r yet" %(opname,))
-        ophandler = g[opname]
+        self.log.operation("considering", operation) 
+        ophandler = self.getoperationhandler(operation.opname) 
         vals = [self.getval(x) for x in operation.args]
         retval = ophandler(*vals) 
         self.setvar(operation.result, retval)
 
-##############################
+    # __________________________________________________________
+    # misc LL operation implementations 
+
+    def op_same_as(self, x): 
+        return x
+
+    def op_setfield(self, obj, fieldname, fieldvalue): 
+        # obj should be pointer 
+        setattr(obj, fieldname, fieldvalue) # is that right? 
+
+
+# __________________________________________________________
 # primitive operations 
 from pypy.objspace.flow.operation import FunctionByName 
 opimpls = FunctionByName.copy()
 opimpls['is_true'] = bool 
 
-def same_as(x): 
-    return x
-
 for typ in (float, int): 
     typname = typ.__name__
-    for opname in 'add', 'sub', 'mul', 'div', 'gt', 'lt': 
+    for opname in ('add', 'sub', 'mul', 'div', 'gt', 'lt', 
+                   'ge', 'ne', 'le', 'eq'): 
         assert opname in opimpls 
         exec py.code.Source("""
             def %(typname)s_%(opname)s(x, y): 
@@ -98,3 +120,4 @@ for typ in (float, int):
                 func = opimpls[%(opname)r]
                 return func(x) 
         """ % locals()).compile()
+

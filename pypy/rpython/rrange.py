@@ -33,8 +33,8 @@ class RangeRepr(Repr):
 class __extend__(pairtype(RangeRepr, IntegerRepr)):
 
     def rtype_getitem((r_rng, r_int), hop):
-        v_lst, v_index = hop.inputargs(r_lst, Signed)
-        cstep = hop.inputconst(Signed, self.step)
+        v_lst, v_index = hop.inputargs(r_rng, Signed)
+        cstep = hop.inputconst(Signed, r_rng.step)
         if hop.args_s[1].nonneg:
             llfn = ll_rangeitem_nonneg
         else:
