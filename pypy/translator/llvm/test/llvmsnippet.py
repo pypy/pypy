@@ -66,7 +66,7 @@ def shiftleft(i, j):
     return i << j
 
 def shiftright(i, j):
-    return i << j
+    return i >> j
 
 
 #float snippets
