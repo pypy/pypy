@@ -7,7 +7,12 @@ from pypy.rpython.lltype import *
 class ExceptionData:
     """Public information for the code generators to help with exceptions."""
 
+    # the exceptions that can be implicitely raised by some operations
+    standardexceptions = [TypeError, OverflowError, ValueError,
+                          ZeroDivisionError, MemoryError]
+
     def __init__(self, rtyper):
+        self.make_standard_exceptions(rtyper)
         # (NB. rclass identifies 'Exception' and 'object')
         r_type = rclass.getclassrepr(rtyper, None)
         r_instance = rclass.getinstancerepr(rtyper, None)
@@ -20,6 +25,13 @@ class ExceptionData:
         self.ll_exception_match  = self.make_exception_matcher(rtyper)
         self.ll_type_of_exc_inst = self.make_type_of_exc_inst(rtyper)
         self.ll_pyexcclass2exc   = self.make_pyexcclass2exc(rtyper)
+
+
+    def make_standard_exceptions(self, rtyper):
+        bk = rtyper.annotator.bookkeeper
+        for cls in self.standardexceptions:
+            classdef = bk.getclassdef(cls)
+            rclass.getclassrepr(rtyper, classdef).setup()
 
 
     def make_exception_matcher(self, rtyper):

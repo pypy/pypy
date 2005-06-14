@@ -178,8 +178,7 @@ class LowLevelDatabase:
             fnname = self.get(fnptr)
             yield '#define RPYTHON_PYEXCCLASS2EXC   %s' % (fnname,)
 
-            for pyexccls in [TypeError, OverflowError, ValueError,
-                             ZeroDivisionError, MemoryError]:
+            for pyexccls in exceptiondata.standardexceptions:
                 exc_llvalue = exceptiondata.ll_pyexcclass2exc(
                     pyobjectptr(pyexccls))
                 # strange naming here because the macro name must be
