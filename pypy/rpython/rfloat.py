@@ -3,6 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void
 from pypy.rpython.rmodel import Repr, TyperError, FloatRepr
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr
+from pypy.rpython.robject import PyObjRepr, pyobj_repr
 
 
 debug = False
@@ -130,4 +131,18 @@ class __extend__(pairtype(BoolRepr, FloatRepr)):
         if r_from.lowleveltype == Bool and r_to.lowleveltype == Float:
             if debug: print 'explicit cast_bool_to_float'
             return llops.genop('cast_bool_to_float', [v], resulttype=Float)
+        return NotImplemented
+
+class __extend__(pairtype(PyObjRepr, FloatRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_to.lowleveltype == Float:
+            return llops.gencapicall('PyFloat_AsDouble', [v],
+                                     resulttype=Float)
+        return NotImplemented
+
+class __extend__(pairtype(FloatRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Float:
+            return llops.gencapicall('PyFloat_FromDouble', [v],
+                                     resulttype=pyobj_repr)
         return NotImplemented

@@ -135,6 +135,15 @@
 	if ((long)(y)) { OP_INT_MOD_OVF(x,y,r,err) } \
 	else FAIL_ZER(err, "integer modulo")
 
+/*** conversions ***/
+
+#define OP_CAST_BOOL_TO_INT(x,r,err)    r = (long)(x);
+#define OP_CAST_BOOL_TO_UINT(x,r,err)   r = (unsigned long)(x);
+#define OP_CAST_UINT_TO_INT(x,r,err)    r = (long)(x);
+#define OP_CAST_INT_TO_UINT(x,r,err)    r = (unsigned long)(x);
+#define OP_CAST_CHAR_TO_INT(x,r,err)    r = (long)(x);
+#define OP_CAST_INT_TO_CHAR(x,r,err)    r = (char)(x);
+
 /* _________________ certain implementations __________________ */
 
 #ifndef HAVE_LONG_LONG

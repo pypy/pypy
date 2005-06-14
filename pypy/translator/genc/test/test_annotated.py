@@ -110,7 +110,7 @@ class TestAnnotatedTestCase:
 
     def test_type_conversion(self):
         # obfuscated test case specially for typer.insert_link_conversions()
-        def type_conversion(n):
+        def type_conversion(n=int):
             if n > 3:
                 while n > 0:
                     n = n-1

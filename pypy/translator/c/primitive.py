@@ -11,6 +11,9 @@ def name_unsigned(value):
     assert value >= 0
     return '%d' % value
 
+def name_float(value):
+    return repr(value)
+
 def name_char(value):
     value = value
     assert type(value) is str and len(value) == 1
@@ -28,6 +31,7 @@ def name_void(value):
 PrimitiveName = {
     Signed:   name_signed,
     Unsigned: name_unsigned,
+    Float:    name_float,
     Char:     name_char,
     Bool:     name_bool,
     Void:     name_void,
@@ -36,6 +40,7 @@ PrimitiveName = {
 PrimitiveType = {
     Signed:   'long @',
     Unsigned: 'unsigned long @',
+    Float:    'double @',
     Char:     'char @',
     Bool:     'char @',
     Void:     'void @',
@@ -44,6 +49,7 @@ PrimitiveType = {
 PrimitiveErrorValue = {
     Signed:   '-1',
     Unsigned: '((unsigned) -1)',
+    Float:    '-1.0',
     Char:     '((char) -1)',
     Bool:     '((char) -1)',
     Void:     '/* error */',
