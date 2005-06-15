@@ -1311,6 +1311,22 @@ class TestAnnotateTestCase:
         assert s.can_be_None
         assert s.classdef.cls is A
 
+    def test_long_list_recursive_getvalue(self):
+        class A: pass
+        lst = []
+        for i in range(500):
+            a1 = A()
+            a1.stuff = lst
+            lst.append(a1)
+        def f():
+            A().stuff = None
+            return (A().stuff, lst)[1]
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeList)
+        s_item = s.listdef.listitem.s_value
+        assert isinstance(s_item, annmodel.SomeInstance)
+
 
 def g(n):
     return [0,1,2,n]
