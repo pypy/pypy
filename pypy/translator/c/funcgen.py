@@ -91,12 +91,20 @@ class FunctionCodeGenerator:
             raise TypeError, "expr(%r)" % (v,)
 
     def error_return_value(self):
+        returnlltype = self.lltypemap(self.graph.getreturnvar())
+        return self.db.get(ErrorValue(returnlltype))
+
+    def return_with_error(self):
         if self.cpython_exc:
+            lltype_of_exception_value = self.db.get_lltype_of_exception_value();
+            exc_value_typename = self.db.gettype(lltype_of_exception_value)
             assert self.lltypemap(self.graph.getreturnvar()) == PyObjPtr
-            return 'ConvertExceptionToCPython()'
-        else:
-            returnlltype = self.lltypemap(self.graph.getreturnvar())
-            return self.db.get(ErrorValue(returnlltype))
+            yield '{'
+            yield '\t%s;' % cdecl(exc_value_typename, 'vanishing_exc_value')
+            yield '\tConvertExceptionToCPython(vanishing_exc_value);'
+            yield '\t%s' % self.db.cdecrefstmt('vanishing_exc_value', lltype_of_exception_value)
+            yield '}'
+        yield 'return %s; ' % self.error_return_value()
 
     # ____________________________________________________________
 
@@ -191,7 +199,8 @@ class FunctionCodeGenerator:
                     exc_cls   = self.expr(block.inputargs[0])
                     exc_value = self.expr(block.inputargs[1])
                     yield 'RaiseException(%s, %s);' % (exc_cls, exc_value)
-                    yield 'return %s;' % self.error_return_value()
+                    for line in self.return_with_error():
+                        yield line 
                 else:
                     # regular return block
                     retval = self.expr(block.inputargs[0])
@@ -287,7 +296,8 @@ class FunctionCodeGenerator:
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
-                yield 'return %s;' % self.error_return_value()
+                for line in self.return_with_error():
+                    yield line
 
     # ____________________________________________________________
 

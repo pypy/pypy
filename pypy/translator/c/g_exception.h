@@ -40,7 +40,7 @@ static void ConvertExceptionFromCPython(void)
 	rpython_exc_type = RPYTHON_TYPE_OF_EXC_INST(rpython_exc_value);
 }
 
-static PyObject *ConvertExceptionToCPython(void)
+static void _ConvertExceptionToCPython(void)
 {
 	/* XXX 1. uses officially bad fishing */
 	/* XXX 2. looks for exception classes by name, fragile */
@@ -57,10 +57,14 @@ static PyObject *ConvertExceptionToCPython(void)
 	else {
 		PyErr_SetString(RPythonError, clsname);
 	}
-	rpython_exc_type = NULL;    /* XXX leaks! */
-	rpython_exc_value = NULL;
-	return NULL;
 }
+
+#define ConvertExceptionToCPython(vanishing)    \
+	_ConvertExceptionToCPython();		\
+	vanishing = rpython_exc_value;		\
+	rpython_exc_type = NULL;		\
+	rpython_exc_value = NULL;
+        
 
 #define RaiseSimpleException(exc, msg)				\
 		/* XXX 1. uses officially bad fishing */	\
@@ -86,7 +90,7 @@ static PyObject *ConvertExceptionToCPython(void)
 	}
 #define MatchException(etype)         PyErr_ExceptionMatches(etype)
 #define ConvertExceptionFromCPython() /* nothing */
-#define ConvertExceptionToCPython()   NULL
+#define ConvertExceptionToCPython(vanishing) vanishing = NULL  
 
 #define RaiseSimpleException(exc, msg) \
 		PyErr_SetString(Py##exc, msg)    /* pun */

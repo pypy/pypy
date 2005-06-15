@@ -147,6 +147,13 @@ class LowLevelDatabase:
             if node.globalcontainer:
                 yield node
 
+    def get_lltype_of_exception_value(self):
+        if self.translator is not None and self.translator.rtyper is not None:
+            exceptiondata = self.translator.rtyper.getexceptiondata()
+            return exceptiondata.lltype_of_exception_value
+        else:
+            return Ptr(PyObject)
+
     def pre_include_code_lines(self):
         # generate some #defines that go before the #include to control
         # what g_exception.h does
