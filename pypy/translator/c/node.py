@@ -1,7 +1,8 @@
 from __future__ import generators
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObjectType, typeOf
 from pypy.rpython.lltype import GcStruct, GcArray, GC_CONTAINER, ContainerType
-from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void
+from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void, OpaqueType
+from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import cdecl, somelettersfrom
@@ -20,6 +21,7 @@ def needs_refcount(T):
 class StructDefNode:
     refcount = None
     deallocator = None
+    static_deallocator = None
 
     def __init__(self, db, STRUCT, varlength=1):
         self.db = db
@@ -57,10 +59,34 @@ class StructDefNode:
             firstfieldname, firstfieldtype = self.fields[0]
             firstdefnode = db.gettypedefnode(T)
             self.refcount = '%s.%s' % (firstfieldname, firstdefnode.refcount)
+            # check here that there is enough run-time type information to
+            # handle this case
+            getRuntimeTypeInfo(STRUCT)
+            getRuntimeTypeInfo(T)
 
-        # is a specific deallocator needed?
-        if self.refcount and varlength == 1 and list(self.deallocator_lines('')):
+        # do we need deallocator(s)?
+        if self.refcount and varlength == 1:
             self.deallocator = db.namespace.uniquename('dealloc_'+self.name)
+
+            # are two deallocators needed (a dynamic one for DECREF, which checks
+            # the real type of the structure and calls the static deallocator) ?
+            if (isinstance(STRUCT, GcStruct) and
+                STRUCT._runtime_type_info is not None):
+                self.static_deallocator = db.namespace.uniquename(
+                    'staticdealloc_'+self.name)
+                fnptr = STRUCT._runtime_type_info._obj.query_funcptr
+                if fnptr is None:
+                    raise NotImplementedError(
+                        "attachRuntimeTypeInfo(): please provide a function")
+                self.rtti_query_funcptr = db.get(fnptr)
+                T = typeOf(fnptr).TO.ARGS[0]
+                self.rtti_query_funcptr_argtype = db.gettype(T)
+            else:
+                # is a deallocator really needed, or would it be empty?
+                if list(self.deallocator_lines('')):
+                    self.static_deallocator = self.deallocator
+                else:
+                    self.deallocator = None
 
     def c_struct_field_name(self, name):
         return self.prefix + name
@@ -83,12 +109,27 @@ class StructDefNode:
                     line = '/* %s */' % line
                 yield '\t' + line
             yield '};'
-        elif phase == 2 and self.deallocator:
-            yield 'void %s(struct %s *p) {' % (self.deallocator, self.name)
-            for line in self.deallocator_lines('p->'):
-                yield '\t' + line
-            yield '\tOP_FREE(p);'
-            yield '}'
+
+        elif phase == 2:
+            if self.static_deallocator:
+                yield 'void %s(struct %s *p) {' % (self.static_deallocator,
+                                                   self.name)
+                for line in self.deallocator_lines('p->'):
+                    yield '\t' + line
+                yield '\tOP_FREE(p);'
+                yield '}'
+            if self.deallocator and self.deallocator != self.static_deallocator:
+                yield 'void %s(struct %s *p) {' % (self.deallocator, self.name)
+                yield '\tvoid (*staticdealloc) (void *);'
+                # the refcount should be 0; temporarily bump it to 1
+                yield '\tp->%s = 1;' % (self.refcount,)
+                # cast 'p' to the type expected by the rtti_query function
+                yield '\tstaticdealloc = %s((%s) p);' % (
+                    self.rtti_query_funcptr,
+                    cdecl(self.rtti_query_funcptr_argtype, ''))
+                yield '\tif (!--p->%s)' % (self.refcount,)
+                yield '\t\tstaticdealloc(p);'
+                yield '}'
 
     def deallocator_lines(self, prefix):
         STRUCT = self.STRUCT
@@ -390,6 +431,28 @@ def select_function_code_generator(fnptr, db):
         raise ValueError, "don't know how to generate code for %r" % (fnptr,)
 
 
+class OpaqueNode(ContainerNode):
+    globalcontainer = True
+    typename = 'void (@)(void *)'
+
+    def __init__(self, db, T, obj):
+        assert T == RuntimeTypeInfo
+        assert isinstance(obj.about, GcStruct)
+        self.db = db
+        self.obj = obj
+        defnode = db.gettypedefnode(obj.about)
+        self.implementationtypename = 'void (@)(struct %s *)' % (
+            defnode.name,)
+        self.name = defnode.static_deallocator
+        self.ptrname = '((void (*)(void *)) %s)' % (self.name,)
+
+    def enum_dependencies(self):
+        return []
+
+    def implementation(self):
+        return []
+
+
 class PyObjectNode(ContainerNode):
     globalcontainer = True
     typename = 'PyObject @'
@@ -422,5 +485,6 @@ ContainerNodeClass = {
     Array:        ArrayNode,
     GcArray:      ArrayNode,
     FuncType:     FuncNode,
+    OpaqueType:   OpaqueNode,
     PyObjectType: PyObjectNode,
     }

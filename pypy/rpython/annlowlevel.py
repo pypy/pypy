@@ -56,7 +56,7 @@ def annotate_lowlevel_helper(annotator, ll_function, args_s):
         (ll_function, args), key = decide_callable(annotator.bookkeeper, None, ll_function, args, mono=True, unpacked=True)
         args_s, kwds_s = args.unpack()
         assert not kwds_s
-        oldblocks = annotator.annotated.keys()
+        oldblocks = annotator.annotated.copy()
         s = annotator.build_types(ll_function, args_s)
         newblocks = [block for block in annotator.annotated.iterkeys() if block not in oldblocks]
         # invoke annotation simplifications for the new blocks

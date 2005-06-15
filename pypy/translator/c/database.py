@@ -1,6 +1,6 @@
 from pypy.rpython.lltype import Primitive, Ptr, typeOf
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObject, Void
-from pypy.rpython.lltype import ContainerType, pyobjectptr
+from pypy.rpython.lltype import ContainerType, pyobjectptr, OpaqueType, GcStruct
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.objspace.flow.model import Constant
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
@@ -69,6 +69,11 @@ class LowLevelDatabase:
                     argtypes.append(cdecl(argtype, argname))
             argtypes = ', '.join(argtypes) or 'void'
             return resulttype.replace('@', '(@)(%s)' % argtypes)
+        elif isinstance(T, OpaqueType):
+            if T.tag == 'RuntimeTypeInfo':
+                return 'void (@)(void *)'   # void dealloc_xx(struct xx *)
+            else:
+                raise Exception("don't know about opaque type %r" % (T,))
         else:
             raise Exception("don't know about type %r" % (T,))
 

@@ -11,6 +11,7 @@ from pypy.rpython.rmodel import Repr, TyperError, inputconst
 #
 #      struct object_vtable {
 #          struct object_vtable* parenttypeptr;
+#          RuntimeTypeInfo * rtti;
 #          array { char } * name;
 #      }
 #
@@ -37,6 +38,7 @@ OBJECT_VTABLE = ForwardReference()
 TYPEPTR = Ptr(OBJECT_VTABLE)
 OBJECT_VTABLE.become(Struct('object_vtable',
                             ('parenttypeptr', TYPEPTR),
+                            ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(Array(Char)))))
 
 OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
@@ -200,6 +202,9 @@ class ClassRepr(Repr):
         if self.classdef is None:
             # initialize the 'parenttypeptr' and 'name' fields
             vtable.parenttypeptr = rsubcls.rbase.getvtable()
+            rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
+            rinstance.setup()
+            vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
             if rsubcls.classdef is None:
                 name = 'object'
             else:
@@ -338,6 +343,9 @@ class InstanceRepr(Repr):
         allinstancefields.update(fields)
         self.fields = fields
         self.allinstancefields = allinstancefields
+        self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
+                                              ll_runtime_type_info,
+                                              OBJECT)
         self.initialized = True
 
     def convert_const(self, value, targetptr=None, vtable=None):
@@ -506,3 +514,6 @@ def ll_issubclass(subcls, cls):
             return False
         subcls = subcls.parenttypeptr
     return True
+
+def ll_runtime_type_info(obj):
+    return obj.typeptr.rtti

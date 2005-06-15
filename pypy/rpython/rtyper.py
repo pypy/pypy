@@ -6,7 +6,8 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.rpython.lltype import Signed, Unsigned, Float, Char, Bool, Void
 from pypy.rpython.lltype import LowLevelType, Ptr, ContainerType
-from pypy.rpython.lltype import FuncType, functionptr, typeOf
+from pypy.rpython.lltype import FuncType, functionptr, typeOf, RuntimeTypeInfo
+from pypy.rpython.lltype import attachRuntimeTypeInfo
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython.rmodel import Repr, inputconst, TyperError, getfunctionptr
@@ -336,6 +337,20 @@ def translate_op_%s(self, hop):
             return self.bindingrepr(v).lowleveltype
         return getfunctionptr(self.annotator.translator, func, getconcretetype)
 
+    def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None):
+        self.call_all_setups()  # compute ForwardReferences now
+        attachRuntimeTypeInfo(GCSTRUCT)
+        if ARG_GCSTRUCT is None:
+            ARG_GCSTRUCT = GCSTRUCT
+        args_s = [annmodel.SomePtr(Ptr(ARG_GCSTRUCT))]
+        s, spec_function = annotate_lowlevel_helper(self.annotator,
+                                                    func, args_s)
+        if (not isinstance(s, annmodel.SomePtr) or
+            s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
+            raise TyperError("runtime type info function %r returns %r, "
+                             "excepted Ptr(RuntimeTypeInfo)" % (func, s))
+        funcptr = self.getfunctionptr(spec_function)
+        attachRuntimeTypeInfo(GCSTRUCT, funcptr)
 
 # ____________________________________________________________
 

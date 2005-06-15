@@ -165,8 +165,14 @@ class GcStruct(Struct):
         if self._runtime_type_info is None:
             self._runtime_type_info = opaqueptr(RuntimeTypeInfo, name=self._name, about=self)
         if funcptr is not None:
-            if not typeOf(funcptr) == Ptr(FuncType([Ptr(self)], Ptr(RuntimeTypeInfo))):
-                raise TypeError, "expected a runtime type info function implementation, got: %s" % funcptr
+            T = typeOf(funcptr)
+            if (not isinstance(T, Ptr) or
+                not isinstance(T.TO, FuncType) or
+                len(T.TO.ARGS) != 1 or
+                T.TO.RESULT != Ptr(RuntimeTypeInfo) or
+                castable(T.TO.ARGS[0], Ptr(self)) < 0):
+                raise TypeError("expected a runtime type info function "
+                                "implementation, got: %s" % funcptr)
             self._runtime_type_info._obj.query_funcptr = funcptr
 
 class Array(ContainerType):
@@ -681,6 +687,16 @@ class _func(object):
     def __str__(self):
         return "func %s" % self._name
 
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.__dict__ == other.__dict__)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return hash(frozendict(self.__dict__))
+
 class _opaque(object):
     def __init__(self, TYPE, **attrs):
         self._TYPE = TYPE
@@ -773,7 +789,8 @@ def runtime_type_info(p):
     static_info = getRuntimeTypeInfo(T.TO)
     query_funcptr = getattr(static_info._obj, 'query_funcptr', None)
     if query_funcptr is not None:
-        result2 = query_funcptr(p)
+        T = typeOf(query_funcptr).TO.ARGS[0]
+        result2 = query_funcptr(cast_pointer(T, p))
         if result != result2:
             raise RuntimeError, ("runtime type-info function for %s:\n"
                                  "        returned: %s,\n"

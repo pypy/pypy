@@ -142,3 +142,43 @@ def test_rptr_array():
     assert f1(12, "hello") == "hello"
     mallocs, frees = module.malloc_counters()
     assert mallocs == frees
+
+
+def test_runtime_type_info():
+    S = GcStruct('s', ('is_actually_s1', Bool))
+    S1 = GcStruct('s1', ('sub', S))
+    attachRuntimeTypeInfo(S)
+    attachRuntimeTypeInfo(S1)
+    def rtti_S(p):
+        if p.is_actually_s1:
+            return getRuntimeTypeInfo(S1)
+        else:
+            return getRuntimeTypeInfo(S)
+    def rtti_S1(p):
+        return getRuntimeTypeInfo(S1)
+    def does_stuff():
+        p = malloc(S)
+        p.is_actually_s1 = False
+        p1 = malloc(S1)
+        p1.sub.is_actually_s1 = True
+        # and no crash when p and p1 are decref'ed
+        return sys
+    t = Translator(does_stuff)
+    t.annotate([])
+    from pypy.rpython.rtyper import RPythonTyper
+    rtyper = RPythonTyper(t.annotator)
+    rtyper.attachRuntimeTypeInfoFunc(S,  rtti_S)
+    rtyper.attachRuntimeTypeInfoFunc(S1, rtti_S1)
+    rtyper.specialize()
+    #t.view()
+
+    db = LowLevelDatabase(t)
+    entrypoint = db.get(pyobjectptr(does_stuff))
+    db.complete()
+
+    module = compile_db(db)
+
+    f1 = getattr(module, entrypoint)
+    f1()
+    mallocs, frees = module.malloc_counters()
+    assert mallocs == frees
