@@ -194,7 +194,7 @@ class Bookkeeper:
                 self.immutable_cache[id(x)] = result
                 for ek, ev in x.iteritems():
                     result.dictdef.generalize_key(self.immutablevalue(ek))
-                    result.dictdef.generalize_key(self.immutablevalue(ek))
+                    result.dictdef.generalize_value(self.immutablevalue(ev))
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x])
         elif isinstance(x, lltype._ptr):
