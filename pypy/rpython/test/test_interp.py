@@ -1,6 +1,7 @@
 
 import py
 py.magic.autopath()
+from pypy.rpython.lltype import typeOf
 from pypy.rpython.rtyper import RPythonTyper 
 from pypy.rpython.interp import LLInterpreter, RPythonError
 from pypy.translator.translator import Translator 
@@ -55,7 +56,7 @@ def test_number_comparisons():
         val1 = t(3)
         val2 = t(4)
         gcres = interpret(comparisons, [val1, val2])
-        res = [getattr(gcres._obj0, x) for x in gcres._obj0._TYPE._names]
+        res = [getattr(gcres, x) for x in typeOf(gcres).TO._names]
         assert res == [True, True, False, True, False, False]
 
 def XXXtest_some_builtin(): 
