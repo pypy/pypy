@@ -55,6 +55,14 @@ class LowLevelType(object):
         finally:
             TLS.nested_hash_level -= 1
 
+    # due to this dynamic hash value, we must forbid
+    # pickling, until we have an algorithm for that
+    def __reduce_ex__(self, *args):
+        raise Exception('%s insts cannot be pickled, yet. __hash__ is not'
+                        ' constant during reconstruction.' %
+                        self.__class__.__name__)
+    __reduce__ = __reduce_ex__
+
     def __repr__(self):
         return '<%s>' % (self,)
 

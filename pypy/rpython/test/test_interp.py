@@ -2,7 +2,7 @@
 import py
 py.magic.autopath()
 from pypy.rpython.rtyper import RPythonTyper 
-from pypy.rpython.interp import LLInterpreter 
+from pypy.rpython.interp import LLInterpreter, RPythonError
 from pypy.translator.translator import Translator 
 
 def gengraph(func, argtypes=[]): 
@@ -36,6 +36,15 @@ def test_ifs():
     assert res == 43 
     res = interpret(simple_ifs, [1])
     assert res == 42 
+
+def test_raise():
+    res = interpret(raise_exception, [41])
+    assert res == 41
+    info = raises(RPythonError, interpret, raise_exception, [42])
+    # XXX inspect which exception this was.
+    # rtyper.getexceptiondata().ll_exception_match()
+    # llexitcase not available here
+    # maybe I use pyexcclass2exc ???
 
 def test_while_simple(): 
     res = interpret(while_simple, [3])
@@ -99,7 +108,12 @@ def while_simple(i):
     while i > 0: 
         sum += i
         i -= 1
-    return sum 
+    return sum
+
+def raise_exception(i):
+    if i == 42:
+        raise IndexError
+    return i
 
 #__________________________________________________________________
 # interactive playing 

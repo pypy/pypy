@@ -2,6 +2,8 @@ from pypy.rpython.lltype import *
 from pypy.rpython.lltype import _ptr
 import py
 
+class RPythonError(Exception):
+    pass
 
 class LLInterpreter(object): 
     """ low level interpreter working with concrete values. """ 
@@ -65,7 +67,15 @@ class LLInterpreter(object):
 
         # determine nextblock and/or return value 
         if len(block.exits) == 0: 
-            # return block 
+            # return block
+            if len(block.inputargs) == 2:
+                # exception
+                etypevar, evaluevar = block.getvariables()
+                etype = self.getval(etypevar)
+                #rint etype
+                evalue = self.getval(evaluevar)
+                # watch out, these are _ptr's
+                raise RPythonError(etype, evalue)
             resultvar, = block.getvariables()
             result = self.getval(resultvar) 
 #            self.log.operation("returning", result) 
@@ -81,6 +91,9 @@ class LLInterpreter(object):
 #        self.log.operation("considering", operation) 
         ophandler = self.getoperationhandler(operation.opname) 
         vals = [self.getval(x) for x in operation.args]
+        # if these special cases pile up, do something better here
+        if operation.opname == 'cast_pointer':
+            vals.insert(0, operation.result.concretetype)
         retval = ophandler(*vals) 
         self.setvar(operation.result, retval)
 
@@ -128,7 +141,10 @@ class LLInterpreter(object):
         return array[index]
         # the diff between op_getarrayitem and op_getarraysubstruct
         # is the same as between op_getfield and op_getsubstruct
-        
+
+    def op_cast_pointer(self, tp, obj):
+        # well, actually this is what's now in the globals.
+        return cast_pointer(tp, obj)
 # __________________________________________________________
 # primitive operations 
 from pypy.objspace.flow.operation import FunctionByName 
