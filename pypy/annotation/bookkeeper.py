@@ -192,9 +192,9 @@ class Bookkeeper:
                                           SomeImpossibleValue(),
                                           SomeImpossibleValue()))
                 self.immutable_cache[id(x)] = result
-                for ek, ev in e.iteritems():
-                    result.dictdef.generalize_key(immutablevalue(ek))
-                    result.dictdef.generalize_key(immutablevalue(ek))
+                for ek, ev in x.iteritems():
+                    result.dictdef.generalize_key(self.immutablevalue(ek))
+                    result.dictdef.generalize_key(self.immutablevalue(ek))
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x])
         elif isinstance(x, lltype._ptr):
