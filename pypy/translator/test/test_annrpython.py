@@ -1336,6 +1336,18 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeString)
 
+    def test_immutable_recursive_list(self):
+        l = []
+        l.append(l)
+        def f():
+            return l
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeList)
+        s_item = s.listdef.listitem.s_value
+        assert isinstance(s_item, annmodel.SomeList)
+        assert s_item.listdef.same_as(s.listdef)
+
 
 def g(n):
     return [0,1,2,n]
