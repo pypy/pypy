@@ -31,3 +31,15 @@ def test_cast_pointer():
         return cast_pointer(PS2, p)
     s, t = ll_rtype(llup, [annmodel.SomePtr(PS)])
     assert s.ll_ptrtype == PS2
+
+def test_runtime_type_info():
+    S = GcStruct('s', ('x', Signed))
+    attachRuntimeTypeInfo(S)
+    def ll_example(p):
+        return (runtime_type_info(p),
+                runtime_type_info(p) == getRuntimeTypeInfo(S))
+
+    assert ll_example(malloc(S)) == (getRuntimeTypeInfo(S), True)
+    s, t = ll_rtype(ll_example, [annmodel.SomePtr(Ptr(S))])
+    assert s == annmodel.SomeTuple([annmodel.SomePtr(Ptr(RuntimeTypeInfo)),
+                                    annmodel.SomeBool()])

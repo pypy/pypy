@@ -2,7 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython import lltype
 from pypy.rpython import rarithmetic
-from pypy.rpython.lltype import Void, Signed
+from pypy.rpython.lltype import Void, Signed, Ptr, RuntimeTypeInfo
 from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range
 from pypy.rpython.rmodel import Repr, TyperError
@@ -127,9 +127,20 @@ def rtype_cast_pointer(hop):
     return hop.genop('cast_pointer', [v_input],    # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
+def rtype_getRuntimeTypeInfo(hop):
+    return hop.inputconst(Ptr(RuntimeTypeInfo), hop.s_result.const)
+
+def rtype_runtime_type_info(hop):
+    assert isinstance(hop.args_r[0], rptr.PtrRepr)
+    vlist = hop.inputargs(hop.args_r[0])
+    return hop.genop('runtime_type_info', vlist,
+                     resulttype = rptr.PtrRepr(Ptr(RuntimeTypeInfo)))
+
 
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
+BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_getRuntimeTypeInfo
+BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
