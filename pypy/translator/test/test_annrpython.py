@@ -1327,6 +1327,15 @@ class TestAnnotateTestCase:
         s_item = s.listdef.listitem.s_value
         assert isinstance(s_item, annmodel.SomeInstance)
 
+    def test_immutable_dict(self):
+        d = {4: "hello",
+             5: "world"}
+        def f(n):
+            return d[n]
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+
 
 def g(n):
     return [0,1,2,n]
