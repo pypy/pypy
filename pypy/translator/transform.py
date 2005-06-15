@@ -170,7 +170,11 @@ def transform_graph(ann, extra_passes=default_extra_passes, block_subset=None):
     if ann.translator:
         ann.translator.checkgraphs()
     if block_subset is None:
-        block_subset = list(fully_annotated_blocks(ann))
+        block_subset = fully_annotated_blocks(ann)
+    d = {}
+    for block in block_subset:
+        d[block] = True
+    block_subset = d
     transform_dead_code(ann, block_subset)
     for pass_ in extra_passes:
         pass_(ann, block_subset)
