@@ -306,9 +306,7 @@ def typeOf(s_val):
 def nullptr(T):
     assert T.is_constant()
     p = lltype.nullptr(T.const)
-    r = SomePtr(lltype.typeOf(p))
-    r.const = p
-    return r
+    return immutablevalue(p)
 
 def cast_pointer(PtrT, s_p):
     assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
