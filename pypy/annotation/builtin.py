@@ -316,9 +316,18 @@ def cast_pointer(PtrT, s_p):
     cast_p = lltype.cast_pointer(PtrT.const, s_p.ll_ptrtype._defl())
     return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
 
+def getRuntimeTypeInfo(T):
+    assert T.is_constant()
+    return immutablevalue(lltype.getRuntimeTypeInfo(T.const))
+
+def runtime_type_info(s_p):
+    assert isinstance(s_p, SomePtr), "runtime_type_info of non-pointer: %r" % s_p
+    return SomePtr(lltype.typeOf(lltype.runtime_type_info(s_p.ll_ptrtype._example())))
 
 BUILTIN_ANALYZERS[lltype.malloc] = malloc
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr
 BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
+BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
+BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
 

@@ -258,3 +258,25 @@ class TestLowLevelAnnotateTestCase:
                 assert a.binding(vp).ll_ptrtype == T
                 assert a.binding(rv) == annmodel.lltype_to_annotation(T.TO.OF)
         return a, vTs
+
+    def test_getRuntimeTypeInfo(self):
+        S = GcStruct('s', ('x', Signed))
+        attachRuntimeTypeInfo(S)
+        def llf():
+            return getRuntimeTypeInfo(S)
+        a = self.RPythonAnnotator()
+        s, dontcare = annotate_lowlevel_helper(a, llf, [])
+        assert isinstance(s, annmodel.SomePtr)
+        assert s.ll_ptrtype == Ptr(RuntimeTypeInfo)
+        assert s.const == getRuntimeTypeInfo(S)
+
+    def test_runtime_type_info(self):
+        S = GcStruct('s', ('x', Signed))
+        attachRuntimeTypeInfo(S)
+        def llf(p):
+            return runtime_type_info(p)
+        a = self.RPythonAnnotator()
+        s, dontcare = annotate_lowlevel_helper(a, llf, [annmodel.SomePtr(Ptr(S))])
+        assert isinstance(s, annmodel.SomePtr)
+        assert s.ll_ptrtype == Ptr(RuntimeTypeInfo)
+        
