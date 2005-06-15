@@ -276,7 +276,7 @@ class ArrayNode(ContainerNode):
         yield '{'
         if needs_refcount(self.T):
             yield '\t1,'
-        if self.T.OF == Void:
+        if self.T.OF == Void or len(self.obj.items) == 0:
             yield '\t%d' % len(self.obj.items)
             yield '}'
         else:
