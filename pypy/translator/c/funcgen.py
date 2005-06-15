@@ -96,7 +96,7 @@ class FunctionCodeGenerator:
 
     def return_with_error(self):
         if self.cpython_exc:
-            lltype_of_exception_value = self.db.get_lltype_of_exception_value();
+            lltype_of_exception_value = self.db.get_lltype_of_exception_value()
             exc_value_typename = self.db.gettype(lltype_of_exception_value)
             assert self.lltypemap(self.graph.getreturnvar()) == PyObjPtr
             yield '{'
