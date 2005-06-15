@@ -246,10 +246,18 @@ class RPythonTyper:
                 raise TyperError("the annotator doesn't agree that '%s' "
                                  "has no return value" % op.opname)
             op.result.concretetype = Void
-        elif isinstance(resultvar, Variable):
+        else:
+            assert isinstance(resultvar, (Variable, Constant))
             # for simplicity of the translate_meth, resultvar is usually not
             # op.result here.  We have to replace resultvar with op.result
             # in all generated operations.
+            if isinstance(resultvar, Constant):
+                if not hop.s_result.is_constant():
+                    raise TyperError("the annotator doesn't agree that '%s' "
+                                     "returns a constant" % op.opname)
+                if resultvar.value != hop.s_result.const:
+                    raise TyperError("constant mismatch: %r vs %r" % (
+                        resultvar.value, hop.s_result.const))
             resulttype = resultvar.concretetype
             op.result.concretetype = hop.r_result.lowleveltype
             if op.result.concretetype != resulttype:
@@ -260,7 +268,8 @@ class RPythonTyper:
                     op.opname, hop.s_result,
                     op.result.concretetype, resulttype))
             # figure out if the resultvar is a completely fresh Variable or not
-            if (resultvar not in self.annotator.bindings and
+            if (isinstance(resultvar, Variable) and
+                resultvar not in self.annotator.bindings and
                 resultvar not in varmapping):
                 # fresh Variable: rename it to the previously existing op.result
                 varmapping[resultvar] = op.result
@@ -268,18 +277,6 @@ class RPythonTyper:
                 # renaming unsafe.  Insert a 'same_as' operation...
                 hop.llops.append(SpaceOperation('same_as', [resultvar],
                                                 op.result))
-        else:
-            # translate_meth() returned a Constant
-            assert isinstance(resultvar, Constant)
-            if not hop.s_result.is_constant():
-                raise TyperError("the annotator doesn't agree that '%s' "
-                                 "returns a constant" % op.opname)
-            if resultvar.value != hop.s_result.const:
-                raise TyperError("constant mismatch: %r vs %r" % (
-                    resultvar.value, hop.s_result.const))
-            op.result.concretetype = hop.r_result.lowleveltype
-            hop.llops.append(SpaceOperation('same_as', [resultvar],
-                                            op.result))
 
     def gottypererror(self, e, block, position, llops):
         """Record a TyperError without crashing immediately.
