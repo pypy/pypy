@@ -55,7 +55,18 @@ def XXXtest_some_builtin():
         return x[j]
     res = interpret(f, [10, 7])
     assert res == 6
-    
+
+#
+#__________________________________________________________________
+#
+#  Test lists
+def test_list_creation():
+    def f():
+        return [1,2,3]
+    res = interpret(f,[])
+    assert len(res.items) == len([1,2,3])
+    for i in range(3):
+        assert res.items[i]._getobj().item == i+1    
 #__________________________________________________________________
 # example functions for testing the LLInterpreter 
 _snap = globals().copy()

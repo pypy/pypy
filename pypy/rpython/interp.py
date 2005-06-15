@@ -4,7 +4,7 @@ import py
 
 class LLInterpreter(object): 
     """ low level interpreter working with concrete values. """ 
-    log = py.log.Producer('llinterp') 
+#    log = py.log.Producer('llinterp') 
 
     def __init__(self, flowgraphs): 
         self.flowgraphs = flowgraphs 
@@ -67,7 +67,7 @@ class LLInterpreter(object):
             # return block 
             resultvar, = block.getvariables()
             result = self.getval(resultvar) 
-            self.log.operation("returning", result) 
+#            self.log.operation("returning", result) 
             return None, result 
         elif len(block.exits) == 1: 
             index = 0 
@@ -77,7 +77,7 @@ class LLInterpreter(object):
         return link.target, [self.getval(x) for x in link.args]
     
     def eval_operation(self, operation): 
-        self.log.operation("considering", operation) 
+#        self.log.operation("considering", operation) 
         ophandler = self.getoperationhandler(operation.opname) 
         vals = [self.getval(x) for x in operation.args]
         retval = ophandler(*vals) 
@@ -92,8 +92,24 @@ class LLInterpreter(object):
     def op_setfield(self, obj, fieldname, fieldvalue): 
         # obj should be pointer 
         setattr(obj, fieldname, fieldvalue) # is that right? 
+    
+    def op_direct_call(self,f,*args):
+        res = self.eval_function(f._obj._callable,args)
+        return res
+    
+    def op_malloc(self,obj, n=None, immortal=False):
+        return malloc(obj,n,immortal)
+    
+    def op_getfield(self,obj,field):
+        return getattr(obj,field)
+    
+    def op_malloc_varsize(self,obj,size):
+        return self.op_malloc(obj,size)
 
-
+    def op_getarraysubstruct(self,array,index):
+        #assert isinstance(array,_ptr)
+        return array[index]
+        
 # __________________________________________________________
 # primitive operations 
 from pypy.objspace.flow.operation import FunctionByName 
