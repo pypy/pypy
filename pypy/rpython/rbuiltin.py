@@ -118,7 +118,7 @@ def rtype_malloc(hop):
                          resulttype = hop.r_result.lowleveltype)
 
 def rtype_const_result(hop):
-    return hop.inputconst(Void, hop.s_result.const)
+    return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
 
 def rtype_cast_pointer(hop):
     assert hop.args_s[0].is_constant()
@@ -126,9 +126,6 @@ def rtype_cast_pointer(hop):
     v_type, v_input = hop.inputargs(Void, hop.args_r[1])
     return hop.genop('cast_pointer', [v_input],    # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
-
-def rtype_getRuntimeTypeInfo(hop):
-    return hop.inputconst(Ptr(RuntimeTypeInfo), hop.s_result.const)
 
 def rtype_runtime_type_info(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
@@ -141,6 +138,6 @@ BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
 BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
-BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_getRuntimeTypeInfo
+BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
