@@ -456,6 +456,8 @@ class _ptr(object):
     def __nonzero__(self):
         return self._obj is not None
 
+    # _setobj, _getobj and _obj0 are really _internal_ implementations details of _ptr,
+    # use _obj if necessary instead !
     def _setobj(self, pointing_to, immortal=False):        
         if pointing_to is None:
             obj0 = None
