@@ -7,15 +7,15 @@ from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 
 class __extend__(annmodel.SomePtr):
     def rtyper_makerepr(self, rtyper):
-        if self.is_constant() and not self.const:   # constant NULL
-            return nullptr_repr
-        else:
-            return PtrRepr(self.ll_ptrtype)
+##        if self.is_constant() and not self.const:   # constant NULL
+##            return nullptr_repr
+##        else:
+        return PtrRepr(self.ll_ptrtype)
     def rtyper_makekey(self):
-        if self.is_constant() and not self.const:
-            return None
-        else:
-            return self.ll_ptrtype
+##        if self.is_constant() and not self.const:
+##            return None
+##        else:
+        return self.ll_ptrtype
 
 
 class PtrRepr(Repr):
@@ -83,18 +83,18 @@ class __extend__(pairtype(PtrRepr, IntegerRepr)):
 #
 #  Null Pointers
 
-class NullPtrRepr(Repr):
-    lowleveltype = Void
+##class NullPtrRepr(Repr):
+##    lowleveltype = Void
 
-    def rtype_is_true(self, hop):
-        return hop.inputconst(Bool, False)
+##    def rtype_is_true(self, hop):
+##        return hop.inputconst(Bool, False)
 
-nullptr_repr = NullPtrRepr()
+##nullptr_repr = NullPtrRepr()
 
-class __extend__(pairtype(NullPtrRepr, PtrRepr)):
-    def convert_from_to((r_null, r_ptr), v, llops):
-        # nullptr to general pointer
-        return inputconst(r_ptr, _ptr(r_ptr.lowleveltype, None))
+##class __extend__(pairtype(NullPtrRepr, PtrRepr)):
+##    def convert_from_to((r_null, r_ptr), v, llops):
+##        # nullptr to general pointer
+##        return inputconst(r_ptr, _ptr(r_ptr.lowleveltype, None))
 
 # ____________________________________________________________
 #
