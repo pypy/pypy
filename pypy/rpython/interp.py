@@ -1,4 +1,5 @@
 from pypy.rpython.lltype import * 
+from pypy.rpython.lltype import _ptr
 import py
 
 
@@ -91,24 +92,42 @@ class LLInterpreter(object):
 
     def op_setfield(self, obj, fieldname, fieldvalue): 
         # obj should be pointer 
-        setattr(obj, fieldname, fieldvalue) # is that right? 
+        setattr(obj, fieldname, fieldvalue) # is that right?  -- yes
     
     def op_direct_call(self,f,*args):
+        # XXX the logic should be:
+        #       if f._obj has a graph attribute, interpret
+        #       that graph without looking at _callable
         res = self.eval_function(f._obj._callable,args)
         return res
     
-    def op_malloc(self,obj, n=None, immortal=False):
-        return malloc(obj,n,immortal)
+    def op_malloc(self,obj):
+        return malloc(obj)
     
     def op_getfield(self,obj,field):
-        return getattr(obj,field)
-    
+        # assert: obj should be pointer
+        result = getattr(obj,field)
+        # check the difference between op_getfield and op_getsubstruct:
+        # the former returns the real field, the latter a pointer to it
+        assert typeOf(result) == getattr(typeOf(obj).TO, field)
+        return result
+
+    def op_getsubstruct(self,obj,field):
+        # assert: obj should be pointer
+        result = getattr(obj,field)
+        # check the difference between op_getfield and op_getsubstruct:
+        # the former returns the real field, the latter a pointer to it
+        assert typeOf(result) == Ptr(getattr(typeOf(obj).TO, field))
+        return result
+
     def op_malloc_varsize(self,obj,size):
-        return self.op_malloc(obj,size)
+        return malloc(obj,size)
 
     def op_getarraysubstruct(self,array,index):
-        #assert isinstance(array,_ptr)
+        assert isinstance(array,_ptr)
         return array[index]
+        # the diff between op_getarrayitem and op_getarraysubstruct
+        # is the same as between op_getfield and op_getsubstruct
         
 # __________________________________________________________
 # primitive operations 

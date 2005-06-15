@@ -66,7 +66,7 @@ def test_list_creation():
     res = interpret(f,[])
     assert len(res.items) == len([1,2,3])
     for i in range(3):
-        assert res.items[i]._getobj().item == i+1    
+        assert res.items[i].item == i+1    
 #__________________________________________________________________
 # example functions for testing the LLInterpreter 
 _snap = globals().copy()
