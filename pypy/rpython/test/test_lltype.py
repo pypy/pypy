@@ -338,3 +338,50 @@ def test_immortal_parent():
     del p
     p = cast_pointer(Ptr(S), p1)
     assert p.s1.x == 5
+
+def test_getRuntimeTypeInfo():
+    S = GcStruct('s', ('x', Signed))
+    py.test.raises(TypeError, "getRuntimeTypeInfo(S)")
+    pinf0 = attachRuntimeTypeInfo(S)
+    assert pinf0._obj.about == S
+    pinf = getRuntimeTypeInfo(S)
+    assert pinf == pinf0
+    pinf1 = getRuntimeTypeInfo(S)
+    assert pinf == pinf1
+    Z = GcStruct('z', ('x', Unsigned))
+    attachRuntimeTypeInfo(Z)
+    assert getRuntimeTypeInfo(Z) != pinf0
+    Sbis = GcStruct('s', ('x', Signed))
+    attachRuntimeTypeInfo(Sbis)
+    assert getRuntimeTypeInfo(Sbis) != pinf0
+    assert Sbis != S # the attached runtime type info distinguishes them
+
+def test_runtime_type_info():
+    S = GcStruct('s', ('x', Signed))
+    attachRuntimeTypeInfo(S)
+    s = malloc(S)
+    assert runtime_type_info(s) == getRuntimeTypeInfo(S)
+    S1 = GcStruct('s1', ('sub', S), ('x', Signed))
+    attachRuntimeTypeInfo(S1)
+    s1 = malloc(S1)
+    assert runtime_type_info(s1) == getRuntimeTypeInfo(S1)
+    assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
+    assert runtime_type_info(cast_pointer(Ptr(S), s1)) == getRuntimeTypeInfo(S1)
+    def dynamic_type_info_S(p):
+        if p.x == 0:
+            return getRuntimeTypeInfo(S)
+        else:
+            return getRuntimeTypeInfo(S1)
+    fp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)), 
+                     "dynamic_type_info_S", 
+                     _callable=dynamic_type_info_S)
+    attachRuntimeTypeInfo(S, fp)
+    assert s.x == 0
+    assert runtime_type_info(s) == getRuntimeTypeInfo(S)
+    s.x = 1
+    py.test.raises(RuntimeError, "runtime_type_info(s)")
+    assert s1.sub.x == 0
+    py.test.raises(RuntimeError, "runtime_type_info(s1.sub)")
+    s1.sub.x = 1
+    assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
+    

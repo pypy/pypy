@@ -151,7 +151,15 @@ class Struct(ContainerType):
         return _struct(self, n)
 
 class GcStruct(Struct):
-    pass
+    _runtime_type_info = None
+
+    def _attach_runtime_type_info_funcptr(self, funcptr):
+        if self._runtime_type_info is None:
+            self._runtime_type_info = opaqueptr(RuntimeTypeInfo, name=self._name, about=self)
+        if funcptr is not None:
+            if not typeOf(funcptr) == Ptr(FuncType([Ptr(self)], Ptr(RuntimeTypeInfo))):
+                raise TypeError, "expected a runtime type info function implementation, got: %s" % funcptr
+            self._runtime_type_info._obj.query_funcptr = funcptr
 
 class Array(ContainerType):
     __name__ = 'array'
@@ -215,6 +223,17 @@ class FuncType(ContainerType):
         def ex(*args):
             return self.RESULT._example()
         return _func(self, _callable=ex)
+
+class OpaqueType(ContainerType):
+    
+    def __init__(self, tag):
+        self.tag = tag
+        self.__name__ = tag
+
+    def __str__(self):
+        return "%s (opaque)" % self.tag
+
+RuntimeTypeInfo = OpaqueType("RuntimeTypeInfo")
 
 class PyObjectType(ContainerType):
     __name__ = 'PyObject'
@@ -652,6 +671,25 @@ class _func(object):
     def __str__(self):
         return "func %s" % self._name
 
+class _opaque(object):
+    def __init__(self, TYPE, **attrs):
+        self._TYPE = TYPE
+        self._name = "?"
+        self.__dict__.update(attrs)
+
+    def _parentstructure(self):
+        return None
+
+    def _check(self):
+        pass
+
+    def __repr__(self):
+        return '<%s>' % (self,)
+
+    def __str__(self):
+        return "%s %s" % (self._TYPE.__name__, self._name)
+
+
 class _pyobject(Hashable):
     _TYPE = PyObject
 
@@ -681,14 +719,54 @@ def malloc(T, n=None, immortal=False):
 
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
-        raise TypeError, "function() for FuncTypes only"
+        raise TypeError, "functionptr() for FuncTypes only"
     o = _func(TYPE, _name=name, **attrs)
     return _ptr(Ptr(TYPE), o)
 
 def nullptr(T):
     return Ptr(T)._defl()
 
+def opaqueptr(TYPE, name, **attrs):
+    if not isinstance(TYPE, OpaqueType):
+        raise TypeError, "opaqueptr() for OpaqueTypes only"
+    o = _opaque(TYPE, _name=name, **attrs)
+    return _ptr(Ptr(TYPE), o, immortal=attrs.get('immortal', True))
+
 def pyobjectptr(obj):
     o = _pyobject(obj)
     return _ptr(Ptr(PyObject), o) 
 
+def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None):
+    if not isinstance(GCSTRUCT, GcStruct):
+        raise TypeError, "expected a GcStruct: %s" % GCSTRUCT
+    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr)
+    return GCSTRUCT._runtime_type_info
+
+def getRuntimeTypeInfo(GCSTRUCT):
+    if not isinstance(GCSTRUCT, GcStruct):
+        raise TypeError, "expected a GcStruct: %s" % GCSTRUCT
+    if GCSTRUCT._runtime_type_info is None:
+        raise TypeError, "no attached runtime type info for %s" % GCSTRUCT
+    return GCSTRUCT._runtime_type_info
+
+def runtime_type_info(p):
+    T = typeOf(p)
+    if not isinstance(T, Ptr) or not isinstance(T.TO, GcStruct):
+        raise TypeError, "runtime_type_info on non-GcStruct pointer: %s" % p
+    top_parent = struct = p._obj
+    while True:
+        parent = top_parent._parentstructure()
+        if parent is None:
+            break
+        top_parent = parent
+    result = getRuntimeTypeInfo(top_parent._TYPE)
+    static_info = getRuntimeTypeInfo(T.TO)
+    query_funcptr = getattr(static_info._obj, 'query_funcptr', None)
+    if query_funcptr is not None:
+        result2 = query_funcptr(p)
+        if result != result2:
+            raise RuntimeError, ("runtime type-info function for %s:\n"
+                                 "        returned: %s,\n"
+                                 "should have been: %s" % (p, result2, result))
+    return result
+    
