@@ -9,6 +9,9 @@ class extendabletype(type):
         if name == '__extend__':
             cls = bases[0]   # override data into the existing base
             for key, value in dict.items():
+                if key == '__module__':
+                    continue
+                    # XXX do we need to provide something more for pickling?
                 setattr(cls, key, value)
             return None
         else:
