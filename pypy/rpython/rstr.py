@@ -13,13 +13,11 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 #
 #    struct str {
 #        hash: Signed
-#        chars: array {
-#            Char ch
-#        }
+#        chars: array of Char
 #    }
 
 STR = GcStruct('str', ('hash',  Signed),
-                      ('chars', Array(('ch', Char))))
+                      ('chars', Array(Char)))
 
 
 class __extend__(annmodel.SomeString):
@@ -50,7 +48,7 @@ class __extend__(StringRepr):
         except KeyError:
             p = malloc(STR, len(value))
             for i in range(len(value)):
-                p.chars[i].ch = value[i]
+                p.chars[i] = value[i]
             ll_strhash(p)   # precompute the hash
             CONST_STR_CACHE[value] = p
             return p
@@ -141,11 +139,8 @@ class __extend__(pairtype(StringRepr, PyObjRepr)):
                               resulttype=Ptr(STR.chars))
         v_size = llops.genop('getarraysize', [v_chars],
                              resulttype=Signed)
-        czero = inputconst(Signed, 0)
-        v_char0ptr = llops.genop('getarraysubstruct', [v_chars, czero],
-                                 resulttype=Ptr(STR.chars.OF))
-        return llops.gencapicall('PyString_FromStringAndSize_Hack',
-                                 [v_char0ptr, v_size],
+        return llops.gencapicall('PyString_FromRPythonCharArrayAndSize',
+                                 [v_chars, v_size],
                                  resulttype=pyobj_repr)
 
 # ____________________________________________________________
@@ -158,12 +153,12 @@ def ll_strlen(s):
     return len(s.chars)
 
 def ll_stritem_nonneg(s, i):
-    return s.chars[i].ch
+    return s.chars[i]
 
 def ll_stritem(s, i):
     if i<0:
         i += len(s.chars)
-    return s.chars[i].ch
+    return s.chars[i]
 
 def ll_str_is_true(s):
     # check if a string is True, allowing for None
@@ -171,7 +166,7 @@ def ll_str_is_true(s):
 
 def ll_chr2str(ch):
     s = malloc(STR, 1)
-    s.chars[0].ch = ch
+    s.chars[0] = ch
     return s
 
 def ll_strhash(s):
@@ -184,10 +179,10 @@ def ll_strhash(s):
         if length == 0:
             x = -1
         else:
-            x = ord(s.chars[0].ch) << 7
+            x = ord(s.chars[0]) << 7
             i = 1
             while i < length:
-                x = (1000003*x) ^ ord(s.chars[i].ch)
+                x = (1000003*x) ^ ord(s.chars[i])
                 i += 1
             x ^= length
             if x == 0:
@@ -201,11 +196,11 @@ def ll_strconcat(s1, s2):
     newstr = malloc(STR, len1 + len2)
     j = 0
     while j < len1:
-        newstr.chars[j].ch = s1.chars[j].ch
+        newstr.chars[j] = s1.chars[j]
         j += 1
     i = 0
     while i < len2:
-        newstr.chars[j].ch = s2.chars[i].ch
+        newstr.chars[j] = s2.chars[i]
         i += 1
         j += 1
     return newstr
