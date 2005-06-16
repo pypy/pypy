@@ -30,19 +30,6 @@ class LLInterpreter(object):
         
     def setvar(self, var, val): 
         # XXX assert that val "matches" lowlevel type 
-        if isinstance(val,list):
-            fun = compile2(""" 
-            def f():
-                r = %s
-                return r"""%repr(val))
-            exec fun
-            t=Translator(f)
-            t.annotate([])
-            t.specialize()
-            #t.view()
-            
-            val = self.eval_graph(t.getflowgraph())
-            print val
                 
         self.bindings[var] = val 
 
