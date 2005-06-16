@@ -164,10 +164,15 @@ class LLInterpreter(object):
 
     def op_getarraysubstruct(self, array, index):
         assert isinstance(array, _ptr)
+        
         return array[index]
         # the diff between op_getarrayitem and op_getarraysubstruct
         # is the same as between op_getfield and op_getsubstruct
 
+    def op_getarraysize(self,array):
+        #print array,type(array),dir(array)
+        return len(array)
+    
     def op_cast_pointer(self, tp, obj):
         # well, actually this is what's now in the globals.
         return cast_pointer(tp, obj)
