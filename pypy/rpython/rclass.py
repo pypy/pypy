@@ -344,10 +344,10 @@ class InstanceRepr(Repr):
         allinstancefields.update(fields)
         self.fields = fields
         self.allinstancefields = allinstancefields
+        self.initialized = True
         self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
                                               ll_runtime_type_info,
                                               OBJECT)
-        self.initialized = True
 
     def convert_const(self, value):
         if value is None:
