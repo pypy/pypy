@@ -1,3 +1,16 @@
+"""
+RTyper: converts high-level operations into low-level operations in flow graphs.
+
+The main class, with code to walk blocks and dispatch individual operations
+to the care of the rtype_*() methods implemented in the other r* modules.
+For each high-level operation 'hop', the rtype_*() methods produce low-level
+operations that are collected in the 'llops' list defined here.  When necessary,
+convertions are inserted.
+
+This logic borrows a bit from pypy.translator.annrpython, without the fixpoint
+computation part.
+"""
+
 from __future__ import generators
 import sys
 from pypy.annotation.pairtype import pair
@@ -19,9 +32,6 @@ from pypy.rpython.exceptiondata import ExceptionData
 debug = False
 crash_on_first_typeerror = True
 
-# XXX copied from pypy.translator.typer and modified.
-#     We'll remove pypy.translator.typer at some point.
-#     It also borrows a bit from pypy.translator.annrpython.
 
 class RPythonTyper:
 

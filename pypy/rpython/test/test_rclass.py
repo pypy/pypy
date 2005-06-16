@@ -48,3 +48,22 @@ def test_classattr_as_defaults():
         x.xyzzy += 1
         return x.xyzzy
     rtype(dummyfn)
+
+def test_prebuilt_instance():
+    a = EmptyBase()
+    a.x = 5
+    def dummyfn():
+        a.x += 1
+        return a.x
+    rtype(dummyfn)
+
+def WORKING_ON_test_recursive_prebuilt_instance():
+    a = EmptyBase()
+    b = EmptyBase()
+    a.x = 5
+    b.x = 6
+    a.peer = b
+    b.peer = a
+    def dummyfn():
+        return a.peer.x
+    rtype(dummyfn)

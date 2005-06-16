@@ -391,33 +391,31 @@ class InstanceRepr(Repr):
                 raise MissingRTypeAttribute(attr)
             return self.rbase.getfieldrepr(attr)
 
-    def getfield(self, vinst, attr, llops, start_repr=None):
+    def getfield(self, vinst, attr, llops, force_cast=False):
         """Read the given attribute (or __class__ for the type) of 'vinst'."""
-        if start_repr is None:
-            start_repr = self
         if attr in self.fields:
             mangled_name, r = self.fields[attr]
             cname = inputconst(Void, mangled_name)
-            vinst = llops.convertvar(vinst, start_repr, self)
+            if force_cast:
+                vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
             return llops.genop('getfield', [vinst, cname], resulttype=r)
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
-            return self.rbase.getfield(vinst, attr, llops, start_repr=start_repr)
+            return self.rbase.getfield(vinst, attr, llops, force_cast=True)
 
-    def setfield(self, vinst, attr, vvalue, llops, start_repr=None):
+    def setfield(self, vinst, attr, vvalue, llops, force_cast=False):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
-        if start_repr is None:
-            start_repr = self        
         if attr in self.fields:
             mangled_name, r = self.fields[attr]
             cname = inputconst(Void, mangled_name)
-            vinst = llops.convertvar(vinst, start_repr, self)            
+            if force_cast:
+                vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
             llops.genop('setfield', [vinst, cname, vvalue])
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
-            self.rbase.setfield(vinst, attr, vvalue, llops, start_repr=start_repr)
+            self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True)
 
     def new_instance(self, llops):
         """Build a new instance, without calling __init__."""
