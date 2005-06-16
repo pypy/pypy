@@ -39,6 +39,15 @@ class Translator:
         if self.entrypoint:
             self.getflowgraph()
 
+    def __getstate__(self):
+        # try to produce things a bit more ordered
+        return self.entrypoint, self.functions, self.__dict__
+
+    def __setstate__(self, args):
+        assert len(args) == 3
+        self.__dict__.update(args[2])
+        assert args[0] is self.entrypoint and args[1] is self.functions
+
     def getflowgraph(self, func=None, called_by=None, call_tag=None):
         """Get the flow graph for a function (default: the entry point)."""
         func = func or self.entrypoint
@@ -139,7 +148,7 @@ class Translator:
     def source(self, func=None):
         """Returns original Python source.
         
-        Returns <interactive> for functions written while the
+        Returns <interactive> for functions written during the
         interactive session.
         """
         func = func or self.entrypoint
