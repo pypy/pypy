@@ -91,7 +91,7 @@ def analyse(target):
         if not options['-no-s']:
             a.simplify()
         if not options['-no-t']:
-            a.specialize()
+            t.specialize()
         t.frozen = True   # cannot freeze if we don't have annotations
         if not options['-no-mark-some-objects']:
             options['-no-mark-some-objects'] = True # Do not do this again
