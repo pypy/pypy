@@ -1,5 +1,7 @@
 from pypy.rpython.lltype import * 
 from pypy.rpython.lltype import _ptr
+from pypy.translator.translator import Translator
+from pypy.tool.sourcetools import compile2
 from pypy.objspace.flow.model import Constant, last_exception
 import py
 
@@ -28,6 +30,20 @@ class LLInterpreter(object):
         
     def setvar(self, var, val): 
         # XXX assert that val "matches" lowlevel type 
+        if isinstance(val,list):
+            fun = compile2(""" 
+            def f():
+                r = %s
+                return r"""%repr(val))
+            exec fun
+            t=Translator(f)
+            t.annotate([])
+            t.specialize()
+            t.view()
+            
+            val = self.eval_graph(t.getflowgraph())
+            print val
+                
         self.bindings[var] = val 
 
     def getval(self, varorconst): 
@@ -129,9 +145,20 @@ class LLInterpreter(object):
         return x
 
     def op_setfield(self, obj, fieldname, fieldvalue): 
-        # obj should be pointer 
-        setattr(obj, fieldname, fieldvalue) # is that right?  -- yes
+        # obj should be pointer
+        try: 
+            setattr(obj, fieldname, fieldvalue) # is that right?  -- yes
+        except TypeError:
+            print fieldname,fieldvalue
+            raise
+        
+    def op_getarrayitem(self,array,index):
+        return array[index]
     
+    def op_setarrayitem(self,array,index,item):
+        array[index] = item
+        return array
+        
     def op_direct_call(self, f, *args):
         # XXX the logic should be:
         #       if f._obj has a graph attribute, interpret
