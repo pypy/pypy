@@ -1,4 +1,3 @@
-import buildcache2
 from pypy.objspace.std.objspace import StdObjSpace
 from pypy.translator.test import rpystone
 
