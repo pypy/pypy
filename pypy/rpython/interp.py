@@ -1,5 +1,6 @@
 from pypy.rpython.lltype import * 
 from pypy.rpython.lltype import _ptr
+from pypy.objspace.flow.model import Constant, last_exception
 import py
 
 class RPythonError(Exception):
@@ -9,9 +10,10 @@ class LLInterpreter(object):
     """ low level interpreter working with concrete values. """ 
 #    log = py.log.Producer('llinterp') 
 
-    def __init__(self, flowgraphs): 
+    def __init__(self, flowgraphs, typer): 
         self.flowgraphs = flowgraphs 
         self.bindings = {}
+        self.typer = typer
 
     # _______________________________________________________
     # variable setters/getters helpers 
@@ -65,8 +67,14 @@ class LLInterpreter(object):
         """ return (nextblock, values) tuple. If nextblock 
             is None, values is the concrete return value. 
         """
-        for op in block.operations: 
-            self.eval_operation(op) 
+        catch_exception = block.exitswitch == Constant(last_exception)
+        e = None
+
+        for op in block.operations:
+            try:
+                self.eval_operation(op)
+            except RPythonError, e:
+                assert catch_exception, 'exception received, but not expected'
 
         # determine nextblock and/or return value 
         if len(block.exits) == 0:
@@ -82,11 +90,26 @@ class LLInterpreter(object):
             result = self.getval(resultvar) 
 #            self.log.operation("returning", result) 
             return None, result 
-        elif len(block.exits) == 1: 
-            index = 0 
+        elif block.exitswitch is None:
+            # single-exit block
+            assert len(block.exits) == 1
+            link = block.exits[0]
+        elif catch_exception:
+            link = block.exits[0]
+            if e:
+                exdata = self.typer.getexceptiondata()
+                cls, inst = e.args
+                for link in block.exits[1:]:
+                    assert issubclass(link.exitcase, Exception)
+                    if exdata.ll_exception_match(cls, link.llexitcase):
+                        self.setvar(link.last_exception, cls)
+                        self.setvar(link.last_exc_value, inst)
+                        return link.target, [cls, inst]
+                else:
+                    raise Exception, e # unhandled case, should not happen"
         else: 
-            index = self.getval(block.exitswitch) 
-        link = block.exits[index]
+            index = self.getval(block.exitswitch)
+            link = block.exits[index]
         return link.target, [self.getval(x) for x in link.args]
     
     def eval_operation(self, operation): 

@@ -25,11 +25,11 @@ def gengraph(func, argtypes=[]):
     typer.specialize()
     #t.view()
     t.checkgraphs()
-    return t
+    return t, typer
 
 def interpret(func, values): 
-    t = gengraph(func, [type(x) for x in values])
-    interp = LLInterpreter(t.flowgraphs)
+    t, typer = gengraph(func, [type(x) for x in values])
+    interp = LLInterpreter(t.flowgraphs, typer)
     res = interp.eval_function(func, values) 
     return res 
 
@@ -58,7 +58,7 @@ def test_raise():
     info = raises(RPythonError, interpret, raise_exception, [43])
     assert find_exception(info.value) is ValueError
 
-def XXXtest_call_raise():
+def test_call_raise():
     res = interpret(call_raise_intercept, [41])
     assert res == 41
     info = raises(RPythonError, interpret, call_raise_intercept, [42])
