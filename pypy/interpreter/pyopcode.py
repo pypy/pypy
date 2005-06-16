@@ -626,7 +626,7 @@ class PyInterpFrame(pyframe.PyFrame):
         block = pyframe.FinallyBlock(f, f.next_instr + offsettoend)
         f.blockstack.push(block)
 
-    def CALL_FUNCTION(f, oparg, w_star=None, w_starstar=None):
+    def call_function(f, oparg, w_star=None, w_starstar=None):
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
         keywords = {}
@@ -642,18 +642,21 @@ class PyInterpFrame(pyframe.PyFrame):
         w_result = f.space.call_args(w_function, args)
         f.valuestack.push(w_result)
 
+    def CALL_FUNCTION(f, oparg):
+        f.call_function(oparg)
+
     def CALL_FUNCTION_VAR(f, oparg):
         w_varargs = f.valuestack.pop()
-        f.CALL_FUNCTION(oparg, w_varargs)
+        f.call_function(oparg, w_varargs)
 
     def CALL_FUNCTION_KW(f, oparg):
         w_varkw = f.valuestack.pop()
-        f.CALL_FUNCTION(oparg, None, w_varkw)
+        f.call_function(oparg, None, w_varkw)
 
     def CALL_FUNCTION_VAR_KW(f, oparg):
         w_varkw = f.valuestack.pop()
         w_varargs = f.valuestack.pop()
-        f.CALL_FUNCTION(oparg, w_varargs, w_varkw)
+        f.call_function(oparg, w_varargs, w_varkw)
 
     def MAKE_FUNCTION(f, numdefaults):
         w_codeobj = f.valuestack.pop()
