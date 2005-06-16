@@ -390,7 +390,7 @@ class Bookkeeper:
                 break
 
         if first is not None:
-            change, rep, access = access_sets.find(objects[0])
+            change, rep, access = access_sets.find(first)
             for obj in objects:
                 if obj is not None:
                     change1, rep, access = access_sets.union(rep, obj)
