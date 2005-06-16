@@ -2,7 +2,8 @@ import types
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
-from pypy.rpython.lltype import typeOf, Void
+from pypy.rpython.lltype import typeOf, Void, ForwardReference, Struct
+from pypy.rpython.lltype import Ptr, malloc, nullptr
 from pypy.rpython.rmodel import Repr, TyperError
 from pypy.rpython import rclass
 
@@ -38,7 +39,7 @@ class __extend__(annmodel.SomePBC):
                     raise TyperError("don't know about callable %r" % (x,))
             else:
                 # frozen object
-                choice = FrozenPBCRepr
+                choice = getFrozenPBCRepr
 
             if cdefflag:
                 raise TyperError("unexpected classdef in PBC set %r" % (
@@ -60,17 +61,91 @@ class __extend__(annmodel.SomePBC):
 # ____________________________________________________________
 
 
-class FrozenPBCRepr(Repr):
+def getFrozenPBCRepr(rtyper, s_pbc):
+    if len(s_pbc.prebuiltinstances) <= 1:
+        return single_frozen_pbc_repr
+    else:
+        pbcs = [pbc for pbc in s_pbc.prebuiltinstances.keys()
+                    if pbc is not None]
+        access_sets = rtyper.annotator.getpbcaccesssets()
+        _, _, access = access_sets.find(pbcs[0])
+        for obj in pbcs[1:]:
+            _, _, access1 = access_sets.find(obj)
+            assert access1 is access       # XXX not implemented
+        try:
+            return rtyper.pbc_reprs[access]
+        except KeyError:
+            result = MultipleFrozenPBCRepr(rtyper, access)
+            rtyper.pbc_reprs[access] = result
+            return result
+
+
+class SingleFrozenPBCRepr(Repr):
     """Representation selected for a single non-callable pre-built constant."""
     lowleveltype = Void
-
-    def __init__(self, rtyper, s_pbc):
-        assert len(s_pbc.prebuiltinstances) == 1   # XXX not implemented
 
     def rtype_getattr(_, hop):
         if not hop.s_result.is_constant():
             raise TyperError("getattr on a constant PBC returns a non-constant")
         return hop.inputconst(hop.r_result, hop.s_result.const)
+
+single_frozen_pbc_repr = SingleFrozenPBCRepr()
+
+
+class MultipleFrozenPBCRepr(Repr):
+    """Representation selected for multiple non-callable pre-built constants."""
+    initialized = False
+
+    def __init__(self, rtyper, access_set):
+        self.rtyper = rtyper
+        self.access_set = access_set
+        self.pbc_type = ForwardReference()
+        self.lowleveltype = Ptr(self.pbc_type)
+        self.pbc_cache = {}
+
+    def setup(self):
+        if self.initialized:
+            assert self.initialized == True
+            return
+        self.initialized = "in progress"
+        llfields = []
+        llfieldmap = {}
+        attrlist = self.access_set.attrs.keys()
+        attrlist.sort()
+        for attr in attrlist:
+            s_value = self.access_set.attrs[attr]
+            r_value = self.rtyper.getrepr(s_value)
+            mangled_name = 'pbc_' + attr
+            llfields.append((mangled_name, r_value.lowleveltype))
+            llfieldmap[attr] = mangled_name, r_value
+        self.pbc_type.become(Struct('pbc', *llfields))
+        self.llfieldmap = llfieldmap
+        self.initialized = True
+
+    def convert_const(self, pbc):
+        if pbc is None:
+            return nullptr(self.pbc_type)
+        if pbc not in self.access_set.objects:
+            raise TyperError("not found in PBC set: %r" % (pbc,))
+        try:
+            return self.pbc_cache[pbc]
+        except KeyError:
+            self.setup()
+            result = malloc(self.pbc_type, immortal=True)
+            self.pbc_cache[pbc] = result
+            for attr, (mangled_name, r_value) in self.llfieldmap.items():
+                thisattrvalue = getattr(pbc, attr)
+                llvalue = r_value.convert_const(thisattrvalue)
+                setattr(result, mangled_name, llvalue)
+            return result
+
+    def rtype_getattr(self, hop):
+        attr = hop.args_s[1].const
+        vpbc, vattr = hop.inputargs(self, Void)
+        mangled_name, r_value = self.llfieldmap[attr]
+        cmangledname = hop.inputconst(Void, mangled_name)
+        return hop.genop('getfield', [vpbc, cmangledname],
+                         resulttype = r_value)
 
 
 # ____________________________________________________________

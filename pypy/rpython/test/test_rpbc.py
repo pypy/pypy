@@ -57,3 +57,25 @@ def test_virtual_method_call():
         obj.z = a
         return obj.m(b)
     rtype(f, [int, int])
+
+
+class Freezing:
+    def _freeze_(self):
+        return True
+
+def test_freezing():
+    fr1 = Freezing()
+    fr2 = Freezing()
+    fr1.x = 5
+    fr2.x = 6
+    def g(fr):
+        return fr.x
+    def f(n):
+        if n > 0:
+            fr = fr1
+        elif n < 0:
+            fr = fr2
+        else:
+            fr = None
+        return g(fr)
+    rtype(f, [int])

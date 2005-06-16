@@ -42,6 +42,7 @@ class RPythonTyper:
         self.specialized_ll_functions = {}
         self.class_reprs = {}
         self.instance_reprs = {}
+        self.pbc_reprs = {}
         self.typererror = None
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
