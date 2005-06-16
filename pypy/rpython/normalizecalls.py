@@ -40,55 +40,76 @@ def normalize_function_signatures(annotator):
                     functions))
             pattern, = family.patterns
             shape_cnt, shape_keys, shape_star, shape_stst = pattern
-            assert not shape_keys, "XXX not implemented"
             assert not shape_star, "XXX not implemented"
             assert not shape_stst, "XXX not implemented"
             # for the first 'shape_cnt' arguments we need to generalize to
             # a common type
-            generalizedargs = []
             graph_bindings = {}
-            default_values = {}
+            graph_argorders = {}
             for func in functions:
                 assert not has_varargs(func), "XXX not implemented"
                 graph = annotator.translator.getflowgraph(func)
                 graph_bindings[graph] = [annotator.binding(v)
                                          for v in graph.getargs()]
-            for i in range(shape_cnt):
+                argorder = range(shape_cnt)
+                for key in shape_keys:
+                    i = list(func.func_code.co_varnames).index(key)
+                    assert i not in argorder
+                    argorder.append(i)
+                graph_argorders[graph] = argorder
+
+            call_nbargs = shape_cnt + len(shape_keys)
+            generalizedargs = []
+            for i in range(call_nbargs):
                 args_s = []
-                for bindings in graph_bindings.values():
-                    args_s.append(bindings[i])
+                for graph, bindings in graph_bindings.items():
+                    j = graph_argorders[graph][i]
+                    args_s.append(bindings[j])
                 s_value = unionof(*args_s)
                 generalizedargs.append(s_value)
+
             for func in functions:
                 graph = annotator.translator.getflowgraph(func)
                 bindings = graph_bindings[graph]
-                if generalizedargs != bindings: #NB. bindings can also be longer
+                argorder = graph_argorders[graph]
+                need_reordering = (argorder != range(call_nbargs))
+                need_conversion = (generalizedargs != bindings)
+                if need_reordering or need_conversion:
                     oldblock = graph.startblock
-                    vlist = []
-                    for i in range(len(generalizedargs)):
-                        v = Variable(graph.getargs()[i])
-                        annotator.setbinding(v, generalizedargs[i])
-                        vlist.append(v)
-                    newblock = Block(vlist)
-                    # add the defaults as constants
+                    inlist = []
+                    for s_value, j in zip(generalizedargs, argorder):
+                        v = Variable(graph.getargs()[j])
+                        annotator.setbinding(v, s_value)
+                        inlist.append(v)
+                    newblock = Block(inlist)
+                    # prepare the output args of newblock:
+                    # 1. collect the positional arguments
+                    outlist = inlist[:shape_cnt]
+                    # 2. add defaults and keywords
                     defaults = func.func_defaults or ()
-                    for i in range(len(generalizedargs), len(bindings)):
+                    for j in range(shape_cnt, len(bindings)):
                         try:
-                            default = defaults[i-len(bindings)]
-                        except IndexError:
-                            raise TyperError("call pattern has %d arguments, "
-                                             "but %r takes at least %d "
-                                             "arguments" % (
-                                len(generalizedargs), func,
-                                len(bindings) - len(defaults)))
-                        vlist.append(Constant(default))
-                    newblock.closeblock(Link(vlist, oldblock))
+                            i = argorder.index(j)
+                            v = inlist[i]
+                        except ValueError:
+                            try:
+                                default = defaults[j-len(bindings)]
+                            except IndexError:
+                                raise TyperError(
+                                    "call pattern has %d positional arguments, "
+                                    "but %r takes at least %d arguments" % (
+                                        shape_cnt, func,
+                                        len(bindings) - len(defaults)))
+                            v = Constant(default)
+                        outlist.append(v)
+                    newblock.closeblock(Link(outlist, oldblock))
                     oldblock.isstartblock = False
                     newblock.isstartblock = True
                     graph.startblock = newblock
                     # finished
                     checkgraph(graph)
                     annotator.annotated[newblock] = annotator.annotated[oldblock]
+                graph.normalized_for_calls = True
                 # XXX convert the return value too
 
 

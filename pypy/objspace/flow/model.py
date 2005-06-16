@@ -31,7 +31,6 @@ COUNTOBJECTS = False
 __metaclass__ = type
 
 class FunctionGraph(object):
-    __slots__ = """func source name startblock returnblock exceptblock""".split()
     
     def __init__(self, name, startblock, return_var=None):
         self.name        = name    # function name (possibly mangled already)

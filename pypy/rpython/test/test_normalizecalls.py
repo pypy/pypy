@@ -36,3 +36,22 @@ def test_normalize_f2_as_taking_string_argument():
     assert s_l1.__class__ == annmodel.SomeString   # and not SomeChar
     assert s_l2.__class__ == annmodel.SomeString   # and not SomeChar
     #translator.view()
+
+def test_normalize_keyword_call():
+    def f1(a, b):
+        return (a, b, 0, 0)
+    def f2(b, c=123, a=456, d=789):
+        return (a, b, c, d)
+    def g(n):
+        if n > 0:
+            f = f1
+        else:
+            f = f2
+        f(a=5, b=6)
+
+    translator = rtype(g, [int])
+    f1graph = translator.getflowgraph(f1)
+    f2graph = translator.getflowgraph(f2)
+    assert len(f1graph.getargs()) == 2
+    assert len(f2graph.getargs()) == 2   # normalized to the common call pattern
+    #translator.view()
