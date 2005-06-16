@@ -39,7 +39,7 @@ class LLInterpreter(object):
             t=Translator(f)
             t.annotate([])
             t.specialize()
-            t.view()
+            #t.view()
             
             val = self.eval_graph(t.getflowgraph())
             print val
@@ -146,11 +146,7 @@ class LLInterpreter(object):
 
     def op_setfield(self, obj, fieldname, fieldvalue): 
         # obj should be pointer
-        try: 
-            setattr(obj, fieldname, fieldvalue) # is that right?  -- yes
-        except TypeError:
-            print fieldname,fieldvalue
-            raise
+        setattr(obj, fieldname, fieldvalue) # is that right?  -- yes
         
     def op_getarrayitem(self,array,index):
         return array[index]
