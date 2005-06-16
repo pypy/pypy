@@ -1,6 +1,9 @@
 import os, sys
 from pypy.objspace.std.objspace import StdObjSpace
-from pypy.annotation.model import *
+# XXX from pypy.annotation.model import *
+# since we are execfile()'ed this would pull some
+# weird objects into the globals, which we would try to pickle.
+from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 from pypy.interpreter import gateway
 
