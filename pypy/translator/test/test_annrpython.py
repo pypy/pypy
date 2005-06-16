@@ -810,7 +810,7 @@ class TestAnnotateTestCase:
         assert acc1 is acc2 is acc3
 
         assert len(acc1.objects) == 3
-        assert acc1.attrs == {'v1': True, 'v2': True}
+        assert dict.fromkeys(acc1.attrs) == {'v1': None, 'v2': None}
 
         assert access_sets[c1] is acc1
         py.test.raises(KeyError, "access_sets[object()]")

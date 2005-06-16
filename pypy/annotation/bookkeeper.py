@@ -380,38 +380,36 @@ class Bookkeeper:
 
         access_sets = self.pbc_maximal_access_sets
         objects = pbc.prebuiltinstances.keys()
-        access = None
-        first = None
-        change = False
-        
+
         for obj in objects:
             if obj is not None:
                 first = obj
                 break
+        else:
+            return SomeImpossibleValue()
 
-        if first is not None:
-            change, rep, access = access_sets.find(first)
-            for obj in objects:
-                if obj is not None:
-                    change1, rep, access = access_sets.union(rep, obj)
-                    change = change or change1
+        change, rep, access = access_sets.find(first)
+        for obj in objects:
+            if obj is not None:
+                change1, rep, access = access_sets.union(rep, obj)
+                change = change or change1
 
-            access.attrs[attr] = True
-            position = self.position_key
-            access.read_locations[position] = True
+        position = self.position_key
+        access.read_locations[position] = True
 
         actuals = []
+        for c in access.objects:
+            if hasattr(c, attr):
+                actuals.append(self.immutablevalue(getattr(c, attr)))
+        s_result = unionof(*actuals)
 
-        if access:
-            for c in access.objects:
-                if hasattr(c, attr):
-                    actuals.append(self.immutablevalue(getattr(c, attr)))
+        access.attrs[attr] = s_result
 
         if change:
             for position in access.read_locations:
                 self.annotator.reflowfromposition(position)
                 
-        return unionof(*actuals)        
+        return s_result
 
     def consider_pbc_call(self, pbc, shape, spaceop=None, implicit_init=None): # computation done at fix-point
         if not isinstance(pbc, SomePBC):
