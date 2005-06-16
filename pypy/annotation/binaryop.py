@@ -405,13 +405,16 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         return getbookkeeper().newlist(lst1.listdef.read_item())
 
     def getitem((lst1, int2)):
+        getbookkeeper().count("list_getitem", int2)
         return lst1.listdef.read_item()
 
     def setitem((lst1, int2), s_value):
+        getbookkeeper().count("list_setitem", int2)        
         lst1.listdef.mutate()
         lst1.listdef.generalize(s_value)
 
     def delitem((lst1, int2)):
+        getbookkeeper().count("list_delitem", int2)        
         lst1.listdef.resize()
 
 class __extend__(pairtype(SomeList, SomeSlice)):
@@ -435,6 +438,7 @@ class __extend__(pairtype(SomeString, SomeSlice)):
 class __extend__(pairtype(SomeString, SomeInteger)):
 
     def getitem((str1, int2)):
+        getbookkeeper().count("str_getitem", int2)        
         return SomeChar()
 
     def mul((str1, int2)): # xxx do we want to support this

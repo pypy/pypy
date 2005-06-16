@@ -318,9 +318,15 @@ def statsfor(t, category):
     counters = {}
     for pos, outcome in for_category.iteritems():
         counters[outcome] = counters.get(outcome, 0) + 1
-    w = max([len(str(o)) for o in counters.keys()])+1
+    def keyrepr(k):
+        if isinstance(k, tuple):
+            return "(%s)" % ', '.join([keyrepr(x) for x in k])
+        else:
+            return str(k)
+        
+    w = max([len(keyrepr(o)) for o in counters.keys()])+1
     for outcome, n in counters.iteritems():
-        print "%*s | %d" % (w, outcome, n)
+        print "%*s | %d" % (w, keyrepr(outcome), n)
 
 # debug helper
 def tryout(f, *args):

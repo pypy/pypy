@@ -51,42 +51,79 @@ class Stats:
         outcome = classifier(*args)
         for_category[self.bookkeeper.position_key] = outcome
 
-    def consider_newslice(self, s_start, s_stop, s_step):
-        if ((s_start.is_constant() or (isinstance(s_start, SomeInteger) and s_start.nonneg)) and
-            (s_stop.is_constant() or (isinstance(s_stop, SomeInteger) and s_stop.nonneg)) and
-            (s_step.is_constant() and (s_step.const == 1 or s_step.const == None))):
-            return 'proper'
-        return 'improper'
+    def indexrepr(self, idx):
+        if idx.is_constant():
+            if idx.const is None:
+                return ''
+            if isinstance(idx, SomeInteger):
+                if idx.const >=0:
+                    return 'pos-constant'
+                else:
+                    return 'Neg-constant'
+            return idx.const
+        else:
+            if isinstance(idx, SomeInteger):
+                if idx.nonneg:
+                    return "non-neg"
+                else:
+                    return "MAYBE-NEG"
+            else:
+                return self.typerepr(idx)
 
+    def steprepr(self, stp):
+        if stp.is_constant():
+            if stp.const in (1, None):
+                return 'step=1'
+            else:
+                return 'step=%s?' % stp.const
+        else:
+            return 'non-const-step %s' % self.typerepr(stp)
+
+
+    def consider_newslice(self, s_start, s_stop, s_step):
+        return ':'.join([self.indexrepr(s_start), self.indexrepr(s_stop), self.steprepr(s_step)])
     def consider_non_int_eq(self, obj1, obj2):
         return obj1.knowntype.__name__, obj2.knowntype.__name__
 
     def consider_non_int_comp(self, obj1, obj2):
         return obj1.knowntype.__name__, obj2.knowntype.__name__
 
-    def short(self, obj):
+    def typerepr(self, obj):
         if isinstance(obj, SomeInstance):
             return obj.classdef.cls.__name__
         else:
             return obj.knowntype.__name__
 
     def consider_tuple_iter(self, tup):
+        ctxt = "[%s]" % sys._getframe(4).f_code.co_name
         if tup.is_constant():
-            return 'constant tuple'
+            return ctxt, tup.const
         else:
-            return tuple([self.short(x) for x in tup.items])
+            return ctxt, tuple([self.typerepr(x) for x in tup.items])
 
     def consider_tuple_random_getitem(self, tup):
-        return tuple([self.short(x) for x in tup.items])
+        return tuple([self.typerepr(x) for x in tup.items])
 
     def consider_list_index(self):
         return '!'
 
+    def consider_list_getitem(self, idx):
+        return self.indexrepr(idx)
+
+    def consider_list_setitem(self, idx):
+        return self.indexrepr(idx)
+
+    def consider_list_delitem(self, idx):
+        return self.indexrepr(idx)
+    
     def consider_str_join(self, s):
         if s.is_constant():
             return repr(s.const)
         else:
             return "NON-CONSTANT"
+
+    def consider_str_getitem(self, idx):
+        return self.indexrepr(idx)        
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
