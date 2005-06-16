@@ -51,6 +51,9 @@ class LLInterpreter(object):
 
     def eval_function(self, func, args=()): 
         graph = self.flowgraphs[func]
+        return self.eval_graph(graph,args)
+
+    def eval_graph(self, graph, args=()): 
         nextblock = graph.startblock
         while 1: 
             self.fillvars(nextblock, args) 
@@ -66,13 +69,12 @@ class LLInterpreter(object):
             self.eval_operation(op) 
 
         # determine nextblock and/or return value 
-        if len(block.exits) == 0: 
+        if len(block.exits) == 0:
             # return block
             if len(block.inputargs) == 2:
                 # exception
                 etypevar, evaluevar = block.getvariables()
                 etype = self.getval(etypevar)
-                #rint etype
                 evalue = self.getval(evaluevar)
                 # watch out, these are _ptr's
                 raise RPythonError(etype, evalue)
@@ -107,37 +109,38 @@ class LLInterpreter(object):
         # obj should be pointer 
         setattr(obj, fieldname, fieldvalue) # is that right?  -- yes
     
-    def op_direct_call(self,f,*args):
+    def op_direct_call(self, f, *args):
         # XXX the logic should be:
         #       if f._obj has a graph attribute, interpret
         #       that graph without looking at _callable
-        res = self.eval_function(f._obj._callable,args)
-        return res
-    
-    def op_malloc(self,obj):
+        if hasattr(f._obj, 'graph'):
+            return self.eval_graph(f._obj.graph, args)
+        return self.eval_function(f._obj._callable, args)
+
+    def op_malloc(self, obj):
         return malloc(obj)
     
-    def op_getfield(self,obj,field):
+    def op_getfield(self, obj, field):
         # assert: obj should be pointer
-        result = getattr(obj,field)
+        result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
         # the former returns the real field, the latter a pointer to it
         assert typeOf(result) == getattr(typeOf(obj).TO, field)
         return result
 
-    def op_getsubstruct(self,obj,field):
+    def op_getsubstruct(self, obj, field):
         # assert: obj should be pointer
-        result = getattr(obj,field)
+        result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
         # the former returns the real field, the latter a pointer to it
         assert typeOf(result) == Ptr(getattr(typeOf(obj).TO, field))
         return result
 
-    def op_malloc_varsize(self,obj,size):
-        return malloc(obj,size)
+    def op_malloc_varsize(self, obj, size):
+        return malloc(obj, size)
 
-    def op_getarraysubstruct(self,array,index):
-        assert isinstance(array,_ptr)
+    def op_getarraysubstruct(self, array, index):
+        assert isinstance(array, _ptr)
         return array[index]
         # the diff between op_getarrayitem and op_getarraysubstruct
         # is the same as between op_getfield and op_getsubstruct

@@ -5,10 +5,22 @@ from pypy.rpython.lltype import typeOf
 from pypy.rpython.rtyper import RPythonTyper 
 from pypy.rpython.interp import LLInterpreter, RPythonError
 from pypy.translator.translator import Translator 
+from pypy.rpython.lltype import pyobjectptr
+
+def find_exception(exc):
+    assert isinstance(exc, RPythonError)
+    import exceptions
+    klass, inst = exc.args
+    func = typer.getexceptiondata().ll_pyexcclass2exc
+    for cls in exceptions.__dict__.values():
+        if type(cls) is type(Exception):
+            if func(pyobjectptr(cls)).typeptr == klass:
+                return cls
 
 def gengraph(func, argtypes=[]): 
     t = Translator(func)
     t.annotate(argtypes)
+    global typer # we need it for find_exception
     typer = RPythonTyper(t.annotator)
     typer.specialize()
     #t.view()
@@ -42,10 +54,17 @@ def test_raise():
     res = interpret(raise_exception, [41])
     assert res == 41
     info = raises(RPythonError, interpret, raise_exception, [42])
-    # XXX inspect which exception this was.
-    # rtyper.getexceptiondata().ll_exception_match()
-    # llexitcase not available here
-    # maybe I use pyexcclass2exc ???
+    assert find_exception(info.value) is IndexError
+    info = raises(RPythonError, interpret, raise_exception, [43])
+    assert find_exception(info.value) is ValueError
+
+def XXXtest_call_raise():
+    res = interpret(call_raise_intercept, [41])
+    assert res == 41
+    info = raises(RPythonError, interpret, call_raise_intercept, [42])
+    assert find_exception(info.value) is IndexError
+    info = raises(RPythonError, interpret, call_raise_intercept, [43])
+    assert find_exception(info.value) is TypeError
 
 def test_while_simple(): 
     res = interpret(while_simple, [3])
@@ -114,8 +133,15 @@ def while_simple(i):
 def raise_exception(i):
     if i == 42:
         raise IndexError
+    elif i == 43:
+        raise ValueError
     return i
 
+def call_raise_intercept(i):
+    try:
+        return raise_exception(i)
+    except ValueError:
+        raise TypeError
 #__________________________________________________________________
 # interactive playing 
 
