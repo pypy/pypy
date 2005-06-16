@@ -65,7 +65,8 @@ from pypy.tool.cache import Cache
 from pypy.annotation.model import SomeObject
 from pypy.tool.udir import udir 
 from pypy.tool.ansi_print import ansi_print
-
+from pypy.rpython.rtyper import RPythonTyper 
+from pypy.translator.pickle.main import load, save
 
 # XXX this tries to make compiling faster
 from pypy.translator.tool import buildpyxmodule
@@ -77,11 +78,12 @@ buildpyxmodule.enable_fast_compilation()
 # __________  Main  __________
 
 def analyse(target):
-    global t, entry_point
+    global t, entry_point, inputtypes
 
-    entry_point, inputtypes = target()
-
-    t = Translator(entry_point, verbose=True, simplifying=True)
+    if target:
+        entry_point, inputtypes = target()
+        t = Translator(entry_point, verbose=True, simplifying=True)
+    # otherwise we have been loaded
     if listen_port:
         run_async_server()
     if not options['-no-a']:
@@ -91,7 +93,8 @@ def analyse(target):
         if not options['-no-s']:
             a.simplify()
         if not options['-no-t']:
-            t.specialize()
+            typer = RPythonTyper(a)
+            typer.specialize()
         t.frozen = True   # cannot freeze if we don't have annotations
         if not options['-no-mark-some-objects']:
             options['-no-mark-some-objects'] = True # Do not do this again
@@ -225,6 +228,8 @@ if __name__ == '__main__':
 
     targetspec = 'targetpypymain'
     huge = 100
+    load_file = None
+    save_file =None
 
     options = {'-text': False,
                '-no-c': False,
@@ -236,9 +241,12 @@ if __name__ == '__main__':
                '-no-t': False,
                '-tcc':  False,
                '-no-d': False,
+               '-load': False,
+               '-save': False,
                }
     listen_port = None
-    for arg in sys.argv[1:]:
+    argiter = iter(sys.argv[1:])
+    for arg in argiter:
         if arg in ('-h', '--help'):
             print __doc__.strip()
             sys.exit()
@@ -256,6 +264,11 @@ if __name__ == '__main__':
             else:                
                 assert arg in options, "unknown option %r" % (arg,)
                 options[arg] = True
+                if arg == '-load':
+                    load_file = argiter.next()
+                    loaded_dic = load(load_file)
+                if arg == '-save':
+                    save_file = argiter.next()
     if options['-tcc']:
         os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
     if options['-no-d']:
@@ -455,12 +468,39 @@ show class hierarchy graph"""
             cleanup()
 
     try:
-        targetspec_dic = {}
-        sys.path.insert(0, os.path.dirname(targetspec))
-        execfile(targetspec+'.py',targetspec_dic)
-        print "Analysing target as defined by %s" % targetspec
-        analyse(targetspec_dic['target'])
+        if load_file:
+            t = loaded_dic['trans']
+            entry_point = t.entrypoint
+            inputtypes = loaded_dic['inputtypes']
+            targetspec_dic = loaded_dic['targetspec_dic']
+            targetspec = loaded_dic['targetspec']
+            old_options = loaded_dic['options']
+            for name in '-no-a -no-s -no-t'.split():
+                # if one of these options has not been set, before,
+                # then the action has been done and must be prevented, now.
+                if not old_options[name]:
+                    if options[name]:
+                        print 'option %s is implied by the load' % name
+                    options[name] = True
+            print "continuing Analysis as defined by %s, loaded from %s" %(
+                targetspec, load_file)
+            analyse(None)
+        else:
+            targetspec_dic = {}
+            sys.path.insert(0, os.path.dirname(targetspec))
+            execfile(targetspec+'.py', targetspec_dic)
+            print "Analysing target as defined by %s" % targetspec
+            analyse(targetspec_dic['target'])
         print '-'*60
+        if save_file:
+            print 'saving state to %s' % save_file
+            save(t, save_file,
+                 trans=t,
+                 inputtypes=inputtypes,
+                 targetspec=targetspec,
+                 targetspec_dic=targetspec_dic,
+                 options=options,
+                 )
         if options['-no-c']:
             print 'Not generating C code.'
         elif options['-c']:
