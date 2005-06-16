@@ -51,7 +51,7 @@ class ListRepr(Repr):
             self.item_repr = self._item_repr_computer()
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
-            ITEMARRAY = GcArray(("item", ITEM))
+            ITEMARRAY = GcArray(ITEM)
             self.LIST.become(GcStruct("list", ("items", Ptr(ITEMARRAY))))
 
     def rtype_len(self, hop):
@@ -149,26 +149,26 @@ def ll_append(l, newitem):
     newitems = malloc(typeOf(l).TO.items.TO, length+1)
     i = 0
     while i<length:
-        newitems[i].item = l.items[i].item
+        newitems[i] = l.items[i]
         i += 1
-    newitems[length].item = newitem
+    newitems[length] = newitem
     l.items = newitems
 
 def ll_getitem_nonneg(l, i):
-    return l.items[i].item
+    return l.items[i]
 
 def ll_getitem(l, i):
     if i<0:
         i += len(l.items)
-    return l.items[i].item
+    return l.items[i]
 
 def ll_setitem_nonneg(l, i, newitem):
-    l.items[i].item = newitem
+    l.items[i] = newitem
 
 def ll_setitem(l, i, newitem):
     if i<0:
         i += len(l.items)
-    l.items[i].item = newitem
+    l.items[i] = newitem
 
 def ll_delitem(l, i):
     if i < 0:
@@ -177,10 +177,10 @@ def ll_delitem(l, i):
     newitems = malloc(typeOf(l).TO.items.TO, newlength)
     j = 0
     while j < i:
-        newitems[j].item = l.items[j].item
+        newitems[j] = l.items[j]
         j += 1
     while j < newlength:
-        newitems[j].item = l.items[j+1].item
+        newitems[j] = l.items[j+1]
         j += 1
     l.items = newitems
 
@@ -189,10 +189,10 @@ def ll_delitem_nonneg(l, i):
     newitems = malloc(typeOf(l).TO.items.TO, newlength)
     j = 0
     while j < i:
-        newitems[j].item = l.items[j].item
+        newitems[j] = l.items[j]
         j += 1
     while j < newlength:
-        newitems[j].item = l.items[j+1].item
+        newitems[j] = l.items[j+1]
         j += 1
     l.items = newitems
 
@@ -202,11 +202,11 @@ def ll_concat(l1, l2):
     newitems = malloc(typeOf(l1).TO.items.TO, len1 + len2)
     j = 0
     while j < len1:
-        newitems[j].item = l1.items[j].item
+        newitems[j] = l1.items[j]
         j += 1
     i = 0
     while i < len2:
-        newitems[j].item = l2.items[i].item
+        newitems[j] = l2.items[i]
         i += 1
         j += 1
     l = malloc(typeOf(l1).TO)
@@ -219,11 +219,11 @@ def ll_extend(l1, l2):
     newitems = malloc(typeOf(l1).TO.items.TO, len1 + len2)
     j = 0
     while j < len1:
-        newitems[j].item = l1.items[j].item
+        newitems[j] = l1.items[j]
         j += 1
     i = 0
     while i < len2:
-        newitems[j].item = l2.items[i].item
+        newitems[j] = l2.items[i]
         i += 1
         j += 1
     l1.items = newitems
@@ -233,7 +233,7 @@ def ll_listslice_startonly(l1, start):
     newitems = malloc(typeOf(l1).TO.items.TO, len1 - start)
     j = 0
     while start < len1:
-        newitems[j].item = l1.items[start].item
+        newitems[j] = l1.items[start]
         start += 1
         j += 1
     l = malloc(typeOf(l1).TO)
@@ -246,7 +246,7 @@ def ll_listslice(l1, slice):
     newitems = malloc(typeOf(l1).TO.items.TO, stop - start)
     j = 0
     while start < stop:
-        newitems[j].item = l1.items[start].item
+        newitems[j] = l1.items[start]
         start += 1
         j += 1
     l = malloc(typeOf(l1).TO)
@@ -257,7 +257,7 @@ def ll_listdelslice_startonly(l1, start):
     newitems = malloc(typeOf(l1).TO.items.TO, start)
     j = 0
     while j < start:
-        newitems[j].item = l1.items[j].item
+        newitems[j] = l1.items[j]
         j += 1
     l1.items = newitems
 
@@ -268,10 +268,10 @@ def ll_listdelslice(l1, slice):
     newitems = malloc(typeOf(l1).TO.items.TO, newlength)
     j = 0
     while j < start:
-        newitems[j].item = l1.items[j].item
+        newitems[j] = l1.items[j]
         j += 1
     while j < newlength:
-        newitems[j].item = l1.items[stop].item
+        newitems[j] = l1.items[stop]
         stop += 1
         j += 1
     l1.items = newitems
@@ -303,7 +303,7 @@ def ll_alloc_and_set(LISTPTR, count, item):
     l.items = malloc(LISTPTR.TO.items.TO, count)
     i = 0
     while i < count:
-        l.items[i].item = item
+        l.items[i] = item
         i += 1
     return l
 
@@ -346,4 +346,4 @@ def ll_listnext(iter):
     if index >= len(l.items):
         raise StopIteration
     iter.index = index + 1
-    return l.items[index].item
+    return l.items[index]
