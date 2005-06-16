@@ -611,6 +611,7 @@ def consider_op_%s(self, arg1, arg2, *args):
         return self.bookkeeper.newdict(*items_s)
 
     def consider_op_newslice(self, start, stop, step):
+        self.bookkeeper.count('newslice', start, stop, step)
         return annmodel.SomeSlice(start, stop, step)
 
 

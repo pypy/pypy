@@ -311,6 +311,17 @@ def pbccall(translator):
             print " - many callables, many patterns -"
         print "family of", pretty_els(objs), "with call-patterns:", prettypatt(patts)
 
+def statsfor(t, category):
+    stats = t.annotator.bookkeeper.stats
+    for_category = stats.classify[category]
+    print "%s total = %d" % (category, len(for_category))
+    counters = {}
+    for pos, outcome in for_category.iteritems():
+        counters[outcome] = counters.get(outcome, 0) + 1
+    w = max([len(o) for o in counters.keys()])+1
+    for outcome, n in counters.iteritems():
+        print "%*s | %d" % (w, outcome, n)
+
 # debug helper
 def tryout(f, *args):
     try:

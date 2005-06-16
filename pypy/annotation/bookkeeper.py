@@ -39,6 +39,26 @@ class PBCCallFamily:
         self.objects.update(other.objects)
         self.patterns.update(other.patterns)
 
+class Stats:
+
+    def __init__(self, bookkeeper):
+        self.bookkeeper = bookkeeper
+        self.classify = {}
+
+    def count(self, category, *args):
+        for_category = self.classify.setdefault(category, {})
+        classifier = getattr(self, 'consider_%s' % category)
+        outcome = classifier(*args)
+        for_category[self.bookkeeper.position_key] = outcome
+
+    def consider_newslice(self, s_start, s_stop, s_step):
+        if ((s_start.is_constant() or (isinstance(s_start, SomeInteger) and s_start.nonneg)) and
+            (s_stop.is_constant() or (isinstance(s_stop, SomeInteger) and s_stop.nonneg)) and
+            (s_step.is_constant() and (s_step.const == 1 or s_step.const == None))):
+            return 'proper'
+        return 'improper'
+
+
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
     It ensures that the same 'choice objects' will be returned if we ask
@@ -69,10 +89,14 @@ class Bookkeeper:
         
         self.pbc_call_sites = {}
 
-        
+        self.stats = Stats(self)
+
         # import ordering hack
         global BUILTIN_ANALYZERS
         from pypy.annotation.builtin import BUILTIN_ANALYZERS
+
+    def count(self, category, *args):
+        self.stats.count(category, *args)
 
     def enter(self, position_key):
         """Start of an operation.
