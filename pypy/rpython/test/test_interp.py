@@ -152,10 +152,10 @@ if __name__ == '__main__':
     except ImportError: 
         pass
 
-    t = gengraph(number_ops, [int])
-    interp = LLInterpreter(t.flowgraphs)
+    t, typer = gengraph(number_ops, [int])
+    interp = LLInterpreter(t.flowgraphs, typer)
     res = interp.eval_function(number_ops, [3])
-    assert res == 6 
+    assert res == number_ops(3)
     for name, value in globals().items(): 
         if name not in _snap and name[0] != '_': 
             print "%20s: %s" %(name, value)
