@@ -90,6 +90,8 @@ class LLInterpreter(object):
             try:
                 self.eval_operation(op)
             except RPythonError, e:
+                # XXX should only catch exceptions from the last operation
+                # XXX non-caught exceptions should just be allowed to propagate
                 assert catch_exception, 'exception received, but not expected'
 
         # determine nextblock and/or return value 
@@ -146,19 +148,15 @@ class LLInterpreter(object):
 
     def op_setfield(self, obj, fieldname, fieldvalue): 
         # obj should be pointer
-        setattr(obj, fieldname, fieldvalue) # is that right?  -- yes
+        setattr(obj, fieldname, fieldvalue)
         
     def op_getarrayitem(self,array,index):
         return array[index]
     
     def op_setarrayitem(self,array,index,item):
         array[index] = item
-        return array
         
     def op_direct_call(self, f, *args):
-        # XXX the logic should be:
-        #       if f._obj has a graph attribute, interpret
-        #       that graph without looking at _callable
         if hasattr(f._obj, 'graph'):
             return self.eval_graph(f._obj.graph, args)
         return self.eval_function(f._obj._callable, args)
