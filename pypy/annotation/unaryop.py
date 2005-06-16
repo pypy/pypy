@@ -197,6 +197,7 @@ class __extend__(SomeTuple):
         return immutablevalue(len(tup.items))
 
     def iter(tup):
+        getbookkeeper().count("tuple_iter", tup)
         return SomeIterator(tup)
 
     def getanyitem(tup):
@@ -226,6 +227,7 @@ class __extend__(SomeList):
         return lst.listdef.read_item()
 
     def method_index(lst, el):
+        getbookkeeper().count("list_index")
         return SomeInteger(nonneg=True)
 
     def len(lst):
@@ -289,6 +291,7 @@ class __extend__(SomeString):
         return SomeBool()
 
     def method_join(str, s_list):
+        getbookkeeper().count("str_join", str)
         return SomeString()
 
     def iter(str):

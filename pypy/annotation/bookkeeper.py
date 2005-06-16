@@ -58,6 +58,35 @@ class Stats:
             return 'proper'
         return 'improper'
 
+    def consider_non_int_eq(self, obj1, obj2):
+        return obj1.knowntype.__name__, obj2.knowntype.__name__
+
+    def consider_non_int_comp(self, obj1, obj2):
+        return obj1.knowntype.__name__, obj2.knowntype.__name__
+
+    def short(self, obj):
+        if isinstance(obj, SomeInstance):
+            return obj.classdef.cls.__name__
+        else:
+            return obj.knowntype.__name__
+
+    def consider_tuple_iter(self, tup):
+        if tup.is_constant():
+            return 'constant tuple'
+        else:
+            return tuple([self.short(x) for x in tup.items])
+
+    def consider_tuple_random_getitem(self, tup):
+        return tuple([self.short(x) for x in tup.items])
+
+    def consider_list_index(self):
+        return '!'
+
+    def consider_str_join(self, s):
+        if s.is_constant():
+            return repr(s.const)
+        else:
+            return "NON-CONSTANT"
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.

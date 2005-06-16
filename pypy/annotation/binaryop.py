@@ -95,42 +95,49 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if obj1.is_constant() and obj2.is_constant():
             return immutablevalue(obj1.const < obj2.const)
         else:
+            getbookkeeper().count("non_int_comp", obj1, obj2)
             return SomeBool()
 
     def le((obj1, obj2)):
         if obj1.is_constant() and obj2.is_constant():
             return immutablevalue(obj1.const <= obj2.const)
         else:
+            getbookkeeper().count("non_int_comp", obj1, obj2)
             return SomeBool()
 
     def eq((obj1, obj2)):
         if obj1.is_constant() and obj2.is_constant():
             return immutablevalue(obj1.const == obj2.const)
         else:
+            getbookkeeper().count("non_int_eq", obj1, obj2)
             return SomeBool()
 
     def ne((obj1, obj2)):
         if obj1.is_constant() and obj2.is_constant():
             return immutablevalue(obj1.const != obj2.const)
         else:
+            getbookkeeper().count("non_int_eq", obj1, obj2)
             return SomeBool()
 
     def gt((obj1, obj2)):
         if obj1.is_constant() and obj2.is_constant():
             return immutablevalue(obj1.const > obj2.const)
         else:
+            getbookkeeper().count("non_int_comp", obj1, obj2)
             return SomeBool()
 
     def ge((obj1, obj2)):
         if obj1.is_constant() and obj2.is_constant():
             return immutablevalue(obj1.const >= obj2.const)
         else:
+            getbookkeeper().count("non_int_comp", obj1, obj2)
             return SomeBool()
 
     def cmp((obj1, obj2)):
         if obj1.is_constant() and obj2.is_constant():
             return immutablevalue(cmp(obj1.const, obj2.const))
         else:
+            getbookkeeper().count("non_int_comp", obj1, obj2)
             return SomeInteger()
 
     def is_((obj1, obj2)):
@@ -388,6 +395,7 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
             except IndexError:
                 return SomeImpossibleValue()
         else:
+            getbookkeeper().count("tuple_random_getitem", tup1)
             return unionof(*tup1.items)
 
 
