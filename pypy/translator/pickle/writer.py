@@ -6,6 +6,7 @@ class Writer:
         self.chunksize = 100000
         self.count = 0
         self.blocknum = 0
+        self.opened = False
         self.f = self.open_file(fname)
 
     def open_file(self, fname):
@@ -15,17 +16,18 @@ class Writer:
         self.pieces.append(text)
         self.count += len(text) + 1
         if self.count >= self.chunksize:
-            src = '\n'.join(self.pieces)
+            src = ''.join(self.pieces)
             del self.pieces[:]
             self.count -= self.chunksize
             self.putblock(src)
             self.blocknum += 1
 
     def close(self):
-        src = '\n'.join(self.pieces)
+        src = ''.join(self.pieces)
         self.putblock(src)
         self.finalize()
-        self.f.close()
+        if self.opened:
+            self.f.close()
 
     def finalize(self):
         pass
@@ -34,10 +36,13 @@ class Writer:
 class TextWriter(Writer):
 
     def open_file(self, fname):
-        return file(fname, 'w')
+        if type(fname) is str:
+            self.opened = True
+            return file(fname, 'w')
+        return fname # should be a file-like object
 
     def putblock(self, src):
-        print >> self.f, src
+        self.f.write(src)
         print >> self.f, '## SECTION ##'
     
 class ZipWriter(Writer):
@@ -48,7 +53,10 @@ class ZipWriter(Writer):
         self.blocknames = []
         
     def open_file(self, fname):
-        return zipfile.ZipFile(fname, "w", zipfile.ZIP_DEFLATED)
+        if type(fname) is str:
+            self.opened = True
+            return zipfile.ZipFile(fname, "w", zipfile.ZIP_DEFLATED)
+        return fname
 
     def putblock(self, src):
         cod = compile(src, 'block_%d' % self.blocknum, 'exec')
@@ -62,3 +70,5 @@ class ZipWriter(Writer):
         digest = md5.new(dump).hexdigest()
         self.f.writestr(digest, dump)
         self.f.writestr('root', digest)
+
+__all__ = ['Writer', 'TextWriter', 'ZipWriter']
