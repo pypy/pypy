@@ -154,7 +154,7 @@ class ClassDef:
         while other is not None and not issubclass(self.cls, other.cls):
             other = other.basedef
         # special case for MI with Exception
-        if not other:
+        if other is None and other1 is not None:
             if issubclass(self.cls, Exception) and issubclass(other1.cls, Exception):
                 return self.bookkeeper.getclassdef(Exception)
         return other

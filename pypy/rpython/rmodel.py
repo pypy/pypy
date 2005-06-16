@@ -168,8 +168,10 @@ def inputconst(reqtype, value):
         except (AssertionError, AttributeError):
             realtype = '???'
         if realtype != lltype:
-            raise TyperError("inputconst(reqtype = %s, value = %s)" % (
-                reqtype, value))
+            raise TyperError("inputconst(reqtype = %s, value = %s):\n"
+                             "expected a %r,\n"
+                             "     got a %r" % (reqtype, value,
+                                                lltype, realtype))
     c = Constant(value)
     c.concretetype = lltype
     return c

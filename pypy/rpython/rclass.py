@@ -365,7 +365,8 @@ class InstanceRepr(Repr):
                 raise TyperError("not an instance of %r: %r" % (
                     self.classdef.cls, value))
             rinstance = getinstancerepr(self.rtyper, classdef)
-            return rinstance.convert_const(value)
+            result = rinstance.convert_const(value)
+            return cast_pointer(self.lowleveltype, result)
         # common case
         try:
             return self.prebuiltinstances[id(value)][1]
