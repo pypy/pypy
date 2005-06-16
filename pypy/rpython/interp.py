@@ -60,26 +60,32 @@ class LLInterpreter(object):
 
     def eval_graph(self, graph, args=()): 
         nextblock = graph.startblock
+        excblock = graph.exceptblock
         while 1: 
             self.fillvars(nextblock, args) 
-            nextblock, args = self.eval_block(nextblock) 
+            nextblock, args = self.eval_block(nextblock, excblock)
             if nextblock is None: 
                 return args 
 
-    def eval_block(self, block): 
+    def eval_block(self, block, excblock): 
         """ return (nextblock, values) tuple. If nextblock 
             is None, values is the concrete return value. 
         """
         catch_exception = block.exitswitch == Constant(last_exception)
         e = None
 
-        for op in block.operations:
-            try:
+        try:
+            for op in block.operations:
                 self.eval_operation(op)
-            except RPythonError, e:
-                # XXX should only catch exceptions from the last operation
-                # XXX non-caught exceptions should just be allowed to propagate
-                assert catch_exception, 'exception received, but not expected'
+        except RPythonError, e:
+            if not catch_exception:
+                # there is no explicit handler.
+                # we could simply re-raise here, but it is cleaner
+                # to redirect to the provided default exception block
+                block = excblock
+                cls, inst = e.args
+                self.setvar(block.inputargs[0], cls)
+                self.setvar(block.inputargs[1], inst)
 
         # determine nextblock and/or return value 
         if len(block.exits) == 0:
@@ -109,9 +115,9 @@ class LLInterpreter(object):
                     if exdata.ll_exception_match(cls, link.llexitcase):
                         self.setvar(link.last_exception, cls)
                         self.setvar(link.last_exc_value, inst)
-                        return link.target, [cls, inst]
+                        break
                 else:
-                    raise Exception, e # unhandled case, should not happen"
+                    raise Exception, e # unhandled case, should not happen
         else: 
             index = self.getval(block.exitswitch)
             link = block.exits[index]

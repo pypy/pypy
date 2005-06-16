@@ -59,10 +59,18 @@ def test_raise():
     assert find_exception(info.value) is ValueError
 
 def test_call_raise():
+    res = interpret(call_raise, [41])
+    assert res == 41
+    info = raises(RPythonError, interpret, call_raise, [42])
+    assert find_exception(info.value) is IndexError
+    info = raises(RPythonError, interpret, call_raise, [43])
+    assert find_exception(info.value) is ValueError
+
+def test_call_raise_intercept():
     res = interpret(call_raise_intercept, [41])
     assert res == 41
-    info = raises(RPythonError, interpret, call_raise_intercept, [42])
-    assert find_exception(info.value) is IndexError
+    res = interpret(call_raise_intercept, [42])
+    assert res == 42
     info = raises(RPythonError, interpret, call_raise_intercept, [43])
     assert find_exception(info.value) is TypeError
 
@@ -137,9 +145,14 @@ def raise_exception(i):
         raise ValueError
     return i
 
+def call_raise(i):
+    return raise_exception(i)
+
 def call_raise_intercept(i):
     try:
         return raise_exception(i)
+    except IndexError:
+        return i
     except ValueError:
         raise TypeError
 #__________________________________________________________________
