@@ -1,3 +1,4 @@
+import types
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, checkgraph
 from pypy.annotation.model import *
@@ -31,8 +32,12 @@ def normalize_function_signatures(annotator):
                 func_family.patterns[pattern] = True
     # find the most general signature of each family
     for family in call_families.infos():
+        # collect functions in this family, ignoring:
+        #  - methods: taken care of above
+        #  - classes: their __init__ unbound methods are also families
         functions = [func for classdef, func in family.objects
-                          if classdef is None]  # ignore methods now
+                          if classdef is None and
+                             not isinstance(func, (type, types.ClassType))]
         if len(functions) > 1:  # otherwise, nothing to do
             if len(family.patterns) > 1:
                 raise TyperError("don't support multiple call patterns "
