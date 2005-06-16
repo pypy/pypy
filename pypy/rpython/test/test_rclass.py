@@ -57,7 +57,7 @@ def test_prebuilt_instance():
         return a.x
     rtype(dummyfn)
 
-def WORKING_ON_test_recursive_prebuilt_instance():
+def test_recursive_prebuilt_instance():
     a = EmptyBase()
     b = EmptyBase()
     a.x = 5

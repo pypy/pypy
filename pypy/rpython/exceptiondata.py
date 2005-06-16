@@ -88,7 +88,7 @@ class ExceptionData:
         for cls in table.keys():
             add_class(cls)
         assert table == {}
-        print sortedtable
+        #print sortedtable
 
         A = Array(('pycls', Ptr(PyObject)),
                   ('excinst', self.lltype_of_exception_value))

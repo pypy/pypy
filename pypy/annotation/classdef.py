@@ -16,6 +16,9 @@ class Attribute:
     #       immutablevalue() wouldn't be happy with them
     #     * there is an infinite recursion between immutablevalue() and
     #       add_source_for_attribute() for cyclic constant structures.
+    # NB2. an attribute is readonly if it is a constant class attribute.
+    #      Both writing to the instance attribute and discovering prebuilt
+    #      instances that have the attribute set will turn off readonly-ness.
 
     def __init__(self, name, bookkeeper):
         self.name = name
@@ -120,6 +123,8 @@ class ClassDef:
         homedef = self.locate_attribute(attr)
         attrdef = homedef.attrs[attr]
         attrdef.sources[source] = clsdef
+        if clsdef is None:
+            attrdef.readonly = False    # see note about 'readonly' in ClassDef
         if attrdef.read_locations:
             # we should reflow from all the reader's position,
             # but as an optimization we try to see if the attribute

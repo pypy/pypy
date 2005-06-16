@@ -298,6 +298,7 @@ class InstanceRepr(Repr):
             self.object_type = OBJECT
         else:
             self.object_type = GcForwardReference()
+        self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.lowleveltype = Ptr(self.object_type)
 
     def __repr__(self):
@@ -348,32 +349,46 @@ class InstanceRepr(Repr):
                                               OBJECT)
         self.initialized = True
 
-    def convert_const(self, value, targetptr=None, vtable=None):
+    def convert_const(self, value):
         if value is None:
             return nullptr(self.object_type)
-        # we will need the vtable pointer, so ask it first, to let
-        # ClassRepr.convert_const() perform all the necessary checks on 'value'
-        if vtable is None:
-            vtable = self.rclass.convert_const(value.__class__)
-        if targetptr is None:
-            targetptr = malloc(self.object_type)
-        #
-        if self.classdef is None:
-            # instantiate 'object': should be disallowed, but it's convenient
-            # to write convert_const() this way and use itself recursively
-            targetptr.typeptr = cast_vtable_to_typeptr(vtable)
-        else:
-            # build the parent part of the instance
-            self.rbase.convert_const(value,
-                                     targetptr = targetptr.super,
-                                     vtable = vtable)
-            # add instance attributes from this level
+        try:
+            classdef = self.rtyper.annotator.getuserclasses()[value.__class__]
+        except KeyError:
+            raise TyperError("no classdef: %r" % (value.__class__,))
+        if classdef != self.classdef:
+            # if the class does not match exactly, check that 'value' is an
+            # instance of a subclass and delegate to that InstanceRepr
+            if classdef is None:
+                raise TyperError("not implemented: object() instance")
+            if classdef.commonbase(self.classdef) != self.classdef:
+                raise TyperError("not an instance of %r: %r" % (
+                    self.classdef.cls, value))
+            rinstance = getinstancerepr(self.rtyper, classdef)
+            return rinstance.convert_const(value)
+        # common case
+        try:
+            return self.prebuiltinstances[id(value)][1]
+        except KeyError:
+            result = malloc(self.object_type)
+            self.prebuiltinstances[id(value)] = value, result
+            self.initialize_prebuilt_instance(value, classdef, result)
+            return result
+
+    def initialize_prebuilt_instance(self, value, classdef, result):
+        if self.classdef is not None:
+            # recursively build the parent part of the instance
+            self.rbase.initialize_prebuilt_instance(value, classdef,
+                                                    result.super)
+            # then add instance attributes from this level
             for name, (mangled_name, r) in self.fields.items():
                 attrvalue = getattr(value, name)
-                # XXX RECURSIVE PREBUILT DATA STRUCTURES XXX
                 llattrvalue = r.convert_const(attrvalue)
-                setattr(targetptr, mangled_name, llattrvalue)
-        return targetptr
+                setattr(result, mangled_name, llattrvalue)
+        else:
+            # OBJECT part
+            rclass = getclassrepr(self.rtyper, classdef)
+            result.typeptr = rclass.getvtable()
 
     #def parentpart(self, vinst, llops):
     #    """Return the pointer 'vinst' cast to the parent type."""
