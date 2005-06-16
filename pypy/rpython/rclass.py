@@ -188,8 +188,7 @@ class ClassRepr(Repr):
         """Return a ptr to the vtable of this type."""
         if self.vtable is None:
             self.vtable = malloc(self.vtable_type, immortal=True)
-            if self.classdef is not None:
-                self.setup_vtable(self.vtable, self)
+            self.setup_vtable(self.vtable, self)
         #
         vtable = self.vtable
         if cast_to_typeptr:
@@ -201,7 +200,8 @@ class ClassRepr(Repr):
         given subclass."""
         if self.classdef is None:
             # initialize the 'parenttypeptr' and 'name' fields
-            vtable.parenttypeptr = rsubcls.rbase.getvtable()
+            if rsubcls.classdef is not None:
+                vtable.parenttypeptr = rsubcls.rbase.getvtable()
             rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
             rinstance.setup()
             vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)

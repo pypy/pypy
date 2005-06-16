@@ -236,26 +236,26 @@ def test_multiple_malloc():
     db.complete()
     dump_on_stdout(db)
 
-def test_nested_gcstruct():
-    S1 = GcStruct('inlined', ('x', Signed), ('y', Ptr(PyObject)))
-    S = GcStruct('testing', ('head', S1),
-                            ('ptr2', Ptr(S1)),
-                            ('z', Signed))
-    def ll_f(x):
-        ptr2 = malloc(S1)
-        ptr2.x = x+1
-        s = malloc(S)
-        s.head.x = x
-        s.ptr2 = ptr2
-        return s.head.x * s.ptr2.x
-    t = Translator(ll_f)
-    t.annotate([int])
-    t.specialize()
+##def test_nested_gcstruct():
+##    S1 = GcStruct('inlined', ('x', Signed), ('y', Ptr(PyObject)))
+##    S = GcStruct('testing', ('head', S1),
+##                            ('ptr2', Ptr(S1)),
+##                            ('z', Signed))
+##    def ll_f(x):
+##        ptr2 = malloc(S1)
+##        ptr2.x = x+1
+##        s = malloc(S)
+##        s.head.x = x
+##        s.ptr2 = ptr2
+##        return s.head.x * s.ptr2.x
+##    t = Translator(ll_f)
+##    t.annotate([int])
+##    t.specialize()
     
-    db = LowLevelDatabase(t)
-    db.get(getfunctionptr(t, ll_f))
-    db.complete()
-    dump_on_stdout(db)
+##    db = LowLevelDatabase(t)
+##    db.get(getfunctionptr(t, ll_f))
+##    db.complete()
+##    dump_on_stdout(db)
 
 def test_array():
     A = GcArray(('obj', Ptr(PyObject)))
