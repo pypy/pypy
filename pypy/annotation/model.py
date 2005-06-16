@@ -50,7 +50,7 @@ comparison got much more expensive, by lacking a __dict__.
 So I trashed 8 hours of work, without a check-in. (Just
 writing this here to leave *some* trace of work).
 
-Then I tried to make allinstances unique and wrote a lot
+Then I tried to make all instances unique and wrote a lot
 of attribute tracking code here, locked write access
 outside of __init__, and patched many modules and several
 hundred lines of code.
