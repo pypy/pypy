@@ -2,7 +2,7 @@
 import py
 from pypy.rpython.lltype import typeOf
 from pypy.rpython.rtyper import RPythonTyper 
-from pypy.rpython.interp import LLInterpreter, RPythonError
+from pypy.rpython.llinterp import LLInterpreter, RPythonError
 from pypy.translator.translator import Translator 
 from pypy.rpython.lltype import pyobjectptr
 
