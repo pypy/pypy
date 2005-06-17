@@ -251,6 +251,16 @@ def pbccallsanity(translator):
         if len(callb[x]) >= 2 and x not in b_nb:
             print ' '.join([prettycallable((classdef and classdef.cls, func)) for (classdef,func) in callb[x].keys()])
 
+def pretty_els(objs):
+    accum = []
+    for classdef, obj in objs:
+        cls = classdef and classdef.cls
+        accum.append(prettycallable((cls, obj)))
+        els = ' '.join(accum)
+    if len(accum) == 1:
+        return els
+    else:
+        return "{%s}" % els
 
 def pbccall(translator):
     fams = translator.annotator.getpbccallfamilies().root_info.itervalues()
@@ -282,17 +292,6 @@ def pbccall(translator):
         else:
             return "in total %d %s" % (nels, prettycallable(kinds))
 
-    def pretty_els(objs):
-        accum = []
-        for classdef, obj in objs:
-            cls = classdef and classdef.cls
-            accum.append(prettycallable((cls, obj)))
-        els = ' '.join(accum)
-        if len(accum) == 1:
-            return els
-        else:
-            return "{%s}" % els
-
     items = one_pattern_fams.items()
 
     items.sort(lambda a,b: cmp((a[0][1],a[1][1]), (b[0][1],b[1][1]))) # sort by pattern and then by els
@@ -311,6 +310,34 @@ def pbccall(translator):
             print " - many callables, many patterns -"
         print "family of", pretty_els(objs), "with call-patterns:", prettypatt(patts)
 
+def pbcbmsanity(translator):
+    callb = translator.annotator.getpbccallables()
+    bk = translator.annotator.bookkeeper
+    bmeths = [x for x in callb if isinstance(x, types.MethodType) and x.im_self is not None]
+    print "%d bound-methods" % len(bmeths)
+    fams = translator.annotator.getpbccallfamilies()
+    plural_bm_families = {}
+    one_el = 0
+    for bm in bmeths:
+        notpbc = bm.im_self not in bk.pbccache
+        freestanding = bm.im_func in callb
+        if notpbc or freestanding:
+            print "! %s," % bm,
+        if notpbc:
+            print "of non-PBC %s,",
+        if freestanding:
+            print "found freestanding too"
+        bm_fam = fams[(None, bm)]
+        if len(bm_fam.objects) == 1:
+            one_el += 1
+        else:
+            plural_bm_families[bm_fam] = True
+    print "%d families of one bound-method" % one_el
+    print "%d families with more than just one bound-method" % len(plural_bm_families)
+    for bm_fam in plural_bm_families:
+        print pretty_els(bm_fam.objects)
+    return plural_bm_families
+        
 def statsfor(t, category):
     stats = t.annotator.bookkeeper.stats
     for_category = stats.classify[category]
