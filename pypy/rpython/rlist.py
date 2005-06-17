@@ -44,6 +44,7 @@ class ListRepr(Repr):
         else:
             self.item_repr = item_repr
         self.listitem = listitem
+        self.list_cache = {}
         # setup() needs to be called to finish this initialization
 
     def setup(self):
@@ -53,6 +54,22 @@ class ListRepr(Repr):
             ITEM = self.item_repr.lowleveltype
             ITEMARRAY = GcArray(ITEM)
             self.LIST.become(GcStruct("list", ("items", Ptr(ITEMARRAY))))
+
+    def convert_const(self, listobj):
+        if not isinstance(listobj, list):
+            raise TyperError("expected a list: %r" % (listobj,))
+        try:
+            return self.list_cache[id(listobj)][1]
+        except KeyError:
+            self.setup()
+            result = malloc(self.LIST, immortal=True)
+            self.list_cache[id(listobj)] = listobj, result
+            result.items = malloc(self.LIST.items.TO, len(listobj))
+            r_item = self.item_repr
+            for i in range(len(listobj)):
+                x = listobj[i]
+                result.items[i] = r_item.convert_const(x)
+            return result
 
     def rtype_len(self, hop):
         v_lst, = hop.inputargs(self)

@@ -4,6 +4,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rlist import *
 from pypy.rpython.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
+from pypy.rpython.test.test_llinterp import interpret
 
 
 def sample_list():
@@ -151,3 +152,14 @@ def test_set_del_item():
         del l[-1]
         del l[:]
     rtype(dummyfn)
+
+def test_prebuilt_list():
+    klist = ['a', 'd', 'z', 'k']
+    def dummyfn(n):
+        return klist[n]
+    res = interpret(dummyfn, [0])
+    assert res == 'a'
+    res = interpret(dummyfn, [3])
+    assert res == 'k'
+    res = interpret(dummyfn, [-2])
+    assert res == 'z'
