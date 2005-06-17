@@ -4,21 +4,13 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.test.test_llinterp import interpret
 
 
-def rtype(fn, argtypes=[]):
-    t = Translator(fn)
-    t.annotate(argtypes)
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    t.checkgraphs()
-    return t
-
-
 def test_easy_call():
     def f(x):
         return x+1
     def g(y):
         return f(y+2)
-    rtype(g, [int])
+    res = interpret(g, [5])
+    assert res == 8
 
 def test_multiple_call():
     def f1(x):
@@ -31,7 +23,10 @@ def test_multiple_call():
         else:
             f = f2
         return f(y+3)
-    rtype(g, [int])
+    res = interpret(g, [-1])
+    assert res == 3
+    res = interpret(g, [1])
+    assert res == 6
 
 
 class MyBase:
@@ -47,7 +42,8 @@ def test_method_call():
         obj = MyBase()
         obj.z = a
         return obj.m(b)
-    rtype(f, [int, int])
+    res = interpret(f, [4, 5])
+    assert res == 9
 
 def test_virtual_method_call():
     def f(a, b):
@@ -57,7 +53,10 @@ def test_virtual_method_call():
             obj = MySubclass()
         obj.z = a
         return obj.m(b)
-    rtype(f, [int, int])
+    res = interpret(f, [1, 2.3])
+    assert res == 3.3
+    res = interpret(f, [-1, 2.3])
+    assert res == -3.3
 
 
 class MyBaseWithInit:
@@ -92,14 +91,18 @@ def test_freezing():
         else:
             fr = None
         return g(fr)
-    rtype(f, [int])
+    res = interpret(f, [1])
+    assert res == 5
+    res = interpret(f, [-1])
+    assert res == 6
 
 def test_call_frozen_pbc_simple():
     fr1 = Freezing()
     fr1.x = 5
     def f(n):
         return fr1.mymethod(n)
-    rtype(f, [int])
+    res = interpret(f, [6])
+    assert res == 11
 
 def test_call_frozen_pbc_multiple():
     fr1 = Freezing()
@@ -112,4 +115,7 @@ def test_call_frozen_pbc_multiple():
         else:
             fr = fr2
         return fr.mymethod(n)
-    rtype(f, [int])
+    res = interpret(f, [1])
+    assert res == 6
+    res = interpret(f, [-1])
+    assert res == 5

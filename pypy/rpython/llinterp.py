@@ -208,6 +208,10 @@ class LLFrame(object):
     def op_cast_pointer(self, tp, obj):
         # well, actually this is what's now in the globals.
         return cast_pointer(tp, obj)
+
+    def op_cast_int_to_float(self, i):
+        assert isinstance(i, int)
+        return float(i)
 # __________________________________________________________
 # primitive operations
 from pypy.objspace.flow.operation import FunctionByName
