@@ -240,6 +240,8 @@ class FunctionsPBCRepr(Repr):
 ##                assert not shape_stst, "XXX not implemented"
 
     def convert_const(self, value):
+        if isinstance(value, types.MethodType) and value.im_self is None:
+            value = value.im_func   # unbound method -> bare function
         if value not in self.function_signatures:
             raise TyperError("%r not in %r" % (value,
                                                self.s_pbc.prebuiltinstances))

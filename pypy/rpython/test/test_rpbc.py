@@ -119,3 +119,11 @@ def test_call_frozen_pbc_multiple():
     assert res == 6
     res = interpret(f, [-1])
     assert res == 5
+
+def test_unbound_method():
+    def f():
+        inst = MySubclass()
+        inst.z = 40
+        return MyBase.m(inst, 2)
+    res = interpret(f, [])
+    assert res == 42
