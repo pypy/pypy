@@ -366,20 +366,28 @@ def translate_op_%s(self, hop):
 # ____________________________________________________________
 
 
-class HighLevelOp:
-    nb_popped = 0
+class HighLevelOp(object):
 
     def __init__(self, rtyper, spaceop, exceptionlinks, llops):
         self.rtyper   = rtyper
         self.spaceop  = spaceop
         self.nb_args  = len(spaceop.args)
         self.llops    = llops
+        self.args_v   = list(spaceop.args)
         self.args_s   = [rtyper.binding(a) for a in spaceop.args]
         self.s_result = rtyper.binding(spaceop.result)
         self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
         self.r_result = rtyper.getrepr(self.s_result)
         rtyper.call_all_setups()  # compute ForwardReferences now
         self.exceptionlinks = exceptionlinks
+
+    def copy(self):
+        result = HighLevelOp.__new__(HighLevelOp)
+        for key, value in self.__dict__.items():
+            if type(value) is list:     # grunt
+                value = value[:]
+            setattr(result, key, value)
+        return result
 
     def inputarg(self, converted_to, arg):
         """Returns the arg'th input argument of the current operation,
@@ -389,7 +397,7 @@ class HighLevelOp:
         """
         if not isinstance(converted_to, Repr):
             converted_to = self.rtyper.primitive_to_repr[converted_to]
-        v = self.spaceop.args[self.nb_popped + arg]
+        v = self.args_v[arg]
         if isinstance(v, Constant):
             return inputconst(converted_to, v.value)
         assert hasattr(v, 'concretetype')
@@ -405,8 +413,8 @@ class HighLevelOp:
 
     def inputargs(self, *converted_to):
         assert len(converted_to) == self.nb_args, (
-            "operation argument count mismatch: '%s' has %d+%d arguments" % (
-            self.spaceop.opname, self.nb_popped, self.nb_args))
+            "operation argument count mismatch: '%s' has %d arguments" % (
+            self.spaceop.opname, self.nb_args))
         vars = []
         for i in range(len(converted_to)):
             vars.append(self.inputarg(converted_to[i], i))
@@ -420,9 +428,16 @@ class HighLevelOp:
 
     def r_s_popfirstarg(self):
         "Return and discard the first argument."
-        self.nb_popped += 1
         self.nb_args -= 1
+        self.args_v.pop(0)
         return self.args_r.pop(0), self.args_s.pop(0)
+
+    def v_s_insertfirstarg(self, v_newfirstarg, s_newfirstarg):
+        r_newfirstarg = self.rtyper.getrepr(s_newfirstarg)
+        self.args_v.insert(0, v_newfirstarg)
+        self.args_r.insert(0, r_newfirstarg)
+        self.args_s.insert(0, s_newfirstarg)
+        self.nb_args += 1
 
     def has_implicit_exception(self, exc_cls):
         for link in self.exceptionlinks:

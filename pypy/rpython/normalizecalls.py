@@ -30,6 +30,19 @@ def normalize_function_signatures(annotator):
                 argcount = pattern[0]
                 pattern = (argcount+1,) + pattern[1:]
                 func_family.patterns[pattern] = True
+    # for classes that appear in families, unify their __init__ as well
+    for family in call_families.infos():
+        prevkey = None
+        for _, klass in family.objects:
+            if isinstance(klass, (type, types.ClassType)):
+                try:
+                    initfunc = klass.__init__.im_func
+                except AttributeError:
+                    continue
+                if prevkey is None:
+                    prevkey = (None, initfunc)
+                else:
+                    call_families.union((None, initfunc), prevkey)
     # find the most general signature of each family
     for family in call_families.infos():
         # collect functions in this family, ignoring:

@@ -2,10 +2,12 @@ import types
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
+from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import typeOf, Void, ForwardReference, Struct
 from pypy.rpython.lltype import Ptr, malloc, nullptr
 from pypy.rpython.rmodel import Repr, TyperError
 from pypy.rpython import rclass
+from pypy.rpython.rtyper import HighLevelOp
 
 
 class __extend__(annmodel.SomePBC):
@@ -316,5 +318,25 @@ class ClassesPBCRepr(Repr):
 ##                    s_pbc.prebuiltinstances,))
 
     def rtype_simple_call(self, hop):
-        return rclass.rtype_new_instance(self.s_pbc.const, hop)
-        # XXX call __init__ somewhere
+        klass = self.s_pbc.const
+        v_instance = rclass.rtype_new_instance(klass, hop)
+        try:
+            initfunc = klass.__init__.im_func
+        except AttributeError:
+            assert hop.nb_args == 1, ("arguments passed to __init__, "
+                                      "but no __init__!")
+        else:
+            if initfunc == Exception.__init__.im_func:
+                return v_instance    # ignore __init__ and arguments completely
+            s_instance = rclass.instance_annotation_for_cls(self.rtyper, klass)
+            s_init = annmodel.SomePBC({initfunc: True})
+            hop2 = hop.copy()
+            hop2.r_s_popfirstarg()   # discard the class pointer argument
+            hop2.v_s_insertfirstarg(v_instance, s_instance)  # (instance, *args)
+            c = Constant(initfunc)
+            hop2.v_s_insertfirstarg(c, s_init)   # (initfunc, instance, *args)
+            hop2.s_result = annmodel.SomePBC({None: True})
+            hop2.r_result = self.rtyper.getrepr(hop2.s_result)
+            r_init = self.rtyper.getrepr(s_init)
+            r_init.rtype_simple_call(hop2)
+        return v_instance

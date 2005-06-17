@@ -1,6 +1,7 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
+from pypy.rpython.test.test_interp import interpret
 
 
 def rtype(fn, argtypes=[]):
@@ -57,6 +58,17 @@ def test_virtual_method_call():
         obj.z = a
         return obj.m(b)
     rtype(f, [int, int])
+
+
+class MyBaseWithInit:
+    def __init__(self, a):
+        self.a1 = a
+
+def test_class_init():
+    def f(a):
+        instance = MyBaseWithInit(a)
+        return instance.a1
+    assert interpret(f, [5]) == 5
 
 
 class Freezing:

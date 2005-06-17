@@ -512,6 +512,13 @@ def rtype_new_instance(cls, hop):
     rinstance = getinstancerepr(hop.rtyper, classdef)
     return rinstance.new_instance(hop.llops)
 
+def instance_annotation_for_cls(rtyper, cls):
+    try:
+        classdef = rtyper.annotator.getuserclasses()[cls]
+    except KeyError:
+        raise TyperError("no classdef: %r" % (cls,))
+    return annmodel.SomeInstance(classdef)
+
 # ____________________________________________________________
 #
 #  Low-level implementation of operations on classes and instances
