@@ -1342,6 +1342,25 @@ class TestAnnotateTestCase:
         assert isinstance(s_item, annmodel.SomeList)
         assert s_item.listdef.same_as(s.listdef)
 
+    def test_defaults_with_list_or_dict(self):
+        def fn1(a=[]):
+            return a
+        def fn2(a={}):
+            return a
+        def f():
+            fn1()
+            fn2()
+            return fn1([6, 7]), fn2({2: 3, 4: 5})
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeTuple)
+        s1, s2 = s.items
+        assert not s1.is_constant()
+        assert not s2.is_constant()
+        assert isinstance(s1.listdef.listitem. s_value, annmodel.SomeInteger)
+        assert isinstance(s2.dictdef.dictkey.  s_value, annmodel.SomeInteger)
+        assert isinstance(s2.dictdef.dictvalue.s_value, annmodel.SomeInteger)
+
 
 def g(n):
     return [0,1,2,n]
