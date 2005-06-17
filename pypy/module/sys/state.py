@@ -76,11 +76,17 @@ class State:
 def get(space): 
     return space.fromcache(State)
 
-def pypy_getudir(space):
+def _pypy_getudir(space):
     """NOT_RPYTHON"""
     from pypy.tool.udir import udir
     return space.wrap(str(udir))
-pypy_getudir._annspecialcase_ = "override:ignore"
+_pypy_getudir._annspecialcase_ = "override:ignore"
+
+# we need the inderaction because this function will live in a dictionary with other 
+# RPYTHON functions and share call sites with them. Better it not be a special-case
+# directly. 
+def pypy_getudir(space):
+    return _pypy_getudir(space)
 
 def getdefaultencoding(space): 
     return space.wrap(sys.getdefaultencoding())
