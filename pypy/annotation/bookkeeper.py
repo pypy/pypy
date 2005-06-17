@@ -150,7 +150,8 @@ class Bookkeeper:
         self.seen_mutable = {}
         self.listdefs = {}       # map position_keys to ListDefs
         self.dictdefs = {}       # map position_keys to DictDefs
-        
+        self.immutable_cache = {}
+
         # mapping position -> key, prev_result for specializations
         self.spec_callsite_keys_results = {}
 
@@ -243,8 +244,6 @@ class Bookkeeper:
             dictdef.generalize_key(s_key)
             dictdef.generalize_value(s_value)
         return SomeDict(dictdef)
-
-    immutable_cache = {}
 
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
