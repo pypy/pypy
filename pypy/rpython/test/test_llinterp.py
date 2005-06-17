@@ -75,7 +75,6 @@ def test_call_raise():
     assert find_exception(info.value) is ValueError
 
 def test_call_raise_twice():
-    #py.test.skip("exceptions in progress")
     res = interpret(call_raise_twice, [6, 7])
     assert res == 13
     info = raises(LLException, interpret, call_raise_twice, [6, 42])
