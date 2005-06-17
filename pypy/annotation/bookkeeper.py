@@ -274,20 +274,22 @@ class Bookkeeper:
             result = SomeFloat()
         elif tp is list:
             try:
-                return self.immutable_cache[id(x)]
+                key = Constant(x)
+                return self.immutable_cache[key]
             except KeyError:
                 result = SomeList(ListDef(self, SomeImpossibleValue()))
-                self.immutable_cache[id(x)] = result
+                self.immutable_cache[key] = result
                 for e in x:
                     result.listdef.generalize(self.immutablevalue(e))
         elif tp is dict:   # exactly a dict
             try:
-                return self.immutable_cache[id(x)]
+                key = Constant(x)
+                return self.immutable_cache[key]
             except KeyError:
                 result = SomeDict(DictDef(self, 
                                           SomeImpossibleValue(),
                                           SomeImpossibleValue()))
-                self.immutable_cache[id(x)] = result
+                self.immutable_cache[key] = result
                 for ek, ev in x.iteritems():
                     result.dictdef.generalize_key(self.immutablevalue(ek))
                     result.dictdef.generalize_value(self.immutablevalue(ev))
