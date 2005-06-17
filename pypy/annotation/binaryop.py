@@ -473,11 +473,11 @@ class __extend__(pairtype(SomeIterator, SomeIterator)):
 class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
 
     def union((bltn1, bltn2)):
-        if bltn1.analyser != bltn2.analyser:
+        if bltn1.analyser != bltn2.analyser or bltn1.methodname != bltn2.methodname:
             raise UnionError("merging incompatible builtins == BAD!")
         else:
             s_self = unionof(bltn1.s_self, bltn2.s_self)
-            return SomeBuiltin(bltn1.analyser, s_self)
+            return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
 
 class __extend__(pairtype(SomePBC, SomePBC)):
     def union((pbc1, pbc2)):       
