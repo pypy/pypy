@@ -136,6 +136,16 @@ def test_list_creation():
     assert len(res.items) == len([1,2,3])
     for i in range(3):
         assert res.items[i] == i+1
+
+def test_list_operations():
+    def f(i):
+        l = [1, i]
+        l[0] = len(l)
+        l += [i + 1, 9]
+#        l *= 2
+        return l[0] + l[1] + l[2]# + len(l)
+    res = interpret(f, [3])
+    assert res == 2 + 3 + 4# + 8
 #__________________________________________________________________
 # example functions for testing the LLInterpreter
 _snap = globals().copy()

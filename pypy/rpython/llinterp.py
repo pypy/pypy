@@ -175,7 +175,7 @@ class LLFrame(object):
         return malloc(obj)
 
     def op_getfield(self, obj, field):
-        # assert: obj should be pointer
+        assert isinstance(obj, _ptr)
         result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
         # the former returns the real field, the latter a pointer to it
@@ -183,7 +183,7 @@ class LLFrame(object):
         return result
 
     def op_getsubstruct(self, obj, field):
-        # assert: obj should be pointer
+        assert isinstance(obj, _ptr)
         result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
         # the former returns the real field, the latter a pointer to it
@@ -195,12 +195,14 @@ class LLFrame(object):
 
     def op_getarraysubstruct(self, array, index):
         assert isinstance(array, _ptr)
-        return array[index]
+        result = array[index]
+        return result
         # the diff between op_getarrayitem and op_getarraysubstruct
         # is the same as between op_getfield and op_getsubstruct
 
-    def op_getarraysize(self,array):
+    def op_getarraysize(self, array):
         #print array,type(array),dir(array)
+        assert isinstance(typeOf(array).TO, Array)
         return len(array)
 
     def op_cast_pointer(self, tp, obj):
