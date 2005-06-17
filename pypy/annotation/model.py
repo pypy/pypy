@@ -204,8 +204,15 @@ class SomeList(SomeObject):
     def __init__(self, listdef):
         self.listdef = listdef
     def __eq__(self, other):
-        return (self.__class__ is other.__class__ and
-                self.listdef.same_as(other.listdef))
+        if self.__class__ is not other.__class__:
+            return False
+        if not self.listdef.same_as(other.listdef):
+            return False
+        selfdic = self.__dict__.copy()
+        otherdic = self.__dict__.copy()
+        del selfdic['listdef']
+        del otherdic['listdef']
+        return selfdic == otherdic
 
     def can_be_none(self):
         return True
@@ -240,8 +247,15 @@ class SomeDict(SomeObject):
     def __init__(self, dictdef):
         self.dictdef = dictdef
     def __eq__(self, other):
-        return (self.__class__ is other.__class__ and
-                self.dictdef.same_as(other.dictdef))
+        if self.__class__ is not other.__class__:
+            return False
+        if not self.dictdef.same_as(other.dictdef):
+            return False
+        selfdic = self.__dict__.copy()
+        otherdic = self.__dict__.copy()
+        del selfdic['dictdef']
+        del otherdic['dictdef']
+        return selfdic == otherdic
 
     def can_be_none(self):
         return False
