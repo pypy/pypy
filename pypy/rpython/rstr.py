@@ -34,6 +34,9 @@ class __extend__(annmodel.SomeChar):
 
 
 CONST_STR_CACHE = WeakValueDictionary()
+string_repr = StringRepr()
+char_repr   = CharRepr()
+
 
 class __extend__(StringRepr):
     lowleveltype = Ptr(STR)
@@ -112,6 +115,23 @@ class __extend__(CharRepr):
         return hop.genop('cast_char_to_int', vlist, resulttype=Signed)
 
 
+class __extend__(pairtype(CharRepr, CharRepr)):
+    def rtype_eq(_, hop): return _rtype_compare_template(hop, 'eq')
+    def rtype_ne(_, hop): return _rtype_compare_template(hop, 'ne')
+    def rtype_lt(_, hop): return _rtype_compare_template(hop, 'lt')
+    def rtype_le(_, hop): return _rtype_compare_template(hop, 'le')
+    def rtype_gt(_, hop): return _rtype_compare_template(hop, 'gt')
+    def rtype_ge(_, hop): return _rtype_compare_template(hop, 'ge')
+
+#Helper functions for comparisons
+
+def _rtype_compare_template(hop, func):
+    vlist = hop.inputargs(char_repr, char_repr)
+    return hop.genop('char_'+func, vlist, resulttype=Bool)
+
+#
+# _________________________ Conversions _________________________
+
 class __extend__(pairtype(CharRepr, StringRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_from == char_repr and r_to == string_repr:
@@ -124,13 +144,6 @@ class __extend__(pairtype(StringRepr, CharRepr)):
             c_zero = inputconst(Signed, 0)
             return llops.gendirectcall(ll_stritem_nonneg, v, c_zero)
         return NotImplemented
-
-
-string_repr = StringRepr()
-char_repr   = CharRepr()
-
-#
-# _________________________ Conversions _________________________
 
 ##class __extend__(pairtype(PyObjRepr, StringRepr)):
 ##    def convert_from_to((r_from, r_to), v, llops):

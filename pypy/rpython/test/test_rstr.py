@@ -62,3 +62,11 @@ def test_char_constant():
     assert len(res.chars) == 2
     assert res.chars[0] == 'x'
     assert res.chars[1] == '.'
+
+def test_char_compare():
+    res = interpret(lambda c1, c2: c1 == c2,  ['a', 'b'])
+    assert res is False
+    res = interpret(lambda c1, c2: c1 == c2,  ['a', 'a'])
+    assert res is True
+    res = interpret(lambda c1, c2: c1 <= c2,  ['z', 'a'])
+    assert res is False

@@ -247,6 +247,17 @@ for typ in (float, int):
                 return func(x)
         """ % locals()).compile()
 
+for opname in ('gt', 'lt', 'ge', 'ne', 'le', 'eq'):
+    assert opname in opimpls
+    exec py.code.Source("""
+        def char_%(opname)s(x, y):
+            assert isinstance(x, str) and len(x) == 1
+            assert isinstance(y, str) and len(y) == 1
+            func = opimpls[%(opname)r]
+            return func(x, y)
+    """ % locals()).compile()
+
+
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
 # for failing tests
