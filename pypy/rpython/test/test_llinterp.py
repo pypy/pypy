@@ -74,6 +74,19 @@ def test_call_raise():
     info = raises(LLException, interpret, call_raise, [43])
     assert find_exception(info.value) is ValueError
 
+def test_call_raise_twice():
+    py.test.skip("exceptions in progress")
+    res = interpret(call_raise_twice, [6, 7])
+    assert res == 13
+    info = raises(LLException, interpret, call_raise_twice, [6, 42])
+    assert find_exception(info.value) is IndexError
+    res = interpret(call_raise_twice, [6, 43])
+    assert res == 1006
+    info = raises(LLException, interpret, call_raise_twice, [42, 7])
+    assert find_exception(info.value) is IndexError
+    info = raises(LLException, interpret, call_raise_twice, [43, 7])
+    assert find_exception(info.value) is ValueError
+
 def test_call_raise_intercept():
     res = interpret(call_raise_intercept, [41])
     assert res == 41
@@ -155,6 +168,14 @@ def raise_exception(i):
 
 def call_raise(i):
     return raise_exception(i)
+
+def call_raise_twice(i, j):
+    x = raise_exception(i)
+    try:
+        y = raise_exception(j)
+    except ValueError:
+        y = 1000
+    return x + y
 
 def call_raise_intercept(i):
     try:
