@@ -1,7 +1,9 @@
 from pypy.translator.translator import Translator
+from pypy.rpython.lltype import pyobjectptr
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
+from pypy.rpython.test.test_llinterp import interpret
 
 
 class TestSnippet(object):
@@ -36,3 +38,13 @@ class TestSnippet(object):
         # XXX TODO test if all binary operations are implemented
         for opname in annmodel.BINARY_OPERATIONS:
             print 'BINARY_OPERATIONS:', opname
+
+    def test_bool2int(self):
+        def f(n):
+            if n:
+                n = 2
+            return n
+        res = interpret(f, [False])
+        assert res == 0 and res is not False   # forced to int by static typing
+        res = interpret(f, [True])
+        assert res == 2

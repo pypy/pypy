@@ -1,7 +1,8 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import Signed, Unsigned, Bool, Float
+from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, pyobjectptr
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, BoolRepr
+from pypy.rpython.robject import PyObjRepr
 
 
 debug = False
@@ -45,4 +46,33 @@ class __extend__(pairtype(BoolRepr, IntegerRepr)):
         if r_from.lowleveltype == Bool and r_to.lowleveltype == Signed:
             if debug: print 'explicit cast_bool_to_int'
             return llops.genop('cast_bool_to_int', [v], resulttype=Signed)
+        return NotImplemented
+
+pyobj_true = pyobjectptr(True)
+pyobj_false = pyobjectptr(False)
+
+def ll_pyobj2bool(pyobjptr):
+    if pyobjptr == pyobj_true:
+        return True
+    elif pyobjptr == pyobj_false:
+        return False
+    else:
+        raise TypeError
+
+def ll_bool2pyobj(boolval):
+    if boolval:
+        return pyobj_true
+    else:
+        return pyobj_false
+
+class __extend__(pairtype(PyObjRepr, BoolRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_to.lowleveltype == Bool:
+            return llops.gendirectcall(ll_pyobj2bool, v)
+        return NotImplemented
+
+class __extend__(pairtype(BoolRepr, PyObjRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == Bool:
+            return llops.gendirectcall(ll_bool2pyobj, v)
         return NotImplemented
