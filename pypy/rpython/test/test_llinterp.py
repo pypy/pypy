@@ -2,7 +2,7 @@
 import py
 from pypy.rpython.lltype import typeOf
 from pypy.rpython.rtyper import RPythonTyper 
-from pypy.rpython.llinterp import LLInterpreter, RPythonError
+from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.translator.translator import Translator 
 from pypy.rpython.lltype import pyobjectptr
 
@@ -16,7 +16,7 @@ def teardown_module(mod):
     py.log._setstate(mod.logstate) 
 
 def find_exception(exc):
-    assert isinstance(exc, RPythonError)
+    assert isinstance(exc, LLException)
     import exceptions
     klass, inst = exc.args
     func = typer.getexceptiondata().ll_pyexcclass2exc
@@ -61,17 +61,17 @@ def test_ifs():
 def test_raise():
     res = interpret(raise_exception, [41])
     assert res == 41
-    info = raises(RPythonError, interpret, raise_exception, [42])
+    info = raises(LLException, interpret, raise_exception, [42])
     assert find_exception(info.value) is IndexError
-    info = raises(RPythonError, interpret, raise_exception, [43])
+    info = raises(LLException, interpret, raise_exception, [43])
     assert find_exception(info.value) is ValueError
 
 def test_call_raise():
     res = interpret(call_raise, [41])
     assert res == 41
-    info = raises(RPythonError, interpret, call_raise, [42])
+    info = raises(LLException, interpret, call_raise, [42])
     assert find_exception(info.value) is IndexError
-    info = raises(RPythonError, interpret, call_raise, [43])
+    info = raises(LLException, interpret, call_raise, [43])
     assert find_exception(info.value) is ValueError
 
 def test_call_raise_intercept():
@@ -79,7 +79,7 @@ def test_call_raise_intercept():
     assert res == 41
     res = interpret(call_raise_intercept, [42])
     assert res == 42
-    info = raises(RPythonError, interpret, call_raise_intercept, [43])
+    info = raises(LLException, interpret, call_raise_intercept, [43])
     assert find_exception(info.value) is TypeError
 
 def test_while_simple(): 

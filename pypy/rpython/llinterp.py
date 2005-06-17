@@ -7,7 +7,7 @@ import py
 
 log = py.log.Producer('llinterp') 
 
-class RPythonError(Exception):
+class LLException(Exception):
     pass
 
 class LLInterpreter(object): 
@@ -78,7 +78,7 @@ class LLInterpreter(object):
         try:
             for op in block.operations:
                 self.eval_operation(op)
-        except RPythonError, e:
+        except LLException, e:
             if not catch_exception:
                 # there is no explicit handler.
                 # we could simply re-raise here, but it is cleaner
@@ -97,7 +97,7 @@ class LLInterpreter(object):
                 etype = self.getval(etypevar)
                 evalue = self.getval(evaluevar)
                 # watch out, these are _ptr's
-                raise RPythonError(etype, evalue)
+                raise LLException(etype, evalue)
             resultvar, = block.getvariables()
             result = self.getval(resultvar) 
             log.operation("returning", result) 
