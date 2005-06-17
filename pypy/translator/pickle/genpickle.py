@@ -55,6 +55,7 @@ class GenPickle:
         self.picklenames = {}  # memoize objects
         for name in all_feature_names + "new types sys".split():
             self.memoize(globals()[name], name)
+        self.memoize((), '()')
         self.namespace = NameManager()
         self.uniquename = self.namespace.uniquename
         self.namespace.make_reserved_names('None False True')
@@ -109,14 +110,15 @@ class GenPickle:
             return 'float("1e10000000000000000000000000000000")'
         return repr(fl)
 
-    def pickle(self, **kwds):
+    def pickle(self, *args, **kwds):
+        for obj in args:
+            self.nameof(obj)
         for obj in kwds.values():
             self.nameof(obj)
         self.result.update(kwds)
 
     def finish(self):
-        self.nameof(self.result)
-        self.pickle()
+        self.pickle(self.result)
         self.produce('result = %s' % self.nameof(self.result))
         if self.writer:
             self.writer.close()
@@ -152,17 +154,6 @@ class GenPickle:
         back = '\x08' * len(self.last_progress)
         self.last_progress = txt+' ' # soft space
         print back+txt,
-
-    def spill(self):
-        self.progress_count += len(self.initcode)
-        writer = self.writer
-        if writer:
-            for line in self.initcode:
-                writer.write(line+'\n')
-            del self.initcode[:]
-        if self.progress_count - self.progress_last >= 1234:
-            print '%s%d' % (20*'\x08', self.progress_count),
-            self.progress_last = self.progress_count
 
     def nameof(self, obj):
         try:
@@ -398,7 +389,6 @@ class GenPickle:
         self.produce(ini)
         self.produce('%s.__name__ = %r' % (name, cls.__name__))
         self.produce('%s.__module__ = %r' % (name, cls.__module__))
-        # squeeze it out, early # self.later(initclassobj())
         for line in initclassobj():
             self.produce(line)
         return name
