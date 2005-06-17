@@ -134,6 +134,12 @@ class Bookkeeper:
 
     Currently used for factories and user-defined classes."""
 
+    def __setstate__(self, dic):
+        self.__dict__.update(dic) # normal action
+        # import ordering hack
+        global BUILTIN_ANALYZERS
+        from pypy.annotation.builtin import BUILTIN_ANALYZERS
+
     def __init__(self, annotator):
         self.annotator = annotator
         self.userclasses = {}    # map classes to ClassDefs
