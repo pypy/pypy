@@ -66,7 +66,11 @@ def normalize_function_signatures(annotator):
             graph_argorders = {}
             for func in functions:
                 assert not has_varargs(func), "XXX not implemented"
-                graph = annotator.translator.getflowgraph(func)
+                try:
+                    graph = annotator.translator.flowgraphs[func]
+                except KeyError:
+                    raise TyperError("the skipped %r must not show up in a "
+                                     "call family" % (func,))
                 graph_bindings[graph] = [annotator.binding(v)
                                          for v in graph.getargs()]
                 argorder = range(shape_cnt)
