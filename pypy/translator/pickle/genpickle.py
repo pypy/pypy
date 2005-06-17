@@ -508,12 +508,26 @@ class GenPickle:
         def initdict():
             keys = dic.keys()
             keys.sort()
+            told = False
             for k in keys:
                 try:
                     nk, nv = self.nameof(k), self.nameof(dic[k])
                     yield '%s[%s] = %s' % (name, nk, nv)
                 except PicklingError:
                     pass
+                else:
+                    # some sanity check
+                    if type(k) is int:
+                        if k in self.picklenames:
+                            print ('WARNING: this dict most likely contains '
+                                   'the id of some object!!')
+                            print 'name of object: %s' % self.picklenames[k]
+                        elif k == id(dic[k]):
+                            print ('WARNING: this dict most likely contains '
+                                   'the id of one of it\'s objects!!')
+                            if not told:
+                                print dic
+                                told = True
         name = self.memoize_unique(dic, 'D%d' % len(dic))
         self.produce('%s = {}' % name)
         for line in initdict():

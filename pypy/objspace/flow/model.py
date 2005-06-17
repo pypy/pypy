@@ -448,7 +448,11 @@ def checkgraph(graph):
                         assert issubclass(link.exitcase, Exception)
                         exc_links[link] = True
                 else:
-                    assert isinstance(block.exitswitch, Variable)
+                    try:
+                        assert isinstance(block.exitswitch, Variable)
+                    except AssertionError:
+                        print type(block.exitswitch), block.exitswitch
+                        raise
                     assert block.exitswitch in vars
 
                 for link in block.exits:

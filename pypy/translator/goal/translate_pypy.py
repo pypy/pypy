@@ -25,10 +25,12 @@ Command-line options for translate_pypy:
    -no-d      Disable recording of debugging information
    -huge=%    Threshold in the number of functions after which only a local call
               graph and not a full one is displayed
-   -save filename   saves the translator to a file. The file type can either
+   -save filename
+              saves the translator to a file. The file type can either
               be .py or .zip (recommended).
-   -load filename   restores the translator from a file. The file type must
-              be either .py or.zip .
+   -load filename
+              restores the translator from a file. The file type must
+              be either .py or .zip .
 """
 import autopath, sys, os
 
@@ -87,22 +89,29 @@ def analyse(target):
     if target:
         entry_point, inputtypes = target()
         t = Translator(entry_point, verbose=True, simplifying=True)
-    # otherwise we have been loaded
+        a = None
+    else:
+        # otherwise we have been loaded
+        a = t.annotator
+        t.frozen = False
     if listen_port:
         run_async_server()
     if not options['-no-a']:
+        print 'Annotating...'
         a = t.annotate(inputtypes, policy=PyPyAnnotatorPolicy())
         sanity_check_exceptblocks(t)
         worstblocks_topten(a)
-        if not options['-no-s']:
-            a.simplify()
-        if not options['-no-t']:
-            typer = RPythonTyper(a)
-            typer.specialize()
-        t.frozen = True   # cannot freeze if we don't have annotations
-        if not options['-no-mark-some-objects']:
-            options['-no-mark-some-objects'] = True # Do not do this again
-            find_someobjects(t)
+    if a and not options['-no-s']:
+        print 'Simplifying...'
+        a.simplify()
+    if a and not options['-no-t']:
+        print 'Specializing...'
+        typer = RPythonTyper(a)
+        typer.specialize()
+    t.frozen = True   # cannot freeze if we don't have annotations
+    if not options['-no-mark-some-objects']:
+        options['-no-mark-some-objects'] = True # Do not do this again
+        find_someobjects(t)
 
 def sanity_check_exceptblocks(translator):
     annotator = translator.annotator
@@ -488,12 +497,14 @@ show class hierarchy graph"""
                     options[name] = True
             print "continuing Analysis as defined by %s, loaded from %s" %(
                 targetspec, load_file)
+            print 'options in effect:', options
             analyse(None)
         else:
             targetspec_dic = {}
             sys.path.insert(0, os.path.dirname(targetspec))
             execfile(targetspec+'.py', targetspec_dic)
             print "Analysing target as defined by %s" % targetspec
+            print 'options in effect:', options
             analyse(targetspec_dic['target'])
         print '-'*60
         if save_file:

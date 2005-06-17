@@ -20,8 +20,9 @@ class MergeBlock(Exception):
 
 
 class SpamBlock(Block):
-    
-    __slots__ = "dead framestate fillcolor".split()
+    # make slots optional, for debugging
+    if hasattr(Block, '__slots__'):
+        __slots__ = "dead framestate fillcolor".split()
 
     def __init__(self, framestate):
         Block.__init__(self, framestate.getvariables())
@@ -36,8 +37,9 @@ class SpamBlock(Block):
 
 
 class EggBlock(Block):
-
-    __slots__ = "prevblock booloutcome last_exception fillcolor".split()
+    # make slots optional, for debugging
+    if hasattr(Block, '__slots__'):
+        __slots__ = "prevblock booloutcome last_exception fillcolor".split()
 
     def __init__(self, inputargs, prevblock, booloutcome):
         Block.__init__(self, inputargs)
