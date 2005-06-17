@@ -60,6 +60,17 @@ def normalize_function_signatures(annotator):
             shape_cnt, shape_keys, shape_star, shape_stst = pattern
             assert not shape_star, "XXX not implemented"
             assert not shape_stst, "XXX not implemented"
+            # for bound methods families for now just accept and check that
+            # they all refer to the same function
+            if isinstance(functions[0], types.MethodType):
+                methfunc = functions[0].im_func
+                assert functions[0].im_self is not None
+                for func in functions:
+                    if getattr(func, 'im_func', None) is not methfunc:
+                        raise TypeError("invalid familily of bound methods: %r" %
+                                        functions)
+                continue
+
             # for the first 'shape_cnt' arguments we need to generalize to
             # a common type
             graph_bindings = {}
