@@ -5,6 +5,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import pyobjectptr
+from pypy.annotation.model import lltype_to_annotation
 
 # switch on logging of interp to show more info on failing tests
 
@@ -37,7 +38,7 @@ def gengraph(func, argtypes=[]):
     return t, typer
 
 def interpret(func, values, view=False):
-    t, typer = gengraph(func, [type(x) for x in values])
+    t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) for x in values])
     if view:
         t.view()
     interp = LLInterpreter(t.flowgraphs, typer)
@@ -182,7 +183,7 @@ class ExampleClass:
 def test_basic_instantiation():
     def f(x):
         return ExampleClass(x).x
-    res = interpret(f, [4], view=True)
+    res = interpret(f, [4])
     assert res == 5
 
 

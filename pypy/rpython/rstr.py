@@ -95,6 +95,11 @@ class __extend__(pairtype(StringRepr, StringRepr)):
 
 class __extend__(CharRepr):
 
+    def convert_const(self, value):
+        if not isinstance(value, str) or len(value) != 1:
+            raise TyperError("not a character: %r" % (value,))
+        return value
+
     def rtype_len(_, hop):
         return hop.inputconst(Signed, 1)
 

@@ -1,6 +1,7 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
+from pypy.rpython.test.test_llinterp import interpret
 
 
 def test_simple():
@@ -53,3 +54,11 @@ def test_concat():
     typer.specialize()
     #t.view()
     t.checkgraphs()
+
+def test_char_constant():
+    def dummyfn(s):
+        return s + '.'
+    res = interpret(dummyfn, ['x'])
+    assert len(res.chars) == 2
+    assert res.chars[0] == 'x'
+    assert res.chars[1] == '.'
