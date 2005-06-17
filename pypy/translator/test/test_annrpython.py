@@ -1276,26 +1276,20 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeInstance)
-        assert s.can_be_None
+        assert not s.can_be_None
         assert s.classdef.cls is A
 
-    def test_attr_moving_from_subclass_to_class_to_parent(self):
-        class A: pass
-        class B(A): pass
-        class C(B): pass
-        a1 = A()
-        a1.stuff = None
-        c1 = C()
-        c1.stuff = a1
+    def test_class_attribute(self):
+        class A:
+            stuff = 42
+        class B(A):
+            pass
         def f():
             b = B()
-            b.consider_me = c1
             return b.stuff
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeInstance)
-        assert s.can_be_None
-        assert s.classdef.cls is A
+        assert s == a.bookkeeper.immutablevalue(42)
 
     def test_attr_recursive_getvalue(self):
         class A: pass

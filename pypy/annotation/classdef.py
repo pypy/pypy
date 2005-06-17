@@ -7,48 +7,94 @@ from types import FunctionType
 from pypy.annotation.model import SomeImpossibleValue, SomePBC, tracking_unionof
 
 
+# The main purpose of a ClassDef is to collect information about class/instance
+# attributes as they are really used.  An Attribute object is stored in the
+# most general ClassDef where an attribute of that name is read/written:
+#    classdef.attrs = {'attrname': Attribute()}
+#
+# The following invariants hold:
+#
+# (A) if an attribute is read/written on an instance of class A, then the
+#     classdef of A or a parent class of A has an Attribute object corresponding
+#     to that name.
+#
+# (I) if B is a subclass of A, then they don't have both an Attribute for the
+#     same name.  (All information from B's Attribute must be merged into A's.)
+#
+# Additionally, each ClassDef records an 'attr_sources': it maps attribute
+# names to a set of objects that want to provide a constant value for this
+# attribute at the level of this class.  The attrsources provide information
+# higher in the class hierarchy than concrete Attribute()s.  It is for the case
+# where (so far or definitely) the user program only reads/writes the attribute
+# at the level of a subclass, but a value for this attribute could possibly
+# exist in the parent class or in an instance of a parent class.
+#
+# The point of not automatically forcing the Attribute instance up to the
+# parent class which has a class attribute of the same name is apparent with
+# multiple subclasses:
+#
+#                                    A
+#                                 attr=s1
+#                                  /   \
+#                                 /     \
+#                                B       C
+#                             attr=s2  attr=s3
+#
+# In this case, as long as 'attr' is only read/written from B or C, the
+# Attribute on B says that it can be 's1 or s2', and the Attribute on C says
+# it can be 's1 or s3'.  Merging them into a single Attribute on A would give
+# the more imprecise 's1 or s2 or s3'.
+#
+# The following invariant holds:
+#
+# (II) if a class A has an Attribute, the 'attrsources' for the same name is
+#      empty.  It is also empty on all subclasses of A.  (The information goes
+#      into the Attribute directly in this case.)
+#
+# The attrsources have the format {object: classdef}.  For class attributes,
+# 'object' is the class in question and 'classdef' its corresponding classdef,
+# used for binding methods.  For attribute sources that are prebuilt instances,
+# 'classdef' is None.
+#
+# The following invariant holds:
+#
+#  (III) for a class A, each attrsource that comes from the class (as opposed to
+#        from a prebuilt instance) must be merged into all Attributes of the
+#        same name in all subclasses of A, if any.  (Parent class attributes can
+#        be visible in reads from instances of subclasses.)
+
+
 class Attribute:
     # readonly-ness
     # SomeThing-ness
-    # more potential sources (pbcs or classes) of information
-    # NB. the laziness of 'sources' was required for two reasons:
-    #     * some strange attributes exist on classes but are never touched,
-    #       immutablevalue() wouldn't be happy with them
-    #     * there is an infinite recursion between immutablevalue() and
-    #       add_source_for_attribute() for cyclic constant structures.
-    # NB2. an attribute is readonly if it is a constant class attribute.
+    # NB.  an attribute is readonly if it is a constant class attribute.
     #      Both writing to the instance attribute and discovering prebuilt
     #      instances that have the attribute set will turn off readonly-ness.
 
     def __init__(self, name, bookkeeper):
         self.name = name
         self.bookkeeper = bookkeeper
-        self.sources = {} # source -> None or ClassDef
         # XXX a SomeImpossibleValue() constant?  later!!
         self.s_value = SomeImpossibleValue()
         self.readonly = True
         self.read_locations = {}
 
+    def add_constant_source(self, source, classdef):
+        s_value = self.bookkeeper.immutablevalue(
+            source.__dict__[self.name])
+        if classdef:
+            s_value = s_value.bindcallables(classdef)
+        else:
+            # a prebuilt instance source forces readonly=False, see above
+            self.readonly = False
+        self.s_value = tracking_unionof(self, self.s_value, s_value)
+
     def getvalue(self):
-        while self.sources:
-            source, classdef = self.sources.iteritems().next()
-            s_value = self.bookkeeper.immutablevalue(
-                source.__dict__[self.name])
-            # warning: 'source' should not be removed from the dict before
-            # immutablevalue() finished, because the latter can move attrdefs
-            # around and this would gets this source lost
-            try:
-                del self.sources[source]
-            except KeyError:
-                pass
-            if classdef:
-                s_value = s_value.bindcallables(classdef)
-            self.s_value = tracking_unionof(self, self.s_value, s_value)
+        # Same as 'self.s_value' for historical reasons.
         return self.s_value
 
     def merge(self, other):
         assert self.name == other.name
-        self.sources.update(other.sources)
         self.s_value = tracking_unionof(self, self.s_value, other.s_value)
         self.readonly = self.readonly and other.readonly
         self.read_locations.update(other.read_locations)
@@ -63,6 +109,7 @@ class ClassDef:
         #self.instantiation_locations = {}
         self.cls = cls
         self.subdefs = {}
+        self.attr_sources = {}   # {name: {constant_object: classdef_or_None}}
         base = object
         mixeddict = {}
         sources = {}
@@ -120,19 +167,35 @@ class ClassDef:
             self.bookkeeper.annotator.reflowfromposition(position)        
 
     def add_source_for_attribute(self, attr, source, clsdef=None):
-        homedef = self.locate_attribute(attr)
-        attrdef = homedef.attrs[attr]
-        attrdef.sources[source] = clsdef
-        if clsdef is None:
-            attrdef.readonly = False    # see note about 'readonly' in ClassDef
-        if attrdef.read_locations:
-            # we should reflow from all the reader's position,
-            # but as an optimization we try to see if the attribute
-            # has really been generalized
-            s_prev_value = attrdef.s_value
-            s_next_value = attrdef.getvalue()
-            if s_prev_value != s_next_value:
-                self.attr_mutated(homedef, attrdef)
+        """Adds information about a constant source for an attribute.
+        """
+        for cdef in self.getmro():
+            if attr in cdef.attrs:
+                # the Attribute() exists already for this class (or a parent)
+                attrdef = cdef.attrs[attr]
+                s_prev_value = attrdef.s_value
+                attrdef.add_constant_source(source, clsdef)
+                # we should reflow from all the reader's position,
+                # but as an optimization we try to see if the attribute
+                # has really been generalized
+                if attrdef.s_value != s_prev_value:
+                    for position in attrdef.read_locations:
+                        self.bookkeeper.annotator.reflowfromposition(position)
+                return
+        else:
+            # remember the source in self.attr_sources
+            sources = self.attr_sources.setdefault(attr, {})
+            sources[source] = clsdef
+            # register the source in any Attribute found in subclasses,
+            # to restore invariant (III)
+            # NB. add_constant_source() may discover new subdefs but the
+            #     right thing will happen to them because self.attr_sources
+            #     was already updated
+            if clsdef is not None:
+                for subdef in self.getallsubdefs():
+                    if attr in subdef.attrs:
+                        attrdef = subdef.attrs[attr]
+                        attrdef.add_constant_source(source, clsdef)
 
     def locate_attribute(self, attr):
         while True:
@@ -183,34 +246,53 @@ class ClassDef:
                     pending.append(sub)
                     seen[sub] = True
 
-##    def getallinstantiations(self):
-##        locations = {}
-##        for clsdef in self.getallsubdefs():
-##            locations.update(clsdef.instantiation_locations)
-##        return locations
-
     def _generalize_attr(self, attr, s_value):
         # first remove the attribute from subclasses -- including us!
+        # invariant (I)
         subclass_attrs = []
+        constant_sources = {}
         for subdef in self.getallsubdefs():
             if attr in subdef.attrs:
                 subclass_attrs.append(subdef.attrs[attr])
                 del subdef.attrs[attr]
+            if attr in subdef.attr_sources:
+                # accumulate attr_sources for this attribute from all subclasses
+                d = subdef.attr_sources[attr]
+                constant_sources.update(d)
+                d.clear()    # invariant (II)
 
-        # do the generalization
+        # accumulate attr_sources for this attribute from all parents, too
+        # invariant (III)
+        for superdef in self.getmro():
+            if attr in superdef.attr_sources:
+                for source, classdef in superdef.attr_sources[attr].items():
+                    if classdef is not None:
+                        constant_sources[source] = classdef
+
+        # create the Attribute and do the generalization asked for
         newattr = Attribute(attr, self.bookkeeper)
         if s_value:
             newattr.s_value = s_value
-            
+
+        # keep all subattributes' values
         for subattr in subclass_attrs:
             newattr.merge(subattr)
+
+        # store this new Attribute, generalizing the previous ones from
+        # subclasses -- invariant (A)
         self.attrs[attr] = newattr
+
+        # add the values of the pending constant attributes
+        # completes invariants (II) and (III)
+        for source, classdef in constant_sources.items():
+            newattr.add_constant_source(source, classdef)
 
         # reflow from all read positions
         self.attr_mutated(self, newattr)
 
     def generalize_attr(self, attr, s_value=None):
-        # if the attribute exists in a superclass, generalize there.
+        # if the attribute exists in a superclass, generalize there,
+        # as imposed by invariant (I)
         for clsdef in self.getmro():
             if attr in clsdef.attrs:
                 clsdef._generalize_attr(attr, s_value)
