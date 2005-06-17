@@ -38,6 +38,9 @@ class AlreadyCreated(Exception): pass
 # ____________________________________________________________
 
 
+#XXX Hack: This float is supposed to overflow to inf
+OVERFLOWED_FLOAT = float("1e10000000000000000000000000000000")
+
 class GenPickle:
 
     def __init__(self, translator, writer = None):
@@ -50,8 +53,6 @@ class GenPickle:
             'import new, types, sys',
             )
         self.picklenames = {}  # memoize objects
-        self.memoize(float("1e10000000000000000000000000000000"),
-                     'float("1e10000000000000000000000000000000")')
         for name in all_feature_names + "new types sys".split():
             self.memoize(globals()[name], name)
         self.namespace = NameManager()
@@ -64,7 +65,7 @@ class GenPickle:
         self.simple_const_types = {
             int: repr,
             long: repr,
-            float: repr,
+            float: self.save_float,
             str: repr,
             unicode: repr,
             type(None): repr,
@@ -101,6 +102,11 @@ class GenPickle:
         self.inline_instances = {
             SpaceOperation: True,
             }
+
+    def save_float(self, fl):
+        if fl == OVERFLOWED_FLOAT:
+            return 'float("1e10000000000000000000000000000000")'
+        return repr(fl)
 
     def pickle(self, **kwds):
         for obj in kwds.values():
