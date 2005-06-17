@@ -248,10 +248,8 @@ class RPythonTyper:
     def translate_hl_to_ll(self, hop, varmapping):
         if debug:
             print hop.spaceop.opname, hop.args_s
+        resultvar = hop.dispatch()
         op = hop.spaceop
-        translate_meth = getattr(self, 'translate_op_'+op.opname,
-                                 self.missing_operation)
-        resultvar = translate_meth(hop)
         if resultvar is None:
             # no return value
             if hop.s_result != annmodel.SomeImpossibleValue():
@@ -388,6 +386,13 @@ class HighLevelOp(object):
                 value = value[:]
             setattr(result, key, value)
         return result
+
+    def dispatch(self):
+        op = self.spaceop
+        rtyper = self.rtyper
+        translate_meth = getattr(rtyper, 'translate_op_'+op.opname,
+                                 rtyper.missing_operation)
+        return translate_meth(self)
 
     def inputarg(self, converted_to, arg):
         """Returns the arg'th input argument of the current operation,

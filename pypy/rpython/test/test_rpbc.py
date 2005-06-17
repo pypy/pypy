@@ -74,6 +74,8 @@ def test_class_init():
 class Freezing:
     def _freeze_(self):
         return True
+    def mymethod(self, y):
+        return self.x + y
 
 def test_freezing():
     fr1 = Freezing()
@@ -90,4 +92,24 @@ def test_freezing():
         else:
             fr = None
         return g(fr)
+    rtype(f, [int])
+
+def test_call_frozen_pbc_simple():
+    fr1 = Freezing()
+    fr1.x = 5
+    def f(n):
+        return fr1.mymethod(n)
+    rtype(f, [int])
+
+def test_call_frozen_pbc_multiple():
+    fr1 = Freezing()
+    fr2 = Freezing()
+    fr1.x = 5
+    fr2.x = 6
+    def f(n):
+        if n > 0:
+            fr = fr1
+        else:
+            fr = fr2
+        return fr.mymethod(n)
     rtype(f, [int])

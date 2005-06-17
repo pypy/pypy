@@ -15,17 +15,19 @@ class __extend__(annmodel.SomePBC):
         # for now, we require that the PBC fits neatly into one of the Repr
         # categories below, and doesn't for example mix functions, classes
         # and methods.
-        callb = rtyper.annotator.getpbccallables()
+        call_families = rtyper.annotator.getpbccallfamilies()
         choices = {}
         for x, classdef in self.prebuiltinstances.items():
             cdefflag = isclassdef(classdef)
+            if not cdefflag:
+                classdef = None
 
             # consider unbound methods as plain functions
             if isinstance(x, types.MethodType) and x.im_self is None:
                 x = x.im_func
 
             # callable or frozen object?
-            if x in callb:
+            if (classdef, x) in call_families:
                 # what type of callable?
                 if isinstance(x, types.FunctionType):
                     if cdefflag:
@@ -35,8 +37,8 @@ class __extend__(annmodel.SomePBC):
                         choice = FunctionsPBCRepr
                 elif isinstance(x, (type, types.ClassType)):
                     choice = ClassesPBCRepr
-                #elif isinstance(x, types.MethodType):
-                #    choice = ConstMethodsPBCRepr
+                elif isinstance(x, types.MethodType):
+                    choice = MethodOfFrozenPBCRepr
                 else:
                     raise TyperError("don't know about callable %r" % (x,))
             else:
@@ -148,6 +150,43 @@ class MultipleFrozenPBCRepr(Repr):
         cmangledname = hop.inputconst(Void, mangled_name)
         return hop.genop('getfield', [vpbc, cmangledname],
                          resulttype = r_value)
+
+
+# ____________________________________________________________
+
+
+class MethodOfFrozenPBCRepr(Repr):
+    """Representation selected for a PBC of method object(s) of frozen PBCs.
+    It assumes that all methods are the same function bound to different PBCs.
+    The low-level representation can then be a pointer to that PBC."""
+
+    def __init__(self, rtyper, s_pbc):
+        self.rtyper = rtyper
+        self.function = s_pbc.prebuiltinstances.keys()[0].im_func
+        im_selves = {}
+        for pbc, not_a_classdef in s_pbc.prebuiltinstances.items():
+            assert pbc.im_func is self.function
+            assert not isclassdef(not_a_classdef)
+            im_selves[pbc.im_self] = True
+        self.s_im_self = annmodel.SomePBC(im_selves)
+        self.r_im_self = rtyper.getrepr(self.s_im_self)
+        self.lowleveltype = self.r_im_self.lowleveltype
+
+    def convert_const(self, method):
+        if getattr(method, 'im_func', None) is not self.function:
+            raise TyperError("not a method bound on %r: %r" % (self.function,
+                                                               method))
+        return self.r_im_self.convert_const(method.im_self)
+
+    def rtype_simple_call(self, hop):
+        s_function = annmodel.SomePBC({self.function: True})
+        hop2 = hop.copy()
+        hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
+        hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
+        c = Constant(self.function)
+        hop2.v_s_insertfirstarg(c, s_function)   # insert 'function'
+        # now hop2 looks like simple_call(function, self, args...)
+        return hop2.dispatch()
 
 
 # ____________________________________________________________
@@ -332,11 +371,11 @@ class ClassesPBCRepr(Repr):
             s_init = annmodel.SomePBC({initfunc: True})
             hop2 = hop.copy()
             hop2.r_s_popfirstarg()   # discard the class pointer argument
-            hop2.v_s_insertfirstarg(v_instance, s_instance)  # (instance, *args)
+            hop2.v_s_insertfirstarg(v_instance, s_instance)  # add 'instance'
             c = Constant(initfunc)
-            hop2.v_s_insertfirstarg(c, s_init)   # (initfunc, instance, *args)
+            hop2.v_s_insertfirstarg(c, s_init)   # add 'initfunc'
             hop2.s_result = annmodel.SomePBC({None: True})
             hop2.r_result = self.rtyper.getrepr(hop2.s_result)
-            r_init = self.rtyper.getrepr(s_init)
-            r_init.rtype_simple_call(hop2)
+            # now hop2 looks like simple_call(initfunc, instance, args...)
+            hop2.dispatch()
         return v_instance

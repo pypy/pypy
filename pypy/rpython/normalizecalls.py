@@ -7,10 +7,11 @@ from pypy.rpython.rmodel import TyperError
 
 
 def normalize_function_signatures(annotator):
-    # make sure that all functions called in a group have exactly
-    # the same signature, by hacking their flow graphs if needed
-    callables = annotator.getpbccallables()
+    """Make sure that all functions called in a group have exactly
+    the same signature, by hacking their flow graphs if needed.
+    """
     call_families = annotator.getpbccallfamilies()
+
     # for methods, we create or complete a corresponding function-only
     # family with call patterns that have the extra 'self' argument
     for family in call_families.infos():
@@ -30,7 +31,8 @@ def normalize_function_signatures(annotator):
                 argcount = pattern[0]
                 pattern = (argcount+1,) + pattern[1:]
                 func_family.patterns[pattern] = True
-    # for classes that appear in families, unify their __init__ as well
+
+    # for classes that appear in families, unify their __init__ as well.
     for family in call_families.infos():
         prevkey = None
         for _, klass in family.objects:
@@ -43,14 +45,37 @@ def normalize_function_signatures(annotator):
                     prevkey = (None, initfunc)
                 else:
                     call_families.union((None, initfunc), prevkey)
+
+    # for bound method objects, make sure the im_func shows up too.
+    for family in call_families.infos():
+        first = family.objects.keys()[0][1]
+        for _, callable in family.objects:
+            if isinstance(callable, types.MethodType):
+                # for bound methods families for now just accept and check that
+                # they all refer to the same function
+                if not isinstance(first, types.MethodType):
+                    raise TyperError("call family with both bound methods and "
+                                     "%r" % (first,))
+                if first.im_func is not callable.im_func:
+                    raise TyperError("call family of bound methods: should all "
+                                     "refer to the same function")
+        # create a family for the common im_func
+        if isinstance(first, types.MethodType):
+            _, _, func_family = call_families.find((None, first.im_func))
+            for pattern in family.patterns:
+                argcount = pattern[0]
+                pattern = (argcount+1,) + pattern[1:]
+                func_family.patterns[pattern] = True
+
     # find the most general signature of each family
     for family in call_families.infos():
         # collect functions in this family, ignoring:
         #  - methods: taken care of above
+        #  - bound methods: their im_func will also show up
         #  - classes: their __init__ unbound methods are also families
         functions = [func for classdef, func in family.objects
                           if classdef is None and
-                             not isinstance(func, (type, types.ClassType))]
+                not isinstance(func, (type, types.ClassType, types.MethodType))]
         if len(functions) > 1:  # otherwise, nothing to do
             if len(family.patterns) > 1:
                 raise TyperError("don't support multiple call patterns "
@@ -60,19 +85,6 @@ def normalize_function_signatures(annotator):
             shape_cnt, shape_keys, shape_star, shape_stst = pattern
             assert not shape_star, "XXX not implemented"
             assert not shape_stst, "XXX not implemented"
-            # for bound methods families for now just accept and check that
-            # they all refer to the same function
-            if isinstance(functions[0], types.MethodType):
-                methfunc = functions[0].im_func
-                assert functions[0].im_self is not None
-                if (None, methfunc) in call_families:
-                    raise TypeError("function appears both in bound method and"
-                                    "freestanding: %r" % methfunc)
-                for func in functions:
-                    if getattr(func, 'im_func', None) is not methfunc:
-                        raise TypeError("invalid familily of bound methods: %r" %
-                                        functions)
-                continue
 
             # for the first 'shape_cnt' arguments we need to generalize to
             # a common type

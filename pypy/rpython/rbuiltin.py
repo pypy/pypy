@@ -40,8 +40,9 @@ class BuiltinFunctionRepr(Repr):
         except KeyError:
             raise TyperError("don't know about built-in function %r" % (
                 self.builtinfunc,))
-        hop.r_s_popfirstarg()
-        return bltintyper(hop)
+        hop2 = hop.copy()
+        hop2.r_s_popfirstarg()
+        return bltintyper(hop2)
 
 
 class BuiltinMethodRepr(Repr):
