@@ -209,7 +209,7 @@ class SomeList(SomeObject):
         if not self.listdef.same_as(other.listdef):
             return False
         selfdic = self.__dict__.copy()
-        otherdic = self.__dict__.copy()
+        otherdic = other.__dict__.copy()
         del selfdic['listdef']
         del otherdic['listdef']
         return selfdic == otherdic
@@ -252,7 +252,7 @@ class SomeDict(SomeObject):
         if not self.dictdef.same_as(other.dictdef):
             return False
         selfdic = self.__dict__.copy()
-        otherdic = self.__dict__.copy()
+        otherdic = other.__dict__.copy()
         del selfdic['dictdef']
         del otherdic['dictdef']
         return selfdic == otherdic
