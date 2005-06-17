@@ -17,7 +17,7 @@ from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.gensupp import builtin_base
 from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.objspace.flow.model import FunctionGraph, Block, Link
+from pypy.objspace.flow.model import FunctionGraph, Block, Link, Atom
 from pypy.objspace.flow.flowcontext import SpamBlock, EggBlock
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple
@@ -547,6 +547,10 @@ class GenPickle:
     nameof_wrapper_descriptor = nameof_member_descriptor
 
     def nameof_instance(self, instance):
+        if isinstance(instance, Atom):
+            # cannot reconstruct this, it *must* be
+            # the one from model
+            return self.save_global(instance)
         def initinstance():
             if hasattr(instance, '__setstate__'):
                 # the instance knows what to do

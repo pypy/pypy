@@ -303,9 +303,9 @@ def _sop(opname, result, offset, *args):
 
 class Atom:
     def __init__(self, name):
-        self.name = name
+        self.__name__ = name # make save_global happy
     def __repr__(self):
-        return self.name
+        return self.__name__
 
 last_exception = Atom('last_exception')
 # if Block().exitswitch == Constant(last_exception), it means that we are
@@ -448,11 +448,7 @@ def checkgraph(graph):
                         assert issubclass(link.exitcase, Exception)
                         exc_links[link] = True
                 else:
-                    try:
-                        assert isinstance(block.exitswitch, Variable)
-                    except AssertionError:
-                        print type(block.exitswitch), block.exitswitch
-                        raise
+                    assert isinstance(block.exitswitch, Variable)
                     assert block.exitswitch in vars
 
                 for link in block.exits:
