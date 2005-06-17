@@ -94,10 +94,10 @@ def test_number_comparisons():
         res = [getattr(gcres, x) for x in typeOf(gcres).TO._names]
         assert res == [True, True, False, True, False, False]
 
-def XXXtest_some_builtin(): 
+def test_some_builtin(): 
     def f(i, j): 
         x = range(i) 
-        return x[j]
+        return x[j-1]
     res = interpret(f, [10, 7])
     assert res == 6
 
