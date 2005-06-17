@@ -4,7 +4,7 @@ The Translator is a glue class putting together the various pieces of the
 translation-related code.  It can be used for interactive testing of the
 translator; see pypy/bin/translator.py.
 """
-import autopath, os, sys
+import autopath, os, sys, types
 
 from pypy.objspace.flow.model import *
 from pypy.translator.simplify import simplify_graph
@@ -51,6 +51,8 @@ class Translator:
     def getflowgraph(self, func=None, called_by=None, call_tag=None):
         """Get the flow graph for a function (default: the entry point)."""
         func = func or self.entrypoint
+        if not isinstance(func, types.FunctionType):
+            raise Exception, "getflowgraph() expects a function, got %s" % func
         try:
             graph = self.flowgraphs[func]
         except KeyError:
