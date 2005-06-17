@@ -2,7 +2,7 @@ from pypy.rpython.lltype import *
 from pypy.rpython.lltype import _ptr
 from pypy.translator.translator import Translator
 from pypy.tool.sourcetools import compile2
-from pypy.objspace.flow.model import Constant, last_exception
+from pypy.objspace.flow.model import Constant, Variable, last_exception
 import py
 
 log = py.log.Producer('llinterp') 
@@ -29,9 +29,15 @@ class LLInterpreter(object):
         for var, val in zip(vars, values): 
             self.setvar(var, val) 
         
-    def setvar(self, var, val): 
-        # XXX assert that val "matches" lowlevel type 
-        self.bindings[var] = val 
+    def setvar(self, var, val):
+        if var.concretetype != Void:
+            assert var.concretetype == typeOf(val)
+        assert isinstance(var, Variable)
+        self.bindings[var] = val
+
+    def setifvar(self, var, val):
+        if isinstance(var, Variable):
+            self.setvar(var, val)
 
     def getval(self, varorconst): 
         try: 
@@ -52,23 +58,22 @@ class LLInterpreter(object):
             return ophandler
 
     # _______________________________________________________
-    # evaling functions 
+    # evaling functions
 
-    def eval_function(self, func, args=()): 
+    def eval_function(self, func, args=()):
         graph = self.flowgraphs[func]
         return self.eval_graph(graph,args)
 
     def eval_graph(self, graph, args=()): 
-        log.graph("evaluating", graph.name) 
+        log.graph("evaluating", graph.name)
         nextblock = graph.startblock
-        excblock = graph.exceptblock
         while 1: 
             self.fillvars(nextblock, args) 
-            nextblock, args = self.eval_block(nextblock, excblock)
-            if nextblock is None: 
-                return args 
+            nextblock, args = self.eval_block(nextblock)
+            if nextblock is None:
+                return args
 
-    def eval_block(self, block, excblock): 
+    def eval_block(self, block): 
         """ return (nextblock, values) tuple. If nextblock 
             is None, values is the concrete return value. 
         """
@@ -80,13 +85,7 @@ class LLInterpreter(object):
                 self.eval_operation(op)
         except LLException, e:
             if not (catch_exception and op is block.operations[-1]):
-                # there is no explicit handler.
-                # we could simply re-raise here, but it is cleaner
-                # to redirect to the provided default exception block
-                block = excblock
-                cls, inst = e.args
-                self.setvar(block.inputargs[0], cls)
-                self.setvar(block.inputargs[1], inst)
+                raise
 
         # determine nextblock and/or return value 
         if len(block.exits) == 0:
@@ -114,11 +113,12 @@ class LLInterpreter(object):
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
                     if exdata.ll_exception_match(cls, link.llexitcase):
-                        self.setvar(link.last_exception, cls)
-                        self.setvar(link.last_exc_value, inst)
+                        self.setifvar(link.last_exception, cls)
+                        self.setifvar(link.last_exc_value, inst)
                         break
                 else:
-                    raise Exception, e # unhandled case, should not happen
+                    # no handler found, pass on
+                    raise e
         else: 
             index = self.getval(block.exitswitch)
             link = block.exits[index]
