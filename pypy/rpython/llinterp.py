@@ -18,6 +18,21 @@ class LLInterpreter(object):
         self.bindings = {}
         self.typer = typer
 
+    def getgraph(self, func):
+        return self.flowgraphs[func]
+
+    def eval_function(self, func, args=()):
+        graph = self.getgraph(func)
+        llframe = LLFrame(graph, args, self)
+        return llframe.eval()
+
+class LLFrame(object):
+    def __init__(self, graph, args, llinterpreter):
+        self.graph = graph
+        self.args = args
+        self.llinterpreter = llinterpreter
+        self.bindings = {}
+
     # _______________________________________________________
     # variable setters/getters helpers
 
@@ -60,13 +75,11 @@ class LLInterpreter(object):
     # _______________________________________________________
     # evaling functions
 
-    def eval_function(self, func, args=()):
-        graph = self.flowgraphs[func]
-        return self.eval_graph(graph,args)
-
-    def eval_graph(self, graph, args=()):
-        log.graph("evaluating", graph.name)
+    def eval(self):
+        graph = self.graph
+        log.frame("evaluating", graph.name)
         nextblock = graph.startblock
+        args = self.args
         while 1:
             self.fillvars(nextblock, args)
             nextblock, args = self.eval_block(nextblock)
@@ -108,7 +121,7 @@ class LLInterpreter(object):
         elif catch_exception:
             link = block.exits[0]
             if e:
-                exdata = self.typer.getexceptiondata()
+                exdata = self.llinterpreter.typer.getexceptiondata()
                 cls, inst = e.args
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
@@ -152,8 +165,11 @@ class LLInterpreter(object):
 
     def op_direct_call(self, f, *args):
         if hasattr(f._obj, 'graph'):
-            return self.eval_graph(f._obj.graph, args)
-        return self.eval_function(f._obj._callable, args)
+            graph = f._obj.graph
+        else:
+            graph = self.llinterpreter.getgraph(f._obj._callable)
+        frame = self.__class__(graph, args, self.llinterpreter)
+        return frame.eval()
 
     def op_malloc(self, obj):
         return malloc(obj)

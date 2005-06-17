@@ -1,19 +1,19 @@
 
 import py
 from pypy.rpython.lltype import typeOf
-from pypy.rpython.rtyper import RPythonTyper 
+from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.llinterp import LLInterpreter, LLException
-from pypy.translator.translator import Translator 
+from pypy.translator.translator import Translator
 from pypy.rpython.lltype import pyobjectptr
 
 # switch on logging of interp to show more info on failing tests
 
-def setup_module(mod): 
+def setup_module(mod):
     mod.logstate = py.log._getstate()
-    py.log.setconsumer("llinterp", py.log.STDOUT) 
+    py.log.setconsumer("llinterp", py.log.STDOUT)
 
-def teardown_module(mod): 
-    py.log._setstate(mod.logstate) 
+def teardown_module(mod):
+    py.log._setstate(mod.logstate)
 
 def find_exception(exc):
     assert isinstance(exc, LLException)
@@ -25,7 +25,7 @@ def find_exception(exc):
             if func(pyobjectptr(cls)).typeptr == klass:
                 return cls
 
-def gengraph(func, argtypes=[]): 
+def gengraph(func, argtypes=[]):
     t = Translator(func)
     t.annotate(argtypes)
     global typer # we need it for find_exception
@@ -35,28 +35,30 @@ def gengraph(func, argtypes=[]):
     t.checkgraphs()
     return t, typer
 
-def interpret(func, values): 
+def interpret(func, values, view=False):
     t, typer = gengraph(func, [type(x) for x in values])
+    if view:
+        t.view()
     interp = LLInterpreter(t.flowgraphs, typer)
-    res = interp.eval_function(func, values) 
-    return res 
+    res = interp.eval_function(func, values)
+    return res
 
 #__________________________________________________________________
-# tests 
-    
-def test_int_ops(): 
+# tests
+
+def test_int_ops():
     res = interpret(number_ops, [3])
-    assert res == 4 
+    assert res == 4
 
-def test_float_ops(): 
+def test_float_ops():
     res = interpret(number_ops, [3.5])
-    assert res == 4.5 
+    assert res == 4.5
 
-def test_ifs(): 
+def test_ifs():
     res = interpret(simple_ifs, [0])
-    assert res == 43 
+    assert res == 43
     res = interpret(simple_ifs, [1])
-    assert res == 42 
+    assert res == 42
 
 def test_raise():
     res = interpret(raise_exception, [41])
@@ -87,31 +89,41 @@ def test_call_raise_twice():
     assert find_exception(info.value) is ValueError
 
 def test_call_raise_intercept():
-    res = interpret(call_raise_intercept, [41])
+    res = interpret(call_raise_intercept, [41], view=False)
     assert res == 41
     res = interpret(call_raise_intercept, [42])
     assert res == 42
     info = raises(LLException, interpret, call_raise_intercept, [43])
     assert find_exception(info.value) is TypeError
 
-def test_while_simple(): 
+def test_while_simple():
     res = interpret(while_simple, [3])
     assert res == 6
 
-def test_number_comparisons(): 
-    for t in float, int: 
+def test_number_comparisons():
+    for t in float, int:
         val1 = t(3)
         val2 = t(4)
         gcres = interpret(comparisons, [val1, val2])
         res = [getattr(gcres, x) for x in typeOf(gcres).TO._names]
         assert res == [True, True, False, True, False, False]
 
-def test_some_builtin(): 
-    def f(i, j): 
-        x = range(i) 
+def test_some_builtin():
+    def f(i, j):
+        x = range(i)
         return x[j-1]
     res = interpret(f, [10, 7])
     assert res == 6
+
+def test_recursion_does_not_overwrite_my_variables():
+    def f(i):
+        j = i + 1
+        if i > 0:
+            f(i-1)
+        return j
+
+    res = interpret(f, [4])
+    assert res == 5
 
 #
 #__________________________________________________________________
@@ -125,35 +137,35 @@ def test_list_creation():
     for i in range(3):
         assert res.items[i] == i+1
 #__________________________________________________________________
-# example functions for testing the LLInterpreter 
+# example functions for testing the LLInterpreter
 _snap = globals().copy()
 
-def number_ops(i): 
+def number_ops(i):
     j = i + 2
-    k = j * 2 
+    k = j * 2
     m = k / 2
     return m - 1
 
-def comparisons(x, y): 
-    return (x < y, 
-            x <= y, 
-            x == y, 
-            x != y, 
-            #x is None,  
-            #x is not None, 
-            x >= y, 
-            x > y, 
+def comparisons(x, y):
+    return (x < y,
+            x <= y,
+            x == y,
+            x != y,
+            #x is None,
+            #x is not None,
+            x >= y,
+            x > y,
             )
 
-def simple_ifs(i): 
-    if i: 
-        return 42 
-    else: 
-        return 43 
+def simple_ifs(i):
+    if i:
+        return 42
+    else:
+        return 43
 
-def while_simple(i): 
+def while_simple(i):
     sum = 0
-    while i > 0: 
+    while i > 0:
         sum += i
         i -= 1
     return sum
@@ -184,21 +196,21 @@ def call_raise_intercept(i):
     except ValueError:
         raise TypeError
 #__________________________________________________________________
-# interactive playing 
+# interactive playing
 
-if __name__ == '__main__': 
+if __name__ == '__main__':
     try:
         import rlcompleter2 as _rl2
-        _rl2.setup() 
-    except ImportError: 
+        _rl2.setup()
+    except ImportError:
         pass
 
     t, typer = gengraph(number_ops, [int])
     interp = LLInterpreter(t.flowgraphs, typer)
     res = interp.eval_function(number_ops, [3])
     assert res == number_ops(3)
-    for name, value in globals().items(): 
-        if name not in _snap and name[0] != '_': 
+    for name, value in globals().items():
+        if name not in _snap and name[0] != '_':
             print "%20s: %s" %(name, value)
 
 
