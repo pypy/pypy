@@ -65,6 +65,9 @@ def normalize_function_signatures(annotator):
             if isinstance(functions[0], types.MethodType):
                 methfunc = functions[0].im_func
                 assert functions[0].im_self is not None
+                if (None, methfunc) in call_families:
+                    raise TypeError("function appears both in bound method and"
+                                    "freestanding: %r" % methfunc)
                 for func in functions:
                     if getattr(func, 'im_func', None) is not methfunc:
                         raise TypeError("invalid familily of bound methods: %r" %
