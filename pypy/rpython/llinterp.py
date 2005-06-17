@@ -79,7 +79,7 @@ class LLInterpreter(object):
             for op in block.operations:
                 self.eval_operation(op)
         except LLException, e:
-            if not catch_exception:
+            if not (catch_exception and op is block.operations[-1]):
                 # there is no explicit handler.
                 # we could simply re-raise here, but it is cleaner
                 # to redirect to the provided default exception block
