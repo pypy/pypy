@@ -80,6 +80,7 @@ class GenPickle:
             'pypy._cache.',
             'pypy.interpreter.',
             'pypy.module.',
+            'pypy.translator.test.',
             '__main__',
             )
         self.shortnames = {
@@ -260,6 +261,7 @@ class GenPickle:
             text = 'skipped, see _skipped_code attr: %s' % funcname
         def dummy(*args, **kwds):
             raise NotImplementedError, text
+        _dummydict['__builtins__'] = __builtins__
         skippedfunc = new.function(dummy.func_code, _dummydict, skipname, (),
                                    dummy.func_closure)
         skippedfunc._skipped_code = func_code
@@ -478,12 +480,12 @@ class GenPickle:
             self.produce(line)
         return name
 
-    def is_app_domain(self, modname):
+    def is_app_domain(self, modname, exclude=()):
         for domain in self.domains:
             if domain.endswith('.') and modname.startswith(domain):
                 # handle subpaths
                 return True
-            if modname == domain:
+            if modname == domain and modname not in exclude:
                 # handle exact module names
                 return True
         return False
@@ -681,7 +683,7 @@ class GenPickle:
             if func not in self.translator.flowgraphs:
                 # see if this is in translator's domain
                 module = whichmodule(func, func.__name__)
-                if self.is_app_domain(module):
+                if self.is_app_domain(module, exclude=['__main__']):
                     # see if this buddy has been skipped in another save, before
                     if not hasattr(func, '_skipped_code'):
                         return self.skipped_function(func,
