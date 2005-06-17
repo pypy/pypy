@@ -1,11 +1,19 @@
 
 import py
-py.magic.autopath()
 from pypy.rpython.lltype import typeOf
 from pypy.rpython.rtyper import RPythonTyper 
 from pypy.rpython.interp import LLInterpreter, RPythonError
 from pypy.translator.translator import Translator 
 from pypy.rpython.lltype import pyobjectptr
+
+# switch on logging of interp to show more info on failing tests
+
+def setup_module(mod): 
+    mod.logstate = py.log._getstate()
+    py.log.setconsumer("llinterp", py.log.STDOUT) 
+
+def teardown_module(mod): 
+    py.log._setstate(mod.logstate) 
 
 def find_exception(exc):
     assert isinstance(exc, RPythonError)

@@ -5,12 +5,13 @@ from pypy.tool.sourcetools import compile2
 from pypy.objspace.flow.model import Constant, last_exception
 import py
 
+log = py.log.Producer('llinterp') 
+
 class RPythonError(Exception):
     pass
 
 class LLInterpreter(object): 
     """ low level interpreter working with concrete values. """ 
-#    log = py.log.Producer('llinterp') 
 
     def __init__(self, flowgraphs, typer): 
         self.flowgraphs = flowgraphs 
@@ -30,7 +31,6 @@ class LLInterpreter(object):
         
     def setvar(self, var, val): 
         # XXX assert that val "matches" lowlevel type 
-                
         self.bindings[var] = val 
 
     def getval(self, varorconst): 
@@ -59,6 +59,7 @@ class LLInterpreter(object):
         return self.eval_graph(graph,args)
 
     def eval_graph(self, graph, args=()): 
+        log.graph("evaluating", graph.name) 
         nextblock = graph.startblock
         excblock = graph.exceptblock
         while 1: 
@@ -99,7 +100,7 @@ class LLInterpreter(object):
                 raise RPythonError(etype, evalue)
             resultvar, = block.getvariables()
             result = self.getval(resultvar) 
-#            self.log.operation("returning", result) 
+            log.operation("returning", result) 
             return None, result 
         elif block.exitswitch is None:
             # single-exit block
@@ -124,7 +125,7 @@ class LLInterpreter(object):
         return link.target, [self.getval(x) for x in link.args]
     
     def eval_operation(self, operation): 
-#        self.log.operation("considering", operation) 
+        log.operation("considering", operation) 
         ophandler = self.getoperationhandler(operation.opname) 
         vals = [self.getval(x) for x in operation.args]
         # if these special cases pile up, do something better here
@@ -178,7 +179,6 @@ class LLInterpreter(object):
 
     def op_getarraysubstruct(self, array, index):
         assert isinstance(array, _ptr)
-        
         return array[index]
         # the diff between op_getarrayitem and op_getarraysubstruct
         # is the same as between op_getfield and op_getsubstruct
@@ -217,3 +217,7 @@ for typ in (float, int):
                 return func(x) 
         """ % locals()).compile()
 
+# by default we route all logging messages to nothingness
+# e.g. tests can then switch on logging to get more help 
+# for failing tests 
+py.log.setconsumer('llinterp', None) 
