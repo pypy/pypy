@@ -99,6 +99,23 @@ class Attribute:
         self.readonly = self.readonly and other.readonly
         self.read_locations.update(other.read_locations)
 
+    def mutated(self, homedef): # reflow from attr read positions
+        s_newvalue = self.getvalue()
+        # check for method demotion
+        if isinstance(s_newvalue, SomePBC):
+            attr = self.name
+            meth = False
+            for func, classdef  in s_newvalue.prebuiltinstances.items():
+                if isclassdef(classdef):
+                    meth = True
+                    break
+            if meth and getattr(homedef.cls, attr, None) is None:
+                self.bookkeeper.warning("demoting method %s to base class %s" % (self.name, homedef))
+
+        for position in self.read_locations:
+            self.bookkeeper.annotator.reflowfromposition(position)        
+
+
 
 class ClassDef:
     "Wraps a user class."
@@ -150,22 +167,6 @@ class ClassDef:
                     value.class_ = cls # remember that this is really a method
             self.add_source_for_attribute(name, sources.get(name, cls), self)
 
-    def attr_mutated(self, homedef, attrdef): # reflow from attr read positions
-        s_newvalue = attrdef.getvalue()
-        # check for method demotion
-        if isinstance(s_newvalue, SomePBC):
-            attr = attrdef.name
-            meth = False
-            for func, classdef  in s_newvalue.prebuiltinstances.items():
-                if isclassdef(classdef):
-                    meth = True
-                    break
-            if meth and getattr(homedef.cls, attr, None) is None:
-                self.bookkeeper.warning("demoting method %s to base class %s" % (attrdef.name, homedef))
-
-        for position in attrdef.read_locations:
-            self.bookkeeper.annotator.reflowfromposition(position)        
-
     def add_source_for_attribute(self, attr, source, clsdef=None):
         """Adds information about a constant source for an attribute.
         """
@@ -179,8 +180,7 @@ class ClassDef:
                 # but as an optimization we try to see if the attribute
                 # has really been generalized
                 if attrdef.s_value != s_prev_value:
-                    for position in attrdef.read_locations:
-                        self.bookkeeper.annotator.reflowfromposition(position)
+                    attrdef.mutated(cdef) # reflow from all read positions
                 return
         else:
             # remember the source in self.attr_sources
@@ -195,7 +195,10 @@ class ClassDef:
                 for subdef in self.getallsubdefs():
                     if attr in subdef.attrs:
                         attrdef = subdef.attrs[attr]
+                        s_prev_value = attrdef.s_value
                         attrdef.add_constant_source(source, clsdef)
+                        if attrdef.s_value != s_prev_value:
+                            attrdef.mutated(subdef) # reflow from all read positions
 
     def locate_attribute(self, attr):
         while True:
@@ -288,7 +291,7 @@ class ClassDef:
             newattr.add_constant_source(source, classdef)
 
         # reflow from all read positions
-        self.attr_mutated(self, newattr)
+        newattr.mutated(self)
 
     def generalize_attr(self, attr, s_value=None):
         # if the attribute exists in a superclass, generalize there,
