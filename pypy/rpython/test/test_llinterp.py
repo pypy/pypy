@@ -172,6 +172,21 @@ def test_list_multiply():
     assert res == 3
 
 #__________________________________________________________________
+#
+#  Test objects and instances
+
+class ExampleClass:
+    def __init__(self, x):
+        self.x = x + 1
+
+def test_basic_instantiation():
+    def f(x):
+        return ExampleClass(x).x
+    res = interpret(f, [4], view=True)
+    assert res == 5
+
+
+#__________________________________________________________________
 # example functions for testing the LLInterpreter
 _snap = globals().copy()
 
