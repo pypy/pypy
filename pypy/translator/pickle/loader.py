@@ -11,10 +11,12 @@ class Loader:
     def next_block(self):
         raise SyntaxError, "implement next_block"
 
-    def load(self):
+    def load(self, progress=None):
         dic = {}
         for blk in self.next_block():
             exec blk in dic
+            if progress:
+                progress()
         try:
             return dic['result']
         finally:

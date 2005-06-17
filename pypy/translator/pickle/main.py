@@ -6,7 +6,12 @@ from pypy.translator.pickle.loader import Loader, TextLoader, ZipLoader
 def load(fname):
     loader = _select(fname)[0]
     assert loader, 'only .py and .zip files supported'
-    return loader(fname).load()
+    print "Loading:",
+    def progress():
+        sys.stdout.write('.')
+    ret = loader(fname).load(progress)
+    print
+    return ret
 
 def save(translator, fname, **objects):
     writer = _select(fname)[1]
