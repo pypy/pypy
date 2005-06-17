@@ -212,8 +212,11 @@ class __extend__(SomeList):
 
     def method_extend(lst, s_iterable):
         lst.listdef.resize()
-        s_iter = s_iterable.iter()
-        pair(lst, SomeInteger()).setitem(s_iter.next())
+        if isinstance(s_iterable, SomeList):   # unify the two lists
+            lst.listdef.union(s_iterable.listdef)
+        else:
+            s_iter = s_iterable.iter()
+            pair(lst, SomeInteger()).setitem(s_iter.next())
 
     def method_reverse(lst):
         lst.listdef.mutate()
@@ -221,7 +224,7 @@ class __extend__(SomeList):
     def method_insert(lst, s_index, s_value):
         lst.listdef.resize()
         pair(lst, SomeInteger()).setitem(s_value)
-        
+
     def method_pop(lst, s_index=None):
         lst.listdef.resize()
         return lst.listdef.read_item()
@@ -254,7 +257,7 @@ class __extend__(SomeDict):
             r.const = 0
             return r
         return SomeObject.len(dct)
-    
+
     def iter(dct):
         return SomeIterator(dct)
 
@@ -280,7 +283,7 @@ class __extend__(SomeDict):
     def method_items(dct):
         return getbookkeeper().newlist(SomeTuple((dct.dictdef.read_key(),
                                                   dct.dictdef.read_value())))
-        
+
 
 class __extend__(SomeString):
 
@@ -375,14 +378,14 @@ class __extend__(SomeBuiltin):
             return bltn.analyser(bltn.s_self, *args)
         else:
             return bltn.analyser(*args)
-        
+
 
 class __extend__(SomePBC):
 
     def getattr(pbc, s_attr):
         bookkeeper = getbookkeeper()
         return bookkeeper.pbc_getattr(pbc, s_attr)
-        
+
     def setattr(pbc, s_attr, s_value):
         getbookkeeper().warning("setattr not wanted on %r" % (pbc,))
 
@@ -393,21 +396,21 @@ class __extend__(SomePBC):
         #bookkeeper = getbookkeeper()
         #results = []
         #for func, classdef in pbc.prebuiltinstances.items():
-        #    if isclassdef(classdef): 
+        #    if isclassdef(classdef):
         #        s_self = SomeInstance(classdef)
         #        args1 = args.prepend(s_self)
         #    else:
         #        args1 = args
         #    results.append(bookkeeper.pycall(func, args1))
-        #return unionof(*results) 
+        #return unionof(*results)
 
-    def bindcallables(pbc, classdef):   
-        """ turn the callables in the given SomeCallable 'cal' 
+    def bindcallables(pbc, classdef):
+        """ turn the callables in the given SomeCallable 'cal'
             into bound versions.
         """
         d = {}
         for func, value in pbc.prebuiltinstances.items():
-            if isinstance(func, FunctionType): 
+            if isinstance(func, FunctionType):
                 if isclassdef(value):
                     getbookkeeper().warning("rebinding an already bound "
                                             "method %r with %r" % (func, value))
@@ -415,7 +418,7 @@ class __extend__(SomePBC):
             elif isinstance(func, staticmethod):
                 d[func.__get__(43)] = value
             else:
-                d[func] = value 
+                d[func] = value
         return SomePBC(d)
 
     def is_true(pbc):
@@ -427,8 +430,8 @@ class __extend__(SomePBC):
                 if outcome != bool(c):
                     return SomeBool()
         return immutablevalue(outcome)
-            
-            
+
+
 # annotation of low-level types
 from pypy.annotation.model import SomePtr, ll_to_annotation, annotation_to_lltype
 class __extend__(SomePtr):

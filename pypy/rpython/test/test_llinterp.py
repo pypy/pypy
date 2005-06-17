@@ -28,6 +28,7 @@ def find_exception(exc):
 def gengraph(func, argtypes=[]):
     t = Translator(func)
     t.annotate(argtypes)
+    #t.view()
     global typer # we need it for find_exception
     typer = RPythonTyper(t.annotator)
     typer.specialize()
@@ -137,15 +138,39 @@ def test_list_creation():
     for i in range(3):
         assert res.items[i] == i+1
 
-def test_list_operations():
+def test_list_itemops():
     def f(i):
         l = [1, i]
-        l[0] = len(l)
-        l += [i + 1, 9]
-#        l *= 2
-        return l[0] + l[1] + l[2]# + len(l)
+        l[0] = 0
+        del l[1]
+        return l[-1]
     res = interpret(f, [3])
-    assert res == 2 + 3 + 4# + 8
+    assert res == 0
+
+def test_list_append():
+    def f(i):
+        l = [1]
+        l.append(i)
+        return l[0] + l[1]
+    res = interpret(f, [3])
+    assert res == 4
+
+def test_list_extend():
+    def f(i):
+        l = [1]
+        l.extend([i])
+        return l[0] + l[1]
+    res = interpret(f, [3])
+    assert res == 4
+
+def test_list_multiply():
+    def f(i):
+        l = [i]
+        l = l * i  # uses alloc_and_set for len(l) == 1
+        return len(l)
+    res = interpret(f, [3])
+    assert res == 3
+
 #__________________________________________________________________
 # example functions for testing the LLInterpreter
 _snap = globals().copy()
