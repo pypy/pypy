@@ -25,6 +25,10 @@ Command-line options for translate_pypy:
    -no-d      Disable recording of debugging information
    -huge=%    Threshold in the number of functions after which only a local call
               graph and not a full one is displayed
+   -save filename   saves the translator to a file. The file type can either
+              be .py or .zip (recommended).
+   -load filename   restores the translator from a file. The file type must
+              be either .py or.zip .
 """
 import autopath, sys, os
 
