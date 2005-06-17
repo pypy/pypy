@@ -236,9 +236,7 @@ class __extend__(SomeList):
     def len(lst):
         s_item = lst.listdef.read_item()
         if isinstance(s_item, SomeImpossibleValue):
-            r = SomeInteger(nonneg=True)
-            r.const = 0
-            return r
+            return immutablevalue(0)
         return SomeObject.len(lst)
 
     def iter(lst):
@@ -252,10 +250,8 @@ class __extend__(SomeDict):
     def len(dct):
         s_key = dct.dictdef.read_key()
         s_value = dct.dictdef.read_value()
-        if isinstance(s_key, SomeImpossibleValue) and isinstance(s_value, SomeImpossibleValue):
-            r = SomeInteger(nonneg=True)
-            r.const = 0
-            return r
+        if isinstance(s_key, SomeImpossibleValue) or isinstance(s_value, SomeImpossibleValue):
+            return immutablevalue(0)
         return SomeObject.len(dct)
 
     def iter(dct):
@@ -442,7 +438,8 @@ class __extend__(SomePtr):
         return ll_to_annotation(v)
 
     def len(p):
-        return ll_to_annotation(len(p.ll_ptrtype._example()))
+        len(p.ll_ptrtype._example())   # just doing checking
+        return SomeObject.len(p)
 
     def setattr(p, s_attr, s_value): # just doing checking
         assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % p.ll_ptrtype
