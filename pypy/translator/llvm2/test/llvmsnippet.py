@@ -1,7 +1,5 @@
 
 #function snippets
-def simple1():
-    return 1
 
 def simple2():
     return False
@@ -13,12 +11,6 @@ def simple3(i):
 def simple4():
     return 3 + simple1()
 
-def simple5(b):
-    if b:
-        x = 12
-    else:
-        x = 13
-    return x
 
 def simple6():
     simple4()

@@ -2,10 +2,13 @@ from pypy.translator.llvm2.log import log
 from pypy.translator.llvm2.funcnode import FuncNode
 from pypy.rpython import lltype
 from pypy.objspace.flow.model import Block, Constant, Variable
+from pypy.translator.unsimplify import remove_double_links
+from pypy.translator.llvm2.cfgtransform import remove_same_as
 
 log = log.database 
 
-PRIMITIVES_TO_LLVM = {lltype.Signed: "int"}
+PRIMITIVES_TO_LLVM = {lltype.Signed: "int",
+                      lltype.Bool: "bool"}
 
 class Database(object): 
     def __init__(self, translator): 
@@ -13,9 +16,12 @@ class Database(object):
         self.obj2node = {}   
         self._pendingsetup = []
 
-    def getgraph(self, func): 
-        return self._translator.flowgraphs[func] 
-
+    def getgraph(self, func):
+        graph = self._translator.flowgraphs[func]
+        remove_same_as(graph)
+        remove_double_links(self._translator, graph)
+        return graph
+    
     def getnode(self, obj): 
         assert hasattr(obj, 'func_code')
         try:
@@ -25,7 +31,7 @@ class Database(object):
             self.obj2node[obj] = node
             log("add pending setup", node.ref) 
             self._pendingsetup.append(node) 
-            return node 
+            return node
 
     def process(self): 
         if self._pendingsetup: 

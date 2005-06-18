@@ -23,6 +23,20 @@ def compile_function(function, annotate):
     a.simplify()
     return genllvm(t)
 
-def test_genllvm():
-    f = compile_function(llvmsnippet.simple1, [])
+
+def test_return1():
+    def simple1():
+        return 1
+    f = compile_function(simple1, [])
     assert f() == 1
+
+def test_simple_branching():
+    def simple5(b):
+        if b:
+            x = 12
+        else:
+            x = 13
+        return x
+    f = compile_function(simple5, [bool])
+    assert f(True) == 12
+    assert f(False) == 13

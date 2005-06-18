@@ -2,7 +2,8 @@ from pypy.translator.llvm2.log import log
 from pypy.rpython import lltype 
 log = log.pyrex 
 
-PRIMITIVES_TO_C = {lltype.Signed: "int"}
+PRIMITIVES_TO_C = {lltype.Signed: "int",
+                   lltype.Bool: "char"}
 
 def write_pyx_wrapper(funcgen, targetpath): 
     def c_declaration():
@@ -16,10 +17,11 @@ def write_pyx_wrapper(funcgen, targetpath):
     lines = []
     append = lines.append
     inputargs = funcgen.db.multi_getref(funcgen.graph.startblock.inputargs)
+    inputargs = [x.strip("%") for x in inputargs]
     append("cdef extern " + c_declaration())
     append("")
-    append("def %s_wrapper(%s):" % (funcgen.ref, ", ".join(inputargs)))
-    append("    return %s(%s)" % (funcgen.ref, ", ".join(inputargs)))
+    append("def %s_wrapper(%s):" % (funcgen.ref.strip("%"), ", ".join(inputargs)))
+    append("    return %s(%s)" % (funcgen.ref.strip("%"), ", ".join(inputargs)))
     append("")
     targetpath.write("\n".join(lines))
-
+  

@@ -23,6 +23,10 @@ class CodeWriter(object):
     def br_uncond(self, blockname): 
         self.indent("br label %%%s" %(blockname,))
 
+    def br(self, switch, blockname_false, blockname_true):
+        self.indent("br bool %s, label %%%s, label %%%s"
+                    % (switch, blockname_true, blockname_false))
+
     def openfunc(self, decl): 
         self.append("%s {" % (decl,))
 
@@ -34,6 +38,7 @@ class CodeWriter(object):
 
     def phi(self, targetvar, type_, refs, blocknames): 
         assert targetvar.startswith('%')
+        assert refs and len(refs) == len(blocknames), "phi node requires blocks" 
         mergelist = ", ".join(
             ["[%s, %%%s]" % item 
                 for item in zip(refs, blocknames)])
