@@ -17,9 +17,10 @@ def remove_same_as(graph):
         # replace the new variable (same_as_result) with the old variable
         # (from all subsequent positions)
         for op in block.operations[index:]:
-            for i in range(len(op.args)):
-                if op.args[i] == same_as_result:
-                    op.args[i] = same_as_arg
+            if op is not None:
+                for i in range(len(op.args)):
+                    if op.args[i] == same_as_result:
+                        op.args[i] = same_as_arg
         for link in block.exits:
             for i in range(len(link.args)):
                 if link.args[i] == same_as_result:
