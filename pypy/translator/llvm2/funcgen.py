@@ -5,6 +5,7 @@ from pypy.objspace.flow.model import Block, Constant, Variable, flatten, mkentry
 
 
 PRIMITIVES_TO_LLVM = {lltype.Signed: "int"}
+PRIMITIVES_TO_C = {lltype.Signed: "int"}
 
 log = py.log.Producer('genllvm') 
 
@@ -12,15 +13,33 @@ class FunctionCodeGenerator(object):
     def __init__(self, graph, func):
         self.graph = graph
         self.func = func
+        self.funcname = self.func.func_name
 
     def declaration(self):
-        returntype = self.getllvmname(self.graph.returnblock.inputargs[0])
-        argtypes = self.getllvmtypes(self.graph.startblock.inputargs)
-        funcname = "%" + self.func.func_name
-   # XXX varnames
-        result = "%s %s(%s)" % (returntype, funcname,
-                                ", ".join(argtypes))
+        startblock = self.graph.startblock
+        returnblock = self.graph.returnblock
+        inputargs = self.getllvmnames(startblock.inputargs)
+        inputargtypes = self.getllvmtypes(startblock.inputargs)
+        returntype = self.getllvmtype(self.graph.returnblock.inputargs[0])
+        result = "%s %%%s" % (returntype, self.funcname)
+        args = ["%s %s" % item for item in zip(inputargs, inputargtypes)]
+        result += "(%s)" % ", ".join(args)
         return result
+
+    def c_declaration(self):
+        returntype = PRIMITIVES_TO_C[
+            self.graph.returnblock.inputargs[0].concretetype]
+        inputargtypes = [PRIMITIVES_TO_C[arg.concretetype]
+                             for arg in self.graph.startblock.inputargs]
+        result = "%s %s(%s)" % (returntype, self.funcname,
+                                ", ".join(inputargtypes))
+        return result
+
+    def pyrex_wrapper(self):
+        inputargs = self.getllvmnames(self.graph.startblock.inputargs)
+        yield "cdef extern " + self.c_declaration()
+        yield "def %s_wrapper(%s):" % (self.funcname, ", ".join(inputargs))
+        yield "    return %s(%s)" % (self.funcname, ", ".join(inputargs))
 
     def implementation(self):
         graph = self.graph
