@@ -1,7 +1,11 @@
 from pypy.translator.llvm2.log import log 
 from pypy.translator.llvm2.funcnode import FuncNode
+from pypy.rpython import lltype
+from pypy.objspace.flow.model import Block, Constant, Variable
 
 log = log.database 
+
+PRIMITIVES_TO_LLVM = {lltype.Signed: "int"}
 
 class Database(object): 
     def __init__(self, translator): 
@@ -31,4 +35,21 @@ class Database(object):
     def getobjects(self): 
         return self.obj2node.values()
 
-        
+    def getref(self, arg):
+        if isinstance(arg, Constant):
+            if isinstance(arg.concretetype, lltype.Primitive):
+                return str(arg.value).lower() #False --> false
+            raise TypeError, "can't handle the Constant %s" % arg
+        elif isinstance(arg, Variable):
+            return "%" + str(arg)
+        else:
+            raise TypeError, arg
+
+    def gettyperef(self, arg):
+        return PRIMITIVES_TO_LLVM[arg.concretetype]
+
+    def multi_getref(self, args):
+        return [self.getref(arg) for arg in args]
+
+    def multi_gettyperef(self, args):
+        return [self.gettyperef(arg) for arg in args]

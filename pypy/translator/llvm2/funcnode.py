@@ -1,10 +1,7 @@
 import py
-from pypy.rpython import lltype
 from pypy.objspace.flow.model import Block, Constant, Variable, flatten, mkentrymap
 from pypy.translator.llvm2.log import log 
 log = log.funcnode
-
-PRIMITIVES_TO_LLVM = {lltype.Signed: "int"}
 
 class FuncNode(object):
     _issetup = False 
@@ -22,9 +19,9 @@ class FuncNode(object):
         assert self._issetup 
         startblock = self.graph.startblock
         returnblock = self.graph.returnblock
-        inputargs = self.getllvmnames(startblock.inputargs)
-        inputargtypes = self.getllvmtypes(startblock.inputargs)
-        returntype = self.getllvmtype(self.graph.returnblock.inputargs[0])
+        inputargs = self.db.multi_getref(startblock.inputargs)
+        inputargtypes = self.db.multi_gettyperef(startblock.inputargs)
+        returntype = self.db.gettyperef(self.graph.returnblock.inputargs[0])
         result = "%s %%%s" % (returntype, self.ref)
         args = ["%s %s" % item for item in zip(inputargs, inputargtypes)]
         result += "(%s)" % ", ".join(args)
@@ -49,12 +46,12 @@ class FuncNode(object):
         codewriter.closefunc() 
 
     def write_block(self, codewriter, block):
-        inputargs = self.getllvmnames(block.inputargs)
-        inputargtypes = self.getllvmtypes(block.inputargs)
+        inputargs = self.db.multi_getref(block.inputargs)
+        inputargtypes = self.db.multi_gettyperef(block.inputargs)
         codewriter.label(self.block_to_name[block]) 
         entrylinks = mkentrymap(self.graph)[block]
         for i, (arg, type_) in enumerate(zip(inputargs, inputargtypes)):
-            names = self.getllvmnames([link.args[i] for link in entrylinks])
+            names = self.db.multi_getref([link.args[i] for link in entrylinks])
             blocknames = [self.block_to_name[link.prevblock] for link in entrylinks]
             codewriter.phi(arg, type_, names, blocknames) 
         if block is self.graph.returnblock: 
@@ -66,19 +63,3 @@ class FuncNode(object):
             assert len(block.exits) == 1
             codewriter.br_uncond(self.block_to_name[block.exits[0].target])
 
-    def getllvmname(self, arg):
-        if isinstance(arg, Constant):
-            return str(arg.value).lower() #False --> false
-        elif isinstance(arg, Variable):
-            return "%" + str(arg)
-        else:
-            raise TypeError, arg
-
-    def getllvmtype(self, arg):
-        return PRIMITIVES_TO_LLVM[arg.concretetype]
-
-    def getllvmnames(self, args):
-        return [self.getllvmname(arg) for arg in args]
-
-    def getllvmtypes(self, args):
-        return [self.getllvmtype(arg) for arg in args]

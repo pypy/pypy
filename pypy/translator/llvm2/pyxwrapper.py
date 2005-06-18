@@ -15,7 +15,7 @@ def write_pyx_wrapper(funcgen, targetpath):
         return result
     lines = []
     append = lines.append
-    inputargs = funcgen.getllvmnames(funcgen.graph.startblock.inputargs)
+    inputargs = funcgen.db.multi_getref(funcgen.graph.startblock.inputargs)
     append("cdef extern " + c_declaration())
     append("")
     append("def %s_wrapper(%s):" % (funcgen.ref, ", ".join(inputargs)))
