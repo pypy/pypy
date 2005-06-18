@@ -44,6 +44,15 @@ def test_simple_branching():
 
 def test_int_ops():
     def ops(i):
+        x = 0
+        x += i < i
+        x += i <= i
+        x += i == i
+        x += i != i
+        x += i >= i
+        x += i > i
+        #x += i is not None
+        #x += i is None
         return i + 1 * i // i - 1
     f = compile_function(ops, [int])
     assert f(1) == 1

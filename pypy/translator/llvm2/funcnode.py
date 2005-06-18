@@ -136,6 +136,29 @@ class OpWriter(object):
 
     def int_eq(self, op):
         self.binaryop('seteq', op)
+
+    def int_ne(self, op):
+        self.binaryop('setne', op)
+
+    def int_lt(self, op):
+        self.binaryop('setlt', op)
+
+    def int_le(self, op):
+        self.binaryop('setle', op)
+
+    def int_gt(self, op):
+        self.binaryop('setgt', op)
+
+    def int_ge(self, op):
+        self.binaryop('setge', op)
+
+    def cast_bool_to_int(self, op): 
+        assert len(op.args) == 1
+        targetvar = self.db.getref(op.result)
+        targettype = self.db.gettyperef(op.result)
+        fromvar = self.db.getref(op.args[0])
+        fromtype = self.db.gettyperef(op.args[0])
+        self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
         
     def direct_call(self, op):
         assert len(op.args) >= 1

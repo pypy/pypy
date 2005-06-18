@@ -52,5 +52,9 @@ class CodeWriter(object):
         self.indent("%s = call %s %s(%s)" % (targetvar, returntype, functionref,
                                              ", ".join(arglist)))
 
+    def cast(self, targetvar, fromtype, fromvar, targettype):
+        self.indent("%(targetvar)s = cast %(fromtype)s "
+                        "%(fromvar)s to %(targettype)s" % locals())
+
     def __str__(self): 
         return "\n".join(self._lines)
