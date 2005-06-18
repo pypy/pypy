@@ -109,6 +109,8 @@ class StructDefNode:
                     line = '/* %s */' % line
                 yield '\t' + line
             yield '};'
+            if self.deallocator:
+                yield 'void %s(struct %s *);' % (self.deallocator, self.name)
 
         elif phase == 2:
             if self.static_deallocator:

@@ -112,6 +112,8 @@ class LowLevelDatabase:
 
     def cincrefstmt(self, expr, T):
         if isinstance(T, Ptr) and T._needsgc():
+            if expr == 'NULL':    # hum
+                return ''
             if T.TO == PyObject:
                 return 'Py_XINCREF(%s);' % expr
             else:

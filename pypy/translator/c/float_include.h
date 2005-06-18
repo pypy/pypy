@@ -28,7 +28,7 @@
 #define OP_FLOAT_ADD(x,y,r,err)     r = x + y;
 #define OP_FLOAT_SUB(x,y,r,err)     r = x - y;
 #define OP_FLOAT_MUL(x,y,r,err)     r = x * y;
-
+#define OP_FLOAT_DIV(x,y,r,err)     r = x / y;
 
 /*** conversions ***/
 
