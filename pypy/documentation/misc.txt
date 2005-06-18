@@ -138,7 +138,7 @@ _bisectmodule - already exists
 
 _codecsmodule
 
-_csv - already exists?
+_csv - already exists? See http://python-dsv.sourceforge.net/
 
 _heapqmodule - already exists
 
