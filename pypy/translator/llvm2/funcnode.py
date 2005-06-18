@@ -1,78 +1,70 @@
 import py
-from pypy.translator.llvm2 import llvmbc
 from pypy.rpython import lltype
 from pypy.objspace.flow.model import Block, Constant, Variable, flatten, mkentrymap
-
+from pypy.translator.llvm2.log import log 
+log = log.funcnode
 
 PRIMITIVES_TO_LLVM = {lltype.Signed: "int"}
-PRIMITIVES_TO_C = {lltype.Signed: "int"}
 
-log = py.log.Producer('genllvm') 
+class FuncNode(object):
+    _issetup = False 
 
-class FunctionCodeGenerator(object):
-    def __init__(self, graph, func):
-        self.graph = graph
+    def __init__(self, db, func):
+        self.db = db
         self.func = func
-        self.funcname = self.func.func_name
+        self.ref = self.func.func_name
 
-    def declaration(self):
+    def setup(self): 
+        self.graph = self.db.getgraph(self.func)
+        self._issetup = True
+
+    def getdecl(self):
+        assert self._issetup 
         startblock = self.graph.startblock
         returnblock = self.graph.returnblock
         inputargs = self.getllvmnames(startblock.inputargs)
         inputargtypes = self.getllvmtypes(startblock.inputargs)
         returntype = self.getllvmtype(self.graph.returnblock.inputargs[0])
-        result = "%s %%%s" % (returntype, self.funcname)
+        result = "%s %%%s" % (returntype, self.ref)
         args = ["%s %s" % item for item in zip(inputargs, inputargtypes)]
         result += "(%s)" % ", ".join(args)
-        return result
+        return result 
 
-    def c_declaration(self):
-        returntype = PRIMITIVES_TO_C[
-            self.graph.returnblock.inputargs[0].concretetype]
-        inputargtypes = [PRIMITIVES_TO_C[arg.concretetype]
-                             for arg in self.graph.startblock.inputargs]
-        result = "%s %s(%s)" % (returntype, self.funcname,
-                                ", ".join(inputargtypes))
-        return result
+    def writedecl(self, codewriter): 
+        codewriter.declare(self.getdecl())
 
-    def pyrex_wrapper(self):
-        inputargs = self.getllvmnames(self.graph.startblock.inputargs)
-        yield "cdef extern " + self.c_declaration()
-        yield "def %s_wrapper(%s):" % (self.funcname, ", ".join(inputargs))
-        yield "    return %s(%s)" % (self.funcname, ", ".join(inputargs))
-
-    def implementation(self):
+    def writeimpl(self, codewriter):
+        assert self._issetup 
         graph = self.graph
-        log.gen("starting", graph.name)
+        log.writeimpl(graph.name)
+        codewriter.openfunc(self.getdecl())
         nextblock = graph.startblock
         args = graph.startblock.inputargs 
         l = [x for x in flatten(graph) if isinstance(x, Block)]
         self.block_to_name = {}
         for i, block in enumerate(l):
             self.block_to_name[block] = "block%s" % i
-        for block in l: 
-            for line in self.gen_block(block): 
-                yield line 
+        for block in l:
+            self.write_block(codewriter, block)
+        codewriter.closefunc() 
 
-    def gen_block(self, block):
+    def write_block(self, codewriter, block):
         inputargs = self.getllvmnames(block.inputargs)
         inputargtypes = self.getllvmtypes(block.inputargs)
-        yield self.block_to_name[block] + ":"
+        codewriter.label(self.block_to_name[block]) 
         entrylinks = mkentrymap(self.graph)[block]
         for i, (arg, type_) in enumerate(zip(inputargs, inputargtypes)):
-            line = [arg, " = phi ", type_]
-            for link in entrylinks:
-                line.append(" [%s, %%%s]" % (self.getllvmname(link.args[i]),
-                                            self.block_to_name[link.prevblock]))
-            yield "".join(line)
+            names = self.getllvmnames([link.args[i] for link in entrylinks])
+            blocknames = [self.block_to_name[link.prevblock] for link in entrylinks]
+            codewriter.phi(arg, type_, names, blocknames) 
         if block is self.graph.returnblock: 
             assert len(inputargs) == 1
-            yield "ret %s %s" % (inputargtypes[0], inputargs[0])
+            codewriter.ret(inputargtypes[0], inputargs[0])
         else:
             #operations
             #branches
             assert len(block.exits) == 1
-            yield "br label %%%s" % self.block_to_name[block.exits[0].target] 
+            codewriter.br_uncond(self.block_to_name[block.exits[0].target])
 
     def getllvmname(self, arg):
         if isinstance(arg, Constant):
@@ -83,7 +75,6 @@ class FunctionCodeGenerator(object):
             raise TypeError, arg
 
     def getllvmtype(self, arg):
-        log.type(arg)
         return PRIMITIVES_TO_LLVM[arg.concretetype]
 
     def getllvmnames(self, args):
@@ -91,6 +82,3 @@ class FunctionCodeGenerator(object):
 
     def getllvmtypes(self, args):
         return [self.getllvmtype(arg) for arg in args]
-
-py.log.setconsumer('genllvm', None)
-
