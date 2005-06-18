@@ -44,5 +44,8 @@ class CodeWriter(object):
                 for item in zip(refs, blocknames)])
         self.indent("%s = phi %s %s" %(targetvar, type_, mergelist))
 
+    def binaryop(self, name, targetvar, type_, ref1, ref2):
+        self.indent("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
+
     def __str__(self): 
         return "\n".join(self._lines)

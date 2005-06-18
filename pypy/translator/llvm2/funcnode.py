@@ -99,3 +99,23 @@ class OpWriter(object):
     def __init__(self, db, codewriter):
         self.db = db
         self.codewriter = codewriter
+
+    def binaryop(self, name, op):
+        assert len(op.args) == 2
+        self.codewriter.binaryop(name,
+                                 self.db.getref(op.result),
+                                 self.db.gettyperef(op.result),
+                                 self.db.getref(op.args[0]),
+                                 self.db.getref(op.args[1]))
+    def int_mul(self, op):
+        self.binaryop('mul', op)
+
+    def int_floordiv(self, op):
+        self.binaryop('div', op)
+
+    def int_add(self, op):
+        self.binaryop('add', op)
+
+    def int_sub(self, op):
+        self.binaryop('sub', op)
+        

@@ -40,3 +40,11 @@ def test_simple_branching():
     f = compile_function(simple5, [bool])
     assert f(True) == 12
     assert f(False) == 13
+
+def test_int_ops():
+    def ops(i):
+        return i + 1 * i // i - 1
+    f = compile_function(ops, [int])
+    assert f(1) == 1
+    assert f(2) == 2
+    
