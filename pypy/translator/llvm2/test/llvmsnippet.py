@@ -1,27 +1,7 @@
 
 #function snippets
 
-def simple2():
-    return False
 
-def simple3(i):
-    c = "Hello, Stars!"
-    return c[i]
-
-def simple4():
-    return 3 + simple1()
-
-
-def simple6():
-    simple4()
-    return 1
-
-def ackermann(n, m):
-    if n == 0:
-        return m + 1
-    if m == 0:
-        return ackermann(n - 1, 1)
-    return ackermann(n - 1, ackermann(n, m - 1))
 
 def calling1(m):
     if m > 1:

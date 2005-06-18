@@ -1,7 +1,10 @@
 from pypy.translator.llvm2 import build_llvm_module
 from pypy.translator.llvm2.database import Database 
 from pypy.translator.llvm2.pyxwrapper import write_pyx_wrapper 
-from pypy.translator.llvm2.log import log 
+from pypy.translator.llvm2.log import log
+from pypy.objspace.flow.model import Constant
+from pypy.rpython.rmodel import inputconst, getfunctionptr
+from pypy.rpython import lltype
 
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.codewriter import CodeWriter
@@ -10,13 +13,17 @@ def genllvm(translator):
     func = translator.entrypoint
 
     db = Database(translator)
-    entrynode = db.getnode(func)
-
+    ptr = getfunctionptr(translator, func)
+    c = inputconst(lltype.typeOf(ptr), ptr)
+    db.prepare_ref(c)
+    assert c in db.obj2node
     while db.process(): 
         pass
-
+    entrynode = db.obj2node[c]
     codewriter = CodeWriter()
     dbobjects =  db.getobjects()
+    log.debug(dbobjects)
+    log.debug(db.obj2node)
     for node in dbobjects:
         node.writedecl(codewriter) 
     for node in dbobjects:

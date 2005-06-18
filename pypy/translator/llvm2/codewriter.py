@@ -12,10 +12,10 @@ class CodeWriter(object):
         log(line) 
 
     def indent(self, line): 
-        self.append("   " + line) 
+        self.append("        " + line) 
 
     def label(self, name): 
-        self.append("%s:" % name)
+        self.append("    %s:" % name)
 
     def declare(self, decl): 
         self.append("declare %s" %(decl,))
@@ -46,6 +46,11 @@ class CodeWriter(object):
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
         self.indent("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
+
+    def call(self, targetvar, returntype, functionref, argrefs, argtypes):
+        arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
+        self.indent("%s = call %s %s(%s)" % (targetvar, returntype, functionref,
+                                             ", ".join(arglist)))
 
     def __str__(self): 
         return "\n".join(self._lines)

@@ -2,8 +2,6 @@ from pypy.translator.llvm2.log import log
 from pypy.translator.llvm2.funcnode import FuncNode
 from pypy.rpython import lltype
 from pypy.objspace.flow.model import Block, Constant, Variable
-from pypy.translator.unsimplify import remove_double_links
-from pypy.translator.llvm2.cfgtransform import remove_same_as
 
 log = log.database 
 
@@ -13,27 +11,32 @@ PRIMITIVES_TO_LLVM = {lltype.Signed: "int",
 class Database(object): 
     def __init__(self, translator): 
         self._translator = translator
-        self.obj2node = {}   
+        self.obj2node = {}
         self._pendingsetup = []
 
-    def getgraph(self, func):
-        graph = self._translator.flowgraphs[func]
-        remove_same_as(graph)
-        remove_double_links(self._translator, graph)
-        return graph
-    
-    def getnode(self, obj): 
-        assert hasattr(obj, 'func_code')
-        try:
-            return self.obj2node[obj]
-        except KeyError: 
-            node = FuncNode(self, obj) 
-            self.obj2node[obj] = node
-            log("add pending setup", node.ref) 
-            self._pendingsetup.append(node) 
-            return node
+    def prepare_ref(self, const_or_var):
+        if const_or_var in self.obj2node:
+            return
+        if isinstance(const_or_var, Constant):
+            if isinstance(const_or_var.concretetype, lltype.Primitive):
+                pass
+            else:
+                node = FuncNode(self, const_or_var) 
+                self.obj2node[const_or_var] = node
+                log("added to pending nodes:", node) 
+                self._pendingsetup.append(node) 
 
-    def process(self): 
+    def prepare_typeref(self, type_):
+        if not isinstance(type_, lltype.Primitive):
+            log.XXX("need to prepare typeref")
+
+    def prepare_arg(self, const_or_var):
+        log.prepare(const_or_var)
+        self.prepare_ref(const_or_var)
+        self.prepare_typeref(const_or_var.concretetype)
+
+            
+    def process(self):
         if self._pendingsetup: 
             self._pendingsetup.pop().setup()
         return bool(self._pendingsetup) 
@@ -42,14 +45,12 @@ class Database(object):
         return self.obj2node.values()
 
     def getref(self, arg):
-        if isinstance(arg, Constant):
-            if isinstance(arg.concretetype, lltype.Primitive):
-                return str(arg.value).lower() #False --> false
-            raise TypeError, "can't handle the Constant %s" % arg
+        if (isinstance(arg, Constant) and 
+            isinstance(arg.concretetype, lltype.Primitive)):
+            return str(arg.value).lower() #False --> false
         elif isinstance(arg, Variable):
             return "%" + str(arg)
-        else:
-            raise TypeError, arg
+        return self.obj2node[arg].ref
 
     def gettyperef(self, arg):
         return PRIMITIVES_TO_LLVM[arg.concretetype]

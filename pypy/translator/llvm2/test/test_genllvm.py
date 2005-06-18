@@ -11,6 +11,8 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.rtyper import RPythonTyper
 
 py.log.setconsumer("genllvm", py.log.STDOUT)
+py.log.setconsumer("genllvm database prepare", None)
+
 
 ## def setup_module(mod):
 ##     mod.llvm_found = is_on_path("llvm-as")
@@ -18,8 +20,7 @@ py.log.setconsumer("genllvm", py.log.STDOUT)
 def compile_function(function, annotate):
     t = Translator(function)
     a = t.annotate(annotate)
-    rt = RPythonTyper(a)
-    rt.specialize()
+    t.specialize()
     a.simplify()
     return genllvm(t)
 
@@ -47,4 +48,24 @@ def test_int_ops():
     f = compile_function(ops, [int])
     assert f(1) == 1
     assert f(2) == 2
+
+def test_function_call():
+    def callee():
+        return 1
+    def caller():
+        return 3 + callee()
+    f = compile_function(caller, [])
+    assert f() == 4
+
+def test_recursive_call():
+    def call_ackermann(n, m):
+        return ackermann(n, m)
+    def ackermann(n, m):
+        if n == 0:
+            return m + 1
+        if m == 0:
+            return ackermann(n - 1, 1)
+        return ackermann(n - 1, ackermann(n, m - 1))
+    f = compile_function(call_ackermann, [int, int])
+    assert f(0, 2) == 3
     

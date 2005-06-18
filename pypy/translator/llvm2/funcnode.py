@@ -1,18 +1,33 @@
 import py
-from pypy.objspace.flow.model import Block, Constant, Variable, flatten, mkentrymap
+from pypy.objspace.flow.model import Block, Constant, Variable, Link
+from pypy.objspace.flow.model import flatten, mkentrymap, traverse
+from pypy.translator.llvm2.cfgtransform import prepare_graph
 from pypy.translator.llvm2.log import log 
 log = log.funcnode
 
 class FuncNode(object):
     _issetup = False 
 
-    def __init__(self, db, func):
+    def __init__(self, db, const_ptr_func):
         self.db = db
-        self.func = func
-        self.ref = self.func.func_name
+        self.ref = "%" + const_ptr_func.value._obj._name
+        self.graph = prepare_graph(const_ptr_func.value._obj.graph,
+                                   db._translator)
 
-    def setup(self): 
-        self.graph = self.db.getgraph(self.func)
+    def __str__(self):
+        return "<FuncNode ref=%s>" %(self.ref,)
+    
+    def setup(self):
+        log("setup", self)
+        def visit(node):
+            if isinstance(node, Link):
+                map(self.db.prepare_arg, node.args)
+            elif isinstance(node, Block):
+                map(self.db.prepare_arg, node.inputargs)
+                for op in node.operations:
+                    map(self.db.prepare_arg, op.args)
+                    self.db.prepare_arg(op.result)
+        traverse(visit, self.graph)
         self._issetup = True
 
     def getdecl(self):
@@ -22,7 +37,7 @@ class FuncNode(object):
         inputargs = self.db.multi_getref(startblock.inputargs)
         inputargtypes = self.db.multi_gettyperef(startblock.inputargs)
         returntype = self.db.gettyperef(self.graph.returnblock.inputargs[0])
-        result = "%s %%%s" % (returntype, self.ref)
+        result = "%s %s" % (returntype, self.ref)
         args = ["%s %s" % item for item in zip(inputargtypes, inputargs)]
         result += "(%s)" % ", ".join(args)
         return result 
@@ -104,7 +119,7 @@ class OpWriter(object):
         assert len(op.args) == 2
         self.codewriter.binaryop(name,
                                  self.db.getref(op.result),
-                                 self.db.gettyperef(op.result),
+                                 self.db.gettyperef(op.args[0]),
                                  self.db.getref(op.args[0]),
                                  self.db.getref(op.args[1]))
     def int_mul(self, op):
@@ -118,4 +133,16 @@ class OpWriter(object):
 
     def int_sub(self, op):
         self.binaryop('sub', op)
+
+    def int_eq(self, op):
+        self.binaryop('seteq', op)
         
+    def direct_call(self, op):
+        assert len(op.args) >= 1
+        targetvar = self.db.getref(op.result)
+        returntype = self.db.gettyperef(op.result)
+        functionref = self.db.getref(op.args[0])
+        argrefs = self.db.multi_getref(op.args[1:])
+        argtypes = self.db.multi_gettyperef(op.args[1:])
+        self.codewriter.call(targetvar, returntype, functionref, argrefs,
+                             argtypes)

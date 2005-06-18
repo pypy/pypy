@@ -11,7 +11,7 @@ def write_pyx_wrapper(funcgen, targetpath):
             funcgen.graph.returnblock.inputargs[0].concretetype]
         inputargtypes = [PRIMITIVES_TO_C[arg.concretetype]
                              for arg in funcgen.graph.startblock.inputargs]
-        result = "%s %s(%s)" % (returntype, funcgen.ref,
+        result = "%s %s(%s)" % (returntype, funcgen.ref.lstrip("%"),
                                 ", ".join(inputargtypes))
         return result
     lines = []

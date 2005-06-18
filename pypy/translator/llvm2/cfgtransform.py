@@ -1,4 +1,6 @@
 from pypy.objspace.flow.model import traverse, Block, checkgraph
+from pypy.translator.unsimplify import remove_double_links
+
 
 def remove_same_as(graph): 
     same_as_positions = []
@@ -32,3 +34,10 @@ def remove_same_as(graph):
             node.operations[:] = filter(None, node.operations)
     traverse(visit, graph)
     checkgraph(graph)
+
+
+def prepare_graph(graph, translator):
+    remove_same_as(graph)
+    remove_double_links(translator, graph)
+    return graph
+
