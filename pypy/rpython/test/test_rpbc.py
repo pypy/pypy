@@ -127,3 +127,19 @@ def test_unbound_method():
         return MyBase.m(inst, 2)
     res = interpret(f, [])
     assert res == 42
+
+def test_call_defaults():
+    def g(a, b=2, c=3):
+        return a+b+c
+    def f1():
+        return g(1)
+    def f2():
+        return g(1, 10)
+    def f3():
+        return g(1, 10, 100)
+    res = interpret(f1, [])
+    assert res == 1+2+3
+    res = interpret(f2, [])
+    assert res == 1+10+3
+    res = interpret(f3, [])
+    assert res == 1+10+100

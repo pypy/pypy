@@ -250,7 +250,25 @@ class FunctionsPBCRepr(Repr):
 
     def rtype_simple_call(self, hop):
         f, rinputs, rresult = self.function_signatures.itervalues().next()
-        vlist = hop.inputargs(self, *rinputs)
+        defaultclist = []
+        if len(rinputs) != hop.nb_args-1:  # argument count mismatch
+            assert not getattr(f._obj.graph, 'normalized_for_calls', False), (
+                "normalization bug")
+            assert len(self.function_signatures) == 1, "normalization bug too"
+            func, = self.function_signatures.keys()
+            defaults = func.func_defaults or ()
+            if len(rinputs) - len(defaults) <= hop.nb_args-1 <= len(rinputs):
+                rinputs = list(rinputs)
+                defaults = list(defaults)
+                while len(rinputs) != hop.nb_args-1:
+                    c = hop.inputconst(rinputs.pop(), defaults.pop())
+                    defaultclist.insert(0, c)
+            else:
+                if hop.nb_args-1 > len(rinputs):
+                    raise RTyperError("too many arguments in function call")
+                else:
+                    raise RTyperError("not enough arguments in function call")
+        vlist = hop.inputargs(self, *rinputs) + defaultclist
         if self.lowleveltype == Void:
             assert len(self.function_signatures) == 1
             vlist[0] = hop.inputconst(typeOf(f), f)
