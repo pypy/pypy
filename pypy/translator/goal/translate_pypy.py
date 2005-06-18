@@ -106,8 +106,7 @@ def analyse(target):
         a.simplify()
     if a and not options['-no-t']:
         print 'Specializing...'
-        typer = RPythonTyper(a)
-        typer.specialize()
+        t.specialize()
     t.frozen = True   # cannot freeze if we don't have annotations
     if not options['-no-mark-some-objects']:
         options['-no-mark-some-objects'] = True # Do not do this again
