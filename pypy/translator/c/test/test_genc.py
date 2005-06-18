@@ -182,3 +182,27 @@ def test_runtime_type_info():
     f1()
     mallocs, frees = module.malloc_counters()
     assert mallocs == frees
+
+def test_time_clock():
+    import time
+    def does_stuff():
+        return time.clock()
+    t = Translator(does_stuff)
+    t.annotate([])
+    t.specialize()
+    #t.view()
+
+    db = LowLevelDatabase(t)
+    entrypoint = db.get(pyobjectptr(does_stuff))
+    db.complete()
+
+    module = compile_db(db)
+
+    f1 = getattr(module, entrypoint)
+    t0 = time.clock()
+    t1 = f1()
+    assert type(t1) is float
+    t2 = time.clock()
+    assert t0 <= t1 <= t2
+    mallocs, frees = module.malloc_counters()
+    assert mallocs == frees

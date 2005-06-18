@@ -7,6 +7,8 @@ from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range
 from pypy.rpython.rmodel import Repr, TyperError
 from pypy.rpython import rptr
+from pypy.rpython.robject import pyobj_repr
+from pypy.rpython.rfloat import float_repr
 
 
 class __extend__(annmodel.SomeBuiltin):
@@ -142,3 +144,15 @@ BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
 BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
+
+import time
+
+def rtype_time_clock(hop):
+    c = hop.inputconst(pyobj_repr, time.clock)
+    v = hop.genop('simple_call', [c], resulttype = pyobj_repr)
+    return hop.llops.convertvar(v, pyobj_repr, float_repr)
+
+BUILTIN_TYPER[time.clock] = rtype_time_clock
+    
+
+
