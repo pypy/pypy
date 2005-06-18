@@ -28,7 +28,7 @@ class FunctionCodeGenerator:
         # NOTE: cannot use dictionaries with Constants has keys, because
         #       Constants may hash and compare equal but have different lltypes
         mix = []
-        self.more_ll_values = {}
+        self.more_ll_values = []
         def visit(block):
             if isinstance(block, Block):
                 mix.extend(block.inputargs)
@@ -40,7 +40,7 @@ class FunctionCodeGenerator:
                     mix.extend(link.args)
                     mix.append(Constant(link.exitcase))
                     if hasattr(link, 'llexitcase'):
-                        self.more_ll_values[link.llexitcase] = True
+                        self.more_ll_values.append(link.llexitcase)
         traverse(visit, graph)
         resultvar = graph.getreturnvar()
 

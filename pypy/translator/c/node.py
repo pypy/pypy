@@ -70,11 +70,16 @@ class StructDefNode:
 
             # are two deallocators needed (a dynamic one for DECREF, which checks
             # the real type of the structure and calls the static deallocator) ?
-            if (isinstance(STRUCT, GcStruct) and
-                STRUCT._runtime_type_info is not None):
+            rtti = None
+            if isinstance(STRUCT, GcStruct):
+                try:
+                    rtti = getRuntimeTypeInfo(STRUCT)
+                except ValueError:
+                    pass
+            if rtti is not None:
                 self.static_deallocator = db.namespace.uniquename(
                     'staticdealloc_'+self.name)
-                fnptr = STRUCT._runtime_type_info._obj.query_funcptr
+                fnptr = rtti._obj.query_funcptr
                 if fnptr is None:
                     raise NotImplementedError(
                         "attachRuntimeTypeInfo(): please provide a function")

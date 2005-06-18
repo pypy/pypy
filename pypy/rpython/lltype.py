@@ -163,7 +163,7 @@ class GcStruct(Struct):
 
     def _attach_runtime_type_info_funcptr(self, funcptr):
         if self._runtime_type_info is None:
-            self._runtime_type_info = opaqueptr(RuntimeTypeInfo, name=self._name, about=self)
+            self._runtime_type_info = opaqueptr(RuntimeTypeInfo, name=self._name, about=self)._obj
         if funcptr is not None:
             T = typeOf(funcptr)
             if (not isinstance(T, Ptr) or
@@ -173,7 +173,7 @@ class GcStruct(Struct):
                 castable(T.TO.ARGS[0], Ptr(self)) < 0):
                 raise TypeError("expected a runtime type info function "
                                 "implementation, got: %s" % funcptr)
-            self._runtime_type_info._obj.query_funcptr = funcptr
+            self._runtime_type_info.query_funcptr = funcptr
 
 class Array(ContainerType):
     __name__ = 'array'
@@ -458,6 +458,9 @@ class _ptr(object):
 
     def __ne__(self, other):
         return not (self == other)
+
+    def __hash__(self):
+        raise TypeError("pointer objects are not hashable")
 
     def __nonzero__(self):
         return self._obj is not None
@@ -766,14 +769,14 @@ def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None):
     if not isinstance(GCSTRUCT, GcStruct):
         raise TypeError, "expected a GcStruct: %s" % GCSTRUCT
     GCSTRUCT._attach_runtime_type_info_funcptr(funcptr)
-    return GCSTRUCT._runtime_type_info
+    return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def getRuntimeTypeInfo(GCSTRUCT):
     if not isinstance(GCSTRUCT, GcStruct):
         raise TypeError, "expected a GcStruct: %s" % GCSTRUCT
     if GCSTRUCT._runtime_type_info is None:
-        raise TypeError, "no attached runtime type info for %s" % GCSTRUCT
-    return GCSTRUCT._runtime_type_info
+        raise ValueError, "no attached runtime type info for %s" % GCSTRUCT
+    return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def runtime_type_info(p):
     T = typeOf(p)

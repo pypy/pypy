@@ -341,7 +341,7 @@ def test_immortal_parent():
 
 def test_getRuntimeTypeInfo():
     S = GcStruct('s', ('x', Signed))
-    py.test.raises(TypeError, "getRuntimeTypeInfo(S)")
+    py.test.raises(ValueError, "getRuntimeTypeInfo(S)")
     pinf0 = attachRuntimeTypeInfo(S)
     assert pinf0._obj.about == S
     pinf = getRuntimeTypeInfo(S)
