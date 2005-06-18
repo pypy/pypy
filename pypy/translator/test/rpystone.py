@@ -65,7 +65,7 @@ __version__ = "1.1"
 class Record:
 
     def __init__(self, PtrComp = None, Discr = 0, EnumComp = 0,
-                       IntComp = 0, StringComp = 0):
+                       IntComp = 0, StringComp = ""):
         self.PtrComp = PtrComp
         self.Discr = Discr
         self.EnumComp = EnumComp
