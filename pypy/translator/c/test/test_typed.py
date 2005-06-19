@@ -1,6 +1,6 @@
 import autopath
 import sys
-import py.test
+from py.test import raises
 from pypy.translator.translator import Translator
 from pypy.translator.test import snippet 
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler

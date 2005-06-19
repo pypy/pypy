@@ -1,11 +1,10 @@
 from __future__ import generators
 from pypy.translator.c.support import cdecl, ErrorValue
-from pypy.translator.c.support import llvalue_from_constant
+from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import traverse, last_exception
 from pypy.rpython.lltype import Ptr, PyObject, Void, Bool
 from pypy.rpython.lltype import pyobjectptr, Struct, Array
-from pypy.translator.unsimplify import remove_direct_loops
 
 
 PyObjPtr = Ptr(PyObject)
@@ -18,7 +17,6 @@ class FunctionCodeGenerator:
 
     def __init__(self, graph, db, cpython_exc=False):
         self.graph = graph
-        remove_direct_loops(None, graph)
         self.db = db
         self.cpython_exc = cpython_exc
         #
@@ -110,14 +108,16 @@ class FunctionCodeGenerator:
 
     def cfunction_declarations(self):
         # declare the local variables, excluding the function arguments
-        inputargset = {}
+        seen = {}
         for a in self.graph.getargs():
-            inputargset[a] = True
+            seen[a.name] = True
 
         result_by_name = []
         for v in self.allvariables():
-            if v not in inputargset:
-                result = cdecl(self.lltypename(v), v.name) + ';'
+            name = v.name
+            if name not in seen:
+                seen[name] = True
+                result = cdecl(self.lltypename(v), name) + ';'
                 if self.lltypemap(v) == Void:
                     result = '/*%s*/' % result
                 result_by_name.append((v._name, result))
@@ -145,6 +145,8 @@ class FunctionCodeGenerator:
             for v in to_release:
                 linklocalvars[v] = self.expr(v)
             has_ref = linklocalvars.copy()
+            assignments = []
+            increfs = []
             for a1, a2 in zip(link.args, link.target.inputargs):
                 if self.lltypemap(a2) == Void:
                     continue
@@ -152,17 +154,27 @@ class FunctionCodeGenerator:
                     src = linklocalvars[a1]
                 else:
                     src = self.expr(a1)
-                line = '%s = %s;' % (self.expr(a2), src)
+                dest = self.expr(a2)
+                assignments.append((self.lltypename(a2), dest, src))
                 if a1 in has_ref:
                     del has_ref[a1]
                 else:
                     assert self.lltypemap(a1) == self.lltypemap(a2)
-                    line += '\t' + self.cincref(a2)
-                yield line
+                    line = self.cincref(a2)
+                    if line:
+                        increfs.append(line)
+            # warning, the order below is delicate to get right:
+            # 1. decref the old variables that are not passed over
             for v in has_ref:
                 line = self.cdecref(v, linklocalvars[v])
                 if line:
                     yield line
+            # 2. perform the assignments with collision-avoidance
+            for line in gen_assignments(assignments):
+                yield line
+            # 3. incref the new variables if needed
+            for line in increfs:
+                yield line
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks

@@ -59,3 +59,43 @@ class CNameManager(NameManager):
            double    long      typedef
            else      register  union
            ''')
+
+
+def gen_assignments(assignments):
+    # Generate a sequence of assignments that is possibly reordered
+    # to avoid clashes -- i.e. do the equivalent of a tuple assignment,
+    # reading all sources first, writing all targets next, but optimized
+
+    allsources = []
+    src2dest = {}
+    types = {}
+    assignments = list(assignments)
+    for typename, dest, src in assignments:
+        if src != dest:   # ignore 'v=v;'
+            allsources.append(src)
+            src2dest.setdefault(src, []).append(dest)
+            types[dest] = typename
+
+    for starting in allsources:
+        # starting from some starting variable, follow a chain of assignments
+        #     'vn=vn-1; ...; v3=v2; v2=v1; v1=starting;'
+        v = starting
+        srcchain = []
+        while src2dest.get(v):
+            srcchain.append(v)
+            v = src2dest[v].pop(0)
+            if v == starting:
+                break    # loop
+        if not srcchain:
+            continue   # already done in a previous chain
+        srcchain.reverse()   # ['vn-1', ..., 'v2', 'v1', 'starting']
+        code = []
+        for pair in zip([v] + srcchain[:-1], srcchain):
+            code.append('%s = %s;' % pair)
+        if v == starting:
+            # assignment loop 'starting=vn-1; ...; v2=v1; v1=starting;'
+            typename = types[starting]
+            tmpdecl = cdecl(typename, 'tmp')
+            code.insert(0, '{ %s = %s;' % (tmpdecl, starting))
+            code[-1] = '%s = tmp; }' % (srcchain[-2],)
+        yield ' '.join(code)
