@@ -107,6 +107,11 @@ def SSI_to_SSA(graph):
             "variables called %s have mixed concretetypes: %r" % (vname, vct))
 
 
+def backend_optimizations(graph):
+    remove_same_as(graph)
+    SSI_to_SSA(graph)
+    checkgraph(graph)
+
 # ____________________________________________________________
 
 if __name__ == '__main__':

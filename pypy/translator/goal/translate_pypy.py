@@ -15,11 +15,10 @@ Command-line options for translate_pypy:
    -no-a      Don't infer annotations, just translate everything
    -no-s      Don't simplify the graph after annotation
    -no-t      Don't type-specialize the graph operations with the C typer
+   -no-o      Don't do backend-oriented optimizations
    -no-c      Don't generate the C code
    -c         Generate the C code, but don't compile it
    -o         Generate and compile the C code, but don't run it
-   -no-mark-some-objects
-              Do not mark functions that have SomeObject in their signature.
    -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
                   -- http://fabrice.bellard.free.fr/tcc/
    -no-d      Disable recording of debugging information
@@ -100,17 +99,19 @@ def analyse(target):
         print 'Annotating...'
         a = t.annotate(inputtypes, policy=PyPyAnnotatorPolicy())
         sanity_check_exceptblocks(t)
-        worstblocks_topten(a)
+        worstblocks_topten(a, 3)
+        find_someobjects(t)
     if a and not options['-no-s']:
         print 'Simplifying...'
         a.simplify()
     if a and not options['-no-t']:
         print 'Specializing...'
         t.specialize()
-    t.frozen = True   # cannot freeze if we don't have annotations
-    if not options['-no-mark-some-objects']:
-        options['-no-mark-some-objects'] = True # Do not do this again
-        find_someobjects(t)
+    if not options['-no-o']:
+        print 'Back-end optimizations...'
+        t.backend_optimizations()
+    if a:
+        t.frozen = True   # cannot freeze if we don't have annotations
 
 def sanity_check_exceptblocks(translator):
     annotator = translator.annotator
@@ -251,6 +252,7 @@ if __name__ == '__main__':
                '-no-a': False,
                '-no-s': False,
                '-no-t': False,
+               '-no-o': False,
                '-tcc':  False,
                '-no-d': False,
                '-load': False,
@@ -487,7 +489,7 @@ show class hierarchy graph"""
             targetspec_dic = loaded_dic['targetspec_dic']
             targetspec = loaded_dic['targetspec']
             old_options = loaded_dic['options']
-            for name in '-no-a -no-s -no-t'.split():
+            for name in '-no-a -no-s -no-t -no-o'.split():
                 # if one of these options has not been set, before,
                 # then the action has been done and must be prevented, now.
                 if not old_options[name]:
