@@ -83,7 +83,12 @@ class Stats:
     def consider_newslice(self, s_start, s_stop, s_step):
         return ':'.join([self.indexrepr(s_start), self.indexrepr(s_stop), self.steprepr(s_step)])
 
+    def consider_list_list_eq(self, obj1, obj2):
+        return obj1, obj2
+
     def consider_non_int_eq(self, obj1, obj2):
+        if obj1.knowntype == obj2.knowntype == list:
+            self.count("list_list_eq", obj1, obj2)
         return obj1.knowntype.__name__, obj2.knowntype.__name__
 
     def consider_non_int_comp(self, obj1, obj2):

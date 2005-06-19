@@ -337,12 +337,43 @@ def pbcbmsanity(translator):
     for bm_fam in plural_bm_families:
         print pretty_els(bm_fam.objects)
     return plural_bm_families
-        
+
+class Counters(dict):
+
+    def __getitem__(self, outcome):
+        if (isinstance(outcome, annmodel.SomeObject) or 
+            isinstance(outcome, tuple) and outcome and 
+            isinstance(outcome[0], annmodel.SomeObject)):
+            for k in self.iterkeys():
+                if k == outcome:
+                    outcome = k
+                    break
+            else:
+                raise KeyError
+        return dict.__getitem__(self, outcome)
+
+    def get(self, outcome, defl):
+        try:
+            return self[outcome]
+        except KeyError:
+            return defl
+
+    def __setitem__(self, outcome, c):
+        if (isinstance(outcome, annmodel.SomeObject) or 
+            isinstance(outcome, tuple) and outcome and 
+            isinstance(outcome[0], annmodel.SomeObject)):
+            for k in self.iterkeys():
+                if k == outcome:
+                    outcome = k
+                    break
+        return dict.__setitem__(self, outcome, c)
+
+
 def statsfor(t, category):
     stats = t.annotator.bookkeeper.stats
     for_category = stats.classify[category]
     print "%s total = %d" % (category, len(for_category))
-    counters = {}
+    counters = Counters()
     for pos, outcome in for_category.iteritems():
         counters[outcome] = counters.get(outcome, 0) + 1
     def keyrepr(k):
