@@ -128,3 +128,9 @@ class TestAnnotatedTestCase:
         for n in [-1,0,1,2]:
             result.append(fn(n))
         assert result == [-1,0,1,2]    
+
+    def test_is_perfect_number(self):
+        fn = self.getcompiled(snippet.is_perfect_number)
+        for i in range(1, 33):
+            perfect = fn(i)
+            assert perfect is (i in (6,28))
