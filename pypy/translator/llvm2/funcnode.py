@@ -181,7 +181,8 @@ class OpWriter(object):
         arg = op.args[0]
         assert (isinstance(arg, Constant) and 
                 isinstance(arg.value, lltype.Struct))
-        type = "%" + arg.value._name 
+        #XXX unclean
+        type = self.db.obj2node[arg.value].ref
         self.codewriter.malloc(targetvar, type) 
 
     def getfield(self, op): 

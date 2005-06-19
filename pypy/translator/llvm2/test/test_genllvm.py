@@ -79,8 +79,15 @@ def test_recursive_call():
     assert f(0, 2) == 3
     
 def test_tuple_getitem(): 
-    def list_getitem(i): 
+    def tuple_getitem(i): 
         l = (1,2,i)
         return l[1]
-    f = compile_function(list_getitem, [int])
+    f = compile_function(tuple_getitem, [int])
     assert f(1) == 2 
+
+def test_nested_tuple(): 
+    def nested_tuple(i): 
+        l = (1,(1,2,i),i)
+        return l[1][2]
+    f = compile_function(nested_tuple, [int])
+    assert f(4) == 4 

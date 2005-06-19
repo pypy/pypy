@@ -5,12 +5,14 @@ log = log.structnode
 
 class StructNode(object):
     _issetup = False 
+    struct_counter = 0
 
     def __init__(self, db, struct): 
         self.db = db
         self.struct = struct 
-        self.ref = "%" + struct._name 
-
+        self.ref = "%%st.%s.%s" % (struct._name, StructNode.struct_counter)
+        StructNode.struct_counter += 1
+        
     def __str__(self):
         return "<StructNode %r>" %(self.ref,)
     
