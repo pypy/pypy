@@ -57,6 +57,7 @@ from types import FunctionType, CodeType, ModuleType
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 from pypy.rpython.rarithmetic import r_int, r_uint
+from pypy.translator.backendoptimization import SSI_to_SSA
 
 from pypy.translator.translator import Translator
 from pypy.objspace.flow import FlowObjSpace
@@ -77,7 +78,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.1'  # bump this for substantial changes
+GI_VERSION = '1.1.2'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -302,8 +303,10 @@ class GenRpy:
                 src = linklocalvars[a1]
             else:
                 src = self.expr(a1, localscope)
-            left.append(self.expr(a2, localscope))
-            right.append(src)
+            dest = self.expr(a2, localscope)
+            if src != dest:
+                left.append(dest)
+                right.append(src)
         if left: # anything at all?
             txt = "%s = %s" % (", ".join(left), ", ".join(right))
             if len(txt) <= 65: # arbitrary
@@ -1000,6 +1003,14 @@ class GenRpy:
         return name # no success
 
     def gen_rpyfunction(self, func):
+        try:
+            graph = self.translator.getflowgraph(func)
+        except Exception, e:
+            print 20*"*", e
+            print func
+            raise
+        SSI_to_SSA(graph)
+        checkgraph(graph)
 
         f = self.f
         print >> f, "##SECTION##" # simple to split, afterwards
@@ -1011,7 +1022,7 @@ class GenRpy:
             func.func_code.co_firstlineno)
         print >> f, "##SECTION##"
         localscope = self.namespace.localScope()
-        body = list(self.rpyfunction_body(func, localscope))
+        body = list(self.rpyfunction_body(graph, localscope))
         name_of_defaults = [self.nameof(x, debug=('Default argument of', func))
                             for x in (func.func_defaults or ())]
         self.gen_global_declarations()
@@ -1022,14 +1033,14 @@ class GenRpy:
         assert cname.startswith('gfunc_')
         f_name = 'f_' + cname[6:]
 
-        # collect all the local variables
-        graph = self.translator.getflowgraph(func)
-        localslst = []
-        def visit(node):
-            if isinstance(node, Block):
-                localslst.extend(node.getvariables())
-        traverse(visit, graph)
-        localnames = [self.expr(a, localscope) for a in uniqueitems(localslst)]
+##        # collect all the local variables
+##        graph = self.translator.getflowgraph(func)
+##        localslst = []
+##        def visit(node):
+##            if isinstance(node, Block):
+##                localslst.extend(node.getvariables())
+##        traverse(visit, graph)
+##        localnames = [self.expr(a, localscope) for a in uniqueitems(localslst)]
 
         # collect all the arguments
         vararg = varkw = None
@@ -1110,7 +1121,7 @@ class GenRpy:
         if docstr is not None:
             print >> f, docstr
 
-        fast_locals = [arg for arg in localnames if arg not in fast_set]
+##        fast_locals = [arg for arg in localnames if arg not in fast_set]
 ##        # if goto is specialized, the false detection of
 ##        # uninitialized variables goes away.
 ##        if fast_locals and not self.specialize_goto:
@@ -1134,25 +1145,7 @@ class GenRpy:
             pass # del self.translator.flowgraphs[func]
         # got duplicate flowgraphs when doing this!
 
-    def rpyfunction_body(self, func, localscope):
-        try:
-            graph = self.translator.getflowgraph(func)
-        except Exception, e:
-            print 20*"*", e
-            print func
-            raise
-        # not needed, we use tuple assignment!
-        # remove_direct_loops(graph)
-        checkgraph(graph)
-
-        allblocks = []
-        
-        f = self.f
-        t = self.translator
-        #t.simplify(func)
-        graph = t.getflowgraph(func)
-
-
+    def rpyfunction_body(self, graph, localscope):
         start = graph.startblock
         allblocks = ordered_blocks(graph)
         nblocks = len(allblocks)
