@@ -1,6 +1,7 @@
 import py
 from pypy.objspace.flow.model import Block, Constant, Variable, Link
 from pypy.objspace.flow.model import flatten, mkentrymap, traverse
+from pypy.rpython import lltype
 from pypy.translator.llvm2.cfgtransform import prepare_graph
 from pypy.translator.llvm2.log import log 
 log = log.funcnode
@@ -15,7 +16,7 @@ class FuncNode(object):
                                    db._translator)
 
     def __str__(self):
-        return "<FuncNode ref=%s>" %(self.ref,)
+        return "<FuncNode %r>" %(self.ref,)
     
     def setup(self):
         log("setup", self)
@@ -42,6 +43,8 @@ class FuncNode(object):
         result += "(%s)" % ", ".join(args)
         return result 
 
+    # ______________________________________________________________________
+    # main entry points from genllvm 
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())
 
@@ -65,6 +68,9 @@ class FuncNode(object):
             else:
                 self.write_block(codewriter, block)
         codewriter.closefunc()
+
+    # ______________________________________________________________________
+    # writing helpers for entry points
 
     def write_block(self, codewriter, block):
         self.write_block_phi_nodes(codewriter, block)
@@ -171,10 +177,33 @@ class OpWriter(object):
                              argtypes)
 
     def malloc(self, op): 
-        log.XXX("malloc not emitted") 
+        targetvar = self.db.repr_arg(op.result) 
+        arg = op.args[0]
+        assert (isinstance(arg, Constant) and 
+                isinstance(arg.value, lltype.Struct))
+        type = "%" + arg.value._name 
+        self.codewriter.malloc(targetvar, type) 
 
     def getfield(self, op): 
-        log.XXX("getfield not emitted") 
+        tmpvar = self.db.repr_tmpvar()
+        type = self.db.repr_arg_type(op.args[0]) 
+        typevar = self.db.repr_arg(op.args[0]) 
+        fieldnames = list(op.args[0].concretetype.TO._names)
+        index = fieldnames.index(op.args[1].value)
+        self.codewriter.getelementptr(tmpvar, type, typevar, index)
+
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+        self.codewriter.load(targetvar, targettype, tmpvar)
 
     def setfield(self, op): 
-        log.XXX("setfield not emitted") 
+        tmpvar = self.db.repr_tmpvar()
+        type = self.db.repr_arg_type(op.args[0]) 
+        typevar = self.db.repr_arg(op.args[0]) 
+        fieldnames = list(op.args[0].concretetype.TO._names)
+        index = fieldnames.index(op.args[1].value)
+        self.codewriter.getelementptr(tmpvar, type, typevar, index)
+
+        valuevar = self.db.repr_arg(op.args[2]) 
+        valuetype = self.db.repr_arg_type(op.args[2])
+        self.codewriter.store(valuetype, valuevar, tmpvar) 

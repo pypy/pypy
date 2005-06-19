@@ -26,6 +26,7 @@ def genllvm(translator):
     log.debug(db.obj2node)
     for node in dbobjects:
         node.writedecl(codewriter) 
+    codewriter.startimpl() 
     for node in dbobjects:
         node.writeimpl(codewriter)
     

@@ -14,11 +14,19 @@ class CodeWriter(object):
     def indent(self, line): 
         self.append("        " + line) 
 
-    def label(self, name): 
+    def label(self, name):
         self.append("    %s:" % name)
 
-    def declare(self, decl): 
+    def structdef(self, name, typereprs):
+        self.append("%s = type { %s }" %(name, ", ".join(typereprs)))
+
+    def declare(self, decl):
         self.append("declare %s" %(decl,))
+
+    def startimpl(self):
+        self.append("")
+        self.append("implementation")
+        self.append("")
 
     def br_uncond(self, blockname): 
         self.indent("br label %%%s" %(blockname,))
@@ -55,6 +63,20 @@ class CodeWriter(object):
     def cast(self, targetvar, fromtype, fromvar, targettype):
         self.indent("%(targetvar)s = cast %(fromtype)s "
                         "%(fromvar)s to %(targettype)s" % locals())
+
+    def malloc(self, targetvar, type):
+        self.indent("%(targetvar)s = malloc %(type)s" % locals())
+
+    def getelementptr(self, targetvar, type, typevar, index):
+        self.indent("%(targetvar)s = getelementptr "
+                    "%(type)s %(typevar)s, int 0, uint %(index)s" % locals())
+
+    def load(self, targetvar, targettype, ptr):
+        self.indent("%(targetvar)s = load %(targettype)s* %(ptr)s" % locals())
+
+    def store(self, valuetype, valuevar, ptr): 
+        self.indent("store %(valuetype)s %(valuevar)s, "
+                    "%(valuetype)s* %(ptr)s" % locals())
 
     def __str__(self): 
         return "\n".join(self._lines)

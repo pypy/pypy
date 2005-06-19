@@ -1,5 +1,6 @@
 from pypy.translator.llvm2.log import log 
 from pypy.translator.llvm2.funcnode import FuncNode
+from pypy.translator.llvm2.structnode import StructNode 
 from pypy.rpython import lltype
 from pypy.objspace.flow.model import Block, Constant, Variable
 
@@ -13,6 +14,14 @@ class Database(object):
         self._translator = translator
         self.obj2node = {}
         self._pendingsetup = []
+        self._tmpcount = 1
+
+    def addpending(self, key, node): 
+        assert key not in self.obj2node, (
+            "node with key %r already known!" %(key,))
+        self.obj2node[key] = node 
+        log("added to pending nodes:", node) 
+        self._pendingsetup.append(node) 
 
     def prepare_repr_arg(self, const_or_var):
         if const_or_var in self.obj2node:
@@ -20,15 +29,23 @@ class Database(object):
         if isinstance(const_or_var, Constant):
             if isinstance(const_or_var.concretetype, lltype.Primitive):
                 pass
+                #log.prepare(const_or_var, "(is primitive)") 
             else:
-                node = FuncNode(self, const_or_var) 
-                self.obj2node[const_or_var] = node
-                log("added to pending nodes:", node) 
-                self._pendingsetup.append(node) 
+                self.addpending(const_or_var, FuncNode(self, const_or_var)) 
+        else:
+            log.prepare.ignore(const_or_var) 
 
     def prepare_repr_arg_type(self, type_):
-        if not isinstance(type_, lltype.Primitive):
-            log.XXX("need to prepare typeref")
+        if type_ in self.obj2node:
+            return
+        if isinstance(type_, lltype.Primitive):
+            pass
+        elif isinstance(type_, lltype.Ptr): 
+            self.prepare_repr_arg_type(type_.TO)
+        elif isinstance(type_, lltype.Struct): 
+            self.addpending(type_, StructNode(self, type_))
+        else:     
+            log.XXX("need to prepare typerepr", type_)
 
     def prepare_arg(self, const_or_var):
         log.prepare(const_or_var)
@@ -52,10 +69,26 @@ class Database(object):
         return self.obj2node[arg].ref
 
     def repr_arg_type(self, arg):
-        return PRIMITIVES_TO_LLVM[arg.concretetype]
+        if isinstance(arg, (Constant, Variable)): 
+            arg = arg.concretetype 
+        try:
+            return self.obj2node[arg].ref 
+        except KeyError: 
+            if isinstance(arg, lltype.Primitive):
+                return PRIMITIVES_TO_LLVM[arg]
+            elif isinstance(arg, lltype.Ptr):
+                return self.repr_arg_type(arg.TO) + '*'
+            else: 
+                raise TypeError("cannot represent %r" %(arg,))
 
     def repr_arg_multi(self, args):
         return [self.repr_arg(arg) for arg in args]
 
     def repr_arg_type_multi(self, args):
         return [self.repr_arg_type(arg) for arg in args]
+
+    def repr_tmpvar(self): 
+        count = self._tmpcount 
+        self._tmpcount += 1
+        return "%tmp." + str(count) 
+        
