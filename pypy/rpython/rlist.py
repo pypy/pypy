@@ -60,11 +60,11 @@ class ListRepr(Repr):
             raise TyperError("expected a list: %r" % (listobj,))
         try:
             key = Constant(listobj)
-            return self.list_cache[key][1]
+            return self.list_cache[key]
         except KeyError:
             self.setup()
             result = malloc(self.LIST, immortal=True)
-            self.list_cache[key] = listobj, result
+            self.list_cache[key] = result
             result.items = malloc(self.LIST.items.TO, len(listobj))
             r_item = self.item_repr
             for i in range(len(listobj)):
