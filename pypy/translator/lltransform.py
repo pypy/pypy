@@ -52,6 +52,7 @@ def SSI_to_SSA(graph):
     """
     entrymap = mkentrymap(graph)
     consider_blocks = entrymap
+    renamed = {}
 
     while consider_blocks:
         blocklist = consider_blocks.keys()
@@ -74,9 +75,18 @@ def SSI_to_SSA(graph):
                     names[v.name] = True
                 else:
                     if len(names) == 2:
-                        del names[v1.name]
-                        v1._name, = names.keys()
-                        # mark all the following block as subject to
+                        oldname = v1.name
+                        del names[oldname]
+                        newname, = names.keys()
+                        while oldname in renamed:
+                            oldname = renamed[oldname]
+                        while newname in renamed:
+                            newname = renamed[newname]
+                        if oldname == newname:
+                            continue
+                        renamed[oldname] = newname
+                        v1._name = newname
+                        # mark all the following blocks as subject to
                         # possible further optimization
                         for link in block.exits:
                             consider_blocks[link.target] = True
