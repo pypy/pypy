@@ -25,3 +25,13 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             backendoptimization.SSI_to_SSA(graph)
         t.checkgraphs()
         return skip_missing_compiler(t.ccompile)
+
+    def test_remove_same_as(self):
+        def f(n=bool):
+            if bool(bool(bool(n))):
+                return 123
+            else:
+                return 456
+        fn = self.getcompiled(f)
+        assert f(True) == 123
+        assert f(False) == 456

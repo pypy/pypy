@@ -2,6 +2,7 @@ import autopath
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
+from pypy.tool.unionfind import UnionFind
 
 
 def remove_same_as(graph):
@@ -52,8 +53,9 @@ def SSI_to_SSA(graph):
     """
     entrymap = mkentrymap(graph)
     consider_blocks = entrymap
-    renamed = {}
+    variable_families = UnionFind()
 
+    # group variables by families; a family of variables will be identified.
     while consider_blocks:
         blocklist = consider_blocks.keys()
         consider_blocks = {}
@@ -66,30 +68,28 @@ def SSI_to_SSA(graph):
             for i in range(len(block.inputargs)):
                 # list of possible vars that can arrive in i'th position
                 v1 = block.inputargs[i]
-                names = {v1.name: True}
+                v1 = variable_families.find_rep(v1)
+                inputs = {v1: True}
                 key = []
                 for link in links:
                     v = link.args[i]
                     if not isinstance(v, Variable):
                         break
-                    names[v.name] = True
+                    v = variable_families.find_rep(v)
+                    inputs[v] = True
                 else:
-                    if len(names) == 2:
-                        oldname = v1.name
-                        del names[oldname]
-                        newname, = names.keys()
-                        while oldname in renamed:
-                            oldname = renamed[oldname]
-                        while newname in renamed:
-                            newname = renamed[newname]
-                        if oldname == newname:
-                            continue
-                        renamed[oldname] = newname
-                        v1._name = newname
+                    if len(inputs) == 2:
+                        variable_families.union(*inputs)
                         # mark all the following blocks as subject to
                         # possible further optimization
                         for link in block.exits:
                             consider_blocks[link.target] = True
+    # rename variables to give them the name of their familiy representant
+    for v in variable_families.keys():
+        v1 = variable_families.find_rep(v)
+        if v1 != v:
+            v._name = v1.name
+
     # sanity-check that the same name is never used several times in a block
     variables_by_name = {}
     for block in entrymap:

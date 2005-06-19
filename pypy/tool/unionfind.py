@@ -4,7 +4,7 @@
 
 class UnionFind(object):
 
-    def __init__(self, info_factory):
+    def __init__(self, info_factory=None):
         self.link_to_parent = {}
         self.weight = {}
         self.info_factory = info_factory
@@ -15,9 +15,9 @@ class UnionFind(object):
         if obj not in self.link_to_parent:
             raise KeyError, obj
 
-        ignore, rep, access = self.find(obj)
+        ignore, rep, info = self.find(obj)
 
-        return access
+        return info
 
     def __contains__(self, obj):
         return obj in self.link_to_parent
@@ -31,9 +31,17 @@ class UnionFind(object):
     def infos(self):
         return self.root_info.values()
 
+    def find_rep(self, obj):
+        ignore, rep, info = self.find(obj)
+        return rep
+
     def find(self, obj):  # -> new_root, obj, info
         if obj not in self.link_to_parent:
-            info = self.root_info[obj] = self.info_factory(obj)
+            if self.info_factory:
+                info = self.info_factory(obj)
+            else:
+                info = None
+            self.root_info[obj] = info
             self.weight[obj] = 1
             self.link_to_parent[obj] = obj
             return True, obj, info
@@ -66,7 +74,8 @@ class UnionFind(object):
         if w1 < w2:
             rep1, rep2, info1, info2, = rep2, rep1, info2, info1
 
-        info1.update(info2)
+        if info1 is not None:
+            info1.update(info2)
 
         self.link_to_parent[rep2] = rep1
 
