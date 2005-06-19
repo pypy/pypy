@@ -169,3 +169,12 @@ class OpWriter(object):
         argtypes = self.db.multi_gettyperef(op.args[1:])
         self.codewriter.call(targetvar, returntype, functionref, argrefs,
                              argtypes)
+
+    def malloc(self, op): 
+        log.XXX("malloc not emitted") 
+
+    def getfield(self, op): 
+        log.XXX("getfield not emitted") 
+
+    def setfield(self, op): 
+        log.XXX("setfield not emitted") 

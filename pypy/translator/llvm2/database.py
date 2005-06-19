@@ -34,7 +34,6 @@ class Database(object):
         log.prepare(const_or_var)
         self.prepare_ref(const_or_var)
         self.prepare_typeref(const_or_var.concretetype)
-
             
     def process(self):
         if self._pendingsetup: 

@@ -78,3 +78,9 @@ def test_recursive_call():
     f = compile_function(call_ackermann, [int, int])
     assert f(0, 2) == 3
     
+def XXXtest_tuple_getitem(): 
+    def list_getitem(i): 
+        l = (1,2,i)
+        return l[1]
+    f = compile_function(list_getitem, [int])
+    assert f(1) == 2 
