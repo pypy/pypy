@@ -34,9 +34,9 @@ class FuncNode(object):
         assert self._issetup 
         startblock = self.graph.startblock
         returnblock = self.graph.returnblock
-        inputargs = self.db.multi_getref(startblock.inputargs)
-        inputargtypes = self.db.multi_gettyperef(startblock.inputargs)
-        returntype = self.db.gettyperef(self.graph.returnblock.inputargs[0])
+        inputargs = self.db.repr_arg_multi(startblock.inputargs)
+        inputargtypes = self.db.repr_arg_type_multi(startblock.inputargs)
+        returntype = self.db.repr_arg_type(self.graph.returnblock.inputargs[0])
         result = "%s %s" % (returntype, self.ref)
         args = ["%s %s" % item for item in zip(inputargtypes, inputargs)]
         result += "(%s)" % ", ".join(args)
@@ -75,10 +75,10 @@ class FuncNode(object):
     def write_block_phi_nodes(self, codewriter, block):
         entrylinks = mkentrymap(self.graph)[block]
         entrylinks = [x for x in entrylinks if x.prevblock is not None]
-        inputargs = self.db.multi_getref(block.inputargs)
-        inputargtypes = self.db.multi_gettyperef(block.inputargs)
+        inputargs = self.db.repr_arg_multi(block.inputargs)
+        inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
         for i, (arg, type_) in enumerate(zip(inputargs, inputargtypes)):
-            names = self.db.multi_getref([link.args[i] for link in entrylinks])
+            names = self.db.repr_arg_multi([link.args[i] for link in entrylinks])
             blocknames = [self.block_to_name[link.prevblock]
                               for link in entrylinks]
             codewriter.phi(arg, type_, names, blocknames) 
@@ -87,7 +87,7 @@ class FuncNode(object):
         if len(block.exits) == 1:
             codewriter.br_uncond(self.block_to_name[block.exits[0].target])
         elif len(block.exits) == 2:
-            switch = self.db.getref(block.exitswitch)
+            switch = self.db.repr_arg(block.exitswitch)
             codewriter.br(switch, self.block_to_name[block.exits[0].target],
                           self.block_to_name[block.exits[1].target])
 
@@ -106,8 +106,8 @@ class FuncNode(object):
     def write_returnblock(self, codewriter, block):
         assert len(block.inputargs) == 1
         self.write_block_phi_nodes(codewriter, block)
-        inputargtype = self.db.gettyperef(block.inputargs[0])
-        inputarg = self.db.getref(block.inputargs[0])
+        inputargtype = self.db.repr_arg_type(block.inputargs[0])
+        inputarg = self.db.repr_arg(block.inputargs[0])
         codewriter.ret(inputargtype, inputarg)
 
 class OpWriter(object):
@@ -118,10 +118,10 @@ class OpWriter(object):
     def binaryop(self, name, op):
         assert len(op.args) == 2
         self.codewriter.binaryop(name,
-                                 self.db.getref(op.result),
-                                 self.db.gettyperef(op.args[0]),
-                                 self.db.getref(op.args[0]),
-                                 self.db.getref(op.args[1]))
+                                 self.db.repr_arg(op.result),
+                                 self.db.repr_arg_type(op.args[0]),
+                                 self.db.repr_arg(op.args[0]),
+                                 self.db.repr_arg(op.args[1]))
     def int_mul(self, op):
         self.binaryop('mul', op)
 
@@ -154,19 +154,19 @@ class OpWriter(object):
 
     def cast_bool_to_int(self, op): 
         assert len(op.args) == 1
-        targetvar = self.db.getref(op.result)
-        targettype = self.db.gettyperef(op.result)
-        fromvar = self.db.getref(op.args[0])
-        fromtype = self.db.gettyperef(op.args[0])
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+        fromvar = self.db.repr_arg(op.args[0])
+        fromtype = self.db.repr_arg_type(op.args[0])
         self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
         
     def direct_call(self, op):
         assert len(op.args) >= 1
-        targetvar = self.db.getref(op.result)
-        returntype = self.db.gettyperef(op.result)
-        functionref = self.db.getref(op.args[0])
-        argrefs = self.db.multi_getref(op.args[1:])
-        argtypes = self.db.multi_gettyperef(op.args[1:])
+        targetvar = self.db.repr_arg(op.result)
+        returntype = self.db.repr_arg_type(op.result)
+        functionref = self.db.repr_arg(op.args[0])
+        argrefs = self.db.repr_arg_multi(op.args[1:])
+        argtypes = self.db.repr_arg_type_multi(op.args[1:])
         self.codewriter.call(targetvar, returntype, functionref, argrefs,
                              argtypes)
 

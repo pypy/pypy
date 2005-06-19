@@ -15,7 +15,7 @@ def genllvm(translator):
     db = Database(translator)
     ptr = getfunctionptr(translator, func)
     c = inputconst(lltype.typeOf(ptr), ptr)
-    db.prepare_ref(c)
+    db.prepare_repr_arg(c)
     assert c in db.obj2node
     while db.process(): 
         pass

@@ -16,7 +16,7 @@ def write_pyx_wrapper(funcgen, targetpath):
         return result
     lines = []
     append = lines.append
-    inputargs = funcgen.db.multi_getref(funcgen.graph.startblock.inputargs)
+    inputargs = funcgen.db.repr_arg_multi(funcgen.graph.startblock.inputargs)
     inputargs = [x.strip("%") for x in inputargs]
     append("cdef extern " + c_declaration())
     append("")

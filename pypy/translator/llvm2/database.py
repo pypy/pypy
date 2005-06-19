@@ -14,7 +14,7 @@ class Database(object):
         self.obj2node = {}
         self._pendingsetup = []
 
-    def prepare_ref(self, const_or_var):
+    def prepare_repr_arg(self, const_or_var):
         if const_or_var in self.obj2node:
             return
         if isinstance(const_or_var, Constant):
@@ -26,14 +26,14 @@ class Database(object):
                 log("added to pending nodes:", node) 
                 self._pendingsetup.append(node) 
 
-    def prepare_typeref(self, type_):
+    def prepare_repr_arg_type(self, type_):
         if not isinstance(type_, lltype.Primitive):
             log.XXX("need to prepare typeref")
 
     def prepare_arg(self, const_or_var):
         log.prepare(const_or_var)
-        self.prepare_ref(const_or_var)
-        self.prepare_typeref(const_or_var.concretetype)
+        self.prepare_repr_arg(const_or_var)
+        self.prepare_repr_arg_type(const_or_var.concretetype)
             
     def process(self):
         if self._pendingsetup: 
@@ -43,7 +43,7 @@ class Database(object):
     def getobjects(self): 
         return self.obj2node.values()
 
-    def getref(self, arg):
+    def repr_arg(self, arg):
         if (isinstance(arg, Constant) and 
             isinstance(arg.concretetype, lltype.Primitive)):
             return str(arg.value).lower() #False --> false
@@ -51,11 +51,11 @@ class Database(object):
             return "%" + str(arg)
         return self.obj2node[arg].ref
 
-    def gettyperef(self, arg):
+    def repr_arg_type(self, arg):
         return PRIMITIVES_TO_LLVM[arg.concretetype]
 
-    def multi_getref(self, args):
-        return [self.getref(arg) for arg in args]
+    def repr_arg_multi(self, args):
+        return [self.repr_arg(arg) for arg in args]
 
-    def multi_gettyperef(self, args):
-        return [self.gettyperef(arg) for arg in args]
+    def repr_arg_type_multi(self, args):
+        return [self.repr_arg_type(arg) for arg in args]
