@@ -217,6 +217,10 @@ class LLFrame(object):
         assert type(b) is bool
         return int(b)
 
+    def op_cast_int_to_chr(self, b):
+        assert type(b) is int
+        return chr(b)
+
     def op_cast_bool_to_float(self, b):
         assert type(b) is bool
         return float(b)

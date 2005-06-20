@@ -95,6 +95,10 @@ def rtype_builtin_float(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_float(hop)
 
+def rtype_builtin_chr(hop):
+    assert hop.nb_args == 1
+    return hop.args_r[0].rtype_chr(hop)
+
 #def rtype_builtin_range(hop): see rrange.py
 
 def rtype_intmask(hop):
