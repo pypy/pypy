@@ -196,8 +196,8 @@ class __extend__(IntegerRepr):
         return vlist[0]
 
     def rtype_chr(_, hop):
-        vlist =  hop.inputargs(Char)
-        return vlist[0]
+        vlist =  hop.inputargs(Signed)
+        return hop.genop('cast_int_to_char', vlist, resulttype=Char)
 
     def rtype_is_true(self, hop):
         if self.lowleveltype == Unsigned:
@@ -286,9 +286,3 @@ class __extend__(pairtype(IntegerRepr, PyObjRepr)):
             return llops.gencapicall('PyInt_FromLong', [v],
                                      resulttype=pyobj_repr)
         return NotImplemented
-
-class __extend__(pairtype(IntegerRepr, CharRepr)):
-        def convert_from_to((r_from, r_to), v, llops):
-            if r_from.lowleveltype == Signed:
-                return llops.genop('cast_int_to_char', [v], resulttype=Char)
-            return NotImplemented
