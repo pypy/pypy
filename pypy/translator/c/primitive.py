@@ -21,7 +21,7 @@ def name_float(value):
 def name_char(value):
     assert type(value) is str and len(value) == 1
     if ' ' <= value < '\x7f':
-        return "'%s'" % (value.replace("'", r"\'").replace("\\", r"\\"),)
+        return "'%s'" % (value.replace("\\", r"\\").replace("'", r"\'"),)
     else:
         return '%d' % ord(value)
 

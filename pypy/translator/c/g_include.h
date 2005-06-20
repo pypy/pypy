@@ -16,6 +16,7 @@
 #include "g_module.h"
 
 #include "int_include.h"
+#include "char_include.h"
 #include "float_include.h"
 #include "ll_include.h"
 #include "pyobj_include.h"

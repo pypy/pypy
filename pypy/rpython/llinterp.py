@@ -235,7 +235,7 @@ class LLFrame(object):
         assert type(b) is bool
         return int(b)
 
-    def op_cast_int_to_chr(self, b):
+    def op_cast_int_to_char(self, b):
         assert type(b) is int
         return chr(b)
 

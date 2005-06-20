@@ -290,5 +290,5 @@ class __extend__(pairtype(IntegerRepr, PyObjRepr)):
 class __extend__(pairtype(IntegerRepr, CharRepr)):
         def convert_from_to((r_from, r_to), v, llops):
             if r_from.lowleveltype == Signed:
-                return llops.genop('cast_int_to_chr', [v], resulttype=Char)
+                return llops.genop('cast_int_to_char', [v], resulttype=Char)
             return NotImplemented
