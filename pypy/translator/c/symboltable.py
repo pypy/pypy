@@ -34,9 +34,18 @@ class SymbolTable:
     def keys(self):
         return self.globals.keys()
 
-    def __getitem__(self, globalname):
-        ptrindex, T = self.globals[globalname]
-        address = self.module.debuginfo_global(ptrindex)
+    def __getitem__(self, globalname_or_address):
+        if isinstance(globalname_or_address, str):
+            ptrindex, T = self.globals[globalname]
+            address = self.module.debuginfo_global(ptrindex)
+        else:
+            for ptrindex, T in self.globals.values():
+                address = self.module.debuginfo_global(ptrindex)
+                if address == globalname_or_address:
+                    break
+            else:
+                raise KeyError("no global object at 0x%x" %
+                               (globalname_or_address,))
         return debugptr(Ptr(T), address, self)
 
     def __iter__(self):

@@ -72,6 +72,14 @@ class Repr:
         else:
             return hop.genop('int_is_true', [vlen], resulttype=Bool)
 
+    def rtype_id(self, hop):
+        if not isinstance(self.lowleveltype, Ptr):
+            raise TyperError('id() of an instance of the non-pointer %r' % (
+                self,))
+        vobj, = hop.inputargs(self)
+        # XXX
+        return hop.genop('cast_ptr_to_int', [vobj], resulttype=Signed)
+
     def rtype_iter(self, hop):
         r_iter = self.make_iterator_repr()
         return r_iter.newiter(hop)
