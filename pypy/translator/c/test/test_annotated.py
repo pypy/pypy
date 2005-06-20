@@ -134,3 +134,10 @@ class TestAnnotatedTestCase:
         for i in range(1, 33):
             perfect = fn(i)
             assert perfect is (i in (6,28))
+
+    def test_prime(self):
+        fn = self.getcompiled(snippet.prime)
+        result = [fn(i) for i in range(1, 21)]
+        assert result == [False, True, True, False, True, False, True, False,
+                          False, False, True, False, True, False, False, False,
+                          True, False, True, False]
