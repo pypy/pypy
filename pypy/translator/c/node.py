@@ -151,8 +151,14 @@ class StructDefNode:
 
     def debug_offsets(self):
         # generate number exprs giving the offset of the elements in the struct
-        for name, typename in self.fields:
-            yield 'offsetof(struct %s, %s)' % (self.name, name)
+        STRUCT = self.STRUCT
+        for name in STRUCT._names:
+            FIELD_T = self.c_struct_field_type(name)
+            if FIELD_T == Void:
+                yield '-1'
+            else:
+                cname = self.c_struct_field_name(name)
+                yield 'offsetof(struct %s, %s)' % (self.name, cname)
 
 
 class ArrayDefNode:
