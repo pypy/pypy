@@ -1,7 +1,7 @@
 import targetrpystonex
 
 
-LOOPS = 1000000
+LOOPS = 1000000000 #10**9
 
 targetrpystonex.rpystone.setslow(False)
 
