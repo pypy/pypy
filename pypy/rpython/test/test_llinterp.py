@@ -26,10 +26,11 @@ def find_exception(exc):
             if func(pyobjectptr(cls)).typeptr == klass:
                 return cls
 
-def gengraph(func, argtypes=[]):
+def gengraph(func, argtypes=[], viewbefore=False):
     t = Translator(func)
     t.annotate(argtypes)
-    #t.view()
+    if viewbefore:
+        t.view()
     global typer # we need it for find_exception
     typer = RPythonTyper(t.annotator)
     typer.specialize()
@@ -37,8 +38,9 @@ def gengraph(func, argtypes=[]):
     t.checkgraphs()
     return t, typer
 
-def interpret(func, values, view=False):
-    t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) for x in values])
+def interpret(func, values, view=False, viewbefore=False):
+    t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) for x in values],
+                        viewbefore)
     if view:
         t.view()
     interp = LLInterpreter(t.flowgraphs, typer)

@@ -56,6 +56,7 @@ class ListRepr(Repr):
             self.LIST.become(GcStruct("list", ("items", Ptr(ITEMARRAY))))
 
     def convert_const(self, listobj):
+        listobj = getattr(listobj, '__self__', listobj) # for bound list methods
         if not isinstance(listobj, list):
             raise TyperError("expected a list: %r" % (listobj,))
         try:

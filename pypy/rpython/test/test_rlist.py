@@ -163,3 +163,10 @@ def test_prebuilt_list():
     assert res == 'k'
     res = interpret(dummyfn, [-2])
     assert res == 'z'
+
+def test_bound_list_method():
+    klist = [1,2,3]
+    # for testing constant methods without actually mutating the constant
+    def dummyfn(n):
+        klist.extend([])
+    interpret(dummyfn, [7])

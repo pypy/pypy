@@ -24,10 +24,12 @@ class __extend__(annmodel.SomeBuiltin):
             return BuiltinMethodRepr(rtyper.getrepr(self.s_self),
                                      self.methodname)
     def rtyper_makekey(self):
-        key = (getattr(self, 'const', None), self.methodname)
-        if self.s_self is not None:
-            key += (self.s_self.rtyper_makekey(),)
-        return key
+        if self.s_self is None:
+            # built-in function case
+            return getattr(self, 'const', None)
+        else:
+            # built-in method case
+            return (self.methodname, self.s_self.rtyper_makekey())
 
 
 class BuiltinFunctionRepr(Repr):
@@ -64,9 +66,10 @@ class BuiltinMethodRepr(Repr):
             raise TyperError("missing %s.%s" % (
                 self.self_repr.__class__.__name__, name))
         # hack based on the fact that 'lowleveltype == self_repr.lowleveltype'
-        assert hop.args_r[0] is self
-        hop.args_r[0] = self.self_repr
-        return bltintyper(hop)
+        hop2 = hop.copy()
+        assert hop2.args_r[0] is self
+        hop2.args_r[0] = self.self_repr
+        return bltintyper(hop2)
 
 
 ##class __extend__(pairtype(SomeBuiltin, SomeObject)):
