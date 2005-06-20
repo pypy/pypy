@@ -438,7 +438,10 @@ class FunctionCodeGenerator:
     def OP_PTR_NONZERO(self, op, err):
         return '%s = (%s != NULL);' % (self.expr(op.result),
                                        self.expr(op.args[0]))
-
+    def OP_PTR_ISZERO(self, op, err):
+        return '%s = (%s == NULL);' % (self.expr(op.result),
+                                       self.expr(op.args[0]))
+    
     def OP_PTR_EQ(self, op, err):
         return '%s = (%s == %s);' % (self.expr(op.result),
                                      self.expr(op.args[0]),

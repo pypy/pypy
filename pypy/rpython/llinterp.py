@@ -209,6 +209,24 @@ class LLFrame(object):
         # well, actually this is what's now in the globals.
         return cast_pointer(tp, obj)
 
+    def op_ptr_eq(self, ptr1, ptr2):
+        assert isinstance(ptr1, _ptr)
+        assert isinstance(ptr2, _ptr)
+        return ptr1 == ptr2
+
+    def op_ptr_ne(self, ptr1, ptr2):
+        assert isinstance(ptr1, _ptr)
+        assert isinstance(ptr2, _ptr)
+        return ptr1 != ptr2
+
+    def op_ptr_nonzero(self, ptr1):
+        assert isinstance(ptr1, _ptr)
+        return bool(ptr1)
+
+    def op_ptr_iszero(self, ptr1):
+        assert isinstance(ptr1, _ptr)
+        return not bool(ptr1)
+
     def op_cast_int_to_float(self, i):
         assert type(i) is int
         return float(i)
@@ -224,6 +242,7 @@ class LLFrame(object):
     def op_cast_bool_to_float(self, b):
         assert type(b) is bool
         return float(b)
+    
 # __________________________________________________________
 # primitive operations
 from pypy.objspace.flow.operation import FunctionByName

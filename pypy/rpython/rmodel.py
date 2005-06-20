@@ -101,6 +101,23 @@ class __extend__(annmodel.SomeImpossibleValue):
     def rtyper_makekey(self):
         return None
 
+# ____ generic binary operations _____________________________
+
+
+class __extend__(pairtype(Repr, Repr)):
+    
+    def rtype_is_((robj1, robj2), hop):
+        if (not isinstance(robj1.lowleveltype, Ptr) or
+            not isinstance(robj2.lowleveltype, Ptr)):
+            raise TyperError('is of instances of the non-pointers: %r, %r' % (
+                robj1, robj2))
+        if robj1.lowleveltype != robj2.lowleveltype:
+            raise TyperError('is of instances of different pointer types: %r, %r' % (
+                robj1, robj2))
+            
+        v_list = hop.inputargs(robj1, robj2)
+        return hop.genop('ptr_eq', v_list, resulttype=Bool)
+
 # ____________________________________________________________
 
 class TyperError(Exception):

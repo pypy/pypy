@@ -170,3 +170,34 @@ def test_bound_list_method():
     def dummyfn(n):
         klist.extend([])
     interpret(dummyfn, [7])
+
+def test_list_is():
+    def dummyfn():
+        l1 = []
+        return l1 is l1
+    res = interpret(dummyfn, [])
+    assert res is True
+    def dummyfn():
+        l2 = [1, 2]
+        return l2 is l2
+    res = interpret(dummyfn, [])
+    assert res is True
+    def dummyfn():
+        l1 = [2]
+        l2 = [1, 2]
+        return l1 is l2
+    res = interpret(dummyfn, [])
+    assert res is False
+    def dummyfn():
+        l1 = [1, 2]
+        l2 = [1, 2]
+        return l1 is l2
+    res = interpret(dummyfn, [])
+    assert res is False
+
+    def dummyfn():
+        l1 = None
+        l2 = [1, 2]
+        return l1 is l2
+    res = interpret(dummyfn, [])
+    assert res is False

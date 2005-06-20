@@ -64,6 +64,20 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
                           1, 9,
                           2, 11, 'h')
 
+    def test_is(self):
+        def testfn():
+            l1 = []
+            return l1 is l1
+        fn = self.getcompiled(testfn)
+        result = fn()
+        assert result is True
+        def testfn():
+            l1 = []
+            return l1 is None
+        fn = self.getcompiled(testfn)
+        result = fn()
+        assert result is False
+        
     def test_slice_long(self):
         "the parent's test_slice_long() makes no sense here"
 

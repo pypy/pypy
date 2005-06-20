@@ -1,9 +1,9 @@
 import types
-from pypy.annotation.pairtype import pairtype
+from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltype import typeOf, Void, ForwardReference, Struct
+from pypy.rpython.lltype import typeOf, Void, ForwardReference, Struct, Bool
 from pypy.rpython.lltype import Ptr, malloc, nullptr
 from pypy.rpython.rmodel import Repr, TyperError
 from pypy.rpython import rclass
@@ -67,6 +67,8 @@ class __extend__(annmodel.SomePBC):
 
 def getFrozenPBCRepr(rtyper, s_pbc):
     if len(s_pbc.prebuiltinstances) <= 1:
+        if s_pbc.const is None:
+            return none_frozen_pbc_repr
         return single_frozen_pbc_repr
     else:
         pbcs = [pbc for pbc in s_pbc.prebuiltinstances.keys()
@@ -95,6 +97,31 @@ class SingleFrozenPBCRepr(Repr):
 
 single_frozen_pbc_repr = SingleFrozenPBCRepr()
 
+# __ None ____________________________________________________
+class NoneFrozenPBCRepr(SingleFrozenPBCRepr):
+    pass
+
+none_frozen_pbc_repr = NoneFrozenPBCRepr()
+
+
+def rtype_is_None(robj1, rnone2, hop, pos=0):
+        if not isinstance(robj1.lowleveltype, Ptr):
+            raise TyperError('is None of instance of the non-pointer: %r' % (robj1))           
+        v1 = hop.inputarg(robj1, pos)
+        return hop.genop('ptr_iszero', [v1], resulttype=Bool)
+    
+class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
+    
+    def rtype_is_((robj1, rnone2), hop):
+        return rtype_is_None(robj1, rnone2, hop)
+
+class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
+
+    def rtype_is_((rnone1, robj2), hop):
+        return rtype_is_None(robj2, rnone1, hop, pos=1)
+        
+
+# ____________________________________________________________
 
 class MultipleFrozenPBCRepr(Repr):
     """Representation selected for multiple non-callable pre-built constants."""
