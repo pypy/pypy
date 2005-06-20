@@ -141,3 +141,20 @@ class TestAnnotatedTestCase:
         assert result == [False, True, True, False, True, False, True, False,
                           False, False, True, False, True, False, False, False,
                           True, False, True, False]
+
+    def test_mutate_global(self):
+        class Stuff:
+            pass
+        g1 = Stuff(); g1.value = 1 
+        g2 = Stuff(); g2.value = 2
+        g3 = Stuff(); g3.value = 3
+        g1.next = g3
+        g2.next = g3
+        g3.next = g3
+        def do_things():
+            g1.next = g1
+            g2.next = g1
+            g3.next = g2
+            return g3.next.next.value
+        fn = self.getcompiled(do_things)
+        assert fn() == 1

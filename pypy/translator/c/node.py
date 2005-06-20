@@ -314,7 +314,7 @@ class StructNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         yield '{'
         if needs_refcount(self.T):
-            yield '\t1,'
+            yield '\tREFCOUNT_IMMORTAL,'
         defnode = self.db.gettypedefnode(self.T)
         for name in self.T._names:
             value = getattr(self.obj, name)
@@ -340,7 +340,7 @@ class ArrayNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         yield '{'
         if needs_refcount(self.T):
-            yield '\t1,'
+            yield '\tREFCOUNT_IMMORTAL,'
         if self.T.OF == Void or len(self.obj.items) == 0:
             yield '\t%d' % len(self.obj.items)
             yield '}'
