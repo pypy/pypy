@@ -2,18 +2,21 @@
 /************************************************************/
  /***  C header subsection: CPython-extension-module-ness  ***/
 
-
-#ifndef COUNT_OP_MALLOCS
-# define MODULE_INITFUNC(modname) \
-	static PyMethodDef my_methods[] = { (char *)NULL, (PyCFunction)NULL }; \
-	PyMODINIT_FUNC init##modname(void)
+#ifdef COUNT_OP_MALLOCS
+# define METHODDEF_MALLOC_COUNTERS	\
+		{ "malloc_counters", malloc_counters, METH_VARARGS },
 #else
-# define MODULE_INITFUNC(modname) \
-	static PyMethodDef my_methods[] = { \
-		{ "malloc_counters", malloc_counters }, \
-		{ (char *)NULL, (PyCFunction)NULL } }; \
-	PyMODINIT_FUNC init##modname(void)
+# define METHODDEF_MALLOC_COUNTERS	/* nothing */
 #endif
+
+#define METHODDEF_DEBUGINFO    /* nothing, unless overridden by g_debuginfo.h */
+
+#define MODULE_INITFUNC(modname)                        \
+	static PyMethodDef my_methods[] = {             \
+		METHODDEF_MALLOC_COUNTERS               \
+		METHODDEF_DEBUGINFO                     \
+		{ (char *)NULL, (PyCFunction)NULL } };  \
+	PyMODINIT_FUNC init##modname(void)
 
 #define SETUP_MODULE(modname)	\
 	PyObject *m = Py_InitModule(#modname, my_methods); \
@@ -26,7 +29,7 @@
 	if (RPythonError == NULL) \
 		return; \
 	PyModule_AddObject(m, "RPythonError", RPythonError); \
-	if (setup_globalfunctions(globalfunctiondefs) < 0) \
+	if (setup_globalfunctions(globalfunctiondefs, #modname) < 0) \
 		return;	\
 	if (setup_initcode(frozen_initcode, FROZEN_INITCODE_SIZE) < 0) \
 		return;	\
@@ -67,12 +70,15 @@ static int setup_globalobjects(globalobjectdef_t* def)
 	return 0;
 }
 
-static int setup_globalfunctions(globalfunctiondef_t* def)
+static int setup_globalfunctions(globalfunctiondef_t* def, char* modname)
 {
 	PyObject* fn;
+	PyObject* modname_o = PyString_FromString(modname);
+	if (modname_o == NULL)
+		return -1;
 
 	for (; def->p != NULL; def++) {
-		fn = PyCFunction_New(&def->ml, NULL);
+		fn = PyCFunction_NewEx(&def->ml, NULL, modname_o);
 		if (fn == NULL)
 			return -1;
 		fn->ob_type = &PyGenCFunction_Type;

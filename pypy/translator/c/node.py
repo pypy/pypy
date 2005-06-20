@@ -26,6 +26,7 @@ class StructDefNode:
     def __init__(self, db, STRUCT, varlength=1):
         self.db = db
         self.STRUCT = STRUCT
+        self.LLTYPE = STRUCT
         self.varlength = varlength
 
     def setup(self):
@@ -148,6 +149,11 @@ class StructDefNode:
                                         FIELD_T):
                 yield line
 
+    def debug_offsets(self):
+        # generate number exprs giving the offset of the elements in the struct
+        for name, typename in self.fields:
+            yield 'offsetof(struct %s, %s)' % (self.name, name)
+
 
 class ArrayDefNode:
     refcount = None
@@ -156,6 +162,7 @@ class ArrayDefNode:
     def __init__(self, db, ARRAY, varlength=1):
         self.db = db
         self.ARRAY = ARRAY
+        self.LLTYPE = ARRAY
         self.varlength = varlength
 
     def setup(self):
@@ -224,6 +231,16 @@ class ArrayDefNode:
             yield '\t\t%s++;' % varname
             yield '\t}'
             yield '}'
+
+    def debug_offsets(self):
+        # generate three offsets for debugging inspection
+        yield 'offsetof(struct %s, length)' % (self.name,)
+        if self.ARRAY.OF != Void:
+            yield 'offsetof(struct %s, items[0])' % (self.name,)
+            yield 'offsetof(struct %s, items[1])' % (self.name,)
+        else:
+            yield '-1'
+            yield '-1'
 
 
 def generic_dealloc(db, expr, T):
@@ -446,6 +463,7 @@ class OpaqueNode(ContainerNode):
         assert T == RuntimeTypeInfo
         assert isinstance(obj.about, GcStruct)
         self.db = db
+        self.T = T
         self.obj = obj
         defnode = db.gettypedefnode(obj.about)
         self.implementationtypename = 'void (@)(struct %s *)' % (

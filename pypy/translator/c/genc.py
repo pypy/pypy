@@ -16,7 +16,8 @@ def translator2database(translator):
     return db, pf
 
 
-def genc(translator, targetdir=None, modulename=None, compile=True):
+def genc(translator, targetdir=None, modulename=None, compile=True,
+                                                      symtable=True):
     """Generate C code starting at the translator's entry point.
     The files are written to the targetdir if specified.
     If 'compile' is True, compile and return the new module.
@@ -31,12 +32,19 @@ def genc(translator, targetdir=None, modulename=None, compile=True):
     elif isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
     targetdir.ensure(dir=1)
+    if symtable:
+        from pypy.translator.c.symboltable import SymbolTable
+        symboltable = SymbolTable()
+    else:
+        symboltable = None
     cfile = gen_source(db, modulename, targetdir,
                        # defines={'COUNT_OP_MALLOCS': 1},
-                       exports = {translator.entrypoint.func_name: pf})
+                       exports = {translator.entrypoint.func_name: pf},
+                       symboltable = symboltable)
     if not compile:
         return cfile
     m = make_module_from_c(cfile, include_dirs = [autopath.this_dir])
+    symboltable.attach(m)   # hopefully temporary hack
     return m
 
 
@@ -87,7 +95,8 @@ def gen_readable_parts_of_main_c_file(f, database):
             blank = True
 
 
-def gen_source(database, modulename, targetdir, defines={}, exports={}):
+def gen_source(database, modulename, targetdir, defines={}, exports={},
+                                                symboltable=None):
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
     filename = targetdir.join(modulename + '.c')
@@ -105,6 +114,27 @@ def gen_source(database, modulename, targetdir, defines={}, exports={}):
     # 2) Implementation of functions and global structures and arrays
     #
     gen_readable_parts_of_main_c_file(f, database)
+
+    #
+    # Debugging info
+    #
+    if symboltable:
+        print >> f
+        print >> f, '/*******************************************************/'
+        print >> f, '/***  Debugging info                                 ***/'
+        print >> f
+        print >> f, 'static int debuginfo_offsets[] = {'
+        for node in database.structdeflist:
+            for expr in symboltable.generate_type_info(database, node):
+                print >> f, '\t%s,' % expr
+        print >> f, '\t0 };'
+        print >> f, 'static void *debuginfo_globals[] = {'
+        for node in database.globalcontainers():
+            if not isinstance(node, PyObjectNode):
+                result = symboltable.generate_global_info(database, node)
+                print >> f, '\t%s,' % (result,)
+        print >> f, '\tNULL };'
+        print >> f, '#include "g_debuginfo.h"'
 
     #
     # PyObject support (strange) code
