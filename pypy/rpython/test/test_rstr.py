@@ -53,6 +53,23 @@ def test_concat():
             res = ev_fn(i, j)
             assert ''.join(res.chars) == fn(i, j)
 
+def test_iter():
+    def fn(i):
+        s = ['', 'a', 'hello'][i]
+        i = 0
+        for c in s:
+            if c != s[i]:
+                return False
+            i += 1
+        if i == len(s):
+            return True
+        return False
+
+    ev_fn = make_interpreter(fn, [0])    
+    for i in range(3):
+        res = ev_fn(i)
+        assert res is True
+        
 def test_char_constant():
     def fn(s):
         return s + '.'
@@ -89,6 +106,47 @@ def test_str_compare():
         for j in range(6):
             res = ev_fn(i, j)
             assert res is fn(i, j)
+
+    def fn(i, j):
+        s1 = ['one', 'two']
+        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+        return s1[i] < s2[j]
+    ev_fn = make_interpreter(fn, [0,0])    
+    for i in range(2):
+        for j in range(6):
+            res = ev_fn(i, j)
+            assert res is fn(i, j)
+
+    def fn(i, j):
+        s1 = ['one', 'two']
+        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+        return s1[i] <= s2[j]
+    ev_fn = make_interpreter(fn, [0,0])    
+    for i in range(2):
+        for j in range(6):
+            res = ev_fn(i, j)
+            assert res is fn(i, j)
+
+    def fn(i, j):
+        s1 = ['one', 'two']
+        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+        return s1[i] >= s2[j]
+    ev_fn = make_interpreter(fn, [0,0])    
+    for i in range(2):
+        for j in range(6):
+            res = ev_fn(i, j)
+            assert res is fn(i, j)
+
+    def fn(i, j):
+        s1 = ['one', 'two']
+        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+        return s1[i] > s2[j]
+    ev_fn = make_interpreter(fn, [0,0])    
+    for i in range(2):
+        for j in range(6):
+            res = ev_fn(i, j)
+            assert res is fn(i, j)
+
 
 def test_startswith():
     def fn(i, j):

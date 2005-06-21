@@ -88,10 +88,51 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
             for j in range(6):
                 res = fn(i, j)
                 assert res is testfn(i, j)
+
         def testfn(i=int, j=int):
             s1 = ['one', 'two']
             s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
             return s1[i] != s2[j]
+        fn = self.getcompiled(testfn)
+        for i in range(2):
+            for j in range(6):
+                res = fn(i, j)
+                assert res is testfn(i, j)
+                
+        def testfn(i=int, j=int):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+            return s1[i] < s2[j]
+        fn = self.getcompiled(testfn)
+        for i in range(2):
+            for j in range(6):
+                res = fn(i, j)
+                assert res is testfn(i, j)
+                
+        def testfn(i=int, j=int):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+            return s1[i] <= s2[j]
+        fn = self.getcompiled(testfn)
+        for i in range(2):
+            for j in range(6):
+                res = fn(i, j)
+                assert res is testfn(i, j)
+                
+        def testfn(i=int, j=int):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+            return s1[i] > s2[j]
+        fn = self.getcompiled(testfn)
+        for i in range(2):
+            for j in range(6):
+                res = fn(i, j)
+                assert res is testfn(i, j)
+                
+        def testfn(i=int, j=int):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+            return s1[i] >= s2[j]
         fn = self.getcompiled(testfn)
         for i in range(2):
             for j in range(6):

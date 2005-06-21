@@ -98,6 +98,9 @@ class __extend__(StringRepr):
         v_str, v_lst = hop.inputargs(string_repr, r_lst)
         return hop.gendirectcall(ll_join, v_str, v_lst)
         
+    def make_iterator_repr(self):
+        return string_iterator_repr
+
 class __extend__(pairtype(StringRepr, IntegerRepr)):
     def rtype_getitem(_, hop):
         v_str, v_index = hop.inputargs(string_repr, Signed)
@@ -122,7 +125,31 @@ class __extend__(pairtype(StringRepr, StringRepr)):
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         vres = hop.gendirectcall(ll_streq, v_str1, v_str2)
         return hop.genop('bool_not', [vres], resulttype=Bool)
-    
+
+    def rtype_lt(_, hop):
+        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        vres = hop.gendirectcall(ll_strcmp, v_str1, v_str2)
+        return hop.genop('int_lt', [vres, hop.inputconst(Signed, 0)],
+                         resulttype=Bool)
+
+    def rtype_le(_, hop):
+        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        vres = hop.gendirectcall(ll_strcmp, v_str1, v_str2)
+        return hop.genop('int_le', [vres, hop.inputconst(Signed, 0)],
+                         resulttype=Bool)
+
+    def rtype_ge(_, hop):
+        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        vres = hop.gendirectcall(ll_strcmp, v_str1, v_str2)
+        return hop.genop('int_ge', [vres, hop.inputconst(Signed, 0)],
+                         resulttype=Bool)
+
+    def rtype_gt(_, hop):
+        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        vres = hop.gendirectcall(ll_strcmp, v_str1, v_str2)
+        return hop.genop('int_gt', [vres, hop.inputconst(Signed, 0)],
+                         resulttype=Bool)
+
 class __extend__(CharRepr):
 
     def convert_const(self, value):
@@ -258,6 +285,24 @@ def ll_strconcat(s1, s2):
         j += 1
     return newstr
 
+def ll_strcmp(s1, s2):
+    chars1 = s1.chars
+    chars2 = s2.chars
+    len1 = len(chars1)
+    len2 = len(chars2)
+
+    if len1 < len2:
+        cmplen = len1
+    else:
+        cmplen = len2
+    i = 0
+    while i < cmplen:
+        diff = ord(chars1[i]) - ord(chars2[i])
+        if diff != 0:
+            return diff
+        i += 1
+    return len1 - len2
+
 def ll_streq(s1, s2):
     len1 = len(s1.chars)
     len2 = len(s2.chars)
@@ -346,3 +391,35 @@ def ll_join(s, l):
             res_index += 1
         i += 1
     return result
+
+# ____________________________________________________________
+#
+#  Iteration.
+
+class StringIteratorRepr(Repr):
+    lowleveltype = Ptr(GcStruct('stringiter',
+                                ('string', string_repr.lowleveltype),
+                                ('index', Signed)))
+    def newiter(self, hop):
+        v_str, = hop.inputargs(string_repr)
+        return hop.gendirectcall(ll_striter, v_str)
+
+    def rtype_next(self, hop):
+        v_iter, = hop.inputargs(self)
+        return hop.gendirectcall(ll_strnext, v_iter)
+
+string_iterator_repr = StringIteratorRepr()
+
+def ll_striter(string):
+    iter = malloc(string_iterator_repr.lowleveltype.TO)
+    iter.string = string
+    iter.index = 0
+    return iter
+
+def ll_strnext(iter):
+    chars = iter.string.chars
+    index = iter.index
+    if index >= len(chars):
+        raise StopIteration
+    iter.index = index + 1
+    return chars[index]

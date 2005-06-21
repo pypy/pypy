@@ -247,6 +247,10 @@ class LLFrame(object):
         assert type(b) is bool
         return not b
     
+    def op_cast_char_to_int(self, b):
+        assert type(b) is str and len(b) == 1
+        return ord(b)
+
 # __________________________________________________________
 # primitive operations
 from pypy.objspace.flow.operation import FunctionByName
