@@ -110,8 +110,13 @@ def Proc0(loops=LOOPS):
     #global PtrGlbNext
 
     starttime = clock()
-    for i in range(loops):
-        pass
+    #for i in range(loops):
+    # this is bad with very large values of loops
+    # XXX xrange support?
+    i = 0
+    while i < loops:
+        i += 1
+    # the above is most likely to vanish in C :-(
     nulltime = clock() - starttime
 
     g.PtrGlbNext = Record()
@@ -127,7 +132,11 @@ def Proc0(loops=LOOPS):
     EnumLoc = None # addition for flow space
     starttime = clock()
 
-    for i in range(loops):
+    #for i in range(loops):
+    # this is bad with very large values of loops
+    # XXX xrange support?
+    i = 0
+    while i < loops:
         if XP5:Proc5()
         if XP4:Proc4()
         IntLoc1 = 2
@@ -150,6 +159,7 @@ def Proc0(loops=LOOPS):
         IntLoc2 = IntLoc3 / IntLoc1
         IntLoc2 = 7 * (IntLoc3 - IntLoc2) - IntLoc1
         if XP2:IntLoc1 = Proc2(IntLoc1)
+        i += 1
 
     benchtime = clock() - starttime - nulltime
     return benchtime, (loops / benchtime)
