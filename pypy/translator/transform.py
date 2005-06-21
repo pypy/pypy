@@ -32,20 +32,19 @@ def fully_annotated_blocks(self):
 def transform_allocate(self, block_subset):
     """Transforms [a] * b to alloc_and_set(b, a) where b is int."""
     for block in block_subset:
-        operations = block.operations[:]
-        n_op = len(operations)
-        for i in range(0, n_op-1):
-            op1 = operations[i]
-            op2 = operations[i+1]
-            if (op1.opname == 'newlist' and
-                len(op1.args) == 1 and
-                op2.opname == 'mul' and
-                op1.result is op2.args[0] and
-                self.gettype(op2.args[1]) is int):
+        length1_lists = {}   # maps 'c' to 'a', in the above notation
+        for i in range(len(block.operations)):
+            op = block.operations[i]
+            if (op.opname == 'newlist' and
+                len(op.args) == 1):
+                length1_lists[op.result] = op.args[0]
+            elif (op.opname == 'mul' and
+                  op.args[0] in length1_lists and
+                  self.gettype(op.args[1]) is int):
                 new_op = SpaceOperation('alloc_and_set',
-                                        (op2.args[1], op1.args[0]),
-                                        op2.result)
-                block.operations[i+1:i+2] = [new_op]
+                                        (op.args[1], length1_lists[op.args[0]]),
+                                        op.result)
+                block.operations[i] = new_op
 
 # a[b:c]
 # -->
