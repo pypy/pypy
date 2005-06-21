@@ -291,6 +291,9 @@ class __extend__(SomeString):
 
     def method_join(str, s_list):
         getbookkeeper().count("str_join", str)
+        s_item = s_list.listdef.read_item()
+        if s_item == SomeImpossibleValue():
+            return immutablevalue("")            
         return SomeString()
 
     def iter(str):
