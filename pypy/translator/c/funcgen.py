@@ -77,9 +77,9 @@ class FunctionCodeGenerator:
         v, T, typename = self.lltypes[id(v)]
         return typename
 
-    def expr(self, v):
+    def expr(self, v, special_case_void=True):
         if isinstance(v, Variable):
-            if self.lltypemap(v) == Void:
+            if self.lltypemap(v) == Void and special_case_void:
                 return '/* nothing */'
             else:
                 return v.name
@@ -366,10 +366,11 @@ class FunctionCodeGenerator:
 
     # low-level operations
     def generic_get(self, op, sourceexpr):
-        newvalue = self.expr(op.result)
+        T = self.lltypemap(op.result)
+        newvalue = self.expr(op.result, special_case_void=False)
         result = ['%s = %s;' % (newvalue, sourceexpr)]
         # need to adjust the refcount of the result
-        T = self.lltypemap(op.result)
+
         increfstmt = self.db.cincrefstmt(newvalue, T)
         if increfstmt:
             result.append(increfstmt)
@@ -379,7 +380,7 @@ class FunctionCodeGenerator:
         return result
 
     def generic_set(self, op, targetexpr):
-        newvalue = self.expr(op.args[2])
+        newvalue = self.expr(op.args[2], special_case_void=False)
         result = ['%s = %s;' % (targetexpr, newvalue)]
         # need to adjust some refcounts
         T = self.lltypemap(op.args[2])
