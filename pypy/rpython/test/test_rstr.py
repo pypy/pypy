@@ -1,64 +1,62 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import interpret, make_interpreter
 
 
 def test_simple():
-    def dummyfn(i):
+    def fn(i):
         s = 'hello'
         return s[i]
-
-    t = Translator(dummyfn)
-    t.annotate([int])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
+    ev_fn = make_interpreter(fn, [0])
+    for i in range(5):
+        res = ev_fn(i)
+        assert res == 'hello'[i]
 
 
 def test_nonzero():
-    def dummyfn(i, s):
+    def fn(i, j):
+        s = ['', 'xx'][j]
         if i < 0:
             s = None
         if i > -2:
             return bool(s)
         else:
             return False
-
-    t = Translator(dummyfn)
-    t.annotate([int, str])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
+    ev_fn = make_interpreter(fn, [0, 0])
+    for i in [-2, -1, 0]:
+        for j in range(2):
+            res = ev_fn(i, j)
+            assert res is fn(i, j)
 
 def test_hash():
-    def dummyfn(s):
+    def fn(i):
+        if i == 0:
+            s = ''
+        else:
+            s = "xxx"
         return hash(s)
-
-    t = Translator(dummyfn)
-    t.annotate([str])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
+    ev_fn = make_interpreter(fn, [0])
+    res = ev_fn(0)
+    assert res == -1
+    res = ev_fn(1)
+    assert typeOf(res) == Signed
 
 def test_concat():
-    def dummyfn(s1, s2):
-        return s1 + s2
-
-    t = Translator(dummyfn)
-    t.annotate([str, str])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
+    def fn(i, j):
+        s1 = ['', 'a', 'ab']
+        s2 = ['', 'x', 'xy']
+        return s1[i] + s2[j]
+    ev_fn = make_interpreter(fn, [0,0])    
+    for i in range(3):
+        for j in range(3):
+            res = ev_fn(i, j)
+            assert ''.join(res.chars) == fn(i, j)
 
 def test_char_constant():
-    def dummyfn(s):
+    def fn(s):
         return s + '.'
-    res = interpret(dummyfn, ['x'])
+    res = interpret(fn, ['x'])
     assert len(res.chars) == 2
     assert res.chars[0] == 'x'
     assert res.chars[1] == '.'
@@ -76,18 +74,20 @@ def test_str_compare():
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] == s2[j]
+    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(6):
-            res = interpret(fn, [i, j])
+            res = ev_fn(i, j)            
             assert res is fn(i, j)
 
     def fn(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] != s2[j]
+    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(6):
-            res = interpret(fn, [i, j])
+            res = ev_fn(i, j)
             assert res is fn(i, j)
 
 def test_startswith():
@@ -95,9 +95,10 @@ def test_startswith():
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
         return s1[i].startswith(s2[j])
+    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(9):
-            res = interpret(fn, [i, j])
+            res = ev_fn(i, j)
             assert res is fn(i, j)
 
 def test_endswith():
@@ -105,9 +106,10 @@ def test_endswith():
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
         return s1[i].endswith(s2[j])
+    ev_fn = make_interpreter(fn, [0,0])
     for i in range(2):
         for j in range(9):
-            res = interpret(fn, [i, j])
+            res = ev_fn(i, j)
             assert res is fn(i, j)
 
 def test_join():
@@ -118,8 +120,8 @@ def test_join():
         s1 = [ '', ',', ' and ']
         s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
         return s1[i].join(s2[j])
-
+    ev_fn = make_interpreter(fn, [0,0])
     for i in range(3):
         for j in range(3):
-            res = interpret(fn, [i, j])
+            res = ev_fn(i, j)
             assert ''.join(res.chars) == fn(i, j)
