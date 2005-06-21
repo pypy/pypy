@@ -265,7 +265,10 @@ class RPythonTyper:
                 if not hop.s_result.is_constant():
                     raise TyperError("the annotator doesn't agree that '%s' "
                                      "returns a constant" % op.opname)
-                if resultvar.value != hop.s_result.const:
+                # xxx allow not only primitive const to be returned, but we don't have
+                # general equality for non-primitive ll constant objects;
+                # works for strings tough
+                if resultvar.value != inputconst(hop.r_result, hop.s_result.const).value:
                     raise TyperError("constant mismatch: %r vs %r" % (
                         resultvar.value, hop.s_result.const))
             resulttype = resultvar.concretetype
