@@ -80,7 +80,24 @@ class __extend__(StringRepr):
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(ll_strhash, v_str)
 
+    def rtype_method_startswith(_, hop):
+        v_str, v_value = hop.inputargs(string_repr, string_repr)
+        return hop.gendirectcall(ll_startswith, v_str, v_value)
 
+    def rtype_method_endswith(_, hop):
+        v_str, v_value = hop.inputargs(string_repr, string_repr)
+        return hop.gendirectcall(ll_endswith, v_str, v_value)
+
+    def rtype_method_join(_, hop):
+        r_lst = hop.args_r[1]
+        s_item = r_lst.listitem.s_value
+        if s_item == annmodel.SomeImpossibleValue():
+            return inputconst(string_repr, "")
+        elif not s_item.__class__ == annmodel.SomeString:
+            raise TyperError("join of non-string list: %r" % r_lst)
+        v_str, v_lst = hop.inputargs(string_repr, r_lst)
+        return hop.gendirectcall(ll_join, v_str, v_lst)
+        
 class __extend__(pairtype(StringRepr, IntegerRepr)):
     def rtype_getitem(_, hop):
         v_str, v_index = hop.inputargs(string_repr, Signed)
@@ -241,7 +258,6 @@ def ll_strconcat(s1, s2):
         j += 1
     return newstr
 
-    
 def ll_streq(s1, s2):
     len1 = len(s1.chars)
     len2 = len(s2.chars)
@@ -256,3 +272,77 @@ def ll_streq(s1, s2):
         j += 1
 
     return True
+
+def ll_startswith(s1, s2):
+    len1 = len(s1.chars)
+    len2 = len(s2.chars)
+    if len1 < len2:
+        return False
+    j = 0
+    chars1 = s1.chars
+    chars2 = s2.chars
+    while j < len2:
+        if chars1[j] != chars2[j]:
+            return False
+        j += 1
+
+    return True
+
+def ll_endswith(s1, s2):
+    len1 = len(s1.chars)
+    len2 = len(s2.chars)
+    if len1 < len2:
+        return False
+    j = 0
+    chars1 = s1.chars
+    chars2 = s2.chars
+    offset = len1 - len2
+    while j < len2:
+        if chars1[offset + j] != chars2[j]:
+            return False
+        j += 1
+
+    return True
+
+emptystr = string_repr.convert_const("")
+
+def ll_join(s, l):
+    s_chars = s.chars
+    s_len = len(s_chars)
+    items = l.items
+    num_items = len(items)
+    if num_items == 0:
+        return emptystr
+    itemslen = 0
+    i = 0
+    while i < num_items:
+        itemslen += len(items[i].chars)
+        i += 1
+    result = malloc(STR, itemslen + s_len * (num_items - 1))
+    res_chars = result.chars
+    res_index = 0
+    i = 0
+    item_chars = items[i].chars
+    item_len = len(item_chars)
+    j = 0
+    while j < item_len:
+        res_chars[res_index] = item_chars[j]
+        j += 1
+        res_index += 1
+    i += 1
+    while i < num_items:
+        j = 0
+        while j < s_len:
+            res_chars[res_index] = s_chars[j]
+            j += 1
+            res_index += 1
+
+        item_chars = items[i].chars
+        item_len = len(item_chars)
+        j = 0
+        while j < item_len:
+            res_chars[res_index] = item_chars[j]
+            j += 1
+            res_index += 1
+        i += 1
+    return result

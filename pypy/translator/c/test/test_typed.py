@@ -98,6 +98,37 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
                 res = fn(i, j)
                 assert res is testfn(i, j)
                 
+    def test_str_methods(self):
+        def testfn(i=int, j=int):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
+            return s1[i].startswith(s2[j])
+        fn = self.getcompiled(testfn)
+        for i in range(2):
+            for j in range(9):
+                res = fn(i, j)
+                assert res is testfn(i, j)
+        def testfn(i=int, j=int):
+            s1 = ['one', 'two']
+            s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
+            return s1[i].endswith(s2[j])
+        fn = self.getcompiled(testfn)
+        for i in range(2):
+            for j in range(9):
+                res = fn(i, j)
+                assert res is testfn(i, j)
+
+    def test_str_join(self):
+        def testfn(i=int, j=int):
+            s1 = [ '', ',', ' and ']
+            s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
+            return s1[i].join(s2[j])
+        fn = self.getcompiled(testfn)
+        for i in range(3):
+            for j in range(3):
+                res = fn(i, j)
+                assert res == fn(i, j)
+
     def test_slice_long(self):
         "the parent's test_slice_long() makes no sense here"
 

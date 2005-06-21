@@ -90,3 +90,36 @@ def test_str_compare():
             res = interpret(fn, [i, j])
             assert res is fn(i, j)
 
+def test_startswith():
+    def fn(i, j):
+        s1 = ['one', 'two']
+        s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
+        return s1[i].startswith(s2[j])
+    for i in range(2):
+        for j in range(9):
+            res = interpret(fn, [i, j])
+            assert res is fn(i, j)
+
+def test_endswith():
+    def fn(i, j):
+        s1 = ['one', 'two']
+        s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
+        return s1[i].endswith(s2[j])
+    for i in range(2):
+        for j in range(9):
+            res = interpret(fn, [i, j])
+            assert res is fn(i, j)
+
+def test_join():
+    res = interpret(lambda: ''.join([]), [])
+    assert ''.join(res.chars) == ""
+    
+    def fn(i, j):
+        s1 = [ '', ',', ' and ']
+        s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
+        return s1[i].join(s2[j])
+
+    for i in range(3):
+        for j in range(3):
+            res = interpret(fn, [i, j])
+            assert ''.join(res.chars) == fn(i, j)
