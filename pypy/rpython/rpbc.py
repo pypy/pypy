@@ -355,30 +355,26 @@ class MethodsPBCRepr(Repr):
                              "methods can be found: %r" % (
                 s_pbc.prebuiltinstances,))
         # the low-level representation is just the bound 'self' argument.
-        self.r_instance = rclass.getinstancerepr(rtyper, self.classdef)
-        self.lowleveltype = self.r_instance.lowleveltype
+        self.s_im_self = annmodel.SomeInstance(self.classdef)
+        self.r_im_self = rclass.getinstancerepr(rtyper, self.classdef)
+        self.lowleveltype = self.r_im_self.lowleveltype
 
     def rtype_simple_call(self, hop):
-        # XXX the graph of functions used as methods may need to be hacked
-        # XXX so that its 'self' argument accepts a pointer to an instance of
-        # XXX the common base class.  This is needed to make the direct_call
-        # XXX below well-typed.
-        r_class = self.r_instance.rclass
+        r_class = self.r_im_self.rclass
         mangled_name, r_func = r_class.clsfields[self.methodname]
         assert isinstance(r_func, FunctionsPBCRepr)
-        #
-        # XXX try to unify with FunctionsPBCRepr.rtype_simple_call()
-        f, rinputs, rresult = r_func.function_signatures.itervalues().next()
-        vlist = hop.inputargs(self, *rinputs[1:])  # ignore the self from r_func
-        if r_func.lowleveltype == Void:
-            assert len(r_func.function_signatures) == 1
-            vfunc = hop.inputconst(typeOf(f), f)
-        else:
-            vinst = vlist[0]
-            vcls = self.r_instance.getfield(vinst, '__class__', hop.llops)
-            vfunc = r_class.getclsfield(vcls, self.methodname, hop.llops)
-        vlist.insert(0, vfunc)
-        return hop.genop('direct_call', vlist, resulttype = rresult)
+        s_func = r_func.s_pbc
+
+        hop2 = hop.copy()
+        hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
+        hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
+
+        v_im_self = hop.inputarg(self, arg=0)
+        v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
+        v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
+        hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
+        # now hop2 looks like simple_call(function, self, args...)
+        return hop2.dispatch()
 
 
 # ____________________________________________________________

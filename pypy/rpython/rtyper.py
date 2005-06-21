@@ -417,9 +417,10 @@ class HighLevelOp(object):
     inputconst = staticmethod(inputconst)    # export via the HighLevelOp class
 
     def inputargs(self, *converted_to):
-        assert len(converted_to) == self.nb_args, (
-            "operation argument count mismatch: '%s' has %d arguments" % (
-            self.spaceop.opname, self.nb_args))
+        if len(converted_to) != self.nb_args:
+            raise TyperError("operation argument count mismatch:\n"
+                             "'%s' has %d arguments, rtyper wants %d" % (
+                self.spaceop.opname, self.nb_args, len(converted_to)))
         vars = []
         for i in range(len(converted_to)):
             vars.append(self.inputarg(converted_to[i], i))
