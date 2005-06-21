@@ -145,6 +145,10 @@
 #define OP_CAST_INT_TO_CHAR(x,r,err)    r = (char)(x);
 #define OP_CAST_PTR_TO_INT(x,r,err)     r = (long)(x);    /* XXX */
 
+/* bool operations */
+
+#define OP_BOOL_NOT(x, r, err) r = !(x);
+
 /* _________________ certain implementations __________________ */
 
 #ifndef HAVE_LONG_LONG

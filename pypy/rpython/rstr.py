@@ -97,6 +97,15 @@ class __extend__(pairtype(StringRepr, StringRepr)):
         return hop.gendirectcall(ll_strconcat, v_str1, v_str2)
     rtype_inplace_add = rtype_add
 
+    def rtype_eq(_, hop):
+        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        return hop.gendirectcall(ll_streq, v_str1, v_str2)
+    
+    def rtype_ne(_, hop):
+        v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
+        vres = hop.gendirectcall(ll_streq, v_str1, v_str2)
+        return hop.genop('bool_not', [vres], resulttype=Bool)
+    
 class __extend__(CharRepr):
 
     def convert_const(self, value):
@@ -233,3 +242,17 @@ def ll_strconcat(s1, s2):
     return newstr
 
     
+def ll_streq(s1, s2):
+    len1 = len(s1.chars)
+    len2 = len(s2.chars)
+    if len1 != len2:
+        return False
+    j = 0
+    chars1 = s1.chars
+    chars2 = s2.chars
+    while j < len1:
+        if chars1[j] != chars2[j]:
+            return False
+        j += 1
+
+    return True

@@ -231,17 +231,21 @@ class LLFrame(object):
         assert type(i) is int
         return float(i)
 
-    def op_cast_bool_to_int(self, b):
-        assert type(b) is bool
-        return int(b)
-
     def op_cast_int_to_char(self, b):
         assert type(b) is int
         return chr(b)
 
+    def op_cast_bool_to_int(self, b):
+        assert type(b) is bool
+        return int(b)
+
     def op_cast_bool_to_float(self, b):
         assert type(b) is bool
         return float(b)
+
+    def op_bool_not(self, b):
+        assert type(b) is bool
+        return not b
     
 # __________________________________________________________
 # primitive operations

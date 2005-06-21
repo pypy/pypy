@@ -70,3 +70,23 @@ def test_char_compare():
     assert res is True
     res = interpret(lambda c1, c2: c1 <= c2,  ['z', 'a'])
     assert res is False
+
+def test_str_compare():
+    def fn(i, j):
+        s1 = ['one', 'two']
+        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+        return s1[i] == s2[j]
+    for i in range(2):
+        for j in range(6):
+            res = interpret(fn, [i, j])
+            assert res is fn(i, j)
+
+    def fn(i, j):
+        s1 = ['one', 'two']
+        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+        return s1[i] != s2[j]
+    for i in range(2):
+        for j in range(6):
+            res = interpret(fn, [i, j])
+            assert res is fn(i, j)
+
