@@ -1,10 +1,11 @@
 
 import py
-from pypy.rpython.lltype import typeOf
+from pypy.rpython.lltype import typeOf,pyobjectptr
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.llinterp import LLInterpreter, LLException
+from pypy.rpython.llinterp import LLInterpreter, LLException,log
 from pypy.translator.translator import Translator
-from pypy.rpython.lltype import pyobjectptr
+from pypy.rpython.rlist import *
+from pypy.rpython.rint import signed_repr
 from pypy.annotation.model import lltype_to_annotation
 
 # switch on logging of interp to show more info on failing tests
@@ -174,6 +175,42 @@ def test_list_multiply():
     res = interpret(f, [3])
     assert res == 3
 
+def test_unicode():
+    def f():
+        return u'Hello world'
+    res = interpret(f,[])
+    
+    assert res._obj.value == u'Hello world'
+    
+##def test_unicode_split():
+##    def f():
+##        res = u'Hello world'.split()
+##        return u' '.join(res)
+##    res = interpret(f,[],True)
+##    
+##    assert res == u'Hello world'
+
+def test_list_reverse():
+    def f():
+        l = [1,2,3]
+        l.reverse()
+        return l
+    res = interpret(f,[])
+    assert len(res.items) == len([3,2,1])
+    print res
+    for i in range(3):
+        assert res.items[i] == 3-i
+        
+def test_list_pop():
+    def f():
+        l = [1,2,3]
+        l1 = l.pop(2)
+        l2 = l.pop(1)
+        l3 = l.pop(-1)
+        return [l1,l2,l3]
+    res = interpret(f,[])
+    assert len(res.items) == 3
+    
 #__________________________________________________________________
 #
 #  Test objects and instances
