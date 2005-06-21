@@ -263,6 +263,7 @@ def generic_dealloc(db, expr, T):
 
 
 class ContainerNode:
+    includes = ()
 
     def __init__(self, db, T, obj):
         self.db = db
@@ -396,10 +397,13 @@ class FuncNode(ContainerNode):
         self.obj = obj
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
-        argnames = self.funcgen.argnames()
-        self.implementationtypename = db.gettype(T, argnames=argnames)
+        if self.funcgen:
+            argnames = self.funcgen.argnames()
+            self.implementationtypename = db.gettype(T, argnames=argnames)
         self.name = db.namespace.uniquename('g_' + self.basename())
         self.ptrname = self.name
+        if hasattr(obj, 'includes'):
+            self.includes = obj.includes
 
     def basename(self):
         return self.obj._name
@@ -407,8 +411,16 @@ class FuncNode(ContainerNode):
     def enum_dependencies(self):
         return self.funcgen.allconstantvalues()
 
+    def forward_declaration(self):
+        if self.funcgen:
+            return ContainerNode.forward_declaration(self)
+        else:
+            return []
+
     def implementation(self):
         funcgen = self.funcgen
+        if funcgen is None:
+            return
         yield '%s {' % cdecl(self.implementationtypename, self.name)
         #
         # declare the local variables
@@ -456,7 +468,10 @@ def select_function_code_generator(fnptr, db):
         cpython_exc = getattr(fnptr, 'exception_policy', None) == "CPython"
         return FunctionCodeGenerator(fnptr.graph, db, cpython_exc)
     elif getattr(fnptr, 'external', None) == 'C':
-        return CExternalFunctionCodeGenerator(fnptr, db)
+        if getattr(fnptr, 'includes', None):
+            return None   # assume no wrapper needed
+        else:
+            return CExternalFunctionCodeGenerator(fnptr, db)
     else:
         raise ValueError, "don't know how to generate code for %r" % (fnptr,)
 

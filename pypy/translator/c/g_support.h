@@ -369,5 +369,9 @@ static int PyTuple_SetItem_WithIncref(PyObject *tuple, int index, PyObject *o)
 	return PyTuple_SetItem(tuple, index, o);
 }
 
-#define PyString_FromRPythonCharArrayAndSize(itemsarray, size) \
+#define PyString_FromLLCharArrayAndSize(itemsarray, size) \
 		PyString_FromStringAndSize(itemsarray->items, size)
+
+#define PyString_ToLLCharArray(s, itemsarray)                           \
+		memcpy(itemsarray->items, PyString_AS_STRING(s),        \
+                       itemsarray->length)

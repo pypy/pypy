@@ -2,7 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython import lltype
 from pypy.rpython import rarithmetic
-from pypy.rpython.lltype import Void, Signed, Ptr, RuntimeTypeInfo
+from pypy.rpython.lltype import Void, Signed, Float, Ptr, RuntimeTypeInfo
 from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range
 from pypy.rpython.rmodel import Repr, TyperError
@@ -161,5 +161,12 @@ def rtype_time_clock(hop):
 
 BUILTIN_TYPER[time.clock] = rtype_time_clock
     
+import math
 
+def rtype_math_exp(hop):
+    vlist = hop.inputargs(Float)
+    # XXX need PyFPE_START_PROTECT/PyFPE_END_PROTECT/Py_SET_ERRNO_ON_MATH_ERROR
+    return hop.llops.gencapicall('exp', vlist, resulttype=Float,
+                                 includes=["math.h"])   # XXX clean up needed
 
+BUILTIN_TYPER[math.exp] = rtype_math_exp

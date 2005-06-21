@@ -108,6 +108,14 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     for key, value in defines.items():
         print >> f, '#define %s %s' % (key, value)
     print >> f, '#include "Python.h"'
+    includes = {}
+    for node in database.globalcontainers():
+        for include in node.includes:
+            includes[include] = True
+    includes = includes.keys()
+    includes.sort()
+    for include in includes:
+        print >> f, '#include <%s>' % (include,)
 
     #
     # 1) All declarations

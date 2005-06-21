@@ -206,3 +206,24 @@ def test_time_clock():
     assert t0 <= t1 <= t2
     mallocs, frees = module.malloc_counters()
     assert mallocs == frees
+
+def test_str():
+    def call_str(o):
+        return str(o)
+    t = Translator(call_str)
+    t.annotate([object])
+    t.specialize()
+    #t.view()
+
+    db = LowLevelDatabase(t)
+    entrypoint = db.get(pyobjectptr(call_str))
+    db.complete()
+
+    module = compile_db(db)
+
+    f1 = getattr(module, entrypoint)
+    lst = (1, [5], "'hello'", lambda x: x+1)
+    res = f1(lst)
+    assert res == str(lst)
+    mallocs, frees = module.malloc_counters()
+    assert mallocs == frees

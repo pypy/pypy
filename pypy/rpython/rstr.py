@@ -146,9 +146,17 @@ class __extend__(pairtype(StringRepr, CharRepr)):
             return llops.gendirectcall(ll_stritem_nonneg, v, c_zero)
         return NotImplemented
 
-##class __extend__(pairtype(PyObjRepr, StringRepr)):
-##    def convert_from_to((r_from, r_to), v, llops):
-##        XXX
+class __extend__(pairtype(PyObjRepr, StringRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        v_len = llops.gencapicall('PyString_Size', [v], resulttype=Signed)
+        cstr = inputconst(Void, STR)
+        v_result = llops.genop('malloc_varsize', [cstr, v_len],
+                               resulttype=Ptr(STR))
+        cchars = inputconst(Void, "chars")
+        v_chars = llops.genop('getsubstruct', [v_result, cchars],
+                              resulttype=Ptr(STR.chars))
+        llops.gencapicall('PyString_ToLLCharArray', [v, v_chars])
+        return v_result
 
 class __extend__(pairtype(StringRepr, PyObjRepr)):
     def convert_from_to((r_from, r_to), v, llops):
@@ -158,7 +166,7 @@ class __extend__(pairtype(StringRepr, PyObjRepr)):
                               resulttype=Ptr(STR.chars))
         v_size = llops.genop('getarraysize', [v_chars],
                              resulttype=Signed)
-        return llops.gencapicall('PyString_FromRPythonCharArrayAndSize',
+        return llops.gencapicall('PyString_FromLLCharArrayAndSize',
                                  [v_chars, v_size],
                                  resulttype=pyobj_repr)
 
