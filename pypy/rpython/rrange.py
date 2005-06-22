@@ -59,12 +59,7 @@ def ll_rangeitem_nonneg(l, i, step):
 
 def ll_rangeitem(l, i, step):
     if i<0:
-        # XXX ack. cannot call ll_rangelen() here for now :-(
-        if step > 0:
-            length = (l.stop - l.start + (step-1)) // step
-        else:
-            length = (l.start - l.stop - (step+1)) // (-step)
-        #assert length >= 0
+        length = ll_rangelen(l, step)
         i += length
     return l.start + i*step
 
