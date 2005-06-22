@@ -571,6 +571,9 @@ Signed
 Unsigned
     a non-signed integer in one machine word (``unsigned long``)
 
+Float
+    a 64-bit float (``double``)
+
 Char
     a single character (``char``)
 
@@ -578,8 +581,8 @@ Bool
     a boolean value
 
 Void
-    a constant.  Meant for variables and function arguments that should
-    disappear from the generated code.
+    a constant.  Meant for variables, function arguments, structure fields, etc.
+    which should disappear from the generated code.
 
 
 Structure Types
@@ -652,6 +655,16 @@ The PyObject Type
 This is a special type, for compatibility with CPython: it stands for a structure compatible with PyObject.  This is also a "container" type (thinking about C, this is ``PyObject``, not ``PyObject*``), so it is usually manipulated via a Ptr.  A typed graph can still contain generic space operations (add, getitem, etc.) provided they are applied on objects whose low-level type is ``Ptr(PyObject)``.  In fact, code generators that support this should consider that the default type of a variable, if none is specified, is ``Ptr(PyObject)``.  In this way, they can generate the correct code for fully-untyped flow graphs.
 
 The testing implementation allows you to "create" PyObjects by calling ``pyobjectptr(obj)``.
+
+
+Opaque Types
+++++++++++++
+
+Opaque types represent data implemented in a back-end specific way.  This data cannot be inspected or manipulated.
+
+There is a predefined opaque type ``RuntimeTypeInfo``; at run-time, a value of type ``RuntimeTypeInfo`` represents a low-level type.  In practice it is probably enough to be able to represent GcStruct and GcArray types.  This is useful if we have a pointer of type ``Ptr(S)`` which can at run-time point either to a malloc'ed ``S`` alone, or to the ``S`` first field of a larger malloc'ed structure.  The information about the exact larger type that it points to can be computed or passed around as a ``Ptr(RuntimeTypeInfo)``.  Pointer equality on ``Ptr(RuntimeTypeInfo)`` can be used to check the type at run-time.
+
+At the moment, for memory management purposes, some back-ends actually require such information to be available at run-time in the following situation: when a GcStruct has another GcStruct as its first field.  A reference-counting back-end needs to be able to know when a pointer to the smaller structure actually points to the larger one, so that it can also decref the extra fields.  Depending on the situation, it is possible to reconstruct this information without having to store a flag in each and every instance of the smaller GcStruct.  For example, the instances of a class hierarchy can be implemented by nested GcStructs, with instances of subclasses extending instances of parent classes by embedding the parent part of the instance as the first field.  In this case, there is probably already a way to know the run-time class of the instance (e.g. a vtable pointer), but the back-end cannot guess this.  This is the reason for which ``RuntimeTypeInfo`` was originally introduced: just after the GcStruct is created, the function attachRuntimeTypeInfo() should be called to attach to the GcStruct a low-level function of signature ``Ptr(GcStruct) -> Ptr(RuntimeTypeInfo)``.  This function will be compiled by the back-end and automatically called at run-time.  In the above example, it would follow the vtable pointer and fetch the opaque ``Ptr(RuntimeTypeInfo)`` from the vtable itself.  (The reference-counting GenC back-end uses a pointer to the deallocation function as the opaque ``RuntimeTypeInfo``.)
 
 
 Implementing RPython types
