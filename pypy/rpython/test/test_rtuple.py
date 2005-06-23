@@ -4,7 +4,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rtuple import *
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.rbool import bool_repr
-
+from pypy.rpython.test.test_llinterp import interpret, make_interpreter
 
 def test_rtuple():
     rtuple = TupleRepr([signed_repr, bool_repr])
@@ -49,3 +49,14 @@ def test_return_tuple():
     def dummyfn(x, y):
         return (x<y, x>y)
     rtype(dummyfn, [int, int])
+
+def test_tuple_concatenation():
+    def f():
+        tup = (1,2)
+        tup1 = (3,)
+        res = tup + tup1
+        return res[0]*100 + res[1]*10 + res[2]
+    fn = make_interpreter(f,[])#,view=True)
+    res = fn()
+    assert res == 123
+    
