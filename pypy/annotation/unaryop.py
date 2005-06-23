@@ -83,9 +83,20 @@ class __extend__(SomeObject):
         return SomeInteger()
 
     def str(obj):
+        getbookkeeper().count('str', obj)
         return SomeString()
 
-    repr = hex = oct = str
+    def repr(obj):
+        getbookkeeper().count('repr', obj)
+        return SomeString()
+
+    def hex(obj):
+        getbookkeeper().count('hex', obj)
+        return SomeString()
+
+    def oct(obj):
+        getbookkeeper().count('oct', obj)
+        return SomeString()
 
     def id(obj): # xxx
         return SomeInteger()

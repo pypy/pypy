@@ -47,7 +47,7 @@ class Stats:
 
     def count(self, category, *args):
         for_category = self.classify.setdefault(category, {})
-        classifier = getattr(self, 'consider_%s' % category)
+        classifier = getattr(self, 'consider_%s' % category, self.consider_generic)
         outcome = classifier(*args)
         for_category[self.bookkeeper.position_key] = outcome
 
@@ -79,6 +79,8 @@ class Stats:
         else:
             return 'non-const-step %s' % self.typerepr(stp)
 
+    def consider_generic(self, *args):
+        return tuple([self.typerepr(x) for x in args])
 
     def consider_newslice(self, s_start, s_stop, s_step):
         return ':'.join([self.indexrepr(s_start), self.indexrepr(s_stop), self.steprepr(s_step)])
@@ -129,7 +131,7 @@ class Stats:
             return "NON-CONSTANT"
 
     def consider_str_getitem(self, idx):
-        return self.indexrepr(idx)        
+        return self.indexrepr(idx)
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
