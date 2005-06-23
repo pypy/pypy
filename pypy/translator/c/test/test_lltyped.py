@@ -31,6 +31,6 @@ class TestLowLevelType:
             s = malloc(S2)
             s.a.v = 6
             s.b.v = 12
-            return s.a.v+s.b.v
+            return s.a.v + s.b.v
         fn = self.getcompiled(llf)
         assert fn() == 18
