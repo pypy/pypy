@@ -81,6 +81,14 @@ class ListRepr(Repr):
         v_lst, v_value = hop.inputargs(self, self.item_repr)
         hop.gendirectcall(ll_append, v_lst, v_value)
 
+    def rtype_method_insert(self, hop):
+        v_lst, v_index, v_value = hop.inputargs(self, Signed, self.item_repr)
+        if hop.args_s[1].nonneg:
+            llfn = ll_insert_nonneg
+        else:
+            llfn = ll_insert
+        hop.gendirectcall(llfn, v_lst, v_index, v_value)
+
     def rtype_method_extend(self, hop):
         v_lst1, v_lst2 = hop.inputargs(self, self)
         hop.gendirectcall(ll_extend, v_lst1, v_lst2)
@@ -90,11 +98,19 @@ class ListRepr(Repr):
         hop.gendirectcall(ll_reverse,v_lst)
 
     def rtype_method_pop(self, hop):
-        v_list, v_index = hop.inputargs(self, Signed)
-        #v_index = hop.inputconst(Signed,-1)
+        if hop.nb_args == 2:
+            v_list, v_index = hop.inputargs(self, Signed)
+            if hop.args_s[1].nonneg:
+                llfn = ll_pop_nonneg
+            else:
+                llfn = ll_pop
+        else:
+            v_list, = hop.inputargs(self)
+            v_index = hop.inputconst(Signed, -1)
+            llfn = ll_pop
         assert hasattr(v_index, 'concretetype')
-        return hop.gendirectcall(ll_pop, v_list, v_index)
-        
+        return hop.gendirectcall(llfn, v_list, v_index)
+
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
 
@@ -187,15 +203,52 @@ def ll_append(l, newitem):
     newitems[length] = newitem
     l.items = newitems
 
+<<<<<<< .mine
+def ll_insert_nonneg(l, index, newitem):
+    length = len(l.items)
+    newitems = malloc(typeOf(l).TO.items.TO, length+1)
+    i = 0
+    while i < index:
+        newitems[i] = l.items[i]
+        i += 1
+    newitems[i] = newitem
+    i += 1
+    while i <= length:
+        newitems[i] = l.items[i-1]
+        i += 1
+    l.items = newitems
+
+def ll_insert(l, index, newitem):
+    if index < 0:
+        index += len(l.items)
+    ll_insert_nonneg(l, index, newitem)
+
+def ll_pop_nonneg(l, index):
+    res = ll_getitem_nonneg(l, index)
+    ll_delitem_nonneg(l, index)
+=======
 def ll_pop(l, index):
     res = ll_getitem(l, index)
     ll_delitem(l, index)
+>>>>>>> .r13701
+    return res
+
+def ll_pop(l, index):
+    if index < 0:
+        index += len(l.items)
+    res = ll_getitem_nonneg(l, index)
+    ll_delitem_nonneg(l, index)
     return res
 
 def ll_reverse(l):
     length = len(l.items)
+<<<<<<< .mine
+    i = 0
+    while i < length / 2:
+=======
     i = 0
     while i < length // 2:
+>>>>>>> .r13701
         tmp = l.items[i]
         l.items[i] = l.items[length-1-i]
         l.items[length-1-i] = tmp
@@ -217,20 +270,6 @@ def ll_setitem(l, i, newitem):
         i += len(l.items)
     l.items[i] = newitem
 
-def ll_delitem(l, i):
-    if i < 0:
-        i += len(l.items)
-    newlength = len(l.items) - 1
-    newitems = malloc(typeOf(l).TO.items.TO, newlength)
-    j = 0
-    while j < i:
-        newitems[j] = l.items[j]
-        j += 1
-    while j < newlength:
-        newitems[j] = l.items[j+1]
-        j += 1
-    l.items = newitems
-
 def ll_delitem_nonneg(l, i):
     newlength = len(l.items) - 1
     newitems = malloc(typeOf(l).TO.items.TO, newlength)
@@ -242,6 +281,11 @@ def ll_delitem_nonneg(l, i):
         newitems[j] = l.items[j+1]
         j += 1
     l.items = newitems
+
+def ll_delitem(l, i):
+    if i < 0:
+        i += len(l.items)
+    ll_delitem_nonneg(l, i)
 
 def ll_concat(l1, l2):
     len1 = len(l1.items)

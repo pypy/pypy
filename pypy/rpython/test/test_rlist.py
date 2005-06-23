@@ -153,6 +153,20 @@ def test_set_del_item():
         del l[:]
     rtype(dummyfn)
 
+def test_insert_pop():
+    def dummyfn():
+        l = []
+        l.append(5)
+        l.append(6)
+        l.append(7)
+        l.insert(1, 42)
+        l.pop(2)
+        del l[0]
+        l.pop()
+        return l[-1]
+    res = interpret(dummyfn, ())
+    assert res == 42
+
 def test_prebuilt_list():
     klist = ['a', 'd', 'z', 'k']
     def dummyfn(n):
