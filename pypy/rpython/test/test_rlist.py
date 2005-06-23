@@ -155,14 +155,15 @@ def test_set_del_item():
 
 def test_insert_pop():
     def dummyfn():
-        l = [5, 6, 7, 8]
+        l = [6, 7, 8]
+        l.insert(0, 5)
         l.insert(1, 42)
         l.pop(2)
-        del l[0]
+        l.pop(0)
         l.pop(-1)
         l.pop()
         return l[-1]
-    res = interpret(dummyfn, ())
+    res = interpret(dummyfn, ())#, view=True)
     assert res == 42
 
 def test_reverse():
@@ -231,6 +232,20 @@ def test_list_compare():
     ev_fn = make_interpreter(fn, [0, 0, False])
     for i in range(2):
         for j in range(6):
+            for case in False, True:
+                res = ev_fn(i, j, case)
+                assert res is fn(i, j, case)
+
+def test_list_comparestr():
+    def fn(i, j, neg=False):
+        s1 = [["hell"], ["hello", "world"]]
+        s1[0][0] += "o" # ensure no interning
+        s2 = [["hello"], ["world"]]
+        if neg: return s1[i] != s2[i]
+        return s1[i] == s2[j]
+    ev_fn = make_interpreter(fn, [0, 0, False])#, view=True)
+    for i in range(2):
+        for j in range(2):
             for case in False, True:
                 res = ev_fn(i, j, case)
                 assert res is fn(i, j, case)

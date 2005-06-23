@@ -6,6 +6,7 @@ from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython import rrange
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
+from pypy.rpython.rstr import string_repr, ll_streq
 
 # ____________________________________________________________
 #
@@ -83,11 +84,16 @@ class ListRepr(Repr):
 
     def rtype_method_insert(self, hop):
         v_lst, v_index, v_value = hop.inputargs(self, Signed, self.item_repr)
-        if hop.args_s[1].nonneg:
+        arg1 = hop.args_s[1]
+        args = v_lst, v_index, v_value
+        if arg1.is_constant() and arg1.const == 0:
+            llfn = ll_prepend
+            args = v_lst, v_value
+        elif arg1.nonneg:
             llfn = ll_insert_nonneg
         else:
             llfn = ll_insert
-        hop.gendirectcall(llfn, v_lst, v_index, v_value)
+        hop.gendirectcall(llfn, *args)
 
     def rtype_method_extend(self, hop):
         v_lst1, v_lst2 = hop.inputargs(self, self)
@@ -100,11 +106,15 @@ class ListRepr(Repr):
     def rtype_method_pop(self, hop):
         if hop.nb_args == 2:
             args = hop.inputargs(self, Signed)
-            if hop.args_s[1].nonneg:
+            assert hasattr(args[1], 'concretetype')
+            arg1 = hop.args_s[1]
+            if arg1.is_constant() and arg1.const == 0:
+                llfn = ll_pop_zero
+                args = args[:1]
+            elif hop.args_s[1].nonneg:
                 llfn = ll_pop_nonneg
             else:
                 llfn = ll_pop
-            assert hasattr(args[1], 'concretetype')
         else:
             args = hop.inputargs(self)
             llfn = ll_pop_default
@@ -181,11 +191,17 @@ class __extend__(pairtype(ListRepr, ListRepr)):
 
     def rtype_eq((self, _), hop):
         v_lst1, v_lst2 = hop.inputargs(self, self)
-        return hop.gendirectcall(ll_listeq, v_lst1, v_lst2)
+        if self.item_repr == string_repr:
+            func = ll_streq
+        elif isinstance(self.item_repr.lowleveltype, Primitive):
+            func = None
+        else:
+            raise TyperError, 'comparison not implemented for %r' % self
+        cmp = hop.inputconst(Void, func)
+        return hop.gendirectcall(ll_listeq, v_lst1, v_lst2, cmp)
 
-    def rtype_ne((self, _), hop):
-        v_lst1, v_lst2 = hop.inputargs(self, self)
-        flag = hop.gendirectcall(ll_listeq, v_lst1, v_lst2)
+    def rtype_ne(both, hop):
+        flag = both.rtype_eq(hop)
         return hop.genop('bool_not', [flag], resulttype=Bool)
 
 
@@ -206,6 +222,17 @@ def ll_append(l, newitem):
         newitems[i] = l.items[i]
         i += 1
     newitems[length] = newitem
+    l.items = newitems
+
+# this one is for the special case of insert(0, x)
+def ll_prepend(l, newitem):
+    length = len(l.items)
+    newitems = malloc(typeOf(l).TO.items.TO, length+1)
+    i = 0
+    while i < length:
+        newitems[i+1] = l.items[i]
+        i += 1
+    newitems[0] = newitem
     l.items = newitems
 
 def ll_insert_nonneg(l, index, newitem):
@@ -240,6 +267,18 @@ def ll_pop_default(l):
     j = 0
     while j < newlength:
         newitems[j] = l.items[j]
+        j += 1
+    l.items = newitems
+    return res
+
+def ll_pop_zero(l):
+    index = len(l.items) - 1
+    res = l.items[0]
+    newlength = index
+    newitems = malloc(typeOf(l).TO.items.TO, newlength)
+    j = 0
+    while j < newlength:
+        newitems[j] = l.items[j+1]
         j += 1
     l.items = newitems
     return res
@@ -378,7 +417,7 @@ def ll_listdelslice(l1, slice):
 #
 #  Comparison.
 
-def ll_listeq(l1, l2):
+def ll_listeq(l1, l2, eqfn):
     len1 = len(l1.items)
     len2 = len(l2.items)
     if len1 != len2:
@@ -387,8 +426,12 @@ def ll_listeq(l1, l2):
     items1 = l1.items
     items2 = l2.items
     while j < len1:
-        if items1[j] != items2[j]:
-            return False
+        if eqfn is None:
+            if items1[j] != items2[j]:
+                return False
+        else:
+            if not eqfn(items1[j], items2[j]):
+                return False
         j += 1
     return True
 
