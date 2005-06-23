@@ -140,13 +140,13 @@ class PyNestedScopeFrame(PyInterpFrame):
         except ValueError:
             varname = f.getfreevarname(varindex)
             if f.iscellvar(varindex):
-                message = "local variable '%s' referenced before assignment"
+                message = "local variable '%s' referenced before assignment"%varname
                 w_exc_type = f.space.w_UnboundLocalError
             else:
                 message = ("free variable '%s' referenced before assignment"
-                           " in enclosing scope")
+                           " in enclosing scope"%varname)
                 w_exc_type = f.space.w_NameError
-            raise OperationError(w_exc_type, f.space.wrap(message % varname))
+            raise OperationError(w_exc_type, f.space.wrap(message))
         else:
             f.valuestack.push(w_value)
 
