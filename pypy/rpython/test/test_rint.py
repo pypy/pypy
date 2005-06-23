@@ -2,7 +2,7 @@ from pypy.translator.translator import Translator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import interpret, make_interpreter
 
 
 class TestSnippet(object):
@@ -48,4 +48,19 @@ def test_char_constant():
     assert res == '\0'
     res = interpret(dummyfn, [ord('a')])
     assert res == 'a'
+    
+def test_str_of_int():
+    def dummy(i):
+        return str(i)
+    
+    ev_fun = make_interpreter(dummy, [0])
+
+    res = ev_fun(0)
+    assert ''.join(res.chars) == '0'
+
+    res = ev_fun(1034)
+    assert ''.join(res.chars) == '1034'
+
+    res = ev_fun(-123)
+    assert ''.join(res.chars) == '-123'
     

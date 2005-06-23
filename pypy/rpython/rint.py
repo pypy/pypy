@@ -1,7 +1,8 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.objspace import op_appendices
-from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void, Char
+from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void, Char, \
+     GcArray, malloc
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, CharRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 
@@ -263,6 +264,40 @@ class __extend__(IntegerRepr):
     def rtype_float(_, hop):
         vlist = hop.inputargs(Float)
         return vlist[0]
+
+    def rtype_str(_, hop):
+        varg = hop.inputarg(hop.args_r[0], 0)
+        return hop.gendirectcall(ll_int2str, varg)
+
+CHAR_ARRAY = GcArray(Char)
+
+def ll_int2str(i):
+    from pypy.rpython.rstr import STR
+    temp = malloc(CHAR_ARRAY, 20)
+    len = 0
+    sign = 0
+    if i < 0:
+        sign = 1
+        i = -i
+    if i == 0:
+        len = 1
+        temp[0] = '0'
+    else:
+        while i:
+            temp[len] = chr(i%10+ord('0'))
+            i /= 10
+            len += 1
+    len += sign
+    result = malloc(STR, len)
+    if sign:
+        result.chars[0] = '-'
+        j = 1
+    else:
+        j = 0
+    while j < len:
+        result.chars[j] = temp[len-j-1]
+        j += 1
+    return result
 
 #
 # _________________________ Conversions _________________________

@@ -259,7 +259,7 @@ opimpls['is_true'] = bool
 
 for typ in (float, int):
     typname = typ.__name__
-    optup = ('add', 'sub', 'mul', 'div', 'gt', 'lt', 'ge', 'ne', 'le', 'eq')
+    optup = ('add', 'sub', 'mul', 'div', 'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq')
     if typ is int:
         optup += 'truediv', 'floordiv'
     for opname in optup:
@@ -271,7 +271,7 @@ for typ in (float, int):
                 func = opimpls[%(opname)r]
                 return func(x, y)
         """ % locals()).compile()
-    for opname in 'is_true',:
+    for opname in 'is_true', 'neg':
         assert opname in opimpls
         exec py.code.Source("""
             def %(typname)s_%(opname)s(x):
