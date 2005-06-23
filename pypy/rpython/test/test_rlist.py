@@ -5,6 +5,7 @@ from pypy.rpython.rlist import *
 from pypy.rpython.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.test.test_llinterp import interpret, make_interpreter
+from pypy.rpython.test.test_llinterp import find_exception
 
 
 def sample_list():
@@ -269,3 +270,40 @@ def test_list_compareinst():
             for case in False, True:
                 res = ev_fn(i, j, case)
                 assert res is fn(i, j, case)
+
+def test_list_contains():
+    def fn(i, neg=False):
+        foo1 = Foo()
+        foo2 = Foo()
+        bar1 = Bar()
+        bar2 = Bar()
+        lis = [foo1, foo2, bar1]
+        args = lis + [bar2]
+        if neg : return args[i] not in lis
+        return args[i] in lis
+    ev_fn = make_interpreter(fn, [0, False])
+    for i in range(4):
+        for case in False, True:
+            res = ev_fn(i, case)
+            assert res is fn(i, case)
+
+def test_list_index():
+    def fn(i):
+        foo1 = Foo()
+        foo2 = Foo()
+        bar1 = Bar()
+        bar2 = Bar()
+        lis = [foo1, foo2, bar1]
+        args = lis + [bar2]
+        return lis.index(args[i])
+    ev_fn = make_interpreter(fn, [0])
+    for i in range(4):
+        try:
+            res = ev_fn(i)
+        except Exception, e:
+            res = find_exception(e)
+        try:
+            res2 = fn(i)
+        except Exception, e:
+            res2 = e.__class__
+        assert res == res2

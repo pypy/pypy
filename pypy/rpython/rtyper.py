@@ -324,6 +324,12 @@ def translate_op_%s(self, hop):
     _registeroperations(locals())
     del _registeroperations
 
+    # this one is not in BINARY_OPERATIONS
+    def translate_op_contains(self, hop):
+        r_arg1 = hop.args_r[0]
+        r_arg2 = hop.args_r[1]
+        return pair(r_arg1, r_arg2).rtype_contains(hop)
+
     # __________ irregular operations __________
 
     def translate_op_newlist(self, hop):

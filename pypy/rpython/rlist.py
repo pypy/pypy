@@ -94,6 +94,10 @@ class ListRepr(Repr):
         v_lst, v_value = hop.inputargs(self, self.item_repr)
         hop.gendirectcall(ll_append, v_lst, v_value)
 
+    def rtype_method_index(self, hop):
+        v_lst, v_value = hop.inputargs(self, self.item_repr)
+        return hop.gendirectcall(ll_listindex, v_lst, v_value, self.get_eqfunc())
+
     def rtype_method_insert(self, hop):
         v_lst, v_index, v_value = hop.inputargs(self, Signed, self.item_repr)
         arg1 = hop.args_s[1]
@@ -134,6 +138,13 @@ class ListRepr(Repr):
 
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
+
+
+class __extend__(pairtype(ListRepr, Repr)):
+
+    def rtype_contains((r_lst, _), hop):
+        v_lst, v_any = hop.inputargs(r_lst, r_lst.item_repr)
+        return hop.gendirectcall(ll_listcontains, v_lst, v_any, r_lst.get_eqfunc())
 
 
 class __extend__(pairtype(ListRepr, IntegerRepr)):
@@ -441,6 +452,33 @@ def ll_listeq(l1, l2, eqfn):
         j += 1
     return True
 
+def ll_listcontains(lst, obj, eqfn):
+    items = lst.items
+    lng = len(items)
+    j = 0
+    while j < lng:
+        if eqfn is None:
+            if items[j] == obj:
+                return True
+        else:
+            if eqfn(items[j], obj):
+                return True
+        j += 1
+    return False
+
+def ll_listindex(lst, obj, eqfn):
+    items = lst.items
+    lng = len(items)
+    j = 0
+    while j < lng:
+        if eqfn is None:
+            if items[j] == obj:
+                return j
+        else:
+            if eqfn(items[j], obj):
+                return j
+        j += 1
+    raise ValueError # can't say 'list.index(x): x not in list'
 
 # ____________________________________________________________
 #
