@@ -26,7 +26,7 @@ class KeyComp(object):
     def __hash__(self):
         return hash(self.val)
     def __str__(self):
-        return getattr(self.val, '__name__', self.val) + 'Const'
+        return getattr(self.val, '__name__', repr(self.val)) + 'Const'
 
 class LowLevelAnnotatorPolicy(BasicAnnotatorPolicy):
 
