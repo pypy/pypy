@@ -206,5 +206,22 @@ def test_strformat():
     def percentX(i):
         return "bing %x bang" % (i,)
     
-    res = interpret(percentX, [23])
+    x_fn = make_interpreter(percentX, [0])
+    
+    res = x_fn(23)
     assert ''.join(res.chars) == 'bing 17 bang'
+
+    res = x_fn(-123)
+    assert ''.join(res.chars) == 'bing -7b bang'
+
+    def moreThanOne(s, d, x):
+        return "string: %s decimal: %d hex: %x" % (s, d, x)
+
+    m_fn = make_interpreter(moreThanOne, ['a', 2, 3])
+
+    args = 'a', 2, 3
+    res = m_fn(*args)
+    assert ''.join(res.chars) == moreThanOne(*args)
+    
+
+    
