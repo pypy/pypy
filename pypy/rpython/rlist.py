@@ -2,11 +2,12 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import *
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 from pypy.rpython import rrange
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rstr import string_repr, ll_streq
+from pypy.rpython.rclass import InstanceRepr
 
 # ____________________________________________________________
 #
@@ -73,6 +74,17 @@ class ListRepr(Repr):
                 x = listobj[i]
                 result.items[i] = r_item.convert_const(x)
             return result
+
+    def get_eqfunc(self):
+        if self.item_repr == string_repr:
+            func = ll_streq
+        elif isinstance(self.item_repr.lowleveltype, Primitive):
+            func = None
+        elif isinstance(self.item_repr, InstanceRepr):
+            func = None
+        else:
+            raise TyperError, 'comparison not implemented for %r' % self
+        return inputconst(Void, func)
 
     def rtype_len(self, hop):
         v_lst, = hop.inputargs(self)
@@ -191,17 +203,11 @@ class __extend__(pairtype(ListRepr, ListRepr)):
 
     def rtype_eq((self, _), hop):
         v_lst1, v_lst2 = hop.inputargs(self, self)
-        if self.item_repr == string_repr:
-            func = ll_streq
-        elif isinstance(self.item_repr.lowleveltype, Primitive):
-            func = None
-        else:
-            raise TyperError, 'comparison not implemented for %r' % self
-        cmp = hop.inputconst(Void, func)
-        return hop.gendirectcall(ll_listeq, v_lst1, v_lst2, cmp)
+        return hop.gendirectcall(ll_listeq, v_lst1, v_lst2, self.get_eqfunc())
 
-    def rtype_ne(both, hop):
-        flag = both.rtype_eq(hop)
+    def rtype_ne((self, _), hop):
+        v_lst1, v_lst2 = hop.inputargs(self, self)
+        flag = hop.gendirectcall(ll_listeq, v_lst1, v_lst2, self.get_eqfunc())
         return hop.genop('bool_not', [flag], resulttype=Bool)
 
 

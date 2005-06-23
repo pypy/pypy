@@ -249,3 +249,23 @@ def test_list_comparestr():
             for case in False, True:
                 res = ev_fn(i, j, case)
                 assert res is fn(i, j, case)
+
+class Foo: pass
+
+class Bar(Foo): pass
+
+def test_list_compareinst():
+    def fn(i, j, neg=False):
+        foo1 = Foo()
+        foo2 = Foo()
+        bar1 = Bar()
+        s1 = [[foo1], [foo2], [bar1]]
+        s2 = s1[:]
+        if neg: return s1[i] != s2[i]
+        return s1[i] == s2[j]
+    ev_fn = make_interpreter(fn, [0, 0, False])#, view=True)
+    for i in range(3):
+        for j in range(3):
+            for case in False, True:
+                res = ev_fn(i, j, case)
+                assert res is fn(i, j, case)
