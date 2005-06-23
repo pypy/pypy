@@ -159,7 +159,7 @@ LONG_TEST = _Ltest
 
 def intmask(n):
     if isinstance(n, int):
-        return n
+        return int(n)   # possibly bool->int
     if isinstance(n, r_uint):
         n = long(n)
     n &= LONG_MASK

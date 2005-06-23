@@ -6,6 +6,7 @@ from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void, Char, \
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, CharRepr, \
      inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
+from pypy.rpython.rarithmetic import intmask, r_uint
 
 
 debug = False
@@ -27,10 +28,10 @@ unsigned_repr.lowleveltype = Unsigned
 class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Signed:
+        if r_from.lowleveltype == Signed and r_to.lowleveltype == Unsigned:
             if debug: print 'explicit cast_int_to_uint'
             return llops.genop('cast_int_to_uint', [v], resulttype=Unsigned)
-        if r_from.lowleveltype == Signed and r_to.lowleveltype == Unsigned:
+        if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Signed:
             if debug: print 'explicit cast_uint_to_int'
             return llops.genop('cast_uint_to_int', [v], resulttype=Signed)
         return v
@@ -189,9 +190,13 @@ def _rtype_compare_template(hop, func):
 class __extend__(IntegerRepr):
 
     def convert_const(self, value):
-        if not isinstance(value, int):   # can be bool
+        if not isinstance(value, (int, r_uint)):   # can be bool
             raise TyperError("not an integer: %r" % (value,))
-        return int(value)
+        if self.lowleveltype == Signed:
+            return intmask(value)
+        if self.lowleveltype == Unsigned:
+            return r_uint(value)
+        raise NotImplementedError
 
     def rtype_float(_, hop):
         vlist = hop.inputargs(Float)

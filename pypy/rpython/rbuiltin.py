@@ -2,7 +2,6 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython import lltype
 from pypy.rpython import rarithmetic
-from pypy.rpython.lltype import Void, Signed, Float, Ptr, RuntimeTypeInfo
 from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range
 from pypy.rpython.rmodel import Repr, TyperError
@@ -33,7 +32,7 @@ class __extend__(annmodel.SomeBuiltin):
 
 
 class BuiltinFunctionRepr(Repr):
-    lowleveltype = Void
+    lowleveltype = lltype.Void
 
     def __init__(self, builtinfunc):
         self.builtinfunc = builtinfunc
@@ -102,7 +101,11 @@ def rtype_builtin_chr(hop):
 #def rtype_builtin_range(hop): see rrange.py
 
 def rtype_intmask(hop):
-    vlist = hop.inputargs(Signed)
+    vlist = hop.inputargs(lltype.Signed)
+    return vlist[0]
+
+def rtype_r_uint(hop):
+    vlist = hop.inputargs(lltype.Unsigned)
     return vlist[0]
 
 
@@ -119,11 +122,11 @@ for name, value in globals().items():
 def rtype_malloc(hop):
     assert hop.args_s[0].is_constant()
     if hop.nb_args == 1:
-        vlist = hop.inputargs(Void)
+        vlist = hop.inputargs(lltype.Void)
         return hop.genop('malloc', vlist,
                          resulttype = hop.r_result.lowleveltype)
     else:
-        vlist = hop.inputargs(Void, Signed)
+        vlist = hop.inputargs(lltype.Void, lltype.Signed)
         return hop.genop('malloc_varsize', vlist,
                          resulttype = hop.r_result.lowleveltype)
 
@@ -133,7 +136,7 @@ def rtype_const_result(hop):
 def rtype_cast_pointer(hop):
     assert hop.args_s[0].is_constant()
     assert isinstance(hop.args_r[1], rptr.PtrRepr)
-    v_type, v_input = hop.inputargs(Void, hop.args_r[1])
+    v_type, v_input = hop.inputargs(lltype.Void, hop.args_r[1])
     return hop.genop('cast_pointer', [v_input],    # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
@@ -141,7 +144,7 @@ def rtype_runtime_type_info(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
     return hop.genop('runtime_type_info', vlist,
-                     resulttype = rptr.PtrRepr(Ptr(RuntimeTypeInfo)))
+                 resulttype = rptr.PtrRepr(lltype.Ptr(lltype.RuntimeTypeInfo)))
 
 
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
@@ -151,6 +154,7 @@ BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
 BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
+BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint
 
 import time
 
@@ -164,9 +168,9 @@ BUILTIN_TYPER[time.clock] = rtype_time_clock
 import math
 
 def rtype_math_exp(hop):
-    vlist = hop.inputargs(Float)
+    vlist = hop.inputargs(lltype.Float)
     # XXX need PyFPE_START_PROTECT/PyFPE_END_PROTECT/Py_SET_ERRNO_ON_MATH_ERROR
-    return hop.llops.gencapicall('exp', vlist, resulttype=Float,
+    return hop.llops.gencapicall('exp', vlist, resulttype=lltype.Float,
                                  includes=["math.h"])   # XXX clean up needed
 
 BUILTIN_TYPER[math.exp] = rtype_math_exp

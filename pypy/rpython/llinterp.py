@@ -3,6 +3,7 @@ from pypy.rpython.lltype import _ptr
 from pypy.translator.translator import Translator
 from pypy.tool.sourcetools import compile2
 from pypy.objspace.flow.model import Constant, Variable, last_exception
+from pypy.rpython.rarithmetic import intmask, r_uint
 import py
 
 log = py.log.Producer('llinterp')
@@ -251,22 +252,34 @@ class LLFrame(object):
         assert type(b) is str and len(b) == 1
         return ord(b)
 
+    def op_cast_int_to_uint(self, b):
+        assert type(b) is int
+        return r_uint(b)
+
+    def op_cast_uint_to_int(self, b):
+        assert type(b) is r_uint
+        return intmask(b)
+
 # __________________________________________________________
 # primitive operations
 from pypy.objspace.flow.operation import FunctionByName
 opimpls = FunctionByName.copy()
 opimpls['is_true'] = bool
 
-for typ in (float, int):
+for typ in (float, int, r_uint):
     typname = typ.__name__
+    if typ is r_uint:
+        opnameprefix = 'uint'
+    else:
+        opnameprefix = typname
     optup = ('add', 'sub', 'mul', 'div', 'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq', 'and_', 'or_')
-    if typ is int:
+    if typ in (int, r_uint):
         optup += 'truediv', 'floordiv'
     for opname in optup:
         assert opname in opimpls
         pureopname = opname.rstrip('_')
         exec py.code.Source("""
-            def %(typname)s_%(pureopname)s(x, y):
+            def %(opnameprefix)s_%(pureopname)s(x, y):
                 assert isinstance(x, %(typname)s)
                 assert isinstance(y, %(typname)s)
                 func = opimpls[%(opname)r]
@@ -275,7 +288,7 @@ for typ in (float, int):
     for opname in 'is_true', 'neg':
         assert opname in opimpls
         exec py.code.Source("""
-            def %(typname)s_%(opname)s(x):
+            def %(opnameprefix)s_%(opname)s(x):
                 assert isinstance(x, %(typname)s)
                 func = opimpls[%(opname)r]
                 return func(x)

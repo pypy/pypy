@@ -3,6 +3,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rpython.test.test_llinterp import interpret, make_interpreter
+from pypy.rpython.rarithmetic import r_uint
 
 
 class TestSnippet(object):
@@ -79,3 +80,16 @@ def test_hex_of_int():
     res = ev_fun(-123)
     assert ''.join(res.chars) == '-0x7b'
     
+def test_unsigned():
+    def dummy(i):
+        i = r_uint(i)
+        j = r_uint(12)
+        return i < j
+
+    ev_fun = make_interpreter(dummy, [0])
+
+    res = ev_fun(0)
+    assert res is True
+
+    res = ev_fun(-1)
+    assert res is False    # -1 ==> 0xffffffff
