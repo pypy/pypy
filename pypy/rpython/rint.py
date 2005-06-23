@@ -2,8 +2,9 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.objspace import op_appendices
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void, Char, \
-     GcArray, malloc
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, CharRepr
+     GcArray, malloc, Array
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, CharRepr, \
+     inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 
 
@@ -269,6 +270,11 @@ class __extend__(IntegerRepr):
         varg = hop.inputarg(hop.args_r[0], 0)
         return hop.gendirectcall(ll_int2str, varg)
 
+    def rtype_hex(_, hop):
+        varg = hop.inputarg(hop.args_r[0], 0)
+        true = inputconst(Bool, True)
+        return hop.gendirectcall(ll_int2hex, varg, true)
+
 CHAR_ARRAY = GcArray(Char)
 
 def ll_int2str(i):
@@ -294,6 +300,44 @@ def ll_int2str(i):
         j = 1
     else:
         j = 0
+    while j < len:
+        result.chars[j] = temp[len-j-1]
+        j += 1
+    return result
+
+hex_chars = malloc(Array(Char), 16, immortal=True)
+
+for i in range(16):
+    hex_chars[i] = "%x"%i
+
+def ll_int2hex(i, addPrefix):
+    from pypy.rpython.rstr import STR
+    temp = malloc(CHAR_ARRAY, 20)
+    len = 0
+    sign = 0
+    if i < 0:
+        sign = 1
+        i = -i
+    if i == 0:
+        len = 1
+        temp[0] = '0'
+    else:
+        while i:
+            temp[len] = hex_chars[i%16]
+            i /= 16
+            len += 1
+    len += sign
+    if addPrefix:
+        len += 2
+    result = malloc(STR, len)
+    j = 0
+    if sign:
+        result.chars[0] = '-'
+        j = 1
+    if addPrefix:
+        result.chars[j] = '0'
+        result.chars[j+1] = 'x'
+        j += 2
     while j < len:
         result.chars[j] = temp[len-j-1]
         j += 1

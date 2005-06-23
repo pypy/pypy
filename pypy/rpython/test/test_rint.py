@@ -64,3 +64,18 @@ def test_str_of_int():
     res = ev_fun(-123)
     assert ''.join(res.chars) == '-123'
     
+def test_hex_of_int():
+    def dummy(i):
+        return hex(i)
+    
+    ev_fun = make_interpreter(dummy, [0])
+
+    res = ev_fun(0)
+    assert ''.join(res.chars) == '0x0'
+
+    res = ev_fun(1034)
+    assert ''.join(res.chars) == '0x40a'
+
+    res = ev_fun(-123)
+    assert ''.join(res.chars) == '-0x7b'
+    
