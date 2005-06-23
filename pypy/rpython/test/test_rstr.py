@@ -224,4 +224,15 @@ def test_strformat():
     assert ''.join(res.chars) == moreThanOne(*args)
     
 
-    
+def test_strformat_nontuple():
+    def percentD(i):
+        return "before %d after" % i
+
+    res = interpret(percentD, [1])
+    assert ''.join(res.chars) == 'before 1 after'
+
+    def percentS(i):
+        return "before %s after" % i
+
+    res = interpret(percentS, ['D'])
+    assert ''.join(res.chars) == 'before D after'

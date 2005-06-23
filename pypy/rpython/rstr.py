@@ -115,6 +115,9 @@ class __extend__(pairtype(StringRepr, IntegerRepr)):
             llfn = ll_stritem
         return hop.gendirectcall(llfn, v_str, v_index)
 
+    def rtype_mod(_, hop):
+        return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+
 
 class __extend__(pairtype(StringRepr, StringRepr)):
     def rtype_add(_, hop):
@@ -155,6 +158,9 @@ class __extend__(pairtype(StringRepr, StringRepr)):
         return hop.genop('int_gt', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
+    def rtype_mod(_, hop):
+        return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+
 def parse_fmt_string(fmt):
     # we support x, d, s, [r]
 
@@ -181,49 +187,59 @@ def parse_fmt_string(fmt):
     return r
             
 
+def do_stringformat(hop, sourcevarsrepr):
+    s_str = hop.args_s[0]
+    assert s_str.is_constant()
+    s = s_str.const
+    things = parse_fmt_string(s)
+    size = inputconst(Void, len(things))
+    TEMP = GcArray(Ptr(STR))
+    cTEMP = inputconst(Void, TEMP)
+    vtemp = hop.genop("malloc_varsize", [cTEMP, size],
+                      resulttype=Ptr(TEMP))
+    r_tuple = hop.args_r[1]
+    v_tuple = hop.args_v[1]
+
+    argsiter = iter(sourcevarsrepr)
+    
+    for i, thing in enumerate(things):
+        if isinstance(thing, tuple):
+            code = thing[0]
+            vitem, r_arg = argsiter.next()
+            if code == 's':
+                assert isinstance(r_arg, StringRepr)
+                vchunk = hop.llops.convertvar(vitem, r_arg, string_repr)
+            elif code == 'd':
+                assert isinstance(r_arg, IntegerRepr)
+                vchunk = hop.gendirectcall(rint.ll_int2str, vitem)
+            elif code == 'x':
+                assert isinstance(r_arg, IntegerRepr)
+                vchunk = hop.gendirectcall(rint.ll_int2hex, vitem,
+                                           inputconst(Bool, False))
+            else:
+                assert 0
+        else:
+            vchunk = inputconst(string_repr, thing)
+        i = inputconst(Signed, i)
+        hop.genop('setarrayitem', [vtemp, i, vchunk])
+
+    return hop.gendirectcall(ll_join, inputconst(string_repr, ""), vtemp)
+    
 
 class __extend__(pairtype(StringRepr, TupleRepr)):
     def rtype_mod(_, hop):
-        s_str = hop.args_s[0]
-        assert s_str.is_constant()
-        s = s_str.const
-        things = parse_fmt_string(s)
-        size = inputconst(Void, len(things))
-        TEMP = GcArray(Ptr(STR))
-        cTEMP = inputconst(Void, TEMP)
-        vtemp = hop.genop("malloc_varsize", [cTEMP, size],
-                          resulttype=Ptr(TEMP))
         r_tuple = hop.args_r[1]
         v_tuple = hop.args_v[1]
-        
-        argsiter = iter(enumerate(r_tuple.items_r))
-        for i, thing in enumerate(things):
-            if isinstance(thing, tuple):
-                code = thing[0]
-                argi, r_arg = argsiter.next()
-                fname = r_tuple.fieldnames[argi]
-                cname = hop.inputconst(Void, fname)
-                vitem = hop.genop("getfield", [v_tuple, cname],
-                                  resulttype=r_arg.lowleveltype)
-                if code == 's':
-                    assert isinstance(r_arg, StringRepr)
-                    vchunk = hop.llops.convertvar(vitem, r_arg, string_repr)
-                elif code == 'd':
-                    assert isinstance(r_arg, IntegerRepr)
-                    vchunk = hop.gendirectcall(rint.ll_int2str, vitem)
-                elif code == 'x':
-                    assert isinstance(r_arg, IntegerRepr)
-                    vchunk = hop.gendirectcall(rint.ll_int2hex, vitem,
-                                               inputconst(Bool, False))
-                else:
-                    assert 0
-            else:
-                vchunk = inputconst(string_repr, thing)
-            i = inputconst(Signed, i)
-            hop.genop('setarrayitem', [vtemp, i, vchunk])
 
-        return hop.gendirectcall(ll_join, inputconst(string_repr, ""), vtemp)
-        
+        sourcevars = []
+        for fname, r_arg in zip(r_tuple.fieldnames, r_tuple.items_r):
+            cname = hop.inputconst(Void, fname)
+            vitem = hop.genop("getfield", [v_tuple, cname],
+                              resulttype=r_arg)
+            sourcevars.append((vitem, r_arg))
+
+        return do_stringformat(hop, sourcevars)
+                
 
 class __extend__(CharRepr):
 
