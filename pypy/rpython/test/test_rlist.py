@@ -4,7 +4,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rlist import *
 from pypy.rpython.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import interpret, make_interpreter
 
 
 def sample_list():
@@ -221,3 +221,16 @@ def test_list_is():
         return l1 is l2
     res = interpret(dummyfn, [])
     assert res is False
+
+def test_list_compare():
+    def fn(i, j, neg=False):
+        s1 = [[1, 2, 3], [4, 5, 1]]
+        s2 = [[1, 2, 3], [4, 5, 1], [1], [1, 2], [4, 5, 1, 6], [7, 1, 1, 8, 9, 10]]
+        if neg: return s1[i] != s2[i]
+        return s1[i] == s2[j]
+    ev_fn = make_interpreter(fn, [0, 0, False])
+    for i in range(2):
+        for j in range(6):
+            for case in False, True:
+                res = ev_fn(i, j, case)
+                assert res is fn(i, j, case)

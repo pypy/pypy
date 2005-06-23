@@ -333,6 +333,11 @@ class __extend__(pairtype(SomeList, SomeList)):
         lst1.listdef.union(lst2.listdef)
         return lst1
 
+    def eq((lst1, lst2)):
+        lst1.listdef.union(lst2.listdef)
+        return SomeBool()
+    ne = eq
+
 
 class __extend__(pairtype(SomeList, SomeObject)):
 

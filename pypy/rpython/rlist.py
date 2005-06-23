@@ -179,6 +179,16 @@ class __extend__(pairtype(ListRepr, ListRepr)):
         hop.gendirectcall(ll_extend, v_lst1, v_lst2)
         return v_lst1
 
+    def rtype_eq((self, _), hop):
+        v_lst1, v_lst2 = hop.inputargs(self, self)
+        return hop.gendirectcall(ll_listeq, v_lst1, v_lst2)
+
+    def rtype_ne((self, _), hop):
+        v_lst1, v_lst2 = hop.inputargs(self, self)
+        flag = hop.gendirectcall(ll_listeq, v_lst1, v_lst2)
+        return hop.genop('bool_not', [flag], resulttype=Bool)
+
+
 # ____________________________________________________________
 #
 #  Low-level methods.  These can be run for testing, but are meant to
@@ -363,6 +373,25 @@ def ll_listdelslice(l1, slice):
         stop += 1
         j += 1
     l1.items = newitems
+
+# ____________________________________________________________
+#
+#  Comparison.
+
+def ll_listeq(l1, l2):
+    len1 = len(l1.items)
+    len2 = len(l2.items)
+    if len1 != len2:
+        return False
+    j = 0
+    items1 = l1.items
+    items2 = l2.items
+    while j < len1:
+        if items1[j] != items2[j]:
+            return False
+        j += 1
+    return True
+
 
 # ____________________________________________________________
 #
