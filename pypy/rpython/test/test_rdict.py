@@ -19,3 +19,23 @@ def test_dict_getitem_setitem():
         return d['hello'] * d['world'] 
     res = interpret(func, [6])
     assert res == 42
+
+def test_dict_getitem_keyerror(): 
+    def func(i): 
+        d = {'hello' : i}
+        try:
+            return d['world']
+        except KeyError:
+            return 0 
+    res = interpret(func, [6])
+    assert res == 0
+
+def test_dict_del_simple():
+    def func(i): 
+        d = {'hello' : i}
+        d['world'] = i + 1
+        del d['hello']
+        return len(d) 
+    res = interpret(func, [6])
+    assert res == 1
+

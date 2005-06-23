@@ -79,15 +79,19 @@ class StrDictRepr(rmodel.Repr):
     #            result.items[i] = r_item.convert_const(x)
     #        return result
 
-    #def rtype_len(self, hop):
-    #    v_lst, = hop.inputargs(self)
-    #    return hop.gendirectcall(ll_len, v_lst)
+    def rtype_len(self, hop):
+        v_dict, = hop.inputargs(self)
+        return hop.gendirectcall(ll_strdict_len, v_dict)
 
 class __extend__(pairtype(StrDictRepr, rmodel.StringRepr)): 
 
     def rtype_getitem((r_dict, r_string), hop):
         v_dict, v_key = hop.inputargs(r_dict, string_repr) 
         return hop.gendirectcall(ll_strdict_getitem, v_dict, v_key)
+
+    def rtype_delitem((r_dict, r_string), hop):
+        v_dict, v_key = hop.inputargs(r_dict, string_repr) 
+        return hop.gendirectcall(ll_strdict_delitem, v_dict, v_key)
 
     def rtype_setitem((r_dict, r_string), hop):
         v_dict, v_key, v_value = hop.inputargs(r_dict, string_repr, r_dict.value_repr) 
@@ -134,7 +138,16 @@ def ll_strdict_setitem(d, key, value):
     entry = ll_strdict_lookup(d, key)
     if not entry.key: 
         entry.key = key 
+        d.num_used_entries += 1
     entry.value = value 
+
+def ll_strdict_delitem(d, key): 
+    entry = ll_strdict_lookup(d, key)
+    if not entry.key or entry.key == deleted_entry_marker: 
+         raise KeyError
+    entry.key = deleted_entry_marker
+    d.num_used_entries -= 1
+    # XXX: entry.value  = ???
 
 def ll_strdict_lookup(d, key): 
     keyhash = rstr.ll_strhash(key) 
