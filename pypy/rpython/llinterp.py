@@ -265,6 +265,10 @@ class LLFrame(object):
 from pypy.objspace.flow.operation import FunctionByName
 opimpls = FunctionByName.copy()
 opimpls['is_true'] = bool
+ops_returning_a_bool = {'gt': True, 'ge': True,
+                        'lt': True, 'le': True,
+                        'eq': True, 'ne': True,
+                        'is_true': True}
 
 for typ in (float, int, r_uint):
     typname = typ.__name__
@@ -277,21 +281,29 @@ for typ in (float, int, r_uint):
         optup += 'truediv', 'floordiv', 'and_', 'or_', 'lshift', 'rshift', 'xor'
     for opname in optup:
         assert opname in opimpls
+        if typ is int and opname not in ops_returning_a_bool:
+            adjust_result = 'intmask'
+        else:
+            adjust_result = ''
         pureopname = opname.rstrip('_')
         exec py.code.Source("""
             def %(opnameprefix)s_%(pureopname)s(x, y):
                 assert isinstance(x, %(typname)s)
                 assert isinstance(y, %(typname)s)
                 func = opimpls[%(opname)r]
-                return func(x, y)
+                return %(adjust_result)s(func(x, y))
         """ % locals()).compile()
     for opname in 'is_true', 'neg':
         assert opname in opimpls
+        if typ is int and opname not in ops_returning_a_bool:
+            adjust_result = 'intmask'
+        else:
+            adjust_result = ''
         exec py.code.Source("""
             def %(opnameprefix)s_%(opname)s(x):
                 assert isinstance(x, %(typname)s)
                 func = opimpls[%(opname)r]
-                return func(x)
+                return %(adjust_result)s(func(x))
         """ % locals()).compile()
 
 for opname in ('gt', 'lt', 'ge', 'ne', 'le', 'eq'):

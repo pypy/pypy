@@ -365,7 +365,7 @@ def ll_strhash(s):
             x = -1
         else:
             x = ord(s.chars[0]) << 7
-            i = 1
+            i = 0
             while i < length:
                 x = (1000003*x) ^ ord(s.chars[i])
                 i += 1

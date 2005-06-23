@@ -77,16 +77,16 @@ def test_deleted_entry_reusage_with_colliding_hashes():
         del d[c1]
         return d[c2]
 
+    char_by_hash = {}
     base = 8
-    x = 'a'
-    xh = lowlevelhash(x) % base
-    for y in range(ord('b'), ord('z')): 
-        if lowlevelhash(chr(y)) % base == xh: 
-            break 
-    else: 
-        py.test.skip("XXX improve hash finding algo") 
+    for y in range(0, 256):
+        y = chr(y)
+        y_hash = lowlevelhash(y) % base 
+        char_by_hash.setdefault(y_hash, []).append(y)
+
+    x, y = char_by_hash[0][:2]   # find a collision
        
-    res = interpret(func, [ord(x), y])
+    res = interpret(func, [ord(x), ord(y)])
     assert res == 2
 
     def func2(c1, c2): 
@@ -99,9 +99,28 @@ def test_deleted_entry_reusage_with_colliding_hashes():
         d[c1] = 3
         return d 
 
-    res = interpret(func2, [ord(x), y])
+    res = interpret(func2, [ord(x), ord(y)])
     for i in range(len(res.entries)): 
         assert res.entries[i].key != rdict.deleted_entry_marker
+
+    def func3(c0, c1, c2, c3, c4, c5, c6, c7):
+        d = {}
+        c0 = chr(c0) ; d[c0] = 1; del d[c0]
+        c1 = chr(c1) ; d[c1] = 1; del d[c1]
+        c2 = chr(c2) ; d[c2] = 1; del d[c2]
+        c3 = chr(c3) ; d[c3] = 1; del d[c3]
+        c4 = chr(c4) ; d[c4] = 1; del d[c4]
+        c5 = chr(c5) ; d[c5] = 1; del d[c5]
+        c6 = chr(c6) ; d[c6] = 1; del d[c6]
+        c7 = chr(c7) ; d[c7] = 1; del d[c7]
+        return d
+
+    res = interpret(func3, [ord(char_by_hash[i][0]) for i in range(8)])
+    count_frees = 0
+    for i in range(len(res.entries)):
+        if not res.entries[i].key:
+            count_frees += 1
+    assert count_frees >= 3
 
 def test_dict_resize():
     def func():

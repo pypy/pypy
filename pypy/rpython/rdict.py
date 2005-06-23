@@ -17,7 +17,8 @@ from pypy.rpython.rarithmetic import r_uint
 #    }
 #    
 #    struct dicttable {
-#        int num_used_entries;
+#        int num_items;
+#        int num_pristine_entries;  # never used entries
 #        Array *entries; 
 #    }
 #
@@ -59,7 +60,8 @@ class StrDictRepr(rmodel.Repr):
                                                         ('value', self.DICTVALUE))
             self.DICTENTRYARRAY = lltype.GcArray(self.DICTENTRY)
             self.STRDICT.become(lltype.GcStruct("dicttable", 
-                                ("num_used_entries", lltype.Signed), 
+                                ("num_items", lltype.Signed), 
+                                ("num_pristine_entries", lltype.Signed), 
                                 ("entries", lltype.Ptr(self.DICTENTRYARRAY))))
 
     #def convert_const(self, dictobj):
@@ -126,7 +128,7 @@ class __extend__(pairtype(StrDictRepr, StrDictRepr)):
 deleted_entry_marker = lltype.malloc(STR, 0, immortal=True)
 
 def ll_strdict_len(d):
-    return d.num_used_entries 
+    return d.num_items 
 
 def ll_strdict_getitem(d, key): 
     entry = ll_strdict_lookup(d, key) 
@@ -137,13 +139,17 @@ def ll_strdict_getitem(d, key):
 
 def ll_strdict_setitem(d, key, value): 
     entry = ll_strdict_lookup(d, key)
-    if not entry.key or entry.key == deleted_entry_marker: 
+    if not entry.key: 
         entry.key = key 
         entry.value = value 
-        d.num_used_entries += 1
-        if d.num_used_entries / 2 > len(d.entries) / 3:
-            ll_strdict_resize(d, len(d.entries) * 2)
-            
+        d.num_items += 1
+        d.num_pristine_entries -= 1
+        if d.num_pristine_entries <= len(d.entries) / 3:
+            ll_strdict_resize(d)
+    elif entry.key == deleted_entry_marker: 
+        entry.key = key 
+        entry.value = value 
+        d.num_items += 1
     else:
         entry.value = value 
 
@@ -152,13 +158,19 @@ def ll_strdict_delitem(d, key):
     if not entry.key or entry.key == deleted_entry_marker: 
          raise KeyError
     entry.key = deleted_entry_marker
-    d.num_used_entries -= 1
+    d.num_items -= 1
     # XXX: entry.value  = ???
 
-def ll_strdict_resize(d, new_size):
+def ll_strdict_resize(d):
     old_entries = d.entries
     old_size = len(old_entries) 
+    # make a 'new_size' estimate and shrink it if there are many
+    # deleted entry markers
+    new_size = old_size * 2
+    while new_size >= 8 and d.num_items < new_size / 4:
+        new_size /= 2
     d.entries = lltype.malloc(lltype.typeOf(old_entries).TO, new_size)
+    d.num_pristine_entries = new_size - d.num_items
     i = 0
     while i < old_size:
         entry = old_entries[i]
@@ -207,11 +219,13 @@ def ll_strdict_lookup(d, key):
 # ____________________________________________________________
 #
 #  Irregular operations.
+STRDICT_INITSIZE = 8
 
 def ll_newstrdict(DICTPTR):
     d = lltype.malloc(DICTPTR.TO)
-    d.entries = lltype.malloc(DICTPTR.TO.entries.TO, 8)  # everything is zeroed
-    d.num_used_entries = 0  # but still be explicit
+    d.entries = lltype.malloc(DICTPTR.TO.entries.TO, STRDICT_INITSIZE)
+    d.num_items = 0  # but still be explicit
+    d.num_pristine_entries = STRDICT_INITSIZE 
     return d
 
 def rtype_newdict(hop):
@@ -221,53 +235,4 @@ def rtype_newdict(hop):
     c1 = hop.inputconst(lltype.Void, r_dict.lowleveltype)
     v_result = hop.gendirectcall(ll_newstrdict, c1) 
     return v_result
-
-# ____________________________________________________________
-#
-#  Iteration.
-
-if 0: 
-    class ListIteratorRepr(Repr):
-
-        def __init__(self, r_list):
-            self.r_list = r_list
-            self.lowleveltype = lltype.Ptr(GcStruct('listiter',
-                                             ('list', r_list.lowleveltype),
-                                             ('index', Signed)))
-
-        def newiter(self, hop):
-            v_lst, = hop.inputargs(self.r_list)
-            citerptr = hop.inputconst(Void, self.lowleveltype)
-            return hop.gendirectcall(ll_listiter, citerptr, v_lst)
-
-        def rtype_next(self, hop):
-            v_iter, = hop.inputargs(self)
-            return hop.gendirectcall(ll_listnext, v_iter)
-
-    def ll_listiter(ITERPTR, lst):
-        iter = malloc(ITERPTR.TO)
-        iter.list = lst
-        iter.index = 0
-        return iter
-
-    def ll_listnext(iter):
-        l = iter.list
-        index = iter.index
-        if index >= len(l.items):
-            raise StopIteration
-        iter.index = index + 1
-        return l.items[index]
-
-
-    keyhash = rstr.ll_strhash(key) 
-    n = len(d.entries) 
-    index = keyhash & (n - 1)  
-    while 1: 
-        entry = d.entries[index]
-        if not entry.key or en: 
-            break 
-            if entry.key != deleted_entry_marker and rstr.ll_streq(entry.key, key): 
-                break 
-            index = (index + 1) & (n-1)
-    #return entry 
 
