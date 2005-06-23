@@ -139,8 +139,13 @@ def ll_strdict_setitem(d, key, value):
     entry = ll_strdict_lookup(d, key)
     if not entry.key or entry.key == deleted_entry_marker: 
         entry.key = key 
+        entry.value = value 
         d.num_used_entries += 1
-    entry.value = value 
+        if d.num_used_entries / 2 > len(d.entries) / 3:
+            ll_strdict_resize(d, len(d.entries) * 2)
+            
+    else:
+        entry.value = value 
 
 def ll_strdict_delitem(d, key): 
     entry = ll_strdict_lookup(d, key)
@@ -150,6 +155,18 @@ def ll_strdict_delitem(d, key):
     d.num_used_entries -= 1
     # XXX: entry.value  = ???
 
+def ll_strdict_resize(d, new_size):
+    old_entries = d.entries
+    old_size = len(old_entries) 
+    d.entries = lltype.malloc(lltype.typeOf(old_entries).TO, new_size)
+    i = 0
+    while i < old_size:
+        entry = old_entries[i]
+        if entry.key and entry.key != deleted_entry_marker:
+           new_entry = ll_strdict_lookup(d, entry.key)
+           new_entry.key = entry.key
+           new_entry.value = entry.value
+        i += 1
 
 # the below is a port of CPython's dictobject.c's lookdict implementation 
 PERTURB_SHIFT = 5

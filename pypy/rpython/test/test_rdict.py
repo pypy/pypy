@@ -102,3 +102,12 @@ def test_deleted_entry_reusage_with_colliding_hashes():
     res = interpret(func2, [ord(x), y])
     for i in range(len(res.entries)): 
         assert res.entries[i].key != rdict.deleted_entry_marker
+
+def test_dict_resize():
+    def func():
+        d = {}
+        for i in range(8):
+            d[chr(ord('a') + i)] = i
+        return d
+    res = interpret(func, [])
+    assert len(res.entries) > 8
