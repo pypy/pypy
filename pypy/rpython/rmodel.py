@@ -10,7 +10,7 @@ class Repr:
     """ An instance of Repr is associated with each instance of SomeXxx.
     It defines the chosen representation for the SomeXxx.  The Repr subclasses
     generally follows the SomeXxx subclass hierarchy, but there are numerous
-    exceptions.  For example, the anotator uses SomeIter for any iterator, but
+    exceptions.  For example, the annotator uses SomeIter for any iterator, but
     we need different representations according to the type of container we are
     iterating over.
     """
