@@ -13,6 +13,7 @@ computation part.
 
 from __future__ import generators
 import sys
+import py
 from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
@@ -28,10 +29,9 @@ from pypy.rpython.normalizecalls import perform_normalizations
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.exceptiondata import ExceptionData
 
-
-debug = False
+log = py.log.Producer("rtyper")
+py.log.setconsumer("rtyper", None) 
 crash_on_first_typeerror = True
-
 
 class RPythonTyper:
 
@@ -246,8 +246,7 @@ class RPythonTyper:
             yield HighLevelOp(self, block.operations[-1], exclinks, llops)
 
     def translate_hl_to_ll(self, hop, varmapping):
-        if debug:
-            print hop.spaceop.opname, hop.args_s
+        log.translating(hop.spaceop.opname, hop.args_s)
         resultvar = hop.dispatch()
         op = hop.spaceop
         if resultvar is None:

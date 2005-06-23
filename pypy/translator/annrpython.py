@@ -1,13 +1,16 @@
 from __future__ import generators
 
 from types import FunctionType, ClassType
-from pypy.tool.ansi_print import ansi_print
+from pypy.tool.ansi_print import ansi_log 
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
 from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
 from pypy.objspace.flow.model import last_exception, checkgraph
+import py
+log = py.log.Producer("annrpython") 
+py.log.setconsumer("annrpython", ansi_log) 
 
 class AnnotatorError(Exception):
     pass
@@ -233,15 +236,13 @@ class RPythonAnnotator:
         self.bindings[arg] = s_value
         if annmodel.DEBUG:
             if arg in self.return_bindings:
-                ansi_print("%s -> %s" % (self.whereami((self.return_bindings[arg],
-                                                         None, None)),
-                                         s_value),
-                           esc="1") # bold
+                log.bold("%s -> %s" % 
+                    (self.whereami((self.return_bindings[arg], None, None)), 
+                     s_value)) 
 
             if arg in self.return_bindings and s_value == annmodel.SomeObject():
-                ansi_print("*** WARNING: %s result degenerated to SomeObject" %
-                           self.whereami((self.return_bindings[arg],None, None)),
-                           esc="31") # RED
+                log.red("*** WARNING: %s result degenerated to SomeObject" %
+                     self.whereami((self.return_bindings[arg],None, None))) 
                 
             self.binding_caused_by[arg] = called_from
 

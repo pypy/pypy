@@ -1,20 +1,24 @@
 from pypy.annotation import model as annmodel
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
+from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython.rtyper import RPythonTyper
+import py
 
+def setup_module(mod): 
+    mod.logstate = py.log._getstate()
+    py.log.setconsumer("rtyper", py.log.STDOUT)
+    py.log.setconsumer("annrpython", None)   
+
+def teardown_module(mod): 
+    py.log._setstate(mod.logstate) 
 
 def test_simple():
     def dummyfn(x):
         return x+1
 
-    t = Translator(dummyfn)
-    t.annotate([int])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
-
+    res = interpret(dummyfn, [7])
+    assert res == 8
 
 def test_function_call():
     def g(x, y):
@@ -22,13 +26,8 @@ def test_function_call():
     def f(x):
         return g(1, x)
 
-    t = Translator(f)
-    t.annotate([int])
-    typer = RPythonTyper(t.annotator)
-    typer.specialize()
-    #t.view()
-    t.checkgraphs()
-
+    res = interpret(f, [4])
+    assert res == -3 
 
 def test_retval():
     def f(x):
