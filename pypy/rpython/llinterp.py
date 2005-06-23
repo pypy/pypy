@@ -268,13 +268,13 @@ opimpls['is_true'] = bool
 
 for typ in (float, int, r_uint):
     typname = typ.__name__
+    optup = ('add', 'sub', 'mul', 'div', 'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq',)
     if typ is r_uint:
         opnameprefix = 'uint'
     else:
         opnameprefix = typname
-    optup = ('add', 'sub', 'mul', 'div', 'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq', 'and_', 'or_')
     if typ in (int, r_uint):
-        optup += 'truediv', 'floordiv'
+        optup += 'truediv', 'floordiv', 'and_', 'or_', 'lshift', 'rshift', 'xor'
     for opname in optup:
         assert opname in opimpls
         pureopname = opname.rstrip('_')

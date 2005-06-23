@@ -3,6 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import rmodel, lltype, rstr
 from pypy.rpython.rstr import STR, string_repr
+from pypy.rpython.rarithmetic import r_uint 
 
 # ____________________________________________________________
 #
@@ -129,14 +130,14 @@ def ll_strdict_len(d):
 
 def ll_strdict_getitem(d, key): 
     entry = ll_strdict_lookup(d, key) 
-    if entry.key: 
+    if entry.key and entry.key != deleted_entry_marker: 
         return entry.value 
     else: 
         raise KeyError 
 
 def ll_strdict_setitem(d, key, value): 
     entry = ll_strdict_lookup(d, key)
-    if not entry.key: 
+    if not entry.key or entry.key == deleted_entry_marker: 
         entry.key = key 
         d.num_used_entries += 1
     entry.value = value 
@@ -149,20 +150,42 @@ def ll_strdict_delitem(d, key):
     d.num_used_entries -= 1
     # XXX: entry.value  = ???
 
+
+# the below is a port of CPython's dictobject.c's lookdict implementation 
+PERTURB_SHIFT = 5
+
 def ll_strdict_lookup(d, key): 
-    keyhash = rstr.ll_strhash(key) 
-    n = len(d.entries) 
-    index = keyhash & (n - 1)  
+    hash = rstr.ll_strhash(key) 
+    entries = d.entries
+    mask = len(entries) - 1
+    i = r_uint(hash & mask) 
+
+    # do the first try before any looping 
+    entry = entries[i]
+    if not entry.key or entry.key == key: 
+        return entry 
+    if entry.key == deleted_entry_marker: 
+        freeslot = entry 
+    else: 
+        if entry.key.hash == hash and rstr.ll_streq(entry.key, key): 
+            return entry 
+        freeslot = lltype.nullptr(lltype.typeOf(entry).TO)
+
+    # In the loop, key == deleted_entry_marker is by far (factor of 100s) the
+    # least likely outcome, so test for that last.  
+    perturb = r_uint(hash) 
     while 1: 
-        entry = d.entries[index]
-        if entry.key: 
-            if rstr.ll_streq(entry.key, key): 
-                break 
-            # XXX check for delitem 
-            index = (index + 1) & (n-1)
-        else: 
-            break 
-    return entry 
+        i = (i << 2) + i + perturb + 1
+        entry = entries[i & mask]
+        if not entry.key: 
+            return freeslot or entry 
+        if entry.key == key or (entry.key.hash == hash and 
+                                entry.key != deleted_entry_marker and
+                                rstr.ll_streq(entry.key, key)): 
+            return entry
+        if entry.key == deleted_entry_marker and not freeslot:
+            freeslot = entry 
+        perturb >>= PERTURB_SHIFT
 
 # ____________________________________________________________
 #
@@ -217,3 +240,17 @@ if 0:
             raise StopIteration
         iter.index = index + 1
         return l.items[index]
+
+
+    keyhash = rstr.ll_strhash(key) 
+    n = len(d.entries) 
+    index = keyhash & (n - 1)  
+    while 1: 
+        entry = d.entries[index]
+        if not entry.key or en: 
+            break 
+            if entry.key != deleted_entry_marker and rstr.ll_streq(entry.key, key): 
+                break 
+            index = (index + 1) & (n-1)
+    #return entry 
+
