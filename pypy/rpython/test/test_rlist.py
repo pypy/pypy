@@ -155,13 +155,11 @@ def test_set_del_item():
 
 def test_insert_pop():
     def dummyfn():
-        l = []
-        l.append(5)
-        l.append(6)
-        l.append(7)
+        l = [5, 6, 7, 8]
         l.insert(1, 42)
         l.pop(2)
         del l[0]
+        l.pop(-1)
         l.pop()
         return l[-1]
     res = interpret(dummyfn, ())

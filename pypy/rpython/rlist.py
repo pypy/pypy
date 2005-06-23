@@ -99,17 +99,16 @@ class ListRepr(Repr):
 
     def rtype_method_pop(self, hop):
         if hop.nb_args == 2:
-            v_list, v_index = hop.inputargs(self, Signed)
+            args = hop.inputargs(self, Signed)
             if hop.args_s[1].nonneg:
                 llfn = ll_pop_nonneg
             else:
                 llfn = ll_pop
+            assert hasattr(args[1], 'concretetype')
         else:
-            v_list, = hop.inputargs(self)
-            v_index = hop.inputconst(Signed, -1)
-            llfn = ll_pop
-        assert hasattr(v_index, 'concretetype')
-        return hop.gendirectcall(llfn, v_list, v_index)
+            args = hop.inputargs(self)
+            llfn = ll_pop_default
+        return hop.gendirectcall(llfn, *args)
 
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
@@ -124,10 +123,6 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
         else:
             llfn = ll_getitem
         return hop.gendirectcall(llfn, v_lst, v_index)
-    
-##    def rtype_method_pop((r_list,r_int),hop):
-##        v_lst, v_index = hop.inputargs(r_lst, Signed)
-##        return hop.gendirectcall(ll_pop,v_list,v_index)
     
     def rtype_setitem((r_lst, r_int), hop):
         v_lst, v_index, v_item = hop.inputargs(r_lst, Signed, r_lst.item_repr)
@@ -225,6 +220,18 @@ def ll_insert(l, index, newitem):
 def ll_pop_nonneg(l, index):
     res = l.items[index]
     ll_delitem_nonneg(l, index)
+    return res
+
+def ll_pop_default(l):
+    index = len(l.items) - 1
+    res = l.items[index]
+    newlength = index
+    newitems = malloc(typeOf(l).TO.items.TO, newlength)
+    j = 0
+    while j < newlength:
+        newitems[j] = l.items[j]
+        j += 1
+    l.items = newitems
     return res
 
 def ll_pop(l, index):
