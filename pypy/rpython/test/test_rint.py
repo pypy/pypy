@@ -93,3 +93,12 @@ def test_unsigned():
 
     res = ev_fun(-1)
     assert res is False    # -1 ==> 0xffffffff
+
+def test_int_min():
+    def fn(i, j):
+        return min(i,j)
+    ev_fun = make_interpreter(fn, [0, 0])
+    assert ev_fun(1, 2) == 1
+    assert ev_fun(1, -1) == -1
+    assert ev_fun(2, 2) == 2
+    assert ev_fun(-1, -12) == -12
