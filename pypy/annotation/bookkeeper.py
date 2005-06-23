@@ -134,6 +134,10 @@ class Stats:
         return self.indexrepr(idx)
 
     def consider_strformat(self, str, args):
+        if str.is_constant():
+            s = repr(str.const)
+        else:
+            s = "?!!!!!!"
         if isinstance(args, SomeTuple):
             return (str.const, tuple([self.typerepr(x) for x in args.items]))
         else:
