@@ -315,7 +315,7 @@ class Bookkeeper:
                     result.dictdef.generalize_key(self.immutablevalue(ek))
                     result.dictdef.generalize_value(self.immutablevalue(ev))
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
-            result = SomeBuiltin(BUILTIN_ANALYZERS[x])
+            result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (x.__module__, x.__name__))
         elif isinstance(x, lltype._ptr):
             result = SomePtr(lltype.typeOf(x))
         elif callable(x) or isinstance(x, staticmethod): # XXX

@@ -405,6 +405,11 @@ def statsforstrformat(t):
     for (f,a), c in result.iteritems():
         print "%s %s %d" % (f, keyrepr(a), c)
 
+def statbuiltins(t):
+    stats = t.annotator.bookkeeper.stats.classify
+    for k in stats:
+        if k.startswith('__builtin__'):
+            statsfor(t, k)
 
 # debug helper
 def tryout(f, *args):

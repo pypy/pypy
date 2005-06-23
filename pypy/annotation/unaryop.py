@@ -379,6 +379,7 @@ class __extend__(SomeBuiltin):
         if bltn.s_self is not None:
             return bltn.analyser(bltn.s_self, *args)
         else:
+            getbookkeeper().count(bltn.methodname.replace('.', '_'), *args)
             return bltn.analyser(*args)
 
     def call(bltn, args, implicit_init=False):
