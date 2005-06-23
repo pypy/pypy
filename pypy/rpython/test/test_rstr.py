@@ -1,5 +1,6 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
+from pypy.rpython.rstr import parse_fmt_string
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.test.test_llinterp import interpret, make_interpreter
 
@@ -183,3 +184,27 @@ def test_join():
         for j in range(3):
             res = ev_fn(i, j)
             assert ''.join(res.chars) == fn(i, j)
+
+def test_parse_fmt():
+    assert parse_fmt_string('a') == ['a']
+    assert parse_fmt_string('%s') == [('s',)]
+    assert parse_fmt_string("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
+
+def test_strformat():
+    def percentS(s):
+        return "before %s after" % (s,)
+
+    res = interpret(percentS, ['1'])
+    assert ''.join(res.chars) == 'before 1 after'
+
+    def percentD(i):
+        return "bing %d bang" % (i,)
+    
+    res = interpret(percentD, [23])
+    assert ''.join(res.chars) == 'bing 23 bang'
+
+    def percentX(i):
+        return "bing %x bang" % (i,)
+    
+    res = interpret(percentX, [23])
+    assert ''.join(res.chars) == 'bing 17 bang'

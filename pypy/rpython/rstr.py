@@ -6,6 +6,8 @@ from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst
 from pypy.rpython.rarithmetic import intmask
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
+from pypy.rpython.rtuple import TupleRepr
+from pypy.rpython import rint
 
 # ____________________________________________________________
 #
@@ -96,7 +98,10 @@ class __extend__(StringRepr):
         elif not s_item.__class__ == annmodel.SomeString:
             raise TyperError("join of non-string list: %r" % r_lst)
         v_str, v_lst = hop.inputargs(string_repr, r_lst)
-        return hop.gendirectcall(ll_join, v_str, v_lst)
+        cname = inputconst(Void, "items")
+        v_items = hop.genop("getfield", [v_lst, cname],
+                            resulttype=Ptr(GcArray(Ptr(STR))))
+        return hop.gendirectcall(ll_join, v_str, v_items)
         
     def make_iterator_repr(self):
         return string_iterator_repr
@@ -149,6 +154,76 @@ class __extend__(pairtype(StringRepr, StringRepr)):
         vres = hop.gendirectcall(ll_strcmp, v_str1, v_str2)
         return hop.genop('int_gt', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
+
+def parse_fmt_string(fmt):
+    # we support x, d, s, [r]
+
+    it = iter(fmt)
+    r = []
+    curstr = ''
+    for c in it:
+        if c == '%':
+            f = it.next()
+            if f == '%':
+                curstr += '%'
+                continue
+
+            if curstr:
+                r.append(curstr)
+            curstr = ''
+            assert f in 'xdsr'
+
+            r.append((f,))
+        else:
+            curstr += c
+    if curstr:
+        r.append(curstr)
+    return r
+            
+
+
+class __extend__(pairtype(StringRepr, TupleRepr)):
+    def rtype_mod(_, hop):
+        s_str = hop.args_s[0]
+        assert s_str.is_constant()
+        s = s_str.const
+        things = parse_fmt_string(s)
+        size = inputconst(Void, len(things))
+        TEMP = GcArray(Ptr(STR))
+        cTEMP = inputconst(Void, TEMP)
+        vtemp = hop.genop("malloc_varsize", [cTEMP, size],
+                          resulttype=Ptr(TEMP))
+        r_tuple = hop.args_r[1]
+        v_tuple = hop.args_v[1]
+        
+        argsiter = iter(enumerate(r_tuple.items_r))
+        for i, thing in enumerate(things):
+            if isinstance(thing, tuple):
+                code = thing[0]
+                argi, r_arg = argsiter.next()
+                fname = r_tuple.fieldnames[argi]
+                cname = hop.inputconst(Void, fname)
+                vitem = hop.genop("getfield", [v_tuple, cname],
+                                  resulttype=r_arg.lowleveltype)
+                if code == 's':
+                    assert isinstance(r_arg, StringRepr)
+                    vchunk = hop.llops.convertvar(vitem, r_arg, string_repr)
+                elif code == 'd':
+                    assert isinstance(r_arg, IntegerRepr)
+                    vchunk = hop.gendirectcall(rint.ll_int2str, vitem)
+                elif code == 'x':
+                    assert isinstance(r_arg, IntegerRepr)
+                    vchunk = hop.gendirectcall(rint.ll_int2hex, vitem,
+                                               inputconst(Bool, False))
+                else:
+                    assert 0
+            else:
+                vchunk = inputconst(string_repr, thing)
+            i = inputconst(Signed, i)
+            hop.genop('setarrayitem', [vtemp, i, vchunk])
+
+        return hop.gendirectcall(ll_join, inputconst(string_repr, ""), vtemp)
+        
 
 class __extend__(CharRepr):
 
@@ -351,10 +426,9 @@ def ll_endswith(s1, s2):
 
 emptystr = string_repr.convert_const("")
 
-def ll_join(s, l):
+def ll_join(s, items):
     s_chars = s.chars
     s_len = len(s_chars)
-    items = l.items
     num_items = len(items)
     if num_items == 0:
         return emptystr
