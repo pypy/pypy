@@ -177,7 +177,7 @@ def refreshArgs(tup):
     return tuple(res)
 
 def findAllArgs(exc, maxprobe):
-    minargs, maxargs = probeArgCount(exc, maxprobe=20)
+    minargs, maxargs = probeArgCount(exc, maxprobe)
     res = []
     # for minargs args, we need to try combinations
     arglist = tuple([genArgsToTry(i) for i in range(minargs)])
@@ -231,11 +231,11 @@ def captureAssignments(exc, args):
             txt = br[0] + ", ".join(stuff) + br[-1]
             names[obj] = txt
         else:
-            names[obj] = "%r # default, hopefully" % obj
+            names[obj] = "%r" % obj
         return names[obj]
     res = []
     for i,(name, obj) in enumerate(assigned):
-        if isinstance(obj,ProbeObject) or name == 'args':
+        if isinstance(obj,ProbeObject) or name == 'args' or obj==None:
             res.append("self.%s = %s" % (name, nameof(obj)))
         else:
             res.append("if type(%s) == %s:"%(nameof(obj),repr(type(obj))[7:-2]))
@@ -284,8 +284,10 @@ def tryGenerate__init__(exc, maxprobe=20):
             dense = tuple(range(argcounts[0], argcounts[-1]+1)) == argcounts
             if len(argcounts) == 1:
                 yield "    if argc == %d:" % argcounts
-                trailer = ["    else:"]
-                trailer += ["        raise TypeError('function takes exactly 5 arguments (%d given)'%argc)"]
+                if maxargs == minargs:
+                    trailer = ["    else:"]
+                    err_msg = ""
+                    trailer += ["        raise TypeError('function takes exactly "+str(argcounts[0])+" arguments (%d given)'%argc)"]
             elif dense and argcounts[0] == 0:
                 yield "    if argc <= %d:" % argcounts[-1]
             elif dense and argcounts[-1] == maxprobe-1:
@@ -294,8 +296,11 @@ def tryGenerate__init__(exc, maxprobe=20):
                 yield "    if %d <= argc <= %d:" % (argcounts[0], argcounts[-1])
             else:
                 yield "    if argc in %r:" % (argcounts, )
-        for order, line in ordered_statements:
-            yield indent * "    " + line
+        if len(ordered_statements)>0:
+            for order, line in ordered_statements:
+                yield indent * "    " + line
+        else:
+            yield indent * "    " + "pass"
         if trailer:
             for line in trailer : yield line
 
