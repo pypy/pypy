@@ -203,7 +203,6 @@ def ll_append(l, newitem):
     newitems[length] = newitem
     l.items = newitems
 
-<<<<<<< .mine
 def ll_insert_nonneg(l, index, newitem):
     length = len(l.items)
     newitems = malloc(typeOf(l).TO.items.TO, length+1)
@@ -224,31 +223,21 @@ def ll_insert(l, index, newitem):
     ll_insert_nonneg(l, index, newitem)
 
 def ll_pop_nonneg(l, index):
-    res = ll_getitem_nonneg(l, index)
+    res = l.items[index]
     ll_delitem_nonneg(l, index)
-=======
-def ll_pop(l, index):
-    res = ll_getitem(l, index)
-    ll_delitem(l, index)
->>>>>>> .r13701
-    return res
 
 def ll_pop(l, index):
     if index < 0:
         index += len(l.items)
-    res = ll_getitem_nonneg(l, index)
+    res = l.items[index]
     ll_delitem_nonneg(l, index)
     return res
 
 def ll_reverse(l):
     length = len(l.items)
-<<<<<<< .mine
+    len2 = length // 2 # moved this out of the loop
     i = 0
-    while i < length / 2:
-=======
-    i = 0
-    while i < length // 2:
->>>>>>> .r13701
+    while i < len2:
         tmp = l.items[i]
         l.items[i] = l.items[length-1-i]
         l.items[length-1-i] = tmp

@@ -167,6 +167,14 @@ def test_insert_pop():
     res = interpret(dummyfn, ())
     assert res == 42
 
+def test_reverse():
+    def dummyfn():
+        l = [5, 3, 2]
+        l.reverse()
+        return l[0]*100 + l[1]*10 + l[2]
+    res = interpret(dummyfn, ())
+    assert res == 235
+
 def test_prebuilt_list():
     klist = ['a', 'd', 'z', 'k']
     def dummyfn(n):
