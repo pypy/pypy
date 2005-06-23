@@ -11,3 +11,11 @@ def test_dict_creation():
 
     res = interpret(createdict, [42])
     assert res == 42
+
+def test_dict_getitem_setitem(): 
+    def func(i): 
+        d = {'hello' : i}
+        d['world'] = i + 1
+        return d['hello'] * d['world'] 
+    res = interpret(func, [6])
+    assert res == 42

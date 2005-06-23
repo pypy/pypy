@@ -1,8 +1,8 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython import rmodel, lltype 
-from pypy.rpython.rstr import STR, string_repr, ll_strhash 
+from pypy.rpython import rmodel, lltype, rstr
+from pypy.rpython.rstr import STR, string_repr
 
 # ____________________________________________________________
 #
@@ -118,15 +118,38 @@ class __extend__(pairtype(StrDictRepr, StrDictRepr)):
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
 
+deleted_entry_marker = lltype.malloc(STR, 0, immortal=True)
+
 def ll_strdict_len(d):
     return d.num_used_entries 
 
 def ll_strdict_getitem(d, key): 
-    return d.entries[0].value 
+    entry = ll_strdict_lookup(d, key) 
+    if entry.key: 
+        return entry.value 
+    else: 
+        raise KeyError 
 
 def ll_strdict_setitem(d, key, value): 
-    d.entries[0].key = key 
-    d.entries[0].value = value 
+    entry = ll_strdict_lookup(d, key)
+    if not entry.key: 
+        entry.key = key 
+    entry.value = value 
+
+def ll_strdict_lookup(d, key): 
+    keyhash = rstr.ll_strhash(key) 
+    n = len(d.entries) 
+    index = keyhash & (n - 1)  
+    while 1: 
+        entry = d.entries[index]
+        if entry.key: 
+            if rstr.ll_streq(entry.key, key): 
+                break 
+            # XXX check for delitem 
+            index = (index + 1) & (n-1)
+        else: 
+            break 
+    return entry 
 
 # ____________________________________________________________
 #
