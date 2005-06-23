@@ -37,7 +37,13 @@ def mro_error(orderlists):
         cycle.append(candidate)
         nextblockinglist = blockinglist(candidate, orderlists)
         candidate = nextblockinglist[0]
-    del cycle[:cycle.index(candidate)]
+    # avoid the only use of list.index in the PyPy code base:
+    i = 0
+    for c in cycle:
+        if c == candidate:
+            break
+        i += 1
+    del cycle[:i]
     cycle.append(candidate)
     cycle.reverse()
     names = [cls.__name__ for cls in cycle]
