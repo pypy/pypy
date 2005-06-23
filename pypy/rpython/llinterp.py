@@ -157,10 +157,10 @@ class LLFrame(object):
         # obj should be pointer
         setattr(obj, fieldname, fieldvalue)
 
-    def op_getarrayitem(self,array,index):
+    def op_getarrayitem(self, array, index):
         return array[index]
 
-    def op_setarrayitem(self,array,index,item):
+    def op_setarrayitem(self, array, index, item):
         array[index] = item
 
     def op_direct_call(self, f, *args):

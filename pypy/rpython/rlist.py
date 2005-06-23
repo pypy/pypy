@@ -225,6 +225,7 @@ def ll_insert(l, index, newitem):
 def ll_pop_nonneg(l, index):
     res = l.items[index]
     ll_delitem_nonneg(l, index)
+    return res
 
 def ll_pop(l, index):
     if index < 0:
