@@ -95,7 +95,7 @@ def rtype(fn, argtypes=[]):
 
 def test_simple():
     def dummyfn():
-        l = [10,20,30]
+        l = [10, 20, 30]
         return l[2]
     rtype(dummyfn)
 
@@ -109,14 +109,14 @@ def test_append():
 
 def test_len():
     def dummyfn():
-        l = [5,10]
+        l = [5, 10]
         return len(l)
     rtype(dummyfn)
 
 def test_iterate():
     def dummyfn():
         total = 0
-        for x in [1,3,5,7,9]:
+        for x in [1, 3, 5, 7, 9]:
             total += x
         return total
     rtype(dummyfn)
@@ -165,7 +165,7 @@ def test_prebuilt_list():
     assert res == 'z'
 
 def test_bound_list_method():
-    klist = [1,2,3]
+    klist = [1, 2, 3]
     # for testing constant methods without actually mutating the constant
     def dummyfn(n):
         klist.extend([])
