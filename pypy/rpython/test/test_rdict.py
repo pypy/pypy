@@ -78,7 +78,7 @@ def test_deleted_entry_reusage_with_colliding_hashes():
         return d[c2]
 
     char_by_hash = {}
-    base = 8
+    base = rdict.STRDICT_INITSIZE
     for y in range(0, 256):
         y = chr(y)
         y_hash = lowlevelhash(y) % base 
@@ -115,7 +115,10 @@ def test_deleted_entry_reusage_with_colliding_hashes():
         c7 = chr(c7) ; d[c7] = 1; del d[c7]
         return d
 
-    res = interpret(func3, [ord(char_by_hash[i][0]) for i in range(8)])
+    if rdict.STRDICT_INITSIZE != 8: 
+        py.test.skip("make dict tests more indepdent from initsize")
+    res = interpret(func3, [ord(char_by_hash[i][0]) 
+                               for i in range(rdict.STRDICT_INITSIZE)])
     count_frees = 0
     for i in range(len(res.entries)):
         if not res.entries[i].key:
@@ -125,8 +128,8 @@ def test_deleted_entry_reusage_with_colliding_hashes():
 def test_dict_resize():
     def func():
         d = {}
-        for i in range(8):
+        for i in range(rdict.STRDICT_INITSIZE):
             d[chr(ord('a') + i)] = i
         return d
     res = interpret(func, [])
-    assert len(res.entries) > 8
+    assert len(res.entries) > rdict.STRDICT_INITSIZE 

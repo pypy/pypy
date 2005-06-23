@@ -158,8 +158,11 @@ def ll_strdict_delitem(d, key):
     if not entry.key or entry.key == deleted_entry_marker: 
          raise KeyError
     entry.key = deleted_entry_marker
-    d.num_items -= 1
     # XXX: entry.value  = ???
+    d.num_items -= 1
+    num_entries = len(d.entries)
+    if num_entries > STRDICT_INITSIZE and d.num_items < num_entries / 4: 
+        ll_strdict_resize(d) 
 
 def ll_strdict_resize(d):
     old_entries = d.entries
@@ -167,7 +170,7 @@ def ll_strdict_resize(d):
     # make a 'new_size' estimate and shrink it if there are many
     # deleted entry markers
     new_size = old_size * 2
-    while new_size >= 8 and d.num_items < new_size / 4:
+    while new_size > STRDICT_INITSIZE and d.num_items < new_size / 4:
         new_size /= 2
     d.entries = lltype.malloc(lltype.typeOf(old_entries).TO, new_size)
     d.num_pristine_entries = new_size - d.num_items
