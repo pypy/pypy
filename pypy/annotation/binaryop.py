@@ -306,6 +306,7 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
 class __extend__(pairtype(SomeString, SomeObject)):
 
     def mod((str, args)):
+        assert str.is_constant()
         getbookkeeper().count('strformat', str, args)
         return SomeString()
 

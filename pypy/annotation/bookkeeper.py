@@ -133,6 +133,13 @@ class Stats:
     def consider_str_getitem(self, idx):
         return self.indexrepr(idx)
 
+    def consider_strformat(self, str, args):
+        if isinstance(args, SomeTuple):
+            return (str.const, tuple([self.typerepr(x) for x in args.items]))
+        else:
+            return (str.const, self.typerepr(args))
+            
+
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
     It ensures that the same 'choice objects' will be returned if we ask
