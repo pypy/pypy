@@ -107,7 +107,10 @@ class Frame(Wrappable):
         if self.w_locals is None:
             self.w_locals = self.space.newdict([])
         varnames = self.code.getvarnames()
-        for name, w_value in zip(varnames, self.getfastscope()):
+        fastscope_w = self.getfastscope()
+        for i in range(min(len(varnames), len(fastscope_w))):
+            name = varnames[i]
+            w_value = fastscope_w[i]
             if w_value is not None:
                 w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
@@ -119,7 +122,7 @@ class Frame(Wrappable):
 
         new_fastlocals_w = [None]*self.numlocals
         
-        for name, i in zip(varnames, range(self.numlocals)):
+        for i in range(min(len(varnames), self.numlocals)):
             w_name = self.space.wrap(varnames[i])
             try:
                 w_value = self.space.getitem(self.w_locals, w_name)

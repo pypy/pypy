@@ -86,7 +86,9 @@ def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items2 = w_tuple2.wrappeditems
     if len(items1) != len(items2):
         return space.w_False
-    for item1, item2 in zip(items1, items2):
+    for i in range(len(items1)):
+        item1 = items1[i]
+        item2 = items2[i]
         if not space.is_true(space.eq(item1, item2)):
             return space.w_False
     return space.w_True
