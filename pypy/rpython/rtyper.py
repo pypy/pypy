@@ -329,6 +329,9 @@ def translate_op_%s(self, hop):
     def translate_op_newlist(self, hop):
         return rlist.rtype_newlist(hop)
 
+    def translate_op_newdict(self, hop):
+        return rdict.rtype_newdict(hop)
+
     def translate_op_alloc_and_set(self, hop):
         return rlist.rtype_alloc_and_set(hop)
 
@@ -526,6 +529,6 @@ class LowLevelOpList(list):
 from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rslice
-from pypy.rpython import rlist, rstr, rtuple
+from pypy.rpython import rlist, rstr, rtuple, rdict 
 from pypy.rpython import rclass, rbuiltin, rpbc
 from pypy.rpython import rptr
