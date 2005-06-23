@@ -299,7 +299,8 @@ class FunctionsPBCRepr(Repr):
         if self.lowleveltype == Void:
             assert len(self.function_signatures) == 1
             vlist[0] = hop.inputconst(typeOf(f), f)
-        return hop.genop('direct_call', vlist, resulttype = rresult)
+        v = hop.genop('direct_call', vlist, resulttype = rresult)
+        return hop.llops.convertvar(v, rresult, hop.r_result)
 
     def rtype_call_args(self, hop):
         f, rinputs, rresult = self.function_signatures.itervalues().next()

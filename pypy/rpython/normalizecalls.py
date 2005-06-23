@@ -115,6 +115,9 @@ def normalize_function_signatures(annotator):
                     args_s.append(bindings[j])
                 s_value = unionof(*args_s)
                 generalizedargs.append(s_value)
+            result_s = [annotator.binding(graph.getreturnvar())
+                        for graph in graph_bindings]
+            generalizedresult = unionof(*result_s)
 
             for func in functions:
                 graph = annotator.translator.getflowgraph(func)
@@ -158,7 +161,8 @@ def normalize_function_signatures(annotator):
                     checkgraph(graph)
                     annotator.annotated[newblock] = annotator.annotated[oldblock]
                 graph.normalized_for_calls = True
-                # XXX convert the return value too
+                # convert the return value too
+                annotator.setbinding(graph.getreturnvar(), generalizedresult)
 
 
 def perform_normalizations(annotator):
