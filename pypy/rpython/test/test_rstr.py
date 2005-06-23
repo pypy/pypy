@@ -236,3 +236,12 @@ def test_strformat_nontuple():
 
     res = interpret(percentS, ['D'])
     assert ''.join(res.chars) == 'before D after'
+
+def test_str_slice():
+    def fn():
+        s = 'hello'
+        s1 = s[:3]
+        s2 = s[3:]
+        return s1+s2 == s and s2+s1 == 'lohel'
+    res = interpret(fn, ())
+    assert res

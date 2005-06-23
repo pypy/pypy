@@ -8,6 +8,8 @@ from pypy.rpython.rarithmetic import intmask
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rtuple import TupleRepr
 from pypy.rpython import rint
+from pypy.rpython.rslice import SliceRepr
+from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 
 # ____________________________________________________________
 #
@@ -117,6 +119,18 @@ class __extend__(pairtype(StringRepr, IntegerRepr)):
 
     def rtype_mod(_, hop):
         return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+
+
+class __extend__(pairtype(StringRepr, SliceRepr)):
+
+    def rtype_getitem((r_str, r_slic), hop):
+        if r_slic == startonly_slice_repr:
+            v_str, v_start = hop.inputargs(r_str, startonly_slice_repr)
+            return hop.gendirectcall(ll_stringslice_startonly, v_str, v_start)
+        if r_slic == startstop_slice_repr:
+            v_str, v_slice = hop.inputargs(r_str, startstop_slice_repr)
+            return hop.gendirectcall(ll_stringslice, v_str, v_slice)
+        raise TyperError(r_slic)
 
 
 class __extend__(pairtype(StringRepr, StringRepr)):
@@ -481,6 +495,27 @@ def ll_join(s, items):
             res_index += 1
         i += 1
     return result
+
+def ll_stringslice_startonly(s1, start):
+    len1 = len(s1.chars)
+    newstr = malloc(STR, len1 - start)
+    j = 0
+    while start < len1:
+        newstr.chars[j] = s1.chars[start]
+        start += 1
+        j += 1
+    return newstr
+
+def ll_stringslice(s1, slice):
+    start = slice.start
+    stop = slice.stop
+    newstr = malloc(STR, stop - start)
+    j = 0
+    while start < stop:
+        newstr.chars[j] = s1.chars[start]
+        start += 1
+        j += 1
+    return newstr
 
 # ____________________________________________________________
 #
