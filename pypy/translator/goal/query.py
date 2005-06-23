@@ -1,5 +1,6 @@
 # functions to query information out of the translator and annotator from the debug prompt of translate_pypy
 import types
+import re
 
 import pypy.annotation.model as annmodel
 import pypy.objspace.flow.model as flowmodel
@@ -369,6 +370,12 @@ class Counters(dict):
         return dict.__setitem__(self, outcome, c)
 
 
+def keyrepr(k):
+    if isinstance(k, tuple):
+        return "(%s)" % ', '.join([keyrepr(x) for x in k])
+    else:
+        return str(k)
+
 def statsfor(t, category):
     stats = t.annotator.bookkeeper.stats
     for_category = stats.classify[category]
@@ -376,15 +383,28 @@ def statsfor(t, category):
     counters = Counters()
     for pos, outcome in for_category.iteritems():
         counters[outcome] = counters.get(outcome, 0) + 1
-    def keyrepr(k):
-        if isinstance(k, tuple):
-            return "(%s)" % ', '.join([keyrepr(x) for x in k])
-        else:
-            return str(k)
         
     w = max([len(keyrepr(o)) for o in counters.keys()])+1
-    for outcome, n in counters.iteritems():
-        print "%*s | %d" % (w, keyrepr(outcome), n)
+    if w < 60:
+        for outcome, n in counters.iteritems():
+            print "%*s | %d" % (w, keyrepr(outcome), n)
+    else:
+        for outcome, n in counters.iteritems():
+            print "%s | %d" % (keyrepr(outcome), n)
+
+def statsforstrformat(t):
+    stats = t.annotator.bookkeeper.stats
+    stats = stats.classify['strformat']
+    result = {}
+    for fmt, args in stats.itervalues():
+        fmts = re.findall("%l?.", fmt)
+        if not isinstance(args, tuple):
+            args = (args,)
+        for f, a in zip(fmts, args):
+            result[(f,a)] = result.get((f,a), 0) + 1
+    for (f,a), c in result.iteritems():
+        print "%s %s %d" % (f, keyrepr(a), c)
+
 
 # debug helper
 def tryout(f, *args):
