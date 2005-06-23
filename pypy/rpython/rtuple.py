@@ -56,6 +56,16 @@ class __extend__(pairtype(TupleRepr, IntegerRepr)):
         cname = hop.inputconst(Void, name)
         return hop.genop('getfield', [v_tuple, cname], resulttype = llresult)
 
+class __extend__(pairtype(TupleRepr, TupleRepr)):
+    
+    def rtype_add((r_tup1, r_tup2), hop):
+        v_tuple, v_tuple1 = hop.inputargs(r_tup1.items_r, r_tup2.items_r)
+        items_r = r_tup1.items_r + r_tup2.items_r
+        res = TupleRepr(items_r)
+        vlist = v_tuple + v_tuple1
+        return newtuple(hop.llops, res, vlist)
+        
+
 # ____________________________________________________________
 #
 #  Irregular operations.
