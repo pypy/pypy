@@ -12,7 +12,6 @@ from pypy.rpython.rarithmetic import r_uint
 #
 #    struct dictentry {
 #        struct STR *key; 
-#        ### XXX? int state; 
 #        DICTVALUE value;  
 #    }
 #    
@@ -56,8 +55,9 @@ class StrDictRepr(rmodel.Repr):
             self.value_repr = self._value_repr_computer()
         if isinstance(self.STRDICT, lltype.GcForwardReference):
             self.DICTVALUE = self.value_repr.lowleveltype
-            self.DICTENTRY = lltype.Struct("dictentry", ("key", lltype.Ptr(STR)), 
-                                                        ('value', self.DICTVALUE))
+            self.DICTENTRY = lltype.Struct("dictentry", 
+                        ("key", lltype.Ptr(STR)), 
+                        ('value', self.DICTVALUE))
             self.DICTENTRYARRAY = lltype.GcArray(self.DICTENTRY)
             self.STRDICT.become(lltype.GcStruct("dicttable", 
                                 ("num_items", lltype.Signed), 
