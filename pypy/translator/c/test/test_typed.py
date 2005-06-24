@@ -170,7 +170,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
                 res = fn(i, j)
                 assert res == fn(i, j)
     
-    def xtest_unichr_eq(self):
+    def test_unichr_eq(self):
         l = list(u'Hello world')
         def f(i=int,j=int):
             return l[i] == l[j]
@@ -180,7 +180,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
                 res = fn(i,j)
                 assert res == f(i,j) 
     
-    def xtest_unichr_ne(self):
+    def test_unichr_ne(self):
         l = list(u'Hello world')
         def f(i=int,j=int):
             return l[i] != l[j]
