@@ -1,7 +1,8 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython import rclass
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
-from pypy.rpython.lltype import *
+from pypy.rpython.lltype import Array, malloc, Ptr, PyObject, pyobjectptr
+from pypy.rpython.lltype import FuncType, functionptr, Signed
 
 
 class ExceptionData:
