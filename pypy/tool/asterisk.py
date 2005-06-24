@@ -42,10 +42,11 @@ def globalsof(code, globs=None):
         elif op == 'IMPORT_NAME':
             impname = words[-1][1:-1]
         elif op == 'IMPORT_STAR':
-            name = impname, '*'
+            name = '*'
+            stars = globs.setdefault(name, {})
+            mods = stars.setdefault(impname, {})
             del impname
-            refs = globs.setdefault(name, {})
-            offsets = refs.setdefault(code, [])
+            offsets = mods.setdefault(code, [])
             offsets.append(ofs)
     return globs
 
