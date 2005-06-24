@@ -150,4 +150,14 @@ def test_dict_iteration():
         return k
     res = interpret(func, [6, 7])
     assert res == 42
+
+def test_two_dicts_with_different_value_types():
+    def func(i):
+        d1 = {}
+        d1['hello'] = i + 1
+        d2 = {}
+        d2['world'] = d1 
+        return d2['world']['hello'] 
+    res = interpret(func, [5])
+    assert res == 6
     
