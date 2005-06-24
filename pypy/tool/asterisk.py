@@ -8,6 +8,8 @@ are used.
 Then examine each 'import *' by importing that module
 and looking for those globals.
 Replace the 'import *' by the list found.
+More advanced: If the new import has more than, say, 5 entries,
+rewrite the import to use module.name throughout the source.
 """
 
 import dis, cStringIO, sys
@@ -20,7 +22,18 @@ def disasm(code):
         return sys.stdout.getvalue()
     finally:
         sys.stdout = hold
-    
+
+def offset2lineno(c, stopat):
+    tab = c.co_lnotab
+    line = c.co_firstlineno
+    addr = 0
+    for i in range(0, len(tab), 2):
+        addr = addr + ord(tab[i])
+        if addr > stopat:
+            break
+        line = line + ord(tab[i+1])
+    return line
+
 def globalsof(code, globrefs=None, stars=None, globals=None):
     names = code.co_names
     vars = code.co_varnames
@@ -106,9 +119,9 @@ class Analyser:
             which[star] = []
             for key in self.get_from_star(star).keys():
                 implicit[key] = star
-        # sort out in which star import we find what
-        # note that we walked star imports in order
-        # so we are sure to resolve ambiguities correctly
+        # sort out in which star import we find what.
+        # note that we walked star imports in order,
+        # so we are sure to resolve ambiguities correctly.
         for name in self.get_unknown_globals():
             mod = implicit[name]
             which[mod].append(name)
