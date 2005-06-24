@@ -22,7 +22,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
             value = w_value.intval
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             try:
-                value = string_to_int(space, space.str_w(w_value))
+                value = string_to_int(space.str_w(w_value))
             except ParseStringError, e:
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
@@ -32,7 +32,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
             from unicodeobject import unicode_to_decimal_w
             string = unicode_to_decimal_w(space, w_value)
             try:
-                value = string_to_int(space, string)
+                value = string_to_int(string)
             except ParseStringError, e:
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
@@ -68,7 +68,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
                                      space.wrap("int() can't convert non-string "
                                                 "with explicit base"))
         try:
-            value = string_to_int(space, s, base)
+            value = string_to_int(s, base)
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))

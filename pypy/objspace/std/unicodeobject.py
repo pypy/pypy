@@ -4,7 +4,6 @@ from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
-from pypy.objspace.std.strutil import string_to_int, string_to_long, ParseStringError
 from pypy.rpython.rarithmetic import intmask
 from pypy.module.unicodedata import unicodedb
 

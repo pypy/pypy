@@ -86,7 +86,7 @@ class NumberStringParser:
         else:
             return -1
 
-def string_to_int(space, s, base=10):
+def string_to_int(s, base=10):
     """Utility to converts a string to an integer (or possibly a long).
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
@@ -134,3 +134,88 @@ def string_to_w_long(space, s, base=10, parser=None):
                 return w_result
         w_result = space.add(space.mul(w_result,w_base),space.newlong(r_uint(digit)))
 
+def break_up_float(s):
+    i = 0
+
+    sign = ''
+    before_point = ''
+    after_point = ''
+    exponent = ''
+
+    if s[i] in '+-':
+        sign = s[i]
+        i += 1
+
+    while i < len(s) and s[i] in '0123456789':
+        before_point += s[i]
+        i += 1
+
+    if i == len(s):
+        return sign, before_point, after_point, exponent
+
+    if s[i] == '.':
+        i += 1
+        while i < len(s) and s[i] in '0123456789':
+            after_point += s[i]
+            i += 1
+            
+        if i == len(s):
+            return sign, before_point, after_point, exponent
+
+    if s[i] not in  'eE':
+        raise ParseStringError("invalid string literal for float()")
+
+    i += 1
+    if i == len(s):
+        raise ParseStringError("invalid string literal for float()")
+
+    if s[i] in '-+':
+        exponent += s[i]
+        i += 1
+
+    if i == len(s):
+        raise ParseStringError("invalid string literal for float()")
+    
+    while i < len(s) and s[i] in '0123456789':
+        exponent += s[i]
+        i += 1
+
+    if i != len(s):
+        raise ParseStringError("invalid string literal for float()")
+
+    return sign, before_point, after_point, exponent
+
+
+def string_to_float(s):
+    s = strip_space(s)
+
+    if not s:
+        raise ParseStringError("empty string for float()")
+
+    sign, before_point, after_point, exponent = break_up_float(s)
+    
+    if not before_point and not after_point:
+        raise ParseStringError("invalid string literal for float()")
+
+    r = 0.0
+    i = len(before_point) - 1
+    j = 0
+    while i >= 0:
+        d = float(ord(before_point[i]) - ord('0'))
+        r += d * (10.0 ** j)
+        i -= 1
+        j += 1
+
+    i = 0
+    while i < len(after_point):
+        d = float(ord(after_point[i]) - ord('0'))
+        r += d * (10.0 ** (-i-1))
+
+    if exponent:
+        e = string_to_int(None, exponent)
+        r *= 10.0 ** e
+
+    return r
+        
+
+    

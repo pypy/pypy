@@ -1,6 +1,8 @@
 import autopath
 from pypy.objspace.std.strutil import *
 
+import py
+
 objspacename = 'std'
 
 class TestStrUtil:
@@ -24,7 +26,7 @@ class TestStrUtil:
                  ('  -123456789 ', -123456789),
                  ]
         for s, expected in cases:
-            assert string_to_int(space, s) == expected
+            assert string_to_int(s) == expected
             assert string_to_w_long(space, s).longval() == expected
 
     def test_string_to_int_base(self):
@@ -54,12 +56,12 @@ class TestStrUtil:
                  ('0X',  16, 0),    #     "           "
                  ]
         for s, base, expected in cases:
-            assert string_to_int(space, s, base) == expected
-            assert string_to_int(space, '+'+s, base) == expected
-            assert string_to_int(space, '-'+s, base) == -expected
-            assert string_to_int(space, s+'\n', base) == expected
-            assert string_to_int(space, '  +'+s, base) == expected
-            assert string_to_int(space, '-'+s+'  ', base) == -expected
+            assert string_to_int(s, base) == expected
+            assert string_to_int('+'+s, base) == expected
+            assert string_to_int('-'+s, base) == -expected
+            assert string_to_int(s+'\n', base) == expected
+            assert string_to_int('  +'+s, base) == expected
+            assert string_to_int('-'+s+'  ', base) == -expected
 
     def test_string_to_int_error(self):
         space = self.space
@@ -78,16 +80,16 @@ class TestStrUtil:
                  '@',
                  ]
         for s in cases:
-            raises(ParseStringError, string_to_int, space, s)
-            raises(ParseStringError, string_to_int, space, '  '+s)
-            raises(ParseStringError, string_to_int, space, s+'  ')
-            raises(ParseStringError, string_to_int, space, '+'+s)
-            raises(ParseStringError, string_to_int, space, '-'+s)
+            raises(ParseStringError, string_to_int, s)
+            raises(ParseStringError, string_to_int, '  '+s)
+            raises(ParseStringError, string_to_int, s+'  ')
+            raises(ParseStringError, string_to_int, '+'+s)
+            raises(ParseStringError, string_to_int, '-'+s)
 
     def test_string_to_int_overflow(self):
         import sys
         space = self.space
-        raises(ParseStringOverflowError, string_to_int, space,
+        raises(ParseStringOverflowError, string_to_int,
                str(sys.maxint*17))
 
     def test_string_to_int_base_error(self):
@@ -107,11 +109,11 @@ class TestStrUtil:
                  ('12.3', 16),
                  ]
         for s, base in cases:
-            raises(ParseStringError, string_to_int, space, s, base)
-            raises(ParseStringError, string_to_int, space, '  '+s, base)
-            raises(ParseStringError, string_to_int, space, s+'  ', base)
-            raises(ParseStringError, string_to_int, space, '+'+s, base)
-            raises(ParseStringError, string_to_int, space, '-'+s, base)
+            raises(ParseStringError, string_to_int, s, base)
+            raises(ParseStringError, string_to_int, '  '+s, base)
+            raises(ParseStringError, string_to_int, s+'  ', base)
+            raises(ParseStringError, string_to_int, '+'+s, base)
+            raises(ParseStringError, string_to_int, '-'+s, base)
 
     def test_string_to_w_long(self):
         space = self.space
@@ -124,3 +126,23 @@ class TestStrUtil:
         assert string_to_w_long(space, '123L', 22).longval() == 10648 + 968 + 66 + 21
         assert string_to_w_long(space, '123L', 21).longval() == 441 + 42 + 3
         assert string_to_w_long(space, '1891234174197319').longval() == 1891234174197319
+
+
+def test_break_up_float():
+    assert break_up_float('1') == ('', '1', '', '')
+    assert break_up_float('+1') == ('+', '1', '', '')
+    assert break_up_float('-1') == ('-', '1', '', '')
+
+    assert break_up_float('.5') == ('', '', '5', '')
+    
+    assert break_up_float('1.2e3') == ('', '1', '2', '3')
+    assert break_up_float('1.2e+3') == ('', '1', '2', '+3')
+    assert break_up_float('1.2e-3') == ('', '1', '2', '-3')
+
+    # some that will get thrown out on return:
+    assert break_up_float('.') == ('', '', '', '')
+    assert break_up_float('+') == ('+', '', '', '')
+    assert break_up_float('-') == ('-', '', '', '')
+    assert break_up_float('e1') == ('', '', '', '1')
+
+    py.test.raises(ParseStringError, break_up_float, 'e')
