@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 import sys
-from pypy.rpython.lltype import GcStruct, Signed, Ptr
+from pypy.rpython.lltype import GcStruct, Signed, Ptr, Void,malloc
 
 # ____________________________________________________________
 #
