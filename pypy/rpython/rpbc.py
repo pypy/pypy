@@ -83,6 +83,7 @@ def getFrozenPBCRepr(rtyper, s_pbc):
         except KeyError:
             result = MultipleFrozenPBCRepr(rtyper, access)
             rtyper.pbc_reprs[access] = result
+            rtyper.reprs_must_call_setup.append(result)
             return result
 
 

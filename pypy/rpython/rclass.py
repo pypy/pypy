@@ -64,6 +64,7 @@ def getclassrepr(rtyper, classdef):
         else:
             result = ClassRepr(rtyper, classdef)
         rtyper.class_reprs[classdef] = result
+        rtyper.reprs_must_call_setup.append(result)
     return result
 
 def getinstancerepr(rtyper, classdef):
@@ -76,6 +77,7 @@ def getinstancerepr(rtyper, classdef):
         else:
             result = InstanceRepr(rtyper,classdef)
         rtyper.instance_reprs[classdef] = result
+        rtyper.reprs_must_call_setup.append(result)
     return result
 
 class MissingRTypeAttribute(TyperError):
