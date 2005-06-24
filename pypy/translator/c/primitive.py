@@ -31,11 +31,17 @@ def name_bool(value):
 def name_void(value):
     return '/* nothing */'
 
+def name_unichar(value):
+    assert type(value) is unicode and len(value) == 1
+    return '%d' % ord(value)
+    
+
 PrimitiveName = {
     Signed:   name_signed,
     Unsigned: name_unsigned,
     Float:    name_float,
     Char:     name_char,
+    UniChar:  name_unichar,
     Bool:     name_bool,
     Void:     name_void,
     }
@@ -45,6 +51,7 @@ PrimitiveType = {
     Unsigned: 'unsigned long @',
     Float:    'double @',
     Char:     'char @',
+    UniChar:  'pypy_unichar @',
     Bool:     'char @',
     Void:     'void @',
     }
@@ -54,6 +61,7 @@ PrimitiveErrorValue = {
     Unsigned: '((unsigned) -1)',
     Float:    '-1.0',
     Char:     '((char) -1)',
+    UniChar:  '((pypy_unichar) -1)',
     Bool:     '((char) -1)',
     Void:     '/* error */',
     }

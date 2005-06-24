@@ -169,6 +169,26 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
             for j in range(3):
                 res = fn(i, j)
                 assert res == fn(i, j)
+    
+    def xtest_unichr_eq(self):
+        l = list(u'Hello world')
+        def f(i=int,j=int):
+            return l[i] == l[j]
+        fn = self.getcompiled(f) #,view=True)
+        for i in range(len(l)):
+            for j in range(len(l)):
+                res = fn(i,j)
+                assert res == f(i,j) 
+    
+    def xtest_unichr_ne(self):
+        l = list(u'Hello world')
+        def f(i=int,j=int):
+            return l[i] != l[j]
+        fn = self.getcompiled(f) #,view=True)
+        for i in range(len(l)):
+            for j in range(len(l)):
+                res = fn(i,j)
+                assert res == f(i,j)
 
     def test_slice_long(self):
         "the parent's test_slice_long() makes no sense here"
