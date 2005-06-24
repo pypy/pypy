@@ -213,8 +213,24 @@ def string_to_float(s):
         i += 1
 
     if exponent:
-        e = string_to_int(exponent)
-        r *= 10.0 ** e
+        try:
+            e = string_to_int(exponent)
+        except ParseStringOverflowError:
+            if exponent[0] == '-':
+                return 0.0
+            else:
+                if sign == '-':
+                    return -1e200 * 1e200
+                else:
+                    return 1e200 * 1e200
+        if e > 0:
+            while e > 0:
+                r *= 10.0
+                e -= 1
+        else:
+            while e < 0:
+                r /= 10.0
+                e += 1
 
     if sign == '-':
         r = -r
