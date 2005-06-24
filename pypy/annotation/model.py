@@ -402,6 +402,7 @@ annotation_to_ll_map = [
     (SomeInteger(nonneg=True, unsigned=True), lltype.Unsigned),    
     (SomeFloat(), lltype.Float),
     (SomeChar(), lltype.Char),
+    (SomeUnicodeCodePoint(), lltype.UniChar),
 ]
 
 def annotation_to_lltype(s_val, info=None):
