@@ -2,7 +2,7 @@ from pypy.translator.test import rpystone
 from pypy.translator.c.symboltable import getsymboltable
 
 
-def make_target_definition(LOOPS, version):
+def make_target_definition(LOOPS):
     def entry_point(loops):
         g = rpystone.g
         g.IntGlob = 0
@@ -24,16 +24,16 @@ def make_target_definition(LOOPS, version):
     def run(c_entry_point):
         res = c_entry_point(LOOPS)
         (benchtime, stones), _ = res
-        print "translated rpystone.pystones/%s time for %d passes = %g" % \
-              (version, LOOPS, benchtime)
-        print "This machine benchmarks at %g translated rpystone/%s pystones/second" % (stones, version)
+        print "translated rpystone.pystones time for %d passes = %g" % \
+              (LOOPS, benchtime)
+        print "This machine benchmarks at %g translated rpystone pystones/second" % (stones,)
         res = c_entry_point(50000)
         _, g_addr = res
         print "CPython:"
         benchtime, stones = rpystone.pystones(50000)
-        print "rpystone.pystones/%s time for %d passes = %g" % \
-              (version, 50000, benchtime)
-        print "This machine benchmarks at %g rpystone/%s pystones/second" % (stones, version)
+        print "rpystone.pystones time for %d passes = %g" % \
+              (50000, benchtime)
+        print "This machine benchmarks at %g rpystone pystones/second" % (stones,)
         symtable = getsymboltable(c_entry_point.__module__)
         check_g_results(symtable, g_addr)
 

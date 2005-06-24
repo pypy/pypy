@@ -9,4 +9,4 @@ LOOPS = 2000000
 
 (entry_point,
  target,
- run) = targetrpystonex.make_target_definition(LOOPS, "normal")
+ run) = targetrpystonex.make_target_definition(LOOPS)
