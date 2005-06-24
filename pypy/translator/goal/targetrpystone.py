@@ -2,8 +2,6 @@ from pypy.translator.goal import targetrpystonex
 
 LOOPS = 2000000
 
-# targetrpystonex.rpystone.setslow(False)
-
 
 # __________  Entry point  __________
 # _____ Define and setup target _____
