@@ -245,3 +245,23 @@ def test_str_slice():
         return s1+s2 == s and s2+s1 == 'lohel'
     res = interpret(fn, ())
     assert res
+
+def test_strformat_instance():
+    class C:
+        pass
+    class D(C):
+        pass
+    def dummy(i):
+        if i:
+            x = C()
+        else:
+            x = D()
+        return str(x)
+        
+    ev_fun = make_interpreter(dummy, [0])
+    
+    res = ev_fun(1)
+    assert ''.join(res.chars) == '<C object>'
+
+    res = ev_fun(0)
+    assert ''.join(res.chars) == '<D object>'

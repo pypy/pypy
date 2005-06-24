@@ -549,3 +549,9 @@ def ll_strnext(iter):
         raise StopIteration
     iter.index = index + 1
     return chars[index]
+
+# these should be in rclass, but circular imports prevent (also it's
+# not that insane that a string constant is built in this file).
+
+instance_str_prefix = string_repr.convert_const("<")
+instance_str_suffix = string_repr.convert_const(" object>")
