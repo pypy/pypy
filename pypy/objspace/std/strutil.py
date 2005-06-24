@@ -187,7 +187,7 @@ def break_up_float(s):
 
 
 def string_to_float(s):
-    s = strip_space(s)
+    s = strip_spaces(s)
 
     if not s:
         raise ParseStringError("empty string for float()")
@@ -210,12 +210,13 @@ def string_to_float(s):
     while i < len(after_point):
         d = float(ord(after_point[i]) - ord('0'))
         r += d * (10.0 ** (-i-1))
+        i += 1
 
     if exponent:
-        e = string_to_int(None, exponent)
+        e = string_to_int(exponent)
         r *= 10.0 ** e
 
-    return r
-        
+    if sign == '-':
+        r = -r
 
-    
+    return r

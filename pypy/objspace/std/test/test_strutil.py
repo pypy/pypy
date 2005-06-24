@@ -1,4 +1,5 @@
 import autopath
+import py, random
 from pypy.objspace.std.strutil import *
 
 import py
@@ -146,3 +147,44 @@ def test_break_up_float():
     assert break_up_float('e1') == ('', '', '', '1')
 
     py.test.raises(ParseStringError, break_up_float, 'e')
+
+
+def test_string_to_float():
+    assert string_to_float('0') == 0.0
+    assert string_to_float('1') == 1.0
+    assert string_to_float('-1.5') == -1.5
+    assert string_to_float('1.5E2') == 150.0
+    assert string_to_float('2.5E-1') == 0.25
+
+    valid_parts = [['', '  ', ' \f\n\r\t\v'],
+                   ['', '+', '-'],
+                   ['00', '90', '.5', '2.4', '3.', '0.07',
+                    '12.3489749871982471987198371293717398256187563298638726'
+                    '2187362820947193247129871083561249818451804287437824015'
+                    '013816418758104762348932657836583048761487632840726386'],
+                   ['', 'e0', 'E+1', 'E-01', 'E42'],
+                   ['', '  ', ' \f\n\r\t\v'],
+                   ]
+    invalid_parts = [['#'],
+                     ['++', '+-', '-+', '--'],
+                     ['', '1.2.3', '.', '5..6'],
+                     ['E+', 'E-', 'e', 'e++', 'E++2'],
+                     ['#'],
+                     ]
+    for part0 in valid_parts[0]:
+        for part1 in valid_parts[1]:
+            for part2 in valid_parts[2]:
+                for part3 in valid_parts[3]:
+                    for part4 in valid_parts[4]:
+                        s = part0+part1+part2+part3+part4
+                        assert (abs(string_to_float(s) - float(s)) <=
+                                1E-13 * abs(float(s)))
+
+    for j in range(len(invalid_parts)):
+        for invalid in invalid_parts[j]:
+            for i in range(20):
+                parts = [random.choice(lst) for lst in valid_parts]
+                parts[j] = invalid
+                s = ''.join(parts)
+                print repr(s)
+                py.test.raises(ParseStringError, string_to_float, s)
