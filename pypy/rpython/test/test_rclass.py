@@ -75,6 +75,9 @@ class B(A):
     def g(self):
         return 1
 
+class C(B):
+    pass
+
 def test_simple_method_call():
     def f(i):
         if i:
@@ -86,3 +89,23 @@ def test_simple_method_call():
     assert res == 42
     res = interpret(f, [False])
     assert res == 1
+
+def test_isinstance():
+    def a():
+        b = B()
+        return isinstance(b, A)
+    def b():
+        b = B()
+        return isinstance(b, B)
+    def c():
+        b = B()
+        return isinstance(b, C)
+
+    res = interpret(a, [])
+    assert res is True
+
+    res = interpret(b, [])
+    assert res is True
+
+    res = interpret(c, [])
+    assert res is False

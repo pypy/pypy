@@ -8,6 +8,7 @@ from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rfloat import float_repr
+from pypy.rpython import rclass
 
 
 class __extend__(annmodel.SomeBuiltin):
@@ -97,6 +98,16 @@ def rtype_builtin_float(hop):
 def rtype_builtin_chr(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_chr(hop)
+
+def rtype_builtin_isinstance(hop):
+    instance_repr = rclass.getinstancerepr(hop.rtyper, None)
+    class_repr = rclass.get_type_repr(hop.rtyper)
+    
+    v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
+
+    v_objcls = hop.gendirectcall(rclass.ll_type, v_obj)
+    return hop.gendirectcall(rclass.ll_issubclass, v_objcls, v_cls)
+    
 
 #def rtype_builtin_range(hop): see rrange.py
 
