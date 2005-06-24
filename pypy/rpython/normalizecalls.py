@@ -1,7 +1,7 @@
 import types
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, checkgraph
-from pypy.annotation.model import *
+from pypy.annotation import model as annmodel
 from pypy.tool.sourcetools import has_varargs
 from pypy.rpython.rmodel import TyperError
 
@@ -113,11 +113,11 @@ def normalize_function_signatures(annotator):
                 for graph, bindings in graph_bindings.items():
                     j = graph_argorders[graph][i]
                     args_s.append(bindings[j])
-                s_value = unionof(*args_s)
+                s_value = annmodel.unionof(*args_s)
                 generalizedargs.append(s_value)
             result_s = [annotator.binding(graph.getreturnvar())
                         for graph in graph_bindings]
-            generalizedresult = unionof(*result_s)
+            generalizedresult = annmodel.unionof(*result_s)
 
             for func in functions:
                 graph = annotator.translator.getflowgraph(func)
