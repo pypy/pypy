@@ -158,7 +158,9 @@ def ll_strdict_delitem(d, key):
     if not entry.key or entry.key == deleted_entry_marker: 
          raise KeyError
     entry.key = deleted_entry_marker
-    # XXX: entry.value  = ???
+    valuetype = lltype.typeOf(entry).TO.value
+    if isinstance(valuetype, lltype.Ptr):
+        entry.value = lltype.nullptr(valuetype.TO)
     d.num_items -= 1
     num_entries = len(d.entries)
     if num_entries > STRDICT_INITSIZE and d.num_items < num_entries / 4: 

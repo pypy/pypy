@@ -126,10 +126,15 @@ def test_deleted_entry_reusage_with_colliding_hashes():
     assert count_frees >= 3
 
 def test_dict_resize():
-    def func():
+    def func(want_empty):
         d = {}
         for i in range(rdict.STRDICT_INITSIZE):
             d[chr(ord('a') + i)] = i
+        if want_empty:
+            for i in range(rdict.STRDICT_INITSIZE):
+                del d[chr(ord('a') + i)]
         return d
-    res = interpret(func, [])
+    res = interpret(func, [0])
     assert len(res.entries) > rdict.STRDICT_INITSIZE 
+    res = interpret(func, [1])
+    assert len(res.entries) == rdict.STRDICT_INITSIZE 
