@@ -2,8 +2,12 @@ import types
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
-from pypy.rpython.lltype import *
 from pypy.rpython.rmodel import Repr, TyperError, inputconst
+from pypy.rpython.lltype import ForwardReference, GcForwardReference
+from pypy.rpython.lltype import Ptr, Struct, GcStruct, malloc
+from pypy.rpython.lltype import cast_pointer, castable
+from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo, typeOf
+from pypy.rpython.lltype import Array, Char, Void
 
 #
 #  There is one "vtable" per user class, with the following structure:
