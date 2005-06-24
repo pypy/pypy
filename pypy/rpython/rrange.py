@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
-from pypy.rpython.lltype import *
+from pypy.rpython.lltype import Ptr, GcStruct, Signed, malloc, Void
 
 # ____________________________________________________________
 #
