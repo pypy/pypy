@@ -1,9 +1,9 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltype import *
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 import sys
+from pypy.rpython.lltype import GcStruct, Signed, Ptr
 
 # ____________________________________________________________
 #
