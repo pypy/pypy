@@ -265,3 +265,26 @@ def test_strformat_instance():
 
     res = ev_fun(0)
     assert ''.join(res.chars) == '<D object>'
+
+def test_percentformat_instance():
+    class C:
+        pass
+    class D(C):
+        pass
+    
+    def dummy(i):
+        if i:
+            x = C()
+            y = D()
+        else:
+            x = D()
+            y = C()
+        return "what a nice %s, much nicer than %r"%(x, y)
+        
+    ev_fun = make_interpreter(dummy, [0])
+    
+    res = ev_fun(1)
+    assert ''.join(res.chars) == 'what a nice <C object>, much nicer than <D object>'
+
+    res = ev_fun(0)
+    assert ''.join(res.chars) == 'what a nice <D object>, much nicer than <C object>'

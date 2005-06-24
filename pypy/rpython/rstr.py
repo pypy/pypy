@@ -11,6 +11,8 @@ from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
 from pypy.rpython.lltype import Bool, Void, GcArray, nullptr
+from pypy.rpython.rclass import InstanceRepr, ll_instance_str, getinstancerepr
+
 
 # ____________________________________________________________
 #
@@ -221,9 +223,15 @@ def do_stringformat(hop, sourcevarsrepr):
         if isinstance(thing, tuple):
             code = thing[0]
             vitem, r_arg = argsiter.next()
-            if code == 's':
-                assert isinstance(r_arg, StringRepr)
-                vchunk = hop.llops.convertvar(vitem, r_arg, string_repr)
+            if code == 's' or (code == 'r' and isinstance(r_arg, InstanceRepr)):
+                if isinstance(r_arg, StringRepr):
+                    vchunk = hop.llops.convertvar(vitem, r_arg, string_repr)
+                elif isinstance(r_arg, InstanceRepr):
+                    vinst = hop.llops.convertvar(
+                        vitem, r_arg, getinstancerepr(hop.rtyper, None))
+                    vchunk = hop.gendirectcall(ll_instance_str, vinst)
+                else:
+                    assert 0
             elif code == 'd':
                 assert isinstance(r_arg, IntegerRepr)
                 vchunk = hop.gendirectcall(rint.ll_int2str, vitem)
