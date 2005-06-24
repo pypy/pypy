@@ -1,4 +1,4 @@
-import targetrpystonex
+from pypy.translator.goal import targetrpystonex
 
 LOOPS = 2000000
 
