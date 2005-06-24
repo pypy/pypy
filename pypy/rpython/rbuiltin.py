@@ -99,6 +99,9 @@ def rtype_builtin_chr(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_chr(hop)
 
+def rtype_builtin_list(hop):
+    return hop.args_r[0].rtype_bltn_list(hop)
+
 def rtype_builtin_isinstance(hop):
     instance_repr = rclass.getinstancerepr(hop.rtyper, None)
     class_repr = rclass.get_type_repr(hop.rtyper)

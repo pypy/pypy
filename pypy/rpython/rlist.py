@@ -86,6 +86,10 @@ class ListRepr(Repr):
             raise TyperError, 'comparison not implemented for %r' % self
         return inputconst(Void, func)
 
+    def rtype_bltn_list(self,hop):
+        v_lst = hop.inputarg(self,0)
+        return hop.gendirectcall(ll_copy,v_lst)
+    
     def rtype_len(self, hop):
         v_lst, = hop.inputargs(self)
         return hop.gendirectcall(ll_len, v_lst)
@@ -227,6 +231,17 @@ class __extend__(pairtype(ListRepr, ListRepr)):
 #  Low-level methods.  These can be run for testing, but are meant to
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
+
+def ll_copy(l):
+    items = l.items
+    length = len(items)
+    new_lst = ll_newlist(typeOf(l), length)
+    i = 0
+    new_items = new_lst.items
+    while i < length:
+        new_items[i] = items[i]
+        i += 1
+    return new_lst
 
 def ll_len(l):
     return len(l.items)

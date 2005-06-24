@@ -19,6 +19,7 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 class __extend__(annmodel.SomeTuple):
     def rtyper_makerepr(self, rtyper):
         return TupleRepr([rtyper.getrepr(s_item) for s_item in self.items])
+    
     def rtyper_makekey(self):
         keys = [s_item.rtyper_makekey() for s_item in self.items]
         return tuple(keys)
@@ -43,7 +44,23 @@ class TupleRepr(Repr):
     def rtype_len(self, hop):
         return hop.inputconst(Signed, len(self.items_r))
 
-
+    def rtype_bltn_list(self, hop):
+        from pypy.rpython import rlist
+        nitems = len(self.items_r)
+        vtup = hop.inputarg(self, 0)
+        c1 = inputconst(Void, hop.r_result.lowleveltype)
+        c2 = inputconst(Signed, nitems)
+        vlist = hop.gendirectcall(rlist.ll_newlist, c1, c2)
+        for index in range(nitems):
+            name = self.fieldnames[index]
+            ritem = self.items_r[index]
+            cname = hop.inputconst(Void, name)
+            vitem = hop.genop('getfield', [vtup, cname], resulttype = ritem)
+            vitem = hop.llops.convertvar(vitem, ritem, hop.r_result.item_repr)
+            cindex = inputconst(Signed, index)
+            hop.gendirectcall(rlist.ll_setitem_nonneg, vlist, cindex, vitem)
+        return vlist
+           
 class __extend__(pairtype(TupleRepr, IntegerRepr)):
 
     def rtype_getitem((r_tup, r_int), hop):
@@ -113,3 +130,8 @@ class __extend__(pairtype(TupleRepr, PyObjRepr)):
             llops.gencapicall('PyTuple_SetItem_WithIncref', [v_result, ci,
                                                              v_converted])
         return v_result
+
+def ll_newlist(LISTPTR, length):
+    l = malloc(LISTPTR.TO)
+    l.items = malloc(LISTPTR.TO.items.TO, length)
+    return l
