@@ -1,10 +1,9 @@
-from pypy.rpython.lltype import *
-from pypy.rpython.lltype import _ptr
 from pypy.translator.translator import Translator
 from pypy.tool.sourcetools import compile2
 from pypy.objspace.flow.model import Constant, Variable, last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint
 import py
+from pypy.rpython.lltype import _ptr, Void, typeOf, malloc, cast_pointer, Array
 
 log = py.log.Producer('llinterp')
 
