@@ -86,6 +86,9 @@ class StrDictRepr(rmodel.Repr):
         v_dict, = hop.inputargs(self)
         return hop.gendirectcall(ll_strdict_len, v_dict)
 
+    def make_iterator_repr(self):
+        return StrDictIteratorRepr(self)
+
 class __extend__(pairtype(StrDictRepr, rmodel.StringRepr)): 
 
     def rtype_getitem((r_dict, r_string), hop):
@@ -241,3 +244,42 @@ def rtype_newdict(hop):
     v_result = hop.gendirectcall(ll_newstrdict, c1) 
     return v_result
 
+# ____________________________________________________________
+#
+#  Iteration.
+
+class StrDictIteratorRepr(rmodel.Repr):
+
+    def __init__(self, r_dict):
+        self.r_dict = r_dict
+        self.lowleveltype = lltype.Ptr(lltype.GcStruct('strdictiter',
+                                         ('dict', r_dict.lowleveltype),
+                                         ('index', lltype.Signed)))
+
+    def newiter(self, hop):
+        v_dict, = hop.inputargs(self.r_dict)
+        citerptr = hop.inputconst(lltype.Void, self.lowleveltype)
+        return hop.gendirectcall(ll_strdictiter, citerptr, v_dict)
+
+    def rtype_next(self, hop):
+        v_iter, = hop.inputargs(self)
+        return hop.gendirectcall(ll_strdictnext, v_iter)
+
+def ll_strdictiter(ITERPTR, d):
+    iter = lltype.malloc(ITERPTR.TO)
+    iter.dict = d
+    iter.index = 0
+    return iter
+
+def ll_strdictnext(iter):
+    entries = iter.dict.entries
+    index = iter.index
+    entries_len = len(entries)
+    while index < entries_len:
+        key = entries[index].key
+        index = index + 1
+        if key and key != deleted_entry_marker:
+            iter.index = index
+            return key
+    iter.index = index
+    raise StopIteration

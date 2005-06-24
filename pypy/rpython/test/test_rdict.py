@@ -138,3 +138,16 @@ def test_dict_resize():
     assert len(res.entries) > rdict.STRDICT_INITSIZE 
     res = interpret(func, [1])
     assert len(res.entries) == rdict.STRDICT_INITSIZE 
+
+def test_dict_iteration():
+    def func(i, j):
+        d = {}
+        d['hello'] = i
+        d['world'] = j
+        k = 1
+        for key in d:
+            k = k * d[key]
+        return k
+    res = interpret(func, [6, 7])
+    assert res == 42
+    
