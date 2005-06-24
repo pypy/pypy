@@ -2,7 +2,7 @@ from weakref import WeakValueDictionary
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
-from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst
+from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst, UniCharRepr
 from pypy.rpython.rarithmetic import intmask
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rtuple import TupleRepr
@@ -39,10 +39,16 @@ class __extend__(annmodel.SomeChar):
     def rtyper_makekey(self):
         return None
 
+class __extend__(annmodel.SomeUnicodeCodePoint):
+    def rtyper_makerepr(self, rtyper):
+        return unichar_repr
+    def rtyper_makekey(self):
+        return None
 
 CONST_STR_CACHE = WeakValueDictionary()
 string_repr = StringRepr()
 char_repr   = CharRepr()
+unichar_repr = UniCharRepr()
 
 
 class __extend__(StringRepr):
@@ -296,6 +302,40 @@ class __extend__(pairtype(CharRepr, CharRepr)):
 def _rtype_compare_template(hop, func):
     vlist = hop.inputargs(char_repr, char_repr)
     return hop.genop('char_'+func, vlist, resulttype=Bool)
+
+class __extend__(UniCharRepr):
+
+    def convert_const(self, value):
+        if not isinstance(value, unicode) or len(value) != 1:
+            raise TyperError("not a unicode character: %r" % (value,))
+        return value
+
+##    def rtype_len(_, hop):
+##        return hop.inputconst(Signed, 1)
+##
+##    def rtype_is_true(_, hop):
+##        assert not hop.args_s[0].can_be_None
+##        return hop.inputconst(Bool, True)
+
+    def rtype_ord(_, hop):
+        vlist = hop.inputargs(unichar_repr)
+        return hop.genop('cast_unichar_to_int', vlist, resulttype=Signed)
+
+
+class __extend__(pairtype(UniCharRepr, UniCharRepr)):
+    def rtype_eq(_, hop): return _rtype_unchr_compare_template(hop, 'eq')
+    def rtype_ne(_, hop): return _rtype_unchr_compare_template(hop, 'ne')
+##    def rtype_lt(_, hop): return _rtype_unchr_compare_template(hop, 'lt')
+##    def rtype_le(_, hop): return _rtype_unchr_compare_template(hop, 'le')
+##    def rtype_gt(_, hop): return _rtype_unchr_compare_template(hop, 'gt')
+##    def rtype_ge(_, hop): return _rtype_unchr_compare_template(hop, 'ge')
+
+#Helper functions for comparisons
+
+def _rtype_unchr_compare_template(hop, func):
+    vlist = hop.inputargs(unichar_repr, unichar_repr)
+    return hop.genop('unichar_'+func, vlist, resulttype=Bool)
+
 
 #
 # _________________________ Conversions _________________________

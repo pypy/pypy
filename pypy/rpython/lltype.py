@@ -297,6 +297,7 @@ Float    = Primitive("Float", 0.0)
 Char     = Primitive("Char", '\x00')
 Bool     = Primitive("Bool", False)
 Void     = Primitive("Void", None)
+UniChar  = Primitive("UniChar", u'\x00')
 
 
 class Ptr(LowLevelType):
@@ -337,6 +338,9 @@ def typeOf(val):
     if isinstance(val, str):
         assert len(val) == 1
         return Char
+    if isinstance(val, unicode):
+        assert len(val) == 1
+        return UniChar
     if val is None:
         return Void   # maybe
     return val._TYPE

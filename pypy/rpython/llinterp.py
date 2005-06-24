@@ -319,7 +319,18 @@ for opname in ('gt', 'lt', 'ge', 'ne', 'le', 'eq'):
             func = opimpls[%(opname)r]
             return func(x, y)
     """ % locals()).compile()
+    
+def unichar_eq(x, y):
+    assert isinstance(x, unicode) and len(x) == 1
+    assert isinstance(y, unicode) and len(y) == 1
+    func = opimpls['eq']
+    return func(x, y)
 
+def unichar_ne(x, y):
+    assert isinstance(x, unicode) and len(x) == 1
+    assert isinstance(y, unicode) and len(y) == 1
+    func = opimpls['ne']
+    return func(x, y)
 
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help

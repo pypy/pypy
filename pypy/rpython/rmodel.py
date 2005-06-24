@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pair, pairtype, extendabletype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltype import Void, Bool, Float, Signed, Char
+from pypy.rpython.lltype import Void, Bool, Float, Signed, Char, UniChar
 from pypy.rpython.lltype import typeOf, LowLevelType, Ptr, PyObject
 from pypy.rpython.lltype import FuncType, functionptr
 
@@ -172,6 +172,9 @@ class StringRepr(Repr):
 
 class CharRepr(StringRepr):
     lowleveltype = Char
+
+class UniCharRepr(Repr):
+    lowleveltype = UniChar
 
 class VoidRepr(Repr):
     lowleveltype = Void
