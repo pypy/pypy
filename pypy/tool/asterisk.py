@@ -21,11 +21,13 @@ def disasm(code):
     finally:
         sys.stdout = hold
     
-def globalsof(code, globs=None):
+def globalsof(code, globrefs=None, stars=None, globals=None):
     names = code.co_names
     vars = code.co_varnames
-    if globs is None:
-        globs = {}
+    if globrefs is None: globrefs = {}
+    if stars is None: stars = [] # do stars in order
+    if globals is None: globals = {}
+    in_seq = False
     for line in disasm(code).split('\n'):
         words = line.split()
         ofs = -1
@@ -36,22 +38,36 @@ def globalsof(code, globs=None):
         op = words[0]
         if op == 'LOAD_GLOBAL':
             name = words[-1][1:-1] # omit ()
-            refs = globs.setdefault(name, {})
+            refs = globrefs.setdefault(name, {})
             offsets = refs.setdefault(code, [])
             offsets.append(ofs)
         elif op == 'IMPORT_NAME':
-            impname = words[-1][1:-1]
+            in_seq = True
+            imp_module = words[-1][1:-1]
+            imp_what = None
+        elif op == 'IMPORT_FROM':
+            in_seq = True
+            imp_what = words[-1][1:-1]
+        elif op == 'STORE_NAME':
+            # we are not interested in local imports, which
+            # would generate a STORE_FAST
+            name = words[-1][1:-1]
+            if in_seq:
+                globals[name] = imp_what, imp_module
+                in_seq = False
+            else:
+                globals[name] = None, None
         elif op == 'IMPORT_STAR':
-            name = '*'
-            stars = globs.setdefault(name, {})
-            mods = stars.setdefault(impname, {})
-            del impname
-            offsets = mods.setdefault(code, [])
-            offsets.append(ofs)
-    return globs
+            stars.append( (imp_module, ofs) )
+            in_seq = False
+        else:
+            in_seq = False
+    return globrefs, stars, globals
 
 def allglobalsof(code):
-    globs = {}
+    globrefs = {}
+    stars = []
+    globals = {}
     seen = {}
     if type(code) is str:
         fname = code
@@ -59,10 +75,45 @@ def allglobalsof(code):
     todo = [code]
     while todo:
         code = todo.pop(0)
-        globalsof(code, globs)
+        globalsof(code, globrefs, stars, globals)
         seen[code] = True
         for const in code.co_consts:
             if type(const) is type(code) and const not in seen:
                 todo.append(const)
-    return globs
+    return globrefs, stars, globals
 
+class Analyser:
+    def __init__(self, fname):
+        self.fname = fname
+        self.globrefs, self.stars, self.globals = allglobalsof(fname)
+        self.starimports = []
+
+    def get_unknown_globals(self):
+        from __builtin__ import __dict__ as bltin
+        ret = [name for name in self.globrefs.keys()
+               if name not in bltin and name not in self.globals]
+        return ret
+
+    def get_from_star(self, modname):
+        dic = {}
+        exec "from %s import *" % modname in dic
+        return dic
+    
+    def resolve_star_imports(self):
+        implicit = {}
+        which = {}
+        for star, ofs in self.stars:
+            which[star] = []
+            for key in self.get_from_star(star).keys():
+                implicit[key] = star
+        # sort out in which star import we find what
+        # note that we walked star imports in order
+        # so we are sure to resolve ambiguities correctly
+        for name in self.get_unknown_globals():
+            mod = implicit[name]
+            which[mod].append(name)
+        imps = []
+        for star, ofs in self.stars:
+            imps.append( (ofs, star, which[star]) )
+        self.starimports = imps
+        
