@@ -5,7 +5,7 @@ The main class, with code to walk blocks and dispatch individual operations
 to the care of the rtype_*() methods implemented in the other r* modules.
 For each high-level operation 'hop', the rtype_*() methods produce low-level
 operations that are collected in the 'llops' list defined here.  When necessary,
-convertions are inserted.
+conversions are inserted.
 
 This logic borrows a bit from pypy.translator.annrpython, without the fixpoint
 computation part.
