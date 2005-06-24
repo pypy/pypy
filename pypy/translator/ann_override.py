@@ -1,7 +1,9 @@
 # overrides for annotation specific to PyPy codebase
 from pypy.annotation.policy import AnnotatorPolicy
-from pypy.annotation.bookkeeper import getbookkeeper
+# for some reason, model must be imported first,
+# or we create a cycle.
 from pypy.annotation import model as annmodel
+from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import specialize
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
