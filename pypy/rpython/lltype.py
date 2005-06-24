@@ -311,17 +311,8 @@ class Ptr(LowLevelType):
     def _needsgc(self):
         return self.TO._gcstatus()
 
-    def _str_flags(self):
-        if self._needsgc():
-            return 'gc'
-        else:
-            return ''
-
-    def _str_flavor(self):
-        return 'ptr(%s)' % self._str_flags()
-
     def __str__(self):
-        return '%s to %s' % (self._str_flavor(), self.TO)
+        return '* %s' % (self.TO, )
 
     def _defl(self, parent=None, parentindex=None):
         return _ptr(self, None)
@@ -558,7 +549,7 @@ class _ptr(object):
         return '<%s>' % (self,)
 
     def __str__(self):
-        return '%s to %s' % (self._TYPE._str_flavor(), self._obj)
+        return '* %s' % (self._obj, )
 
     def __call__(self, *args):
         if isinstance(self._T, FuncType):
