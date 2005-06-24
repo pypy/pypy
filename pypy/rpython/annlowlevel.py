@@ -4,7 +4,7 @@ The code needed to flow and annotate low-level helpers -- the ll_*() functions
 
 from pypy.annotation import model as annmodel
 from pypy.annotation.specialize import decide_callable
-from pypy.translator.annrpython import BasicAnnotatorPolicy
+from pypy.annotation.policy import BasicAnnotatorPolicy
 
 def not_const(s_obj): # xxx move it somewhere else
     if s_obj.is_constant():

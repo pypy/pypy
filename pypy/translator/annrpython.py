@@ -15,14 +15,6 @@ py.log.setconsumer("annrpython", ansi_log)
 class AnnotatorError(Exception):
     pass
 
-class BasicAnnotatorPolicy:
-    
-    def specialize(pol, bookkeeper, spaceop, func, args, mono):
-        return None, None
-
-    def compute_at_fixpoint(pol, annotator):
-        annotator.bookkeeper.compute_at_fixpoint()
-
 
 class RPythonAnnotator:
     """Block annotator for RPython.
@@ -55,7 +47,8 @@ class RPythonAnnotator:
         self.frozen = False
         # user-supplied annotation logic for functions we don't want to flow into
         if policy is None:
-            self.policy = BasicAnnotatorPolicy()
+            from pypy.annotation.policy import AnnotatorPolicy
+            self.policy = AnnotatorPolicy()
         else:
             self.policy = policy
 

@@ -1,6 +1,15 @@
 # base annotation policy for overrides and specialization
 from pypy.annotation.specialize import memo, ctr_location, default_specialize as default
-from pypy.translator.annrpython import BasicAnnotatorPolicy
+
+
+class BasicAnnotatorPolicy:
+    
+    def specialize(pol, bookkeeper, spaceop, func, args, mono):
+        return None, None
+
+    def compute_at_fixpoint(pol, annotator):
+        annotator.bookkeeper.compute_at_fixpoint()
+
 
 class AnnotatorPolicy(BasicAnnotatorPolicy):
     """
