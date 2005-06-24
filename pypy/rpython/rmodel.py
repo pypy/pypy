@@ -22,6 +22,11 @@ class Repr:
     def setup(self):
         "For recursive data structure, which must be initialized in two steps."
 
+    def setup_final_touch(self):
+        """Same as setup(), called a bit later, for effects that are only
+        needed after the typer finished (as opposed to needed for other parts
+        of the typer itself)."""
+
     def __getattr__(self, name):
         # Assume that when an attribute is missing, it's because setup() needs
         # to be called

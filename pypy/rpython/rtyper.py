@@ -118,8 +118,13 @@ class RPythonTyper:
 
     def call_all_setups(self):
         # make sure all reprs so far have had their setup() called
+        must_setup_more = []
         while self.reprs_must_call_setup:
-            self.reprs_must_call_setup.pop().setup()
+            r = self.reprs_must_call_setup.pop()
+            r.setup()
+            must_setup_more.append(r)
+        for r in must_setup_more:
+            r.setup_final_touch()
 
     def setconcretetype(self, v):
         assert isinstance(v, Variable)
@@ -359,7 +364,6 @@ def translate_op_%s(self, hop):
 
     def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None):
         self.call_all_setups()  # compute ForwardReferences now
-        attachRuntimeTypeInfo(GCSTRUCT)
         if ARG_GCSTRUCT is None:
             ARG_GCSTRUCT = GCSTRUCT
         args_s = [annmodel.SomePtr(Ptr(ARG_GCSTRUCT))]

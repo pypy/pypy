@@ -7,7 +7,7 @@ from pypy.rpython.lltype import ForwardReference, GcForwardReference
 from pypy.rpython.lltype import Ptr, Struct, GcStruct, malloc
 from pypy.rpython.lltype import cast_pointer, castable
 from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo, typeOf
-from pypy.rpython.lltype import Array, Char, Void
+from pypy.rpython.lltype import Array, Char, Void, attachRuntimeTypeInfo
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -348,7 +348,10 @@ class InstanceRepr(Repr):
         allinstancefields.update(fields)
         self.fields = fields
         self.allinstancefields = allinstancefields
+        attachRuntimeTypeInfo(self.object_type)
         self.initialized = True
+
+    def setup_final_touch(self):
         self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
                                               ll_runtime_type_info,
                                               OBJECT)
