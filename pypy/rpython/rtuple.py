@@ -130,8 +130,3 @@ class __extend__(pairtype(TupleRepr, PyObjRepr)):
             llops.gencapicall('PyTuple_SetItem_WithIncref', [v_result, ci,
                                                              v_converted])
         return v_result
-
-def ll_newlist(LISTPTR, length):
-    l = malloc(LISTPTR.TO)
-    l.items = malloc(LISTPTR.TO.items.TO, length)
-    return l
