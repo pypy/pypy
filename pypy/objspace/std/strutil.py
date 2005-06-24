@@ -213,6 +213,8 @@ def string_to_float(s):
         i += 1
 
     if exponent:
+        # XXX this fails for float('0.' + '0'*100 + '1e400')
+        # XXX later!
         try:
             e = string_to_int(exponent)
         except ParseStringOverflowError:
