@@ -679,7 +679,7 @@ class _func(object):
         return '<%s>' % (self,)
 
     def __str__(self):
-        return "func %s" % self._name
+        return "fn %s" % self._name
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
