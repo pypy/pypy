@@ -260,6 +260,13 @@ class SomeDict(SomeObject):
     def can_be_none(self):
         return False
 
+    def fmt_const(self, const):
+        if len(const) < 20:
+            return repr(const)
+        else:
+            return '{...%s...}'%(len(const),)
+
+
 class SomeIterator(SomeObject):
     "Stands for an iterator returning objects from a given container."
     knowntype = type(iter([]))  # arbitrarily chose seqiter as the type

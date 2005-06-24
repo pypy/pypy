@@ -145,6 +145,15 @@ class Stats:
             return (str.const, tuple([self.typerepr(x) for x in args.items]))
         else:
             return (str.const, self.typerepr(args))
+
+    def consider_dict_getitem(self, dic):
+        return dic
+
+    def consider_dict_setitem(self, dic):
+        return dic
+
+    def consider_dict_delitem(self, dic):
+        return dic
             
 
 class Bookkeeper:

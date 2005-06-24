@@ -411,6 +411,29 @@ def statbuiltins(t):
         if k.startswith('__builtin__'):
             statsfor(t, k)
 
+def dicts(t):
+    ann = t.annotator
+    r = []
+
+    def sdicts():
+        for so in ann.bindings.itervalues():
+            if isinstance(so, annmodel.SomeDict):
+                yield so
+        for so in ann.bookkeeper.immutable_cache.itervalues():
+            if isinstance(so, annmodel.SomeDict):
+                yield so
+    
+    for so in sdicts():
+            sk, sv = so.dictdef.dictkey.s_value, so.dictdef.dictvalue.s_value
+            for x in r:
+                if x == (sk, sv):
+                    break
+            else:
+                r.append((sk, sv))
+
+    for x in r:
+        print x
+
 # debug helper
 def tryout(f, *args):
     try:

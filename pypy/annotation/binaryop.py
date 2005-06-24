@@ -374,13 +374,16 @@ class __extend__(pairtype(SomeDict, SomeDict)):
 class __extend__(pairtype(SomeDict, SomeObject)):
 
     def getitem((dic1, obj2)):
+        getbookkeeper().count("dict_getitem", dic1)
         return dic1.dictdef.read_value()
 
     def setitem((dic1, obj2), s_value):
+        getbookkeeper().count("dict_setitem", dic1)
         dic1.dictdef.generalize_key(obj2)
         dic1.dictdef.generalize_value(s_value)
 
     def delitem((dic1, obj1)):
+        getbookkeeper().count("dict_delitem", dic1)
         pass
 
 
