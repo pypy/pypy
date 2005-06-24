@@ -2,6 +2,7 @@ from pypy.translator.translator import Translator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
+from pypy.rpython.test.test_llinterp import make_interpreter
 
 
 class TestSnippet(object):
@@ -36,3 +37,14 @@ class TestSnippet(object):
         # XXX TODO test if all binary operations are implemented
         for opname in annmodel.BINARY_OPERATIONS:
             print 'BINARY_OPERATIONS:', opname
+
+def test_int_conversion():
+    def fn(f):
+        return int(f)
+
+    ev_fun = make_interpreter(fn, [0.0])
+
+    assert ev_fun(1.0) == 1
+    assert type(ev_fun(1.0)) is int
+
+    assert ev_fun(2.34) == 2

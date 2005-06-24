@@ -1,7 +1,7 @@
 from pypy.translator.translator import Translator
 from pypy.tool.sourcetools import compile2
 from pypy.objspace.flow.model import Constant, Variable, last_exception
-from pypy.rpython.rarithmetic import intmask, r_uint
+from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
 import py
 from pypy.rpython.lltype import _ptr, Ptr, Void, typeOf, malloc, cast_pointer
 from pypy.rpython.lltype import Array
@@ -247,6 +247,10 @@ class LLFrame(object):
     def op_bool_not(self, b):
         assert type(b) is bool
         return not b
+
+    def op_cast_float_to_int(self, f):
+        assert type(f) is float
+        return ovfcheck(int(f))
     
     def op_cast_char_to_int(self, b):
         assert type(b) is str and len(b) == 1
