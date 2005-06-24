@@ -66,7 +66,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_Ellipsis = self.wrap(Ellipsis(self))  
 
         # types
-        self.types_w = {}
         for typedef in self.model.pythontypes:
             w_type = self.gettypeobject(typedef)
             setattr(self, 'w_' + typedef.name, w_type)
@@ -180,7 +179,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return ec
 
     def gettypeobject(self, typedef):
-        # types_w maps each StdTypeDef instance to its
+        # stdtypedef.TypeCache maps each StdTypeDef instance to its
         # unique-for-this-space W_TypeObject instance
         return self.fromcache(stdtypedef.TypeCache).getorbuild(typedef)
 

@@ -597,20 +597,23 @@ class CustomKeyCompareSort(CustomCompareSort):
         assert isinstance(b, KeyContainer)
         return CustomCompareSort.lt(self, a.w_key, b.w_key)
 
-SortClass = {
-    (False, False): SimpleSort,
-    (True,  False): CustomCompareSort,
-    (False, True) : CustomKeySort,
-    (True,  True) : CustomKeyCompareSort,
-    }
-
 def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
     has_cmp = not space.is_w(w_cmp, space.w_None)
     has_key = not space.is_w(w_keyfunc, space.w_None)
     has_reverse = space.is_true(w_reverse)
 
     # create and setup a TimSort instance
-    sorterclass = SortClass[has_cmp, has_key]
+    if has_cmp: 
+        if has_key: 
+            sorterclass = CustomKeyCompareSort
+        else: 
+            sorterclass = CustomCompareSort
+    else: 
+        if has_key: 
+            sorterclass = CustomKeySort
+        else: 
+            sorterclass = SimpleSort
+            
     sorter = sorterclass(w_list.ob_item, w_list.ob_size)
     sorter.space = space
     sorter.w_cmp = w_cmp

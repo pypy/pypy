@@ -48,7 +48,7 @@ def cpython_code_signature(code):
 NESTED    = 1
 GENERATOR = 2
 
-frame_classes = {}
+frame_classes = []
 
 def setup_frame_classes():
     "NOT_RPYTHON"
@@ -66,6 +66,7 @@ def setup_frame_classes():
                 dic[n] = func_with_new_name(x, x.__name__)
         return dic
 
+    frame_classes.extend([None]*4)
     frame_classes[0]                = PyInterpFrame
     frame_classes[NESTED]           = PyNestedScopeFrame
     frame_classes[GENERATOR]        = type('PyGeneratorFrame',

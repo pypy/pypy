@@ -136,7 +136,6 @@ class MultiMethod(MultiMethodTable):
             specialnames = [operatorsymbol]
         self.specialnames = specialnames  # e.g. ['__xxx__', '__rxxx__']
         self.extras = extras
-        self.unbound_versions = {}
         # transform  '+'  =>  'add'  etc.
         for line in ObjSpace.MethodTable:
             realname, symbolname = line[:2]
