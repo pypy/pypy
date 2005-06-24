@@ -352,6 +352,9 @@ def translate_op_%s(self, hop):
     def translate_op_newslice(self, hop):
         return rslice.rtype_newslice(hop)
 
+    def translate_op_call_memo(self, hop):
+        return rpbc.rtype_call_memo(hop)
+
     def missing_operation(self, hop):
         raise TyperError("unimplemented operation: '%s'" % hop.spaceop.opname)
 

@@ -31,6 +31,7 @@ def gengraph(func, argtypes=[], viewbefore=False):
     t = Translator(func)
     t.annotate(argtypes)
     if viewbefore:
+        t.annotator.simplify()
         t.view()
     global typer # we need it for find_exception
     typer = RPythonTyper(t.annotator)
@@ -40,8 +41,8 @@ def gengraph(func, argtypes=[], viewbefore=False):
     return t, typer
 
 def interpret(func, values, view=False, viewbefore=False):
-    t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) for x in values],
-                        viewbefore)
+    t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) 
+                  for x in values], viewbefore)
     if view:
         t.view()
     interp = LLInterpreter(t.flowgraphs, typer)
@@ -49,8 +50,8 @@ def interpret(func, values, view=False, viewbefore=False):
     return res
 
 def make_interpreter(func, example_values, view=False, viewbefore=False):
-    t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) for x in example_values],
-                        viewbefore)
+    t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) 
+                            for x in example_values], viewbefore)
     if view:
         t.view()
     interp = LLInterpreter(t.flowgraphs, typer)

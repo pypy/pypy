@@ -126,6 +126,18 @@ def clone(callb, postfix):
 # ____________________________________________________________________________
 # specializations
 
+class MemoTable:
+    def __init__(self, bookkeeper, func, s_result, arglist_s):
+        self.table = {}
+        self.arglist_s = arglist_s
+        self.s_result = s_result 
+        for arglist in possible_arguments(arglist_s):
+            result = func(*arglist)
+            self.table[arglist] = result
+        bookkeeper.memo_tables.append(self)
+    def _freeze_(self):
+        return True
+
 def memo(bookkeeper, mod, spaceop, func, args, mono):
     """NOT_RPYTHON"""
     assert mono, "not-static call to memoized %s" % func
@@ -140,28 +152,32 @@ def memo(bookkeeper, mod, spaceop, func, args, mono):
         possible_results.append(bookkeeper.immutablevalue(result))
     return unionof(*possible_results), args
 
-def possible_arguments(args):
+def possible_values_of(s):
     from pypy.annotation.model import SomeBool, SomePBC
-    # enumerate all tuples (x1,..xn) of concrete values that are contained
-    # in a tuple args=(s1,..sn) of SomeXxx.  Requires that each s be either
-    # a constant or SomePBC.
-    if not args:
-        yield ()
-        return
-    s = args[0]
     if s.is_constant():
-        possible_values = [s.const]
+        return [s.const]
     elif isinstance(s, SomePBC):
         for value in s.prebuiltinstances.values():
             assert value is True, ("concrete call with a method bound "
                                    "on a non-constant instance")
-        possible_values = s.prebuiltinstances.keys()
+        return s.prebuiltinstances.keys()
     elif isinstance(s, SomeBool):
-        possible_values = [False, True]
+        return [False, True]
     else:
-        raise AssertionError, "concrete call with a non-constant arg %r" % (s,)
-    for tuple_tail in possible_arguments(args[1:]):
-        for value in possible_values:
+        raise ValueError, "memo call with a non-constant arg %r" % (s,)
+
+def possible_arguments(args):
+    # enumerate all tuples (x1,..xn) of concrete values that are contained
+    # in a tuple args=(s1,..sn) of SomeXxx.  Requires that each s be either
+    # a constant or SomePBC.
+    return cartesian_product([possible_values_of(s) for s in args])
+
+def cartesian_product(lstlst):
+    if not lstlst:
+        yield ()
+        return
+    for tuple_tail in cartesian_product(lstlst[1:]):
+        for value in lstlst[0]:
             yield (value,) + tuple_tail
 
 #def argtypes(bookkeeper, spaceop, func, args, mono):

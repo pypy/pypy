@@ -24,6 +24,7 @@ class PBCAccessSet:
         self.objects = { obj: True }
         self.read_locations = {}
         self.attrs = {}
+        self.values = {}   # used in the typer 
 
     def update(self, other):
         self.objects.update(other.objects)
@@ -192,6 +193,8 @@ class Bookkeeper:
         self.pbc_callables = None
         
         self.pbc_call_sites = {}
+
+        self.memo_tables = []
 
         self.stats = Stats(self)
 

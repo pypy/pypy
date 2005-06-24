@@ -1,7 +1,7 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import interpret, make_interpreter
 
 
 def test_easy_call():
@@ -143,3 +143,31 @@ def test_call_defaults():
     assert res == 1+10+3
     res = interpret(f3, [])
     assert res == 1+10+100
+
+def test_call_memoized():
+    fr1 = Freezing()
+    fr1.x = 0
+    fr2 = Freezing()
+    fr2.x = 1
+    def getorbuild(key):
+        a = 1
+        if key is fr1:
+            result = eval("a+2")
+        else:
+            result = eval("a+6")
+        return result
+    getorbuild._annspecialcase_ = "specialize:memo"
+
+    def f1(i):
+        if i > 0:
+            fr = fr1
+        else:
+            fr = fr2
+        # XXX this should work without fr.x
+        return getorbuild(fr) + fr.x
+
+    ev_f1 = make_interpreter(f1, [0])#, viewbefore=True)
+    res = ev_f1(0)
+    assert res == 8
+    res = ev_f1(1)
+    assert res == 3

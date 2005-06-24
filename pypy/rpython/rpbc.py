@@ -5,7 +5,7 @@ from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import typeOf, Void, ForwardReference, Struct, Bool
 from pypy.rpython.lltype import Ptr, malloc, nullptr
-from pypy.rpython.rmodel import Repr, TyperError
+from pypy.rpython.rmodel import Repr, TyperError, inputconst
 from pypy.rpython import rclass
 from pypy.rpython.rtyper import HighLevelOp
 
@@ -166,7 +166,10 @@ class MultipleFrozenPBCRepr(Repr):
             result = malloc(self.pbc_type, immortal=True)
             self.pbc_cache[pbc] = result
             for attr, (mangled_name, r_value) in self.llfieldmap.items():
-                thisattrvalue = getattr(pbc, attr)
+                try: 
+                    thisattrvalue = self.access_set.values[(pbc, attr)] 
+                except KeyError: 
+                    thisattrvalue = getattr(pbc, attr)
                 llvalue = r_value.convert_const(thisattrvalue)
                 setattr(result, mangled_name, llvalue)
             return result
@@ -174,10 +177,13 @@ class MultipleFrozenPBCRepr(Repr):
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
         vpbc, vattr = hop.inputargs(self, Void)
+        return self.getfield(vpbc, attr, hop.llops)
+
+    def getfield(self, vpbc, attr, llops):
         mangled_name, r_value = self.llfieldmap[attr]
-        cmangledname = hop.inputconst(Void, mangled_name)
-        return hop.genop('getfield', [vpbc, cmangledname],
-                         resulttype = r_value)
+        cmangledname = inputconst(Void, mangled_name)
+        return llops.genop('getfield', [vpbc, cmangledname],
+                           resulttype = r_value)
 
 
 # ____________________________________________________________
@@ -424,3 +430,15 @@ class ClassesPBCRepr(Repr):
             # now hop2 looks like simple_call(initfunc, instance, args...)
             hop2.dispatch()
         return v_instance
+
+# ____________________________________________________________
+
+def rtype_call_memo(hop): 
+    memo_table = hop.args_v[0].value
+    fieldname = memo_table.fieldname 
+    assert hop.nb_args == 2, "XXX"  
+
+    r_pbc = hop.args_r[1]
+    assert isinstance(r_pbc, MultipleFrozenPBCRepr)
+    v_table, v_pbc = hop.inputargs(Void, r_pbc)
+    return r_pbc.getfield(v_pbc, fieldname, hop.llops)

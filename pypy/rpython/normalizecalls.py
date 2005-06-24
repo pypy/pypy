@@ -165,9 +165,43 @@ def normalize_function_signatures(annotator):
                 annotator.setbinding(graph.getreturnvar(), generalizedresult)
 
 
+def specialize_pbcs_by_memotables(annotator):
+    memo_tables = annotator.bookkeeper.memo_tables
+    access_sets = annotator.getpbcaccesssets()
+    for memo_table in memo_tables: 
+        arglist_s = memo_table.arglist_s 
+        assert len(arglist_s) == 1, "XXX implement >1 arguments" 
+        arg1 = arglist_s[0]
+        assert isinstance(arg1, annmodel.SomePBC)
+
+        if None in arg1.prebuiltinstances:
+            raise TyperError("unsupported: memo call with an argument that can be None")
+        pbcs = arg1.prebuiltinstances.keys()
+        _, _, access_set = access_sets.find(pbcs[0])
+
+        # enforce a structure where we can uniformly access 
+        # our memofield later 
+        for pbc in pbcs[1:]:
+            _, _, access_set = access_sets.union(pbcs[0], pbc)
+        
+        # we can have multiple memo_tables per PBC 
+        i = 0
+        while 1: 
+            fieldname = "memofield_%d" % i
+            if fieldname in access_set.attrs: 
+                i += 1
+                continue
+            memo_table.fieldname = fieldname
+            break
+        access_set.attrs[fieldname] = memo_table.s_result
+        for pbc in pbcs: 
+            value = memo_table.table[(pbc,)] 
+            access_set.values[(pbc, fieldname)] = value 
+
 def perform_normalizations(annotator):
     annotator.frozen += 1
     try:
         normalize_function_signatures(annotator)
+        specialize_pbcs_by_memotables(annotator) 
     finally:
         annotator.frozen -= 1

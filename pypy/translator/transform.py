@@ -13,6 +13,7 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import last_exception
 from pypy.translator.annrpython import CannotSimplify
 from pypy.annotation import model as annmodel
+from pypy.annotation.specialize import MemoTable
 
 def fully_annotated_blocks(self):
     """Ignore blocked blocks."""
@@ -152,10 +153,20 @@ def transform_specialization(self, block_subset):
                             if not specialcase:
                                 op.args[0] = Constant(specialized_callb.prebuiltinstances.keys()[0])
                             else:
-                                if op.opname == 'simple_call':
-                                    op.opname = intern('simple_specialcase')
+                                if op.opname != 'simple_call':
+                                    assert 0, "not supported: call_args to a specialized function"
+                                callable = callb.prebuiltinstances.keys()[0]
+                                tag = getattr(callable, '_annspecialcase_', None)
+                                if tag == 'specialize:memo':
+                                    arglist_s = [self.binding(v) for v in op.args[1:]]
+                                    memo_table = MemoTable(self.bookkeeper, 
+                                                           callable, 
+                                                           self.binding(op.result), 
+                                                           arglist_s)
+                                    op.opname = intern('call_memo')
+                                    op.args[0] = Constant(memo_table)
                                 else:
-                                    op.opname = intern('specialcase_args')
+                                    op.opname = intern('call_specialcase')
 
 default_extra_passes = [
     transform_specialization,
