@@ -15,7 +15,7 @@ def make_target_definition(LOOPS, version):
             for j in range(51):
                 g.Array2Glob[i][j] = 0
         g.PtrGlb = None
-        g.PtrGlbNext = None        
+        g.PtrGlbNext = None
         return rpystone.pystones(loops), id(g)
 
     def target():
@@ -28,7 +28,7 @@ def make_target_definition(LOOPS, version):
               (version, LOOPS, benchtime)
         print "This machine benchmarks at %g translated rpystone/%s pystones/second" % (stones, version)
         res = c_entry_point(50000)
-        _, g_addr = res        
+        _, g_addr = res
         print "CPython:"
         benchtime, stones = rpystone.pystones(50000)
         print "rpystone.pystones/%s time for %d passes = %g" % \
