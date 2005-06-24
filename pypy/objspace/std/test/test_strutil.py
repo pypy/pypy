@@ -159,6 +159,10 @@ def test_string_to_float():
     assert string_to_float('1e-1111111111111') == float('1e-1111111111111')
     assert string_to_float('-1e1111111111111') == float('-1e1111111111111')
     assert string_to_float('-1e-1111111111111') == float('-1e-1111111111111')
+    assert string_to_float('1e111111111111111111111') == float('1e111111111111111111111')
+    assert string_to_float('1e-111111111111111111111') == float('1e-111111111111111111111')
+    assert string_to_float('-1e111111111111111111111') == float('-1e111111111111111111111')
+    assert string_to_float('-1e-111111111111111111111') == float('-1e-111111111111111111111')
 
     valid_parts = [['', '  ', ' \f\n\r\t\v'],
                    ['', '+', '-'],
