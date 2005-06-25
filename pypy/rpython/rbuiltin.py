@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython import lltype
 from pypy.rpython import rarithmetic
 from pypy.rpython.rtyper import TyperError
-from pypy.rpython.rrange import rtype_builtin_range
+from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange 
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
@@ -118,6 +118,8 @@ def rtype_builtin_isinstance(hop):
 
 #def rtype_builtin_range(hop): see rrange.py
 
+#def rtype_builtin_xrange(hop): see rrange.py
+
 def rtype_intmask(hop):
     vlist = hop.inputargs(lltype.Signed)
     return vlist[0]
@@ -139,6 +141,18 @@ def ll_min(i1, i2):
         return i1
     return i2
 
+def rtype_builtin_max(hop):
+    rint1, rint2 = hop.args_r
+    assert isinstance(rint1, IntegerRepr)
+    assert isinstance(rint2, IntegerRepr)
+    assert rint1.lowleveltype == rint2.lowleveltype
+    v1, v2 = hop.inputargs(rint1, rint2)
+    return hop.gendirectcall(ll_min, v1, v2)
+
+def ll_max(i1, i2):
+    if i1 > i2:
+        return i1
+    return i2
 
 # collect all functions
 import __builtin__

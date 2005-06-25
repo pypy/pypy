@@ -92,6 +92,8 @@ def rtype_builtin_range(hop):
                          "XXX not implemented")
         #return hop.gendirectcall(ll_range2list, vstart, vstop, vstep)
 
+rtype_builtin_xrange = rtype_builtin_range
+
 # ____________________________________________________________
 #
 #  Iteration.
