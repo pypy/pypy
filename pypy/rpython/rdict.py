@@ -4,7 +4,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython import rmodel, lltype, rstr
 from pypy.rpython.rstr import STR, string_repr
 from pypy.rpython.rarithmetic import r_uint
-from pypy.rpython import rlist
+from pypy.rpython import rlist, rconstantdict 
 
 # ____________________________________________________________
 #
@@ -34,6 +34,12 @@ class __extend__(annmodel.SomeDict):
             dictvalue = self.dictdef.dictvalue 
             return StrDictRepr(lambda: rtyper.getrepr(dictvalue.s_value), 
                                dictvalue)
+        elif isinstance(s_key, (annmodel.SomeInteger, annmodel.SomeChar)): 
+            dictkey = self.dictdef.dictkey
+            dictvalue = self.dictdef.dictvalue 
+            return rconstantdict.ConstantDictRepr(
+                        rtyper.getrepr(dictkey.s_value), 
+                        rtyper.getrepr(dictvalue.s_value))
         else: 
             raise rmodel.TyperError("cannot make repr of %r" %(self.dictdef,))
 
