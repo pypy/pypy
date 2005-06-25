@@ -81,7 +81,8 @@ class __extend__(pairtype(TupleRepr, TupleRepr)):
         res = TupleRepr(items_r)
         vlist = v_tuple + v_tuple1
         return newtuple(hop.llops, res, vlist)
-        
+    rtype_inplace_add = rtype_add
+
 
 # ____________________________________________________________
 #

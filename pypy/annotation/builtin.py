@@ -85,8 +85,8 @@ def builtin_chr(s_int):
 def builtin_unichr(s_int):
     return constpropagate(unichr, [s_int], SomeUnicodeCodePoint())
 
-def builtin_unicode(s_obj):
-    raise TypeError, "unicode() calls should not happen at interp-level"
+##def builtin_unicode(s_obj):
+##    raise TypeError, "unicode() calls should not happen at interp-level"
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
@@ -148,8 +148,8 @@ def builtin_hasattr(s_obj, s_attr):
         r.const = hasattr(s_obj.const, s_attr.const)
     return r
 
-def builtin_callable(s_obj):
-    return SomeBool()
+##def builtin_callable(s_obj):
+##    return SomeBool()
 
 def builtin_tuple(s_iterable):
     if isinstance(s_iterable, SomeTuple):
@@ -179,10 +179,10 @@ def builtin_apply(*stuff):
     getbookkeeper().warning("ignoring apply%r" % (stuff,))
     return SomeObject()
 
-def builtin_compile(*stuff):
-    s = SomeObject()
-    s.knowntype = types.CodeType
-    return s
+##def builtin_compile(*stuff):
+##    s = SomeObject()
+##    s.knowntype = types.CodeType
+##    return s
 
 def builtin_slice(*args):
     bk = getbookkeeper()

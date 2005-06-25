@@ -341,6 +341,10 @@ for _op in '''
         iter get '''.split():
     CanRemove[_op] = True
 del _op
+CanRemoveBuiltins = {
+    isinstance: True,
+    hasattr: True,
+    }
 
 def transform_dead_op_vars_in_blocks(blocks):
     """Remove dead operations and variables that are passed over a link
@@ -415,7 +419,7 @@ def transform_dead_op_vars_in_blocks(blocks):
                     # ... 
                     if op.args and isinstance(op.args[0], Constant):
                         func = op.args[0].value
-                        if func is isinstance:
+                        if func in CanRemoveBuiltins:
                             del block.operations[i]
 
         # look for output variables never used
