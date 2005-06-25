@@ -5,6 +5,7 @@ from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
 import py
 from pypy.rpython.lltype import _ptr, Ptr, Void, typeOf, malloc, cast_pointer
 from pypy.rpython.lltype import Array
+import math
 
 log = py.log.Producer('llinterp')
 
@@ -271,6 +272,15 @@ class LLFrame(object):
     def op_cast_uint_to_int(self, b):
         assert type(b) is r_uint
         return intmask(b)
+
+    def op_float_floor(self, b):
+        assert type(b) is float
+        return math.floor(b)
+
+    def op_float_fmod(self, b,c):
+        assert type(b) is float
+        assert type(c) is float
+        return math.fmod(b,c)
 
 # __________________________________________________________
 # primitive operations

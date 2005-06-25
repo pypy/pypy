@@ -40,3 +40,27 @@ def test_int_max():
     assert ev_fun(1, -1) == 1
     assert ev_fun(2, 2) == 2
     assert ev_fun(-1, -12) == -1
+
+def test_builtin_math_floor():
+    import math
+    def fn(f):
+        
+        return math.floor(f)
+    ev_fun = make_interpreter(fn, [0.0])
+    import random 
+    for i in range(20):
+        rv = 1000 * float(i-10) #random.random()
+        assert math.floor(rv) == ev_fun(rv)
+        
+def test_builtin_math_fmod():
+    import math
+    def fn(f,y):
+        
+        return math.fmod(f,y)
+    ev_fun = make_interpreter(fn, [0.0,0.0])
+    for i in range(20):
+        for j in range(20):
+            rv = 1000 * float(i-10) 
+            ry = 100 * float(i-10) +0.1
+            assert math.fmod(rv,ry) == ev_fun(rv,ry)        
+            

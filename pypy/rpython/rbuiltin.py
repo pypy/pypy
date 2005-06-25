@@ -7,7 +7,7 @@ from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
-from pypy.rpython.rfloat import float_repr
+from pypy.rpython.rfloat import float_repr, FloatRepr
 from pypy.rpython import rclass
 
 
@@ -154,6 +154,18 @@ def ll_max(i1, i2):
         return i1
     return i2
 
+def rtype_math_floor(hop):
+    vlist = hop.inputargs(lltype.Float)
+    return hop.genop('float_floor', vlist, resulttype=lltype.Float)
+
+def rtype_math_fmod(hop):
+    vlist = hop.inputargs(lltype.Float, lltype.Float)
+    return hop.genop('float_fmod', vlist, resulttype=lltype.Float)
+
+import math
+##def ll_floor(f1):
+##    return float(int((f1)
+
 # collect all functions
 import __builtin__
 BUILTIN_TYPER = {}
@@ -161,7 +173,8 @@ for name, value in globals().items():
     if name.startswith('rtype_builtin_'):
         original = getattr(__builtin__, name[14:])
         BUILTIN_TYPER[original] = value
-
+BUILTIN_TYPER[math.floor] = rtype_math_floor
+BUILTIN_TYPER[math.fmod] = rtype_math_fmod
 # annotation of low-level types
 
 def rtype_malloc(hop):
