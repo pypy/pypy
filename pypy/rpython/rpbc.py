@@ -60,8 +60,10 @@ class __extend__(annmodel.SomePBC):
         lst = self.prebuiltinstances.items()
         lst.sort()
         return tuple(lst)
-
-
+    
+    def rtype_is_true(self,hop):
+        return Constant(True,Bool)
+    
 # ____________________________________________________________
 
 
@@ -100,7 +102,9 @@ single_frozen_pbc_repr = SingleFrozenPBCRepr()
 
 # __ None ____________________________________________________
 class NoneFrozenPBCRepr(SingleFrozenPBCRepr):
-    pass
+    
+    def rtype_is_true(self,hop):
+        return Constant(False,Bool)
 
 none_frozen_pbc_repr = NoneFrozenPBCRepr()
 
@@ -161,8 +165,10 @@ class MultipleFrozenPBCRepr(Repr):
     def convert_const(self, pbc):
         if pbc is None:
             return nullptr(self.pbc_type)
-        if pbc not in self.access_set.objects:
-            raise TyperError("not found in PBC set: %r" % (pbc,))
+        if isinstance(pbc, types.MethodType) and pbc.im_self is None:
+            value = pbc.im_func   # unbound method -> bare function
+##        if pbc not in self.access_set.objects:
+##            raise TyperError("not found in PBC set: %r" % (pbc,))
         try:
             return self.pbc_cache[pbc]
         except KeyError:

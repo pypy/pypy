@@ -63,15 +63,22 @@ def test_builtin_math_fmod():
             rv = 1000 * float(i-10) 
             ry = 100 * float(i-10) +0.1
             assert math.fmod(rv,ry) == ev_fun(rv,ry)        
-##import time
-##def test_time_time():            
-##    def f(neg):
-##        if neg:
-##            return time.time()
-##        else:
-##            return time.clock()
-##    ev_fn = make_interpreter(f,[True])
-##    assert isinstance(ev_fn(True),float)
-##    assert isinstance(ev_fn(False),float)
-    
+
+def test_pbc_isTrue():
+    class C:
+        def f(self):
+            pass
+        
+    def g(obj):
+        return bool(obj)
+    def fn(neg):    
+        c = C.f
+        return g(c)
+    ev_fun = make_interpreter(fn, [True])
+    assert ev_fun(True)
+    def fn(neg):    
+        c = None
+        return g(c)
+    ev_fun = make_interpreter(fn, [True])
+    assert not ev_fun(True)
     
