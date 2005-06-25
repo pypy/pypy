@@ -400,15 +400,19 @@ class FuncNode(ContainerNode):
         if self.funcgen:
             argnames = self.funcgen.argnames()
             self.implementationtypename = db.gettype(T, argnames=argnames)
-        self.name = db.namespace.uniquename('g_' + self.basename())
-        self.ptrname = self.name
         if hasattr(obj, 'includes'):
             self.includes = obj.includes
+            self.name = self.basename()
+        else:
+            self.name = db.namespace.uniquename('g_' + self.basename())
+        self.ptrname = self.name
 
     def basename(self):
         return self.obj._name
 
     def enum_dependencies(self):
+        if self.funcgen is None:
+            return []
         return self.funcgen.allconstantvalues()
 
     def forward_declaration(self):

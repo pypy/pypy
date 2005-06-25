@@ -253,3 +253,31 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
 
         fn = self.getcompiled(func)
         assert fn(5.0, 6.0) == func(5.0, 6.0) 
+
+    def test_rpbc_bound_method_static_call(self):
+        class R:
+            def meth(self):
+                return 0
+        r = R()
+        m = r.meth
+        def fn():
+            return m()
+        res = self.getcompiled(fn)()
+        assert res == 0
+
+    def test_constant_return_disagreement(self):
+        class R:
+            def meth(self):
+                return 0
+        r = R()
+        def fn():
+            return r.meth()
+        res = self.getcompiled(fn)()
+        assert res == 0
+
+    def test_math_exp(self):
+        from math import exp
+        def fn(f=float):
+            return exp(f)
+        f = self.getcompiled(fn)
+        assert f(1.0) == exp(1.0)
