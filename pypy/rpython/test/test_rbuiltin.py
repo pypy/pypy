@@ -63,4 +63,13 @@ def test_builtin_math_fmod():
             rv = 1000 * float(i-10) 
             ry = 100 * float(i-10) +0.1
             assert math.fmod(rv,ry) == ev_fun(rv,ry)        
-            
+import time
+def test_time_time():            
+    def f(neg):
+        if neg:
+            return time.time()
+        else:
+            return time.clock()
+    ev_fn = make_interpreter(f,[True])
+    assert isinstance(ev_fn(True),float)
+    assert isinstance(ev_fn(False),float)

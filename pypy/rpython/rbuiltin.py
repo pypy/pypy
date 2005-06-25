@@ -222,6 +222,14 @@ def rtype_time_clock(hop):
     return hop.llops.convertvar(v, pyobj_repr, float_repr)
 
 BUILTIN_TYPER[time.clock] = rtype_time_clock
+
+
+def rtype_time_time(hop):
+    c = hop.inputconst(pyobj_repr, time.time)
+    v = hop.genop('simple_call', [c], resulttype = pyobj_repr)
+    return hop.llops.convertvar(v, pyobj_repr, float_repr)
+
+BUILTIN_TYPER[time.time] = rtype_time_time
     
 import math
 
