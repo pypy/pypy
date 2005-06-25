@@ -79,6 +79,15 @@ def test_char_constant():
     assert res.chars[0] == 'x'
     assert res.chars[1] == '.'
 
+def test_char_isspace():
+    def fn(s):
+        return s.isspace() 
+    efn = make_interpreter(fn, ['x']) 
+    res = efn('x') 
+    assert res == False 
+    res = efn(' ') 
+    assert res == True 
+
 def test_char_compare():
     res = interpret(lambda c1, c2: c1 == c2,  ['a', 'b'])
     assert res is False

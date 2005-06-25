@@ -288,6 +288,9 @@ class __extend__(CharRepr):
         vlist = hop.inputargs(char_repr)
         return hop.genop('cast_char_to_int', vlist, resulttype=Signed)
 
+    def rtype_method_isspace(_, hop):
+        vlist = hop.inputargs(char_repr)
+        return hop.llops.gendirectcall(ll_char_isspace, vlist[0]) 
 
 class __extend__(pairtype(CharRepr, CharRepr)):
     def rtype_eq(_, hop): return _rtype_compare_template(hop, 'eq')
@@ -382,6 +385,12 @@ class __extend__(pairtype(StringRepr, PyObjRepr)):
 #  Low-level methods.  These can be run for testing, but are meant to
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
+#
+def ll_char_isspace(ch):
+    # XXX: 
+    #return ord(ch) in (9, 10, 11, 12, 13, 32)
+    c = ord(ch) 
+    return 9 <= c <= 13 or c == 32 
 
 def ll_strlen(s):
     return len(s.chars)

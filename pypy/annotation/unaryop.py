@@ -326,6 +326,9 @@ class __extend__(SomeChar):
     def len(chr):
         return immutablevalue(1)
 
+    def method_isspace(chr): 
+        return SomeBool()
+
 class __extend__(SomeUnicodeCodePoint):
 
     def ord(uchr):
