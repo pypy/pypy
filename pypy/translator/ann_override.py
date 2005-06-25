@@ -8,10 +8,6 @@ from pypy.annotation import specialize
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
 
-    def override__ignore(pol, *args):
-        bk = getbookkeeper()
-        return bk.immutablevalue(None)
-
     def override__instantiate(pol, clspbc):
         assert isinstance(clspbc, annmodel.SomePBC)
         clsdef = None
@@ -36,6 +32,3 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         from pypy.interpreter import pycode
         clsdef = getbookkeeper().getclassdef(pycode.PyCode)
         return annmodel.SomeInstance(clsdef)    
-
-    specialize__arg1 = staticmethod(specialize.argvalue(1))
-    specialize__argtype1 = staticmethod(specialize.argtype(1))

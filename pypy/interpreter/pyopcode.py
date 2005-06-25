@@ -777,6 +777,7 @@ app = gateway.applevel(r'''
             return 
         # XXX add unicode handling
         file_softspace(stream, True)
+    print_item_to._annspecialcase_ = "specialize:argtype0"
 
     def print_newline_to(stream):
         stream.write("\n")

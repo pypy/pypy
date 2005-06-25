@@ -1,5 +1,10 @@
 # base annotation policy for overrides and specialization
 from pypy.annotation.specialize import memo, ctr_location, default_specialize as default
+from pypy.annotation.specialize import argtype, argvalue
+# for some reason, model must be imported first,
+# or we create a cycle.
+from pypy.annotation import model as annmodel
+from pypy.annotation.bookkeeper import getbookkeeper
 
 
 class BasicAnnotatorPolicy:
@@ -57,3 +62,11 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     default_specialize = staticmethod(default)
     specialize__memo = staticmethod(memo)
     specialize__ctr_location = staticmethod(ctr_location)
+    specialize__arg0 = staticmethod(argvalue(0))
+    specialize__argtype0 = staticmethod(argtype(0))
+    specialize__arg1 = staticmethod(argvalue(1))
+    specialize__argtype1 = staticmethod(argtype(1))
+
+    def override__ignore(pol, *args):
+        bk = getbookkeeper()
+        return bk.immutablevalue(None)
