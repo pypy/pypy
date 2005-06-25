@@ -89,6 +89,20 @@ class StrDictRepr(rmodel.Repr):
     def make_iterator_repr(self):
         return StrDictIteratorRepr(self)
 
+    def rtype_method_get(self, hop):
+        v_dict, v_key, v_default = hop.inputargs(self, string_repr,
+                                                 self.value_repr)
+        return hop.gendirectcall(ll_get, v_dict, v_key, v_default)
+
+"""
+            rdict: (easy) method_get (?)
+                   (easy) method_copy
+                   (easy) method_update (?)
+                   (easy) method_keys (?)
+                   (easy) method_values (?)
+                   (easy) method_items (?)
+"""
+
 class __extend__(pairtype(StrDictRepr, rmodel.StringRepr)): 
 
     def rtype_getitem((r_dict, r_string), hop):
@@ -283,3 +297,15 @@ def ll_strdictnext(iter):
             return key
     iter.index = index
     raise StopIteration
+
+# _____________________________________________________________
+# methods
+
+def ll_get(v_dict, v_key, v_default):
+    entry = ll_strdict_lookup(v_dict, v_key) 
+    if entry.key and entry.key != deleted_entry_marker: 
+        return entry.value
+    else: 
+        return v_default
+
+

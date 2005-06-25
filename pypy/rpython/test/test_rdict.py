@@ -160,4 +160,11 @@ def test_two_dicts_with_different_value_types():
         return d2['world']['hello'] 
     res = interpret(func, [5])
     assert res == 6
-    
+
+def test_dict_get():
+    def func():
+        # XXX shouldn't the get imply the type by its default?
+        dic = {'blah': 1}
+        return dic.get('hi', 42) * 10 + dic.get('blah', 2)
+    res = interpret(func, ())
+    assert res == 421
