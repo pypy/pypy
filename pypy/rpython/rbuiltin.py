@@ -147,7 +147,7 @@ def rtype_builtin_max(hop):
     assert isinstance(rint2, IntegerRepr)
     assert rint1.lowleveltype == rint2.lowleveltype
     v1, v2 = hop.inputargs(rint1, rint2)
-    return hop.gendirectcall(ll_min, v1, v2)
+    return hop.gendirectcall(ll_max, v1, v2)
 
 def ll_max(i1, i2):
     if i1 > i2:
