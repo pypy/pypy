@@ -174,7 +174,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         l = list(u'Hello world')
         def f(i=int,j=int):
             return l[i] == l[j]
-        fn = self.getcompiled(f) #,view=True)
+        fn = self.getcompiled(f)
         for i in range(len(l)):
             for j in range(len(l)):
                 res = fn(i,j)
@@ -184,11 +184,30 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         l = list(u'Hello world')
         def f(i=int,j=int):
             return l[i] != l[j]
-        fn = self.getcompiled(f) #,view=True)
+        fn = self.getcompiled(f)
         for i in range(len(l)):
             for j in range(len(l)):
                 res = fn(i,j)
                 assert res == f(i,j)
+
+    def test_unichr_ord(self):
+        l = list(u'Hello world')
+        def f(i=int):
+            return ord(l[i]) 
+        fn = self.getcompiled(f)
+        for i in range(len(l)):
+            res = fn(i)
+            assert res == f(i)
+
+    def test_unichr_unichr(self):
+        l = list(u'Hello world')
+        def f(i=int, j=int):
+            return l[i] == unichr(j)
+        fn = self.getcompiled(f)
+        for i in range(len(l)):
+            for j in range(len(l)):
+                res = fn(i, ord(l[j]))
+                assert res == f(i, ord(l[j]))
 
     def test_slice_long(self):
         "the parent's test_slice_long() makes no sense here"
