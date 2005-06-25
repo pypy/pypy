@@ -144,11 +144,9 @@ def test_call_defaults():
     res = interpret(f3, [])
     assert res == 1+10+100
 
-def test_call_memoized():
+def test_call_memoized_function():
     fr1 = Freezing()
-    fr1.x = 0
     fr2 = Freezing()
-    fr2.x = 1
     def getorbuild(key):
         a = 1
         if key is fr1:
@@ -170,3 +168,48 @@ def test_call_memoized():
     assert res == 7
     res = ev_f1(1)
     assert res == 3
+
+def test_call_memoized_cache():
+
+    # this test checks that we add a separate field 
+    # per specialization and also it uses a subclass of 
+    # the standard pypy.tool.cache.Cache
+
+    from pypy.tool.cache import Cache
+    fr1 = Freezing()
+    fr2 = Freezing()
+
+    class Cache1(Cache): 
+        def _build(self, key): 
+            "NOT_RPYTHON" 
+            if key is fr1:
+                return fr2 
+            else:
+                return fr1 
+
+    class Cache2(Cache): 
+        def _build(self, key): 
+            "NOT_RPYTHON" 
+            a = 1
+            if key is fr1:
+                result = eval("a+2")
+            else:
+                result = eval("a+6")
+            return result
+
+    cache1 = Cache1()
+    cache2 = Cache2()
+
+    def f1(i):
+        if i > 0:
+            fr = fr1
+        else:
+            fr = fr2
+        newfr = cache1.getorbuild(fr)
+        return cache2.getorbuild(newfr)
+
+    ev_f1 = make_interpreter(f1, [0], view=0, viewbefore=0)  
+    res = ev_f1(0)
+    assert res == 3
+    res = ev_f1(1)
+    assert res == 7
