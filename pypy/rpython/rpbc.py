@@ -8,7 +8,7 @@ from pypy.rpython.lltype import Ptr, malloc, nullptr
 from pypy.rpython.rmodel import Repr, TyperError, inputconst
 from pypy.rpython import rclass
 from pypy.rpython.rtyper import HighLevelOp
-
+from pypy.rpython import robject
 
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
@@ -121,6 +121,10 @@ class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
     def rtype_is_((rnone1, robj2), hop):
         return rtype_is_None(robj2, rnone1, hop, pos=1)
         
+class __extend__(pairtype(NoneFrozenPBCRepr, robject.PyObjRepr)):
+
+    def convert_from_to(_, v, llops):
+        return inputconst(robject.pyobj_repr, None)
 
 # ____________________________________________________________
 
