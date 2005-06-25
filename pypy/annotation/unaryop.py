@@ -317,6 +317,7 @@ class __extend__(SomeString):
         return SomeInteger(nonneg=True)
 
     def method_split(str, patt): # XXX
+        getbookkeeper().count("str_split", str, patt)
         return getbookkeeper().newlist(SomeString())
 
 
@@ -434,6 +435,10 @@ class __extend__(SomePBC):
 
     def is_true(pbc):
         outcome = None
+        for c in pbc.prebuiltinstances:
+            if c is not None and not bool(c):
+                getbookkeeper().warning("PBC %r has truth value False" % (c,))
+                getbookkeeper().count("pbc_is_true", pbc)
         for c in pbc.prebuiltinstances:
             if outcome is None:
                 outcome = bool(c)

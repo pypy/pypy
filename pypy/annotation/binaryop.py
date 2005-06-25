@@ -134,10 +134,10 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             return SomeBool()
 
     def cmp((obj1, obj2)):
+        getbookkeeper().count("cmp", obj1, obj2)
         if obj1.is_constant() and obj2.is_constant():
             return immutablevalue(cmp(obj1.const, obj2.const))
         else:
-            getbookkeeper().count("non_int_comp", obj1, obj2)
             return SomeInteger()
 
     def is_((obj1, obj2)):
@@ -183,9 +183,11 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         return r
 
     def divmod((obj1, obj2)):
+        getbookkeeper().count("divmod", obj1, obj2)
         return SomeTuple([pair(obj1, obj2).div(), pair(obj1, obj2).mod()])
 
     def coerce((obj1, obj2)):
+        getbookkeeper().count("coerce", obj1, obj2)
         return pair(obj1, obj2).union()   # reasonable enough
 
 # cloning a function with identical code, for the can_only_throw attribute
@@ -451,11 +453,13 @@ class __extend__(pairtype(SomeString, SomeInteger)):
         return SomeChar()
 
     def mul((str1, int2)): # xxx do we want to support this
+        getbookkeeper().count("str_mul", str1, int2)
         return SomeString()
 
 class __extend__(pairtype(SomeInteger, SomeString)):
     
     def mul((int1, str2)): # xxx do we want to support this
+        getbookkeeper().count("str_mul", str2, int1)
         return SomeString()
 
 class __extend__(pairtype(SomeInteger, SomeList)):
