@@ -237,6 +237,6 @@ def rtype_math_exp(hop):
     vlist = hop.inputargs(lltype.Float)
     # XXX need PyFPE_START_PROTECT/PyFPE_END_PROTECT/Py_SET_ERRNO_ON_MATH_ERROR
     return hop.llops.gencapicall('exp', vlist, resulttype=lltype.Float,
-                                 includes=["math.h"])   # XXX clean up needed
+                                 includes=("math.h",))   # XXX clean up needed
 
 BUILTIN_TYPER[math.exp] = rtype_math_exp
