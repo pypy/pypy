@@ -215,7 +215,7 @@ def test_dict_keys():
         dic = {' 4':1000, ' 8':200}
         keys = dic.keys()
         return ord(keys[0][1]) + ord(keys[1][1]) - 2*ord('0') + len(keys)
-    res = interpret(func, ())
+    res = interpret(func, ())#, view=True)
     assert res == 14
 
 def test_dict_values():

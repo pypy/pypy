@@ -106,23 +106,21 @@ class StrDictRepr(rmodel.Repr):
         v_dic1, v_dic2 = hop.inputargs(self, self)
         return hop.gendirectcall(ll_update, v_dic1, v_dic2)
 
-    def rtype_method_keys(self, hop):
+    def _rtype_method_kvi(self, hop, spec):
         v_dic, = hop.inputargs(self)
         r_list = hop.r_result
+        v_func = hop.inputconst(lltype.Void, spec)
         c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
-        return hop.gendirectcall(ll_keys, v_dic, c1)
+        return hop.gendirectcall(ll_kvi, v_dic, c1, v_func)
+
+    def rtype_method_keys(self, hop):
+        return self._rtype_method_kvi(hop, dum_keys)
 
     def rtype_method_values(self, hop):
-        v_dic, = hop.inputargs(self)
-        r_list = hop.r_result
-        c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
-        return hop.gendirectcall(ll_values, v_dic, c1)
+        return self._rtype_method_kvi(hop, dum_values)
 
     def rtype_method_items(self, hop):
-        v_dic, = hop.inputargs(self)
-        r_list = hop.r_result
-        c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
-        return hop.gendirectcall(ll_items, v_dic, c1)
+        return self._rtype_method_kvi(hop, dum_items)
 
 class __extend__(pairtype(StrDictRepr, rmodel.StringRepr)): 
 
@@ -359,50 +357,31 @@ def ll_update(v_dic1, v_dic2):
             ll_strdict_setitem(v_dic1, entry.key, entry.value)
         i += 1
 
-def ll_keys(v_dic, LISTPTR):
-    res = rlist.ll_newlist(LISTPTR, v_dic.num_items)
-    dlen = len(v_dic.entries)
-    entries = v_dic.entries
-    i = 0
-    p = 0
-    while i < dlen:
-        key = entries[i].key
-        if key and key != deleted_entry_marker:
-                res.items[p] = key
-                p += 1
-        i += 1
-    return res
+def dum_keys(): pass
+def dum_values(): pass
+def dum_items():pass
 
-def ll_values(v_dic, LISTPTR):
+def ll_kvi(v_dic, LISTPTR, v_func):
     res = rlist.ll_newlist(LISTPTR, v_dic.num_items)
     dlen = len(v_dic.entries)
     entries = v_dic.entries
+    items = res.items
     i = 0
     p = 0
     while i < dlen:
-        key = entries[i].key
-        value = entries[i].value
+        entry = entries[i]
+        key = entry.key
         if key and key != deleted_entry_marker:
-                res.items[p] = value
-                p += 1
-        i += 1
-    return res
-
-def ll_items(v_dic, LISTPTR):
-    res = rlist.ll_newlist(LISTPTR, v_dic.num_items)
-    dlen = len(v_dic.entries)
-    entries = v_dic.entries
-    i = 0
-    p = 0
-    while i < dlen:
-        key = entries[i].key
-        value = entries[i].value
-        if key and key != deleted_entry_marker:
+            if v_func is dum_items:
                 r = lltype.malloc(LISTPTR.TO.items.TO.OF.TO)
                 r.item0 = key
-                r.item1 = value
-                res.items[p] = r
-                p += 1
+                r.item1 = entry.value
+                items[p] = r
+            elif v_func is dum_keys:
+                items[p] = key
+            elif v_func is dum_values:
+                items[p] = entry.value
+            p += 1
         i += 1
     return res
 
