@@ -13,7 +13,7 @@ Caches that can freeze when the annotator needs it.
 # Cache class:
 #     a cache meant to map a finite number of keys to values.
 #     It is normally extended lazily, until it contains all possible
-#     keys.  The _specialize_ attribute of the getorbuild() method
+#     keys.  The _annspecialcase_ attribute of the getorbuild() method
 #     forces the annotator to decode the argument's annotations,
 #     which must be constants or SomePBCs, actually call the
 #     method with all possible combinations, and gather the results.
