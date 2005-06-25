@@ -51,9 +51,9 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
         s_float3 = hop.args_s[2]
         if s_float3.is_constant() and s_float3.const is None:
             vlist = hop.inputargs(Float, Float, Void)[:2]
+            return hop.genop('float_pow', vlist, resulttype=Float)
         else:
-            vlist = hop.inputargs(Float, Float, Float)
-        return hop.genop('float_pow', vlist, resulttype=Float)
+            raise TyperError("cannot handle pow with three float arguments")
 
     def rtype_inplace_pow(_, hop):
         return _rtype_template(hop, 'pow')

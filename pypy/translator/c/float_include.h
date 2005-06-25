@@ -9,6 +9,7 @@
 /*** unary operations ***/
 
 #define OP_FLOAT_IS_TRUE(x,r,err)   OP_FLOAT_NE(x,0.0,r,err)
+#define OP_FLOAT_NEG(x,r,err)       r = -x; 
 
 
 /***  binary operations ***/
@@ -29,6 +30,9 @@
 #define OP_FLOAT_SUB(x,y,r,err)     r = x - y;
 #define OP_FLOAT_MUL(x,y,r,err)     r = x * y;
 #define OP_FLOAT_DIV(x,y,r,err)     r = x / y;
+
+#define OP_FLOAT_MOD(x,y,r,err)     r = fmod(x, y); 
+#define OP_FLOAT_POW(x,y,r,err)     r = pow(x, y); 
 
 /*** conversions ***/
 

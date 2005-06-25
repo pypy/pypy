@@ -241,3 +241,15 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
             assert fn(i) == (-(i), abs(i-1))
         raises (OverflowError, fn, -sys.maxint-1)
         raises (OverflowError, fn, -sys.maxint)
+
+    # floats 
+    def test_float_operations(self): 
+        def func(x=float, y=float): 
+            z = x + y / 2.1 * x 
+            z = z % 60.0
+            z = pow(z, 2)
+            z = -z
+            return int(z) 
+
+        fn = self.getcompiled(func)
+        assert fn(5.0, 6.0) == func(5.0, 6.0) 
