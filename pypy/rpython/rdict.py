@@ -361,6 +361,11 @@ def dum_keys(): pass
 def dum_values(): pass
 def dum_items():pass
 
+# this is an implementation of keys(), values() and items()
+# in a single function.
+# note that by specialization on v_func, three different
+# and very efficient functions are created.
+
 def ll_kvi(v_dic, LISTPTR, v_func):
     res = rlist.ll_newlist(LISTPTR, v_dic.num_items)
     dlen = len(v_dic.entries)
