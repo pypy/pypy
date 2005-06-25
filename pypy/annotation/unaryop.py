@@ -272,14 +272,15 @@ class __extend__(SomeDict):
         return dct.dictdef.read_key()
 
     def method_get(dct, key, dfl):
-        return unionof(dct.dictdef.read_value(), dfl)
+        dct.dictdef.generalize_key(key)
+        dct.dictdef.generalize_value(dfl)
+        return dct.dictdef.read_value()
 
     def method_copy(dct):
         return dct
 
     def method_update(dct1, dct2):
-        dct1.dictdef.generalize_key(dct2.dictdef.read_key())
-        dct1.dictdef.generalize_value(dct2.dictdef.read_value())
+        dct1.dictdef.union(dct2.dictdef)
 
     def method_keys(dct):
         return getbookkeeper().newlist(dct.dictdef.read_key())

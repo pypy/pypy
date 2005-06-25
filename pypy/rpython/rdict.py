@@ -3,7 +3,8 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import rmodel, lltype, rstr
 from pypy.rpython.rstr import STR, string_repr
-from pypy.rpython.rarithmetic import r_uint 
+from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython import rlist
 
 # ____________________________________________________________
 #
@@ -97,19 +98,36 @@ class StrDictRepr(rmodel.Repr):
                                                  self.value_repr)
         return hop.gendirectcall(ll_get, v_dict, v_key, v_default)
 
-"""
-            rdict: (easy) method_get (?)
-                   (easy) method_copy
-                   (easy) method_update (?)
-                   (easy) method_keys (?)
-                   (easy) method_values (?)
-                   (easy) method_items (?)
-"""
+    def rtype_method_copy(self, hop):
+        v_dict, = hop.inputargs(self)
+        return hop.gendirectcall(ll_copy, v_dict)
+
+    def rtype_method_update(self, hop):
+        v_dic1, v_dic2 = hop.inputargs(self, self)
+        return hop.gendirectcall(ll_update, v_dic1, v_dic2)
+
+    def rtype_method_keys(self, hop):
+        v_dic, = hop.inputargs(self)
+        r_list = hop.r_result
+        c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
+        return hop.gendirectcall(ll_keys, v_dic, c1)
+
+    def rtype_method_values(self, hop):
+        v_dic, = hop.inputargs(self)
+        r_list = hop.r_result
+        c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
+        return hop.gendirectcall(ll_values, v_dic, c1)
+
+    def rtype_method_items(self, hop):
+        v_dic, = hop.inputargs(self)
+        r_list = hop.r_result
+        c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
+        return hop.gendirectcall(ll_items, v_dic, c1)
 
 class __extend__(pairtype(StrDictRepr, rmodel.StringRepr)): 
 
     def rtype_getitem((r_dict, r_string), hop):
-        v_dict, v_key = hop.inputargs(r_dict, string_repr) 
+        v_dict, v_key = hop.inputargs(r_dict, string_repr)
         return hop.gendirectcall(ll_strdict_getitem, v_dict, v_key)
 
     def rtype_delitem((r_dict, r_string), hop):
@@ -311,4 +329,75 @@ def ll_get(v_dict, v_key, v_default):
     else: 
         return v_default
 
+def ll_copy(v_dict):
+    DICTPTR = lltype.typeOf(v_dict)
+    d = lltype.malloc(DICTPTR.TO)
+    d.entries = lltype.malloc(DICTPTR.TO.entries.TO, len(v_dict.entries))
+    d.num_items = v_dict.num_items
+    d.num_pristine_entries = v_dict.num_pristine_entries
+    i = 0
+    dictlen = len(d.entries)
+    while i < dictlen:
+        d_entry = d.entries[i]
+        v_entry = v_dict.entries[i]
+        d_entry.key = v_entry.key
+        d_entry.value = v_entry.value
+        i += 1
+    return d
 
+def ll_update(v_dic1, v_dic2):
+    d2len =len(v_dic2.entries)
+    entries = v_dic2.entries
+    i = 0
+    while i < d2len:
+        entry = entries[i]
+        if entry.key and entry.key != deleted_entry_marker:
+            ll_strdict_setitem(v_dic1, entry.key, entry.value)
+        i += 1
+
+def ll_keys(v_dic, LISTPTR):
+    res = rlist.ll_newlist(LISTPTR, v_dic.num_items)
+    dlen = len(v_dic.entries)
+    entries = v_dic.entries
+    i = 0
+    p = 0
+    while i < dlen:
+        key = entries[i].key
+        if key and key != deleted_entry_marker:
+                res.items[p] = key
+                p += 1
+        i += 1
+    return res
+
+def ll_values(v_dic, LISTPTR):
+    res = rlist.ll_newlist(LISTPTR, v_dic.num_items)
+    dlen = len(v_dic.entries)
+    entries = v_dic.entries
+    i = 0
+    p = 0
+    while i < dlen:
+        key = entries[i].key
+        value = entries[i].value
+        if key and key != deleted_entry_marker:
+                res.items[p] = value
+                p += 1
+        i += 1
+    return res
+
+def ll_items(v_dic, LISTPTR):
+    res = rlist.ll_newlist(LISTPTR, v_dic.num_items)
+    dlen = len(v_dic.entries)
+    entries = v_dic.entries
+    i = 0
+    p = 0
+    while i < dlen:
+        key = entries[i].key
+        value = entries[i].value
+        if key and key != deleted_entry_marker:
+                r = lltype.malloc(LISTPTR.TO.items.TO.OF.TO)
+                r.item0 = key
+                r.item1 = value
+                res.items[p] = r
+                p += 1
+        i += 1
+    return res

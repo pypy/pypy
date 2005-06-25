@@ -163,8 +163,78 @@ def test_two_dicts_with_different_value_types():
 
 def test_dict_get():
     def func():
-        # XXX shouldn't the get imply the type by its default?
-        dic = {'blah': 1}
-        return dic.get('hi', 42) * 10 + dic.get('blah', 2)
+        dic = {}
+        x1 = dic.get('hi', 42)
+        dic['blah'] = 1 # XXX this triggers type determination
+        x2 = dic.get('blah', 2)
+        return x1 * 10 + x2
     res = interpret(func, ())
     assert res == 421
+
+def test_dict_get_empty():
+    def func():
+        # this time without writing to the dict
+        dic = {}
+        x1 = dic.get('hi', 42)
+        x2 = dic.get('blah', 2)
+        return x1 * 10 + x2
+    res = interpret(func, ())
+    assert res == 422
+
+def test_dict_copy():
+    def func():
+        # XXX this does not work if we use chars, only!
+        dic = {'ab':1, 'b':2}
+        d2 = dic.copy()
+        ok = 1
+        for key in d2:
+            if dic[key] != d2[key]:
+                ok = 0
+        ok &= len(dic) == len(d2)
+        d2['c'] = 3
+        ok &= len(dic) == len(d2) - 1
+        return ok
+    res = interpret(func, ())
+    assert res == 1
+
+def test_dict_update():
+    def func():
+        dic = {'ab':1000, 'b':200}
+        d2 = {'b':30, 'cb':4}
+        dic.update(d2)
+        ok = len(dic) == 3
+        sum = ok
+        for key in dic:
+            sum += dic[key]
+        return sum
+    res = interpret(func, ())
+    assert res == 1035
+
+def test_dict_keys():
+    def func():
+        dic = {' 4':1000, ' 8':200}
+        keys = dic.keys()
+        return ord(keys[0][1]) + ord(keys[1][1]) - 2*ord('0') + len(keys)
+    res = interpret(func, ())
+    assert res == 14
+
+def test_dict_values():
+    def func():
+        dic = {' 4':1000, ' 8':200}
+        values = dic.values()
+        return values[0] + values[1] + len(values)
+    res = interpret(func, ())
+    assert res == 1202
+
+def test_dict_items():
+    def func():
+        dic = {' 4':1000, ' 8':200}
+        items = dic.items()
+        res = len(items)
+        for key, value in items:
+            res += ord(key[1]) - ord('0') + value
+        return res
+    res = interpret(func, ())
+    assert res == 1214
+
+
