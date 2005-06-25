@@ -380,6 +380,7 @@ class InstanceRepr(Repr):
         try:
             return self.prebuiltinstances[id(value)][1]
         except KeyError:
+            self.setup()
             result = malloc(self.object_type)
             self.prebuiltinstances[id(value)] = value, result
             self.initialize_prebuilt_instance(value, classdef, result)
