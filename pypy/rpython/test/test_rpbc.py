@@ -213,3 +213,13 @@ def test_call_memoized_cache():
     assert res == 3
     res = ev_f1(1)
     assert res == 7
+
+def dont_test_rpbc_bound_method_static_call():
+    class R:
+        def meth(self):
+            return 0
+    r = R()
+    def fn():
+        return r.meth()
+    res = interpret(fn, [])
+    assert res == 0

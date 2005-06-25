@@ -217,6 +217,9 @@ class MethodOfFrozenPBCRepr(Repr):
         hop2 = hop.copy()
         hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
         hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
+        if isinstance(hop2.args_v[0], Constant):
+            hop2.args_v[0] = hop2.llops.genop('same_as', [hop2.args_v[0]],
+                                              resulttype=hop.args_r[0])
         c = Constant(self.function)
         hop2.v_s_insertfirstarg(c, s_function)   # insert 'function'
         # now hop2 looks like simple_call(function, self, args...)
