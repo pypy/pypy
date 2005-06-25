@@ -744,6 +744,10 @@ def malloc(T, n=None, immortal=False):
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
         raise TypeError, "functionptr() for FuncTypes only"
+    try:
+        hash(tuple(attrs.items()))
+    except TypeError:
+        raise TypeError("'%r' must be hashable"%attrs)
     o = _func(TYPE, _name=name, **attrs)
     return _ptr(Ptr(TYPE), o)
 
