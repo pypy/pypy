@@ -163,11 +163,10 @@ def test_call_memoized():
             fr = fr1
         else:
             fr = fr2
-        # XXX this should work without fr.x
-        return getorbuild(fr) + fr.x
+        return getorbuild(fr)
 
     ev_f1 = make_interpreter(f1, [0])#, viewbefore=True)
     res = ev_f1(0)
-    assert res == 8
+    assert res == 7
     res = ev_f1(1)
     assert res == 3
