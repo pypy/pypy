@@ -224,3 +224,13 @@ def test_rpbc_bound_method_static_call():
         return m()
     res = interpret(fn, [])
     assert res == 0
+
+def test_constant_return_disagreement():
+    class R:
+        def meth(self):
+            return 0
+    r = R()
+    def fn():
+        return r.meth()
+    res = interpret(fn, [])
+    assert res == 0

@@ -21,7 +21,7 @@ from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.rpython.lltype import Signed, Unsigned, Float, Char, Bool, Void
 from pypy.rpython.lltype import LowLevelType, Ptr, ContainerType
 from pypy.rpython.lltype import FuncType, functionptr, typeOf, RuntimeTypeInfo
-from pypy.rpython.lltype import attachRuntimeTypeInfo
+from pypy.rpython.lltype import attachRuntimeTypeInfo, Primitive
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython.rmodel import Repr, inputconst, TyperError, getfunctionptr
@@ -265,16 +265,10 @@ class RPythonTyper:
             # for simplicity of the translate_meth, resultvar is usually not
             # op.result here.  We have to replace resultvar with op.result
             # in all generated operations.
-            if isinstance(resultvar, Constant):
-                if not hop.s_result.is_constant():
-                    raise TyperError("the annotator doesn't agree that '%s' "
-                                     "returns a constant" % op.opname)
-                # xxx allow not only primitive const to be returned, but we don't have
-                # general equality for non-primitive ll constant objects;
-                # works for strings tough
-                if resultvar.value != inputconst(hop.r_result, hop.s_result.const).value:
-                    raise TyperError("constant mismatch: %r vs %r" % (
-                        resultvar.value, hop.s_result.const))
+            if hop.s_result.is_constant():
+                if isinstance(resultvar, Constant) and \
+                       isinstance(hop.r_result.lowleveltype, Primitive):
+                    assert resultvar.value == hop.s_result.const
             resulttype = resultvar.concretetype
             op.result.concretetype = hop.r_result.lowleveltype
             if op.result.concretetype != resulttype:

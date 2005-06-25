@@ -370,6 +370,11 @@ class MethodsPBCRepr(Repr):
         self.r_im_self = rclass.getinstancerepr(rtyper, self.classdef)
         self.lowleveltype = self.r_im_self.lowleveltype
 
+    def convert_const(self, method):
+        if getattr(method, 'im_func', None) is None:
+            raise TyperError("not a bound method: %r" % method)
+        return self.r_im_self.convert_const(method.im_self)
+
     def rtype_simple_call(self, hop):
         r_class = self.r_im_self.rclass
         mangled_name, r_func = r_class.clsfields[self.methodname]
