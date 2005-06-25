@@ -27,6 +27,9 @@ class __extend__(annmodel.SomeDict):
     def rtyper_makerepr(self, rtyper):
         s_key = self.dictdef.dictkey.s_value 
         if isinstance(s_key, annmodel.SomeString): 
+            if s_key.can_be_none():
+                raise rmodel.TyperError("cannot make repr of dict with "
+                                        "string-or-None keys")
             dictvalue = self.dictdef.dictvalue 
             return StrDictRepr(lambda: rtyper.getrepr(dictvalue.s_value), 
                                dictvalue)

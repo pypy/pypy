@@ -348,10 +348,10 @@ def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("rjust() argument 2 must be a single character"))
-
     
     d = u_arg - len(u_self)
     if d>0:
+        fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self = d * fillchar + u_self
         
     return space.wrap(u_self)
@@ -368,6 +368,7 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     d = u_arg - len(u_self)
     if d>0:
+        fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self += d * fillchar
         
     return space.wrap(u_self)
@@ -585,6 +586,7 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     d = u_arg - len(u_self) 
     if d>0:
         offset = d//2
+        fillchar = fillchar[0]    # annotator hint: it's a single character
         u_centered = offset * fillchar + u_self + (d - offset) * fillchar
     else:
         u_centered = u_self
