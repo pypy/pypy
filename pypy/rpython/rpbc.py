@@ -61,8 +61,8 @@ class __extend__(annmodel.SomePBC):
         lst.sort()
         return tuple(lst)
     
-    def rtype_is_true(self,hop):
-        return Constant(True,Bool)
+    def rtype_is_true(self, hop):
+        return Constant(True, Bool)
     
 # ____________________________________________________________
 
@@ -103,8 +103,8 @@ single_frozen_pbc_repr = SingleFrozenPBCRepr()
 # __ None ____________________________________________________
 class NoneFrozenPBCRepr(SingleFrozenPBCRepr):
     
-    def rtype_is_true(self,hop):
-        return Constant(False,Bool)
+    def rtype_is_true(self, hop):
+        return Constant(False, Bool)
 
 none_frozen_pbc_repr = NoneFrozenPBCRepr()
 
