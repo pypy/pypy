@@ -137,7 +137,11 @@ class __extend__(pairtype(StrDictRepr, rmodel.StringRepr)):
     def rtype_setitem((r_dict, r_string), hop):
         v_dict, v_key, v_value = hop.inputargs(r_dict, string_repr, r_dict.value_repr) 
         hop.gendirectcall(ll_strdict_setitem, v_dict, v_key, v_value)
-    
+
+    def rtype_contains((r_dict, r_string), hop):
+        v_dict, v_key = hop.inputargs(r_dict, string_repr)
+        return hop.gendirectcall(ll_contains, v_dict, v_key)
+        
 class __extend__(pairtype(StrDictRepr, StrDictRepr)):
     def convert_from_to((r_dict1, r_dict2), v, llops):
         # check that we don't convert from StrDicts with
@@ -401,3 +405,9 @@ def ll_items(v_dic, LISTPTR):
                 p += 1
         i += 1
     return res
+
+def ll_contains(d, key): 
+    entry = ll_strdict_lookup(d, key) 
+    if entry.key and entry.key != deleted_entry_marker: 
+        return True
+    return False

@@ -237,4 +237,9 @@ def test_dict_items():
     res = interpret(func, ())
     assert res == 1214
 
-
+def test_dict_contains():
+    def func():
+        dic = {' 4':1000, ' 8':200}
+        return ' 4' in dic and ' 9' not in dic
+    res = interpret(func, ())
+    assert res is True
