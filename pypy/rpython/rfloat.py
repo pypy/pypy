@@ -42,6 +42,11 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
 
     rtype_inplace_div = rtype_div
 
+    def rtype_mod(_, hop):
+        return _rtype_template(hop, 'mod')
+
+    rtype_inplace_mod = rtype_mod
+
     def rtype_pow(_, hop):
         s_float3 = hop.args_s[2]
         if s_float3.is_constant() and s_float3.const is None:
