@@ -419,8 +419,11 @@ def transform_dead_op_vars_in_blocks(blocks):
                     # ... 
                     if op.args and isinstance(op.args[0], Constant):
                         func = op.args[0].value
-                        if func in CanRemoveBuiltins:
-                            del block.operations[i]
+                        try:
+                            if func in CanRemoveBuiltins:
+                                del block.operations[i]
+                        except TypeError:   # func is not hashable
+                            pass
 
         # look for output variables never used
         # warning: this must be completely done *before* we attempt to
