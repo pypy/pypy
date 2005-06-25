@@ -24,16 +24,38 @@ class TypeDef:
         # hint for the annotator: track individual constant instances of TypeDef
         return True
 
-subclass_cache = {}
-def get_unique_interplevel_subclass(cls, hasdict, wants_slots):
-    key = (cls, hasdict, wants_slots)
-    try:
-        return subclass_cache[key]
-    except KeyError:
-        subcls = _buildusercls(cls, hasdict, wants_slots)
-        subclass_cache[key] = subcls
-        return subcls
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
+
+# we cannot specialize:memo by more than one PBC key 
+# so we need to work a bit to allow that 
+
+def get_unique_interplevel_subclass(cls, hasdict, wants_slots): 
+    if hasdict: 
+        if wants_slots: 
+            return get_unique_interplevel_WithDictWithSlots(cls)
+        else: 
+            return get_unique_interplevel_WithDictNoSlots(cls)
+    else: 
+        if wants_slots: 
+            return get_unique_interplevel_NoDictWithSlots(cls)
+        else: 
+            return get_unique_interplevel_NoDictNoSlots(cls)
+
+for hasdict in False, True: 
+    for wants_slots in False, True: 
+        name = hasdict and "WithDict" or "NoDict"
+        name += wants_slots and "WithSlots" or "NoSlots" 
+        funcname = "get_unique_interplevel_%s" % (name,)
+        exec compile2("""
+            subclass_cache_%(name)s = {}
+            def %(funcname)s(cls): 
+                try: 
+                    return subclass_cache_%(name)s[cls]
+                except KeyError: 
+                    subcls = _buildusercls(cls, %(hasdict)r, %(wants_slots)r)
+                    subclass_cache_%(name)s[cls] = subcls
+                    return subcls
+            %(funcname)s._annspecialcase_ = "specialize:memo"
+        """ % locals())
 
 def _buildusercls(cls, hasdict, wants_slots):
     "NOT_RPYTHON: initialization-time only"
