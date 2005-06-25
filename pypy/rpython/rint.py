@@ -2,7 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.objspace import op_appendices
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void, Char, \
-     GcArray, malloc, Array
+     UniChar, GcArray, malloc, Array
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, CharRepr, \
      inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
@@ -205,6 +205,10 @@ class __extend__(IntegerRepr):
     def rtype_chr(_, hop):
         vlist =  hop.inputargs(Signed)
         return hop.genop('cast_int_to_char', vlist, resulttype=Char)
+
+    def rtype_unichr(_, hop):
+        vlist =  hop.inputargs(Signed)
+        return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
 
     def rtype_is_true(self, hop):
         if self.lowleveltype == Unsigned:

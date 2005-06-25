@@ -256,6 +256,14 @@ class LLFrame(object):
         assert type(b) is str and len(b) == 1
         return ord(b)
 
+    def op_cast_unichar_to_int(self, b):
+        assert type(b) is unicode and len(b) == 1
+        return ord(b)
+
+    def op_cast_int_to_unichar(self, b):
+        assert type(b) is int 
+        return unichr(b)
+
     def op_cast_int_to_uint(self, b):
         assert type(b) is int
         return r_uint(b)
