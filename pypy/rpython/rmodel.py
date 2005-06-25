@@ -49,6 +49,9 @@ class Repr:
                     self, value))
         return value
 
+    def get_ll_eq_function(self): 
+        raise TyperError, 'no equality function for %r' % self
+
     # default implementation of some operations
 
     def rtype_getattr(self, hop):
@@ -223,3 +226,4 @@ def getfunctionptr(translator, func, getconcretetype=getconcretetype):
     lloutput = getconcretetype(graph.getreturnvar())
     FT = FuncType(llinputs, lloutput)
     return functionptr(FT, func.func_name, graph = graph, _callable = func)
+

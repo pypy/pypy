@@ -5,6 +5,7 @@ from pypy.rpython.rtuple import *
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.rbool import bool_repr
 from pypy.rpython.test.test_llinterp import interpret, make_interpreter
+import py
 
 def test_rtuple():
     rtuple = TupleRepr([signed_repr, bool_repr])
@@ -69,3 +70,18 @@ def test_tuple_concatenation_mix():
     fn = make_interpreter(f,[])#,view=True)
     res = fn()
     assert res == 123
+
+def test_constant_tuple_contains(): 
+    py.test.skip("tuple contains not implemented")
+    def f(i): 
+        t1 = (1, 2, 3, 4)
+        return i in t1 
+    fn = make_interpreter(f, [3], view=False, viewbefore=False) 
+    res = fn(3)
+    assert res is True 
+    res = fn(0) 
+    assert res is False 
+
+    
+        
+    

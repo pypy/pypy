@@ -23,6 +23,9 @@ class __extend__(BoolRepr):
             raise TyperError("not a bool: %r" % (value,))
         return value
 
+    def get_ll_eq_function(self):
+        return None 
+
     def rtype_is_true(_, hop):
         vlist = hop.inputargs(Bool)
         return vlist[0]

@@ -70,6 +70,9 @@ class __extend__(StringRepr):
             CONST_STR_CACHE[value] = p
             return p
 
+    def get_ll_eq_function(self):
+        return ll_streq
+
     def rtype_len(_, hop):
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(ll_strlen, v_str)
@@ -277,6 +280,9 @@ class __extend__(CharRepr):
             raise TyperError("not a character: %r" % (value,))
         return value
 
+    def get_ll_eq_function(self):
+        return None 
+
     def rtype_len(_, hop):
         return hop.inputconst(Signed, 1)
 
@@ -312,6 +318,9 @@ class __extend__(UniCharRepr):
         if not isinstance(value, unicode) or len(value) != 1:
             raise TyperError("not a unicode character: %r" % (value,))
         return value
+
+    def get_ll_eq_function(self):
+        return None 
 
 ##    def rtype_len(_, hop):
 ##        return hop.inputconst(Signed, 1)

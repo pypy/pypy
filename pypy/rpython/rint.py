@@ -198,6 +198,9 @@ class __extend__(IntegerRepr):
             return r_uint(value)
         raise NotImplementedError
 
+    def get_ll_eq_function(self):
+        return None 
+
     def rtype_float(_, hop):
         vlist = hop.inputargs(Float)
         return vlist[0]

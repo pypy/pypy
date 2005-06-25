@@ -100,6 +100,9 @@ class __extend__(FloatRepr):
             raise TyperError("not a float: %r" % (value,))
         return float(value)
 
+    def get_ll_eq_function(self):
+        return None 
+
     def rtype_is_true(_, hop):
         vlist = hop.inputargs(Float)
         return hop.genop('float_is_true', vlist, resulttype=Bool)

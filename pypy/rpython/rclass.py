@@ -386,6 +386,9 @@ class InstanceRepr(Repr):
             self.initialize_prebuilt_instance(value, classdef, result)
             return result
 
+    def get_ll_eq_function(self):
+        return None
+
     def initialize_prebuilt_instance(self, value, classdef, result):
         if self.classdef is not None:
             # recursively build the parent part of the instance

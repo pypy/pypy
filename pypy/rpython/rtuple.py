@@ -41,6 +41,9 @@ class TupleRepr(Repr):
             setattr(p, name, r.convert_const(obj))
         return p
 
+    #def get_eqfunc(self):
+    #    return inputconst(Void, self.item_repr.get_ll_eq_function())
+
     def rtype_len(self, hop):
         return hop.inputconst(Signed, len(self.items_r))
 
@@ -60,6 +63,10 @@ class TupleRepr(Repr):
             cindex = inputconst(Signed, index)
             hop.gendirectcall(rlist.ll_setitem_nonneg, vlist, cindex, vitem)
         return vlist
+
+#class __extend__(pairtype(TupleRepr, Repr)): 
+#    def rtype_contains((r_tup, r_item), hop): 
+#        XXX
            
 class __extend__(pairtype(TupleRepr, IntegerRepr)):
 

@@ -78,15 +78,7 @@ class ListRepr(Repr):
             return result
 
     def get_eqfunc(self):
-        if self.item_repr == string_repr:
-            func = ll_streq
-        elif isinstance(self.item_repr.lowleveltype, Primitive):
-            func = None
-        elif isinstance(self.item_repr, InstanceRepr):
-            func = None
-        else:
-            raise TyperError, 'comparison not implemented for %r' % self
-        return inputconst(Void, func)
+        return inputconst(Void, self.item_repr.get_ll_eq_function())
 
     def rtype_bltn_list(self,hop):
         v_lst = hop.inputarg(self,0)
