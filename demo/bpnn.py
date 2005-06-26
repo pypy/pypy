@@ -21,6 +21,7 @@
 
 import sys
 import math
+import time
 
 # XXX the Translator needs the plain Python version of random.py:
 import autopath; from pypy.lib import random
@@ -157,7 +158,7 @@ class NN:
                 self.update(inputs)
                 error = error + self.backPropagate(targets, N, M)
             if i % 100 == 0:
-                print 'error %-14f' % error
+                print 'error %f' % error
 
 
 def demo():
@@ -179,18 +180,26 @@ def demo():
 
 
 if __name__ == '__main__':
-    #demo()
-
     print 'Loading...'
     from pypy.translator.translator import Translator
     t = Translator(demo)
+    
     print 'Annotating...'
     a = t.annotate([])
     a.simplify()
-    #a.specialize()   # enable this to see (some) lower-level Cish operations
-    print 'Displaying the call graph and the class hierarchy.'
-    t.viewcg()
+
+    print 'Specializing...'
+    t.specialize()   # enable this to see (some) lower-level Cish operations
+    
     print 'Compiling...'
     f = t.ccompile()
+
     print 'Running...'
+    T = time.time()
     f()
+    print "that took", time.time() - T
+
+    T = time.time()
+    demo()
+    print "compared to", time.time() - T
+    
