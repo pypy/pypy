@@ -285,3 +285,12 @@ def test_split():
     for i in range(5):
         res = interpret(fn, [i])
         assert res == fn(i)
+
+def test_contains():
+    def fn(i):
+        s = 'Hello world'
+        return chr(i) in s
+    for i in range(256):
+        res = interpret(fn, [i])
+        assert res == fn(i)
+

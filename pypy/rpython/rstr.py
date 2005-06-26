@@ -199,6 +199,11 @@ class __extend__(pairtype(StringRepr, StringRepr)):
     def rtype_mod(_, hop):
         return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
+class __extend__(pairtype(StringRepr, CharRepr)):
+    def rtype_contains(_, hop):
+        v_str, v_chr = hop.inputargs(string_repr, char_repr)
+        return hop.gendirectcall(ll_contains, v_str, v_chr)
+    
 def parse_fmt_string(fmt):
     # we support x, d, s, [r]
 
@@ -625,6 +630,17 @@ def ll_split_chr(LISTPTR, s, c):
     resindex += 1
 
     return res
+
+def ll_contains(s, c):
+    chars = s.chars
+    strlen = len(chars)
+    i = 0
+    while i < strlen:
+        if chars[i] == c:
+            return True
+        i += 1
+    return False
+
 # ____________________________________________________________
 #
 #  Iteration.
