@@ -321,6 +321,9 @@ class __extend__(SomeString):
         getbookkeeper().count("str_split", str, patt)
         return getbookkeeper().newlist(SomeString())
 
+    def method_replace(str, s1, s2):
+        return SomeString()
+
 
 class __extend__(SomeChar):
 

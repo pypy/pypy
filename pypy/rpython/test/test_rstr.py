@@ -306,6 +306,20 @@ def test_contains():
         s = 'Hello world'
         return chr(i) in s
     for i in range(256):
-        res = interpret(fn, [i])
+        res = interpret(fn, [i])#, view=i==42)
         assert res == fn(i)
+
+def test_replace():
+    def fn(c1, c2):
+        s = 'abbccc'
+        s = s.replace(c1, c2)
+        res = 0
+        for c in s:
+            if c == c2:
+                res += 1
+        return res
+    res = interpret(fn, ['a', 'c'])
+    assert res == 4
+    res = interpret(fn, ['c', 'b'])
+    assert res == 5
 

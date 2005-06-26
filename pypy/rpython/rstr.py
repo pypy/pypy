@@ -121,7 +121,11 @@ class __extend__(StringRepr):
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
         c = hop.inputconst(Void, hop.r_result.lowleveltype)
         return hop.gendirectcall(ll_split_chr, c, v_str, v_chr)
-    
+
+    def rtype_method_replace(_, hop):
+        v_str, v_c1, v_c2 = hop.inputargs(string_repr, char_repr, char_repr)
+        return hop.gendirectcall(ll_replace_chr_chr, v_str, v_c1, v_c2)
+
     def ll_str(s, r):
         if typeOf(s) == Char:
             return ll_chr2str(s)
@@ -434,7 +438,7 @@ def ll_stritem_nonneg(s, i):
     return s.chars[i]
 
 def ll_stritem(s, i):
-    if i<0:
+    if i < 0:
         i += len(s.chars)
     return s.chars[i]
 
@@ -645,6 +649,20 @@ def ll_split_chr(LISTPTR, s, c):
     resindex += 1
 
     return res
+
+def ll_replace_chr_chr(s, c1, c2):
+    length = len(s.chars)
+    newstr = malloc(STR, length)
+    src = s.chars
+    dst = newstr.chars
+    j = 0
+    while j < length:
+        c = src[j]
+        if c == c1:
+            c = c2
+        dst[j] = c
+        j += 1
+    return newstr
 
 def ll_contains(s, c):
     chars = s.chars
