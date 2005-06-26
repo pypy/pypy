@@ -1,4 +1,4 @@
-from pypy.rpython.test.test_llinterp import interpret, make_interpreter
+from pypy.rpython.test.test_llinterp import interpret
 
 from pypy.annotation.builtin import *
 import py
@@ -26,43 +26,40 @@ def test_rbuiltin_list():
 def test_int_min():
     def fn(i, j):
         return min(i,j)
-    ev_fun = make_interpreter(fn, [0, 0])
-    assert ev_fun(1, 2) == 1
-    assert ev_fun(1, -1) == -1
-    assert ev_fun(2, 2) == 2
-    assert ev_fun(-1, -12) == -12
+    ev_fun = interpret(fn, [0, 0])
+    assert interpret(fn, (1, 2)) == 1
+    assert interpret(fn, (1, -1)) == -1
+    assert interpret(fn, (2, 2)) == 2
+    assert interpret(fn, (-1, -12)) == -12
 
 def test_int_max():
     def fn(i, j):
         return max(i,j)
-    ev_fun = make_interpreter(fn, [0, 0])
-    assert ev_fun(1, 2) == 2
-    assert ev_fun(1, -1) == 1
-    assert ev_fun(2, 2) == 2
-    assert ev_fun(-1, -12) == -1
+    assert interpret(fn, (1, 2)) == 2
+    assert interpret(fn, (1, -1)) == 1
+    assert interpret(fn, (2, 2)) == 2
+    assert interpret(fn, (-1, -12)) == -1
 
 def test_builtin_math_floor():
     import math
     def fn(f):
-        
         return math.floor(f)
-    ev_fun = make_interpreter(fn, [0.0])
     import random 
-    for i in range(20):
+    for i in range(5):
         rv = 1000 * float(i-10) #random.random()
-        assert math.floor(rv) == ev_fun(rv)
+        res = interpret(fn, [rv])
+        assert fn(rv) == res 
         
 def test_builtin_math_fmod():
     import math
     def fn(f,y):
-        
         return math.fmod(f,y)
-    ev_fun = make_interpreter(fn, [0.0,0.0])
-    for i in range(20):
-        for j in range(20):
+
+    for i in range(10):
+        for j in range(10):
             rv = 1000 * float(i-10) 
             ry = 100 * float(i-10) +0.1
-            assert math.fmod(rv,ry) == ev_fun(rv,ry)        
+            assert fn(rv,ry) == interpret(fn, (rv, ry))
 
 def test_pbc_isTrue():
     class C:
@@ -74,11 +71,9 @@ def test_pbc_isTrue():
     def fn(neg):    
         c = C.f
         return g(c)
-    ev_fun = make_interpreter(fn, [True])
-    assert ev_fun(True)
+    assert interpret(fn, [True])
     def fn(neg):    
         c = None
         return g(c)
-    ev_fun = make_interpreter(fn, [True])
-    assert not ev_fun(True)
+    assert not interpret(fn, [True]) 
     

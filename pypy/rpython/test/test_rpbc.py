@@ -1,7 +1,7 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.test.test_llinterp import interpret, make_interpreter
+from pypy.rpython.test.test_llinterp import interpret
 
 
 def test_easy_call():
@@ -163,10 +163,9 @@ def test_call_memoized_function():
             fr = fr2
         return getorbuild(fr)
 
-    ev_f1 = make_interpreter(f1, [0])#, viewbefore=True)
-    res = ev_f1(0)
+    res = interpret(f1, [0]) 
     assert res == 7
-    res = ev_f1(1)
+    res = interpret(f1, [1]) 
     assert res == 3
 
 def test_call_memoized_cache():
@@ -208,10 +207,9 @@ def test_call_memoized_cache():
         newfr = cache1.getorbuild(fr)
         return cache2.getorbuild(newfr)
 
-    ev_f1 = make_interpreter(f1, [0], view=0, viewbefore=0)  
-    res = ev_f1(0)
+    res = interpret(f1, [0], view=0, viewbefore=0)  
     assert res == 3
-    res = ev_f1(1)
+    res = interpret(f1, [1]) 
     assert res == 7
 
 def test_rpbc_bound_method_static_call():

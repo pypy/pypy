@@ -4,7 +4,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rlist import *
 from pypy.rpython.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
-from pypy.rpython.test.test_llinterp import interpret, make_interpreter
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test.test_llinterp import find_exception
 
 
@@ -230,11 +230,10 @@ def test_list_compare():
         s2 = [[1, 2, 3], [4, 5, 1], [1], [1, 2], [4, 5, 1, 6], [7, 1, 1, 8, 9, 10]]
         if neg: return s1[i] != s2[i]
         return s1[i] == s2[j]
-    ev_fn = make_interpreter(fn, [0, 0, False])
     for i in range(2):
         for j in range(6):
             for case in False, True:
-                res = ev_fn(i, j, case)
+                res = interpret(fn, [i,j,case])
                 assert res is fn(i, j, case)
 
 def test_list_comparestr():
@@ -244,11 +243,10 @@ def test_list_comparestr():
         s2 = [["hello"], ["world"]]
         if neg: return s1[i] != s2[i]
         return s1[i] == s2[j]
-    ev_fn = make_interpreter(fn, [0, 0, False])#, view=True)
     for i in range(2):
         for j in range(2):
             for case in False, True:
-                res = ev_fn(i, j, case)
+                res = interpret(fn, [i,j,case])
                 assert res is fn(i, j, case)
 
 class Foo: pass
@@ -264,11 +262,10 @@ def test_list_compareinst():
         s2 = s1[:]
         if neg: return s1[i] != s2[i]
         return s1[i] == s2[j]
-    ev_fn = make_interpreter(fn, [0, 0, False])#, view=True)
     for i in range(3):
         for j in range(3):
             for case in False, True:
-                res = ev_fn(i, j, case)
+                res = interpret(fn, [i, j, case])
                 assert res is fn(i, j, case)
 
 def test_list_contains():
@@ -281,10 +278,9 @@ def test_list_contains():
         args = lis + [bar2]
         if neg : return args[i] not in lis
         return args[i] in lis
-    ev_fn = make_interpreter(fn, [0, False])
     for i in range(4):
         for case in False, True:
-            res = ev_fn(i, case)
+            res = interpret(fn, [i, case])
             assert res is fn(i, case)
 
 def test_list_index():
@@ -296,10 +292,9 @@ def test_list_index():
         lis = [foo1, foo2, bar1]
         args = lis + [bar2]
         return lis.index(args[i])
-    ev_fn = make_interpreter(fn, [0])
     for i in range(4):
         try:
-            res = ev_fn(i)
+            res = interpret(fn, [i])
         except Exception, e:
             res = find_exception(e)
         try:

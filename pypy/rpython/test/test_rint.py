@@ -2,7 +2,7 @@ from pypy.translator.translator import Translator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
-from pypy.rpython.test.test_llinterp import interpret, make_interpreter
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.rarithmetic import r_uint
 
 
@@ -54,30 +54,26 @@ def test_str_of_int():
     def dummy(i):
         return str(i)
     
-    ev_fun = make_interpreter(dummy, [0])
-
-    res = ev_fun(0)
+    res = interpret(dummy, [0])
     assert ''.join(res.chars) == '0'
 
-    res = ev_fun(1034)
+    res = interpret(dummy, [1034])
     assert ''.join(res.chars) == '1034'
 
-    res = ev_fun(-123)
+    res = interpret(dummy, [-123])
     assert ''.join(res.chars) == '-123'
     
 def test_hex_of_int():
     def dummy(i):
         return hex(i)
     
-    ev_fun = make_interpreter(dummy, [0])
-
-    res = ev_fun(0)
+    res = interpret(dummy, [0])
     assert ''.join(res.chars) == '0x0'
 
-    res = ev_fun(1034)
+    res = interpret(dummy, [1034])
     assert ''.join(res.chars) == '0x40a'
 
-    res = ev_fun(-123)
+    res = interpret(dummy, [-123])
     assert ''.join(res.chars) == '-0x7b'
     
 def test_unsigned():
@@ -86,11 +82,9 @@ def test_unsigned():
         j = r_uint(12)
         return i < j
 
-    ev_fun = make_interpreter(dummy, [0])
-
-    res = ev_fun(0)
+    res = interpret(dummy,[0])
     assert res is True
 
-    res = ev_fun(-1)
+    res = interpret(dummy, [-1])
     assert res is False    # -1 ==> 0xffffffff
 

@@ -4,6 +4,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython import rstr, rdict
 
 import py
+py.log.setconsumer("rtyper", py.log.STDOUT)
 
 def test_dict_creation(): 
     def createdict(i): 

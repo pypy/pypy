@@ -27,38 +27,47 @@ def find_exception(exc):
             if func(pyobjectptr(cls)).typeptr == klass:
                 return cls
 
+def timelog(prefix, call, *args): 
+    #import time
+    #print prefix, "...", 
+    #start = time.time()
+    res = call(*args) 
+    #elapsed = time.time() - start 
+    #print "%.2f secs" %(elapsed,)
+    return res 
+
 def gengraph(func, argtypes=[], viewbefore=False):
     t = Translator(func)
-    t.annotate(argtypes)
+
+    timelog("annotating", t.annotate, argtypes)
     if viewbefore:
         t.annotator.simplify()
         t.view()
     global typer # we need it for find_exception
     typer = RPythonTyper(t.annotator)
-    typer.specialize()
+    timelog("rtyper-specializing", typer.specialize) 
     #t.view()
-    t.checkgraphs()
+    timelog("checking graphs", t.checkgraphs) 
     return t, typer
 
+_lastinterpreted = []
+_tcache = {}
 def interpret(func, values, view=False, viewbefore=False):
-    t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) 
-                  for x in values], viewbefore)
+    key = (func,) + tuple([typeOf(x) for x in values])
+    try: 
+        (t, interp) = _tcache[key]
+    except KeyError: 
+        t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) 
+                      for x in values], viewbefore)
+        interp = LLInterpreter(t.flowgraphs, typer)
+        _tcache[key] = (t, interp)
+        # keep the cache small 
+        _lastinterpreted.append(key) 
+        if len(_lastinterpreted) >= 4: 
+            del _tcache[_lastinterpreted.pop(0)]
     if view:
         t.view()
-    interp = LLInterpreter(t.flowgraphs, typer)
-    res = interp.eval_function(func, values)
-    return res
-
-def make_interpreter(func, example_values, view=False, viewbefore=False):
-    t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) 
-                            for x in example_values], viewbefore)
-    if view:
-        t.view()
-    interp = LLInterpreter(t.flowgraphs, typer)
-    def evaluate(*values):
-        return interp.eval_function(func, values)
-    
-    return evaluate
+    return interp.eval_function(func, values)
 
 #__________________________________________________________________
 # tests

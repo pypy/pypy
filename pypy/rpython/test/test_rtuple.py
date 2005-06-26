@@ -4,7 +4,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rtuple import *
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.rbool import bool_repr
-from pypy.rpython.test.test_llinterp import interpret, make_interpreter
+from pypy.rpython.test.test_llinterp import interpret 
 import py
 
 def test_rtuple():
@@ -57,8 +57,7 @@ def test_tuple_concatenation():
         tup1 = (3,)
         res = tup + tup1 + ()
         return res[0]*100 + res[1]*10 + res[2]
-    fn = make_interpreter(f,[])#,view=True)
-    res = fn()
+    res = interpret(fn, []) 
     assert res == 123
 
 def test_tuple_concatenation_mix():
@@ -67,8 +66,7 @@ def test_tuple_concatenation_mix():
         tup1 = ('3',)
         res = tup + tup1
         return res[0]*100 + res[1]*10 + ord(res[2]) - ord('0')
-    fn = make_interpreter(f,[])#,view=True)
-    res = fn()
+    res = interpret(f, []) 
     assert res == 123
 
 def test_constant_tuple_contains(): 
@@ -76,12 +74,7 @@ def test_constant_tuple_contains():
     def f(i): 
         t1 = (1, 2, 3, 4)
         return i in t1 
-    fn = make_interpreter(f, [3], view=False, viewbefore=False) 
-    res = fn(3)
+    res = interpret(f, [3], view=False, viewbefore=False) 
     assert res is True 
-    res = fn(0) 
+    res = interpret(f, [0])
     assert res is False 
-
-    
-        
-    

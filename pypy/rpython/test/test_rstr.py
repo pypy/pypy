@@ -2,16 +2,15 @@ from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rstr import parse_fmt_string
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.test.test_llinterp import interpret, make_interpreter
+from pypy.rpython.test.test_llinterp import interpret
 
 
 def test_simple():
     def fn(i):
         s = 'hello'
         return s[i]
-    ev_fn = make_interpreter(fn, [0])
     for i in range(5):
-        res = ev_fn(i)
+        res = interpret(fn, [i])
         assert res == 'hello'[i]
 
 
@@ -24,10 +23,9 @@ def test_nonzero():
             return bool(s)
         else:
             return False
-    ev_fn = make_interpreter(fn, [0, 0])
     for i in [-2, -1, 0]:
         for j in range(2):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i, j])
             assert res is fn(i, j)
 
 def test_hash():
@@ -37,10 +35,9 @@ def test_hash():
         else:
             s = "xxx"
         return hash(s)
-    ev_fn = make_interpreter(fn, [0])
-    res = ev_fn(0)
+    res = interpret(fn, [0])
     assert res == -1
-    res = ev_fn(1)
+    res = interpret(fn, [1])
     assert typeOf(res) == Signed
 
 def test_concat():
@@ -48,10 +45,9 @@ def test_concat():
         s1 = ['', 'a', 'ab']
         s2 = ['', 'x', 'xy']
         return s1[i] + s2[j]
-    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(3):
         for j in range(3):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i,j])
             assert ''.join(res.chars) == fn(i, j)
 
 def test_iter():
@@ -66,9 +62,8 @@ def test_iter():
             return True
         return False
 
-    ev_fn = make_interpreter(fn, [0])    
     for i in range(3):
-        res = ev_fn(i)
+        res = interpret(fn, [i])
         assert res is True
         
 def test_char_constant():
@@ -82,10 +77,9 @@ def test_char_constant():
 def test_char_isspace():
     def fn(s):
         return s.isspace() 
-    efn = make_interpreter(fn, ['x']) 
-    res = efn('x') 
+    res = interpret(fn, ['x']) 
     assert res == False 
-    res = efn(' ') 
+    res = interpret(fn, [' '])
     assert res == True 
 
 def test_char_compare():
@@ -101,72 +95,64 @@ def test_str_compare():
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] == s2[j]
-    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(6):
-            res = ev_fn(i, j)            
+            res = interpret(fn, [i,j])
             assert res is fn(i, j)
 
     def fn(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] != s2[j]
-    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(6):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i, j])
             assert res is fn(i, j)
 
     def fn(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] < s2[j]
-    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(6):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i,j])
             assert res is fn(i, j)
 
     def fn(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] <= s2[j]
-    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(6):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i,j])
             assert res is fn(i, j)
 
     def fn(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] >= s2[j]
-    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(6):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i,j])
             assert res is fn(i, j)
 
     def fn(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] > s2[j]
-    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(6):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i,j])
             assert res is fn(i, j)
-
 
 def test_startswith():
     def fn(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
         return s1[i].startswith(s2[j])
-    ev_fn = make_interpreter(fn, [0,0])    
     for i in range(2):
         for j in range(9):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i,j])
             assert res is fn(i, j)
 
 def test_endswith():
@@ -174,10 +160,9 @@ def test_endswith():
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
         return s1[i].endswith(s2[j])
-    ev_fn = make_interpreter(fn, [0,0])
     for i in range(2):
         for j in range(9):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i,j])
             assert res is fn(i, j)
 
 def test_join():
@@ -188,10 +173,9 @@ def test_join():
         s1 = [ '', ',', ' and ']
         s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
         return s1[i].join(s2[j])
-    ev_fn = make_interpreter(fn, [0,0])
     for i in range(3):
         for j in range(3):
-            res = ev_fn(i, j)
+            res = interpret(fn, [i,j])
             assert ''.join(res.chars) == fn(i, j)
 
 def test_parse_fmt():
@@ -215,23 +199,18 @@ def test_strformat():
     def percentX(i):
         return "bing %x bang" % (i,)
     
-    x_fn = make_interpreter(percentX, [0])
-    
-    res = x_fn(23)
+    res = interpret(percentX, [23])
     assert ''.join(res.chars) == 'bing 17 bang'
 
-    res = x_fn(-123)
+    res = interpret(percentX, [-123])
     assert ''.join(res.chars) == 'bing -7b bang'
 
     def moreThanOne(s, d, x):
         return "string: %s decimal: %d hex: %x" % (s, d, x)
 
-    m_fn = make_interpreter(moreThanOne, ['a', 2, 3])
-
     args = 'a', 2, 3
-    res = m_fn(*args)
+    res = interpret(moreThanOne, list(args))
     assert ''.join(res.chars) == moreThanOne(*args)
-    
 
 def test_strformat_nontuple():
     def percentD(i):
@@ -267,12 +246,10 @@ def test_strformat_instance():
             x = D()
         return str(x)
         
-    ev_fun = make_interpreter(dummy, [0])
-    
-    res = ev_fun(1)
+    res = interpret(dummy, [1])
     assert ''.join(res.chars) == '<C object>'
 
-    res = ev_fun(0)
+    res = interpret(dummy, [0])
     assert ''.join(res.chars) == '<D object>'
 
 def test_percentformat_instance():
@@ -290,10 +267,8 @@ def test_percentformat_instance():
             y = C()
         return "what a nice %s, much nicer than %r"%(x, y)
         
-    ev_fun = make_interpreter(dummy, [0])
-    
-    res = ev_fun(1)
+    res = interpret(dummy, [1])
     assert ''.join(res.chars) == 'what a nice <C object>, much nicer than <D object>'
 
-    res = ev_fun(0)
+    res = interpret(dummy, [0])
     assert ''.join(res.chars) == 'what a nice <D object>, much nicer than <C object>'

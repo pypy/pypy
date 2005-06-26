@@ -2,7 +2,7 @@ from pypy.translator.translator import Translator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
-from pypy.rpython.test.test_llinterp import make_interpreter
+from pypy.rpython.test.test_llinterp import interpret
 
 
 class TestSnippet(object):
@@ -42,9 +42,8 @@ def test_int_conversion():
     def fn(f):
         return int(f)
 
-    ev_fun = make_interpreter(fn, [0.0])
-
-    assert ev_fun(1.0) == 1
-    assert type(ev_fun(1.0)) is int
-
-    assert ev_fun(2.34) == 2
+    res = interpret(fn, [1.0])
+    assert res == 1
+    assert type(res) is int 
+    res = interpret(fn, [2.34])
+    assert res == fn(2.34) 
