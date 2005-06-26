@@ -13,13 +13,42 @@ from py.process import cmdexec
 DOT_FILE   = udir.join('graph.dot')
 PLAIN_FILE = udir.join('graph.plain')
 
+import py
+def dot2plain(dotfile, plainfile): 
+    if 0: 
+        cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
+    elif 0: 
+        gw = py.execnet.SshGateway('codespeak.net')
+        channel = gw.remote_exec("""
+            import py
+            content = channel.receive()
+            fn = py.path.local.make_numbered_dir('makegraph').join('graph.dot')
+            fn.write(content)
+            tfn = fn.new(ext='.plain')
+            py.process.cmdexec("dot -Tplain %s >%s" %(fn, tfn))
+            channel.send(tfn.read())
+        """) 
+        channel.send(py.path.local(dotfile).read())
+        plainfile = py.path.local(plainfile) 
+        plainfile.write(channel.receive())
+    else:
+        import urllib
+        content = py.path.local(dotfile).read()
+        request = urllib.urlencode({'dot': content})
+        urllib.urlretrieve('http://codespeak.net/pypy/convertdot.cgi',
+                           str(plainfile),
+                           data=request)
+        plainfile = py.path.local(plainfile)
+        if not plainfile.check(file=1) or not plainfile.read().startswith('graph '):
+            print "NOTE: failed to use codespeak's convertdot.cgi, trying local 'dot'"
+            cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
 
 class ClientGraphLayout(GraphLayout):
 
     def __init__(self, connexion, key, dot, links, **ignored):
         # generate a temporary .dot file and call dot on it
         DOT_FILE.write(dot)
-        cmdexec('dot -Tplain %s>%s' % (str(DOT_FILE),str(PLAIN_FILE)))
+        dot2plain(DOT_FILE, PLAIN_FILE) 
         GraphLayout.__init__(self, PLAIN_FILE)
         self.connexion = connexion
         self.key = key
