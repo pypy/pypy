@@ -242,7 +242,7 @@ if __name__ == '__main__':
     targetspec = 'targetpypymain'
     huge = 100
     load_file = None
-    save_file =None
+    save_file = None
 
     options = {'-text': False,
                '-no-c': False,

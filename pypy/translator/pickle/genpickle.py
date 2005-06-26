@@ -40,6 +40,8 @@ class AlreadyCreated(Exception): pass
 
 #XXX Hack: This float is supposed to overflow to inf
 OVERFLOWED_FLOAT = float("1e10000000000000000000000000000000")
+#XXX Hack: and this one to underflow to -inf
+OVERFLOWED_FLOATM = float("-1e10000000000000000000000000000000")
 
 class GenPickle:
 
@@ -108,6 +110,8 @@ class GenPickle:
     def save_float(self, fl):
         if fl == OVERFLOWED_FLOAT:
             return 'float("1e10000000000000000000000000000000")'
+        elif fl == OVERFLOWED_FLOATM:
+            return 'float("-1e10000000000000000000000000000000")'
         return repr(fl)
 
     def pickle(self, *args, **kwds):
