@@ -330,11 +330,6 @@ def uniqueitems(lst):
 import inspect   # for getmro
 
 class traverse:
-    edgedef = {
-        FunctionGraph : ('startblock',),
-        Block : ('exits',),
-        Link : ('target',),
-        }
 
     def __init__(self, visitor, functiongraph):
         """ send the visitor over all (reachable) nodes. 
@@ -342,6 +337,7 @@ class traverse:
             or otherwise is callable itself.  
         """
         self.visitor = visitor
+        self.visitor_cache = {}
         self.seen = {}
         self.visit(functiongraph)
 
@@ -351,26 +347,32 @@ class traverse:
 
         # do the visit
         cls = node.__class__
-        for subclass in inspect.getmro(cls):
-            consume = getattr(self.visitor, "visit_" + subclass.__name__, None)
-            if consume:
-                break
-        else:
-            consume = getattr(self.visitor, 'visit', self.visitor)
+        try:
+            consume = self.visitor_cache[cls]
+        except KeyError:
+            for subclass in inspect.getmro(cls):
+                consume = getattr(self.visitor, "visit_" + subclass.__name__, None)
+                if consume:
+                    break
+            else:
+                consume = getattr(self.visitor, 'visit', self.visitor)
 
-        assert callable(consume), "visitor not found for %r on %r" % (cls, self.visitor)
+                assert callable(consume), "visitor not found for %r on %r" % (cls, self.visitor)
+
+                self.visitor_cache[cls] = consume
+
         self.seen[id(node)] = consume(node)
 
         # recurse
-        for dispclass, attrs in self.edgedef.items():
-            for subclass in inspect.getmro(cls):
-                if subclass == dispclass:
-                    for attr in attrs:
-                        for obj in flattenobj(getattr(node, attr)):
-                            self.visit(obj)
-                    return
-
-        raise ValueError, "could not dispatch %r" % cls
+        if isinstance(node, Block):
+            for obj in node.exits:
+                self.visit(obj)
+        elif isinstance(node, Link):
+            self.visit(node.target)
+        elif isinstance(node, FunctionGraph):
+            self.visit(node.startblock)
+        else:
+            raise ValueError, "could not dispatch %r" % cls
 
 def flatten(funcgraph):
     l = []
