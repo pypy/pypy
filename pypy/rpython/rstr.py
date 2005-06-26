@@ -117,6 +117,11 @@ class __extend__(StringRepr):
                             resulttype=Ptr(GcArray(Ptr(STR))))
         return hop.gendirectcall(ll_join, v_str, v_items)
 
+    def rtype_method_split(_, hop):
+        v_str, v_chr = hop.inputargs(string_repr, char_repr)
+        c = hop.inputconst(Void, hop.r_result.lowleveltype)
+        return hop.gendirectcall(ll_split_chr, c, v_str, v_chr)
+    
     def ll_str(s, r):
         if typeOf(s) == Char:
             return ll_chr2str(s)
@@ -585,6 +590,41 @@ def ll_stringslice(s1, slice):
         j += 1
     return newstr
 
+def ll_split_chr(LISTPTR, s, c):
+    chars = s.chars
+    strlen = len(chars)
+    count = 1
+    i = 0
+    while i < strlen:
+        if chars[i] == c:
+            count += 1
+        i += 1
+    res = malloc(LISTPTR.TO)
+    items = res.items = malloc(LISTPTR.TO.items.TO, count)
+
+    i = 0
+    j = 0
+    resindex = 0
+    while j < strlen:
+        if chars[j] == c:
+            item = items[resindex] = malloc(STR, j - i)
+            newchars = item.chars
+            k = i
+            while k < j:
+                newchars[k - i] = chars[k]
+                k += 1
+            resindex += 1
+            i = j + 1
+        j += 1
+    item = items[resindex] = malloc(STR, j - i)
+    newchars = item.chars
+    k = i
+    while k < j:
+        newchars[k - i] = chars[k]
+        k += 1
+    resindex += 1
+
+    return res
 # ____________________________________________________________
 #
 #  Iteration.

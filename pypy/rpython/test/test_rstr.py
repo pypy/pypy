@@ -272,3 +272,16 @@ def test_percentformat_instance():
 
     res = interpret(dummy, [0])
     assert ''.join(res.chars) == 'what a nice <D object>, much nicer than <C object>'
+
+def test_split():
+    def fn(i):
+        s = ['', '0.1.2.4.8', '.1.2', '1.2.', '.1.2.4.'][i]
+        l = s.split('.')
+        sum = 0
+        for num in l:
+             if len(num):
+                 sum += ord(num) - ord('0')
+        return sum + len(l) * 100
+    for i in range(5):
+        res = interpret(fn, [i])
+        assert res == fn(i)

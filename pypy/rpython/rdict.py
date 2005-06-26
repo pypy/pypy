@@ -2,7 +2,6 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import rmodel, lltype, rstr
-from pypy.rpython.rstr import STR, string_repr
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython import rlist, rconstantdict 
 
@@ -66,7 +65,7 @@ class StrDictRepr(rmodel.Repr):
         if isinstance(self.STRDICT, lltype.GcForwardReference):
             self.DICTVALUE = self.value_repr.lowleveltype
             self.DICTENTRY = lltype.Struct("dictentry", 
-                        ("key", lltype.Ptr(STR)), 
+                        ("key", lltype.Ptr(rstr.STR)), 
                         ('value', self.DICTVALUE))
             self.DICTENTRYARRAY = lltype.GcArray(self.DICTENTRY)
             self.STRDICT.become(lltype.GcStruct("dicttable", 
@@ -86,7 +85,7 @@ class StrDictRepr(rmodel.Repr):
             self.setup()
             l_dict = ll_newstrdict(self.lowleveltype) 
             self.dict_cache[key] = l_dict 
-            r_key = string_repr 
+            r_key = rstr.string_repr 
             r_value = self.value_repr
             for dictkey, dictvalue in dictobj.items():
                 llkey = r_key.convert_const(dictkey)
@@ -102,7 +101,7 @@ class StrDictRepr(rmodel.Repr):
         return StrDictIteratorRepr(self)
 
     def rtype_method_get(self, hop):
-        v_dict, v_key, v_default = hop.inputargs(self, string_repr,
+        v_dict, v_key, v_default = hop.inputargs(self, rstr.string_repr,
                                                  self.value_repr)
         return hop.gendirectcall(ll_get, v_dict, v_key, v_default)
 
@@ -133,19 +132,19 @@ class StrDictRepr(rmodel.Repr):
 class __extend__(pairtype(StrDictRepr, rmodel.StringRepr)): 
 
     def rtype_getitem((r_dict, r_string), hop):
-        v_dict, v_key = hop.inputargs(r_dict, string_repr)
+        v_dict, v_key = hop.inputargs(r_dict, rstr.string_repr)
         return hop.gendirectcall(ll_strdict_getitem, v_dict, v_key)
 
     def rtype_delitem((r_dict, r_string), hop):
-        v_dict, v_key = hop.inputargs(r_dict, string_repr) 
+        v_dict, v_key = hop.inputargs(r_dict, rstr.string_repr) 
         return hop.gendirectcall(ll_strdict_delitem, v_dict, v_key)
 
     def rtype_setitem((r_dict, r_string), hop):
-        v_dict, v_key, v_value = hop.inputargs(r_dict, string_repr, r_dict.value_repr) 
+        v_dict, v_key, v_value = hop.inputargs(r_dict, rstr.string_repr, r_dict.value_repr) 
         hop.gendirectcall(ll_strdict_setitem, v_dict, v_key, v_value)
 
     def rtype_contains((r_dict, r_string), hop):
-        v_dict, v_key = hop.inputargs(r_dict, string_repr)
+        v_dict, v_key = hop.inputargs(r_dict, rstr.string_repr)
         return hop.gendirectcall(ll_contains, v_dict, v_key)
         
 class __extend__(pairtype(StrDictRepr, StrDictRepr)):
@@ -173,7 +172,7 @@ class __extend__(pairtype(StrDictRepr, StrDictRepr)):
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
 
-deleted_entry_marker = lltype.malloc(STR, 0, immortal=True)
+deleted_entry_marker = lltype.malloc(rstr.STR, 0, immortal=True)
 
 def ll_strdict_len(d):
     return d.num_items 

@@ -5,12 +5,11 @@ from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 from pypy.rpython import rrange
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
-from pypy.rpython.rstr import string_repr, ll_streq
-from pypy.rpython import rstr
 from pypy.rpython.rclass import InstanceRepr
 from pypy.rpython.lltype import GcForwardReference, Ptr, GcArray, GcStruct
 from pypy.rpython.lltype import Void, Signed, malloc, typeOf, Primitive
 from pypy.rpython.lltype import Bool
+from pypy.rpython import rstr
 
 # ____________________________________________________________
 #
