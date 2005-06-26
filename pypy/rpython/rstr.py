@@ -209,7 +209,7 @@ class __extend__(pairtype(StringRepr, CharRepr)):
         return hop.gendirectcall(ll_contains, v_str, v_chr)
     
 def parse_fmt_string(fmt):
-    # we support x, d, s, [r]
+    # we support x, d, s, f, [r]
 
     it = iter(fmt)
     r = []
@@ -224,7 +224,7 @@ def parse_fmt_string(fmt):
             if curstr:
                 r.append(curstr)
             curstr = ''
-            assert f in 'xdsr'
+            assert f in 'xdsrf'
 
             r.append((f,))
         else:
@@ -258,6 +258,9 @@ def do_stringformat(hop, sourcevarsrepr):
                 vchunk = hop.gendirectcall(r_arg.ll_str, vitem, rep)
             elif code == 'd':
                 assert isinstance(r_arg, IntegerRepr)
+                vchunk = hop.gendirectcall(r_arg.ll_str, vitem, rep)
+            elif code == 'f':
+                #assert isinstance(r_arg, FloatRepr)
                 vchunk = hop.gendirectcall(r_arg.ll_str, vitem, rep)
             elif code == 'x':
                 assert isinstance(r_arg, IntegerRepr)

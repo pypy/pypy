@@ -7,6 +7,7 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.lltype import PyObject, Array, Char
 from pypy.rpython.rstr import STR
 from pypy.rpython.lltype import functionptr, FuncType, malloc
+from pypy.rpython import rstr
 
 debug = False
 
@@ -82,6 +83,9 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
     def rtype_ge(_, hop):
         return _rtype_compare_template(hop, 'ge')
 
+class __extend__(pairtype(rstr.StringRepr, FloatRepr)):
+    def rtype_mod(_, hop):
+        return rstr.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 #Helpers FloatRepr,FloatRepr
 
