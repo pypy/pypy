@@ -135,6 +135,12 @@
 	if ((long)(y)) { OP_INT_MOD_OVF(x,y,r,err) } \
 	else FAIL_ZER(err, "integer modulo")
 
+/* bit operations */
+
+#define OP_INT_AND(x,y,r,err)     r = (long)(x) & (long)(y);
+#define OP_INT_OR( x,y,r,err)     r = (long)(x) | (long)(y);
+#define OP_INT_XOR(x,y,r,err)     r = (long)(x) ^ (long)(y);
+
 /*** conversions ***/
 
 #define OP_CAST_BOOL_TO_INT(x,r,err)    r = (long)(x);
