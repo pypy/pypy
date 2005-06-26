@@ -303,7 +303,7 @@ def ll_int2str(i):
     else:
         while i:
             temp[len] = chr(i%10+ord('0'))
-            i /= 10
+            i //= 10
             len += 1
     len += sign
     result = malloc(STR, len)
@@ -336,7 +336,7 @@ def ll_int2hex(i, addPrefix):
     else:
         while i:
             temp[len] = hex_chars[i%16]
-            i /= 16
+            i //= 16
             len += 1
     len += sign
     if addPrefix:

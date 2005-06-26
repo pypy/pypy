@@ -281,3 +281,16 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
             return exp(f)
         f = self.getcompiled(fn)
         assert f(1.0) == exp(1.0)
+
+    def test_stringformatting(self):
+        def fn(i=int):
+            return "you said %d, you did"%i
+        f = self.getcompiled(fn)
+        assert f(1) == fn(1)
+
+    def test_str2int(self):
+        def fn(i=int):
+            return str(i)
+        f = self.getcompiled(fn)
+        assert f(1) == fn(1)
+        

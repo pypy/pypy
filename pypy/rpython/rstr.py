@@ -218,7 +218,7 @@ def do_stringformat(hop, sourcevarsrepr):
     assert s_str.is_constant()
     s = s_str.const
     things = parse_fmt_string(s)
-    size = inputconst(Void, len(things))
+    size = inputconst(Signed, len(things)) # could be unsigned?
     TEMP = GcArray(Ptr(STR))
     cTEMP = inputconst(Void, TEMP)
     vtemp = hop.genop("malloc_varsize", [cTEMP, size],
