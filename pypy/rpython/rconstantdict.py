@@ -97,6 +97,13 @@ class __extend__(pairtype(ConstantDictRepr, rmodel.Repr)):
         return hop.gendirectcall(ll_constantdict_getitem, v_dict, v_key,
                                  chashcompute)
 
+    def rtype_contains((r_dict, r_key), hop):
+        v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
+        hashcompute = r_dict.get_key_hash_function()
+        chashcompute = hop.inputconst(lltype.Void, hashcompute)
+        return hop.gendirectcall(ll_constantdict_contains, v_dict, v_key,
+                                 chashcompute)
+
 # ____________________________________________________________
 #
 #  Low-level methods.  These can be run for testing, but are meant to
@@ -112,6 +119,10 @@ def ll_constantdict_getitem(d, key, hashcompute):
         return entry.value 
     else: 
         raise KeyError 
+
+def ll_constantdict_contains(d, key, hashcompute):
+    entry = ll_constantdict_lookup(d, key, hashcompute)
+    return entry.valid
 
 def ll_constantdict_setnewitem(d, key, value, hashcompute): 
     entry = ll_constantdict_lookup(d, key, hashcompute)
