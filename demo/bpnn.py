@@ -26,6 +26,7 @@ import time
 # XXX the Translator needs the plain Python version of random.py:
 import autopath; from pypy.lib import random
 
+PRINT_IT = False
 
 random.seed(0)
 
@@ -136,16 +137,18 @@ class NN:
 
     def test(self, patterns):
         for p in patterns:
-            print p[0], '->', self.update(p[0])
+            if PRINT_IT:
+                print p[0], '->', self.update(p[0])
 
     def weights(self):
-        print 'Input weights:'
-        for i in range(self.ni):
-            print self.wi[i]
-        print
-        print 'Output weights:'
-        for j in range(self.nh):
-            print self.wo[j]
+        if PRINT_IT:
+            print 'Input weights:'
+            for i in range(self.ni):
+                print self.wi[i]
+            print
+            print 'Output weights:'
+            for j in range(self.nh):
+                print self.wo[j]
 
     def train(self, patterns, iterations=2000, N=0.5, M=0.1):
         # N: learning rate
@@ -157,7 +160,7 @@ class NN:
                 targets = p[1]
                 self.update(inputs)
                 error = error + self.backPropagate(targets, N, M)
-            if i % 100 == 0:
+            if PRINT_IT and i % 100 == 0:
                 print 'error %f' % error
 
 
@@ -196,10 +199,15 @@ if __name__ == '__main__':
 
     print 'Running...'
     T = time.time()
-    f()
-    print "that took", time.time() - T
+    for i in range(10):
+        f()
+    t1 = time.time() - T
+    print "that took", t1
 
     T = time.time()
-    demo()
-    print "compared to", time.time() - T
+    for i in range(10):
+        demo()
+    t2 = time.time() - T
+    print "compared to", t2
+    print "a speed-up of", t2/t1
     
