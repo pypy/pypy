@@ -1,4 +1,4 @@
-import weakref
+import weakref, operator
 import py
 from pypy.rpython.rarithmetic import r_uint
 from pypy.tool.uid import Hashable
@@ -22,6 +22,8 @@ def saferecursive(func, defl):
             del seeing[seeingkey]
     return safe
 
+safe_equal = saferecursive(operator.eq, True)
+
 class frozendict(dict):
 
     def __hash__(self):
@@ -32,8 +34,8 @@ class frozendict(dict):
 
 class LowLevelType(object):
     def __eq__(self, other):
-        return self.__class__ is other.__class__ and self.__dict__ == other.__dict__
-    __eq__ = saferecursive(__eq__, True)
+        return self.__class__ is other.__class__ and (
+            self is other or safe_equal(self.__dict__, other.__dict__))
 
     def __ne__(self, other):
         return not (self == other)
