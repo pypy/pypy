@@ -1,7 +1,7 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rstr import parse_fmt_string
-from pypy.rpython.rtyper import RPythonTyper
+from pypy.rpython.rtyper import RPythonTyper, TyperError
 from pypy.rpython.test.test_llinterp import interpret
 
 
@@ -322,4 +322,11 @@ def test_replace():
     assert res == 4
     res = interpret(fn, ['c', 'b'])
     assert res == 5
-
+    def fn():
+        s = 'abbccc'
+        s = s.replace('a', 'baz')
+    raises (TyperError, interpret, fn, ())
+    def fn():
+        s = 'abbccc'
+        s = s.replace('abb', 'c')
+    raises (TyperError, interpret, fn, ())

@@ -123,6 +123,8 @@ class __extend__(StringRepr):
         return hop.gendirectcall(ll_split_chr, c, v_str, v_chr)
 
     def rtype_method_replace(_, hop):
+        if not (hop.args_r[1] == char_repr and hop.args_r[2] == char_repr):
+            raise TyperError, 'replace only works for char args'
         v_str, v_c1, v_c2 = hop.inputargs(string_repr, char_repr, char_repr)
         return hop.gendirectcall(ll_replace_chr_chr, v_str, v_c1, v_c2)
 
