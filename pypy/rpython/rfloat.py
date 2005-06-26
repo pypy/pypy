@@ -1,10 +1,12 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void
+from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void, Ptr
 from pypy.rpython.rmodel import Repr, TyperError, FloatRepr
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-
+from pypy.rpython.lltype import PyObject, Array, Char
+from pypy.rpython.rstr import STR
+from pypy.rpython.lltype import functionptr, FuncType, malloc
 
 debug = False
 
@@ -121,6 +123,34 @@ class __extend__(FloatRepr):
 
     rtype_float = rtype_pos
 
+    def ll_str(f, repr):
+        pyfloat = pyfloat_fromdouble_ptr(f)
+        pystring = pyobject_str_ptr(pyfloat)
+        stringsize = pystring_size_ptr(pystring)
+
+        ret = malloc(STR, stringsize)
+
+        tollchararray_ptr(pystring, ret.chars)
+
+        return ret
+        
+    ll_str = staticmethod(ll_str)
+
+PyObjectPtr = Ptr(PyObject)
+
+pystring_size_ptr = functionptr(FuncType([PyObjectPtr], Signed),
+                                "PyString_Size",
+                                external="C")
+pyfloat_fromdouble_ptr = functionptr(FuncType([Float], PyObjectPtr),
+                                     "PyFloat_FromDouble",
+                                     external="C")
+pyobject_str_ptr = functionptr(FuncType([PyObjectPtr], PyObjectPtr),
+                               "PyObject_Str",
+                               external="C")
+tollchararray_ptr = functionptr(FuncType([PyObjectPtr, Ptr(Array(Char))], Void),
+                                "PyString_ToLLCharArray",
+                                external="C")
+    
 #
 # _________________________ Conversions _________________________
 

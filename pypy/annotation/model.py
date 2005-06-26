@@ -429,7 +429,10 @@ def lltype_to_annotation(T):
 
 def ll_to_annotation(v):
     if v is None:
-        raise ValueError, "cannot retrieve Void low-level type value"
+        # i think we can only get here in the case of void-returning
+        # functions
+        from bookkeeper import getbookkeeper
+        return getbookkeeper().immutablevalue(None)
     return lltype_to_annotation(lltype.typeOf(v))
 
 # ____________________________________________________________

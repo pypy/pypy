@@ -293,4 +293,10 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
             return str(i)
         f = self.getcompiled(fn)
         assert f(1) == fn(1)
+
+    def test_float2int(self):
+        def fn(i=float):
+            return str(i)
+        f = self.getcompiled(fn)
+        assert f(1.0) == fn(1.0)
         

@@ -237,7 +237,7 @@ class FuncType(ContainerType):
 
     def _container_example(self):
         def ex(*args):
-            return self.RESULT._example()
+            return self.RESULT._defl()
         return _func(self, _callable=ex)
 
 class OpaqueType(ContainerType):
