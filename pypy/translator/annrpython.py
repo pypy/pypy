@@ -92,8 +92,9 @@ class RPythonAnnotator:
         # make input arguments and set their type
         input_arg_types = list(input_arg_types)
         nbarg = len(flowgraph.getargs())
-        while len(input_arg_types) < nbarg:
-            input_arg_types.append(object)
+        if len(input_arg_types) != nbarg: 
+            raise TypeError("flowgraph %s expects %d args, got %d" %(       
+                            flowgraph.name, nbarg, len(input_arg_types)))
         inputcells = []
         for t in input_arg_types:
             if not isinstance(t, annmodel.SomeObject):
