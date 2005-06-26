@@ -64,10 +64,27 @@ class TupleRepr(Repr):
             hop.gendirectcall(rlist.ll_setitem_nonneg, vlist, cindex, vitem)
         return vlist
 
-#class __extend__(pairtype(TupleRepr, Repr)): 
-#    def rtype_contains((r_tup, r_item), hop): 
-#        XXX
-           
+class __extend__(pairtype(TupleRepr, Repr)): 
+    def rtype_contains((r_tup, r_item), hop): 
+        v_tup = hop.args_v[0] 
+        if not isinstance(v_tup, Constant): 
+            raise TyperError("contains() on non-const tuple") 
+        t = v_tup.value 
+        typ = type(t[0]) 
+        for x in t[1:]: 
+            if type(x) is not typ: 
+                raise TyperError("contains() on mixed-type tuple "
+                                 "constant %r" % (v_tup,))
+        d = {}
+        for x in t: 
+            d[x] = None 
+        hop2 = hop.copy()
+        _, _ = hop2.r_s_popfirstarg()
+        v_dict = Constant(d)
+        s_dict = hop.rtyper.annotator.bookkeeper.immutablevalue(d)
+        hop2.v_s_insertfirstarg(v_dict, s_dict)
+        return hop2.dispatch()
+ 
 class __extend__(pairtype(TupleRepr, IntegerRepr)):
 
     def rtype_getitem((r_tup, r_int), hop):

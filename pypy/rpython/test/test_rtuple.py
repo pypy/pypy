@@ -70,7 +70,6 @@ def test_tuple_concatenation_mix():
     assert res == 123
 
 def test_constant_tuple_contains(): 
-    py.test.skip("tuple contains not implemented")
     def f(i): 
         t1 = (1, 2, 3, 4)
         return i in t1 
