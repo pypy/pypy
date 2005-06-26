@@ -57,7 +57,7 @@ def test_tuple_concatenation():
         tup1 = (3,)
         res = tup + tup1 + ()
         return res[0]*100 + res[1]*10 + res[2]
-    res = interpret(fn, []) 
+    res = interpret(f, []) 
     assert res == 123
 
 def test_tuple_concatenation_mix():
