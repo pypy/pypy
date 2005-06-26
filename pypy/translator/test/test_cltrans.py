@@ -43,7 +43,7 @@ class TestGenCLTestCase:
             py.test.skip("Common Lisp neither configured nor detected.")
 
     def test_if(self):
-        cl_if = make_cl_func(t.if_then_else)
+        cl_if = make_cl_func(t.if_then_else, [object, object, object])
         assert cl_if(True, 50, 100) == 50
         assert cl_if(False, 50, 100) == 100
         assert cl_if(0, 50, 100) == 100
@@ -61,16 +61,16 @@ class TestGenCLTestCase:
         assert cl_perfect(28) == True
 
     def test_bool(self):
-        cl_bool = make_cl_func(t.my_bool)
+        cl_bool = make_cl_func(t.my_bool, [object])
         assert cl_bool(0) == False
         assert cl_bool(42) == True
         assert cl_bool(True) == True
 
     def test_contains(self):
-        my_contains = make_cl_func(t.my_contains)
+        my_contains = make_cl_func(t.my_contains, [list, int])
         assert my_contains([1, 2, 3], 1)
         assert not my_contains([1, 2, 3], 0)
-        is_one_or_two = make_cl_func(t.is_one_or_two)
+        is_one_or_two = make_cl_func(t.is_one_or_two, [int])
         assert is_one_or_two(2)
         assert not is_one_or_two(3)
 
@@ -88,9 +88,9 @@ class TestGenCLTestCase:
         assert f1(1) == 2
         f2 = make_cl_func(t.while_func, [int])
         assert f2(10) == 55
-        f3 = make_cl_func(t.simple_id)
+        f3 = make_cl_func(t.simple_id, [int])
         assert f3(9) == 9
-        f4 = make_cl_func(t.branch_id)
+        f4 = make_cl_func(t.branch_id, [int, int, int])
         assert f4(1, 2, 3) == 2
         assert f4(0, 2, 3) == 3
         f5 = make_cl_func(t.int_id, [int])
@@ -124,7 +124,7 @@ class TestGenCLTestCase:
         assert result.val == (
                           '#(#() #(0) #(1) #(0 1) #(2) #(0 2) #(1 2) #(0 1 2))')
     def test_yast(self):
-        cl_sum = make_cl_func(t.yast) # yet another sum test
+        cl_sum = make_cl_func(t.yast, [list]) # yet another sum test
         assert cl_sum(range(12)) == 66
 
 
