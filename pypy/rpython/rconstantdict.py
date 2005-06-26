@@ -7,7 +7,7 @@ from pypy.rpython.rarithmetic import r_uint
 # ____________________________________________________________
 #
 #  pseudo implementation of RPython dictionary (this is per
-#  dictvalue type): 
+#  dictkey/dictvalue but dictkeys need to be primitive) 
 #
 #    struct dictentry {
 #        DICTKEY key;   # primitive 
