@@ -10,10 +10,17 @@ from __future__ import generators
 import types
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import last_exception
+from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.annrpython import CannotSimplify
 from pypy.annotation import model as annmodel
 from pypy.annotation.specialize import MemoTable
+
+
+def checkgraphs(self, blocks):
+    for block in blocks:
+        fn = self.annotated[block]
+        graph = self.translator.flowgraphs[fn]
+        checkgraph(graph)
 
 def fully_annotated_blocks(self):
     """Ignore blocked blocks."""
@@ -177,14 +184,14 @@ def transform_graph(ann, extra_passes=default_extra_passes, block_subset=None):
     """Apply set of transformations available."""
     # WARNING: this produces incorrect results if the graph has been
     #          modified by t.simplify() after it had been annotated.
-    if ann.translator:
-        ann.translator.checkgraphs()
     if block_subset is None:
         block_subset = fully_annotated_blocks(ann)
     d = {}
     for block in block_subset:
         d[block] = True
     block_subset = d
+    if ann.translator:
+        checkgraphs(ann, block_subset)
     transform_dead_code(ann, block_subset)
     for pass_ in extra_passes:
         pass_(ann, block_subset)
@@ -192,4 +199,5 @@ def transform_graph(ann, extra_passes=default_extra_passes, block_subset=None):
     # chance to remove dependency on certain variables
     transform_dead_op_vars(ann, block_subset)
     if ann.translator:
-        ann.translator.checkgraphs()
+        checkgraphs(ann, block_subset)
+ 
