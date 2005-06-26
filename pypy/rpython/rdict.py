@@ -57,7 +57,7 @@ class StrDictRepr(rmodel.Repr):
         else:
             self.value_repr = value_repr  
         self.dictvalue = dictvalue
-        #self.dict_cache = {}
+        self.dict_cache = {}
         # setup() needs to be called to finish this initialization
 
     def setup(self):
@@ -74,23 +74,25 @@ class StrDictRepr(rmodel.Repr):
                                 ("num_pristine_entries", lltype.Signed), 
                                 ("entries", lltype.Ptr(self.DICTENTRYARRAY))))
 
-    #def convert_const(self, dictobj):
-    #    dictobj = getattr(dictobj, '__self__', dictobj) # for bound list methods
-    #    if not isinstance(dictobj, list):
-    #        raise TyperError("expected a list: %r" % (dictobj,))
-    #    try:
-    #        key = Constant(dictobj)
-    #        return self.list_cache[key]
-    #    except KeyError:
-    #        self.setup()
-    #        result = malloc(self.STRDICT, immortal=True)
-    #        self.list_cache[key] = result
-    #        result.items = malloc(self.STRDICT.items.TO, len(dictobj))
-    #        r_item = self.value_repr
-    #        for i in range(len(dictobj)):
-    #            x = dictobj[i]
-    #            result.items[i] = r_item.convert_const(x)
-    #        return result
+    def convert_const(self, dictobj):
+        # get object from bound dict methods
+        dictobj = getattr(dictobj, '__self__', dictobj) 
+        if not isinstance(dictobj, dict):
+            raise TyperError("expected a dict: %r" % (dictobj,))
+        try:
+            key = Constant(dictobj)
+            return self.dict_cache[key]
+        except KeyError:
+            self.setup()
+            l_dict = ll_newstrdict(self.lowleveltype) 
+            self.dict_cache[key] = l_dict 
+            r_key = string_repr 
+            r_value = self.value_repr
+            for dictkey, dictvalue in dictobj.items():
+                llkey = r_key.convert_const(dictkey)
+                llvalue = r_value.convert_const(dictvalue)
+                ll_strdict_setitem(l_dict, llkey, llvalue)
+            return l_dict 
 
     def rtype_len(self, hop):
         v_dict, = hop.inputargs(self)

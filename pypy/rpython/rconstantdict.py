@@ -44,7 +44,8 @@ class ConstantDictRepr(rmodel.Repr):
                                 ("entries", self.DICTENTRYARRAY)))
 
     def convert_const(self, dictobj):
-        dictobj = getattr(dictobj, '__self__', dictobj) # bound dict methods
+        # get object from bound dict methods
+        dictobj = getattr(dictobj, '__self__', dictobj)
         if not isinstance(dictobj, dict):
             raise TyperError("expected a dict: %r" % (dictobj,))
         try:

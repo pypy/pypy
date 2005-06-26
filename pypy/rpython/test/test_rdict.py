@@ -244,3 +244,13 @@ def test_dict_contains():
         return ' 4' in dic and ' 9' not in dic
     res = interpret(func, ())
     assert res is True
+
+def test_dict_contains_with_constant_dict():
+    dic = {'4':1000, ' 8':200}
+    def func(i):
+        return chr(i) in dic 
+    res = interpret(func, [ord('4')]) 
+    assert res is True
+    res = interpret(func, [1]) 
+    assert res is False 
+
