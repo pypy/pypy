@@ -582,13 +582,13 @@ class TestAnnotateTestCase:
 
     def test_flow_rev_numbers(self):
         a = self.RPythonAnnotator()
-        s = a.build_types(snippet.flow_rev_numbers, [])
+        s = a.build_types(snippet.flow_rev_numbers, [int])
         assert s.knowntype == int
         assert not s.is_constant() # !
 
     def test_methodcall_is_precise(self):
         a = self.RPythonAnnotator()
-        s = a.build_types(snippet.methodcall_is_precise, [])
+        s = a.build_types(snippet.methodcall_is_precise, [bool])
         classes = a.bookkeeper.userclasses
         assert 'x' not in classes[snippet.CBase].attrs
         assert (classes[snippet.CSub1].attrs['x'].s_value ==
@@ -637,7 +637,7 @@ class TestAnnotateTestCase:
         def assert_(x):
             assert x,"XXX"
         a = self.RPythonAnnotator()
-        s = a.build_types(assert_, [])
+        s = a.build_types(assert_, [int])
         assert s.const is None
 
     def test_string_and_none(self):
