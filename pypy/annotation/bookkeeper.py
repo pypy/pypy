@@ -143,9 +143,9 @@ class Stats:
         else:
             s = "?!!!!!!"
         if isinstance(args, SomeTuple):
-            return (str.const, tuple([self.typerepr(x) for x in args.items]))
+            return (s, tuple([self.typerepr(x) for x in args.items]))
         else:
-            return (str.const, self.typerepr(args))
+            return (s, self.typerepr(args))
 
     def consider_dict_getitem(self, dic):
         return dic
