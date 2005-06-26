@@ -37,6 +37,9 @@ class Repr:
             raise AttributeError("%s instance has no attribute %s" % (
                 self.__class__.__name__, name))
 
+    def _freeze_(self):
+        return True
+
     def convert_const(self, value):
         "Convert the given constant value to the low-level repr of 'self'."
         if self.lowleveltype != Void:
@@ -68,6 +71,10 @@ class Repr:
                 return hop.inputarg(self, arg=0)
         else:
             raise TyperError("getattr() with a non-constant attribute name")
+
+    def rtype_str(self, hop):
+        vrepr = inputconst(Void, self)
+        return hop.gendirectcall(self.ll_str, hop.args_v[0], vrepr)
 
     def rtype_nonzero(self, hop):
         return self.rtype_is_true(hop)   # can call a subclass' rtype_is_true()

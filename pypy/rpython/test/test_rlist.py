@@ -302,3 +302,16 @@ def test_list_index():
         except Exception, e:
             res2 = e.__class__
         assert res == res2
+
+def test_list_str():
+    def fn():
+        return str([1,2,3])
+    
+    res = interpret(fn, [])
+    assert ''.join(res.chars) == fn()
+
+    def fn():
+        return str([[1,2,3]])
+    
+    res = interpret(fn, [])
+    assert ''.join(res.chars) == fn()

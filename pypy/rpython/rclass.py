@@ -495,22 +495,19 @@ class InstanceRepr(Repr):
         vinst, vattr, vvalue = hop.inputargs(self, Void, r_value)
         self.setfield(vinst, attr, vvalue, hop.llops)
 
-    def rtype_str(self, hop):
-        v_arg = hop.inputarg(getinstancerepr(hop.rtyper, None), 0)
-        return hop.gendirectcall(ll_instance_str, v_arg)
-
-
-def ll_instance_str(instance):
-    from pypy.rpython import rstr
-    nameLen = len(instance.typeptr.name)
-    nameString = malloc(rstr.STR, nameLen-1)
-    i = 0
-    while i < nameLen - 1:
-        nameString.chars[i] = instance.typeptr.name[i]
-        i += 1
-    return rstr.ll_strconcat(rstr.instance_str_prefix,
-                             rstr.ll_strconcat(nameString,
-                                               rstr.instance_str_suffix))
+    def ll_str(i, r):
+        instance = cast_pointer(OBJECTPTR, i)
+        from pypy.rpython import rstr
+        nameLen = len(instance.typeptr.name)
+        nameString = malloc(rstr.STR, nameLen-1)
+        i = 0
+        while i < nameLen - 1:
+            nameString.chars[i] = instance.typeptr.name[i]
+            i += 1
+        return rstr.ll_strconcat(rstr.instance_str_prefix,
+                                 rstr.ll_strconcat(nameString,
+                                                   rstr.instance_str_suffix))
+    ll_str = staticmethod(ll_str)
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):

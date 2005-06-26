@@ -10,8 +10,8 @@ from pypy.rpython import rint
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
-from pypy.rpython.lltype import Bool, Void, GcArray, nullptr
-from pypy.rpython.rclass import InstanceRepr, ll_instance_str, getinstancerepr
+from pypy.rpython.lltype import Bool, Void, GcArray, nullptr, typeOf
+from pypy.rpython.rclass import InstanceRepr
 
 
 # ____________________________________________________________
@@ -116,6 +116,13 @@ class __extend__(StringRepr):
         v_items = hop.genop("getfield", [v_lst, cname],
                             resulttype=Ptr(GcArray(Ptr(STR))))
         return hop.gendirectcall(ll_join, v_str, v_items)
+
+    def ll_str(s, r):
+        if typeOf(s) == Char:
+            return ll_chr2str(s)
+        else:
+            return s
+    ll_str = staticmethod(ll_str)
         
     def make_iterator_repr(self):
         return string_iterator_repr
@@ -232,18 +239,12 @@ def do_stringformat(hop, sourcevarsrepr):
         if isinstance(thing, tuple):
             code = thing[0]
             vitem, r_arg = argsiter.next()
+            rep = inputconst(Void, r_arg)
             if code == 's' or (code == 'r' and isinstance(r_arg, InstanceRepr)):
-                if isinstance(r_arg, StringRepr):
-                    vchunk = hop.llops.convertvar(vitem, r_arg, string_repr)
-                elif isinstance(r_arg, InstanceRepr):
-                    vinst = hop.llops.convertvar(
-                        vitem, r_arg, getinstancerepr(hop.rtyper, None))
-                    vchunk = hop.gendirectcall(ll_instance_str, vinst)
-                else:
-                    assert 0
+                vchunk = hop.gendirectcall(r_arg.ll_str, vitem, rep)
             elif code == 'd':
                 assert isinstance(r_arg, IntegerRepr)
-                vchunk = hop.gendirectcall(rint.ll_int2str, vitem)
+                vchunk = hop.gendirectcall(r_arg.ll_str, vitem, rep)
             elif code == 'x':
                 assert isinstance(r_arg, IntegerRepr)
                 vchunk = hop.gendirectcall(rint.ll_int2hex, vitem,
@@ -621,3 +622,7 @@ def ll_strnext(iter):
 
 instance_str_prefix = string_repr.convert_const("<")
 instance_str_suffix = string_repr.convert_const(" object>")
+
+list_str_open_bracket = string_repr.convert_const("[")
+list_str_close_bracket = string_repr.convert_const("]")
+list_str_sep = string_repr.convert_const(", ")

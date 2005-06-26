@@ -6,6 +6,7 @@ from pypy.rpython import rrange
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rstr import string_repr, ll_streq
+from pypy.rpython import rstr
 from pypy.rpython.rclass import InstanceRepr
 from pypy.rpython.lltype import GcForwardReference, Ptr, GcArray, GcStruct
 from pypy.rpython.lltype import Void, Signed, malloc, typeOf, Primitive
@@ -137,6 +138,24 @@ class ListRepr(Repr):
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
 
+    def ll_str(l, listrepr):
+        items = l.items
+        length = len(items)
+        item_repr = listrepr.item_repr
+
+        temp = malloc(TEMP, length)
+        i = 0
+        while i < length:
+            temp[i] = item_repr.ll_str(items[i], item_repr)
+            i += 1
+
+        return rstr.ll_strconcat(
+            rstr.list_str_open_bracket,
+            rstr.ll_strconcat(rstr.ll_join(rstr.list_str_sep,
+                                           temp),
+                              rstr.list_str_close_bracket))
+    ll_str = staticmethod(ll_str)
+    
 
 class __extend__(pairtype(ListRepr, Repr)):
 
@@ -489,6 +508,10 @@ def ll_listindex(lst, obj, eqfn):
         j += 1
     raise ValueError # can't say 'list.index(x): x not in list'
 
+TEMP = GcArray(Ptr(rstr.STR))
+
+        
+        
 # ____________________________________________________________
 #
 #  Irregular operations.
