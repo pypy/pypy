@@ -60,10 +60,7 @@ class __extend__(annmodel.SomePBC):
         lst = self.prebuiltinstances.items()
         lst.sort()
         return tuple(lst)
-    
-    def rtype_is_true(self, hop):
-        return Constant(True, Bool)
-    
+
 # ____________________________________________________________
 
 
@@ -183,6 +180,15 @@ class MultipleFrozenPBCRepr(Repr):
                 llvalue = r_value.convert_const(thisattrvalue)
                 setattr(result, mangled_name, llvalue)
             return result
+
+    def rtype_is_true(self, hop):
+        if hop.s_result.is_constant():
+            assert hop.s_result.const is True    # custom __nonzero__ on PBCs?
+            return hop.inputconst(Bool, hop.s_result.const)
+        else:
+            # None is a nullptr, which is false; everything else is true.
+            vlist = hop.inputargs(self)
+            return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
 
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const

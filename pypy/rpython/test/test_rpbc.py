@@ -232,3 +232,24 @@ def test_constant_return_disagreement():
         return r.meth()
     res = interpret(fn, [])
     assert res == 0
+
+def test_None_is_false():
+    def fn(i):
+        return bool([None, fn][i])
+    res = interpret(fn, [1])
+    assert res is True
+    res = interpret(fn, [0])
+    assert res is False
+
+def INPROGRESS_test_classpbc_getattr():
+    class A:
+        myvalue = 123
+    class B(A):
+        myvalue = 456
+    def f(i):
+        B()      # force B and A to have a ClassDef
+        return [A,B][i].myvalue
+    res = interpret(f, [0], view=True)
+    assert res == 123
+    res = interpret(f, [1])
+    assert res == 456
