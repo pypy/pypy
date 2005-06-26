@@ -314,6 +314,7 @@ class __extend__(pairtype(CharRepr, IntegerRepr)):
     def rtype_mul(_, hop):
         v_char, v_int = hop.inputargs(char_repr, Signed)
         return hop.gendirectcall(ll_char_mul, v_char, v_int)
+    rtype_inplace_mul = rtype_mul
 
 class __extend__(pairtype(CharRepr, CharRepr)):
     def rtype_eq(_, hop): return _rtype_compare_template(hop, 'eq')
