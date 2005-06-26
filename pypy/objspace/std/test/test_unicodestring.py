@@ -72,4 +72,4 @@ class AppTestUnicodeString:
         assert int(u'12345') == 12345
 
     def test_float_from_unicode(self):
-        assert float(u'123.456e89') == 123.456e89
+        assert float(u'123.456e89') == float('123.456e89')
