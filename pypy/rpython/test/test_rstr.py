@@ -90,6 +90,16 @@ def test_char_compare():
     res = interpret(lambda c1, c2: c1 <= c2,  ['z', 'a'])
     assert res is False
 
+def test_char_mul():
+    def fn(c, mul):
+        s = c * mul
+        res = 0
+        for i in range(len(s)):
+            res = res*10 + ord(s[i]) - ord('0')
+        return res
+    res = interpret(fn, ['3', 5])
+    assert res == 33333
+
 def test_str_compare():
     def fn(i, j):
         s1 = ['one', 'two']

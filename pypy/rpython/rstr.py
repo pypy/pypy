@@ -307,7 +307,13 @@ class __extend__(CharRepr):
 
     def rtype_method_isspace(_, hop):
         vlist = hop.inputargs(char_repr)
-        return hop.llops.gendirectcall(ll_char_isspace, vlist[0]) 
+        return hop.gendirectcall(ll_char_isspace, vlist[0])
+
+class __extend__(pairtype(CharRepr, IntegerRepr)):
+    
+    def rtype_mul(_, hop):
+        v_char, v_int = hop.inputargs(char_repr, Signed)
+        return hop.gendirectcall(ll_char_mul, v_char, v_int)
 
 class __extend__(pairtype(CharRepr, CharRepr)):
     def rtype_eq(_, hop): return _rtype_compare_template(hop, 'eq')
@@ -411,6 +417,14 @@ def ll_char_isspace(ch):
     #return ord(ch) in (9, 10, 11, 12, 13, 32)
     c = ord(ch) 
     return 9 <= c <= 13 or c == 32 
+
+def ll_char_mul(ch, times):
+    newstr = malloc(STR, times)
+    j = 0
+    while j < times:
+        newstr.chars[j] = ch
+        j += 1
+    return newstr
 
 def ll_strlen(s):
     return len(s.chars)
