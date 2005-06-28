@@ -51,6 +51,7 @@ def test_int_ops():
         x += i != i
         x += i >= i
         x += i > i
+        x += x % i
         #x += i is not None
         #x += i is None
         return i + 1 * i // i - 1

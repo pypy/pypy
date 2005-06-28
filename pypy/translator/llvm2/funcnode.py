@@ -140,6 +140,9 @@ class OpWriter(object):
     def int_sub(self, op):
         self.binaryop('sub', op)
 
+    def int_mod(self, op):
+        self.binaryop('rem', op)
+
     def int_eq(self, op):
         self.binaryop('seteq', op)
 
@@ -165,7 +168,9 @@ class OpWriter(object):
         fromvar = self.db.repr_arg(op.args[0])
         fromtype = self.db.repr_arg_type(op.args[0])
         self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
-        
+
+    int_is_true = cast_bool_to_int
+    
     def direct_call(self, op):
         assert len(op.args) >= 1
         targetvar = self.db.repr_arg(op.result)
