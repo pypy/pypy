@@ -230,7 +230,7 @@ class GraphRenderer:
     def getfont(self, size):
         if size in self.FONTCACHE:
             return self.FONTCACHE[size]
-        elif size < 4:
+        elif size < 5:
             self.FONTCACHE[size] = None
             return None
         else:

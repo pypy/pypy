@@ -35,11 +35,17 @@ def dot2plain(dotfile, plainfile):
         import urllib
         content = py.path.local(dotfile).read()
         request = urllib.urlencode({'dot': content})
-        urllib.urlretrieve('http://codespeak.net/pypy/convertdot.cgi',
-                           str(plainfile),
-                           data=request)
-        plainfile = py.path.local(plainfile)
-        if not plainfile.check(file=1) or not plainfile.read().startswith('graph '):
+        try:
+            urllib.urlretrieve('http://codespeak.net/pypy/convertdot.cgi',
+                               str(plainfile),
+                               data=request)
+        except IOError:
+            success = False
+        else:
+            plainfile = py.path.local(plainfile)
+            success = (plainfile.check(file=1) and
+                       plainfile.read().startswith('graph '))
+        if not success:
             print "NOTE: failed to use codespeak's convertdot.cgi, trying local 'dot'"
             cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
 

@@ -133,8 +133,9 @@ class FlowGraphPage(GraphPage):
                 return
             for var in vars:
                 if hasattr(var, 'concretetype'):
-                    info = self.links.get(var.name, var.name)
-                    info = '(%s) %s' % (var.concretetype, info)
+                    #info = self.links.get(var.name, var.name)
+                    #info = '(%s) %s' % (var.concretetype, info)
+                    info = str(var.concretetype)
                     self.links[var.name] = info
         for graph in graphs:
             traverse(visit, graph)
