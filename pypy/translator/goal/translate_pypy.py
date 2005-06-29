@@ -17,6 +17,7 @@ Command-line options for translate_pypy:
    -no-t      Don't type-specialize the graph operations with the C typer
    -no-o      Don't do backend-oriented optimizations
    -no-c      Don't generate the C code
+   -fork      (UNIX) Create a restartable checkpoint after annotation
    -c         Generate the C code, but don't compile it
    -o         Generate and compile the C code, but don't run it
    -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
@@ -70,7 +71,6 @@ from pypy.tool.cache import Cache
 from pypy.annotation.model import SomeObject
 from pypy.tool.udir import udir 
 from pypy.tool.ansi_print import ansi_print
-from pypy.rpython.rtyper import RPythonTyper 
 from pypy.translator.pickle.main import load, save
 
 # XXX this tries to make compiling faster
@@ -104,6 +104,9 @@ def analyse(target):
     if a and not options['-no-s']:
         print 'Simplifying...'
         a.simplify()
+    if a and options['-fork']:
+        from pypy.translator.goal import unixcheckpoint
+        unixcheckpoint.restartable_point()
     if a and not options['-no-t']:
         print 'Specializing...'
         t.specialize()
@@ -257,6 +260,7 @@ if __name__ == '__main__':
                '-no-d': False,
                '-load': False,
                '-save': False,
+               '-fork': False,
                }
     listen_port = None
     argiter = iter(sys.argv[1:])
