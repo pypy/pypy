@@ -220,15 +220,15 @@ def math_any(*args):
 def rarith_intmask(s_obj):
     return SomeInteger()
 
-def rarith_ovfcheck(s_obj):
-    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
-        getbookkeeper().warning("ovfcheck on unsigned")
-    return s_obj
+##def rarith_ovfcheck(s_obj):
+##    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
+##        getbookkeeper().warning("ovfcheck on unsigned")
+##    return s_obj
 
-def rarith_ovfcheck_lshift(s_obj1, s_obj2):
-    if isinstance(s_obj1, SomeInteger) and s_obj1.unsigned:
-        getbookkeeper().warning("ovfcheck_lshift with unsigned")
-    return SomeInteger()
+##def rarith_ovfcheck_lshift(s_obj1, s_obj2):
+##    if isinstance(s_obj1, SomeInteger) and s_obj1.unsigned:
+##        getbookkeeper().warning("ovfcheck_lshift with unsigned")
+##    return SomeInteger()
 
 def unicodedata_decimal(s_uchr):
     raise TypeError, "unicodedate.decimal() calls should not happen at interp-level"    
@@ -254,8 +254,8 @@ for name, value in globals().items():
         BUILTIN_ANALYZERS[original] = value
 
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_uint] = restricted_uint
-BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck] = rarith_ovfcheck
-BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
+##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck] = rarith_ovfcheck
+##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
