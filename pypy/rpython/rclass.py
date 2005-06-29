@@ -484,7 +484,8 @@ class InstanceRepr(Repr):
         elif attr in self.rclass.allmethods:
             # special case for methods: represented as their 'self' only
             # (see MethodsPBCRepr)
-            return vinst
+            return hop.r_result.get_method_from_instance(self, vinst,
+                                                         hop.llops)
         else:
             vcls = self.getfield(vinst, '__class__', hop.llops)
             return self.rclass.getclsfield(vcls, attr, hop.llops)

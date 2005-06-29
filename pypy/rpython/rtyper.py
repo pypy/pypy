@@ -273,11 +273,11 @@ class RPythonTyper:
             op.result.concretetype = hop.r_result.lowleveltype
             if op.result.concretetype != resulttype:
                 raise TyperError("inconsistent type for the result of '%s':\n"
-                                 "annotator says  %s,\n"
-                                 "whose lltype is %r\n"
-                                 "but rtype* says %r" % (
+                                 "annotator says %s,\n"
+                                 "whose repr is %r\n"
+                                 "but rtype_%s returned %r" % (
                     op.opname, hop.s_result,
-                    op.result.concretetype, resulttype))
+                    hop.r_result, op.opname, resulttype))
             # figure out if the resultvar is a completely fresh Variable or not
             if (isinstance(resultvar, Variable) and
                 resultvar not in self.annotator.bindings and
@@ -473,7 +473,7 @@ class LowLevelOpList(list):
         self.rtyper = rtyper
 
     def convertvar(self, v, r_from, r_to):
-        assert isinstance(v, Variable)
+        assert isinstance(v, (Variable, Constant))
         if r_from != r_to:
             v = pair(r_from, r_to).convert_from_to(v, self)
             if v is NotImplemented:

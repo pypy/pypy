@@ -390,6 +390,11 @@ class MethodsPBCRepr(Repr):
             raise TyperError("not a bound method: %r" % method)
         return self.r_im_self.convert_const(method.im_self)
 
+    def get_method_from_instance(self, r_inst, v_inst, llops):
+        # The 'self' might have to be cast to a parent class
+        # (as shown for example in test_rclass/test_method_both_A_and_B)
+        return llops.convertvar(v_inst, r_inst, self.r_im_self)
+
     def rtype_simple_call(self, hop):
         r_class = self.r_im_self.rclass
         mangled_name, r_func = r_class.clsfields[self.methodname]
