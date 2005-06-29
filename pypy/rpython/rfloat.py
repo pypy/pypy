@@ -41,9 +41,12 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
     rtype_inplace_mul = rtype_mul
 
     def rtype_div(_, hop):
-        return _rtype_template(hop, 'div')
+        # turn 'div' on floats into 'truediv'
+        return _rtype_template(hop, 'truediv')
 
-    rtype_inplace_div = rtype_div
+    rtype_inplace_div     = rtype_div
+    rtype_truediv         = rtype_div
+    rtype_inplace_truediv = rtype_div
 
     def rtype_mod(_, hop):
         return _rtype_template(hop, 'mod')

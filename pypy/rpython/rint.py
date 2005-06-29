@@ -60,7 +60,8 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
         return _rtype_template(hop, 'mul_ovf')
 
     def rtype_div(_, hop):
-        return _rtype_template(hop, 'div', [ZeroDivisionError])
+        # turn 'div' on integers into 'floordiv'
+        return _rtype_template(hop, 'floordiv', [ZeroDivisionError])
     rtype_inplace_div = rtype_div
 
     def rtype_div_ovf(_, hop):
