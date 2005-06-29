@@ -1361,6 +1361,25 @@ class TestAnnotateTestCase:
         assert isinstance(s2.dictdef.dictkey.  s_value, annmodel.SomeInteger)
         assert isinstance(s2.dictdef.dictvalue.s_value, annmodel.SomeInteger)
 
+    def test_pbc_union(self):
+        class A:
+            def meth(self):
+                return 12
+        class B(A):
+            pass
+        class C(B):
+            pass
+        def f(i):
+            if i:
+                f(0)
+                x = B()
+            else:
+                x = C()
+            return x.meth()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s == a.bookkeeper.immutablevalue(12)
+
 
 def g(n):
     return [0,1,2,n]

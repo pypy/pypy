@@ -109,3 +109,28 @@ def test_isinstance():
 
     res = interpret(c, [])
     assert res is False
+
+def test_method_used_in_subclasses_only():
+    class A:
+        def meth(self):
+            return 123
+    class B(A):
+        pass
+    def f():
+        x = B()
+        return x.meth()
+    res = interpret(f, [])
+    assert res == 123
+
+def test_method_both_A_and_B():
+    class A:
+        def meth(self):
+            return 123
+    class B(A):
+        pass
+    def f():
+        a = A()
+        b = B()
+        return a.meth() + b.meth()
+    res = interpret(f, [])
+    assert res == 246

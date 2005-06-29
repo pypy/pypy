@@ -336,7 +336,11 @@ class ClassDef:
                     continue # not matching
             d[func] = value
         if uplookup is not None:
-            d[upfunc] = uplookup
+            # when the method is found in a parent class, it get bound to the
+            # 'self' subclass.  This allows the 'func: classdef' entry of the
+            # PBC dictionary to track more precisely with which 'self' the
+            # method is called.
+            d[upfunc] = self
         elif meth:
             self.check_missing_attribute_update(name)
         if d:

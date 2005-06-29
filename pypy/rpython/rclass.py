@@ -160,10 +160,10 @@ class ClassRepr(Repr):
             count = 0
             for x, classdef in s_value.prebuiltinstances.items():
                 if isclassdef(classdef):
-                    if classdef.commonbase(self.classdef) != self.classdef:
-                        raise TyperError("methods from PBC set %r don't belong "
-                                         "in %r" % (s_value.prebuiltinstances,
-                                                    self.classdef.cls))
+                    #if classdef.commonbase(self.classdef) != self.classdef:
+                    #    raise TyperError("methods from PBC set %r don't belong "
+                    #                     "in %r" % (s_value.prebuiltinstances,
+                    #                                self.classdef.cls))
                     count += 1
                     classdef = True
                 debound[x] = classdef

@@ -507,11 +507,7 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                     classdef2 = classdef
                     if classdef != d[x]:
                         classdef = classdef.commonbase(d[x])
-                        for cand in classdef.getmro():
-                            if x in cand.cls.__dict__.values():
-                                classdef = cand
-                                break
-                        else:
+                        if classdef is None:
                             raise UnionError(
                                 "confused pbc union trying unwarranted"
                                 "moving up of method %s from pair %s %s" %
