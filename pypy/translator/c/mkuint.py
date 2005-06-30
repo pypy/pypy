@@ -21,7 +21,7 @@ stopline = '/* no editing below this point */'
 for srcline in file(fname):
     srcline = srcline.rstrip()
     line = srcline.lstrip()
-    if line.startswith('#define OP_INT_'):
+    if line.startswith('#define OP_INT_') and line.find('_OVF') < 0:
         macroname = line.split('(')[0].split()[1]
         newname = 'OP_UINT_' + macroname[7:]
         lines.append('#define %s %s' % (newname, macroname))

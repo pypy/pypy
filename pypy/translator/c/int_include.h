@@ -24,7 +24,6 @@
 	OP_INT_ABS(x,r,err) \
 	if ((x) >= 0 || (x) != -(x)); \
 	else FAIL_OVF(err, "integer absolute")
-#define OP_UINT_ABS_OVF(x,r,err)   r = (x);
 
 /***  binary operations ***/
 
@@ -75,37 +74,55 @@
 
 /* shifting */
 
-#define OP_INT_RSHIFT(x,y,r,err) \
-	if ((y) < LONG_BIT) \
-		r = Py_ARITHMETIC_RIGHT_SHIFT(long, (x), (y)); \
-	else r = (x) < 0 ? -1 : 0;
+/* NB. shifting has same limitations as C: the shift count must be
+       >= 0 and < LONG_BITS. */
+#define OP_INT_RSHIFT(x,y,r,err)    r = Py_ARITHMETIC_RIGHT_SHIFT(long, x, y);
+#define OP_UINT_RSHIFT(x,y,r,err)   r = (x) >> (y);
 
-#define OP_INT_RSHIFT_VAL(x,y,r,err) \
-	if ((y) >= 0) { OP_INT_RSHIFT(x,y,r,err) } \
-	else FAIL_VAL(err, "negative shift count")
-
-#define OP_INT_LSHIFT(x,y,r,err) \
-	if ((y) < LONG_BIT) \
-		r = (x) << (y); \
-	else r = 0;
-
-#define OP_INT_LSHIFT_VAL(x,y,r,err) \
-	if ((y) >= 0) { OP_INT_LSHIFT(x,y,r,err) } \
-	else FAIL_VAL(err, "negative shift count")
+#define OP_INT_LSHIFT(x,y,r,err)    r = (x) << (y);
+#define OP_UINT_LSHIFT(x,y,r,err)   r = (x) << (y);
 
 #define OP_INT_LSHIFT_OVF(x,y,r,err) \
 	OP_INT_LSHIFT(x,y,r,err) \
 	if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(long, r, (y))) \
 		FAIL_OVF(err, "x<<y loosing bits or changing sign")
 
-#define OP_INT_LSHIFT_OVF_VAL(x,y,r,err) \
-	if ((y) >= 0) { OP_INT_LSHIFT_OVF(x,y,r,err) } \
-	else FAIL_VAL(err, "negative shift count")
+
+/* for reference, the safe value-checking version of the above macros
+   (not really used at the moment) */
+
+/* #define OP_INT_RSHIFT(x,y,r,err) \ */
+/* 	if ((y) < LONG_BIT) \ */
+/* 		r = Py_ARITHMETIC_RIGHT_SHIFT(long, (x), (y)); \ */
+/* 	else r = (x) < 0 ? -1 : 0; */
+
+/* #define OP_INT_RSHIFT_VAL(x,y,r,err) \ */
+/* 	if ((y) >= 0) { OP_INT_RSHIFT(x,y,r,err) } \ */
+/* 	else FAIL_VAL(err, "negative shift count") */
+
+/* #define OP_INT_LSHIFT(x,y,r,err) \ */
+/* 	if ((y) < LONG_BIT) \ */
+/* 		r = (x) << (y); \ */
+/* 	else r = 0; */
+
+/* #define OP_INT_LSHIFT_VAL(x,y,r,err) \ */
+/* 	if ((y) >= 0) { OP_INT_LSHIFT(x,y,r,err) } \ */
+/* 	else FAIL_VAL(err, "negative shift count") */
+
+/* #define OP_INT_LSHIFT_OVF(x,y,r,err) \ */
+/* 	OP_INT_LSHIFT(x,y,r,err) \ */
+/* 	if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(long, r, (y))) \ */
+/* 		FAIL_OVF(err, "x<<y loosing bits or changing sign") */
+
+/* #define OP_INT_LSHIFT_OVF_VAL(x,y,r,err) \ */
+/* 	if ((y) >= 0) { OP_INT_LSHIFT_OVF(x,y,r,err) } \ */
+/* 	else FAIL_VAL(err, "negative shift count") */
 
 
 /* floor division */
 
-#define OP_INT_FLOORDIV(x,y,r,err) r = op_divmod_adj(x, y, NULL);
+#define OP_INT_FLOORDIV(x,y,r,err)    r = op_divmod_adj(x, y, NULL);
+#define OP_UINT_FLOORDIV(x,y,r,err)   & Is_Unsigned_Division_Really_Useful;
 
 #define OP_INT_FLOORDIV_OVF(x,y,r,err) \
 	if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
@@ -115,6 +132,7 @@
 #define OP_INT_FLOORDIV_ZER(x,y,r,err) \
 	if ((y)) { OP_INT_FLOORDIV(x,y,r,err) } \
 	else FAIL_ZER(err, "integer division")
+#define OP_UINT_FLOORDIV_ZER(x,y,r,err)   & Is_Unsigned_Division_Really_Useful;
 
 #define OP_INT_FLOORDIV_OVF_ZER(x,y,r,err) \
 	if ((y)) { OP_INT_FLOORDIV_OVF(x,y,r,err) } \
@@ -123,6 +141,7 @@
 /* modulus */
 
 #define OP_INT_MOD(x,y,r,err)     op_divmod_adj(x, y, &r);
+#define OP_UINT_MOD(x,y,r,err)    & Is_Unsigned_Division_Really_Useful;
 
 #define OP_INT_MOD_OVF(x,y,r,err) \
 	if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
@@ -132,6 +151,7 @@
 #define OP_INT_MOD_ZER(x,y,r,err) \
 	if ((y)) { OP_INT_MOD(x,y,r,err) } \
 	else FAIL_ZER(err, "integer modulo")
+#define OP_UINT_MOD_ZER(x,y,r,err)    & Is_Unsigned_Division_Really_Useful;
 
 #define OP_INT_MOD_OVF_ZER(x,y,r,err) \
 	if ((y)) { OP_INT_MOD_OVF(x,y,r,err) } \
@@ -225,9 +245,7 @@ long op_divmod_adj(long x, long y, long *p_rem)
 #define OP_UINT_INVERT OP_INT_INVERT
 #define OP_UINT_POS OP_INT_POS
 #define OP_UINT_NEG OP_INT_NEG
-#define OP_UINT_NEG_OVF OP_INT_NEG_OVF
 /* skipping OP_UINT_ABS */
-/* skipping OP_UINT_ABS_OVF */
 #define OP_UINT_EQ OP_INT_EQ
 #define OP_UINT_NE OP_INT_NE
 #define OP_UINT_LE OP_INT_LE
@@ -236,26 +254,14 @@ long op_divmod_adj(long x, long y, long *p_rem)
 #define OP_UINT_GE OP_INT_GE
 #define OP_UINT_CMP OP_INT_CMP
 #define OP_UINT_ADD OP_INT_ADD
-#define OP_UINT_ADD_OVF OP_INT_ADD_OVF
 #define OP_UINT_SUB OP_INT_SUB
-#define OP_UINT_SUB_OVF OP_INT_SUB_OVF
 #define OP_UINT_MUL OP_INT_MUL
-#define OP_UINT_MUL_OVF OP_INT_MUL_OVF
-#define OP_UINT_MUL_OVF OP_INT_MUL_OVF
-#define OP_UINT_RSHIFT OP_INT_RSHIFT
-#define OP_UINT_RSHIFT_VAL OP_INT_RSHIFT_VAL
-#define OP_UINT_LSHIFT OP_INT_LSHIFT
-#define OP_UINT_LSHIFT_VAL OP_INT_LSHIFT_VAL
-#define OP_UINT_LSHIFT_OVF OP_INT_LSHIFT_OVF
-#define OP_UINT_LSHIFT_OVF_VAL OP_INT_LSHIFT_OVF_VAL
-#define OP_UINT_FLOORDIV OP_INT_FLOORDIV
-#define OP_UINT_FLOORDIV_OVF OP_INT_FLOORDIV_OVF
-#define OP_UINT_FLOORDIV_ZER OP_INT_FLOORDIV_ZER
-#define OP_UINT_FLOORDIV_OVF_ZER OP_INT_FLOORDIV_OVF_ZER
-#define OP_UINT_MOD OP_INT_MOD
-#define OP_UINT_MOD_OVF OP_INT_MOD_OVF
-#define OP_UINT_MOD_ZER OP_INT_MOD_ZER
-#define OP_UINT_MOD_OVF_ZER OP_INT_MOD_OVF_ZER
+/* skipping OP_UINT_RSHIFT */
+/* skipping OP_UINT_LSHIFT */
+/* skipping OP_UINT_FLOORDIV */
+/* skipping OP_UINT_FLOORDIV_ZER */
+/* skipping OP_UINT_MOD */
+/* skipping OP_UINT_MOD_ZER */
 #define OP_UINT_AND OP_INT_AND
 #define OP_UINT_OR OP_INT_OR
 #define OP_UINT_XOR OP_INT_XOR
