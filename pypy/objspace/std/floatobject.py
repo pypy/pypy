@@ -241,7 +241,7 @@ def abs__Float(space, w_float):
 def nonzero__Float(space, w_float):
     return space.newbool(w_float.floatval != 0.0)
 
-######## coersion must be done later
+######## coercion must be done later
 later = """
 def float_coerce(space, w_float):
     if w_float.__class__ == W_FloatObject:
