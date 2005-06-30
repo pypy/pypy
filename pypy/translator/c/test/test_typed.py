@@ -226,14 +226,14 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         raises(OverflowError, fn, -1)
         raises(ZeroDivisionError, fn, 0)
 
-    def test_int_rshift_val(self):
-        fn = self.getcompiled(snippet.rshift_func)
-        raises(ValueError, fn, -1)
+##    def test_int_rshift_val(self):
+##        fn = self.getcompiled(snippet.rshift_func)
+##        raises(ValueError, fn, -1)
 
-    def test_int_lshift_ovf_val(self):
-        fn = self.getcompiled(snippet.lshift_func)
-        raises(ValueError, fn, -1)
-        raises(OverflowError, fn, 1)
+##    def test_int_lshift_ovf_val(self):
+##        fn = self.getcompiled(snippet.lshift_func)
+##        raises(ValueError, fn, -1)
+##        raises(OverflowError, fn, 1)
 
     def test_int_unary_ovf(self):
         fn = self.getcompiled(snippet.unary_func)
