@@ -294,13 +294,13 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
 
 for typ in (float, int, r_uint):
     typname = typ.__name__
-    optup = ('add', 'sub', 'mul', 'div', 'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq',)
+    optup = ('add', 'sub', 'mul', 'div', 'truediv', 'floordiv', 'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq',)
     if typ is r_uint:
         opnameprefix = 'uint'
     else:
         opnameprefix = typname
     if typ in (int, r_uint):
-        optup += 'truediv', 'floordiv', 'and_', 'or_', 'lshift', 'rshift', 'xor'
+        optup += 'and_', 'or_', 'lshift', 'rshift', 'xor'
     for opname in optup:
         assert opname in opimpls
         if typ is int and opname not in ops_returning_a_bool:
