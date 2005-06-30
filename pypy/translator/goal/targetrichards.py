@@ -1,4 +1,4 @@
-import richards
+from pypy.translator.goal import richards
 
 entry_point = richards.entry_point
 
