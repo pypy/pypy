@@ -51,9 +51,9 @@ class Module(MixedModule):
         'executable'            : 'space.wrap("py.py")', 
         'copyright'             : 'space.wrap("MIT-License")', 
         'api_version'           : 'space.wrap(1012)', 
-        'version_info'          : 'space.wrap((2,3,4, "alpha", 42))', 
-        'version'               : 'space.wrap("2.3.4 (pypy1 build)")', 
-        'hexversion'            : 'space.wrap(0x020304a0)', 
+        'version_info'          : 'space.wrap((2,4,1, "alpha", 42))', 
+        'version'               : 'space.wrap("2.4.1 (pypy1 build)")', 
+        'hexversion'            : 'space.wrap(0x020401a0)', 
         'ps1'                   : 'space.wrap(">>>>")', 
         'ps2'                   : 'space.wrap("....")', 
 
