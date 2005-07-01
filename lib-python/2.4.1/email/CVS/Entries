@@ -1,0 +1,22 @@
+D/test////
+/Charset.py/1.17/Sat Oct  9 21:08:30 2004//Tr241
+/Encoders.py/1.9/Sun Oct  3 03:16:18 2004//Tr241
+/Errors.py/1.7/Sun Oct  3 03:16:18 2004//Tr241
+/FeedParser.py/1.13.2.1/Wed Mar 30 23:15:21 2005//Tr241
+/Generator.py/1.24/Sun Oct  3 03:16:18 2004//Tr241
+/Header.py/1.30/Sun Oct  3 03:16:18 2004//Tr241
+/Iterators.py/1.15/Sun Oct  3 03:16:18 2004//Tr241
+/MIMEAudio.py/1.5/Sun Oct  3 03:16:18 2004//Tr241
+/MIMEBase.py/1.7/Sun Oct  3 03:16:18 2004//Tr241
+/MIMEImage.py/1.7/Sun Oct  3 03:16:18 2004//Tr241
+/MIMEMessage.py/1.7/Sun Oct  3 03:16:18 2004//Tr241
+/MIMEMultipart.py/1.5/Sun Oct  3 03:16:18 2004//Tr241
+/MIMENonMultipart.py/1.3/Sun Oct  3 03:16:18 2004//Tr241
+/MIMEText.py/1.9/Sun Oct  3 03:16:18 2004//Tr241
+/Message.py/1.40/Sat Nov  6 00:04:52 2004//Tr241
+/Parser.py/1.23/Sun Oct  3 03:16:18 2004//Tr241
+/Utils.py/1.29/Tue Oct 12 21:51:32 2004//Tr241
+/__init__.py/1.35.2.1/Wed Mar 30 23:15:21 2005//Tr241
+/_parseaddr.py/1.10/Sun Oct  3 03:16:18 2004//Tr241
+/base64MIME.py/1.8/Sun Oct  3 03:16:18 2004//Tr241
+/quopriMIME.py/1.7/Sun Oct  3 03:16:18 2004//Tr241

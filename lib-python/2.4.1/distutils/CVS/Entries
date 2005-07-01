@@ -1,0 +1,29 @@
+D/command////
+D/tests////
+/README/1.2/Wed Nov 13 13:26:59 2002//Tr241
+/__init__.py/1.26.2.1/Wed Mar 30 23:15:20 2005//Tr241
+/archive_util.py/1.17/Wed Nov 10 22:23:13 2004//Tr241
+/bcppcompiler.py/1.18/Wed Nov 10 22:23:13 2004//Tr241
+/ccompiler.py/1.61/Wed Nov 10 22:23:13 2004//Tr241
+/cmd.py/1.39/Wed Nov 10 22:23:14 2004//Tr241
+/core.py/1.64/Wed Mar 23 13:37:05 2005//Tr241
+/cygwinccompiler.py/1.29/Wed Nov 10 22:23:14 2004//Tr241
+/debug.py/1.4/Wed Nov 10 22:23:14 2004//Tr241
+/dep_util.py/1.7/Wed Nov 10 22:23:14 2004//Tr241
+/dir_util.py/1.15/Wed Nov 10 22:23:14 2004//Tr241
+/dist.py/1.72/Wed Mar 23 13:37:05 2005//Tr241
+/emxccompiler.py/1.11/Tue Dec  2 12:17:59 2003//Tr241
+/errors.py/1.13/Wed Nov 10 22:23:14 2004//Tr241
+/extension.py/1.19/Thu Oct 14 10:02:08 2004//Tr241
+/fancy_getopt.py/1.30/Wed Nov 10 22:23:14 2004//Tr241
+/file_util.py/1.17/Wed Nov 10 22:23:14 2004//Tr241
+/filelist.py/1.18/Wed Nov 10 22:23:14 2004//Tr241
+/log.py/1.7/Wed Nov 10 22:23:14 2004//Tr241
+/msvccompiler.py/1.64.2.3/Wed Mar 30 23:15:20 2005//Tr241
+/mwerkscompiler.py/1.13/Wed Nov 10 22:23:14 2004//Tr241
+/spawn.py/1.19/Wed Nov 10 22:23:14 2004//Tr241
+/sysconfig.py/1.61.2.1/Wed Mar 30 23:15:20 2005//Tr241
+/text_file.py/1.15/Thu Nov 14 02:25:41 2002//Tr241
+/unixccompiler.py/1.56/Sun Aug 29 16:40:55 2004//Tr241
+/util.py/1.76/Sun Jul 18 06:14:42 2004//Tr241
+/version.py/1.7/Thu Nov 14 02:25:42 2002//Tr241
