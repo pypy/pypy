@@ -64,6 +64,8 @@ class Module(MixedModule):
         'file'          : '(space.wrap(file))',
         'open'          : '(space.wrap(file))',
         'unicode'       : '(space.w_unicode)',
+        'set'           : '(settype.mk_set(space))',
+        'frozenset'     : '(settype.mk_frozenset(space))',
 
         # old-style classes dummy support
         '_classobj'     : 'space.w_classobj',
