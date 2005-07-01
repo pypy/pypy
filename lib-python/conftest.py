@@ -919,3 +919,14 @@ class ReallyRunFileExternal(py.test.Item):
         result['exit status'] = exit_status 
         result['outcome'] = outcome 
         return result
+
+
+#
+# Sanity check  (could be done more nicely too)
+#
+import os
+if os.path.samefile(os.getcwd(), str(regrtestdir.dirpath())):
+    raise NotImplementedError(
+        "Cannot run py.test with this current directory:\n"
+        "the app-level sys.path will contain %s before %s)." % (
+            regrtestdir.dirpath(), modregrtestdir.dirpath()))
