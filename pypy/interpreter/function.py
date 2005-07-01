@@ -16,7 +16,7 @@ class Function(Wrappable):
     """A function is a code object captured with some environment:
     an object space, a dictionary of globals, default arguments,
     and an arbitrary 'closure' passed to the code object."""
-    
+
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None, forcename=None):
         self.space = space
         self.name = forcename or code.co_name
@@ -76,7 +76,7 @@ class Function(Wrappable):
             if not isinstance(code, PyCode) or len(code.co_freevars) == 0:
                 raise OperationError(space.w_ValueError, space.wrap("no closure needed"))
             elif len(code.co_freevars) != n:
-                raise OperationError(space.w_ValueError, space.wrap("closure is wrong size"))                
+                raise OperationError(space.w_ValueError, space.wrap("closure is wrong size"))
             closure = []
             for w_cell in closure_w:
                 cell = space.interpclass_w(w_cell)
@@ -98,7 +98,7 @@ class Function(Wrappable):
         if not values_w:
             return space.w_None
         return space.newtuple(values_w)
-    
+
     def fset_func_defaults(space, self, w_defaults):
         if not space.is_true( space.isinstance( w_defaults, space.w_tuple ) ):
             raise OperationError( space.w_TypeError, space.wrap("func_defaults must be set to a tuple object") )
@@ -125,10 +125,10 @@ class Function(Wrappable):
             else:
                 self.w_module = space.w_None
         return self.w_module
-        
+
     def fset___module__(space, self, w_module):
         self.w_module = w_module
-    
+
     def fdel___module__(space, self):
         self.w_module = space.w_None
 
@@ -140,7 +140,7 @@ class Function(Wrappable):
         if not isinstance(code, Code ):
             raise OperationError( space.w_TypeError, space.wrap("func_code must be set to a code object") )
         self.code = code
-    
+
     def fget_func_closure(space, self):
         if self.closure is not None:
             w_res = space.newtuple( [ space.wrap(i) for i in self.closure ] )
@@ -171,7 +171,7 @@ def _getclass(space, w_obj):
             return space.type(w_obj)
         raise
 
-class Method(Wrappable): 
+class Method(Wrappable):
     """A method is a function bound to a specific instance or class."""
 
     def __init__(self, space, w_function, w_instance, w_class):
@@ -179,7 +179,7 @@ class Method(Wrappable):
         self.w_function = w_function
         self.w_instance = w_instance   # or None
         self.w_class = w_class         # possibly space.w_None
-        
+
     def descr_method__new__(space, w_subtype, w_function, w_instance, w_class=None):
         if space.is_w( w_instance, space.w_None ):
             w_instance = None
@@ -218,7 +218,7 @@ class Method(Wrappable):
                         instname += " "
                     instdescr = "%sinstance" %instname
                 msg = ("unbound method %s() must be called with %s"
-                       "instance as first argument (got %s instead)")  % (myname, clsdescr, instdescr) 
+                       "instance as first argument (got %s instead)")  % (myname, clsdescr, instdescr)
                 raise OperationError(space.w_TypeError,
                                      space.wrap(msg))
         return space.call_args(self.w_function, args)
@@ -241,17 +241,17 @@ class Method(Wrappable):
     def descr_method_call(self, __args__):
         return self.call_args(__args__)
 
-    def descr_method_repr(self): 
+    def descr_method_repr(self):
         space = self.space
         name = self.w_function.getname(self.space, '?')
-        # XXX do we handle all cases sanely here? 
-        if space.is_w(self.w_class, space.w_None): 
-            w_class = space.type(self.w_instance) 
-        else: 
-            w_class = self.w_class 
+        # XXX do we handle all cases sanely here?
+        if space.is_w(self.w_class, space.w_None):
+            w_class = space.type(self.w_instance)
+        else:
+            w_class = self.w_class
         typename = w_class.getname(self.space, '?')
-        if self.w_instance is None: 
-            s = "<method '%s' of '%s' objects>" %(name, typename) 
+        if self.w_instance is None:
+            s = "<method '%s' of '%s' objects>" %(name, typename)
             return space.wrap(s)
         else:
             info = "method %s of %s object" % (name, typename)

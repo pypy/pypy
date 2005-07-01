@@ -1,9 +1,9 @@
 
-Installing subversion for PyPy 
-============================== 
+Installing subversion for PyPy
+==============================
 
-Jens-Uwe Mager has prepared some installation files which should 
-help you to install subversion on your computer. 
+Jens-Uwe Mager has prepared some installation files which should
+help you to install subversion on your computer.
 
 + Download Unix source tarball or prepackaged versions_ for MacOS, Windows, FreeBSD and Linux
 
@@ -12,7 +12,7 @@ help you to install subversion on your computer.
   *  See Microsoft website_ if you have .DLL issues.
 
   *  Windows Installer file for Tortoise SVN (like Tortoise CVS) GUI_
-     (Pick the UNICODE version for Windows 2000 and XP and 
+     (Pick the UNICODE version for Windows 2000 and XP and
      see Win_ 2000, NT if you have problems loading it.)
 
 + Local copy of MacOS_ X binary tar ball
@@ -28,7 +28,7 @@ For complete information, you can go read the subversion guide_.
 
 **Download and install the appropriate installation file of subversion above.**
 
-For linux: 
+For linux:
 
 download the tarball.  unzip and untar it.  Then type *./configure*.  Then, as root, *make* followed by *make install*.  Voilà ... a subversion client.
 
@@ -87,7 +87,7 @@ or::
  Transmitting file data .
  Committed revision 631.
 
-Check online on the `svn-commit archives`_ and you'll see your revision. Feel free to add a documentation file on any major changes you've made!  
+Check online on the `svn-commit archives`_ and you'll see your revision. Feel free to add a documentation file on any major changes you've made!
 
 .. _`svn-commit archives`: http://codespeak.net/pipermail/pypy-svn/
 
@@ -158,4 +158,4 @@ and add a line for .py files.
 .. _guide: http://svnbook.red-bean.com/book.html#svn-ch-1
 .. _backports: http://www.backports.org
 .. _online: http://codespeak.net/svn/pypy/dist/
-.. _coding-guide: coding-guide.html 
+.. _coding-guide: coding-guide.html

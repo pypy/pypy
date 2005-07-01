@@ -351,7 +351,7 @@ interpreter and standard object space into a lower-level language.  In
 order for our translation and type inference mechanisms to work
 effectively, we need to restrict the dynamism of our interpreter-level
 Python code at some point.  However, in the start-up phase, we are
-completly free to use all kind of nice python constructs, including
+completely free to use all kind of nice python constructs, including
 metaclasses and execution of dynamically constructed strings.  However,
 when the initialization phase (mainly, the function
 ``objspace.initialize()``) finishes, all code objects involved need to
@@ -367,7 +367,7 @@ graph are basic blocks consisting of Object Space operations, flowing
 of values, and an exitswitch to one, two or multiple links which connect
 each basic block to other basic blocks. 
 
-The flow graphs are fed as input into the Annotator. The Annotator,
+The flow graphs are fed as input into the Annotator.  The Annotator,
 given entry point types, infers the types of values that flow through
 the program variables.  Here, the definition of `RPython`_ comes
 again into play: RPython code is restricted in such a way that the
@@ -383,7 +383,7 @@ pretty stable now, and able to process the whole of PyPy, the RPython
 definition will probably continue to shift marginally as we improve it.
 
 The actual low-level code (and, in fact, also other high-level code) is
-emitted by "visiting" the type-annotated flow graph. Currently, we have
+emitted by "visiting" the type-annotated flow graph.  Currently we have
 a C-producing backend, and an LLVM-producing backend.  The former also
 accepts non-annotated or partially-annotated graphs, which allow us to
 test it on a larger class of programs than what the Annotator can (or

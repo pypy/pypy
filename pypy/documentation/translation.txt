@@ -29,7 +29,7 @@ Here are the steps we follow to translate a given program:
 
 2. The `Flow Object Space`_ processes the input program, turning each
    function independently into a `control flow graph`_ data structure
-   recording sequences of basic operations in 
+   recording sequences of basic operations in
    static single assignment form `SSA`_.
 
 3. Optionally, the Annotator_ performs global type inference on the
@@ -67,56 +67,56 @@ The annotation pass
 
 (INCOMPLETE DRAFT)
 
-We describe below how a control flow graph can be "annotated" to 
-discover the types of the objects.  This annotation pass is a form of 
-type inference.  It is done after control flow graphs are built by the 
-FlowObjSpace, but before these graphs are translated into low-level code 
+We describe below how a control flow graph can be "annotated" to
+discover the types of the objects.  This annotation pass is a form of
+type inference.  It is done after control flow graphs are built by the
+FlowObjSpace, but before these graphs are translated into low-level code
 (e.g. C/Lisp/Pyrex).
 
 
 Model
 ------------------------
 
-The major goal of the annotator is to "annotate" each variable that 
-appears in a flow graph.  An "annotation" describes all the possible 
-Python objects that this variable could contain at run-time, based on a 
+The major goal of the annotator is to "annotate" each variable that
+appears in a flow graph.  An "annotation" describes all the possible
+Python objects that this variable could contain at run-time, based on a
 whole-program analysis of all the flow graphs --- one per function.
 
-An "annotation" is an instance of ``SomeObject``.  There are subclasses 
-that are meant to represent specific families of objects.  Note that 
-these classes are all meant to be instantiated; the classes ``SomeXxx`` 
+An "annotation" is an instance of ``SomeObject``.  There are subclasses
+that are meant to represent specific families of objects.  Note that
+these classes are all meant to be instantiated; the classes ``SomeXxx``
 themselves are not the annotations.
 
 Here is an overview (see ``pypy.annotation.model``):
 
-* ``SomeObject`` is the base class.  An instance ``SomeObject()`` 
-  represents any Python object.  It is used for the case where we don't 
-  have enough information to be more precise.  In practice, the presence 
-  of ``SomeObject()`` means that we have to make the annotated source code 
+* ``SomeObject`` is the base class.  An instance ``SomeObject()``
+  represents any Python object.  It is used for the case where we don't
+  have enough information to be more precise.  In practice, the presence
+  of ``SomeObject()`` means that we have to make the annotated source code
   simpler or the annotator smarter.
 
-* ``SomeInteger()`` represents any integer.  
+* ``SomeInteger()`` represents any integer.
   ``SomeInteger(nonneg=True)`` represent a non-negative integer (``>=0``).
 
-* ``SomeString()`` represents any string; ``SomeChar()`` a string of 
+* ``SomeString()`` represents any string; ``SomeChar()`` a string of
   length 1.
 
-* ``SomeTuple([s1,s2,..,sn])`` represents a tuple of length ``n``.  The 
-  elements in this tuple are themselves constrained by the given list of 
-  annotations.  For example, ``SomeTuple([SomeInteger(), SomeString()])`` 
+* ``SomeTuple([s1,s2,..,sn])`` represents a tuple of length ``n``.  The
+  elements in this tuple are themselves constrained by the given list of
+  annotations.  For example, ``SomeTuple([SomeInteger(), SomeString()])``
   represents a tuple with two items: an integer and a string.
 
-There are more complex subclasses of ``SomeObject`` that we describe in 
+There are more complex subclasses of ``SomeObject`` that we describe in
 more details below.
 
-All the ``SomeXxx`` instances can optionally have a ``const`` attribute, 
-which means that we know exactly which Python object the Variable will 
+All the ``SomeXxx`` instances can optionally have a ``const`` attribute,
+which means that we know exactly which Python object the Variable will
 contain.
 
-All the ``SomeXxx`` instances are supposed to be immutable.  The 
-annotator manages a dictionary mapping Variables (which appear in flow 
-graphs) to ``SomeXxx`` instances; if it needs to revise its belief about 
-what a Variable can contain, it does so by updating this dictionary, not 
+All the ``SomeXxx`` instances are supposed to be immutable.  The
+annotator manages a dictionary mapping Variables (which appear in flow
+graphs) to ``SomeXxx`` instances; if it needs to revise its belief about
+what a Variable can contain, it does so by updating this dictionary, not
 the ``SomeXxx`` instance.
 
 
@@ -124,18 +124,18 @@ the ``SomeXxx`` instance.
 Annotator
 --------------------------
 
-The annotator itself (``pypy.translator.annrpython``) works by 
-propagating the annotations forward in the flow graphs, starting at some 
-entry point function, possibly with explicitely provided annotations 
-about the entry point's input arguments.  It considers each operation in 
-the flow graph in turn.  Each operation takes a few input arguments 
-(Variables and Constants) and produce a single result (a Variable).  
-Depending on the input argument's annotations, an annotation about the 
-operation result is produced.  The exact rules to do this are provided 
-by the whole ``pypy.annotation`` subdirectory, which defines all the 
-cases in detail according to the R-Python semantics.  For example, if 
-the operation is 'v3=add(v1,v2)' and the Variables v1 and v2 are 
-annotated with ``SomeInteger()``, then v3 also receives the annotation 
+The annotator itself (``pypy.translator.annrpython``) works by
+propagating the annotations forward in the flow graphs, starting at some
+entry point function, possibly with explicitely provided annotations
+about the entry point's input arguments.  It considers each operation in
+the flow graph in turn.  Each operation takes a few input arguments
+(Variables and Constants) and produce a single result (a Variable).
+Depending on the input argument's annotations, an annotation about the
+operation result is produced.  The exact rules to do this are provided
+by the whole ``pypy.annotation`` subdirectory, which defines all the
+cases in detail according to the R-Python semantics.  For example, if
+the operation is 'v3=add(v1,v2)' and the Variables v1 and v2 are
+annotated with ``SomeInteger()``, then v3 also receives the annotation
 ``SomeInteger()``.  So for example the function::
 
     def f(n):
@@ -145,22 +145,22 @@ corresponds to the flow graph::
 
     start ----------.
                     |
-                    V 
+                    V
            +-------------------+
            |  v2 = add(v1, 1)  |
            +-------------------+
                     |
                     `---> return block
 
-If the annotator is told that v1 is ``SomeInteger()``, then it will 
-deduce that v2 (and hence the function's return value) is 
+If the annotator is told that v1 is ``SomeInteger()``, then it will
+deduce that v2 (and hence the function's return value) is
 ``SomeInteger()``.
 
 .. _above:
 
-This step-by-step annotation phase proceeds through all the operations 
-in a block, and then along the links between the blocks of the flow 
-graph.  If there are loops in the flow graph, then the links will close 
+This step-by-step annotation phase proceeds through all the operations
+in a block, and then along the links between the blocks of the flow
+graph.  If there are loops in the flow graph, then the links will close
 back to already-seen blocks, as in::
 
     def g(n):
@@ -189,60 +189,60 @@ whose flow graph is::
                     |  m3 = sub(n3, 1)   |---'
                     +--------------------+
 
-Be sure to follow the variable renaming that occurs systematically 
-across each link in a flow graph.  In the above example the Variables 
-have been given names similar to the name of the original variables in 
-the source code (the FlowObjSpace tries to do this too) but keep in mind 
+Be sure to follow the variable renaming that occurs systematically
+across each link in a flow graph.  In the above example the Variables
+have been given names similar to the name of the original variables in
+the source code (the FlowObjSpace tries to do this too) but keep in mind
 that all Variables are different: n1, n2, i2, v2, n3, i3, j3, m3.
 
-Assume that we call the annotator with an input annotation of 
-``SomeInteger()`` for n1.  Following the links from the start, the 
-annotator will first believe that the Variable i2, whose value comes 
-from the constant 0 of the first link, must always be zero.  It will 
-thus use the annotation ``SomeInteger(const=0)`` for i2.  Then it will 
-propagate the annotations through both blocks, and find that v2 is 
-``SomeBool()`` and all other variables are ``SomeInteger()``.  In 
-particular, the annotation of j3 is different from the annotation of the 
-Variable i2 into which it is copied (via the back-link).  More 
-precisely, j3 is ``SomeInteger()`` but i2 is the more specific 
-``SomeInteger(const=0)``.  This means that the assumption that i2 must 
-always be zero is found to be wrong.  At this point, the annotation of 
-i2 is *generalized* to include both the existing and the new annotation.  
-(This is the purpose of ``pypy.annotation.model.unionof()``).  Then 
+Assume that we call the annotator with an input annotation of
+``SomeInteger()`` for n1.  Following the links from the start, the
+annotator will first believe that the Variable i2, whose value comes
+from the constant 0 of the first link, must always be zero.  It will
+thus use the annotation ``SomeInteger(const=0)`` for i2.  Then it will
+propagate the annotations through both blocks, and find that v2 is
+``SomeBool()`` and all other variables are ``SomeInteger()``.  In
+particular, the annotation of j3 is different from the annotation of the
+Variable i2 into which it is copied (via the back-link).  More
+precisely, j3 is ``SomeInteger()`` but i2 is the more specific
+``SomeInteger(const=0)``.  This means that the assumption that i2 must
+always be zero is found to be wrong.  At this point, the annotation of
+i2 is *generalized* to include both the existing and the new annotation.
+(This is the purpose of ``pypy.annotation.model.unionof()``).  Then
 these more general annotations must again be propagated forward.
 
-This process of successive generalizations continues until the 
-annotations stabilize.  In the above example, it is sufficient to 
-re-analyse the first block once, but in general it can take several 
-iterations to reach a fixpoint.  Annotations may also be propagated from 
-one flow graph to another and back repeatedly, across ``call`` 
-operations.  The overall model should ensure that this process 
-eventually terminates under reasonable conditions.  Note that as long as 
-the process is not finished, the annotations given to the Variables are 
-wrong, in the sense that they are too specific; at run-time, the 
-Variables will possibly contain Python objects outside the set defined 
+This process of successive generalizations continues until the
+annotations stabilize.  In the above example, it is sufficient to
+re-analyse the first block once, but in general it can take several
+iterations to reach a fixpoint.  Annotations may also be propagated from
+one flow graph to another and back repeatedly, across ``call``
+operations.  The overall model should ensure that this process
+eventually terminates under reasonable conditions.  Note that as long as
+the process is not finished, the annotations given to the Variables are
+wrong, in the sense that they are too specific; at run-time, the
+Variables will possibly contain Python objects outside the set defined
 by the annotation, and the annotator doesn't know it yet.
 
 
 Description of the available types
 -----------------------------------------------
 
-The reference and the details for the annotation model is found in the 
-module ``pypy.annotation.model``.  We describe below the issues related 
+The reference and the details for the annotation model is found in the
+module ``pypy.annotation.model``.  We describe below the issues related
 to the various kinds of annotations.
 
 
 Simple Types
 ++++++++++++
 
-``SomeInteger``, ``SomeBool``, ``SomeString``, ``SomeChar`` all stands 
+``SomeInteger``, ``SomeBool``, ``SomeString``, ``SomeChar`` all stands
 for the obvious corresponding set of immutable Python objects.
 
 
 Tuples
 ++++++
 
-``SomeTuple`` only considers tuples of known length.  We don't try to 
+``SomeTuple`` only considers tuples of known length.  We don't try to
 handle tuples of varying length (the program should use lists instead).
 
 
@@ -337,46 +337,46 @@ from all the read positions is also scheduled.
 User-defined Classes and Instances
 ++++++++++++++++++++++++++++++++++
 
-``SomeInstance`` stands for an instance of the given class or any 
-subclass of it.  For each user-defined class seen by the annotator, we 
-maintain a ClassDef (``pypy.annotation.classdef``) describing the 
-attributes of the instances of the class; essentially, a ClassDef gives 
-the set of all class-level and instance-level attributes, and for each 
+``SomeInstance`` stands for an instance of the given class or any
+subclass of it.  For each user-defined class seen by the annotator, we
+maintain a ClassDef (``pypy.annotation.classdef``) describing the
+attributes of the instances of the class; essentially, a ClassDef gives
+the set of all class-level and instance-level attributes, and for each
 one, a corresponding ``SomeXxx`` annotation.
 
-Instance-level attributes are discovered progressively as the annotation 
+Instance-level attributes are discovered progressively as the annotation
 progresses.  Assignments like::
 
    inst.attr = value
 
-update the ClassDef of the given instance to record that the given 
+update the ClassDef of the given instance to record that the given
 attribute exists and can be as general as the given value.
 
-For every attribute, the ClassDef also records all the positions where 
-the attribute is *read*.  If, at some later time, we discover an 
-assignment that forces the annotation about the attribute to be 
-generalized, then all the places that read the attribute so far are 
-marked as invalid and the annotator will have to restart its analysis 
+For every attribute, the ClassDef also records all the positions where
+the attribute is *read*.  If, at some later time, we discover an
+assignment that forces the annotation about the attribute to be
+generalized, then all the places that read the attribute so far are
+marked as invalid and the annotator will have to restart its analysis
 from there.
 
-The distinction between instance-level and class-level attributes is 
-thin; class-level attributes are essentially considered as initial 
-values for instance-level attributes.  Methods are not special in this 
-respect, except that they are bound to the instance (i.e. ``self = 
-SomeInstance(cls)``) when considered as the initial value for the 
+The distinction between instance-level and class-level attributes is
+thin; class-level attributes are essentially considered as initial
+values for instance-level attributes.  Methods are not special in this
+respect, except that they are bound to the instance (i.e. ``self =
+SomeInstance(cls)``) when considered as the initial value for the
 instance.
 
-The inheritance rules are as follows: the union of two ``SomeInstance`` 
-annotations is the ``SomeInstance`` of the most precise common base 
-class.  If an attribute is considered (i.e. read or written) through a 
-``SomeInstance`` of a parent class, then we assume that all subclasses 
-also have the same attribute, and that the same annotation applies to 
-them all (so code like ``return self.x`` in a method of a parent class 
-forces the parent class and all its subclasses to have an attribute 
-``x``, whose annotation is general enough to contain all the values that 
-all the subclasses might want to store in ``x``).  However, distinct 
-subclasses can have attributes of the same names with different, 
-unrelated annotations if they are not used in a general way through the 
+The inheritance rules are as follows: the union of two ``SomeInstance``
+annotations is the ``SomeInstance`` of the most precise common base
+class.  If an attribute is considered (i.e. read or written) through a
+``SomeInstance`` of a parent class, then we assume that all subclasses
+also have the same attribute, and that the same annotation applies to
+them all (so code like ``return self.x`` in a method of a parent class
+forces the parent class and all its subclasses to have an attribute
+``x``, whose annotation is general enough to contain all the values that
+all the subclasses might want to store in ``x``).  However, distinct
+subclasses can have attributes of the same names with different,
+unrelated annotations if they are not used in a general way through the
 parent class.
 
 
@@ -443,24 +443,24 @@ http://codespeak.net/svn/pypy/dist/pypy/rpython/
 Overview
 --------
 
-The RPython Typer is the bridge between the Annotator_ and the low-level code 
-generators.  The annotator computes types (or "annotations") that are 
-high-level, in the sense that they describe RPython types like lists or 
-instances of user-defined classes.  In general, though, to emit code we need 
-to represent these high-level annotations into the low-level model of the 
-target language; for C, this means structures and pointers and arrays.  The 
-Typer both determines the appropriate low-level type for each annotation, and 
-tries to replace *all* operations in the control flow graphs with one or a few 
-low-level operations.  Just like low-level types, there is only a fairly 
-restricted set of low-level operations, along the lines of reading or writing 
+The RPython Typer is the bridge between the Annotator_ and the low-level code
+generators.  The annotator computes types (or "annotations") that are
+high-level, in the sense that they describe RPython types like lists or
+instances of user-defined classes.  In general, though, to emit code we need
+to represent these high-level annotations into the low-level model of the
+target language; for C, this means structures and pointers and arrays.  The
+Typer both determines the appropriate low-level type for each annotation, and
+tries to replace *all* operations in the control flow graphs with one or a few
+low-level operations.  Just like low-level types, there is only a fairly
+restricted set of low-level operations, along the lines of reading or writing
 from or to a field of a structure.
 
-In theory, this step is optional; some code generators might be able to read 
-directly the high-level types.  However, we expect that case to be the 
-exception.  "Compiling" high-level types into low-level ones is rather more 
-messy than one would expect.  This was the motivation for making this step 
-explicit and isolated in a single place.  After Typing, the graphs can only 
-contain very few operations, which makes the job of the code generators much 
+In theory, this step is optional; some code generators might be able to read
+directly the high-level types.  However, we expect that case to be the
+exception.  "Compiling" high-level types into low-level ones is rather more
+messy than one would expect.  This was the motivation for making this step
+explicit and isolated in a single place.  After Typing, the graphs can only
+contain very few operations, which makes the job of the code generators much
 simpler.
 
 
@@ -481,77 +481,77 @@ then obviously we want to type it and replace it with::
 
     v3 = int_add(v1, v2)
 
-where -- in C notation -- all three variables v1, v2 and v3 are typed ``int``.  
-This is done by attaching an attribute ``concretetype`` to v1, v2 and v3 
-(which might be instances of Variable or possibly Constant).  In our model, 
-this ``concretetype`` is ``pypy.rpython.lltype.Signed``.  Of course, the 
-purpose of replacing the operation called ``add`` with ``int_add`` is that 
-code generators no longer have to worry about what kind of addition (or 
+where -- in C notation -- all three variables v1, v2 and v3 are typed ``int``.
+This is done by attaching an attribute ``concretetype`` to v1, v2 and v3
+(which might be instances of Variable or possibly Constant).  In our model,
+this ``concretetype`` is ``pypy.rpython.lltype.Signed``.  Of course, the
+purpose of replacing the operation called ``add`` with ``int_add`` is that
+code generators no longer have to worry about what kind of addition (or
 concatenation maybe?) it means.
 
 
 The process in more details
 ---------------------------
 
-The RPython Typer has a structure similar to that of the Annotator_: both 
-consider each block of the flow graphs in turn, and perform some analysis on 
-each operation.  In both cases the analysis of an operation depends on the 
-annotations of its input arguments.  This is reflected in the usage of the same 
-``__extend__`` syntax in the source files (compare e.g. 
+The RPython Typer has a structure similar to that of the Annotator_: both
+consider each block of the flow graphs in turn, and perform some analysis on
+each operation.  In both cases the analysis of an operation depends on the
+annotations of its input arguments.  This is reflected in the usage of the same
+``__extend__`` syntax in the source files (compare e.g.
 `annotation/binaryop.py`_ and `rpython/rint.py`_).
 
-The analogy stops here, though: while it runs, the Annotator is in the middle 
-of computing the annotations, so it might need to reflow and generalize until 
-a fixpoint is reached.  The Typer, by contrast, works on the final annotations 
-that the Annotator computed, without changing them, assuming that they are 
-globally consistent.  There is no need to reflow: the Typer considers each 
-block only once.  And unlike the Annotator, the Typer completely modifies the 
+The analogy stops here, though: while it runs, the Annotator is in the middle
+of computing the annotations, so it might need to reflow and generalize until
+a fixpoint is reached.  The Typer, by contrast, works on the final annotations
+that the Annotator computed, without changing them, assuming that they are
+globally consistent.  There is no need to reflow: the Typer considers each
+block only once.  And unlike the Annotator, the Typer completely modifies the
 flow graph, by replacing each operation with some low-level operations.
 
-In addition to replacing operations, the RTyper creates a ``concretetype`` 
-attribute on all Variables and Constants in the flow graphs, which tells code 
-generators which type to use for each of them.  This attribute is a 
+In addition to replacing operations, the RTyper creates a ``concretetype``
+attribute on all Variables and Constants in the flow graphs, which tells code
+generators which type to use for each of them.  This attribute is a
 `low-level type`_, as described below.
 
 
 Representations
 ---------------
 
-Representations -- the Repr classes -- are the most important internal classes 
-used by the RTyper.  (They are internal in the sense that they are an 
-"implementation detail" and their instances just go away after the RTyper is 
-finished; the code generators should only use the ``concretetype`` attributes, 
+Representations -- the Repr classes -- are the most important internal classes
+used by the RTyper.  (They are internal in the sense that they are an
+"implementation detail" and their instances just go away after the RTyper is
+finished; the code generators should only use the ``concretetype`` attributes,
 which are not Repr instances but `low-level types`_.)
 
-A representation contains all the logic about mapping a specific SomeXxx() 
-annotation to a specific low-level type.  For the time being, the RTyper 
-assumes that each SomeXxx() instance needs only one "canonical" representation.  
-For example, all variables annotated with SomeInteger() will correspond to the 
-``Signed`` low-level type via the ``IntegerRepr`` representation.  More subtly, 
-variables annotated SomeList() can correspond either to a structure holding an 
-array of items of the correct type, or -- if the list in question is just a 
+A representation contains all the logic about mapping a specific SomeXxx()
+annotation to a specific low-level type.  For the time being, the RTyper
+assumes that each SomeXxx() instance needs only one "canonical" representation.
+For example, all variables annotated with SomeInteger() will correspond to the
+``Signed`` low-level type via the ``IntegerRepr`` representation.  More subtly,
+variables annotated SomeList() can correspond either to a structure holding an
+array of items of the correct type, or -- if the list in question is just a
 range() with a constant step -- a structure with just start and stop fields.
 
-This example shows that two representations may need very different low-level 
-implementations for the same high-level operations.  This is the reason for 
+This example shows that two representations may need very different low-level
+implementations for the same high-level operations.  This is the reason for
 turning representations into explicit objects.
 
-The base Repr class is defined in `rpython/rmodel.py`_.  Most of the 
-``rpython/r*.py`` files define one or a few subclasses of Repr.  The method 
-getrepr() of the RTyper will build and cache a single Repr instance per 
-SomeXxx() instance; moreover, two SomeXxx() instances that are equal get the 
+The base Repr class is defined in `rpython/rmodel.py`_.  Most of the
+``rpython/r*.py`` files define one or a few subclasses of Repr.  The method
+getrepr() of the RTyper will build and cache a single Repr instance per
+SomeXxx() instance; moreover, two SomeXxx() instances that are equal get the
 same Repr instance.
 
-The key attribute of a Repr instance is called ``lowleveltype``, which is what 
-gets copied into the attribute ``concretetype`` of the Variables that have been 
-given this representation.  The RTyper also computes a ``concretetype`` for 
-Constants, to match the way they are used in the low-level operations (for 
-example, ``int_add(x, 1)`` requires a ``Constant(1)`` with 
-``concretetype=Signed``, but an untyped ``add(x, 1)`` works with a 
+The key attribute of a Repr instance is called ``lowleveltype``, which is what
+gets copied into the attribute ``concretetype`` of the Variables that have been
+given this representation.  The RTyper also computes a ``concretetype`` for
+Constants, to match the way they are used in the low-level operations (for
+example, ``int_add(x, 1)`` requires a ``Constant(1)`` with
+``concretetype=Signed``, but an untyped ``add(x, 1)`` works with a
 ``Constant(1)`` that must actually be a PyObject at run-time).
 
-In addition to ``lowleveltype``, each Repr subclass provides a set of methods 
-called ``rtype_op_xxx()`` which define how each high-level operation ``op_xxx`` 
+In addition to ``lowleveltype``, each Repr subclass provides a set of methods
+called ``rtype_op_xxx()`` which define how each high-level operation ``op_xxx``
 is turned into low-level operations.
 
 
@@ -560,29 +560,29 @@ is turned into low-level operations.
 Low-Level Types
 ---------------
 
-The RPython Typer uses a standard low-level model which we believe can 
-correspond rather directly to various target languages from C to LLVM to Java.  
+The RPython Typer uses a standard low-level model which we believe can
+correspond rather directly to various target languages from C to LLVM to Java.
 This model is implemented in the first part of `rpython/lltype.py`_.
 
-The second part of `rpython/lltype.py`_ is a runnable implementation of these 
-types, for testing purposes.  It allows us to write and test plain Python code 
-using a malloc() function to obtain and manipulate structures and arrays.  
-This is useful for example to implement and test RPython types like 'list' with 
+The second part of `rpython/lltype.py`_ is a runnable implementation of these
+types, for testing purposes.  It allows us to write and test plain Python code
+using a malloc() function to obtain and manipulate structures and arrays.
+This is useful for example to implement and test RPython types like 'list' with
 its operations and methods.
 
-The basic assumption is that Variables (i.e. local variables and function 
-arguments and return value) all contain "simple" values: basically, just 
-integers or pointers.  All the "container" data structures (struct and array) 
-are allocated in the heap, and they are always manipulated via pointers.  
+The basic assumption is that Variables (i.e. local variables and function
+arguments and return value) all contain "simple" values: basically, just
+integers or pointers.  All the "container" data structures (struct and array)
+are allocated in the heap, and they are always manipulated via pointers.
 (There is no equivalent to the C notion of local variable of a ``struct`` type.)
 
-Here is a quick tour (NOTE: this is up-to-date with the Subversion head.  If you 
-have some older version, the ``lltype`` module might be called ``lltypes`` and 
+Here is a quick tour (NOTE: this is up-to-date with the Subversion head.  If you
+have some older version, the ``lltype`` module might be called ``lltypes`` and
 you may need to add or remove a few ``Gc`` prefixes here and there)::
 
     >>> from pypy.rpython.lltype import *
 
-Here are a few primitive low-level types, and the typeOf() function to figure 
+Here are a few primitive low-level types, and the typeOf() function to figure
 them out::
 
     >>> Signed
@@ -594,19 +594,19 @@ them out::
     >>> typeOf('x')
     <Char>
 
-Let's say that we want to build a type "point", which is a structure with two 
+Let's say that we want to build a type "point", which is a structure with two
 integer fields "x" and "y"::
 
     >>> POINT = GcStruct('point', ('x', Signed), ('y', Signed))
     >>> POINT
     <GcStruct point { x: Signed, y: Signed }>
 
-The structure is a ``GcStruct``, which means a structure that can be allocated 
-in the heap and eventually freed by some garbage collector.  (For platforms 
-where we use reference counting, think about ``GcStruct`` as a struct with an 
+The structure is a ``GcStruct``, which means a structure that can be allocated
+in the heap and eventually freed by some garbage collector.  (For platforms
+where we use reference counting, think about ``GcStruct`` as a struct with an
 additional reference counter field.)
 
-Giving a name ('point') to the GcStruct is only for clarity: it is used in the 
+Giving a name ('point') to the GcStruct is only for clarity: it is used in the
 representation.
 
     >>> p = malloc(POINT)
@@ -618,22 +618,22 @@ representation.
     >>> p
     <ptr(gc) to struct point { x=5, y=0 }>
 
-``malloc()`` allocates a structure from the heap, initalizes it to 0 
-(currently), and returns a pointer to it.  The point of all this is to work with 
-a very limited, easily controllable set of types, and define implementations of 
-types like list in this elementary world.  The ``malloc()`` function is a kind 
-of placeholder, which must eventually be provided by the code generator for the 
+``malloc()`` allocates a structure from the heap, initalizes it to 0
+(currently), and returns a pointer to it.  The point of all this is to work with
+a very limited, easily controllable set of types, and define implementations of
+types like list in this elementary world.  The ``malloc()`` function is a kind
+of placeholder, which must eventually be provided by the code generator for the
 target platform; but as we have just seen its Python implementation in `
-rpython/lltype.py`_ works too, which is primarily useful for testing, 
+rpython/lltype.py`_ works too, which is primarily useful for testing,
 interactive exploring, etc.
 
-The argument to ``malloc()`` is the structure type directly, but it returns a 
+The argument to ``malloc()`` is the structure type directly, but it returns a
 pointer to the structure, as ``typeOf()`` tells you::
 
     >>> typeOf(p)
     <ptr(gc) to GcStruct point { x: Signed, y: Signed }>
 
-For the purpose of creating structures with pointers to other structures, we can 
+For the purpose of creating structures with pointers to other structures, we can
 declare pointer types explicitely::
 
     >>> typeOf(p) == Ptr(POINT)
@@ -647,7 +647,7 @@ declare pointer types explicitely::
     >>> b.p2.y
     42
 
-The world of low-level types is more complicated than integers and GcStructs, 
+The world of low-level types is more complicated than integers and GcStructs,
 though.  The next pages are a reference guide.
 
 
@@ -682,26 +682,26 @@ Structure types are built as instances of ``pypy.rpython.lltype.Struct``::
     MyStructType = Struct('somename',  ('field1', Type1), ('field2', Type2)...)
     MyStructType = GcStruct('somename',  ('field1', Type1), ('field2', Type2)...)
 
-This declares a structure (or a Pascal ``record``) containing the specified 
-named fields with the given types.  The field names cannot start with an 
-underscore.  As noted above, you cannot directly manipulate structure objects, 
+This declares a structure (or a Pascal ``record``) containing the specified
+named fields with the given types.  The field names cannot start with an
+underscore.  As noted above, you cannot directly manipulate structure objects,
 but only pointer to structures living in the heap.
 
-By contrast, the fields themselves can be of primitive, pointer or container 
-type.  When a structure contains another structure as a field we say that the 
-latter is "inlined" in the former: the bigger structure contains the smaller one 
+By contrast, the fields themselves can be of primitive, pointer or container
+type.  When a structure contains another structure as a field we say that the
+latter is "inlined" in the former: the bigger structure contains the smaller one
 as part of its memory layout.
 
-A structure can also contain an inlined array (see below), but only as its last 
-field: in this case it is a "variable-sized" structure, whose memory layout 
-starts with the non-variable fields and ends with a variable number of array 
-items.  This number is determined when a structure is allocated in the heap.  
+A structure can also contain an inlined array (see below), but only as its last
+field: in this case it is a "variable-sized" structure, whose memory layout
+starts with the non-variable fields and ends with a variable number of array
+items.  This number is determined when a structure is allocated in the heap.
 Variable-sized structures cannot be inlined in other structures.
 
-GcStructs have a platform-specific GC header (e.g. a reference counter); only 
-these can be dynamically malloc()ed.  The non-GC version of Struct does not have 
-any header, and is suitable for being embedded ("inlined") inside other 
-structures.  As an exception, a GcStruct can be embedded as the first field of a 
+GcStructs have a platform-specific GC header (e.g. a reference counter); only
+these can be dynamically malloc()ed.  The non-GC version of Struct does not have
+any header, and is suitable for being embedded ("inlined") inside other
+structures.  As an exception, a GcStruct can be embedded as the first field of a
 GcStruct: the parent structure uses the same GC header as the substructure.
 
 
@@ -718,47 +718,47 @@ Or, for arrays whose items are structures, as a shortcut::
 
     MyArrayType = Array(('field1', Type1), ('field2', Type2)...)
 
-You can build arrays whose items are either primitive or pointer types, or 
+You can build arrays whose items are either primitive or pointer types, or
 (non-GC non-varsize) structures.
 
-GcArrays can be malloc()ed.  The length must be specified when malloc() is 
-called, and arrays cannot be resized; this length is stored explicitely in a 
+GcArrays can be malloc()ed.  The length must be specified when malloc() is
+called, and arrays cannot be resized; this length is stored explicitely in a
 header.
 
-The non-GC version of Array can be used as the last field of a structure, to 
-make a variable-sized structure.  The whole structure can then be malloc()ed, 
+The non-GC version of Array can be used as the last field of a structure, to
+make a variable-sized structure.  The whole structure can then be malloc()ed,
 and the length of the array is specified at this time.
 
 
 Pointer Types
 +++++++++++++
 
-As in C, pointers provide the indirection needed to make a reference modifiable 
-or sharable.  Pointers can only point to a structure, an array, a function 
-(see below) or a PyObject (see below).  Pointers to primitive types, if needed, 
-must be done by pointing to a structure with a single field of the required 
+As in C, pointers provide the indirection needed to make a reference modifiable
+or sharable.  Pointers can only point to a structure, an array, a function
+(see below) or a PyObject (see below).  Pointers to primitive types, if needed,
+must be done by pointing to a structure with a single field of the required
 type.  Pointer types are declared by::
 
    Ptr(TYPE)
 
-At run-time, pointers to GC structures (GcStruct, GcArray and PyObject) hold a 
-reference to what they are pointing to.  Pointers to non-GC structures that can 
-go away when their container is deallocated (Struct, Array) must be handled 
-with care: the bigger structure of which they are part of could be freed while 
-the Ptr to the substructure is still in use.  In general, it is a good idea to 
-avoid passing around pointers to inlined substructures of malloc()ed structures.  
-(The testing implementation of `rpython/lltype.py`_ checks to some extend that 
-you are not trying to use a pointer to a structure after its container has been 
-freed, using weak references.  But pointers to non-GC structures are not 
-officially meant to be weak references: using them after what they point to has 
+At run-time, pointers to GC structures (GcStruct, GcArray and PyObject) hold a
+reference to what they are pointing to.  Pointers to non-GC structures that can
+go away when their container is deallocated (Struct, Array) must be handled
+with care: the bigger structure of which they are part of could be freed while
+the Ptr to the substructure is still in use.  In general, it is a good idea to
+avoid passing around pointers to inlined substructures of malloc()ed structures.
+(The testing implementation of `rpython/lltype.py`_ checks to some extend that
+you are not trying to use a pointer to a structure after its container has been
+freed, using weak references.  But pointers to non-GC structures are not
+officially meant to be weak references: using them after what they point to has
 been freed just crashes.)
 
-The malloc() operation allocates and returns a Ptr to a new GC structure or 
-array.  In a refcounting implementation, malloc() would allocate enough space 
-for a reference counter before the actual structure, and initialize it to 1.  
-Note that the testing implementation also allows malloc() to allocate a non-GC 
-structure or array with a keyword argument ``immortal=True``.  Its purpose is to 
-declare and initialize prebuilt data structures which the code generators will 
+The malloc() operation allocates and returns a Ptr to a new GC structure or
+array.  In a refcounting implementation, malloc() would allocate enough space
+for a reference counter before the actual structure, and initialize it to 1.
+Note that the testing implementation also allows malloc() to allocate a non-GC
+structure or array with a keyword argument ``immortal=True``.  Its purpose is to
+declare and initialize prebuilt data structures which the code generators will
 turn into static immortal non-GC'ed data.
 
 
@@ -769,15 +769,15 @@ The declaration::
 
     MyFuncType = FuncType([Type1, Type2, ...], ResultType)
 
-declares a function type taking arguments of the given types and returning a 
-result of the given type.  All these types must be primitives or pointers.  The 
-function type itself is considered to be a "container" type: if you wish, a 
-function contains the bytes that make up its executable code.  As with 
+declares a function type taking arguments of the given types and returning a
+result of the given type.  All these types must be primitives or pointers.  The
+function type itself is considered to be a "container" type: if you wish, a
+function contains the bytes that make up its executable code.  As with
 structures and arrays, they can only be manipulated through pointers.
 
-The testing implementation allows you to "create" functions by calling 
-``functionptr(TYPE, name, **attrs)``.  The extra attributes describe the 
-function in a way that isn't fully specified now, but the following attributes 
+The testing implementation allows you to "create" functions by calling
+``functionptr(TYPE, name, **attrs)``.  The extra attributes describe the
+function in a way that isn't fully specified now, but the following attributes
 *might* be present:
 
     :_callable:  a Python callable, typically a function object.
@@ -787,16 +787,16 @@ function in a way that isn't fully specified now, but the following attributes
 The PyObject Type
 +++++++++++++++++
 
-This is a special type, for compatibility with CPython: it stands for a 
-structure compatible with PyObject.  This is also a "container" type (thinking 
-about C, this is ``PyObject``, not ``PyObject*``), so it is usually manipulated 
-via a Ptr.  A typed graph can still contain generic space operations (add, 
-getitem, etc.) provided they are applied on objects whose low-level type is 
-``Ptr(PyObject)``.  In fact, code generators that support this should consider 
-that the default type of a variable, if none is specified, is ``Ptr(PyObject)``.  
+This is a special type, for compatibility with CPython: it stands for a
+structure compatible with PyObject.  This is also a "container" type (thinking
+about C, this is ``PyObject``, not ``PyObject*``), so it is usually manipulated
+via a Ptr.  A typed graph can still contain generic space operations (add,
+getitem, etc.) provided they are applied on objects whose low-level type is
+``Ptr(PyObject)``.  In fact, code generators that support this should consider
+that the default type of a variable, if none is specified, is ``Ptr(PyObject)``.
 In this way, they can generate the correct code for fully-untyped flow graphs.
 
-The testing implementation allows you to "create" PyObjects by calling 
+The testing implementation allows you to "create" PyObjects by calling
 ``pyobjectptr(obj)``.
 
 
@@ -813,21 +813,21 @@ At the moment, for memory management purposes, some back-ends actually require s
 Implementing RPython types
 --------------------------
 
-As hinted above, the RPython types (e.g. 'list') are implemented in some 
-"restricted-restricted Python" format by manipulating only low-level types, as 
-provided by the testing implementation of malloc() and friends.  What occurs 
-then is that the same (tested!) very-low-level Python code -- which looks really 
-just like C -- is then transformed into a flow graph and integrated with the 
-rest of the user program.  In other words, we replace an operation like ``add`` 
-between two variables annotated as SomeList, with a ``direct_call`` operation 
+As hinted above, the RPython types (e.g. 'list') are implemented in some
+"restricted-restricted Python" format by manipulating only low-level types, as
+provided by the testing implementation of malloc() and friends.  What occurs
+then is that the same (tested!) very-low-level Python code -- which looks really
+just like C -- is then transformed into a flow graph and integrated with the
+rest of the user program.  In other words, we replace an operation like ``add``
+between two variables annotated as SomeList, with a ``direct_call`` operation
 invoking this very-low-level list concatenation.
 
-This list concatenation flow graph is then annotated as usual, with one 
-difference: the annotator has to be taught about malloc() and the way the 
-pointer thus obtained can be manipulated.  This generates a flow graph which is 
-hopefully completely annotated with SomePtr() annotation.  Introduced just for 
-this case, SomePtr maps directly to a low-level pointer type.  This is the only 
-change needed to the Annotator to allow it to perform type inference of our 
+This list concatenation flow graph is then annotated as usual, with one
+difference: the annotator has to be taught about malloc() and the way the
+pointer thus obtained can be manipulated.  This generates a flow graph which is
+hopefully completely annotated with SomePtr() annotation.  Introduced just for
+this case, SomePtr maps directly to a low-level pointer type.  This is the only
+change needed to the Annotator to allow it to perform type inference of our
 very-low-level snippets of code.
 
 See for example `rpython/rlist.py`_.
@@ -846,15 +846,15 @@ http://codespeak.net/svn/pypy/dist/pypy/translator/genc/
 Overview
 --------
 
-The task of GenC is to convert a flow graph into C code.  By itself, GenC does 
-not use the annotations in the graph.  It can actually convert unannotated 
-graphs to C.  However, to make use of the annotations if they are present, an 
-extra pass is needed: the `RPython Typer`_, whose task is to modify the flow 
-graph according to the annotations, replacing operations with lower-level C-ish 
+The task of GenC is to convert a flow graph into C code.  By itself, GenC does
+not use the annotations in the graph.  It can actually convert unannotated
+graphs to C.  However, to make use of the annotations if they are present, an
+extra pass is needed: the `RPython Typer`_, whose task is to modify the flow
+graph according to the annotations, replacing operations with lower-level C-ish
 equivalents.
 
-XXX GenC is currently in the process of being updated to use the RPython Typer. 
-More documentation needed when this is done. But the basic principle of creating 
+XXX GenC is currently in the process of being updated to use the RPython Typer.
+More documentation needed when this is done. But the basic principle of creating
 code from flowgraphs is similar to the `Python back-end`_.
 
 
@@ -903,7 +903,7 @@ happens if a class is instantiated: A ``ClassRepr`` is created which then
 generates LLVM code that allocates enough memory for an instance of the class
 and then (if the class or a base class has an ``__init__`` method) tells the
 ``FuncRepr`` of the appropriate ``__init__`` method to generate the code for
-the call to it. 
+the call to it.
 
 Every representation object has some other representations it depends on: A
 ``ListRepr`` of lists instances of a class depends on the ``ClassRepr`` of
@@ -1000,10 +1000,10 @@ http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
 Motivation
 ----------
 
-PyPy often makes use of `application-level`_ helper methods.  
-The idea of the 'geninterplevel' backend is to automatically transform 
-such application level implementations to their equivalent representation 
-at interpreter level.  Then, the RPython to C translation hopefully can 
+PyPy often makes use of `application-level`_ helper methods.
+The idea of the 'geninterplevel' backend is to automatically transform
+such application level implementations to their equivalent representation
+at interpreter level.  Then, the RPython to C translation hopefully can
 produce more efficient code than always re-interpreting these methods.
 
 One property of translation from application level Python to
@@ -1040,26 +1040,26 @@ Example
 
 .. _implementation: http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
 
-Let's try the little example from above_. You might want to look at the 
-flowgraph that it produces. Here, we directly run the Python translation 
-and look at the generated source. See also the header section of the implementation_ 
+Let's try the little example from above_. You might want to look at the
+flowgraph that it produces. Here, we directly run the Python translation
+and look at the generated source. See also the header section of the implementation_
 for the interface::
 
     >>> from pypy.translator.geninterplevel import translate_as_module
     >>> entrypoint, source = translate_as_module("""
-    ... 
+    ...
     ... def g(n):
     ...     i = 0
     ...     while n:
     ...         i = i + n
     ...         n = n - 1
     ...     return i
-    ... 
+    ...
     ... """)
-    
+
 This call has invoked a PyPy interpreter running on FlowObjspace, recorded every
 possible codepath into a flowgraph, and then rendered the following source code::
-    
+
     >>> print source
     #!/bin/env python
     # -*- coding: LATIN-1 -*-

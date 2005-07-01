@@ -1,10 +1,10 @@
 
-Contributors to PyPy 
-==================== 
+Contributors to PyPy
+====================
 
-Here is a list of developers who have committed to the PyPy source 
-code base, ordered by number of commits (which is certainly not a very 
-appropriate measure but it's something):: 
+Here is a list of developers who have committed to the PyPy source
+code base, ordered by number of commits (which is certainly not a very
+appropriate measure but it's something)::
 
     Armin Rigo
     Samuele Pedroni

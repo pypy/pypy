@@ -305,7 +305,7 @@ class __extend__(SomeString):
         getbookkeeper().count("str_join", str)
         s_item = s_list.listdef.read_item()
         if s_item == SomeImpossibleValue():
-            return immutablevalue("")            
+            return immutablevalue("")
         return SomeString()
 
     def iter(str):
@@ -330,7 +330,7 @@ class __extend__(SomeChar):
     def len(chr):
         return immutablevalue(1)
 
-    def method_isspace(chr): 
+    def method_isspace(chr):
         return SomeBool()
 
 class __extend__(SomeUnicodeCodePoint):
