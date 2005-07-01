@@ -19,8 +19,11 @@ extend to the end of the target object (or with the specified size).
             raise TypeError, "buffer object expected"
         if offset < 0:
             raise ValueError, "offset must be zero or positive"
+        # XXX according to CPython 2.4.1. Broken?
+        if size is not None and size < -1:
+            raise ValueError, "size must be zero or positive"
             
-        if size is None:
+        if size is None or size == -1:
             self.buf = object[offset:]
         else:
             self.buf = object[offset:offset+size]
