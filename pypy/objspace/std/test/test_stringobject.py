@@ -142,6 +142,29 @@ class AppTestStringObject:
         assert 'endcase test'.split('test') == ['endcase ', '']
         raises(ValueError, 'abc'.split, '')
 
+    def test_rsplit(self):
+        assert "".rsplit() == []
+        assert " ".rsplit() == []
+        assert "a".rsplit() == ['a']
+        assert "a".rsplit("a", 1) == ['', '']
+        assert " ".rsplit(" ", 1) == ['', '']
+        assert "aa".rsplit("a", 2) == ['', '', '']
+        assert " a ".rsplit() == ['a']
+        assert "a b c".rsplit() == ['a','b','c']
+        assert 'this is the rsplit function'.rsplit() == ['this', 'is', 'the', 'rsplit', 'function']
+        assert 'a|b|c|d'.rsplit('|') == ['a', 'b', 'c', 'd']
+        assert 'a|b|c|d'.rsplit('|', 2) == ['a|b', 'c', 'd']
+        assert 'a b c d'.rsplit(None, 1) == ['a b c', 'd']
+        assert 'a b c d'.rsplit(None, 2) == ['a b', 'c', 'd']
+        assert 'a b c d'.rsplit(None, 3) == ['a', 'b', 'c', 'd']
+        assert 'a b c d'.rsplit(None, 4) == ['a', 'b', 'c', 'd']
+        assert 'a b c d'.rsplit(None, 0) == ['a b c d']
+        assert 'a  b  c  d'.rsplit(None, 2) == ['a  b', 'c', 'd']
+        assert 'a b c d '.rsplit() == ['a', 'b', 'c', 'd']
+        assert 'a//b//c//d'.rsplit('//') == ['a', 'b', 'c', 'd']
+        assert 'endcase test'.rsplit('test') == ['endcase ', '']
+        raises(ValueError, 'abc'.rsplit, '')
+
     def test_split_splitchar(self):
         assert "/a/b/c".split('/') == ['','a','b','c']
 

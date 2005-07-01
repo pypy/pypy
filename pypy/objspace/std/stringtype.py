@@ -5,6 +5,7 @@ from sys import maxint
 
 str_join    = MultiMethod('join', 2)
 str_split   = MultiMethod('split', 3, defaults=(None,-1))
+str_rsplit  = MultiMethod('rsplit', 3, defaults=(None,-1))
 str_isdigit    = MultiMethod('isdigit', 1)
 str_isalpha    = MultiMethod('isalpha', 1)
 str_isspace    = MultiMethod('isspace', 1)

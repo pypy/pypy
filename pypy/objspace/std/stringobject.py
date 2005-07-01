@@ -291,6 +291,70 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
 
     return W_ListObject(w_self.space, res_w)
 
+def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
+    res = []
+    inword = 0
+    value = w_self._value
+    maxsplit = space.int_w(w_maxsplit)
+
+    for i in range(len(value)-1, -1, -1):
+        ch = value[i]
+        if _isspace(ch):
+            if inword:
+                inword = 0
+        else:
+            if inword:
+                ch = ch + res[-1]
+                res[-1] = ch
+            else:
+                if maxsplit > -1:
+                    if maxsplit == 0:
+                        res.append(value[:i+1])
+                        break
+                    maxsplit = maxsplit - 1
+                res.append(ch)
+                inword = 1
+
+    res_w = [None] * len(res)
+    for i in range(len(res)):
+        res_w[i] = W_StringObject(space, res[i])
+    res_w.reverse()
+    return W_ListObject(space, res_w)
+
+def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
+    res_w = []
+    value = w_self._value
+    end = len(value)
+    by = w_by._value
+    bylen = len(by)
+    if bylen == 0:
+        raise OperationError(space.w_ValueError, space.wrap("empty separator"))
+    maxsplit = space.int_w(w_maxsplit)
+
+    #if maxsplit is default, then you have no limit
+    #of the length of the resulting array
+    if maxsplit == -1:
+        splitcount = 1
+    else:
+        splitcount = maxsplit
+
+    while splitcount:
+        next = _find(value, by, 0, end, -1)
+        #next = value.rfind(by, end)    #of course we cannot use 
+                                        #the find method, 
+        if next < 0:
+            break
+        res_w.append(W_StringObject(space, value[next+bylen:end]))
+        end = next
+        #decrese the counter only then, when
+        #we don't have default maxsplit
+        if maxsplit > -1:
+            splitcount = splitcount - 1
+
+    res_w.append(W_StringObject(space, value[:end]))
+    res_w.reverse()
+    return W_ListObject(w_self.space, res_w)
+
 def str_join__String_ANY(space, w_self, w_list):
     list = space.unpackiterable(w_list)
     str_w = space.str_w
