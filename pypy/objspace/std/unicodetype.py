@@ -46,9 +46,6 @@ app = gateway.applevel('''
 import codecs, sys
 
 def unicode_from_encoded_object(obj, encoding, errors):
-    # Fix later for buffer
-    if type(obj).__name__ == 'buffer':
-        obj = str(obj)
     if encoding is None:
         encoding = sys.getdefaultencoding()
     decoder = codecs.getdecoder(encoding)
