@@ -17,6 +17,10 @@ def and_(obj1,obj2):
     'and_(a, b) -- Same as a & b.'
     return obj1 & obj2
 __and__ = and_
+def attrgetter(attr):
+    def f(obj):
+        return getattr(obj, attr)
+    return f
 def concat(obj1, obj2):
     'concat(a, b) -- Same as a + b, for a and b sequences.'
     return obj1 + obj2  # XXX cPython only works on types with sequence api
@@ -40,6 +44,8 @@ def delitem(obj, key):
 __delitem__ = delitem
 def delslice(obj, start, end):
     'delslice(a, b, c) -- Same as del a[b:c].'
+    if not isinstance(start, int) or not isinstance(end, int):
+        raise TypeError("an integer is expected")
     del obj[start:end]
 __delslice__ = delslice
 def div(a,b):
@@ -64,6 +70,8 @@ def getitem(a, b):
 __getitem__ = getitem
 def getslice(a, start, end):
     'getslice(a, b, c) -- Same as a[b:c].'
+    if not isinstance(start, int) or not isinstance(end, int):
+        raise TypeError("an integer is expected")
     return a[start:end] 
 __getslice__ = getslice
 def gt(a,b):
@@ -107,6 +115,10 @@ def is_(a, b):
 def is_not(a, b):
     'is_not(a, b) -- Same as a is not b.'
     return a is not b 
+def itemgetter(idx):
+    def f(obj):
+        return obj[idx]
+    return f
 def le(a, b):
     'le(a, b) -- Same as a<=b.'
     return a <= b 
