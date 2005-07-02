@@ -350,9 +350,11 @@ testmap = [
     RegrTest('test___all__.py', enabled=False, core=True),
         # fixable
     RegrTest('test___future__.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test__locale.py', enabled=True),
     RegrTest('test_aepack.py', enabled=False),
     RegrTest('test_al.py', enabled=False, dumbtest=1),
     RegrTest('test_anydbm.py', enabled=True, core=True),
+    RegrTest('test_applesingle.py', enabled=False),
     RegrTest('test_array.py', enabled=False),
        # c-extension 
        #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
@@ -395,6 +397,17 @@ testmap = [
     RegrTest('test_cmath.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_codeccallbacks.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
+    RegrTest('test_codecencodings_cn.py', enabled=False),
+    RegrTest('test_codecencodings_hk.py', enabled=False),
+    RegrTest('test_codecencodings_jp.py', enabled=False),
+    RegrTest('test_codecencodings_kr.py', enabled=False),
+    RegrTest('test_codecencodings_tw.py', enabled=False),
+
+    RegrTest('test_codecmaps_cn.py', enabled=False),
+    RegrTest('test_codecmaps_hk.py', enabled=False),
+    RegrTest('test_codecmaps_jp.py', enabled=False),
+    RegrTest('test_codecmaps_kr.py', enabled=False),
+    RegrTest('test_codecmaps_tw.py', enabled=False),
 
     RegrTest('test_codecs.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
@@ -402,14 +415,18 @@ testmap = [
     RegrTest('test_codeop.py', enabled=True, core=True),
     RegrTest('test_coercion.py', enabled=False, oldstyle=True, core=True),
         # needed changes because our exceptions are new-style and so have a different str(.) behavior
+    
+    RegrTest('test_colorsys.py', enabled=True, core=True),
     RegrTest('test_commands.py', enabled=True),
     RegrTest('test_compare.py', enabled=True, oldstyle=True, core=True),
     RegrTest('test_compile.py', enabled=True, core=True),
+    RegrTest('test_compiler.py', enabled=True, core=True),
     RegrTest('test_complex.py', enabled=False, core=True),
         #rev 10840: at least one test fails, after several hours I gave up waiting for the rest
 
     RegrTest('test_contains.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_cookie.py', enabled=False, core=True),
+    RegrTest('test_cookielib.py', enabled=False, core=True),
     RegrTest('test_copy.py', enabled=True, core=True),
     RegrTest('test_copy_reg.py', enabled=True, core=True),
     RegrTest('test_cpickle.py', enabled=False, core=True),
@@ -420,12 +437,17 @@ testmap = [
     RegrTest('test_curses.py', enabled=False, dumbtest=1),
     RegrTest('test_datetime.py', enabled=True, core=True),
     RegrTest('test_dbm.py', enabled=False, dumbtest=1),
+    RegrTest('test_decimal.py', enabled=True, core=True),
+    RegrTest('test_decorators.py', enabled=True, core=True),
+    RegrTest('test_deque.py', enabled=True, core=True),
     RegrTest('test_descr.py', enabled=False, core=True, oldstyle=True),
     RegrTest('test_descrtut.py', enabled=False, core=True, oldstyle=True),
+    RegrTest('test_dict.py', enabled=True, core=True),
 
     RegrTest('test_difflib.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_dircache.py', enabled=True, core=True),
     RegrTest('test_dis.py', enabled=True),
+    RegrTest('test_distutils.py', enabled=True, core=True),
     RegrTest('test_dl.py', enabled=False, dumbtest=1),
     RegrTest('test_doctest.py', enabled=True, core=True),
     RegrTest('test_doctest2.py', enabled=True, core=True),
@@ -461,7 +483,7 @@ testmap = [
     RegrTest('test_gdbm.py', enabled=False, dumbtest=1),
     RegrTest('test_generators.py', enabled=False, core=True),
         #rev 10840: 30 of 152 tests fail
-
+    RegrTest('test_genexps.py', enabled=True, core=True),
     RegrTest('test_getargs.py', enabled=False, dumbtest=1),
     RegrTest('test_getargs2.py', enabled=False),
         #rev 10840: ImportError: _testcapi
@@ -503,12 +525,13 @@ testmap = [
     RegrTest('test_isinstance.py', enabled=True, core=True),
     RegrTest('test_iter.py', enabled=False, core=True, uselibfile=True),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
-
+    RegrTest('test_iterlen.py', enabled=True, core=True)
     RegrTest('test_itertools.py', enabled=True, core=True),
         # modified version in pypy/lib/test2
 
     RegrTest('test_largefile.py', enabled=True, dumbtest=1),
     RegrTest('test_linuxaudiodev.py', enabled=False),
+    RegrTest('test_list.py', enabled=True, core=True),
     RegrTest('test_locale.py', enabled=False, dumbtest=1),
     RegrTest('test_logging.py', enabled=False),
     RegrTest('test_long.py', enabled=True, dumbtest=1, core=True),
@@ -528,7 +551,8 @@ testmap = [
     RegrTest('test_minidom.py', enabled=False, dumbtest=1),
     RegrTest('test_mmap.py', enabled=False),
     RegrTest('test_module.py', enabled=False, dumbtest=1, core=True),
-    RegrTest('test_mpz.py', enabled=False, dumbtest=1),
+    RegrTest('test_multibytecodec.py', enabled=True, core=True),
+    RegrTest('test_multibytecodec_support.py', enabled=True, core=True),
     RegrTest('test_multifile.py', enabled=True, core=True),
     RegrTest('test_mutants.py', enabled=False, dumbtest=1, core="possibly"),
     RegrTest('test_netrc.py', enabled=True, core=True),
@@ -550,12 +574,14 @@ testmap = [
     RegrTest('test_parser.py', enabled=False),
         #rev 10840: 18 of 18 tests fail
 
+    RegrTest('test_peepholer.py', enabled=True),
     RegrTest('test_pep247.py', enabled=False, dumbtest=1),
     RegrTest('test_pep263.py', enabled=True, dumbtest=1),
     RegrTest('test_pep277.py', enabled=False),
         # XXX this test is _also_ an output test, damn it 
         #     seems to be the only one that invokes run_unittest 
         #     and is an unittest 
+    RegrTest('test_pep292.py', enabled=True, core=True),
     RegrTest('test_pickle.py', enabled=False, core=True),
     RegrTest('test_pickletools.py', enabled=False, dumbtest=1, core=True),
     RegrTest('test_pkg.py', enabled=False, core=True),
@@ -600,11 +626,11 @@ testmap = [
         #rev 10840: 1 of 11 test fails. The failing one had an infinite recursion.
 
     RegrTest('test_robotparser.py', enabled=True, core=True),
-    RegrTest('test_rotor.py', enabled=False),
     RegrTest('test_sax.py', enabled=False, dumbtest=1),
     RegrTest('test_scope.py', enabled=True, core=True),
     RegrTest('test_scriptpackages.py', enabled=False),
     RegrTest('test_select.py', enabled=False, dumbtest=1),
+    RegrTest('test_set.py', enabled=True, core=True),
     RegrTest('test_sets.py', enabled=True, core=True),
     RegrTest('test_sgmllib.py', enabled=True, core=True),
     RegrTest('test_sha.py', enabled=True),
@@ -613,6 +639,8 @@ testmap = [
     RegrTest('test_shlex.py', enabled=True, core=True),
     RegrTest('test_shutil.py', enabled=True, core=True),
     RegrTest('test_signal.py', enabled=False),
+    RegrTest('test_site.py', enabled=False, core=True),
+        # Needs non-faked codecs.
     RegrTest('test_slice.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_socket.py', enabled=False),
         #rev 10840: ImportError: thread
@@ -638,12 +666,14 @@ testmap = [
 
     RegrTest('test_struct.py', enabled=False, dumbtest=1),
     RegrTest('test_structseq.py', enabled=False, dumbtest=1),
+    RegrTest('test_subprocess.py', enabled=False),
     RegrTest('test_sunaudiodev.py', enabled=False, dumbtest=1),
     RegrTest('test_sundry.py', enabled=False, dumbtest=1),
     # test_support is not a test
     RegrTest('test_symtable.py', enabled=False, dumbtest=1),
     RegrTest('test_syntax.py', enabled=True, core=True),
     RegrTest('test_sys.py', enabled=True, core=True),
+    RegrTest('test_tcl.py', enabled=False),
     RegrTest('test_tarfile.py', enabled=False, core="possibly"),
         #rev 10840: 13 of 13 test fail
 
@@ -659,6 +689,8 @@ testmap = [
 
     RegrTest('test_threading.py', enabled=False, dumbtest=1),
         #rev 10840: ImportError: thread
+    RegrTest('test_threading_local.py', enabled=False, dumbtest=1),
+    RegrTest('test_threadsignals.py', enabled=False, dumbtest=1),
 
     RegrTest('test_time.py', enabled=True, core=True),
     RegrTest('test_timeout.py', enabled=False),
@@ -669,6 +701,8 @@ testmap = [
     RegrTest('test_trace.py', enabled=True, core=True),
     RegrTest('test_traceback.py', enabled=False, core=True),
         #rev 10840: 2 of 2 tests fail
+    RegrTest('test_transformer.py', enabled=True, core=True),
+    RegrTest('test_tuple.py', enabled=True, core=True),
 
     RegrTest('test_types.py', enabled=True, core=True),
         #rev 11598: one of the mod related to dict iterators is questionable
@@ -680,10 +714,12 @@ testmap = [
     RegrTest('test_unicode.py', enabled=False), #, core=True),
     RegrTest('test_unicode_file.py', enabled=False),
     RegrTest('test_unicodedata.py', enabled=False),
+    RegrTest('test_unittest.py', enabled=True, core=True),
     RegrTest('test_univnewlines.py', enabled=True, core=True),
     RegrTest('test_unpack.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_urllib.py', enabled=True, core=True),
     RegrTest('test_urllib2.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_urllib2net.py', enabled=True),
     RegrTest('test_urllibnet.py', enabled=False),
         # try to understand failure!!!
     RegrTest('test_urlparse.py', enabled=True, core=True),
@@ -706,7 +742,7 @@ testmap = [
         #rev 10840: 2 of 5 tests fail
 
     RegrTest('test_xpickle.py', enabled=False),
-    RegrTest('test_xreadline.py', enabled=False),
+    RegrTest('test_xrange.py', enabled=True, core=True),
     RegrTest('test_zipfile.py', enabled=False, dumbtest=1),
     RegrTest('test_zipimport.py', enabled=False),
         #rev 10840: ImportError: zlib
