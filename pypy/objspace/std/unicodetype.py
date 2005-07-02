@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from sys import maxint
 
 unicode_capitalize = MultiMethod('capitalize', 1)
-unicode_center     = MultiMethod('center', 2, )
+unicode_center     = MultiMethod('center', 3, defaults=(' ',))
 unicode_count      = MultiMethod('count', 4, defaults=(0, maxint))      
 unicode_encode     = MultiMethod('encode', 3, defaults=(None, None))
 unicode_endswith   = MultiMethod('endswith', 4, defaults=(0,maxint))

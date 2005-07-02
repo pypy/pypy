@@ -112,6 +112,27 @@ class AppTestUnicodeString:
         raises(ValueError, u'abc'.rsplit, '')
         raises(ValueError, 'abc'.rsplit, u'')
 
+    def test_center(self):
+        s=u"a b"
+        assert s.center(0) == u"a b"
+        assert s.center(1) == u"a b"
+        assert s.center(2) == u"a b"
+        assert s.center(3) == u"a b"
+        assert s.center(4) == u"a b "
+        assert s.center(5) == u" a b "
+        assert s.center(6) == u" a b  "
+        assert s.center(7) == u"  a b  "
+        assert s.center(8) == u"  a b   "
+        assert s.center(9) == u"   a b   "
+        assert u'abc'.center(10) == u'   abc    '
+        assert u'abc'.center(6) == u' abc  '
+        assert u'abc'.center(3) == u'abc'
+        assert u'abc'.center(2) == u'abc'
+        assert u'abc'.center(5, u'*') == u'*abc*'     # Python 2.4
+        assert u'abc'.center(5, '*') == u'*abc*'     # Python 2.4
+        assert 'abc'.center(5, u'*') == u'*abc*'     # Python 2.4
+        raises(TypeError, u'abc'.center, 4, u'cba')
+
     def test_long_from_unicode(self):
         assert long(u'12345678901234567890') == 12345678901234567890
         assert int(u'12345678901234567890') == 12345678901234567890

@@ -505,18 +505,31 @@ def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start
             return space.w_False
     return space.w_True
 
-def unicode_center__Unicode_ANY(space, w_self, w_width):
+def unicode_center__Unicode_ANY_ANY(space, w_self, w_width, w_fillchar):
     self = w_self._value
     width = space.int_w(w_width)
+
+    if space.is_true(space.isinstance(w_fillchar, space.w_str)):
+        fillchar = space.str_w(w_fillchar)
+        if len(fillchar) != 1:
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("center() argument 2 must be a single character"))
+    elif space.is_true(space.isinstance(w_fillchar, space.w_unicode)):
+        if len(w_fillchar._value) != 1:
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("center() argument 2 must be a single character"))
+        fillchar = w_fillchar._value[0]
+
     padding = width - len(self)
     if padding < 0:
         return space.call_function(space.w_unicode, w_self)
     leftpad = padding // 2 + (padding & width & 1)
-    result = [u' '] * width
+    result = [fillchar] * width
     for i in range(len(self)):
         result[leftpad + i] = self[i]
     return W_UnicodeObject(space, result)
-
 
 def unicode_ljust__Unicode_ANY(space, w_self, w_width):
     self = w_self._value
@@ -901,5 +914,9 @@ class str_methods:
     def str_rsplit__String_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
         return space.call_method(space.call_function(space.w_unicode, w_self),
                                  'rsplit', w_delim, w_maxsplit)
+
+    def str_center__String_ANY_Unicode(space, w_self, w_width, w_fillchar):
+        return space.call_method(space.call_function(space.w_unicode, w_self),
+                                 'center', w_width, w_fillchar)
 
     register_all(vars(), stringtype)
