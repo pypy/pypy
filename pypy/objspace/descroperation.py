@@ -282,8 +282,6 @@ class DescrOperation:
         if w_del is not None:
             space.get_and_call_function(w_del, w_obj)
 
-    _NESTING_LIMIT = 20
-
     def cmp(space, w_v, w_w):
 
         if space.is_w(w_v, w_w):
