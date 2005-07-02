@@ -154,10 +154,6 @@ class ObjSpace(object):
     def leave_cache_building_mode(self, val):
         "hook for the flow object space"
 
-    def get_ec_state_dict(self):
-        "Return the 'state dict' from the active execution context."
-        return self.getexecutioncontext().get_state_dict()
-    
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
         ec = self.threadlocals.executioncontext

@@ -10,7 +10,6 @@ class ExecutionContext:
     def __init__(self, space):
         self.space = space
         self.framestack = Stack()
-        self.stateDict = {}
         self.w_tracefunc = None
         self.w_profilefunc = None
         self.is_tracing = 0
@@ -114,12 +113,6 @@ class ExecutionContext:
             if frame.last_exception is not None:
                 return frame.last_exception
         return None
-
-    def get_state_dict(self):
-        """A mechanism to store arbitrary per ExecutionContext data.
-        Similar to cpython's PyThreadState_GetDict.
-        """
-        return self.stateDict
 
     def settrace(self, w_func):
         """Set the global trace function."""

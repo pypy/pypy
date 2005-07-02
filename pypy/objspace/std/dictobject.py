@@ -293,7 +293,6 @@ dictstr = app.interphook("dictstr")
 def str__Dict(space, w_dict):
     if w_dict.used == 0:
         return space.wrap('{}')
-    statedict = space.get_ec_state_dict()
     w_currently_in_repr = space.getexecutioncontext()._py_repr
     return dictstr(space, w_currently_in_repr, w_dict)
 
