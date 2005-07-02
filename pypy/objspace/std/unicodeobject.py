@@ -647,24 +647,29 @@ def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
         return space.newlist([])
     start = 0
     end = len(self)
+    inword = 0
+
     while maxsplit != 0 and start < end:
         index = start
         for index in range(start, end):
             if _isspace(self[index]):
                 break
+            else:
+                inword = 1
         else:
             break
-        parts.append(W_UnicodeObject(space, self[start:index]))
-        maxsplit -= 1
+        if inword == 1:
+            parts.append(W_UnicodeObject(space, self[start:index]))
+            maxsplit -= 1
         # Eat whitespace
         for start in range(index + 1, end):
             if not _isspace(self[start]):
                 break
         else:
             return space.newlist(parts)
+
     parts.append(W_UnicodeObject(space, self[start:]))
     return space.newlist(parts)
-
 
 def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     self = w_self._value
@@ -689,6 +694,64 @@ def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     parts.append(W_UnicodeObject(space, self[start:]))
     return space.newlist(parts)
 
+
+def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
+    self = w_self._value
+    maxsplit = space.int_w(w_maxsplit)
+    parts = []
+    if len(self) == 0:
+        return space.newlist([])
+    start = 0
+    end = len(self)
+    inword = 0
+
+    while maxsplit != 0 and start < end:
+        index = end
+        for index in range(end-1, start-1, -1):
+            if _isspace(self[index]):
+                break
+            else:
+                inword = 1
+        else:
+            break
+        if inword == 1:
+            parts.append(W_UnicodeObject(space, self[index+1:end]))
+            maxsplit -= 1
+        # Eat whitespace
+        for end in range(index, start-1, -1):
+            if not _isspace(self[end-1]):
+                break
+        else:
+            return space.newlist(parts)
+
+    parts.append(W_UnicodeObject(space, self[:end]))
+    parts.reverse()
+    return space.newlist(parts)
+
+def unicode_rsplit__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
+    self = w_self._value
+    delim = w_delim._value
+    maxsplit = space.int_w(w_maxsplit)
+    delim_len = len(delim)
+    if delim_len == 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap('empty separator'))
+    parts = []
+    if len(self) == 0:
+        return space.newlist([])
+    start = 0
+    end = len(self)
+    while maxsplit != 0:
+        index = _rfind(self, delim, 0, end)
+        if index < 0:
+            break
+        parts.append(W_UnicodeObject(space, self[index+delim_len:end]))
+        end = index
+        maxsplit -= 1
+    parts.append(W_UnicodeObject(space, self[:end]))
+    parts.reverse()
+    return space.newlist(parts)
+
 def _split(space, self, maxsplit):
     if len(self) == 0:
         return []
@@ -706,7 +769,7 @@ def _split(space, self, maxsplit):
         maxsplit -= 1
     parts.append(W_UnicodeObject(space, self[index:]))
     return parts
-    
+
 def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
                                                  w_new, w_maxsplit):
     if len(w_old._value):
@@ -834,5 +897,9 @@ class str_methods:
     def str_split__String_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
         return space.call_method(space.call_function(space.w_unicode, w_self),
                                  'split', w_delim, w_maxsplit)
-        
+
+    def str_rsplit__String_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
+        return space.call_method(space.call_function(space.w_unicode, w_self),
+                                 'rsplit', w_delim, w_maxsplit)
+
     register_all(vars(), stringtype)
