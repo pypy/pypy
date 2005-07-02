@@ -525,7 +525,7 @@ testmap = [
     RegrTest('test_isinstance.py', enabled=True, core=True),
     RegrTest('test_iter.py', enabled=False, core=True, uselibfile=True),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
-    RegrTest('test_iterlen.py', enabled=True, core=True)
+    RegrTest('test_iterlen.py', enabled=True, core=True),
     RegrTest('test_itertools.py', enabled=True, core=True),
         # modified version in pypy/lib/test2
 
