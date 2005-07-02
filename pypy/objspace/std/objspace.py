@@ -174,7 +174,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def createexecutioncontext(self):
         # add space specific fields to execution context
         ec = ObjSpace.createexecutioncontext(self)
-        DescrOperation.setup_ec(self, ec)
         ec._py_repr = self.newdict([])
         return ec
 

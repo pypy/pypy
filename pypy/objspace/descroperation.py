@@ -64,10 +64,6 @@ class Object:
 class DescrOperation:
     _mixin_ = True
 
-    def setup_ec(space, ec):
-        ec._compare_nesting = 0
-        ec._cmp_state = {}
-
     def is_data_descr(space, w_obj):
         return space.lookup(w_obj, '__set__') is not None
 
@@ -289,64 +285,23 @@ class DescrOperation:
     _NESTING_LIMIT = 20
 
     def cmp(space, w_v, w_w):
-        # Icky implementation trying to mimic python 2.3 semantics.
 
         if space.is_w(w_v, w_w):
             return space.wrap(0)
 
-        w_vt = space.type(w_v)
-        token = None
-        _inprogress_dict = None
-
-        ec = space.getexecutioncontext()
-        ec._compare_nesting += 1
-        _compare_nesting = ec._compare_nesting
-
-        try:
-            # Try to do some magic to compare cyclic constructs.
-            if (_compare_nesting > space._NESTING_LIMIT and
-                # dont't be subtle the corresponding condition in CPython is always true for heaptypes                
-                # (space.lookup(w_v, '__getitem__') is not None) and
-                not (space.is_w(w_vt, space.w_str) or
-                     space.is_w(w_vt, space.w_tuple))):
-                try:
-                    iv = space.int_w(space.id(w_v))
-                    iw = space.int_w(space.id(w_w))
-                    if iv <= iw:
-                        t = (iv, iw, -1)
-                    else:
-                        t = (iw, iv, -1)
-                    _inprogress_dict = ec._cmp_state
-                    if t in _inprogress_dict:
-                        # If we are allready trying to compare the arguments
-                        # presume they are equal
-                        return space.wrap(0)
-                    else:
-                        token = _inprogress_dict[t] = t
-                except:
-                    return space.wrap(-1)
-            try:
-                # The real comparison
-                if space.is_w(space.type(w_v), space.type(w_w)):
-                    # for object of the same type, prefer __cmp__ over rich comparison.
-                    w_cmp = space.lookup(w_v, '__cmp__')
-                    w_res = _invoke_binop(space, w_cmp, w_v, w_w)
-                    if w_res is not None:
-                        return w_res
-                # fall back to rich comparison.
-                if space.eq_w(w_v, w_w):
-                    return space.wrap(0)
-                elif space.is_true(space.lt(w_v, w_w)):
-                    return space.wrap(-1)
-                return space.wrap(1)
-            finally:
-                if token is not None:
-                    try:
-                        del _inprogress_dict[token]
-                    except:
-                        pass
-        finally:
-            ec._compare_nesting -= 1
+        # The real comparison
+        if space.is_w(space.type(w_v), space.type(w_w)):
+            # for object of the same type, prefer __cmp__ over rich comparison.
+            w_cmp = space.lookup(w_v, '__cmp__')
+            w_res = _invoke_binop(space, w_cmp, w_v, w_w)
+            if w_res is not None:
+                return w_res
+        # fall back to rich comparison.
+        if space.eq_w(w_v, w_w):
+            return space.wrap(0)
+        elif space.is_true(space.lt(w_v, w_w)):
+            return space.wrap(-1)
+        return space.wrap(1)
 
     def coerce(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
@@ -478,65 +433,25 @@ def _make_comparison_impl(symbol, specialnames):
         w_first = w_obj1
         w_second = w_obj2
         
-        token = None
-        _inprogress_dict = None
+        if space.is_true(space.is_(w_typ1, w_typ2)):
+            w_right_impl = None
+        else:
+            w_right_src, w_right_impl = space.lookup_where(w_obj2, right)
+            if space.is_true(space.issubtype(w_typ2, w_typ1)) and not space.is_w(w_right_src, w_left_src):
+                w_obj1, w_obj2 = w_obj2, w_obj1
+                w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
-        ec = space.getexecutioncontext()
-        ec._compare_nesting += 1
-        _compare_nesting = ec._compare_nesting
-        try:
-            # Try to do some magic to compare cyclic constructs.
-            if (_compare_nesting > space._NESTING_LIMIT and
-                # dont't be subtle the corresponding condition in CPython is always true for heaptypes
-                # (space.lookup(w_obj1, '__getitem__') is not None) and
-                not (space.is_w(w_typ1, space.w_str) or
-                     space.is_w(w_typ1, space.w_tuple))):
-                i1 = space.int_w(space.id(w_obj1))
-                i2 = space.int_w(space.id(w_obj2))
-                if i1 <= i2:
-                    t = (i1, i2, left)
-                else:
-                    t = (i2, i1, right)
-                _inprogress_dict = ec._cmp_state
-                if t in _inprogress_dict:
-                    # If we are allready trying to compare the arguments
-                    # presume they are equal
-                    if symbol == '==':
-                        return space.w_True
-                    elif symbol == '!=':
-                        return space.w_False
-                    else:
-                        raise OperationError(space.w_ValueError,
-                                             space.wrap("can't order recursive values"))
-                else:
-                    token = _inprogress_dict[t] = t
+        w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
+        if w_res is not None:
+            return w_res
+        w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
+        if w_res is not None:
+            return w_res
+        # fallback: lt(a, b) <= lt(cmp(a, b), 0) ...
+        w_res = _cmp(space, w_first, w_second)
+        res = space.int_w(w_res)
+        return space.wrap(op(res, 0))
 
-            if space.is_true(space.is_(w_typ1, w_typ2)):
-                w_right_impl = None
-            else:
-                w_right_src, w_right_impl = space.lookup_where(w_obj2, right)
-                if space.is_true(space.issubtype(w_typ2, w_typ1)) and not space.is_w(w_right_src, w_left_src):
-                    w_obj1, w_obj2 = w_obj2, w_obj1
-                    w_left_impl, w_right_impl = w_right_impl, w_left_impl
-
-            w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
-            if w_res is not None:
-                return w_res
-            w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
-            if w_res is not None:
-                return w_res
-            # fallback: lt(a, b) <= lt(cmp(a, b), 0) ...
-            w_res = _cmp(space, w_first, w_second)
-            res = space.int_w(w_res)
-            return space.wrap(op(res, 0))
-        finally:
-            ec._compare_nesting -= 1 
-            if token is not None:
-                try:
-                    del _inprogress_dict[token]
-                except:
-                    pass
-                
     return func_with_new_name(comparison_impl, 'comparison_%s_impl'%left.strip('_'))
 
 

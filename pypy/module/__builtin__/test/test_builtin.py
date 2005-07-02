@@ -261,10 +261,10 @@ class AppTestBuiltinApp:
         b = []; b.append(b)
         from UserList import UserList
         c = UserList(); c.append(c)
-        assert cmp(a, b) == 0
-        assert cmp(b, c) == 0
-        assert cmp(c, a) == 0
-        assert cmp(a, c) == 0
+        raises(RuntimeError, cmp, a, b)
+        raises(RuntimeError, cmp, b, c)
+        raises(RuntimeError, cmp, c, a)
+        raises(RuntimeError, cmp, a, c)
         # okay, now break the cycles
         a.pop(); b.pop(); c.pop()
         
