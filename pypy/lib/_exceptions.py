@@ -221,50 +221,6 @@ class OSError(EnvironmentError):
 class DeprecationWarning(Warning):
     """Base class for warnings about deprecated features."""
 
-class UnicodeEncodeError(UnicodeError):
-    """Unicode encoding error."""
-
-    # auto-generated code, please check carefully!
-    def __init__(self, *args):
-        argc = len(args)
-        self.args = args # modified: always assign args, no error check
-        if argc == 5:
-            if type(args[0]) == str:
-                self.encoding = args[0]
-            else:
-                raise TypeError('argument 0 must be str, not %s'%type(args[0]))
-            if type(args[1]) == unicode:
-                self.object = args[1]
-            else:
-                raise TypeError('argument 1 must be unicode, not %s'%type(args[1]))
-            if type(args[2]) == int:
-                self.start = args[2]
-            else:
-                raise TypeError('argument 2 must be int, not %s'%type(args[2]))
-            if type(args[3]) == int:
-                self.end = args[3]
-            else:
-                raise TypeError('argument 3 must be int, not %s'%type(args[3]))
-            if type(args[4]) == str:
-                self.reason = args[4]
-            else:
-                raise TypeError('argument 4 must be str, not %s'%type(args[4]))
-        else:
-            raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
-
-    # auto-generated code, please check carefully!
-    def __str__(self):
-        # this is a bad hack, please supply an implementation
-        res = ' '.join([
-           'object=' + str(getattr(self, 'object', None)),
-           'end=' + str(getattr(self, 'end', None)),
-           'encoding=' + str(getattr(self, 'encoding', None)),
-           'args=' + str(getattr(self, 'args', None)),
-           'start=' + str(getattr(self, 'start', None)),
-           'reason=' + str(getattr(self, 'reason', None)),
-        ])
-        return res
-
 class ArithmeticError(StandardError):
     """Base class for arithmetic errors."""
 
@@ -278,7 +234,7 @@ class NameError(StandardError):
     """Name not found globally."""
 
 class OverflowWarning(Warning):
-    """Base class for warnings about numeric overflow."""
+    """Base class for warnings about numeric overflow.  Won't exist in Python 2.5."""
 
 class IOError(EnvironmentError):
     """I/O operation failed."""
@@ -299,19 +255,19 @@ class SyntaxError(StandardError):
         if argc >= 1:
             self.msg = args[0]
         if argc == 2:
-            if type(args[1][0]) == str:
+            if args[1][0] is None or type(args[1][0]) == str:
                 self.filename = args[1][0]
             else:
                 raise TypeError('argument 1 must be str, not %s'%type(args[1][0]))
-            if type(args[1][1]) == str:
+            if type(args[1][1]) == int:
                 self.lineno = args[1][1]
             else:
                 raise TypeError('argument 2 must be str, not %s'%type(args[1][1]))
-            if type(args[1][2]) == str:
+            if type(args[1][2]) == int:
                 self.offset = args[1][2]
             else:
                 raise TypeError('argument 3 must be str, not %s'%type(args[1][2]))
-            if type(args[1][3]) == str:
+            if args[1][3] is None or type(args[1][3]) == str:
                 self.text = args[1][3]
             else:
                 raise TypeError('argument 4 must be str, not %s'%type(args[1][3]))
@@ -453,5 +409,46 @@ class AttributeError(StandardError):
 class OverflowError(ArithmeticError):
     """Result too large to be represented."""
 
-class WindowsError(OSError):
-    """MS-Windows OS system call failed."""
+class UnicodeEncodeError(UnicodeError):
+    """Unicode encoding error."""
+
+    # auto-generated code, please check carefully!
+    def __init__(self, *args):
+        argc = len(args)
+        self.args = args # modified: always assign args, no error check
+        if argc == 5:
+            if type(args[0]) == str:
+                self.encoding = args[0]
+            else:
+                raise TypeError('argument 0 must be str, not %s'%type(args[0]))
+            if type(args[1]) == unicode:
+                self.object = args[1]
+            else:
+                raise TypeError('argument 1 must be unicode, not %s'%type(args[1]))
+            if type(args[2]) == int:
+                self.start = args[2]
+            else:
+                raise TypeError('argument 2 must be int, not %s'%type(args[2]))
+            if type(args[3]) == int:
+                self.end = args[3]
+            else:
+                raise TypeError('argument 3 must be int, not %s'%type(args[3]))
+            if type(args[4]) == str:
+                self.reason = args[4]
+            else:
+                raise TypeError('argument 4 must be str, not %s'%type(args[4]))
+        else:
+            raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
+
+    # auto-generated code, please check carefully!
+    def __str__(self):
+        # this is a bad hack, please supply an implementation
+        res = ' '.join([
+           'object=' + str(getattr(self, 'object', None)),
+           'end=' + str(getattr(self, 'end', None)),
+           'encoding=' + str(getattr(self, 'encoding', None)),
+           'args=' + str(getattr(self, 'args', None)),
+           'start=' + str(getattr(self, 'start', None)),
+           'reason=' + str(getattr(self, 'reason', None)),
+        ])
+        return res

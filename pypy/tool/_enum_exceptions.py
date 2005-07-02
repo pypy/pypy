@@ -1,3 +1,6 @@
+# XXX this does not produce a correct _exceptions anymore because the logic to reconstruct
+# type checks is broken
+
 # this script is used for extracting
 # the information available for exceptions
 # via introspection.
