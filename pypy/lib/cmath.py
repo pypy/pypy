@@ -115,11 +115,13 @@ def exp(x):
     return complex(real, imag)
 
 
-def log(x):
+def log(x, base=None):
     """log(x)
 
     Return the natural logarithm of x."""
     
+    if base is not None:
+        return log(x) / log(base)
     x = complex(x, 0)
     l = math.hypot(x.real,x.imag)
     imag = math.atan2(x.imag, x.real)
