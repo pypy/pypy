@@ -430,6 +430,8 @@ getset_func_defaults = GetSetProperty(Function.fget_func_defaults,
                                       Function.fdel_func_defaults)
 getset_func_code = GetSetProperty(Function.fget_func_code,
                                   Function.fset_func_code)
+getset_func_name = GetSetProperty(Function.fget_func_name,
+                                  Function.fset_func_name)
 
 getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict, cls=Function)
 
@@ -441,13 +443,13 @@ Function.typedef = TypeDef("function",
     __repr__ = interp2app(Function.descr_function_repr),
     func_code = getset_func_code, 
     func_doc = getset_func_doc,
-    func_name = interp_attrproperty('name', cls=Function), 
-    func_dict = getset_func_dict, 
+    func_name = getset_func_name,
+    func_dict = getset_func_dict,
     func_defaults = getset_func_defaults,
     func_globals = interp_attrproperty_w('w_func_globals', cls=Function),
     func_closure = GetSetProperty( Function.fget_func_closure ),
     __doc__ = getset_func_doc,
-    __name__ = interp_attrproperty('name', cls=Function),
+    __name__ = getset_func_name,
     __dict__ = getset_func_dict,
     __module__ = getset___module__,
     # XXX func_closure, etc.pp

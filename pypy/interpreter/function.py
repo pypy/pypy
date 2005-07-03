@@ -115,6 +115,20 @@ class Function(Wrappable):
     def fset_func_doc(space, self, w_doc):
         self.w_doc = w_doc
 
+    def fget_func_name(space, self):
+        return space.wrap(self.name)
+
+    def fset_func_name(space, self, w_name):
+        try:
+            self.name = space.str_w(w_name)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("func_name must be set "
+                                                "to a string object"))
+            raise
+
+
     def fdel_func_doc(space, self):
         self.w_doc = space.w_None
 
@@ -137,8 +151,10 @@ class Function(Wrappable):
 
     def fset_func_code(space, self, w_code):
         code = space.interpclass_w(w_code)
-        if not isinstance(code, Code ):
-            raise OperationError( space.w_TypeError, space.wrap("func_code must be set to a code object") )
+        if not isinstance(code, Code):
+            raise OperationError(space.w_TypeError, space.wrap("func_code must be set to a code object") )
+        if len(self.code.co_freevars) != len(code.co_freevars):
+            raise OperationError(space.w_ValueError, space.wrap("%s() requires a code object with %s free vars, not %s " % (self.name, len(self.code.co_freevars), len(code.co_freevars))))
         self.code = code
 
     def fget_func_closure(space, self):
