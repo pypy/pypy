@@ -49,6 +49,9 @@ class Module(MixedModule):
         'intern'        : 'app_misc.intern',
         'buffer'        : 'app_buffer.buffer',
         'reload'        : 'app_misc.reload',
+
+        'set'           : 'app_sets.set',
+        'frozenset'     : 'app_sets.frozenset',
     }
 
     interpleveldefs = {
@@ -64,8 +67,6 @@ class Module(MixedModule):
         'file'          : '(space.wrap(file))',
         'open'          : '(space.wrap(file))',
         'unicode'       : '(space.w_unicode)',
-        'set'           : '(settype.mk_set(space))',
-        'frozenset'     : '(settype.mk_frozenset(space))',
 
         # old-style classes dummy support
         '_classobj'     : 'space.w_classobj',

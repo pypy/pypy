@@ -632,6 +632,7 @@ testmap = [
     RegrTest('test_select.py', enabled=False, dumbtest=1),
     RegrTest('test_set.py', enabled=True, core=True),
     RegrTest('test_sets.py', enabled=True, core=True),
+    RegrTest('test_set.py', enabled=True, core=True),
     RegrTest('test_sgmllib.py', enabled=True, core=True),
     RegrTest('test_sha.py', enabled=True),
         # one test is taken out (too_slow_test_case_3), rest passses 
