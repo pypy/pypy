@@ -332,6 +332,7 @@ def make_builtin_frame_class(func, orig_sig, unwrap_spec):
 
 class BuiltinCode(eval.Code):
     "The code object implementing a built-in (interpreter-level) hook."
+    hidden_applevel = True
 
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.

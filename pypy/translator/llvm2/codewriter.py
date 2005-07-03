@@ -1,15 +1,28 @@
 import py
+from itertools import count
 from pypy.translator.llvm2.log import log 
+from pypy.translator.llvm2.genllvm import use_boehm_gc
 
 log = log.codewriter 
+show_line_numbers = True
+count = count().next
 
 class CodeWriter(object): 
     def __init__(self): 
         self._lines = []
+        self.append('declare sbyte* %GC_malloc(uint)')
 
     def append(self, line): 
+        if show_line_numbers:
+            line = "%-75s; %d" % (line, len(self._lines) + 1)
         self._lines.append(line) 
         log(line) 
+
+    def comment(self, line):
+        self.append(";; " + line) 
+
+    def newline(self):
+        self.append("")
 
     def indent(self, line): 
         self.append("        " + line) 
@@ -17,8 +30,18 @@ class CodeWriter(object):
     def label(self, name):
         self.append("    %s:" % name)
 
+    def globalinstance(self, name, type, data):
+        self.append("%s = internal constant %s {%s}" % (name, type, data))
+
     def structdef(self, name, typereprs):
         self.append("%s = type { %s }" %(name, ", ".join(typereprs)))
+
+    def arraydef(self, name, typerepr):
+        self.append("%s = type { int, [0 x %s] }" % (name, typerepr))
+
+    def funcdef(self, name, rettyperepr, argtypereprs):
+        self.append("%s = type %s (%s)" % (name, rettyperepr,
+                                           ", ".join(argtypereprs)))
 
     def declare(self, decl):
         self.append("declare %s" %(decl,))
@@ -42,7 +65,10 @@ class CodeWriter(object):
         self.append("}") 
 
     def ret(self, type_, ref): 
-        self.indent("ret %s %s" % (type_, ref)) 
+        self.indent("ret %s %s" % (type_, ref))
+
+    def ret_void(self):
+        self.indent("ret void")
 
     def phi(self, targetvar, type_, refs, blocknames): 
         assert targetvar.startswith('%')
@@ -60,16 +86,28 @@ class CodeWriter(object):
         self.indent("%s = call %s %s(%s)" % (targetvar, returntype, functionref,
                                              ", ".join(arglist)))
 
+    def call_void(self, functionref, argrefs, argtypes):
+        arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
+        self.indent("call void %s(%s)" % (functionref, ", ".join(arglist)))
+
     def cast(self, targetvar, fromtype, fromvar, targettype):
         self.indent("%(targetvar)s = cast %(fromtype)s "
                         "%(fromvar)s to %(targettype)s" % locals())
 
-    def malloc(self, targetvar, type):
-        self.indent("%(targetvar)s = malloc %(type)s" % locals())
+    def malloc(self, targetvar, type_, size=1):
+        if use_boehm_gc:
+            cnt = count()
+            self.indent("%%malloc.Size.%(cnt)d = getelementptr %(type_)s* null, int %(size)d" % locals())
+            self.indent("%%malloc.SizeU.%(cnt)d = cast %(type_)s* %%malloc.Size.%(cnt)d to uint" % locals())
+            self.indent("%%malloc.Ptr.%(cnt)d = call sbyte* %%GC_malloc(uint %%malloc.SizeU.%(cnt)d)" % locals())
+            self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr.%(cnt)d to %(type_)s*" % locals())
+        else:
+            self.indent("%(targetvar)s = malloc %(type_)s, uint %(size)s" % locals())
 
-    def getelementptr(self, targetvar, type, typevar, index):
-        self.indent("%(targetvar)s = getelementptr "
-                    "%(type)s %(typevar)s, int 0, uint %(index)s" % locals())
+    def getelementptr(self, targetvar, type, typevar, *indices):
+        res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, int 0, " % locals()
+        res += ", ".join(["%s %s" % (t, i) for t, i in indices])
+        self.indent(res)
 
     def load(self, targetvar, targettype, ptr):
         self.indent("%(targetvar)s = load %(targettype)s* %(ptr)s" % locals())

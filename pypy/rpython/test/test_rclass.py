@@ -63,6 +63,16 @@ def test_recursive_prebuilt_instance():
     res = interpret(dummyfn, [])
     assert res == 6
 
+def test_prebuilt_instances_with_void():
+    def marker():
+        return 42
+    a = EmptyBase()
+    a.nothing_special = marker
+    def dummyfn():
+        return a.nothing_special()
+    res = interpret(dummyfn, [])
+    assert res == 42
+
 # method calls
 class A:
     def f(self):

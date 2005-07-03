@@ -1,9 +1,10 @@
 import autopath
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
+from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.tool.unionfind import UnionFind
-
+from pypy.rpython.lltype import Void
 
 def remove_same_as(graph):
     """Remove all 'same_as' operations.
@@ -41,6 +42,21 @@ def remove_same_as(graph):
     traverse(visit, graph)
 
 
+def remove_void(translator):
+    for func, graph in translator.flowgraphs.iteritems():
+        args = [arg for arg in graph.startblock.inputargs
+                    if arg.concretetype is not Void]
+        graph.startblock.inputargs = args
+    def visit(block): 
+        if isinstance(block, Block):
+            for op in block.operations:
+                if op.opname == 'direct_call':
+                    args = [arg for arg in op.args
+                                if arg.concretetype is not Void]
+                    op.args = args
+    for func, graph in translator.flowgraphs.iteritems():
+        traverse(visit, graph)
+ 
 def SSI_to_SSA(graph):
     """Rename the variables in a flow graph as much as possible without
     violating the SSA rule.  'SSI' means that each Variable in a flow graph is

@@ -261,6 +261,10 @@ def test_functions():
     py.test.raises(TypeError, pf, 0, 0)
     py.test.raises(TypeError, pf, 'a')
 
+def test_truargs():
+    F = FuncType((Void, Signed, Void, Unsigned), Float)
+    assert Void not in F._trueargs()
+
 def test_inconsistent_gc_containers():
     A = GcArray(('y', Signed))
     S = GcStruct('b', ('y', Signed))

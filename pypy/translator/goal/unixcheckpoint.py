@@ -6,8 +6,8 @@ def restartable_point():
             print '---> Checkpoint: run / quit / pdb ?'
             try:
                 line = raw_input().strip().lower()
-            except KeyboardInterrupt:
-                print '(KeyboardInterrupt ignored)'
+            except (KeyboardInterrupt, EOFError), e:
+                print '(%s ignored)' % e.__class__.__name__
                 continue
             if line == 'run':
                 break

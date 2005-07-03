@@ -1,9 +1,12 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.pycompiler import CPythonCompiler
+from pypy.interpreter.pycompiler import PythonCompiler, PyPyCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache 
 from pypy.rpython.rarithmetic import r_uint
+import pypy.tool.option
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
            'W_Root']
@@ -92,12 +95,17 @@ class ObjSpace(object):
     
     full_exceptions = True  # full support for exceptions (normalization & more)
 
-    def __init__(self):
+    def __init__(self, options=None):
         "NOT_RPYTHON: Basic initialization of objects."
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
         # set recursion limit
         # sets all the internal descriptors
+        
+        # XXX: Options in option.py is replaced by a function so
+        # it's not really clean to do a from option import Options
+        # since changing import order can change the Options object
+        self.options = options or pypy.tool.option.Options()
         self.initialize()
 
     def __repr__(self):
@@ -134,9 +142,11 @@ class ObjSpace(object):
         #self.setbuiltinmodule('_codecs')
         # XXX we need to resolve unwrapping issues to 
         #     make this the default _sre module
-        #self.setbuiltinmodule("_sre", "_sre_pypy") 
-
-        # XXX disabled: self.setbuiltinmodule('parser')
+        #self.setbuiltinmodule("_sre", "_sre_pypy")
+        if self.options.useparsermodule == "recparser":
+             self.setbuiltinmodule('parser', 'recparser')
+        elif self.options.useparsermodule == "parser":
+            self.setbuiltinmodule('parser')
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
@@ -172,6 +182,20 @@ class ObjSpace(object):
     def createexecutioncontext(self):
         "Factory function for execution contexts."
         return ExecutionContext(self)
+
+    def createcompiler(self):
+        "Factory function creating a compiler object."
+        if self.options.parser == 'recparser':
+            if self.options.compiler == 'cpython':
+                return PythonCompiler(self)
+            else:
+                return PyPyCompiler(self)
+        elif self.options.compiler == 'pyparse':
+            # <=> options.parser == 'cpython'
+            return PythonCompiler(self)
+        else:
+            # <=> options.compiler == 'cpython' and options.parser == 'cpython'
+            return CPythonCompiler(self)
 
     # Following is a friendly interface to common object space operations
     # that can be defined in term of more primitive ones.  Subclasses

@@ -301,6 +301,9 @@ class __extend__(SomeString):
     def method_endswith(str, frag):
         return SomeBool()
 
+    def method_find(str, frag):
+        return SomeInteger()
+
     def method_join(str, s_list):
         getbookkeeper().count("str_join", str)
         s_item = s_list.listdef.read_item()
@@ -322,6 +325,12 @@ class __extend__(SomeString):
         return getbookkeeper().newlist(SomeString())
 
     def method_replace(str, s1, s2):
+        return SomeString()
+
+    def method_lower(str):
+        return SomeString()
+
+    def method_upper(str):
         return SomeString()
 
 

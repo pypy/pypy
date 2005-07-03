@@ -582,7 +582,7 @@ def _x_add(a, b, space):
     return z
 
 
-#Substract the absolute values of two longs
+# Substract the absolute values of two longs
 def _x_sub(a, b, space):
     size_a = len(a.digits)
     size_b = len(b.digits)
@@ -649,8 +649,244 @@ def _x_mul(a, b, space):
     return z
 
 def _inplace_divrem1(pout, pin, n):
-    rem = r_uint(0, space)
+    """
+    Divide long pin by non-zero digit n, storing quotient
+    in pout, and returning the remainder. It's OK for pin == pout on entry.
+    """
+    rem = r_uint(0)
     assert n > 0 and n <= SHORT_MASK
     size = len(pin.digits) * 2 - 1
     while size >= 0:
         rem = (rem << SHORT_BIT) + pin._getshort(size)
+        hi = rem // n
+        pout._setshort(size, hi)
+        rem -= hi * n
+        size -= 1
+    return rem
+
+def _divrem1(space, a, n):
+    """
+    Divide a long integer by a digit, returning both the quotient
+    and the remainder as a tuple.
+    The sign of a is ignored; n should not be zero.
+    """
+    assert n > 0 and n <= SHORT_MASK
+    size = len(a.digits)
+    z = W_LongObject(space, [r_uint(0)] * size, 1)
+    rem = _inplace_divrem1(z, a, n)
+    z._normalize()
+    return z, rem
+
+def _muladd1(space, a, n, extra):
+    """Multiply by a single digit and add a single digit, ignoring the sign.
+    """
+    digitpairs = len(a.digits)
+    size_a = digitpairs * 2
+    if a._getshort(size_a-1) == 0:
+        size_a -= 1
+    z = W_LongObject(space, [r_uint(0)] * (digitpairs+1), 1)
+    carry = extra
+    for i in range(size_a):
+        carry += a._getshort(i) * n
+        z._setshort(i, carry & SHORT_MASK)
+        carry >>= SHORT_BIT
+    i += 1
+    z._setshort(i, carry)
+    z._normalize()
+    return z
+
+# for the carry in _x_divrem, we need something that can hold
+# two digits plus a sign.
+# for the time being, we here implement such a 33 bit number just
+# for the purpose of the division.
+# In the long term, it might be considered to implement the
+# notation of a "double anything" unsigned type, which could
+# be used recursively to implement longs of any size.
+
+class r_suint(object):
+    # we do not inherit from r_uint, because we only
+    # support a few operations for our purpose
+    def __init__(self, value=0):
+        if isinstance(value, r_suint):
+            self.value = value.value
+            self.sign = value.sign
+        else:
+            self.value = r_uint(value)
+            self.sign = -(value < 0)
+
+    def longval(self):
+        if self.sign:
+            return -long(-self.value)
+        else:
+            return long(self.value)
+        
+    def __repr__(self):
+        return repr(self.longval())
+
+    def __str__(self):
+        return str(self.longval())
+
+    def __iadd__(self, other):
+        hold = self.value
+        self.value += other
+        self.sign ^= - ( (other < 0) != (self.value < hold) )
+        return self
+
+    def __add__(self, other):
+        res = r_suint(self)
+        res += other
+        return res
+
+    def __isub__(self, other):
+        hold = self.value
+        self.value -= other
+        self.sign ^= - ( (other < 0) != (self.value > hold) )
+        return self
+
+    def __sub__(self, other):
+        res = r_suint(self)
+        res -= other
+        return res
+
+    def __irshift__(self, n):
+        self.value >>= n
+        if self.sign:
+            self.value += LONG_MASK << (LONG_BIT - n)
+        return self
+
+    def __rshift__(self, n):
+        res = r_suint(self)
+        res >>= n
+        return res
+
+    def __and__(self, mask):
+        # only used to get bits from the value
+        return self.value & mask
+
+    def __eq__(self, other):
+        if not isinstance(other,r_suint):
+            other = r_suint(other)
+        return self.sign == other.sign and self.value == other.value
+
+def _x_divrem(space, v1, w1): # return as tuple, PyLongObject **prem)
+    size_w = len(w1.digits) * 2
+    # hack for the moment:
+    # find where w1 is really nonzero
+    if w1._getshort(size_w-1) == 0:
+        size_w -= 1
+    d = (SHORT_MASK+1) // (w1._getshort(size_w-1) + 1)
+    v = _muladd1(space, v1, d, r_uint(0))
+    w = _muladd1(space, w1, d, r_uint(0))
+    size_v = len(v.digits) * 2
+    if v._getshort(size_v-1) == 0:
+        size_v -= 1
+    size_w = len(w.digits) * 2
+    if w._getshort(size_w-1) == 0:
+        size_w -= 1
+    assert size_v >= size_w and size_w > 1 # Assert checks by div()
+
+    size_a = size_v - size_w + 1
+    digitpairs = (size_a + 1) // 2
+    a = W_LongObject(space, [r_uint(0)] * digitpairs, 1)
+    j = size_v
+    for k in range(size_a-1, -1, -1):
+        if j >= size_v:
+            vj = r_uint(0)
+        else:
+            vj = v._getshort(j)
+        carry = r_suint(0) # note: this must hold two digits and sign!
+
+        if vj == w._getshort(size_w-1):
+            q = r_uint(SHORT_MASK)
+        else:
+            q = ((vj << SHORT_BIT) + v._getshort(j-1)) // w._getshort(size_w-1)
+
+        while (w._getshort(size_w-2) * q >
+                ((
+                    (vj << SHORT_BIT)
+                    + v._getshort(j-1)
+                    - q * w._getshort(size_w-1)
+                                ) << SHORT_BIT)
+                + v._getshort(j-2)):
+            q -= 1
+
+        for i in range(size_w):
+            if i+k >= size_v:
+                break
+            z = w._getshort(i) * q
+            zz = z >> SHORT_BIT
+            carry += v._getshort(i+k) + (zz << SHORT_BIT)
+            carry -= z
+            v._setshort(i+k, r_uint(carry.value & SHORT_MASK))
+            carry >>= SHORT_BIT
+            carry -= zz
+
+        i += 1 # compare C code which re-uses i of loop
+        if i+k < size_v:
+            carry += v._getshort(i+k)
+            v._setshort(i+k, r_uint(0))
+
+        if carry == 0:
+            a._setshort(k, q)
+        else:
+            #assert carry == -1
+            # the above would hold if we didn't minimize size_w
+            a._setshort(k, q-1)
+            carry = r_suint(0)
+
+            for i in range(size_w):
+                if i+k >= size_v:
+                    break
+                carry += v._getshort(i+k) + w._getshort(i)
+                v._setshort(i+k, r_uint(carry) & SHORT_MASK)
+                carry >>= SHORT_BIT
+        j -= 1
+
+    a._normalize()
+    rem, _ = _divrem1(space, v, d)
+    return a, rem
+
+
+##def _divrem(a, b)
+##    size_a = len(a.digits) * 2
+##    size_b = len(b.digits) * 2
+##    PyLongObject *z;
+##
+##    if (size_b == 0) {
+##        PyErr_SetString(PyExc_ZeroDivisionError,
+##                "long division or modulo by zero");
+##        return -1;
+##    }
+##    if (size_a < size_b ||
+##        (size_a == size_b &&
+##         a->ob_digit[size_a-1] < b->ob_digit[size_b-1])) {
+##        /* |a| < |b|. */
+##        *pdiv = _PyLong_New(0);
+##        Py_INCREF(a);
+##        *prem = (PyLongObject *) a;
+##        return 0;
+##    }
+##    if (size_b == 1) {
+##        digit rem = 0;
+##        z = divrem1(a, b->ob_digit[0], &rem);
+##        if (z == NULL)
+##            return -1;
+##        *prem = (PyLongObject *) PyLong_FromLong((long)rem);
+##    }
+##    else {
+##        z = x_divrem(a, b, prem);
+##        if (z == NULL)
+##            return -1;
+##    }
+##    /* Set the signs.
+##       The quotient z has the sign of a*b;
+##       the remainder r has the sign of a,
+##       so a = b*z + r. */
+##    if ((a->ob_size < 0) != (b->ob_size < 0))
+##        z->ob_size = -(z->ob_size);
+##    if (a->ob_size < 0 && (*prem)->ob_size != 0)
+##        (*prem)->ob_size = -((*prem)->ob_size);
+##    *pdiv = z;
+##    return 0;
+
+## XXXX

@@ -315,7 +315,7 @@ class ClassDef:
                     return None
         return None
 
-    def matching(self, pbc, name):
+    def matching(self, pbc, name=None):
         d = {}
         uplookup = None
         upfunc = None
@@ -341,7 +341,7 @@ class ClassDef:
             # PBC dictionary to track more precisely with which 'self' the
             # method is called.
             d[upfunc] = self
-        elif meth:
+        elif meth and name is not None:
             self.check_missing_attribute_update(name)
         if d:
             return SomePBC(d)

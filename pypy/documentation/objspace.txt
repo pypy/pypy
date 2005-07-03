@@ -354,7 +354,7 @@ SpaceOperation
     :args:    list of arguments.  Each one is a Constant or a Variable seen previously in the basic block.
     :result:  a *new* Variable into which the result is to be stored.
 
-    Note that operations usually cannot implicitely raise exceptions at run-time; so for example, code generators can assume that a ``getitem`` operation on a list is safe and can be performed without bound checking.  The exceptions to this rule are: (1) if the operation is the last in the block, which ends with ``exitswitch == Constant(last_exception)``, then the implicit exceptions must be checked for, generated, and caught appropriately; (2) calls to other functions, as per ``simple_call`` or ``call_args``, can always raise whatever the called function can raise --- and such exceptions must be passed through to the parent unless they are caught as above.
+    Note that operations usually cannot implicitly raise exceptions at run-time; so for example, code generators can assume that a ``getitem`` operation on a list is safe and can be performed without bound checking.  The exceptions to this rule are: (1) if the operation is the last in the block, which ends with ``exitswitch == Constant(last_exception)``, then the implicit exceptions must be checked for, generated, and caught appropriately; (2) calls to other functions, as per ``simple_call`` or ``call_args``, can always raise whatever the called function can raise --- and such exceptions must be passed through to the parent unless they are caught as above.
 
 
 Variable

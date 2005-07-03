@@ -50,6 +50,24 @@ class TestW_LongObject:
         result = lobj.mul__Long_Long(self.space, f1, f2)
         assert result.longval() == x * y
 
+    def test__inplace_divrem1(self):
+        # signs are not handled in the helpers!
+        x = 1238585838347L
+        y = 3
+        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        f2 = r_uint(y)
+        remainder = lobj._inplace_divrem1(f1, f1, f2)
+        assert (f1.longval(), remainder) == divmod(x, y)
+
+    def test__divrem1(self):
+        # signs are not handled in the helpers!
+        x = 1238585838347L
+        y = 3
+        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        f2 = r_uint(y)
+        div, rem = lobj._divrem1(self.space, f1, f2)
+        assert (div.longval(), rem) == divmod(x, y)
+
     def test_eq(self):
         x = 5858393919192332223L
         y = 585839391919233111223311112332L

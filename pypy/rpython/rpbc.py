@@ -16,6 +16,7 @@ class __extend__(annmodel.SomePBC):
         # categories below, and doesn't for example mix functions, classes
         # and methods.
         call_families = rtyper.annotator.getpbccallfamilies()
+        userclasses = rtyper.annotator.getuserclasses()
         choices = {}
         for x, classdef in self.prebuiltinstances.items():
             cdefflag = isclassdef(classdef)
@@ -26,28 +27,40 @@ class __extend__(annmodel.SomePBC):
             if isinstance(x, types.MethodType) and x.im_self is None:
                 x = x.im_func
 
-            # callable or frozen object?
-            if (classdef, x) in call_families:
-                # what type of callable?
-                if isinstance(x, types.FunctionType):
-                    if cdefflag:
-                        choice = MethodsPBCRepr
-                        cdefflag = False
-                    else:
-                        choice = FunctionsPBCRepr
-                elif isinstance(x, (type, types.ClassType)):
+            if cdefflag:
+                # methods of a run-time instance
+                if not isinstance(x, types.FunctionType):
+                    raise TyperError("%r appears to be a method bound to %r, "
+                                     "but it is not a function" % (
+                        x, classdef))
+                choice = MethodsPBCRepr
+
+            elif isinstance(x, (type, types.ClassType)):
+                # classes
+                if x in userclasses:
+                    # user classes
                     choice = ClassesPBCRepr
+                elif type(x) is type and x.__module__ == '__builtin__':
+                    # special case for built-in types, seen in faking
+                    choice = getPyObjRepr
+                else:
+                    raise TyperError("don't known about class %r" % (x,))
+
+            elif (classdef, x) in call_families:
+                # other kind of callable
+                if isinstance(x, types.FunctionType):
+                    # function
+                    choice = FunctionsPBCRepr
                 elif isinstance(x, types.MethodType):
+                    # prebuilt bound method
                     choice = MethodOfFrozenPBCRepr
                 else:
                     raise TyperError("don't know about callable %r" % (x,))
+
             else:
-                # frozen object
+                # otherwise, just assume it's a plain frozen object
                 choice = getFrozenPBCRepr
 
-            if cdefflag:
-                raise TyperError("unexpected classdef in PBC set %r" % (
-                    self.prebuiltinstances,))
             choices[choice] = True
 
         if len(choices) > 1:
@@ -62,6 +75,9 @@ class __extend__(annmodel.SomePBC):
         return tuple(lst)
 
 # ____________________________________________________________
+
+def getPyObjRepr(rtyper, s_pbc):
+    return robject.pyobj_repr
 
 
 def getFrozenPBCRepr(rtyper, s_pbc):

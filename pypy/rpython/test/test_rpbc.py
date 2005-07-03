@@ -37,6 +37,10 @@ class MySubclass(MyBase):
     def m(self, x):
         return self.z - x
 
+class MyStrangerSubclass(MyBase):
+    def m(self, x, y):
+        return x*y
+
 def test_method_call():
     def f(a, b):
         obj = MyBase()
@@ -58,16 +62,50 @@ def test_virtual_method_call():
     res = interpret(f, [-1, 2.3])
     assert res == -3.3
 
+def test_stranger_subclass_1():
+    def f1():
+        obj = MyStrangerSubclass()
+        obj.z = 100
+        return obj.m(6, 7)
+    res = interpret(f1, [])
+    assert res == 42
+
+def test_stranger_subclass_2():
+    def f2():
+        obj = MyStrangerSubclass()
+        obj.z = 100
+        return obj.m(6, 7) + MyBase.m(obj, 58)
+    res = interpret(f2, [])
+    assert res == 200
+
 
 class MyBaseWithInit:
     def __init__(self, a):
         self.a1 = a
+
+class MySubclassWithInit(MyBaseWithInit):
+    def __init__(self, a, b):
+        MyBaseWithInit.__init__(self, a)
+        self.b1 = b
 
 def test_class_init():
     def f(a):
         instance = MyBaseWithInit(a)
         return instance.a1
     assert interpret(f, [5]) == 5
+
+def test_class_init_2():
+    def f(a, b):
+        instance = MySubclassWithInit(a, b)
+        return instance.a1 * instance.b1
+    assert interpret(f, [6, 7]) == 42
+
+def test_class_calling_init():
+    def f():
+        instance = MySubclassWithInit(1, 2)
+        instance.__init__(3, 4)
+        return instance.a1 * instance.b1
+    assert interpret(f, []) == 12
 
 
 class Freezing:

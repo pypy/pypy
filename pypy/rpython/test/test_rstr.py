@@ -180,6 +180,32 @@ def test_endswith():
             res = interpret(fn, [i,j])
             assert res is fn(i, j)
 
+def test_find():
+    def fn(i, j):
+        s1 = ['one two three', 'abc abcdab abcdabcdabde']
+        s2 = ['one', 'two', 'abcdab', 'one tou', 'abcdefgh', 'fortytwo']
+        return s1[i].find(s2[j])
+    for i in range(2):
+        for j in range(6):
+            res = interpret(fn, [i,j])
+            assert res == fn(i, j)
+
+def test_upper():
+    def fn(i):
+        strings = ['', ' ', 'upper', 'UpPeR', ',uppEr,']
+        return strings[i].upper()
+    for i in range(5):
+        res = interpret(fn, [i])
+        assert ''.join(res.chars) == fn(i)
+
+def test_lower():
+    def fn(i):
+        strings = ['', ' ', 'lower', 'LoWeR', ',lowEr,']
+        return strings[i].lower()
+    for i in range(5):
+        res = interpret(fn, [i])
+        assert ''.join(res.chars) == fn(i)
+
 def test_join():
     res = interpret(lambda: ''.join([]), [])
     assert ''.join(res.chars) == ""

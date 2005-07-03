@@ -1,0 +1,23 @@
+example of interp-level code needing to somehow call an external function::
+
+    import os
+    def open(space, w_fname):
+        fname = space.str_w(fname)
+        fd = os.open(fname)
+        return space.wrap(fd)
+
+* os.open will be special-cased along all translation levels, there
+  will be a table mapping "sys calls" functions to the information
+  needed by the various levels.
+ 
+* annotation/builtin.py will take information from the common table 
+  to annotate the calls.
+
+* rtyper will replace the calls with for testing or dummy lowlevel
+  functions (ll_os_open for os.open), specified somehow trough the
+  table (issue: how to annotate these helper calls avoiding making
+  copies as in the usual case, so that the backends can recognize them)
+
+* the backends will have implementations for these helper functions
+  (to allow writing such implementations we will need a way to assign
+  fixed names for some of the defined lltypes introduced by the rtyper)

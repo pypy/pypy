@@ -39,6 +39,7 @@ def get_unique_interplevel_subclass(cls, hasdict, wants_slots):
             return get_unique_interplevel_NoDictWithSlots(cls)
         else: 
             return get_unique_interplevel_NoDictNoSlots(cls)
+get_unique_interplevel_subclass._annspecialcase_ = "specialize:arg0"
 
 for hasdict in False, True: 
     for wants_slots in False, True: 

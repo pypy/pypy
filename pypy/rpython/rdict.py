@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import rmodel, lltype, rstr
 from pypy.rpython.rarithmetic import r_uint
-from pypy.rpython import rlist, rconstantdict 
+from pypy.rpython import rlist, rconstantdict, remptydict
 
 # ____________________________________________________________
 #
@@ -39,6 +39,8 @@ class __extend__(annmodel.SomeDict):
             return rconstantdict.ConstantDictRepr(
                         rtyper.getrepr(dictkey.s_value), 
                         rtyper.getrepr(dictvalue.s_value))
+        elif isinstance(s_key, annmodel.SomeImpossibleValue):
+            return remptydict.EmptyDictRepr()
         else: 
             raise rmodel.TyperError("cannot make repr of %r" %(self.dictdef,))
 
@@ -331,37 +333,37 @@ def ll_strdictnext(iter):
 # _____________________________________________________________
 # methods
 
-def ll_get(v_dict, v_key, v_default):
-    entry = ll_strdict_lookup(v_dict, v_key) 
+def ll_get(dict, key, default):
+    entry = ll_strdict_lookup(dict, key) 
     if entry.key and entry.key != deleted_entry_marker: 
         return entry.value
     else: 
-        return v_default
+        return default
 
-def ll_copy(v_dict):
-    DICTPTR = lltype.typeOf(v_dict)
+def ll_copy(dict):
+    DICTPTR = lltype.typeOf(dict)
     d = lltype.malloc(DICTPTR.TO)
-    d.entries = lltype.malloc(DICTPTR.TO.entries.TO, len(v_dict.entries))
-    d.num_items = v_dict.num_items
-    d.num_pristine_entries = v_dict.num_pristine_entries
+    d.entries = lltype.malloc(DICTPTR.TO.entries.TO, len(dict.entries))
+    d.num_items = dict.num_items
+    d.num_pristine_entries = dict.num_pristine_entries
     i = 0
     dictlen = len(d.entries)
     while i < dictlen:
         d_entry = d.entries[i]
-        v_entry = v_dict.entries[i]
-        d_entry.key = v_entry.key
-        d_entry.value = v_entry.value
+        entry = dict.entries[i]
+        d_entry.key = entry.key
+        d_entry.value = entry.value
         i += 1
     return d
 
-def ll_update(v_dic1, v_dic2):
-    d2len =len(v_dic2.entries)
-    entries = v_dic2.entries
+def ll_update(dic1, dic2):
+    d2len =len(dic2.entries)
+    entries = dic2.entries
     i = 0
     while i < d2len:
         entry = entries[i]
         if entry.key and entry.key != deleted_entry_marker:
-            ll_strdict_setitem(v_dic1, entry.key, entry.value)
+            ll_strdict_setitem(dic1, entry.key, entry.value)
         i += 1
 
 def dum_keys(): pass
@@ -370,13 +372,13 @@ def dum_items():pass
 
 # this is an implementation of keys(), values() and items()
 # in a single function.
-# note that by specialization on v_func, three different
+# note that by specialization on func, three different
 # and very efficient functions are created.
 
-def ll_kvi(v_dic, LISTPTR, v_func):
-    res = rlist.ll_newlist(LISTPTR, v_dic.num_items)
-    dlen = len(v_dic.entries)
-    entries = v_dic.entries
+def ll_kvi(dic, LISTPTR, func):
+    res = rlist.ll_newlist(LISTPTR, dic.num_items)
+    dlen = len(dic.entries)
+    entries = dic.entries
     items = res.items
     i = 0
     p = 0
@@ -384,14 +386,14 @@ def ll_kvi(v_dic, LISTPTR, v_func):
         entry = entries[i]
         key = entry.key
         if key and key != deleted_entry_marker:
-            if v_func is dum_items:
+            if func is dum_items:
                 r = lltype.malloc(LISTPTR.TO.items.TO.OF.TO)
                 r.item0 = key
                 r.item1 = entry.value
                 items[p] = r
-            elif v_func is dum_keys:
+            elif func is dum_keys:
                 items[p] = key
-            elif v_func is dum_values:
+            elif func is dum_values:
                 items[p] = entry.value
             p += 1
         i += 1

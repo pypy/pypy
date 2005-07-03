@@ -26,6 +26,8 @@ from pypy.rpython.rclass import InstanceRepr
 STR = GcStruct('str', ('hash',  Signed),
                       ('chars', Array(Char)))
 
+SIGNED_ARRAY = GcArray(Signed)
+
 
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
@@ -104,6 +106,18 @@ class __extend__(StringRepr):
         v_str, v_value = hop.inputargs(string_repr, string_repr)
         return hop.gendirectcall(ll_endswith, v_str, v_value)
 
+    def rtype_method_find(_, hop):
+        v_str, v_value = hop.inputargs(string_repr, string_repr)
+        return hop.gendirectcall(ll_find, v_str, v_value)
+
+    def rtype_method_upper(_, hop):
+        v_str, = hop.inputargs(string_repr)
+        return hop.gendirectcall(ll_upper, v_str)
+        
+    def rtype_method_lower(_, hop):
+        v_str, = hop.inputargs(string_repr)
+        return hop.gendirectcall(ll_lower, v_str)
+        
     def rtype_method_join(_, hop):
         r_lst = hop.args_r[1]
         s_item = r_lst.listitem.s_value
@@ -556,7 +570,82 @@ def ll_endswith(s1, s2):
 
     return True
 
+def ll_find(s1, s2):
+    """Knuth Morris Prath algorithm for substring match"""
+    len1 = len(s1.chars)
+    len2 = len(s2.chars)
+    # Construct the array of possible restarting positions
+    # T = Array_of_ints [-1..len2]
+    # T[-1] = -1 s2.chars[-1] is supposed to be unequal to everything else
+    T = malloc( SIGNED_ARRAY, len2 )
+    i = 0
+    j = -1
+    while i<len2:
+        if j>=0 and s2.chars[i] == s2.chars[j]:
+            j += 1
+            T[i] = j
+            i += 1
+        elif j>0:
+            j = T[j-1]
+        else:
+            T[i] = 0
+            i += 1
+            j = 0
+
+    # Now the find algorithm
+    i = 0
+    m = 0
+    while m+i<len1:
+        if s1.chars[m+i]==s2.chars[i]:
+            i += 1
+            if i==len2:
+                return m
+        else:
+            # mismatch, go back to the last possible starting pos
+            if i==0:
+                e = -1
+            else:
+                e = T[i-1]
+            m = m + i - e
+            if i>0:
+                i = e
+    return -1
+    
 emptystr = string_repr.convert_const("")
+
+def ll_upper(s):
+    s_chars = s.chars
+    s_len = len(s_chars)
+    if s_len == 0:
+        return emptystr
+    i = 0
+    result = malloc(STR, s_len)
+    while i < s_len:
+        ochar = ord(s_chars[i])
+        if ochar >= 97 and ochar <= 122:
+            upperchar = ochar - 32
+        else:
+            upperchar = ochar
+        result.chars[i] = chr(upperchar)
+        i += 1
+    return result
+
+def ll_lower(s):
+    s_chars = s.chars
+    s_len = len(s_chars)
+    if s_len == 0:
+        return emptystr
+    i = 0
+    result = malloc(STR, s_len)
+    while i < s_len:
+        ochar = ord(s_chars[i])
+        if ochar >= 65 and ochar <= 96:
+            lowerchar = ochar + 32
+        else:
+            lowerchar = ochar
+        result.chars[i] = chr(lowerchar)
+        i += 1
+    return result
 
 def ll_join(s, items):
     s_chars = s.chars

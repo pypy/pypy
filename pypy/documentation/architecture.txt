@@ -105,7 +105,7 @@ willing to pay for the double-interpretation performance penalty.
 Please note that we are using the term *interpreter* most often in
 reference to the *plain interpreter* which just knows enough to read,
 dispatch and implement *bytecodes* thus shuffling objects around on the
-stack and between namespaces.  The (plain) interpreter is completly
+stack and between namespaces.  The (plain) interpreter is completely
 ignorant of how to access, modify or construct objects and their
 structure and thus delegates such operations to a so called `Object Space`_.
 

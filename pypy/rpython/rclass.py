@@ -156,6 +156,7 @@ class ClassRepr(Repr):
         #    as MethodType has a custom __get__ too and we don't support
         #    it, it's a very bad idea anyway.
         if isinstance(s_value, annmodel.SomePBC):
+            s_value = self.classdef.matching(s_value)
             debound = {}
             count = 0
             for x, classdef in s_value.prebuiltinstances.items():
@@ -396,8 +397,11 @@ class InstanceRepr(Repr):
                                                     result.super)
             # then add instance attributes from this level
             for name, (mangled_name, r) in self.fields.items():
-                attrvalue = getattr(value, name)
-                llattrvalue = r.convert_const(attrvalue)
+                if r.lowleveltype == Void:
+                    llattrvalue = None
+                else:
+                    attrvalue = getattr(value, name)
+                    llattrvalue = r.convert_const(attrvalue)
                 setattr(result, mangled_name, llattrvalue)
         else:
             # OBJECT part

@@ -142,13 +142,17 @@ class CPythonFakeFrame(eval.Frame):
             self.unwrappedargs = self.space.unwrap(w_args)
             self.unwrappedkwds = self.space.unwrap(w_kwds)
         except UnwrapError, e:
-            raise UnwrapError('calling %s: %s' % (self.code.cpy_callable, e))
+            code = self.code
+            assert isinstance(code, CPythonFakeCode)
+            raise UnwrapError('calling %s: %s' % (code.cpy_callable, e))
 
     def getfastscope(self):
         raise OperationError(self.space.w_TypeError,
           self.space.wrap("cannot get fastscope of a CPythonFakeFrame"))                           
     def run(self):
-        fn = self.code.cpy_callable
+        code = self.code
+        assert isinstance(code, CPythonFakeCode)
+        fn = code.cpy_callable
         try:
             result = apply(fn, self.unwrappedargs, self.unwrappedkwds)
         except:

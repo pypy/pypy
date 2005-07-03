@@ -25,6 +25,8 @@ Command-line options for translate_pypy:
    -no-d      Disable recording of debugging information
    -huge=%    Threshold in the number of functions after which only a local call
               graph and not a full one is displayed
+   -no-snapshot
+              Don't redirect imports to the translation snapshot
    -save filename
               saves the translator to a file. The file type can either
               be .py or .zip (recommended).
@@ -34,32 +36,33 @@ Command-line options for translate_pypy:
 """
 import autopath, sys, os
 
-# xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-basedir = autopath.this_dir
+if '-no-snapshot' not in sys.argv:
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    basedir = autopath.this_dir
 
-pypy_translation_snapshot_dir = os.path.join(basedir, 'pypy-translation-snapshot')
+    pypy_translation_snapshot_dir = os.path.join(basedir, 'pypy-translation-snapshot')
 
-if not os.path.isdir(pypy_translation_snapshot_dir):
-    print """
-Translation is performed on a specific revision of PyPy which lives on
-a branch. This needs to be checked out into translator/goal with:
+    if not os.path.isdir(pypy_translation_snapshot_dir):
+        print """
+    Translation is performed on a specific revision of PyPy which lives on
+    a branch. This needs to be checked out into translator/goal with:
 
-svn co http://codespeak.net/svn/pypy/branch/pypy-translation-snapshot
-"""[1:]
-    sys.exit(2)
+    svn co http://codespeak.net/svn/pypy/branch/pypy-translation-snapshot
+    """[1:]
+        sys.exit(2)
 
-# override imports from pypy head with imports from pypy-translation-snapshot
-import pypy
-pypy.__path__.insert(0, pypy_translation_snapshot_dir)
+    # override imports from pypy head with imports from pypy-translation-snapshot
+    import pypy
+    pypy.__path__.insert(0, pypy_translation_snapshot_dir)
 
-# complement imports from pypy.objspace (from pypy-translation-snapshot)
-# with pypy head objspace/
-import pypy.objspace
-pypy.objspace.__path__.append(os.path.join(autopath.pypydir, 'objspace'))
+    # complement imports from pypy.objspace (from pypy-translation-snapshot)
+    # with pypy head objspace/
+    import pypy.objspace
+    pypy.objspace.__path__.append(os.path.join(autopath.pypydir, 'objspace'))
 
-print "imports redirected to pypy-translation-snapshot."
+    print "imports redirected to pypy-translation-snapshot."
 
-# xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 
 import threading, pdb
@@ -77,6 +80,7 @@ from pypy.translator.pickle.main import load, save
 from pypy.translator.tool import buildpyxmodule
 buildpyxmodule.enable_fast_compilation()
 
+annmodel.DEBUG = False
 
 
 
@@ -258,6 +262,7 @@ if __name__ == '__main__':
                '-no-o': False,
                '-tcc':  False,
                '-no-d': False,
+               '-no-snapshot' : False,
                '-load': False,
                '-save': False,
                '-fork': False,

@@ -7,9 +7,9 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, GetSetProperty
 from pypy.interpreter.pycode import PyCode 
-from syntaxtree import SyntaxNode
-from pythonparse import parse_python_source
-from pypy.module.recparser import PYTHON_PARSER
+from pypy.interpreter.pyparser.syntaxtree import SyntaxNode
+from pypy.interpreter.pyparser.pythonparse import parse_python_source
+from pypy.interpreter.pyparser.pythonutil import PYTHON_PARSER
 
 __all__ = [ "ASTType", "STType", "suite", "expr" ]
 
@@ -100,20 +100,24 @@ STType.typedef = TypeDef("parser.st",
 )
 
 def suite( space, source ):
-    builder = parse_python_source( source, PYTHON_PARSER, "file_input" )
+    # make the annotator life easier (don't use str.splitlines())
+    strings = [line + '\n' for line in source.split('\n')]
+    builder = parse_python_source( strings, PYTHON_PARSER, "file_input" )
     return space.wrap( STType(space, builder.stack[-1]) )    
 
 suite.unwrap_spec = [ObjSpace, str]
 
 def expr( space, source ):
-    builder = parse_python_source( source, PYTHON_PARSER, "eval_input" )
+    # make the annotator life easier (don't use str.splitlines())
+    strings = [line + '\n' for line in source.split('\n')]
+    builder = parse_python_source( strings, PYTHON_PARSER, "eval_input" )
     return space.wrap( STType(space, builder.stack[-1]) )    
 
 expr.unwrap_spec = [ObjSpace, str]
 
-def ast2tuple(space, node, line_info=False):
+def ast2tuple(space, node, line_info=0):
     """Quick dummy implementation of parser.ast2tuple(tree) function"""
     tuples = node.totuple(line_info)
     return space.wrap(tuples)
 
-ast2tuple.unwrap_spec = [ObjSpace, STType, bool]
+ast2tuple.unwrap_spec = [ObjSpace, STType, int]

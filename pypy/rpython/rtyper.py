@@ -267,7 +267,8 @@ class RPythonTyper:
             # in all generated operations.
             if hop.s_result.is_constant():
                 if isinstance(resultvar, Constant) and \
-                       isinstance(hop.r_result.lowleveltype, Primitive):
+                       isinstance(hop.r_result.lowleveltype, Primitive) and \
+                       hop.r_result.lowleveltype != Void:
                     assert resultvar.value == hop.s_result.const
             resulttype = resultvar.concretetype
             op.result.concretetype = hop.r_result.lowleveltype

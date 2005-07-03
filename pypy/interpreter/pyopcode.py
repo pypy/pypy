@@ -53,7 +53,7 @@ class PyInterpFrame(pyframe.PyFrame):
             oparg = self.nextarg()
             fn(self, oparg)
         else:
-            fn = self.dispatch_table_no_arg[opcode]            
+            fn = self.dispatch_table_no_arg[opcode] 
             fn(self)
 
     def nextop(self):

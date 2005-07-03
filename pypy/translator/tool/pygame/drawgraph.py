@@ -116,56 +116,77 @@ class Edge:
             rest = rest[3:]
         self.style, self.color = rest
         self.highlight = False
+        self.cachedbezierpoints = None
+        self.cachedarrowhead = None
+        self.cachedlimits = None
 
     def sethighlight(self, which):
         self.highlight = bool(which)
 
-    def bezierpoints(self, resolution=8):
-        result = []
-        pts = self.points
-        for i in range(0, len(pts)-3, 3):
-            result += beziercurve(pts[i], pts[i+1],
-                                  pts[i+2], pts[i+3], resolution)
+    def limits(self):
+        result = self.cachedlimits
+        if result is None:
+            points = self.bezierpoints()
+            xs = [point[0] for point in points]
+            ys = [point[1] for point in points]
+            self.cachedlimits = result = (min(xs), max(ys), max(xs), min(ys))
+        return result
+
+    def bezierpoints(self):
+        result = self.cachedbezierpoints
+        if result is None:
+            result = []
+            pts = self.points
+            for i in range(0, len(pts)-3, 3):
+                result += beziercurve(pts[i], pts[i+1], pts[i+2], pts[i+3])
+            self.cachedbezierpoints = result
         return result
 
     def arrowhead(self):
-        bottom_up = self.points[0][1] > self.points[-1][1]
-        if (self.tail.y > self.head.y) != bottom_up:   # reversed edge
-            head = 0
-            dir = 1
-        else:
-            head = -1
-            dir = -1
-        n = 1
-        while True:
-            try:
-                x0, y0 = self.points[head]
-                x1, y1 = self.points[head+n*dir]
-            except IndexError:
-                return []
-            vx = x0-x1
-            vy = y0-y1
-            try:
-                f = 0.12 / math.sqrt(vx*vx + vy*vy)
-                vx *= f
-                vy *= f
-                return [(x0 + 0.9*vx, y0 + 0.9*vy),
-                        (x0 + 0.4*vy, y0 - 0.4*vx),
-                        (x0 - 0.4*vy, y0 + 0.4*vx)]
-            except (ZeroDivisionError, ValueError):
-                n += 1
+        result = self.cachedarrowhead
+        if result is None:
+            bottom_up = self.points[0][1] > self.points[-1][1]
+            if (self.tail.y > self.head.y) != bottom_up:   # reversed edge
+                head = 0
+                dir = 1
+            else:
+                head = -1
+                dir = -1
+            n = 1
+            while True:
+                try:
+                    x0, y0 = self.points[head]
+                    x1, y1 = self.points[head+n*dir]
+                except IndexError:
+                    result = []
+                    break
+                vx = x0-x1
+                vy = y0-y1
+                try:
+                    f = 0.12 / math.sqrt(vx*vx + vy*vy)
+                    vx *= f
+                    vy *= f
+                    result = [(x0 + 0.9*vx, y0 + 0.9*vy),
+                              (x0 + 0.4*vy, y0 - 0.4*vx),
+                              (x0 - 0.4*vy, y0 + 0.4*vx)]
+                    break
+                except (ZeroDivisionError, ValueError):
+                    n += 1
+            self.cachedarrowhead = result
+        return result
 
 def beziercurve((x0,y0), (x1,y1), (x2,y2), (x3,y3), resolution=8):
     result = []
     f = 1.0/(resolution-1)
+    append = result.append
     for i in range(resolution):
         t = f*i
         t0 = (1-t)*(1-t)*(1-t)
         t1 =   t  *(1-t)*(1-t) * 3.0
         t2 =   t  *  t  *(1-t) * 3.0
         t3 =   t  *  t  *  t
-        result.append((x0*t0 + x1*t1 + x2*t2 + x3*t3,
-                       y0*t0 + y1*t1 + y2*t2 + y3*t3))
+        append((x0*t0 + x1*t1 + x2*t2 + x3*t3,
+                y0*t0 + y1*t1 + y2*t2 + y3*t3))
     return result
 
 def segmentdistance((x0,y0), (x1,y1), (x,y)):
@@ -173,16 +194,16 @@ def segmentdistance((x0,y0), (x1,y1), (x,y)):
     vx = x1-x0
     vy = y1-y0
     try:
-        l = math.sqrt(vx*vx+vy*vy)
+        l = math.hypot(vx, vy)
         vx /= l
         vy /= l
         dlong = vx*(x-x0) + vy*(y-y0)
     except (ZeroDivisionError, ValueError):
         dlong = -1
     if dlong < 0.0:
-        return math.sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0))
+        return math.hypot(x-x0, y-y0)
     elif dlong > l:
-        return math.sqrt((x-x1)*(x-x1) + (y-y1)*(y-y1))
+        return math.hypot(x-x1, y-y1)
     else:
         return abs(vy*(x-x0) - vx*(y-y0))
 
@@ -209,6 +230,8 @@ class GraphRenderer:
         self.textzones = []
         self.highlightwords = graphlayout.links
         self.highlight_word = None
+        self.visiblenodes = []
+        self.visibleedges = []
 
     def wordcolor(self, word):
         if word == self.highlight_word:
@@ -298,8 +321,26 @@ class GraphRenderer:
         coordinates may sometimes become longs and cause OverflowErrors
         within pygame.
         """
-        return (x1 < self.width-self.ofsx and x2 > -self.ofsx and
-                y1 < self.height-self.ofsy and y2 > -self.ofsy)
+        w, h = self.screen.get_size()
+        return x1 < w and x2 > 0 and y1 < h and y2 > 0
+
+    def computevisible(self):
+        del self.visiblenodes[:]
+        del self.visibleedges[:]
+        w, h = self.screen.get_size()
+        for node in self.graphlayout.nodes.values():
+            x, y = self.map(node.x, node.y)
+            nw2 = int(node.w * self.scale)//2
+            nh2 = int(node.h * self.scale)//2
+            if x-nw2 < w and x+nw2 > 0 and y-nh2 < h and y+nh2 > 0:
+                self.visiblenodes.append(node)
+        for edge in self.graphlayout.edges:
+            x1, y1, x2, y2 = edge.limits()
+            x1, y1 = self.map(x1, y1)
+            if x1 < w and y1 < h:
+                x2, y2 = self.map(x2, y2)
+                if x2 > 0 and y2 > 0:
+                    self.visibleedges.append(edge)
 
     def map(self, x, y):
         return (int(x*self.scale) - (self.ofsx - self.margin),
@@ -382,6 +423,14 @@ class GraphRenderer:
             def cmd():
                 pygame.draw.rect(self.screen, fgcolor, rect, 1)
             commands.append(cmd)
+        elif node.shape == 'ellipse':
+            rect = (x-1, y-1, boxwidth+2, boxheight+2)
+            def cmd():
+                pygame.draw.ellipse(self.screen, bgcolor, rect, 0)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.ellipse(self.screen, fgcolor, rect, 1)
+            commands.append(cmd)
         elif node.shape == 'octagon':
             step = 1-math.sqrt(2)/2
             points = [(int(x+boxwidth*fx), int(y+boxheight*fy))
@@ -400,14 +449,15 @@ class GraphRenderer:
     def draw_commands(self):
         nodebkgndcmd = []
         nodecmd = []
-        for node in self.graphlayout.nodes.values():
+        for node in self.visiblenodes:
             cmd1, cmd2 = self.draw_node_commands(node)
             nodebkgndcmd += cmd1
             nodecmd += cmd2
 
         edgebodycmd = []
         edgeheadcmd = []
-        for edge in self.graphlayout.edges:
+        for edge in self.visibleedges:
+
             fgcolor = getcolor(edge.color, (0,0,0))
             if edge.highlight:
                 fgcolor = highlight_color(fgcolor)
@@ -435,6 +485,8 @@ class GraphRenderer:
         return edgebodycmd + nodebkgndcmd + edgeheadcmd + nodecmd
 
     def render(self):
+        self.computevisible()
+
         bbox = self.getboundingbox()
         self.screen.fill((224, 255, 224), bbox)
 
@@ -478,7 +530,7 @@ class GraphRenderer:
     def node_at_position(self, (x, y)):
         """Return the Node under the cursor."""
         x, y = self.revmap(x, y)
-        for node in self.graphlayout.nodes.itervalues():
+        for node in self.visiblenodes:
             if 2.0*abs(x-node.x) <= node.w and 2.0*abs(y-node.y) <= node.h:
                 return node
         return None
@@ -489,7 +541,7 @@ class GraphRenderer:
         distmax /= self.scale
         xy = self.revmap(x, y)
         closest_edge = None
-        for edge in self.graphlayout.edges:
+        for edge in self.visibleedges:
             pts = edge.bezierpoints()
             for i in range(1, len(pts)):
                 d = segmentdistance(pts[i-1], pts[i], xy)

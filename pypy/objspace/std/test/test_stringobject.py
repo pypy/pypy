@@ -116,8 +116,23 @@ class TestW_StringObject:
         assert self.space.eq_w(space.getitem(w_str, w_slice), w('el'))
 
 class AppTestStringObject:
+
     def test_format_wrongchar(self):
         raises(ValueError, 'a%Zb'.__mod__, ((23,),))
+
+    def test_format(self):
+        raises(TypeError, "foo".__mod__, "bar")
+        raises(TypeError, u"foo".__mod__, "bar")
+        raises(TypeError, "foo".__mod__, u"bar")
+
+        for format, arg, cls in [("a %s b", "foo", str),
+                                 (u"a %s b", "foo", unicode),
+                                 ("a %s b", u"foo", unicode),
+                                 (u"a %s b", u"foo", unicode)]:
+            raises(TypeError, format[:2].__mod__, arg)
+            result = format % arg
+            assert result == "a foo b"
+            assert isinstance(result, cls)
 
     def test_split(self):
         assert "".split() == []

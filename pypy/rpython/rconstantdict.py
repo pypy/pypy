@@ -84,10 +84,10 @@ class ConstantDictRepr(rmodel.Repr):
     #def make_iterator_repr(self):
     #    return StrDictIteratorRepr(self)
 
-    #def rtype_method_get(self, hop):
-    #    v_dict, v_key, v_default = hop.inputargs(self, string_repr,
-    #                                             self.value_repr)
-    #    return hop.gendirectcall(ll_get, v_dict, v_key, v_default)
+    def rtype_method_get(self, hop):
+        v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
+                                                 self.value_repr)
+        return hop.gendirectcall(ll_constantdict_get, v_dict, v_key, v_default)
 
 class __extend__(pairtype(ConstantDictRepr, rmodel.Repr)): 
 
@@ -124,6 +124,13 @@ def ll_constantdict_getitem(d, key):#, hashcompute):
 def ll_constantdict_contains(d, key):#, hashcompute):
     entry = ll_constantdict_lookup(d, key)#, hashcompute)
     return entry.valid
+
+def ll_constantdict_get(d, key, default):#, hashcompute):
+    entry = ll_constantdict_lookup(d, key)#, hashcompute)
+    if entry.valid:
+        return entry.value
+    else: 
+        return default
 
 def ll_constantdict_setnewitem(d, key, value):#, hashcompute): 
     entry = ll_constantdict_lookup(d, key)#, hashcompute)

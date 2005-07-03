@@ -9,6 +9,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 class Code(Wrappable):
     """A code is a compiled version of some source code.
     Abstract base class."""
+    hidden_applevel = False
 
     def __init__(self, co_name):
         self.co_name = co_name
