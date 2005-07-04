@@ -658,12 +658,6 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     return W_StringObject(space, u_centered)
 
-# This is so that str_center__String_ANY_Unicode in unicodeobject
-# won't convert a String fillchar
-def str_center__String_ANY_String(space, w_self, w_arg, w_fillchar):
-    return str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar)
-      
-      
 def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end): 
     u_self  = w_self._value
     u_arg   = w_arg._value

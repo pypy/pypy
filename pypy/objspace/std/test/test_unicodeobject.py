@@ -128,10 +128,40 @@ class AppTestUnicodeString:
         assert u'abc'.center(6) == u' abc  '
         assert u'abc'.center(3) == u'abc'
         assert u'abc'.center(2) == u'abc'
-        assert u'abc'.center(5, u'*') == u'*abc*'     # Python 2.4
+        assert u'abc'.center(5, u'*') == u'*abc*'    # Python 2.4
         assert u'abc'.center(5, '*') == u'*abc*'     # Python 2.4
-        assert 'abc'.center(5, u'*') == u'*abc*'     # Python 2.4
+        raises(TypeError, 'abc'.center, 5, u'*')     # Python 2.4
         raises(TypeError, u'abc'.center, 4, u'cba')
+
+    def test_rjust(self):
+        s = u"abc"
+        assert s.rjust(2) == s
+        assert s.rjust(3) == s
+        assert s.rjust(4) == u" " + s
+        assert s.rjust(5) == u"  " + s
+        assert u'abc'.rjust(10) == u'       abc'
+        assert u'abc'.rjust(6) == u'   abc'
+        assert u'abc'.rjust(3) == u'abc'
+        assert u'abc'.rjust(2) == u'abc'
+        assert u'abc'.rjust(5, u'*') == u'**abc'    # Python 2.4
+        assert u'abc'.rjust(5, '*') == u'**abc'     # Python 2.4
+        raises(TypeError, 'abc'.rjust, 5, u'*')     # Python 2.4
+        raises(TypeError, u'abc'.rjust, 5, u'xx')
+
+    def test_ljust(self):
+        s = u"abc"
+        assert s.ljust(2) == s
+        assert s.ljust(3) == s
+        assert s.ljust(4) == s + u" "
+        assert s.ljust(5) == s + u"  "
+        assert u'abc'.ljust(10) == u'abc       '
+        assert u'abc'.ljust(6) == u'abc   '
+        assert u'abc'.ljust(3) == u'abc'
+        assert u'abc'.ljust(2) == u'abc'
+        assert u'abc'.ljust(5, u'*') == u'abc**'    # Python 2.4
+        assert u'abc'.ljust(5, '*') == u'abc**'     # Python 2.4
+        raises(TypeError, 'abc'.ljust, 5, u'*')     # Python 2.4
+        raises(TypeError, u'abc'.ljust, 6, u'')
 
     def test_long_from_unicode(self):
         assert long(u'12345678901234567890') == 12345678901234567890
