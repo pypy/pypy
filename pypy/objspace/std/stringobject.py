@@ -639,6 +639,7 @@ def str_lstrip__String_None(space, w_self, w_chars):
     return _strip_none(space, w_self, left=1, right=0)
 
 
+
 def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_self = w_self._value
     u_arg  = space.int_w(w_arg)
@@ -656,6 +657,11 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
         u_centered = u_self
 
     return W_StringObject(space, u_centered)
+
+# This is so that str_center__String_ANY_Unicode in unicodeobject
+# won't convert a String fillchar
+def str_center__String_ANY_String(space, w_self, w_arg, w_fillchar):
+    return str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar)
       
       
 def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end): 

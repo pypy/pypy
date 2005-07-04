@@ -916,6 +916,7 @@ class str_methods:
                                  'rsplit', w_delim, w_maxsplit)
 
     def str_center__String_ANY_Unicode(space, w_self, w_width, w_fillchar):
+        print 'Centering a string with unicode.'
         return space.call_method(space.call_function(space.w_unicode, w_self),
                                  'center', w_width, w_fillchar)
 
