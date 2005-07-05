@@ -130,7 +130,6 @@ class AppTestUnicodeString:
         assert u'abc'.center(2) == u'abc'
         assert u'abc'.center(5, u'*') == u'*abc*'    # Python 2.4
         assert u'abc'.center(5, '*') == u'*abc*'     # Python 2.4
-        raises(TypeError, 'abc'.center, 5, u'*')     # Python 2.4
         raises(TypeError, u'abc'.center, 4, u'cba')
 
     def test_rjust(self):
@@ -145,7 +144,6 @@ class AppTestUnicodeString:
         assert u'abc'.rjust(2) == u'abc'
         assert u'abc'.rjust(5, u'*') == u'**abc'    # Python 2.4
         assert u'abc'.rjust(5, '*') == u'**abc'     # Python 2.4
-        raises(TypeError, 'abc'.rjust, 5, u'*')     # Python 2.4
         raises(TypeError, u'abc'.rjust, 5, u'xx')
 
     def test_ljust(self):
@@ -160,7 +158,6 @@ class AppTestUnicodeString:
         assert u'abc'.ljust(2) == u'abc'
         assert u'abc'.ljust(5, u'*') == u'abc**'    # Python 2.4
         assert u'abc'.ljust(5, '*') == u'abc**'     # Python 2.4
-        raises(TypeError, 'abc'.ljust, 5, u'*')     # Python 2.4
         raises(TypeError, u'abc'.ljust, 6, u'')
 
     def test_long_from_unicode(self):
