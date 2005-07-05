@@ -205,9 +205,8 @@ def generate_tokens(lines):
 
                 if start == end:
                     # Nothing matched!!!
-                    raise TokenError("EOF in multi-line statement", line,
-                                 (lnum, pos), token_list)
-
+                    raise TokenError("Unknown character", line,
+                                 (lnum, start), token_list)
 
                 spos, epos, pos = (lnum, start), (lnum, end), end
                 token, initial = line[start:end], line[start]
