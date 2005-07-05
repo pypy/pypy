@@ -110,7 +110,6 @@ def generate_tokens(lines, flags):
     indents = [0]
     last_comment = ''
     encoding = None
-    strstart = (0, 0)
     # make the annotator happy
     pos = -1
     lines.append('') # XXX HACK probably not needed
@@ -124,8 +123,8 @@ def generate_tokens(lines, flags):
 
         if contstr:                            # continued string
             if not line:
-                raise TokenError("EOF in multi-line string", line, strstart,
-                                 token_list)
+                raise TokenError("EOF in multi-line string", line,
+                                 (lnum, 0), token_list)
             endmatch = endDFA.recognize(line)
             if -1 != endmatch:
                 pos = end = endmatch
@@ -243,7 +242,6 @@ def generate_tokens(lines, flags):
                         token_list.append((tok, line, lnum, pos))
                         last_comment = ''
                     else:
-                        strstart = (lnum, start)           # multiple lines
                         contstr = line[start:]
                         contline = line
                         break
@@ -251,7 +249,6 @@ def generate_tokens(lines, flags):
                     token[:2] in single_quoted or \
                     token[:3] in single_quoted:
                     if token[-1] == '\n':                  # continued string
-                        strstart = (lnum, start)
                         endDFA = (endDFAs[initial] or endDFAs[token[1]] or
                                    endDFAs[token[2]])
                         contstr, needcont = line[start:], 1
@@ -289,9 +286,8 @@ def generate_tokens(lines, flags):
         for indent in indents[1:]:                 # pop remaining indent levels
             tok = token_from_values(tokenmod.DEDENT, '')
             token_list.append((tok, line, lnum, pos))
-    if token_list and token_list[-1][0].name == 'NEWLINE':
-        token_list.pop()
-    token_list.append((Token('NEWLINE', ''), '\n', lnum, 0))
+    if token_list and token_list[-1][0].name != 'NEWLINE':
+        token_list.append((Token('NEWLINE', ''), '\n', lnum, 0))
 
     tok = token_from_values(tokenmod.ENDMARKER, '',)
     token_list.append((tok, line, lnum, pos))

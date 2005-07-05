@@ -28,10 +28,12 @@ class BaseTestCompiler:
         c4 = self.compiler.compile_command('x = (', '?', 'exec', 0)
         c5 = self.compiler.compile_command('x = (\n', '?', 'exec', 0)
         c6 = self.compiler.compile_command('x = (\n\n', '?', 'exec', 0)
+        c7 = self.compiler.compile_command('x = """a\n', '?', 'exec', 0)
         assert c3 is None
         assert c4 is None
         assert c5 is None
         assert c6 is None
+        assert c7 is None
         space = self.space
         space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                        'if 1:\n  x x', '?', 'exec', 0)
