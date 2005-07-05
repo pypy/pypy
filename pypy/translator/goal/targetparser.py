@@ -14,8 +14,7 @@ entry_point = annotateme
 
 # _____ Define and setup target ___
 def target():
-    s_list_of_strings = SomeList(ListDef(None, SomeString()))
-    return entry_point, [s_list_of_strings]
+    return entry_point, [str]
 
 # _____ Run translated _____
 def run(c_entry_point):

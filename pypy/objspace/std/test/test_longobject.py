@@ -68,6 +68,50 @@ class TestW_LongObject:
         div, rem = lobj._divrem1(self.space, f1, f2)
         assert (div.longval(), rem) == divmod(x, y)
 
+    def test__muladd1(self):
+        x = 1238585838347L
+        y = 3
+        z = 42
+        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        f2 = r_uint(y)
+        f3 = r_uint(z)
+        prod = lobj._muladd1(self.space, f1, f2, f3)
+        assert prod.longval() == x * y + z
+
+    def test__x_divrem(self):
+        x = 12345678901234567890L
+        for i in range(100):
+            y = long(randint(0, 1 << 30))
+            y <<= 30
+            y += randint(0, 1 << 30)
+            f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+            f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
+            div, rem = lobj._x_divrem(self.space, f1, f2)
+            assert div.longval(), rem.longval() == divmod(x, y)
+
+    def test__divrem(self):
+        x = 12345678901234567890L
+        for i in range(100):
+            y = long(randint(0, 1 << 30))
+            y <<= 30
+            y += randint(0, 1 << 30)
+            for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
+                sx *= x
+                sy *= y
+                f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(sx))
+                f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(sy))
+                div, rem = lobj._x_divrem(self.space, f1, f2)
+                assert div.longval(), rem.longval() == divmod(sx, sy)
+
+    def test__AsDouble(self):
+        x = 12345678901234567890L ** 10
+        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        d = lobj._AsDouble(f1)
+        assert d == float(x)
+        x = x ** 100
+        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        assert raises(OverflowError, lobj._AsDouble, f1)
+
     def test_eq(self):
         x = 5858393919192332223L
         y = 585839391919233111223311112332L
@@ -220,9 +264,17 @@ class AppTestLong:
     def test_sub(self):
         assert int(58543L - 12332L) == 58543 - 12332
         assert 237123838281233L * 12 == 237123838281233L * 12L
-        
+
     def test_mul(self):
         assert 363L * 2 ** 40 == 363L << 40
+
+    def test_truediv(self):
+        exec "from __future__ import division; a = 31415926L / 10000000L"
+        assert a == 3.1415926
+
+    def test_floordiv(self):
+        a = 31415926L // 10000000L
+        assert a == 3L
 
     def test_conversion(self):
         class long2(long):

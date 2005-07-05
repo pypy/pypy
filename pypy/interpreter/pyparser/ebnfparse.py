@@ -8,7 +8,10 @@ py_name = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*", re.M)
 
 punct=['>=', '<>', '!=', '<', '>', '<=', '==', '\\*=',
        '//=', '%=', '^=', '<<=', '\\*\\*=', '\\', '=',
-       '\\+=', '>>=', '=', '&=', '/=', '-=', '\n,', '^', '>>', '&', '\\+', '\\*', '-', '/', '\\.', '\\*\\*', '%', '<<', '//', '\\', '', '\n\\)', '\\(', ';', ':', '@', '\\[', '\\]', '`', '\\{', '\\}']
+       '\\+=', '>>=', '=', '&=', '/=', '-=', '\n,', '^',
+       '>>', '&', '\\+', '\\*', '-', '/', '\\.', '\\*\\*',
+       '%', '<<', '//', '\\', '', '\n\\)', '\\(', ';', ':',
+       '@', '\\[', '\\]', '`', '\\{', '\\}']
 
 py_punct = re.compile(r"""
 >=|<>|!=|<|>|<=|==|~|
@@ -77,17 +80,16 @@ class EBNFVisitor(object):
         self.items = []
         self.terminals['NAME'] = NameToken()
 
-    def new_name( self ):
+    def new_name(self):
         rule_name = ":%s_%s" % (self.current_rule, self.current_subrule)
         self.current_subrule += 1
         return rule_name
 
-    def new_item( self, itm ):
-        self.items.append( itm )
+    def new_item(self, itm):
+        self.items.append(itm)
         return itm
     
-    def visit_grammar( self, node ):
-        # print "Grammar:"
+    def visit_grammar(self, node):
         for rule in node.nodes:
             rule.visit(self)
         # the rules are registered already
@@ -103,23 +105,23 @@ class EBNFVisitor(object):
         # XXX .keywords also contains punctuations
         self.terminals['NAME'].keywords = self.tokens.keys()
 
-    def visit_rule( self, node ):
+    def visit_rule(self, node):
         symdef = node.nodes[0].value
         self.current_rule = symdef
         self.current_subrule = 0
         alt = node.nodes[1]
         rule = alt.visit(self)
-        if not isinstance( rule, Token ):
+        if not isinstance(rule, Token):
             rule.name = symdef
         self.rules[symdef] = rule
         
-    def visit_alternative( self, node ):
-        items = [ node.nodes[0].visit(self) ]
+    def visit_alternative(self, node):
+        items = [node.nodes[0].visit(self)]
         items += node.nodes[1].visit(self)        
         if len(items) == 1 and items[0].name.startswith(':'):
             return items[0]
-        alt = Alternative( self.new_name(), items )
-        return self.new_item( alt )
+        alt = Alternative(self.new_name(), items)
+        return self.new_item(alt)
 
     def visit_sequence( self, node ):
         """ """
@@ -181,11 +183,14 @@ class EBNFVisitor(object):
             rule_name = self.new_name()
             tok = star_opt.nodes[0].nodes[0]
             if tok.value == '+':
-                return self.new_item( KleenStar( rule_name, _min=1, rule = myrule ) )
+                item = KleenStar(rule_name, _min=1, rule=myrule)
+                return self.new_item(item)
             elif tok.value == '*':
-                return self.new_item( KleenStar( rule_name, _min=0, rule = myrule ) )
+                item = KleenStar(rule_name, _min=0, rule=myrule)
+                return self.new_item(item)
             else:
-                raise SyntaxError("Got symbol star_opt with value='%s'" % tok.value )
+                raise SyntaxError("Got symbol star_opt with value='%s'"
+                                  % tok.value)
         return myrule
 
 rules = None

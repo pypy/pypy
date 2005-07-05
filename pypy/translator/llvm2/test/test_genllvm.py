@@ -19,7 +19,7 @@ py.log.setconsumer("genllvm database prepare", None)
 ## def setup_module(mod):
 ##     mod.llvm_found = is_on_path("llvm-as")
 
-def compile_function(function, annotate, view=False):
+def compile_module(function, annotate, view=False):
     t = Translator(function)
     a = t.annotate(annotate)
     t.specialize()
@@ -28,23 +28,37 @@ def compile_function(function, annotate, view=False):
         t.view()
     return genllvm(t)
 
+def compile_function(function, annotate, view=False):
+    mod = compile_module(function, annotate, view)
+    return getattr(mod, function.func_name + "_wrapper")
+
+def compile_module_function(function, annotate, view=False):
+    mod = compile_module(function, annotate, view)
+    f = getattr(mod, function.func_name + "_wrapper")
+    return mod, f
+
 def test_GC_malloc(): 
     if not use_boehm_gc:
         py.test.skip("test_GC_malloc skipped because Boehm collector library was not found")
         return
-    py.test.skip("test_GC_malloc skipped because test not yet correct (Boehm collector IS used anyway)")
-    return
     def tuple_getitem(n): 
-        x = 0
+        x = 666
         i = 0
         while i < n:
-            l = (1,2,i,234,23,23,23,234,234,234,234)
+            l = (1,2,i,4,5,6,7,8,9,10,11)
             x += l[2]
             i += 1
         return x
-    f = compile_function(tuple_getitem, [int])
-    t = 1024*1024*100
-    f(t) #assert f(t) == t
+    mod,f = compile_module_function(tuple_getitem, [int])
+    n = 5000
+    result = tuple_getitem(n)
+    assert f(n) == result
+    get_heap_size = getattr(mod, "GC_get_heap_size_wrapper")
+    heap_size_start = get_heap_size()
+    for i in range(0,25):
+        assert f(n) == result
+        heap_size_inc = get_heap_size() - heap_size_start
+        assert heap_size_inc < 500000
 
 def test_return1():
     def simple1():
@@ -196,15 +210,15 @@ def test_recursive_call():
         if m == 0:
             return ackermann(n - 1, 1)
         return ackermann(n - 1, ackermann(n, m - 1))
-    f = compile_function(call_ackermann, [int, int], view=False)
+    f = compile_function(call_ackermann, [int, int])
     assert f(0, 2) == 3
     
 def test_tuple_getitem(): 
     def tuple_getitem(i): 
-        l = (1,2,i)
+        l = (4,5,i)
         return l[1]
     f = compile_function(tuple_getitem, [int])
-    assert f(1) == 2 
+    assert f(1) == tuple_getitem(1)
 
 def test_nested_tuple():
     def nested_tuple(i): 
@@ -228,7 +242,7 @@ def test_pbc_fns():
     assert f(-1) == 3
     assert f(0) == 5
 
-def DONOT_test_simple_chars():
+def Xtest_simple_chars():
      def char_constant2(s):
          s = s + s + s
          return len(s + '.')
@@ -245,6 +259,29 @@ def test_list_getitem():
     assert f(0) == 1
     assert f(1) == 2
     assert f(2) == 3
+
+def test_list_list_getitem(): 
+    def list_list_getitem(): 
+        l = [[1]]
+        return l[0][0]
+    f = compile_function(list_list_getitem, [])
+    assert f() == 1
+
+def test_list_getitem_pbc(): 
+    l = [1,2]
+    def list_getitem_pbc(i): 
+        return l[i]
+    f = compile_function(list_getitem_pbc, [int])
+    assert f(0) == 1
+    assert f(1) == 2
+
+def test_list_list_getitem_pbc(): 
+    l = [[0, 1], [0, 1]]
+    def list_list_getitem_pbc(i): 
+        return l[i][i]
+    f = compile_function(list_list_getitem_pbc, [int])
+    assert f(0) == 0
+    assert f(1) == 1
 
 def test_list_basic_ops(): 
     def list_basic_ops(i, j): 

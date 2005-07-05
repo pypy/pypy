@@ -1,63 +1,65 @@
 class Error(Exception):
     pass
 
+class Apa(Exception):
+    pass
+
 class Incomplete(Exception):
     pass
 
 def a2b_uu(s):
     length = (ord(s[0]) - 0x20) % 64
-    a = quadruplets(s[1:].rstrip())
+
+    def quadruplets_gen(s):
+        while s:
+            try:
+                yield ord(s[0]), ord(s[1]), ord(s[2]), ord(s[3])
+            except IndexError:
+                s += '   '
+                yield ord(s[0]), ord(s[1]), ord(s[2]), ord(s[3])
+                return
+            s = s[4:]
+
     try:
         result = [''.join(
             [chr((A - 0x20) << 2 | (((B - 0x20) >> 4) & 0x3)),
-            chr(((B - 0x20) & 0xF) << 4 | (((C - 0x20) >> 2) & 0xF)),
-            chr(((C - 0x20) & 0x3) << 6 | ((D - 0x20) & 0x3F))
-            ]) for A, B, C, D in a]
+            chr(((B - 0x20) & 0xf) << 4 | (((C - 0x20) >> 2) & 0xf)),
+            chr(((C - 0x20) & 0x3) << 6 | ((D - 0x20) & 0x3f))
+            ]) for A, B, C, D in quadruplets_gen(s[1:].rstrip())]
     except ValueError:
-        raise Error, 'Illegal char'
+        raise Error('Illegal char')
     result = ''.join(result)
     trailingdata = result[length:]
     if trailingdata.strip('\x00'):
-        raise Error, 'Trailing garbage'
+        raise Error('Trailing garbage')
     result = result[:length]
     if len(result) < length:
         result += ((length - len(result)) * '\x00')
     return result
 
-def quadruplets(s):
-    while s:
-        try:
-            a, b, c, d = s[0], s[1], s[2], s[3]
-        except IndexError:
-            s += '   '
-            yield ord(s[0]), ord(s[1]), ord(s[2]), ord(s[3])
-            return
-        s = s[4:]
-        yield ord(a), ord(b), ord(c), ord(d)
                                
 def b2a_uu(s):
     length = len(s)
     if length > 45:
-        raise Error, 'At most 45 bytes at once'
+        raise Error('At most 45 bytes at once')
 
-    a = triples(s)
+    def triples_gen(s):
+        while s:
+            try:
+                yield ord(s[0]), ord(s[1]), ord(s[2])
+            except IndexError:
+                s += '\0\0'
+                yield ord(s[0]), ord(s[1]), ord(s[2])
+                return
+            s = s[3:]
+
     result = [''.join(
         [chr(0x20 + (( A >> 2                    ) & 0x3F)),
          chr(0x20 + (((A << 4) | ((B >> 4) & 0xF)) & 0x3F)),
          chr(0x20 + (((B << 2) | ((C >> 6) & 0x3)) & 0x3F)),
-         chr(0x20 + (( C                         ) & 0x3F))]) for A, B, C in a]
+         chr(0x20 + (( C                         ) & 0x3F))])
+              for A, B, C in triples_gen(s)]
     return chr(ord(' ') + (length & 077)) + ''.join(result) + '\n'
-
-def triples(s):
-    while s:
-        try:
-            a, b, c = s[0], s[1], s[2]
-        except IndexError:
-            s += '\0\0'
-            yield ord(s[0]), ord(s[1]), ord(s[2])
-            return
-        s = s[3:]
-        yield ord(a), ord(b), ord(c)
 
 
 table_a2b_base64 = {
@@ -127,11 +129,6 @@ table_a2b_base64 = {
     '/': 63,
 }
 
-def quadruplets_base64(s):
-    while s:
-        a, b, c, d = table_a2b_base64[s[0]], table_a2b_base64[s[1]], table_a2b_base64[s[2]], table_a2b_base64[s[3]]
-        s = s[4:]
-        yield a, b, c, d
 
 def a2b_base64(s):
     s = s.rstrip()
@@ -145,12 +142,19 @@ def a2b_base64(s):
     if len(s) % 4:
         s = s + ('=' * (4 - len(s) % 4))
      
-    a = quadruplets_base64(s[:-4])
+    def quadruplets_gen(s):
+        while s:
+            yield (table_a2b_base64[s[0]],
+                   table_a2b_base64[s[1]],
+                   table_a2b_base64[s[2]],
+                   table_a2b_base64[s[3]])
+            s = s[4:]
+
     result = [
         chr(A << 2 | ((B >> 4) & 0x3)) + 
-        chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF)) + 
+        chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf)) + 
         chr((C & 0x3) << 6 | D )
-        for A, B, C, D in a]
+        for A, B, C, D in quadruplets_gen(s[:-4])]
 
     if s:
         final = s[-4:]
@@ -163,14 +167,14 @@ def a2b_base64(s):
             B = table_a2b_base64[final[1]]
             C = table_a2b_base64[final[2]]
             snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
-                    chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF))
+                    chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf))
         else:
             A = table_a2b_base64[final[0]]
             B = table_a2b_base64[final[1]]
             C = table_a2b_base64[final[2]]
             D = table_a2b_base64[final[3]]
             snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
-                    chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF)) + \
+                    chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf)) + \
                     chr((C & 0x3) << 6 | D )
         result.append(snippet)
 
@@ -182,8 +186,19 @@ table_b2a_base64 = \
 def b2a_base64(s):
     length = len(s)
     final_length = length % 3
+
+    def triples_gen(s):
+        while s:
+            try:
+                yield ord(s[0]), ord(s[1]), ord(s[2])
+            except IndexError:
+                s += '\0\0'
+                yield ord(s[0]), ord(s[1]), ord(s[2])
+                return
+            s = s[3:]
+
     
-    a = triples(s[ :length - final_length])
+    a = triples_gen(s[ :length - final_length])
 
     result = [''.join(
         [table_b2a_base64[( A >> 2                    ) & 0x3F],
@@ -278,19 +293,20 @@ def hex(n):
     else:
         sign = ''
     arr = []
-    for nibble in hexgen(n):
+
+    def hex_gen(n):
+        """ Yield a nibble at a time. """
+        while n:
+            yield n % 0x10
+            n = n / 0x10
+
+    for nibble in hex_gen(n):
         arr = [hex_numbers[nibble]] + arr
     return sign + ''.join(arr)
 
 def two_hex_digits(n):
     return hex_numbers[n / 0x10] + hex_numbers[n % 0x10]
     
-def hexgen(n):
-    """ Yield a nibble at a time. """
-    while n:
-        remainder = n % 0x10
-        n = n / 0x10
-        yield remainder
 
 def strhex_to_int(s):
     i = 0
@@ -299,46 +315,115 @@ def strhex_to_int(s):
     return i
 
 hqx_encoding = '!"#$%&\'()*+,-012345689@ABCDEFGHIJKLMNPQRSTUVXYZ[`abcdefhijklmpqr'
-# Make a fast lookup dictionary for decoding hqx
-hqx_decoding = {}
-for i, c in enumerate(hqx_encoding):
-    hqx_decoding[c] = i
+
+DONE = 0x7f
+SKIP = 0x7e
+FAIL = 0x7d
     
-def unpadded_quadruples(s):
-    while s:
-        yield s[:4]
-        s = s[4:]
+table_a2b_hqx = [
+    #^@    ^A    ^B    ^C    ^D    ^E    ^F    ^G   
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    #\b    \t    \n    ^K    ^L    \r    ^N    ^O   
+    FAIL, FAIL, SKIP, FAIL, FAIL, SKIP, FAIL, FAIL,
+    #^P    ^Q    ^R    ^S    ^T    ^U    ^V    ^W   
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    #^X    ^Y    ^Z    ^[    ^\    ^]    ^^    ^_   
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    #      !     "     #     $     %     &     '   
+    FAIL, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+    #(     )     *     +     ,     -     .     /   
+    0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, FAIL, FAIL,
+    #0     1     2     3     4     5     6     7   
+    0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, FAIL,
+    #8     9     :     ;     <     =     >     ?   
+    0x14, 0x15, DONE, FAIL, FAIL, FAIL, FAIL, FAIL,
+    #@     A     B     C     D     E     F     G   
+    0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D,
+    #H     I     J     K     L     M     N     O   
+    0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, FAIL,
+    #P     Q     R     S     T     U     V     W   
+    0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, FAIL,
+    #X     Y     Z     [     \     ]     ^     _   
+    0x2C, 0x2D, 0x2E, 0x2F, FAIL, FAIL, FAIL, FAIL,
+    #`     a     b     c     d     e     f     g   
+    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, FAIL,
+    #h     i     j     k     l     m     n     o   
+    0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, FAIL, FAIL,
+    #p     q     r     s     t     u     v     w   
+    0x3D, 0x3E, 0x3F, FAIL, FAIL, FAIL, FAIL, FAIL,
+    #x     y     z     {     |     }     ~    ^?   
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+    FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
+]
 
 def a2b_hqx(s):
-    decoded = []
-    for c in s:
-        decoded.append(hqx_decoding[c])
-    gen = unpadded_quadruples(decoded)
     result = []
-    for snippet in gen:
-        length = len(snippet)
-        if length == 4:
-            result.append(chr((snippet[0] << 2) | (snippet[1] >> 6))) 
-            result.append(chr((snippet[1] << 4) | (snippet[2] >> 4))) 
-            result.append(chr((snippet[2] << 6) | (snippet[3]))) 
-        elif length == 3:
-            result.append(chr((snippet[0] << 2) | (snippet[1] >> 6))) 
-            result.append(chr((snippet[1] << 4) | (snippet[2] >> 4))) 
-        elif length == 2:
-            result.append(chr((snippet[0] << 2) | (snippet[1] >> 6))) 
-        else:
-            raise TypeError('Wrong number of characters.')
-    return ''.join(result)
 
-def unpadded_triples(s):
-    while s:
-        yield [ord(c) for c in s[:3]]
-        s = s[3:]
+    def quadruples_gen(s):
+        t = []
+        for c in s:
+            res = table_a2b_hqx[ord(c)]
+            if res == SKIP:
+                continue
+            elif res == FAIL:
+                raise Error('Illegal character')
+            elif res == DONE:
+                yield t
+                print 'raising'
+                raise Apa
+            else:
+                t.append(res)
+            if len(t) == 4:
+                yield t
+                t = []
+        yield t
+        
+    done = 0
+    try:
+        for snippet in quadruples_gen(s):
+            length = len(snippet)
+            if length == 4:
+                result.append(chr(((snippet[0] & 0x3f) << 2) | (snippet[1] >> 4))) 
+                result.append(chr(((snippet[1] & 0x0f) << 4) | (snippet[2] >> 2))) 
+                result.append(chr(((snippet[2] & 0x03) << 6) | (snippet[3]))) 
+            elif length == 3:
+                result.append(chr(((snippet[0] & 0x3f) << 2) | (snippet[1] >> 4))) 
+                result.append(chr(((snippet[1] & 0x0f) << 4) | (snippet[2] >> 2))) 
+            elif length == 2:
+                result.append(chr(((snippet[0] & 0x3f) << 2) | (snippet[1] >> 4))) 
+    except Apa:
+        done = 1
+    except Error:
+        raise
+    return (''.join(result), done)
 
 def b2a_hqx(s):
     result =[]
-    gen = unpadded_triples(s)
-    for snippet in gen:
+
+    def triples_gen(s):
+        while s:
+            try:
+                yield ord(s[0]), ord(s[1]), ord(s[2])
+            except IndexError:
+                yield tuple([ord(c) for c in s])
+            s = s[3:]
+
+    for snippet in triples_gen(s):
         length = len(snippet)
         if length == 3:
             result.append(
@@ -399,11 +484,16 @@ crctab_hqx = [
 
 def crc_hqx(s, crc):
     for c in s:
-        crc=((crc << 8) & 0xff00) ^ crctab_hqx[((crc >> 8) & 0xff) ^ c]
+        crc = ((crc << 8) & 0xff00) ^ crctab_hqx[((crc >> 8) & 0xff) ^ ord(c)]
 
     return crc
 
 def rlecode_hqx(s):
+    """
+    Run length encoding for binhex4.
+    The CPython implementation does not do run length encoding
+    of \x90 characters. This implementation does.
+    """
     result = []
     prev = s[0]
     count = 1
@@ -558,16 +648,14 @@ def a2b_hex(t):
     def pairs_gen(s):
         while s:
             try:
-                a, b = s[0], s[1]
+                yield table_hex[ord(s[0])], table_hex[ord(s[1])]
             except IndexError:
                 if len(s):
                     raise TypeError('Odd-length string')
                 return
             s = s[2:]
-            yield table_hex[ord(a)], table_hex[ord(b)]
 
-    pairs = pairs_gen(t)
-    for a, b in pairs:
+    for a, b in pairs_gen(t):
         if a < 0 or b < 0:
             raise TypeError('Non-hexadecimal digit found')
         result.append(chr((a << 4) + b))

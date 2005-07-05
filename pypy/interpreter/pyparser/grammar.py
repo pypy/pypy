@@ -78,8 +78,9 @@ from syntaxtree import SyntaxNode, TempSyntaxNode, TokenNode
 class BaseGrammarBuilder(object):
     """Base/default class for a builder"""
     def __init__(self, rules=None, debug=0):
-        self.rules = rules or {} # a dictionary of grammar rules for debug/reference
-        # XXX This attribute is here for convenience
+        # a dictionary of grammar rules for debug/reference
+        self.rules = rules or {}
+        # This attribute is here for convenience
         self.source_encoding = None
         self.debug = debug
         self.stack = []
@@ -166,8 +167,8 @@ class GrammarElement(object):
         """
         if not USE_LOOKAHEAD:
             return self._match(source, builder, level)
-        pos1 = -1 # XXX make the annotator happy
-        pos2 = -1 # XXX make the annotator happy
+        pos1 = -1 # make the annotator happy
+        pos2 = -1 # make the annotator happy
         token = source.peek()
         if self._trace:
             pos1 = source.get_pos()
@@ -242,9 +243,10 @@ class GrammarElement(object):
     def debug_return(self, ret, *args ):
         # FIXME: use a wrapper of match() methods instead of debug_return()
         #        to prevent additional indirection
-        if ret and DEBUG>0:
+        if ret and DEBUG > 0:
             sargs = ",".join( [ str(i) for i in args ] )
-            print "matched %s (%s): %s" % (self.__class__.__name__, sargs, self.display() )
+            print "matched %s (%s): %s" % (self.__class__.__name__,
+                                           sargs, self.display() )
         return ret
 
     
@@ -268,8 +270,9 @@ class GrammarElement(object):
         return other in self.first_set
 
     def reorder_rule(self):
-        """Called after the computation of first set to allow rules to be reordered
-        to avoid ambiguities"""
+        """Called after the computation of first set to allow rules to be
+        reordered to avoid ambiguities
+        """
         pass
 
 class Alternative(GrammarElement):
@@ -285,7 +288,7 @@ class Alternative(GrammarElement):
         """If any of the rules in self.args matches
         returns the object built from the first rules that matches
         """
-        if DEBUG>1:
+        if DEBUG > 1:
             print "try alt:", self.display()
         tok = source.peek()
         # Here we stop at the first match we should
@@ -304,7 +307,7 @@ class Alternative(GrammarElement):
         return 0
 
     def display(self, level=0):
-        if level==0:
+        if level == 0:
             name =  self.name + " -> "
         elif not self.name.startswith(":"):
             return self.name
@@ -344,12 +347,13 @@ class Alternative(GrammarElement):
                 # a same alternative
                 for token in rule.first_set:
                     if token is not EmptyToken and token in tokens_set:
-                        print "Warning, token %s in\n\t%s's first set is part " \
-                              "of a previous rule's first set in alternative\n\t" \
-                              "%s" % (token, rule, self)
+                        print "Warning, token %s in\n\t%s's first set is " \
+                            " part of a previous rule's first set in " \
+                            " alternative\n\t%s" % (token, rule, self)
                     tokens_set.append(token)
         if len(empty_set) > 1 and not self._reordered:
-            print "Warning: alternative %s has more than one rule matching Empty" % self
+            print "Warning: alternative %s has more than one rule " \
+                "matching Empty" % self
             self._reordered = True
         self.args[:] = not_empty_set
         self.args.extend( empty_set )
@@ -365,7 +369,7 @@ class Sequence(GrammarElement):
 
     def _match(self, source, builder, level=0):
         """matches all of the symbols in order"""
-        if DEBUG>1:
+        if DEBUG > 1:
             print "try seq:", self.display()
         ctx = source.context()
         bctx = builder.context()
@@ -381,7 +385,7 @@ class Sequence(GrammarElement):
         return self.debug_return( ret )
 
     def display(self, level=0):
-        if level == 0:
+        if level ==  0:
             name = self.name + " -> "
         elif not self.name.startswith(":"):
             return self.name
@@ -431,9 +435,11 @@ class KleenStar(GrammarElement):
             # self.first_set[EmptyToken] = 1
 
     def _match(self, source, builder, level=0):
-        """matches a number of times self.args[0]. the number must be comprised
-        between self._min and self._max inclusive. -1 is used to represent infinity"""
-        if DEBUG>1:
+        """matches a number of times self.args[0]. the number must be
+        comprised between self._min and self._max inclusive. -1 is used to
+        represent infinity
+        """
+        if DEBUG > 1:
             print "try kle:", self.display()
         ctx = source.context()
         bctx = builder.context()
@@ -507,7 +513,6 @@ class Token(GrammarElement):
         """
         ctx = source.context()
         tk = source.next()
-        # XXX: match_token
         if tk.name == self.name:
             if self.value is None:
                 ret = builder.token( tk.name, tk.value, source )
@@ -515,7 +520,7 @@ class Token(GrammarElement):
             elif self.value == tk.value:
                 ret = builder.token( tk.name, tk.value, source )
                 return self.debug_return( ret, tk.name, tk.value )
-        if DEBUG>1:
+        if DEBUG > 1:
             print "tried tok:", self.display()
         source.restore( ctx )
         return 0
@@ -534,9 +539,6 @@ class Token(GrammarElement):
            must be equal
          - a tuple, such as those yielded by the Python lexer, in which case
            the comparison algorithm is similar to the one in match()
-           XXX:
-             1/ refactor match and __eq__ ?
-             2/ make source.next and source.peek return a Token() instance
         """
         if not isinstance(other, Token):
             raise RuntimeError("Unexpected token type %r" % other)

@@ -33,7 +33,7 @@ def compile_module(module, source_files, object_files, library_files):
                 libraries = %(library_files)s,
                 extra_objects = %(object_files)s)])
         ''' % locals())))
-    cmd = "python %s_setup.py build_ext --inplace" % module
+    cmd = "python %s_setup.py build_ext --inplace --force" % module
     if debug: print cmd
     cmdexec(cmd)
 

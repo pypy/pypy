@@ -15,8 +15,10 @@ example of interp-level code needing to somehow call an external function::
 
 * rtyper will replace the calls with for testing or dummy lowlevel
   functions (ll_os_open for os.open), specified somehow trough the
-  table (issue: how to annotate these helper calls avoiding making
-  copies as in the usual case, so that the backends can recognize them)
+  table. The usual specialisation for low-level helpers will happem
+  but the original function will be attached as _callable to the
+  function pointer such that backends can recognize the original
+  function as from the table.
 
 * the backends will have implementations for these helper functions
   (to allow writing such implementations we will need a way to assign

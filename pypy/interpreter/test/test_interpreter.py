@@ -1,4 +1,6 @@
 import py 
+import sys
+from pypy.interpreter.pycompiler import PythonCompiler
 
 class TestInterpreter: 
     def codetest(self, source, functionname, args):
@@ -13,7 +15,6 @@ class TestInterpreter:
         w = space.wrap
         w_code = space.builtin.call('compile', 
                 w(source), w('<string>'), w('exec'), w(0), w(0))
-        ec = executioncontext.ExecutionContext(space)
 
         tempmodule = module.Module(space, w("__temp__"))
         w_glob = tempmodule.w_dict
@@ -226,6 +227,20 @@ class TestInterpreter:
         assert self.codetest(code, 'g', [12, {}]) ==    ()
         assert self.codetest(code, 'g', [12, {3:1}]) == (3,)
 
+class TestPyPyInterpreter(TestInterpreter):
+    """Runs the previous test with the pypy parser"""
+    def setup_class(klass):
+        sys.setrecursionlimit(10000)
+
+    def setup_method(self,arg):
+        ec = self.space.getexecutioncontext() 
+        self.saved_compiler = ec.compiler
+        ec.compiler = PythonCompiler(self.space)
+
+    def teardown_method(self,arg):
+        ec = self.space.getexecutioncontext() 
+        ec.compiler = self.saved_compiler
+
 class AppTestInterpreter: 
     def test_trivial(self):
         x = 42
@@ -258,3 +273,4 @@ class AppTestInterpreter:
     def test_identity(self):
         def f(x): return x
         assert f(666) == 666
+

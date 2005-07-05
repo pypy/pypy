@@ -15,6 +15,7 @@ class Options:
     compiler = "cpython" # "cpython"
                          # "pyparse" pypy parser, cpython compiler
                          # "pycomp" pypy parser and compiler (TBD)
+    version = "2.4" # "native" / "2.3" / "2.4"
 
 def run_tb_server(option, opt, value, parser):
     from pypy.tool import tb_server
@@ -51,6 +52,11 @@ def get_standard_options():
         '--parsermodule', action="store",type="string", dest="useparsermodule",
         help="select the parser module to use",
         metavar="[cpython|recparser|parser]"))
+## for this to work the option module need to be loaded before the grammar!
+##     options.append(make_option(
+##         '--version', action="store",type="string", dest="version",
+##         help="select the Python version to emulate",
+##         metavar="[native|2.3|2.4]"))
 
     return options
 

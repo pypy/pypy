@@ -10,7 +10,6 @@ count = count().next
 class CodeWriter(object): 
     def __init__(self): 
         self._lines = []
-        self.append('declare sbyte* %GC_malloc(uint)')
 
     def append(self, line): 
         if show_line_numbers:
@@ -94,12 +93,16 @@ class CodeWriter(object):
         self.indent("%(targetvar)s = cast %(fromtype)s "
                         "%(fromvar)s to %(targettype)s" % locals())
 
-    def malloc(self, targetvar, type_, size=1):
+    def malloc(self, targetvar, type_, size=1, atomic=False):
         if use_boehm_gc:
             cnt = count()
-            self.indent("%%malloc.Size.%(cnt)d = getelementptr %(type_)s* null, int %(size)d" % locals())
+            if atomic:
+                atomicString = '_atomic'
+            else:
+                atomicString = ''
+            self.indent("%%malloc.Size.%(cnt)d = getelementptr %(type_)s* null, uint %(size)s" % locals())
             self.indent("%%malloc.SizeU.%(cnt)d = cast %(type_)s* %%malloc.Size.%(cnt)d to uint" % locals())
-            self.indent("%%malloc.Ptr.%(cnt)d = call sbyte* %%GC_malloc(uint %%malloc.SizeU.%(cnt)d)" % locals())
+            self.indent("%%malloc.Ptr.%(cnt)d = call sbyte* %%GC_malloc%(atomicString)s(uint %%malloc.SizeU.%(cnt)d)" % locals())
             self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr.%(cnt)d to %(type_)s*" % locals())
         else:
             self.indent("%(targetvar)s = malloc %(type_)s, uint %(size)s" % locals())

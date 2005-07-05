@@ -13,23 +13,21 @@ standard Python regular expression module, which is written in C.  The regular
 expressions have been replaced with hand built DFA's using the
 basil.util.automata module.
 
-XXX This now assumes that the automata module is in the Python path.
-
 $Id: pytokenize.py,v 1.3 2003/10/03 16:31:53 jriehl Exp $
 """
 # ______________________________________________________________________
 
 from __future__ import generators
-import automata
+from pypy.interpreter.pyparser import automata
 
 # ______________________________________________________________________
 # COPIED:
-from token import *
-
 import token
 __all__ = [x for x in dir(token) if x[0] != '_'] + ["COMMENT", "tokenize",
            "generate_tokens", "NL"]
 del x
+N_TOKENS = token.N_TOKENS
+tok_name = token.tok_name
 del token
 
 COMMENT = N_TOKENS

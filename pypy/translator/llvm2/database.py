@@ -1,6 +1,7 @@
 from pypy.translator.llvm2.log import log 
 from pypy.translator.llvm2.funcnode import FuncNode, FuncTypeNode
-from pypy.translator.llvm2.structnode import StructNode, StructTypeNode, StructVarsizeTypeNode
+from pypy.translator.llvm2.structnode import StructNode, StructVarsizeNode, \
+     StructTypeNode, StructVarsizeTypeNode
 from pypy.translator.llvm2.arraynode import ArrayNode, ArrayTypeNode
 from pypy.rpython import lltype
 from pypy.objspace.flow.model import Block, Constant, Variable
@@ -82,7 +83,11 @@ class Database(object):
                     value = value._obj
 
                 if isinstance(ct, lltype.Struct):
-                    self.addpending(const_or_var, StructNode(self, value))
+                    if ct._arrayfld:
+                        assert False, "HERE"
+                        self.addpending(const_or_var, StructVarsizeNode(self, value))
+                    else:
+                        self.addpending(const_or_var, StructNode(self, value))
 
                 elif isinstance(ct, lltype.Array):
                     self.addpending(const_or_var, ArrayNode(self, value))
@@ -141,7 +146,6 @@ class Database(object):
             if subset_types is None or isinstance(v, subset_types):
                 res.append(v)
         return res
-
         
     # __________________________________________________________
     # Representing variables and constants in LLVM source code 

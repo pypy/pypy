@@ -25,11 +25,13 @@ parseFile(path) -> AST
 #   http://www.opensource.org/licenses/bsd-license.html
 # and replace OWNER, ORGANIZATION, and YEAR as appropriate.
 
-from compiler.ast import *
+from pypy.interpreter.stablecompiler.ast import *
 import parser
 import symbol
 import token
 import sys
+# make sure we import the parser with the correct grammar
+import pypy.interpreter.pyparser.pythonparse
 
 class WalkerError(StandardError):
     pass
@@ -169,7 +171,6 @@ class Transformer:
 
     def single_input(self, node):
         ### do we want to do anything about being "interactive" ?
-
         # NEWLINE | simple_stmt | compound_stmt NEWLINE
         n = node[0][0]
         if n != token.NEWLINE:

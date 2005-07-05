@@ -48,6 +48,16 @@ class BaseTestCompiler:
         flags2 = self.compiler.getcodeflags(code2)
         assert flags == flags2
 
+    def test_interactivemode(self):
+        code = self.compiler.compile('a = 1', '<hello>', 'single', 0)
+        assert isinstance(code, PyCode)
+        assert code.co_filename == '<hello>'
+        space = self.space
+        w_globals = space.newdict([])
+        code.exec_code(space, w_globals, w_globals)
+        w_a = space.getitem(w_globals, space.wrap('a'))
+        assert space.int_w(w_a) == 1
+
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
@@ -64,3 +74,4 @@ class TestPurePythonCompiler(BaseTestCompiler):
 class SkippedForNowTestPyPyCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = PyPyCompiler(self.space)
+
