@@ -2,7 +2,7 @@
 it obeys the TokenSource interface defined for the grammar
 analyser in grammar.py
 """
-import symbol
+import symbol, sys
 
 from pypy.interpreter.pyparser.grammar import TokenSource, Token
 # Don't import string for that ...
@@ -203,9 +203,14 @@ def generate_tokens(lines):
                     start = pos
                 end = pseudomatch
 
+                if start == end:
+                    # Nothing matched!!!
+                    raise TokenError("EOF in multi-line statement", line,
+                                 (lnum, pos), token_list)
+
+
                 spos, epos, pos = (lnum, start), (lnum, end), end
                 token, initial = line[start:end], line[start]
-
                 if initial in numchars or \
                    (initial == '.' and token != '.'):      # ordinary number
                     tok = token_from_values(tokenmod.NUMBER, token)
@@ -291,7 +296,6 @@ def generate_tokens(lines):
     ## </XXX>
     tok = token_from_values(tokenmod.ENDMARKER, '',)
     token_list.append((tok, line, lnum, pos))
-
     return token_list, encoding
 
 class PythonSource(TokenSource):
