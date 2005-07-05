@@ -178,18 +178,30 @@ class PythonCompiler(CPythonCompiler):
          the whole source after having only added a new '\n')
     """
     def compile(self, source, filename, mode, flags):
+        from pyparser.error import ParseError
+        from pyparser.pythonutil import ast_from_input
+        flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
+        # XXX use 'flags'
+        space = self.space
+        transformer = Transformer()
+        try:
+            tree = ast_from_input(source, mode, transformer)
+        except ParseError, e:
+            raise OperationError(space.w_SyntaxError,
+                                 e.wrap_info(space, filename))
+        c = self.compile_tree(tree, filename, mode)
+        from pypy.interpreter.pycode import PyCode
+        return space.wrap(PyCode(space)._from_code(c))
+
+    def compile_tree(self, tree, filename, mode):
+        # __________
+        # XXX this uses the non-annotatable stablecompiler at interp-level
         from pypy.interpreter import stablecompiler
         from pypy.interpreter.stablecompiler.pycodegen import ModuleCodeGenerator
         from pypy.interpreter.stablecompiler.pycodegen import InteractiveCodeGenerator
         from pypy.interpreter.stablecompiler.pycodegen import ExpressionCodeGenerator
         from pypy.interpreter.stablecompiler.transformer import Transformer
-        from pyparser.pythonutil import ast_from_input
-
-        flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
-        space = self.space
         try:
-            transformer = Transformer()
-            tree = ast_from_input(source, mode, transformer)
             stablecompiler.misc.set_filename(filename, tree)
             if mode == 'exec':
                 codegenerator = ModuleCodeGenerator(tree)
@@ -198,9 +210,6 @@ class PythonCompiler(CPythonCompiler):
             else: # mode == 'eval':
                 codegenerator = ExpressionCodeGenerator(tree)
             c = codegenerator.getCode()
-        # It would be nice to propagate all exceptions to app level,
-        # but here we only propagate the 'usual' ones, until we figure
-        # out how to do it generically.
         except SyntaxError, e:
             w_synerr = space.newtuple([space.wrap(e.msg),
                                        space.newtuple([space.wrap(e.filename),
@@ -212,8 +221,9 @@ class PythonCompiler(CPythonCompiler):
             raise OperationError(space.w_ValueError,space.wrap(str(e)))
         except TypeError,e:
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
-        from pypy.interpreter.pycode import PyCode
-        return space.wrap(PyCode(space)._from_code(c))
+        # __________ end of XXX above
+        return c
+    compile_tree._annspecialcase_ = 'override:cpy_stablecompiler'
 
 
 class PyPyCompiler(CPythonCompiler):

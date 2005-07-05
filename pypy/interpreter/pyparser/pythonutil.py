@@ -5,6 +5,7 @@ import symbol
 
 import pythonparse
 from tuplebuilder import TupleBuilder
+from pypy.interpreter.pyparser.error import ParseError
 
 PYTHON_PARSER = pythonparse.PYTHON_PARSER
 TARGET_DICT = {

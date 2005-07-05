@@ -6,6 +6,7 @@ helper functions are provided that use the grammar to parse
 using file_input, single_input and eval_input targets
 """
 from pypy.interpreter.error import OperationError, debug_print
+from pypy.interpreter.pyparser.error import ParseError
 from pypy.tool.option import Options
 
 from pythonlexer import Source
@@ -44,10 +45,9 @@ class PythonParser(object):
         builder.source_encoding = src.encoding
         # </HACK>
         if not result:
-            # raising a SyntaxError here is not annotable, and it can
-            # probably be handled in an other way
             line, lineno = src.debug()
-            raise BuilderError(line, lineno)
+            # XXX needs better error messages
+            raise ParseError("error", lineno, -1, line)
             # return None
         return builder
 
@@ -107,14 +107,6 @@ for k, v in symbol.sym_name.items():
 SYMBOLS['UNKNOWN'] = -1
 
 
-
-class BuilderError(SyntaxError):
-    def __init__(self, line, lineno):
-        self.filename = 'XXX.py'
-        self.line = self.text = line
-        self.lineno = lineno
-        self.offset = -1
-        self.msg = "SyntaxError at line %d: %r" % (self.lineno, self.line)
 
 def parse_file_input(pyf, gram, builder=None):
     """Parse a python file"""

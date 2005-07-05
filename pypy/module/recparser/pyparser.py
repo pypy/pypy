@@ -8,7 +8,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, GetSetProperty
 from pypy.interpreter.pycode import PyCode 
 from pypy.interpreter.pyparser.syntaxtree import SyntaxNode
-from pypy.interpreter.pyparser.pythonutil import PYTHON_PARSER
+from pypy.interpreter.pyparser.pythonutil import PYTHON_PARSER, ParseError
 
 __all__ = [ "ASTType", "STType", "suite", "expr" ]
 
@@ -98,16 +98,23 @@ STType.typedef = TypeDef("parser.st",
     totuple = interp2app(STType.descr_totuple),
 )
 
+def parse_python_source(space, source, goal):
+    try:
+        return PYTHON_PARSER.parse_source(source, goal)
+    except ParseError, e:
+        raise OperationError(space.w_SyntaxError,
+                             e.wrap_info(space, '<string>'))
+
 def suite( space, source ):
     # make the annotator life easier (don't use str.splitlines())
-    builder = PYTHON_PARSER.parse_source( source, "file_input" )
+    builder = parse_python_source( space, source, "file_input" )
     return space.wrap( STType(space, builder.stack[-1]) )    
 
 suite.unwrap_spec = [ObjSpace, str]
 
 def expr( space, source ):
     # make the annotator life easier (don't use str.splitlines())
-    builder = PYTHON_PARSER.parse_source( source, "eval_input" )
+    builder = parse_python_source( space, source, "eval_input" )
     return space.wrap( STType(space, builder.stack[-1]) )    
 
 expr.unwrap_spec = [ObjSpace, str]

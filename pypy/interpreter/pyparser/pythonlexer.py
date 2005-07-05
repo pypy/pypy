@@ -5,6 +5,7 @@ analyser in grammar.py
 import symbol, sys
 
 from pypy.interpreter.pyparser.grammar import TokenSource, Token
+from pypy.interpreter.pyparser.error import ParseError
 # Don't import string for that ...
 NAMECHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_'
 NUMCHARS = '0123456789'
@@ -71,15 +72,11 @@ import automata
 tokenmod.COMMENT = tokenmod.N_TOKENS 
 tokenmod.NL = tokenmod.N_TOKENS + 1
 
-class TokenError(Exception):
+class TokenError(ParseError):
     """Raised for lexer errors, e.g. when EOF is found prematurely"""
     def __init__(self, msg, line, strstart, token_stack):
-        self.lineno, self.offset = strstart
-        self.text = line
-        self.errlabel = msg
-        self.msg = "TokenError at pos (%d, %d) in %r" % (self.lineno,
-                                                         self.offset,
-                                                         line)
+        lineno, offset = strstart
+        ParseError.__init__(self, msg, lineno, offset, line)
         self.token_stack = token_stack
 
 def generate_tokens(lines):
