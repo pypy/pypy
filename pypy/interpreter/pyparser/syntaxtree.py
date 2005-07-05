@@ -113,7 +113,7 @@ class SyntaxNode(object):
         # helper function for nodes that have only one subnode:
         if len(self.nodes) == 1:
             return self.nodes[0].visit(visitor)
-        raise RuntimeError("Unknonw Visitor for %r" % self.name)
+        raise RuntimeError("Unknown Visitor for %r" % self.name)
 
     def expand(self):
         """expand the syntax node to its content,

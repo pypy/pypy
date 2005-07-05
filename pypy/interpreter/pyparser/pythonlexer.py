@@ -71,8 +71,8 @@ import automata
 tokenmod.COMMENT = tokenmod.N_TOKENS 
 tokenmod.NL = tokenmod.N_TOKENS + 1
 
-class TokenError(SyntaxError):
-    """Raised when EOF is found prematuerly"""
+class TokenError(Exception):
+    """Raised for lexer errors, e.g. when EOF is found prematurely"""
     def __init__(self, msg, line, strstart, token_stack):
         self.lineno, self.offset = strstart
         self.text = line
@@ -312,7 +312,7 @@ class PythonSource(TokenSource):
     def next(self):
         """Returns the next parsed token"""
         if self.stack_pos >= len(self.token_stack):
-            raise StopIteration("Remove me")
+            raise StopIteration
         tok, line, lnum, pos = self.token_stack[self.stack_pos]
         self.stack_pos += 1
         self._current_line = line
