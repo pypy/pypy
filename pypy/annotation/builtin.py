@@ -67,9 +67,8 @@ def builtin_bool(s_obj):
     return constpropagate(bool, [s_obj], SomeBool())
 
 def builtin_int(s_obj, s_base=None):
-    assert (s_base is None or s_base.is_constant() 
-            and s_base.const == 16
-            and s_obj.knowntype == str), "only int(v|string) or int(string,16) expected"
+    assert (s_base is None or isinstance(s_base, SomeInteger)
+            and s_obj.knowntype == str), "only int(v|string) or int(string,int) expected"
     if s_base is not None:
         args_s = [s_obj, s_base]
     else:
@@ -336,3 +335,9 @@ BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
 BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
 BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
 
+from pypy.rpython import extfunctable
+
+# import annotation information for external functions 
+# from the extfunctable.table  into our own annotation specific table 
+for func, extfuncinfo in extfunctable.table.iteritems():
+    BUILTIN_ANALYZERS[func] = extfuncinfo.annotation 

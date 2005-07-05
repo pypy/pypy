@@ -169,7 +169,11 @@ class LLFrame(object):
         if hasattr(f._obj, 'graph'):
             graph = f._obj.graph
         else:
-            graph = self.llinterpreter.getgraph(f._obj._callable)
+            try:
+                graph = self.llinterpreter.getgraph(f._obj._callable)
+            except KeyError:
+                assert hasattr(f._obj, '_callable'), "don't know how to execute %r" % f
+                return f._obj._callable(*args)
         frame = self.__class__(graph, args, self.llinterpreter)
         return frame.eval()
 

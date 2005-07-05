@@ -1,5 +1,4 @@
-__all__ = ["python_parse", "pypy_parse", "ast_single_input", "ast_file_input",
-           "ast_eval_input"]
+__all__ = ["python_parse", "pypy_parse"]
 
 import parser
 import symbol

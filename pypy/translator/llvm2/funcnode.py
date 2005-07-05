@@ -7,19 +7,16 @@ from pypy.translator.unsimplify import remove_double_links
 from pypy.translator.llvm2.node import LLVMNode
 from pypy.translator.llvm2.atomic import is_atomic
 from pypy.translator.llvm2.log import log 
+nextnum = py.std.itertools.count().next
 log = log.funcnode
 
 
 class FuncTypeNode(LLVMNode):
-    func_type_node_counter = 0
-
     def __init__(self, db, type_):
         self.db = db
         assert isinstance(type_, lltype.FuncType)
         self.type_ = type_
-        ref = '"ft.%s.%s"' % (type_, FuncTypeNode.func_type_node_counter)
-        self.ref = ref.replace(" ", "")
-        FuncTypeNode.func_type_node_counter += 1
+        self.ref = 'ft.%s.%s' % (type_, nextnum())
         
     def __str__(self):
         return "<FuncTypeNode %r>" % self.ref
@@ -132,6 +129,7 @@ class FuncNode(LLVMNode):
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter)
         for op in block.operations:
+            codewriter.comment(str(op))
             opwriter.write_operation(op)
     def write_startblock(self, codewriter, block):
         self.write_block_operations(codewriter, block)
@@ -197,6 +195,15 @@ class OpWriter(object):
             assert meth is not None, "operation %r not found" %(op.opname,)
             meth(op)    
 
+    def int_neg(self, op): 
+        self.codewriter.binaryop("sub", 
+                                 self.db.repr_arg(op.result),
+                                 self.db.repr_arg_type(op.args[0]),
+                                 "0", 
+                                 self.db.repr_arg(op.args[0]),
+                                 )
+                    
+
     def binaryop(self, op):
         name = self.binary_operations[op.opname]
         assert len(op.args) == 2
@@ -216,6 +223,7 @@ class OpWriter(object):
 
     cast_bool_to_int = cast_primitive
     cast_bool_to_uint = uint_is_true = cast_primitive
+    cast_int_to_char = cast_char_to_int = cast_primitive
 
     def int_is_true(self, op):
         self.codewriter.binaryop("setne",
@@ -260,7 +268,7 @@ class OpWriter(object):
         targetvar = self.db.repr_arg(op.result)
         arg_type = op.args[0]
         assert (isinstance(arg_type, Constant) and 
-                isinstance(arg_type.value, lltype.Array))
+                isinstance(arg_type.value, (lltype.Array, lltype.Struct)))
         #XXX unclean
         struct_type = self.db.obj2node[arg_type.value].ref
         struct_cons = self.db.obj2node[arg_type.value].constructor_ref
@@ -279,14 +287,19 @@ class OpWriter(object):
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
         assert targettype != "void"
-        if isinstance(op.result.concretetype, lltype.ContainerType):
-            # noop
-            self.codewriter.cast(targetvar, targettype, tmpvar, targettype)
-        else:
-            self.codewriter.load(targetvar, targettype, tmpvar)
+        self.codewriter.load(targetvar, targettype, tmpvar)
 
-    getsubstruct = getfield
-
+    def getsubstruct(self, op): 
+        typ = self.db.repr_arg_type(op.args[0]) 
+        typevar = self.db.repr_arg(op.args[0])
+        fieldnames = list(op.args[0].concretetype.TO._names)
+        index = fieldnames.index(op.args[1].value)
+        targetvar = self.db.repr_arg(op.result)
+        self.codewriter.getelementptr(targetvar, typ, 
+                                      typevar, ("uint", index))        
+        targettype = self.db.repr_arg_type(op.result)
+        assert targettype != "void"
+         
     def setfield(self, op): 
         tmpvar = self.db.repr_tmpvar()
         type = self.db.repr_arg_type(op.args[0]) 
@@ -309,11 +322,7 @@ class OpWriter(object):
                                       ("uint", 1), (indextype, index))
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
-        if isinstance(op.result.concretetype, lltype.ContainerType):
-            # noop
-            self.codewriter.cast(targetvar, targettype, tmpvar, targettype)
-        else:
-            self.codewriter.load(targetvar, targettype, tmpvar)
+        self.codewriter.load(targetvar, targettype, tmpvar)
 
     def setarrayitem(self, op):
         array = self.db.repr_arg(op.args[0])
@@ -327,6 +336,7 @@ class OpWriter(object):
 
         valuevar = self.db.repr_arg(op.args[2]) 
         valuetype = self.db.repr_arg_type(op.args[2])
+        assert valuevar.strip() != '-'
         self.codewriter.store(valuetype, valuevar, tmpvar) 
 
     def getarraysize(self, op):

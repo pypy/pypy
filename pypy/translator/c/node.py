@@ -38,7 +38,10 @@ class StructDefNode:
         else:
             basename = db.gettypedefnode(STRUCT).name
             basename = '%s_len%d' % (basename, varlength)
-        self.name = db.namespace.uniquename(basename)
+        if STRUCT in db.fixednames:
+            self.name = basename
+        else:
+            self.name = db.namespace.uniquename(basename)
         self.dependencies = {}
         self.fields = []
         self.prefix = somelettersfrom(STRUCT._name) + '_'

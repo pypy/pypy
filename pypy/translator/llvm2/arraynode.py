@@ -3,65 +3,34 @@ from pypy.rpython import lltype
 from pypy.translator.llvm2.log import log
 from pypy.translator.llvm2.node import LLVMNode
 from pypy.objspace.flow.model import Constant
+from pypy.translator.llvm2 import varsize 
 import itertools  
 log = log.structnode
 
-count = itertools.count().next 
-
-def wrapstr(s):
-    return '"%s"' % s
+nextnum = itertools.count().next 
 
 class ArrayTypeNode(LLVMNode):
     _issetup = False
     def __init__(self, db, array):
-        self.db = db
         assert isinstance(array, lltype.Array)
-        self.array = array
-        c = count()
-        ref_template = wrapstr("%%array.%s." + str(c))
 
-        self.ref = ref_template % array.OF
-        self.constructor_ref = wrapstr("%%new.array.%s" % c)
+        self.db = db
+        self.array = array
+
+        # ref is used to reference the arraytype in llvm source 
+        # constructor_ref is used to reference the constructor 
+        # for the array type in llvm source code 
+        # constructor_decl is used to declare the constructor
+        # for the array type (see writeimpl)
+        c = nextnum()
+        self.ref = "%%array.%s.%s" % (c, array.OF)
+        self.constructor_ref = "%%new.array.%s" % c 
         self.constructor_decl = "%s * %s(int %%len)" % \
                                 (self.ref, self.constructor_ref)
 
     def __str__(self):
         return "<ArrayTypeNode %r>" % self.ref
         
-    def writedecl(self, codewriter): 
-        # declaration for constructor
-        codewriter.declare(self.constructor_decl)
-
-    def writeimpl(self, codewriter):
-        """ this function generates a LLVM function like the following:
-        %array = type { int, [0 x double] }
-        %array *%NewArray(int %len) {
-           ;; Get the offset of the 'len' element of the array from the null
-           ;; pointer.
-           %size = getelementptr %array* null, int 0, uint 1, %int %len
-           %usize = cast double* %size to uint
-           %ptr = malloc sbyte, uint %usize
-           %result = cast sbyte* %ptr to %array*
-           %arraylength = getelementptr %array* %result, int 0, uint 0
-           store int %len, int* %arraylength 
-           ret %array* %result
-        }"""
-        from pypy.translator.llvm2.atomic import is_atomic
-
-        log.writeimpl(self.ref)
-        codewriter.openfunc(self.constructor_decl)
-        indices = [("uint", 1), ("int", "%len")]
-        codewriter.getelementptr("%size", self.ref + "*",
-                                 "null", *indices)
-        fromtype = self.db.repr_arg_type(self.array.OF) 
-        codewriter.cast("%usize", fromtype + "*", "%size", "uint")
-        codewriter.malloc("%ptr", "sbyte", "%usize", atomic=is_atomic(self))
-        codewriter.cast("%result", "sbyte*", "%ptr", self.ref+"*")
-        codewriter.getelementptr("%arraylength", self.ref+"*", "%result", ("uint", 0))
-        codewriter.store("int", "%len", "%arraylength")
-        codewriter.ret(self.ref+"*", "%result")
-        codewriter.closefunc()
-
     def setup(self):
         self.db.prepare_repr_arg_type(self.array.OF)
         self._issetup = True
@@ -72,60 +41,65 @@ class ArrayTypeNode(LLVMNode):
     def writedatatypedecl(self, codewriter):
         codewriter.arraydef(self.ref, self.db.repr_arg_type(self.array.OF))
 
-# Each ArrayNode is a global constant.  This needs to have a specific type of
-# a certain type.
+    def writedecl(self, codewriter): 
+        # declaration for constructor
+        codewriter.declare(self.constructor_decl)
+
+    def writeimpl(self, codewriter):
+        log.writeimpl(self.ref)
+        fromtype = self.db.repr_arg_type(self.array.OF) 
+        varsize.write_constructor(codewriter, self.ref, 
+                                  self.constructor_decl,
+                                  fromtype)
 
 class ArrayNode(LLVMNode):
-
     _issetup = False 
-    array_counter = 0
-
     def __init__(self, db, value):
         self.db = db
-        name = '"%%arrayinstance.%s.%s"' % (value._TYPE.OF, ArrayNode.array_counter)
-        self.ref = name
         self.value = value
-        ArrayNode.array_counter += 1
+        self.arraytype = value._TYPE.OF
+        self.ref = "%%arrayinstance.%s.%s" % (value._TYPE.OF, nextnum())
 
     def __str__(self):
         return "<ArrayNode %r>" %(self.ref,)
 
     def setup(self):
-        T = self.value._TYPE.OF
         for item in self.value.items:
-            if not isinstance(T, lltype.Primitive):
+            if not isinstance(self.arraytype, lltype.Primitive):
                 # Create a dummy constant hack XXX
-                c = Constant(item, T)
-                self.db.prepare_arg(c)
-
+                self.db.prepare_arg(Constant(item, self.arraytype))
         self._issetup = True
 
+    def value_helper(self, value):        
+        """ This should really be pushed back to the database??? XXX """
+        if not isinstance(self.arraytype, lltype.Primitive):
+            # Create a dummy constant hack XXX
+            value = self.db.repr_arg(Constant(value, self.arraytype))
+        else:
+            if isinstance(value, str) and len(value) == 1:
+                value = ord(value)                    
+            value = str(value)
+        return value
+    
     def getall(self):
-        arraylen = len(self.value.items)
+        """ Returns the type and value for this node. """
+        items = self.value.items
+        typeval = self.db.repr_arg_type(self.arraytype)
+        arraylen = len(items)
 
-        res = []
+        type_ = "{ int, [%s x %s] }" % (arraylen, typeval)        
+        arrayvalues = ["%s %s" % (typeval,
+                                  self.value_helper(v)) for v in items]
 
-        T = self.value._TYPE.OF
-        typval = self.db.repr_arg_type(self.value._TYPE.OF)
-        for value in self.value.items:
-            if not isinstance(T, lltype.Primitive):
-                # Create a dummy constant hack XXX
-                value = self.db.repr_arg(Constant(value, T))
-            else:
-                value = repr(value)
-            res.append((typval, value))
-
-        arrayvalues = ", ".join(["%s %s" % (t, v) for t, v in res])
-
-        type_ = "{ int, [%s x %s] }" % (len(self.value.items),
-                                        self.db.repr_arg_type(self.value._TYPE.OF))
-        
         value = "int %s, [%s x %s] [ %s ]" % (arraylen,
                                               arraylen,
-                                              typval,
-                                              arrayvalues)
+                                              typeval,
+                                              ", ".join(arrayvalues))
         return type_, value
     
+    # ______________________________________________________________________
+    # entry points from genllvm
+
     def writeglobalconstants(self, codewriter):
         type_, values = self.getall()
         codewriter.globalinstance(self.ref, type_, values)

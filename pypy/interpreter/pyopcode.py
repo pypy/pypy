@@ -171,6 +171,7 @@ class PyInterpFrame(pyframe.PyFrame):
     BINARY_TRUE_DIVIDE  = binaryoperation("truediv")
     BINARY_FLOOR_DIVIDE = binaryoperation("floordiv")
     BINARY_DIVIDE       = binaryoperation("div")
+    # XXX BINARY_DIVIDE must fall back to BINARY_TRUE_DIVIDE with -Qnew
     BINARY_MODULO       = binaryoperation("mod")
     BINARY_ADD      = binaryoperation("add")
     BINARY_SUBTRACT = binaryoperation("sub")
@@ -191,6 +192,7 @@ class PyInterpFrame(pyframe.PyFrame):
     INPLACE_TRUE_DIVIDE  = binaryoperation("inplace_truediv")
     INPLACE_FLOOR_DIVIDE = binaryoperation("inplace_floordiv")
     INPLACE_DIVIDE       = binaryoperation("inplace_div")
+    # XXX INPLACE_DIVIDE must fall back to INPLACE_TRUE_DIVIDE with -Qnew
     INPLACE_MODULO       = binaryoperation("inplace_mod")
     INPLACE_ADD      = binaryoperation("inplace_add")
     INPLACE_SUBTRACT = binaryoperation("inplace_sub")

@@ -50,6 +50,7 @@ class RPythonTyper:
             r = self.getrepr(s_primitive)
             self.primitive_to_repr[r.lowleveltype] = r
         self.exceptiondata = ExceptionData(self)
+        self.fixednames = self.fixednames.copy()
 
     def getexceptiondata(self):
         return self.exceptiondata    # built at the end of specialize()
@@ -355,10 +356,10 @@ def translate_op_%s(self, hop):
 
     # __________ utilities __________
 
-    def getfunctionptr(self, func):
+    def getfunctionptr(self, graphfunc, _callable=None):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype
-        return getfunctionptr(self.annotator.translator, func, getconcretetype)
+        return getfunctionptr(self.annotator.translator, graphfunc, getconcretetype, _callable=_callable)
 
     def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None):
         self.call_all_setups()  # compute ForwardReferences now
@@ -516,20 +517,22 @@ class LowLevelOpList(list):
         dontcare, spec_function = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s)
 
         # build the 'direct_call' operation
-        f = self.rtyper.getfunctionptr(spec_function)
+        f = self.rtyper.getfunctionptr(spec_function, _callable=ll_function)
         c = inputconst(typeOf(f), f)
         return self.genop('direct_call', [c]+list(args_v),
                           resulttype = typeOf(f).TO.RESULT)
 
-    def gencapicall(self, cfnname, args_v, resulttype=None, **flags):
+    def genexternalcall(self, fnname, args_v, resulttype=None, **flags):
         if isinstance(resulttype, Repr):
             resulttype = resulttype.lowleveltype
         argtypes = [v.concretetype for v in args_v]
         FUNCTYPE = FuncType(argtypes, resulttype or Void)
-        f = functionptr(FUNCTYPE, cfnname, external="C", **flags)
+        f = functionptr(FUNCTYPE, fnname, **flags)
         cf = inputconst(typeOf(f), f)
         return self.genop('direct_call', [cf]+list(args_v), resulttype)
 
+    def gencapicall(self, cfnname, args_v, resulttype=None, **flags):
+        return self.genexternalcall(cfnname, args_v, resulttype=resulttype, external="C")
 
 # _______________________________________________________________________
 # this has the side-effect of registering the unary and binary operations
@@ -540,3 +543,6 @@ from pypy.rpython import rslice
 from pypy.rpython import rlist, rstr, rtuple, rdict 
 from pypy.rpython import rclass, rbuiltin, rpbc
 from pypy.rpython import rptr
+
+RPythonTyper.fixednames = {}
+RPythonTyper.fixednames[rstr.STR] = True

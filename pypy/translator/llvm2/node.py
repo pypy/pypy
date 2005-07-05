@@ -1,12 +1,30 @@
 class LLVMNode(object):
-    def _get_ref(self):
-        return self._ref
-    def _set_ref(self, ref):
-        if hasattr(self, "_ref"):
-            raise TypeError, ("can only set ref once! currently: %s" %
-                               (self._ref,))
-        self._ref = ref
-    ref = property(_get_ref, _set_ref)
+
+    def ref(): 
+        def _get_ref(self):
+            return self._ref 
+        def _set_ref(self, ref):
+            if hasattr(self, "_ref"):
+                raise TypeError, ("can only set ref once! currently: %s" %
+                                   (self._ref,))
+            if " " in ref: 
+                ref = '"%s"' % (ref,)
+            self._ref = ref
+        return property(_get_ref, _set_ref)
+    ref = ref()
+
+    def constructor_ref(): 
+        def _get_ref(self):
+            return self._constructor_ref 
+        def _set_ref(self, ref):
+            if hasattr(self, "_constructor_ref"):
+                raise TypeError, ("can only set constructor_ref once!"
+                                  " currently: %s" % (self._constructor_ref,))
+            if " " in ref: 
+                ref = '"%s"' % (ref,)
+            self._constructor_ref = ref
+        return property(_get_ref, _set_ref)
+    constructor_ref = constructor_ref()
 
     # __________________ before "implementation" ____________________
     def writedatatypedecl(self, codewriter):

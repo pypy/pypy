@@ -627,7 +627,7 @@ class Bookkeeper:
                     raise Exception, "no __init__ found in %r" % (cls,)
             return s_instance
 
-        assert isinstance(func, FunctionType), "[%s] expected function, got %r" % (self.whereami(), func)
+        assert isinstance(func, FunctionType), "[%s] expected user-defined function, got %r" % (self.whereami(), func)
 
         inputcells = self.get_inputcells(func, args)
 

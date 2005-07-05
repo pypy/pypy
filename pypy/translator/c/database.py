@@ -21,6 +21,16 @@ class LowLevelDatabase:
         self.containernodes = {}
         self.containerlist = []
         self.namespace = CNameManager()
+        if translator is not None and translator.rtyper is not None:
+            rtyper = translator.rtyper
+            for lltype, nameorflag in rtyper.fixednames.iteritems():
+                if nameorflag is True:
+                    self.namespace.make_reserved_names(lltype._name)
+                #else:
+                #    self.namespace.make_reserved_names(nameorflag)
+            self.fixednames = rtyper.fixednames
+        else:
+            self.fixednames = {}
         self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
 
     def gettypedefnode(self, T, varlength=1):

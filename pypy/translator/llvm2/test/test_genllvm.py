@@ -12,7 +12,7 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rarithmetic import r_uint
 
-py.log.setconsumer("genllvm", py.log.STDOUT)
+#py.log.setconsumer("genllvm", py.log.STDOUT)
 py.log.setconsumer("genllvm database prepare", None)
 
 
@@ -288,7 +288,7 @@ def test_list_getitem_pbc():
     f = compile_function(list_getitem_pbc, [int])
     assert f(0) == 1
     assert f(1) == 2
-
+    
 def test_list_list_getitem_pbc(): 
     l = [[0, 1], [0, 1]]
     def list_list_getitem_pbc(i): 
@@ -314,11 +314,17 @@ def test_list_basic_ops():
         for j in range(6): 
             assert f(i,j) == list_basic_ops(i,j)
 
+def test_string_simple(): 
+    def string_simple(i): 
+        return ord(str(i))
+    f = compile_function(string_simple, [int], view=False)
+    assert f(0) 
+
 def Xtest_string_getitem1():
     l = "Hello, World"
-    def string_test(i): 
+    def string_getitem1(i): 
         return l[i]
-    f = compile_function(string_test, [int], view=True)
+    f = compile_function(string_getitem1, [int], view=True)
     assert f(0) == ord("H")
 
 def DONOT_test_string_getitem2():

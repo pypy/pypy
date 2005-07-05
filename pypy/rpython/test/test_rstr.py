@@ -2,8 +2,8 @@ from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rstr import parse_fmt_string
 from pypy.rpython.rtyper import RPythonTyper, TyperError
-from pypy.rpython.test.test_llinterp import interpret
-
+from pypy.rpython.test.test_llinterp import interpret,find_exception
+from pypy.rpython.llinterp import LLException
 
 def test_simple():
     def fn(i):
@@ -356,3 +356,20 @@ def test_replace():
         s = 'abbccc'
         s = s.replace('abb', 'c')
     raises (TyperError, interpret, fn, ())
+
+def test_int():
+    s1 = [ '42', '01001', 'abc', 'ABC', '4aBc', ' 12ef ', '+42', 'foo', '42foo', '42.1', '']
+    def fn(i, base):
+        s = s1[i]
+        res = int(s, base)
+        return res
+    for j in (10, 16, 2, 1, 36, 42, -3):
+	for i in range(len(s1)):
+	    try:
+		expected = fn(i, j)
+	    except ValueError:
+		info = raises(LLException, interpret, fn, [i, j])
+		assert find_exception(info.value) is ValueError
+	    else:
+		res = interpret(fn, [i, j])
+		assert res == expected

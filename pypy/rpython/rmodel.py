@@ -226,11 +226,13 @@ PyObjPtr = Ptr(PyObject)
 def getconcretetype(v):
     return getattr(v, 'concretetype', PyObjPtr)
 
-def getfunctionptr(translator, func, getconcretetype=getconcretetype):
+def getfunctionptr(translator, graphfunc, getconcretetype=getconcretetype, _callable=None):
     """Make a functionptr from the given Python function."""
-    graph = translator.getflowgraph(func)
+    graph = translator.getflowgraph(graphfunc)
     llinputs = [getconcretetype(v) for v in graph.getargs()]
     lloutput = getconcretetype(graph.getreturnvar())
     FT = FuncType(llinputs, lloutput)
-    return functionptr(FT, func.func_name, graph = graph, _callable = func)
+    if _callable is None:
+        _callable = graphfunc
+    return functionptr(FT, graphfunc.func_name, graph = graph, _callable = _callable)
 

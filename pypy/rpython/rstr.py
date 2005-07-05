@@ -23,8 +23,8 @@ from pypy.rpython.rclass import InstanceRepr
 #        chars: array of Char
 #    }
 
-STR = GcStruct('str', ('hash',  Signed),
-                      ('chars', Array(Char)))
+STR = GcStruct('rpy_string', ('hash',  Signed),
+                             ('chars', Array(Char)))
 
 SIGNED_ARRAY = GcArray(Signed)
 
@@ -141,6 +141,16 @@ class __extend__(StringRepr):
             raise TyperError, 'replace only works for char args'
         v_str, v_c1, v_c2 = hop.inputargs(string_repr, char_repr, char_repr)
         return hop.gendirectcall(ll_replace_chr_chr, v_str, v_c1, v_c2)
+
+    def rtype_int(_, hop):
+	if hop.nb_args == 1:
+	    v_str, = hop.inputargs(string_repr)
+	    c_base = inputconst(Signed, 10)
+	    return hop.gendirectcall(ll_int, v_str, c_base)
+        if not hop.args_r[1] == rint.signed_repr:
+            raise TyperError, 'base needs to be an int'
+	v_str, v_base= hop.inputargs(string_repr, rint.signed_repr)
+	return hop.gendirectcall(ll_int, v_str, v_base)
 
     def ll_str(s, r):
         if typeOf(s) == Char:
@@ -767,6 +777,47 @@ def ll_contains(s, c):
             return True
         i += 1
     return False
+
+def ll_int(s, base):
+    if not 2 <= base <= 36:
+	raise ValueError
+    chars = s.chars
+    strlen = len(chars)
+    i = 0
+    #XXX: only space is allowed as white space for now
+    while i < strlen and chars[i] == ' ':
+	i += 1
+    if not i < strlen:
+	raise ValueError
+    #check sign
+    sign = 1
+    if chars[i] == '-':
+	sign = -1
+	i += 1
+    elif chars[i] == '+':
+	i += 1;
+    #now get digits
+    val = 0
+    while i < strlen:
+	c = ord(chars[i])
+	if ord('a') <= c <= ord('z'):
+	    digit = c - ord('a') + 10
+	elif ord('A') <= c <= ord('Z'):
+	    digit = c - ord('A') + 10
+	elif ord('0') <= c <= ord('9'):
+	    digit = c - ord('0')
+	else:
+	    break
+	if digit >= base:
+	    break
+	val = val * base + digit
+	i += 1
+    #skip trailing whitespace
+    while i < strlen and chars[i] == ' ':
+	i += 1
+    if not i == strlen:
+	raise ValueError
+    return sign * val
 
 # ____________________________________________________________
 #

@@ -4,6 +4,7 @@ from random import random, randint
 from pypy.objspace.std import longobject as lobj
 from pypy.objspace.std.objspace import FailedToImplement
 from pypy.rpython.rarithmetic import r_uint
+from pypy.interpreter.error import OperationError
 
 objspacename = 'std'
 
@@ -111,6 +112,18 @@ class TestW_LongObject:
         x = x ** 100
         f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
         assert raises(OverflowError, lobj._AsDouble, f1)
+
+    def test__FromDouble(self):
+        x = 1234567890.1234567890
+        f1 = lobj._FromDouble(self.space, x)
+        y = lobj._AsDouble(f1)
+        assert f1.longval() == long(x)
+        # check overflow
+        x = 12345.6789e10000000000000000000000000000
+        try:
+            lobj._FromDouble(self.space, x)
+        except OperationError, e:
+            assert e.w_type is self.space.w_OverflowError
 
     def test_eq(self):
         x = 5858393919192332223L
@@ -289,3 +302,21 @@ class AppTestLong:
     def test_getnewargs(self):
         assert  0L .__getnewargs__() == (0L,)
         assert  (-1L) .__getnewargs__() == (-1L,)
+
+    def test_divmod(self):
+        def check_division(x, y):
+            q, r = divmod(x, y)
+            pab, pba = x*y, y*x
+            assert pab == pba
+            assert q == x//y
+            assert r == x%y
+            assert x == q*y + r
+            if y > 0:
+                assert 0 <= r < y
+            else:
+                assert y < r <= 0
+        for x in [-1L, 0L, 1L, 2L ** 100 - 1, -2L ** 100 - 1]:
+            for y in [-105566530L, -1L, 1L, 1034522340L]:
+                print "checking division for %s, %s" % (x, y)
+                check_division(x, y)
+            raises(ZeroDivisionError, "x // 0L")

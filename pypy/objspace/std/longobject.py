@@ -9,7 +9,7 @@ from pypy.rpython.rarithmetic import LONG_BIT
 import math
 
 SHORT_BIT = int(LONG_BIT // 2)
-SHORT_MASK = int(LONG_MASK >> SHORT_BIT)
+SHORT_MASK = int((1 << SHORT_BIT) - 1)
 
 SIGN_BIT = LONG_BIT-1
 SIGN_MASK = r_uint(1) << SIGN_BIT
@@ -63,7 +63,8 @@ class W_LongObject(W_Object):
 
     def _setshort(self, index, short):
         a = self.digits[index // 2]
-        assert isinstance(short, r_uint)
+        ##!!assert isinstance(short, r_uint)
+        assert short & SHORT_MASK == short
         if index % 2 == 0:
             self.digits[index // 2] = ((a >> SHORT_BIT) << SHORT_BIT) + short
         else:
@@ -258,25 +259,19 @@ def truediv__Long_Long(space, w_long1, w_long2):
     return space.newfloat(div)
 
 def floordiv__Long_Long(space, w_long1, w_long2):
-    div, rem = _divrem(space, w_long1, w_long2)
+    div, mod = _l_divmod(space, w_long1, w_long2)
     return div
 
-old_style_div = 1 / 2 == 1 // 2
 def div__Long_Long(space, w_long1, w_long2):
-    # Select the proper div
-    if old_style_div:
-        return floordiv__Long_Long(space, w_long1, w_long2)
-    else:
-        return truediv__Long_Long(space, w_long1, w_long2)
-
+    return floordiv__Long_Long(space, w_long1, w_long2)
 
 def mod__Long_Long(space, w_long1, w_long2):
-    div, rem = _divrem(space, w_long1, w_long2)
-    return rem
+    div, mod = _l_divmod(space, w_long1, w_long2)
+    return mod
 
 def divmod__Long_Long(space, w_long1, w_long2):
-    div, rem = _divrem(space, w_long1, w_long2)
-    return space.newtuple([div, rem])
+    div, mod = _l_divmod(space, w_long1, w_long2)
+    return space.newtuple([div, mod])
 
 # helper for pow()  #YYYYYY: still needs longval if second argument is negative
 def _impl_long_long_pow(space, lv, lw, lz=None):
@@ -733,6 +728,15 @@ class r_suint(object):
         res >>= n
         return res
 
+    def __ilshift__(self, n):
+        self.value <<= n
+        return self
+
+    def __lshift__(self, n):
+        res = r_suint(self)
+        res <<= n
+        return res
+
     def __and__(self, mask):
         # only used to get bits from the value
         return self.value & mask
@@ -742,7 +746,7 @@ class r_suint(object):
             other = r_suint(other)
         return self.sign == other.sign and self.value == other.value
 
-def _x_divrem(space, v1, w1): # return as tuple, PyLongObject **prem)
+def _x_divrem(space, v1, w1):
     size_w = len(w1.digits) * 2
     # hack for the moment:
     # find where w1 is really nonzero
@@ -762,8 +766,10 @@ def _x_divrem(space, v1, w1): # return as tuple, PyLongObject **prem)
     size_a = size_v - size_w + 1
     digitpairs = (size_a + 1) // 2
     a = W_LongObject(space, [r_uint(0)] * digitpairs, 1)
+
     j = size_v
-    for k in range(size_a-1, -1, -1):
+    k = size_a - 1
+    while k >= 0:
         if j >= size_v:
             vj = r_uint(0)
         else:
@@ -775,18 +781,20 @@ def _x_divrem(space, v1, w1): # return as tuple, PyLongObject **prem)
         else:
             q = ((vj << SHORT_BIT) + v._getshort(j-1)) // w._getshort(size_w-1)
 
+        # notabene!
+        # this check needs a signed two digits result
+        # or we get an overflow.
         while (w._getshort(size_w-2) * q >
                 ((
-                    (vj << SHORT_BIT)
+                    r_suint(vj << SHORT_BIT) # this one dominates
                     + v._getshort(j-1)
                     - q * w._getshort(size_w-1)
                                 ) << SHORT_BIT)
                 + v._getshort(j-2)):
             q -= 1
 
-        for i in range(size_w):
-            if i+k >= size_v:
-                break
+        i = 0
+        while i < size_w and i+k < size_v:
             z = w._getshort(i) * q
             zz = z >> SHORT_BIT
             carry += v._getshort(i+k) + (zz << SHORT_BIT)
@@ -794,8 +802,8 @@ def _x_divrem(space, v1, w1): # return as tuple, PyLongObject **prem)
             v._setshort(i+k, r_uint(carry.value & SHORT_MASK))
             carry >>= SHORT_BIT
             carry -= zz
+            i += 1
 
-        i += 1 # compare C code which re-uses i of loop
         if i+k < size_v:
             carry += v._getshort(i+k)
             v._setshort(i+k, r_uint(0))
@@ -803,18 +811,18 @@ def _x_divrem(space, v1, w1): # return as tuple, PyLongObject **prem)
         if carry == 0:
             a._setshort(k, q)
         else:
-            #assert carry == -1
-            # the above would hold if we didn't minimize size_w
+            assert carry == -1
             a._setshort(k, q-1)
-            carry = r_suint(0)
 
-            for i in range(size_w):
-                if i+k >= size_v:
-                    break
+            carry = r_suint(0)
+            i = 0
+            while i < size_w and i+k < size_v:
                 carry += v._getshort(i+k) + w._getshort(i)
-                v._setshort(i+k, r_uint(carry) & SHORT_MASK)
+                v._setshort(i+k, r_uint(carry.value) & SHORT_MASK)
                 carry >>= SHORT_BIT
+                i += 1
         j -= 1
+        k -= 1
 
     a._normalize()
     rem, _ = _divrem1(space, v, d)
@@ -830,9 +838,9 @@ def _divrem(space, a, b):
     if b._getshort(size_b-1) == 0:
         size_b -= 1
 
-    if size_b == 0:
-        raise OperationError(w_longobj.space.w_ZeroDivisionError,
-                             w_longobj.space.wrap("long division or modulo by zero"))
+    if b.sign == 0:
+        raise OperationError(space.w_ZeroDivisionError,
+                             space.wrap("long division or modulo by zero"))
 
     if (size_a < size_b or
         (size_a == size_b and
@@ -852,7 +860,7 @@ def _divrem(space, a, b):
     # so a = b*z + r.
     if a.sign != b.sign:
         z.sign = - z.sign
-    if z.sign < 0 and rem.sign != 0:
+    if a.sign < 0 and rem.sign != 0:
         rem.sign = - rem.sign
     return z, rem
 
@@ -891,29 +899,31 @@ def _AsScaledDouble(v):
     assert x > 0.0
     return x * sign, exponent
 
-# XXX make ldexp and isinf a builtin float support function
-
 def isinf(x):
-    return x*2 == x
+    return x != 0.0 and x / 2 == x
 
-def ldexp(x, exp):
-    assert type(x) is float
-    lb1 = LONG_BIT - 1
-    multiplier = float(r_uint(1) << lb1)
-    while exp >= lb1:
-        x *= multiplier
-        exp -= lb1
-    if exp:
-        x *= float(r_uint(1) << exp)
-    return x
+##def ldexp(x, exp):
+##    assert type(x) is float
+##    lb1 = LONG_BIT - 1
+##    multiplier = float(r_uint(1) << lb1)
+##    while exp >= lb1:
+##        x *= multiplier
+##        exp -= lb1
+##    if exp:
+##        x *= float(r_uint(1) << exp)
+##    return x
+
+# note that math.ldexp checks for overflows,
+# while the C ldexp is not guaranteed to.
 
 def _AsDouble(v):
     """ Get a C double from a long int object. """
     x, e = _AsScaledDouble(v)
     if e <= sys.maxint / SHORT_BIT:
-        x = ldexp(x, e * SHORT_BIT)
-        if not isinf(x):
-            return x
+        x = math.ldexp(x, e * SHORT_BIT)
+        #if not isinf(x):
+        # this is checked by math.ldexp
+        return x
     raise OverflowError# sorry, "long int too large to convert to float"
 
 def _long_true_divide(space, a, b):
@@ -931,10 +941,61 @@ def _long_true_divide(space, a, b):
             raise OverflowError
         elif aexp < -(sys.maxint / SHORT_BIT):
             return 0.0 # underflow to 0
-        ad = ldexp(ad, aexp * SHORT_BIT)
-        if isinf(ad):   # ignore underflow to 0.0
-            raise OverflowError
+        ad = math.ldexp(ad, aexp * SHORT_BIT)
+        #if isinf(ad):   # ignore underflow to 0.0
+        #    raise OverflowError
+        # math.ldexp checks and raises
         return ad
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("long/long too large for a float"))
+
+
+def _FromDouble(space, dval):
+    """ Create a new long int object from a C double """
+    neg = 0
+    if isinf(dval):
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("cannot convert float infinity to long"))
+    if dval < 0.0:
+        neg = 1
+        dval = -dval
+    frac, expo = math.frexp(dval) # dval = frac*2**expo; 0.0 <= frac < 1.0
+    if expo <= 0:
+        return W_LongObject(space, [r_uint(0)], 0)
+    ndig = (expo-1) // SHORT_BIT + 1 # Number of 'digits' in result
+    digitpairs = (ndig + 1) // 2
+    v = W_LongObject(space, [r_uint(0)] * digitpairs, 1)
+    frac = math.ldexp(frac, (expo-1) % SHORT_BIT + 1)
+    for i in range(ndig-1, -1, -1):
+        bits = int(frac)
+        v._setshort(i, r_uint(bits))
+        frac -= float(bits)
+        frac = math.ldexp(frac, SHORT_BIT)
+    if neg:
+        v.sign = -1
+    return v
+
+def _l_divmod(space, v, w):
+    """
+    The / and % operators are now defined in terms of divmod().
+    The expression a mod b has the value a - b*floor(a/b).
+    The _divrem function gives the remainder after division of
+    |a| by |b|, with the sign of a.  This is also expressed
+    as a - b*trunc(a/b), if trunc truncates towards zero.
+    Some examples:
+      a   b   a rem b     a mod b
+      13  10   3           3
+     -13  10  -3           7
+      13 -10   3          -7
+     -13 -10  -3          -3
+    So, to get from rem to mod, we have to add b if a and b
+    have different signs.  We then subtract one from the 'div'
+    part of the outcome to keep the invariant intact.
+    """
+    div, mod = _divrem(space, v, w)
+    if mod.sign * w.sign == -1:
+        mod = add__Long_Long(space, mod, w)
+        one = W_LongObject(space, [r_uint(1)], 1)
+        div = sub__Long_Long(space, div, one)
+    return div, mod

@@ -4,7 +4,7 @@ from pypy.translator.llvm2.log import log
 from pypy.translator.llvm2.genllvm import use_boehm_gc
 
 log = log.codewriter 
-show_line_numbers = True
+show_line_numbers = False # True
 count = count().next
 
 class CodeWriter(object): 
