@@ -1380,6 +1380,13 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s == a.bookkeeper.immutablevalue(12)
 
+    def test_int(self):
+        def f(x, s):
+            return int(x) + int(s) + int(s, 16)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int, str])
+        assert s.knowntype == int
+
 
 def g(n):
     return [0,1,2,n]

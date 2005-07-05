@@ -227,6 +227,20 @@ def test_nested_tuple():
     f = compile_function(nested_tuple, [int])
     assert f(4) == 4
 
+def test_prebuilt_tuples():
+    t1 = (1,2,3,4)
+    t2 = (5,6,7,8)
+    def callee_tuple(t):
+        return t[0]
+    def caller_tuple(i):
+        if i:
+            return callee_tuple(t1) + i
+        else:
+            return callee_tuple(t2) + i
+    f = compile_function(caller_tuple, [int])
+    assert f(0) == 5
+    assert f(1) == 2
+
 def test_pbc_fns(): 
     def f2(x):
          return x+1

@@ -66,8 +66,15 @@ builtin_xrange = builtin_range # xxx for now allow it
 def builtin_bool(s_obj):
     return constpropagate(bool, [s_obj], SomeBool())
 
-def builtin_int(s_obj):
-    return constpropagate(int, [s_obj], SomeInteger())
+def builtin_int(s_obj, s_base=None):
+    assert (s_base is None or s_base.is_constant() 
+            and s_base.const == 16
+            and s_obj.knowntype == str), "only int(v|string) or int(string,16) expected"
+    if s_base is not None:
+        args_s = [s_obj, s_base]
+    else:
+        args_s = [s_obj]
+    return constpropagate(int, args_s, SomeInteger())
 
 def restricted_uint(s_obj):    # for r_uint
     return constpropagate(pypy.rpython.rarithmetic.r_uint, [s_obj],

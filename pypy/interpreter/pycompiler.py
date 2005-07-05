@@ -169,13 +169,6 @@ class CPythonCompiler(AbstractCompiler):
 
 
 ########
-from pypy.interpreter import stablecompiler
-from pypy.interpreter.stablecompiler.pycodegen import ModuleCodeGenerator
-from pypy.interpreter.stablecompiler.pycodegen import InteractiveCodeGenerator
-from pypy.interpreter.stablecompiler.pycodegen import ExpressionCodeGenerator
-from pypy.interpreter.stablecompiler.transformer import Transformer
-from pyparser.pythonutil import ast_from_input
-
 class PythonCompiler(CPythonCompiler):
     """Uses the stdlib's python implementation of compiler
 
@@ -185,6 +178,13 @@ class PythonCompiler(CPythonCompiler):
          the whole source after having only added a new '\n')
     """
     def compile(self, source, filename, mode, flags):
+        from pypy.interpreter import stablecompiler
+        from pypy.interpreter.stablecompiler.pycodegen import ModuleCodeGenerator
+        from pypy.interpreter.stablecompiler.pycodegen import InteractiveCodeGenerator
+        from pypy.interpreter.stablecompiler.pycodegen import ExpressionCodeGenerator
+        from pypy.interpreter.stablecompiler.transformer import Transformer
+        from pyparser.pythonutil import ast_from_input
+
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
         try:
