@@ -68,7 +68,7 @@ class AbstractCompiler:
             if not err2.match(space, space.w_SyntaxError):
                 raise
 
-        if mode != 'single' and space.eq_w(err1.w_value, err2.w_value):
+        if space.eq_w(err1.w_value, err2.w_value):
             raise     # twice the same error, re-raise
 
         return None   # two different errors, expect more
@@ -179,21 +179,20 @@ class PythonCompiler(CPythonCompiler):
     """
     def compile(self, source, filename, mode, flags):
         from pyparser.error import ParseError
-        from pyparser.pythonutil import ast_from_input
+        from pyparser.pythonutil import pypy_parse
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
         # XXX use 'flags'
         space = self.space
-        transformer = Transformer()
         try:
-            tree = ast_from_input(source, mode, transformer)
+            tuples = pypy_parse(source, mode, True)
         except ParseError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
-        c = self.compile_tree(tree, filename, mode)
+        c = self.compile_tuples(tuples, filename, mode)
         from pypy.interpreter.pycode import PyCode
         return space.wrap(PyCode(space)._from_code(c))
 
-    def compile_tree(self, tree, filename, mode):
+    def compile_tuples(self, tuples, filename, mode):
         # __________
         # XXX this uses the non-annotatable stablecompiler at interp-level
         from pypy.interpreter import stablecompiler
@@ -202,6 +201,8 @@ class PythonCompiler(CPythonCompiler):
         from pypy.interpreter.stablecompiler.pycodegen import ExpressionCodeGenerator
         from pypy.interpreter.stablecompiler.transformer import Transformer
         try:
+            transformer = Transformer()
+            tree = transformer.compile_node(tuples)
             stablecompiler.misc.set_filename(filename, tree)
             if mode == 'exec':
                 codegenerator = ModuleCodeGenerator(tree)
@@ -223,7 +224,7 @@ class PythonCompiler(CPythonCompiler):
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
         # __________ end of XXX above
         return c
-    compile_tree._annspecialcase_ = 'override:cpy_stablecompiler'
+    compile_tuples._annspecialcase_ = 'override:cpy_stablecompiler'
 
 
 class PyPyCompiler(CPythonCompiler):
