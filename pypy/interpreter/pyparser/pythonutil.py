@@ -50,7 +50,7 @@ def pypy_parsefile(filename, lineno=False):
     pyf.close()
     return pypy_parse(source, 'exec', lineno)
 
-def pypy_parse(source, mode='exec', lineno=False):
+def pypy_parse(source, mode='exec', lineno=False, flags=0):
     """parse <source> using PyPy's parser module and return
     a tuple of three elements :
      - The encoding declaration symbol or None if there were no encoding
@@ -63,7 +63,7 @@ def pypy_parse(source, mode='exec', lineno=False):
     """
     builder = TupleBuilder(PYTHON_PARSER.rules, lineno=False)
     target_rule = TARGET_DICT[mode]
-    PYTHON_PARSER.parse_source(source, target_rule, builder)
+    PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
     stack_element = builder.stack[-1]
     # convert the stack element into nested tuples (caution, the annotator
     # can't follow this call)

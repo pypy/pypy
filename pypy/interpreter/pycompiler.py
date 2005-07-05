@@ -184,7 +184,7 @@ class PythonCompiler(CPythonCompiler):
         # XXX use 'flags'
         space = self.space
         try:
-            tuples = pypy_parse(source, mode, True)
+            tuples = pypy_parse(source, mode, True, flags)
         except ParseError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))

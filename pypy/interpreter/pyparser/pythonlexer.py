@@ -3,6 +3,7 @@ it obeys the TokenSource interface defined for the grammar
 analyser in grammar.py
 """
 import symbol, sys
+from codeop import PyCF_DONT_IMPLY_DEDENT
 
 from pypy.interpreter.pyparser.grammar import TokenSource, Token
 from pypy.interpreter.pyparser.error import ParseError
@@ -79,7 +80,7 @@ class TokenError(ParseError):
         ParseError.__init__(self, msg, lineno, offset, line)
         self.token_stack = token_stack
 
-def generate_tokens(lines):
+def generate_tokens(lines, flags):
     """
     This is a rewrite of pypy.module.parser.pytokenize.generate_tokens since
     the original function is not RPYTHON (uses yield)
@@ -282,23 +283,25 @@ def generate_tokens(lines):
                 pos = pos + 1
 
     lnum -= 1
-    for indent in indents[1:]:                 # pop remaining indent levels
-        tok = token_from_values(tokenmod.DEDENT, '')
-        token_list.append((tok, line, lnum, pos))
-        
-    ## <XXX> adim: this can't be (only) that, can it ?
-    if token_list and token_list[-1] != symbol.file_input:
-        token_list.append((Token('NEWLINE', ''), '\n', lnum, 0))
-    ## </XXX>
+    if not (flags & PyCF_DONT_IMPLY_DEDENT):
+        if token_list and token_list[-1][0].name != 'NEWLINE':
+            token_list.append((Token('NEWLINE', ''), '\n', lnum, 0))
+        for indent in indents[1:]:                 # pop remaining indent levels
+            tok = token_from_values(tokenmod.DEDENT, '')
+            token_list.append((tok, line, lnum, pos))
+    if token_list and token_list[-1][0].name == 'NEWLINE':
+        token_list.pop()
+    token_list.append((Token('NEWLINE', ''), '\n', lnum, 0))
+
     tok = token_from_values(tokenmod.ENDMARKER, '',)
     token_list.append((tok, line, lnum, pos))
     return token_list, encoding
 
 class PythonSource(TokenSource):
     """This source uses Jonathan's tokenizer"""
-    def __init__(self, strings):
+    def __init__(self, strings, flags=0):
         # TokenSource.__init__(self)
-        tokens, encoding = generate_tokens(strings)
+        tokens, encoding = generate_tokens(strings, flags)
         self.token_stack = tokens
         self.encoding = encoding
         self._current_line = '' # the current line (as a string)
@@ -313,7 +316,7 @@ class PythonSource(TokenSource):
         tok, line, lnum, pos = self.token_stack[self.stack_pos]
         self.stack_pos += 1
         self._current_line = line
-        self._lineno = lnum
+        self._lineno = max(self._lineno, lnum)
         self._offset = pos
         return tok
 

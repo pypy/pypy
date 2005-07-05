@@ -15,6 +15,7 @@ import sys
 import os
 import grammar
 import symbol
+from codeop import PyCF_DONT_IMPLY_DEDENT
 
 class PythonParser(object):
     """Wrapper class for python grammar"""
@@ -24,19 +25,20 @@ class PythonParser(object):
         # Build first sets for each rule (including anonymous ones)
         grammar.build_first_sets(self.items)
 
-    def parse_source(self, textsrc, goal, builder=None):
+    def parse_source(self, textsrc, goal, builder=None, flags=0):
         """Parse a python source according to goal"""
         lines = [line + '\n' for line in textsrc.split('\n')]
-        if textsrc == '\n':
+        if textsrc.endswith('\n'):
             lines.pop()
+            flags &= ~PyCF_DONT_IMPLY_DEDENT
         else:
             last_line = lines[-1]
             lines[-1] = last_line[:-1]
-        return self.parse_lines(lines, goal, builder)
+        return self.parse_lines(lines, goal, builder, flags)
 
-    def parse_lines(self, lines, goal, builder=None):
+    def parse_lines(self, lines, goal, builder=None, flags=0):
         target = self.rules[goal]
-        src = Source(lines)
+        src = Source(lines, flags)
         
         if builder is None:
             builder = grammar.BaseGrammarBuilder(debug=False, rules=self.rules)
