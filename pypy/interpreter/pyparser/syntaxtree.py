@@ -63,12 +63,6 @@ TOKEN_MAP = {
     }
 NT_OFFSET = token.NT_OFFSET    
 
-SYMBOLS = {}
-# copies the numerical mapping between symbol name and symbol value
-# into SYMBOLS
-for k, v in symbol.sym_name.items():
-    SYMBOLS[v] = k
-SYMBOLS['UNKNOWN'] = -1
 
 
 class SyntaxNode(object):

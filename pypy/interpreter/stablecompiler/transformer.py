@@ -25,13 +25,13 @@ parseFile(path) -> AST
 #   http://www.opensource.org/licenses/bsd-license.html
 # and replace OWNER, ORGANIZATION, and YEAR as appropriate.
 
+# make sure we import the parser with the correct grammar
+import pypy.interpreter.pyparser.pythonparse
 from pypy.interpreter.stablecompiler.ast import *
 import parser
 import symbol
 import token
 import sys
-# make sure we import the parser with the correct grammar
-import pypy.interpreter.pyparser.pythonparse
 
 class WalkerError(StandardError):
     pass
