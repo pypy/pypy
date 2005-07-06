@@ -12,7 +12,7 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rarithmetic import r_uint
 
-#py.log.setconsumer("genllvm", py.log.STDOUT)
+py.log.setconsumer("genllvm", py.log.STDOUT)
 py.log.setconsumer("genllvm database prepare", None)
 
 
@@ -114,7 +114,7 @@ def test_int_ops():
     f = compile_function(ops, [int])
     assert f(1) == 1
     assert f(2) == 2
-
+    
 def test_while_loop():
     def factorial(i):
         r = 1

@@ -2,7 +2,6 @@ import py
 from pypy.rpython import lltype
 from pypy.translator.llvm2.log import log
 from pypy.translator.llvm2.node import LLVMNode
-from pypy.objspace.flow.model import Constant
 from pypy.translator.llvm2 import varsize 
 import itertools  
 log = log.structnode
@@ -53,44 +52,29 @@ class ArrayTypeNode(LLVMNode):
                                   fromtype)
 
 class ArrayNode(LLVMNode):
-    _issetup = False 
+    _issetup = True 
     def __init__(self, db, value):
+        assert isinstance(lltype.typeOf(value), lltype.Array)
         self.db = db
         self.value = value
-        self.arraytype = value._TYPE.OF
-        self.ref = "%%arrayinstance.%s.%s" % (value._TYPE.OF, nextnum())
+        self.arraytype = lltype.typeOf(value).OF
+        self.ref = "%%arrayinstance.%s.%s" % (self.arraytype, nextnum())
+        if isinstance(self.arraytype, lltype.Ptr):
+            for item in self.value.items:
+                self.db.addptrvalue(item)
 
     def __str__(self):
         return "<ArrayNode %r>" %(self.ref,)
-
-    def setup(self):
-        for item in self.value.items:
-            if not isinstance(self.arraytype, lltype.Primitive):
-                # Create a dummy constant hack XXX
-                self.db.prepare_arg(Constant(item, self.arraytype))
-        self._issetup = True
-
-    def value_helper(self, value):        
-        """ This should really be pushed back to the database??? XXX """
-        if not isinstance(self.arraytype, lltype.Primitive):
-            # Create a dummy constant hack XXX
-            value = self.db.repr_arg(Constant(value, self.arraytype))
-        else:
-            if isinstance(value, str) and len(value) == 1:
-                value = ord(value)                    
-            value = str(value)
-        return value
     
-    def getall(self):
+    def typeandvalue(self):
         """ Returns the type and value for this node. """
         items = self.value.items
-        typeval = self.db.repr_arg_type(self.arraytype)
         arraylen = len(items)
 
-        type_ = "{ int, [%s x %s] }" % (arraylen, typeval)        
-        arrayvalues = ["%s %s" % (typeval,
-                                  self.value_helper(v)) for v in items]
+        typeval = self.db.repr_arg_type(self.arraytype)
 
+        type_ = "{ int, [%s x %s] }" % (arraylen, typeval)        
+        arrayvalues = ["%s %s" % self.db.reprs_constant(v) for v in items]
         value = "int %s, [%s x %s] [ %s ]" % (arraylen,
                                               arraylen,
                                               typeval,
@@ -101,5 +85,5 @@ class ArrayNode(LLVMNode):
     # entry points from genllvm
 
     def writeglobalconstants(self, codewriter):
-        type_, values = self.getall()
+        type_, values = self.typeandvalue()
         codewriter.globalinstance(self.ref, type_, values)

@@ -1,6 +1,9 @@
 from os.path import exists
 use_boehm_gc = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
 
+#XXXTmp
+use_boehm_gc = False
+
 import py
 from pypy.translator.llvm2 import build_llvm_module
 from pypy.translator.llvm2.database import Database 

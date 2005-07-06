@@ -26,6 +26,10 @@ class LLVMNode(object):
         return property(_get_ref, _set_ref)
     constructor_ref = constructor_ref()
 
+
+    def setup(self):
+        pass
+
     # __________________ before "implementation" ____________________
     def writedatatypedecl(self, codewriter):
         """ write out declare names of data types 

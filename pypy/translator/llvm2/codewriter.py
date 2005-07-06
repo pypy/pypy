@@ -30,7 +30,7 @@ class CodeWriter(object):
         self.append("    %s:" % name)
 
     def globalinstance(self, name, type, data):
-        self.append("%s = internal constant %s {%s}" % (name, type, data))
+        self.append("%s = constant %s {%s}" % (name, type, data))
 
     def structdef(self, name, typereprs):
         self.append("%s = type { %s }" %(name, ", ".join(typereprs)))

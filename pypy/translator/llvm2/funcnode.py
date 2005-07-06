@@ -37,11 +37,11 @@ class FuncTypeNode(LLVMNode):
 class FuncNode(LLVMNode):
     _issetup = False 
 
-    def __init__(self, db, const_ptr_func):
+    def __init__(self, db, value):
         self.db = db
-        self.const_ptr_func = const_ptr_func
-        self.ref = "%" + const_ptr_func.value._obj._name
-        self.graph = const_ptr_func.value._obj.graph 
+        self.value = value
+        self.ref = "%" + value._name
+        self.graph = value.graph 
         remove_same_as(self.graph) 
         remove_double_links(self.db._translator, self.graph) 
         
@@ -67,10 +67,10 @@ class FuncNode(LLVMNode):
         codewriter.declare(self.getdecl())
 
     def writeimpl(self, codewriter):
-        _callable = self.const_ptr_func.value._obj._callable
+        _callable = self.value._callable
         for func, extfuncinfo in extfunctable.iteritems():  # precompute a dict?
             if _callable is extfuncinfo.ll_function:
-                log('skipped output of external function %s' % self.const_ptr_func.value._obj._name)
+                log('skipped output of external function %s' % self.value._name)
                 return
 
         assert self._issetup 

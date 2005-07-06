@@ -53,8 +53,56 @@ class Database(object):
     def __init__(self, translator): 
         self._translator = translator
         self.obj2node = NormalizingDict() 
+        self.ptr2nodevalue = {} 
         self._pendingsetup = []
         self._tmpcount = 1
+
+    def addptrvalue(self, ptrvalue):
+        value = ptrvalue._obj
+        node = self.create_constant_node(value)
+        self.ptr2nodevalue[value] = self.create_constant_node(value)        
+
+    def getptrnode(self, ptrvalue):
+        return self.ptr2nodevalue[ptrvalue._obj]
+
+    def getptrref(self, ptrvalue):
+        return self.ptr2nodevalue[ptrvalue._obj].ref
+
+    def reprs_constant(self, value):        
+        type_ = lltype.typeOf(value)
+        if isinstance(type_, lltype.Primitive):
+            if isinstance(value, str) and len(value) == 1:
+                res = ord(value)                    
+            res = str(value)
+        elif isinstance(type_, lltype.Ptr):
+            res = self.getptrref(value)
+        #elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):
+        #XXX    res = self.value.typeandvalue()
+        else:
+            assert False, "not supported XXX"
+        return self.repr_arg_type(type_), res
+
+    def create_constant_node(self, value):
+        type_ = lltype.typeOf(value)
+        node = None
+        if isinstance(type_, lltype.FuncType):
+            
+            if value._callable \
+                   and not hasattr(value, 'graph'):
+                log('EXTERNAL FUNCTION' + str(dir(value)))
+            else:
+                node = FuncNode(self, value)
+
+        elif isinstance(type_, lltype.Struct):
+            if type_._arrayfld:
+                node = StructVarsizeNode(self, value)
+            else:
+                node = StructNode(self, value)
+                    
+        elif isinstance(type_, lltype.Array):
+            node = ArrayNode(self, value)
+        assert node is not None, "%s not supported" % lltype.typeOf(value)
+        return node
         
     def addpending(self, key, node): 
         assert key not in self.obj2node, (
@@ -69,37 +117,19 @@ class Database(object):
         self._pendingsetup and to self.obj2node"""
         if const_or_var in self.obj2node:
             return
+
         if isinstance(const_or_var, Constant):
-            
             ct = const_or_var.concretetype
-            while isinstance(ct, lltype.Ptr):
-                ct = ct.TO
-            
-            if isinstance(ct, lltype.FuncType):
-                if const_or_var.value._obj._callable and not hasattr(const_or_var.value._obj, 'graph'):
-                    log('EXTERNAL FUNCTION' + str(dir(const_or_var.value._obj)))
-                else:
-                    self.addpending(const_or_var, FuncNode(self, const_or_var))
-            else:
-                value = const_or_var.value
-                while hasattr(value, "_obj"):
-                    value = value._obj
 
-                if isinstance(ct, lltype.Struct):
-                    if ct._arrayfld:
-                        self.addpending(const_or_var, StructVarsizeNode(self, value))
-                    else:
-                        self.addpending(const_or_var, StructNode(self, value))
+            if isinstance(ct, lltype.Primitive):
+                log.prepare(const_or_var, "(is primitive)")
+                return
 
-                elif isinstance(ct, lltype.Array):
-                    self.addpending(const_or_var, ArrayNode(self, value))
-
-                elif isinstance(ct, lltype.Primitive):
-                    log.prepare(const_or_var, "(is primitive)")
-                else:
-                    log.XXX("not sure what to do about %s(%s)" % (ct, const_or_var))
+            assert isinstance(ct, lltype.Ptr), "Preperation of non primitive and non pointer" 
+            value = const_or_var.value._obj            
+            self.addpending(const_or_var, self.create_constant_node(value))
         else:
-            log.prepare(const_or_var, type(const_or_var)) #XXX dont checkin
+            log.prepare(const_or_var, type(const_or_var))
 
     def prepare_repr_arg_multi(self, args):
         for const_or_var in args:
@@ -144,7 +174,7 @@ class Database(object):
 
     def getobjects(self, subset_types=None):
         res = []
-        for v in self.obj2node.values():
+        for v in self.obj2node.values() + self.ptr2nodevalue.values():
             if subset_types is None or isinstance(v, subset_types):
                 res.append(v)
         return res

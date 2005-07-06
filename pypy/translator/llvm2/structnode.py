@@ -1,5 +1,4 @@
 import py
-from pypy.objspace.flow.model import Block, Constant, Variable, Link
 from pypy.translator.llvm2.log import log
 from pypy.translator.llvm2.node import LLVMNode
 from pypy.translator.llvm2 import varsize
@@ -74,6 +73,9 @@ class StructVarsizeTypeNode(StructTypeNode):
             self.ref, self.constructor_decl, arraytype, 
             indices_to_array)
 
+
+#XXX Everything downwind of here is experimental code
+
 def cast_global(toptr, from_, name):
     s = "cast(%s* getelementptr (%s* %s, int 0) to %s)" % (from_,
                                                            from_,
@@ -88,36 +90,28 @@ class StructNode(LLVMNode):
         self.db = db
         self.value = value
         self.ref = "%%stinstance.%s.%s" % (value._TYPE._name, nextnum())
+        for name in self.value._TYPE._names_without_voids():
+            T = self.value._TYPE._flds[name]
+            assert T is not lltype.Void
+            if isinstance(T, lltype.Ptr):
+                self.db.addptrvalue(getattr(self.value, name))
 
     def __str__(self):
         return "<StructNode %r>" %(self.ref,)
 
     def setup(self):
-        for name in self.value._TYPE._names_without_voids():
-            T = self.value._TYPE._flds[name]
-            assert T is not lltype.Void
-            if not isinstance(T, lltype.Primitive):
-                value = getattr(self.value, name)
-                # Create a dummy constant hack XXX
-                c = Constant(value, T)
-                self.db.prepare_arg(c)
-                
         self._issetup = True
 
-    def getall(self):
+    def typeandvalue(self):
         res = []
         type_ = self.value._TYPE
         for name in type_._names_without_voids():
             T = type_._flds[name]
             value = getattr(self.value, name)
-            if not isinstance(T, lltype.Primitive):
-                # Create a dummy constant hack XXX
-                c = Constant(value, T)
-
-                # Needs some sanitisation
-                x = self.db.obj2node[c]
-                value = self.db.repr_arg(c)
-                t, v = x.getall()
+            if isinstance(T, lltype.Ptr):
+                x = self.db.getptrnode(value)
+                value = self.db.getptrref(value)
+                t, v = x.typeandvalue()
                 value = cast_global(self.db.repr_arg_type(T), t, value)
                 
             else:
@@ -129,14 +123,16 @@ class StructNode(LLVMNode):
         return typestr, values
     
     def writeglobalconstants(self, codewriter):
-        type_, values = self.getall()
+        type_, values = self.typeandvalue()
         codewriter.globalinstance(self.ref, type_, values)
+
+#XXX Everything downwind of here is very experimental code and no tests pass
                 
 class StructVarsizeNode(StructNode):
     def __str__(self):
         return "<StructVarsizeNode %r>" %(self.ref,)
 
-    def getall(self):
+    def typeandvalue(self):
         res = []
         type_ = self.value._TYPE
         for name in type_._names_without_voids()[:-1]:
@@ -156,7 +152,7 @@ class StructVarsizeNode(StructNode):
         value = getattr(self.value, name)
         c = Constant(value, T)
         x = self.db.obj2node[c]
-        t, v = x.getall()
+        t, v = x.typeandvalue()
 
         #value = self.db.repr_arg(c)
         value = cast_global(self.db.repr_arg_type(T), t, "{%s}" % v)
