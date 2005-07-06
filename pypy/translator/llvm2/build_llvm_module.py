@@ -37,7 +37,7 @@ def compile_module(module, source_files, object_files, library_files):
     if debug: print cmd
     cmdexec(cmd)
 
-def make_module_from_llvm(llvmfile, pyxfile, optimize=False):
+def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
     include_dir = py.magic.autopath().dirpath()
     dirpath = llvmfile.dirpath()
     lastdir = path.local()

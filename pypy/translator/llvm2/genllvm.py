@@ -1,9 +1,6 @@
 from os.path import exists
 use_boehm_gc = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
 
-#XXXTmp
-use_boehm_gc = False
-
 import py
 from pypy.translator.llvm2 import build_llvm_module
 from pypy.translator.llvm2.database import Database 
@@ -15,12 +12,14 @@ from pypy.rpython import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.codewriter import CodeWriter
 from pypy.translator.backendoptimization import remove_void
+from pypy.translator.backendoptimization import rename_extfunc_calls
 from pypy.translator.llvm2.extfunctions import extdeclarations, extfunctions
 
 function_count = {}
 
 def genllvm(translator):
     remove_void(translator)
+    rename_extfunc_calls(translator)
     func = translator.entrypoint
 
     db = Database(translator)

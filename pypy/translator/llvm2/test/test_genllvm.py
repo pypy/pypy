@@ -37,10 +37,24 @@ def compile_module_function(function, annotate, view=False):
     f = getattr(mod, function.func_name + "_wrapper")
     return mod, f
 
-def test_external_function():
+def test_external_function_ll_os_dup():
     import os
     def fn():
         return os.dup(0)
+    f = compile_function(fn, [], view=False)
+    assert os.path.sameopenfile(f(), fn())
+
+def DONTtest_external_function_ll_os_getcmd():
+    import os
+    def fn():
+        return os.getcwd()
+    f = compile_function(fn, [], view=True)
+    assert os.getcwd() == 'bla'
+
+def DONTtest_external_function_ll_os_open():
+    import os
+    def fn():
+        return os.open(0)
     f = compile_function(fn, [], view=False)
     assert os.path.sameopenfile(f(), fn())
 

@@ -44,7 +44,7 @@ class FuncNode(LLVMNode):
         self.graph = value.graph 
         remove_same_as(self.graph) 
         remove_double_links(self.db._translator, self.graph) 
-        
+
     def __str__(self):
         return "<FuncNode %r>" %(self.ref,)
     
@@ -137,7 +137,7 @@ class FuncNode(LLVMNode):
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter)
         for op in block.operations:
-            codewriter.comment(str(op))
+            #codewriter.comment(str(op))
             opwriter.write_operation(op)
     def write_startblock(self, codewriter, block):
         self.write_block_operations(codewriter, block)
