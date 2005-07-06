@@ -5,6 +5,7 @@ from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.tool.unionfind import UnionFind
 from pypy.rpython.lltype import Void
+from pypy.rpython.extfunctable import table as extfunctable
 
 def remove_same_as(graph):
     """Remove all 'same_as' operations.
@@ -54,6 +55,28 @@ def remove_void(translator):
                     args = [arg for arg in op.args
                                 if arg.concretetype is not Void]
                     op.args = args
+    for func, graph in translator.flowgraphs.iteritems():
+        traverse(visit, graph)
+ 
+def rename_extfunc_calls(translator):
+    def visit(block): 
+        if isinstance(block, Block):
+            for op in block.operations:
+                if op.opname != 'direct_call':
+                    continue
+                functionref = op.args[0]
+                if not isinstance(functionref, Constant):
+                    continue
+                _callable = functionref.value._obj._callable
+                for func, extfuncinfo in extfunctable.iteritems():  # precompute a dict?
+                    if _callable is not extfuncinfo.ll_function or not extfuncinfo.backend_functiontemplate:
+                        continue
+                    language, functionname = extfuncinfo.backend_functiontemplate.split(':')
+                    if language is 'C':
+                        old_name = functionref.value._obj._name[:]
+                        functionref.value._obj._name = functionname
+                        #print 'rename_extfunc_calls: %s -> %s' % (old_name, functionref.value._obj._name)
+                        break
     for func, graph in translator.flowgraphs.iteritems():
         traverse(visit, graph)
  
