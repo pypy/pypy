@@ -3,29 +3,39 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rpython.rarithmetic import intmask, r_uint, LONG_MASK
+from pypy.rpython.rarithmetic import intmask, r_uint, r_ushort, r_ulong
 from pypy.rpython.rarithmetic import LONG_BIT
 
 import math
 
+# for now, we use r_uint as a digit.
+# we may later switch to r_ushort, when it is supported by rtyper etc.
+
+Digit = r_uint # works: r_ushort
+Twodigits = r_uint
+Stwodigits = int
+
 # the following describe a plain digit
-SHIFT = int(LONG_BIT // 2) #- 1
+SHIFT = (Twodigits.BITS // 2) - 1
 MASK = int((1 << SHIFT) - 1)
+
+# find the correct type for carry/borrow
+if Digit.BITS - SHIFT > 0:
+    Carryadd = Digit
+else:
+    Carryadd = Twodigits
+Carrymul = Twodigits
 
 # masks for normal signed integer
 SIGN_BIT = LONG_BIT-1
 SIGN_MASK = r_uint(1) << SIGN_BIT
 NONSIGN_MASK = ~SIGN_MASK
 
-# masks for half-word access
-SHORT_BIT = LONG_BIT // 2
-SHORT_MASK = int((1 << SHORT_BIT) - 1)
-
 # XXX some operations below return one of their input arguments
 #     without checking that it's really of type long (and not a subclass).
 
 class W_LongObject(W_Object):
-    """This is a reimplementation of longs using a list of r_uints."""
+    """This is a reimplementation of longs using a list of digits."""
     # All functions that still rely on the underlying Python's longs are marked
     # with YYYYYY
     from pypy.objspace.std.longtype import long_typedef as typedef
@@ -41,7 +51,7 @@ class W_LongObject(W_Object):
     def longval(self): #YYYYYY
         l = 0
         for d in self.digits[::-1]:
-            l = l << LONG_BIT
+            l = l << SHIFT
             l += long(d)
         return l * self.sign
 
@@ -51,7 +61,7 @@ class W_LongObject(W_Object):
     def _normalize(self):
         if len(self.digits) == 0:
             self.sign = 0
-            self.digits = [r_uint(0)]
+            self.digits = [Digit(0)]
             return
         i = len(self.digits) - 1
         while i != 0 and self.digits[i] == 0:
@@ -60,41 +70,17 @@ class W_LongObject(W_Object):
         if len(self.digits) == 1 and self.digits[0] == 0:
             self.sign = 0
 
-    def _getshort(self, index):
-        a = self.digits[index // 2]
-        if index % 2 == 0:
-            return a & SHORT_MASK
-        else:
-            return a >> SHORT_BIT
-
-    def _setshort(self, index, short):
-        a = self.digits[index // 2]
-        assert isinstance(short, r_uint)
-        # note that this is possibly one bit more than a digit
-        assert short & SHORT_MASK == short
-        if index % 2 == 0:
-            self.digits[index // 2] = ((a >> SHORT_BIT) << SHORT_BIT) + short
-        else:
-            self.digits[index // 2] = (a & SHORT_MASK) + (short << SHORT_BIT)
-
 
 registerimplementation(W_LongObject)
 
 # bool-to-long
 def delegate_Bool2Long(w_bool):
-    return W_LongObject(w_bool.space, [r_uint(w_bool.boolval)],
+    return W_LongObject(w_bool.space, [Digit(w_bool.boolval)],
                         int(w_bool.boolval))
 
 # int-to-long delegation
 def delegate_Int2Long(w_intobj):
-    if w_intobj.intval < 0:
-        sign = -1
-    elif w_intobj.intval > 0:
-        sign = 1
-    else:
-        sign = 0
-    digits = [r_uint(abs(w_intobj.intval))]
-    return W_LongObject(w_intobj.space, digits, sign)
+    return long__Int(w_intobj.space, w_intobj)
 
 # long-to-float delegation
 def delegate_Long2Float(w_longobj):
@@ -118,20 +104,37 @@ def long__Long(space, w_long1):
 def long__Int(space, w_intobj):
     if w_intobj.intval < 0:
         sign = -1
+        ival = -w_intobj.intval
     elif w_intobj.intval > 0:
         sign = 1
+        ival = w_intobj.intval
     else:
-        sign = 0
-    return W_LongObject(space, [r_uint(abs(w_intobj.intval))], sign)
+        return W_LongObject(space, [Digit(0)], 0)
+    # Count the number of Python digits.
+    # We used to pick 5 ("big enough for anything"), but that's a
+    # waste of time and space given that 5*15 = 75 bits are rarely
+    # needed.
+    t = r_uint(ival)
+    ndigits = 0
+    while t:
+        ndigits += 1
+        t >>= SHIFT
+    v = W_LongObject(space, [Digit(0)] * ndigits, sign)
+    t = r_uint(ival)
+    p = 0
+    while t:
+        v.digits[p] = Digit(t & MASK)
+        t >>= SHIFT
+        p += 1
+    return v
 
 def int__Long(space, w_value):
-    if len(w_value.digits) == 1:
-        if w_value.digits[0] & SIGN_MASK == 0:
-            return space.newint(int(w_value.digits[0]) * w_value.sign)
-        elif w_value.sign == -1 and w_value.digits[0] & NONSIGN_MASK == 0:
-            return space.newint(intmask(w_value.digits[0]))
-    #subtypes of long are converted to long!
-    return long__Long(space, w_value)
+    try:
+        x = _AsLong(w_value)
+    except OverflowError:
+        return long__Long(space, w_value)
+    else:
+        return space.newint(x)
 
 def float__Long(space, w_longobj):
     try:
@@ -144,23 +147,22 @@ def long__Float(space, w_floatobj):
     return _FromDouble(space, w_floatobj.floatval)
 
 def int_w__Long(space, w_value):
-    if len(w_value.digits) == 1:
-        if  w_value.digits[0] & SIGN_MASK == 0:
-            return int(w_value.digits[0]) * w_value.sign
-        elif w_value.sign == -1 and w_value.digits[0] & NONSIGN_MASK == 0:
-            return intmask(w_value.digits[0])
-    raise OperationError(space.w_OverflowError,
-                         space.wrap("long int too large to convert to int"))
+    try:
+        return _AsLong(w_value)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError, space.wrap(
+            "long int too large to convert to int"))
+
 
 def uint_w__Long(space, w_value):
     if w_value.sign == -1:
         raise OperationError(space.w_ValueError, space.wrap(
             "cannot convert negative integer to unsigned int"))
     x = r_uint(0)
-    i = len(w_value.digits) * 2 - 1
+    i = len(w_value.digits) - 1
     while i >= 0:
         prev = x
-        x = (x << SHIFT) + w_value._getshort(i)
+        x = (x << SHIFT) + w_value.digits[i]
         if (x >> SHIFT) != prev:
             raise OperationError(space.w_OverflowError, space.wrap(
                 "long int too large to convert to unsigned int"))
@@ -298,7 +300,7 @@ def _impl_long_long_pow(space, lv, lw, lz=None):
         if lz.sign == 0:
             raise OperationError(space.w_ValueError,
                                     space.wrap("pow() 3rd argument cannot be 0"))
-    result = W_LongObject(space, [r_uint(1)], 1)
+    result = W_LongObject(space, [Digit(1)], 1)
     if lw.sign == 0:
         if lz is not None:
             result = mod__Long_Long(space, result, lz)
@@ -311,9 +313,9 @@ def _impl_long_long_pow(space, lv, lw, lz=None):
     #Treat the most significant digit specially to reduce multiplications
     while i < len(lw.digits) - 1:
         j = 0
-        m = r_uint(1)
+        m = Digit(1)
         di = lw.digits[i]
-        while j < LONG_BIT:
+        while j < SHIFT:
             if di & m:
                 result = mul__Long_Long(space, result, temp)
             temp = mul__Long_Long(space, temp, temp)
@@ -323,9 +325,9 @@ def _impl_long_long_pow(space, lv, lw, lz=None):
             m = m << 1
             j += 1
         i += 1
-    m = r_uint(1) << (LONG_BIT - 1)
-    highest_set_bit = LONG_BIT
-    j = LONG_BIT - 1
+    m = Digit(1) << (SHIFT - 1)
+    highest_set_bit = SHIFT
+    j = SHIFT - 1
     di = lw.digits[i]
     while j >= 0:
         if di & m:
@@ -333,9 +335,9 @@ def _impl_long_long_pow(space, lv, lw, lz=None):
             break
         m = m >> 1
         j -= 1
-    assert highest_set_bit != LONG_BIT, "long not normalized"
+    assert highest_set_bit != SHIFT, "long not normalized"
     j = 0
-    m = r_uint(1)
+    m = Digit(1)
     while j <= highest_set_bit:
         if di & m:
             result = mul__Long_Long(space, result, temp)
@@ -369,7 +371,7 @@ def nonzero__Long(space, w_long):
     return space.newbool(w_long.sign != 0)
 
 def invert__Long(space, w_long): #Implement ~x as -(x + 1)
-    w_lpp = add__Long_Long(space, w_long, W_LongObject(space, [r_uint(1)], 1))
+    w_lpp = add__Long_Long(space, w_long, W_LongObject(space, [Digit(1)], 1))
     return neg__Long(space, w_lpp)
 
 def lshift__Long_Long(space, w_long1, w_long2):
@@ -379,35 +381,39 @@ def lshift__Long_Long(space, w_long1, w_long2):
     elif w_long2.sign == 0:
         return w_long1
     try:
-        b = int_w__Long(space, w_long2)
+        shiftby = int_w__Long(space, w_long2)
     except OverflowError:   # b too big
         raise OperationError(space.w_OverflowError,
                              space.wrap("shift count too large"))
-    wordshift = b // LONG_BIT
-    remshift = r_uint(b) % LONG_BIT
-    oldsize = len(w_long1.digits)
+
+    a = w_long1
+    # wordshift, remshift = divmod(shiftby, SHIFT)
+    wordshift = shiftby // SHIFT
+    remshift  = shiftby - wordshift * SHIFT
+
+    oldsize = len(a.digits)
     newsize = oldsize + wordshift
-    if remshift != 0:
+    if remshift:
         newsize += 1
-    w_result = W_LongObject(space, [r_uint(0)] * newsize, w_long1.sign)
-    rightshift = LONG_BIT - remshift
-    LOWER_MASK = (r_uint(1) << r_uint(rightshift)) - 1
-    UPPER_MASK = ~LOWER_MASK
-    accum = r_uint(0)
+    z = W_LongObject(space, [Digit(0)] * newsize, a.sign)
+    # not sure if we will initialize things in the future?
+    for i in range(wordshift):
+        z.digits[i] = 0
+    accum = Twodigits(0)
     i = wordshift
     j = 0
     while j < oldsize:
-        digit = w_long1.digits[j]
-        w_result.digits[i] = (accum | (digit << remshift))
-        accum = (digit & UPPER_MASK) >> rightshift
+        accum |= Twodigits(a.digits[j]) << remshift
+        z.digits[i] = Digit(accum & MASK)
+        accum >>= SHIFT
         i += 1
         j += 1
     if remshift:
-        w_result.digits[i] = accum
+        z.digits[newsize-1] = Digit(accum)
     else:
         assert not accum
-    w_result._normalize()
-    return w_result
+    z._normalize()
+    return z
 
 def rshift__Long_Long(space, w_long1, w_long2):
     if w_long2.sign < 0:
@@ -420,31 +426,32 @@ def rshift__Long_Long(space, w_long1, w_long2):
         w_a2 = rshift__Long_Long(space, w_a1, w_long2)
         return invert__Long(space, w_a2)
     try:
-        b = int_w__Long(space, w_long2)
+        shiftby = int_w__Long(space, w_long2)
     except OverflowError:   # b too big # XXX maybe just return 0L instead?
         raise OperationError(space.w_OverflowError,
                              space.wrap("shift count too large"))
-    wordshift = b // LONG_BIT
-    remshift = r_uint(b) % LONG_BIT
-    oldsize = len(w_long1.digits)
-    newsize = oldsize - wordshift
+
+    a = w_long1
+    wordshift = shiftby // SHIFT
+    newsize = len(a.digits) - wordshift
     if newsize <= 0:
-        return W_LongObject(space, [r_uint(0)], 0)
-    w_result = W_LongObject(space, [r_uint(0)] * newsize, 1)
-    leftshift = LONG_BIT - remshift
-    LOWER_MASK = (r_uint(1) << r_uint(remshift)) - 1
-    UPPER_MASK = ~LOWER_MASK
-    accum = r_uint(0)
-    i = newsize - 1
-    j = oldsize - 1
-    while i >= 0:
-        digit = w_long1.digits[j]
-        w_result.digits[i] = (accum | (digit >> remshift))
-        accum = (digit & LOWER_MASK) << leftshift
-        i -= 1
-        j -= 1
-    w_result._normalize()
-    return w_result
+        return W_LongObject(space, [Digit(0)], 0)
+
+    loshift = shiftby % SHIFT
+    hishift = SHIFT - loshift
+    lomask = (Digit(1) << hishift) - 1
+    himask = MASK ^ lomask
+    z = W_LongObject(space, [Digit(0)] * newsize, a.sign)
+    i = 0
+    j = wordshift
+    while i < newsize:
+        z.digits[i] = (a.digits[j] >> loshift) & lomask
+        if i+1 < newsize:
+            z.digits[i] |= (a.digits[j+1] << hishift) & himask
+        i += 1
+        j += 1
+    z._normalize()
+    return z
 
 def and__Long_Long(space, w_long1, w_long2):
     return _bitwise(w_long1, '&', w_long2)
@@ -517,45 +524,45 @@ def args_from_long(l): #YYYYYY
     digits = []
     i = 0
     while l:
-        digits.append(r_uint(l & LONG_MASK))
-        l = l >> LONG_BIT
+        digits.append(Digit(l & MASK))
+        l = l >> SHIFT
     if sign == 0:
-        digits = [r_uint(0)]
+        digits = [Digit(0)]
     return digits, sign
 
 
 def _x_add(a, b):
     """ Add the absolute values of two long integers. """
-    size_a = len(a.digits) * 2
-    size_b = len(b.digits) * 2
+    size_a = len(a.digits)
+    size_b = len(b.digits)
 
     # Ensure a is the larger of the two:
     if size_a < size_b:
         a, b = b, a
         size_a, size_b = size_b, size_a
-    z = W_LongObject(a.space, [r_uint(0)] * (len(a.digits) + 1), 1)
+    z = W_LongObject(a.space, [Digit(0)] * (len(a.digits) + 1), 1)
     i = 0
-    carry = r_uint(0)
+    carry = Carryadd(0)
     while i < size_b:
-        carry += a._getshort(i) + b._getshort(i)
-        z._setshort(i, carry & MASK)
+        carry += a.digits[i] + b.digits[i]
+        z.digits[i] = carry & MASK
         carry >>= SHIFT
         i += 1
     while i < size_a:
-        carry += a._getshort(i)
-        z._setshort(i, carry & MASK)
+        carry += a.digits[i]
+        z.digits[i] = carry & MASK
         carry >>= SHIFT
         i += 1
-    z._setshort(i, carry)
+    z.digits[i] = carry
     z._normalize()
     return z
 
 def _x_sub(a, b):
     """ Subtract the absolute values of two integers. """
-    size_a = len(a.digits) * 2
-    size_b = len(b.digits) * 2
+    size_a = len(a.digits)
+    size_b = len(b.digits)
     sign = 1
-    borrow = 0
+    borrow = Digit(0)
 
     # Ensure a is the larger of the two:
     if size_a < size_b:
@@ -565,28 +572,27 @@ def _x_sub(a, b):
     elif size_a == size_b:
         # Find highest digit where a and b differ:
         i = size_a - 1
-        while i >= 0 and a._getshort(i) == b._getshort(i):
+        while i >= 0 and a.digits[i] == b.digits[i]:
             i -= 1
         if i < 0:
-            return W_LongObject(a.space, [r_uint(0)], 0)
-        if a._getshort(i) < b._getshort(i):
+            return W_LongObject(a.space, [Digit(0)], 0)
+        if a.digits[i] < b.digits[i]:
             sign = -1
             a, b = b, a
         size_a = size_b = i+1
-    digitpairs = (size_a + 1) // 2
-    z = W_LongObject(a.space, [r_uint(0)] * digitpairs, 1)
+    z = W_LongObject(a.space, [Digit(0)] * size_a, 1)
     i = 0
     while i < size_b:
         # The following assumes unsigned arithmetic
         # works modulo 2**N for some N>SHIFT.
-        borrow = a._getshort(i) - b._getshort(i) - borrow
-        z._setshort(i, borrow & MASK)
+        borrow = a.digits[i] - b.digits[i] - borrow
+        z.digits[i] = borrow & MASK
         borrow >>= SHIFT
         borrow &= 1 # Keep only one sign bit
         i += 1
     while i < size_a:
-        borrow = a._getshort(i) - borrow
-        z._setshort(i, borrow & MASK)
+        borrow = a.digits[i] - borrow
+        z.digits[i] = borrow & MASK
         borrow >>= SHIFT
         borrow &= 1 # Keep only one sign bit
         i += 1
@@ -599,24 +605,24 @@ def _x_sub(a, b):
 
 #Multiply the absolute values of two longs
 def _x_mul(a, b):
-    size_a = len(a.digits) * 2
-    size_b = len(b.digits) * 2
-    z = W_LongObject(a.space, [r_uint(0)] * ((size_a + size_b) // 2), 1)
+    size_a = len(a.digits)
+    size_b = len(b.digits)
+    z = W_LongObject(a.space, [Digit(0)] * (size_a + size_b), 1)
     i = 0
     while i < size_a:
-        carry = r_uint(0)
-        f = a._getshort(i)
+        carry = Carrymul(0)
+        f = Twodigits(a.digits[i])
         j = 0
         while j < size_b:
-            carry += z._getshort(i + j) + b._getshort(j) * f
-            z._setshort(i + j, carry & MASK)
+            carry += z.digits[i + j] + b.digits[j] * f
+            z.digits[i + j] = carry & MASK
             carry = carry >> SHIFT
             j += 1
         while carry != 0:
             assert i + j < size_a + size_b
-            carry += z._getshort(i + j)
-            z._setshort(i + j, carry & MASK)
-            carry = carry >> SHIFT
+            carry += z.digits[i + j]
+            z.digits[i + j] = carry & MASK
+            carry >>= SHIFT
             j += 1
         i += 1
     z._normalize()
@@ -627,15 +633,15 @@ def _inplace_divrem1(pout, pin, n, size=0):
     Divide long pin by non-zero digit n, storing quotient
     in pout, and returning the remainder. It's OK for pin == pout on entry.
     """
-    rem = r_uint(0)
+    rem = Twodigits(0)
     assert n > 0 and n <= MASK
     if not size:
-        size = len(pin.digits) * 2
+        size = len(pin.digits)
     size -= 1
     while size >= 0:
-        rem = (rem << SHIFT) + pin._getshort(size)
+        rem = (rem << SHIFT) + pin.digits[size]
         hi = rem // n
-        pout._setshort(size, hi)
+        pout.digits[size] = hi
         rem -= hi * n
         size -= 1
     return rem
@@ -648,7 +654,7 @@ def _divrem1(a, n):
     """
     assert n > 0 and n <= MASK
     size = len(a.digits)
-    z = W_LongObject(a.space, [r_uint(0)] * size, 1)
+    z = W_LongObject(a.space, [Digit(0)] * size, 1)
     rem = _inplace_divrem1(z, a, n)
     z._normalize()
     return z, rem
@@ -656,19 +662,16 @@ def _divrem1(a, n):
 def _muladd1(a, n, extra):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
-    digitpairs = len(a.digits)
-    size_a = digitpairs * 2
-    if a._getshort(size_a-1) == 0:
-        size_a -= 1
-    z = W_LongObject(a.space, [r_uint(0)] * (digitpairs+1), 1)
-    carry = extra
+    size_a = len(a.digits)
+    z = W_LongObject(a.space, [Digit(0)] * (size_a+1), 1)
+    carry = Carrymul(extra)
     i = 0
     while i < size_a:
-        carry += a._getshort(i) * n
-        z._setshort(i, carry & MASK)
+        carry += Twodigits(a.digits[i]) * n
+        z.digits[i] = carry & MASK
         carry >>= SHIFT
         i += 1
-    z._setshort(i, carry)
+    z.digits[i] = carry
     z._normalize()
     return z
 
@@ -681,14 +684,17 @@ def _muladd1(a, n, extra):
 # be used recursively to implement longs of any size.
 
 class r_suint(object):
-    # we do not inherit from r_uint, because we only
+    # we do not inherit from Digit, because we only
     # support a few operations for our purpose
+    BITS = Twodigits.BITS
+    MASK = Twodigits.MASK
+
     def __init__(self, value=0):
         if isinstance(value, r_suint):
             self.value = value.value
             self.sign = value.sign
         else:
-            self.value = r_uint(value)
+            self.value = Twodigits(value)
             self.sign = -(value < 0)
 
     def longval(self):
@@ -728,7 +734,7 @@ class r_suint(object):
     def __irshift__(self, n):
         self.value >>= n
         if self.sign:
-            self.value += r_uint(LONG_MASK) << (LONG_BIT - n)
+            self.value += self.MASK << (self.BITS - n)
         return self
 
     def __rshift__(self, n):
@@ -750,85 +756,89 @@ class r_suint(object):
         return self.value & mask
 
     def __eq__(self, other):
-        if not isinstance(other,r_suint):
+        if not isinstance(other, r_suint):
             other = r_suint(other)
         return self.sign == other.sign and self.value == other.value
 
+    def __ne__(self, other):
+        return not self == other
+
 def _x_divrem(v1, w1):
-    size_w = len(w1.digits) * 2
-    # hack for the moment:
-    # find where w1 is really nonzero
-    if w1._getshort(size_w-1) == 0:
-        size_w -= 1
-    d = (MASK+1) // (w1._getshort(size_w-1) + 1)
-    v = _muladd1(v1, d, r_uint(0))
-    w = _muladd1(w1, d, r_uint(0))
-    size_v = len(v.digits) * 2
-    if v._getshort(size_v-1) == 0:
-        size_v -= 1
-    size_w = len(w.digits) * 2
-    if w._getshort(size_w-1) == 0:
-        size_w -= 1
+    size_w = len(w1.digits)
+    d = (MASK+1) // (w1.digits[size_w-1] + 1)
+    v = _muladd1(v1, d, Digit(0))
+    w = _muladd1(w1, d, Digit(0))
+    size_v = len(v.digits)
+    size_w = len(w.digits)
     assert size_v >= size_w and size_w > 1 # Assert checks by div()
 
     size_a = size_v - size_w + 1
-    digitpairs = (size_a + 1) // 2
-    a = W_LongObject(v.space, [r_uint(0)] * digitpairs, 1)
+    a = W_LongObject(v.space, [Digit(0)] * size_a, 1)
 
     j = size_v
     k = size_a - 1
     while k >= 0:
         if j >= size_v:
-            vj = r_uint(0)
+            vj = Digit(0)
         else:
-            vj = v._getshort(j)
+            vj = v.digits[j]
         carry = r_suint(0) # note: this must hold two digits and a sign!
 
-        if vj == w._getshort(size_w-1):
-            q = r_uint(MASK)
+        if vj == w.digits[size_w-1]:
+            q = Twodigits(MASK)
         else:
-            q = ((vj << SHIFT) + v._getshort(j-1)) // w._getshort(size_w-1)
+            q = ((Twodigits(vj) << SHIFT) + v.digits[j-1]) // w.digits[size_w-1]
 
         # notabene!
         # this check needs a signed two digits result
         # or we get an overflow.
-        while (w._getshort(size_w-2) * q >
+        while (w.digits[size_w-2] * q >
                 ((
                     r_suint(vj << SHIFT) # this one dominates
-                    + v._getshort(j-1)
-                    - long(q) * long(w._getshort(size_w-1))
+                    + v.digits[j-1]
+                    - long(q) * long(w.digits[size_w-1])
                                 ) << SHIFT)
-                + v._getshort(j-2)):
+                + v.digits[j-2]):
             q -= 1
         i = 0
         while i < size_w and i+k < size_v:
-            z = w._getshort(i) * q
+            z = w.digits[i] * q
             zz = z >> SHIFT
-            carry += v._getshort(i+k) + (zz << SHIFT)
+            carry += v.digits[i+k] + (zz << SHIFT)
             carry -= z
             if hasattr(carry, 'value'):
-                v._setshort(i+k, r_uint(carry.value & MASK))
+                v.digits[i+k] = Digit(carry.value & MASK)
             else:
-                v._setshort(i+k, r_uint(carry & MASK))
+                v.digits[i+k] = Digit(carry & MASK)
             carry >>= SHIFT
             carry -= zz
             i += 1
 
         if i+k < size_v:
-            carry += v._getshort(i+k)
-            v._setshort(i+k, r_uint(0))
+            carry += v.digits[i+k]
+            v.digits[i+k] = Digit(0)
 
         if carry == 0:
-            a._setshort(k, q & MASK)
+            a.digits[k] = q & MASK
+            assert not q >> SHIFT
         else:
-            ##!!assert carry == -1
-            a._setshort(k, (q-1) & MASK)
+            #assert carry == -1
+            if carry != -1:
+                print 70*"*"
+                print "CARRY", carry
+                print "comparison:", carry == -1
+                print hex(v1.longval())
+                print hex(w1.longval())
+                print 70*"*"
+            q -= 1
+            a.digits[k] = q-1 & MASK
+            assert not q >> SHIFT
 
             carry = r_suint(0)
             i = 0
             while i < size_w and i+k < size_v:
-                carry += v._getshort(i+k) + w._getshort(i)
-                v._setshort(i+k, r_uint(carry.value) & MASK)
+                carry += v.digits[i+k] + w.digits[i]
+                v.digits[i+k] = Digit(carry.value) & MASK
                 carry >>= SHIFT
                 i += 1
         j -= 1
@@ -841,12 +851,8 @@ def _x_divrem(v1, w1):
 
 def _divrem(a, b):
     """ Long division with remainder, top-level routine """
-    size_a = len(a.digits) * 2
-    size_b = len(b.digits) * 2
-    if a._getshort(size_a-1) == 0:
-        size_a -= 1
-    if b._getshort(size_b-1) == 0:
-        size_b -= 1
+    size_a = len(a.digits)
+    size_b = len(b.digits)
 
     if b.sign == 0:
         raise OperationError(a.space.w_ZeroDivisionError,
@@ -854,13 +860,13 @@ def _divrem(a, b):
 
     if (size_a < size_b or
         (size_a == size_b and
-         a._getshort(size_a-1) < b._getshort(size_b-1))):
+         a.digits[size_a-1] < b.digits[size_b-1])):
         # |a| < |b|
-        z = W_LongObject(a.space, [r_uint(0)], 0)
+        z = W_LongObject(a.space, [Digit(0)], 0)
         rem = a
         return z, rem
     if size_b == 1:
-        z, urem = _divrem1(a, b._getshort(0))
+        z, urem = _divrem1(a, b.digits[0])
         rem = W_LongObject(a.space, [urem], int(urem != 0))
     else:
         z, rem = _x_divrem(a, b)
@@ -892,16 +898,14 @@ def _AsScaledDouble(v):
     multiplier = float(1 << SHIFT)
     if v.sign == 0:
         return 0.0, 0
-    i = len(v.digits) * 2 - 1
-    if v._getshort(i) == 0:
-        i -= 1
+    i = len(v.digits) - 1
     sign = v.sign
-    x = float(v._getshort(i))
+    x = float(v.digits[i])
     nbitsneeded = NBITS_WANTED - 1
     # Invariant:  i Python digits remain unaccounted for.
     while i > 0 and nbitsneeded > 0:
         i -= 1
-        x = x * multiplier + float(v._getshort(i))
+        x = x * multiplier + float(v.digits[i])
         nbitsneeded -= SHIFT
     # There are i digits we didn't shift in.  Pretending they're all
     # zeroes, the true value is x * 2**(i*SHIFT).
@@ -915,12 +919,12 @@ def isinf(x):
 ##def ldexp(x, exp):
 ##    assert type(x) is float
 ##    lb1 = LONG_BIT - 1
-##    multiplier = float(r_uint(1) << lb1)
+##    multiplier = float(Digit(1) << lb1)
 ##    while exp >= lb1:
 ##        x *= multiplier
 ##        exp -= lb1
 ##    if exp:
-##        x *= float(r_uint(1) << exp)
+##        x *= float(Digit(1) << exp)
 ##    return x
 
 # note that math.ldexp checks for overflows,
@@ -973,14 +977,13 @@ def _FromDouble(space, dval):
         dval = -dval
     frac, expo = math.frexp(dval) # dval = frac*2**expo; 0.0 <= frac < 1.0
     if expo <= 0:
-        return W_LongObject(space, [r_uint(0)], 0)
+        return W_LongObject(space, [Digit(0)], 0)
     ndig = (expo-1) // SHIFT + 1 # Number of 'digits' in result
-    digitpairs = (ndig + 1) // 2
-    v = W_LongObject(space, [r_uint(0)] * digitpairs, 1)
+    v = W_LongObject(space, [Digit(0)] * ndig, 1)
     frac = math.ldexp(frac, (expo-1) % SHIFT + 1)
     for i in range(ndig-1, -1, -1):
         bits = int(frac)
-        v._setshort(i, r_uint(bits))
+        v.digits[i] = Digit(bits)
         frac -= float(bits)
         frac = math.ldexp(frac, SHIFT)
     if neg:
@@ -1007,7 +1010,7 @@ def _l_divmod(v, w):
     div, mod = _divrem(v, w)
     if mod.sign * w.sign == -1:
         mod = add__Long_Long(v.space, mod, w)
-        one = W_LongObject(v.space, [r_uint(1)], 1)
+        one = W_LongObject(v.space, [Digit(1)], 1)
         div = sub__Long_Long(v.space, div, one)
     return div, mod
 
@@ -1018,9 +1021,7 @@ def _format(a, base, addL):
     Return a string object.
     If base is 8 or 16, add the proper prefix '0' or '0x'.
     """
-    size_a = len(a.digits) * 2
-    if a._getshort(size_a-1) == 0:
-        size_a -= 1
+    size_a = len(a.digits)
 
     assert base >= 2 and base <= 36
 
@@ -1046,7 +1047,7 @@ def _format(a, base, addL):
         s[p] = '0'
     elif (base & (base - 1)) == 0:
         # JRH: special case for power-of-2 bases
-        accum = r_uint(0)
+        accum = Twodigits(0)
         accumbits = 0  # # of bits in accum 
         basebits = 1   # # of bits in base-1
         i = base
@@ -1057,7 +1058,7 @@ def _format(a, base, addL):
             basebits += 1
 
         for i in range(size_a):
-            accum |= a._getshort(i) << accumbits
+            accum |= Twodigits(a.digits[i]) << accumbits
             accumbits += SHIFT
             assert accumbits >= basebits
             while 1:
@@ -1084,25 +1085,24 @@ def _format(a, base, addL):
         size = size_a
         pin = a # just for similarity to C source which uses the array
         # powbase <- largest power of base that fits in a digit.
-        powbase = base  # powbase == base ** power
+        powbase = Digit(base)  # powbase == base ** power
         power = 1
         while 1:
-            newpow = powbase * r_uint(base)
+            newpow = powbase * Digit(base)
             if newpow >> SHIFT:  # doesn't fit in a digit
                 break
             powbase = newpow
             power += 1
 
         # Get a scratch area for repeated division.
-        digitpairs = (size + 1) // 2
-        scratch = W_LongObject(a.space, [r_uint(0)] * digitpairs, 1)
+        scratch = W_LongObject(a.space, [Digit(0)] * size, 1)
 
         # Repeatedly divide by powbase.
         while 1:
             ntostore = power
             rem = _inplace_divrem1(scratch, pin, powbase, size)
             pin = scratch  # no need to use a again
-            if pin._getshort(size - 1) == 0:
+            if pin.digits[size - 1] == 0:
                 size -= 1
 
             # Break rem into digits.
@@ -1159,14 +1159,14 @@ def _bitwise(a, op, b): # '&', '|', '^'
 
     if a.sign < 0:
         a = invert__Long(a.space, a)
-        maska = r_uint(MASK)
+        maska = Digit(MASK)
     else:
-        maska = r_uint(0)
+        maska = Digit(0)
     if b.sign < 0:
         b = invert__Long(b.space, b)
-        maskb = r_uint(MASK)
+        maskb = Digit(MASK)
     else:
-        maskb = r_uint(0)
+        maskb = Digit(0)
 
     negz = 0
     if op == '^':
@@ -1195,12 +1195,8 @@ def _bitwise(a, op, b): # '&', '|', '^'
     # iff one of these cases applies, and mask will be non-0 for operands
     # whose length should be ignored.
 
-    size_a = len(a.digits) * 2
-    if a._getshort(size_a - 1) == 0:
-        size_a -= 1
-    size_b = len(b.digits) * 2
-    if b._getshort(size_b - 1) == 0:
-        size_b -= 1
+    size_a = len(a.digits)
+    size_b = len(b.digits)
     if op == '&':
         if maska:
             size_z = size_b
@@ -1212,26 +1208,51 @@ def _bitwise(a, op, b): # '&', '|', '^'
     else:
         size_z = max(size_a, size_b)
 
-    digitpairs = (size_z + 1) // 2
-    z = W_LongObject(a.space, [r_uint(0)] * digitpairs, 1)
+    z = W_LongObject(a.space, [Digit(0)] * size_z, 1)
 
     for i in range(size_z):
         if i < size_a:
-            diga = a._getshort(i) ^ maska
+            diga = a.digits[i] ^ maska
         else:
             diga = maska
         if i < size_b:
-            digb = b._getshort(i) ^ maskb
+            digb = b.digits[i] ^ maskb
         else:
             digb = maskb
         if op == '&':
-            z._setshort(i, diga & digb)
+            z.digits[i] = diga & digb
         elif op == '|':
-            z._setshort(i, diga | digb)
+            z.digits[i] = diga | digb
         elif op == '^':
-            z._setshort(i, diga ^ digb)
+            z.digits[i] = diga ^ digb
 
     z._normalize()
     if negz == 0:
         return z
     return invert__Long(z.space, z)
+
+def _AsLong(v):
+    """
+    Get an integer from a long int object.
+    Returns -1 and sets an error condition if overflow occurs.
+    """
+    # This version by Tim Peters
+    i = len(v.digits) - 1
+    sign = v.sign
+    if not sign:
+        return 0
+    x = r_uint(0)
+    while i >= 0:
+        prev = x
+        x = (x << SHIFT) + v.digits[i]
+        if (x >> SHIFT) != prev:
+            raise OverflowError
+        i -= 1
+
+    # Haven't lost any bits, but if the sign bit is set we're in
+    # trouble *unless* this is the min negative number.  So,
+    # trouble iff sign bit set && (positive || some bit set other
+    # than the sign bit).
+    if int(x) < 0 and (sign > 0 or (x << 1) != 0):
+            raise OverflowError
+    return intmask(int(x) * sign)
