@@ -32,8 +32,7 @@ class FuncTypeNode(LLVMNode):
         decl = "%s type %s (%s)*" % (self.ref, returntype,
                                      ", ".join(inputargtypes))
         codewriter.funcdef(self.ref, returntype, inputargtypes)
-
-
+                
 class FuncNode(LLVMNode):
     _issetup = False 
 
@@ -61,12 +60,16 @@ class FuncNode(LLVMNode):
         assert self.graph, "cannot traverse"
         traverse(visit, self.graph)
         self._issetup = True
+
     # ______________________________________________________________________
     # main entry points from genllvm 
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())
 
     def writeimpl(self, codewriter):
+
+        # XXX Code checks for when the rpython extfunctable has set the annotable
+        # flag to True?????
         _callable = self.value._callable
         for func, extfuncinfo in extfunctable.iteritems():  # precompute a dict?
             if _callable is extfuncinfo.ll_function:
@@ -152,6 +155,88 @@ class FuncNode(LLVMNode):
             codewriter.ret(inputargtype, inputarg)
         else:
             codewriter.ret_void()
+
+
+class ExternalFuncNode(LLVMNode):
+
+    fnmapping = {
+        "%ll_os_dup": "%dup",
+        "%ll_os_open": "%open",
+        "%ll_os_close": "%close",
+        #"%": ("int" "%open", "sbyte*", "int"),
+        #"%ll_os_write": ("int" "%write", "int", "sbyte*", "int"),
+        }
+
+    ignoreset = "%ll_time_time %ll_time_clock %ll_time_sleep".split() 
+
+    def __init__(self, db, value):
+        self.db = db
+        self.value = value
+        self.ref = "%" + value._name
+
+    def setup(self):
+        self._issetup = True
+
+    def getdecl(self):
+        T = self.value._TYPE
+        args = [self.db.repr_arg_type(a) for a in T.ARGS]
+        decl = "%s %s(%s)" % (self.db.repr_arg_type(T.RESULT),
+                              self.ref,
+                              ", ".join(args))
+        return decl
+
+    def getcdecl(self):        
+        #XXX Mapping
+        T = self.value._TYPE
+        args = [self.db.repr_arg_type(a) for a in T.ARGS]
+        decl = "%s %s(%s)" % (self.db.repr_arg_type(T.RESULT),
+                              self.fnmapping[self.ref],
+                              ", ".join(args))
+        return decl        
+
+    # ______________________________________________________________________
+    # main entry points from genllvm 
+    def writedecl(self, codewriter): 
+        codewriter.declare(self.getdecl())
+
+        if self.ref not in self.ignoreset:
+            codewriter.declare(self.getcdecl())
+
+    def writeimpl(self, codewriter): 
+        if self.ref in self.ignoreset:
+            return
+
+        T = self.value._TYPE
+        args = ["%s %%a%s" % (self.db.repr_arg_type(a), c)
+                for c, a in enumerate(T.ARGS)]
+
+        decl = "%s %s(%s)" % (self.db.repr_arg_type(T.RESULT),
+                              self.ref,
+                              ", ".join(args))
+
+        codewriter.openfunc(decl)
+
+        # go thru and map argsXXX
+        argrefs = ["%%a%s" % c for c in range(len(T.ARGS))]
+        argtypes = [self.db.repr_arg_type(a) for a in T.ARGS]
+
+        # get return type (mapped perhaps)
+        resulttype = self.db.repr_arg_type(T.RESULT)
+
+        # get function name
+        fnname = self.fnmapping[self.ref]
+        
+        # call 
+
+        # map resulttype ??? XXX
+        if resulttype != "void":
+            codewriter.call("%res", resulttype, fnname, argrefs, argtypes)
+            codewriter.ret(resulttype, "%res")
+        else:
+            codewriter.call_void(fnname, argrefs, argtypes)
+            codewriter.ret_void()
+        
+        codewriter.closefunc()
 
 class OpWriter(object):
     binary_operations = {'int_mul': 'mul',

@@ -14,7 +14,7 @@ class ExtFuncInfo:
         self.backend_functiontemplate = backend_functiontemplate
 
 table = {}
-def declare(func, annotation, ll_function, ll_annotable=True, backend_functiontemplate=None):
+def declare(func, annotation, ll_function, ll_annotable=False, backend_functiontemplate=None):
     # annotation can be a function computing the annotation
     # or a simple python type from which an annotation will be constructed
     global table
@@ -58,13 +58,15 @@ def ll_time_clock():
 def ll_time_sleep(t):
     time.sleep(t)
 
+nonefactory = lambda a: None
+
 # external function declarations
-declare(os.open   , int           , ll_os_open   , True             )   #this is not annotatable actually, but llvm has an issue
-declare(os.read   , str           , ll_os_read   , True             )
-declare(os.write  , int           , ll_os_write  , True             )
-declare(os.close  , lambda a: None, ll_os_close  , True , 'C:close' )
-declare(os.getcwd , str           , ll_os_getcwd , True             )
-declare(os.dup    , int           , ll_os_dup    , True , 'C:dup'   )
-declare(time.time , float         , ll_time_time , True             )
-declare(time.clock, float         , ll_time_clock, True             )
-declare(time.sleep, lambda a: None, ll_time_sleep, True             )
+declare(os.open   , int        , ll_os_open)
+declare(os.read   , str        , ll_os_read)
+declare(os.write  , int        , ll_os_write)
+declare(os.close  , nonefactory, ll_os_close)
+declare(os.getcwd , str        , ll_os_getcwd)
+declare(os.dup    , int        , ll_os_dup)
+declare(time.time , float      , ll_time_time)
+declare(time.clock, float      , ll_time_clock)
+declare(time.sleep, nonefactory, ll_time_sleep)

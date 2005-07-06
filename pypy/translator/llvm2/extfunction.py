@@ -1,4 +1,5 @@
-extdeclarations = """; External declarations
+extdeclarations =  """; External declarations
+
 
 ; XXX these int's might need to be long's on 64 bit CPU's :(
 
@@ -7,6 +8,7 @@ declare int %clock()
 declare void %sleep(int)
 
 ; End of external declarations
+
 """
 
 extfunctions = """; External functions (will be inlined by LLVM)
@@ -24,7 +26,7 @@ double %ll_time_clock() {
     ret double %v2
 }
 
-void %ll_time_sleep__Float(double %f) {
+void %ll_time_sleep(double %f) {
     %i = cast double %f to int
     call void %sleep(int %i)
     ret void

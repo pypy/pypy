@@ -1,5 +1,5 @@
 from pypy.translator.llvm2.log import log 
-from pypy.translator.llvm2.funcnode import FuncNode, FuncTypeNode
+from pypy.translator.llvm2.funcnode import ExternalFuncNode, FuncNode, FuncTypeNode
 from pypy.translator.llvm2.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode
 from pypy.translator.llvm2.arraynode import ArrayNode, ArrayTypeNode
@@ -86,10 +86,8 @@ class Database(object):
         type_ = lltype.typeOf(value)
         node = None
         if isinstance(type_, lltype.FuncType):
-            
-            if value._callable \
-                   and not hasattr(value, 'graph'):
-                log('EXTERNAL FUNCTION' + str(dir(value)))
+            if ((not hasattr(value, "graph")) or value.graph is None) and value._callable:
+                node = ExternalFuncNode(self, value)
             else:
                 node = FuncNode(self, value)
 
@@ -126,6 +124,7 @@ class Database(object):
 
             assert isinstance(ct, lltype.Ptr), "Preperation of non primitive and non pointer" 
             value = const_or_var.value._obj            
+                
             self.addpending(const_or_var, self.create_constant_node(value))
         else:
             log.prepare(const_or_var, type(const_or_var))

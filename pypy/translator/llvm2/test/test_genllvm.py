@@ -41,9 +41,21 @@ def test_external_function_ll_os_dup():
     import os
     def fn():
         return os.dup(0)
-    f = compile_function(fn, [], view=False)
+    f = compile_function(fn, [])
     assert os.path.sameopenfile(f(), fn())
 
+def test_external_file_fns():
+    import os
+    def external_file_fns(intname, flags):
+        name = str(intname)
+        fd = os.open(name, flags)
+        #os.write(fd, name)
+        os.close(fd)
+        return fd
+    
+    f = compile_function(external_file_fns, [int, int])
+    assert isinstance(f(1209319, 64), int)
+    
 def DONTtest_external_function_ll_os_getcmd():
     import os
     def fn():
