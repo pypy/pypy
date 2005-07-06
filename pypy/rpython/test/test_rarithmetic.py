@@ -139,6 +139,27 @@ class Test_r_uint:
                         res = res & mask
                     assert res == cmp
 
+def test_mixed_types():
+    types = [r_ushort, r_uint, r_ulong]
+    for left in types:
+        for right in types:
+            x = left(3) + right(5)
+            expected = max(types.index(left), types.index(right))
+            assert types.index(type(x)) == expected
+
+def test_limits():
+    mask = r_ushort.MASK
+    assert r_ushort(mask) == mask
+    assert r_ushort(mask+1) == 0
+    mask = (mask << r_ushort.BITS) + mask
+    assert mask == r_uint.MASK
+    assert r_uint(mask == mask)
+    assert r_uint(mask+1) == 0
+    mask = (mask << r_uint.BITS) + mask
+    assert mask == r_ulong.MASK
+    assert r_ulong(mask == mask)
+    assert r_ulong(mask+1) == 0
+
 def test_intmask():
     assert intmask(1) == 1
     assert intmask(sys.maxint) == sys.maxint

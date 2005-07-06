@@ -329,7 +329,7 @@ class r_uint(long):
 
 class r_ushort(r_uint):
     BITS = r_uint.BITS // 2
-    MASK = int((1 << BITS) - 1)
+    MASK = (1L << BITS) - 1
 
 class r_ulong(r_uint):
     BITS = r_uint.BITS * 2
