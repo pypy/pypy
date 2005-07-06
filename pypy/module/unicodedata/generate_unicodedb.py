@@ -60,7 +60,7 @@ def get_compat_decomposition(table, code):
         result = []
         for decomp in table[code].decomposition:
             result.extend(get_compat_decomposition(table, decomp))
-        table[code].compat_decomp = tuple(result)
+        table[code].compat_decomp = result
     return table[code].compat_decomp
 
 def get_canonical_decomposition(table, code):
@@ -70,7 +70,7 @@ def get_canonical_decomposition(table, code):
         result = []
         for decomp in table[code].decomposition:
             result.extend(get_canonical_decomposition(table, decomp))
-        table[code].canonical_decomp = tuple(result)
+        table[code].canonical_decomp = result
     return table[code].canonical_decomp
 
 def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file):
@@ -211,10 +211,10 @@ def writeDbRecord(outfile, table):
         char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags, char.combining)
         db_records[char.db_record] = 1
     db_records = db_records.keys()
-    print >> outfile, '_db_records = ('
+    print >> outfile, '_db_records = ['
     for record in db_records:
         print >> outfile, '%r,'%(record,)
-    print >> outfile, ')'
+    print >> outfile, ']'
     print >> outfile, '_db_pgtbl = ('
     pages = []
     line = []
@@ -241,12 +241,11 @@ def writeDbRecord(outfile, table):
     for page_string in pages:
         for index in range(0, len(page_string), chunksize):
             print >> outfile, repr(page_string[index:index + chunksize])
-        print >> outfile, ','
     print >> outfile, ')'
     print >> outfile, '''
 def _get_record(code):
-    return _db_records[ord(_db_pages[ord(_db_pgtbl[code >> %d])][code & %d])]
-'''%(pgbits, bytemask)
+    return _db_records[ord(_db_pages[(ord(_db_pgtbl[code >> %d]) << %d) + (code & %d)])]
+'''%(pgbits, pgbits, bytemask)
     print >> outfile, 'def category(code): return _get_record(code)[0]'
     print >> outfile, 'def bidirectional(code): return _get_record(code)[1]'
     print >> outfile, 'def east_asian_width(code): return _get_record(code)[2]'
@@ -326,12 +325,11 @@ def _lookup_hangul(syllables):
         raise KeyError
     return 0xAC00 + (l_code * 21 + v_code) * 28 + t_code
 
-_hexdigits = "0123456789ABCDEF"
 def _lookup_cjk(cjk_code):
-    if len(cjk_code) not in  (4,5):
+    if len(cjk_code) != 4 and len(cjk_code) != 5:
         raise KeyError
     for c in cjk_code:
-        if c not in _hexdigits:
+        if not ('0' <= c <= '9' or 'A' <= c <= 'F'):
             raise KeyError
     code = int(cjk_code, 16)
     if (0x3400 <= code <= 0x4DB5 or
@@ -349,17 +347,9 @@ def lookup(name):
 
 def name(code):
     if (0x3400 <= code <= 0x4DB5 or
-        0x4E00 <= code <= 0x%X):
-        return "CJK UNIFIED IDEOGRAPH-" + (_hexdigits[(code >> 12) & 0xf] +
-                                           _hexdigits[(code >> 8) & 0xf] +
-                                           _hexdigits[(code >> 4) & 0xf] +
-                                           _hexdigits[code & 0xf])
-    
-    if 0x20000 <= code <= 0x2A6D6:
-        return "CJK UNIFIED IDEOGRAPH-2" + (_hexdigits[(code >> 12) & 0xf] +
-                                            _hexdigits[(code >> 8) & 0xf] +
-                                            _hexdigits[(code >> 4) & 0xf] +
-                                            _hexdigits[code & 0xf])
+        0x4E00 <= code <= 0x%X or
+        0x20000 <= code <= 0x2A6D6):
+        return "CJK UNIFIED IDEOGRAPH-" + hex(code)[2:].upper()
     if 0xAC00 <= code <= 0xD7A3:
         vl_code, t_code = divmod(code - 0xAC00, len(_hangul_T))
         l_code, v_code = divmod(vl_code,  len(_hangul_V))
