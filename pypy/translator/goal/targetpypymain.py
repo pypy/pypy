@@ -11,7 +11,10 @@ from pypy.interpreter import gateway
 # There is no easy way to build all caches manually,
 # but the annotator can do it for us for free.
 
-this_dir = os.path.dirname(sys.argv[0])
+try:
+    this_dir = os.path.dirname(__file__)
+except NameError:
+    this_dir = os.path.dirname(sys.argv[0])
 
 # __________  Entry point  __________
 
