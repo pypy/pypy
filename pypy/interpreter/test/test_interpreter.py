@@ -1,12 +1,13 @@
 import py 
 import sys
-from pypy.interpreter.pycompiler import PythonCompiler
 
 class TestInterpreter: 
+    from pypy.interpreter.pycompiler import CPythonCompiler as CompilerClass
+
     def codetest(self, source, functionname, args):
         """Compile and run the given code string, and then call its function
         named by 'functionname' with arguments 'args'."""
-        from pypy.interpreter import baseobjspace, executioncontext
+        from pypy.interpreter import baseobjspace
         from pypy.interpreter import pyframe, gateway, module
         space = self.space
 
@@ -33,11 +34,14 @@ class TestInterpreter:
         else:
             return space.unwrap(w_output)
 
-    #def setup_class(cls):
-    #    cls.space = testit.objspace()
+    def setup_method(self, arg):
+        ec = self.space.getexecutioncontext() 
+        self.saved_compiler = ec.compiler
+        ec.compiler = self.CompilerClass(self.space)
 
-    #def teardown_class(cls): 
-    #    del cls.space 
+    def teardown_method(self, arg):
+        ec = self.space.getexecutioncontext() 
+        ec.compiler = self.saved_compiler
 
     def test_exception_trivial(self):
         x = self.codetest('''\
@@ -227,19 +231,14 @@ class TestInterpreter:
         assert self.codetest(code, 'g', [12, {}]) ==    ()
         assert self.codetest(code, 'g', [12, {3:1}]) == (3,)
 
+
 class TestPyPyInterpreter(TestInterpreter):
     """Runs the previous test with the pypy parser"""
-    def setup_class(klass):
-        sys.setrecursionlimit(10000)
+    from pypy.interpreter.pycompiler import PythonCompiler as CompilerClass
 
-    def setup_method(self,arg):
-        ec = self.space.getexecutioncontext() 
-        self.saved_compiler = ec.compiler
-        ec.compiler = PythonCompiler(self.space)
+    def test_extended_arg(self):
+        py.test.skip("expression too large for the recursive parser")
 
-    def teardown_method(self,arg):
-        ec = self.space.getexecutioncontext() 
-        ec.compiler = self.saved_compiler
 
 class AppTestInterpreter: 
     def test_trivial(self):

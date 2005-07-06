@@ -200,6 +200,7 @@ class PythonCompiler(CPythonCompiler):
         from pypy.interpreter.stablecompiler.pycodegen import InteractiveCodeGenerator
         from pypy.interpreter.stablecompiler.pycodegen import ExpressionCodeGenerator
         from pypy.interpreter.stablecompiler.transformer import Transformer
+        space = self.space
         try:
             transformer = Transformer()
             tree = transformer.compile_node(tuples)

@@ -22,6 +22,11 @@ def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
         else:
             flags |= ec.compiler.getcodeflags(caller.code)
 
+    if mode not in ('exec', 'eval', 'single'):
+        raise OperationError(space.w_ValueError,
+                             space.wrap("compile() arg 3 must be 'exec' "
+                                        "or 'eval' or 'single'"))
+
     code = ec.compiler.compile(str_, filename, mode, flags)
     return space.wrap(code)
 #
