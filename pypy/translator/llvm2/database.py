@@ -120,20 +120,6 @@ class Database(object):
 
         if isinstance(const_or_var, Constant):
             ct = const_or_var.concretetype
-            while isinstance(ct, lltype.Ptr):
-                ct = ct.TO
-            
-            if isinstance(ct, lltype.FuncType):
-                if const_or_var.value._obj._callable and not hasattr(const_or_var.value._obj, 'graph'):
-                    log('EXTERNAL FUNCTION' + str(dir(const_or_var.value._obj)))
-                    #XXX if it's has a one-to-one C function then we really want THAT declaration
-                else:
-                    self.addpending(const_or_var, FuncNode(self, const_or_var))
-            else:
-                value = const_or_var.value
-                while hasattr(value, "_obj"):
-                    value = value._obj
-
             if isinstance(ct, lltype.Primitive):
                 log.prepare(const_or_var, "(is primitive)")
                 return
