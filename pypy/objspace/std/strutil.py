@@ -129,9 +129,11 @@ def string_to_w_long(space, s, base=10, parser=None):
         digit = p.next_digit()
         if digit == -1:
             if p.sign == -1:
-                return space.neg(w_result)
-            else:
-                return w_result
+                w_result = space.neg(w_result)
+            # XXX grumble
+            from pypy.objspace.std.longobject import W_LongObject
+            assert isinstance(w_result, W_LongObject)
+            return w_result
         w_result = space.add(space.mul(w_result,w_base),space.newlong(r_uint(digit)))
 
 def break_up_float(s):
