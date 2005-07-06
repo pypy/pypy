@@ -21,6 +21,8 @@ parseFile(path) -> AST
 # Portions of this file are:
 # Copyright (C) 1997-1998 Greg Stein. All Rights Reserved.
 #
+# Modified for PYPY
+#
 # This module is provided under a BSD-ish license. See
 #   http://www.opensource.org/licenses/bsd-license.html
 # and replace OWNER, ORGANIZATION, and YEAR as appropriate.

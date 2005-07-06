@@ -31,9 +31,12 @@ class Node:
         return self.getChildren()
     def getChildNodes(self):
         pass # implemented by subclasses
+    def visit(self, visitor, *args):
+        return visitor.visitNode(self, *args)
 
 class EmptyNode(Node):
-    pass
+    def visit(self, visitor, *args):
+        return visitor.visitEmptyNode(self, *args)
 
 class Expression(Node):
     # Expression is an artificial node class to support "eval"
@@ -50,6 +53,9 @@ class Expression(Node):
     def __repr__(self):
         return "Expression(%s)" % (repr(self.node))
 
+    def visit(self, visitor, *args):
+        return visitor.visitExpression(self, *args)
+
 class Add(Node):
     def __init__(self, (left, right), lineno=None):
         self.left = left
@@ -64,6 +70,9 @@ class Add(Node):
 
     def __repr__(self):
         return "Add((%s, %s))" % (repr(self.left), repr(self.right))
+
+    def accept(self, visitor, args):
+        return visitor.visitAdd(self, args)
 
 class And(Node):
     def __init__(self, nodes, lineno=None):
@@ -81,6 +90,9 @@ class And(Node):
     def __repr__(self):
         return "And(%s)" % (repr(self.nodes),)
 
+    def accept(self, visitor, args):
+        return visitor.visitAnd(self, args)
+
 class AssAttr(Node):
     def __init__(self, expr, attrname, flags, lineno=None):
         self.expr = expr
@@ -96,6 +108,9 @@ class AssAttr(Node):
 
     def __repr__(self):
         return "AssAttr(%s, %s, %s)" % (repr(self.expr), repr(self.attrname), repr(self.flags))
+
+    def accept(self, visitor, args):
+        return visitor.visitAssAttr(self, args)
 
 class AssList(Node):
     def __init__(self, nodes, lineno=None):
@@ -113,6 +128,9 @@ class AssList(Node):
     def __repr__(self):
         return "AssList(%s)" % (repr(self.nodes),)
 
+    def accept(self, visitor, args):
+        return visitor.visitAssList(self, args)
+
 class AssName(Node):
     def __init__(self, name, flags, lineno=None):
         self.name = name
@@ -127,6 +145,9 @@ class AssName(Node):
 
     def __repr__(self):
         return "AssName(%s, %s)" % (repr(self.name), repr(self.flags))
+
+    def accept(self, visitor, args):
+        return visitor.visitAssName(self, args)
 
 class AssTuple(Node):
     def __init__(self, nodes, lineno=None):
@@ -143,6 +164,9 @@ class AssTuple(Node):
 
     def __repr__(self):
         return "AssTuple(%s)" % (repr(self.nodes),)
+
+    def accept(self, visitor, args):
+        return visitor.visitAssTuple(self, args)
 
 class Assert(Node):
     def __init__(self, test, fail, lineno=None):
@@ -166,6 +190,9 @@ class Assert(Node):
     def __repr__(self):
         return "Assert(%s, %s)" % (repr(self.test), repr(self.fail))
 
+    def accept(self, visitor, args):
+        return visitor.visitAssert(self, args)
+
 class Assign(Node):
     def __init__(self, nodes, expr, lineno=None):
         self.nodes = nodes
@@ -187,6 +214,9 @@ class Assign(Node):
     def __repr__(self):
         return "Assign(%s, %s)" % (repr(self.nodes), repr(self.expr))
 
+    def accept(self, visitor, args):
+        return visitor.visitAssign(self, args)
+
 class AugAssign(Node):
     def __init__(self, node, op, expr, lineno=None):
         self.node = node
@@ -203,6 +233,9 @@ class AugAssign(Node):
     def __repr__(self):
         return "AugAssign(%s, %s, %s)" % (repr(self.node), repr(self.op), repr(self.expr))
 
+    def accept(self, visitor, args):
+        return visitor.visitAugAssign(self, args)
+
 class Backquote(Node):
     def __init__(self, expr, lineno=None):
         self.expr = expr
@@ -216,6 +249,9 @@ class Backquote(Node):
 
     def __repr__(self):
         return "Backquote(%s)" % (repr(self.expr),)
+
+    def accept(self, visitor, args):
+        return visitor.visitBackquote(self, args)
 
 class Bitand(Node):
     def __init__(self, nodes, lineno=None):
@@ -233,6 +269,9 @@ class Bitand(Node):
     def __repr__(self):
         return "Bitand(%s)" % (repr(self.nodes),)
 
+    def accept(self, visitor, args):
+        return visitor.visitBitand(self, args)
+
 class Bitor(Node):
     def __init__(self, nodes, lineno=None):
         self.nodes = nodes
@@ -248,6 +287,9 @@ class Bitor(Node):
 
     def __repr__(self):
         return "Bitor(%s)" % (repr(self.nodes),)
+
+    def accept(self, visitor, args):
+        return visitor.visitBitor(self, args)
 
 class Bitxor(Node):
     def __init__(self, nodes, lineno=None):
@@ -265,6 +307,9 @@ class Bitxor(Node):
     def __repr__(self):
         return "Bitxor(%s)" % (repr(self.nodes),)
 
+    def accept(self, visitor, args):
+        return visitor.visitBitxor(self, args)
+
 class Break(Node):
     def __init__(self, lineno=None):
         self.lineno = lineno
@@ -277,6 +322,9 @@ class Break(Node):
 
     def __repr__(self):
         return "Break()"
+
+    def accept(self, visitor, args):
+        return visitor.visitBreak(self, args)
 
 class CallFunc(Node):
     def __init__(self, node, args, star_args = None, dstar_args = None, lineno=None):
@@ -307,6 +355,9 @@ class CallFunc(Node):
     def __repr__(self):
         return "CallFunc(%s, %s, %s, %s)" % (repr(self.node), repr(self.args), repr(self.star_args), repr(self.dstar_args))
 
+    def accept(self, visitor, args):
+        return visitor.visitCallFunc(self, args)
+
 class Class(Node):
     def __init__(self, name, bases, doc, code, lineno=None):
         self.name = name
@@ -332,6 +383,9 @@ class Class(Node):
     def __repr__(self):
         return "Class(%s, %s, %s, %s)" % (repr(self.name), repr(self.bases), repr(self.doc), repr(self.code))
 
+    def accept(self, visitor, args):
+        return visitor.visitClass(self, args)
+
 class Compare(Node):
     def __init__(self, expr, ops, lineno=None):
         self.expr = expr
@@ -353,6 +407,9 @@ class Compare(Node):
     def __repr__(self):
         return "Compare(%s, %s)" % (repr(self.expr), repr(self.ops))
 
+    def accept(self, visitor, args):
+        return visitor.visitCompare(self, args)
+
 class Const(Node):
     def __init__(self, value, lineno=None):
         self.value = value
@@ -367,6 +424,9 @@ class Const(Node):
     def __repr__(self):
         return "Const(%s)" % (repr(self.value),)
 
+    def accept(self, visitor, args):
+        return visitor.visitConst(self, args)
+
 class Continue(Node):
     def __init__(self, lineno=None):
         self.lineno = lineno
@@ -379,6 +439,9 @@ class Continue(Node):
 
     def __repr__(self):
         return "Continue()"
+
+    def accept(self, visitor, args):
+        return visitor.visitContinue(self, args)
 
 class Decorators(Node):
     def __init__(self, nodes, lineno=None):
@@ -396,6 +459,9 @@ class Decorators(Node):
     def __repr__(self):
         return "Decorators(%s)" % (repr(self.nodes),)
 
+    def accept(self, visitor, args):
+        return visitor.visitDecorators(self, args)
+
 class Dict(Node):
     def __init__(self, items, lineno=None):
         self.items = items
@@ -412,6 +478,9 @@ class Dict(Node):
     def __repr__(self):
         return "Dict(%s)" % (repr(self.items),)
 
+    def accept(self, visitor, args):
+        return visitor.visitDict(self, args)
+
 class Discard(Node):
     def __init__(self, expr, lineno=None):
         self.expr = expr
@@ -425,6 +494,9 @@ class Discard(Node):
 
     def __repr__(self):
         return "Discard(%s)" % (repr(self.expr),)
+
+    def accept(self, visitor, args):
+        return visitor.visitDiscard(self, args)
 
 class Div(Node):
     def __init__(self, (left, right), lineno=None):
@@ -441,6 +513,9 @@ class Div(Node):
     def __repr__(self):
         return "Div((%s, %s))" % (repr(self.left), repr(self.right))
 
+    def accept(self, visitor, args):
+        return visitor.visitDiv(self, args)
+
 class Ellipsis(Node):
     def __init__(self, lineno=None):
         self.lineno = lineno
@@ -453,6 +528,9 @@ class Ellipsis(Node):
 
     def __repr__(self):
         return "Ellipsis()"
+
+    def accept(self, visitor, args):
+        return visitor.visitEllipsis(self, args)
 
 class Exec(Node):
     def __init__(self, expr, locals, globals, lineno=None):
@@ -480,6 +558,9 @@ class Exec(Node):
     def __repr__(self):
         return "Exec(%s, %s, %s)" % (repr(self.expr), repr(self.locals), repr(self.globals))
 
+    def accept(self, visitor, args):
+        return visitor.visitExec(self, args)
+
 class FloorDiv(Node):
     def __init__(self, (left, right), lineno=None):
         self.left = left
@@ -494,6 +575,9 @@ class FloorDiv(Node):
 
     def __repr__(self):
         return "FloorDiv((%s, %s))" % (repr(self.left), repr(self.right))
+
+    def accept(self, visitor, args):
+        return visitor.visitFloorDiv(self, args)
 
 class For(Node):
     def __init__(self, assign, list, body, else_, lineno=None):
@@ -523,6 +607,9 @@ class For(Node):
     def __repr__(self):
         return "For(%s, %s, %s, %s)" % (repr(self.assign), repr(self.list), repr(self.body), repr(self.else_))
 
+    def accept(self, visitor, args):
+        return visitor.visitFor(self, args)
+
 class From(Node):
     def __init__(self, modname, names, lineno=None):
         self.modname = modname
@@ -537,6 +624,9 @@ class From(Node):
 
     def __repr__(self):
         return "From(%s, %s)" % (repr(self.modname), repr(self.names))
+
+    def accept(self, visitor, args):
+        return visitor.visitFrom(self, args)
 
 class Function(Node):
     def __init__(self, decorators, name, argnames, defaults, flags, doc, code, lineno=None):
@@ -553,7 +643,7 @@ class Function(Node):
             self.varargs = 1
         if flags & CO_VARKEYWORDS:
             self.kwargs = 1
-
+    
 
 
     def getChildren(self):
@@ -578,13 +668,16 @@ class Function(Node):
     def __repr__(self):
         return "Function(%s, %s, %s, %s, %s, %s, %s)" % (repr(self.decorators), repr(self.name), repr(self.argnames), repr(self.defaults), repr(self.flags), repr(self.doc), repr(self.code))
 
+    def accept(self, visitor, args):
+        return visitor.visitFunction(self, args)
+
 class GenExpr(Node):
     def __init__(self, code, lineno=None):
         self.code = code
         self.lineno = lineno
         self.argnames = ['[outmost-iterable]']
         self.varargs = self.kwargs = None
-
+    
 
 
     def getChildren(self):
@@ -595,6 +688,9 @@ class GenExpr(Node):
 
     def __repr__(self):
         return "GenExpr(%s)" % (repr(self.code),)
+
+    def accept(self, visitor, args):
+        return visitor.visitGenExpr(self, args)
 
 class GenExprFor(Node):
     def __init__(self, assign, iter, ifs, lineno=None):
@@ -622,6 +718,9 @@ class GenExprFor(Node):
     def __repr__(self):
         return "GenExprFor(%s, %s, %s)" % (repr(self.assign), repr(self.iter), repr(self.ifs))
 
+    def accept(self, visitor, args):
+        return visitor.visitGenExprFor(self, args)
+
 class GenExprIf(Node):
     def __init__(self, test, lineno=None):
         self.test = test
@@ -635,6 +734,9 @@ class GenExprIf(Node):
 
     def __repr__(self):
         return "GenExprIf(%s)" % (repr(self.test),)
+
+    def accept(self, visitor, args):
+        return visitor.visitGenExprIf(self, args)
 
 class GenExprInner(Node):
     def __init__(self, expr, quals, lineno=None):
@@ -657,6 +759,9 @@ class GenExprInner(Node):
     def __repr__(self):
         return "GenExprInner(%s, %s)" % (repr(self.expr), repr(self.quals))
 
+    def accept(self, visitor, args):
+        return visitor.visitGenExprInner(self, args)
+
 class Getattr(Node):
     def __init__(self, expr, attrname, lineno=None):
         self.expr = expr
@@ -672,6 +777,9 @@ class Getattr(Node):
     def __repr__(self):
         return "Getattr(%s, %s)" % (repr(self.expr), repr(self.attrname))
 
+    def accept(self, visitor, args):
+        return visitor.visitGetattr(self, args)
+
 class Global(Node):
     def __init__(self, names, lineno=None):
         self.names = names
@@ -685,6 +793,9 @@ class Global(Node):
 
     def __repr__(self):
         return "Global(%s)" % (repr(self.names),)
+
+    def accept(self, visitor, args):
+        return visitor.visitGlobal(self, args)
 
 class If(Node):
     def __init__(self, tests, else_, lineno=None):
@@ -708,6 +819,9 @@ class If(Node):
     def __repr__(self):
         return "If(%s, %s)" % (repr(self.tests), repr(self.else_))
 
+    def accept(self, visitor, args):
+        return visitor.visitIf(self, args)
+
 class Import(Node):
     def __init__(self, names, lineno=None):
         self.names = names
@@ -722,6 +836,9 @@ class Import(Node):
     def __repr__(self):
         return "Import(%s)" % (repr(self.names),)
 
+    def accept(self, visitor, args):
+        return visitor.visitImport(self, args)
+
 class Invert(Node):
     def __init__(self, expr, lineno=None):
         self.expr = expr
@@ -735,6 +852,9 @@ class Invert(Node):
 
     def __repr__(self):
         return "Invert(%s)" % (repr(self.expr),)
+
+    def accept(self, visitor, args):
+        return visitor.visitInvert(self, args)
 
 class Keyword(Node):
     def __init__(self, name, expr, lineno=None):
@@ -751,6 +871,9 @@ class Keyword(Node):
     def __repr__(self):
         return "Keyword(%s, %s)" % (repr(self.name), repr(self.expr))
 
+    def accept(self, visitor, args):
+        return visitor.visitKeyword(self, args)
+
 class Lambda(Node):
     def __init__(self, argnames, defaults, flags, code, lineno=None):
         self.argnames = argnames
@@ -763,7 +886,7 @@ class Lambda(Node):
             self.varargs = 1
         if flags & CO_VARKEYWORDS:
             self.kwargs = 1
-
+    
 
 
     def getChildren(self):
@@ -783,6 +906,9 @@ class Lambda(Node):
     def __repr__(self):
         return "Lambda(%s, %s, %s, %s)" % (repr(self.argnames), repr(self.defaults), repr(self.flags), repr(self.code))
 
+    def accept(self, visitor, args):
+        return visitor.visitLambda(self, args)
+
 class LeftShift(Node):
     def __init__(self, (left, right), lineno=None):
         self.left = left
@@ -797,6 +923,9 @@ class LeftShift(Node):
 
     def __repr__(self):
         return "LeftShift((%s, %s))" % (repr(self.left), repr(self.right))
+
+    def accept(self, visitor, args):
+        return visitor.visitLeftShift(self, args)
 
 class List(Node):
     def __init__(self, nodes, lineno=None):
@@ -813,6 +942,9 @@ class List(Node):
 
     def __repr__(self):
         return "List(%s)" % (repr(self.nodes),)
+
+    def accept(self, visitor, args):
+        return visitor.visitList(self, args)
 
 class ListComp(Node):
     def __init__(self, expr, quals, lineno=None):
@@ -834,6 +966,9 @@ class ListComp(Node):
 
     def __repr__(self):
         return "ListComp(%s, %s)" % (repr(self.expr), repr(self.quals))
+
+    def accept(self, visitor, args):
+        return visitor.visitListComp(self, args)
 
 class ListCompFor(Node):
     def __init__(self, assign, list, ifs, lineno=None):
@@ -859,6 +994,9 @@ class ListCompFor(Node):
     def __repr__(self):
         return "ListCompFor(%s, %s, %s)" % (repr(self.assign), repr(self.list), repr(self.ifs))
 
+    def accept(self, visitor, args):
+        return visitor.visitListCompFor(self, args)
+
 class ListCompIf(Node):
     def __init__(self, test, lineno=None):
         self.test = test
@@ -872,6 +1010,9 @@ class ListCompIf(Node):
 
     def __repr__(self):
         return "ListCompIf(%s)" % (repr(self.test),)
+
+    def accept(self, visitor, args):
+        return visitor.visitListCompIf(self, args)
 
 class Mod(Node):
     def __init__(self, (left, right), lineno=None):
@@ -888,6 +1029,9 @@ class Mod(Node):
     def __repr__(self):
         return "Mod((%s, %s))" % (repr(self.left), repr(self.right))
 
+    def accept(self, visitor, args):
+        return visitor.visitMod(self, args)
+
 class Module(Node):
     def __init__(self, doc, node, lineno=None):
         self.doc = doc
@@ -902,6 +1046,9 @@ class Module(Node):
 
     def __repr__(self):
         return "Module(%s, %s)" % (repr(self.doc), repr(self.node))
+
+    def accept(self, visitor, args):
+        return visitor.visitModule(self, args)
 
 class Mul(Node):
     def __init__(self, (left, right), lineno=None):
@@ -918,6 +1065,9 @@ class Mul(Node):
     def __repr__(self):
         return "Mul((%s, %s))" % (repr(self.left), repr(self.right))
 
+    def accept(self, visitor, args):
+        return visitor.visitMul(self, args)
+
 class Name(Node):
     def __init__(self, name, lineno=None):
         self.name = name
@@ -932,6 +1082,9 @@ class Name(Node):
     def __repr__(self):
         return "Name(%s)" % (repr(self.name),)
 
+    def accept(self, visitor, args):
+        return visitor.visitName(self, args)
+
 class Not(Node):
     def __init__(self, expr, lineno=None):
         self.expr = expr
@@ -945,6 +1098,9 @@ class Not(Node):
 
     def __repr__(self):
         return "Not(%s)" % (repr(self.expr),)
+
+    def accept(self, visitor, args):
+        return visitor.visitNot(self, args)
 
 class Or(Node):
     def __init__(self, nodes, lineno=None):
@@ -962,6 +1118,9 @@ class Or(Node):
     def __repr__(self):
         return "Or(%s)" % (repr(self.nodes),)
 
+    def accept(self, visitor, args):
+        return visitor.visitOr(self, args)
+
 class Pass(Node):
     def __init__(self, lineno=None):
         self.lineno = lineno
@@ -974,6 +1133,9 @@ class Pass(Node):
 
     def __repr__(self):
         return "Pass()"
+
+    def accept(self, visitor, args):
+        return visitor.visitPass(self, args)
 
 class Power(Node):
     def __init__(self, (left, right), lineno=None):
@@ -989,6 +1151,9 @@ class Power(Node):
 
     def __repr__(self):
         return "Power((%s, %s))" % (repr(self.left), repr(self.right))
+
+    def accept(self, visitor, args):
+        return visitor.visitPower(self, args)
 
 class Print(Node):
     def __init__(self, nodes, dest, lineno=None):
@@ -1012,6 +1177,9 @@ class Print(Node):
     def __repr__(self):
         return "Print(%s, %s)" % (repr(self.nodes), repr(self.dest))
 
+    def accept(self, visitor, args):
+        return visitor.visitPrint(self, args)
+
 class Printnl(Node):
     def __init__(self, nodes, dest, lineno=None):
         self.nodes = nodes
@@ -1033,6 +1201,9 @@ class Printnl(Node):
 
     def __repr__(self):
         return "Printnl(%s, %s)" % (repr(self.nodes), repr(self.dest))
+
+    def accept(self, visitor, args):
+        return visitor.visitPrintnl(self, args)
 
 class Raise(Node):
     def __init__(self, expr1, expr2, expr3, lineno=None):
@@ -1061,6 +1232,9 @@ class Raise(Node):
     def __repr__(self):
         return "Raise(%s, %s, %s)" % (repr(self.expr1), repr(self.expr2), repr(self.expr3))
 
+    def accept(self, visitor, args):
+        return visitor.visitRaise(self, args)
+
 class Return(Node):
     def __init__(self, value, lineno=None):
         self.value = value
@@ -1074,6 +1248,9 @@ class Return(Node):
 
     def __repr__(self):
         return "Return(%s)" % (repr(self.value),)
+
+    def accept(self, visitor, args):
+        return visitor.visitReturn(self, args)
 
 class RightShift(Node):
     def __init__(self, (left, right), lineno=None):
@@ -1089,6 +1266,9 @@ class RightShift(Node):
 
     def __repr__(self):
         return "RightShift((%s, %s))" % (repr(self.left), repr(self.right))
+
+    def accept(self, visitor, args):
+        return visitor.visitRightShift(self, args)
 
 class Slice(Node):
     def __init__(self, expr, flags, lower, upper, lineno=None):
@@ -1118,6 +1298,9 @@ class Slice(Node):
     def __repr__(self):
         return "Slice(%s, %s, %s, %s)" % (repr(self.expr), repr(self.flags), repr(self.lower), repr(self.upper))
 
+    def accept(self, visitor, args):
+        return visitor.visitSlice(self, args)
+
 class Sliceobj(Node):
     def __init__(self, nodes, lineno=None):
         self.nodes = nodes
@@ -1133,6 +1316,9 @@ class Sliceobj(Node):
 
     def __repr__(self):
         return "Sliceobj(%s)" % (repr(self.nodes),)
+
+    def accept(self, visitor, args):
+        return visitor.visitSliceobj(self, args)
 
 class Stmt(Node):
     def __init__(self, nodes, lineno=None):
@@ -1150,6 +1336,9 @@ class Stmt(Node):
     def __repr__(self):
         return "Stmt(%s)" % (repr(self.nodes),)
 
+    def accept(self, visitor, args):
+        return visitor.visitStmt(self, args)
+
 class Sub(Node):
     def __init__(self, (left, right), lineno=None):
         self.left = left
@@ -1164,6 +1353,9 @@ class Sub(Node):
 
     def __repr__(self):
         return "Sub((%s, %s))" % (repr(self.left), repr(self.right))
+
+    def accept(self, visitor, args):
+        return visitor.visitSub(self, args)
 
 class Subscript(Node):
     def __init__(self, expr, flags, subs, lineno=None):
@@ -1187,6 +1379,9 @@ class Subscript(Node):
 
     def __repr__(self):
         return "Subscript(%s, %s, %s)" % (repr(self.expr), repr(self.flags), repr(self.subs))
+
+    def accept(self, visitor, args):
+        return visitor.visitSubscript(self, args)
 
 class TryExcept(Node):
     def __init__(self, body, handlers, else_, lineno=None):
@@ -1213,6 +1408,9 @@ class TryExcept(Node):
     def __repr__(self):
         return "TryExcept(%s, %s, %s)" % (repr(self.body), repr(self.handlers), repr(self.else_))
 
+    def accept(self, visitor, args):
+        return visitor.visitTryExcept(self, args)
+
 class TryFinally(Node):
     def __init__(self, body, final, lineno=None):
         self.body = body
@@ -1227,6 +1425,9 @@ class TryFinally(Node):
 
     def __repr__(self):
         return "TryFinally(%s, %s)" % (repr(self.body), repr(self.final))
+
+    def accept(self, visitor, args):
+        return visitor.visitTryFinally(self, args)
 
 class Tuple(Node):
     def __init__(self, nodes, lineno=None):
@@ -1244,6 +1445,9 @@ class Tuple(Node):
     def __repr__(self):
         return "Tuple(%s)" % (repr(self.nodes),)
 
+    def accept(self, visitor, args):
+        return visitor.visitTuple(self, args)
+
 class UnaryAdd(Node):
     def __init__(self, expr, lineno=None):
         self.expr = expr
@@ -1258,6 +1462,9 @@ class UnaryAdd(Node):
     def __repr__(self):
         return "UnaryAdd(%s)" % (repr(self.expr),)
 
+    def accept(self, visitor, args):
+        return visitor.visitUnaryAdd(self, args)
+
 class UnarySub(Node):
     def __init__(self, expr, lineno=None):
         self.expr = expr
@@ -1271,6 +1478,9 @@ class UnarySub(Node):
 
     def __repr__(self):
         return "UnarySub(%s)" % (repr(self.expr),)
+
+    def accept(self, visitor, args):
+        return visitor.visitUnarySub(self, args)
 
 class While(Node):
     def __init__(self, test, body, else_, lineno=None):
@@ -1297,6 +1507,9 @@ class While(Node):
     def __repr__(self):
         return "While(%s, %s, %s)" % (repr(self.test), repr(self.body), repr(self.else_))
 
+    def accept(self, visitor, args):
+        return visitor.visitWhile(self, args)
+
 class Yield(Node):
     def __init__(self, value, lineno=None):
         self.value = value
@@ -1310,6 +1523,162 @@ class Yield(Node):
 
     def __repr__(self):
         return "Yield(%s)" % (repr(self.value),)
+
+    def accept(self, visitor, args):
+        return visitor.visitYield(self, args)
+
+
+class ASTVisitor(object):
+    """This is a visitor base class used to provide the visit
+    method in replacement of the former visitor.visit = walker.dispatch
+    It could also use to identify base type for visit arguments of AST nodes
+    """
+
+    def default(self, node, args):
+        for child in node.getChildNodes():
+            child.visit(self, args)
+
+
+    def visitAdd(self, args):
+        return self.default( args )
+    def visitAnd(self, args):
+        return self.default( args )
+    def visitAssAttr(self, args):
+        return self.default( args )
+    def visitAssList(self, args):
+        return self.default( args )
+    def visitAssName(self, args):
+        return self.default( args )
+    def visitAssTuple(self, args):
+        return self.default( args )
+    def visitAssert(self, args):
+        return self.default( args )
+    def visitAssign(self, args):
+        return self.default( args )
+    def visitAugAssign(self, args):
+        return self.default( args )
+    def visitBackquote(self, args):
+        return self.default( args )
+    def visitBitand(self, args):
+        return self.default( args )
+    def visitBitor(self, args):
+        return self.default( args )
+    def visitBitxor(self, args):
+        return self.default( args )
+    def visitBreak(self, args):
+        return self.default( args )
+    def visitCallFunc(self, args):
+        return self.default( args )
+    def visitClass(self, args):
+        return self.default( args )
+    def visitCompare(self, args):
+        return self.default( args )
+    def visitConst(self, args):
+        return self.default( args )
+    def visitContinue(self, args):
+        return self.default( args )
+    def visitDecorators(self, args):
+        return self.default( args )
+    def visitDict(self, args):
+        return self.default( args )
+    def visitDiscard(self, args):
+        return self.default( args )
+    def visitDiv(self, args):
+        return self.default( args )
+    def visitEllipsis(self, args):
+        return self.default( args )
+    def visitExec(self, args):
+        return self.default( args )
+    def visitFloorDiv(self, args):
+        return self.default( args )
+    def visitFor(self, args):
+        return self.default( args )
+    def visitFrom(self, args):
+        return self.default( args )
+    def visitFunction(self, args):
+        return self.default( args )
+    def visitGenExpr(self, args):
+        return self.default( args )
+    def visitGenExprFor(self, args):
+        return self.default( args )
+    def visitGenExprIf(self, args):
+        return self.default( args )
+    def visitGenExprInner(self, args):
+        return self.default( args )
+    def visitGetattr(self, args):
+        return self.default( args )
+    def visitGlobal(self, args):
+        return self.default( args )
+    def visitIf(self, args):
+        return self.default( args )
+    def visitImport(self, args):
+        return self.default( args )
+    def visitInvert(self, args):
+        return self.default( args )
+    def visitKeyword(self, args):
+        return self.default( args )
+    def visitLambda(self, args):
+        return self.default( args )
+    def visitLeftShift(self, args):
+        return self.default( args )
+    def visitList(self, args):
+        return self.default( args )
+    def visitListComp(self, args):
+        return self.default( args )
+    def visitListCompFor(self, args):
+        return self.default( args )
+    def visitListCompIf(self, args):
+        return self.default( args )
+    def visitMod(self, args):
+        return self.default( args )
+    def visitModule(self, args):
+        return self.default( args )
+    def visitMul(self, args):
+        return self.default( args )
+    def visitName(self, args):
+        return self.default( args )
+    def visitNot(self, args):
+        return self.default( args )
+    def visitOr(self, args):
+        return self.default( args )
+    def visitPass(self, args):
+        return self.default( args )
+    def visitPower(self, args):
+        return self.default( args )
+    def visitPrint(self, args):
+        return self.default( args )
+    def visitPrintnl(self, args):
+        return self.default( args )
+    def visitRaise(self, args):
+        return self.default( args )
+    def visitReturn(self, args):
+        return self.default( args )
+    def visitRightShift(self, args):
+        return self.default( args )
+    def visitSlice(self, args):
+        return self.default( args )
+    def visitSliceobj(self, args):
+        return self.default( args )
+    def visitStmt(self, args):
+        return self.default( args )
+    def visitSub(self, args):
+        return self.default( args )
+    def visitSubscript(self, args):
+        return self.default( args )
+    def visitTryExcept(self, args):
+        return self.default( args )
+    def visitTryFinally(self, args):
+        return self.default( args )
+    def visitTuple(self, args):
+        return self.default( args )
+    def visitUnaryAdd(self, args):
+        return self.default( args )
+    def visitUnarySub(self, args):
+        return self.default( args )
+    def visitWhile(self, args):
+        return self.default( args )
+    def visitYield(self, args):
+        return self.default( args )
 
 for name, obj in globals().items():
     if isinstance(obj, type) and issubclass(obj, Node):
