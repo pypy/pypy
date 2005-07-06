@@ -76,7 +76,10 @@ class Database(object):
                 ct = ct.TO
             
             if isinstance(ct, lltype.FuncType):
-                self.addpending(const_or_var, FuncNode(self, const_or_var))
+                if const_or_var.value._obj._callable and not hasattr(const_or_var.value._obj, 'graph'):
+                    log('EXTERNAL FUNCTION' + str(dir(const_or_var.value._obj)))
+                else:
+                    self.addpending(const_or_var, FuncNode(self, const_or_var))
             else:
                 value = const_or_var.value
                 while hasattr(value, "_obj"):

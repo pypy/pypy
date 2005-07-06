@@ -1,0 +1,61 @@
+x = ptr({6, 7}) 
+a = {4, 5, x}
+b = {8, 9, x}
+c = {a,b}
+
+GET_Tx can be either LOAD_Tx or REF_Tx_index
+
+LOAD_T1 4 5 (LOAD_T0 6 7)     # REF_T1_0 
+LOAD_T1 8 9 REF_T0_0          # REF_T1_1
+LOAD_T2 REF_T1_0 REF_T1_1     # REF_T2_0 
+
+T0 = GcStruct(...)
+
+T0TBL = Array(Ptr(T0))
+T1TBL = Array(Ptr(T1))
+
+ALL_LISTS = GcStruct('all_lists', 
+   ('t0s', Ptr(T0TBL)),
+   ('t1s', Ptr(T1TBL)),
+   ('count0', Signed),
+   ('count1', Signed))
+
+def ll_dispatch(fd): 
+    while 1: 
+        instr = ll_read_instr(fd) 
+        if iseof(instr): 
+            break 
+        assert isload(instr) 
+        typeindex = getindex(instr) 
+        ll_get = ll_GET_FUNCTION_LIST[typeindex]
+        ll_get(fd, instr, all_lists) 
+
+def ll_GET_T0(fd, instr, all_lists): 
+    if isload(instr): 
+        val1 = ll_read_int(fd) 
+        val2 = ll_read_int(fd) 
+        x = malloc(T0) 
+        x.val1 = val1 
+        x.val2 = val2
+        all_lists.t0s[all_lists.count0] = x
+        all_lists.count0 += 1
+        return x 
+    else: 
+        if is_zero_ptr(instr):
+            return nullptr(T0)
+        return all_lists.t0s[getindex(instr)]
+    
+def ll_GET_T1(fd, instr, all_lists): 
+    if isload(instr): 
+        val1 = ll_read_int(fd) 
+        val2 = ll_read_int(fd) 
+        instr = ll_read_instr(fd) 
+        val3 = ll_get_T0(fd, instr) 
+        x = malloc(T1) 
+        x.val1 = val1 
+        x.val2 = val2
+        x.val3 = val3 
+        T1.append(x) 
+        return x 
+    else: 
+        return T1[getindex(instr)]

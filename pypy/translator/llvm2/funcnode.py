@@ -7,6 +7,7 @@ from pypy.translator.unsimplify import remove_double_links
 from pypy.translator.llvm2.node import LLVMNode
 from pypy.translator.llvm2.atomic import is_atomic
 from pypy.translator.llvm2.log import log 
+from pypy.rpython.extfunctable import table as extfunctable
 nextnum = py.std.itertools.count().next
 log = log.funcnode
 
@@ -38,6 +39,7 @@ class FuncNode(LLVMNode):
 
     def __init__(self, db, const_ptr_func):
         self.db = db
+        self.const_ptr_func = const_ptr_func
         self.ref = "%" + const_ptr_func.value._obj._name
         self.graph = const_ptr_func.value._obj.graph 
         remove_same_as(self.graph) 
@@ -65,6 +67,12 @@ class FuncNode(LLVMNode):
         codewriter.declare(self.getdecl())
 
     def writeimpl(self, codewriter):
+        _callable = self.const_ptr_func.value._obj._callable
+        for func, extfuncinfo in extfunctable.iteritems():  # precompute a dict?
+            if _callable is extfuncinfo.ll_function:
+                log('skipped output of external function %s' % self.const_ptr_func.value._obj._name)
+                return
+
         assert self._issetup 
         graph = self.graph
         log.writeimpl(graph.name)

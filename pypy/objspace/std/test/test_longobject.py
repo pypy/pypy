@@ -161,7 +161,7 @@ class TestW_LongObject:
 
     def test_conversions(self):
         space = self.space
-        for v in (0,1,-1,sys.maxint,-sys.maxint-1):
+        for v in (0, 1, -1, sys.maxint, -sys.maxint-1):
             assert lobj.W_LongObject(self.space, *lobj.args_from_long(v)).longval() == v
             w_v = space.newint(v)
             for w_lv in (lobj.long__Int(space, w_v), lobj.delegate_Int2Long(w_v)):
@@ -319,4 +319,15 @@ class AppTestLong:
             for y in [-105566530L, -1L, 1L, 1034522340L]:
                 print "checking division for %s, %s" % (x, y)
                 check_division(x, y)
-            raises(ZeroDivisionError, "x // 0L")
+        # special case from python tests:
+        x = 16565645174462751485571442763871865344588923363439663038777355323778298703228675004033774331442052275771343018700586987657790981527457655176938756028872904152013524821759375058141439
+        y = 10953035502453784575
+        print "special case"
+        check_division(x, y)
+        raises(ZeroDivisionError, "x // 0L")
+
+    def test_format(self):
+        assert repr(12345678901234567890) == '12345678901234567890L'
+        assert str(12345678901234567890) == '12345678901234567890'
+        assert hex(0x1234567890ABCDEFL) == '0x1234567890ABCDEFL'
+        assert oct(01234567012345670L) == '01234567012345670L'

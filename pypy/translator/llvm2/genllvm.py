@@ -12,6 +12,7 @@ from pypy.rpython import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.codewriter import CodeWriter
 from pypy.translator.backendoptimization import remove_void
+from pypy.translator.llvm2.extfunctions import extdeclarations, extfunctions
 
 function_count = {}
 
@@ -39,6 +40,8 @@ def genllvm(translator):
         typ_decl.writeglobalconstants(codewriter)
 
     nl(); comment("Function Prototypes") ; nl()
+    for extdecl in extdeclarations.split('\n'):
+        codewriter.append(extdecl)
     if use_boehm_gc: 
         codewriter.declare('sbyte* %GC_malloc(uint)')
         codewriter.declare('sbyte* %GC_malloc_atomic(uint)')
@@ -49,6 +52,8 @@ def genllvm(translator):
     #import pdb ; pdb.set_trace()
     nl(); comment("Function Implementation") 
     codewriter.startimpl()
+    for extfunc in extfunctions.split('\n'):
+        codewriter.append(extfunc)
     for typ_decl in db.getobjects():
         typ_decl.writeimpl(codewriter)
 
