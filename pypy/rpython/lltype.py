@@ -147,12 +147,11 @@ class Struct(ContainerType):
 
 
     def _names_without_voids(self, at_root=True):
-        if at_root:  #XXX debug stuff
-            log('_names_without_voids: ' + self._str_without_voids())
+        #if at_root:  #XXX debug stuff
+        #    log('_names_without_voids: ' + self._str_without_voids())
         names_without_voids = [name for name in self._names if self._flds[name] is not Void]
-        if names_without_voids != list(self._names):
-            log('_names_without_voids: removed Void(s) _names=%s, return=%s' % (str(list(self._names)), str(names_without_voids)))
-        #return self._names
+        #if names_without_voids != list(self._names):
+        #    log('_names_without_voids: removed Void(s) _names=%s, return=%s' % (str(list(self._names)), str(names_without_voids)))
         return names_without_voids
     
     def _str_fields_without_voids(self):
