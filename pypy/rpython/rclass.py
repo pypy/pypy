@@ -281,6 +281,10 @@ class ClassRepr(Repr):
                 raise MissingRTypeAttribute(attr)
             self.rbase.setclsfield(vcls, attr, vvalue, llops)
 
+    def rtype_issubtype(self, hop): 
+        class_repr = get_type_repr(self.rtyper)
+        v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
+        return hop.gendirectcall(ll_issubclass, v_cls1, v_cls2)
 
 def get_type_repr(rtyper):
     return getclassrepr(rtyper, None)

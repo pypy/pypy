@@ -144,3 +144,27 @@ def test_method_both_A_and_B():
         return a.meth() + b.meth()
     res = interpret(f, [])
     assert res == 246
+
+def test_issubclass_type():
+    class A:
+        pass
+    class B(A):
+        pass
+    def f(i):
+        if i == 0: 
+            c1 = A()
+        else: 
+            c1 = B()
+        return issubclass(type(c1), B)
+    assert interpret(f, [0], view=False, viewbefore=False) == False 
+    assert interpret(f, [1], view=False, viewbefore=False) == True
+
+    def g(i):
+        if i == 0: 
+            c1 = A()
+        else: 
+            c1 = B()
+        return issubclass(type(c1), A)
+    assert interpret(g, [0], view=False, viewbefore=False) == True
+    assert interpret(g, [1], view=False, viewbefore=False) == True
+
