@@ -15,6 +15,8 @@ ovfcheck check on CPython whether the result of a signed
 ovfcheck_lshift
          << with oveflow checking
          catering to 2.3/2.4 differences about <<
+r_ushort like r_uint but half word size
+r_ulong  like r_uint but double word size
 
 These are meant to be erased by translation, r_uint
 in the process should mark unsigned values, ovfcheck should
@@ -188,13 +190,21 @@ def _local_ovfcheck(r):
 def ovfcheck_lshift(a, b):
     return _local_ovfcheck(int(long(a) << b))
 
+def _widen(self, other, value):
+    """
+    if one argument is int or long, the other type wins.
+    otherwise, produce the largest class to hold the result.
+    """
+    return _typemap[ type(self), type(other) ](value)
+
 class r_uint(long):
     """ fake unsigned integer implementation """
 
-    _mask = LONG_MASK
+    MASK = LONG_MASK
+    BITS = LONG_BIT
 
     def __new__(klass, val):
-        return long.__new__(klass, val & klass._mask)
+        return long.__new__(klass, val & klass.MASK)
 
     def __int__(self):
         if self < LONG_TEST:
@@ -205,50 +215,50 @@ class r_uint(long):
     def __add__(self, other):
         x = long(self)
         y = long(other)
-        return r_uint(x + y)
+        return _widen(self, other, x + y)
     __radd__ = __add__
     
     def __sub__(self, other):
         x = long(self)
         y = long(other)
-        return r_uint(x - y)
+        return _widen(self, other, x - y)
 
     def __rsub__(self, other):
         y = long(self)
         x = long(other)
-        return r_uint(x - y)
+        return _widen(self, other, x - y)
     
     def __mul__(self, other):
         x = long(self)
         if not isinstance(other, (int, long)):
             return x * other
         y = long(other)
-        return r_uint(x * y)
+        return _widen(self, other, x * y)
     __rmul__ = __mul__
 
     def __div__(self, other):
         x = long(self)
         y = long(other)
-        return r_uint(x // y)
+        return _widen(self, other, x // y)
 
     __floordiv__ = __div__
 
     def __rdiv__(self, other):
         y = long(self)
         x = long(other)
-        return r_uint(x // y)
+        return _widen(self, other, x // y)
 
     __rfloordiv__ = __rdiv__
 
     def __mod__(self, other):
         x = long(self)
         y = long(other)
-        return r_uint(x % y)
+        return _widen(self, other, x % y)
 
     def __rmod__(self, other):
         y = long(self)
         x = long(other)
-        return r_uint(x % y)
+        return _widen(self, other, x % y)
 
     def __divmod__(self, other):
         x = long(self)
@@ -259,60 +269,88 @@ class r_uint(long):
     def __lshift__(self, n):
         x = long(self)
         y = long(n)
-        return r_uint(x << y)
+        return self.__class__(x << y)
 
     def __rlshift__(self, n):
         y = long(self)
         x = long(n)
-        return r_uint(x << y)
+        return _widen(self, n, x << y)
 
     def __rshift__(self, n):
         x = long(self)
         y = long(n)
-        return r_uint(x >> y)
+        return _widen(self, n, x >> y)
 
     def __rrshift__(self, n):
         y = long(self)
         x = long(n)
-        return r_uint(x >> y)
+        return _widen(self, n, x >> y)
 
     def __or__(self, other):
         x = long(self)
         y = long(other)
-        return r_uint(x | y)
+        return _widen(self, other, x | y)
     __ror__ = __or__
 
     def __and__(self, other):
         x = long(self)
         y = long(other)
-        return r_uint(x & y)
+        return _widen(self, other, x & y)
     __rand__ = __and__
 
     def __xor__(self, other):
         x = long(self)
         y = long(other)
-        return r_uint(x ^ y)
+        return _widen(self, other, x ^ y)
     __rxor__ = __xor__
 
     def __neg__(self):
         x = long(self)
-        return r_uint(-x)
+        return self.__class__(-x)
 
     def __pos__(self):
-        return r_uint(self)
+        return self.__class__(self)
 
     def __invert__(self):
         x = long(self)
-        return r_uint(~x)
+        return self.__class__(~x)
 
     def __pow__(self, other, m=None):
         x = long(self)
         y = long(other)
         res = pow(x, y, m)
-        return r_uint(res)
+        return _widen(self, other, res)
 
     def __rpow__(self, other, m=None):
         y = long(self)
         x = long(other)
         res = pow(x, y, m)
-        return r_uint(res)
+        return _widen(self, other, res)
+
+class r_ushort(r_uint):
+    BITS = r_uint.BITS // 2
+    MASK = int((1 << BITS) - 1)
+
+class r_ulong(r_uint):
+    BITS = r_uint.BITS * 2
+    MASK = (1L << BITS) - 1
+
+def setup_typemap():
+    types = int, long, r_uint, r_ushort, r_ulong
+    for left in types:
+        for right in types:
+            if left in (int, long):
+                restype = right
+            elif right in (int, long):
+                restype = left
+            else:
+                if left.BITS > right.BITS:
+                    restype = left
+                else:
+                    restype = right
+            if restype not in (int, long):
+                _typemap[ left, right ] = restype
+_typemap = {}
+
+setup_typemap()
+del setup_typemap
