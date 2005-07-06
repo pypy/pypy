@@ -58,6 +58,33 @@ def DONTtest_external_function_ll_os_open():
     f = compile_function(fn, [], view=False)
     assert os.path.sameopenfile(f(), fn())
 
+def test_external_function_ll_time_time():
+    import time
+    def fn():
+        return time.time()
+    f = compile_function(fn, [], view=False)
+    assert abs(f()-fn()) < 1.0
+
+def test_external_function_ll_time_clock():
+    import time
+    def fn():
+        return time.clock()
+    f = compile_function(fn, [], view=False)
+    assert abs(f()-fn()) < 1.0
+
+def test_external_function_ll_time_sleep():
+    import time
+    def fn(t):
+        time.sleep(t)
+        return 666
+    f = compile_function(fn, [float], view=False)
+    start_time = time.time()
+    delay_time = 2.0
+    d = f(delay_time)
+    duration = time.time() - start_time
+    assert duration >= delay_time - 0.5
+    assert duration <= delay_time + 0.5
+
 def test_GC_malloc(): 
     if not use_boehm_gc:
         py.test.skip("test_GC_malloc skipped because Boehm collector library was not found")

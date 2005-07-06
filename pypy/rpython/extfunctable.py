@@ -2,6 +2,7 @@
 information table about external functions for annotation/ rtyping and backends
 """
 import os
+import time
 import types
 
 class ExtFuncInfo:
@@ -48,10 +49,22 @@ def ll_os_getcwd():
 def ll_os_dup(fd):
     return 999
 
+def ll_time_time():
+    return time.time()
+
+def ll_time_clock():
+    return time.clock()
+
+def ll_time_sleep(t):
+    time.sleep(t)
+
 # external function declarations
-declare(os.open  , int , ll_os_open  , False, 'C:open'  )
-declare(os.read  , str , ll_os_read  , False, 'C:read'  )
-declare(os.write , int , ll_os_write , False, 'C:write' )
-declare(os.close , None, ll_os_close , False, 'C:close' )
-declare(os.getcwd, str , ll_os_getcwd, False, 'C:getcwd')
-declare(os.dup   , int , ll_os_dup   , True , 'C:dup'   )
+declare(os.open   , int           , ll_os_open   , True             )   #this is not annotatable actually, but llvm has an issue
+declare(os.read   , str           , ll_os_read   , True             )
+declare(os.write  , int           , ll_os_write  , True             )
+declare(os.close  , lambda a: None, ll_os_close  , True , 'C:close' )
+declare(os.getcwd , str           , ll_os_getcwd , True             )
+declare(os.dup    , int           , ll_os_dup    , True , 'C:dup'   )
+declare(time.time , float         , ll_time_time , True             )
+declare(time.clock, float         , ll_time_clock, True             )
+declare(time.sleep, lambda a: None, ll_time_sleep, True             )
