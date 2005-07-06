@@ -308,19 +308,19 @@ class RPythonTyper:
     def _registeroperations(loc):
         # All unary operations
         for opname in annmodel.UNARY_OPERATIONS:
-            exec """
-def translate_op_%s(self, hop):
-    r_arg1 = hop.args_r[0]
-    return r_arg1.rtype_%s(hop)
-""" % (opname, opname) in globals(), loc
+            exec py.code.compile("""
+                def translate_op_%s(self, hop):
+                    r_arg1 = hop.args_r[0]
+                    return r_arg1.rtype_%s(hop)
+                """ % (opname, opname)) in globals(), loc
         # All binary operations
         for opname in annmodel.BINARY_OPERATIONS:
-            exec """
-def translate_op_%s(self, hop):
-    r_arg1 = hop.args_r[0]
-    r_arg2 = hop.args_r[1]
-    return pair(r_arg1, r_arg2).rtype_%s(hop)
-""" % (opname, opname) in globals(), loc
+            exec py.code.compile("""
+                def translate_op_%s(self, hop):
+                    r_arg1 = hop.args_r[0]
+                    r_arg2 = hop.args_r[1]
+                    return pair(r_arg1, r_arg2).rtype_%s(hop)
+                """ % (opname, opname)) in globals(), loc
 
     _registeroperations(locals())
     del _registeroperations
