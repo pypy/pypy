@@ -32,6 +32,8 @@ def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
             if space.is_true(space.is_(w_longtype, space.w_long)):
                 return w_obj
             if space.is_true(space.isinstance(w_obj, space.w_long)):
+                assert isinstance(w_obj, W_LongObject)  # XXX this could fail!
+                # XXX find a way to do that even if w_obj is not a W_LongObject
                 w_value = w_obj
             elif space.is_true(space.isinstance(w_obj, space.w_int)):
                 intval = space.int_w(w_obj)
