@@ -160,10 +160,11 @@ def uint_w__Long(space, w_value):
     i = len(w_value.digits) * 2 - 1
     while i >= 0:
         prev = x
-        x = (x << SHIFT) + v._getshort(i)
+        x = (x << SHIFT) + w_value._getshort(i)
         if (x >> SHIFT) != prev:
             raise OperationError(space.w_OverflowError, space.wrap(
                 "long int too large to convert to unsigned int"))
+        i -= 1
     return x
 
 def repr__Long(space, w_long):
@@ -661,11 +662,12 @@ def _muladd1(a, n, extra):
         size_a -= 1
     z = W_LongObject(a.space, [r_uint(0)] * (digitpairs+1), 1)
     carry = extra
-    for i in range(size_a):
+    i = 0
+    while i < size_a:
         carry += a._getshort(i) * n
         z._setshort(i, carry & MASK)
         carry >>= SHIFT
-    i += 1
+        i += 1
     z._setshort(i, carry)
     z._normalize()
     return z
