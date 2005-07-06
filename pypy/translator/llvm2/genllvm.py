@@ -13,7 +13,7 @@ from pypy.tool.udir import udir
 from pypy.translator.llvm2.codewriter import CodeWriter
 from pypy.translator.backendoptimization import remove_void
 from pypy.translator.backendoptimization import rename_extfunc_calls
-from pypy.translator.llvm2.extfunctions import extdeclarations, extfunctions
+from pypy.translator.llvm2.extfunction import extdeclarations, extfunctions
 
 function_count = {}
 
