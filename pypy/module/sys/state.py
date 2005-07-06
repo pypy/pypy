@@ -87,6 +87,3 @@ _pypy_getudir._annspecialcase_ = "override:ignore"
 # directly. 
 def pypy_getudir(space):
     return _pypy_getudir(space)
-
-def getdefaultencoding(space): 
-    return space.wrap(sys.getdefaultencoding())

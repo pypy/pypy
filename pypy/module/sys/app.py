@@ -54,3 +54,14 @@ a 11-tuple where the entries in the tuple are counts of:
 9. All other calls
 10. Number of stack pops performed by call_function()"""
     return None
+
+defaultencoding = 'ascii'
+
+def getdefaultencoding():
+    return defaultencoding
+
+def setdefaultencoding(encoding):
+    global defaultencoding
+    import codecs
+    codecs.lookup(encoding)
+    defaultencoding = encoding
