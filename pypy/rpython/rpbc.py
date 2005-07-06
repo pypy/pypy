@@ -278,52 +278,42 @@ class FunctionsPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        self.function_signatures = {}
-        for func in s_pbc.prebuiltinstances:
-            self.function_signatures[func] = getsignature(rtyper, func)
-
-        if len(self.function_signatures) == 1:
+        self._function_signatures = None
+        if len(s_pbc.prebuiltinstances) == 1:
             # a single function
             self.lowleveltype = Void
         else:
-            signatures = self.function_signatures.values()
+            signatures = self.function_signatures().values()
             sig0 = signatures[0]
             for sig1 in signatures[1:]:
                 assert typeOf(sig0[0]) == typeOf(sig1[0])  # XXX not implemented
                 assert sig0[1:] == sig1[1:]                # XXX not implemented
             self.lowleveltype = typeOf(sig0[0])
 
-##            callfamilies = rtyper.annotator.getpbccallfamilies()
-##            try:
-##                _, _, callfamily = callfamilies[None, functions[0]]
-##            except KeyError:
-##                self.lowleveltype = Void   # no call family found
-##            else:
-##                shapes = callfamily.patterns
-##                assert len(shapes) == 1, "XXX not implemented"
-##                shape, = shapes
-##                shape_cnt, shape_keys, shape_star, shape_stst = shape
-##                assert not shape_keys, "XXX not implemented"
-##                assert not shape_star, "XXX not implemented"
-##                assert not shape_stst, "XXX not implemented"
+    def function_signatures(self):
+        if self._function_signatures is None:
+            self._function_signatures = {}
+            for func in self.s_pbc.prebuiltinstances:
+                self._function_signatures[func] = getsignature(self.rtyper,func)
+        return self._function_signatures
 
     def convert_const(self, value):
         if isinstance(value, types.MethodType) and value.im_self is None:
             value = value.im_func   # unbound method -> bare function
-        if value not in self.function_signatures:
+        if value not in self.function_signatures():
             raise TyperError("%r not in %r" % (value,
                                                self.s_pbc.prebuiltinstances))
-        f, rinputs, rresult = self.function_signatures[value]
+        f, rinputs, rresult = self.function_signatures()[value]
         return f
 
     def rtype_simple_call(self, hop):
-        f, rinputs, rresult = self.function_signatures.itervalues().next()
+        f, rinputs, rresult = self.function_signatures().itervalues().next()
         defaultclist = []
         if len(rinputs) != hop.nb_args-1:  # argument count mismatch
             assert not getattr(f._obj.graph, 'normalized_for_calls', False), (
                 "normalization bug")
-            assert len(self.function_signatures) == 1, "normalization bug too"
-            func, = self.function_signatures.keys()
+            assert len(self.function_signatures()) == 1, "normalization bug too"
+            func, = self.function_signatures().keys()
             defaults = func.func_defaults or ()
             if len(rinputs) - len(defaults) <= hop.nb_args-1 <= len(rinputs):
                 rinputs = list(rinputs)
@@ -338,13 +328,13 @@ class FunctionsPBCRepr(Repr):
                     raise RTyperError("not enough arguments in function call")
         vlist = hop.inputargs(self, *rinputs) + defaultclist
         if self.lowleveltype == Void:
-            assert len(self.function_signatures) == 1
+            assert len(self.function_signatures()) == 1
             vlist[0] = hop.inputconst(typeOf(f), f)
         v = hop.genop('direct_call', vlist, resulttype = rresult)
         return hop.llops.convertvar(v, rresult, hop.r_result)
 
     def rtype_call_args(self, hop):
-        f, rinputs, rresult = self.function_signatures.itervalues().next()
+        f, rinputs, rresult = self.function_signatures().itervalues().next()
         # the function arguments may have been normalized by normalizecalls()
         # already
         if not f._obj.graph.normalized_for_calls:
@@ -453,7 +443,7 @@ class ClassesPBCRepr(Repr):
 
     def rtype_simple_call(self, hop):
         klass = self.s_pbc.const
-        v_instance = rclass.rtype_new_instance(klass, hop)
+        v_instance = rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
         try:
             initfunc = klass.__init__.im_func
         except AttributeError:

@@ -351,6 +351,9 @@ class RPythonTyper:
     def translate_op_call_memo(self, hop):
         return rpbc.rtype_call_memo(hop)
 
+    def translate_op_call_specialcase(self, hop):
+        return rspecialcase.rtype_call_specialcase(hop)
+
     def missing_operation(self, hop):
         raise TyperError("unimplemented operation: '%s'" % hop.spaceop.opname)
 
@@ -541,7 +544,7 @@ from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rslice
 from pypy.rpython import rlist, rstr, rtuple, rdict 
-from pypy.rpython import rclass, rbuiltin, rpbc
+from pypy.rpython import rclass, rbuiltin, rpbc, rspecialcase
 from pypy.rpython import rptr
 
 RPythonTyper.fixednames = {}

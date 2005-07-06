@@ -543,10 +543,10 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
 
 # ____________________________________________________________
 
-def rtype_new_instance(cls, hop):
-    classdef = hop.rtyper.annotator.getuserclasses()[cls]
-    rinstance = getinstancerepr(hop.rtyper, classdef)
-    return rinstance.new_instance(hop.llops)
+def rtype_new_instance(rtyper, cls, llops):
+    classdef = rtyper.annotator.getuserclasses()[cls]
+    rinstance = getinstancerepr(rtyper, classdef)
+    return rinstance.new_instance(llops)
 
 def instance_annotation_for_cls(rtyper, cls):
     try:

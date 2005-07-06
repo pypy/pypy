@@ -27,19 +27,19 @@ def find_exception(exc):
             if func(pyobjectptr(cls)).typeptr == klass:
                 return cls
 
-def timelog(prefix, call, *args): 
+def timelog(prefix, call, *args, **kwds): 
     #import time
     #print prefix, "...", 
     #start = time.time()
-    res = call(*args) 
+    res = call(*args, **kwds) 
     #elapsed = time.time() - start 
     #print "%.2f secs" %(elapsed,)
     return res 
 
-def gengraph(func, argtypes=[], viewbefore=False):
+def gengraph(func, argtypes=[], viewbefore=False, policy=None):
     t = Translator(func)
 
-    timelog("annotating", t.annotate, argtypes)
+    timelog("annotating", t.annotate, argtypes, policy=policy)
     if viewbefore:
         t.annotator.simplify()
         t.view()
@@ -52,13 +52,13 @@ def gengraph(func, argtypes=[], viewbefore=False):
 
 _lastinterpreted = []
 _tcache = {}
-def interpret(func, values, view=False, viewbefore=False):
+def interpret(func, values, view=False, viewbefore=False, policy=None):
     key = (func,) + tuple([typeOf(x) for x in values])
     try: 
         (t, interp) = _tcache[key]
     except KeyError: 
         t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) 
-                      for x in values], viewbefore)
+                      for x in values], viewbefore, policy)
         interp = LLInterpreter(t.flowgraphs, typer)
         _tcache[key] = (t, interp)
         # keep the cache small 
