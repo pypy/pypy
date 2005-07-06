@@ -271,7 +271,8 @@ BUILTIN_ANALYZERS[AssertionError.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[math.fmod] = math_fmod
 BUILTIN_ANALYZERS[math.floor] = math_floor
 BUILTIN_ANALYZERS[math.exp] = math_any
-
+BUILTIN_ANALYZERS[math.ldexp] = math_any
+BUILTIN_ANALYZERS[math.frexp] = math_any
 BUILTIN_ANALYZERS[sys.getrefcount] = count
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 import unicodedata
