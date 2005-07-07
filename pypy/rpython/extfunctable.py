@@ -25,29 +25,35 @@ def declare(func, annotation, ll_function, ll_annotable=False, backend_functiont
             return bookkeeper.getbookkeeper().valueoftype(typ)
     table[func] = ExtFuncInfo(func, annotation, ll_function, ll_annotable, backend_functiontemplate)
 
-# low-level helpers representing the external functions
-def ll_os_open(fname, mode):
-    return os.open(''.join(fname.chars), mode)
+# utility conversion functions
+def to_rstr(s):
+    from pypy.rpython import rstr
+    p = rstr.malloc(rstr.STR, len(s))
+    for i in range(len(s)):
+        p.chars[i] = s[i]
+    return p
+
+def from_rstr(rs):
+    return ''.join(rs.chars)
+
+# dummy low-level implementations for the external functions
+def ll_os_open(fname, flag, mode):
+    return os.open(from_rstr(fname), flag, mode)
 
 def ll_os_read(fd, n):
-    return os.read(fd, n)
+    return to_rstr(os.read(fd, n))
     
 def ll_os_write(fd, astring):
-    return os.write(fd, astring)
-    
+    return os.write(fd, from_rstr(astring))
+
 def ll_os_close(fd):
     os.close(fd)
     
 def ll_os_getcwd():
-    cwd = os.getcwd()
-    from pypy.rpython import rstr
-    p = rstr.malloc(rstr.STR, len(cwd))
-    for i in range(len(cwd)):
-        p.chars[i] = cwd[i]
-    return p
+    return to_rstr(os.getcwd())
 
 def ll_os_dup(fd):
-    return 999
+    return os.dup(fd)
 
 def ll_time_time():
     return time.time()
@@ -58,7 +64,8 @@ def ll_time_clock():
 def ll_time_sleep(t):
     time.sleep(t)
 
-nonefactory = lambda a: None
+
+nonefactory = lambda *args: None
 
 # external function declarations
 declare(os.open   , int        , ll_os_open)

@@ -88,10 +88,10 @@ def test_os_dup():
     def fn(fd):
         return os.dup(fd)
     res = interpret(fn, [0])
-    #try:
-    #    os.close(res)
-    #except OSError:
-    #    pass
+    try:
+        os.close(res)
+    except OSError:
+        pass
     count = 0
     from pypy.rpython import extfunctable
     for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, fn):
@@ -104,7 +104,7 @@ def test_os_open():
     tmpdir = str(udir.udir.join("os_open_test"))
     import os
     def wr_open(fname):
-        return os.open(fname, os.O_WRONLY|os.O_CREAT)
+        return os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     def f():
         return wr_open(tmpdir)
     res = interpret(f, [])
