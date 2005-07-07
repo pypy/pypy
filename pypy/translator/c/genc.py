@@ -2,6 +2,7 @@ import autopath
 import os, py
 from pypy.translator.c.node import PyObjectNode
 from pypy.translator.c.database import LowLevelDatabase
+from pypy.translator.c.fixedname import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
 from pypy.rpython.lltype import pyobjectptr
@@ -50,8 +51,7 @@ def genc(translator, targetdir=None, modulename=None, compile=True,
 
 # ____________________________________________________________
 
-def gen_readable_parts_of_main_c_file(f, database):
-    lines = list(database.pre_include_code_lines())
+def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     #
     # All declarations
     #
@@ -77,7 +77,7 @@ def gen_readable_parts_of_main_c_file(f, database):
     print >> f, '/***********************************************************/'
     print >> f, '/***  Implementations                                    ***/'
     print >> f
-    for line in lines:
+    for line in preimplementationlines:
         print >> f, line
     print >> f, '#include "g_include.h"'
     print >> f
@@ -117,11 +117,17 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     for include in includes:
         print >> f, '#include <%s>' % (include,)
 
+    if database.translator is None or database.translator.rtyper is None:
+        preimplementationlines = []
+    else:
+        preimplementationlines = list(
+            pre_include_code_lines(database, database.translator.rtyper))
+
     #
     # 1) All declarations
     # 2) Implementation of functions and global structures and arrays
     #
-    gen_readable_parts_of_main_c_file(f, database)
+    gen_readable_parts_of_main_c_file(f, database, preimplementationlines)
 
     #
     # Debugging info

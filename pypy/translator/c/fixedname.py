@@ -1,0 +1,67 @@
+import types
+from pypy.rpython.lltype import Ptr, pyobjectptr, LowLevelType
+from pypy.translator.c.support import cdecl
+from pypy.rpython.rmodel import getfunctionptr
+from pypy.rpython.rstr import STR
+
+
+def predeclare_common_types(rtyper):
+    # Common types
+    yield ('RPyString',                Ptr(STR))
+
+
+def predeclare_exception_data(rtyper):
+    # Exception-related types and constants
+    exceptiondata = rtyper.getexceptiondata()
+
+    yield ('RPYTHON_EXCEPTION_VTABLE', exceptiondata.lltype_of_exception_type)
+    yield ('RPYTHON_EXCEPTION',        exceptiondata.lltype_of_exception_value)
+
+    yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.ll_exception_match)
+    yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.ll_type_of_exc_inst)
+    yield ('RPYTHON_PYEXCCLASS2EXC',   exceptiondata.ll_pyexcclass2exc)
+
+    for pyexccls in exceptiondata.standardexceptions:
+        exc_llvalue = exceptiondata.ll_pyexcclass2exc(pyobjectptr(pyexccls))
+        # strange naming here because the macro name must be
+        # a substring of PyExc_%s
+        yield ('Exc_%s' % pyexccls.__name__, exc_llvalue)
+
+
+def predeclare_all(rtyper):
+    for fn in [predeclare_common_types,
+               predeclare_exception_data
+               ]:
+        for t in fn(rtyper):
+            yield t
+
+# ____________________________________________________________
+
+def pre_include_code_lines(db, rtyper):
+    # generate some #defines that go before the #include to provide
+    # predeclared well-known names for constant objects, functions and
+    # types.  These names are then used by the #included files, like
+    # g_exception.h.
+
+    def predeclare(c_name, lowlevelobj):
+        llname = db.get(lowlevelobj)
+        assert '\n' not in llname
+        return '#define\t%s\t%s' % (c_name, llname)
+
+    def predeclarefn(c_name, ll_func):
+        return predeclare(c_name, getfunctionptr(db.translator, ll_func))
+
+    def predeclaretype(c_typename, lowleveltype):
+        assert isinstance(lowleveltype, Ptr)
+        typename = db.gettype(lowleveltype)
+        return 'typedef %s;' % cdecl(typename, c_typename)
+
+    for c_name, obj in predeclare_all(rtyper):
+        if isinstance(obj, LowLevelType):
+            yield predeclaretype(c_name, obj)
+        elif isinstance(obj, types.FunctionType):
+            yield predeclarefn(c_name, obj)
+        else:
+            yield predeclare(c_name, obj)
+
+    db.complete()   # because of the get() and gettype() above

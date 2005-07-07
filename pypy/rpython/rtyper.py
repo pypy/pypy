@@ -50,7 +50,6 @@ class RPythonTyper:
             r = self.getrepr(s_primitive)
             self.primitive_to_repr[r.lowleveltype] = r
         self.exceptiondata = ExceptionData(self)
-        self.fixednames = self.fixednames.copy()
 
     def getexceptiondata(self):
         return self.exceptiondata    # built at the end of specialize()
@@ -547,6 +546,3 @@ from pypy.rpython import rslice
 from pypy.rpython import rlist, rstr, rtuple, rdict 
 from pypy.rpython import rclass, rbuiltin, rpbc, rspecialcase
 from pypy.rpython import rptr
-
-RPythonTyper.fixednames = {}
-RPythonTyper.fixednames[rstr.STR] = True

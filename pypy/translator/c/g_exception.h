@@ -6,7 +6,7 @@ static PyObject *RPythonError;
 
 
 /******************************************************************/
-#ifdef RPYTHON_EXCEPTION_VTABLE  /* RPython version of exceptions */
+#ifdef RPYTHON_EXCEPTION_MATCH   /* RPython version of exceptions */
 /******************************************************************/
 
 static RPYTHON_EXCEPTION_VTABLE	rpython_exc_type = NULL;
@@ -96,5 +96,5 @@ static void _ConvertExceptionToCPython(void)
 		PyErr_SetString(Py##exc, msg)    /* pun */
 
 /******************************************************************/
-#endif                                /* RPYTHON_EXCEPTION_VTABLE */
+#endif                                 /* RPYTHON_EXCEPTION_MATCH */
 /******************************************************************/

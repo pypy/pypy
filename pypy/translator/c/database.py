@@ -1,7 +1,6 @@
 from pypy.rpython.lltype import Primitive, Ptr, typeOf
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObject, Void
 from pypy.rpython.lltype import ContainerType, pyobjectptr, OpaqueType, GcStruct
-from pypy.rpython.rmodel import getfunctionptr
 from pypy.objspace.flow.model import Constant
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue
@@ -21,16 +20,6 @@ class LowLevelDatabase:
         self.containernodes = {}
         self.containerlist = []
         self.namespace = CNameManager()
-        if translator is not None and translator.rtyper is not None:
-            rtyper = translator.rtyper
-            for lltype, nameorflag in rtyper.fixednames.iteritems():
-                if nameorflag is True:
-                    self.namespace.make_reserved_names(lltype._name)
-                #else:
-                #    self.namespace.make_reserved_names(nameorflag)
-            self.fixednames = rtyper.fixednames
-        else:
-            self.fixednames = {}
         self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
 
     def gettypedefnode(self, T, varlength=1):
@@ -170,44 +159,3 @@ class LowLevelDatabase:
             return exceptiondata.lltype_of_exception_value
         else:
             return Ptr(PyObject)
-
-    def pre_include_code_lines(self):
-        # generate some #defines that go before the #include to control
-        # what g_exception.h does
-        if self.translator is not None and self.translator.rtyper is not None:
-            exceptiondata = self.translator.rtyper.getexceptiondata()
-
-            TYPE = exceptiondata.lltype_of_exception_type
-            assert isinstance(TYPE, Ptr)
-            typename = self.gettype(TYPE)
-            yield '#define RPYTHON_EXCEPTION_VTABLE %s' % cdecl(typename, '')
-
-            TYPE = exceptiondata.lltype_of_exception_value
-            assert isinstance(TYPE, Ptr)
-            typename = self.gettype(TYPE)
-            yield '#define RPYTHON_EXCEPTION        %s' % cdecl(typename, '')
-
-            fnptr = getfunctionptr(self.translator,
-                                   exceptiondata.ll_exception_match)
-            fnname = self.get(fnptr)
-            yield '#define RPYTHON_EXCEPTION_MATCH  %s' % (fnname,)
-
-            fnptr = getfunctionptr(self.translator,
-                                   exceptiondata.ll_type_of_exc_inst)
-            fnname = self.get(fnptr)
-            yield '#define RPYTHON_TYPE_OF_EXC_INST %s' % (fnname,)
-
-            fnptr = getfunctionptr(self.translator,
-                                   exceptiondata.ll_pyexcclass2exc)
-            fnname = self.get(fnptr)
-            yield '#define RPYTHON_PYEXCCLASS2EXC   %s' % (fnname,)
-
-            for pyexccls in exceptiondata.standardexceptions:
-                exc_llvalue = exceptiondata.ll_pyexcclass2exc(
-                    pyobjectptr(pyexccls))
-                # strange naming here because the macro name must be
-                # a substring of PyExc_%s
-                yield '#define Exc_%s\t%s' % (
-                    pyexccls.__name__, self.get(exc_llvalue))
-
-            self.complete()   # because of the get() and gettype() above
