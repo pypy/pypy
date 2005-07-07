@@ -211,33 +211,43 @@ class RPythonTyper:
                     a, using_repr=self.exceptiondata.r_exception_value)
 
             inputargs_reprs = self.setup_block_entry(link.target)
+            newops = LowLevelOpList(self)
+            newlinkargs = {}
             for i in range(len(link.args)):
                 a1 = link.args[i]
                 r_a2 = inputargs_reprs[i]
                 if isinstance(a1, Constant):
                     link.args[i] = self.typedconstant(a1, using_repr=r_a2)
                     continue   # the Constant was typed, done
-                r_a1 = self.bindingrepr(a1)
+                if a1 is link.last_exception:
+                    r_a1 = self.exceptiondata.r_exception_type
+                elif a1 is link.last_exc_value:
+                    r_a1 = self.exceptiondata.r_exception_value
+                else:
+                    r_a1 = self.bindingrepr(a1)
                 if r_a1 == r_a2:
                     continue   # no conversion needed
-                newops = LowLevelOpList(self)
                 try:
-                    a1 = newops.convertvar(a1, r_a1, r_a2)
+                    new_a1 = newops.convertvar(a1, r_a1, r_a2)
                 except TyperError, e:
                     self.gottypererror(e, block, link, newops)
+                if new_a1 != a1:
+                    newlinkargs[i] = new_a1
 
-                if newops and not can_insert_here:
+            if newops:
+                if can_insert_here:
+                    block.operations.extend(newops)
+                else:
                     # cannot insert conversion operations around a single
                     # link, unless it is the only exit of this block.
                     # create a new block along the link...
-                    newblock = insert_empty_block(self.annotator.translator,
-                                                  link)
-                    # ...and do the conversions there.
-                    self.insert_link_conversions(newblock)
-                    break   # done with this link
-                else:
-                    block.operations.extend(newops)
-                    link.args[i] = a1
+                    block = insert_empty_block(self.annotator.translator,
+                                               link,
+                    # ...and store the conversions there.
+                                               newops=newops)
+                    link = block.exits[0]
+            for i, new_a1 in newlinkargs.items():
+                link.args[i] = new_a1
 
     def highlevelops(self, block, llops):
         # enumerate the HighLevelOps in a block.

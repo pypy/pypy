@@ -155,6 +155,19 @@ def ll_max(i1, i2):
         return i1
     return i2
 
+def rtype_Exception__init__(hop):
+    pass
+
+def rtype_OSError__init__(hop):
+    if hop.nb_args == 2:
+        raise TyperError("OSError() should not be called with "
+                         "a single argument")
+    if hop.nb_args >= 3:
+        v_self = hop.args_v[0]
+        r_self = hop.args_r[0]
+        v_errno = hop.inputarg(lltype.Signed, arg=1)
+        r_self.setfield(v_self, 'errno', v_errno, hop.llops)
+
 def rtype_math_floor(hop):
     vlist = hop.inputargs(lltype.Float)
     return hop.genop('float_floor', vlist, resulttype=lltype.Float)
@@ -176,6 +189,8 @@ for name, value in globals().items():
         BUILTIN_TYPER[original] = value
 BUILTIN_TYPER[math.floor] = rtype_math_floor
 BUILTIN_TYPER[math.fmod] = rtype_math_fmod
+BUILTIN_TYPER[Exception.__init__.im_func] = rtype_Exception__init__
+BUILTIN_TYPER[OSError.__init__.im_func] = rtype_OSError__init__
 # annotation of low-level types
 
 def rtype_malloc(hop):

@@ -1,6 +1,7 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
+from pypy.rpython.test.test_llinterp import interpret
 
 
 class MyException(Exception):
@@ -50,3 +51,15 @@ def test_exception_data():
 
     strgerr_inst = data.ll_pyexcclass2exc(pyobjectptr(MyStrangeException))
     assert strgerr_inst.typeptr == t.rtyper.class_reprs[None].getvtable()
+
+
+def test_exception_with_arg():
+    def g(n):
+        raise OSError(n, "?")
+    def f(n):
+        try:
+            g(n)
+        except OSError, e:
+            return e.errno
+    res = interpret(f, [42])
+    assert res == 42

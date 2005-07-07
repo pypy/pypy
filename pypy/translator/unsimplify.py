@@ -12,13 +12,14 @@ def copyvar(translator, v):
         newvar.concretetype = v.concretetype
     return newvar
 
-def insert_empty_block(translator, link):
+def insert_empty_block(translator, link, newops=[]):
     """Insert and return a new block along the given link."""
     vars = uniqueitems([v for v in link.args if isinstance(v, Variable)])
     mapping = {}
     for v in vars:
         mapping[v] = copyvar(translator, v)
     newblock = Block(vars)
+    newblock.operations.extend(newops)
     newblock.closeblock(Link(link.args, link.target))
     newblock.renamevariables(mapping)
     link.args[:] = vars

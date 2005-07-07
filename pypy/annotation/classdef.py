@@ -5,6 +5,7 @@ Type inference for user-defined classes.
 from __future__ import generators
 from types import FunctionType
 from pypy.annotation.model import SomeImpossibleValue, SomePBC, tracking_unionof
+from pypy.annotation.model import SomeInteger
 
 
 # The main purpose of a ClassDef is to collect information about class/instance
@@ -166,6 +167,12 @@ class ClassDef:
                 if not hasattr(value, 'class_'):
                     value.class_ = cls # remember that this is really a method
             self.add_source_for_attribute(name, sources.get(name, cls), self)
+
+        # forced attributes
+        if cls in FORCE_ATTRIBUTES_INTO_CLASSES:
+            for name, s_value in FORCE_ATTRIBUTES_INTO_CLASSES[cls].items():
+                self.generalize_attr(name, s_value)
+                self.find_attribute(name).readonly = False
 
     def add_source_for_attribute(self, attr, source, clsdef=None):
         """Adds information about a constant source for an attribute.
@@ -375,3 +382,9 @@ class ClassDef:
 
 def isclassdef(x):
     return isinstance(x, ClassDef)
+
+# ____________________________________________________________
+
+FORCE_ATTRIBUTES_INTO_CLASSES = {
+    OSError: {'errno': SomeInteger()},
+    }

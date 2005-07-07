@@ -265,6 +265,7 @@ BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_uint] = restricted_uint
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
+BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init
 # this one is needed otherwise when annotating assert in a test we may try to annotate 
 # py.test AssertionError.__init__ .
 BUILTIN_ANALYZERS[AssertionError.__init__.im_func] = exception_init

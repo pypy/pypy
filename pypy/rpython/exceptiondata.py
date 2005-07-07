@@ -69,9 +69,9 @@ class ExceptionData:
                     example = rclass.ll_cast_to_object(example)
                     example.typeptr = r_inst.rclass.getvtable()
                     table[cls] = example
-                else:
-                    assert cls.__module__ != 'exceptions', (
-                        "built-in exceptions should not grow attributes")
+                #else:
+                #    assert cls.__module__ != 'exceptions', (
+                #        "built-in exceptions should not grow attributes")
         r_inst = rclass.getinstancerepr(rtyper, None)
         r_inst.setup()
         default_excinst = malloc(self.lltype_of_exception_value.TO,

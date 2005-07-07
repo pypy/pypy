@@ -450,10 +450,8 @@ class ClassesPBCRepr(Repr):
             assert hop.nb_args == 1, ("arguments passed to __init__, "
                                       "but no __init__!")
         else:
-            if initfunc == Exception.__init__.im_func:
-                return v_instance    # ignore __init__ and arguments completely
             s_instance = rclass.instance_annotation_for_cls(self.rtyper, klass)
-            s_init = annmodel.SomePBC({initfunc: True})
+            s_init = self.rtyper.annotator.bookkeeper.immutablevalue(initfunc)
             hop2 = hop.copy()
             hop2.r_s_popfirstarg()   # discard the class pointer argument
             hop2.v_s_insertfirstarg(v_instance, s_instance)  # add 'instance'
