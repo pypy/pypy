@@ -46,7 +46,7 @@ def polluted(translator):
         except Found:
             print prettycallable((None, f))
             c += 1
-    print c
+    return c
 
 class typerep(object):
     
