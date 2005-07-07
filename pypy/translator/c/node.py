@@ -5,10 +5,9 @@ from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void, OpaqueType
 from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
-from pypy.translator.c.extfunc import ll_externaltable
-from pypy.translator.c.extfunc import CHandWrittenWrapperFunctionCodeGenerator
 from pypy.translator.c.support import cdecl, somelettersfrom
 from pypy.translator.c.primitive import PrimitiveType
+from pypy.translator.c import fixedname
 
 
 def needs_refcount(T):
@@ -470,11 +469,12 @@ class FuncNode(ContainerNode):
 
 
 def select_function_code_generator(fnobj, db):
-    if fnobj._callable in ll_externaltable:
+    if fnobj._callable in fixedname.EXTERNALS:
         # 'fnobj' is one of the ll_xyz() functions special-cased in
         # pypy.rpython.extfunctable.  The corresponding C wrappers are written
-        # in extfunc.py.
-        return CHandWrittenWrapperFunctionCodeGenerator(fnobj)
+        # by hand in extfunc_include.h, and declared in fixedname.EXTERNALS.
+        db.externalfuncs[fnobj._callable] = fnobj
+        return None
     elif hasattr(fnobj, 'graph'):
         cpython_exc = getattr(fnobj, 'exception_policy', None) == "CPython"
         return FunctionCodeGenerator(fnobj.graph, db, cpython_exc)

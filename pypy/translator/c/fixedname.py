@@ -1,16 +1,30 @@
 import types
-from pypy.rpython.lltype import Ptr, pyobjectptr, LowLevelType
+from pypy.rpython.lltype import Ptr, pyobjectptr, LowLevelType, _ptr, typeOf
 from pypy.translator.c.support import cdecl
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR
+from pypy.rpython import extfunctable
 
 
-def predeclare_common_types(rtyper):
+# table of functions hand-written in extfunc_include.h
+EXTERNALS = {
+    extfunctable.ll_time_clock: 'LL_time_clock',
+    }
+
+
+def predeclare_common_types(db, rtyper):
     # Common types
     yield ('RPyString',                Ptr(STR))
 
 
-def predeclare_exception_data(rtyper):
+def predeclare_extfuncs(db, rtyper):
+    for func, funcobj in db.externalfuncs.items():
+        c_name = EXTERNALS[func]
+        funcptr = _ptr(Ptr(typeOf(funcobj)), funcobj)   # hum
+        yield c_name, funcptr
+
+
+def predeclare_exception_data(db, rtyper):
     # Exception-related types and constants
     exceptiondata = rtyper.getexceptiondata()
 
@@ -28,11 +42,12 @@ def predeclare_exception_data(rtyper):
         yield ('Exc_%s' % pyexccls.__name__, exc_llvalue)
 
 
-def predeclare_all(rtyper):
+def predeclare_all(db, rtyper):
     for fn in [predeclare_common_types,
-               predeclare_exception_data
+               predeclare_exception_data,
+               predeclare_extfuncs,
                ]:
-        for t in fn(rtyper):
+        for t in fn(db, rtyper):
             yield t
 
 # ____________________________________________________________
@@ -56,7 +71,7 @@ def pre_include_code_lines(db, rtyper):
         typename = db.gettype(lowleveltype)
         return 'typedef %s;' % cdecl(typename, c_typename)
 
-    for c_name, obj in predeclare_all(rtyper):
+    for c_name, obj in predeclare_all(db, rtyper):
         if isinstance(obj, LowLevelType):
             yield predeclaretype(c_name, obj)
         elif isinstance(obj, types.FunctionType):

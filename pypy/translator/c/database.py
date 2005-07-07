@@ -19,6 +19,7 @@ class LowLevelDatabase:
         self.structdeflist = []
         self.containernodes = {}
         self.containerlist = []
+        self.externalfuncs = {}
         self.namespace = CNameManager()
         self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
 
