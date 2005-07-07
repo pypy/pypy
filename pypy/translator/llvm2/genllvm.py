@@ -11,10 +11,11 @@ from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.codewriter import CodeWriter
+from pypy.translator.llvm2.node import LLVMNode
 from pypy.translator.backendoptimization import remove_void
 #from pypy.translator.backendoptimization import rename_extfunc_calls
 from pypy.translator.llvm2.extfunction import extdeclarations, \
-     extfunctions, gc_boehm, gc_disabled
+     extfunctionshelpers, extfunctions, gc_boehm, gc_disabled
 
 from pypy.translator.translator import Translator
 
@@ -30,6 +31,7 @@ class GenLLVM(object):
         remove_void(translator)
         #rename_extfunc_calls(translator)
         translator.checkgraphs()
+        LLVMNode.used_external_functions = {}
 
     def compile(self, func=None):
         if func is None:
@@ -64,19 +66,22 @@ class GenLLVM(object):
         #import pdb ; pdb.set_trace()
         nl(); comment("Function Implementation") 
         codewriter.startimpl()
-        if self.embedexterns:
-            for extfunc in extfunctions.split('\n'):
-                codewriter.append(extfunc)
-                
         if use_boehm_gc:
             gc_funcs = gc_boehm
         else:
             gc_funcs = gc_disabled    
         for extfunc in gc_funcs.split('\n'):
             codewriter.append(extfunc)
-            
+
         for typ_decl in self.db.getobjects():
             typ_decl.writeimpl(codewriter)
+
+        if self.embedexterns:
+            for extfunchelper in extfunctionshelpers.split('\n'):
+                codewriter.append(extfunchelper)
+            for funcname,value in LLVMNode.used_external_functions.iteritems():
+                for extfunc in extfunctions[funcname].split('\n'):
+                    codewriter.append(extfunc)
 
         comment("End of file") ; nl()
         self.content = str(codewriter)

@@ -1,5 +1,7 @@
 class LLVMNode(object):
 
+    used_external_functions = {}
+
     def ref(): 
         def _get_ref(self):
             return self._ref 

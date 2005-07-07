@@ -199,6 +199,7 @@ class ExternalFuncNode(LLVMNode):
 
     def writeimpl(self, codewriter): 
         if self.ref not in self.fnmapping:
+            self.used_external_functions[self.ref] = True
             return
 
         T = self.value._TYPE
