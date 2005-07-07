@@ -329,7 +329,6 @@ class AppTestLong:
         y >>= s2*16
         x = 0x3FE0003FFFFC0001FFFL
         y = 0x9800FFC1L
-        print "special case"
         check_division(x, y)
         raises(ZeroDivisionError, "x // 0L")
 

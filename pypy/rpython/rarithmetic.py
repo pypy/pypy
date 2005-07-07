@@ -328,10 +328,12 @@ class r_uint(long):
         return _widen(self, other, res)
 
 class r_ushort(r_uint):
+    """ fake unsigned short integer implementation """
     BITS = r_uint.BITS // 2
     MASK = (1L << BITS) - 1
 
 class r_ulong(r_uint):
+    """ fake unsigned long integer implementation """
     BITS = r_uint.BITS * 2
     MASK = (1L << BITS) - 1
 

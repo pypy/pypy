@@ -13,17 +13,23 @@ import math
 
 Digit = r_uint # already works: r_ushort
 Twodigits = r_uint
-Stwodigits = int
 
 # the following describe a plain digit
+# XXX at the moment we can't save this bit,
+# or we would need a large enough type to hold
+# the carry bits in _x_divrem
 SHIFT = (Twodigits.BITS // 2) - 1
 MASK = int((1 << SHIFT) - 1)
 
 # find the correct type for carry/borrow
-if Digit.BITS - SHIFT > 0:
+if Digit.BITS - SHIFT >= 1:
+    # we have one more bit in Digit
     Carryadd = Digit
+    Stwodigits = int
 else:
+    # we need another Digit
     Carryadd = Twodigits
+    raise ValueError, "need a large enough type for Stwodigits"
 Carrymul = Twodigits
 
 # Debugging digit array access.
@@ -31,7 +37,7 @@ Carrymul = Twodigits
 # 0 == no check at all
 # 1 == check correct type
 # 2 == check for extra (ab)used bits
-CHECK_DIGITS = 1
+CHECK_DIGITS = 2
 
 if CHECK_DIGITS:
     class DigitArray(list):
@@ -560,16 +566,16 @@ def _x_add(a, b):
     i = 0
     carry = Carryadd(0)
     while i < size_b:
-        carry += a.digits[i] + b.digits[i]
-        z.digits[i] = carry & MASK
+        carry += Carryadd(a.digits[i]) + b.digits[i]
+        z.digits[i] = Digit(carry & MASK)
         carry >>= SHIFT
         i += 1
     while i < size_a:
         carry += a.digits[i]
-        z.digits[i] = carry & MASK
+        z.digits[i] = Digit(carry & MASK)
         carry >>= SHIFT
         i += 1
-    z.digits[i] = carry
+    z.digits[i] = Digit(carry)
     z._normalize()
     return z
 
@@ -578,12 +584,12 @@ def _x_sub(a, b):
     size_a = len(a.digits)
     size_b = len(b.digits)
     sign = 1
-    borrow = Digit(0)
+    borrow = Carryadd(0)
 
     # Ensure a is the larger of the two:
     if size_a < size_b:
         sign = -1
-        a,b=b, a
+        a, b = b, a
         size_a, size_b = size_b, size_a
     elif size_a == size_b:
         # Find highest digit where a and b differ:
@@ -601,14 +607,14 @@ def _x_sub(a, b):
     while i < size_b:
         # The following assumes unsigned arithmetic
         # works modulo 2**N for some N>SHIFT.
-        borrow = a.digits[i] - b.digits[i] - borrow
-        z.digits[i] = borrow & MASK
+        borrow = Carryadd(a.digits[i]) - b.digits[i] - borrow
+        z.digits[i] = Digit(borrow & MASK)
         borrow >>= SHIFT
         borrow &= 1 # Keep only one sign bit
         i += 1
     while i < size_a:
         borrow = a.digits[i] - borrow
-        z.digits[i] = borrow & MASK
+        z.digits[i] = Digit(borrow & MASK)
         borrow >>= SHIFT
         borrow &= 1 # Keep only one sign bit
         i += 1
@@ -631,13 +637,13 @@ def _x_mul(a, b):
         j = 0
         while j < size_b:
             carry += z.digits[i + j] + b.digits[j] * f
-            z.digits[i + j] = carry & MASK
-            carry = carry >> SHIFT
+            z.digits[i + j] = Digit(carry & MASK)
+            carry >>= SHIFT
             j += 1
         while carry != 0:
             assert i + j < size_a + size_b
             carry += z.digits[i + j]
-            z.digits[i + j] = carry & MASK
+            z.digits[i + j] = Digit(carry & MASK)
             carry >>= SHIFT
             j += 1
         i += 1
@@ -657,7 +663,7 @@ def _inplace_divrem1(pout, pin, n, size=0):
     while size >= 0:
         rem = (rem << SHIFT) + pin.digits[size]
         hi = rem // n
-        pout.digits[size] = hi
+        pout.digits[size] = Digit(hi)
         rem -= hi * n
         size -= 1
     return rem
@@ -684,102 +690,16 @@ def _muladd1(a, n, extra):
     i = 0
     while i < size_a:
         carry += Twodigits(a.digits[i]) * n
-        z.digits[i] = carry & MASK
+        z.digits[i] = Digit(carry & MASK)
         carry >>= SHIFT
         i += 1
-    z.digits[i] = carry
+    z.digits[i] = Digit(carry)
     z._normalize()
     return z
 
-# for the carry in _x_divrem, we need something that can hold
-# two digits plus a sign.
-# for the time being, we here implement such a 33 bit number just
-# for the purpose of the division.
-# In the long term, it might be considered to implement the
-# notation of a "double anything" unsigned type, which could
-# be used recursively to implement longs of any size.
-
-class r_suint(object):
-    # we do not inherit from Digit, because we only
-    # support a few operations for our purpose
-    BITS = Twodigits.BITS
-    MASK = Twodigits.MASK
-
-    def __init__(self, value=0):
-        if isinstance(value, r_suint):
-            self.value = value.value
-            self.sign = value.sign
-        else:
-            self.value = Twodigits(value)
-            self.sign = -(value < 0)
-
-    def longval(self):
-        if self.sign:
-            return -long(-self.value)
-        else:
-            return long(self.value)
-        
-    def __repr__(self):
-        return repr(self.longval())
-
-    def __str__(self):
-        return str(self.longval())
-
-    def __iadd__(self, other):
-        hold = self.value
-        self.value += other
-        self.sign ^= - ( (other < 0) != (self.value < hold) )
-        return self
-
-    def __add__(self, other):
-        res = r_suint(self)
-        res += other
-        return res
-
-    def __isub__(self, other):
-        hold = self.value
-        self.value -= other
-        self.sign ^= - ( (other < 0) != (self.value > hold) )
-        return self
-
-    def __sub__(self, other):
-        res = r_suint(self)
-        res -= other
-        return res
-
-    def __irshift__(self, n):
-        self.value >>= n
-        if self.sign:
-            self.value += self.MASK << (self.BITS - n)
-        return self
-
-    def __rshift__(self, n):
-        res = r_suint(self)
-        res >>= n
-        return res
-
-    def __ilshift__(self, n):
-        self.value <<= n
-        return self
-
-    def __lshift__(self, n):
-        res = r_suint(self)
-        res <<= n
-        return res
-
-    def __and__(self, mask):
-        # only used to get bits from the value
-        return self.value & mask
-
-    def __eq__(self, other):
-        if not isinstance(other, r_suint):
-            other = r_suint(other)
-        return self.sign == other.sign and self.value == other.value
-
-    def __ne__(self, other):
-        return not self == other
 
 def _x_divrem(v1, w1):
+    """ Unsigned long division with remainder -- the algorithm """
     size_w = len(w1.digits)
     d = Digit(Twodigits(MASK+1) // (w1.digits[size_w-1] + 1))
     v = _muladd1(v1, d, Digit(0))
@@ -798,7 +718,7 @@ def _x_divrem(v1, w1):
             vj = Digit(0)
         else:
             vj = v.digits[j]
-        carry = r_suint(0) # note: this must hold two digits and a sign!
+        carry = Stwodigits(0) # note: this must hold two digits and a sign!
 
         if vj == w.digits[size_w-1]:
             q = Twodigits(MASK)
@@ -810,51 +730,40 @@ def _x_divrem(v1, w1):
         # or we get an overflow.
         while (w.digits[size_w-2] * q >
                 ((
-                    r_suint(vj << SHIFT) # this one dominates
-                    + v.digits[j-1]
-                    - long(q) * long(w.digits[size_w-1])
+                    (Stwodigits(vj) << SHIFT) # this one dominates
+                    + Stwodigits(v.digits[j-1])
+                    - Stwodigits(q) * Stwodigits(w.digits[size_w-1])
                                 ) << SHIFT)
-                + v.digits[j-2]):
+                + Stwodigits(v.digits[j-2])):
             q -= 1
         i = 0
         while i < size_w and i+k < size_v:
-            z = w.digits[i] * q
+            z = Stwodigits(w.digits[i] * q)
             zz = z >> SHIFT
-            carry += v.digits[i+k] + (zz << SHIFT)
-            carry -= z
-            if hasattr(carry, 'value'):
-                v.digits[i+k] = Digit(carry.value & MASK)
-            else:
-                v.digits[i+k] = Digit(carry & MASK)
+            carry += Stwodigits(v.digits[i+k]) - z + (zz << SHIFT)
+            v.digits[i+k] = Digit(carry & MASK)
             carry >>= SHIFT
             carry -= zz
             i += 1
 
         if i+k < size_v:
-            carry += v.digits[i+k]
+            carry += Stwodigits(v.digits[i+k])
             v.digits[i+k] = Digit(0)
 
         if carry == 0:
-            a.digits[k] = q & MASK
+            a.digits[k] = Digit(q & MASK)
             assert not q >> SHIFT
         else:
-            #assert carry == -1
-            if carry != -1:
-                print 70*"*"
-                print "CARRY", carry
-                print "comparison:", carry == -1
-                print hex(v1.longval())
-                print hex(w1.longval())
-                print 70*"*"
+            assert carry == -1
             q -= 1
-            a.digits[k] = q-1 & MASK
+            a.digits[k] = Digit(q & MASK)
             assert not q >> SHIFT
 
-            carry = r_suint(0)
+            carry = Stwodigits(0)
             i = 0
             while i < size_w and i+k < size_v:
-                carry += v.digits[i+k] + w.digits[i]
-                v.digits[i+k] = Digit(carry.value) & MASK
+                carry += Stwodigits(v.digits[i+k]) + Stwodigits(w.digits[i])
+                v.digits[i+k] = Digit(carry & MASK)
                 carry >>= SHIFT
                 i += 1
         j -= 1
@@ -1049,7 +958,7 @@ def _format(a, base, addL):
     while i > 1:
         bits += 1
         i >>= 1
-    i = 5 + int(bool(addL)) + (size_a*LONG_BIT + bits-1) // bits
+    i = 5 + int(bool(addL)) + (size_a*SHIFT + bits-1) // bits
     s = [chr(0)] * i
     p = i
     if addL:
@@ -1104,10 +1013,10 @@ def _format(a, base, addL):
         powbase = Digit(base)  # powbase == base ** power
         power = 1
         while 1:
-            newpow = powbase * Digit(base)
+            newpow = Twodigits(powbase) * Digit(base)
             if newpow >> SHIFT:  # doesn't fit in a digit
                 break
-            powbase = newpow
+            powbase = Digit(newpow)
             power += 1
 
         # Get a scratch area for repeated division.
@@ -1144,7 +1053,7 @@ def _format(a, base, addL):
                 break
 
     if base == 8:
-        if size_a != 0:
+        if a.sign != 0:
             p -= 1
             s[p] = '0'
     elif base == 16:
