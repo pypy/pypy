@@ -12,7 +12,7 @@ computation part.
 """
 
 from __future__ import generators
-import sys
+import sys, os
 import py
 from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
@@ -50,6 +50,14 @@ class RPythonTyper:
             r = self.getrepr(s_primitive)
             self.primitive_to_repr[r.lowleveltype] = r
         self.exceptiondata = ExceptionData(self)
+        try:
+            self.seed = int(os.getenv('RTYPERSEED'))
+            s = 'Using %d as seed for block shuffling' % self.seed
+            print '*' * len(s)
+            print s
+            print '*' * len(s)
+        except:
+            self.seed = 0
 
     def getexceptiondata(self):
         return self.exceptiondata    # built at the end of specialize()
@@ -99,6 +107,11 @@ class RPythonTyper:
                              if block not in self.already_seen]
             if not pending:
                 break
+            # shuffle blocks a bit
+            if self.seed:
+                import random
+                r = random.Random(self.seed)
+                r.shuffle(pending)
             # specialize all blocks in the 'pending' list
             for block in pending:
                 self.specialize_block(block)
