@@ -27,7 +27,7 @@ def gen_wrapper(func, translator):
     FUNCTYPE = typeOf(f).TO
     assert len(FUNCTYPE.ARGS) == nb_positional_args + vararg
 
-    newops = LowLevelOpList(None)
+    newops = LowLevelOpList(translator.rtyper)
 
     # "def wrapper(self, args, kwds)"
     vself = Variable('self')
@@ -112,6 +112,11 @@ def gen_wrapper(func, translator):
     block.operations[:] = newops
     block.closeblock(Link([vresult], wgraph.returnblock))
     checkgraph(wgraph)
+
+    if translator.rtyper is not None:
+        # the above convertvar()s may have created and annotated new helpers
+        # that need to be specialized now
+        translator.rtyper.specialize_more_blocks()
 
     return functionptr(FuncType([PyObjPtr,
                                  PyObjPtr,

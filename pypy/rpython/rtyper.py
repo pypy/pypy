@@ -87,26 +87,27 @@ class RPythonTyper:
         perform_normalizations(self.annotator)
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
-        already_seen = {}
+        self.already_seen = {}
 
-        def specialize_more_blocks():
-            while True:
-                # look for blocks not specialized yet
-                pending = [block for block in self.annotator.annotated
-                                 if block not in already_seen]
-                if not pending:
-                    break
-                # specialize all blocks in the 'pending' list
-                for block in pending:
-                    self.specialize_block(block)
-                    already_seen[block] = True
-                # make sure all reprs so far have had their setup() called
-                self.call_all_setups()
-
-        specialize_more_blocks()
+        self.specialize_more_blocks()
         self.exceptiondata.make_helpers(self)
-        specialize_more_blocks()   # for the helpers just made
+        self.specialize_more_blocks()   # for the helpers just made
 
+    def specialize_more_blocks(self):
+        while True:
+            # look for blocks not specialized yet
+            pending = [block for block in self.annotator.annotated
+                             if block not in self.already_seen]
+            if not pending:
+                break
+            # specialize all blocks in the 'pending' list
+            for block in pending:
+                self.specialize_block(block)
+                self.already_seen[block] = True
+            # make sure all reprs so far have had their setup() called
+            self.call_all_setups()
+
+        # re-raise the first TyperError caught
         if self.typererror:
             exc, value, tb = self.typererror
             self.typererror = None

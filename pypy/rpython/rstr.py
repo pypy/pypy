@@ -426,6 +426,7 @@ class __extend__(pairtype(PyObjRepr, StringRepr)):
         v_chars = llops.genop('getsubstruct', [v_result, cchars],
                               resulttype=Ptr(STR.chars))
         llops.gencapicall('PyString_ToLLCharArray', [v, v_chars])
+        v_result = llops.convertvar(v_result, string_repr, r_to)
         return v_result
 
 class __extend__(pairtype(StringRepr, PyObjRepr)):

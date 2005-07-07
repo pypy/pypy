@@ -227,3 +227,22 @@ def test_str():
     assert res == str(lst)
     mallocs, frees = module.malloc_counters()
     assert mallocs == frees
+
+def test_rstr():
+    def fn(i):
+        return "hello"[i]
+    t = Translator(fn)
+    t.annotate([int])
+    t.specialize()
+
+    db = LowLevelDatabase(t)
+    entrypoint = db.get(pyobjectptr(fn))
+    db.complete()
+
+    module = compile_db(db)
+
+    f1 = getattr(module, entrypoint)
+    res = f1(1)
+    assert res == 'e'
+    mallocs, frees = module.malloc_counters()
+    assert mallocs == frees
