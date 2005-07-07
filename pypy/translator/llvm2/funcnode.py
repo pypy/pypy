@@ -159,14 +159,10 @@ class FuncNode(LLVMNode):
 
 class ExternalFuncNode(LLVMNode):
 
-    fnmapping = {
+    fnmapping = {   #functions that have one-to-one C equivalents
         "%ll_os_dup": "%dup",
         "%ll_os_close": "%close",
-        #"%ll_os_open": "%open",
         }
-
-    ignoreset = "%ll_time_time %ll_time_clock %ll_time_sleep " \
-                "%ll_os_read %ll_os_write %ll_os_open".split() 
 
     def __init__(self, db, value):
         self.db = db
@@ -198,11 +194,11 @@ class ExternalFuncNode(LLVMNode):
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())
 
-        if self.ref not in self.ignoreset:
+        if self.ref in self.fnmapping:
             codewriter.declare(self.getcdecl())
 
     def writeimpl(self, codewriter): 
-        if self.ref in self.ignoreset:
+        if self.ref not in self.fnmapping:
             return
 
         T = self.value._TYPE

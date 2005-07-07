@@ -55,12 +55,32 @@ def test_os_file_ops_open_close():
     import os
     def openclose(a,b,c,d,e,f): 
         s = chr(a) + chr(b) + chr(c) + chr(d) + chr(e) + chr(f)
-        fd = os.open(s, os.O_CREAT) 
+        fd = os.open(s, os.O_CREAT|os.O_RDWR) 
         os.close(fd)
         return fd 
 
     path = '/tmp/b'
+    if os.path.exists(path):
+        os.unlink(path)
     f = compile_function(openclose, [int] * len(path))
-    os.unlink(path)
     result = f(*map(ord, path))
     assert os.path.exists(path)
+
+def test_os_file_ops_open_write_close(): 
+    # the test is overly complicated because
+    # we don't have prebuilt string constants yet 
+    import os
+    def openwriteclose(a,b,c,d,e,f): 
+        s = chr(a) + chr(b) + chr(c) + chr(d) + chr(e) + chr(f)
+        fd = os.open(s, os.O_CREAT|os.O_RDWR) 
+        byteswritten = os.write(fd, s)
+        os.close(fd)
+        return byteswritten
+
+    path = '/tmp/b'
+    if os.path.exists(path):
+        os.unlink(path)
+    f = compile_function(openwriteclose, [int] * len(path))
+    result = f(*map(ord, path))
+    assert os.path.exists(path) and open(path).read() == path
+

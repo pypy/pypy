@@ -6,7 +6,9 @@ extdeclarations =  """; External declarations
 declare int %time(int*) ;void* actually
 declare int %clock()
 declare void %sleep(int)
-declare int %open(sbyte*, int)
+declare int %open(sbyte*, int, int)
+declare int %write(int, sbyte*, int)
+declare int %read(int, sbyte*, int)
 declare sbyte* %strncpy(sbyte*, sbyte*, int)
 
 %st.rpy_string.0 = type {int, {int, [0 x sbyte]}}
@@ -22,7 +24,7 @@ sbyte* %cast(%st.rpy_string.0* %structstring) {
     %reallength = load int* %reallengthptr 
     %length = add int %reallength, 1
     %ulength = cast int %length to uint 
-    %dest = malloc sbyte, uint %ulength     ;XXX should actually call GC_malloc when available!
+    %dest = malloc sbyte, uint %ulength
     
     %source1ptr = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 1
     %source1 = cast [0 x sbyte]* %source1ptr to sbyte* 
@@ -58,11 +60,27 @@ void %ll_time_sleep(double %f) {
     ret void
 }
 
-int %ll_os_open(%st.rpy_string.0* %structstring, int %mode) {
-    %dest = call sbyte* %cast(%st.rpy_string.0* %structstring)
-    %fd   = call int    %open(sbyte* %dest, int %mode)
+int %ll_os_open(%st.rpy_string.0* %structstring, int %pythonmode) {
+    %flags = cast int %pythonmode to int
+    %mode  = cast int 384         to int    ;S_IRUSR=256, S_IWUSR=128
+    %dest  = call sbyte* %cast(%st.rpy_string.0* %structstring)
+    %fd    = call int    %open(sbyte* %dest, int %flags, int %mode)
     free sbyte* %dest
     ret int %fd 
+}
+
+int %ll_os_write(int %fd, %st.rpy_string.0* %structstring) {
+    %reallengthptr = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 0
+    %reallength    = load int* %reallengthptr 
+    %dest          = call sbyte* %cast(%st.rpy_string.0* %structstring)
+    %byteswritten  = call int    %write(int %fd, sbyte* %dest, int %reallength)
+    free sbyte* %dest
+    ret int %byteswritten
+}
+
+%st.rpy_string.0* %ll_os_read(int %fd, int %buffersize) {
+    ;TODO: read(fd, buffersize) -> string
+    ret %st.rpy_string.0* null
 }
 
 ; End of external functions
