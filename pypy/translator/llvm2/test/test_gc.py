@@ -4,8 +4,8 @@ import py
 from pypy.translator.llvm2.genllvm import use_boehm_gc
 from pypy.translator.llvm2.genllvm import compile_module_function
 
-py.log.setconsumer("test_gc", py.log.STDOUT)
-py.log.setconsumer("test_gc database prepare", None)
+py.log.setconsumer("genllvm", py.log.STDOUT)
+py.log.setconsumer("genllvm database prepare", None)
 
 def test_GC_malloc(): 
     if not use_boehm_gc:

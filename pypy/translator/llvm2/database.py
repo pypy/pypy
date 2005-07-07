@@ -13,6 +13,9 @@ PRIMITIVES_TO_LLVM = {lltype.Signed: "int",
                       lltype.Unsigned: "uint",
                       lltype.Bool: "bool",
                       lltype.Float: "double",
+                      # XXX Preliminary support for unicode, makes sense to
+                      # make this more configurable
+                      lltype.UniChar: "uint",
                       lltype.Void: "void"}
 
 class NormalizingDict(object): 

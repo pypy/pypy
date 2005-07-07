@@ -6,8 +6,8 @@ import py
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.genllvm import compile_function
 
-py.log.setconsumer("extfunc", py.log.STDOUT)
-py.log.setconsumer("extfunc database prepare", None)
+py.log.setconsumer("genllvm", py.log.STDOUT)
+py.log.setconsumer("genllvm database prepare", None)
 
 def test_external_function_ll_os_dup():
     import os
