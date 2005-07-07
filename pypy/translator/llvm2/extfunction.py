@@ -110,8 +110,19 @@ int %ll_os_write(int %fd, %st.rpy_string.0* %structstring) {
 }
 
 %st.rpy_string.0* %ll_os_read(int %fd, int %buffersize) {
-    ;TODO: read(fd, buffersize) -> string
-    ret %st.rpy_string.0* null
+    ;This is a bit simplistic! It really allocated a large enough buffer to hold all the data in.
+    %str = call %st.rpy_string.0* %new.st.var.rpy_string.0(int %buffersize)
+
+    ;load the actual data
+    %destptr   = getelementptr %st.rpy_string.0* %str, int 0, uint 1, uint 1
+    %dest      = cast [0 x sbyte]* %destptr to sbyte*
+    %bytesread = call int %read(int %fd, sbyte* %dest, int %buffersize)
+    
+    ;set str.length to number of bytes read
+    %reallengthptr = getelementptr %st.rpy_string.0* %str, int 0, uint 1, uint 0
+    store int %bytesread, int* %reallengthptr
+
+    ret %st.rpy_string.0* %str
 }
 
 ; End of external functions

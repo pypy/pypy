@@ -82,9 +82,10 @@ def test_os_file_ops_open_write_close():
         os.unlink(path)
     f = compile_function(openwriteclose, [int] * len(path))
     result = f(*map(ord, path))
-    assert os.path.exists(path) and open(path).read() == path
+    assert os.path.exists(path)
+    assert open(path).read() == path
 
-def DONTtest_os_file_ops_open_write_read_close(): 
+def test_os_file_ops_open_write_read_close(): 
     # the test is overly complicated because
     # we don't have prebuilt string constants yet 
     import os
@@ -92,18 +93,21 @@ def DONTtest_os_file_ops_open_write_read_close():
         s = chr(a) + chr(b) + chr(c) + chr(d) + chr(e) + chr(f)
 
         fd = os.open(s, os.O_CREAT|os.O_RDWR) 
-        byteswritten = os.write(fd, s)
+        byteswritten = os.write(fd, s+s+s)
         os.close(fd)
 
-        fd = os.open(s, os.os.O_RD) 
-        r = os.read(fd, n=1000)
+        fd = os.open(s, os.O_RDWR) 
+        maxread = 1000
+        r = os.read(fd, maxread)
         os.close(fd)
 
-        return r
+        return len(r)
 
     path = '/tmp/b'
     if os.path.exists(path):
         os.unlink(path)
     f = compile_function(openwriteclose_openreadclose, [int] * len(path))
     result = f(*map(ord, path))
-    assert os.path.exists(path) and open(path).read() is path and result is path
+    assert os.path.exists(path)
+    assert open(path).read() == path * 3
+    assert result is len(path) * 3
