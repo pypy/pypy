@@ -2,7 +2,7 @@
  /***  C header subsection: external functions             ***/
 
 /******************************************************************/
-#ifdef RPyString        /* not defined if we don't have an RTyper */
+#ifdef HAVE_RTYPER      /* not defined if we don't have an RTyper */
 /******************************************************************/
 
 
@@ -45,5 +45,5 @@ double LL_time_clock(void)
 
 
 /******************************************************************/
-#endif                                               /* RPyString */
+#endif                                             /* HAVE_RTYPER */
 /******************************************************************/

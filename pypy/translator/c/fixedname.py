@@ -72,6 +72,7 @@ def pre_include_code_lines(db, rtyper):
         typename = db.gettype(lowleveltype)
         return 'typedef %s;' % cdecl(typename, c_typename)
 
+    yield '#define HAVE_RTYPER'
     for c_name, obj in predeclare_all(db, rtyper):
         if isinstance(obj, LowLevelType):
             yield predeclaretype(c_name, obj)
