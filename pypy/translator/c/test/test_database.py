@@ -196,24 +196,6 @@ def test_func_as_pyobject():
     db.complete()
     dump_on_stdout(db)
 
-def test_fixedname():
-    def f():
-        return "foo"
-    t = Translator(f)
-    t.annotate([])
-    t.specialize()
-
-    db = LowLevelDatabase(t)
-    S = GcStruct('rpy_string', ('x', Signed))
-    s = malloc(S)
-    s.x = 42
-    db.get(s)    
-    Sname = db.gettype(S)
-    db.get(pyobjectptr(f))
-    from pypy.rpython import rstr
-    assert db.gettype(rstr.STR) == "struct rpy_string @"
-    assert Sname != "struct rpy_string @"
-
 def test_malloc():
     S = GcStruct('testing', ('x', Signed), ('y', Signed))
     def ll_f(x):

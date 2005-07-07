@@ -24,6 +24,22 @@ def compile_db(db):
                            include_dirs = [os.path.dirname(autopath.this_dir)])
     return m
 
+def compile(fn, argtypes):
+    t = Translator(fn)
+    t.annotate(argtypes)
+    t.specialize()
+    db = LowLevelDatabase(t)
+    entrypoint = db.get(pyobjectptr(fn))
+    db.complete()
+    module = compile_db(db)
+    compiled_fn = getattr(module, entrypoint)
+    def checking_fn(*args, **kwds):
+        res = compiled_fn(*args, **kwds)
+        mallocs, frees = module.malloc_counters()
+        assert mallocs == frees
+        return res
+    return checking_fn
+
 
 def test_untyped_func():
     def f(x):
@@ -71,21 +87,9 @@ def test_rlist():
         l = [x]
         l.append(x+1)
         return l[0] * l[-1]
-    t = Translator(f)
-    t.annotate([int])
-    t.specialize()
-
-    db = LowLevelDatabase(t)
-    entrypoint = db.get(pyobjectptr(f))
-    db.complete()
-    #t.view()
-    module = compile_db(db)
-
-    f1 = getattr(module, entrypoint)
+    f1 = compile(f, [int])
     assert f1(5) == 30
     assert f1(x=5) == 30
-    mallocs, frees = module.malloc_counters()
-    assert mallocs == frees
 
 
 def test_rptr():
@@ -100,25 +104,13 @@ def test_rptr():
             return p.x
         else:
             return -42
-    t = Translator(f)
-    t.annotate([int])
-    t.specialize()
-
-    db = LowLevelDatabase(t)
-    entrypoint = db.get(pyobjectptr(f))
-    db.complete()
-    #t.view()
-    module = compile_db(db)
-
-    f1 = getattr(module, entrypoint)
+    f1 = compile(f, [int])
     assert f1(5) == 10
     assert f1(i=5) == 10
     assert f1(1) == 2
     assert f1(0) == -42
     assert f1(-1) == -42
     assert f1(-5) == -42
-    mallocs, frees = module.malloc_counters()
-    assert mallocs == frees
 
 
 def test_rptr_array():
@@ -127,21 +119,9 @@ def test_rptr_array():
         p = malloc(A, i)
         p[1] = x
         return p[1]
-    t = Translator(f)
-    t.annotate([int, annmodel.SomePtr(Ptr(PyObject))])
-    t.specialize()
-
-    db = LowLevelDatabase(t)
-    entrypoint = db.get(pyobjectptr(f))
-    db.complete()
-    #t.view()
-    module = compile_db(db)
-
-    f1 = getattr(module, entrypoint)
+    f1 = compile(f, [int, annmodel.SomePtr(Ptr(PyObject))])
     assert f1(5, 123) == 123
     assert f1(12, "hello") == "hello"
-    mallocs, frees = module.malloc_counters()
-    assert mallocs == frees
 
 
 def test_runtime_type_info():
@@ -183,65 +163,19 @@ def test_runtime_type_info():
     mallocs, frees = module.malloc_counters()
     assert mallocs == frees
 
-def test_time_clock():
-    import time
-    def does_stuff():
-        return time.clock()
-    t = Translator(does_stuff)
-    t.annotate([])
-    t.specialize()
-
-    db = LowLevelDatabase(t)
-    entrypoint = db.get(pyobjectptr(does_stuff))
-    db.complete()
-
-    module = compile_db(db)
-
-    f1 = getattr(module, entrypoint)
-    t0 = time.clock()
-    t1 = f1()
-    assert type(t1) is float
-    t2 = time.clock()
-    assert t0 <= t1 <= t2
-    mallocs, frees = module.malloc_counters()
-    assert mallocs == frees
 
 def test_str():
     def call_str(o):
         return str(o)
-    t = Translator(call_str)
-    t.annotate([object])
-    t.specialize()
-    #t.view()
-
-    db = LowLevelDatabase(t)
-    entrypoint = db.get(pyobjectptr(call_str))
-    db.complete()
-
-    module = compile_db(db)
-
-    f1 = getattr(module, entrypoint)
+    f1 = compile(call_str, [object])
     lst = (1, [5], "'hello'", lambda x: x+1)
     res = f1(lst)
     assert res == str(lst)
-    mallocs, frees = module.malloc_counters()
-    assert mallocs == frees
+
 
 def test_rstr():
     def fn(i):
         return "hello"[i]
-    t = Translator(fn)
-    t.annotate([int])
-    t.specialize()
-
-    db = LowLevelDatabase(t)
-    entrypoint = db.get(pyobjectptr(fn))
-    db.complete()
-
-    module = compile_db(db)
-
-    f1 = getattr(module, entrypoint)
+    f1 = compile(fn, [int])
     res = f1(1)
     assert res == 'e'
-    mallocs, frees = module.malloc_counters()
-    assert mallocs == frees
