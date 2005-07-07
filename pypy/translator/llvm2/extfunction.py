@@ -3,6 +3,8 @@ extdeclarations =  """; External declarations
 
 ; XXX these int's might need to be long's on 64 bit CPU's :(
 
+declare sbyte* %gc_malloc(uint)
+declare sbyte* %gc_malloc_atomic(uint)
 declare int %time(int*) ;void* actually
 declare int %clock()
 declare void %sleep(int)
@@ -17,6 +19,37 @@ declare sbyte* %strncpy(sbyte*, sbyte*, int)
 
 """
 
+gc_boehm = """; Using Boehm GC
+
+declare sbyte* %GC_malloc(uint)
+declare sbyte* %GC_malloc_atomic(uint)
+
+sbyte* %gc_malloc(uint %n) {
+    %ptr = call sbyte* %GC_malloc(uint %n)
+    ret sbyte* %ptr
+}
+
+sbyte* %gc_malloc_atomic(uint %n) {
+    %ptr = call sbyte* %GC_malloc_atomic(uint %n)
+    ret sbyte* %ptr
+}
+
+"""
+
+gc_disabled = """; Using no GC
+
+sbyte* %gc_malloc(uint %n) {
+    %ptr = malloc sbyte, uint %n
+    ret sbyte* %ptr
+}
+
+sbyte* %gc_malloc_atomic(uint %n) {
+    %ptr = malloc sbyte, uint %n
+    ret sbyte* %ptr
+}
+
+"""
+
 extfunctions = """; Helper function to convert LLVM <-> C types
 
 sbyte* %cast(%st.rpy_string.0* %structstring) {
@@ -24,18 +57,18 @@ sbyte* %cast(%st.rpy_string.0* %structstring) {
     %reallength = load int* %reallengthptr 
     %length = add int %reallength, 1
     %ulength = cast int %length to uint 
-    %dest = malloc sbyte, uint %ulength
-    
+    %dest = call sbyte* %gc_malloc_atomic(uint %ulength)
+
     %source1ptr = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 1
     %source1 = cast [0 x sbyte]* %source1ptr to sbyte* 
     %dummy = call sbyte* %strncpy(sbyte* %dest, sbyte* %source1, int %reallength) 
-    
+
     %zeropos1 = cast sbyte* %dest to int 
     %zeropos2 = add int %zeropos1, %reallength 
     %zerodest = cast int %zeropos2 to sbyte* 
     store sbyte 0, sbyte* %zerodest 
 
-    ret sbyte* %dest    ;XXX alloca freed at end of function. this will crash!
+    ret sbyte* %dest
 }
 
 ; Wrapper functions that call external (C) functions
@@ -65,7 +98,6 @@ int %ll_os_open(%st.rpy_string.0* %structstring, int %pythonmode) {
     %mode  = cast int 384         to int    ;S_IRUSR=256, S_IWUSR=128
     %dest  = call sbyte* %cast(%st.rpy_string.0* %structstring)
     %fd    = call int    %open(sbyte* %dest, int %flags, int %mode)
-    free sbyte* %dest
     ret int %fd 
 }
 
@@ -74,7 +106,6 @@ int %ll_os_write(int %fd, %st.rpy_string.0* %structstring) {
     %reallength    = load int* %reallengthptr 
     %dest          = call sbyte* %cast(%st.rpy_string.0* %structstring)
     %byteswritten  = call int    %write(int %fd, sbyte* %dest, int %reallength)
-    free sbyte* %dest
     ret int %byteswritten
 }
 

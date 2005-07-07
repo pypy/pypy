@@ -1,7 +1,6 @@
 import py
 from itertools import count
 from pypy.translator.llvm2.log import log 
-from pypy.translator.llvm2.genllvm import use_boehm_gc
 
 log = log.codewriter 
 show_line_numbers = False # True
@@ -94,18 +93,12 @@ class CodeWriter(object):
                         "%(fromvar)s to %(targettype)s" % locals())
 
     def malloc(self, targetvar, type_, size=1, atomic=False):
-        if use_boehm_gc:
-            cnt = count()
-            if atomic:
-                atomicString = '_atomic'
-            else:
-                atomicString = ''
-            self.indent("%%malloc.Size.%(cnt)d = getelementptr %(type_)s* null, uint %(size)s" % locals())
-            self.indent("%%malloc.SizeU.%(cnt)d = cast %(type_)s* %%malloc.Size.%(cnt)d to uint" % locals())
-            self.indent("%%malloc.Ptr.%(cnt)d = call sbyte* %%GC_malloc%(atomicString)s(uint %%malloc.SizeU.%(cnt)d)" % locals())
-            self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr.%(cnt)d to %(type_)s*" % locals())
-        else:
-            self.indent("%(targetvar)s = malloc %(type_)s, uint %(size)s" % locals())
+        cnt = count()
+        postfix = ('', '_atomic')[atomic]
+        self.indent("%%malloc.Size.%(cnt)d = getelementptr %(type_)s* null, uint %(size)s" % locals())
+        self.indent("%%malloc.SizeU.%(cnt)d = cast %(type_)s* %%malloc.Size.%(cnt)d to uint" % locals())
+        self.indent("%%malloc.Ptr.%(cnt)d = call sbyte* %%gc_malloc%(postfix)s(uint %%malloc.SizeU.%(cnt)d)" % locals())
+        self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr.%(cnt)d to %(type_)s*" % locals())
 
     def getelementptr(self, targetvar, type, typevar, *indices):
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, int 0, " % locals()
