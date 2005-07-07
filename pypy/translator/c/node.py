@@ -5,6 +5,8 @@ from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void, OpaqueType
 from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
+from pypy.translator.c.extfunc import ll_externaltable
+from pypy.translator.c.extfunc import CHandWrittenWrapperFunctionCodeGenerator
 from pypy.translator.c.support import cdecl, somelettersfrom
 from pypy.translator.c.primitive import PrimitiveType
 
@@ -437,7 +439,7 @@ class FuncNode(ContainerNode):
         lengths.append(9999)
         start = 0
         while start < len(localnames):
-            # pack the local declarations over a few lines as possible
+            # pack the local declarations over as few lines as possible
             total = lengths[start] + 8
             end = start+1
             while total + lengths[end] < 77:
@@ -470,17 +472,23 @@ class FuncNode(ContainerNode):
         yield '}'
 
 
-def select_function_code_generator(fnptr, db):
-    if hasattr(fnptr, 'graph'):
-        cpython_exc = getattr(fnptr, 'exception_policy', None) == "CPython"
-        return FunctionCodeGenerator(fnptr.graph, db, cpython_exc)
-    elif getattr(fnptr, 'external', None) == 'C':
-        if getattr(fnptr, 'includes', None):
+def select_function_code_generator(fnobj, db):
+    if fnobj._callable in ll_externaltable:
+        # 'fnobj' is one of the ll_xyz() functions special-cased in
+        # pypy.rpython.extfunctable.  The corresponding C wrappers are written
+        # in extfunc.py.
+        return CHandWrittenWrapperFunctionCodeGenerator(fnobj)
+    elif hasattr(fnobj, 'graph'):
+        cpython_exc = getattr(fnobj, 'exception_policy', None) == "CPython"
+        return FunctionCodeGenerator(fnobj.graph, db, cpython_exc)
+    elif getattr(fnobj, 'external', None) == 'C':
+        # deprecated case
+        if getattr(fnobj, 'includes', None):
             return None   # assume no wrapper needed
         else:
-            return CExternalFunctionCodeGenerator(fnptr, db)
+            return CExternalFunctionCodeGenerator(fnobj, db)
     else:
-        raise ValueError, "don't know how to generate code for %r" % (fnptr,)
+        raise ValueError, "don't know how to generate code for %r" % (fnobj,)
 
 
 class OpaqueNode(ContainerNode):

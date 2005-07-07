@@ -190,7 +190,6 @@ def test_time_clock():
     t = Translator(does_stuff)
     t.annotate([])
     t.specialize()
-    #t.view()
 
     db = LowLevelDatabase(t)
     entrypoint = db.get(pyobjectptr(does_stuff))
