@@ -28,8 +28,8 @@ int LL_os_open(RPyString *filename, int flag, int mode)
 			return fd;
 		error = errno;
 	}
-	/* XXX */
-	Py_FatalError("oups, that gives an OSError");
+	RAISE_OSERROR(error);
+	return -1;
 }
 
 

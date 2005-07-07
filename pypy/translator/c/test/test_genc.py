@@ -28,6 +28,7 @@ def compile(fn, argtypes):
     t = Translator(fn)
     t.annotate(argtypes)
     t.specialize()
+    t.backend_optimizations()
     db = LowLevelDatabase(t)
     entrypoint = db.get(pyobjectptr(fn))
     db.complete()

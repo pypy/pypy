@@ -30,6 +30,7 @@ class ExceptionData:
         self.ll_exception_match  = self.make_exception_matcher(rtyper)
         self.ll_type_of_exc_inst = self.make_type_of_exc_inst(rtyper)
         self.ll_pyexcclass2exc   = self.make_pyexcclass2exc(rtyper)
+        self.ll_raise_OSError    = self.make_raise_OSError(rtyper)
 
 
     def make_standard_exceptions(self, rtyper):
@@ -44,6 +45,15 @@ class ExceptionData:
         s_typeptr = annmodel.SomePtr(self.lltype_of_exception_type)
         dontcare, spec_function = annotate_lowlevel_helper(
             rtyper.annotator, rclass.ll_issubclass, [s_typeptr, s_typeptr])
+        return spec_function
+
+
+    def make_raise_OSError(self, rtyper):
+        # ll_raise_OSError(errno)
+        def ll_raise_OSError(errno):
+            raise OSError(errno, None)
+        dontcare, spec_function = annotate_lowlevel_helper(
+            rtyper.annotator, ll_raise_OSError, [annmodel.SomeInteger()])
         return spec_function
 
 

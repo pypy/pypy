@@ -35,6 +35,7 @@ def predeclare_exception_data(db, rtyper):
     yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.ll_exception_match)
     yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.ll_type_of_exc_inst)
     yield ('RPYTHON_PYEXCCLASS2EXC',   exceptiondata.ll_pyexcclass2exc)
+    yield ('RAISE_OSERROR',            exceptiondata.ll_raise_OSError)
 
     for pyexccls in exceptiondata.standardexceptions:
         exc_llvalue = exceptiondata.ll_pyexcclass2exc(pyobjectptr(pyexccls))

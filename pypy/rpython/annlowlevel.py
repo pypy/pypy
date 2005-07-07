@@ -2,6 +2,7 @@
 The code needed to flow and annotate low-level helpers -- the ll_*() functions
 """
 
+import types
 from pypy.annotation import model as annmodel
 from pypy.annotation.specialize import decide_callable
 from pypy.annotation.policy import BasicAnnotatorPolicy
@@ -33,7 +34,7 @@ class LowLevelAnnotatorPolicy(BasicAnnotatorPolicy):
     def specialize(pol, bookkeeper, spaceop, func, args, mono):
         args_s, kwds_s = args.unpack()
         assert not kwds_s
-        if not args_s:
+        if not args_s or not isinstance(func, types.FunctionType):
             return None, None
         key = [func]
         new_args_s = []

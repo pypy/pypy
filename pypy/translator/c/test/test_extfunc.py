@@ -1,4 +1,5 @@
 import autopath
+import py
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
 
@@ -26,3 +27,14 @@ def test_os_open():
     fd = f1()
     os.close(fd)
     assert os.path.exists(tmpfile)
+
+def test_failing_os_open():
+    import os
+    tmpfile = str(udir.join('test_failing_os_open.DOESNTEXIST'))
+    def does_stuff():
+        fd = os.open(tmpfile, os.O_RDONLY, 0777)
+        return fd
+
+    f1 = compile(does_stuff, [])
+    py.test.raises(OSError, f1)
+    assert not os.path.exists(tmpfile)
