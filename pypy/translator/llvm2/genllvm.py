@@ -15,7 +15,7 @@ from pypy.translator.llvm2.node import LLVMNode
 from pypy.translator.backendoptimization import remove_void
 #from pypy.translator.backendoptimization import rename_extfunc_calls
 from pypy.translator.llvm2.extfunction import extdeclarations, \
-     extfunctionshelpers, extfunctions, gc_boehm, gc_disabled
+     extfunctions, gc_boehm, gc_disabled, dependencies
 
 from pypy.translator.translator import Translator
 
@@ -76,12 +76,16 @@ class GenLLVM(object):
         for typ_decl in self.db.getobjects():
             typ_decl.writeimpl(codewriter)
 
-        if self.embedexterns:
-            for extfunchelper in extfunctionshelpers.split('\n'):
-                codewriter.append(extfunchelper)
-            for funcname,value in LLVMNode.used_external_functions.iteritems():
-                for extfunc in extfunctions[funcname].split('\n'):
-                    codewriter.append(extfunc)
+        depdone = {}
+        for funcname,value in LLVMNode.used_external_functions.iteritems():
+            deps = dependencies(funcname,[])
+            deps.reverse()
+            for dep in deps:
+                if dep not in depdone:
+                    llvm_code = extfunctions[dep][1]
+                    for extfunc in llvm_code.split('\n'):
+                        codewriter.append(extfunc)
+                    depdone[dep] = True
 
         comment("End of file") ; nl()
         self.content = str(codewriter)

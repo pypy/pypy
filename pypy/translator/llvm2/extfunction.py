@@ -43,7 +43,9 @@ sbyte* %gc_malloc_atomic(uint %n) {
 
 """
 
-extfunctionshelpers = """
+extfunctions = {}   #dependencies, llvm-code
+
+extfunctions["%cast"] = ((), """
 sbyte* %cast(%st.rpy_string.0* %structstring) {
     %reallengthptr = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 0
     %reallength = load int* %reallengthptr 
@@ -63,6 +65,9 @@ sbyte* %cast(%st.rpy_string.0* %structstring) {
     ret sbyte* %dest
 }
 
+""")
+
+extfunctions["%new.st.var.rpy_string.0.helper"] = ((), """
 %st.rpy_string.0 * %new.st.var.rpy_string.0.helper(int %len) {
     %size = getelementptr %st.rpy_string.0* null, int 0, uint 1, uint 1, int %len
     %usize = cast sbyte* %size to uint
@@ -76,21 +81,18 @@ sbyte* %cast(%st.rpy_string.0* %structstring) {
     ret %st.rpy_string.0* %result
 }
 
-"""
+""")
 
-
-extfunctions = {}
-
-extfunctions["%ll_time_time"] = """
+extfunctions["%ll_time_time"] = ((), """
 double %ll_time_time() {
     %v0 = call int %time(int* null)
     %v1 = cast int %v0 to double
     ret double %v1
 }
 
-"""
+""")
 
-extfunctions["%ll_time_clock"] = """
+extfunctions["%ll_time_clock"] = ((), """
 double %ll_time_clock() {
     %v0 = call int %clock()
     %v1 = cast int %v0 to double
@@ -99,18 +101,18 @@ double %ll_time_clock() {
     ret double %v2
 }
 
-"""
+""")
 
-extfunctions["%ll_time_sleep"] = """
+extfunctions["%ll_time_sleep"] = ((), """
 void %ll_time_sleep(double %f) {
     %i = cast double %f to int
     call void %sleep(int %i)
     ret void
 }
 
-"""
+""")
 
-extfunctions["%ll_os_open"] = """
+extfunctions["%ll_os_open"] = (("%cast",), """
 int %ll_os_open(%st.rpy_string.0* %structstring, int %pythonmode) {
     %flags = cast int %pythonmode to int
     %mode  = cast int 384         to int    ;S_IRUSR=256, S_IWUSR=128
@@ -119,9 +121,9 @@ int %ll_os_open(%st.rpy_string.0* %structstring, int %pythonmode) {
     ret int %fd 
 }
 
-"""
+""")
 
-extfunctions["%ll_os_write"] = """
+extfunctions["%ll_os_write"] = (("%cast",), """
 int %ll_os_write(int %fd, %st.rpy_string.0* %structstring) {
     %reallengthptr = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 0
     %reallength    = load int* %reallengthptr 
@@ -130,9 +132,9 @@ int %ll_os_write(int %fd, %st.rpy_string.0* %structstring) {
     ret int %byteswritten
 }
 
-"""
+""")
 
-extfunctions["%ll_os_read"] = """
+extfunctions["%ll_os_read"] = (("%new.st.var.rpy_string.0.helper",), """
 %st.rpy_string.0* %ll_os_read(int %fd, int %buffersize) {
     ;This is a bit simplistic! It really allocated a large enough buffer to hold all the data in.
     %str = call %st.rpy_string.0* %new.st.var.rpy_string.0.helper(int %buffersize)
@@ -149,4 +151,12 @@ extfunctions["%ll_os_read"] = """
     ret %st.rpy_string.0* %str
 }
 
-"""
+""")
+
+def dependencies(funcname, deplist):
+    deplist.append(funcname)
+    if funcname in extfunctions:
+        for depfuncname in extfunctions[funcname][0]:
+            if depfuncname not in deplist:  #avoid loops
+                dependencies(depfuncname, deplist)
+    return deplist
