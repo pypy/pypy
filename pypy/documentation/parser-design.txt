@@ -1,0 +1,160 @@
+
+==================
+PyPy parser design
+==================
+
+
+Overview
+========
+
+The PyPy parser includes a tokenizer and a recursive descent parser.
+
+Tokenizer
+---------
+
+The tokenizer accepts  as string as input and provides tokens through
+a ``next()`` and a ``peek()`` method. The tokenizer is implemented as a finite
+automata like lex.
+
+Parser
+------
+
+The parser is a tree of grammar rules. EBNF grammar rules are decomposed
+as a tree of objects.
+Looking at a grammar rule one can see it is composed of a set of four basic
+subrules. In the following exemple we have all four of them: 
+
+S <- A '+' (C | D) +
+
+
+The previous line says S is a sequence of symbol A, token '+', a subrule + which
+matches one or more of an alternative between symbol C and symbol D.
+Thus the four basic grammar rule types are :
+* sequence 
+* alternative
+* multiplicity (called kleen star after the * multiplicity type)
+* token
+
+The four types are represented by a class in pyparser/grammar.py
+( Sequence, Alternative, KleenStar, Token) all classes have a ``match()`` method
+accepting a source (the tokenizer) and a builder (an object responsible for
+building something out of the grammar).
+
+Here's a basic exemple and how the grammar is represented::
+
+    S <- A ('+'|'-') A
+    A <- V ( ('*'|'/') V )*
+    V <- 'x' | 'y'
+    
+    In python:
+    V = Alternative( Token('x'), Token('y') )
+    A = Sequence( V,
+           KleenStar(
+               Sequence(
+                  Alternative( Token('*'), Token('/') ), V
+                       )
+                    )
+                 )
+    S = Sequence( A, Alternative( Token('+'), Token('-') ), A )
+
+
+Detailed design
+===============
+
+Building the Python grammar
+---------------------------
+
+The python grammar is built at startup from the pristine CPython grammar file.
+The grammar framework is first used to build a simple grammar to parse the
+grammar itself.
+The builder provided to the parser generates another grammar which is the Python
+grammar itself.
+The grammar file should represent an LL(1) grammar. LL(k) should still work since
+the parser supports backtracking through the use of source and builder contexts
+(The memento patterns for those who like Design Patterns)
+
+The match function for a sequence is pretty simple::
+
+    for each rule in the sequence:
+       save the source and builder context
+       if the rule doesn't match:
+           restore the source and builder context
+           return false
+    call the builder method to build the sequence
+    return true
+
+Now this really is an LL(0) grammar since it explores the whole tree of rule
+possibilities.
+In fact there is another member of the rule objects which is built once the
+grammar is complete.
+This member is a set of the tokens that match the begining of each rule. Like
+the grammar it is precomputed at startup.
+Then each rule starts by the following test::
+
+    if source.peek() not in self.firstset: return false
+
+
+Efficiency should be similar (not too worse) to an automata based grammar since it is
+basicly building an automata but it uses the execution stack to store its parsing state.
+This also means that recursion in the grammar are directly translated as recursive calls.
+
+
+Redisigning the parser to remove recursion shouldn't be difficult but would make the code
+less obvious. (patches welcome). The basic idea
+
+
+Parsing
+-------
+
+This grammar is then used to parse Python input and transform it into a syntax tree.
+
+As of now the syntax tree is built as a tuple to match the output of the parser module
+and feed it to the compiler package
+
+the compiler package uses the Transformer class to transform this tuple tree into an
+abstract syntax tree.
+
+sticking to our previous example, the syntax tree for x+x*y would be::
+
+    Rule('S', nodes=[
+         Rule('A',nodes=[Rule('V', nodes=[Token('x')])]),
+         Token('+'),
+         Rule('A',nodes=[
+            Rule('V', nodes=[Token('x')]),
+            Token('*'),
+            Rule('V', nodes=[Token('y')])
+           ])
+         ])
+
+
+The abstract syntax tree for the same expression would look like::
+
+    Add(Var('x'),Mul(Var('x'),Var('y')))
+
+
+
+Examples using the parser within PyPy
+-------------------------------------
+
+
+API Quickref
+------------
+
+Modules
+
+Main facade functions
+
+Grammar
+
+
+Long term goals
+===============
+
+parser implementation
+
+compiler implementation
+
+parser module
+
+compiler module
+
