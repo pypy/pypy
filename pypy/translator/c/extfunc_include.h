@@ -1,6 +1,11 @@
 /************************************************************/
  /***  C header subsection: external functions             ***/
 
+/******************************************************************/
+#ifdef RPyString        /* not defined if we don't have an RTyper */
+/******************************************************************/
+
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -37,3 +42,8 @@ double LL_time_clock(void)
 {
 	return ((double) clock()) / CLOCKS_PER_SEC;
 }
+
+
+/******************************************************************/
+#endif                                               /* RPyString */
+/******************************************************************/
