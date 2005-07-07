@@ -302,15 +302,15 @@ def divmod__Long_Long(space, w_long1, w_long2):
     div, mod = _l_divmod(w_long1, w_long2)
     return space.newtuple([div, mod])
 
-# helper for pow()  #YYYYYY: still needs longval if second argument is negative
+# helper for pow()
 def _impl_long_long_pow(space, lv, lw, lz=None):
     if lw.sign < 0:
         if lz is not None:
             raise OperationError(space.w_TypeError,
                              space.wrap("pow() 2nd argument "
                  "cannot be negative when 3rd argument specified"))
-        return space.pow(space.newfloat(float(lv.longval())),
-                         space.newfloat(float(lw.longval())),
+        return space.pow(space.newfloat(_AsDouble(lv)),
+                         space.newfloat(_AsDouble(lw)),
                          space.w_None)
     if lz is not None:
         if lz.sign == 0:
@@ -326,7 +326,7 @@ def _impl_long_long_pow(space, lv, lw, lz=None):
     else:
         temp = lv
     i = 0
-    #Treat the most significant digit specially to reduce multiplications
+    # Treat the most significant digit specially to reduce multiplications
     while i < len(lw.digits) - 1:
         j = 0
         m = Digit(1)
