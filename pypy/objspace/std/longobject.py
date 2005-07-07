@@ -11,7 +11,7 @@ import math
 # for now, we use r_uint as a digit.
 # we may later switch to r_ushort, when it is supported by rtyper etc.
 
-Digit = r_uint # works: r_ushort
+Digit = r_uint # already works: r_ushort
 Twodigits = r_uint
 Stwodigits = int
 
@@ -26,10 +26,28 @@ else:
     Carryadd = Twodigits
 Carrymul = Twodigits
 
-# masks for normal signed integer
-SIGN_BIT = LONG_BIT-1
-SIGN_MASK = r_uint(1) << SIGN_BIT
-NONSIGN_MASK = ~SIGN_MASK
+# Debugging digit array access.
+#
+# 0 == no check at all
+# 1 == check correct type
+# 2 == check for extra (ab)used bits
+CHECK_DIGITS = 1
+
+if CHECK_DIGITS:
+    class DigitArray(list):
+        if CHECK_DIGITS == 1:
+            def __setitem__(self, idx, value):
+                assert type(value) is Digit
+                list.__setitem__(self, idx, value)
+        elif CHECK_DIGITS == 2:
+            def __setitem__(self, idx, value):
+                assert type(value) is Digit
+                assert value <= MASK
+                list.__setitem__(self, idx, value)
+        else:
+            raise Exception, 'CHECK_DIGITS == %d not supported' % CHECK_DIGITS
+else:
+    DigitArray = list
 
 # XXX some operations below return one of their input arguments
 #     without checking that it's really of type long (and not a subclass).
@@ -44,7 +62,7 @@ class W_LongObject(W_Object):
         W_Object.__init__(w_self, space)
         if isinstance(digits, long):  #YYYYYY
             digits, sign = args_from_long(digits)
-        w_self.digits = digits
+        w_self.digits = DigitArray(digits)
         w_self.sign = sign
         assert len(w_self.digits)
 
@@ -221,10 +239,8 @@ def lt__Long_Long(space, w_long1, w_long2):
         i -= 1
     return space.newbool(False)
 
-def hash__Long(space,w_value): #YYYYYY
-    ## %reimplement%
-    # real Implementation should be taken from _Py_HashDouble in object.c
-    return space.wrap(hash(w_value.longval()))
+def hash__Long(space, w_value):
+    return space.wrap(_hash(w_value))
 
 # coerce
 def coerce__Long_Long(space, w_long1, w_long2):
@@ -398,7 +414,7 @@ def lshift__Long_Long(space, w_long1, w_long2):
     z = W_LongObject(space, [Digit(0)] * newsize, a.sign)
     # not sure if we will initialize things in the future?
     for i in range(wordshift):
-        z.digits[i] = 0
+        z.digits[i] = Digit(0)
     accum = Twodigits(0)
     i = wordshift
     j = 0
@@ -765,7 +781,7 @@ class r_suint(object):
 
 def _x_divrem(v1, w1):
     size_w = len(w1.digits)
-    d = (MASK+1) // (w1.digits[size_w-1] + 1)
+    d = Digit(Twodigits(MASK+1) // (w1.digits[size_w-1] + 1))
     v = _muladd1(v1, d, Digit(0))
     w = _muladd1(w1, d, Digit(0))
     size_v = len(v.digits)
@@ -1256,3 +1272,21 @@ def _AsLong(v):
     if int(x) < 0 and (sign > 0 or (x << 1) != 0):
             raise OverflowError
     return intmask(int(x) * sign)
+
+def _hash(v):
+    # This is designed so that Python ints and longs with the
+    # same value hash to the same value, otherwise comparisons
+    # of mapping keys will turn out weird
+    i = len(v.digits) - 1
+    sign = v.sign
+    x = 0
+    LONG_BIT_SHIFT = LONG_BIT - SHIFT
+    while i >= 0:
+        # Force a native long #-bits (32 or 64) circular shift
+        x = ((x << SHIFT) & ~MASK) | ((x >> LONG_BIT_SHIFT) & MASK)
+        x += v.digits[i]
+        i -= 1
+    x = intmask(x * sign)
+    if x == -1:
+        x = -2
+    return x
