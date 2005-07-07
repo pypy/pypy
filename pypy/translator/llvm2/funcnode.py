@@ -161,13 +161,12 @@ class ExternalFuncNode(LLVMNode):
 
     fnmapping = {
         "%ll_os_dup": "%dup",
-        "%ll_os_open": "%open",
         "%ll_os_close": "%close",
-        #"%": ("int" "%open", "sbyte*", "int"),
-        #"%ll_os_write": ("int" "%write", "int", "sbyte*", "int"),
+        "%ll_os_open": "%open",
         }
 
-    ignoreset = "%ll_time_time %ll_time_clock %ll_time_sleep".split() 
+    ignoreset = "%ll_time_time %ll_time_clock %ll_time_sleep " \
+                "%ll_os_read %ll_os_write".split() 
 
     def __init__(self, db, value):
         self.db = db
@@ -226,10 +225,9 @@ class ExternalFuncNode(LLVMNode):
         # get function name
         fnname = self.fnmapping[self.ref]
         
-        # call 
-
-        # map resulttype ??? XXX
+        # call
         if resulttype != "void":
+            # map resulttype ??? XXX
             codewriter.call("%res", resulttype, fnname, argrefs, argtypes)
             codewriter.ret(resulttype, "%res")
         else:
@@ -263,6 +261,13 @@ class OpWriter(object):
                          'uint_ge': 'setge',
                          'uint_gt': 'setgt',
 
+                         'char_lt': 'setlt',
+                         'char_le': 'setle',
+                         'char_eq': 'seteq',
+                         'char_ne': 'setne',
+                         'char_ge': 'setge',
+                         'char_gt': 'setgt',
+
                          'float_mul': 'mul',
                          'float_add': 'add',
                          'float_sub': 'sub',
@@ -295,6 +300,14 @@ class OpWriter(object):
                                  "0", 
                                  self.db.repr_arg(op.args[0]),
                                  )
+
+    def bool_not(self, op):
+        self.codewriter.binaryop("xor",
+                                 self.db.repr_arg(op.result),
+                                 self.db.repr_arg_type(op.args[0]),
+                                 self.db.repr_arg(op.args[0]), 
+                                 "true")
+
                     
 
     def binaryop(self, op):

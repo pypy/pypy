@@ -379,6 +379,20 @@ def test_string_simple():
         return ord(str(i))
     f = compile_function(string_simple, [int], view=False)
     assert f(0) 
+    
+def test_string_simple_ops(): 
+    def string_simple_ops(i): 
+        res = 0
+        s = str(i)
+        s2 = s + s + s + s
+        s3 = s + s + s + s
+        res += s != s2
+        res += s2 == s3
+        res += ord(s)
+        return res
+    f = compile_function(string_simple_ops, [int])
+    assert f(5) == ord('5') + 2
+        
 
 def Xtest_string_getitem1():
     l = "Hello, World"
