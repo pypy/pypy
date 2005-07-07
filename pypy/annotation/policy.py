@@ -38,7 +38,12 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
         try:
             specialize = getattr(pol, 'specialize__%s' % tag)
         except AttributeError:
-            raise AttributeError, "%s specialize tag found in user program but not defined in annotation policy %s" % (tag, pol) 
+            raise AttributeError("%s specialize tag found in callable %r "
+                                 "(file %s:%d) but not defined in annotation "
+                                 "policy %s" % (tag, func.func_name,
+                                                func.func_code.co_filename,
+                                                func.func_code.co_firstlineno,
+                                                pol))
 
         return specialize(bookkeeper, mod, spaceop, func, args, mono)
 
@@ -49,7 +54,12 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
         try:
             override = getattr(pol, 'override__%s' % override_tag)
         except AttributeError:
-            raise AttributeError, "'override:%s'  found in user program but not defined in annotation policy %s" % (override_tag, pol) 
+            raise AttributeError("'override:%s' found in callable %r "
+                                 "(file %s:%d) but not defined in annotation "
+                                 "policy %s" % (override_tag, func.func_name,
+                                                func.func_code.co_filename,
+                                                func.func_code.co_firstlineno ,
+                                                pol))
 
         inputcells = bookkeeper.get_inputcells(func, args)
         r = override(*inputcells)
