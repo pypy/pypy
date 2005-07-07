@@ -2,6 +2,11 @@
 import symbol
 import token
 
+# XXX hack: make sure '@' is in the token list
+if not hasattr(token, 'AT'):
+    token.AT = token.N_TOKENS + 2    # see pythonlexer.py for why '+2'
+    token.tok_name[token.AT] = 'AT'
+
 TOKEN_MAP = {
     "STRING" : token.STRING,
     "NUMBER" : token.NUMBER,
@@ -60,6 +65,7 @@ TOKEN_MAP = {
     "~" : token.TILDE,
     "|" : token.VBAR,
     "|=" : token.VBAREQUAL,
+    "@": token.AT,
     }
 NT_OFFSET = token.NT_OFFSET    
 

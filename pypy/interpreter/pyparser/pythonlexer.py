@@ -2,7 +2,7 @@
 it obeys the TokenSource interface defined for the grammar
 analyser in grammar.py
 """
-import symbol, sys
+import sys
 from codeop import PyCF_DONT_IMPLY_DEDENT
 
 from pypy.interpreter.pyparser.grammar import TokenSource, Token
