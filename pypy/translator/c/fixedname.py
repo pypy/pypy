@@ -8,13 +8,14 @@ from pypy.rpython import extfunctable
 
 # table of functions hand-written in extfunc_include.h
 EXTERNALS = {
+    extfunctable.ll_os_open:    'LL_os_open',
     extfunctable.ll_time_clock: 'LL_time_clock',
     }
 
 
 def predeclare_common_types(db, rtyper):
     # Common types
-    yield ('RPyString',                Ptr(STR))
+    yield ('RPyString', STR)
 
 
 def predeclare_extfuncs(db, rtyper):
@@ -67,7 +68,6 @@ def pre_include_code_lines(db, rtyper):
         return predeclare(c_name, getfunctionptr(db.translator, ll_func))
 
     def predeclaretype(c_typename, lowleveltype):
-        assert isinstance(lowleveltype, Ptr)
         typename = db.gettype(lowleveltype)
         return 'typedef %s;' % cdecl(typename, c_typename)
 
