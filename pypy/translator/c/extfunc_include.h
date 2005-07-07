@@ -10,6 +10,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
+#ifndef PATH_MAX
+  /* assume windows */
+  #define PATH_MAX 254
+#endif
 
 /* The functions below are mapped to functions from pypy.rpython.extfunctable
    by the pypy.translator.c.fixedname.EXTERNALS dictionary. */
