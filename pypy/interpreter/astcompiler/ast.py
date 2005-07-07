@@ -33,6 +33,13 @@ class Node:
         pass # implemented by subclasses
     def visit(self, visitor, *args):
         return visitor.visitNode(self, *args)
+    def __eq__(self, right):
+        if type(self)!=type(right):
+            return False
+        for i,j in zip(self.getChildren(),right.getChildren()):
+            if not i==j:
+                return False
+        return True
 
 class EmptyNode(Node):
     def visit(self, visitor, *args):

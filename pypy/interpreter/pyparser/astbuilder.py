@@ -1,7 +1,28 @@
 
 
 from grammar import BaseGrammarBuilder
-import pypy.interpreter.astcompiler.ast as ast
+from pypy.interpreter.astcompiler import ast, consts
+
+## these tests should be methods of the ast objects
+
+def is_lvalue( ast_node ):
+    return True
+
+def to_lvalue( ast_node, OP ):
+    if isinstance( ast_node, ast.Name ):
+        return ast.AssName( ast_node.name, OP )
+    else:
+        assert False, "TODO"
+
+def is_augassign( ast_node ):
+    if ( isinstance( ast_node, ast.Name ) or
+         isinstance( ast_node, ast.Slice ) or
+         isinstance( ast_node, ast.Subscript ) or
+         isinstance( ast_node, ast.Getattr ) ):
+        return True
+    return False
+
+## building functions
 
 def get_atoms( builder, nb ):
     L = []
@@ -108,7 +129,100 @@ def build_shift_expr( builder, nb ):
             raise ValueError, "unexpected token: %s : %s" % L[i-1]
     builder.push( left )
 
+
+def build_binary_expr( builder, nb, OP ):
+    L = get_atoms( builder, nb )
+    l = len(L)
+    if l==1:
+        builder.push( L[0] )
+        return
+    items = []
+    for i in range(0,l,2): # this is L not 1
+        items.append( L[i] )
+    builder.push( OP( items ) )
+    return
+
+def build_and_expr( builder, nb ):
+    return build_binary_expr( builder, nb, ast.Bitand )
+
+def build_xor_expr( builder, nb ):
+    return build_binary_expr( builder, nb, ast.Bitxor )
+
+def build_expr( builder, nb ):
+    return build_binary_expr( builder, nb, ast.Bitor )
+
+def build_comparison( builder, nb ):
+    L = get_atoms( builder, nb )
+    l = len(L)
+    if l==1:
+        builder.push( L[0] )
+        return
+    # TODO
+    assert False
+
+def build_and_test( builder, nb ):
+    return build_binary_expr( builder, nb, ast.And )
+
+def build_test( builder, nb ):
+    return build_binary_expr( builder, nb, ast.Or )
+
+def build_testlist( builder, nb ):
+    return build_binary_expr( builder, nb, ast.Tuple )
+
+def build_not_test( builder, nb ):
+    L = get_atoms( builder, nb )
+    l = len(L)
+    if l==1:
+        builder.push( L[0] )
+        return
+
+def build_expr_stmt( builder, nb ):
+    L = get_atoms( builder, nb )
+    l = len(L)
+    if l==1:
+        builder.push( ast.Discard( L[0] ) )
+        return
+    op = L[1]
+    if op.name == '=':
+        nodes = []
+        for i in range(0,l-2,2):
+            lvalue = to_lvalue( L[i], consts.OP_ASSIGN )
+            nodes.append( lvalue )
+        rvalue = L[-1]
+        builder.push( ast.Assign( nodes, rvalue ) )
+        pass
+    else:
+        assert l==3
+        lvalue = L[0]
+        assert is_augassign( lvalue )
+        builder.push( ast.AugAssign( lvalue, op, L[2] ) )
+
+def return_one( builder, nb ):
+    L = get_atoms( builder, nb )
+    l = len(L)
+    if l==1:
+        builder.push( L[0] )
+        return
+    raise WalkerError("missing one node in stack")
+
+def build_simple_stmt( builder, nb ):
+    L = get_atoms( builder, nb )
+    l = len(L)
+    nodes = []
+    for n in range(0,l,2):
+        nodes.append(L[n])
+    builder.push( ast.Stmt( nodes ) )
+    return
+
+def build_single_input( builder, nb ):
+    L = get_atoms( builder, nb )
+    l = len(L)
+    if l>=1:
+        builder.push( ast.Module( None, L[0] ) )
+        return
+    raise WalkerError("error")
     
+
 ASTRULES = {
 #    "single_input" : build_single_input,
     "atom" : build_atom,
@@ -117,6 +231,17 @@ ASTRULES = {
     "term" : build_term,
     "arith_expr" : build_arith_expr,
     "shift_expr" : build_shift_expr,
+    "and_expr" : build_and_expr,
+    "xor_expr" : build_xor_expr,
+    "expr" : build_expr,
+    "comparison" : build_comparison,
+    "and_test" : build_and_test,
+    "test" : build_test,
+    "testlist" : build_testlist,
+    "expr_stmt" : build_expr_stmt,
+    "small_stmt" : return_one,
+    "simple_stmt" : build_simple_stmt,
+    "single_input" : build_single_input,
     }
 
 class RuleObject(ast.Node):
