@@ -162,11 +162,11 @@ class ExternalFuncNode(LLVMNode):
     fnmapping = {
         "%ll_os_dup": "%dup",
         "%ll_os_close": "%close",
-        "%ll_os_open": "%open",
+        #"%ll_os_open": "%open",
         }
 
     ignoreset = "%ll_time_time %ll_time_clock %ll_time_sleep " \
-                "%ll_os_read %ll_os_write".split() 
+                "%ll_os_read %ll_os_write %ll_os_open".split() 
 
     def __init__(self, db, value):
         self.db = db

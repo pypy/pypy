@@ -12,14 +12,15 @@ from pypy.rpython import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.codewriter import CodeWriter
 from pypy.translator.backendoptimization import remove_void
-from pypy.translator.backendoptimization import rename_extfunc_calls
+#from pypy.translator.backendoptimization import rename_extfunc_calls
 from pypy.translator.llvm2.extfunction import extdeclarations, extfunctions
+from pypy.translator.translator import Translator
 
 function_count = {}
 
 def genllvm(translator):
     remove_void(translator)
-    rename_extfunc_calls(translator)
+    #rename_extfunc_calls(translator)
     func = translator.entrypoint
 
     db = Database(translator)
@@ -88,4 +89,21 @@ def llvm_is_on_path():
     except py.error.ENOENT: 
         return False 
     return True
-    
+
+def compile_module(function, annotate, view=False):
+    t = Translator(function)
+    a = t.annotate(annotate)
+    t.specialize()
+    a.simplify()
+    if view:
+        t.view()
+    return genllvm(t)
+
+def compile_function(function, annotate, view=False):
+    mod = compile_module(function, annotate, view)
+    return getattr(mod, function.func_name + "_wrapper")
+
+def compile_module_function(function, annotate, view=False):
+    mod = compile_module(function, annotate, view)
+    f = getattr(mod, function.func_name + "_wrapper")
+    return mod, f

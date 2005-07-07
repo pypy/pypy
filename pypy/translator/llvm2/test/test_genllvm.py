@@ -3,122 +3,11 @@ from __future__ import division
 import sys
 import py
 
-from pypy.translator.translator import Translator
-from pypy.translator.llvm2.genllvm import genllvm
-from pypy.translator.llvm2.genllvm import use_boehm_gc
-from pypy.translator.llvm2.test import llvmsnippet
-from pypy.objspace.flow.model import Constant, Variable
-
-from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rarithmetic import r_uint
+from pypy.translator.llvm2.genllvm import compile_function
 
 py.log.setconsumer("genllvm", py.log.STDOUT)
 py.log.setconsumer("genllvm database prepare", None)
-
-
-## def setup_module(mod):
-##     mod.llvm_found = is_on_path("llvm-as")
-
-def compile_module(function, annotate, view=False):
-    t = Translator(function)
-    a = t.annotate(annotate)
-    t.specialize()
-    a.simplify()
-    if view:
-        t.view()
-    return genllvm(t)
-
-def compile_function(function, annotate, view=False):
-    mod = compile_module(function, annotate, view)
-    return getattr(mod, function.func_name + "_wrapper")
-
-def compile_module_function(function, annotate, view=False):
-    mod = compile_module(function, annotate, view)
-    f = getattr(mod, function.func_name + "_wrapper")
-    return mod, f
-
-def test_external_function_ll_os_dup():
-    import os
-    def fn():
-        return os.dup(0)
-    f = compile_function(fn, [])
-    assert os.path.sameopenfile(f(), fn())
-
-def test_external_file_fns():
-    import os
-    def external_file_fns(intname, flags):
-        name = str(intname)
-        fd = os.open(name, flags)
-        #os.write(fd, name)
-        os.close(fd)
-        return fd
-    
-    f = compile_function(external_file_fns, [int, int])
-    assert isinstance(f(1209319, 64), int)
-    
-def DONTtest_external_function_ll_os_getcmd():
-    import os
-    def fn():
-        return os.getcwd()
-    f = compile_function(fn, [], view=True)
-    assert os.getcwd() == 'bla'
-
-def DONTtest_external_function_ll_os_open():
-    import os
-    def fn():
-        return os.open(0)
-    f = compile_function(fn, [], view=False)
-    assert os.path.sameopenfile(f(), fn())
-
-def test_external_function_ll_time_time():
-    import time
-    def fn():
-        return time.time()
-    f = compile_function(fn, [], view=False)
-    assert abs(f()-fn()) < 1.0
-
-def test_external_function_ll_time_clock():
-    import time
-    def fn():
-        return time.clock()
-    f = compile_function(fn, [], view=False)
-    assert abs(f()-fn()) < 1.0
-
-def test_external_function_ll_time_sleep():
-    import time
-    def fn(t):
-        time.sleep(t)
-        return 666
-    f = compile_function(fn, [float], view=False)
-    start_time = time.time()
-    delay_time = 2.0
-    d = f(delay_time)
-    duration = time.time() - start_time
-    assert duration >= delay_time - 0.5
-    assert duration <= delay_time + 0.5
-
-def test_GC_malloc(): 
-    if not use_boehm_gc:
-        py.test.skip("test_GC_malloc skipped because Boehm collector library was not found")
-        return
-    def tuple_getitem(n): 
-        x = 666
-        i = 0
-        while i < n:
-            l = (1,2,i,4,5,6,7,8,9,10,11)
-            x += l[2]
-            i += 1
-        return x
-    mod,f = compile_module_function(tuple_getitem, [int])
-    n = 5000
-    result = tuple_getitem(n)
-    assert f(n) == result
-    get_heap_size = getattr(mod, "GC_get_heap_size_wrapper")
-    heap_size_start = get_heap_size()
-    for i in range(0,25):
-        assert f(n) == result
-        heap_size_inc = get_heap_size() - heap_size_start
-        assert heap_size_inc < 500000
 
 def test_return1():
     def simple1():
@@ -126,7 +15,7 @@ def test_return1():
     f = compile_function(simple1, [])
     assert f() == 1
 
-def Xtest_simple_function_pointer(): 
+def DONTtest_simple_function_pointer(): 
     def f1(x): 
         return x + 1
     def f2(x): 
@@ -316,7 +205,7 @@ def test_pbc_fns():
     assert f(-1) == 3
     assert f(0) == 5
 
-def Xtest_simple_chars():
+def DONTtest_simple_chars():
      def char_constant2(s):
          s = s + s + s
          return len(s + '.')
@@ -394,14 +283,14 @@ def test_string_simple_ops():
     assert f(5) == ord('5') + 2
         
 
-def Xtest_string_getitem1():
+def DONTtest_string_getitem1():
     l = "Hello, World"
     def string_getitem1(i): 
         return l[i]
-    f = compile_function(string_getitem1, [int], view=False)
+    f = compile_function(string_getitem1, [int], view=True)
     assert f(0) == ord("H")
 
-def DONOT_test_string_getitem2():
+def DONTtest_string_getitem2():
     def string_test(i): 
         l = "Hello, World"
         return l[i]
@@ -411,7 +300,7 @@ def DONOT_test_string_getitem2():
 class TestException(Exception):
     pass
 
-def DONOTtest_exception():
+def DONTtest_exception():
     def raise_(i):
         if i:
             raise TestException()
