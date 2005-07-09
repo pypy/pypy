@@ -34,11 +34,12 @@ def to_rstr(s):
     return p
 
 def from_rstr(rs):
-    return ''.join(rs.chars)
+    return ''.join([rs.chars[i] for i in range(len(rs.chars))])
 
 # dummy low-level implementations for the external functions
 def ll_os_open(fname, flag, mode):
     return os.open(from_rstr(fname), flag, mode)
+ll_os_open.suggested_primitive=True
 
 def ll_os_read(fd, n):
     return to_rstr(os.read(fd, n))
@@ -68,7 +69,7 @@ def ll_time_sleep(t):
 nonefactory = lambda *args: None
 
 # external function declarations
-declare(os.open   , int        , ll_os_open)
+declare(os.open   , int        , ll_os_open, True)
 declare(os.read   , str        , ll_os_read)
 declare(os.write  , int        , ll_os_write)
 declare(os.close  , nonefactory, ll_os_close)

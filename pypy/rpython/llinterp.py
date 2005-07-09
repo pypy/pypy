@@ -166,13 +166,16 @@ class LLFrame(object):
         array[index] = item
 
     def op_direct_call(self, f, *args):
+        has_callable = hasattr(f._obj, '_callable')
+        if has_callable and getattr(f._obj._callable, 'suggested_primitive', False):
+            return f._obj._callable(*args)
         if hasattr(f._obj, 'graph'):
             graph = f._obj.graph
         else:
             try:
                 graph = self.llinterpreter.getgraph(f._obj._callable)
             except KeyError:
-                assert hasattr(f._obj, '_callable'), "don't know how to execute %r" % f
+                assert has_callable, "don't know how to execute %r" % f
                 return f._obj._callable(*args)
         frame = self.__class__(graph, args, self.llinterpreter)
         return frame.eval()
