@@ -59,7 +59,7 @@ class __extend__(StringRepr):
     def convert_const(self, value):
         if value is None:
             return nullptr(STR)
-        value = getattr(value, '__self__', value)  # for bound string methods
+        #value = getattr(value, '__self__', value)  # for bound string methods
         if not isinstance(value, str):
             raise TyperError("not a str: %r" % (value,))
         try:
@@ -119,17 +119,27 @@ class __extend__(StringRepr):
         return hop.gendirectcall(ll_lower, v_str)
         
     def rtype_method_join(_, hop):
+        if hop.s_result.is_constant():
+            return inputconst(string_repr, hop.s_result.const)
         r_lst = hop.args_r[1]
-        s_item = r_lst.listitem.s_value
-        if s_item == annmodel.SomeImpossibleValue():
-            return inputconst(string_repr, "")
-        elif not s_item.__class__ == annmodel.SomeString:
-            raise TyperError("join of non-string list: %r" % r_lst)
         v_str, v_lst = hop.inputargs(string_repr, r_lst)
         cname = inputconst(Void, "items")
         v_items = hop.genop("getfield", [v_lst, cname],
-                            resulttype=Ptr(GcArray(Ptr(STR))))
-        return hop.gendirectcall(ll_join, v_str, v_items)
+                            resulttype=r_lst.lowleveltype.TO.items)
+        if hop.args_s[0].is_constant() and hop.args_s[0].const == '':
+            if r_lst.item_repr == string_repr:
+                llfn = ll_join_strs
+            elif r_lst.item_repr == char_repr:
+                llfn = ll_join_chars
+            else:
+                raise TyperError("''.join() of non-string list: %r" % r_lst)
+            return hop.gendirectcall(llfn, v_items)
+        else:
+            if r_lst.item_repr == string_repr:
+                llfn = ll_join
+            else:
+                raise TyperError("sep.join() of non-string list: %r" % r_lst)
+            return hop.gendirectcall(llfn, v_str, v_items)
 
     def rtype_method_split(_, hop):
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
@@ -299,7 +309,7 @@ def do_stringformat(hop, sourcevarsrepr):
         i = inputconst(Signed, i)
         hop.genop('setarrayitem', [vtemp, i, vchunk])
 
-    return hop.gendirectcall(ll_join, inputconst(string_repr, ""), vtemp)
+    return hop.gendirectcall(ll_join_strs, vtemp)
     
 
 class __extend__(pairtype(StringRepr, TupleRepr)):
@@ -695,6 +705,38 @@ def ll_join(s, items):
             res_chars[res_index] = item_chars[j]
             j += 1
             res_index += 1
+        i += 1
+    return result
+
+def ll_join_strs(items):
+    num_items = len(items)
+    itemslen = 0
+    i = 0
+    while i < num_items:
+        itemslen += len(items[i].chars)
+        i += 1
+    result = malloc(STR, itemslen)
+    res_chars = result.chars
+    res_index = 0
+    i = 0
+    while i < num_items:
+        item_chars = items[i].chars
+        item_len = len(item_chars)
+        j = 0
+        while j < item_len:
+            res_chars[res_index] = item_chars[j]
+            j += 1
+            res_index += 1
+        i += 1
+    return result
+
+def ll_join_chars(chars):
+    num_chars = len(chars)
+    result = malloc(STR, num_chars)
+    res_chars = result.chars
+    i = 0
+    while i < num_chars:
+        res_chars[i] = chars[i]
         i += 1
     return result
 

@@ -559,7 +559,7 @@ class _ptr(object):
             return _expose(o)
         raise TypeError("%r instance is not an array" % (self._T,))
 
-    def __setitem__(self, i, val): # ! not allowed !
+    def __setitem__(self, i, val):
         if isinstance(self._T, Array):
             T1 = self._T.OF
             if isinstance(T1, ContainerType):

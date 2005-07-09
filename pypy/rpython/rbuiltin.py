@@ -4,7 +4,7 @@ from pypy.rpython import lltype
 from pypy.rpython import rarithmetic
 from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange 
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, Constant
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rfloat import float_repr, FloatRepr
@@ -21,8 +21,7 @@ class __extend__(annmodel.SomeBuiltin):
         else:
             # built-in method case
             assert self.methodname is not None
-            return BuiltinMethodRepr(rtyper.getrepr(self.s_self),
-                                     self.methodname)
+            return BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
     def rtyper_makekey(self):
         if self.s_self is None:
             # built-in function case
@@ -51,11 +50,12 @@ class BuiltinFunctionRepr(Repr):
 
 class BuiltinMethodRepr(Repr):
 
-    def __init__(self, self_repr, methodname):
-        self.self_repr = self_repr
+    def __init__(self, rtyper, s_self, methodname):
+        self.s_self = s_self
+        self.self_repr = rtyper.getrepr(s_self)
         self.methodname = methodname
         # methods of a known name are implemented as just their 'self'
-        self.lowleveltype = self_repr.lowleveltype
+        self.lowleveltype = self.self_repr.lowleveltype
 
     def rtype_simple_call(self, hop):
         # methods: look up the rtype_method_xxx()
@@ -68,6 +68,10 @@ class BuiltinMethodRepr(Repr):
         # hack based on the fact that 'lowleveltype == self_repr.lowleveltype'
         hop2 = hop.copy()
         assert hop2.args_r[0] is self
+        if isinstance(hop2.args_v[0], Constant):
+            c = hop2.args_v[0].value    # get object from bound method
+            hop2.args_v[0] = Constant(c.__self__)
+        hop2.args_s[0] = self.s_self
         hop2.args_r[0] = self.self_repr
         return bltintyper(hop2)
 

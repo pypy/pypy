@@ -209,6 +209,12 @@ def test_lower():
 def test_join():
     res = interpret(lambda: ''.join([]), [])
     assert ''.join(res.chars) == ""
+
+    res = interpret(lambda: ''.join(['a', 'b', 'c']), [])
+    assert ''.join(res.chars) == "abc"
+
+    res = interpret(lambda: ''.join(['abc', 'de', 'fghi']), [])
+    assert ''.join(res.chars) == "abcdefghi"
     
     def fn(i, j):
         s1 = [ '', ',', ' and ']

@@ -61,7 +61,7 @@ class ListRepr(Repr):
 
     def convert_const(self, listobj):
         # get object from bound list method
-        listobj = getattr(listobj, '__self__', listobj)
+        #listobj = getattr(listobj, '__self__', listobj)
         if not isinstance(listobj, list):
             raise TyperError("expected a list: %r" % (listobj,))
         try:
