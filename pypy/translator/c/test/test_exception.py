@@ -41,3 +41,36 @@ def test_raise_outside_testfn():
         assert str(e) == 'MyException'   # which is genc's best effort
     else:
         py.test.fail("f1(1) did not raise anything")
+
+def test_assert():
+    def testfn(n):
+        assert n >= 0
+
+    # big confusion with py.test's AssertionError handling here...
+    # some hacks to try to disable it for the current test.
+    saved = no_magic()
+    try:
+        t = Translator(testfn)
+        t.annotate([int]).simplify()
+        t.specialize()
+        f1 = t.ccompile()
+        res = f1(0)
+        assert res is None, repr(res)
+        res = f1(42)
+        assert res is None, repr(res)
+        py.test.raises(AssertionError, f1, -2)
+    finally:
+        restore_magic(saved)
+
+
+def no_magic():
+    import __builtin__
+    try:
+        py.magic.revert(__builtin__, 'AssertionError')
+        return True
+    except ValueError:
+        return False
+
+def restore_magic(saved):
+    if saved:
+        py.magic.invoke(assertion=True)

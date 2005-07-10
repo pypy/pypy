@@ -194,6 +194,7 @@ for name, value in globals().items():
 BUILTIN_TYPER[math.floor] = rtype_math_floor
 BUILTIN_TYPER[math.fmod] = rtype_math_fmod
 BUILTIN_TYPER[Exception.__init__.im_func] = rtype_Exception__init__
+BUILTIN_TYPER[AssertionError.__init__.im_func] = rtype_Exception__init__
 BUILTIN_TYPER[OSError.__init__.im_func] = rtype_OSError__init__
 # annotation of low-level types
 
