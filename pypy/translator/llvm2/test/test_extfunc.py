@@ -55,7 +55,7 @@ def test_os_file_ops_open_close():
     import os
     def openclose(a,b,c,d,e,f): 
         s = chr(a) + chr(b) + chr(c) + chr(d) + chr(e) + chr(f)
-        fd = os.open(s, os.O_CREAT|os.O_RDWR) 
+        fd = os.open(s, os.O_CREAT|os.O_RDWR, 0777) 
         os.close(fd)
         return fd 
 
@@ -72,7 +72,7 @@ def test_os_file_ops_open_write_close():
     import os
     def openwriteclose(a,b,c,d,e,f): 
         s = chr(a) + chr(b) + chr(c) + chr(d) + chr(e) + chr(f)
-        fd = os.open(s, os.O_CREAT|os.O_RDWR) 
+        fd = os.open(s, os.O_CREAT|os.O_RDWR, 0777) 
         byteswritten = os.write(fd, s)
         os.close(fd)
         return byteswritten
@@ -92,11 +92,11 @@ def test_os_file_ops_open_write_read_close():
     def openwriteclose_openreadclose(a,b,c,d,e,f): 
         s = chr(a) + chr(b) + chr(c) + chr(d) + chr(e) + chr(f)
 
-        fd = os.open(s, os.O_CREAT|os.O_RDWR) 
+        fd = os.open(s, os.O_CREAT|os.O_RDWR, 0777) 
         byteswritten = os.write(fd, s+s+s)
         os.close(fd)
 
-        fd = os.open(s, os.O_RDWR) 
+        fd = os.open(s, os.O_RDWR, 0777) 
         maxread = 1000
         r = os.read(fd, maxread)
         os.close(fd)
