@@ -474,9 +474,10 @@ class FuncNode(ContainerNode):
 
 def select_function_code_generator(fnobj, db):
     if fnobj._callable in fixedname.EXTERNALS:
-        # 'fnobj' is one of the ll_xyz() functions special-cased in
-        # pypy.rpython.extfunctable.  The corresponding C wrappers are written
-        # by hand in extfunc_include.h, and declared in fixedname.EXTERNALS.
+        # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
+        # flag in pypy.rpython.module.*.  The corresponding C wrappers are
+        # written by hand in extfunc_include.h, and declared in
+        # fixedname.EXTERNALS.
         db.externalfuncs[fnobj._callable] = fnobj
         return None
     elif hasattr(fnobj, 'graph'):

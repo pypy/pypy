@@ -5,13 +5,34 @@ import os
 import time
 import types
 
+
 class ExtFuncInfo:
-    def __init__(self, func, annotation, ll_function, ll_annotable, backend_functiontemplate):
+    def __init__(self, func, annotation, ll_function_path, ll_annotable, backend_functiontemplate):
         self.func = func
         self.annotation = annotation
-        self.ll_function = ll_function
+        modulename, ignored = ll_function_path.split('/')
+        self.ll_module = ImportMe('pypy.rpython.module.%s' % modulename)
+        self.ll_function_name = ll_function_path.replace('/', '_')
         self.ll_annotable = ll_annotable
         self.backend_functiontemplate = backend_functiontemplate
+
+    def get_ll_function(self):
+        """Get the ll_*() function implementing the given high-level 'func'."""
+        mod = self.ll_module.load()
+        return getattr(mod, self.ll_function_name)
+    ll_function = property(get_ll_function)
+
+
+class ImportMe:
+    "Lazily imported module, for circular imports :-/"
+    def __init__(self, modulename):
+        self.modulename = modulename
+        self._mod = None
+    def load(self):
+        if self._mod is None:
+            self._mod = __import__(self.modulename, None, None, ['__doc__'])
+        return self._mod
+
 
 table = {}
 def declare(func, annotation, ll_function, ll_annotable=False, backend_functiontemplate=None):
@@ -25,56 +46,17 @@ def declare(func, annotation, ll_function, ll_annotable=False, backend_functiont
             return bookkeeper.getbookkeeper().valueoftype(typ)
     table[func] = ExtFuncInfo(func, annotation, ll_function, ll_annotable, backend_functiontemplate)
 
-# utility conversion functions
-def to_rstr(s):
-    from pypy.rpython import rstr
-    p = rstr.malloc(rstr.STR, len(s))
-    for i in range(len(s)):
-        p.chars[i] = s[i]
-    return p
-
-def from_rstr(rs):
-    return ''.join([rs.chars[i] for i in range(len(rs.chars))])
-
-# dummy low-level implementations for the external functions
-def ll_os_open(fname, flag, mode):
-    return os.open(from_rstr(fname), flag, mode)
-ll_os_open.suggested_primitive=True
-
-def ll_os_read(fd, n):
-    return to_rstr(os.read(fd, n))
-    
-def ll_os_write(fd, astring):
-    return os.write(fd, from_rstr(astring))
-
-def ll_os_close(fd):
-    os.close(fd)
-    
-def ll_os_getcwd():
-    return to_rstr(os.getcwd())
-
-def ll_os_dup(fd):
-    return os.dup(fd)
-
-def ll_time_time():
-    return time.time()
-
-def ll_time_clock():
-    return time.clock()
-
-def ll_time_sleep(t):
-    time.sleep(t)
-
+# _____________________________________________________________
 
 nonefactory = lambda *args: None
 
 # external function declarations
-declare(os.open   , int        , ll_os_open, True)
-declare(os.read   , str        , ll_os_read)
-declare(os.write  , int        , ll_os_write)
-declare(os.close  , nonefactory, ll_os_close)
-declare(os.getcwd , str        , ll_os_getcwd)
-declare(os.dup    , int        , ll_os_dup)
-declare(time.time , float      , ll_time_time)
-declare(time.clock, float      , ll_time_clock)
-declare(time.sleep, nonefactory, ll_time_sleep)
+declare(os.open   , int        , 'll_os/open', True)
+declare(os.read   , str        , 'll_os/read')
+declare(os.write  , int        , 'll_os/write')
+declare(os.close  , nonefactory, 'll_os/close')
+declare(os.getcwd , str        , 'll_os/getcwd')
+declare(os.dup    , int        , 'll_os/dup')
+declare(time.time , float      , 'll_time/time')
+declare(time.clock, float      , 'll_time/clock')
+declare(time.sleep, nonefactory, 'll_time/sleep')

@@ -3,13 +3,13 @@ from pypy.rpython.lltype import Ptr, pyobjectptr, LowLevelType, _ptr, typeOf
 from pypy.translator.c.support import cdecl
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR
-from pypy.rpython import extfunctable
+from pypy.rpython.module import ll_os, ll_time
 
 
 # table of functions hand-written in extfunc_include.h
 EXTERNALS = {
-    extfunctable.ll_os_open:    'LL_os_open',
-    extfunctable.ll_time_clock: 'LL_time_clock',
+    ll_os  .ll_os_open:    'LL_os_open',
+    ll_time.ll_time_clock: 'LL_time_clock',
     }
 
 
