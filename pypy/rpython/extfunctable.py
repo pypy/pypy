@@ -35,7 +35,7 @@ class ImportMe:
 
 
 table = {}
-def declare(func, annotation, ll_function, ll_annotable=False, backend_functiontemplate=None):
+def declare(func, annotation, ll_function, ll_annotable=True, backend_functiontemplate=None):
     # annotation can be a function computing the annotation
     # or a simple python type from which an annotation will be constructed
     global table
@@ -51,7 +51,7 @@ def declare(func, annotation, ll_function, ll_annotable=False, backend_functiont
 nonefactory = lambda *args: None
 
 # external function declarations
-declare(os.open   , int        , 'll_os/open', True)
+declare(os.open   , int        , 'll_os/open')
 declare(os.read   , str        , 'll_os/read')
 declare(os.write  , int        , 'll_os/write')
 declare(os.close  , nonefactory, 'll_os/close')

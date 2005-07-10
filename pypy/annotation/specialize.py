@@ -27,7 +27,7 @@ def decide_callable(bookkeeper, position, func, args, mono=True, unpacked=False)
         if isinstance(key, tuple): 
             # cache specialization
             try:
-                func = bookkeeper.cachespecializations[key]
+                newfunc = bookkeeper.cachespecializations[key]
             except KeyError:
                 if key[0] is func:
                     postfix = key[1:]
@@ -36,14 +36,16 @@ def decide_callable(bookkeeper, position, func, args, mono=True, unpacked=False)
                 newfunc = clone(func, postfix)
                 if key[0] is func:
                     bookkeeper.cachespecializations[(newfunc,) + postfix] = newfunc
-                func = bookkeeper.cachespecializations[key] = newfunc
+                bookkeeper.cachespecializations[key] = newfunc
         elif isinstance(key, str): 
             # specialization explicit in operation annotation
             postfix = key
-            func = clone(func, postfix)
+            newfunc = clone(func, postfix)
         else: 
             # specialization already retrieved
-            func = key
+            newfunc = key
+        newfunc._specializedversionof_ = func
+        func = newfunc
     
     if unpacked:
         func = func, args

@@ -9,6 +9,9 @@ from pypy.rpython.module import ll_os, ll_time
 # table of functions hand-written in extfunc_include.h
 EXTERNALS = {
     ll_os  .ll_os_open:    'LL_os_open',
+    ll_os  .ll_read_into:  'LL_read_into',
+    ll_os  .ll_os_write:   'LL_os_write',
+    ll_os  .ll_os_close:   'LL_os_close',
     ll_time.ll_time_clock: 'LL_time_clock',
     }
 

@@ -93,10 +93,10 @@ def test_os_dup():
     except OSError:
         pass
     count = 0
-    from pypy.rpython import extfunctable
+    from pypy.rpython.module import ll_os
     for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, fn):
         cfptr = dir_call.args[0]
-        assert cfptr.value._obj._callable == extfunctable.ll_os_dup
+        assert cfptr.value._obj._callable == ll_os.ll_os_dup
         count += 1
     assert count == 1
 
@@ -110,10 +110,10 @@ def test_os_open():
     res = interpret(f, [])
     os.close(res)
     count = 0
-    from pypy.rpython import extfunctable
+    from pypy.rpython.module import ll_os
     for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, wr_open):
         cfptr = dir_call.args[0]
-        assert cfptr.value._obj._callable == extfunctable.ll_os_open
+        assert cfptr.value._obj._callable == ll_os.ll_os_open
         count += 1
     assert count == 1
         

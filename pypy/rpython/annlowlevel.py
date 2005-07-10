@@ -45,7 +45,12 @@ class LowLevelAnnotatorPolicy(BasicAnnotatorPolicy):
                 new_args_s.append(s_obj)
             else:
                 new_args_s.append(not_const(s_obj))
-                key.append(annmodel.annotation_to_lltype(s_obj))
+                try:
+                    key.append(annmodel.annotation_to_lltype(s_obj))
+                except ValueError:
+                    # passing non-low-level types to a ll_* function is allowed
+                    # for module/ll_*
+                    key.append(s_obj.__class__)
         return tuple(key), bookkeeper.build_args('simple_call', new_args_s)
         
 

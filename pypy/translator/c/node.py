@@ -480,6 +480,9 @@ def select_function_code_generator(fnobj, db):
         # fixedname.EXTERNALS.
         db.externalfuncs[fnobj._callable] = fnobj
         return None
+    elif getattr(fnobj._callable, 'suggested_primitive', False):
+        raise ValueError, "trying to compile suggested primitive %r" % (
+            fnobj._callable,)
     elif hasattr(fnobj, 'graph'):
         cpython_exc = getattr(fnobj, 'exception_policy', None) == "CPython"
         return FunctionCodeGenerator(fnobj.graph, db, cpython_exc)
