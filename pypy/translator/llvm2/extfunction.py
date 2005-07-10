@@ -113,11 +113,9 @@ void %ll_time_sleep(double %f) {
 """)
 
 extfunctions["%ll_os_open"] = (("%cast",), """
-int %ll_os_open(%st.rpy_string.0* %structstring, int %pythonmode) {
-    %flags = cast int %pythonmode to int
-    %mode  = cast int 384         to int    ;S_IRUSR=256, S_IWUSR=128
+int %ll_os_open(%st.rpy_string.0* %structstring, int %flag, int %mode) {
     %dest  = call sbyte* %cast(%st.rpy_string.0* %structstring)
-    %fd    = call int    %open(sbyte* %dest, int %flags, int %mode)
+    %fd    = call int    %open(sbyte* %dest, int %flag, int %mode)
     ret int %fd 
 }
 

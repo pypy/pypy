@@ -85,7 +85,7 @@ def test_os_file_ops_open_write_close():
     assert os.path.exists(path)
     assert open(path).read() == path
 
-def test_os_file_ops_open_write_read_close(): 
+def Xtest_os_file_ops_open_write_read_close(): 
     # the test is overly complicated because
     # we don't have prebuilt string constants yet 
     import os
