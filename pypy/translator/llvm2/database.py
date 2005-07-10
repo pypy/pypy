@@ -89,7 +89,8 @@ class Database(object):
         type_ = lltype.typeOf(value)
         node = None
         if isinstance(type_, lltype.FuncType):
-            if ((not hasattr(value, "graph")) or value.graph is None) and value._callable:
+            if value._callable and (not hasattr(value, "graph") or value.graph is None 
+                                    or getattr(value._callable, "suggested_primitive", False)):
                 node = ExternalFuncNode(self, value)
             else:
                 node = FuncNode(self, value)

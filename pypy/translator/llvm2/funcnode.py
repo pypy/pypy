@@ -167,7 +167,7 @@ class ExternalFuncNode(LLVMNode):
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.ref = "%" + value._name
+        self.ref = "%" + value._callable.__name__
 
     def setup(self):
         self._issetup = True
