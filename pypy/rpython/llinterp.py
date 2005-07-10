@@ -166,7 +166,7 @@ class LLFrame(object):
         array[index] = item
 
     def op_direct_call(self, f, *args):
-        has_callable = hasattr(f._obj, '_callable')
+        has_callable = getattr(f._obj, '_callable', None) is not None
         if has_callable and getattr(f._obj._callable, 'suggested_primitive', False):
             return f._obj._callable(*args)
         if hasattr(f._obj, 'graph'):
