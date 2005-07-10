@@ -89,6 +89,12 @@ def _buildusercls(cls, hasdict, wants_slots):
         if wants_slots:
             def user_setup_slots(self, nslots):
                 self.slots_w = [None] * nslots 
+
+            def setslotvalue(self, index, w_value):
+                self.slots_w[index] = w_value
+
+            def getslotvalue(self, index):
+                return self.slots_w[index]
         else:
             def user_setup_slots(self, nslots):
                 assert nslots == 0
@@ -273,7 +279,7 @@ class Member(Wrappable):
         else:
             self = member
             self.typecheck(space, w_obj)
-            w_result = w_obj.slots_w[self.index]
+            w_result = w_obj.getslotvalue(self.index)
             if w_result is None:
                 raise OperationError(space.w_AttributeError,
                                      space.wrap(self.name)) # XXX better message
@@ -284,14 +290,14 @@ class Member(Wrappable):
         Write into the slot 'member' of the given 'obj'."""
         self = member
         self.typecheck(space, w_obj)
-        w_obj.slots_w[self.index] = w_value
+        w_obj.setslotvalue(self.index, w_value)
 
     def descr_member_del(space, member, w_obj):
         """member.__delete__(obj)
         Delete the value of the slot 'member' from the given 'obj'."""
         self = member
         self.typecheck(space, w_obj)
-        w_obj.slots_w[self.index] = None
+        w_obj.setslotvalue(self.index, None)
 
 Member.typedef = TypeDef(
     "Member",

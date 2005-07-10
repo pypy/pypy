@@ -54,6 +54,12 @@ class W_Root:
         id = r_uint(id) # XXX what about sizeof(void*) > sizeof(long) !!
         return space.wrap("<%s at 0x%x>" % (info, id))
 
+    def getslotvalue(self, index):
+        raise NotImplementedError
+
+    def setslotvalue(self, index, w_val):
+        raise NotImplementedError
+
 class BaseWrappable(W_Root):
     """A subclass of BaseWrappable is an internal, interpreter-level class
     that can nevertheless be exposed at application-level by space.wrap()."""
