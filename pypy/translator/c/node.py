@@ -36,10 +36,12 @@ class StructDefNode:
         varlength = self.varlength
         if varlength == 1:
             basename = STRUCT._name
+            with_number = True
         else:
             basename = db.gettypedefnode(STRUCT).name
             basename = '%s_len%d' % (basename, varlength)
-        self.name = db.namespace.uniquename(basename)
+            with_number = False
+        self.name = db.namespace.uniquename(basename, with_number=with_number)
         self.dependencies = {}
         self.fields = []
         self.prefix = somelettersfrom(STRUCT._name) + '_'
@@ -178,10 +180,12 @@ class ArrayDefNode:
         varlength = self.varlength
         if varlength == 1:
             basename = 'array'
+            with_number = True
         else:
             basename = db.gettypedefnode(ARRAY).name
             basename = '%s_len%d' % (basename, varlength)
-        self.name = db.namespace.uniquename(basename)
+            with_number = False
+        self.name = db.namespace.uniquename(basename, with_number=with_number)
         self.dependencies = {}
         self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 

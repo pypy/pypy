@@ -99,11 +99,13 @@ class NameManager(object):
                 raise NameError, "%s has already been seen!"
             self.seennames[name] = 1
 
-    def uniquename(self, basename):
+    def uniquename(self, basename, with_number=None):
         basename = basename.translate(C_IDENTIFIER)
         n = self.seennames.get(basename, 0)
         self.seennames[basename] = n+1
-        if basename in ('v', 'w_'):
+        if with_number is None:
+            with_number = basename in ('v', 'w_')
+        if with_number:
             if n == 0:
                 return '%s%d' % (basename, n)
             else:
