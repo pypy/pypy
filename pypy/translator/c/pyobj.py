@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.gensupp import builtin_base
 
 from pypy.rpython.rarithmetic import r_int, r_uint
-from pypy.rpython.lltype import pyobjectptr
+from pypy.rpython.lltype import pyobjectptr, LowLevelType
 
 # XXX maybe this can be done more elegantly:
 # needed to convince should_translate_attr
@@ -214,6 +214,8 @@ class PyObjMaker:
 
     def nameof_instance(self, instance):
         klass = instance.__class__
+        if issubclass(klass, LowLevelType):
+            raise Exception, 'nameof_LowLevelType(%r)' % (instance,)
         name = self.uniquename('ginst_' + klass.__name__)
         cls = self.nameof(klass)
         if hasattr(klass, '__base__'):

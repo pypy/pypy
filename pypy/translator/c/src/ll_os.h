@@ -21,6 +21,7 @@
 
 int LL_os_open(RPyString *filename, int flag, int mode)
 {
+	/* XXX unicode_file_names */
 	char buf[PATH_MAX];
 	int fd, error, namelen = RPyString_Size(filename);
 	if (namelen >= PATH_MAX) {
@@ -31,7 +32,7 @@ int LL_os_open(RPyString *filename, int flag, int mode)
 		memcpy(buf, RPyString_AsString(filename), namelen);
 		buf[namelen] = 0;
 		fd = open(buf, flag, mode);
-		if (fd == -1)
+		if (fd < 0)
 			RAISE_OSERROR(errno);
 		return fd;
 	}
@@ -40,7 +41,7 @@ int LL_os_open(RPyString *filename, int flag, int mode)
 long LL_read_into(int fd, RPyString *buffer)
 {
 	long n = read(fd, RPyString_AsString(buffer), RPyString_Size(buffer));
-	if (n == -1)
+	if (n < 0)
 		RAISE_OSERROR(errno);
 	return n;
 }
@@ -48,13 +49,33 @@ long LL_read_into(int fd, RPyString *buffer)
 long LL_os_write(int fd, RPyString *buffer)
 {
 	long n = write(fd, RPyString_AsString(buffer), RPyString_Size(buffer));
-	if (n == -1)
+	if (n < 0)
 		RAISE_OSERROR(errno);
 	return n;
 }
 
 void LL_os_close(int fd)
 {
-	if (close(fd) == -1)
+	if (close(fd) < 0)
 		RAISE_OSERROR(errno);
+}
+
+int LL_os_dup(int fd)
+{
+	fd = dup(fd);
+	if (fd < 0)
+		RAISE_OSERROR(errno);
+	return fd;
+}
+
+RPyString *LL_os_getcwd(void)
+{
+	char buf[PATH_MAX];
+	char *res;
+	res = getcwd(buf, sizeof buf);
+	if (res == NULL) {
+		RAISE_OSERROR(errno);
+		return NULL;
+	}
+	return RPyString_FromString(buf);
 }

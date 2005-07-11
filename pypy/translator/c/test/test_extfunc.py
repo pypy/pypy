@@ -53,3 +53,10 @@ def test_open_read_write_close():
     f1()
     assert open(filename, 'r').read() == "hello world\n"
     os.unlink(filename)
+
+def test_getcwd():
+    def does_stuff():
+        return os.getcwd()
+    f1 = compile(does_stuff, [])
+    res = f1()
+    assert res == os.getcwd()

@@ -1,5 +1,5 @@
 import types
-from pypy.rpython.lltype import Ptr, pyobjectptr, LowLevelType, _ptr, typeOf
+from pypy.rpython import lltype
 from pypy.translator.c.support import cdecl
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR
@@ -12,6 +12,8 @@ EXTERNALS = {
     ll_os  .ll_read_into:  'LL_read_into',
     ll_os  .ll_os_write:   'LL_os_write',
     ll_os  .ll_os_close:   'LL_os_close',
+    ll_os  .ll_os_dup:     'LL_os_dup',
+    ll_os  .ll_os_getcwd:  'LL_os_getcwd',
     ll_time.ll_time_clock: 'LL_time_clock',
     }
 
@@ -21,10 +23,22 @@ def predeclare_common_types(db, rtyper):
     yield ('RPyString', STR)
 
 
+def predeclare_utility_functions(db, rtyper):
+    # Common utility functions
+    def RPyString_New(length=lltype.Signed):
+        return lltype.malloc(STR, length)
+
+    for fname, f in locals().items():
+        if isinstance(f, types.FunctionType):
+            # hack: the defaults give the type of the arguments
+            fptr = rtyper.annotate_helper(f, f.func_defaults)
+            yield (fname, fptr)
+
+
 def predeclare_extfuncs(db, rtyper):
     for func, funcobj in db.externalfuncs.items():
         c_name = EXTERNALS[func]
-        funcptr = _ptr(Ptr(typeOf(funcobj)), funcobj)   # hum
+        funcptr = lltype._ptr(lltype.Ptr(lltype.typeOf(funcobj)), funcobj) # hum
         yield c_name, funcptr
 
 
@@ -41,7 +55,8 @@ def predeclare_exception_data(db, rtyper):
     yield ('RAISE_OSERROR',            exceptiondata.ll_raise_OSError)
 
     for pyexccls in exceptiondata.standardexceptions:
-        exc_llvalue = exceptiondata.ll_pyexcclass2exc(pyobjectptr(pyexccls))
+        exc_llvalue = exceptiondata.ll_pyexcclass2exc(
+            lltype.pyobjectptr(pyexccls))
         # strange naming here because the macro name must be
         # a substring of PyExc_%s
         yield ('Exc_%s' % pyexccls.__name__, exc_llvalue)
@@ -49,6 +64,7 @@ def predeclare_exception_data(db, rtyper):
 
 def predeclare_all(db, rtyper):
     for fn in [predeclare_common_types,
+               predeclare_utility_functions,
                predeclare_exception_data,
                predeclare_extfuncs,
                ]:
@@ -76,8 +92,15 @@ def pre_include_code_lines(db, rtyper):
         return 'typedef %s;' % cdecl(typename, c_typename)
 
     yield '#define HAVE_RTYPER'
-    for c_name, obj in predeclare_all(db, rtyper):
-        if isinstance(obj, LowLevelType):
+    decls = list(predeclare_all(db, rtyper))
+
+    # the following line must be done after all predeclare_xxx(), to specialize
+    # the functions created by annotate_helper() above.  But it must be done
+    # before db.get(), to ensure that the database only sees specialized blocks.
+    rtyper.specialize_more_blocks()
+
+    for c_name, obj in decls:
+        if isinstance(obj, lltype.LowLevelType):
             yield predeclaretype(c_name, obj)
         elif isinstance(obj, types.FunctionType):
             yield predeclarefn(c_name, obj)

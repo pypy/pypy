@@ -387,6 +387,20 @@ class RPythonTyper:
             return self.bindingrepr(v).lowleveltype
         return getfunctionptr(self.annotator.translator, graphfunc, getconcretetype)
 
+    def annotate_helper(self, ll_function, arglltypes):
+        """Annotate the given low-level helper function
+        and return it as a function pointer object.
+        """
+        args_s = [annmodel.lltype_to_annotation(T) for T in arglltypes]
+        was_frozen = self.annotator.translator.frozen
+        self.annotator.translator.frozen = False   # oh well
+        try:
+            ignored, spec_function = annotate_lowlevel_helper(self.annotator,
+                                                            ll_function, args_s)
+        finally:
+            self.annotator.translator.frozen = was_frozen
+        return self.getfunctionptr(spec_function)
+
     def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None):
         self.call_all_setups()  # compute ForwardReferences now
         if ARG_GCSTRUCT is None:
