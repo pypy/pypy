@@ -93,7 +93,6 @@ def test_break_while_loop():
     assert factorial(4) == 24
     assert factorial(5) == 120
 
-
 def test_primitive_is_true():
     def var_is_true(v):
         return bool(v)
@@ -106,7 +105,6 @@ def test_primitive_is_true():
     f = compile_function(var_is_true, [float])
     assert f(256.0)
     assert not f(0.0)
-
 
 def test_uint_ops():
     def ops(i):
@@ -140,7 +138,6 @@ def test_float_ops():
     f = compile_function(ops, [float])
     assert f(1) == 1
     assert f(2) == 2
-
 
 def test_function_call():
     def callee():
@@ -205,7 +202,7 @@ def test_pbc_fns():
     assert f(-1) == 3
     assert f(0) == 5
 
-def DONTtest_simple_chars():
+def test_simple_chars():
      def char_constant2(s):
          s = s + s + s
          return len(s + '.')
@@ -266,7 +263,7 @@ def test_list_basic_ops():
 def test_string_simple(): 
     def string_simple(i): 
         return ord(str(i))
-    f = compile_function(string_simple, [int], view=False)
+    f = compile_function(string_simple, [int])
     assert f(0) 
     
 def test_string_simple_ops(): 
@@ -282,18 +279,17 @@ def test_string_simple_ops():
     f = compile_function(string_simple_ops, [int])
     assert f(5) == ord('5') + 2
         
-
-def DONTtest_string_getitem1():
+def test_string_getitem1():
     l = "Hello, World"
     def string_getitem1(i): 
-        return l[i]
-    f = compile_function(string_getitem1, [int], view=True)
+        return ord(l[i])
+    f = compile_function(string_getitem1, [int])
     assert f(0) == ord("H")
 
-def DONTtest_string_getitem2():
+def test_string_getitem2():
     def string_test(i): 
         l = "Hello, World"
-        return l[i]
+        return ord(l[i])
     f = compile_function(string_test, [int])
     assert f(0) == ord("H")
 
