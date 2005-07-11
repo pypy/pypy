@@ -2,7 +2,7 @@ import types
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
-from pypy.rpython.rmodel import Repr, TyperError, inputconst
+from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning
 from pypy.rpython.lltype import ForwardReference, GcForwardReference
 from pypy.rpython.lltype import Ptr, Struct, GcStruct, malloc
 from pypy.rpython.lltype import cast_pointer, castable, nullptr
@@ -404,7 +404,12 @@ class InstanceRepr(Repr):
                 if r.lowleveltype == Void:
                     llattrvalue = None
                 else:
-                    attrvalue = getattr(value, name)
+                    try:
+                        attrvalue = getattr(value, name)
+                    except AttributeError:
+                        warning("prebuilt instance %r has no attribute %r" % (
+                            value, name))
+                        continue
                     llattrvalue = r.convert_const(attrvalue)
                 setattr(result, mangled_name, llattrvalue)
         else:
