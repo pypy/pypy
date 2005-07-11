@@ -35,6 +35,9 @@ class __extend__(annmodel.SomePBC):
                         x, classdef))
                 choice = MethodsPBCRepr
 
+            elif x is None:
+                continue    # skipped, a None is allowed implicitely anywhere
+
             elif isinstance(x, (type, types.ClassType)):
                 # classes
                 if x in userclasses:
@@ -66,6 +69,8 @@ class __extend__(annmodel.SomePBC):
         if len(choices) > 1:
             raise TyperError("mixed kinds of PBC in the set %r" % (
                 self.prebuiltinstances,))
+        if len(choices) < 1:
+            return none_frozen_pbc_repr    # prebuiltinstances == {None: True}
         reprcls, = choices
         return reprcls(rtyper, self)
 
@@ -82,8 +87,8 @@ def getPyObjRepr(rtyper, s_pbc):
 
 def getFrozenPBCRepr(rtyper, s_pbc):
     if len(s_pbc.prebuiltinstances) <= 1:
-        if s_pbc.const is None:
-            return none_frozen_pbc_repr
+        #if s_pbc.const is None:   -- take care of by rtyper_makerepr() above
+        #    return none_frozen_pbc_repr
         return single_frozen_pbc_repr
     else:
         pbcs = [pbc for pbc in s_pbc.prebuiltinstances.keys()
@@ -195,7 +200,7 @@ class MultipleFrozenPBCRepr(Repr):
                     try:
                         thisattrvalue = getattr(pbc, attr)
                     except AttributeError:
-                        warning("PBC %r has no attribute %r" % (pbc, attr))
+                        warning("PBC %r has no attribute %r" % (pbc, name))
                         continue
                 llvalue = r_value.convert_const(thisattrvalue)
                 setattr(result, mangled_name, llvalue)
@@ -298,10 +303,15 @@ class FunctionsPBCRepr(Repr):
         if self._function_signatures is None:
             self._function_signatures = {}
             for func in self.s_pbc.prebuiltinstances:
-                self._function_signatures[func] = getsignature(self.rtyper,func)
+                if func is not None:
+                    self._function_signatures[func] = getsignature(self.rtyper,
+                                                                   func)
+            assert self._function_signatures
         return self._function_signatures
 
     def convert_const(self, value):
+        if value is None:
+            return nullptr(self.lowleveltype.TO)
         if isinstance(value, types.MethodType) and value.im_self is None:
             value = value.im_func   # unbound method -> bare function
         if value not in self.function_signatures():

@@ -291,3 +291,22 @@ def INPROGRESS_test_classpbc_getattr():
     assert res == 123
     res = interpret(f, [1])
     assert res == 456
+
+def test_function_or_None():
+    def g1():
+        return 42
+    def f(i):
+        g = None
+        if i > 5:
+            g = g1
+        if i > 6:
+            return g()
+        else:
+            return 12
+
+    res = interpret(f, [0])
+    assert res == 12
+    res = interpret(f, [6])
+    assert res == 12
+    res = interpret(f, [7])
+    assert res == 42
