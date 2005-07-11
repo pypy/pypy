@@ -169,3 +169,10 @@ class AppTestUnicodeString:
 
     def test_float_from_unicode(self):
         assert float(u'123.456e89') == float('123.456e89')
+
+    def test_repr(self):
+        for ustr in [u"", u"a", u"'", u"\'", u"\"", u"\t", u"\\", u'',
+                     u'a', u'"', u'\'', u'\"', u'\t', u'\\', u"'''\"",
+                     unichr(19), unichr(2), u'\u1234', u'\U00101234']:
+            assert eval(repr(ustr)) == ustr
+            

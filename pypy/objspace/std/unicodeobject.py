@@ -61,9 +61,6 @@ def delegate_String2Unicode(w_str):
 def str_w__Unicode(space, w_uni):
     return space.str_w(space.str(w_uni))
 
-def repr__Unicode(space, w_uni):
-    return space.wrap(repr(u''.join(w_uni._value))) # XXX: We don't support unicodestrings and certainly not repr on them.
-
 def str__Unicode(space, w_uni):
     return space.call_method(w_uni, 'encode')
 
@@ -871,6 +868,78 @@ mod__Unicode_ANY = app.interphook('mod__Unicode_ANY')
 
 unicode_encode__Unicode_ANY_ANY = app.interphook('unicode_encode__Unicode_ANY_ANY')
 
+def repr__Unicode(space, w_unicode):
+    hexdigits = "0123456789abcdef"
+    chars = w_unicode._value
+    size = len(chars)
+    result = ['\0'] * (2 + size*6 + 1)
+    result[0] = 'u'
+    result[1] = "'"
+    i = 2
+    for ch in chars:
+        if ch == u'\\':
+            result[i] = result[i + 1] = '\\'
+            i += 2
+            continue
+        if ch == u"'":
+            result[i] = '\\'
+            result[i + 1] = "'"
+            i += 2
+            continue
+        code = ord(ch)
+        if code > 0x10000:
+            # Resize if needed
+            if i + 12 > len(result):
+                result.extend(['\0'] * 100)
+            result[i] = '\\'
+            result[i + 1] = "U"
+            result[i + 2] = hexdigits[(code >> 28) & 0xf] 
+            result[i + 3] = hexdigits[(code >> 24) & 0xf] 
+            result[i + 4] = hexdigits[(code >> 20) & 0xf] 
+            result[i + 5] = hexdigits[(code >> 16) & 0xf] 
+            result[i + 6] = hexdigits[(code >> 12) & 0xf] 
+            result[i + 7] = hexdigits[(code >>  8) & 0xf] 
+            result[i + 8] = hexdigits[(code >>  4) & 0xf] 
+            result[i + 9] = hexdigits[(code >>  0) & 0xf]
+            i += 10
+            continue
+        if code > 0x100:
+            result[i] = '\\'
+            result[i + 1] = "u"
+            result[i + 2] = hexdigits[(code >> 12) & 0xf] 
+            result[i + 3] = hexdigits[(code >>  8) & 0xf] 
+            result[i + 4] = hexdigits[(code >>  4) & 0xf] 
+            result[i + 5] = hexdigits[(code >>  0) & 0xf] 
+            i += 6
+            continue
+        if code == ord('\t'):
+            result[i] = '\\'
+            result[i + 1] = "t"
+            i += 2
+            continue
+        if code == ord('\r'):
+            result[i] = '\\'
+            result[i + 1] = "r"
+            i += 2
+            continue
+        if code == ord('\n'):
+            result[i] = '\\'
+            result[i + 1] = "n"
+            i += 2
+            continue
+        if code < ord(' ') or code >= 0x7f:
+            result[i] = '\\'
+            result[i + 1] = "x"
+            result[i + 2] = hexdigits[(code >> 4) & 0xf] 
+            result[i + 3] = hexdigits[(code >> 0) & 0xf] 
+            i += 4
+            continue
+        result[i] = chr(code)
+        i += 1
+    result[i] = "'"
+    i += 1
+    return space.wrap(''.join(result[:i]))
+        
 import unicodetype
 register_all(vars(), unicodetype)
 
