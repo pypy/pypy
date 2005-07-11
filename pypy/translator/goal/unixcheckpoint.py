@@ -1,10 +1,15 @@
 import os
 
+def restart_process():
+    import sys
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
 def restartable_point(auto=None):
     while True:
         while True:
-            print '---> Checkpoint: run / quit / pdb ?'
+            print '---> Checkpoint: run / restart / quit / pdb ?'
             if auto:
+                print 'auto-%s' % (auto,)
                 line = auto
                 auto = None
             else:
@@ -19,6 +24,8 @@ def restartable_point(auto=None):
                 raise SystemExit
             if line == 'pdb':
                 import pdb; pdb.set_trace()
+            if line == 'restart':
+                restart_process()
 
         pid = os.fork()
         if pid != 0:
