@@ -195,7 +195,7 @@ class MultipleFrozenPBCRepr(Repr):
                     try:
                         thisattrvalue = getattr(pbc, attr)
                     except AttributeError:
-                        warning("PBC %r has no attribute %r" % (pbc, name))
+                        warning("PBC %r has no attribute %r" % (pbc, attr))
                         continue
                 llvalue = r_value.convert_const(thisattrvalue)
                 setattr(result, mangled_name, llvalue)
