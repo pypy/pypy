@@ -315,3 +315,20 @@ def test_list_str():
     
     res = interpret(fn, [])
     assert ''.join(res.chars) == fn()
+
+def test_list_or_None():
+    empty_list = []
+    nonempty_list = [1, 2]
+    def fn(i):
+        test = [None, empty_list, nonempty_list][i]
+        if test:
+            return 1
+        else:
+            return 0
+
+    res = interpret(fn, [0])
+    assert res == 0
+    res = interpret(fn, [1])
+    assert res == 0
+    res = interpret(fn, [2])
+    assert res == 1

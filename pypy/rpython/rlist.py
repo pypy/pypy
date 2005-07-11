@@ -8,7 +8,7 @@ from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rclass import InstanceRepr
 from pypy.rpython.lltype import GcForwardReference, Ptr, GcArray, GcStruct
 from pypy.rpython.lltype import Void, Signed, malloc, typeOf, Primitive
-from pypy.rpython.lltype import Bool
+from pypy.rpython.lltype import Bool, nullptr
 from pypy.rpython import rstr
 
 # ____________________________________________________________
@@ -62,6 +62,8 @@ class ListRepr(Repr):
     def convert_const(self, listobj):
         # get object from bound list method
         #listobj = getattr(listobj, '__self__', listobj)
+        if listobj is None:
+            return nullptr(self.LIST)
         if not isinstance(listobj, list):
             raise TyperError("expected a list: %r" % (listobj,))
         try:
@@ -88,6 +90,10 @@ class ListRepr(Repr):
     def rtype_len(self, hop):
         v_lst, = hop.inputargs(self)
         return hop.gendirectcall(ll_len, v_lst)
+
+    def rtype_is_true(self, hop):
+        v_lst, = hop.inputargs(self)
+        return hop.gendirectcall(ll_list_is_true, v_lst)
 
     def rtype_method_append(self, hop):
         v_lst, v_value = hop.inputargs(self, self.item_repr)
@@ -258,6 +264,10 @@ def ll_copy(l):
 
 def ll_len(l):
     return len(l.items)
+
+def ll_list_is_true(l):
+    # check if a list is True, allowing for None
+    return bool(l) and len(l.items) != 0
 
 def ll_append(l, newitem):
     length = len(l.items)
