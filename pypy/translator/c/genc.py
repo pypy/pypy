@@ -2,7 +2,7 @@ import autopath
 import os, py
 from pypy.translator.c.node import PyObjectNode
 from pypy.translator.c.database import LowLevelDatabase
-from pypy.translator.c.fixedname import pre_include_code_lines
+from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
 from pypy.rpython.lltype import pyobjectptr
@@ -79,7 +79,7 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     print >> f
     for line in preimplementationlines:
         print >> f, line
-    print >> f, '#include "g_include.h"'
+    print >> f, '#include "src/g_include.h"'
     print >> f
     blank = False
     for node in database.structdeflist:
@@ -148,7 +148,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
                 result = symboltable.generate_global_info(database, node)
                 print >> f, '\t%s,' % (result,)
         print >> f, '\tNULL };'
-        print >> f, '#include "g_debuginfo.h"'
+        print >> f, '#include "src/debuginfo.h"'
 
     #
     # PyObject support (strange) code

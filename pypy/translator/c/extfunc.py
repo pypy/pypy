@@ -6,7 +6,7 @@ from pypy.rpython.rstr import STR
 from pypy.rpython.module import ll_os, ll_time
 
 
-# table of functions hand-written in extfunc_include.h
+# table of functions hand-written in src/ll_*.h
 EXTERNALS = {
     ll_os  .ll_os_open:    'LL_os_open',
     ll_os  .ll_read_into:  'LL_read_into',
