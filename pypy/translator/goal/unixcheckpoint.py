@@ -1,14 +1,18 @@
 import os
 
-def restartable_point():
+def restartable_point(auto=None):
     while True:
         while True:
             print '---> Checkpoint: run / quit / pdb ?'
-            try:
-                line = raw_input().strip().lower()
-            except (KeyboardInterrupt, EOFError), e:
-                print '(%s ignored)' % e.__class__.__name__
-                continue
+            if auto:
+                line = auto
+                auto = None
+            else:
+                try:
+                    line = raw_input().strip().lower()
+                except (KeyboardInterrupt, EOFError), e:
+                    print '(%s ignored)' % e.__class__.__name__
+                    continue
             if line == 'run':
                 break
             if line == 'quit':

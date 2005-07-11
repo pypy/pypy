@@ -110,7 +110,7 @@ def analyse(target):
         a.simplify()
     if a and options['-fork']:
         from pypy.translator.goal import unixcheckpoint
-        unixcheckpoint.restartable_point()
+        unixcheckpoint.restartable_point(auto='run')
     if a and not options['-no-t']:
         print 'Specializing...'
         t.specialize()
@@ -540,6 +540,8 @@ show class hierarchy graph"""
             if not options['-o']:
                 print 'Running!'
                 targetspec_dic['run'](c_entry_point)
+    except SystemExit:
+        raise
     except:
         debug(True)
     else:
