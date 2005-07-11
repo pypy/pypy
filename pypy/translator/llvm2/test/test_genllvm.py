@@ -293,6 +293,37 @@ def test_string_getitem2():
     f = compile_function(string_test, [int])
     assert f(0) == ord("H")
 
+def test_list_of_string(): 
+    a = ["hello", "world"]
+    def string_simple(i, j, k, l):
+        s = a[i][j] + a[k][l]
+        return ord(s[0]) + ord(s[1])        
+    f = compile_function(string_simple, [int, int, int, int])
+    assert f(0, 0, 1, 4) == ord("h") + ord("d")
+
+def Xtest_dict_creation(): 
+    d = {'hello' : 23,
+         'world' : 21}
+    l = ["hello", "world"]
+    def createdict(i, j):
+        return d[l[i]] + d[l[j]]
+    f = compile_function(createdict, [int, int], view=True)
+
+    assert createdict(0, 1) == 43
+
+def Xtest_method_call():
+    class MyBase:
+        def m(self, x):
+            return self.z + x
+        
+    def method_call(a, b):
+        obj = MyBase()
+        obj.z = a
+        return obj.m(b)
+    f = compile_function(f, [int, int], view=True)
+    assert f(4, 5) == 9
+
+
 class TestException(Exception):
     pass
 
