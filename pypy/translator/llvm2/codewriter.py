@@ -3,7 +3,7 @@ from itertools import count
 from pypy.translator.llvm2.log import log 
 
 log = log.codewriter 
-show_line_numbers = False # True
+show_line_numbers = True # False
 count = count().next
 
 class CodeWriter(object): 
@@ -16,8 +16,12 @@ class CodeWriter(object):
         self._lines.append(line) 
         log(line) 
 
-    def comment(self, line):
-        self.append(";; " + line) 
+    def comment(self, line, indent=False):
+        line = ";; " + line
+        if indent:
+            self.indent(line)
+        else:
+            self.append(line)
 
     def newline(self):
         self.append("")
@@ -28,8 +32,8 @@ class CodeWriter(object):
     def label(self, name):
         self.append("    %s:" % name)
 
-    def globalinstance(self, name, type, data):
-        self.append("%s = constant %s {%s}" % (name, type, data))
+    def globalinstance(self, name, typeandata):
+        self.append("%s = constant %s" % (name, typeandata))
 
     def structdef(self, name, typereprs):
         self.append("%s = type { %s }" %(name, ", ".join(typereprs)))

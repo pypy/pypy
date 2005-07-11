@@ -16,15 +16,15 @@ class StructTypeNode(LLVMNode):
         assert isinstance(struct, lltype.Struct)
         self.db = db
         self.struct = struct
-        self.name = "%s.%s" % (self.struct._name, nextnum())
-        self.ref = "%%st.%s" % self.name
+        self.name = "%s.%s" % (self.struct._name , nextnum())
+        self.ref = "%%st.%s" % (self.name)
         
     def __str__(self):
         return "<StructTypeNode %r>" %(self.ref,)
     
     def setup(self):
         # Recurse
-        for field in self.struct._flds:
+        for field in self.struct._flds.values():
             self.db.prepare_repr_arg_type(field)
         self._issetup = True
 
@@ -33,9 +33,10 @@ class StructTypeNode(LLVMNode):
 
     def writedatatypedecl(self, codewriter):
         assert self._issetup 
-        fields = [getattr(self.struct, name) for name in self.struct._names_without_voids()] 
-        l = [self.db.repr_arg_type(field) for field in fields]
-        codewriter.structdef(self.ref, l)
+        fields = [getattr(self.struct, name)
+                  for name in self.struct._names_without_voids()] 
+        codewriter.structdef(self.ref,
+                             self.db.repr_arg_type_multi(fields))
 
 class StructVarsizeTypeNode(StructTypeNode):
 
@@ -48,6 +49,9 @@ class StructVarsizeTypeNode(StructTypeNode):
     def __str__(self):
         return "<StructVarsizeTypeNode %r>" %(self.ref,)
         
+    # ______________________________________________________________________
+    # main entry points from genllvm 
+
     def writedecl(self, codewriter): 
         # declaration for constructor
         codewriter.declare(self.constructor_decl)
@@ -73,92 +77,95 @@ class StructVarsizeTypeNode(StructTypeNode):
             self.ref, self.constructor_decl, arraytype, 
             indices_to_array)
 
-
-#XXX Everything downwind of here is experimental code
-
-def cast_global(toptr, from_, name):
-    s = "cast(%s* getelementptr (%s* %s, int 0) to %s)" % (from_,
-                                                           from_,
-                                                           name,
-                                                           toptr)
-    return s
-
 class StructNode(LLVMNode):
+    """ A struct constant.  Can simply contain
+    a primitive,
+    a struct,
+    pointer to struct/array
+    """
     _issetup = False 
 
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.ref = "%%stinstance.%s.%s" % (value._TYPE._name, nextnum())
-        for name in self.value._TYPE._names_without_voids():
-            T = self.value._TYPE._flds[name]
+        self.structtype = self.value._TYPE
+        self.ref = "%%stinstance.%s" % (nextnum(),)
+
+    def __str__(self):
+        return "<StructNode %r>" % (self.ref,)
+
+    def _gettypes(self):
+        return [(name, self.structtype._flds[name])
+                for name in self.structtype._names_without_voids()]
+
+    def setup(self):
+        for name, T in self._gettypes():
             assert T is not lltype.Void
             if isinstance(T, lltype.Ptr):
                 self.db.addptrvalue(getattr(self.value, name))
-
-    def __str__(self):
-        return "<StructNode %r>" %(self.ref,)
-
-    def setup(self):
         self._issetup = True
 
-    def typeandvalue(self):
-        res = []
-        type_ = self.value._TYPE
-        for name in type_._names_without_voids():
-            T = type_._flds[name]
-            value = getattr(self.value, name)
-            if isinstance(T, lltype.Ptr):
-                x = self.db.getptrnode(value)
-                value = self.db.getptrref(value)
-                t, v = x.typeandvalue()
-                value = cast_global(self.db.repr_arg_type(T), t, value)
-                
-            else:
-                value = str(value)
-            res.append((self.db.repr_arg_type(T), value))
-                
-        typestr = self.db.repr_arg_type(type_)
-        values = ", ".join(["%s %s" % (t, v) for t, v in res])
-        return typestr, values
-    
-    def writeglobalconstants(self, codewriter):
-        type_, values = self.typeandvalue()
-        codewriter.globalinstance(self.ref, type_, values)
+    def castfrom(self):
+        return None
 
-#XXX Everything downwind of here is very experimental code and no tests pass
+    def get_typestr(self):
+        return self.db.repr_arg_type(self.structtype)
+    
+    def constantvalue(self):
+        """ Returns the constant representation for this node. """
+        values = []
+        for name, T in self._gettypes():
+            value = getattr(self.value, name)
+            values.append(self.db.reprs_constant(value))
+                
+        return "%s {%s}" % (self.get_typestr(), ", ".join(values))
+    
+    # ______________________________________________________________________
+    # main entry points from genllvm 
+
+    def writeglobalconstants(self, codewriter):
+        codewriter.globalinstance(self.ref, self.constantvalue())
                 
 class StructVarsizeNode(StructNode):
+    """ A varsize struct constant.  Can simply contain
+    a primitive,
+    a struct,
+    pointer to struct/array
+
+    and the last element *must* be
+    an array
+    OR
+    a series of embedded structs, which has as its last element an array.
+    """
+
     def __str__(self):
-        return "<StructVarsizeNode %r>" %(self.ref,)
+        return "<StructVarsizeNode %r>" % (self.ref,)
 
-    def typeandvalue(self):
-        res = []
-        type_ = self.value._TYPE
-        for name in type_._names_without_voids()[:-1]:
-            T = type_._flds[name]
-            value = getattr(self.value, name)
-            if not isinstance(T, lltype.Primitive):
-                # Create a dummy constant hack XXX
-                value = self.db.repr_arg(Constant(value, T))
-            else:
-                value = str(value)
-            res.append((self.db.repr_arg_type(T), value))
+    def setup(self):
+        # set castref (note we must ensure that types are "setup" before we can
+        # get typeval)
+        typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
+        self.castref = "cast (%s* %s to %s*)" % (self.get_typestr(),
+                                                 self.ref,
+                                                 typeval)
+        super(StructVarsizeNode, self).setup()
+        
+    def get_typestr(self):
+        lastname, LASTT = self._gettypes()[-1]
+        assert isinstance(LASTT, lltype.Array) or (
+            isinstance(LASTT, lltype.Struct) and LASTT._arrayfld)
 
-        # Special case for varsized arrays
-        name = type_._names_without_voids()[-1]
-        T = type_._flds[name]
-        assert not isinstance(T, lltype.Primitive)
-        value = getattr(self.value, name)
-        c = Constant(value, T)
-        x = self.db.obj2node[c]
-        t, v = x.typeandvalue()
+        #XXX very messy
+        node = self.db.create_constant_node(getattr(self.value, lastname), True)
+        lasttype = node.get_typestr()
 
-        #value = self.db.repr_arg(c)
-        value = cast_global(self.db.repr_arg_type(T), t, "{%s}" % v)
-        res.append((self.db.repr_arg_type(T), value))
+        types = []
+        for name, T in self._gettypes()[:-1]:
+            types.append(self.db.repr_arg_type(T))
+        types.append(lasttype)
 
-        typestr = self.db.repr_arg_type(type_)
-        values = ", ".join(["%s %s" % (t, v) for t, v in res])
-        return typestr, values
-    
+        return "{%s}" % ", ".join(types)
+        
+    def castfrom(self):
+        return "%s*" % self.get_typestr()
+ 

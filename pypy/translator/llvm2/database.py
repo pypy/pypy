@@ -52,40 +52,31 @@ class NormalizingDict(object):
     def items(self): 
         return self._dict.items()
 
+def primitive_to_str(type_, value):
+    if type_ is lltype.Bool:
+        repr = str(value).lower() #False --> false
+    elif type_ is lltype.Char:
+        repr = str(ord(value))
+    elif type_ is lltype.UniChar:
+        repr = "0" #XXX
+    else:
+        repr = str(value)
+    return repr
+
 class Database(object): 
     def __init__(self, translator): 
         self._translator = translator
         self.obj2node = NormalizingDict() 
         self.ptr2nodevalue = {} 
         self._pendingsetup = []
+        self._pendingconstants = []
         self._tmpcount = 1
 
     def addptrvalue(self, ptrvalue):
         value = ptrvalue._obj
-        node = self.create_constant_node(value)
-        self.ptr2nodevalue[value] = self.create_constant_node(value)        
+        self.ptr2nodevalue[value] = self.create_constant_node(value, setup=True)        
 
-    def getptrnode(self, ptrvalue):
-        return self.ptr2nodevalue[ptrvalue._obj]
-
-    def getptrref(self, ptrvalue):
-        return self.ptr2nodevalue[ptrvalue._obj].ref
-
-    def reprs_constant(self, value):        
-        type_ = lltype.typeOf(value)
-        if isinstance(type_, lltype.Primitive):
-            if isinstance(value, str) and len(value) == 1:
-                res = ord(value)                    
-            res = str(value)
-        elif isinstance(type_, lltype.Ptr):
-            res = self.getptrref(value)
-        #elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):
-        #XXX    res = self.value.typeandvalue()
-        else:
-            assert False, "not supported XXX"
-        return self.repr_arg_type(type_), res
-
-    def create_constant_node(self, value):
+    def create_constant_node(self, value, setup=False):
         type_ = lltype.typeOf(value)
         node = None
         if isinstance(type_, lltype.FuncType):
@@ -104,14 +95,19 @@ class Database(object):
         elif isinstance(type_, lltype.Array):
             node = ArrayNode(self, value)
         assert node is not None, "%s not supported" % lltype.typeOf(value)
+        if setup:
+            node.setup()
         return node
         
-    def addpending(self, key, node): 
+    def addpending(self, key, node):
         assert key not in self.obj2node, (
             "node with key %r already known!" %(key,))
         self.obj2node[key] = node 
         log("added to pending nodes:", node) 
-        self._pendingsetup.append(node) 
+        if isinstance(node, (StructNode, ArrayNode)):
+            self._pendingconstants.append(node)
+        else:
+            self._pendingsetup.append(node) 
 
     def prepare_repr_arg(self, const_or_var):
         """if const_or_var is not already in a dictionary self.obj2node,
@@ -126,7 +122,7 @@ class Database(object):
                 log.prepare(const_or_var, "(is primitive)")
                 return
 
-            assert isinstance(ct, lltype.Ptr), "Preperation of non primitive and non pointer" 
+            assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
             value = const_or_var.value._obj            
                 
             self.addpending(const_or_var, self.create_constant_node(value))
@@ -156,8 +152,8 @@ class Database(object):
         elif isinstance(type_, lltype.Array): 
             self.addpending(type_, ArrayTypeNode(self, type_))
 
-        else:     
-            log.XXX("need to prepare typerepr", type_)
+        else:
+            assert False, "need to prepare typerepr %s %s" % (type_, type(type_))
 
     def prepare_repr_arg_type_multi(self, types):
         for type_ in types:
@@ -171,8 +167,14 @@ class Database(object):
     def setup_all(self):
         while self._pendingsetup: 
             x = self._pendingsetup.pop()
-            log.setup_all(x)
+            log.settingup(x)
             x.setup()
+
+        while self._pendingconstants: 
+            x = self._pendingconstants.pop()
+            log.settingup_constant(x)
+            x.setup()
+
 
     def getobjects(self, subset_types=None):
         res = []
@@ -185,16 +187,18 @@ class Database(object):
     # Representing variables and constants in LLVM source code 
     
     def repr_arg(self, arg):
-        if (isinstance(arg, Constant) and 
-            isinstance(arg.concretetype, lltype.Primitive)):
-           
-            # XXX generalize and test this 
-            if isinstance(arg.value, str) and len(arg.value) == 1: 
-                return str(ord(arg.value))
-            return str(arg.value).lower() #False --> false
-        elif isinstance(arg, Variable):
+        if isinstance(arg, Constant):
+            if isinstance(arg.concretetype, lltype.Primitive):
+                return primitive_to_str(arg.concretetype, arg.value)
+            else:
+                node = self.obj2node[arg]
+                if hasattr(node, "castref"):
+                    return node.castref
+                else:
+                    return node.ref
+        else:
+            assert isinstance(arg, Variable)
             return "%" + str(arg)
-        return self.obj2node[arg].ref
 
     def repr_arg_type(self, arg):
         if isinstance(arg, (Constant, Variable)): 
@@ -209,11 +213,37 @@ class Database(object):
             else: 
                 raise TypeError("cannot represent %r" %(arg,))
 
+    def repr_argwithtype(self, arg):
+        return self.repr_arg(arg), self.repr_arg_type(arg)
+            
     def repr_arg_multi(self, args):
         return [self.repr_arg(arg) for arg in args]
 
     def repr_arg_type_multi(self, args):
         return [self.repr_arg_type(arg) for arg in args]
+
+    def reprs_constant(self, value):
+        type_ = lltype.typeOf(value)
+        if isinstance(type_, lltype.Primitive):
+            repr = primitive_to_str(type_, value)
+            return "%s %s" % (self.repr_arg_type(type_), repr)
+
+        elif isinstance(type_, lltype.Ptr):
+            node = self.ptr2nodevalue[value._obj]
+            ref = node.ref
+
+            fromptr = node.castfrom()
+            toptr = self.repr_arg_type(type_)
+            if fromptr:
+                refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
+                ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
+            return "%s %s" % (toptr, ref)
+
+        elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):
+            node = self.create_constant_node(value, setup=True)
+            return node.constantvalue()
+
+        assert False, "%s not supported" % (type(value))
 
     def repr_tmpvar(self): 
         count = self._tmpcount 

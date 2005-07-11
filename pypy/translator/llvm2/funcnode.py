@@ -140,7 +140,7 @@ class FuncNode(LLVMNode):
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter)
         for op in block.operations:
-            #codewriter.comment(str(op))
+            codewriter.comment(str(op), indent=True)
             opwriter.write_operation(op)
     def write_startblock(self, codewriter, block):
         self.write_block_operations(codewriter, block)
@@ -327,6 +327,7 @@ class OpWriter(object):
     cast_bool_to_int = cast_primitive
     cast_bool_to_uint = uint_is_true = cast_primitive
     cast_int_to_char = cast_char_to_int = cast_primitive
+    cast_int_to_uint = cast_primitive
 
     def int_is_true(self, op):
         self.codewriter.binaryop("setne",
@@ -382,54 +383,56 @@ class OpWriter(object):
 
     def getfield(self, op): 
         tmpvar = self.db.repr_tmpvar()
-        typ = self.db.repr_arg_type(op.args[0]) 
-        typevar = self.db.repr_arg(op.args[0])
+        struct, structtype = self.db.repr_argwithtype(op.args[0])
         fieldnames = list(op.args[0].concretetype.TO._names)
         index = fieldnames.index(op.args[1].value)
-        self.codewriter.getelementptr(tmpvar, typ, typevar, ("uint", index))        
+        self.codewriter.getelementptr(tmpvar, structtype, struct, ("uint", index))        
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
         assert targettype != "void"
         self.codewriter.load(targetvar, targettype, tmpvar)
 
     def getsubstruct(self, op): 
-        typ = self.db.repr_arg_type(op.args[0]) 
-        typevar = self.db.repr_arg(op.args[0])
+        struct, structtype = self.db.repr_argwithtype(op.args[0])
         fieldnames = list(op.args[0].concretetype.TO._names)
         index = fieldnames.index(op.args[1].value)
         targetvar = self.db.repr_arg(op.result)
-        self.codewriter.getelementptr(targetvar, typ, 
-                                      typevar, ("uint", index))        
+        self.codewriter.getelementptr(targetvar, structtype, 
+                                      struct, ("uint", index))        
         targettype = self.db.repr_arg_type(op.result)
         assert targettype != "void"
          
     def setfield(self, op): 
         tmpvar = self.db.repr_tmpvar()
-        type = self.db.repr_arg_type(op.args[0]) 
-        typevar = self.db.repr_arg(op.args[0]) 
+        struct, structtype = self.db.repr_argwithtype(op.args[0])
         fieldnames = list(op.args[0].concretetype.TO._names)
         index = fieldnames.index(op.args[1].value)
-        self.codewriter.getelementptr(tmpvar, type, typevar, ("uint", index))
-        valuevar = self.db.repr_arg(op.args[2]) 
-        valuetype = self.db.repr_arg_type(op.args[2])
+        self.codewriter.getelementptr(tmpvar, structtype, struct, ("uint", index))
+        valuevar, valuetype = self.db.repr_argwithtype(op.args[2])
         assert valuetype != "void"
         self.codewriter.store(valuetype, valuevar, tmpvar) 
 
-    def getarrayitem(self, op):
-        var = self.db.repr_arg(op.args[0])
-        vartype = self.db.repr_arg_type(op.args[0])
+    def getarrayitem(self, op):        
+        array, arraytype = self.db.repr_argwithtype(op.args[0])
         index = self.db.repr_arg(op.args[1])
         indextype = self.db.repr_arg_type(op.args[1])
         tmpvar = self.db.repr_tmpvar()
-        self.codewriter.getelementptr(tmpvar, vartype, var,
+        self.codewriter.getelementptr(tmpvar, arraytype, array,
                                       ("uint", 1), (indextype, index))
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
         self.codewriter.load(targetvar, targettype, tmpvar)
 
+    def getarraysubstruct(self, op):        
+        array, arraytype = self.db.repr_argwithtype(op.args[0])
+        index = self.db.repr_arg(op.args[1])
+        indextype = self.db.repr_arg_type(op.args[1])
+        targetvar = self.db.repr_arg(op.result)
+        self.codewriter.getelementptr(targetvar, arraytype, array,
+                                      ("uint", 1), (indextype, index))
+
     def setarrayitem(self, op):
-        array = self.db.repr_arg(op.args[0])
-        arraytype = self.db.repr_arg_type(op.args[0])
+        array, arraytype = self.db.repr_argwithtype(op.args[0])
         index = self.db.repr_arg(op.args[1])
         indextype = self.db.repr_arg_type(op.args[1])
 
@@ -439,14 +442,12 @@ class OpWriter(object):
 
         valuevar = self.db.repr_arg(op.args[2]) 
         valuetype = self.db.repr_arg_type(op.args[2])
-        assert valuevar.strip() != '-'
         self.codewriter.store(valuetype, valuevar, tmpvar) 
 
     def getarraysize(self, op):
-        var = self.db.repr_arg(op.args[0])
-        vartype = self.db.repr_arg_type(op.args[0])
+        array, arraytype = self.db.repr_argwithtype(op.args[0])
         tmpvar = self.db.repr_tmpvar()
-        self.codewriter.getelementptr(tmpvar, vartype, var, ("uint", 0))
+        self.codewriter.getelementptr(tmpvar, arraytype, array, ("uint", 0))
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
         self.codewriter.load(targetvar, targettype, tmpvar)

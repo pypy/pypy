@@ -9,7 +9,7 @@ class LLVMNode(object):
             if hasattr(self, "_ref"):
                 raise TypeError, ("can only set ref once! currently: %s" %
                                    (self._ref,))
-            if " " in ref: 
+            if " " in ref or "<" in ref: 
                 ref = '"%s"' % (ref,)
             self._ref = ref
         return property(_get_ref, _set_ref)
