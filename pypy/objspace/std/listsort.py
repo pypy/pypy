@@ -185,6 +185,13 @@ class TimSort:
         assert lastofs == ofs         # so a[ofs-1] < key <= a[ofs]
         return ofs
 
+    # hint for the annotator: the argument 'rightmost' is always passed in as
+    # a constant (either True or False), so we can specialize the function for
+    # the two cases.  (This is actually needed for technical reasons: the
+    # variable 'lower' must contain a known method, which is the case in each
+    # specialized version but not in the unspecialized one.)
+    gallop._annspecialcase_ = "specialize:arg4"
+
     # ____________________________________________________________
 
     # When we get into galloping mode, we stay there until both runs win less
