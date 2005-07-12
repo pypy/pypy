@@ -140,11 +140,11 @@ See below for the `translation process in more details`_.
 
 .. _`plain interpreter`:
 
-The Interpreter
-===============
+The Bytecode Interpreter
+=========================
 
-The *plain interpreter* handles python code objects. The interpreter can build
-code objects from Python sources, when needed, by invoking Python's
+The *plain bytecode interpreter* handles python code objects. The interpreter can 
+build code objects from Python sources, when needed, by invoking Python's
 builtin compiler (we also have a way of constructing those code objects
 from python source only, but we have not integrated it yet).  Code objects
 are a nicely preprocessed, structured representation of source code, and
@@ -342,6 +342,7 @@ The rules are described in more details `in the coding guide`_.
 
 .. _`translation process in more details`:
 .. _`later in this document`:
+.. _`initialization time`: 
 
 RPython, the Flow Object Space and translation
 ==============================================

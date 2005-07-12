@@ -1,0 +1,104 @@
+===================================
+PyPy - Bytecode Interpreter 
+===================================
+
+.. contents::
+.. sectnum::
+
+.. _`Bytecode Interpreter`: architecture.html#the-bytecode-interpreter 
+
+
+Introduction 
+============
+
+This document describes the implementation of PyPy's 
+`Bytecode Interpreter`_ and related basic VM functionalities. 
+
+Overview 
+============
+
+PyPy's bytecode interpreter has a structure reminiscent of
+CPython's VM implementation: Source code is parsed and
+compiled into code objects which encapsulate information about
+their respective functions, class and module body source
+codes.  Interpreting such code objects means instantiating and
+initializing a `Frame class`_ and then calling its
+``frame.eval()`` method.  This entry point then interprets
+each bytecode.  
+
+The bytecode interpreter is only responsible for implementing
+control flow and putting and pulling black box objects to and
+from the value stack.  It does not know how to perform
+operations on those black box (`wrapped`_) objects for which
+it defers to the `object space`_.  In order to implement a
+branch in a program's execution, however, it needs to gain
+minimal knowledge about a wrapped object.  Thus, each object
+space offers a ``is_true(w_obj)`` method which returns an
+interpreter-level boolean value.  
+
+For the understanding of the interpreter's inner workings it
+is crucial to recognize the concepts of `interpreter-level and
+application-level`_ code.  In short, interpreter-level is executed
+directly on the machine and invoking application-level functions 
+leads to the full prescribed bytecode interpretation indirection. 
+
+The interpreter implementation offers mechanisms to allow a
+caller to be unaware if a particular function invocation leads
+to bytecode interpretation or is executed directly at
+intepreter-level.  The two basic kinds of `Gateway classes`_
+expose either an interpreter-level function to
+application-level execution (``interp2app``) or allow
+transparent invocation of application-level helpers
+(``app2interp``) at interpreter-level. 
+
+Another task of the interpreter is to expose its basic 
+code, frame, module and function objects to application-level 
+code.  Such runtime introspection and modification abilities are 
+implemented via descriptors. 
+
+A significant complexity lies in the `argument parsing`_
+implementation.  Python as a language offers very flexible
+ways of providing and receiving arguments for a particular
+function invocation.  Not only does it take care to get this
+right, it also presents difficulties for the `annotation
+pass`_ which performs a whole-program analysis on the
+bytecode interpreter, argument parsing and gateway-code
+in order to infer the types of all values. 
+
+It is for this reason that PyPy sometimes resorts to generate
+specialized frame classes and functions at `initialization
+time`_ in order to let the annotator only see static program
+flows with homogenous name-value assignments on e.g. function
+invocations. 
+
+.. _`annotation pass`: translation.html#the-annotation-pass
+.. _`initialization time`: architecture.html#initialization-time
+.. _`interpreter-level and application-level`: architecture.html#interpreter-level 
+.. _`wrapped`: coding-guide.html#wrapping-rules
+.. _`object space`: architecture.html#objectspace 
+
+
+.. _`Frame class`: 
+
+Frame classes
+======================== 
+XXX 
+
+the eval loop
+---------------------
+
+.. _`argument parsing`: 
+
+Argument Parsing 
+======================= 
+
+XXX 
+
+.. _`Gateway classes`: 
+
+Gateway classes 
+======================= 
+
+XXX
+
+
