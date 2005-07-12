@@ -13,7 +13,6 @@ Command-line options for translate_pypy:
               defaults to targetpypymain. The .py suffix is optional.
    -text      Don't start the Pygame viewer
    -no-a      Don't infer annotations, just translate everything
-   -no-s      Don't simplify the graph after annotation
    -no-t      Don't type-specialize the graph operations with the C typer
    -no-o      Don't do backend-oriented optimizations
    -no-c      Don't generate the C code
@@ -105,7 +104,7 @@ def analyse(target):
         sanity_check_exceptblocks(t)
         worstblocks_topten(a, 3)
         find_someobjects(t)
-    if a and not options['-no-s']:
+    if a: #and not options['-no-s']:
         print 'Simplifying...'
         a.simplify()
     if a and options['-fork']:
@@ -113,7 +112,7 @@ def analyse(target):
         unixcheckpoint.restartable_point(auto='run')
     if a and not options['-no-t']:
         print 'Specializing...'
-        t.specialize()
+        t.specialize(dont_simplify_again=True)
     if not options['-no-o']:
         print 'Back-end optimizations...'
         t.backend_optimizations()
@@ -257,7 +256,6 @@ if __name__ == '__main__':
                '-o':    False,
                '-no-mark-some-objects': False,
                '-no-a': False,
-               '-no-s': False,
                '-no-t': False,
                '-no-o': False,
                '-tcc':  False,
@@ -498,7 +496,7 @@ show class hierarchy graph"""
             targetspec_dic = loaded_dic['targetspec_dic']
             targetspec = loaded_dic['targetspec']
             old_options = loaded_dic['options']
-            for name in '-no-a -no-s -no-t -no-o'.split():
+            for name in '-no-a -no-t -no-o'.split():
                 # if one of these options has not been set, before,
                 # then the action has been done and must be prevented, now.
                 if not old_options[name]:

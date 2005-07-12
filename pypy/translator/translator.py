@@ -138,14 +138,14 @@ class Translator:
         for graph in self.flowgraphs.itervalues():
             checkgraph(graph)
 
-    def specialize(self):
+    def specialize(self, dont_simplify_again=False):
         if self.annotator is None:
             raise ValueError("you need to call annotate() first")
         if self.rtyper is not None:
             raise ValueError("cannot specialize() several times")
         from pypy.rpython.rtyper import RPythonTyper
         self.rtyper = RPythonTyper(self.annotator)
-        self.rtyper.specialize()
+        self.rtyper.specialize(dont_simplify_again=dont_simplify_again)
 
     def backend_optimizations(self):
         from pypy.translator.backendoptimization import backend_optimizations
