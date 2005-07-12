@@ -5,6 +5,7 @@ from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 from pypy.rpython import rrange
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
+from pypy.rpython.rslice import minusone_slice_repr
 from pypy.rpython.rclass import InstanceRepr
 from pypy.rpython.lltype import GcForwardReference, Ptr, GcArray, GcStruct
 from pypy.rpython.lltype import Void, Signed, malloc, typeOf, Primitive
@@ -205,6 +206,9 @@ class __extend__(pairtype(ListRepr, SliceRepr)):
         if r_slic == startstop_slice_repr:
             v_lst, v_slice = hop.inputargs(r_lst, startstop_slice_repr)
             return hop.gendirectcall(ll_listslice, v_lst, v_slice)
+        if r_slic == minusone_slice_repr:
+            v_lst, v_ignored = hop.inputargs(r_lst, minusone_slice_repr)
+            return hop.gendirectcall(ll_listslice_minusone, v_lst)
         raise TyperError(r_slic)
 
     def rtype_delitem((r_lst, r_slic), hop):
@@ -440,6 +444,18 @@ def ll_listslice(l1, slice):
     while start < stop:
         newitems[j] = l1.items[start]
         start += 1
+        j += 1
+    l = malloc(typeOf(l1).TO)
+    l.items = newitems
+    return l
+
+def ll_listslice_minusone(l1):
+    newlen = len(l1.items) - 1
+    assert newlen >= 0
+    newitems = malloc(typeOf(l1).TO.items.TO, newlen)
+    j = 0
+    while j < newlen:
+        newitems[j] = l1.items[j]
         j += 1
     l = malloc(typeOf(l1).TO)
     l.items = newitems

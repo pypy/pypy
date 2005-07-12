@@ -4,8 +4,6 @@ Known RTyper issues
 Let's list and update here the issues that will show up, or have shown up
 already sometime ago, while running translate_pypy::
 
-  * we need slicing of the form [:-1].
-
   * the PBCReprs generally lack a convert_from_to() to convert from a small PBC
     set to a larger one.
 

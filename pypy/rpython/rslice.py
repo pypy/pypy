@@ -25,6 +25,9 @@ class __extend__(annmodel.SomeSlice):
     def rtyper_makerepr(self, rtyper):
         if not self.step.is_constant() or self.step.const not in (None, 1):
             raise TyperError("only supports slices with step 1")
+        if (self.start.is_constant() and self.start.const in (None, 0) and
+            self.stop.is_constant() and self.stop.const == -1):
+            return minusone_slice_repr    # [:-1]
         if isinstance(self.start, annmodel.SomeInteger):
             if not self.start.nonneg:
                 raise TyperError("slice start must be proved non-negative")
@@ -36,7 +39,9 @@ class __extend__(annmodel.SomeSlice):
         else:
             return startstop_slice_repr
     def rtyper_makekey(self):
-        return self.stop.rtyper_makekey(), self.step.rtyper_makekey()
+        return (self.start.rtyper_makekey(),
+                self.stop.rtyper_makekey(),
+                self.step.rtyper_makekey())
 
 
 class SliceRepr(Repr):
@@ -46,6 +51,8 @@ startstop_slice_repr = SliceRepr()
 startstop_slice_repr.lowleveltype = Ptr(SLICE)
 startonly_slice_repr = SliceRepr()
 startonly_slice_repr.lowleveltype = Signed
+minusone_slice_repr = SliceRepr()
+minusone_slice_repr.lowleveltype = Void    # only for [:-1]
 
 # ____________________________________________________________
 
@@ -66,6 +73,10 @@ def rtype_newslice(hop):
     assert isinstance(v_step, Constant) and v_step.value in (None, 1)
     if isinstance(v_start, Constant) and v_start.value is None:
         v_start = hop.inputconst(Signed, 0)
+    if (isinstance(v_start, Constant) and v_start.value == 0 and
+        isinstance(v_stop, Constant) and v_stop.value == -1):
+        # [:-1] slice
+        return hop.inputconst(Void, slice(None,-1))
     if isinstance(v_stop, Constant) and v_stop.value is None:
         # start-only slice
         # NB. cannot just return v_start in case it is a constant

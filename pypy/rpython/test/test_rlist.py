@@ -332,3 +332,11 @@ def test_list_or_None():
     assert res == 0
     res = interpret(fn, [2])
     assert res == 1
+
+def test_list_slice_minusone():
+    def fn(i):
+        lst = [i, i+1, i+2]
+        lst2 = lst[:-1]
+        return lst[-1] * lst2[-1]
+    res = interpret(fn, [5])
+    assert res == 42
