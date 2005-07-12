@@ -337,14 +337,14 @@ def test_call_classes():
     res = interpret(f, [1])
     assert res.super.typeptr.name[0] == 'B'
 
-def test_call_classes_with_init():
+def test_call_classes_with_init2():
     class A:
         def __init__(self, z):
             self.z = z
     class B(A):
-        def __init__(self, z):
+        def __init__(self, z, x=42):
             A.__init__(self, z)
-            self.extra = 42
+            self.extra = x
     def f(i, z):
         if i == 1:
             cls = B
@@ -358,3 +358,4 @@ def test_call_classes_with_init():
     assert res.super.typeptr.name[0] == 'B'
     assert res.inst_z == -7645
     assert res._obj._parentstructure().inst_extra == 42
+

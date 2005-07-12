@@ -4,7 +4,7 @@ import inspect
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.tool.sourcetools import has_varargs
+from pypy.tool.sourcetools import has_varargs, valid_identifier
 from pypy.rpython.rmodel import TyperError
 
 
@@ -237,6 +237,8 @@ def create_class_constructors(rtyper):
             raise TyperError("calls to mixed class/non-class objects in the "
                              "family %r" % family.objects.keys())
 
+        patterns = family.patterns.copy()
+
         klasses = [klass for (_, klass) in family.objects.keys()]
         functions = {}
         function_values = {}
@@ -266,16 +268,17 @@ def create_class_constructors(rtyper):
             args2.pop(0)   # 'self'
             funcsig = ', '.join(args)
             callsig = ', '.join(args2)
+            klass_name = valid_identifier(klass.__name__)
             source = py.code.Source('''
                 def %s__new__(%s):
                     return ____class(%s)
             ''' % (
-                klass.__name__, funcsig, callsig))
+                klass_name, funcsig, callsig))
             miniglobals = {
                 '____class': klass,
                 }
             exec source.compile() in miniglobals
-            klass__new__ = miniglobals['%s__new__' % klass.__name__]
+            klass__new__ = miniglobals['%s__new__' % klass_name]
             if initfunc:
                 klass__new__.func_defaults = initfunc.func_defaults
                 graph = rtyper.annotator.translator.getflowgraph(initfunc)
@@ -304,7 +307,7 @@ def create_class_constructors(rtyper):
         for klass__new__ in functionslist[1:]:
             _, _, new_call_family = call_families.union(key0,
                                                         (None, klass__new__))
-        new_call_family.patterns = family.patterns
+        new_call_family.patterns = patterns
 
 
 def perform_normalizations(rtyper):
