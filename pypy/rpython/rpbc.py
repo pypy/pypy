@@ -517,8 +517,10 @@ class ClassesPBCRepr(Repr):
         else:
             attr = hop.args_s[1].const
             vcls, vattr = hop.inputargs(self, Void)
-            return self.class_repr.getpbcfield(vcls, self.access_set, attr,
-                                               hop.llops)
+            return self.getfield(vcls, attr, hop.llops)
+
+    def getfield(self, vcls, attr, llops):
+        return self.class_repr.getpbcfield(vcls, self.access_set, attr, llops)
 
 # ____________________________________________________________
 
@@ -528,6 +530,6 @@ def rtype_call_memo(hop):
     assert hop.nb_args == 2, "XXX"  
 
     r_pbc = hop.args_r[1]
-    assert isinstance(r_pbc, MultipleFrozenPBCRepr)
+    assert isinstance(r_pbc, (MultipleFrozenPBCRepr, ClassesPBCRepr))
     v_table, v_pbc = hop.inputargs(Void, r_pbc)
     return r_pbc.getfield(v_pbc, fieldname, hop.llops)

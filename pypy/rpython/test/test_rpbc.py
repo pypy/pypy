@@ -250,6 +250,25 @@ def test_call_memoized_cache():
     res = interpret(f1, [1]) 
     assert res == 7
 
+def test_call_memo_with_class():
+    class A: pass
+    class FooBar(A): pass
+    def memofn(cls):
+        return len(cls.__name__)
+    memofn._annspecialcase_ = "specialize:memo"
+
+    def f1(i):
+        if i == 1:
+            cls = A
+        else:
+            cls = FooBar
+        FooBar()    # make sure we have ClassDefs
+        return memofn(cls)
+    res = interpret(f1, [1])
+    assert res == 1
+    res = interpret(f1, [2])
+    assert res == 6
+
 def test_rpbc_bound_method_static_call():
     class R:
         def meth(self):
