@@ -9,11 +9,13 @@ from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeFloat, unionof
+from pypy.annotation.model import SomePBC, SomeInstance
 from pypy.annotation.model import annotation_to_lltype
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Constant
 import pypy.rpython.rarithmetic
+import pypy.rpython.objectmodel
 
 # convenience only!
 def immutablevalue(x):
@@ -226,6 +228,17 @@ def math_any(*args):
 def rarith_intmask(s_obj):
     return SomeInteger()
 
+def robjmodel_instantiate(s_clspbc):
+    assert isinstance(s_clspbc, SomePBC)
+    clsdef = None
+    for cls, v in s_clspbc.prebuiltinstances.items():
+        if not clsdef:
+            clsdef = getbookkeeper().getclassdef(cls)
+        else:
+            clsdef = clsdef.commonbase(getbookkeeper().getclassdef(cls))
+    return SomeInstance(clsdef)
+
+
 ##def rarith_ovfcheck(s_obj):
 ##    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
 ##        getbookkeeper().warning("ovfcheck on unsigned")
@@ -263,6 +276,7 @@ BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_uint] = restricted_uint
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck] = rarith_ovfcheck
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.instantiate] = robjmodel_instantiate
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init

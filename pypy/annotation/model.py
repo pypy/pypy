@@ -280,12 +280,16 @@ class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
     def __init__(self, classdef, can_be_None=False):
         self.classdef = classdef
-        self.knowntype = classdef.cls
+        if classdef is not None:   # XXX should never really be None
+            self.knowntype = classdef.cls
         self.can_be_None = can_be_None
     def fmt_knowntype(self, kt):
         return None
     def fmt_classdef(self, cd):
-        return cd.cls.__name__
+        if cd is None:
+            return 'object'
+        else:
+            return cd.cls.__name__
 
     def can_be_none(self):
         return self.can_be_None

@@ -471,10 +471,14 @@ class __extend__(pairtype(SomeInteger, SomeList)):
 class __extend__(pairtype(SomeInstance, SomeInstance)):
 
     def union((ins1, ins2)):
-        basedef = ins1.classdef.commonbase(ins2.classdef)
-        if basedef is None:
-            # print warning?
-            return SomeObject()
+        if ins1.classdef is None or ins2.classdef is None:
+            # special case only
+            basedef = None
+        else:
+            basedef = ins1.classdef.commonbase(ins2.classdef)
+            if basedef is None:
+                # print warning?
+                return SomeObject()
         return SomeInstance(basedef, can_be_None=ins1.can_be_None or ins2.can_be_None)
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):

@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import BaseWrappable, Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.tool.cache import Cache
 from pypy.tool.sourcetools import compile2
-import new
+from pypy.rpython.objectmodel import instantiate
 
 class TypeDef:
     def __init__(self, __name, __base=None, **rawdict):
@@ -131,14 +131,6 @@ def _buildusercls(cls, hasdict, wants_slots):
         subcls = type(name, (basesubcls,), body)
 
     return subcls
-
-def instantiate(cls):
-    "Create an empty instance of 'cls'."
-    if isinstance(cls, type):
-        return object.__new__(cls)
-    else:
-        return new.instance(cls)
-instantiate._annspecialcase_ = "override:instantiate"
 
 def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
     if func is None:

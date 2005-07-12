@@ -8,16 +8,6 @@ from pypy.annotation import specialize
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
 
-    def override__instantiate(pol, clspbc):
-        assert isinstance(clspbc, annmodel.SomePBC)
-        clsdef = None
-        for cls, v in clspbc.prebuiltinstances.items():
-            if not clsdef:
-                clsdef = getbookkeeper().getclassdef(cls)
-            else:
-                clsdef = clsdef.commonbase(getbookkeeper().getclassdef(cls))
-        return annmodel.SomeInstance(clsdef)
-
     def override__wrap_exception_cls(pol, space, x):
         import pypy.objspace.std.typeobject as typeobject
         clsdef = getbookkeeper().getclassdef(typeobject.W_TypeObject)
