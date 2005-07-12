@@ -177,3 +177,31 @@ def test_staticmethod():
     res = interpret(f, [])
     assert res == 42
 
+def test_is():
+    class A: pass
+    class B(A): pass
+    class C: pass
+    def f(i):
+        a = A()
+        b = B()
+        c = C()
+        d = None
+        e = None
+        if i == 0:
+            d = a
+        elif i == 1:
+            d = b
+        elif i == 2:
+            e = c
+        return (0x0001*(a is b) | 0x0002*(a is c) | 0x0004*(a is d) |
+                0x0008*(a is e) | 0x0010*(b is c) | 0x0020*(b is d) |
+                0x0040*(b is e) | 0x0080*(c is d) | 0x0100*(c is e) |
+                0x0200*(d is e))
+    res = interpret(f, [0])
+    assert res == 0x0004
+    res = interpret(f, [1])
+    assert res == 0x0020
+    res = interpret(f, [2])
+    assert res == 0x0100
+    res = interpret(f, [3])
+    assert res == 0x0200

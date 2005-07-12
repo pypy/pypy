@@ -1,5 +1,5 @@
 import types
-from pypy.annotation.pairtype import pairtype
+from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
 from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning
@@ -590,6 +590,14 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
             return v
         else:
             return NotImplemented
+
+    def rtype_is_((r_ins1, r_ins2), hop):
+        if r_ins1.classdef is None or r_ins2.classdef is None:
+            basedef = None
+        else:
+            basedef = r_ins1.classdef.commonbase(r_ins2.classdef)
+        r_ins = getinstancerepr(r_ins1.rtyper, basedef)
+        return pairtype(Repr, Repr).rtype_is_(pair(r_ins, r_ins), hop)
 
 # ____________________________________________________________
 
