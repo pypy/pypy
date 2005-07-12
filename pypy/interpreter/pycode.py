@@ -31,6 +31,7 @@ CO_GENERATOR    = 0x0020
 def cpython_code_signature(code):
     "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
     argcount = code.co_argcount
+    assert argcount >= 0     # annotator hint
     argnames = list(code.co_varnames[:argcount])
     if code.co_flags & CO_VARARGS:
         varargname = code.co_varnames[argcount]

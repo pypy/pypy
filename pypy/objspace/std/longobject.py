@@ -74,7 +74,9 @@ class W_LongObject(W_Object):
 
     def longval(self): #YYYYYY
         l = 0
-        for d in self.digits[::-1]:
+        digits = list(self.digits)
+        digits.reverse()
+        for d in digits:
             l = l << SHIFT
             l += long(d)
         return l * self.sign

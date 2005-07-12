@@ -230,7 +230,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     def lshift((int1, int2)):
         if int1.unsigned:
             return SomeInteger(unsigned=True)
-        return SomeInteger()
+        return SomeInteger(nonneg = int1.nonneg)
     lshift.can_only_throw = [ValueError]
     rshift = lshift
     lshift_ovf = _clone(lshift, [ValueError, OverflowError])
@@ -238,7 +238,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     def pow((int1, int2), obj3):
         if int1.unsigned or int2.unsigned or getattr(obj3, 'unsigned', False):
             return SomeInteger(unsigned=True)
-        return SomeInteger()
+        return SomeInteger(nonneg = int1.nonneg)
     pow.can_only_throw = [ZeroDivisionError]
     pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
 

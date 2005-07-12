@@ -599,6 +599,7 @@ def _strip(space, w_self, w_chars, left, right):
         while rpos > lpos and u_self[rpos - 1] in u_chars:
            rpos -= 1
        
+    assert rpos >= lpos    # annotator hint, don't remove
     return space.wrap(u_self[lpos:rpos])
 
 def _strip_none(space, w_self, left, right):
@@ -617,6 +618,7 @@ def _strip_none(space, w_self, left, right):
         while rpos > lpos and _isspace(u_self[rpos - 1]):
            rpos -= 1
        
+    assert rpos >= lpos    # annotator hint, don't remove
     return space.wrap(u_self[lpos:rpos])
 
 def str_strip__String_String(space, w_self, w_chars):

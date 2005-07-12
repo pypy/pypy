@@ -29,7 +29,11 @@ def _mangle(name, klass):
 
     tlen = len(klass) + len(name)
     if tlen > MANGLE_LEN:
-        klass = klass[:MANGLE_LEN-tlen]
+        end = len(klass) + MANGLE_LEN-tlen
+        if end < 0:
+            klass = ''     # annotator hint
+        else:
+            klass = klass[:end]
 
     return "_%s%s" % (klass, name)
 

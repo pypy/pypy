@@ -183,6 +183,7 @@ class TimSort:
                 ofs = m         # key <= a[m]
 
         assert lastofs == ofs         # so a[ofs-1] < key <= a[ofs]
+        assert ofs >= 0               # annotator hint
         return ofs
 
     # hint for the annotator: the argument 'rightmost' is always passed in as
@@ -553,6 +554,8 @@ class ListSlice:
     "A sublist of a list."
 
     def __init__(self, list, base, len):
+        assert base >= 0
+        assert len >= 0
         self.list = list
         self.base = base
         self.len  = len
@@ -563,17 +566,23 @@ class ListSlice:
 
     def advance(self, n):
         self.base += n
-        self.len -= n
+        len = self.len - n
+        assert len >= 0      # annotator hint, don't remove
+        self.len = len
 
     def popleft(self):
         result = self.list[self.base]
         self.base += 1
-        self.len -= 1
+        len = self.len - 1
+        assert len >= 0      # annotator hint, don't remove
+        self.len = len
         return result
 
     def popright(self):
-        self.len -= 1
-        return self.list[self.base + self.len]
+        len = self.len - 1
+        assert len >= 0      # annotator hint, don't remove
+        self.len = len
+        return self.list[self.base + len]
 
     def reverse(self):
         "Reverse the slice in-place."

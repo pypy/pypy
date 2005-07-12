@@ -314,8 +314,8 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
     if step == 1:  # Support list resizing for non-extended slices
         oldsize = w_list.ob_size
         delta = len2 - slicelength
-        newsize = oldsize + delta
         if delta >= 0:
+            newsize = oldsize + delta
             _list_resize(w_list, newsize)
             w_list.ob_size = newsize
             items = w_list.ob_item

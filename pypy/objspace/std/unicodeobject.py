@@ -232,7 +232,11 @@ def unicode_getslice__Unicode_ANY_ANY(space, w_uni, w_start, w_end):
     uni = w_uni._value
     length = len(uni)
     start, stop, step, sl = slicetype.indices4(space, w_slice, length)
-    return W_UnicodeObject(space, uni[start:stop])
+    if start > stop:
+        return W_UnicodeObject(space, [])
+    else:
+        assert 0 <= start <= stop
+        return W_UnicodeObject(space, uni[start:stop])
 
 def mul__Unicode_ANY(space, w_uni, w_times):
     chars = w_uni._value

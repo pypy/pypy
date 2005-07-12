@@ -15,6 +15,7 @@ def strip_spaces(s):
         p += 1
     while p < q and s[q-1] in ' \f\n\r\t\v':
         q -= 1
+    assert q >= p     # annotator hint, don't remove
     return s[p:q]
 
 class ParseStringError(Exception):
