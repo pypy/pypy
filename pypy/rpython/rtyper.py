@@ -190,6 +190,7 @@ class RPythonTyper:
 
         for hop in self.highlevelops(block, newops):
             try:
+                hop.setup()  # this is called from here to catch TyperErrors...
                 self.translate_hl_to_ll(hop, varmapping)
             except TyperError, e:
                 self.gottypererror(e, block, hop.spaceop, newops)
@@ -423,20 +424,25 @@ class RPythonTyper:
 class HighLevelOp(object):
 
     def __init__(self, rtyper, spaceop, exceptionlinks, llops):
-        self.rtyper   = rtyper
-        self.spaceop  = spaceop
+        self.rtyper         = rtyper
+        self.spaceop        = spaceop
+        self.exceptionlinks = exceptionlinks
+        self.llops          = llops
+
+    def setup(self):
+        rtyper = self.rtyper
+        spaceop = self.spaceop
         self.nb_args  = len(spaceop.args)
-        self.llops    = llops
         self.args_v   = list(spaceop.args)
         self.args_s   = [rtyper.binding(a) for a in spaceop.args]
         self.s_result = rtyper.binding(spaceop.result)
         self.args_r   = [rtyper.getrepr(s_a) for s_a in self.args_s]
         self.r_result = rtyper.getrepr(self.s_result)
         rtyper.call_all_setups()  # compute ForwardReferences now
-        self.exceptionlinks = exceptionlinks
 
     def copy(self):
-        result = HighLevelOp.__new__(HighLevelOp)
+        result = HighLevelOp(self.rtyper, self.spaceop,
+                             self.exceptionlinks, self.llops)
         for key, value in self.__dict__.items():
             if type(value) is list:     # grunt
                 value = value[:]

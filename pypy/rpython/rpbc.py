@@ -7,7 +7,6 @@ from pypy.rpython.lltype import typeOf, Void, ForwardReference, Struct, Bool
 from pypy.rpython.lltype import Ptr, malloc, nullptr
 from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning
 from pypy.rpython import rclass
-from pypy.rpython.rtyper import HighLevelOp
 from pypy.rpython import robject
 
 class __extend__(annmodel.SomePBC):
