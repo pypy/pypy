@@ -198,10 +198,45 @@ def specialize_pbcs_by_memotables(annotator):
             value = memo_table.table[(pbc,)] 
             access_set.values[(pbc, fieldname)] = value 
 
-def perform_normalizations(annotator):
-    annotator.frozen += 1
+def merge_classpbc_getattr_into_classdef(rtyper):
+    # code like 'some_class.attr' will record an attribute access in the
+    # PBC access set of the family of classes of 'some_class'.  If the classes
+    # have corresponding ClassDefs, they are not updated by the annotator.
+    # We have to do it now.
+    access_sets = rtyper.annotator.getpbcaccesssets()
+    userclasses = rtyper.annotator.getuserclasses()
+    for access_set in access_sets.infos():
+        if len(access_set.objects) <= 1:
+            continue
+        count = 0
+        for obj in access_set.objects:
+            if obj in userclasses:
+                count += 1
+        if count == 0:
+            continue
+        if count != len(access_set.objects):
+            raise TyperError("reading attributes %r: mixing instantiated "
+                             "classes with something else in %r" % (
+                access_set.attrs.keys(), access_set.objects.keys()))
+        classdefs = [userclasses[obj] for obj in access_set.objects]
+        commonbase = classdefs[0]
+        for cdef in classdefs[1:]:
+            commonbase = commonbase.commonbase(cdef)
+            if commonbase is None:
+                raise TyperError("reading attributes %r: no common base class "
+                                 "for %r" % (
+                    access_set.attrs.keys(), access_set.objects.keys()))
+        access_set.commonbase = commonbase
+        extra_access_sets = rtyper.class_pbc_attributes.setdefault(commonbase,
+                                                                   {})
+        extra_access_sets[access_set] = len(extra_access_sets)
+
+
+def perform_normalizations(rtyper):
+    rtyper.annotator.frozen += 1
     try:
-        normalize_function_signatures(annotator)
-        specialize_pbcs_by_memotables(annotator) 
+        normalize_function_signatures(rtyper.annotator)
+        specialize_pbcs_by_memotables(rtyper.annotator) 
+        merge_classpbc_getattr_into_classdef(rtyper)
     finally:
-        annotator.frozen -= 1
+        rtyper.annotator.frozen -= 1

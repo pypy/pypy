@@ -444,20 +444,32 @@ class ClassesPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        assert s_pbc.is_constant()      # XXX not implemented
-        self.lowleveltype = Void
-##        self.classdefs = {}
-##        for cls in s_pbc.prebuiltinstances:
-##            self.classdefs[cls] = rtyper.annotator.getuserclasses()[cls]
-##        classdefslist = self.classdefs.values()
-##        commonbase = classdefslist[0]
-##        for cdef in classdefslist[1:]:
-##            commonbase = cdef.commonbase(commonbase)
-##            if commonbase is None:
-##                raise TyperError("no common base class in PBC set %r" % (
-##                    s_pbc.prebuiltinstances,))
+        assert None not in s_pbc.prebuiltinstances, "XXX not implemented"
+        if s_pbc.is_constant():
+            self.lowleveltype = Void
+            self.class_repr = None
+        else:
+            self.lowleveltype = rclass.TYPEPTR
+            access_sets = rtyper.annotator.getpbcaccesssets()
+            classes = s_pbc.prebuiltinstances.keys()
+            _, _, access = access_sets.find(classes[0])
+            for obj in classes[1:]:
+                _, _, access1 = access_sets.find(obj)
+                assert access1 is access       # XXX not implemented
+            commonbase = access.commonbase
+            self.class_repr = rclass.getclassrepr(rtyper, commonbase)
+            self.access_set = access
+
+    def convert_const(self, cls):
+        if cls not in self.s_pbc.prebuiltinstances:
+            raise TyperError("%r not in %r" % (cls, self))
+        if self.lowleveltype == Void:
+            return cls
+        return self.class_repr.convert_const(cls)
 
     def rtype_simple_call(self, hop):
+        if self.class_repr is not None:
+            raise NotImplementedError, "XXX"
         klass = self.s_pbc.const
         v_instance = rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
         try:
@@ -478,6 +490,15 @@ class ClassesPBCRepr(Repr):
             # now hop2 looks like simple_call(initfunc, instance, args...)
             hop2.dispatch()
         return v_instance
+
+    def rtype_getattr(self, hop):
+        if hop.s_result.is_constant():
+            return hop.inputconst(hop.r_result, hop.s_result.const)
+        else:
+            attr = hop.args_s[1].const
+            vcls, vattr = hop.inputargs(self, Void)
+            return self.class_repr.getpbcfield(vcls, self.access_set, attr,
+                                               hop.llops)
 
 # ____________________________________________________________
 

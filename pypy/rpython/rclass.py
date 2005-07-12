@@ -120,6 +120,7 @@ class ClassRepr(Repr):
         #       of recursion where other code would uses these
         #       partially-initialized dicts.
         clsfields = {}
+        pbcfields = {}
         allmethods = {}
         if self.classdef is not None:
             # class attributes
@@ -134,6 +135,15 @@ class ClassRepr(Repr):
                     mangled_name = 'cls_' + name
                     clsfields[name] = mangled_name, r
                     llfields.append((mangled_name, r.lowleveltype))
+            # attributes showing up in getattrs done on the class as a PBC
+            extra_access_sets = self.rtyper.class_pbc_attributes.get(
+                self.classdef, {})
+            for access_set, counter in extra_access_sets.items():
+                for attr, s_value in access_set.attrs.items():
+                    r = self.rtyper.getrepr(s_value)
+                    mangled_name = 'pbc%d_%s' % (counter, attr)
+                    pbcfields[access_set, attr] = mangled_name, r
+                    llfields.append((mangled_name, r.lowleveltype))
             #
             self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
             self.rbase.setup()
@@ -143,6 +153,7 @@ class ClassRepr(Repr):
             self.vtable_type.become(vtable_type)
             allmethods.update(self.rbase.allmethods)
         self.clsfields = clsfields
+        self.pbcfields = pbcfields
         self.allmethods = allmethods
         self.vtable = None
         self.initialized = True
@@ -224,8 +235,7 @@ class ClassRepr(Repr):
             # setup class attributes: for each attribute name at the level
             # of 'self', look up its value in the subclass rsubcls
             mro = list(rsubcls.classdef.getmro())
-            for fldname in self.clsfields:
-                mangled_name, r = self.clsfields[fldname]
+            for fldname, (mangled_name, r) in self.allclasslevelfields():
                 if r.lowleveltype == Void:
                     continue
                 for clsdef in mro:
@@ -236,6 +246,12 @@ class ClassRepr(Repr):
                         break
             # then initialize the 'super' portion of the vtable
             self.rbase.setup_vtable(vtable.super, rsubcls)
+
+    def allclasslevelfields(self):
+        for attr, info in self.clsfields.items():
+            yield attr, info
+        for (access_set, attr), info in self.pbcfields.items():
+            yield attr, info
 
     #def fromparentpart(self, v_vtableptr, llops):
     #    """Return the vtable pointer cast from the parent vtable's type
@@ -280,6 +296,14 @@ class ClassRepr(Repr):
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
             self.rbase.setclsfield(vcls, attr, vvalue, llops)
+
+    def getpbcfield(self, vcls, access_set, attr, llops):
+        if (access_set, attr) not in self.pbcfields:
+            raise TyperError("internal error: missing PBC field")
+        mangled_name, r = self.pbcfields[access_set, attr]
+        v_vtable = self.fromtypeptr(vcls, llops)
+        cname = inputconst(Void, mangled_name)
+        return llops.genop('getfield', [v_vtable, cname], resulttype=r)
 
     def rtype_issubtype(self, hop): 
         class_repr = get_type_repr(self.rtyper)

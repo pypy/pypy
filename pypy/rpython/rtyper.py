@@ -43,6 +43,7 @@ class RPythonTyper:
         self.class_reprs = {}
         self.instance_reprs = {}
         self.pbc_reprs = {}
+        self.class_pbc_attributes = {}
         self.typererror = None
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
@@ -91,7 +92,7 @@ class RPythonTyper:
         self.annotator.simplify()
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
-        perform_normalizations(self.annotator)
+        perform_normalizations(self)
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
         self.already_seen = {}

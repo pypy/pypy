@@ -309,3 +309,16 @@ def test_function_or_None():
     assert res == 12
     res = interpret(f, [7])
     assert res == 42
+
+def test_classdef_getattr():
+    class A:
+        myvalue = 123
+    class B(A):
+        myvalue = 456
+    def f(i):
+        B()    # for A and B to have classdefs
+        return [A,B][i].myvalue
+    res = interpret(f, [0])
+    assert res == 123
+    res = interpret(f, [1])
+    assert res == 456
