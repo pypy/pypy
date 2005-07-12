@@ -322,3 +322,39 @@ def test_classdef_getattr():
     assert res == 123
     res = interpret(f, [1])
     assert res == 456
+
+def test_call_classes():
+    class A: pass
+    class B(A): pass
+    def f(i):
+        if i == 1:
+            cls = B
+        else:
+            cls = A
+        return cls()
+    res = interpret(f, [0])
+    assert res.super.typeptr.name[0] == 'A'
+    res = interpret(f, [1])
+    assert res.super.typeptr.name[0] == 'B'
+
+def test_call_classes_with_init():
+    class A:
+        def __init__(self, z):
+            self.z = z
+    class B(A):
+        def __init__(self, z):
+            A.__init__(self, z)
+            self.extra = 42
+    def f(i, z):
+        if i == 1:
+            cls = B
+        else:
+            cls = A
+        return cls(z)
+    res = interpret(f, [0, 5])
+    assert res.super.typeptr.name[0] == 'A'
+    assert res.inst_z == 5
+    res = interpret(f, [1, -7645])
+    assert res.super.typeptr.name[0] == 'B'
+    assert res.inst_z == -7645
+    assert res._obj._parentstructure().inst_extra == 42

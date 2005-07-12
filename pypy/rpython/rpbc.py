@@ -469,7 +469,15 @@ class ClassesPBCRepr(Repr):
 
     def rtype_simple_call(self, hop):
         if self.class_repr is not None:
-            raise NotImplementedError, "XXX"
+            vcls = hop.inputarg(self, arg=0)
+            vnewfn = self.class_repr.getpbcfield(vcls, self.access_set,
+                                                 '__new__', hop.llops)
+            hop2 = hop.copy()
+            hop2.r_s_popfirstarg()   # discard the class pointer argument
+            hop2.v_s_insertfirstarg(vnewfn, self.access_set.attrs['__new__'])
+            # now hop2 looks like simple_call(klass__new__, args...)
+            return hop2.dispatch()
+
         klass = self.s_pbc.const
         v_instance = rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
         try:

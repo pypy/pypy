@@ -235,7 +235,8 @@ class ClassRepr(Repr):
             # setup class attributes: for each attribute name at the level
             # of 'self', look up its value in the subclass rsubcls
             mro = list(rsubcls.classdef.getmro())
-            for fldname, (mangled_name, r) in self.allclasslevelfields():
+            for fldname in self.clsfields:
+                mangled_name, r = self.clsfields[fldname]
                 if r.lowleveltype == Void:
                     continue
                 for clsdef in mro:
@@ -244,14 +245,23 @@ class ClassRepr(Repr):
                         llvalue = r.convert_const(value)
                         setattr(vtable, mangled_name, llvalue)
                         break
+            # extra PBC attributes
+            for (access_set, attr), (mangled_name, r) in self.pbcfields.items():
+                if r.lowleveltype == Void:
+                    continue
+                for clsdef in mro:
+                    try:
+                        thisattrvalue = access_set.values[clsdef.cls, attr]
+                    except KeyError:
+                        if attr not in clsdef.cls.__dict__:
+                            continue
+                        thisattrvalue = clsdef.cls.__dict__[attr]
+                    llvalue = r.convert_const(thisattrvalue)
+                    setattr(vtable, mangled_name, llvalue)
+                    break
+
             # then initialize the 'super' portion of the vtable
             self.rbase.setup_vtable(vtable.super, rsubcls)
-
-    def allclasslevelfields(self):
-        for attr, info in self.clsfields.items():
-            yield attr, info
-        for (access_set, attr), info in self.pbcfields.items():
-            yield attr, info
 
     #def fromparentpart(self, v_vtableptr, llops):
     #    """Return the vtable pointer cast from the parent vtable's type

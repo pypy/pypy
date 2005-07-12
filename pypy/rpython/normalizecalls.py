@@ -1,4 +1,6 @@
+import py
 import types
+import inspect
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, checkgraph
 from pypy.annotation import model as annmodel
@@ -32,20 +34,6 @@ def normalize_function_signatures(annotator):
                 pattern = (argcount+1,) + pattern[1:]
                 func_family.patterns[pattern] = True
 
-    # for classes that appear in families, unify their __init__ as well.
-    for family in call_families.infos():
-        prevkey = None
-        for _, klass in family.objects:
-            if isinstance(klass, (type, types.ClassType)):
-                try:
-                    initfunc = klass.__init__.im_func
-                except AttributeError:
-                    continue
-                if prevkey is None:
-                    prevkey = (None, initfunc)
-                else:
-                    call_families.union((None, initfunc), prevkey)
-
     # for bound method objects, make sure the im_func shows up too.
     for family in call_families.infos():
         first = family.objects.keys()[0][1]
@@ -72,7 +60,7 @@ def normalize_function_signatures(annotator):
         # collect functions in this family, ignoring:
         #  - methods: taken care of above
         #  - bound methods: their im_func will also show up
-        #  - classes: their __init__ unbound methods are also families
+        #  - classes: already handled by create_class_constructors()
         functions = [func for classdef, func in family.objects
                           if classdef is None and
                 not isinstance(func, (type, types.ClassType, types.MethodType))]
@@ -231,8 +219,96 @@ def merge_classpbc_getattr_into_classdef(rtyper):
                                                                    {})
         extra_access_sets[access_set] = len(extra_access_sets)
 
+def create_class_constructors(rtyper):
+    # for classes that appear in families, make a __new__ PBC attribute.
+    call_families = rtyper.annotator.getpbccallfamilies()
+    access_sets = rtyper.annotator.getpbcaccesssets()
+
+    for family in call_families.infos():
+        if len(family.objects) <= 1:
+            continue
+        count = 0
+        for _, klass in family.objects:
+            if isinstance(klass, (type, types.ClassType)):
+                count += 1
+        if count == 0:
+            continue
+        if count != len(family.objects):
+            raise TyperError("calls to mixed class/non-class objects in the "
+                             "family %r" % family.objects.keys())
+
+        klasses = [klass for (_, klass) in family.objects.keys()]
+        functions = {}
+        function_values = {}
+        for klass in klasses:
+            try:
+                initfunc = klass.__init__.im_func
+            except AttributeError:
+                initfunc = None
+            # XXX AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARGH
+            #     bouh.
+            if initfunc:
+                args, varargs, varkw, defaults = inspect.getargspec(initfunc)
+            else:
+                args, varargs, varkw, defaults = ('self',), None, None, ()
+            args = list(args)
+            args2 = args[:]
+            if defaults:
+                for i in range(-len(defaults), 0):
+                    args[i] += '=None'
+            if varargs:
+                args.append('*%s' % varargs)
+                args2.append('*%s' % varargs)
+            if varkw:
+                args.append('**%s' % varkw)
+                args2.append('**%s' % varkw)
+            args.pop(0)   # 'self'
+            args2.pop(0)   # 'self'
+            funcsig = ', '.join(args)
+            callsig = ', '.join(args2)
+            source = py.code.Source('''
+                def %s__new__(%s):
+                    return ____class(%s)
+            ''' % (
+                klass.__name__, funcsig, callsig))
+            miniglobals = {
+                '____class': klass,
+                }
+            exec source.compile() in miniglobals
+            klass__new__ = miniglobals['%s__new__' % klass.__name__]
+            if initfunc:
+                klass__new__.func_defaults = initfunc.func_defaults
+                graph = rtyper.annotator.translator.getflowgraph(initfunc)
+                args_s = [rtyper.annotator.binding(v) for v in graph.getargs()]
+                args_s.pop(0)   # 'self'
+            else:
+                args_s = []
+            rtyper.annotator.build_types(klass__new__, args_s)
+            functions[klass__new__] = True
+            function_values[klass, '__new__'] = klass__new__
+
+        _, _, access_set = access_sets.find(klasses[0])
+        for klass in klasses[1:]:
+            _, _, access_set = access_sets.union(klasses[0], klass)
+        if '__new__' in access_set.attrs:
+            raise TyperError("PBC access set for classes %r already contains "
+                             "a __new__" % (klasses,))
+        access_set.attrs['__new__'] = annmodel.SomePBC(functions)
+        access_set.values.update(function_values)
+
+        # make a call family for 'functions', copying the call family for
+        # 'klasses'
+        functionslist = functions.keys()
+        key0 = None, functionslist[0]
+        _, _, new_call_family = call_families.find(key0)
+        for klass__new__ in functionslist[1:]:
+            _, _, new_call_family = call_families.union(key0,
+                                                        (None, klass__new__))
+        new_call_family.patterns = family.patterns
+
 
 def perform_normalizations(rtyper):
+    create_class_constructors(rtyper)
     rtyper.annotator.frozen += 1
     try:
         normalize_function_signatures(rtyper.annotator)
