@@ -17,6 +17,7 @@ class __extend__(annmodel.SomePBC):
         # and methods.
         call_families = rtyper.annotator.getpbccallfamilies()
         userclasses = rtyper.annotator.getuserclasses()
+        access_sets = rtyper.annotator.getpbcaccesssets()
         choices = {}
         for x, classdef in self.prebuiltinstances.items():
             cdefflag = isclassdef(classdef)
@@ -62,6 +63,10 @@ class __extend__(annmodel.SomePBC):
                 else:
                     raise TyperError("don't know about callable %r" % (x,))
 
+            elif isinstance(x, builtin_descriptor_type):
+                # strange built-in functions, method objects, etc. from fake.py
+                choice = getPyObjRepr
+
             else:
                 # otherwise, just assume it's a plain frozen object
                 choice = getFrozenPBCRepr
@@ -80,6 +85,14 @@ class __extend__(annmodel.SomePBC):
         lst = self.prebuiltinstances.items()
         lst.sort()
         return tuple(lst)
+
+builtin_descriptor_type = (
+    type(len),                             # type 'builtin_function_or_method'
+    type(list.append),                     # type 'method_descriptor'
+    type(type(None).__repr__),             # type 'wrapper_descriptor'
+    type(type.__dict__['__dict__']),       # type 'getset_descriptor'
+    type(type.__dict__['__basicsize__']),  # type 'member_descriptor'
+    )
 
 # ____________________________________________________________
 
