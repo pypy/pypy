@@ -47,7 +47,9 @@ class __extend__(annmodel.SomePBC):
                     # special case for built-in types, seen in faking
                     choice = getPyObjRepr
                 else:
-                    raise TyperError("don't known about class %r" % (x,))
+                    # classes that are never instantiated => consider them
+                    # as plain frozen objects
+                    choice = getFrozenPBCRepr
 
             elif (classdef, x) in call_families:
                 # other kind of callable

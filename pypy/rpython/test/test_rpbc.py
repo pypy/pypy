@@ -279,15 +279,14 @@ def test_None_is_false():
     res = interpret(fn, [0])
     assert res is False
 
-def INPROGRESS_test_classpbc_getattr():
+def test_classpbc_getattr():
     class A:
         myvalue = 123
     class B(A):
         myvalue = 456
     def f(i):
-        B()      # force B and A to have a ClassDef
         return [A,B][i].myvalue
-    res = interpret(f, [0], view=True)
+    res = interpret(f, [0])
     assert res == 123
     res = interpret(f, [1])
     assert res == 456
