@@ -1,5 +1,6 @@
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test import test_llinterp
+from pypy.rpython.objectmodel import instantiate
 from pypy.objspace.flow import model as flowmodel
 from pypy.tool import udir
 
@@ -132,4 +133,27 @@ def test_pbc_isTrue():
         c = None
         return g(c)
     assert not interpret(fn, [True]) 
-    
+
+def test_instantiate():
+    class A:
+        pass
+    def f():
+        return instantiate(A)
+    res = interpret(f, [])
+    assert res.super.typeptr.name[0] == 'A'
+
+def test_instantiate_multiple():
+    class A:
+        pass
+    class B(A):
+        pass
+    def f(i):
+        if i == 1:
+            cls = A
+        else:
+            cls = B
+        return instantiate(cls)
+    res = interpret(f, [1])
+    assert res.super.typeptr.name[0] == 'A'
+    res = interpret(f, [2])
+    assert res.super.typeptr.name[0] == 'B'

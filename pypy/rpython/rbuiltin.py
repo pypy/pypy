@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython import lltype
-from pypy.rpython import rarithmetic
+from pypy.rpython import rarithmetic, objectmodel
 from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange 
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, Constant
@@ -180,6 +180,23 @@ def rtype_math_fmod(hop):
     vlist = hop.inputargs(lltype.Float, lltype.Float)
     return hop.genop('float_fmod', vlist, resulttype=lltype.Float)
 
+def ll_instantiate(typeptr, RESULT):
+    my_instantiate = typeptr.instantiate
+    return lltype.cast_pointer(RESULT, my_instantiate())
+
+def rtype_instantiate(hop):
+    s_class = hop.args_s[0]
+    assert isinstance(s_class, annmodel.SomePBC)
+    if len(s_class.prebuiltinstances) != 1:
+        # instantiate() on a variable class
+        vtypeptr, = hop.inputargs(rclass.get_type_repr(hop.rtyper))
+        cresult = hop.inputconst(lltype.Void, hop.r_result.lowleveltype)
+        return hop.gendirectcall(ll_instantiate, vtypeptr, cresult)
+
+    klass = s_class.const
+    return rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
+
+
 import math
 ##def ll_floor(f1):
 ##    return float(int((f1)
@@ -234,6 +251,7 @@ BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
 BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint
+BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 
 import time
 

@@ -8,6 +8,7 @@ from pypy.rpython.lltype import Ptr, Struct, GcStruct, malloc
 from pypy.rpython.lltype import cast_pointer, castable, nullptr
 from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo, typeOf
 from pypy.rpython.lltype import Array, Char, Void, attachRuntimeTypeInfo
+from pypy.rpython.lltype import FuncType
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -17,6 +18,7 @@ from pypy.rpython.lltype import Array, Char, Void, attachRuntimeTypeInfo
 #          struct object_vtable* parenttypeptr;
 #          RuntimeTypeInfo * rtti;
 #          array { char } * name;
+#          struct object * instantiate();
 #      }
 #
 #  Every other class X, with parent Y, has the structure:
@@ -40,13 +42,13 @@ from pypy.rpython.lltype import Array, Char, Void, attachRuntimeTypeInfo
 
 OBJECT_VTABLE = ForwardReference()
 TYPEPTR = Ptr(OBJECT_VTABLE)
+OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
+OBJECTPTR = Ptr(OBJECT)
 OBJECT_VTABLE.become(Struct('object_vtable',
                             ('parenttypeptr', TYPEPTR),
                             ('rtti', Ptr(RuntimeTypeInfo)),
-                            ('name', Ptr(Array(Char)))))
-
-OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
-OBJECTPTR = Ptr(OBJECT)
+                            ('name', Ptr(Array(Char))),
+                            ('instantiate', Ptr(FuncType([], OBJECTPTR)))))
 
 def getclassrepr(rtyper, classdef):
     try:
@@ -231,6 +233,11 @@ class ClassRepr(Repr):
             for i in range(len(name)):
                 vtable.name[i] = name[i]
             vtable.name[len(name)] = '\x00'
+            if hasattr(rsubcls.classdef, 'my_instantiate'):
+                fn = rsubcls.classdef.my_instantiate
+                vtable.instantiate = self.rtyper.getfunctionptr(fn)
+            #else: the classdef was created recently, so no instantiate()
+            #      could reach it
         else:
             # setup class attributes: for each attribute name at the level
             # of 'self', look up its value in the subclass rsubcls

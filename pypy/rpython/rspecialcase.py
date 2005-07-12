@@ -2,6 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import rclass
+from pypy.rpython.rmodel import TyperError
 
 
 def rtype_call_specialcase(hop):
@@ -22,11 +23,4 @@ def rtype_call_specialcase(hop):
     return rtype_override_fn(hop2)
 
 
-def rtype_override_instantiate(hop):
-    s_class = hop.args_s[0]
-    assert isinstance(s_class, annmodel.SomePBC)
-    if len(s_class.prebuiltinstances) != 1:
-        raise TyperError("instantiate() on a variable class")
-
-    klass = s_class.const
-    return rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
+# def rtype_override_XXX to be added later

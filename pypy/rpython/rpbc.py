@@ -459,37 +459,49 @@ class ClassesPBCRepr(Repr):
         assert None not in s_pbc.prebuiltinstances, "XXX not implemented"
         if s_pbc.is_constant():
             self.lowleveltype = Void
-            self.class_repr = None
         else:
             self.lowleveltype = rclass.TYPEPTR
-            access_sets = rtyper.annotator.getpbcaccesssets()
-            classes = s_pbc.prebuiltinstances.keys()
+        self._access_set = None
+        self._class_repr = None
+
+    def get_access_set(self):
+        if self._access_set is None:
+            access_sets = self.rtyper.annotator.getpbcaccesssets()
+            classes = self.s_pbc.prebuiltinstances.keys()
             _, _, access = access_sets.find(classes[0])
             for obj in classes[1:]:
                 _, _, access1 = access_sets.find(obj)
                 assert access1 is access       # XXX not implemented
             commonbase = access.commonbase
-            self.class_repr = rclass.getclassrepr(rtyper, commonbase)
-            self.access_set = access
+            self._class_repr = rclass.getclassrepr(self.rtyper, commonbase)
+            self._access_set = access
+        return self._access_set
+
+    def get_class_repr(self):
+        self.get_access_set()
+        return self._class_repr
 
     def convert_const(self, cls):
         if cls not in self.s_pbc.prebuiltinstances:
             raise TyperError("%r not in %r" % (cls, self))
         if self.lowleveltype == Void:
             return cls
-        return self.class_repr.convert_const(cls)
+        return rclass.get_type_repr(self.rtyper).convert_const(cls)
 
     def rtype_simple_call(self, hop):
-        if self.class_repr is not None:
+        if self.lowleveltype != Void:
+            # instantiating a class from multiple possible classes
             vcls = hop.inputarg(self, arg=0)
-            vnewfn = self.class_repr.getpbcfield(vcls, self.access_set,
-                                                 '__new__', hop.llops)
+            access_set = self.get_access_set()
+            vnewfn = self.get_class_repr().getpbcfield(vcls, access_set,
+                                                       '__new__', hop.llops)
             hop2 = hop.copy()
             hop2.r_s_popfirstarg()   # discard the class pointer argument
-            hop2.v_s_insertfirstarg(vnewfn, self.access_set.attrs['__new__'])
+            hop2.v_s_insertfirstarg(vnewfn, access_set.attrs['__new__'])
             # now hop2 looks like simple_call(klass__new__, args...)
             return hop2.dispatch()
 
+        # instantiating a single class
         klass = self.s_pbc.const
         v_instance = rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
         try:
@@ -520,7 +532,15 @@ class ClassesPBCRepr(Repr):
             return self.getfield(vcls, attr, hop.llops)
 
     def getfield(self, vcls, attr, llops):
-        return self.class_repr.getpbcfield(vcls, self.access_set, attr, llops)
+        access_set = self.get_access_set()
+        class_repr = self.get_class_repr()
+        return class_repr.getpbcfield(vcls, access_set, attr, llops)
+
+class __extend__(pairtype(ClassesPBCRepr, rclass.ClassRepr)):
+    def convert_from_to((r_clspbc, r_cls), v, llops):
+        if r_cls.lowleveltype != r_clspbc.lowleveltype:
+            return NotImplemented   # good enough for now
+        return v
 
 # ____________________________________________________________
 

@@ -5,7 +5,9 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.tool.sourcetools import has_varargs, valid_identifier
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.rmodel import TyperError
+from pypy.rpython.objectmodel import instantiate
 
 
 def normalize_function_signatures(annotator):
@@ -310,6 +312,24 @@ def create_class_constructors(rtyper):
         new_call_family.patterns = patterns
 
 
+def create_instantiate_functions(annotator):
+    # build the 'instantiate() -> instance of C' functions for the vtables
+    for cls, classdef in annotator.getuserclasses().items():
+        create_instantiate_function(annotator, cls, classdef)
+
+def create_instantiate_function(annotator, cls, classdef):
+    def my_instantiate():
+        return instantiate(cls)
+    my_instantiate = func_with_new_name(my_instantiate,
+                                valid_identifier('instantiate_'+cls.__name__))
+    annotator.build_types(my_instantiate, [])
+    # force the result to be converted to a generic OBJECTPTR
+    generalizedresult = annmodel.SomeInstance(classdef=None)
+    graph = annotator.translator.getflowgraph(my_instantiate)
+    annotator.setbinding(graph.getreturnvar(), generalizedresult)
+    classdef.my_instantiate = my_instantiate
+
+
 def perform_normalizations(rtyper):
     create_class_constructors(rtyper)
     rtyper.annotator.frozen += 1
@@ -319,3 +339,4 @@ def perform_normalizations(rtyper):
         merge_classpbc_getattr_into_classdef(rtyper)
     finally:
         rtyper.annotator.frozen -= 1
+    create_instantiate_functions(rtyper.annotator)
