@@ -1,0 +1,20 @@
+Known RTyper issues
+-------------------
+
+Let's list and update here the issues that will show up, or have shown up
+already sometime ago, while running translate_pypy::
+
+  * we need slicing of the form [:-1].
+
+  * the PBCReprs generally lack a convert_from_to() to convert from a small PBC
+    set to a larger one.
+
+  * 'call_args' needs to be implemented in rpbc.py.
+
+  * how to implement the three overrides of translator/ann_override.py ?
+
+  * we get tons of warnings about attributes like 'co_code' that seem to be
+    erroneously attached to the base 'Code' class, instead of staying on
+    'PyCode'.
+
+  * the pypy trunk is still not annotable.
