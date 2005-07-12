@@ -1,9 +1,9 @@
 /************************************************************/
  /***  C header subsection: os module                      ***/
 
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+/*#include <unistd.h> -- XXX re-enable with lots of #ifdefs */
+/*#include <sys/types.h>*/
+/*#include <sys/stat.h>*/
 #include <fcntl.h>
 #ifndef PATH_MAX
   /* assume windows */
