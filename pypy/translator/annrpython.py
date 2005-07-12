@@ -532,6 +532,20 @@ class RPythonAnnotator:
                             newcell.const = cell.const
                         cell = newcell
                         cell.is_type_of = renamed_is_type_of
+
+                    if hasattr(cell, 'knowntypedata'):
+                        renamed_knowntypedata = {}
+                        for (value, v), s in cell.knowntypedata.items():
+                            new_vs = renaming.get(v, [])
+                            for new_v in new_vs:
+                                renamed_knowntypedata[value, new_v] = s
+                        assert isinstance(cell, annmodel.SomeBool)
+                        newcell = annmodel.SomeBool()
+                        if cell.is_constant():
+                            newcell.const = cell.const
+                        cell = newcell
+                        cell.knowntypedata = renamed_knowntypedata
+
                     cells.append(cell)
 
             if in_except_block:

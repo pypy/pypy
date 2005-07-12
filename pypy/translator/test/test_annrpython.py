@@ -1264,6 +1264,14 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int]*8)
         assert s == annmodel.SomeTuple([annmodel.SomeInteger(nonneg=True)] * 8)
 
+    def test_more_nonneg_cleverness(self):
+        def f(start, stop):
+            assert 0 <= start <= stop
+            return start, stop
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int, int])
+        assert s == annmodel.SomeTuple([annmodel.SomeInteger(nonneg=True)] * 2)
+
     def test_attr_moving_into_parent(self):
         class A: pass
         class B(A): pass
