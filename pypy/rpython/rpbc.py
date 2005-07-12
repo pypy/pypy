@@ -1,4 +1,5 @@
 import types
+import sys
 from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
@@ -8,6 +9,8 @@ from pypy.rpython.lltype import Ptr, malloc, nullptr
 from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning
 from pypy.rpython import rclass
 from pypy.rpython import robject
+from pypy.rpython import rtuple
+from pypy.tool.sourcetools import has_varargs
 
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
@@ -336,25 +339,44 @@ class FunctionsPBCRepr(Repr):
 
     def rtype_simple_call(self, hop):
         f, rinputs, rresult = self.function_signatures().itervalues().next()
-        defaultclist = []
-        if len(rinputs) != hop.nb_args-1:  # argument count mismatch
-            assert not getattr(f._obj.graph, 'normalized_for_calls', False), (
-                "normalization bug")
-            assert len(self.function_signatures()) == 1, "normalization bug too"
+        extravlist = []
+        if getattr(f._obj.graph, 'normalized_for_calls', False):
+            # should not have an argument count mismatch
+            assert len(rinputs) == hop.nb_args-1, "normalization bug"
+        else:
+            # if not normalized, should be a call to a known function
+            assert len(self.function_signatures()) == 1, "normalization bug"
             func, = self.function_signatures().keys()
+            if has_varargs(func):
+                # collect the arguments for '*arg' into a tuple
+                rstar = rinputs[-1]
+                rinputs = rinputs[:-1]
+                assert isinstance(rstar, rtuple.TupleRepr)
+                tupleitems_v = []
+                for i in range(1+len(rinputs), hop.nb_args):
+                    v = hop.inputarg(rstar.items_r[len(tupleitems_v)], arg=i)
+                    tupleitems_v.append(v)
+                vtuple = rtuple.newtuple(hop.llops, rstar, tupleitems_v)
+                extravlist.append(vtuple)
+                hop = hop.copy()
+                del hop.args_v[1+len(rinputs):]
+                del hop.args_s[1+len(rinputs):]
+                del hop.args_r[1+len(rinputs):]
+                hop.nb_args = len(hop.args_v)
+
             defaults = func.func_defaults or ()
             if len(rinputs) - len(defaults) <= hop.nb_args-1 <= len(rinputs):
                 rinputs = list(rinputs)
                 defaults = list(defaults)
-                while len(rinputs) != hop.nb_args-1:
+                while len(rinputs) > hop.nb_args-1:
                     c = hop.inputconst(rinputs.pop(), defaults.pop())
-                    defaultclist.insert(0, c)
+                    extravlist.insert(0, c)
             else:
                 if hop.nb_args-1 > len(rinputs):
-                    raise RTyperError("too many arguments in function call")
+                    raise TyperError("too many arguments in function call")
                 else:
-                    raise RTyperError("not enough arguments in function call")
-        vlist = hop.inputargs(self, *rinputs) + defaultclist
+                    raise TyperError("not enough arguments in function call")
+        vlist = hop.inputargs(self, *rinputs) + extravlist
         if self.lowleveltype == Void:
             assert len(self.function_signatures()) == 1
             vlist[0] = hop.inputconst(typeOf(f), f)

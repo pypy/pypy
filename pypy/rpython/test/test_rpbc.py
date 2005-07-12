@@ -390,3 +390,27 @@ def test_call_classes_with_init2():
     assert res.inst_z == -7645
     assert res._obj._parentstructure().inst_extra == 42
 
+def test_call_starargs():
+    def g(x=-100, *arg):
+        return x + len(arg)
+    def f(i):
+        if i == -1:
+            return g()
+        elif i == 0:
+            return g(4)
+        elif i == 1:
+            return g(5, 15)
+        elif i == 2:
+            return g(7, 17, 27)
+        else:
+            return g(10, 198, 1129, 13984)
+    res = interpret(f, [-1])
+    assert res == -100
+    res = interpret(f, [0])
+    assert res == 4
+    res = interpret(f, [1])
+    assert res == 6
+    res = interpret(f, [2])
+    assert res == 9
+    res = interpret(f, [3])
+    assert res == 13
