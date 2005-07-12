@@ -76,6 +76,14 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     specialize__argtype0 = staticmethod(argtype(0))
     specialize__arg1 = staticmethod(argvalue(1))
     specialize__argtype1 = staticmethod(argtype(1))
+    specialize__arg2 = staticmethod(argvalue(2))
+    specialize__argtype2 = staticmethod(argtype(2))
+    specialize__arg3 = staticmethod(argvalue(3))
+    specialize__argtype3 = staticmethod(argtype(3))
+    specialize__arg4 = staticmethod(argvalue(4))
+    specialize__argtype4 = staticmethod(argtype(4))
+    specialize__arg5 = staticmethod(argvalue(5))
+    specialize__argtype5 = staticmethod(argtype(5))
 
     def override__ignore(pol, *args):
         bk = getbookkeeper()
