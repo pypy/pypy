@@ -168,3 +168,12 @@ def test_issubclass_type():
     assert interpret(g, [0], view=False, viewbefore=False) == True
     assert interpret(g, [1], view=False, viewbefore=False) == True
 
+def test_staticmethod():
+    class A(object):
+        f = staticmethod(lambda x, y: x*y)
+    def f():
+        a = A()
+        return a.f(6, 7)
+    res = interpret(f, [])
+    assert res == 42
+

@@ -234,6 +234,12 @@ class ClassRepr(Repr):
         else:
             # setup class attributes: for each attribute name at the level
             # of 'self', look up its value in the subclass rsubcls
+            def assign(mangled_name, value):
+                if isinstance(value, staticmethod):
+                    value = value.__get__(42)   # staticmethod => bare function
+                llvalue = r.convert_const(value)
+                setattr(vtable, mangled_name, llvalue)
+
             mro = list(rsubcls.classdef.getmro())
             for fldname in self.clsfields:
                 mangled_name, r = self.clsfields[fldname]
@@ -242,8 +248,7 @@ class ClassRepr(Repr):
                 for clsdef in mro:
                     if fldname in clsdef.cls.__dict__:
                         value = clsdef.cls.__dict__[fldname]
-                        llvalue = r.convert_const(value)
-                        setattr(vtable, mangled_name, llvalue)
+                        assign(mangled_name, value)
                         break
             # extra PBC attributes
             for (access_set, attr), (mangled_name, r) in self.pbcfields.items():
@@ -256,8 +261,7 @@ class ClassRepr(Repr):
                         if attr not in clsdef.cls.__dict__:
                             continue
                         thisattrvalue = clsdef.cls.__dict__[attr]
-                    llvalue = r.convert_const(thisattrvalue)
-                    setattr(vtable, mangled_name, llvalue)
+                    assign(mangled_name, thisattrvalue)
                     break
 
             # then initialize the 'super' portion of the vtable
