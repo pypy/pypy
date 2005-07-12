@@ -269,6 +269,18 @@ def test_call_memo_with_class():
     res = interpret(f1, [2])
     assert res == 6
 
+def test_call_memo_with_single_value():
+    class A: pass
+    def memofn(cls):
+        return len(cls.__name__)
+    memofn._annspecialcase_ = "specialize:memo"
+
+    def f1():
+        A()    # make sure we have a ClassDef
+        return memofn(A)
+    res = interpret(f1, [])
+    assert res == 1
+
 def test_rpbc_bound_method_static_call():
     class R:
         def meth(self):

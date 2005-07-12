@@ -526,6 +526,8 @@ class ClassesPBCRepr(Repr):
 
 def rtype_call_memo(hop): 
     memo_table = hop.args_v[0].value
+    if memo_table.s_result.is_constant():
+        return hop.inputconst(hop.r_result, memo_table.s_result.const)
     fieldname = memo_table.fieldname 
     assert hop.nb_args == 2, "XXX"  
 
