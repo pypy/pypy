@@ -118,6 +118,12 @@ class RPythonTyper:
             for block in pending:
                 self.specialize_block(block)
                 self.already_seen[block] = True
+                # progress bar
+                n = len(self.already_seen)
+                if n % 100 == 0:
+                    total = len(self.annotator.annotated)
+                    print 'specializing: %d / %d blocks   (%d%%)' % (
+                        n, total, 100 * n // total)
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
