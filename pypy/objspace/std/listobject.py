@@ -271,7 +271,9 @@ def delitem__List_Slice(space, w_list, w_slice):
             items[j-slicelength] = items[j]            
             j += 1
         # make sure entries after ob_size are None, to avoid keeping references
-        w_list.ob_size -= slicelength
+        n -= slicelength
+        assert n >= 0            # annotator hint
+        w_list.ob_size = n
         for i in range(w_list.ob_size, n):
             items[i] = None
         # now we can destruct recycle safely, regardless of
@@ -465,26 +467,29 @@ def list_extend__List_ANY(space, w_list, w_any):
 
 def _del_slice(w_list, ilow, ihigh):
     """ similar to the deletion part of list_ass_slice in CPython """
+    n = w_list.ob_size
     if ilow < 0:
         ilow = 0
-    elif ilow > w_list.ob_size:
-        ilow = w_list.ob_size
+    elif ilow > n:
+        ilow = n
     if ihigh < ilow:
         ihigh = ilow
-    elif ihigh > w_list.ob_size:
-        ihigh = w_list.ob_size
+    elif ihigh > n:
+        ihigh = n
     items = w_list.ob_item
     d = ihigh-ilow
     # keep a reference to the objects to be removed,
     # preventing side effects during destruction
     recycle = [items[i] for i in range(ilow, ihigh)]
-    for i in range(ilow, w_list.ob_size - d):
+    for i in range(ilow, n - d):
         items[i] = items[i+d]
         items[i+d] = None
     # make sure entries after ob_size-d are None, to avoid keeping references
     # (the above loop already set to None all items[ilow+d:old_style])
-    w_list.ob_size -= d
-    for i in range(w_list.ob_size, ilow + d):
+    n -= d
+    assert n >= 0            # annotator hint
+    w_list.ob_size = n
+    for i in range(n, ilow + d):
         items[i] = None
     # now we can destruct recycle safely, regardless of
     # side-effects to the list
