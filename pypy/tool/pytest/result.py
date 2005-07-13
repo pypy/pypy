@@ -89,7 +89,13 @@ class ResultFromMime(Result):
             if name in self._reprs: 
                 value = eval(value)  # XXX security
             self._headers[name] = value 
-        self.fspath = py.path.local(self['fspath']) 
+        self.fspath = self['fspath']
+        if self['platform'] == 'win32' and '\\' in self.fspath: 
+            self.testname = self.fspath.split('\\')[-1]
+        else: 
+            self.testname = self.fspath.split('/')[-1]
+        #if sys.platform != 'win32' and '\\' in self.fspath: 
+        #    self.fspath = py.path.local(self['fspath'].replace('\\'
         self.path = path 
     
         payload = msg.get_payload() 
@@ -99,6 +105,11 @@ class ResultFromMime(Result):
                 fn = submsg.get_filename() 
                 assert fn
                 self.addnamedtext(fn, submsg.get_payload())
+
+    def ismodifiedtest(self): 
+        # XXX we need proper cross-platform paths! 
+        return 'modified' in self.fspath
+
     def __repr__(self): 
         return '<%s (%s) %r rev=%s>' %(self.__class__.__name__, 
                                   self['outcome'], 

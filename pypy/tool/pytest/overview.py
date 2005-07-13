@@ -22,7 +22,8 @@ class ResultCache:
                 raise TypeError
         except TypeError: 
             return
-        name = res.fspath.purebasename 
+        name = res.testname 
+        print name
         self.name2result.setdefault(name, []).append(res) 
         return res 
 

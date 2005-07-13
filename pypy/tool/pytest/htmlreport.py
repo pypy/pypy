@@ -18,6 +18,7 @@ html = py.xml.html
 class HtmlReport(object): 
     def __init__(self): 
         self.resultcache = ResultCache()
+
     def parselatest(self): 
         self.resultcache.parselatest()
 
@@ -70,14 +71,13 @@ class HtmlReport(object):
 
     def render_test_references(self, result): 
         dest = self.make_single_test_result(result)
-        modified = result.fspath.dirpath().dirpath().basename.startswith('modified') 
-        modified = modified and " [mod]" or ""
+        modified = result.ismodifiedtest() and " [mod]" or ""
         return html.div(html.a(result.path.purebasename + modified, 
                       href=self.getrelpath(dest)),
                       style="background-color: transparent")
 
     def make_single_test_result(self, result): 
-        cache = self.indexpath.dirpath('.cache')
+        cache = self.indexpath.dirpath('.cache', result['userhost'][:15])
         cache.ensure(dir=1)
         dest = cache.join(result.path.basename).new(ext='.html')
         doc = ViewResult(result)
