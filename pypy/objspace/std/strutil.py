@@ -364,13 +364,13 @@ def string_to_float(s):
     try:
         while p >= 0:
             # note: exponentiation is intentionally used for
-            # exactness. If time is an issue, this can easily
+            # exactness. If speed is an issue, this can easily
             # be kept in a cache for every digit value.
             r += (ord(digits[p]) - ord('0')) * 10.0 ** e
             p -= 1
             e += 1
     except OverflowError:
-        r =1e200 * 1e200
+        r = 1e200 * 1e200
 
     if sign == '-':
         r = -r
