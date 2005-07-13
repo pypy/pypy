@@ -12,6 +12,10 @@ def descr__new__(space, w_floattype, w_x=0.0):
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
+        except OverflowError, e:
+            # this should not happen, but if it does, catch it!
+            raise OperationError(space.w_OverflowError,
+                                 space.wrap(str(e)))
     elif space.is_true(space.isinstance(w_value, space.w_unicode)):
         from unicodeobject import unicode_to_decimal_w
         strvalue = unicode_to_decimal_w(space, w_value)
