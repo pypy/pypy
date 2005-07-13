@@ -9,6 +9,7 @@ from pypy.rpython.rtuple import TupleRepr
 from pypy.rpython import rint
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
+from pypy.rpython.rslice import minusone_slice_repr
 from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
 from pypy.rpython.lltype import Bool, Void, GcArray, nullptr, typeOf
 from pypy.rpython.rclass import InstanceRepr
@@ -187,13 +188,16 @@ class __extend__(pairtype(StringRepr, IntegerRepr)):
 
 class __extend__(pairtype(StringRepr, SliceRepr)):
 
-    def rtype_getitem((r_str, r_slic), hop):
+    def rtype_getitem((_, r_slic), hop):
         if r_slic == startonly_slice_repr:
-            v_str, v_start = hop.inputargs(r_str, startonly_slice_repr)
+            v_str, v_start = hop.inputargs(string_repr, startonly_slice_repr)
             return hop.gendirectcall(ll_stringslice_startonly, v_str, v_start)
         if r_slic == startstop_slice_repr:
-            v_str, v_slice = hop.inputargs(r_str, startstop_slice_repr)
+            v_str, v_slice = hop.inputargs(string_repr, startstop_slice_repr)
             return hop.gendirectcall(ll_stringslice, v_str, v_slice)
+        if r_slic == minusone_slice_repr:
+            v_str, v_ignored = hop.inputargs(string_repr, minusone_slice_repr)
+            return hop.gendirectcall(ll_stringslice_minusone, v_str)
         raise TyperError(r_slic)
 
 
@@ -758,6 +762,16 @@ def ll_stringslice(s1, slice):
     while start < stop:
         newstr.chars[j] = s1.chars[start]
         start += 1
+        j += 1
+    return newstr
+
+def ll_stringslice_minusone(s1):
+    newlen = len(s1.chars) - 1
+    assert newlen >= 0
+    newstr = malloc(STR, newlen)
+    j = 0
+    while j < newlen:
+        newstr.chars[j] = s1.chars[j]
         j += 1
     return newstr
 

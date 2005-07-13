@@ -281,6 +281,15 @@ def test_str_slice():
     res = interpret(fn, ())
     assert res
 
+def test_str_slice_minusone():
+    def fn():
+        s = 'hello'
+        z = 'h'
+        return s[:-1]+z[:-1]
+    res = interpret(fn, ())
+    assert ''.join(res.chars) == 'hell'
+
+
 def test_strformat_instance():
     class C:
         pass
