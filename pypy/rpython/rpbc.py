@@ -157,6 +157,9 @@ class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
 
 class __extend__(pairtype(NoneFrozenPBCRepr, Repr)):
 
+    def convert_from_to((_, r_to), v, llops):
+        return inputconst(r_to, None)
+
     def rtype_is_((rnone1, robj2), hop):
         return rtype_is_None(robj2, rnone1, hop, pos=1)
         

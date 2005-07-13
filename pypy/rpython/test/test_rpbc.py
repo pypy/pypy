@@ -414,3 +414,30 @@ def test_call_starargs():
     assert res == 9
     res = interpret(f, [3])
     assert res == 13
+
+def test_conv_from_None():
+    class A(object): pass
+    def none():
+        return None
+    
+    def f(i):
+        if i == 1:
+            return none()
+        else:
+            return "ab"
+    res = interpret(f, [1])
+    assert not res
+    res = interpret(f, [0])
+    assert ''.join(res.chars) == "ab"
+        
+    def g(i):
+        if i == 1:
+            return none()
+        else:
+            return A()
+    res = interpret(g, [1])
+    assert not res
+    res = interpret(g, [0])
+    assert res.super.typeptr.name[0] == 'A'
+
+    

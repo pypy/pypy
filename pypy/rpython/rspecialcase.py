@@ -2,7 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import rclass
-from pypy.rpython.rmodel import TyperError
+from pypy.rpython.rmodel import TyperError, inputconst
 
 
 def rtype_call_specialcase(hop):
@@ -24,3 +24,7 @@ def rtype_call_specialcase(hop):
 
 
 # def rtype_override_XXX to be added later
+
+
+def rtype_override_ignore(hop):
+    return inputconst(hop.r_result, None)
