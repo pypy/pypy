@@ -4,6 +4,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.lltype import Ptr, GcStruct, Void, Signed, malloc
+from pypy.rpython.lltype import typeOf, nullptr
 
 # ____________________________________________________________
 #
@@ -63,6 +64,11 @@ class TupleRepr(Repr):
             cindex = inputconst(Signed, index)
             hop.gendirectcall(rlist.ll_setitem_nonneg, vlist, cindex, vitem)
         return vlist
+
+    def make_iterator_repr(self):
+        if len(self.items_r) == 1:
+            return Length1TupleIteratorRepr(self)
+        raise TyperError("can only iterate over tuples of length 1 for now")
 
 class __extend__(pairtype(TupleRepr, Repr)): 
     def rtype_contains((r_tup, r_item), hop): 
@@ -155,3 +161,37 @@ class __extend__(pairtype(TupleRepr, PyObjRepr)):
             llops.gencapicall('PyTuple_SetItem_WithIncref', [v_result, ci,
                                                              v_converted])
         return v_result
+
+# ____________________________________________________________
+#
+#  Iteration.
+
+class Length1TupleIteratorRepr(Repr):
+
+    def __init__(self, r_tuple):
+        self.r_tuple = r_tuple
+        self.lowleveltype = Ptr(GcStruct('tuple1iter',
+                                         ('tuple', r_tuple.lowleveltype)))
+
+    def newiter(self, hop):
+        v_tuple, = hop.inputargs(self.r_tuple)
+        citerptr = hop.inputconst(Void, self.lowleveltype)
+        return hop.gendirectcall(ll_tupleiter, citerptr, v_tuple)
+
+    def rtype_next(self, hop):
+        v_iter, = hop.inputargs(self)
+        return hop.gendirectcall(ll_tuplenext, v_iter)
+
+def ll_tupleiter(ITERPTR, tuple):
+    iter = malloc(ITERPTR.TO)
+    iter.tuple = tuple
+    return iter
+
+def ll_tuplenext(iter):
+    # for iterating over length 1 tuples only!
+    t = iter.tuple
+    if t:
+        iter.tuple = nullptr(typeOf(t).TO)
+        return t.item0
+    else:
+        raise StopIteration

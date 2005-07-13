@@ -77,3 +77,12 @@ def test_constant_tuple_contains():
     assert res is True 
     res = interpret(f, [0])
     assert res is False 
+
+def test_tuple_iterator_length1():
+    def f(i):
+        total = 0
+        for x in (i,):
+            total += x
+        return total
+    res = interpret(f, [93813])
+    assert res == 93813
