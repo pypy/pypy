@@ -190,13 +190,13 @@ class W_FakeDescriptor(Wrappable):
     def __init__(self, space, d):
         self.name = d.__name__
 
-    def descr_descriptor_get(space, w_descriptor, w_obj, w_cls=None):
+    def descr_descriptor_get(space, descr, w_obj, w_cls=None):
         # XXX HAAAAAAAAAAAACK (but possibly a good one)
         if w_obj == space.w_None and not space.is_true(space.is_(w_cls, space.type(space.w_None))):
-            #print w_descriptor, w_obj, w_cls
-            return w_descriptor
+            #print descr, w_obj, w_cls
+            return space.wrap(descr)
         else:
-            name = space.unwrap(w_descriptor).name
+            name = descr.name
             obj = space.unwrap(w_obj)
             try:
                 val = getattr(obj, name)  # this gives a "not RPython" warning
@@ -205,8 +205,8 @@ class W_FakeDescriptor(Wrappable):
                 raise
             return space.wrap(val)
 
-    def descr_descriptor_set(space, w_descriptor, w_obj, w_value):
-        name = space.unwrap(w_descriptor).name
+    def descr_descriptor_set(space, descr, w_obj, w_value):
+        name = descr.name
         obj = space.unwrap(w_obj)
         val = space.unwrap(w_value)
         try:
@@ -214,19 +214,28 @@ class W_FakeDescriptor(Wrappable):
         except:
             wrap_exception(space)
 
-    def descr_descriptor_del(space, w_descriptor, w_obj):
-        name = space.unwrap(w_descriptor).name
+    def descr_descriptor_del(space, descr, w_obj):
+        name = descr.name
         obj = space.unwrap(w_obj)
         try:
             delattr(obj, name)
         except:
             wrap_exception(space)
 
-    typedef = TypeDef("FakeDescriptor",
-        __get__ = interp2app(descr_descriptor_get),
-        __set__ = interp2app(descr_descriptor_set),
-        __delete__ = interp2app(descr_descriptor_del),
-        )
+
+W_FakeDescriptor.typedef = TypeDef(
+    "FakeDescriptor",
+    __get__ = interp2app(W_FakeDescriptor.descr_descriptor_get.im_func,
+                         unwrap_spec = [baseobjspace.ObjSpace, W_FakeDescriptor,
+                                        baseobjspace.W_Root,
+                                        baseobjspace.W_Root]),
+    __set__ = interp2app(W_FakeDescriptor.descr_descriptor_set.im_func,
+                         unwrap_spec = [baseobjspace.ObjSpace, W_FakeDescriptor,
+                                        baseobjspace.W_Root, baseobjspace.W_Root]),
+    __delete__ = interp2app(W_FakeDescriptor.descr_descriptor_del.im_func,
+                            unwrap_spec = [baseobjspace.ObjSpace, W_FakeDescriptor,
+                                           baseobjspace.W_Root]),
+    )
 
 _fake_type_cache[type(file.softspace)] = W_FakeDescriptor
 _fake_type_cache[type(type.__dict__['__dict__'])] = W_FakeDescriptor
