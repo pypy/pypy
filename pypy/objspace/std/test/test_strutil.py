@@ -94,7 +94,7 @@ class TestStrUtil:
                str(sys.maxint*17))
 
     def test_string_to_int_base_error(self):
-        space = self.space        
+        space = self.space
         cases = [('1', 1),
                  ('1', 37),
                  ('a', 0),

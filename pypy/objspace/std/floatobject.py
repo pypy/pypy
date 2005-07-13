@@ -227,7 +227,8 @@ def divmod__Float_Float(space, w_float1, w_float2):
 
 def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     if not space.is_w(thirdArg, space.w_None):
-        raise FailedToImplement(space.w_TypeError, space.wrap("pow() 3rd argument not allowed unless all arguments are integers"))
+        raise FailedToImplement(space.w_TypeError, space.wrap(
+            "pow() 3rd argument not allowed unless all arguments are integers"))
     x = w_float1.floatval
     y = w_float2.floatval
     try:
