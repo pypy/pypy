@@ -58,7 +58,7 @@ def float_w__Float(space, w_float):
 
 app = gateway.applevel(''' 
     def repr__Float(f):
-        r = "%.17g"%f
+        r = "%.17g" % f
         for c in r:
             if c not in '-0123456789':
                 return r
@@ -66,12 +66,12 @@ app = gateway.applevel('''
             return r + '.0'    
 
     def str__Float(f):
-        r = "%.12g"%f
+        r = "%.12g" % f
         for c in r:
             if c not in '-0123456789':
                 return r
         else:
-            return r + '.0'    
+            return r + '.0'
 ''', filename=__file__) 
 repr__Float = app.interphook('repr__Float') 
 str__Float = app.interphook('str__Float') 
@@ -173,7 +173,7 @@ def mod__Float_Float(space, w_float1, w_float2):
         raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float modulo"))
     try:
         # this is a hack!!!! must be replaced by a real fmod function
-        mod = math.fmod(x,y)
+        mod = math.fmod(x, y)
         if (mod and ((y < 0.0) != (mod < 0.0))):
             mod += y
     except FloatingPointError:
@@ -188,23 +188,35 @@ def _divmod_w(space, w_float1, w_float2):
         raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float modulo"))
     try:
         # XXX this is a hack!!!! must be replaced by a real fmod function
-        mod = math.fmod(x,y)
-        div = (x -mod) / y
+        mod = math.fmod(x, y)
+        # fmod is typically exact, so vx-mod is *mathematically* an
+        # exact multiple of wx.  But this is fp arithmetic, and fp
+        # vx - mod is an approximation; the result is that div may
+        # not be an exact integral value after the division, although
+        # it will always be very close to one.
+        div = (x - mod) / y
         if (mod):
+            # ensure the remainder has the same sign as the denominator
             if ((y < 0.0) != (mod < 0.0)):
                 mod += y
                 div -= 1.0
         else:
-            mod *= mod
+            # the remainder is zero, and in the presence of signed zeroes
+            # fmod returns different results across platforms; ensure
+            # it has the same sign as the denominator; we'd like to do
+            # "mod = wx * 0.0", but that may get optimized away
+            mod *= mod  # hide "mod = +0" from optimizer
             if y < 0.0:
                 mod = -mod
+        # snap quotient to nearest integral value
         if div:
             floordiv = math.floor(div)
             if (div - floordiv > 0.5):
                 floordiv += 1.0
         else:
-            div *= div;
-            floordiv = div * x / y
+            # div is zero - get the same sign as the true quotient
+            div *= div  # hide "div = +0" from optimizers
+            floordiv = div * x / y  # zero w/ sign of vx/wx
     except FloatingPointError:
         raise FailedToImplement(space.w_FloatingPointError, space.wrap("float division"))
 
