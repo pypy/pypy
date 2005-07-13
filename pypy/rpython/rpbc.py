@@ -387,7 +387,7 @@ class FunctionsPBCRepr(Repr):
         f, rinputs, rresult = self.function_signatures().itervalues().next()
         # the function arguments may have been normalized by normalizecalls()
         # already
-        if not f._obj.graph.normalized_for_calls:
+        if not getattr(f._obj.graph, 'normalized_for_calls', False):
             assert False, "XXX do stuff here"
         vlist = hop.inputargs(self, Void, *rinputs)
         return hop.genop('direct_call', vlist[:1] + vlist[2:],
