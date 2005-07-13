@@ -24,11 +24,35 @@ import math
 # As a result, our digits will be 15 bits with one unused
 # bit, exactly as it is in CPython.
 #
+# The algorithms are anyway not bound to a given digit size.
+# There are different models possible, if we support more
+# native integer sizes. To support this, the annotator should
+# be extended to do some basic size tracking of integers.
+#
+# Examples:
+# C
+# Most C implementations have support for signed long long.
+# use an unsigned 16 bit unsigned short for the digits.
+# The operations which must hold two digits become unsigned long.
+# The sign+two digits+overflow register in division becomes
+# a 64 bit signed long long.
+#
+# X86 assembler
 # Given that we support some more primitive types for integers,
 # this might become a nicer layout for an X86 assembly backend:
 # The digit would be 32 bit long unsigned int,
 # two digits would be 64 bit long long unsigned int,
 # and the signed type mentioned above would be 80 bit extended.
+#
+# Emulation of different integer types
+# Even if we don't have machine support for certain types,
+# it might be worth trying to emulate them by providing some
+# means of multi-precision integers in rpython.
+# It is possible to write primitive code that emits the
+# necessary operations for emulation of larger types.
+# But we should do some careful testing how fast this code
+# will be, compared to just working with native types.
+# Probably the primitive types will outperform this.
 
 SHIFT = (LONG_BIT // 2) - 1
 MASK = int((1 << SHIFT) - 1)
