@@ -54,14 +54,80 @@ class Frame(Wrappable):
     """A frame is an environment supporting the execution of a code object.
     Abstract base class."""
 
-    def __init__(self, space, code, w_globals=None, numlocals=-1):
+    def __init__(self, space, w_globals=None, numlocals=-1):
         self.space      = space
-        self.code       = code       # Code instance
         self.w_globals  = w_globals  # wrapped dict of globals
         self.w_locals   = None       # wrapped dict of locals
         if numlocals < 0:  # compute the minimal size based on arguments
-            numlocals = len(code.getvarnames())
+            numlocals = len(self.getcode().getvarnames())
         self.numlocals = numlocals
+
+    def run(self):
+        "Abstract method to override. Runs the frame"
+        raise TypeError, "abstract"
+    
+    def getdictscope(self):
+        "Get the locals as a dictionary."
+        self.fast2locals()
+        return self.w_locals
+
+    def getcode(self):
+        return None
+
+    def fget_code(space, self):
+        return space.wrap(self.getcode())
+
+    def fget_getdictscope(space, self): # unwrapping through unwrap_spec in typedef.py
+        return self.getdictscope()
+
+    def setdictscope(self, w_locals):
+        "Initialize the locals from a dictionary."
+        self.w_locals = w_locals
+        self.locals2fast()
+
+    def getfastscope(self):
+        "Abstract. Get the fast locals as a list."
+        raise TypeError, "abstract"
+
+    def setfastscope(self, scope_w):
+        """Abstract. Initialize the fast locals from a list of values,
+        where the order is according to self.getcode().signature()."""
+        raise TypeError, "abstract"
+
+    def fast2locals(self):
+        # Copy values from self.fastlocals_w to self.w_locals
+        if self.w_locals is None:
+            self.w_locals = self.space.newdict([])
+        varnames = self.getcode().getvarnames()
+        fastscope_w = self.getfastscope()
+        for i in range(min(len(varnames), len(fastscope_w))):
+            name = varnames[i]
+            w_value = fastscope_w[i]
+            if w_value is not None:
+                w_name = self.space.wrap(name)
+                self.space.setitem(self.w_locals, w_name, w_value)
+
+    def locals2fast(self):
+        # Copy values from self.w_locals to self.fastlocals_w
+        assert self.w_locals is not None
+        varnames = self.getcode().getvarnames()
+
+        new_fastlocals_w = [None]*self.numlocals
+        
+        for i in range(min(len(varnames), self.numlocals)):
+            w_name = self.space.wrap(varnames[i])
+            try:
+                w_value = self.space.getitem(self.w_locals, w_name)
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_KeyError):
+                    raise
+            else:
+                new_fastlocals_w[i] = w_value
+
+        self.setfastscope(new_fastlocals_w)
+
+
+class EvalFrame(Frame):
 
     def resume(self):
         "Resume the execution of the frame from its current state."
@@ -81,56 +147,5 @@ class Frame(Wrappable):
         "Abstract method to override."
         raise TypeError, "abstract"
 
-    def getdictscope(self):
-        "Get the locals as a dictionary."
-        self.fast2locals()
-        return self.w_locals
-
-    def fget_getdictscope(space, self): # unwrapping through unwrap_spec in typedef.py
-        return self.getdictscope()
-
-    def setdictscope(self, w_locals):
-        "Initialize the locals from a dictionary."
-        self.w_locals = w_locals
-        self.locals2fast()
-
-    def getfastscope(self):
-        "Abstract. Get the fast locals as a list."
-        raise TypeError, "abstract"
-
-    def setfastscope(self, scope_w):
-        """Abstract. Initialize the fast locals from a list of values,
-        where the order is according to self.code.signature()."""
-        raise TypeError, "abstract"
-
-    def fast2locals(self):
-        # Copy values from self.fastlocals_w to self.w_locals
-        if self.w_locals is None:
-            self.w_locals = self.space.newdict([])
-        varnames = self.code.getvarnames()
-        fastscope_w = self.getfastscope()
-        for i in range(min(len(varnames), len(fastscope_w))):
-            name = varnames[i]
-            w_value = fastscope_w[i]
-            if w_value is not None:
-                w_name = self.space.wrap(name)
-                self.space.setitem(self.w_locals, w_name, w_value)
-
-    def locals2fast(self):
-        # Copy values from self.w_locals to self.fastlocals_w
-        assert self.w_locals is not None
-        varnames = self.code.getvarnames()
-
-        new_fastlocals_w = [None]*self.numlocals
-        
-        for i in range(min(len(varnames), self.numlocals)):
-            w_name = self.space.wrap(varnames[i])
-            try:
-                w_value = self.space.getitem(self.w_locals, w_name)
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_KeyError):
-                    raise
-            else:
-                new_fastlocals_w[i] = w_value
-
-        self.setfastscope(new_fastlocals_w)
+    def hide(self):
+        return False

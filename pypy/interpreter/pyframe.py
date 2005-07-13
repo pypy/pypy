@@ -21,7 +21,7 @@ def cpython_tb():
    return sys.exc_info()[2]   
 cpython_tb._annspecialcase_ = "override:ignore"
 
-class PyFrame(eval.Frame):
+class PyFrame(eval.EvalFrame):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
 
@@ -37,7 +37,8 @@ class PyFrame(eval.Frame):
     """
 
     def __init__(self, space, code, w_globals, closure):
-        eval.Frame.__init__(self, space, code, w_globals, code.co_nlocals)
+        self.pycode = code
+        eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
         self.valuestack = Stack()
         self.blockstack = Stack()
         self.last_exception = None
@@ -52,11 +53,17 @@ class PyFrame(eval.Frame):
         self.w_f_trace = None
         self.last_instr = -1
         self.f_back = None
-        self.f_lineno = self.code.co_firstlineno
+        self.f_lineno = self.pycode.co_firstlineno
         
         # For tracing
         self.instr_lb = 0
         self.instr_ub = -1
+
+    def hide(self):
+        return self.pycode.hidden_applevel
+
+    def getcode(self):
+        return self.pycode
         
     def getfastscope(self):
         "Get the fast locals as a list."
@@ -64,7 +71,7 @@ class PyFrame(eval.Frame):
 
     def setfastscope(self, scope_w):
         """Initialize the fast locals from a list of values,
-        where the order is according to self.code.signature()."""
+        where the order is according to self.pycode.signature()."""
         if len(scope_w) > len(self.fastlocals_w):
             raise ValueError, "new fastscope is longer than the allocated area"
         self.fastlocals_w[:len(scope_w)] = scope_w
@@ -145,15 +152,15 @@ class PyFrame(eval.Frame):
             raise OperationError(space.w_ValueError,
                   space.wrap("f_lineo can only be set by a trace function."))
 
-        if new_lineno < self.code.co_firstlineno:
+        if new_lineno < self.pycode.co_firstlineno:
             raise OperationError(space.w_ValueError,
                   space.wrap("line %d comes before the current code." % new_lineno))
-        code = self.code.co_code
+        code = self.pycode.co_code
         addr = 0
-        line = self.code.co_firstlineno
+        line = self.pycode.co_firstlineno
         new_lasti = -1
         offset = 0
-        lnotab = self.code.co_lnotab
+        lnotab = self.pycode.co_lnotab
         for offset in xrange(0, len(lnotab), 2):
             addr += ord(lnotab[offset])
             line += ord(lnotab[offset + 1])
@@ -259,11 +266,11 @@ class PyFrame(eval.Frame):
             
     def get_last_lineno(self):
         "Returns the line number of the instruction currently being executed."
-        return pytraceback.offset2lineno(self.code, self.next_instr-1)
+        return pytraceback.offset2lineno(self.pycode, self.next_instr-1)
 
     def get_next_lineno(self):
         "Returns the line number of the next instruction to execute."
-        return pytraceback.offset2lineno(self.code, self.next_instr)
+        return pytraceback.offset2lineno(self.pycode, self.next_instr)
 
     def fget_f_builtins(space, self):
         return self.builtin.getdict()

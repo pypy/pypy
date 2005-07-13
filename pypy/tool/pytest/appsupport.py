@@ -10,7 +10,7 @@ from pypy.interpreter.error import OperationError
 class AppFrame(py.code.Frame):
 
     def __init__(self, pyframe):
-        self.code = py.code.Code(pyframe.code)
+        self.code = py.code.Code(pyframe.pycode)
         self.lineno = pyframe.get_last_lineno() - 1
         self.space = pyframe.space
         self.w_globals = pyframe.w_globals

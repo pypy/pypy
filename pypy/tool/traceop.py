@@ -149,7 +149,7 @@ class ResultPrinter:
         
         if isinstance(event, trace.EnterFrame):
             frame = event.frame
-            if self.show_hidden_applevel or not frame.code.hidden_applevel:
+            if self.show_hidden_applevel or not frame.pycode.hidden_applevel:
                 show = True
             else:
                 show = False
@@ -183,7 +183,7 @@ class ResultPrinter:
 
             # Check if we are in applevel?
             if not self.show_hidden_applevel:
-                if lastframe is None or lastframe.code.hidden_applevel:
+                if lastframe is None or lastframe.pycode.hidden_applevel:
                     show = False
 
             # Check if recursive operations?

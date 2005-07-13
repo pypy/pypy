@@ -235,6 +235,13 @@ class BuiltinFrame(eval.Frame):
     # Initialization of locals is already done by the time run() is called,
     # via the interface defined in eval.Frame.
 
+    def __init__(self, space, code, w_globals=None, numlocals=-1):
+        self.bltn_code = code
+        eval.Frame.__init__(self, space, w_globals, numlocals)
+
+    def getcode(self):
+        return self.bltn_code
+
     def setfastscope(self, scope_w):
         """Subclasses with behavior specific for an unwrap spec are generated"""
         raise TypeError, "abstract"

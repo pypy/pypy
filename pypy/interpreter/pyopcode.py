@@ -57,7 +57,7 @@ class PyInterpFrame(pyframe.PyFrame):
             fn(self)
 
     def nextop(self):
-        c = self.code.co_code[self.next_instr]
+        c = self.pycode.co_code[self.next_instr]
         self.next_instr += 1
         return ord(c)
 
@@ -69,16 +69,16 @@ class PyInterpFrame(pyframe.PyFrame):
     ### accessor functions ###
 
     def getlocalvarname(self, index):
-        return self.code.co_varnames[index]
+        return self.pycode.co_varnames[index]
 
     def getconstant_w(self, index):
-        return self.code.co_consts_w[index]
+        return self.pycode.co_consts_w[index]
 
     def getname_u(self, index):
-        return self.code.co_names[index]
+        return self.pycode.co_names[index]
 
     def getname_w(self, index):
-        return self.space.wrap(self.code.co_names[index])
+        return self.space.wrap(self.pycode.co_names[index])
 
 
     ################################################################
@@ -113,9 +113,9 @@ class PyInterpFrame(pyframe.PyFrame):
         #    print " varindex:", varindex
         #    print " len(locals_w)", len(f.locals_w)
         #    import dis
-        #    print dis.dis(f.code)
-        #    print "co_varnames", f.code.co_varnames
-        #    print "co_nlocals", f.code.co_nlocals
+        #    print dis.dis(f.pycode)
+        #    print "co_varnames", f.pycode.co_varnames
+        #    print "co_nlocals", f.pycode.co_nlocals
         #    raise
 
     def POP_TOP(f):
@@ -348,7 +348,7 @@ class PyInterpFrame(pyframe.PyFrame):
         w_locals  = f.valuestack.pop()
         w_globals = f.valuestack.pop()
         w_prog    = f.valuestack.pop()
-        flags = f.space.getexecutioncontext().compiler.getcodeflags(f.code)
+        flags = f.space.getexecutioncontext().compiler.getcodeflags(f.pycode)
         w_compile_flags = f.space.wrap(flags)
         w_resulttuple = prepare_exec(f.space, f.space.wrap(f), w_prog,
                                      w_globals, w_locals,

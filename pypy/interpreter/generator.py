@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.eval import Frame
+from pypy.interpreter.eval import EvalFrame
 from pypy.interpreter.pyframe import ControlFlowException, ExitFrame
 
 #
@@ -12,7 +12,7 @@ from pypy.interpreter.pyframe import ControlFlowException, ExitFrame
 # that return iterators).
 #
 
-class GeneratorFrame(Frame):
+class GeneratorFrame(EvalFrame):
     "A frame attached to a generator."
 
     def run(self):

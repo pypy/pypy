@@ -18,7 +18,7 @@ class ExecBytecode(object):
     """ bytecode trace. """
     def __init__(self, frame):
         self.frame = frame
-        self.code = frame.code
+        self.code = frame.pycode
         self.index = frame.next_instr
 
 class EnterFrame(object):
@@ -85,9 +85,9 @@ class TraceResult(object):
         """ return (possibly cached) pydis result for the given frame. """
 
         try:
-            return _cache[id(frame.code)]
+            return _cache[id(frame.pycode)]
         except KeyError:
-            res = _cache[id(frame.code)] = pydis.pydis(frame.code)
+            res = _cache[id(frame.pycode)] = pydis.pydis(frame.pycode)
             assert res is not None
             return res
 

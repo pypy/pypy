@@ -136,13 +136,20 @@ class CPythonFakeCode(eval.Code):
 
 class CPythonFakeFrame(eval.Frame):
 
+    def __init__(self, space, code, w_globals=None, numlocals=-1):
+        self.fakecode = code
+        eval.Frame.__init__(self, space, w_globals, numlocals)
+
+    def getcode(self):
+        return self.fakecode
+
     def setfastscope(self, scope_w):
         w_args, w_kwds = scope_w
         try:
             self.unwrappedargs = self.space.unwrap(w_args)
             self.unwrappedkwds = self.space.unwrap(w_kwds)
         except UnwrapError, e:
-            code = self.code
+            code = self.fakecode
             assert isinstance(code, CPythonFakeCode)
             raise UnwrapError('calling %s: %s' % (code.cpy_callable, e))
 
@@ -150,7 +157,7 @@ class CPythonFakeFrame(eval.Frame):
         raise OperationError(self.space.w_TypeError,
           self.space.wrap("cannot get fastscope of a CPythonFakeFrame"))                           
     def run(self):
-        code = self.code
+        code = self.fakecode
         assert isinstance(code, CPythonFakeCode)
         fn = code.cpy_callable
         try:

@@ -65,14 +65,14 @@ class PyNestedScopeFrame(PyInterpFrame):
         self.cells = [Cell() for i in range(ncellvars)] + closure
 
     def getclosure(self):
-        ncellvars = len(self.code.co_cellvars)  # not part of the closure
+        ncellvars = len(self.pycode.co_cellvars)  # not part of the closure
         return self.cells[ncellvars:]
 
     def fast2locals(self):
         PyInterpFrame.fast2locals(self)
         # cellvars are values exported to inner scopes
         # freevars are values coming from outer scopes 
-        freevarnames = self.code.co_cellvars + self.code.co_freevars
+        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]
@@ -86,7 +86,7 @@ class PyNestedScopeFrame(PyInterpFrame):
 
     def locals2fast(self):
         PyInterpFrame.locals2fast(self)
-        freevarnames = self.code.co_cellvars + self.code.co_freevars
+        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]
@@ -101,10 +101,10 @@ class PyNestedScopeFrame(PyInterpFrame):
 
     def setfastscope(self, scope_w):
         PyInterpFrame.setfastscope(self, scope_w)
-        if self.code.co_cellvars:
+        if self.pycode.co_cellvars:
             # the first few cell vars could shadow already-set arguments,
             # in the same order as they appear in co_varnames
-            code     = self.code
+            code     = self.pycode
             argvars  = code.co_varnames
             cellvars = code.co_cellvars
             next     = 0
@@ -121,12 +121,12 @@ class PyNestedScopeFrame(PyInterpFrame):
                         break   # all cell vars initialized this way
 
     def getfreevarname(self, index):
-        freevarnames = self.code.co_cellvars + self.code.co_freevars
+        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
         return freevarnames[index]
 
     def iscellvar(self, index):
         # is the variable given by index a cell or a free var?
-        return index < len(self.code.co_cellvars)
+        return index < len(self.pycode.co_cellvars)
 
     ### extra opcodes ###
 

@@ -89,7 +89,7 @@ class OperationError(Exception):
             import linecache
             print >> file, "Traceback (application-level):"
             while tb is not None:
-                co = tb.frame.code
+                co = tb.frame.pycode
                 lineno = tb.lineno
                 fname = co.co_filename
                 if fname.startswith('<inline>\n'):

@@ -13,8 +13,12 @@ class TestFrame:
         class ConcreteFastscopeFrame(Frame):
             
             def __init__(self, space, code, numlocals):
-                Frame.__init__(self, space, code, numlocals=numlocals)
+                self.code = code
+                Frame.__init__(self, space, numlocals=numlocals)
                 self.fastlocals_w = [None] * self.numlocals
+
+            def getcode(self):
+                return self.code
 
             def setfastscope(self, scope_w):
                 self.fastlocals_w = scope_w

@@ -100,7 +100,7 @@ class BlockRecorder(Recorder):
             # If we have a SpamBlock, the first call to bytecode_trace()
             # occurs as soon as frame.resume() starts, before interpretation
             # really begins.
-            varnames = frame.code.getvarnames()
+            varnames = frame.pycode.getvarnames()
             for name, w_value in zip(varnames, frame.getfastscope()):
                 if isinstance(w_value, Variable):
                     w_value.rename(name)

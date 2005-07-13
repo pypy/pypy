@@ -366,7 +366,7 @@ Code.typedef = TypeDef('internal-code',
     )
 
 Frame.typedef = TypeDef('internal-frame',
-    f_code = interp_attrproperty('code', cls=Frame),
+    f_code = GetSetProperty(Frame.fget_code),
     f_locals = GetSetProperty(Frame.fget_getdictscope),
     f_globals = interp_attrproperty_w('w_globals', cls=Frame),
     )

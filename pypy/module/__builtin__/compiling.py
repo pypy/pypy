@@ -20,7 +20,7 @@ def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
         except IndexError:
             pass
         else:
-            flags |= ec.compiler.getcodeflags(caller.code)
+            flags |= ec.compiler.getcodeflags(caller.getcode())
 
     if mode not in ('exec', 'eval', 'single'):
         raise OperationError(space.w_ValueError,

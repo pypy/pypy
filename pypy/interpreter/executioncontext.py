@@ -23,14 +23,14 @@ class ExecutionContext:
         except:
             frame.f_back = None
 
-        if not frame.code.hidden_applevel:
+        if not frame.hide():
             self.framestack.push(frame)
 
     def leave(self, frame):
         if self.w_profilefunc:
             self._trace(frame, 'leaveframe', None)
                 
-        if not frame.code.hidden_applevel:
+        if not frame.hide():
             self.framestack.pop()
 
     def get_builtin(self):
@@ -59,7 +59,7 @@ class ExecutionContext:
         "Trace function called before each bytecode."
         if self.is_tracing or frame.w_f_trace is None:
             return
-        code = getattr(frame, 'code')
+        code = getattr(frame, 'pycode')
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:
             return
 
@@ -136,7 +136,7 @@ class ExecutionContext:
             self.is_tracing = is_tracing
 
     def _trace(self, frame, event, w_arg, operr=None):
-        if self.is_tracing or frame.code.hidden_applevel:
+        if self.is_tracing or frame.hide():
             return
 
         space = self.space
