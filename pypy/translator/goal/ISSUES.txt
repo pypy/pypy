@@ -11,8 +11,4 @@ already sometime ago, while running translate_pypy::
 
   * how to implement the three overrides of translator/ann_override.py ?
 
-  * we get tons of warnings about attributes like 'co_code' that seem to be
-    erroneously attached to the base 'Code' class, instead of staying on
-    'PyCode'.
-
   * the pypy trunk is still not annotable.
