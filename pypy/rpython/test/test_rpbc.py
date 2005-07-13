@@ -441,3 +441,47 @@ def test_conv_from_None():
     assert res.super.typeptr.name[0] == 'A'
 
     
+def test_conv_from_classpbcset_to_larger():
+    class A(object): pass
+    class B(A): pass
+    class C(A): pass
+
+    def a():
+        return A
+    def b():
+        return B
+    
+
+    def g(i):
+        if i == 1:
+            cls = a()
+        else:
+            cls = b()
+        return cls()
+
+    res = interpret(g, [0])
+    assert res.super.typeptr.name[0] == 'B'
+    res = interpret(g, [1])
+    assert res.super.typeptr.name[0] == 'A'
+
+    def bc(j):
+        if j == 1:
+            return B
+        else:
+            return C
+
+    def g(i, j):
+        if i == 1:
+            cls = a()
+        else:
+            cls = bc(j)
+        return cls()
+
+    res = interpret(g, [0, 0])
+    assert res.super.typeptr.name[0] == 'C'
+    res = interpret(g, [0, 1])
+    assert res.super.typeptr.name[0] == 'B'    
+    res = interpret(g, [1, 0])
+    assert res.super.typeptr.name[0] == 'A'    
+    
+        

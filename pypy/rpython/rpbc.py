@@ -567,6 +567,17 @@ class __extend__(pairtype(ClassesPBCRepr, rclass.ClassRepr)):
             return NotImplemented   # good enough for now
         return v
 
+class __extend__(pairtype(ClassesPBCRepr, ClassesPBCRepr)):
+        def convert_from_to((r_clspbc1, r_clspbc2), v, llops):
+            # this check makes sense because both source and dest repr are ClassesPBCRepr
+            if r_clspbc1.lowleveltype == r_clspbc2.lowleveltype:
+                return v
+            if r_clspbc1.lowleveltype == Void:
+                return inputconst(r_clspbc2, r_clspbc1.s_pbc.const)
+            return NotImplemented
+            
+
+
 # ____________________________________________________________
 
 def rtype_call_memo(hop): 
