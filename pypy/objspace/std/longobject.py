@@ -19,13 +19,15 @@ import math
 
 # Digit size:
 # SHIFT cannot be larger than below, for the moment.
-# in division, the native integer type must be able to hold
+# In division, the native integer type must be able to hold
 # a sign bit plus two digits plus 1 overflow bit.
+# As a result, our digits will be 15 bits with one unused
+# bit, exactly as it is in CPython.
 #
-# Given that we support more primitive types, this might
-# become a nicer layout for, say, and X86 assembly backend:
+# Given that we support some more primitive types for integers,
+# this might become a nicer layout for an X86 assembly backend:
 # The digit would be 32 bit long unsigned int,
-# two digits would be 64 bit long lojng unsigned int,
+# two digits would be 64 bit long long unsigned int,
 # and the signed type mentioned above would be 80 bit extended.
 
 SHIFT = (LONG_BIT // 2) - 1
