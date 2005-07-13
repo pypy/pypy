@@ -3,8 +3,8 @@ import sys
 from random import random, randint
 from pypy.objspace.std import longobject as lobj
 from pypy.objspace.std.objspace import FailedToImplement
-from pypy.rpython.rarithmetic import r_uint
 from pypy.interpreter.error import OperationError
+from pypy.rpython.rarithmetic import r_uint # will go away
 
 objspacename = 'std'
 
@@ -40,7 +40,7 @@ class TestW_LongObject:
                 assert result.longval() == x * i - y * j
 
     def test_subzz(self):
-        w_l0 = lobj.W_LongObject(self.space, [r_uint(0)])
+        w_l0 = lobj.W_LongObject(self.space, [0])
         assert self.space.sub(w_l0, w_l0).longval() == 0
 
     def test_mul(self):
@@ -50,13 +50,16 @@ class TestW_LongObject:
         f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
         result = lobj.mul__Long_Long(self.space, f1, f2)
         assert result.longval() == x * y
+        # also test a * a, it has special code
+        result = lobj.mul__Long_Long(self.space, f1, f1)
+        assert result.longval() == x * x
 
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!
         x = 1238585838347L
         y = 3
         f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-        f2 = r_uint(y)
+        f2 = y
         remainder = lobj._inplace_divrem1(f1, f1, f2)
         assert (f1.longval(), remainder) == divmod(x, y)
 
@@ -65,7 +68,7 @@ class TestW_LongObject:
         x = 1238585838347L
         y = 3
         f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-        f2 = r_uint(y)
+        f2 = y
         div, rem = lobj._divrem1(f1, f2)
         assert (div.longval(), rem) == divmod(x, y)
 
@@ -74,8 +77,8 @@ class TestW_LongObject:
         y = 3
         z = 42
         f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
-        f2 = r_uint(y)
-        f3 = r_uint(z)
+        f2 = y
+        f3 = z
         prod = lobj._muladd1(f1, f2, f3)
         assert prod.longval() == x * y + z
 
@@ -125,6 +128,45 @@ class TestW_LongObject:
         except OperationError, e:
             assert e.w_type is self.space.w_OverflowError
 
+    # testing Karatsuba stuff
+    def test__v_iadd(self):
+        f1 = lobj.W_LongObject(self.space, [lobj.MASK] * 10, 1)
+        f2 = lobj.W_LongObject(self.space, [1], 1)
+        carry = lobj._v_iadd(f1.digits, 1, len(f1.digits)-1, f2.digits, 1)
+        assert carry == 1
+        assert f1.longval() == lobj.MASK
+
+    def test__v_isub(self):
+        f1 = lobj.W_LongObject(self.space, [lobj.MASK] + [0] * 9 + [1], 1)
+        f2 = lobj.W_LongObject(self.space, [1], 1)
+        borrow = lobj._v_isub(f1.digits, 1, len(f1.digits)-1, f2.digits, 1)
+        assert borrow == 0
+        assert f1.longval() == (1 << lobj.SHIFT) ** 10 - 1
+
+    def test__kmul_split(self):
+        split = 5
+        diglo = [0] * split
+        dighi = [lobj.MASK] * split
+        f1 = lobj.W_LongObject(self.space, diglo + dighi, 1)
+        hi, lo = lobj._kmul_split(f1, split)
+        assert lo.digits == [0]
+        assert hi.digits == dighi
+
+    def test__k_mul(self):
+        digs= lobj.KARATSUBA_CUTOFF * 5
+        f1 = lobj.W_LongObject(self.space, [lobj.MASK] * digs, 1)
+        f2 = lobj._x_add(f1,lobj.W_LongObject(self.space, [1], 1))
+        ret = lobj._k_mul(f1, f2)
+        assert ret.longval() == f1.longval() * f2.longval()
+
+    def test__k_lopsided_mul(self):
+        digs_a = lobj.KARATSUBA_CUTOFF + 3
+        digs_b = 3 * digs_a
+        f1 = lobj.W_LongObject(self.space, [lobj.MASK] * digs_a, 1)
+        f2 = lobj.W_LongObject(self.space, [lobj.MASK] * digs_b, 1)
+        ret = lobj._k_lopsided_mul(f1, f2)
+        assert ret.longval() == f1.longval() * f2.longval()
+
     def test_eq(self):
         x = 5858393919192332223L
         y = 585839391919233111223311112332L
@@ -157,7 +199,7 @@ class TestW_LongObject:
 
         u = lobj.uint_w__Long(self.space, f2)
         assert u == 12332
-        assert isinstance(u, r_uint)
+        assert type(u) is r_uint
 
     def test_conversions(self):
         space = self.space
@@ -170,10 +212,10 @@ class TestW_LongObject:
                 assert space.is_true(space.isinstance(lobj.int__Long(space, w_lv), space.w_int))            
                 assert space.eq_w(lobj.int__Long(space, w_lv), w_v)
 
-                if v>=0:
+                if v >= 0:
                     u = lobj.uint_w__Long(space, w_lv)
                     assert u == v
-                    assert isinstance(u, r_uint)
+                    assert type(u) is r_uint
                 else:
                     space.raises_w(space.w_ValueError, lobj.uint_w__Long, space, w_lv)
 
@@ -193,8 +235,7 @@ class TestW_LongObject:
 
         u = lobj.uint_w__Long(space, w_lmaxuint)
         assert u == 2*sys.maxint+1
-        assert isinstance(u, r_uint)
-        
+
         space.raises_w(space.w_ValueError, lobj.uint_w__Long, space, w_toobig_lv3)       
         space.raises_w(space.w_OverflowError, lobj.uint_w__Long, space, w_toobig_lv4)
 
@@ -229,10 +270,10 @@ class TestW_LongObject:
         assert v.longval() == x ** y
 
     def test_normalize(self):
-        f1 = lobj.W_LongObject(self.space, [lobj.r_uint(1), lobj.r_uint(0)], 1)
+        f1 = lobj.W_LongObject(self.space, [1, 0], 1)
         f1._normalize()
         assert len(f1.digits) == 1
-        f0 = lobj.W_LongObject(self.space, [lobj.r_uint(0)], 0)
+        f0 = lobj.W_LongObject(self.space, [0], 0)
         assert self.space.is_true(
             self.space.eq(lobj.sub__Long_Long(self.space, f1, f1), f0))
 
