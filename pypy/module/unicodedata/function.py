@@ -100,6 +100,7 @@ TCount = 28
 NCount = (VCount*TCount)
 SCount = (LCount*NCount)
 
+
 def normalize(space, w_form, w_unistr):
     form = space.str_w(w_form)
     if not space.is_true(space.isinstance(w_unistr, space.w_unicode)):
@@ -121,7 +122,9 @@ def normalize(space, w_form, w_unistr):
                              space.wrap('invalid normalization form'))
 
     strlen = space.int_w(space.len(w_unistr))
-    result = []
+    result = [0] * (strlen + strlen / 10 + 10)
+    j = 0
+    resultlen = len(result)
     # Expand the character
     for i in range(strlen):
         ch = space.int_w(space.ord(space.getitem(w_unistr, space.wrap(i))))
@@ -132,33 +135,57 @@ def normalize(space, w_form, w_unistr):
             V = VBase + (SIndex % NCount) / TCount;
             T = TBase + SIndex % TCount;
             if T == TBase:
-                result.extend([L, V])
+                if j + 2 > resultlen:
+                    result.extend([0 * (j + 2 - resultlen + 10)])
+                    resultlen = len(result)
+                result[j] = L
+                result[j + 1] = V
+                j += 2
             else:
-                result.extend([L, V, T])
+                if j + 3 > resultlen:
+                    result.extend([0 * (j + 3 - resultlen + 10)])
+                    resultlen = len(result)
+                result[j] = L
+                result[j + 1] = V
+                result[j + 2] = T
+                j += 3
             continue
-
-        result.extend(decomposition.get(ch, [ch]))
+        decomp = decomposition.get(ch)
+        if decomp:
+            decomplen = len(decomp)
+            if j + decomplen > resultlen:
+                result.extend([0 * (j + decomplen - resultlen + 10)])
+                resultlen = len(result)
+            for ch in decomp:
+                result[j] = ch
+                j += 1
+        else:
+            if j + 1 > resultlen:
+                result.extend([0 * (j + 1 - resultlen + 10)])
+                resultlen = len(result)
+            result[j] = ch
+            j += 1
 
     # Sort all combining marks
-    for i in range(len(result)):
+    for i in range(j):
         ch = result[i]
         comb = unicodedb.combining(ch)
         if comb == 0:
             continue
-        for j in range(i, 0, -1):
-            if unicodedb.combining(result[j - 1]) <= comb:
-                result[j] = ch
+        for k in range(i, 0, -1):
+            if unicodedb.combining(result[k - 1]) <= comb:
+                result[k] = ch
                 break
             
-            result[j] = result[j - 1]
+            result[k] = result[k - 1]
         else:
             result[0] = ch
 
     if not composed: # If decomposed normalization we are done
-        return space.newunicode(result)
+        return space.newunicode(result[:j])
 
-    if len(result) <= 1:
-        return space.newunicode(result)
+    if j <= 1:
+        return space.newunicode(result[:j])
 
     current = result[0]
     starter_pos = 0
@@ -166,8 +193,8 @@ def normalize(space, w_form, w_unistr):
     prev_combining = 0
     if unicodedb.combining(current):
         prev_combining = 256
-    for j in range(1, len(result)):
-        next = result[j]
+    for k in range(1, j):
+        next = result[k]
         next_combining = unicodedb.combining(next)
         if next_insert == starter_pos + 1 or prev_combining < next_combining:
             # Combine if not blocked
