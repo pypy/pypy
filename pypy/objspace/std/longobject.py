@@ -7,19 +7,26 @@ from pypy.rpython.rarithmetic import LONG_BIT, LONG_MASK, intmask, r_uint
 
 import math
 
-# after many days of debugging and testing,
-# I (chris) finally found out about overflows
-# and how to assign the correct types.
-# But in the end, this really makes no sense at all.
-# Finally I think thatr we should avoid to use anything
-# but general integers. r_uint and friends should go away!
+# It took many days of debugging and testing, until
+# I (chris) finally understood how things work and where
+# to expect overflows in the division code.
+# In the end, I decided to throw this all out and to use
+# plain integer expressions. r_uint and friends should go away!
 # Unsignedness can be completely deduced by back-propagation
 # of masking. I will change the annotator to do this.
-# remember: not typing at all is much stronger!
-#
-# my conclusion:
-# having no special types at all, but describing everything
+# Having no special types at all, but describing everything
 # in terms of operations and masks is the stronger way.
+
+# Digit size:
+# SHIFT cannot be larger than below, for the moment.
+# in division, the native integer type must be able to hold
+# a sign bit plus two digits plus 1 overflow bit.
+#
+# Given that we support more primitive types, this might
+# become a nicer layout for, say, and X86 assembly backend:
+# The digit would be 32 bit long unsigned int,
+# two digits would be 64 bit long lojng unsigned int,
+# and the signed type mentioned above would be 80 bit extended.
 
 SHIFT = (LONG_BIT // 2) - 1
 MASK = int((1 << SHIFT) - 1)
@@ -46,6 +53,7 @@ class W_LongObject(W_Object):
     """This is a reimplementation of longs using a list of digits."""
     # All functions that still rely on the underlying Python's longs are marked
     # with YYYYYY
+    # Actually, all methods to be officially used are native implementations.
     from pypy.objspace.std.longtype import long_typedef as typedef
     
     def __init__(w_self, space, digits, sign=0):
@@ -312,71 +320,6 @@ def mod__Long_Long(space, w_long1, w_long2):
 def divmod__Long_Long(space, w_long1, w_long2):
     div, mod = _l_divmod(w_long1, w_long2)
     return space.newtuple([div, mod])
-
-# helper for pow()
-def _impl_long_long_pow(space, lv, lw, lz=None):
-    if lw.sign < 0:
-        if lz is not None:
-            raise OperationError(space.w_TypeError,
-                             space.wrap("pow() 2nd argument "
-                 "cannot be negative when 3rd argument specified"))
-        return space.pow(space.newfloat(_AsDouble(lv)),
-                         space.newfloat(_AsDouble(lw)),
-                         space.w_None)
-    if lz is not None:
-        if lz.sign == 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "pow() 3rd argument cannot be 0"))
-    result = W_LongObject(space, [1], 1)
-    if lw.sign == 0:
-        if lz is not None:
-            result = mod__Long_Long(space, result, lz)
-        return result
-    if lz is not None:
-        temp = mod__Long_Long(space, lv, lz)
-    else:
-        temp = lv
-    i = 0
-    # Treat the most significant digit specially to reduce multiplications
-    while i < len(lw.digits) - 1:
-        j = 0
-        m = 1
-        di = lw.digits[i]
-        while j < SHIFT:
-            if di & m:
-                result = mul__Long_Long(space, result, temp)
-            temp = mul__Long_Long(space, temp, temp)
-            if lz is not None:
-                result = mod__Long_Long(space, result, lz)
-                temp = mod__Long_Long(space, temp, lz)
-            m = m << 1
-            j += 1
-        i += 1
-    m = 1 << (SHIFT - 1)
-    highest_set_bit = SHIFT
-    j = SHIFT - 1
-    di = lw.digits[i]
-    while j >= 0:
-        if di & m:
-            highest_set_bit = j
-            break
-        m = m >> 1
-        j -= 1
-    assert highest_set_bit != SHIFT, "long not normalized"
-    j = 0
-    m = 1
-    while j <= highest_set_bit:
-        if di & m:
-            result = mul__Long_Long(space, result, temp)
-        temp = mul__Long_Long(space, temp, temp)
-        if lz is not None:
-            result = mod__Long_Long(space, result, lz)
-            temp = mod__Long_Long(space, temp, lz)
-        m = m << 1
-        j += 1
-    if lz:
-        result = mod__Long_Long(space, result, lz)
-    return result
 
 def _impl_long_long_pow(space, a, b, c=None):
     """ pow(a, b, c) """
