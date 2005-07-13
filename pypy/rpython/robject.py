@@ -49,8 +49,11 @@ class __extend__(pairtype(VoidRepr, PyObjRepr)):
 def make_operation(opname, cls=PyObjRepr):
     def rtype_op(_, hop):
         vlist = hop.inputargs(*([pyobj_repr]*hop.nb_args))
-        v = hop.genop(opname, vlist, resulttype = pyobj_repr)
-        return hop.llops.convertvar(v, pyobj_repr, hop.r_result)
+        if isinstance(hop.r_result, VoidRepr):
+            hop.genop(opname, vlist)
+        else:
+            v = hop.genop(opname, vlist, resulttype=pyobj_repr)
+            return hop.llops.convertvar(v, pyobj_repr, hop.r_result)
 
     funcname = 'rtype_' + opname
     func = func_with_new_name(rtype_op, funcname)

@@ -2,7 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.objspace import op_appendices
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void, Char, \
-     UniChar, GcArray, malloc, Array
+     UniChar, GcArray, malloc, Array, pyobjectptr
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, CharRepr, \
      inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
@@ -374,6 +374,7 @@ class __extend__(pairtype(IntegerRepr, PyObjRepr)):
             return llops.gencapicall('PyLong_FromUnsignedLong', [v],
                                      resulttype=pyobj_repr)
         if r_from.lowleveltype == Signed:
+            # xxx put in table
             return llops.gencapicall('PyInt_FromLong', [v],
-                                     resulttype=pyobj_repr)
+                                     resulttype=pyobj_repr, _callable = lambda i: pyobjectptr(i))
         return NotImplemented

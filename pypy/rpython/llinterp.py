@@ -3,7 +3,7 @@ from pypy.tool.sourcetools import compile2
 from pypy.objspace.flow.model import Constant, Variable, last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
 import py
-from pypy.rpython.lltype import _ptr, Ptr, Void, typeOf, malloc, cast_pointer
+from pypy.rpython.lltype import _ptr, Ptr, Void, typeOf, malloc, cast_pointer, PyObject, pyobjectptr
 from pypy.rpython.lltype import Array
 import math
 
@@ -27,6 +27,12 @@ class LLInterpreter(object):
         graph = self.getgraph(func)
         llframe = LLFrame(graph, args, self)
         return llframe.eval()
+
+# implementations of ops from flow.operation
+from pypy.objspace.flow.operation import FunctionByName
+opimpls = FunctionByName.copy()
+opimpls['is_true'] = bool
+
 
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter):
@@ -289,11 +295,21 @@ class LLFrame(object):
         assert type(c) is float
         return math.fmod(b,c)
 
+    # operations on pyobjects!
+    for opname in opimpls.keys():
+        exec py.code.Source("""
+        def op_%(opname)s(self, *pyobjs):
+            for pyo in pyobjs:
+                assert typeOf(pyo) == Ptr(PyObject)
+            func = opimpls[%(opname)r]
+            return pyobjectptr(func(*[pyo._obj.value for pyo in pyobjs]))
+        """ % locals()).compile()
+    del opname
+
+
+
 # __________________________________________________________
 # primitive operations
-from pypy.objspace.flow.operation import FunctionByName
-opimpls = FunctionByName.copy()
-opimpls['is_true'] = bool
 ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,

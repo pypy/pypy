@@ -54,7 +54,9 @@ class __extend__(pairtype(BoolRepr, IntegerRepr)):
 class __extend__(pairtype(PyObjRepr, BoolRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_to.lowleveltype == Bool:
-            return llops.gencapicall('PyObject_IsTrue', [v], resulttype=Bool)
+            # xxx put in table
+            return llops.gencapicall('PyObject_IsTrue', [v], resulttype=Bool,
+                                     _callable=lambda pyo: bool(pyo._obj.value))
         return NotImplemented
 
 class __extend__(pairtype(BoolRepr, PyObjRepr)):

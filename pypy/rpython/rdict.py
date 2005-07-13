@@ -4,6 +4,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython import rmodel, lltype, rstr
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython import rlist, rconstantdict, remptydict
+from pypy.rpython import robject
 
 # ____________________________________________________________
 #
@@ -25,7 +26,8 @@ from pypy.rpython import rlist, rconstantdict, remptydict
 
 class __extend__(annmodel.SomeDict):
     def rtyper_makerepr(self, rtyper):
-        s_key = self.dictdef.dictkey.s_value 
+        s_key = self.dictdef.dictkey.s_value
+        s_value = self.dictdef.dictvalue.s_value
         if isinstance(s_key, annmodel.SomeString): 
             if s_key.can_be_none():
                 raise rmodel.TyperError("cannot make repr of dict with "
@@ -41,6 +43,9 @@ class __extend__(annmodel.SomeDict):
                         rtyper.getrepr(dictvalue.s_value))
         elif isinstance(s_key, annmodel.SomeImpossibleValue):
             return remptydict.EmptyDictRepr()
+        elif (s_key.__class__ is annmodel.SomeObject and s_key.knowntype == object and
+              s_value.__class__ is annmodel.SomeObject and s_value.knowntype == object):
+            return robject.pyobj_repr
         else: 
             raise rmodel.TyperError("cannot make repr of %r" %(self.dictdef,))
 
@@ -284,6 +289,8 @@ def ll_newstrdict(DICTPTR):
 
 def rtype_newdict(hop):
     r_dict = hop.r_result
+    if r_dict == robject.pyobj_repr: # special case: SomeObject: SomeObject dicts!
+        return hop.inputconst(robject.pyobj_repr, {})
     if not isinstance(r_dict, StrDictRepr):
         raise rmodel.TyperError("cannot create non-StrDicts, got %r" %(r_dict,))
     c1 = hop.inputconst(lltype.Void, r_dict.lowleveltype)

@@ -1,6 +1,6 @@
 
 import py
-from pypy.rpython.lltype import typeOf,pyobjectptr
+from pypy.rpython.lltype import typeOf, pyobjectptr, Ptr, PyObject
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.llinterp import LLInterpreter, LLException,log
 from pypy.translator.translator import Translator
@@ -52,12 +52,19 @@ def gengraph(func, argtypes=[], viewbefore=False, policy=None):
 
 _lastinterpreted = []
 _tcache = {}
-def interpret(func, values, view=False, viewbefore=False, policy=None):
-    key = (func,) + tuple([typeOf(x) for x in values])
+def interpret(func, values, view=False, viewbefore=False, policy=None, someobjects=False):
+    key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,)
     try: 
         (t, interp) = _tcache[key]
-    except KeyError: 
-        t, typer = gengraph(func, [lltype_to_annotation(typeOf(x)) 
+    except KeyError:
+        def annotation(x):
+            T = typeOf(x)
+            if T == Ptr(PyObject) and someobjects:
+                return object
+            else:
+                return lltype_to_annotation(T)
+        
+        t, typer = gengraph(func, [annotation(x)
                       for x in values], viewbefore, policy)
         interp = LLInterpreter(t.flowgraphs, typer)
         _tcache[key] = (t, interp)
@@ -231,6 +238,21 @@ def test_list_pop():
         return [l1,l2,l3]
     res = interpret(f,[])
     assert len(res.items) == 3
+
+def test_obj_obj_add():
+    def f(x,y):
+        return x+y
+    _1L = pyobjectptr(1L)
+    _2L = pyobjectptr(2L)
+    res = interpret(f, [_1L, _2L], someobjects=True)
+    assert res._obj.value == 3L
+
+def test_obj_obj_is():
+    def f(x,y):
+        return x is y
+    o = pyobjectptr(object())
+    res = interpret(f, [o, o], someobjects=True)
+    assert res is True
     
 #__________________________________________________________________
 #

@@ -586,7 +586,7 @@ class LowLevelOpList(list):
         return self.genop('direct_call', [cf]+list(args_v), resulttype)
 
     def gencapicall(self, cfnname, args_v, resulttype=None, **flags):
-        return self.genexternalcall(cfnname, args_v, resulttype=resulttype, external="C")
+        return self.genexternalcall(cfnname, args_v, resulttype=resulttype, external="C", **flags)
 
 # _______________________________________________________________________
 # this has the side-effect of registering the unary and binary operations

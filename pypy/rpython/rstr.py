@@ -11,7 +11,7 @@ from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rslice import minusone_slice_repr
 from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
-from pypy.rpython.lltype import Bool, Void, GcArray, nullptr, typeOf
+from pypy.rpython.lltype import Bool, Void, GcArray, nullptr, typeOf, pyobjectptr
 from pypy.rpython.rclass import InstanceRepr
 
 
@@ -451,9 +451,11 @@ class __extend__(pairtype(StringRepr, PyObjRepr)):
                               resulttype=Ptr(STR.chars))
         v_size = llops.genop('getarraysize', [v_chars],
                              resulttype=Signed)
+        # xxx put in table        
         return llops.gencapicall('PyString_FromLLCharArrayAndSize',
                                  [v_chars, v_size],
-                                 resulttype=pyobj_repr)
+                                 resulttype=pyobj_repr,
+                                 _callable= lambda chars, sz: pyobjectptr(''.join(chars)))
 
 # ____________________________________________________________
 #
