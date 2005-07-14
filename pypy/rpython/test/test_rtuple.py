@@ -86,3 +86,21 @@ def test_tuple_iterator_length1():
         return total
     res = interpret(f, [93813])
     assert res == 93813
+
+def test_conv():
+    def t0():
+        return (3, 2, None)
+    def t1():
+        return (7, 2, "xy")
+    def f(i):
+        if i == 1:
+            return t1()
+        else:
+            return t0()
+
+    res = interpret(f, [1])
+    assert res.item0 == 7
+    assert isinstance(typeOf(res.item2), Ptr) and ''.join(res.item2.chars) == "xy"
+    res = interpret(f, [0])
+    assert res.item0 == 3
+    assert isinstance(typeOf(res.item2), Ptr) and not res.item2

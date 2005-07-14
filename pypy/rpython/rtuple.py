@@ -117,7 +117,19 @@ class __extend__(pairtype(TupleRepr, TupleRepr)):
         return newtuple(hop.llops, res, vlist)
     rtype_inplace_add = rtype_add
 
-
+    def convert_from_to((r_from, r_to), v, llops):
+        if len(r_from.items_r) == len(r_to.items_r):
+            n = len(r_from.items_r)
+            items_v = []
+            for i in range(n):
+                item_v = r_from.getitem(llops, v, i)
+                item_v = llops.convertvar(item_v,
+                                              r_from.items_r[i],
+                                              r_to.items_r[i])
+                items_v.append(item_v)
+            return newtuple(llops, r_to, items_v)
+        return NotImplemented
+                
 # ____________________________________________________________
 #
 #  Irregular operations.
