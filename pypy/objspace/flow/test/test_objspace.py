@@ -555,6 +555,23 @@ class TestFlowObjSpace:
         traverse(visit, graph)
         assert results == [Constant(4)]
 
+    def test_const_star_call(self):
+        def g(a=1,b=2,c=3):
+            pass
+        def f():
+            return g(1,*(2,3))
+        graph = self.codetest(f)
+        call_args = []
+        def visit(block):
+            if isinstance(block, Block):
+                for op in block.operations:
+                    if op.opname == "call_args":
+                        call_args.append(op)
+        traverse(visit, graph)
+        assert not call_args
+        
+
+
 DATA = {'x': 5,
         'y': 6}
 

@@ -271,6 +271,11 @@ class FlowObjSpace(ObjSpace):
         return result
 
     def unpackiterable(self, w_iterable, expected_length=None):
+        if not isinstance(w_iterable, Variable):
+            l = list(self.unwrap(w_iterable))
+            if expected_length is not None and len(l) != expected_length:
+                raise ValueError
+            return [self.wrap(x) for x in l]
         if isinstance(w_iterable, Variable) and expected_length is None:
             raise UnwrapException, ("cannot unpack a Variable iterable"
                                     "without knowing its length")
