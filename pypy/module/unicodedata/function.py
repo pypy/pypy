@@ -136,14 +136,14 @@ def normalize(space, w_form, w_unistr):
             T = TBase + SIndex % TCount;
             if T == TBase:
                 if j + 2 > resultlen:
-                    result.extend([0 * (j + 2 - resultlen + 10)])
+                    result.extend([0] * (j + 2 - resultlen + 10))
                     resultlen = len(result)
                 result[j] = L
                 result[j + 1] = V
                 j += 2
             else:
                 if j + 3 > resultlen:
-                    result.extend([0 * (j + 3 - resultlen + 10)])
+                    result.extend([0] * (j + 3 - resultlen + 10))
                     resultlen = len(result)
                 result[j] = L
                 result[j + 1] = V
@@ -154,14 +154,14 @@ def normalize(space, w_form, w_unistr):
         if decomp:
             decomplen = len(decomp)
             if j + decomplen > resultlen:
-                result.extend([0 * (j + decomplen - resultlen + 10)])
+                result.extend([0] * (j + decomplen - resultlen + 10))
                 resultlen = len(result)
             for ch in decomp:
                 result[j] = ch
                 j += 1
         else:
             if j + 1 > resultlen:
-                result.extend([0 * (j + 1 - resultlen + 10)])
+                result.extend([0] * (j + 1 - resultlen + 10))
                 resultlen = len(result)
             result[j] = ch
             j += 1
