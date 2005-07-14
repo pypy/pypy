@@ -10,3 +10,13 @@ already sometime ago, while running translate_pypy::
   * how to implement the three overrides of translator/ann_override.py ?
 
   * the pypy trunk is still not annotable.
+
+How to work in parallel:
+There is an environment variable to be set with your personal random seed.
+Seeds taken so far are
+Armin: 42, Samuele: 46, Chris: 49
+Under Windows, use
+SET RTYPERSEED=xx
+where xx is your seed. When you run translate_pypy, you will get a message
+with your seed, if everything is fine. The purpose of the seed is to
+shuffle the annotated blocks, in order to create different errors.
