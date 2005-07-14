@@ -484,4 +484,128 @@ def test_conv_from_classpbcset_to_larger():
     res = interpret(g, [1, 0])
     assert res.super.typeptr.name[0] == 'A'    
     
-        
+def test_call_keywords():
+    def g(a=1, b=2, c=3):
+        return 100*a+10*b+c
+
+    def f(i):
+        if i == 0:
+            return g(a=7)
+        elif i == 1:
+            return g(b=11)
+        elif i == 2:
+            return g(c=13)
+        elif i == 3:
+            return g(a=7, b=11)
+        elif i == 4:
+            return g(b=7, a=11)
+        elif i == 5:
+            return g(a=7, c=13)
+        elif i == 6:
+            return g(c=7, a=13)
+        elif i == 7:
+            return g(a=7,b=11,c=13)
+        elif i == 8:
+            return g(a=7,c=11,b=13)
+        elif i == 9:
+            return g(b=7,a=11,c=13)
+        else:
+            return g(b=7,c=11,a=13)
+
+    for i in range(11):
+        res = interpret(f, [i])
+        assert res == f(i)
+
+def test_call_star_and_keywords():
+    def g(a=1, b=2, c=3):
+        return 100*a+10*b+c
+
+    def f(i, x):
+        if x == 1:
+            j = 11
+        else:
+            j = 22
+        if i == 0:
+            return g(7)
+        elif i == 1:
+            return g(7,*(j,))
+        elif i == 2:
+            return g(7,*(11,j))
+        elif i == 3:
+            return g(a=7)
+        elif i == 4:
+            return g(b=7, *(j,))
+        elif i == 5:
+            return g(b=7, c=13, *(j,))
+        elif i == 6:
+            return g(c=7, b=13, *(j,))
+        elif i == 7:
+            return g(c=7,*(j,))
+        elif i == 8:
+            return g(c=7,*(11,j))
+        else:
+            return 0
+
+    for i in range(9):
+        for x in range(1):
+            res = interpret(f, [i, x])
+            assert res == f(i, x)
+
+def test_call_star_and_keywords_starargs():
+    def g(a=1, b=2, c=3, *rest):
+        return 1000*len(rest)+100*a+10*b+c
+
+    def f(i, x):
+        if x == 1:
+            j = 13
+        else:
+            j = 31
+        if i == 0:
+            return g()
+        elif i == 1:
+            return g(*(j,))
+        elif i == 2:
+            return g(*(13, j))
+        elif i == 3:
+            return g(*(13, j, 19))
+        elif i == 4:
+            return g(*(13, j, 19, 21))
+        elif i == 5:
+            return g(7)
+        elif i == 6:
+            return g(7, *(j,))
+        elif i == 7:
+            return g(7, *(13, j))
+        elif i == 8:
+            return g(7, *(13, 17, j))
+        elif i == 9:
+            return g(7, *(13, 17, j, 21))
+        elif i == 10:
+            return g(7, 9)
+        elif i == 11:
+            return g(7, 9, *(j,))
+        elif i == 12:
+            return g(7, 9, *(j, 17))
+        elif i == 13:
+            return g(7, 9, *(13, j, 19))
+        elif i == 14:
+            return g(7, 9, 11)
+        elif i == 15:
+            return g(7, 9, 11, *(j,))
+        elif i == 16:
+            return g(7, 9, 11, *(13, j))
+        elif i == 17:
+            return g(7, 9, 11, *(13, 17, j))
+        elif i == 18:
+            return g(7, 9, 11, 2)
+        elif i == 19:
+            return g(7, 9, 11, 2, *(j,))
+        elif i == 20:
+            return g(7, 9, 11, 2, *(13, j))
+        else:
+            return 0
+
+    for i in range(21):
+        for x in range(1):
+            res = interpret(f, [i, x])
+            assert res == f(i, x)

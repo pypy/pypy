@@ -12,6 +12,8 @@ from pypy.rpython import robject
 from pypy.rpython import rtuple
 from pypy.tool.sourcetools import has_varargs
 
+from pypy.rpython import callparse
+
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
         # for now, we require that the PBC fits neatly into one of the Repr
@@ -340,7 +342,7 @@ class FunctionsPBCRepr(Repr):
         f, rinputs, rresult = self.function_signatures()[value]
         return f
 
-    def rtype_simple_call(self, hop):
+    def PREVIOUS_rtype_simple_call(self, hop):
         f, rinputs, rresult = self.function_signatures().itervalues().next()
         extravlist = []
         if getattr(f._obj.graph, 'normalized_for_calls', False):
@@ -386,15 +388,44 @@ class FunctionsPBCRepr(Repr):
         v = hop.genop('direct_call', vlist, resulttype = rresult)
         return hop.llops.convertvar(v, rresult, hop.r_result)
 
+    def rtype_simple_call(self, hop):
+        f, rinputs, rresult = self.function_signatures().itervalues().next()
+
+        if getattr(f._obj.graph, 'normalized_for_calls', False):
+            # should not have an argument count mismatch
+            assert len(rinputs) == hop.nb_args-1, "normalization bug"
+            vlist = hop.inputargs(self, *rinputs)
+        else:
+            # if not normalized, should be a call to a known function
+            assert len(self.function_signatures()) == 1, "normalization bug"
+            func, = self.function_signatures().keys()
+            vlist = [hop.inputarg(self, arg=0)]
+            vlist += callparse.callparse('simple_call', func, rinputs, hop)
+
+        return self.call(hop, f, vlist, rresult)
+
+    def call(self, hop, f, vlist, rresult):
+        if self.lowleveltype == Void:
+            assert len(self.function_signatures()) == 1
+            vlist[0] = hop.inputconst(typeOf(f), f)
+        v = hop.genop('direct_call', vlist, resulttype = rresult)
+        return hop.llops.convertvar(v, rresult, hop.r_result)
+
     def rtype_call_args(self, hop):
         f, rinputs, rresult = self.function_signatures().itervalues().next()
         # the function arguments may have been normalized by normalizecalls()
         # already
-        if not getattr(f._obj.graph, 'normalized_for_calls', False):
-            assert False, "XXX do stuff here"
-        vlist = hop.inputargs(self, Void, *rinputs)
-        return hop.genop('direct_call', vlist[:1] + vlist[2:],
-                         resulttype = rresult)
+        if getattr(f._obj.graph, 'normalized_for_calls', False):
+            vlist = hop.inputargs(self, Void, *rinputs)
+            vlist = vlist[:1] + vlist[2:]
+        else:
+            # if not normalized, should be a call to a known function
+            assert len(self.function_signatures()) == 1, "normalization bug"
+            func, = self.function_signatures().keys()
+            vlist = [hop.inputarg(self, arg=0)] 
+            vlist += callparse.callparse('call_args', func, rinputs, hop)
+
+        return self.call(hop, f, vlist, rresult)
 
 # ____________________________________________________________
 

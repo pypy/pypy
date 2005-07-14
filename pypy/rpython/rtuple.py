@@ -70,6 +70,13 @@ class TupleRepr(Repr):
             return Length1TupleIteratorRepr(self)
         raise TyperError("can only iterate over tuples of length 1 for now")
 
+    def getitem(self, llops, v_tuple, index):
+        name = self.fieldnames[index]
+        llresult = self.lltypes[index]
+        cname = inputconst(Void, name)
+        return llops.genop('getfield', [v_tuple, cname], resulttype = llresult)
+
+
 class __extend__(pairtype(TupleRepr, Repr)): 
     def rtype_contains((r_tup, r_item), hop): 
         v_tup = hop.args_v[0] 
@@ -98,10 +105,7 @@ class __extend__(pairtype(TupleRepr, IntegerRepr)):
         if not isinstance(v_index, Constant):
             raise TyperError("non-constant tuple index")
         index = v_index.value
-        name = r_tup.fieldnames[index]
-        llresult = r_tup.lltypes[index]
-        cname = hop.inputconst(Void, name)
-        return hop.genop('getfield', [v_tuple, cname], resulttype = llresult)
+        return r_tup.getitem(hop.llops, v_tuple, index)
 
 class __extend__(pairtype(TupleRepr, TupleRepr)):
     
