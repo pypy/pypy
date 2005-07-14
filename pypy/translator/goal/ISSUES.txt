@@ -7,8 +7,6 @@ already sometime ago, while running translate_pypy::
   * the PBCReprs generally lack a convert_from_to() to convert from a small PBC
     set to a larger one.
 
-  * 'call_args' needs to be implemented in rpbc.py.
-
   * how to implement the three overrides of translator/ann_override.py ?
 
   * the pypy trunk is still not annotable.
