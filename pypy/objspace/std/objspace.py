@@ -205,7 +205,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, float):
             return W_FloatObject(self, x)
         if isinstance(x, tuple):
-            wrappeditems = [self.wrap(item) for item in x]
+            wrappeditems = [self.wrap(item) for item in list(x)]
             return W_TupleObject(self, wrappeditems)
         if isinstance(x, list):
             wrappeditems = [self.wrap(item) for item in x]
