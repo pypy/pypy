@@ -158,6 +158,24 @@ def test_call_frozen_pbc_multiple():
     res = interpret(f, [-1])
     assert res == 5
 
+def test_is_among_frozen():
+    fr1 = Freezing()
+    fr2 = Freezing()
+    def givefr1():
+        return fr1
+    def givefr2():
+        return fr2
+    def f(i):
+        if i == 1:
+            fr = givefr1()
+        else:
+            fr = givefr2()
+        return fr is fr1
+    res = interpret(f, [0])
+    assert res is False
+    res = interpret(f, [1])
+    assert res is True
+
 def test_unbound_method():
     def f():
         inst = MySubclass()

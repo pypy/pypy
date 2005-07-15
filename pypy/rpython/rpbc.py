@@ -103,19 +103,24 @@ builtin_descriptor_type = (
 def getPyObjRepr(rtyper, s_pbc):
     return robject.pyobj_repr
 
+def get_access_set(rtyper, pbc):
+    access_sets = rtyper.annotator.getpbcaccesssets()
+    try:
+        return access_sets[pbc]
+    except KeyError:
+        return None    
 
 def getFrozenPBCRepr(rtyper, s_pbc):
     if len(s_pbc.prebuiltinstances) <= 1:
         #if s_pbc.const is None:   -- take care of by rtyper_makerepr() above
         #    return none_frozen_pbc_repr
-        return single_frozen_pbc_repr
+        return SingleFrozenPBCRepr(s_pbc.prebuiltinstances.keys()[0])
     else:
         pbcs = [pbc for pbc in s_pbc.prebuiltinstances.keys()
                     if pbc is not None]
-        access_sets = rtyper.annotator.getpbcaccesssets()
-        _, _, access = access_sets.find(pbcs[0])
+        access = get_access_set(rtyper, pbcs[0])
         for obj in pbcs[1:]:
-            _, _, access1 = access_sets.find(obj)
+            access1 = get_access_set(rtyper, obj)
             assert access1 is access       # XXX not implemented
         try:
             return rtyper.pbc_reprs[access]
@@ -130,12 +135,13 @@ class SingleFrozenPBCRepr(Repr):
     """Representation selected for a single non-callable pre-built constant."""
     lowleveltype = Void
 
+    def __init__(self, value):
+        self.value = value
+
     def rtype_getattr(_, hop):
         if not hop.s_result.is_constant():
             raise TyperError("getattr on a constant PBC returns a non-constant")
         return hop.inputconst(hop.r_result, hop.s_result.const)
-
-single_frozen_pbc_repr = SingleFrozenPBCRepr()
 
 # __ None ____________________________________________________
 class NoneFrozenPBCRepr(SingleFrozenPBCRepr):
@@ -143,7 +149,7 @@ class NoneFrozenPBCRepr(SingleFrozenPBCRepr):
     def rtype_is_true(self, hop):
         return Constant(False, Bool)
 
-none_frozen_pbc_repr = NoneFrozenPBCRepr()
+none_frozen_pbc_repr = NoneFrozenPBCRepr(None)
 
 
 def rtype_is_None(robj1, rnone2, hop, pos=0):
@@ -190,14 +196,15 @@ class MultipleFrozenPBCRepr(Repr):
         self.initialized = "in progress"
         llfields = []
         llfieldmap = {}
-        attrlist = self.access_set.attrs.keys()
-        attrlist.sort()
-        for attr in attrlist:
-            s_value = self.access_set.attrs[attr]
-            r_value = self.rtyper.getrepr(s_value)
-            mangled_name = 'pbc_' + attr
-            llfields.append((mangled_name, r_value.lowleveltype))
-            llfieldmap[attr] = mangled_name, r_value
+        if self.access_set is not None:
+            attrlist = self.access_set.attrs.keys()
+            attrlist.sort()
+            for attr in attrlist:
+                s_value = self.access_set.attrs[attr]
+                r_value = self.rtyper.getrepr(s_value)
+                mangled_name = 'pbc_' + attr
+                llfields.append((mangled_name, r_value.lowleveltype))
+                llfieldmap[attr] = mangled_name, r_value
         self.pbc_type.become(Struct('pbc', *llfields))
         self.llfieldmap = llfieldmap
         self.initialized = True
@@ -248,6 +255,19 @@ class MultipleFrozenPBCRepr(Repr):
         return llops.genop('getfield', [vpbc, cmangledname],
                            resulttype = r_value)
 
+class __extend__(pairtype(MultipleFrozenPBCRepr, MultipleFrozenPBCRepr)):
+    def convert_from_to((r_pbc1, r_pbc2), v, llops):
+        if r_pbc1.access_set == r_pbc2.access_set:
+            return v
+        return NotImplemented
+
+class __extend__(pairtype(SingleFrozenPBCRepr, MultipleFrozenPBCRepr)):
+    def convert_from_to((r_pbc1, r_pbc2), v, llops):
+        value = r_pbc1.value
+        access = get_access_set(r_pbc2.rtyper, value)
+        if access is r_pbc2.access_set:
+            return inputconst(r_pbc2, value)
+        return NotImplemented
 
 # ____________________________________________________________
 

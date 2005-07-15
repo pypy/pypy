@@ -123,6 +123,12 @@ class __extend__(annmodel.SomeImpossibleValue):
 class __extend__(pairtype(Repr, Repr)):
     
     def rtype_is_((robj1, robj2), hop):
+        if hop.s_result.is_constant():
+            return inputconst(Bool, hop.s_result.const)
+        if robj1.lowleveltype == Void:
+            robj1 = robj2
+        elif robj2.lowleveltype == Void:
+            robj2 = robj1
         if (not isinstance(robj1.lowleveltype, Ptr) or
             not isinstance(robj2.lowleveltype, Ptr)):
             raise TyperError('is of instances of the non-pointers: %r, %r' % (
