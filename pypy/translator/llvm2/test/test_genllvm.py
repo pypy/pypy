@@ -301,28 +301,6 @@ def test_list_of_string():
     f = compile_function(string_simple, [int, int, int, int])
     assert f(0, 0, 1, 4) == ord("h") + ord("d")
 
-def Xtest_dict_creation(): 
-    d = {'hello' : 23,
-         'world' : 21}
-    l = ["hello", "world"]
-    def createdict(i, j):
-        return d[l[i]] + d[l[j]]
-    f = compile_function(createdict, [int, int], view=True)
-
-    assert createdict(0, 1) == 43
-
-def Xtest_method_call():
-    class MyBase:
-        def m(self, x):
-            return self.z + x
-        
-    def method_call(a, b):
-        obj = MyBase()
-        obj.z = a
-        return obj.z + b
-    f = compile_function(method_call, [int, int], view=True)
-    assert f(4, 5) == 9
-
 def test_attrs_class():
     class MyBase:
         pass
@@ -343,6 +321,16 @@ def test_attrs_class_pbc():
     f = compile_function(attrs_class_pbc, [])
     assert f() == 16
 
+def test_method_call():
+    class MyBase:
+        def m(self): return self.z
+    obj = MyBase()
+    obj.z = 4
+    def method_call():
+        return obj.m()
+    f = compile_function(method_call, [])
+    assert f() == 4
+
 class TestException(Exception):
     pass
 
@@ -358,3 +346,13 @@ def DONTtest_exception():
         except TestException:
             return 0
     f = compile_function(catch, [int])
+
+def Xtest_dict_creation(): 
+    d = {'hello' : 23,
+         'world' : 21}
+    l = ["hello", "world"]
+    def createdict(i, j):
+        return d[l[i]] + d[l[j]]
+    f = compile_function(createdict, [int, int], view=True)
+
+    assert createdict(0, 1) == 43

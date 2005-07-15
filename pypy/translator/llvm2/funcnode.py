@@ -387,29 +387,36 @@ class OpWriter(object):
         struct, structtype = self.db.repr_argwithtype(op.args[0])
         fieldnames = list(op.args[0].concretetype.TO._names)
         index = fieldnames.index(op.args[1].value)
-        self.codewriter.getelementptr(tmpvar, structtype, struct, ("uint", index))        
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
-        r = op.result
-        assert targettype != "void"
-        self.codewriter.load(targetvar, targettype, tmpvar)
-
+        if targettype != "void":
+            self.codewriter.getelementptr(tmpvar, structtype, struct,
+                                          ("uint", index))        
+            self.codewriter.load(targetvar, targettype, tmpvar)
+        else:
+            self.codewriter.comment("***Skipping operation getfield()***",
+                                    indent=True)
+                        
     def getsubstruct(self, op): 
         struct, structtype = self.db.repr_argwithtype(op.args[0])
         fieldnames = list(op.args[0].concretetype.TO._names)
         index = fieldnames.index(op.args[1].value)
         targetvar = self.db.repr_arg(op.result)
-        self.codewriter.getelementptr(targetvar, structtype, 
-                                      struct, ("uint", index))        
         targettype = self.db.repr_arg_type(op.result)
-        assert targettype != "void"
+        if targettype != "void":
+            self.codewriter.getelementptr(targetvar, structtype, 
+                                          struct, ("uint", index))        
+        else:
+            self.codewriter.comment("***Skipping operation getsubstruct()***",
+                                    indent=True)
          
     def setfield(self, op): 
         tmpvar = self.db.repr_tmpvar()
         struct, structtype = self.db.repr_argwithtype(op.args[0])
         fieldnames = list(op.args[0].concretetype.TO._names)
         index = fieldnames.index(op.args[1].value)
-        self.codewriter.getelementptr(tmpvar, structtype, struct, ("uint", index))
+        self.codewriter.getelementptr(tmpvar, structtype, struct,
+                                      ("uint", index))
         valuevar, valuetype = self.db.repr_argwithtype(op.args[2])
         assert valuetype != "void"
         self.codewriter.store(valuetype, valuevar, tmpvar) 
