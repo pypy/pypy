@@ -319,10 +319,29 @@ def Xtest_method_call():
     def method_call(a, b):
         obj = MyBase()
         obj.z = a
-        return obj.m(b)
-    f = compile_function(f, [int, int], view=True)
+        return obj.z + b
+    f = compile_function(method_call, [int, int], view=True)
     assert f(4, 5) == 9
 
+def test_attrs_class():
+    class MyBase:
+        pass
+    def attrs_class(a):
+        obj = MyBase()
+        obj.z = a
+        return obj.z * 4
+    f = compile_function(attrs_class, [int])
+    assert f(4) == 16
+
+def test_attrs_class_pbc():
+    class MyBase:
+        pass
+    obj = MyBase()
+    obj.z = 4
+    def attrs_class_pbc():
+        return obj.z * 4
+    f = compile_function(attrs_class_pbc, [])
+    assert f() == 16
 
 class TestException(Exception):
     pass

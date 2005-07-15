@@ -108,8 +108,9 @@ class StructNode(ConstantLLVMNode):
     def setup(self):
         for name, T in self._gettypes():
             assert T is not lltype.Void
-            if isinstance(T, lltype.Ptr):
-                self.db.prepare_ptr(getattr(self.value, name))
+            value = getattr(self.value, name)
+            self.db.prepare_constant(T, value)
+                
         self._issetup = True
 
     def get_typerepr(self):
@@ -148,28 +149,29 @@ class StructVarsizeNode(StructNode):
             values.append(self.db.repr_constant(value)[1])
         values.append(self._get_lastnoderepr())
         return values
-    
+
+    def _get_lastnode_helper(self):
+        lastname, LASTT = self._gettypes()[-1]
+        assert isinstance(LASTT, lltype.Array) or (
+            isinstance(LASTT, lltype.Struct) and LASTT._arrayfld)
+        value = getattr(self.value, lastname)
+        return self.db.repr_constant(value)
+
     def _get_lastnode(self):
-        if not hasattr(self, "lastnode"):
-            lastname, LASTT = self._gettypes()[-1]
-            assert isinstance(LASTT, lltype.Array) or (
-                isinstance(LASTT, lltype.Struct) and LASTT._arrayfld)
-            value = getattr(self.value, lastname)
-            self.lastnode, self.lastnode_repr = self.db.repr_constant(value)
-        return self.lastnode
+        return self._get_lastnode_helper()[0]
 
     def _get_lastnoderepr(self):
-        self._get_lastnode()
-        return self.lastnode_repr
+        return self._get_lastnode_helper()[1]
 
     def setup(self):
+        super(StructVarsizeNode, self).setup()
+
         # set castref (note we must ensure that types are "setup" before we can
         # get typeval)
         typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
         self.castref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
                                                  self.ref,
                                                  typeval)
-        super(StructVarsizeNode, self).setup()
     
     def get_typerepr(self):
         # last type is a special case and need to be worked out recursively

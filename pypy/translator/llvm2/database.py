@@ -72,7 +72,7 @@ class Database(object):
         self._pendingsetup = []
         self._tmpcount = 1
 
-    def create_constant_node(self, type_, value, setup=False):
+    def create_constant_node(self, type_, value):
         node = None
         if isinstance(type_, lltype.FuncType):
             if value._callable and (not hasattr(value, "graph") or value.graph is None 
@@ -93,9 +93,7 @@ class Database(object):
         elif isinstance(type_, lltype.OpaqueType):
             node = OpaqueNode(self, value)
 
-        assert node is not None, "%s not supported %s" % (type_, lltype.typeOf(value))
-        if setup:
-            node.setup()
+        assert node is not None, "%s not supported" % (type_)
         return node
 
     def addpending(self, key, node):
@@ -168,13 +166,19 @@ class Database(object):
         log.prepare(const_or_var)
         self.prepare_repr_arg_type(const_or_var.concretetype)
         self.prepare_repr_arg(const_or_var)
-            
-    def prepare_ptr(self, ptrvalue):        
-        assert isinstance(lltype.typeOf(ptrvalue), lltype.Ptr)
-        value = ptrvalue._obj
-        type_ = lltype.typeOf(ptrvalue).TO
-        if value in self.obj2node or value is None:
+
+    def prepare_constant(self, type_, value):        
+        if isinstance(type_, lltype.Primitive):
+            log.prepare_constant(value, "(is primitive)")
             return
+        elif isinstance(type_, lltype.Ptr):
+            type_ = type_.TO
+            value = value._obj
+
+            # we can share data via pointers & dont need a node for nulls
+            if value in self.obj2node or value is None:
+                return
+
         self.addpending(value,
                         self.create_constant_node(type_, value))
 
@@ -262,7 +266,8 @@ class Database(object):
             return node, "%s %s" % (toptr, ref)
 
         elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):
-            node = self.create_constant_node(type_, value, setup=True)
+            assert value in self.obj2node, "XXX tmp assert"
+            node = self.obj2node[value]
             return node, node.constantvalue()
 
         assert False, "%s not supported" % (type(value))

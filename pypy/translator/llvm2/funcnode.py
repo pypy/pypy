@@ -324,6 +324,7 @@ class OpWriter(object):
         fromtype = self.db.repr_arg_type(op.args[0])
         self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
 
+    cast_pointer = cast_primitive
     cast_bool_to_int = cast_primitive
     cast_bool_to_uint = uint_is_true = cast_primitive
     cast_int_to_char = cast_char_to_int = cast_primitive
@@ -389,6 +390,7 @@ class OpWriter(object):
         self.codewriter.getelementptr(tmpvar, structtype, struct, ("uint", index))        
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
+        r = op.result
         assert targettype != "void"
         self.codewriter.load(targetvar, targettype, tmpvar)
 

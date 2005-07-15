@@ -69,9 +69,8 @@ class ArrayNode(ConstantLLVMNode):
         return "<ArrayNode %r>" % (self.ref,)
 
     def setup(self):
-        if isinstance(self.arraytype, lltype.Ptr):
-            for item in self.value.items:
-                self.db.prepare_ptr(item)
+        for item in self.value.items:
+            self.db.prepare_constant(self.arraytype, item)
 
         # set castref (note we must ensure that types are "setup" before we can
         # get typeval)
