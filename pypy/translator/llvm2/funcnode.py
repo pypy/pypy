@@ -403,12 +403,9 @@ class OpWriter(object):
         index = fieldnames.index(op.args[1].value)
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
-        if targettype != "void":
-            self.codewriter.getelementptr(targetvar, structtype, 
-                                          struct, ("uint", index))        
-        else:
-            self.codewriter.comment("***Skipping operation getsubstruct()***",
-                                    indent=True)
+        assert targettype != "void"
+        self.codewriter.getelementptr(targetvar, structtype, 
+                                      struct, ("uint", index))        
          
     def setfield(self, op): 
         tmpvar = self.db.repr_tmpvar()

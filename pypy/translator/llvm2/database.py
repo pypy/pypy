@@ -266,7 +266,6 @@ class Database(object):
             return node, "%s %s" % (toptr, ref)
 
         elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):
-            assert value in self.obj2node, "XXX tmp assert"
             node = self.obj2node[value]
             return node, node.constantvalue()
 
