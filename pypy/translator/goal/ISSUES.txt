@@ -21,7 +21,7 @@ already sometime ago, while running translate_pypy::
 How to work in parallel:
 There is an environment variable to be set with your personal random seed.
 Seeds taken so far are
-Armin: 42, Samuele: 46, Chris: 49
+Armin: 42, Samuele: 46, Chris: 49, Arre: 97
 Under Windows, use
 SET RTYPERSEED=xx
 where xx is your seed. When you run translate_pypy, you will get a message
