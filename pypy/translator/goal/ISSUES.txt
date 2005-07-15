@@ -6,6 +6,8 @@ already sometime ago, while running translate_pypy::
 
   * FlotRepr abs
 
+  * slice(SomeObject, SomeObject, SomeObject)
+
   * equality on instances (=== is)
 
   * we need a call_args similar to simple_call (doing redispatching)
