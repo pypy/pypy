@@ -337,7 +337,9 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
             # Always copy starting from the right to avoid
             # having to make a shallow copy in the case where
             # the source and destination lists are the same list.
-            r.reverse()
+            for i in range(len2 - 1, -1, -1):
+                items[start+i*step] = sequence2[i]
+            return space.w_None
         else:
             # Make a shallow copy to more easily handle the reversal case
             sequence2 = list(sequence2)
