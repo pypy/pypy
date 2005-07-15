@@ -193,6 +193,16 @@ def maybe_float(value):
     return floater()
 
 
+# isinf isn't too hard...
+def isinf(v):
+    return v != 0 and v*2.0 == v
+
+# To get isnan, working x-platform and both on 2.3 and 2.4, is a
+# horror.  I think this works (for reasons I don't really want to talk
+# about), and probably when implemented on top of pypy, too.
+def isnan(v):
+    return v != v*1.0 or (v == 1.0 and v == 2.0)
+
 from _float_formatting import flonum2digits
 
 class FloatFormatter(Formatter):
@@ -221,6 +231,10 @@ class FloatFormatter(Formatter):
 
     def format(self):
         v = maybe_float(self.value)
+        if isnan(v):
+            return 'nan'
+        elif isinf(v):
+            return 'inf'
         v, sign = self.numeric_preprocess(v)
         if self.prec is None:
             self.prec = 6
