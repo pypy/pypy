@@ -78,7 +78,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.2'  # bump this for substantial changes
+GI_VERSION = '1.1.3'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -422,9 +422,14 @@ class GenRpy:
             self.initcode.append1('import pypy')
             self.initcode.append1('import sys')
             self.initcode.append1('import os')
-            self.initcode.append1('libdir = os.path.join(pypy.__path__[0], "lib")\n'
-                                  'sys.path.insert(0, libdir)\n'
-                                  'try:\n'
+            self.initcode.append1('for pkgdir in pypy.__path__:\n'
+                                  '    libdir = os.path.join(pkgdir, "lib")\n'
+                                  '    if os.path.isdir(libdir):\n'
+                                  '        break\n'
+                                  'else:\n'
+                                  '    raise Exception, "cannot find pypy/lib directory"\n'
+                                  'sys.path.insert(0, libdir)\n')
+            self.initcode.append1('try:\n'
                                   '    import %s as _tmp\n'
                                   'finally:\n'
                                   '    if libdir in sys.path:\n'
@@ -1323,7 +1328,12 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         dic['__file__'] = filename
 
     # XXX allow the app-level code to contain e.g. "import _formatting"
-    libdir = os.path.join(pypy.__path__[0], "lib")
+    for pkgdir in pypy.__path__:
+        libdir = os.path.join(pkgdir, "lib")
+        if os.path.isdir(libdir):
+            break
+    else:
+        raise Exception, "cannot find pypy/lib directory"
     sys.path.insert(0, libdir)
     try:
         exec code in dic
