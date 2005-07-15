@@ -49,18 +49,18 @@ class GenLLVM(object):
         nl = codewriter.newline
 
         nl(); comment("Type Declarations"); nl()
-        for typ_decl in self.db.getobjects():
+        for typ_decl in self.db.getnodes():
             typ_decl.writedatatypedecl(codewriter)
 
         nl(); comment("Global Data") ; nl()
-        for typ_decl in self.db.getobjects():
+        for typ_decl in self.db.getnodes():
             typ_decl.writeglobalconstants(codewriter)
 
         nl(); comment("Function Prototypes") ; nl()
         if self.embedexterns:
             for extdecl in extdeclarations.split('\n'):
                 codewriter.append(extdecl)
-        for typ_decl in self.db.getobjects():
+        for typ_decl in self.db.getnodes():
             typ_decl.writedecl(codewriter)
 
         #import pdb ; pdb.set_trace()
@@ -73,7 +73,7 @@ class GenLLVM(object):
         for extfunc in gc_funcs.split('\n'):
             codewriter.append(extfunc)
 
-        for typ_decl in self.db.getobjects():
+        for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
 
         depdone = {}

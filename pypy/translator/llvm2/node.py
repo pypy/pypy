@@ -47,3 +47,8 @@ class LLVMNode(object):
     # __________________ after "implementation" ____________________
     def writeimpl(self, codewriter):
         """ write function implementations. """ 
+
+class ConstantLLVMNode(LLVMNode):
+
+    def castfrom(self):
+        return None

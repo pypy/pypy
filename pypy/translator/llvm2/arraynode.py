@@ -1,7 +1,7 @@
 import py
 from pypy.rpython import lltype
 from pypy.translator.llvm2.log import log
-from pypy.translator.llvm2.node import LLVMNode
+from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2 import varsize 
 import itertools  
 log = log.structnode
@@ -51,7 +51,7 @@ class ArrayTypeNode(LLVMNode):
                                   self.constructor_decl,
                                   fromtype)
 
-class ArrayNode(LLVMNode):
+class ArrayNode(ConstantLLVMNode):
     """ An arraynode.  Elements can be
     a primitive,
     a struct,
@@ -71,24 +71,24 @@ class ArrayNode(LLVMNode):
     def setup(self):
         if isinstance(self.arraytype, lltype.Ptr):
             for item in self.value.items:
-                self.db.addptrvalue(item)
+                self.db.prepare_ptr(item)
 
         # set castref (note we must ensure that types are "setup" before we can
         # get typeval)
         typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
-        self.castref = "cast (%s* %s to %s*)" % (self.get_typestr(),
+        self.castref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
                                                  self.ref,
                                                  typeval)
         self._issetup = True
 
-    def get_typestr(self):
+    def get_typerepr(self):
         items = self.value.items
         arraylen = len(items)
         typeval = self.db.repr_arg_type(self.arraytype)
         return "{ int, [%s x %s] }" % (arraylen, typeval)
 
     def castfrom(self):
-        return "%s*" % self.get_typestr()
+        return "%s*" % self.get_typerepr()
     
     def constantvalue(self):
         """ Returns the constant representation for this node. """
@@ -96,13 +96,13 @@ class ArrayNode(LLVMNode):
         arraylen = len(items)
         typeval = self.db.repr_arg_type(self.arraytype)
 
-        arrayvalues = [self.db.reprs_constant(v) for v in items]
+        arrayvalues = [self.db.repr_constant(v)[1] for v in items]
         value = "int %s, [%s x %s] [ %s ]" % (arraylen,
                                               arraylen,
                                               typeval,
                                               ", ".join(arrayvalues))
 
-        return "%s {%s}" % (self.get_typestr(), value)
+        return "%s {%s}" % (self.get_typerepr(), value)
     
     # ______________________________________________________________________
     # entry points from genllvm

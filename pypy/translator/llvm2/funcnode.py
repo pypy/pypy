@@ -4,7 +4,7 @@ from pypy.objspace.flow.model import flatten, mkentrymap, traverse
 from pypy.rpython import lltype
 from pypy.translator.backendoptimization import remove_same_as 
 from pypy.translator.unsimplify import remove_double_links                     
-from pypy.translator.llvm2.node import LLVMNode
+from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2.atomic import is_atomic
 from pypy.translator.llvm2.log import log 
 from pypy.rpython.extfunctable import table as extfunctable
@@ -17,7 +17,9 @@ class FuncTypeNode(LLVMNode):
         self.db = db
         assert isinstance(type_, lltype.FuncType)
         self.type_ = type_
-        self.ref = 'ft.%s.%s' % (type_, nextnum())
+        # XXX Make simplier for now, it is far too hard to read otherwise
+        #self.ref = 'ft.%s.%s' % (type_, nextnum())
+        self.ref = '%%ft.%s' % (nextnum(),)
         
     def __str__(self):
         return "<FuncTypeNode %r>" % self.ref
@@ -29,11 +31,9 @@ class FuncTypeNode(LLVMNode):
     def writedatatypedecl(self, codewriter):
         returntype = self.db.repr_arg_type(self.type_.RESULT)
         inputargtypes = self.db.repr_arg_type_multi(self.type_._trueargs())
-        decl = "%s type %s (%s)*" % (self.ref, returntype,
-                                     ", ".join(inputargtypes))
         codewriter.funcdef(self.ref, returntype, inputargtypes)
                 
-class FuncNode(LLVMNode):
+class FuncNode(ConstantLLVMNode):
     _issetup = False 
 
     def __init__(self, db, value):

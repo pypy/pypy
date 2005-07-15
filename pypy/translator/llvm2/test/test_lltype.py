@@ -178,3 +178,13 @@ def test_struct_array3():
     fn = compile_function(array_constant, [], embedexterns=False)
     assert fn() == 42
 
+def test_struct_opaque():
+    PRTTI = lltype.Ptr(lltype.RuntimeTypeInfo)
+    S = lltype.GcStruct('s', ('a', lltype.Signed), ('r', PRTTI))
+    s = lltype.malloc(S)
+    s.a = 42
+    def array_constant():
+        return s.a
+    fn = compile_function(array_constant, [], embedexterns=False)
+    assert fn() == 42
+    

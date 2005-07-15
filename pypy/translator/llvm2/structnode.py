@@ -1,6 +1,6 @@
 import py
 from pypy.translator.llvm2.log import log
-from pypy.translator.llvm2.node import LLVMNode
+from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2 import varsize
 from pypy.rpython import lltype
 
@@ -77,7 +77,7 @@ class StructVarsizeTypeNode(StructTypeNode):
             self.ref, self.constructor_decl, arraytype, 
             indices_to_array)
 
-class StructNode(LLVMNode):
+class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain
     a primitive,
     a struct,
@@ -90,7 +90,7 @@ class StructNode(LLVMNode):
         self.value = value
         self.structtype = self.value._TYPE
         self.ref = "%%stinstance.%s" % (nextnum(),)
-
+        
     def __str__(self):
         return "<StructNode %r>" % (self.ref,)
 
@@ -98,27 +98,27 @@ class StructNode(LLVMNode):
         return [(name, self.structtype._flds[name])
                 for name in self.structtype._names_without_voids()]
 
+    def _getvalues(self):
+        values = []
+        for name, T in self._gettypes():
+            value = getattr(self.value, name)
+            values.append(self.db.repr_constant(value)[1])
+        return values
+    
     def setup(self):
         for name, T in self._gettypes():
             assert T is not lltype.Void
             if isinstance(T, lltype.Ptr):
-                self.db.addptrvalue(getattr(self.value, name))
+                self.db.prepare_ptr(getattr(self.value, name))
         self._issetup = True
 
-    def castfrom(self):
-        return None
-
-    def get_typestr(self):
+    def get_typerepr(self):
         return self.db.repr_arg_type(self.structtype)
     
     def constantvalue(self):
         """ Returns the constant representation for this node. """
-        values = []
-        for name, T in self._gettypes():
-            value = getattr(self.value, name)
-            values.append(self.db.reprs_constant(value))
-                
-        return "%s {%s}" % (self.get_typestr(), ", ".join(values))
+        values = self._getvalues()
+        return "%s {%s}" % (self.get_typerepr(), ", ".join(values))
     
     # ______________________________________________________________________
     # main entry points from genllvm 
@@ -141,31 +141,44 @@ class StructVarsizeNode(StructNode):
     def __str__(self):
         return "<StructVarsizeNode %r>" % (self.ref,)
 
+    def _getvalues(self):
+        values = []
+        for name, T in self._gettypes()[:-1]:
+            value = getattr(self.value, name)
+            values.append(self.db.repr_constant(value)[1])
+        values.append(self._get_lastnoderepr())
+        return values
+    
+    def _get_lastnode(self):
+        if not hasattr(self, "lastnode"):
+            lastname, LASTT = self._gettypes()[-1]
+            assert isinstance(LASTT, lltype.Array) or (
+                isinstance(LASTT, lltype.Struct) and LASTT._arrayfld)
+            value = getattr(self.value, lastname)
+            self.lastnode, self.lastnode_repr = self.db.repr_constant(value)
+        return self.lastnode
+
+    def _get_lastnoderepr(self):
+        self._get_lastnode()
+        return self.lastnode_repr
+
     def setup(self):
         # set castref (note we must ensure that types are "setup" before we can
         # get typeval)
         typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
-        self.castref = "cast (%s* %s to %s*)" % (self.get_typestr(),
+        self.castref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
                                                  self.ref,
                                                  typeval)
         super(StructVarsizeNode, self).setup()
+    
+    def get_typerepr(self):
+        # last type is a special case and need to be worked out recursively
+        types = self._gettypes()[:-1]
+        types_repr = [self.db.repr_arg_type(T) for name, T in types]
+        types_repr.append(self._get_lastnode().get_typerepr())
         
-    def get_typestr(self):
-        lastname, LASTT = self._gettypes()[-1]
-        assert isinstance(LASTT, lltype.Array) or (
-            isinstance(LASTT, lltype.Struct) and LASTT._arrayfld)
-
-        #XXX very messy
-        node = self.db.create_constant_node(getattr(self.value, lastname), True)
-        lasttype = node.get_typestr()
-
-        types = []
-        for name, T in self._gettypes()[:-1]:
-            types.append(self.db.repr_arg_type(T))
-        types.append(lasttype)
-
-        return "{%s}" % ", ".join(types)
+        return "{%s}" % ", ".join(types_repr)
         
     def castfrom(self):
-        return "%s*" % self.get_typestr()
+        return "%s*" % self.get_typerepr()
  
