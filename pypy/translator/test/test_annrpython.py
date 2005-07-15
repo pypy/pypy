@@ -1395,6 +1395,31 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int, str])
         assert s.knowntype == int
 
+    def test_listitem_merge_asymmetry_bug(self):
+        class K:
+            pass
+        def mutr(k, x, i):
+            k.l2 = [x] + k.l2 # this involves a side-effectful union and unification, with this order
+                              # of arguments some reflowing was missed
+            k.l2[i] = x
+        def witness(i):
+            pass
+        def trouble(k):
+            l = k.l1 + k.l2
+            for i in range(len(l)):
+                witness(l[i])
+        def f(flag, k, x, i):
+            if flag:
+                k = K()
+                k.l1 = []
+                k.l2 = []
+            trouble(k)
+            mutr(k, x, i)
+        a = self.RPythonAnnotator()
+        a.build_types(f, [bool, K,  int, int])
+        g = a.translator.getflowgraph(witness)
+        assert a.binding(g.getargs()[0]).knowntype == int
+        
 
 def g(n):
     return [0,1,2,n]

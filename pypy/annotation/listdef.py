@@ -22,9 +22,22 @@ class ListItem:
             if other.range_step != self.range_step:
                 self.range_step = None
             self.itemof.update(other.itemof)
+            read_locations = self.read_locations.copy()
+            other_read_locations = other.read_locations.copy()
             self.read_locations.update(other.read_locations)
             self.patch()    # which should patch all refs to 'other'
-            self.generalize(other.s_value)
+            s_value = self.s_value
+            s_other_value = other.s_value
+            s_new_value = tracking_unionof(self.__class__.__name__, s_value, s_other_value)
+            if s_new_value != s_value:
+                self.s_value = s_new_value
+                # reflow from reading points
+                for position_key in read_locations:
+                    self.bookkeeper.annotator.reflowfromposition(position_key) 
+            if s_new_value != s_other_value:
+                # reflow from reading points
+                for position_key in other_read_locations:
+                    self.bookkeeper.annotator.reflowfromposition(position_key) 
 
     def patch(self):
         for listdef in self.itemof:
