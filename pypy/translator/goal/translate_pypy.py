@@ -21,7 +21,7 @@ Command-line options for translate_pypy:
    -o         Generate and compile the C code, but don't run it
    -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
                   -- http://fabrice.bellard.free.fr/tcc/
-   -no-d      Disable recording of debugging information
+   -d         Enable recording of annotator debugging information
    -huge=%    Threshold in the number of functions after which only a local call
               graph and not a full one is displayed
    -no-snapshot
@@ -259,7 +259,7 @@ if __name__ == '__main__':
                '-no-t': False,
                '-no-o': False,
                '-tcc':  False,
-               '-no-d': False,
+               '-d': False,
                '-no-snapshot' : False,
                '-load': False,
                '-save': False,
@@ -292,8 +292,8 @@ if __name__ == '__main__':
                     save_file = argiter.next()
     if options['-tcc']:
         os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
-    if options['-no-d']:
-        annmodel.DEBUG = False
+    if options['-d']:
+        annmodel.DEBUG = True
 
     def about(x):
         """ interactive debugging helper """
