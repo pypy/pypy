@@ -331,7 +331,6 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
               "assign sequence of size %d to extended slice of size %d" %
               (len2,slicelength)))
 
-    r = range(len2)
     items = w_list.ob_item
     if sequence2 is items:
         if step > 0:
@@ -342,7 +341,7 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
         else:
             # Make a shallow copy to more easily handle the reversal case
             sequence2 = list(sequence2)
-    for i in r:
+    for i in range(len2):
         items[start+i*step] = sequence2[i]
     return space.w_None
 
