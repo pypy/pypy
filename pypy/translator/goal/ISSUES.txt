@@ -9,8 +9,6 @@ already sometime ago, while running translate_pypy::
 
   * isinstance(SomeObject, _), needed by wrap__object
 
-  * <MultipleFrozenPBCRepr> is <SingleFrozenPBCRepr> (and conversion)
-
   * the PBCReprs generally lack a convert_from_to() to convert from a small PBC
     set to a larger one.
 
