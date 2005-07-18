@@ -179,3 +179,15 @@ def test_const_isinstance():
         return isinstance(b, B)
     res = interpret(f, [])
     assert res is True
+
+def test_isinstance_list():
+    def f(i):
+        if i == 0:
+            l = []
+        else:
+            l = None
+        return isinstance(l, list)
+    res = interpret(f, [0])
+    assert res is True
+    res = interpret(f, [1])
+    assert res is False    

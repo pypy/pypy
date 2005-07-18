@@ -120,6 +120,14 @@ def rtype_builtin_isinstance(hop):
         c = hop.inputconst(pyobj_repr, isinstance)
         v = hop.genop('simple_call', [c, v_obj, v_typ], resulttype = pyobj_repr)
         return hop.llops.convertvar(v, pyobj_repr, bool_repr)        
+
+    if hop.args_s[1].is_constant() and hop.args_s[1].const == list:
+        if hop.args_s[0].knowntype != list:
+            raise TyperError("isinstance(x, list) expects x to be known statically to be a list or None")
+        rlist = hop.args_r[0]
+        vlist = hop.inputarg(rlist, arg=0)
+        cnone = hop.inputconst(rlist, None)
+        return hop.genop('ptr_ne', [vlist, cnone], resulttype=lltype.Bool)
     
     instance_repr = rclass.getinstancerepr(hop.rtyper, None)
     class_repr = rclass.get_type_repr(hop.rtyper)
