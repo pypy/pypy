@@ -13,8 +13,6 @@ already sometime ago, while running translate_pypy::
   * we need a call_args similar to simple_call (doing redispatching)
     on MethodOfFrozenPBCRepr
 
-  * isinstance(SomeObject, _), needed by wrap__object
-
   * the PBCReprs generally lack a convert_from_to() to convert from a small PBC
     set to a larger one.
 

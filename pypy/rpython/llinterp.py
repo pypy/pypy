@@ -306,6 +306,13 @@ class LLFrame(object):
         """ % locals()).compile()
     del opname
 
+    def op_simple_call(self, f, *args):
+        assert typeOf(f) == Ptr(PyObject)
+        for pyo in args:
+            assert typeOf(pyo) == Ptr(PyObject)
+        res = f._obj.value(*[pyo._obj.value for pyo in args])
+        return pyobjectptr(res)
+        
 
 
 # __________________________________________________________

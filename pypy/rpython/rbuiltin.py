@@ -8,6 +8,7 @@ from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, Constant
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rfloat import float_repr, FloatRepr
+from pypy.rpython.rbool import bool_repr
 from pypy.rpython import rclass
 from pypy.tool import sourcetools
 
@@ -112,6 +113,12 @@ def rtype_builtin_list(hop):
     return hop.args_r[0].rtype_bltn_list(hop)
 
 def rtype_builtin_isinstance(hop):
+    if hop.args_r[0] == pyobj_repr or hop.args_r[1] == pyobj_repr:
+        v_obj, v_typ = hop.inputargs(pyobj_repr, pyobj_repr)
+        c = hop.inputconst(pyobj_repr, isinstance)
+        v = hop.genop('simple_call', [c, v_obj, v_typ], resulttype = pyobj_repr)
+        return hop.llops.convertvar(v, pyobj_repr, bool_repr)        
+    
     instance_repr = rclass.getinstancerepr(hop.rtyper, None)
     class_repr = rclass.get_type_repr(hop.rtyper)
     

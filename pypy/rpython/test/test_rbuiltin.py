@@ -1,6 +1,7 @@
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test import test_llinterp
 from pypy.rpython.objectmodel import instantiate
+from pypy.rpython import lltype
 from pypy.objspace.flow import model as flowmodel
 from pypy.tool import udir
 
@@ -157,3 +158,16 @@ def test_instantiate_multiple():
     assert res.super.typeptr.name[0] == 'A'
     res = interpret(f, [2])
     assert res.super.typeptr.name[0] == 'B'
+
+
+def test_isinstance_obj():
+    _1 = lltype.pyobjectptr(1)
+    def f(x):
+        return isinstance(x, int)
+    res = interpret(f, [_1], someobjects=True)
+    assert res is True
+    _1_0 = lltype.pyobjectptr(1.0)
+    res = interpret(f, [_1_0], someobjects=True)
+    assert res is False
+    
+    
