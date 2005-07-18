@@ -15,7 +15,7 @@ Dummy low-level implementations for the external functions of the 'os' module.
 
 import os, errno
 from pypy.rpython.rstr import STR
-from pypy.rpython.lltype import malloc
+from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
 
 
 # utility conversion functions
@@ -77,3 +77,14 @@ ll_os_getcwd.suggested_primitive = True
 def ll_os_dup(fd):
     return os.dup(fd)
 ll_os_dup.suggested_primitive = True
+
+def ll_os_fstat(fd):
+    stat = os.fstat(fd)
+    n = len(stat)
+    fieldnames = ['item%d' % i for i in range(n)]
+    lltypes = [Signed]*n
+    fields = tuple(zip(fieldnames, lltypes))    
+    tup = GcStruct('tuple%d' % n, fields)
+    #lowleveltype = Ptr(tup)
+    #p = malloc( tup )
+    return tup
