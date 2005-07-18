@@ -101,24 +101,26 @@ def test_simple_method_call():
     assert res == 1
 
 def test_isinstance():
-    def a():
-        b = B()
-        return isinstance(b, A)
-    def b():
-        b = B()
-        return isinstance(b, B)
-    def c():
-        b = B()
-        return isinstance(b, C)
+    def f(i):
+        if i == 0:
+            o = None
+        elif i == 1:
+            o = A()
+        elif i == 2:
+            o = B()
+        else:
+            o = C()
+        return 100*isinstance(o, A)+10*isinstance(o, B)+1*isinstance(o ,C)
 
-    res = interpret(a, [])
-    assert res is True
+    res = interpret(f, [1])
+    assert res == 100
+    res = interpret(f, [2])
+    assert res == 110
+    res = interpret(f, [3])
+    assert res == 111
 
-    res = interpret(b, [])
-    assert res is True
-
-    res = interpret(c, [])
-    assert res is False
+    res = interpret(f, [0])
+    assert res == 0
 
 def test_method_used_in_subclasses_only():
     class A:

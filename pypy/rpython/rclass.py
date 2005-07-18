@@ -637,5 +637,11 @@ def ll_issubclass(subcls, cls):
         subcls = subcls.parenttypeptr
     return True
 
+def ll_isinstance(obj, cls):
+    if not obj:
+        return False
+    obj_cls = ll_type(obj)
+    return ll_issubclass(obj_cls, cls)
+
 def ll_runtime_type_info(obj):
     return obj.typeptr.rtti

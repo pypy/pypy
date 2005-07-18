@@ -124,9 +124,7 @@ def rtype_builtin_isinstance(hop):
     
     v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
 
-    v_objcls = hop.gendirectcall(rclass.ll_type, v_obj)
-    return hop.gendirectcall(rclass.ll_issubclass, v_objcls, v_cls)
-    
+    return hop.gendirectcall(rclass.ll_isinstance, v_obj, v_cls)
 
 #def rtype_builtin_range(hop): see rrange.py
 
