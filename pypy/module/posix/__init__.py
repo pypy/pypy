@@ -13,6 +13,6 @@ class Module(MixedModule):
     'close'     : 'interp_posix.close',
     'ftruncate' : 'interp_posix.ftruncate',
     'fstat'     : 'interp_posix.fstat',
-    'dup'       : 'interp_posix.dup'
-    '__doc__'   : "space.wrap('Posix module')"
+    'dup'       : 'interp_posix.dup',
+    '__doc__'   : 'space.wrap('Posix module')',
     }
