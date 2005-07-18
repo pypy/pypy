@@ -59,6 +59,15 @@ class RPythonTyper:
             print '*' * len(s)
         except:
             self.seed = 0
+        try:
+            self.order = __import__(os.getenv('RTYPERORDER'), {}, {},  ['*']).order
+            s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
+            print '*' * len(s)
+            print s
+            print '*' * len(s)
+        except:
+            self.order = None
+
 
     def getexceptiondata(self):
         return self.exceptiondata    # built at the end of specialize()
@@ -114,8 +123,15 @@ class RPythonTyper:
                 import random
                 r = random.Random(self.seed)
                 r.shuffle(pending)
+
+            if self.order:
+                tracking = self.order(self.annotator, pending)
+            else:
+                tracking = lambda block: None
+
             # specialize all blocks in the 'pending' list
             for block in pending:
+                tracking(block)
                 self.specialize_block(block)
                 self.already_seen[block] = True
                 # progress bar
