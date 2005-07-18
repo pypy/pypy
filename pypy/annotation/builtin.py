@@ -129,7 +129,11 @@ def builtin_isinstance(s_obj, s_type, variables=None):
             elif our_issubclass(s_obj.knowntype, typ) and not s_obj.can_be_none():
                 r.const = True 
             elif not our_issubclass(typ, s_obj.knowntype): 
-                r.const = False 
+                r.const = False
+            elif s_obj.knowntype == int and typ == bool: # xxx this will explode in case of generalisation
+                                                         # from bool to int, notice that isinstance( , bool|int)
+                                                         # is quite border case for RPython
+                r.const = False
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK

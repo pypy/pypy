@@ -1419,6 +1419,27 @@ class TestAnnotateTestCase:
         a.build_types(f, [bool, K,  int, int])
         g = a.translator.getflowgraph(witness)
         assert a.binding(g.getargs()[0]).knowntype == int
+
+    # check RPython static semantics of isinstance(x,bool|int) as needed for wrap
+
+    def test_isinstance_int_bool(self):
+        def f(x):
+            if isinstance(x, int):
+                if isinstance(x, bool):
+                    return "bool"
+                return "int"
+            return "dontknow"
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert s.const == "bool"
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.const == "int"        
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [float])
+        assert s.const == "dontknow"        
+        
+    
         
 
 def g(n):
