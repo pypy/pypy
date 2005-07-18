@@ -34,7 +34,7 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
         if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Signed:
             if debug: print 'explicit cast_uint_to_int'
             return llops.genop('cast_uint_to_int', [v], resulttype=Signed)
-        return v
+        return NotImplemented
 
     #arithmetic
 
