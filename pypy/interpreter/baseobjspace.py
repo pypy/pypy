@@ -153,7 +153,7 @@ class ObjSpace(object):
              self.setbuiltinmodule('parser', 'recparser')
         elif self.options.useparsermodule == "parser":
             self.setbuiltinmodule('parser')
-        self.setbuiltinmodule('posix')
+        #self.setbuiltinmodule('posix')
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
             if name.startswith('w_') and not name.endswith('Type'): 
