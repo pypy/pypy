@@ -169,5 +169,13 @@ def test_isinstance_obj():
     _1_0 = lltype.pyobjectptr(1.0)
     res = interpret(f, [_1_0], someobjects=True)
     assert res is False
-    
-    
+
+
+def test_const_isinstance():
+    class B(object):
+        pass
+    def f():
+        b = B()
+        return isinstance(b, B)
+    res = interpret(f, [])
+    assert res is True

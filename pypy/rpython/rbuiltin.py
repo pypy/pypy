@@ -113,6 +113,8 @@ def rtype_builtin_list(hop):
     return hop.args_r[0].rtype_bltn_list(hop)
 
 def rtype_builtin_isinstance(hop):
+    if hop.s_result.is_constant():
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
     if hop.args_r[0] == pyobj_repr or hop.args_r[1] == pyobj_repr:
         v_obj, v_typ = hop.inputargs(pyobj_repr, pyobj_repr)
         c = hop.inputconst(pyobj_repr, isinstance)
