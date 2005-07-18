@@ -205,3 +205,61 @@ def test_is():
     assert res == 0x0100
     res = interpret(f, [3])
     assert res == 0x0200
+
+def test_eq():
+    class A: pass
+    class B(A): pass
+    class C: pass
+    def f(i):
+        a = A()
+        b = B()
+        c = C()
+        d = None
+        e = None
+        if i == 0:
+            d = a
+        elif i == 1:
+            d = b
+        elif i == 2:
+            e = c
+        return (0x0001*(a == b) | 0x0002*(a == c) | 0x0004*(a == d) |
+                0x0008*(a == e) | 0x0010*(b == c) | 0x0020*(b == d) |
+                0x0040*(b == e) | 0x0080*(c == d) | 0x0100*(c == e) |
+                0x0200*(d == e))
+    res = interpret(f, [0])
+    assert res == 0x0004
+    res = interpret(f, [1])
+    assert res == 0x0020
+    res = interpret(f, [2])
+    assert res == 0x0100
+    res = interpret(f, [3])
+    assert res == 0x0200
+
+def test_ne():
+    class A: pass
+    class B(A): pass
+    class C: pass
+    def f(i):
+        a = A()
+        b = B()
+        c = C()
+        d = None
+        e = None
+        if i == 0:
+            d = a
+        elif i == 1:
+            d = b
+        elif i == 2:
+            e = c
+        return (0x0001*(a != b) | 0x0002*(a != c) | 0x0004*(a != d) |
+                0x0008*(a != e) | 0x0010*(b != c) | 0x0020*(b != d) |
+                0x0040*(b != e) | 0x0080*(c != d) | 0x0100*(c != e) |
+                0x0200*(d != e))
+    res = interpret(f, [0])
+    assert res == ~0x0004 & 0x3ff
+    res = interpret(f, [1])
+    assert res == ~0x0020 & 0x3ff
+    res = interpret(f, [2])
+    assert res == ~0x0100 & 0x3ff
+    res = interpret(f, [3])
+    assert res == ~0x0200 & 0x3ff

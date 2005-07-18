@@ -8,7 +8,7 @@ from pypy.rpython.lltype import Ptr, Struct, GcStruct, malloc
 from pypy.rpython.lltype import cast_pointer, castable, nullptr
 from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo, typeOf
 from pypy.rpython.lltype import Array, Char, Void, attachRuntimeTypeInfo
-from pypy.rpython.lltype import FuncType
+from pypy.rpython.lltype import FuncType, Bool
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -598,6 +598,13 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
             basedef = r_ins1.classdef.commonbase(r_ins2.classdef)
         r_ins = getinstancerepr(r_ins1.rtyper, basedef)
         return pairtype(Repr, Repr).rtype_is_(pair(r_ins, r_ins), hop)
+
+    rtype_eq = rtype_is_
+
+    def rtype_ne(rpair, hop):
+        v = rpair.rtype_eq(hop)
+        return hop.genop("bool_not", [v], resulttype=Bool)
+        
 
 # ____________________________________________________________
 
