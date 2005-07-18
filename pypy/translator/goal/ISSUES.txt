@@ -9,7 +9,10 @@ already sometime ago, while running translate_pypy::
   * slice(SomeObject, SomeObject, SomeObject)
 
   * we need a call_args similar to simple_call (doing redispatching)
-    on MethodOfFrozenPBCRepr
+    on MethodOfFrozenPBCRepr etc
+
+  * implementation for isinstance(x,list) makes sense only if x is a list, then needs
+    to check that x is not None
 
   * the PBCReprs generally lack a convert_from_to() to convert from a small PBC
     set to a larger one.
