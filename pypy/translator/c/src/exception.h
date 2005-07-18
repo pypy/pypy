@@ -14,7 +14,7 @@ static RPYTHON_EXCEPTION	rpython_exc_value = NULL;
 
 #define ExceptionOccurred()	(rpython_exc_type != NULL)
 
-#define RaiseException(etype, evalue)		\
+#define RPyRaiseException(etype, evalue)		\
 		assert(!ExceptionOccurred());	\
 		rpython_exc_type = etype;	\
 		rpython_exc_value = evalue
@@ -78,7 +78,7 @@ static void _ConvertExceptionToCPython(void)
 /******************************************************************/
 
 #define ExceptionOccurred()           PyErr_Occurred()
-#define RaiseException(etype, evalue) PyErr_Restore(etype, evalue, NULL)
+#define RPyRaiseException(etype, evalue) PyErr_Restore(etype, evalue, NULL)
 #define FetchException(etypevar, evaluevar, ignored)   {	\
 		PyObject *__tb;					\
 		PyErr_Fetch(&etypevar, &evaluevar, &__tb);	\

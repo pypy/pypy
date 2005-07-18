@@ -9,6 +9,7 @@
 #if defined(MS_WINDOWS) && !defined(MS_WIN64) && !defined(__BORLANDC__)
 /* Win32 has better clock replacement
    XXX Win64 does not yet, but might when the platform matures. */
+#include <windows.h>
 
 double LL_time_clock(void)
 {

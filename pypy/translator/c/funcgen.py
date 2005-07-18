@@ -210,7 +210,7 @@ class FunctionCodeGenerator:
                     # exceptional return block
                     exc_cls   = self.expr(block.inputargs[0])
                     exc_value = self.expr(block.inputargs[1])
-                    yield 'RaiseException(%s, %s);' % (exc_cls, exc_value)
+                    yield 'RPyRaiseException(%s, %s);' % (exc_cls, exc_value)
                     for line in self.return_with_error():
                         yield line 
                 else:
