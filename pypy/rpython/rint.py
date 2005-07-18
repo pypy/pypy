@@ -365,7 +365,8 @@ class __extend__(pairtype(PyObjRepr, IntegerRepr)):
                                      resulttype=Unsigned)
         if r_to.lowleveltype == Signed:
             return llops.gencapicall('PyInt_AsLong', [v],
-                                     resulttype=Signed)
+                                     resulttype=Signed,
+                                     _callable = lambda pyo: int(pyo._obj.value))
         return NotImplemented
 
 class __extend__(pairtype(IntegerRepr, PyObjRepr)):

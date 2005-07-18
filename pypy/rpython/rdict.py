@@ -290,7 +290,8 @@ def ll_newstrdict(DICTPTR):
 def rtype_newdict(hop):
     r_dict = hop.r_result
     if r_dict == robject.pyobj_repr: # special case: SomeObject: SomeObject dicts!
-        return hop.inputconst(robject.pyobj_repr, {})
+        cdict = hop.inputconst(robject.pyobj_repr, dict)
+        return hop.genop('simple_call', [cdict], resulttype = robject.pyobj_repr)
     if not isinstance(r_dict, StrDictRepr):
         raise rmodel.TyperError("cannot create non-StrDicts, got %r" %(r_dict,))
     c1 = hop.inputconst(lltype.Void, r_dict.lowleveltype)

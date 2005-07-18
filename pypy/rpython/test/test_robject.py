@@ -16,7 +16,10 @@ def test_obj_obj_dict():
         d[1] = 'a'
         d['a'] = i
         d['ab'] = c
-        return d
-    res = interpret(f, [1, 'c'])
-    print res
+        d[i] = c
+        return len(d)
+    res = interpret(f, [2, 'c'])
+    assert res == 4
+    res = interpret(f, [3, 'c'])
+    assert res == 4
     
