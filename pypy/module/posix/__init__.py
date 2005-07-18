@@ -14,5 +14,5 @@ class Module(MixedModule):
     'ftruncate' : 'interp_posix.ftruncate',
     'fstat'     : 'interp_posix.fstat',
     'dup'       : 'interp_posix.dup',
-    '__doc__'   : 'space.wrap('Posix module')',
+    '__doc__'   : "space.wrap('Posix module')",
     }
