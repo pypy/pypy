@@ -37,7 +37,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
 
     def test_get_set_del_slice(self):
         def get_set_del_nonneg_slice(): # no neg slices for now!
-            l = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+            l = [ord('a'), ord('b'), ord('c'), ord('d'), ord('e'), ord('f'), ord('g'), ord('h'), ord('i'), ord('j')]
             del l[:1]
             bound = len(l)-1
             if bound >= 0:
@@ -48,7 +48,7 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
             #assert bound >= 0
             #l[bound:] = [9]    no setting slice into lists for now
             #l[2:4] = [8,11]
-            l[0], l[-1], l[2], l[3] = 3, 9, 8, 11
+            l[0], l[-1], l[2], l[3] =3, 9, 8, 11
 
             list_3_c = l[:2]
             list_9 = l[5:]
@@ -59,10 +59,10 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
                     len(list_11_h), list_11_h[0], list_11_h[1])
         fn = self.getcompiled(get_set_del_nonneg_slice)
         result = fn()
-        assert result == (6, 3, 'c', 8, 11, 'h', 9,
-                          2, 3, 'c',
+        assert result == (6, 3, ord('c'), 8, 11, ord('h'), 9,
+                          2, 3, ord('c'),
                           1, 9,
-                          2, 11, 'h')
+                          2, 11, ord('h'))
 
     def test_is(self):
         def testfn():
