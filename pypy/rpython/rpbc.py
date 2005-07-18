@@ -404,6 +404,15 @@ class FunctionsPBCRepr(Repr):
 
         return self.call(hop, f, vlist, rresult)
 
+class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
+        def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
+            # this check makes sense because both source and dest repr are FunctionsPBCRepr
+            if r_fpbc1.lowleveltype == r_fpbc2.lowleveltype:
+                return v
+            if r_fpbc1.lowleveltype == Void:
+                return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
+            return NotImplemented
+
 # ____________________________________________________________
 
 def commonbase(classdefs):

@@ -627,3 +627,49 @@ def test_call_star_and_keywords_starargs():
         for x in range(1):
             res = interpret(f, [i, x])
             assert res == f(i, x)
+
+def test_conv_from_funcpbcset_to_larger():
+    def f1():
+        return 7
+    def f2():
+        return 11
+    def f3():
+        return 13
+
+    def a():
+        return f1
+    def b():
+        return f2
+    
+
+    def g(i):
+        if i == 1:
+            f = a()
+        else:
+            f = b()
+        return f()
+
+    res = interpret(g, [0])
+    assert res == 11
+    res = interpret(g, [1])
+    assert res == 7
+
+    def bc(j):
+        if j == 1:
+            return f2
+        else:
+            return f3
+
+    def g(i, j):
+        if i == 1:
+            cls = a()
+        else:
+            cls = bc(j)
+        return cls()
+
+    res = interpret(g, [0, 0])
+    assert res == 13
+    res = interpret(g, [0, 1])
+    assert res == 11
+    res = interpret(g, [1, 0])
+    assert res == 7
