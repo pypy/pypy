@@ -159,6 +159,9 @@ def rtype_is_None(robj1, rnone2, hop, pos=0):
         return hop.genop('ptr_iszero', [v1], resulttype=Bool)
     
 class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
+
+    def convert_from_to((r_from, _), v, llops):
+        return inputconst(Void, None)
     
     def rtype_is_((robj1, rnone2), hop):
         return rtype_is_None(robj1, rnone2, hop)
