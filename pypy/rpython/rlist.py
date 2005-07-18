@@ -11,6 +11,7 @@ from pypy.rpython.lltype import GcForwardReference, Ptr, GcArray, GcStruct
 from pypy.rpython.lltype import Void, Signed, malloc, typeOf, Primitive
 from pypy.rpython.lltype import Bool, nullptr
 from pypy.rpython import rstr
+from pypy.rpython import robject
 
 # ____________________________________________________________
 #
@@ -27,13 +28,17 @@ from pypy.rpython import rstr
 class __extend__(annmodel.SomeList):
     def rtyper_makerepr(self, rtyper):
         listitem = self.listdef.listitem
+        s_value = listitem.s_value
         if listitem.range_step and not listitem.mutated:
             return rrange.RangeRepr(listitem.range_step)
+        elif (s_value.__class__ is annmodel.SomeObject and s_value.knowntype == object):
+            return robject.pyobj_repr
         else:
             # cannot do the rtyper.getrepr() call immediately, for the case
             # of recursive structures -- i.e. if the listdef contains itself
             return ListRepr(lambda: rtyper.getrepr(listitem.s_value),
                             listitem)
+
     def rtyper_makekey(self):
         return self.listdef.listitem
 
@@ -550,6 +555,15 @@ def ll_newlist(LISTPTR, length):
 def rtype_newlist(hop):
     nb_args = hop.nb_args
     r_list = hop.r_result
+    if r_list == robject.pyobj_repr: # special case: SomeObject lists!
+        clist = hop.inputconst(robject.pyobj_repr, list)
+        v_result = hop.genop('simple_call', [clist], resulttype = robject.pyobj_repr)
+        cname = hop.inputconst(robject.pyobj_repr, 'append')
+        v_meth = hop.genop('getattr', [v_result, cname], resulttype = robject.pyobj_repr)
+        for i in range(nb_args):
+            v_item = hop.inputarg(robject.pyobj_repr, arg=i)
+            hop.genop('simple_call', [v_meth, v_item], resulttype = robject.pyobj_repr)
+        return v_result
     r_listitem = r_list.item_repr
     c1 = hop.inputconst(Void, r_list.lowleveltype)
     c2 = hop.inputconst(Signed, nb_args)

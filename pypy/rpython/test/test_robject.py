@@ -22,4 +22,13 @@ def test_obj_obj_dict():
     assert res == 4
     res = interpret(f, [3, 'c'])
     assert res == 4
-    
+
+def test_obj_list():
+    def f(i, c):
+        lis = [1, 2, 3, 4]
+        lis[i] = c
+        return len(lis)
+    res = interpret(f, [2, 'c'])#, view=True)
+    assert res == 4
+    res = interpret(f, [3, 'c'])
+    assert res == 4
