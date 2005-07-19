@@ -1,11 +1,21 @@
 import sys
 import os
 
-lst = open('module-list', 'r')
+RTYPERORDER = os.getenv('RTYPERORDER').split(',')
+if len(RTYPERORDER) == 2:
+   module_list = RTYPERORDER[1]
+else:
+   module_list = 'module-list'
+
+lst = open(module_list, 'r')
 try:
-   prefixes = lst.read().split()
+   print "reading module-list: %s" % module_list
+   prefixes = lst.readlines()
 finally:
    lst.close()
+
+prefixes = [line.strip() for line in prefixes]
+prefixes = [line for line in prefixes if line and not line.startswith('#')]
 
 NOMATCH = sys.maxint
 
@@ -40,7 +50,7 @@ def order(annotator, pending):
    def track(block):
       module = annotated[block].__module__
       if module != cur_module[0]:
-         print "Specializing blocks in module: %s" % module
+         print "--- Specializing blocks in module: %s" % module
          cur_module[0] = module
    return track
    

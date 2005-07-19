@@ -59,14 +59,17 @@ class RPythonTyper:
             print '*' * len(s)
         except:
             self.seed = 0
-        try:
-            self.order = __import__(os.getenv('RTYPERORDER'), {}, {},  ['*']).order
+        self.order = None
+        RTYPERORDER = os.getenv('RTYPERORDER')
+        if RTYPERORDER:
+            order_module = RTYPERORDER.split(',')[0]
+            self.order = __import__(order_module, {}, {},  ['*']).order
             s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
             print '*' * len(s)
             print s
             print '*' * len(s)
-        except:
-            self.order = None
+
+
 
 
     def getexceptiondata(self):
