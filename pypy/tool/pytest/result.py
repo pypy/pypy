@@ -25,7 +25,7 @@ class Result(object):
         return self._headers.items()
 
     def addnamedtext(self, name, text): 
-        assert isinstance(text, str)
+        assert isinstance(text, basestring)
         assert isinstance(name, str)
         self._blocknames.append(name) 
         self._blocks[name] = text 
@@ -104,7 +104,7 @@ class ResultFromMime(Result):
                 assert submsg.get_main_type() == 'text'
                 fn = submsg.get_filename() 
                 assert fn
-                self.addnamedtext(fn, submsg.get_payload())
+                self.addnamedtext(fn, unicode(submsg.get_payload(), 'utf8'))
 
     def ismodifiedtest(self): 
         # XXX we need proper cross-platform paths! 
