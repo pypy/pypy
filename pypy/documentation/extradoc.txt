@@ -64,7 +64,6 @@ Related projects
 .. _`Iron Python`: http://www.gotdotnet.com/workspaces/workspace.aspx?id=ad7acff7-ab1e-4bcb-99c0-57ac5a3a9742
 .. _`transparent dynamic optimization`: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
 .. _Dynamo: http://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
-.. _optionaltool: http://codespeak.net/pypy/index.cgi?doc/optionaltool.html
 .. _testdesign: http://codespeak.net/pypy/index.cgi?doc/testdesign.html
 .. _feasible: http://codespeak.net/pipermail/pypy-dev/2004q2/001289.html
 .. _rock: http://codespeak.net/pipermail/pypy-dev/2004q1/001255.html

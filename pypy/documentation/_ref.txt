@@ -50,5 +50,5 @@
 .. _`pypy/translator/annrpython.py`: http://codespeak.net/svn/pypy/dist/pypy/translator/annrpython.py
 .. _`translator/c/`: http://codespeak.net/svn/pypy/dist/pypy/translator/c
 .. _`translator/java/`: http://codespeak.net/svn/pypy/dist/pypy/translator/java
-.. _`translator/llvm/`: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm
+.. _`translator/llvm2/`: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm2
 .. _`translator/tool/`: http://codespeak.net/svn/pypy/dist/pypy/translator/tool

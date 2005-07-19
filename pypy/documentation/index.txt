@@ -105,7 +105,7 @@ Directory                      explanation/links
 
 `translator/java/`_            experimental code to utilize Java for annotation 
 
-`translator/llvm/`_            contains the `LLVM backend`_ producing LLVM assembler 
+`translator/llvm2/`_           contains the `LLVM backend`_ producing LLVM assembler 
                                from fully annotated RPython programs 
 
 `translator/tool/`_            helper tools for translation 
