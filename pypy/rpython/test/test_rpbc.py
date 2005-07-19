@@ -94,9 +94,21 @@ def test_class_init():
         return instance.a1
     assert interpret(f, [5]) == 5
 
+def test_class_init_w_kwds():
+    def f(a):
+        instance = MyBaseWithInit(a=a)
+        return instance.a1
+    assert interpret(f, [5]) == 5
+
 def test_class_init_2():
     def f(a, b):
         instance = MySubclassWithInit(a, b)
+        return instance.a1 * instance.b1
+    assert interpret(f, [6, 7]) == 42
+
+def test_class_init_2_w_kwds():
+    def f(a, b):
+        instance = MySubclassWithInit(a, b=b)
         return instance.a1 * instance.b1
     assert interpret(f, [6, 7]) == 42
 
@@ -142,6 +154,14 @@ def test_call_frozen_pbc_simple():
     res = interpret(f, [6])
     assert res == 11
 
+def test_call_frozen_pbc_simple_w_kwds():
+    fr1 = Freezing()
+    fr1.x = 5
+    def f(n):
+        return fr1.mymethod(y=n)
+    res = interpret(f, [6])
+    assert res == 11
+
 def test_call_frozen_pbc_multiple():
     fr1 = Freezing()
     fr2 = Freezing()
@@ -153,6 +173,22 @@ def test_call_frozen_pbc_multiple():
         else:
             fr = fr2
         return fr.mymethod(n)
+    res = interpret(f, [1])
+    assert res == 6
+    res = interpret(f, [-1])
+    assert res == 5
+
+def test_call_frozen_pbc_multiple_w_kwds():
+    fr1 = Freezing()
+    fr2 = Freezing()
+    fr1.x = 5
+    fr2.x = 6
+    def f(n):
+        if n > 0:
+            fr = fr1
+        else:
+            fr = fr2
+        return fr.mymethod(y=n)
     res = interpret(f, [1])
     assert res == 6
     res = interpret(f, [-1])
@@ -309,6 +345,18 @@ def test_rpbc_bound_method_static_call():
         return m()
     res = interpret(fn, [])
     assert res == 0
+
+def test_rpbc_bound_method_static_call_w_kwds():
+    class R:
+        def meth(self, x):
+            return x
+    r = R()
+    m = r.meth
+    def fn():
+        return m(x=3)
+    res = interpret(fn, [])
+    assert res == 3
+
 
 def test_constant_return_disagreement():
     class R:

@@ -299,18 +299,33 @@ class MethodOfFrozenPBCRepr(Repr):
         return self.r_im_self.convert_const(method.im_self)
 
     def rtype_simple_call(self, hop):
+        return self.redispatch_call(hop, call_args=False)
+
+    def rtype_call_args(self, hop):
+        return self.redispatch_call(hop, call_args=True)
+
+    def redispatch_call(self, hop, call_args):
         s_function = annmodel.SomePBC({self.function: True})
         hop2 = hop.copy()
         hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
         hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
         if isinstance(hop2.args_v[0], Constant):
             hop2.args_v[0] = hop.inputarg(self, 0)
+        if call_args:
+            hop2.swap_fst_snd_args()
+            _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
+            adjust_shape(hop2, s_shape)
         c = Constant(self.function)
         hop2.v_s_insertfirstarg(c, s_function)   # insert 'function'
         # now hop2 looks like simple_call(function, self, args...)
         return hop2.dispatch()
 
-
+def adjust_shape(hop2, s_shape):
+    new_shape = (s_shape.const[0]+1,) + s_shape.const[1:]
+    c_shape = Constant(new_shape)
+    s_shape = hop2.rtyper.annotator.bookkeeper.immutablevalue(new_shape)
+    hop2.v_s_insertfirstarg(c_shape, s_shape) # reinsert adjusted shape
+    
 # ____________________________________________________________
 
 
@@ -531,6 +546,12 @@ class ClassesPBCRepr(Repr):
         return rclass.get_type_repr(self.rtyper).convert_const(cls)
 
     def rtype_simple_call(self, hop):
+        return self.redispatch_call(hop, call_args=False)
+
+    def rtype_call_args(self, hop):
+        return self.redispatch_call(hop, call_args=True)
+
+    def redispatch_call(self, hop, call_args):
         if self.lowleveltype != Void:
             # instantiating a class from multiple possible classes
             vcls = hop.inputarg(self, arg=0)
@@ -556,7 +577,12 @@ class ClassesPBCRepr(Repr):
             s_init = self.rtyper.annotator.bookkeeper.immutablevalue(initfunc)
             hop2 = hop.copy()
             hop2.r_s_popfirstarg()   # discard the class pointer argument
-            hop2.v_s_insertfirstarg(v_instance, s_instance)  # add 'instance'
+            if call_args:
+                _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
+                hop2.v_s_insertfirstarg(v_instance, s_instance)  # add 'instance'
+                adjust_shape(hop2, s_shape)
+            else:
+                hop2.v_s_insertfirstarg(v_instance, s_instance)  # add 'instance'
             c = Constant(initfunc)
             hop2.v_s_insertfirstarg(c, s_init)   # add 'initfunc'
             hop2.s_result = annmodel.SomePBC({None: True})

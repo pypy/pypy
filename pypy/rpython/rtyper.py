@@ -554,6 +554,11 @@ class HighLevelOp(object):
         self.args_s.insert(0, s_newfirstarg)
         self.nb_args += 1
 
+    def swap_fst_snd_args(self):
+        self.args_v[0], self.args_v[1] = self.args_v[1], self.args_v[0]
+        self.args_s[0], self.args_s[1] = self.args_s[1], self.args_s[0]
+        self.args_r[0], self.args_r[1] = self.args_r[1], self.args_r[0]
+
     def has_implicit_exception(self, exc_cls):
         for link in self.exceptionlinks:
             if issubclass(exc_cls, link.exitcase):
