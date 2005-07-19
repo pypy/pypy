@@ -14,6 +14,9 @@ including a two-liner to run PyPy on your system.
 `object spaces`_ discusses the object space interface 
 and several implementations. 
 
+`bytecode interpreter`_ explains the basic mechanisms 
+of the bytecode interpreter and virtual machine. 
+
 `translation`_ offers the beginnings of documentation 
 about our low level code generator backends. 
 
@@ -35,7 +38,7 @@ recent compliance test runs against PyPy.
 .. _`revision report`: http://codespeak.net/pypy/rev/current 
 .. _`getting started`: getting_started.html 
 .. _`theory`: theory.html
-
+.. _`bytecode interpreter`: interpreter.html 
 
 .. _`directory reference`: 
 
@@ -56,7 +59,7 @@ Directory                      explanation/links
 
 `documentation/website/`_      text versions of the navigation webpages 
 
-`interpreter/`_                bytecode interpreter and related objects (frames, functions, modules,...) 
+`interpreter/`_                `bytecode interpreter`_ and related objects (frames, functions, modules,...) 
 
 `lib/`_                        PyPy's wholesale reimplementations of CPython modules_
 
@@ -97,7 +100,7 @@ Directory                      explanation/links
 
 `translator/`_                 translation_ backends and support code
 
-`translator/genc/`_            the `GenC backend`_ producing a CPython C-extension 
+`translator/c/`_               the `GenC backend`_ producing a CPython C-extension 
                                module from a given RPython program. 
 
 `translator/java/`_            experimental code to utilize Java for annotation 
@@ -114,6 +117,7 @@ Directory                      explanation/links
                                level to interpreterlevel`_ code.   
 ============================   =========================================== 
 
+.. _`bytecode interpreter`: interpreter.html
 .. _`translating application level to interpreterlevel`: translation.html#python-back-end 
 .. _documentation: index.html
 .. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 

@@ -483,6 +483,7 @@ by invoking operations or methods on the wrapped objects; e.g.
 ``space.call_method(w_dict, 'iterkeys')`` returns a wrapped
 iterable that you can decode with ``space.unpackiterable()``.
 
+.. _`applevel-exceptions`: 
 
 Application-level exceptions
 ----------------------------

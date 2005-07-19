@@ -8,6 +8,14 @@
 .. _`documentation/website/`: http://codespeak.net/svn/pypy/dist/pypy/documentation/website
 .. _`pypy/interpreter`:
 .. _`interpreter/`: http://codespeak.net/svn/pypy/dist/pypy/interpreter
+.. _`pypy/interpreter/argument.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/argument.py
+.. _`pypy/interpreter/function.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/function.py
+.. _`pypy/interpreter/gateway.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/gateway.py
+.. _`pypy/interpreter/generator.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/generator.py
+.. _`pypy/interpreter/mixedmodule.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/mixedmodule.py
+.. _`pypy/interpreter/nestedscope.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/nestedscope.py
+.. _`pypy/interpreter/pyopcode.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
+.. _`pypy/interpreter/typedef.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/typedef.py
 .. _`lib/`:
 .. _`pypy/lib/`: http://codespeak.net/svn/pypy/dist/pypy/lib
 .. _`lib/test2/`:
@@ -26,8 +34,8 @@
 .. _`pypy/objspace/std`:
 .. _`objspace/std/`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std
 .. _`objspace/thunk.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/thunk.py
-.. _`pypy/objspace/trace.py`:
-.. _`objspace/trace.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
+.. _`objspace/trace.py`:
+.. _`pypy/objspace/trace.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
 .. _`rpython/`: http://codespeak.net/svn/pypy/dist/pypy/rpython
 .. _`rpython/lltype.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/lltype.py
 .. _`rpython/rint.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/rint.py
@@ -40,7 +48,7 @@
 .. _`pypy/translator`:
 .. _`translator/`: http://codespeak.net/svn/pypy/dist/pypy/translator
 .. _`pypy/translator/annrpython.py`: http://codespeak.net/svn/pypy/dist/pypy/translator/annrpython.py
-.. _`translator/genc/`: http://codespeak.net/svn/pypy/dist/pypy/translator/genc
+.. _`translator/c/`: http://codespeak.net/svn/pypy/dist/pypy/translator/c
 .. _`translator/java/`: http://codespeak.net/svn/pypy/dist/pypy/translator/java
 .. _`translator/llvm/`: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm
 .. _`translator/tool/`: http://codespeak.net/svn/pypy/dist/pypy/translator/tool
