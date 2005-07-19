@@ -199,11 +199,11 @@ class Translator:
         
         Returns LLVM translation.
         """
-        from pypy.translator.llvm import genllvm
+        from pypy.translator.llvm2 import genllvm
         if self.annotator is None:
-            raise genllvm.CompileError, "function has to be annotated."
-        gen = genllvm.LLVMGenerator(self)
-        return str(gen)
+            raise ValueError, "function has to be annotated."
+        gen = genllvm.GenLLVM(self)
+        return str(gen.compile())
     
     def generatecode(self, gencls, input_arg_types, func):
         if input_arg_types is None:
@@ -269,11 +269,10 @@ class Translator:
         
         Returns LLVM translation with or without optimization.
         """
-        from pypy.translator.llvm import genllvm
+        from pypy.translator.llvm2 import genllvm
         if self.annotator is None:
-            raise genllvm.CompileError, "function has to be annotated."
-        gen = genllvm.LLVMGenerator(self)
-        return gen.compile(optimize)
+            raise ValueError, "function has to be annotated."
+        return genllvm.genllvm(self)
 
     def call(self, *args):
         """Calls underlying Python function."""
