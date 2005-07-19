@@ -235,7 +235,7 @@ attributes:
 Apart from the basic Module used for importing application-level files 
 there is a more refined ``MixedModule`` class (see `pypy/interpreter/mixedmodule.py`_) 
 which allows to define name-value bindings both at application level 
-and at intepreter level.  See the ``__builtin__`` module's 
+and at interpreter level.  See the ``__builtin__`` module's 
 `pypy/module/__builtin__/__init__.py`_ file for an example
 and the higher level `chapter on Modules in the coding guide`_. 
 
@@ -266,8 +266,8 @@ an ``unwrap_spec`` telling the ``interp2app`` logic how
 application-level provided arguments should be unwrapped
 before the actual interpreter-level function is invoked. 
 For example, `interpreter descriptors`_ such as the ``Module.__new__`` 
-method for allocating and constructing a Module instance is 
-defined with this code:: 
+method for allocating and constructing a Module instance are 
+defined with such code:: 
 
     Module.typedef = TypeDef("module",
         __new__ = interp2app(Module.descr_module__new__.im_func,
@@ -300,7 +300,7 @@ Application level code is `often preferable`_. Therefore,
 we often like to invoke application level code from interpreter-level. 
 This is done via the Gateway's ``app2interp`` mechanism
 which we usually invoke at definition time in a module. 
-It generates a hook which looks like an intepreter-level 
+It generates a hook which looks like an interpreter-level 
 function accepting a space and an arbitrary number of arguments. 
 When calling a function at interpreter-level the caller side 
 does usually not need to be aware if its invoked function
@@ -312,21 +312,21 @@ finding algorithm of the Python language in PyPy::
 
     app = gateway.applevel(r'''
         def find_metaclass(bases, namespace, globals, builtin):
-                if '__metaclass__' in namespace:
-                    return namespace['__metaclass__']
+            if '__metaclass__' in namespace:
+                return namespace['__metaclass__']
             elif len(bases) > 0:
-                    base = bases[0]
+                base = bases[0]
                 if hasattr(base, '__class__'):
                         return base.__class__
                 else:
                         return type(base)
             elif '__metaclass__' in globals:
-                    return globals['__metaclass__']
+                return globals['__metaclass__']
             else:
-                    try:
-                        return builtin.__metaclass__
+                try:
+                    return builtin.__metaclass__
                 except AttributeError:
-                        return type
+                    return type
     ''', filename=__file__)
 
     find_metaclass  = app.interphook('find_metaclass')
@@ -346,9 +346,9 @@ in `pypy/interpreter/pyopcode.py`_::
                                            w_bases, w_methodsdict)
         f.valuestack.push(w_newclass)
 
-Note that at a later point we might rewrite the ``find_metaclass`` 
-implementation at interpreter-level but we would not have 
-to modify the calling sides at all. 
+Note that at a later point we can rewrite the ``find_metaclass`` 
+implementation at interpreter-level and we would not have 
+to modify the calling side at all. 
 
 .. _`often preferable`: architecture.html#app-preferable
 .. _`interpreter descriptors`: 
@@ -362,15 +362,16 @@ and write accesses to such objects are routed to descriptors.
 Of course, in CPython those are implemented in ``C`` while in
 PyPy they are implemented in interpreter-level Python code. 
 
-All instances of a Function_, Code_, Frame_ or Module_ class
-are ``Wrappable`` instances and can thus be represented at
-application level.  These days, a PyPy object space needs to
+All instances of a Function_, Code_, Frame_ or Module_ classes
+are also ``Wrappable`` instances which means they can be represented 
+at application level.  These days, a PyPy object space needs to
 work with a basic descriptor lookup when it encounters
-accesses to an interpreter-level object.  An object space ask
+accesses to an interpreter-level object:  an object space asks
 a wrapped object for its type via a ``getclass`` method and then 
-calls its ``lookup(name)`` function in order to receive a descriptor function. 
-Most of PyPy's internal object descriptors are defined at the
-end of `pypy/interpreter/typedef.py`_.  You can use this as a reference
-for the exact attributes visible at application level. 
+calls the type's ``lookup(name)`` function in order to receive a descriptor 
+function.  Most of PyPy's internal object descriptors are defined at the
+end of `pypy/interpreter/typedef.py`_.  You can use these definitions 
+as a reference for the exact attributes of interpreter classes visible 
+at application level. 
 
 .. include:: _ref.txt
