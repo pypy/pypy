@@ -8,14 +8,11 @@ PyPy - Bytecode Interpreter
 .. _`Bytecode Interpreter`: architecture.html#the-bytecode-interpreter 
 
 
-Introduction 
-============
+Introduction and Overview
+===============================
 
 This document describes the implementation of PyPy's 
 `Bytecode Interpreter`_ and related Virtual Machine functionalities. 
-
-Overview 
-============
 
 PyPy's bytecode interpreter has a structure reminiscent of
 CPython's Virtual Machine: Source code is parsed and compiled
