@@ -18,6 +18,6 @@ class TestResultCache:
                     meth = getattr(result, 'is'+type)
                     assert meth()
 
-    def test_getlatest_datetime(self): 
-        result = self.rc.getlatest('test_datetime', ok=1) 
-        assert result
+    #def test_getlatest_datetime(self): 
+    #    result = self.rc.getlatest('test_datetime', ok=1) 
+    #    assert result
