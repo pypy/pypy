@@ -11,7 +11,7 @@ class __extend__(annmodel.SomeBool):
     def rtyper_makerepr(self, rtyper):
         return bool_repr
     def rtyper_makekey(self):
-        return None
+        return self.__class__,
 
 bool_repr = BoolRepr()
 

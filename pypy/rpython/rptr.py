@@ -15,7 +15,7 @@ class __extend__(annmodel.SomePtr):
 ##        if self.is_constant() and not self.const:
 ##            return None
 ##        else:
-        return self.ll_ptrtype
+        return self.__class__, self.ll_ptrtype
 
 
 class PtrRepr(Repr):

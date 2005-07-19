@@ -115,13 +115,13 @@ class __extend__(annmodel.SomeIterator):
         r_container = rtyper.getrepr(self.s_container)
         return r_container.make_iterator_repr()
     def rtyper_makekey(self):
-        return self.s_container.rtyper_makekey()
+        return self.__class__, self.s_container.rtyper_makekey()
 
 class __extend__(annmodel.SomeImpossibleValue):
     def rtyper_makerepr(self, rtyper):
         return impossible_repr
     def rtyper_makekey(self):
-        return None
+        return self.__class__,
 
 # ____ generic binary operations _____________________________
 

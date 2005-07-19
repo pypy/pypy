@@ -23,7 +23,7 @@ class __extend__(annmodel.SomeTuple):
     
     def rtyper_makekey(self):
         keys = [s_item.rtyper_makekey() for s_item in self.items]
-        return tuple(keys)
+        return tuple([self.__class__]+keys)
 
 
 class TupleRepr(Repr):

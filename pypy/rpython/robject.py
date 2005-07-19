@@ -16,11 +16,11 @@ class __extend__(annmodel.SomeObject):
             return pyobj_repr
     def rtyper_makekey(self):
         if self.is_constant():
-            return "const"
+            return self.__class__, "const"
         if self.knowntype is type:
-            return "type"
+            return self.__class__, "type"
         else:
-            return "pyobj"
+            return self.__class__, "pyobj"
 
 
 class PyObjRepr(Repr):

@@ -50,7 +50,7 @@ class __extend__(annmodel.SomeDict):
             raise rmodel.TyperError("cannot make repr of %r" %(self.dictdef,))
 
     def rtyper_makekey(self):
-        return (self.dictdef.dictkey, self.dictdef.dictvalue)
+        return (self.__class__, self.dictdef.dictkey, self.dictdef.dictvalue)
 
 class StrDictRepr(rmodel.Repr):
 

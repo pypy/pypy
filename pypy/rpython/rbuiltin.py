@@ -26,10 +26,10 @@ class __extend__(annmodel.SomeBuiltin):
     def rtyper_makekey(self):
         if self.s_self is None:
             # built-in function case
-            return getattr(self, 'const', None)
+            return self.__class__, getattr(self, 'const', None)
         else:
             # built-in method case
-            return (self.methodname, self.s_self.rtyper_makekey())
+            return (self.__class__, self.methodname, self.s_self.rtyper_makekey())
 
 
 class BuiltinFunctionRepr(Repr):

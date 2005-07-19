@@ -88,7 +88,7 @@ class __extend__(annmodel.SomePBC):
     def rtyper_makekey(self):
         lst = self.prebuiltinstances.items()
         lst.sort()
-        return tuple(lst)
+        return tuple([self.__class__]+lst)
 
 builtin_descriptor_type = (
     type(len),                             # type 'builtin_function_or_method'

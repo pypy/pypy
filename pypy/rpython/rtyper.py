@@ -78,7 +78,8 @@ class RPythonTyper:
 
     def getrepr(self, s_obj):
         # s_objs are not hashable... try hard to find a unique key anyway
-        key = s_obj.__class__, s_obj.rtyper_makekey()
+        key = s_obj.rtyper_makekey()
+        assert key[0] == s_obj.__class__
         try:
             result = self.reprs[key]
         except KeyError:

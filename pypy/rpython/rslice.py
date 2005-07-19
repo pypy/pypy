@@ -39,7 +39,8 @@ class __extend__(annmodel.SomeSlice):
         else:
             return startstop_slice_repr
     def rtyper_makekey(self):
-        return (self.start.rtyper_makekey(),
+        return (self.__class__,
+                self.start.rtyper_makekey(),
                 self.stop.rtyper_makekey(),
                 self.step.rtyper_makekey())
 

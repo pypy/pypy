@@ -13,6 +13,15 @@ def setup_module(mod):
 def teardown_module(mod): 
     py.log._setstate(mod.logstate) 
 
+def test_reprkey_dont_clash():
+    stup1 = annmodel.SomeTuple((annmodel.SomeFloat(), 
+                                annmodel.SomeInteger()))
+    stup2 = annmodel.SomeTuple((annmodel.SomeString(), 
+                                annmodel.SomeInteger()))
+    key1 = stup1.rtyper_makekey()
+    key2 = stup2.rtyper_makekey()
+    assert key1 != key2
+
 def test_simple():
     def dummyfn(x):
         return x+1

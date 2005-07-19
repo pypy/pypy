@@ -34,19 +34,19 @@ class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
         return string_repr
     def rtyper_makekey(self):
-        return None
+        return self.__class__,
 
 class __extend__(annmodel.SomeChar):
     def rtyper_makerepr(self, rtyper):
         return char_repr
     def rtyper_makekey(self):
-        return None
+        return self.__class__,
 
 class __extend__(annmodel.SomeUnicodeCodePoint):
     def rtyper_makerepr(self, rtyper):
         return unichar_repr
     def rtyper_makekey(self):
-        return None
+        return self.__class__,
 
 CONST_STR_CACHE = WeakValueDictionary()
 string_repr = StringRepr()

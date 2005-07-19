@@ -40,7 +40,7 @@ class __extend__(annmodel.SomeList):
                             listitem)
 
     def rtyper_makekey(self):
-        return self.listdef.listitem
+        return self.__class__, self.listdef.listitem
 
 
 class ListRepr(Repr):
