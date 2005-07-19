@@ -8,7 +8,6 @@ attribute.
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter.eval import Code
 from pypy.interpreter.gateway import NoneNotWrapped
 
@@ -50,7 +49,8 @@ class Function(Wrappable):
 
     # unwrapping is done through unwrap_specs in typedef.py
 
-    def descr_method__new__(space, w_subtype, w_code, w_globals, w_name=None, w_argdefs=None, w_closure=NoneNotWrapped):
+    def descr_method__new__(space, w_subtype, w_code, w_globals, 
+                            w_name=None, w_argdefs=None, w_closure=NoneNotWrapped):
         code = space.interpclass_w(w_code)
         if code is None or not isinstance(code, Code):
             raise OperationError(space.w_TypeError, space.wrap("expected code"))
