@@ -2,8 +2,9 @@ from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.annotation import model as annmodel
 from pypy.rpython import rtuple
+from pypy.rpython.rmodel import TyperError
 
-class CallPatternTooComplex(Exception):
+class CallPatternTooComplex(TyperError):
     pass
 
 
@@ -47,7 +48,7 @@ def callparse(op, func, rinputs, hop):
     try:
         holders = arguments.match_signature(signature, defs_h)
     except ArgErr, e:
-        raise TypeError, "signature mismatch: %s" % e.getmsg(arguments, func.__name__)
+        raise TyperError, "signature mismatch: %s" % e.getmsg(arguments, func.__name__)
 
     assert len(holders) == len(rinputs), "argument parsing mismatch"
     vlist = []

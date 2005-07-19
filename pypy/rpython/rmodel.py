@@ -56,6 +56,12 @@ class Repr:
     def get_ll_eq_function(self): 
         raise TyperError, 'no equality function for %r' % self
 
+    def rtype_bltn_list(self, hop):
+        raise TyperError, 'no list() support for %r' % self
+
+    def rtype_unichr(self, hop):
+        raise TyperError, 'no unichr() support for %r' % self
+
     # default implementation of some operations
 
     def rtype_getattr(self, hop):
@@ -165,7 +171,9 @@ for opname in annmodel.UNARY_OPERATIONS:
 for opname in annmodel.BINARY_OPERATIONS:
     setattr_default(pairtype(Repr, Repr),
                     'rtype_' + opname, missing_rtype_operation)
-
+# not in BINARY_OPERATIONS
+    setattr_default(pairtype(Repr, Repr),
+                    'rtype_contains', missing_rtype_operation)
 
 class __extend__(pairtype(Repr, Repr)):
     def convert_from_to((r_from, r_to), v, llops):

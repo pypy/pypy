@@ -31,7 +31,7 @@ from pypy.rpython.exceptiondata import ExceptionData
 
 log = py.log.Producer("rtyper")
 py.log.setconsumer("rtyper", None) 
-crash_on_first_typeerror = True
+
 
 class RPythonTyper:
 
@@ -44,7 +44,8 @@ class RPythonTyper:
         self.instance_reprs = {}
         self.pbc_reprs = {}
         self.class_pbc_attributes = {}
-        self.typererror = None
+        self.typererrors = []
+        self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
         for s_primitive, lltype in annmodel.annotation_to_ll_map:
@@ -68,7 +69,7 @@ class RPythonTyper:
             print '*' * len(s)
             print s
             print '*' * len(s)
-
+        self.crash_on_first_typeerror = True
 
 
 
@@ -98,8 +99,9 @@ class RPythonTyper:
     def bindingrepr(self, var):
         return self.getrepr(self.binding(var))
 
-    def specialize(self, dont_simplify_again=False):
+    def specialize(self, dont_simplify_again=False, crash_on_first_typeerror = True):
         """Main entry point: specialize all annotated blocks of the program."""
+        self.crash_on_first_typeerror = crash_on_first_typeerror
         # specialize depends on annotator simplifications
         if not dont_simplify_again:
             self.annotator.simplify()
@@ -141,17 +143,29 @@ class RPythonTyper:
                 n = len(self.already_seen)
                 if n % 100 == 0:
                     total = len(self.annotator.annotated)
-                    print 'specializing: %d / %d blocks   (%d%%)' % (
-                        n, total, 100 * n // total)
+                    if self.typererror_count:
+                        error_report = " but %d errors" % self.typererror_count
+                    else:
+                        error_report = ''
+                    print 'specializing: %d / %d blocks   (%d%%)%s' % (
+                        n, total, 100 * n // total, error_report)
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
-        # re-raise the first TyperError caught
-        if self.typererror:
-            exc, value, tb = self.typererror
-            self.typererror = None
-            #self.annotator.translator.view()
-            raise exc, value, tb
+        if self.typererrors:
+            c = 1
+            for err in self.typererrors:
+                block, position = err.where
+                func = self.annotator.annotated.get(block, None)
+                if func:
+                    func = "(%s:%s)" %(func.__module__ or '?', func.__name__)
+                else:
+                    func = "(?:?)"
+                print "TyperError-%d: %s %r {%s}" % (c, func, block, position)
+                print str(err)
+                c += 1
+            raise TyperError("there were %d error" % len(self.typererrors))
+        
         # make sure that the return variables of all graphs are concretetype'd
         for graph in self.annotator.translator.flowgraphs.values():
             v = graph.getreturnvar()
@@ -203,7 +217,12 @@ class RPythonTyper:
 
     def specialize_block(self, block):
         # give the best possible types to the input args
-        self.setup_block_entry(block)
+        try:
+            self.setup_block_entry(block)
+        except TyperError, e:
+            self.gottypererror(e, block, "block-entry", None)
+            return  # cannot continue this block            
+            
 
         # specialize all the operations, as far as possible
         if block.operations == ():   # return or except block
@@ -272,6 +291,7 @@ class RPythonTyper:
                     new_a1 = newops.convertvar(a1, r_a1, r_a2)
                 except TyperError, e:
                     self.gottypererror(e, block, link, newops)
+                    continue # try other args
                 if new_a1 != a1:
                     newlinkargs[i] = new_a1
 
@@ -347,12 +367,13 @@ class RPythonTyper:
         Put a 'TyperError' operation in the graph instead.
         """
         e.where = (block, position)
-        if crash_on_first_typeerror:
+        self.typererror_count += 1
+        if self.crash_on_first_typeerror:
             raise
-        if self.typererror is None:
-            self.typererror = sys.exc_info()
-        c1 = inputconst(Void, Exception.__str__(e))
-        llops.genop('TYPER ERROR', [c1], resulttype=Void)
+        self.typererrors.append(e)
+        if llops:
+            c1 = inputconst(Void, Exception.__str__(e))
+            llops.genop('TYPER ERROR', [c1], resulttype=Void)
 
     # __________ regular operations __________
 

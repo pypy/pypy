@@ -14,6 +14,7 @@ Command-line options for translate_pypy:
    -text      Don't start the Pygame viewer
    -no-a      Don't infer annotations, just translate everything
    -no-t      Don't type-specialize the graph operations with the C typer
+   -t-insist  Specialize should not stop at the first error
    -no-o      Don't do backend-oriented optimizations
    -no-c      Don't generate the C code
    -fork      (UNIX) Create a restartable checkpoint after annotation
@@ -112,7 +113,8 @@ def analyse(target):
         unixcheckpoint.restartable_point(auto='run')
     if a and not options['-no-t']:
         print 'Specializing...'
-        t.specialize(dont_simplify_again=True)
+        t.specialize(dont_simplify_again=True,
+                     crash_on_first_typeerror=not options['-t-insist'])
     if not options['-no-o']:
         print 'Back-end optimizations...'
         t.backend_optimizations()
@@ -257,6 +259,7 @@ if __name__ == '__main__':
                '-no-mark-some-objects': False,
                '-no-a': False,
                '-no-t': False,
+               '-t-insist': False,
                '-no-o': False,
                '-tcc':  False,
                '-d': False,
