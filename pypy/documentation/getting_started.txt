@@ -283,7 +283,7 @@ or if you have `installed py.test`_ then you simply say::
 
 from the lib-python-2.3.4/test directory. 
 
-.. _`installed py.test`: http://codespeak.net/py/current/doc/getting_started.html
+.. _`installed py.test`: http://codespeak.net/py/current/doc/getting-started.html
 
 Demos
 +++++
