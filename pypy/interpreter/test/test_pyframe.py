@@ -27,6 +27,12 @@ class AppTestPyFrame:
             return f.f_code
         assert g() is g.func_code
 
+    def test_f_trace_del(self): 
+        import sys
+        f = sys._getframe() 
+        del f.f_trace 
+        assert f.f_trace is None
+
     def test_f_lineno(self):
         def g():
             import sys
@@ -39,18 +45,18 @@ class AppTestPyFrame:
         assert g() == [origin+3, origin+4, origin+5]
 
     def test_f_back(self):
-            import sys
-            def trace(a,b,c): return trace
-            def f():
-                f_frame = sys._getframe()
-                return g(f_frame)
-            def g(f_frame):
-                g_frame = sys._getframe()
-                print g_frame
-                print g_frame.f_back
-                print g_frame.f_back.f_code.co_name, f_frame.f_code.co_name 
-            sys.settrace(trace)
-            f()
+        import sys
+        def trace(a,b,c): return trace
+        def f():
+            f_frame = sys._getframe()
+            return g(f_frame)
+        def g(f_frame):
+            g_frame = sys._getframe()
+            print g_frame
+            print g_frame.f_back
+            print g_frame.f_back.f_code.co_name, f_frame.f_code.co_name 
+        sys.settrace(trace)
+        f() # XXX actually test something? 
 
     def test_f_exc_xxx(self):
         import sys

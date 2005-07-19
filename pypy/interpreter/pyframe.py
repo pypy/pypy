@@ -291,6 +291,9 @@ class PyFrame(eval.EvalFrame):
             self.w_f_trace = w_trace
             self.f_lineno = self.get_last_lineno()
 
+    def fdel_f_trace(space, self): 
+        self.w_f_trace = None 
+
     def fget_f_exc_type(space, self):
         if self.last_exception is not None:
             f = self.f_back
