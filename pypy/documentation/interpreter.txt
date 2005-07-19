@@ -139,13 +139,13 @@ Code Class
 ------------ 
 
 PyPy's code objects contain the same information found in CPython's code objects. 
-the differ from Function_ objects in that they are only immutable representations 
+They differ from Function_ objects in that they are only immutable representations 
 of source code and don't contain execution state or references to the execution
 environment found in `Frames`.  Frames and Functions have references 
 to a code object. Here is a list of Code attributes:
 
 * ``co_flags`` flags if this code object has nested scopes/generators 
-* ``co_stacksize`` flags if this code object has nested scopes/generators 
+* ``co_stacksize`` the maximum depth the stack can reach while executing the code
 * ``co_code`` the actual bytecode string 
  
 * ``co_argcount`` number of arguments this code object expects 
@@ -235,7 +235,7 @@ attributes:
 Apart from the basic Module used for importing application-level files 
 there is a more refined ``MixedModule`` class (see `pypy/interpreter/mixedmodule.py`_) 
 which allows to define name-value bindings both at application level 
-and an intepreter level.  See the ``__builtin__`` module's 
+and at intepreter level.  See the ``__builtin__`` module's 
 `pypy/module/__builtin__/__init__.py`_ file for an example
 and the higher level `chapter on Modules in the coding guide`_. 
 
