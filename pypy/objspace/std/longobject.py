@@ -218,16 +218,16 @@ def uint_w__Long(space, w_value):
     if w_value.sign == -1:
         raise OperationError(space.w_ValueError, space.wrap(
             "cannot convert negative integer to unsigned int"))
-    x = 0
+    x = r_uint(0)
     i = len(w_value.digits) - 1
     while i >= 0:
         prev = x
-        x = ((x << SHIFT) + w_value.digits[i]) & LONG_MASK
+        x = (x << SHIFT) + w_value.digits[i]
         if (x >> SHIFT) != prev:
             raise OperationError(space.w_OverflowError, space.wrap(
                 "long int too large to convert to unsigned int"))
         i -= 1
-    return r_uint(x) # XXX r_uint should go away
+    return x
 
 def repr__Long(space, w_long):
     return space.wrap(_format(w_long, 10, True))
@@ -621,7 +621,7 @@ def args_from_long(l): #YYYYYY
     digits = []
     i = 0
     while l:
-        digits.append(l & MASK)
+        digits.append(intmask(l & MASK))
         l = l >> SHIFT
     if sign == 0:
         digits = [0]
@@ -1574,10 +1574,10 @@ def _AsLong(v):
     sign = v.sign
     if not sign:
         return 0
-    x = 0
+    x = r_uint(0)
     while i >= 0:
         prev = x
-        x = ((x << SHIFT) + v.digits[i]) & LONG_MASK
+        x = (x << SHIFT) + v.digits[i]
         if (x >> SHIFT) != prev:
             raise OverflowError
         i -= 1
@@ -1586,9 +1586,9 @@ def _AsLong(v):
     # trouble *unless* this is the min negative number.  So,
     # trouble iff sign bit set && (positive || some bit set other
     # than the sign bit).
-    if intmask(x) < 0 and (sign > 0 or (x << 1) & LONG_MASK != 0):
+    if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
             raise OverflowError
-    return intmask(int(x) * sign)
+    return intmask(x*sign)
 
 def _hash(v):
     # This is designed so that Python ints and longs with the
