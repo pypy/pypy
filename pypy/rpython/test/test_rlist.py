@@ -340,3 +340,17 @@ def test_list_slice_minusone():
         return lst[-1] * lst2[-1]
     res = interpret(fn, [5])
     assert res == 42
+
+def test_list_multiply():
+    def fn(i):
+        lst = [i] * i
+        return len(lst)
+    for arg in (1, 9, 0, -1, -27):
+        res = interpret(fn, [arg])
+        assert res == fn(arg)
+    def fn(i):
+        lst = [i, i + 1] * i
+        return len(lst)
+    for arg in (1, 9, 0, -1, -27):
+        res = interpret(fn, [arg])
+        assert res == fn(arg)

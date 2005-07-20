@@ -202,6 +202,10 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
             llfn = ll_delitem
         return hop.gendirectcall(llfn, v_lst, v_index)
 
+    def rtype_mul((r_lst, r_int), hop):
+        v_lst, v_factor = hop.inputargs(r_lst, Signed)
+        return hop.gendirectcall(ll_mul, v_lst, v_factor)
+    
 class __extend__(pairtype(ListRepr, SliceRepr)):
 
     def rtype_getitem((r_lst, r_slic), hop):
@@ -541,6 +545,23 @@ def ll_listindex(lst, obj, eqfn):
 
 TEMP = GcArray(Ptr(rstr.STR))
 
+def ll_mul(l, f):
+    items = l.items
+    length = len(items)
+    if lenght == 0 or f <= 0:
+        return ll_newlist(typeOf(l), 0)
+
+    resultlen = length * f
+    new_lst = ll_newlist(typeOf(l), resultlen)
+    i = 0
+    new_items = new_lst.items
+    j = 0
+    while j < resultlen:
+        while i < length:
+            new_items[i + j] = items[i]
+            i += 1
+        j += length
+    return new_lst
         
         
 # ____________________________________________________________
@@ -575,6 +596,8 @@ def rtype_newlist(hop):
     return v_result
 
 def ll_alloc_and_set(LISTPTR, count, item):
+    if count < 0:
+        count = 0
     l = malloc(LISTPTR.TO)
     l.items = malloc(LISTPTR.TO.items.TO, count)
     i = 0
