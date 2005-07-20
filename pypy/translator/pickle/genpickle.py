@@ -31,7 +31,7 @@ from copy_reg import _reconstructor
 import pickle
 
 from types import *
-import types
+import types, weakref
 
 class AlreadyCreated(Exception): pass
 
@@ -191,6 +191,9 @@ class GenPickle:
             except AlreadyCreated:
                 name = self.picklenames[id(obj)]
             return name
+        except Exception, e:
+            self.problem = e, obj
+            raise
 
     def nameofargs(self, tup, plain_tuple = False):
         """ a string with the nameofs, concatenated """
@@ -443,6 +446,13 @@ class GenPickle:
             self.produce('from types import %s as %s' % (
                 key, name))
             return name
+        elif cls in weakref.__dict__.values():
+            for key, value in weakref.__dict__.items():
+                if value is cls:
+                    break
+            self.produce('from weakref import %s as %s' % (
+                key, name))
+            return name
         else:
             expr = self.typename_mapping[cls]
         self.produce('%s = %s' % (name, expr))
@@ -600,7 +610,7 @@ class GenPickle:
                     raise
                 assert not hasattr(instance, '__dict__'), ('wrong assumptions'
                     ' about __slots__ in %s instance without __setstate__,'
-                    ' please update %s' % (cls.__name__, __name__) )
+                    ' please update %s' % (klass.__name__, __name__) )
                 restorestate = _get(instance)
                 restorer = _rec
                 restoreargs = klass,
@@ -745,6 +755,12 @@ class GenPickle:
         msg = '%r: method %s of unknown object cannot be reconstructed' % (
             wp, wp.__name__)
         return self.skipped_function(wp, msg)
+
+    def nameof_weakref(self, value):
+        # no need to name weakrefs. Their contents is what is weakref'ed.
+        # obtain the ref'ed object by calling
+        obj = value()
+        return '%s(%s)' % (self.nameof(type(value)), self.nameof(obj))
 
 
 def make_cell(obj):

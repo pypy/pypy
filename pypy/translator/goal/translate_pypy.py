@@ -75,6 +75,8 @@ from pypy.annotation.model import SomeObject
 from pypy.tool.udir import udir 
 from pypy.tool.ansi_print import ansi_print
 from pypy.translator.pickle.main import load, save
+# catch TyperError to allow for post-mortem dump
+from pypy.rpython.rmodel import TyperError
 
 # XXX this tries to make compiling faster
 from pypy.translator.tool import buildpyxmodule
@@ -492,6 +494,7 @@ show class hierarchy graph"""
             cleanup()
 
     try:
+        err = None
         if load_file:
             t = loaded_dic['trans']
             entry_point = t.entrypoint
@@ -509,17 +512,25 @@ show class hierarchy graph"""
             print "continuing Analysis as defined by %s, loaded from %s" %(
                 targetspec, load_file)
             print 'options in effect:', options
-            analyse(None)
+            try:
+                analyse(None)
+            except TyperError:
+                err = sys.exc_info()
         else:
             targetspec_dic = {}
             sys.path.insert(0, os.path.dirname(targetspec))
             execfile(targetspec+'.py', targetspec_dic)
             print "Analysing target as defined by %s" % targetspec
             print 'options in effect:', options
-            analyse(targetspec_dic['target'])
+            try:
+                analyse(targetspec_dic['target'])
+            except TyperError:
+                err = sys.exc_info()
         print '-'*60
         if save_file:
             print 'saving state to %s' % save_file
+            if err:
+                print '*** this save is done after errors occured ***'
             save(t, save_file,
                  trans=t,
                  inputtypes=inputtypes,
@@ -527,6 +538,8 @@ show class hierarchy graph"""
                  targetspec_dic=targetspec_dic,
                  options=options,
                  )
+        if err:
+            raise err[0], err[1], err[2]
         if options['-no-c']:
             print 'Not generating C code.'
         elif options['-c']:
