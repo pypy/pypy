@@ -397,3 +397,13 @@ def test_int():
 	    else:
 		res = interpret(fn, [i, j])
 		assert res == expected
+
+
+def test_char_mul_n():
+    def f(c, n):
+        return c*n
+    res = interpret(f, ['a', 4])
+    assert ''.join(res.chars) == 'a'*4
+    res = interpret(f, ['a', 0])
+    assert ''.join(res.chars) == ""
+    

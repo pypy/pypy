@@ -370,7 +370,7 @@ class __extend__(pairtype(CharRepr, IntegerRepr)):
         return hop.gendirectcall(ll_char_mul, v_char, v_int)
     rtype_inplace_mul = rtype_mul
 
-class __extend__(pairtype(IntegetRepr, CharRepr)):
+class __extend__(pairtype(IntegerRepr, CharRepr)):
     def rtype_mul(_, hop):
         v_int, v_char = hop.inputargs(Signed, char_repr)
         return hop.gendirectcall(ll_char_mul, v_char, v_int)

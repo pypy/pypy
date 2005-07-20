@@ -548,7 +548,7 @@ TEMP = GcArray(Ptr(rstr.STR))
 def ll_mul(l, f):
     items = l.items
     length = len(items)
-    if lenght == 0 or f <= 0:
+    if length == 0 or f <= 0:
         return ll_newlist(typeOf(l), 0)
 
     resultlen = length * f
