@@ -38,11 +38,16 @@ class __extend__(annmodel.SomeSlice):
             return startonly_slice_repr
         else:
             return startstop_slice_repr
+        
     def rtyper_makekey(self):
-        return (self.__class__,
-                self.start.rtyper_makekey(),
-                self.stop.rtyper_makekey(),
-                self.step.rtyper_makekey())
+        if (self.start.is_constant() and self.start.const in (None, 0) and
+            self.stop.is_constant() and self.stop.const == -1):
+            kind = "minusone"    # [:-1]
+        elif self.stop.is_constant() and self.stop.const is None:
+            kind = "startonly"
+        else:
+            kind = "startstop"
+        return self.__class__, kind
 
 
 class SliceRepr(Repr):

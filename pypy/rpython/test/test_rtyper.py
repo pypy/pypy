@@ -13,7 +13,7 @@ def setup_module(mod):
 def teardown_module(mod): 
     py.log._setstate(mod.logstate) 
 
-def test_reprkey_dont_clash():
+def test_reprkeys_dont_clash():
     stup1 = annmodel.SomeTuple((annmodel.SomeFloat(), 
                                 annmodel.SomeInteger()))
     stup2 = annmodel.SomeTuple((annmodel.SomeString(), 
@@ -21,6 +21,35 @@ def test_reprkey_dont_clash():
     key1 = stup1.rtyper_makekey()
     key2 = stup2.rtyper_makekey()
     assert key1 != key2
+
+def test_slice_reprkeys():
+    one = annmodel.SomeInteger(nonneg=True)
+    one.const = 1
+    three = annmodel.SomeInteger(nonneg=True)
+    three.const = 3
+    minusone = annmodel.SomeInteger()
+    minusone.const = -1
+    none = annmodel.SomePBC({None: True})
+
+    startonly = annmodel.SomeSlice(one, none, none)
+    startonly2 = annmodel.SomeSlice(one, none, one)
+    startonly3 = annmodel.SomeSlice(three, none, one)    
+
+    startstop = annmodel.SomeSlice(one, one, none)
+    startstop2 = annmodel.SomeSlice(one, one, one)
+    startstop3 = annmodel.SomeSlice(one, three, none)
+
+    minusone_slice = annmodel.SomeSlice(none, minusone, none)
+    minusone_slice2 = annmodel.SomeSlice(none, minusone, one)
+
+    assert startonly.rtyper_makekey() == startonly2.rtyper_makekey() == startonly3.rtyper_makekey()
+    assert startstop.rtyper_makekey() == startstop2.rtyper_makekey() == startstop3.rtyper_makekey()
+    assert minusone_slice.rtyper_makekey() == minusone_slice2.rtyper_makekey()
+
+    assert startonly.rtyper_makekey() != startstop.rtyper_makekey()
+    assert startonly.rtyper_makekey() != minusone_slice.rtyper_makekey()
+    assert minusone_slice.rtyper_makekey() != startstop.rtyper_makekey()
+    
 
 def test_simple():
     def dummyfn(x):

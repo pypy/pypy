@@ -407,3 +407,10 @@ def test_char_mul_n():
     res = interpret(f, ['a', 0])
     assert ''.join(res.chars) == ""
     
+def test_n_mul_char():
+    def f(c, n):
+        return n*c
+    res = interpret(f, ['a', 4])
+    assert ''.join(res.chars) == 'a'*4
+    res = interpret(f, ['a', 0])
+    assert ''.join(res.chars) == ""
