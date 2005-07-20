@@ -1,6 +1,7 @@
 from __future__ import division
 
 import sys
+import os
 import py
 
 from pypy.tool.udir import udir
@@ -10,7 +11,6 @@ py.log.setconsumer("genllvm", py.log.STDOUT)
 py.log.setconsumer("genllvm database prepare", None)
 
 def test_external_function_ll_os_dup():
-    import os
     def fn():
         return os.dup(0)
     f = compile_function(fn, [])
@@ -43,71 +43,51 @@ def test_external_function_ll_time_sleep():
     assert duration >= delay_time - 0.5
     assert duration <= delay_time + 0.5
 
-class TestOSLevelFunctions: 
-    def setup_method(self, method): 
-        path = udir.join("e")
-        self.path = path 
-        self.pathints = map(ord, path)
-        
+path = str(udir.join("e"))
+
 def test_os_file_ops_open_close(): 
-    # the test is overly complicated because
-    # we don't have prebuilt string constants yet 
-    import os
-    def openclose(a,b,c,d,e,f): 
-        s = chr(a) + chr(b) + chr(c) + chr(d) + chr(e) + chr(f)
-        fd = os.open(s, os.O_CREAT|os.O_RDWR, 0777) 
+    def openclose(): 
+        fd = os.open(path, os.O_CREAT|os.O_RDWR, 0777) 
         os.close(fd)
         return fd 
 
-    path = '/tmp/b'
     if os.path.exists(path):
         os.unlink(path)
-    f = compile_function(openclose, [int] * len(path))
-    result = f(*map(ord, path))
+    f = compile_function(openclose, [])
+    result = f()
     assert os.path.exists(path)
 
 def test_os_file_ops_open_write_close(): 
-    # the test is overly complicated because
-    # we don't have prebuilt string constants yet 
-    import os
-    def openwriteclose(a,b,c,d,e,f): 
-        s = chr(a) + chr(b) + chr(c) + chr(d) + chr(e) + chr(f)
-        fd = os.open(s, os.O_CREAT|os.O_RDWR, 0777) 
-        byteswritten = os.write(fd, s)
+    def openwriteclose(): 
+        fd = os.open(path, os.O_CREAT|os.O_RDWR, 0777) 
+        byteswritten = os.write(fd, path)
         os.close(fd)
         return byteswritten
 
-    path = '/tmp/b'
     if os.path.exists(path):
         os.unlink(path)
-    f = compile_function(openwriteclose, [int] * len(path))
-    result = f(*map(ord, path))
+    f = compile_function(openwriteclose, [])
+    result = f()
     assert os.path.exists(path)
     assert open(path).read() == path
 
-def Xtest_os_file_ops_open_write_read_close(): 
-    # the test is overly complicated because
-    # we don't have prebuilt string constants yet 
-    import os
-    def openwriteclose_openreadclose(a,b,c,d,e,f): 
-        s = chr(a) + chr(b) + chr(c) + chr(d) + chr(e) + chr(f)
-
-        fd = os.open(s, os.O_CREAT|os.O_RDWR, 0777) 
-        byteswritten = os.write(fd, s+s+s)
+def test_os_file_ops_open_write_read_close(): 
+    def openwriteclose_openreadclose():
+        fd = os.open(path, os.O_CREAT|os.O_RDWR, 0777) 
+        byteswritten = os.write(fd, path+path+path)
         os.close(fd)
 
-        fd = os.open(s, os.O_RDWR, 0777) 
+        fd = os.open(path, os.O_RDWR, 0777) 
         maxread = 1000
         r = os.read(fd, maxread)
         os.close(fd)
 
         return len(r)
 
-    path = '/tmp/b'
     if os.path.exists(path):
         os.unlink(path)
-    f = compile_function(openwriteclose_openreadclose, [int] * len(path))
-    result = f(*map(ord, path))
+    f = compile_function(openwriteclose_openreadclose, [])
+    result = f()
     assert os.path.exists(path)
     assert open(path).read() == path * 3
     assert result is len(path) * 3
