@@ -10,3 +10,14 @@ from py.path import local
 
 udir = local.make_numbered_dir(prefix='usession-', keep=3)
 
+import os
+src  = str(udir)
+dest = src[:src.rfind('-')] + '-current'
+try:
+    os.unlink(dest)
+except:
+    pass
+try:
+    os.symlink(src, dest)
+except:
+    pass
