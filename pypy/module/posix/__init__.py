@@ -3,6 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
     
 class Module(MixedModule):
     appleveldefs = {
+    'error'     : 'app_posix.error'
     }
     interpleveldefs = {
     'open'      : 'interp_posix.open',

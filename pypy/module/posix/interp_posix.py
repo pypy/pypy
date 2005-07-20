@@ -12,38 +12,38 @@ def open(space, w_fname, w_flag, w_mode=0777):
     return space.wrap(fd)
 
 
-def lseek(space, w_fd, pos, how):
+def lseek(space, fd, pos, how):
     os.lseek(fd,pos,how)
-lseek.unwrap_spec = [ObjSpace, W_Root, int, int]
+lseek.unwrap_spec = [ObjSpace, int, int, int]
 
-def isatty(space, w_fd):
-    return os.isatty(fd)
-lseek.unwrap_spec = [ObjSpace, W_Root, int, int]
+def isatty(space, fd):
+    return os.isatty(w_fd)
+lseek.unwrap_spec = [ObjSpace, int]
 
-def read(space, w_fd, buffersize):
-    return os.read(w_fd,buffersize)
-read.unwrap_spec = [ObjSpace, W_Root, int]
+def read(space, fd, buffersize):
+    return os.read(fd,buffersize)
+read.unwrap_spec = [ObjSpace, int, int]
 
-def write(space, w_fd, data):
-    return os.write( w_fd, data)
-write.unwrap_spec = [ObjSpace, W_Root, str]
+def write(space, fd, data):
+    return os.write( fd, data)
+write.unwrap_spec = [ObjSpace, int, str]
 
-def close(space, w_fd):
-    os.close(w_fd)
-close.unwrap_spec = [ObjSpace, W_Root]
+def close(space, fd):
+    os.close(fd)
+close.unwrap_spec = [ObjSpace, int]
 
-def ftruncate(space, w_fd, length):
-    os.ftruncate(w_fd, length)
-ftruncate.unwrap_spec = [ObjSpace, W_Root, int]
+def ftruncate(space, fd, length):
+    os.ftruncate(fd, length)
+ftruncate.unwrap_spec = [ObjSpace, int, int]
 
-def fstat(space, w_fd):
-    return os.fstat(w_fd)
-fstat.unwrap_spec = [ObjSpace, W_Root]
+def fstat(space, fd):
+    return os.fstat(fd)
+fstat.unwrap_spec = [ObjSpace, int]
 
 def getcwd(space):
     return os.getcwd()
 getcwd.unwrap_spec = [ObjSpace]
 
-def dup(space, w_fd):
-    return os.dup(w_fd)
-dup.unwrap_spec = [ObjSpace, W_Root]
+def dup(space, fd):
+    return os.dup(fd)
+dup.unwrap_spec = [ObjSpace, int]

@@ -4,6 +4,7 @@ information table about external functions for annotation/ rtyping and backends
 import os
 import time
 import types
+from pypy.annotation.model import SomeInteger, SomeTuple
 
 
 class ExtFuncInfo:
@@ -49,15 +50,19 @@ def declare(func, annotation, ll_function, ll_annotable=True, backend_functionte
 # _____________________________________________________________
 
 nonefactory = lambda *args: None
+tuplefactory = lambda *args: SomeTuple((SomeInteger(),)*10)
 
 # external function declarations
-declare(os.open   , int        , 'll_os/open')
-declare(os.read   , str        , 'll_os/read')
-declare(os.write  , int        , 'll_os/write')
-declare(os.close  , nonefactory, 'll_os/close')
-declare(os.getcwd , str        , 'll_os/getcwd')
-declare(os.dup    , int        , 'll_os/dup')
-declare(os.fstat  , int        , 'll_os/fstat')
-declare(time.time , float      , 'll_time/time')
-declare(time.clock, float      , 'll_time/clock')
-declare(time.sleep, nonefactory, 'll_time/sleep')
+declare(os.open     , int        , 'll_os/open')
+declare(os.read     , str        , 'll_os/read')
+declare(os.write    , int        , 'll_os/write')
+declare(os.close    , nonefactory, 'll_os/close')
+declare(os.getcwd   , str        , 'll_os/getcwd')
+declare(os.dup      , int        , 'll_os/dup')
+declare(os.lseek    , int        , 'll_os/lseek')
+declare(os.isatty   , bool       , 'll_os/isatty')
+declare(os.ftruncate, nonefactory, 'll_os/ftruncate')
+declare(os.fstat    , tuplefactory, 'll_os/fstat')
+declare(time.time   , float      , 'll_time/time')
+declare(time.clock  , float      , 'll_time/clock')
+declare(time.sleep  , nonefactory, 'll_time/sleep')
