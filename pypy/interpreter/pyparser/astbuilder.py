@@ -22,8 +22,29 @@ def is_augassign( ast_node ):
         return True
     return False
 
-## building functions
-
+## building functions helpers
+## --------------------------
+##
+## Naming convention:
+## to provide a function handler for a grammar rule name yyy
+## you should provide a build_yyy( builder, nb ) function
+## where builder is the AstBuilder instance used to build the
+## ast tree and nb is the number of items this rule is reducing
+##
+## Example:
+## for example if the rule
+##    term <- var ( '+' expr )*
+## matches
+##    x + (2*y) + z
+## build_term will be called with nb == 2
+## and get_atoms( builder, nb ) should return a list
+## of 5 objects : Var TokenObject('+') Expr('2*y') TokenObject('+') Expr('z')
+## where Var and Expr are AST subtrees and Token is a not yet
+## reduced token
+##
+## AST_RULES is kept as a dictionnary to be rpython compliant this is the
+## main reason why build_* functions are not methods of the AstBuilder class
+##
 def get_atoms( builder, nb ):
     L = []
     i = nb
