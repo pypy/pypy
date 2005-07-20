@@ -13,7 +13,8 @@ already sometime ago, while running translate_pypy::
 
   * how to implement the three overrides of translator/ann_override.py ?
 
-  * the pypy trunk is still not annotable.
+  * the pypy trunk is still not annotable:
+     - see issue92 about parser typing problems
 
 How to work in parallel:
 There is an environment variable to be set with your personal random seed.
