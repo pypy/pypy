@@ -8,9 +8,6 @@ already sometime ago, while running translate_pypy::
 
   * slice(SomeObject, SomeObject, SomeObject)
 
-  * we need a call_args similar to simple_call (doing redispatching)
-    on MethodOfFrozenPBCRepr etc
-
   * the PBCReprs generally lack a convert_from_to() to convert from a small PBC
     set to a larger one.
 
