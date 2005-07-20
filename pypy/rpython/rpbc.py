@@ -487,35 +487,47 @@ class MethodsPBCRepr(Repr):
         return llops.convertvar(v_inst, r_inst, self.r_im_self)
 
     def rtype_hardwired_simple_call(self, hop):
-        hop2 = hop.copy()
-        hop2.swap_fst_snd_args() # bring the hardwired function constant in front
-        func = hop2.args_v[0].value
-        s_func = annmodel.SomePBC({func: True})
-        hop2.r_s_popfirstarg() # info captured, discard it
+        return self.redispatch_call(hop, call_args=False, hardwired=True)
 
-        hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
-        hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
-        
-        hop2.v_s_insertfirstarg(Constant(func), s_func)   # insert 'function'
-        # now hop2 looks like simple_call(function, self, args...)
-        return self.rtyper.translate_op_simple_call(hop2)
+    def rtype_hardwired_call_args(self, hop):
+        return self.redispatch_call(hop, call_args=True, hardwired=True)
 
     def rtype_simple_call(self, hop):
-        r_class = self.r_im_self.rclass
-        mangled_name, r_func = r_class.clsfields[self.methodname]
-        assert isinstance(r_func, FunctionsPBCRepr)
-        s_func = r_func.s_pbc
+        return self.redispatch_call(hop, call_args=False)
 
+    def rtype_call_args(self, hop):
+        return self.redispatch_call(hop, call_args=True)
+
+    def redispatch_call(self, hop, call_args, hardwired=False):
         hop2 = hop.copy()
+        if hardwired:
+            hop2.swap_fst_snd_args() # bring the hardwired function constant in front
+            func = hop2.args_v[0].value
+            s_func = annmodel.SomePBC({func: True})
+            hop2.r_s_popfirstarg() # info captured, discard it
+            v_func = Constant(func)
+        else:
+            r_class = self.r_im_self.rclass
+            mangled_name, r_func = r_class.clsfields[self.methodname]
+            assert isinstance(r_func, FunctionsPBCRepr)
+            s_func = r_func.s_pbc
+            v_im_self = hop.inputarg(self, arg=0)
+            v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
+            v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
+
         hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
         hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
 
-        v_im_self = hop.inputarg(self, arg=0)
-        v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
-        v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
+        opname = 'simple_call'
+        if call_args:
+            hop2.swap_fst_snd_args()
+            _, s_shape = hop2.r_s_popfirstarg()
+            adjust_shape(hop2, s_shape)
+            opname = 'call_args'
+
         hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
         # now hop2 looks like simple_call(function, self, args...)
-        return hop2.dispatch()
+        return hop2.dispatch(opname=opname)
 
 
 # ____________________________________________________________

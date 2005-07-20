@@ -408,7 +408,7 @@ class RPythonTyper:
         return hop.args_r[0].rtype_hardwired_simple_call(hop)
 
     def translate_op_hardwired_call_args(self, hop):
-        return hop.args_r[0].rtype_hardwired_simple_call(hop)
+        return hop.args_r[0].rtype_hardwired_call_args(hop)
 
     # __________ irregular operations __________
 
@@ -502,10 +502,11 @@ class HighLevelOp(object):
             setattr(result, key, value)
         return result
 
-    def dispatch(self):
-        op = self.spaceop
+    def dispatch(self, opname=None):
+        if not opname:
+            opname = self.spaceop.opname
         rtyper = self.rtyper
-        translate_meth = getattr(rtyper, 'translate_op_'+op.opname,
+        translate_meth = getattr(rtyper, 'translate_op_'+opname,
                                  rtyper.missing_operation)
         return translate_meth(self)
 

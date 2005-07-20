@@ -735,3 +735,31 @@ def test_call_special_starargs_method():
 
     res = interpret(f, [3, 0])
     assert res == 5
+
+def test_call_star_method():
+    class N:
+        def __init__(self, d):
+            self.d = d
+        def meth(self, a, b):
+            return self.d + a + b
+
+    def f(i, j):
+        n = N(i)
+        return n.meth(*(i, j))
+
+    res = interpret(f, [3, 7])
+    assert res == 13
+
+def test_call_star_special_starargs_method():
+    class N:
+        def __init__(self, d):
+            self.d = d
+        def meth(self, *args):
+            return self.d + len(args)
+
+    def f(i, j):
+        n = N(i)
+        return n.meth(*(i, j))
+
+    res = interpret(f, [3, 0])
+    assert res == 5
