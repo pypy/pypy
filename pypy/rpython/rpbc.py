@@ -486,6 +486,20 @@ class MethodsPBCRepr(Repr):
         # (as shown for example in test_rclass/test_method_both_A_and_B)
         return llops.convertvar(v_inst, r_inst, self.r_im_self)
 
+    def rtype_hardwired_simple_call(self, hop):
+        hop2 = hop.copy()
+        hop2.swap_fst_snd_args() # bring the hardwired function constant in front
+        func = hop2.args_v[0].value
+        s_func = annmodel.SomePBC({func: True})
+        hop2.r_s_popfirstarg() # info captured, discard it
+
+        hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
+        hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
+        
+        hop2.v_s_insertfirstarg(Constant(func), s_func)   # insert 'function'
+        # now hop2 looks like simple_call(function, self, args...)
+        return self.rtyper.translate_op_simple_call(hop2)
+
     def rtype_simple_call(self, hop):
         r_class = self.r_im_self.rclass
         mangled_name, r_func = r_class.clsfields[self.methodname]

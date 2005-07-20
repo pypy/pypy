@@ -404,6 +404,12 @@ class RPythonTyper:
         r_arg2 = hop.args_r[1]
         return pair(r_arg1, r_arg2).rtype_contains(hop)
 
+    def translate_op_hardwired_simple_call(self, hop):
+        return hop.args_r[0].rtype_hardwired_simple_call(hop)
+
+    def translate_op_hardwired_call_args(self, hop):
+        return hop.args_r[0].rtype_hardwired_simple_call(hop)
+
     # __________ irregular operations __________
 
     def translate_op_newlist(self, hop):

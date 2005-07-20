@@ -158,7 +158,16 @@ def transform_specialization(self, block_subset):
                         specialized_callb, specialcase = self.bookkeeper.query_spaceop_callable(op)
                         if specialcase or callb != specialized_callb:
                             if not specialcase:
-                                op.args[0] = Constant(specialized_callb.prebuiltinstances.keys()[0])
+                                specialized_func = Constant(specialized_callb.prebuiltinstances.keys()[0])
+                                if not isinstance(op.args[0], Constant) and not callb.is_constant():
+                                    # this is a method call on some variable instance:
+                                    # we still need the logic for methods up to calling the fixed specialized function,
+                                    # we use special call operations 'hardwired_simple_call' and 'hardwired_call_args'
+                                    # including the specialized function as 2nd argument to distinguish this case
+                                    op.opname = intern('hardwired_'+op.opname)
+                                    op.args.insert(1, specialized_func)
+                                else:
+                                    op.args[0] = specialized_func
                             else:
                                 if op.opname != 'simple_call':
                                     assert 0, "not supported: call_args to a specialized function"

@@ -721,3 +721,17 @@ def test_conv_from_funcpbcset_to_larger():
     assert res == 11
     res = interpret(g, [1, 0])
     assert res == 7
+
+def test_call_special_starargs_method():
+    class Star:
+        def __init__(self, d):
+            self.d = d
+        def meth(self, *args):
+            return self.d + len(args)
+
+    def f(i, j):
+        s = Star(i)
+        return s.meth(i, j)
+
+    res = interpret(f, [3, 0])
+    assert res == 5
