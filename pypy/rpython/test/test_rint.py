@@ -75,7 +75,20 @@ def test_hex_of_int():
 
     res = interpret(dummy, [-123])
     assert ''.join(res.chars) == '-0x7b'
+
+def test_oct_of_int():
+    def dummy(i):
+        return oct(i)
     
+    res = interpret(dummy, [0])
+    assert ''.join(res.chars) == '0'
+
+    res = interpret(dummy, [1034])
+    assert ''.join(res.chars) == '02012'
+
+    res = interpret(dummy, [-123])
+    assert ''.join(res.chars) == '-0173'
+
 def test_unsigned():
     def dummy(i):
         i = r_uint(i)

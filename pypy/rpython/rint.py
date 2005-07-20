@@ -313,6 +313,11 @@ class __extend__(IntegerRepr):
         true = inputconst(Bool, True)
         return hop.gendirectcall(ll_int2hex, varg, true)
 
+    def rtype_oct(_, hop):
+        varg = hop.inputarg(hop.args_r[0], 0)
+        true = inputconst(Bool, True)
+        return hop.gendirectcall(ll_int2oct, varg, true)
+
 
 
 CHAR_ARRAY = GcArray(Char)
@@ -350,6 +355,38 @@ def ll_int2hex(i, addPrefix):
         result.chars[j] = '0'
         result.chars[j+1] = 'x'
         j += 2
+    while j < len:
+        result.chars[j] = temp[len-j-1]
+        j += 1
+    return result
+
+def ll_int2oct(i, addPrefix):
+    from pypy.rpython.rstr import STR
+    if i == 0:
+        result = malloc(STR, 1)
+        result.chars[0] = '0'
+        return result
+    temp = malloc(CHAR_ARRAY, 25)
+    len = 0
+    sign = 0
+    if i < 0:
+        sign = 1
+        i = -i
+    while i:
+        temp[len] = hex_chars[i%8]
+        i //= 8
+        len += 1
+    len += sign
+    if addPrefix:
+        len += 1
+    result = malloc(STR, len)
+    j = 0
+    if sign:
+        result.chars[0] = '-'
+        j = 1
+    if addPrefix:
+        result.chars[j] = '0'
+        j += 1
     while j < len:
         result.chars[j] = temp[len-j-1]
         j += 1
