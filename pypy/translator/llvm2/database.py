@@ -1,5 +1,6 @@
 from pypy.translator.llvm2.log import log 
-from pypy.translator.llvm2.funcnode import ExternalFuncNode, FuncNode, FuncTypeNode
+from pypy.translator.llvm2.funcnode import FuncNode, FuncTypeNode
+from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm2.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode
 from pypy.translator.llvm2.arraynode import ArrayNode, ArrayTypeNode
@@ -75,8 +76,7 @@ class Database(object):
     def create_constant_node(self, type_, value):
         node = None
         if isinstance(type_, lltype.FuncType):
-            if value._callable and (not hasattr(value, "graph") or value.graph is None 
-                                    or getattr(value._callable, "suggested_primitive", False)):
+            if getattr(value._callable, "suggested_primitive", False):
                 node = ExternalFuncNode(self, value)
             else:
                 node = FuncNode(self, value)

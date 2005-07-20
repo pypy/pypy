@@ -11,7 +11,7 @@ from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.codewriter import CodeWriter
-from pypy.translator.llvm2.node import LLVMNode
+from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
 from pypy.translator.backendoptimization import remove_void
 #from pypy.translator.backendoptimization import rename_extfunc_calls
 from pypy.translator.llvm2.extfunction import extdeclarations, \
@@ -31,7 +31,7 @@ class GenLLVM(object):
         remove_void(translator)
         #rename_extfunc_calls(translator)
         translator.checkgraphs()
-        LLVMNode.used_external_functions = {}
+        ExternalFuncNode.used_external_functions = {}
 
     def compile(self, func=None):
         if func is None:
@@ -77,7 +77,7 @@ class GenLLVM(object):
             typ_decl.writeimpl(codewriter)
 
         depdone = {}
-        for funcname,value in LLVMNode.used_external_functions.iteritems():
+        for funcname,value in ExternalFuncNode.used_external_functions.iteritems():
             deps = dependencies(funcname,[])
             deps.reverse()
             for dep in deps:
