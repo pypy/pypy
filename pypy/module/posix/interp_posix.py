@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import ObjSpace,W_Root
+from pypy.interpreter.baseobjspace import ObjSpace
 
 import os
 from os import *
@@ -18,7 +18,7 @@ lseek.unwrap_spec = [ObjSpace, int, int, int]
 
 def isatty(space, fd):
     return os.isatty(w_fd)
-lseek.unwrap_spec = [ObjSpace, int]
+isatty.unwrap_spec = [ObjSpace, int]
 
 def read(space, fd, buffersize):
     return os.read(fd,buffersize)
