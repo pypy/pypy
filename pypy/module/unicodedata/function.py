@@ -150,7 +150,7 @@ def normalize(space, w_form, w_unistr):
                 result[j + 2] = T
                 j += 3
             continue
-        decomp = decomposition.get(ch)
+        decomp = decomposition.get(ch, [])
         if decomp:
             decomplen = len(decomp)
             if j + decomplen > resultlen:
