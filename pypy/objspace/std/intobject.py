@@ -404,31 +404,10 @@ def float__Int(space, w_int1):
     return space.newfloat(x)
 
 def oct__Int(space, w_int1):
-    x = w_int1.intval
-    if x < 0:
-        ## XXX what about this warning?
-        #if (PyErr_Warn(PyExc_FutureWarning,
-        #           "hex()/oct() of negative int will return "
-        #           "a signed string in Python 2.4 and up") < 0)
-        #    return NULL;
-        pass
-    if x == 0:
-        ret = "0"
-    else:
-        ret = "0%lo" % x
-    return space.wrap(ret)
+    return space.wrap(oct(w_int1.intval))
 
 def hex__Int(space, w_int1):
-    x = w_int1.intval
-    if x < 0:
-        ## XXX what about this warning?
-        #if (PyErr_Warn(PyExc_FutureWarning,
-        #           "hex()/oct() of negative int will return "
-        #           "a signed string in Python 2.4 and up") < 0)
-        #    return NULL;
-        pass
-    ret = "0x%lx" % x
-    return space.wrap(ret)
+    return space.wrap(hex(w_int1.intval))
 
 def getnewargs__Int(space, w_int1):
     return space.newtuple([W_IntObject(space, w_int1.intval)])
