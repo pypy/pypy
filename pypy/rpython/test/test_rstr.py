@@ -245,17 +245,26 @@ def test_strformat():
 
     def percentX(i):
         return "bing %x bang" % (i,)
-    
+
     res = interpret(percentX, [23])
     assert ''.join(res.chars) == 'bing 17 bang'
 
     res = interpret(percentX, [-123])
     assert ''.join(res.chars) == 'bing -7b bang'
 
-    def moreThanOne(s, d, x):
-        return "string: %s decimal: %d hex: %x" % (s, d, x)
+    def percentO(i):
+        return "bing %o bang" % (i,)
+    
+    res = interpret(percentO, [23])
+    assert ''.join(res.chars) == 'bing 27 bang'
 
-    args = 'a', 2, 3
+    res = interpret(percentO, [-123])
+    assert ''.join(res.chars) == 'bing -173 bang'
+
+    def moreThanOne(s, d, x, o):
+        return "string: %s decimal: %d hex: %x oct: %o" % (s, d, x, o)
+
+    args = 'a', 2, 3, 4
     res = interpret(moreThanOne, list(args))
     assert ''.join(res.chars) == moreThanOne(*args)
 

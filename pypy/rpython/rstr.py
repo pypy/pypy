@@ -264,7 +264,7 @@ def parse_fmt_string(fmt):
             if curstr:
                 r.append(curstr)
             curstr = ''
-            if f not in 'xdsrf':
+            if f not in 'xdosrf':
                 raise TyperError("Unsupported formatting specifier: %r in %r" % (f, fmt))
 
             r.append((f,))
@@ -308,6 +308,10 @@ def do_stringformat(hop, sourcevarsrepr):
             elif code == 'x':
                 assert isinstance(r_arg, IntegerRepr)
                 vchunk = hop.gendirectcall(rint.ll_int2hex, vitem,
+                                           inputconst(Bool, False))
+            elif code == 'o':
+                assert isinstance(r_arg, IntegerRepr)
+                vchunk = hop.gendirectcall(rint.ll_int2oct, vitem,
                                            inputconst(Bool, False))
             else:
                 assert 0
