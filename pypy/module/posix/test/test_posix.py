@@ -91,7 +91,7 @@ def test_close():
     text = 'This is a test'
     os.write(fi,text)
     res = interpret(f,[fi])
-    raises( OSError(), os.fstat(fi))
+    raises(OSError, os.fstat, fi)
 
 def test_ftruncate():
     def f(fi,len):
