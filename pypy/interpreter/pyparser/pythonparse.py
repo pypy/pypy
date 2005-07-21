@@ -25,7 +25,7 @@ class PythonParser(object):
         # Build first sets for each rule (including anonymous ones)
         grammar.build_first_sets(self.items)
 
-    def parse_source(self, textsrc, goal, builder=None, flags=0):
+    def parse_source(self, textsrc, goal, builder, flags=0):
         """Parse a python source according to goal"""
         lines = [line + '\n' for line in textsrc.split('\n')]
         if textsrc.endswith('\n'):
@@ -36,13 +36,11 @@ class PythonParser(object):
             lines[-1] = last_line[:-1]
         return self.parse_lines(lines, goal, builder, flags)
 
-    def parse_lines(self, lines, goal, builder=None, flags=0):
+    def parse_lines(self, lines, goal, builder, flags=0):
         goalnumber = pysymbol.sym_values[goal]
         target = self.rules[goalnumber]
         src = Source(lines, flags)
         
-#        if builder is None:
-#            builder = grammar.BaseGrammarBuilder(debug=False, rules=self.rules)
         result = target.match(src, builder)
         # <HACK> XXX find a clean way to process encoding declarations
         builder.source_encoding = src.encoding
@@ -85,14 +83,14 @@ def reload_grammar(version):
     debug_print( "Reloading grammar %s" % PYTHON_GRAMMAR )
     PYTHON_PARSER = python_grammar( PYTHON_GRAMMAR )
 
-def parse_file_input(pyf, gram, builder=None):
+def parse_file_input(pyf, gram, builder ):
     """Parse a python file"""
     return gram.parse_source( pyf.read(), "file_input", builder )
     
-def parse_single_input(textsrc, gram, builder=None):
+def parse_single_input(textsrc, gram, builder ):
     """Parse a python single statement"""
     return gram.parse_source( textsrc, "single_input", builder )
 
-def parse_eval_input(textsrc, gram, builder=None):
+def parse_eval_input(textsrc, gram, builder):
     """Parse a python expression"""
     return gram.parse_source( textsrc, "eval_input", builder )

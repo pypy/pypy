@@ -9,6 +9,7 @@ from pypy.interpreter.typedef import interp_attrproperty, GetSetProperty
 from pypy.interpreter.pycode import PyCode 
 from pypy.interpreter.pyparser.syntaxtree import SyntaxNode
 from pypy.interpreter.pyparser.pythonutil import PYTHON_PARSER, ParseError
+from pypy.interpreter.pyparser import grammar
 
 __all__ = [ "ASTType", "STType", "suite", "expr" ]
 
@@ -55,18 +56,18 @@ class STType (Wrappable):
         """
         return self.node.name == "file_input"
 
-    def descr_compile (self, w_filename = "<syntax_tree>"): 
+    def descr_compile (self, w_filename = "<syntax_tree>"):
         """STType.compile()
         """
         # We use the compiler module for that
-        space = self.space 
-        tup = self.totuple(line_info=1) 
-        w_tup = space.wrap(tup)   
-        w_compileAST = mycompile(space, w_tup, w_filename) 
+        space = self.space
+        tup = self.totuple(line_info=1)
+        w_tup = space.wrap(tup)
+        w_compileAST = mycompile(space, w_tup, w_filename)
         if self.isexpr(): 
-            return exprcompile(space, w_compileAST) 
+            return exprcompile(space, w_compileAST)
         else: 
-            return modcompile(space, w_compileAST) 
+            return modcompile(space, w_compileAST)
 
 ASTType = STType
 
@@ -99,23 +100,25 @@ STType.typedef = TypeDef("parser.st",
 )
 
 def parse_python_source(space, source, goal):
+    builder = grammar.BaseGrammarBuilder(debug=False, rules=PYTHON_PARSER.rules)
     try:
-        return PYTHON_PARSER.parse_source(source, goal)
+        PYTHON_PARSER.parse_source(source, goal, builder )
+        return builder.stack[-1]
     except ParseError, e:
         raise OperationError(space.w_SyntaxError,
                              e.wrap_info(space, '<string>'))
 
 def suite( space, source ):
     # make the annotator life easier (don't use str.splitlines())
-    builder = parse_python_source( space, source, "file_input" )
-    return space.wrap( STType(space, builder.stack[-1]) )    
+    syntaxtree = parse_python_source( space, source, "file_input" )
+    return space.wrap( STType(space, syntaxtree) )    
 
 suite.unwrap_spec = [ObjSpace, str]
 
 def expr( space, source ):
     # make the annotator life easier (don't use str.splitlines())
-    builder = parse_python_source( space, source, "eval_input" )
-    return space.wrap( STType(space, builder.stack[-1]) )    
+    syntaxtree = parse_python_source( space, source, "eval_input" )
+    return space.wrap( STType(space, syntaxtree) )    
 
 expr.unwrap_spec = [ObjSpace, str]
 
