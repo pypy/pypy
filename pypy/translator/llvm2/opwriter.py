@@ -7,7 +7,7 @@ from pypy.translator.unsimplify import remove_double_links
 from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2.atomic import is_atomic
 from pypy.translator.llvm2.log import log 
-from pypy.rpython.extfunctable import table as extfunctable
+#from pypy.rpython.extfunctable import table as extfunctable
 log = log.opwriter
 
 class OpWriter(object):

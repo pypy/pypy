@@ -8,7 +8,6 @@ from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2.opwriter import OpWriter
 from pypy.translator.llvm2.atomic import is_atomic
 from pypy.translator.llvm2.log import log 
-from pypy.rpython.extfunctable import table as extfunctable
 nextnum = py.std.itertools.count().next
 log = log.funcnode
 
