@@ -149,7 +149,7 @@ class BaseGrammarBuilder(AbstractBuilder):
         # Do nothing, keep rule on top of the stack
         if rule.is_root():
             elems = self.stack[-1].expand()
-            self.stack[-1] = SyntaxNode(rule.codename, source, elems)
+            self.stack[-1] = SyntaxNode(rule.codename, elems, source.current_lineno())
             if self.debug:
                 self.stack[-1].dumpstr()
         return True
@@ -163,23 +163,23 @@ class BaseGrammarBuilder(AbstractBuilder):
         # replace N elements with 1 element regrouping them
         if elts_number >= 1:
             if is_root:
-                elem = SyntaxNode(rule.codename, source, items)
+                elem = SyntaxNode(rule.codename, items, source.current_lineno())
             else:
-                elem = TempSyntaxNode(rule.codename, source, items)
+                elem = TempSyntaxNode(rule.codename, items, source.current_lineno())
             del self.stack[-elts_number:]
             self.stack.append(elem)
         elif elts_number == 0:
             if is_root:
-                self.stack.append(SyntaxNode(rule.codename, source, []))
+                self.stack.append(SyntaxNode(rule.codename, [], source.current_lineno()))
             else:
-                self.stack.append(TempSyntaxNode(rule.codename, source, []))
+                self.stack.append(TempSyntaxNode(rule.codename, [], source.current_lineno()))
                 
         if self.debug:
             self.stack[-1].dumpstr()
         return True
 
     def token(self, name, value, source):
-        self.stack.append(TokenNode(name, source, value))
+        self.stack.append(TokenNode(name, value, source.current_lineno()))
         if self.debug:
             self.stack[-1].dumpstr()
         return True
@@ -334,6 +334,11 @@ class GrammarElement(object):
         """
         pass
 
+    def validate( self, syntax_node ):
+        """validate a syntax tree/subtree from this grammar node"""
+        pass
+
+
 class Alternative(GrammarElement):
     """Represents an alternative in a grammar rule (as in S -> A | B | C)"""
     def __init__(self, name, args):
@@ -418,6 +423,18 @@ class Alternative(GrammarElement):
         self.args[:] = not_empty_set
         self.args.extend( empty_set )
 
+    def validate( self, syntax_node ):
+        """validate a syntax tree/subtree from this grammar node"""
+        if self.codename != syntax_node.name:
+            return False
+        if len(syntax_node.nodes) != 1:
+            return False
+        node = syntax_node.nodes[0]
+        for alt in self.args:
+            if alt.validate( node ):
+                return True
+        return False
+
     
 class Sequence(GrammarElement):
     """Reprensents a Sequence in a grammar rule (as in S -> A B C)"""
@@ -479,6 +496,18 @@ class Sequence(GrammarElement):
             if EmptyToken not in rule.first_set:
                 break
                 
+    def validate( self, syntax_node ):
+        """validate a syntax tree/subtree from this grammar node"""
+        if self.codename != syntax_node.name:
+            return False
+        if len(syntax_node.nodes) != len(self.args):
+            return False
+        for i in xrange(len(self.args)):
+            rule = self.args[i]
+            node = syntax_node.nodes[i]
+            if not rule.validate( node ):
+                return False
+        return True
 
 
 class KleenStar(GrammarElement):
@@ -554,6 +583,21 @@ class KleenStar(GrammarElement):
             self.first_set.append(EmptyToken)
             # self.first_set[EmptyToken] = 1
 
+    def validate( self, syntax_node ):
+        """validate a syntax tree/subtree from this grammar node"""
+        if self.codename != syntax_node.name:
+            return False
+        rule = self.args[0]
+        if self.min > len(syntax_node.nodes):
+            return False
+        if self.max>=0 and self.max<len(syntax_node.nodes):
+            return False
+        for n in self.node:
+            if not rule.validate(n):
+                return False
+        return True
+
+
 class Token(GrammarElement):
     """Represents a Token in a grammar rule (a lexer token)"""
     def __init__( self, codename, value = None):
@@ -613,13 +657,25 @@ class Token(GrammarElement):
     
     def __eq__(self, other):
         return self.codename == other.codename and self.value == other.value
-        
 
-    
     def calc_first_set(self):
         """computes the list of possible next tokens
         """
         pass
 
+    def validate( self, syntax_node ):
+        """validate a syntax tree/subtree from this grammar node"""
+        if self.codename != syntax_node.name:
+            return False
+        if self.value is None:
+            return True
+        if self.value == syntax_node.value:
+            return True
+        return False
+
 from pypy.interpreter.pyparser.pytoken import NULLTOKEN
 EmptyToken = Token(NULLTOKEN, None)
+
+
+
+    

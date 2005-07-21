@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, GetSetProperty
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.pyparser.syntaxtree import SyntaxNode, AbstractSyntaxVisitor
+from pypy.interpreter.pyparser.syntaxtree import TokenNode, SyntaxNode, AbstractSyntaxVisitor
 from pypy.interpreter.pyparser.pythonutil import PYTHON_PARSER, ParseError
 from pypy.interpreter.pyparser import grammar, pysymbol, pytoken
 
@@ -168,3 +168,30 @@ def ast2tuple(space, node, line_info=0):
     return node.descr_totuple( line_info )
 
 ast2tuple.unwrap_spec = [ObjSpace, STType, int]
+
+
+def unwrap_syntax_tree( space, w_sequence ):
+    items = space.unpackiterable( w_sequence )
+    nodetype = space.int_w( items[0] )
+    nodes = []
+    if nodetype>=0 and nodetype<pytoken.N_TOKENS:
+        is_syntax = False
+    else:
+        is_syntax = True
+    if is_syntax:
+        for w_node in items[1:]:
+            node = unwrap_syntax_tree( space, w_node )
+            nodes.append( node )
+        return SyntaxNode( nodetype, nodes )
+    else:
+        value = space.unwrap( items[1] )
+        if len(items)>2:
+            lineno = space.int_w( items[2] )
+        else:
+            lineno = -1
+        return TokenNode( nodetype, value, lineno )
+
+def sequence2st(space, w_sequence):
+    syntaxtree = unwrap_syntax_tree( space, w_sequence )
+    return space.wrap( STType(space, syntaxtree) )
+

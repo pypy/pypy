@@ -14,10 +14,10 @@ class AbstractSyntaxVisitor(object):
 
 class SyntaxNode(object):
     """A syntax node"""
-    def __init__(self, name, source, args):
+    def __init__(self, name, args, lineno=-1):
         self.name = name
         self.nodes = args
-        self.lineno = source.current_lineno()
+        self.lineno = lineno
         
     def dumptree(self, treenodes, indent):
         """helper function used to dump the syntax tree"""
@@ -76,8 +76,8 @@ class TempSyntaxNode(SyntaxNode):
 
 class TokenNode(SyntaxNode):
     """A token node"""
-    def __init__(self, name, source, value):
-        SyntaxNode.__init__(self, name, source, [])
+    def __init__(self, name, value, lineno = -1):
+        SyntaxNode.__init__(self, name, [], lineno)
         self.value = value
 
     def dumptree(self, treenodes, indent):
