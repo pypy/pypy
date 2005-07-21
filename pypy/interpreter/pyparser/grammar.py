@@ -79,6 +79,37 @@ def build_first_sets(rules):
         assert len(r.first_set) > 0, "Error: ot Empty firstset for %s" % r
         r.reorder_rule()
 
+class AbstractContext(object):
+    """Abstract base class. derived objects put
+    some attributes here that users can use to save
+    restore states"""
+    pass
+
+class AbstractBuilder(object):
+    """Abstract base class for builder objects"""
+    def __init__(self, rules=None, debug=0, symbols={} ):
+        # a dictionary of grammar rules for debug/reference
+        self.rules = rules or {}
+        # This attribute is here for convenience
+        self.debug = debug
+        self.symbols = symbols # mapping from codename to symbols
+
+    def context(self):
+        """Return an opaque context object"""
+        pass
+
+    def restore(self, ctx):
+        """Accept an opaque context object"""
+        pass
+    
+    def alternative(self, rule, source):
+        return False
+    
+    def sequence(self, rule, source, elts_number):
+        return False
+    
+    def token(self, name, value, source):
+        return False
 
 from syntaxtree import SyntaxNode, TempSyntaxNode, TokenNode
 #
@@ -87,24 +118,27 @@ from syntaxtree import SyntaxNode, TempSyntaxNode, TokenNode
 # a rule like S -> A B* is mapped as Sequence( SCODE, KleenStar(-3, B))
 # so S is a root and the subrule describing B* is not.
 # SCODE is the numerical value for rule "S"
-class BaseGrammarBuilder(object):
+
+class BaseGrammarBuilderContext(AbstractContext):
+    def __init__(self, stackpos ):
+        self.stackpos = stackpos
+
+class BaseGrammarBuilder(AbstractBuilder):
     """Base/default class for a builder"""
     def __init__(self, rules=None, debug=0, symbols={} ):
-        # a dictionary of grammar rules for debug/reference
-        self.rules = rules or {}
-        # This attribute is here for convenience
-        self.source_encoding = None
-        self.debug = debug
+        AbstractBuilder.__init__(self, rules, debug, symbols )
+        # stacks contain different objects depending on the builder class
+        # to be RPython they should not be defined in the base class
         self.stack = []
-        self.symbols = symbols # mapping from codename to symbols
 
     def context(self):
         """Returns the state of the builder to be restored later"""
         #print "Save Stack:", self.stack
-        return len(self.stack)
+        return BaseGrammarBuilderContext(self.stack)
 
     def restore(self, ctx):
-        del self.stack[ctx:]
+        assert isinstance(ctx, BaseGrammarBuilderContext)
+        del self.stack[ctx.stackpos:]
         #print "Restore Stack:", self.stack
         
     def alternative(self, rule, source):
@@ -195,7 +229,7 @@ class GrammarElement(object):
                 ret = builder.sequence(self, source, 0 )
                 if self._trace:
                     self._debug_display(token, level, 'eee', builder.symbols)
-                return self.debug_return( ret, builder.symbols, 0 )
+                return ret
             if self._trace:
                 self._debug_display(token, level, 'rrr', builder.symbols)
             return 0
@@ -257,13 +291,13 @@ class GrammarElement(object):
         return "GrammarElement"
 
 
-    def debug_return(self, ret, symbols, *args ):
+    def debug_return(self, ret, symbols, arg="" ):
         # FIXME: use a wrapper of match() methods instead of debug_return()
-        #        to prevent additional indirection
+        #        to prevent additional indirection even better a derived
+        #        Debugging builder class
         if ret and DEBUG > 0:
-            sargs = ",".join( [ str(i) for i in args ] )
             print "matched %s (%s): %s" % (self.__class__.__name__,
-                                           sargs, self.display(0, symbols=symbols) )
+                                           arg, self.display(0, symbols=symbols) )
         return ret
 
     
@@ -320,7 +354,7 @@ class Alternative(GrammarElement):
             m = rule.match(source, builder, level+1)
             if m:
                 ret = builder.alternative( self, source )
-                return self.debug_return( ret, builder.symbols )
+                return ret
         return 0
 
     def display(self, level=0, symbols={}):
@@ -400,7 +434,7 @@ class Sequence(GrammarElement):
                 builder.restore(bctx)
                 return 0
         ret = builder.sequence(self, source, len(self.args))
-        return self.debug_return( ret, builder.symbols )
+        return ret
 
     def display(self, level=0, symbols={}):
         name = get_symbol( self.codename, symbols )
@@ -473,11 +507,11 @@ class KleenStar(GrammarElement):
                     builder.restore(bctx)
                     return 0
                 ret = builder.sequence(self, source, rules)
-                return self.debug_return( ret, builder.symbols, rules )
+                return ret
             rules += 1
             if self.max>0 and rules == self.max:
                 ret = builder.sequence(self, source, rules)
-                return self.debug_return( ret, builder.symbols, rules )
+                return ret
 
     def display(self, level=0, symbols={}):
         name = get_symbol( self.codename, symbols )
@@ -536,10 +570,10 @@ class Token(GrammarElement):
         if tk.codename == self.codename:
             if self.value is None:
                 ret = builder.token( tk.codename, tk.value, source )
-                return self.debug_return( ret, builder.symbols, tk.codename )
+                return ret
             elif self.value == tk.value:
                 ret = builder.token( tk.codename, tk.value, source )
-                return self.debug_return( ret, builder.symbols, tk.codename, tk.value )
+                return ret
         if DEBUG > 1:
             print "tried tok:", self.display()
         source.restore( ctx )

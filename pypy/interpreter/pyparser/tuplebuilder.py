@@ -1,5 +1,5 @@
 
-from grammar import BaseGrammarBuilder
+from grammar import AbstractBuilder, AbstractContext
 from pytoken import tok_name, tok_rpunct, NEWLINE, INDENT, DEDENT, ENDMARKER
 
 class StackElement:
@@ -37,16 +37,30 @@ def expand_nodes(stack_elements):
             expanded.append(element)
     return expanded
 
-class TupleBuilder(BaseGrammarBuilder):
+class TupleBuilderContext(AbstractContext):
+    def __init__(self, stackpos ):
+        self.stackpos = stackpos
+        
+class TupleBuilder(AbstractBuilder):
     """A builder that directly produce the AST"""
 
     def __init__(self, rules=None, debug=0, lineno=True):
-        BaseGrammarBuilder.__init__(self, rules, debug)
+        AbstractBuilder.__init__(self, rules, debug)
         # This attribute is here for convenience
         self.source_encoding = None
         self.lineno = lineno
-        self.tuplestack = []
-        
+        self.stack = []
+
+    def context(self):
+        """Returns the state of the builder to be restored later"""
+        #print "Save Stack:", self.stack
+        return TupleBuilderContext(self.stack)
+
+    def restore(self, ctx):
+        assert isinstance(ctx, TupleBuilderContext)
+        del self.stack[ctx.stackpos:]
+        #print "Restore Stack:", self.stack
+
     def alternative(self, rule, source):
         # Do nothing, keep rule on top of the stack
         if rule.is_root():
