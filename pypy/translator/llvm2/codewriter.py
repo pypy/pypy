@@ -72,6 +72,9 @@ class CodeWriter(object):
     def ret_void(self):
         self.indent("ret void")
 
+    def unwind(self):
+        self.indent("unwind")
+
     def phi(self, targetvar, type_, refs, blocknames): 
         assert targetvar.startswith('%')
         assert refs and len(refs) == len(blocknames), "phi node requires blocks" 

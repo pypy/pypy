@@ -146,3 +146,6 @@ class FuncNode(ConstantLLVMNode):
             codewriter.ret(inputargtype, inputarg)
         else:
             codewriter.ret_void()
+
+    def write_exceptblock(self, codewriter, block):
+        codewriter.unwind()
