@@ -67,7 +67,7 @@ def build_atom( builder, nb ):
     L = get_atoms( builder, nb )
     top = L[0]
     if isinstance(top, TokenObject):
-        print "\t reducing atom (%s) (top.name) = %s" % (nb, tok.name)
+        print "\t reducing atom (%s) (top.name) = %s" % (nb, top.name)
         if top.name == tok.LPAR:
             builder.push( L[1] )
         elif top.name == tok.LSQB:
@@ -80,8 +80,11 @@ def build_atom( builder, nb ):
             builder.push( ast.Const(eval(top.value)) )
         elif top.name == tok.STRING:
             # need to concatenate strings in L
-            # builder.push( ast.Const(eval(top.value)) )
-            assert False, "TODO (String)"
+            s = ''
+            for token in L:
+                s += eval(token.value)
+            builder.push( ast.Const(s) )
+            # assert False, "TODO (String)"
         else:
             raise ValueError, "unexpected tokens (%d): %s" % (nb,[ str(i) for i in L] )
             
