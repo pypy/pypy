@@ -3,8 +3,9 @@ from pypy.interpreter.mixedmodule import MixedModule
     
 class Module(MixedModule):
     appleveldefs = {
-    'error'     : 'app_posix.error'
+    'error'     : 'app_posix.error',
     }
+    
     interpleveldefs = {
     'open'      : 'interp_posix.open',
     'lseek'     : 'interp_posix.lseek',
@@ -14,6 +15,8 @@ class Module(MixedModule):
     'close'     : 'interp_posix.close',
     'ftruncate' : 'interp_posix.ftruncate',
     'fstat'     : 'interp_posix.fstat',
+    'stat'      : 'interp_posix.stat',
     'dup'       : 'interp_posix.dup',
     '__doc__'   : "space.wrap('Posix module')",
+    '__name__'  : "space.wrap('The builtin posix module')",
     }

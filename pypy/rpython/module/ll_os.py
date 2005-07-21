@@ -97,12 +97,9 @@ tup = malloc(GcStruct('tuple%d' % n, *fields))
 
 from pypy.rpython.rarithmetic import intmask
 
-def ll_os_fstat(fd):
-    
-    stat = os.fstat(fd)
-    i = 0
-    n = len(stat)
-    tup.item0 = stat[0]
+def stat_to_rtuple(stat):
+    #n = len(stat)
+    tup.item0 = intmask(stat[0])
     tup.item1 = intmask(stat[1])
     tup.item2 = intmask(stat[2])
     tup.item3 = intmask(stat[3])
@@ -112,9 +109,15 @@ def ll_os_fstat(fd):
     tup.item7 = intmask(stat[7])
     tup.item8 = intmask(stat[8])
     tup.item9 = intmask(stat[9])
-##    while i<n:
-##        itemname = 'item%d' % i
-##        setattr(tup,itemname,stat[i])
-##        i += 1
+    
+def ll_os_fstat(fd):
+    stat = os.fstat(fd)
+    stat_to_rtuple(stat)
     return tup
 ll_os_fstat.suggested_primitive = True
+
+def ll_os_stat(path):
+    stat = os.fstat(path)
+    stat_to_tuple(stat)
+    return tup
+ll_os_stat.suggested_primitive = True

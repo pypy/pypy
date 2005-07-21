@@ -3,8 +3,9 @@ information table about external functions for annotation/ rtyping and backends
 """
 import os
 import time
+import math
 import types
-from pypy.annotation.model import SomeInteger, SomeTuple
+from pypy.annotation.model import SomeInteger, SomeTuple, SomeFloat
 
 
 class ExtFuncInfo:
@@ -51,6 +52,7 @@ def declare(func, annotation, ll_function, ll_annotable=True, backend_functionte
 
 nonefactory = lambda *args: None
 tuplefactory = lambda *args: SomeTuple((SomeInteger(),)*10)
+frexpfactory = lambda *args: SomeTuple((SomeFloat(),SomeInteger()))
 
 # external function declarations
 declare(os.open     , int        , 'll_os/open')
@@ -63,6 +65,11 @@ declare(os.lseek    , int        , 'll_os/lseek')
 declare(os.isatty   , bool       , 'll_os/isatty')
 declare(os.ftruncate, nonefactory, 'll_os/ftruncate')
 declare(os.fstat    , tuplefactory, 'll_os/fstat')
+declare(os.stat     , tuplefactory, 'll_os/stat')
 declare(time.time   , float      , 'll_time/time')
 declare(time.clock  , float      , 'll_time/clock')
 declare(time.sleep  , nonefactory, 'll_time/sleep')
+declare(math.log10  , float      , 'll_math/log10')
+declare(math.ceil   , float      , 'll_math/ceil')
+declare(math.frexp  , frexpfactory, 'll_math/frexp')
+declare(math.atan2  , float      , 'll_math/atan2')

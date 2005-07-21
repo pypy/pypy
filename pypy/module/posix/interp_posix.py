@@ -40,6 +40,10 @@ def fstat(space, fd):
     return os.fstat(fd)
 fstat.unwrap_spec = [ObjSpace, int]
 
+def stat(space, path):
+    return os.stat(path)
+stat.unwrap_spec = [ObjSpace, str]
+
 def getcwd(space):
     return os.getcwd()
 getcwd.unwrap_spec = [ObjSpace]
