@@ -41,8 +41,8 @@ class PythonParser(object):
         target = self.rules[goalnumber]
         src = Source(lines, flags)
         
-        if builder is None:
-            builder = grammar.BaseGrammarBuilder(debug=False, rules=self.rules)
+#        if builder is None:
+#            builder = grammar.BaseGrammarBuilder(debug=False, rules=self.rules)
         result = target.match(src, builder)
         # <HACK> XXX find a clean way to process encoding declarations
         builder.source_encoding = src.encoding

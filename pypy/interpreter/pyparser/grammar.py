@@ -155,17 +155,21 @@ class BaseGrammarBuilder(AbstractBuilder):
         items = []
         for node in self.stack[-elts_number:]:
             items += node.expand()
-        if rule.is_root():
-            node_type = SyntaxNode
-        else:
-            node_type = TempSyntaxNode
+        is_root = rule.is_root()
         # replace N elements with 1 element regrouping them
         if elts_number >= 1:
-            elem = node_type(rule.codename, source, items)
+            if is_root:
+                elem = SyntaxNode(rule.codename, source, items)
+            else:
+                elem = TempSyntaxNode(rule.codename, source, items)
             del self.stack[-elts_number:]
             self.stack.append(elem)
         elif elts_number == 0:
-            self.stack.append(node_type(rule.codename, source, []))
+            if is_root:
+                self.stack.append(SyntaxNode(rule.codename, source, []))
+            else:
+                self.stack.append(TempSyntaxNode(rule.codename, source, []))
+                
         if self.debug:
             self.stack[-1].dumpstr()
         return True
