@@ -173,22 +173,20 @@ ast2tuple.unwrap_spec = [ObjSpace, STType, int]
 def unwrap_syntax_tree( space, w_sequence ):
     items = space.unpackiterable( w_sequence )
     nodetype = space.int_w( items[0] )
-    nodes = []
+    is_syntax = True
     if nodetype>=0 and nodetype<pytoken.N_TOKENS:
         is_syntax = False
-    else:
-        is_syntax = True
     if is_syntax:
+        nodes = []
         for w_node in items[1:]:
             node = unwrap_syntax_tree( space, w_node )
             nodes.append( node )
         return SyntaxNode( nodetype, nodes )
     else:
-        value = space.unwrap( items[1] )
+        value = space.str_w( items[1] )
+        lineno = -1
         if len(items)>2:
             lineno = space.int_w( items[2] )
-        else:
-            lineno = -1
         return TokenNode( nodetype, value, lineno )
 
 def sequence2st(space, w_sequence):
