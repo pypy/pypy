@@ -134,7 +134,7 @@ class BaseGrammarBuilder(AbstractBuilder):
     def context(self):
         """Returns the state of the builder to be restored later"""
         #print "Save Stack:", self.stack
-        return BaseGrammarBuilderContext(self.stack)
+        return BaseGrammarBuilderContext(len(self.stack))
 
     def restore(self, ctx):
         assert isinstance(ctx, BaseGrammarBuilderContext)

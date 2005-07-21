@@ -54,7 +54,7 @@ class TupleBuilder(AbstractBuilder):
     def context(self):
         """Returns the state of the builder to be restored later"""
         #print "Save Stack:", self.stack
-        return TupleBuilderContext(self.stack)
+        return TupleBuilderContext(len(self.stack))
 
     def restore(self, ctx):
         assert isinstance(ctx, TupleBuilderContext)
