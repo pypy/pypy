@@ -13,6 +13,11 @@ def is_lvalue( ast_node ):
 def to_lvalue( ast_node, OP ):
     if isinstance( ast_node, ast.Name ):
         return ast.AssName( ast_node.name, OP )
+    elif isinstance(ast_node, ast.Tuple):
+        nodes = []
+        for node in ast_node.getChildren():
+            nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
+        return ast.AssTuple(nodes)
     else:
         assert False, "TODO"
 
@@ -63,6 +68,14 @@ def get_atoms( builder, nb ):
 def build_single_input( builder, nb ):
     pass
 
+def eval_number(value):
+    """temporary implementation"""
+    return eval(value)
+
+def eval_string(value):
+    """temporary implementation"""
+    return eval(value)
+
 def build_atom( builder, nb ):
     L = get_atoms( builder, nb )
     top = L[0]
@@ -77,12 +90,12 @@ def build_atom( builder, nb ):
         elif top.name == tok.NAME:
             builder.push( ast.Name(top.value) )
         elif top.name == tok.NUMBER:
-            builder.push( ast.Const(eval(top.value)) )
+            builder.push( ast.Const(eval_number(top.value)) )
         elif top.name == tok.STRING:
             # need to concatenate strings in L
             s = ''
             for token in L:
-                s += eval(token.value)
+                s += eval_string(token.value)
             builder.push( ast.Const(s) )
             # assert False, "TODO (String)"
         else:
