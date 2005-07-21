@@ -846,9 +846,17 @@ def mod__Unicode_ANY(format, values):
     import _formatting
     if isinstance(values, tuple):
         return _formatting.format(format, values, None, do_unicode=True)
-    if hasattr(values, "keys"):
-        return _formatting.format(format, (values,), values, do_unicode=True)
-    return _formatting.format(format, (values,), None, do_unicode=True)
+    else:
+        # CPython\'s logic for deciding if  ""%values  is
+        # an error (1 value, 0 %-formatters) or not
+        # (values is of a mapping type)
+        if (hasattr(values, "__getitem__")
+            and not isinstance(values, basestring)):
+            return _formatting.format(format, (values,), values,
+                                      do_unicode=True)
+        else:
+            return _formatting.format(format, (values,), None,
+                                      do_unicode=True)
 
 def unicode_encode__Unicode_ANY_ANY(unistr, encoding=None, errors=None):
     import codecs, sys

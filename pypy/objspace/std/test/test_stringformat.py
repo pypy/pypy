@@ -38,6 +38,11 @@ class AppTestStringObjectWithDict:
             def __getitem__(self, key):
                 py.test.fail('should not be here')
         assert '' % MyMapping() == ''
+        class MyMapping2(object):
+            def __getitem__(self, key):
+                return key
+        assert '%(key)s'%MyMapping2() == 'key'
+        assert u'%(key)s'%MyMapping2() == u'key'
 
 class AppTestStringObject:
 
