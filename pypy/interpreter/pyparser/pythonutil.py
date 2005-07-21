@@ -50,8 +50,26 @@ def pypy_parsefile(filename, lineno=False):
     pyf.close()
     return pypy_parse(source, 'exec', lineno)
 
+def internal_pypy_parse(source, mode='exec', lineno=False, flags=0):
+    builder = TupleBuilder(PYTHON_PARSER.rules, lineno=False)
+    target_rule = TARGET_DICT[mode]
+    PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
+    stack_element = builder.stack[-1]
+    return (builder.source_encoding, stack_element)
+
+def parse_result_to_nested_tuples(parse_result, lineno=False):
+    """NOT_RPYTHON"""
+    source_encoding, stack_element = parse_result
+    nested_tuples = stack_element.as_tuple(lineno)
+    if source_encoding is not None:
+        return (symbol.encoding_decl, nested_tuples, source_encoding)
+    else:
+        return nested_tuples
+
 def pypy_parse(source, mode='exec', lineno=False, flags=0):
-    """parse <source> using PyPy's parser module and return
+    """
+    NOT_RPYTHON !
+    parse <source> using PyPy's parser module and return
     a tuple of three elements :
      - The encoding declaration symbol or None if there were no encoding
        statement
@@ -61,17 +79,10 @@ def pypy_parse(source, mode='exec', lineno=False, flags=0):
      - The encoding string or None if there were no encoding statement
     nested tuples
     """
-    builder = TupleBuilder(PYTHON_PARSER.rules, lineno=False)
-    target_rule = TARGET_DICT[mode]
-    PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
-    stack_element = builder.stack[-1]
+    source_encoding, stack_element = internal_pypy_parse(source, mode, lineno=lineno, flags=lineno)
     # convert the stack element into nested tuples (caution, the annotator
     # can't follow this call)
-    nested_tuples = stack_element.as_tuple(lineno)
-    if builder.source_encoding is not None:
-        return (symbol.encoding_decl, nested_tuples, builder.source_encoding)
-    else:
-        return nested_tuples
+    return parse_result_to_nested_tuples((source_encoding, stack_element), lineno=lineno)
 
 ## convenience functions for computing AST objects using recparser
 def ast_from_input(input, mode, transformer):
@@ -95,20 +106,12 @@ def annotateme(source):
 
     annotateme() is basically the same code that pypy_parse(), but with the
     following differences :
-     - directly take a list of strings rather than a filename in input
-       in order to avoid using file() (which is faked for now)
-       
+
      - returns a tuplebuilder.StackElement instead of the *real* nested
        tuples (StackElement is only a wrapper class around these tuples)
 
     """
-    builder = TupleBuilder(PYTHON_PARSER.rules, lineno=False)
-    PYTHON_PARSER.parse_source(source, 'file_input', builder)
-    nested_tuples = builder.stack[-1]
-    if builder.source_encoding is not None:
-        return (symbol.encoding_decl, nested_tuples, builder.source_encoding)
-    else:
-        return (None, nested_tuples, None)
+    return internal_pypy_parse(source, 'exec')
 
 
 if __name__ == "__main__":

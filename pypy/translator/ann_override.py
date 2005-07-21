@@ -22,3 +22,8 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         from pypy.interpreter import pycode
         clsdef = getbookkeeper().getclassdef(pycode.PyCode)
         return annmodel.SomeInstance(clsdef)    
+
+    def override__cpy_stablecompiler(pol, self, parse_result, filename, mode):
+        from pypy.interpreter import pycode
+        clsdef = getbookkeeper().getclassdef(pycode.PyCode)
+        return annmodel.SomeInstance(clsdef)    

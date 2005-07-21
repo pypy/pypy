@@ -178,21 +178,30 @@ class PythonCompiler(CPythonCompiler):
          the whole source after having only added a new '\n')
     """
     def compile(self, source, filename, mode, flags):
+        assert isinstance(source, str) # xxx__builtin__.compile is cheating in the unicode case
+                                       # we need to do something about that
+                                       # CPython encode unicode for compilation into utf-8
+                                       # and use a special internal flag to control behavior!
+    
         from pyparser.error import ParseError
-        from pyparser.pythonutil import pypy_parse
+        from pyparser.pythonutil import internal_pypy_parse
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
         # XXX use 'flags'
         space = self.space
         try:
-            tuples = pypy_parse(source, mode, True, flags)
+            parse_result = internal_pypy_parse(source, mode, True, flags)
         except ParseError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
-        c = self.compile_tuples(tuples, filename, mode)
-        from pypy.interpreter.pycode import PyCode
-        return space.wrap(PyCode(space)._from_code(c))
+        w_code = self.compile_parse_result(parse_result, filename, mode)
+        return w_code
 
-    def compile_tuples(self, tuples, filename, mode):
+    def compile_parse_result(self, parse_result, filename, mode):
+        """NOT_RPYTHON"""
+        from pyparser.pythonutil import parse_result_to_nested_tuples
+        # the result of this conversion has no useful type in RPython
+        tuples = parse_result_to_nested_tuples(parse_result, True)
+
         # __________
         # XXX this uses the non-annotatable stablecompiler at interp-level
         from pypy.interpreter import stablecompiler
@@ -224,8 +233,9 @@ class PythonCompiler(CPythonCompiler):
         except TypeError,e:
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
         # __________ end of XXX above
-        return c
-    compile_tuples._annspecialcase_ = 'override:cpy_stablecompiler'
+        from pypy.interpreter.pycode import PyCode
+        return space.wrap(PyCode(space)._from_code(c))
+    compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 
 
 class PyPyCompiler(CPythonCompiler):
