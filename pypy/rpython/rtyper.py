@@ -162,8 +162,9 @@ class RPythonTyper:
                     func = "(%s:%s)" %(func.__module__ or '?', func.__name__)
                 else:
                     func = "(?:?)"
-                print "TyperError-%d: %s %r {%s}" % (c, func, block, position)
+                print "TyperError-%d: %s" % (c, func)
                 print str(err)
+                print ""
                 c += 1
             raise TyperError("there were %d error" % len(self.typererrors))
         
