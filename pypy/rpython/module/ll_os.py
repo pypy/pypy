@@ -117,7 +117,7 @@ def ll_os_fstat(fd):
 ll_os_fstat.suggested_primitive = True
 
 def ll_os_stat(path):
-    stat = os.fstat(path)
+    stat = os.stat(from_rstr(path))
     stat_to_tuple(stat)
     return tup
 ll_os_stat.suggested_primitive = True
