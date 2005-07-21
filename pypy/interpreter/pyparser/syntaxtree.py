@@ -1,74 +1,6 @@
 """SyntaxTree class definition"""
-import symbol
-import token
-
-# XXX hack: make sure '@' is in the token list
-if not hasattr(token, 'AT'):
-    token.AT = token.N_TOKENS + 2    # see pythonlexer.py for why '+2'
-    token.tok_name[token.AT] = 'AT'
-
-TOKEN_MAP = {
-    "STRING" : token.STRING,
-    "NUMBER" : token.NUMBER,
-    "NAME" : token.NAME,
-    "NEWLINE" : token.NEWLINE,
-    "DEDENT" : token.DEDENT,
-    "ENDMARKER" : token.ENDMARKER,
-    "INDENT" : token.INDENT,
-    "NEWLINE" : token.NEWLINE,
-    "NT_OFFSET" : token.NT_OFFSET,
-    "N_TOKENS" : token.N_TOKENS,
-    "OP" : token.OP,
-    "?ERRORTOKEN" : token.ERRORTOKEN,
-    "&" : token.AMPER,
-    "&=" : token.AMPEREQUAL,
-    "`" : token.BACKQUOTE,
-    "^" : token.CIRCUMFLEX,
-    "^=" : token.CIRCUMFLEXEQUAL,
-    ":" : token.COLON,
-    "," : token.COMMA,
-    "." : token.DOT,
-    "//" : token.DOUBLESLASH,
-    "//=" : token.DOUBLESLASHEQUAL,
-    "**" : token.DOUBLESTAR,
-    "**=" : token.DOUBLESTAREQUAL,
-    "==" : token.EQEQUAL,
-    "=" : token.EQUAL,
-    ">" : token.GREATER,
-    ">=" : token.GREATEREQUAL,
-    "{" : token.LBRACE,
-    "}" : token.RBRACE,
-    "<<" : token.LEFTSHIFT,
-    "<<=" : token.LEFTSHIFTEQUAL,
-    "<" : token.LESS,
-    "<=" : token.LESSEQUAL,
-    "(" : token.LPAR,
-    "[" : token.LSQB,
-    "-=" : token.MINEQUAL,
-    "-" : token.MINUS,
-    "!=" : token.NOTEQUAL,
-    "<>" : token.NOTEQUAL,
-    "%" : token.PERCENT,
-    "%=" : token.PERCENTEQUAL,
-    "+" : token.PLUS,
-    "+=" : token.PLUSEQUAL,
-    ")" : token.RBRACE,
-    ">>" : token.RIGHTSHIFT,
-    ">>=" : token.RIGHTSHIFTEQUAL,
-    ")" : token.RPAR,
-    "]" : token.RSQB,
-    ";" : token.SEMI,
-    "/" : token.SLASH,
-    "/=" : token.SLASHEQUAL,
-    "*" : token.STAR,
-    "*=" : token.STAREQUAL,
-    "~" : token.TILDE,
-    "|" : token.VBAR,
-    "|=" : token.VBAREQUAL,
-    "@": token.AT,
-    }
-NT_OFFSET = token.NT_OFFSET    
-
+from pypy.interpreter.pyparser.pysymbol import sym_values
+from pypy.interpreter.pyparser.pytoken import tok_values
 
 
 class SyntaxNode(object):
@@ -103,17 +35,10 @@ class SyntaxNode(object):
         return "<node [%s] at 0x%x>" % (self.name, id(self))
 
     def __str__(self):
-        return "(%s)"  % self.name
+        return "(%s)" % self.name
 
     def visit(self, visitor):
-        """NOT RPYTHON, used only at bootstrap time anyway"""
-        visit_meth = getattr(visitor, "visit_%s" % self.name, None)
-        if visit_meth:
-            return visit_meth(self)
-        # helper function for nodes that have only one subnode:
-        if len(self.nodes) == 1:
-            return self.nodes[0].visit(visitor)
-        raise RuntimeError("Unknown Visitor for %r" % self.name)
+        return visitor.visit_syntaxnode(self)
 
     def expand(self):
         """expand the syntax node to its content,
@@ -123,7 +48,7 @@ class SyntaxNode(object):
 
     def totuple(self, lineno=False ):
         """returns a tuple representation of the syntax tree"""
-        symvalue = SYMBOLS.get( self.name, (0, self.name) )
+        symvalue = sym_values.get( self.name, (0, self.name) )
         l = [ symvalue ]
         l += [node.totuple(lineno) for node in self.nodes]
         return tuple(l)
@@ -134,6 +59,9 @@ class TempSyntaxNode(SyntaxNode):
     def expand(self):
         """expand the syntax node to its content"""
         return self.nodes
+
+    def visit(self, visitor):
+        return visitor.visit_tempsyntaxnode(self)
 
 class TokenNode(SyntaxNode):
     """A token node"""
@@ -155,9 +83,12 @@ class TokenNode(SyntaxNode):
         else:
             return "<%s!>" % (self.name,)
 
+    def visit(self, visitor):
+        return visitor.visit_tokennode(self)
+
     def totuple(self, lineno=False):
         """returns a tuple representation of the syntax tree"""
-        num = TOKEN_MAP.get(self.name, -1)
+        num = tok_values.get(self.name, -1)
         if num == -1:
             print "Unknown", self.name, self.value
         if self.value is not None:

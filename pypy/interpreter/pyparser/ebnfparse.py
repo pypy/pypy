@@ -2,6 +2,8 @@
 from grammar import BaseGrammarBuilder, Alternative, Sequence, Token, \
      KleenStar, GrammarElement, build_first_sets, EmptyToken
 from ebnflexer import GrammarSource
+import pytoken
+import pysymbol
 
 import re
 py_name = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*", re.M)
@@ -32,7 +34,7 @@ TERMINALS = [
 class NameToken(Token):
     """A token that is not a keyword"""
     def __init__(self, keywords=None ):
-        Token.__init__(self, "NAME")
+        Token.__init__(self, pytoken.NAME)
         self.keywords = keywords
 
     def match(self, source, builder, level=0):
@@ -48,10 +50,10 @@ class NameToken(Token):
         """
         ctx = source.context()
         tk = source.next()
-        if tk.name==self.name:
+        if tk.codename==self.codename:
             if tk.value not in self.keywords:
-                ret = builder.token( tk.name, tk.value, source )
-                return self.debug_return( ret, tk.name, tk.value )
+                ret = builder.token( tk.codename, tk.value, source )
+                return self.debug_return( ret, tk.codename, tk.value )
         source.restore( ctx )
         return 0
         
@@ -62,7 +64,7 @@ class NameToken(Token):
             raise RuntimeError("Unexpected token type %r" % other)
         if other is EmptyToken:
             return False
-        if other.name != self.name:
+        if other.codename != self.codename:
             return False
         if other.value in self.keywords:
             return False
@@ -76,20 +78,40 @@ class EBNFVisitor(object):
         self.terminals = {}
         self.current_rule = None
         self.current_subrule = 0
-        self.tokens = {}
+        self.keywords = []
         self.items = []
         self.terminals['NAME'] = NameToken()
 
-    def new_name(self):
+    def new_symbol(self):
         rule_name = ":%s_%s" % (self.current_rule, self.current_subrule)
         self.current_subrule += 1
-        return rule_name
+        symval = pysymbol.add_anon_symbol( rule_name )
+        return symval
 
     def new_item(self, itm):
         self.items.append(itm)
         return itm
-    
-    def visit_grammar(self, node):
+
+    def visit_syntaxnode( self, node ):
+        """NOT RPYTHON, used only at bootstrap time anyway"""
+        name = sym_map[node.name]
+        visit_meth = getattr(self, "handle_%s" % name, None)
+        if visit_meth:
+            return visit_meth(node)
+        else:
+            print "Unknown handler for %s" %name
+        # helper function for nodes that have only one subnode:
+        if len(node.nodes) == 1:
+            return node.nodes[0].visit(visitor)
+        raise RuntimeError("Unknown Visitor for %r" % name)
+
+    def visit_tokennode( self, node ):
+        return self.visit_syntaxnode( node )
+
+    def visit_tempsyntaxnode( self, node ):
+        return self.visit_syntaxnode( node )
+
+    def handle_grammar(self, node):
         for rule in node.nodes:
             rule.visit(self)
         # the rules are registered already
@@ -97,33 +119,33 @@ class EBNFVisitor(object):
         # terminal symbols from non terminals
         for r in self.items:
             for i,a in enumerate(r.args):
-                if a.name in self.rules:
+                if a.codename in self.rules:
                     assert isinstance(a,Token)
-                    r.args[i] = self.rules[a.name]
-                    if a.name in self.terminals:
-                        del self.terminals[a.name]
+                    r.args[i] = self.rules[a.codename]
+                    if a.codename in self.terminals:
+                        del self.terminals[a.codename]
         # XXX .keywords also contains punctuations
-        self.terminals['NAME'].keywords = self.tokens.keys()
+        self.terminals['NAME'].keywords = self.keywords
 
-    def visit_rule(self, node):
+    def handle_rule(self, node):
         symdef = node.nodes[0].value
         self.current_rule = symdef
         self.current_subrule = 0
         alt = node.nodes[1]
         rule = alt.visit(self)
         if not isinstance(rule, Token):
-            rule.name = symdef
-        self.rules[symdef] = rule
+            rule.codename = pysymbol.add_symbol( symdef )
+        self.rules[rule.codename] = rule
         
-    def visit_alternative(self, node):
+    def handle_alternative(self, node):
         items = [node.nodes[0].visit(self)]
         items += node.nodes[1].visit(self)        
-        if len(items) == 1 and items[0].name.startswith(':'):
+        if len(items) == 1 and not items[0].is_root():
             return items[0]
-        alt = Alternative(self.new_name(), items)
+        alt = Alternative(self.new_symbol(), items)
         return self.new_item(alt)
 
-    def visit_sequence( self, node ):
+    def handle_sequence( self, node ):
         """ """
         items = []
         for n in node.nodes:
@@ -131,56 +153,64 @@ class EBNFVisitor(object):
         if len(items)==1:
             return items[0]
         elif len(items)>1:
-            return self.new_item( Sequence( self.new_name(), items) )
+            return self.new_item( Sequence( self.new_symbol(), items) )
         raise SyntaxError("Found empty sequence")
 
-    def visit_sequence_cont( self, node ):
+    def handle_sequence_cont( self, node ):
         """Returns a list of sequences (possibly empty)"""
         return [n.visit(self) for n in node.nodes]
 
-    def visit_seq_cont_list(self, node):
+    def handle_seq_cont_list(self, node):
         return node.nodes[1].visit(self)
     
 
-    def visit_symbol(self, node):
+    def handle_symbol(self, node):
         star_opt = node.nodes[1]
         sym = node.nodes[0].value
         terminal = self.terminals.get( sym )
         if not terminal:
-            terminal = Token( sym )
-            self.terminals[sym] = terminal
+            tokencode = pytoken.tok_values.get( sym )
+            if tokencode is None:
+                tokencode = pysymbol.add_symbol( sym )
+                terminal = Token( tokencode )
+            else:
+                terminal = Token( tokencode )
+                self.terminals[sym] = terminal
 
         return self.repeat( star_opt, terminal )
 
-    def visit_option( self, node ):
+    def handle_option( self, node ):
         rule = node.nodes[1].visit(self)
-        return self.new_item( KleenStar( self.new_name(), 0, 1, rule ) )
+        return self.new_item( KleenStar( self.new_symbol(), 0, 1, rule ) )
 
-    def visit_group( self, node ):
+    def handle_group( self, node ):
         rule = node.nodes[1].visit(self)
         return self.repeat( node.nodes[3], rule )
 
-    def visit_STRING( self, node ):
+    def handle_STRING( self, node ):
         value = node.value
-        tok = self.tokens.get(value)
-        if not tok:
-            if py_punct.match( value ):
-                tok = Token( value )
-            elif py_name.match( value ):
-                tok = Token('NAME', value)
-            else:
+        tokencode = pytoken.tok_punct.get( value )
+        if tokencode is None:
+            if not py_name.match( value ):
                 raise SyntaxError("Unknown STRING value ('%s')" % value )
-            self.tokens[value] = tok
+            # assume a keyword
+            tok = Token( pytoken.NAME, value )
+            if value not in self.keywords:
+                self.keywords.append( value )
+        else:
+            # punctuation
+            tok = Token( tokencode )
         return tok
 
-    def visit_sequence_alt( self, node ):
+    def handle_sequence_alt( self, node ):
         res = node.nodes[0].visit(self)
         assert isinstance( res, GrammarElement )
         return res
 
     def repeat( self, star_opt, myrule ):
+        assert isinstance( myrule, GrammarElement )
         if star_opt.nodes:
-            rule_name = self.new_name()
+            rule_name = self.new_symbol()
             tok = star_opt.nodes[0].nodes[0]
             if tok.value == '+':
                 item = KleenStar(rule_name, _min=1, rule=myrule)
@@ -194,6 +224,22 @@ class EBNFVisitor(object):
         return myrule
 
 rules = None
+
+sym_map = {}
+sym_rmap = {}
+sym_count = 0
+
+def g_add_symbol( name ):
+    global sym_count
+    if name in sym_rmap:
+        return sym_rmap[name]
+    val = sym_count
+    sym_count += 1
+    sym_map[val] = name
+    sym_rmap[name] = val
+    return val
+
+g_add_symbol( 'EOF' )
 
 def grammar_grammar():
     """Builds the grammar for the grammar file
@@ -209,36 +255,37 @@ def grammar_grammar():
       option: '[' alternative ']'
       group: '(' alternative ')' star?    
     """
-    global rules
+    global rules, sym_map
+    S = g_add_symbol
     # star: '*' | '+'
-    star          = Alternative( "star", [Token('*'), Token('+')] )
-    star_opt      = KleenStar  ( "star_opt", 0, 1, rule=star )
+    star          = Alternative( S("star"), [Token(S('*')), Token(S('+'))] )
+    star_opt      = KleenStar  ( S("star_opt"), 0, 1, rule=star )
 
     # rule: SYMBOL ':' alternative
-    symbol        = Sequence(    "symbol", [Token('SYMBOL'), star_opt] )
-    symboldef     = Token(       "SYMDEF" )
-    alternative   = Sequence(    "alternative", [])
-    rule          = Sequence(    "rule", [symboldef, alternative] )
+    symbol        = Sequence(    S("symbol"), [Token(S('SYMBOL')), star_opt] )
+    symboldef     = Token(       S("SYMDEF") )
+    alternative   = Sequence(    S("alternative"), [])
+    rule          = Sequence(    S("rule"), [symboldef, alternative] )
 
     # grammar: rule+
-    grammar       = KleenStar(   "grammar", _min=1, rule=rule )
+    grammar       = KleenStar(   S("grammar"), _min=1, rule=rule )
 
     # alternative: sequence ( '|' sequence )*
-    sequence      = KleenStar(   "sequence", 1 )
-    seq_cont_list = Sequence(    "seq_cont_list", [Token('|'), sequence] )
-    sequence_cont = KleenStar(   "sequence_cont",0, rule=seq_cont_list )
+    sequence      = KleenStar(   S("sequence"), 1 )
+    seq_cont_list = Sequence(    S("seq_cont_list"), [Token(S('|')), sequence] )
+    sequence_cont = KleenStar(   S("sequence_cont"),0, rule=seq_cont_list )
     
     alternative.args = [ sequence, sequence_cont ]
 
     # option: '[' alternative ']'
-    option        = Sequence(    "option", [Token('['), alternative, Token(']')] )
+    option        = Sequence(    S("option"), [Token(S('[')), alternative, Token(S(']'))] )
 
     # group: '(' alternative ')'
-    group         = Sequence(    "group",  [Token('('), alternative, Token(')'), star_opt] )
+    group         = Sequence(    S("group"),  [Token(S('(')), alternative, Token(S(')')), star_opt] )
 
     # sequence: (SYMBOL | STRING | option | group )+
-    string = Token('STRING')
-    alt           = Alternative( "sequence_alt", [symbol, string, option, group] ) 
+    string = Token(S('STRING'))
+    alt           = Alternative( S("sequence_alt"), [symbol, string, option, group] ) 
     sequence.args = [ alt ]
 
 
@@ -253,7 +300,7 @@ def parse_grammar(stream):
 
     stream : file-like object representing the grammar to parse
     """
-    source = GrammarSource(stream.read())
+    source = GrammarSource(stream.read(), sym_rmap)
     rule = grammar_grammar()
     builder = BaseGrammarBuilder()
     result = rule.match(source, builder)

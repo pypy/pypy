@@ -8,13 +8,13 @@ using file_input, single_input and eval_input targets
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter.pyparser.error import ParseError
 from pypy.tool.option import Options
-
 from pythonlexer import Source
+import pysymbol
 import ebnfparse
 import sys
 import os
 import grammar
-import symbol
+
 from codeop import PyCF_DONT_IMPLY_DEDENT
 
 class PythonParser(object):
@@ -37,7 +37,8 @@ class PythonParser(object):
         return self.parse_lines(lines, goal, builder, flags)
 
     def parse_lines(self, lines, goal, builder=None, flags=0):
-        target = self.rules[goal]
+        goalnumber = pysymbol.sym_values[goal]
+        target = self.rules[goalnumber]
         src = Source(lines, flags)
         
         if builder is None:
@@ -71,44 +72,18 @@ def python_grammar(fname):
     grammar.DEBUG = 0
     gram = ebnfparse.parse_grammar( file(fname) )
     grammar.DEBUG = level
-    return PythonParser(gram)
+    parser = PythonParser( gram )
+    return parser
 
 debug_print( "Loading grammar %s" % PYTHON_GRAMMAR )
 PYTHON_PARSER = python_grammar( PYTHON_GRAMMAR )
-_symbols = symbol.sym_name.keys()
-_symbols.sort()
 
-def add_symbol( sym ):
-    if not hasattr(symbol, sym):
-        nextval = _symbols[-1] + 1
-        setattr(symbol, sym, nextval)
-        _symbols.append(nextval)
-        symbol.sym_name[nextval] = sym
-        return nextval
-    return 0
-
-def reload_grammar( version ):
+def reload_grammar(version):
     """helper function to test with pypy different grammars"""
     global PYTHON_GRAMMAR, PYTHON_PARSER, PYPY_VERSION
     PYTHON_GRAMMAR, PYPY_VERSION = get_grammar_file( version )
     debug_print( "Reloading grammar %s" % PYTHON_GRAMMAR )
     PYTHON_PARSER = python_grammar( PYTHON_GRAMMAR )
-    for rule in PYTHON_PARSER.rules:
-        add_symbol( rule )
-    
-
-for rule in PYTHON_PARSER.rules:
-    add_symbol( rule )
-
-
-SYMBOLS = {}
-# copies the numerical mapping between symbol name and symbol value
-# into SYMBOLS
-for k, v in symbol.sym_name.items():
-    SYMBOLS[v] = k
-SYMBOLS['UNKNOWN'] = -1
-
-
 
 def parse_file_input(pyf, gram, builder=None):
     """Parse a python file"""

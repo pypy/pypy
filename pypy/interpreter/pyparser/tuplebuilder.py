@@ -1,7 +1,6 @@
 
 from grammar import BaseGrammarBuilder
-from syntaxtree import TOKEN_MAP # , NT_OFFSET
-from pythonparse import SYMBOLS
+from pytoken import tok_name, tok_rpunct, NEWLINE, INDENT, DEDENT, ENDMARKER
 
 class StackElement:
     """wraps TupleBuilder's tuples"""
@@ -18,7 +17,7 @@ class Terminal(StackElement):
             return self.nodes[0][:-1]
 
 class NonTerminal(StackElement):
-    def __init__(self, num, nodes, rulename=None):
+    def __init__(self, num, nodes):
         """rulename should always be None with regular Python grammar"""
         self.nodes = nodes
         self.num = num
@@ -32,7 +31,7 @@ def expand_nodes(stack_elements):
     """generate a nested tuples from a list of stack elements"""
     expanded = []
     for element in stack_elements:
-        if isinstance(element, NonTerminal) and element.num == -2:
+        if isinstance(element, NonTerminal) and element.num<0:
             expanded.extend(element.nodes)
         else:
             expanded.append(element)
@@ -46,38 +45,19 @@ class TupleBuilder(BaseGrammarBuilder):
         # This attribute is here for convenience
         self.source_encoding = None
         self.lineno = lineno
-        self._unknown = -10
+        self.tuplestack = []
         
-    def _add_rule(self, rulename):
-        SYMBOLS[rulename] = self._unknown
-        self._unknown -= 1
-
     def alternative(self, rule, source):
         # Do nothing, keep rule on top of the stack
         if rule.is_root():
             nodes = expand_nodes( [self.stack[-1]] )
-            if rule.name in SYMBOLS:
-                self.stack[-1] = NonTerminal(SYMBOLS[rule.name], nodes)
-            else:
-                # Using regular CPython's Grammar should not lead here
-                # XXX find how self._unknown is meant to be used
-                self.stack[-1] = NonTerminal(self._unknown, nodes, rule.name)
-                self._add_rule(rule.name)
+            self.stack[-1] = NonTerminal( rule.codename, nodes )
         return True
             
     def sequence(self, rule, source, elts_number):
         """ """
-        if rule.is_root():
-            if rule.name in SYMBOLS:
-                num = SYMBOLS[rule.name]
-                node = [num]
-            else:
-                num = self._unknown
-                node = [num]
-                self._add_rule(rule.name)
-        else:
-            num = -2
-            node = [num]
+        num = rule.codename
+        node = [rule.codename]
         if elts_number > 0:
             sequence_elements = self.stack[-elts_number:]
             nodes = expand_nodes( sequence_elements )
@@ -86,13 +66,12 @@ class TupleBuilder(BaseGrammarBuilder):
             self.stack.append( NonTerminal(num, []) )
         return True
 
-    def token(self, name, value, source):
-        num = TOKEN_MAP.get(name, -1)
+    def token(self, codename, value, source):
         lineno = source.current_lineno()
         if value is None:
-            if name not in ("NEWLINE", "INDENT", "DEDENT", "ENDMARKER"):
-                value = name
+            if codename not in ( NEWLINE, INDENT, DEDENT, ENDMARKER ):
+                value = tok_rpunct.get(codename, "unknown op")
             else:
                 value = ''
-        self.stack.append( Terminal(num, value, lineno) )
+        self.stack.append( Terminal(codename, value, lineno) )
         return True

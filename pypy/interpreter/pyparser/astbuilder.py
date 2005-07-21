@@ -2,6 +2,8 @@
 
 from grammar import BaseGrammarBuilder
 from pypy.interpreter.astcompiler import ast, consts
+import pypy.interpreter.pyparser.pysymbol as sym
+import pypy.interpreter.pyparser.pytoken as tok
 
 ## these tests should be methods of the ast objects
 
@@ -66,15 +68,15 @@ def build_atom( builder, nb ):
     L = get_atoms( builder, nb )
     top = L[0]
     if isinstance(top, TokenObject):
-        if top.name == "(":
+        if top.name == tok.LPAR:
             builder. ast.Tuple(L[1:-1], top.line)
-        elif top.name == "[":
+        elif top.name == tok.LSQB:
             builder.push( ast.List( L[1:-1], top.line) )
-        elif top.name == "{":
+        elif top.name == tok.LBRACE:
             builder.push( ast.Dict( L[1:-1], top.line) )
-        elif top.name == "NAME":
+        elif top.name == tok.NAME:
             builder.push( ast.Name(top.value) )
-        elif top.name == "NUMBER":
+        elif top.name == tok.NUMBER:
             builder.push( ast.Const(eval(top.value)) )
         else:
             raise ValueError, "unexpected tokens (%d): %s" % (nb,[ str(i) for i in L] )
@@ -94,11 +96,11 @@ def build_factor( builder, nb ):
     if len(L) == 1:
         builder.push( L[0] )
     elif len(L) == 2 and isinstance(L[0],TokenObject):
-        if L[0].name == "+":
+        if L[0].name == tok.PLUS:
             builder.push( ast.UnaryAdd( L[1] ) )
-        if L[0].name == "-":
+        if L[0].name == tok.MINUS:
             builder.push( ast.UnarySub( L[1] ) )
-        if L[0].name == "~":
+        if L[0].name == tok.TILDE:
             builder.push( ast.Invert( L[1] ) )
 
 def build_term( builder, nb ):
@@ -108,13 +110,13 @@ def build_term( builder, nb ):
     for i in range(2,l,2):
         right = L[i]
         op = L[i-1].name
-        if op == "*":
+        if op == tok.STAR:
             left = ast.Mul( [ left, right ] )
-        elif op == "/":
+        elif op == tok.SLASH:
             left = ast.Div( [ left, right ] )
-        elif op == "%":
+        elif op == tok.PERCENT:
             left = ast.Mod( [ left, right ] )
-        elif op == "//":
+        elif op == tok.DOUBLESLASH:
             left = ast.FloorDiv( [ left, right ] )
         else:
             raise ValueError, "unexpected token: %s" % L[i-1]
@@ -127,9 +129,9 @@ def build_arith_expr( builder, nb ):
     for i in range(2,l,2):
         right = L[i]
         op = L[i-1].name
-        if op == "+":
+        if op == tok.PLUS:
             left = ast.Add( [ left, right ] )
-        elif op == "-":
+        elif op == tok.MINUS:
             left = ast.Sub( [ left, right ] )
         else:
             raise ValueError, "unexpected token: %s : %s" % L[i-1]
@@ -142,9 +144,9 @@ def build_shift_expr( builder, nb ):
     for i in range(2,l,2):
         right = L[i]
         op = L[i-1].name
-        if op == "<<":
+        if op == tok.LEFTSHIFT:
             left = ast.LeftShift( [ left, right ] )
-        elif op == ">>":
+        elif op == tok.RIGHTSHIFT:
             left = ast.RightShift( [ left, right ] )
         else:
             raise ValueError, "unexpected token: %s : %s" % L[i-1]
@@ -204,7 +206,7 @@ def build_expr_stmt( builder, nb ):
         builder.push( ast.Discard( L[0] ) )
         return
     op = L[1]
-    if op.name == '=':
+    if op.name == tok.EQUAL:
         nodes = []
         for i in range(0,l-2,2):
             lvalue = to_lvalue( L[i], consts.OP_ASSIGN )
@@ -246,23 +248,23 @@ def build_single_input( builder, nb ):
 
 ASTRULES = {
 #    "single_input" : build_single_input,
-    "atom" : build_atom,
-    "power" : build_power,
-    "factor" : build_factor,
-    "term" : build_term,
-    "arith_expr" : build_arith_expr,
-    "shift_expr" : build_shift_expr,
-    "and_expr" : build_and_expr,
-    "xor_expr" : build_xor_expr,
-    "expr" : build_expr,
-    "comparison" : build_comparison,
-    "and_test" : build_and_test,
-    "test" : build_test,
-    "testlist" : build_testlist,
-    "expr_stmt" : build_expr_stmt,
-    "small_stmt" : return_one,
-    "simple_stmt" : build_simple_stmt,
-    "single_input" : build_single_input,
+    sym.atom : build_atom,
+    sym.power : build_power,
+    sym.factor : build_factor,
+    sym.term : build_term,
+    sym.arith_expr : build_arith_expr,
+    sym.shift_expr : build_shift_expr,
+    sym.and_expr : build_and_expr,
+    sym.xor_expr : build_xor_expr,
+    sym.expr : build_expr,
+    sym.comparison : build_comparison,
+    sym.and_test : build_and_test,
+    sym.test : build_test,
+    sym.testlist : build_testlist,
+    sym.expr_stmt : build_expr_stmt,
+    sym.small_stmt : return_one,
+    sym.simple_stmt : build_simple_stmt,
+    sym.single_input : build_single_input,
     }
 
 class RuleObject(ast.Node):
@@ -312,26 +314,26 @@ class AstBuilder(BaseGrammarBuilder):
     def alternative( self, rule, source ):
         # Do nothing, keep rule on top of the stack
         if rule.is_root():
-            print "ALT:",rule.name
-            F = ASTRULES.get(rule.name)
+            print "ALT:", sym.sym_name[rule.codename], rule.codename
+            F = ASTRULES.get(rule.codename)
             if F:
                 F( self, 1 )
         else:
-            self.push_rule( rule.name, 1, source )
+            self.push_rule( rule.codename, 1, source )
         return True
 
     def sequence(self, rule, source, elts_number):
         """ """
         if rule.is_root():
-            print "SEQ:", rule.name
-            F = ASTRULES.get(rule.name)
+            print "SEQ:", sym.sym_name[rule.codename], rule.codename
+            F = ASTRULES.get(rule.codename)
             if F:
                 F( self, elts_number )
         else:
-            self.push_rule( rule.name, elts_number, source )
+            self.push_rule( rule.codename, elts_number, source )
         return True
 
     def token(self, name, value, source):
-        print "TOK:", name, value
+        print "TOK:", tok.tok_name[name], name, value
         self.push_tok( name, value, source )
         return True

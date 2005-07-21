@@ -20,21 +20,7 @@ $Id: pytokenize.py,v 1.3 2003/10/03 16:31:53 jriehl Exp $
 from __future__ import generators
 from pypy.interpreter.pyparser import automata
 
-# ______________________________________________________________________
-# COPIED:
-import token
-__all__ = [x for x in dir(token) if x[0] != '_'] + ["COMMENT", "tokenize",
-           "generate_tokens", "NL"]
-del x
-N_TOKENS = token.N_TOKENS
-tok_name = token.tok_name
-del token
-
-COMMENT = N_TOKENS
-tok_name[COMMENT] = 'COMMENT'
-NL = N_TOKENS + 1
-tok_name[NL] = 'NL'
-N_TOKENS += 2
+__all__ = [ "tokenize", "generate_tokens", ]
 
 # ______________________________________________________________________
 # Automatically generated DFA's (with one or two hand tweeks):

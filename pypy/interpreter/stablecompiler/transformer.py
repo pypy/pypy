@@ -29,8 +29,8 @@ parseFile(path) -> AST
 import pypy.interpreter.pyparser.pythonparse
 from pypy.interpreter.stablecompiler.ast import *
 import parser
-import symbol
-import token
+import pypy.interpreter.pyparser.pysymbol as symbol
+import pypy.interpreter.pyparser.pytoken as token
 import sys
 
 class WalkerError(StandardError):

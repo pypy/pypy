@@ -22,11 +22,12 @@ class GrammarSource(TokenSource):
     SYMBOL: a rule symbol usually appeary right of a SYMDEF
     tokens: '[', ']', '(' ,')', '*', '+', '|'
     """
-    def __init__(self, inpstring ):
+    def __init__(self, inpstring, tokenmap ):
         TokenSource.__init__(self)
         self.input = inpstring
         self.pos = 0
         self._peeked = None
+        self.tokmap = tokenmap
 
     def context(self):
         """returns an opaque context object, used to backtrack
@@ -52,6 +53,7 @@ class GrammarSource(TokenSource):
         # means backtracking more than one token
         # will re-tokenize the stream (but this is the
         # grammar lexer so we don't care really!)
+        T = self.tokmap
         if self._peeked is not None:
             peeked = self._peeked
             self._peeked = None
@@ -64,28 +66,28 @@ class GrammarSource(TokenSource):
             pos = m.end()
             if pos==len(inp):
                 self.pos = pos
-                return Token("EOF", None)
+                return Token(T["EOF"], None)
             m = g_skip.match(inp, pos)
         m = g_symdef.match(inp,pos)
         if m:
             tk = m.group(0)
             self.pos = m.end()
-            return Token('SYMDEF',tk[:-1])
+            return Token(T['SYMDEF'],tk[:-1])
         m = g_tok.match(inp,pos)
         if m:
             tk = m.group(0)
             self.pos = m.end()
-            return Token(tk,tk)
+            return Token(T[tk],tk)
         m = g_string.match(inp,pos)
         if m:
             tk = m.group(0)
             self.pos = m.end()
-            return Token('STRING',tk[1:-1])
+            return Token(T['STRING'],tk[1:-1])
         m = g_symbol.match(inp,pos)
         if m:
             tk = m.group(0)
             self.pos = m.end()
-            return Token('SYMBOL',tk)
+            return Token(T['SYMBOL'],tk)
         raise ValueError("Unknown token at pos=%d context='%s'" %
                          (pos,inp[pos:pos+20]) )
 

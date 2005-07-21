@@ -1,11 +1,11 @@
 __all__ = ["python_parse", "pypy_parse"]
 
 import parser
-import symbol
 
 import pythonparse
 from tuplebuilder import TupleBuilder
 from pypy.interpreter.pyparser.error import ParseError
+from pypy.interpreter.pyparser import pysymbol
 
 PYTHON_PARSER = pythonparse.PYTHON_PARSER
 TARGET_DICT = {
@@ -62,7 +62,7 @@ def parse_result_to_nested_tuples(parse_result, lineno=False):
     source_encoding, stack_element = parse_result
     nested_tuples = stack_element.as_tuple(lineno)
     if source_encoding is not None:
-        return (symbol.encoding_decl, nested_tuples, source_encoding)
+        return (pysymbol.encoding_decl, nested_tuples, source_encoding)
     else:
         return nested_tuples
 
