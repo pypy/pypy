@@ -23,9 +23,10 @@ expressions = [
     "x = a * (1 + c)",
     "f = lambda x: x+1",
     "x, y, z = 1, 2, 3",
+    "x = 'a' 'b' 'c'",
 ]    
-expression_tests = [ 0, 1, 2, 3, 4, 5, 6,7, 8, 9, 10, 11, ] # = range(len(expressions))
-failed_expression_tests = [ 12, 13, 14 ]
+expression_tests = [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] # = range(len(expressions))
+failed_expression_tests = [ 13, 14, 15 ]
 
 comparisons = [
     "a < b",

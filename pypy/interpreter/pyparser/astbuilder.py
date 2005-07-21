@@ -52,15 +52,14 @@ def get_atoms( builder, nb ):
     i = nb
     while i>0:
         obj = builder.pop()
-        if isinstance(obj,RuleObject):
-            i+=obj.count
+        if isinstance(obj, RuleObject):
+            i += obj.count
         else:
             L.append( obj )
         i -= 1
     L.reverse()
     return L
     
-
 def build_single_input( builder, nb ):
     pass
 
@@ -68,16 +67,21 @@ def build_atom( builder, nb ):
     L = get_atoms( builder, nb )
     top = L[0]
     if isinstance(top, TokenObject):
+        print "\t reducing atom (%s) (top.name) = %s" % (nb, tok.name)
         if top.name == tok.LPAR:
-            builder. ast.Tuple(L[1:-1], top.line)
+            builder.push( L[1] )
         elif top.name == tok.LSQB:
-            builder.push( ast.List( L[1:-1], top.line) )
+            builder.push( ast.List( L[1].nodes, top.line) )
         elif top.name == tok.LBRACE:
             builder.push( ast.Dict( L[1:-1], top.line) )
         elif top.name == tok.NAME:
             builder.push( ast.Name(top.value) )
         elif top.name == tok.NUMBER:
             builder.push( ast.Const(eval(top.value)) )
+        elif top.name == tok.STRING:
+            # need to concatenate strings in L
+            # builder.push( ast.Const(eval(top.value)) )
+            assert False, "TODO (String)"
         else:
             raise ValueError, "unexpected tokens (%d): %s" % (nb,[ str(i) for i in L] )
             
@@ -234,17 +238,32 @@ def build_simple_stmt( builder, nb ):
     nodes = []
     for n in range(0,l,2):
         nodes.append(L[n])
-    builder.push( ast.Stmt( nodes ) )
+    builder.push( ast.Stmt(nodes) )
     return
 
 def build_single_input( builder, nb ):
     L = get_atoms( builder, nb )
     l = len(L)
-    if l>=1:
-        builder.push( ast.Module( None, L[0] ) )
+    if l >= 1:
+        builder.push(ast.Module(None, L[0]))
         return
     raise WalkerError("error")
     
+def build_testlist_gexp(builder, nb):
+    L = get_atoms(builder, nb)
+    l = len(L)
+    if l == 1:
+        builder.push(L[0])
+        return
+    items = []
+    if L[1].name == tok.COMMA:
+        for i in range(0, l, 2): # this is L not 1
+            items.append(L[i])
+    else:
+        # genfor
+        assert False, "TODO"
+    builder.push( Tuple( items ) )
+    return
 
 ASTRULES = {
 #    "single_input" : build_single_input,
@@ -265,6 +284,7 @@ ASTRULES = {
     sym.small_stmt : return_one,
     sym.simple_stmt : build_simple_stmt,
     sym.single_input : build_single_input,
+    sym.testlist_gexp : build_testlist_gexp,
     }
 
 class RuleObject(ast.Node):
@@ -276,7 +296,10 @@ class RuleObject(ast.Node):
         self.col = 0  # src.getcol()
 
     def __str__(self):
-        return "<Rule: %s>" % (self.name,)
+        return "<Rule: %s/%d>" % (sym.sym_name[self.name], self.count)
+
+    def __repr__(self):
+        return "<Rule: %s/%d>" % (sym.sym_name[self.name], self.count)
 
 class TokenObject(ast.Node):
     """A simple object used to wrap a rule or token"""
@@ -288,7 +311,14 @@ class TokenObject(ast.Node):
         self.col = 0  # src.getcol()
 
     def __str__(self):
-        return "<Token: %s=%s>" % (self.name, self.value)
+        return "<Token: %s=%s>" % (tok.tok_rpunct.get(self.name,
+                                                      tok.tok_name.get(self.name,str(self.name))),
+                                   self.value)
+    
+    def __repr__(self):
+        return "<Token: %r=%s>" % (tok.tok_rpunct.get(self.name,
+                                                      tok.tok_name.get(self.name,str(self.name))),
+                                   self.value)
     
 class AstBuilder(BaseGrammarBuilder):
     """A builder that directly produce the AST"""
@@ -301,9 +331,10 @@ class AstBuilder(BaseGrammarBuilder):
         return self.rule_stack.pop(-1)
 
     def push(self, obj):
+        self.rule_stack.append( obj )
         if not isinstance(obj, RuleObject) and not isinstance(obj, TokenObject):
             print "Pushed:", str(obj), len(self.rule_stack)
-        self.rule_stack.append( obj )
+        # print "\t", self.rule_stack
 
     def push_tok(self, name, value, src ):
         self.push( TokenObject( name, value, src ) )
@@ -314,9 +345,10 @@ class AstBuilder(BaseGrammarBuilder):
     def alternative( self, rule, source ):
         # Do nothing, keep rule on top of the stack
         if rule.is_root():
-            print "ALT:", sym.sym_name[rule.codename], rule.codename
+            print "ALT:", sym.sym_name[rule.codename], self.rule_stack
             F = ASTRULES.get(rule.codename)
             if F:
+                # print "REDUCING ALTERNATIVE %s" % sym.sym_name[rule.codename]
                 F( self, 1 )
         else:
             self.push_rule( rule.codename, 1, source )
@@ -325,10 +357,13 @@ class AstBuilder(BaseGrammarBuilder):
     def sequence(self, rule, source, elts_number):
         """ """
         if rule.is_root():
-            print "SEQ:", sym.sym_name[rule.codename], rule.codename
+            print "SEQ:", sym.sym_name[rule.codename]
             F = ASTRULES.get(rule.codename)
             if F:
+                # print "REDUCING SEQUENCE %s" % sym.sym_name[rule.codename]
                 F( self, elts_number )
+            else:
+                self.push_rule( rule.codename, elts_number, source )
         else:
             self.push_rule( rule.codename, elts_number, source )
         return True
