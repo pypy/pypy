@@ -41,6 +41,7 @@ import sys
 codec_search_path = []
 codec_search_cache = {}
 codec_error_registry = {}
+codec_need_encodings = [True]
 
 def codec_register( search_function ):
     """register(search_function)
@@ -63,10 +64,11 @@ def codec_lookup(encoding):
     
     result = codec_search_cache.get(encoding,None)
     if not result:
-        if len(codec_search_path) == 0:
+        if codec_need_encodings:
             import encodings
             if len(codec_search_path) == 0:
                 raise LookupError("no codec search functions registered: can't find encoding")
+            del codec_need_encodings[:]
         if not isinstance(encoding,str):
             raise TypeError("Encoding must be a string")
         for search in codec_search_path:
