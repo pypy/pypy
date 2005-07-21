@@ -229,6 +229,9 @@ def math_floor(x):
 def math_frexp(x):
     return SomeTuple((SomeFloat(), SomeInteger()))
 
+def math_modf(x):
+    return SomeTuple((SomeFloat(), SomeFloat()))
+
 def math_any(*args):
     return SomeFloat()
 
@@ -295,6 +298,7 @@ BUILTIN_ANALYZERS[math.floor] = math_floor
 BUILTIN_ANALYZERS[math.exp] = math_any
 BUILTIN_ANALYZERS[math.ldexp] = math_any
 BUILTIN_ANALYZERS[math.frexp] = math_frexp
+BUILTIN_ANALYZERS[math.modf] = math_modf
 BUILTIN_ANALYZERS[sys.getrefcount] = count
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 import unicodedata

@@ -235,3 +235,31 @@ def test_ovfcheck():
         pass
     else:
         assert False    
+
+def test_ovfcheck_float_to_int():
+    assert ovfcheck_float_to_int(1.0) == 1
+    assert ovfcheck_float_to_int(0.0) == 0
+    assert ovfcheck_float_to_int(13.0) == 13
+    assert ovfcheck_float_to_int(-1.0) == -1
+    assert ovfcheck_float_to_int(-13.0) == -13
+    assert ovfcheck_float_to_int(float(sys.maxint-1)) == sys.maxint-1
+    assert ovfcheck_float_to_int(float(sys.maxint)) == sys.maxint
+    assert ovfcheck_float_to_int(float(-sys.maxint)) == -sys.maxint
+    assert ovfcheck_float_to_int(float(-sys.maxint-1)) == -sys.maxint-1
+
+    try:
+        ovfcheck_float_to_int(float(-sys.maxint-1)-1)
+    except OverflowError:
+        pass
+    else:
+        assert False
+
+    try:
+        ovfcheck_float_to_int(float(sys.maxint)+1)
+    except OverflowError:
+        pass
+    else:
+        assert False
+
+
+

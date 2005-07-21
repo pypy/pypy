@@ -2,7 +2,7 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rpython.rarithmetic import r_uint, ovfcheck
+from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_float_to_int
 
 # XXX factor more functions out of stringobject.py.
 # This module is independent from PyPy.
@@ -345,7 +345,7 @@ def string_to_float(s):
     except (ParseStringOverflowError, OverflowError):
         fe = string_to_float(exponent) + dexp
         try:
-            e = ovfcheck(int(fe))
+            e = ovfcheck_float_to_int(fe)
         except OverflowError:
             # 4) check the exponent for overflow and truncate to +-400.
             if exponent[0] == '-':

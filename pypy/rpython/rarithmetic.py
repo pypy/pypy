@@ -24,6 +24,7 @@ mark where overflow checking is required.
 
 
 """
+import math
 
 class r_int(int):
     """ fake integer implementation in order to make sure that
@@ -189,6 +190,16 @@ def _local_ovfcheck(r):
 
 def ovfcheck_lshift(a, b):
     return _local_ovfcheck(int(long(a) << b))
+
+FL_MAXINT = float(LONG_TEST-1)
+FL_MININT = float(-LONG_TEST)
+
+def ovfcheck_float_to_int(x):
+    _, intp = math.modf(x)
+    if FL_MININT <= intp <= FL_MAXINT:
+        return int(intp)
+    raise OverflowError
+
 
 def _widen(self, other, value):
     """
