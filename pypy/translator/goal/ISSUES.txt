@@ -4,17 +4,292 @@ Known RTyper issues
 Let's list and update here the issues that will show up, or have shown up
 already sometime ago, while running translate_pypy::
 
-  * FlotRepr abs
+  * how to implement the three overrides of translator/ann_override.py ?
 
-  * slice(SomeObject, SomeObject, SomeObject)
+  * current list of RTyper problems:
+
+    TyperError-1: (pypy.objspace.std.typeobject:unwrap)
+    don't know about built-in function <built-in function hasattr>
+    .. block@-1 EH with 2 exits(v701741)
+    .. v701737 = simple_call((builtin_function_or_method hasattr), v701728, ('fakedcpytype'))
+
+    TyperError-2: (pypy.objspace.std.listsort:lt)
+    unimplemented operation: 'lt' on (<InstanceRepr for pypy.interpreter.baseobjspace.W_Root>, <InstanceRepr for pypy.interpreter.baseobjspace.W_Root>)
+    .. block@-1 with 1 exits
+    .. v795189 = lt(a_795178, b_795179)
+
+    TyperError-3: (pypy.module.sys.vm:getrefcount)
+    don't know about built-in function <built-in function getrefcount>
+    .. block@-1 with 1 exits
+    .. v412138 = simple_call((builtin_function_or_method getrefcount), w_obj_412119)
+
+    TyperError-4: (pypy.objspace.std.listobject:unwrap)
+    don't know how to convert from <PyObjRepr * PyObject> to <BuiltinMethodRepr * PyObject>
+    .. block@-1 with 1 exits
+    .. v701496 = getattr(v701490, ('append'))
+
+    TyperError-5: (pypy.objspace.std.objspace:wrap__object)
+    don't know how to convert from <PyObjRepr * PyObject> to <InstanceRepr for pypy.interpreter.baseobjspace.BaseWrappable>
+    .. block@-1 with 2 exits(v733701)
+    .. link from block@-1 to block@-1
+
+    TyperError-6: (pypy.objspace.std.sliceobject:unwrap)
+    don't know about built-in function <type 'slice'>
+    .. block@-1 with 1 exits
+    .. v702025 = simple_call((type slice), v701937, v701973, v702012)
+
+    TyperError-7: (pypy.objspace.std.fake:fake__new__)
+    don't know how to convert from <PyObjRepr * PyObject> to <BuiltinMethodRepr * PyObject>
+    .. block@9 with 1 exits
+    .. v521562 = getattr(v521553, ('append'))
+
+    TyperError-8: (pypy.objspace.std.fake:fake__new__)
+    missing PyObjRepr.rtype_method_append
+    .. block@44 with 1 exits
+    .. v521685 = simple_call(_1_521602, v521650)
+
+    TyperError-9: (pypy.objspace.std.objspace:wrap__object)
+    <PyObjRepr * PyObject> is not iterable
+    .. block@533 with 1 exits
+    .. v733768 = iter(x_733662)
+
+    TyperError-10: (pypy.objspace.std.objspace:wrap__object)
+    no list() support for <PyObjRepr * PyObject>
+    .. block@446 with 1 exits
+    .. v733690 = simple_call((type list), x_733593)
+
+    TyperError-11: (pypy.module.__builtin__.compiling:compile)
+    call_specialcase: unknown tag override:cpy_compile
+    .. block@161 with 1 exits
+    .. v549464 = call_specialcase(v549422, str__549335, filename_549331, mode_549332, flags_549333)
+
+    TyperError-12: (pypy.module.__builtin__.importing:load_part)
+    don't know about built-in function <function isdir at 0x401d3224>
+    .. block@201 with 2 exits(v769301)
+    .. v769270 = simple_call((function isdir), v769233)
+
+    TyperError-13: (pypy.objspace.std.longobject:_FromDouble)
+    don't know about built-in function <built-in function ldexp>
+    .. block@245 with 1 exits
+    .. v677356 = simple_call((builtin_function_or_method ldexp), v677334, (15))
+
+    TyperError-14: (pypy.objspace.std.objspace:wrap__object)
+    call_specialcase: unknown tag override:fake_object
+    .. block@870 with 1 exits
+    .. v734154 = call_specialcase((function fake_object), v734137, v734138)
+
+    TyperError-15: (pypy.objspace.std.objspace:wrap__object)
+    <PyObjRepr * PyObject> is not iterable
+    .. block@-1 with 1 exits
+    .. 'block-entry'
+
+    TyperError-16: (pypy.objspace.std.objspace:wrap__object)
+    call_specialcase: unknown tag override:wrap_exception_cls
+    .. block@811 with 2 exits(v734217)
+    .. v734191 = call_specialcase(v734159, x_734142)
+
+    TyperError-17: (pypy.objspace.std.longobject:_k_mul)
+    unimplemented operation: 'setitem' on (<ListRepr * GcStruct list { items: * GcArray of Unsigned  }>, <SliceRepr * GcStruct slice { start: Signed, stop: Signed }>)
+    .. block@546 with 2 exits(v368685)
+    .. v368346 = setitem(v368281, v368345, v368259)
+
+    TyperError-18: (pypy.objspace.std.longobject:longval)
+    don't know about built-in function <type 'long'>
+    .. block@50 with 1 exits
+    .. v723409 = simple_call((type long), d_723372)
+
+    TyperError-19: (pypy.objspace.std.longobject:_FromDouble)
+    don't know about built-in function <built-in function ldexp>
+    .. block@143 with 1 exits
+    .. v677171 = simple_call((builtin_function_or_method ldexp), frac_676983, v677155)
+
+    TyperError-20: (pypy.objspace.std.tupleobject:unwrap)
+    don't know how to convert from <PyObjRepr * PyObject> to <BuiltinMethodRepr * PyObject>
+    .. block@-1 with 1 exits
+    .. v702406 = getattr(v702400, ('append'))
+
+    TyperError-21: (pypy.objspace.std.tupleobject:unwrap)
+    don't know about built-in function <type 'tuple'>
+    .. block@66 with 1 exits
+    .. v702466 = simple_call((type tuple), v702461)
+
+    TyperError-22: (pypy.objspace.std.longobject:_k_mul)
+    unimplemented operation: 'setitem' on (<ListRepr * GcStruct list { items: * GcArray of Unsigned  }>, <SliceRepr * GcStruct slice { start: Signed, stop: Signed }>)
+    .. block@435 with 2 exits(v368115)
+    .. v368040 = setitem(v367904, v368039, v367883)
+
+    TyperError-23: (pypy.objspace.std.objspace:unwrap)
+    unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, <InstanceRepr for pypy.interpreter.baseobjspace.W_Root>)
+    .. block@63 with 1 exits
+    .. v586013 = mod(('cannot unwrap: %r'), v586007)
+
+    TyperError-24: (pypy.module.unicodedata.unicodedb:bidirectional)
+    non-constant tuple index
+    .. block@-1 EH with 1 exits
+    .. v703906 = getitem((('\x04\x04\x04\x04\x...00\x00')), v703902)
+
+    TyperError-25: (pypy.objspace.std.unicodeobject:unwrap)
+    don't know how to convert from <ListRepr * GcStruct list { items: * GcArray of UniChar  }> to <PyObjRepr * PyObject>
+    .. block@-1 with 1 exits
+    .. v701468 = simple_call((builtin_function_or_method join), v701459)
+
+    TyperError-26: (pypy.module.__builtin__.importing:try_import_mod)
+    don't know about built-in function <function exists at 0x401d31ec>
+    .. block@-1 with 2 exits(v799443)
+    .. v799427 = simple_call((function exists), f_799397)
+
+    TyperError-27: (pypy.objspace.std.fake:fake__new__)
+    don't know about built-in function <built-in function apply>
+    .. block@145 with 1 exits
+    .. v643239 = simple_call((builtin_function_or_method apply), (builtin_function_or_method __new__), v643211, v643212)
+
+    TyperError-28: (pypy.objspace.std.fake:fake__new__)
+    don't know about built-in function <built-in function apply>
+    .. block@145 with 1 exits
+    .. v521832 = simple_call((builtin_function_or_method apply), (builtin_function_or_method __new__), v521804, v521805)
+
+    TyperError-29: (pypy.objspace.std.listobject:unwrap)
+    no list() support for <PyObjRepr * PyObject>
+    .. block@73 with 1 exits
+    .. v701590 = simple_call((type list), v701585)
+
+    TyperError-30: (pypy.interpreter.executioncontext:__init__)
+    cannot create non-StrDicts, got <EmptyDictRepr Void>
+    .. block@-1 with 1 exits
+    .. v371306 = newdict()
+
+    TyperError-31: (pypy.objspace.std.objspace:wrap__object)
+    don't know how to convert from <PyObjRepr * PyObject> to <InstanceRepr for pypy.interpreter.error.OperationError>
+    .. block@-1 with 2 exits(v733237)
+    .. link from block@-1 to block@-1
+
+    TyperError-32: (pypy.objspace.std.objspace:wrap__object)
+    <PyObjRepr * PyObject> is not iterable
+    .. block@-1 with 1 exits
+    .. 'block-entry'
+
+    TyperError-33: (pypy.objspace.std.fake:fake__new__)
+    missing PyObjRepr.rtype_method_append
+    .. block@44 with 1 exits
+    .. v643092 = simple_call(_1_643009, v643057)
+
+    TyperError-34: (pypy.objspace.std.objspace:wrap__object)
+    don't know how to convert from <PyObjRepr * PyObject> to <InstanceRepr for pypy.objspace.std.model.W_Object>
+    .. block@-1 with 2 exits(v733214)
+    .. link from block@-1 to block@-1
+
+    TyperError-35: (pypy.objspace.std.objspace:wrap__object)
+    don't know how to convert from <PyObjRepr * PyObject> to <ClassRepr for __builtin__.object>
+    .. block@-1 with 2 exits(v734039)
+    .. link from block@-1 to block@-1
+
+    TyperError-36: (pypy.objspace.std.objspace:wrap__object)
+    no unichr() support for <PyObjRepr * PyObject>
+    .. block@265 with 1 exits
+    .. v733599 = simple_call((builtin_function_or_method unichr), v733569)
+
+    TyperError-37: (pypy.objspace.std.longobject:_AsDouble)
+    don't know about built-in function <built-in function ldexp>
+    .. block@53 with 1 exits
+    .. v628723 = simple_call((builtin_function_or_method ldexp), v628707, v628711)
+
+    TyperError-38: (pypy.objspace.std.longobject:_x_divrem)
+    comparing a signed and an unsigned number
+    .. block@709 with 2 exits(v742285)
+    .. v742180 = eq(v742103, (-1))
+
+    TyperError-39: (pypy.module.unicodedata.unicodedb:category)
+    non-constant tuple index
+    .. block@-1 EH with 1 exits
+    .. v655549 = getitem((('\x00\x00\x00\x00\x...02\x02')), v655545)
+
+    TyperError-40: (pypy.interpreter.pyframe:setfastscope)
+    unimplemented operation: 'setitem' on (<ListRepr * GcStruct list { items: * GcArray of * GcStruct W_Root { super: GcStruct object { typeptr: * Struct object_vtable { parenttypeptr: * Struct object_vtable { ... }, rtti: * RuntimeTypeInfo (opaque), name: * Array of Char , instantiate: * Func (  ) -> * GcStruct object { ... } } } }  }>, <SliceRepr * GcStruct slice { start: Signed, stop: Signed }>)
+    .. block@47 with 1 exits
+    .. v31663 = setitem(v31641, v31662, scope_w_31634)
+
+    TyperError-41: (pypy.objspace.std.objspace:unwrap)
+    don't know how to convert from <InstanceRepr for pypy.interpreter.baseobjspace.W_Root> to <PyObjRepr * PyObject>
+    .. block@-1 EH with 2 exits(v585990)
+    .. link from block@-1 EH to codeless block
+
+    TyperError-42: (pypy.objspace.std.longobject:_FromDouble)
+    don't know about built-in function <built-in function frexp>
+    .. block@89 with 1 exits
+    .. v676918 = simple_call((builtin_function_or_method frexp), v676907)
+
+    TyperError-43: (pypy.objspace.std.objspace:wrap__object)
+    <PyObjRepr * PyObject> is not iterable
+    .. block@466 with 2 exits(last_exception)
+    .. 'block-entry'
+
+    TyperError-44: (pypy.objspace.std.fake:fake__new__)
+    don't know how to convert from <PyObjRepr * PyObject> to <BuiltinMethodRepr * PyObject>
+    .. block@9 with 1 exits
+    .. v642969 = getattr(v642960, ('append'))
+
+    TyperError-45: (pypy.objspace.std.fake:setfastscope)
+    ll_str unsupported for: <PyObjRepr * PyObject>
+    .. block@118 with 1 exits
+    .. v469272 = mod(('calling %s: %s'), v469261)
+
+    TyperError-46: (pypy.objspace.std.longobject:_long_true_divide)
+    don't know about built-in function <built-in function ldexp>
+    .. block@183 with 1 exits
+    .. v437078 = simple_call((builtin_function_or_method ldexp), v437014, v437038)
+
+    TyperError-47: (pypy.objspace.std.floatobject:abs__Float)
+    unimplemented operation: 'abs' on <FloatRepr Float>
+    .. block@-1 EH with 1 exits
+    .. v588581 = abs(v588570)
+
+    TyperError-48: (pypy.objspace.std.tupleobject:unwrap)
+    missing PyObjRepr.rtype_method_append
+    .. block@38 with 1 exits
+    .. v702495 = simple_call(_1_702450, v702479)
+
+    TyperError-49: (pypy.objspace.std.unicodeobject:unicode_zfill__Unicode_ANY)
+    cannot make repr of <SomeUnicodeCodePoint(): SomePBC(const=None)>
+    .. block@185 with 2 exits(v550361)
+    .. v550336 = contains(((u'+', u'-')), v550296)
+
+    TyperError-50: (pypy.objspace.std.listobject:unwrap)
+    missing PyObjRepr.rtype_method_append
+    .. block@45 with 1 exits
+    .. v701619 = simple_call(_1_701574, v701603)
+
+    TyperError-51: (pypy.objspace.std.fake:run)
+    don't know about built-in function <built-in function apply>
+    .. block@62 with 1 exits
+    .. v469642 = simple_call((builtin_function_or_method apply), v469624, v469625, v469626)
+
+    TyperError-52: (pypy.objspace.std.objspace:wrap__object)
+    <PyObjRepr * PyObject> is not iterable
+    .. block@547 with 2 exits(last_exception)
+    .. 'block-entry'
+
+    TyperError-53: (pypy.objspace.std.floatobject:hash__Float)
+    unimplemented operation: 'hash' on <FloatRepr Float>
+    .. block@-1 with 1 exits
+    .. v545132 = hash(v545121)
+
+    TyperError-54: (pypy.objspace.std.objspace:wrap__object)
+    don't know how to convert from <ClassRepr for __builtin__.object> to <PyObjRepr * PyObject>
+    .. block@-1 with 2 exits(v734102)
+    .. link from block@-1 to block@870
+
+    TyperError-55: (pypy.objspace.std.unicodeobject:repr__Unicode)
+    don't know how to convert from <ListRepr * GcStruct list { items: * GcArray of UniChar  }> to <PyObjRepr * PyObject>
+    .. block@-1 with 1 exits
+    .. v642230 = simple_call((builtin_function_or_method join), v642219)
 
   * the PBCReprs generally lack a convert_from_to() to convert from a small PBC
-    set to a larger one.
-
-  * how to implement the three overrides of translator/ann_override.py ?
+    set to a larger one. (at least as for what is triggered by the PyPy codebase
+    this is implemented)
 
   * the pypy trunk is still not annotable:
      - see issue92 about parser typing problems
+     progress has been made on this
 
 How to work in parallel:
 There is an environment variable to be set with your personal random seed.
