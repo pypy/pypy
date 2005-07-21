@@ -3,15 +3,59 @@
 
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.gateway import interp2app, applevel
-from pypy.interpreter.error import OperationError 
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, GetSetProperty
-from pypy.interpreter.pycode import PyCode 
-from pypy.interpreter.pyparser.syntaxtree import SyntaxNode
+from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.pyparser.syntaxtree import SyntaxNode, AbstractSyntaxVisitor
 from pypy.interpreter.pyparser.pythonutil import PYTHON_PARSER, ParseError
-from pypy.interpreter.pyparser import grammar
+from pypy.interpreter.pyparser import grammar, pysymbol, pytoken
 
 __all__ = [ "ASTType", "STType", "suite", "expr" ]
+
+
+class SyntaxToTupleVisitor(AbstractSyntaxVisitor):
+    def __init__(self, space, line_info):
+        self.space = space
+        self.line_info = line_info
+        self.tuple_stack_w = []
+
+    def result( self ):
+        return self.tuple_stack_w[-1]
+
+    def visit_syntaxnode( self, node ):
+        space = self.space
+        # visiting in depth first order
+        for n in node.nodes:
+            n.visit(self)
+        n = len(node.nodes)
+        l = [ space.wrap( node.name ) ] + self.tuple_stack_w[-n:]
+        del self.tuple_stack_w[-n:]
+        self.tuple_stack_w.append( space.newtuple( l ) )
+
+    def visit_tempsyntaxnode( self, node ):
+        assert False, "Should not come here"
+
+    def visit_tokennode( self, node ):
+        space = self.space
+        num = node.name
+        lineno = node.lineno
+        if node.value is not None:
+            val = node.value
+        else:
+            if num not in ( pytoken.NEWLINE, pytoken.INDENT,
+                            pytoken.DEDENT, pytoken.ENDMARKER ):
+                val = pytoken.tok_rpunct[num]
+            else:
+                val = node.value or ''
+        if self.line_info:
+            self.tuple_stack_w.append( space.newtuple( [space.wrap(num),
+                                                        space.wrap(val),
+                                                        space.wrap(lineno)]))
+        else:
+            self.tuple_stack_w.append( space.newtuple( [space.wrap(num),
+                                                        space.wrap(val)]))
+
 
 class STType (Wrappable):
     """Class STType
@@ -21,73 +65,70 @@ class STType (Wrappable):
         Wrapper for parse tree data returned by parse_python_source.
         This encapsulate the syntaxnode at the head of the syntax tree
         """
-        self.space = space 
+        self.space = space
         self.node = syntaxnode
 
-    def totuple (self, line_info = False ):
+    def descr_totuple(self, line_info = True):
         """STType.totuple()
         Convert the ST object into a tuple representation.
         """
-        # lineinfo is ignored for now
-        return self.node.totuple( line_info )
+        visitor = SyntaxToTupleVisitor(self.space, line_info )
+        self.node.visit( visitor )
+        return visitor.result()
 
-    def descr_totuple(self, line_info = False): 
-        return self.space.wrap(self.totuple(line_info))
-       
     descr_totuple.unwrap_spec=['self', int]
 
-    def tolist (self, line_info = False):
+    def tolist(self, line_info = True):
         """STType.tolist()
         Convert the ST object into a list representation.
         """
         return self.node.tolist( line_info )
 
-    def isexpr (self):
+    def isexpr(self):
         """STType.isexpr()
         Returns true if the root node in the syntax tree is an expr node,
         false otherwise.
         """
-        return self.node.name == "eval_input"
+        return self.node.name == pysymbol.eval_input
 
-    def issuite (self):
+    def issuite(self):
         """STType.issuite()
         Returns true if the root node in the syntax tree is a suite node,
         false otherwise.
         """
-        return self.node.name == "file_input"
+        return self.node.name == pysymbol.file_input
 
-    def descr_compile (self, w_filename = "<syntax_tree>"):
+    def descr_compile(self, w_filename = "<syntax_tree>"):
         """STType.compile()
         """
         # We use the compiler module for that
         space = self.space
-        tup = self.totuple(line_info=1)
-        w_tup = space.wrap(tup)
+        w_tup = self.descr_totuple(line_info=True)
         w_compileAST = mycompile(space, w_tup, w_filename)
-        if self.isexpr(): 
+        if self.isexpr():
             return exprcompile(space, w_compileAST)
-        else: 
+        else:
             return modcompile(space, w_compileAST)
 
 ASTType = STType
 
-app = applevel(""" 
-    def mycompile(tup, filename): 
-        import compiler 
+app = applevel("""
+    def mycompile(tup, filename):
+        import compiler
         transformer = compiler.transformer.Transformer()
-        compileAST = transformer.compile_node(tup) 
+        compileAST = transformer.compile_node(tup)
         compiler.misc.set_filename(filename, compileAST)
-        return compileAST 
+        return compileAST
 
-    def exprcompile(compileAST): 
+    def exprcompile(compileAST):
         import compiler
         gen = compiler.pycodegen.ExpressionCodeGenerator(compileAST)
         return gen.getCode()
 
-    def modcompile(compileAST): 
+    def modcompile(compileAST):
         import compiler
         gen = compiler.pycodegen.ModuleCodeGenerator(compileAST)
-        return gen.getCode() 
+        return gen.getCode()
 """, filename=__file__)
 
 mycompile = app.interphook("mycompile")
@@ -111,14 +152,14 @@ def parse_python_source(space, source, goal):
 def suite( space, source ):
     # make the annotator life easier (don't use str.splitlines())
     syntaxtree = parse_python_source( space, source, "file_input" )
-    return space.wrap( STType(space, syntaxtree) )    
+    return space.wrap( STType(space, syntaxtree) )
 
 suite.unwrap_spec = [ObjSpace, str]
 
 def expr( space, source ):
     # make the annotator life easier (don't use str.splitlines())
     syntaxtree = parse_python_source( space, source, "eval_input" )
-    return space.wrap( STType(space, syntaxtree) )    
+    return space.wrap( STType(space, syntaxtree) )
 
 expr.unwrap_spec = [ObjSpace, str]
 

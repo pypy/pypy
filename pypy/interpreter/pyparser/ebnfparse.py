@@ -2,6 +2,7 @@
 from grammar import BaseGrammarBuilder, Alternative, Sequence, Token, \
      KleenStar, GrammarElement, build_first_sets, EmptyToken
 from ebnflexer import GrammarSource
+from syntaxtree import AbstractSyntaxVisitor
 import pytoken
 import pysymbol
 
@@ -71,7 +72,7 @@ class NameToken(Token):
         return True
 
 
-class EBNFVisitor(object):
+class EBNFVisitor(AbstractSyntaxVisitor):
     
     def __init__(self):
         self.rules = {}

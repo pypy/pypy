@@ -2,13 +2,22 @@
 from pypy.interpreter.pyparser.pysymbol import sym_values
 from pypy.interpreter.pyparser.pytoken import tok_values
 
+class AbstractSyntaxVisitor(object):
+    def visit_syntaxnode( self, node ):
+        pass
+
+    def visit_tempsyntaxnode( self, node ):
+        pass
+
+    def visit_tokennode( self, node ):
+        pass
 
 class SyntaxNode(object):
     """A syntax node"""
     def __init__(self, name, source, args):
         self.name = name
         self.nodes = args
-        self.lineno = source.current_line()
+        self.lineno = source.current_lineno()
         
     def dumptree(self, treenodes, indent):
         """helper function used to dump the syntax tree"""
@@ -38,6 +47,7 @@ class SyntaxNode(object):
         return "(%s)" % self.name
 
     def visit(self, visitor):
+        assert isinstance(visitor, AbstractSyntaxVisitor) 
         return visitor.visit_syntaxnode(self)
 
     def expand(self):
@@ -61,6 +71,7 @@ class TempSyntaxNode(SyntaxNode):
         return self.nodes
 
     def visit(self, visitor):
+        assert isinstance(visitor, AbstractSyntaxVisitor) 
         return visitor.visit_tempsyntaxnode(self)
 
 class TokenNode(SyntaxNode):
@@ -84,6 +95,7 @@ class TokenNode(SyntaxNode):
             return "<%s!>" % (self.name,)
 
     def visit(self, visitor):
+        assert isinstance(visitor, AbstractSyntaxVisitor) 
         return visitor.visit_tokennode(self)
 
     def totuple(self, lineno=False):

@@ -26,8 +26,10 @@ class GrammarSource(TokenSource):
         TokenSource.__init__(self)
         self.input = inpstring
         self.pos = 0
+        self.begin = 0
         self._peeked = None
         self.tokmap = tokenmap
+        self.current_line = 1
 
     def context(self):
         """returns an opaque context object, used to backtrack
@@ -47,6 +49,13 @@ class GrammarSource(TokenSource):
         """restore the context provided by context()"""
         self.pos, self._peeked = ctx
 
+    def current_line(self):
+        end = self.input.find("\n",self.pos)
+        return self.input[self.begin:self.pos]
+
+    def current_lineno(self):
+        return self.current_line
+
     def next(self):
         """returns the next token"""
         # We only support 1-lookahead which
@@ -63,6 +72,7 @@ class GrammarSource(TokenSource):
         inp = self.input
         m = g_skip.match(inp, pos)
         while m and pos!=m.end():
+            self.current_line+=m.group().count("\n")
             pos = m.end()
             if pos==len(inp):
                 self.pos = pos
@@ -71,6 +81,7 @@ class GrammarSource(TokenSource):
         m = g_symdef.match(inp,pos)
         if m:
             tk = m.group(0)
+            self.begin = self.pos
             self.pos = m.end()
             return Token(T['SYMDEF'],tk[:-1])
         m = g_tok.match(inp,pos)

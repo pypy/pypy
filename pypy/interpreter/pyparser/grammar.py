@@ -40,6 +40,10 @@ class TokenSource(object):
         return -1
 
     def current_line(self):
+        """Returns the current line"""
+        return ""
+
+    def current_lineno(self):
         """Returns the current line number"""
         return 0
 
