@@ -20,7 +20,7 @@ class SyntaxToTupleVisitor(AbstractSyntaxVisitor):
         self.line_info = line_info
         self.tuple_stack_w = []
 
-    def result( self ):
+    def w_result( self ):
         return self.tuple_stack_w[-1]
 
     def visit_syntaxnode( self, node ):
@@ -74,7 +74,7 @@ class STType (Wrappable):
         """
         visitor = SyntaxToTupleVisitor(self.space, line_info )
         self.node.visit( visitor )
-        return visitor.result()
+        return visitor.w_result()
 
     descr_totuple.unwrap_spec=['self', int]
 
@@ -165,7 +165,6 @@ expr.unwrap_spec = [ObjSpace, str]
 
 def ast2tuple(space, node, line_info=0):
     """Quick dummy implementation of parser.ast2tuple(tree) function"""
-    tuples = node.totuple(line_info)
-    return space.wrap(tuples)
+    return node.descr_totuple( line_info )
 
 ast2tuple.unwrap_spec = [ObjSpace, STType, int]
