@@ -571,12 +571,16 @@ class KeyContainer(baseobjspace.W_Root):
         self.w_key = w_key
         self.w_item = w_item
 
+# NOTE: all the subclasses of TimSort should inherit from a common subclass,
+#       so make sure that only SimpleSort inherits directly from TimSort.
+#       This is necessary to hide the parent method TimSort.lt() from the
+#       annotator.
 class SimpleSort(TimSort):
     def lt(self, a, b):
         space = self.space
         return space.is_true(space.lt(a, b))
 
-class CustomCompareSort(TimSort):
+class CustomCompareSort(SimpleSort):
     def lt(self, a, b):
         space = self.space
         w_cmp = self.w_cmp
@@ -590,7 +594,7 @@ class CustomCompareSort(TimSort):
             raise
         return result < 0
 
-class CustomKeySort(TimSort):
+class CustomKeySort(SimpleSort):
     def lt(self, a, b):
         assert isinstance(a, KeyContainer)
         assert isinstance(b, KeyContainer)

@@ -13,11 +13,6 @@ already sometime ago, while running translate_pypy::
     .. block@-1 EH with 2 exits(v701741)
     .. v701737 = simple_call((builtin_function_or_method hasattr), v701728, ('fakedcpytype'))
 
-    TyperError-2: (pypy.objspace.std.listsort:lt)
-    unimplemented operation: 'lt' on (<InstanceRepr for pypy.interpreter.baseobjspace.W_Root>, <InstanceRepr for pypy.interpreter.baseobjspace.W_Root>)
-    .. block@-1 with 1 exits
-    .. v795189 = lt(a_795178, b_795179)
-
     TyperError-3: (pypy.module.sys.vm:getrefcount)
     don't know about built-in function <built-in function getrefcount>
     .. block@-1 with 1 exits

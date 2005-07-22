@@ -1439,8 +1439,28 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [float])
         assert s.const == "dontknow"        
         
-    
-        
+    def test_hidden_method(self):
+        class Base:
+            def method(self):
+                return ["should be hidden"]
+            def indirect(self):
+                return self.method()
+        class A(Base):
+            def method(self):
+                return "visible"
+        class B(A):
+            def method(self):
+                return None
+        def f(flag):
+            if flag:
+                obj = A()
+            else:
+                obj = B()
+            return obj.indirect()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert s == annmodel.SomeString(can_be_None=True)
+
 
 def g(n):
     return [0,1,2,n]
