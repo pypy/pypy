@@ -26,6 +26,8 @@ class __extend__(annmodel.SomeObject):
 class PyObjRepr(Repr):
     def convert_const(self, value):
         return pyobjectptr(value)
+    def make_iterator_repr(self):
+        return pyobj_repr
 
 pyobj_repr = PyObjRepr()
 pyobj_repr.lowleveltype = Ptr(PyObject)

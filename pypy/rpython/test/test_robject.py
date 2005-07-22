@@ -46,3 +46,15 @@ def test_obj_iter():
     assert res._obj.value == 2
     res = interpret(f, [0])
     assert res._obj.value == '3'
+
+def test_listofobj_iter():
+    def f(look):
+        lst = ['*', 2, 5]
+        for u in lst:
+            if u == look:
+                return True
+        return False
+    res = interpret(f, [1])
+    assert res is False
+    res = interpret(f, [2])
+    assert res is True
