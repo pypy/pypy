@@ -18,11 +18,6 @@ already sometime ago, while running translate_pypy::
     .. block@-1 with 1 exits
     .. v412138 = simple_call((builtin_function_or_method getrefcount), w_obj_412119)
 
-    TyperError-4: (pypy.objspace.std.listobject:unwrap)
-    don't know how to convert from <PyObjRepr * PyObject> to <BuiltinMethodRepr * PyObject>
-    .. block@-1 with 1 exits
-    .. v701496 = getattr(v701490, ('append'))
-
     TyperError-5: (pypy.objspace.std.objspace:wrap__object)
     don't know how to convert from <PyObjRepr * PyObject> to <InstanceRepr for pypy.interpreter.baseobjspace.BaseWrappable>
     .. block@-1 with 2 exits(v733701)
@@ -33,20 +28,10 @@ already sometime ago, while running translate_pypy::
     .. block@-1 with 1 exits
     .. v702025 = simple_call((type slice), v701937, v701973, v702012)
 
-    TyperError-7: (pypy.objspace.std.fake:fake__new__)
-    don't know how to convert from <PyObjRepr * PyObject> to <BuiltinMethodRepr * PyObject>
-    .. block@9 with 1 exits
-    .. v521562 = getattr(v521553, ('append'))
-
     TyperError-8: (pypy.objspace.std.fake:fake__new__)
     missing PyObjRepr.rtype_method_append
     .. block@44 with 1 exits
     .. v521685 = simple_call(_1_521602, v521650)
-
-    TyperError-9: (pypy.objspace.std.objspace:wrap__object)
-    <PyObjRepr * PyObject> is not iterable
-    .. block@533 with 1 exits
-    .. v733768 = iter(x_733662)
 
     TyperError-10: (pypy.objspace.std.objspace:wrap__object)
     no list() support for <PyObjRepr * PyObject>
@@ -73,11 +58,6 @@ already sometime ago, while running translate_pypy::
     .. block@870 with 1 exits
     .. v734154 = call_specialcase((function fake_object), v734137, v734138)
 
-    TyperError-15: (pypy.objspace.std.objspace:wrap__object)
-    <PyObjRepr * PyObject> is not iterable
-    .. block@-1 with 1 exits
-    .. 'block-entry'
-
     TyperError-16: (pypy.objspace.std.objspace:wrap__object)
     call_specialcase: unknown tag override:wrap_exception_cls
     .. block@811 with 2 exits(v734217)
@@ -97,11 +77,6 @@ already sometime ago, while running translate_pypy::
     don't know about built-in function <built-in function ldexp>
     .. block@143 with 1 exits
     .. v677171 = simple_call((builtin_function_or_method ldexp), frac_676983, v677155)
-
-    TyperError-20: (pypy.objspace.std.tupleobject:unwrap)
-    don't know how to convert from <PyObjRepr * PyObject> to <BuiltinMethodRepr * PyObject>
-    .. block@-1 with 1 exits
-    .. v702406 = getattr(v702400, ('append'))
 
     TyperError-21: (pypy.objspace.std.tupleobject:unwrap)
     don't know about built-in function <type 'tuple'>
@@ -158,11 +133,6 @@ already sometime ago, while running translate_pypy::
     .. block@-1 with 2 exits(v733237)
     .. link from block@-1 to block@-1
 
-    TyperError-32: (pypy.objspace.std.objspace:wrap__object)
-    <PyObjRepr * PyObject> is not iterable
-    .. block@-1 with 1 exits
-    .. 'block-entry'
-
     TyperError-33: (pypy.objspace.std.fake:fake__new__)
     missing PyObjRepr.rtype_method_append
     .. block@44 with 1 exits
@@ -213,16 +183,6 @@ already sometime ago, while running translate_pypy::
     .. block@89 with 1 exits
     .. v676918 = simple_call((builtin_function_or_method frexp), v676907)
 
-    TyperError-43: (pypy.objspace.std.objspace:wrap__object)
-    <PyObjRepr * PyObject> is not iterable
-    .. block@466 with 2 exits(last_exception)
-    .. 'block-entry'
-
-    TyperError-44: (pypy.objspace.std.fake:fake__new__)
-    don't know how to convert from <PyObjRepr * PyObject> to <BuiltinMethodRepr * PyObject>
-    .. block@9 with 1 exits
-    .. v642969 = getattr(v642960, ('append'))
-
     TyperError-45: (pypy.objspace.std.fake:setfastscope)
     ll_str unsupported for: <PyObjRepr * PyObject>
     .. block@118 with 1 exits
@@ -257,11 +217,6 @@ already sometime ago, while running translate_pypy::
     don't know about built-in function <built-in function apply>
     .. block@62 with 1 exits
     .. v469642 = simple_call((builtin_function_or_method apply), v469624, v469625, v469626)
-
-    TyperError-52: (pypy.objspace.std.objspace:wrap__object)
-    <PyObjRepr * PyObject> is not iterable
-    .. block@547 with 2 exits(last_exception)
-    .. 'block-entry'
 
     TyperError-53: (pypy.objspace.std.floatobject:hash__Float)
     unimplemented operation: 'hash' on <FloatRepr Float>
