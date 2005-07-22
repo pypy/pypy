@@ -3,14 +3,11 @@
  /***  C header subsection: operations between floats      ***/
 
 
-/* XXX INCOMPLETE */
-
-
 /*** unary operations ***/
 
 #define OP_FLOAT_IS_TRUE(x,r,err)   OP_FLOAT_NE(x,0.0,r,err)
-#define OP_FLOAT_NEG(x,r,err)       r = -x; 
-
+#define OP_FLOAT_NEG(x,r,err)       r = -x;
+#define OP_FLOAT_ABS(x,r,err)       r = fabs(x);
 
 /***  binary operations ***/
 

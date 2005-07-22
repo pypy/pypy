@@ -124,6 +124,10 @@ class __extend__(FloatRepr):
         vlist = hop.inputargs(Float)
         return vlist[0]
 
+    def rtype_abs(_, hop):
+        vlist = hop.inputargs(Float)
+        return hop.genop('float_abs', vlist, resulttype=Float)
+
     def rtype_int(_, hop):
         vlist = hop.inputargs(Float)
         return hop.genop('cast_float_to_int', vlist, resulttype=Signed)

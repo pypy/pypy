@@ -178,11 +178,6 @@ already sometime ago, while running translate_pypy::
     .. block@183 with 1 exits
     .. v437078 = simple_call((builtin_function_or_method ldexp), v437014, v437038)
 
-    TyperError-47: (pypy.objspace.std.floatobject:abs__Float)
-    unimplemented operation: 'abs' on <FloatRepr Float>
-    .. block@-1 EH with 1 exits
-    .. v588581 = abs(v588570)
-
     TyperError-48: (pypy.objspace.std.tupleobject:unwrap)
     missing PyObjRepr.rtype_method_append
     .. block@38 with 1 exits

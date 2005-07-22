@@ -158,3 +158,10 @@ class TestAnnotatedTestCase:
             return g3.next.next.value
         fn = self.getcompiled(do_things)
         assert fn() == 1
+
+    def test_float_ops(self):
+        def f(x=float):
+            return abs((-x) ** 3 + 1)
+        fn = self.getcompiled(f)
+        assert fn(-4.5) == 92.125
+        assert fn(4.5) == 90.125

@@ -202,10 +202,6 @@ class __extend__(IntegerRepr):
     def get_ll_eq_function(self):
         return None 
 
-    def rtype_float(_, hop):
-        vlist = hop.inputargs(Float)
-        return vlist[0]
-
     def rtype_chr(_, hop):
         vlist =  hop.inputargs(Signed)
         return hop.genop('cast_int_to_char', vlist, resulttype=Char)
