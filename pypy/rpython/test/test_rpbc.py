@@ -763,3 +763,29 @@ def test_call_star_special_starargs_method():
 
     res = interpret(f, [3, 0])
     assert res == 5
+
+def test_various_patterns_but_one_signature_method():
+    class A:
+        def meth(self, a, b=0):
+            raise NotImplementedError
+    class B(A):
+        def meth(self, a, b=0):
+            return a+b
+        
+    class C(A):
+        def meth(self, a, b=0):
+            return a*b
+    def f(i):
+        if i == 0:
+            x = B()
+        else:
+            x = C()
+        r1 = x.meth(1)
+        r2 = x.meth(3, 2)
+        r3 = x.meth(7, b=11)
+        return r1+r2+r3
+    res = interpret(f, [0])
+    assert res == 1+3+2+7+11
+    res = interpret(f, [1])
+    assert res == 3*2+11*7
+    

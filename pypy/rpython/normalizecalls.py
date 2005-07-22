@@ -67,11 +67,21 @@ def normalize_function_signatures(annotator):
                           if classdef is None and
                 not isinstance(func, (type, types.ClassType, types.MethodType))]
         if len(functions) > 1:  # otherwise, nothing to do
+            fully_normalized = True
             if len(family.patterns) > 1:
-                raise TyperError("don't support multiple call patterns "
-                                 "to multiple functions for now %r" % (
-                    functions))
-            pattern, = family.patterns
+                argspec = inspect.getargspec(functions[0])
+                for func in functions:
+                    if inspect.getargspec(func) != argspec:
+                        raise TyperError("don't support multiple call patterns "
+                                 "to multiple functions with different signatures for now %r" % (
+                                functions))
+                args, varargs, varkwds, _ = argspec
+                assert varargs is None, "XXX not implemented"
+                assert varkwds is None, "XXX not implemented"
+                pattern = (len(args), (), False, False)
+                fully_normalized = False
+            else:
+                pattern, = family.patterns
             shape_cnt, shape_keys, shape_star, shape_stst = pattern
             assert not shape_star, "XXX not implemented"
             assert not shape_stst, "XXX not implemented"
@@ -150,7 +160,7 @@ def normalize_function_signatures(annotator):
                     # finished
                     checkgraph(graph)
                     annotator.annotated[newblock] = annotator.annotated[oldblock]
-                graph.normalized_for_calls = True
+                graph.normalized_for_calls = fully_normalized
                 # convert the return value too
                 annotator.setbinding(graph.getreturnvar(), generalizedresult)
 

@@ -340,6 +340,14 @@ def getsignature(rtyper, func):
         rresult = Void
     return f, rinputs, rresult
 
+def samesig(funcs):
+    import inspect
+    argspec = inspect.getargspec(funcs[0])
+    for func in funcs:
+        if inspect.getargspec(func) != argspec:
+            return False
+    return True
+
 
 class FunctionsPBCRepr(Repr):
     """Representation selected for a PBC of function(s)."""
@@ -389,8 +397,10 @@ class FunctionsPBCRepr(Repr):
             vlist = hop.inputargs(self, *rinputs)
         else:
             # if not normalized, should be a call to a known function
-            assert len(self.function_signatures()) == 1, "normalization bug"
-            func, = self.function_signatures().keys()
+            # or to functions all with same signature
+            funcs = self.function_signatures().keys()
+            assert samesig(funcs), "normalization bug"
+            func = funcs[0]
             vlist = [hop.inputarg(self, arg=0)]
             vlist += callparse.callparse('simple_call', func, rinputs, hop)
 
@@ -412,8 +422,10 @@ class FunctionsPBCRepr(Repr):
             vlist = vlist[:1] + vlist[2:]
         else:
             # if not normalized, should be a call to a known function
-            assert len(self.function_signatures()) == 1, "normalization bug"
-            func, = self.function_signatures().keys()
+            # or to functions all with same signature
+            funcs = self.function_signatures().keys()
+            assert samesig(funcs), "normalization bug"
+            func = funcs[0]
             vlist = [hop.inputarg(self, arg=0)] 
             vlist += callparse.callparse('call_args', func, rinputs, hop)
 
