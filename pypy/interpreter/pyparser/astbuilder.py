@@ -6,6 +6,7 @@ import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
 
 ## these tests should be methods of the ast objects
+DEBUG_MODE = False
 
 def is_lvalue( ast_node ):
     return True
@@ -197,12 +198,48 @@ def build_expr( builder, nb ):
 def build_comparison( builder, nb ):
     L = get_atoms( builder, nb )
     l = len(L)
-    if l==1:
+    if l == 1:
         builder.push( L[0] )
         return
-    # TODO
-    assert False
+    else:
+        # a < b < c is transalted into:
+        # Compare(Name('a'), [('<', Name(b)), ('<', Name(c))])
+        left_token = L[0]
+        ops = []
+        for i in range(1, l, 2):
+            # if tok.name isn't in rpunct, then it should be
+            # 'is', 'is not', 'not' or 'not in' => tok.value
+            op_name = tok.tok_rpunct.get(L[i].name, L[i].value)
+            ops.append((op_name, L[i+1]))
+        builder.push(ast.Compare(L[0], ops))
 
+def build_comp_op(builder, nb):
+    """comp_op reducing has 2 different cases:
+     1. There's only one token to reduce => nothing to
+        do, just re-push it on the stack
+     2. Two tokens to reduce => it's either 'not in' or 'is not',
+        so we need to find out which one it is, and re-push a
+        single token
+
+    Note: reducing comp_op is needed because reducing comparison
+          rules is much easier when we can assume the comparison
+          operator is one and only one token on the stack (which
+          is not the case, by default, with 'not in' and 'is not')
+    """
+    L = get_atoms(builder, nb)
+    l = len(L)
+    # l==1 means '<', '>', '<=', etc.
+    if l == 1:
+        builder.push(L[0])
+    # l==2 means 'not in' or 'is not'
+    elif l == 2:
+        if L[0].value == 'not':
+            builder.push(TokenObject(tok.NAME, 'not in', None))
+        else:
+            builder.push(TokenObject(tok.NAME, 'is not', None))
+    else:
+        assert False, "TODO" # uh ?
+        
 def build_and_test( builder, nb ):
     return build_binary_expr( builder, nb, ast.And )
 
@@ -253,9 +290,12 @@ def build_simple_stmt( builder, nb ):
     l = len(L)
     nodes = []
     for n in range(0,l,2):
-        nodes.append(L[n])
+        node = L[n]
+        if isinstance(node, TokenObject) and node.name == tok.NEWLINE:
+            nodes.append(ast.Discard(ast.Const(None)))
+        else:
+            nodes.append(node)
     builder.push( ast.Stmt(nodes) )
-    return
 
 def build_single_input( builder, nb ):
     L = get_atoms( builder, nb )
@@ -353,6 +393,7 @@ ASTRULES = {
     sym.xor_expr : build_xor_expr,
     sym.expr : build_expr,
     sym.comparison : build_comparison,
+    sym.comp_op : build_comp_op,
     sym.and_test : build_and_test,
     sym.test : build_test,
     sym.testlist : build_testlist,
@@ -446,8 +487,9 @@ class AstBuilder(BaseGrammarBuilder):
                 self.push_rule( rule.codename, 1, source )
         else:
             self.push_rule( rule.codename, 1, source )
-        # show_stack(rule_stack, self.rule_stack)
-        # x = raw_input("Continue ?")
+        if DEBUG_MODE:
+            show_stack(rule_stack, self.rule_stack)
+            x = raw_input("Continue ?")
         return True
 
     def sequence(self, rule, source, elts_number):
@@ -463,8 +505,9 @@ class AstBuilder(BaseGrammarBuilder):
                 self.push_rule( rule.codename, elts_number, source )
         else:
             self.push_rule( rule.codename, elts_number, source )
-        # show_stack(rule_stack, self.rule_stack)
-        # x = raw_input("Continue ?")
+        if DEBUG_MODE:
+            show_stack(rule_stack, self.rule_stack)
+            x = raw_input("Continue ?")
         return True
 
     def token(self, name, value, source):

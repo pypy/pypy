@@ -44,13 +44,24 @@ comparisons = [
     "a < b",
     "a > b",
     "a not in b",
+    "a is not b",
     "a in b",
+    "a is b",
     "3 < x < 5",
     "(3 < x) < 5",
+    "a < b < c < d",
+    "(a < b) < (c < d)",
+    "a < (b < c) < d",
+    ]
+comparison_tests = range(len(comparisons))
+# comparison_tests = [7]
+
+multiexpr = [
+    'a = b; c = d;',
+    'a = b = c = d',
+    'a = b\nc = d',
     ]
 
-comparison_tests = []
-failed_comparison_tests = range( len(comparisons) )
 def ast_parse_expr( expr ):
     builder = AstBuilder()
     PYTHON_PARSER.parse_source( expr, "single_input", builder )
@@ -66,6 +77,12 @@ def check_expression( expr ):
     print "ORIG :", ast
     print "BUILT:", r1.rule_stack[-1]
     assert ast == r1.rule_stack[-1], 'failed on %r' % (expr)
+
+
+
+def test_multiexpr():
+    for expr in multiexpr:
+        yield check_expression, expr
 
 def test_backtracking_expressions():
     """tests for expressions that need backtracking"""
