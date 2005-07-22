@@ -15,7 +15,7 @@ def test_return1():
     f = compile_function(simple1, [])
     assert f() == 1
 
-def DONTtest_simple_function_pointer(): 
+def test_simple_function_pointer(): 
     def f1(x): 
         return x + 1
     def f2(x): 
@@ -331,28 +331,12 @@ def test_method_call():
     f = compile_function(method_call, [])
     assert f() == 4
 
-class TestException(Exception):
-    pass
-
-def DONTtest_exception():
-    def raise_(i):
-        if i:
-            raise TestException()
-        else:
-            return 1
-    def catch(i):
-        try:
-            return raise_(i)
-        except TestException:
-            return 0
-    f = compile_function(catch, [int])
-
-def Xtest_dict_creation(): 
+def test_dict_creation(): 
     d = {'hello' : 23,
          'world' : 21}
     l = ["hello", "world"]
     def createdict(i, j):
         return d[l[i]] + d[l[j]]
-    f = compile_function(createdict, [int, int], view=True)
-
-    assert createdict(0, 1) == 43
+    assert createdict(0,1) == 44
+    f = compile_function(createdict, [int, int])
+    assert f(0,1) == createdict(0,1)

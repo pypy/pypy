@@ -68,6 +68,12 @@ class FuncNode(ConstantLLVMNode):
     def writeimpl(self, codewriter):
         assert self._issetup 
         graph = self.graph
+        #dir(graph)==['__class__', '__delattr__', '__dict__', '__doc__',
+        #             '__getattribute__', '__hash__', '__init__', '__module__',
+        #             '__new__', '__reduce__', '__reduce_ex__', '__repr__',
+        #             '__setattr__', '__str__', '__weakref__', 'exceptblock',
+        #             'func', 'getargs', 'getreturnvar', 'name', 'returnblock',
+        #             'show', 'source', 'startblock']
         log.writeimpl(graph.name)
         codewriter.openfunc(self.getdecl())
         nextblock = graph.startblock

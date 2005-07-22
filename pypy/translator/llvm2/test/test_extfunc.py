@@ -20,14 +20,14 @@ def test_external_function_ll_time_time():
     import time
     def fn():
         return time.time()
-    f = compile_function(fn, [], view=False)
+    f = compile_function(fn, [])
     assert abs(f()-fn()) < 10.0
 
 def test_external_function_ll_time_clock():
     import time
     def fn():
         return time.clock()
-    f = compile_function(fn, [], view=False)
+    f = compile_function(fn, [])
     assert abs(f()-fn()) < 10.0
 
 def test_external_function_ll_time_sleep():
@@ -35,7 +35,7 @@ def test_external_function_ll_time_sleep():
     def fn(t):
         time.sleep(t)
         return 666
-    f = compile_function(fn, [float], view=False)
+    f = compile_function(fn, [float])
     start_time = time.time()
     delay_time = 2.0
     d = f(delay_time)

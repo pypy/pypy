@@ -1,3 +1,5 @@
+from __future__ import division
+
 #function snippets
 def simple1():
     return 1
@@ -374,52 +376,6 @@ def tuple_f3(i):
 def constant_tuple(i):
     return len((1, 2, "asdf")) + i
 
-
-#exception snippets:
-def simple_exception(n):
-    lst = range(10)
-    try:
-        lst[n]
-    except IndexError:
-        return 2
-    return 4
-    
-def two_exceptions(n):
-    lst = range(10)
-    try:
-        lst[n]
-    except IndexError:
-        return 2
-    except KeyError:
-        return 3
-    return 4
-
-def catch_base_exception(n):
-    lst = range(10)
-    try:
-        lst[n]
-    except LookupError:
-        return 2
-    return 4
-
-class MyException(Exception):
-    def __init__(self, n):
-        self.n = n
-
-def raises(i):
-    if i == 3:
-        raise MyException, 12
-    if i == 4:
-        raise IndexError
-    if i > 5:
-        raise MyException(i)
-    return 1
-
-def catches(i):
-    try:
-        return raises(i)
-    except MyException, e:
-        return e.n
 
 #PBC snippets
 

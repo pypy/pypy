@@ -28,8 +28,8 @@ def test_struct_constant1():
     def struct_constant():
         x1 = s.signed + s.unsigned
         return x1
-    fn = compile_function(struct_constant, [], embedexterns=False)
-    assert fn() == 3
+    f = compile_function(struct_constant, [], embedexterns=False)
+    assert f() == struct_constant()
 
 def test_struct_constant2():
     S2 = lltype.GcStruct("struct2", ('a', lltype.Signed), ('s1', S), ('s2', S))
@@ -41,8 +41,8 @@ def test_struct_constant2():
     s.s2.b = 3
     def struct_constant():
         return s.a + s.s2.b + s.s1.a + s.s1.b
-    fn = compile_function(struct_constant, [], embedexterns=False)
-    assert fn() == 14
+    f = compile_function(struct_constant, [], embedexterns=False)
+    assert f() == struct_constant()
 
 def test_struct_constant3():
     structs = []
@@ -62,8 +62,8 @@ def test_struct_constant3():
         return (top.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.a -
                 top.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.b)
     
-    fn = compile_function(struct_constant, [], embedexterns=False)
-    assert fn() == 5
+    f = compile_function(struct_constant, [], embedexterns=False)
+    assert f() == struct_constant()
 
 def test_struct_constant4():
     SPTR = lltype.GcStruct('sptr', ('a', lltype.Signed))
@@ -73,8 +73,8 @@ def test_struct_constant4():
     s.sptr.a = 21
     def struct_constant():
         return s.sptr.a * 2
-    fn = compile_function(struct_constant, [], embedexterns=False)
-    assert fn() == 42
+    f = compile_function(struct_constant, [], embedexterns=False)
+    assert f() == struct_constant()
 
 def test_struct_constant5():
     SPTR = lltype.GcStruct('sptr', ('a', lltype.Signed), ('b', S))
@@ -86,8 +86,8 @@ def test_struct_constant5():
     s.sptr.b.b = 10
     def struct_constant():
         return s.sptr.a + s.sptr.b.a + s.sptr.b.b
-    fn = compile_function(struct_constant, [], embedexterns=False)
-    assert fn() == 42
+    f = compile_function(struct_constant, [], embedexterns=False)
+    assert f() == struct_constant()
 
 def test_struct_constant6():
     U = lltype.Struct('inlined', ('z', lltype.Signed))
@@ -101,8 +101,8 @@ def test_struct_constant6():
     s.p = s.u
     def struct_constant():
         return s.x.y + s.p.z
-    fn = compile_function(struct_constant, [], embedexterns=False)
-    assert fn() == -58
+    f = compile_function(struct_constant, [], embedexterns=False)
+    assert f() == struct_constant()
 
 def test_array_constant():
     A = lltype.GcArray(lltype.Signed)
@@ -112,8 +112,8 @@ def test_array_constant():
     a[2] = 102
     def array_constant():
         return a[0] + a[1] + a[2]    
-    fn = compile_function(array_constant, [], embedexterns=False)
-    assert fn() == 303
+    f = compile_function(array_constant, [], embedexterns=False)
+    assert f() == array_constant()
 
 def test_array_constant2():
     A = lltype.GcArray(lltype.Signed)
@@ -124,8 +124,8 @@ def test_array_constant2():
     def array_constant():
         a[0] = 0
         return a[0] + a[1] + a[2]    
-    fn = compile_function(array_constant, [], embedexterns=False)
-    assert fn() == 203
+    f = compile_function(array_constant, [], embedexterns=False)
+    assert f() == array_constant()
 
 def test_array_constant3():
     A = lltype.GcArray(('x', lltype.Signed))
@@ -135,8 +135,8 @@ def test_array_constant3():
     a[2].x = 102
     def array_constant():
         return a[0].x + a[1].x + a[2].x    
-    fn = compile_function(array_constant, [], embedexterns=False)
-    assert fn() == 303
+    f = compile_function(array_constant, [], embedexterns=False)
+    assert f() == array_constant()
 
 def test_struct_array1():
     A = lltype.GcArray(lltype.Signed)
@@ -147,8 +147,8 @@ def test_struct_array1():
     a[1] = 101
     def array_constant():
         return s.aptr[1] - a[0]
-    fn = compile_function(array_constant, [], embedexterns=False)
-    assert fn() == 1
+    f = compile_function(array_constant, [], embedexterns=False)
+    assert f() == array_constant()
 
 def test_struct_array2():
     A = lltype.Array(lltype.Signed)
@@ -159,8 +159,8 @@ def test_struct_array2():
     s.b[1] = 101
     def array_constant():
         return s.b[1] - s.b[0] + s.a
-    fn = compile_function(array_constant, [], embedexterns=False)
-    assert fn() == 42
+    f = compile_function(array_constant, [], embedexterns=False)
+    assert f() == array_constant()
 
 def test_struct_array3():
     A = lltype.Array(lltype.Signed)
@@ -175,8 +175,8 @@ def test_struct_array3():
     def array_constant():
         s = b.p
         return s.b[1] - s.b[0] + s.a
-    fn = compile_function(array_constant, [], embedexterns=False)
-    assert fn() == 42
+    f = compile_function(array_constant, [], embedexterns=False)
+    assert f() == array_constant()
 
 def test_struct_opaque():
     PRTTI = lltype.Ptr(lltype.RuntimeTypeInfo)
@@ -185,6 +185,5 @@ def test_struct_opaque():
     s.a = 42
     def array_constant():
         return s.a
-    fn = compile_function(array_constant, [], embedexterns=False)
-    assert fn() == 42
-    
+    f = compile_function(array_constant, [], embedexterns=False)
+    assert f() == array_constant()

@@ -1,9 +1,7 @@
 from __future__ import division
-import py
 
-from pypy.translator.translator import Translator
+from pypy.translator.llvm2.genllvm import compile_function
 from pypy.translator.test import snippet as test
-from pypy.objspace.flow.model import Constant, Variable
 
 class TestSnippet(object):
     def test_if_then_else(self):
@@ -29,12 +27,10 @@ class TestSnippet(object):
         assert f(0) == 0
 
     def test_two_plus_two(self):
-        py.test.skip("two_plus_two not working yet")
         f = compile_function(test.two_plus_two, [])
         assert f() == 4
 
     def test_sieve_of_eratosthenes(self):
-        py.test.skip("sieve_of_eratosthenes not working yet")
         f = compile_function(test.sieve_of_eratosthenes, [])
         assert f() == 1028
 
@@ -66,31 +62,22 @@ class TestSnippet(object):
         assert factorial(5) == 120
 
     def test_set_attr(self):
-        py.test.skip("set_attr not working yet")
         set_attr = compile_function(test.set_attr, [])
         assert set_attr() == 2
 
-    def DONOT_test_try_raise_choose(self):
-        try_raise_choose = compile_function(test.try_raise_choose, [int])
-        for i in [-1, 0, 1, 2]:
-            assert try_raise_choose(i) == i
-
     def test_merge_setattr(self):
-        py.test.skip("merge_setattr not working yet")
         merge_setattr = compile_function(test.merge_setattr, [bool])
         assert merge_setattr(1) == 1
 
     def test_simple_method(self):
-        py.test.skip("simple_method not working yet")
         simple_method = compile_function(test.simple_method, [int])
         assert simple_method(65) == 65
 
     def test_with_init(self):
-        py.test.skip("with_init not working yet")
         with_init = compile_function(test.with_init, [int])
         assert with_init(42) == 42
 
-    def DONOT_test_with_more_init(self):
+    def test_with_more_init(self):
         with_more_init = compile_function(test.with_more_init, [int, bool])
         assert with_more_init(42, True) == 42
         assert with_more_init(42, False) == -42
