@@ -233,10 +233,6 @@ already sometime ago, while running translate_pypy::
     .. block@-1 with 1 exits
     .. v642230 = simple_call((builtin_function_or_method join), v642219)
 
-  * the PBCReprs generally lack a convert_from_to() to convert from a small PBC
-    set to a larger one. (at least as for what is triggered by the PyPy codebase
-    this is implemented)
-
   * the pypy trunk is still not annotable:
      - see issue92 about parser typing problems
      progress has been made on this
