@@ -63,11 +63,6 @@ already sometime ago, while running translate_pypy::
     .. block@811 with 2 exits(v734217)
     .. v734191 = call_specialcase(v734159, x_734142)
 
-    TyperError-17: (pypy.objspace.std.longobject:_k_mul)
-    unimplemented operation: 'setitem' on (<ListRepr * GcStruct list { items: * GcArray of Unsigned  }>, <SliceRepr * GcStruct slice { start: Signed, stop: Signed }>)
-    .. block@546 with 2 exits(v368685)
-    .. v368346 = setitem(v368281, v368345, v368259)
-
     TyperError-18: (pypy.objspace.std.longobject:longval)
     don't know about built-in function <type 'long'>
     .. block@50 with 1 exits
@@ -82,11 +77,6 @@ already sometime ago, while running translate_pypy::
     don't know about built-in function <type 'tuple'>
     .. block@66 with 1 exits
     .. v702466 = simple_call((type tuple), v702461)
-
-    TyperError-22: (pypy.objspace.std.longobject:_k_mul)
-    unimplemented operation: 'setitem' on (<ListRepr * GcStruct list { items: * GcArray of Unsigned  }>, <SliceRepr * GcStruct slice { start: Signed, stop: Signed }>)
-    .. block@435 with 2 exits(v368115)
-    .. v368040 = setitem(v367904, v368039, v367883)
 
     TyperError-23: (pypy.objspace.std.objspace:unwrap)
     unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, <InstanceRepr for pypy.interpreter.baseobjspace.W_Root>)
@@ -167,11 +157,6 @@ already sometime ago, while running translate_pypy::
     non-constant tuple index
     .. block@-1 EH with 1 exits
     .. v655549 = getitem((('\x00\x00\x00\x00\x...02\x02')), v655545)
-
-    TyperError-40: (pypy.interpreter.pyframe:setfastscope)
-    unimplemented operation: 'setitem' on (<ListRepr * GcStruct list { items: * GcArray of * GcStruct W_Root { super: GcStruct object { typeptr: * Struct object_vtable { parenttypeptr: * Struct object_vtable { ... }, rtti: * RuntimeTypeInfo (opaque), name: * Array of Char , instantiate: * Func (  ) -> * GcStruct object { ... } } } }  }>, <SliceRepr * GcStruct slice { start: Signed, stop: Signed }>)
-    .. block@47 with 1 exits
-    .. v31663 = setitem(v31641, v31662, scope_w_31634)
 
     TyperError-41: (pypy.objspace.std.objspace:unwrap)
     don't know how to convert from <InstanceRepr for pypy.interpreter.baseobjspace.W_Root> to <PyObjRepr * PyObject>

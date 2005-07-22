@@ -8,7 +8,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test.test_llinterp import find_exception
 
 
-def sample_list():
+def sample_list():    # [42, 43, 44, 45]
     rlist = ListRepr(signed_repr)
     rlist.setup()
     l = ll_newlist(rlist.lowleveltype, 3)
@@ -82,6 +82,22 @@ def test_rlist_delslice():
             del expected[start:stop]
             check_list(l, expected)
 
+def test_rlist_setslice():
+    n = 100
+    for start in range(5):
+        for stop in range(start, 5):
+            l1 = sample_list()
+            l2 = sample_list()
+            expected = [42, 43, 44, 45]
+            for i in range(start, stop):
+                expected[i] = n
+                ll_setitem(l2, i, n)
+                n += 1
+            s = ll_newslice(start, stop)
+            l2 = ll_listslice(l2, s)
+            ll_listsetslice(l1, s, l2)
+            check_list(l1, expected)
+
 # ____________________________________________________________
 
 def rtype(fn, argtypes=[]):
@@ -153,6 +169,17 @@ def test_set_del_item():
         del l[-1]
         del l[:]
     rtype(dummyfn)
+
+def test_setslice():
+    def dummyfn():
+        l = [10, 9, 8, 7]
+        l[:2] = [6, 5]
+        return l[0], l[1], l[2], l[3]
+    res = interpret(dummyfn, ())
+    assert res.item0 == 6
+    assert res.item1 == 5
+    assert res.item2 == 8
+    assert res.item3 == 7
 
 def test_insert_pop():
     def dummyfn():

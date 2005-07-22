@@ -220,6 +220,16 @@ class __extend__(pairtype(ListRepr, SliceRepr)):
             return hop.gendirectcall(ll_listslice_minusone, v_lst)
         raise TyperError(r_slic)
 
+    def rtype_setitem((r_lst, r_slic), hop):
+        #if r_slic == startonly_slice_repr:
+        #    not implemented
+        if r_slic == startstop_slice_repr:
+            v_lst, v_slice, v_lst2 = hop.inputargs(r_lst, startstop_slice_repr,
+                                                   r_lst)
+            hop.gendirectcall(ll_listsetslice, v_lst, v_slice, v_lst2)
+            return
+        raise TyperError(r_slic)
+
     def rtype_delitem((r_lst, r_slic), hop):
         if r_slic == startonly_slice_repr:
             v_lst, v_start = hop.inputargs(r_lst, startonly_slice_repr)
@@ -492,6 +502,16 @@ def ll_listdelslice(l1, slice):
         stop += 1
         j += 1
     l1.items = newitems
+
+def ll_listsetslice(l1, slice, l2):
+    count = len(l2.items)
+    assert count == slice.stop - slice.start, (
+        "setslice cannot resize lists in RPython")
+    start = slice.start
+    j = 0
+    while j < count:
+        l1.items[start+j] = l2.items[j]
+        j += 1
 
 # ____________________________________________________________
 #
