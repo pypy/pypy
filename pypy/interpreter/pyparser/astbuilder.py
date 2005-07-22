@@ -388,3 +388,18 @@ class AstBuilder(BaseGrammarBuilder):
         print "TOK:", tok.tok_name[name], name, value
         self.push_tok( name, value, source )
         return True
+
+def show_stack(before, after):
+    L1 = len(before)
+    L2 = len(after)
+    for i in range(max(L1,L2)):
+        if i<L1:
+            obj1 = str(before[i])
+        else:
+            obj1 = "-"
+        if i<L2:
+            obj2 = str(after[i])
+        else:
+            obj2 = "-"
+        print "% 3d | %30s | %30s"
+    
