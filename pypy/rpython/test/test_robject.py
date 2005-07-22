@@ -34,7 +34,7 @@ def test_obj_list():
     res = interpret(f, [3, 'c'])
     assert res == 5
 
-def inprogress_test_obj_iter():
+def test_obj_iter():
     def f(flag):
         if flag:
             x = (1, 2)
@@ -42,7 +42,7 @@ def inprogress_test_obj_iter():
             x = '34'
         lst = [u for u in x]
         return lst[flag]
-    res = interpret(f, [1], view=True)
+    res = interpret(f, [1])
     assert res._obj.value == 2
     res = interpret(f, [0])
     assert res._obj.value == '3'

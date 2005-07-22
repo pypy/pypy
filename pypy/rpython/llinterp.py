@@ -155,6 +155,12 @@ class LLFrame(object):
         retval = ophandler(*vals)
         self.setvar(operation.result, retval)
 
+    def make_llexception(self, exc_class):
+        exdata = self.llinterpreter.typer.getexceptiondata()
+        evalue = exdata.ll_pyexcclass2exc(pyobjectptr(exc_class))
+        etype = exdata.ll_type_of_exc_inst(evalue)
+        raise LLException(etype, evalue)
+
     # __________________________________________________________
     # misc LL operation implementations
 
@@ -302,7 +308,11 @@ class LLFrame(object):
             for pyo in pyobjs:
                 assert typeOf(pyo) == Ptr(PyObject)
             func = opimpls[%(opname)r]
-            return pyobjectptr(func(*[pyo._obj.value for pyo in pyobjs]))
+            try:
+                pyo = func(*[pyo._obj.value for pyo in pyobjs])
+            except Exception, e:
+                self.make_llexception(e.__class__)
+            return pyobjectptr(pyo)
         """ % locals()).compile()
     del opname
 
