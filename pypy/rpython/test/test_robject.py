@@ -27,8 +27,22 @@ def test_obj_list():
     def f(i, c):
         lis = [1, 2, 3, 4]
         lis[i] = c
+        lis.append(i)
         return len(lis)
-    res = interpret(f, [2, 'c'])#, view=True)
-    assert res == 4
+    res = interpret(f, [2, 'c'])
+    assert res == 5
     res = interpret(f, [3, 'c'])
-    assert res == 4
+    assert res == 5
+
+def inprogress_test_obj_iter():
+    def f(flag):
+        if flag:
+            x = (1, 2)
+        else:
+            x = '34'
+        lst = [u for u in x]
+        return lst[flag]
+    res = interpret(f, [1], view=True)
+    assert res._obj.value == 2
+    res = interpret(f, [0])
+    assert res._obj.value == '3'

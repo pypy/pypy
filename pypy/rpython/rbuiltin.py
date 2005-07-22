@@ -22,7 +22,11 @@ class __extend__(annmodel.SomeBuiltin):
         else:
             # built-in method case
             assert self.methodname is not None
-            return BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
+            result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
+            if result.self_repr == pyobj_repr:
+                return pyobj_repr   # special case: methods of 'PyObject*'
+            else:
+                return result
     def rtyper_makekey(self):
         if self.s_self is None:
             # built-in function case
