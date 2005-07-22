@@ -232,7 +232,7 @@ if __name__ == '__main__':
     except ImportError, err:
         print "Disabling readline support (%s)" % err
     from pypy.translator.test import snippet as test
-    from pypy.translator.llvm.test import llvmsnippet as test2
+    #from pypy.translator.llvm.test import llvmsnippet as test2
     from pypy.rpython.rtyper import RPythonTyper
     try:
         setup_readline()
