@@ -18,7 +18,7 @@ $Id: automata.py,v 1.2 2003/10/02 17:37:17 jriehl Exp $
 #                    a simple None works fine.
 #                    (Having a DefaultClass inheriting from str makes
 #                     the annotator crash)
-DEFAULT = None
+DEFAULT = "\00default"
 # PYPY Modification : removed all automata functions (any, maybe,
 #                     newArcPair, etc.)
 
