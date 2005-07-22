@@ -21,14 +21,24 @@ expressions = [
     "x = a + 1 * b",
     "x = a * b / c",
     "x = a * (1 + c)",
-    "f = lambda x: x+1",
     "x, y, z = 1, 2, 3",
     "x = 'a' 'b' 'c'",
-]    
-expression_tests = [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15] # = range(len(expressions))
-# expression_tests = [14]
+]
+expression_tests = range(len(expressions))
+# expression_tests = [0]
 
-failed_expression_tests = [ 13]
+backtrackings = [
+    "f = lambda x: x+1",
+    "f = lambda x,y: x+y",
+    "f = lambda x,y=1,z=t: x+y",
+    "f = lambda x,y=1,z=t,*args,**kwargs: x+y",
+    "f = lambda x,y=1,z=t,*args: x+y",
+    "f = lambda x,y=1,z=t,**kwargs: x+y",
+    "f = lambda: 1",
+    "f = lambda *args: 1",
+    "f = lambda **kwargs: 1",
+    ]
+backtracking_tests = range(len(backtrackings))
 
 comparisons = [
     "a < b",
@@ -38,6 +48,7 @@ comparisons = [
     "3 < x < 5",
     "(3 < x) < 5",
     ]
+
 comparison_tests = []
 failed_comparison_tests = range( len(comparisons) )
 def ast_parse_expr( expr ):
@@ -54,14 +65,17 @@ def check_expression( expr ):
     ast = tuple_parse_expr( expr )
     print "ORIG :", ast
     print "BUILT:", r1.rule_stack[-1]
-    assert ast == r1.rule_stack[-1]
+    assert ast == r1.rule_stack[-1], 'failed on %r' % (expr)
+
+def test_backtracking_expressions():
+    """tests for expressions that need backtracking"""
+    for i in backtracking_tests:
+        yield check_expression, backtrackings[i]
 
 def test_expressions():
-##    py.test.skip("work in progress")
     for i in expression_tests:
         yield check_expression, expressions[i]
 
 def test_comparisons():
-##    py.test.skip("work in progress")
     for i in comparison_tests:
         yield check_expression, comparisons[i]

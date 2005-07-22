@@ -1,6 +1,6 @@
 
 
-from grammar import BaseGrammarBuilder
+from grammar import BaseGrammarBuilder, AbstractContext
 from pypy.interpreter.astcompiler import ast, consts
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
@@ -173,8 +173,8 @@ def build_shift_expr( builder, nb ):
     builder.push( left )
 
 
-def build_binary_expr( builder, nb, OP ):
-    L = get_atoms( builder, nb )
+def build_binary_expr(builder, nb, OP):
+    L = get_atoms(builder, nb)
     l = len(L)
     if l==1:
         builder.push( L[0] )
@@ -207,8 +207,8 @@ def build_and_test( builder, nb ):
     return build_binary_expr( builder, nb, ast.And )
 
 def build_test( builder, nb ):
-    return build_binary_expr( builder, nb, ast.Or )
-
+    return build_binary_expr( builder, nb, ast.Or)
+    
 def build_testlist( builder, nb ):
     return build_binary_expr( builder, nb, ast.Tuple )
 
@@ -281,6 +281,66 @@ def build_testlist_gexp(builder, nb):
     builder.push( Tuple( items ) )
     return
 
+def build_varargslist(builder, nb):
+    pass
+
+def build_lambdef(builder, nb):
+    L = get_atoms(builder, nb)
+    print "L:", L
+    code = L[-1]
+    names, defaults, flags = parse_arglist(L[1:-2])
+    builder.push(ast.Lambda(names, defaults, flags, code))
+
+def parse_arglist(tokens):
+    """returns names, defaults, flags"""
+    l = len(tokens)
+    index = 0
+    defaults = []
+    names = []
+    flags = 0
+    while index < l:
+        cur_token = tokens[index]
+        index += 1
+        if not isinstance(cur_token, TokenObject):
+            # XXX: think of another way to write this test
+            defaults.append(cur_token)
+        elif cur_token.name == tok.COMMA:
+            # We could skip test COMMA by incrementing index cleverly
+            # but we might do some experiment on the grammar at some point
+            continue
+        elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
+            if cur_token.name == tok.STAR:
+                cur_token = tokens[index]
+                index += 1
+                if cur_token.name == tok.NAME:
+                    names.append(cur_token.value)
+                    flags |= consts.CO_VARARGS
+                    index += 1
+                    if index >= l:
+                        break
+                    else:
+                        # still more tokens to read
+                        cur_token = tokens[index]
+                        index += 1
+                else:
+                    raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
+            if cur_token.name != tok.DOUBLESTAR:
+                raise ValueError("Unexpected token: %s" % cur_token)
+            cur_token = tokens[index]
+            index += 1
+            if cur_token.name == tok.NAME:
+                names.append(cur_token.value)
+                flags |= consts.CO_VARKEYWORDS
+                index +=  1
+            else:
+                raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
+            if index < l:
+                raise ValueError("unexpected token: %s" % tokens[index])
+        elif cur_token.name == tok.NAME:
+            names.append(cur_token.value)
+    return names, defaults, flags
+
+
 ASTRULES = {
 #    "single_input" : build_single_input,
     sym.atom : build_atom,
@@ -301,6 +361,8 @@ ASTRULES = {
     sym.simple_stmt : build_simple_stmt,
     sym.single_input : build_single_input,
     sym.testlist_gexp : build_testlist_gexp,
+    sym.lambdef : build_lambdef,
+    sym.varargslist : build_varargslist,
     }
 
 class RuleObject(ast.Node):
@@ -335,13 +397,26 @@ class TokenObject(ast.Node):
         return "<Token: %r=%s>" % (tok.tok_rpunct.get(self.name,
                                                       tok.tok_name.get(self.name,str(self.name))),
                                    self.value)
-    
+
+class AstBuilderContext(AbstractContext):
+    """specific context management for AstBuidler"""
+    def __init__(self, rule_stack):
+        self.rule_stack = list(rule_stack)
+
 class AstBuilder(BaseGrammarBuilder):
     """A builder that directly produce the AST"""
 
     def __init__( self, rules=None, debug=0 ):
         BaseGrammarBuilder.__init__(self, rules, debug )
         self.rule_stack = []
+
+    def context(self):
+        return AstBuilderContext(self.rule_stack)
+
+    def restore(self, ctx):
+        print "Restoring context (%s)" % (len(ctx.rule_stack))
+        assert isinstance(ctx, AstBuilderContext)
+        self.rule_stack = ctx.rule_stack
 
     def pop(self):
         return self.rule_stack.pop(-1)
@@ -360,18 +435,24 @@ class AstBuilder(BaseGrammarBuilder):
 
     def alternative( self, rule, source ):
         # Do nothing, keep rule on top of the stack
+        rule_stack = self.rule_stack[:]
         if rule.is_root():
             print "ALT:", sym.sym_name[rule.codename], self.rule_stack
             F = ASTRULES.get(rule.codename)
             if F:
                 # print "REDUCING ALTERNATIVE %s" % sym.sym_name[rule.codename]
                 F( self, 1 )
+            else:
+                self.push_rule( rule.codename, 1, source )
         else:
             self.push_rule( rule.codename, 1, source )
+        # show_stack(rule_stack, self.rule_stack)
+        # x = raw_input("Continue ?")
         return True
 
     def sequence(self, rule, source, elts_number):
         """ """
+        rule_stack = self.rule_stack[:]
         if rule.is_root():
             print "SEQ:", sym.sym_name[rule.codename]
             F = ASTRULES.get(rule.codename)
@@ -382,6 +463,8 @@ class AstBuilder(BaseGrammarBuilder):
                 self.push_rule( rule.codename, elts_number, source )
         else:
             self.push_rule( rule.codename, elts_number, source )
+        # show_stack(rule_stack, self.rule_stack)
+        # x = raw_input("Continue ?")
         return True
 
     def token(self, name, value, source):
@@ -401,5 +484,5 @@ def show_stack(before, after):
             obj2 = str(after[i])
         else:
             obj2 = "-"
-        print "% 3d | %30s | %30s"
+        print "% 3d | %30s | %30s" % (i, obj1, obj2)
     
