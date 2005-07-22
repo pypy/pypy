@@ -272,7 +272,8 @@ class Transformer:
         if nodelist[2][0] == symbol.varargslist:
             names, defaults, flags = self.com_arglist(nodelist[2][1:])
         else:
-            names = defaults = ()
+            names = []
+            defaults = []
             flags = 0
 
         # code for lambda
@@ -777,7 +778,6 @@ class Transformer:
         names = []
         defaults = []
         flags = 0
-
         i = 0
         while i < len(nodelist):
             node = nodelist[i]
