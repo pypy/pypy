@@ -30,7 +30,7 @@ class DFA:
         self.start = start
 
     # ____________________________________________________________
-    def recognize (self, inVec, pos = 0, greedy = True):
+    def recognize (self, inVec, pos = 0): # greedy = True
         crntState = self.start
         i = pos
         lastAccept = False
