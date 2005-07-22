@@ -21,7 +21,7 @@ class SyntaxNode(object):
         
     def dumptree(self, treenodes, indent):
         """helper function used to dump the syntax tree"""
-        treenodes.append(self.name)
+        treenodes.append(str(self.name))
         if len(self.nodes) > 1:
             treenodes.append(" -> (\n")
             treenodes.append(indent+" ")
