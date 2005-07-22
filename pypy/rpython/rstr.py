@@ -123,6 +123,9 @@ class __extend__(StringRepr):
         if hop.s_result.is_constant():
             return inputconst(string_repr, hop.s_result.const)
         r_lst = hop.args_r[1]
+        from pypy.rpython.rlist import ListRepr
+        if not isinstance(r_lst, ListRepr):
+            raise TyperError("string.join of non-list: %r" % r_lst)
         v_str, v_lst = hop.inputargs(string_repr, r_lst)
         cname = inputconst(Void, "items")
         v_items = hop.genop("getfield", [v_lst, cname],
