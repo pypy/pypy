@@ -86,6 +86,9 @@ class CodeWriter(object):
     def binaryop(self, name, targetvar, type_, ref1, ref2):
         self.indent("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
 
+    def shiftop(self, name, targetvar, type_, ref1, ref2):
+        self.indent("%s = %s %s %s, ubyte %s" % (targetvar, name, type_, ref1, ref2))
+
     def call(self, targetvar, returntype, functionref, argrefs, argtypes):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
         self.indent("%s = call %s %s(%s)" % (targetvar, returntype, functionref,

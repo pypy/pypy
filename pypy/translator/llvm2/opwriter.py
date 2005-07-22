@@ -16,6 +16,9 @@ class OpWriter(object):
                          'int_sub': 'sub',
                          'int_floordiv': 'div',
                          'int_mod': 'rem',
+                         'int_and': 'and',
+                         'int_or': 'or',
+                         'int_xor': 'xor',
                          'int_lt': 'setlt',
                          'int_le': 'setle',
                          'int_eq': 'seteq',
@@ -28,6 +31,9 @@ class OpWriter(object):
                          'uint_sub': 'sub',
                          'uint_floordiv': 'div',
                          'uint_mod': 'rem',
+                         'uint_and': 'and',
+                         'uint_or': 'or',
+                         'uint_xor': 'xor',
                          'uint_lt': 'setlt',
                          'uint_le': 'setle',
                          'uint_eq': 'seteq',
@@ -53,6 +59,16 @@ class OpWriter(object):
                          'float_ne': 'setne',
                          'float_ge': 'setge',
                          'float_gt': 'setgt',
+
+                         'ptr_eq': 'seteq',
+                         'ptr_ne': 'setne',
+                         }
+
+    shift_operations  = {'int_lshift': 'shl',
+                         'int_rshift': 'shr',
+
+                         'uint_lshift': 'shl',
+                         'uint_rshift': 'shr',
                          }
 
     def __init__(self, db, codewriter):
@@ -62,6 +78,8 @@ class OpWriter(object):
     def write_operation(self, op):
         if op.opname in self.binary_operations:
             self.binaryop(op)
+        elif op.opname in self.shift_operations:
+            self.shiftop(op)
         else:
             meth = getattr(self, op.opname, None)
             assert meth is not None, "operation %r not found" %(op.opname,)
@@ -83,7 +101,6 @@ class OpWriter(object):
                                  "true")
 
                     
-
     def binaryop(self, op):
         name = self.binary_operations[op.opname]
         assert len(op.args) == 2
@@ -92,6 +109,20 @@ class OpWriter(object):
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  self.db.repr_arg(op.args[1]))
+
+    def shiftop(self, op):
+        name = self.shift_operations[op.opname]
+        assert len(op.args) == 2
+        if isinstance(op.args[1], Constant):
+            tmpvar = op.args[1]
+        else:
+            tmpvar = self.db.repr_tmpvar()
+            self.codewriter.cast(tmpvar, self.db.repr_arg_type(op.args[1]), self.db.repr_arg(op.args[1]), 'ubyte')
+        self.codewriter.shiftop(name,
+                                self.db.repr_arg(op.result),
+                                self.db.repr_arg_type(op.args[0]),
+                                self.db.repr_arg(op.args[0]),
+                                tmpvar)
 
     def cast_primitive(self, op): #works for all primitives
         assert len(op.args) == 1
@@ -113,7 +144,6 @@ class OpWriter(object):
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  "0")
-
     uint_is_true = int_is_true
 
     def float_is_true(self, op):
@@ -122,7 +152,21 @@ class OpWriter(object):
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  "0.0")
-    
+
+    def ptr_nonzero(self, op):
+        self.codewriter.binaryop("setne",
+                                 self.db.repr_arg(op.result),
+                                 self.db.repr_arg_type(op.args[0]),
+                                 self.db.repr_arg(op.args[0]),
+                                 "null")
+
+    def ptr_iszero(self, op):
+        self.codewriter.binaryop("seteq",
+                                 self.db.repr_arg(op.result),
+                                 self.db.repr_arg_type(op.args[0]),
+                                 self.db.repr_arg(op.args[0]),
+                                 "null")
+
     def direct_call(self, op):
         assert len(op.args) >= 1
         targetvar = self.db.repr_arg(op.result)
