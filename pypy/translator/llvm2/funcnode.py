@@ -153,4 +153,19 @@ class FuncNode(ConstantLLVMNode):
             codewriter.ret_void()
 
     def write_exceptblock(self, codewriter, block):
+        assert len(block.inputargs) == 2
+        self.write_block_phi_nodes(codewriter, block)
+        inputargs = self.db.repr_arg_multi(block.inputargs)
+        inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
+
+        #XXX add pending last_exception global here
+        t = 'long'  #void*
+        tmpvar = self.db.repr_tmpvar()
+        codewriter.cast(tmpvar, inputargtypes[0], inputargs[0], t)
+        codewriter.store(t, tmpvar, 'last_exception_type')
+
+        tmpvar = self.db.repr_tmpvar()
+        codewriter.cast(tmpvar, inputargtypes[1], inputargs[1], t)
+        codewriter.store(t, tmpvar, 'last_exception_value')
+
         codewriter.unwind()

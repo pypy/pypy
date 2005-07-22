@@ -14,6 +14,8 @@ declare sbyte* %strncpy(sbyte*, sbyte*, int)
 
 %st.rpy_string.0 = type {int, {int, [0 x sbyte]}}
 
+%last_exception_type  = global long 0
+%last_exception_value = global long 0
 """
 
 gc_boehm = """
