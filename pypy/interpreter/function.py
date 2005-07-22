@@ -150,11 +150,15 @@ class Function(Wrappable):
         return space.wrap(self.code)
 
     def fset_func_code(space, self, w_code):
+        from pypy.interpreter.pycode import PyCode
         code = space.interpclass_w(w_code)
         if not isinstance(code, Code):
             raise OperationError(space.w_TypeError, space.wrap("func_code must be set to a code object") )
-        if len(self.code.co_freevars) != len(code.co_freevars):
-            raise OperationError(space.w_ValueError, space.wrap("%s() requires a code object with %s free vars, not %s " % (self.name, len(self.code.co_freevars), len(code.co_freevars))))
+        closure_len = 0
+        if self.closure:
+            closure_len = len(self.closure)
+        if isinstance(code, PyCode) and closure_len != len(code.co_freevars):
+            raise OperationError(space.w_ValueError, space.wrap("%s() requires a code object with %s free vars, not %s " % (self.name, closure_len, len(code.co_freevars))))
         self.code = code
 
     def fget_func_closure(space, self):
