@@ -257,11 +257,11 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         if int1.nonneg and isinstance(op.args[1], Variable):
             case = opname in ('lt', 'le', 'eq')
             add_knowntypedata(knowntypedata, case, [op.args[1]],
-                              SomeInteger(nonneg=True))
+                              SomeInteger(nonneg=True, unsigned=int2.unsigned))
         if int2.nonneg and isinstance(op.args[0], Variable):
             case = opname in ('gt', 'ge', 'eq')
             add_knowntypedata(knowntypedata, case, [op.args[0]],
-                              SomeInteger(nonneg=True))
+                              SomeInteger(nonneg=True, unsigned=int1.unsigned))
         if knowntypedata:
             r.knowntypedata = knowntypedata
         return r

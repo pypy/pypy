@@ -1272,6 +1272,24 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int, int])
         assert s == annmodel.SomeTuple([annmodel.SomeInteger(nonneg=True)] * 2)
 
+    def test_nonneg_cleverness_is_gentle_with_unsigned(self):
+        def witness1(x):
+            pass
+        def witness2(x):
+            pass        
+        def f(x):
+            if 0 < x:
+                witness1(x)
+            if x > 0:
+                witness2(x)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeInteger(unsigned=True)])
+        wg1 = a.translator.getflowgraph(witness1)
+        wg2 = a.translator.getflowgraph(witness2)        
+        assert a.binding(wg1.getargs()[0]).unsigned is True
+        assert a.binding(wg2.getargs()[0]).unsigned is True        
+        
+
     def test_attr_moving_into_parent(self):
         class A: pass
         class B(A): pass
