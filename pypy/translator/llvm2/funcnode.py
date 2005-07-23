@@ -1,6 +1,6 @@
 import py
 from pypy.objspace.flow.model import Block, Constant, Variable, Link
-from pypy.objspace.flow.model import flatten, mkentrymap, traverse
+from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
 from pypy.rpython import lltype
 from pypy.translator.backendoptimization import remove_same_as 
 from pypy.translator.unsimplify import remove_double_links                     
@@ -126,6 +126,12 @@ class FuncNode(ConstantLLVMNode):
                 codewriter.phi(arg, type_, names, blocknames) 
 
     def write_block_branches(self, codewriter, block):
+
+        #BLOCK.EXITS[%fn]=3                        ['__class__', '__delattr__', '__doc__', '__getattribute__', '__hash__', '__init__', '__module__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__slots__', '__str__', 'at', 'closeblock', 'dead', 'exc_handler', 'exits', 'exitswitch', 'fillcolor', 'framestate', 'getconstants', 'getvariables', 'inputargs', 'isstartblock', 'operations', 'patchframe', 'recloseblock', 'renamevariables'
+        
+        print 'BLOCK.EXITS[%s], exitswitch=%s' % (self.ref, str(block.exitswitch))
+
+        #assert len(block.exits) <= 2    #more exits are possible (esp. in combination with exceptions)
         if len(block.exits) == 1:
             codewriter.br_uncond(self.block_to_name[block.exits[0].target])
         elif len(block.exits) == 2:
@@ -135,9 +141,18 @@ class FuncNode(ConstantLLVMNode):
 
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter)
-        for op in block.operations:
+        last_direct_call = -1
+        if block.exitswitch == Constant(last_exception):
+            for op_index, op in enumerate(block.operations):
+                if op.opname == 'direct_call':
+                    last_direct_call = op_index
+        for op_index, op in enumerate(block.operations):
             codewriter.comment(str(op), indent=True)
-            opwriter.write_operation(op)
+            opname = op.opname
+            if op_index == last_direct_call:
+                opname = 'direct_invoke'
+            opwriter.write_operation(op, opname)
+
     def write_startblock(self, codewriter, block):
         self.write_block_operations(codewriter, block)
         self.write_block_branches(codewriter, block)
@@ -162,10 +177,10 @@ class FuncNode(ConstantLLVMNode):
         t = 'long'  #void*
         tmpvar = self.db.repr_tmpvar()
         codewriter.cast(tmpvar, inputargtypes[0], inputargs[0], t)
-        codewriter.store(t, tmpvar, 'last_exception_type')
+        codewriter.store(t, tmpvar, '%last_exception_type')
 
         tmpvar = self.db.repr_tmpvar()
         codewriter.cast(tmpvar, inputargtypes[1], inputargs[1], t)
-        codewriter.store(t, tmpvar, 'last_exception_value')
+        codewriter.store(t, tmpvar, '%last_exception_value')
 
         codewriter.unwind()

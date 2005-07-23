@@ -98,6 +98,15 @@ class CodeWriter(object):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
         self.indent("call void %s(%s)" % (functionref, ", ".join(arglist)))
 
+    def invoke(self, targetvar, returntype, functionref, argrefs, argtypes, label, except_label):
+        arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
+        self.indent("%s = invoke %s %s(%s) to label %s except label %s" % (targetvar, returntype, functionref,
+                                             ", ".join(arglist), label, except_label))
+
+    def invoke_void(self, functionref, argrefs, argtypes, label, except_label):
+        arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
+        self.indent("invoke void %s(%s) to label %s except label %s" % (functionref, ", ".join(arglist), label, except_label))
+
     def cast(self, targetvar, fromtype, fromvar, targettype):
         self.indent("%(targetvar)s = cast %(fromtype)s "
                         "%(fromvar)s to %(targettype)s" % locals())

@@ -9,16 +9,20 @@ class MyException(Exception):
         self.n = n
 
 def test_simple1():
+    import time
     def raise_(i):
         if i:
             raise TestException()
         else:
-            return 1
+            return 3
     def fn(i):
         try:
-            return raise_(i)
+            a = time.time() + raise_(i) + 11
+            b = time.time() + raise_(i) + 12
+            c = time.time() + raise_(i) + 13
+            return a+b+c
         except TestException: 
-            return 0
+            return 7
     f = compile_function(fn, [int])
     assert f(0) == fn(0)
     assert f(1) == fn(1)

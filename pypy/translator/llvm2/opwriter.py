@@ -75,14 +75,16 @@ class OpWriter(object):
         self.db = db
         self.codewriter = codewriter
 
-    def write_operation(self, op):
-        if op.opname in self.binary_operations:
+    def write_operation(self, op, opname=None):
+        if not opname:
+            opname = op.opname
+        if opname in self.binary_operations:
             self.binaryop(op)
-        elif op.opname in self.shift_operations:
+        elif opname in self.shift_operations:
             self.shiftop(op)
         else:
-            meth = getattr(self, op.opname, None)
-            assert meth is not None, "operation %r not found" %(op.opname,)
+            meth = getattr(self, opname, None)
+            assert meth is not None, "operation %r not found" %(opname,)
             meth(op)    
 
     def int_neg(self, op): 
@@ -179,6 +181,19 @@ class OpWriter(object):
                                  argtypes)
         else:
             self.codewriter.call_void(functionref, argrefs, argtypes)
+
+    def direct_invoke(self, op):
+        assert len(op.args) >= 1
+        targetvar = self.db.repr_arg(op.result)
+        returntype = self.db.repr_arg_type(op.result)
+        functionref = self.db.repr_arg(op.args[0])
+        argrefs = self.db.repr_arg_multi(op.args[1:])
+        argtypes = self.db.repr_arg_type_multi(op.args[1:])
+        if returntype != "void":
+            self.codewriter.invoke(targetvar, returntype, functionref, argrefs,
+                                 argtypes, 'PYPY_LABEL', 'PYPY_EXCEPT_LABEL')
+        else:
+            self.codewriter.invoke_void(functionref, argrefs, argtypes, 'PYPY_LABEL', 'PYPY_EXCEPT_LABEL')
 
     def malloc(self, op): 
         targetvar = self.db.repr_arg(op.result) 
