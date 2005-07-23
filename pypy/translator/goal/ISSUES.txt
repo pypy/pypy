@@ -6,7 +6,7 @@ already sometime ago, while running translate_pypy::
 
   * how to implement the three overrides of translator/ann_override.py ?
 
-  * a new snapshot (14956) of the trunk (which is again annotable has been made)
+  * a new snapshot (14956) of the trunk (which is again annotable) has been made
 
   * current list of RTyper problems:
  
