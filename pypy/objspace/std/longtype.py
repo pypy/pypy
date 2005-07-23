@@ -3,7 +3,6 @@ from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.inttype import int_typedef
 from pypy.interpreter.gateway import NoneNotWrapped
-from pypy.rpython.rarithmetic import r_uint
 
 def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject, args_from_long
@@ -44,7 +43,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
                     sign = 1
                 else:
                     sign = 0
-                w_value = W_LongObject(space, [r_uint(abs(intval))], sign) 
+                w_value = W_LongObject(space, [abs(intval)], sign) 
             else:
                 raise OperationError(space.w_ValueError,
                                     space.wrap("value can't be converted to long"))

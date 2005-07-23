@@ -260,12 +260,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newfloat(self, floatval):
         return W_FloatObject(self, floatval)
 
-    def newlong(self, uint): # for now just take a r_uint
-        if uint == 0:
+    def newlong(self, val): # val is an int
+        if val == 0:
             sign = 0
         else:
             sign = 1
-        return W_LongObject(self, [uint], sign)
+        return W_LongObject(self, [val], sign)
         
     def newtuple(self, list_w):
         assert isinstance(list_w, list)

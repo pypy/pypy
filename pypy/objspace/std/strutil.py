@@ -124,8 +124,8 @@ def string_to_w_long(space, s, base=10, parser=None):
         p = NumberStringParser(s, literal, base, 'long')
     else:
         p = parser
-    w_base = space.newlong(r_uint(p.base))
-    w_result = space.newlong(r_uint(0))
+    w_base = space.newlong(p.base)
+    w_result = space.newlong(0)
     while True:
         digit = p.next_digit()
         if digit == -1:
@@ -135,7 +135,7 @@ def string_to_w_long(space, s, base=10, parser=None):
             from pypy.objspace.std.longobject import W_LongObject
             assert isinstance(w_result, W_LongObject)
             return w_result
-        w_result = space.add(space.mul(w_result,w_base),space.newlong(r_uint(digit)))
+        w_result = space.add(space.mul(w_result,w_base), space.newlong(digit))
 
 def break_up_float(s):
     i = 0
