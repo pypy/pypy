@@ -19,6 +19,8 @@ class TypeDef:
             self.hasdict |= __base.hasdict
         self.rawdict = rawdict
         self.acceptable_as_base_class = True
+        # xxx used by faking
+        self.fakedcpytype = None
 
     def _freeze_(self):
         # hint for the annotator: track individual constant instances of TypeDef

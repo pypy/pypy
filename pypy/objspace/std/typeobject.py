@@ -258,7 +258,7 @@ class W_TypeObject(W_Object):
         return W_DictProxyObject(space, space.newdict(dictspec))
 
     def unwrap(w_self):
-        if hasattr(w_self.instancetypedef, 'fakedcpytype'):
+        if w_self.instancetypedef.fakedcpytype is not None:
             return w_self.instancetypedef.fakedcpytype
         from pypy.objspace.std.model import UnwrapError
         raise UnwrapError(w_self)
