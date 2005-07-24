@@ -150,7 +150,9 @@ class FuncNode(ConstantLLVMNode):
             codewriter.comment(str(op), indent=True)
             opname = op.opname
             if op_index == last_direct_call:
-                opname = 'direct_invoke'
+                opname   = 'direct_invoke'  #XXX or can op.opname be overwritten?
+                opwriter.node  = self             #XXX or make all operations know their node?
+                opwriter.block = block            #XXX or make all operations know their block?
             opwriter.write_operation(op, opname)
 
     def write_startblock(self, codewriter, block):

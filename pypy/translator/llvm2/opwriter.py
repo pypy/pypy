@@ -7,7 +7,7 @@ from pypy.translator.unsimplify import remove_double_links
 from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2.atomic import is_atomic
 from pypy.translator.llvm2.log import log 
-#from pypy.rpython.extfunctable import table as extfunctable
+nextexclabel = py.std.itertools.count().next
 log = log.opwriter
 
 class OpWriter(object):
@@ -189,11 +189,23 @@ class OpWriter(object):
         functionref = self.db.repr_arg(op.args[0])
         argrefs = self.db.repr_arg_multi(op.args[1:])
         argtypes = self.db.repr_arg_type_multi(op.args[1:])
+
+        link = self.block.exits[0]
+        assert link.exitcase is None
+        label = self.node.block_to_name[link.target]
+
+        assert len(self.block.exits) > 1
+        link = self.block.exits[1]      #XXX need an additional block if we catch multiple exc.types!
+        exc_label = self.node.block_to_name[link.target]
+        #exc_label = 'exception_block.%d' % nextexclabel()
+
         if returntype != "void":
             self.codewriter.invoke(targetvar, returntype, functionref, argrefs,
-                                 argtypes, 'PYPY_LABEL', 'PYPY_EXCEPT_LABEL')
+                                 argtypes, label, exc_label)
         else:
-            self.codewriter.invoke_void(functionref, argrefs, argtypes, 'PYPY_LABEL', 'PYPY_EXCEPT_LABEL')
+            self.codewriter.invoke_void(functionref, argrefs, argtypes, label, exc_label)
+
+        #self.codewriter.label(exc_label)
 
     def malloc(self, op): 
         targetvar = self.db.repr_arg(op.result) 

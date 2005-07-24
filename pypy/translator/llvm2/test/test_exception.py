@@ -9,7 +9,6 @@ class MyException(Exception):
         self.n = n
 
 def test_simple1():
-    import time
     def raise_(i):
         if i:
             raise TestException()
@@ -17,9 +16,9 @@ def test_simple1():
             return 3
     def fn(i):
         try:
-            a = time.time() + raise_(i) + 11
-            b = time.time() + raise_(i) + 12
-            c = time.time() + raise_(i) + 13
+            a = raise_(i) + 11
+            b = raise_(i) + 12
+            c = raise_(i) + 13
             return a+b+c
         except TestException: 
             return 7
