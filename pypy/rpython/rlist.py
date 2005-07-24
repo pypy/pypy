@@ -218,7 +218,7 @@ class __extend__(pairtype(ListRepr, SliceRepr)):
         if r_slic == minusone_slice_repr:
             v_lst, v_ignored = hop.inputargs(r_lst, minusone_slice_repr)
             return hop.gendirectcall(ll_listslice_minusone, v_lst)
-        raise TyperError(r_slic)
+        raise TyperError('getitem does not support slices with %r' % (r_slic,))
 
     def rtype_setitem((r_lst, r_slic), hop):
         #if r_slic == startonly_slice_repr:
@@ -228,7 +228,7 @@ class __extend__(pairtype(ListRepr, SliceRepr)):
                                                    r_lst)
             hop.gendirectcall(ll_listsetslice, v_lst, v_slice, v_lst2)
             return
-        raise TyperError(r_slic)
+        raise TyperError('setitem does not support slices with %r' % (r_slic,))
 
     def rtype_delitem((r_lst, r_slic), hop):
         if r_slic == startonly_slice_repr:
@@ -239,7 +239,7 @@ class __extend__(pairtype(ListRepr, SliceRepr)):
             v_lst, v_slice = hop.inputargs(r_lst, startstop_slice_repr)
             hop.gendirectcall(ll_listdelslice, v_lst, v_slice)
             return
-        raise TyperError(r_slic)
+        raise TyperError('delitem does not support slices with %r' % (r_slic,))
 
 class __extend__(pairtype(ListRepr, ListRepr)):
     def convert_from_to((r_lst1, r_lst2), v, llops):

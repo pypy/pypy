@@ -14,7 +14,16 @@ def copyvar(translator, v):
 
 def insert_empty_block(translator, link, newops=[]):
     """Insert and return a new block along the given link."""
-    vars = uniqueitems([v for v in link.args if isinstance(v, Variable)])
+    vars = {}
+    for v in link.args:
+        if isinstance(v, Variable):
+            vars[v] = True
+    for op in newops:
+        for v in op.args:
+            if isinstance(v, Variable):
+                vars.setdefault(v, True)
+        vars[op.result] = False
+    vars = [v for v, keep in vars.items() if keep]
     mapping = {}
     for v in vars:
         mapping[v] = copyvar(translator, v)

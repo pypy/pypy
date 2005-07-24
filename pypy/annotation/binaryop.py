@@ -413,7 +413,8 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
 class __extend__(pairtype(SomeList, SomeInteger)):
     
     def mul((lst1, int2)):
-        return getbookkeeper().newlist(lst1.listdef.read_item())
+        #return getbookkeeper().newlist(lst1.listdef.read_item())
+        return SomeList(lst1.listdef)
 
     def getitem((lst1, int2)):
         getbookkeeper().count("list_getitem", int2)
@@ -431,7 +432,8 @@ class __extend__(pairtype(SomeList, SomeInteger)):
 class __extend__(pairtype(SomeList, SomeSlice)):
 
     def getitem((lst, slic)):
-        return getbookkeeper().newlist(lst.listdef.read_item())
+        #return getbookkeeper().newlist(lst.listdef.read_item())
+        return SomeList(lst.listdef)
 
     def setitem((lst, slic), s_iterable):
         # we need the same unifying effect as the extend() method for
@@ -465,7 +467,8 @@ class __extend__(pairtype(SomeInteger, SomeString)):
 class __extend__(pairtype(SomeInteger, SomeList)):
     
     def mul((int1, lst2)):
-        return getbookkeeper().newlist(lst2.listdef.read_item())
+        #return getbookkeeper().newlist(lst2.listdef.read_item())
+        return SomeList(lst2.listdef)
 
 
 class __extend__(pairtype(SomeInstance, SomeInstance)):

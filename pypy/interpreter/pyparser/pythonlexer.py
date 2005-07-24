@@ -61,7 +61,7 @@ def _normalize_encoding(encoding):
     encoding = encoding.replace('_', '-').lower()
     if encoding.startswith('utf-8'):
         return 'utf-8'
-    for variant in ('latin-1', 'iso-latin-1', 'iso-8859-1'):
+    for variant in ['latin-1', 'iso-latin-1', 'iso-8859-1']:
         if encoding.startswith(variant):
             return 'iso-8859-1'
     return encoding
