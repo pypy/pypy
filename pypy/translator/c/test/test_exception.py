@@ -5,6 +5,23 @@ from pypy.translator.translator import Translator
 class MyException(Exception):
     pass
 
+def test_simple2(): #taken from ../../llvm2/test/test_exception.py 
+    def fn(n):
+        lst = range(10)
+        try:
+            lst[n]
+        except:
+            return 2
+        return 4
+    t = Translator(fn)
+    t.annotate([int]).simplify()
+    t.specialize()
+    #t.view()
+    f = t.ccompile()
+    assert f(-1) == fn(-1)
+    assert f( 0) == fn( 0)
+    assert f(10) == fn(10)
+
 def test_myexception():
     def g():
         raise MyException
