@@ -112,7 +112,6 @@ class FuncNode(ConstantLLVMNode):
         self.write_block_operations(codewriter, block)
         self.write_block_branches(codewriter, block)
 
-
     def write_block_phi_nodes(self, codewriter, block):
         entrylinks = mkentrymap(self.graph)[block]
         entrylinks = [x for x in entrylinks if x.prevblock is not None]
@@ -126,11 +125,6 @@ class FuncNode(ConstantLLVMNode):
                 codewriter.phi(arg, type_, names, blocknames) 
 
     def write_block_branches(self, codewriter, block):
-
-        #BLOCK.EXITS[%fn]=3                        ['__class__', '__delattr__', '__doc__', '__getattribute__', '__hash__', '__init__', '__module__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__slots__', '__str__', 'at', 'closeblock', 'dead', 'exc_handler', 'exits', 'exitswitch', 'fillcolor', 'framestate', 'getconstants', 'getvariables', 'inputargs', 'isstartblock', 'operations', 'patchframe', 'recloseblock', 'renamevariables'
-        
-        print 'BLOCK.EXITS[%s], exitswitch=%s' % (self.ref, str(block.exitswitch))
-
         #assert len(block.exits) <= 2    #more exits are possible (esp. in combination with exceptions)
         if len(block.exits) == 1:
             codewriter.br_uncond(self.block_to_name[block.exits[0].target])
@@ -139,21 +133,21 @@ class FuncNode(ConstantLLVMNode):
             codewriter.br(switch, self.block_to_name[block.exits[0].target],
                           self.block_to_name[block.exits[1].target])
 
+    def _last_operation(self, block, opname):
+        last_index = None
+        for op_index, op in enumerate(block.operations):
+            if op.opname == opname:
+                last_index = op_index
+        return last_index
+
     def write_block_operations(self, codewriter, block):
-        opwriter = OpWriter(self.db, codewriter)
-        last_direct_call = -1
-        if block.exitswitch == Constant(last_exception):
-            for op_index, op in enumerate(block.operations):
-                if op.opname == 'direct_call':
-                    last_direct_call = op_index
+        opwriter = OpWriter(self.db, codewriter, self, block)
+        last_direct_call_index = self._last_operation(block, 'direct_call')
         for op_index, op in enumerate(block.operations):
             codewriter.comment(str(op), indent=True)
-            opname = op.opname
-            if op_index == last_direct_call:
-                opname   = 'direct_invoke'  #XXX or can op.opname be overwritten?
-                opwriter.node  = self             #XXX or make all operations know their node?
-                opwriter.block = block            #XXX or make all operations know their block?
-            opwriter.write_operation(op, opname)
+            if op_index == last_direct_call_index and block.exitswitch == Constant(last_exception):
+                op.opname = 'direct_invoke'
+            opwriter.write_operation(op)
 
     def write_startblock(self, codewriter, block):
         self.write_block_operations(codewriter, block)
@@ -169,20 +163,37 @@ class FuncNode(ConstantLLVMNode):
         else:
             codewriter.ret_void()
 
+    def _is_raise_new_exception(self, block):
+        is_raise_new = False
+        entrylinks = mkentrymap(self.graph)[block]
+        entrylinks = [x for x in entrylinks if x.prevblock is not None]
+        inputargs = self.db.repr_arg_multi(block.inputargs)
+        for i, arg in enumerate(inputargs):
+            names = self.db.repr_arg_multi([link.args[i] for link in entrylinks])
+            for name in names:  #These tests-by-name are a bit yikes, but I don't see a better way right now
+                if not name.startswith('%last_exception_') and not name.startswith('%last_exc_value_'):
+                    is_raise_new = True
+        return is_raise_new
+
     def write_exceptblock(self, codewriter, block):
         assert len(block.inputargs) == 2
-        self.write_block_phi_nodes(codewriter, block)
-        inputargs = self.db.repr_arg_multi(block.inputargs)
-        inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
 
-        #XXX add pending last_exception global here
-        t = 'long'  #void*
-        tmpvar = self.db.repr_tmpvar()
-        codewriter.cast(tmpvar, inputargtypes[0], inputargs[0], t)
-        codewriter.store(t, tmpvar, '%last_exception_type')
+        if self._is_raise_new_exception(block):
+            self.write_block_phi_nodes(codewriter, block)
 
-        tmpvar = self.db.repr_tmpvar()
-        codewriter.cast(tmpvar, inputargtypes[1], inputargs[1], t)
-        codewriter.store(t, tmpvar, '%last_exception_value')
+            inputargs = self.db.repr_arg_multi(block.inputargs)
+            inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
+
+            tmptype, tmpvar = 'long', self.db.repr_tmpvar()
+            codewriter.cast(tmpvar, inputargtypes[0], inputargs[0], tmptype)
+            codewriter.store(tmptype, tmpvar, '%last_exception_type')
+
+            tmptype, tmpvar = 'long', self.db.repr_tmpvar()
+            codewriter.cast(tmpvar, inputargtypes[1], inputargs[1], tmptype)
+            codewriter.store(tmptype, tmpvar, '%last_exception_value')
+        #else:
+        #   Reraising last_exception.
+        #   Which is already stored in the global variables.
+        #   So nothing needs to happen here!
 
         codewriter.unwind()

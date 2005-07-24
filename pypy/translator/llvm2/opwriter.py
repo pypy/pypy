@@ -71,20 +71,20 @@ class OpWriter(object):
                          'uint_rshift': 'shr',
                          }
 
-    def __init__(self, db, codewriter):
+    def __init__(self, db, codewriter, node, block):
         self.db = db
         self.codewriter = codewriter
+        self.node = node
+        self.block = block
 
-    def write_operation(self, op, opname=None):
-        if not opname:
-            opname = op.opname
-        if opname in self.binary_operations:
+    def write_operation(self, op):
+        if op.opname in self.binary_operations:
             self.binaryop(op)
-        elif opname in self.shift_operations:
+        elif op.opname in self.shift_operations:
             self.shiftop(op)
         else:
-            meth = getattr(self, opname, None)
-            assert meth is not None, "operation %r not found" %(opname,)
+            meth = getattr(self, op.opname, None)
+            assert meth is not None, "operation %r not found" %(op.opname,)
             meth(op)    
 
     def int_neg(self, op): 
@@ -197,6 +197,11 @@ class OpWriter(object):
         assert len(self.block.exits) > 1
         link = self.block.exits[1]      #XXX need an additional block if we catch multiple exc.types!
         exc_label = self.node.block_to_name[link.target]
+
+        if len(self.block.exits) > 2:
+            msg = 'XXX Exception handling incomplete implementation warning: n_exits=%d' % (len(self.block.exits),)
+            print msg
+            self.codewriter.comment(msg, indent=True)
         #exc_label = 'exception_block.%d' % nextexclabel()
 
         if returntype != "void":
