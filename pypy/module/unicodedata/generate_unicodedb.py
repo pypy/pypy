@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-import sys
+
+MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
 class Unicodechar:
     def __init__(self, data):
@@ -76,7 +77,7 @@ def get_canonical_decomposition(table, code):
 def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file):
     rangeFirst = {}
     rangeLast = {}
-    table = [None] * (sys.maxunicode + 1)
+    table = [None] * (MAXUNICODE + 1)
     for line in unicodedata_file:
         line = line.split('#', 1)[0].strip()
         if not line:
@@ -211,6 +212,7 @@ def writeDbRecord(outfile, table):
         char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags, char.combining)
         db_records[char.db_record] = 1
     db_records = db_records.keys()
+    db_records.sort()
     print >> outfile, '_db_records = ['
     for record in db_records:
         print >> outfile, '%r,'%(record,)
@@ -446,7 +448,7 @@ def decomposition(code):
 
 
 if __name__ == '__main__':
-    import getopt, re
+    import getopt, re, sys
     infile = None
     outfile = sys.stdout
     unidata_version = None
