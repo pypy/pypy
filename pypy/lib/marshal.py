@@ -31,7 +31,6 @@ TYPE_TUPLE    = '('
 TYPE_LIST     = '['
 TYPE_DICT     = '{'
 TYPE_CODE     = 'c'
-TYPE_UNKNOWN  = '?'
 TYPE_UNICODE  = 'u'
 TYPE_UNKNOWN  = '?'
 TYPE_SET      = '<'
@@ -192,6 +191,13 @@ class Marshaller:
     except NameError:
         pass
 
+    def dump_set(self, x):
+        self.f.write(TYPE_SET)
+        self.w_long(len(x))
+        for each in set:
+            self.dump(each)
+    dispatch[TYPE_SET] = dump_set
+    dispatch[TYPE_FROZENSET] = dump_set
 
 class NULL:
     pass
@@ -376,6 +382,17 @@ class Unmarshaller:
                         freevars, cellvars)
     dispatch[TYPE_CODE] = load_code
 
+    def load_set(self):
+        n = self.r_long()
+        args = [self.load() for i in range(n)]
+        return set(args)
+    dispatch[TYPE_SET] = load_set
+
+    def load_frozenset(self):
+        n = self.r_long()
+        args = [self.load() for i in range(n)]
+        return frozenset(args)
+    dispatch[TYPE_FROZENSET] = load_frozenset
 
 def dump(x, f):
     Marshaller(f).dump(x)
