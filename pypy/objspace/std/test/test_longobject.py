@@ -384,3 +384,12 @@ class AppTestLong:
         assert 0xAAAAAAAAL | 0x555555555L == 0x5FFFFFFFFL
         assert 0xAAAAAAAAL & 0x555555555L == 0x000000000L
         assert 0xAAAAAAAAL ^ 0x555555555L == 0x5FFFFFFFFL
+
+    def test_hash(self):
+        # ints have the same hash as equal longs
+        for i in range(-4, 14):
+            assert hash(i) == hash(long(i))
+        # might check too much -- it's ok to change the hashing algorithm
+        assert hash(123456789L) == 123456789
+        assert hash(1234567890123456789L) == -1895067127
+        assert hash(-3**333) == -368329968
