@@ -44,7 +44,16 @@ class Marshaller:
         self.f = f
 
     def dump(self, x):
-        self.dispatch[type(x)](self, x)
+        try:
+            self.dispatch[type(x)](self, x)
+        except KeyError:
+            for tp in type(x).mro():
+                func = self.dispatch.get(tp)
+                if func:
+                    break
+            else:
+                raise ValueError, "unsupported type for marshal.dump"
+            func(self, x)
 
     def w_long64(self, x):
         self.w_long(x)
