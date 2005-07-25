@@ -5,7 +5,6 @@ import os
 import time
 import math
 import types
-from pypy.annotation.model import SomeInteger, SomeTuple, SomeFloat
 
 
 class ExtFuncInfo:
@@ -50,26 +49,44 @@ def declare(func, annotation, ll_function, ll_annotable=True, backend_functionte
 
 # _____________________________________________________________
 
-nonefactory = lambda *args: None
-tuplefactory = lambda *args: SomeTuple((SomeInteger(),)*10)
-frexpfactory = lambda *args: SomeTuple((SomeFloat(),SomeInteger()))
+
+
+def noneannotation(*args):
+    return None
+
+def statannotation(*args):
+    from pypy.annotation.model import SomeInteger, SomeTuple
+    return SomeTuple((SomeInteger(),)*10)
+
+def frexpannotation(*args):
+    from pypy.annotation.model import SomeInteger, SomeTuple, SomeFloat
+    return SomeTuple((SomeFloat(), SomeInteger()))
+
+def modfannotation(*args):
+    from pypy.annotation.model import SomeTuple, SomeFloat
+    return SomeTuple((SomeFloat(), SomeFloat()))
 
 # external function declarations
-declare(os.open     , int        , 'll_os/open')
-declare(os.read     , str        , 'll_os/read')
-declare(os.write    , int        , 'll_os/write')
-declare(os.close    , nonefactory, 'll_os/close')
-declare(os.getcwd   , str        , 'll_os/getcwd')
-declare(os.dup      , int        , 'll_os/dup')
-declare(os.lseek    , int        , 'll_os/lseek')
-declare(os.isatty   , bool       , 'll_os/isatty')
-declare(os.ftruncate, nonefactory, 'll_os/ftruncate')
-declare(os.fstat    , tuplefactory, 'll_os/fstat')
-declare(os.stat     , tuplefactory, 'll_os/stat')
-declare(time.time   , float      , 'll_time/time')
-declare(time.clock  , float      , 'll_time/clock')
-declare(time.sleep  , nonefactory, 'll_time/sleep')
-#declare(math.log10  , float      , 'll_math/log10')
-#declare(math.ceil   , float      , 'll_math/ceil')
-#declare(math.frexp  , frexpfactory, 'll_math/frexp')
-#declare(math.atan2  , float      , 'll_math/atan2')
+declare(os.open     , int           , 'll_os/open')
+declare(os.read     , str           , 'll_os/read')
+declare(os.write    , int           , 'll_os/write')
+declare(os.close    , noneannotation, 'll_os/close')
+declare(os.getcwd   , str           , 'll_os/getcwd')
+declare(os.dup      , int           , 'll_os/dup')
+declare(os.lseek    , int           , 'll_os/lseek')
+declare(os.isatty   , bool          , 'll_os/isatty')
+declare(os.ftruncate, noneannotation, 'll_os/ftruncate')
+declare(os.fstat    , statannotation, 'll_os/fstat')
+declare(os.stat     , statannotation, 'll_os/stat')
+declare(time.time   , float         , 'll_time/time')
+declare(time.clock  , float         , 'll_time/clock')
+declare(time.sleep  , noneannotation, 'll_time/sleep')
+declare(math.log10  , float         , 'll_math/log10')
+declare(math.ceil   , float         , 'll_math/ceil')
+declare(math.frexp  , frexpannotation, 'll_math/frexp')
+declare(math.atan2  , float         , 'll_math/atan2')
+declare(math.fmod   , float         ,  'll_math/fmod')
+declare(math.floor  , float         ,  'll_math/floor')
+declare(math.exp    , float         ,  'll_math/exp')
+declare(math.ldexp  , float         ,  'll_math/ldexp')
+declare(math.modf   , modfannotation, 'll_math/modf')

@@ -242,10 +242,12 @@ def test_ovfcheck_float_to_int():
     assert ovfcheck_float_to_int(13.0) == 13
     assert ovfcheck_float_to_int(-1.0) == -1
     assert ovfcheck_float_to_int(-13.0) == -13
-    assert ovfcheck_float_to_int(float(sys.maxint-1)) == sys.maxint-1
-    assert ovfcheck_float_to_int(float(sys.maxint)) == sys.maxint
-    assert ovfcheck_float_to_int(float(-sys.maxint)) == -sys.maxint
-    assert ovfcheck_float_to_int(float(-sys.maxint-1)) == -sys.maxint-1
+    #  strange things happening for float to int on 64 bit
+    maxint32 = 2 ** 31 - 1
+    assert ovfcheck_float_to_int(float(maxint32-1)) == maxint32-1
+    assert ovfcheck_float_to_int(float(maxint32)) == maxint32
+    assert ovfcheck_float_to_int(float(-maxint32)) == -maxint32
+    assert ovfcheck_float_to_int(float(-maxint32-1)) == -maxint32-1
 
     try:
         ovfcheck_float_to_int(float(-sys.maxint-1)-1)

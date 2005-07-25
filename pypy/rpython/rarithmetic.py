@@ -196,7 +196,7 @@ FL_MININT = float(-LONG_TEST)
 
 def ovfcheck_float_to_int(x):
     _, intp = math.modf(x)
-    if FL_MININT <= intp <= FL_MAXINT:
+    if FL_MININT < intp < FL_MAXINT:
         return int(intp)
     raise OverflowError
 

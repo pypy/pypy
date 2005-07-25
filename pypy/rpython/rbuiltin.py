@@ -191,14 +191,6 @@ def rtype_OSError__init__(hop):
         v_errno = hop.inputarg(lltype.Signed, arg=1)
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
-def rtype_math_floor(hop):
-    vlist = hop.inputargs(lltype.Float)
-    return hop.genop('float_floor', vlist, resulttype=lltype.Float)
-
-def rtype_math_fmod(hop):
-    vlist = hop.inputargs(lltype.Float, lltype.Float)
-    return hop.genop('float_fmod', vlist, resulttype=lltype.Float)
-
 def ll_instantiate(typeptr, RESULT):
     my_instantiate = typeptr.instantiate
     return lltype.cast_pointer(RESULT, my_instantiate())
@@ -216,10 +208,6 @@ def rtype_instantiate(hop):
     return rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
 
 
-import math
-##def ll_floor(f1):
-##    return float(int((f1)
-
 # collect all functions
 import __builtin__
 BUILTIN_TYPER = {}
@@ -227,8 +215,6 @@ for name, value in globals().items():
     if name.startswith('rtype_builtin_'):
         original = getattr(__builtin__, name[14:])
         BUILTIN_TYPER[original] = value
-BUILTIN_TYPER[math.floor] = rtype_math_floor
-BUILTIN_TYPER[math.fmod] = rtype_math_fmod
 BUILTIN_TYPER[Exception.__init__.im_func] = rtype_Exception__init__
 BUILTIN_TYPER[AssertionError.__init__.im_func] = rtype_Exception__init__
 BUILTIN_TYPER[OSError.__init__.im_func] = rtype_OSError__init__
@@ -290,14 +276,6 @@ def rtype_time_time(hop):
 BUILTIN_TYPER[time.time] = rtype_time_time
     
 import math
-
-def rtype_math_exp(hop):
-    vlist = hop.inputargs(lltype.Float)
-    # XXX need PyFPE_START_PROTECT/PyFPE_END_PROTECT/Py_SET_ERRNO_ON_MATH_ERROR
-    return hop.llops.gencapicall('exp', vlist, resulttype=lltype.Float,
-                                 includes=("math.h",))   # XXX clean up needed
-
-BUILTIN_TYPER[math.exp] = rtype_math_exp
 
 from pypy.rpython import extfunctable
 

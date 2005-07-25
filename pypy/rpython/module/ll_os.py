@@ -93,31 +93,34 @@ n = 10
 fieldnames = ['item%d' % i for i in range(n)]
 lltypes = [Signed]*n
 fields = tuple(zip(fieldnames, lltypes))    
-tup = malloc(GcStruct('tuple%d' % n, *fields))
+STAT_RESULT = GcStruct('tuple%d' % n, *fields)
 
 from pypy.rpython.rarithmetic import intmask
 
-def stat_to_rtuple(stat):
-    #n = len(stat)
-    tup.item0 = intmask(stat[0])
-    tup.item1 = intmask(stat[1])
-    tup.item2 = intmask(stat[2])
-    tup.item3 = intmask(stat[3])
-    tup.item4 = intmask(stat[4])
-    tup.item5 = intmask(stat[5])
-    tup.item6 = intmask(stat[6])
-    tup.item7 = intmask(stat[7])
-    tup.item8 = intmask(stat[8])
-    tup.item9 = intmask(stat[9])
+def ll_stat_result(stat0, stat1, stat2, stat3, stat4,
+                   stat5, stat6, stat7, stat8, stat9):
+    tup = malloc(STAT_RESULT)
+    tup.item0 = intmask(stat0)
+    tup.item1 = intmask(stat1)
+    tup.item2 = intmask(stat2)
+    tup.item3 = intmask(stat3)
+    tup.item4 = intmask(stat4)
+    tup.item5 = intmask(stat5)
+    tup.item6 = intmask(stat6)
+    tup.item7 = intmask(stat7)
+    tup.item8 = intmask(stat8)
+    tup.item9 = intmask(stat9)
     
 def ll_os_fstat(fd):
-    stat = os.fstat(fd)
-    stat_to_rtuple(stat)
-    return tup
+    (stat0, stat1, stat2, stat3, stat4,
+     stat5, stat6, stat7, stat8, stat9) = os.fstat(fd)
+    return ll_stat_result(stat0, stat1, stat2, stat3, stat4,
+                          stat5, stat6, stat7, stat8, stat9)
 ll_os_fstat.suggested_primitive = True
 
 def ll_os_stat(path):
-    stat = os.stat(from_rstr(path))
-    stat_to_tuple(stat)
-    return tup
-ll_os_stat.suggested_primitive = True
+    (stat0, stat1, stat2, stat3, stat4,
+     stat5, stat6, stat7, stat8, stat9) = os.stat(from_rstr(path))
+    return ll_stat_result(stat0, stat1, stat2, stat3, stat4,
+                          stat5, stat6, stat7, stat8, stat9)
+ll_os_fstat.suggested_primitive = True

@@ -3,7 +3,7 @@ from pypy.rpython import lltype
 from pypy.translator.c.support import cdecl
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR
-from pypy.rpython.module import ll_os, ll_time
+from pypy.rpython.module import ll_os, ll_time, ll_math
 
 
 # table of functions hand-written in src/ll_*.h
@@ -15,6 +15,15 @@ EXTERNALS = {
     ll_os  .ll_os_dup:     'LL_os_dup',
     ll_os  .ll_os_getcwd:  'LL_os_getcwd',
     ll_time.ll_time_clock: 'LL_time_clock',
+    ll_math.ll_math_log10: 'LL_math_log10',
+    ll_math.ll_math_ceil:  'LL_math_ceil',
+    ll_math.ll_math_frexp: 'LL_math_frexp',
+    ll_math.ll_math_atan2: 'LL_math_atan2',
+    ll_math.ll_math_fmod : 'LL_math_fmod',
+    ll_math.ll_math_floor: 'LL_math_floor',
+    ll_math.ll_math_exp:   'LL_math_exp',
+    ll_math.ll_math_ldexp: 'LL_math_ldexp',
+    ll_math.ll_math_modf:  'LL_math_modf',
     }
 
 

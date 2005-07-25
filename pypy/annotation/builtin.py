@@ -220,21 +220,6 @@ def count(s_obj):
 def conf():
     return SomeString()
 
-def math_fmod(x, y):
-    return SomeFloat()
-
-def math_floor(x):
-    return SomeFloat()
-
-def math_frexp(x):
-    return SomeTuple((SomeFloat(), SomeInteger()))
-
-def math_modf(x):
-    return SomeTuple((SomeFloat(), SomeFloat()))
-
-def math_any(*args):
-    return SomeFloat()
-
 def rarith_intmask(s_obj):
     return SomeInteger()
 
@@ -293,12 +278,6 @@ BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init
 # this one is needed otherwise when annotating assert in a test we may try to annotate 
 # py.test AssertionError.__init__ .
 BUILTIN_ANALYZERS[AssertionError.__init__.im_func] = exception_init
-BUILTIN_ANALYZERS[math.fmod] = math_fmod
-BUILTIN_ANALYZERS[math.floor] = math_floor
-BUILTIN_ANALYZERS[math.exp] = math_any
-BUILTIN_ANALYZERS[math.ldexp] = math_any
-BUILTIN_ANALYZERS[math.frexp] = math_frexp
-BUILTIN_ANALYZERS[math.modf] = math_modf
 BUILTIN_ANALYZERS[sys.getrefcount] = count
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 import unicodedata
