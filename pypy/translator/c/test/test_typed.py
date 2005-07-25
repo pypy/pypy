@@ -282,6 +282,21 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         f = self.getcompiled(fn)
         assert f(1.0) == exp(1.0)
 
+    def test_math_frexp(self):
+        from math import frexp
+        def fn(x=float):
+            return frexp(x)
+        f = self.getcompiled(fn)
+        assert f(10.123) == frexp(10.123)
+
+    def test_math_modf(self):
+        from math import modf
+        def fn(x=float):
+            return modf(x)
+        f = self.getcompiled(fn)
+        assert f(10.123) == modf(10.123)
+
+
     def test_stringformatting(self):
         def fn(i=int):
             return "you said %d, you did"%i

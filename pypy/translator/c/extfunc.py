@@ -30,7 +30,8 @@ EXTERNALS = {
 def predeclare_common_types(db, rtyper):
     # Common types
     yield ('RPyString', STR)
-
+    yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
+    yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
 
 def predeclare_utility_functions(db, rtyper):
     # Common utility functions
@@ -43,7 +44,14 @@ def predeclare_utility_functions(db, rtyper):
             fptr = rtyper.annotate_helper(f, f.func_defaults)
             yield (fname, fptr)
 
+def predeclare_extfunc_helpers(db, rtyper):
+    def annotate(func, *argtypes):
+        fptr = rtyper.annotate_helper(func, argtypes)
+        return (func.__name__, fptr)
 
+    yield annotate(ll_math.ll_frexp_result, lltype.Float, lltype.Signed)
+    yield annotate(ll_math.ll_modf_result, lltype.Float, lltype.Float)
+        
 def predeclare_extfuncs(db, rtyper):
     for func, funcobj in db.externalfuncs.items():
         c_name = EXTERNALS[func]
@@ -75,6 +83,7 @@ def predeclare_all(db, rtyper):
     for fn in [predeclare_common_types,
                predeclare_utility_functions,
                predeclare_exception_data,
+               predeclare_extfunc_helpers,
                predeclare_extfuncs,
                ]:
         for t in fn(db, rtyper):

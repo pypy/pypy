@@ -55,4 +55,4 @@ def ll_modf_result(fracpart, intpart):
 def ll_math_modf(x):
     fracpart, intpart = math.modf(x)
     return ll_modf_result(fracpart, intpart)
-ll_modf_result.suggested_primitive = True
+ll_math_modf.suggested_primitive = True
