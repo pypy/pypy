@@ -15,19 +15,19 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 # XXX posixpath/ntpath/macpath modules.
 
 
-def try_import_mod(space, w_modulename, f, w_parent, w_name, pkgdir=None):
+def try_import_mod(space, w_modulename, fn, w_parent, w_name, pkgdir=None):
     w = space.wrap
-    if os.path.exists(f):
+    if os.path.exists(fn):
         w_mod = space.wrap(Module(space, w_modulename))
         space.sys.setmodule(w_mod)
-        space.setattr(w_mod, w('__file__'), w(f))
+        space.setattr(w_mod, w('__file__'), w(fn))
         space.setattr(w_mod, w('__doc__'), space.w_None)        
         if pkgdir is not None:
             space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
         w_dict = space.getattr(w_mod, w('__dict__'))
         e = None
         try:
-            space.builtin.call('execfile', w(f), w_dict, w_dict)
+            space.builtin.call('execfile', w(fn), w_dict, w_dict)
         except OperationError, e:
             if e.match(space, space.w_SyntaxError):
                 w_mods = space.sys.get('modules')
@@ -180,13 +180,13 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
             for path in space.unpackiterable(w_path):
                 dir = os.path.join(space.str_w(path), partname)
                 if os.path.isdir(dir):
-                    f = os.path.join(dir,'__init__.py')
-                    w_mod = try_import_mod(space, w_modulename, f, w_parent,
+                    fn = os.path.join(dir,'__init__.py')
+                    w_mod = try_import_mod(space, w_modulename, fn, w_parent,
                                            w(partname), pkgdir=dir)
                     if w_mod is not None:
                         return w_mod
-                f = os.path.join(space.str_w(path), partname + '.py')
-                w_mod = try_import_mod(space, w_modulename, f, w_parent,
+                fn = os.path.join(space.str_w(path), partname + '.py')
+                w_mod = try_import_mod(space, w_modulename, fn, w_parent,
                                        w(partname))
                 if w_mod is not None:
                     return w_mod
