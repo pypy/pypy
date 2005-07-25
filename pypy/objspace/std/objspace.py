@@ -124,6 +124,28 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_classobj = w_classobj
         self.w_instance = w_instance
 
+    def unfakefile(self): 
+        """ NOT_RPYTHON use our application level file implementation
+            including re-wrapping sys.stdout/err/in
+        """ 
+        self.appexec([], '''():
+            from _file import file
+            __builtins__.file = __builtins__.open = file
+            import sys
+            sys.stdout = file.fdopen(sys.stdout.fileno(),
+                                     sys.stdout.mode,
+                                     buffering=1)
+            sys.stdin = file.fdopen(sys.stdin.fileno(),
+                                    sys.stdin.mode,
+                                    buffering=1)                                         
+            sys.stderr = file.fdopen(sys.stderr.fileno(),
+                                     sys.stderr.mode,
+                                     buffering=0)
+            sys.__stdout__ = sys.stdout
+            sys.__stderr__ = sys.stderr
+            sys.__stdin__ = sys.stdin
+        ''')
+
     def setup_exceptions(self):
         """NOT_RPYTHON"""
         ## hacking things in
@@ -233,6 +255,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = self.wrap_exception_cls(x)
             if w_result is not None:
                 return w_result
+        #print "fake-wrapping", x 
         from fake import fake_object
         return fake_object(self, x)
 

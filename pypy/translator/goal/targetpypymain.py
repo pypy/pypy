@@ -39,6 +39,7 @@ def target():
     gateway.ApplevelClass.use_geninterp = False
 
     space = StdObjSpace()
+    space.unfakefile()
 
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')

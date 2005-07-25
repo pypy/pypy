@@ -89,22 +89,6 @@ def objspace(name='', _spacecache={}):
         if name == 'std' and Options.oldstyle:
             space.enable_old_style_classes_as_default_metaclass()
         if Options.uselibfile:
-            space.appexec([], '''():
-                from _file import file
-                __builtins__.file = __builtins__.open = file
-                import sys
-                sys.stdout = file.fdopen(sys.stdout.fileno(),
-                                         sys.stdout.mode,
-                                         buffering=1)
-                sys.stdin = file.fdopen(sys.stdin.fileno(),
-                                        sys.stdin.mode,
-                                        buffering=1)                                         
-                sys.stderr = file.fdopen(sys.stderr.fileno(),
-                                         sys.stderr.mode,
-                                         buffering=0)
-                sys.__stdout__ = sys.stdout
-                sys.__stderr__ = sys.stderr
-                sys.__stdin__ = sys.stdin
-            ''')
+            space.unfakefile()
             
         return _spacecache.setdefault(name, space)
