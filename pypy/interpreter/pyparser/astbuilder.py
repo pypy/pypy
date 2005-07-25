@@ -332,8 +332,12 @@ def build_testlist_gexp(builder, nb):
         for i in range(0, l, 2): # this is L not 1
             items.append(L[i])
     else:
-        # genfor
-        assert False, "TODO"
+        # genfor: 'i for i in j'
+        # GenExpr(GenExprInner(Name('i'), [GenExprFor(AssName('i', 'OP_ASSIGN'), Name('j'), [])])))]))
+        expr = L[0]
+        genexpr_for = parse_genexpr_for(L[1:])
+        builder.push(ast.GenExpr(ast.GenExprInner(expr, genexpr_for)))
+        return
     builder.push(ast.Tuple(items))
     return
 
@@ -366,48 +370,14 @@ def build_arglist(builder, nb):
     builder.push(ArglistObject('arglist', parse_argument(L), None))
 
 
-def build_list_for(builder, nb):
-    """
-    list_iter: list_for | list_if
-    list_for: 'for' exprlist 'in' testlist_safe [list_iter]
-    list_if: 'if' test [list_iter]
-    /!\ list_for is (possibly) recursive
-    """
-    L = get_atoms(builder, nb)
-    built_listfors = []
-    ifs = []
-    assign_token = L[1]
-    ass_node = to_lvalue(assign_token, consts.OP_ASSIGN)
-    end_index = len(L) - 1
-    while isinstance(L[end_index], ast.ListCompFor):
-        # we need to insert in reverse order to build the AST
-        built_listfors.insert(0, L[end_index])
-        end_index -= 1
-    index = 4
-    while index <= end_index:
-        ifs.append(L[index])
-        index += 1
-    builder.push(ast.ListCompFor(ass_node, L[3], ifs))
-    for listfor in built_listfors:
-        builder.push(listfor)
-    builder.push(TempRuleObject(0, len(built_listfors) + 1, None))
-    
-def build_list_if(builder, nb):
-    """list_if: 'if' test [list_iter]"""
-    L = get_atoms(builder, nb)
-    builder.push(ast.ListCompIf(L[1]))
-
 def build_listmaker(builder, nb):
     """listmaker: test ( list_for | (',' test)* [','] )"""
     L = get_atoms(builder, nb)
-    if len(L) >= 2 and isinstance(L[1], ast.ListCompFor):
+    if len(L) >= 2 and isinstance(L[1], TokenObject) and L[1].value == 'for':
         # list comp
-        index = 1
-        listfors = []
-        while index < len(L):
-            listfors.append(L[index])
-            index += 1
-        builder.push(ast.ListComp(L[0], listfors))
+        expr = L[0]
+        list_for = parse_listcomp(L[1:])
+        builder.push(ast.ListComp(expr, list_for))
     else:
         # regular list building (like in [1, 2, 3,])
         index = 0
@@ -509,6 +479,61 @@ def parse_arglist(tokens):
     return names, defaults, flags
 
 
+def parse_listcomp(tokens):
+    """parses 'for j in k for i in j if i %2 == 0' and returns
+    a GenExprFor instance
+    XXX: refactor with listmaker ?
+    """
+    list_fors = []
+    ifs = []
+    index = 0
+    while index < len(tokens):
+        if tokens[index].value == 'for':
+            index += 1 # skip 'for'
+            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
+            index += 2 # skip 'in'
+            iterable = tokens[index]
+            index += 1
+            while index < len(tokens) and tokens[index].value == 'if':
+                ifs.append(ast.ListCompIf(tokens[index+1]))
+                index += 2
+            list_fors.append(ast.ListCompFor(ass_node, iterable, ifs))
+            ifs = []
+        else:
+            raise ValueError('Unexpected token: %s' % tokens[index])
+    return list_fors
+
+
+def parse_genexpr_for(tokens):
+    """parses 'for j in k for i in j if i %2 == 0' and returns
+    a GenExprFor instance
+    XXX: if RPYTHON supports to pass a class object to a function,
+         we could refactor parse_listcomp and parse_genexpr_for,
+         and call :
+           - parse_listcomp(tokens, forclass=ast.GenExprFor, ifclass=...)
+         or:
+           - parse_listcomp(tokens, forclass=ast.ListCompFor, ifclass=...)
+    """
+    genexpr_fors = []
+    ifs = []
+    index = 0
+    while index < len(tokens):
+        if tokens[index].value == 'for':
+            index += 1 # skip 'for'
+            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
+            index += 2 # skip 'in'
+            iterable = tokens[index]
+            index += 1
+            while index < len(tokens) and tokens[index].value == 'if':
+                ifs.append(ast.GenExprIf(tokens[index+1]))
+                index += 2
+            genexpr_fors.append(ast.GenExprFor(ass_node, iterable, ifs))
+            ifs = []
+        else:
+            raise ValueError('Unexpected token: %s' % tokens[index])
+    return genexpr_fors
+
+
 ASTRULES = {
 #    "single_input" : build_single_input,
     sym.atom : build_atom,
@@ -534,8 +559,6 @@ ASTRULES = {
     sym.varargslist : build_varargslist,
     sym.trailer : build_trailer,
     sym.arglist : build_arglist,
-    sym.list_for : build_list_for,
-    sym.list_if : build_list_if,
     sym.listmaker : build_listmaker,
     }
 
