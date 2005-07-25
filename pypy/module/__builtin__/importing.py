@@ -27,7 +27,7 @@ def try_import_mod(space, w_modulename, fn, w_parent, w_name, pkgdir=None):
         w_dict = space.getattr(w_mod, w('__dict__'))
         e = None
         try:
-            space.builtin.call('execfile', w(fn), w_dict, w_dict)
+            imp_execfile(space, fn, w_dict, w_dict) 
         except OperationError, e:
             if e.match(space, space.w_SyntaxError):
                 w_mods = space.sys.get('modules')
@@ -198,3 +198,22 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         w_failing = w_modulename
         w_exc = space.call_function(space.w_ImportError, w_failing)
         raise OperationError(space.w_ImportError, w_exc)
+
+
+def imp_execfile(space, fn, w_globals, w_locals): 
+    fd = os.open(fn, os.O_RDONLY) # XXX newlines? 
+    try:
+        size = os.fstat(fd)[6]
+        source = os.read(fd, size) 
+    finally:
+        os.close(fd)
+    w_source = space.wrap(source) 
+    w_mode = space.wrap("exec")
+    w_fn = space.wrap(fn) 
+    w_code = space.builtin.call('compile', w_source, w_fn, w_mode) 
+    pycode = space.interpclass_w(w_code) 
+    space.call_method(w_globals, 'setdefault', 
+                      space.wrap('__builtins__'), 
+                      space.wrap(space.builtin))
+    pycode.exec_code(space, w_globals, w_locals) 
+
