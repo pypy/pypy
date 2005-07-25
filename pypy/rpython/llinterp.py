@@ -187,7 +187,7 @@ class LLFrame(object):
     def op_direct_call(self, f, *args):
         has_callable = getattr(f._obj, '_callable', None) is not None
         if has_callable and getattr(f._obj._callable, 'suggested_primitive', False):
-                self.invoke_callable_with_pyexceptions(f, *args)
+                return self.invoke_callable_with_pyexceptions(f, *args)
         if hasattr(f._obj, 'graph'):
             graph = f._obj.graph
         else:
