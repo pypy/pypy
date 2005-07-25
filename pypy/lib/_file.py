@@ -78,22 +78,22 @@ the value for this attribute is one of None (no newline read yet),
 Note:  open() is an alias for file().
     """
 
-    def __init__(self, name, mode='r', bufsize=None):
+    def __init__(self, name, mode='r', buffering=None):
         self.fd = None
         self._name = name
-        self._inithelper(mode, bufsize)
+        self._inithelper(mode, buffering)
         
-    def fdopen(cls, fd, mode='r', bufsize=None):
+    def fdopen(cls, fd, mode='r', buffering=None):
         f = cls.__new__(cls)
 
         f.fd = fd
         f._name = "<fdopen>"
-        f._inithelper(mode, bufsize)
+        f._inithelper(mode, buffering)
         return f
 
     fdopen = classmethod(fdopen)
         
-    def _inithelper(self, mode, bufsize):
+    def _inithelper(self, mode, buffering):
         self._mode = mode
         if not mode or mode[0] not in ['r', 'w', 'a', 'U']:
             raise IOError('invalid mode : %s' % mode)
@@ -139,21 +139,21 @@ Note:  open() is an alias for file().
         self.stream = _sio.DiskFile(self.fd)
         self._closed = False
 
-        if bufsize == 0:   # no buffering
+        if buffering == 0:   # no buffering
             pass
-        elif bufsize == 1:   # line-buffering
+        elif buffering == 1:   # line-buffering
             if writing:
                 self.stream = _sio.LineBufferingOutputStream(self.stream)
             if reading:
                 self.stream = _sio.BufferingInputStream(self.stream)
 
         else:     # default or explicit buffer sizes
-            if bufsize is not None and bufsize < 0:
-                bufsize = None
+            if buffering is not None and buffering < 0:
+                buffering = None
             if writing:
-                self.stream = _sio.BufferingOutputStream(self.stream, bufsize)
+                self.stream = _sio.BufferingOutputStream(self.stream, buffering)
             if reading:
-                self.stream = _sio.BufferingInputStream(self.stream, bufsize)
+                self.stream = _sio.BufferingInputStream(self.stream, buffering)
 
         if universal:     # Wants universal newlines
             if writing and os.linesep != '\n':

@@ -5,7 +5,7 @@ import py
 
 class TestFile: 
     def setup_method(self, method):
-        self.file = _file.file(__file__, 'r')
+        self.file = _file.file(__file__, 'r', buffering=None)
 
     def teardown_method(self, method):
         self.file.close()
