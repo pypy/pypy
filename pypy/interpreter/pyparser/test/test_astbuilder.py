@@ -24,12 +24,18 @@ expressions = [
     "x = a * (1 + c)",
     "x, y, z = 1, 2, 3",
     "x = 'a' 'b' 'c'",
+]
+
+funccalls = [
     "l = func()",
     "l = func(10)",
     "l = func(10, 12, a, b=c, *args)",
     "l = func(10, 12, a, b=c, **kwargs)",
     "l = func(10, 12, a, b=c, *args, **kwargs)",
     "l = func(10, 12, a, b=c)",
+    ]
+
+listmakers = [
     "l = []",
     "l = [1, 2, 3]",
     "l = [i for i in range(10)]",
@@ -40,10 +46,13 @@ expressions = [
     "l = [i for j in range(10) for i in range(j) if j%2 == 0]",
     "l = [i for j in range(10) for i in range(j) if j%2 == 0 and i%2 ==0]",
     "l = [(a, b) for (a,b,c) in l2]",
-    # "l = [{a : b} for (a,b,c) in l2]",
-]
-expression_tests = range(len(expressions))
-# expression_tests = [-1]
+    "l = [{a:b} for (a,b,c) in l2]",
+    ]
+
+
+dictmakers = [
+    "l = {a : b, 'c' : 0}",
+    ]
 
 backtrackings = [
     "f = lambda x: x+1",
@@ -56,7 +65,6 @@ backtrackings = [
     "f = lambda *args: 1",
     "f = lambda **kwargs: 1",
     ]
-backtracking_tests = range(len(backtrackings))
 
 comparisons = [
     "a < b",
@@ -71,13 +79,20 @@ comparisons = [
     "(a < b) < (c < d)",
     "a < (b < c) < d",
     ]
-comparison_tests = range(len(comparisons))
-# comparison_tests = [7]
 
 multiexpr = [
     'a = b; c = d;',
     'a = b = c = d',
-    # 'a = b\nc = d',
+    ]
+
+TESTS = [
+    expressions,
+    comparisons,
+    funccalls,
+    backtrackings,
+    listmakers,
+    dictmakers,
+    multiexpr,
     ]
 
 def ast_parse_expr(expr):
@@ -100,22 +115,11 @@ def check_expression(expr):
     assert ast == r1.rule_stack[-1], 'failed on %r' % (expr)
 
 
-def test_multiexpr():
-    for expr in multiexpr:
-        yield check_expression, expr
+def test_basic_astgen():
+    for family in TESTS:
+        for expr in family:
+            yield check_expression, expr
 
-def test_backtracking_expressions():
-    """tests for expressions that need backtracking"""
-    for i in backtracking_tests:
-        yield check_expression, backtrackings[i]
-
-def test_expressions():
-    for i in expression_tests:
-        yield check_expression, expressions[i]
-
-def test_comparisons():
-    for i in comparison_tests:
-        yield check_expression, comparisons[i]
 
 SNIPPETS = [
 #     'snippet_1.py',

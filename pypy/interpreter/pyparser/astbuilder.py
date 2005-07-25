@@ -95,7 +95,12 @@ def build_atom(builder, nb):
                 list_node.lineno = top.line
                 builder.push(list_node)
         elif top.name == tok.LBRACE:
-            builder.push( ast.Dict( L[1:-1], top.line) )
+            items = []
+            for index in range(1, len(L)-1, 4):
+                # a   :   b   ,   c : d
+                # ^  +1  +2  +3  +4
+                items.append((L[index], L[index+2]))
+            builder.push(ast.Dict(items, top.line))
         elif top.name == tok.NAME:
             builder.push( ast.Name(top.value) )
         elif top.name == tok.NUMBER:
