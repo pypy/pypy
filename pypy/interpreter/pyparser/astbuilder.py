@@ -107,8 +107,11 @@ def build_power( builder, nb ):
     L = get_atoms( builder, nb )
     if len(L) == 1:
         builder.push( L[0] )
+    elif len(L) == 2:
+        arguments, stararg, dstararg = L[1].value
+        builder.push(ast.CallFunc(L[0], arguments, stararg, dstararg))
     elif len(L) == 3:
-        builder.push( ast.Power( [ L[0], L[2] ] ) )
+        builder.push(ast.Power([L[0], L[2]]))
     else:
         raise ValueError, "unexpected tokens: %s" % L
 
@@ -326,10 +329,69 @@ def build_varargslist(builder, nb):
 
 def build_lambdef(builder, nb):
     L = get_atoms(builder, nb)
-    print "L:", L
     code = L[-1]
     names, defaults, flags = parse_arglist(L[1:-2])
     builder.push(ast.Lambda(names, defaults, flags, code))
+
+
+def build_trailer(builder, nb):
+    """trailer: '(' ')' | '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
+    """
+    L = get_atoms(builder, nb)
+    # Case 1 : '(' ...
+    if L[0].name == tok.LPAR:
+        if len(L) == 2: # and L[1].token == tok.RPAR:
+            builder.push(ArglistObject('arglist', ([], None, None), None))
+        elif len(L) == 3: # '(' Arglist ')'
+            # push arglist on the stack
+            builder.push(L[1])
+    else:
+        assert False, "Trailer reducing implementation incomplete !"
+
+def build_arglist(builder, nb):
+    L = get_atoms(builder, nb)
+    builder.push(ArglistObject('arglist', parse_argument(L), None))
+
+
+def parse_argument(tokens):
+    """parses function call arguments"""
+    l = len(tokens)
+    index = 0
+    arguments = []
+    last_token = None
+    building_kw = False
+    kw_built = False
+    stararg_token = None
+    dstararg_token = None
+    while index < l:
+        cur_token = tokens[index]
+        index += 1
+        if not isinstance(cur_token, TokenObject):
+            if not building_kw:
+                arguments.append(cur_token)
+            elif kw_built:
+                raise SyntaxError("non-keyword arg after keyword arg (%s)" % (cur_token))
+            else:
+                last_token = arguments.pop()
+                assert isinstance(last_token, ast.Name) # used by rtyper
+                arguments.append(ast.Keyword(last_token.name, cur_token))
+                building_kw = False
+                kw_built = True
+        elif cur_token.name == tok.COMMA:
+            continue
+        elif cur_token.name == tok.EQUAL:
+            building_kw = True
+            continue
+        elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
+            if cur_token.name == tok.STAR:
+                stararg_token = tokens[index]
+                index += 1
+                if index >= l:
+                    break
+                index += 2 # Skip COMMA and DOUBLESTAR
+            dstararg_token = tokens[index]
+            break
+    return arguments, stararg_token, dstararg_token
 
 def parse_arglist(tokens):
     """returns names, defaults, flags"""
@@ -404,6 +466,8 @@ ASTRULES = {
     sym.testlist_gexp : build_testlist_gexp,
     sym.lambdef : build_lambdef,
     sym.varargslist : build_varargslist,
+    sym.trailer : build_trailer,
+    sym.arglist : build_arglist,
     }
 
 class RuleObject(ast.Node):
@@ -430,14 +494,30 @@ class TokenObject(ast.Node):
         self.col = 0  # src.getcol()
 
     def __str__(self):
-        return "<Token: %s=%s>" % (tok.tok_rpunct.get(self.name,
+        return "<Token: (%s,%s)>" % (tok.tok_rpunct.get(self.name,
                                                       tok.tok_name.get(self.name,str(self.name))),
                                    self.value)
     
     def __repr__(self):
-        return "<Token: %r=%s>" % (tok.tok_rpunct.get(self.name,
+        return "<Token: (%r,%s)>" % (tok.tok_rpunct.get(self.name,
                                                       tok.tok_name.get(self.name,str(self.name))),
                                    self.value)
+
+class ArglistObject(ast.Node):
+    """helper class to build function's arg list"""
+    def __init__(self, name, value, src):
+        self.name = name
+        self.value = value
+        self.count = 0
+        self.line = 0 # src.getline()
+        self.col = 0  # src.getcol()
+
+    def __str__(self):
+        return "<ArgList: (%s, %s, %s)>" % self.value
+    
+    def __repr__(self):
+        return "<ArgList: (%s, %s, %s)>" % self.value
+    
 
 class AstBuilderContext(AbstractContext):
     """specific context management for AstBuidler"""
@@ -484,6 +564,8 @@ class AstBuilder(BaseGrammarBuilder):
                 # print "REDUCING ALTERNATIVE %s" % sym.sym_name[rule.codename]
                 F( self, 1 )
             else:
+                print "No reducing implementation for %s, just push it on stack" % (
+                    sym.sym_name[rule.codename])
                 self.push_rule( rule.codename, 1, source )
         else:
             self.push_rule( rule.codename, 1, source )
@@ -502,6 +584,8 @@ class AstBuilder(BaseGrammarBuilder):
                 # print "REDUCING SEQUENCE %s" % sym.sym_name[rule.codename]
                 F( self, elts_number )
             else:
+                print "No reducing implementation for %s, just push it on stack" % (
+                    sym.sym_name[rule.codename])
                 self.push_rule( rule.codename, elts_number, source )
         else:
             self.push_rule( rule.codename, elts_number, source )
