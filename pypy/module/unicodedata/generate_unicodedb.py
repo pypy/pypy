@@ -422,7 +422,8 @@ def decomposition(code):
 
 '''
     # Collect the composition pairs.
-    compositions = {}
+    compositions = []
+    composition_values = []
     for code in range(len(table)):
         unichar = table[code]
         if (not unichar.decomposition or
@@ -431,8 +432,22 @@ def decomposition(code):
             len(unichar.decomposition) != 2 or
             table[unichar.decomposition[0]].combining):
             continue
-        compositions[tuple(unichar.decomposition)] = code
-    writeDict(outfile, '_composition', compositions)
+        left, right = unichar.decomposition
+        compositions.append((left, right, code))
+        composition_values.append(left)
+        composition_values.append(right)
+    composition_max = max(composition_values)
+    composition_shift = 1
+    while (1 << composition_shift) <= composition_max:
+        composition_shift += 1
+    print >> outfile, '_composition_max = %d' % composition_max
+    print >> outfile, '_composition_shift = %d' % composition_shift
+    print >> outfile, '_composition = {'
+    for left, right, code in compositions:
+        print >> outfile, '%5d << %d | %5d: %5d,' % (
+            left, composition_shift, right, code)
+    print >> outfile, '}'
+    print >> outfile
 
     decomposition = {}
     for code in range(len(table)):

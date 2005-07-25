@@ -209,11 +209,14 @@ def normalize(space, w_form, w_unistr):
                 # If LV, T -> LVT
                 current = current + (next - TBase)
                 continue
-            try:
-                current = unicodedb._composition[(current, next)]
-                continue
-            except KeyError:
-                pass
+            if (current <= unicodedb._composition_max and
+                   next <= unicodedb._composition_max):
+                key = current << unicodedb._composition_shift | next
+                try:
+                    current = unicodedb._composition[key]
+                    continue
+                except KeyError:
+                    pass
 
         if next_combining == 0:
             # New starter symbol
