@@ -204,7 +204,11 @@ def float__Long(space, w_longobj):
                              space.wrap("long int too large to convert to float"))
 
 def long__Float(space, w_floatobj):
-    return _FromDouble(space, w_floatobj.floatval)
+    try:
+        return _FromDouble(space, w_floatobj.floatval)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("cannot convert float infinity to long"))
 
 def int_w__Long(space, w_value):
     try:
@@ -1303,8 +1307,7 @@ def _FromDouble(space, dval):
     """ Create a new long int object from a C double """
     neg = 0
     if isinf(dval):
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("cannot convert float infinity to long"))
+        raise OverflowError
     if dval < 0.0:
         neg = 1
         dval = -dval
@@ -1604,6 +1607,4 @@ def _hash(v):
         x += v.digits[i]
         i -= 1
     x = intmask(x * sign)
-    if x == -1:
-        x = -2
     return x

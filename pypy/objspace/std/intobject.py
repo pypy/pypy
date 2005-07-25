@@ -99,31 +99,11 @@ def ge__Int_Int(space, w_int1, w_int2):
     j = w_int2.intval
     return space.newbool( i >= j )
 
-STRICT_HASH = True # temporary, to be put elsewhere or removed
-
-def _hash_strict(space, w_int1):
-    #/* XXX If this is changed, you also need to change the way
-    #   Python's long, float and complex types are hashed. */
-    x = w_int1.intval
-    if x == -1:
-        x = -2
-    return W_IntObject(space, x)
-
-def _hash_liberal(space, w_int1):
-    # Armin: unlike CPython we have no need to special-case the value -1
-    return w_int1
-
-# Chris: I'm not yet convinced that we want to make hash()
-# return different values that CPython does.
-# So for the moment, both versions are here,
-# and we might think of some config options
-# or decide to drop compatibility (using pypy-dev).
-
 def hash__Int(space, w_int1):
-    if STRICT_HASH:
-        return _hash_strict(space, w_int1)
-    else:
-        return _hash_liberal(space, w_int1)
+    # unlike CPython, we don't special-case the value -1 in most of our
+    # hash functions, so there is not much sense special-casing it here either.
+    # Make sure this is consistent with the hash of floats and longs.
+    return int__Int(space, w_int1)
 
 # coerce
 def coerce__Int_Int(space, w_int1, w_int2):

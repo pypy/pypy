@@ -123,10 +123,7 @@ class TestW_LongObject:
         assert f1.longval() == long(x)
         # check overflow
         x = 12345.6789e10000000000000000000000000000
-        try:
-            lobj._FromDouble(self.space, x)
-        except OperationError, e:
-            assert e.w_type is self.space.w_OverflowError
+        assert raises(OverflowError, lobj._FromDouble, self.space, x)
 
     # testing Karatsuba stuff
     def test__v_iadd(self):
