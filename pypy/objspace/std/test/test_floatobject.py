@@ -53,9 +53,13 @@ class AppTestAppFloatTest:
     def test_float_hash(self):
         # these are taken from standard Python, which produces
         # the same but for -1.
+        import math
         assert hash(42.0) == 42
-        assert hash(42.1) == 1842335027
-        assert hash(42.2E100) == 503430341
+        assert hash(42.125) == 1413677056
+        assert hash(math.ldexp(0.125, 1000)) == 32
+        # testing special overflow values
+        assert hash(1e200 * 1e200) == 314159
+        assert hash(-1e200 * 1e200) == -271828
 
     def test_int_float(self):
         assert int(42.1234) == 42
