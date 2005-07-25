@@ -105,18 +105,25 @@ TESTS = [
     multiexpr,
     ]
 
-def ast_parse_expr(expr):
+TARGET_DICT = {
+    'single' : 'single_input',
+    'exec'   : 'file_input',
+    'eval'   : 'eval_input',
+    }
+
+def ast_parse_expr(expr, target='single'):
+    target = TARGET_DICT[target]
     builder = AstBuilder()
-    PYTHON_PARSER.parse_source(expr, 'single_input', builder)
+    PYTHON_PARSER.parse_source(expr, target, builder)
     return builder
 
-def tuple_parse_expr(expr):
+def tuple_parse_expr(expr, target='single'):
     t = Transformer()
-    return ast_from_input(expr, 'single', t)
+    return ast_from_input(expr, target, t)
 
-def check_expression(expr):
-    r1 = ast_parse_expr(expr)
-    ast = tuple_parse_expr(expr)
+def check_expression(expr, target='single'):
+    r1 = ast_parse_expr(expr, target)
+    ast = tuple_parse_expr(expr, target)
     print "-" * 30
     print "ORIG :", ast
     print 
@@ -131,8 +138,9 @@ def test_basic_astgen():
             yield check_expression, expr
 
 
-SNIPPETS = [
-#     'snippet_1.py',
+SNIPPETS = [    
+    'snippet_1.py',
+    'snippet_several_statements.py',
 #    'snippet_2.py',
 #    'snippet_3.py',
 #    'snippet_4.py',
@@ -157,10 +165,9 @@ SNIPPETS = [
 #    'snippet_whitespaces.py',
     ]
 
-def skippedtest_snippets():
-    py.test.skip('Not ready to test on real snippet files')
+def test_snippets():
     for snippet_name in SNIPPETS:
         filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)
         source = file(filepath).read()
-        yield check_expression, source
+        yield check_expression, source, 'exec'
 

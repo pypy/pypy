@@ -66,9 +66,6 @@ def get_atoms( builder, nb ):
     L.reverse()
     return L
     
-def build_single_input( builder, nb ):
-    pass
-
 def eval_number(value):
     """temporary implementation"""
     return eval(value)
@@ -313,6 +310,26 @@ def build_simple_stmt( builder, nb ):
             nodes.append(node)
     builder.push( ast.Stmt(nodes) )
 
+def build_file_input(builder, nb):
+    # FIXME: need to handle docstring !
+    doc = None
+    # doc = self.get_docstring(nodelist, symbol.file_input)
+    # if doc is not None:
+    #     i = 1
+    # else:
+    #     i = 0
+    stmts = []
+    L = get_atoms(builder, nb)
+    for node in L:
+        if isinstance(node, ast.Stmt):
+            stmts.extend(node.nodes)
+        elif isinstance(node, TokenObject) and node.name == tok.ENDMARKER:
+            # XXX Can't we just remove the last element of the list ?
+            break
+        else:
+            stmts.append(node)
+    return builder.push(ast.Module(doc, ast.Stmt(stmts)))
+
 def build_single_input( builder, nb ):
     L = get_atoms( builder, nb )
     l = len(L)
@@ -320,7 +337,8 @@ def build_single_input( builder, nb ):
         builder.push(ast.Module(None, L[0]))
         return
     raise WalkerError("error")
-    
+
+
 def build_testlist_gexp(builder, nb):
     L = get_atoms(builder, nb)
     l = len(L)
@@ -554,6 +572,7 @@ ASTRULES = {
     sym.small_stmt : return_one,
     sym.simple_stmt : build_simple_stmt,
     sym.single_input : build_single_input,
+    sym.file_input : build_file_input,
     sym.testlist_gexp : build_testlist_gexp,
     sym.lambdef : build_lambdef,
     sym.varargslist : build_varargslist,
