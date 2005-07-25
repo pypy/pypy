@@ -126,7 +126,7 @@ def generate_tokens(lines, flags):
                 raise TokenError("EOF in multi-line string", line,
                                  (lnum, 0), token_list)
             endmatch = endDFA.recognize(line)
-            if -1 != endmatch:
+            if endmatch >= 0:
                 pos = end = endmatch
                 tok = Token(pytoken.STRING, contstr + line[:end])
                 token_list.append((tok, line, lnum, pos))
@@ -135,7 +135,8 @@ def generate_tokens(lines, flags):
                 #                    strstart, (lnum, end), contline + line))
                 contstr, needcont = '', 0
                 contline = None
-            elif needcont and line[-2:] != '\\\n' and line[-3:] != '\\\r\n':
+            elif (needcont and not line.endswith('\\\n') and
+                               not line.endswith('\\\r\n')):
                 tok = Token(pytoken.ERRORTOKEN, contstr + line)
                 token_list.append((tok, line, lnum, pos))
                 last_comment = ''
@@ -193,10 +194,10 @@ def generate_tokens(lines, flags):
 
         while pos < max:
             pseudomatch = pseudoDFA.recognize(line, pos)
-            if -1 != pseudomatch:                            # scan for tokens
+            if pseudomatch >= 0:                            # scan for tokens
                 # JDR: Modified
                 start = whiteSpaceDFA.recognize(line, pos)
-                if -1 == start:
+                if start < 0:
                     start = pos
                 end = pseudomatch
 
@@ -235,7 +236,7 @@ def generate_tokens(lines, flags):
                 elif token in triple_quoted:
                     endDFA = endDFAs[token]
                     endmatch = endDFA.recognize(line, pos)
-                    if -1 != endmatch:                     # all on one line
+                    if endmatch >= 0:                     # all on one line
                         pos = endmatch
                         token = line[start:pos]
                         tok = Token(pytoken.STRING, token)

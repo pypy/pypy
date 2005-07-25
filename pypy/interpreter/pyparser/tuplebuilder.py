@@ -73,11 +73,12 @@ class TupleBuilder(AbstractBuilder):
         num = rule.codename
         node = [rule.codename]
         if elts_number > 0:
-            sequence_elements = self.stack[-elts_number:]
+            sequence_elements = [self.stack.pop() for i in range(elts_number)]
+            sequence_elements.reverse()
             nodes = expand_nodes( sequence_elements )
-            self.stack[-elts_number:] = [NonTerminal(num, nodes)]
         else:
-            self.stack.append( NonTerminal(num, []) )
+            nodes = []
+        self.stack.append( NonTerminal(num, nodes) )
         return True
 
     def token(self, codename, value, source):
