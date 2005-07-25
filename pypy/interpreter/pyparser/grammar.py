@@ -651,7 +651,7 @@ class Token(GrammarElement):
             raise RuntimeError("Unexpected token type %r" % other)
         if other is EmptyToken:
             return False
-        res = other.codename == self.codename and self.value in (None, other.value)
+        res = other.codename == self.codename and self.value in [None, other.value]
         #print "matching", self, other, res
         return res
     
