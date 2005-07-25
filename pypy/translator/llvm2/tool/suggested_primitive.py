@@ -1,42 +1,28 @@
 #!/usr/bin/python
 
+import autopath
 import os
 
+from pypy.rpython.module import ll_os, ll_os_path, ll_time, ll_math #XXX keep this list up-to-date
+from pypy.translator.llvm2.extfunction import extfunctions
+
 def main():
+    suggested_primitives = []
+    for module in (ll_os, ll_os_path, ll_time, ll_math):    #XXX keep this list up-to-date too
+        suggested_primitives += [func for func in dir(module) if getattr(module.__dict__[func], 'suggested_primitive', False)]
 
-    ll_modules_path = '../../../rpython/module'
-    ll_files = [ll_modules_path + '/' + f for f in os.listdir(ll_modules_path) if f[:3] == 'll_' and f[-3:] == '.py']
-    ll_function = {}    #XXX better use sets
-    for ll_file in ll_files:
-        for s in file(ll_file):
-            s = s.strip()
-            if not s.startswith('ll_') or s.find('suggested_primitive') == -1 or s.find('True') == -1:
-                continue
-            ll_function[s.split('.')[0]] = True
+    implemented_primitives = [f[1:] for f in extfunctions.keys()]
 
-    llvm_modules_path = '..'
-    llvm_files = [llvm_modules_path + '/' + 'extfunction.py']
-    llvm_function = {}
-    for llvm_file in llvm_files:
-        t = 'extfunctions["%'
-        for s in file(llvm_file):
-            s = s.strip()
-            if not s.startswith(t):
-                continue
-            llvm_function[s.split('"')[1][1:]] = True
+    missing_primitives = [func for func in suggested_primitives if func not in implemented_primitives]
 
     print 'rpython suggested primitives:'
-    print ll_function.keys()
+    print suggested_primitives
     print
-
-    print 'llvm implemented functions:'
-    print llvm_function.keys()
+    print 'llvm implemented primitives:'
+    print implemented_primitives
     print
-
     print 'llvm missing primitives:'
-    missing_functions = [func for func in ll_function.keys() if func not in llvm_function]
-    print missing_functions
-    print
+    print missing_primitives
 
 if __name__ == '__main__':
     main()
