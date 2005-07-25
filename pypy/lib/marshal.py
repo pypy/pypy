@@ -52,7 +52,7 @@ class Marshaller:
                 if func:
                     break
             else:
-                raise ValueError, "unsupported type for marshal.dump"
+                raise ValueError, "unmarshallable object"
             func(self, x)
 
     def w_long64(self, x):
