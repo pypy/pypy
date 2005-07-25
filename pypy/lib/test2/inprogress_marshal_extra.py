@@ -49,6 +49,7 @@ def test_cases():
         yield dump_and_reload, case
         yield load_from_cpython, case
         yield dump_to_cpython, case
+        yield dump_subclass, case
 
 def dump_and_reload(case):
     print 'dump_and_reload', `case`
@@ -66,4 +67,16 @@ def dump_to_cpython(case):
     print 'dump_to_cpython', `case`
     s = marshal.dumps(case)
     obj = cpy_marshal.loads(s)
+    assert obj == case
+
+def dump_subclass(case):
+    try:
+        class Subclass(type(case)):
+            pass
+        case = Subclass(case)
+    except TypeError:
+        return
+    print 'dump_subclass', `case`
+    s = marshal.dumps(case)
+    obj = marshal.loads(s)
     assert obj == case
