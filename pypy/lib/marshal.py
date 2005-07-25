@@ -203,10 +203,22 @@ class Marshaller:
     def dump_set(self, x):
         self.f.write(TYPE_SET)
         self.w_long(len(x))
-        for each in set:
+        for each in x:
             self.dump(each)
-    dispatch[TYPE_SET] = dump_set
-    dispatch[TYPE_FROZENSET] = dump_set
+    try:
+        dispatch[set] = dump_set
+    except NameError:
+        pass
+
+    def dump_frozenset(self, x):
+        self.f.write(TYPE_FROZENSET)
+        self.w_long(len(x))
+        for each in x:
+            self.dump(each)
+    try:
+        dispatch[frozenset] = dump_frozenset
+    except NameError:
+        pass
 
 class NULL:
     pass
