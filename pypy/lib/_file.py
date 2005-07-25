@@ -79,12 +79,22 @@ Note:  open() is an alias for file().
     """
 
     def __init__(self, name, mode='r', bufsize=None):
-        self._mode = mode
+        self.fd = None
         self._name = name
-        self._closed = True   # Until the file is successfully opened
-        self.softspace = 0    # Required according to file object docs
-        self.encoding = None  # This is not used internally by file objects
+        self._inithelper(mode, bufsize)
+        
+    def fdopen(cls, fd, mode='r', bufsize=None):
+        f = cls.__new__(cls)
 
+        f.fd = fd
+        f._name = "<fdopen>"
+        f._inithelper(mode, bufsize)
+        return f
+
+    fdopen = classmethod(fdopen)
+        
+    def _inithelper(self, mode, bufsize):
+        self._mode = mode
         if not mode or mode[0] not in ['r', 'w', 'a', 'U']:
             raise IOError('invalid mode : %s' % mode)
 
@@ -110,18 +120,24 @@ Note:  open() is an alias for file().
         if binary or universal:
             flag |= O_BINARY
 
-        self.fd = os.open(name, flag)
+        if self.fd is None:
+            self.fd = os.open(self.name, flag)
         if basemode == 'a':
             try:
                 os.lseek(self.fd, 0, 2)
             except OSError:
                 pass
-
-        self.stream = _sio.DiskFile(self.fd)
-        self._closed = False
-
+            
         reading = basemode == 'r' or plus
         writing = basemode != 'r' or plus
+
+        self._closed = True   # Until the file is successfully opened
+
+        self.softspace = 0    # Required according to file object docs
+        self.encoding = None  # This is not used internally by file objects
+        
+        self.stream = _sio.DiskFile(self.fd)
+        self._closed = False
 
         if bufsize == 0:   # no buffering
             pass
