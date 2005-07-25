@@ -258,25 +258,6 @@ BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
 BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 
-import time
-
-def rtype_time_clock(hop):
-    c = hop.inputconst(pyobj_repr, time.clock)
-    v = hop.genop('simple_call', [c], resulttype = pyobj_repr)
-    return hop.llops.convertvar(v, pyobj_repr, float_repr)
-
-BUILTIN_TYPER[time.clock] = rtype_time_clock
-
-
-def rtype_time_time(hop):
-    c = hop.inputconst(pyobj_repr, time.time)
-    v = hop.genop('simple_call', [c], resulttype = pyobj_repr)
-    return hop.llops.convertvar(v, pyobj_repr, float_repr)
-
-BUILTIN_TYPER[time.time] = rtype_time_time
-    
-import math
-
 from pypy.rpython import extfunctable
 
 def make_rtype_extfunc(extfuncinfo):

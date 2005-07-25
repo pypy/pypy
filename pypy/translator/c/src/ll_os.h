@@ -19,6 +19,19 @@
 */
 
 
+/* just do what CPython is doing... */
+
+#if defined(MS_WIN64) || defined(MS_WINDOWS)
+#       define STAT _stati64
+#       define FSTAT _fstati64
+#       define STRUCT_STAT struct _stati64
+#else
+#       define STAT stat
+#       define FSTAT fstat
+#       define STRUCT_STAT struct stat
+#endif
+
+
 int LL_os_open(RPyString *filename, int flag, int mode)
 {
 	/* XXX unicode_file_names */
@@ -79,3 +92,43 @@ RPyString *LL_os_getcwd(void)
 	}
 	return RPyString_FromString(buf);
 }
+
+RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st) {
+  long res0, res1, res2, res3, res4, res5, res6, res7, res8, res9;
+  res0 = (long)st.st_mode;
+  res1 = (long)st.st_ino; /*XXX HAVE_LARGEFILE_SUPPORT!*/
+  res2 = (long)st.st_dev; /*XXX HAVE_LONG_LONG!*/
+  res3 = (long)st.st_nlink;
+  res4 = (long)st.st_uid;
+  res5 = (long)st.st_gid;
+  res6 = (long)st.st_size; /*XXX HAVE_LARGEFILE_SUPPORT!*/
+  res7 = (long)st.st_atime; /*XXX ignoring quite a lot of things for time here */
+  res8 = (long)st.st_mtime; /*XXX ignoring quite a lot of things for time here */
+  res9 = (long)st.st_ctime; /*XXX ignoring quite a lot of things for time here */
+  /*XXX ignoring BLOCK info here*/
+
+  return ll_stat_result(res0, res1, res2, res3, res4,
+			res5, res6, res7, res8, res9);
+}
+
+
+RPySTAT_RESULT* LL_os_stat(RPyString * fname) {
+  STRUCT_STAT st;
+  int error = STAT(RPyString_AsString(fname), &st);
+  if (error != 0) {
+    RAISE_OSERROR(errno);
+    return NULL;
+  }
+  return _stat_construct_result_helper(st);
+}
+
+RPySTAT_RESULT* LL_os_fstat(long fd) {
+  STRUCT_STAT st;
+  int error = FSTAT(fd, &st);
+  if (error != 0) {
+    RAISE_OSERROR(errno);
+    return NULL;
+  }
+  return _stat_construct_result_helper(st);
+}
+

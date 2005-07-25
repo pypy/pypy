@@ -253,9 +253,6 @@ def test(*args):
 def pathpart(*args):
     return SomeString()
 
-def time_func():
-    return SomeFloat()
-
 def import_func(*args):
     return SomeObject()
 
@@ -289,10 +286,6 @@ BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
 #BUILTIN_ANALYZERS[os.path.join] = pathpart
 BUILTIN_ANALYZERS[os.path.exists] = test
 BUILTIN_ANALYZERS[os.path.isdir] = test
-
-# time stuff
-BUILTIN_ANALYZERS[time.time] = time_func
-BUILTIN_ANALYZERS[time.clock] = time_func
 
 # import
 BUILTIN_ANALYZERS[__import__] = import_func

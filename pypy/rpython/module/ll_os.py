@@ -110,6 +110,7 @@ def ll_stat_result(stat0, stat1, stat2, stat3, stat4,
     tup.item7 = intmask(stat7)
     tup.item8 = intmask(stat8)
     tup.item9 = intmask(stat9)
+    return tup
     
 def ll_os_fstat(fd):
     (stat0, stat1, stat2, stat3, stat4,
@@ -123,4 +124,4 @@ def ll_os_stat(path):
      stat5, stat6, stat7, stat8, stat9) = os.stat(from_rstr(path))
     return ll_stat_result(stat0, stat1, stat2, stat3, stat4,
                           stat5, stat6, stat7, stat8, stat9)
-ll_os_fstat.suggested_primitive = True
+ll_os_stat.suggested_primitive = True

@@ -14,6 +14,8 @@ EXTERNALS = {
     ll_os  .ll_os_close:   'LL_os_close',
     ll_os  .ll_os_dup:     'LL_os_dup',
     ll_os  .ll_os_getcwd:  'LL_os_getcwd',
+    ll_os  .ll_os_stat:    'LL_os_stat',
+    ll_os  .ll_os_fstat:   'LL_os_fstat',
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_math.ll_math_log10: 'LL_math_log10',
     ll_math.ll_math_ceil:  'LL_math_ceil',
@@ -32,6 +34,7 @@ def predeclare_common_types(db, rtyper):
     yield ('RPyString', STR)
     yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
     yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
+    yield ('RPySTAT_RESULT', ll_os.STAT_RESULT)
 
 def predeclare_utility_functions(db, rtyper):
     # Common utility functions
@@ -51,13 +54,13 @@ def predeclare_extfunc_helpers(db, rtyper):
 
     yield annotate(ll_math.ll_frexp_result, lltype.Float, lltype.Signed)
     yield annotate(ll_math.ll_modf_result, lltype.Float, lltype.Float)
-        
+    yield annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10))
+
 def predeclare_extfuncs(db, rtyper):
     for func, funcobj in db.externalfuncs.items():
         c_name = EXTERNALS[func]
         funcptr = lltype._ptr(lltype.Ptr(lltype.typeOf(funcobj)), funcobj) # hum
         yield c_name, funcptr
-
 
 def predeclare_exception_data(db, rtyper):
     # Exception-related types and constants

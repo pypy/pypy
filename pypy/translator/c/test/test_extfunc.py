@@ -54,9 +54,54 @@ def test_open_read_write_close():
     assert open(filename, 'r').read() == "hello world\n"
     os.unlink(filename)
 
+def test_os_stat():
+    filename = str(py.magic.autopath())
+    def call_stat():
+        st = os.stat(filename)
+        return st
+    f = compile(call_stat, [])
+    result = f()
+    assert result[0] == os.stat(filename)[0]
+    assert result[1] == os.stat(filename)[1]
+    assert result[2] == os.stat(filename)[2]
+
+def test_os_fstat():
+    filename = str(py.magic.autopath())
+    def call_fstat():
+        fd = os.open(filename, os.O_RDONLY, 0777)
+        st = os.fstat(fd)
+        return st
+    f = compile(call_fstat, [])
+    result = f()
+    assert result[0] == os.stat(filename)[0]
+    assert result[1] == os.stat(filename)[1]
+    assert result[2] == os.stat(filename)[2]
+
 def test_getcwd():
     def does_stuff():
         return os.getcwd()
     f1 = compile(does_stuff, [])
     res = f1()
     assert res == os.getcwd()
+
+def test_math_exp():
+    from math import exp
+    def fn(f):
+        return exp(f)
+    f = compile(fn, [float])
+    assert f(1.0) == exp(1.0)
+
+def test_math_frexp():
+    from math import frexp
+    def fn(x):
+        return frexp(x)
+    f = compile(fn, [float])
+    assert f(10.123) == frexp(10.123)
+
+def test_math_modf():
+    from math import modf
+    def fn(x):
+        return modf(x)
+    f = compile(fn, [float])
+    assert f(10.123) == modf(10.123)
+
