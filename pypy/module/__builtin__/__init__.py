@@ -72,8 +72,8 @@ class Module(MixedModule):
         '_classobj'     : 'space.w_classobj',
         '_instance'     : 'space.w_instance',
         # default __metaclass__
-        # XXX can use _classobj when we have a working one integrated
         '__metaclass__' : '(space.w_type)',
+        '_isfake'       : 'special._isfake',
 
         # interp-level function definitions
         'abs'           : 'operation.abs',
