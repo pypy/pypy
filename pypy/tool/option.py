@@ -92,5 +92,19 @@ def objspace(name='', _spacecache={}):
             space.appexec([], '''():
                 from _file import file
                 __builtins__.file = __builtins__.open = file
+                import sys
+                sys.stdout = file.fdopen(sys.stdout.fileno(),
+                                         sys.stdout.mode,
+                                         buffering=1)
+                sys.stdin = file.fdopen(sys.stdin.fileno(),
+                                        sys.stdin.mode,
+                                        buffering=1)                                         
+                sys.stderr = file.fdopen(sys.stderr.fileno(),
+                                         sys.stderr.mode,
+                                         buffering=0)
+                sys.__stdout__ = sys.stdout
+                sys.__stderr__ = sys.stderr
+                sys.__stdin__ = sys.stdin
             ''')
+            
         return _spacecache.setdefault(name, space)
