@@ -36,7 +36,11 @@ class Node:
     def __eq__(self, right):
         if type(self)!=type(right):
             return False
-        for i,j in zip(self.getChildren(),right.getChildren()):
+        self_child = self.getChildren()
+        right_child = right.getChildren()
+        if len(self_child) != len(right_child):
+            return False
+        for i,j in zip(self_child, right_child):
             if not i==j:
                 return False
         return True
@@ -976,6 +980,7 @@ class ListComp(Node):
 
     def accept(self, visitor, args):
         return visitor.visitListComp(self, args)
+
 
 class ListCompFor(Node):
     def __init__(self, assign, list, ifs, lineno=None):

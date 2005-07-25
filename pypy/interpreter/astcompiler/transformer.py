@@ -703,7 +703,7 @@ class Transformer:
 
     def atom_lsqb(self, nodelist):
         if nodelist[1][0] == token.RSQB:
-            return List(())
+            return List([])
         return self.com_list_constructor(nodelist[1])
 
     def atom_lbrace(self, nodelist):
