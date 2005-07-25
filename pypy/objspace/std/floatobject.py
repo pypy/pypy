@@ -1,7 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rpython.rarithmetic import ovfcheck_float_to_int
+from pypy.rpython.rarithmetic import ovfcheck_float_to_int, intmask
 
 ##############################################################
 # for the time being, all calls that are made to some external
@@ -152,7 +152,7 @@ def _hash_float(space, v):
     v *= 2147483648.0  # 2**31
     hipart = int(v)    # take the top 32 bits
     v = (v - hipart) * 2147483648.0 # get the next 32 bits
-    x = hipart + int(v) + (expo << 15)
+    x = intmask(hipart + int(v) + (expo << 15))
     return x
 
 
