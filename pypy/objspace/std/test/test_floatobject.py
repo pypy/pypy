@@ -50,6 +50,13 @@ class AppTestAppFloatTest:
     def test_float_int(self):
         assert 42.0 == float(42)
 
+    def test_float_hash(self):
+        # these are taken from standard Python, which produces
+        # the same but for -1.
+        assert hash(42.0) == 42
+        assert hash(42.1) == 1842335027
+        assert hash(42.2E100) == 503430341
+
     def test_int_float(self):
         assert int(42.1234) == 42
         assert int(4e10) == 40000000000L

@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.rpython.rarithmetic import ovfcheck_float_to_int
 
 ##############################################################
 # for the time being, all calls that are made to some external
@@ -106,10 +107,54 @@ def ge__Float_Float(space, w_float1, w_float2):
     j = w_float2.floatval
     return space.newbool( i >= j )
 
-def hash__Float(space,w_value):
-    ## %reimplement%
-    # real Implementation should be taken from _Py_HashDouble in object.c
-    return space.wrap(hash(w_value.floatval))
+def hash__Float(space, w_value):
+    return space.wrap(_hash_float(space, w_value.floatval))
+
+def _hash_float(space, v):
+    from pypy.objspace.std.longobject import _FromDouble, _hash as _hashlong
+
+    # This is designed so that Python numbers of different types
+    # that compare equal hash to the same value; otherwise comparisons
+    # of mapping keys will turn out weird.
+    fractpart, intpart = math.modf(v)
+
+    if fractpart == 0.0:
+        # This must return the same hash as an equal int or long.
+        try:
+            x = ovfcheck_float_to_int(intpart)
+            # Fits in a C long == a Python int, so is its own hash.
+            return x
+        except OverflowError:
+            # Convert to long and use its hash.
+            try:
+                w_lval = _FromDouble(space, v)
+            except OverflowError:
+                # can't convert to long int -- arbitrary
+                if v < 0:
+                    return -271828
+                else:
+                    return 314159
+            return _hashlong(w_lval)
+
+    # The fractional part is non-zero, so we don't have to worry about
+    # making this match the hash of some other type.
+    # Use frexp to get at the bits in the double.
+    # Since the VAX D double format has 56 mantissa bits, which is the
+    # most of any double format in use, each of these parts may have as
+    # many as (but no more than) 56 significant bits.
+    # So, assuming sizeof(long) >= 4, each part can be broken into two
+    # longs; frexp and multiplication are used to do that.
+    # Also, since the Cray double format has 15 exponent bits, which is
+    # the most of any double format in use, shifting the exponent field
+    # left by 15 won't overflow a long (again assuming sizeof(long) >= 4).
+
+    v, expo = math.frexp(v)
+    v *= 2147483648.0  # 2**31
+    hipart = int(v)    # take the top 32 bits
+    v = (v - hipart) * 2147483648.0 # get the next 32 bits
+    x = hipart + int(v) + (expo << 15)
+    return x
+
 
 # coerce
 def coerce__Float_Float(space, w_float1, w_float2):

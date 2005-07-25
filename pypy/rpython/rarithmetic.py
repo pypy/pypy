@@ -15,6 +15,8 @@ ovfcheck check on CPython whether the result of a signed
 ovfcheck_lshift
          << with oveflow checking
          catering to 2.3/2.4 differences about <<
+ovfcheck_float_to_int
+         convert to an integer or raise OverflowError
 r_ushort like r_uint but half word size
 r_ulong  like r_uint but double word size
 
