@@ -5,13 +5,13 @@ import py
 
 class TestFile: 
     def setup_method(self, method):
-        self.fd = _file.file(__file__, 'r')
+        self.file = _file.file(__file__, 'r')
 
     def teardown_method(self, method):
-        self.fd.close()
+        self.file.close()
         
     def test_case_1(self):
-        assert self.fd.tell() == 0
+        assert self.file.tell() == 0
 
     def test_case_readonly(self):
         fn = str(udir.join('temptestfile'))
@@ -23,15 +23,15 @@ class TestFile:
         py.test.raises((TypeError, AttributeError), setattr, f, 'name', 42)
 
     def test_plain_read(self):
-        data1 = self.fd.read()
+        data1 = self.file.read()
         data2 = open(__file__, 'r').read()
         assert data1 == data2
 
     def test_readline(self):
         cpyfile = open(__file__, 'r')
-        assert self.fd.readline() == cpyfile.readline()
+        assert self.file.readline() == cpyfile.readline()
         for i in range(-1, 10):
-            assert self.fd.readline(i) == cpyfile.readline(i)
+            assert self.file.readline(i) == cpyfile.readline(i)
 
     def test_readlines(self):
         fn = str(udir.join('temptestfile'))
