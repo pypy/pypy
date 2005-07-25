@@ -201,7 +201,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 
 
 def imp_execfile(space, fn, w_globals, w_locals): 
-    fd = os.open(fn, os.O_RDONLY) # XXX newlines? 
+    fd = os.open(fn, os.O_RDONLY, 0777) # XXX newlines? 
     try:
         size = os.fstat(fd)[6]
         source = os.read(fd, size) 
