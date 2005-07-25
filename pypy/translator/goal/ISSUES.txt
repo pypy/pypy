@@ -13,185 +13,138 @@ already sometime ago, while running translate_pypy::
     TyperError-1: (pypy.objspace.std.listobject:unwrap)
     no list() support for <PyObjRepr * PyObject>
     .. block@73 with 1 exits
-    .. v591333 = simple_call((type list), v591328)
+    .. v627007 = simple_call((type list), v627002)
 
-    TyperError-2: (pypy.module.__builtin__.importing:load_part)
-    don't know about built-in function <function isdir at 0x40201224>
-    .. block@201 with 2 exits(v766387)
-    .. v766356 = simple_call((function isdir), v766319)
-
-    TyperError-3: (pypy.module.__builtin__.importing:try_import_mod)
+    TyperError-2: (pypy.module.__builtin__.importing:try_import_mod)
     don't know about built-in function <function exists at 0x402011ec>
-    .. block@-1 with 2 exits(v901991)
-    .. v901975 = simple_call((function exists), f_901945)
+    .. block@-1 with 2 exits(v908659)
+    .. v908643 = simple_call((function exists), f_908613)
+
+    TyperError-3: (pypy.module.__builtin__.importing:load_part)
+    don't know about built-in function <function isdir at 0x40201224>
+    .. block@201 with 2 exits(v853316)
+    .. v853285 = simple_call((function isdir), v853248)
 
     TyperError-4: (pypy.module.sys.vm:getrefcount)
     don't know about built-in function <built-in function getrefcount>
     .. block@-1 with 1 exits
-    .. v210471 = simple_call((builtin_function_or_method getrefcount), w_obj_210452)
+    .. v324725 = simple_call((builtin_function_or_method getrefcount), w_obj_324706)
 
-    TyperError-5: (pypy.module.unicodedata.function:normalize)
-    cannot make repr of <SomeTuple(items=(SomeInteger(nonneg=True, unsigned=False), SomeInteger(nonneg=True, unsign
-    ed=False))): SomeInteger(nonneg=True, unsigned=False)>
-    .. block@1498 with 2 exits(last_exception)
-    .. v341362 = getitem(({(104, 770): 293, (6...8): 366}), v341265)
-
-    TyperError-6: (pypy.module.unicodedata.unicodedb:name)
-    unimplemented operation: 'divmod' on (<IntegerRepr Signed>, <IntegerRepr Signed>)
-    .. block@170 EH with 1 exits
-    .. v791070 = divmod(v791063, (21))
-
-    TyperError-7: (pypy.module.unicodedata.unicodedb:name)
-    unimplemented operation: 'divmod' on (<IntegerRepr Signed>, <IntegerRepr Signed>)
-    .. block@157 with 1 exits
-    .. v791029 = divmod(v791003, (28))
-
-    TyperError-8: (pypy.objspace.std.fake:fake__new__)
+    TyperError-5: (pypy.objspace.std.fake:fake__new__)
     don't know about built-in function <built-in function apply>
     .. block@145 with 1 exits
-    .. v531481 = simple_call((builtin_function_or_method apply), (builtin_function_or_method __new__), v531453, v53
-    1454) 
+    .. v439600 = simple_call((builtin_function_or_method apply), (builtin_function_or_method __new__), v439572, v43
+    9573)
 
-    TyperError-9: (pypy.objspace.std.fake:fake__new__)
+    TyperError-6: (pypy.objspace.std.fake:fake__new__)
     don't know about built-in function <built-in function apply>
     .. block@145 with 1 exits
-    .. v356204 = simple_call((builtin_function_or_method apply), (builtin_function_or_method __new__), v356176, v35
-    6177) 
+    .. v338257 = simple_call((builtin_function_or_method apply), (builtin_function_or_method __new__), v338229, v33
+    8230)
 
-    TyperError-10: (pypy.objspace.std.fake:run)
-    don't know about built-in function <built-in function apply>
-    .. block@62 with 1 exits
-    .. v358126 = simple_call((builtin_function_or_method apply), v358108, v358109, v358110)
-
-    TyperError-11: (pypy.objspace.std.fake:setfastscope)
+    TyperError-7: (pypy.objspace.std.fake:setfastscope)
     ll_str unsupported for: <PyObjRepr * PyObject>
     .. block@118 with 1 exits
-    .. v357756 = mod(('calling %s: %s'), v357745)
+    .. v181912 = mod(('calling %s: %s'), v181901)
 
-    TyperError-12: (pypy.objspace.std.floatobject:hash__Float)
+    TyperError-8: (pypy.objspace.std.fake:run)
+    don't know about built-in function <built-in function apply>
+    .. block@62 with 1 exits
+    .. v185355 = simple_call((builtin_function_or_method apply), v185337, v185338, v185339)
+
+    TyperError-9: (pypy.objspace.std.floatobject:hash__Float)
     unimplemented operation: 'hash' on <FloatRepr Float>
     .. block@-1 with 1 exits
-    .. v463799 = hash(v463788)
+    .. v374573 = hash(v374562)
 
-    TyperError-13: (pypy.objspace.std.longobject:_FromDouble)
-    don't know about built-in function <built-in function ldexp>
-    .. block@245 with 1 exits
-    .. v427244 = simple_call((builtin_function_or_method ldexp), v427222, (15))
-
-    TyperError-14: (pypy.objspace.std.longobject:_AsDouble)
-    don't know about built-in function <built-in function ldexp>
-    .. block@53 with 1 exits
-    .. v672412 = simple_call((builtin_function_or_method ldexp), v672396, v672400)
-
-    TyperError-15: (pypy.objspace.std.longobject:longval)
+    TyperError-10: (pypy.objspace.std.longobject:longval)
     don't know about built-in function <type 'long'>
     .. block@50 with 1 exits
-    .. v604056 = simple_call((type long), d_604019)
+    .. v630648 = simple_call((type long), d_630611)
 
-    TyperError-16: (pypy.objspace.std.longobject:_FromDouble)
-    don't know about built-in function <built-in function frexp>
-    .. block@89 with 1 exits
-    .. v426806 = simple_call((builtin_function_or_method frexp), v426795)
+    TyperError-11: (pypy.objspace.std.objspace:unwrap)
+    don't know how to convert from <InstanceRepr for pypy.interpreter.baseobjspace.W_Root> to <PyObjRepr * PyObject
+    >
+    .. block@-1 EH with 2 exits(v471216)
+    .. link from block@-1 EH to codeless block
 
-    TyperError-17: (pypy.objspace.std.longobject:_long_true_divide)
-    don't know about built-in function <built-in function ldexp>
-    .. block@183 with 1 exits
-    .. v539689 = simple_call((builtin_function_or_method ldexp), v539625, v539649)
+    TyperError-12: (pypy.objspace.std.objspace:wrap__object)
+    don't know how to convert from <ClassRepr for __builtin__.object> to <PyObjRepr * PyObject>
+    .. block@-1 with 2 exits(v768205)
+    .. link from block@-1 to block@945
 
-    TyperError-18: (pypy.objspace.std.longobject:_FromDouble)
-    don't know about built-in function <built-in function ldexp>
-    .. block@143 with 1 exits
-    .. v427059 = simple_call((builtin_function_or_method ldexp), frac_426871, v427043)
+    TyperError-13: (pypy.objspace.std.objspace:wrap__object)
+    don't know how to convert from <PyObjRepr * PyObject> to <InstanceRepr for pypy.interpreter.error.OperationErro
+    r>
+    .. block@-1 with 2 exits(v767254)
+    .. link from block@-1 to block@-1
 
-    TyperError-19: (pypy.objspace.std.objspace:unwrap)
+    TyperError-14: (pypy.objspace.std.objspace:wrap__object)
+    don't know how to convert from <PyObjRepr * PyObject> to <InstanceRepr for pypy.objspace.std.model.W_Object>
+    .. block@-1 with 2 exits(v767231)
+    .. link from block@-1 to block@-1
+
+    TyperError-15: (pypy.objspace.std.objspace:wrap__object)
+    call_specialcase: unknown tag override:wrap_exception_cls
+    .. block@886 with 2 exits(v768328)
+    .. v768288 = call_specialcase(v768251, x_768230)
+
+    TyperError-16: (pypy.objspace.std.objspace:wrap__object)
+    no unichr() support for <PyObjRepr * PyObject>
+    .. block@265 with 1 exits
+    .. v767616 = simple_call((builtin_function_or_method unichr), v767586)
+
+    TyperError-17: (pypy.objspace.std.objspace:unwrap)
     unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, 
     <InstanceRepr for pypy.interpreter.baseobjspace.W_Root>)
     .. block@63 with 1 exits
-    .. v507742 = mod(('cannot unwrap: %r'), v507736)
+    .. v471239 = mod(('cannot unwrap: %r'), v471233)
 
-    TyperError-20: (pypy.objspace.std.objspace:wrap__object)
-    don't know how to convert from <PyObjRepr * PyObject> to <ClassRepr for __builtin__.object>
-    .. block@-1 with 2 exits(v675927)
-    .. link from block@-1 to block@-1
-
-    TyperError-21: (pypy.objspace.std.objspace:wrap__object)
-    don't know how to convert from <PyObjRepr * PyObject> to <InstanceRepr for pypy.interpreter.error.OperationErro
-    r>    
-    .. block@-1 with 2 exits(v675023)
-    .. link from block@-1 to block@-1
-
-    TyperError-22: (pypy.objspace.std.objspace:wrap__object)
-    call_specialcase: unknown tag override:wrap_exception_cls
-    .. block@886 with 2 exits(v676097)
-    .. v676057 = call_specialcase(v676020, x_675999)
-
-    TyperError-23: (pypy.objspace.std.objspace:wrap__object)
-    no unichr() support for <PyObjRepr * PyObject>
-    .. block@265 with 1 exits
-    .. v675385 = simple_call((builtin_function_or_method unichr), v675355)
-
-    TyperError-24: (pypy.objspace.std.objspace:unwrap)
-    don't know how to convert from <InstanceRepr for pypy.interpreter.baseobjspace.W_Root> to <PyObjRepr * PyObject
-    >     
-    .. block@-1 EH with 2 exits(v507719)
-    .. link from block@-1 EH to codeless block
-
-    TyperError-25: (pypy.objspace.std.objspace:wrap__object)
-    don't know how to convert from <PyObjRepr * PyObject> to <InstanceRepr for pypy.objspace.std.model.W_Object>
-    .. block@-1 with 2 exits(v675000)
-    .. link from block@-1 to block@-1
-
-    TyperError-26: (pypy.objspace.std.objspace:wrap__object)
+    TyperError-18: (pypy.objspace.std.objspace:wrap__object)
     don't know how to convert from <PyObjRepr * PyObject> to <InstanceRepr for pypy.interpreter.baseobjspace.BaseWr
     appable>
-    .. block@-1 with 2 exits(v675487)
+    .. block@-1 with 2 exits(v767718)
     .. link from block@-1 to block@-1
 
-    TyperError-27: (pypy.objspace.std.objspace:wrap__object)
-    don't know how to convert from <ClassRepr for __builtin__.object> to <PyObjRepr * PyObject>
-    .. block@-1 with 2 exits(v675974)
-    .. link from block@-1 to block@945
+    TyperError-19: (pypy.objspace.std.objspace:wrap__object)
+    don't know how to convert from <PyObjRepr * PyObject> to <ClassRepr for __builtin__.object>
+    .. block@-1 with 2 exits(v768158)
+    .. link from block@-1 to block@-1
 
-    TyperError-28: (pypy.objspace.std.objspace:wrap__object)
+    TyperError-20: (pypy.objspace.std.objspace:wrap__object)
     call_specialcase: unknown tag override:fake_object
     .. block@945 with 1 exits
-    .. v676015 = call_specialcase((function fake_object), v675994, v675995)
+    .. v768246 = call_specialcase((function fake_object), v768225, v768226)
 
-    TyperError-29: (pypy.objspace.std.objspace:wrap__object)
+    TyperError-21: (pypy.objspace.std.objspace:wrap__object)
     no list() support for <PyObjRepr * PyObject>
     .. block@446 with 1 exits
-    .. v675476 = simple_call((type list), x_675379)
+    .. v767707 = simple_call((type list), x_767610)
 
-    TyperError-30: (pypy.objspace.std.sliceobject:unwrap)
+    TyperError-22: (pypy.objspace.std.sliceobject:unwrap)
     don't know about built-in function <type 'slice'>
     .. block@-1 with 1 exits
-    .. v591645 = simple_call((type slice), v591557, v591593, v591632)
+    .. v626191 = simple_call((type slice), v626103, v626139, v626178)
 
-    TyperError-31: (pypy.objspace.std.tupleobject:unwrap)
+    TyperError-23: (pypy.objspace.std.tupleobject:unwrap)
     don't know about built-in function <type 'tuple'>
     .. block@66 with 1 exits
-    .. v590595 = simple_call((type tuple), v590590)
+    .. v626786 = simple_call((type tuple), v626781)
 
-    TyperError-32: (pypy.objspace.std.unicodeobject:unicode_zfill__Unicode_ANY)
-    cannot make repr of <SomeUnicodeCodePoint(): SomePBC(const=None)>
-    .. block@185 with 2 exits(v596694)
-    .. v596669 = contains(((u'+', u'-')), v596629)
-
-    TyperError-33: (pypy.objspace.std.unicodeobject:unwrap)
+    TyperError-24: (pypy.objspace.std.unicodeobject:unwrap)
     don't know how to convert from <ListRepr * GcStruct list { items: * GcArray of UniChar  }> to <PyObjRepr * PyObject>
     .. block@-1 with 1 exits
-    .. v591049 = simple_call((builtin_function_or_method join), v591040)
+    .. v626273 = simple_call((builtin_function_or_method join), v626264)
 
-    TyperError-34: (pypy.rpython.rarithmetic:ovfcheck_float_to_int)
-    don't know about built-in function <built-in function modf>
-    .. block@-1 with 1 exits
-    .. v910653 = simple_call((builtin_function_or_method modf), x_910646)
+    TyperError-25: (pypy.objspace.std.unicodeobject:unicode_zfill__Unicode_ANY)
+    cannot make repr of <SomeUnicodeCodePoint(): SomePBC(const=None)>
+    .. block@185 with 2 exits(v366540)
+    .. v366515 = contains(((u'+', u'-')), v366475)
 
-    TyperError-35: (pypy.interpreter.pycompiler:compile)
+    TyperError-26: (pypy.interpreter.pycompiler:compile)
     call_specialcase: unknown tag override:cpy_stablecompiler
     .. block@156 with 1 exits
-    .. v783803 = call_specialcase(v783766, parse_result_783749, filename_783745, mode_783746)
-
+    .. v775851 = call_specialcase(v775814, parse_result_775797, filename_775793, mode_775794)
 
 
 How to work in parallel:
