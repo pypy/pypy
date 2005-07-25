@@ -52,7 +52,6 @@ from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import last_exception
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
-from pypy.annotation import model as annmodel
 from types import FunctionType, CodeType, ModuleType
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
