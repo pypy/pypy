@@ -51,19 +51,19 @@ def test_cases():
         yield dump_to_cpython, case
 
 def dump_and_reload(case):
-    print 'dump_and_reload', case
+    print 'dump_and_reload', `case`
     s = marshal.dumps(case)
     obj = marshal.loads(s)
     assert obj == case
 
 def load_from_cpython(case):
-    print 'load_from_cpython', case
+    print 'load_from_cpython', `case`
     s = cpy_marshal.dumps(case)
     obj = marshal.loads(s)
     assert obj == case
 
 def dump_to_cpython(case):
-    print 'dump_to_cpython', case
+    print 'dump_to_cpython', `case`
     s = marshal.dumps(case)
     obj = cpy_marshal.loads(s)
     assert obj == case
