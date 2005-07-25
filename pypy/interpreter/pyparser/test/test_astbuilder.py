@@ -30,9 +30,17 @@ expressions = [
     "l = func(10, 12, a, b=c, **kwargs)",
     "l = func(10, 12, a, b=c, *args, **kwargs)",
     "l = func(10, 12, a, b=c)",
-    # "l = [i for i in range(10)]",
-    # "l = [i for i in range(10) if i%2 == 0]",
-    # "l = [1, 2, 3]",
+    "l = []",
+    "l = [1, 2, 3]",
+    "l = [i for i in range(10)]",
+    "l = [i for i in range(10) if i%2 == 0]",
+    "l = [i for i in range(10) if i%2 == 0 or i%2 == 1]",
+    "l = [i for i in range(10) if i%2 == 0 and i%2 == 1]",
+    "l = [i for j in range(10) for i in range(j)]",
+    "l = [i for j in range(10) for i in range(j) if j%2 == 0]",
+    "l = [i for j in range(10) for i in range(j) if j%2 == 0 and i%2 ==0]",
+    "l = [(a, b) for (a,b,c) in l2]",
+    # "l = [{a : b} for (a,b,c) in l2]",
 ]
 expression_tests = range(len(expressions))
 # expression_tests = [-1]
@@ -69,7 +77,7 @@ comparison_tests = range(len(comparisons))
 multiexpr = [
     'a = b; c = d;',
     'a = b = c = d',
-    'a = b\nc = d',
+    # 'a = b\nc = d',
     ]
 
 def ast_parse_expr(expr):
@@ -84,8 +92,11 @@ def tuple_parse_expr(expr):
 def check_expression(expr):
     r1 = ast_parse_expr(expr)
     ast = tuple_parse_expr(expr)
+    print "-" * 30
     print "ORIG :", ast
+    print 
     print "BUILT:", r1.rule_stack[-1]
+    print "-" * 30
     assert ast == r1.rule_stack[-1], 'failed on %r' % (expr)
 
 
@@ -132,7 +143,7 @@ SNIPPETS = [
 #    'snippet_whitespaces.py',
     ]
 
-def test_snippets():
+def skippedtest_snippets():
     py.test.skip('Not ready to test on real snippet files')
     for snippet_name in SNIPPETS:
         filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)

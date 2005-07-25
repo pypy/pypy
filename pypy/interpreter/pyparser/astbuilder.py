@@ -77,7 +77,7 @@ def eval_string(value):
     """temporary implementation"""
     return eval(value)
 
-def build_atom( builder, nb ):
+def build_atom(builder, nb):
     L = get_atoms( builder, nb )
     top = L[0]
     if isinstance(top, TokenObject):
@@ -85,7 +85,15 @@ def build_atom( builder, nb ):
         if top.name == tok.LPAR:
             builder.push( L[1] )
         elif top.name == tok.LSQB:
-            builder.push( ast.List( L[1].nodes, top.line) )
+            if len(L) == 2:
+                builder.push(ast.List([], top.line))
+            else:
+                list_node = L[1]
+                # XXX lineno is not on *every* child class of ast.Node
+                #     (will probably crash the annotator, but should be
+                #      easily fixed)
+                list_node.lineno = top.line
+                builder.push(list_node)
         elif top.name == tok.LBRACE:
             builder.push( ast.Dict( L[1:-1], top.line) )
         elif top.name == tok.NAME:
@@ -321,7 +329,7 @@ def build_testlist_gexp(builder, nb):
     else:
         # genfor
         assert False, "TODO"
-    builder.push( Tuple( items ) )
+    builder.push(ast.Tuple(items))
     return
 
 def build_varargslist(builder, nb):
@@ -352,6 +360,58 @@ def build_arglist(builder, nb):
     L = get_atoms(builder, nb)
     builder.push(ArglistObject('arglist', parse_argument(L), None))
 
+
+def build_list_for(builder, nb):
+    """
+    list_iter: list_for | list_if
+    list_for: 'for' exprlist 'in' testlist_safe [list_iter]
+    list_if: 'if' test [list_iter]
+    /!\ list_for is (possibly) recursive
+    """
+    L = get_atoms(builder, nb)
+    built_listfors = []
+    ifs = []
+    assign_token = L[1]
+    ass_node = to_lvalue(assign_token, consts.OP_ASSIGN)
+    end_index = len(L) - 1
+    while isinstance(L[end_index], ast.ListCompFor):
+        # we need to insert in reverse order to build the AST
+        built_listfors.insert(0, L[end_index])
+        end_index -= 1
+    index = 4
+    while index <= end_index:
+        ifs.append(L[index])
+        index += 1
+    builder.push(ast.ListCompFor(ass_node, L[3], ifs))
+    for listfor in built_listfors:
+        builder.push(listfor)
+    builder.push(TempRuleObject(0, len(built_listfors) + 1, None))
+    
+def build_list_if(builder, nb):
+    """list_if: 'if' test [list_iter]"""
+    L = get_atoms(builder, nb)
+    builder.push(ast.ListCompIf(L[1]))
+
+def build_listmaker(builder, nb):
+    """listmaker: test ( list_for | (',' test)* [','] )"""
+    L = get_atoms(builder, nb)
+    if len(L) >= 2 and isinstance(L[1], ast.ListCompFor):
+        # list comp
+        index = 1
+        listfors = []
+        while index < len(L):
+            listfors.append(L[index])
+            index += 1
+        builder.push(ast.ListComp(L[0], listfors))
+    else:
+        # regular list building (like in [1, 2, 3,])
+        index = 0
+        nodes = []
+        while index < len(L):
+            nodes.append(L[index])
+            index += 2 # skip comas
+        builder.push(ast.List(nodes))
+    
 
 def parse_argument(tokens):
     """parses function call arguments"""
@@ -392,6 +452,7 @@ def parse_argument(tokens):
             dstararg_token = tokens[index]
             break
     return arguments, stararg_token, dstararg_token
+
 
 def parse_arglist(tokens):
     """returns names, defaults, flags"""
@@ -468,6 +529,9 @@ ASTRULES = {
     sym.varargslist : build_varargslist,
     sym.trailer : build_trailer,
     sym.arglist : build_arglist,
+    sym.list_for : build_list_for,
+    sym.list_if : build_list_if,
+    sym.listmaker : build_listmaker,
     }
 
 class RuleObject(ast.Node):
@@ -484,6 +548,16 @@ class RuleObject(ast.Node):
     def __repr__(self):
         return "<Rule: %s/%d>" % (sym.sym_name[self.name], self.count)
 
+
+class TempRuleObject(RuleObject):
+    """used to keep track of how many items get_atom() should pop"""
+    def __str__(self):
+        return "<Rule: %s/%d>" % (self.name, self.count)
+
+    def __repr__(self):
+        return "<Rule: %s/%d>" % (self.name, self.count)
+
+    
 class TokenObject(ast.Node):
     """A simple object used to wrap a rule or token"""
     def __init__(self, name, value, src ):
