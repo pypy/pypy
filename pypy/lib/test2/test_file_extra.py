@@ -111,3 +111,10 @@ class TestFile:
         f = _file.file(fn, 'rU')
         assert f.read() == 'hello\nworld\n'
         f.close()
+
+class TestFdFile(TestFile):
+    def setup_method(self, method):
+        self.file = _file.file.fdopen(__file__, 'r')
+
+    def teardown_method(self, method):
+        self.file.close()
