@@ -16,8 +16,6 @@ Dummy low-level implementations for the external functions of the 'os' module.
 import os, errno
 from pypy.rpython.rstr import STR
 from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
-
-
 from pypy.rpython.module.support import to_rstr, from_rstr, ll_strcpy
 
 

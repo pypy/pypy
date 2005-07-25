@@ -161,6 +161,13 @@ class LLFrame(object):
         etype = exdata.ll_type_of_exc_inst(evalue)
         raise LLException(etype, evalue)
 
+    def invoke_callable_with_pyexceptions(self, fptr, *args):
+        print "invoking %s(%s)" % (fptr, args)
+        try:
+            return fptr._obj._callable(*args)
+        except Exception, e:
+            self.make_llexception(e.__class__)
+
     # __________________________________________________________
     # misc LL operation implementations
 
@@ -180,7 +187,7 @@ class LLFrame(object):
     def op_direct_call(self, f, *args):
         has_callable = getattr(f._obj, '_callable', None) is not None
         if has_callable and getattr(f._obj._callable, 'suggested_primitive', False):
-            return f._obj._callable(*args)
+                self.invoke_callable_with_pyexceptions(f, *args)
         if hasattr(f._obj, 'graph'):
             graph = f._obj.graph
         else:
@@ -188,7 +195,7 @@ class LLFrame(object):
                 graph = self.llinterpreter.getgraph(f._obj._callable)
             except KeyError:
                 assert has_callable, "don't know how to execute %r" % f
-                return f._obj._callable(*args)
+                return self.invoke_callable_with_pyexceptions(f, *args)
         frame = self.__class__(graph, args, self.llinterpreter)
         return frame.eval()
 

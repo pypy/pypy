@@ -6,6 +6,7 @@ from pypy.rpython.llinterp import LLInterpreter, LLException,log
 from pypy.translator.translator import Translator
 from pypy.rpython.rlist import *
 from pypy.rpython.rint import signed_repr
+from pypy.rpython import rstr
 from pypy.annotation.model import lltype_to_annotation
 
 # switch on logging of interp to show more info on failing tests
@@ -61,6 +62,8 @@ def interpret(func, values, view=False, viewbefore=False, policy=None, someobjec
             T = typeOf(x)
             if T == Ptr(PyObject) and someobjects:
                 return object
+            elif T == Ptr(rstr.STR):
+                return str
             else:
                 return lltype_to_annotation(T)
         

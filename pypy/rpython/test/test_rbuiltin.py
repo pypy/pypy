@@ -6,6 +6,7 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.tool import udir
 
 from pypy.annotation.builtin import *
+from pypy.rpython.module.support import to_rstr
 import py
 
 def test_rbuiltin_list():
@@ -118,7 +119,17 @@ def test_os_open():
         assert cfptr.value._obj._callable == ll_os.ll_os_open
         count += 1
     assert count == 1
-        
+
+def test_os_path_exists():
+    import os
+    def f(fn):
+        return os.path.exists(fn)
+    filename = to_rstr(str(py.magic.autopath()))
+    assert interpret(f, [filename]) == True
+    assert interpret(f, [
+        to_rstr("strange_filename_that_looks_improbable.sde")]) == False
+
+
 def test_pbc_isTrue():
     class C:
         def f(self):
@@ -191,3 +202,4 @@ def test_isinstance_list():
     assert res is True
     res = interpret(f, [1])
     assert res is False    
+
