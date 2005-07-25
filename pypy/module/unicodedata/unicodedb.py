@@ -1,6 +1,6 @@
 # UNICODE CHARACTER DATABASE
 # This file was generated with the command:
-#     ./generate_unicodedb.py -o unicodedb.py UnicodeData-3.2.0.txt CompositionExclusions-3.2.0.txt EastAsianWidth-3.2.0.txt
+#     D:\pypy\dist\pypy\module\unicodedata\generate_unicodedb.py -o unicodedb.py UnicodeData-3.2.0.txt CompositionExclusions-3.2.0.txt EastAsianWidth-3.2.0.txt
 
 version = '3.2.0'
 
@@ -13868,8 +13868,12 @@ def name(code):
         0x20000 <= code <= 0x2A6D6):
         return "CJK UNIFIED IDEOGRAPH-" + hex(code)[2:].upper()
     if 0xAC00 <= code <= 0xD7A3:
-        vl_code, t_code = divmod(code - 0xAC00, len(_hangul_T))
-        l_code, v_code = divmod(vl_code,  len(_hangul_V))
+        # vl_code, t_code = divmod(code - 0xAC00, len(_hangul_T))
+        vl_code = (code - 0xAC00) // len(_hangul_T)
+        t_code = (code - 0xAC00) % len(_hangul_T)
+        # l_code, v_code = divmod(vl_code,  len(_hangul_V))
+        l_code = vl_code // len(_hangul_V)
+        v_code = vl_code % len(_hangul_V)
         return ("HANGUL SYLLABLE " + _hangul_L[l_code] +
                 _hangul_V[v_code] + _hangul_T[t_code])
     
