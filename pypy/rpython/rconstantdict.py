@@ -54,7 +54,7 @@ class ConstantDictRepr(rmodel.Repr):
         except KeyError:
             self.setup()
             dictlen = len(dictobj)
-            minentrylen = dictlen * 4 / 3
+            minentrylen = (dictlen * 4 + 2) / 3
             entrylen = 1
             while entrylen < minentrylen: 
                 entrylen *= 2
@@ -62,20 +62,21 @@ class ConstantDictRepr(rmodel.Repr):
             self.dict_cache[key] = result
             r_key = self.key_repr
             r_value = self.value_repr
-            #hashcompute = self.get_key_hash_function()
+            hashcompute = self.get_key_hash_function()
             for dictkey, dictvalue in dictobj.items():
                 llkey = r_key.convert_const(dictkey)
                 llvalue = r_value.convert_const(dictvalue)
-                ll_constantdict_setnewitem(result, llkey, llvalue)#,hashcompute)
+                ll_constantdict_setnewitem(result, llkey, llvalue, hashcompute)
+            assert result.num_items < len(result.entries)
             return result
 
-##   def get_key_hash_function(self):
-##       if isinstance(self.key_repr, rmodel.IntegerRepr):
-##           return ll_hash_identity
-##       elif isinstance(self.key_repr, rmodel.CharRepr):
-##           return ll_hash_char
-##       else:
-##           raise TyperError("no easy hash function for %r" % (self.key_repr,))
+    def get_key_hash_function(self):
+        if isinstance(self.key_repr, rmodel.IntegerRepr):
+            return ll_hash_identity
+        elif isinstance(self.key_repr, rmodel.UniCharRepr):
+            return ll_hash_unichar
+        else:
+            raise TyperError("no easy hash function for %r" % (self.key_repr,))
 
     def rtype_len(self, hop):
         v_dict, = hop.inputargs(self)
@@ -87,23 +88,26 @@ class ConstantDictRepr(rmodel.Repr):
     def rtype_method_get(self, hop):
         v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
                                                  self.value_repr)
-        return hop.gendirectcall(ll_constantdict_get, v_dict, v_key, v_default)
+        hashcompute = self.get_key_hash_function()
+        chashcompute = hop.inputconst(lltype.Void, hashcompute)
+        return hop.gendirectcall(ll_constantdict_get, v_dict, v_key, v_default,
+                                 chashcompute)
 
 class __extend__(pairtype(ConstantDictRepr, rmodel.Repr)): 
 
     def rtype_getitem((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr) 
-        #hashcompute = r_dict.get_key_hash_function()
-        #chashcompute = hop.inputconst(lltype.Void, hashcompute)
-        return hop.gendirectcall(ll_constantdict_getitem, v_dict, v_key)
-                                 #chashcompute)
+        hashcompute = r_dict.get_key_hash_function()
+        chashcompute = hop.inputconst(lltype.Void, hashcompute)
+        return hop.gendirectcall(ll_constantdict_getitem, v_dict, v_key,
+                                 chashcompute)
 
     def rtype_contains((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
-        #hashcompute = r_dict.get_key_hash_function()
-        #chashcompute = hop.inputconst(lltype.Void, hashcompute)
-        return hop.gendirectcall(ll_constantdict_contains, v_dict, v_key)
-                                 #chashcompute)
+        hashcompute = r_dict.get_key_hash_function()
+        chashcompute = hop.inputconst(lltype.Void, hashcompute)
+        return hop.gendirectcall(ll_constantdict_contains, v_dict, v_key,
+                                 chashcompute)
 
 # ____________________________________________________________
 #
@@ -114,26 +118,26 @@ class __extend__(pairtype(ConstantDictRepr, rmodel.Repr)):
 def ll_constantdict_len(d):
     return d.num_items 
 
-def ll_constantdict_getitem(d, key):#, hashcompute): 
-    entry = ll_constantdict_lookup(d, key)#, hashcompute)
+def ll_constantdict_getitem(d, key, hashcompute): 
+    entry = ll_constantdict_lookup(d, key, hashcompute)
     if entry.valid:
         return entry.value 
     else: 
         raise KeyError 
 
-def ll_constantdict_contains(d, key):#, hashcompute):
-    entry = ll_constantdict_lookup(d, key)#, hashcompute)
+def ll_constantdict_contains(d, key, hashcompute):
+    entry = ll_constantdict_lookup(d, key, hashcompute)
     return entry.valid
 
-def ll_constantdict_get(d, key, default):#, hashcompute):
-    entry = ll_constantdict_lookup(d, key)#, hashcompute)
+def ll_constantdict_get(d, key, default, hashcompute):
+    entry = ll_constantdict_lookup(d, key, hashcompute)
     if entry.valid:
         return entry.value
     else: 
         return default
 
-def ll_constantdict_setnewitem(d, key, value):#, hashcompute): 
-    entry = ll_constantdict_lookup(d, key)#, hashcompute)
+def ll_constantdict_setnewitem(d, key, value, hashcompute): 
+    entry = ll_constantdict_lookup(d, key, hashcompute)
     assert not entry.valid 
     entry.key = key
     entry.valid = True 
@@ -143,12 +147,12 @@ def ll_constantdict_setnewitem(d, key, value):#, hashcompute):
 # the below is a port of CPython's dictobject.c's lookdict implementation 
 PERTURB_SHIFT = 5
 
-def ll_constantdict_lookup(d, key):#, hashcompute): 
-    hash = key #hashcompute(key)
+def ll_constantdict_lookup(d, key, hashcompute): 
+    hash = r_uint(hashcompute(key))
     entries = d.entries
     mask = len(entries) - 1
-    perturb = r_uint(hash) 
-    i = r_uint(hash) 
+    perturb = hash
+    i = hash
     while 1: 
         entry = entries[i & mask]
         if not entry.valid: 
@@ -158,8 +162,8 @@ def ll_constantdict_lookup(d, key):#, hashcompute):
         perturb >>= PERTURB_SHIFT
         i = (i << 2) + i + perturb + 1
 
-##def ll_hash_identity(x): 
-##    return x
+def ll_hash_identity(x): 
+    return x
 
-##def ll_hash_char(x): 
-##    return ord(x) 
+def ll_hash_unichar(x): 
+    return ord(x) 

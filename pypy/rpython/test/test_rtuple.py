@@ -78,6 +78,14 @@ def test_constant_tuple_contains():
     res = interpret(f, [0])
     assert res is False 
 
+def test_constant_unichar_tuple_contains():
+    def f(i):
+        return unichr(i) in (u'1', u'9')
+    res = interpret(f, [49])
+    assert res is True 
+    res = interpret(f, [50])
+    assert res is False 
+
 def test_tuple_iterator_length1():
     def f(i):
         total = 0

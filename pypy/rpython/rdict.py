@@ -35,7 +35,8 @@ class __extend__(annmodel.SomeDict):
             dictvalue = self.dictdef.dictvalue 
             return StrDictRepr(lambda: rtyper.getrepr(dictvalue.s_value), 
                                dictvalue)
-        elif isinstance(s_key, annmodel.SomeInteger):
+        elif isinstance(s_key, (annmodel.SomeInteger,
+                                annmodel.SomeUnicodeCodePoint)):
             dictkey = self.dictdef.dictkey
             dictvalue = self.dictdef.dictvalue 
             return rconstantdict.ConstantDictRepr(

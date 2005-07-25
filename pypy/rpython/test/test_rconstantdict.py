@@ -25,3 +25,14 @@ def test_constantdict_get():
     assert res == 62
     res = interpret(func, [4, 25])
     assert res == -44
+
+def test_unichar_dict():
+    d = {u'a': 5, u'b': 123, u'?': 321}
+    def func(i):
+        return d[unichr(i)]
+    res = interpret(func, [97])
+    assert res == 5
+    res = interpret(func, [98])
+    assert res == 123
+    res = interpret(func, [63])
+    assert res == 321
