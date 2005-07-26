@@ -17,8 +17,10 @@ from pypy.tool.osfilewrapper import OsFileWrapper
 
 try:
     BIN_READMASK = os.O_BINARY | os.O_RDONLY
+    BIN_WRITEMASK = os.O_BINARY | os.O_RDWR
 except AttributeError:
     BIN_READMASK = os.O_RDONLY
+    BIN_WRITEMASK = os.O_RDWR
 
 NOFILE = 0
 PYFILE = 1
@@ -329,44 +331,11 @@ MAGIC = 62061 | (ord('\r')<<16) | (ord('\n')<<24)
 pyc_magic = MAGIC
 
 
-PLAN = """
-have a function that finds a .py or .pyc file and decides what to use.
-
-CPython: Looks into both and uses .pyc if alone.
-We want this option, too, but disabled.
-
-implement
-- check_compiled_module()
-- read_compiled_module
-     header is skipped
-     check for valid code object
-- load_compiled_module
-- parse_source_module
-- load_source_module
-- write_compiled_module
-    called by load_source_module (maybe also optional)
-
-- load_module
-    loads what it gets, flag controls mode decision.
-    move the module creation stuff from try_import_mod into
-    load_module.
-    
-modify imp_execfile to accept .pyc files as well.
-The decision what to use has been driven, already.
-"""
-
-def load_module(space, name, fd, type): # XXX later: loader):
-    """
-    Load an external module using the default search path and return
-    its module object.
-    """
-    
-
 def parse_source_module(space, pathname, fd):
     """ Parse a source file and return the corresponding code object """
     w = space.wrap
     try:
-        size = os.fstat(fd)[6]
+        size = os.fstat(fd)[stat.ST_SIZE]
         source = os.read(fd, size)
     finally:
         os.close(fd)
@@ -381,7 +350,7 @@ def parse_source_module(space, pathname, fd):
 def load_source_module(space, w_modulename, w_mod, pathname, fd):
     """
     Load a source module from a given file and return its module
-    object.  XXX Wrong: If there's a matching byte-compiled file, use that instead.
+    object.
     """
     w = space.wrap
     pycode = parse_source_module(space, pathname, fd)
@@ -392,7 +361,9 @@ def load_source_module(space, w_modulename, w_mod, pathname, fd):
                       w(space.builtin))
     pycode.exec_code(space, w_dict, w_dict) 
 
-    #XXX write file 
+    mtime = os.stat(fd)[stat.ST_MTIME]
+    cpathname = pathname + 'c'
+    write_compiled_module(space, pycode, cpathname, mtime)
 
     return w_mod
 
@@ -406,6 +377,16 @@ def _r_long(osfile):
     if d & 0x80 and x > 0:
         x = -((1L<<32) - x)
     return int(x)
+
+def _w_long(osfile, x):
+    a = x & 0xff
+    x >> = 8
+    b = x & 0xff
+    x >> = 8
+    c = x & 0xff
+    x >> = 8
+    d = x & 0xff
+    osfile.write(chr(a) + chr(b) + chr(c) + chr(d))
 
 def check_compiled_module(pathname, mtime, cpathname):
     """
@@ -438,8 +419,8 @@ def read_compiled_module(space, cpathname, fd):
     """ Read a code object from a file and check it for validity """
 
     w_marshal = space.getbuiltinmodule('marshal')
-    w_M = space.getattr(w_marshal, space.wrap('_Unmarshaller'))
-    w_unmarshaller = space.call_function(w_M, space.wrap(fd))
+    w_U = space.getattr(w_marshal, space.wrap('_Unmarshaller'))
+    w_unmarshaller = space.call_function(w_U, space.wrap(fd))
     w_code = space.call_method(w_unmarshaller, 'load')
     pycode = space.interpclass_w(w_code)
     if pycode is None:
@@ -475,3 +456,12 @@ def write_compiled_module(space, co, cpathname, mtime):
     Errors are ignored, if a write error occurs an attempt is made to
     remove the file.
     """
+    fd = os.open(cpathname, BIN_WRITEMASK, 0777)
+    osfile = OsFileWrapper(fd)
+    _w_long(osfile, pyc_magic)
+    _w_long(osfile, mtime)
+    w_marshal = space.getbuiltinmodule('marshal')
+    w_M = space.getattr(w_marshal, space.wrap('_Marshaller'))
+    w_marshaller = space.call_function(w_U, space.wrap(fd))
+    space.call_method(w_unmarshaller, 'dump', space.wrap(co))
+    os.close(fd)
