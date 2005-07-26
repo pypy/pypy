@@ -1,10 +1,6 @@
 import py
-from pypy.objspace.flow.model import Block, Constant, Variable, Link
-from pypy.objspace.flow.model import flatten, mkentrymap, traverse
+from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
-from pypy.translator.backendoptimization import remove_same_as 
-from pypy.translator.unsimplify import remove_double_links                     
-from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2.atomic import is_atomic
 from pypy.translator.llvm2.log import log 
 nextexclabel = py.std.itertools.count().next
@@ -116,7 +112,7 @@ class OpWriter(object):
         name = self.shift_operations[op.opname]
         assert len(op.args) == 2
         if isinstance(op.args[1], Constant):
-            tmpvar = op.args[1]
+            tmpvar = self.db.repr_arg(op.args[1])
         else:
             tmpvar = self.db.repr_tmpvar()
             self.codewriter.cast(tmpvar, self.db.repr_arg_type(op.args[1]), self.db.repr_arg(op.args[1]), 'ubyte')
@@ -134,11 +130,12 @@ class OpWriter(object):
         fromtype = self.db.repr_arg_type(op.args[0])
         self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
 
+    cast_bool_to_char = cast_bool_to_int  = cast_bool_to_uint = cast_primitive
+    cast_char_to_bool = cast_char_to_int  = cast_char_to_uint = cast_primitive
+    cast_int_to_bool  = cast_int_to_char  = cast_int_to_uint  = cast_primitive
+    cast_uint_to_bool = cast_uint_to_char = cast_uint_to_int  = cast_primitive
     cast_pointer = cast_primitive
-    cast_bool_to_int = cast_primitive
-    cast_bool_to_uint = uint_is_true = cast_primitive
-    cast_int_to_char = cast_char_to_int = cast_primitive
-    cast_int_to_uint = cast_primitive
+    same_as = cast_primitive
 
     def int_is_true(self, op):
         self.codewriter.binaryop("setne",

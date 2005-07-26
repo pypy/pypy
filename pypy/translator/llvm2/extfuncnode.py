@@ -1,11 +1,5 @@
 import py
-from pypy.objspace.flow.model import Block, Constant, Variable, Link
-from pypy.objspace.flow.model import flatten, mkentrymap, traverse
-from pypy.rpython import lltype
-from pypy.translator.backendoptimization import remove_same_as 
-from pypy.translator.unsimplify import remove_double_links                     
-from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
-from pypy.translator.llvm2.atomic import is_atomic
+from pypy.translator.llvm2.node import LLVMNode
 from pypy.translator.llvm2.log import log 
 log = log.extfuncnode
 

@@ -25,10 +25,11 @@ def test_simple_function_pointer():
     l = [f1, f2]
 
     def pointersimple(i): 
-        return l[i]
+        return l[i](i)
 
-    f = compile_function(pointersimple, [int])
-    assert f 
+    f = compile_function(pointersimple, [int], True)
+    assert f(0) == pointersimple(0)
+    assert f(1) == pointersimple(1)
 
 def test_simple_branching():
     def simple5(b):
@@ -333,7 +334,6 @@ def test_method_call():
     assert f() == 4
 
 def test_dict_creation(): 
-    py.test.skip("not working yet")
     d = {'hello' : 23,
          'world' : 21}
     l = ["hello", "world"]

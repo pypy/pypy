@@ -125,7 +125,8 @@ class Database(object):
             assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
             value = const_or_var.value._obj
 
-            self.addpending(const_or_var, self.create_constant_node(ct.TO, value))
+            if value:   #XXX for test/test_dict_creation (how to handle this better?)
+                self.addpending(const_or_var, self.create_constant_node(ct.TO, value))
         else:
             log.prepare(const_or_var, type(const_or_var))
 
@@ -211,7 +212,14 @@ class Database(object):
             if isinstance(arg.concretetype, lltype.Primitive):
                 return primitive_to_str(arg.concretetype, arg.value)
             else:
-                node = self.obj2node[arg]
+                try:
+                    node = self.obj2node[arg]
+                except KeyError:
+                    #XXX related to llvm2/test/test_genllvm/test_dict_creation
+                    #XXX "v962 = same_as((<* None>))"
+                    #XXX this <* None> gets propagated to the next block and fails at the phi node!
+                    #XXX Need better way to test for this only!
+                    return 'null'
                 if hasattr(node, "castref"):
                     return node.castref
                 else:
