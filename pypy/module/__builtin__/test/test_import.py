@@ -5,6 +5,7 @@ import pypy.interpreter.pycode
 from pypy.tool.udir import udir 
 import sys, os
 import tempfile, marshal
+from pypy.tool.osfilewrapper import OsFileWrapper
 
 from pypy.module.__builtin__.importing import BIN_READMASK
 
@@ -204,7 +205,7 @@ class TestPycStuff:
         cpathname = _testfile(importing.pyc_magic, mtime, co)
         fd = os.open(cpathname, BIN_READMASK, 0777)
         os.lseek(fd, 8, 0)
-        code_w = importing.read_compiled_module(space, cpathname, fd)
+        code_w = importing.read_compiled_module(space, cpathname, OsFileWrapper(fd))
         os.close(fd)
         assert type(code_w) is pypy.interpreter.pycode.PyCode
         w_dic = space.newdict([])
@@ -222,7 +223,7 @@ class TestPycStuff:
         w_modulename = space.wrap('somemodule')
         fd = os.open(cpathname, BIN_READMASK, 0777)
         w_mod = space.wrap(Module(space, w_modulename))
-        w_ret = importing.load_compiled_module(space, w_modulename, w_mod, cpathname, fd)
+        w_ret = importing.load_compiled_module(space, w_modulename, w_mod, cpathname, OsFileWrapper(fd))
         os.close(fd)
         assert w_mod is w_ret
         w_ret = space.getattr(w_mod, space.wrap('x'))

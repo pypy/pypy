@@ -17,10 +17,10 @@ from pypy.tool.osfilewrapper import OsFileWrapper
 
 try:
     BIN_READMASK = os.O_BINARY | os.O_RDONLY
-    BIN_WRITEMASK = os.O_BINARY | os.O_RDWR
+    BIN_WRITEMASK = os.O_BINARY | os.O_RDWR | os.O_CREAT
 except AttributeError:
     BIN_READMASK = os.O_RDONLY
-    BIN_WRITEMASK = os.O_RDWR
+    BIN_WRITEMASK = os.O_RDWR | os.O_CREAT
 
 NOFILE = 0
 PYFILE = 1
@@ -49,7 +49,7 @@ def info_modtype(filepart):
     if os.path.exists(pycfile):
         pyc_state = check_compiled_module(pyfile, pyfile_ts, pycfile)
         pycfile_exists = pyc_state >= 0
-        pycfile_ts_valid = pyc_state > 0 and pyfile_exists
+        pycfile_ts_valid = pyc_state > 0 and pyfile_exist
     else:
         pycfile_exists = False
         pycfile_ts_valid = False
@@ -107,11 +107,15 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
         space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
 
     try:
-        if modtype == PYFILE:
-            load_source_module(space, w_modulename, w_mod, filename, fd)
-        else:
-            load_compiled_module(space, w_modulename, w_mod, filename, fd)
-
+        try:
+            osfile = OsFileWrapper(fd)
+            if modtype == PYFILE:
+                load_source_module(space, w_modulename, w_mod, filename, osfile)
+            else:
+                load_compiled_module(space, w_modulename, w_mod, filename, osfile)
+        finally:
+            osfile.close()
+            
     except OperationError, e:
         if e.match(space, space.w_SyntaxError):
             w_mods = space.sys.get('modules')
@@ -331,15 +335,11 @@ MAGIC = 62061 | (ord('\r')<<16) | (ord('\n')<<24)
 pyc_magic = MAGIC
 
 
-def parse_source_module(space, pathname, fd):
+def parse_source_module(space, pathname, osfile):
     """ Parse a source file and return the corresponding code object """
     w = space.wrap
-    try:
-        size = os.fstat(fd)[stat.ST_SIZE]
-        source = os.read(fd, size)
-    finally:
-        os.close(fd)
-        
+    size = os.fstat(osfile.fd)[stat.ST_SIZE]
+    source = osfile.read(size)    
     w_source = w(source)
     w_mode = w("exec")
     w_pathname = w(pathname)
@@ -347,13 +347,13 @@ def parse_source_module(space, pathname, fd):
     pycode = space.interpclass_w(w_code)
     return pycode
 
-def load_source_module(space, w_modulename, w_mod, pathname, fd):
+def load_source_module(space, w_modulename, w_mod, pathname, osfile):
     """
     Load a source module from a given file and return its module
     object.
     """
     w = space.wrap
-    pycode = parse_source_module(space, pathname, fd)
+    pycode = parse_source_module(space, pathname, osfile)
 
     w_dict = space.getattr(w_mod, w('__dict__'))                                      
     space.call_method(w_dict, 'setdefault', 
@@ -361,9 +361,9 @@ def load_source_module(space, w_modulename, w_mod, pathname, fd):
                       w(space.builtin))
     pycode.exec_code(space, w_dict, w_dict) 
 
-    mtime = os.fstat(fd)[stat.ST_MTIME]
+    mtime = os.fstat(osfile.fd)[stat.ST_MTIME]
     cpathname = pathname + 'c'
-    write_compiled_module(space, pycode, cpathname, mtime)
+    #XXXwrite_compiled_module(space, pycode, cpathname, mtime)
 
     return w_mod
 
@@ -415,12 +415,12 @@ def check_compiled_module(pathname, mtime, cpathname):
         os.close(fd)
     return 1
 
-def read_compiled_module(space, cpathname, fd):
+def read_compiled_module(space, cpathname, osfile):
     """ Read a code object from a file and check it for validity """
 
     w_marshal = space.getbuiltinmodule('marshal')
     w_U = space.getattr(w_marshal, space.wrap('_Unmarshaller'))
-    w_unmarshaller = space.call_function(w_U, space.wrap(fd))
+    w_unmarshaller = space.call_function(w_U, space.wrap(osfile.fd))
     w_code = space.call_method(w_unmarshaller, 'load')
     pycode = space.interpclass_w(w_code)
     if pycode is None:
@@ -428,19 +428,18 @@ def read_compiled_module(space, cpathname, fd):
             "Non-code object in %.200s" % cpathname))
     return pycode
 
-def load_compiled_module(space, w_modulename, w_mod, cpathname, fd):
+def load_compiled_module(space, w_modulename, w_mod, cpathname, osfile):
     """
     Load a module from a compiled file, execute it, and return its
     module object.
     """
-    osfile = OsFileWrapper(fd)
     magic = _r_long(osfile)
     if magic != pyc_magic:
         raise OperationError(space.w_ImportError, space.wrap(
             "Bad magic number in %.200s" % cpathname))
         return NULL;
     _r_long(osfile) # skip time stamp
-    code_w = read_compiled_module(space, cpathname, fd)
+    code_w = read_compiled_module(space, cpathname, osfile)
     #if (Py_VerboseFlag)
     #    PySys_WriteStderr("import %s # precompiled from %s\n",
     #        name, cpathname);
