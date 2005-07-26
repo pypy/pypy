@@ -97,7 +97,7 @@ class SpaceCache(Cache):
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
-    http://codespeak.net/moin/pypy/moin.cgi/ObjectSpace"""
+    http://codespeak.net/pypy/index.cgi?doc/objspace.html"""
     
     full_exceptions = True  # full support for exceptions (normalization & more)
 
@@ -133,6 +133,28 @@ class ObjSpace(object):
         w_modules = self.sys.get('modules')
         return self.getitem(w_modules, w_name)
 
+    # change this to influence which of our own
+    # mixed modules should be used 
+    def get_builtinmodule_list(self):
+        """NOT_RPYTHON"""
+        try:
+            return self._builtinmodule_list
+        except AttributeError:
+            builtinmodule_list = [('sys', None), ('__builtin__', None),
+                                  ('exceptions', None)]
+            builtinmodule_list.append(('unicodedata', None))
+            #  Uncomment the following line to enable the builtin _codecs module
+            builtinmodule_list.append(('_codecs', None))
+            builtinmodule_list.append(('marshal', None))
+            if self.options.useparsermodule == "recparser":
+                builtinmodule_list.append(('parser', 'recparser'))
+            elif self.options.useparsermodule == "parser":
+                builtinmodule_list.append(('parser', None))
+            #builtinmodule_list.append(('posix', None))
+            #builtinmodule_list.append(('math', None))
+            self._builtinmodule_list = builtinmodule_list
+            return self._builtinmodule_list
+
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
 
@@ -148,18 +170,11 @@ class ObjSpace(object):
         w_builtin = self.wrap(self.builtin)
         self.setitem(w_modules, w_name, w_builtin) 
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
-        self.setbuiltinmodule('unicodedata')
-        #  Uncomment the following line to enable the builtin _codecs module
-        self.setbuiltinmodule('_codecs')
-        # XXX we need to resolve unwrapping issues to 
-        #     make this the default _sre module
-        #self.setbuiltinmodule("_sre", "_sre_pypy")
-        self.setbuiltinmodule('marshal')
-        if self.options.useparsermodule == "recparser":
-             self.setbuiltinmodule('parser', 'recparser')
-        elif self.options.useparsermodule == "parser":
-            self.setbuiltinmodule('parser')
-        #self.setbuiltinmodule('posix')
+
+        for modname, mixedname in self.get_builtinmodule_list():
+            if modname not in ('sys', '__builtin__', 'exceptions'):
+                self.setbuiltinmodule(modname, mixedname)
+        
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
             if name.startswith('w_') and not name.endswith('Type'): 

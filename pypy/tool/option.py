@@ -10,6 +10,7 @@ class Options:
     spaces = []
     oldstyle = 0
     uselibfile = 0
+    nofakedmodules = 0
     useparsermodule = "recparser" # "cpython" / "recparser" / "parser"
     compiler = "pyparse" # "cpython"
                          # "pyparse" pypy parser, cpython's compiler package
@@ -38,6 +39,9 @@ def get_standard_options():
     options.append(make_option(
         '--file', action="store_true",dest="uselibfile",
         help="enable our custom file implementation"))
+    options.append(make_option(
+        '--nofakedmodules', action="store_true",dest="nofakedmodules",
+        help="don't fake any module"))
     options.append(make_option(
         '-w', action="store_true", dest="showwarning",
         help="enable warnings (disabled by default)"))
