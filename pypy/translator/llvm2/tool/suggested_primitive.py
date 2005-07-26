@@ -4,7 +4,7 @@ import autopath
 import os
 
 from pypy.rpython.module import ll_os, ll_os_path, ll_time, ll_math #XXX keep this list up-to-date
-from pypy.translator.llvm2.extfunction import extfunctions
+from pypy.translator.llvm2.module.extfunction import extfunctions
 
 def main():
     suggested_primitives = []

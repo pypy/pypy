@@ -14,7 +14,7 @@ from pypy.translator.llvm2.codewriter import CodeWriter
 from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
 from pypy.translator.backendoptimization import remove_void
 #from pypy.translator.backendoptimization import rename_extfunc_calls
-from pypy.translator.llvm2.extfunction import extdeclarations, \
+from pypy.translator.llvm2.module.extfunction import extdeclarations, \
      extfunctions, gc_boehm, gc_disabled, dependencies
 
 from pypy.translator.translator import Translator
