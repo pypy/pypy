@@ -4,6 +4,8 @@
 import types
 import os
 
+from pypy.tool.osfilewrapper import OsFileWrapper
+
 try:
     import new
 except ImportError:
@@ -37,12 +39,15 @@ class Marshaller:
     dispatch = {}
 
     def __init__(self, fd):
-        self.fd = fd
+        if fd >= 0:
+            self.fd_wrapper = OsFileWrapper(fd)
+        else:
+            self.fd_wrapper = None
         self.buffer = []
 
     def _write(self, data):
-        if self.fd >= 0:
-            os.write(self.fd, data)
+        if self.fd_wrapper is not None:
+            self.fd_wrapper.write(data)
         else:
             self.buffer.append(data)
 
@@ -233,22 +238,25 @@ class Unmarshaller:
     dispatch = {}
 
     def __init__(self, fd):
-        self.fd = fd
+        if fd >= 0:
+            self.fd_wrapper = OsFileWrapper(fd)
+        else:
+            self.fd_wrapper = None
         self.bufstr = ''
         self.bufpos = 0
         self._stringtable = []
 
     def _read(self):
-        if self.fd >= 0:
-            return self.fd.read(1)
+        if self.fd_wrapper is not None:
+            return self.fd_wrapper.read(1)
         else:
             ret = self.bufstr[self.bufpos]
             self.bufpos += 1
             return ret
 
     def _readn(self, n):
-        if self.fd >= 0:
-            return self.fd.read(n)
+        if self.fd_wrapper is not None:
+            return self.fd_wrapper.read(n)
         else:
             ret = self.bufstr[self.bufpos : self.bufpos+n]
             self.bufpos += n
