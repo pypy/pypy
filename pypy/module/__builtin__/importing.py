@@ -15,6 +15,11 @@ from pypy.tool.osfilewrapper import OsFileWrapper
 # XXX a frozen version of some routines of only one of the
 # XXX posixpath/ntpath/macpath modules.
 
+try:
+    BIN_READMASK = os.O_BINARY | os.O_RDONLY
+except AttributeError:
+    BIN_READMASK = os.O_RDONLY
+
 def try_import_mod(space, w_modulename, filename, w_parent, w_name, pkgdir=None):
     if os.path.exists(filename):
         w = space.wrap
@@ -262,6 +267,7 @@ implement
      header is skipped
      check for valid code object
 - load_compiled_module
+- parse_source_module
 - load_source_module
 - write_compiled_module
     called by load_source_module (maybe also optional)
@@ -281,11 +287,8 @@ def load_module(space, name, fd, type): # XXX later: loader):
     its module object.
     """
 
-def load_source_module(space, w_modulename, w_mod, pathname, fd):
-    """
-    Load a source module from a given file and return its module
-    object.  XXX Wrong: If there's a matching byte-compiled file, use that instead.
-    """
+def parse_source_module(space, pathname, fd):
+    """ Parse a source file and return the corresponding code object """
     w = space.wrap
     try:
         size = os.fstat(fd)[6]
@@ -298,6 +301,15 @@ def load_source_module(space, w_modulename, w_mod, pathname, fd):
     w_pathname = w(pathname)
     w_code = space.builtin.call('compile', w_source, w_pathname, w_mode) 
     pycode = space.interpclass_w(w_code)
+    return pycode
+
+def load_source_module(space, w_modulename, w_mod, pathname, fd):
+    """
+    Load a source module from a given file and return its module
+    object.  XXX Wrong: If there's a matching byte-compiled file, use that instead.
+    """
+    w = space.wrap
+    pycode = parse_source_module(space, pathname, fd)
 
     w_dict = space.getattr(w_mod, w('__dict__'))                                      
     space.call_method(w_dict, 'setdefault', 
@@ -329,7 +341,7 @@ def check_compiled_module(space, pathname, mtime, cpathname):
     the header; if not, return NULL.
     Doesn't set an exception.
     """
-    fd = os.open(cpathname, os.O_BINARY | os.O_RDONLY, 0777) # using no defaults
+    fd = os.open(cpathname, BIN_READMASK, 0777) # using no defaults
     osfile = OsFileWrapper(fd)
     magic = _r_long(osfile)
     if magic != pyc_magic:

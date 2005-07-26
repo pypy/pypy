@@ -6,6 +6,8 @@ from pypy.tool.udir import udir
 import sys, os
 import tempfile, marshal
 
+from pypy.module.__builtin__.importing import BIN_READMASK
+
 def _setup(space): 
     dn=os.path.abspath(os.path.join(os.path.dirname(__file__), 'impsubdir'))
     return space.appexec([space.wrap(dn)], """
@@ -200,7 +202,7 @@ class TestPycStuff:
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.pyc_magic, mtime, co)
-        fd = os.open(cpathname, os.O_BINARY | os.O_RDONLY, 0777)
+        fd = os.open(cpathname, BIN_READMASK, 0777)
         os.lseek(fd, 8, 0)
         code_w = importing.read_compiled_module(space, cpathname, fd)
         os.close(fd)
@@ -218,7 +220,7 @@ class TestPycStuff:
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.pyc_magic, mtime, co)
         w_modulename = space.wrap('somemodule')
-        fd = os.open(cpathname, os.O_BINARY | os.O_RDONLY, 0777)
+        fd = os.open(cpathname, BIN_READMASK, 0777)
         w_mod = space.wrap(Module(space, w_modulename))
         w_ret = importing.load_compiled_module(space, w_modulename, w_mod, cpathname, fd)
         os.close(fd)
