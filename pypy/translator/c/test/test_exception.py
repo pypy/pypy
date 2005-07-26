@@ -6,6 +6,7 @@ class MyException(Exception):
     pass
 
 def test_simple2(): #taken from ../../llvm2/test/test_exception.py 
+    py.test.skip("decided whethe we want to support IndexError on [] at interp-level")
     def fn(n):
         lst = range(10)
         try:
