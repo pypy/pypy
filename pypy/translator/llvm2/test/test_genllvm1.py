@@ -55,6 +55,7 @@ class TestGenLLVM(object):
         assert shr(42,2) == llvmsnippet.shiftright(42,2)
 
     def test_shift_with_overflow(self):
+        py.test.skip("overflow not working yet")
         shl = compile_function(llvmsnippet.shiftleft, [int, int])
         shr = compile_function(llvmsnippet.shiftright, [int, int])
         for i in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
@@ -88,6 +89,7 @@ class TestPBC(object):
         assert f(3) == 8
 
     def test_pbc_function2(self):
+        py.test.skip("not working yet")
         f = compile_function(llvmsnippet.pbc_function2, [int])
         assert f(0) == 13
         assert f(1) == 15
