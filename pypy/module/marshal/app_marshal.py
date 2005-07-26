@@ -1,9 +1,8 @@
 """Marshal module written in Python.
 """
 
-import StringIO
-import string
 import types
+import os
 try:
     import new
 except ImportError:
@@ -36,8 +35,18 @@ class Marshaller:
 
     dispatch = {}
 
-    def __init__(self, f):
-        self.f = f
+    def __init__(self, fd):
+        self.fd = fd
+        self.buffer = []
+
+    def _write(self, data):
+        if self.fd >= 0:
+            os.write(self.fd, data)
+        else:
+            self.buffer.append(data)
+
+    def getvalue(self):
+        return ''.join(self.buffer)
 
     def dump(self, x):
         try:
@@ -56,36 +65,34 @@ class Marshaller:
         self.w_long(x>>32)
 
     def w_long(self, x):
-        write = self.f.write
-        write(chr((x)     & 0xff))
-        write(chr((x>> 8) & 0xff))
-        write(chr((x>>16) & 0xff))
-        write(chr((x>>24) & 0xff))
+        self._write(chr((x)     & 0xff))
+        self._write(chr((x>> 8) & 0xff))
+        self._write(chr((x>>16) & 0xff))
+        self._write(chr((x>>24) & 0xff))
 
     def w_short(self, x):
-        write = self.f.write
-        write(chr((x)     & 0xff))
-        write(chr((x>> 8) & 0xff))
+        self._write(chr((x)     & 0xff))
+        self._write(chr((x>> 8) & 0xff))
 
     def dump_none(self, x):
-        self.f.write(TYPE_NONE)
+        self._write(TYPE_NONE)
     dispatch[types.NoneType] = dump_none
 
     def dump_bool(self, x):
         if x:
-            self.f.write(TYPE_TRUE)
+            self._write(TYPE_TRUE)
         else:
-            self.f.write(TYPE_FALSE)
+            self._write(TYPE_FALSE)
     dispatch[bool] = dump_bool
 
     def dump_stopiter(self, x):
         if x is not StopIteration:
             raise ValueError, "unmarshallable object"
-        self.f.write(TYPE_STOPITER)
+        self._write(TYPE_STOPITER)
     dispatch[type(StopIteration)] = dump_stopiter
 
     def dump_ellipsis(self, x):
-        self.f.write(TYPE_ELLIPSIS)
+        self._write(TYPE_ELLIPSIS)
     
     try:
         dispatch[types.EllipsisType] = dump_ellipsis
@@ -95,15 +102,15 @@ class Marshaller:
     def dump_int(self, x):
         y = x>>31
         if y and y != -1:
-            self.f.write(TYPE_INT64)
+            self._write(TYPE_INT64)
             self.w_long64(x)
         else:
-            self.f.write(TYPE_INT)
+            self._write(TYPE_INT)
             self.w_long(x)
     dispatch[types.IntType] = dump_int
 
     def dump_long(self, x):
-        self.f.write(TYPE_LONG)
+        self._write(TYPE_LONG)
         sign = 1
         if x < 0:
             sign = -1
@@ -118,7 +125,7 @@ class Marshaller:
     dispatch[types.LongType] = dump_long
 
     def dump_float(self, x):
-        write = self.f.write
+        write = self._write
         write(TYPE_FLOAT)
         s = `x`
         write(chr(len(s)))
@@ -126,7 +133,7 @@ class Marshaller:
     dispatch[types.FloatType] = dump_float
 
     def dump_complex(self, x):
-        write = self.f.write
+        write = self._write
         write(TYPE_COMPLEX)
         s = `x.real`
         write(chr(len(s)))
@@ -142,42 +149,42 @@ class Marshaller:
     def dump_string(self, x):
         # XXX we can't check for interned strings, yet,
         # so we (for now) never create TYPE_INTERNED or TYPE_STRINGREF
-        self.f.write(TYPE_STRING)
+        self._write(TYPE_STRING)
         self.w_long(len(x))
-        self.f.write(x)
+        self._write(x)
     dispatch[types.StringType] = dump_string
 
     def dump_unicode(self, x):
-        self.f.write(TYPE_UNICODE)
+        self._write(TYPE_UNICODE)
         s = x.encode('utf8')
         self.w_long(len(s))
-        self.f.write(s)
+        self._write(s)
     dispatch[types.UnicodeType] = dump_unicode
 
     def dump_tuple(self, x):
-        self.f.write(TYPE_TUPLE)
+        self._write(TYPE_TUPLE)
         self.w_long(len(x))
         for item in x:
             self.dump(item)
     dispatch[types.TupleType] = dump_tuple
 
     def dump_list(self, x):
-        self.f.write(TYPE_LIST)
+        self._write(TYPE_LIST)
         self.w_long(len(x))
         for item in x:
             self.dump(item)
     dispatch[types.ListType] = dump_list
 
     def dump_dict(self, x):
-        self.f.write(TYPE_DICT)
+        self._write(TYPE_DICT)
         for key, value in x.items():
             self.dump(key)
             self.dump(value)
-        self.f.write(TYPE_NULL)
+        self._write(TYPE_NULL)
     dispatch[types.DictionaryType] = dump_dict
 
     def dump_code(self, x):
-        self.f.write(TYPE_CODE)
+        self._write(TYPE_CODE)
         self.w_long(x.co_argcount)
         self.w_long(x.co_nlocals)
         self.w_long(x.co_stacksize)
@@ -198,7 +205,7 @@ class Marshaller:
         pass
 
     def dump_set(self, x):
-        self.f.write(TYPE_SET)
+        self._write(TYPE_SET)
         self.w_long(len(x))
         for each in x:
             self.dump(each)
@@ -208,7 +215,7 @@ class Marshaller:
         pass
 
     def dump_frozenset(self, x):
-        self.f.write(TYPE_FROZENSET)
+        self._write(TYPE_FROZENSET)
         self.w_long(len(x))
         for each in x:
             self.dump(each)
@@ -224,46 +231,66 @@ class Unmarshaller:
 
     dispatch = {}
 
-    def __init__(self, f):
-        self.f = f
+    def __init__(self, fd):
+        self.fd = fd
+        self.bufstr = ''
+        self.bufpos = 0
         self._stringtable = []
 
+    def _read(self):
+        if self.fd >= 0:
+            return self.fd.read(1)
+        else:
+            ret = self.bufstr[self.bufpos]
+            self.bufpos += 1
+            return ret
+
+    def _readn(self, n):
+        if self.fd >= 0:
+            return self.fd.read(n)
+        else:
+            ret = self.bufstr[self.bufpos : self.bufpos+n]
+            self.bufpos += n
+            if self.bufpos > len(self.bufstr):
+                raise EOFError, "read past buffer"
+            return ret
+
+    def setvalue(self, data):
+        self.bufstr = data
+
     def load(self):
-        c = self.f.read(1)
+        c = self._read()
         if not c:
             raise EOFError
         return self.dispatch[c](self)
 
     def r_short(self):
-        read = self.f.read
-        lo = ord(read(1))
-        hi = ord(read(1))
+        lo = ord(self._read())
+        hi = ord(self._read())
         x = lo | (hi<<8)
         if x & 0x8000:
             x = x - 0x10000
         return x
 
     def r_long(self):
-        read = self.f.read
-        a = ord(read(1))
-        b = ord(read(1))
-        c = ord(read(1))
-        d = ord(read(1))
+        a = ord(self._read())
+        b = ord(self._read())
+        c = ord(self._read())
+        d = ord(self._read())
         x = a | (b<<8) | (c<<16) | (d<<24)
         if d & 0x80 and x > 0:
             x = -((1L<<32) - x)
         return x
 
     def r_long64(self):
-        read = self.f.read
-        a = ord(read(1))
-        b = ord(read(1))
-        c = ord(read(1))
-        d = ord(read(1))
-        e = long(ord(read(1)))
-        f = long(ord(read(1)))
-        g = long(ord(read(1)))
-        h = long(ord(read(1)))
+        a = ord(self._read())
+        b = ord(self._read())
+        c = ord(self._read())
+        d = ord(self._read())
+        e = long(ord(self._read()))
+        f = long(ord(self._read()))
+        g = long(ord(self._read()))
+        h = long(ord(self._read()))
         x = a | (b<<8) | (c<<16) | (d<<24)
         x = x | (e<<32) | (f<<40) | (g<<48) | (h<<56)
         if h & 0x80 and x > 0:
@@ -316,29 +343,29 @@ class Unmarshaller:
     dispatch[TYPE_LONG] = load_long
 
     def load_float(self):
-        n = ord(self.f.read(1))
-        s = self.f.read(n)
-        return string.atof(s)
+        n = ord(self._read())
+        s = self._readn(n)
+        return float(s)
     dispatch[TYPE_FLOAT] = load_float
 
     def load_complex(self):
-        n = ord(self.f.read(1))
-        s = self.f.read(n)
+        n = ord(self._read())
+        s = self._readn(n)
         real = float(s)
-        n = ord(self.f.read(1))
-        s = self.f.read(n)
+        n = ord(self._read())
+        s = self._readn(n)
         imag = float(s)
         return complex(real, imag)
     dispatch[TYPE_COMPLEX] = load_complex
 
     def load_string(self):
         n = self.r_long()
-        return self.f.read(n)
+        return self._readn(n)
     dispatch[TYPE_STRING] = load_string
 
     def load_interned(self):
         n = self.r_long()
-        ret = intern(self.f.read(n))
+        ret = intern(self._readn(n))
         self._stringtable.append(ret)
         return ret
     dispatch[TYPE_INTERNED] = load_interned
@@ -350,7 +377,7 @@ class Unmarshaller:
 
     def load_unicode(self):
         n = self.r_long()
-        s = self.f.read(n)
+        s = self._readn(n)
         ret = s.decode('utf8')
         return ret
     dispatch[TYPE_UNICODE] = load_unicode
@@ -420,16 +447,17 @@ except NameError:
     frozenset = set
 
 def dump(x, f):
-    Marshaller(f).dump(x)
+    Marshaller(f.fileno()).dump(x)
 
 def load(f):
-    return Unmarshaller(f).load()
+    return Unmarshaller(f.fileno()).load()
 
 def dumps(x):
-    f = StringIO.StringIO()
-    dump(x, f)
-    return f.getvalue()
+    m = Marshaller(-1)
+    m.dump(x)
+    return m.getvalue()
 
 def loads(s):
-    f = StringIO.StringIO(s)
-    return load(f)
+    um = Unmarshaller(-1)
+    um.setvalue(s)
+    return um.load()
