@@ -284,8 +284,6 @@ BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
 #BUILTIN_ANALYZERS[os.path.dirname] = pathpart
 #BUILTIN_ANALYZERS[os.path.normpath] = pathpart
 #BUILTIN_ANALYZERS[os.path.join] = pathpart
-BUILTIN_ANALYZERS[os.path.exists] = test
-BUILTIN_ANALYZERS[os.path.isdir] = test
 
 # import
 BUILTIN_ANALYZERS[__import__] = import_func

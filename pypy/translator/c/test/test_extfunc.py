@@ -114,6 +114,18 @@ def test_os_path_exists():
         return os.path.exists(tmpfile)
     f = compile(fn, [])
     open(tmpfile, 'w').close()
-    assert f() is True
+    assert f() == True
     os.unlink(tmpfile)
-    assert f() is False
+    assert f() == False
+
+def test_os_path_isdir():
+    directory = "./."
+    def fn():
+        return os.path.isdir(directory)
+    f = compile(fn, [])
+    assert f() == True
+    directory = "some/random/name"
+    def fn():
+        return os.path.isdir(directory)
+    f = compile(fn, [])
+    assert f() == False

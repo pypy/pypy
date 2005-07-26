@@ -129,6 +129,14 @@ def test_os_path_exists():
     assert interpret(f, [
         to_rstr("strange_filename_that_looks_improbable.sde")]) == False
 
+def test_os_isdir():
+    import os
+    def f(fn):
+        return os.path.isdir(fn)
+    assert interpret(f, [to_rstr("/")]) == True
+    assert interpret(f, [to_rstr(str(py.magic.autopath()))]) == False
+    assert interpret(f, [to_rstr("another/unlikely/directory/name")]) == False
+    
 
 def test_pbc_isTrue():
     class C:
