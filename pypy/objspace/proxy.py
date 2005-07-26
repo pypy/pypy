@@ -10,10 +10,15 @@ def create_proxy_space(proxyname, proxymaker, operations=None, space=None):
     """ Will create a proxy object space if no space supplied.  Otherwise
     will patch the supplied space."""
 
+    options = None
+    if space is not None and not isinstance(space, ObjSpace):
+        options = space   # XXX temporary hack
+        space = None
+
     if space is None:
         # make up a StdObjSpace by default
         from pypy.objspace import std
-        space = std.Space()
+        space = std.Space(options)
 
     if operations is None:
         operations = get_operations()
