@@ -38,7 +38,7 @@ def target():
     # XXX why can't I enable this? crashes the annotator!
     gateway.ApplevelClass.use_geninterp = False
 
-    from pypy.tool import Options
+    from pypy.tool.option import Options
     options = Options()
     options.uselibfile = True
     space = StdObjSpace(options)
