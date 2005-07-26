@@ -8,6 +8,7 @@ from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import cdecl, somelettersfrom
 from pypy.translator.c.primitive import PrimitiveType
 from pypy.translator.c import extfunc
+from pypy.rpython.rstr import STR
 
 
 def needs_refcount(T):
@@ -173,12 +174,15 @@ class ArrayDefNode:
         self.ARRAY = ARRAY
         self.LLTYPE = ARRAY
         self.varlength = varlength
+        self.original_varlength = varlength
+        if ARRAY is STR.chars:
+            self.varlength += 1   # for the NULL char at the end of the string
 
     def setup(self):
         db = self.db
         ARRAY = self.ARRAY
         varlength = self.varlength
-        if varlength == 1:
+        if self.original_varlength == 1:
             basename = 'array'
             with_number = True
         else:
