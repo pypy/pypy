@@ -16,7 +16,7 @@ def test_time_clock():
     assert t0 <= t1 <= t2
 
 
-def test_os_open():
+def INPROGRESStest_os_open():
     tmpfile = str(udir.join('test_os_open.txt'))
     def does_stuff():
         fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0777)
@@ -27,7 +27,7 @@ def test_os_open():
     os.close(fd)
     assert os.path.exists(tmpfile)
 
-def test_failing_os_open():
+def INPROGRESStest_failing_os_open():
     tmpfile = str(udir.join('test_failing_os_open.DOESNTEXIST'))
     def does_stuff():
         fd = os.open(tmpfile, os.O_RDONLY, 0777)
@@ -37,7 +37,7 @@ def test_failing_os_open():
     py.test.raises(OSError, f1)
     assert not os.path.exists(tmpfile)
 
-def test_open_read_write_close():
+def INPROGRESStest_open_read_write_close():
     filename = str(udir.join('test_open_read_write_close.txt'))
     def does_stuff():
         fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
@@ -54,7 +54,7 @@ def test_open_read_write_close():
     assert open(filename, 'r').read() == "hello world\n"
     os.unlink(filename)
 
-def test_os_stat():
+def INPROGRESStest_os_stat():
     filename = str(py.magic.autopath())
     def call_stat():
         st = os.stat(filename)
@@ -65,7 +65,7 @@ def test_os_stat():
     assert result[1] == os.stat(filename)[1]
     assert result[2] == os.stat(filename)[2]
 
-def test_os_fstat():
+def INPROGRESStest_os_fstat():
     filename = str(py.magic.autopath())
     def call_fstat():
         fd = os.open(filename, os.O_RDONLY, 0777)
@@ -105,3 +105,12 @@ def test_math_modf():
     f = compile(fn, [float])
     assert f(10.123) == modf(10.123)
 
+def INPROGRESStest_os_path_exists():
+    tmpfile = str(udir.join('test_os_path_exists.TMP'))
+    def fn():
+        return os.path.exists(tmpfile)
+    f = compile(fn, [])
+    open(tmpfile, 'w').close()
+    assert f() is True
+    os.unlink(tmpfile)
+    assert f() is False

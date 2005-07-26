@@ -18,7 +18,7 @@ double LL_math_ceil(double x) {
   return ceil(x);
 }
 
-struct RPyFREXP_RESULT* LL_math_frexp(double x) {
+RPyFREXP_RESULT* LL_math_frexp(double x) {
   int expo;
   double m = frexp(x, &expo);
   return ll_frexp_result(m, expo);
@@ -40,7 +40,7 @@ double LL_math_ldexp(double x, long y) {
   return ldexp(x, (int) y);
 }
 
-struct RPyMODF_RESULT* LL_math_modf(double x) {
+RPyMODF_RESULT* LL_math_modf(double x) {
   double intpart;
   double fracpart = modf(x, &intpart);
   return ll_modf_result(fracpart, intpart);
