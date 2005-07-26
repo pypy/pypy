@@ -281,7 +281,7 @@ class Unmarshaller:
         x = a | (b<<8) | (c<<16) | (d<<24)
         if d & 0x80 and x > 0:
             x = -((1L<<32) - x)
-        return x
+        return int(x)
 
     def r_long64(self):
         a = ord(self._read())

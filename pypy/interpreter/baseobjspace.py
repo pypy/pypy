@@ -128,6 +128,11 @@ class ObjSpace(object):
         w_modules = self.sys.get('modules')
         self.setitem(w_modules, w_name, w_mod) 
 
+    def getbuiltinmodule(self, name):
+        w_name = self.wrap(name)
+        w_modules = self.sys.get('modules')
+        return self.getitem(w_modules, w_name)
+
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
 

@@ -27,12 +27,12 @@ class AppTestImport:
         cls.saved_modules = _setup(cls.space)
 
     def teardown_class(cls): # interpreter-level
-        _teardown(cls.space,cls.saved_modules)
+        _teardown(cls.space, cls.saved_modules)
 
     def test_import_bare_dir_fails(self):
         def imp():
             import notapackage
-        raises(ImportError,imp)
+        raises(ImportError, imp)
 
     def test_import_sys(self):
         import sys
@@ -152,7 +152,45 @@ class AppTestImport:
         def imp_b():
             import pkg.pkg2.b
         raises(ImportError,imp_b)
-       
+
+from pypy.module.__builtin__ import importing
+
+class TestPycStuff:
+    # ___________________ .pyc related stuff _________________
+
+    def test_check_compiled_module(self):
+        import tempfile, marshal
+
+        def getlong(data):
+            x = marshal.dumps(data)
+            return x[-4:]
+
+        def testfile(magic, mtime):
+            fd, cpathname = tempfile.mkstemp()
+            os.close(fd)
+            f = file(cpathname, "wb")
+            f.write(getlong(magic))
+            f.write(getlong(mtime))
+            f.close()
+            return cpathname
+
+        pathname = "whatever"
+        mtime = 12345
+        cpathname = testfile(importing.pyc_magic, mtime)
+        ret = importing.check_compiled_module(self.space, pathname, mtime, cpathname)
+        assert ret >= 0
+        assert os.lseek(ret, 0, 1) == 8
+        os.close(ret)
+        # check for wrong mtime
+        ret = importing.check_compiled_module(self.space, pathname, mtime+1, cpathname)
+        assert ret < 0
+        os.remove(cpathname)
+        # check for wrong version
+        cpathname = testfile(importing.pyc_magic+1, mtime)
+        ret = importing.check_compiled_module(self.space, pathname, mtime, cpathname)
+        assert ret < 0
+        os.remove(cpathname)
+
 def test_PYTHONPATH_takes_precedence(space): 
     if sys.platform == "win32":
         py.test.skip("unresolved issues with win32 shell quoting rules")

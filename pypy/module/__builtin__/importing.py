@@ -3,7 +3,6 @@ Implementation of the interpreter-level default import logic.
 """
 
 import sys, os
-import marshal
 
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
@@ -309,6 +308,17 @@ def load_source_module(space, w_modulename, w_mod, pathname, fd):
 
     return w_mod
 
+# helper, to avoid exposing internals ofmarshal
+def r_long(fd):
+    a = ord(os.read(fd, 1))
+    b = ord(os.read(fd, 1))
+    c = ord(os.read(fd, 1))
+    d = ord(os.read(fd, 1))
+    x = a | (b<<8) | (c<<16) | (d<<24)
+    if d & 0x80 and x > 0:
+        x = -((1L<<32) - x)
+    return int(x)
+
 def check_compiled_module(space, pathname, mtime, cpathname):
     """
     Given a pathname for a Python source file, its time of last
@@ -318,24 +328,22 @@ def check_compiled_module(space, pathname, mtime, cpathname):
     the header; if not, return NULL.
     Doesn't set an exception.
     """
-
+    #w_marshal = space.getbuiltinmodule('marshal')
     fd = os.open(cpathname, os.O_BINARY | os.O_RDONLY, 0777) # using no defaults
-    um = marshal.Unmarshaller(fd)
-    
-    magic = um.load_int()
+    magic = r_long(fd)
     if magic != pyc_magic:
         # XXX what to do about Py_VerboseFlag ?
         # PySys_WriteStderr("# %s has bad magic\n", cpathname);
-        os.close(fp)
-        return
-    pyc_mtime = um.load_int()
+        os.close(fd)
+        return -1
+    pyc_mtime = r_long(fd)
     if pyc_mtime != mtime:
         # PySys_WriteStderr("# %s has bad mtime\n", cpathname);
-        os.close(fp)
-        return
+        os.close(fd)
+        return -1
     # if (Py_VerboseFlag)
         # PySys_WriteStderr("# %s matches %s\n", cpathname, pathname);
-    return fp
+    return fd
 
 def load_compiled_module(space, name, cpathname, fd):
     """
