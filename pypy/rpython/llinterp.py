@@ -5,6 +5,7 @@ from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
 import py
 from pypy.rpython.lltype import _ptr, Ptr, Void, typeOf, malloc, cast_pointer, PyObject, pyobjectptr
 from pypy.rpython.lltype import Array
+from pypy.rpython.rmodel import getfunctionptr
 import math
 
 log = py.log.Producer('llinterp')
@@ -155,18 +156,25 @@ class LLFrame(object):
         retval = ophandler(*vals)
         self.setvar(operation.result, retval)
 
-    def make_llexception(self, exc_class):
+    def make_llexception(self, exc):
         exdata = self.llinterpreter.typer.getexceptiondata()
-        evalue = exdata.ll_pyexcclass2exc(pyobjectptr(exc_class))
-        etype = exdata.ll_type_of_exc_inst(evalue)
+        if isinstance(exc, OSError):
+            fn = getfunctionptr(self.llinterpreter.typer.annotator.translator,
+                                exdata.ll_raise_OSError)
+            self.op_direct_call(fn, exc.errno)
+            assert False, "op_direct_call above should have raised"
+        else:
+            exc_class = exc.__class__
+            evalue = exdata.ll_pyexcclass2exc(pyobjectptr(exc_class))
+            etype = exdata.ll_type_of_exc_inst(evalue)
         raise LLException(etype, evalue)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
-        print "invoking %s(%s)" % (fptr, args)
         try:
             return fptr._obj._callable(*args)
         except Exception, e:
-            self.make_llexception(e.__class__)
+            #print "GOT A CPYTHON EXCEPTION:", e.__class__, e
+            self.make_llexception(e)
 
     # __________________________________________________________
     # misc LL operation implementations
@@ -318,7 +326,7 @@ class LLFrame(object):
             try:
                 pyo = func(*[pyo._obj.value for pyo in pyobjs])
             except Exception, e:
-                self.make_llexception(e.__class__)
+                self.make_llexception(e)
             return pyobjectptr(pyo)
         """ % locals()).compile()
     del opname
