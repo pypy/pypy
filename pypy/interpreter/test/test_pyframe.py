@@ -1,19 +1,18 @@
 import autopath
 
-
 class AppTestPyFrame:
 
     # test for the presence of the attributes, not functionality
 
-##     def test_f_locals(self):
-##         import sys
-##         f = sys._getframe()
-##         assert f.f_locals is locals()
+    def test_f_locals(self):
+        import sys
+        f = sys._getframe()
+        assert f.f_locals is locals()
 
-##     def test_f_globals(self):
-##         import sys
-##         f = sys._getframe()
-##         assert f.f_globals is globals()
+    def test_f_globals(self):
+        import sys
+        f = sys._getframe()
+        assert f.f_globals is globals()
 
     def test_f_builtins(self):
         import sys, __builtin__
@@ -46,17 +45,11 @@ class AppTestPyFrame:
 
     def test_f_back(self):
         import sys
-        def trace(a,b,c): return trace
         def f():
-            f_frame = sys._getframe()
-            return g(f_frame)
-        def g(f_frame):
-            g_frame = sys._getframe()
-            print g_frame
-            print g_frame.f_back
-            print g_frame.f_back.f_code.co_name, f_frame.f_code.co_name 
-        sys.settrace(trace)
-        f() # XXX actually test something? 
+            assert sys._getframe().f_code.co_name == g()
+        def g():
+            return sys._getframe().f_back.f_code.co_name 
+        f()
 
     def test_f_exc_xxx(self):
         import sys
