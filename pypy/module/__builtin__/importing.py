@@ -361,7 +361,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, fd):
                       w(space.builtin))
     pycode.exec_code(space, w_dict, w_dict) 
 
-    mtime = os.stat(fd)[stat.ST_MTIME]
+    mtime = os.fstat(fd)[stat.ST_MTIME]
     cpathname = pathname + 'c'
     write_compiled_module(space, pycode, cpathname, mtime)
 
@@ -380,11 +380,11 @@ def _r_long(osfile):
 
 def _w_long(osfile, x):
     a = x & 0xff
-    x >> = 8
+    x >>= 8
     b = x & 0xff
-    x >> = 8
+    x >>= 8
     c = x & 0xff
-    x >> = 8
+    x >>= 8
     d = x & 0xff
     osfile.write(chr(a) + chr(b) + chr(c) + chr(d))
 
