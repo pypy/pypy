@@ -66,6 +66,8 @@ def test_os_stat():
     assert result[2] == os.stat(filename)[2]
 
 def test_os_fstat():
+    if os.environ.get('PYPY_CC', '').startswith('tcc'):
+        py.test.skip("segfault with tcc :-(")
     filename = str(py.magic.autopath())
     def call_fstat():
         fd = os.open(filename, os.O_RDONLY, 0777)
