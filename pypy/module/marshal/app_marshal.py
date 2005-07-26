@@ -3,6 +3,7 @@
 
 import types
 import os
+
 try:
     import new
 except ImportError:
