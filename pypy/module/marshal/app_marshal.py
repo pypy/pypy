@@ -1,13 +1,9 @@
 """Marshal module written in Python.
-
-This doesn't marshal code objects, but supports everything else.
-Performance or careful error checking is not an issue.
-
 """
 
 import StringIO
 import string
-from types import *
+import types
 try:
     import new
 except ImportError:
@@ -73,7 +69,7 @@ class Marshaller:
 
     def dump_none(self, x):
         self.f.write(TYPE_NONE)
-    dispatch[NoneType] = dump_none
+    dispatch[types.NoneType] = dump_none
 
     def dump_bool(self, x):
         if x:
@@ -92,7 +88,7 @@ class Marshaller:
         self.f.write(TYPE_ELLIPSIS)
     
     try:
-        dispatch[EllipsisType] = dump_ellipsis
+        dispatch[types.EllipsisType] = dump_ellipsis
     except NameError:
         pass
 
@@ -104,7 +100,7 @@ class Marshaller:
         else:
             self.f.write(TYPE_INT)
             self.w_long(x)
-    dispatch[IntType] = dump_int
+    dispatch[types.IntType] = dump_int
 
     def dump_long(self, x):
         self.f.write(TYPE_LONG)
@@ -119,7 +115,7 @@ class Marshaller:
         self.w_long(len(digits) * sign)
         for d in digits:
             self.w_short(d)
-    dispatch[LongType] = dump_long
+    dispatch[types.LongType] = dump_long
 
     def dump_float(self, x):
         write = self.f.write
@@ -127,7 +123,7 @@ class Marshaller:
         s = `x`
         write(chr(len(s)))
         write(s)
-    dispatch[FloatType] = dump_float
+    dispatch[types.FloatType] = dump_float
 
     def dump_complex(self, x):
         write = self.f.write
@@ -139,7 +135,7 @@ class Marshaller:
         write(chr(len(s)))
         write(s)
     try:
-        dispatch[ComplexType] = dump_complex
+        dispatch[types.ComplexType] = dump_complex
     except NameError:
         pass
 
@@ -149,28 +145,28 @@ class Marshaller:
         self.f.write(TYPE_STRING)
         self.w_long(len(x))
         self.f.write(x)
-    dispatch[StringType] = dump_string
+    dispatch[types.StringType] = dump_string
 
     def dump_unicode(self, x):
         self.f.write(TYPE_UNICODE)
         s = x.encode('utf8')
         self.w_long(len(s))
         self.f.write(s)
-    dispatch[UnicodeType] = dump_unicode
+    dispatch[types.UnicodeType] = dump_unicode
 
     def dump_tuple(self, x):
         self.f.write(TYPE_TUPLE)
         self.w_long(len(x))
         for item in x:
             self.dump(item)
-    dispatch[TupleType] = dump_tuple
+    dispatch[types.TupleType] = dump_tuple
 
     def dump_list(self, x):
         self.f.write(TYPE_LIST)
         self.w_long(len(x))
         for item in x:
             self.dump(item)
-    dispatch[ListType] = dump_list
+    dispatch[types.ListType] = dump_list
 
     def dump_dict(self, x):
         self.f.write(TYPE_DICT)
@@ -178,7 +174,7 @@ class Marshaller:
             self.dump(key)
             self.dump(value)
         self.f.write(TYPE_NULL)
-    dispatch[DictionaryType] = dump_dict
+    dispatch[types.DictionaryType] = dump_dict
 
     def dump_code(self, x):
         self.f.write(TYPE_CODE)
@@ -197,7 +193,7 @@ class Marshaller:
         self.w_long(x.co_firstlineno)
         self.dump(x.co_lnotab)
     try:
-        dispatch[CodeType] = dump_code
+        dispatch[types.CodeType] = dump_code
     except NameError:
         pass
 
@@ -415,6 +411,13 @@ class Unmarshaller:
         args = [self.load() for i in range(n)]
         return frozenset(args)
     dispatch[TYPE_FROZENSET] = load_frozenset
+
+try:
+    set
+except NameError:
+    def set(x):
+        raise ValueError("cannot unmarshal set objects on Python < 2.4")
+    frozenset = set
 
 def dump(x, f):
     Marshaller(f).dump(x)

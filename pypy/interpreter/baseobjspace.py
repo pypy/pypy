@@ -149,6 +149,7 @@ class ObjSpace(object):
         # XXX we need to resolve unwrapping issues to 
         #     make this the default _sre module
         #self.setbuiltinmodule("_sre", "_sre_pypy")
+        self.setbuiltinmodule('marshal')
         if self.options.useparsermodule == "recparser":
              self.setbuiltinmodule('parser', 'recparser')
         elif self.options.useparsermodule == "parser":
@@ -196,6 +197,8 @@ class ObjSpace(object):
             return PythonCompiler(self)
         elif self.options.compiler == 'cpython':
             return CPythonCompiler(self)
+        elif self.options.compiler == 'pyparseapp':
+            return PythonCompilerApp(self)
         else:
             raise ValueError('unknown --compiler option value: %r' % (
                 self.options.compiler,))

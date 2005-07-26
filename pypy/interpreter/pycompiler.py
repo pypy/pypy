@@ -238,6 +238,39 @@ class PythonCompiler(CPythonCompiler):
     compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 
 
+##class PythonCompilerApp(PythonCompiler):
+##    """Temporary.  Calls the stablecompiler package at app-level."""
+
+##    def __init__(self, space):
+##        PythonCompiler.__init__(self, space)
+##        space.appexec(r'''():
+##            # NOT_RPYTHON
+##            from pypy.interpreter import stablecompiler
+##            from pypy.interpreter.stablecompiler.pycodegen import ModuleCodeGenerator
+##            from pypy.interpreter.stablecompiler.pycodegen import InteractiveCodeGenerator
+##            from pypy.interpreter.stablecompiler.pycodegen import ExpressionCodeGenerator
+##            from pypy.interpreter.stablecompiler.transformer import Transformer
+##            transformer = Transformer()
+##            tree = transformer.compile_node(tuples)
+##            stablecompiler.misc.set_filename(filename, tree)
+##            if mode == 'exec':
+##                codegenerator = ModuleCodeGenerator(tree)
+##            elif mode == 'single':
+##                codegenerator = InteractiveCodeGenerator(tree)
+##            else: # mode == 'eval':
+##                codegenerator = ExpressionCodeGenerator(tree)
+##            c = codegenerator.getCode()
+##        ''')
+
+##    def compile_parse_result(self, parse_result, filename, mode):
+
+
+
+
+        
+        
+
+
 class PyPyCompiler(CPythonCompiler):
     """Uses the PyPy implementation of Compiler
 

@@ -1,6 +1,7 @@
+import autopath
 import sys
 import marshal as cpy_marshal
-from pypy.lib import marshal
+from pypy.module.marshal import app_marshal as marshal
 
 hello = "he"
 hello += "llo"

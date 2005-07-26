@@ -77,7 +77,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.3'  # bump this for substantial changes
+GI_VERSION = '1.1.4'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -747,9 +747,9 @@ class GenRpy:
         str:    'space.w_str',
         float:  'space.w_float',
         slice:  'space.w_slice',
-        type(Exception()): 'space.wrap(types.InstanceType)',
+        type(Exception()): (eval_helper, 'InstanceType', 'types.InstanceType'),
         type:   'space.w_type',
-        complex:'space.wrap(types.ComplexType)',
+        complex: (eval_helper, 'complex', 'types.ComplexType'),
         unicode:'space.w_unicode',
         basestring: (eval_helper, 'basestring', 'basestring'),
         file:   (eval_helper, 'file', 'file'),
@@ -785,6 +785,7 @@ class GenRpy:
         types.MethodType: (eval_helper, "instancemethod",
             "type((lambda:42).__get__(42))"),
         property: (eval_helper, "property", 'property'),
+        type(Ellipsis): (eval_helper, 'EllipsisType', 'types.EllipsisType'),
     }
 
     def nameof_type(self, cls):

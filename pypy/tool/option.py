@@ -12,7 +12,8 @@ class Options:
     uselibfile = 0
     useparsermodule = "recparser" # "cpython" / "recparser" / "parser"
     compiler = "pyparse" # "cpython"
-                         # "pyparse" pypy parser, cpython compiler
+                         # "pyparse" pypy parser, cpython's compiler package
+                         # "pyparseapp" same, running the compiler at app-level
                          # "pycomp" pypy parser and compiler (TBD)
     version = "2.4" # "native" / "2.3" / "2.4"
 
@@ -47,7 +48,7 @@ def get_standard_options():
     options.append(make_option(
         '--compiler', action="store", type="string", dest="compiler",
         help="select the parser/compiler to use internally",
-        metavar="[cpython|pyparse]"))
+        metavar="[cpython|pyparse|pyparseapp]"))
     options.append(make_option(
         '--parsermodule', action="store",type="string", dest="useparsermodule",
         help="select the parser module to use",
