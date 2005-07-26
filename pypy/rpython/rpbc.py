@@ -48,7 +48,7 @@ class __extend__(annmodel.SomePBC):
                 if x in userclasses:
                     # user classes
                     choice = ClassesPBCRepr
-                elif type(x) is type and x.__module__ == '__builtin__':
+                elif type(x) is type and x.__module__ in sys.builtin_module_names:
                     # special case for built-in types, seen in faking
                     choice = getPyObjRepr
                 else:
