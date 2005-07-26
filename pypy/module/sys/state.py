@@ -76,6 +76,21 @@ class State:
 def get(space): 
     return space.fromcache(State)
 
+class IOState: 
+    def __init__(self, space): 
+        self.space = space
+        if space.options.uselibfile: 
+            self.w_stdout = space.call_function(space.builtin.get('file'))
+            self.w_stderr = space.call_function(space.builtin.get('file'))
+            self.w_stdin = space.call_function(space.builtin.get('file'))
+        else: 
+            self.w_stdout = space.wrap(sys.__stdout__) 
+            self.w_stderr = space.wrap(sys.__stderr__) 
+            self.w_stdin = space.wrap(sys.__stdin__) 
+
+def getio(space): 
+    return space.fromcache(IOState) 
+
 def _pypy_getudir(space):
     """NOT_RPYTHON"""
     from pypy.tool.udir import udir

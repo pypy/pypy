@@ -38,8 +38,10 @@ def target():
     # XXX why can't I enable this? crashes the annotator!
     gateway.ApplevelClass.use_geninterp = False
 
-    space = StdObjSpace()
-    space.unfakefile()
+    from pypy.tool import Options
+    options = Options()
+    options.uselibfile = True
+    space = StdObjSpace(options)
 
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')

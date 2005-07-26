@@ -12,9 +12,12 @@ from pypy.objspace.std.model import UnwrapError
 
 
 def fake_object(space, x):
+    if isinstance(x, file): 
+        debug_print("fake-wrapping interp file %s" % x)
     if isinstance(x, type):
         ft = fake_type(x)
         return space.gettypeobject(ft.typedef)
+    #debug_print("faking obj %s" % x)
     ft = fake_type(type(x))
     return ft(space, x)
 fake_object._annspecialcase_ = "override:fake_object"
@@ -56,6 +59,7 @@ def fake_type(cpy_type):
 
 def really_build_fake_type(cpy_type):
     "NOT_RPYTHON (not remotely so!)."
+    #assert not issubclass(cpy_type, file), cpy_type
     debug_print('faking %r'%(cpy_type,))
     kw = {}
     

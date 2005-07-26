@@ -89,7 +89,4 @@ def objspace(name='', _spacecache={}):
         space = Space( Options() )
         if name == 'std' and Options.oldstyle:
             space.enable_old_style_classes_as_default_metaclass()
-        if Options.uselibfile:
-            space.unfakefile()
-            
         return _spacecache.setdefault(name, space)

@@ -96,6 +96,16 @@ class AppTestAppSysTests:
         else:
             raise AssertionError, "ZeroDivisionError not caught"
 
+def app_test_io(): 
+    #space.appexec([], """(): 
+        import sys
+        assert isinstance(sys.stdout, file)
+        assert isinstance(sys.__stdout__, file)
+        assert isinstance(sys.stderr, file)
+        assert isinstance(sys.__stderr__, file)
+        assert isinstance(sys.stdin, file)
+        assert isinstance(sys.__stdin__, file)
+    #""")
 
 class AppTestSysModulePortedFromCPython:
 

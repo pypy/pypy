@@ -42,10 +42,13 @@ def getobjspace(name=None, _spacecache={}):
     try:
         return _spacecache[name]
     except KeyError:
+        import pypy.tool.option
+        spaceoptions = pypy.tool.option.Options()
+        spaceoptions.uselibfile = option.uselibfile
         #py.magic.invoke(compile=True)
         module = __import__("pypy.objspace.%s" % name, None, None, ["Space"])
         try: 
-            space = module.Space()
+            space = module.Space(spaceoptions)
         except KeyboardInterrupt: 
             raise 
         except OperationError, e: 
@@ -63,11 +66,6 @@ def getobjspace(name=None, _spacecache={}):
         _spacecache[name] = space
         if name == 'std' and option.oldstyle: 
             space.enable_old_style_classes_as_default_metaclass()
-        if option.uselibfile:
-            space.appexec([], '''():
-                from _file import file
-                __builtins__.file = __builtins__.open = file
-            ''')
         if name != 'flow': # not sensible for flow objspace case
             space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
                           appsupport.build_pytest_assertion(space))

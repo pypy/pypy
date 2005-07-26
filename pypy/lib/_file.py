@@ -85,13 +85,14 @@ Note:  open() is an alias for file().
         
     def fdopen(cls, fd, mode='r', buffering=None):
         f = cls.__new__(cls)
-
-        f.fd = fd
-        f._name = "<fdopen>"
-        f._inithelper(mode, buffering)
+        f._fdopen(fd, mode, buffering, '<fdopen>')
         return f
-
     fdopen = classmethod(fdopen)
+
+    def _fdopen(self, fd, mode, buffering, name): 
+        self.fd = fd
+        self._name = name 
+        self._inithelper(mode, buffering)
         
     def _inithelper(self, mode, buffering):
         self._mode = mode

@@ -52,6 +52,8 @@ class Module(MixedModule):
 
         'set'           : 'app_sets.set',
         'frozenset'     : 'app_sets.frozenset',
+
+        '__filestub'    : 'app_file_stub.file',
     }
 
     interpleveldefs = {
@@ -64,9 +66,10 @@ class Module(MixedModule):
         '__debug__'     : '(space.w_True)',      # XXX
         'type'          : '(space.w_type)',
         'object'        : '(space.w_object)',
-        'file'          : '(space.wrap(file))',
-        'open'          : '(space.wrap(file))',
         'unicode'       : '(space.w_unicode)',
+
+        'file'          : 'state.get(space).w_file', 
+        'open'          : 'state.get(space).w_file', 
 
         # old-style classes dummy support
         '_classobj'     : 'space.w_classobj',

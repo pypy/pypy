@@ -1,6 +1,6 @@
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import ObjSpace, BaseWrappable
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.interpreter.typedef import instantiate
 from pypy.interpreter.gateway import PyPyCacheDir
@@ -92,6 +92,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 dict.fromkeys = classmethod(fromkeys)
         """) 
 
+        if self.options.uselibfile:
+            self.setuselibfile() 
+
     def enable_old_style_classes_as_default_metaclass(self):
         self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)
 
@@ -124,26 +127,34 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_classobj = w_classobj
         self.w_instance = w_instance
 
-    def unfakefile(self): 
+    def setuselibfile(self): 
         """ NOT_RPYTHON use our application level file implementation
             including re-wrapping sys.stdout/err/in
         """ 
+        assert self.options.uselibfile 
+        space = self
+        # nice print helper if the below does not work 
+        # (we dont have prints working at applevel before
+        # setuselibfile is complete)
+        #from pypy.interpreter import gateway 
+        #def printit(space, w_msg): 
+        #    s = space.str_w(w_msg) 
+        #    print "$", s, 
+        #w_p = space.wrap(gateway.interp2app(printit))
+        #self.appexec([w_p], '''(p):
         self.appexec([], '''():
-            from _file import file
-            __builtins__.file = __builtins__.open = file
-            import sys
-            sys.stdout = file.fdopen(sys.stdout.fileno(),
-                                     sys.stdout.mode,
-                                     buffering=1)
-            sys.stdin = file.fdopen(sys.stdin.fileno(),
-                                    sys.stdin.mode,
-                                    buffering=1)                                         
-            sys.stderr = file.fdopen(sys.stderr.fileno(),
-                                     sys.stderr.mode,
-                                     buffering=0)
-            sys.__stdout__ = sys.stdout
-            sys.__stderr__ = sys.stderr
-            sys.__stdin__ = sys.stdin
+            import sys 
+            sys.stdin
+            sys.stdout
+            sys.stderr    # force unlazifying from mixedmodule 
+            from _file import file as libfile 
+            for name, value in libfile.__dict__.items(): 
+                if (name != '__dict__' and name != '__doc__'
+                    and name != '__module__'):
+                    setattr(file, name, value) 
+            sys.stdin._fdopen(0, "r", 1, '<stdin>') 
+            sys.stdout._fdopen(1, "w", 1, '<stdout>') 
+            sys.stderr._fdopen(2, "w", 0, '<stderr>') 
         ''')
 
     def setup_exceptions(self):
