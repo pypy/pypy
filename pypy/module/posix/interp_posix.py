@@ -17,15 +17,15 @@ def lseek(space, fd, pos, how):
 lseek.unwrap_spec = [ObjSpace, int, int, int]
 
 def isatty(space, fd):
-    return os.isatty(w_fd)
+    return space.wrap(os.isatty(w_fd))
 isatty.unwrap_spec = [ObjSpace, int]
 
 def read(space, fd, buffersize):
-    return os.read(fd,buffersize)
+    return space.wrap(os.read(fd,buffersize))
 read.unwrap_spec = [ObjSpace, int, int]
 
 def write(space, fd, data):
-    return os.write( fd, data)
+    return space.wrap(os.write(fd, data))
 write.unwrap_spec = [ObjSpace, int, str]
 
 def close(space, fd):
@@ -37,17 +37,17 @@ def ftruncate(space, fd, length):
 ftruncate.unwrap_spec = [ObjSpace, int, int]
 
 def fstat(space, fd):
-    return os.fstat(fd)
+    return space.wrap(os.fstat(fd))
 fstat.unwrap_spec = [ObjSpace, int]
 
 def stat(space, path):
-    return os.stat(path)
+    return space.wrap(os.stat(path))
 stat.unwrap_spec = [ObjSpace, str]
 
 def getcwd(space):
-    return os.getcwd()
+    return space.wrap(os.getcwd())
 getcwd.unwrap_spec = [ObjSpace]
 
 def dup(space, fd):
-    return os.dup(fd)
+    return space.wrap(os.dup(fd))
 dup.unwrap_spec = [ObjSpace, int]
