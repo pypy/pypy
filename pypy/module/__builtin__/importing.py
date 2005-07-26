@@ -14,16 +14,21 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 # XXX a frozen version of some routines of only one of the
 # XXX posixpath/ntpath/macpath modules.
 
-def try_import_mod(space, w_modulename, fn, w_parent, w_name, pkgdir=None):
-    if os.path.exists(fn):
-        w_mod, w_dict = create_module(space,
-                                      w_modulename,
-                                      space.wrap(fn),
-                                      pkgdir)
+def try_import_mod(space, w_modulename, filename, w_parent, w_name, pkgdir=None):
+    if os.path.exists(filename):
+        w = space.wrap
+        w_mod = w(Module(space, w_modulename))
+        space.sys.setmodule(w_mod)
+        space.setattr(w_mod, w('__file__'), space.wrap(filename))
+        space.setattr(w_mod, w('__doc__'), space.w_None)
+        if pkgdir is not None:
+            space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
 
         e = None
         try:
-            imp_execfile(space, fn, w_dict, w_dict) 
+            fd = os.open(filename, os.O_RDONLY, 0777) # XXX newlines? 
+            load_source_module(space, w_modulename, w_mod, filename, fd) 
+
         except OperationError, e:
             if e.match(space, space.w_SyntaxError):
                 w_mods = space.sys.get('modules')
@@ -195,36 +200,6 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         w_exc = space.call_function(space.w_ImportError, w_failing)
         raise OperationError(space.w_ImportError, w_exc)
 
-
-def imp_execfile(space, fn, w_globals, w_locals): 
-    fd = os.open(fn, os.O_RDONLY, 0777) # XXX newlines? 
-    try:
-        size = os.fstat(fd)[6]
-        source = os.read(fd, size) 
-    finally:
-        os.close(fd)
-    w_source = space.wrap(source) 
-    w_mode = space.wrap("exec")
-    w_fn = space.wrap(fn) 
-    w_code = space.builtin.call('compile', w_source, w_fn, w_mode) 
-    pycode = space.interpclass_w(w_code) 
-    space.call_method(w_globals, 'setdefault', 
-                      space.wrap('__builtins__'), 
-                      space.wrap(space.builtin))
-    pycode.exec_code(space, w_globals, w_locals) 
-
-def create_module(space, w_modulename, w_name, pkgdir):
-    """ Helper to create module. """
-    w = space.wrap
-    w_mod = w(Module(space, w_modulename))
-    space.sys.setmodule(w_mod)
-    space.setattr(w_mod, w('__file__'), w_name)
-    space.setattr(w_mod, w('__doc__'), space.w_None)        
-    if pkgdir is not None:
-        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
-    w_dict = space.getattr(w_mod, w('__dict__'))
-    return w_mod, w_dict
-
 # __________________________________________________________________
 #
 # .pyc file support
@@ -299,17 +274,39 @@ modify imp_execfile to accept .pyc files as well.
 The decision what to use has been driven, already.
 """
 
-def load_module(name, fd, type): # XXX later: loader):
+def load_module(space, name, fd, type): # XXX later: loader):
     """
     Load an external module using the default search path and return
     its module object.
     """
 
-def load_source_module(name, pathname, fd):
+def load_source_module(space, w_modulename, w_mod, pathname, fd):
     """
     Load a source module from a given file and return its module
-    object.  If there's a matching byte-compiled file, use that instead.
+    object.  XXX Wrong: If there's a matching byte-compiled file, use that instead.
     """
+    w = space.wrap
+    try:
+        size = os.fstat(fd)[6]
+        source = os.read(fd, size)
+    finally:
+        os.close(fd)
+        
+    w_source = w(source)
+    w_mode = w("exec")
+    w_pathname = w(pathname)
+    w_code = space.builtin.call('compile', w_source, w_pathname, w_mode) 
+    pycode = space.interpclass_w(w_code)
+
+    w_dict = space.getattr(w_mod, w('__dict__'))                                      
+    space.call_method(w_dict, 'setdefault', 
+                      w('__builtins__'), 
+                      w(space.builtin))
+    pycode.exec_code(space, w_dict, w_dict) 
+
+    #XXX write file 
+
+    return w_mod
 
 def check_compiled_module(pathname, mtime, cpathname):
     """
