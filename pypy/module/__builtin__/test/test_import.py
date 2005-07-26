@@ -182,18 +182,18 @@ class TestPycStuff:
         pathname = "whatever"
         mtime = 12345
         cpathname = _testfile(importing.pyc_magic, mtime)
-        ret = importing.check_compiled_module(self.space, pathname, mtime, cpathname)
-        assert ret >= 0
-        assert os.lseek(ret, 0, 1) == 8
-        os.close(ret)
+        ret = importing.check_compiled_module(pathname, mtime, cpathname)
+        assert ret == 1
+
         # check for wrong mtime
-        ret = importing.check_compiled_module(self.space, pathname, mtime+1, cpathname)
-        assert ret < 0
+        ret = importing.check_compiled_module(pathname, mtime+1, cpathname)
+        assert ret == 0
         os.remove(cpathname)
+
         # check for wrong version
         cpathname = _testfile(importing.pyc_magic+1, mtime)
-        ret = importing.check_compiled_module(self.space, pathname, mtime, cpathname)
-        assert ret < 0
+        ret = importing.check_compiled_module(pathname, mtime, cpathname)
+        assert ret == -1
         os.remove(cpathname)
 
     def test_read_compiled_module(self):

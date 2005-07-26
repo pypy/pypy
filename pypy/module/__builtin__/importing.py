@@ -20,37 +20,111 @@ try:
 except AttributeError:
     BIN_READMASK = os.O_RDONLY
 
-def try_import_mod(space, w_modulename, filename, w_parent, w_name, pkgdir=None):
-    if os.path.exists(filename):
-        w = space.wrap
-        w_mod = w(Module(space, w_modulename))
-        space.sys.setmodule(w_mod)
-        space.setattr(w_mod, w('__file__'), space.wrap(filename))
-        space.setattr(w_mod, w('__doc__'), space.w_None)
-        if pkgdir is not None:
-            space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
+NOFILE = 0
+PYFILE = 1
+PYCFILE = 2
 
-        e = None
-        try:
-            fd = os.open(filename, os.O_RDONLY, 0777) # XXX newlines? 
-            load_source_module(space, w_modulename, w_mod, filename, fd) 
+import stat
 
-        except OperationError, e:
-            if e.match(space, space.w_SyntaxError):
-                w_mods = space.sys.get('modules')
-                try:
-                    space.delitem(w_mods, w_modulename)
-                except OperationError, kerr:
-                    if not kerr.match(space, space.w_KeyError):
-                        raise
-        w_mod = check_sys_modules(space, w_modulename)
-        if w_mod is not None and w_parent is not None:
-            space.setattr(w_parent, w_name, w_mod)
-        if e:
-            raise e
-        return w_mod
+def info_modtype(filepart):
+    """
+    calculate whether the .py file exists, the .pyc file exists
+    and whether the .pyc file has the correct mtime entry.
+    The latter is only true if the .py file exists.
+    The .pyc file is only considered existing if it has a valid
+    magic number.
+    """
+    pyfile = filepart + ".py"
+    pyfile_exist = False
+    if os.path.exists(pyfile):
+        pyfile_ts = os.stat(pyfile)[stat.ST_MTIME]
+        pyfile_exist = True
     else:
+        pyfile_ts = 0
+        pyfile_exist = False
+    
+    pycfile = filepart + ".pyc"    
+    if os.path.exists(pycfile):
+        pyc_state = check_compiled_module(pyfile, pyfile_ts, pycfile)
+        pycfile_exists = pyc_state >= 0
+        pycfile_ts_valid = pycfile_state > 0 and pyfile_exists
+    else:
+        pycfile_exists = False
+        pycfile_ts_valid = False
+        
+    return pyfile_exist, pycfile_exists, pycfile_ts_valid
+
+def find_modtype(filepart):
+    """ This is the way pypy does it.  A pyc is only used if the py file exists AND
+    the pyc file contains the timestamp of the py. """
+    pyfile_exist, pycfile_exists, pycfile_ts_valid = info_modtype(filepart)
+    if pycfile_ts_valid:
+        return PYCFILE
+    elif pyfile_exist:
+        return PYFILE
+    else:
+        return NOFILE
+    
+def find_modtype_cpython(filepart):
+    """ This is the way cpython does it (where the py file doesnt exist but there
+    is a valid pyc file. """  
+    pyfile_exist, pycfile_exists, pycfile_ts_valid = info_modtype(filepart)
+    if pycfile_ts_valid:
+        return PYCFILE
+    elif pyfile_exist:
+        return PYFILE
+    elif pycfile_exists:
+        return PYCFILE
+    else:
+        return NOFILE
+
+def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None):
+
+    # decide what type we want (pyc/py)
+    modtype = find_modtype(filepart)
+
+    if modtype == NOFILE:
         return None
+
+    w = space.wrap
+    w_mod = w(Module(space, w_modulename))
+
+    e = None
+    if modtype == PYFILE:
+        filename = filepart + ".py"
+        fd = os.open(filename, os.O_RDONLY, 0777)
+    else:
+        assert modtype == PYCFILE
+        filename = filepart + ".pyc"
+        fd = os.open(filename, os.O_RDONLY, 0777)
+
+    space.sys.setmodule(w_mod)
+    space.setattr(w_mod, w('__file__'), space.wrap(filename))
+    space.setattr(w_mod, w('__doc__'), space.w_None)
+    if pkgdir is not None:
+        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
+
+    try:
+        if modtype == PYFILE:
+            load_source_module(space, w_modulename, w_mod, filename, fd)
+        else:
+            load_compiled_module(space, w_modulename, w_mod, filename, fd)
+
+    except OperationError, e:
+        if e.match(space, space.w_SyntaxError):
+            w_mods = space.sys.get('modules')
+            try:
+                space.delitem(w_mods, w_modulename)
+            except OperationError, kerr:
+                if not kerr.match(space, space.w_KeyError):
+                    raise
+             
+    w_mod = check_sys_modules(space, w_modulename)
+    if w_mod is not None and w_parent is not None:
+        space.setattr(w_parent, w_name, w_mod)
+    if e:
+        raise e        
+    return w_mod
 
 def try_getattr(space, w_obj, w_name):
     try:
@@ -187,12 +261,12 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
             for path in space.unpackiterable(w_path):
                 dir = os.path.join(space.str_w(path), partname)
                 if os.path.isdir(dir):
-                    fn = os.path.join(dir, '__init__.py')
+                    fn = os.path.join(dir, '__init__')
                     w_mod = try_import_mod(space, w_modulename, fn, w_parent,
                                            w(partname), pkgdir=dir)
                     if w_mod is not None:
                         return w_mod
-                fn = os.path.join(space.str_w(path), partname + '.py')
+                fn = os.path.join(space.str_w(path), partname)
                 w_mod = try_import_mod(space, w_modulename, fn, w_parent,
                                        w(partname))
                 if w_mod is not None:
@@ -286,6 +360,7 @@ def load_module(space, name, fd, type): # XXX later: loader):
     Load an external module using the default search path and return
     its module object.
     """
+    
 
 def parse_source_module(space, pathname, fd):
     """ Parse a source file and return the corresponding code object """
@@ -332,7 +407,7 @@ def _r_long(osfile):
         x = -((1L<<32) - x)
     return int(x)
 
-def check_compiled_module(space, pathname, mtime, cpathname):
+def check_compiled_module(pathname, mtime, cpathname):
     """
     Given a pathname for a Python source file, its time of last
     modification, and a pathname for a compiled file, check whether the
@@ -344,19 +419,20 @@ def check_compiled_module(space, pathname, mtime, cpathname):
     fd = os.open(cpathname, BIN_READMASK, 0777) # using no defaults
     osfile = OsFileWrapper(fd)
     magic = _r_long(osfile)
-    if magic != pyc_magic:
-        # XXX what to do about Py_VerboseFlag ?
-        # PySys_WriteStderr("# %s has bad magic\n", cpathname);
+    try:
+        if magic != pyc_magic:
+            # XXX what to do about Py_VerboseFlag ?
+            # PySys_WriteStderr("# %s has bad magic\n", cpathname);
+            return -1
+        pyc_mtime = _r_long(osfile)
+        if pyc_mtime != mtime:
+            # PySys_WriteStderr("# %s has bad mtime\n", cpathname);
+            return 0
+        # if (Py_VerboseFlag)
+           # PySys_WriteStderr("# %s matches %s\n", cpathname, pathname);
+    finally:
         os.close(fd)
-        return -1
-    pyc_mtime = _r_long(osfile)
-    if pyc_mtime != mtime:
-        # PySys_WriteStderr("# %s has bad mtime\n", cpathname);
-        os.close(fd)
-        return -1
-    # if (Py_VerboseFlag)
-        # PySys_WriteStderr("# %s matches %s\n", cpathname, pathname);
-    return fd
+    return 1
 
 def read_compiled_module(space, cpathname, fd):
     """ Read a code object from a file and check it for validity """
