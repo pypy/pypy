@@ -6,6 +6,7 @@ from pypy.translator.simplify import simplify_graph
 
 objspacename = 'flow'
 
+import os
 import operator
 is_operator = getattr(operator, 'is_', operator.eq) # it's not there 2.2
 
@@ -229,6 +230,37 @@ class TestFlowObjSpace:
             if isinstance(link, Link):
                 assert link.target is not x.exceptblock
         traverse(cannot_reach_exceptblock, x)
+
+    #__________________________________________________________
+    def implicitException_int_and_id(x):
+        try:
+            return int(x) + id(x)
+        except ValueError:   # not captured by the flow graph!
+            return 0
+
+    def test_implicitException_int_and_id(self):
+        x = self.codetest(self.implicitException_int_and_id)
+        simplify_graph(x)
+        self.show(x)
+        assert len(x.startblock.exits) == 1
+        assert x.startblock.exits[0].target is x.returnblock
+
+    #__________________________________________________________
+    def implicitException_os_stat(x):
+        try:
+            return os.stat(x)
+        except OSError:   # *captured* by the flow graph!
+            return 0
+
+    def test_implicitException_os_stat(self):
+        x = self.codetest(self.implicitException_os_stat)
+        simplify_graph(x)
+        self.show(x)
+        assert len(x.startblock.exits) == 3
+        d = {}
+        for link in x.startblock.exits:
+            d[link.exitcase] = True
+        assert d == {None: True, OSError: True, Exception: True}
 
     #__________________________________________________________
     def reraiseKeyError(dic):
