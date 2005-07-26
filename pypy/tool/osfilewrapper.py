@@ -23,8 +23,7 @@ class OsFileWrapper(object):
         towrite = len(buf)
         while writecount < towrite:
             # os.write will raise an error itself
-            writecount += os.write(self.fd, buf)
-            buf = buf[writecount:]
+            writecount += os.write(self.fd, buf[writecount:])
 
     def close(self):
         os.close(self.fd)
