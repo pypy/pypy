@@ -14,17 +14,13 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 # XXX a frozen version of some routines of only one of the
 # XXX posixpath/ntpath/macpath modules.
 
-
 def try_import_mod(space, w_modulename, fn, w_parent, w_name, pkgdir=None):
-    w = space.wrap
     if os.path.exists(fn):
-        w_mod = space.wrap(Module(space, w_modulename))
-        space.sys.setmodule(w_mod)
-        space.setattr(w_mod, w('__file__'), w(fn))
-        space.setattr(w_mod, w('__doc__'), space.w_None)        
-        if pkgdir is not None:
-            space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
-        w_dict = space.getattr(w_mod, w('__dict__'))
+        w_mod, w_dict = create_module(space,
+                                      w_modulename,
+                                      space.wrap(fn),
+                                      pkgdir)
+
         e = None
         try:
             imp_execfile(space, fn, w_dict, w_dict) 
@@ -216,6 +212,18 @@ def imp_execfile(space, fn, w_globals, w_locals):
                       space.wrap('__builtins__'), 
                       space.wrap(space.builtin))
     pycode.exec_code(space, w_globals, w_locals) 
+
+def create_module(space, w_modulename, w_name, pkgdir):
+    """ Helper to create module. """
+    w = space.wrap
+    w_mod = w(Module(space, w_modulename))
+    space.sys.setmodule(w_mod)
+    space.setattr(w_mod, w('__file__'), w_name)
+    space.setattr(w_mod, w('__doc__'), space.w_None)        
+    if pkgdir is not None:
+        space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
+    w_dict = space.getattr(w_mod, w('__dict__'))
+    return w_mod, w_dict
 
 # __________________________________________________________________
 #
