@@ -303,6 +303,15 @@ def load_source_module(name, pathname, fd):
     object.  If there's a matching byte-compiled file, use that instead.
     """
 
+def check_compiled_module(pathname, mtime, cpathname):
+    """
+    Given a pathname for a Python source file, its time of last
+    modification, and a pathname for a compiled file, check whether the
+    compiled file represents the same version of the source.  If so,
+    return a FILE pointer for the compiled file, positioned just after
+    the header; if not, return NULL.
+    Doesn't set an exception.
+    """
 
 def load_compiled_module(name, cpathname, fd):
     """
