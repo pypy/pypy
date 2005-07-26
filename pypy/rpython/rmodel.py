@@ -74,7 +74,7 @@ class Repr:
         # Assume that when an attribute is missing, it's because setup() needs
         # to be called
         if not (name[:2] == '__' == name[-2:]): 
-            if self._initialized != setupstate.NOTINITIALIZED: 
+            if self._initialized == setupstate.NOTINITIALIZED: 
                 self.setup()
                 try:
                     return self.__dict__[name]
