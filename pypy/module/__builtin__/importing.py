@@ -3,6 +3,7 @@ Implementation of the interpreter-level default import logic.
 """
 
 import sys, os
+import marshal
 
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
@@ -308,7 +309,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, fd):
 
     return w_mod
 
-def check_compiled_module(pathname, mtime, cpathname):
+def check_compiled_module(space, pathname, mtime, cpathname):
     """
     Given a pathname for a Python source file, its time of last
     modification, and a pathname for a compiled file, check whether the
@@ -318,17 +319,35 @@ def check_compiled_module(pathname, mtime, cpathname):
     Doesn't set an exception.
     """
 
-def load_compiled_module(name, cpathname, fd):
+    fd = os.open(cpathname, os.O_BINARY | os.O_RDONLY, 0777) # using no defaults
+    um = marshal.Unmarshaller(fd)
+    
+    magic = um.load_int()
+    if magic != pyc_magic:
+        # XXX what to do about Py_VerboseFlag ?
+        # PySys_WriteStderr("# %s has bad magic\n", cpathname);
+        os.close(fp)
+        return
+    pyc_mtime = um.load_int()
+    if pyc_mtime != mtime:
+        # PySys_WriteStderr("# %s has bad mtime\n", cpathname);
+        os.close(fp)
+        return
+    # if (Py_VerboseFlag)
+        # PySys_WriteStderr("# %s matches %s\n", cpathname, pathname);
+    return fp
+
+def load_compiled_module(space, name, cpathname, fd):
     """
     Load a module from a compiled file, execute it, and return its
     module object.
     """
 
-def read_compiled_module(cpathname, fd):
+def read_compiled_module(space, cpathname, fd):
     """ Read a code object from a file and check it for validity """
 
 
-def write_compiled_module(co, cpathname, mtime):
+def write_compiled_module(space, co, cpathname, mtime):
     """
     Write a compiled module to a file, placing the time of last
     modification of its source into the header.
