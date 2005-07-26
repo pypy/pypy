@@ -24,7 +24,9 @@ from pypy.rpython.lltype import FuncType, functionptr, typeOf, RuntimeTypeInfo
 from pypy.rpython.lltype import attachRuntimeTypeInfo, Primitive
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
-from pypy.rpython.rmodel import Repr, inputconst, TyperError, getfunctionptr
+from pypy.rpython.rmodel import Repr, inputconst
+from pypy.rpython.rmodel import TyperError, BrokenReprTyperError
+from pypy.rpython.rmodel import getfunctionptr, warning
 from pypy.rpython.normalizecalls import perform_normalizations
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.exceptiondata import ExceptionData
@@ -38,7 +40,8 @@ class RPythonTyper:
     def __init__(self, annotator):
         self.annotator = annotator
         self.reprs = {}
-        self.reprs_must_call_setup = []
+        self._reprs_must_call_setup = []
+        self._seen_reprs_must_call_setup = {}
         self.specialized_ll_functions = {}
         self.class_reprs = {}
         self.instance_reprs = {}
@@ -71,8 +74,14 @@ class RPythonTyper:
             print '*' * len(s)
         self.crash_on_first_typeerror = True
 
-
-
+    def add_pendingsetup(self, repr): 
+        assert isinstance(repr, Repr)
+        if repr in self._seen_reprs_must_call_setup: 
+            warning("ignoring already seen repr for setup: %r" %(repr,))
+            return 
+        self._reprs_must_call_setup.append(repr) 
+        self._seen_reprs_must_call_setup[repr] = True 
+        
     def getexceptiondata(self):
         return self.exceptiondata    # built at the end of specialize()
 
@@ -88,7 +97,7 @@ class RPythonTyper:
                 "missing a Ptr in the type specification "
                 "of %s:\n%r" % (s_obj, result.lowleveltype))
             self.reprs[key] = result
-            self.reprs_must_call_setup.append(result)
+            self.add_pendingsetup(result)
         return result
 
     def binding(self, var):
@@ -153,35 +162,43 @@ class RPythonTyper:
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
-        if self.typererrors:
-            c = 1
-            for err in self.typererrors:
-                block, position = err.where
-                func = self.annotator.annotated.get(block, None)
-                if func:
-                    func = "(%s:%s)" %(func.__module__ or '?', func.__name__)
-                else:
-                    func = "(?:?)"
-                print "TyperError-%d: %s" % (c, func)
-                print str(err)
-                print ""
-                c += 1
+        if self.typererrors: 
+            self.dump_typererrors() 
             raise TyperError("there were %d error" % len(self.typererrors))
-        
         # make sure that the return variables of all graphs are concretetype'd
         for graph in self.annotator.translator.flowgraphs.values():
             v = graph.getreturnvar()
             self.setconcretetype(v)
 
+    def dump_typererrors(self, num=None, minimize=True): 
+        c = 0
+        bc = 0
+        for err in self.typererrors[:num]: 
+            c += 1
+            if minimize and isinstance(err, BrokenReprTyperError): 
+                bc += 1
+                continue
+            block, position = err.where
+            func = self.annotator.annotated.get(block, None)
+            if func:
+                func = "(%s:%s)" %(func.__module__ or '?', func.__name__)
+            else:
+                func = "(?:?)"
+            print "TyperError-%d: %s" % (c, func)
+            print str(err)
+            print ""
+        if bc: 
+            print "(minimized %d errors away for this dump)" % (bc,)
+
     def call_all_setups(self):
         # make sure all reprs so far have had their setup() called
         must_setup_more = []
-        while self.reprs_must_call_setup:
-            r = self.reprs_must_call_setup.pop()
+        while self._reprs_must_call_setup:
+            r = self._reprs_must_call_setup.pop()
             r.setup()
             must_setup_more.append(r)
         for r in must_setup_more:
-            r.setup_final_touch()
+            r.setup_final()
 
     def setconcretetype(self, v):
         assert isinstance(v, Variable)

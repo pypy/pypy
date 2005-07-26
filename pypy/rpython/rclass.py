@@ -66,7 +66,7 @@ def getclassrepr(rtyper, classdef):
         else:
             result = ClassRepr(rtyper, classdef)
         rtyper.class_reprs[classdef] = result
-        rtyper.reprs_must_call_setup.append(result)
+        rtyper.add_pendingsetup(result)
     return result
 
 def getinstancerepr(rtyper, classdef):
@@ -79,7 +79,7 @@ def getinstancerepr(rtyper, classdef):
         else:
             result = InstanceRepr(rtyper,classdef)
         rtyper.instance_reprs[classdef] = result
-        rtyper.reprs_must_call_setup.append(result)
+        rtyper.add_pendingsetup(result)
     return result
 
 class MissingRTypeAttribute(TyperError):
@@ -93,8 +93,6 @@ def cast_vtable_to_typeptr(vtable):
 
 
 class ClassRepr(Repr):
-    initialized = False
-
     def __init__(self, rtyper, classdef):
         self.rtyper = rtyper
         self.classdef = classdef
@@ -112,11 +110,7 @@ class ClassRepr(Repr):
             cls = self.classdef.cls
         return '<ClassRepr for %s.%s>' % (cls.__module__, cls.__name__)
 
-    def setup(self):
-        if self.initialized:
-            assert self.initialized == True
-            return
-        self.initialized = "in progress"
+    def _setup_repr(self):
         # NOTE: don't store mutable objects like the dicts below on 'self'
         #       before they are fully built, to avoid strange bugs in case
         #       of recursion where other code would uses these
@@ -158,7 +152,6 @@ class ClassRepr(Repr):
         self.pbcfields = pbcfields
         self.allmethods = allmethods
         self.vtable = None
-        self.initialized = True
 
     def prepare_method(self, name, s_value, allmethods):
         # special-casing for methods:
@@ -345,8 +338,6 @@ class __extend__(annmodel.SomeInstance):
 
 
 class InstanceRepr(Repr):
-    initialized = False
-
     def __init__(self, rtyper, classdef):
         self.rtyper = rtyper
         self.classdef = classdef
@@ -364,11 +355,7 @@ class InstanceRepr(Repr):
             cls = self.classdef.cls
         return '<InstanceRepr for %s.%s>' % (cls.__module__, cls.__name__)
 
-    def setup(self):
-        if self.initialized:
-            assert self.initialized == True
-            return
-        self.initialized = "in progress"
+    def _setup_repr(self):
         # NOTE: don't store mutable objects like the dicts below on 'self'
         #       before they are fully built, to avoid strange bugs in case
         #       of recursion where other code would uses these
@@ -401,9 +388,8 @@ class InstanceRepr(Repr):
         self.fields = fields
         self.allinstancefields = allinstancefields
         attachRuntimeTypeInfo(self.object_type)
-        self.initialized = True
 
-    def setup_final_touch(self):
+    def _setup_repr_final(self):
         self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
                                               ll_runtime_type_info,
                                               OBJECT)

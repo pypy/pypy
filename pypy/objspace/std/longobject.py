@@ -63,7 +63,7 @@ MASK = int((1 << SHIFT) - 1)
 # False == no checking at all
 # True == check 0 <= value <= MASK
 
-CHECK_DIGITS = True
+CHECK_DIGITS = False # True
 
 if CHECK_DIGITS:
     class DigitArray(list):

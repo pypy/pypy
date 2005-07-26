@@ -67,7 +67,7 @@ class StrDictRepr(rmodel.Repr):
         self.dict_cache = {}
         # setup() needs to be called to finish this initialization
 
-    def setup(self):
+    def _setup_repr(self):
         if 'value_repr' not in self.__dict__:
             self.value_repr = self._value_repr_computer()
         if isinstance(self.STRDICT, lltype.GcForwardReference):

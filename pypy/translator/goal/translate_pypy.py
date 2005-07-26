@@ -76,7 +76,7 @@ from pypy.tool.udir import udir
 from pypy.tool.ansi_print import ansi_print
 from pypy.translator.pickle.main import load, save
 # catch TyperError to allow for post-mortem dump
-from pypy.rpython.rmodel import TyperError
+from pypy.rpython.error import TyperError
 
 # XXX this tries to make compiling faster
 from pypy.translator.tool import buildpyxmodule
@@ -112,6 +112,7 @@ def analyse(target):
         a.simplify()
     if a and options['-fork']:
         from pypy.translator.goal import unixcheckpoint
+        assert_rpython_mostly_not_imported() 
         unixcheckpoint.restartable_point(auto='run')
     if a and not options['-no-t']:
         print 'Specializing...'
@@ -123,6 +124,19 @@ def analyse(target):
     if a:
         t.frozen = True   # cannot freeze if we don't have annotations
 
+def assert_rpython_mostly_not_imported(): 
+    prefix = 'pypy.rpython.'
+    oknames = 'rarithmetic extfunctable lltype objectmodel error'.split() 
+    wrongimports = []
+    for name, module in sys.modules.items(): 
+        if module is not None and name.startswith(prefix): 
+            sname = name[len(prefix):]
+            if sname not in oknames: 
+                wrongimports.append(name) 
+    if wrongimports: 
+       raise RuntimeError("cannot fork because improper rtyper code"
+                          " has already been imported: %r" %(wrongimports,))
+                
 def sanity_check_exceptblocks(translator):
     annotator = translator.annotator
     irreg = 0

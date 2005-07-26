@@ -57,7 +57,7 @@ class ListRepr(Repr):
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
 
-    def setup(self):
+    def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
             self.item_repr = self._item_repr_computer()
         if isinstance(self.LIST, GcForwardReference):

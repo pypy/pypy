@@ -197,8 +197,8 @@ class ObjSpace(object):
             return PythonCompiler(self)
         elif self.options.compiler == 'cpython':
             return CPythonCompiler(self)
-        elif self.options.compiler == 'pyparseapp':
-            return PythonCompilerApp(self)
+        #elif self.options.compiler == 'pyparseapp':
+        #    return PythonCompilerApp(self)
         else:
             raise ValueError('unknown --compiler option value: %r' % (
                 self.options.compiler,))

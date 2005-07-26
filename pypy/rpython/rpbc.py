@@ -127,7 +127,7 @@ def getFrozenPBCRepr(rtyper, s_pbc):
         except KeyError:
             result = MultipleFrozenPBCRepr(rtyper, access)
             rtyper.pbc_reprs[access] = result
-            rtyper.reprs_must_call_setup.append(result)
+            rtyper.add_pendingsetup(result) 
             return result
 
 
@@ -183,8 +183,6 @@ class __extend__(pairtype(NoneFrozenPBCRepr, robject.PyObjRepr)):
 
 class MultipleFrozenPBCRepr(Repr):
     """Representation selected for multiple non-callable pre-built constants."""
-    initialized = False
-
     def __init__(self, rtyper, access_set):
         self.rtyper = rtyper
         self.access_set = access_set
@@ -192,11 +190,7 @@ class MultipleFrozenPBCRepr(Repr):
         self.lowleveltype = Ptr(self.pbc_type)
         self.pbc_cache = {}
 
-    def setup(self):
-        if self.initialized:
-            assert self.initialized == True
-            return
-        self.initialized = "in progress"
+    def _setup_repr(self):
         llfields = []
         llfieldmap = {}
         if self.access_set is not None:
@@ -210,7 +204,6 @@ class MultipleFrozenPBCRepr(Repr):
                 llfieldmap[attr] = mangled_name, r_value
         self.pbc_type.become(Struct('pbc', *llfields))
         self.llfieldmap = llfieldmap
-        self.initialized = True
 
     def convert_const(self, pbc):
         if pbc is None:

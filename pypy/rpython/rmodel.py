@@ -5,7 +5,15 @@ from pypy.rpython.lltype import Void, Bool, Float, Signed, Char, UniChar
 from pypy.rpython.lltype import typeOf, LowLevelType, Ptr, PyObject
 from pypy.rpython.lltype import FuncType, functionptr
 from pypy.tool.ansi_print import ansi_print
+from pypy.rpython.error import TyperError, MissingRTypeOperation 
 
+# initialization states for Repr instances 
+
+class setupstate: 
+    NOTINITIALIZED = 0 
+    INPROGRESS = 1
+    BROKEN = 2 
+    FINISHED = 3 
 
 class Repr:
     """ An instance of Repr is associated with each instance of SomeXxx.
@@ -16,27 +24,66 @@ class Repr:
     iterating over.
     """
     __metaclass__ = extendabletype
+    _initialized = setupstate.NOTINITIALIZED 
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.lowleveltype)
 
-    def setup(self):
+    def setup(self): 
+        """ call _setup_repr() and keep track of the initializiation
+            status to e.g. detect recursive _setup_repr invocations.
+            the '_initialized' attr has four states: 
+        """
+        if self._initialized == setupstate.FINISHED: 
+            return 
+        elif self._initialized == setupstate.BROKEN: 
+            raise BrokenReprTyperError(
+                "cannot setup already failed Repr: %r" %(self,))
+        elif self._initialized == setupstate.INPROGRESS: 
+            raise AssertionError(
+                "recursive invocation of Repr setup(): %r" %(self,))
+        assert self._initialized == setupstate.NOTINITIALIZED 
+        self._initialized = setupstate.INPROGRESS 
+        try: 
+            self._setup_repr() 
+        except TyperError, e: 
+            self._initialized = setupstate.BROKEN 
+            raise 
+        else: 
+            self._initialized = setupstate.FINISHED 
+
+    def _setup_repr(self):
         "For recursive data structure, which must be initialized in two steps."
 
-    def setup_final_touch(self):
+    def setup_final(self):
         """Same as setup(), called a bit later, for effects that are only
         needed after the typer finished (as opposed to needed for other parts
         of the typer itself)."""
+        if self._initialized == setupstate.BROKEN: 
+            raise BrokenReprTyperError("cannot perform setup_final_touch "
+                             "on failed Repr: %r" %(self,))
+        assert self._initialized == setupstate.FINISHED, (
+                "setup_final() on repr with state %s: %r" %
+                (self._initialized, self))
+        self._setup_repr_final() 
+
+    def _setup_repr_final(self): 
+        pass 
 
     def __getattr__(self, name):
         # Assume that when an attribute is missing, it's because setup() needs
         # to be called
-        self.setup()
-        try:
-            return self.__dict__[name]
-        except KeyError:
-            raise AttributeError("%s instance has no attribute %s" % (
-                self.__class__.__name__, name))
+        if name[:2] != '__' or name[-2:] != '__': 
+            if self._initialized != setupstate.NOTINITIALIZED: 
+                warning("__getattr__ %r in strange state %r" %(name, self,))
+            else: 
+                self.setup()
+                try:
+                    return self.__dict__[name]
+                except KeyError:
+                    pass
+        raise AttributeError("%s instance has no attribute %s" % (
+            self.__class__.__name__, name))
 
     def _freeze_(self):
         return True
@@ -148,15 +195,6 @@ class __extend__(pairtype(Repr, Repr)):
 
 # ____________________________________________________________
 
-class TyperError(Exception):
-    def __str__(self):
-        result = Exception.__str__(self)
-        if hasattr(self, 'where'):
-            result += '\n.. %r\n.. %r' % self.where
-        return result
-
-class MissingRTypeOperation(TyperError):
-    pass
 
 def missing_rtype_operation(self, hop):
     raise MissingRTypeOperation("unimplemented operation: '%s' on %r" % (
@@ -239,6 +277,11 @@ def inputconst(reqtype, value):
     c = Constant(value)
     c.concretetype = lltype
     return c
+
+class BrokenReprTyperError(TyperError): 
+    """ raised when trying to setup a Repr whose setup 
+        has failed already. 
+    """
 
 # __________ utilities __________
 

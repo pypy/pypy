@@ -30,7 +30,7 @@ class ConstantDictRepr(rmodel.Repr):
         self.value_repr = value_repr  
         self.dict_cache = {}
 
-    def setup(self):
+    def _setup_repr(self):
         if isinstance(self.CONSTANTDICT, lltype.ForwardReference):
             self.DICTKEY = self.key_repr.lowleveltype
             self.DICTVALUE = self.value_repr.lowleveltype
