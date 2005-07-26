@@ -65,7 +65,7 @@ def test_os_stat():
     assert result[1] == os.stat(filename)[1]
     assert result[2] == os.stat(filename)[2]
 
-def CRASHING_test_os_fstat():
+def test_os_fstat():
     filename = str(py.magic.autopath())
     def call_fstat():
         fd = os.open(filename, os.O_RDONLY, 0777)
