@@ -24,6 +24,12 @@ class TestFile:
         for i in range(-1, 10):
             assert self.file.readline(i) == cpyfile.readline(i)
 
+    def test_repr(self):
+        r = repr(self.file)
+        assert r.find('open file') >= 0
+        assert r.find(self.file.name) >= 0
+        assert r.find(self.file.mode) >= 0
+
 class TestFdFile(TestFile):
     def setup_method(self, method):
         import os

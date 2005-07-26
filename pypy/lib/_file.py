@@ -355,3 +355,10 @@ This is needed for lower-level file interfaces, such os.read().'''
         if self._closed:
             raise ValueError('I/O operation on closed file')
         return os.isatty(self.fd)
+
+    def __repr__(self):
+        return '<%s file %r, mode %r at 0x%x>' % (
+            self._closed and 'closed' or 'open',
+            self._name,
+            self._mode,
+            id(self))
