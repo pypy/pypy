@@ -83,7 +83,8 @@ class Marshaller:
     dispatch[bool] = dump_bool
 
     def dump_stopiter(self, x):
-        assert x is StopIteration
+        if x is not StopIteration:
+            raise ValueError, "unmarshallable object"
         self.f.write(TYPE_STOPITER)
     dispatch[type(StopIteration)] = dump_stopiter
 
