@@ -47,7 +47,7 @@ def info_modtype(filepart):
     if os.path.exists(pycfile):
         pyc_state = check_compiled_module(pyfile, pyfile_ts, pycfile)
         pycfile_exists = pyc_state >= 0
-        pycfile_ts_valid = pycfile_state > 0 and pyfile_exists
+        pycfile_ts_valid = pyc_state > 0 and pyfile_exists
     else:
         pycfile_exists = False
         pycfile_ts_valid = False
