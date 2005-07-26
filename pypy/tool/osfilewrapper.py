@@ -29,8 +29,7 @@ class OsFileWrapper(object):
     def close(self):
         os.close(self.fd)
 
-    def create_wrapper(cls, filename, flag, mode=0777):
-        fd = os.open(filename, flag, mode)
-        return cls(fd)
     
-    create_wrapper = classmethod(create_wrapper)
+def create_wrapper(filename, flag, mode=0777):
+    fd = os.open(filename, flag, mode)
+    return OsFileWrapper(fd)

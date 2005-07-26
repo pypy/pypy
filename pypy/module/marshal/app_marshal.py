@@ -271,7 +271,10 @@ class Unmarshaller:
         c = self._read()
         if not c:
             raise EOFError
-        return self.dispatch[c](self)
+        try:
+            return self.dispatch[c](self)
+        except KeyError:
+            raise ValueError, "bad marshal code: %c (%d)" % (c, ord(c))
 
     def r_short(self):
         lo = ord(self._read())

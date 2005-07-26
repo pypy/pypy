@@ -7,6 +7,7 @@ import sys, os
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.tool.osfilewrapper import OsFileWrapper
 
 # XXX this uses the os.path module at interp-level, which means
 # XXX that translate_pypy will produce a translated version of
@@ -308,12 +309,12 @@ def load_source_module(space, w_modulename, w_mod, pathname, fd):
 
     return w_mod
 
-# helper, to avoid exposing internals ofmarshal
-def r_long(fd):
-    a = ord(os.read(fd, 1))
-    b = ord(os.read(fd, 1))
-    c = ord(os.read(fd, 1))
-    d = ord(os.read(fd, 1))
+# helper, to avoid exposing internals of marshal
+def _r_long(osfile):
+    a = ord(osfile.read(1))
+    b = ord(osfile.read(1))
+    c = ord(osfile.read(1))
+    d = ord(osfile.read(1))
     x = a | (b<<8) | (c<<16) | (d<<24)
     if d & 0x80 and x > 0:
         x = -((1L<<32) - x)
@@ -328,15 +329,15 @@ def check_compiled_module(space, pathname, mtime, cpathname):
     the header; if not, return NULL.
     Doesn't set an exception.
     """
-    #w_marshal = space.getbuiltinmodule('marshal')
     fd = os.open(cpathname, os.O_BINARY | os.O_RDONLY, 0777) # using no defaults
-    magic = r_long(fd)
+    osfile = OsFileWrapper(fd)
+    magic = _r_long(osfile)
     if magic != pyc_magic:
         # XXX what to do about Py_VerboseFlag ?
         # PySys_WriteStderr("# %s has bad magic\n", cpathname);
         os.close(fd)
         return -1
-    pyc_mtime = r_long(fd)
+    pyc_mtime = _r_long(osfile)
     if pyc_mtime != mtime:
         # PySys_WriteStderr("# %s has bad mtime\n", cpathname);
         os.close(fd)
@@ -345,14 +346,38 @@ def check_compiled_module(space, pathname, mtime, cpathname):
         # PySys_WriteStderr("# %s matches %s\n", cpathname, pathname);
     return fd
 
-def load_compiled_module(space, name, cpathname, fd):
+def read_compiled_module(space, cpathname, fd):
+    """ Read a code object from a file and check it for validity """
+
+    w_marshal = space.getbuiltinmodule('marshal')
+    w_M = space.getattr(w_marshal, space.wrap('_Unmarshaller'))
+    w_unmarshaller = space.call_function(w_M, space.wrap(fd))
+    w_code = space.call_method(w_unmarshaller, 'load')
+    pycode = space.interpclass_w(w_code)
+    if pycode is None:
+        raise OperationError(space.w_ImportError, space.wrap(
+            "Non-code object in %.200s" % cpathname))
+    return pycode
+
+def load_compiled_module(space, w_modulename, w_mod, cpathname, fd):
     """
     Load a module from a compiled file, execute it, and return its
     module object.
     """
-
-def read_compiled_module(space, cpathname, fd):
-    """ Read a code object from a file and check it for validity """
+    osfile = OsFileWrapper(fd)
+    magic = _r_long(osfile)
+    if magic != pyc_magic:
+        raise OperationError(space.w_ImportError, space.wrap(
+            "Bad magic number in %.200s" % cpathname))
+        return NULL;
+    _r_long(osfile) # skip time stamp
+    code_w = read_compiled_module(space, cpathname, fd)
+    #if (Py_VerboseFlag)
+    #    PySys_WriteStderr("import %s # precompiled from %s\n",
+    #        name, cpathname);
+    w_dic = space.getattr(w_mod, space.wrap('__dict__'))
+    code_w.exec_code(space, w_dic, w_dic)
+    return w_mod
 
 
 def write_compiled_module(space, co, cpathname, mtime):

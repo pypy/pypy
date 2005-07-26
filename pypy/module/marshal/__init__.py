@@ -10,6 +10,8 @@ This module contains functions that can read and write Python values in a binary
         'dumps'         : 'app_marshal.dumps',
         'load'          : 'app_marshal.load',
         'loads'         : 'app_marshal.loads',
+        '_Marshaller'   : 'app_marshal.Marshaller',
+        '_Unmarshaller' : 'app_marshal.Unmarshaller',
     }
 
     interpleveldefs = {
