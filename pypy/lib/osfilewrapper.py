@@ -13,7 +13,9 @@ class OsFileWrapper(object):
         bufs = []
         while readcount < expected:
             # os.read will raise an error itself
-            buf = os.read(self.fd, expected)
+            buf = os.read(self.fd, expected - readcount)
+            if not buf:
+                break
             readcount += len(buf)
             bufs.append(buf)
         return "".join(bufs)
