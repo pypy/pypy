@@ -96,11 +96,11 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
     e = None
     if modtype == PYFILE:
         filename = filepart + ".py"
-        fd = os.open(filename, os.O_RDONLY, 0777)
+        fd = os.open(filename, os.O_RDONLY, 0666)
     else:
         assert modtype == PYCFILE
         filename = filepart + ".pyc"
-        fd = os.open(filename, BIN_READMASK, 0777)
+        fd = os.open(filename, BIN_READMASK, 0666)
 
     space.sys.setmodule(w_mod)
     space.setattr(w_mod, w('__file__'), space.wrap(filename))
@@ -403,7 +403,7 @@ def check_compiled_module(pathname, mtime, cpathname):
     the header; if not, return NULL.
     Doesn't set an exception.
     """
-    fd = os.open(cpathname, BIN_READMASK, 0777) # using no defaults
+    fd = os.open(cpathname, BIN_READMASK, 0666) # using no defaults
     osfile = OsFileWrapper(fd)
     magic = _r_long(osfile)
     try:
@@ -445,7 +445,6 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, osfile):
     if magic != pyc_magic:
         raise OperationError(space.w_ImportError, w(
             "Bad magic number in %s" % cpathname))
-        return NULL;
     _r_long(osfile) # skip time stamp
     code_w = read_compiled_module(space, cpathname, osfile)
     #if (Py_VerboseFlag)
@@ -475,7 +474,7 @@ def write_compiled_module(space, co, cpathname, mtime):
         return
     else:
         print "indeed writing", cpathname
-    fd = os.open(cpathname, BIN_WRITEMASK, 0777)
+    fd = os.open(cpathname, BIN_WRITEMASK, 0666)
     osfile = OsFileWrapper(fd)
     _w_long(osfile, pyc_magic)
     _w_long(osfile, mtime)
