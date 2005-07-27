@@ -178,11 +178,6 @@ class PythonCompiler(CPythonCompiler):
          the whole source after having only added a new '\n')
     """
     def compile(self, source, filename, mode, flags):
-        assert isinstance(source, str) # xxx__builtin__.compile is cheating in the unicode case
-                                       # we need to do something about that
-                                       # CPython encode unicode for compilation into utf-8
-                                       # and use a special internal flag to control behavior!
-    
         from pyparser.error import ParseError
         from pyparser.pythonutil import internal_pypy_parse
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)

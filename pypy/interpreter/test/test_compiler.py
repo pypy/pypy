@@ -17,6 +17,10 @@ class BaseTestCompiler:
         w_res = code.exec_code(space, space.newdict([]), space.newdict([]))
         assert space.int_w(w_res) == 42
 
+    def test_eval_unicode(self):
+        assert (eval(unicode('u"\xc3\xa5"', 'utf8')) ==
+                unicode('\xc3\xa5', 'utf8'))
+
     def test_compile_command(self):
         c0 = self.compiler.compile_command('\t # hello\n ', '?', 'exec', 0)
         c1 = self.compiler.compile_command('print 6*7', '?', 'exec', 0)
