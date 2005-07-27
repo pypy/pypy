@@ -34,7 +34,7 @@ TYPE_UNKNOWN  = '?'
 TYPE_SET      = '<'
 TYPE_FROZENSET= '>'
 
-class Marshaller:
+class _Marshaller:
 
     dispatch = {}
 
@@ -230,10 +230,10 @@ class Marshaller:
     except NameError:
         pass
 
-class NULL:
+class _NULL:
     pass
 
-class Unmarshaller:
+class _Unmarshaller:
 
     dispatch = {}
 
@@ -310,7 +310,7 @@ class Unmarshaller:
         return x
 
     def load_null(self):
-        return NULL
+        return _NULL
     dispatch[TYPE_NULL] = load_null
 
     def load_none(self):
@@ -410,7 +410,7 @@ class Unmarshaller:
         d = {}
         while 1:
             key = self.load()
-            if key is NULL:
+            if key is _NULL:
                 break
             value = self.load()
             d[key] = value
@@ -459,17 +459,17 @@ except NameError:
     frozenset = set
 
 def dump(x, f):
-    Marshaller(f.fileno()).dump(x)
+    _Marshaller(f.fileno()).dump(x)
 
 def load(f):
-    return Unmarshaller(f.fileno()).load()
+    return _Unmarshaller(f.fileno()).load()
 
 def dumps(x):
-    m = Marshaller(-1)
+    m = _Marshaller(-1)
     m.dump(x)
     return m.getvalue()
 
 def loads(s):
-    um = Unmarshaller(-1)
+    um = _Unmarshaller(-1)
     um.setvalue(s)
     return um.load()
