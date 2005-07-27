@@ -71,18 +71,17 @@ class StdObjSpace(ObjSpace, DescrOperation):
             setattr(self, 'w_' + typedef.name, w_type)
 
         # exceptions & builtins
-        mod = self.setup_exceptions()
+        w_mod = self.setup_exceptions()
         self.make_builtins()
-        self.sys.setmodule(self.wrap(mod))
+        self.sys.setmodule(w_mod)
 
         # dummy old-style classes types
         self.w_classobj = W_TypeObject(self, 'classobj', [self.w_object], {})
         self.w_instance = W_TypeObject(self, 'instance', [self.w_object], {})
         self.setup_old_style_classes()
 
-        #early bootstrap for marshal
-        mod = self.setup_marshal()
-        self.sys.setmodule(self.wrap(mod))
+        # early bootstrap for marshal
+        self.sys.setmodule(self.setup_marshal())
 
         # fix up a problem where multimethods apparently don't 
         # like to define this at interp-level 
@@ -115,7 +114,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # sanity check that this approach is working and is not too late
         assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_classobj'))),"app-level code has seen dummy old style classes"
         assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_instance'))),"app-level code has seen dummy old style classes"
-        mod, w_dic = self.create_builtin_module('_classobj.py', 'classobj')
+        w_mod, w_dic = self.create_builtin_module('_classobj.py', 'classobj')
         w_purify = self.getitem(w_dic, self.wrap('purify'))
         w_classobj = self.getitem(w_dic, self.wrap('classobj'))
         w_instance = self.getitem(w_dic, self.wrap('instance'))
@@ -124,12 +123,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_instance = w_instance
 
     def setup_marshal(self):
-        mod, w_dic = self.create_builtin_module('_marshal.py', 'marshal')
-        return mod
+        w_mod, w_dic = self.create_builtin_module('_marshal.py', 'marshal')
+        return w_mod
 
     def create_builtin_module(self, pyname, publicname):
         """NOT_RPYTHON
-        helper function which returns the new unwrapped module and its waapped dict.
+        helper function which returns the wrapped module and its dict.
         """
         # generate on-the-fly
         class Fake: pass
@@ -142,7 +141,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         w_dic = PyPyCacheDir.build_applevelinterp_dict(fake, self)
         from pypy.interpreter.module import Module
         mod = Module(self, self.wrap(publicname), w_dic)
-        return mod, w_dic
+        w_mod = self.wrap(mod)
+        return w_mod, w_dic
 
     def setuselibfile(self): 
         """ NOT_RPYTHON use our application level file implementation
