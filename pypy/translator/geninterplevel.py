@@ -77,7 +77,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.4'  # bump this for substantial changes
+GI_VERSION = '1.1.5'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
