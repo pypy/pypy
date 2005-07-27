@@ -1,5 +1,5 @@
 import autopath
-from pypy.tool.osfilewrapper import OsFileWrapper, create_wrapper
+from pypy.lib._osfilewrapper import OsFileWrapper, create_wrapper
 from pypy.tool.udir import udir 
 import os
 
