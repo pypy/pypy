@@ -7,10 +7,30 @@ import sys, os
 import tempfile, marshal
 from pypy.lib._osfilewrapper import OsFileWrapper
 
-from pypy.module.__builtin__.importing import BIN_READMASK
+from pypy.module.__builtin__ import importing
 
-def _setup(space): 
-    dn=os.path.abspath(os.path.join(os.path.dirname(__file__), 'impsubdir'))
+
+def compile_pyfile(space, pathname):
+    import time
+    fd = os.open(pathname, importing.BIN_READMASK, 0777)
+    osfile = OsFileWrapper(fd)
+    w_ret = importing.parse_source_module(space,
+                                          pathname,
+                                          osfile)        
+    osfile.close()
+    pycode = space.interpclass_w(w_ret)
+    assert type(pycode) is pypy.interpreter.pycode.PyCode
+
+    importing.write_compiled_module(space,
+                                    pycode,
+                                    pathname + "c",
+                                    int(time.time()))
+
+def _setup(space):
+    j = os.path.join
+    dn = os.path.abspath(j(os.path.dirname(__file__), 'impsubdir'))
+    compile_pyfile(space, j(j(dn, "compiled"), "x.py"))
+    
     return space.appexec([space.wrap(dn)], """
         (dn): 
             import sys
@@ -31,7 +51,9 @@ class AppTestImport:
 
     def setup_class(cls): # interpreter-level
         cls.saved_modules = _setup(cls.space)
+        #XXX Compile class
 
+        
     def teardown_class(cls): # interpreter-level
         _teardown(cls.space, cls.saved_modules)
 
@@ -159,15 +181,17 @@ class AppTestImport:
             import pkg.pkg2.b
         raises(ImportError,imp_b)
 
-from pypy.module.__builtin__ import importing
+    def Xtest_pyc(self):
+        import sys
+        import compiled.x
+        assert compiled.x == sys.modules.get('compiled.x')
 
 def _getlong(data):
     x = marshal.dumps(data)
     return x[-4:]
 
 def _testfile(magic, mtime, co=None):
-    fd, cpathname = tempfile.mkstemp()
-    os.close(fd)
+    cpathname = str(udir.join('test.pyc'))
     f = file(cpathname, "wb")
     f.write(_getlong(magic))
     f.write(_getlong(mtime))
@@ -175,6 +199,13 @@ def _testfile(magic, mtime, co=None):
         marshal.dump(co, f)
     f.close()
     return cpathname
+
+def _testfilesource():
+    pathname = str(udir.join('test.py'))
+    f = file(pathname, "wb")
+    f.write("x=42")
+    f.close()
+    return pathname
 
 class TestPycStuff:
     # ___________________ .pyc related stuff _________________
@@ -203,13 +234,14 @@ class TestPycStuff:
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.pyc_magic, mtime, co)
-        fd = os.open(cpathname, BIN_READMASK, 0777)
+        fd = os.open(cpathname, importing.BIN_READMASK, 0777)
         os.lseek(fd, 8, 0)
-        code_w = importing.read_compiled_module(space, cpathname, OsFileWrapper(fd))
+        w_code = importing.read_compiled_module(space, cpathname, OsFileWrapper(fd))
+        pycode = space.interpclass_w(w_code)
         os.close(fd)
-        assert type(code_w) is pypy.interpreter.pycode.PyCode
+        assert type(pycode) is pypy.interpreter.pycode.PyCode
         w_dic = space.newdict([])
-        code_w.exec_code(space, w_dic, w_dic)
+        pycode.exec_code(space, w_dic, w_dic)
         w_ret = space.getitem(w_dic, space.wrap('x'))
         ret = space.int_w(w_ret)
         assert ret == 42
@@ -221,14 +253,109 @@ class TestPycStuff:
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.pyc_magic, mtime, co)
         w_modulename = space.wrap('somemodule')
-        fd = os.open(cpathname, BIN_READMASK, 0777)
+        fd = os.open(cpathname, importing.BIN_READMASK, 0777)
         w_mod = space.wrap(Module(space, w_modulename))
-        w_ret = importing.load_compiled_module(space, w_modulename, w_mod, cpathname, OsFileWrapper(fd))
+        w_ret = importing.load_compiled_module(space,
+                                               w_modulename,
+                                               w_mod,
+                                               cpathname,
+                                               OsFileWrapper(fd))
         os.close(fd)
         assert w_mod is w_ret
         w_ret = space.getattr(w_mod, space.wrap('x'))
         ret = space.int_w(w_ret)
         assert ret == 42
+
+    def test_parse_source_module(self):
+        space = self.space
+        pathname = _testfilesource()
+        fd = os.open(pathname, importing.BIN_READMASK, 0777)
+        osfile = OsFileWrapper(fd)
+        w_ret = importing.parse_source_module(space,
+                                              pathname,
+                                              osfile)        
+        osfile.close()
+        pycode = space.interpclass_w(w_ret)
+        assert type(pycode) is pypy.interpreter.pycode.PyCode
+        w_dic = space.newdict([])
+        pycode.exec_code(space, w_dic, w_dic)
+        w_ret = space.getitem(w_dic, space.wrap('x'))
+        ret = space.int_w(w_ret)
+        assert ret == 42
+
+    def test_long_writes(self):
+        pathname = str(udir.join('test.dat'))
+        f = file(pathname, "wb")
+        osfile = OsFileWrapper(f.fileno())
+        importing._w_long(osfile, 42)
+        importing._w_long(osfile, 12312)
+        importing._w_long(osfile, 128397198)
+        f.close()
+        f = file(pathname, "r")
+        osfile = OsFileWrapper(f.fileno())
+        assert importing._r_long(osfile) == 42
+        assert importing._r_long(osfile) == 12312
+        assert importing._r_long(osfile) == 128397198
+
+    def test_load_source_module(self):
+        space = self.space
+        w_modulename = space.wrap('somemodule')
+        w_mod = space.wrap(Module(space, w_modulename))
+        pathname = _testfilesource()
+        fd = os.open(pathname, importing.BIN_READMASK, 0777)
+        osfile = OsFileWrapper(fd)
+        w_ret = importing.load_source_module(space,
+                                             w_modulename,
+                                             w_mod,
+                                             pathname,
+                                             osfile)        
+        osfile.close()
+        assert w_mod is w_ret
+        w_ret = space.getattr(w_mod, space.wrap('x'))
+        ret = space.int_w(w_ret)
+        assert ret == 42
+
+        #XXX Note tested while no writing
+
+    def test_write_compiled_module(self):
+        space = self.space
+        pathname = _testfilesource()
+        fd = os.open(pathname, importing.BIN_READMASK, 0777)
+        osfile = OsFileWrapper(fd)
+        w_ret = importing.parse_source_module(space,
+                                              pathname,
+                                              osfile)        
+        osfile.close()
+        pycode = space.interpclass_w(w_ret)
+        assert type(pycode) is pypy.interpreter.pycode.PyCode
+
+        cpathname = str(udir.join('cpathname.pyc'))
+        mtime = 12345
+        importing.write_compiled_module(space,
+                                        pycode,
+                                        cpathname,
+                                        mtime)
+
+        # check
+        pathname = str(udir.join('cpathname.py'))
+        ret = importing.check_compiled_module(pathname, mtime, cpathname)
+        assert ret == 1
+
+        # read compile module
+        fd = os.open(cpathname, importing.BIN_READMASK, 0777)
+        os.lseek(fd, 8, 0)
+        osfile = OsFileWrapper(fd)
+        w_code = importing.read_compiled_module(space, cpathname, osfile)
+        pycode = space.interpclass_w(w_code)
+        os.close(fd)
+
+        # check value of load
+        w_dic = space.newdict([])
+        pycode.exec_code(space, w_dic, w_dic)
+        w_ret = space.getitem(w_dic, space.wrap('x'))
+        ret = space.int_w(w_ret)
+        assert ret == 42
+
 
 def test_PYTHONPATH_takes_precedence(space): 
     if sys.platform == "win32":
