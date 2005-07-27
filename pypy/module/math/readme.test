@@ -1,0 +1,6 @@
+# please run the compliance test like e.g. 
+
+#     py.test lib-python/2.4.1/test/test_math.py 
+# 
+# if you change the math module  
+# 

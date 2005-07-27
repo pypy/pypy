@@ -151,7 +151,7 @@ class ObjSpace(object):
                 builtinmodule_list.append(('parser', None))
             if self.options.nofakedmodules:
                 builtinmodule_list.append(('posix', None))
-                builtinmodule_list.append(('math', None))
+            builtinmodule_list.append(('math', None))
             self._builtinmodule_list = builtinmodule_list
             return self._builtinmodule_list
 
