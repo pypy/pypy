@@ -41,6 +41,7 @@ def target():
     from pypy.tool.option import Options
     options = Options()
     options.uselibfile = True
+    options.nofakedmodules = True
     space = StdObjSpace(options)
 
     # manually imports app_main.py

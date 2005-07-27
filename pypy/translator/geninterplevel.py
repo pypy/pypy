@@ -77,7 +77,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.5'  # bump this for substantial changes
+GI_VERSION = '1.1.6'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -147,6 +147,7 @@ class GenRpy:
         self.rpynames = {Constant(None).key:  'space.w_None',
                          Constant(False).key: 'space.w_False',
                          Constant(True).key:  'space.w_True',
+			 Constant(Ellipsis).key: 'space.w_Ellipsis',
                          Constant(OperationError).key: late_OperationError,
                          Constant(Arguments).key: late_Arguments,
                        }
