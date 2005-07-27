@@ -410,6 +410,10 @@ class GenRpy:
             return bltinmod_helper(self, value)
         # we might have createda reference to a module
         # that is non-standard.
+
+        # SKIPPING
+        return "space.w_None"
+
         # check whether we can import
         try:
             import value
