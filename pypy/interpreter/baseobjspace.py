@@ -149,7 +149,7 @@ class ObjSpace(object):
                 builtinmodule_list.append(('parser', 'recparser'))
             elif self.options.useparsermodule == "parser":
                 builtinmodule_list.append(('parser', None))
-            if self.options.uselibfile and self.options.nofakedmodules:
+            if self.options.nofakedmodules:
                 builtinmodule_list.append(('posix', None))
                 builtinmodule_list.append(('math', None))
             self._builtinmodule_list = builtinmodule_list
