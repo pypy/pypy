@@ -17,7 +17,7 @@ def lseek(space, fd, pos, how):
 lseek.unwrap_spec = [ObjSpace, int, int, int]
 
 def isatty(space, fd):
-    return space.wrap(os.isatty(w_fd))
+    return space.wrap(os.isatty(fd))
 isatty.unwrap_spec = [ObjSpace, int]
 
 def read(space, fd, buffersize):
