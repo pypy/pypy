@@ -7,7 +7,7 @@ import sys, os
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
-from pypy.lib.osfilewrapper import OsFileWrapper
+from pypy.lib._osfilewrapper import OsFileWrapper
 
 # XXX this uses the os.path module at interp-level, which means
 # XXX that translate_pypy will produce a translated version of
