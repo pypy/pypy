@@ -791,6 +791,9 @@ class GenRpy:
             "type((lambda:42).__get__(42))"),
         property: (eval_helper, "property", 'property'),
         type(Ellipsis): (eval_helper, 'EllipsisType', 'types.EllipsisType'),
+        set: (eval_helper, "set", "set"),
+        frozenset: (eval_helper, "frozenset", "frozenset"),
+        buffer: (eval_helper, "buffer", "buffer"),
     }
 
     def nameof_type(self, cls):
