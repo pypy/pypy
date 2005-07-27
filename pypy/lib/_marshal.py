@@ -229,10 +229,10 @@ class _StringBuffer:
         self.bufpos = 0
 
     def read(self, n):
-        ret = self.bufstr[self.bufpos : self.bufpos+n]
-        self.bufpos += n
-        if self.bufpos > len(self.bufstr):
-            raise EOFError, "read past buffer"
+        start = self.bufpos
+        end = start + n
+        ret = self.bufstr[start:end]
+        self.bufpos = end
         return ret
 
 
@@ -311,13 +311,9 @@ class _Unmarshaller:
         return Ellipsis
     dispatch[TYPE_ELLIPSIS] = load_ellipsis
 
-    def load_int(self):
-        return self.r_long()
-    dispatch[TYPE_INT] = load_int
+    dispatch[TYPE_INT] = r_long
 
-    def load_int64(self):
-        return self.r_long64()
-    dispatch[TYPE_INT64] = load_int64
+    dispatch[TYPE_INT64] = r_long64
 
     def load_long(self):
         size = self.r_long()
@@ -378,9 +374,7 @@ class _Unmarshaller:
 
     def load_list(self):
         n = self.r_long()
-        list = []
-        for i in range(n):
-            list.append(self.load())
+        list = [self.load() for i in range(n)]
         return list
     dispatch[TYPE_LIST] = load_list
 
