@@ -368,7 +368,8 @@ def load_source_module(space, w_modulename, w_mod, pathname, osfile):
 
     return w_mod
 
-# helper, to avoid exposing internals of marshal
+# helper, to avoid exposing internals of marshal and the
+# difficulties of using it though applevel.
 def _r_long(osfile):
     a = ord(osfile.read(1))
     b = ord(osfile.read(1))
@@ -462,6 +463,6 @@ def write_compiled_module(space, co, cpathname, mtime):
     _w_long(osfile, mtime)
     w_marshal = space.getbuiltinmodule('marshal')
     w_M = space.getattr(w_marshal, space.wrap('_Marshaller'))
-    w_marshaller = space.call_function(w_M, space.wrap(fd))
-    w_res = space.call_method(w_marshaller, 'dump', space.wrap(co))
+    w_unmarshaller = space.call_function(w_M, space.wrap(fd))
+    w_res = space.call_method(w_unmarshaller, 'dump', space.wrap(co))
     os.close(fd)
