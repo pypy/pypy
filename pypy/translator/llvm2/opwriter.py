@@ -3,7 +3,6 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
 from pypy.translator.llvm2.atomic import is_atomic
 from pypy.translator.llvm2.log import log 
-nextexclabel = py.std.itertools.count().next
 log = log.opwriter
 
 class OpWriter(object):
@@ -181,33 +180,54 @@ class OpWriter(object):
 
     def direct_invoke(self, op):
         assert len(op.args) >= 1
+        assert len(self.block.exits) >= 2   #at least one label and one exception label
+
+        link = self.block.exits[0]
+        assert link.exitcase is None
+
         targetvar = self.db.repr_arg(op.result)
         returntype = self.db.repr_arg_type(op.result)
         functionref = self.db.repr_arg(op.args[0])
         argrefs = self.db.repr_arg_multi(op.args[1:])
         argtypes = self.db.repr_arg_type_multi(op.args[1:])
 
-        link = self.block.exits[0]
-        assert link.exitcase is None
-        label = self.node.block_to_name[link.target]
-
-        assert len(self.block.exits) > 1
-        link = self.block.exits[1]      #XXX need an additional block if we catch multiple exc.types!
-        exc_label = self.node.block_to_name[link.target]
-
-        if len(self.block.exits) > 2:
-            msg = 'XXX Exception handling incomplete implementation warning: n_exits=%d' % (len(self.block.exits),)
-            print msg
-            self.codewriter.comment(msg, indent=True)
-        #exc_label = 'exception_block.%d' % nextexclabel()
+        none_label      = self.node.block_to_name[link.target]
+        exc_label       = self.node.block_to_name[self.block] + '_exception'
+        exc_error_label = exc_label + '_error'
 
         if returntype != "void":
             self.codewriter.invoke(targetvar, returntype, functionref, argrefs,
-                                 argtypes, label, exc_label)
+                                 argtypes, none_label, exc_label)
         else:
-            self.codewriter.invoke_void(functionref, argrefs, argtypes, label, exc_label)
+            self.codewriter.invoke_void(functionref, argrefs, argtypes, none_label, exc_label)
 
-        #self.codewriter.label(exc_label)
+        self.codewriter.label(exc_label)
+        value_label = []
+        value = 0
+        for link in self.block.exits[1:]:
+            assert issubclass(link.exitcase, Exception)
+
+            target = self.node.block_to_name[link.target]
+            value_label.append( (value,target) )
+            value += 1
+
+            #msg = 'XXX Exception target=%s, exitcase=%s, last_exception.concretetype=%s' % \
+            #    (str(target), str(link.exitcase), link.last_exception.concretetype)
+            #self.codewriter.comment(msg)
+            #self.codewriter.comment('TODO: in %s rename %s to %s' % (target, self.node.block_to_name[self.block], exc_label))
+
+        tmptype1, tmpvar1 = 'long'                , self.db.repr_tmpvar()
+        self.codewriter.load(tmpvar1, tmptype1, '%last_exception_type')
+
+        #tmptype2, tmpvar2 = '%structtype.object_vtable*', self.db.repr_tmpvar()
+        #self.codewriter.cast(tmpvar2, tmptype1, tmpvar1, tmptype2)
+        #self.codewriter.switch(tmptype2, tmpvar2, exc_error_label, value_label)
+
+        self.codewriter.switch(tmptype1, tmpvar1, exc_error_label, value_label)
+        self.codewriter.label(exc_error_label)
+        self.codewriter.comment('dead code ahead')
+        self.codewriter.ret('int', '0')
+        #self.codewriter.unwind()   #this causes llvm to crash?!?
 
     def malloc(self, op): 
         targetvar = self.db.repr_arg(op.result) 
@@ -244,9 +264,8 @@ class OpWriter(object):
                                           ("uint", index))        
             self.codewriter.load(targetvar, targettype, tmpvar)
         else:
-            self.codewriter.comment("***Skipping operation getfield()***",
-                                    indent=True)
-                        
+            self.codewriter.comment("***Skipping operation getfield()***")
+ 
     def getsubstruct(self, op): 
         struct, structtype = self.db.repr_argwithtype(op.args[0])
         fieldnames = list(op.args[0].concretetype.TO._names)

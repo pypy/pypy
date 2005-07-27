@@ -22,7 +22,7 @@ class ArrayTypeNode(LLVMNode):
         # constructor_decl is used to declare the constructor
         # for the array type (see writeimpl)
         c = nextnum()
-        self.ref = "%%array.%s.%s" % (c, self.arraytype)
+        self.ref = "%%arraytype.%s.%s" % (c, self.arraytype)
         self.constructor_ref = "%%new.array.%s" % c 
         self.constructor_decl = "%s * %s(int %%len)" % \
                                 (self.ref, self.constructor_ref)
@@ -101,7 +101,18 @@ class ArrayNode(ConstantLLVMNode):
                                               typeval,
                                               ", ".join(arrayvalues))
 
-        return "%s {%s}" % (self.get_typerepr(), value)
+        s = "%s {%s}" % (self.get_typerepr(), value)
+        #XXX this does not work for arrays inlined in struct. How else to do this?
+        #if typeval == 'sbyte':  #give more feedback for strings
+        #    limited_printable = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/-.'
+        #    s += ' ;"'
+        #    for item in items:
+        #        if item in limited_printable:
+        #            s += item
+        #        else:
+        #            s += '_'
+        #    s += '" '
+        return s
     
     # ______________________________________________________________________
     # entry points from genllvm

@@ -24,15 +24,18 @@ class TestClass(object):
         f = compile_function(llvmsnippet.class_simple2, [int])
         assert f(2) == 10
 
-    def SEGFAULTtest_method_of_base_class(self):
+    def test_method_of_base_class(self):
+        py.test.skip("not working yet (segfault)")
         f = compile_function(llvmsnippet.method_of_base_class, [])
         assert f() == 14
 
-    def SEGFAULTtest_attribute_from_base_class(self):
+    def test_attribute_from_base_class(self):
+        py.test.skip("not working yet (segfault)")
         f = compile_function(llvmsnippet.attribute_from_base_class, [])
         assert f() == 4
 
-    def SEGFAULTtest_direct_call_of_virtual_method(self):
+    def test_direct_call_of_virtual_method(self):
+        py.test.skip("not working yet (segfault)")
         f = compile_function(llvmsnippet.direct_call_of_virtual_method, [])
         assert f() == 14
 

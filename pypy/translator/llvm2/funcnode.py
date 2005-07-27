@@ -17,7 +17,7 @@ class FuncTypeNode(LLVMNode):
         self.type_ = type_
         # XXX Make simplier for now, it is far too hard to read otherwise
         #self.ref = 'ft.%s.%s' % (type_, nextnum())
-        self.ref = '%%ft.%s' % (nextnum(),)
+        self.ref = '%%functiontype.%s' % (nextnum(),)
         
     def __str__(self):
         return "<FuncTypeNode %r>" % self.ref
@@ -114,6 +114,10 @@ class FuncNode(ConstantLLVMNode):
             names = self.db.repr_arg_multi([link.args[i] for link in entrylinks])
             blocknames = [self.block_to_name[link.prevblock]
                               for link in entrylinks]
+            for i, link in enumerate(entrylinks):
+                if link.prevblock.exitswitch == Constant(last_exception) and \
+                   link.prevblock.exits[0].target != block:
+                    blocknames[i] += '_exception'
             if type_ != "void":
                 codewriter.phi(arg, type_, names, blocknames) 
 
@@ -137,7 +141,7 @@ class FuncNode(ConstantLLVMNode):
         opwriter = OpWriter(self.db, codewriter, self, block)
         last_direct_call_index = self._last_operation(block, 'direct_call')
         for op_index, op in enumerate(block.operations):
-            codewriter.comment(str(op), indent=True)
+            codewriter.comment(str(op))
             if op_index == last_direct_call_index and block.exitswitch == Constant(last_exception):
                 op.opname = 'direct_invoke'
             opwriter.write_operation(op)
@@ -189,4 +193,5 @@ class FuncNode(ConstantLLVMNode):
         #   Which is already stored in the global variables.
         #   So nothing needs to happen here!
 
+        codewriter.comment('reraise last exception')
         codewriter.unwind()

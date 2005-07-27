@@ -12,7 +12,7 @@ declare int %write(int, sbyte*, int)
 declare int %read(int, sbyte*, int)
 declare sbyte* %strncpy(sbyte*, sbyte*, int)
 
-%st.rpy_string.0 = type {int, {int, [0 x sbyte]}}
+%structtype.rpy_string = type {int, {int, [0 x sbyte]}}
 
 %last_exception_type  = global long 0
 %last_exception_value = global long 0
@@ -50,14 +50,14 @@ sbyte* %gc_malloc_atomic(uint %n) {
 extfunctions = {}   #dependencies, llvm-code
 
 extfunctions["%cast"] = ((), """
-sbyte* %cast(%st.rpy_string.0* %structstring) {
-    %reallengthptr = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 0
+sbyte* %cast(%structtype.rpy_string* %structstring) {
+    %reallengthptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 0
     %reallength = load int* %reallengthptr 
     %length = add int %reallength, 1
     %ulength = cast int %length to uint 
     %dest = call sbyte* %gc_malloc_atomic(uint %ulength)
 
-    %source1ptr = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 1
+    %source1ptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 1
     %source1 = cast [0 x sbyte]* %source1ptr to sbyte* 
     %dummy = call sbyte* %strncpy(sbyte* %dest, sbyte* %source1, int %reallength) 
 
@@ -117,8 +117,8 @@ void %ll_os_close(int %fd) {
 """)
 
 extfunctions["%ll_os_open"] = (("%cast",), """
-int %ll_os_open(%st.rpy_string.0* %structstring, int %flag, int %mode) {
-    %dest  = call sbyte* %cast(%st.rpy_string.0* %structstring)
+int %ll_os_open(%structtype.rpy_string* %structstring, int %flag, int %mode) {
+    %dest  = call sbyte* %cast(%structtype.rpy_string* %structstring)
     %fd    = call int    %open(sbyte* %dest, int %flag, int %mode)
     ret int %fd 
 }
@@ -126,10 +126,10 @@ int %ll_os_open(%st.rpy_string.0* %structstring, int %flag, int %mode) {
 """)
 
 extfunctions["%ll_os_write"] = (("%cast",), """
-int %ll_os_write(int %fd, %st.rpy_string.0* %structstring) {
-    %reallengthptr = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 0
+int %ll_os_write(int %fd, %structtype.rpy_string* %structstring) {
+    %reallengthptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 0
     %reallength    = load int* %reallengthptr 
-    %dest          = call sbyte* %cast(%st.rpy_string.0* %structstring)
+    %dest          = call sbyte* %cast(%structtype.rpy_string* %structstring)
     %byteswritten  = call int    %write(int %fd, sbyte* %dest, int %reallength)
     ret int %byteswritten
 }
@@ -137,11 +137,11 @@ int %ll_os_write(int %fd, %st.rpy_string.0* %structstring) {
 """)
 
 extfunctions["%ll_read_into"] = ((), """
-int %ll_read_into(int %fd, %st.rpy_string.0* %structstring) {
-    %reallengthptr = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 0
+int %ll_read_into(int %fd, %structtype.rpy_string* %structstring) {
+    %reallengthptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 0
     %reallength    = load int* %reallengthptr 
 
-    %destptr   = getelementptr %st.rpy_string.0* %structstring, int 0, uint 1, uint 1
+    %destptr   = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 1
     %dest      = cast [0 x sbyte]* %destptr to sbyte*
 
     %bytesread = call int %read(int %fd, sbyte* %dest, int %reallength)

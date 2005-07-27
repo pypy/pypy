@@ -17,7 +17,7 @@ class StructTypeNode(LLVMNode):
         self.db = db
         self.struct = struct
         self.name = "%s.%s" % (self.struct._name , nextnum())
-        self.ref = "%%st.%s" % (self.name)
+        self.ref = "%%structtype.%s" % (self.name)
         
     def __str__(self):
         return "<StructTypeNode %r>" %(self.ref,)
@@ -42,7 +42,7 @@ class StructVarsizeTypeNode(StructTypeNode):
 
     def __init__(self, db, struct): 
         super(StructVarsizeTypeNode, self).__init__(db, struct)
-        self.constructor_ref = "%%new.st.var.%s" % (self.name)
+        self.constructor_ref = "%%newvarsizestruct.%s" % (self.name)
         self.constructor_decl = "%s * %s(int %%len)" % \
                                 (self.ref, self.constructor_ref)
 
@@ -89,7 +89,7 @@ class StructNode(ConstantLLVMNode):
         self.db = db
         self.value = value
         self.structtype = self.value._TYPE
-        self.ref = "%%stinstance.%s" % (nextnum(),)
+        self.ref = "%%structinstance.%s" % (nextnum(),)
         
     def __str__(self):
         return "<StructNode %r>" % (self.ref,)

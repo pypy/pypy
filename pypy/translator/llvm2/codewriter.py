@@ -16,7 +16,7 @@ class CodeWriter(object):
         self._lines.append(line) 
         log(line) 
 
-    def comment(self, line, indent=False):
+    def comment(self, line, indent=True):
         line = ";; " + line
         if indent:
             self.indent(line)
@@ -30,6 +30,7 @@ class CodeWriter(object):
         self.append("        " + line) 
 
     def label(self, name):
+        self.newline()
         self.append("    %s:" % name)
 
     def globalinstance(self, name, typeandata):
@@ -49,18 +50,26 @@ class CodeWriter(object):
         self.append("declare %s" %(decl,))
 
     def startimpl(self):
-        self.append("")
+        self.newline()
         self.append("implementation")
-        self.append("")
+        self.newline()
 
     def br_uncond(self, blockname): 
         self.indent("br label %%%s" %(blockname,))
 
-    def br(self, switch, blockname_false, blockname_true):
+    def br(self, cond, blockname_false, blockname_true):
         self.indent("br bool %s, label %%%s, label %%%s"
-                    % (switch, blockname_true, blockname_false))
+                    % (cond, blockname_true, blockname_false))
+
+    def switch(self, intty, cond, defaultdest, value_label):
+        labels = ''
+        for value, label in value_label:
+            labels += ' %s %s, label %%%s' % (intty, value, label)
+        self.indent("switch %s %s, label %%%s [%s ]"
+                    % (intty, cond, defaultdest, labels))
 
     def openfunc(self, decl): 
+        self.newline()
         self.append("%s {" % (decl,))
 
     def closefunc(self): 

@@ -7,7 +7,7 @@ class OpaqueTypeNode(LLVMNode):
         assert isinstance(opaquetype, lltype.OpaqueType)
         self.db = db
         self.opaquetype = opaquetype
-        self.ref = "%%opaque.%s" % (opaquetype.tag)
+        self.ref = "%%opaquetype.%s" % (opaquetype.tag)
         
     def __str__(self):
         return "<OpaqueNode %r>" %(self.ref,)

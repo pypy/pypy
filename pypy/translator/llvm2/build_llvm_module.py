@@ -18,6 +18,7 @@ class CompileError(exceptions.Exception):
     pass
 
 OPTIMIZATION_SWITCHES = "-simplifycfg -mem2reg -instcombine -dce -inline"
+EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support"
 
 def compile_module(module, source_files, object_files, library_files):
     open("%s_setup.py" % module, "w").write(str(py.code.Source(
@@ -52,10 +53,10 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
         if optimize:
             cmds = ["llvm-as %s.ll -f -o %s.bc" % (b, b), 
                     "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES, b, b),
-                    "llc -enable-correct-eh-support %s_optimized.bc -f -o %s.s" % (b, b)]
+                    "llc %s %s_optimized.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)]
         else:
             cmds = ["llvm-as %s.ll -f -o %s.bc" % (b, b),
-                    "llc -enable-correct-eh-support %s.bc -f -o %s.s" % (b, b)]
+                    "llc %s %s.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)]
         cmds.append("as %s.s -o %s.o" % (b, b))
         object_files.append("%s.o" % b)
     else:       #assume 64 bit platform (x86-64?)
@@ -63,10 +64,10 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
         if optimize:
             cmds = ["llvm-as %s.ll -f -o %s.bc" % (b, b), 
                     "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES, b, b),
-                    "llc -enable-correct-eh-support %s_optimized.bc -march=c -f -o %s.c" % (b, b)]
+                    "llc %s %s_optimized.bc -march=c -f -o %s.c" % (EXCEPTIONS_SWITCHES, b, b)]
         else:
             cmds = ["llvm-as %s.ll -f -o %s.bc" % (b, b),
-                    "llc -enable-correct-eh-support %s.bc -march=c -f -o %s.c" % (b, b)]
+                    "llc %s %s.bc -march=c -f -o %s.c" % (EXCEPTIONS_SWITCHES, b, b)]
         source_files.append("%s.c" % b)
 
     try:
