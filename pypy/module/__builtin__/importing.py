@@ -107,8 +107,8 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
         space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
 
     try:
+        osfile = OsFileWrapper(fd)
         try:
-            osfile = OsFileWrapper(fd)
             if modtype == PYFILE:
                 load_source_module(space, w_modulename, w_mod, filename, osfile)
             else:
@@ -425,7 +425,7 @@ def read_compiled_module(space, cpathname, osfile):
     pycode = space.interpclass_w(w_code)
     if pycode is None:
         raise OperationError(space.w_ImportError, space.wrap(
-            "Non-code object in %.200s" % cpathname))
+            "Non-code object in %s" % cpathname))
     return pycode
 
 def load_compiled_module(space, w_modulename, w_mod, cpathname, osfile):
@@ -436,7 +436,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, osfile):
     magic = _r_long(osfile)
     if magic != pyc_magic:
         raise OperationError(space.w_ImportError, space.wrap(
-            "Bad magic number in %.200s" % cpathname))
+            "Bad magic number in %s" % cpathname))
         return NULL;
     _r_long(osfile) # skip time stamp
     code_w = read_compiled_module(space, cpathname, osfile)
