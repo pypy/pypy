@@ -1,4 +1,6 @@
 # Might probably be deprecated in Python at some point.
+import sys
+from struct import pack, unpack
 
 class buffer(object):
     """buffer(object [, offset[, size]])
@@ -12,6 +14,15 @@ extend to the end of the target object (or with the specified size).
     def __init__(self, object, offset=0, size=None):
         if isinstance(object, str):
             pass
+        elif isinstance(object, unicode):
+            str_object = ""
+            if sys.maxunicode == 65535:
+                pack_code = "H"
+            else:
+                pack_code = "I"
+            for char in object:
+                str_object += pack(pack_code, ord(char))
+            object = str_object
         elif isinstance(object, buffer):
             object = object.buf
         else:
