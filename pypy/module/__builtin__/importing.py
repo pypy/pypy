@@ -455,6 +455,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, osfile):
         raise OperationError(space.w_ImportError, w(
             "Bad magic number in %s" % cpathname))
     _r_long(osfile) # skip time stamp
+    print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, osfile)
     #if (Py_VerboseFlag)
     #    PySys_WriteStderr("import %s # precompiled from %s\n",

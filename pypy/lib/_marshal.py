@@ -229,10 +229,10 @@ class _StringBuffer:
         self.bufpos = 0
 
     def read(self, n):
-        start = self.bufpos
-        end = start + n
-        ret = self.bufstr[start:end]
-        self.bufpos = end
+        pos = self.bufpos
+        newpos = pos + n
+        ret = self.bufstr[pos : newpos]
+        self.bufpos = newpos
         return ret
 
 
@@ -270,7 +270,9 @@ class _Unmarshaller:
         x = a | (b<<8) | (c<<16) | (d<<24)
         if d & 0x80 and x > 0:
             x = -((1L<<32) - x)
-        return int(x)
+            return int(x)
+        else:
+            return x
 
     def r_long64(self):
         a = ord(self._read(1))
@@ -423,6 +425,226 @@ class _Unmarshaller:
         return frozenset(args)
     dispatch[TYPE_FROZENSET] = load_frozenset
 
+# ________________________________________________________________
+
+def _read(self, n):
+    pos = self.bufpos
+    newpos = pos + n
+    ret = self.bufstr[pos : newpos]
+    self.bufpos = newpos
+    return ret
+
+def _read1(self):
+    ret = self.bufstr[self.bufpos]
+    self.bufpos += 1
+    return ret
+
+def _r_short(self):
+    lo = ord(_read1(self))
+    hi = ord(_read1(self))
+    x = lo | (hi<<8)
+    if x & 0x8000:
+        x = x - 0x10000
+    return x
+
+def _r_long(self):
+    # inlined this most common case
+    p = self.bufpos
+    s = self.bufstr
+    a = ord(s[p])
+    b = ord(s[p+1])
+    c = ord(s[p+2])
+    d = ord(s[p+3])
+    self.bufpos += 4
+    x = a | (b<<8) | (c<<16) | (d<<24)
+    if d & 0x80 and x > 0:
+        x = -((1L<<32) - x)
+        return int(x)
+    else:
+        return x
+
+def _r_long64(self):
+    a = ord(_read1(self))
+    b = ord(_read1(self))
+    c = ord(_read1(self))
+    d = ord(_read1(self))
+    e = long(ord(_read1(self)))
+    f = long(ord(_read1(self)))
+    g = long(ord(_read1(self)))
+    h = long(ord(_read1(self)))
+    x = a | (b<<8) | (c<<16) | (d<<24)
+    x = x | (e<<32) | (f<<40) | (g<<48) | (h<<56)
+    if h & 0x80 and x > 0:
+        x = -((1L<<64) - x)
+    return x
+
+_load_dispatch = {}
+
+class _FastUnmarshaller:
+
+    dispatch = {}
+
+    def __init__(self, buffer):
+        self.bufstr = buffer
+        self.bufpos = 0
+        self._stringtable = []
+
+    def load(self):
+        # make flow space happy
+        c = '?'
+        try:
+            c = self.bufstr[self.bufpos]
+            self.bufpos += 1
+            return _load_dispatch[c](self)
+        except KeyError:
+            raise ValueError, "bad marshal code: %c (%d)" % (c, ord(c))
+        except IndexError:
+            raise EOFError
+
+    def load_null(self):
+        return _NULL
+    dispatch[TYPE_NULL] = load_null
+
+    def load_none(self):
+        return None
+    dispatch[TYPE_NONE] = load_none
+
+    def load_true(self):
+        return True
+    dispatch[TYPE_TRUE] = load_true
+
+    def load_false(self):
+        return False
+    dispatch[TYPE_FALSE] = load_false
+
+    def load_stopiter(self):
+        return StopIteration
+    dispatch[TYPE_STOPITER] = load_stopiter
+
+    def load_ellipsis(self):
+        return Ellipsis
+    dispatch[TYPE_ELLIPSIS] = load_ellipsis
+
+    def load_int(self):
+        return _r_long(self)
+    dispatch[TYPE_INT] = load_int
+
+    def load_int64(self):
+        return _r_long64(self)
+    dispatch[TYPE_INT64] = load_int64
+
+    def load_long(self):
+        size = _r_long(self)
+        sign = 1
+        if size < 0:
+            sign = -1
+            size = -size
+        x = 0L
+        for i in range(size):
+            d = _r_short(self)
+            x = x | (d<<(i*15L))
+        return x * sign
+    dispatch[TYPE_LONG] = load_long
+
+    def load_float(self):
+        n = ord(_read1(self))
+        s = _read(self, n)
+        return float(s)
+    dispatch[TYPE_FLOAT] = load_float
+
+    def load_complex(self):
+        n = ord(_read1(self))
+        s = _read(self, n)
+        real = float(s)
+        n = ord(_read1(self))
+        s = _read(self, n)
+        imag = float(s)
+        return complex(real, imag)
+    dispatch[TYPE_COMPLEX] = load_complex
+
+    def load_string(self):
+        n = _r_long(self)
+        return _read(self, n)
+    dispatch[TYPE_STRING] = load_string
+
+    def load_interned(self):
+        n = _r_long(self)
+        ret = intern(_read(self, n))
+        self._stringtable.append(ret)
+        return ret
+    dispatch[TYPE_INTERNED] = load_interned
+
+    def load_stringref(self):
+        n = _r_long(self)
+        return self._stringtable[n]
+    dispatch[TYPE_STRINGREF] = load_stringref
+
+    def load_unicode(self):
+        n = _r_long(self)
+        s = _read(self, n)
+        ret = s.decode('utf8')
+        return ret
+    dispatch[TYPE_UNICODE] = load_unicode
+
+    def load_tuple(self):
+        return tuple(self.load_list())
+    dispatch[TYPE_TUPLE] = load_tuple
+
+    def load_list(self):
+        n = _r_long(self)
+        list = []
+        for i in range(n):
+            list.append(self.load())
+        return list
+    dispatch[TYPE_LIST] = load_list
+
+    def load_dict(self):
+        d = {}
+        while 1:
+            key = self.load()
+            if key is _NULL:
+                break
+            value = self.load()
+            d[key] = value
+        return d
+    dispatch[TYPE_DICT] = load_dict
+
+    def load_code(self):
+        argcount = _r_long(self)
+        nlocals = _r_long(self)
+        stacksize = _r_long(self)
+        flags = _r_long(self)
+        code = self.load()
+        consts = self.load()
+        names = self.load()
+        varnames = self.load()
+        freevars = self.load()
+        cellvars = self.load()
+        filename = self.load()
+        name = self.load()
+        firstlineno = _r_long(self)
+        lnotab = self.load()
+        if not new:
+            raise RuntimeError, "can't unmarshal code objects; no 'new' module"
+        return new.code(argcount, nlocals, stacksize, flags, code, consts,
+                        names, varnames, filename, name, firstlineno, lnotab,
+                        freevars, cellvars)
+    dispatch[TYPE_CODE] = load_code
+
+    def load_set(self):
+        n = _r_long(self)
+        args = [self.load() for i in range(n)]
+        return set(args)
+    dispatch[TYPE_SET] = load_set
+
+    def load_frozenset(self):
+        n = _r_long(self)
+        args = [self.load() for i in range(n)]
+        return frozenset(args)
+    dispatch[TYPE_FROZENSET] = load_frozenset
+
+_load_dispatch = _FastUnmarshaller.dispatch
+
 try:
     set
 except NameError:
@@ -445,6 +667,5 @@ def dumps(x):
     return ''.join(buffer)
 
 def loads(s):
-    buffer = _StringBuffer(s)
-    um = _Unmarshaller(buffer.read)
+    um = _FastUnmarshaller(s)
     return um.load()

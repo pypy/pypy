@@ -365,6 +365,9 @@ class GenRpy:
                 # shortcutting references to __builtin__
                 if id(obj) in self.builtin_ids:
                     func = self.builtin_ids[id(obj)]
+                    #name = self.get_nameof_builtin_func(func)
+                    # the above is quicker in principle, but pulls more
+                    # stuff in, so it is slower right now.
                     name = "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
                 else:
                     for cls in type(obj).__mro__:
@@ -385,6 +388,27 @@ class GenRpy:
             assert x is stackentry
             self.rpynames[key] = name
             return name
+
+    def get_nameof_builtin_func(self, func):
+        # this is a hack!
+        # in some cases, like exceptions, we don't have space.builtin available,
+        #so we crate a fall-back...
+        name = self.uniquename('gbltin_' + func.__name__)
+        self.initcode.append1('''\
+try:
+    # see if we have space.builtin in this context
+    space.builtin
+except AttributeError:
+    print "didn't get", %(bltin)r
+    def %(name)s(space, __args__):
+        w_func = space.builtin.get(%(bltin)r)
+        return space.call_args(w_func, __args__)
+    %(name)s = space.wrap(gateway.interp2app(%(name)s, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
+else:
+        print "got it:", %(bltin)r
+        %(name)s = space.builtin.get(%(bltin)r)'''
+        % {'name': name, 'bltin': func.__name__} )
+        return name
 
     def uniquename(self, basename):
         name = self.namespace.uniquename(basename)
