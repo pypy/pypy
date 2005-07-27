@@ -77,8 +77,23 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.6'  # bump this for substantial changes
+GI_VERSION = '1.1.7'  # bump this for substantial changes
 # ____________________________________________________________
+
+try:
+    set
+except NameError:
+    class fake_set(object):
+        pass
+    class fake_frozenset(object):
+        pass
+    builtin_set = fake_set
+    builtin_frozenset = fake_frozenset
+    faked_set = True
+else:
+    builtin_set = set
+    builtin_frozenset = frozenset
+    faked_set = False
 
 def eval_helper(self, typename, expr):
     name = self.uniquename("gtype_%s" % typename)
@@ -791,8 +806,8 @@ class GenRpy:
             "type((lambda:42).__get__(42))"),
         property: (eval_helper, "property", 'property'),
         type(Ellipsis): (eval_helper, 'EllipsisType', 'types.EllipsisType'),
-        set: (eval_helper, "set", "set"),
-        frozenset: (eval_helper, "frozenset", "frozenset"),
+        builtin_set: (eval_helper, "set", "set"),
+        builtin_frozenset: (eval_helper, "frozenset", "frozenset"),
         buffer: (eval_helper, "buffer", "buffer"),
     }
 
@@ -1344,16 +1359,27 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         raise Exception, "cannot find pypy/lib directory"
     sys.path.insert(0, libdir)
     try:
-        exec code in dic
-    finally:
-        if libdir in sys.path:
-            sys.path.remove(libdir)
+        if faked_set:
+            import __builtin__
+            __builtin__.set = fake_set
+            __builtin__.frozenset = fake_frozenset
+        try:
+            exec code in dic
+        finally:
+            if libdir in sys.path:
+                sys.path.remove(libdir)
 
-    entrypoint = dic
-    t = Translator(None, verbose=False, simplifying=needed_passes,
-                   do_imports_immediately=do_imports_immediately,
-                   builtins_can_raise_exceptions=True)
-    gen = GenRpy(t, entrypoint, modname, dic)
+        entrypoint = dic
+        t = Translator(None, verbose=False, simplifying=needed_passes,
+                       do_imports_immediately=do_imports_immediately,
+                       builtins_can_raise_exceptions=True)
+        gen = GenRpy(t, entrypoint, modname, dic)
+
+    finally:
+        if faked_set:
+            del __builtin__.set
+            del __builtin__.frozenset
+
     if tmpname:
         _file = file
     else:
@@ -1361,7 +1387,16 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         tmpname = 'nada'
     out = _file(tmpname, 'w')
     gen.f = out
-    gen.gen_source(tmpname, file=_file)
+    try:
+        if faked_set:
+            import __builtin__
+            __builtin__.set = fake_set
+            __builtin__.frozenset = fake_frozenset
+        gen.gen_source(tmpname, file=_file)
+    finally:
+        if faked_set:
+            del __builtin__.set
+            del __builtin__.frozenset
     out.close()
     newsrc = _file(tmpname).read()
     code = py.code.Source(newsrc).compile()
