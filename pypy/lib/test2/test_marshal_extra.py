@@ -1,8 +1,8 @@
-import py
 import autopath
+import py
 import sys
 import marshal as cpy_marshal
-from pypy.module.marshal import app_marshal as marshal
+from pypy.lib import marshal
 
 from pypy.tool.udir import udir 
 

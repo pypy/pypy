@@ -145,7 +145,6 @@ class ObjSpace(object):
             builtinmodule_list.append(('unicodedata', None))
             #  Uncomment the following line to enable the builtin _codecs module
             builtinmodule_list.append(('_codecs', None))
-            builtinmodule_list.append(('marshal', None))
             if self.options.useparsermodule == "recparser":
                 builtinmodule_list.append(('parser', 'recparser'))
             elif self.options.useparsermodule == "parser":

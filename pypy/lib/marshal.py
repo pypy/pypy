@@ -1,10 +1,10 @@
-"""Marshal module written in Python.
+"""Internal Python object serialization
+
+This module contains functions that can read and write Python values in a binary format. The format is specific to Python, but independent of machine architecture issues (e.g., you can write a Python value to a file on a PC, transport the file to a Sun, and read it back there). Details of the format may change between Python versions.
 """
 
 import types
-import os
-
-from pypy.tool.osfilewrapper import OsFileWrapper
+from osfilewrapper import OsFileWrapper
 
 try:
     import new
