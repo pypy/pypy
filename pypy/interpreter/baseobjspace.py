@@ -141,7 +141,7 @@ class ObjSpace(object):
             return self._builtinmodule_list
         except AttributeError:
             builtinmodule_list = [('sys', None), ('__builtin__', None),
-                                  ('exceptions', None)]
+                                  ('exceptions', None), ('marshal', None)]
             builtinmodule_list.append(('unicodedata', None))
             #  Uncomment the following line to enable the builtin _codecs module
             builtinmodule_list.append(('_codecs', None))
@@ -172,7 +172,7 @@ class ObjSpace(object):
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
 
         for modname, mixedname in self.get_builtinmodule_list():
-            if modname not in ('sys', '__builtin__', 'exceptions'):
+            if modname not in ('sys', '__builtin__', 'exceptions', 'marshal'):
                 self.setbuiltinmodule(modname, mixedname)
         
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
