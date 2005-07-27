@@ -126,7 +126,7 @@ Annotator
 
 The annotator itself (``pypy.translator.annrpython``) works by
 propagating the annotations forward in the flow graphs, starting at some
-entry point function, possibly with explicitely provided annotations
+entry point function, possibly with explicitly provided annotations
 about the entry point's input arguments.  It considers each operation in
 the flow graph in turn.  Each operation takes a few input arguments
 (Variables and Constants) and produce a single result (a Variable).
@@ -623,8 +623,8 @@ representation.
 a very limited, easily controllable set of types, and define implementations of
 types like list in this elementary world.  The ``malloc()`` function is a kind
 of placeholder, which must eventually be provided by the code generator for the
-target platform; but as we have just seen its Python implementation in `
-rpython/lltype.py`_ works too, which is primarily useful for testing,
+target platform; but as we have just seen its Python implementation in 
+`rpython/lltype.py`_ works too, which is primarily useful for testing,
 interactive exploring, etc.
 
 The argument to ``malloc()`` is the structure type directly, but it returns a
@@ -634,7 +634,7 @@ pointer to the structure, as ``typeOf()`` tells you::
     <ptr(gc) to GcStruct point { x: Signed, y: Signed }>
 
 For the purpose of creating structures with pointers to other structures, we can
-declare pointer types explicitely::
+declare pointer types explicitly::
 
     >>> typeOf(p) == Ptr(POINT)
     True
@@ -722,7 +722,7 @@ You can build arrays whose items are either primitive or pointer types, or
 (non-GC non-varsize) structures.
 
 GcArrays can be malloc()ed.  The length must be specified when malloc() is
-called, and arrays cannot be resized; this length is stored explicitely in a
+called, and arrays cannot be resized; this length is stored explicitly in a
 header.
 
 The non-GC version of Array can be used as the last field of a structure, to
