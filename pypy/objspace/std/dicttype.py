@@ -100,3 +100,7 @@ dict_typedef = StdTypeDef("dict",
                         unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )
 dict_typedef.registermethods(globals())
+
+
+dictiter_typedef = StdTypeDef("dictionaryiterator",
+    )

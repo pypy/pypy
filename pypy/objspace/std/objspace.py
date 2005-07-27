@@ -14,11 +14,11 @@ import types
 import sys
 import os
 
+_registered_implementations = {}
 def registerimplementation(implcls):
-    # this function should ultimately register the implementation class somewhere
-    # it may be modified to take 'typedef' instead of requiring it to be
-    # stored in 'implcls' itself
+    # hint to objspace.std.model to register the implementation class
     assert issubclass(implcls, W_Object)
+    _registered_implementations[implcls] = True
 
 
 ##################################################################

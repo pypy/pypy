@@ -49,6 +49,7 @@ class StdTypeModel:
         from pypy.objspace.std import noneobject
         from pypy.objspace.std import iterobject
         from pypy.objspace.std import unicodeobject
+        from pypy.objspace.std import dictproxyobject
         from pypy.objspace.std import fake
         import pypy.objspace.std.default # register a few catch-all multimethods
 
@@ -61,6 +62,7 @@ class StdTypeModel:
             tupleobject.W_TupleObject: [],
             listobject.W_ListObject: [],
             dictobject.W_DictObject: [],
+            dictobject.W_DictIterObject: [],
             stringobject.W_StringObject: [],
             typeobject.W_TypeObject: [],
             sliceobject.W_SliceObject: [],
@@ -68,9 +70,16 @@ class StdTypeModel:
             noneobject.W_NoneObject: [],
             iterobject.W_SeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
+            dictproxyobject.W_DictProxyObject: [],
             }
         for type in self.typeorder:
             self.typeorder[type].append((type, None))
+
+        # check if we missed implementations
+        from pypy.objspace.std.objspace import _registered_implementations
+        for implcls in _registered_implementations:
+            assert implcls in self.typeorder, (
+                "please add %r in StdTypeModel.typeorder" % (implcls,))
 
         # register the order in which types are converted into each others
         # when trying to dispatch multimethods.

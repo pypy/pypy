@@ -170,10 +170,8 @@ def contains__Dict_ANY(space, w_dict, w_lookup):
 dict_has_key__Dict_ANY = contains__Dict_ANY
 
 def iter__Dict(space, w_dict):
-    from pypy.objspace.std import iterobject
-    w_keys = dict_keys__Dict(space, w_dict)
-    return iterobject.W_SeqIterObject(space, w_keys)
-    
+    return W_DictIter_Keys(space, w_dict)
+
 def eq__Dict_Dict(space, w_left, w_right):
     if space.is_true(space.is_(w_left, w_right)):
         return space.w_True
@@ -255,6 +253,15 @@ def dict_values__Dict(space, w_self):
                            for entry in w_self.data
                            if entry.w_value is not None])
 
+def dict_iteritems__Dict(space, w_self):
+    return W_DictIter_Items(space, w_self)
+
+def dict_iterkeys__Dict(space, w_self):
+    return W_DictIter_Keys(space, w_self)
+
+def dict_itervalues__Dict(space, w_self):
+    return W_DictIter_Values(space, w_self)
+
 def dict_clear__Dict(space, w_self):
     w_self.data = [Entry()]
     w_self.used = 0
@@ -297,6 +304,59 @@ def str__Dict(space, w_dict):
     return dictstr(space, w_currently_in_repr, w_dict)
 
 repr__Dict = str__Dict
+
+
+# ____________________________________________________________
+# Iteration
+
+class W_DictIterObject(W_Object):
+    from pypy.objspace.std.dicttype import dictiter_typedef as typedef
+
+    def __init__(w_self, space, w_dictobject):
+        W_Object.__init__(w_self, space)
+        w_self.w_dictobject = w_dictobject
+        w_self.len = w_dictobject.used
+        w_self.pos = 0
+
+registerimplementation(W_DictIterObject)
+
+class W_DictIter_Keys(W_DictIterObject):
+    def return_entry(w_self, entry):
+        return entry.w_key
+
+class W_DictIter_Values(W_DictIterObject):
+    def return_entry(w_self, entry):
+        return entry.w_value
+
+class W_DictIter_Items(W_DictIterObject):
+    def return_entry(w_self, entry):
+        return w_self.space.newtuple([entry.w_key, entry.w_value])
+
+
+def iter__DictIterObject(space, w_dictiter):
+    return w_dictiter
+
+def next__DictIterObject(space, w_dictiter):
+    w_dict = w_dictiter.w_dictobject
+    if w_dict is not None:
+        if w_dictiter.len != w_dict.used:
+            w_dictiter.len = -1   # Make this error state sticky
+            raise OperationError(space.w_RuntimeError,
+                     space.wrap("dictionary changed size during iteration"))
+        # look for the next entry
+        i = w_dictiter.pos
+        data = w_dict.data
+        while i < len(data):
+            entry = data[i]
+            i += 1
+            if entry.w_value is not None:
+                w_dictiter.pos = i
+                return w_dictiter.return_entry(entry)
+        # no more entries
+        w_dictiter.w_dictobject = None
+    raise OperationError(space.w_StopIteration, space.w_None)
+
+# ____________________________________________________________
 
 from pypy.objspace.std import dicttype
 register_all(vars(), dicttype)
