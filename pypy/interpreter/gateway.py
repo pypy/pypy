@@ -508,7 +508,7 @@ class ApplevelClass:
     name at app-level."""
 
     hidden_applevel = True
-    use_geninterp = False    # change this to disable geninterp globally
+    use_geninterp = True    # change this to disable geninterp globally
 
     def __init__(self, source, filename = None, modname = '__builtin__'):
         self.filename = filename
