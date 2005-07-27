@@ -5,7 +5,7 @@ import pypy.interpreter.pycode
 from pypy.tool.udir import udir 
 import sys, os
 import tempfile, marshal
-from pypy.tool.osfilewrapper import OsFileWrapper
+from pypy.lib._osfilewrapper import OsFileWrapper
 
 from pypy.module.__builtin__.importing import BIN_READMASK
 

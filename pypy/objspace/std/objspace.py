@@ -80,6 +80,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_instance = W_TypeObject(self, 'instance', [self.w_object], {})
         self.setup_old_style_classes()
 
+        #early bootstrap for marshal
+        mod = self.setup_marshal()
+        self.sys.setmodule(self.wrap(mod))
+
         # fix up a problem where multimethods apparently don't 
         # like to define this at interp-level 
         self.appexec([self.w_dict], """
@@ -111,21 +115,34 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # sanity check that this approach is working and is not too late
         assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_classobj'))),"app-level code has seen dummy old style classes"
         assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_instance'))),"app-level code has seen dummy old style classes"
-        # generate on-the-fly
-        class Fake: pass
-        fake = Fake()
-        import pypy.lib as lib
-        fname = os.path.join(os.path.split(lib.__file__)[0], '_classobj.py')
-        fake.filename = fname
-        fake.source = file(fname).read()
-        fake.modname = 'classobj'
-        w_dic = PyPyCacheDir.build_applevelinterp_dict(fake, self)
+        mod, w_dic = self.create_builtin_module('_classobj.py', 'classobj')
         w_purify = self.getitem(w_dic, self.wrap('purify'))
         w_classobj = self.getitem(w_dic, self.wrap('classobj'))
         w_instance = self.getitem(w_dic, self.wrap('instance'))
         self.call_function(w_purify)
         self.w_classobj = w_classobj
         self.w_instance = w_instance
+
+    def setup_marshal(self):
+        mod, w_dic = self.create_builtin_module('_marshal.py', 'marshal')
+        return mod
+
+    def create_builtin_module(self, pyname, publicname):
+        """NOT_RPYTHON
+        helper function which returns the new unwrapped module and its waapped dict.
+        """
+        # generate on-the-fly
+        class Fake: pass
+        fake = Fake()
+        import pypy.lib as lib
+        fname = os.path.join(os.path.split(lib.__file__)[0], pyname)
+        fake.filename = fname
+        fake.source = file(fname).read()
+        fake.modname = publicname
+        w_dic = PyPyCacheDir.build_applevelinterp_dict(fake, self)
+        from pypy.interpreter.module import Module
+        mod = Module(self, self.wrap(publicname), w_dic)
+        return mod, w_dic
 
     def setuselibfile(self): 
         """ NOT_RPYTHON use our application level file implementation
@@ -172,18 +189,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 bases = [space.w_object]
             res = W_TypeObject(space, name, bases, dic)
             return res
-        # generate on-the-fly
-        class Fake: pass
-        fake = Fake()
-        import pypy.lib as lib
-        fname = os.path.join(os.path.split(lib.__file__)[0], '_exceptions.py')
-        fake.filename = fname
-        fake.source = file(fname).read()
-        fake.modname = 'exceptions'
         try:
             # note that we hide the real call method by an instance variable!
             self.call = call
-            w_dic = PyPyCacheDir.build_applevelinterp_dict(fake, self)
+            mod, w_dic = self.create_builtin_module('_exceptions.py', 'exceptions')
 
             self.w_IndexError = self.getitem(w_dic, self.wrap("IndexError"))
             self.w_StopIteration = self.getitem(w_dic, self.wrap("StopIteration"))
@@ -198,11 +207,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 excname = name
                 w_exc = self.getitem(w_dic, w_name)
                 setattr(self, "w_"+excname, w_exc)
-                        
-        # XXX refine things, clean up, create a builtin module...
-        # but for now, we do a regular one.
-        from pypy.interpreter.module import Module
-        return Module(self, self.wrap("exceptions"), w_dic)
+
+        return mod
 
     def createexecutioncontext(self):
         # add space specific fields to execution context

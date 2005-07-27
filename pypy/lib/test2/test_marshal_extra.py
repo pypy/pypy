@@ -2,7 +2,7 @@ import autopath
 import py
 import sys
 import marshal as cpy_marshal
-from pypy.lib import marshal
+from pypy.lib import _marshal as marshal
 
 from pypy.tool.udir import udir 
 

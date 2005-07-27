@@ -4,7 +4,7 @@ This module contains functions that can read and write Python values in a binary
 """
 
 import types
-from osfilewrapper import OsFileWrapper
+from _osfilewrapper import OsFileWrapper
 
 try:
     import new
