@@ -30,7 +30,7 @@ PYCFILE = 2
 
 import stat
 
-def info_modtype(filepart):
+def info_modtype(space ,filepart):
     """
     calculate whether the .py file exists, the .pyc file exists
     and whether the .pyc file has the correct mtime entry.
@@ -49,7 +49,7 @@ def info_modtype(filepart):
     
     pycfile = filepart + ".pyc"    
     if os.path.exists(pycfile):
-        pyc_state = check_compiled_module(pyfile, pyfile_ts, pycfile)
+        pyc_state = check_compiled_module(space, pyfile, pyfile_ts, pycfile)
         pycfile_exists = pyc_state >= 0
         pycfile_ts_valid = pyc_state > 0 and pyfile_exist
     else:
@@ -58,10 +58,10 @@ def info_modtype(filepart):
         
     return pyfile_exist, pycfile_exists, pycfile_ts_valid
 
-def find_modtype(filepart):
+def find_modtype(space, filepart):
     """ This is the way pypy does it.  A pyc is only used if the py file exists AND
     the pyc file contains the timestamp of the py. """
-    pyfile_exist, pycfile_exists, pycfile_ts_valid = info_modtype(filepart)
+    pyfile_exist, pycfile_exists, pycfile_ts_valid = info_modtype(space, filepart)
     if pycfile_ts_valid:
         return PYCFILE
     elif pyfile_exist:
@@ -69,10 +69,10 @@ def find_modtype(filepart):
     else:
         return NOFILE
     
-def find_modtype_cpython(filepart):
+def find_modtype_cpython(space, filepart):
     """ This is the way cpython does it (where the py file doesnt exist but there
     is a valid pyc file. """  
-    pyfile_exist, pycfile_exists, pycfile_ts_valid = info_modtype(filepart)
+    pyfile_exist, pycfile_exists, pycfile_ts_valid = info_modtype(space, filepart)
     if pycfile_ts_valid:
         return PYCFILE
     elif pyfile_exist:
@@ -85,7 +85,7 @@ def find_modtype_cpython(filepart):
 def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None):
 
     # decide what type we want (pyc/py)
-    modtype = find_modtype(filepart)
+    modtype = find_modtype(space, filepart)
 
     if modtype == NOFILE:
         return None
@@ -394,7 +394,7 @@ def _w_long(osfile, x):
     d = x & 0xff
     osfile.write(chr(a) + chr(b) + chr(c) + chr(d))
 
-def check_compiled_module(pathname, mtime, cpathname):
+def check_compiled_module(space, pathname, mtime, cpathname):
     """
     Given a pathname for a Python source file, its time of last
     modification, and a pathname for a compiled file, check whether the
@@ -403,6 +403,15 @@ def check_compiled_module(pathname, mtime, cpathname):
     the header; if not, return NULL.
     Doesn't set an exception.
     """
+    #XXX Umph, we would need codecs to read codecs.pyc
+    # because of the unicode constants in it
+    if cpathname[-10:] == "codecs.pyc":
+        return -1
+    try:
+        w_marshal = space.getbuiltinmodule('marshal')
+    except OperationError:
+        print "skipped checking of", cpathname
+        return -1
     fd = os.open(cpathname, BIN_READMASK, 0666) # using no defaults
     osfile = OsFileWrapper(fd)
     magic = _r_long(osfile)
@@ -423,7 +432,7 @@ def check_compiled_module(pathname, mtime, cpathname):
 
 def read_compiled_module(space, cpathname, osfile):
     """ Read a code object from a file and check it for validity """
-
+    
     w_marshal = space.getbuiltinmodule('marshal')
     fd = osfile.fd
     size = os.fstat(fd)[stat.ST_SIZE] - os.lseek(fd, 0, 1)
