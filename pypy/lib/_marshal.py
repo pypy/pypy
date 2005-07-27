@@ -4,7 +4,6 @@ This module contains functions that can read and write Python values in a binary
 """
 
 import types
-from _osfilewrapper import OsFileWrapper
 
 try:
     import new
@@ -38,21 +37,8 @@ class _Marshaller:
 
     dispatch = {}
 
-    def __init__(self, fd):
-        if fd >= 0:
-            self.fd_wrapper = OsFileWrapper(fd)
-        else:
-            self.fd_wrapper = None
-        self.buffer = []
-
-    def _write(self, data):
-        if self.fd_wrapper is not None:
-            self.fd_wrapper.write(data)
-        else:
-            self.buffer.append(data)
-
-    def getvalue(self):
-        return ''.join(self.buffer)
+    def __init__(self, writefunc):
+        self._write = writefunc
 
     def dump(self, x):
         try:
@@ -71,10 +57,14 @@ class _Marshaller:
         self.w_long(x>>32)
 
     def w_long(self, x):
-        self._write(chr((x)     & 0xff))
-        self._write(chr((x>> 8) & 0xff))
-        self._write(chr((x>>16) & 0xff))
-        self._write(chr((x>>24) & 0xff))
+        a = chr(x & 0xff)
+        x >>= 8
+        b = chr(x & 0xff)
+        x >>= 8
+        c = chr(x & 0xff)
+        x >>= 8
+        d = chr(x & 0xff)
+        self._write(a + b + c + d)
 
     def w_short(self, x):
         self._write(chr((x)     & 0xff))
@@ -233,42 +223,29 @@ class _Marshaller:
 class _NULL:
     pass
 
+class _StringBuffer:
+    def __init__(self, value):
+        self.bufstr = value
+        self.bufpos = 0
+
+    def read(self, n):
+        ret = self.bufstr[self.bufpos : self.bufpos+n]
+        self.bufpos += n
+        if self.bufpos > len(self.bufstr):
+            raise EOFError, "read past buffer"
+        return ret
+
+
 class _Unmarshaller:
 
     dispatch = {}
 
-    def __init__(self, fd):
-        if fd >= 0:
-            self.fd_wrapper = OsFileWrapper(fd)
-        else:
-            self.fd_wrapper = None
-        self.bufstr = ''
-        self.bufpos = 0
+    def __init__(self, readfunc):
+        self._read = readfunc
         self._stringtable = []
 
-    def _read(self):
-        if self.fd_wrapper is not None:
-            return self.fd_wrapper.read(1)
-        else:
-            ret = self.bufstr[self.bufpos]
-            self.bufpos += 1
-            return ret
-
-    def _readn(self, n):
-        if self.fd_wrapper is not None:
-            return self.fd_wrapper.read(n)
-        else:
-            ret = self.bufstr[self.bufpos : self.bufpos+n]
-            self.bufpos += n
-            if self.bufpos > len(self.bufstr):
-                raise EOFError, "read past buffer"
-            return ret
-
-    def setvalue(self, data):
-        self.bufstr = data
-
     def load(self):
-        c = self._read()
+        c = self._read(1)
         if not c:
             raise EOFError
         try:
@@ -277,32 +254,33 @@ class _Unmarshaller:
             raise ValueError, "bad marshal code: %c (%d)" % (c, ord(c))
 
     def r_short(self):
-        lo = ord(self._read())
-        hi = ord(self._read())
+        lo = ord(self._read(1))
+        hi = ord(self._read(1))
         x = lo | (hi<<8)
         if x & 0x8000:
             x = x - 0x10000
         return x
 
     def r_long(self):
-        a = ord(self._read())
-        b = ord(self._read())
-        c = ord(self._read())
-        d = ord(self._read())
+        s = self._read(4)
+        a = ord(s[0])
+        b = ord(s[1])
+        c = ord(s[2])
+        d = ord(s[3])
         x = a | (b<<8) | (c<<16) | (d<<24)
         if d & 0x80 and x > 0:
             x = -((1L<<32) - x)
         return int(x)
 
     def r_long64(self):
-        a = ord(self._read())
-        b = ord(self._read())
-        c = ord(self._read())
-        d = ord(self._read())
-        e = long(ord(self._read()))
-        f = long(ord(self._read()))
-        g = long(ord(self._read()))
-        h = long(ord(self._read()))
+        a = ord(self._read(1))
+        b = ord(self._read(1))
+        c = ord(self._read(1))
+        d = ord(self._read(1))
+        e = long(ord(self._read(1)))
+        f = long(ord(self._read(1)))
+        g = long(ord(self._read(1)))
+        h = long(ord(self._read(1)))
         x = a | (b<<8) | (c<<16) | (d<<24)
         x = x | (e<<32) | (f<<40) | (g<<48) | (h<<56)
         if h & 0x80 and x > 0:
@@ -355,29 +333,29 @@ class _Unmarshaller:
     dispatch[TYPE_LONG] = load_long
 
     def load_float(self):
-        n = ord(self._read())
-        s = self._readn(n)
+        n = ord(self._read(1))
+        s = self._read(n)
         return float(s)
     dispatch[TYPE_FLOAT] = load_float
 
     def load_complex(self):
-        n = ord(self._read())
-        s = self._readn(n)
+        n = ord(self._read(1))
+        s = self._read(n)
         real = float(s)
-        n = ord(self._read())
-        s = self._readn(n)
+        n = ord(self._read(1))
+        s = self._read(n)
         imag = float(s)
         return complex(real, imag)
     dispatch[TYPE_COMPLEX] = load_complex
 
     def load_string(self):
         n = self.r_long()
-        return self._readn(n)
+        return self._read(n)
     dispatch[TYPE_STRING] = load_string
 
     def load_interned(self):
         n = self.r_long()
-        ret = intern(self._readn(n))
+        ret = intern(self._read(n))
         self._stringtable.append(ret)
         return ret
     dispatch[TYPE_INTERNED] = load_interned
@@ -389,7 +367,7 @@ class _Unmarshaller:
 
     def load_unicode(self):
         n = self.r_long()
-        s = self._readn(n)
+        s = self._read(n)
         ret = s.decode('utf8')
         return ret
     dispatch[TYPE_UNICODE] = load_unicode
@@ -459,17 +437,20 @@ except NameError:
     frozenset = set
 
 def dump(x, f):
-    _Marshaller(f.fileno()).dump(x)
+    m = _Marshaller(f.write)
+    m.dump(x)
 
 def load(f):
-    return _Unmarshaller(f.fileno()).load()
+    um = _Unmarshaller(f.read)
+    return um.load()
 
 def dumps(x):
-    m = _Marshaller(-1)
+    buffer = []
+    m = _Marshaller(buffer.append)
     m.dump(x)
-    return m.getvalue()
+    return ''.join(buffer)
 
 def loads(s):
-    um = _Unmarshaller(-1)
-    um.setvalue(s)
+    buffer = _StringBuffer(s)
+    um = _Unmarshaller(buffer.read)
     return um.load()

@@ -2,11 +2,12 @@
 Implementation of the interpreter-level default import logic.
 """
 
-import sys, os
+import sys, os, stat
 
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.eval import Code
 from pypy.lib._osfilewrapper import OsFileWrapper
 from pypy.rpython.rarithmetic import intmask
 
@@ -99,7 +100,7 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
     else:
         assert modtype == PYCFILE
         filename = filepart + ".pyc"
-        fd = os.open(filename, os.O_RDONLY, 0777)
+        fd = os.open(filename, BIN_READMASK, 0777)
 
     space.sys.setmodule(w_mod)
     space.setattr(w_mod, w('__file__'), space.wrap(filename))
@@ -347,6 +348,7 @@ def parse_source_module(space, pathname, osfile):
     w_pathname = w(pathname)
     w_code = space.builtin.call('compile', w_source, w_pathname, w_mode) 
     pycode = space.interpclass_w(w_code)
+    assert isinstance(pycode, Code)   # hint to the annotator
     return pycode
 
 def load_source_module(space, w_modulename, w_mod, pathname, osfile):
@@ -365,7 +367,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, osfile):
 
     mtime = os.fstat(osfile.fd)[stat.ST_MTIME]
     cpathname = pathname + 'c'
-    #XXXwrite_compiled_module(space, pycode, cpathname, mtime)
+    write_compiled_module(space, pycode, cpathname, mtime)
 
     return w_mod
 
@@ -423,11 +425,12 @@ def read_compiled_module(space, cpathname, osfile):
     """ Read a code object from a file and check it for validity """
 
     w_marshal = space.getbuiltinmodule('marshal')
-    w_U = space.getattr(w_marshal, space.wrap('_Unmarshaller'))
-    w_unmarshaller = space.call_function(w_U, space.wrap(osfile.fd))
-    w_code = space.call_method(w_unmarshaller, 'load')
+    fd = osfile.fd
+    size = os.fstat(fd)[stat.ST_SIZE] - os.lseek(fd, 0, 1)
+    strbuf = osfile.read(size)
+    w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
     pycode = space.interpclass_w(w_code)
-    if pycode is None:
+    if pycode is None or not isinstance(pycode, Code):
         raise OperationError(space.w_ImportError, space.wrap(
             "Non-code object in %s" % cpathname))
     return pycode
@@ -437,9 +440,10 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, osfile):
     Load a module from a compiled file, execute it, and return its
     module object.
     """
+    w = space.wrap
     magic = _r_long(osfile)
     if magic != pyc_magic:
-        raise OperationError(space.w_ImportError, space.wrap(
+        raise OperationError(space.w_ImportError, w(
             "Bad magic number in %s" % cpathname))
         return NULL;
     _r_long(osfile) # skip time stamp
@@ -447,7 +451,10 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, osfile):
     #if (Py_VerboseFlag)
     #    PySys_WriteStderr("import %s # precompiled from %s\n",
     #        name, cpathname);
-    w_dic = space.getattr(w_mod, space.wrap('__dict__'))
+    w_dic = space.getattr(w_mod, w('__dict__'))
+    space.call_method(w_dic, 'setdefault', 
+                      w('__builtins__'), 
+                      w(space.builtin))
     code_w.exec_code(space, w_dic, w_dic)
     return w_mod
 
@@ -459,12 +466,21 @@ def write_compiled_module(space, co, cpathname, mtime):
     Errors are ignored, if a write error occurs an attempt is made to
     remove the file.
     """
+    # see if marshal exists, already.
+    # if not, skip the writing.
+    try:
+        w_marshal = space.getbuiltinmodule('marshal')
+    except OperationError:
+        print "skipped writing of", cpathname
+        return
+    else:
+        print "indeed writing", cpathname
     fd = os.open(cpathname, BIN_WRITEMASK, 0777)
     osfile = OsFileWrapper(fd)
     _w_long(osfile, pyc_magic)
     _w_long(osfile, mtime)
-    w_marshal = space.getbuiltinmodule('marshal')
-    w_M = space.getattr(w_marshal, space.wrap('_Marshaller'))
-    w_marshaller = space.call_function(w_M, space.wrap(fd))
-    w_res = space.call_method(w_marshaller, 'dump', space.wrap(co))
+    w_M = space.getattr(w_marshal, space.wrap('dumps'))
+    w_str = space.call_method(w_marshal, 'dumps', space.wrap(co))
+    strbuf = space.str_w(w_str)
+    osfile.write(strbuf)
     os.close(fd)
