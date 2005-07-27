@@ -9,28 +9,13 @@ from pypy.lib._osfilewrapper import OsFileWrapper
 
 from pypy.module.__builtin__ import importing
 
-
-def compile_pyfile(space, pathname):
-    import time
-    fd = os.open(pathname, importing.BIN_READMASK, 0777)
-    osfile = OsFileWrapper(fd)
-    w_ret = importing.parse_source_module(space,
-                                          pathname,
-                                          osfile)        
-    osfile.close()
-    pycode = space.interpclass_w(w_ret)
-    assert type(pycode) is pypy.interpreter.pycode.PyCode
-
-    importing.write_compiled_module(space,
-                                    pycode,
-                                    pathname + "c",
-                                    int(time.time()))
+def get_import_path():
+    j = os.path.join
+    p = os.path.abspath(j(os.path.dirname(__file__), 'impsubdir'))
+    return p
 
 def _setup(space):
-    j = os.path.join
-    dn = os.path.abspath(j(os.path.dirname(__file__), 'impsubdir'))
-    compile_pyfile(space, j(j(dn, "compiled"), "x.py"))
-    
+    dn = get_import_path()
     return space.appexec([space.wrap(dn)], """
         (dn): 
             import sys
@@ -181,7 +166,7 @@ class AppTestImport:
             import pkg.pkg2.b
         raises(ImportError,imp_b)
 
-    def Xtest_pyc(self):
+    def test_pyc(self):
         import sys
         import compiled.x
         assert compiled.x == sys.modules.get('compiled.x')
