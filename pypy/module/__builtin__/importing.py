@@ -8,6 +8,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.lib._osfilewrapper import OsFileWrapper
+from pypy.rpython.rarithmetic import intmask
 
 # XXX this uses the os.path module at interp-level, which means
 # XXX that translate_pypy will produce a translated version of
@@ -370,14 +371,15 @@ def load_source_module(space, w_modulename, w_mod, pathname, osfile):
 
 # helper, to avoid exposing internals of marshal and the
 # difficulties of using it though applevel.
+_r_correction = intmask(1L<<32)    # == 0 on 32-bit machines
 def _r_long(osfile):
     a = ord(osfile.read(1))
     b = ord(osfile.read(1))
     c = ord(osfile.read(1))
     d = ord(osfile.read(1))
     x = a | (b<<8) | (c<<16) | (d<<24)
-    if d & 0x80 and x > 0:
-        x = -((1L<<32) - x)
+    if _r_correction and d & 0x80 and x > 0:
+        x -= _r_correction
     return int(x)
 
 def _w_long(osfile, x):
