@@ -4,8 +4,14 @@ from pypy.interpreter.mixedmodule import MixedModule
 import os
 
 class Module(MixedModule):
+    """This module provides access to operating system functionality that is
+standardized by the C Standard and the POSIX standard (a thinly
+disguised Unix interface).  Refer to the library manual and
+corresponding Unix manual entries for more information on calls."""
+
     appleveldefs = {
-    'error'     : 'app_posix.error',
+    'error'      : 'app_posix.error',
+    'stat_result': 'app_posix.stat_result',
     }
     
     interpleveldefs = {
@@ -19,8 +25,6 @@ class Module(MixedModule):
     'fstat'     : 'interp_posix.fstat',
     'stat'      : 'interp_posix.stat',
     'dup'       : 'interp_posix.dup',
-    '__doc__'   : "space.wrap('Posix module')",
-    '__name__'  : "space.wrap('The builtin posix module')",
     }
 
 for constant in ['EX_CANTCREAT', 'EX_CONFIG', 'EX_DATAERR', 'EX_IOERR',
