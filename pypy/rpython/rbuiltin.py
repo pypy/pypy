@@ -207,6 +207,9 @@ def rtype_instantiate(hop):
     klass = s_class.const
     return rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)
 
+def rtype_we_are_translated(hop):
+    return hop.inputconst(lltype.Bool, True)
+
 
 # collect all functions
 import __builtin__
@@ -257,6 +260,7 @@ BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
 BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
+BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
 
 from pypy.rpython import extfunctable
 

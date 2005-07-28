@@ -38,7 +38,9 @@ def target():
     # XXX why can't I enable this? crashes the annotator!
     gateway.ApplevelClass.use_geninterp = False
 
-    space = StdObjSpace(nofaking=True) 
+    space = StdObjSpace(nofaking=True,
+                        compiler="pyparseapp",
+                        translating=True)
 
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')

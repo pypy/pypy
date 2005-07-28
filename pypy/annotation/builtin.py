@@ -233,6 +233,9 @@ def robjmodel_instantiate(s_clspbc):
             clsdef = clsdef.commonbase(getbookkeeper().getclassdef(cls))
     return SomeInstance(clsdef)
 
+def robjmodel_we_are_translated():
+    return immutablevalue(True)
+
 
 ##def rarith_ovfcheck(s_obj):
 ##    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
@@ -269,6 +272,8 @@ BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_uint] = restricted_uint
 ##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.instantiate] = robjmodel_instantiate
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
+    robjmodel_we_are_translated)
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init

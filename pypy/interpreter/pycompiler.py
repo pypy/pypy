@@ -4,6 +4,7 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 """
 from codeop import PyCF_DONT_IMPLY_DEDENT
 from pypy.interpreter.error import OperationError
+from pypy.rpython.objectmodel import we_are_translated
 
 
 class AbstractCompiler:
@@ -266,6 +267,13 @@ class PythonCompilerApp(PythonCompiler):
 
     def compile_parse_result(self, parse_result, filename, mode):
         space = self.space
+        if space.options.translating and not we_are_translated():
+            # to avoid to spend too much time in the app-level compiler
+            # while translating PyPy, we can cheat here.  The annotator
+            # doesn't see this because it thinks that we_are_translated()
+            # returns True.
+            return PythonCompiler.compile_parse_result(self, parse_result,
+                                                       filename, mode)
         source_encoding, stack_element = parse_result
         w_nested_tuples = stack_element.as_w_tuple(space, lineno=True)
         if source_encoding is not None:

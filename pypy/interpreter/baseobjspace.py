@@ -108,6 +108,7 @@ class ObjSpace(object):
                  uselibfile=False,
                  parser="recparser", 
                  compiler="pyparse",
+                 translating=False,
                  **kw
                  ): 
         "NOT_RPYTHON: Basic initialization of objects."
@@ -121,6 +122,7 @@ class ObjSpace(object):
         self.options.uselibfile = uselibfile or nofaking
         self.options.compiler = compiler 
         self.options.usemodules = usemodules 
+        self.options.translating = translating
         self.setoptions(**kw)
         self.initialize()
 

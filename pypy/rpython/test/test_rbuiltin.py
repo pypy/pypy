@@ -1,6 +1,6 @@
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test import test_llinterp
-from pypy.rpython.objectmodel import instantiate
+from pypy.rpython.objectmodel import instantiate, we_are_translated
 from pypy.rpython import lltype
 from pypy.objspace.flow import model as flowmodel
 from pypy.tool import udir
@@ -211,3 +211,8 @@ def test_isinstance_list():
     res = interpret(f, [1])
     assert res is False    
 
+def test_we_are_translated():
+    def f():
+        return we_are_translated()
+    res = interpret(f, [])
+    assert res is True and f() is False

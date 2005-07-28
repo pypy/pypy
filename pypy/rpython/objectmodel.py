@@ -12,3 +12,7 @@ def instantiate(cls):
         return object.__new__(cls)
     else:
         return new.instance(cls)
+
+def we_are_translated():
+    return False
+# annotation -> True
