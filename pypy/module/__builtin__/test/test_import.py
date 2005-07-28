@@ -196,6 +196,7 @@ class TestPycStuff:
     # ___________________ .pyc related stuff _________________
 
     def test_check_compiled_module(self):
+        py.test.skip('pyc file support disabled for now')
         space = self.space
         pathname = "whatever"
         mtime = 12345
@@ -224,6 +225,7 @@ class TestPycStuff:
         os.remove(cpathname)
 
     def test_read_compiled_module(self):
+        py.test.skip('pyc file support disabled for now')
         space = self.space
         pathname = "whatever"
         mtime = 12345
@@ -242,6 +244,7 @@ class TestPycStuff:
         assert ret == 42
 
     def test_load_compiled_module(self):
+        py.test.skip('pyc file support disabled for now')
         space = self.space
         pathname = "whatever"
         mtime = 12345
@@ -313,6 +316,7 @@ class TestPycStuff:
         #XXX Note tested while no writing
 
     def test_write_compiled_module(self):
+        py.test.skip('pyc file support disabled for now')
         space = self.space
         pathname = _testfilesource()
         fd = os.open(pathname, importing.BIN_READMASK, 0777)
