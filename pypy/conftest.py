@@ -18,12 +18,16 @@ Option = py.test.Config.Option
 
 option = py.test.Config.addoptions("pypy options", 
         Option('-O', '--objspace', action="store", default=None, 
-               type="string", dest="objspacename", 
+               type="string", dest="objspace", 
                help="object space to run tests on."),
         Option('--oldstyle', action="store_true",dest="oldstyle", default=False,
-               help="enable oldstyle classes as default metaclass (std objspace only)"),
-        Option('--file', action="store_true",dest="uselibfile", default=False,
-               help="enable our custom file implementation"),
+               help="enable oldstyle classes as default metaclass"),
+        Option('--uselibfile', action="store_true", 
+               dest="uselibfile", default=False,
+               help="enable our applevel file implementation"),
+        Option('--nofaking', action="store_true", 
+               dest="nofaking", default=False,
+               help="avoid faking of modules and objects completely."),
         Option('--allpypy', action="store_true",dest="allpypy", default=False, 
                help="run everything possible on top of PyPy."),
     )
@@ -31,24 +35,17 @@ option = py.test.Config.addoptions("pypy options",
 def getobjspace(name=None, _spacecache={}): 
     """ helper for instantiating and caching space's for testing. 
     """ 
-    if name is None: 
-        name = option.objspacename 
-        if name is None:
-            name = py.std.os.environ.get('OBJSPACE', 'std')
-    else:
-        optionname = option.objspacename 
-        if optionname is not None and optionname != name:
-            return None
+    name = name or option.objspace or 'std' 
     try:
         return _spacecache[name]
     except KeyError:
-        import pypy.tool.option
-        spaceoptions = pypy.tool.option.Options()
-        spaceoptions.uselibfile = option.uselibfile
-        #py.magic.invoke(compile=True)
-        module = __import__("pypy.objspace.%s" % name, None, None, ["Space"])
+        assert name in ('std', 'thunk'), name 
+        from pypy.objspace.std import Space 
         try: 
-            space = module.Space(spaceoptions)
+            space = Space(uselibfile=option.uselibfile, 
+                          nofaking=option.nofaking, 
+                          oldstyle=option.oldstyle,
+                          )
         except KeyboardInterrupt: 
             raise 
         except OperationError, e: 
@@ -64,17 +61,14 @@ def getobjspace(name=None, _spacecache={}):
                 traceback.print_exc() 
             py.test.fail("fatal: cannot initialize objspace:  %r" %(module.Space,))
         _spacecache[name] = space
-        if name == 'std' and option.oldstyle: 
-            space.enable_old_style_classes_as_default_metaclass()
-        if name != 'flow': # not sensible for flow objspace case
-            space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
-                          appsupport.build_pytest_assertion(space))
-            space.setitem(space.builtin.w_dict, space.wrap('raises'),
-                          space.wrap(appsupport.app_raises))
-            space.setitem(space.builtin.w_dict, space.wrap('skip'),
-                          space.wrap(appsupport.app_skip))
-            space.raises_w = appsupport.raises_w.__get__(space)
-            space.eq_w = appsupport.eq_w.__get__(space) 
+        space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
+                      appsupport.build_pytest_assertion(space))
+        space.setitem(space.builtin.w_dict, space.wrap('raises'),
+                      space.wrap(appsupport.app_raises))
+        space.setitem(space.builtin.w_dict, space.wrap('skip'),
+                      space.wrap(appsupport.app_skip))
+        space.raises_w = appsupport.raises_w.__get__(space)
+        space.eq_w = appsupport.eq_w.__get__(space) 
         return space
 
 # 
@@ -142,8 +136,7 @@ class IntTestFunction(PyPyTestFunction):
     def execute(self, target, *args):
         co = target.func_code
         if 'space' in co.co_varnames[:co.co_argcount]: 
-            name = target.func_globals.get('objspacename', None) 
-            space = gettestobjspace(name) 
+            space = gettestobjspace() 
             target(space, *args)  
         else:
             target(*args)
@@ -157,8 +150,7 @@ class IntTestFunction(PyPyTestFunction):
 class AppTestFunction(PyPyTestFunction): 
     def execute(self, target, *args):
         assert not args 
-        name = target.func_globals.get('objspacename', None) 
-        space = gettestobjspace(name) 
+        space = gettestobjspace() 
         func = app2interp_temp(target)
         print "executing", func
         self.execute_appex(space, func, space)
@@ -175,11 +167,7 @@ class IntClassCollector(py.test.collect.Class):
 
     def setup(self): 
         cls = self.obj 
-        name = getattr(cls, 'objspacename', None) 
-        if name is None: 
-            m = __import__(cls.__module__, {}, {}, ["objspacename"])
-            name = getattr(m, 'objspacename', None) 
-        cls.space = gettestobjspace(name) 
+        cls.space = gettestobjspace() 
         super(IntClassCollector, self).setup() 
 
 class AppClassInstance(py.test.collect.Instance): 

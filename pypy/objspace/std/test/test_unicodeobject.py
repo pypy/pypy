@@ -4,7 +4,6 @@
 import autopath, sys
 
 
-objspacename = 'std'
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):

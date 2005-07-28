@@ -169,7 +169,7 @@ def get_operations():
             del operations[name]
     return operations
 
-def create_trace_space(space = None, operations = None):    
+def create_trace_space(space, operations = None):    
     """ Will create a trace object space if no space supplied.  Otherwise
     will turn the supplied into a tracable space by extending its class."""
 
@@ -177,12 +177,6 @@ def create_trace_space(space = None, operations = None):
     if hasattr(space, "__pypytrace__"):
         return space
     
-    if space is None:
-        # make up a TrivialObjSpace by default
-        # ultimately, remove this hack and fix the -P option of tests
-        from pypy.objspace import trivial
-        space = trivial.TrivialObjSpace()
-
     if operations is None:
         operations = get_operations()
 

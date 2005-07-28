@@ -4,7 +4,6 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.interpreter.error import OperationError
 
 
-objspacename = 'std'
 
 class TestW_TupleObject:
 

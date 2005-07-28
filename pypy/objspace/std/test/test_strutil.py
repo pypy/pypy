@@ -4,7 +4,6 @@ from pypy.objspace.std.strutil import *
 
 import py
 
-objspacename = 'std'
 
 class TestStrUtil:
 

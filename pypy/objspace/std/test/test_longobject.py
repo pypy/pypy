@@ -6,7 +6,6 @@ from pypy.objspace.std.objspace import FailedToImplement
 from pypy.interpreter.error import OperationError
 from pypy.rpython.rarithmetic import r_uint # will go away
 
-objspacename = 'std'
 
 def gen_signs(l):
     for s in l:

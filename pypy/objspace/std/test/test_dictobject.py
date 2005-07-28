@@ -2,7 +2,6 @@ import autopath
 from pypy.objspace.std.dictobject import W_DictObject
 
 
-objspacename = 'std'
 
 class TestW_DictObject:
 

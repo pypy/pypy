@@ -2,7 +2,6 @@
 Implementation of interpreter-level 'sys' routines.
 """
 import pypy
-#from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 
 import sys, os 
@@ -50,7 +49,7 @@ class State:
         builtinmodule_list = self.space.get_builtinmodule_list()
         builtinmodule_names = [name for name, mixedname in builtinmodule_list]
 
-        if not space.options.nofakedmodules:
+        if not space.options.nofaking:
             for modname in ALL_BUILTIN_MODULES:
                 if modname not in builtinmodule_names:
                     if not (os.path.exists(

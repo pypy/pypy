@@ -1,6 +1,7 @@
 from pypy.rpython.lltype import *
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
+from pypy.objspace.flow import FlowObjSpace 
 
 # helpers
 
@@ -17,7 +18,8 @@ def derived(op, orig):
         return None
 
 class TestLowLevelAnnotateTestCase:
-    objspacename = 'flow'
+    def setup_class(cls): 
+        cls.space = FlowObjSpace() 
 
     from pypy.translator.annrpython import RPythonAnnotator
 

@@ -4,7 +4,6 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
 
-objspacename = 'std'
 
 class TestW_ListObject:
 

@@ -1,6 +1,7 @@
 import autopath
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.operation import FunctionByName
+from pypy.objspace.flow import FlowObjSpace 
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
 from pypy.translator.translator import Translator
 
@@ -95,7 +96,8 @@ def operationtestfn():
 
 
 class TestOperations:
-    objspacename = 'flow'
+    def setup_class(cls): 
+        cls.space = FlowObjSpace() 
 
     def build_cfunc(self, graph):
         t = Translator()

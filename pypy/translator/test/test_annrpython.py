@@ -11,6 +11,7 @@ from pypy.annotation.listdef import ListDef
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
 from pypy.rpython.rarithmetic import r_uint
+from pypy.objspace.flow import FlowObjSpace
 
 from pypy.translator.test import snippet
 
@@ -34,7 +35,8 @@ def somedict(s_key=annmodel.SomeObject(), s_value=annmodel.SomeObject()):
 
 
 class TestAnnotateTestCase:
-    objspacename = 'flow'
+    def setup_class(cls): 
+        cls.space = FlowObjSpace() 
 
     from pypy.translator.annrpython import RPythonAnnotator
 

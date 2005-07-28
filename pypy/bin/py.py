@@ -12,7 +12,7 @@ except ImportError:
     pass
 
 from pypy.tool import option
-from pypy.tool.optik import make_option
+from optparse import make_option
 from pypy.interpreter import main, interactive, error
 import os, sys
 import time
@@ -53,6 +53,24 @@ def get_main_options():
         
     return options
 
+def make_objspace(cmdlineopt): 
+    from pypy.objspace import std 
+    if cmdlineopt.objspace not in ('std', 'thunk'): 
+        raise ValueError("cannot instantiate %r space" %(cmdlineopt.objspace,))
+
+    # so far we always need a StdObjSpace 
+    space = std.Space(usemodules = cmdlineopt.usemodules, 
+                  nofaking = cmdlineopt.nofaking,
+                  uselibfile = cmdlineopt.uselibfile,
+                  oldstyle = cmdlineopt.oldstyle, 
+                  parser = cmdlineopt.parser, 
+                  compiler = cmdlineopt.compiler,
+            ) 
+    if cmdlineopt.objspace == 'thunk': 
+        from pypy.objspace import thunk
+        space = thunk.Space(space) 
+    return space 
+            
 def main_(argv=None):
     starttime = time.time() 
     args = option.process_options(get_main_options(), Options, argv[1:])
@@ -60,7 +78,9 @@ def main_(argv=None):
         error.RECORD_INTERPLEVEL_TRACEBACK = True
 
     # create the object space
-    space = option.objspace()
+
+    space = make_objspace(Options) 
+
     space._starttime = starttime
     assert 'pypy.tool.udir' not in sys.modules, (
         "running py.py should not import pypy.tool.udir, which is\n"

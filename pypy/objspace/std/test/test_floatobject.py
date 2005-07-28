@@ -2,7 +2,6 @@ import autopath
 from pypy.objspace.std import floatobject as fobj
 from pypy.objspace.std.objspace import FailedToImplement
 
-objspacename = 'std'
 
 class TestW_FloatObject:
 

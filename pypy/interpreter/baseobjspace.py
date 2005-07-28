@@ -6,7 +6,6 @@ from pypy.interpreter.pycompiler import PythonCompiler, PyPyCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache 
 from pypy.rpython.rarithmetic import r_uint
-import pypy.tool.option
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
            'W_Root']
@@ -94,6 +93,9 @@ class SpaceCache(Cache):
         finally:
             self.space.leave_cache_building_mode(val)
 
+class ObjSpaceOptions: 
+    def _freeze_(self): 
+        return True
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
@@ -101,17 +103,22 @@ class ObjSpace(object):
     
     full_exceptions = True  # full support for exceptions (normalization & more)
 
-    def __init__(self, options=None):
+    def __init__(self, usemodules=(), 
+                 nofaking=False, 
+                 uselibfile=False,
+                 parser="recparser", 
+                 compiler="pyparse"): 
         "NOT_RPYTHON: Basic initialization of objects."
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
         # set recursion limit
         # sets all the internal descriptors
-        
-        # XXX: Options in option.py is replaced by a function so
-        # it's not really clean to do a from option import Options
-        # since changing import order can change the Options object
-        self.options = options or pypy.tool.option.Options()
+        self.options = ObjSpaceOptions() 
+        self.options.parser = parser 
+        self.options.nofaking = nofaking
+        self.options.uselibfile = uselibfile or nofaking
+        self.options.compiler = compiler 
+        self.options.usemodules = usemodules 
         self.initialize()
 
     def __repr__(self):
@@ -140,21 +147,26 @@ class ObjSpace(object):
         try:
             return self._builtinmodule_list
         except AttributeError:
-            builtinmodule_list = [('sys', None), ('__builtin__', None),
-                                  ('exceptions', None), ('marshal', None)]
-            builtinmodule_list.append(('unicodedata', None))
-            #  Uncomment the following line to enable the builtin _codecs module
-            builtinmodule_list.append(('_codecs', None))
-            if self.options.useparsermodule == "recparser":
-                builtinmodule_list.append(('parser', 'recparser'))
-                builtinmodule_list.append(('symbol', None))
-            elif self.options.useparsermodule == "parser":
-                builtinmodule_list.append(('parser', None))
-            if self.options.nofakedmodules:
-                builtinmodule_list.append(('posix', None))
-            builtinmodule_list.append(('math', None))
-            self._builtinmodule_list = builtinmodule_list
-            return self._builtinmodule_list
+            pass
+
+        l = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs']
+
+        if self.options.nofaking:
+            l.append('posix')
+            l.append('math')
+
+        for name in self.options.usemodules: 
+            if name not in l: 
+                l.append(name) 
+
+        builtinmodule_list = [(x, None) for x in l]
+        if self.options.parser == "recparser":
+            builtinmodule_list.append(('parser', 'recparser'))
+            builtinmodule_list.append(('symbol', None))
+        elif self.options.parser == "parser":
+            builtinmodule_list.append(('parser', None))
+        self._builtinmodule_list = builtinmodule_list
+        return self._builtinmodule_list
 
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."

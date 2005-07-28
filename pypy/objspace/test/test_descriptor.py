@@ -52,7 +52,6 @@ class AppTest_Descriptor:
         assert A.seen == [1,2,3,4]
 
 class TestDesciprtorOnStd: 
-    objspacename = 'std' 
     def test_hash(self): 
         class A:
             pass 

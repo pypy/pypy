@@ -3,14 +3,16 @@ from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
 from pypy.objspace.flow.model import flatten
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
-
-objspacename = 'flow'
+from pypy.objspace.flow import FlowObjSpace 
 
 import os
 import operator
 is_operator = getattr(operator, 'is_', operator.eq) # it's not there 2.2
 
 class TestFlowObjSpace:
+    def setup_class(cls): 
+        cls.space = FlowObjSpace() 
+
     def codetest(self, func):
         import inspect
         try:

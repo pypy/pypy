@@ -3,7 +3,6 @@ from pypy.objspace.std import stringobject
 from pypy.objspace.std.stringobject import W_StringObject
 
 
-objspacename = 'std'
 
 class TestW_StringObject:
 

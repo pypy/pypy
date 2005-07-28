@@ -3,7 +3,6 @@ import autopath
 # NB. instmethobject.py has been removed,
 # but the following tests still make sense
 
-objspacename = 'std'
 
 class AppTestInstMethObjectApp:
     def test_callBound(self):

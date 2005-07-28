@@ -5,6 +5,7 @@ from pypy.tool.udir import udir
 from pypy.translator.java.genjava import GenJava
 from pypy.translator.test import snippet
 from pypy.translator.translator import Translator
+from pypy.objspace.flow import FlowObjSpace
 
 
 def setup_module(mod): 
@@ -16,7 +17,8 @@ def setup_module(mod):
 
 class TestNoTypeCGenTestCase:
 
-    objspacename = 'flow'
+    def setup_class(cls):
+        cls.space = FlowObjSpace() 
 
     def build_jfunc(self, func):
         try: func = func.im_func

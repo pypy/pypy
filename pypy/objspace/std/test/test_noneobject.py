@@ -1,7 +1,6 @@
 import autopath
 
 
-objspacename = 'std'
 
 class TestW_NoneObject:
 

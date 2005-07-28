@@ -13,7 +13,6 @@ while i == l and type(i) is int:
 #print machbits
 
 
-objspacename = 'std'
 
 class Test_r_int:
 

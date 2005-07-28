@@ -52,7 +52,6 @@ import autopath
 ##                                              w({'x1': 5.5, 'x2': 7})),
 ##                               w(-1.5))
 
-objspacename = 'std'
 
 class AppTestTypeObject:
     def test_bases(self):

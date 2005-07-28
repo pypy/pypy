@@ -2,6 +2,7 @@ import autopath
 from pypy.tool.udir import udir
 import py 
 import os
+from pypy.objspace.flow import FlowObjSpace 
 
 def setup_module(mod): 
     mod.global_cl = os.getenv("PYPY_CL")
@@ -36,7 +37,8 @@ from pypy.translator.test import snippet as t
 from pypy.translator.tool.buildcl import Literal
 
 class TestGenCLTestCase:
-    objspacename = 'flow'
+    def setup_class(cls): 
+        cls.space = FlowObjSpace() 
 
     def setup_method(self,method):
         if not global_cl:

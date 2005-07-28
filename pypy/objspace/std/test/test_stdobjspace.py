@@ -2,7 +2,6 @@ import autopath
 from pypy.interpreter.error import OperationError
 
 
-objspacename = 'std'
 
 class TestW_StdObjSpace:
 

@@ -1,6 +1,5 @@
 import autopath
 
-objspacename = 'std'
 
 class AppTestUserObject:
     def test_dictproxy(self):

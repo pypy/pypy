@@ -1,6 +1,7 @@
 import autopath
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
 from pypy.translator.translator import Translator
+from pypy.objspace.flow import FlowObjSpace 
 
 from pypy.translator.test import snippet 
 
@@ -9,7 +10,8 @@ from pypy.translator.tool import buildpyxmodule
 buildpyxmodule.enable_fast_compilation()
 
 class TestNoTypeCGenTestCase:
-    objspacename = 'flow'
+    def setup_class(cls): 
+        cls.space = FlowObjSpace() 
 
     def build_cfunc(self, func, *morefuncs):
         try: func = func.im_func

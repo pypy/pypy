@@ -1,10 +1,12 @@
 from pypy.rpython.lltype import *
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
 from pypy.translator.translator import Translator
+from pypy.objspace.flow import FlowObjSpace 
 
 
 class TestLowLevelType:
-    objspacename = 'flow'
+    def setup_class(cls): 
+        cls.space = FlowObjSpace() 
 
     def getcompiled(self, func, argstypelist=[]):
         t = Translator(func, simplifying=True)

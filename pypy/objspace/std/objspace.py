@@ -29,6 +29,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     PACKAGE_PATH = 'objspace.std'
 
+    def __init__(self, oldstyle=False, **kw): 
+        super(StdObjSpace, self).__init__(**kw)
+        self.options.oldstyle = oldstyle 
+        if oldstyle: 
+            self.enable_old_style_classes_as_default_metaclass()
+
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
         self._typecache = Cache()
@@ -97,7 +103,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         """) 
 
         if self.options.uselibfile:
-            self.setuselibfile() 
+            self.inituselibfile() 
 
         # XXX hack!: patch the compiler after initialization is complete
         if self.options.compiler == 'pyparseapp':
@@ -150,7 +156,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         w_mod = self.wrap(mod)
         return w_mod, w_dic
 
-    def setuselibfile(self): 
+    def inituselibfile(self): 
         """ NOT_RPYTHON use our application level file implementation
             including re-wrapping sys.stdout/err/in
         """ 
@@ -158,7 +164,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         space = self
         # nice print helper if the below does not work 
         # (we dont have prints working at applevel before
-        # setuselibfile is complete)
+        # inituselibfile is complete)
         #from pypy.interpreter import gateway 
         #def printit(space, w_msg): 
         #    s = space.str_w(w_msg) 
@@ -273,7 +279,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.call_function(c,
                                       self.wrap(x.real), 
                                       self.wrap(x.imag))
-        # anything below this line is implicitly XXX'ed
+
+        if self.options.nofaking:
+            # annotation should actually not get here 
+            raise OperationError(self.w_RuntimeError,
+                                 self.wrap("nofaking enabled: refusing "
+                                           "to wrap cpython value %r" %(x,)))
         if isinstance(x, type(Exception)) and issubclass(x, Exception):
             w_result = self.wrap_exception_cls(x)
             if w_result is not None:

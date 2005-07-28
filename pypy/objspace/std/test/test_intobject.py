@@ -4,7 +4,6 @@ from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.objspace import FailedToImplement
 from pypy.rpython.rarithmetic import r_uint
 
-objspacename = 'std'
 
 class TestW_IntObject:
 

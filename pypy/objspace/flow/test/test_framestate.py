@@ -5,10 +5,12 @@ from py.test import raises
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import *
 from pypy.interpreter.pycode import PyCode
-
-objspacename = 'flow'
+from pypy.objspace.flow import FlowObjSpace
 
 class TestFrameState:
+    def setup_class(cls):
+        cls.space = FlowObjSpace() 
+
     def getframe(self, func):
         space = self.space
         try:

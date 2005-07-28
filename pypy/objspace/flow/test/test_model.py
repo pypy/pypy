@@ -1,10 +1,12 @@
 import autopath
 
 from pypy.objspace.flow.model import *
-
-objspacename = 'flow'
+from pypy.objspace.flow import FlowObjSpace
 
 class TestModel:
+    def setup_class(cls): 
+        cls.space = FlowObjSpace() 
+
     def getflow(self, func):
         import inspect
         try:
