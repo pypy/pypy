@@ -3,9 +3,7 @@
 # adds a new map token_values to avoid doing getattr on the module
 # from PyPy RPython
 
-import token
-
-N_TOKENS = token.N_TOKENS
+N_TOKENS = 0
 
 tok_name = {}
 tok_values = {}
@@ -23,13 +21,62 @@ def add_token(name, value=None):
 # This is used to replace None
 add_token( 'NULLTOKEN', -1 )
 
-for value, name in token.tok_name.items():
-    add_token( name, value )
+# For compatibility, this produces the same constant values as Python 2.4.
+add_token( 'ENDMARKER' )
+add_token( 'NAME' )
+add_token( 'NUMBER' )
+add_token( 'STRING' )
+add_token( 'NEWLINE' )
+add_token( 'INDENT' )
+add_token( 'DEDENT' )
+add_token( 'LPAR' )
+add_token( 'RPAR' )
+add_token( 'LSQB' )
+add_token( 'RSQB' )
+add_token( 'COLON' )
+add_token( 'COMMA' )
+add_token( 'SEMI' )
+add_token( 'PLUS' )
+add_token( 'MINUS' )
+add_token( 'STAR' )
+add_token( 'SLASH' )
+add_token( 'VBAR' )
+add_token( 'AMPER' )
+add_token( 'LESS' )
+add_token( 'GREATER' )
+add_token( 'EQUAL' )
+add_token( 'DOT' )
+add_token( 'PERCENT' )
+add_token( 'BACKQUOTE' )
+add_token( 'LBRACE' )
+add_token( 'RBRACE' )
+add_token( 'EQEQUAL' )
+add_token( 'NOTEQUAL' )
+add_token( 'LESSEQUAL' )
+add_token( 'GREATEREQUAL' )
+add_token( 'TILDE' )
+add_token( 'CIRCUMFLEX' )
+add_token( 'LEFTSHIFT' )
+add_token( 'RIGHTSHIFT' )
+add_token( 'DOUBLESTAR' )
+add_token( 'PLUSEQUAL' )
+add_token( 'MINEQUAL' )
+add_token( 'STAREQUAL' )
+add_token( 'SLASHEQUAL' )
+add_token( 'PERCENTEQUAL' )
+add_token( 'AMPEREQUAL' )
+add_token( 'VBAREQUAL' )
+add_token( 'CIRCUMFLEXEQUAL' )
+add_token( 'LEFTSHIFTEQUAL' )
+add_token( 'RIGHTSHIFTEQUAL' )
+add_token( 'DOUBLESTAREQUAL' )
+add_token( 'DOUBLESLASH' )
+add_token( 'DOUBLESLASHEQUAL' )
+add_token( 'AT' )
+add_token( 'OP' )
+add_token( 'ERRORTOKEN' )
 
-# Make sure '@' is in the token list
-if "AT" not in tok_values:
-    add_token( "AT" )
-
+# extra PyPy-specific tokens
 add_token( "COMMENT" )
 add_token( "NL" )
 

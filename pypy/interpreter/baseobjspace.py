@@ -147,6 +147,7 @@ class ObjSpace(object):
             builtinmodule_list.append(('_codecs', None))
             if self.options.useparsermodule == "recparser":
                 builtinmodule_list.append(('parser', 'recparser'))
+                builtinmodule_list.append(('symbol', None))
             elif self.options.useparsermodule == "parser":
                 builtinmodule_list.append(('parser', None))
             if self.options.nofakedmodules:
