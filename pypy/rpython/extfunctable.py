@@ -83,21 +83,24 @@ declare(os.path.isdir, bool         , 'll_os_path/isdir')
 declare(time.time   , float         , 'll_time/time')
 declare(time.clock  , float         , 'll_time/clock')
 declare(time.sleep  , noneannotation, 'll_time/sleep')
-declare(math.log10  , float         , 'll_math/log10')
-declare(math.log    , float         , 'll_math/log')
-declare(math.cos    , float         , 'll_math/cos')
-declare(math.sin    , float         , 'll_math/sin')
-declare(math.sinh   , float         , 'll_math/sinh')
-declare(math.cosh   , float         , 'll_math/cosh')
-declare(math.acos   , float         , 'll_math/acos')
-declare(math.sqrt   , float         , 'll_math/sqrt')
-declare(math.hypot  , float         , 'll_math/hypot')
-declare(math.ceil   , float         , 'll_math/ceil')
+
+# ___________________________
+# math functions
+
 declare(math.frexp  , frexpannotation, 'll_math/frexp')
 declare(math.atan2  , float         , 'll_math/atan2')
 declare(math.fmod   , float         ,  'll_math/fmod')
 declare(math.floor  , float         ,  'll_math/floor')
-declare(math.exp    , float         ,  'll_math/exp')
 declare(math.ldexp  , float         ,  'll_math/ldexp')
 declare(math.modf   , modfannotation, 'll_math/modf')
-declare(math.fabs    , float         , 'll_math/fabs')
+declare(math.hypot  , float         , 'll_math/hypot')
+
+# the following functions all take one float, return one float
+# and are part of math.h
+simple_math_functions = [
+    'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
+    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
+    ]
+
+for name in simple_math_functions:
+    declare(getattr(math, name), float, 'll_math/%s' % name)
