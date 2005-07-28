@@ -731,10 +731,7 @@ class Transformer:
             # tokenizer.c must be reflected here.
             if self.encoding not in ['utf-8', 'iso-8859-1']:
                 lit = unicode(lit, 'utf-8').encode(self.encoding)
-            #XXX no clue what the following line does
-            return eval("# coding: %s\n%s" % (self.encoding, lit))
-        else:
-            return parser.decode_string_literal(lit)
+        return parser.decode_string_literal(lit, self.encoding)
 
     def atom_string(self, nodelist):
         k = ''

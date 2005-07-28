@@ -40,5 +40,8 @@ class Module(MixedModule):
 ##         #'tuple2ast'    : 'pyparser.tuple2ast',
 ##         #'_pickler'     : 'pyparser._pickler',
 ##         #'compilest'    : 'pyparser.compilest',
+
+         # PyPy extension
+         'decode_string_literal': 'pyparser.decode_string_literal',
      }
 

@@ -193,3 +193,12 @@ def sequence2st(space, w_sequence):
     syntaxtree = unwrap_syntax_tree( space, w_sequence )
     return space.wrap( STType(space, syntaxtree) )
 
+
+def decode_string_literal(space, s, w_encoding=None):
+    from pypy.interpreter.pyparser.parsestring import parsestr
+    if space.is_true(w_encoding):
+        encoding = space.str_w(w_encoding)
+    else:
+        encoding = None
+    return parsestr(space, encoding, s)
+decode_string_literal.unwrap_spec = [ObjSpace, str, W_Root]
