@@ -77,7 +77,7 @@ class RPythonTyper:
     def add_pendingsetup(self, repr): 
         assert isinstance(repr, Repr)
         if repr in self._seen_reprs_must_call_setup: 
-            warning("ignoring already seen repr for setup: %r" %(repr,))
+            #warning("ignoring already seen repr for setup: %r" %(repr,))
             return 
         self._reprs_must_call_setup.append(repr) 
         self._seen_reprs_must_call_setup[repr] = True 
