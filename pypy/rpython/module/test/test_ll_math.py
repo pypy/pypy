@@ -30,6 +30,9 @@ def test_ll_cos_sin():
 def test_ll_math_sqrt():
     assert ll_math_sqrt(10) == math.sqrt(10)
     
-def test_ll_math_hypot():
-    assert ll_math_hypot(math.pi/3,3) == math.hypot(math.pi/3,3)
+def test_ll_math_fabs():
+    assert ll_math_fabs(math.pi/3,3) == math.fabs(math.pi/3,3)
     
+def test_ll_math_fabs():
+    assert ll_math_fabs(math.pi/3) == math.fabs(math.pi/3)
+    assert ll_math_fabs(-math.pi/3) == math.fabs(-math.pi/3)

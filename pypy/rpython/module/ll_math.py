@@ -88,3 +88,7 @@ def ll_math_modf(x):
     fracpart, intpart = math.modf(x)
     return ll_modf_result(fracpart, intpart)
 ll_math_modf.suggested_primitive = True
+
+def ll_math_fabs(x):
+    return math.fabs(x)
+ll_math_fabs.suggested_primitive = True
