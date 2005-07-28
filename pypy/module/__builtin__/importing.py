@@ -410,7 +410,8 @@ def check_compiled_module(space, pathname, mtime, cpathname):
     try:
         w_marshal = space.getbuiltinmodule('marshal')
     except OperationError:
-        print "skipped checking of", cpathname
+        #XXX debug
+        #print "skipped checking of", cpathname
         return -1
     fd = os.open(cpathname, BIN_READMASK, 0666) # using no defaults
     osfile = OsFileWrapper(fd)
@@ -480,10 +481,13 @@ def write_compiled_module(space, co, cpathname, mtime):
     try:
         w_marshal = space.getbuiltinmodule('marshal')
     except OperationError:
-        print "skipped writing of", cpathname
+        # XXX debug
+        #print "skipped writing of", cpathname
         return
     else:
-        print "indeed writing", cpathname
+        pass
+        #XXX debug
+        #print "indeed writing", cpathname
     fd = os.open(cpathname, BIN_WRITEMASK, 0666)
     osfile = OsFileWrapper(fd)
     _w_long(osfile, pyc_magic)
