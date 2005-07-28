@@ -242,11 +242,11 @@ class PythonCompilerApp(PythonCompiler):
         debug_print("importing the 'compiler' package at app-level...",
                     newline=False)
         self.w_applevelcompile = space.appexec([], r'''():
-            from compiler.misc import set_filename
-            from compiler.pycodegen import ModuleCodeGenerator
-            from compiler.pycodegen import InteractiveCodeGenerator
-            from compiler.pycodegen import ExpressionCodeGenerator
-            from compiler.transformer import Transformer
+            from _stablecompiler.misc import set_filename
+            from _stablecompiler.pycodegen import ModuleCodeGenerator
+            from _stablecompiler.pycodegen import InteractiveCodeGenerator
+            from _stablecompiler.pycodegen import ExpressionCodeGenerator
+            from _stablecompiler.transformer import Transformer
 
             def applevelcompile(tuples, filename, mode):
                 transformer = Transformer()
