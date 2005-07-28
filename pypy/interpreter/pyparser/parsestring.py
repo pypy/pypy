@@ -92,6 +92,11 @@ def parsestr(space, encoding, s):
     v = PyString_DecodeEscape(space, s[ps : q], unicode, enc)
     return space.wrap(v)
 
+def hexbyte(val):
+    result = "%x" % val
+    if len(result) == 1:
+        result = "0" + result
+    return result
 
 def PyString_DecodeEscape(space, s, unicode, recode_encoding):
     """
