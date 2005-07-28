@@ -240,9 +240,12 @@ by default to avoid presenting too much information.  Only non-helper
 operations are usually shown.   
 
 A quick introduction on how to use the trace object space can be `found here`_.
+A number of options for configuration is here in `traceconfig.py`_.
+
 
 .. _`found here` : getting_started.html#tracing-bytecode-and-operations-on-objects
 .. _`Abstract Interpretation`: theory.html#abstract-interpretation
+.. _`traceconfig.py`: http://codespeak.net/svn/pypy/dist/pypy/tool/traceconfig.py
 
 
 The Thunk Object Space
