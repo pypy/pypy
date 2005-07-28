@@ -5,6 +5,9 @@ config = {
     # An optional filename to use for trace output.  None is stdout
     "output_filename" : None,
 
+    # Use a simple wrapped repr (fast) or try to do something more intelligent (slow)
+    "repr_type_simple" : True,
+
     # Some internal interpreter code is written at applevel - by default
     # it is a good idea to hide this.
     "show_hidden_applevel" : False,

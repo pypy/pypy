@@ -1,8 +1,6 @@
 #
 # support code for the trace object space
 #
-from __future__ import generators
-
 import autopath
 
 import sys
@@ -27,12 +25,14 @@ class Stack(list):
 class ResultPrinter:
 
     def __init__(self,
+                 indentor = '  ',
+                 repr_type_simple = True,
+                 show_bytecode = True,
                  output_filename = None,
                  show_hidden_applevel = False,
                  recursive_operations = False,
-                 show_bytecode = True,
-                 indentor = '  ',
-                 show_wrapped_consts_bytecode = True):
+                 show_wrapped_consts_bytecode = True,
+                 ):
 
         if output_filename is None:
             self.out = sys.stdout
@@ -45,7 +45,11 @@ class ResultPrinter:
         self.show_hidden_applevel = show_hidden_applevel
         self.recursive_operations = recursive_operations
         self.show_wrapped_consts_bytecode = show_wrapped_consts_bytecode
-
+        if repr_type_simple:
+            self.repr_value = simple_repr
+        else:
+            self.repr_value = repr_value
+        
         # Keeps a stack of current state to handle
         # showing of applevel and recursive operations
         self.indent_state = Stack()
@@ -113,7 +117,7 @@ class ResultPrinter:
 
         s = " " * 4
         s += "%s" % name
-        s += "(" + ", ".join([repr_value(space, ii) for ii in args]) + ")"
+        s += "(" + ", ".join([self.repr_value(space, ii) for ii in args]) + ")"
         self.print_line(s, new_line=False)
         
     def print_op_leave(self, space, name, res):
@@ -125,7 +129,7 @@ class ResultPrinter:
         else:
             s = "  "
 
-        s += "-> %s" % repr_value(space, res)
+        s += "-> %s" % self.repr_value(space, res)
         self.print_line(s)
 
     def print_op_exc(self, name, exc, space):
@@ -136,13 +140,9 @@ class ResultPrinter:
             s = " " * 4
         else:
             s = "  "
-        s += "-> <raised> (%s)" % repr_value(space, exc)
+        s += "-> <raised> (%s)" % self.repr_value(space, exc)
 
         self.print_line(s)
-
-    def print_result(self, space, event_result):
-        for event in event_result.getevents():
-            print_event(space, event, event_result)
             
     def print_event(self, space, event_result, event):
         from pypy.objspace import trace
@@ -210,139 +210,58 @@ class ResultPrinter:
         for c, t, f in reversed(self.indent_state):
             if f is not None:
                 return f
-            
-print_result = ResultPrinter().print_result
 
-## XXX Sort out for next release :-(
-
-## def isinstance2(space, w_obj, cls):
-##     return space.is_true(space.appexec([w_obj, (space.wrap(cls.__name__))],
-## """(o,c):
-##     return o.__class__.__name__ == c"""))
-
-## def get_dict_repr(space, w_obj):
-##     return space.str_w(space.appexec([w_obj],"""(d):
-##     s = "{"
-##     it = iter(d.items())
-##     ii = 3
-##     try:
-##         k, v = it.next()
-##         while True:
-##             s += "%s=%s" % (k,v)
-##             ii -= 1
-##             if ii == 0:
-##                 break
-##             k, v = it.next()
-##             s += ", "
-##     except StopIteration:
-##         pass
-##     s += "}"
-##     return s"""))
     
-## def repr_value(space, obj):
-##     """ representations for debugging purposes """        
-
-##     # Special case true and false (from space.is_true()) - we use a
-##     # different representation from a wrapped object reprs method.
-##     if obj == True:
-##         return "TRUE"
-
-##     elif obj == False:
-##         return "FALSE"
-
-##     # Special case - arguments
-##     from pypy.interpreter.argument import Arguments    
-##     if isinstance(obj, Arguments):
-##         return "Arguments XXX"
-    
-##     # Special case - operation error
-##     from pypy.interpreter.error import OperationError
-##     if isinstance(obj, OperationError):
-##         return "OperationError(%s, %s)" % (repr_value(space, obj.w_type),
-##                                            repr_value(space, obj.w_value))
-
-
-##     if hasattr(obj, "iter"):
-##         return repr([repr_value(x) for x in obj])
-##     # pypy isintacnce macro type
-##       # if dict/list/tuple
-##          # iter over first 3 types
-##     try:
-##         if isinstance2(space, obj, dict):
-##             return simple_repr(obj)
-##         if isinstance2(space, obj, tuple):
-##             return simple_repr2(obj)
-##         if isinstance2(space, obj, list):
-##             return simple_repr2(obj)
-##     except:
-##         pass
-
-##     # Ok belows might take a long time...
-    
-##     # Try object's repr
-##     try:
-##         return space.str_w(space.repr(obj))
-##     except:
-##         pass
-
-##     # Arggh - unwrap repr
-##     try:
-##         return repr(space.unwrap(obj))
-##     except:
-##         pass
-
-##     # Give up...
-##     return repr(obj)
-
-
-##     res = simple_repr(obj)
-
-##     try:
-##         from pypy.interpreter.baseobjspace import W_Root
-##         from pypy.interpreter.argument import Argument
-##         if isinstance(obj, W_Root):
-##             return simple_repr(space.unwrap(obj))
-
-##         if isinstance(obj, Argument):
-##             args_w, kwds_w = obj.unpack()
-##             res = "Argument("
-##             res += ", ".join([repr_value(ii) for ii in args_w])
-##             res += ")"
-##     except:
-##         pass
-
-
-##     elif space.is_true(space.appexec([w_value, space.wrap("keys")], """(x,y):
-##     return hasattr(x,y)""")):
-##         res = "Dict(%s)" % (space.str_w(space.repr(space.call_method(w_value, "keys")))[:40])
-
-
-##     except:
-##         try:
-##             # XXX Sure this won't go down well - didn't really want
-##             # to clutter up the interpeter code 
-##             from pypy.interpreter.function import Function, Method
-##             from pypy.interpreter.eval import Code
-            
-##             if isinstance(w_value, Function):
-##                 res = "Function(%s)" % value.name
-                
-##             if isinstance(w_value, Method):
-##                 res = "Method(%s)" % value.w_function.name
-
-##             raise Exception, "XXX only certain types or toooo slow"
-##         except:
-##             res = str(w_value)
-
-##     return res[:80]
-
-
 def simple_repr(space, obj):
     res = repr(obj)
     if len(res) > 80:
         res = res[:76] + "..."
     return res
-repr_value = simple_repr
+
+
+def repr_value_complex(space, obj):
+    """ representations - very slow """
+
+    from pypy.interpreter.argument import Arguments    
+    from pypy.interpreter.error import OperationError
+
+    # Special case true and false (from space.is_true()) - we use a
+    # different representation from a wrapped object reprs method.
+    if obj is True:
+        return "TRUE"
+
+    elif obj is False:
+        return "FALSE"
+
+    if hasattr(obj, "__iter__"):
+        return ", ".join([repr_value(space, ii) for ii in obj])
+
+    # Special case - arguments
+    if isinstance(obj, Arguments):
+        args = [repr_value(space, ii) for ii in obj.arguments_w]
+        args += ["%s = %s" % (k, repr_value(space, v))
+                 for k, v in obj.kwds_w.items()]
+        if not obj.w_stararg is None:
+            args.append("*" + repr_value_complex(space, obj.w_stararg))
+        if not obj.w_starstararg is None:
+            args.append("**" + repr_value_complex(space, obj.w_starstararg))
+        return "Args(%s)" % (", ".join(args))
+
+    # Special case - operation error
+    if isinstance(obj, OperationError):
+        return "OpError(%s, %s)" % (repr_value(space, obj.w_type),
+                                    repr_value(space, obj.w_value))
+
+    # Try object repr
+    try:
+        return space.str_w(space.repr(obj))
+    except:
+        # Give up
+        return repr(obj)
+
+
+def repr_value(space, obj):
+    return repr_value_complex(space, obj)[:120]
 
 # __________________________________________________________________________
 
