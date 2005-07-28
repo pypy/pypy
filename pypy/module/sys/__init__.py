@@ -35,7 +35,6 @@ class Module(MixedModule):
         'builtin_module_names'  : 'state.get(space).w_builtin_module_names', 
         'pypy_getudir'          : 'state.pypy_getudir', 
 
-        'getrefcount'           : 'vm.getrefcount', 
         '_getframe'             : 'vm._getframe', 
         'setrecursionlimit'     : 'vm.setrecursionlimit', 
         'getrecursionlimit'     : 'vm.getrecursionlimit', 

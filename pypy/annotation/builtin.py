@@ -275,7 +275,6 @@ BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init
 # this one is needed otherwise when annotating assert in a test we may try to annotate 
 # py.test AssertionError.__init__ .
 BUILTIN_ANALYZERS[AssertionError.__init__.im_func] = exception_init
-BUILTIN_ANALYZERS[sys.getrefcount] = count
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 import unicodedata
 BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
