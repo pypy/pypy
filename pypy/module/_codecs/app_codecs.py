@@ -1,3 +1,7 @@
+# Note:
+# This *is* now explicitly RPython.
+# Please make sure not to break this.
+
 """
 
    _codecs -- Provides access to the codec registry and the builtin
@@ -198,7 +202,7 @@ def unicode_escape_decode( data,errors='strict'):
     """None
     """
     res = PyUnicode_DecodeUnicodeEscape(data,len(data),errors)
-    res = ''.join(res)
+    res = u''.join(res)
     return res, len(res)
 
 
