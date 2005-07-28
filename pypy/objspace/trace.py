@@ -58,7 +58,8 @@ class TraceResult(object):
         self.reentrant = True
         self.tracespace = tracespace
         self.printer = ResultPrinter(**printer_options)
-
+        self._cache = {}
+        
     def append(self, event):
         if self.reentrant:
             self.reentrant = False
@@ -81,13 +82,13 @@ class TraceResult(object):
         for event in self.events:
             yield event
 
-    def getdisresult(self, frame, _cache = {}): # XXX Should perhaps be local to TraceResult
+    def getdisresult(self, frame):
         """ return (possibly cached) pydis result for the given frame. """
 
         try:
-            return _cache[id(frame.pycode)]
+            return self._cache[id(frame.pycode)]
         except KeyError:
-            res = _cache[id(frame.pycode)] = pydis.pydis(frame.pycode)
+            res = self._cache[id(frame.pycode)] = pydis.pydis(frame.pycode)
             assert res is not None
             return res
 
@@ -171,9 +172,9 @@ def get_operations():
 
 def create_trace_space(space, operations = None):    
     """ Will create a trace object space if no space supplied.  Otherwise
-    will turn the supplied into a tracable space by extending its class."""
+    will turn the supplied into a traceable space by extending its class."""
 
-    # Don't trace an already tracable space
+    # Don't trace an already traceable space
     if hasattr(space, "__pypytrace__"):
         return space
     
@@ -223,10 +224,7 @@ def create_trace_space(space, operations = None):
     trace_clz = type("Trace%s" % repr(space), (Trace,), {})
     space.__oldclass__, space.__class__ = space.__class__, trace_clz
 
-    # XXX TEMP - also if we do use a config file, should use execfile
-    from pypy.tool.traceconfig import config
-    config_options = {}
-    config_options.update(config)
+    from pypy.tool.traceconfig import config as config_options
 
     # Avoid __getattribute__() woes
     space._in_cache = 0
