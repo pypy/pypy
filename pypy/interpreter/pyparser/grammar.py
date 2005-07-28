@@ -157,7 +157,9 @@ class BaseGrammarBuilder(AbstractBuilder):
     def sequence(self, rule, source, elts_number):
         """ """
         items = []
-        for node in self.stack[-elts_number:]:
+        slice_start = len(self.stack) - elts_number
+        assert slice_start >= 0
+        for node in self.stack[slice_start:]:
             items += node.expand()
         is_root = rule.is_root()
         # replace N elements with 1 element regrouping them
@@ -166,7 +168,7 @@ class BaseGrammarBuilder(AbstractBuilder):
                 elem = SyntaxNode(rule.codename, items, source.current_lineno())
             else:
                 elem = TempSyntaxNode(rule.codename, items, source.current_lineno())
-            del self.stack[-elts_number:]
+            del self.stack[slice_start:]
             self.stack.append(elem)
         elif elts_number == 0:
             if is_root:
