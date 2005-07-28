@@ -453,7 +453,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, osfile):
         raise OperationError(space.w_ImportError, w(
             "Bad magic number in %s" % cpathname))
     _r_long(osfile) # skip time stamp
-    print "loading pyc file:", cpathname
+    #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, osfile)
     #if (Py_VerboseFlag)
     #    PySys_WriteStderr("import %s # precompiled from %s\n",
@@ -489,7 +489,7 @@ def write_compiled_module(space, co, cpathname, mtime):
     try:
         w_str = space.call_method(w_marshal, 'dumps', space.wrap(co))
     except OperationError:
-        print "Problem while marshalling %s, skipping" % cpathname
+        #print "Problem while marshalling %s, skipping" % cpathname
         return
     fd = os.open(cpathname, BIN_WRITEMASK, 0666)
     osfile = OsFileWrapper(fd)
