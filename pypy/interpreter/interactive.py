@@ -159,7 +159,8 @@ class PyPyConsole(code.InteractiveConsole):
         raise NotImplementedError
 
     def runsource(self, source, ignored_filename="<input>", symbol="single"):
-        hacked_filename = '<inline>' + source
+        # the following hacked file name is recognized specially by error.py
+        hacked_filename = '<inline>\n' + source
         compiler = self.space.getexecutioncontext().compiler
         
         def doit():
