@@ -87,13 +87,6 @@ def test_getcwd():
     res = f1()
     assert res == os.getcwd()
 
-def test_math_exp():
-    from math import exp
-    def fn(f):
-        return exp(f)
-    f = compile(fn, [float])
-    assert f(1.0) == exp(1.0)
-
 def test_math_frexp():
     from math import frexp
     def fn(x):
@@ -108,12 +101,26 @@ def test_math_modf():
     f = compile(fn, [float])
     assert f(10.123) == modf(10.123)
 
-def test_math_log():
-    from math import log10, log
+simple_math_functions = [
+    'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
+    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
+    ]
+
+def math_function_test(funcname):
+    import random
+    import math
+    mathfn = getattr(math, funcname)
+    print funcname, 
     def fn(x):
-        return log10(x) + log(x)
+        return mathfn(x)
     f = compile(fn, [float])
-    assert f(32675312.32123) == fn(32675312.32123)
+    for x in [0.12334, 0.3, 0.5, 0.9883]:
+        print x
+        assert f(x) == mathfn(x)
+
+def test_simple_math_functions():
+    for funcname in simple_math_functions:
+        yield math_function_test, funcname
 
 def test_os_path_exists():
     tmpfile = str(udir.join('test_os_path_exists.TMP'))
@@ -136,3 +143,4 @@ def test_os_path_isdir():
         return os.path.isdir(directory)
     f = compile(fn, [])
     assert f() == False
+
