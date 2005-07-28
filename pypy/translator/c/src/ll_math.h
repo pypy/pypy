@@ -11,9 +11,7 @@
 
 
 /* XXX completely ignoring exceptions/error checking for now */
-double LL_math_log10(double x) {
-  return log10(x);
-}
+
 double LL_math_ceil(double x) {
   return ceil(x);
 }
@@ -27,6 +25,7 @@ RPyFREXP_RESULT* LL_math_frexp(double x) {
 double LL_math_atan2(double x, double y) {
   return atan2(x, y);
 }
+
 double LL_math_fmod(double x, double y) {
   return fmod(x, y);
 }
@@ -39,6 +38,15 @@ double LL_math_exp(double x) {
 double LL_math_ldexp(double x, long y) {
   return ldexp(x, (int) y);
 }
+
+double LL_math_log(double x) {
+  return log(x);
+}
+
+double LL_math_log10(double x) {
+  return log10(x);
+}
+
 
 RPyMODF_RESULT* LL_math_modf(double x) {
   double intpart;

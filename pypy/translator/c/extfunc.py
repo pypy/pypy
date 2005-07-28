@@ -17,7 +17,6 @@ EXTERNALS = {
     ll_os  .ll_os_stat:    'LL_os_stat',
     ll_os  .ll_os_fstat:   'LL_os_fstat',
     ll_time.ll_time_clock: 'LL_time_clock',
-    ll_math.ll_math_log10: 'LL_math_log10',
     ll_math.ll_math_ceil:  'LL_math_ceil',
     ll_math.ll_math_frexp: 'LL_math_frexp',
     ll_math.ll_math_atan2: 'LL_math_atan2',
@@ -25,6 +24,8 @@ EXTERNALS = {
     ll_math.ll_math_floor: 'LL_math_floor',
     ll_math.ll_math_exp:   'LL_math_exp',
     ll_math.ll_math_ldexp: 'LL_math_ldexp',
+    ll_math.ll_math_log10: 'LL_math_log10',
+    ll_math.ll_math_log:   'LL_math_log',
     ll_math.ll_math_modf:  'LL_math_modf',
     }
 

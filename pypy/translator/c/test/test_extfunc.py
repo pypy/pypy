@@ -108,6 +108,13 @@ def test_math_modf():
     f = compile(fn, [float])
     assert f(10.123) == modf(10.123)
 
+def test_math_log():
+    from math import log10, log
+    def fn(x):
+        return log10(x) + log(x)
+    f = compile(fn, [float])
+    assert f(32675312.32123) == fn(32675312.32123)
+
 def test_os_path_exists():
     tmpfile = str(udir.join('test_os_path_exists.TMP'))
     def fn():
