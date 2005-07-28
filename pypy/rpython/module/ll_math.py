@@ -2,6 +2,10 @@ from pypy.rpython import lltype
 
 import math
 
+def ll_math_log(x):
+    return math.log(x)
+ll_math_log.suggested_primitive = True
+
 def ll_math_log10(x):
     return math.log10(x)
 ll_math_log10.suggested_primitive = True

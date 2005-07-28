@@ -408,4 +408,5 @@ def unichar_ne(x, y):
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
 # for failing tests
-py.log.setconsumer('llinterp', None)
+from pypy.tool.ansi_print import ansi_log
+py.log.setconsumer('llinterp', ansi_log)

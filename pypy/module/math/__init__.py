@@ -24,6 +24,7 @@ class Module(MixedModule):
        #'sqrt'           : 'interp_math.sqrt',
        'frexp'          : 'interp_math.frexp',
        #'degrees'        : 'interp_math.degrees',
+       'log'             : 'interp_math.log',
        'log10'          : 'interp_math.log10',
        'fmod'           : 'interp_math.fmod',
        #'atan'           : 'interp_math.atan',
