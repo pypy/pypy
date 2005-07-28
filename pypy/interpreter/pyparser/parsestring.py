@@ -14,7 +14,9 @@ def parsestr(space, encoding, s):
     unicode = False
 
     # string decoration handling
-    if quote.isalpha() or quote == '_':
+    o = ord(quote)
+    isalpha = (o>=97 and o<=122) or (o>=65 and o<=90)
+    if isalpha or quote == '_':
         if quote == 'u' or quote == 'U':
             ps += 1
             quote = s[ps]
