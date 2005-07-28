@@ -1319,7 +1319,7 @@ class Transformer:
             if node[0][0] == token.STRING:
                 s = ''
                 for t in node:
-                    s = s + eval(t[1])
+                    s = s + parser.decode_string_literal(t[1])
                 return s
             return None
         if n == symbol.stmt or n == symbol.simple_stmt \
