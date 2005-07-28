@@ -404,10 +404,6 @@ def check_compiled_module(space, pathname, mtime, cpathname):
     the header; if not, return NULL.
     Doesn't set an exception.
     """
-    #XXX Umph, we would need codecs to read codecs.pyc
-    # because of the unicode constants in it
-    if cpathname[-10:] == "codecs.pyc":
-        return -1
     try:
         w_marshal = space.getbuiltinmodule('marshal')
     except OperationError:

@@ -634,11 +634,7 @@ else:
             base_class = None
             base = cls
         def initinstance():
-            try:
-                content = instance.__dict__.items()
-            except AttributeError:
-                import pdb
-                pdb.set_trace() ##!!
+            content = instance.__dict__.items()
             content.sort()
             for key, value in content:
                 if self.should_translate_attr(instance, key):

@@ -4,6 +4,7 @@ This module contains functions that can read and write Python values in a binary
 """
 
 import types
+from _codecs import utf_8_decode, utf_8_encode
 
 try:
     import new
@@ -152,8 +153,9 @@ class _Marshaller:
 
     def dump_unicode(self, x):
         self._write(TYPE_UNICODE)
-        s = x.encode('utf8')
-        self.w_long(len(s))
+        #s = x.encode('utf8')
+        s, len_s = utf_8_encode(x)
+        self.w_long(len_s)
         self._write(s)
     dispatch[types.UnicodeType] = dump_unicode
 
@@ -366,7 +368,8 @@ class _Unmarshaller:
     def load_unicode(self):
         n = self.r_long()
         s = self._read(n)
-        ret = s.decode('utf8')
+        #ret = s.decode('utf8')
+        ret, len_ret = utf_8_decode(s)
         return ret
     dispatch[TYPE_UNICODE] = load_unicode
 
@@ -645,12 +648,20 @@ class _FastUnmarshaller:
 
 _load_dispatch = _FastUnmarshaller.dispatch
 
+# _________________________________________________________________
+#
+# compatibility
+
 try:
     set
 except NameError:
     def set(x):
         raise ValueError("cannot unmarshal set objects on Python < 2.4")
     frozenset = set
+
+# _________________________________________________________________
+#
+# user interface
 
 def dump(x, f):
     m = _Marshaller(f.write)
