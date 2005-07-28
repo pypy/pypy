@@ -137,6 +137,7 @@ class __extend__(SomeObject):
             getbookkeeper().warning('getattr(%r, %r) is not RPythonic enough' %
                                     (obj, s_attr))
         return SomeObject()
+    getattr.can_only_throw = []
 
     def bindcallables(obj, classdef):
         return obj   # default unbound __get__ implementation
@@ -375,6 +376,7 @@ class __extend__(SomeInstance):
                 ins.classdef.check_missing_attribute_update(attr)
             return s_result
         return SomeObject()
+    getattr.can_only_throw = []
 
     def setattr(ins, s_attr, s_value):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
@@ -413,6 +415,7 @@ class __extend__(SomePBC):
     def getattr(pbc, s_attr):
         bookkeeper = getbookkeeper()
         return bookkeeper.pbc_getattr(pbc, s_attr)
+    getattr.can_only_throw = []
 
     def setattr(pbc, s_attr, s_value):
         getbookkeeper().warning("setattr not wanted on %r" % (pbc,))

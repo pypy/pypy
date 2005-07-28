@@ -1481,6 +1481,24 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [bool])
         assert s == annmodel.SomeString(can_be_None=True)
 
+    def test_dont_see_AttributeError_clause(self):
+        class Stuff:
+            def _freeze_(self):
+                return True
+            def createcompiler(self):
+                try:
+                    return self.default_compiler
+                except AttributeError:
+                    compiler = "yadda"
+                    self.default_compiler = compiler
+                    return compiler
+        stuff = Stuff()
+        stuff.default_compiler = 123
+        def f():
+            return stuff.createcompiler()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s == a.bookkeeper.immutablevalue(123)
 
 def g(n):
     return [0,1,2,n]

@@ -459,9 +459,13 @@ class RPythonAnnotator:
 
             if can_only_throw is not None:
                 candidates = can_only_throw
-                exits = [block.exits[0]]
-                for link in block.exits[1:]:
+                candidate_exits = exits
+                exits = []
+                for link in candidate_exits:
                     case = link.exitcase
+                    if case is None:
+                        exits.append(link)
+                        continue
                     covered = [c for c in candidates if issubclass(c, case)]
                     if covered:
                         exits.append(link)
