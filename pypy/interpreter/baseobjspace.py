@@ -226,13 +226,19 @@ class ObjSpace(object):
     def createcompiler(self):
         "Factory function creating a compiler object."
         # XXX simple selection logic for now
-        if self.options.compiler in ('pyparse', 'pyparseapp'):
-            return PythonCompiler(self)
-        elif self.options.compiler == 'cpython':
-            return CPythonCompiler(self)
-        else:
-            raise ValueError('unknown --compiler option value: %r' % (
-                self.options.compiler,))
+        try:
+            return self.default_compiler
+        except AttributeError:
+            if (self.options.compiler == 'pyparse' or
+                self.options.compiler == 'pyparseapp'):
+                compiler = PythonCompiler(self)
+            elif self.options.compiler == 'cpython':
+                compiler = CPythonCompiler(self)
+            else:
+                raise ValueError('unknown --compiler option value: %r' % (
+                    self.options.compiler,))
+            self.default_compiler = compiler
+            return compiler
 
     # Following is a friendly interface to common object space operations
     # that can be defined in term of more primitive ones.  Subclasses

@@ -274,13 +274,10 @@ class PythonCompilerApp(PythonCompiler):
                 w_nested_tuples,
                 space.wrap(source_encoding)])
 
-        from pypy.interpreter.error import debug_print
-        debug_print("app-level compiling...", newline=False)
         w_code = space.call_function(self.w_applevelcompile,
                                      w_nested_tuples,
                                      space.wrap(filename),
                                      space.wrap(mode))
-        debug_print(" done")
         return w_code
 
 
