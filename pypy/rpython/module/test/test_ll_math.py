@@ -16,4 +16,6 @@ def test_ll_frexp():
     assert result.item0 == math.frexp(10.1)[0]
     assert result.item1 == math.frexp(10.1)[1]
 
-
+def test_ll_log():
+    assert ll_math_log(8943.790148912) == math.log(8943.790148912)
+    assert ll_math_log10(8943.790148912) == math.log10(8943.790148912)
