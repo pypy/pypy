@@ -14,7 +14,7 @@ def pow(space, x, y):
        
        Return x**y (x to the power of y).
     """
-    return space.wrap(math.pow(x, y))
+    return space.wrap(x ** y)
 pow.unwrap_spec = [ObjSpace, float, float]
 
 def cosh(space, x): 
@@ -101,10 +101,12 @@ def frexp(space, x):
     return space.newtuple([space.wrap(mant), space.wrap(expo)])
 frexp.unwrap_spec = [ObjSpace, float]
 
+degToRad = math.pi / 180.0
+
 def degrees(space, x): 
     """degrees(x) -> converts angle x from radians to degrees
     """
-    return space.wrap(math.degrees(x))
+    return space.wrap(x * degToRad)
 degrees.unwrap_spec = [ObjSpace, float]
 
 def log10(space, x): 
@@ -165,7 +167,7 @@ tanh.unwrap_spec = [ObjSpace, float]
 def radians(space, x): 
     """radians(x) -> converts angle x from degrees to radians
     """
-    return space.wrap(math.radians(x))
+    return space.wrap(x / degToRad)
 radians.unwrap_spec = [ObjSpace, float]
 
 def sin(space, x): 
