@@ -488,12 +488,16 @@ def write_compiled_module(space, co, cpathname, mtime):
         pass
         #XXX debug
         #print "indeed writing", cpathname
+    w_M = space.getattr(w_marshal, space.wrap('dumps'))
+    try:
+        w_str = space.call_method(w_marshal, 'dumps', space.wrap(co))
+    except OperationError:
+        print "Problem while marshalling %s, skipping" % cpathname
+        return
     fd = os.open(cpathname, BIN_WRITEMASK, 0666)
     osfile = OsFileWrapper(fd)
     _w_long(osfile, pyc_magic)
     _w_long(osfile, mtime)
-    w_M = space.getattr(w_marshal, space.wrap('dumps'))
-    w_str = space.call_method(w_marshal, 'dumps', space.wrap(co))
     strbuf = space.str_w(w_str)
     osfile.write(strbuf)
     os.close(fd)

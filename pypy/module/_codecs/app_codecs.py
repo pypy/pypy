@@ -1,4 +1,3 @@
-"NOT_RPYTHON"
 """
 
    _codecs -- Provides access to the codec registry and the builtin
@@ -902,17 +901,21 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
 	
     return p
 
-def PyUnicode_EncodeUTF16(s,size,errors,byteorder='little'):
+# moved out of local scope, especially because it didn't
+# have any nested variables.
+
+def STORECHAR(CH, byteorder):
+    hi = chr(((CH) >> 8) & 0xff)
+    lo = chr((CH) & 0xff)
+    if byteorder == 'little':
+        return [lo, hi]
+    else:
+        return [hi, lo]
+
+def PyUnicode_EncodeUTF16(s, size, errors, byteorder='little'):
 
 #    /* Offsets from p for storing byte pairs in the right order. */
 
-    def STORECHAR(CH,byteorder):
-        hi = chr(((CH) >> 8) & 0xff)
-        lo = chr((CH) & 0xff)
-        if byteorder == 'little':
-            return [lo,hi]
-        else:
-            return [hi,lo]
         
     p = []
     bom = sys.byteorder
