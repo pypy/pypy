@@ -77,6 +77,24 @@ def unicode_from_object(obj):
 unicode_from_object = app.interphook('unicode_from_object')
 unicode_from_encoded_object = app.interphook('unicode_from_encoded_object')
 
+def unicode_from_string(space, w_str):
+    # this is a performance and bootstrapping hack
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    w_encoding = space.call_function(space.sys.get('getdefaultencoding'))
+    if not space.eq_w(w_encoding, space.wrap('ascii')):
+        return unicode_from_object(space, w_str)
+    s = space.str_w(w_str)
+    codelist = []
+    for i in range(len(s)):
+        code = ord(s[i])
+        if code >= 128:
+            raise OperationError(space.w_UnicodeDecodeError,
+                                 "'ascii' codec can't decode byte %s in "
+                                 "position %d: ordinal not in range(128)" % (
+                hex(code), i))
+        codelist.append(unichr(code))
+    return W_UnicodeObject(space, codelist)
+
 
 def descr__new__(space, w_unicodetype, w_obj=None, w_encoding=None, w_errors=None):
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -94,7 +112,9 @@ def descr__new__(space, w_unicodetype, w_obj=None, w_encoding=None, w_errors=Non
         w_value = W_UnicodeObject(space, [])
     elif (space.is_w(w_encoding, space.w_None) and
           space.is_w(w_errors, space.w_None)):
-        if space.is_true(space.isinstance(w_obj, space.w_unicode)):
+        if space.is_true(space.isinstance(w_obj, space.w_str)):
+            w_value = unicode_from_string(space, w_obj)
+        elif space.is_true(space.isinstance(w_obj, space.w_unicode)):
             w_value = w_obj
         else:
             w_value = unicode_from_object(space, w_obj)
