@@ -365,16 +365,10 @@ def perform_trace(tspace, app_func, *args_w, **kwds_w):
 
 if __name__ == '__main__':
 
-    from pypy.objspace import trace
-    from pypy.tool import option
-    args = option.process_options(option.get_standard_options(),
-                                  option.Options)
+    from pypy.objspace import std, trace
 
-    # Create objspace...
-    space = option.objspace()
-
-    # Wrap up our space, with a trace space
-    tspace = trace.create_trace_space(space)
+    # Wrap up std space, with a trace space
+    tspace = trace.create_trace_space(std.Space())
 
     def func(x):
         count = 0
