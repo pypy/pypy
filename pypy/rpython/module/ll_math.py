@@ -2,6 +2,30 @@ from pypy.rpython import lltype
 
 import math
 
+def ll_math_cos(x):
+    return math.cos(x)
+ll_math_cos.suggested_primitive = True
+
+def ll_math_sin(x):
+    return math.sin(x)
+ll_math_sin.suggested_primitive = True
+
+def ll_math_sinh(x):
+    return math.sinh(x)
+ll_math_sinh.suggested_primitive = True
+
+def ll_math_hypot(x, y):
+    return math.hypot(x, y)
+ll_math_hypot.suggested_primitive = True
+
+def ll_math_acos(x):
+    return math.acos(x)
+ll_math_acos.suggested_primitive = True
+
+def ll_math_sqrt(x):
+    return math.sqrt(x)
+ll_math_sqrt.suggested_primitive = True
+
 def ll_math_log(x):
     return math.log(x)
 ll_math_log.suggested_primitive = True

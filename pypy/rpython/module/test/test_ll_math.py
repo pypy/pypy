@@ -19,3 +19,17 @@ def test_ll_frexp():
 def test_ll_log():
     assert ll_math_log(8943.790148912) == math.log(8943.790148912)
     assert ll_math_log10(8943.790148912) == math.log10(8943.790148912)
+
+def test_ll_cos_sin():
+    assert ll_math_cos(math.pi/3) == math.cos(math.pi/3)
+    assert ll_math_sin(math.pi/3) == math.sin(math.pi/3)
+    assert ll_math_acos(1./3) == math.acos(1./3)
+    assert ll_math_sinh(math.pi/3) == math.sinh(math.pi/3)
+    assert ll_math_cosh(math.pi/3) == math.cosh(math.pi/3)
+    
+def test_ll_math_sqrt():
+    assert ll_math_sqrt(10) == math.sqrt(10)
+    
+def test_ll_math_hypot():
+    assert ll_math_hypot(math.pi/3,3) == math.hypot(math.pi/3,3)
+    
