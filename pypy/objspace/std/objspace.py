@@ -29,11 +29,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     PACKAGE_PATH = 'objspace.std'
 
-    def __init__(self, oldstyle=False, **kw): 
-        super(StdObjSpace, self).__init__(**kw)
-        self.options.oldstyle = oldstyle 
-        if oldstyle: 
-            self.enable_old_style_classes_as_default_metaclass()
+    def setoptions(self, kw): 
+        optionlist = 'oldstyle'.split()
+        for name in kw: 
+            if name not in optionlist: 
+                raise TypeError("don't know about option %r" % (name,))
+            setattr(self.options, name, kw[name])
 
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
@@ -110,6 +111,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from pypy.interpreter.pycompiler import PythonCompilerApp
             self.default_compiler = PythonCompilerApp(self)
             self.getexecutioncontext().compiler = self.default_compiler
+
+        if self.options.oldstyle: 
+            self.enable_old_style_classes_as_default_metaclass()
 
     def enable_old_style_classes_as_default_metaclass(self):
         self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)

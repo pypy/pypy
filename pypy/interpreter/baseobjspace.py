@@ -107,7 +107,9 @@ class ObjSpace(object):
                  nofaking=False, 
                  uselibfile=False,
                  parser="recparser", 
-                 compiler="pyparse"): 
+                 compiler="pyparse",
+                 **kw
+                 ): 
         "NOT_RPYTHON: Basic initialization of objects."
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
@@ -119,7 +121,13 @@ class ObjSpace(object):
         self.options.uselibfile = uselibfile or nofaking
         self.options.compiler = compiler 
         self.options.usemodules = usemodules 
+        if kw: 
+            self.setoptions(kw)
         self.initialize()
+
+    def setoptions(self, kw): 
+        # override this in subclasses for extra-options
+        raise TypeError("got unknown keyword arguments: %r" %(kw,))
 
     def __repr__(self):
         return self.__class__.__name__
