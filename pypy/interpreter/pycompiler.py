@@ -277,6 +277,7 @@ class PythonCompilerApp(PythonCompiler):
         source_encoding, stack_element = parse_result
         w_nested_tuples = stack_element.as_w_tuple(space, lineno=True)
         if source_encoding is not None:
+            from pypy.interpreter.pyparser import pysymbol
             w_nested_tuples = space.newtuple([
                 space.wrap(pysymbol.encoding_decl),
                 w_nested_tuples,
