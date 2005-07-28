@@ -96,7 +96,7 @@ class OperationError(Exception):
                     lines = fname.split('\n')
                     fname = lines[0].strip()
                     try:
-                        l = lines[lineno+1]
+                        l = lines[lineno]
                     except IndexError:
                         l = ''
                 else:
