@@ -115,7 +115,7 @@ class CPythonCompiler(AbstractCompiler):
         except TypeError,e:
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
         from pypy.interpreter.pycode import PyCode
-        return space.wrap(PyCode(space)._from_code(c))
+        return PyCode(space)._from_code(c)
     compile._annspecialcase_ = "override:cpy_compile"
 
     def getcodeflags(self, code):
@@ -189,8 +189,7 @@ class PythonCompiler(CPythonCompiler):
         except ParseError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
-        w_code = self.compile_parse_result(parse_result, filename, mode)
-        return w_code
+        return self.compile_parse_result(parse_result, filename, mode)
 
     def compile_parse_result(self, parse_result, filename, mode):
         """NOT_RPYTHON"""
@@ -230,7 +229,7 @@ class PythonCompiler(CPythonCompiler):
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
         # __________ end of XXX above
         from pypy.interpreter.pycode import PyCode
-        return space.wrap(PyCode(space)._from_code(c))
+        return PyCode(space)._from_code(c)
     compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 
 
@@ -287,7 +286,11 @@ class PythonCompilerApp(PythonCompiler):
                                      w_nested_tuples,
                                      space.wrap(filename),
                                      space.wrap(mode))
-        return w_code
+        code = space.interpclass_w(w_code)
+        if not isinstance(code, PyCode):
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("code object expected"))
+        return code
 
 
 class PyPyCompiler(CPythonCompiler):
