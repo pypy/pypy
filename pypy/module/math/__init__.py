@@ -13,7 +13,7 @@ class Module(MixedModule):
            'e'              : 'interp_math.get(space).w_e', 
            'pi'             : 'interp_math.get(space).w_pi', 
            #'pow'            : 'interp_math.pow',
-           #'cosh'           : 'interp_math.cosh',
+           'cosh'           : 'interp_math.cosh',
            'ldexp'          : 'interp_math.ldexp',
            'hypot'          : 'interp_math.hypot',
            #'tan'            : 'interp_math.tan',
