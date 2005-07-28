@@ -88,10 +88,8 @@ def unicode_from_string(space, w_str):
     for i in range(len(s)):
         code = ord(s[i])
         if code >= 128:
-            raise OperationError(space.w_UnicodeDecodeError,
-                                 "'ascii' codec can't decode byte %s in "
-                                 "position %d: ordinal not in range(128)" % (
-                hex(code), i))
+            # raising UnicodeDecodeError is messy, so "please crash for me"
+            return unicode_from_object(space, w_str)
         codelist.append(unichr(code))
     return W_UnicodeObject(space, codelist)
 
