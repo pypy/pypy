@@ -90,6 +90,34 @@ class W_LongObject(W_Object):
         w_self.sign = sign
         assert len(w_self.digits)
 
+    def fromint(space, intval):
+        if intval < 0:
+            sign = -1
+            ival = -intval
+        elif intval > 0:
+            sign = 1
+            ival = intval
+        else:
+            return W_LongObject(space, [0], 0)
+        # Count the number of Python digits.
+        # We used to pick 5 ("big enough for anything"), but that's a
+        # waste of time and space given that 5*15 = 75 bits are rarely
+        # needed.
+        t = ival
+        ndigits = 0
+        while t:
+            ndigits += 1
+            t >>= SHIFT
+        v = W_LongObject(space, [0] * ndigits, sign)
+        t = ival
+        p = 0
+        while t:
+            v.digits[p] = t & MASK
+            t >>= SHIFT
+            p += 1
+        return v
+    fromint = staticmethod(fromint)
+
     def longval(self): #YYYYYY
         l = 0
         digits = list(self.digits)
@@ -162,31 +190,7 @@ def long__Long(space, w_long1):
     return W_LongObject(space, digits, sign)
 
 def long__Int(space, w_intobj):
-    if w_intobj.intval < 0:
-        sign = -1
-        ival = -w_intobj.intval
-    elif w_intobj.intval > 0:
-        sign = 1
-        ival = w_intobj.intval
-    else:
-        return W_LongObject(space, [0], 0)
-    # Count the number of Python digits.
-    # We used to pick 5 ("big enough for anything"), but that's a
-    # waste of time and space given that 5*15 = 75 bits are rarely
-    # needed.
-    t = ival
-    ndigits = 0
-    while t:
-        ndigits += 1
-        t >>= SHIFT
-    v = W_LongObject(space, [0] * ndigits, sign)
-    t = ival
-    p = 0
-    while t:
-        v.digits[p] = t & MASK
-        t >>= SHIFT
-        p += 1
-    return v
+    return W_LongObject.fromint(space, w_intobj.intval)
 
 def int__Long(space, w_value):
     try:
