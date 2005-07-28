@@ -113,7 +113,7 @@ def PyString_DecodeEscape(space, s, unicode, recode_encoding):
             # note that the C code has a label here.
             # the logic is the same.
             if recode_encoding and ord(s[ps]) & 0x80:
-                w, ps = decode_utf8(space, s, ps, q, recode_encoding)
+                w, ps = decode_utf8(space, s, ps, end, recode_encoding)
                 # Append bytes to output buffer.
                 lis.append(w)
             else:
