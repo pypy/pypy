@@ -1,6 +1,6 @@
 
 import math 
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 
 class State: 
     def __init__(self, space): 
@@ -55,12 +55,15 @@ def asin(space, x):
     return space.wrap(math.asin(x))
 asin.unwrap_spec = [ObjSpace, float]
 
-def log(space, x,  base=math.e): 
+def log(space, x,  w_base=NoneNotWrapped):
     """log(x[, base]) -> the logarithm of x to the given base.
        If the base not specified, returns the natural logarithm (base e) of x.
     """
-    return space.wrap(math.log(x,  base))
-log.unwrap_spec = [ObjSpace, float, float]
+    if w_base is None:
+        return space.wrap(math.log(x))
+    else:
+        return space.wrap(math.log(x) / math.log(space.float_w(w_base)))
+log.unwrap_spec = [ObjSpace, float, W_Root]
 
 def fabs(space, x): 
     """fabs(x)
