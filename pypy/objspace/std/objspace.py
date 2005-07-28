@@ -99,6 +99,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.options.uselibfile:
             self.setuselibfile() 
 
+        # XXX hack!: patch the compiler after initialization is complete
+        if self.options.compiler == 'pyparseapp':
+            from pypy.interpreter.pycompiler import PythonCompilerApp
+            self.getexecutioncontext().compiler = PythonCompilerApp(self)
+
     def enable_old_style_classes_as_default_metaclass(self):
         self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)
 

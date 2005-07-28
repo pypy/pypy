@@ -197,8 +197,9 @@ class OperationError(Exception):
 # Utilities
 from pypy.tool.ansi_print import ansi_print
 
-def debug_print(text, file=None):
-    ansi_print(text, esc="31", file=file) # ANSI color code "red"
+def debug_print(text, file=None, newline=True):
+    # 31: ANSI color code "red"
+    ansi_print(text, esc="31", file=file, newline=newline)
 
 ### installing the excepthook for OperationErrors
 ##def operr_excepthook(exctype, value, traceback):

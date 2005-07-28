@@ -233,37 +233,55 @@ class PythonCompiler(CPythonCompiler):
     compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 
 
-##class PythonCompilerApp(PythonCompiler):
-##    """Temporary.  Calls the stablecompiler package at app-level."""
+class PythonCompilerApp(PythonCompiler):
+    """Temporary.  Calls the stablecompiler package at app-level."""
 
-##    def __init__(self, space):
-##        PythonCompiler.__init__(self, space)
-##        space.appexec(r'''():
-##            # NOT_RPYTHON
-##            from pypy.interpreter import stablecompiler
-##            from pypy.interpreter.stablecompiler.pycodegen import ModuleCodeGenerator
-##            from pypy.interpreter.stablecompiler.pycodegen import InteractiveCodeGenerator
-##            from pypy.interpreter.stablecompiler.pycodegen import ExpressionCodeGenerator
-##            from pypy.interpreter.stablecompiler.transformer import Transformer
-##            transformer = Transformer()
-##            tree = transformer.compile_node(tuples)
-##            stablecompiler.misc.set_filename(filename, tree)
-##            if mode == 'exec':
-##                codegenerator = ModuleCodeGenerator(tree)
-##            elif mode == 'single':
-##                codegenerator = InteractiveCodeGenerator(tree)
-##            else: # mode == 'eval':
-##                codegenerator = ExpressionCodeGenerator(tree)
-##            c = codegenerator.getCode()
-##        ''')
+    def __init__(self, space):
+        from pypy.interpreter.error import debug_print
+        PythonCompiler.__init__(self, space)
+        debug_print("importing the 'compiler' package at app-level...",
+                    newline=False)
+        self.w_applevelcompile = space.appexec([], r'''():
+            from compiler.misc import set_filename
+            from compiler.pycodegen import ModuleCodeGenerator
+            from compiler.pycodegen import InteractiveCodeGenerator
+            from compiler.pycodegen import ExpressionCodeGenerator
+            from compiler.transformer import Transformer
 
-##    def compile_parse_result(self, parse_result, filename, mode):
+            def applevelcompile(tuples, filename, mode):
+                transformer = Transformer()
+                tree = transformer.compile_node(tuples)
+                set_filename(filename, tree)
+                if mode == 'exec':
+                    codegenerator = ModuleCodeGenerator(tree)
+                elif mode == 'single':
+                    codegenerator = InteractiveCodeGenerator(tree)
+                else: # mode == 'eval':
+                    codegenerator = ExpressionCodeGenerator(tree)
+                return codegenerator.getCode()
 
+            return applevelcompile
+        ''')
+        debug_print(" done")
 
+    def compile_parse_result(self, parse_result, filename, mode):
+        space = self.space
+        source_encoding, stack_element = parse_result
+        w_nested_tuples = stack_element.as_w_tuple(space, lineno=True)
+        if source_encoding is not None:
+            w_nested_tuples = space.newtuple([
+                space.wrap(pysymbol.encoding_decl),
+                w_nested_tuples,
+                space.wrap(source_encoding)])
 
-
-        
-        
+        from pypy.interpreter.error import debug_print
+        debug_print("app-level compiling...", newline=False)
+        w_code = space.call_function(self.w_applevelcompile,
+                                     w_nested_tuples,
+                                     space.wrap(filename),
+                                     space.wrap(mode))
+        debug_print(" done")
+        return w_code
 
 
 class PyPyCompiler(CPythonCompiler):

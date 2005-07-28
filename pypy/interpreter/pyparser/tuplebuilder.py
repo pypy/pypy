@@ -16,6 +16,14 @@ class Terminal(StackElement):
         else:
             return self.nodes[0][:-1]
 
+    def as_w_tuple(self, space, lineno=False):
+        num, value, lineno = self.nodes[0]
+        content = [space.wrap(num), space.wrap(value)]
+        if lineno:
+            content.append(space.wrap(lineno))
+        return space.newtuple(content)
+
+
 class NonTerminal(StackElement):
     def __init__(self, num, nodes):
         """rulename should always be None with regular Python grammar"""
@@ -25,8 +33,13 @@ class NonTerminal(StackElement):
     def as_tuple(self, lineno=False):
         l = [self.num] + [node.as_tuple(lineno) for node in self.nodes]
         return tuple(l)
-    
-        
+
+    def as_w_tuple(self, space, lineno=False):
+        l = [space.wrap(self.num)]
+        l += [node.as_w_tuple(space, lineno) for node in self.nodes]
+        return space.newtuple(l)
+
+
 def expand_nodes(stack_elements):
     """generate a nested tuples from a list of stack elements"""
     expanded = []
