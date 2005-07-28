@@ -121,13 +121,12 @@ class ObjSpace(object):
         self.options.uselibfile = uselibfile or nofaking
         self.options.compiler = compiler 
         self.options.usemodules = usemodules 
-        if kw: 
-            self.setoptions(kw)
+        self.setoptions(**kw)
         self.initialize()
 
-    def setoptions(self, kw): 
+    def setoptions(self):
         # override this in subclasses for extra-options
-        raise TypeError("got unknown keyword arguments: %r" %(kw,))
+        pass
 
     def __repr__(self):
         return self.__class__.__name__

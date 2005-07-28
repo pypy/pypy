@@ -29,12 +29,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     PACKAGE_PATH = 'objspace.std'
 
-    def setoptions(self, kw): 
-        optionlist = 'oldstyle'.split()
-        for name in kw: 
-            if name not in optionlist: 
-                raise TypeError("don't know about option %r" % (name,))
-            setattr(self.options, name, kw[name])
+    def setoptions(self, oldstyle=False):
+        self.options.oldstyle = oldstyle
 
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
