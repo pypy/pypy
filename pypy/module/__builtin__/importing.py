@@ -48,7 +48,7 @@ def info_modtype(space ,filepart):
         pyfile_exist = False
     
     pycfile = filepart + ".pyc"    
-    if os.path.exists(pycfile):
+    if 0:  # os.path.exists(pycfile):       # DISABLED PYC FILES FOR NOW
         pyc_state = check_compiled_module(space, pyfile, pyfile_ts, pycfile)
         pycfile_exists = pyc_state >= 0
         pycfile_ts_valid = pyc_state > 0 and pyfile_exist
@@ -365,9 +365,10 @@ def load_source_module(space, w_modulename, w_mod, pathname, osfile):
                       w(space.builtin))
     pycode.exec_code(space, w_dict, w_dict) 
 
-    mtime = os.fstat(osfile.fd)[stat.ST_MTIME]
-    cpathname = pathname + 'c'
-    write_compiled_module(space, pycode, cpathname, mtime)
+    if 0:        # DISABLED PYC FILES FOR NOW
+        mtime = os.fstat(osfile.fd)[stat.ST_MTIME]
+        cpathname = pathname + 'c'
+        write_compiled_module(space, pycode, cpathname, mtime)
 
     return w_mod
 
