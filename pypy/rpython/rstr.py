@@ -317,7 +317,7 @@ def do_stringformat(hop, sourcevarsrepr):
                 vchunk = hop.gendirectcall(rint.ll_int2oct, vitem,
                                            inputconst(Bool, False))
             else:
-                assert 0
+                raise TyperError, "%%%s is not RPython" % (code, )
         else:
             vchunk = inputconst(string_repr, thing)
         i = inputconst(Signed, i)
