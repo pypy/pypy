@@ -2,8 +2,41 @@ import py
 from pypy.translator.translator import Translator
 
 
+class TestException(Exception):
+    pass
+
 class MyException(Exception):
     pass
+
+def test_simple1():
+    def raise_(i):
+        if i == 0:
+            raise TestException()
+        elif i == 1:
+            raise MyException()
+        else:
+            return 3
+    def fn(i):
+        try:
+            a = raise_(i) + 11
+            b = raise_(i) + 12
+            c = raise_(i) + 13
+            return a+b+c
+        except TestException: 
+            return 7
+        except MyException: 
+            return 123
+        except:
+            return 22
+        return 66
+    t = Translator(fn)
+    t.annotate([int]).simplify()
+    t.specialize()
+    #t.view()
+    f = t.ccompile()
+    assert f(0) == fn(0)
+    assert f(1) == fn(1)
+    assert f(2) == fn(2)
 
 def test_simple2(): #taken from ../../llvm2/test/test_exception.py 
     py.test.skip("decided whethe we want to support IndexError on [] at interp-level")
