@@ -18,7 +18,8 @@ except NameError:
 
 # __________  Entry point  __________
 
-def entry_point(argv):
+def entry_point(argvstring):
+    argv = argvstring.split('\x00')
     w_argv = space.newlist([space.wrap(s) for s in argv])
     w_exitcode = space.call(w_entry_point, w_argv)
     # try to pull it all in
@@ -48,11 +49,10 @@ def target():
     space.exec_(open(filename).read(), w_dict, w_dict)
     w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
 
-    s_list_of_strings = SomeList(ListDef(None, SomeString()))
-    return entry_point, [s_list_of_strings]
+    return entry_point, [SomeString()]
 
 # _____ Run translated _____
 def run(c_entry_point):
     argv = [os.path.join(this_dir, 'app_example.py')]
-    exitcode = c_entry_point(argv)
+    exitcode = c_entry_point('\x00'.join(argv))
     assert exitcode == 0
