@@ -20,6 +20,7 @@ class LLInterpreter(object):
         self.flowgraphs = flowgraphs
         self.bindings = {}
         self.typer = typer
+        self.active_frame = None
 
     def getgraph(self, func):
         return self.flowgraphs[func]
@@ -27,7 +28,29 @@ class LLInterpreter(object):
     def eval_function(self, func, args=()):
         graph = self.getgraph(func)
         llframe = LLFrame(graph, args, self)
-        return llframe.eval()
+        try:
+            return llframe.eval()
+        except Exception, e:
+            print "AN ERROR OCCURED:", e
+            self.print_traceback()
+            raise
+
+    def print_traceback(self):
+        frame = self.active_frame
+        frames = []
+        while frame is not None:
+            frames.append(frame)
+            frame = frame.f_back
+        frames.reverse()
+        for frame in frames:
+            print frame.graph.name,
+            print self.typer.annotator.annotated[frame.curr_block].__module__
+            for i, operation in enumerate(frame.curr_block.operations):
+                if i == frame.curr_operation_index:
+                    print "E  ",
+                else:
+                    print "   ",
+                print operation
 
 # implementations of ops from flow.operation
 from pypy.objspace.flow.operation import FunctionByName
@@ -36,11 +59,14 @@ opimpls['is_true'] = bool
 
 
 class LLFrame(object):
-    def __init__(self, graph, args, llinterpreter):
+    def __init__(self, graph, args, llinterpreter, f_back=None):
         self.graph = graph
         self.args = args
         self.llinterpreter = llinterpreter
         self.bindings = {}
+        self.f_back = f_back
+        self.curr_block = None
+        self.curr_operation_index = 0
 
     # _______________________________________________________
     # variable setters/getters helpers
@@ -85,6 +111,7 @@ class LLFrame(object):
     # evaling functions
 
     def eval(self):
+        self.llinterpreter.active_frame = self
         graph = self.graph
         log.frame("evaluating", graph.name)
         nextblock = graph.startblock
@@ -93,17 +120,20 @@ class LLFrame(object):
             self.fillvars(nextblock, args)
             nextblock, args = self.eval_block(nextblock)
             if nextblock is None:
+                self.llinterpreter.active_frame = self.f_back
                 return args
 
     def eval_block(self, block):
         """ return (nextblock, values) tuple. If nextblock
             is None, values is the concrete return value.
         """
+        self.curr_block = block
         catch_exception = block.exitswitch == Constant(last_exception)
         e = None
 
         try:
-            for op in block.operations:
+            for i, op in enumerate(block.operations):
+                self.curr_operation_index = i
                 self.eval_operation(op)
         except LLException, e:
             if not (catch_exception and op is block.operations[-1]):
@@ -209,7 +239,7 @@ class LLFrame(object):
             except KeyError:
                 assert has_callable, "don't know how to execute %r" % f
                 return self.invoke_callable_with_pyexceptions(f, *args)
-        frame = self.__class__(graph, args, self.llinterpreter)
+        frame = self.__class__(graph, args, self.llinterpreter, self)
         return frame.eval()
 
     def op_malloc(self, obj):
