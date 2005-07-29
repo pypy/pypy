@@ -71,27 +71,31 @@ def parsestr(space, encoding, s):
             buf = ''.join(lis)
             bufp = 0
             bufq = len(buf)
+        assert 0 <= bufp <= bufq
+        w_substr = space.wrap(buf[bufp : bufq])
         if rawmode:
-            w_v = PyUnicode_DecodeRawUnicodeEscape(space, space.wrap(buf[bufp : bufq]))
+            w_v = PyUnicode_DecodeRawUnicodeEscape(space, w_substr)
         else:
-            w_v = PyUnicode_DecodeUnicodeEscape(space, space.wrap(buf[bufp : bufq]))
+            w_v = PyUnicode_DecodeUnicodeEscape(space, w_substr)
         return w_v
 
     need_encoding = (encoding is not None and
                      encoding != "utf-8" and encoding != "iso-8859-1")
     # XXX add strchr like interface to rtyper
+    assert 0 <= ps <= q
+    substr = s[ps : q]
     if rawmode or '\\' not in s[ps:]:
         if need_encoding:
-            w_u = PyUnicode_DecodeUTF8(space, space.wrap(s[ps : q]))
+            w_u = PyUnicode_DecodeUTF8(space, space.wrap(substr))
             w_v = PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
             return w_v
         else:
-            return space.wrap(s[ps : q])
+            return space.wrap(substr)
 
     enc = None
     if need_encoding:
          enc = encoding
-    v = PyString_DecodeEscape(space, s[ps : q], unicode, enc)
+    v = PyString_DecodeEscape(space, substr, unicode, enc)
     return space.wrap(v)
 
 def hexbyte(val):
@@ -175,6 +179,7 @@ def PyString_DecodeEscape(space, s, unicode, recode_encoding):
             # non-escape mode.
             lis.append('\\')
             ps -= 1
+            assert ps >= 0
             continue
             # an arbitry number of unescaped UTF-8 bytes may follow.
 
@@ -211,6 +216,7 @@ PyUnicode_DecodeUTF8 = app.interphook('PyUnicode_DecodeUTF8')
 PyUnicode_AsEncodedString = app.interphook('PyUnicode_AsEncodedString')
 
 def decode_utf8(space, s, ps, end, encoding):
+    assert ps >= 0
     pt = ps
     # while (s < end && *s != '\\') s++; */ /* inefficient for u".."
     while ps < end and ord(s[ps]) & 0x80:
