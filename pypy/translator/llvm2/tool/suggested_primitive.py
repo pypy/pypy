@@ -7,8 +7,10 @@ from pypy.rpython.module import ll_os, ll_os_path, ll_time, ll_math #XXX keep th
 from pypy.translator.llvm2.module.extfunction import extfunctions
 
 def main():
+    seen = Set()
     for module in (ll_os, ll_os_path, ll_time, ll_math):    #XXX keep this list up-to-date too
-        suggested_primitives   = Set( [func for func in dir(module) if getattr(module.__dict__[func], 'suggested_primitive', False)] )
+        suggested_primitives   = Set( [func for func in dir(module) if func not in seen and getattr(module.__dict__[func], 'suggested_primitive', False)] )
+        seen |= suggested_primitives
         implemented_primitives = Set( [f[1:] for f in extfunctions.keys()] )
         missing_primitives     = suggested_primitives - implemented_primitives
         print 'Missing llvm primitives for %s:' % module.__name__
