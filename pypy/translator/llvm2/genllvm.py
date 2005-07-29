@@ -82,7 +82,10 @@ class GenLLVM(object):
             deps.reverse()
             for dep in deps:
                 if dep not in depdone:
-                    llvm_code = extfunctions[dep][1]
+                    try:
+                        llvm_code = extfunctions[dep][1]
+                    except KeyError:
+                        raise Exception('primitive function %s has no implementation' %(dep,))
                     for extfunc in llvm_code.split('\n'):
                         codewriter.append(extfunc)
                     depdone[dep] = True
