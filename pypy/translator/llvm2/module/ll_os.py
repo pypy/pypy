@@ -6,6 +6,7 @@ declare int %open(sbyte*, int, int)
 declare int %write(int, sbyte*, int)
 declare int %read(int, sbyte*, int)
 declare sbyte* %strncpy(sbyte*, sbyte*, int)
+declare int %isatty(int)
 """
 
 extfunctions = {}
@@ -59,3 +60,14 @@ int %ll_read_into(int %fd, %structtype.rpy_string* %structstring) {
 }
 
 """)
+
+extfunctions["%ll_os_isatty"] = ((), """
+bool %ll_os_isatty(int %fd) {
+    %ret = call int %isatty(int %fd)
+    %ret.bool = cast int %ret to bool
+    ret bool %ret.bool
+}
+
+""")
+
+

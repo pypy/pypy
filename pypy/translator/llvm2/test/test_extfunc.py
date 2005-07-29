@@ -189,4 +189,12 @@ def test_os_path_isdir():
     f = compile_function(fn, [])
     assert f() == False
 
+def test_os_isatty():
+    def call_isatty(fd):
+        return os.isatty(fd)
+    f = compile_function(call_isatty, [int])
+    assert f(0) == os.isatty(0)
+    assert f(1) == os.isatty(1)
+    assert f(2) == os.isatty(2)
+
 # end of tests taken from c backend
