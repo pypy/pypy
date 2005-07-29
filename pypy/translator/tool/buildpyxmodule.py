@@ -77,7 +77,17 @@ def make_module_from_c(cfile, include_dirs=None):
                         # ignore unwanted features like config files.
                         extra_compile_args = []
                         if get_default_compiler() == 'unix':
-                            extra_compile_args.extend(["-Wno-unused-label",
+                            old_version = False
+                            try:
+                                g = os.popen('gcc --version', 'r')
+                                verinfo = g.read()
+                                g.close()
+                            except (OSError, IOError):
+                                pass
+                            else:
+                                old_version = verinfo.startswith('2')
+                            if not old_version:
+                                extra_compile_args.extend(["-Wno-unused-label",
                                                         "-Wno-unused-variable"])
                         attrs = {
                             'name': "testmodule",

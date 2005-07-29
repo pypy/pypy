@@ -10,7 +10,7 @@ class ExceptionData:
 
     # the exceptions that can be implicitely raised by some operations
     standardexceptions = [TypeError, OverflowError, ValueError,
-                          ZeroDivisionError, MemoryError]
+                          ZeroDivisionError, MemoryError, IOError]
 
     def __init__(self, rtyper):
         self.make_standard_exceptions(rtyper)
