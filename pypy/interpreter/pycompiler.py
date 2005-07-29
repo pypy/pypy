@@ -287,6 +287,7 @@ class PythonCompilerApp(PythonCompiler):
                                      space.wrap(filename),
                                      space.wrap(mode))
         code = space.interpclass_w(w_code)
+	from pypy.interpreter.pycode import PyCode
         if not isinstance(code, PyCode):
             raise OperationError(space.w_RuntimeError,
                                  space.wrap("code object expected"))
