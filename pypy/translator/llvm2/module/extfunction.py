@@ -6,8 +6,10 @@ declare sbyte* %gc_malloc_atomic(uint)
 %structtype.rpy_string = type {int, {int, [0 x sbyte]}}
 
 ;exception handling globals
-%last_exception_type  = global long 0
-%last_exception_value = global long 0
+%last_exception_type  = global sbyte* null
+%last_exception_value = global sbyte* null
+;%last_exception_type  = global %structtype.object_vtable* null
+;%last_exception_value = global %structtype.object* null
 """
 
 gc_boehm = """declare sbyte* %GC_malloc(uint)

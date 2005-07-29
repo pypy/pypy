@@ -191,9 +191,9 @@ class OpWriter(object):
         argrefs = self.db.repr_arg_multi(op.args[1:])
         argtypes = self.db.repr_arg_type_multi(op.args[1:])
 
-        none_label      = self.node.block_to_name[link.target]
-        exc_label       = self.node.block_to_name[self.block] + '_exception'
-        exc_error_label = exc_label + '_error'
+        none_label  = self.node.block_to_name[link.target]
+        block_label = self.node.block_to_name[self.block]
+        exc_label   = block_label + '_exception_handling'
 
         if returntype != "void":
             self.codewriter.invoke(targetvar, returntype, functionref, argrefs,
@@ -201,56 +201,42 @@ class OpWriter(object):
         else:
             self.codewriter.invoke_void(functionref, argrefs, argtypes, none_label, exc_label)
 
+        e = self.db._translator.rtyper.getexceptiondata()
+        ll_exception_match        = '%' + e.ll_exception_match.__name__
+        lltype_of_exception_type  = '%structtype.' + e.lltype_of_exception_type.TO.__name__ + '*'
+
+        tmptype1, tmpvar1 = 'sbyte*', self.db.repr_tmpvar()
+        tmptype2, tmpvar2 = lltype_of_exception_type, self.db.repr_tmpvar()
+
         self.codewriter.label(exc_label)
-        value_label = []
-        value = 0
+        self.codewriter.load(tmpvar1, tmptype1, '%last_exception_type')
+        self.codewriter.cast(tmpvar2, tmptype1, tmpvar1, tmptype2)
+        self.codewriter.newline()
+
+        exc_found_labels = []
         for link in self.block.exits[1:]:
             assert issubclass(link.exitcase, Exception)
 
-            target = self.node.block_to_name[link.target]
-            value_label.append( (value,target) )
-            value += 1
+            etype = self.db.obj2node[link.llexitcase._obj]
 
-            #msg = 'XXX Exception target=%s, exitcase=%s, last_exception.concretetype=%s' % \
-            #    (str(target), str(link.exitcase), link.last_exception.concretetype)
-            #self.codewriter.comment(msg)
-            #self.codewriter.comment('TODO: in %s rename %s to %s' % (target, self.node.block_to_name[self.block], exc_label))
+            target          = self.node.block_to_name[link.target]
+            exc_found_label = block_label + '_exception_found_branchto_' + target
+            exc_found_labels.append( (exc_found_label, target) )
 
-        tmptype1, tmpvar1 = 'long'                , self.db.repr_tmpvar()
-        self.codewriter.load(tmpvar1, tmptype1, '%last_exception_type')
+            not_this_exception_label = block_label + '_not_exception_' + etype.ref[1:]
 
-        #tmptype2, tmpvar2 = '%structtype.object_vtable*', self.db.repr_tmpvar()
-        #self.codewriter.cast(tmpvar2, tmptype1, tmpvar1, tmptype2)
-        #self.codewriter.switch(tmptype2, tmpvar2, exc_error_label, value_label)
+            ll_issubclass_cond = self.db.repr_tmpvar()
+            self.codewriter.call(ll_issubclass_cond, 'bool', ll_exception_match,
+                [etype.ref, tmpvar2], [lltype_of_exception_type, lltype_of_exception_type])
+            self.codewriter.br(ll_issubclass_cond, not_this_exception_label, exc_found_label)
+            self.codewriter.label(not_this_exception_label)
 
-        #XXX get helper function name
-        exceptiondata      = self.db._translator.rtyper.getexceptiondata()
-        
-        #functions
-        ll_exception_match = exceptiondata.ll_exception_match.__name__
-        #yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.ll_exception_match)
-        #yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.ll_type_of_exc_inst)
-        #yield ('RPYTHON_PYEXCCLASS2EXC',   exceptiondata.ll_pyexcclass2exc)
-        #yield ('RAISE_OSERROR',            exceptiondata.ll_raise_OSError)
-
-        #datatypes
-        lltype_of_exception_type  = 'structtype.' + exceptiondata.lltype_of_exception_type.TO.__name__
-        lltype_of_exception_value = 'structtype.' + exceptiondata.lltype_of_exception_value.TO.__name__
-        #yield ('RPYTHON_EXCEPTION_VTABLE', exceptiondata.lltype_of_exception_type)
-        #yield ('RPYTHON_EXCEPTION',        exceptiondata.lltype_of_exception_value)
-
-        self.codewriter.newline()
-        self.codewriter.comment('HERE')
-        self.codewriter.comment(ll_exception_match)         #ll_issubclass__object_vtablePtr_object_vtablePtr
-        self.codewriter.comment(lltype_of_exception_type)   #
-        self.codewriter.comment(lltype_of_exception_value)  #
-        self.codewriter.newline()
-
-        self.codewriter.switch(tmptype1, tmpvar1, exc_error_label, value_label)
-        self.codewriter.label(exc_error_label)
-        self.codewriter.comment('dead code ahead')
-        self.codewriter.ret('int', '0')
-        #self.codewriter.unwind()   #this causes llvm to crash?!?
+        self.codewriter.comment('this code should never be reached!')
+        self.codewriter.unwind()
+        #self.codewriter.br_uncond(none_label)
+        for label, target in exc_found_labels:
+            self.codewriter.label(label)
+            self.codewriter.br_uncond(target)
 
     def malloc(self, op): 
         targetvar = self.db.repr_arg(op.result) 

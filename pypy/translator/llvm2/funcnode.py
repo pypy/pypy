@@ -108,10 +108,10 @@ class FuncNode(ConstantLLVMNode):
             names = self.db.repr_arg_multi([link.args[i] for link in entrylinks])
             blocknames = [self.block_to_name[link.prevblock]
                               for link in entrylinks]
-            for i, link in enumerate(entrylinks):
+            for i, link in enumerate(entrylinks):   #XXX refactor into a transformation
                 if link.prevblock.exitswitch == Constant(last_exception) and \
                    link.prevblock.exits[0].target != block:
-                    blocknames[i] += '_exception'
+                    blocknames[i] += '_exception_found_branchto_' + self.block_to_name[block]
             if type_ != "void":
                 codewriter.phi(arg, type_, names, blocknames) 
 
@@ -120,8 +120,8 @@ class FuncNode(ConstantLLVMNode):
         if len(block.exits) == 1:
             codewriter.br_uncond(self.block_to_name[block.exits[0].target])
         elif len(block.exits) == 2:
-            switch = self.db.repr_arg(block.exitswitch)
-            codewriter.br(switch, self.block_to_name[block.exits[0].target],
+            cond = self.db.repr_arg(block.exitswitch)
+            codewriter.br(cond, self.block_to_name[block.exits[0].target],
                           self.block_to_name[block.exits[1].target])
 
     def _last_operation(self, block, opname):
@@ -175,17 +175,17 @@ class FuncNode(ConstantLLVMNode):
             inputargs = self.db.repr_arg_multi(block.inputargs)
             inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
 
-            tmptype, tmpvar = 'long', self.db.repr_tmpvar()
+            tmptype, tmpvar = 'sbyte*', self.db.repr_tmpvar()
             codewriter.cast(tmpvar, inputargtypes[0], inputargs[0], tmptype)
             codewriter.store(tmptype, tmpvar, '%last_exception_type')
 
-            tmptype, tmpvar = 'long', self.db.repr_tmpvar()
+            tmptype, tmpvar = 'sbyte*', self.db.repr_tmpvar()
             codewriter.cast(tmpvar, inputargtypes[1], inputargs[1], tmptype)
             codewriter.store(tmptype, tmpvar, '%last_exception_value')
-        #else:
-        #   Reraising last_exception.
-        #   Which is already stored in the global variables.
-        #   So nothing needs to happen here!
+        else:
+            codewriter.comment('reraise last exception')
+            #Reraising last_exception.
+            #Which is already stored in the global variables.
+            #So nothing needs to happen here!
 
-        codewriter.comment('reraise last exception')
         codewriter.unwind()

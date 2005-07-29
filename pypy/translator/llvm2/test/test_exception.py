@@ -11,7 +11,7 @@ class MyException(Exception):
         self.n = n
 
 def test_simple1():
-    py.test.skip("not working yet")
+    #py.test.skip("not working yet")
     def raise_(i):
         if i:
             raise TestException()
@@ -30,7 +30,7 @@ def test_simple1():
     assert f(1) == fn(1)
 
 def test_simple2():
-    py.test.skip("not working yet")
+    py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
@@ -44,7 +44,7 @@ def test_simple2():
     assert f(10) == fn(10)
 
 def test_simple3():
-    py.test.skip("not working yet")
+    #py.test.skip("not working yet")
     def raise_(i):
         if i == 0:
             raise TestException()
@@ -71,6 +71,7 @@ def test_simple3():
     assert f(2) == fn(2)
 
 def test_pass_exc():
+    py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
@@ -95,7 +96,7 @@ def test_divzero():
     assert f(0) == fn(0)
     
 def test_reraise1():
-    py.test.skip("not working yet")
+    py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
@@ -109,7 +110,7 @@ def test_reraise1():
     assert f(10) == fn(10)
 
 def test_reraise2():
-    py.test.skip("not working yet")
+    py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
@@ -123,7 +124,7 @@ def test_reraise2():
     assert f(10) == fn(10)
 
 def test_simple_exception():
-    py.test.skip("not working yet")
+    py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
@@ -138,7 +139,7 @@ def test_simple_exception():
         assert f(i) == fn(i)
 
 def test_two_exceptions():
-    py.test.skip("not working yet")
+    py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
@@ -155,7 +156,7 @@ def test_two_exceptions():
         assert f(i) == fn(i)
 
 def test_catch_base_exception():
-    py.test.skip("not working yet")
+    py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:

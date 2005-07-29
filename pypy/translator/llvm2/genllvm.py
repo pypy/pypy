@@ -39,11 +39,20 @@ class GenLLVM(object):
         if func is None:
             func = self.translator.entrypoint
         self.entrypoint = func
-        
+
+        #make sure exception matching and exception type are available
+        e = self.translator.rtyper.getexceptiondata()
+        for ll_helper in (e.ll_exception_match,):
+            ptr = getfunctionptr(self.translator, ll_helper)
+            c = inputconst(lltype.typeOf(ptr), ptr)
+            self.db.prepare_repr_arg(c)
+            assert c in self.db.obj2node
+
         ptr = getfunctionptr(self.translator, func)
         c = inputconst(lltype.typeOf(ptr), ptr)
         self.db.prepare_repr_arg(c)
         assert c in self.db.obj2node
+
         self.db.setup_all()
         self.entrynode = self.db.obj2node[c]
         codewriter = CodeWriter()
