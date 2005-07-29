@@ -39,4 +39,4 @@ class TestParsetring:
         s = s.decode("koi8-u").encode("utf8")
         w_ret = parsestring.parsestr(self.space, 'koi8-u', s)
         ret = space.unwrap(w_ret)
-        assert ret == u'\u2502'
+        assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81'") 
