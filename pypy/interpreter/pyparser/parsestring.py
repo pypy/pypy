@@ -216,7 +216,7 @@ def decode_utf8(space, s, ps, end, encoding):
     while ps < end and ord(s[ps]) & 0x80:
         ps += 1
     w_u = PyUnicode_DecodeUTF8(space, space.wrap(s[pt : ps]))
-    w_v = PyUnicode_AsEncodedString(space, w_u, space.unwrap(encoding))
+    w_v = PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
     v = space.str_w(w_v)
     return v, ps
 
