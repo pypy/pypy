@@ -65,7 +65,8 @@ class W_DictObject(W_Object):
         assert isinstance(lookup_hash, r_uint)
         space = self.space
         data = self.data
-        i = lookup_hash % len(data)
+        mask = len(data) - 1   # len(data) is expected to be a power of 2
+        i = lookup_hash & mask
 
         entry = data[i]
         if entry.w_key is None or space.is_w(w_lookup, entry.w_key):
@@ -85,7 +86,7 @@ class W_DictObject(W_Object):
         perturb = lookup_hash
         while 1:
             i = (i << 2) + i + perturb + 1
-            entry = data[i%len(data)]
+            entry = data[i & mask]
             if entry.w_key is None:
                 if freeslot:
                     return freeslot
