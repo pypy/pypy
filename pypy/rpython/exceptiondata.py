@@ -72,7 +72,7 @@ class ExceptionData:
             if (clsdef and clsdef.cls is not Exception
                 and issubclass(clsdef.cls, Exception)):
                 cls = clsdef.cls
-                if not clsdef.attrs:
+                if cls.__module__ == 'exceptions' and not clsdef.attrs:
                     r_inst = rclass.getinstancerepr(rtyper, clsdef)
                     r_inst.setup()
                     example = malloc(r_inst.lowleveltype.TO, immortal=True)
