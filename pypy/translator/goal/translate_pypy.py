@@ -33,6 +33,8 @@ Command-line options for translate_pypy:
    -load filename
               restores the translator from a file. The file type must
               be either .py or .zip .
+   -llinterpret
+              interprets the flow graph after rtyping it
 """
 import autopath, sys, os
 
@@ -283,6 +285,7 @@ if __name__ == '__main__':
                '-load': False,
                '-save': False,
                '-fork': False,
+               '-llinterpret': False,
                }
     listen_port = None
     argiter = iter(sys.argv[1:])
@@ -554,7 +557,16 @@ show class hierarchy graph"""
                  )
         if err:
             raise err[0], err[1], err[2]
-        if options['-no-c']:
+        if options['-llinterpret']:
+            def interpret():
+                import py
+                from pypy.rpython.llinterp import LLInterpreter
+                py.log.setconsumer("llinterp operation", None)    
+                interp = LLInterpreter(t.flowgraphs, t.rtyper)
+                interp.eval_function(entry_point,
+                                     targetspec_dic['get_llinterp_args']())
+            interpret()
+        elif options['-no-c']:
             print 'Not generating C code.'
         elif options['-c']:
             print 'Generating C code without compiling it...'

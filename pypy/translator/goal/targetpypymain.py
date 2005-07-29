@@ -50,6 +50,12 @@ def target():
 
     return entry_point, [SomeString()]
 
+def get_llinterp_args():
+    from pypy.rpython import rstr
+    ll_str = rstr.string_repr.convert_const("app_example.py")
+    return [ll_str]
+
+
 # _____ Run translated _____
 def run(c_entry_point):
     argv = [os.path.join(this_dir, 'app_example.py')]

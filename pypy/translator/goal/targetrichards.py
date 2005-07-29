@@ -7,6 +7,9 @@ entry_point = richards.entry_point
 def target():
     return entry_point, []
 
+def get_llinterp_args():
+    return []
+
 # _____ Run translated _____
 def run(c_entry_point):
     print "Translated:"
