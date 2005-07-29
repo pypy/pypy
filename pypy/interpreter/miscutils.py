@@ -34,6 +34,8 @@ class Stack:
         and so on.  It must not be negative."""
         if position < 0:
             raise ValueError, 'negative stack position'
+        if position >= len(self.items):
+            raise IndexError, 'not enough entries in stack'
         return self.items[~position]
 
     def depth(self):
