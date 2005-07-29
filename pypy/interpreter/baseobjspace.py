@@ -109,7 +109,7 @@ class ObjSpace(object):
                  parser="recparser", 
                  compiler="pyparse",
                  translating=False,
-                 use_geninterp=True,
+                 geninterp=True,
                  **kw
                  ): 
         "NOT_RPYTHON: Basic initialization of objects."
@@ -124,7 +124,7 @@ class ObjSpace(object):
         self.options.compiler = compiler 
         self.options.usemodules = usemodules 
         self.options.translating = translating
-        self.options.use_geninterp = use_geninterp
+        self.options.geninterp = geninterp
         self.setoptions(**kw)
         self.initialize()
 

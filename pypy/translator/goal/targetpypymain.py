@@ -40,7 +40,7 @@ def target():
     space = StdObjSpace(nofaking=True,
                         compiler="pyparseapp",
                         translating=True,
-                        use_geninterp=False)
+                        geninterp=False)
 
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')

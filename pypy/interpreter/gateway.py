@@ -563,7 +563,7 @@ class ApplevelCache(SpaceCache):
 
     def build(self, app):
         "NOT_RPYTHON.  Called indirectly by Applevel.getwdict()."
-        if self.space.options.use_geninterp and app.can_use_geninterp:
+        if self.space.options.geninterp and app.can_use_geninterp:
             return PyPyCacheDir.build_applevelinterp_dict(app, self.space)
         else:
             return build_applevel_dict(app, self.space)
