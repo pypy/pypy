@@ -184,13 +184,18 @@ class LLFrame(object):
 
     def op_setfield(self, obj, fieldname, fieldvalue):
         # obj should be pointer
-        setattr(obj, fieldname, fieldvalue)
+        FIELDTYPE = getattr(typeOf(obj).TO, fieldname)
+        if FIELDTYPE != Void:
+            setattr(obj, fieldname, fieldvalue)
 
     def op_getarrayitem(self, array, index):
         return array[index]
 
     def op_setarrayitem(self, array, index, item):
-        array[index] = item
+        # array should be a pointer
+        ITEMTYPE = typeOf(array).TO.OF
+        if ITEMTYPE != Void:
+            array[index] = item
 
     def op_direct_call(self, f, *args):
         has_callable = getattr(f._obj, '_callable', None) is not None
