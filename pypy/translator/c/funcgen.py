@@ -85,7 +85,11 @@ class FunctionCodeGenerator:
             else:
                 return v.name
         elif isinstance(v, Constant):
-            return self.db.get(llvalue_from_constant(v))
+            value = llvalue_from_constant(v)
+            if value is None and not special_case_void:
+                return 'nothing'
+            else:
+                return self.db.get(value)
         else:
             raise TypeError, "expr(%r)" % (v,)
 
