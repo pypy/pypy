@@ -321,11 +321,11 @@ class RPythonTyper:
                     # cannot insert conversion operations around a single
                     # link, unless it is the only exit of this block.
                     # create a new block along the link...
-                    block = insert_empty_block(self.annotator.translator,
-                                               link,
+                    newblock = insert_empty_block(self.annotator.translator,
+                                                  link,
                     # ...and store the conversions there.
                                                newops=newops)
-                    link = block.exits[0]
+                    link = newblock.exits[0]
             for i, new_a1 in newlinkargs.items():
                 link.args[i] = new_a1
 
