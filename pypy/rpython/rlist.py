@@ -180,26 +180,44 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
 
     def rtype_getitem((r_lst, r_int), hop):
         v_lst, v_index = hop.inputargs(r_lst, Signed)
-        if hop.args_s[1].nonneg:
-            llfn = ll_getitem_nonneg
+        if hop.has_implicit_exception(IndexError):
+            if hop.args_s[1].nonneg:
+                llfn = ll_getitem_nonneg_checked
+            else:
+                llfn = ll_getitem_checked
         else:
-            llfn = ll_getitem
+            if hop.args_s[1].nonneg:
+                llfn = ll_getitem_nonneg
+            else:
+                llfn = ll_getitem
         return hop.gendirectcall(llfn, v_lst, v_index)
     
     def rtype_setitem((r_lst, r_int), hop):
         v_lst, v_index, v_item = hop.inputargs(r_lst, Signed, r_lst.item_repr)
-        if hop.args_s[1].nonneg:
-            llfn = ll_setitem_nonneg
+        if hop.has_implicit_exception(IndexError):
+            if hop.args_s[1].nonneg:
+                llfn = ll_setitem_nonneg_checked
+            else:
+                llfn = ll_setitem_checked
         else:
-            llfn = ll_setitem
+            if hop.args_s[1].nonneg:
+                llfn = ll_setitem_nonneg
+            else:
+                llfn = ll_setitem
         return hop.gendirectcall(llfn, v_lst, v_index, v_item)
 
     def rtype_delitem((r_lst, r_int), hop):
         v_lst, v_index = hop.inputargs(r_lst, Signed)
-        if hop.args_s[1].nonneg:
-            llfn = ll_delitem_nonneg
+        if hop.has_implicit_exception(IndexError):
+            if hop.args_s[1].nonneg:
+                llfn = ll_delitem_nonneg_checked
+            else:
+                llfn = ll_delitem_checked
         else:
-            llfn = ll_delitem
+            if hop.args_s[1].nonneg:
+                llfn = ll_delitem_nonneg
+            else:
+                llfn = ll_delitem
         return hop.gendirectcall(llfn, v_lst, v_index)
 
     def rtype_mul((r_lst, r_int), hop):
@@ -386,13 +404,45 @@ def ll_getitem(l, i):
         i += len(l.items)
     return l.items[i]
 
+def ll_getitem_nonneg_checked(l, i):
+    if i >= len(l.items):
+        raise IndexError
+    else:
+        return l.items[i]
+
+def ll_getitem_checked(l, i):
+    if i < 0:
+        i += len(l.items)
+    if i >= len(l.items) or i < 0:
+        raise IndexError
+    else:
+        return l.items[i]
+
 def ll_setitem_nonneg(l, i, newitem):
+    l.items[i] = newitem
+
+def ll_setitem_nonneg_checked(l, i, newitem):
+    if i >= len(l.items):
+        raise IndexError
     l.items[i] = newitem
 
 def ll_setitem(l, i, newitem):
     if i < 0:
         i += len(l.items)
     l.items[i] = newitem
+
+def ll_setitem_checked(l, i, newitem):
+    if i < 0:
+        i += len(l.items)
+    if i >= len(l.items) or i < 0:
+        raise IndexError
+    else:
+        l.items[i] = newitem
+
+def ll_delitem_nonneg_checked(l, i):
+    if i >= len(l.items):
+        raise IndexError
+    ll_delitem_nonneg(l, i)
 
 def ll_delitem_nonneg(l, i):
     newlength = len(l.items) - 1
@@ -409,6 +459,13 @@ def ll_delitem_nonneg(l, i):
 def ll_delitem(l, i):
     if i < 0:
         i += len(l.items)
+    ll_delitem_nonneg(l, i)
+
+def ll_delitem_checked(l, i):
+    if i < 0:
+        i += len(l.items)
+    if i >= len(l.items) or i < 0:
+        raise IndexErrror
     ll_delitem_nonneg(l, i)
 
 def ll_concat(l1, l2):

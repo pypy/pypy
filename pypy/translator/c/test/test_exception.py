@@ -38,15 +38,13 @@ def test_simple1():
     assert f(1) == fn(1)
     assert f(2) == fn(2)
 
-def test_simple2(): #taken from ../../llvm2/test/test_exception.py 
-    py.test.skip("decided whethe we want to support IndexError on [] at interp-level")
+def test_implicit_index_error_lists():
     def fn(n):
-        lst = range(10)
+        lst = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         try:
-            lst[n]
+            return lst[n]
         except:
             return 2
-        return 4
     t = Translator(fn)
     t.annotate([int]).simplify()
     t.specialize()
