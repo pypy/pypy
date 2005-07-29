@@ -1,0 +1,13 @@
+
+import code; code.interact(local=locals())
+
+import py
+
+from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython import rstr
+if not log:
+    py.log.setconsumer("llinterp operation", None)
+
+ll_str = rstr.string_repr.convert_const("app_example.py")
+interp = LLInterpreter(t.flowgraphs, t.rtyper)
+interp.eval_function(entry_point, [ll_str])
