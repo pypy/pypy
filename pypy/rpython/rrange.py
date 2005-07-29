@@ -34,6 +34,9 @@ class RangeRepr(Repr):
 class __extend__(pairtype(RangeRepr, IntegerRepr)):
 
     def rtype_getitem((r_rng, r_int), hop):
+        if hop.has_implicit_exception(IndexError):
+            s = "getitem on range with try, except: block not supported."
+            raise TyperError, s
         v_lst, v_index = hop.inputargs(r_rng, Signed)
         cstep = hop.inputconst(Signed, r_rng.step)
         if hop.args_s[1].nonneg:

@@ -179,10 +179,16 @@ class __extend__(StringRepr):
 class __extend__(pairtype(StringRepr, IntegerRepr)):
     def rtype_getitem(_, hop):
         v_str, v_index = hop.inputargs(string_repr, Signed)
-        if hop.args_s[1].nonneg:
-            llfn = ll_stritem_nonneg
+        if hop.has_implicit_exception(IndexError):
+            if hop.args_s[1].nonneg:
+                llfn = ll_stritem_nonneg_checked
+            else:
+                llfn = ll_stritem_checked
         else:
-            llfn = ll_stritem
+            if hop.args_s[1].nonneg:
+                llfn = ll_stritem_nonneg
+            else:
+                llfn = ll_stritem
         return hop.gendirectcall(llfn, v_str, v_index)
 
     def rtype_mod(_, hop):
@@ -499,9 +505,21 @@ def ll_strlen(s):
 def ll_stritem_nonneg(s, i):
     return s.chars[i]
 
+def ll_stritem_nonneg_checked(s, i):
+    if i >= len(s.chars):
+        raise IndexError
+    return s.chars[i]
+
 def ll_stritem(s, i):
     if i < 0:
         i += len(s.chars)
+    return s.chars[i]
+
+def ll_stritem_checked(s, i):
+    if i < 0:
+        i += len(s.chars)
+    if i >= len(s.chars) or i < 0:
+        raise IndexError
     return s.chars[i]
 
 def ll_str_is_true(s):

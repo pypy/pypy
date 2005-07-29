@@ -13,6 +13,23 @@ def test_simple():
         res = interpret(fn, [i])
         assert res == 'hello'[i]
 
+def test_implicit_index_error():
+    def fn(i):
+        s = 'hello'
+        try:
+            return s[i]
+        except IndexError:
+            return '*'
+    for i in range(-5, 5):
+        res = interpret(fn, [i])
+        assert res == 'hello'[i]
+    res = interpret(fn, [5])
+    assert res == '*'
+    res = interpret(fn, [6])
+    assert res == '*'
+    res = interpret(fn, [-42])
+    assert res == '*'
+    
 
 def test_nonzero():
     def fn(i, j):
