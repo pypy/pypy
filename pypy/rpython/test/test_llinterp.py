@@ -8,7 +8,7 @@ from pypy.rpython.rlist import *
 from pypy.rpython.rint import signed_repr
 from pypy.rpython import rstr
 from pypy.annotation.model import lltype_to_annotation
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, ovfcheck
 
 # switch on logging of interp to show more info on failing tests
 
@@ -257,6 +257,28 @@ def test_obj_obj_add():
     _2L = pyobjectptr(2L)
     res = interpret(f, [_1L, _2L], someobjects=True)
     assert res._obj.value == 3L
+
+def test_ovf():
+    import sys
+    def f(x):
+        try:
+            return ovfcheck(sys.maxint + x)
+        except OverflowError:
+            return 1
+    res = interpret(f, [1])
+    assert res == 1
+    res = interpret(f, [0])
+    assert res == sys.maxint
+    def g(x):
+        try:
+            return ovfcheck(abs(x))
+        except OverflowError:
+            return 42
+    res = interpret(g, [-sys.maxint - 1])
+    assert res == 42
+    res = interpret(g, [-15])
+    assert res == 15
+    
 
 def test_obj_obj_is():
     def f(x,y):

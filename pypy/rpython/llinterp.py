@@ -351,16 +351,6 @@ class LLFrame(object):
         assert type(c) is float
         return math.fmod(b,c)
 
-    def op_int_invert(self, a):
-        assert type(a) is int
-        return ~a
-
-    def op_uint_invert(self, a):
-        assert type(a) is r_uint
-        return ~a
-
-    
-
     # operations on pyobjects!
     for opname in opimpls.keys():
         exec py.code.Source("""
@@ -415,7 +405,22 @@ for typ in (float, int, r_uint):
                 func = opimpls[%(opname)r]
                 return %(adjust_result)s(func(x, y))
         """ % locals()).compile()
-    for opname in 'is_true', 'neg':
+        if typ is int:
+            opname += '_ovf'
+            exec py.code.Source("""
+                def op_%(opnameprefix)s_%(pureopname)s_ovf(self, x, y):
+                    assert isinstance(x, %(typname)s)
+                    assert isinstance(y, %(typname)s)
+                    func = opimpls[%(opname)r]
+                    try:
+                        return %(adjust_result)s(func(x, y))
+                    except OverflowError, e:
+                        self.make_llexception(e)
+            """ % locals()).compile()
+            funcname = "op_%(opnameprefix)s_%(pureopname)s_ovf" % locals()
+            setattr(LLFrame, funcname, globals()[funcname])
+            
+    for opname in 'is_true', 'neg', 'abs', 'invert':
         assert opname in opimpls
         if typ is int and opname not in ops_returning_a_bool:
             adjust_result = 'intmask'
@@ -427,6 +432,20 @@ for typ in (float, int, r_uint):
                 func = opimpls[%(opname)r]
                 return %(adjust_result)s(func(x))
         """ % locals()).compile()
+        if typ is int:
+            opname += '_ovf'
+            exec py.code.Source("""
+                def op_%(opnameprefix)s_%(opname)s_ovf(self, x):
+                    assert isinstance(x, %(typname)s)
+                    func = opimpls[%(opname)r]
+                    try:
+                        return %(adjust_result)s(func(x))
+                    except OverflowError, e:
+                        self.make_llexception(e)
+            """ % locals()).compile()
+            funcname = "op_%(opnameprefix)s_%(opname)s_ovf" % locals()
+            setattr(LLFrame, funcname, globals()[funcname])
+            
 
 for opname in ('gt', 'lt', 'ge', 'ne', 'le', 'eq'):
     assert opname in opimpls
