@@ -1,6 +1,6 @@
 
 import py
-from pypy.interpreter.gateway import appdef, ApplevelClass
+from pypy.interpreter.gateway import appdef, ApplevelClass, applevel_temp, applevelinterp_temp
 
 def test_execwith_novars(space): 
     val = space.appexec([], """ 
@@ -70,29 +70,27 @@ def test_app2interp_somefunc(space):
     w_result = app(space) 
     assert space.eq_w(w_result, space.wrap(42))
 
-def test_applevel_functions(space, use_geninterp=False):
-    app = ApplevelClass('''
+def test_applevel_functions(space, applevel_temp = applevel_temp):
+    app = applevel_temp('''
         def f(x, y):
             return x-y
         def g(x, y):
             return f(y, x)
     ''')
-    app.use_geninterp &= use_geninterp
     g = app.interphook('g')
     w_res = g(space, space.wrap(10), space.wrap(1))
     assert space.eq_w(w_res, space.wrap(-9))
 
 def test_applevelinterp_functions(space):
-    test_applevel_functions(space, use_geninterp=True)
+    test_applevel_functions(space, applevel_temp = applevelinterp_temp)
 
-def test_applevel_class(space, use_geninterp=False):
-    app = ApplevelClass('''
+def test_applevel_class(space, applevel_temp = applevel_temp):
+    app = applevel_temp('''
         class C: 
             clsattr = 42 
             def __init__(self, x=13): 
                 self.attr = x 
     ''')
-    app.use_geninterp &= use_geninterp
     C = app.interphook('C')
     c = C(space, space.wrap(17)) 
     w_attr = space.getattr(c, space.wrap('clsattr'))
@@ -101,7 +99,7 @@ def test_applevel_class(space, use_geninterp=False):
     assert space.eq_w(w_clsattr, space.wrap(17))
 
 def test_applevelinterp_class(space):
-    test_applevel_class(space, use_geninterp=True)
+    test_applevel_class(space, applevel_temp = applevelinterp_temp)
 
 def app_test_something_at_app_level(): 
     x = 2

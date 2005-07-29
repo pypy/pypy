@@ -508,7 +508,6 @@ class ApplevelClass:
     name at app-level."""
 
     hidden_applevel = True
-    use_geninterp = True    # change this to disable geninterp globally
 
     def __init__(self, source, filename = None, modname = '__builtin__'):
         self.filename = filename
@@ -517,7 +516,9 @@ class ApplevelClass:
         # look at the first three lines for a NOT_RPYTHON tag
         first = "\n".join(source.split("\n", 3)[:3])
         if "NOT_RPYTHON" in first:
-            self.use_geninterp = False
+            self.can_use_geninterp = False
+        else:
+            self.can_use_geninterp = True
 
     def getwdict(self, space):
         return space.fromcache(ApplevelCache).getorbuild(self)
@@ -562,7 +563,7 @@ class ApplevelCache(SpaceCache):
 
     def build(self, app):
         "NOT_RPYTHON.  Called indirectly by Applevel.getwdict()."
-        if app.use_geninterp:
+        if self.space.options.use_geninterp and app.can_use_geninterp:
             return PyPyCacheDir.build_applevelinterp_dict(app, self.space)
         else:
             return build_applevel_dict(app, self.space)
@@ -731,13 +732,11 @@ class applevel_temp(ApplevelClass):
     def getwdict(self, space):    # no cache
         return build_applevel_dict(self, space)
 
-if ApplevelClass.use_geninterp:
-    class applevelinterp_temp(ApplevelClass):
-        hidden_applevel = False
-        def getwdict(self, space):   # no cache
-            return PyPyCacheDir.build_applevelinterp_dict(self, space)
-else:
-    applevelinterp_temp = applevel_temp
+
+class applevelinterp_temp(ApplevelClass):
+    hidden_applevel = False
+    def getwdict(self, space):   # no cache
+        return PyPyCacheDir.build_applevelinterp_dict(self, space)
 
 # app2interp_temp is used for testing mainly
 def app2interp_temp(func, applevel_temp=applevel_temp):
