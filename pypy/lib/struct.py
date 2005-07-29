@@ -102,7 +102,7 @@ def pack_int(number,size,le):
 def pack_signed_int(number,size,le):
     if not isinstance(number, (int,long)):
         raise StructError,"argument for i,I,l,L,q,Q,h,H must be integer"
-    if  number < -1*2**(8*size-1):  #number > 2**(8*size-1)-1 or
+    if  number > 2**(8*size-1)-1 or number < -1*2**(8*size-1):
         raise OverflowError,"Number:%i too large to convert" % number
     return pack_int(number,size,le)
 
