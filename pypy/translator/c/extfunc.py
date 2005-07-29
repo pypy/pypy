@@ -17,6 +17,7 @@ EXTERNALS = {
     ll_os  .ll_os_stat:    'LL_os_stat',
     ll_os  .ll_os_fstat:   'LL_os_fstat',
     ll_os  .ll_os_lseek:   'LL_os_lseek',
+    ll_os  .ll_os_isatty:  'LL_os_isatty',
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_time.ll_time_time: 'LL_time_time',
     ll_math.ll_math_frexp: 'LL_math_frexp',

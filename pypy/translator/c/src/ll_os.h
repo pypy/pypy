@@ -155,3 +155,8 @@ long LL_os_lseek(long fd, long pos, long how) {
         RAISE_OSERROR(errno);
     return res;
 }
+
+long LL_os_isatty(long fd) {
+    return (int)isatty((int)fd);
+}
+

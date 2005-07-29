@@ -82,6 +82,14 @@ def test_os_fstat():
     assert result[1] == os.stat(filename)[1]
     assert result[2] == os.stat(filename)[2]
 
+def test_os_isatty():
+    def call_isatty(fd):
+        return os.isatty(fd)
+    f = compile(call_isatty, [int])
+    assert f(0) == os.isatty(0)
+    assert f(1) == os.isatty(1)
+    assert f(2) == os.isatty(2)
+
 def test_getcwd():
     def does_stuff():
         return os.getcwd()
