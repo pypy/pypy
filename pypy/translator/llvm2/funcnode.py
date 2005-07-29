@@ -7,7 +7,6 @@ from pypy.translator.unsimplify import remove_double_links
 from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2.opwriter import OpWriter
 from pypy.translator.llvm2.log import log 
-nextnum = py.std.itertools.count().next
 log = log.funcnode
 
 class FuncTypeNode(LLVMNode):
@@ -17,7 +16,7 @@ class FuncTypeNode(LLVMNode):
         self.type_ = type_
         # XXX Make simplier for now, it is far too hard to read otherwise
         #self.ref = 'ft.%s.%s' % (type_, nextnum())
-        self.ref = '%%functiontype.%s' % (nextnum(),)
+        self.ref = self.make_ref('%functiontype', '')
         
     def __str__(self):
         return "<FuncTypeNode %r>" % self.ref
@@ -32,8 +31,6 @@ class FuncTypeNode(LLVMNode):
         codewriter.funcdef(self.ref, returntype, inputargtypes)
                 
 class FuncNode(ConstantLLVMNode):
-    _issetup = False 
-
     def __init__(self, db, value):
         self.db = db
         self.value = value
@@ -57,7 +54,6 @@ class FuncNode(ConstantLLVMNode):
                     self.db.prepare_arg(op.result)
         assert self.graph, "cannot traverse"
         traverse(visit, self.graph)
-        self._issetup = True
 
     # ______________________________________________________________________
     # main entry points from genllvm 
@@ -65,7 +61,6 @@ class FuncNode(ConstantLLVMNode):
         codewriter.declare(self.getdecl())
 
     def writeimpl(self, codewriter):
-        assert self._issetup 
         graph = self.graph
         log.writeimpl(graph.name)
         codewriter.openfunc(self.getdecl())
@@ -89,7 +84,6 @@ class FuncNode(ConstantLLVMNode):
     # writing helpers for entry points
 
     def getdecl(self):
-        assert self._issetup 
         startblock = self.graph.startblock
         returnblock = self.graph.returnblock
         inputargs = self.db.repr_arg_multi(startblock.inputargs)

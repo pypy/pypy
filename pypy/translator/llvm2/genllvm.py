@@ -16,6 +16,7 @@ from pypy.translator.backendoptimization import remove_void
 #from pypy.translator.backendoptimization import rename_extfunc_calls
 from pypy.translator.llvm2.module.extfunction import extdeclarations, \
      extfunctions, gc_boehm, gc_disabled, dependencies
+from pypy.translator.llvm2.node import LLVMNode
 
 from pypy.translator.translator import Translator
 
@@ -24,6 +25,7 @@ function_count = {}
 class GenLLVM(object):
 
     def __init__(self, translator, embedexterns=True):
+        LLVMNode.nodename_count = {}    #reset counters
         self.db = Database(translator)
         self.translator = translator
         self.embedexterns = embedexterns

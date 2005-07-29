@@ -1,4 +1,18 @@
 class LLVMNode(object):
+    nodename_count = {}
+
+    def make_name(self, name):
+        if name in self.nodename_count:
+            postfix = '.%d' % self.nodename_count[name]
+            self.nodename_count[name] += 1
+        else:
+            postfix = ''
+            self.nodename_count[name] = 1
+        return name + postfix
+
+    def make_ref(self, prefix, name):
+        return self.make_name(prefix + name)
+
     def ref(): 
         def _get_ref(self):
             return self._ref 
@@ -24,7 +38,6 @@ class LLVMNode(object):
             self._constructor_ref = ref
         return property(_get_ref, _set_ref)
     constructor_ref = constructor_ref()
-
 
     def setup(self):
         pass

@@ -3,13 +3,12 @@ from pypy.rpython import lltype
 from pypy.translator.llvm2.log import log
 from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2 import varsize 
-import itertools  
+import itertools
 log = log.structnode
 
-nextnum = itertools.count().next 
+nextnum = itertools.count().next
 
 class ArrayTypeNode(LLVMNode):
-    _issetup = False
     def __init__(self, db, array):
         assert isinstance(array, lltype.Array)
 
@@ -23,7 +22,7 @@ class ArrayTypeNode(LLVMNode):
         # for the array type (see writeimpl)
         c = nextnum()
         self.ref = "%%arraytype.%s.%s" % (c, self.arraytype)
-        self.constructor_ref = "%%new.array.%s" % c 
+        self.constructor_ref = "%%new.array.%s" % c
         self.constructor_decl = "%s * %s(int %%len)" % \
                                 (self.ref, self.constructor_ref)
 
@@ -32,7 +31,6 @@ class ArrayTypeNode(LLVMNode):
         
     def setup(self):
         self.db.prepare_repr_arg_type(self.arraytype)
-        self._issetup = True
 
     # ______________________________________________________________________
     # entry points from genllvm
@@ -57,13 +55,12 @@ class ArrayNode(ConstantLLVMNode):
     a struct,
     pointer to struct/array
     """
-    _issetup = True 
     def __init__(self, db, value):
         assert isinstance(lltype.typeOf(value), lltype.Array)
         self.db = db
         self.value = value
         self.arraytype = lltype.typeOf(value).OF
-        self.ref = "%%arrayinstance.%s" % (nextnum(),)
+        self.ref = self.make_ref('%arrayinstance', '')
 
     def __str__(self):
         return "<ArrayNode %r>" % (self.ref,)
@@ -78,7 +75,6 @@ class ArrayNode(ConstantLLVMNode):
         self.castref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
                                                  self.ref,
                                                  typeval)
-        self._issetup = True
 
     def get_typerepr(self):
         items = self.value.items

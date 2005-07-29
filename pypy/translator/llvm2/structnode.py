@@ -4,20 +4,17 @@ from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2 import varsize
 from pypy.rpython import lltype
 
-import itertools  
-nextnum = itertools.count().next 
-
 log = log.structnode 
 
 class StructTypeNode(LLVMNode):
-    _issetup = False 
-
     def __init__(self, db, struct): 
         assert isinstance(struct, lltype.Struct)
         self.db = db
         self.struct = struct
-        self.name = "%s.%s" % (self.struct._name , nextnum())
-        self.ref = "%%structtype.%s" % (self.name)
+        prefix = '%structtype.'
+        name = self.struct._name
+        self.ref = self.make_ref(prefix, name)
+        self.name = self.ref[len(prefix):]
         
     def __str__(self):
         return "<StructTypeNode %r>" %(self.ref,)
@@ -26,13 +23,11 @@ class StructTypeNode(LLVMNode):
         # Recurse
         for field in self.struct._flds.values():
             self.db.prepare_repr_arg_type(field)
-        self._issetup = True
 
     # ______________________________________________________________________
     # main entry points from genllvm 
 
     def writedatatypedecl(self, codewriter):
-        assert self._issetup 
         fields = [getattr(self.struct, name)
                   for name in self.struct._names_without_voids()] 
         codewriter.structdef(self.ref,
@@ -42,7 +37,7 @@ class StructVarsizeTypeNode(StructTypeNode):
 
     def __init__(self, db, struct): 
         super(StructVarsizeTypeNode, self).__init__(db, struct)
-        self.constructor_ref = "%%newvarsizestruct.%s" % (self.name)
+        self.constructor_ref = "%%new.varsizestruct.%s" % (self.name)
         self.constructor_decl = "%s * %s(int %%len)" % \
                                 (self.ref, self.constructor_ref)
 
@@ -83,13 +78,11 @@ class StructNode(ConstantLLVMNode):
     a struct,
     pointer to struct/array
     """
-    _issetup = False 
-
     def __init__(self, db, value):
         self.db = db
         self.value = value
         self.structtype = self.value._TYPE
-        self.ref = "%%structinstance.%s" % (nextnum(),)
+        self.ref = self.make_ref('%structinstance', '')
         
     def __str__(self):
         return "<StructNode %r>" % (self.ref,)
@@ -111,8 +104,6 @@ class StructNode(ConstantLLVMNode):
             value = getattr(self.value, name)
             self.db.prepare_constant(T, value)
                 
-        self._issetup = True
-
     def get_typerepr(self):
         return self.db.repr_arg_type(self.structtype)
     

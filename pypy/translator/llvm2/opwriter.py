@@ -223,6 +223,29 @@ class OpWriter(object):
         #self.codewriter.cast(tmpvar2, tmptype1, tmpvar1, tmptype2)
         #self.codewriter.switch(tmptype2, tmpvar2, exc_error_label, value_label)
 
+        #XXX get helper function name
+        exceptiondata      = self.db._translator.rtyper.getexceptiondata()
+        
+        #functions
+        ll_exception_match = exceptiondata.ll_exception_match.__name__
+        #yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.ll_exception_match)
+        #yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.ll_type_of_exc_inst)
+        #yield ('RPYTHON_PYEXCCLASS2EXC',   exceptiondata.ll_pyexcclass2exc)
+        #yield ('RAISE_OSERROR',            exceptiondata.ll_raise_OSError)
+
+        #datatypes
+        lltype_of_exception_type  = 'structtype.' + exceptiondata.lltype_of_exception_type.TO.__name__
+        lltype_of_exception_value = 'structtype.' + exceptiondata.lltype_of_exception_value.TO.__name__
+        #yield ('RPYTHON_EXCEPTION_VTABLE', exceptiondata.lltype_of_exception_type)
+        #yield ('RPYTHON_EXCEPTION',        exceptiondata.lltype_of_exception_value)
+
+        self.codewriter.newline()
+        self.codewriter.comment('HERE')
+        self.codewriter.comment(ll_exception_match)         #ll_issubclass__object_vtablePtr_object_vtablePtr
+        self.codewriter.comment(lltype_of_exception_type)   #
+        self.codewriter.comment(lltype_of_exception_value)  #
+        self.codewriter.newline()
+
         self.codewriter.switch(tmptype1, tmpvar1, exc_error_label, value_label)
         self.codewriter.label(exc_error_label)
         self.codewriter.comment('dead code ahead')

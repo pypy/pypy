@@ -4,16 +4,12 @@ from pypy.translator.llvm2.log import log
 log = log.extfuncnode
 
 class ExternalFuncNode(LLVMNode):
-
     used_external_functions = {}
 
     def __init__(self, db, value):
         self.db = db
         self.value = value
         self.ref = "%" + value._callable.__name__
-
-    def setup(self):
-        self._issetup = True
 
     def getdecl(self):
         T = self.value._TYPE
