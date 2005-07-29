@@ -87,36 +87,19 @@
 	if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(long, r, (y))) \
 		FAIL_OVF(err, "x<<y loosing bits or changing sign")
 
+/* the safe value-checking version of the above macros */
 
-/* for reference, the safe value-checking version of the above macros
-   (not really used at the moment) */
+#define OP_INT_RSHIFT_VAL(x,y,r,err) \
+	if ((y) >= 0) { OP_INT_RSHIFT(x,y,r,err) } \
+	else FAIL_VAL(err, "negative shift count")
 
-/* #define OP_INT_RSHIFT(x,y,r,err) \ */
-/* 	if ((y) < LONG_BIT) \ */
-/* 		r = Py_ARITHMETIC_RIGHT_SHIFT(long, (x), (y)); \ */
-/* 	else r = (x) < 0 ? -1 : 0; */
+#define OP_INT_LSHIFT_VAL(x,y,r,err) \
+	if ((y) >= 0) { OP_INT_LSHIFT(x,y,r,err) } \
+	else FAIL_VAL(err, "negative shift count")
 
-/* #define OP_INT_RSHIFT_VAL(x,y,r,err) \ */
-/* 	if ((y) >= 0) { OP_INT_RSHIFT(x,y,r,err) } \ */
-/* 	else FAIL_VAL(err, "negative shift count") */
-
-/* #define OP_INT_LSHIFT(x,y,r,err) \ */
-/* 	if ((y) < LONG_BIT) \ */
-/* 		r = (x) << (y); \ */
-/* 	else r = 0; */
-
-/* #define OP_INT_LSHIFT_VAL(x,y,r,err) \ */
-/* 	if ((y) >= 0) { OP_INT_LSHIFT(x,y,r,err) } \ */
-/* 	else FAIL_VAL(err, "negative shift count") */
-
-/* #define OP_INT_LSHIFT_OVF(x,y,r,err) \ */
-/* 	OP_INT_LSHIFT(x,y,r,err) \ */
-/* 	if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(long, r, (y))) \ */
-/* 		FAIL_OVF(err, "x<<y loosing bits or changing sign") */
-
-/* #define OP_INT_LSHIFT_OVF_VAL(x,y,r,err) \ */
-/* 	if ((y) >= 0) { OP_INT_LSHIFT_OVF(x,y,r,err) } \ */
-/* 	else FAIL_VAL(err, "negative shift count") */
+#define OP_INT_LSHIFT_OVF_VAL(x,y,r,err) \
+	if ((y) >= 0) { OP_INT_LSHIFT_OVF(x,y,r,err) } \
+	else FAIL_VAL(err, "negative shift count")
 
 
 /* floor division */
