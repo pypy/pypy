@@ -16,7 +16,7 @@ def test_return1():
     assert f() == 1
 
 def test_simple_function_pointer(): 
-    py.test.skip("not working yet")
+    py.test.skip("function pointers not working yet")
     def f1(x): 
         return x + 1
     def f2(x): 

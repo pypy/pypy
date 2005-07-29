@@ -91,3 +91,102 @@ def test_os_file_ops_open_write_read_close():
     assert os.path.exists(path)
     assert open(path).read() == path * 3
     assert result is len(path) * 3
+
+# following from translator/c/test/test_extfunc.py Revision: 15320 (jul 29th 2005)
+
+def test_os_stat():
+    py.test.skip("ll_os_stat not implemented")
+    filename = str(py.magic.autopath())
+    def call_stat():
+        st = os.stat(filename)
+        return st
+    f = compile_function(call_stat, [])
+    result = f()
+    assert result[0] == os.stat(filename)[0]
+    assert result[1] == os.stat(filename)[1]
+    assert result[2] == os.stat(filename)[2]
+
+def test_os_fstat():
+    py.test.skip("ll_os_fstat not implemented")
+    filename = str(py.magic.autopath())
+    def call_fstat():
+        fd = os.open(filename, os.O_RDONLY, 0777)
+        st = os.fstat(fd)
+        os.close(fd)
+        return st
+    f = compile_function(call_fstat, [])
+    result = f()
+    assert result[0] == os.stat(filename)[0]
+    assert result[1] == os.stat(filename)[1]
+    assert result[2] == os.stat(filename)[2]
+
+def test_getcwd():
+    py.test.skip("ll_os_getcwd not implemented")
+    def does_stuff():
+        return os.getcwd()
+    f1 = compile_function(does_stuff, [])
+    res = f1()
+    assert res == os.getcwd()
+
+def test_math_frexp():
+    py.test.skip("ll_math_frexp not implemented")
+    from math import frexp
+    def fn(x):
+        return frexp(x)
+    f = compile_function(fn, [float])
+    assert f(10.123) == frexp(10.123)
+
+def test_math_modf():
+    py.test.skip("ll_math_modf not implemented (next)")
+    from math import modf
+    def fn(x):
+        return modf(x)
+    f = compile_function(fn, [float])
+    assert f(10.123) == modf(10.123)
+
+simple_math_functions = [
+    'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
+    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
+    ]
+
+def math_function_test(funcname):
+    import random
+    import math
+    mathfn = getattr(math, funcname)
+    print funcname, 
+    def fn(x):
+        return mathfn(x)
+    f = compile_function(fn, [float])
+    for x in [0.12334, 0.3, 0.5, 0.9883]:
+        print x
+        assert f(x) == mathfn(x)
+
+def test_simple_math_functions():
+    for funcname in simple_math_functions:
+        yield math_function_test, funcname
+
+def test_os_path_exists():
+    py.test.skip("ll_os_stat not implemented")
+    tmpfile = str(udir.join('test_os_path_exists.TMP'))
+    def fn():
+        return os.path.exists(tmpfile)
+    f = compile_function(fn, [])
+    open(tmpfile, 'w').close()
+    assert f() == True
+    os.unlink(tmpfile)
+    assert f() == False
+
+def test_os_path_isdir():
+    py.test.skip("ll_os_stat not implemented")
+    directory = "./."
+    def fn():
+        return os.path.isdir(directory)
+    f = compile_function(fn, [])
+    assert f() == True
+    directory = "some/random/name"
+    def fn():
+        return os.path.isdir(directory)
+    f = compile_function(fn, [])
+    assert f() == False
+
+# end of tests taken from c backend
