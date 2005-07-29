@@ -84,8 +84,8 @@ class W_LongObject(W_Object):
     
     def __init__(w_self, space, digits, sign=0):
         W_Object.__init__(w_self, space)
-        if isinstance(digits, long):  #YYYYYY
-            digits, sign = args_from_long(digits)
+        #if isinstance(digits, long):  #YYYYYY
+        #    digits, sign = args_from_long(digits)
         w_self.digits = DigitArray(digits)
         w_self.sign = sign
         assert len(w_self.digits)
