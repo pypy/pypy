@@ -153,3 +153,12 @@ def test_os_path_isdir():
     f = compile(fn, [])
     assert f() == False
 
+def test_time_time():
+    import time
+    def fn():
+        return time.time()
+    f = compile(fn, [])
+    t0 = time.time()
+    res = fn()
+    t1 = time.time()
+    assert t0 <= res <= t1

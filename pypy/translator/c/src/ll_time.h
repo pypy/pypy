@@ -1,6 +1,7 @@
 /************************************************************/
  /***  C header subsection: time module                    ***/
 
+#include <sys/time.h>
 #include <time.h>
 
 
@@ -48,3 +49,17 @@ double LL_time_clock(void)
 	return ((double)clock()) / CLOCKS_PER_SEC;
 }
 #endif /* MS_WINDOWS */
+
+
+double LL_time_time(void) /* xxx had support for better resolutions */
+{
+	return ll_floattime();
+}
+
+static double
+ll_floattime(void)
+{
+	time_t secs;
+	time(&secs);
+	return (double)secs;
+}
