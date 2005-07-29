@@ -51,10 +51,53 @@ double LL_time_clock(void)
 #endif /* MS_WINDOWS */
 
 
-double LL_time_time(void) /* xxx had support for better resolutions */
+void LL_time_sleep(double secs)
 {
-	return ll_floattime();
+#if defined(MS_WINDOWS)
+	double millisecs = secs * 1000.0;
+	unsigned long ul_millis;
+
+	if (millisecs > (double)ULONG_MAX) {
+		RaiseSimpleException(Exc_OverflowError,
+				     "sleep length is too large");
+		return;
+	}
+	ul_millis = (unsigned long)millisecs;
+	if (ul_millis == 0)
+		Sleep(ul_millis);
+	else {
+		DWORD rc;
+		ResetEvent(hInterruptEvent);
+		rc = WaitForSingleObject(hInterruptEvent, ul_millis);
+		if (rc == WAIT_OBJECT_0) {
+				/* Yield to make sure real Python signal
+				 * handler called.
+				 */
+			Sleep(1);
+			RaiseSimpleException(Exc_IOError, "interrupted");
+			return;
+		}
+	}
+#else
+	struct timeval t;
+	double frac;
+	frac = fmod(secs, 1.0);
+	secs = floor(secs);
+	t.tv_sec = (long)secs;
+	t.tv_usec = (long)(frac*1000000.0);
+	if (select(0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &t) != 0) {
+#ifdef EINTR
+		if (errno != EINTR) {
+#else
+		if (1) {
+#endif
+			RaiseSimpleException(Exc_IOError, "select() failed");
+			return;
+		}
+	}
+#endif
 }
+
 
 static double
 ll_floattime(void)
@@ -62,4 +105,9 @@ ll_floattime(void)
 	time_t secs;
 	time(&secs);
 	return (double)secs;
+}
+
+double LL_time_time(void) /* xxx had support for better resolutions */
+{
+	return ll_floattime();
 }

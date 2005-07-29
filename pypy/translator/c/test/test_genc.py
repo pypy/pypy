@@ -8,6 +8,7 @@ from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.tool.udir import udir
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
+from pypy.translator.tool.buildpyxmodule import enable_fast_compilation
 from pypy.translator.gensupp import uniquemodulename
 
 # XXX this tries to make compiling faster for full-scale testing
@@ -17,6 +18,7 @@ from pypy.translator.gensupp import uniquemodulename
 
 
 def compile_db(db):
+    enable_fast_compilation()  # for testing
     modulename = uniquemodulename('testing')
     targetdir = udir.join(modulename).ensure(dir=1)
     gen_source(db, modulename, str(targetdir), defines={'COUNT_OP_MALLOCS': 1})

@@ -3,6 +3,17 @@ import py
 import os, time
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
+from pypy.translator.c.extfunc import EXTERNALS
+
+def test_all_suggested_primitives():
+    for modulename in ['ll_math', 'll_os', 'll_os_path', 'll_time']:
+        mod = __import__('pypy.rpython.module.%s' % modulename,
+                         None, None, ['__doc__'])
+        for func in mod.__dict__.values():
+            if getattr(func, 'suggested_primitive', False):
+                yield suggested_primitive_implemented, func
+def suggested_primitive_implemented(func):
+    assert func in EXTERNALS, "missing C implementation for %r" % (func,)
 
 
 def test_time_clock():
@@ -14,6 +25,16 @@ def test_time_clock():
     assert type(t1) is float
     t2 = time.clock()
     assert t0 <= t1 <= t2
+
+def test_time_sleep():
+    def does_nothing():
+        time.sleep(0.19)
+    f1 = compile(does_nothing, [])
+    t0 = time.time()
+    f1()
+    t1 = time.time()
+    assert t0 <= t1
+    assert t1 - t0 >= 0.15
 
 
 def test_os_open():
