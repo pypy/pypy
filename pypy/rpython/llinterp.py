@@ -321,6 +321,16 @@ class LLFrame(object):
         assert type(c) is float
         return math.fmod(b,c)
 
+    def op_int_invert(self, a):
+        assert type(a) is int
+        return ~a
+
+    def op_uint_invert(self, a):
+        assert type(a) is r_uint
+        return ~a
+
+    
+
     # operations on pyobjects!
     for opname in opimpls.keys():
         exec py.code.Source("""

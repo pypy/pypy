@@ -8,6 +8,7 @@ from pypy.rpython.rlist import *
 from pypy.rpython.rint import signed_repr
 from pypy.rpython import rstr
 from pypy.annotation.model import lltype_to_annotation
+from pypy.rpython.rarithmetic import r_uint
 
 # switch on logging of interp to show more info on failing tests
 
@@ -85,6 +86,13 @@ def interpret(func, values, view=False, viewbefore=False, policy=None, someobjec
 def test_int_ops():
     res = interpret(number_ops, [3])
     assert res == 4
+
+def test_invert():
+    def f(x):
+        return ~x
+    res = interpret(f, [3])
+    assert res == ~3
+    assert interpret(f, [r_uint(3)]) == ~r_uint(3)
 
 def test_float_ops():
     res = interpret(number_ops, [3.5])
