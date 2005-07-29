@@ -41,7 +41,7 @@ def order(annotator, pending):
                   if len(pfx) > len(prefixes[match]):
                      match = i
             i += 1
-         cache[tag] = match
+         cache[tag] = match, module
          return match
 
    pending.sort(lambda  blk1, blk2: cmp(indx(blk1), indx(blk2)))
