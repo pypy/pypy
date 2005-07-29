@@ -9,6 +9,23 @@
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: ../architecture.html#mission-statement 
 
+PyPy Hildesheim2 sprint ongoing ...
+======================================================
+
+Up until 31st August we are in a PyPy sprint at `Trillke-Gut`_. 
+Carl has written a `report about day 1`_ and Holger 
+about `day 2 and day 3`_ including some `pictures from the sprint`_. 
+There has been some great progress already in that we now succeed 
+to fully annotate the PyPy code base and have a mode where
+we don't borrow object implementations from CPython anymore
+(which of course means that we have some modules missing). 
+Stay tuned. 
+
+.. _`report about day 1`: http://codespeak.net/pipermail/pypy-dev/2005q3/002217.html 
+.. _`day 2 and day 3`: http://codespeak.net/pipermail/pypy-dev/2005q3/002220.html
+.. _`pictures from the sprint`: http://codespeak.net/~hpk/hildesheim2-sprint-www/ 
+.. _`Trillke-Gut`: http://www.trillke.net/images/HomePagePictureSmall.jpg
+
 EuroPython 2005 sprints finished 
 ======================================================
 
