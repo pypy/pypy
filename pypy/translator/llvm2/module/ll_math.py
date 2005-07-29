@@ -16,22 +16,27 @@ declare double %sinh(double)
 declare double %sqrt(double)
 declare double %tan(double)
 declare double %tanh(double)
+declare double %atan2(double,double)
+declare double %fmod(double,double)
 """
 
 extfunctions = {}
 
-simple_math_functions = [
-    'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
-    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
+#functions with a one-to-one C equivalent
+simple_functions = [
+    ('double %x', ['acos','asin','atan','ceil','cos','cosh','exp','fabs',
+                   'floor','log','log10','sin','sinh','sqrt','tan','tanh']),
+    ('double %x, double %y', ['atan2','fmod']),
     ]
 
-func_template = """
-double %%ll_math_%(func)s(double %%x) {
-    %%t = call double %%%(func)s(double %%x)
+simple_function_template = """
+double %%ll_math_%(function)s(%(params)s) {
+    %%t = call double %%%(function)s(%(params)s)
     ret double %%t
 }
 
 """
 
-for func in simple_math_functions:
-    extfunctions["%ll_math_" + func] = ((), func_template % locals())
+for params, functions in simple_functions:
+    for function in functions:
+        extfunctions["%ll_math_" + function] = ((), simple_function_template % locals())
