@@ -342,6 +342,14 @@ class LLFrame(object):
         assert type(b) is r_uint
         return intmask(b)
 
+    def op_int_floordiv_ovf_zer(self, a, b):
+        assert type(a) is int
+        assert type(b) is int
+        if b == 0:
+            self.make_llexception(ZeroDivisionError())
+        return self.op_int_floordiv_ovf(a, b)
+            
+
     def op_float_floor(self, b):
         assert type(b) is float
         return math.floor(b)
@@ -435,7 +443,7 @@ for typ in (float, int, r_uint):
         if typ is int:
             opname += '_ovf'
             exec py.code.Source("""
-                def op_%(opnameprefix)s_%(opname)s_ovf(self, x):
+                def op_%(opnameprefix)s_%(opname)s(self, x):
                     assert isinstance(x, %(typname)s)
                     func = opimpls[%(opname)r]
                     try:
@@ -443,7 +451,7 @@ for typ in (float, int, r_uint):
                     except OverflowError, e:
                         self.make_llexception(e)
             """ % locals()).compile()
-            funcname = "op_%(opnameprefix)s_%(opname)s_ovf" % locals()
+            funcname = "op_%(opnameprefix)s_%(opname)s" % locals()
             setattr(LLFrame, funcname, globals()[funcname])
             
 
