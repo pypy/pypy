@@ -31,6 +31,10 @@ double LL_math_ldexp(double x, long y) {
   return ldexp(x, (int) y);
 }
 
+double LL_math_hypot(double x, double y) {
+  return hypot(x, y);
+}
+
 
 RPyMODF_RESULT* LL_math_modf(double x) {
   double intpart;

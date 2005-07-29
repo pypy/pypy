@@ -103,6 +103,13 @@ def test_math_modf():
     f = compile(fn, [float])
     assert f(10.123) == modf(10.123)
 
+def test_math_hypot():
+    from math import hypot
+    def fn(x, y):
+        return hypot(x, y)
+    f = compile(fn, [float, float])
+    assert f(9812.231, 1234) == hypot(9812.231, 1234)
+
 simple_math_functions = [
     'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
     'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'

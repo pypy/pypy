@@ -23,6 +23,7 @@ EXTERNALS = {
     ll_math.ll_math_fmod : 'LL_math_fmod',
     ll_math.ll_math_ldexp: 'LL_math_ldexp',
     ll_math.ll_math_modf:  'LL_math_modf',
+    ll_math.ll_math_hypot: 'LL_math_hypot',
     }
 
 #______________________________________________________
