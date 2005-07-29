@@ -199,3 +199,13 @@ def test_recursive_struct():
     f1 = compile(fn, [int])
     res = f1(42)
     assert res == 42
+
+def test_infinite_float():
+    x = 1.0
+    while x != x / 2:
+        x *= 3.1416
+    def fn():
+        return x
+    f1 = compile(fn, [])
+    res = f1()
+    assert res > 0 and res == res / 2

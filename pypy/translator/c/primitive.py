@@ -15,8 +15,17 @@ def name_unsigned(value):
     assert value >= 0
     return '%dUL' % value
 
+def isinf(x):
+    return x != 0.0 and x / 2 == x
+
 def name_float(value):
-    return repr(value)
+    if isinf(value):
+        if value > 0:
+            return '1E9999999'
+        else:
+            return '-1E9999999'
+    else:
+        return repr(value)
 
 def name_char(value):
     assert type(value) is str and len(value) == 1
