@@ -108,6 +108,8 @@ class Link(object):
         newlink.prevblock = self.prevblock
         newlink.last_exception = rename(self.last_exception)
         newlink.last_exc_value = rename(self.last_exc_value)
+        if hasattr(self, 'llexitcase'):
+            newlink.llexitcase = self.llexitcase
         return newlink
 
     def __repr__(self):
