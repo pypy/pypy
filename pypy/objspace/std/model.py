@@ -153,13 +153,14 @@ class MultiMethod(MultiMethodTable):
                 break
         else:
             self.name = operatorsymbol
-
+            
         if extras.get('general__args__', False):
             self.argnames_after = ['__args__']
         if extras.get('w_varargs', False):
             self.argnames_after = ['w_args']
         if extras.get('varargs_w', False):
             self.argnames_after = ['args_w']            
+        self.argnames_after += extras.get('extra_args', [])
 
     def install_not_sliced(self, typeorder, baked_perform_call=True):
         return self.install(prefix = '__mm_' + self.name,
