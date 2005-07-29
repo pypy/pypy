@@ -540,6 +540,10 @@ class InstanceRepr(Repr):
         vinst, vattr, vvalue = hop.inputargs(self, Void, r_value)
         self.setfield(vinst, attr, vvalue, hop.llops)
 
+    def rtype_is_true(self, hop):
+        vinst, = hop.inputargs(self)
+        return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
+
     def ll_str(i, r):
         instance = cast_pointer(OBJECTPTR, i)
         from pypy.rpython import rstr
@@ -590,7 +594,6 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
     def rtype_ne(rpair, hop):
         v = rpair.rtype_eq(hop)
         return hop.genop("bool_not", [v], resulttype=Bool)
-        
 
 # ____________________________________________________________
 

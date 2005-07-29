@@ -237,6 +237,23 @@ def test_eq():
     res = interpret(f, [3])
     assert res == 0x0200
 
+def test_istrue():
+    class A:
+        pass
+    def f(i):
+        if i == 0:
+            a = A()
+        else:
+            a = None
+        if a:
+            return 1
+        else:
+            return 2
+    res = interpret(f, [0])
+    assert res == 1
+    res = interpret(f, [1])
+    assert res == 2
+
 def test_ne():
     class A: pass
     class B(A): pass
