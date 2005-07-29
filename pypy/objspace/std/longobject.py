@@ -1488,6 +1488,8 @@ def _format(a, base, addL):
         p -= 1
         s[p] = '-'
 
+    assert p >= 0    # otherwise, buffer overflow (this is also a
+                     # hint for the annotator for the slice below)
     if p == 0:
         return ''.join(s)
     else:

@@ -25,7 +25,7 @@ def match_encoding_declaration(comment):
     >>> py_encoding.search(comment)
     """
     index = comment.find('coding')
-    if index == -1:
+    if index < 0:
         return None
     next_char = comment[index + 6]
     if next_char not in ':=':
