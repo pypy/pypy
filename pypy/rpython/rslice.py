@@ -40,14 +40,9 @@ class __extend__(annmodel.SomeSlice):
             return startstop_slice_repr
         
     def rtyper_makekey(self):
-        if (self.start.is_constant() and self.start.const in (None, 0) and
-            self.stop.is_constant() and self.stop.const == -1):
-            kind = "minusone"    # [:-1]
-        elif self.stop.is_constant() and self.stop.const is None:
-            kind = "startonly"
-        else:
-            kind = "startstop"
-        return self.__class__, kind
+        # use the repr itself as the key (it can only be one of the three
+        # prebuilt reprs below).
+        return self.__class__, self.rtyper_makerepr(None)
 
 
 class SliceRepr(Repr):
