@@ -160,3 +160,10 @@ long LL_os_isatty(long fd) {
     return (int)isatty((int)fd);
 }
 
+void LL_os_ftruncate(long fd, long length) { /*XXX add longfile support */
+    int res;
+    res = ftruncate((int)fd, (off_t)length);
+    if (res < 0) {
+	RAISE_OSERROR(errno);
+    }
+}

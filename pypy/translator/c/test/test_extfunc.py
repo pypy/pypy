@@ -77,6 +77,22 @@ def test_open_read_write_seek_close():
     assert open(filename, 'r').read() == "hello world\n"
     os.unlink(filename)
 
+def test_ftruncate():
+    filename = str(udir.join('test_open_read_write_close.txt'))
+    def does_stuff():
+        fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
+        os.write(fd, "hello world\n")
+        os.close(fd)
+        fd = os.open(filename, os.O_RDWR, 0777)
+        os.ftruncate(fd, 5)
+        data = os.read(fd, 500)
+        assert data == "hello"
+        os.close(fd)
+    does_stuff()
+    f1 = compile(does_stuff, [])
+    f1()
+    os.unlink(filename)
+
 def test_os_stat():
     filename = str(py.magic.autopath())
     def call_stat():
