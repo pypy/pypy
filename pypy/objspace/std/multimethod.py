@@ -22,8 +22,8 @@ class MultiMethodTable:
         self.arity = arity
         self.root_class = root_class
         self.dispatch_tree = {}
-        self.argnames_before = argnames_before
-        self.argnames_after = argnames_after
+        self.argnames_before = list(argnames_before)
+        self.argnames_after = list(argnames_after)
 
     def register(self, function, *types, **kwds):
         assert len(types) == self.arity
