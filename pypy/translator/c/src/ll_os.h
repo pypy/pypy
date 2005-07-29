@@ -132,3 +132,26 @@ RPySTAT_RESULT* LL_os_fstat(long fd) {
   return _stat_construct_result_helper(st);
 }
 
+long LL_os_lseek(long fd, long pos, long how) {
+#if defined(MS_WIN64) || defined(MS_WINDOWS)
+    PY_LONG_LONG res;
+#else
+    off_t res;
+#endif
+#ifdef SEEK_SET
+    /* Turn 0, 1, 2 into SEEK_{SET,CUR,END} */
+    switch (how) {
+        case 0: how = SEEK_SET; break;
+        case 1: how = SEEK_CUR; break;
+        case 2: how = SEEK_END; break;
+    }
+#endif /* SEEK_END */
+#if defined(MS_WIN64) || defined(MS_WINDOWS)
+    res = _lseeki64(fd, pos, how);
+#else
+    res = lseek(fd, pos, how);
+#endif
+    if (res < 0)
+        RAISE_OSERROR(errno);
+    return res;
+}

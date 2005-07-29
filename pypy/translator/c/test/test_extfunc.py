@@ -37,7 +37,7 @@ def test_failing_os_open():
     py.test.raises(OSError, f1)
     assert not os.path.exists(tmpfile)
 
-def test_open_read_write_close():
+def test_open_read_write_seek_close():
     filename = str(udir.join('test_open_read_write_close.txt'))
     def does_stuff():
         fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
@@ -45,8 +45,10 @@ def test_open_read_write_close():
         assert count == len("hello world\n")
         os.close(fd)
         fd = os.open(filename, os.O_RDONLY, 0777)
+        result = os.lseek(fd, 1, 0)
+        assert result == 1
         data = os.read(fd, 500)
-        assert data == "hello world\n"
+        assert data == "ello world\n"
         os.close(fd)
 
     f1 = compile(does_stuff, [])

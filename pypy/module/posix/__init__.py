@@ -35,7 +35,7 @@ for constant in ['EX_CANTCREAT', 'EX_CONFIG', 'EX_DATAERR', 'EX_IOERR',
                  'O_DIRECTORY', 'O_DSYNC', 'O_EXCL', 'O_LARGEFILE', 'O_NDELAY',
                  'O_NOCTTY', 'O_NOFOLLOW', 'O_NONBLOCK', 'O_RDONLY', 'O_RDWR',
                  'O_RSYNC', 'O_SYNC', 'O_TRUNC', 'O_WRONLY', 'R_OK', 'TMP_MAX',
-                  'W_OK', 'X_OK']:
+                 'WCONTINUED', 'WNOHANG', 'WUNTRACED', 'W_OK', 'X_OK']:
     try:
         Module.interpleveldefs[constant] = ("space.wrap(%s)" %
                                             (getattr(os, constant), ))
