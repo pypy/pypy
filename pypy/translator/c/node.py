@@ -30,11 +30,6 @@ class StructDefNode:
         self.STRUCT = STRUCT
         self.LLTYPE = STRUCT
         self.varlength = varlength
-
-    def setup(self):
-        db = self.db
-        STRUCT = self.STRUCT
-        varlength = self.varlength
         if varlength == 1:
             basename = STRUCT._name
             with_number = True
@@ -44,15 +39,7 @@ class StructDefNode:
             with_number = False
         self.name = db.namespace.uniquename(basename, with_number=with_number)
         self.dependencies = {}
-        self.fields = []
         self.prefix = somelettersfrom(STRUCT._name) + '_'
-        for name in STRUCT._names:
-            T = self.c_struct_field_type(name)
-            if name == STRUCT._arrayfld:
-                typename = db.gettype(T, varlength=varlength, who_asks=self)
-            else:
-                typename = db.gettype(T, who_asks=self)
-            self.fields.append((self.c_struct_field_name(name), typename))
 
         # look up the reference counter field
         if needs_refcount(STRUCT):
@@ -61,13 +48,28 @@ class StructDefNode:
             # refcount in the first field
             T = self.c_struct_field_type(STRUCT._names[0])
             assert isinstance(T, GC_CONTAINER)
-            firstfieldname, firstfieldtype = self.fields[0]
             firstdefnode = db.gettypedefnode(T)
+            firstfieldname = self.c_struct_field_name(STRUCT._names[0])
             self.refcount = '%s.%s' % (firstfieldname, firstdefnode.refcount)
             # check here that there is enough run-time type information to
             # handle this case
             getRuntimeTypeInfo(STRUCT)
             getRuntimeTypeInfo(T)
+
+    def setup(self):
+        # this computes self.fields
+        self.fields = []
+        db = self.db
+        STRUCT = self.STRUCT
+        varlength = self.varlength
+        for name in STRUCT._names:
+            T = self.c_struct_field_type(name)
+            if name == STRUCT._arrayfld:
+                typename = db.gettype(T, varlength=self.varlength,
+                                         who_asks=self)
+            else:
+                typename = db.gettype(T, who_asks=self)
+            self.fields.append((self.c_struct_field_name(name), typename))
 
         # do we need deallocator(s)?
         if self.refcount and varlength == 1:
@@ -173,16 +175,11 @@ class ArrayDefNode:
         self.db = db
         self.ARRAY = ARRAY
         self.LLTYPE = ARRAY
-        self.varlength = varlength
-        self.original_varlength = varlength
+        original_varlength = varlength
         if ARRAY is STR.chars:
-            self.varlength += 1   # for the NULL char at the end of the string
-
-    def setup(self):
-        db = self.db
-        ARRAY = self.ARRAY
-        varlength = self.varlength
-        if self.original_varlength == 1:
+            varlength += 1   # for the NULL char at the end of the string
+        self.varlength = varlength
+        if original_varlength == 1:
             basename = 'array'
             with_number = True
         else:
@@ -191,11 +188,16 @@ class ArrayDefNode:
             with_number = False
         self.name = db.namespace.uniquename(basename, with_number=with_number)
         self.dependencies = {}
-        self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
         # look up the reference counter field
         if needs_refcount(ARRAY):
             self.refcount = 'refcount'
+
+    def setup(self):
+        db = self.db
+        ARRAY = self.ARRAY
+        varlength = self.varlength
+        self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
         # is a specific deallocator needed?
         if self.refcount and varlength == 1 and list(self.deallocator_lines('')):

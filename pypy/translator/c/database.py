@@ -16,7 +16,6 @@ class LowLevelDatabase:
     def __init__(self, translator=None):
         self.translator = translator
         self.structdefnodes = {}
-        self.structdeflist = []
         self.containernodes = {}
         self.containerlist = []
         self.externalfuncs = {}
@@ -40,7 +39,6 @@ class LowLevelDatabase:
                 raise Exception("don't know about %r" % (T,))
             self.structdefnodes[key] = node
             node.setup()
-            self.structdeflist.append(node)
         return node
 
     def gettype(self, T, varlength=1, who_asks=None, argnames=[]):
@@ -160,3 +158,17 @@ class LowLevelDatabase:
             return exceptiondata.lltype_of_exception_value
         else:
             return Ptr(PyObject)
+
+    def getstructdeflist(self):
+        # return the StructDefNodes sorted according to dependencies
+        result = []
+        seen = {}
+        def produce(node):
+            if node not in seen:
+                for othernode in node.dependencies:
+                    produce(othernode)
+                result.append(node)
+                seen[node] = True
+        for node in self.structdefnodes.values():
+            produce(node)
+        return result

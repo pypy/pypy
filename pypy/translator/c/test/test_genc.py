@@ -182,3 +182,20 @@ def test_rstr():
     f1 = compile(fn, [int])
     res = f1(1)
     assert res == 'e'
+
+
+def test_recursive_struct():
+    # B has an A as its super field, and A has a pointer to B.
+    class A:
+        pass
+    class B(A):
+        pass
+    def fn(i):
+        a = A()
+        b = B()
+        a.b = b
+        b.i = i
+        return a.b.i
+    f1 = compile(fn, [int])
+    res = f1(42)
+    assert res == 42

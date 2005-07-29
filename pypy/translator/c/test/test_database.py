@@ -9,10 +9,11 @@ from pypy.rpython.rmodel import getfunctionptr
 
 def dump_on_stdout(database):
     print '/*********************************/'
-    for node in database.structdeflist:
+    structdeflist = database.getstructdeflist()
+    for node in structdeflist:
         for line in node.definition(phase=1):
             print line
-    for node in database.structdeflist:
+    for node in structdeflist:
         for line in node.definition(phase=2):
             print line
     print

@@ -55,11 +55,12 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     #
     # All declarations
     #
+    structdeflist = database.getstructdeflist()
     print >> f
     print >> f, '/***********************************************************/'
     print >> f, '/***  Structure definitions                              ***/'
     print >> f
-    for node in database.structdeflist:
+    for node in structdeflist:
         for line in node.definition(phase=1):
             print >> f, line
     print >> f
@@ -82,7 +83,7 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     print >> f, '#include "src/g_include.h"'
     print >> f
     blank = False
-    for node in database.structdeflist:
+    for node in structdeflist:
         for line in node.definition(phase=2):
             print >> f, line
         blank = True
@@ -138,7 +139,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
         print >> f, '/***  Debugging info                                 ***/'
         print >> f
         print >> f, 'static int debuginfo_offsets[] = {'
-        for node in database.structdeflist:
+        for node in database.structdefnodes.values():
             for expr in symboltable.generate_type_info(database, node):
                 print >> f, '\t%s,' % expr
         print >> f, '\t0 };'
