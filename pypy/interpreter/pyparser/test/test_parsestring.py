@@ -1,4 +1,5 @@
 from pypy.interpreter.pyparser import parsestring
+import py
 
 class TestParsetring:
     def test_simple(self):
@@ -40,3 +41,13 @@ class TestParsetring:
         w_ret = parsestring.parsestr(self.space, 'koi8-u', s)
         ret = space.unwrap(w_ret)
         assert ret == eval("# -*- coding: koi8-u -*-\nu'\x81'") 
+
+    def test_simple_enc_roundtrip(self):
+        py.test.skip("crashes in app_codecs, but when cheating using .encode at interp-level passes?!")
+        space = self.space
+        s = "'\x81'"
+        s = s.decode("koi8-u").encode("utf8")
+        w_ret = parsestring.parsestr(self.space, 'koi8-u', s)
+        ret = space.unwrap(w_ret)
+        assert ret == eval("# -*- coding: koi8-u -*-\n'\x81'") 
+

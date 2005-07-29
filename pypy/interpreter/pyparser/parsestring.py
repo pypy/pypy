@@ -87,6 +87,7 @@ def parsestr(space, encoding, s):
     if rawmode or '\\' not in s[ps:]:
         if need_encoding:
             w_u = PyUnicode_DecodeUTF8(space, space.wrap(substr))
+            #w_v = space.wrap(space.unwrap(w_u).encode(encoding)) this works
             w_v = PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
             return w_v
         else:
