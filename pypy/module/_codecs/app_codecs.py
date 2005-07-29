@@ -220,7 +220,10 @@ def charmap_encode(obj,errors='strict',mapping='latin-1'):
     res = ''.join(res)
     return res, len(res)
 
-unicode_bytes = (len(hex(sys.maxunicode))-1)/2
+if sys.maxunicode == 65535:
+    unicode_bytes = 2
+else:
+    unicode_bytes = 4
 
 def unicode_internal_encode( obj,errors='strict'):
     """None
@@ -229,9 +232,13 @@ def unicode_internal_encode( obj,errors='strict'):
         p = []
         t = [ord(x) for x in obj]
         for i in t:
+            bytes = []
             for j in xrange(unicode_bytes):
-                p += chr(i%256)
+                bytes += chr(i%256)
                 i >>= 8
+            if sys.byteorder == "big":
+                bytes.reverse()
+            p += bytes
         res = ''.join(p)
         return res, len(res)
     else:
@@ -246,10 +253,20 @@ def unicode_internal_decode( unistr,errors='strict'):
     else:
         p=[]
         i=0
+        if sys.byteorder == "big":
+            start = unicode_bytes - 1
+            stop = -1
+            step = -1
+        else:
+            start = 0
+            stop = unicode_bytes
+            step = 1
         while i < len(unistr)-unicode_bytes+1:
             t = 0
-            for j in range(unicode_bytes):
-                t += ord(unistr[i+j])<<(j*8)
+            h = 0
+            for j in range(start, stop, step):
+                t += ord(unistr[i+j])<<(h*8)
+                h += 1
             i += unicode_bytes
             p += unichr(t)
         res = u''.join(p)
