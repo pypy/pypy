@@ -208,7 +208,7 @@ app = gateway.applevel(r'''
 PyUnicode_DecodeUnicodeEscape = app.interphook('PyUnicode_DecodeUnicodeEscape')
 PyUnicode_DecodeRawUnicodeEscape = app.interphook('PyUnicode_DecodeRawUnicodeEscape')
 PyUnicode_DecodeUTF8 = app.interphook('PyUnicode_DecodeUTF8')
-PyUnicode_AsEncodedString = app.interphook('PyUnicode_DecodeUTF8')
+PyUnicode_AsEncodedString = app.interphook('PyUnicode_AsEncodedString')
 
 def decode_utf8(space, s, ps, end, encoding):
     pt = ps

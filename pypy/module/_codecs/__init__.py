@@ -37,6 +37,8 @@ class Module(MixedModule):
          'utf_7_encode' :  'app_codecs.utf_7_encode',
          'utf_8_decode' :  'app_codecs.utf_8_decode',
          'utf_8_encode' :  'app_codecs.utf_8_encode',
+         'encode': 'app_codecs.encode',
+         'decode': 'app_codecs.decode'
     }
     interpleveldefs = {
     }

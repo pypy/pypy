@@ -35,3 +35,8 @@ class TestParsetring:
         ret = space.unwrap(w_ret)
         assert isinstance(ret, unicode)
         assert ret == u'hello\u0842 world'
+        s = "u'\x81'"
+        s = s.decode("koi8-u").encode("utf8")
+        w_ret = parsestring.parsestr(self.space, 'koi8-u', s)
+        ret = space.unwrap(w_ret)
+        assert ret == u'\u2502'
