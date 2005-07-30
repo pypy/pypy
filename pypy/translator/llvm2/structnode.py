@@ -103,20 +103,54 @@ class StructNode(ConstantLLVMNode):
             assert T is not lltype.Void
             value = getattr(self.value, name)
             self.db.prepare_constant(T, value)
-                
+
+        p, c = lltype.parentlink(self.value)
+        if p is not None:
+            self.db.prepare_constant(lltype.typeOf(p), p)
+            
     def get_typerepr(self):
         return self.db.repr_arg_type(self.structtype)
+
+    def get_childref(self, index):
+        pos = 0
+        found = False
+        for name in self.structtype._names_without_voids():
+            if name == index:
+                found = True
+                break
+            pos += 1
+            
+        return "getelementptr(%s* %s, int 0, uint %s)" %(
+            self.get_typerepr(),
+            self.get_ref(),
+            pos)
+
+    def get_ref(self):
+        """ Returns a reference as used for operations in blocks. """        
+        p, c = lltype.parentlink(self.value)
+        if p is None:
+            ref = self.ref
+        else:
+            parent = self.db.obj2node[p]
+            ref = parent.get_childref(c)
+        return ref
+
+    def get_pbcref(self, toptr):
+        """ Returns a reference as used per pbc. """        
+        return self.get_ref()
     
     def constantvalue(self):
         """ Returns the constant representation for this node. """
         values = self._getvalues()
         return "%s {%s}" % (self.get_typerepr(), ", ".join(values))
-    
+                
     # ______________________________________________________________________
     # main entry points from genllvm 
 
     def writeglobalconstants(self, codewriter):
-        codewriter.globalinstance(self.ref, self.constantvalue())
+        p, c = lltype.parentlink(self.value)
+        if p is None:
+            codewriter.globalinstance(self.ref, self.constantvalue())
                 
 class StructVarsizeNode(StructNode):
     """ A varsize struct constant.  Can simply contain
@@ -156,13 +190,6 @@ class StructVarsizeNode(StructNode):
 
     def setup(self):
         super(StructVarsizeNode, self).setup()
-
-        # set castref (note we must ensure that types are "setup" before we can
-        # get typeval)
-        typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
-        self.castref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
-                                                 self.ref,
-                                                 typeval)
     
     def get_typerepr(self):
         # last type is a special case and need to be worked out recursively
@@ -171,7 +198,25 @@ class StructVarsizeNode(StructNode):
         types_repr.append(self._get_lastnode().get_typerepr())
         
         return "{%s}" % ", ".join(types_repr)
-        
-    def castfrom(self):
-        return "%s*" % self.get_typerepr()
- 
+         
+    def get_ref(self):
+        #XXX Is this right?
+        ref = super(StructVarsizeNode, self).get_ref()
+        typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
+        ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
+                                        ref,
+                                        typeval)
+        return ref
+    
+    def get_pbcref(self, toptr):
+        """ Returns a reference as used per pbc. """        
+        ref = self.ref
+        p, c = lltype.parentlink(self.value)
+        if p is not None:
+            assert False, "XXX TODO"
+
+        fromptr = "%s*" % self.get_typerepr()
+        refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
+        ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
+        return ref
+

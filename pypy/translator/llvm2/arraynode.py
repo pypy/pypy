@@ -69,35 +69,66 @@ class ArrayNode(ConstantLLVMNode):
         for item in self.value.items:
             self.db.prepare_constant(self.arraytype, item)
 
-        # set castref (note we must ensure that types are "setup" before we can
-        # get typeval)
-        typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
-        self.castref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
-                                                 self.ref,
-                                                 typeval)
+        p, c = lltype.parentlink(self.value)
+        p, c = lltype.parentlink(self.value)
+        if p is not None:
+            self.db.prepare_constant(lltype.typeOf(p), p)
+
+    def get_length(self):
+        items = self.value.items
+        return len(items)
+
+    def get_arrayvalues(self):
+        items = self.value.items
+        return [self.db.repr_constant(v)[1] for v in items]
 
     def get_typerepr(self):
-        items = self.value.items
-        arraylen = len(items)
         typeval = self.db.repr_arg_type(self.arraytype)
-        return "{ int, [%s x %s] }" % (arraylen, typeval)
+        return "{ int, [%s x %s] }" % (self.get_length(), typeval)
 
-    def castfrom(self):
-        return "%s*" % self.get_typerepr()
+    def get_ref(self):
+        """ Returns a reference as used for operations in blocks. """        
+        typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
+        ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
+                                        self.ref,
+                                        typeval)
+
+        p, c = lltype.parentlink(self.value)
+        if p is not None:
+            assert False, "XXX TODO"
+        return ref
+
+    def get_pbcref(self, toptr):
+        """ Returns a reference as a pointer used per pbc. """        
+        ref = self.ref
+        p, c = lltype.parentlink(self.value)
+        if p is not None:
+            assert False, "XXX TODO"
+
+        fromptr = "%s*" % self.get_typerepr()
+        refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
+        ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
+        return ref
+
+    def get_childref(self, index):
+        return "getelementptr(%s* %s, int 0, uint 1, int %s)" %(
+            self.get_typerepr(),
+            self.ref,
+            index)
     
     def constantvalue(self):
         """ Returns the constant representation for this node. """
-        items = self.value.items
-        arraylen = len(items)
+        arraylen = self.get_length()
+        arrayvalues = self.get_arrayvalues()
         typeval = self.db.repr_arg_type(self.arraytype)
 
-        arrayvalues = [self.db.repr_constant(v)[1] for v in items]
         value = "int %s, [%s x %s] [ %s ]" % (arraylen,
                                               arraylen,
                                               typeval,
                                               ", ".join(arrayvalues))
 
         s = "%s {%s}" % (self.get_typerepr(), value)
+        #XXXX ????????
         #XXX this does not work for arrays inlined in struct. How else to do this?
         #if typeval == 'sbyte':  #give more feedback for strings
         #    limited_printable = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/-.'
@@ -114,4 +145,16 @@ class ArrayNode(ConstantLLVMNode):
     # entry points from genllvm
 
     def writeglobalconstants(self, codewriter):
-        codewriter.globalinstance(self.ref, self.constantvalue())
+        p, c = lltype.parentlink(self.value)
+        if p is None:
+            codewriter.globalinstance(self.ref, self.constantvalue())
+
+class StrArrayNode(ConstantLLVMNode):
+
+    def get_length(self):
+        # For null character
+        return super(StrArrayNode, self).get_length() + 1
+
+    def get_arrayvalues(self):
+        items = self.value.items + [chr(0)]
+        return [self.db.repr_constant(v)[1] for v in items]

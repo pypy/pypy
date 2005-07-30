@@ -24,9 +24,18 @@ class TestClass(object):
         f = compile_function(llvmsnippet.class_simple2, [int])
         assert f(2) == 10
 
+    def test_inherit1(self):
+        f = compile_function(llvmsnippet.class_inherit1, [])
+        assert f() == 11
+
+    def test_inherit2(self):
+        py.test.skip("not working yet (segfault)")
+        f = compile_function(llvmsnippet.class_inherit2, [])
+        assert f() == 11
+
     def test_method_of_base_class(self):
         py.test.skip("not working yet (segfault)")
-        f = compile_function(llvmsnippet.method_of_base_class, [])
+        f = compile_function(llvmsnippet.method_of_base_class, [], view=True)
         assert f() == 14
 
     def test_attribute_from_base_class(self):

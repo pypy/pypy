@@ -140,5 +140,11 @@ class CodeWriter(object):
         self.indent("store %(valuetype)s %(valuevar)s, "
                     "%(valuetype)s* %(ptr)s" % locals())
 
+    def debugcomment(self, tempname, len, tmpname):
+        res = "%s = tail call int (sbyte*, ...)* %%printf("
+        res += "sbyte* getelementptr ([%s x sbyte]* %s, int 0, int 0) )"
+        res = res % (tmpname, len, tmpname)
+        self.indent(res)
+        
     def __str__(self): 
         return "\n".join(self._lines)

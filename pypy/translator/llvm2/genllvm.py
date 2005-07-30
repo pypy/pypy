@@ -24,7 +24,7 @@ function_count = {}
 
 class GenLLVM(object):
 
-    def __init__(self, translator, embedexterns=True):
+    def __init__(self, translator, debug=False, embedexterns=True):
         LLVMNode.nodename_count = {}    #reset counters
         self.db = Database(translator)
         self.translator = translator
@@ -35,6 +35,9 @@ class GenLLVM(object):
         translator.checkgraphs()
         ExternalFuncNode.used_external_functions = {}
 
+        # For debug we create comments of every operation that may be executed
+        self.debug = debug
+        
     def compile(self, func=None):
         if func is None:
             func = self.translator.entrypoint
@@ -54,6 +57,9 @@ class GenLLVM(object):
         assert c in self.db.obj2node
 
         self.db.setup_all()
+        self.db.dump_pbcs()
+        #assert False
+
         self.entrynode = self.db.obj2node[c]
         codewriter = CodeWriter()
         comment = codewriter.comment
@@ -67,10 +73,19 @@ class GenLLVM(object):
         for typ_decl in self.db.getnodes():
             typ_decl.writeglobalconstants(codewriter)
 
+        if self.debug:
+            nl(); comment("Comments") ; nl()
+            for typ_decl in self.db.getnodes():
+                typ_decl.writecomments(codewriter)
+            
         nl(); comment("Function Prototypes") ; nl()
         if self.embedexterns:
             for extdecl in extdeclarations.split('\n'):
                 codewriter.append(extdecl)
+
+        if self.debug:
+            self._debug_prototype(codewriter)
+            
         for typ_decl in self.db.getnodes():
             typ_decl.writedecl(codewriter)
 
@@ -113,6 +128,7 @@ class GenLLVM(object):
             function_count[func.func_name] += 1
         else:
             postfix = ''
+
             function_count[func.func_name] = 1
 
         targetdir = udir
@@ -126,6 +142,10 @@ class GenLLVM(object):
         write_pyx_wrapper(self.entrynode, pyxsource)    
 
         return build_llvm_module.make_module_from_llvm(llvmsource, pyxsource)
+
+    def _debug_prototype(self, codewriter):
+        codewriter.append("declare int %printf(sbyte*, ...)")
+
         
 def genllvm(translator, embedexterns=True):
     gen = GenLLVM(translator, embedexterns=embedexterns)

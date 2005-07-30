@@ -14,8 +14,6 @@ class FuncTypeNode(LLVMNode):
         self.db = db
         assert isinstance(type_, lltype.FuncType)
         self.type_ = type_
-        # XXX Make simplier for now, it is far too hard to read otherwise
-        #self.ref = 'ft.%s.%s' % (type_, nextnum())
         self.ref = self.make_ref('%functiontype', '')
         
     def __str__(self):
@@ -80,6 +78,17 @@ class FuncNode(ConstantLLVMNode):
                 self.write_block(codewriter, block)
         codewriter.closefunc()
 
+    def writecomments(self, codewriter):
+        """ write operations strings for debugging purposes. """ 
+        blocks = [x for x in flatten(self.graph) if isinstance(x, Block)]
+        for block in blocks:
+            for op in block.operations:
+                strop = str(op)
+                l = (len(strop) + 2) # new line & null
+                tempname = self.db.add_op2comment(l, op)
+                typeandata = '[%s x sbyte] c"%s\\0A\\00"' % (l, strop)
+                codewriter.globalinstance(tempname, typeandata)
+
     # ______________________________________________________________________
     # writing helpers for entry points
 
@@ -135,7 +144,16 @@ class FuncNode(ConstantLLVMNode):
         opwriter = OpWriter(self.db, codewriter, self, block)
         last_direct_call_index = self._last_operation(block, 'direct_call')
         for op_index, op in enumerate(block.operations):
+
+            # print out debug string
             codewriter.comment(str(op))
+            info = self.db.get_op2comment(op)
+            if info is not None:
+                lenofopstr, opstrname = info
+                codewriter.debugcomment(self.db.repr_tmpvar(),
+                                        lenofopstr,
+                                        opstrname)
+                
             if op_index == last_direct_call_index and block.exitswitch == Constant(last_exception):
                 op.opname = 'direct_invoke'
             opwriter.write_operation(op)

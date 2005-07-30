@@ -212,6 +212,30 @@ def class_simple2(newa):
     c = C(b)
     return c.a.a
 
+
+class AA(object):
+    x = 8
+    def __init__(self):
+        self.a = 15
+        self.b = 16
+    def g(self):
+        return self.a + self.b
+
+class BB(AA):
+    x = 3
+    def g(self):
+        return self.a + self.a
+    
+def class_inherit1():
+    aa = AA()
+    bb = BB()
+    return aa.x + bb.x
+    
+def class_inherit2():
+    aa = AA()
+    bb = BB()
+    return aa.g() + bb.g()
+
 class D(object):
     def __init__(self, a, length):
         self.a = [a] * length

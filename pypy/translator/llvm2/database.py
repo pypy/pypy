@@ -50,6 +50,9 @@ class NormalizingDict(object):
     def __delitem__(self, key): 
         key = self._get(key)
         del self._dict[key]
+    def get(self, key):
+        key = self._get(key)
+        return self._dict.get(key)
     def values(self): 
         return self._dict.values()
     def items(self): 
@@ -72,6 +75,37 @@ class Database(object):
         self.obj2node = NormalizingDict() 
         self._pendingsetup = []
         self._tmpcount = 1
+
+        # debug operation comments
+        self._opcomments = {}
+
+    #_______for debugging llvm code_________________________
+
+    def add_op2comment(self, lenofopstr, op):
+        """ internal method for adding comments on each operation """
+        tmpname = self.repr_tmpvar() + ".comment"
+        self._opcomments[op] = (lenofopstr, tmpname)
+        return tmpname
+        
+    def get_op2comment(self, op):
+        """ internal method for adding comments on each operation """
+        return self._opcomments.get(op, None)
+    
+    #_______debugggin_______________________________________
+
+    def dump_pbcs(self):
+        
+        for k, v in self.obj2node.items():
+            
+            if (isinstance(k, lltype.LowLevelType) or
+                isinstance(k, Constant)):
+                continue
+            
+            assert isinstance(lltype.typeOf(k), lltype.ContainerType)
+            print "dump_pbcs", v, "---->", k
+        
+
+    #_______create node_____________________________________
 
     def create_constant_node(self, type_, value):
         node = None
@@ -125,7 +159,14 @@ class Database(object):
             assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
             value = const_or_var.value._obj
 
-            if value:   #XXX for test/test_dict_creation (how to handle this better?)
+            # Only prepare root values at this point 
+            if isinstance(ct, lltype.Array) or isinstance(ct, lltype.Struct):
+                p, c = lltype.parentlink(value)
+                if p is None:
+                    log.prepare_repr_arg("XXX skipping preparing non root", value)
+                    return
+
+            if value is not None:
                 self.addpending(const_or_var, self.create_constant_node(ct.TO, value))
         else:
             log.prepare(const_or_var, type(const_or_var))
@@ -168,37 +209,34 @@ class Database(object):
         self.prepare_repr_arg_type(const_or_var.concretetype)
         self.prepare_repr_arg(const_or_var)
 
-    def prepare_constant(self, type_, value):        
+    def prepare_constant(self, type_, value):
         if isinstance(type_, lltype.Primitive):
-            log.prepare_constant(value, "(is primitive)")
+            #log.prepare_constant(value, "(is primitive)")
             return
-        elif isinstance(type_, lltype.Ptr):
+        
+        if isinstance(type_, lltype.Ptr):        
+            
             type_ = type_.TO
             value = value._obj
 
-            # we can share data via pointers & dont need a node for nulls
-            if value in self.obj2node or value is None:
+            log.prepare_constant("preparing ptr", value)
+
+            # we dont need a node for nulls
+            if value is None:
                 return
 
-        self.addpending(value,
-                        self.create_constant_node(type_, value))
+        # we can share data via pointers
+        if value not in self.obj2node: 
+            self.addpending(value, self.create_constant_node(type_, value))
 
+        # Always add type (it is safe)
+        self.prepare_repr_arg_type(type_)
+        
     def setup_all(self):
         # Constants setup need to be done after the rest
-        pendingconstants = []
         while self._pendingsetup: 
             node = self._pendingsetup.pop()
-            if isinstance(node, (StructNode, ArrayNode)):
-                pendingconstants.append(node)
-                continue
             log.settingup(node)
-            node.setup()
-
-        self._pendingsetup = pendingconstants
-        while self._pendingsetup:
-            node = self._pendingsetup.pop()
-            assert isinstance(node, ConstantLLVMNode)
-            log.settingup_constant(node)
             node.setup()
 
     def getnodes(self):
@@ -212,18 +250,16 @@ class Database(object):
             if isinstance(arg.concretetype, lltype.Primitive):
                 return primitive_to_str(arg.concretetype, arg.value)
             else:
-                try:
-                    node = self.obj2node[arg]
-                except KeyError:
-                    #XXX related to llvm2/test/test_genllvm/test_dict_creation
-                    #XXX "v962 = same_as((<* None>))"
-                    #XXX this <* None> gets propagated to the next block and fails at the phi node!
-                    #XXX Need better way to test for this only!
+                node = self.obj2node.get(arg)
+                if node is None:
                     return 'null'
-                if hasattr(node, "castref"):
-                    return node.castref
                 else:
-                    return node.ref
+                    return node.get_ref()
+
+                # XXX ??? dont understand rxe ???
+                #XXX related to llvm2/test/test_genllvm/test_dict_creation
+                #XXX "v962 = same_as((<* None>))"
+                #XXX this <* None> gets propagated to the next block and fails at the phi node!
         else:
             assert isinstance(arg, Variable)
             return "%" + str(arg)
@@ -259,18 +295,14 @@ class Database(object):
 
         elif isinstance(type_, lltype.Ptr):
             toptr = self.repr_arg_type(type_)
+            value = value._obj
 
             # special case, null pointer
-            if value._obj is None:
+            if value is None:
                 return None, "%s null" % (toptr,)
 
-            node = self.obj2node[value._obj]
-            ref = node.ref
-
-            fromptr = node.castfrom()
-            if fromptr:
-                refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
-                ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
+            node = self.obj2node[value]
+            ref = node.get_pbcref(toptr)
             return node, "%s %s" % (toptr, ref)
 
         elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):

@@ -54,11 +54,17 @@ class LLVMNode(object):
     def writedecl(self, codewriter):
         """ write function forward declarations. """ 
 
+    def writecomments(self, codewriter):
+        """ write operations strings for debugging purposes. """ 
+
     # __________________ after "implementation" ____________________
     def writeimpl(self, codewriter):
         """ write function implementations. """ 
 
 class ConstantLLVMNode(LLVMNode):
 
-    def castfrom(self):
-        return None
+    def get_ref(self):
+        return self.ref
+
+    def get_pbcref(self, toptr):
+        return self.ref

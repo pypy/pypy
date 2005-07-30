@@ -104,6 +104,18 @@ def test_struct_constant6():
     f = compile_function(struct_constant, [], embedexterns=False)
     assert f() == struct_constant()
 
+def test_aliasing():
+    B = lltype.Struct('B', ('x', lltype.Signed))
+    A = lltype.Array(B)
+    global_a = lltype.malloc(A, 5, immortal=True)
+    global_b = global_a[3]
+    def aliasing(i):
+        global_b.x = 17
+        return global_a[i].x
+    f = compile_function(aliasing, [int], embedexterns=False)
+    assert f(2) == 0
+    assert f(3) == 17
+
 def test_array_constant():
     A = lltype.GcArray(lltype.Signed)
     a = lltype.malloc(A, 3)
