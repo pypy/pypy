@@ -2,7 +2,7 @@ import autopath
 
 import py
 
-import os, sys, inspect, re
+import os, sys, inspect, re, imp
 from pypy.translator.tool import stdoutcapture
 
 debug = 0
@@ -36,7 +36,7 @@ def enable_fast_compilation():
         opt = '-O0'
     gcv['OPT'] = opt
 
-def make_module_from_c(cfile, include_dirs=None):
+def compile_c_module(cfile, modname, include_dirs=None):
     #try:
     #    from distutils.log import set_threshold
     #    set_threshold(10000)
@@ -47,10 +47,8 @@ def make_module_from_c(cfile, include_dirs=None):
         include_dirs = []
 
     dirpath = cfile.dirpath()
-    lastdir = py.path.local()
-    os.chdir(str(dirpath))
+    lastdir = dirpath.chdir()
     try:
-        modname = cfile.purebasename
         if debug: print "modname", modname
         c = stdoutcapture.Capture(mixed_out_err = True)
         try:
@@ -116,19 +114,26 @@ def make_module_from_c(cfile, include_dirs=None):
                     fdump.close()
             # XXX do we need to do some check on fout/ferr?
             # XXX not a nice way to import a module
-            if debug: print "inserting path to sys.path", dirpath
-            sys.path.insert(0, '.')
-            if debug: print "import %(modname)s as testmodule" % locals()
-            exec "import %(modname)s as testmodule" % locals()
-            sys.path.pop(0)
         except:
             print data
             raise
     finally:
-        os.chdir(str(lastdir))
-        #if not debug:
-        #dirpath.rmtree()
-    return testmodule
+        lastdir.chdir()
+
+def make_module_from_c(cfile, include_dirs=None):
+    cfile = py.path.local(cfile)
+    modname = cfile.purebasename
+    compile_c_module(cfile, modname, include_dirs)
+    return import_module_from_directory(cfile.dirpath(), modname)
+
+def import_module_from_directory(dir, modname):
+    file, pathname, description = imp.find_module(modname, [str(dir)])
+    try:
+        mod = imp.load_module(modname, file, pathname, description)
+    finally:
+        if file:
+            file.close()
+    return mod
 
 def make_c_from_pyxfile(pyxfile):
     from pypy.translator.pyrex import genpyrex
