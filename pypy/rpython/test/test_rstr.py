@@ -124,11 +124,11 @@ def test_char_mul():
 
 def test_str_compare():
     def fn(i, j):
-        s1 = ['one', 'two']
-        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
+        s1 = ['one', 'two', None]
+        s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar', None]
         return s1[i] == s2[j]
-    for i in range(2):
-        for j in range(6):
+    for i in range(3):
+        for j in range(7):
             res = interpret(fn, [i,j])
             assert res is fn(i, j)
 

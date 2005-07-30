@@ -568,6 +568,10 @@ def ll_strconcat(s1, s2):
     return newstr
 
 def ll_strcmp(s1, s2):
+    if not s1 and not s2:
+        return True
+    if not s1 or not s2:
+        return False
     chars1 = s1.chars
     chars2 = s2.chars
     len1 = len(chars1)
@@ -586,6 +590,10 @@ def ll_strcmp(s1, s2):
     return len1 - len2
 
 def ll_streq(s1, s2):
+    if not s1 and not s2:
+        return True
+    if not s1 or not s2:
+        return False
     len1 = len(s1.chars)
     len2 = len(s2.chars)
     if len1 != len2:

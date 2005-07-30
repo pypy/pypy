@@ -579,6 +579,10 @@ def ll_listsetslice(l1, slice, l2):
 #  Comparison.
 
 def ll_listeq(l1, l2, eqfn):
+    if not l1 and not l2:
+        return True
+    if not l1 or not l2:
+        return False
     len1 = len(l1.items)
     len2 = len(l2.items)
     if len1 != len2:
