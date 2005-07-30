@@ -63,7 +63,7 @@ def target():
     w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
 
     # sanity-check: call the entry point
-    res = entry_point("app_example.py")
+    res = entry_point("pypy\x00app_example.py")
     assert res == 0
 
     return entry_point, [SomeString()]
