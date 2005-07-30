@@ -6,6 +6,7 @@ from pypy.objspace.std.objspace import StdObjSpace
 from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError
 
 # WARNING: this requires the annotator.
 # There is no easy way to build all caches manually,
@@ -16,16 +17,29 @@ try:
 except NameError:
     this_dir = os.path.dirname(sys.argv[0])
 
+def debug(msg): 
+    os.write(2, "debug: " + msg + '\n')
+
 # __________  Entry point  __________
 
 def entry_point(argvstring):
+    debug("entry point starting") 
+    debug(argvstring) 
     argv = argvstring.split('\x00')
-    w_argv = space.newlist([space.wrap(s) for s in argv])
-    w_exitcode = space.call(w_entry_point, w_argv)
-    # try to pull it all in
-##    from pypy.interpreter import main, interactive, error
-##    con = interactive.PyPyConsole(space)
-##    con.interact()
+    for arg in argv: 
+        debug(" argv -> " + arg)
+    try:
+        w_argv = space.newlist([space.wrap(s) for s in argv])
+        w_exitcode = space.call_function(w_entry_point, w_argv)
+        # try to pull it all in
+    ##    from pypy.interpreter import main, interactive, error
+    ##    con = interactive.PyPyConsole(space)
+    ##    con.interact()
+    except OperationError, e:
+        debug("OperationError:")
+        debug(e.w_type.name)
+        debug(space.str_w(space.str(e.w_value)))
+        return 1
     return space.int_w(w_exitcode)
 
 # _____ Define and setup target ___
@@ -47,6 +61,10 @@ def target():
     w_dict = space.newdict([])
     space.exec_(open(filename).read(), w_dict, w_dict)
     w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
+
+    # sanity-check: call the entry point
+    res = entry_point("app_example.py")
+    assert res == 0
 
     return entry_point, [SomeString()]
 
