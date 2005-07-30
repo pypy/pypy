@@ -185,7 +185,7 @@ class OpWriter(object):
     def direct_invoke(self, op):
         # XXX hack as per remove_voids()
         op_args = [arg for arg in op.args
-                   if arg.concretetype is not Void]
+                   if arg.concretetype is not lltype.Void]
 
         assert len(op_args) >= 1
         assert len(self.block.exits) >= 2   #at least one label and one exception label
@@ -237,7 +237,7 @@ class OpWriter(object):
             self.codewriter.call(ll_issubclass_cond,
                                  'bool',
                                  ll_exception_match,
-                                 [tmpvar2, type.ref],
+                                 [etype.ref, tmpvar2],
                                  [lltype_of_exception_type, lltype_of_exception_type])
             self.codewriter.br(ll_issubclass_cond, not_this_exception_label, exc_found_label)
             self.codewriter.label(not_this_exception_label)
