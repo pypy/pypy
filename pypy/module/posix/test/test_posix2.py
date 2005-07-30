@@ -30,3 +30,35 @@ class AppTestPosix:
         assert stat  # XXX 
         posix.close(fd2)
         posix.close(fd)
+
+    def test_open_exception(self): 
+        posix = self.posix
+        try: 
+            posix.open('qowieuqwoeiu', 0, 0)
+        except OSError: 
+            pass
+        else: 
+            assert 0
+
+    def test_functions_raise_error(self): 
+        def ex(func, *args):
+            try:
+                func(*args)
+            except OSError: 
+                pass
+            else:
+                raise AssertionError("%s(%s) did not raise" %(
+                                     func.__name__, 
+                                     ", ".join([str(x) for x in args])))
+        UNUSEDFD = 123123
+        ex(self.posix.open, "qweqwe", 0, 0)
+        ex(self.posix.lseek, UNUSEDFD, 123, 0)
+        #apparently not posix-required: ex(self.posix.isatty, UNUSEDFD)
+        ex(self.posix.read, UNUSEDFD, 123)
+        ex(self.posix.write, UNUSEDFD, "x")
+        ex(self.posix.close, UNUSEDFD)
+        #UMPF cpython raises IOError ex(self.posix.ftruncate, UNUSEDFD, 123)
+        ex(self.posix.fstat, UNUSEDFD)
+        ex(self.posix.stat, "qweqwehello")
+        # how can getcwd() raise? 
+        ex(self.posix.dup, UNUSEDFD)
