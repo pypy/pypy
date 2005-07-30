@@ -16,6 +16,7 @@ from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_uint
 from pypy.tool.unionfind import UnionFind
 from pypy.rpython import lltype
+from pypy.rpython.memory import lladdress
 
 from pypy.annotation.specialize import decide_callable
 
@@ -330,6 +331,9 @@ class Bookkeeper:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (x.__module__, x.__name__))
         elif isinstance(x, lltype._ptr):
             result = SomePtr(lltype.typeOf(x))
+        elif isinstance(x, lladdress.Address):
+            assert x is lladdress.NULL
+            result= SomeAddress(is_null=True)
         elif callable(x) or isinstance(x, staticmethod): # XXX
             # maybe 'x' is a method bound to a not-yet-frozen cache?
             # fun fun fun.

@@ -7,7 +7,7 @@ import sys, math, os, time
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
-from pypy.annotation.model import SomeUnicodeCodePoint
+from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.model import SomePBC, SomeInstance
 from pypy.annotation.model import annotation_to_lltype
@@ -336,9 +336,36 @@ BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
 BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
 BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
 
+#_________________________________
+# memory address
+
+from pypy.rpython.memory import lladdress
+
+def raw_malloc(s_size):
+    assert isinstance(s_size, SomeInteger) #XXX add noneg...?
+    return SomeAddress()
+
+def raw_free(s_addr):
+    assert isinstance(s_addr, SomeAddress)
+    assert not s_addr.is_null
+
+def raw_memcopy(s_addr1, s_addr2, s_int):
+    assert isinstance(s_addr1, SomeAddress)
+    assert isinstance(s_addr2, SomeAddress)
+    assert isinstance(s_int, SomeInteger) #XXX add noneg...?
+
+BUILTIN_ANALYZERS[lladdress.raw_malloc] = raw_malloc
+BUILTIN_ANALYZERS[lladdress.raw_free] = raw_free
+BUILTIN_ANALYZERS[lladdress.raw_memcopy] = raw_memcopy
+
+#_________________________________
+# external functions
+
+
 from pypy.rpython import extfunctable
 
 # import annotation information for external functions 
 # from the extfunctable.table  into our own annotation specific table 
 for func, extfuncinfo in extfunctable.table.iteritems():
     BUILTIN_ANALYZERS[func] = extfuncinfo.annotation 
+

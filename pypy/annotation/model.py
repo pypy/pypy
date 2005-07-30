@@ -440,6 +440,16 @@ def ll_to_annotation(v):
     return lltype_to_annotation(lltype.typeOf(v))
 
 # ____________________________________________________________
+# memory addresses
+
+class SomeAddress(SomeObject):
+    def __init__(self, is_null=False):
+        self.is_null = is_null
+
+    def can_be_none(self):
+        return False
+
+# ____________________________________________________________
 
 class UnionError(Exception):
     """Signals an suspicious attempt at taking the union of

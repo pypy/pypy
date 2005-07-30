@@ -1,0 +1,57 @@
+plan:
+=====
+   - write a simulator using arrays
+   - blocks are malloced with their size
+   - addresses are pointers memory locations:
+       * they are basically integers
+       * offsets are just regular integers
+       * their annotation is SomeAddress
+
+Address operations:
+===================
+
+construction / destruction:
+----------------------------
+   - NULL: global object
+   - raw_malloc(size) --> address
+   - raw_free(addr)
+   - memcopy(addr1, addr2, size)
+
+memory access:
+--------------
+
+   - reading: addr.signed[offset]
+   - writing: addr.signed[offset] = value
+   - datatypes:
+       * signed, unsigned, char, address
+
+
+open question / whish:
+======================
+
+it would be cool to do something like::
+
+    class A(object):
+        _raw_allocate_ = True
+        def method(self):
+            ...
+
+    a = A()
+    free_non_gc_object(a)
+    a.method() #-> crash
+
+it seems possible, will be messy
+
+
+Memory Layout:
+==============
+
+for now we go for the simple solution::
+
+                        +-<-<-<  object model sees only this
+                        V
+    +---------+---------+----------------------------+
+    | gc info | type id | object data                |
+    | int     | int     | whatever                   |
+    +---------+---------+----------------------------+
+
