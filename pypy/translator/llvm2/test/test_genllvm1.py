@@ -89,7 +89,6 @@ class TestPBC(object):
         assert f(3) == 8
 
     def test_pbc_function2(self):
-        py.test.skip("pbc circular not working yet")
         f = compile_function(llvmsnippet.pbc_function2, [int])
         assert f(0) == 13
         assert f(1) == 15

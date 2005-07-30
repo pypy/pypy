@@ -301,12 +301,14 @@ class OpWriter(object):
         struct, structtype = self.db.repr_argwithtype(op.args[0])
         fieldnames = list(op.args[0].concretetype.TO._names)
         index = fieldnames.index(op.args[1].value)
-        self.codewriter.getelementptr(tmpvar, structtype, struct,
-                                      ("uint", index))
         valuevar, valuetype = self.db.repr_argwithtype(op.args[2])
-        assert valuetype != "void"
-        self.codewriter.store(valuetype, valuevar, tmpvar) 
-
+        if valuetype != "void": 
+            self.codewriter.getelementptr(tmpvar, structtype, struct,
+                                          ("uint", index))
+            self.codewriter.store(valuetype, valuevar, tmpvar) 
+        else:
+            self.codewriter.comment("***Skipping operation setfield()***")
+            
     def getarrayitem(self, op):        
         array, arraytype = self.db.repr_argwithtype(op.args[0])
         index = self.db.repr_arg(op.args[1])
@@ -316,6 +318,8 @@ class OpWriter(object):
                                       ("uint", 1), (indextype, index))
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
+        #XXX These should skip too if the case comes up
+        assert targettype != "void"
         self.codewriter.load(targetvar, targettype, tmpvar)
 
     def getarraysubstruct(self, op):        
@@ -337,6 +341,8 @@ class OpWriter(object):
 
         valuevar = self.db.repr_arg(op.args[2]) 
         valuetype = self.db.repr_arg_type(op.args[2])
+        #XXX These should skip too if the case comes up
+        assert valuetype != "void"
         self.codewriter.store(valuetype, valuevar, tmpvar) 
 
     def getarraysize(self, op):
