@@ -23,3 +23,7 @@ def test_open_read_write_close():
 def test_getcwd():
     data = ll_os_getcwd()
     assert from_rstr(data) == os.getcwd()
+
+def test_strerror():
+    data = ll_os_strerror(2)
+    assert from_rstr(data) == os.strerror(2)

@@ -167,3 +167,10 @@ void LL_os_ftruncate(long fd, long length) { /*XXX add longfile support */
 	RAISE_OSERROR(errno);
     }
 }
+
+RPyString *LL_os_strerror(int errnum)
+{
+	char *res;
+	res = strerror(errnum);
+	return RPyString_FromString(res);
+}

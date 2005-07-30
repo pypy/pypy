@@ -19,6 +19,7 @@ EXTERNALS = {
     ll_os  .ll_os_lseek:   'LL_os_lseek',
     ll_os  .ll_os_isatty:  'LL_os_isatty',
     ll_os  .ll_os_ftruncate:'LL_os_ftruncate',
+    ll_os  .ll_os_strerror: 'LL_os_strerror',
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_time.ll_time_sleep: 'LL_time_sleep',
     ll_time.ll_time_time:  'LL_time_time',

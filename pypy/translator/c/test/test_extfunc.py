@@ -134,6 +134,13 @@ def test_getcwd():
     res = f1()
     assert res == os.getcwd()
 
+def test_strerror():
+    def does_stuff():
+        return os.strerror(2)
+    f1 = compile(does_stuff, [])
+    res = f1()
+    assert res == os.strerror(2)
+
 def test_math_frexp():
     from math import frexp
     def fn(x):
