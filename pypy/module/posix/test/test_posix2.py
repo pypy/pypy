@@ -9,15 +9,15 @@ def setup_module(mod):
 class AppTestPosix: 
     def setup_class(cls): 
         cls.space = space 
+        cls.w_posix = space.appexec([], "(): import posix ; return posix")
+        cls.w_path = space.wrap(str(path))
     
     def test_posix_is_pypy_s(self): 
-        import posix
-        assert posix.__file__ 
+        assert self.posix.__file__ 
 
-def test_some_posix_basic_operation(): 
-    w_path = space.wrap(str(path))
-    space.appexec([w_path], """(path):
-        import posix
+    def test_some_posix_basic_operation(self): 
+        path = self.path 
+        posix = self.posix 
         fd = posix.open(path, posix.O_RDONLY, 0777)
         fd2 = posix.dup(fd)
         assert not posix.isatty(fd2) 
@@ -30,4 +30,3 @@ def test_some_posix_basic_operation():
         assert stat  # XXX 
         posix.close(fd2)
         posix.close(fd)
-    """)
