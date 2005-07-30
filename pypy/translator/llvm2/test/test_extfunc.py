@@ -10,9 +10,6 @@ from pypy.translator.llvm2.genllvm import compile_function
 py.log.setconsumer("genllvm", py.log.STDOUT)
 py.log.setconsumer("genllvm database prepare", None)
 
-def setup_module(module):
-    py.test.skip("tmp - just to sync up changes")
-
 def test_external_function_ll_os_dup():
     def fn():
         return os.dup(0)

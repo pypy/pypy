@@ -1,9 +1,9 @@
 import py
-from pypy.translator.llvm2.node import LLVMNode
+from pypy.translator.llvm2.node import ConstantLLVMNode
 from pypy.translator.llvm2.log import log 
 log = log.extfuncnode
 
-class ExternalFuncNode(LLVMNode):
+class ExternalFuncNode(ConstantLLVMNode):
     used_external_functions = {}
 
     def __init__(self, db, value):
