@@ -15,9 +15,10 @@ Heidelberg sprint planning
 The next PyPy sprint will take place at the Heidelberg University
 in Germany from 22nd August to 29th August (both days included). 
 Its main focus is translation of the whole PyPy interpreter 
-to a low level language and reaching 2.4.1 Python compliancy. 
+to a low level language and reaching 2.4.1 Python compliancy.
+The goal of the sprint is to release a first self-contained PyPy-0.7 version.
 To learn more see the `Heidelberg sprint announcement`_ or look at
-the list of people_ that are expected to come
+the list of people_ that are expected to come.
 
 .. _people: http://codespeak.net/pypy/index.cgi?extradoc/sprintinfo/heidelberg-people.html
 .. _`Heidelberg sprint announcement`: http://codespeak.net/pypy/index.cgi?extradoc/sprintinfo/Heidelberg-sprint.html
