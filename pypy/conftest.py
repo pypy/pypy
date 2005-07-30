@@ -156,11 +156,23 @@ class AppTestFunction(PyPyTestFunction):
         self.execute_appex(space, func, space)
 
 class AppTestMethod(PyPyTestFunction): 
+
+    def setup(self): 
+        super(AppTestMethod, self).setup() 
+        instance = self.parent.obj 
+        w_instance = self.parent.w_instance 
+        space = instance.space  
+        for name in dir(instance): 
+            if name.startswith('w_'): 
+                space.setattr(w_instance, space.wrap(name[2:]), 
+                              getattr(instance, name)) 
+
     def execute(self, target, *args): 
         assert not args 
         space = target.im_self.space 
         func = app2interp_temp(target.im_func) 
-        self.execute_appex(space, func, space, space.w_None)
+        w_instance = self.parent.w_instance 
+        self.execute_appex(space, func, space, w_instance) 
 
 class IntClassCollector(py.test.collect.Class): 
     Function = IntTestFunction 
@@ -173,6 +185,23 @@ class IntClassCollector(py.test.collect.Class):
 class AppClassInstance(py.test.collect.Instance): 
     Function = AppTestMethod 
 
+    def setup(self): 
+        super(AppClassInstance, self).setup()         
+        instance = self.obj 
+        space = instance.space 
+        w_class = self.parent.w_class 
+        self.w_instance = space.call_function(w_class)
+
 class AppClassCollector(IntClassCollector): 
     Instance = AppClassInstance 
 
+    def setup(self): 
+        super(AppClassCollector, self).setup()         
+        cls = self.obj 
+        space = cls.space 
+        clsname = cls.__name__ 
+        w_class = space.call_function(space.w_type,
+                                      space.wrap(clsname),
+                                      space.newtuple([]),
+                                      space.newdict([]))
+        self.w_class = w_class 

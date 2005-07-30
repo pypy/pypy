@@ -68,4 +68,18 @@ def test_appexecinfo(space):
         pass
     assert not appex.errisinstance(A) 
 
-    
+
+class AppTestWithWrappedInterplevelAttributes: 
+    def setup_class(cls): 
+        space = cls.space
+        cls.w_some1 = space.wrap(42) 
+
+    def setup_method(self, meth): 
+        self.w_some2 = self.space.wrap(23)
+
+    def test_values_arrive(self): 
+        assert self.some1 == 42  
+        assert self.some2 == 23 
+
+    def test_values_arrive2(self): 
+        assert self.some1 == 42
