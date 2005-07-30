@@ -188,7 +188,7 @@ def class_simple():
     a = A()
     return a.a
 
-class B(object):
+class B(A):
     def __init__(self):
         self.a = 14
         self.b = False
@@ -201,7 +201,7 @@ def class_simple1(newa):
     b.change(newa)
     return b.a
 
-class C(object):
+class C(A):
     def __init__(self, a):
         self.a = a
         self.b = 1
@@ -233,7 +233,7 @@ def class_inherit1():
 def class_inherit2():
     aa = AA()
     bb = BB()
-    return aa.g() + bb.g() 
+    return aa.g() - bb.g() 
 
 class D(object):
     def __init__(self, a, length):
@@ -267,6 +267,20 @@ def global_instance(x):
     ggg.a = x
     36 + d + 3
     return previous + d + previous1
+
+class FFF: pass
+fff = FFF()
+fff.x = 10
+
+def getset(x):
+    res = fff.x
+    fff.x = x
+    return res
+
+def testgetset(y):
+    res1 = getset(y)
+    res2 = getset(y)
+    return res1 + res2
 
 def degrading_func(obj):
     if isinstance(obj, C):

@@ -32,7 +32,7 @@ class FuncNode(ConstantLLVMNode):
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.ref = "%" + value._name
+        self.ref = "%" + value.graph.name
         self.graph = value.graph 
         remove_same_as(self.graph) 
         remove_double_links(self.db._translator, self.graph) 

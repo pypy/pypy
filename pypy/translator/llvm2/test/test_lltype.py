@@ -116,6 +116,20 @@ def test_aliasing():
     assert f(2) == 0
     assert f(3) == 17
 
+def test_aliasing2():
+    B = lltype.Struct('B', ('x', lltype.Signed))
+    A = lltype.Array(B)
+    C = lltype.Struct('C', ('x', lltype.Signed), ('bptr', lltype.Ptr(B)))
+    global_a = lltype.malloc(A, 5, immortal=True)
+    global_c = lltype.malloc(C, immortal=True)
+    global_c.bptr = global_a[3]
+    def aliasing(i):
+        global_c.bptr.x = 17
+        return global_a[i].x
+    f = compile_function(aliasing, [int], embedexterns=False)
+    assert f(2) == 0
+    assert f(3) == 17    
+
 def test_array_constant():
     A = lltype.GcArray(lltype.Signed)
     a = lltype.malloc(A, 3)
