@@ -156,11 +156,11 @@
 #define OP_CAST_BOOL_TO_UINT(x,r,err)   r = (unsigned long)(x);
 #define OP_CAST_UINT_TO_INT(x,r,err)    r = (long)(x);
 #define OP_CAST_INT_TO_UINT(x,r,err)    r = (unsigned long)(x);
-#define OP_CAST_CHAR_TO_INT(x,r,err)    r = (long)(x);
+#define OP_CAST_CHAR_TO_INT(x,r,err)    r = (long)((unsigned char)(x));
 #define OP_CAST_INT_TO_CHAR(x,r,err)    r = (char)(x);
 #define OP_CAST_PTR_TO_INT(x,r,err)     r = (long)(x);    /* XXX */
 
-#define OP_CAST_UNICHAR_TO_INT(x,r,err)    r = (x);
+#define OP_CAST_UNICHAR_TO_INT(x,r,err)    r = (long)((unsigned long)(x)); /*?*/
 #define OP_CAST_INT_TO_UNICHAR(x,r,err)    r = (Py_UCS4)(x);
 
 /* bool operations */
