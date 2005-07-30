@@ -319,6 +319,9 @@ class W_DictIterObject(W_Object):
         w_self.len = w_dictobject.used
         w_self.pos = 0
 
+    def return_entry(w_self, entry):
+        raise NotImplementedError
+
 registerimplementation(W_DictIterObject)
 
 class W_DictIter_Keys(W_DictIterObject):
