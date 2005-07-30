@@ -351,7 +351,9 @@ def raw_free(s_addr):
 
 def raw_memcopy(s_addr1, s_addr2, s_int):
     assert isinstance(s_addr1, SomeAddress)
+    assert not s_addr1.is_null
     assert isinstance(s_addr2, SomeAddress)
+    assert not s_addr2.is_null
     assert isinstance(s_int, SomeInteger) #XXX add noneg...?
 
 BUILTIN_ANALYZERS[lladdress.raw_malloc] = raw_malloc

@@ -449,6 +449,31 @@ class SomeAddress(SomeObject):
     def can_be_none(self):
         return False
 
+
+# The following class is used to annotate the intermediate value that
+# appears in expressions of the form:
+# addr.signed[offset] and addr.signed[offset] = value
+
+class SomeTypedAddressAccess(SomeObject):
+    def __init__(self, type):
+        self.type = type
+
+    def can_be_none(self):
+        return False
+
+def lltype_or_address_to_annotation(T):
+    from pypy.rpython.memory.lladdress import Address
+    if T is Address:
+        return SomeAddress()
+    return lltype_to_annotation(T)
+
+def annotation_to_lltype_or_address(s_ann):
+    from pypy.rpython.memory.lladdress import Address
+    if isinstance(s_ann, SomeAddress):
+        return Address
+    else:
+        return annotation_to_lltype(s_ann)
+    
 # ____________________________________________________________
 
 class UnionError(Exception):

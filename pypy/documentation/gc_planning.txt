@@ -23,7 +23,7 @@ memory access:
    - reading: addr.signed[offset]
    - writing: addr.signed[offset] = value
    - datatypes:
-       * signed, unsigned, char, address
+       * signed, unsigned, char, float(?), address
 
 
 open question / whish:

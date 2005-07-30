@@ -1,6 +1,16 @@
+from pypy.rpython import lltype
+
+
 
 class Address(object):
     pass
+
+
+supported_access_types = {"signed":    lltype.Signed,
+                          "unsigned":  lltype.Unsigned,
+                          "char":      lltype.Char,
+                          "address":   Address,
+                          }
 
 NULL = Address()
 

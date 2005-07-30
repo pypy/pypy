@@ -11,6 +11,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeFloat
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
+from pypy.annotation.model import SomeTypedAddressAccess, SomeAddress
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.bookkeeper import getbookkeeper, RPythonCallsSpace
 from pypy.annotation.classdef import isclassdef
@@ -493,3 +494,17 @@ class __extend__(SomePtr):
 
     def is_true(p):
         return SomeBool()
+
+
+#_________________________________________
+# memory addresses
+
+from pypy.rpython.memory import lladdress
+
+class __extend__(SomeAddress):
+    def getattr(s_addr, s_attr):
+        assert s_attr.is_constant()
+        assert isinstance(s_attr, SomeString)
+        assert s_attr.const in lladdress.supported_access_types
+        return SomeTypedAddressAccess(
+            lladdress.supported_access_types[s_attr.const])

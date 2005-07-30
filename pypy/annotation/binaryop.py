@@ -10,6 +10,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat
+from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -610,3 +611,38 @@ class __extend__(pairtype(SomeObject, SomePtr)):
         return pair(p2, obj).union()
 
 
+#_________________________________________
+# memory addresses
+
+class __extend__(pairtype(SomeAddress, SomeAddress)):
+    def union((s_addr1, s_addr2)):
+        return SomeAddress(is_null=s_addr1.is_null and s_addr2.is_null)
+
+class __extend__(pairtype(SomeTypedAddressAccess, SomeTypedAddressAccess)):
+    def union((s_taa1, s_taa2)):
+        assert s_taa1.type == s_taa2.type
+        return s_taa1
+
+class __extend__(pairtype(SomeTypedAddressAccess, SomeInteger)):
+    def getitem((s_taa, s_int)):
+        from pypy.annotation.model import lltype_or_address_to_annotation
+        return lltype_or_address_to_annotation(s_taa.type)
+
+    def setitem((s_taa, s_int), s_value):
+        from pypy.annotation.model import annotation_to_lltype_or_address
+        assert annotation_to_lltype_or_address(s_value) is s_taa.type
+
+
+class __extend__(pairtype(SomeAddress, SomeInteger)):
+    def add((s_addr, s_int)):
+        return SomeAddress(is_null=False)
+
+    def sub((s_addr, s_int)):
+        return SomeAddress(is_null=False)
+
+class __extend__(pairtype(SomeAddress, SomeAddress)):
+    def sub((s_addr1, s_addr2)):
+        if s_addr1.is_null and s_addr2.is_null:
+            return getbookkeeper().immutablevalue(0)
+        return SomeInteger()
+        
