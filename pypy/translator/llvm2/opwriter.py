@@ -166,12 +166,16 @@ class OpWriter(object):
                                  "null")
 
     def direct_call(self, op):
-        assert len(op.args) >= 1
+
+        op_args = [arg for arg in op.args
+                   if arg.concretetype is not lltype.Void]
+
+        assert len(op_args) >= 1
         targetvar = self.db.repr_arg(op.result)
         returntype = self.db.repr_arg_type(op.result)
-        functionref = self.db.repr_arg(op.args[0])
-        argrefs = self.db.repr_arg_multi(op.args[1:])
-        argtypes = self.db.repr_arg_type_multi(op.args[1:])
+        functionref = self.db.repr_arg(op_args[0])
+        argrefs = self.db.repr_arg_multi(op_args[1:])
+        argtypes = self.db.repr_arg_type_multi(op_args[1:])
         if returntype != "void":
             self.codewriter.call(targetvar, returntype, functionref, argrefs,
                                  argtypes)
@@ -179,7 +183,11 @@ class OpWriter(object):
             self.codewriter.call_void(functionref, argrefs, argtypes)
 
     def direct_invoke(self, op):
-        assert len(op.args) >= 1
+        # XXX hack as per remove_voids()
+        op_args = [arg for arg in op.args
+                   if arg.concretetype is not Void]
+
+        assert len(op_args) >= 1
         assert len(self.block.exits) >= 2   #at least one label and one exception label
 
         link = self.block.exits[0]
@@ -187,9 +195,9 @@ class OpWriter(object):
 
         targetvar = self.db.repr_arg(op.result)
         returntype = self.db.repr_arg_type(op.result)
-        functionref = self.db.repr_arg(op.args[0])
-        argrefs = self.db.repr_arg_multi(op.args[1:])
-        argtypes = self.db.repr_arg_type_multi(op.args[1:])
+        functionref = self.db.repr_arg(op_args[0])
+        argrefs = self.db.repr_arg_multi(op_args[1:])
+        argtypes = self.db.repr_arg_type_multi(op_args[1:])
 
         none_label  = self.node.block_to_name[link.target]
         block_label = self.node.block_to_name[self.block]
@@ -229,7 +237,7 @@ class OpWriter(object):
             self.codewriter.call(ll_issubclass_cond,
                                  'bool',
                                  ll_exception_match,
-                                 [tmpvar2, self.db.repr_arg_type(type)],
+                                 [tmpvar2, type.ref],
                                  [lltype_of_exception_type, lltype_of_exception_type])
             self.codewriter.br(ll_issubclass_cond, not_this_exception_label, exc_found_label)
             self.codewriter.label(not_this_exception_label)

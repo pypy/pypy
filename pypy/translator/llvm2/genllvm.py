@@ -30,7 +30,7 @@ class GenLLVM(object):
         self.translator = translator
         self.embedexterns = embedexterns
         # transformations
-        remove_void(translator)
+        #remove_void(translator)
         #rename_extfunc_calls(translator)
         translator.checkgraphs()
         ExternalFuncNode.used_external_functions = {}
@@ -163,7 +163,6 @@ def compile_module(function, annotate, view=False, embedexterns=True):
     t = Translator(function)
     a = t.annotate(annotate)
     t.specialize()
-    a.simplify()
     if view:
         t.view()
     return genllvm(t, embedexterns=embedexterns)

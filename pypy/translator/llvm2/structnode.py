@@ -142,7 +142,8 @@ class StructNode(ConstantLLVMNode):
     def constantvalue(self):
         """ Returns the constant representation for this node. """
         values = self._getvalues()
-        return "%s {%s}" % (self.get_typerepr(), ", ".join(values))
+        all_values = ",\n  ".join(values)
+        return "%s {\n  %s\n  }\n\n" % (self.get_typerepr(), all_values)
                 
     # ______________________________________________________________________
     # main entry points from genllvm 

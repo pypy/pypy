@@ -212,7 +212,6 @@ def class_simple2(newa):
     c = C(b)
     return c.a.a
 
-
 class AA(object):
     x = 8
     def __init__(self):
@@ -234,7 +233,7 @@ def class_inherit1():
 def class_inherit2():
     aa = AA()
     bb = BB()
-    return aa.g() + bb.g()
+    return aa.g() + bb.g() 
 
 class D(object):
     def __init__(self, a, length):
@@ -266,6 +265,7 @@ def global_instance(x):
     ggg.c.append(x)
     d = ggg.b[1]
     ggg.a = x
+    36 + d + 3
     return previous + d + previous1
 
 def degrading_func(obj):

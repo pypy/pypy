@@ -95,8 +95,12 @@ class FuncNode(ConstantLLVMNode):
     def getdecl(self):
         startblock = self.graph.startblock
         returnblock = self.graph.returnblock
-        inputargs = self.db.repr_arg_multi(startblock.inputargs)
-        inputargtypes = self.db.repr_arg_type_multi(startblock.inputargs)
+        # XXX hack as per remove_voids()
+        startblock_inputargs = [a for a in startblock.inputargs
+                                if a.concretetype is not lltype.Void]
+
+        inputargs = self.db.repr_arg_multi(startblock_inputargs)
+        inputargtypes = self.db.repr_arg_type_multi(startblock_inputargs)
         returntype = self.db.repr_arg_type(self.graph.returnblock.inputargs[0])
         result = "%s %s" % (returntype, self.ref)
         args = ["%s %s" % item for item in zip(inputargtypes, inputargs)]
@@ -122,7 +126,7 @@ class FuncNode(ConstantLLVMNode):
                    link.prevblock.exits[0].target != block:
                     blocknames[i] += '_exception_found_branchto_' + self.block_to_name[block]
             if type_ != "void":
-                codewriter.phi(arg, type_, names, blocknames) 
+                codewriter.phi(arg, type_, names, blocknames)
 
     def write_block_branches(self, codewriter, block):
         #assert len(block.exits) <= 2    #more exits are possible (esp. in combination with exceptions)

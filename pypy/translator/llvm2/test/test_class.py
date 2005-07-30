@@ -6,6 +6,8 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.translator.llvm2.genllvm import compile_function
 from pypy.translator.llvm2.test import llvmsnippet
 
+#py.log.setconsumer("genllvm", py.log.STDOUT)
+
 class TestClass(object):
     def test_classsimple(self):
         f = compile_function(llvmsnippet.class_simple, [])
@@ -29,22 +31,21 @@ class TestClass(object):
         assert f() == 11
 
     def test_inherit2(self):
-        py.test.skip("not working yet (segfault)")
+        py.test.skip("function redefinition problem")
         f = compile_function(llvmsnippet.class_inherit2, [])
-        assert f() == 11
+        assert f() == 1
 
     def test_method_of_base_class(self):
-        py.test.skip("not working yet (segfault)")
-        f = compile_function(llvmsnippet.method_of_base_class, [], view=True)
+        py.test.skip("rtyper problem")
+        f = compile_function(llvmsnippet.method_of_base_class, [])
         assert f() == 14
 
     def test_attribute_from_base_class(self):
-        py.test.skip("not working yet (segfault)")
         f = compile_function(llvmsnippet.attribute_from_base_class, [])
         assert f() == 4
 
     def test_direct_call_of_virtual_method(self):
-        py.test.skip("not working yet (segfault)")
+        py.test.skip("function redefinition problem")
         f = compile_function(llvmsnippet.direct_call_of_virtual_method, [])
         assert f() == 14
 
@@ -63,14 +64,14 @@ class TestClass(object):
         assert f(False) == 2
 
     def test_global_instance(self):
-        py.test.skip("modify global instance not working properly yet")
+        py.test.skip("function redefinition problems")
         f = compile_function(llvmsnippet.global_instance, [int])
         assert f(-1) == llvmsnippet.global_instance(-1)
         for i in range(20):
             assert f(i) == llvmsnippet.global_instance(i)
 
     def test_call_degrading_func(self):
-        py.test.skip("call degrading not working yet")
+        py.test.skip("rtyper problem")
         f = compile_function(llvmsnippet.call_degrading_func, [bool])
         assert f(True) == llvmsnippet.call_degrading_func(True)     #-36
         assert f(False) == llvmsnippet.call_degrading_func(False)   #14
