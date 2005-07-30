@@ -37,7 +37,7 @@ def entry_point(argvstring):
     ##    con.interact()
     except OperationError, e:
         debug("OperationError:")
-        debug(" operror-type: " + w_type.getname(space, '?'))
+        debug(" operror-type: " + e.w_type.getname(space, '?'))
         debug(" operror-value: " + space.str_w(space.str(e.w_value)))
         return 1
     return space.int_w(w_exitcode)
