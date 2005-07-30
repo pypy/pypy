@@ -6,12 +6,12 @@ from pypy.tool.udir import udir
 from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.objspace.flow.model import *
 
-from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
+from pypy.translator.tool.cbuild import make_module_from_pyxstring
 #from pypy.translator.test.make_dot import make_ps
 
 # XXX this tries to make compiling faster for full-scale testing
-from pypy.translator.tool import buildpyxmodule
-buildpyxmodule.enable_fast_compilation()
+from pypy.translator.tool import cbuild
+cbuild.enable_fast_compilation()
 
 
 class TestSourceGenTestCase:

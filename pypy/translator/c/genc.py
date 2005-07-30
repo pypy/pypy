@@ -4,7 +4,7 @@ from pypy.translator.c.node import PyObjectNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename
-from pypy.translator.tool.buildpyxmodule import make_module_from_c
+from pypy.translator.tool.cbuild import make_module_from_c
 from pypy.rpython.lltype import pyobjectptr
 from pypy.tool.udir import udir
 

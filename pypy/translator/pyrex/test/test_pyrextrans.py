@@ -3,8 +3,8 @@ import py
 from pypy.tool.udir import udir
 from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.objspace.flow.model import *
-from pypy.translator.tool.buildpyxmodule import build_cfunc
-from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
+from pypy.translator.tool.cbuild import build_cfunc
+from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import Translator
 from pypy.objspace.flow import FlowObjSpace
 
@@ -14,8 +14,8 @@ from pypy import conftest
 from pypy.translator.test import snippet 
 
 # XXX this tries to make compiling faster for full-scale testing
-from pypy.translator.tool import buildpyxmodule
-buildpyxmodule.enable_fast_compilation()
+from pypy.translator.tool import cbuild
+cbuild.enable_fast_compilation()
 
 
 class TestNoTypePyrexGenTestCase:

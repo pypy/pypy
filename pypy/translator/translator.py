@@ -9,8 +9,8 @@ import autopath, os, sys, types
 from pypy.objspace.flow.model import *
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.gensupp import uniquemodulename
-from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
-from pypy.translator.tool.buildpyxmodule import make_module_from_c
+from pypy.translator.tool.cbuild import make_module_from_pyxstring
+from pypy.translator.tool.cbuild import make_module_from_c
 from pypy.objspace.flow import FlowObjSpace
 
 

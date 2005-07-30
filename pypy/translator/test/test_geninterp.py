@@ -27,8 +27,8 @@ import autopath
 import py
 from pypy.tool.udir import udir
 from pypy.objspace.flow.model import *
-from pypy.translator.tool.buildpyxmodule import make_module_from_c
-from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
+from pypy.translator.tool.cbuild import make_module_from_c
+from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.geninterplevel import translate_as_module
 from pypy.translator.test import snippet 
 from pypy.interpreter.error import OperationError

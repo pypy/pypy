@@ -1,5 +1,5 @@
 import autopath
-from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
+from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import Translator
 from pypy.translator import backendoptimization
 

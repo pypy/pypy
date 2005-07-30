@@ -2,12 +2,12 @@ import autopath
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.operation import FunctionByName
 from pypy.objspace.flow import FlowObjSpace 
-from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
+from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import Translator
 
 # XXX this tries to make compiling faster for full-scale testing
-from pypy.translator.tool import buildpyxmodule
-buildpyxmodule.enable_fast_compilation()
+from pypy.translator.tool import cbuild
+cbuild.enable_fast_compilation()
 
 
 TESTCASES = [

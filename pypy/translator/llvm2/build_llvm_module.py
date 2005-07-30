@@ -8,7 +8,7 @@ from py.process import cmdexec
 from py import path 
 import py
 
-from pypy.translator.tool.buildpyxmodule import make_c_from_pyxfile
+from pypy.translator.tool.cbuild import make_c_from_pyxfile
 from pypy.translator.tool import stdoutcapture
 from pypy.translator.llvm2.genllvm import use_boehm_gc
 

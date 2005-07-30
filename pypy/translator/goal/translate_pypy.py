@@ -81,8 +81,8 @@ from pypy.translator.pickle.main import load, save
 from pypy.rpython.error import TyperError
 
 # XXX this tries to make compiling faster
-from pypy.translator.tool import buildpyxmodule
-buildpyxmodule.enable_fast_compilation()
+from pypy.translator.tool import cbuild
+cbuild.enable_fast_compilation()
 
 annmodel.DEBUG = False
 
