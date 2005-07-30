@@ -76,6 +76,6 @@ def get_llinterp_args():
 
 # _____ Run translated _____
 def run(c_entry_point):
-    argv = [os.path.join(this_dir, 'app_example.py')]
+    argv = ["pypy", os.path.join(this_dir, 'app_example.py')]
     exitcode = c_entry_point('\x00'.join(argv))
     assert exitcode == 0
