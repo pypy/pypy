@@ -227,7 +227,7 @@ class OpWriter(object):
 
             ll_issubclass_cond = self.db.repr_tmpvar()
             self.codewriter.call(ll_issubclass_cond, 'bool', ll_exception_match,
-                [etype.ref, tmpvar2], [lltype_of_exception_type, lltype_of_exception_type])
+                [tmpvar2, etype.ref], [lltype_of_exception_type, lltype_of_exception_type])
             self.codewriter.br(ll_issubclass_cond, not_this_exception_label, exc_found_label)
             self.codewriter.label(not_this_exception_label)
 

@@ -10,6 +10,13 @@ class MyException(Exception):
     def __init__(self, n):
         self.n = n
 
+def getitem(l, i):  #LookupError, KeyError
+    if i < 0:
+        i = len(l) - i
+    if i>= len(l):
+        raise IndexError
+    return l[i]
+
 def test_simple1():
     #py.test.skip("not working yet")
     def raise_(i):
@@ -30,11 +37,12 @@ def test_simple1():
     assert f(1) == fn(1)
 
 def test_simple2():
-    py.test.skip("not working yet, lst[n] raises no exceptions")
+    #py.test.skip("not working yet, lst[n] raises no exceptions")
+    py.test.skip('failing')
     def fn(n):
         lst = range(10)
         try:
-            lst[n]
+            getitem(lst,n)
         except:
             return 2
         return 4
@@ -71,11 +79,12 @@ def test_simple3():
     assert f(2) == fn(2)
 
 def test_pass_exc():
-    py.test.skip("not working yet, lst[n] raises no exceptions")
+    #py.test.skip("not working yet, lst[n] raises no exceptions")
+    py.test.skip('failing')
     def fn(n):
         lst = range(10)
         try:
-            lst[n]
+            getitem(lst,n)
         except:
             pass
         return 4
@@ -96,11 +105,12 @@ def test_divzero():
     assert f(0) == fn(0)
     
 def test_reraise1():
-    py.test.skip("not working yet, lst[n] raises no exceptions")
+    #py.test.skip("not working yet, lst[n] raises no exceptions")
+    py.test.skip('failing')
     def fn(n):
         lst = range(10)
         try:
-            lst[n]
+            getitem(lst,n)
         except:
             raise
         return 4
@@ -110,11 +120,12 @@ def test_reraise1():
     assert f(10) == fn(10)
 
 def test_reraise2():
-    py.test.skip("not working yet, lst[n] raises no exceptions")
+    #py.test.skip("not working yet, lst[n] raises no exceptions")
+    py.test.skip('failing')
     def fn(n):
         lst = range(10)
         try:
-            lst[n]
+            getitem(lst,n)
         except e:
             raise e
         return 4
@@ -124,11 +135,11 @@ def test_reraise2():
     assert f(10) == fn(10)
 
 def test_simple_exception():
-    py.test.skip("not working yet, lst[n] raises no exceptions")
+    #py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
-            lst[n]
+            getitem(lst,n)
         except IndexError:
             return 2
         return 4
@@ -139,11 +150,12 @@ def test_simple_exception():
         assert f(i) == fn(i)
 
 def test_two_exceptions():
-    py.test.skip("not working yet, lst[n] raises no exceptions")
+    #py.test.skip("not working yet, lst[n] raises no exceptions")
+    py.test.skip('failing')
     def fn(n):
         lst = range(10)
         try:
-            lst[n]
+            getitem(lst,n)
         except IndexError:
             return 2
         except KeyError:
@@ -156,11 +168,11 @@ def test_two_exceptions():
         assert f(i) == fn(i)
 
 def test_catch_base_exception():
-    py.test.skip("not working yet, lst[n] raises no exceptions")
+    #py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
-            lst[n]
+            getitem(lst,n)
         except LookupError:
             return 2
         return 4
