@@ -143,10 +143,9 @@ In your home directory edit .subversion/config and comment in ::
 
    enable-auto-props = yes
 
+   [auto-props]
    *.txt = svn:eol-style=native
-
-and add a line for .py files.
-
+   *.py  = svn:eol-style=native
 
 
 .. _website: http://support.microsoft.com/default.aspx?scid=kb%3Ben-us%3B259403
