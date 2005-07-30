@@ -3,17 +3,10 @@ import py
 from pypy.annotation import model as annmodel
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.objspace.flow import FlowObjSpace
-from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL, raw_memcopy
+from pypy.rpython.memory.lladdress import Address, NULL
+from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 
 class TestAddressAnnotation(object):
-    def test_raw_malloc(self):
-        def f():
-            return raw_malloc(100)
-        a = RPythonAnnotator()
-        s = a.build_types(f, [])
-        assert isinstance(s, annmodel.SomeAddress)
-        assert not s.is_null
-
     def test_null(self):
         def f():
             return NULL
@@ -21,6 +14,15 @@ class TestAddressAnnotation(object):
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeAddress)
         assert s.is_null
+        assert f() is NULL
+
+    def test_raw_malloc(self):
+        def f():
+            return raw_malloc(100)
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeAddress)
+        assert not s.is_null
 
     def test_raw_free(self):
         def f(addr):
@@ -93,5 +95,12 @@ class TestAddressAnnotation(object):
             return NULL < NULL + offset
         a = RPythonAnnotator()
         s = a.build_types(f, [annmodel.SomeInteger()])
-        a.translator.view()
         assert isinstance(s, annmodel.SomeBool)
+        assert f(1)
+        assert not f(0)
+        assert not f(-1)
+
+class TestAddressSimulation(object):
+    def test_null_is_singleton(self):
+        assert Address() is NULL
+        assert Address() is Address(0)
