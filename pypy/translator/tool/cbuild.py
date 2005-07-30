@@ -218,5 +218,34 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
         if name != func.func_name:  # if some transformations have been done
             dotgen.emit_subgraph(name, funcgraph)
         dotgen.generate()
-
     return getattr(mod, func.func_name)
+
+
+def build_executable(cfilenames, outputfilename=None, include_dirs=None):
+    from distutils.ccompiler import new_compiler 
+    if outputfilename is None: 
+        if sys.platform == 'win32': 
+            ext = '.exe'
+        else: 
+            ext = ''
+        outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
+    else: 
+        outputfilename = py.path.local(outputfilename) 
+
+    compiler = new_compiler() 
+    objects = []
+    for cfile in cfilenames: 
+        cfile = py.path.local(cfile)
+        old = cfile.dirpath().chdir() 
+        try: 
+            res = compiler.compile([cfile.basename], 
+                                   include_dirs=include_dirs)
+            assert len(res) == 1
+            cobjfile = py.path.local(res[0]) 
+            assert cobjfile.check()
+            objects.append(str(cobjfile))
+        finally: 
+            old.chdir() 
+    compiler.link_executable(objects, str(outputfilename))
+    return str(outputfilename)
+
