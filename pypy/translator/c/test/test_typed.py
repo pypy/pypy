@@ -4,6 +4,7 @@ from py.test import raises
 from pypy.translator.translator import Translator
 from pypy.translator.test import snippet 
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
+from pypy.rpython.rarithmetic import r_uint
 
 from pypy.translator.c.test.test_annotated import TestAnnotatedTestCase as _TestAnnotatedTestCase
 
@@ -294,3 +295,13 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         f = self.getcompiled(fn)
         assert f(1.0) == fn(1.0)
         
+    def test_uint_arith(self):
+        def fn(i=r_uint):
+            try:
+                return ~(i*(i+1))/(i-1)
+            except ZeroDivisionError:
+                return r_uint(91872331)
+        f = self.getcompiled(fn)
+        for value in range(15):
+            i = r_uint(value)
+            assert f(i) == fn(i)

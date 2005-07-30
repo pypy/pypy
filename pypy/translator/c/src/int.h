@@ -105,7 +105,7 @@
 /* floor division */
 
 #define OP_INT_FLOORDIV(x,y,r,err)    r = op_divmod_adj(x, y, NULL);
-#define OP_UINT_FLOORDIV(x,y,r,err)   & Is_Unsigned_Division_Really_Useful;
+#define OP_UINT_FLOORDIV(x,y,r,err)   r = (x) / (y);
 
 #define OP_INT_FLOORDIV_OVF(x,y,r,err) \
 	if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
@@ -115,7 +115,9 @@
 #define OP_INT_FLOORDIV_ZER(x,y,r,err) \
 	if ((y)) { OP_INT_FLOORDIV(x,y,r,err) } \
 	else FAIL_ZER(err, "integer division")
-#define OP_UINT_FLOORDIV_ZER(x,y,r,err)   & Is_Unsigned_Division_Really_Useful;
+#define OP_UINT_FLOORDIV_ZER(x,y,r,err) \
+	if ((y)) { OP_UINT_FLOORDIV(x,y,r,err) } \
+	else FAIL_ZER(err, "unsigned integer division")
 
 #define OP_INT_FLOORDIV_OVF_ZER(x,y,r,err) \
 	if ((y)) { OP_INT_FLOORDIV_OVF(x,y,r,err) } \
@@ -124,7 +126,7 @@
 /* modulus */
 
 #define OP_INT_MOD(x,y,r,err)     op_divmod_adj(x, y, &r);
-#define OP_UINT_MOD(x,y,r,err)    & Is_Unsigned_Division_Really_Useful;
+#define OP_UINT_MOD(x,y,r,err)    r = (x) % (y);
 
 #define OP_INT_MOD_OVF(x,y,r,err) \
 	if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
@@ -134,7 +136,9 @@
 #define OP_INT_MOD_ZER(x,y,r,err) \
 	if ((y)) { OP_INT_MOD(x,y,r,err) } \
 	else FAIL_ZER(err, "integer modulo")
-#define OP_UINT_MOD_ZER(x,y,r,err)    & Is_Unsigned_Division_Really_Useful;
+#define OP_UINT_MOD_ZER(x,y,r,err) \
+	if ((y)) { OP_UINT_MOD(x,y,r,err) } \
+	else FAIL_ZER(err, "unsigned integer modulo")
 
 #define OP_INT_MOD_OVF_ZER(x,y,r,err) \
 	if ((y)) { OP_INT_MOD_OVF(x,y,r,err) } \
