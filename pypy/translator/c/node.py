@@ -217,6 +217,9 @@ class ArrayDefNode:
                 line = '/* %s */' % line
             yield '\t' + line
             yield '};'
+            if self.deallocator:
+                yield 'void %s(struct %s *a);' % (self.deallocator, self.name)
+
         elif phase == 2 and self.deallocator:
             yield 'void %s(struct %s *a) {' % (self.deallocator, self.name)
             for line in self.deallocator_lines('a->'):
