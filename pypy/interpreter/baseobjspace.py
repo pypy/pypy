@@ -165,6 +165,7 @@ class ObjSpace(object):
         if self.options.nofaking:
             l.append('posix')
             l.append('math')
+            l.append('time')
 
         for name in self.options.usemodules: 
             if name not in l: 
