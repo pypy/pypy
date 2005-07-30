@@ -793,6 +793,8 @@ def ll_stringslice_startonly(s1, start):
 def ll_stringslice(s1, slice):
     start = slice.start
     stop = slice.stop
+    if stop > len(s1.chars):
+        stop = len(s1.chars)
     newstr = malloc(STR, stop - start)
     j = 0
     while start < stop:

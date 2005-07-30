@@ -63,7 +63,7 @@ def test_rlist_slice():
     check_list(ll_listslice_startonly(l, 3), [45])
     check_list(ll_listslice_startonly(l, 4), [])
     for start in range(5):
-        for stop in range(start, 5):
+        for stop in range(start, 8):
             s = ll_newslice(start, stop)
             check_list(ll_listslice(l, s), [42, 43, 44, 45][start:stop])
 
@@ -74,7 +74,7 @@ def test_rlist_delslice():
     ll_listdelslice_startonly(l, 0)
     check_list(l, [])
     for start in range(5):
-        for stop in range(start, 5):
+        for stop in range(start, 8):
             l = sample_list()
             s = ll_newslice(start, stop)
             ll_listdelslice(l, s)

@@ -303,7 +303,8 @@ def test_str_slice():
         s = 'hello'
         s1 = s[:3]
         s2 = s[3:]
-        return s1+s2 == s and s2+s1 == 'lohel'
+        s3 = s[3:10]
+        return s1+s2 == s and s2+s1 == 'lohel' and s1+s3 == s
     res = interpret(fn, ())
     assert res
 

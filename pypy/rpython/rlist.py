@@ -515,6 +515,8 @@ def ll_listslice_startonly(l1, start):
 def ll_listslice(l1, slice):
     start = slice.start
     stop = slice.stop
+    if stop > len(l1.items):
+        stop = len(l1.items)
     newitems = malloc(typeOf(l1).TO.items.TO, stop - start)
     j = 0
     while start < stop:
@@ -548,6 +550,8 @@ def ll_listdelslice_startonly(l1, start):
 def ll_listdelslice(l1, slice):
     start = slice.start
     stop = slice.stop
+    if stop > len(l1.items):
+        stop = len(l1.items)
     newlength = len(l1.items) - (stop-start)
     newitems = malloc(typeOf(l1).TO.items.TO, newlength)
     j = 0
