@@ -266,7 +266,9 @@ class Arguments:
 #
 
 class ArgErr(Exception):
-    pass
+    
+    def getmsg(self, args, fnname):
+        raise NotImplementedError
 
 class ArgErrCount(ArgErr):
 
