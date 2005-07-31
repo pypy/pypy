@@ -26,7 +26,15 @@ def entry_point(argv):
         typ, val, tb = excinfo 
         print >> sys.stderr, "exception-type:", typ.__name__
         print >> sys.stderr, "exception-value:", str(val)
-        sys.excepthook(typ, val, tb)
+        # print short tracebacks filename:lineno 
+        tbentry = tb
+        while tbentry: 
+            lineno = tbentry.tb_lineno 
+            filename = tbentry.tb_frame.f_code.co_filename
+            print >>sys.stderr, "  %s:%d" %(filename, lineno)
+            tbentry = tbentry.tb_next 
+        # then take forever trying to print a traceback ...
+        #sys.excepthook(typ, val, tb)
         return 1
     else:
         return 0
