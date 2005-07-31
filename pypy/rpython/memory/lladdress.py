@@ -36,6 +36,13 @@ class Address(object):
 
     def __repr__(self):
         return "<addr: %s>" % self.intaddress
+
+    def _load(self, fmt):
+        return simulator.getstruct(fmt, self.intaddress)
+
+    def _store(self, fmt, *values):
+        simulator.setstruct(fmt, self.intaddress, *values)
+
 class _accessor(object):
     def __init__(self, addr):
         self.intaddress = addr.intaddress
@@ -96,3 +103,4 @@ supported_access_types = {"signed":    lltype.Signed,
                           "char":      lltype.Char,
                           "address":   Address,
                           }
+

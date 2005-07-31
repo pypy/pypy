@@ -29,7 +29,7 @@ class MemoryBlock(object):
         assert offset >= 0
         if self.freed:
             raise MemorySimulatorError, "trying to access free memory"
-        if offset + size >= self.size:
+        if offset + size > self.size:
             raise MemorySimulatorError, "trying to access memory between blocks"
         if "u" in self.status[offset: offset+size]:
             raise MemorySimulatorError, "trying to access uninitialized memory"
@@ -39,7 +39,7 @@ class MemoryBlock(object):
         assert offset >= 0
         if self.freed:
             raise MemorySimulatorError, "trying to access free memory"
-        if offset + len(value) >= self.size:
+        if offset + len(value) > self.size:
             raise MemorySimulatorError, "trying to access memory between blocks"
         a = array.array("c")
         a.fromstring(value)
@@ -47,6 +47,7 @@ class MemoryBlock(object):
         s.fromstring("i" * len(value))
         self.memory[offset:offset + len(value)] = a
         self.status[offset:offset + len(value)] = s
+        assert len(self.memory) == self.size
 
 class MemorySimulator(object):
     def __init__(self):
