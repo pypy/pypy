@@ -253,16 +253,22 @@ class Translator:
         return getattr(mod, name)
 
     def ccompile(self, really_compile=True):
-        """Returns compiled function, compiled using the C generator.
+        """Returns compiled function (living in a new C-extension module), 
+           compiled using the C generator.
         """
-        from pypy.translator.c import genc
         if self.annotator is not None:
             self.frozen = True
+        cbuilder = self.cbuilder(standalone=False)
+        c_source_filename = cbuilder.generate_source()
+        if not really_compile: 
+            return c_source_filename
+        cbuilder.compile()
+        cbuilder.import_module()    
+        return cbuilder.get_entry_point()
 
-        result = genc.genc(self, compile=really_compile)
-        if really_compile:  # result is the module
-            result = getattr(result, self.entrypoint.func_name)
-        return result
+    def cbuilder(self, standalone=False):
+        from pypy.translator.c import genc
+        return genc.CBuilder(self, standalone=standalone)
 
     def llvmcompile(self, optimize=True):
         """llvmcompile(self, optimize=True) -> LLVM translation

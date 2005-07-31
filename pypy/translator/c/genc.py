@@ -4,10 +4,60 @@ from pypy.translator.c.node import PyObjectNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename
-from pypy.translator.tool.cbuild import make_module_from_c
+from pypy.translator.tool.cbuild import compile_c_module
+from pypy.translator.tool.cbuild import import_module_from_directory
 from pypy.rpython.lltype import pyobjectptr
 from pypy.tool.udir import udir
 
+class CBuilder: 
+    def __init__(self, translator, standalone=False):
+        self.translator = translator
+        self.standalone = standalone
+        self.c_source_filename = None
+        self._compiled = False
+        self.c_ext_module = None
+    
+    def generate_source(self):
+        assert not self.standalone
+        assert self.c_source_filename is None
+        translator = self.translator
+        db, pf = translator2database(translator)
+        modulename = uniquemodulename('testing')
+        targetdir = udir.ensure(modulename, dir=1)
+        if not self.standalone:
+            from pypy.translator.c.symboltable import SymbolTable
+            self.symboltable = SymbolTable()
+        else:
+            self.symboltable = None
+        cfile = gen_source(db, modulename, targetdir,
+                           # defines={'COUNT_OP_MALLOCS': 1},
+                           exports = {translator.entrypoint.func_name: pf},
+                           symboltable = self.symboltable)
+        self.c_source_filename = py.path.local(cfile)
+        return cfile 
+        
+    def compile(self):
+        assert self.c_source_filename 
+        assert not self.standalone, "XXX"
+        compile_c_module(self.c_source_filename, 
+                         self.c_source_filename.purebasename,
+                         include_dirs = [autopath.this_dir])
+        self._compiled = True
+
+    def import_module(self):
+        assert self._compiled
+        assert not self.c_ext_module
+        mod = import_module_from_directory(self.c_source_filename.dirpath(),
+                                           self.c_source_filename.purebasename)
+        self.c_ext_module = mod
+        if self.symboltable:
+            self.symboltable.attach(mod)   # hopefully temporary hack
+        return mod
+        
+    def get_entry_point(self):
+        assert self.c_ext_module 
+        return getattr(self.c_ext_module, 
+                       self.translator.entrypoint.func_name)
 
 def translator2database(translator):
     pf = pyobjectptr(translator.entrypoint)
@@ -15,39 +65,6 @@ def translator2database(translator):
     db.get(pf)
     db.complete()
     return db, pf
-
-
-def genc(translator, targetdir=None, modulename=None, compile=True,
-                                                      symtable=True):
-    """Generate C code starting at the translator's entry point.
-    The files are written to the targetdir if specified.
-    If 'compile' is True, compile and return the new module.
-    If 'compile' is False, just return the name of the main '.c' file.
-    """
-    db, pf = translator2database(translator)
-
-    if modulename is None:
-        modulename = uniquemodulename('testing')
-    if targetdir is None:
-        targetdir = udir.join(modulename)
-    elif isinstance(targetdir, str):
-        targetdir = py.path.local(targetdir)
-    targetdir.ensure(dir=1)
-    if symtable:
-        from pypy.translator.c.symboltable import SymbolTable
-        symboltable = SymbolTable()
-    else:
-        symboltable = None
-    cfile = gen_source(db, modulename, targetdir,
-                       # defines={'COUNT_OP_MALLOCS': 1},
-                       exports = {translator.entrypoint.func_name: pf},
-                       symboltable = symboltable)
-    if not compile:
-        return cfile
-    m = make_module_from_c(cfile, include_dirs = [autopath.this_dir])
-    symboltable.attach(m)   # hopefully temporary hack
-    return m
-
 
 # ____________________________________________________________
 
