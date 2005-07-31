@@ -1,5 +1,6 @@
 import autopath
 from pypy.translator.translator import Translator
+from pypy.translator.simplify import eliminate_empty_blocks
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
@@ -148,6 +149,8 @@ def SSI_to_SSA(graph):
 
 def backend_optimizations(graph):
     remove_same_as(graph)
+    eliminate_empty_blocks(graph)
+    checkgraph(graph)
     SSI_to_SSA(graph)
     checkgraph(graph)
 
