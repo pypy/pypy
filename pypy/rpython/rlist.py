@@ -731,3 +731,8 @@ def ll_listnext(iter):
         raise StopIteration
     iter.index = index + 1
     return l.items[index]
+            
+# ___________________________________________________________
+
+LIST_OF_STR = GcStruct("list", 
+                       ("items", Ptr(GcArray(Ptr(rstr.STR)))))

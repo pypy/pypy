@@ -267,13 +267,15 @@ class RPythonTyper:
         # insert the needed conversions on the links
         can_insert_here = block.exitswitch is None and len(block.exits) == 1
         for link in block.exits:
-            if block.exitswitch is not None and link.exitcase is not None:
+            if link.exitcase is not None:
                 if isinstance(block.exitswitch, Variable):
                     r_case = self.bindingrepr(block.exitswitch)
                 else:
                     assert block.exitswitch == Constant(last_exception)
                     r_case = rclass.get_type_repr(self)
                 link.llexitcase = r_case.convert_const(link.exitcase)
+            else:
+                link.llexitcase = None
 
             a = link.last_exception
             if isinstance(a, Variable):
