@@ -25,7 +25,10 @@ def debug(msg):
 def entry_point(argvstring):
     debug("entry point starting") 
     debug(argvstring) 
-    argv = argvstring.split('\x00')
+    if argvstring: 
+        argv = [argvstring]
+    else:
+        argv = []
     for arg in argv: 
         debug(" argv -> " + arg)
     try:
@@ -76,6 +79,5 @@ def get_llinterp_args():
 
 # _____ Run translated _____
 def run(c_entry_point):
-    argv = [os.path.join(this_dir, 'app_example.py')]
-    exitcode = c_entry_point('\x00'.join(argv))
+    exitcode = c_entry_point(os.path.join(this_dir, 'app_example.py'))
     assert exitcode == 0
