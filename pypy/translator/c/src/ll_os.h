@@ -1,9 +1,13 @@
 /************************************************************/
  /***  C header subsection: os module                      ***/
 
-/*#include <unistd.h> -- XXX re-enable with lots of #ifdefs */
-/*#include <sys/types.h>*/
-/*#include <sys/stat.h>*/
+#if !(defined(MS_WIN64) || defined(MS_WINDOWS))
+#  include <unistd.h>
+#  include <sys/types.h>
+#  include <sys/stat.h>
+#endif
+
+#include <errno.h>
 #include <fcntl.h>
 #ifndef PATH_MAX
   /* assume windows */
@@ -36,7 +40,7 @@ int LL_os_open(RPyString *filename, int flag, int mode)
 {
 	/* XXX unicode_file_names */
 	char buf[PATH_MAX];
-	int fd, error, namelen = RPyString_Size(filename);
+	int fd, namelen = RPyString_Size(filename);
 	if (namelen >= PATH_MAX) {
 		RAISE_OSERROR(ENAMETOOLONG);
 		return -1;

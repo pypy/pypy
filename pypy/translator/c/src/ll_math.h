@@ -1,8 +1,6 @@
 /************************************************************/
 /***  C header subsection: math module                    ***/
 
-#include "math.h"
-
 /* The functions below are mapped to functions from pypy.rpython.module.*
    by the pypy.translator.c.extfunc.EXTERNALS dictionary.
    They should correspond to the functions with the suggested_primitive

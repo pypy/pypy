@@ -19,6 +19,9 @@
 #define FAIL_ZER(err, msg) FAIL_EXCEPTION(err, Exc_ZeroDivisionError, msg)
 #define CFAIL(err)         { ConvertExceptionFromCPython(); FAIL(err) }
 
+
+#ifndef PYPY_STANDALONE
+
 /* we need a subclass of 'builtin_function_or_method' which can be used
    as methods: builtin function objects that can be bound on instances */
 static PyObject *
@@ -375,3 +378,4 @@ static int PyTuple_SetItem_WithIncref(PyObject *tuple, int index, PyObject *o)
 #define PyString_ToLLCharArray(s, itemsarray)                           \
 		memcpy(itemsarray->items, PyString_AS_STRING(s),        \
                        itemsarray->length)
+#endif /* PYPY_STANDALONE */

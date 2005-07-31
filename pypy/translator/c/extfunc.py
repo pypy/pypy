@@ -3,6 +3,7 @@ from pypy.rpython import lltype
 from pypy.translator.c.support import cdecl
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR
+from pypy.rpython import rlist
 from pypy.rpython.module import ll_os, ll_time, ll_math
 
 
@@ -48,6 +49,7 @@ for name in simple_math_functions:
 def predeclare_common_types(db, rtyper):
     # Common types
     yield ('RPyString', STR)
+    yield ('RPyListOfString', rlist.LIST_OF_STR)
     yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
     yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
     yield ('RPySTAT_RESULT', ll_os.STAT_RESULT)
@@ -56,6 +58,16 @@ def predeclare_utility_functions(db, rtyper):
     # Common utility functions
     def RPyString_New(length=lltype.Signed):
         return lltype.malloc(STR, length)
+
+    p = lltype.Ptr(rlist.LIST_OF_STR)
+
+    def RPyListOfString_New(length=lltype.Signed):
+        return rlist.ll_newlist(p, length)
+
+    def RPyListOfString_SetItem(l=p,
+                                index=lltype.Signed,
+                                newstring=lltype.Ptr(STR)):
+        rlist.ll_setitem_nonneg(l, index, newstring)
 
     for fname, f in locals().items():
         if isinstance(f, types.FunctionType):
@@ -87,8 +99,9 @@ def predeclare_exception_data(db, rtyper):
 
     yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.ll_exception_match)
     yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.ll_type_of_exc_inst)
-    yield ('RPYTHON_PYEXCCLASS2EXC',   exceptiondata.ll_pyexcclass2exc)
     yield ('RAISE_OSERROR',            exceptiondata.ll_raise_OSError)
+    if not db.standalone:
+        yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.ll_pyexcclass2exc)
 
     for pyexccls in exceptiondata.standardexceptions:
         exc_llvalue = exceptiondata.ll_pyexcclass2exc(

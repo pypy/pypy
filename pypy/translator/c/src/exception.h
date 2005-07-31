@@ -2,8 +2,9 @@
 /************************************************************/
  /***  C header subsection: exceptions                     ***/
 
-static PyObject *RPythonError;
-
+#ifndef PYPY_STANDALONE
+   static PyObject *RPythonError;
+#endif 
 
 /******************************************************************/
 #ifdef HAVE_RTYPER               /* RPython version of exceptions */
@@ -28,6 +29,7 @@ static RPYTHON_EXCEPTION	rpython_exc_value = NULL;
 #define MatchException(etype)	RPYTHON_EXCEPTION_MATCH(rpython_exc_type,  \
 					(RPYTHON_EXCEPTION_VTABLE) etype)
 
+#ifndef PYPY_STANDALONE
 static void ConvertExceptionFromCPython(void)
 {
 	/* convert the CPython exception to an RPython one */
@@ -64,7 +66,9 @@ static void _ConvertExceptionToCPython(void)
 	vanishing = rpython_exc_value;		\
 	rpython_exc_type = NULL;		\
 	rpython_exc_value = NULL;
-        
+
+#endif   /* !PYPY_STANDALONE */
+
 
 #define RaiseSimpleException(exc, msg)				\
 		/* XXX 1. uses officially bad fishing */	\

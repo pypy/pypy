@@ -13,14 +13,16 @@ from pypy.translator.c.pyobj import PyObjMaker
 
 class LowLevelDatabase:
 
-    def __init__(self, translator=None):
+    def __init__(self, translator=None, standalone=False):
         self.translator = translator
+        self.standalone = standalone
         self.structdefnodes = {}
         self.containernodes = {}
         self.containerlist = []
         self.externalfuncs = {}
         self.namespace = CNameManager()
-        self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
+        if not standalone:
+            self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
 
     def gettypedefnode(self, T, varlength=1):
         if varlength <= 1:
@@ -136,7 +138,8 @@ class LowLevelDatabase:
     def complete(self):
         i = 0
         while True:
-            self.pyobjmaker.collect_initcode()
+            if hasattr(self, 'pyobjmaker'):
+                self.pyobjmaker.collect_initcode()
             if i == len(self.containerlist):
                 break
             node = self.containerlist[i]

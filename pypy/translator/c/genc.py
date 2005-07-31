@@ -6,7 +6,8 @@ from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.cbuild import compile_c_module
 from pypy.translator.tool.cbuild import import_module_from_directory
-from pypy.rpython.lltype import pyobjectptr
+from pypy.rpython.rmodel import getfunctionptr
+from pypy.rpython import lltype
 from pypy.tool.udir import udir
 
 class CBuilder: 
@@ -18,21 +19,35 @@ class CBuilder:
         self.c_ext_module = None
     
     def generate_source(self):
-        assert not self.standalone
         assert self.c_source_filename is None
         translator = self.translator
-        db, pf = translator2database(translator)
+        entrypoint = translator.entrypoint
+        if not self.standalone:
+            pf = lltype.pyobjectptr(entrypoint)
+        else:
+            # XXX check that the entrypoint has the correct
+            # signature:  list-of-strings -> int
+            pf = getfunctionptr(translator, entrypoint)
+        db = LowLevelDatabase(translator, standalone=self.standalone)
+        pfname = db.get(pf)
+        db.complete()
+
         modulename = uniquemodulename('testing')
         targetdir = udir.ensure(modulename, dir=1)
+        defines = {}
+        # defines={'COUNT_OP_MALLOCS': 1}
         if not self.standalone:
             from pypy.translator.c.symboltable import SymbolTable
             self.symboltable = SymbolTable()
+            cfile = gen_source(db, modulename, targetdir,
+                               defines = defines,
+                               exports = {translator.entrypoint.func_name: pf},
+                               symboltable = self.symboltable)
         else:
             self.symboltable = None
-        cfile = gen_source(db, modulename, targetdir,
-                           # defines={'COUNT_OP_MALLOCS': 1},
-                           exports = {translator.entrypoint.func_name: pf},
-                           symboltable = self.symboltable)
+            cfile = gen_source_standalone(db, modulename, targetdir,
+                                          entrypointname = pfname,
+                                          defines = defines)
         self.c_source_filename = py.path.local(cfile)
         return cfile 
         
@@ -115,9 +130,37 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
             print >> f, line
             blank = True
 
+def gen_source_standalone(database, modulename, targetdir, 
+                          entrypointname, defines={}): 
+    assert database.standalone
+    if isinstance(targetdir, str):
+        targetdir = py.path.local(targetdir)
+    filename = targetdir.join(modulename + '.c')
+    f = filename.open('w')
+
+    #
+    # Header
+    #
+    defines['PYPY_STANDALONE'] = entrypointname
+    for key, value in defines.items():
+        print >> f, '#define %s %s' % (key, value)
+
+    preimplementationlines = list(
+        pre_include_code_lines(database, database.translator.rtyper))
+
+    #
+    # 1) All declarations
+    # 2) Implementation of functions and global structures and arrays
+    #
+    gen_readable_parts_of_main_c_file(f, database, preimplementationlines)
+
+    f.close()
+    return filename
+
 
 def gen_source(database, modulename, targetdir, defines={}, exports={},
-                                                symboltable=None):
+               symboltable=None):
+    assert not database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
     filename = targetdir.join(modulename + '.c')

@@ -2,18 +2,25 @@
 /************************************************************/
 /***  C header file for code produced by genc.py          ***/
 
-#include "Python.h"
-#include "compile.h"
-#include "frameobject.h"
-#include "structmember.h"
-#include "traceback.h"
-#include "marshal.h"
-#include "eval.h"
+#ifndef PYPY_STANDALONE
+#  include "Python.h"
+#  include "compile.h"
+#  include "frameobject.h"
+#  include "structmember.h"
+#  include "traceback.h"
+#  include "marshal.h"
+#  include "eval.h"
+#else
+#  include "src/standalone.h"
+#endif
 
 #include "src/exception.h"
 #include "src/trace.h"
 #include "src/support.h"
-#include "src/module.h"
+
+#ifndef PYPY_STANDALONE
+#  include "src/module.h"
+#endif
 
 #include "src/mem.h"
 #include "src/int.h"
@@ -29,3 +36,8 @@
 #  include "src/ll_time.h"
 #  include "src/ll_math.h"
 #endif
+
+#ifdef PYPY_STANDALONE
+#  include "src/main.h"
+#endif
+
