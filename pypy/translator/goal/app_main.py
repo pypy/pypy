@@ -6,6 +6,9 @@ def entry_point(argv):
     import sys
     sys.executable = argv[0]
     sys.argv = argv[1:]
+    # with PyPy in top of CPython we can only have around 100 
+    # but we need more in the translated PyPy for the compiler package 
+    sys.setrecursionlimit(1000)
 
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule

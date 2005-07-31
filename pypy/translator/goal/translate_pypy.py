@@ -134,7 +134,10 @@ def assert_rpython_mostly_not_imported():
     for name, module in sys.modules.items(): 
         if module is not None and name.startswith(prefix): 
             sname = name[len(prefix):]
-            if sname not in oknames: 
+            for okname in oknames: 
+                if sname.startswith(okname): 
+                    break
+            else:
                 wrongimports.append(name) 
     if wrongimports: 
        raise RuntimeError("cannot fork because improper rtyper code"
