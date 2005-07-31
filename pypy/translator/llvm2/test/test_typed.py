@@ -163,7 +163,6 @@ def test_str_join():
             assert res == testfn(i, j)
 
 def test_unichr_eq():
-    py.test.skip("unichar_eq operation missing")
     l = list(u'Hello world')
     def f(i, j):
         return l[i] == l[j]
@@ -174,7 +173,6 @@ def test_unichr_eq():
             assert res == f(i,j) 
 
 def test_unichr_ne():
-    py.test.skip("unichar_ne operation missing")
     l = list(u'Hello world')
     def f(i, j):
         return l[i] != l[j]
@@ -185,7 +183,6 @@ def test_unichr_ne():
             assert res == f(i, j)
 
 def test_unichr_ord():
-    py.test.skip("cast_unichar_to_int operation missing")
     l = list(u'Hello world')
     def f(i):
         return ord(l[i]) 
@@ -195,7 +192,6 @@ def test_unichr_ord():
         assert res == f(i)
 
 def test_unichr_unichr():
-    py.test.skip("cast_int_to_unichar operation missing")
     l = list(u'Hello world')
     def f(i, j):
         return l[i] == unichr(j)

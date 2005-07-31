@@ -43,6 +43,13 @@ class OpWriter(object):
                          'char_ge': 'setge',
                          'char_gt': 'setgt',
 
+                         'unichar_lt': 'setlt',
+                         'unichar_le': 'setle',
+                         'unichar_eq': 'seteq',
+                         'unichar_ne': 'setne',
+                         'unichar_ge': 'setge',
+                         'unichar_gt': 'setgt',
+
                          'float_mul': 'mul',
                          'float_add': 'add',
                          'float_sub': 'sub',
@@ -165,6 +172,7 @@ class OpWriter(object):
     cast_int_to_bool  = cast_int_to_char  = cast_int_to_uint  = cast_primitive
     cast_uint_to_bool = cast_uint_to_char = cast_uint_to_int  = cast_primitive
     cast_int_to_float = cast_float_to_int = cast_primitive
+    cast_unichar_to_int = cast_int_to_unichar = cast_primitive
     cast_pointer = cast_primitive
     same_as = cast_primitive
 
