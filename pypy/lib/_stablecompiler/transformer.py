@@ -714,14 +714,7 @@ class Transformer:
     def atom_number(self, nodelist):
         ### need to verify this matches compile.c
         s = nodelist[0][1]
-        if 'j' in s or 'J' in s:
-            k = complex(s)
-        elif '.' in s or 'e' in s or 'E' in s:
-            k = float(s)
-        elif 'l' in s or 'L' in s:
-            k = long(s)
-        else:
-            k = int(s)
+        k = decode_numeric_literal(s)
         return Const(k, lineno=nodelist[0][2])
 
     def decode_literal(self, lit):
@@ -1437,3 +1430,23 @@ def debug_tree(tree):
         else:
             l.append(debug_tree(elt))
     return l
+
+
+def decode_numeric_literal(s):
+    base = 10
+    if len(s) >= 2 and s[0] == '0':
+        if s[1] in ('x', 'X'):
+            if s[-1] in ('l', 'L'):
+                return long(s[2:], 16)
+            else:
+                return int(s[2:], 16)
+        else:
+            base = 8
+    if s[-1] in ('j', 'J'):
+        return complex(s)
+    if '.' in s or 'e' in s or 'E' in s:
+        return float(s)
+    if s[-1] in ('l', 'L'):
+        return long(s, base)
+    else:
+        return int(s, base)
