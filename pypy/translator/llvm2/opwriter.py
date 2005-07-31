@@ -205,13 +205,15 @@ class OpWriter(object):
 
         if returntype != "void":
             self.codewriter.invoke(targetvar, returntype, functionref, argrefs,
-                                 argtypes, none_label, exc_label)
+                                   argtypes, none_label, exc_label)
         else:
             self.codewriter.invoke_void(functionref, argrefs, argtypes, none_label, exc_label)
 
         e = self.db._translator.rtyper.getexceptiondata()
-        ll_exception_match        = '%' + e.ll_exception_match.__name__
-        lltype_of_exception_type  = '%structtype.' + e.lltype_of_exception_type.TO.__name__ + '*'
+        ll_exception_match       = '%' + e.ll_exception_match.__name__
+        lltype_of_exception_type = ('%structtype.' +
+                                    e.lltype_of_exception_type.TO.__name__
+                                    + '*')
 
         tmptype1, tmpvar1 = 'sbyte*', self.db.repr_tmpvar()
         tmptype2, tmpvar2 = lltype_of_exception_type, self.db.repr_tmpvar()
@@ -237,7 +239,7 @@ class OpWriter(object):
             self.codewriter.call(ll_issubclass_cond,
                                  'bool',
                                  ll_exception_match,
-                                 [etype.ref, tmpvar2],
+                                 [etype.get_ref(), tmpvar2],
                                  [lltype_of_exception_type, lltype_of_exception_type])
             self.codewriter.br(ll_issubclass_cond, not_this_exception_label, exc_found_label)
             self.codewriter.label(not_this_exception_label)
