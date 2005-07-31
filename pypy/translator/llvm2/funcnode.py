@@ -150,7 +150,8 @@ class FuncNode(ConstantLLVMNode):
         for op_index, op in enumerate(block.operations):
 
             # print out debug string
-            codewriter.comment(str(op))
+            codewriter.newline()
+            codewriter.comment("** %s **" % str(op))
             info = self.db.get_op2comment(op)
             if info is not None:
                 lenofopstr, opstrname = info

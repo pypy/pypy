@@ -143,7 +143,7 @@ class StructNode(ConstantLLVMNode):
         """ Returns the constant representation for this node. """
         values = self._getvalues()
         all_values = ",\n  ".join(values)
-        return "%s {\n  %s\n  }\n\n" % (self.get_typerepr(), all_values)
+        return "%s {\n  %s\n  }\n" % (self.get_typerepr(), all_values)
                 
     # ______________________________________________________________________
     # main entry points from genllvm 
@@ -201,7 +201,6 @@ class StructVarsizeNode(StructNode):
         return "{%s}" % ", ".join(types_repr)
          
     def get_ref(self):
-        #XXX Is this right?
         ref = super(StructVarsizeNode, self).get_ref()
         typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
         ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),

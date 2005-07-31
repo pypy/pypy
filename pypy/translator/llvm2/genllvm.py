@@ -12,8 +12,6 @@ from pypy.rpython import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.codewriter import CodeWriter
 from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
-from pypy.translator.backendoptimization import remove_void
-#from pypy.translator.backendoptimization import rename_extfunc_calls
 from pypy.translator.llvm2.module.extfunction import extdeclarations, \
      extfunctions, gc_boehm, gc_disabled, dependencies
 from pypy.translator.llvm2.node import LLVMNode
@@ -25,17 +23,15 @@ function_count = {}
 class GenLLVM(object):
 
     def __init__(self, translator, debug=False, embedexterns=True):
-        LLVMNode.nodename_count = {}    #reset counters
+        # reset counters
+        LLVMNode.nodename_count = {}    
         self.db = Database(translator)
         self.translator = translator
         self.embedexterns = embedexterns
-        # transformations
-        #remove_void(translator)
-        #rename_extfunc_calls(translator)
         translator.checkgraphs()
         ExternalFuncNode.used_external_functions = {}
 
-        # For debug we create comments of every operation that may be executed
+        # for debug we create comments of every operation that may be executed
         self.debug = debug
         
     def compile(self, func=None):
@@ -43,7 +39,7 @@ class GenLLVM(object):
             func = self.translator.entrypoint
         self.entrypoint = func
 
-        #make sure exception matching and exception type are available
+        # make sure exception matching and exception type are available
         e = self.translator.rtyper.getexceptiondata()
         for ll_helper in (e.ll_exception_match,):
             ptr = getfunctionptr(self.translator, ll_helper)
@@ -58,7 +54,6 @@ class GenLLVM(object):
 
         self.db.setup_all()
         self.db.dump_pbcs()
-        #assert False
 
         self.entrynode = self.db.obj2node[c]
         codewriter = CodeWriter()
@@ -89,7 +84,6 @@ class GenLLVM(object):
         for typ_decl in self.db.getnodes():
             typ_decl.writedecl(codewriter)
 
-        #import pdb ; pdb.set_trace()
         nl(); comment("Function Implementation") 
         codewriter.startimpl()
         if use_boehm_gc:
@@ -149,7 +143,7 @@ class GenLLVM(object):
         
 def genllvm(translator, embedexterns=True):
     gen = GenLLVM(translator, embedexterns=embedexterns)
-    log.source(gen.compile())
+    gen.compile()
     return gen.create_module()
 
 def llvm_is_on_path():
