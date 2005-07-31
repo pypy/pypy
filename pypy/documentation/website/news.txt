@@ -35,12 +35,16 @@ There has been some great progress already in that we now succeed
 to fully annotate the PyPy code base and have a mode where
 we don't borrow object implementations from CPython anymore
 (which of course means that we have some modules missing). 
-Moreover, there are almost no direct annotation and RTyping 
-problems remaining.  Stay tuned. 
+On `day 6`_ we finally had a `breakthrough`_: PyPy runs 
+on its own! Hurray_!. 
 
 .. _`report about day 1`: http://codespeak.net/pipermail/pypy-dev/2005q3/002217.html 
 .. _`day 2 and day 3`: http://codespeak.net/pipermail/pypy-dev/2005q3/002220.html
 .. _`day 4 and day 5`: http://codespeak.net/pipermail/pypy-dev/2005q3/002234.html
+.. _`day 6`: http://codespeak.net/pipermail/pypy-dev/2005q3/002239.html
+.. _`breakthrough`: http://codespeak.net/~hpk/hildesheim2-sprint-www/hildesheim2-sprint-www-Pages/Image35.html
+.. _`hurray`: http://codespeak.net/~hpk/hildesheim2-sprint-www/hildesheim2-sprint-www-Pages/Image36.html
+
 .. _`pictures from the sprint`: http://codespeak.net/~hpk/hildesheim2-sprint-www/ 
 .. _`Trillke-Gut`: http://www.trillke.net/images/HomePagePictureSmall.jpg
 
