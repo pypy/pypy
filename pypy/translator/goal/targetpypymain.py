@@ -63,7 +63,7 @@ def target():
     w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
 
     # sanity-check: call the entry point
-    res = entry_point("pypy\x00app_example.py")
+    res = entry_point("app_example.py")
     assert res == 0
 
     return entry_point, [SomeString()]
@@ -76,6 +76,6 @@ def get_llinterp_args():
 
 # _____ Run translated _____
 def run(c_entry_point):
-    argv = ["pypy", os.path.join(this_dir, 'app_example.py')]
+    argv = [os.path.join(this_dir, 'app_example.py')]
     exitcode = c_entry_point('\x00'.join(argv))
     assert exitcode == 0

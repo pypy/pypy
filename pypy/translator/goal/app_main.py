@@ -4,19 +4,29 @@
 
 def entry_point(argv):
     import sys
-    sys.executable = argv[0]
-    sys.argv = argv[1:]
+    sys.executable = "pypy" 
+    sys.argv = argv
     # with PyPy in top of CPython we can only have around 100 
     # but we need more in the translated PyPy for the compiler package 
-    sys.setrecursionlimit(1000)
+    sys.setrecursionlimit(5000)
 
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
 
     try:
-        execfile(sys.argv[0], mainmodule.__dict__)
+        if argv:
+            execfile(sys.argv[0], mainmodule.__dict__)
+        else: 
+            print >> sys.stderr, "importing code" 
+            import code
+            print >> sys.stderr, "calling code.interact()"
+            code.interact(local=mainmodule.__dict__)
     except:
-        sys.excepthook(*sys.exc_info())
+        excinfo = sys.exc_info()
+        typ, val, tb = excinfo 
+        print >> sys.stderr, "exception-type:", typ.__name__
+        print >> sys.stderr, "exception-value:", str(val)
+        sys.excepthook(typ, val, tb)
         return 1
     else:
         return 0
@@ -24,4 +34,4 @@ def entry_point(argv):
 if __name__ == '__main__':
     # debugging only
     import sys
-    sys.exit(entry_point(sys.argv))
+    sys.exit(entry_point(sys.argv[1:]))
