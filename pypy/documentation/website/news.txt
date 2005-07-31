@@ -9,8 +9,8 @@
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: ../architecture.html#mission-statement 
 
-Heidelberg sprint planning
-===========================
+Next PyPy Sprint in Heidelberg 22nd-29th August 2005
+======================================================
 
 The next PyPy sprint will take place at the Heidelberg University
 in Germany from 22nd August to 29th August (both days included). 
