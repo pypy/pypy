@@ -18,8 +18,6 @@ PRIMITIVES_TO_LLVM = {lltype.Signed: "int",
                       lltype.Unsigned: "uint",
                       lltype.Bool: "bool",
                       lltype.Float: "double",
-                      # XXX Preliminary support for unicode, makes sense to
-                      # make this more configurable
                       lltype.UniChar: "uint",
                       lltype.Void: "void"}
 
@@ -66,7 +64,7 @@ def primitive_to_str(type_, value):
     elif type_ is lltype.Char:
         repr = str(ord(value))
     elif type_ is lltype.UniChar:
-        repr = "0" # XXX Dont know what to do here at all?
+        repr = str(ord(value))
     else:
         repr = str(value)
     return repr

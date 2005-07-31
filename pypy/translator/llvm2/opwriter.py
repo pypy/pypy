@@ -82,13 +82,45 @@ class OpWriter(object):
             assert meth is not None, "operation %r not found" %(op.opname,)
             meth(op)    
 
-    def int_neg(self, op): 
+    def _generic_pow(self, op, onestr): 
+        mult_type = self.db.repr_arg_type(op.args[0])
+        mult_val = self.db.repr_arg(op.args[0])
+        last_val = mult_val
+        operand = int(op.args[1].value)
+        if operand < 1:
+            res_val = onestr
+        else:
+            res_val = mult_val
+            for ii in range(operand - 1):
+                res_val = self.db.repr_tmpvar()
+                self.codewriter.binaryop("mul", 
+                                         res_val,
+                                         mult_type,
+                                         last_val,
+                                         mult_val)
+                last_val = res_val
+        targetvar = self.db.repr_arg(op.result)
+        self.codewriter.cast(targetvar, mult_type, res_val, mult_type)        
+
+    def int_pow(self, op):
+        self._generic_pow(op, "1") 
+    uint_pow = int_pow
+    
+    def float_pow(self, op):
+        self._generic_pow(op, "1.0") 
+
+    def _generic_neg(self, op, zerostr): 
         self.codewriter.binaryop("sub", 
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
-                                 "0", 
+                                 zerostr, 
                                  self.db.repr_arg(op.args[0]),
                                  )
+    def int_neg(self, op):
+        self._generic_neg(op, "0") 
+
+    def float_neg(self, op):
+        self._generic_neg(op, "0.0") 
 
     def bool_not(self, op):
         self.codewriter.binaryop("xor",
@@ -96,7 +128,6 @@ class OpWriter(object):
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
                                  "true")
-
                     
     def binaryop(self, op):
         name = self.binary_operations[op.opname]
@@ -133,6 +164,7 @@ class OpWriter(object):
     cast_char_to_bool = cast_char_to_int  = cast_char_to_uint = cast_primitive
     cast_int_to_bool  = cast_int_to_char  = cast_int_to_uint  = cast_primitive
     cast_uint_to_bool = cast_uint_to_char = cast_uint_to_int  = cast_primitive
+    cast_int_to_float = cast_float_to_int = cast_primitive
     cast_pointer = cast_primitive
     same_as = cast_primitive
 

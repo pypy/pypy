@@ -52,13 +52,58 @@ def test_int_ops():
         x += i >= i
         x += i > i
         x += x % i
+        x += x ** 0
+        x += x ** 1
+        x += x ** 2
+        x += i + 1 * i // i - 1
         #x += i is not None
         #x += i is None
-        return i + 1 * i // i - 1
+        return x
     f = compile_function(ops, [int])
-    assert f(1) == 1
-    assert f(2) == 2
+    assert f(1) == ops(1)
+    assert f(2) == ops(2)
     
+def test_uint_ops():
+    def ops(i):
+        x = 0
+        x += i < i
+        x += i <= i
+        x += i == i
+        x += i != i
+        x += i >= i
+        x += i > i
+        x += x % i
+        x += x ** 0
+        x += x ** 1
+        x += x ** 2
+        x += i + 1 * i // i - 1
+        #x += i is not None
+        #x += i is None
+        return x
+    f = compile_function(ops, [r_uint])
+    assert f(1) == ops(1)
+    assert f(2) == ops(2)
+
+def test_float_ops():
+    def ops(flt):
+        x = 0
+        x += flt < flt
+        x += flt <= flt
+        x += flt == flt
+        x += flt != flt
+        x += flt >= flt
+        x += flt > flt
+        x += x ** 0
+        x += x ** 1
+        x += x ** 2
+        x += int(flt + 1 * flt / flt - 1)
+        #x += flt fs not None
+        #x += flt is None
+        return x 
+    f = compile_function(ops, [float])
+    assert f(1) == ops(1)
+    assert f(2) == ops(2)
+
 def test_while_loop():
     def factorial(i):
         r = 1
@@ -107,39 +152,6 @@ def test_primitive_is_true():
     f = compile_function(var_is_true, [float])
     assert f(256.0)
     assert not f(0.0)
-
-def test_uint_ops():
-    def ops(i):
-        x = r_uint(0)
-        x += i < i
-        x += i <= i
-        x += i == i
-        x += i != i
-        x += i >= i
-        x += i > i
-        x += x % i
-        #x += i is not None
-        #x += i is None
-        return i + 1 * i // i - 1
-    f = compile_function(ops, [r_uint])
-    assert f(1) == 1
-    assert f(2) == 2
-
-def test_float_ops():
-    def ops(flt):
-        x = 0
-        x += flt < flt
-        x += flt <= flt
-        x += flt == flt
-        x += flt != flt
-        x += flt >= flt
-        x += flt > flt
-        #x += flt fs not None
-        #x += flt is None
-        return flt + 1 * flt / flt - 1
-    f = compile_function(ops, [float])
-    assert f(1) == 1
-    assert f(2) == 2
 
 def test_function_call():
     def callee():
