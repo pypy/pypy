@@ -19,12 +19,9 @@ def eliminate_empty_blocks(graph):
     def visit(link):
         if isinstance(link, Link):
             while not link.target.operations:
-                if len(link.target.exits) != 1:
-                    print link.target.exits
-                    print link.target.exitswitch
-                    print "###########################################"
-                    if link.target.exitswitch != Constant(last_exception):
-                        break
+                if (len(link.target.exits) != 1 and
+                    link.target.exitswitch != Constant(last_exception)):
+                    break
                 assert link.target is not link.prevblock, (
                     "the graph contains an empty infinite loop")
                 block1 = link.target
