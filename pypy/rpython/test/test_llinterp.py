@@ -279,7 +279,7 @@ def test_ovf():
     res = interpret(g, [-15])
     assert res == 15
 
-def test_ovf_zer():
+def test_div_ovf_zer():
     import sys
     def f(x):
         try:
@@ -294,7 +294,23 @@ def test_ovf_zer():
     assert res == 1
     res = interpret(f, [30])
     assert res == (-sys.maxint - 1) // 30
-    
+
+def test_mod_ovf_zer():
+    import sys
+    def f(x):
+        try:
+            return ovfcheck((-sys.maxint - 1) % x)
+        except OverflowError:
+            return 1
+        except ZeroDivisionError:
+            return 0
+    res = interpret(f, [0])
+    assert res == 0
+    res = interpret(f, [-1])
+    assert res == 1
+    res = interpret(f, [30])
+    assert res == (-sys.maxint - 1) % 30
+
 
 def test_obj_obj_is():
     def f(x,y):

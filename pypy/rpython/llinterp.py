@@ -57,6 +57,10 @@ from pypy.objspace.flow.operation import FunctionByName
 opimpls = FunctionByName.copy()
 opimpls['is_true'] = bool
 
+ops_returning_a_bool = {'gt': True, 'ge': True,
+                        'lt': True, 'le': True,
+                        'eq': True, 'ne': True,
+                        'is_true': True}
 
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter, f_back=None):
@@ -349,7 +353,13 @@ class LLFrame(object):
             self.make_llexception(ZeroDivisionError())
         return self.op_int_floordiv_ovf(a, b)
             
-
+    def op_int_mod_ovf_zer(self, a, b):
+        assert type(a) is int
+        assert type(b) is int
+        if b == 0:
+            self.make_llexception(ZeroDivisionError())
+        return self.op_int_mod_ovf(a, b)
+            
     def op_float_floor(self, b):
         assert type(b) is float
         return math.floor(b)
@@ -385,10 +395,6 @@ class LLFrame(object):
 
 # __________________________________________________________
 # primitive operations
-ops_returning_a_bool = {'gt': True, 'ge': True,
-                        'lt': True, 'le': True,
-                        'eq': True, 'ne': True,
-                        'is_true': True}
 
 for typ in (float, int, r_uint):
     typname = typ.__name__
