@@ -36,7 +36,7 @@ def get_size(TYPE):
         
 # this class is intended to replace the _ptr class in lltype
 # using the memory simulator
-class SimulatorPtr(object):
+class simulatorptr(object):
     def __init__(self, TYPE, address):
         self.__dict__['_TYPE'] = TYPE
         self.__dict__['_T'] = TYPE.TO
@@ -79,4 +79,4 @@ class SimulatorPtr(object):
 def malloc(T, n=None, immortal=False):
     size = get_size(T)
     address = lladdress.raw_malloc(size)
-    return SimulatorPtr(lltype.Ptr(T), address)
+    return simulatorptr(lltype.Ptr(T), address)
