@@ -618,6 +618,14 @@ class __extend__(pairtype(SomeAddress, SomeAddress)):
     def union((s_addr1, s_addr2)):
         return SomeAddress(is_null=s_addr1.is_null and s_addr2.is_null)
 
+    def sub((s_addr1, s_addr2)):
+        if s_addr1.is_null and s_addr2.is_null:
+            return getbookkeeper().immutablevalue(0)
+        return SomeInteger()
+
+    def is_((s_addr1, s_addr2)):
+        assert False, "comparisons with is not supported by addresses"
+
 class __extend__(pairtype(SomeTypedAddressAccess, SomeTypedAddressAccess)):
     def union((s_taa1, s_taa2)):
         assert s_taa1.type == s_taa2.type
@@ -640,9 +648,3 @@ class __extend__(pairtype(SomeAddress, SomeInteger)):
     def sub((s_addr, s_int)):
         return SomeAddress(is_null=False)
 
-class __extend__(pairtype(SomeAddress, SomeAddress)):
-    def sub((s_addr1, s_addr2)):
-        if s_addr1.is_null and s_addr2.is_null:
-            return getbookkeeper().immutablevalue(0)
-        return SomeInteger()
-        
