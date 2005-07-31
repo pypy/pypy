@@ -3,12 +3,14 @@ from pypy.translator.llvm2.funcnode import FuncNode, FuncTypeNode
 from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm2.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode
-from pypy.translator.llvm2.arraynode import ArrayNode, ArrayTypeNode
+from pypy.translator.llvm2.arraynode import ArrayNode, StrArrayNode, \
+     ArrayTypeNode 
 from pypy.translator.llvm2.opaquenode import OpaqueNode, OpaqueTypeNode
 from pypy.translator.llvm2.node import ConstantLLVMNode
 from pypy.rpython import lltype
 from pypy.objspace.flow.model import Block, Constant, Variable
-
+from pypy.rpython.rstr import STR
+            
 log = log.database 
 
 PRIMITIVES_TO_LLVM = {lltype.Signed: "int",
@@ -122,7 +124,10 @@ class Database(object):
                 node = StructNode(self, value)
                     
         elif isinstance(type_, lltype.Array):
-            node = ArrayNode(self, value)
+            if type_ is STR.chars:
+                node = StrArrayNode(self, value)
+            else:
+                node = ArrayNode(self, value)
 
         elif isinstance(type_, lltype.OpaqueType):
             node = OpaqueNode(self, value)

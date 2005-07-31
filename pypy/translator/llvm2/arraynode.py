@@ -75,6 +75,7 @@ class ArrayNode(ConstantLLVMNode):
             self.db.prepare_constant(lltype.typeOf(p), p)
 
     def get_length(self):
+        """ returns logical length of array """
         items = self.value.items
         return len(items)
 
@@ -83,8 +84,9 @@ class ArrayNode(ConstantLLVMNode):
         return [self.db.repr_constant(v)[1] for v in items]
 
     def get_typerepr(self):
+        arraylen = len(self.get_arrayvalues())
         typeval = self.db.repr_arg_type(self.arraytype)
-        return "{ int, [%s x %s] }" % (self.get_length(), typeval)
+        return "{ int, [%s x %s] }" % (arraylen, typeval)
 
     def get_ref(self):
         """ Returns a reference as used for operations in blocks. """        
@@ -118,16 +120,17 @@ class ArrayNode(ConstantLLVMNode):
     
     def constantvalue(self):
         """ Returns the constant representation for this node. """
-        arraylen = self.get_length()
         arrayvalues = self.get_arrayvalues()
         typeval = self.db.repr_arg_type(self.arraytype)
 
-        value = "int %s, [%s x %s] [ %s ]" % (arraylen,
-                                              arraylen,
+        # first length is logical, second is physical
+        value = "int %s, [%s x %s] [ %s ]" % (self.get_length(),
+                                              len(arrayvalues),
                                               typeval,
                                               ", ".join(arrayvalues))
 
         s = "%s {%s}" % (self.get_typerepr(), value)
+
         #XXXX ????????
         #XXX this does not work for arrays inlined in struct. How else to do this?
         #if typeval == 'sbyte':  #give more feedback for strings
@@ -149,12 +152,10 @@ class ArrayNode(ConstantLLVMNode):
         if p is None:
             codewriter.globalinstance(self.ref, self.constantvalue())
 
-class StrArrayNode(ConstantLLVMNode):
-
-    def get_length(self):
-        # For null character
-        return super(StrArrayNode, self).get_length() + 1
+class StrArrayNode(ArrayNode):
 
     def get_arrayvalues(self):
-        items = self.value.items + [chr(0)]
+        items = self.value.items
+        if len(items) == 0 or items[-1] != chr(0):
+            items = items + [chr(0)]
         return [self.db.repr_constant(v)[1] for v in items]
