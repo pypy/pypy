@@ -49,6 +49,16 @@ class ArrayTypeNode(LLVMNode):
                                   self.constructor_decl,
                                   fromtype)
 
+class VoidArrayTypeNode(LLVMNode):
+
+    def __init__(self, db, array):
+        assert isinstance(array, lltype.Array)
+        self.ref = "%arraytype.Void"
+
+    def writedatatypedecl(self, codewriter):
+        td = "%s = type { int }" % self.ref
+        codewriter.append(td)
+        
 class ArrayNode(ConstantLLVMNode):
     """ An arraynode.  Elements can be
     a primitive,
@@ -159,3 +169,31 @@ class StrArrayNode(ArrayNode):
         if len(items) == 0 or items[-1] != chr(0):
             items = items + [chr(0)]
         return [self.db.repr_constant(v)[1] for v in items]
+
+class VoidArrayNode(ConstantLLVMNode):
+
+    def __init__(self, db, value):
+        assert isinstance(lltype.typeOf(value), lltype.Array)
+        self.ref = self.make_ref('%arrayinstance', '')
+        self.value = value
+
+    def get_length(self):
+        """ returns logical length of array """
+        items = self.value.items
+        return len(items)
+
+    def get_typerepr(self):
+        return "{ int }"
+
+    def get_arrayvalues(self):
+        return []
+
+    def constantvalue(self):
+        value = "int %s" % (self.get_length(),)
+        s = "%s {%s}" % (self.get_typerepr(), value)
+        return s
+    
+    def writeglobalconstants(self, codewriter):
+        p, c = lltype.parentlink(self.value)
+        if p is None:
+            codewriter.globalinstance(self.ref, self.constantvalue())

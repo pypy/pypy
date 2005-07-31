@@ -4,7 +4,7 @@ from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm2.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode
 from pypy.translator.llvm2.arraynode import ArrayNode, StrArrayNode, \
-     ArrayTypeNode 
+     VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
 from pypy.translator.llvm2.opaquenode import OpaqueNode, OpaqueTypeNode
 from pypy.translator.llvm2.node import ConstantLLVMNode
 from pypy.rpython import lltype
@@ -124,6 +124,8 @@ class Database(object):
         elif isinstance(type_, lltype.Array):
             if type_ is STR.chars:
                 node = StrArrayNode(self, value)
+            elif type_.OF is lltype.Void:
+                node = VoidArrayNode(self, value)
             else:
                 node = ArrayNode(self, value)
 
@@ -195,7 +197,10 @@ class Database(object):
             self.addpending(type_, FuncTypeNode(self, type_))
 
         elif isinstance(type_, lltype.Array): 
-            self.addpending(type_, ArrayTypeNode(self, type_))
+            if type_.OF is lltype.Void:
+                self.addpending(type_, VoidArrayTypeNode(self, type_))
+            else:
+                self.addpending(type_, ArrayTypeNode(self, type_))
 
         elif isinstance(type_, lltype.OpaqueType):
             self.addpending(type_, OpaqueTypeNode(self, type_))            

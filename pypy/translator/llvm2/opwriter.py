@@ -135,7 +135,14 @@ class OpWriter(object):
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
                                  "true")
-                    
+
+    def uint_invert(self, op):
+        self.codewriter.binaryop("xor",
+                                 self.db.repr_arg(op.result),
+                                 self.db.repr_arg_type(op.args[0]),
+                                 self.db.repr_arg(op.args[0]), 
+                                 1)
+
     def binaryop(self, op):
         name = self.binary_operations[op.opname]
         assert len(op.args) == 2
@@ -306,9 +313,19 @@ class OpWriter(object):
         arg_type = op.args[0]
         assert (isinstance(arg_type, Constant) and 
                 isinstance(arg_type.value, (lltype.Array, lltype.Struct)))
+
         #XXX unclean
-        struct_type = self.db.obj2node[arg_type.value].ref
-        struct_cons = self.db.obj2node[arg_type.value].constructor_ref
+        node = self.db.obj2node[arg_type.value]
+
+        #XXX AAARRRRRRRRRGFFFFFFFFFFFFGGGGGGGGGGHHHHHHHHHHHHHHHHHHHHHHH
+        from pypy.translator.llvm2.arraynode import VoidArrayTypeNode
+        if isinstance(node, VoidArrayTypeNode):
+            type_ = node.ref
+            self.codewriter.malloc(targetvar, type_, atomic=is_atomic(node)) 
+            return
+        
+        struct_type = node.ref
+        struct_cons = node.constructor_ref
         argrefs = self.db.repr_arg_multi(op.args[1:])
         argtypes = self.db.repr_arg_type_multi(op.args[1:])
         self.codewriter.call(targetvar, struct_type + "*", struct_cons,
@@ -356,13 +373,14 @@ class OpWriter(object):
         index = self.db.repr_arg(op.args[1])
         indextype = self.db.repr_arg_type(op.args[1])
         tmpvar = self.db.repr_tmpvar()
-        self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                      ("uint", 1), (indextype, index))
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
-        #XXX These should skip too if the case comes up
-        assert targettype != "void"
-        self.codewriter.load(targetvar, targettype, tmpvar)
+        if targettype != "void":
+            self.codewriter.getelementptr(tmpvar, arraytype, array,
+                                          ("uint", 1), (indextype, index))
+            self.codewriter.load(targetvar, targettype, tmpvar)
+        else:
+            self.codewriter.comment("***Skipping operation getarrayitem()***")
 
     def getarraysubstruct(self, op):        
         array, arraytype = self.db.repr_argwithtype(op.args[0])
@@ -378,14 +396,17 @@ class OpWriter(object):
         indextype = self.db.repr_arg_type(op.args[1])
 
         tmpvar = self.db.repr_tmpvar()
-        self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                      ("uint", 1), (indextype, index))
 
         valuevar = self.db.repr_arg(op.args[2]) 
         valuetype = self.db.repr_arg_type(op.args[2])
         #XXX These should skip too if the case comes up
-        assert valuetype != "void"
-        self.codewriter.store(valuetype, valuevar, tmpvar) 
+        if valuetype != "void":
+            self.codewriter.getelementptr(tmpvar, arraytype, array,
+                                      ("uint", 1), (indextype, index))
+            self.codewriter.store(valuetype, valuevar, tmpvar) 
+        else:
+            self.codewriter.comment("***Skipping operation setarrayitem()***")
+
 
     def getarraysize(self, op):
         array, arraytype = self.db.repr_argwithtype(op.args[0])
