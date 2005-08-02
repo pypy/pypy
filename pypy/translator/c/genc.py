@@ -48,6 +48,7 @@ class CBuilder:
 
 class CExtModuleBuilder(CBuilder):
     standalone = False
+    c_ext_module = None 
 
     def getentrypointptr(self):
         return lltype.pyobjectptr(self.translator.entrypoint)
