@@ -268,7 +268,10 @@ class Translator:
 
     def cbuilder(self, standalone=False):
         from pypy.translator.c import genc
-        return genc.CBuilder(self, standalone=standalone)
+        if standalone:
+            return genc.CStandaloneBuilder(self)
+        else:
+            return genc.CExtModuleBuilder(self)
 
     def llvmcompile(self, optimize=True):
         """llvmcompile(self, optimize=True) -> LLVM translation

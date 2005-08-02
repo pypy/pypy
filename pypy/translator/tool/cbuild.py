@@ -226,7 +226,8 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
     return getattr(mod, func.func_name)
 
 
-def build_executable(cfilenames, outputfilename=None, include_dirs=None):
+def build_executable(cfilenames, outputfilename=None, include_dirs=None,
+                     libraries=['m']):
     from distutils.ccompiler import new_compiler 
     if outputfilename is None: 
         if sys.platform == 'win32': 
@@ -251,6 +252,7 @@ def build_executable(cfilenames, outputfilename=None, include_dirs=None):
             objects.append(str(cobjfile))
         finally: 
             old.chdir() 
-    compiler.link_executable(objects, str(outputfilename))
+    compiler.link_executable(objects, str(outputfilename),
+                             libraries=libraries)
     return str(outputfilename)
 

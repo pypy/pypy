@@ -8,6 +8,7 @@ import os
 def test_hello_world():
     def entry_point(argv):
         os.write(1, "hello world\n")
+        argv = argv[1:]
         os.write(1, "argument count: " + str(len(argv)) + "\n")
         for s in argv:
             os.write(1, "   '" + str(s) + "'\n")
@@ -20,4 +21,5 @@ def test_hello_world():
     cbuilder = t.cbuilder(standalone=True)
     cbuilder.generate_source()
     cbuilder.compile() 
-    XXX 
+    data = cbuilder.cmdexec('hi there')
+    assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')

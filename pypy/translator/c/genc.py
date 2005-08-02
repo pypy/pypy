@@ -5,29 +5,24 @@ from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.cbuild import compile_c_module
+from pypy.translator.tool.cbuild import build_executable
 from pypy.translator.tool.cbuild import import_module_from_directory
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
 
 class CBuilder: 
-    def __init__(self, translator, standalone=False):
+    c_source_filename = None
+    _compiled = False
+    symboltable = None
+    
+    def __init__(self, translator):
         self.translator = translator
-        self.standalone = standalone
-        self.c_source_filename = None
-        self._compiled = False
-        self.c_ext_module = None
     
     def generate_source(self):
         assert self.c_source_filename is None
         translator = self.translator
-        entrypoint = translator.entrypoint
-        if not self.standalone:
-            pf = lltype.pyobjectptr(entrypoint)
-        else:
-            # XXX check that the entrypoint has the correct
-            # signature:  list-of-strings -> int
-            pf = getfunctionptr(translator, entrypoint)
+        pf = self.getentrypointptr()
         db = LowLevelDatabase(translator, standalone=self.standalone)
         pfname = db.get(pf)
         db.complete()
@@ -44,16 +39,22 @@ class CBuilder:
                                exports = {translator.entrypoint.func_name: pf},
                                symboltable = self.symboltable)
         else:
-            self.symboltable = None
             cfile = gen_source_standalone(db, modulename, targetdir,
                                           entrypointname = pfname,
                                           defines = defines)
         self.c_source_filename = py.path.local(cfile)
         return cfile 
-        
+
+
+class CExtModuleBuilder(CBuilder):
+    standalone = False
+
+    def getentrypointptr(self):
+        return lltype.pyobjectptr(self.translator.entrypoint)
+
     def compile(self):
         assert self.c_source_filename 
-        assert not self.standalone, "XXX"
+        assert not self._compiled
         compile_c_module(self.c_source_filename, 
                          self.c_source_filename.purebasename,
                          include_dirs = [autopath.this_dir])
@@ -73,6 +74,29 @@ class CBuilder:
         assert self.c_ext_module 
         return getattr(self.c_ext_module, 
                        self.translator.entrypoint.func_name)
+
+
+class CStandaloneBuilder(CBuilder):
+    standalone = True
+    executable_name = None
+
+    def getentrypointptr(self):
+        # XXX check that the entrypoint has the correct
+        # signature:  list-of-strings -> int
+        return getfunctionptr(self.translator, self.translator.entrypoint)
+
+    def compile(self):
+        assert self.c_source_filename
+        assert not self._compiled
+        self.executable_name = build_executable([self.c_source_filename],
+                                         include_dirs = [autopath.this_dir])
+        self._compiled = True
+        return self.executable_name
+
+    def cmdexec(self, args=''):
+        assert self._compiled
+        return py.process.cmdexec('"%s" %s' % (self.executable_name, args))
+
 
 def translator2database(translator):
     pf = pyobjectptr(translator.entrypoint)
