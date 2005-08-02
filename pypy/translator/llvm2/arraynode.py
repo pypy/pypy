@@ -89,12 +89,14 @@ class ArrayNode(ConstantLLVMNode):
         items = self.value.items
         return len(items)
 
-    def get_arrayvalues(self):
+    def get_arrayvalue(self):
         items = self.value.items
-        return [self.db.repr_constant(v)[1] for v in items]
+        l = len(items)
+        r = "[%s]" % ", ".join([self.db.repr_constant(v)[1] for v in items])
+        return l, r 
 
     def get_typerepr(self):
-        arraylen = len(self.get_arrayvalues())
+        arraylen = self.get_arrayvalue()[0]
         typeval = self.db.repr_arg_type(self.arraytype)
         return "{ int, [%s x %s] }" % (arraylen, typeval)
 
@@ -127,37 +129,48 @@ class ArrayNode(ConstantLLVMNode):
             index)
     
     def constantvalue(self):
-        arrayvalues = self.get_arrayvalues()
+        physicallen, arrayrepr = self.get_arrayvalue()
         typeval = self.db.repr_arg_type(self.arraytype)
 
         # first length is logical, second is physical
-        value = "int %s, [%s x %s] [ %s ]" % (self.get_length(),
-                                              len(arrayvalues),
+        value = "int %s, [%s x %s] %s" % (self.get_length(),
+                                              physicallen,
                                               typeval,
-                                              ", ".join(arrayvalues))
+                                              arrayrepr)
 
         s = "%s {%s}" % (self.get_typerepr(), value)
         return s
     
 class StrArrayNode(ArrayNode):
+    printables = dict([(ord(i), None) for i in
+      ("0123456789abcdefghijklmnopqrstuvwxyz" +
+       "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+       "!#$%&()*+,-./:;<=>?@[\\]^_`{|}~ '")])
 
-    def get_arrayvalues(self):
+    def get_arrayvalue(self):
         items = self.value.items
-        if len(items) == 0 or items[-1] != chr(0):
+        item_length = len(items)
+        if item_length == 0 or items[-1] != chr(0):
             items = items + [chr(0)]
-        return [self.db.repr_constant(v)[1] for v in items]
+        l = item_length + 1
+        r = "".join([self.db.repr_constant(v)[1] for v in items])
+        return l, r 
 
-    def constantvalue(self):
-        #XXX this does not work for arrays inlined in struct. How else to do this?
-        #    limited_printable = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/-.'
-        #    s += ' ;"'
-        #    for item in items:
-        #        if item in limited_printable:
-        #            s += item
-        #        else:
-        #            s += '_'
-        #    s += '" '
-        return super(StrArrayNode, self).constantvalue()
+    def get_arrayvalue(self):
+        items = self.value.items
+        item_length = len(items)
+        if item_length == 0 or items[-1] != chr(0):
+            items = items + [chr(0)]
+        l = item_length + 1
+        s = []
+        for c in items:
+            if ord(c) in StrArrayNode.printables:
+                s.append(c)
+            else:
+                s.append("\\%02x" % ord(c))
+                
+        r = 'c"%s"' % "".join(s)
+        return l, r
 
 class VoidArrayNode(ConstantLLVMNode):
 
