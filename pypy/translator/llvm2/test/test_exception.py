@@ -145,7 +145,6 @@ def test_simple_exception():
         assert f(i) == fn(i)
 
 def test_two_exceptions():
-    py.test.skip("failing, PBC problem?")
     def fn(n):
         lst = range(10)
         try:

@@ -46,10 +46,17 @@ class FuncNode(ConstantLLVMNode):
             if isinstance(node, Link):
                 map(self.db.prepare_arg, node.args)
             elif isinstance(node, Block):
-                map(self.db.prepare_arg, node.inputargs)
-                for op in node.operations:
+                block = node
+                map(self.db.prepare_arg, block.inputargs)
+                for op in block.operations:
                     map(self.db.prepare_arg, op.args)
                     self.db.prepare_arg(op.result)
+                    if block.exitswitch != Constant(last_exception):
+                        continue
+                    for link in block.exits[1:]:
+                        self.db.prepare_constant(lltype.typeOf(link.llexitcase),
+                                                 link.llexitcase)
+                                            
         assert self.graph, "cannot traverse"
         traverse(visit, self.graph)
 
