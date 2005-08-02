@@ -212,4 +212,3 @@ class StructVarsizeNode(StructNode):
         refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
         ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
         return ref
-
