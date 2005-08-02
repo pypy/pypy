@@ -1,5 +1,9 @@
 import py
-from pypy.rpython.memory.simulator import *
+from pypy.rpython.memory.simulator import MemoryBlock, MemorySimulator
+from pypy.rpython.memory.simulator import MemorySimulatorError
+from pypy.rpython.memory import simulator
+
+import struct
 
 class TestMemoryBlock(object):
     def test_getsetbyte(self):
@@ -55,3 +59,10 @@ class TestMemorySimulator(object):
         assert simulator.getstruct("iii", addr1) == (1, 2, 3)
         assert simulator.getstruct("iii", addr1 + 500) == (1, 2, 3)
         assert simulator.getstruct("iii", addr2) == (1, 2, 3)
+
+    def test_out_of_memory(self):
+        sim = MemorySimulator(1 * 1024 * 1024)
+        def f():
+            for i in xrange(10000000):
+                sim.malloc(4096)
+        py.test.raises(MemorySimulatorError, f)

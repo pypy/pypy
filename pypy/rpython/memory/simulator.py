@@ -3,6 +3,7 @@ import struct
 
 # all addresses in the simulator are just ints
 
+
 # possible chars in status are:
 # 'u': uninitialized
 # 'i': initialized
@@ -50,9 +51,12 @@ class MemoryBlock(object):
         assert len(self.memory) == self.size
 
 class MemorySimulator(object):
-    def __init__(self):
+    size_of_simulated_ram = 64 * 1024 * 1024
+    def __init__(self, ram_size = None):
         self.blocks = []
         self.freememoryaddress = 4
+        if ram_size is not None:
+            self.size_of_simulated_ram = ram_size
 
     def find_block(self, address):
         lo = 0
@@ -72,6 +76,8 @@ class MemorySimulator(object):
         result = self.freememoryaddress
         self.blocks.append(MemoryBlock(result, size))
         self.freememoryaddress += size
+        if self.freememoryaddress > self.size_of_simulated_ram:
+            raise MemorySimulatorError, "out of memory"
         return result
 
     def free(self, baseaddress):
