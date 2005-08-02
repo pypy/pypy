@@ -129,11 +129,13 @@ OPCODES = [
 
 # PyPy hack to make the sre_*.py files from 2.4.1 work on the _sre
 # engine of 2.3.
-import _sre
-if _sre.MAGIC < 20031017:
-    OPCODES.remove(GROUPREF_EXISTS)
-del _sre
-
+# XXX This hack doesn't work anymore because it creates a circular import
+# problem. Maybe think about a different hack, otherwise we're not able to run
+# faked _sre on CPython 2.3.
+#import _sre
+#if _sre.MAGIC < 20031017:
+#    OPCODES.remove(GROUPREF_EXISTS)
+#del _sre
 
 ATCODES = [
     AT_BEGINNING, AT_BEGINNING_LINE, AT_BEGINNING_STRING, AT_BOUNDARY,

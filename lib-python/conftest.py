@@ -611,8 +611,7 @@ testmap = [
         #gen = random.WichmannHill()
         #AttributeError: 'module' object has no attribute 'WichmannHill'
 
-    RegrTest('test_re.py', enabled=False),
-        #rev 10840: 7 of 47 tests fail
+    RegrTest('test_re.py', enabled=True),
 
     RegrTest('test_regex.py', enabled=False),
     RegrTest('test_repr.py', enabled=False, core="ill-defined"),

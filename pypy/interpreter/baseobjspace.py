@@ -160,7 +160,8 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        l = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs']
+        l = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs',
+             '_sre']
 
         if self.options.nofaking:
             l.append('posix')
