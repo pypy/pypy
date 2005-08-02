@@ -18,7 +18,6 @@ class TestLLVMArray(object):
 
     def test_array_setitem(self):
         f = compile_function(llvmsnippet.array_setitem, [int])
-        print f(1), f(2), f(3)
         assert f(1) == 12
         assert f(2) == 13
         assert f(3) == 3

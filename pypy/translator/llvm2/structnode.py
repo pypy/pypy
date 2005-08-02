@@ -145,13 +145,6 @@ class StructNode(ConstantLLVMNode):
         all_values = ",\n  ".join(values)
         return "%s {\n  %s\n  }\n" % (self.get_typerepr(), all_values)
                 
-    # ______________________________________________________________________
-    # main entry points from genllvm 
-
-    def writeglobalconstants(self, codewriter):
-        p, c = lltype.parentlink(self.value)
-        if p is None:
-            codewriter.globalinstance(self.ref, self.constantvalue())
                 
 class StructVarsizeNode(StructNode):
     """ A varsize struct constant.  Can simply contain

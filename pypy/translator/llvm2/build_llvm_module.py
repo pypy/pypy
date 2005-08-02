@@ -11,8 +11,7 @@ import py
 from pypy.translator.tool.cbuild import make_c_from_pyxfile
 from pypy.translator.tool import stdoutcapture
 from pypy.translator.llvm2.genllvm import use_boehm_gc
-
-debug = True
+from pypy.translator.llvm2.log import log
 
 class CompileError(exceptions.Exception):
     pass
@@ -32,8 +31,8 @@ def compile_module(module, source_files, object_files, library_files):
                 libraries = %(library_files)s,
                 extra_objects = %(object_files)s)])
         ''' % locals())))
-    cmd = "python %s_setup.py build_ext --inplace --force" % module
-    if debug: print cmd
+    cmd ="python %s_setup.py build_ext --inplace --force" % module
+    log.build(cmd)
     cmdexec(cmd)
 
 def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
@@ -71,13 +70,13 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
         source_files.append("%s.c" % b)
 
     try:
-        if debug: print "modname", modname
+        log.build("modname", modname)
         c = stdoutcapture.Capture(mixed_out_err = True)
-        if debug: print "working in", path.local()
+        log.build("working in", path.local())
         try:
             try:
                 for cmd in cmds:
-                    if debug: print cmd
+                    log.build(cmd)
                     cmdexec(cmd)
                 make_c_from_pyxfile(pyxfile)
                 compile_module(modname, source_files, object_files, library_files)
@@ -88,17 +87,16 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
             fdump = open("%s.errors" % modname, "w")
             fdump.write(data)
             fdump.close()
-            print data
+            log.build(data)
             raise
         # XXX do we need to do some check on fout/ferr?
         # XXX not a nice way to import a module
-        if debug: print "inserting path to sys.path", dirpath
+        log.build("inserting path to sys.path", dirpath)
         sys.path.insert(0, '.')
-        if debug: print "import %(modname)s as testmodule" % locals()
-        exec "import %(modname)s as testmodule" % locals()
+        cmd = "import %(modname)s as testmodule" % locals()
+        log.build(cmd)
+        exec cmd
         sys.path.pop(0)
     finally:
         os.chdir(str(lastdir))
-        #if not debug:
-        #dirpath.rmtree()
     return testmodule

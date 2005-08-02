@@ -99,7 +99,6 @@ class ArrayNode(ConstantLLVMNode):
         return "{ int, [%s x %s] }" % (arraylen, typeval)
 
     def get_ref(self):
-        """ Returns a reference as used for operations in blocks. """        
         typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
         ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
                                         self.ref,
@@ -107,15 +106,14 @@ class ArrayNode(ConstantLLVMNode):
 
         p, c = lltype.parentlink(self.value)
         if p is not None:
-            assert False, "XXX TODO"
+            assert False, "XXX TODO - but needed by rtyper"
         return ref
 
     def get_pbcref(self, toptr):
-        """ Returns a reference as a pointer used per pbc. """        
         ref = self.ref
         p, c = lltype.parentlink(self.value)
         if p is not None:
-            assert False, "XXX TODO"
+            assert False, "XXX TODO - but needed by rtyper"
 
         fromptr = "%s*" % self.get_typerepr()
         refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
@@ -129,7 +127,6 @@ class ArrayNode(ConstantLLVMNode):
             index)
     
     def constantvalue(self):
-        """ Returns the constant representation for this node. """
         arrayvalues = self.get_arrayvalues()
         typeval = self.db.repr_arg_type(self.arraytype)
 
@@ -140,28 +137,8 @@ class ArrayNode(ConstantLLVMNode):
                                               ", ".join(arrayvalues))
 
         s = "%s {%s}" % (self.get_typerepr(), value)
-
-        #XXXX ????????
-        #XXX this does not work for arrays inlined in struct. How else to do this?
-        #if typeval == 'sbyte':  #give more feedback for strings
-        #    limited_printable = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/-.'
-        #    s += ' ;"'
-        #    for item in items:
-        #        if item in limited_printable:
-        #            s += item
-        #        else:
-        #            s += '_'
-        #    s += '" '
         return s
     
-    # ______________________________________________________________________
-    # entry points from genllvm
-
-    def writeglobalconstants(self, codewriter):
-        p, c = lltype.parentlink(self.value)
-        if p is None:
-            codewriter.globalinstance(self.ref, self.constantvalue())
-
 class StrArrayNode(ArrayNode):
 
     def get_arrayvalues(self):
@@ -170,6 +147,18 @@ class StrArrayNode(ArrayNode):
             items = items + [chr(0)]
         return [self.db.repr_constant(v)[1] for v in items]
 
+    def constantvalue(self):
+        #XXX this does not work for arrays inlined in struct. How else to do this?
+        #    limited_printable = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/-.'
+        #    s += ' ;"'
+        #    for item in items:
+        #        if item in limited_printable:
+        #            s += item
+        #        else:
+        #            s += '_'
+        #    s += '" '
+        return super(StrArrayNode, self).constantvalue()
+
 class VoidArrayNode(ConstantLLVMNode):
 
     def __init__(self, db, value):
@@ -177,23 +166,7 @@ class VoidArrayNode(ConstantLLVMNode):
         self.ref = self.make_ref('%arrayinstance', '')
         self.value = value
 
-    def get_length(self):
-        """ returns logical length of array """
-        items = self.value.items
-        return len(items)
-
-    def get_typerepr(self):
-        return "{ int }"
-
-    def get_arrayvalues(self):
-        return []
-
     def constantvalue(self):
-        value = "int %s" % (self.get_length(),)
-        s = "%s {%s}" % (self.get_typerepr(), value)
-        return s
+        return "{ int } {int %s}" % len(self.value.items)
     
-    def writeglobalconstants(self, codewriter):
-        p, c = lltype.parentlink(self.value)
-        if p is None:
-            codewriter.globalinstance(self.ref, self.constantvalue())
+

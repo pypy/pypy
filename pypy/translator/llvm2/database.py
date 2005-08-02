@@ -31,8 +31,10 @@ class NormalizingDict(object):
     def __repr__(self): 
         return repr(self._dict)
     def dump(self): 
+        r = ""
         for x,y in self._dict.items():
-            print x, y
+            r += "%s -> %s" % (x, y)
+        return r
     def _get(self, key):
         if isinstance(key, Constant): 
             if isinstance(key.value, lltype._ptr):                
@@ -91,20 +93,35 @@ class Database(object):
         """ internal method for adding comments on each operation """
         return self._opcomments.get(op, None)
     
-    #_______debugggin_______________________________________
+    #_______debuggging______________________________________
 
     def dump_pbcs(self):
-        
+        r = ""
         for k, v in self.obj2node.items():
             
             if (isinstance(k, lltype.LowLevelType) or
                 isinstance(k, Constant)):
                 continue
-            
-            assert isinstance(lltype.typeOf(k), lltype.ContainerType)
-            print "dump_pbcs", v, "---->", k
-        
+            # XXX tmp try blocks
+            try:
+                ref = v.get_ref()
+            except AttributeError, e:
+                ref = "AttributeError: %s" % e
+            except AssertionError, e:
+                ref = "AssertionError: %s" % e
+            try:
+                pbc_ref = v.get_ref()
+            except AttributeError, e:
+                pbc_ref = "AttributeError: %s" % e
+            except AssertionError, e:
+                pbc_ref = "AssertionError: %s" % e
 
+            assert isinstance(lltype.typeOf(k), lltype.ContainerType)
+            r += "\ndump_pbcs %s (%s)\n" \
+                 "getref -> %s \n" \
+                 "pbcref -> %s \n" % (v, k, ref, pbc_ref)
+        return r
+    
     #_______create node_____________________________________
 
     def create_constant_node(self, type_, value):

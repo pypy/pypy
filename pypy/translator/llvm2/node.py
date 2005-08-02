@@ -1,3 +1,5 @@
+from pypy.rpython import lltype
+
 class LLVMNode(object):
     nodename_count = {}
 
@@ -64,7 +66,21 @@ class LLVMNode(object):
 class ConstantLLVMNode(LLVMNode):
 
     def get_ref(self):
+        """ Returns a reference as used for operations in blocks. """        
         return self.ref
 
     def get_pbcref(self, toptr):
+        """ Returns a reference as a pointer used per pbc. """        
         return self.ref
+
+    def constantvalue(self):
+        """ Returns the constant representation for this node. """
+        raise AttributeError("Must be implemented in subclass")
+
+    # ______________________________________________________________________
+    # entry points from genllvm
+
+    def writeglobalconstants(self, codewriter):
+        p, c = lltype.parentlink(self.value)
+        if p is None:
+            codewriter.globalinstance(self.ref, self.constantvalue())

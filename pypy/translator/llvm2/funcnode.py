@@ -89,6 +89,9 @@ class FuncNode(ConstantLLVMNode):
                 typeandata = '[%s x sbyte] c"%s\\0A\\00"' % (l, strop)
                 codewriter.globalinstance(tempname, typeandata)
 
+    def writeglobalconstants(self, codewriter):
+        pass
+    
     # ______________________________________________________________________
     # writing helpers for entry points
 

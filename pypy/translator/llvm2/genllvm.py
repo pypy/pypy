@@ -53,7 +53,7 @@ class GenLLVM(object):
         assert c in self.db.obj2node
 
         self.db.setup_all()
-        self.db.dump_pbcs()
+        log.compile(self.db.dump_pbcs())
 
         self.entrynode = self.db.obj2node[c]
         codewriter = CodeWriter()
@@ -143,7 +143,7 @@ class GenLLVM(object):
         
 def genllvm(translator, embedexterns=True):
     gen = GenLLVM(translator, embedexterns=embedexterns)
-    gen.compile()
+    log.genllvm(gen.compile())
     return gen.create_module()
 
 def llvm_is_on_path():

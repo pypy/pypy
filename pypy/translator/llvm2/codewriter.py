@@ -14,8 +14,6 @@ class CodeWriter(object):
         if show_line_numbers:
             line = "%-75s; %d" % (line, len(self._lines) + 1)
         self._lines.append(line) 
-        #XXXlog(line) 
-        print line
 
     def comment(self, line, indent=True):
         line = ";; " + line
