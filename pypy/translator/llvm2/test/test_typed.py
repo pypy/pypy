@@ -63,7 +63,7 @@ def test_is():
     assert result == True
     def testfn():
         l1 = []
-        return l1 == None
+        return l1 is None
     fn = compile_function(testfn, [])
     result = fn()
     assert result == False
