@@ -23,6 +23,8 @@ function_count = {}
 class GenLLVM(object):
 
     def __init__(self, translator, debug=False, embedexterns=True):
+        embedexterns = True # XXX just for now because exception handling globals must be available
+    
         # reset counters
         LLVMNode.nodename_count = {}    
         self.db = Database(translator)
@@ -90,8 +92,8 @@ class GenLLVM(object):
             gc_funcs = gc_boehm
         else:
             gc_funcs = gc_disabled    
-        for extfunc in gc_funcs.split('\n'):
-            codewriter.append(extfunc)
+        for gc_func in gc_funcs.split('\n'):
+            codewriter.append(gc_func)
 
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
@@ -110,6 +112,34 @@ class GenLLVM(object):
                         codewriter.append(extfunc)
                     depdone[dep] = True
 
+        #XXX use codewriter methods here
+        decl = self.entrynode.getdecl()
+        t = decl.split('%', 1)
+        if t[0] == 'double ':   #XXX I know, I know... refactor at will!
+            no_result = '0.0'
+        elif t[0] == 'bool ':
+            no_result = 'false'
+        else:
+            no_result = '0'
+        codewriter.newline()
+        codewriter.append("ccc %s%%__entrypoint__%s {" % (t[0], t[1]))
+        codewriter.append("    %%result = invoke fastcc %s%%%s to label %%no_exception except label %%exception" % (t[0], t[1]))
+        codewriter.newline()
+        codewriter.append("no_exception:")
+        codewriter.append("    store %structtype.object_vtable* null, %structtype.object_vtable** %last_exception_type")
+        codewriter.append("    ret %s%%result" % t[0])
+        codewriter.newline()
+        codewriter.append("exception:")
+        codewriter.append("    ret %s%s" % (t[0], no_result))
+        codewriter.append("}")
+        codewriter.newline()
+        codewriter.append("ccc int %__entrypoint__raised_LLVMException() {")
+        codewriter.append("    %tmp    = load %structtype.object_vtable** %last_exception_type")
+        codewriter.append("    %result = cast %structtype.object_vtable* %tmp to int")
+        codewriter.append("    ret int %result")
+        codewriter.append("}")
+        codewriter.newline()
+
         comment("End of file") ; nl()
         self.content = str(codewriter)
         return self.content
@@ -127,7 +157,7 @@ class GenLLVM(object):
 
         targetdir = udir
         llvmsource = targetdir.join(func.func_name+postfix).new(ext='.ll')
-        llvmsource.write(self.content) 
+        llvmsource.write(self.content)  # XXX writing to disc directly would conserve memory
 
         if not llvm_is_on_path(): 
             py.test.skip("llvm not found")  # XXX not good to call py.test.skip here

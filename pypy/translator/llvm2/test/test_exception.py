@@ -12,7 +12,7 @@ class MyException(Exception):
 
 def getitem(l, i):  #LookupError, KeyError
     if not isinstance(i, int):
-        raise LookupError
+        raise TypeError
     if i < 0:
         i = len(l) - i
     if i>= len(l):
@@ -103,7 +103,6 @@ def test_pass_exc():
 #    assert f(0) == fn(0)
     
 def test_reraise1():
-    py.test.skip("failing, uncaught exception causes exit!")
     def fn(n):
         lst = range(10)
         try:
@@ -112,12 +111,12 @@ def test_reraise1():
             raise
         return 4
     f = compile_function(fn, [int])
-    assert f(-1) == fn(-1)
+    py.test.raises(Exception, "f(-1)")
     assert f( 0) == fn( 0)
-    assert f(10) == fn(10)
+    py.test.raises(Exception, "f(10)")
 
 def test_reraise2():
-    py.test.skip("failing, uncaught exception causes exit!")
+    py.test.skip("PyPy interpreter not happy with this test")
     def fn(n):
         lst = range(10)
         try:
@@ -126,9 +125,9 @@ def test_reraise2():
             raise e
         return 4
     f = compile_function(fn, [int])
-    assert f(-1) == fn(-1)
+    py.test.raises(Exception, "f(-1)")
     assert f( 0) == fn( 0)
-    assert f(10) == fn(10)
+    py.test.raises(Exception, "f(10)")
 
 def test_simple_exception():
     def fn(n):
@@ -194,7 +193,7 @@ def test_catches():
     assert f(1) == fn(1)
     assert f(2) == fn(2)
     assert f(3) == fn(3)
-    #py.test.raises(RuntimeError, "f(4)")   #currently not raising a CPython exception
+    #py.test.raises(RuntimeError, "f(4)")   #XXX would like to test: py.test.not_raises(....)
     assert f(5) == fn(5)
     assert f(6) == fn(6)
     assert f(13) == fn(13)

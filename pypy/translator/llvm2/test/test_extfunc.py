@@ -97,28 +97,26 @@ def test_os_file_ops_open_write_read_close():
 def test_os_stat():
     py.test.skip("ll_os_stat not implemented")
     filename = str(py.magic.autopath())
-    def call_stat():
+    def call_stat(n):
         st = os.stat(filename)
-        return st
-    f = compile_function(call_stat, [])
-    result = f()
-    assert result[0] == os.stat(filename)[0]
-    assert result[1] == os.stat(filename)[1]
-    assert result[2] == os.stat(filename)[2]
+        return st[n]
+    f = compile_function(call_stat, [int])
+    assert f(0) == os.stat(filename)[0]
+    assert f(1) == os.stat(filename)[1]
+    assert f(2) == os.stat(filename)[2]
 
 def test_os_fstat():
     py.test.skip("ll_os_fstat not implemented")
     filename = str(py.magic.autopath())
-    def call_fstat():
+    def call_fstat(n):
         fd = os.open(filename, os.O_RDONLY, 0777)
         st = os.fstat(fd)
         os.close(fd)
-        return st
-    f = compile_function(call_fstat, [])
-    result = f()
-    assert result[0] == os.stat(filename)[0]
-    assert result[1] == os.stat(filename)[1]
-    assert result[2] == os.stat(filename)[2]
+        return st[0]    #XXX want to use 0 here!
+    f = compile_function(call_fstat, [int])
+    assert f(0) == os.stat(filename)[0]
+    assert f(1) == os.stat(filename)[1]
+    assert f(2) == os.stat(filename)[2]
 
 def test_getcwd():
     py.test.skip("ll_os_getcwd not implemented")

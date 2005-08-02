@@ -46,7 +46,7 @@ class CodeWriter(object):
                                            ", ".join(argtypereprs)))
 
     def declare(self, decl):
-        self.append("declare %s" %(decl,))
+        self.append("declare fastcc %s" %(decl,))
 
     def startimpl(self):
         self.newline()
@@ -69,7 +69,7 @@ class CodeWriter(object):
 
     def openfunc(self, decl): 
         self.newline()
-        self.append("%s {" % (decl,))
+        self.append("fastcc %s {" % (decl,))
 
     def closefunc(self): 
         self.append("}") 
@@ -99,21 +99,21 @@ class CodeWriter(object):
 
     def call(self, targetvar, returntype, functionref, argrefs, argtypes):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%s = call %s %s(%s)" % (targetvar, returntype, functionref,
+        self.indent("%s = call fastcc %s %s(%s)" % (targetvar, returntype, functionref,
                                              ", ".join(arglist)))
 
     def call_void(self, functionref, argrefs, argtypes):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("call void %s(%s)" % (functionref, ", ".join(arglist)))
+        self.indent("call fastcc void %s(%s)" % (functionref, ", ".join(arglist)))
 
     def invoke(self, targetvar, returntype, functionref, argrefs, argtypes, label, except_label):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%s = invoke %s %s(%s) to label %%%s except label %%%s" % (targetvar, returntype, functionref,
+        self.indent("%s = invoke fastcc %s %s(%s) to label %%%s except label %%%s" % (targetvar, returntype, functionref,
                                              ", ".join(arglist), label, except_label))
 
     def invoke_void(self, functionref, argrefs, argtypes, label, except_label):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("invoke void %s(%s) to label %%%s except label %%%s" % (functionref, ", ".join(arglist), label, except_label))
+        self.indent("invoke fastcc void %s(%s) to label %%%s except label %%%s" % (functionref, ", ".join(arglist), label, except_label))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
         self.indent("%(targetvar)s = cast %(fromtype)s "
@@ -124,7 +124,7 @@ class CodeWriter(object):
         postfix = ('', '_atomic')[atomic]
         self.indent("%%malloc.Size.%(cnt)d = getelementptr %(type_)s* null, uint %(size)s" % locals())
         self.indent("%%malloc.SizeU.%(cnt)d = cast %(type_)s* %%malloc.Size.%(cnt)d to uint" % locals())
-        self.indent("%%malloc.Ptr.%(cnt)d = call sbyte* %%gc_malloc%(postfix)s(uint %%malloc.SizeU.%(cnt)d)" % locals())
+        self.indent("%%malloc.Ptr.%(cnt)d = call fastcc sbyte* %%gc_malloc%(postfix)s(uint %%malloc.SizeU.%(cnt)d)" % locals())
         self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr.%(cnt)d to %(type_)s*" % locals())
 
     def getelementptr(self, targetvar, type, typevar, *indices):
@@ -140,7 +140,7 @@ class CodeWriter(object):
                     "%(valuetype)s* %(ptr)s" % locals())
 
     def debugcomment(self, tempname, len, tmpname):
-        res = "%s = tail call int (sbyte*, ...)* %%printf("
+        res = "%s = tail call ccc int (sbyte*, ...)* %%printf("
         res += "sbyte* getelementptr ([%s x sbyte]* %s, int 0, int 0) )"
         res = res % (tmpname, len, tmpname)
         self.indent(res)

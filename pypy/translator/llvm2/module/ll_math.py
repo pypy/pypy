@@ -1,23 +1,23 @@
 extdeclarations = """
 ;ll_math.py
-declare double %acos(double)
-declare double %asin(double)
-declare double %atan(double)
-declare double %ceil(double)
-declare double %cos(double)
-declare double %cosh(double)
-declare double %exp(double)
-declare double %fabs(double)
-declare double %floor(double)
-declare double %log(double)
-declare double %log10(double)
-declare double %sin(double)
-declare double %sinh(double)
-declare double %sqrt(double)
-declare double %tan(double)
-declare double %tanh(double)
-declare double %atan2(double,double)
-declare double %fmod(double,double)
+declare ccc double %acos(double)
+declare ccc double %asin(double)
+declare ccc double %atan(double)
+declare ccc double %ceil(double)
+declare ccc double %cos(double)
+declare ccc double %cosh(double)
+declare ccc double %exp(double)
+declare ccc double %fabs(double)
+declare ccc double %floor(double)
+declare ccc double %log(double)
+declare ccc double %log10(double)
+declare ccc double %sin(double)
+declare ccc double %sinh(double)
+declare ccc double %sqrt(double)
+declare ccc double %tan(double)
+declare ccc double %tanh(double)
+declare ccc double %atan2(double,double)
+declare ccc double %fmod(double,double)
 """
 
 extfunctions = {}
@@ -30,8 +30,8 @@ simple_functions = [
     ]
 
 simple_function_template = """
-double %%ll_math_%(function)s(%(params)s) {
-    %%t = call double %%%(function)s(%(params)s)
+fastcc double %%ll_math_%(function)s(%(params)s) {
+    %%t = call ccc double %%%(function)s(%(params)s)
     ret double %%t
 }
 
