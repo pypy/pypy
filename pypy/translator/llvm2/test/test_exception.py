@@ -11,6 +11,8 @@ class MyException(Exception):
         self.n = n
 
 def getitem(l, i):  #LookupError, KeyError
+    if not isinstance(i, int):
+        raise LookupError
     if i < 0:
         i = len(l) - i
     if i>= len(l):
@@ -18,7 +20,6 @@ def getitem(l, i):  #LookupError, KeyError
     return l[i]
 
 def test_simple1():
-    #py.test.skip("not working yet")
     def raise_(i):
         if i:
             raise TestException()
@@ -37,8 +38,6 @@ def test_simple1():
     assert f(1) == fn(1)
 
 def test_simple2():
-    #py.test.skip("not working yet, lst[n] raises no exceptions")
-    py.test.skip('failing')
     def fn(n):
         lst = range(10)
         try:
@@ -52,7 +51,6 @@ def test_simple2():
     assert f(10) == fn(10)
 
 def test_simple3():
-    #py.test.skip("not working yet")
     def raise_(i):
         if i == 0:
             raise TestException()
@@ -79,8 +77,6 @@ def test_simple3():
     assert f(2) == fn(2)
 
 def test_pass_exc():
-    #py.test.skip("not working yet, lst[n] raises no exceptions")
-    py.test.skip('failing')
     def fn(n):
         lst = range(10)
         try:
@@ -93,20 +89,19 @@ def test_pass_exc():
     assert f( 0) == fn( 0)
     assert f(10) == fn(10)
 
-def test_divzero():
-    py.test.skip("not working yet")
-    def fn(n):
-        try:
-            n/0
-        except:
-            return 2
-        return 4
-    f = compile_function(fn, [int])
-    assert f(0) == fn(0)
+#def test_divzero():
+#    py.test.skip("divzero not working yet")
+#    def fn(n):
+#        try:
+#            n/0
+#        except:
+#            return 2
+#        return 4
+#    f = compile_function(fn, [int])
+#    assert f(0) == fn(0)
     
 def test_reraise1():
-    #py.test.skip("not working yet, lst[n] raises no exceptions")
-    py.test.skip('failing')
+    py.test.skip("failing") #uncaught exception causes exit!
     def fn(n):
         lst = range(10)
         try:
@@ -120,8 +115,7 @@ def test_reraise1():
     assert f(10) == fn(10)
 
 def test_reraise2():
-    #py.test.skip("not working yet, lst[n] raises no exceptions")
-    py.test.skip('failing')
+    py.test.skip("failing")  #uncaught exception causes exit!
     def fn(n):
         lst = range(10)
         try:
@@ -135,7 +129,6 @@ def test_reraise2():
     assert f(10) == fn(10)
 
 def test_simple_exception():
-    #py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
@@ -150,8 +143,7 @@ def test_simple_exception():
         assert f(i) == fn(i)
 
 def test_two_exceptions():
-    #py.test.skip("not working yet, lst[n] raises no exceptions")
-    py.test.skip('failing')
+    py.test.skip("failing")
     def fn(n):
         lst = range(10)
         try:
@@ -168,8 +160,6 @@ def test_two_exceptions():
         assert f(i) == fn(i)
 
 def test_catch_base_exception():
-    py.test.skip('aborted')    
-    #py.test.skip("not working yet, lst[n] raises no exceptions")
     def fn(n):
         lst = range(10)
         try:
@@ -183,9 +173,8 @@ def test_catch_base_exception():
     for i in range(10, 20):
         assert f(i) == fn(i)
 
-
 def test_catches():
-    py.test.skip("not working yet")
+    py.test.skip("failing") #"except: exception, value" not implemented yet
     def raises(i):
         if i == 3:
             raise MyException, 12
@@ -209,7 +198,6 @@ def test_catches():
     assert f(13) == fn(13)
 
 def test_try_raise_choose():
-    py.test.skip("not working yet")
     f = compile_function(try_raise_choose, [int])
     for i in [-1, 0, 1, 2]:
         assert f(i) == i

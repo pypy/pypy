@@ -262,19 +262,15 @@ class OpWriter(object):
                                     e.lltype_of_exception_type.TO.__name__
                                     + '*')
 
-        tmptype1, tmpvar1 = 'sbyte*', self.db.repr_tmpvar()
-        tmptype2, tmpvar2 = lltype_of_exception_type, self.db.repr_tmpvar()
-
         self.codewriter.label(exc_label)
-        self.codewriter.load(tmpvar1, tmptype1, '%last_exception_type')
-        self.codewriter.cast(tmpvar2, tmptype1, tmpvar1, tmptype2)
-        self.codewriter.newline()
 
-        exc_found_labels = []
+        exc_found_labels, last_exception_type = [], None
         for link in self.block.exits[1:]:
             assert issubclass(link.exitcase, Exception)
 
             etype = self.db.obj2node[link.llexitcase._obj]
+            current_exception_type = etype.get_ref()
+            #self.codewriter.comment('etype=%s, current_exception_type=%s' % (str(etype.ref), str(current_exception_type)))
 
             target          = self.node.block_to_name[link.target]
             exc_found_label = block_label + '_exception_found_branchto_' + target
@@ -282,18 +278,26 @@ class OpWriter(object):
 
             not_this_exception_label = block_label + '_not_exception_' + etype.ref[1:]
 
-            ll_issubclass_cond = self.db.repr_tmpvar()
-            self.codewriter.call(ll_issubclass_cond,
-                                 'bool',
-                                 ll_exception_match,
-                                 [etype.get_ref(), tmpvar2],
-                                 [lltype_of_exception_type, lltype_of_exception_type])
-            self.codewriter.br(ll_issubclass_cond, not_this_exception_label, exc_found_label)
+            if current_exception_type.find('getelementptr') == -1:  #XXX catch all (except:)
+                self.codewriter.br_uncond(exc_found_label)
+            else:
+                if not last_exception_type:
+                    last_exception_type = self.db.repr_tmpvar()
+                    self.codewriter.load(last_exception_type, lltype_of_exception_type, '%last_exception_type')
+                    #self.codewriter.newline()
+                ll_issubclass_cond = self.db.repr_tmpvar()
+                self.codewriter.call(ll_issubclass_cond,
+                                     'bool',
+                                     ll_exception_match,
+                                     [last_exception_type, current_exception_type],
+                                     [lltype_of_exception_type, lltype_of_exception_type])
+                self.codewriter.br(ll_issubclass_cond, not_this_exception_label, exc_found_label)
+
             self.codewriter.label(not_this_exception_label)
 
-        self.codewriter.comment('this code should never be reached!')
+        self.codewriter.comment('reraise when exception is not caught')
         self.codewriter.unwind()
-        #self.codewriter.br_uncond(none_label)
+
         for label, target in exc_found_labels:
             self.codewriter.label(label)
             self.codewriter.br_uncond(target)

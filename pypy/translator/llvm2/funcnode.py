@@ -133,6 +133,9 @@ class FuncNode(ConstantLLVMNode):
 
     def write_block_branches(self, codewriter, block):
         #assert len(block.exits) <= 2    #more exits are possible (esp. in combination with exceptions)
+        if block.exitswitch == Constant(last_exception):
+            #codewriter.comment('FuncNode(ConstantLLVMNode) *last_exception* write_block_branches @%s@' % str(block.exits))
+            return
         if len(block.exits) == 1:
             codewriter.br_uncond(self.block_to_name[block.exits[0].target])
         elif len(block.exits) == 2:
@@ -201,13 +204,8 @@ class FuncNode(ConstantLLVMNode):
             inputargs = self.db.repr_arg_multi(block.inputargs)
             inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
 
-            tmptype, tmpvar = 'sbyte*', self.db.repr_tmpvar()
-            codewriter.cast(tmpvar, inputargtypes[0], inputargs[0], tmptype)
-            codewriter.store(tmptype, tmpvar, '%last_exception_type')
-
-            tmptype, tmpvar = 'sbyte*', self.db.repr_tmpvar()
-            codewriter.cast(tmpvar, inputargtypes[1], inputargs[1], tmptype)
-            codewriter.store(tmptype, tmpvar, '%last_exception_value')
+            codewriter.store(inputargtypes[0], inputargs[0], '%last_exception_type')
+            codewriter.store(inputargtypes[1], inputargs[1], '%last_exception_value')
         else:
             codewriter.comment('reraise last exception')
             #Reraising last_exception.
