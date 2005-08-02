@@ -39,6 +39,7 @@ Copyright (c) Corporation for National Research Initiatives.
 
 """
 #from unicodecodec import *
+
 import sys
 #/* --- Registry ----------------------------------------------------------- */
 codec_search_path = []
@@ -216,6 +217,7 @@ def ascii_decode( data,errors='strict'):
 def charmap_encode(obj,errors='strict',mapping='latin-1'):
     """None
     """
+
     res = PyUnicode_EncodeCharmap(obj,len(obj),mapping,errors)
     res = ''.join(res)
     return res, len(res)
@@ -1468,9 +1470,8 @@ def PyUnicode_EncodeRawUnicodeEscape(s,size):
 
 def charmapencode_output(c,mapping):
 
-    
     rep = mapping[c]
-    if isinstance(rep,(int,long)):
+    if isinstance(rep,int):
         if rep<256:
             return chr(rep)
         else:
