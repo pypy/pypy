@@ -129,7 +129,12 @@ class FuncNode(ConstantLLVMNode):
                    link.prevblock.exits[0].target != block:
                     blocknames[i] += '_exception_found_branchto_' + self.block_to_name[block]
             if type_ != "void":
-                codewriter.phi(arg, type_, names, blocknames)
+                if arg.startswith('%last_exc_value_') and type_ == '%structtype.object*':
+                    e = self.db._translator.rtyper.getexceptiondata()
+                    lltype_of_exception_value = ('%structtype.' + e.lltype_of_exception_value.TO.__name__ + '*')
+                    codewriter.load(arg, lltype_of_exception_value, '%last_exception_value')
+                else:
+                    codewriter.phi(arg, type_, names, blocknames)
 
     def write_block_branches(self, codewriter, block):
         #assert len(block.exits) <= 2    #more exits are possible (esp. in combination with exceptions)

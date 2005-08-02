@@ -284,7 +284,7 @@ class OpWriter(object):
                 if not last_exception_type:
                     last_exception_type = self.db.repr_tmpvar()
                     self.codewriter.load(last_exception_type, lltype_of_exception_type, '%last_exception_type')
-                    #self.codewriter.newline()
+                    self.codewriter.newline()
                 ll_issubclass_cond = self.db.repr_tmpvar()
                 self.codewriter.call(ll_issubclass_cond,
                                      'bool',
