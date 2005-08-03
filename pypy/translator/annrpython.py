@@ -239,7 +239,8 @@ class RPythonAnnotator:
                      self.whereami((self.return_bindings[arg],None, None))) 
                 
             self.binding_caused_by[arg] = called_from
-
+        # XXX make this line available as a debugging option
+        ##assert not (s_value.__class__ == annmodel.SomeObject and s_value.knowntype == object) ## debug
 
     #___ interface for annotator.bookkeeper _______
 
