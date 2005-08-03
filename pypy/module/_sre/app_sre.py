@@ -8,8 +8,11 @@ copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
 """
 
 import array, operator, sys
-import sre_constants
-from sre_constants import ATCODES, OPCODES, CHCODES, MAXREPEAT
+# XXX Avoiding sre_constants import on module level to cater for a hack in
+# sre_constants concerned with _sre faking on 2.3. Fix this when _sre faking is
+# not an issue anymore.
+#import sre_constants
+#from sre_constants import ATCODES, OPCODES, CHCODES, MAXREPEAT
 
 # Identifying as _sre from Python 2.3 or 2.4
 if sys.version_info[:2] == (2, 4):
@@ -40,6 +43,7 @@ def compile(pattern, flags, code, groups=0, groupindex={}, indexgroup=[None]):
     return SRE_Pattern(pattern, flags, code, groups, groupindex, indexgroup)
     
 def getlower(char_ord, flags):
+    import sre_constants
     if (char_ord < 128) or (flags & sre_constants.SRE_FLAG_UNICODE) \
                   or (flags & sre_constants.SRE_FLAG_LOCALE and char_ord < 256):
         return ord(unichr(char_ord).lower())
@@ -365,6 +369,7 @@ class _State(object):
         return has_matched
 
     def search(self, pattern_codes):
+        from sre_constants import OPCODES
         if pattern_codes[0] == OPCODES["info"]:
             pattern_codes = pattern_codes[pattern_codes[1] + 1:]   
         # XXX USE_FAST_SEARCH optimizations missing here        
@@ -484,6 +489,8 @@ class _Dispatcher(object):
         raise NotImplementedError()
 
     def build_dispatch_table(cls, code_dict, method_prefix):
+        if cls.DISPATCH_TABLE is not None:
+            return
         table = {}
         for key, value in code_dict.items():
             if hasattr(cls, "%s%s" % (method_prefix, key)):
@@ -497,10 +504,15 @@ class _OpcodeDispatcher(_Dispatcher):
     
     def __init__(self):
         self.executing_contexts = {}
+        from sre_constants import ATCODES, OPCODES, CHCODES
+        _OpcodeDispatcher.build_dispatch_table(OPCODES, "op_")
+        _AtcodeDispatcher.build_dispatch_table(ATCODES, "")
+        _ChcodeDispatcher.build_dispatch_table(CHCODES, "")
+        _CharsetDispatcher.build_dispatch_table(OPCODES, "set_")
         self.at_dispatcher = _AtcodeDispatcher()
         self.ch_dispatcher = _ChcodeDispatcher()
         self.set_dispatcher = _CharsetDispatcher()
-
+        
     def match(self, context):
         """Returns True if the current context matches, False if it doesn't and
         None if matching is not finished, ie must be resumed after child
@@ -694,6 +706,7 @@ class _OpcodeDispatcher(_Dispatcher):
         # this operator only works if the repeated item is exactly one character
         # wide, and we're not already collecting backtracking points.
         # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
+        from sre_constants import OPCODES
         mincount = ctx.peek_code(2)
         maxcount = ctx.peek_code(3)
         #self._log(ctx, "REPEAT_ONE", mincount, maxcount)
@@ -735,6 +748,7 @@ class _OpcodeDispatcher(_Dispatcher):
     def op_min_repeat_one(self, ctx):
         # match repeated sequence (minimizing)
         # <MIN_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
+        from sre_constants import OPCODES, MAXREPEAT
         mincount = ctx.peek_code(2)
         maxcount = ctx.peek_code(3)
         #self._log(ctx, "MIN_REPEAT_ONE", mincount, maxcount)
@@ -793,6 +807,7 @@ class _OpcodeDispatcher(_Dispatcher):
     def op_max_until(self, ctx):
         # maximizing repeat
         # <REPEAT> <skip> <1=min> <2=max> item <MAX_UNTIL> tail
+        from sre_constants import MAXREPEAT
         repeat = ctx.state.repeat
         if repeat is None:
             raise RuntimeError("Internal re error: MAX_UNTIL without REPEAT.")
@@ -844,6 +859,7 @@ class _OpcodeDispatcher(_Dispatcher):
     def op_min_until(self, ctx):
         # minimizing repeat
         # <REPEAT> <skip> <1=min> <2=max> item <MIN_UNTIL> tail
+        from sre_constants import MAXREPEAT
         repeat = ctx.state.repeat
         if repeat is None:
             raise RuntimeError("Internal re error: MIN_UNTIL without REPEAT.")
@@ -975,6 +991,7 @@ class _OpcodeDispatcher(_Dispatcher):
         """Returns the number of repetitions of a single item, starting from the
         current string position. The code pointer is expected to point to a
         REPEAT_ONE operation (with the repeated 4 ahead)."""
+        from sre_constants import MAXREPEAT
         count = 0
         real_maxcount = ctx.state.end - ctx.string_position
         if maxcount < real_maxcount and maxcount != MAXREPEAT:
@@ -1003,8 +1020,6 @@ class _OpcodeDispatcher(_Dispatcher):
         arg_string = ("%s " * len(args)) % args
         _log("|%s|%s|%s %s" % (context.pattern_codes,
             context.string_position, opname, arg_string))
-
-_OpcodeDispatcher.build_dispatch_table(OPCODES, "op_")
 
 
 class _CharsetDispatcher(_Dispatcher):
@@ -1076,9 +1091,6 @@ class _CharsetDispatcher(_Dispatcher):
         return False
 
 
-_CharsetDispatcher.build_dispatch_table(OPCODES, "set_")
-
-
 class _AtcodeDispatcher(_Dispatcher):
 
     def at_beginning(self, ctx):
@@ -1106,8 +1118,6 @@ class _AtcodeDispatcher(_Dispatcher):
         return not ctx.at_boundary(_is_uni_word)
     def unknown(self, ctx):
         return False
-
-_AtcodeDispatcher.build_dispatch_table(ATCODES, "")
 
 
 class _ChcodeDispatcher(_Dispatcher):
@@ -1150,8 +1160,6 @@ class _ChcodeDispatcher(_Dispatcher):
         return ord(ctx.peek_char()) not in _uni_linebreaks
     def unknown(self, ctx):
         return False
-
-_ChcodeDispatcher.build_dispatch_table(CHCODES, "")
 
 
 _ascii_char_info = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 2,
