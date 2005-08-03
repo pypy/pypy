@@ -1,3 +1,5 @@
+import os
+
 
 # based on a Java version:
 #  Based on original version written in BCPL by Dr Martin Richards
@@ -124,8 +126,6 @@ class TaskState:
 
     def isWaitingWithPacket(self):
         return self.packet_pending and self.task_waiting and not self.task_holding
-
-
 
 
 
@@ -344,8 +344,6 @@ class WorkTask(Task):
 
 import time
 
-
-
 def schedule():
     t = taskWorkArea.taskList
     while t is not None:
@@ -392,21 +390,25 @@ class Richards:
             schedule()
 
             if taskWorkArea.holdCount == 9297 and taskWorkArea.qpktCount == 23246:
-                pass
+                os.write(1, "iteration %d\n" % i)
             else:
                 return False
 
         return True
 
+class FailedRun(Exception):
+    pass
+
 def entry_point():
     r = Richards()
+    if not r:
+        raise FailedRun
     startTime = time.time()
     result = r.run()
     endTime = time.time()
     return result, startTime, endTime
 
 def main():
-    import os
     os.write(1, "Richards benchmark (Python) starting... \n")
     result, startTime, endTime = entry_point()
     if not result:
@@ -419,28 +421,5 @@ def main():
     return 0
 
 if __name__ == "__main__":
-    from pypy.translator.llvm2.genllvm import compile_function
-    import py
-
-    import sys
-    compile_llvm = True
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "p":
-            main()
-            compile_llvm = False
-        elif sys.argv[1] == "c":
-
-            from pypy.translator.translator import Translator
-            t = Translator(main)    
-            a = t.annotate([])            
-            t.specialize()    
-            f = t.ccompile()
-            f()
-
-            compile_llvm = False
-
-    if compile_llvm:
-        compile_function(main, [])    
-
-        # run with the following command
-        "llvmc -Tasm=-enable-correct-eh-support -v -L /usr/lib/ -lm -lgc main_optimized.bc -o go"
+    from pypy.translator.llvm2.demo.run import run
+    run(main, "richards")

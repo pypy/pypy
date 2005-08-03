@@ -245,40 +245,5 @@ def main():
     return 0
     
 if __name__ == "__main__":
-    from pypy.translator.llvm2.genllvm import compile_function
-    import py
-
-    import sys
-    compile_llvm = True
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "p":
-            main()
-            compile_llvm = False
-        elif sys.argv[1] == "c":
-
-            from pypy.translator.translator import Translator
-            t = Translator(main)    
-            a = t.annotate([])            
-            t.specialize()    
-            f = t.ccompile()
-            f()
-
-            compile_llvm = False
-
-    if compile_llvm:
-        compile_function(main, [])    
-
-        # generate runnable bytecode with the following command
-        os.write(1, 'Generating standalone LLVM bytecode:\n')
-        cmd = "llvmc -O5 -Tasm=-enable-correct-eh-support -v -L /usr/lib/ -lm -lgc /tmp/usession-current/main_optimized.bc -o bpnn"
-        os.write(1, cmd + '\n')
-        os.system(cmd)
-
-        # run with the following command
-        os.write(1, 'Running standalone LLVM bytecode:\n')
-        cmd = "./bpnn"
-        os.write(1, cmd + '\n')
-        os.system(cmd)
-
-    os.write(1, 'Running on top of CPython:\n')
-    main()
+    from pypy.translator.llvm2.demo.run import run
+    run(main, "bpnn")
