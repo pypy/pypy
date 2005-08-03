@@ -160,7 +160,7 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        l = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs',
+        l = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs', 'marshal',
              '_sre']
 
         if self.options.nofaking:
@@ -198,7 +198,7 @@ class ObjSpace(object):
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
 
         for modname, mixedname in self.get_builtinmodule_list():
-            if modname not in ('sys', '__builtin__', 'exceptions', 'marshal'):
+            if modname not in ('sys', '__builtin__', 'exceptions'):##!!, 'marshal'):
                 self.setbuiltinmodule(modname, mixedname)
         
         # initialize with "bootstrap types" from objspace  (e.g. w_None)

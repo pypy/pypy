@@ -5,7 +5,8 @@ to provide in this version of PyPy, along with conversion rules.
 
 from pypy.objspace.std.multimethod import MultiMethodTable, FailedToImplement
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
-
+import pypy.interpreter.pycode
+import pypy.interpreter.special
 
 class StdTypeModel:
 
@@ -52,6 +53,7 @@ class StdTypeModel:
         from pypy.objspace.std import dictproxyobject
         from pypy.objspace.std import fake
         import pypy.objspace.std.default # register a few catch-all multimethods
+        import pypy.objspace.std.marshal_impl # install marshal multimethods
 
         # the set of implementation types
         self.typeorder = {
@@ -71,6 +73,8 @@ class StdTypeModel:
             iterobject.W_SeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
             dictproxyobject.W_DictProxyObject: [],
+            pypy.interpreter.pycode.PyCode: [],
+            pypy.interpreter.special.Ellipsis: [],
             }
         for type in self.typeorder:
             self.typeorder[type].append((type, None))
