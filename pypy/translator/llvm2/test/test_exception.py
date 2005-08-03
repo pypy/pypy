@@ -198,7 +198,13 @@ def test_catches():
     assert f(6) == fn(6)
     assert f(13) == fn(13)
 
+def test_try_raise_choose():
+    f = compile_function(try_raise_choose, [int])
+    for i in [-1, 0, 1, 2]:
+        assert f(i) == i
+
 def test_raise_outside_testfn():
+    py.test.skip("dont know if this is valid or not")
     def raiser(n):
         if n < 0:
             raise ValueError("hello")
