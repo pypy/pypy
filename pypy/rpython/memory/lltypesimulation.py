@@ -162,7 +162,7 @@ class simulatorptr(object):
         raise TypeError("%r instance is not an array" % (self._T,))
 
     def __nonzero__(self):
-        return self._address != lladdres.NULL
+        return self._address != lladdress.NULL
 
     def __eq__(self, other):
         if not isinstance(other, simulatorptr):
@@ -208,3 +208,7 @@ def malloc(T, n=None, immortal=False):
     result._zero_initialize(n)
     result._init_size(n)
     return result
+
+def nullptr(T):
+    return simulatorptr(lltype.Ptr(T), lladdress.NULL)
+

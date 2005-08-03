@@ -131,3 +131,184 @@ def test_cast_simple_widening():
     assert p4 == p1
     SUnrelated = lltype.Struct("unrelated")
     py.test.raises(TypeError, "cast_pointer(lltype.Ptr(SUnrelated), p3)")
+
+def test_cast_simple_widening2():
+    S2 = lltype.GcStruct("s2", ('a', lltype.Signed))
+    S1 = lltype.GcStruct("s1", ('sub1', S2))
+    p1 = malloc(S1)
+    p2 = p1.sub1
+    assert lltype.typeOf(p2) == lltype.Ptr(S2)
+    p3 = cast_pointer(lltype.Ptr(S1), p2)
+    assert p3 == p1
+    p2 = malloc(S2)
+
+def test_cast_pointer():
+    S3 = lltype.GcStruct("s3", ('a', lltype.Signed))
+    S2 = lltype.GcStruct("s3", ('sub', S3))
+    S1 = lltype.GcStruct("s1", ('sub', S2))
+    p1 = malloc(S1)
+    p2 = p1.sub
+    p3 = p2.sub
+    p12 = cast_pointer(lltype.Ptr(S1), p2)
+    assert p12 == p1
+    p13 = cast_pointer(lltype.Ptr(S1), p3)
+    assert p13 == p1
+    p21 = cast_pointer(lltype.Ptr(S2), p1)
+    assert p21 == p2
+    p23 = cast_pointer(lltype.Ptr(S2), p3)
+    assert p23 == p2
+    p31 = cast_pointer(lltype.Ptr(S3), p1)
+    assert p31 == p3
+    p32 = cast_pointer(lltype.Ptr(S3), p2)
+    assert p32 == p3
+    p3 = malloc(S3)
+    p2 = malloc(S2)
+    S0 = lltype.GcStruct("s0", ('sub', S1))
+    p0 = malloc(S0)
+    assert p0 == cast_pointer(lltype.Ptr(S0), p0)
+    p3 = cast_pointer(lltype.Ptr(S3), p0)
+    p03 = cast_pointer(lltype.Ptr(S0), p3)
+    assert p0 == p03
+    S1bis = lltype.GcStruct("s1b", ('sub', S2))
+    assert S1bis != S1
+    p1b = malloc(S1bis)
+    p3 = p1b.sub.sub
+    assert p1b == cast_pointer(lltype.Ptr(S1bis), p3)
+
+def DONOTtest_best_effort_gced_parent_detection():
+    S2 = lltype.Struct("s2", ('a', lltype.Signed))
+    S1 = lltype.GcStruct("s1", ('sub1', S2), ('sub2', S2),
+                         ('tail', lltype.Array(('e', lltype.Signed))))
+    p1 = malloc(S1, 1)
+    p2 = p1.sub2
+    assert p2.a == 0
+    p3 = p1.tail
+    p3[0].e = 1
+    assert p3[0].e == 1
+    del p1
+    import gc
+    gc.collect()
+    py.test.raises(RuntimeError, "p2.a")
+    py.test.raises(RuntimeError, "p3[0]")
+
+def DONOTtest_best_effort_gced_parent_for_arrays():
+    A1 = lltype.GcArray(('v', lltype.Signed))
+    p1 = malloc(A1, 10)
+    p1[5].v=3
+    assert p1[0].v == 0
+    assert p1[9].v == 0
+    assert p1[5].v == 3
+    p1_5 = p1[5]
+    del p1
+    import gc
+    gc.collect()
+    py.test.raises(RuntimeError, "p1_5.v")        
+
+
+def DONOTtest_functions():
+    F = lltype.FuncType((Signed,), Signed)
+    py.test.raises(TypeError, "lltype.Struct('x', ('x', F))")
+    PF = Ptr(F)
+    pf = PF._example()
+    assert pf(0) == 0
+    py.test.raises(TypeError, pf, 0, 0)
+    py.test.raises(TypeError, pf, 'a')
+
+
+def test_forward_reference():
+    F = lltype.GcForwardReference()
+    S = lltype.GcStruct('abc', ('x', lltype.Ptr(F)))
+    F.become(S)
+    s = malloc(S)
+    s.x = s
+    assert s.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x == s
+
+def test_nullptr():
+    S = lltype.Struct('s')
+    p0 = nullptr(S)
+    assert not p0
+    assert lltype.typeOf(p0) == lltype.Ptr(S)
+
+def test_nullptr_cast():
+    S = lltype.Struct('s')
+    p0 = nullptr(S)
+    assert not p0
+    S1 = lltype.Struct("s1", ('s', S))
+    p10 = cast_pointer(lltype.Ptr(S1), p0)
+    assert lltype.typeOf(p10) == lltype.Ptr(S1)
+    assert not p10
+
+
+def DONOTtest_array_with_non_container_elements():
+    As = lltype.GcArray(lltype.Signed)
+    a = malloc(As, 3)
+    assert a[0] == 0
+    assert a[1] == 0
+    assert a[2] == 0
+    a[1] = 3
+    assert a[1] == 3
+    S = lltype.GcStruct('s', ('x', lltype.Signed))
+    s = malloc(S)
+    py.test.raises(TypeError, "a[1] = s")
+    S = lltype.GcStruct('s', ('x', lltype.Signed))
+    S = lltype.Struct('s', ('x', lltype.Signed))
+    A = lltype.GcArray(S)
+    a = malloc(A, 2)
+    a[0] = malloc(S)
+
+def DONOTtest_immortal_parent():
+    S1 = GcStruct('substruct', ('x', Signed))
+    S  = GcStruct('parentstruct', ('s1', S1))
+    p = malloc(S, immortal=True)
+    p1 = p.s1
+    p1.x = 5
+    del p
+    p = cast_pointer(Ptr(S), p1)
+    assert p.s1.x == 5
+
+def DONOTtest_getRuntimeTypeInfo():
+    S = GcStruct('s', ('x', Signed))
+    py.test.raises(ValueError, "getRuntimeTypeInfo(S)")
+    pinf0 = attachRuntimeTypeInfo(S)
+    assert pinf0._obj.about == S
+    pinf = getRuntimeTypeInfo(S)
+    assert pinf == pinf0
+    pinf1 = getRuntimeTypeInfo(S)
+    assert pinf == pinf1
+    Z = GcStruct('z', ('x', Unsigned))
+    attachRuntimeTypeInfo(Z)
+    assert getRuntimeTypeInfo(Z) != pinf0
+    Sbis = GcStruct('s', ('x', Signed))
+    attachRuntimeTypeInfo(Sbis)
+    assert getRuntimeTypeInfo(Sbis) != pinf0
+    assert Sbis != S # the attached runtime type info distinguishes them
+
+def DONOTtest_runtime_type_info():
+    S = GcStruct('s', ('x', Signed))
+    attachRuntimeTypeInfo(S)
+    s = malloc(S)
+    assert runtime_type_info(s) == getRuntimeTypeInfo(S)
+    S1 = GcStruct('s1', ('sub', S), ('x', Signed))
+    attachRuntimeTypeInfo(S1)
+    s1 = malloc(S1)
+    assert runtime_type_info(s1) == getRuntimeTypeInfo(S1)
+    assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
+    assert runtime_type_info(cast_pointer(Ptr(S), s1)) == getRuntimeTypeInfo(S1)
+    def dynamic_type_info_S(p):
+        if p.x == 0:
+            return getRuntimeTypeInfo(S)
+        else:
+            return getRuntimeTypeInfo(S1)
+    fp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)), 
+                     "dynamic_type_info_S", 
+                     _callable=dynamic_type_info_S)
+    attachRuntimeTypeInfo(S, fp)
+    assert s.x == 0
+    assert runtime_type_info(s) == getRuntimeTypeInfo(S)
+    s.x = 1
+    py.test.raises(RuntimeError, "runtime_type_info(s)")
+    assert s1.sub.x == 0
+    py.test.raises(RuntimeError, "runtime_type_info(s1.sub)")
+    s1.sub.x = 1
+    assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
+    
