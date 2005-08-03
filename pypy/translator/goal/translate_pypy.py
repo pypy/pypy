@@ -290,6 +290,7 @@ if __name__ == '__main__':
                '-save': False,
                '-fork': False,
                '-llinterpret': False,
+               '-batch': False,
                }
     listen_port = None
     argiter = iter(sys.argv[1:])
@@ -504,15 +505,21 @@ show class hierarchy graph"""
             print
             func, args = pdb_plus_show.set_trace, ()
         if options['-text']:
-            func(*args)
+            if options['-batch']:
+                print >>sys.stderr, "batch mode, not calling interactive helpers"
+            else:
+                func(*args)
         else:
-            start, show, stop, cleanup = run_server()
-            pdb_plus_show.show = show
-            debugger = run_in_thread(func, args, stop)
-            debugger.start()
-            start()
-            debugger.join()
-            cleanup()
+            if options['-batch']: 
+                print >>sys.stderr, "batch mode, not calling interactive helpers"
+            else:
+                start, show, stop, cleanup = run_server()
+                pdb_plus_show.show = show
+                debugger = run_in_thread(func, args, stop)
+                debugger.start()
+                start()
+                debugger.join()
+                cleanup()
 
     try:
         err = None
@@ -542,7 +549,11 @@ show class hierarchy graph"""
             sys.path.insert(0, os.path.dirname(targetspec))
             execfile(targetspec+'.py', targetspec_dic)
             print "Analysing target as defined by %s" % targetspec
-            print 'options in effect:', options
+            print 'options in effect:'
+            optnames = options.keys()
+            optnames.sort()
+            for name in optnames: 
+                print '   %25s: %s' %(name, options[name])
             try:
                 analyse(targetspec_dic['target'])
             except TyperError:
@@ -588,6 +599,6 @@ show class hierarchy graph"""
         raise
     except:
         debug(True)
+        raise SystemExit(1)
     else:
         debug(False)
-    
