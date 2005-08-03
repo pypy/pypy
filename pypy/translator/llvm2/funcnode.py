@@ -122,7 +122,8 @@ class FuncNode(ConstantLLVMNode):
         self.write_block_operations(codewriter, block)
         self.write_block_branches(codewriter, block)
 
-    def write_block_phi_nodes(self, codewriter, block):
+    def get_phi_data(self, block):
+        data = []
         entrylinks = mkentrymap(self.graph)[block]
         entrylinks = [x for x in entrylinks if x.prevblock is not None]
         inputargs = self.db.repr_arg_multi(block.inputargs)
@@ -135,13 +136,13 @@ class FuncNode(ConstantLLVMNode):
                 if link.prevblock.exitswitch == Constant(last_exception) and \
                    link.prevblock.exits[0].target != block:
                     blocknames[i] += '_exception_found_branchto_' + self.block_to_name[block]
+            data.append( (arg, type_, names, blocknames) )
+        return data
+
+    def write_block_phi_nodes(self, codewriter, block):
+        for arg, type_, names, blocknames in self.get_phi_data(block):
             if type_ != "void":
-                if arg.startswith('%last_exc_value_') and type_ == '%structtype.object*':
-                    e = self.db._translator.rtyper.getexceptiondata()
-                    lltype_of_exception_value = ('%structtype.' + e.lltype_of_exception_value.TO.__name__ + '*')
-                    codewriter.load(arg, lltype_of_exception_value, '%last_exception_value')
-                else:
-                    codewriter.phi(arg, type_, names, blocknames)
+                codewriter.phi(arg, type_, names, blocknames)
 
     def write_block_branches(self, codewriter, block):
         #assert len(block.exits) <= 2    #more exits are possible (esp. in combination with exceptions)

@@ -260,6 +260,9 @@ class OpWriter(object):
         lltype_of_exception_type = ('%structtype.' +
                                     e.lltype_of_exception_type.TO.__name__
                                     + '*')
+        lltype_of_exception_value = ('%structtype.' +
+                                    e.lltype_of_exception_value.TO.__name__
+                                    + '*')
 
         self.codewriter.label(exc_label)
 
@@ -269,11 +272,24 @@ class OpWriter(object):
 
             etype = self.db.obj2node[link.llexitcase._obj]
             current_exception_type = etype.get_ref()
-            #self.codewriter.comment('etype=%s, current_exception_type=%s' % (str(etype.ref), str(current_exception_type)))
 
             target          = self.node.block_to_name[link.target]
             exc_found_label = block_label + '_exception_found_branchto_' + target
-            exc_found_labels.append( (exc_found_label, target) )
+            last_exc_type_var, last_exc_value_var = None, None
+
+            for p in self.node.get_phi_data(link.target):
+                arg, type_, names, blocknames = p
+                for name, blockname in zip(names, blocknames):
+                    if blockname != exc_found_label:
+                        continue
+                    #XXX might want to refactor the next few lines
+                    if name.startswith('%last_exception_'):
+                        last_exc_type_var = name
+                    if name.startswith('%last_exc_value_'):
+                        last_exc_value_var = name
+
+            t = (exc_found_label,target,last_exc_type_var,last_exc_value_var)
+            exc_found_labels.append(t)
 
             not_this_exception_label = block_label + '_not_exception_' + etype.ref[1:]
 
@@ -297,8 +313,13 @@ class OpWriter(object):
         self.codewriter.comment('reraise when exception is not caught')
         self.codewriter.unwind()
 
-        for label, target in exc_found_labels:
+        for label, target, last_exc_type_var, last_exc_value_var in exc_found_labels:
             self.codewriter.label(label)
+            if last_exc_type_var:
+                self.codewriter.load(last_exc_type_var, lltype_of_exception_type, '%last_exception_type')
+            if last_exc_value_var:
+                self.codewriter.load(last_exc_value_var, lltype_of_exception_value, '%last_exception_value')
+            
             self.codewriter.br_uncond(target)
 
     def malloc(self, op): 

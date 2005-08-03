@@ -116,12 +116,11 @@ def test_reraise1():
     py.test.raises(Exception, "f(10)")
 
 def test_reraise2():
-    py.test.skip("PyPy interpreter not happy with this test")
     def fn(n):
         lst = range(10)
         try:
             getitem(lst,n)
-        except e:
+        except Exception, e:
             raise e
         return 4
     f = compile_function(fn, [int])
