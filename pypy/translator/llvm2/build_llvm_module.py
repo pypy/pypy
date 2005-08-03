@@ -16,8 +16,128 @@ from pypy.translator.llvm2.log import log
 class CompileError(exceptions.Exception):
     pass
 
-OPTIMIZATION_SWITCHES = "-simplifycfg -mem2reg -instcombine -dce -inline"
+SOURCES = "time.ii ".split()
+
 EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support"
+
+OPTIMIZATION_SWITCHES = (" ".join([
+
+    # call %malloc -> malloc inst
+    "-raiseallocs",
+
+    # clean up disgusting code
+    "-simplifycfg",
+
+    # kill useless allocas
+    "-mem2reg",
+
+    # optimize out global vars
+    "-globalopt",
+    
+    # remove unused fns and globs
+    "-globaldce",
+
+    # interprocedural constant propagation
+    "-ipconstprop",
+
+    # dead argument elimination
+    "-deadargelim",
+
+    # clean up after
+    # (interprocedural constant propagation) & (dead argument elimination)
+    "-instcombine ", "-simplifycfg ",
+
+    # clean up after
+    # (interprocedural constant propagation) & (dead argument elimination)
+    "-instcombine ", "-simplifycfg ",
+
+    # remove dead EH info
+    "-prune-eh", 
+
+    # inline small functions
+    "-inline", 
+
+    # simplify well-known library calls
+    "-simplify-libcalls", 
+
+    # promote 'by reference' arguments to scalars
+    "-argpromotion", 
+
+    # recover type information
+    "--raise",
+    
+    # simplify cfg by copying code
+    "-tailduplicate",
+
+    # merge & remove bacic blocks
+    "--simplifycfg",
+
+    # break up aggregate allocas
+    "-scalarrepl",
+
+    # combine silly seq's
+    "-instcombine",
+
+    # propagate conditionals
+    "-condprop", 
+
+    # eliminate tail calls
+    '-tailcallelim',
+
+    # merge & remove BBs
+    "-simplifycfg",
+
+    # reassociate expressions
+    "-reassociate",
+
+    # hoist loop invariants (LICM -  Loop Invariant Code Motion)
+    "-licm",
+
+    # clean up after LICM/reassoc
+    "-instcombine",
+    
+    # canonicalize indvars    
+    "-indvars",
+
+    # unroll small loops
+    "-loop-unroll",
+
+    # clean up after the unroller
+    "-instcombine",
+
+    # GVN for load instructions
+    "-load-vn",
+
+    # remove common subexprs (Global Common Subexpression Elimination)
+    "-gcse",
+
+    # constant prop with SCCP (Sparse Conditional Constant Propagation)
+    "-sccp",
+
+
+    # Run instcombine after redundancy elimination to exploit opportunities
+    # opened up by them
+    "-instcombine",
+    # propagate conditionals
+    "-condprop",
+
+    # Delete dead stores
+    "-dse",
+
+    # SSA based 'Aggressive DCE'
+    "-adce",
+
+    # merge & remove BBs
+    "-simplifycfg",
+
+    # eliminate dead types
+    "-deadtypeelim",
+
+    # merge dup global constants
+    "-constmerge",
+
+    ]))
+
 
 def compile_module(module, source_files, object_files, library_files):
     open("%s_setup.py" % module, "w").write(str(py.code.Source(
@@ -47,12 +167,12 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
     library_files = []
     if use_boehm_gc:
         library_files.append('gc')
-
+    
     if sys.maxint == 2147483647:        #32 bit platform
         if optimize:
-            cmds = ["llvm-as %s.ll -f -o %s.bc" % (b, b), 
+            cmds = ["llvm-as %s.ll -f -o %s.bc" % (b, b),
                     "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES, b, b),
-                    "llc %s %s_optimized.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)]
+                    "llc --regalloc iterativescan %s %s_optimized.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)]
         else:
             cmds = ["llvm-as %s.ll -f -o %s.bc" % (b, b),
                     "llc %s %s.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)]
