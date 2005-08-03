@@ -280,11 +280,6 @@ class Database(object):
                     return 'null'
                 else:
                     return node.get_ref()
-
-                # XXX ??? dont understand rxe ???
-                #XXX related to llvm2/test/test_genllvm/test_dict_creation
-                #XXX "v962 = same_as((<* None>))"
-                #XXX this <* None> gets propagated to the next block and fails at the phi node!
         else:
             assert isinstance(arg, Variable)
             return "%" + str(arg)
