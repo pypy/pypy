@@ -80,6 +80,8 @@ from pypy.translator.pickle.main import load, save
 # catch TyperError to allow for post-mortem dump
 from pypy.rpython.error import TyperError
 
+from pypy.translator.goal import query
+
 # XXX this tries to make compiling faster
 from pypy.translator.tool import cbuild
 cbuild.enable_fast_compilation()
@@ -107,6 +109,9 @@ def analyse(target):
         print 'Annotating...'
         a = t.annotate(inputtypes, policy=PyPyAnnotatorPolicy())
         sanity_check_exceptblocks(t)
+        lost = query.sanity_check_methods(t)
+        assert not lost, "lost methods, something gone wrong with the annotation of method defs"
+        print "*** No lost method defs."
         worstblocks_topten(a, 3)
         find_someobjects(t)
     if a: #and not options['-no-s']:

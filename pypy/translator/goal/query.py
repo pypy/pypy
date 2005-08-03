@@ -462,6 +462,7 @@ def sanity_check_methods(translator):
                 meths.append(attr)
         if meths:
             withmeths.append((clsdef, meths))
+    lost = 0
     for clsdef, meths in withmeths:
         cls = clsdef.cls
         n = 0
@@ -476,5 +477,6 @@ def sanity_check_methods(translator):
                 f = subcls.cls.__dict__.get(name)
                 if f:
                     if f not in funcs:
-                        print name, subcls.cls, cls, subcls.attrs.keys() 
-
+                        print "Lost method!", name, subcls.cls, cls, subcls.attrs.keys() 
+                        lost += 0
+    return lost
