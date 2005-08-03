@@ -18,18 +18,31 @@ class StructTypeNode(LLVMNode):
         
     def __str__(self):
         return "<StructTypeNode %r>" %(self.ref,)
+
+    def _fields(self):
+        return [getattr(self.struct, name) 
+                for name in self.struct._names_without_voids()]
     
     def setup(self):
         # Recurse
-        for field in self.struct._flds.values():
+        for field in self._fields():
             self.db.prepare_repr_arg_type(field)
 
+    def is_atomic(self):
+        for f in self._fields():
+            if isinstance(f, lltype.Ptr):
+                return False
+
+            if not isinstance(f, lltype.Primitive):
+                # XXX Recurse
+                return False
+
+        return True
     # ______________________________________________________________________
     # main entry points from genllvm 
 
     def writedatatypedecl(self, codewriter):
-        fields = [getattr(self.struct, name)
-                  for name in self.struct._names_without_voids()] 
+        fields = self._fields()
         codewriter.structdef(self.ref,
                              self.db.repr_arg_type_multi(fields))
 
@@ -52,8 +65,6 @@ class StructVarsizeTypeNode(StructTypeNode):
         codewriter.declare(self.constructor_decl)
 
     def writeimpl(self, codewriter):
-        from pypy.translator.llvm2.atomic import is_atomic
-
         log.writeimpl(self.ref)
 
         # build up a list of indices to get to the last 
@@ -70,7 +81,8 @@ class StructVarsizeTypeNode(StructTypeNode):
         # XXX write type info as a comment 
         varsize.write_constructor(codewriter, 
             self.ref, self.constructor_decl, arraytype, 
-            indices_to_array)
+            indices_to_array,
+            atomicmalloc=self.is_atomic())
 
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain

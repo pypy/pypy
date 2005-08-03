@@ -32,6 +32,15 @@ class ArrayTypeNode(LLVMNode):
     def setup(self):
         self.db.prepare_repr_arg_type(self.arraytype)
 
+    def is_atomic(self):
+        if isinstance(self.arraytype, lltype.Primitive):
+            return True
+        elif isinstance(self.arraytype, lltype.Ptr):
+            return False
+        else:
+            # XXX Recurse...
+            return False
+
     # ______________________________________________________________________
     # entry points from genllvm
     #
@@ -47,7 +56,8 @@ class ArrayTypeNode(LLVMNode):
         fromtype = self.db.repr_arg_type(self.arraytype) 
         varsize.write_constructor(codewriter, self.ref, 
                                   self.constructor_decl,
-                                  fromtype)
+                                  fromtype,
+                                  atomicmalloc=self.is_atomic())
 
 class VoidArrayTypeNode(LLVMNode):
 
@@ -181,5 +191,4 @@ class VoidArrayNode(ConstantLLVMNode):
 
     def constantvalue(self):
         return "{ int } {int %s}" % len(self.value.items)
-    
 

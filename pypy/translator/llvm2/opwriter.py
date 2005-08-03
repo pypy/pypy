@@ -1,7 +1,6 @@
 import py
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
-from pypy.translator.llvm2.atomic import is_atomic
 from pypy.translator.llvm2.log import log 
 log = log.opwriter
 
@@ -310,7 +309,7 @@ class OpWriter(object):
         #XXX unclean
         node  = self.db.obj2node[arg.value]
         type_ = node.ref
-        self.codewriter.malloc(targetvar, type_, atomic=is_atomic(node)) 
+        self.codewriter.malloc(targetvar, type_, atomic=node.is_atomic())
 
     def malloc_varsize(self, op):
         targetvar = self.db.repr_arg(op.result)
@@ -325,7 +324,7 @@ class OpWriter(object):
         from pypy.translator.llvm2.arraynode import VoidArrayTypeNode
         if isinstance(node, VoidArrayTypeNode):
             type_ = node.ref
-            self.codewriter.malloc(targetvar, type_, atomic=is_atomic(node)) 
+            self.codewriter.malloc(targetvar, type_, atomic=True) 
             return
         
         struct_type = node.ref
