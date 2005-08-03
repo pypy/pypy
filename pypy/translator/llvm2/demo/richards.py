@@ -409,7 +409,7 @@ def entry_point():
     return result, startTime, endTime
 
 def main():
-    os.write(1, "Richards benchmark (Python) starting... \n")
+    os.write(1, "Richards benchmark starting... \n")
     result, startTime, endTime = entry_point()
     if not result:
         os.write(1, "Incorrect results!\n")
@@ -421,5 +421,6 @@ def main():
     return 0
 
 if __name__ == "__main__":
+    import autopath
     from pypy.translator.llvm2.demo.run import run
     run(main, "richards")

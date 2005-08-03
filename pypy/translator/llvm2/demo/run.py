@@ -18,17 +18,9 @@ def c():
     f()
 
 def l(name):
-    compile_function(entry_point, [])
-
-    # generate runnable bytecode with the following command
-    print 'Generating standalone LLVM bytecode:'
-    cmd = "llvmc -O5 -Tasm=-enable-correct-eh-support -v -L /usr/lib/ -lm -lgc /tmp/usession-current/main_optimized.bc -o %s" % name
-    print cmd
-    os.system(cmd)
-
-    # run with the following command
-    print 'Running standalone LLVM bytecode:'
-    cmd = "./%s" % name
+    compile_function(entry_point, [], exe_name=name)
+    print 'Running standalone (llvm-based) executable:'
+    cmd = "/tmp/usession-current/%s" % name
     print cmd
     os.system(cmd)
 

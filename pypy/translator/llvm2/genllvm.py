@@ -160,7 +160,7 @@ class GenLLVM(object):
         self.content = str(codewriter)
         return self.content
 
-    def create_module(self):
+    def create_module(self, exe_name=None):
         # hack to prevent running the same function twice in a test
         func = self.entrypoint
         if func.func_name in function_count:
@@ -181,16 +181,15 @@ class GenLLVM(object):
         pyxsource = llvmsource.new(basename=llvmsource.purebasename+'_wrapper'+postfix+'.pyx')
         write_pyx_wrapper(self.entrynode, pyxsource)    
 
-        return build_llvm_module.make_module_from_llvm(llvmsource, pyxsource)
+        return build_llvm_module.make_module_from_llvm(llvmsource, pyxsource, exe_name=exe_name)
 
     def _debug_prototype(self, codewriter):
         codewriter.append("declare int %printf(sbyte*, ...)")
 
-        
-def genllvm(translator, embedexterns=True):
+def genllvm(translator, embedexterns=True, exe_name=None):
     gen = GenLLVM(translator, embedexterns=embedexterns)
     log.genllvm(gen.compile())
-    return gen.create_module()
+    return gen.create_module(exe_name)
 
 def llvm_is_on_path():
     try:
@@ -199,19 +198,19 @@ def llvm_is_on_path():
         return False 
     return True
 
-def compile_module(function, annotate, view=False, embedexterns=True):
+def compile_module(function, annotate, view=False, embedexterns=True, exe_name=None):
     t = Translator(function)
     a = t.annotate(annotate)
     t.specialize()
     if view:
         t.view()
-    return genllvm(t, embedexterns=embedexterns)
+    return genllvm(t, embedexterns=embedexterns, exe_name=exe_name)
 
-def compile_function(function, annotate, view=False, embedexterns=True):
-    mod = compile_module(function, annotate, view, embedexterns=embedexterns)
+def compile_function(function, annotate, view=False, embedexterns=True, exe_name=None):
+    mod = compile_module(function, annotate, view, embedexterns=embedexterns, exe_name=exe_name)
     return getattr(mod, function.func_name + "_wrapper")
 
-def compile_module_function(function, annotate, view=False, embedexterns=True):
-    mod = compile_module(function, annotate, view, embedexterns=embedexterns)
+def compile_module_function(function, annotate, view=False, embedexterns=True, exe_name=None):
+    mod = compile_module(function, annotate, view, embedexterns=embedexterns, exe_name=exe_name)
     f = getattr(mod, function.func_name + "_wrapper")
     return mod, f

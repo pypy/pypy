@@ -18,7 +18,7 @@ class CompileError(exceptions.Exception):
 
 SOURCES = "time.ii ".split()
 
-EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support"
+EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support --regalloc iterativescan"
 
 OPTIMIZATION_SWITCHES = (" ".join([
 
@@ -155,7 +155,7 @@ def compile_module(module, source_files, object_files, library_files):
     log.build(cmd)
     cmdexec(cmd)
 
-def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
+def make_module_from_llvm(llvmfile, pyxfile, optimize=True, exe_name=None):
     include_dir = py.magic.autopath().dirpath()
     dirpath = llvmfile.dirpath()
     lastdir = path.local()
@@ -166,17 +166,22 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
     object_files = []
     library_files = []
     if use_boehm_gc:
+        gc_libs = '-lgc -lpthread'
         library_files.append('gc')
+    else:
+        gc_libs = ''
     
     if sys.maxint == 2147483647:        #32 bit platform
         if optimize:
             cmds = ["llvm-as %s.ll -f -o %s.bc" % (b, b),
                     "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES, b, b),
-                    "llc --regalloc iterativescan %s %s_optimized.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)]
+                    "llc %s %s_optimized.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)]
         else:
             cmds = ["llvm-as %s.ll -f -o %s.bc" % (b, b),
                     "llc %s %s.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)]
         cmds.append("as %s.s -o %s.o" % (b, b))
+        if exe_name:
+            cmds.append("gcc %s.o -static %s -lm -o %s" % (b, gc_libs, exe_name))
         object_files.append("%s.o" % b)
     else:       #assume 64 bit platform (x86-64?)
         #this special case for x86-64 (called ia64 in llvm) can go as soon as llc supports ia64 assembly output!
