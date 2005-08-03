@@ -53,9 +53,8 @@ class StdTypeModel:
         from pypy.objspace.std import dictproxyobject
         from pypy.objspace.std import fake
         import pypy.objspace.std.default # register a few catch-all multimethods
-        # XXX the following line causes 5 RTyper errors
-        #     related to the marshal multimethod
-        #import pypy.objspace.std.marshal_impl # install marshal multimethods
+
+        import pypy.objspace.std.marshal_impl # install marshal multimethods
 
         # the set of implementation types
         self.typeorder = {
