@@ -259,11 +259,11 @@ class SyntaxError(StandardError):
                 self.filename = args[1][0]
             else:
                 raise TypeError('argument 1 must be str, not %s'%type(args[1][0]))
-            if type(args[1][1]) == int:
+            if args[1][1] is None or type(args[1][1]) == int:
                 self.lineno = args[1][1]
             else:
                 raise TypeError('argument 2 must be str, not %s'%type(args[1][1]))
-            if type(args[1][2]) == int:
+            if args[1][2] is None or type(args[1][2]) == int:
                 self.offset = args[1][2]
             else:
                 raise TypeError('argument 3 must be str, not %s'%type(args[1][2]))
