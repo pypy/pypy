@@ -276,6 +276,41 @@ def Xtest_float2int():
     f = compile_function(wrapper, [], view=True)
     assert f()
 
+def test_int_overflow():
+    py.test.skip("int_add_ovf operation missing (raises)")
+    fn = compile_function(snippet.add_func, [int])
+    raises(OverflowError, fn, sys.maxint)
+
+def test_int_div_ovf_zer():
+    py.test.skip("int_floordiv_ovf_zer operation missing (raises)")
+    fn = compile_function(snippet.div_func, [int])
+    raises(OverflowError, fn, -1)
+    raises(ZeroDivisionError, fn, 0)
+
+def test_int_mod_ovf_zer():
+    py.test.skip("int_mod_ovf_zer operation missing (raises)")
+    fn = compile_function(snippet.mod_func, [int])
+    raises(OverflowError, fn, -1)
+    raises(ZeroDivisionError, fn, 0)
+
+def test_int_rshift_val():
+    py.test.skip("int_rshift_val operation missing (raises)")
+    fn = compile_function(snippet.rshift_func, [int])
+    raises(ValueError, fn, -1)
+
+def test_int_lshift_ovf_val():
+    py.test.skip("int_lshift_ovf_val operation missing (raises)")
+    fn = compile_function(snippet.lshift_func, [int])
+    raises(ValueError, fn, -1)
+
+def test_int_unary_ovf():
+    py.test.skip("int_neg_ovf operation missing (raises)")
+    fn = compile_function(snippet.unary_func, [int])
+    for i in range(-3,3):
+        assert fn(i) == (-(i), abs(i-1))
+    raises (OverflowError, fn, -sys.maxint-1)
+    raises (OverflowError, fn, -sys.maxint)
+
 def test_uint_arith():
     py.test.skip("uint_floordiv_zer operation missing (raises)")
     def fn(i):
