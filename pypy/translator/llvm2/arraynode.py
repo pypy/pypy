@@ -118,18 +118,20 @@ class ArrayNode(ConstantLLVMNode):
 
         p, c = lltype.parentlink(self.value)
         if p is not None:
-            assert False, "XXX TODO - but needed by rtyper"
+            assert False, "XXX TODO - but NOT needed by rtyper"
         return ref
 
     def get_pbcref(self, toptr):
         ref = self.ref
         p, c = lltype.parentlink(self.value)
         if p is not None:
-            assert False, "XXX TODO - but needed by rtyper"
+            assert False, "XXX TODO - but NOT needed by rtyper"
 
         fromptr = "%s*" % self.get_typerepr()
-        refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
-        ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
+        # XXX old version
+        #refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
+        #ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
+        ref = "cast(%s %s to %s)" % (fromptr, ref, toptr)
         return ref
 
     def get_childref(self, index):
@@ -171,7 +173,7 @@ class StrArrayNode(ArrayNode):
         item_length = len(items)
         if item_length == 0 or items[-1] != chr(0):
             items = items + [chr(0)]
-        l = item_length + 1
+            item_length += 1
         s = []
         for c in items:
             if ord(c) in StrArrayNode.printables:
@@ -180,7 +182,7 @@ class StrArrayNode(ArrayNode):
                 s.append("\\%02x" % ord(c))
                 
         r = 'c"%s"' % "".join(s)
-        return l, r
+        return item_length, r
 
 class VoidArrayNode(ConstantLLVMNode):
 

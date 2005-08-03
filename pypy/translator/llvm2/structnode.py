@@ -218,7 +218,7 @@ class StructVarsizeNode(StructNode):
         ref = self.ref
         p, c = lltype.parentlink(self.value)
         if p is not None:
-            assert False, "XXX TODO"
+            assert False, "XXX TODO - but NOT needed by rtyper"
 
         fromptr = "%s*" % self.get_typerepr()
         refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)

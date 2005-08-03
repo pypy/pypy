@@ -139,7 +139,7 @@ class Database(object):
                 node = StructNode(self, value)
                     
         elif isinstance(type_, lltype.Array):
-            if type_ is STR.chars:
+            if type_.OF is lltype.Char:
                 node = StrArrayNode(self, value)
             elif type_.OF is lltype.Void:
                 node = VoidArrayNode(self, value)
