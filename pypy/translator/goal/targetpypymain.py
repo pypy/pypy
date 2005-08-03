@@ -57,6 +57,7 @@ def target():
     space = StdObjSpace(nofaking=True,
                         compiler="pyparseapp",
                         translating=True,
+                        #usemodules=['marhsal', '_sre'],
                         geninterp=False)
 
     # manually imports app_main.py

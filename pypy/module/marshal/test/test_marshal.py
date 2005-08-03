@@ -1,4 +1,8 @@
+
 class AppTestMarshal:
+    def setup_class(cls): 
+        from pypy.objspace.std import StdObjSpace 
+        cls.space = StdObjSpace(usemodules=["marshal"])
 
     def test_None(self):
         import sys

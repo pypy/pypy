@@ -160,19 +160,26 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        l = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs', 'marshal',
-             '_sre']
+        modules = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs']
 
         if self.options.nofaking:
-            l.append('posix')
-            l.append('math')
-            l.append('time')
+            modules.append('posix')
+            modules.append('math')
+            modules.append('time')
 
+        # there also are the '_sre' and 'marshal' modules 
+        # but those currently cause translation problems.  You can
+        # enable them when running PyPy on top of CPython 
+        # by e.g. specifying --usemodules=_sre,marshal 
         for name in self.options.usemodules: 
-            if name not in l: 
-                l.append(name) 
+            if name not in modules: 
+                modules.append(name) 
 
-        builtinmodule_list = [(x, None) for x in l]
+        # the returned builtinmodule_list contains tuples of
+        # names because some modules have a filesystem name 
+        # that differs from the app-visible name (because you 
+        # can specify implementation variants)
+        builtinmodule_list = [(x, None) for x in modules]
         if self.options.parser == "recparser":
             builtinmodule_list.append(('parser', 'recparser'))
             builtinmodule_list.append(('symbol', None))
