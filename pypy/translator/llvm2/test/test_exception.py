@@ -204,7 +204,7 @@ def test_try_raise_choose():
         assert f(i) == i
 
 def test_raise_outside_testfn():
-    py.test.skip("dont know if this is valid or not")
+    py.test.skip("Test needs --nomagic!")    
     def raiser(n):
         if n < 0:
             raise ValueError("hello")
@@ -223,7 +223,7 @@ def test_raise_outside_testfn():
             return 2
         return 0
     
-    f = compile_function(testfn, [int], view=True)
+    f = compile_function(testfn, [int])
     assert f(1) == testfn(1)
     assert f(-1) == testfn(-1)
 
