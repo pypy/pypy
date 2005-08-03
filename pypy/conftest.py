@@ -16,6 +16,9 @@ Option = py.test.Config.Option
 #    group = "pypy options" 
 #    optionlist = 
 
+def usemodules_callback(option, opt, value, parser):
+    parser.values.usemodules.append(value)
+
 option = py.test.Config.addoptions("pypy options", 
         Option('-O', '--objspace', action="store", default=None, 
                type="string", dest="objspace", 
@@ -30,6 +33,9 @@ option = py.test.Config.addoptions("pypy options",
                help="avoid faking of modules and objects completely."),
         Option('--allpypy', action="store_true",dest="allpypy", default=False, 
                help="run everything possible on top of PyPy."),
+        Option('--usemodules', action="callback", type="string", metavar="NAME",
+               callback=usemodules_callback, default=[],
+               help="(mixed) modules to use."),
     )
 
 def getobjspace(name=None, _spacecache={}): 
@@ -45,6 +51,7 @@ def getobjspace(name=None, _spacecache={}):
             space = Space(uselibfile=option.uselibfile, 
                           nofaking=option.nofaking, 
                           oldstyle=option.oldstyle,
+                          usemodules=option.usemodules
                           )
         except KeyboardInterrupt: 
             raise 

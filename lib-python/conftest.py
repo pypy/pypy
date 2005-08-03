@@ -355,10 +355,7 @@ testmap = [
     RegrTest('test_al.py', enabled=False, dumbtest=1),
     RegrTest('test_anydbm.py', enabled=True, core=True),
     RegrTest('test_applesingle.py', enabled=False),
-    RegrTest('test_array.py', enabled=False),
-       # c-extension 
-       #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
-
+    RegrTest('test_array.py', enabled=True),
     RegrTest('test_asynchat.py', enabled=False),
     RegrTest('test_atexit.py', enabled=False, dumbtest=1, core=True),
     RegrTest('test_audioop.py', enabled=False, dumbtest=1),
@@ -850,7 +847,9 @@ class ReallyRunFileExternal(py.test.Item):
         if regrtest.oldstyle: 
             pypy_options.append('--oldstyle') 
         if regrtest.uselibfile: 
-            pypy_options.append('--file') 
+            pypy_options.append('--file')
+        pypy.options.extend(
+            ['--usemodules=%s' % mod for mod in pypy_option.usemodules])
         sopt = " ".join(pypy_options) 
 
         if regrtest.getoutputpath(): 
