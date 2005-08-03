@@ -211,7 +211,8 @@ def test_unichr_unichr():
 
 # floats 
 def test_float_operations(): 
-    py.test.skip("llvm rem operation doesnt seem to work...")    
+    py.test.skip("llvm rem operation doesnt seem to work...fixed in llvm cvs")    
+    #see: http://llvm.cs.uiuc.edu/bugs/show_bug.cgi?id=611
     def func(x, y): 
         z = x + y / 2.1 * x 
         z = z % 60.0
