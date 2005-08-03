@@ -25,6 +25,7 @@ import time
 import os, time
 
 # XXX the Translator needs the plain Python version of random.py:
+import autopath
 from pypy.lib import random
 
 PRINT_IT = False
@@ -220,13 +221,13 @@ def test_demo():
 
     print 'Running...'
     T = time.time()
-    for i in range(10):
+    for i in range(30):
         f()
     t1 = time.time() - T
     print "that took", t1
 
     T = time.time()
-    for i in range(10):
+    for i in range(30):
         demo()
     t2 = time.time() - T
     print "compared to", t2
@@ -267,5 +268,17 @@ if __name__ == "__main__":
     if compile_llvm:
         compile_function(main, [])    
 
+        # generate runnable bytecode with the following command
+        os.write(1, 'Generating standalone LLVM bytecode:\n')
+        cmd = "llvmc -O5 -Tasm=-enable-correct-eh-support -v -L /usr/lib/ -lm -lgc /tmp/usession-current/main_optimized.bc -o bpnn"
+        os.write(1, cmd + '\n')
+        os.system(cmd)
+
         # run with the following command
-        "llvmc -Tasm=-enable-correct-eh-support -v -L /usr/lib/ -lm -lgc main_optimized.bc -o go"
+        os.write(1, 'Running standalone LLVM bytecode:\n')
+        cmd = "./bpnn"
+        os.write(1, cmd + '\n')
+        os.system(cmd)
+
+    os.write(1, 'Running on top of CPython:\n')
+    main()
