@@ -177,6 +177,7 @@ class ClassDef:
     def add_source_for_attribute(self, attr, source, clsdef=None):
         """Adds information about a constant source for an attribute.
         """
+        sources = self.attr_sources.setdefault(attr, {})
         for cdef in self.getmro():
             if attr in cdef.attrs:
                 # the Attribute() exists already for this class (or a parent)
@@ -191,7 +192,6 @@ class ClassDef:
                 return
         else:
             # remember the source in self.attr_sources
-            sources = self.attr_sources.setdefault(attr, {})
             sources[source] = clsdef
             # register the source in any Attribute found in subclasses,
             # to restore invariant (III)
@@ -327,6 +327,7 @@ class ClassDef:
         uplookup = None
         upfunc = None
         meth = False
+        check_for_missing_attrs = False
         for func, value in pbc.prebuiltinstances.items():
             if isclassdef(value):
                 meth = True
@@ -342,14 +343,27 @@ class ClassDef:
                 else:
                     continue # not matching
             d[func] = value
-        if uplookup is not None:
+        if uplookup is not None:            
+            # hack^2, in this case the classdef for uplookup could be the result
+            # of the union of subclass sources that share the same implementation function
+            # so there could be still super and subclass implementations added after the fact
+            # that could be going undetected. We use uplookup.attr_sources[name] to flag
+            # whether a super implementation was considered and as such not undetected
+            if name is not None and not name in uplookup.attr_sources:
+                uplookup.attr_sources.setdefault(name, {})
+                check_for_missing_attrs = True
+
             # when the method is found in a parent class, it get bound to the
             # 'self' subclass.  This allows the 'func: classdef' entry of the
             # PBC dictionary to track more precisely with which 'self' the
             # method is called.
             d[upfunc] = self
         elif meth and name is not None:
+            check_for_missing_attrs = True
+
+        if check_for_missing_attrs:
             self.check_missing_attribute_update(name)
+
         if d:
             return SomePBC(d)
         else:
