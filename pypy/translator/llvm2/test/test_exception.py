@@ -198,7 +198,26 @@ def test_catches():
     assert f(6) == fn(6)
     assert f(13) == fn(13)
 
-def test_try_raise_choose():
-    f = compile_function(try_raise_choose, [int])
-    for i in [-1, 0, 1, 2]:
-        assert f(i) == i
+def test_raise_outside_testfn():
+    def raiser(n):
+        if n < 0:
+            raise ValueError("hello")
+        else:
+            raise MyException("world")
+
+    def intermediate(n):
+        raiser(n)
+        
+    def testfn(n):
+        try:
+            intermediate(n)
+        except ValueError:
+            return 1
+        except Exception:
+            return 2
+        return 0
+    
+    f = compile_function(testfn, [int], view=True)
+    assert f(1) == testfn(1)
+    assert f(-1) == testfn(-1)
+
