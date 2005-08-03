@@ -590,7 +590,7 @@ def %(opname)s_ovr__Int_Int(space, w_int1, w_int2):
     return %(opname)s__Long_Long(space, w_long1, w_long2)
 """ % {'opname': opname}, '', 'exec')
 
-    getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int_Int' %opname], W_IntObject, W_IntObject, order=1)
+    getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int_Int' % opname], W_IntObject, W_IntObject, order=1)
 
 # unary ops
 for opname in ['neg', 'abs']:
@@ -600,7 +600,7 @@ def %(opname)s_ovr__Int(space, w_int1):
     return %(opname)s__Long(space, w_long1)
 """ % {'opname': opname}
 
-    getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int' %opname], W_IntObject, order=1)
+    getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int' % opname], W_IntObject, order=1)
 
 # pow
 def pow_ovr__Int_Int_None(space, w_int1, w_int2, w_none3):
@@ -1597,7 +1597,7 @@ def _AsLong(v):
     # than the sign bit).
     if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
             raise OverflowError
-    return intmask(x*sign)
+    return intmask(x * sign)
 
 def _hash(v):
     # This is designed so that Python ints and longs with the
