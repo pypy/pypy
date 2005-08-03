@@ -31,7 +31,7 @@ def run(ep, name="go"):
     run_all = True
     if len(sys.argv) > 1:
         if sys.argv[1] == "p":
-            c()
+            p()
             run_all = False
         elif sys.argv[1] == "c":
             c()
