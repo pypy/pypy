@@ -441,3 +441,40 @@ def tryout(f, *args):
     except:
         import traceback
         traceback.print_exc()
+
+def sanity_check_methods(translator):
+    from pypy.annotation.classdef import ClassDef
+    def ismeth(s_val):
+        if not isinstance(s_val, annmodel.SomePBC):
+            return False
+        s_pbc = s_val
+        c = 0
+        for f, clsdef in s_pbc.prebuiltinstances.iteritems():
+            if callable(f) and isinstance(clsdef, ClassDef):
+                c += 1
+        return c == len(s_pbc.prebuiltinstances)
+    usercls = translator.annotator.getuserclasses()
+    withmeths = []
+    for clsdef in usercls.itervalues():
+        meths = []
+        for attr in clsdef.attrs.values():
+            if ismeth(attr.s_value):
+                meths.append(attr)
+        if meths:
+            withmeths.append((clsdef, meths))
+    for clsdef, meths in withmeths:
+        cls = clsdef.cls
+        n = 0
+        subclasses = []
+        for clsdef1 in usercls.itervalues():
+            if issubclass(clsdef1.cls, cls):
+                subclasses.append(clsdef1)
+        for meth in meths:
+            name = meth.name
+            funcs = dict.fromkeys(meth.s_value.prebuiltinstances.iterkeys())
+            for subcls in subclasses:
+                f = subcls.cls.__dict__.get(name)
+                if f:
+                    if f not in funcs:
+                        print name, subcls.cls, cls, subcls.attrs.keys() 
+
