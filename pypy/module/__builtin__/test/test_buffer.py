@@ -19,3 +19,9 @@ class AppTestBuffer:
                 assert b[0:8] == "\x00\x00\x00a\x00\x00\x00b"
             else:
                 assert b[0:8] == "a\x00\x00\x00b\x00\x00\x00"
+
+    def test_array_buffer(self):
+        import array
+        b = buffer(array.array("B", [1, 2, 3]))
+        assert len(b) == 3
+        assert b[0:3] == "\x01\x02\x03"

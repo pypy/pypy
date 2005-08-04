@@ -163,7 +163,8 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        modules = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs']
+        modules = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs',
+            'array']
 
         if self.options.nofaking:
             modules.append('posix')

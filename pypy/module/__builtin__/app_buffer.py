@@ -1,5 +1,7 @@
+# NOT_RPYTHON (because of array import)
 # Might probably be deprecated in Python at some point.
 import sys
+from array import array
 from struct import pack, unpack
 
 class buffer(object):
@@ -25,8 +27,9 @@ extend to the end of the target object (or with the specified size).
             object = str_object
         elif isinstance(object, buffer):
             object = object.buf
+        elif isinstance(object, array):
+            object = object.tostring()
         else:
-            # XXX check for more types
             raise TypeError, "buffer object expected"
         if offset < 0:
             raise ValueError, "offset must be zero or positive"
