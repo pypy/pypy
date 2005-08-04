@@ -15,9 +15,15 @@ test_iterlen (ale will work on this)
 test_compiler 
     fails because of "maximum recursion depth exceeded"
 
-test_decorator 
+test_decorator
     fails because globals and locals are None in a nested function ?
 
-test_new  (FIXED? by mwh patch to stablecompiler and _stablecompiler)
-    fails because our compiler (and also the 'compiler' package) produce
-    a STORE_NAME instead of a STORE_GLOBAL for the input "global a; a=5"
+test_new FIXED? stil problems with insufficient arg checking
+
+test_builtin
+    - our compilers need to recognize BOM markers
+    - eval etc  should accept dict subclasses
+    - hex/oct should output '-' for negative numbers
+    - unicode("\u0663", 'raw-unicode-escape') does not work properly
+    - disallow interning of string subclasses
+    - __future__ import division problems
