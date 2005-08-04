@@ -104,7 +104,17 @@ class ResultFromMime(Result):
                 assert submsg.get_main_type() == 'text'
                 fn = submsg.get_filename() 
                 assert fn
-                self.addnamedtext(fn, unicode(submsg.get_payload(), 'utf8'))
+                # XXX we need to deal better with encodings to
+                #     begin with
+                content = submsg.get_payload()
+                for candidate in 'utf8', 'latin1': 
+                    try:
+                        text = unicode(content, candidate)
+                    except UnicodeDecodeError: 
+                        continue
+                else:
+                    unicode(content, candidate) 
+                self.addnamedtext(fn, text) 
 
     def ismodifiedtest(self): 
         # XXX we need proper cross-platform paths! 
@@ -113,7 +123,7 @@ class ResultFromMime(Result):
     def __repr__(self): 
         return '<%s (%s) %r rev=%s>' %(self.__class__.__name__, 
                                   self['outcome'], 
-                                  self.fspath.purebasename, 
+                                  self.fspath, 
                                   self['pypy-revision'])
 
 def stdinit(result): 
