@@ -17,3 +17,7 @@ test_compiler
 
 test_decorator 
     fails because globals and locals are None in a nested function ?
+
+test_new
+    fails because our compiler (and also the 'compiler' package) produce
+    a STORE_NAME instead of a STORE_GLOBAL for the input "global a; a=5"
