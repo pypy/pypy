@@ -225,16 +225,6 @@ def test_array_with_non_container_elements():
     s = malloc(S)
     py.test.raises(TypeError, "a[0] = s")
 
-def DONOTtest_immortal_parent():
-    S1 = GcStruct('substruct', ('x', Signed))
-    S  = GcStruct('parentstruct', ('s1', S1))
-    p = malloc(S, immortal=True)
-    p1 = p.s1
-    p1.x = 5
-    del p
-    p = cast_pointer(Ptr(S), p1)
-    assert p.s1.x == 5
-
 def DONOTtest_getRuntimeTypeInfo():
     S = GcStruct('s', ('x', Signed))
     py.test.raises(ValueError, "getRuntimeTypeInfo(S)")

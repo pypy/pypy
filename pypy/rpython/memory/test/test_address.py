@@ -125,3 +125,16 @@ class TestAddressSimulation(object):
         addr.char[10] = "c"
         assert (addr + 10).char[0] == "c"
 
+    def test_attached_pyobjects(self):
+        def f(x):
+            return x + 1
+        def g(x):
+            return x - 1
+        addr = raw_malloc(100)
+        addr.attached[0] = f
+        addr.attached[1] = g
+        assert addr.attached[0] == f
+        assert addr.attached[1] == g
+        assert addr.attached[0](1) == 2
+        assert addr.attached[1](0) == -1
+        
