@@ -2,7 +2,6 @@ import autopath
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.interpreter.error import OperationError
 
-
 class TestW_IterObject:
 
     def body3(self, w_iter):
@@ -59,3 +58,96 @@ class AppTestW_IterObjectApp:
         raises(TypeError,
                           iter,
                           C())
+
+class AppTest_IterObject:
+    
+    def check_iter(self,iterable):
+        it = iter(iterable)
+        for i in reversed(range(len(it))):
+            assert len(it) == i+1
+            x = it.next()
+            print x
+        raises(StopIteration, it.next)
+        assert len(it) == 0
+    
+    def test_iter_len_tuple(self):
+        iterable = (1,2,3,4)
+        it = iter(iterable)
+        for i in reversed(range(len(it))):
+            assert len(it) == i+1
+            x = it.next()
+            print x
+        raises(StopIteration, it.next)
+        assert len(it) == 0
+
+    def test_iter_len_dict(self):
+        iterable = {1:1,2:2,3:3,4:4}
+        it = iter(iterable)
+        length = len(it)
+        for i in reversed(range(length)):
+            assert len(it) == i+1
+            x = it.next()
+        raises(StopIteration, it.next)
+        assert len(it) == 0
+    
+    def test_iter_len_list(self):
+        iterable = [1,2,3,4]
+        it = iter(iterable)
+        for i in reversed(range(len(it))):
+            assert len(it) == i+1
+            x = it.next()
+            print x
+        raises(StopIteration, it.next)
+        assert len(it) == 0
+    
+    def test_iter_len_str(self):
+        iterable = 'Hello World'
+        it = iter(iterable)
+        for i in reversed(range(len(it))):
+            assert len(it) == i+1
+            x = it.next()
+            print x
+        raises(StopIteration, it.next)
+        assert len(it) == 0
+
+    def test_iter_len_set(self):
+        iterable = set((1,2,3,4))
+        it = iter(iterable)
+        for i in reversed(range(len(it))):
+            assert len(it) == i+1
+            x = it.next()
+            print x
+        raises(StopIteration, it.next)
+        assert len(it) == 0
+        
+##    def test_iter_len_deque(self):
+##        from collections import deque
+##
+##        iterable = deque((1,2,3,4))
+##        it = iter(iterable)
+##        for i in reversed(range(len(it))):
+##            assert len(it) == i+1
+##            x = it.next()
+##            print x
+##        raises(StopIteration, it.next)
+##        assert len(it) == 0
+##
+##    def test_iter_len_xrange(self):
+##        iterable = xrange(8)
+##        it = iter(iterable)
+##        for i in reversed(range(len(it))):
+##            assert len(it) == i+1
+##            x = it.next()
+##            print x
+##        raises(StopIteration, it.next)
+##        assert len(it) == 0
+##
+##    def test_iter_len_reversed(self):
+##        iterable = reversed((1,2,3,4))
+##        it = iter(iterable)
+##        for i in reversed(range(len(it))):
+##            assert len(it) == i+1
+##            x = it.next()
+##            print x
+##        raises(StopIteration, it.next)
+##        assert len(it) == 0
