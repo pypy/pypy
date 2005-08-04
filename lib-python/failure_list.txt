@@ -1,0 +1,19 @@
+test_pprint 
+    fails because  "dict.__repr__ is dict.__repr__" equals False
+
+test_import 
+    fails because os.open is case insensitive (at least on Mac os X)
+
+multiple tests fail because from __future__ import division does 
+not work (true division is never enabled)
+
+test_iterlen 
+
+    fails because len is not implemented for SeqIter (and
+    other structures like generators (reversed) )
+
+test_compiler 
+    fails because of "maximum recursion depth exceeded"
+
+test_decorator 
+    fails because globals and locals are None in a nested function ?
