@@ -5,7 +5,7 @@ from pypy.interpreter.pycompiler import CPythonCompiler
 from pypy.interpreter.pycompiler import PythonCompiler, PyPyCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache 
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, intmask
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
            'W_Root']
@@ -58,6 +58,9 @@ class W_Root:
 
     def setslotvalue(self, index, w_val):
         raise NotImplementedError
+
+    def identity_hash(self, space):
+        return space.wrap(intmask(hash(self))) #space.id(self)
 
 class BaseWrappable(W_Root):
     """A subclass of BaseWrappable is an internal, interpreter-level class

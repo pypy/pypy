@@ -53,7 +53,7 @@ def descr__new__(space, w_type, __args__):
     return w_obj
 
 def descr__hash__(space, w_obj):
-    return space.id(w_obj)
+    return w_obj.identity_hash(space)
 
 def descr__init__(space, w_obj, __args__):
     pass
