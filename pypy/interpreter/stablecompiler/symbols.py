@@ -2,7 +2,7 @@
 
 from pypy.interpreter.stablecompiler import ast
 from pypy.interpreter.stablecompiler.consts import SC_LOCAL, SC_GLOBAL, \
-    SC_FREE, SC_CELL, SC_UNKNOWN
+    SC_FREE, SC_CELL, SC_UNKNOWN, SC_REALLY_GLOBAL
 from pypy.interpreter.stablecompiler.misc import mangle
 import types
 
@@ -90,7 +90,7 @@ class Scope:
         The scope of a name could be LOCAL, GLOBAL, FREE, or CELL.
         """
         if self.globals.has_key(name):
-            return SC_GLOBAL
+            return SC_REALLY_GLOBAL
         if self.cells.has_key(name):
             return SC_CELL
         if self.defs.has_key(name):
@@ -155,7 +155,7 @@ class Scope:
                 if sc == SC_UNKNOWN or sc == SC_FREE \
                    or isinstance(self, ClassScope):
                     self.frees[name] = 1
-                elif sc == SC_GLOBAL:
+                elif sc == SC_GLOBAL or sc == SC_REALLY_GLOBAL:
                     child_globals.append(name)
                 elif isinstance(self, FunctionScope) and sc == SC_LOCAL:
                     self.cells[name] = 1

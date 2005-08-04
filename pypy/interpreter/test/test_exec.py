@@ -74,3 +74,10 @@ class AppTestExecStmt:
         def f():
             exec 'raise TypeError' in {}
         raises(TypeError,f)
+
+    def test_global_stmt(self):
+        g = {}
+        l = {}
+        exec "global a; a=5" in g, l
+        assert l == {}
+        assert g['a'] == 5
