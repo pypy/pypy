@@ -29,6 +29,6 @@ test_builtin
 
 
 test_tuple etc
-   do we want to support x is x*1 where is exactly a tuple?
+   do we want to support x is x*1 where x is exactly a tuple?
 
 test_new FIXED
