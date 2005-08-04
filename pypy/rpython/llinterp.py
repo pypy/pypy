@@ -4,7 +4,7 @@ from pypy.objspace.flow.model import Constant, Variable, last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
 import py
 from pypy.rpython.lltype import _ptr, Ptr, Void, typeOf, malloc, cast_pointer, PyObject, pyobjectptr
-from pypy.rpython.lltype import Array
+from pypy.rpython.lltype import Array, Struct
 from pypy.rpython.rmodel import getfunctionptr
 import math
 
@@ -296,6 +296,14 @@ class LLFrame(object):
     def op_ptr_iszero(self, ptr1):
         assert isinstance(ptr1, _ptr)
         return not bool(ptr1)
+
+    def op_cast_ptr_to_int(self, ptr1): # xxx should this logic migrate to lltype _ptr itself?
+        assert isinstance(ptr1, _ptr)
+        assert isinstance(typeOf(ptr1).TO, (Array, Struct))
+        obj = ptr1._obj
+        while obj._parentstructure():
+            obj = obj._parentstructure() 
+        return id(obj)
 
     def op_cast_int_to_float(self, i):
         assert type(i) is int

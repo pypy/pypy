@@ -458,6 +458,9 @@ class RPythonTyper:
 
     # __________ utilities __________
 
+    def needs_hash_support(self, cls):
+        return cls in self.annotator.bookkeeper.needs_hash_support
+
     def getfunctionptr(self, graphfunc):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype

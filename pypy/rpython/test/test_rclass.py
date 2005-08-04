@@ -1,7 +1,7 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.test.test_llinterp import interpret
-
+from pypy.rpython.rarithmetic import intmask
 
 class EmptyBase(object):
     pass
@@ -282,3 +282,21 @@ def test_ne():
     assert res == ~0x0100 & 0x3ff
     res = interpret(f, [3])
     assert res == ~0x0200 & 0x3ff
+
+def test_hash_preservation():
+    class C:
+        pass
+    class D(C):
+        pass
+    c = C()
+    d = D()
+    def f():
+        d2 = D()
+        x = hash(d2) == id(d2) # xxx check for this CPython peculiarity for now
+        return x, hash(c)+hash(d)
+
+    res = interpret(f, [])
+
+    assert res.item0 == True
+    assert res.item1 == intmask(hash(c)+hash(d))
+    

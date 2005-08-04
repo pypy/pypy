@@ -8,7 +8,7 @@ from pypy.rpython.lltype import Ptr, Struct, GcStruct, malloc
 from pypy.rpython.lltype import cast_pointer, castable, nullptr
 from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo, typeOf
 from pypy.rpython.lltype import Array, Char, Void, attachRuntimeTypeInfo
-from pypy.rpython.lltype import FuncType, Bool
+from pypy.rpython.lltype import FuncType, Bool, Signed
 
 #
 #  There is one "vtable" per user class, with the following structure:
@@ -377,6 +377,12 @@ class InstanceRepr(Repr):
                     fields[name] = mangled_name, r
                     llfields.append((mangled_name, r.lowleveltype))
             #
+            # hash() support
+            if self.rtyper.needs_hash_support(self.classdef.cls):
+                from pypy.rpython import rint
+                fields['_hash_cache_'] = 'hash_cache', rint.signed_repr
+                llfields.append(('hash_cache', Signed))
+
             self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef)
             self.rbase.setup()
             object_type = GcStruct(self.classdef.cls.__name__,
@@ -434,6 +440,8 @@ class InstanceRepr(Repr):
             for name, (mangled_name, r) in self.fields.items():
                 if r.lowleveltype == Void:
                     llattrvalue = None
+                elif name == '_hash_cache_': # hash() support
+                    llattrvalue = hash(value)
                 else:
                     try:
                         attrvalue = getattr(value, name)
@@ -519,6 +527,15 @@ class InstanceRepr(Repr):
     def rtype_type(self, hop):
         vinst, = hop.inputargs(self)
         return self.getfield(vinst, '__class__', hop.llops)
+
+    def rtype_hash(self, hop):
+        if self.classdef is None:
+            raise TyperError, "hash() not supported for this class"                        
+        if self.rtyper.needs_hash_support( self.classdef.cls):
+            vinst, = hop.inputargs(self)
+            return hop.gendirectcall(ll_inst_hash, vinst)
+        else:
+            return self.rbase.rtype_hash(hop)
 
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
@@ -634,3 +651,9 @@ def ll_isinstance(obj, cls):
 
 def ll_runtime_type_info(obj):
     return obj.typeptr.rtti
+
+def ll_inst_hash(ins):
+    cached = ins.hash_cache
+    if cached == 0:
+       cached = ins.hash_cache = id(ins)
+    return cached

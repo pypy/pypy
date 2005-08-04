@@ -81,7 +81,7 @@ class __extend__(SomeObject):
         return obj.is_true()
 
     def hash(obj):
-        return SomeInteger()
+        raise TypeError, "hash() is not generally supported"
 
     def str(obj):
         getbookkeeper().count('str', obj)
@@ -322,6 +322,9 @@ class __extend__(SomeString):
     def ord(str):
         return SomeInteger(nonneg=True)
 
+    def hash(str):
+        return SomeInteger()
+
     def method_split(str, patt): # XXX
         getbookkeeper().count("str_split", str, patt)
         return getbookkeeper().newlist(SomeString())
@@ -392,6 +395,10 @@ class __extend__(SomeInstance):
                 return
             # create or update the attribute in clsdef
             clsdef.generalize_attr(attr, s_value)
+
+    def hash(ins):
+        getbookkeeper().needs_hash_support[ins.classdef.cls] = True
+        return SomeInteger()
 
 
 class __extend__(SomeBuiltin):

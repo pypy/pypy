@@ -305,3 +305,24 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         for value in range(15):
             i = r_uint(value)
             assert f(i) == fn(i)
+
+    def test_hash_preservation(self):
+        class C:
+            pass
+        class D(C):
+            pass
+        c = C()
+        d = D()
+        def fn():
+            d2 = D()
+            x = hash(d2) == id(d2) # xxx check for this CPython peculiarity for now
+            return x, hash(c)+hash(d)
+        
+        f = self.getcompiled(fn)
+
+        res = f()
+
+        from pypy.rpython.rarithmetic import intmask
+        
+        assert res[0] == True
+        assert res[1] == intmask(hash(c)+hash(d))

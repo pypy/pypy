@@ -195,6 +195,8 @@ class Bookkeeper:
         
         self.pbc_call_sites = {}
 
+        self.needs_hash_support = {}
+
         self.memo_tables = []
 
         self.stats = Stats(self)
@@ -229,6 +231,12 @@ class Bookkeeper:
             pbc = self.annotator.binding(spaceop.args[0], extquery=True)
             self.consider_pbc_call(pbc, shape, spaceop)
         self.pbc_call_sites = {}
+
+        for cls in self.needs_hash_support.keys():
+            for cls2 in self.needs_hash_support:
+                if issubclass(cls, cls2) and cls is not cls2:
+                    del self.needs_hash_support[cls]
+                    break
 
     def getclassdef(self, cls):
         """Get the ClassDef associated with the given user cls."""
