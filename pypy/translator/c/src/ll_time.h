@@ -63,21 +63,22 @@ void LL_time_sleep(double secs)
 		return;
 	}
 	ul_millis = (unsigned long)millisecs;
-	if (ul_millis == 0)
+        /* XXX copy CPython to make this interruptible again */
+	/*if (ul_millis == 0)*/
 		Sleep(ul_millis);
-	else {
+	/*else {
 		DWORD rc;
 		ResetEvent(hInterruptEvent);
 		rc = WaitForSingleObject(hInterruptEvent, ul_millis);
 		if (rc == WAIT_OBJECT_0) {
-				/* Yield to make sure real Python signal
+				 * Yield to make sure real Python signal
 				 * handler called.
-				 */
+				 *
 			Sleep(1);
 			RaiseSimpleException(Exc_IOError, "interrupted");
 			return;
 		}
-	}
+	}*/
 #else
 	struct timeval t;
 	double frac;

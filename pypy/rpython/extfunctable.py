@@ -75,11 +75,8 @@ declare(os.getcwd   , str           , 'll_os/getcwd')
 declare(os.dup      , int           , 'll_os/dup')
 declare(os.lseek    , int           , 'll_os/lseek')
 declare(os.isatty   , bool          , 'll_os/isatty')
-try:
-    os.ftruncate # yes, this is a hack for windows, please make it better
-except AttributeError:
-    os.ftruncate = lambda f: None
-declare(os.ftruncate, noneannotation, 'll_os/ftruncate')
+if hasattr(os, 'ftruncate'):
+    declare(os.ftruncate, noneannotation, 'll_os/ftruncate')
 declare(os.fstat    , statannotation, 'll_os/fstat')
 declare(os.stat     , statannotation, 'll_os/stat')
 declare(os.strerror , str           , 'll_os/strerror')           

@@ -20,10 +20,13 @@ def isinf(x):
 
 def name_float(value):
     if isinf(value):
+        # the following seems to produce an inf both on gcc and MS compilers
+        # XXX but it depends on the size of the doubles
+        assert isinf(1E200*1E200)
         if value > 0:
-            return '1E9999999'
+            return '(1E200*1E200)'
         else:
-            return '-1E9999999'
+            return '(-1E200*1E200)'
     else:
         return repr(value)
 

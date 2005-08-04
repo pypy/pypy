@@ -164,6 +164,7 @@ long LL_os_isatty(long fd) {
     return (int)isatty((int)fd);
 }
 
+#ifdef HAVE_FTRUNCATE
 void LL_os_ftruncate(long fd, long length) { /*XXX add longfile support */
     int res;
     res = ftruncate((int)fd, (off_t)length);
@@ -171,6 +172,7 @@ void LL_os_ftruncate(long fd, long length) { /*XXX add longfile support */
 	RAISE_OSERROR(errno);
     }
 }
+#endif
 
 RPyString *LL_os_strerror(int errnum)
 {

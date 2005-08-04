@@ -2,12 +2,8 @@
 /************************************************************/
 /***  C header file for code produced by genc.py          ***/
 
-/* XXX for now we always include Python.h even to produce stand-alone
- * executables (which are *not* linked against CPython then),
- * to get the convenient macro definitions
- */
-#include "Python.h"
 #ifndef PYPY_STANDALONE
+#  include "Python.h"
 #  include "compile.h"
 #  include "frameobject.h"
 #  include "structmember.h"

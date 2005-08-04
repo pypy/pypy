@@ -21,11 +21,13 @@ corresponding Unix manual entries for more information on calls."""
     'isatty'    : 'interp_posix.isatty',
     'read'      : 'interp_posix.read',
     'close'     : 'interp_posix.close',
-    'ftruncate' : 'interp_posix.ftruncate',
     'fstat'     : 'interp_posix.fstat',
     'stat'      : 'interp_posix.stat',
     'dup'       : 'interp_posix.dup',
     }
+    if hasattr(os, 'ftruncate'):
+        interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
+
 
 for constant in ['EX_CANTCREAT', 'EX_CONFIG', 'EX_DATAERR', 'EX_IOERR',
                  'EX_NOHOST', 'EX_NOINPUT', 'EX_NOPERM', 'EX_NOUSER',
