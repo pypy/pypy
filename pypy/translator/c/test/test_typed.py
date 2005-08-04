@@ -306,6 +306,12 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
             i = r_uint(value)
             assert f(i) == fn(i)
 
+    def test_ord_returns_a_positive(self):
+        def fn(i=int):
+            return ord(chr(i))
+        f = self.getcompiled(fn)
+        assert f(255) == 255
+
     def test_hash_preservation(self):
         class C:
             pass
