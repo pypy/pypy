@@ -89,8 +89,12 @@ class CStandaloneBuilder(CBuilder):
     def compile(self):
         assert self.c_source_filename
         assert not self._compiled
+        # XXX for now, we always include Python.h
+        from distutils import sysconfig
+        python_inc = sysconfig.get_python_inc()
         self.executable_name = build_executable([self.c_source_filename],
-                                         include_dirs = [autopath.this_dir])
+                                         include_dirs = [autopath.this_dir,
+                                                         python_inc])
         self._compiled = True
         return self.executable_name
 
