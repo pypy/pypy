@@ -847,7 +847,7 @@ class ReallyRunFileExternal(py.test.Item):
         if regrtest.oldstyle: 
             pypy_options.append('--oldstyle') 
         if regrtest.uselibfile: 
-            pypy_options.append('--file')
+            pypy_options.append('--uselibfile')
         pypy_options.extend(
             ['--usemodules=%s' % mod for mod in pypy_option.usemodules])
         sopt = " ".join(pypy_options) 
