@@ -161,7 +161,7 @@
 #define OP_CAST_PTR_TO_INT(x,r,err)     r = (long)(x);    /* XXX */
 
 #define OP_CAST_UNICHAR_TO_INT(x,r,err)    r = (long)((unsigned long)(x)); /*?*/
-#define OP_CAST_INT_TO_UNICHAR(x,r,err)    r = (Py_UCS4)(x);
+#define OP_CAST_INT_TO_UNICHAR(x,r,err)    r = (unsigned int)(x);
 
 /* bool operations */
 

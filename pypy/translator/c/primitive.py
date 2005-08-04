@@ -60,7 +60,7 @@ PrimitiveType = {
     Unsigned: 'unsigned long @',
     Float:    'double @',
     Char:     'char @',
-    UniChar:  'Py_UCS4 @',
+    UniChar:  'unsigned int @',
     Bool:     'char @',
     Void:     'void @',
     }
@@ -70,7 +70,7 @@ PrimitiveErrorValue = {
     Unsigned: '((unsigned) -1)',
     Float:    '-1.0',
     Char:     '((char) -1)',
-    UniChar:  '((Py_UCS4) -1)',
+    UniChar:  '((unsigned) -1)',
     Bool:     '((char) -1)',
     Void:     '/* error */',
     }
