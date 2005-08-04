@@ -109,3 +109,13 @@ simple_math_functions = [
 
 for name in simple_math_functions:
     declare(getattr(math, name), float, 'll_math/%s' % name)
+
+# ___________________________________________________________
+# win/NT hack: patch ntpath.isabs() to be RPythonic
+
+import ntpath
+def isabs(s):
+    """Test whether a path is absolute"""
+    s = ntpath.splitdrive(s)[1]
+    return s != '' and s[0] in '/\\'
+ntpath.isabs = isabs
