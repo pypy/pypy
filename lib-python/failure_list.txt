@@ -18,7 +18,6 @@ test_compiler
 test_decorator
     fails because globals and locals are None in a nested function ?
 
-test_new FIXED? stil problems with insufficient arg checking
 
 test_builtin
     - our compilers need to recognize BOM markers
@@ -27,3 +26,5 @@ test_builtin
     - unicode("\u0663", 'raw-unicode-escape') does not work properly
     - disallow interning of string subclasses
     - __future__ import division problems
+
+test_new FIXED
