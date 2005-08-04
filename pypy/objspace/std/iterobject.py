@@ -34,4 +34,10 @@ def next__SeqIter(space, w_seqiter):
     w_seqiter.index += 1
     return w_item
 
+def len__SeqIter(space,  w_seqiter):
+    if w_seqiter.w_seq is None:
+        return space.wrap(0)
+    w_len = space.sub(space.len(w_seqiter.w_seq), space.wrap(w_seqiter.index))
+    return w_len
+
 register_all(vars())

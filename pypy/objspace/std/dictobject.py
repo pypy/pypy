@@ -318,6 +318,7 @@ class W_DictIterObject(W_Object):
         w_self.w_dictobject = w_dictobject
         w_self.len = w_dictobject.used
         w_self.pos = 0
+        w_self.datapos = 0
 
     def return_entry(w_self, entry):
         raise NotImplementedError
@@ -348,18 +349,24 @@ def next__DictIterObject(space, w_dictiter):
             raise OperationError(space.w_RuntimeError,
                      space.wrap("dictionary changed size during iteration"))
         # look for the next entry
-        i = w_dictiter.pos
+        i = w_dictiter.datapos
         data = w_dict.data
         while i < len(data):
             entry = data[i]
             i += 1
             if entry.w_value is not None:
-                w_dictiter.pos = i
+                w_dictiter.pos += 1
+                w_dictiter.datapos = i
                 return w_dictiter.return_entry(entry)
         # no more entries
         w_dictiter.w_dictobject = None
     raise OperationError(space.w_StopIteration, space.w_None)
 
+def len__DictIterObject(space, w_dictiter):
+    w_dict = w_dictiter.w_dictobject
+    if w_dict is None:
+        return space.wrap(0)
+    return space.wrap(w_dictiter.len - w_dictiter.pos)
 # ____________________________________________________________
 
 from pypy.objspace.std import dicttype
