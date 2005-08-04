@@ -27,4 +27,8 @@ test_builtin
     - disallow interning of string subclasses
     - __future__ import division problems
 
+
+test_tuple etc
+   do we want to support x is x*1 where is exactly a tuple?
+
 test_new FIXED
