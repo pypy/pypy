@@ -175,35 +175,6 @@ def test_cast_pointer():
     p3 = p1b.sub.sub
     assert p1b == cast_pointer(lltype.Ptr(S1bis), p3)
 
-def DONOTtest_best_effort_gced_parent_detection():
-    S2 = lltype.Struct("s2", ('a', lltype.Signed))
-    S1 = lltype.GcStruct("s1", ('sub1', S2), ('sub2', S2),
-                         ('tail', lltype.Array(('e', lltype.Signed))))
-    p1 = malloc(S1, 1)
-    p2 = p1.sub2
-    assert p2.a == 0
-    p3 = p1.tail
-    p3[0].e = 1
-    assert p3[0].e == 1
-    del p1
-    import gc
-    gc.collect()
-    py.test.raises(RuntimeError, "p2.a")
-    py.test.raises(RuntimeError, "p3[0]")
-
-def DONOTtest_best_effort_gced_parent_for_arrays():
-    A1 = lltype.GcArray(('v', lltype.Signed))
-    p1 = malloc(A1, 10)
-    p1[5].v=3
-    assert p1[0].v == 0
-    assert p1[9].v == 0
-    assert p1[5].v == 3
-    p1_5 = p1[5]
-    del p1
-    import gc
-    gc.collect()
-    py.test.raises(RuntimeError, "p1_5.v")        
-
 
 def DONOTtest_functions():
     F = lltype.FuncType((Signed,), Signed)
@@ -213,7 +184,6 @@ def DONOTtest_functions():
     assert pf(0) == 0
     py.test.raises(TypeError, pf, 0, 0)
     py.test.raises(TypeError, pf, 'a')
-
 
 def test_forward_reference():
     F = lltype.GcForwardReference()
@@ -238,8 +208,7 @@ def test_nullptr_cast():
     assert lltype.typeOf(p10) == lltype.Ptr(S1)
     assert not p10
 
-
-def DONOTtest_array_with_non_container_elements():
+def test_array_with_non_container_elements():
     As = lltype.GcArray(lltype.Signed)
     a = malloc(As, 3)
     assert a[0] == 0
@@ -250,11 +219,11 @@ def DONOTtest_array_with_non_container_elements():
     S = lltype.GcStruct('s', ('x', lltype.Signed))
     s = malloc(S)
     py.test.raises(TypeError, "a[1] = s")
-    S = lltype.GcStruct('s', ('x', lltype.Signed))
     S = lltype.Struct('s', ('x', lltype.Signed))
     A = lltype.GcArray(S)
     a = malloc(A, 2)
-    a[0] = malloc(S)
+    s = malloc(S)
+    py.test.raises(TypeError, "a[0] = s")
 
 def DONOTtest_immortal_parent():
     S1 = GcStruct('substruct', ('x', Signed))

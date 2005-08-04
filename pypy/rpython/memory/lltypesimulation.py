@@ -60,7 +60,7 @@ def _expose(T, address):
     if isinstance(T, (lltype.Struct, lltype.Array)):
         return simulatorptr(lltype.Ptr(T), address)
     elif isinstance(T, lltype.Primitive):
-        return address._load(primitive_to_fmt[T])
+        return address._load(primitive_to_fmt[T])[0]
     else:
         assert 0, "not implemented yet"
 
@@ -145,14 +145,15 @@ class simulatorptr(object):
             if isinstance(T1, lltype.ContainerType):
                 s = "cannot directly assign to container array items"
                 raise TypeError, s
-            T2 = typeOf(val)
+            T2 = lltype.typeOf(value)
             if T2 != T1:
                 raise TypeError("%r items:\n"
                                 "expect %r\n"
                                 "   got %r" % (self._T, T1, T2))                
             if not (0 <= i < self._address.signed[0]):
                 raise IndexError, "array index out of bounds"
-            self._address._store(get_layout(self._T.OF), value)
+            addr = self._address + self._layout[0] + i * self._layout[1]
+            addr._store(get_layout(self._T.OF), value)
             return
         raise TypeError("%r instance is not an array" % (self._T,))
 
