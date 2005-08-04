@@ -22,18 +22,13 @@ def debug(msg):
 
 # __________  Entry point  __________
 
-def entry_point(argvstring):
+def entry_point(argv):
     debug("entry point starting") 
-    debug(argvstring) 
-    if argvstring: 
-        argv = [argvstring]
-    else:
-        argv = []
     for arg in argv: 
         debug(" argv -> " + arg)
     try:
-        w_executable = space.wrap("pypy")
-        w_argv = space.newlist([space.wrap(s) for s in argv])
+        w_executable = space.wrap(argv[0])
+        w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
         w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
         # try to pull it all in
     ##    from pypy.interpreter import main, interactive, error
@@ -68,18 +63,8 @@ def target():
     w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
 
     # sanity-check: call the entry point
-    res = entry_point("app_basic_example.py")
+    res = entry_point(["pypy", "app_basic_example.py"])
     assert res == 0
 
-    return entry_point, [SomeString()]
+    return entry_point, None
 
-def get_llinterp_args():
-    from pypy.rpython import rstr
-    ll_str = rstr.string_repr.convert_const("app_example.py")
-    return [ll_str]
-
-
-# _____ Run translated _____
-def run(c_entry_point):
-    exitcode = c_entry_point(os.path.join(this_dir, 'app_example.py'))
-    assert exitcode == 0

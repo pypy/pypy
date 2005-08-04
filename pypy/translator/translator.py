@@ -252,17 +252,19 @@ class Translator:
         mod = make_module_from_pyxstring(name, udir, pyxcode)
         return getattr(mod, name)
 
-    def ccompile(self, really_compile=True):
+    def ccompile(self, really_compile=True, standalone=False):
         """Returns compiled function (living in a new C-extension module), 
            compiled using the C generator.
         """
         if self.annotator is not None:
             self.frozen = True
-        cbuilder = self.cbuilder(standalone=False)
+        cbuilder = self.cbuilder(standalone=standalone)
         c_source_filename = cbuilder.generate_source()
         if not really_compile: 
             return c_source_filename
         cbuilder.compile()
+        if standalone:
+            return cbuilder.executable_name
         cbuilder.import_module()    
         return cbuilder.get_entry_point()
 

@@ -72,6 +72,7 @@ import threading, pdb
 from pypy.translator.translator import Translator
 from pypy.translator.ann_override import PyPyAnnotatorPolicy
 from pypy.annotation import model as annmodel
+from pypy.annotation import listdef
 from pypy.tool.cache import Cache
 from pypy.annotation.model import SomeObject
 from pypy.tool.udir import udir 
@@ -93,7 +94,7 @@ annmodel.DEBUG = False
 # __________  Main  __________
 
 def analyse(target):
-    global t, entry_point, inputtypes
+    global t, entry_point, inputtypes, standalone
 
     if target:
         entry_point, inputtypes = target()
@@ -103,6 +104,11 @@ def analyse(target):
         # otherwise we have been loaded
         a = t.annotator
         t.frozen = False
+    standalone = inputtypes is None
+    if standalone:
+        ldef = listdef.ListDef(None, annmodel.SomeString())
+        inputtypes = [annmodel.SomeList(ldef)]
+
     if listen_port:
         run_async_server()
     if not options['-no-a']:
@@ -590,16 +596,20 @@ show class hierarchy graph"""
             print 'Not generating C code.'
         elif options['-c']:
             print 'Generating C code without compiling it...'
-            filename = t.ccompile(really_compile=False)
+            filename = t.ccompile(really_compile=False,
+                                  standalone=standalone)
             update_usession_dir()
             print 'Written %s.' % (filename,)
         else:
             print 'Generating and compiling C code...'
-            c_entry_point = t.ccompile()
+            c_entry_point = t.ccompile(standalone=standalone)
             update_usession_dir()
             if not options['-o']:
                 print 'Running!'
-                targetspec_dic['run'](c_entry_point)
+                if standalone:
+                    os.system(c_entry_point)
+                else:
+                    targetspec_dic['run'](c_entry_point)
     except SystemExit:
         raise
     except:

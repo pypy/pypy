@@ -2,9 +2,9 @@
 # XXX very incomplete!  Blindly runs the file named as first argument.
 # No option checking, no interactive console, no fancy hooks.
 
-def entry_point(argv):
+def entry_point(executable, argv):
     import sys
-    sys.executable = "pypy" 
+    sys.executable = executable
     sys.argv = argv
     # with PyPy in top of CPython we can only have around 100 
     # but we need more in the translated PyPy for the compiler package 

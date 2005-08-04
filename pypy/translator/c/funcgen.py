@@ -38,7 +38,7 @@ class FunctionCodeGenerator:
                     mix.extend(link.args)
                     if hasattr(link, 'llexitcase'):
                         self.more_ll_values.append(link.llexitcase)
-                    else:
+                    elif link.exitcase is not None:
                         mix.append(Constant(link.exitcase))
         traverse(visit, graph)
         resultvar = graph.getreturnvar()
