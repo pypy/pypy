@@ -3,9 +3,9 @@ from pypy.tool.sourcetools import compile2
 from pypy.objspace.flow.model import Constant, Variable, last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
 import py
-from pypy.rpython.lltype import _ptr, Ptr, Void, typeOf, malloc, cast_pointer, PyObject, pyobjectptr
-from pypy.rpython.lltype import Array, Struct
-from pypy.rpython.rmodel import getfunctionptr
+from pypy.rpython.chooselltype import _ptr, Ptr, Void, typeOf, malloc, cast_pointer, PyObject, pyobjectptr
+from pypy.rpython.chooselltype import Array, Struct
+from pypy.rpython.chooselltype import getfunctionptr
 import math
 
 log = py.log.Producer('llinterp')
