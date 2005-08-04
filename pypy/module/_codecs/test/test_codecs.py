@@ -35,3 +35,7 @@ class AppTestCodecs:
                 bytes2 = "\x98\x00\x01\x00"
             assert bytes2.decode("unicode_internal") == u"\U00010098"
         assert bytes.decode("unicode_internal") == u"a"
+
+    def test_raw_unicode_escape(self):
+        assert unicode("\u0663", "raw-unicode-escape") == u"\u0663"
+        assert u"\u0663".decode("raw-unicode-escape") == "\u0663"

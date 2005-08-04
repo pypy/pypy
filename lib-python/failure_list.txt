@@ -24,6 +24,7 @@ test_builtin
     - eval etc  should accept dict subclasses
     - hex/oct should output '-' for negative numbers
     - unicode("\u0663", 'raw-unicode-escape') does not work properly
+      (nik is working on this)
     - disallow interning of string subclasses
     - __future__ import division problems
 
