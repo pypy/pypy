@@ -55,6 +55,16 @@ def get_variable_size(TYPE):
     else:
         assert 0, "not yet implemented"
 
+def get_total_size(TYPE, i=None):
+    fixedsize = get_fixed_size(TYPE)
+    varsize = get_variable_size(TYPE)
+    if i is None:
+        assert varsize == 0
+        return fixedsize
+    else:
+        return fixedsize + i * varsize
+    
+
 def _expose(T, address):
     """XXX A nice docstring here"""
     if isinstance(T, (lltype.Struct, lltype.Array)):
@@ -75,13 +85,7 @@ class simulatorptr(object):
         self.__dict__['_layout'] = get_layout(TYPE.TO)
 
     def _zero_initialize(self, i=None):
-        fixedsize = get_fixed_size(self._T)
-        varsize = get_variable_size(self._T)
-        if i is None:
-            assert varsize == 0
-            size = fixedsize
-        else:
-            size = fixedsize + i * varsize
+        size = get_total_size(self._T, i)
         self._address._store("c" * size, *(["\x00"] * size))
 
     def _init_size(self, size):
@@ -191,8 +195,6 @@ def cast_pointer(PTRTYPE, ptr):
     # I can't think of a way to do that with simulatorptr.
     # I'm not sure whether this is the right way to go...
     return simulatorptr(PTRTYPE, ptr._address)
-
-
 
 # for now use the simulators raw_malloc
 def malloc(T, n=None, immortal=False):
