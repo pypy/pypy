@@ -55,8 +55,6 @@ class MemoryBlock(object):
             raise MemorySimulatorError, "trying to access memory between blocks"
         if offset2 + size > other.size:
             raise MemorySimulatorError, "trying to access memory between blocks"
-        print self.memory[offset1:offset1+size]
-        print self.status[offset1:offset1+size]
         other.memory[offset2:offset2+size] = self.memory[offset1:offset1+size]
         other.status[offset2:offset2+size] = self.status[offset1:offset1+size]
 
