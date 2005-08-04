@@ -100,7 +100,7 @@ class Translator:
             dest = make_dot(graph.name, graph)
         os.system('gv %s' % str(dest))
 
-    def view(self, *functions):
+    def view(self):
         """Shows the control flow graph with annotations if computed.
         Requires 'dot' and pygame."""
         from pypy.translator.tool.graphpage import FlowGraphPage
