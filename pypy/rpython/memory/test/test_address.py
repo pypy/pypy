@@ -137,4 +137,16 @@ class TestAddressSimulation(object):
         assert addr.attached[1] == g
         assert addr.attached[0](1) == 2
         assert addr.attached[1](0) == -1
-        
+
+    def test_memcopy(self):
+        def f(x):
+            return x + 1
+        addr = raw_malloc(100)
+        addr.attached[0] = f
+        (addr + 10).signed[0] = 42
+        (addr + 20).char[0] = "a"
+        addr1 = raw_malloc(100)
+        raw_memcopy(addr, addr1, 100)
+        assert addr1.attached[0](0) == 1
+        assert (addr1 + 10).signed[0] == 42
+        assert (addr1 + 20).char[0] == "a"

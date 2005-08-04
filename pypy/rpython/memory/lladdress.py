@@ -119,7 +119,7 @@ def raw_free(addr):
     simulator.free(addr.intaddress)
 
 def raw_memcopy(addr1, addr2, size):
-    pass
+    simulator.memcopy(addr1.intaddress, addr2.intaddress, size)
 
 
 supported_access_types = {"signed":    lltype.Signed,

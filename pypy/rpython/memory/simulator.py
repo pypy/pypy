@@ -50,6 +50,16 @@ class MemoryBlock(object):
         self.status[offset:offset + len(value)] = s
         assert len(self.memory) == self.size
 
+    def memcopy(self, offset1, other, offset2, size):
+        if offset1 + size > self.size:
+            raise MemorySimulatorError, "trying to access memory between blocks"
+        if offset2 + size > other.size:
+            raise MemorySimulatorError, "trying to access memory between blocks"
+        print self.memory[offset1:offset1+size]
+        print self.status[offset1:offset1+size]
+        other.memory[offset2:offset2+size] = self.memory[offset1:offset1+size]
+        other.status[offset2:offset2+size] = self.status[offset1:offset1+size]
+
 class MemorySimulator(object):
     size_of_simulated_ram = 64 * 1024 * 1024
     def __init__(self, ram_size = None):
@@ -100,5 +110,8 @@ class MemorySimulator(object):
         block.setbytes(offset, struct.pack(fmt, *types))
 
     def memcopy(self, address1, address2, size):
-        data = self.getstruct("c" * size, address1)
-        self.setstruct("c" * size, address2, *data)
+        block1 = self.find_block(address1)
+        block2 = self.find_block(address2)
+        offset1 = address1 - block1.baseaddress
+        offset2 = address2 - block2.baseaddress
+        block1.memcopy(offset1, block2, offset2, size)
