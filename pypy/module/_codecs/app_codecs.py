@@ -1621,6 +1621,9 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size,errors):
                     pos = i = res[1]
                     p += res[0]
                     i += 1
+                else:
+                    p += unichr(x)
+                    pos += count
             else:
                 if (x > 0x10000):
                     res = unicode_call_errorhandler(

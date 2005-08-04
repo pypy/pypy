@@ -23,8 +23,7 @@ test_builtin
     - our compilers need to recognize BOM markers
     - eval etc  should accept dict subclasses
     - hex/oct should output '-' for negative numbers
-    - unicode("\u0663", 'raw-unicode-escape') does not work properly
-      (nik is working on this)
+    - FIXED unicode("\u0663", 'raw-unicode-escape') does not work properly
     - disallow interning of string subclasses
     - __future__ import division problems
 
