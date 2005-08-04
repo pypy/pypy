@@ -6,6 +6,7 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 
 import dis
 from pypy.interpreter import eval
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root 
 from pypy.tool.cache import Cache 
@@ -242,8 +243,14 @@ class PyCode(eval.Code):
                           w_cellvars=NoneNotWrapped):
         code = space.allocate_instance(PyCode, w_subtype)
         PyCode.__init__(code, space)
-        code.co_argcount   = argcount 
-        code.co_nlocals    = nlocals 
+        if argcount < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("code: argcount must not be negative"))
+        code.co_argcount   = argcount
+        code.co_nlocals    = nlocals
+        if nlocals < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("code: nlocals must not be negative"))        
         code.co_stacksize  = stacksize 
         code.co_flags      = flags 
         code.co_code       = codestring 

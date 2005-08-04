@@ -91,3 +91,32 @@ class AppTestCodeIntrospection:
         d = {}
         exec co in d
         assert d['c'] == 3
+        def f(x):
+            y = 1
+        ccode = f.func_code
+        raises(ValueError, new.code,
+              -ccode.co_argcount,
+              ccode.co_nlocals,
+              ccode.co_stacksize,
+              ccode.co_flags,
+              ccode.co_code,
+              ccode.co_consts,
+              ccode.co_names,
+              ccode.co_varnames,
+              ccode.co_filename,
+              ccode.co_name,
+              ccode.co_firstlineno,
+              ccode.co_lnotab)
+        raises(ValueError, new.code,
+              ccode.co_argcount,
+              -ccode.co_nlocals,
+              ccode.co_stacksize,
+              ccode.co_flags,
+              ccode.co_code,
+              ccode.co_consts,
+              ccode.co_names,
+              ccode.co_varnames,
+              ccode.co_filename,
+              ccode.co_name,
+              ccode.co_firstlineno,
+              ccode.co_lnotab)
