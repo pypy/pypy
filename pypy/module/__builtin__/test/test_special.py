@@ -6,8 +6,8 @@ def app_test__isfake():
     assert not _isfake(_isfake) 
 
 def app_test__isfake_currently_true(): 
-    import array
-    assert _isfake(array) 
+    import select
+    assert _isfake(select) 
 
 def XXXapp_test__isfake_file(): # only if you are not using --file
     import sys
