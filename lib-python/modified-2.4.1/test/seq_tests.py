@@ -177,6 +177,7 @@ class CommonTest(unittest.TestCase):
 
     #def test_getitemoverwriteiter(self):
     #    # Verify that __getitem__ overrides are not recognized by __iter__
+    #      XXX PyPy behaves differently on this detail
     #    class T(self.type2test):
     #        def __getitem__(self, key):
     #            return str(key) + '!!!'

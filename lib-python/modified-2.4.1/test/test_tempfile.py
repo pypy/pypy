@@ -509,7 +509,7 @@ class test_mktemp(TC):
     def tearDown(self):
         import shutil
         if self.dir:
-            shutil.rmtree(self.dir)
+            shutil.rmtree(self.dir, ignore_errors=True)
             self.dir = None
 
     class mktemped:
