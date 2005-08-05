@@ -141,3 +141,37 @@ class AppTestUserObject:
         a.__dict__ = {'y': 6}
         assert a.y == 6
         assert not hasattr(a, 'x')
+
+    def test_del(self):
+        lst = []
+        class A(object):
+            def __del__(self):
+                lst.append(42)
+        A()
+        assert lst == [42]
+
+    def test_del_exception(self):
+        import sys, StringIO
+        class A(object):
+            def __del__(self):
+                yaddadlaouti
+        prev = sys.stderr
+        try:
+            sys.stderr = StringIO.StringIO()
+            A()
+            res = sys.stderr.getvalue()
+            A()
+            res2 = sys.stderr.getvalue()
+        finally:
+            sys.stderr = prev
+        assert res.startswith('Exception')
+        assert 'NameError' in res
+        assert 'yaddadlaouti' in res
+        assert 'ignored' in res
+        assert res.count('\n') == 1    # a single line
+        assert res2.count('\n') == 2   # two lines
+        line2 = res2.split('\n')[1]
+        assert line2.startswith('Exception')
+        assert 'NameError' in line2
+        assert 'yaddadlaouti' in line2
+        assert 'ignored' in line2

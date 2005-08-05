@@ -86,7 +86,11 @@ def _buildusercls(cls, hasdict, wants_slots):
             self.w__class__ = w_subtype
 
         def __del__(self):
-            self.space.userdel(self)
+            try:
+                self.space.userdel(self)
+            except OperationError, e:
+                e.write_unraisable(self.space, 'method __del__ of ', self)
+                e.clear(self.space)   # break up reference cycles
 
         if wants_slots:
             def user_setup_slots(self, nslots):

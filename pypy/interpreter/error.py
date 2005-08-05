@@ -37,19 +37,20 @@ class OperationError(Exception):
         return '[%s: %s]' % (self.w_type, self.w_value)
 
     def errorstr(self, space):
-        "NOT_RPYTHON: The exception class and value, as a string."
+        "The exception class and value, as a string."
         if space is None:
+            # this part NOT_RPYTHON
             exc_typename = str(self.w_type)
-            exc_value    = self.w_value
+            exc_value    = str(self.w_value)
         else:
             w = space.wrap
-            if space.is_true(space.is_(space.type(self.w_type), space.w_str)):
+            if space.is_w(space.type(self.w_type), space.w_str):
                 exc_typename = space.str_w(self.w_type)
             else:
                 exc_typename = space.str_w(
                     space.getattr(self.w_type, w('__name__')))
-            if self.w_value == space.w_None:
-                exc_value = None
+            if space.is_w(self.w_value, space.w_None):
+                exc_value = ""
             else:
                 try:
                     exc_value = space.str_w(space.str(self.w_value))
@@ -192,6 +193,21 @@ class OperationError(Exception):
                                        "use 'raise type, value' instead"))
         self.w_type  = w_type
         self.w_value = w_value
+
+    def write_unraisable(self, space, where, w_object=None):
+        if w_object is None:
+            objrepr = ''
+        else:
+            try:
+                objrepr = space.str_w(space.repr(w_object))
+            except OperationError:
+                objrepr = '?'
+        msg = 'Exception "%s" in %s%s ignored\n' % (self.errorstr(space),
+                                                    where, objrepr)
+        try:
+            space.call_method(space.sys.get('stderr'), 'write', space.wrap(msg))
+        except OperationError:
+            pass   # ignored
 
 
 # Utilities
