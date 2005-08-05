@@ -48,7 +48,7 @@ def get_variable_size(TYPE):
     elif isinstance(TYPE, lltype.Primitive):
         return 0
     elif isinstance(TYPE, lltype.Struct):
-        if isinstance(TYPE._flds[TYPE._names[-1]], lltype.Array):
+        if TYPE._arrayfld is not None:
             return get_variable_size(TYPE._flds[TYPE._arrayfld])
         else:
             return 0
@@ -71,6 +71,8 @@ def _expose(T, address):
         return simulatorptr(lltype.Ptr(T), address)
     elif isinstance(T, lltype.Primitive):
         return address._load(primitive_to_fmt[T])[0]
+    elif isinstance(T, lltype.Ptr):
+        return simulatorptr(T, address)
     else:
         assert 0, "not implemented yet"
 
@@ -156,6 +158,8 @@ class simulatorptr(object):
                                 "   got %r" % (self._T, T1, T2))                
             if not (0 <= i < self._address.signed[0]):
                 raise IndexError, "array index out of bounds"
+            if isinstance(T2, lltype.Ptr):
+                value = value._address.intaddress
             addr = self._address + self._layout[0] + i * self._layout[1]
             addr._store(get_layout(self._T.OF), value)
             return

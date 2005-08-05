@@ -225,6 +225,18 @@ def test_array_with_non_container_elements():
     s = malloc(S)
     py.test.raises(TypeError, "a[0] = s")
 
+def test_array_of_ptrs():
+    S = lltype.GcStruct("name", ("v", lltype.Signed))
+    A = lltype.GcArray(lltype.Ptr(S))
+    a = malloc(A, 3)
+    a[0] = malloc(S)
+    a[0].v = 1
+    a[1] = malloc(S)
+    a[1].v = 2
+    a[2] = malloc(S)
+    a[2].v = 3
+    assert [a[z].v for z in range(3)] == [1, 2, 3]
+
 def DONOTtest_getRuntimeTypeInfo():
     S = GcStruct('s', ('x', Signed))
     py.test.raises(ValueError, "getRuntimeTypeInfo(S)")
