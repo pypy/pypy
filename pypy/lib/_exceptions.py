@@ -89,15 +89,12 @@ Exception
 class Exception:
     """Common base class for all exceptions."""
 
-    # auto-generated code, please check carefully!
     def __getitem__(self, idx):
         return self.args[idx]
 
-    # auto-generated code, please check carefully!
     def __init__(self, *args):
         self.args = args
 
-    # auto-generated code, please check carefully!
     def __str__(self):
         args = self.args
         argc = len(args)
@@ -126,7 +123,6 @@ class UnicodeError(ValueError):
 class UnicodeTranslateError(UnicodeError):
     """Unicode translation error."""
 
-    # auto-generated code, please check carefully!
     def __init__(self, *args):
         argc = len(args)
         self.args = args # modified: always assign args, no error check
@@ -150,7 +146,6 @@ class UnicodeTranslateError(UnicodeError):
         else:
             raise TypeError('function takes exactly 4 arguments (%d given)'%argc)
 
-    # auto-generated code, please check carefully!
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
@@ -168,7 +163,6 @@ class LookupError(StandardError):
 class KeyError(LookupError):
     """Mapping key not found."""
 
-    # auto-generated code, please check carefully!
     def __str__(self):
         args = self.args
         argc = len(args)
@@ -191,7 +185,6 @@ class PendingDeprecationWarning(Warning):
 class EnvironmentError(StandardError):
     """Base class for I/O related errors."""
 
-    # auto-generated code, please check carefully!
     def __init__(self, *args):
         argc = len(args)
         self.args = args
@@ -248,7 +241,6 @@ class SyntaxError(StandardError):
     print_file_and_line = None
     text = None
 
-    # auto-generated code, please check carefully!
     def __init__(self, *args):
         argc = len(args)
         self.args = args
@@ -297,7 +289,6 @@ class FutureWarning(Warning):
 class SystemExit(Exception):
     """Request to exit from the interpreter."""
 
-    # auto-generated code, please check carefully!
     def __init__(self, *args):
         argc = len(args)
         if argc == 0:
@@ -335,7 +326,6 @@ class AssertionError(StandardError):
 class UnicodeDecodeError(UnicodeError):
     """Unicode decoding error."""
 
-    # auto-generated code, please check carefully!
     def __init__(self, *args):
         argc = len(args)
         self.args = args # modified: always assign args, no error check
@@ -363,7 +353,6 @@ class UnicodeDecodeError(UnicodeError):
         else:
             raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
 
-    # auto-generated code, please check carefully!
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
@@ -412,7 +401,6 @@ class OverflowError(ArithmeticError):
 class UnicodeEncodeError(UnicodeError):
     """Unicode encoding error."""
 
-    # auto-generated code, please check carefully!
     def __init__(self, *args):
         argc = len(args)
         self.args = args # modified: always assign args, no error check
@@ -440,7 +428,6 @@ class UnicodeEncodeError(UnicodeError):
         else:
             raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
 
-    # auto-generated code, please check carefully!
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
