@@ -95,24 +95,46 @@ def test_pass_exc():
 def test_zerodiv_int():
     def zerodiv_int(n):
         try:
-            100/n
+            r=100/n
         except ZeroDivisionError:
             return n+7
-        return n+4
+        return r
     f = compile_function(zerodiv_int, [int])
-    assert f(1) == zerodiv_int(1)
-    assert f(0) == zerodiv_int(0)
+    for i in (-50,0,50):
+        assert f(i) == zerodiv_int(i)
 
 def test_zerodiv_uint():
     def zerodiv_uint(n):
         try:
-            100/n
+            r=100/n
         except ZeroDivisionError:
             return n+7
-        return n+4
+        return r
     f = compile_function(zerodiv_uint, [r_uint])
-    assert f(1) == zerodiv_uint(1)
-    assert f(0) == zerodiv_uint(0)
+    for i in (0,50,100):
+        assert f(i) == zerodiv_uint(i)
+
+def test_zerodivrem_int():
+    def zerodivrem_int(n):
+        try:
+            r=100%n
+        except ZeroDivisionError:
+            return n+7
+        return r
+    f = compile_function(zerodivrem_int, [int])
+    for i in (-50,0,50):
+        assert f(i) == zerodivrem_int(i)
+
+def test_zerodivrem_uint():
+    def zerodivrem_uint(n):
+        try:
+            r=100%n
+        except ZeroDivisionError:
+            return n+7
+        return r
+    f = compile_function(zerodivrem_uint, [r_uint])
+    for i in (0,50,100):
+        assert f(i) == zerodivrem_uint(i)
 
 def test_reraise1():
     def fn(n):

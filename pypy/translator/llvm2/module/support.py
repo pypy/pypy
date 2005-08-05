@@ -24,53 +24,36 @@ fastcc sbyte* %cast(%structtype.rpy_string* %structstring) {
 
 """)
 
-extfunctions["%__prepare_ZeroDivisionError"] = ((), """
-fastcc void %__prepare_ZeroDivisionError() {
-
-    %exception_value = call fastcc %structtype.object* %instantiate_ZeroDivisionError()
-
-    %tmp             = getelementptr %structtype.object* %exception_value, int 0, uint 0
-    %exception_type  = load %structtype.object_vtable** %tmp
-    store %structtype.object_vtable* %exception_type, %structtype.object_vtable** %last_exception_type
-    store %structtype.object* %exception_value, %structtype.object** %last_exception_value
-
+for exc in "ZeroDivisionError OverflowError ValueError".split():
+    extfunctions["%%__prepare_%(exc)s" % locals()] = ((), """
+fastcc void %%__prepare_%(exc)s() {
+    %%exception_value = call fastcc %%structtype.object* %%instantiate_%(exc)s()
+    %%tmp             = getelementptr %%structtype.object* %%exception_value, int 0, uint 0
+    %%exception_type  = load %%structtype.object_vtable** %%tmp
+    store %%structtype.object_vtable* %%exception_type, %%structtype.object_vtable** %%last_exception_type
+    store %%structtype.object* %%exception_value, %%structtype.object** %%last_exception_value
     ret void
 }
 
-""")
+""" % locals())
 
-extfunctions["%int_floordiv_zer"] = (("%__prepare_ZeroDivisionError",), """
-fastcc int %int_floordiv_zer(int %x, int %y) {
-    %cond = seteq int %y, 0
-    br bool %cond, label %is_0, label %is_not_0
+for func_inst in "floordiv_zer:div mod_zer:rem".split():
+    func, inst = func_inst.split(':')
+    for type_ in "int uint".split():
+        extfunctions["%%%(type_)s_%(func)s" % locals()] = (("%__prepare_ZeroDivisionError",), """
+fastcc %(type_)s %%%(type_)s_%(func)s(%(type_)s %%x, %(type_)s %%y) {
+    %%cond = seteq %(type_)s %%y, 0
+    br bool %%cond, label %%is_0, label %%is_not_0
 is_not_0:
-    %z = add int %x, %y
-    ret int %z
+    %%z = %(inst)s %(type_)s %%x, %%y
+    ret %(type_)s %%z
 is_0:
-    call fastcc void %__prepare_ZeroDivisionError()
+    call fastcc void %%__prepare_ZeroDivisionError()
     unwind
 }
 
-""")
+""" % locals())
 
-#XXX could use template here
-extfunctions["%uint_floordiv_zer"] = (("%__prepare_ZeroDivisionError",), """
-fastcc uint %uint_floordiv_zer(uint %x, uint %y) {
-    %cond = seteq uint %y, 0
-    br bool %cond, label %is_0, label %is_not_0
-is_not_0:
-    %z = add uint %x, %y
-    ret uint %z
-is_0:
-    call fastcc void %__prepare_ZeroDivisionError()
-    unwind
-}
-
-""")
-
-#src/int.h:#define OP_INT_FLOORDIV_ZER(x,y,r,err) \     done
-#src/int.h:#define OP_UINT_FLOORDIV_ZER(x,y,r,err) \    done
+#XXX TODO
 #src/int.h:#define OP_INT_FLOORDIV_OVF_ZER(x,y,r,err) \
-#src/int.h:#define OP_INT_MOD_ZER(x,y,r,err) \
-#src/int.h:#define OP_UINT_MOD_ZER(x,y,r,err) \
 #src/int.h:#define OP_INT_MOD_OVF_ZER(x,y,r,err) 
