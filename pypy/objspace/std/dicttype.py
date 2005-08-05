@@ -11,7 +11,7 @@ dict_get        = MultiMethod('get',           3, defaults=(None,))
 dict_pop        = MultiMethod('pop',           2, w_varargs=True)
 dict_popitem    = MultiMethod('popitem',       1)
 dict_setdefault = MultiMethod('setdefault',    3, defaults=(None,))
-dict_update     = MultiMethod('update',        2)
+dict_update     = MultiMethod('update',        2, defaults=((),))
 dict_iteritems  = MultiMethod('iteritems',     1)
 dict_iterkeys   = MultiMethod('iterkeys',      1)
 dict_itervalues = MultiMethod('itervalues',    1)
@@ -24,8 +24,12 @@ dict_itervalues = MultiMethod('itervalues',    1)
 app = gateway.applevel('''
 
     def update(d, o):
-        for k in o.keys():
-            d[k] = o[k]
+        if hasattr(o, 'keys'):
+            for k in o.keys():
+                d[k] = o[k]
+        else:
+            for k,v in o:
+                d[k] = v
 
     def popitem(d):
         k = d.keys()

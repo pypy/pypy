@@ -223,6 +223,18 @@ class AppTest_DictObject:
         assert d == dd
         d.update({3:5, 6:7})
         assert d == {1:2, 3:5, 6:7}
+
+    def test_update_iterable(self):
+        d = {}
+        d.update((('a',1),))
+        assert d == {'a': 1}
+        d.update([('a',2), ('c',3)])
+        assert d == {'a': 2, 'c': 3}
+
+    def test_update_nop(self):
+        d = {}
+        d.update()
+        assert d == {}
     
     def test_values(self):
         d = {1:2, 3:4}
