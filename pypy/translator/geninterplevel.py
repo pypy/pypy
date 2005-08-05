@@ -162,7 +162,7 @@ class GenRpy:
         self.rpynames = {Constant(None).key:  'space.w_None',
                          Constant(False).key: 'space.w_False',
                          Constant(True).key:  'space.w_True',
-			 Constant(Ellipsis).key: 'space.w_Ellipsis',
+                         Constant(Ellipsis).key: 'space.w_Ellipsis',
                          Constant(OperationError).key: late_OperationError,
                          Constant(Arguments).key: late_Arguments,
                        }
