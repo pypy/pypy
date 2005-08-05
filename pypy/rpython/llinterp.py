@@ -2,11 +2,11 @@ from pypy.translator.translator import Translator
 from pypy.tool.sourcetools import compile2
 from pypy.objspace.flow.model import Constant, Variable, last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
-import py
-from pypy.rpython.chooselltype import _ptr, Ptr, Void, typeOf, malloc, cast_pointer, PyObject, pyobjectptr
-from pypy.rpython.chooselltype import Array, Struct
-from pypy.rpython.chooselltype import getfunctionptr
+from pypy.rpython import lltype
+from pypy.rpython.rmodel import getfunctionptr
+
 import math
+import py
 
 log = py.log.Producer('llinterp')
 
@@ -16,10 +16,11 @@ class LLException(Exception):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
-    def __init__(self, flowgraphs, typer):
+    def __init__(self, flowgraphs, typer, lltype=lltype):
         self.flowgraphs = flowgraphs
         self.bindings = {}
         self.typer = typer
+        self.llt = lltype  #module that contains the used lltype classes
         self.active_frame = None
 
     def getgraph(self, func):
@@ -67,6 +68,7 @@ class LLFrame(object):
         self.graph = graph
         self.args = args
         self.llinterpreter = llinterpreter
+        self.llt = llinterpreter.llt
         self.bindings = {}
         self.f_back = f_back
         self.curr_block = None
@@ -84,8 +86,8 @@ class LLFrame(object):
             self.setvar(var, val)
 
     def setvar(self, var, val):
-        if var.concretetype != Void:
-            assert var.concretetype == typeOf(val)
+        if var.concretetype != self.llt.Void:
+            assert var.concretetype == self.llt.typeOf(val)
         assert isinstance(var, Variable)
         self.bindings[var] = val
 
@@ -194,7 +196,7 @@ class LLFrame(object):
             assert False, "op_direct_call above should have raised"
         else:
             exc_class = exc.__class__
-            evalue = exdata.ll_pyexcclass2exc(pyobjectptr(exc_class))
+            evalue = exdata.ll_pyexcclass2exc(self.llt.pyobjectptr(exc_class))
             etype = exdata.ll_type_of_exc_inst(evalue)
         raise LLException(etype, evalue)
 
@@ -213,8 +215,8 @@ class LLFrame(object):
 
     def op_setfield(self, obj, fieldname, fieldvalue):
         # obj should be pointer
-        FIELDTYPE = getattr(typeOf(obj).TO, fieldname)
-        if FIELDTYPE != Void:
+        FIELDTYPE = getattr(self.llt.typeOf(obj).TO, fieldname)
+        if FIELDTYPE != self.llt.Void:
             setattr(obj, fieldname, fieldvalue)
 
     def op_getarrayitem(self, array, index):
@@ -222,8 +224,8 @@ class LLFrame(object):
 
     def op_setarrayitem(self, array, index, item):
         # array should be a pointer
-        ITEMTYPE = typeOf(array).TO.OF
-        if ITEMTYPE != Void:
+        ITEMTYPE = self.llt.typeOf(array).TO.OF
+        if ITEMTYPE != self.llt.Void:
             array[index] = item
 
     def op_direct_call(self, f, *args):
@@ -242,29 +244,31 @@ class LLFrame(object):
         return frame.eval()
 
     def op_malloc(self, obj):
-        return malloc(obj)
+        return self.llt.malloc(obj)
 
     def op_getfield(self, obj, field):
-        assert isinstance(obj, _ptr)
+        assert isinstance(obj, self.llt._ptr)
         result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
         # the former returns the real field, the latter a pointer to it
-        assert typeOf(result) == getattr(typeOf(obj).TO, field)
+        assert self.llt.typeOf(result) == getattr(self.llt.typeOf(obj).TO,
+                                                  field)
         return result
 
     def op_getsubstruct(self, obj, field):
-        assert isinstance(obj, _ptr)
+        assert isinstance(obj, self.llt._ptr)
         result = getattr(obj, field)
         # check the difference between op_getfield and op_getsubstruct:
         # the former returns the real field, the latter a pointer to it
-        assert typeOf(result) == Ptr(getattr(typeOf(obj).TO, field))
+        assert (self.llt.typeOf(result) ==
+                self.llt.Ptr(getattr(self.llt.typeOf(obj).TO, field)))
         return result
 
     def op_malloc_varsize(self, obj, size):
-        return malloc(obj, size)
+        return self.llt.malloc(obj, size)
 
     def op_getarraysubstruct(self, array, index):
-        assert isinstance(array, _ptr)
+        assert isinstance(array, self.llt._ptr)
         result = array[index]
         return result
         # the diff between op_getarrayitem and op_getarraysubstruct
@@ -272,34 +276,35 @@ class LLFrame(object):
 
     def op_getarraysize(self, array):
         #print array,type(array),dir(array)
-        assert isinstance(typeOf(array).TO, Array)
+        assert isinstance(self.llt.typeOf(array).TO, self.llt.Array)
         return len(array)
 
     def op_cast_pointer(self, tp, obj):
         # well, actually this is what's now in the globals.
-        return cast_pointer(tp, obj)
+        return self.llt.cast_pointer(tp, obj)
 
     def op_ptr_eq(self, ptr1, ptr2):
-        assert isinstance(ptr1, _ptr)
-        assert isinstance(ptr2, _ptr)
+        assert isinstance(ptr1, self.llt._ptr)
+        assert isinstance(ptr2, self.llt._ptr)
         return ptr1 == ptr2
 
     def op_ptr_ne(self, ptr1, ptr2):
-        assert isinstance(ptr1, _ptr)
-        assert isinstance(ptr2, _ptr)
+        assert isinstance(ptr1, self.llt._ptr)
+        assert isinstance(ptr2, self.llt._ptr)
         return ptr1 != ptr2
 
     def op_ptr_nonzero(self, ptr1):
-        assert isinstance(ptr1, _ptr)
+        assert isinstance(ptr1, self.llt._ptr)
         return bool(ptr1)
 
     def op_ptr_iszero(self, ptr1):
-        assert isinstance(ptr1, _ptr)
+        assert isinstance(ptr1, self.llt._ptr)
         return not bool(ptr1)
 
     def op_cast_ptr_to_int(self, ptr1): # xxx should this logic migrate to lltype _ptr itself?
-        assert isinstance(ptr1, _ptr)
-        assert isinstance(typeOf(ptr1).TO, (Array, Struct))
+        assert isinstance(ptr1, self.llt._ptr)
+        assert isinstance(self.llt.typeOf(ptr1).TO, (self.llt.Array,
+                                                     self.llt.Struct))
         obj = ptr1._obj
         while obj._parentstructure():
             obj = obj._parentstructure() 
@@ -377,22 +382,22 @@ class LLFrame(object):
         exec py.code.Source("""
         def op_%(opname)s(self, *pyobjs):
             for pyo in pyobjs:
-                assert typeOf(pyo) == Ptr(PyObject)
+                assert self.llt.typeOf(pyo) == self.llt.Ptr(self.llt.PyObject)
             func = opimpls[%(opname)r]
             try:
                 pyo = func(*[pyo._obj.value for pyo in pyobjs])
             except Exception, e:
                 self.make_llexception(e)
-            return pyobjectptr(pyo)
+            return self.llt.pyobjectptr(pyo)
         """ % locals()).compile()
     del opname
 
     def op_simple_call(self, f, *args):
-        assert typeOf(f) == Ptr(PyObject)
+        assert self.llt.typeOf(f) == self.llt.Ptr(self.llt.PyObject)
         for pyo in args:
-            assert typeOf(pyo) == Ptr(PyObject)
+            assert self.llt.typeOf(pyo) == self.llt.Ptr(self.llt.PyObject)
         res = f._obj.value(*[pyo._obj.value for pyo in args])
-        return pyobjectptr(res)
+        return self.llt.pyobjectptr(res)
         
     # __________________________________________________________
     # primitive operations
