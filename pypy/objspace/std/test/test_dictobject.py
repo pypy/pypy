@@ -309,6 +309,13 @@ class AppTest_DictObject:
         assert {1: 0, 2: 0, 3: 0}.fromkeys([1, '1'], 'j') == (
                           {1: 'j', '1': 'j'})
 
+    def test_str_uses_repr(self):
+        class D(dict):
+            def __repr__(self):
+                return 'hi'
+        assert repr(D()) == 'hi'
+        assert str(D()) == 'hi'
+
 # the minimal 'space' needed to use a W_DictObject
 class FakeSpace:
     def hash(self, obj):

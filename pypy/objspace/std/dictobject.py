@@ -275,7 +275,7 @@ def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
         return w_default
 
 app = gateway.applevel('''
-    def dictstr(currently_in_repr, d):
+    def dictrepr(currently_in_repr, d):
         # Now we only handle one implementation of dicts, this one.
         # The fix is to move this to dicttype.py, and do a
         # multimethod lookup mapping str to StdObjSpace.str
@@ -296,15 +296,13 @@ app = gateway.applevel('''
                     pass
 ''', filename=__file__)
 
-dictstr = app.interphook("dictstr")
+dictrepr = app.interphook("dictrepr")
 
-def str__Dict(space, w_dict):
+def repr__Dict(space, w_dict):
     if w_dict.used == 0:
         return space.wrap('{}')
     w_currently_in_repr = space.getexecutioncontext()._py_repr
-    return dictstr(space, w_currently_in_repr, w_dict)
-
-repr__Dict = str__Dict
+    return dictrepr(space, w_currently_in_repr, w_dict)
 
 
 # ____________________________________________________________

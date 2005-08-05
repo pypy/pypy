@@ -30,3 +30,11 @@ class AppTestUserObject:
         assert a.__dict__ != {'123': '456'}
         assert {'123': '456'} != a.__dict__
         assert b.__dict__ == c.__dict__
+
+    def test_str_repr(self):
+        class a(object):
+            pass
+        s = repr(a.__dict__)
+        assert s.startswith('<dictproxy') and s.endswith('>')
+        s = str(a.__dict__)
+        assert s.startswith('{') and s.endswith('}')
