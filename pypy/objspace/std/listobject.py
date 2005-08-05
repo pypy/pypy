@@ -650,10 +650,9 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         # perform the sort
         sorter.sort()
 
-        # check if the user mucked with the list during the sort
-        if w_list.ob_item:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list modified during sort"))
+        # reverse again
+        if has_reverse:
+            _reverse_slice(sorter.list, 0, sorter.listlength)
 
     finally:
         # unwrap each item if needed
@@ -663,12 +662,16 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
                 if isinstance(w_obj, KeyContainer):
                     sorter.list[i] = w_obj.w_item
 
-        if has_reverse:
-            _reverse_slice(sorter.list, 0, sorter.listlength)
+        # check if the user mucked with the list during the sort
+        mucked = len(w_list.ob_item) > 0
 
         # put the items back into the list
         w_list.ob_item = sorter.list
         w_list.ob_size = sorter.listlength
+
+    if mucked:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("list modified during sort"))
 
     return space.w_None
 
