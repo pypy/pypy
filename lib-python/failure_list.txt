@@ -32,3 +32,7 @@ test_tuple etc
    do we want to support x is x*1 where x is exactly a tuple?
 
 test_new FIXED
+
+test_extcall
+   cannot be fixed.  PyPy produces different TypeError messages but they are
+   also correct and useful (reviewed them again).
