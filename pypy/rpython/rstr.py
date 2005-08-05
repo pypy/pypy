@@ -157,14 +157,14 @@ class __extend__(StringRepr):
         return hop.gendirectcall(ll_replace_chr_chr, v_str, v_c1, v_c2)
 
     def rtype_int(_, hop):
-	if hop.nb_args == 1:
-	    v_str, = hop.inputargs(string_repr)
-	    c_base = inputconst(Signed, 10)
-	    return hop.gendirectcall(ll_int, v_str, c_base)
+        if hop.nb_args == 1:
+            v_str, = hop.inputargs(string_repr)
+            c_base = inputconst(Signed, 10)
+            return hop.gendirectcall(ll_int, v_str, c_base)
         if not hop.args_r[1] == rint.signed_repr:
             raise TyperError, 'base needs to be an int'
-	v_str, v_base= hop.inputargs(string_repr, rint.signed_repr)
-	return hop.gendirectcall(ll_int, v_str, v_base)
+        v_str, v_base= hop.inputargs(string_repr, rint.signed_repr)
+        return hop.gendirectcall(ll_int, v_str, v_base)
 
     def ll_str(s, r):
         if typeOf(s) == Char:
