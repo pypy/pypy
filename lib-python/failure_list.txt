@@ -47,10 +47,17 @@ test_sort FIXED
    different way of detecting mutations during sort: PyPy didn't detect
    changes done by the __del__ method of the key-wrapper objects.
 
-test_exceptions
+test_str
+   there's some optimisation tests failing
+
 test_tempfile
+  still failing
+
+test_exceptions
+  mismatch in SyntaxError messages
+
+
 test_cpickle
 test_descr
-test_str
    FIXED? should be re-run.  Were fixed in modified-2.3.4, but then they
    were somehow lost when we switched to 2.4.1...
