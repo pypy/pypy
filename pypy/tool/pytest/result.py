@@ -140,8 +140,8 @@ def stdinit(result):
     result['python-version-info'] = sys.version_info 
     info = try_getcpuinfo() 
     if info is not None:
-        result['cpu model'] = info['model name']
-        result['cpu mhz'] = info['cpu mhz']
+        result['cpu model'] = info.get('model name', "unknown")
+        result['cpu mhz'] = info.get('cpu mhz', 'unknown')
 #
 #
 #
