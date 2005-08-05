@@ -36,3 +36,9 @@ test_new FIXED
 test_extcall
    cannot be fixed.  PyPy produces different TypeError messages but they are
    also correct and useful (reviewed them again).
+
+test_optparse FIXED?
+
+test_mutants FIXED?
+   overriding __repr__ in a dict subclass doesn't change the str().
+   The dict class should not have an __str__ of its own.
