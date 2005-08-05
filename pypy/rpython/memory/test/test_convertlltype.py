@@ -87,5 +87,18 @@ def test_circular_array():
     a = cvter.convert(lla)
     assert a[0].a[1].a[2].a == a
     assert [a[i].b for i in range(3)] == [1, 2, 3]
+
+def test_varsize_struct():
+    cvter = LLTypeConverter(lladdress.raw_malloc(1000))
+    A = lltype.Array(lltype.Signed)
+    S = lltype.GcStruct("name", ("v", lltype.Signed), ("a", A))
+    lls = lltype.malloc(S, 3)
+    lls.a[0] = 1
+    lls.a[1] = 2
+    lls.a[2] = 3
+    lls.v = 4
+    s = cvter.convert(lls)
+    assert [s.a[i] for i in range(3)] == [1, 2, 3]
+    assert s.v == 4
     
     

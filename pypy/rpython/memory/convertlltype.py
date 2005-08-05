@@ -56,7 +56,11 @@ class LLTypeConverter(object):
             return address
         TYPE = lltype.typeOf(_struct)
         layout = get_layout(TYPE)
-        size = get_total_size(TYPE)
+        if TYPE._arrayfld is not None:
+            inlinedarraylength = len(getattr(_struct, TYPE._arrayfld).items)
+            size = get_total_size(TYPE, inlinedarraylength)
+        else:
+            size = get_total_size(TYPE)
         if inline_to_addr is not None:
             startaddr = inline_to_addr
         else:
