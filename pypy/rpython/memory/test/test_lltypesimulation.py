@@ -237,6 +237,19 @@ def test_array_of_ptrs():
     a[2].v = 3
     assert [a[z].v for z in range(3)] == [1, 2, 3]
 
+def test_array_of_ptr_to_bigger_struct():
+    S = lltype.GcStruct("name", ("v1", lltype.Signed), ("v2", lltype.Signed))
+    A = lltype.GcArray(lltype.Ptr(S))
+    a = malloc(A, 3)
+    assert not a[0]
+    assert not a[1]
+    a[0] = malloc(S)
+    a[0].v1 = 1
+    a[0].v2 = 2
+    assert a[0].v1 == 1
+    assert a[0].v2 == 2
+    assert not a[1]
+
 def DONOTtest_getRuntimeTypeInfo():
     S = GcStruct('s', ('x', Signed))
     py.test.raises(ValueError, "getRuntimeTypeInfo(S)")

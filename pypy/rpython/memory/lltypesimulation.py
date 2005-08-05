@@ -72,7 +72,7 @@ def _expose(T, address):
     elif isinstance(T, lltype.Primitive):
         return address._load(primitive_to_fmt[T])[0]
     elif isinstance(T, lltype.Ptr):
-        return simulatorptr(T, address)
+        return simulatorptr(T, address.address[0])
     else:
         assert 0, "not implemented yet"
 
@@ -155,7 +155,7 @@ class simulatorptr(object):
             if T2 != T1:
                 raise TypeError("%r items:\n"
                                 "expect %r\n"
-                                "   got %r" % (self._T, T1, T2))                
+                                "   got %r" % (self._T, T1, T2))
             if not (0 <= i < self._address.signed[0]):
                 raise IndexError, "array index out of bounds"
             if isinstance(T2, lltype.Ptr):
@@ -182,10 +182,7 @@ class simulatorptr(object):
         return self._address == other._address
 
     def __repr__(self):
-        addr = self._address.intaddress
-        if addr < 0:
-            addr += 256 ** struct.calcsize("P")
-        return '<simulatorptr %s to 0x%x>' % (self._TYPE.TO, addr)
+        return '<simulatorptr %s to %s>' % (self._TYPE.TO, self._address)
 
 
 def cast_pointer(PTRTYPE, ptr):
