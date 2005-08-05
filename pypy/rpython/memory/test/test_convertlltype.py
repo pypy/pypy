@@ -45,7 +45,47 @@ def test_convert_array_of_ptrs():
     lla[1] = lltype.malloc(S)
     lla[1].v = 2
     lla[2] = lltype.malloc(S)
-    lla[2].v = 2
+    lla[2].v = 3
+    assert [lla[z].v for z in range(3)] == [1, 2, 3]
+    print lla
+    print [lla[z] for z in range(3)]
     x = cvter.convert(lla)
+    print x
+    print [x[z] for z in range(3)]
+    print x._address._load("iiiiiii")
     assert [x[z].v for z in range(3)] == [1, 2, 3]
+    
 
+def test_circular_struct():
+    cvter = LLTypeConverter(lladdress.raw_malloc(100))
+    F = lltype.GcForwardReference()
+    S = lltype.GcStruct('abc', ('x', lltype.Ptr(F)))
+    F.become(S)
+    lls = lltype.malloc(S)
+    lls.x = lls
+    s = cvter.convert(lls)
+    assert s.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x == s
+
+def test_circular_array():
+    cvter = LLTypeConverter(lladdress.raw_malloc(1000))
+    F = lltype.GcForwardReference()
+    A = lltype.GcArray(lltype.Ptr(F))
+    S = lltype.GcStruct("name", ("a", lltype.Ptr(A)), ("b", lltype.Signed))
+    F.become(S)
+    lla = lltype.malloc(A, 3)
+    lla[0] = lltype.malloc(S)
+    lla[1] = lltype.malloc(S)
+    lla[2] = lltype.malloc(S)
+    lla[0].a = lla
+    lla[1].a = lla
+    lla[2].a = lla
+    lla[0].b = 1
+    lla[1].b = 2
+    lla[2].b = 3
+    assert lla[0].a[1].a[2].a == lla
+    assert [lla[i].b for i in range(3)] == [1, 2, 3]
+    a = cvter.convert(lla)
+    assert a[0].a[1].a[2].a == a
+    assert [a[i].b for i in range(3)] == [1, 2, 3]
+    
+    

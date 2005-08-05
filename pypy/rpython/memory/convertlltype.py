@@ -9,10 +9,10 @@ from pypy.rpython import lltype
 
 class LLTypeConverter(object):
     def __init__(self, address):
+        self.converted = {}
         self.curraddress = address
 
     def convert(self, val_or_ptr, inline_to_addr=None):
-        print "convert", val_or_ptr, inline_to_addr
         TYPE = lltype.typeOf(val_or_ptr)
         if isinstance(TYPE, lltype.Primitive):
             if inline_to_addr is not None:
@@ -28,7 +28,10 @@ class LLTypeConverter(object):
             assert 0, "not yet implemented"
 
     def convert_array(self, _array, inline_to_addr):
-        print "convert_array", _array, inline_to_addr
+        if _array in self.converted:
+            address = self.converted[_array]
+            assert inline_to_addr is None or address == inline_to_addr
+            return address
         TYPE = lltype.typeOf(_array)
         arraylength = len(_array.items)
         size = get_total_size(TYPE, arraylength)
@@ -36,6 +39,7 @@ class LLTypeConverter(object):
             startaddr = inline_to_addr
         else:
             startaddr = self.curraddress
+        self.converted[_array] = startaddr
         startaddr.signed[0] = arraylength
         curraddr = startaddr + get_fixed_size(TYPE)
         varsize = get_variable_size(TYPE)
@@ -46,15 +50,18 @@ class LLTypeConverter(object):
         return startaddr
 
     def convert_struct(self, _struct, inline_to_addr):
-        print "convert_struct", _struct, inline_to_addr,
+        if _struct in self.converted:
+            address = self.converted[_struct]
+            assert inline_to_addr is None or address == inline_to_addr
+            return address
         TYPE = lltype.typeOf(_struct)
         layout = get_layout(TYPE)
-        print layout
         size = get_total_size(TYPE)
         if inline_to_addr is not None:
             startaddr = inline_to_addr
         else:
             startaddr = self.curraddress
+        self.converted[_struct] = startaddr
         self.curraddress += size
         for name in TYPE._flds:
             addr = startaddr + layout[name]
@@ -62,7 +69,6 @@ class LLTypeConverter(object):
         return startaddr
 
     def convert_pointer(self, _ptr, inline_to_addr):
-        print "convert_pointer", _ptr, inline_to_addr
         TYPE = lltype.typeOf(_ptr)
         addr = self.convert(_ptr._obj)
         assert isinstance(addr, lladdress.Address)
