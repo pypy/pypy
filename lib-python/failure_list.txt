@@ -28,6 +28,11 @@ test_builtin
     - __future__ import division problems
 
 
+test_mutants
+   still crashes because it does a str() on a a mutating dict
+   which results in a RuntimeError, what does CPython output in this case?
+
+
 test_tuple etc
    do we want to support x is x*1 where x is exactly a tuple?
 
@@ -39,9 +44,6 @@ test_extcall
 
 test_optparse FIXED
 
-test_mutants FIXED?
-   overriding __repr__ in a dict subclass doesn't change the str().
-   The dict class should not have an __str__ of its own.
 
 test_sort FIXED
    different way of detecting mutations during sort: PyPy didn't detect
