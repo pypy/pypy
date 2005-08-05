@@ -1,6 +1,8 @@
 import py
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
+from pypy.translator.llvm2.module.extfunction import extfunctions
+from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm2.log import log 
 log = log.opwriter
 
@@ -79,14 +81,18 @@ class OpWriter(object):
         self.block = block
 
     def write_operation(self, op):
-        if op.opname in self.binary_operations:
-            self.binaryop(op)
-        elif op.opname in self.shift_operations:
-            self.shiftop(op)
+        invoke = op.opname.startswith('invoke:')
+        if invoke:
+            self.invoke(op)
         else:
-            meth = getattr(self, op.opname, None)
-            assert meth is not None, "operation %r not found" %(op.opname,)
-            meth(op)    
+            if op.opname in self.binary_operations:
+                self.binaryop(op)
+            elif op.opname in self.shift_operations:
+                self.shiftop(op)
+            else:
+                meth = getattr(self, op.opname, None)
+                assert meth is not None, "operation %s not found" %(op.opname,)
+                meth(op)    
 
     def _generic_pow(self, op, onestr): 
         mult_type = self.db.repr_arg_type(op.args[0])
@@ -228,11 +234,21 @@ class OpWriter(object):
         else:
             self.codewriter.call_void(functionref, argrefs, argtypes)
 
-    def direct_invoke(self, op):
+    def invoke(self, op):
         # XXX hack as per remove_voids()
         op_args = [arg for arg in op.args
                    if arg.concretetype is not lltype.Void]
 
+        if op.opname == 'invoke:direct_call':
+            functionref = self.db.repr_arg(op_args[0])
+        else:   #operation
+            opname = op.opname.split(':',1)[1]
+            op_args = ['%' + opname] + op_args
+            functionref = op_args[0]
+            ExternalFuncNode.used_external_functions[functionref] = True
+            assert functionref in extfunctions, \
+                   "exception raising operation %(opname)s has no implementation" % locals()
+        
         assert len(op_args) >= 1
         assert len(self.block.exits) >= 2   #at least one label and one exception label
 
@@ -241,7 +257,6 @@ class OpWriter(object):
 
         targetvar = self.db.repr_arg(op.result)
         returntype = self.db.repr_arg_type(op.result)
-        functionref = self.db.repr_arg(op_args[0])
         argrefs = self.db.repr_arg_multi(op_args[1:])
         argtypes = self.db.repr_arg_type_multi(op_args[1:])
 

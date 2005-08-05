@@ -20,18 +20,6 @@ from pypy.translator.translator import Translator
 
 function_count = {}
 
-# XXX Temp
-raise_impl = """
-ccc void %RaiseSimpleException(int %t, sbyte* %ptErr) {
-entry:
-        unwind
-	ret void
-}
-"""
-
-# XXX Temp
-raise_decl = "declare ccc void %RaiseSimpleException(int, sbyte*)"
-
 class GenLLVM(object):
 
     def __init__(self, translator, debug=False, embedexterns=True):
@@ -89,7 +77,6 @@ class GenLLVM(object):
             
         nl(); comment("Function Prototypes") ; nl()
         if self.embedexterns:
-            codewriter.append(raise_decl)
             for extdecl in extdeclarations.split('\n'):
                 codewriter.append(extdecl)
 
@@ -124,9 +111,6 @@ class GenLLVM(object):
                     for extfunc in llvm_code.split('\n'):
                         codewriter.append(extfunc)
                     depdone[dep] = True
-
-        if self.embedexterns:
-            codewriter.append(raise_impl)
 
         #XXX use codewriter methods here
         decl = self.entrynode.getdecl()

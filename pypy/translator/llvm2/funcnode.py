@@ -156,30 +156,28 @@ class FuncNode(ConstantLLVMNode):
             codewriter.br(cond, self.block_to_name[block.exits[0].target],
                           self.block_to_name[block.exits[1].target])
 
-    def _last_operation(self, block, opname):
-        last_index = None
-        for op_index, op in enumerate(block.operations):
-            if op.opname == opname:
-                last_index = op_index
-        return last_index
-
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter, self, block)
-        last_direct_call_index = self._last_operation(block, 'direct_call')
+        if block.exitswitch == Constant(last_exception):
+            last_op_index = len(block.operations) - 1
+        else:
+            last_op_index = None
         for op_index, op in enumerate(block.operations):
-
-            # print out debug string
-            codewriter.newline()
-            codewriter.comment("** %s **" % str(op))
-            info = self.db.get_op2comment(op)
-            if info is not None:
-                lenofopstr, opstrname = info
-                codewriter.debugcomment(self.db.repr_tmpvar(),
-                                        lenofopstr,
-                                        opstrname)
-                
-            if op_index == last_direct_call_index and block.exitswitch == Constant(last_exception):
-                op.opname = 'direct_invoke'
+            if False:   # print out debug string
+                codewriter.newline()
+                codewriter.comment("** %s **" % str(op))
+                info = self.db.get_op2comment(op)
+                if info is not None:
+                    lenofopstr, opstrname = info
+                    codewriter.debugcomment(self.db.repr_tmpvar(),
+                                            lenofopstr,
+                                            opstrname)
+            if op_index == last_op_index:
+                #could raise an exception and should therefor have a function
+                #implementation that can be invoked by the llvm-code.
+                invoke_prefix = 'invoke:'
+                assert not op.opname.startswith(invoke_prefix)
+                op.opname = invoke_prefix + op.opname
             opwriter.write_operation(op)
 
     def write_startblock(self, codewriter, block):

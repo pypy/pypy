@@ -2,6 +2,7 @@ import py
 
 from pypy.translator.llvm2.genllvm import compile_function
 from pypy.translator.test.snippet import try_raise_choose
+from pypy.rpython.rarithmetic import r_uint
 
 class TestException(Exception):
     pass
@@ -91,17 +92,28 @@ def test_pass_exc():
     assert f( 0) == fn( 0)
     assert f(10) == fn(10)
 
-#def test_divzero():
-#    py.test.skip("divzero not working yet")
-#    def fn(n):
-#        try:
-#            n/0
-#        except:
-#            return 2
-#        return 4
-#    f = compile_function(fn, [int])
-#    assert f(0) == fn(0)
-    
+def test_zerodiv_int():
+    def zerodiv_int(n):
+        try:
+            100/n
+        except ZeroDivisionError:
+            return n+7
+        return n+4
+    f = compile_function(zerodiv_int, [int])
+    assert f(1) == zerodiv_int(1)
+    assert f(0) == zerodiv_int(0)
+
+def test_zerodiv_uint():
+    def zerodiv_uint(n):
+        try:
+            100/n
+        except ZeroDivisionError:
+            return n+7
+        return n+4
+    f = compile_function(zerodiv_uint, [r_uint])
+    assert f(1) == zerodiv_uint(1)
+    assert f(0) == zerodiv_uint(0)
+
 def test_reraise1():
     def fn(n):
         lst = range(10)
