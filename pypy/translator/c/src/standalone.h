@@ -12,9 +12,3 @@
 
 #define PyObject_Malloc malloc
 #define PyObject_Free   free
-
-#ifdef MS_WINDOWS
-#  ifdef _MSC_VER
-#    pragma warning(disable: 4033 4102 4101 4716) /*suppress a few warnings*/
-#  endif
-#endif

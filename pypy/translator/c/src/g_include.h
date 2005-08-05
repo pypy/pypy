@@ -41,3 +41,9 @@
 #  include "src/main.h"
 #endif
 
+/* suppress a few warnings in the generated code */
+#ifdef MS_WINDOWS
+#  ifdef _MSC_VER
+#    pragma warning(disable: 4033 4102 4101 4716)
+#  endif
+#endif
