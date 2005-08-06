@@ -296,3 +296,9 @@ def DONOTtest_runtime_type_info():
     s1.sub.x = 1
     assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
     
+def test_function_ptr():
+    def f(x, y):
+        return x + y
+    F = lltype.FuncType((lltype.Signed, lltype.Signed), lltype.Signed)
+    funcptr = functionptr(F, "add", _callable=f)
+    assert funcptr(1, 2) == 3

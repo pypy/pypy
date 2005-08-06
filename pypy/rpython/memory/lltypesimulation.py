@@ -7,9 +7,9 @@ import struct
 
 log = py.log.Producer("lltypesim")
 
-primitive_to_fmt = {lltype.Signed:   "i",
-                    lltype.Unsigned: "I",
-                    lltype.Char:     "c",
+primitive_to_fmt = {lltype.Signed:          "i",
+                    lltype.Unsigned:        "I",
+                    lltype.Char:            "c",
                     }
 
 #returns some sort of layout information that is useful for the simulatorptr
@@ -28,8 +28,12 @@ def get_layout(TYPE):
         return layout
     elif isinstance(TYPE, lltype.Array):
         return (get_fixed_size(lltype.Signed), get_fixed_size(TYPE.OF))
+    elif isinstance(TYPE, lltype.OpaqueType):
+        return "i"
+    elif isinstance(TYPE, lltype.FuncType):
+        return "i"
     else:
-        assert 0, "not yet implemented"
+        assert 0, "type %s not yet implemented" % (TYPE, )
 
 def get_fixed_size(TYPE):
     if isinstance(TYPE, lltype.Primitive):
@@ -39,6 +43,10 @@ def get_fixed_size(TYPE):
     elif isinstance(TYPE, lltype.Struct):
         return get_layout(TYPE)["_size"]
     elif isinstance(TYPE, lltype.Array):
+        return get_fixed_size(lltype.Unsigned)
+    elif isinstance(TYPE, lltype.OpaqueType):
+        return get_fixed_size(lltype.Unsigned)
+    elif isinstance(TYPE, lltype.FuncType):
         return get_fixed_size(lltype.Unsigned)
     assert 0, "not yet implemented"
 
@@ -52,6 +60,10 @@ def get_variable_size(TYPE):
             return get_variable_size(TYPE._flds[TYPE._arrayfld])
         else:
             return 0
+    elif isinstance(TYPE, lltype.OpaqueType):
+        return 0
+    elif isinstance(TYPE, lltype.FuncType):
+        return 0
     else:
         assert 0, "not yet implemented"
 
@@ -165,6 +177,20 @@ class simulatorptr(object):
             return
         raise TypeError("%r instance is not an array" % (self._T,))
 
+    def __call__(self, *args):
+        if isinstance(self._T, lltype.FuncType):
+            if len(args) != len(self._T.ARGS):
+                raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
+            for a, ARG in zip(args, self._T.ARGS):
+                if lltype.typeOf(a) != ARG:
+                    raise TypeError,"calling %r with wrong argument types: %r" % (self._T, args)
+            callb = self._address.attached[0]._callable
+            if callb is None:
+                raise RuntimeError,"calling undefined function"
+            return callb(*args)
+        raise TypeError("%r instance is not a function" % (self._T,))
+
+
     def __len__(self):
         if isinstance(self._T, lltype.Array):
             return self._address.signed[0]
@@ -216,3 +242,13 @@ def malloc(T, n=None, immortal=False):
 def nullptr(T):
     return simulatorptr(lltype.Ptr(T), lladdress.NULL)
 
+def functionptr(TYPE, name, **attrs):
+    if not isinstance(TYPE, lltype.FuncType):
+        raise TypeError, "functionptr() for FuncTypes only"
+    try:
+        hash(tuple(attrs.items()))
+    except TypeError:
+        raise TypeError("'%r' must be hashable"%attrs)
+    addr = lladdress.raw_malloc(get_total_size(TYPE))
+    addr.attached[0] = lltype._func(TYPE, _name=name, **attrs)
+    return simulatorptr(lltype.Ptr(TYPE), addr)
