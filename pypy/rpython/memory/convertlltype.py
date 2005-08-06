@@ -1,4 +1,3 @@
-import autopath
 from pypy.rpython.memory import lladdress
 from pypy.rpython.memory.lltypesimulation import simulatorptr, get_total_size
 from pypy.rpython.memory.lltypesimulation import get_fixed_size
