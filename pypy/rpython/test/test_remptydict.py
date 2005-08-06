@@ -9,5 +9,5 @@ def test_empty_dict():
     def func():
         a.d2 = {}
         return bool(a.d1) or bool(a.d2)
-    res = interpret(func, [], view=True)
+    res = interpret(func, [])
     assert res is False
