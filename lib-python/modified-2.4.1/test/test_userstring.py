@@ -16,7 +16,7 @@ class UserStringTest(
 
     type2test = UserString
 
-    fixargs = lambda args: args
+    fixargs = lambda self, args: args
     subclasscheck = False
 
 def test_main():
