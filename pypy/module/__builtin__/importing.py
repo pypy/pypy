@@ -48,7 +48,7 @@ def info_modtype(space ,filepart):
         pyfile_exist = False
     
     pycfile = filepart + ".pyc"    
-    if 0:  # os.path.exists(pycfile):       # DISABLED PYC FILES FOR NOW
+    if os.path.exists(pycfile):
         pyc_state = check_compiled_module(space, pyfile, pyfile_ts, pycfile)
         pycfile_exists = pyc_state >= 0
         pycfile_ts_valid = pyc_state > 0 and pyfile_exist
@@ -359,16 +359,15 @@ def load_source_module(space, w_modulename, w_mod, pathname, osfile):
     w = space.wrap
     pycode = parse_source_module(space, pathname, osfile)
 
-    w_dict = space.getattr(w_mod, w('__dict__'))                                      
+    w_dict = space.getattr(w_mod, w('__dict__'))
     space.call_method(w_dict, 'setdefault', 
                       w('__builtins__'), 
                       w(space.builtin))
     pycode.exec_code(space, w_dict, w_dict) 
 
-    if 0:        # DISABLED PYC FILES FOR NOW
-        mtime = os.fstat(osfile.fd)[stat.ST_MTIME]
-        cpathname = pathname + 'c'
-        write_compiled_module(space, pycode, cpathname, mtime)
+    mtime = os.fstat(osfile.fd)[stat.ST_MTIME]
+    cpathname = pathname + 'c'
+    write_compiled_module(space, pycode, cpathname, mtime)
 
     return w_mod
 
@@ -485,7 +484,6 @@ def write_compiled_module(space, co, cpathname, mtime):
         pass
         #XXX debug
         #print "indeed writing", cpathname
-    w_M = space.getattr(w_marshal, space.wrap('dumps'))
     try:
         w_str = space.call_method(w_marshal, 'dumps', space.wrap(co))
     except OperationError:

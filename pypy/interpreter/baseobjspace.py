@@ -164,7 +164,7 @@ class ObjSpace(object):
             pass
 
         modules = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs',
-            'array']
+            'array', 'marshal']
 
         if self.options.nofaking:
             modules.append('posix')
