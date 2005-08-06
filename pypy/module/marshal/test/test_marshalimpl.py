@@ -10,7 +10,7 @@ class TestInternalStuff:
         for do_hack in (False, True):
             interp_marshal.DONT_USE_MM_HACK = not do_hack
             if not do_hack:
-                interp_cost = 5
+                interp_cost = 4
             else:
                 interp_cost = 2
             stacklimit = interp_marshal.nesting_limit - (curdepth + 1) * app_cost - interp_marshal.TEST_CONST

@@ -144,7 +144,7 @@ class _Base(object):
         space = self.space
         raise OperationError(space.w_ValueError, space.wrap(msg))
 
-DONT_USE_MM_HACK = False
+DONT_USE_MM_HACK = True # im_func is not RPython :-(
 
 class Marshaller(_Base):
     # _annspecialcase_ = "specialize:ctr_location" # polymorphic
@@ -160,9 +160,20 @@ class Marshaller(_Base):
                         * APPLEVEL_STACK_COST + TEST_CONST)
         self.cpy_nesting = 0    # contribution to compatibility
         self.stringtable = {}
+        # since we currently probably can't reach the stringtable (we can't
+        # find interned strings), try to convince rtyper that this is
+        #really a string dict.
+        s = 'hello'
+        self.stringtable[s] = space.wrap(s)
+        del self.stringtable[s]
         self.stackless = False
         self._stack = None
-        self._iddict = {}
+        #self._iddict = {}
+        # XXX consider adding the dict later when it is needed.
+        # XXX I would also love to use an IntDict for this, if
+        # we had that. Otherwise I'd need to either make strings
+        # from ids (not all that bad) or use a real dict.
+        # How expensive would that be?
 
     ## currently we cannot use a put that is a bound method
     ## from outside. Same holds for get.
@@ -170,7 +181,8 @@ class Marshaller(_Base):
         self.writer.write(s)
 
     def atom(self, typecode):
-        assert type(typecode) is str and len(typecode) == 1
+        #assert type(typecode) is str and len(typecode) == 1
+        # type(char) not supported
         self.put(typecode)
 
     def atom_int(self, typecode, x):
@@ -193,13 +205,16 @@ class Marshaller(_Base):
 
     def atom_strlist(self, typecode, tc2, x):
         self.atom_int(typecode, len(x))
+        atom_str = self.atom_str
         for item in x:
-            if type(item) is not str:
-                self.raise_exc('object with wrong type in strlist')
-            self.atom_str(tc2, item)
+            # type(str) seems to be forbidden
+            #if type(item) is not str:
+            #    self.raise_exc('object with wrong type in strlist')
+            atom_str(tc2, item)
 
     def start(self, typecode):
-        assert type(typecode) is str and len(typecode) == 1
+        #assert type(typecode) is str and len(typecode) == 1
+        # type(char) not supported
         self.put(typecode)
 
     def put_short(self, x):
@@ -268,18 +283,12 @@ class Marshaller(_Base):
 
     def put_list_w(self, list_w, lng):
         if DONT_USE_MM_HACK:
-            # inlining makes no sense without the hack
-            self.nesting += 1
-            self.put_int(lng)
-            idx = 0
-            while idx < lng:
-                self.put_w_obj(list_w[idx])
-                idx += 1
-            self.nesting -= 1
-            return
-
-        # inlined version, two stack levels, only!
-        self.nesting += 2
+            nest = 4
+            marshal_w = self.space.marshal_w
+        else:
+            nest = 2
+        # inlined version, two stack levels, only, with the hack!
+        self.nesting += nest
         self.put_int(lng)
         idx = 0
         space = self.space
@@ -290,14 +299,17 @@ class Marshaller(_Base):
         if do_nested:
             while idx < lng:
                 w_obj = list_w[idx]
-                self._get_mm_marshal(w_obj)(space, w_obj, self)
+                if DONT_USE_MM_HACK:
+                    marshal_w(w_obj, self)
+                else:
+                    self._get_mm_marshal(w_obj)(space, w_obj, self)
                 idx += 1
         else:
             while idx < lng:
                 w_obj = list_w[idx]
                 self._run_stackless(w_obj)
                 idx += 1
-        self.nesting -= 2
+        self.nesting -= nest
         if CPYTHON_COMPATIBLE:
             self.cpy_nesting -= 1
 
@@ -306,7 +318,19 @@ class Marshaller(_Base):
 
 
 def invalid_typecode(space, u, tc):
-    u.raise_exc('invalid typecode in unmarshal: %r' % tc)
+    # %r not supported in rpython
+    #u.raise_exc('invalid typecode in unmarshal: %r' % tc)
+    c = ord(tc)
+    if c < 32 or c > 126:
+        s = '\\x' + hex(c)
+    elif tc == '\\':
+        s = r'\\'
+    else:
+        s = tc
+    q = "'"
+    if s[0] == "'":
+        q = '"'
+    u.raise_exc('invalid typecode in unmarshal: ' + q + s + q)
 
 def register(codes, func):
     """NOT_RPYTHON"""

@@ -30,7 +30,7 @@ from pypy.objspace.std.longobject    import W_LongObject
 from pypy.objspace.std.noneobject    import W_NoneObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
-import longobject
+import longobject, dictobject
 from pypy.objspace.std.strutil import string_to_float
 
 from pypy.module.marshal.interp_marshal import register
@@ -344,14 +344,18 @@ def marshal_w__Dict(space, w_dict, m):
     m.atom(TYPE_NULL)
 
 def unmarshal_Dict(space, u, tc):
-    items_w = []
+    # since primitive lists are not optimized and we don't know
+    # the dict size in advance, use the dict's setitem instead
+    # of building a list of tuples.
+    w_dic = W_DictObject(space, [])
+    setter = dictobject.setitem__Dict_ANY_ANY
     while 1:
         w_key = u.get_w_obj(True)
         if w_key is None:
             break
         w_value = u.get_w_obj(False)
-        items_w.append( (w_key, w_value) )
-    return W_DictObject(space, items_w)
+        setter(space, w_dic, w_key, w_value)
+    return w_dic
 register(TYPE_DICT, unmarshal_Dict)
 
 def unmarshal_NULL(self, u, tc):
