@@ -107,3 +107,14 @@ def test_nullptr():
     llptr = lltype.nullptr(S)
     s = cvter.convert(llptr)
     assert not s
+
+def test_funcptr():
+    def f(x, y):
+        return x + y
+    F = lltype.FuncType((lltype.Signed, lltype.Signed), lltype.Signed)
+    llfuncptr = lltype.functionptr(F, "add", _callable=f)
+    assert llfuncptr(1, 2) == 3
+    cvter = LLTypeConverter(lladdress.raw_malloc(10))
+    fpter = cvter.convert(llfuncptr)
+    assert fpter(1, 2) == 3
+

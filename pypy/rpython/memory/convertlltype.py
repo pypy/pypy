@@ -1,11 +1,15 @@
+import autopath
 from pypy.rpython.memory import lladdress
 from pypy.rpython.memory.lltypesimulation import simulatorptr, get_total_size
 from pypy.rpython.memory.lltypesimulation import get_fixed_size
 from pypy.rpython.memory.lltypesimulation import get_variable_size
 from pypy.rpython.memory.lltypesimulation import primitive_to_fmt
 from pypy.rpython.memory.lltypesimulation import get_layout
-from pypy.objspace.flow.model import traverse, Link, Constant, SpaceOperation
+from pypy.objspace.flow.model import traverse, Link, Constant, Block
+from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
+
+import struct
 
 class LLTypeConverter(object):
     def __init__(self, address):
@@ -24,8 +28,14 @@ class LLTypeConverter(object):
             return self.convert_struct(val_or_ptr, inline_to_addr)
         elif isinstance(TYPE, lltype.Ptr):
             return self.convert_pointer(val_or_ptr, inline_to_addr)
+        elif isinstance(TYPE, lltype.OpaqueType):
+            return self.convert_object(val_or_ptr, inline_to_addr)
+        elif isinstance(TYPE, lltype.FuncType):
+            return self.convert_object(val_or_ptr, inline_to_addr)
+        elif isinstance(TYPE, lltype.PyObjectType):
+            return self.convert_object(val_or_ptr, inline_to_addr)
         else:
-            assert 0, "not yet implemented"
+            assert 0, "don't know about %s" % (val_or_ptr, )
 
     def convert_array(self, _array, inline_to_addr):
         if _array in self.converted:
@@ -82,3 +92,14 @@ class LLTypeConverter(object):
         if inline_to_addr is not None:
             inline_to_addr.address[0] = addr
         return simulatorptr(TYPE, addr)
+
+    def convert_object(self, _obj, inline_to_addr):
+        if inline_to_addr is not None:
+            inline_to_addr.attached[0] = _obj
+            return inline_to_addr
+        else:
+            addr = self.curraddress
+            addr.attached[0] = _obj
+            self.curraddress += struct.calcsize("i")
+            return addr
+
