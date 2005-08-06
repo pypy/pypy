@@ -12,3 +12,6 @@ class EmptyDictRepr(rmodel.Repr):
 
     def rtype_len(self, hop):
         return hop.inputconst(lltype.Signed, 0)
+
+
+emptydict_repr = EmptyDictRepr()

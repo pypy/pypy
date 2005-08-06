@@ -43,7 +43,7 @@ class __extend__(annmodel.SomeDict):
                         rtyper.getrepr(dictkey.s_value), 
                         rtyper.getrepr(dictvalue.s_value))
         elif isinstance(s_key, annmodel.SomeImpossibleValue):
-            return remptydict.EmptyDictRepr()
+            return remptydict.emptydict_repr
         elif (s_key.__class__ is annmodel.SomeObject and s_key.knowntype == object and
               s_value.__class__ is annmodel.SomeObject and s_value.knowntype == object):
             return robject.pyobj_repr
@@ -293,6 +293,8 @@ def rtype_newdict(hop):
     if r_dict == robject.pyobj_repr: # special case: SomeObject: SomeObject dicts!
         cdict = hop.inputconst(robject.pyobj_repr, dict)
         return hop.genop('simple_call', [cdict], resulttype = robject.pyobj_repr)
+    if r_dict == remptydict.emptydict_repr: # other special case: empty dicts
+        return hop.inputconst(lltype.Void, {})
     if not isinstance(r_dict, StrDictRepr):
         raise rmodel.TyperError("cannot create non-StrDicts, got %r" %(r_dict,))
     c1 = hop.inputconst(lltype.Void, r_dict.lowleveltype)

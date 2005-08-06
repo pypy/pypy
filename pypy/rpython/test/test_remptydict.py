@@ -5,8 +5,9 @@ def test_empty_dict():
     class A:
         pass
     a = A()
-    a.d = {}
+    a.d1 = {}
     def func():
-        return bool(a.d)
-    res = interpret(func, [])
+        a.d2 = {}
+        return bool(a.d1) or bool(a.d2)
+    res = interpret(func, [], view=True)
     assert res is False
