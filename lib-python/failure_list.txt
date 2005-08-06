@@ -63,3 +63,6 @@ test_cpickle
 test_descr
    FIXED? should be re-run.  Were fixed in modified-2.3.4, but then they
    were somehow lost when we switched to 2.4.1...
+
+test_sys (FIXED)
+    refcount test disabled (considered implementation detail from CPython)
