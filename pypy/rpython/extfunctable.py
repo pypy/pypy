@@ -54,6 +54,10 @@ def declare(func, annotation, ll_function, ll_annotable=True, backend_functionte
 def noneannotation(*args):
     return None
 
+def posannotation(*args):
+    from pypy.annotation.model import SomeInteger
+    return SomeInteger(nonneg=True)
+
 def statannotation(*args):
     from pypy.annotation.model import SomeInteger, SomeTuple
     return SomeTuple((SomeInteger(),)*10)
@@ -69,7 +73,7 @@ def modfannotation(*args):
 # external function declarations
 declare(os.open     , int           , 'll_os/open')
 declare(os.read     , str           , 'll_os/read')
-declare(os.write    , int           , 'll_os/write')
+declare(os.write    , posannotation , 'll_os/write')
 declare(os.close    , noneannotation, 'll_os/close')
 declare(os.getcwd   , str           , 'll_os/getcwd')
 declare(os.dup      , int           , 'll_os/dup')
