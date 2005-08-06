@@ -32,6 +32,9 @@ test_mutants
    still crashes because it does a str() on a a mutating dict
    which results in a RuntimeError, what does CPython output in this case?
 
+test_marshal
+   even with our new complete marshall support enabled this one has
+   failures
 
 test_tuple etc
    do we want to support x is x*1 where x is exactly a tuple?
