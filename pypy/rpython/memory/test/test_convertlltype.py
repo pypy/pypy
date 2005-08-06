@@ -101,4 +101,9 @@ def test_varsize_struct():
     assert [s.a[i] for i in range(3)] == [1, 2, 3]
     assert s.v == 4
     
-    
+def test_nullptr():
+    cvter = LLTypeConverter(lladdress.raw_malloc(10))
+    S = lltype.GcStruct("name", ("v", lltype.Signed))
+    llptr = lltype.nullptr(S)
+    s = cvter.convert(llptr)
+    assert not s

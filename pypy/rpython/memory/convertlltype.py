@@ -4,7 +4,7 @@ from pypy.rpython.memory.lltypesimulation import get_fixed_size
 from pypy.rpython.memory.lltypesimulation import get_variable_size
 from pypy.rpython.memory.lltypesimulation import primitive_to_fmt
 from pypy.rpython.memory.lltypesimulation import get_layout
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import traverse, Link, Constant, SpaceOperation
 from pypy.rpython import lltype
 
 class LLTypeConverter(object):
@@ -74,7 +74,10 @@ class LLTypeConverter(object):
 
     def convert_pointer(self, _ptr, inline_to_addr):
         TYPE = lltype.typeOf(_ptr)
-        addr = self.convert(_ptr._obj)
+        if _ptr._obj is not None:
+            addr = self.convert(_ptr._obj)
+        else:
+            addr = lladdress.NULL
         assert isinstance(addr, lladdress.Address)
         if inline_to_addr is not None:
             inline_to_addr.address[0] = addr
