@@ -971,6 +971,9 @@ def mul_string_times(space, w_str, w_times):
     except (MemoryError,OverflowError,ValueError):
         # ugh. ValueError is what you get on 64-bit machines for
         # integers in range(2**31, 2**63).
+        # XXX needed to initialize buffer for rtyper. Strange,
+        # because it's need seems to vary!
+        buffer = [' ']
         raise OperationError( space.w_OverflowError, space.wrap("repeated string is too long: %d %d" % (input_len,mul) ))
 
     pos = 0
