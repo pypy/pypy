@@ -25,8 +25,6 @@ class OsFileWrapper(object):
         towrite = len(buf)
         while writecount < towrite:
             # os.write will raise an error itself
-            assert writecount >= 0 # annotator hint, don't remove.
-            # XXX should be tellable in extfunctable
             writecount += os.write(self.fd, buf[writecount:])
 
     def close(self):
