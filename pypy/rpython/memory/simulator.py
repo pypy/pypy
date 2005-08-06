@@ -67,6 +67,8 @@ class MemorySimulator(object):
             self.size_of_simulated_ram = ram_size
 
     def find_block(self, address):
+        if address >= self.freememoryaddress:
+            raise MemorySimulatorError, "trying to access memory not malloc'ed"
         lo = 0
         hi = len(self.blocks)
         while lo < hi:
