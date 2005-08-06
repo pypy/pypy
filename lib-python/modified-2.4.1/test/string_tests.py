@@ -45,11 +45,15 @@ class CommonTest(unittest.TestCase):
         else:
             return obj
 
+    # single this out, because UserString cannot cope with fixed args
+    fixargs = fixtype
+    subclasscheck = True
+
     # check that object.method(*args) returns result
     def checkequal(self, result, object, methodname, *args):
         result = self.fixtype(result)
         object = self.fixtype(object)
-        args = self.fixtype(args)
+        args = self.fixargs(args)
         realresult = getattr(object, methodname)(*args)
         self.assertEqual(
             result,
@@ -57,7 +61,7 @@ class CommonTest(unittest.TestCase):
         )
         # if the original is returned make sure that
         # this doesn't happen with subclasses
-        if object == realresult:
+        if object == realresult and self.subclasscheck:
             class subtype(self.__class__.type2test):
                 pass
             object = subtype(object)
@@ -67,17 +71,26 @@ class CommonTest(unittest.TestCase):
     # check that op(*args) returns result
     def checkop(self, result, op, *args):
         result = self.fixtype(result)
-        args = self.fixtype(args)
-        realresult = op(*args)
+        object = self.fixtype(args[0])
+        args = self.fixargs(args[1:])
+        realresult = op(object, *args)
         self.assertEqual(
             result,
             realresult
         )
+        # if the original is returned make sure that
+        # this doesn't happen with subclasses
+        if object == realresult and self.subclasscheck:
+            class subtype(self.__class__.type2test):
+                pass
+            object = subtype(object)
+            realresult = op(object, *args)
+            self.assert_(object is not realresult)
 
     # check that object.method(*args) raises exc
     def checkraises(self, exc, object, methodname, *args):
         object = self.fixtype(object)
-        args = self.fixtype(args)
+        args = self.fixargs(args)
         self.assertRaises(
             exc,
             getattr(object, methodname),
@@ -86,23 +99,26 @@ class CommonTest(unittest.TestCase):
 
     # check that op(*args) raises exc
     def checkopraises(self, exc, op, *args):
-        args = self.fixtype(args)
+        object = self.fixtype(args[0])
+        args = self.fixargs(args[1:])
         self.assertRaises(
             exc,
             op,
+            object,
             *args
         )
 
     # call object.method(*args) without any checks
     def checkcall(self, object, methodname, *args):
         object = self.fixtype(object)
-        args = self.fixtype(args)
+        args = self.fixargs(args)
         getattr(object, methodname)(*args)
 
     # call op(*args) without any checks
     def checkopcall(self, op, *args):
-        args = self.fixtype(args)
-        op(*args)
+        object = self.fixtype(args[0])
+        args = self.fixargs(args[1:])
+        op(object, *args)
 
     def test_hash(self):
         # SF bug 1054139:  += optimization was not invalidating cached hash value
