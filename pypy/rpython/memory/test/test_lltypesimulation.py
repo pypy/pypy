@@ -4,17 +4,21 @@ py.log.setconsumer("lltypesim", None)
 
 def test_struct():
     S0 = lltype.GcStruct("s0", ('a',  lltype.Signed),
-                         ('b', lltype.Signed), ('c',  lltype.Char))
+                         ('b', lltype.Signed), ('c',  lltype.Char),
+                         ('d', lltype.Bool))
     s0 = malloc(S0)
     assert s0.a == 0
     assert s0.b == 0
     assert s0.c == '\x00'
+    assert s0.b == 0
     s0.a = 42
     s0.b = 43
     s0.c = 'x'
+    s0.d = True
     assert s0.a == 42
     assert s0.b == 43
     assert s0.c == 'x'
+    assert s0.d == 1
     s0.a = 1
     s0.b = s0.a
     assert s0.a == 1
@@ -32,7 +36,6 @@ def test_array():
     x[1].v = 2
     x[2].v = 3
     assert [x[z].v for z in range(3)] == [1, 2, 3]
-
 
 
 def define_list(T):
