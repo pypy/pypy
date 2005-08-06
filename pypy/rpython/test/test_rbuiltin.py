@@ -216,3 +216,15 @@ def test_we_are_translated():
         return we_are_translated()
     res = interpret(f, [])
     assert res is True and f() is False
+
+def test_method_join():
+    # this is tuned to catch a specific bug:
+    # a wrong rtyper_makekey() for BuiltinMethodRepr
+    def f():
+        lst1 = ['abc', 'def']
+        s1 = ', '.join(lst1)
+        lst2 = ['1', '2', '3']
+        s2 = ''.join(lst2)
+        return s1 + s2
+    res = interpret(f, [])
+    assert ''.join(list(res.chars)) == 'abc, def123'

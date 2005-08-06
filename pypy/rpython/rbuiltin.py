@@ -33,7 +33,15 @@ class __extend__(annmodel.SomeBuiltin):
             return self.__class__, getattr(self, 'const', None)
         else:
             # built-in method case
-            return (self.__class__, self.methodname, self.s_self.rtyper_makekey())
+            # NOTE: we hash by id of self.s_self here.  This appears to be
+            # necessary because it ends up in hop.args_s[0] in the method call,
+            # and there is no telling what information the called
+            # rtype_method_xxx() will read from that hop.args_s[0].
+            # See test_method_join in test_rbuiltin.
+            # There is no problem with self.s_self being garbage-collected and
+            # its id reused, because the BuiltinMethodRepr keeps a reference
+            # to it.
+            return (self.__class__, self.methodname, id(self.s_self))
 
 
 class BuiltinFunctionRepr(Repr):
