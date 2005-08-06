@@ -1,8 +1,10 @@
 /************************************************************/
  /***  C header subsection: time module                    ***/
 
-#include <sys/time.h>
 #include <time.h>
+#ifndef MS_WINDOWS
+#  include <sys/time.h>
+#endif
 
 
 /****** clock() ******/
