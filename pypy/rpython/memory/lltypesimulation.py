@@ -184,6 +184,11 @@ class simulatorptr(object):
             return
         raise TypeError("%r instance is not an array" % (self._T,))
 
+    def _getobj(self):
+        assert isinstance(self._T, (lltype.FuncType, lltype.PyObjectType))
+        return self._address.attached[0]
+    _obj = property(_getobj)
+
     def __call__(self, *args):
         if isinstance(self._T, lltype.FuncType):
             if len(args) != len(self._T.ARGS):

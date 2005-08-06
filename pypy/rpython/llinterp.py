@@ -16,7 +16,9 @@ class LLException(Exception):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
-    def __init__(self, flowgraphs, typer, lltype=lltype):
+    def __init__(self, flowgraphs, typer, lltype=lltype, prepare_graphs=None):
+        if prepare_graphs is not None:
+            prepare_graphs(flowgraphs)
         self.flowgraphs = flowgraphs
         self.bindings = {}
         self.typer = typer

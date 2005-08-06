@@ -103,3 +103,100 @@ class LLTypeConverter(object):
             self.curraddress += struct.calcsize("i")
             return addr
 
+class FlowGraphConstantConverter(object):
+    def __init__(self, flowgraphs):
+        self.flowgraphs = flowgraphs
+        self.memory = lladdress.NULL
+        self.cvter = None
+        self.total_size = 0
+
+    def collect_constants(self):
+        constants = {}
+        def collect_args(args):
+            for arg in args:
+                if isinstance(arg, Constant):
+                    constants[arg] = None
+        def visit(obj):
+            if isinstance(obj, Link):
+                collect_args(obj.args)
+            elif isinstance(obj, Block):
+                for op in obj.operations:
+                    collect_args(op.args)
+        for graph in self.flowgraphs.itervalues():
+            traverse(visit, graph)
+        self.constants = constants
+
+    def calculate_size(self):
+        total_size = 0
+        seen = {}
+        candidates = [const.value for const in self.constants.iterkeys()]
+        while candidates:
+            cand = candidates.pop()
+            if isinstance(cand, lltype._ptr):
+                if cand:
+                    candidates.append(cand._obj)
+                continue
+            elif isinstance(cand, lltype.LowLevelType):
+                continue
+            elif isinstance(cand, str):
+                continue
+            elif isinstance(lltype.typeOf(cand), lltype.Primitive):
+                continue
+            elif cand in seen:
+                continue
+            elif isinstance(cand, lltype._array):
+                seen[cand] = True
+                length = len(cand.items)
+                total_size += get_total_size(cand._TYPE, length)
+                for item in cand.items:
+                    candidates.append(item)
+            elif isinstance(cand, lltype._struct):
+                seen[cand] = True
+                TYPE = cand._TYPE
+                if TYPE._arrayfld is not None:
+                    total_size += get_total_size(
+                        TYPE, len(getattr(cand, TYPE._arrayfld).items))
+                else:
+                    total_size += get_total_size(TYPE)
+                for name in TYPE._flds:
+                    candidates.append(getattr(cand, name))
+            elif isinstance(cand, lltype._opaque):
+                total_size += struct.calcsize("i")
+            elif isinstance(cand, lltype._func):
+                total_size += struct.calcsize("i")
+            elif isinstance(cand, lltype._pyobject):
+                total_size += struct.calcsize("i")
+            else:
+                assert 0, "don't know about %s %s" % (cand, cand.__class__)
+        self.total_size = total_size
+
+    def convert_constants(self):
+        self.memory = lladdress.raw_malloc(self.total_size)
+        self.cvter = LLTypeConverter(self.memory)
+        for constant in self.constants.iterkeys():
+            if isinstance(constant.value, lltype.LowLevelType):
+                self.constants[constant] = constant.value
+            elif isinstance(constant.value, str):
+                self.constants[constant] = constant.value
+            else:
+                self.constants[constant] = self.cvter.convert(constant.value)
+
+    def patch_graphs(self):
+        def patch_consts(args):
+            for arg in args:
+                if isinstance(arg, Constant) and arg in self.constants:
+                    arg.value = self.constants[arg]
+        def visit(obj):
+            if isinstance(obj, Link):
+                patch_consts(obj.args)
+            elif isinstance(obj, Block):
+                for op in obj.operations:
+                    patch_consts(op.args)
+        for graph in self.flowgraphs.itervalues():
+            traverse(visit, graph)
+
+    def convert(self):
+        self.collect_constants()
+        self.calculate_size()
+        self.convert_constants()
+        self.patch_graphs()
