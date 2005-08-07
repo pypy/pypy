@@ -15,7 +15,7 @@ import array, operator, sys
 #from sre_constants import ATCODES, OPCODES, CHCODES, MAXREPEAT
 
 # Identifying as _sre from Python 2.3 or 2.4
-if sys.version_info[:2] == (2, 4):
+if sys.version_info[:2] >= (2, 4):
     MAGIC = 20031017
 else:
     MAGIC = 20030419
