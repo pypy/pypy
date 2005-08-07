@@ -4,6 +4,8 @@ from pypy.translator.llvm2.genllvm import compile_function
 from pypy.translator.test.snippet import try_raise_choose
 from pypy.rpython.rarithmetic import r_uint
 
+import sys
+
 class TestException(Exception):
     pass
 
@@ -135,6 +137,30 @@ def test_zerodivrem_uint():
     f = compile_function(zerodivrem_uint, [r_uint])
     for i in (0,50,100):
         assert f(i) == zerodivrem_uint(i)
+
+def test_neg_int_ovf():
+    py.test.skip("When does int_neg_ovf get generated")    
+    def neg_int_ovf(n):
+        try:
+            r=-n
+        except OverflowError:
+            return 123
+        return r
+    f = compile_function(neg_int_ovf, [int])
+    for i in (-sys.maxint-1, -sys.maxint, 0, sys.maxint-1, sys.maxint):
+        assert f(i) == neg_int_ovf(i)
+
+def test_abs_int_ovf():
+    py.test.skip("When does int_abs_ovf get generated")    
+    def abs_int_ovf(n):
+        try:
+            r=abs(n)
+        except OverflowError:
+            return 123
+        return r
+    f = compile_function(abs_int_ovf, [int], True)
+    for i in (-sys.maxint-1, -sys.maxint, 0, sys.maxint-1, sys.maxint):
+        assert f(i) == abs_int_ovf(i)
 
 def test_reraise1():
     def fn(n):

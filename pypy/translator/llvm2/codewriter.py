@@ -3,17 +3,19 @@ from itertools import count
 from pypy.translator.llvm2.log import log 
 
 log = log.codewriter 
-show_line_numbers = False # True
-count = count().next
 
 class CodeWriter(object): 
-    def __init__(self): 
-        self._lines = []
+    def __init__(self, f, show_line_number=False): 
+        self.f = f
+        self.show_line_numbers = show_line_number
+        self.n_lines = 0
+        self.count = count().next
 
     def append(self, line): 
-        if show_line_numbers:
-            line = "%-75s; %d" % (line, len(self._lines) + 1)
-        self._lines.append(line) 
+        self.n_lines += 1
+        if self.show_line_numbers:
+            line = "%-75s; %d" % (line, self.n_lines)
+        print >> self.f, line
 
     def comment(self, line, indent=True):
         line = ";; " + line
@@ -120,7 +122,7 @@ class CodeWriter(object):
                         "%(fromvar)s to %(targettype)s" % locals())
 
     def malloc(self, targetvar, type_, size=1, atomic=False):
-        cnt = count()
+        cnt = self.count()
         postfix = ('', '_atomic')[atomic]
         self.indent("%%malloc.Size.%(cnt)d = getelementptr %(type_)s* null, uint %(size)s" % locals())
         self.indent("%%malloc.SizeU.%(cnt)d = cast %(type_)s* %%malloc.Size.%(cnt)d to uint" % locals())
@@ -145,5 +147,5 @@ class CodeWriter(object):
         res = res % (tmpname, len, tmpname)
         self.indent(res)
         
-    def __str__(self): 
-        return "\n".join(self._lines)
+    #def __str__(self): 
+    #    return "\n".join(self._lines)

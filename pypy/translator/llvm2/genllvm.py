@@ -36,7 +36,7 @@ class GenLLVM(object):
         # for debug we create comments of every operation that may be executed
         self.debug = debug
         
-    def compile(self, func=None):
+    def gen_llvm_source(self, func=None):
         if func is None:
             func = self.translator.entrypoint
         self.entrypoint = func
@@ -55,10 +55,21 @@ class GenLLVM(object):
         assert c in self.db.obj2node
 
         self.db.setup_all()
-        log.compile(self.db.dump_pbcs())
+        if self.debug:
+            log.gen_llvm_source(self.db.dump_pbcs())
 
         self.entrynode = self.db.obj2node[c]
-        codewriter = CodeWriter()
+
+        # prevent running the same function twice in a test
+        if func.func_name in function_count:
+            postfix = '_%d' % function_count[func.func_name]
+            function_count[func.func_name] += 1
+        else:
+            postfix = ''
+            function_count[func.func_name] = 1
+        filename = udir.join(func.func_name + postfix).new(ext='.ll')
+
+        codewriter = CodeWriter( open(str(filename),'w') )
         comment = codewriter.comment
         nl = codewriter.newline
 
@@ -141,39 +152,26 @@ class GenLLVM(object):
         codewriter.newline()
 
         comment("End of file") ; nl()
-        self.content = str(codewriter)
-        return self.content
+        return filename
 
-    def create_module(self, exe_name=None):
-        # hack to prevent running the same function twice in a test
-        func = self.entrypoint
-        if func.func_name in function_count:
-            postfix = '_%d' % function_count[func.func_name]
-            function_count[func.func_name] += 1
-        else:
-            postfix = ''
-
-            function_count[func.func_name] = 1
-
-        targetdir = udir
-        llvmsource = targetdir.join(func.func_name+postfix).new(ext='.ll')
-        llvmsource.write(self.content)  # XXX writing to disc directly would conserve memory
-
+    def create_module(self, filename, exe_name=None):
         if not llvm_is_on_path(): 
             py.test.skip("llvm not found")  # XXX not good to call py.test.skip here
 
-        pyxsource = llvmsource.new(basename=llvmsource.purebasename+'_wrapper'+postfix+'.pyx')
+        postfix = ''
+        pyxsource = filename.new(basename=filename.purebasename+'_wrapper'+postfix+'.pyx')
         write_pyx_wrapper(self.entrynode, pyxsource)    
 
-        return build_llvm_module.make_module_from_llvm(llvmsource, pyxsource, exe_name=exe_name)
+        return build_llvm_module.make_module_from_llvm(filename, pyxsource, exe_name=exe_name)
 
     def _debug_prototype(self, codewriter):
         codewriter.append("declare int %printf(sbyte*, ...)")
 
 def genllvm(translator, embedexterns=True, exe_name=None):
     gen = GenLLVM(translator, embedexterns=embedexterns)
-    log.genllvm(gen.compile())
-    return gen.create_module(exe_name)
+    filename = gen.gen_llvm_source()
+    #log.genllvm(open(filename).read())
+    return gen.create_module(filename, exe_name)
 
 def llvm_is_on_path():
     try:
@@ -182,19 +180,19 @@ def llvm_is_on_path():
         return False 
     return True
 
-def compile_module(function, annotate, view=False, embedexterns=True, exe_name=None):
+def compile_module(function, annotation, view=False, embedexterns=True, exe_name=None):
     t = Translator(function)
-    a = t.annotate(annotate)
+    a = t.annotate(annotation)
     t.specialize()
     if view:
         t.view()
     return genllvm(t, embedexterns=embedexterns, exe_name=exe_name)
 
-def compile_function(function, annotate, view=False, embedexterns=True, exe_name=None):
-    mod = compile_module(function, annotate, view, embedexterns=embedexterns, exe_name=exe_name)
+def compile_function(function, annotation, view=False, embedexterns=True, exe_name=None):
+    mod = compile_module(function, annotation, view, embedexterns=embedexterns, exe_name=exe_name)
     return getattr(mod, function.func_name + "_wrapper")
 
-def compile_module_function(function, annotate, view=False, embedexterns=True, exe_name=None):
-    mod = compile_module(function, annotate, view, embedexterns=embedexterns, exe_name=exe_name)
+def compile_module_function(function, annotation, view=False, embedexterns=True, exe_name=None):
+    mod = compile_module(function, annotation, view, embedexterns=embedexterns, exe_name=exe_name)
     f = getattr(mod, function.func_name + "_wrapper")
     return mod, f
