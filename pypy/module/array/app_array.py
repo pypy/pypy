@@ -444,7 +444,6 @@ class array(object):
         self.__setitem__(slice(i, j), x)
 
     def __delitem__(self, i):
-        # XXX missing: deleting a slice
         del self._data[i]
 
     def __delslice__(self, i, j):
