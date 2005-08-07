@@ -85,6 +85,8 @@ class MixedModule(Module):
                 loaders[name] = getappfileloader(pkgroot, spec) 
             assert '__file__' not in loaders 
             loaders['__file__'] = cls.get__file__
+            if '__doc__' not in loaders:
+                loaders['__doc__'] = cls.get__doc__
 
     buildloaders = classmethod(buildloaders) 
 
@@ -106,6 +108,10 @@ class MixedModule(Module):
         return space.wrap(fname) 
 
     get__file__ = classmethod(get__file__) 
+
+    def get__doc__(cls, space):
+        return space.wrap(cls.__doc__)
+    get__doc__ = classmethod(get__doc__)
 
 
 def getinterpevalloader(pkgroot, spec):
