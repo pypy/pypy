@@ -357,7 +357,15 @@ class _State(object):
         self.repeat = None
 
     def match(self, pattern_codes):
-        # XXX INFO optimization missing here
+        # Optimization: Check string length. pattern_codes[3] contains the
+        # minimum length for a string to possibly match.
+        from sre_constants import OPCODES
+        if pattern_codes[0] == OPCODES["info"] and pattern_codes[3]:
+            if self.end - self.string_position < pattern_codes[3]:
+                #_log("reject (got %d chars, need %d)"
+                #         % (self.end - self.string_position, pattern_codes[3]))
+                return False
+        
         dispatcher = _OpcodeDispatcher()
         self.context_stack.append(_MatchContext(self, pattern_codes))
         has_matched = None
@@ -369,10 +377,13 @@ class _State(object):
         return has_matched
 
     def search(self, pattern_codes):
-        from sre_constants import OPCODES
+        from sre_constants import OPCODES, SRE_INFO_PREFIX
         if pattern_codes[0] == OPCODES["info"]:
-            pattern_codes = pattern_codes[pattern_codes[1] + 1:]   
-        # XXX USE_FAST_SEARCH optimizations missing here        
+            # optimization info block
+            # <INFO> <1=skip> <2=flags> <3=min> <4=max> <5=prefix info>
+            if pattern_codes[2] & SRE_INFO_PREFIX and pattern_codes[5] > 1:
+                return self.fast_search(pattern_codes)
+            pattern_codes = pattern_codes[pattern_codes[1] + 1:]
         # XXX literal and charset optimizations missing here
         string_position = self.start
         while string_position <= self.end:
@@ -380,6 +391,43 @@ class _State(object):
             self.start = self.string_position = string_position
             if self.match(pattern_codes):
                 return True
+            string_position += 1
+        return False
+
+    def fast_search(self, pattern_codes):
+        """Skips forward in a string as fast as possible using information from
+        an optimization info block."""
+        from sre_constants import SRE_INFO_LITERAL
+        # pattern starts with a known prefix
+        # <5=length> <6=skip> <7=prefix data> <overlap data>
+        flags = pattern_codes[2]
+        prefix_len = pattern_codes[5]
+        prefix_skip = pattern_codes[6] # don't really know what this is good for
+        prefix = pattern_codes[7:7 + prefix_len]
+        overlap = pattern_codes[7 + prefix_len - 1:pattern_codes[1] + 1]
+        pattern_codes = pattern_codes[pattern_codes[1] + 1:]
+        i = 0
+        string_position = self.string_position
+        while string_position < self.end:
+            while True:
+                if ord(self.string[string_position]) != prefix[i]:
+                    if i == 0:
+                        break
+                    else:
+                        i = overlap[i]
+                else:
+                    i += 1
+                    if i == prefix_len:
+                        # found a potential match
+                        self.start = string_position + 1 - prefix_len
+                        self.string_position = string_position + 1 \
+                                                     - prefix_len + prefix_skip
+                        if flags & SRE_INFO_LITERAL:
+                            return True # matched all of pure literal pattern
+                        if self.match(pattern_codes[2 * prefix_skip:]):
+                            return True
+                        i = overlap[i]
+                    break
             string_position += 1
         return False
 
@@ -683,18 +731,22 @@ class _OpcodeDispatcher(_Dispatcher):
         # alternation
         # <BRANCH> <0=skip> code <JUMP> ... <NULL>
         #self._log(ctx, "BRANCH")
+        from sre_constants import OPCODES
         ctx.state.marks_push()
         ctx.skip_code(1)
         current_branch_length = ctx.peek_code(0)
         while current_branch_length:
-            # XXX OP_LITERAL and OP_IN optimizations here
-            ctx.state.string_position = ctx.string_position
-            child_context = ctx.push_new_context(1)
-            yield False
-            if child_context.has_matched:
-                ctx.has_matched = True
-                yield True
-            ctx.state.marks_pop_keep()
+            # The following tries to shortcut branches starting with a
+            # (unmatched) literal. _sre.c also shortcuts charsets here.
+            if not (ctx.peek_code(1) == OPCODES["literal"] and \
+                    (ctx.at_end() or ctx.peek_code(2) != ord(ctx.peek_char()))):
+                ctx.state.string_position = ctx.string_position
+                child_context = ctx.push_new_context(1)
+                yield False
+                if child_context.has_matched:
+                    ctx.has_matched = True
+                    yield True
+                ctx.state.marks_pop_keep()
             ctx.skip_code(current_branch_length)
             current_branch_length = ctx.peek_code(0)
         ctx.state.marks_pop_discard()
