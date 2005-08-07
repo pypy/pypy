@@ -8,34 +8,11 @@ copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
 """
 
 import array, operator, sys
-# XXX Avoiding sre_constants import on module level to cater for a hack in
-# sre_constants concerned with _sre faking on 2.3. Fix this when _sre faking is
-# not an issue anymore.
-#import sre_constants
-#from sre_constants import ATCODES, OPCODES, CHCODES, MAXREPEAT
+import sre_constants
+from sre_constants import ATCODES, OPCODES, CHCODES, MAXREPEAT
+from sre_constants import SRE_INFO_PREFIX, SRE_INFO_LITERAL
+from _sre import CODESIZE
 
-# Identifying as _sre from Python 2.3 or 2.4
-if sys.version_info[:2] >= (2, 4):
-    MAGIC = 20031017
-else:
-    MAGIC = 20030419
-
-# In _sre.c this is bytesize of the code word type of the C implementation.
-# There it's 2 for normal Python builds and more for wide unicode builds (large 
-# enough to hold a 32-bit UCS-4 encoded character). Since here in pure Python
-# we only see re bytecodes as Python longs, we shouldn't have to care about the
-# codesize. But sre_compile will compile some stuff differently depending on the
-# codesize (e.g., charsets).
-if sys.maxunicode == 65535:
-    CODESIZE = 2
-else:
-    CODESIZE = 4
-
-copyright = "_sre.py 2.4a Copyright 2005 by Nik Haldimann"
-
-
-def getcodesize():
-    return CODESIZE
 
 def compile(pattern, flags, code, groups=0, groupindex={}, indexgroup=[None]):
     """Compiles (or rather just converts) a pattern descriptor to a SRE_Pattern
@@ -43,7 +20,6 @@ def compile(pattern, flags, code, groups=0, groupindex={}, indexgroup=[None]):
     return SRE_Pattern(pattern, flags, code, groups, groupindex, indexgroup)
     
 def getlower(char_ord, flags):
-    import sre_constants
     if (char_ord < 128) or (flags & sre_constants.SRE_FLAG_UNICODE) \
                   or (flags & sre_constants.SRE_FLAG_LOCALE and char_ord < 256):
         return ord(unichr(char_ord).lower())
@@ -359,7 +335,6 @@ class _State(object):
     def match(self, pattern_codes):
         # Optimization: Check string length. pattern_codes[3] contains the
         # minimum length for a string to possibly match.
-        from sre_constants import OPCODES
         if pattern_codes[0] == OPCODES["info"] and pattern_codes[3]:
             if self.end - self.string_position < pattern_codes[3]:
                 #_log("reject (got %d chars, need %d)"
@@ -377,7 +352,6 @@ class _State(object):
         return has_matched
 
     def search(self, pattern_codes):
-        from sre_constants import OPCODES, SRE_INFO_PREFIX
         if pattern_codes[0] == OPCODES["info"]:
             # optimization info block
             # <INFO> <1=skip> <2=flags> <3=min> <4=max> <5=prefix info>
@@ -397,7 +371,6 @@ class _State(object):
     def fast_search(self, pattern_codes):
         """Skips forward in a string as fast as possible using information from
         an optimization info block."""
-        from sre_constants import SRE_INFO_LITERAL
         # pattern starts with a known prefix
         # <5=length> <6=skip> <7=prefix data> <overlap data>
         flags = pattern_codes[2]
@@ -552,7 +525,6 @@ class _OpcodeDispatcher(_Dispatcher):
     
     def __init__(self):
         self.executing_contexts = {}
-        from sre_constants import ATCODES, OPCODES, CHCODES
         _OpcodeDispatcher.build_dispatch_table(OPCODES, "op_")
         _AtcodeDispatcher.build_dispatch_table(ATCODES, "")
         _ChcodeDispatcher.build_dispatch_table(CHCODES, "")
@@ -731,7 +703,6 @@ class _OpcodeDispatcher(_Dispatcher):
         # alternation
         # <BRANCH> <0=skip> code <JUMP> ... <NULL>
         #self._log(ctx, "BRANCH")
-        from sre_constants import OPCODES
         ctx.state.marks_push()
         ctx.skip_code(1)
         current_branch_length = ctx.peek_code(0)
@@ -758,7 +729,6 @@ class _OpcodeDispatcher(_Dispatcher):
         # this operator only works if the repeated item is exactly one character
         # wide, and we're not already collecting backtracking points.
         # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
-        from sre_constants import OPCODES
         mincount = ctx.peek_code(2)
         maxcount = ctx.peek_code(3)
         #self._log(ctx, "REPEAT_ONE", mincount, maxcount)
@@ -800,7 +770,6 @@ class _OpcodeDispatcher(_Dispatcher):
     def op_min_repeat_one(self, ctx):
         # match repeated sequence (minimizing)
         # <MIN_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
-        from sre_constants import OPCODES, MAXREPEAT
         mincount = ctx.peek_code(2)
         maxcount = ctx.peek_code(3)
         #self._log(ctx, "MIN_REPEAT_ONE", mincount, maxcount)
@@ -859,7 +828,6 @@ class _OpcodeDispatcher(_Dispatcher):
     def op_max_until(self, ctx):
         # maximizing repeat
         # <REPEAT> <skip> <1=min> <2=max> item <MAX_UNTIL> tail
-        from sre_constants import MAXREPEAT
         repeat = ctx.state.repeat
         if repeat is None:
             raise RuntimeError("Internal re error: MAX_UNTIL without REPEAT.")
@@ -911,7 +879,6 @@ class _OpcodeDispatcher(_Dispatcher):
     def op_min_until(self, ctx):
         # minimizing repeat
         # <REPEAT> <skip> <1=min> <2=max> item <MIN_UNTIL> tail
-        from sre_constants import MAXREPEAT
         repeat = ctx.state.repeat
         if repeat is None:
             raise RuntimeError("Internal re error: MIN_UNTIL without REPEAT.")
@@ -1043,7 +1010,6 @@ class _OpcodeDispatcher(_Dispatcher):
         """Returns the number of repetitions of a single item, starting from the
         current string position. The code pointer is expected to point to a
         REPEAT_ONE operation (with the repeated 4 ahead)."""
-        from sre_constants import MAXREPEAT
         count = 0
         real_maxcount = ctx.state.end - ctx.string_position
         if maxcount < real_maxcount and maxcount != MAXREPEAT:
