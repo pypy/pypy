@@ -8,6 +8,7 @@ from pypy.rpython.lltype import UniChar, Ptr, typeOf, InvalidCast
 from pypy.rpython.memory.lltypesimulation import cast_pointer
 from pypy.rpython.memory.lltypesimulation import simulatorptr as _ptr
 from pypy.rpython.memory.lltypesimulation import malloc, functionptr, nullptr
+from pypy.rpython.memory.lltypesimulation import pyobjectptr
 
 
 def notimplemented(*args, **kwargs):
@@ -23,7 +24,7 @@ ForwardReference = GcForwardReference = castable = parentlink = notimplemented
 # opaqueptr, pyobjectptr, attachRuntimeTypeInfo, getRuntimeTypeInfo,
 # runtime_type_info
 
-opaqueptr = pyobjectptr = attachRuntimeTypeInfo = notimplemented
+opaqueptr = attachRuntimeTypeInfo = notimplemented
 getRuntimeTypeInfo = runtime_type_info = notimplemented
 
 del notimplemented

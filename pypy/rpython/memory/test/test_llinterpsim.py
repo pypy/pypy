@@ -1,6 +1,6 @@
 
 import py
-from pypy.rpython.lltype import typeOf, pyobjectptr, Ptr, PyObject
+from pypy.rpython.lltype import typeOf, Ptr, PyObject
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.llinterp import LLInterpreter, LLException,log
 from pypy.translator.translator import Translator
@@ -9,9 +9,10 @@ from pypy.rpython.rint import signed_repr
 from pypy.rpython import rstr
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rpython.rarithmetic import r_uint, ovfcheck
+from pypy.rpython.memory.lltypesimulation import pyobjectptr
 from pypy.rpython.memory import gclltype
 
-from pypy.rpython.test.test_llinterp import find_exception, timelog, gengraph
+from pypy.rpython.test.test_llinterp import timelog, gengraph
 
 # switch on logging of interp to show more info on failing tests
 
@@ -21,6 +22,7 @@ def setup_module(mod):
 
 def teardown_module(mod):
     py.log._setstate(mod.logstate)
+
 
 _lastinterpreted = []
 _tcache = {}
@@ -221,7 +223,7 @@ def test_list_pop():
     res = interpret(f,[])
     assert len(res.items) == 3
 
-def DONOTtest_obj_obj_add():
+def test_obj_obj_add():
     def f(x,y):
         return x+y
     _1L = pyobjectptr(1L)
@@ -283,7 +285,7 @@ def DONOTtest_mod_ovf_zer():
     assert res == (-sys.maxint - 1) % 30
 
 
-def DONOTtest_obj_obj_is():
+def test_obj_obj_is():
     def f(x,y):
         return x is y
     o = pyobjectptr(object())

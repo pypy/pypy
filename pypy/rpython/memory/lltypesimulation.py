@@ -254,6 +254,7 @@ def malloc(T, n=None, immortal=False):
 def nullptr(T):
     return simulatorptr(lltype.Ptr(T), lladdress.NULL)
 
+#XXX unify attached objects with the address space as to samuele's suggestion
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, lltype.FuncType):
         raise TypeError, "functionptr() for FuncTypes only"
@@ -264,3 +265,8 @@ def functionptr(TYPE, name, **attrs):
     addr = lladdress.raw_malloc(get_total_size(TYPE))
     addr.attached[0] = lltype._func(TYPE, _name=name, **attrs)
     return simulatorptr(lltype.Ptr(TYPE), addr)
+
+def pyobjectptr(obj):
+    addr = lladdress.raw_malloc(get_total_size(lltype.PyObject))
+    addr.attached[0] = lltype._pyobject(obj)
+    return simulatorptr(lltype.Ptr(lltype.PyObject), addr) 
