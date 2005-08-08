@@ -305,3 +305,12 @@ def test_function_ptr():
     F = lltype.FuncType((lltype.Signed, lltype.Signed), lltype.Signed)
     funcptr = functionptr(F, "add", _callable=f)
     assert funcptr(1, 2) == 3
+
+def test_pointer_equality():
+    S0 = lltype.GcStruct("s0",
+                         ('a', lltype.Struct("s1", ('a', lltype.Signed))),
+                         ('b', lltype.Signed))
+    s0 = malloc(S0)
+    assert s0.a == s0.a
+    assert not s0.a != s0.a
+    

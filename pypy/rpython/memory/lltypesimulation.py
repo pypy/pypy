@@ -213,6 +213,9 @@ class simulatorptr(object):
     def __nonzero__(self):
         return self._address != lladdress.NULL
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __eq__(self, other):
         if not isinstance(other, simulatorptr):
             raise TypeError("comparing pointer with %r object" % (
