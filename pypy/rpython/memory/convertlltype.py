@@ -118,7 +118,8 @@ class FlowGraphConstantConverter(object):
         def visit(obj):
             if isinstance(obj, Link):
                 collect_args(obj.args)
-                constants[Constant(obj.llexitcase)] = None
+                if hasattr(obj, "llexitcase"):
+                    constants[Constant(obj.llexitcase)] = None
             elif isinstance(obj, Block):
                 for op in obj.operations:
                     collect_args(op.args)
@@ -189,7 +190,8 @@ class FlowGraphConstantConverter(object):
         def visit(obj):
             if isinstance(obj, Link):
                 patch_consts(obj.args)
-                if Constant(obj.llexitcase) in self.constants:
+                if (hasattr(obj, "llexitcase") and
+                    Constant(obj.llexitcase) in self.constants):
                     obj.llexitcase = self.constants[Constant(obj.llexitcase)]
             elif isinstance(obj, Block):
                 for op in obj.operations:
