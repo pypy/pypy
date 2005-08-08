@@ -4,7 +4,7 @@ from pypy.translator.c.support import cdecl
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR
 from pypy.rpython import rlist
-from pypy.rpython.module import ll_os, ll_time, ll_math
+from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
 
 
 # table of functions hand-written in src/ll_*.h
@@ -30,6 +30,8 @@ EXTERNALS = {
     ll_math.ll_math_ldexp: 'LL_math_ldexp',
     ll_math.ll_math_modf:  'LL_math_modf',
     ll_math.ll_math_hypot: 'LL_math_hypot',
+    ll_strtod.ll_strtod_parts_to_float:
+        'LL_strtod_parts_to_float',
     }
 
 #______________________________________________________

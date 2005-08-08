@@ -120,3 +120,8 @@ def isabs(s):
     s = ntpath.splitdrive(s)[1]
     return s != '' and s[0] in '/\\'
 ntpath.isabs = isabs
+
+# ___________________________________________________________
+# string->float helper
+from pypy.rpython import rarithmetic
+declare(rarithmetic.parts_to_float, float, 'll_strtod/parts_to_float')
