@@ -378,3 +378,6 @@ def parts_to_float(sign, beforept, afterpt, exponent):
     return float("%s%s.%se%s" % (sign, beforept, afterpt, exponent))
 
 # float -> string
+
+def formatd(fmt, x):
+    return fmt % (x,)

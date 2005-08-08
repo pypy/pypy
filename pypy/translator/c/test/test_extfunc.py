@@ -234,3 +234,14 @@ def test_rarith_parts_to_float():
 
     for parts, val in data:
         assert f(*parts) == val
+
+def test_rarith_formatd():
+    from pypy.rpython.rarithmetic import formatd
+    def fn(x):
+        return formatd("%.2f", x)
+
+    f = compile(fn, [float])
+
+    assert f(0.0) == "0.00"
+    assert f(1.5) == "1.50"
+    assert f(2.0) == "2.00"

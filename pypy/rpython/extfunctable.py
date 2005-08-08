@@ -125,3 +125,5 @@ ntpath.isabs = isabs
 # string->float helper
 from pypy.rpython import rarithmetic
 declare(rarithmetic.parts_to_float, float, 'll_strtod/parts_to_float')
+# float->string helper
+declare(rarithmetic.formatd, str, 'll_strtod/formatd')
