@@ -100,6 +100,16 @@ attraccess = [
     'x = a.b',
     ]
 
+if_stmts = [
+    "if a == 1: a+= 2",
+    """if a == 1:
+    a += 2
+elif a == 2:
+    a += 3
+else:
+    a += 4
+"""
+    ]
 
 one_stmt_funcdefs = [
     "def f(): return 1",
@@ -126,7 +136,8 @@ TESTS = [
     ]
 
 EXEC_INPUTS = [
-one_stmt_funcdefs,
+    one_stmt_funcdefs,
+    if_stmts,
     ]
 
 TARGET_DICT = {
@@ -170,6 +181,7 @@ def test_exec_inputs():
 SNIPPETS = [    
     'snippet_1.py',
     'snippet_several_statements.py',
+    'snippet_simple_function.py',
 #    'snippet_2.py',
 #    'snippet_3.py',
 #    'snippet_4.py',

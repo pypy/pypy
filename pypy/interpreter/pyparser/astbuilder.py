@@ -292,7 +292,7 @@ def build_expr_stmt( builder, nb ):
         assert l==3
         lvalue = L[0]
         assert is_augassign( lvalue )
-        builder.push( ast.AugAssign( lvalue, op, L[2] ) )
+        builder.push( ast.AugAssign( lvalue, op.get_name(), L[2] ) )
 
 def return_one( builder, nb ):
     L = get_atoms( builder, nb )
@@ -312,7 +312,7 @@ def build_simple_stmt( builder, nb ):
             nodes.append(ast.Discard(ast.Const(None)))
         else:
             nodes.append(node)
-    builder.push( ast.Stmt(nodes) )
+    builder.push(ast.Stmt(nodes))
 
 def build_return_stmt(builder, nb):
     L = get_atoms(builder, nb)
@@ -338,7 +338,9 @@ def build_file_input(builder, nb):
             stmts.extend(node.nodes)
         elif isinstance(node, TokenObject) and node.name == tok.ENDMARKER:
             # XXX Can't we just remove the last element of the list ?
-            break
+            break    
+        elif isinstance(node, TokenObject) and node.name == tok.NEWLINE:
+            continue
         else:
             stmts.append(node)
     return builder.push(ast.Module(doc, ast.Stmt(stmts)))
@@ -348,9 +350,8 @@ def build_single_input( builder, nb ):
     l = len(L)
     if l >= 1:
         builder.push(ast.Module(None, L[0]))
-        return
-    raise WalkerError("error")
-
+    else:
+        assert False, "Forbidden path"
 
 def build_testlist_gexp(builder, nb):
     L = get_atoms(builder, nb)
@@ -438,10 +439,49 @@ def build_funcdef(builder, nb):
     names, default, flags = parse_arglist(arglist)
     funcname = L[1].value
     arglist = L[2]
-    code = L[-1] # FIXME: suite is not reduced !
+    code = L[-1]
     # FIXME: decorators and docstring !
     builder.push(ast.Function(None, funcname, names, default, flags, None, code))
         
+
+def build_suite(builder, nb):
+    """suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT"""
+    L = get_atoms(builder, nb)
+    if len(L) == 1:
+        builder.push(L[0])
+    elif len(L) == 4:
+        # Only one statement for (stmt+)
+        stmt = L[2]
+        builder.push(L[2])
+    else:
+        # several statements
+        stmts = []
+        nodes = L[2:-1]
+        for node in nodes:
+            if isinstance(node, ast.Stmt):
+                stmts.extend(node.nodes)
+            else:
+                stmts.append(node)
+        builder.push(ast.Stmt(stmts))
+
+
+def build_if_stmt(builder, nb):
+    L = get_atoms(builder, nb)
+    tests = []
+    tests.append((L[1], L[3]))
+    index = 4
+    else_ = None
+    while index < len(L):
+        cur_token = L[index]
+        assert isinstance(cur_token, TokenObject) # rtyper
+        if cur_token.value == 'elif':
+            tests.append((L[index+1], L[index+3]))
+            index += 4
+        else: # cur_token.value == 'else'
+            else_ = L[index+2]
+            break # break is not necessary
+    builder.push(ast.If(tests, else_))
+
 
 def parse_argument(tokens):
     """parses function call arguments"""
@@ -618,6 +658,8 @@ ASTRULES = {
     sym.listmaker : build_listmaker,
     sym.funcdef : build_funcdef,
     sym.return_stmt : build_return_stmt,
+    sym.suite : build_suite,
+    sym.if_stmt : build_if_stmt,
     # sym.parameters : build_parameters,
     }
 
@@ -654,15 +696,15 @@ class TokenObject(ast.Node):
         self.line = 0 # src.getline()
         self.col = 0  # src.getcol()
 
+    def get_name(self):
+        return tok.tok_rpunct.get(self.name, tok.tok_name.get(self.name,str(self.name)))
+        
     def __str__(self):
-        return "<Token: (%s,%s)>" % (tok.tok_rpunct.get(self.name,
-                                                      tok.tok_name.get(self.name,str(self.name))),
-                                   self.value)
+        return "<Token: (%s,%s)>" % (self.get_name(), self.value)
     
     def __repr__(self):
-        return "<Token: (%r,%s)>" % (tok.tok_rpunct.get(self.name,
-                                                      tok.tok_name.get(self.name,str(self.name))),
-                                   self.value)
+        return "<Token: (%r,%s)>" % (self.get_name(), self.value)
+
 
 class ArglistObject(ast.Node):
     """helper class to build function's arg list"""
