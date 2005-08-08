@@ -8,9 +8,9 @@ copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
 """
 
 import array, operator, sys
-import sre_constants
 from sre_constants import ATCODES, OPCODES, CHCODES, MAXREPEAT
 from sre_constants import SRE_INFO_PREFIX, SRE_INFO_LITERAL
+from sre_constants import SRE_FLAG_UNICODE, SRE_FLAG_LOCALE
 from _sre import CODESIZE
 
 
@@ -20,8 +20,8 @@ def compile(pattern, flags, code, groups=0, groupindex={}, indexgroup=[None]):
     return SRE_Pattern(pattern, flags, code, groups, groupindex, indexgroup)
     
 def getlower(char_ord, flags):
-    if (char_ord < 128) or (flags & sre_constants.SRE_FLAG_UNICODE) \
-                  or (flags & sre_constants.SRE_FLAG_LOCALE and char_ord < 256):
+    if (char_ord < 128) or (flags & SRE_FLAG_UNICODE) \
+                              or (flags & SRE_FLAG_LOCALE and char_ord < 256):
         return ord(unichr(char_ord).lower())
     else:
         return char_ord
@@ -525,10 +525,6 @@ class _OpcodeDispatcher(_Dispatcher):
     
     def __init__(self):
         self.executing_contexts = {}
-        _OpcodeDispatcher.build_dispatch_table(OPCODES, "op_")
-        _AtcodeDispatcher.build_dispatch_table(ATCODES, "")
-        _ChcodeDispatcher.build_dispatch_table(CHCODES, "")
-        _CharsetDispatcher.build_dispatch_table(OPCODES, "set_")
         self.at_dispatcher = _AtcodeDispatcher()
         self.ch_dispatcher = _ChcodeDispatcher()
         self.set_dispatcher = _CharsetDispatcher()
@@ -1039,6 +1035,8 @@ class _OpcodeDispatcher(_Dispatcher):
         _log("|%s|%s|%s %s" % (context.pattern_codes,
             context.string_position, opname, arg_string))
 
+_OpcodeDispatcher.build_dispatch_table(OPCODES, "op_")
+
 
 class _CharsetDispatcher(_Dispatcher):
 
@@ -1108,6 +1106,8 @@ class _CharsetDispatcher(_Dispatcher):
     def unknown(self, ctx):
         return False
 
+_CharsetDispatcher.build_dispatch_table(OPCODES, "set_")
+
 
 class _AtcodeDispatcher(_Dispatcher):
 
@@ -1136,6 +1136,8 @@ class _AtcodeDispatcher(_Dispatcher):
         return not ctx.at_boundary(_is_uni_word)
     def unknown(self, ctx):
         return False
+
+_AtcodeDispatcher.build_dispatch_table(ATCODES, "")
 
 
 class _ChcodeDispatcher(_Dispatcher):
@@ -1178,6 +1180,8 @@ class _ChcodeDispatcher(_Dispatcher):
         return ord(ctx.peek_char()) not in _uni_linebreaks
     def unknown(self, ctx):
         return False
+
+_ChcodeDispatcher.build_dispatch_table(CHCODES, "")
 
 
 _ascii_char_info = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 2,
