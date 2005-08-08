@@ -7,11 +7,11 @@ test_import
 multiple tests fail because from __future__ import division does 
 not work (true division is never enabled)
 
-test_iterlen (ale will work on this)
+test_iterlen (ale will work on this) FIXED  (finally) 
 
     fails because len is not implemented for SeqIter (and
     other structures like generators (reversed) )
-
+    
 test_compiler 
     fails because of "maximum recursion depth exceeded"
 
