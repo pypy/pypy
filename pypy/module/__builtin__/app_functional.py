@@ -282,7 +282,8 @@ class xrange(object):
             n = get_len_of_range(stop, start, -step) 
         self.start = start
         self.len = n 
-        self.step = step 
+        self.step = step
+        self.index = 0
 
     def __str__(self): 
         stop = self.start + self.len * self.step 
@@ -296,7 +297,7 @@ class xrange(object):
     __repr__ = __str__
 
     def __len__(self):
-        return self.len 
+        return self.len - self.index
 
     def __getitem__(self, index):
         # xrange does NOT support slicing
@@ -310,10 +311,16 @@ class xrange(object):
         raise IndexError, "xrange object index out of range"
 
     def __iter__(self):
-        i = 0
-        while i < self.len:   
-            yield self.start + i * self.step 
-            i += 1 
+        return self
+    
+    def next(self):
+        #i = 0
+        if self.index < self.len:   
+            res = self.start + self.index * self.step 
+            self.index += 1 
+            return res
+        else:
+            raise StopIteration
 
 # ____________________________________________________________
 
@@ -323,16 +330,3 @@ def sorted(lst, cmp=None, key=None, reverse=None):
     sorted_lst.sort(cmp, key, reverse)
     return sorted_lst
 
-def reversed(iterable):
-    """reversed(sequence) -> reverse iterator over values of the sequence
-
-    Return a reverse iterator
-    """
-    if hasattr(iterable, '__reversed__'):
-        return iterable.__reversed__()
-    seq = list(iterable)
-    def reversed_gen(local_iterable):
-        len_iterable = len(local_iterable)
-        for index in range(len_iterable-1, -1, -1):
-            yield local_iterable[index]
-    return reversed_gen(seq)

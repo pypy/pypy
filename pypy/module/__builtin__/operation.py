@@ -7,6 +7,20 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError 
 NoneNotWrapped = gateway.NoneNotWrapped
 
+
+from pypy.objspace.std.iterobject import W_SeqIterObject
+
+def interp_reversed(space,w_iterable):
+    # if obj has __reversed__ call and return  it
+    
+    func = space.lookup(w_iterable,'__reversed__')
+    if func :
+        return space.call_function(func,w_iterable)
+    # else return W_IterObject with reverse set
+    else:
+        w_seq = W_SeqIterObject(space,w_iterable,-1,True)
+        return w_seq
+
 def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."
     return space.abs(w_val)
