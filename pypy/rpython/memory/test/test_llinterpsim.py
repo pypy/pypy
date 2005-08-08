@@ -13,6 +13,7 @@ from pypy.rpython.memory.lltypesimulation import pyobjectptr
 from pypy.rpython.memory import gclltype
 
 from pypy.rpython.test.test_llinterp import timelog, gengraph
+from pypy.rpython.test import test_llinterp
 
 # switch on logging of interp to show more info on failing tests
 
@@ -22,6 +23,18 @@ def setup_module(mod):
 
 def teardown_module(mod):
     py.log._setstate(mod.logstate)
+
+
+def find_exception(exc, interp):
+    assert isinstance(exc, LLException)
+    import exceptions
+    klass, inst = exc.args
+    func = test_llinterp.typer.getexceptiondata().ll_pyexcclass2exc
+    for cls in exceptions.__dict__.values():
+        if type(cls) is type(Exception):
+            if interp.eval_function(func, [pyobjectptr(cls)]).typeptr == klass:
+                return cls
+    raise ValueError, "couldn't match exception"
 
 
 _lastinterpreted = []
@@ -53,6 +66,34 @@ def interpret(func, values, view=False, viewbefore=False, policy=None, someobjec
         t.view()
     return interp.eval_function(func, values)
 
+def interpret_raises(exc, func, values, view=False, viewbefore=False, policy=None, someobjects=False):
+    key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,)
+    try: 
+        (t, interp) = _tcache[key]
+    except KeyError:
+        def annotation(x):
+            T = typeOf(x)
+            if T == Ptr(PyObject) and someobjects:
+                return object
+            elif T == Ptr(rstr.STR):
+                return str
+            else:
+                return lltype_to_annotation(T)
+        
+        t, typer = gengraph(func, [annotation(x)
+                      for x in values], viewbefore, policy)
+        interp = LLInterpreter(t.flowgraphs, typer, gclltype,
+                               gclltype.prepare_graphs)
+        _tcache[key] = (t, interp)
+        # keep the cache small 
+        _lastinterpreted.append(key) 
+        if len(_lastinterpreted) >= 4: 
+            del _tcache[_lastinterpreted.pop(0)]
+    if view:
+        t.view()
+    info = py.test.raises(LLException, "interp.eval_function(func, values)")
+    assert find_exception(info.value, interp) is exc, "wrong exception type"
+
 #__________________________________________________________________
 # tests
 
@@ -77,41 +118,33 @@ def test_ifs():
     res = interpret(simple_ifs, [1])
     assert res == 42
 
-def DONOTtest_raise():
+def test_raise():
     res = interpret(raise_exception, [41])
     assert res == 41
-    info = raises(LLException, interpret, raise_exception, [42])
-    assert find_exception(info.value) is IndexError
-    info = raises(LLException, interpret, raise_exception, [43])
-    assert find_exception(info.value) is ValueError
+    interpret_raises(IndexError, raise_exception, [42])
+    interpret_raises(ValueError, raise_exception, [43])
 
-def DONOTtest_call_raise():
+def test_call_raise():
     res = interpret(call_raise, [41])
     assert res == 41
-    info = raises(LLException, interpret, call_raise, [42])
-    assert find_exception(info.value) is IndexError
-    info = raises(LLException, interpret, call_raise, [43])
-    assert find_exception(info.value) is ValueError
+    interpret_raises(IndexError, call_raise, [42])
+    interpret_raises(ValueError, call_raise, [43])
 
 def DONOTtest_call_raise_twice():
     res = interpret(call_raise_twice, [6, 7])
     assert res == 13
-    info = raises(LLException, interpret, call_raise_twice, [6, 42])
-    assert find_exception(info.value) is IndexError
+    interpret_raises(IndexError, call_raise_twice, [6, 42])
     res = interpret(call_raise_twice, [6, 43])
     assert res == 1006
-    info = raises(LLException, interpret, call_raise_twice, [42, 7])
-    assert find_exception(info.value) is IndexError
-    info = raises(LLException, interpret, call_raise_twice, [43, 7])
-    assert find_exception(info.value) is ValueError
+    interpret_raises(IndexError, call_raise_twice, [42, 7])
+    interpret_raises(ValueError, call_raise_twice, [43, 7])
 
 def DONOTtest_call_raise_intercept():
     res = interpret(call_raise_intercept, [41], view=False)
     assert res == 41
     res = interpret(call_raise_intercept, [42])
     assert res == 42
-    info = raises(LLException, interpret, call_raise_intercept, [43])
-    assert find_exception(info.value) is TypeError
+    interpret_raises(TypeError, call_raise_intercept, [43])
 
 def test_while_simple():
     res = interpret(while_simple, [3])
@@ -231,7 +264,7 @@ def test_obj_obj_add():
     res = interpret(f, [_1L, _2L], someobjects=True)
     assert res._obj.value == 3L
 
-def DONOTtest_ovf():
+def test_ovf():
     import sys
     def f(x):
         try:
@@ -252,7 +285,7 @@ def DONOTtest_ovf():
     res = interpret(g, [-15])
     assert res == 15
 
-def DONOTtest_div_ovf_zer():
+def test_div_ovf_zer():
     import sys
     def f(x):
         try:
@@ -268,7 +301,7 @@ def DONOTtest_div_ovf_zer():
     res = interpret(f, [30])
     assert res == (-sys.maxint - 1) // 30
 
-def DONOTtest_mod_ovf_zer():
+def test_mod_ovf_zer():
     import sys
     def f(x):
         try:

@@ -92,6 +92,8 @@ def _expose(T, address):
         return address._load(primitive_to_fmt[T])[0]
     elif isinstance(T, lltype.Ptr):
         return simulatorptr(T, address.address[0])
+    elif isinstance(T, lltype.PyObjectType):
+        return simulatorptr(lltype.Ptr(T), address)
     else:
         assert 0, "not implemented yet"
 
