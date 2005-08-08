@@ -1,5 +1,6 @@
 from __future__ import generators
 from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.register_all import register_all
 from sys import maxint
 
@@ -13,17 +14,21 @@ list_count    = MultiMethod('count',  2)
 list_reverse  = MultiMethod('reverse',1)
 list_sort     = MultiMethod('sort',   4, defaults=(None, None, False), argnames=['cmp', 'key', 'reverse'])
 list_reversed = MultiMethod('__reversed__', 1)
-
-# gateway is imported in the stdtypedef module
-list_reversed__ANY = gateway.applevel('''
-    # NOT_RPYTHON -- uses yield
-
-    def reversed(lst):
-        for index in range(len(lst)-1, -1, -1):
-            yield lst[index]
-
-''', filename=__file__).interphook('reversed')
-
+##
+### gateway is imported in the stdtypedef module
+##list_reversed__ANY = gateway.applevel('''
+##    # NOT_RPYTHON -- uses yield
+##
+##    def reversed(lst):
+##        return iter([x for x in lst[::-1]])
+##    #    for index in range(len(lst)-1, -1, -1):
+##    #        yield lst[index]
+##
+##''', filename=__file__).interphook('reversed')
+def list_reversed__ANY(space, w_list):
+    w_list.running_iter = W_SeqIterObject(space,w_list,-1,True)
+    return w_list.running_iter
+    
 register_all(vars(), globals())
 
 # ____________________________________________________________
