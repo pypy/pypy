@@ -88,6 +88,8 @@ def _expose(T, address):
     """XXX A nice docstring here"""
     if isinstance(T, (lltype.Struct, lltype.Array)):
         return simulatorptr(lltype.Ptr(T), address)
+    elif T == lltype.Bool:
+        return bool(address._load(primitive_to_fmt[T])[0])
     elif isinstance(T, lltype.Primitive):
         return address._load(primitive_to_fmt[T])[0]
     elif isinstance(T, lltype.Ptr):
@@ -129,6 +131,8 @@ class simulatorptr(object):
                 base = self._layout[field_name]
                 if isinstance(T, lltype.Primitive):
                     res = (self._address + offset)._load(primitive_to_fmt[T])[0]
+                    if T == lltype.Bool:
+                        res = bool(res)
                     return res
                 elif isinstance(T, lltype.Ptr):
                     res = _expose(T.TO, (self._address + offset).address[0])

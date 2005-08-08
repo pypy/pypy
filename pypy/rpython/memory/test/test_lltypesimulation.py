@@ -18,7 +18,8 @@ def test_struct():
     assert s0.a == 42
     assert s0.b == 43
     assert s0.c == 'x'
-    assert s0.d == 1
+    assert s0.d == True
+    assert lltype.typeOf(s0.d) == lltype.Bool
     s0.a = 1
     s0.b = s0.a
     assert s0.a == 1
@@ -37,6 +38,16 @@ def test_array():
     x[2].v = 3
     assert [x[z].v for z in range(3)] == [1, 2, 3]
 
+def test_bool_array():
+    Ar = lltype.GcArray(lltype.Bool)
+    x = malloc(Ar, 3)
+    assert len(x) == 3
+    assert lltype.typeOf(x[0]) == lltype.Bool
+    x[0] = True
+    x[1] = False
+    x[2] = False
+    assert [x[z] for z in range(3)] == [True, False, False]
+    
 
 def define_list(T):
     List_typ = lltype.GcStruct(
