@@ -8,6 +8,7 @@ from pypy.rpython.lltype import pyobjectptr, Struct, Array
 
 
 PyObjPtr = Ptr(PyObject)
+LOCALVAR = 'l_%s'
 
 class FunctionCodeGenerator:
     """
@@ -53,7 +54,7 @@ class FunctionCodeGenerator:
             self.lltypes[id(v)] = v, T, typename
 
     def argnames(self):
-        return [v.name for v in self.graph.getargs()]
+        return [LOCALVAR % v.name for v in self.graph.getargs()]
 
     def allvariables(self):
         return [v for v, T, typename in self.lltypes.values()
@@ -83,7 +84,7 @@ class FunctionCodeGenerator:
             if self.lltypemap(v) == Void and special_case_void:
                 return '/* nothing */'
             else:
-                return v.name
+                return LOCALVAR % v.name
         elif isinstance(v, Constant):
             value = llvalue_from_constant(v)
             if value is None and not special_case_void:
@@ -122,7 +123,7 @@ class FunctionCodeGenerator:
             name = v.name
             if name not in seen:
                 seen[name] = True
-                result = cdecl(self.lltypename(v), name) + ';'
+                result = cdecl(self.lltypename(v), LOCALVAR % name) + ';'
                 if self.lltypemap(v) == Void:
                     result = '/*%s*/' % result
                 result_by_name.append((v._name, result))
@@ -524,8 +525,8 @@ class FunctionCodeGenerator:
 
     def cincref(self, v):
         T = self.lltypemap(v)
-        return self.db.cincrefstmt(v.name, T)
+        return self.db.cincrefstmt(LOCALVAR % v.name, T)
 
     def cdecref(self, v, expr=None):
         T = self.lltypemap(v)
-        return self.db.cdecrefstmt(expr or v.name, T)
+        return self.db.cdecrefstmt(expr or (LOCALVAR % v.name), T)
