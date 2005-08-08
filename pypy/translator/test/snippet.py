@@ -656,6 +656,16 @@ def harmonic(n):
         result += 1.0 / n
     return result
 
+
+# specifically for geninterp testing
+
+def t_isinstance(x, y):
+    return isinstance(x, (int, long)) and isinstance(y, int)
+
+def t_issubclass(x, y):
+    return issubclass(type(x), (int, long)) and issubclass(type(y), int)
+
+
 # --------------------(Currently) Non runnable Functions ---------------------
 
 def _somebug1(n=int):

@@ -1471,7 +1471,7 @@ def PyUnicode_EncodeRawUnicodeEscape(s,size):
 def charmapencode_output(c,mapping):
 
     rep = mapping[c]
-    if isinstance(rep,int):
+    if isinstance(rep,int) or isinstance(rep, long):
         if rep<256:
             return chr(rep)
         else:

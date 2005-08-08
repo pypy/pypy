@@ -251,3 +251,14 @@ class TestGenRpyTestCase:
         fn = self.build_interpfunc(snippet.do_try_raise_choose)
         result = fn()
         assert result == [-1,0,1,2]
+
+
+    def test_t_isinstance(self):
+        fn = self.build_interpfunc(snippet.t_isinstance)
+        result = fn(1, 2)
+        assert result == True
+
+    def test_t_issubclass(self):
+        fn = self.build_interpfunc(snippet.t_issubclass)
+        result = fn(1, 2)
+        assert result == True        

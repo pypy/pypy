@@ -77,7 +77,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.7'  # bump this for substantial changes
+GI_VERSION = '1.1.8'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -225,9 +225,17 @@ class GenRpy:
         return ", ".join(res)
 
     def oper(self, op, localscope):
+        if op.opname == 'issubtype':
+            arg = op.args[1]
+            if (not isinstance(arg, Constant)
+                or not isinstance(arg.value, (type, types.ClassType))):
+                  op = SpaceOperation("simple_call",
+                                      [Constant(issubclass)]+op.args,
+                                      op.result)
         if op.opname == "simple_call":
             v = op.args[0]
-            space_shortcut = self.try_space_shortcut_for_builtin(v, len(op.args)-1)
+            space_shortcut = self.try_space_shortcut_for_builtin(v, len(op.args)-1,
+                                                                 op.args[1:])
             if space_shortcut is not None:
                 # space method call
                 exv = space_shortcut
@@ -658,12 +666,18 @@ else:
             arities['isinstance'] = 2
         return self._space_arities
         
-    def try_space_shortcut_for_builtin(self, v, nargs):
+    def try_space_shortcut_for_builtin(self, v, nargs, args):
         if isinstance(v, Constant) and id(v.value) in self.builtin_ids:
             name = self.builtin_ids[id(v.value)].__name__
             if hasattr(self.space, name):
                 if self.space_arities().get(name, -1) == nargs:
-                    return "space.%s" % name
+                    if name != 'isinstance':
+                        return "space.%s" % name
+                    else:
+                        arg = args[1]
+                        if (isinstance(arg, Constant)
+                            and isinstance(arg.value, (type, types.ClassType))):
+                            return "space.isinstance"
         return None
         
     def nameof_builtin_function_or_method(self, func):
