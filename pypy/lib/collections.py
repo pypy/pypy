@@ -134,29 +134,12 @@ class deque(object):
                 del self.__dict__[threadlocalattr]
 
     def __iter__(self):
-        block = self.left
-        while block:
-            l, r = 0, n
-            if block is self.left:
-                l = self.leftndx
-            if block is self.right:
-                r = self.rightndx + 1
-            for elem in block[l:r]:
-                yield elem
-            block = block[RGTLNK]
+        return dequeIterator(self)
+            
 
     def __reversed__(self):
-        block = self.right
-        while block:
-            l, r = 0, n
-            if block is self.left:
-                l = self.leftndx
-            if block is self.right:
-                r = self.rightndx + 1
-            for elem in reversed(block[l:r]):
-                yield elem
-            block = block[LFTLNK]
-
+        return dequeIterator(self,True)
+    
     def __len__(self):
         sum = 0
         block = self.left
@@ -264,3 +247,38 @@ class deque(object):
         else:
             return NotImplemented
 
+class dequeIterator:
+    
+    def __init__(self, dequeobj, reverse=False):
+        self.deque = dequeobj
+        self.length = len(dequeobj)
+        self.consumed = 0
+        if reverse:
+            self.index = self.length-1
+            self.inc = -1
+        else:
+            self.index = 0
+            self.inc = 1
+        self.reverse = reverse
+
+    def __iter__(self):
+        return self
+    
+    def next(self):
+        if self.length == len(self.deque):
+            if self.index < self.length and self.index >= 0:
+                res = self.deque[self.index]
+                self.index += self.inc
+                self.consumed += 1
+                return res
+            else:
+                raise StopIteration
+        else:
+            self.deque = []
+            self.index = 0
+            self.length = self.consumed = 0
+            raise RuntimeError("deque mutated during iteration")
+    
+    def __len__(self):
+        return self.length - self.consumed
+        
