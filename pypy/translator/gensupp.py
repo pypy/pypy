@@ -85,10 +85,11 @@ C_IDENTIFIER = ''.join([(('0' <= chr(i) <= '9' or
 # while always keeping all globals visible.
 
 class NameManager(object):
-    def __init__(self):
+    def __init__(self, global_prefix=''):
         self.seennames = {}
         self.scope = 0
         self.scopelist = []
+        self.global_prefix = global_prefix
 
     def make_reserved_names(self, txt):
         """add names to list of known names. If one exists already,
@@ -99,7 +100,7 @@ class NameManager(object):
                 raise NameError, "%s has already been seen!"
             self.seennames[name] = 1
 
-    def uniquename(self, basename, with_number=None):
+    def uniquename(self, basename, with_number=None, bare=False):
         basename = basename.translate(C_IDENTIFIER)
         n = self.seennames.get(basename, 0)
         self.seennames[basename] = n+1
@@ -107,13 +108,20 @@ class NameManager(object):
             with_number = basename in ('v', 'w_')
         if with_number:
             if n == 0:
-                return '%s%d' % (basename, n)
+                newname = '%s%d' % (basename, n)
+                if bare:
+                    return newname, self.global_prefix + newname
+                else:
+                    return self.global_prefix + newname
             else:
-                return self.uniquename('%s%d' % (basename, n))
+                return self.uniquename('%s%d' % (basename, n), bare=bare)
         if n == 0:
-            return basename
+                if bare:
+                    return basename, self.global_prefix + basename
+                else:
+                    return self.global_prefix + basename
         else:
-            return self.uniquename('%s_%d' % (basename, n))
+            return self.uniquename('%s_%d' % (basename, n), bare=bare)
 
     def localScope(self, parent=None):
         ret = _LocalScope(self, parent)

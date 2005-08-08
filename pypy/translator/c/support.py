@@ -44,8 +44,8 @@ def llvalue_from_constant(c):
 
 
 class CNameManager(NameManager):
-    def __init__(self):
-        NameManager.__init__(self)
+    def __init__(self, global_prefix='pypy_'):
+        NameManager.__init__(self, global_prefix=global_prefix)
         # keywords cannot be reused.  This is the C99 draft's list.
         self.make_reserved_names('''
            auto      enum      restrict  unsigned

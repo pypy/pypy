@@ -34,10 +34,12 @@ class StructDefNode:
             basename = STRUCT._name
             with_number = True
         else:
-            basename = db.gettypedefnode(STRUCT).name
+            basename = db.gettypedefnode(STRUCT).barename
             basename = '%s_len%d' % (basename, varlength)
             with_number = False
-        self.name = db.namespace.uniquename(basename, with_number=with_number)
+        (self.barename,
+         self.name) = db.namespace.uniquename(basename, with_number=with_number,
+                                              bare=True)
         self.dependencies = {}
         self.prefix = somelettersfrom(STRUCT._name) + '_'
 
@@ -73,7 +75,7 @@ class StructDefNode:
 
         # do we need deallocator(s)?
         if self.refcount and varlength == 1:
-            self.deallocator = db.namespace.uniquename('dealloc_'+self.name)
+            self.deallocator = db.namespace.uniquename('dealloc_'+self.barename)
 
             # are two deallocators needed (a dynamic one for DECREF, which checks
             # the real type of the structure and calls the static deallocator) ?
@@ -85,7 +87,7 @@ class StructDefNode:
                     pass
             if rtti is not None:
                 self.static_deallocator = db.namespace.uniquename(
-                    'staticdealloc_'+self.name)
+                    'staticdealloc_'+self.barename)
                 fnptr = rtti._obj.query_funcptr
                 if fnptr is None:
                     raise NotImplementedError(
@@ -183,10 +185,12 @@ class ArrayDefNode:
             basename = 'array'
             with_number = True
         else:
-            basename = db.gettypedefnode(ARRAY).name
+            basename = db.gettypedefnode(ARRAY).barename
             basename = '%s_len%d' % (basename, varlength)
             with_number = False
-        self.name = db.namespace.uniquename(basename, with_number=with_number)
+        (self.barename,
+         self.name) = db.namespace.uniquename(basename, with_number=with_number,
+                                              bare=True)
         self.dependencies = {}
 
         # look up the reference counter field
@@ -201,7 +205,7 @@ class ArrayDefNode:
 
         # is a specific deallocator needed?
         if self.refcount and varlength == 1 and list(self.deallocator_lines('')):
-            self.deallocator = db.namespace.uniquename('dealloc_'+self.name)
+            self.deallocator = db.namespace.uniquename('dealloc_'+self.barename)
 
     def access_expr(self, baseexpr, index):
         return '%s.items[%d]' % (baseexpr, index)

@@ -33,19 +33,21 @@ def test_primitive():
 
 def test_struct():
     db = LowLevelDatabase()
+    pfx = db.namespace.global_prefix + 'g_'
     S = GcStruct('test', ('x', Signed))
     s = malloc(S)
     s.x = 42
-    assert db.get(s).startswith('(&g_')
+    assert db.get(s).startswith('(&'+pfx)
     assert db.containernodes.keys() == [s._obj]
     assert db.structdefnodes.keys() == [S]
 
 def test_inlined_struct():
     db = LowLevelDatabase()
+    pfx = db.namespace.global_prefix + 'g_'    
     S = GcStruct('test', ('x', Struct('subtest', ('y', Signed))))
     s = malloc(S)
     s.x.y = 42
-    assert db.get(s).startswith('(&g_')
+    assert db.get(s).startswith('(&'+pfx)
     assert db.containernodes.keys() == [s._obj]
     assert len(db.structdefnodes) == 2
     assert S in db.structdefnodes
@@ -53,12 +55,13 @@ def test_inlined_struct():
 
 def test_complete():
     db = LowLevelDatabase()
+    pfx = db.namespace.global_prefix + 'g_'    
     T = GcStruct('subtest', ('y', Signed))
     S = GcStruct('test', ('x', Ptr(T)))
     s = malloc(S)
     s.x = malloc(T)
     s.x.y = 42
-    assert db.get(s).startswith('(&g_')
+    assert db.get(s).startswith('(&'+pfx)
     assert db.containernodes.keys() == [s._obj]
     db.complete()
     assert len(db.containernodes) == 2
