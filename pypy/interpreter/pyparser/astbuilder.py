@@ -2,6 +2,7 @@
 
 from grammar import BaseGrammarBuilder, AbstractContext
 from pypy.interpreter.astcompiler import ast, consts
+from pypy.interpreter.astcompiler.transformer import WalkerError
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
 
@@ -113,15 +114,18 @@ def build_atom(builder, nb):
             raise ValueError, "unexpected tokens (%d): %s" % (nb,[ str(i) for i in L] )
             
 
-def build_power( builder, nb ):
-    L = get_atoms( builder, nb )
+def build_power(builder, nb):
+    L = get_atoms(builder, nb)
     if len(L) == 1:
         builder.push( L[0] )
     elif len(L) == 2:
         arguments, stararg, dstararg = L[1].value
         builder.push(ast.CallFunc(L[0], arguments, stararg, dstararg))
     elif len(L) == 3:
-        builder.push(ast.Power([L[0], L[2]]))
+        if isinstance(L[1], TokenObject) and L[1].name == tok.DOT:
+            builder.push(ast.Getattr(L[0], L[2].value))
+        else:
+            builder.push(ast.Power([L[0], L[2]]))
     else:
         raise ValueError, "unexpected tokens: %s" % L
 
@@ -257,7 +261,7 @@ def build_and_test( builder, nb ):
     return build_binary_expr( builder, nb, ast.And )
 
 def build_test( builder, nb ):
-    return build_binary_expr( builder, nb, ast.Or)
+    return build_binary_expr(builder, nb, ast.Or)
     
 def build_testlist( builder, nb ):
     return build_binary_expr( builder, nb, ast.Tuple )
@@ -309,6 +313,15 @@ def build_simple_stmt( builder, nb ):
         else:
             nodes.append(node)
     builder.push( ast.Stmt(nodes) )
+
+def build_return_stmt(builder, nb):
+    L = get_atoms(builder, nb)
+    if len(L) > 2:
+        assert False, "return several stmts not implemented"
+    elif len(L) == 1:
+        builder.push(ast.Return(Const(None), None)) # XXX lineno
+    else:
+        builder.push(ast.Return(L[1], None)) # XXX lineno
 
 def build_file_input(builder, nb):
     # FIXME: need to handle docstring !
@@ -380,6 +393,12 @@ def build_trailer(builder, nb):
         elif len(L) == 3: # '(' Arglist ')'
             # push arglist on the stack
             builder.push(L[1])
+    elif len(L) == 2:
+        # Attribute access: '.' NAME
+        # XXX Warning: fails if trailer is used in lvalue
+        builder.push(L[0])
+        builder.push(L[1])
+        builder.push(TempRuleObject('pending-attr-access', 2, None))
     else:
         assert False, "Trailer reducing implementation incomplete !"
 
@@ -405,6 +424,24 @@ def build_listmaker(builder, nb):
             index += 2 # skip comas
         builder.push(ast.List(nodes))
     
+
+def build_funcdef(builder, nb):
+    """funcdef: [decorators] 'def' NAME parameters ':' suite
+    """
+    L = get_atoms(builder, nb)
+    funcname = L[1]
+    arglist = []
+    index = 3
+    while not (isinstance(L[index], TokenObject) and L[index].name == tok.RPAR):
+        arglist.append(L[index])
+        index += 1
+    names, default, flags = parse_arglist(arglist)
+    funcname = L[1].value
+    arglist = L[2]
+    code = L[-1] # FIXME: suite is not reduced !
+    # FIXME: decorators and docstring !
+    builder.push(ast.Function(None, funcname, names, default, flags, None, code))
+        
 
 def parse_argument(tokens):
     """parses function call arguments"""
@@ -579,6 +616,9 @@ ASTRULES = {
     sym.trailer : build_trailer,
     sym.arglist : build_arglist,
     sym.listmaker : build_listmaker,
+    sym.funcdef : build_funcdef,
+    sym.return_stmt : build_return_stmt,
+    # sym.parameters : build_parameters,
     }
 
 class RuleObject(ast.Node):
@@ -667,6 +707,8 @@ class AstBuilder(BaseGrammarBuilder):
         self.rule_stack.append( obj )
         if not isinstance(obj, RuleObject) and not isinstance(obj, TokenObject):
             print "Pushed:", str(obj), len(self.rule_stack)
+        elif isinstance(obj, TempRuleObject):
+            print "Pushed:", str(obj), len(self.rule_stack)            
         # print "\t", self.rule_stack
 
     def push_tok(self, name, value, src ):

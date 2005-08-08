@@ -61,6 +61,7 @@ genexps = [
 
 dictmakers = [
     "l = {a : b, 'c' : 0}",
+    "l = {}",
     ]
 
 backtrackings = [
@@ -94,6 +95,24 @@ multiexpr = [
     'a = b = c = d',
     ]
 
+attraccess = [
+    # 'a.b = 2', # Module(None, Stmt([Assign([AssAttr(Name('a'), 'b', 'OP_ASSIGN')], Const(2))]))
+    'x = a.b',
+    ]
+
+
+one_stmt_funcdefs = [
+    "def f(): return 1",
+    "def f(x): return x+1",
+    "def f(x,y): return x+y",
+    "def f(x,y=1,z=t): return x+y",
+    "def f(x,y=1,z=t,*args,**kwargs): return x+y",
+    "def f(x,y=1,z=t,*args): return x+y",
+    "def f(x,y=1,z=t,**kwargs): return x+y",
+    "def f(*args): return 1",
+    "def f(**kwargs): return 1",
+    ]
+
 TESTS = [
     expressions,
     comparisons,
@@ -103,6 +122,11 @@ TESTS = [
     genexps,
     dictmakers,
     multiexpr,
+    attraccess,
+    ]
+
+EXEC_INPUTS = [
+one_stmt_funcdefs,
     ]
 
 TARGET_DICT = {
@@ -136,6 +160,11 @@ def test_basic_astgen():
     for family in TESTS:
         for expr in family:
             yield check_expression, expr
+
+def test_exec_inputs():
+    for family in EXEC_INPUTS:
+        for expr in family:
+            yield check_expression, expr, 'exec'
 
 
 SNIPPETS = [    
