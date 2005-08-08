@@ -362,7 +362,7 @@ def next__DictIterObject(space, w_dictiter):
 
 def len__DictIterObject(space, w_dictiter):
     w_dict = w_dictiter.w_dictobject
-    if w_dict is None:
+    if w_dict is None or w_dictiter.len == -1 :
         return space.wrap(0)
     return space.wrap(w_dictiter.len - w_dictiter.pos)
 # ____________________________________________________________
