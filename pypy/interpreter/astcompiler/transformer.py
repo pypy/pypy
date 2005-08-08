@@ -254,7 +254,8 @@ class Transformer:
         if args[0] == symbol.varargslist:
             names, defaults, flags = self.com_arglist(args[1:])
         else:
-            names = defaults = ()
+            names = []
+            defaults = []
             flags = 0
         doc = self.get_docstring(nodelist[-1])
 

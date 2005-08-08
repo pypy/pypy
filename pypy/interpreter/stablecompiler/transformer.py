@@ -253,7 +253,8 @@ class Transformer:
         if args[0] == symbol.varargslist:
             names, defaults, flags = self.com_arglist(args[1:])
         else:
-            names = defaults = ()
+            names = []
+            defaults = []
             flags = 0
         doc = self.get_docstring(nodelist[-1])
 
@@ -702,7 +703,7 @@ class Transformer:
 
     def atom_lsqb(self, nodelist):
         if nodelist[1][0] == token.RSQB:
-            return List(())
+            return List([])
         return self.com_list_constructor(nodelist[1])
 
     def atom_lbrace(self, nodelist):
