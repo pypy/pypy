@@ -32,11 +32,7 @@
 
 #else /* !defined(USE_CALL_TRACE) */
 
-#define FAIL(err) { goto err; }
-
-#define ERR_DECREF(arg) { Py_DECREF(arg); }
-
-#define FUNCTION_RETURN(rval) return rval;
+#define FAIL(err) goto err
 
 #endif /* defined(USE_CALL_TRACE) */
 

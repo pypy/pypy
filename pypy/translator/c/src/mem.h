@@ -10,12 +10,12 @@
 
 #define OP_ZERO_MALLOC(size, r, err)  {                                 \
     r = (void*) PyObject_Malloc(size);                                  \
-    if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory")\
+    if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory");\
     memset((void*) r, 0, size);                                         \
-    COUNT_MALLOC                                                        \
+    COUNT_MALLOC;                                                       \
   }
 
-#define OP_FREE(p)	{ PyObject_Free(p); COUNT_FREE }
+#define OP_FREE(p)	{ PyObject_Free(p); COUNT_FREE; }
 
 
 /*------------------------------------------------------------*/
@@ -31,8 +31,8 @@
 
 static int count_mallocs=0, count_frees=0;
 
-#define COUNT_MALLOC	count_mallocs++;
-#define COUNT_FREE	count_frees++;
+#define COUNT_MALLOC	count_mallocs++
+#define COUNT_FREE	count_frees++
 
 PyObject* malloc_counters(PyObject* self, PyObject* args)
 {

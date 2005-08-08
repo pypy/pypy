@@ -34,7 +34,7 @@
 	if (setup_initcode(frozen_initcode, FROZEN_INITCODE_SIZE) < 0) \
 		return;	\
 	if (setup_globalobjects(globalobjectdefs) < 0) \
-		return;
+		return
 
 
 /*** table of global objects ***/

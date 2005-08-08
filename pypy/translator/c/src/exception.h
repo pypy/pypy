@@ -65,7 +65,7 @@ static void _RPyConvertExceptionToCPython(void)
 	_RPyConvertExceptionToCPython();		\
 	vanishing = rpython_exc_value;		\
 	rpython_exc_type = NULL;		\
-	rpython_exc_value = NULL;
+	rpython_exc_value = NULL
 
 #endif   /* !PYPY_STANDALONE */
 

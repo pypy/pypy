@@ -6,9 +6,7 @@
 
 #define op_bool(r,err,what) { \
 		int _retval = what; \
-		if (_retval < 0) { \
-			CFAIL(err) \
-		} \
+		if (_retval < 0) CFAIL(err); \
 		r = PyBool_FromLong(_retval); \
 	}
 
@@ -28,9 +26,7 @@
 
 #define OP_LEN(x,r,err) { \
 		int _retval = PyObject_Size(x); \
-		if (_retval < 0) { \
-			CFAIL(err) \
-		} \
+		if (_retval < 0) CFAIL(err); \
 		r = PyInt_FromLong(_retval); \
 	}
 #define OP_NEG(x,r,err)           if (!(r=PyNumber_Negative(x)))     CFAIL(err)
@@ -80,20 +76,20 @@
 #define OP_INPLACE_XOR(x,y,r,err)    if (!(r=PyNumber_InPlaceXor(x,y)))        \
 								     CFAIL(err)
 
-#define OP_GETITEM(x,y,r,err)     if (!(r=PyObject_GetItem1(x,y)))   CFAIL(err)
-#define OP_SETITEM(x,y,z,r,err)   if ((PyObject_SetItem1(x,y,z))<0)  CFAIL(err) \
-				  r=Py_None; Py_INCREF(r);
-#define OP_DELITEM(x,y,r,err)     if ((PyObject_DelItem(x,y))<0)     CFAIL(err) \
-				  r=Py_None; Py_INCREF(r);
+#define OP_GETITEM(x,y,r,err)    if (!(r=PyObject_GetItem1(x,y)))   CFAIL(err)
+#define OP_SETITEM(x,y,z,r,err)  if ((PyObject_SetItem1(x,y,z))<0)  CFAIL(err);\
+				  r=Py_None; Py_INCREF(r)
+#define OP_DELITEM(x,y,r,err)    if ((PyObject_DelItem(x,y))<0)     CFAIL(err);\
+				  r=Py_None; Py_INCREF(r)
 #define OP_CONTAINS(x,y,r,err)    op_bool(r,err,(PySequence_Contains(x,y)))
 
-#define OP_GETATTR(x,y,r,err)     if (!(r=PyObject_GetAttr(x,y)))    CFAIL(err)
-#define OP_SETATTR(x,y,z,r,err)   if ((PyObject_SetAttr(x,y,z))<0)   CFAIL(err) \
-				  r=Py_None; Py_INCREF(r);
-#define OP_DELATTR(x,y,r,err)     if ((PyObject_SetAttr(x,y,NULL))<0)CFAIL(err) \
-				  r=Py_None; Py_INCREF(r);
+#define OP_GETATTR(x,y,r,err)    if (!(r=PyObject_GetAttr(x,y)))    CFAIL(err)
+#define OP_SETATTR(x,y,z,r,err)  if ((PyObject_SetAttr(x,y,z))<0)   CFAIL(err);\
+				  r=Py_None; Py_INCREF(r)
+#define OP_DELATTR(x,y,r,err)    if ((PyObject_SetAttr(x,y,NULL))<0)CFAIL(err);\
+				  r=Py_None; Py_INCREF(r)
 
-#define OP_NEWSLICE(x,y,z,r,err)  if (!(r=PySlice_New(x,y,z)))       CFAIL(err)
+#define OP_NEWSLICE(x,y,z,r,err) if (!(r=PySlice_New(x,y,z)))       CFAIL(err)
 
 #define OP_GETSLICE(x,y,z,r,err)  {					\
 		PyObject *__yo = y, *__zo = z;				\
@@ -102,14 +98,14 @@
 		if (__zo == Py_None) __zo = NULL;			\
 		if (!_PyEval_SliceIndex(__yo, &__y) ||			\
 		    !_PyEval_SliceIndex(__zo, &__z) ||			\
-		    !(r=PySequence_GetSlice(x, __y, __z))) CFAIL(err)	\
+		    !(r=PySequence_GetSlice(x, __y, __z))) CFAIL(err);	\
 	}
 
 #define OP_ALLOC_AND_SET(x,y,r,err) { \
 		/* XXX check for long/int overflow */ \
 		int __i, __x = PyInt_AsLong(x); \
-		if (PyErr_Occurred()) CFAIL(err) \
-		if (!(r = PyList_New(__x))) CFAIL(err) \
+		if (PyErr_Occurred()) CFAIL(err); \
+		if (!(r = PyList_New(__x))) CFAIL(err); \
 		for (__i=0; __i<__x; __i++) { \
 			Py_INCREF(y); \
 			PyList_SET_ITEM(r, __i, y); \
@@ -119,7 +115,7 @@
 #define OP_ITER(x,r,err)          if (!(r=PyObject_GetIter(x)))      CFAIL(err)
 #define OP_NEXT(x,r,err)          if (!(r=PyIter_Next(x))) {                   \
 		if (!PyErr_Occurred()) PyErr_SetNone(PyExc_StopIteration);     \
-		CFAIL(err)                                                      \
+		CFAIL(err);                                                    \
 	}
 
 #define OP_STR(x,r,err)           if (!(r=PyObject_Str(x)))          CFAIL(err)
@@ -127,21 +123,21 @@
 #define OP_ORD(s,r,err) { \
 	char *__c = PyString_AsString(s); \
 	int __len; \
-	if ( !__c) CFAIL(err) \
+	if ( !__c) CFAIL(err); \
 	if ((__len = PyString_GET_SIZE(s)) != 1) { \
 	    PyErr_Format(PyExc_TypeError, \
 		  "ord() expected a character, but string of length %d found", \
 		  __len); \
-	    CFAIL(err) \
+	    CFAIL(err); \
 	} \
 	if (!(r = PyInt_FromLong((unsigned char)(__c[0])))) \
-	    CFAIL(err) \
+	    CFAIL(err); \
     }
 #define OP_ID(x,r,err)    if (!(r=PyLong_FromVoidPtr(x))) CFAIL(err)
 #define OP_HASH(x,r,err)  { \
 	long __hash = PyObject_Hash(x); \
-	if (__hash == -1 && PyErr_Occurred()) CFAIL(err) \
-	if (!(r = PyInt_FromLong(__hash))) CFAIL(err) \
+	if (__hash == -1 && PyErr_Occurred()) CFAIL(err); \
+	if (!(r = PyInt_FromLong(__hash))) CFAIL(err); \
     }
 
 #define OP_HEX(x,r,err)   { \
@@ -150,9 +146,9 @@
 	    __nb->nb_hex == NULL) { \
 		PyErr_SetString(PyExc_TypeError, \
 			   "hex() argument can't be converted to hex"); \
-		CFAIL(err) \
+		CFAIL(err); \
 	} \
-	if (!(r = (*__nb->nb_hex)(x))) CFAIL(err) \
+	if (!(r = (*__nb->nb_hex)(x))) CFAIL(err); \
     }
 #define OP_OCT(x,r,err)   { \
 	PyNumberMethods *__nb; \
@@ -160,26 +156,26 @@
 	    __nb->nb_oct == NULL) { \
 		PyErr_SetString(PyExc_TypeError, \
 			   "oct() argument can't be converted to oct"); \
-		CFAIL(err) \
+		CFAIL(err); \
 	} \
-	if (!(r = (*__nb->nb_oct)(x))) CFAIL(err) \
+	if (!(r = (*__nb->nb_oct)(x))) CFAIL(err); \
     }
 
 #define OP_INT(x,r,err)   { \
 	long __val = PyInt_AsLong(x); \
-	if (__val == -1 && PyErr_Occurred()) CFAIL(err) \
-	if (!(r = PyInt_FromLong(__val))) CFAIL (err) \
+	if (__val == -1 && PyErr_Occurred()) CFAIL(err); \
+	if (!(r = PyInt_FromLong(__val))) CFAIL (err); \
     }
 #define OP_FLOAT(x,r,err)   { \
 	double __val = PyFloat_AsDouble(x); \
-	if (PyErr_Occurred()) CFAIL(err) \
-	if (!(r = PyFloat_FromDouble(__val))) CFAIL (err) \
+	if (PyErr_Occurred()) CFAIL(err); \
+	if (!(r = PyFloat_FromDouble(__val))) CFAIL (err); \
     }
 
 #define OP_CMP(x,y,r,err)   { \
 	int __val = PyObject_Compare(x, y); \
-	if (PyErr_Occurred()) CFAIL(err) \
-	if (!(r = PyInt_FromLong(__val))) CFAIL (err) \
+	if (PyErr_Occurred()) CFAIL(err); \
+	if (!(r = PyInt_FromLong(__val))) CFAIL (err); \
     }
 
 

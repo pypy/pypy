@@ -303,7 +303,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     print >> f
     print >> f, 'MODULE_INITFUNC(%s)' % modulename
     print >> f, '{'
-    print >> f, '\tSETUP_MODULE(%s)' % modulename
+    print >> f, '\tSETUP_MODULE(%s);' % modulename
     for publicname, pyobjptr in exports.items():
         # some fishing needed to find the name of the obj
         pyobjnode = database.containernodes[pyobjptr._obj]

@@ -207,7 +207,7 @@ class FunctionCodeGenerator:
                     lst = [self.expr(v) for v in op.args]
                     lst.append(self.expr(op.result))
                     lst.append(err)
-                    yield '%s(%s)' % (macro, ', '.join(lst))
+                    yield '%s(%s);' % (macro, ', '.join(lst))
                 to_release.append(op.result)
 
             err_reachable = False
@@ -326,48 +326,48 @@ class FunctionCodeGenerator:
         args = [self.expr(v) for v in op.args]
         r = self.expr(op.result)
         if len(args) == 0:
-            return 'OP_NEWLIST0(%s, %s)' % (r, err)
+            return 'OP_NEWLIST0(%s, %s);' % (r, err)
         else:
             args.insert(0, '%d' % len(args))
-            return 'OP_NEWLIST((%s), %s, %s)' % (', '.join(args), r, err)
+            return 'OP_NEWLIST((%s), %s, %s);' % (', '.join(args), r, err)
 
     def OP_NEWDICT(self, op, err):
         args = [self.expr(v) for v in op.args]
         r = self.expr(op.result)
         if len(args) == 0:
-            return 'OP_NEWDICT0(%s, %s)' % (r, err)
+            return 'OP_NEWDICT0(%s, %s);' % (r, err)
         else:
             assert len(args) % 2 == 0
             args.insert(0, '%d' % (len(args)//2))
-            return 'OP_NEWDICT((%s), %s, %s)' % (', '.join(args), r, err)
+            return 'OP_NEWDICT((%s), %s, %s);' % (', '.join(args), r, err)
 
     def OP_NEWTUPLE(self, op, err):
         args = [self.expr(v) for v in op.args]
         r = self.expr(op.result)
         args.insert(0, '%d' % len(args))
-        return 'OP_NEWTUPLE((%s), %s, %s)' % (', '.join(args), r, err)
+        return 'OP_NEWTUPLE((%s), %s, %s);' % (', '.join(args), r, err)
 
     def OP_SIMPLE_CALL(self, op, err):
         args = [self.expr(v) for v in op.args]
         r = self.expr(op.result)
         args.append('NULL')
-        return 'OP_SIMPLE_CALL((%s), %s, %s)' % (', '.join(args), r, err)
+        return 'OP_SIMPLE_CALL((%s), %s, %s);' % (', '.join(args), r, err)
 
     def OP_CALL_ARGS(self, op, err):
         args = [self.expr(v) for v in op.args]
         r = self.expr(op.result)
-        return 'OP_CALL_ARGS((%s), %s, %s)' % (', '.join(args), r, err)
+        return 'OP_CALL_ARGS((%s), %s, %s);' % (', '.join(args), r, err)
 
     def OP_DIRECT_CALL(self, op, err):
         # skip 'void' arguments
         args = [self.expr(v) for v in op.args if self.lltypemap(v) != Void]
         if self.lltypemap(op.result) == Void:
             # skip assignment of 'void' return value
-            return '%s(%s); if (RPyExceptionOccurred()) FAIL(%s)' % (
+            return '%s(%s); if (RPyExceptionOccurred()) FAIL(%s);' % (
                 args[0], ', '.join(args[1:]), err)
         else:
             r = self.expr(op.result)
-            return '%s = %s(%s); if (RPyExceptionOccurred()) FAIL(%s)' % (
+            return '%s = %s(%s); if (RPyExceptionOccurred()) FAIL(%s);' % (
                 r, args[0], ', '.join(args[1:]), err)
 
     # low-level operations
@@ -463,9 +463,9 @@ class FunctionCodeGenerator:
         TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
         eresult = self.expr(op.result)
-        result = ['OP_ZERO_MALLOC(sizeof(%s), %s, %s)' % (cdecl(typename, ''),
-                                                          eresult,
-                                                          err),
+        result = ['OP_ZERO_MALLOC(sizeof(%s), %s, %s);' % (cdecl(typename, ''),
+                                                           eresult,
+                                                           err),
                   '%s->%s = 1;' % (eresult,
                                    self.db.gettypedefnode(TYPE).refcount),
                   ]
@@ -490,9 +490,9 @@ class FunctionCodeGenerator:
             size = 'sizeof(%s)+((%s-1)*sizeof(%s))' % (cdecl(typename, ''),
                                                        elength,
                                                        cdecl(itemtypename, ''))
-        result = ['OP_ZERO_MALLOC(%s, %s, %s)' % (size,
-                                                  eresult,
-                                                  err),
+        result = ['OP_ZERO_MALLOC(%s, %s, %s);' % (size,
+                                                   eresult,
+                                                   err),
                   '%s->%s = %s;' % (eresult, lenfld,
                                     elength),
                   '%s->%s = 1;' % (eresult,
