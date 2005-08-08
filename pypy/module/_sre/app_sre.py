@@ -352,14 +352,36 @@ class _State(object):
         return has_matched
 
     def search(self, pattern_codes):
+        flags = 0
         if pattern_codes[0] == OPCODES["info"]:
             # optimization info block
             # <INFO> <1=skip> <2=flags> <3=min> <4=max> <5=prefix info>
             if pattern_codes[2] & SRE_INFO_PREFIX and pattern_codes[5] > 1:
                 return self.fast_search(pattern_codes)
+            flags = pattern_codes[2]
             pattern_codes = pattern_codes[pattern_codes[1] + 1:]
-        # XXX literal and charset optimizations missing here
+
         string_position = self.start
+        if pattern_codes[0] == OPCODES["literal"]:
+            # Special case: Pattern starts with a literal character. This is
+            # used for short prefixes
+            character = pattern_codes[1]
+            while True:
+                while string_position < self.end \
+                        and ord(self.string[string_position]) != character:
+                    string_position += 1
+                if string_position >= self.end:
+                    return False
+                self.start = string_position
+                string_position += 1
+                self.string_position = string_position
+                if flags & SRE_INFO_LITERAL:
+                    return True
+                if self.match(pattern_codes[2:]):
+                    return True
+            return False
+
+        # General case
         while string_position <= self.end:
             self.reset()
             self.start = self.string_position = string_position
@@ -744,20 +766,40 @@ class _OpcodeDispatcher(_Dispatcher):
             ctx.has_matched = True
             yield True
 
-        # XXX OP_LITERAL optimization missing here
-        
-        # backtracking
         ctx.state.marks_push()
-        while count >= mincount:
-            ctx.state.string_position = ctx.string_position
-            child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
-            yield False
-            if child_context.has_matched:
-                ctx.has_matched = True
-                yield True
-            ctx.skip_char(-1)
-            count -= 1
-            ctx.state.marks_pop_keep()
+        if ctx.peek_code(ctx.peek_code(1) + 1) == OPCODES["literal"]:
+            # Special case: Tail starts with a literal. Skip positions where
+            # the rest of the pattern cannot possibly match.
+            char = ctx.peek_code(ctx.peek_code(1) + 2)
+            while True:
+                while count >= mincount and \
+                                (ctx.at_end() or ord(ctx.peek_char()) != char):
+                    ctx.skip_char(-1)
+                    count -= 1
+                if count < mincount:
+                    break
+                ctx.state.string_position = ctx.string_position
+                child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
+                yield False
+                if child_context.has_matched:
+                    ctx.has_matched = True
+                    yield True
+                ctx.skip_char(-1)
+                count -= 1
+                ctx.state.marks_pop_keep()
+        
+        else:
+            # General case: backtracking
+            while count >= mincount:
+                ctx.state.string_position = ctx.string_position
+                child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
+                yield False
+                if child_context.has_matched:
+                    ctx.has_matched = True
+                    yield True
+                ctx.skip_char(-1)
+                count -= 1
+                ctx.state.marks_pop_keep()
 
         ctx.state.marks_pop_discard()
         ctx.has_matched = False
