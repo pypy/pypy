@@ -8,7 +8,7 @@ from pypy.objspace.flow.model import traverse, Link, Constant, Block
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
 
-import struct
+import types, struct
 
 class LLTypeConverter(object):
     def __init__(self, address):
@@ -139,6 +139,8 @@ class FlowGraphConstantConverter(object):
                 continue
             elif isinstance(cand, lltype.LowLevelType):
                 continue
+            elif isinstance(cand, types.FunctionType):
+                continue
             elif isinstance(cand, str):
                 continue
             elif isinstance(lltype.typeOf(cand), lltype.Primitive):
@@ -178,6 +180,8 @@ class FlowGraphConstantConverter(object):
             if isinstance(constant.value, lltype.LowLevelType):
                 self.constants[constant] = constant.value
             elif isinstance(constant.value, str):
+                self.constants[constant] = constant.value
+            elif isinstance(constant.value, types.FunctionType):
                 self.constants[constant] = constant.value
             else:
                 self.constants[constant] = self.cvter.convert(constant.value)
