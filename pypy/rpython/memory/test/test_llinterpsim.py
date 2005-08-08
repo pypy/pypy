@@ -130,7 +130,7 @@ def test_call_raise():
     interpret_raises(IndexError, call_raise, [42])
     interpret_raises(ValueError, call_raise, [43])
 
-def DONOTtest_call_raise_twice():
+def test_call_raise_twice():
     res = interpret(call_raise_twice, [6, 7])
     assert res == 13
     interpret_raises(IndexError, call_raise_twice, [6, 42])
@@ -139,7 +139,7 @@ def DONOTtest_call_raise_twice():
     interpret_raises(IndexError, call_raise_twice, [42, 7])
     interpret_raises(ValueError, call_raise_twice, [43, 7])
 
-def DONOTtest_call_raise_intercept():
+def test_call_raise_intercept():
     res = interpret(call_raise_intercept, [41], view=False)
     assert res == 41
     res = interpret(call_raise_intercept, [42])

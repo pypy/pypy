@@ -167,7 +167,8 @@ class LLFrame(object):
                 cls, inst = e.args
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
-                    if exdata.ll_exception_match(cls, link.llexitcase):
+                    if self.llinterpreter.eval_function(
+                        exdata.ll_exception_match, [cls, link.llexitcase]):
                         self.setifvar(link.last_exception, cls)
                         self.setifvar(link.last_exc_value, inst)
                         break
@@ -198,8 +199,10 @@ class LLFrame(object):
             assert False, "op_direct_call above should have raised"
         else:
             exc_class = exc.__class__
-            evalue = exdata.ll_pyexcclass2exc(self.llt.pyobjectptr(exc_class))
-            etype = exdata.ll_type_of_exc_inst(evalue)
+            evalue = self.llinterpreter.eval_function(
+                exdata.ll_pyexcclass2exc, [self.llt.pyobjectptr(exc_class)])
+            etype = self.llinterpreter.eval_function(
+                exdata.ll_type_of_exc_inst, [evalue])
         raise LLException(etype, evalue)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
