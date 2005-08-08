@@ -118,3 +118,12 @@ def test_funcptr():
     fpter = cvter.convert(llfuncptr)
     assert fpter(1, 2) == 3
 
+def DONOTtest_convertsubstructure():
+    cvter = LLTypeConverter(lladdress.raw_malloc(100))
+    S1 = lltype.GcStruct("s1", ("v1", lltype.Signed))
+    S2 = lltype.GcStruct("s2", ("s", S1), ("v2", lltype.Signed))
+    lls2 = lltype.malloc(S2)
+    lls1 = lltype.cast_pointer(lltype.Ptr(S1), lls2)
+    s1 = cvter.convert(lls1)
+    s2 = cast_pointer(lltype.Ptr(S2), s1)
+    assert s2.v2 == 0
