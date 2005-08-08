@@ -99,7 +99,7 @@ def predeclare_exception_data(db, rtyper):
 
     yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.ll_exception_match)
     yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.ll_type_of_exc_inst)
-    yield ('RAISE_OSERROR',            exceptiondata.ll_raise_OSError)
+    yield ('RPYTHON_RAISE_OSERROR',    exceptiondata.ll_raise_OSError)
     if not db.standalone:
         yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.ll_pyexcclass2exc)
 
@@ -108,7 +108,7 @@ def predeclare_exception_data(db, rtyper):
             lltype.pyobjectptr(pyexccls))
         # strange naming here because the macro name must be
         # a substring of PyExc_%s
-        yield ('Exc_%s' % pyexccls.__name__, exc_llvalue)
+        yield ('RPyExc_%s' % pyexccls.__name__, exc_llvalue)
 
 
 def predeclare_all(db, rtyper):

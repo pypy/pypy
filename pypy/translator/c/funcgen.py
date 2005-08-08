@@ -104,7 +104,7 @@ class FunctionCodeGenerator:
             assert self.lltypemap(self.graph.getreturnvar()) == PyObjPtr
             yield '{'
             yield '\t%s;' % cdecl(exc_value_typename, 'vanishing_exc_value')
-            yield '\tConvertExceptionToCPython(vanishing_exc_value);'
+            yield '\tRPyConvertExceptionToCPython(vanishing_exc_value);'
             yield '\t%s' % self.db.cdecrefstmt('vanishing_exc_value', lltype_of_exception_value)
             yield '}'
         yield 'return %s; ' % self.error_return_value()
@@ -257,10 +257,10 @@ class FunctionCodeGenerator:
                         T2 = link.last_exc_value.concretetype
                     typ1 = self.db.gettype(T1)
                     typ2 = self.db.gettype(T2)
-                    yield 'if (MatchException(%s)) {' % (self.db.get(etype),)
+                    yield 'if (RPyMatchException(%s)) {' % (self.db.get(etype),)
                     yield '\t%s;' % cdecl(typ1, 'exc_cls')
                     yield '\t%s;' % cdecl(typ2, 'exc_value')
-                    yield '\tFetchException(exc_cls, exc_value, %s);' % (
+                    yield '\tRPyFetchException(exc_cls, exc_value, %s);' % (
                         cdecl(typ2, ''))
                     d = {}
                     if isinstance(link.last_exception, Variable):
@@ -362,11 +362,11 @@ class FunctionCodeGenerator:
         args = [self.expr(v) for v in op.args if self.lltypemap(v) != Void]
         if self.lltypemap(op.result) == Void:
             # skip assignment of 'void' return value
-            return '%s(%s); if (ExceptionOccurred()) FAIL(%s)' % (
+            return '%s(%s); if (RPyExceptionOccurred()) FAIL(%s)' % (
                 args[0], ', '.join(args[1:]), err)
         else:
             r = self.expr(op.result)
-            return '%s = %s(%s); if (ExceptionOccurred()) FAIL(%s)' % (
+            return '%s = %s(%s); if (RPyExceptionOccurred()) FAIL(%s)' % (
                 r, args[0], ', '.join(args[1:]), err)
 
     # low-level operations

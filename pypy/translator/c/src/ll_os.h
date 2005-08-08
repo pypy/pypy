@@ -42,7 +42,7 @@ int LL_os_open(RPyString *filename, int flag, int mode)
 	char buf[PATH_MAX];
 	int fd, namelen = RPyString_Size(filename);
 	if (namelen >= PATH_MAX) {
-		RAISE_OSERROR(ENAMETOOLONG);
+		RPYTHON_RAISE_OSERROR(ENAMETOOLONG);
 		return -1;
 	}
 	else {
@@ -50,7 +50,7 @@ int LL_os_open(RPyString *filename, int flag, int mode)
 		buf[namelen] = 0;
 		fd = open(buf, flag, mode);
 		if (fd < 0)
-			RAISE_OSERROR(errno);
+			RPYTHON_RAISE_OSERROR(errno);
 		return fd;
 	}
 }
@@ -59,7 +59,7 @@ long LL_read_into(int fd, RPyString *buffer)
 {
 	long n = read(fd, RPyString_AsString(buffer), RPyString_Size(buffer));
 	if (n < 0)
-		RAISE_OSERROR(errno);
+		RPYTHON_RAISE_OSERROR(errno);
 	return n;
 }
 
@@ -67,21 +67,21 @@ long LL_os_write(int fd, RPyString *buffer)
 {
 	long n = write(fd, RPyString_AsString(buffer), RPyString_Size(buffer));
 	if (n < 0)
-		RAISE_OSERROR(errno);
+		RPYTHON_RAISE_OSERROR(errno);
 	return n;
 }
 
 void LL_os_close(int fd)
 {
 	if (close(fd) < 0)
-		RAISE_OSERROR(errno);
+		RPYTHON_RAISE_OSERROR(errno);
 }
 
 int LL_os_dup(int fd)
 {
 	fd = dup(fd);
 	if (fd < 0)
-		RAISE_OSERROR(errno);
+		RPYTHON_RAISE_OSERROR(errno);
 	return fd;
 }
 
@@ -91,7 +91,7 @@ RPyString *LL_os_getcwd(void)
 	char *res;
 	res = getcwd(buf, sizeof buf);
 	if (res == NULL) {
-		RAISE_OSERROR(errno);
+		RPYTHON_RAISE_OSERROR(errno);
 		return NULL;
 	}
 	return RPyString_FromString(buf);
@@ -120,7 +120,7 @@ RPySTAT_RESULT* LL_os_stat(RPyString * fname) {
   STRUCT_STAT st;
   int error = STAT(RPyString_AsString(fname), &st);
   if (error != 0) {
-    RAISE_OSERROR(errno);
+    RPYTHON_RAISE_OSERROR(errno);
     return NULL;
   }
   return _stat_construct_result_helper(st);
@@ -130,7 +130,7 @@ RPySTAT_RESULT* LL_os_fstat(long fd) {
   STRUCT_STAT st;
   int error = FSTAT(fd, &st);
   if (error != 0) {
-    RAISE_OSERROR(errno);
+    RPYTHON_RAISE_OSERROR(errno);
     return NULL;
   }
   return _stat_construct_result_helper(st);
@@ -156,7 +156,7 @@ long LL_os_lseek(long fd, long pos, long how) {
     res = lseek(fd, pos, how);
 #endif
     if (res < 0)
-        RAISE_OSERROR(errno);
+        RPYTHON_RAISE_OSERROR(errno);
     return res;
 }
 
@@ -169,7 +169,7 @@ void LL_os_ftruncate(long fd, long length) { /*XXX add longfile support */
     int res;
     res = ftruncate((int)fd, (off_t)length);
     if (res < 0) {
-	RAISE_OSERROR(errno);
+	RPYTHON_RAISE_OSERROR(errno);
     }
 }
 #endif

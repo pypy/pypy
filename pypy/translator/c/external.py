@@ -28,8 +28,8 @@ class CExternalFunctionCodeGenerator:
         call = '%s(%s)' % (self.fnptr._name, ', '.join(self.argnames()))
         if self.FUNCTYPE.RESULT != Void:
             yield 'result = %s;' % call
-            yield 'if (PyErr_Occurred()) ConvertExceptionFromCPython();'
+            yield 'if (PyErr_Occurred()) RPyConvertExceptionFromCPython();'
             yield 'return result;'
         else:
             yield '%s;' % call
-            yield 'if (PyErr_Occurred()) ConvertExceptionFromCPython();'
+            yield 'if (PyErr_Occurred()) RPyConvertExceptionFromCPython();'

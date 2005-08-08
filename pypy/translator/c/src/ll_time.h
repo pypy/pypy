@@ -60,7 +60,7 @@ void LL_time_sleep(double secs)
 	unsigned long ul_millis;
 
 	if (millisecs > (double)ULONG_MAX) {
-		RaiseSimpleException(Exc_OverflowError,
+		RPyRaiseSimpleException(PyExc_OverflowError,
 				     "sleep length is too large");
 		return;
 	}
@@ -77,7 +77,7 @@ void LL_time_sleep(double secs)
 				 * handler called.
 				 *
 			Sleep(1);
-			RaiseSimpleException(Exc_IOError, "interrupted");
+			RPyRaiseSimpleException(PyExc_IOError, "interrupted");
 			return;
 		}
 	}*/
@@ -94,7 +94,7 @@ void LL_time_sleep(double secs)
 #else
 		if (1) {
 #endif
-			RaiseSimpleException(Exc_IOError, "select() failed");
+			RPyRaiseSimpleException(PyExc_IOError, "select() failed");
 			return;
 		}
 	}

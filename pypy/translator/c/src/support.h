@@ -11,13 +11,13 @@
 
 #define FAIL_EXCEPTION(err, exc, msg) \
 	{ \
-		RaiseSimpleException(exc, msg); \
+		RPyRaiseSimpleException(exc, msg); \
 		FAIL(err) \
 	}
-#define FAIL_OVF(err, msg) FAIL_EXCEPTION(err, Exc_OverflowError, msg)
-#define FAIL_VAL(err, msg) FAIL_EXCEPTION(err, Exc_ValueError, msg)
-#define FAIL_ZER(err, msg) FAIL_EXCEPTION(err, Exc_ZeroDivisionError, msg)
-#define CFAIL(err)         { ConvertExceptionFromCPython(); FAIL(err) }
+#define FAIL_OVF(err, msg) FAIL_EXCEPTION(err, PyExc_OverflowError, msg)
+#define FAIL_VAL(err, msg) FAIL_EXCEPTION(err, PyExc_ValueError, msg)
+#define FAIL_ZER(err, msg) FAIL_EXCEPTION(err, PyExc_ZeroDivisionError, msg)
+#define CFAIL(err)         { RPyConvertExceptionFromCPython(); FAIL(err) }
 
 
 #ifndef PYPY_STANDALONE
