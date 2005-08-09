@@ -251,7 +251,6 @@ class FloatFFormatter(FloatFormatter):
         if v/1e25 > 1e25:
             return FloatGFormatter('g', self.flags, self.width,
                                    self.prec, self.value).format()
-
         return self._formatd('f', v)
         #ds, k = flonum2digits(v)
         #digits = self.fDigits(ds, k)
@@ -259,13 +258,22 @@ class FloatFFormatter(FloatFormatter):
         #    digits = digits.rstrip('.')
         #return digits
 
+# system specific formatting. Linux does 3, Windows does 4...
+# XXX this works only when we use geninterp!
+if 0:
+    _x = `1.2e34`
+    _EF = len(_x) - _x.rindex('+')
+    del _x
+else:
+    _EF = 3
+
 
 class FloatEFormatter(FloatFormatter):
     def _format(self, v):
         return self._formatd('e', v)
         #ds, k = flonum2digits(v)
         #digits = self.eDigits(ds)
-        #return "%s%c%+03d"%(digits, self.char, k-1)
+        #return "%%s%%c%%+0%dd" % _EF %(digits, self.char, k-1)
 
 
 class FloatGFormatter(FloatFormatter):
@@ -275,9 +283,12 @@ class FloatGFormatter(FloatFormatter):
     # (One has to wonder who might care).
     def _format(self, v):
         return self._formatd('g', v)
+        ## the following is btw. correct for marshal, now:
         #ds, k = flonum2digits(v)
         #ds = ds[:self.prec] # XXX rounding!
         #if -4 < k <= self.prec:
+        #    if k < 0:
+        #        self.prec -= k # grow prec for extra zeros
         #    digits = self.fDigits(ds, k)
         #    if not self.flags.f_alt:
         #        digits = digits.rstrip('0').rstrip('.')
@@ -286,7 +297,7 @@ class FloatGFormatter(FloatFormatter):
         #    digits = self.eDigits(ds)
         #    if not self.flags.f_alt:
         #        digits = digits.rstrip('0').rstrip('.')
-        #    r = "%se%+03d"%(digits, k-1)
+        #    r = "%%se%%+0%dd" % _EF %(digits, k-1)
         #return r
 
 

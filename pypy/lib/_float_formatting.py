@@ -16,6 +16,18 @@ import math
 
 # XXX should run this at interpreter level, really....
 
+def calc_mantissa_bits():
+    bits = 1 # I know it is almost always 53, but let it compute...
+    while 1:
+        pattern = (1L << bits) - 1
+        comp = long(float(pattern))
+        if comp!= pattern:
+            return bits - 1
+        bits += 1
+
+MANTISSA_BITS = calc_mantissa_bits()
+del calc_mantissa_bits
+
 def decode_float(f):
     """decode_float(float) -> int, int
 
@@ -23,8 +35,8 @@ def decode_float(f):
     f (assuming f is an IEEE double), i.e. f == m * 2**e and
     2**52 <= m < 2**53."""
     m, e = math.frexp(f)
-    m = long(m*2.0**53)
-    e -= 53
+    m = long(m*2.0**MANTISSA_BITS)
+    e -= MANTISSA_BITS
     return m, e
 
 def decompose(f):
@@ -38,7 +50,7 @@ def decompose(f):
     the next smallest."""
     m, e = decode_float(f)
     if e >= 0:
-        if not m != 2**52:
+        if not m != 2**(MANTISSA_BITS-1):
             be = 2**e
             return m*be*2, 2, be, be
         else:
@@ -46,7 +58,7 @@ def decompose(f):
             be1 = 2*be
             return m*be1*2, 4, be1, be
     else:
-        if e == -1075 or m != 2**52:
+        if e == -1075 or m != 2**(MANTISSA_BITS-1):
             return m*2, 2**(-e+1), 1, 1
         else:
             return m*4, 2**(-e+2), 2, 1
