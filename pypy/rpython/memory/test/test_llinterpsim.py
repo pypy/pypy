@@ -369,6 +369,23 @@ def call_raise_intercept(i):
         return i
     except ValueError:
         raise TypeError
+
+
+#the following function has a constant argument which is void
+def test_str_of_int():
+    def dummy(i):
+        return str(i)
+    
+    res = interpret(dummy, [0])
+    assert ''.join(res.chars) == '0'
+
+    res = interpret(dummy, [1034])
+    assert ''.join(res.chars) == '1034'
+
+    res = interpret(dummy, [-123])
+    assert ''.join(res.chars) == '-123'
+
+
 #__________________________________________________________________
 # interactive playing
 

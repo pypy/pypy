@@ -8,6 +8,8 @@ from pypy.objspace.flow.model import traverse, Link, Constant, Block
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
 
+from pypy.rpython.rmodel import IntegerRepr
+
 import types, struct
 
 class LLTypeConverter(object):
@@ -118,12 +120,15 @@ class FlowGraphConstantConverter(object):
         constants = {}
         def collect_args(args):
             for arg in args:
-                if isinstance(arg, Constant):
+                if (isinstance(arg, Constant) and
+                    arg.concretetype is not lltype.Void):
                     constants[arg] = None
         def visit(obj):
             if isinstance(obj, Link):
                 collect_args(obj.args)
                 if hasattr(obj, "llexitcase"):
+                    if isinstance(obj.llexitcase, IntegerRepr):
+                        assert 0
                     constants[Constant(obj.llexitcase)] = None
             elif isinstance(obj, Block):
                 for op in obj.operations:

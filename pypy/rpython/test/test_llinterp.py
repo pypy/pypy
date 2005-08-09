@@ -9,6 +9,7 @@ from pypy.rpython.rint import signed_repr
 from pypy.rpython import rstr
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rpython.rarithmetic import r_uint, ovfcheck
+from pypy.rpython.memory import gclltype
 
 # switch on logging of interp to show more info on failing tests
 
@@ -73,7 +74,8 @@ def get_interpreter(func, values, view=False, viewbefore=False, policy=None, som
         
         t, typer = gengraph(func, [annotation(x)
                       for x in values], viewbefore, policy)
-        interp = LLInterpreter(t.flowgraphs, typer)
+        interp = LLInterpreter(t.flowgraphs, typer, gclltype,
+                               gclltype.prepare_graphs)
         _tcache[key] = (t, interp)
         # keep the cache small 
         _lastinterpreted.append(key) 
