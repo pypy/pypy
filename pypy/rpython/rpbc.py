@@ -403,6 +403,7 @@ class FunctionsPBCRepr(Repr):
         if self.lowleveltype == Void:
             assert len(self.function_signatures()) == 1
             vlist[0] = hop.inputconst(typeOf(f), f)
+        hop.exception_is_here()
         v = hop.genop('direct_call', vlist, resulttype = rresult)
         return hop.llops.convertvar(v, rresult, hop.r_result)
 

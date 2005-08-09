@@ -379,15 +379,18 @@ class __extend__(pairtype(SomeDict, SomeObject)):
     def getitem((dic1, obj2)):
         getbookkeeper().count("dict_getitem", dic1)
         return dic1.dictdef.read_value()
+    getitem.can_only_throw = [KeyError]
 
     def setitem((dic1, obj2), s_value):
         getbookkeeper().count("dict_setitem", dic1)
         dic1.dictdef.generalize_key(obj2)
         dic1.dictdef.generalize_value(s_value)
+    setitem.can_only_throw = [KeyError]
 
     def delitem((dic1, obj1)):
         getbookkeeper().count("dict_delitem", dic1)
         pass
+    delitem.can_only_throw = [KeyError]
 
 
 class __extend__(pairtype(SomeSlice, SomeSlice)):
@@ -409,6 +412,7 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
         else:
             getbookkeeper().count("tuple_random_getitem", tup1)
             return unionof(*tup1.items)
+    getitem.can_only_throw = [IndexError]
 
 
 class __extend__(pairtype(SomeList, SomeInteger)):
@@ -420,40 +424,48 @@ class __extend__(pairtype(SomeList, SomeInteger)):
     def getitem((lst1, int2)):
         getbookkeeper().count("list_getitem", int2)
         return lst1.listdef.read_item()
+    getitem.can_only_throw = [IndexError]
 
     def setitem((lst1, int2), s_value):
         getbookkeeper().count("list_setitem", int2)        
         lst1.listdef.mutate()
         lst1.listdef.generalize(s_value)
+    setitem.can_only_throw = [IndexError]
 
     def delitem((lst1, int2)):
         getbookkeeper().count("list_delitem", int2)        
         lst1.listdef.resize()
+    delitem.can_only_throw = [IndexError]
 
 class __extend__(pairtype(SomeList, SomeSlice)):
 
     def getitem((lst, slic)):
         #return getbookkeeper().newlist(lst.listdef.read_item())
         return SomeList(lst.listdef)
+    getitem.can_only_throw = []
 
     def setitem((lst, slic), s_iterable):
         # we need the same unifying effect as the extend() method for
         # the case lst1[x:y] = lst2.
         lst.method_extend(s_iterable)
+    setitem.can_only_throw = []
 
     def delitem((lst1, slic)):
         lst1.listdef.resize()
+    delitem.can_only_throw = []
 
 class __extend__(pairtype(SomeString, SomeSlice)):
 
     def getitem((str1, slic)):
         return SomeString()
+    getitem.can_only_throw = []
 
 class __extend__(pairtype(SomeString, SomeInteger)):
 
     def getitem((str1, int2)):
         getbookkeeper().count("str_getitem", int2)        
         return SomeChar()
+    getitem.can_only_throw = [IndexError]
 
     def mul((str1, int2)): # xxx do we want to support this
         getbookkeeper().count("str_mul", str1, int2)
@@ -591,19 +603,21 @@ class __extend__(pairtype(SomePtr, SomeInteger)):
     def getitem((p, int1)):
         v = p.ll_ptrtype._example()[0]
         return ll_to_annotation(v)
+    getitem.can_only_throw = []
 
     def setitem((p, int1), s_value):
         v_lltype = annotation_to_lltype(s_value)
         p.ll_ptrtype._example()[0] = v_lltype._defl()
+    setitem.can_only_throw = []
 
 class __extend__(pairtype(SomePtr, SomeObject)):
     def union((p, obj)):
         assert False, ("mixing pointer type %r with something else %r" % (p.ll_ptrtype, obj))
 
-    def gettitem((p, obj)):
+    def getitem((p, obj)):
         assert False,"ptr %r getitem index not an int: %r" % (p.ll_ptrtype, obj)
 
-    def settitem((p, obj)):
+    def setitem((p, obj)):
         assert False,"ptr %r setitem index not an int: %r" % (p.ll_ptrtype, obj)
 
 class __extend__(pairtype(SomeObject, SomePtr)):
@@ -635,10 +649,12 @@ class __extend__(pairtype(SomeTypedAddressAccess, SomeInteger)):
     def getitem((s_taa, s_int)):
         from pypy.annotation.model import lltype_or_address_to_annotation
         return lltype_or_address_to_annotation(s_taa.type)
+    getitem.can_only_throw = []
 
     def setitem((s_taa, s_int), s_value):
         from pypy.annotation.model import annotation_to_lltype_or_address
         assert annotation_to_lltype_or_address(s_value) is s_taa.type
+    setitem.can_only_throw = []
 
 
 class __extend__(pairtype(SomeAddress, SomeInteger)):

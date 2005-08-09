@@ -51,6 +51,7 @@ class __extend__(pairtype(VoidRepr, PyObjRepr)):
 def make_operation(opname, cls=PyObjRepr):
     def rtype_op(_, hop):
         vlist = hop.inputargs(*([pyobj_repr]*hop.nb_args))
+        hop.exception_is_here()
         if isinstance(hop.r_result, VoidRepr):
             hop.genop(opname, vlist)
         else:

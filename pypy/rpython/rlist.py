@@ -107,6 +107,8 @@ class ListRepr(Repr):
 
     def rtype_method_index(self, hop):
         v_lst, v_value = hop.inputargs(self, self.item_repr)
+        hop.has_implicit_exception(ValueError)   # record that we know about it
+        hop.exception_is_here()
         return hop.gendirectcall(ll_listindex, v_lst, v_value, self.get_eqfunc())
 
     def rtype_method_insert(self, hop):
@@ -190,6 +192,7 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
                 llfn = ll_getitem_nonneg
             else:
                 llfn = ll_getitem
+        hop.exception_is_here()
         return hop.gendirectcall(llfn, v_lst, v_index)
     
     def rtype_setitem((r_lst, r_int), hop):
@@ -204,6 +207,7 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
                 llfn = ll_setitem_nonneg
             else:
                 llfn = ll_setitem
+        hop.exception_is_here()
         return hop.gendirectcall(llfn, v_lst, v_index, v_item)
 
     def rtype_delitem((r_lst, r_int), hop):
@@ -218,6 +222,7 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
                 llfn = ll_delitem_nonneg
             else:
                 llfn = ll_delitem
+        hop.exception_is_here()
         return hop.gendirectcall(llfn, v_lst, v_index)
 
     def rtype_mul((r_lst, r_int), hop):
@@ -465,7 +470,7 @@ def ll_delitem_checked(l, i):
     if i < 0:
         i += len(l.items)
     if i >= len(l.items) or i < 0:
-        raise IndexErrror
+        raise IndexError
     ll_delitem_nonneg(l, i)
 
 def ll_concat(l1, l2):
@@ -716,6 +721,8 @@ class ListIteratorRepr(Repr):
 
     def rtype_next(self, hop):
         v_iter, = hop.inputargs(self)
+        hop.has_implicit_exception(StopIteration) # record that we know about it
+        hop.exception_is_here()
         return hop.gendirectcall(ll_listnext, v_iter)
 
 def ll_listiter(ITERPTR, lst):

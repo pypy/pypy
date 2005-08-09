@@ -117,17 +117,20 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
                 vlist = hop.inputargs(Unsigned, Unsigned, Void)[:2]
             else:
                 vlist = hop.inputargs(Unsigned, Unsigned, Unsigned)
+            hop.exception_is_here()
             return hop.genop('uint_pow' + suffix, vlist, resulttype=Unsigned)
         else:
             if s_int3.is_constant() and s_int3.const is None:
                 vlist = hop.inputargs(Signed, Signed, Void)[:2]
             else:
                 vlist = hop.inputargs(Signed, Signed, Signed)
+            hop.exception_is_here()
             return hop.genop('int_pow' + suffix, vlist, resulttype=Signed)
 
     def rtype_pow_ovf(_, hop):
         if hop.s_result.unsigned:
             raise TyperError("forbidden uint_pow_ovf")
+        hop.has_implicit_exception(OverflowError) # record that we know about it
         return self.rtype_pow(_, hop, suffix='_ovf')
 
     def rtype_inplace_pow(_, hop):
@@ -167,9 +170,13 @@ def _rtype_template(hop, func, implicit_excs=[]):
         if func1.endswith('_ovf'):
             raise TyperError("forbidden uint_" + func)
         vlist = hop.inputargs(Unsigned, Unsigned)
+        hop.exception_is_here()
         return hop.genop('uint_'+func, vlist, resulttype=Unsigned)
     else:
+        if func1.endswith('_ovf'):              # record that we know about it
+            hop.has_implicit_exception(OverflowError)
         vlist = hop.inputargs(Signed, Signed)
+        hop.exception_is_here()
         return hop.genop('int_'+func, vlist, resulttype=Signed)
 
 #Helper functions for comparisons
@@ -233,6 +240,8 @@ class __extend__(IntegerRepr):
             raise TyperError("forbidden uint_abs_ovf")
         else:
             vlist = hop.inputargs(Signed)
+            hop.has_implicit_exception(OverflowError) # record we know about it
+            hop.exception_is_here()
             return hop.genop('int_abs_ovf', vlist, resulttype=Signed)
 
     def rtype_invert(_, hop):
@@ -256,6 +265,8 @@ class __extend__(IntegerRepr):
             raise TyperError("forbidden uint_neg_ovf")
         else:
             vlist = hop.inputargs(Signed)
+            hop.has_implicit_exception(OverflowError) # record we know about it
+            hop.exception_is_here()
             return hop.genop('int_neg_ovf', vlist, resulttype=Signed)
 
     def rtype_pos(_, hop):

@@ -196,6 +196,8 @@ class Length1TupleIteratorRepr(Repr):
 
     def rtype_next(self, hop):
         v_iter, = hop.inputargs(self)
+        hop.has_implicit_exception(StopIteration) # record that we know about it
+        hop.exception_is_here()
         return hop.gendirectcall(ll_tuplenext, v_iter)
 
 def ll_tupleiter(ITERPTR, tuple):

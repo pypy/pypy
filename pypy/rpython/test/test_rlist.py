@@ -382,3 +382,19 @@ def test_list_multiply():
     for arg in (1, 9, 0, -1, -27):
         res = interpret(fn, [arg])
         assert res == fn(arg)
+
+def test_indexerror():
+    def fn(i):
+        l = [5, 8, 3]
+        try:
+            del l[i]
+        except IndexError:
+            pass
+        try:
+            return l[2]    # implicit int->PyObj conversion here
+        except IndexError:
+            return "oups"
+    res = interpret(fn, [6])
+    assert res._obj.value == 3
+    res = interpret(fn, [-2])
+    assert res._obj.value == "oups"

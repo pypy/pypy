@@ -277,11 +277,13 @@ def make_rtype_extfunc(extfuncinfo):
     if extfuncinfo.ll_annotable:
         def rtype_extfunc(hop):
             vars = hop.inputargs(*hop.args_r)
+            hop.exception_is_here()
             return hop.gendirectcall(ll_function, *vars)
     else:
         def rtype_extfunc(hop):
             resulttype = hop.r_result
             vars = hop.inputargs(*hop.args_r)
+            hop.exception_is_here()
             return hop.llops.genexternalcall(ll_function.__name__, vars, resulttype=resulttype,
                                              _callable = ll_function)
             

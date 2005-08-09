@@ -99,6 +99,8 @@ class __extend__(pairtype(ConstantDictRepr, rmodel.Repr)):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr) 
         hashcompute = r_dict.get_key_hash_function()
         chashcompute = hop.inputconst(lltype.Void, hashcompute)
+        hop.has_implicit_exception(KeyError)   # record that we know about it
+        hop.exception_is_here()
         return hop.gendirectcall(ll_constantdict_getitem, v_dict, v_key,
                                  chashcompute)
 

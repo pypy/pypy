@@ -43,6 +43,7 @@ class __extend__(pairtype(RangeRepr, IntegerRepr)):
             llfn = ll_rangeitem_nonneg
         else:
             llfn = ll_rangeitem
+        hop.exception_is_here()
         return hop.gendirectcall(llfn, v_lst, v_index, cstep)
 
 # ____________________________________________________________
@@ -120,6 +121,8 @@ class RangeIteratorRepr(Repr):
             llfn = ll_rangenext_up
         else:
             llfn = ll_rangenext_down
+        hop.has_implicit_exception(StopIteration) # record that we know about it
+        hop.exception_is_here()
         return hop.gendirectcall(llfn, v_iter, cstep)
 
 def ll_rangeiter(ITERPTR, rng):

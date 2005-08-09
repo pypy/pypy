@@ -141,10 +141,14 @@ class __extend__(pairtype(StrDictRepr, rmodel.StringRepr)):
 
     def rtype_getitem((r_dict, r_string), hop):
         v_dict, v_key = hop.inputargs(r_dict, rstr.string_repr)
+        hop.has_implicit_exception(KeyError)   # record that we know about it
+        hop.exception_is_here()
         return hop.gendirectcall(ll_strdict_getitem, v_dict, v_key)
 
     def rtype_delitem((r_dict, r_string), hop):
         v_dict, v_key = hop.inputargs(r_dict, rstr.string_repr) 
+        hop.has_implicit_exception(KeyError)   # record that we know about it
+        hop.exception_is_here()
         return hop.gendirectcall(ll_strdict_delitem, v_dict, v_key)
 
     def rtype_setitem((r_dict, r_string), hop):
@@ -320,6 +324,8 @@ class StrDictIteratorRepr(rmodel.Repr):
 
     def rtype_next(self, hop):
         v_iter, = hop.inputargs(self)
+        hop.has_implicit_exception(StopIteration) # record that we know about it
+        hop.exception_is_here()
         return hop.gendirectcall(ll_strdictnext, v_iter)
 
 def ll_strdictiter(ITERPTR, d):

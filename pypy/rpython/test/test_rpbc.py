@@ -790,7 +790,7 @@ def test_various_patterns_but_one_signature_method():
     assert res == 3*2+11*7
     
 
-def test_mulitple_ll_one_hl_op():
+def test_multiple_ll_one_hl_op():
     class E(Exception):
         pass
     class A(object):
@@ -822,9 +822,4 @@ def test_mulitple_ll_one_hl_op():
             return c.method(x + 1)
         except E:
             return None
-    try:
-        res = interpret(call, [0])
-    except:
-        py.test.skip("this test shows the problem with rtyping exceptions")
-
-    
+    res = interpret(call, [0])

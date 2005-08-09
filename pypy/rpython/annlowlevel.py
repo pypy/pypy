@@ -30,6 +30,7 @@ class KeyComp(object):
         return getattr(self.val, '__name__', repr(self.val)) + 'Const'
 
 class LowLevelAnnotatorPolicy(BasicAnnotatorPolicy):
+    allow_someobjects = False
 
     def specialize(pol, bookkeeper, spaceop, func, args, mono):
         args_s, kwds_s = args.unpack()

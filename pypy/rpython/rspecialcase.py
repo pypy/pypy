@@ -25,4 +25,5 @@ def rtype_call_specialcase(hop):
 
 
 def rtype_override_ignore(hop, clsdef): # ignore works for methods too
+    hop.exception_cannot_occur()
     return inputconst(hop.r_result, None)

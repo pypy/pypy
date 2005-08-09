@@ -261,6 +261,33 @@ class RPythonTyper:
 
         block.operations[:] = newops
         block.renamevariables(varmapping)
+
+        pos = newops.llop_raising_exceptions
+        if (pos is not None and pos != len(newops)-1):
+            # this is for the case where the llop that raises the exceptions
+            # is not the last one in the list.
+            assert block.exitswitch == Constant(last_exception)
+            noexclink = block.exits[0]
+            assert noexclink.exitcase is None
+            if pos == "removed":
+                # the exception cannot actually occur at all.
+                # See for example rspecialcase.rtype_call_specialcase().
+                # We just remove all exception links.
+                block.exitswitch = None
+                block.exits = block.exits[:1]
+            else:
+                # We have to split the block in two, with the exception-catching
+                # exitswitch after the llop at 'pos', and the extra operations
+                # in the new part of the block, corresponding to the
+                # no-exception case.  See for example test_rlist.test_indexerror
+                # or test_rpbc.test_multiple_ll_one_hl_op.
+                assert 0 <= pos < len(newops) - 1
+                extraops = block.operations[pos+1:]
+                del block.operations[pos+1:]
+                insert_empty_block(self.annotator.translator,
+                                   noexclink,
+                                   newops = extraops)
+
         self.insert_link_conversions(block)
 
     def insert_link_conversions(self, block):
@@ -346,6 +373,11 @@ class RPythonTyper:
     def translate_hl_to_ll(self, hop, varmapping):
         log.translating(hop.spaceop.opname, hop.args_s)
         resultvar = hop.dispatch()
+        if hop.exceptionlinks and hop.llops.llop_raising_exceptions is None:
+            raise TyperError("the graph catches %s, but the rtyper did not "
+                             "take exceptions into account "
+                             "(exception_is_here() not called)" % (
+                [link.exitcase.__name__ for link in hop.exceptionlinks],))
         op = hop.spaceop
         if resultvar is None:
             # no return value
@@ -590,10 +622,41 @@ class HighLevelOp(object):
         self.args_r[0], self.args_r[1] = self.args_r[1], self.args_r[0]
 
     def has_implicit_exception(self, exc_cls):
+        if self.llops.llop_raising_exceptions is not None:
+            raise TyperError("already generated the llop that raises the "
+                             "exception")
+        if not self.exceptionlinks:
+            return False  # don't record has_implicit_exception checks on
+                          # high-level ops before the last one in the block
+        if self.llops.implicit_exceptions_checked is None:
+            self.llops.implicit_exceptions_checked = []
         for link in self.exceptionlinks:
             if issubclass(exc_cls, link.exitcase):
+                self.llops.implicit_exceptions_checked.append(link.exitcase)
                 return True
         return False
+
+    def exception_is_here(self):
+        if self.llops.llop_raising_exceptions is not None:
+            raise TyperError("cannot catch an exception at more than one llop")
+        if not self.exceptionlinks:
+            return # ignored for high-level ops before the last one in the block
+        if self.llops.implicit_exceptions_checked is not None:
+            # sanity check: complain if an has_implicit_exception() check is
+            # missing in the rtyper.
+            for link in self.exceptionlinks:
+                if link.exitcase not in self.llops.implicit_exceptions_checked:
+                    raise TyperError("the graph catches %s, but the rtyper "
+                                     "did not explicitely handle it" % (
+                        link.exitcase.__name__,))
+        self.llops.llop_raising_exceptions = len(self.llops)
+
+    def exception_cannot_occur(self):
+        if self.llops.llop_raising_exceptions is not None:
+            raise TyperError("cannot catch an exception at more than one llop")
+        if not self.exceptionlinks:
+            return # ignored for high-level ops before the last one in the block
+        self.llops.llop_raising_exceptions = "removed"
 
 # ____________________________________________________________
 
@@ -601,6 +664,12 @@ class LowLevelOpList(list):
     """A list with gen*() methods to build and append low-level
     operations to it.
     """
+    # NB. the following two attributes are here instead of on HighLevelOp
+    #     because we want them to be shared between a HighLevelOp and its
+    #     copy()es.
+    llop_raising_exceptions = None
+    implicit_exceptions_checked = None
+
     def __init__(self, rtyper):
         self.rtyper = rtyper
 

@@ -55,6 +55,7 @@ class PtrRepr(Repr):
         if not isinstance(self.lowleveltype.TO, FuncType):
             raise TyperError("calling a non-function %r", self.lowleveltype.TO)
         vlist = hop.inputargs(*hop.args_r)
+        hop.exception_is_here()
         return hop.genop('direct_call', vlist,
                          resulttype = self.lowleveltype.TO.RESULT)
 

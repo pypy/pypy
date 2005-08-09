@@ -157,13 +157,16 @@ class __extend__(StringRepr):
         return hop.gendirectcall(ll_replace_chr_chr, v_str, v_c1, v_c2)
 
     def rtype_int(_, hop):
+        hop.has_implicit_exception(ValueError)   # record that we know about it
         if hop.nb_args == 1:
             v_str, = hop.inputargs(string_repr)
             c_base = inputconst(Signed, 10)
+            hop.exception_is_here()
             return hop.gendirectcall(ll_int, v_str, c_base)
         if not hop.args_r[1] == rint.signed_repr:
             raise TyperError, 'base needs to be an int'
         v_str, v_base= hop.inputargs(string_repr, rint.signed_repr)
+        hop.exception_is_here()
         return hop.gendirectcall(ll_int, v_str, v_base)
 
     def ll_str(s, r):
@@ -189,6 +192,7 @@ class __extend__(pairtype(StringRepr, IntegerRepr)):
                 llfn = ll_stritem_nonneg
             else:
                 llfn = ll_stritem
+        hop.exception_is_here()
         return hop.gendirectcall(llfn, v_str, v_index)
 
     def rtype_mod(_, hop):
@@ -936,6 +940,8 @@ class StringIteratorRepr(Repr):
 
     def rtype_next(self, hop):
         v_iter, = hop.inputargs(self)
+        hop.has_implicit_exception(StopIteration) # record that we know about it
+        hop.exception_is_here()
         return hop.gendirectcall(ll_strnext, v_iter)
 
 string_iterator_repr = StringIteratorRepr()
