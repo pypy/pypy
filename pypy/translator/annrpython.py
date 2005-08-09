@@ -227,6 +227,25 @@ class RPythonAnnotator:
                 history.append(self.bindings[arg])
                 cause_history = self.binding_cause_history.setdefault(arg, [])
                 cause_history.append(self.binding_caused_by[arg])
+        degenerated = (s_value.__class__ is annmodel.SomeObject and
+                       s_value.knowntype is not type)
+        if degenerated and not self.policy.allow_someobjects:
+            msglines = ["annotation of %r degenerated to SomeObject()" % (arg,)]
+            try:
+                position_key = self.bookkeeper.position_key
+            except AttributeError:
+                pass
+            else:
+                msglines.append(".. %r position: %s" % (
+                    arg, self.whereami(position_key),))
+            if called_from is not None:
+                msglines.append(".. called from %r" % (called_from,))
+                if hasattr(called_from, '__module__'):
+                    msglines[-1] += " from module %r"% (called_from.__module__,)
+            if s_value.origin is not None:
+                msglines.append(".. SomeObject() origin: %s" % (
+                    self.whereami(s_value.origin),))
+            raise AnnotatorError('\n'.join(msglines))
         self.bindings[arg] = s_value
         if annmodel.DEBUG:
             if arg in self.return_bindings:
@@ -234,7 +253,7 @@ class RPythonAnnotator:
                     (self.whereami((self.return_bindings[arg], None, None)), 
                      s_value)) 
 
-            if arg in self.return_bindings and s_value == annmodel.SomeObject():
+            if arg in self.return_bindings and degenerated:
                 log.red("*** WARNING: %s result degenerated to SomeObject" %
                      self.whereami((self.return_bindings[arg],None, None))) 
                 

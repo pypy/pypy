@@ -106,15 +106,17 @@ def analyse(target):
         a = t.annotator
         t.frozen = False
     standalone = inputtypes is None
+    policy = PyPyAnnotatorPolicy()
     if standalone:
         ldef = listdef.ListDef(None, annmodel.SomeString())
         inputtypes = [annmodel.SomeList(ldef)]
+        policy.allow_someobjects = False
 
     if listen_port:
         run_async_server()
     if not options['-no-a']:
         print 'Annotating...'
-        a = t.annotate(inputtypes, policy=PyPyAnnotatorPolicy())
+        a = t.annotate(inputtypes, policy=policy)
         sanity_check_exceptblocks(t)
         lost = query.sanity_check_methods(t)
         assert not lost, "lost methods, something gone wrong with the annotation of method defs"

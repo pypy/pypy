@@ -8,6 +8,7 @@ from pypy.annotation.bookkeeper import getbookkeeper
 
 
 class BasicAnnotatorPolicy:
+    allow_someobjects = True
     
     def specialize(pol, bookkeeper, spaceop, func, args, mono):
         return None, None
