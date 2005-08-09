@@ -310,10 +310,28 @@ class xrange(object):
         raise IndexError, "xrange object index out of range"
 
     def __iter__(self):
-        i = 0
-        while i < self.len:   
-            yield self.start + i * self.step 
-            i += 1 
+        return xrange_iterator(self.start, self.len, self.step)
+
+
+class xrange_iterator(object):
+    def __init__(self, current, remaining, step):
+        self._current = current
+        self._remaining = remaining
+        self._step = step
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self._remaining > 0:
+            item = self._current
+            self._current = item + self._step
+            self._remaining -= 1
+            return item
+        raise StopIteration
+
+    def __len__(self):
+        return self._remaining
 
 # ____________________________________________________________
 
