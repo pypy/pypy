@@ -12,6 +12,9 @@ from pypy.rpython.rmodel import IntegerRepr
 
 import types, struct
 
+FUNCTIONTYPES = (types.FunctionType, types.UnboundMethodType,
+                 types.BuiltinFunctionType)
+
 class LLTypeConverter(object):
     def __init__(self, address):
         self.converted = {}
@@ -149,7 +152,7 @@ class FlowGraphConstantConverter(object):
                 continue
             elif isinstance(cand, lltype.LowLevelType):
                 continue
-            elif isinstance(cand, types.FunctionType):
+            elif isinstance(cand, FUNCTIONTYPES):
                 continue
             elif isinstance(cand, str):
                 continue
@@ -194,7 +197,7 @@ class FlowGraphConstantConverter(object):
                 self.constants[constant] = constant.value
             elif isinstance(constant.value, str):
                 self.constants[constant] = constant.value
-            elif isinstance(constant.value, types.FunctionType):
+            elif isinstance(constant.value, FUNCTIONTYPES):
                 self.constants[constant] = constant.value
             else:
                 self.constants[constant] = self.cvter.convert(constant.value)

@@ -98,6 +98,8 @@ def _expose(T, address):
         return simulatorptr(T, address.address[0])
     elif isinstance(T, lltype.PyObjectType):
         return simulatorptr(lltype.Ptr(T), address)
+    elif isinstance(T, lltype.FuncType):
+        return simulatorptr(lltype.Ptr(T), address)
     else:
         assert 0, "not implemented yet"
 
