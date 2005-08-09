@@ -1,6 +1,5 @@
 from __future__ import generators
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.register_all import register_all
 from sys import maxint
 
@@ -26,9 +25,9 @@ list_reversed = MultiMethod('__reversed__', 1)
 ##
 ##''', filename=__file__).interphook('reversed')
 def list_reversed__ANY(space, w_list):
-    w_list.running_iter = W_SeqIterObject(space,w_list,-1,True)
-    return w_list.running_iter
-    
+    from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
+    return W_ReverseSeqIterObject(space,w_list,-1)
+
 register_all(vars(), globals())
 
 # ____________________________________________________________

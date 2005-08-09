@@ -120,34 +120,37 @@ class AppTest_IterObject:
         raises(StopIteration, it.next)
         assert len(it) == 0
         
-##    def test_iter_len_deque(self):
-##        from collections import deque
-##
-##        iterable = deque((1,2,3,4))
-##        it = iter(iterable)
-##        for i in reversed(range(len(it))):
-##            assert len(it) == i+1
-##            x = it.next()
-##            print x
-##        raises(StopIteration, it.next)
-##        assert len(it) == 0
-##
-##    def test_iter_len_xrange(self):
-##        iterable = xrange(8)
-##        it = iter(iterable)
-##        for i in reversed(range(len(it))):
-##            assert len(it) == i+1
-##            x = it.next()
-##            print x
-##        raises(StopIteration, it.next)
-##        assert len(it) == 0
-##
-##    def test_iter_len_reversed(self):
-##        iterable = reversed((1,2,3,4))
-##        it = iter(iterable)
-##        for i in reversed(range(len(it))):
-##            assert len(it) == i+1
-##            x = it.next()
-##            print x
-##        raises(StopIteration, it.next)
-##        assert len(it) == 0
+    def test_iter_len_deque(self):
+        from collections import deque
+
+        iterable = deque((1,2,3,4))
+        it = iter(iterable)
+        for i in reversed(range(len(it))):
+            assert len(it) == i+1
+            x = it.next()
+            print x
+        raises(StopIteration, it.next)
+        assert len(it) == 0
+
+    def test_iter_len_reversed(self):
+        iterable = reversed((1,2,3,4))
+        it = iter(iterable)
+        for i in reversed(range(len(it))):
+            assert len(it) == i+1
+            x = it.next()
+            print x
+        raises(StopIteration, it.next)
+        assert len(it) == 0
+
+    def test_len_reversed_seqiter(self):
+        it = reversed([5,6,7])
+        assert iter(it) is it
+        assert len(it) == 3
+        assert it.next() == 7
+        assert len(it) == 2
+        assert it.next() == 6
+        assert len(it) == 1
+        assert it.next() == 5
+        assert len(it) == 0
+        raises(StopIteration, it.next)
+        assert len(it) == 0

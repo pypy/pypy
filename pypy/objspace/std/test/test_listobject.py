@@ -558,3 +558,7 @@ class AppTestW_ListObject:
         c = list('hello world')
         c.reverse()
         assert ''.join(c) == 'dlrow olleh'
+
+    def test_reversed(self):
+        assert list(list('hello').__reversed__()) == ['o', 'l', 'l', 'e', 'h']
+        assert list(reversed(list('hello'))) == ['o', 'l', 'l', 'e', 'h']

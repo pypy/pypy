@@ -9,22 +9,15 @@ from pypy.objspace.std.objspace import *
 
 class W_SeqIterObject(W_Object):
     from pypy.objspace.std.itertype import iter_typedef as typedef
+    direction = +1
     
-    def __init__(w_self, space, w_seq, index=0, reverse=False):
+    def __init__(w_self, space, w_seq, index=0):
         W_Object.__init__(w_self, space)
         w_self.w_seq = w_seq
-        try:
-            w_self.length = space.unwrap(space.len(w_seq))
-        except OperationError,e:
-            if e.match(space, space.w_TypeError):
-                w_self.length = 0
-            else:
-                raise
         w_self.index = index
-        if index < 0:
-            w_self.index += w_self.length
-        w_self.reverse = reverse
-        w_self.consumed = 0
+
+class W_ReverseSeqIterObject(W_SeqIterObject):
+    direction = -1
 
 registerimplementation(W_SeqIterObject)
 
@@ -34,36 +27,24 @@ def iter__SeqIter(space, w_seqiter):
 
 def next__SeqIter(space, w_seqiter):
     if w_seqiter.w_seq is None:
-        raise OperationError(space.w_StopIteration, space.w_None)
+        raise OperationError(space.w_StopIteration, space.w_None) 
     try:
-        if w_seqiter.index >=0:
-            w_item = space.getitem(w_seqiter.w_seq, space.wrap(w_seqiter.index))
-        else:
-            raise OperationError(space.w_StopIteration, space.w_None) 
+        w_item = space.getitem(w_seqiter.w_seq, space.wrap(w_seqiter.index))
     except OperationError, e:
         w_seqiter.w_seq = None
         if not e.match(space, space.w_IndexError):
             raise
         raise OperationError(space.w_StopIteration, space.w_None) 
-    if w_seqiter.reverse:
-        w_seqiter.index -= 1
-    else:
-        w_seqiter.index += 1
-    w_seqiter.consumed += 1
+    w_seqiter.index += w_seqiter.direction
     return w_item
 
 def len__SeqIter(space,  w_seqiter):
-    if w_seqiter.w_seq is None :
+    if w_seqiter.w_seq is None:
         return space.wrap(0)
-    w_index = space.sub(space.len(w_seqiter.w_seq), space.wrap(w_seqiter.index))
-    if space.is_true(space.gt(space.len(w_seqiter.w_seq), space.wrap(w_seqiter.index))):
-        if w_seqiter.reverse:
-            w_len = space.wrap(w_seqiter.index+1)
-        else: 
-            w_len = space.sub(space.len(w_seqiter.w_seq), space.wrap(w_seqiter.consumed))
-    else:
-        w_seqiter.w_seq = None
-        w_len = space.wrap(0)
+    index = w_seqiter.index
+    if w_seqiter.direction == -1:
+        index = ~index   # -1=>0, -2=>1, etc.
+    w_len = space.sub(space.len(w_seqiter.w_seq), space.wrap(index))
     return w_len
 
 register_all(vars())
