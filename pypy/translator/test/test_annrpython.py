@@ -671,7 +671,7 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         s = a.build_types(f, [list])
-        assert s.knowntype is LookupError
+        assert s.knowntype is IndexError  # KeyError ignored because l is a list
 
     def test_overrides(self):
         import sys
@@ -1100,8 +1100,9 @@ class TestAnnotateTestCase:
         t = annmodel.SomeObject()
         t.knowntype = type
         t.is_type_of = [ev]
+        t.const = KeyError    # IndexError ignored because 'dic' is a dict
         assert a.binding(et) == t
-        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef.cls == LookupError
+        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef.cls == KeyError
 
     def test_exception_mixing(self):
         def h():
