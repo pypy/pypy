@@ -513,6 +513,107 @@ def build_for_stmt(builder, nb):
     builder.push(ast.For(assign, iterable, body, else_))
 
 
+def build_while_stmt(builder, nb):
+    """while_stmt: 'while' test ':' suite ['else' ':' suite]"""
+    L = get_atoms(builder, nb)
+    else_ = None
+    # skip 'while'
+    test =  L[1]
+    # skip ':'
+    body = L[3]
+    # if there is a "else" statement
+    if len(L) > 4:
+        # skip 'else' and ':'
+        else_ = L[6]
+    builder.push(ast.While(test, body, else_))
+
+
+def build_import_name(builder, nb):
+    """import_name: 'import' dotted_as_names
+
+    dotted_as_names: dotted_as_name (',' dotted_as_name)*
+    dotted_as_name: dotted_name [NAME NAME]
+    dotted_name: NAME ('.' NAME)*
+
+    written in an unfolded way:
+    'import' NAME(.NAME)* [NAME NAME], (NAME(.NAME)* [NAME NAME],)*
+
+    XXX: refactor build_import_name and build_import_from
+    """
+    L = get_atoms(builder, nb)
+    index = 1 # skip 'import'
+    l = len(L)
+    names = []
+    while index < l:
+        as_name = None
+        # dotted name (a.b.c)
+        incr, name = parse_dotted_names(L[index:])
+        index += incr
+        # 'as' value
+        if index < l and L[index].value == 'as':
+            as_name = L[index+1].value
+            index += 2
+        names.append((name, as_name))
+        # move forward until next ','
+        while index < l and L[index].name != tok.COMMA:
+            index += 1
+        index += 1
+    builder.push(ast.Import(names))
+
+
+def build_import_from(builder, nb):
+    """
+    import_from: 'from' dotted_name 'import' ('*' | '(' import_as_names ')' | import_as_names)
+
+    import_as_names: import_as_name (',' import_as_name)* [',']
+    import_as_name: NAME [NAME NAME]
+    """
+    L = get_atoms(builder, nb)
+    index = 1
+    incr, from_name = parse_dotted_names(L[index:])
+    index += (incr + 1) # skip 'import'
+    if L[index].name == tok.STAR:
+        names = [('*', None)]
+    else:
+        if L[index].name == tok.LPAR:
+            # mutli-line imports
+            tokens = L[index+1:-1]
+        else:
+            tokens = L[index:]
+        index = 0
+        l = len(tokens)
+        names = []
+        while index < l:
+            name = tokens[index].value
+            as_name = None
+            index += 1
+            if index < l:
+                if tokens[index].value == 'as':
+                    as_name = tokens[index+1].value
+                    index += 2
+            names.append((name, as_name))
+            if index < l: # case ','
+                index += 1
+    builder.push(ast.From(from_name, names))
+
+
+def parse_dotted_names(tokens):
+    """parses NAME('.' NAME)* and returns full dotted name
+
+    this function doesn't assume that the <tokens> list ends after the
+    last 'NAME' element
+    """
+    name = tokens[0].value
+    l = len(tokens)
+    index = 1
+    for index in range(1, l, 2):
+        token = tokens[index]
+        assert isinstance(token, TokenObject)
+        if token.name != tok.DOT:
+            break
+        name = name + '.' + tokens[index+1].value
+    return (index, name)
+
 def parse_argument(tokens):
     """parses function call arguments"""
     l = len(tokens)
@@ -693,6 +794,9 @@ ASTRULES = {
     sym.pass_stmt : build_pass_stmt,
     sym.break_stmt : build_break_stmt,
     sym.for_stmt : build_for_stmt,
+    sym.while_stmt : build_while_stmt,
+    sym.import_name : build_import_name,
+    sym.import_from : build_import_from,
     # sym.parameters : build_parameters,
     }
 

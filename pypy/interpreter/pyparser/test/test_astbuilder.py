@@ -100,6 +100,24 @@ attraccess = [
     'x = a.b',
     ]
 
+imports = [
+    'import os',
+    'import sys, os',
+    'import os.path',
+    'import os.path, sys',
+    'import sys, os.path as osp',
+    'import os.path as osp',
+    'import os.path as osp, sys as _sys',
+    'import a.b.c.d',
+    'import a.b.c.d as abcd',
+    'from os import path',
+    'from os import path, system',
+    'from os import path, system,',
+    'from os import path as P, system as S,',
+    'from os import (path as P, system as S,)',
+    'from os import *',
+    ]
+
 if_stmts = [
     "if a == 1: a+= 2",
     """if a == 1:
@@ -133,6 +151,7 @@ TESTS = [
     dictmakers,
     multiexpr,
     attraccess,
+    imports,
     ]
 
 EXEC_INPUTS = [
@@ -183,6 +202,8 @@ SNIPPETS = [
     'snippet_several_statements.py',
     'snippet_simple_function.py',
     'snippet_simple_for_loop.py',
+    'snippet_while.py',
+    'snippet_import_statements.py',
 #    'snippet_2.py',
 #    'snippet_3.py',
 #    'snippet_4.py',
