@@ -12,10 +12,7 @@ from pypy.rpython.rarithmetic import r_uint, ovfcheck
 from pypy.rpython.memory.lltypesimulation import pyobjectptr
 from pypy.rpython.memory import gclltype
 
-from pypy.rpython.test.test_llinterp import timelog, gengraph
-from pypy.rpython.test import test_llinterp
-
-# switch on logging of interp to show more info on failing tests
+from pypy.rpython.test.test_llinterp import timelog, gengraph, find_exception
 
 def setup_module(mod):
     mod.logstate = py.log._getstate()
@@ -23,18 +20,6 @@ def setup_module(mod):
 
 def teardown_module(mod):
     py.log._setstate(mod.logstate)
-
-
-def find_exception(exc, interp):
-    assert isinstance(exc, LLException)
-    import exceptions
-    klass, inst = exc.args
-    func = test_llinterp.typer.getexceptiondata().ll_pyexcclass2exc
-    for cls in exceptions.__dict__.values():
-        if type(cls) is type(Exception):
-            if interp.eval_function(func, [pyobjectptr(cls)]).typeptr == klass:
-                return cls
-    raise ValueError, "couldn't match exception"
 
 
 _lastinterpreted = []

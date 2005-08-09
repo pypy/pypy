@@ -2,7 +2,7 @@ from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rstr import parse_fmt_string
 from pypy.rpython.rtyper import RPythonTyper, TyperError
-from pypy.rpython.test.test_llinterp import interpret,find_exception
+from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 from pypy.rpython.llinterp import LLException
 
 def test_simple():
@@ -410,8 +410,7 @@ def test_int():
 	    try:
 		expected = fn(i, j)
 	    except ValueError:
-		info = raises(LLException, interpret, fn, [i, j])
-		assert find_exception(info.value) is ValueError
+		interpret_raises(ValueError, fn, [i, j])
 	    else:
 		res = interpret(fn, [i, j])
 		assert res == expected

@@ -19,15 +19,18 @@ def setup_module(mod):
 def teardown_module(mod):
     py.log._setstate(mod.logstate)
 
-def find_exception(exc):
+
+def find_exception(exc, interp):
     assert isinstance(exc, LLException)
     import exceptions
     klass, inst = exc.args
     func = typer.getexceptiondata().ll_pyexcclass2exc
     for cls in exceptions.__dict__.values():
         if type(cls) is type(Exception):
-            if func(pyobjectptr(cls)).typeptr == klass:
+            if interp.eval_function(func, [pyobjectptr(cls)]).typeptr == klass:
                 return cls
+    raise ValueError, "couldn't match exception"
+
 
 def timelog(prefix, call, *args, **kwds): 
     #import time
@@ -54,7 +57,7 @@ def gengraph(func, argtypes=[], viewbefore=False, policy=None):
 
 _lastinterpreted = []
 _tcache = {}
-def interpret(func, values, view=False, viewbefore=False, policy=None, someobjects=False):
+def get_interpreter(func, values, view=False, viewbefore=False, policy=None, someobjects=False):
     key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,)
     try: 
         (t, interp) = _tcache[key]
@@ -78,7 +81,19 @@ def interpret(func, values, view=False, viewbefore=False, policy=None, someobjec
             del _tcache[_lastinterpreted.pop(0)]
     if view:
         t.view()
+    return interp
+
+def interpret(func, values, view=False, viewbefore=False, policy=None,
+              someobjects=False):
+    interp = get_interpreter(func, values, view, viewbefore, policy,
+                             someobjects)
     return interp.eval_function(func, values)
+
+def interpret_raises(exc, func, values, view=False, viewbefore=False, policy=None, someobjects=False):
+    interp = get_interpreter(func, values, view, viewbefore, policy,
+                             someobjects)
+    info = py.test.raises(LLException, "interp.eval_function(func, values)")
+    assert find_exception(info.value, interp) is exc, "wrong exception type"
 
 #__________________________________________________________________
 # tests
@@ -107,38 +122,30 @@ def test_ifs():
 def test_raise():
     res = interpret(raise_exception, [41])
     assert res == 41
-    info = raises(LLException, interpret, raise_exception, [42])
-    assert find_exception(info.value) is IndexError
-    info = raises(LLException, interpret, raise_exception, [43])
-    assert find_exception(info.value) is ValueError
+    interpret_raises(IndexError, raise_exception, [42])
+    interpret_raises(ValueError, raise_exception, [43])
 
 def test_call_raise():
     res = interpret(call_raise, [41])
     assert res == 41
-    info = raises(LLException, interpret, call_raise, [42])
-    assert find_exception(info.value) is IndexError
-    info = raises(LLException, interpret, call_raise, [43])
-    assert find_exception(info.value) is ValueError
+    interpret_raises(IndexError, call_raise, [42])
+    interpret_raises(ValueError, call_raise, [43])
 
 def test_call_raise_twice():
     res = interpret(call_raise_twice, [6, 7])
     assert res == 13
-    info = raises(LLException, interpret, call_raise_twice, [6, 42])
-    assert find_exception(info.value) is IndexError
+    interpret_raises(IndexError, call_raise_twice, [6, 42])
     res = interpret(call_raise_twice, [6, 43])
     assert res == 1006
-    info = raises(LLException, interpret, call_raise_twice, [42, 7])
-    assert find_exception(info.value) is IndexError
-    info = raises(LLException, interpret, call_raise_twice, [43, 7])
-    assert find_exception(info.value) is ValueError
+    interpret_raises(IndexError, call_raise_twice, [42, 7])
+    interpret_raises(ValueError, call_raise_twice, [43, 7])
 
 def test_call_raise_intercept():
     res = interpret(call_raise_intercept, [41], view=False)
     assert res == 41
     res = interpret(call_raise_intercept, [42])
     assert res == 42
-    info = raises(LLException, interpret, call_raise_intercept, [43])
-    assert find_exception(info.value) is TypeError
+    interpret_raises(TypeError, call_raise_intercept, [43])
 
 def test_while_simple():
     res = interpret(while_simple, [3])

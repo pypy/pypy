@@ -4,8 +4,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rlist import *
 from pypy.rpython.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
-from pypy.rpython.test.test_llinterp import interpret
-from pypy.rpython.test.test_llinterp import find_exception
+from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 
 
 def sample_list():    # [42, 43, 44, 45]
@@ -322,14 +321,11 @@ def test_list_index():
         return lis.index(args[i])
     for i in range(4):
         try:
-            res = interpret(fn, [i])
-        except Exception, e:
-            res = find_exception(e)
-        try:
             res2 = fn(i)
+            res1 = interpret(fn, [i])
+            assert res1 == res2
         except Exception, e:
-            res2 = e.__class__
-        assert res == res2
+            interpret_raises(e.__class__, fn, [i])
 
 def test_list_str():
     def fn():
