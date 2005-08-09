@@ -15,28 +15,28 @@ class LLTypeConverter(object):
         self.converted = {}
         self.curraddress = address
 
-    def convert(self, val_or_ptr, inline_to_addr=None):
+    def convert(self, val_or_ptr, inline_to_addr=None, from_parent=False):
         TYPE = lltype.typeOf(val_or_ptr)
         if isinstance(TYPE, lltype.Primitive):
             if inline_to_addr is not None:
                 inline_to_addr._store(primitive_to_fmt[TYPE], val_or_ptr)
             return val_or_ptr
         elif isinstance(TYPE, lltype.Array):
-            return self.convert_array(val_or_ptr, inline_to_addr)
+            return self.convert_array(val_or_ptr, inline_to_addr, from_parent)
         elif isinstance(TYPE, lltype.Struct):
-            return self.convert_struct(val_or_ptr, inline_to_addr)
+            return self.convert_struct(val_or_ptr, inline_to_addr, from_parent)
         elif isinstance(TYPE, lltype.Ptr):
-            return self.convert_pointer(val_or_ptr, inline_to_addr)
+            return self.convert_pointer(val_or_ptr, inline_to_addr, from_parent)
         elif isinstance(TYPE, lltype.OpaqueType):
-            return self.convert_object(val_or_ptr, inline_to_addr)
+            return self.convert_object(val_or_ptr, inline_to_addr, from_parent)
         elif isinstance(TYPE, lltype.FuncType):
-            return self.convert_object(val_or_ptr, inline_to_addr)
+            return self.convert_object(val_or_ptr, inline_to_addr, from_parent)
         elif isinstance(TYPE, lltype.PyObjectType):
-            return self.convert_object(val_or_ptr, inline_to_addr)
+            return self.convert_object(val_or_ptr, inline_to_addr, from_parent)
         else:
             assert 0, "don't know about %s" % (val_or_ptr, )
 
-    def convert_array(self, _array, inline_to_addr):
+    def convert_array(self, _array, inline_to_addr, from_parent):
         if _array in self.converted:
             address = self.converted[_array]
             assert inline_to_addr is None or address == inline_to_addr
@@ -54,15 +54,20 @@ class LLTypeConverter(object):
         varsize = get_variable_size(TYPE)
         self.curraddress += size
         for item in _array.items:
-            self.convert(item, curraddr)
+            self.convert(item, curraddr, from_parent=True)
             curraddr += varsize
         return startaddr
 
-    def convert_struct(self, _struct, inline_to_addr):
+    def convert_struct(self, _struct, inline_to_addr, from_parent):
         if _struct in self.converted:
             address = self.converted[_struct]
             assert inline_to_addr is None or address == inline_to_addr
             return address
+        parent = _struct._parentstructure()
+        if parent is not None and not from_parent:
+            address = self.convert(parent)
+            layout = get_layout(lltype.typeOf(parent))
+            return address + layout[_struct._parent_index]
         TYPE = lltype.typeOf(_struct)
         layout = get_layout(TYPE)
         if TYPE._arrayfld is not None:
@@ -78,10 +83,10 @@ class LLTypeConverter(object):
         self.curraddress += size
         for name in TYPE._flds:
             addr = startaddr + layout[name]
-            self.convert(getattr(_struct, name), addr)
+            self.convert(getattr(_struct, name), addr, from_parent=True)
         return startaddr
 
-    def convert_pointer(self, _ptr, inline_to_addr):
+    def convert_pointer(self, _ptr, inline_to_addr, from_parent):
         TYPE = lltype.typeOf(_ptr)
         if _ptr._obj is not None:
             addr = self.convert(_ptr._obj)
@@ -92,7 +97,7 @@ class LLTypeConverter(object):
             inline_to_addr.address[0] = addr
         return simulatorptr(TYPE, addr)
 
-    def convert_object(self, _obj, inline_to_addr):
+    def convert_object(self, _obj, inline_to_addr, from_parent):
         if inline_to_addr is not None:
             inline_to_addr.attached[0] = _obj
             return inline_to_addr
