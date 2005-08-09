@@ -229,7 +229,7 @@ def test_method_join():
     res = interpret(f, [])
     assert ''.join(list(res.chars)) == 'abc, def123'
 
-def INPROGRESS_test_method_repr():
+def test_method_repr():
     def g(n):
         if n >= 0:
             return "egg"

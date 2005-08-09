@@ -88,13 +88,14 @@ class BuiltinMethodRepr(Repr):
         hop2.args_r[0] = self.self_repr
         return bltintyper(hop2)
 
-
-##class __extend__(pairtype(SomeBuiltin, SomeObject)):
-
-##    def rtype_convert_from_to((s_blt, s_to), v, llops):
-##        if s_blt.s_self is None:
-##            raise TyperError("conversion requested on a built-in function")
-##        return llops.convertvar(v, s_blt.s_self, s_to)
+class __extend__(pairtype(BuiltinMethodRepr, BuiltinMethodRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        # convert between two MethodReprs only if they are about the same
+        # methodname.  (Useful for the case r_from.s_self == r_to.s_self but
+        # r_from is not r_to.)  See test_rbuiltin.test_method_repr.
+        if r_from.methodname != r_to.methodname:
+            return NotImplemented
+        return llops.convertvar(v, r_from.self_repr, r_to.self_repr)
 
 # ____________________________________________________________
 
