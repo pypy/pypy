@@ -89,3 +89,12 @@ class AppTestFilter:
        
    def test_function(self):
        assert filter(lambda x: x != "a", "a small text") == " smll text"
+
+class AppTestXRange:
+   def test_xrange(self):
+      x = xrange(2, 9, 3)
+      assert x[1] == 5
+      assert len(x) == 3
+      assert list(x) == [2, 5, 8]
+      # test again, to make sure that xrange() is not its own iterator
+      assert list(x) == [2, 5, 8]

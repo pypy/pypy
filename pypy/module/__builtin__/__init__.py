@@ -28,7 +28,7 @@ class Module(MixedModule):
         'enumerate'     : 'app_functional.enumerate',
         'xrange'        : 'app_functional.xrange',
         'sorted'        : 'app_functional.sorted',
-        #'reversed'      : 'app_functional.reversed',
+        'reversed'      : 'app_functional.reversed',
 
         'issubclass'    : 'app_inspect.issubclass',
         'isinstance'    : 'app_inspect.isinstance',
@@ -79,7 +79,6 @@ class Module(MixedModule):
         '_isfake'       : 'special._isfake',
 
         # interp-level function definitions
-        'reversed'      : 'operation.interp_reversed',
         'abs'           : 'operation.abs',
         'chr'           : 'operation.chr',
         'unichr'        : 'operation.unichr',
