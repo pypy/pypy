@@ -19,7 +19,8 @@ dict_itervalues = MultiMethod('itervalues',    1)
 dict_reversed   = MultiMethod('__reversed__',      1)
 
 def dict_reversed__ANY(space, w_dict):
-    raise OperationError(space.wrap(TypeError),space.wrap('argument to reversed() must be a sequence'))
+    raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
+
 #dict_fromkeys   = MultiMethod('fromkeys',      2, varargs=True)
 # This can return when multimethods have been fixed
 #dict_str        = StdObjSpace.str
