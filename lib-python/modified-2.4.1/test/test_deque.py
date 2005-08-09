@@ -101,7 +101,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(list(d), l)
 
     def test_delitem(self):
-        n = 500         # O(n**2) test, don't make this too big
+        n = 10         # O(n**2) test, don't make this too big
         d = deque(xrange(n))
         self.assertRaises(IndexError, d.__delitem__, -n-1)
         self.assertRaises(IndexError, d.__delitem__, n)
@@ -330,7 +330,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(list(d), list(e))
 
     def test_reversed(self):
-        for s in ('abcd', xrange(2000)):
+        for s in ('abcd', xrange(200)):
             self.assertEqual(list(reversed(deque(s))), list(reversed(s)))
 
     def test_gc_doesnt_blowup(self):
