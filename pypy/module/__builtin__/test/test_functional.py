@@ -98,3 +98,19 @@ class AppTestXRange:
       assert list(x) == [2, 5, 8]
       # test again, to make sure that xrange() is not its own iterator
       assert list(x) == [2, 5, 8]
+
+class AppTestReversed:
+   def test_reversed(self):
+      r = reversed("hello")
+      assert iter(r) is r
+      assert len(r) == 5
+      assert r.next() == "o"
+      assert r.next() == "l"
+      assert r.next() == "l"
+      assert r.next() == "e"
+      assert len(r) == 1
+      assert r.next() == "h"
+      assert len(r) == 0
+      raises(StopIteration, r.next)
+      assert len(r) == 0
+      assert list(reversed(reversed("hello"))) == ['h', 'e', 'l', 'l', 'o']

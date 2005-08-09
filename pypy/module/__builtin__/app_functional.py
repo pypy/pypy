@@ -331,8 +331,26 @@ def reversed(iterable):
     if hasattr(iterable, '__reversed__'):
         return iterable.__reversed__()
     seq = list(iterable)
-    def reversed_gen(local_iterable):
-        len_iterable = len(local_iterable)
-        for index in range(len_iterable-1, -1, -1):
-            yield local_iterable[index]
-    return reversed_gen(seq)
+    return reversed_iterator(seq)
+
+
+class reversed_iterator(object):
+
+    def __init__(self, seq):
+        self.seq = seq
+        self.remaining = len(seq)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        i = self.remaining
+        if i > 0:
+            i -= 1
+            item = self.seq[i]
+            self.remaining = i
+            return item
+        raise StopIteration
+
+    def __len__(self):
+        return self.remaining
