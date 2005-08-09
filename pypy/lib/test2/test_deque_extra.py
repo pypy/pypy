@@ -21,6 +21,7 @@ class Test_deque:
             assert i == self.d[i]
         for i in range(n-1, -1, -1):
             assert self.d.pop() == i
+        assert len(self.d) == 0
             
     def test_deque_iter(self):
         it = iter(self.d)
@@ -37,7 +38,11 @@ class Test_deque:
         assert len(it) == n
         assert it.next() == n-1
         assert len(it) == n-1
+        assert it.next() == n-2
+        assert len(it) == n-2
         self.d.pop()
         raises(RuntimeError,it.next)
         assert len(it) == 0
         assert list(it) == []
+
+    
