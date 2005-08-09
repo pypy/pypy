@@ -1,5 +1,6 @@
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
+from pypy.interpreter.error import OperationError
 
 dict_copy       = MultiMethod('copy',          1)
 dict_items      = MultiMethod('items',         1)
@@ -15,6 +16,10 @@ dict_update     = MultiMethod('update',        2, defaults=((),))
 dict_iteritems  = MultiMethod('iteritems',     1)
 dict_iterkeys   = MultiMethod('iterkeys',      1)
 dict_itervalues = MultiMethod('itervalues',    1)
+dict_reversed   = MultiMethod('__reversed__',      1)
+
+def dict_reversed__ANY(space, w_dict):
+    raise OperationError(space.wrap(TypeError),space.wrap('argument to reversed() must be a sequence'))
 #dict_fromkeys   = MultiMethod('fromkeys',      2, varargs=True)
 # This can return when multimethods have been fixed
 #dict_str        = StdObjSpace.str
