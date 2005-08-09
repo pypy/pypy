@@ -35,7 +35,7 @@ class NumberStringParser:
         if self.literal:
             raise ParseStringError, 'invalid literal for %s(): %s' % (self.fname, self.literal)
         else:
-            raise ParseStringError, 'empty literal for %s()' % (self.fname,)        
+            raise ParseStringError, 'empty string for %s()' % (self.fname,)        
         
     def __init__(self, s, literal, base, fname):
         self.literal = literal
@@ -168,25 +168,25 @@ def break_up_float(s):
             return sign, before_point, after_point, exponent
 
     if s[i] not in  'eE':
-        raise ParseStringError("invalid string literal for float()")
+        raise ParseStringError("invalid literal for float()")
 
     i += 1
     if i == len(s):
-        raise ParseStringError("invalid string literal for float()")
+        raise ParseStringError("invalid literal for float()")
 
     if s[i] in '-+':
         exponent += s[i]
         i += 1
 
     if i == len(s):
-        raise ParseStringError("invalid string literal for float()")
+        raise ParseStringError("invalid literal for float()")
     
     while i < len(s) and s[i] in '0123456789':
         exponent += s[i]
         i += 1
 
     if i != len(s):
-        raise ParseStringError("invalid string literal for float()")
+        raise ParseStringError("invalid literal for float()")
 
     return sign, before_point, after_point, exponent
 
@@ -207,12 +207,12 @@ def string_to_float(s):
     sign, before_point, after_point, exponent = break_up_float(s)
     
     if not before_point and not after_point:
-        raise ParseStringError("invalid string literal for float()")
+        raise ParseStringError("invalid literal for float()")
 
     try:
         return parts_to_float(sign, before_point, after_point, exponent)
     except ValueError:
-        raise ParseStringError("invalid string literal for float()")
+        raise ParseStringError("invalid literal for float()")
 
 
 # Tim's comment:
@@ -237,6 +237,7 @@ MANTISSA_BITS = calc_mantissa_bits()
 del calc_mantissa_bits
 MANTISSA_DIGITS = len(str( (1L << MANTISSA_BITS)-1 )) + 1
 
+# we keep this version for reference.
 def applevel_string_to_float(s):
     """
     Conversion of string to float.
@@ -293,7 +294,7 @@ def applevel_string_to_float(s):
     sign, before_point, after_point, exponent = break_up_float(s)
     
     if not before_point and not after_point:
-        raise ParseStringError("invalid string literal for float()")
+        raise ParseStringError("invalid literal for float()")
 
     # 2) pre-calculate digit exponent dexp.
     dexp = len(before_point)
