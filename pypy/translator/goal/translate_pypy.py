@@ -71,11 +71,11 @@ if '-no-snapshot' not in sys.argv:
 import threading, pdb
 
 from pypy.translator.translator import Translator
-from pypy.translator.ann_override import PyPyAnnotatorPolicy
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef
 from pypy.tool.cache import Cache
 from pypy.annotation.model import SomeObject
+from pypy.annotation.policy import AnnotatorPolicy
 from pypy.tool.udir import udir 
 from pypy.tool.ansi_print import ansi_print
 from pypy.translator.pickle.main import load, save
@@ -97,25 +97,30 @@ annmodel.DEBUG = False
 def analyse(target):
     global t, entry_point, inputtypes, standalone
 
+    policy = AnnotatorPolicy()
     if target:
-        entry_point, inputtypes = target()
+        spec = target()
+        try:
+            entry_point, inputtypes, policy = spec
+        except ValueError:
+            entry_point, inputtypes = spec
         t = Translator(entry_point, verbose=True, simplifying=True)
         a = None
     else:
         # otherwise we have been loaded
         a = t.annotator
         t.frozen = False
+
     standalone = inputtypes is None
-    policy = PyPyAnnotatorPolicy()
     if standalone:
         ldef = listdef.ListDef(None, annmodel.SomeString())
         inputtypes = [annmodel.SomeList(ldef)]
-        policy.allow_someobjects = False
 
     if listen_port:
         run_async_server()
     if not options['-no-a']:
         print 'Annotating...'
+        print 'with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__) 
         a = t.annotate(inputtypes, policy=policy)
         sanity_check_exceptblocks(t)
         lost = query.sanity_check_methods(t)

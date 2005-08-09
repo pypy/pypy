@@ -7,6 +7,7 @@ from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
+from pypy.translator.ann_override import PyPyAnnotatorPolicy
 
 # WARNING: this requires the annotator.
 # There is no easy way to build all caches manually,
@@ -66,5 +67,5 @@ def target():
     res = entry_point(["pypy", "app_basic_example.py"])
     assert res == 0
 
-    return entry_point, None
+    return entry_point, None, PyPyAnnotatorPolicy()
 

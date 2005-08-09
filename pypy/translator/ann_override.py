@@ -7,6 +7,7 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import specialize
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
+    allow_someobjects = False
 
     def override__wrap_exception_cls(pol, space, x):
         import pypy.objspace.std.typeobject as typeobject
