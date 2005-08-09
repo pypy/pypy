@@ -429,7 +429,7 @@ for _name, _exc in(
     ('typ', TypeError),
     ('zer', ZeroDivisionError),
     ('val', ValueError),
-    ('flo', FloatingPointError)
+    #('flo', FloatingPointError)
     ):
     op_appendices[_exc] = _name
 del _name, _exc
@@ -466,10 +466,10 @@ _add_exceptions("""div mod divmod truediv floordiv pow
                    inplace_floordiv inplace_pow""", ZeroDivisionError)
 _add_exceptions("""pow inplace_pow lshift inplace_lshift rshift
                    inplace_rshift""", ValueError)
-_add_exceptions("""add sub mul truediv floordiv div mod divmod pow
-                   inplace_add inplace_sub inplace_mul inplace_truediv
-                   inplace_floordiv inplace_div inplace_mod inplace_divmod
-                   inplace_pow""", FloatingPointError)
+##_add_exceptions("""add sub mul truediv floordiv div mod divmod pow
+##                   inplace_add inplace_sub inplace_mul inplace_truediv
+##                   inplace_floordiv inplace_div inplace_mod inplace_divmod
+##                   inplace_pow""", FloatingPointError)
 _add_exceptions("""truediv divmod
                    inplace_add inplace_sub inplace_mul inplace_truediv
                    inplace_floordiv inplace_div inplace_mod inplace_pow
