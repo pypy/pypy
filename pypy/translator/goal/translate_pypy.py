@@ -18,6 +18,7 @@ Command-line options for translate_pypy:
    -no-o      Don't do backend-oriented optimizations
    -no-c      Don't generate the C code
    -fork      (UNIX) Create a restartable checkpoint after annotation
+   -llvm      Use LLVM instead of C
    -c         Generate the C code, but don't compile it
    -o         Generate and compile the C code, but don't run it
    -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
@@ -289,6 +290,7 @@ if __name__ == '__main__':
                '-no-c': False,
                '-c':    False,
                '-o':    False,
+               '-llvm': False,
                '-no-mark-some-objects': False,
                '-no-a': False,
                '-no-t': False,
@@ -595,14 +597,23 @@ show class hierarchy graph"""
         elif options['-no-c']:
             print 'Not generating C code.'
         elif options['-c']:
-            print 'Generating C code without compiling it...'
-            filename = t.ccompile(really_compile=False,
-                                  standalone=standalone)
+            if option['-llvm']:
+                print 'Generating LLVM code without compiling it...'
+                filename = t.llvmcompile(really_compile=False,
+                                      standalone=standalone)
+            else:
+                print 'Generating C code without compiling it...'
+                filename = t.ccompile(really_compile=False,
+                                      standalone=standalone)
             update_usession_dir()
             print 'Written %s.' % (filename,)
         else:
-            print 'Generating and compiling C code...'
-            c_entry_point = t.ccompile(standalone=standalone)
+            if options['-llvm']:
+                print 'Generating and compiling LLVM code...'
+                c_entry_point = t.llvmcompile(standalone=standalone)
+            else:
+                print 'Generating and compiling C code...'
+                c_entry_point = t.ccompile(standalone=standalone)
             update_usession_dir()
             if not options['-o']:
                 print 'Running!'
