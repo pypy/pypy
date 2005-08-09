@@ -69,3 +69,7 @@ test_descr
 
 test_sys (FIXED)
     refcount test disabled (considered implementation detail from CPython)
+
+test_multibytecodec
+    needs the gb18030 codec, part of the CJK codecs. either remove this test
+    from core or maybe fake or reimplement the CJK codecs?
