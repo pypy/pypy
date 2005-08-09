@@ -1,6 +1,11 @@
 # Deque Tests
 
-
+# for passing the test on top of 2.3
+try:
+    reversed
+except NameError:
+    def reversed(seq): # fall-back
+        return seq.__reversed__()
 
 n = 10
 class Test_deque:
@@ -14,7 +19,7 @@ class Test_deque:
         assert len(self.d) == n
         for i in range(n):
             assert i == self.d[i]
-        for i in reversed(range(n)):
+        for i in range(n-1, -1, -1):
             assert self.d.pop() == i
             
     def test_deque_iter(self):
