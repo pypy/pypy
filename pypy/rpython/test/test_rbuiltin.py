@@ -228,3 +228,22 @@ def test_method_join():
         return s1 + s2
     res = interpret(f, [])
     assert ''.join(list(res.chars)) == 'abc, def123'
+
+def INPROGRESS_test_method_repr():
+    def g(n):
+        if n >= 0:
+            return "egg"
+        else:
+            return "spam"
+    def f(n):
+        # this is designed for a specific bug: conversions between
+        # BuiltinMethodRepr.  The append method of the list is passed
+        # around, and g(-1) below causes a reflowing at the beginning
+        # of the loop (but not inside the loop).  This situation creates
+        # a newlist returning a SomeList() which '==' but 'is not' the
+        # SomeList() inside the loop.
+        x = len([ord(c) for c in g(1)])
+        g(-1)
+        return x
+    res = interpret(f, [0])
+    assert res == 3
