@@ -18,4 +18,8 @@ copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
     }
 
     interpleveldefs = {
+        '_is_digit':      'interp_sre._is_digit',
+        '_is_space':      'interp_sre._is_space',
+        '_is_word':       'interp_sre._is_word',
+        '_is_linebreak':  'interp_sre._is_linebreak',
     }

@@ -11,6 +11,7 @@ import array, operator, sys
 from sre_constants import ATCODES, OPCODES, CHCODES, MAXREPEAT
 from sre_constants import SRE_INFO_PREFIX, SRE_INFO_LITERAL
 from sre_constants import SRE_FLAG_UNICODE, SRE_FLAG_LOCALE
+import _sre
 from _sre import CODESIZE
 
 
@@ -500,7 +501,7 @@ class _MatchContext(object):
         return self.string_position == self.state.end
 
     def at_linebreak(self):
-        return not self.at_end() and _is_linebreak(self.peek_char())
+        return not self.at_end() and _sre._is_linebreak(self.peek_char())
 
     def at_boundary(self, word_checker):
         if self.at_beginning() and self.at_end():
@@ -1157,7 +1158,7 @@ class _AtcodeDispatcher(_Dispatcher):
         return ctx.at_beginning()
     at_beginning_string = at_beginning
     def at_beginning_line(self, ctx):
-        return ctx.at_beginning() or _is_linebreak(ctx.peek_char(-1))
+        return ctx.at_beginning() or _sre._is_linebreak(ctx.peek_char(-1))
     def at_end(self, ctx):
         return (ctx.remaining_chars() == 1 and ctx.at_linebreak()) or ctx.at_end()
     def at_end_line(self, ctx):
@@ -1165,9 +1166,9 @@ class _AtcodeDispatcher(_Dispatcher):
     def at_end_string(self, ctx):
         return ctx.at_end()
     def at_boundary(self, ctx):
-        return ctx.at_boundary(_is_word)
+        return ctx.at_boundary(_sre._is_word)
     def at_non_boundary(self, ctx):
-        return not ctx.at_boundary(_is_word)
+        return not ctx.at_boundary(_sre._is_word)
     def at_loc_boundary(self, ctx):
         return ctx.at_boundary(_is_loc_word)
     def at_loc_non_boundary(self, ctx):
@@ -1185,21 +1186,21 @@ _AtcodeDispatcher.build_dispatch_table(ATCODES, "")
 class _ChcodeDispatcher(_Dispatcher):
 
     def category_digit(self, ctx):
-        return _is_digit(ctx.peek_char())
+        return _sre._is_digit(ctx.peek_char())
     def category_not_digit(self, ctx):
-        return not _is_digit(ctx.peek_char())
+        return not _sre._is_digit(ctx.peek_char())
     def category_space(self, ctx):
-        return _is_space(ctx.peek_char())
+        return _sre._is_space(ctx.peek_char())
     def category_not_space(self, ctx):
-        return not _is_space(ctx.peek_char())
+        return not _sre._is_space(ctx.peek_char())
     def category_word(self, ctx):
-        return _is_word(ctx.peek_char())
+        return _sre._is_word(ctx.peek_char())
     def category_not_word(self, ctx):
-        return not _is_word(ctx.peek_char())
+        return not _sre._is_word(ctx.peek_char())
     def category_linebreak(self, ctx):
-        return _is_linebreak(ctx.peek_char())
+        return _sre._is_linebreak(ctx.peek_char())
     def category_not_linebreak(self, ctx):
-        return not _is_linebreak(ctx.peek_char())
+        return not _sre._is_linebreak(ctx.peek_char())
     def category_loc_word(self, ctx):
         return _is_loc_word(ctx.peek_char())
     def category_loc_not_word(self, ctx):
@@ -1226,35 +1227,11 @@ class _ChcodeDispatcher(_Dispatcher):
 _ChcodeDispatcher.build_dispatch_table(CHCODES, "")
 
 
-_ascii_char_info = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 2,
-2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25, 25, 25, 25, 25, 25, 25, 25,
-25, 25, 0, 0, 0, 0, 0, 0, 0, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 0, 0,
-0, 0, 16, 0, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
-24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 0, 0, 0, 0, 0 ]
-
-def _is_digit(char):
-    code = ord(char)
-    return code < 128 and _ascii_char_info[code] & 1
-
-def _is_space(char):
-    code = ord(char)
-    return code < 128 and _ascii_char_info[code] & 2
-
-def _is_word(char):
-    # NB: non-ASCII chars aren't words according to _sre.c
-    code = ord(char)
-    return code < 128 and _ascii_char_info[code] & 16
-
 def _is_loc_word(char):
     return (not (ord(char) & ~255) and char.isalnum()) or char == '_'
 
 def _is_uni_word(char):
     return char.isalnum() or char == '_'
-
-def _is_linebreak(char):
-    return char == "\n"
 
 # Static list of all unicode codepoints reported by Py_UNICODE_ISLINEBREAK.
 _uni_linebreaks = [10, 13, 28, 29, 30, 133, 8232, 8233]
