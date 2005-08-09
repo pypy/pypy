@@ -2,7 +2,7 @@ import py
 import os
 import sys
 
-from pypy.translator.llvm2.genllvm import compile_function
+from pypy.translator.llvm2.genllvm import compile_module
 from pypy.translator.translator import Translator
 
 def p():
@@ -18,7 +18,7 @@ def c():
     f()
 
 def l(name):
-    compile_function(entry_point, [], exe_name=name)
+    compile_module(entry_point, [], standalone=True, exe_name=name)
     print 'Running standalone (llvm-based) executable:'
     cmd = "/tmp/usession-current/%s" % name
     print cmd

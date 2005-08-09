@@ -39,7 +39,7 @@ class GenLLVM(object):
         self.debug = debug
         
     def gen_llvm_source(self, func=None):
-        print 'gen_llvm_source begin) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source begin) ' + time.ctime()
         if func is None:
             func = self.translator.entrypoint
         self.entrypoint = func
@@ -57,11 +57,11 @@ class GenLLVM(object):
         self.db.prepare_repr_arg(c)
         assert c in self.db.obj2node
 
-        print 'gen_llvm_source db.setup_all) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source db.setup_all) ' + time.ctime()
         #7 minutes
         self.db.setup_all()
-        print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
-        print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
+        if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
         #3 seconds
         if self.debug:
             log.gen_llvm_source(self.db.dump_pbcs())
@@ -85,34 +85,34 @@ class GenLLVM(object):
         for typ_decl in self.db.getnodes():
             typ_decl.writedatatypedecl(codewriter)
 
-        print 'gen_llvm_source typ_decl.writeglobalconstants) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source typ_decl.writeglobalconstants) ' + time.ctime()
         #20 minutes
         nl(); comment("Global Data") ; nl()
         for typ_decl in self.db.getnodes():
             typ_decl.writeglobalconstants(codewriter)
 
-        print 'gen_llvm_source typ_decl.writecomments) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source typ_decl.writecomments) ' + time.ctime()
         #0 minutes
         if self.debug:
             nl(); comment("Comments") ; nl()
             for typ_decl in self.db.getnodes():
                 typ_decl.writecomments(codewriter)
             
-        print 'gen_llvm_source extdeclarations) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source extdeclarations) ' + time.ctime()
         nl(); comment("Function Prototypes") ; nl()
         if self.embedexterns:
             for extdecl in extdeclarations.split('\n'):
                 codewriter.append(extdecl)
 
-        print 'gen_llvm_source self._debug_prototype) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source self._debug_prototype) ' + time.ctime()
         if self.debug:
             self._debug_prototype(codewriter)
             
-        print 'gen_llvm_source typ_decl.writedecl) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source typ_decl.writedecl) ' + time.ctime()
         for typ_decl in self.db.getnodes():
             typ_decl.writedecl(codewriter)
 
-        print 'gen_llvm_source boehm_gc) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source boehm_gc) ' + time.ctime()
         nl(); comment("Function Implementation") 
         codewriter.startimpl()
         if use_boehm_gc:
@@ -122,12 +122,12 @@ class GenLLVM(object):
         for gc_func in gc_funcs.split('\n'):
             codewriter.append(gc_func)
 
-        print 'gen_llvm_source typ_decl.writeimpl) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source typ_decl.writeimpl) ' + time.ctime()
         #XXX ? minutes
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
 
-        print 'gen_llvm_source used_external_functions) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source used_external_functions) ' + time.ctime()
         depdone = {}
         for funcname,value in ExternalFuncNode.used_external_functions.iteritems():
             deps = dependencies(funcname,[])
@@ -145,7 +145,7 @@ class GenLLVM(object):
                         codewriter.append(extfunc)
                     depdone[dep] = True
 
-        print 'gen_llvm_source entrypoint) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source entrypoint) ' + time.ctime()
         #XXX use codewriter methods here
         decl = self.entrynode.getdecl()
         t = decl.split('%', 1)
@@ -175,27 +175,29 @@ class GenLLVM(object):
         codewriter.newline()
 
         comment("End of file") ; nl()
-        print 'gen_llvm_source return) ' + time.ctime()
+        if self.debug:  print 'gen_llvm_source return) ' + time.ctime()
         return filename
 
-    def create_module(self, filename, exe_name=None):
+    def create_module(self, filename, really_compile=True, standalone=False, optimize=True, exe_name=None):
         if not llvm_is_on_path(): 
             py.test.skip("llvm not found")  # XXX not good to call py.test.skip here
 
-        postfix = ''
-        pyxsource = filename.new(basename=filename.purebasename+'_wrapper'+postfix+'.pyx')
-        write_pyx_wrapper(self.entrynode, pyxsource)    
-
-        return build_llvm_module.make_module_from_llvm(filename, pyxsource, exe_name=exe_name)
+        if standalone:
+            return build_llvm_module.make_module_from_llvm(filename, optimize=optimize, exe_name=exe_name)
+        else:
+            postfix = ''
+            pyxfile = filename.new(basename=filename.purebasename+'_wrapper'+postfix+'.pyx')
+            write_pyx_wrapper(self.entrynode, pyxfile)    
+            return build_llvm_module.make_module_from_llvm(filename, pyxfile=pyxfile, optimize=optimize)
 
     def _debug_prototype(self, codewriter):
         codewriter.append("declare int %printf(sbyte*, ...)")
 
-def genllvm(translator, embedexterns=True, exe_name=None):
+def genllvm(translator, really_compile=True, standalone=False, optimize=True, embedexterns=True, exe_name=None):
     gen = GenLLVM(translator, embedexterns=embedexterns)
     filename = gen.gen_llvm_source()
     #log.genllvm(open(filename).read())
-    return gen.create_module(filename, exe_name)
+    return gen.create_module(filename, really_compile=really_compile, standalone=standalone, optimize=optimize, exe_name=exe_name)
 
 def llvm_is_on_path():
     try:
@@ -204,19 +206,19 @@ def llvm_is_on_path():
         return False 
     return True
 
-def compile_module(function, annotation, view=False, embedexterns=True, exe_name=None):
+def compile_module(function, annotation, view=False, really_compile=True, standalone=False, optimize=True, embedexterns=True, exe_name=None):
     t = Translator(function)
     a = t.annotate(annotation)
     t.specialize()
     if view:
         t.view()
-    return genllvm(t, embedexterns=embedexterns, exe_name=exe_name)
+    return genllvm(t, really_compile=really_compile, standalone=standalone, optimize=optimize, embedexterns=embedexterns, exe_name=exe_name)
 
-def compile_function(function, annotation, view=False, embedexterns=True, exe_name=None):
-    mod = compile_module(function, annotation, view, embedexterns=embedexterns, exe_name=exe_name)
+def compile_function(function, annotation, view=False, really_compile=True, standalone=False, optimize=True, embedexterns=True, exe_name=None):
+    mod = compile_module(function, annotation, view=view, really_compile=really_compile, standalone=standalone, optimize=optimize, embedexterns=embedexterns, exe_name=exe_name)
     return getattr(mod, function.func_name + "_wrapper")
 
-def compile_module_function(function, annotation, view=False, embedexterns=True, exe_name=None):
-    mod = compile_module(function, annotation, view, embedexterns=embedexterns, exe_name=exe_name)
+def compile_module_function(function, annotation, view=False, really_compile=True, standalone=False, optimize=True, embedexterns=True, exe_name=None):
+    mod = compile_module(function, annotation, view=view, really_compile=really_compile, standalone=standalone, optimize=optimize, embedexterns=embedexterns, exe_name=exe_name)
     f = getattr(mod, function.func_name + "_wrapper")
     return mod, f

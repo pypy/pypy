@@ -155,14 +155,17 @@ def compile_module(module, source_files, object_files, library_files):
     log.build(cmd)
     cmdexec(cmd)
 
-def make_module_from_llvm(llvmfile, pyxfile, optimize=True, exe_name=None):
+def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
     include_dir = py.magic.autopath().dirpath()
     dirpath = llvmfile.dirpath()
     lastdir = path.local()
     os.chdir(str(dirpath))
-    modname = pyxfile.purebasename
     b = llvmfile.purebasename
-    source_files = [ "%s.c" % modname ]
+    if pyxfile:
+        modname = pyxfile.purebasename
+        source_files = [ "%s.c" % modname ]
+    else:
+        source_files = []
     object_files = []
     library_files = []
     if use_boehm_gc:
@@ -195,7 +198,8 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=True, exe_name=None):
         source_files.append("%s.c" % b)
 
     try:
-        log.build("modname", modname)
+        if pyxfile:
+            log.build("modname", modname)
         c = stdoutcapture.Capture(mixed_out_err = True)
         log.build("working in", path.local())
         try:
@@ -203,25 +207,30 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=True, exe_name=None):
                 for cmd in cmds:
                     log.build(cmd)
                     cmdexec(cmd)
-                make_c_from_pyxfile(pyxfile)
-                compile_module(modname, source_files, object_files, library_files)
+                if pyxfile:
+                    make_c_from_pyxfile(pyxfile)
+                    compile_module(modname, source_files, object_files, library_files)
             finally:
                 foutput, foutput = c.done()
         except:
             data = foutput.read()
-            fdump = open("%s.errors" % modname, "w")
-            fdump.write(data)
-            fdump.close()
+            if pyxfile:
+                fdump = open("%s.errors" % modname, "w")
+                fdump.write(data)
+                fdump.close()
             log.build(data)
             raise
         # XXX do we need to do some check on fout/ferr?
         # XXX not a nice way to import a module
-        log.build("inserting path to sys.path", dirpath)
-        sys.path.insert(0, '.')
-        cmd = "import %(modname)s as testmodule" % locals()
-        log.build(cmd)
-        exec cmd
-        sys.path.pop(0)
+        if pyxfile:
+            log.build("inserting path to sys.path", dirpath)
+            sys.path.insert(0, '.')
+            cmd = "import %(modname)s as testmodule" % locals()
+            log.build(cmd)
+            exec cmd
+            sys.path.pop(0)
     finally:
         os.chdir(str(lastdir))
-    return testmodule
+    if pyxfile:
+        return testmodule
+    return None
