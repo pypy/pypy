@@ -104,8 +104,16 @@ def _check_tuples_equality(pypy_tuples, python_tuples, testname):
         # XXX hack:
         # hide the more common difference between 2.3 and 2.4, which is
         #   Function(None, ...)  where 'None' stands for no decorator in 2.4
-        repr_pypy   = repr_pypy  .replace("Function(None, ", "Function(")
+        repr_pypy   = repr_pypy.replace("Function(None, ", "Function(")
         repr_python = repr_python.replace("Function(None, ", "Function(")
+        # XXX hack(bis):
+        #   we changed stablecompiler to use [] instead of () in several
+        #   places (for consistency), so let's make sure the test won't fail
+        #   because of that (the workaround is as drastic as the way we
+        #   compare python and pypy tuples :-), but we'll change that with
+        #   astbuilder.py
+        repr_pypy = repr_pypy.replace("[]", "()")
+        repr_python = repr_python.replace("[]", "()")
     assert repr_pypy == repr_python
 
 
