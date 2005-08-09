@@ -833,6 +833,93 @@ very-low-level snippets of code.
 See for example `rpython/rlist.py`_.
 
 
+HighLevelOp interface
++++++++++++++++++++++
+
+In the absence of more extensive documentation about how RPython types are
+implemented, here is the interface and intended usage of the 'hop'
+argument that appears everywhere.  A 'hop' is a HighLevelOp instance,
+which represents a single high-level operation that must be turned into
+one or several low-level operations.
+
+    ``hop.llops``
+        A list-like object that records the low-level operations that
+        correspond to the current block's high-level operations.
+
+    ``hop.genop(opname, list_of_variables, resulttype=resulttype)``
+        Append a low-level operation to ``hop.llops``.  The operation has
+        the given opname and arguments, and returns the given low-level
+        resulttype.  The arguments should come from the ``hop.input*()``
+        functions described below.
+
+    ``hop.gendirectcall(ll_function, var1, var2...)``
+        Like hop.genop(), but produces a ``direct_call`` operation that
+        invokes the given low-level function, which is automatically
+        annotated with low-level types based on the input arguments.
+
+    ``hop.inputargs(r1, r2...)``
+        Reads the high-level Variables and Constants that are the
+        arguments of the operation, and convert them if needed so that
+        they have the specified representations.  You must provide as many
+        representations as the operation has arguments.  Returns a list of
+        (possibly newly converted) Variables and Constants.
+
+    ``hop.inputarg(r, arg=i)``
+        Same as inputargs(), but only converts and returns the ith
+        argument.
+
+    ``hop.inputconst(lltype, value)``
+        Returns a Constant with a low-level type and value.
+
+Manipulation of HighLevelOp instances (this is used e.g. to insert a
+'self' implicit argument to translate method calls):
+
+    ``hop.copy()``
+        Returns a fresh copy that can be manipulated with the functions
+        below.
+
+    ``hop.r_s_popfirstarg()``
+        Removes the first argument of the high-level operation.  This
+        doesn't really changes the source SpaceOperation, but modifies
+        'hop' in such a way that methods like inputargs() no longer see
+        the removed argument.
+
+    ``hop.v_s_insertfirstarg(v_newfirstarg, s_newfirstarg)``
+        Insert an argument in front of the hop.  It must be specified by
+        a Variable (as in calls to hop.genop()) and a corresponding
+        annotation.
+
+    ``hop.swap_fst_snd_args()``
+        Self-descriptive.
+
+Exception handling:
+
+    ``hop.has_implicit_exception(cls)``
+        Checks if hop is in the scope of a branch catching the exception 
+        'cls'.  This is useful for high-level operations like 'getitem'
+        that have several low-level equivalents depending on whether they
+        should check for an IndexError or not.  Calling
+        has_implicit_exception() also has a side-effect: the rtyper
+        records that this exception is being taken care of explicitely.
+
+    ``hop.exception_is_here()``
+        To be called with no argument just before a llop is generated.  It
+        means that the llop in question will be the one that should be
+        protected by the exception catching.  If has_implicit_exception()
+        was called before, then exception_is_here() verifies that *all*
+        except links in the graph have indeed been checked for with an
+        has_implicit_exception().  This is not verified if
+        has_implicit_exception() has never been called -- useful for
+        'direct_call' and other operations that can just raise any exception.
+
+    ``hop.exception_cannot_occur()``
+        A special case for ``override:ignore`` meaning that there is, after
+        all, no operation left that could raise an exception.  (The RTyper
+        class normally verifies that exception_is_here() was really called
+        once for each high-level operation that is in the scope of
+        exception-catching links.)
+
+
 
 .. _C:
 .. _GenC:
