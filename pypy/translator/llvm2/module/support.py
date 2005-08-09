@@ -1,4 +1,8 @@
-extdeclarations = ""
+extdeclarations = """
+declare ccc double %pow(double, double)
+declare ccc double %fmod(double, double)
+"""
+
 
 extfunctions = {}
 
@@ -103,6 +107,45 @@ return_block:
 }
 
 """ % locals())
+
+
+#XXX TODO
+
+#extfunctions["%float_pow"] = ((), """
+#fastcc double %float_pow(double %x, double %y) {
+#    ; XXX ERROR float_pow exception raising not implemented
+#    %r = call ccc double %pow(double %x, double %y)
+#    ret double %r
+#}
+#
+#""")
+#
+#extfunctions["%float_mod"] = ((), """
+#fastcc double %float_mod(double %x, double %y) {
+#    ; XXX ERROR float_mod exception raising not implemented
+#    %r = call ccc double %fmod(double %x, double %y)
+#    ret double %r
+#}
+#
+#""")
+#
+#for func in 'float_abs float_sub float_add float_mul float_div'.split():
+#    extfunctions["%" + func] = ((), """
+#fastcc double %%%(func)s(double %%x, double %%y) {
+#    ; XXX ERROR %(func)s exception raising not implemented
+#    ret double 0.0
+#}
+#
+#""" % locals())
+#
+#for func in 'int_abs int_sub int_add int_mul int_div int_mod int_add_ovf int_sub_ovf int_mul_ovf int_floordiv_ovf int_mod_ovf int_floordiv_ovf_zer int_mod_ovf_zer int_lshift_ovf int_lshift_ovf_val int_rshift_val int_lshift_val'.split():
+#    extfunctions["%" + func] = ((), """
+#fastcc int %%%(func)s(int %%x, int %%y) {
+#    ; XXX ERROR %(func)s exception raising not implemented
+#    ret int 0
+#}
+#
+#""" % locals())
 
 
 #XXX TODO

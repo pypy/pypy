@@ -18,6 +18,8 @@ from pypy.translator.llvm2.node import LLVMNode
 
 from pypy.translator.translator import Translator
 
+import time
+
 function_count = {}
 
 class GenLLVM(object):
@@ -37,6 +39,7 @@ class GenLLVM(object):
         self.debug = debug
         
     def gen_llvm_source(self, func=None):
+        print 'gen_llvm_source begin) ' + time.ctime()
         if func is None:
             func = self.translator.entrypoint
         self.entrypoint = func
@@ -54,7 +57,12 @@ class GenLLVM(object):
         self.db.prepare_repr_arg(c)
         assert c in self.db.obj2node
 
+        print 'gen_llvm_source db.setup_all) ' + time.ctime()
+        #7 minutes
         self.db.setup_all()
+        print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
+        print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
+        #3 seconds
         if self.debug:
             log.gen_llvm_source(self.db.dump_pbcs())
 
@@ -77,26 +85,34 @@ class GenLLVM(object):
         for typ_decl in self.db.getnodes():
             typ_decl.writedatatypedecl(codewriter)
 
+        print 'gen_llvm_source typ_decl.writeglobalconstants) ' + time.ctime()
+        #20 minutes
         nl(); comment("Global Data") ; nl()
         for typ_decl in self.db.getnodes():
             typ_decl.writeglobalconstants(codewriter)
 
+        print 'gen_llvm_source typ_decl.writecomments) ' + time.ctime()
+        #0 minutes
         if self.debug:
             nl(); comment("Comments") ; nl()
             for typ_decl in self.db.getnodes():
                 typ_decl.writecomments(codewriter)
             
+        print 'gen_llvm_source extdeclarations) ' + time.ctime()
         nl(); comment("Function Prototypes") ; nl()
         if self.embedexterns:
             for extdecl in extdeclarations.split('\n'):
                 codewriter.append(extdecl)
 
+        print 'gen_llvm_source self._debug_prototype) ' + time.ctime()
         if self.debug:
             self._debug_prototype(codewriter)
             
+        print 'gen_llvm_source typ_decl.writedecl) ' + time.ctime()
         for typ_decl in self.db.getnodes():
             typ_decl.writedecl(codewriter)
 
+        print 'gen_llvm_source boehm_gc) ' + time.ctime()
         nl(); comment("Function Implementation") 
         codewriter.startimpl()
         if use_boehm_gc:
@@ -106,9 +122,12 @@ class GenLLVM(object):
         for gc_func in gc_funcs.split('\n'):
             codewriter.append(gc_func)
 
+        print 'gen_llvm_source typ_decl.writeimpl) ' + time.ctime()
+        #XXX ? minutes
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
 
+        print 'gen_llvm_source used_external_functions) ' + time.ctime()
         depdone = {}
         for funcname,value in ExternalFuncNode.used_external_functions.iteritems():
             deps = dependencies(funcname,[])
@@ -118,11 +137,15 @@ class GenLLVM(object):
                     try:
                         llvm_code = extfunctions[dep][1]
                     except KeyError:
-                        raise Exception('primitive function %s has no implementation' %(dep,))
+                        msg = 'primitive function %s has no implementation' % dep
+                        codewriter.comment('XXX: Error: ' + msg)
+                        #raise Exception('primitive function %s has no implementation' %(dep,))
+                        continue
                     for extfunc in llvm_code.split('\n'):
                         codewriter.append(extfunc)
                     depdone[dep] = True
 
+        print 'gen_llvm_source entrypoint) ' + time.ctime()
         #XXX use codewriter methods here
         decl = self.entrynode.getdecl()
         t = decl.split('%', 1)
@@ -152,6 +175,7 @@ class GenLLVM(object):
         codewriter.newline()
 
         comment("End of file") ; nl()
+        print 'gen_llvm_source return) ' + time.ctime()
         return filename
 
     def create_module(self, filename, exe_name=None):

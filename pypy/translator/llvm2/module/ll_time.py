@@ -76,7 +76,7 @@ entry:
 	br bool %tmp.12, label %then.1, label %return
 
 then.1:		; preds = %entry
-	call void %RaiseSimpleException( int 1, sbyte* getelementptr ([16 x sbyte]* %.str_1, int 0, int 0) )
+	; XXX disabled for now: call void %RaiseSimpleException( int 1, sbyte* getelementptr ([16 x sbyte]* %.str_1, int 0, int 0) )
 	ret void
 
 return:		; preds = %entry

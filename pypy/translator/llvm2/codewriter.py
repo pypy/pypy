@@ -15,7 +15,8 @@ class CodeWriter(object):
         self.n_lines += 1
         if self.show_line_numbers:
             line = "%-75s; %d" % (line, self.n_lines)
-        print >> self.f, line
+        #print >> self.f, line
+        self.f.write(line + '\n')
 
     def comment(self, line, indent=True):
         line = ";; " + line
