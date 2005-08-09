@@ -18,8 +18,13 @@ def interp_reversed(space,w_iterable):
         return space.call_function(func,w_iterable)
     # else return W_IterObject with reverse set
     else:
-        w_seq = W_SeqIterObject(space,w_iterable,-1,True)
-        return w_seq
+    
+        getitem = space.lookup(w_iterable,'__getitem__')
+        len = space.lookup(w_iterable,'__len__')
+        if getitem and len :
+            w_seq = W_SeqIterObject(space,w_iterable,-1,True)
+            return w_seq
+        raise OperationError(space.wrap(TypeError),space.wrap('argument to reversed() must be a sequence'))
 
 def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."
