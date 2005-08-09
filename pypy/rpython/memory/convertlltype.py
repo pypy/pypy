@@ -18,7 +18,7 @@ class LLTypeConverter(object):
     def convert(self, val_or_ptr, inline_to_addr=None, from_parent=False):
         TYPE = lltype.typeOf(val_or_ptr)
         if isinstance(TYPE, lltype.Primitive):
-            if inline_to_addr is not None:
+            if inline_to_addr is not None and TYPE != lltype.Void:
                 inline_to_addr._store(primitive_to_fmt[TYPE], val_or_ptr)
             return val_or_ptr
         elif isinstance(TYPE, lltype.Array):

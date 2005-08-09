@@ -40,6 +40,8 @@ def get_layout(TYPE):
 
 def get_fixed_size(TYPE):
     if isinstance(TYPE, lltype.Primitive):
+        if TYPE == lltype.Void:
+            return 0
         return struct.calcsize(primitive_to_fmt[TYPE])
     elif isinstance(TYPE, lltype.Ptr):
         return struct.calcsize("P")
@@ -130,6 +132,8 @@ class simulatorptr(object):
                 T = self._T._flds[field_name]
                 base = self._layout[field_name]
                 if isinstance(T, lltype.Primitive):
+                    if T == lltype.Void:
+                        return None
                     res = (self._address + offset)._load(primitive_to_fmt[T])[0]
                     if T == lltype.Bool:
                         res = bool(res)
@@ -151,6 +155,8 @@ class simulatorptr(object):
                 T = self._T._flds[field_name]
                 offset = self._layout[field_name]
                 if isinstance(T, lltype.Primitive):
+                    if T == lltype.Void:
+                        return
                     (self._address + offset)._store(primitive_to_fmt[T], value)
                     return
                 elif isinstance(T, lltype.Ptr):
