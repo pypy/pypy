@@ -31,7 +31,6 @@ from pypy.objspace.std.noneobject    import W_NoneObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 import longobject, dictobject
-from pypy.objspace.std.strutil import string_to_float
 
 from pypy.module.marshal.interp_marshal import register
 
@@ -158,8 +157,8 @@ def unmarshal_Int64(space, u, tc):
         # for now, this rare case is solved the simple way.
         lshift = longobject.lshift__Long_Long
         longor = longobject.or__Long_Long
-        lo1 = space.newlong(u.get_short())
-        lo2 = space.newlong(u.get_short())
+        lo1 = space.newlong(u.get_short() & 0xffff)
+        lo2 = space.newlong(u.get_short() & 0xffff)
         res = space.newlong(u.get_int())
         nbits = space.newlong(16)
         res = lshift(space, res, nbits)
@@ -199,10 +198,10 @@ def marshal_w__Float(space, w_float, m):
 def unmarshal_Float(space, u, tc):
     if tc == TYPE_BINARY_FLOAT:
         w_ret = str_to_float(space, space.wrap(u.get(8)))
-        fl = space.float_w(w_ret)
+        return W_FloatObject(space, space.float_w(w_ret))
     else:
-        fl = string_to_float(u.get_pascal())
-    return W_FloatObject(space, fl)
+        return space.call_function(space.builtin.get('float'),
+                                 space.wrap(u.get_pascal()))
 register(TYPE_FLOAT + TYPE_BINARY_FLOAT, unmarshal_Float)
 
 # this is not a native type, yet, so we have to
@@ -227,8 +226,10 @@ def unmarshal_Complex(space, u, tc):
         w_real = str_to_float(space, space.wrap(u.get(8)))
         w_imag = str_to_float(space, space.wrap(u.get(8)))
     else:
-        w_real = W_FloatObject(space, string_to_float(u.get_pascal()))
-        w_imag = W_FloatObject(space, string_to_float(u.get_pascal()))
+        w_real = space.call_function(space.builtin.get('float'),
+                                     space.wrap(u.get_pascal()))
+        w_imag = space.call_function(space.builtin.get('float'),
+                                     space.wrap(u.get_pascal()))
     w_t = space.builtin.get('complex')
     return space.call_function(w_t, w_real, w_imag)
 register(TYPE_COMPLEX + TYPE_BINARY_COMPLEX, unmarshal_Complex)
@@ -426,6 +427,25 @@ def marshal_w__Unicode(space, w_unicode, m):
 def unmarshal_Unicode(space, u, tc):
     return PyUnicode_DecodeUTF8(space, space.wrap(u.get_str()))
 register(TYPE_UNICODE, unmarshal_Unicode)
+
+# not directly supported:
+def marshal_w_buffer(space, w_buffer, m):
+    s = space.str_w(space.str(w_buffer))
+    m.atom_str(TYPE_UNKNOWN, s)
+
+handled_by_any.append( ('buffer', marshal_w_buffer) )
+
+app = gateway.applevel(r'''
+    def string_to_buffer(s):
+        return buffer(s)
+''')
+
+string_to_buffer = app.interphook('string_to_buffer')
+
+def unmarshal_buffer(space, u, tc):
+    w_s = W_StringObject(space, u.get_str())
+    return string_to_buffer(space, w_s)
+register(TYPE_UNKNOWN, unmarshal_buffer)
 
 app = gateway.applevel(r'''
     def set_to_list(theset):

@@ -38,6 +38,11 @@ def loads(space, w_str):
     u = Unmarshaller(space, reader)
     return u.get_w_obj(False)
 
+# even faster version using inlined string reader
+def loads(space, w_str):
+    u = StringUnmarshaller(space, w_str)
+    return u.get_w_obj(False)
+
 
 class _BaseWriter(object):
     pass
@@ -101,6 +106,26 @@ class StringWriter(_BaseWriter):
         return ''.join(self.buflis)
 
 
+class StringWriter(_BaseWriter):
+    # actually we are writing to a stringlist
+    def __init__(self):
+        self.buflis = ['']
+        self.bufpos = 0
+
+    def write(self, data):
+        # append is not (yet) efficient, so we do our own allocation
+        #self.buflis.append(data)
+        pos = self.bufpos
+        if not pos & (pos-1) and pos > 0:
+            # power of two, double the buffer
+            self.buflis += self.buflis
+        self.buflis[pos] = data
+        self.bufpos = pos + 1
+
+    def get_value(self):
+        return ''.join(self.buflis[:self.bufpos])
+
+
 class StringReader(_BaseReader):
     def __init__(self, space, w_str):
         self.space = space
@@ -149,7 +174,7 @@ DONT_USE_MM_HACK = True # im_func is not RPython :-(
 class Marshaller(_Base):
     # _annspecialcase_ = "specialize:ctr_location" # polymorphic
     # does not work with subclassing
-    
+
     def __init__(self, space, writer, version):
         self.space = space
         ## self.put = putfunc
@@ -343,7 +368,6 @@ class Unmarshaller(_Base):
 
     def __init__(self, space, reader):
         self.space = space
-        ## self.get = getfunc
         self.reader = reader
         # account for the applevel that we will call by one more.
         self.nesting = ((space.getexecutioncontext().framestack.depth() + 1)
@@ -353,6 +377,9 @@ class Unmarshaller(_Base):
     def get(self, n):
         assert n >= 0
         return self.reader.read(n)
+
+    def get1(self):
+        return self.get(1)
 
     def atom_str(self, typecode):
         self.start(typecode)
@@ -370,7 +397,7 @@ class Unmarshaller(_Base):
         return res
 
     def start(self, typecode):
-        tc = self.get(1)
+        tc = self.get1()
         if tc != typecode:
             self.raise_exc('invalid marshal data')
         self.typecode = tc
@@ -405,7 +432,7 @@ class Unmarshaller(_Base):
         return x
 
     def get_pascal(self):
-        lng = ord(self.get(1))
+        lng = ord(self.get1())
         return self.get(lng)
 
     def get_str(self):
@@ -427,7 +454,7 @@ class Unmarshaller(_Base):
     def get_w_obj(self, allow_null):
         self.nesting += 2
         if self.nesting < nesting_limit:
-            tc = self.get(1)
+            tc = self.get1()
             w_ret = self._dispatch[ord(tc)](self.space, self, tc)
             if w_ret is None and not allow_null:
                 space = self.space
@@ -448,7 +475,7 @@ class Unmarshaller(_Base):
         w_ret = space.w_None # something not None
         if self.nesting < nesting_limit:
             while idx < lng:
-                tc = self.get(1)
+                tc = self.get1()
                 w_ret = self._dispatch[ord(tc)](space, self, tc)
                 if w_ret is None:
                     break
@@ -469,3 +496,64 @@ class Unmarshaller(_Base):
 
     def _run_stackless(self):
         self.raise_exc('object too deeply nested to unmarshal')
+
+
+class StringUnmarshaller(Unmarshaller):
+    # Unmarshaller with inlined buffer string
+    def __init__(self, space, w_str):
+        Unmarshaller.__init__(self, space, None)
+        try:
+            self.bufstr = space.str_w(w_str)
+        except OperationError:
+            raise OperationError(space.w_TypeError, space.wrap(
+                'marshal.loads() arg must be string'))
+        self.bufpos = 0
+        self.limit = len(self.bufstr)
+
+    def raise_eof(self):
+        space = self.space
+        raise OperationError(space.w_EOFError, space.wrap(
+            'EOF read where object expected'))
+
+    def get(self, n):
+        pos = self.bufpos
+        newpos = pos + n
+        if newpos > self.limit:
+            self.raise_eof()
+        self.bufpos = newpos
+        return self.bufstr[pos : newpos]
+
+    def get1(self):
+        pos = self.bufpos
+        if pos >= self.limit:
+            self.raise_eof()
+        self.bufpos = pos + 1
+        return self.bufstr[pos]
+
+    def get_int(self):
+        pos = self.bufpos
+        newpos = pos + 4
+        if newpos > self.limit:
+            self.raise_eof()
+        self.bufpos = newpos
+        a = ord(self.bufstr[pos])
+        b = ord(self.bufstr[pos+1])
+        c = ord(self.bufstr[pos+2])
+        d = ord(self.bufstr[pos+3])
+        x = a | (b<<8) | (c<<16) | (d<<24)
+        return intmask(x)
+
+    def get_lng(self):
+        pos = self.bufpos
+        newpos = pos + 4
+        if newpos > self.limit:
+            self.raise_eof()
+        self.bufpos = newpos
+        a = ord(self.bufstr[pos])
+        b = ord(self.bufstr[pos+1])
+        c = ord(self.bufstr[pos+2])
+        d = ord(self.bufstr[pos+3])
+        if d & 0x80:
+            self.raise_exc('bad marshal data')
+        x = a | (b<<8) | (c<<16) | (d<<24)
+        return x

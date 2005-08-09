@@ -24,6 +24,8 @@ TESTCASES = """\
     func.func_code
     scopefunc.func_code
     u'hello'
+    buffer(hello)
+    buffer(u'unicode, too')
     set()
     set([1, 2])
     frozenset()
@@ -33,8 +35,9 @@ TESTCASES = """\
 def readable(s):
     for c, repl in (
         ("'", '_quote_'), ('"', '_Quote_'), (':', '_colon_'), ('.', '_dot_'),
-        ('[', '_list_'), ('{', '_dict_'), ('-', '_minus_'), ('+', '_plus_'),
-        (',', '_comma_'), ('(', '_open_'), (')', '_close_') ):
+        ('[', '_list_'), (']', '_tsil_'), ('{', '_dict_'), ('}', '_tcid_'),
+        ('-', '_minus_'), ('+', '_plus_'),
+        (',', '_comma_'), ('(', '_brace_'), (')', '_ecarb_') ):
         s = s.replace(c, repl)
     lis = list(s)
     for i, c in enumerate(lis):
@@ -63,7 +66,7 @@ for line in TESTCASES:
         scopefunc = func(42)
         import marshal, StringIO
         case = %(line)s
-        print "case:", case
+        print "case: %%-30s   func=%(name)s" %% (case, )
         s = marshal.dumps(case%(version)s)%(extra)s
         x = marshal.loads(s)
         assert x == case
