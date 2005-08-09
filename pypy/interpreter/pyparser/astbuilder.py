@@ -482,6 +482,36 @@ def build_if_stmt(builder, nb):
             break # break is not necessary
     builder.push(ast.If(tests, else_))
 
+def build_pass_stmt(builder, nb):
+    """past_stmt: 'pass'"""
+    L = get_atoms(builder, nb)
+    assert len(L) == 1
+    builder.push(ast.Pass())
+
+
+def build_break_stmt(builder, nb):
+    """past_stmt: 'pass'"""
+    L = get_atoms(builder, nb)
+    assert len(L) == 1
+    builder.push(ast.Break())
+
+
+def build_for_stmt(builder, nb):
+    """for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]"""
+    L = get_atoms(builder, nb)
+    else_ = None
+    # skip 'for'
+    assign = to_lvalue(L[1], consts.OP_ASSIGN)
+    # skip 'in'
+    iterable = L[3]
+    # skip ':'
+    body = L[5]
+    # if there is a "else" statement
+    if len(L) > 6:
+        # skip 'else' and ':'
+        else_ = L[8]
+    builder.push(ast.For(assign, iterable, body, else_))
+
 
 def parse_argument(tokens):
     """parses function call arguments"""
@@ -660,6 +690,9 @@ ASTRULES = {
     sym.return_stmt : build_return_stmt,
     sym.suite : build_suite,
     sym.if_stmt : build_if_stmt,
+    sym.pass_stmt : build_pass_stmt,
+    sym.break_stmt : build_break_stmt,
+    sym.for_stmt : build_for_stmt,
     # sym.parameters : build_parameters,
     }
 
