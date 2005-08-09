@@ -431,3 +431,20 @@ def test_n_mul_char():
     assert ''.join(res.chars) == 'a'*4
     res = interpret(f, ['a', 0])
     assert ''.join(res.chars) == ""
+
+def FIXME_test_str_to_pystringobj():
+    def f(n):
+        if n >= 0:
+            return "hello"[n:]
+        else:
+            return None
+    def g(n):
+        if n == -2:
+            return 42
+        return f(n)
+    res = interpret(g, [-1])
+    assert res._obj.value == None
+    res = interpret(g, [1])
+    assert res._obj.value == "ello"
+    res = interpret(g, [-2])
+    assert res._obj.value == 42
