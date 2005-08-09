@@ -84,8 +84,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.setup_old_style_classes()
 
         # early bootstrap for marshal
-        if 0:    # DISABLED PYC FILES FOR NOW
-            self.sys.setmodule(self.setup_marshal())
+        self.sys.setmodule(self.setup_marshal())
 
         # fix up a problem where multimethods apparently don't 
         # like to define this at interp-level 

@@ -30,7 +30,7 @@ PYCFILE = 2
 
 import stat
 
-PYC_ONOFF = False
+PYC_ONOFF = True
 
 def info_modtype(space ,filepart):
     """
