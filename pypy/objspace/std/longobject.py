@@ -55,6 +55,11 @@ import math
 # Probably the primitive types will outperform this.
 
 SHIFT = (LONG_BIT // 2) - 1
+
+# XXX
+# SHIFT cannot be anything but 15 at the moment, or we break marshal
+SHIFT = 15
+
 MASK = int((1 << SHIFT) - 1)
 
 
