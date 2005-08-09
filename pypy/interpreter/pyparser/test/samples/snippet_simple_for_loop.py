@@ -6,6 +6,8 @@ for x in range(5):
    b += 2
    if False:
       break
+   else:
+      continue
 else:
    c = 3
 

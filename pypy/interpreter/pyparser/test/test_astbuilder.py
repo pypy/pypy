@@ -24,6 +24,8 @@ expressions = [
     "x = a * (1 + c)",
     "x, y, z = 1, 2, 3",
     "x = 'a' 'b' 'c'",
+    "del foo",
+    # "del foo[bar]",
 ]
 
 funccalls = [
@@ -204,6 +206,7 @@ SNIPPETS = [
     'snippet_simple_for_loop.py',
     'snippet_while.py',
     'snippet_import_statements.py',
+    'snippet_generator.py',
 #    'snippet_2.py',
 #    'snippet_3.py',
 #    'snippet_4.py',
@@ -212,7 +215,6 @@ SNIPPETS = [
 #    'snippet_encoding_declaration3.py',
 #    'snippet_encoding_declaration.py',
 #    'snippet_function_calls.py',
-#    'snippet_generator.py',
 #    'snippet_import_statements.py',
 #    'snippet_list_comps.py',
 #    'snippet_multiline.py',

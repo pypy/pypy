@@ -452,7 +452,9 @@ def build_suite(builder, nb):
     elif len(L) == 4:
         # Only one statement for (stmt+)
         stmt = L[2]
-        builder.push(L[2])
+        if not isinstance(stmt, ast.Stmt):
+            stmt = ast.Stmt([stmt])
+        builder.push(stmt)
     else:
         # several statements
         stmts = []
@@ -596,6 +598,19 @@ def build_import_from(builder, nb):
                 index += 1
     builder.push(ast.From(from_name, names))
 
+
+def build_yield_stmt(builder, nb):
+    L = get_atoms(builder, nb)
+    builder.push(ast.Yield(L[1]))
+
+def build_continue_stmt(builder, nb):
+    L = get_atoms(builder, nb)
+    builder.push(ast.Continue())
+
+def build_del_stmt(builder, nb):
+    L = get_atoms(builder, nb)
+    assert isinstance(L[1], ast.Name), "build_del_stmt implementation is incomplete !"
+    builder.push(ast.AssName(L[1].name, consts.OP_DELETE))
 
 def parse_dotted_names(tokens):
     """parses NAME('.' NAME)* and returns full dotted name
@@ -797,6 +812,9 @@ ASTRULES = {
     sym.while_stmt : build_while_stmt,
     sym.import_name : build_import_name,
     sym.import_from : build_import_from,
+    sym.yield_stmt : build_yield_stmt,
+    sym.continue_stmt : build_continue_stmt,
+    sym.del_stmt : build_del_stmt,
     # sym.parameters : build_parameters,
     }
 
