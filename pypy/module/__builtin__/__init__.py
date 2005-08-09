@@ -107,6 +107,9 @@ class Module(MixedModule):
         'eval'          : 'compiling.eval',
 
         '__import__'    : 'importing.importhook',
+
+        # float->string helper
+        '_formatd'      : 'special._formatd'
     }
 
     def pick_builtin(self, w_globals):

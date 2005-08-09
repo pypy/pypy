@@ -241,24 +241,31 @@ class FloatFormatter(Formatter):
         r = self._format(v)
         return self.numeric_postprocess(r, sign)
 
+    def _formatd(self, kind, v):
+        fmt = '%' + (self.flags.f_alt and '#' or '') + '.' + str(self.prec) + kind
+        import __builtin__
+        return __builtin__._formatd(fmt, v)
 
 class FloatFFormatter(FloatFormatter):
     def _format(self, v):
         if v/1e25 > 1e25:
             return FloatGFormatter('g', self.flags, self.width,
                                    self.prec, self.value).format()
-        ds, k = flonum2digits(v)
-        digits = self.fDigits(ds, k)
-        if  not self.flags.f_alt:
-            digits = digits.rstrip('.')
-        return digits
+
+        return self._formatd('f', v)
+        #ds, k = flonum2digits(v)
+        #digits = self.fDigits(ds, k)
+        #if  not self.flags.f_alt:
+        #    digits = digits.rstrip('.')
+        #return digits
 
 
 class FloatEFormatter(FloatFormatter):
     def _format(self, v):
-        ds, k = flonum2digits(v)
-        digits = self.eDigits(ds)
-        return "%s%c%+03d"%(digits, self.char, k-1)
+        return self._formatd('e', v)
+        #ds, k = flonum2digits(v)
+        #digits = self.eDigits(ds)
+        #return "%s%c%+03d"%(digits, self.char, k-1)
 
 
 class FloatGFormatter(FloatFormatter):
@@ -267,19 +274,20 @@ class FloatGFormatter(FloatFormatter):
     # Gah, this still isn't quite right in the f_alt case.
     # (One has to wonder who might care).
     def _format(self, v):
-        ds, k = flonum2digits(v)
-        ds = ds[:self.prec] # XXX rounding!
-        if -4 < k <= self.prec:
-            digits = self.fDigits(ds, k)
-            if not self.flags.f_alt:
-                digits = digits.rstrip('0').rstrip('.')
-            r = digits
-        else:
-            digits = self.eDigits(ds)
-            if not self.flags.f_alt:
-                digits = digits.rstrip('0').rstrip('.')
-            r = "%se%+03d"%(digits, k-1)
-        return r
+        return self._formatd('g', v)
+        #ds, k = flonum2digits(v)
+        #ds = ds[:self.prec] # XXX rounding!
+        #if -4 < k <= self.prec:
+        #    digits = self.fDigits(ds, k)
+        #    if not self.flags.f_alt:
+        #        digits = digits.rstrip('0').rstrip('.')
+        #    r = digits
+        #else:
+        #    digits = self.eDigits(ds)
+        #    if not self.flags.f_alt:
+        #        digits = digits.rstrip('0').rstrip('.')
+        #    r = "%se%+03d"%(digits, k-1)
+        #return r
 
 
 class HexFormatter(Formatter):

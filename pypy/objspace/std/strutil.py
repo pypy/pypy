@@ -2,7 +2,7 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_float_to_int
+from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_float_to_int, parts_to_float
 
 # XXX factor more functions out of stringobject.py.
 # This module is independent from PyPy.
@@ -376,3 +376,28 @@ def string_to_float(s):
         r = -r
 
     return r
+
+disabled_string_to_float = string_to_float # not accurate enough
+
+def string_to_float(s):
+    """
+    Conversion of string to float.
+    This version tries to only raise on invalid literals.
+    Overflows should be converted to infinity whenever possible.
+    """
+
+    s = strip_spaces(s)
+
+    if not s:
+        raise ParseStringError("empty string for float()")
+
+    # 1) parse the string into pieces.
+    sign, before_point, after_point, exponent = break_up_float(s)
+    
+    if not before_point and not after_point:
+        raise ParseStringError("invalid string literal for float()")
+
+    try:
+        return parts_to_float(sign, before_point, after_point, exponent)
+    except ValueError:
+        raise ParseStringError("invalid string literal for float()")
