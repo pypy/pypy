@@ -29,8 +29,8 @@ getRuntimeTypeInfo = runtime_type_info = notimplemented
 
 del notimplemented
 
-def prepare_graphs(translator):
+def prepare_graphs(flowgraphs):
     from pypy.rpython.memory.convertlltype import FlowGraphConstantConverter
-    fgcc = FlowGraphConstantConverter(translator)
+    fgcc = FlowGraphConstantConverter(flowgraphs)
     fgcc.convert()
 
