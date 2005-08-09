@@ -153,13 +153,19 @@ class OpWriter(object):
                                  self.db.repr_arg(op.args[0]), 
                                  "true")
 
-    def int_invert(self, op):  #XXX do we have a test for this, it doesn't look right?
+    def int_invert(self, op):
         self.codewriter.binaryop("xor",
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
-                                 1)
-    uint_invert = int_invert
+                                 -1)
+
+    def uint_invert(self, op):
+        self.codewriter.binaryop("xor",
+                                 self.db.repr_arg(op.result),
+                                 self.db.repr_arg_type(op.args[0]),
+                                 self.db.repr_arg(op.args[0]), 
+                                 str((1<<32)-1))
 
     def binaryop(self, op):
         name = self.binary_operations[op.opname]

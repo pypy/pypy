@@ -323,3 +323,19 @@ def test_uint_arith():
     for value in range(15):
         i = r_uint(value)
         assert f(i) == fn(i)
+
+def test_int_invert():
+    def fn(i):
+        return ~i
+    f = compile_function(fn, [int])
+    for i in range(-15,15):
+        assert f(i) == fn(i)
+
+def test_uint_invert():
+    py.test.skip("not sure why uint annotated function can return -1 (pyrex?)")
+    def fn(i):
+        return ~i
+    f = compile_function(fn, [r_uint])
+    for value in range(15):
+        i = r_uint(value)
+        assert str(f(i)) == str(fn(i))
