@@ -160,6 +160,9 @@ class FlowGraphConstantConverter(object):
                     candidates.append(item)
             elif isinstance(cand, lltype._struct):
                 seen[cand] = True
+                parent = cand._parentstructure()
+                if parent is not None:
+                    candidates.append(parent)
                 TYPE = cand._TYPE
                 if TYPE._arrayfld is not None:
                     total_size += get_total_size(
