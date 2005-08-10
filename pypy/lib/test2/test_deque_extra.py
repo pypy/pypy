@@ -5,7 +5,16 @@ try:
     reversed
 except NameError:
     def reversed(seq): # fall-back
-        return seq.__reversed__()
+        if hasattr(seq, '__reversed__'):
+            return seq.__reversed__()
+        def gen():
+            i = len(seq)-1
+            while i >= 0:
+                yield seq[i]
+                i -= 1
+        return gen()
+    import  pypy.lib.collections
+    pypy.lib.collections.reversed = reversed
 
 n = 10
 class Test_deque:
