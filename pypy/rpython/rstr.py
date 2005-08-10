@@ -887,43 +887,43 @@ def ll_contains(s, c):
 
 def ll_int(s, base):
     if not 2 <= base <= 36:
-	raise ValueError
+        raise ValueError
     chars = s.chars
     strlen = len(chars)
     i = 0
     #XXX: only space is allowed as white space for now
     while i < strlen and chars[i] == ' ':
-	i += 1
+        i += 1
     if not i < strlen:
-	raise ValueError
+        raise ValueError
     #check sign
     sign = 1
     if chars[i] == '-':
-	sign = -1
-	i += 1
+        sign = -1
+        i += 1
     elif chars[i] == '+':
-	i += 1;
+        i += 1;
     #now get digits
     val = 0
     while i < strlen:
-	c = ord(chars[i])
-	if ord('a') <= c <= ord('z'):
-	    digit = c - ord('a') + 10
-	elif ord('A') <= c <= ord('Z'):
-	    digit = c - ord('A') + 10
-	elif ord('0') <= c <= ord('9'):
-	    digit = c - ord('0')
-	else:
-	    break
-	if digit >= base:
-	    break
-	val = val * base + digit
-	i += 1
+        c = ord(chars[i])
+        if ord('a') <= c <= ord('z'):
+            digit = c - ord('a') + 10
+        elif ord('A') <= c <= ord('Z'):
+            digit = c - ord('A') + 10
+        elif ord('0') <= c <= ord('9'):
+            digit = c - ord('0')
+        else:
+            break
+        if digit >= base:
+            break
+        val = val * base + digit
+        i += 1
     #skip trailing whitespace
     while i < strlen and chars[i] == ' ':
-	i += 1
+        i += 1
     if not i == strlen:
-	raise ValueError
+        raise ValueError
     return sign * val
 
 # ____________________________________________________________
