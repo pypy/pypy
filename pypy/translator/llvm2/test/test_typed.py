@@ -302,14 +302,6 @@ def test_int_lshift_ovf_val():
     fn = compile_function(snippet.lshift_func, [int])
     raises(ValueError, fn, -1)
 
-def test_int_unary_ovf():
-    py.test.skip("int_neg_ovf operation missing (raises)")
-    fn = compile_function(snippet.unary_func, [int])
-    for i in range(-3,3):
-        assert fn(i) == (-(i), abs(i-1))
-    raises (OverflowError, fn, -sys.maxint-1)
-    raises (OverflowError, fn, -sys.maxint)
-
 def test_uint_arith():
     py.test.skip("uint_floordiv_zer operation missing (raises)")
     def fn(i):

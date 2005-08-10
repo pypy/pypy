@@ -2,7 +2,7 @@ import py
 
 from pypy.translator.llvm2.genllvm import compile_function
 from pypy.translator.test.snippet import try_raise_choose
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 
 import sys
 
@@ -139,10 +139,10 @@ def test_zerodivrem_uint():
         assert f(i) == zerodivrem_uint(i)
 
 def test_neg_int_ovf():
-    py.test.skip("When does int_neg_ovf get generated")    
+    py.test.skip("test failing probably because llvm things x != -x is always true")    
     def neg_int_ovf(n):
         try:
-            r=-n
+            r=ovfcheck(-n)
         except OverflowError:
             return 123
         return r
@@ -151,14 +151,14 @@ def test_neg_int_ovf():
         assert f(i) == neg_int_ovf(i)
 
 def test_abs_int_ovf():
-    py.test.skip("When does int_abs_ovf get generated")    
+    py.test.skip("test failing probably because llvm things x != -x is always true")    
     def abs_int_ovf(n):
         try:
-            r=abs(n)
+            r=ovfcheck(abs(n))
         except OverflowError:
             return 123
         return r
-    f = compile_function(abs_int_ovf, [int], True)
+    f = compile_function(abs_int_ovf, [int])
     for i in (-sys.maxint-1, -sys.maxint, 0, sys.maxint-1, sys.maxint):
         assert f(i) == abs_int_ovf(i)
 
@@ -263,7 +263,6 @@ def test_try_raise_choose():
         assert f(i) == i
 
 def test_raise_outside_testfn():
-    py.test.skip("Test needs --nomagic!")    
     def raiser(n):
         if n < 0:
             raise ValueError("hello")
@@ -281,8 +280,23 @@ def test_raise_outside_testfn():
         except Exception:
             return 2
         return 0
-    
-    f = compile_function(testfn, [int])
-    assert f(1) == testfn(1)
-    assert f(-1) == testfn(-1)
 
+    saved = no_magic()
+    try:
+        f = compile_function(testfn, [int])
+        assert f(1) == testfn(1)
+        assert f(-1) == testfn(-1)
+    finally:
+        restore_magic(saved)
+
+def no_magic():
+    import __builtin__
+    try:
+        py.magic.revert(__builtin__, 'AssertionError')
+        return True
+    except ValueError:
+        return False
+
+def restore_magic(saved):
+    if saved:
+        py.magic.invoke(assertion=True)

@@ -274,10 +274,12 @@ class OpWriter(object):
             opname = op.opname.split(':',1)[1]
             op_args = ['%' + opname] + op_args
             functionref = op_args[0]
-            ExternalFuncNode.used_external_functions[functionref] = True
-            msg = "exception raising operation %s not found" %(op.opname,)
-            self.codewriter.comment('XXX: Error: ' + msg)
-            #assert functionref in extfunctions, msg
+            if functionref in extfunctions:
+                ExternalFuncNode.used_external_functions[functionref] = True
+            else:
+                msg = "exception raising operation %s not found" %(op.opname,)
+                self.codewriter.comment('XXX: Error: ' + msg)
+                #assert functionref in extfunctions, msg
         
         assert len(op_args) >= 1
         assert len(self.block.exits) >= 2   #at least one label and one exception label

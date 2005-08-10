@@ -72,7 +72,6 @@ fastcc void %%__prepare_%(exc)s() {
     store %%structtype.object* %%exception_value, %%structtype.object** %%last_exception_value
     ret void
 }
-
 """ % locals())
 
 
@@ -98,18 +97,17 @@ is_not_0:
 """ % locals())
 
 
-ovf_test = """
-    ;overflow test
-    %%cond2 = setge int %%x2, 0
-    br bool %%cond2, label %%return_block, label %%block2
+int_ovf_test = """
+    ;integer overflow test
+    %cond2 = setge int %x, 0
+    br bool %cond2, label %return_block, label %block2
 block2:
-    %%tmp = sub int 0, %%x2
-    %%cond3 = setne int %%x2, %%tmp
-    br bool %%cond3, label %%return_block, label %%ovf
+    %xneg = sub int 0, %x
+    %cond3 = setne int %x, %xneg
+    br bool %cond3, label %return_block, label %ovf
 ovf:
-    call fastcc void %%__prepare_OverflowError()
+    call fastcc void %__prepare_OverflowError()
     unwind
-
 """
 
 #unary with OverflowError only
@@ -118,11 +116,10 @@ extfunctions["%int_neg_ovf"] = (("%__prepare_OverflowError",), """
 fastcc int %%int_neg_ovf(int %%x) {
 block1:
     %%x2 = sub int 0, %%x
-    %(ovf_test)s
+    %(int_ovf_test)s
 return_block:
     ret int %%x2
 }
-
 """ % locals())
 
 extfunctions["%int_abs_ovf"] = (("%__prepare_OverflowError",), """
@@ -132,12 +129,11 @@ block0:
     br bool %%cond1, label %%return_block, label %%block1
 block1:
     %%x2 = sub int 0, %%x
-    %(ovf_test)s
+    %(int_ovf_test)s
 return_block:
     %%result = phi int [%%x, %%block0], [%%x2, %%block1], [%%x2, %%block2]
     ret int %%result
 }
-
 """ % locals())
 
 

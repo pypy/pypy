@@ -44,7 +44,6 @@ endif:		; preds = %entry
 	%tmp.13 = cast int %tmp.12 to double		; <double> [#uses=1]
 	ret double %tmp.13
 }
-
 """)
 
 extfunctions["%ll_time_clock"] = ((), """
@@ -82,5 +81,4 @@ then.1:		; preds = %entry
 return:		; preds = %entry
 	ret void
 }
-
 """)
