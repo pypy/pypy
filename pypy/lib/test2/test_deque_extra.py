@@ -1,20 +1,10 @@
 # Deque Tests
 
 # for passing the test on top of 2.3
-try:
-    reversed
-except NameError:
-    def reversed(seq): # fall-back
-        if hasattr(seq, '__reversed__'):
-            return seq.__reversed__()
-        def gen():
-            i = len(seq)-1
-            while i >= 0:
-                yield seq[i]
-                i -= 1
-        return gen()
-    import  pypy.lib.collections
-    pypy.lib.collections.reversed = reversed
+from py.builtin import reversed
+import pypy.lib.collections
+pypy.lib.collections.reversed = reversed
+
 
 n = 10
 class Test_deque:
