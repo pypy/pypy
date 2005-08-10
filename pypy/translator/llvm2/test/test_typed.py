@@ -7,8 +7,6 @@ from pypy.rpython.rarithmetic import r_uint
 from pypy.translator.llvm2.genllvm import compile_function
 
 def test_call_five():
-    # --  the result of call_five() isn't a real list, but an rlist
-    #     that can't be converted to a PyListObject
     def wrapper():
         lst = snippet.call_five()
         res = list((len(lst), lst[0]))
@@ -328,14 +326,19 @@ def test_int_invert():
     def fn(i):
         return ~i
     f = compile_function(fn, [int])
-    for i in range(-15,15):
+    for i in range(-15, 15):
         assert f(i) == fn(i)
 
 def test_uint_invert():
-    py.test.skip("not sure why uint annotated function can return -1 (pyrex?)")
     def fn(i):
-        return ~i
+        inverted = ~i
+        inverted -= sys.maxint
+        return inverted
     f = compile_function(fn, [r_uint])
-    for value in range(15):
+    for value in range(1, 15):
+        i = r_uint(value)
+        assert str(f(i)) == str(fn(i))
+    s = 0xfffffff    
+    for value in range(s, s+1024, 64):
         i = r_uint(value)
         assert str(f(i)) == str(fn(i))

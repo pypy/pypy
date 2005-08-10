@@ -165,7 +165,7 @@ class OpWriter(object):
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
-                                 str((1<<32)-1))
+                                 str((1L<<32) - 1))
 
     def binaryop(self, op):
         name = self.binary_operations[op.opname]
