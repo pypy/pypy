@@ -1170,13 +1170,13 @@ class _AtcodeDispatcher(_Dispatcher):
     def at_non_boundary(self, ctx):
         return not ctx.at_boundary(_sre._is_word)
     def at_loc_boundary(self, ctx):
-        return ctx.at_boundary(_is_loc_word)
+        return ctx.at_boundary(_sre._is_loc_word)
     def at_loc_non_boundary(self, ctx):
-        return not ctx.at_boundary(_is_loc_word)
+        return not ctx.at_boundary(_sre._is_loc_word)
     def at_uni_boundary(self, ctx):
-        return ctx.at_boundary(_is_uni_word)
+        return ctx.at_boundary(_sre._is_uni_word)
     def at_uni_non_boundary(self, ctx):
-        return not ctx.at_boundary(_is_uni_word)
+        return not ctx.at_boundary(_sre._is_uni_word)
     def unknown(self, ctx):
         return False
 
@@ -1202,9 +1202,9 @@ class _ChcodeDispatcher(_Dispatcher):
     def category_not_linebreak(self, ctx):
         return not _sre._is_linebreak(ctx.peek_char())
     def category_loc_word(self, ctx):
-        return _is_loc_word(ctx.peek_char())
+        return _sre._is_loc_word(ctx.peek_char())
     def category_loc_not_word(self, ctx):
-        return not _is_loc_word(ctx.peek_char())
+        return not _sre._is_loc_word(ctx.peek_char())
     def category_uni_digit(self, ctx):
         return ctx.peek_char().isdigit()
     def category_uni_not_digit(self, ctx):
@@ -1214,27 +1214,18 @@ class _ChcodeDispatcher(_Dispatcher):
     def category_uni_not_space(self, ctx):
         return not ctx.peek_char().isspace()
     def category_uni_word(self, ctx):
-        return _is_uni_word(ctx.peek_char())
+        return _sre._is_uni_word(ctx.peek_char())
     def category_uni_not_word(self, ctx):
-        return not _is_uni_word(ctx.peek_char())
+        return not _sre._is_uni_word(ctx.peek_char())
     def category_uni_linebreak(self, ctx):
-        return ord(ctx.peek_char()) in _uni_linebreaks
+        return _sre._is_uni_linebreak(ctx.peek_char())
     def category_uni_not_linebreak(self, ctx):
-        return ord(ctx.peek_char()) not in _uni_linebreaks
+        return not _sre._is_uni_linebreak(ctx.peek_char())
     def unknown(self, ctx):
         return False
 
 _ChcodeDispatcher.build_dispatch_table(CHCODES, "")
 
-
-def _is_loc_word(char):
-    return (not (ord(char) & ~255) and char.isalnum()) or char == '_'
-
-def _is_uni_word(char):
-    return char.isalnum() or char == '_'
-
-# Static list of all unicode codepoints reported by Py_UNICODE_ISLINEBREAK.
-_uni_linebreaks = [10, 13, 28, 29, 30, 133, 8232, 8233]
 
 def _log(message):
     if 0:

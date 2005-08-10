@@ -303,6 +303,7 @@ class AppTestSimpleSearches:
         LOWER_PI = u"\u03c0"
         INDIAN_DIGIT = u"\u0966"
         EM_SPACE = u"\u2001"
+        LOWER_AE = "\xe4"
         assert re.search(r"bla\d\s\w", "bla3 b")
         assert re.search(r"b\d", u"b%s" % INDIAN_DIGIT, re.UNICODE)
         assert not re.search(r"b\D", u"b%s" % INDIAN_DIGIT, re.UNICODE)
@@ -310,6 +311,7 @@ class AppTestSimpleSearches:
         assert not re.search(r"b\S", u"b%s" % EM_SPACE, re.UNICODE)
         assert re.search(r"b\w", u"b%s" % LOWER_PI, re.UNICODE)
         assert not re.search(r"b\W", u"b%s" % LOWER_PI, re.UNICODE)
+        assert re.search(r"b\w", "b%s" % LOWER_AE, re.UNICODE)
 
     def test_search_simple_any(self):
         import re
@@ -657,9 +659,11 @@ class AppTestOpcodes:
             opcodes2 = s.encode_literal("b") \
                 + [s.OPCODES["category"], s.CHCODES["category_loc_not_word"], s.OPCODES["success"]]
             s.assert_no_match(opcodes1, "b\xFC")
+            s.assert_no_match(opcodes1, u"b\u00FC")
             s.assert_match(opcodes2, "b\xFC")
             locale.setlocale(locale.LC_ALL, "de_DE")
             s.assert_match(opcodes1, "b\xFC")
+            s.assert_no_match(opcodes1, u"b\u00FC")
             s.assert_no_match(opcodes2, "b\xFC")
             s.void_locale()
         except locale.Error:
