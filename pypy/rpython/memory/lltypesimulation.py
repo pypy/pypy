@@ -200,7 +200,7 @@ class simulatorptr(object):
 
     def _getobj(self):
         assert isinstance(self._T, (lltype.FuncType, lltype.PyObjectType))
-        return lladdress.get_py_object(self._address.address[0])
+        return lladdress.get_py_object(self._address)
     _obj = property(_getobj)
 
     def __call__(self, *args):
@@ -210,7 +210,7 @@ class simulatorptr(object):
             for a, ARG in zip(args, self._T.ARGS):
                 if lltype.typeOf(a) != ARG:
                     raise TypeError,"calling %r with wrong argument types: %r" % (self._T, args)
-            callb = lladdress.get_py_object(self._address.address[0])._callable
+            callb = lladdress.get_py_object(self._address)._callable
             if callb is None:
                 raise RuntimeError,"calling undefined function"
             return callb(*args)
