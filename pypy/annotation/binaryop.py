@@ -331,6 +331,7 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
 
     def pow((flt1, flt2), obj3):
         return SomeFloat()
+    pow.can_only_throw = [ZeroDivisionError, ValueError, OverflowError]    
 
 
 class __extend__(pairtype(SomeList, SomeList)):

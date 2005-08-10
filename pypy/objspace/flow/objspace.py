@@ -476,6 +476,8 @@ _add_exceptions("""truediv divmod
                    inplace_lshift""", OverflowError) # without a _ovf version
 _add_except_ovf("""neg abs add sub mul
                    floordiv div mod pow lshift""")   # with a _ovf version
+_add_exceptions("""pow""",
+                OverflowError) # for the float case
 del _add_exceptions, _add_except_ovf
 
 def extract_cell_content(c):
