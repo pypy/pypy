@@ -129,4 +129,5 @@ class AppTestReversed:
       assert len(r) == 0
       raises(StopIteration, r.next)
       assert len(r) == 0
-      assert list(reversed(reversed("hello"))) == ['h', 'e', 'l', 'l', 'o']
+      assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
+      raises(TypeError, reversed, reversed("hello"))

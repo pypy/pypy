@@ -341,15 +341,16 @@ def sorted(lst, cmp=None, key=None, reverse=None):
     sorted_lst.sort(cmp, key, reverse)
     return sorted_lst
 
-def reversed(iterable):
+def reversed(sequence):
     """reversed(sequence) -> reverse iterator over values of the sequence
 
     Return a reverse iterator
     """
-    if hasattr(iterable, '__reversed__'):
-        return iterable.__reversed__()
-    seq = list(iterable)
-    return reversed_iterator(seq)
+    if hasattr(sequence, '__reversed__'):
+        return sequence.__reversed__()
+    if not hasattr(sequence, '__getitem__'):
+        raise TypeError("argument to reversed() must be a sequence")
+    return reversed_iterator(sequence)
 
 
 class reversed_iterator(object):
