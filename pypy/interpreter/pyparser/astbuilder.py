@@ -442,7 +442,26 @@ def build_funcdef(builder, nb):
     code = L[-1]
     # FIXME: decorators and docstring !
     builder.push(ast.Function(None, funcname, names, default, flags, None, code))
-        
+
+
+def build_classdef(builder, nb):
+    """classdef: 'class' NAME ['(' testlist ')'] ':' suite"""
+    L = get_atoms(builder, nb)
+    l = len(L)
+    # FIXME: docstring
+    classname = L[1].value
+    if l == 4:
+        basenames = []
+        body = L[3]
+    elif l == 7:
+        basenames = []
+        body = L[6]
+        base = L[3]
+        assert isinstance(base, ast.Tuple)
+        for node in base.nodes:
+            assert isinstance(node, ast.Name)
+            basenames.append(node)
+    builder.push(ast.Class(classname, basenames, None, body))
 
 def build_suite(builder, nb):
     """suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT"""
@@ -929,6 +948,7 @@ ASTRULES = {
     sym.arglist : build_arglist,
     sym.listmaker : build_listmaker,
     sym.funcdef : build_funcdef,
+    sym.classdef : build_classdef,
     sym.return_stmt : build_return_stmt,
     sym.suite : build_suite,
     sym.if_stmt : build_if_stmt,

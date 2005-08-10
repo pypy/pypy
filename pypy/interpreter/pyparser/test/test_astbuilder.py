@@ -323,6 +323,7 @@ SNIPPETS = [
     'snippet_import_statements.py',
     'snippet_generator.py',
     'snippet_exceptions.py',
+    'snippet_classes.py',
 #    'snippet_2.py',
 #    'snippet_3.py',
 #    'snippet_4.py',
