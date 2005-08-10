@@ -59,7 +59,7 @@ class GenLLVM(object):
 
         if self.debug:  print 'gen_llvm_source db.setup_all) ' + time.ctime()
         #7 minutes
-        self.db.setup_all()
+        self.db.setup_all(self.db.obj2node[c])
         if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
         if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
         #3 seconds

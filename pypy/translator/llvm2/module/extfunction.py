@@ -13,23 +13,23 @@ declare fastcc sbyte* %gc_malloc_atomic(uint)
 gc_boehm = """declare ccc sbyte* %GC_malloc(uint)
 declare ccc sbyte* %GC_malloc_atomic(uint)
 
-fastcc sbyte* %gc_malloc(uint %n) {
+internal fastcc sbyte* %gc_malloc(uint %n) {
     %ptr = call ccc sbyte* %GC_malloc(uint %n)
     ret sbyte* %ptr
 }
 
-fastcc sbyte* %gc_malloc_atomic(uint %n) {
+internal fastcc sbyte* %gc_malloc_atomic(uint %n) {
     %ptr = call ccc sbyte* %GC_malloc_atomic(uint %n)
     ret sbyte* %ptr
 }
 """
 
-gc_disabled = """fastcc sbyte* %gc_malloc(uint %n) {
+gc_disabled = """internal fastcc sbyte* %gc_malloc(uint %n) {
     %ptr = malloc sbyte, uint %n
     ret sbyte* %ptr
 }
 
-fastcc sbyte* %gc_malloc_atomic(uint %n) {
+internal fastcc sbyte* %gc_malloc_atomic(uint %n) {
     %ptr = malloc sbyte, uint %n
     ret sbyte* %ptr
 }

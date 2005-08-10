@@ -257,8 +257,9 @@ class Database(object):
         # Always add type (it is safe)
         self.prepare_repr_arg_type(type_)
         
-    def setup_all(self):
+    def setup_all(self, entrynode):
         # Constants setup need to be done after the rest
+        self.entrynode = entrynode
         while self._pendingsetup: 
             node = self._pendingsetup.pop()
             log.settingup(node)

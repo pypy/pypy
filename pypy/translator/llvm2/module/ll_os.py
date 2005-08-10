@@ -13,7 +13,7 @@ declare ccc int %fstat(int, int*)
 extfunctions = {}
 
 extfunctions["%ll_os_dup"] = ((), """
-fastcc int %ll_os_dup(int %fd) {
+internal fastcc int %ll_os_dup(int %fd) {
     %ret = call ccc int %dup(int %fd)
     ret int %ret
 }
@@ -21,7 +21,7 @@ fastcc int %ll_os_dup(int %fd) {
 """)
 
 extfunctions["%ll_os_close"] = ((), """
-fastcc void %ll_os_close(int %fd) {
+internal fastcc void %ll_os_close(int %fd) {
     call ccc void %close(int %fd)
     ret void
 }
@@ -29,7 +29,7 @@ fastcc void %ll_os_close(int %fd) {
 """)
 
 extfunctions["%ll_os_open"] = (("%cast",), """
-fastcc int %ll_os_open(%structtype.rpy_string* %structstring, int %flag, int %mode) {
+internal fastcc int %ll_os_open(%structtype.rpy_string* %structstring, int %flag, int %mode) {
     %dest  = call fastcc sbyte* %cast(%structtype.rpy_string* %structstring)
     %fd    = call ccc    int    %open(sbyte* %dest, int %flag, int %mode)
     ret int %fd 
@@ -38,7 +38,7 @@ fastcc int %ll_os_open(%structtype.rpy_string* %structstring, int %flag, int %mo
 """)
 
 extfunctions["%ll_os_write"] = (("%cast",), """
-fastcc int %ll_os_write(int %fd, %structtype.rpy_string* %structstring) {
+internal fastcc int %ll_os_write(int %fd, %structtype.rpy_string* %structstring) {
     %reallengthptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 0
     %reallength    = load int* %reallengthptr 
     %dest          = call fastcc sbyte* %cast(%structtype.rpy_string* %structstring)
@@ -49,7 +49,7 @@ fastcc int %ll_os_write(int %fd, %structtype.rpy_string* %structstring) {
 """)
 
 extfunctions["%ll_read_into"] = ((), """
-fastcc int %ll_read_into(int %fd, %structtype.rpy_string* %structstring) {
+internal fastcc int %ll_read_into(int %fd, %structtype.rpy_string* %structstring) {
     %reallengthptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 0
     %reallength    = load int* %reallengthptr 
 
@@ -63,7 +63,7 @@ fastcc int %ll_read_into(int %fd, %structtype.rpy_string* %structstring) {
 """)
 
 extfunctions["%ll_os_isatty"] = ((), """
-fastcc bool %ll_os_isatty(int %fd) {
+internal fastcc bool %ll_os_isatty(int %fd) {
     %ret = call ccc int %isatty(int %fd)
     %ret.bool = cast int %ret to bool
     ret bool %ret.bool
@@ -72,7 +72,7 @@ fastcc bool %ll_os_isatty(int %fd) {
 """)
 
 extfunctions["%ll_os_fstat"] = ((), """
-%structtype.tuple10* %ll_os_fstat(int %fd) {
+internal fastcc %structtype.tuple10* %ll_os_fstat(int %fd) {
     %st = alloca int, uint 32
     %error = call ccc int %fstat(int %fd, int* %st)
     ;TODO XXX if error: raise exception

@@ -30,7 +30,7 @@ simple_functions = [
     ]
 
 simple_function_template = """
-fastcc double %%ll_math_%(function)s(%(params)s) {
+internal fastcc double %%ll_math_%(function)s(%(params)s) {
     %%t = call ccc double %%%(function)s(%(params)s)
     ret double %%t
 }

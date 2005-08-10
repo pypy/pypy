@@ -36,7 +36,7 @@ class CodeWriter(object):
         self.append("    %s:" % name)
 
     def globalinstance(self, name, typeandata):
-        self.append("%s = global %s" % (name, typeandata))
+        self.append("%s = internal global %s" % (name, typeandata))
 
     def structdef(self, name, typereprs):
         self.append("%s = type { %s }" %(name, ", ".join(typereprs)))
@@ -70,9 +70,13 @@ class CodeWriter(object):
         self.indent("switch %s %s, label %%%s [%s ]"
                     % (intty, cond, defaultdest, labels))
 
-    def openfunc(self, decl): 
+    def openfunc(self, decl, is_entrynode=False): 
         self.newline()
-        self.append("fastcc %s {" % (decl,))
+        if is_entrynode:
+            linkage_type = ''
+        else:
+            linkage_type = 'internal '
+        self.append("%sfastcc %s {" % (linkage_type, decl,))
 
     def closefunc(self): 
         self.append("}") 

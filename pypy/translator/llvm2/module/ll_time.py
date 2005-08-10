@@ -19,7 +19,7 @@ extfunctions = {}
 
 extfunctions["%ll_time_time"] = ((), """
 
-fastcc double %ll_time_time() {
+internal fastcc double %ll_time_time() {
 	%t = alloca %struct.timeval		; <%struct.timeval*> [#uses=3]
 	%secs = alloca int		; <int*> [#uses=2]
 	%tmp.0 = call int %gettimeofday( %struct.timeval* %t, %struct.timeval* null )		; <int> [#uses=1]
@@ -47,7 +47,7 @@ endif:		; preds = %entry
 """)
 
 extfunctions["%ll_time_clock"] = ((), """
-fastcc double %ll_time_clock() {
+internal fastcc double %ll_time_clock() {
 entry:
 	%tmp.0 = call int %clock( )		; <int> [#uses=1]
 	%tmp.1 = cast int %tmp.0 to double		; <double> [#uses=1]
@@ -57,7 +57,7 @@ entry:
 """)
 
 extfunctions["%ll_time_sleep"] = ((), """
-fastcc void %ll_time_sleep(double %secs) {
+internal fastcc void %ll_time_sleep(double %secs) {
 entry:
 	%t = alloca %struct.timeval		; <%struct.timeval*> [#uses=3]
 	%tmp.0 = call double %fmod( double %secs, double 1.000000e+00 )		; <double> [#uses=1]

@@ -7,7 +7,7 @@ declare ccc double %fmod(double, double)
 extfunctions = {}
 
 extfunctions["%cast"] = ((), """
-fastcc sbyte* %cast(%structtype.rpy_string* %structstring) {
+internal fastcc sbyte* %cast(%structtype.rpy_string* %structstring) {
     %reallengthptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 0
     %reallength = load int* %reallengthptr
     %length = add int %reallength, 1
@@ -31,7 +31,7 @@ fastcc sbyte* %cast(%structtype.rpy_string* %structstring) {
 
 #abs functions
 extfunctions["%int_abs"] = ((), """
-fastcc int %int_abs(int %x) {
+internal fastcc int %int_abs(int %x) {
 block0:
     %cond1 = setge int %x, 0
     br bool %cond1, label %return_block, label %block1
@@ -46,7 +46,7 @@ return_block:
 """)
 
 extfunctions["%float_abs"] = ((), """
-fastcc double %float_abs(double %x) {
+internal fastcc double %float_abs(double %x) {
 block0:
     %cond1 = setge double %x, 0.0
     br bool %cond1, label %return_block, label %block1
@@ -64,7 +64,7 @@ return_block:
 #prepare exceptions
 for exc in "ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
     extfunctions["%%__prepare_%(exc)s" % locals()] = ((), """
-fastcc void %%__prepare_%(exc)s() {
+internal fastcc void %%__prepare_%(exc)s() {
     %%exception_value = call fastcc %%structtype.object* %%instantiate_%(exc)s()
     %%tmp             = getelementptr %%structtype.object* %%exception_value, int 0, uint 0
     %%exception_type  = load %%structtype.object_vtable** %%tmp
@@ -80,7 +80,7 @@ for func_inst in "floordiv_zer:div mod_zer:rem".split():
     func, inst = func_inst.split(':')
     for type_ in "int uint".split():
         extfunctions["%%%(type_)s_%(func)s" % locals()] = (("%__prepare_ZeroDivisionError",), """
-fastcc %(type_)s %%%(type_)s_%(func)s(%(type_)s %%x, %(type_)s %%y) {
+internal fastcc %(type_)s %%%(type_)s_%(func)s(%(type_)s %%x, %(type_)s %%y) {
 
     ;zerodiv test
     %%cond = seteq %(type_)s %%y, 0
@@ -108,7 +108,7 @@ ovf:
 #unary with OverflowError only
 
 extfunctions["%int_neg_ovf"] = (("%__prepare_OverflowError",), """
-fastcc int %%int_neg_ovf(int %%x) {
+internal fastcc int %%int_neg_ovf(int %%x) {
 block1:
     %%x2 = sub int 0, %%x
     %(int_ovf_test)s
@@ -118,7 +118,7 @@ return_block:
 """ % locals())
 
 extfunctions["%int_abs_ovf"] = (("%__prepare_OverflowError",), """
-fastcc int %%int_abs_ovf(int %%x) {
+internal fastcc int %%int_abs_ovf(int %%x) {
 block0:
     %%cond1 = setge int %%x, 0
     br bool %%cond1, label %%return_block, label %%block1
