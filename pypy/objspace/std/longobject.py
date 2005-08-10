@@ -1619,3 +1619,42 @@ def _hash(v):
         i -= 1
     x = intmask(x * sign)
     return x
+
+#_________________________________________________________________
+
+# a few internal helpers
+
+DEC_PER_DIGIT = 1
+while int('9' * DEC_PER_DIGIT) < MASK:
+    DEC_PER_DIGIT += 1
+DEC_PER_DIGIT -= 1
+DEC_MAX = 10 ** DEC_PER_DIGIT
+
+def _decimalstr_to_long(space, s):
+    # a string that has been already parsed to be decimal and valid,
+    # is turned into a long
+    p = 0
+    lim = len(s)
+    sign = False
+    if s[p] == '-':
+        sign = True
+        p += 1
+    elif s[p] == '+':
+        p += 1
+
+    a = W_LongObject(space, [0], 1)
+    cnt = DEC_PER_DIGIT
+    tens = 1
+    dig = 0
+    ord0 = ord('0')
+    while p < lim:
+        dig = dig * 10 + ord(s[p]) - ord0
+        p += 1
+        tens *= 10
+        if tens == DEC_MAX or p == lim:
+            a = _muladd1(a, tens, dig)
+            tens = 1
+            dig = 0
+    if sign:
+        a.sign = -1
+    return a
