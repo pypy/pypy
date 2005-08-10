@@ -66,3 +66,15 @@ class TestMemorySimulator(object):
             for i in xrange(10000000):
                 sim.malloc(4096)
         py.test.raises(MemorySimulatorError, f)
+
+    def test_object_access(self):
+        sim = MemorySimulator()
+        def f(x):
+            return x + 1
+        def g(x):
+            return x + 2
+        a1 = sim.get_address_of_object(f)
+        a2 = sim.get_address_of_object(g)
+        assert sim.get_py_object(a1)(1) == 2
+        assert sim.get_py_object(a2)(1) == 3
+    

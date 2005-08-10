@@ -200,7 +200,7 @@ class simulatorptr(object):
 
     def _getobj(self):
         assert isinstance(self._T, (lltype.FuncType, lltype.PyObjectType))
-        return self._address.attached[0]
+        return lladdress.get_py_object(self._address.address[0])
     _obj = property(_getobj)
 
     def __call__(self, *args):
@@ -210,7 +210,7 @@ class simulatorptr(object):
             for a, ARG in zip(args, self._T.ARGS):
                 if lltype.typeOf(a) != ARG:
                     raise TypeError,"calling %r with wrong argument types: %r" % (self._T, args)
-            callb = self._address.attached[0]._callable
+            callb = lladdress.get_py_object(self._address.address[0])._callable
             if callb is None:
                 raise RuntimeError,"calling undefined function"
             return callb(*args)
@@ -271,7 +271,6 @@ def malloc(T, n=None, immortal=False):
 def nullptr(T):
     return simulatorptr(lltype.Ptr(T), lladdress.NULL)
 
-#XXX unify attached objects with the address space as to samuele's suggestion
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, lltype.FuncType):
         raise TypeError, "functionptr() for FuncTypes only"
@@ -280,10 +279,11 @@ def functionptr(TYPE, name, **attrs):
     except TypeError:
         raise TypeError("'%r' must be hashable"%attrs)
     addr = lladdress.raw_malloc(get_total_size(TYPE))
-    addr.attached[0] = lltype._func(TYPE, _name=name, **attrs)
+    addr.address[0] = lladdress.get_address_of_object(
+        lltype._func(TYPE, _name=name, **attrs))
     return simulatorptr(lltype.Ptr(TYPE), addr)
 
 def pyobjectptr(obj):
     addr = lladdress.raw_malloc(get_total_size(lltype.PyObject))
-    addr.attached[0] = lltype._pyobject(obj)
+    addr.address[0] = lladdress.get_address_of_object(lltype._pyobject(obj))
     return simulatorptr(lltype.Ptr(lltype.PyObject), addr) 

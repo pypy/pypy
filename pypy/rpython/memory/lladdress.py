@@ -79,35 +79,11 @@ class _address_accessor(_accessor):
     convert_from = Address
     convert_to = Address._getintattr
 
-# used to attach some real python object to the address:
-# for SomeObjects and Functions
-class _attached_accessor(_accessor):
-    attached_objects = []
-    object_to_number = {}
-    
-    format = "i"
-    size = struct.calcsize("i")
-
-    def convert_from(self, i):
-        try:
-            return self.attached_objects[i]
-        except IndexError:
-            raise ValueError, "trying to access invalid attached object"
-
-    def convert_to(self, obj):
-        try:
-            return self.object_to_number[obj]
-        except KeyError:
-            num = len(self.attached_objects)
-            self.object_to_number[obj] = num
-            self.attached_objects.append(obj)
-            return num
 
 Address.signed = property(_signed_accessor)
 Address.unsigned = property(_unsigned_accessor)
 Address.char = property(_char_accessor)
 Address.address = property(_address_accessor)
-Address.attached = property(_attached_accessor)
 
 NULL = Address()
 simulator = MemorySimulator()
@@ -120,6 +96,12 @@ def raw_free(addr):
 
 def raw_memcopy(addr1, addr2, size):
     simulator.memcopy(addr1.intaddress, addr2.intaddress, size)
+
+def get_address_of_object(obj):
+    return Address(simulator.get_address_of_object(obj))
+
+def get_py_object(address):
+    return simulator.get_py_object(address.intaddress)
 
 
 supported_access_types = {"signed":    lltype.Signed,

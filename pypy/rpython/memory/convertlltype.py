@@ -104,12 +104,12 @@ class LLTypeConverter(object):
 
     def convert_object(self, _obj, inline_to_addr, from_parent):
         if inline_to_addr is not None:
-            inline_to_addr.attached[0] = _obj
+            inline_to_addr.address[0] = lladdress.get_address_of_object(_obj)
             return inline_to_addr
         else:
             addr = self.curraddress
-            addr.attached[0] = _obj
-            self.curraddress += struct.calcsize("i")
+            addr.address[0] = lladdress.get_address_of_object(_obj)
+            self.curraddress += struct.calcsize("P")
             return addr
 
 class FlowGraphConstantConverter(object):

@@ -58,11 +58,40 @@ class MemoryBlock(object):
         other.memory[offset2:offset2+size] = self.memory[offset1:offset1+size]
         other.status[offset2:offset2+size] = self.status[offset1:offset1+size]
 
+
+# block which stores functions and PyObects
+class ObjectBlock(object):
+    def __init__(self, baseaddress, size):
+        self.baseaddress = baseaddress
+        self.size = size
+        self.objects_to_num = {}
+        self.objects = []
+        
+    def get_py_object(self, offset):
+        try:
+            return self.objects[offset]
+        except IndexError:
+            raise MemorySimulatorError, "trying to access unknown object"
+
+    def get_address_of_object(self, obj):
+        if obj in self.objects_to_num:
+            return self.objects_to_num[obj]
+        else:
+            assert len(self.objects) <= self.size
+            index = len(self.objects)
+            self.objects_to_num[obj] = index
+            self.objects.append(obj)
+            return index
+
+
+SIZE_OF_OBJECT_BLOCK = 2 ** 16 # arbitraly choosen size
+
 class MemorySimulator(object):
     size_of_simulated_ram = 64 * 1024 * 1024
     def __init__(self, ram_size = None):
-        self.blocks = []
-        self.freememoryaddress = 4
+        self.objectblock = ObjectBlock(4, SIZE_OF_OBJECT_BLOCK)
+        self.blocks = [ObjectBlock(4, SIZE_OF_OBJECT_BLOCK)]
+        self.freememoryaddress = 4 + SIZE_OF_OBJECT_BLOCK
         if ram_size is not None:
             self.size_of_simulated_ram = ram_size
 
@@ -115,3 +144,13 @@ class MemorySimulator(object):
         offset1 = address1 - block1.baseaddress
         offset2 = address2 - block2.baseaddress
         block1.memcopy(offset1, block2, offset2, size)
+
+    def get_py_object(self, address):
+        block = self.objectblock
+        offset = address - block.baseaddress
+        assert isinstance(block, ObjectBlock)
+        return block.get_py_object(offset)
+
+    def get_address_of_object(self, obj):
+        return (self.objectblock.get_address_of_object(obj) +
+                self.objectblock.baseaddress)

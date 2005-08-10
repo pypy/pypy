@@ -6,6 +6,7 @@ from pypy.translator.annrpython import RPythonAnnotator
 from pypy.objspace.flow import FlowObjSpace
 from pypy.rpython.memory.lladdress import Address, NULL
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
+from pypy.rpython.memory.lladdress import get_py_object, get_address_of_object
 from pypy.rpython.memory.simulator import MemorySimulatorError
 
 class TestAddressAnnotation(object):
@@ -125,28 +126,28 @@ class TestAddressSimulation(object):
         addr.char[10] = "c"
         assert (addr + 10).char[0] == "c"
 
-    def test_attached_pyobjects(self):
+    def test_pyobjects(self):
         def f(x):
             return x + 1
         def g(x):
             return x - 1
         addr = raw_malloc(100)
-        addr.attached[0] = f
-        addr.attached[1] = g
-        assert addr.attached[0] == f
-        assert addr.attached[1] == g
-        assert addr.attached[0](1) == 2
-        assert addr.attached[1](0) == -1
+        addr.address[0] = get_address_of_object(f)
+        addr.address[1] = get_address_of_object(g)
+        assert get_py_object(addr.address[0]) == f
+        assert get_py_object(addr.address[1]) == g
+        assert get_py_object(addr.address[0])(1) == 2
+        assert get_py_object(addr.address[1])(0) == -1
 
     def test_memcopy(self):
         def f(x):
             return x + 1
         addr = raw_malloc(100)
-        addr.attached[0] = f
+        addr.address[0] = get_address_of_object(f)
         (addr + 10).signed[0] = 42
         (addr + 20).char[0] = "a"
         addr1 = raw_malloc(100)
         raw_memcopy(addr, addr1, 100)
-        assert addr1.attached[0](0) == 1
+        assert get_py_object(addr1.address[0])(0) == 1
         assert (addr1 + 10).signed[0] == 42
         assert (addr1 + 20).char[0] == "a"
