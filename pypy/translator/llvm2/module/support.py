@@ -29,7 +29,39 @@ fastcc sbyte* %cast(%structtype.rpy_string* %structstring) {
 """)
 
 
-#prepage exceptions
+#abs functions
+extfunctions["%int_abs"] = ((), """
+fastcc int %int_abs(int %x) {
+block0:
+    %cond1 = setge int %x, 0
+    br bool %cond1, label %return_block, label %block1
+block1:
+    %x2 = sub int 0, %x
+    br label %return_block
+return_block:
+    %result = phi int [%x, %block0], [%x2, %block1]
+    ret int %result
+}
+
+""")
+
+extfunctions["%float_abs"] = ((), """
+fastcc double %float_abs(double %x) {
+block0:
+    %cond1 = setge double %x, 0.0
+    br bool %cond1, label %return_block, label %block1
+block1:
+    %x2 = sub double 0.0, %x
+    br label %return_block
+return_block:
+    %result = phi double [%x, %block0], [%x2, %block1]
+    ret double %result
+}
+
+""")
+
+
+#prepare exceptions
 for exc in "ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
     extfunctions["%%__prepare_%(exc)s" % locals()] = ((), """
 fastcc void %%__prepare_%(exc)s() {
@@ -97,7 +129,7 @@ extfunctions["%int_abs_ovf"] = (("%__prepare_OverflowError",), """
 fastcc int %%int_abs_ovf(int %%x) {
 block0:
     %%cond1 = setge int %%x, 0
-    br bool %%cond1, label %%return_block, label %%is_negative
+    br bool %%cond1, label %%return_block, label %%block1
 block1:
     %%x2 = sub int 0, %%x
     %(ovf_test)s

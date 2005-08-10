@@ -125,6 +125,16 @@ class OpWriter(object):
         targetvar = self.db.repr_arg(op.result)
         self.codewriter.cast(targetvar, mult_type, res_val, mult_type)        
 
+    def int_abs(self, op):
+        functionref = '%' + op.opname
+        ExternalFuncNode.used_external_functions[functionref] = True
+        self.codewriter.call(self.db.repr_arg(op.result),
+                             self.db.repr_arg_type(op.result),
+                             functionref,
+                             [self.db.repr_arg(op.args[0])],
+                             [self.db.repr_arg_type(op.args[0])])
+    float_abs = int_abs
+
     def int_pow(self, op):
         self._generic_pow(op, "1") 
     uint_pow = int_pow

@@ -342,3 +342,17 @@ def test_uint_invert():
     for value in range(s, s+1024, 64):
         i = r_uint(value)
         assert str(f(i)) == str(fn(i))
+
+def test_int_abs():
+    def int_abs_(n):
+        return abs(n)
+    f = compile_function(int_abs_, [int])
+    for i in (-25, 0, 75):
+        assert f(i) == int_abs_(i)
+                                                                        
+def test_float_abs():
+    def float_abs_(n):
+        return abs(n)
+    f = compile_function(float_abs_, [float])
+    for i in (-100.1 -50.2, -0.0, 0.0, 25.3, 50.4):
+        assert f(i) == float_abs_(i)
