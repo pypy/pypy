@@ -209,14 +209,6 @@ class OpWriter(object):
         self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
     same_as = cast_primitive
 
-    #cast_bool_to_char  = cast_bool_to_int  = cast_bool_to_uint = cast_bool_to_float = cast_bool_to_unichar  = cast_primitive
-    #cast_char_to_bool  = cast_char_to_int  = cast_char_to_uint = cast_char_to_float = cast_char_to_unichar  = cast_primitive
-    #cast_int_to_bool   = cast_int_to_char  = cast_int_to_uint  = cast_int_to_float  = cast_int_to_unichar   = cast_primitive
-    #cast_uint_to_bool  = cast_uint_to_char = cast_uint_to_int  = cast_uint_to_float = cast_uint_to_unichar  = cast_primitive
-    #cast_float_to_bool = cast_float_to_char= cast_float_to_int = cast_float_to_uint = cast_float_to_unichar = cast_primitive
-    #cast_unichar_to_bool=cast_unichar_to_char=cast_unichar_to_int=cast_unichar_to_uint=cast_unichar_to_float= cast_primitive
-    #cast_pointer = cast_primitive
-
     def int_is_true(self, op):
         self.codewriter.binaryop("setne",
                                  self.db.repr_arg(op.result),
