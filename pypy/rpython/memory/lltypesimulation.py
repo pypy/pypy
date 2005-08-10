@@ -278,12 +278,10 @@ def functionptr(TYPE, name, **attrs):
         hash(tuple(attrs.items()))
     except TypeError:
         raise TypeError("'%r' must be hashable"%attrs)
-    addr = lladdress.raw_malloc(get_total_size(TYPE))
-    addr.address[0] = lladdress.get_address_of_object(
+    addr = lladdress.get_address_of_object(
         lltype._func(TYPE, _name=name, **attrs))
     return simulatorptr(lltype.Ptr(TYPE), addr)
 
 def pyobjectptr(obj):
-    addr = lladdress.raw_malloc(get_total_size(lltype.PyObject))
-    addr.address[0] = lladdress.get_address_of_object(lltype._pyobject(obj))
-    return simulatorptr(lltype.Ptr(lltype.PyObject), addr) 
+    addr = lladdress.get_address_of_object(lltype._pyobject(obj))
+    return simulatorptr(lltype.Ptr(lltype.PyObject), addr)
