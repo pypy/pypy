@@ -20,6 +20,13 @@ def to_lvalue( ast_node, OP ):
         for node in ast_node.getChildren():
             nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
         return ast.AssTuple(nodes)
+    elif isinstance(ast_node, ast.Getattr):
+        expr = ast_node.expr
+        attrname = ast_node.attrname
+        return ast.AssAttr(expr, attrname, OP)
+    elif isinstance(ast_node, ast.Subscript):
+        ast_node.flags = OP
+        return ast_node        
     else:
         assert False, "TODO"
 
@@ -119,8 +126,21 @@ def build_power(builder, nb):
     if len(L) == 1:
         builder.push( L[0] )
     elif len(L) == 2:
-        arguments, stararg, dstararg = L[1].value
-        builder.push(ast.CallFunc(L[0], arguments, stararg, dstararg))
+        if isinstance(L[1], ArglistObject):
+            arguments, stararg, dstararg = L[1].value
+            builder.push(ast.CallFunc(L[0], arguments, stararg, dstararg))
+        elif isinstance(L[1], SubscriptObject):
+            subs = L[1].value
+            builder.push(ast.Subscript(L[0], consts.OP_APPLY, subs))
+        elif isinstance(L[1], SlicelistObject):
+            if L[1].name == 'slice':
+                start = L[1].value[0]
+                end = L[1].value[1]
+                builder.push(ast.Slice(L[0], consts.OP_APPLY, start, end))
+            else: # sliceobj (with 'step' argument)
+                builder.push(ast.Subscript(L[0], consts.OP_APPLY, [ast.Sliceobj(L[1].value)]))
+        else:
+            assert False, "TODO"
     elif len(L) == 3:
         if isinstance(L[1], TokenObject) and L[1].name == tok.DOT:
             builder.push(ast.Getattr(L[0], L[2].value))
@@ -326,11 +346,6 @@ def build_return_stmt(builder, nb):
 def build_file_input(builder, nb):
     # FIXME: need to handle docstring !
     doc = None
-    # doc = self.get_docstring(nodelist, symbol.file_input)
-    # if doc is not None:
-    #     i = 1
-    # else:
-    #     i = 0
     stmts = []
     L = get_atoms(builder, nb)
     for node in L:
@@ -343,7 +358,9 @@ def build_file_input(builder, nb):
             continue
         else:
             stmts.append(node)
-    return builder.push(ast.Module(doc, ast.Stmt(stmts)))
+    main_stmt = ast.Stmt(stmts)
+    doc = get_docstring(main_stmt)
+    return builder.push(ast.Module(doc, main_stmt))
 
 def build_single_input( builder, nb ):
     L = get_atoms( builder, nb )
@@ -394,6 +411,14 @@ def build_trailer(builder, nb):
         elif len(L) == 3: # '(' Arglist ')'
             # push arglist on the stack
             builder.push(L[1])
+    elif L[0].name == tok.LSQB:
+        if isinstance(L[1], SlicelistObject):
+            builder.push(L[1])
+        else:
+            subs = []
+            for index in range(1, len(L), 2):
+                subs.append(L[index])
+            builder.push(SubscriptObject('subscript', subs, None))
     elif len(L) == 2:
         # Attribute access: '.' NAME
         # XXX Warning: fails if trailer is used in lvalue
@@ -407,7 +432,46 @@ def build_arglist(builder, nb):
     L = get_atoms(builder, nb)
     builder.push(ArglistObject('arglist', parse_argument(L), None))
 
+def build_subscript(builder, nb):
+    """'.' '.' '.' | [test] ':' [test] [':' [test]] | test"""
+    L = get_atoms(builder, nb)
+    if isinstance(L[0], TokenObject) and L[0].name == tok.DOT:
+        # Ellipsis:
+        builder.push(ast.Ellipsis())
+    elif len(L) == 1:
+        token = L[0]
+        if isinstance(token, TokenObject) and token.name == tok.COLON:
+            builder.push(SlicelistObject('slice', [None, None, None], None))
+        else:
+            # test
+            builder.push(L[0])
+    else: # elif len(L) > 1:
+        items = []
+        sliceinfos = [None, None, None]
+        infosindex = 0
+        subscript_type = 'subscript'
+        for token in L:
+            if isinstance(token, TokenObject):
+                if token.name == tok.COLON:
+                    infosindex += 1
+                    subscript_type = 'slice'
+                # elif token.name == tok.COMMA:
+                #     subscript_type = 'subscript'
+                else:
+                    items.append(token)
+                    sliceinfos[infosindex] = token
+            else:
+                items.append(token)
+                sliceinfos[infosindex] = token
+        if subscript_type == 'slice':
+            if infosindex == 2:
+                builder.push(SlicelistObject('sliceobj', sliceinfos, None))
+            else:
+                builder.push(SlicelistObject('slice', sliceinfos, None))
+        else:
+            builder.push(SubscriptObject('subscript', items, None))
 
+        
 def build_listmaker(builder, nb):
     """listmaker: test ( list_for | (',' test)* [','] )"""
     L = get_atoms(builder, nb)
@@ -440,8 +504,9 @@ def build_funcdef(builder, nb):
     funcname = L[1].value
     arglist = L[2]
     code = L[-1]
+    doc = get_docstring(code)
     # FIXME: decorators and docstring !
-    builder.push(ast.Function(None, funcname, names, default, flags, None, code))
+    builder.push(ast.Function(None, funcname, names, default, flags, doc, code))
 
 
 def build_classdef(builder, nb):
@@ -461,7 +526,8 @@ def build_classdef(builder, nb):
         for node in base.nodes:
             assert isinstance(node, ast.Name)
             basenames.append(node)
-    builder.push(ast.Class(classname, basenames, None, body))
+    doc = get_docstring(body)
+    builder.push(ast.Class(classname, basenames, doc, body))
 
 def build_suite(builder, nb):
     """suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT"""
@@ -628,8 +694,14 @@ def build_continue_stmt(builder, nb):
 
 def build_del_stmt(builder, nb):
     L = get_atoms(builder, nb)
-    assert isinstance(L[1], ast.Name), "build_del_stmt implementation is incomplete !"
-    builder.push(ast.AssName(L[1].name, consts.OP_DELETE))
+    builder.push(to_lvalue(L[1], consts.OP_DELETE))
+##     if isinstance(L[1], ast.Name):
+##         builder.push(ast.AssName(L[1].name, consts.OP_DELETE))
+##     elif isinstance(L[1], ast.Getattr):
+##         assert "TODO", "build_del_stmt implementation is incomplete !"
+##     else:
+##         assert "TODO", "build_del_stmt implementation is incomplete !"
+        
 
 def build_assert_stmt(builder, nb):
     """assert_stmt: 'assert' test [',' test]"""
@@ -920,6 +992,27 @@ def parse_genexpr_for(tokens):
     return genexpr_fors
 
 
+def get_docstring(stmt):
+    """parses a Stmt node.
+    
+    If a docstring if found, the Discard node is **removed**
+    from <stmt> and the docstring is returned.
+
+    If no docstring is found, <stmt> is left unchanged
+    and None is returned
+    """
+    if not isinstance(stmt, ast.Stmt):
+        return None
+    doc = None
+    first_child = stmt.nodes[0]
+    if isinstance(first_child, ast.Discard):
+        expr = first_child.expr
+        if isinstance(expr, ast.Const):
+            # This *is* a docstring, remove it from stmt list
+            del stmt.nodes[0]
+            doc = expr.value
+    return doc
+
 ASTRULES = {
 #    "single_input" : build_single_input,
     sym.atom : build_atom,
@@ -946,6 +1039,7 @@ ASTRULES = {
     sym.varargslist : build_varargslist,
     sym.trailer : build_trailer,
     sym.arglist : build_arglist,
+    sym.subscript : build_subscript,
     sym.listmaker : build_listmaker,
     sym.funcdef : build_funcdef,
     sym.classdef : build_classdef,
@@ -1027,6 +1121,39 @@ class ArglistObject(ast.Node):
     
     def __repr__(self):
         return "<ArgList: (%s, %s, %s)>" % self.value
+    
+
+class SubscriptObject(ast.Node):
+    """helper class to build function's arg list"""
+    def __init__(self, name, value, src):
+        self.name = name
+        self.value = value
+        self.count = 0
+        self.line = 0 # src.getline()
+        self.col = 0  # src.getcol()
+
+    def __str__(self):
+        return "<SubscriptList: (%s)>" % self.value
+    
+    def __repr__(self):
+        return "<SubscriptList: (%s)>" % self.value
+
+class SlicelistObject(ast.Node):
+    def __init__(self, name, value, src):
+        self.name = name
+        self.value = value
+##         self.begin = value[0]
+##         self.end = value[1]
+##         self.step = value[2]
+        self.count = 0
+        self.line = 0 # src.getline()
+        self.col = 0  # src.getcol()
+
+    def __str__(self):
+        return "<SliceList: (%s)>" % self.value
+    
+    def __repr__(self):
+        return "<SliceList: (%s)>" % self.value
     
 
 class AstBuilderContext(AbstractContext):

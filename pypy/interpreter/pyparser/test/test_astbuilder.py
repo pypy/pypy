@@ -25,7 +25,10 @@ expressions = [
     "x, y, z = 1, 2, 3",
     "x = 'a' 'b' 'c'",
     "del foo",
-    # "del foo[bar]",
+    "del foo[bar]",
+    "del foo.bar",
+    "l[0]",
+    "m[a,b]",
 ]
 
 funccalls = [
@@ -98,8 +101,16 @@ multiexpr = [
     ]
 
 attraccess = [
-    # 'a.b = 2', # Module(None, Stmt([Assign([AssAttr(Name('a'), 'b', 'OP_ASSIGN')], Const(2))]))
+    'a.b = 2',
     'x = a.b',
+    ]
+
+slices = [
+    "l[:]",
+    "l[1:2]",
+    "l[1:]",
+    "l[:2]",
+    "l[0:1:2]",
     ]
 
 imports = [
@@ -252,6 +263,19 @@ one_stmt_funcdefs = [
     "def f(**kwargs): return 1",
     ]
 
+docstrings = [
+    '''def foo():
+    """foo docstring"""
+    return 1
+    ''',
+    '''def foo():
+    """foo docstring"""
+    a = 1
+    """bar"""
+    return a
+    '''
+    ]
+
 TESTS = [
     expressions,
     comparisons,
@@ -262,6 +286,7 @@ TESTS = [
     dictmakers,
     multiexpr,
     attraccess,
+    slices,
     imports,
     asserts,
     execs,
@@ -274,6 +299,7 @@ EXEC_INPUTS = [
     one_stmt_funcdefs,
     if_stmts,
     tryexcepts,
+    docstrings,
     ]
 
 TARGET_DICT = {
@@ -324,6 +350,8 @@ SNIPPETS = [
     'snippet_generator.py',
     'snippet_exceptions.py',
     'snippet_classes.py',
+    'snippet_simple_class.py',
+    'snippet_docstring.py'
 #    'snippet_2.py',
 #    'snippet_3.py',
 #    'snippet_4.py',
@@ -340,7 +368,6 @@ SNIPPETS = [
 #    'snippet_redirected_prints.py',
 #    'snippet_samples.py',
 #    'snippet_simple_assignment.py',
-#    'snippet_simple_class.py',
 #    'snippet_simple_in_expr.py',
 #    'snippet_slice.py',
 #    'snippet_whitespaces.py',
