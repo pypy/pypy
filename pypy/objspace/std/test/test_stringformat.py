@@ -156,3 +156,9 @@ class AppTestWidthPrec:
         assert "%*.*s"%( 5, 3, 'abc') ==    '  abc'
         assert "%*.*s"%( 5, 3, 'abcde') ==  '  abc'
         assert "%*.*s"%(-5, 3, 'abcde') ==  'abc  '
+
+    def test_too_long(self):
+        def f(fmt, x):
+            return fmt % x
+        raises(OverflowError, f, "%.70f", 2.0)
+        raises(OverflowError, f, "%.110g", 2.0)

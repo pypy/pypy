@@ -379,5 +379,7 @@ def parts_to_float(sign, beforept, afterpt, exponent):
 
 # float -> string
 
+formatd_max_length = 120
+
 def formatd(fmt, x):
     return fmt % (x,)

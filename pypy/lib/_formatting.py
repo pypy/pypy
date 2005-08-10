@@ -242,9 +242,8 @@ class FloatFormatter(Formatter):
         return self.numeric_postprocess(r, sign)
 
     def _formatd(self, kind, v):
-        fmt = '%' + (self.flags.f_alt and '#' or '') + '.' + str(self.prec) + kind
         import __builtin__
-        return __builtin__._formatd(fmt, v)
+        return __builtin__._formatd(self.flags.f_alt, self.prec, kind, v)
 
 class FloatFFormatter(FloatFormatter):
     def _format(self, v):
