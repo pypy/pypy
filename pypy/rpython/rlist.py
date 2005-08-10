@@ -103,6 +103,7 @@ class ListRepr(Repr):
 
     def rtype_method_append(self, hop):
         v_lst, v_value = hop.inputargs(self, self.item_repr)
+        hop.exception_cannot_occur()
         hop.gendirectcall(ll_append, v_lst, v_value)
 
     def rtype_method_index(self, hop):
