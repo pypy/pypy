@@ -1,5 +1,6 @@
 
-import math 
+import math
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 
 class State: 
@@ -9,7 +10,33 @@ class State:
 def get(space): 
     return space.fromcache(State) 
 
-def pow(space, x, y): 
+def math1(space, f, x):
+    try:
+        y = f(x)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("math range error"))
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("math domain error"))
+    return space.wrap(y)
+math1._annspecialcase_ = 'specialize:arg1'
+
+
+def math2(space, f, x, y):
+    try:
+        r = f(x, y)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("math range error"))
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("math domain error"))
+    return space.wrap(r)
+math2._annspecialcase_ = 'specialize:arg1'    
+
+def pow(space, x, y): # xxx sort out the exception semantics of this, here in the backend and in floatobject
+                      # do we want math.pow here?
     """pow(x,y)
        
        Return x**y (x to the power of y).
@@ -22,7 +49,7 @@ def cosh(space, x):
        
        Return the hyperbolic cosine of x.
     """
-    return space.wrap(math.cosh(x))
+    return math1(space, math.cosh, x)
 cosh.unwrap_spec = [ObjSpace, float]
 
 def ldexp(space, x,  i): 
@@ -36,7 +63,7 @@ def hypot(space, x, y):
        
        Return the Euclidean distance, sqrt(x*x + y*y).
     """
-    return space.wrap(math.hypot(x, y))
+    return math2(space, math.hypot, x, y)
 hypot.unwrap_spec = [ObjSpace, float, float]
 
 def tan(space, x): 
@@ -44,7 +71,7 @@ def tan(space, x):
        
        Return the tangent of x (measured in radians).
     """
-    return space.wrap(math.tan(x))
+    return math1(space, math.tan, x)
 tan.unwrap_spec = [ObjSpace, float]
 
 def asin(space, x): 
@@ -52,7 +79,7 @@ def asin(space, x):
        
        Return the arc sine (measured in radians) of x.
     """
-    return space.wrap(math.asin(x))
+    return math1(space, math.asin, x)
 asin.unwrap_spec = [ObjSpace, float]
 
 def log(space, x,  w_base=NoneNotWrapped):
@@ -70,7 +97,7 @@ def fabs(space, x):
        
        Return the absolute value of the float x.
     """
-    return space.wrap(math.fabs(x))
+    return math1(space, math.fabs, x)
 fabs.unwrap_spec = [ObjSpace, float]
 
 def floor(space, x): 
@@ -79,7 +106,7 @@ def floor(space, x):
        Return the floor of x as a float.
        This is the largest integral value <= x.
     """
-    return space.wrap(math.floor(x))
+    return math1(space, math.floor, x)
 floor.unwrap_spec = [ObjSpace, float]
 
 def sqrt(space, x): 
@@ -87,7 +114,7 @@ def sqrt(space, x):
        
        Return the square root of x.
     """
-    return space.wrap(math.sqrt(x))
+    return math1(space, math.sqrt, x)
 sqrt.unwrap_spec = [ObjSpace, float]
 
 def frexp(space, x): 
@@ -106,13 +133,13 @@ degToRad = math.pi / 180.0
 def degrees(space, x): 
     """degrees(x) -> converts angle x from radians to degrees
     """
-    return space.wrap(x * degToRad)
+    return space.wrap(x / degToRad)
 degrees.unwrap_spec = [ObjSpace, float]
 
 def log10(space, x): 
     """log10(x) -> the base 10 logarithm of x.
     """
-    return space.wrap(math.log10(x))
+    return math1(space, math.log10, x)
 log10.unwrap_spec = [ObjSpace, float]
 
 def fmod(space, x, y): 
@@ -120,7 +147,7 @@ def fmod(space, x, y):
        
        Return fmod(x, y), according to platform C.  x % y may differ.
     """
-    return space.wrap(math.fmod(x, y))
+    return math2(space, math.fmod, x, y)
 fmod.unwrap_spec = [ObjSpace, float, float]
 
 def atan(space, x): 
@@ -128,7 +155,7 @@ def atan(space, x):
        
        Return the arc tangent (measured in radians) of x.
     """
-    return space.wrap(math.atan(x))
+    return math1(space, math.atan, x)
 atan.unwrap_spec = [ObjSpace, float]
 
 def ceil(space, x): 
@@ -137,7 +164,7 @@ def ceil(space, x):
        Return the ceiling of x as a float.
        This is the smallest integral value >= x.
     """
-    return space.wrap(math.ceil(x))
+    return math1(space, math.ceil, x)
 ceil.unwrap_spec = [ObjSpace, float]
 
 def sinh(space, x): 
@@ -145,7 +172,7 @@ def sinh(space, x):
        
        Return the hyperbolic sine of x.
     """
-    return space.wrap(math.sinh(x))
+    return math1(space, math.sinh, x)
 sinh.unwrap_spec = [ObjSpace, float]
 
 def cos(space, x): 
@@ -153,7 +180,7 @@ def cos(space, x):
        
        Return the cosine of x (measured in radians).
     """
-    return space.wrap(math.cos(x))
+    return math1(space, math.cos, x)
 cos.unwrap_spec = [ObjSpace, float]
 
 def tanh(space, x): 
@@ -161,13 +188,13 @@ def tanh(space, x):
        
        Return the hyperbolic tangent of x.
     """
-    return space.wrap(math.tanh(x))
+    return math1(space, math.tanh, x)
 tanh.unwrap_spec = [ObjSpace, float]
 
 def radians(space, x): 
     """radians(x) -> converts angle x from degrees to radians
     """
-    return space.wrap(x / degToRad)
+    return space.wrap(x * degToRad)
 radians.unwrap_spec = [ObjSpace, float]
 
 def sin(space, x): 
@@ -175,7 +202,7 @@ def sin(space, x):
        
        Return the sine of x (measured in radians).
     """
-    return space.wrap(math.sin(x))
+    return math1(space, math.sin, x)
 sin.unwrap_spec = [ObjSpace, float]
 
 def atan2(space, y,  x): 
@@ -184,7 +211,7 @@ def atan2(space, y,  x):
        Return the arc tangent (measured in radians) of y/x.
        Unlike atan(y/x), the signs of both x and y are considered.
     """
-    return space.wrap(math.atan2(y,  x))
+    return math2(space, math.atan2, y,  x)
 atan2.unwrap_spec = [ObjSpace, float, float]
 
 def modf(space, x): 
@@ -202,7 +229,7 @@ def exp(space, x):
        
        Return e raised to the power of x.
     """
-    return space.wrap(math.exp(x))
+    return math1(space, math.exp, x)
 exp.unwrap_spec = [ObjSpace, float]
 
 def acos(space, x): 
@@ -210,5 +237,5 @@ def acos(space, x):
        
        Return the arc cosine (measured in radians) of x.
     """
-    return space.wrap(math.acos(x))
+    return math1(space, math.acos, x)
 acos.unwrap_spec = [ObjSpace, float]
