@@ -83,9 +83,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_instance = W_TypeObject(self, 'instance', [self.w_object], {})
         self.setup_old_style_classes()
 
-        # early bootstrap for marshal
-        self.sys.setmodule(self.setup_marshal())
-
         # fix up a problem where multimethods apparently don't 
         # like to define this at interp-level 
         self.appexec([self.w_dict], """
@@ -133,10 +130,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.call_function(w_purify)
         self.w_classobj = w_classobj
         self.w_instance = w_instance
-
-    def setup_marshal(self):
-        w_mod, w_dic = self.create_builtin_module('_marshal.py', 'marshal')
-        return w_mod
 
     def create_builtin_module(self, pyname, publicname):
         """NOT_RPYTHON
