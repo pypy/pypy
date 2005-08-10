@@ -146,6 +146,23 @@ def build_power(builder, nb):
             builder.push(ast.Getattr(L[0], L[2].value))
         else:
             builder.push(ast.Power([L[0], L[2]]))
+    # FIXME: find a more general way to do this
+    elif isinstance(L[-1], ArglistObject):
+        # for an expression like 'a.b.c.append(3)', we want ['a', 'b', 'c']
+        names = []
+        for index in range(0, len(L)-1, 2):
+            names.append(L[index])
+        while len(names) > 1:
+            left = names.pop(0)
+            right = names.pop(0)
+            assert isinstance(right, TokenObject)
+            names.insert(0, ast.Getattr(left, right.value))
+        left = names[0]
+        arglist = L[-1]
+        assert isinstance(arglist, ArglistObject)
+        arguments, stararg, dstararg = arglist.value
+        builder.push(ast.CallFunc(left, arguments, stararg, dstararg))
+    # FIXME: isinstance(L[-1], (SubscriptObject, SliceObject))
     else:
         raise ValueError, "unexpected tokens: %s" % L
 
@@ -1004,13 +1021,14 @@ def get_docstring(stmt):
     if not isinstance(stmt, ast.Stmt):
         return None
     doc = None
-    first_child = stmt.nodes[0]
-    if isinstance(first_child, ast.Discard):
-        expr = first_child.expr
-        if isinstance(expr, ast.Const):
-            # This *is* a docstring, remove it from stmt list
-            del stmt.nodes[0]
-            doc = expr.value
+    if len(stmt.nodes):
+        first_child = stmt.nodes[0]
+        if isinstance(first_child, ast.Discard):
+            expr = first_child.expr
+            if isinstance(expr, ast.Const):
+                # This *is* a docstring, remove it from stmt list
+                del stmt.nodes[0]
+                doc = expr.value
     return doc
 
 ASTRULES = {
