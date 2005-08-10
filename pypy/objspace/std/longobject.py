@@ -1658,3 +1658,15 @@ def _decimalstr_to_long(space, s):
     if sign:
         a.sign = -1
     return a
+
+def _count_bits(a):
+    # return the number of bits in the digits
+    if a.sign == 0:
+        return 0
+    p = len(a.digits) - 1
+    bits = SHIFT * p
+    digit = a.digits[p]
+    while digit:
+        digit >>= 1
+        bits += 1
+    return bits
