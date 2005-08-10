@@ -549,7 +549,6 @@ class _OpcodeDispatcher(_Dispatcher):
     def __init__(self):
         self.executing_contexts = {}
         self.at_dispatcher = _AtcodeDispatcher()
-        self.ch_dispatcher = _ChcodeDispatcher()
         self.set_dispatcher = _CharsetDispatcher()
         
     def match(self, context):
@@ -643,7 +642,8 @@ class _OpcodeDispatcher(_Dispatcher):
         # match at given category
         # <CATEGORY> <code>
         #self._log(ctx, "CATEGORY", ctx.peek_code(1))
-        if ctx.at_end() or not self.ch_dispatcher.dispatch(ctx.peek_code(1), ctx):
+        if ctx.at_end() or \
+                 not _sre._category_dispatch(ctx.peek_code(1), ctx.peek_char()):
             ctx.has_matched = False
             return True
         ctx.skip_code(2)
@@ -1083,9 +1083,6 @@ _OpcodeDispatcher.build_dispatch_table(OPCODES, "op_")
 
 class _CharsetDispatcher(_Dispatcher):
 
-    def __init__(self):
-        self.ch_dispatcher = _ChcodeDispatcher()
-
     def reset(self, char):
         self.char = char
         self.ok = True
@@ -1100,7 +1097,7 @@ class _CharsetDispatcher(_Dispatcher):
             ctx.skip_code(2)
     def set_category(self, ctx):
         # <CATEGORY> <code>
-        if self.ch_dispatcher.dispatch(ctx.peek_code(1), ctx):
+        if _sre._category_dispatch(ctx.peek_code(1), ctx.peek_char()):
             return self.ok
         else:
             ctx.skip_code(2)
@@ -1181,50 +1178,6 @@ class _AtcodeDispatcher(_Dispatcher):
         return False
 
 _AtcodeDispatcher.build_dispatch_table(ATCODES, "")
-
-
-class _ChcodeDispatcher(_Dispatcher):
-
-    def category_digit(self, ctx):
-        return _sre._is_digit(ctx.peek_char())
-    def category_not_digit(self, ctx):
-        return not _sre._is_digit(ctx.peek_char())
-    def category_space(self, ctx):
-        return _sre._is_space(ctx.peek_char())
-    def category_not_space(self, ctx):
-        return not _sre._is_space(ctx.peek_char())
-    def category_word(self, ctx):
-        return _sre._is_word(ctx.peek_char())
-    def category_not_word(self, ctx):
-        return not _sre._is_word(ctx.peek_char())
-    def category_linebreak(self, ctx):
-        return _sre._is_linebreak(ctx.peek_char())
-    def category_not_linebreak(self, ctx):
-        return not _sre._is_linebreak(ctx.peek_char())
-    def category_loc_word(self, ctx):
-        return _sre._is_loc_word(ctx.peek_char())
-    def category_loc_not_word(self, ctx):
-        return not _sre._is_loc_word(ctx.peek_char())
-    def category_uni_digit(self, ctx):
-        return ctx.peek_char().isdigit()
-    def category_uni_not_digit(self, ctx):
-        return not ctx.peek_char().isdigit()
-    def category_uni_space(self, ctx):
-        return ctx.peek_char().isspace()
-    def category_uni_not_space(self, ctx):
-        return not ctx.peek_char().isspace()
-    def category_uni_word(self, ctx):
-        return _sre._is_uni_word(ctx.peek_char())
-    def category_uni_not_word(self, ctx):
-        return not _sre._is_uni_word(ctx.peek_char())
-    def category_uni_linebreak(self, ctx):
-        return _sre._is_uni_linebreak(ctx.peek_char())
-    def category_uni_not_linebreak(self, ctx):
-        return not _sre._is_uni_linebreak(ctx.peek_char())
-    def unknown(self, ctx):
-        return False
-
-_ChcodeDispatcher.build_dispatch_table(CHCODES, "")
 
 
 def _log(message):
