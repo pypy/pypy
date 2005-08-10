@@ -271,6 +271,8 @@ def divmod__Float_Float(space, w_float1, w_float2):
     return space.newtuple(_divmod_w(space, w_float1, w_float2))
 
 def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
+    # XXX it makes sense to do more here than in the backend
+    # about sorting out errors!
     if not space.is_w(thirdArg, space.w_None):
         raise FailedToImplement(space.w_TypeError, space.wrap(
             "pow() 3rd argument not allowed unless all arguments are integers"))
@@ -281,9 +283,10 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError, space.wrap("float power"))
     except ValueError, e:
-        raise FailedToImplement(space.w_ValueError, space.wrap(str(e)))
-    except ZeroDivisionError, e:   # (0.0 ** -1)
-        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
+        raise FailedToImplement(space.w_ValueError, space.wrap(str(e))) # xxx
+    except ZeroDivisionError, e:   
+        raise OperationError(space.w_ZeroDivisionError,
+                             space.wrap("0.0 cannot be raised to a negative power"))        
 
     return W_FloatObject(space, z)
 
