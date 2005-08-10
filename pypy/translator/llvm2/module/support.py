@@ -98,13 +98,8 @@ is_not_0:
 
 
 int_ovf_test = """
-    ;integer overflow test
-    %cond2 = setge int %x, 0
-    br bool %cond2, label %return_block, label %block2
-block2:
-    %xneg = sub int 0, %x
-    %cond3 = setne int %x, %xneg
-    br bool %cond3, label %return_block, label %ovf
+    %cond2 = setne int %x, -2147483648  ;-sys.maxint-1
+    br bool %cond2, label %return_block, label %ovf
 ovf:
     call fastcc void %__prepare_OverflowError()
     unwind
@@ -131,7 +126,7 @@ block1:
     %%x2 = sub int 0, %%x
     %(int_ovf_test)s
 return_block:
-    %%result = phi int [%%x, %%block0], [%%x2, %%block1], [%%x2, %%block2]
+    %%result = phi int [%%x, %%block0], [%%x2, %%block1]
     ret int %%result
 }
 """ % locals())

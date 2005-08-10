@@ -139,7 +139,6 @@ def test_zerodivrem_uint():
         assert f(i) == zerodivrem_uint(i)
 
 def test_neg_int_ovf():
-    py.test.skip("test failing probably because llvm things x != -x is always true")    
     def neg_int_ovf(n):
         try:
             r=ovfcheck(-n)
@@ -151,7 +150,6 @@ def test_neg_int_ovf():
         assert f(i) == neg_int_ovf(i)
 
 def test_abs_int_ovf():
-    py.test.skip("test failing probably because llvm things x != -x is always true")    
     def abs_int_ovf(n):
         try:
             r=ovfcheck(abs(n))
