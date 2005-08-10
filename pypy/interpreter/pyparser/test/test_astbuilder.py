@@ -162,6 +162,84 @@ globs = [
     'global a,b,c',
     ]
 
+raises = [
+    'raise',
+    'raise ValueError',
+    'raise ValueError("error")',
+    'raise ValueError, "error"',
+    'raise ValueError, "error", foo',
+    ]
+
+tryexcepts = [
+    """try:
+    a
+    b
+except:
+    pass
+""",
+    """try:
+    a
+    b
+except NameError:
+    pass
+""",
+    """try:
+    a
+    b
+except NameError, err:
+    pass
+""",
+    """try:
+    a
+    b
+except (NameError, ValueError):
+    pass
+""",
+    """try:
+    a
+    b
+except (NameError, ValueError), err:
+    pass
+""",
+    """try:
+    a
+except NameError, err:
+    pass
+except ValueError, err:
+    pass
+""",
+    """try:
+    a
+except NameError, err:
+    a = 1
+    b = 2
+except ValueError, err:
+    a = 2
+    return a
+"""
+    """try:
+    a
+except NameError, err:
+    a = 1
+except ValueError, err:
+    a = 2
+else:
+    a += 3
+""",
+    """try:
+    a
+finally:
+    b
+""",
+    """try:
+    return a
+finally:
+    a = 3
+    return 1
+""",
+
+    ]
+    
 one_stmt_funcdefs = [
     "def f(): return 1",
     "def f(x): return x+1",
@@ -189,11 +267,13 @@ TESTS = [
     execs,
     prints,
     globs,
+    raises,
     ]
 
 EXEC_INPUTS = [
     one_stmt_funcdefs,
     if_stmts,
+    tryexcepts,
     ]
 
 TARGET_DICT = {
@@ -242,6 +322,7 @@ SNIPPETS = [
     'snippet_while.py',
     'snippet_import_statements.py',
     'snippet_generator.py',
+    'snippet_exceptions.py',
 #    'snippet_2.py',
 #    'snippet_3.py',
 #    'snippet_4.py',

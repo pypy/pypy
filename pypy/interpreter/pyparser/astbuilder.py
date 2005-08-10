@@ -665,6 +665,79 @@ def build_global_stmt(builder, nb):
         names.append(token.value)
     builder.push(ast.Global(names))
 
+
+def build_raise_stmt(builder, nb):
+    """raise_stmt: 'raise' [test [',' test [',' test]]]"""
+    L = get_atoms(builder, nb)
+    l = len(L)
+    expr1 = None
+    expr2 = None
+    expr3 = None
+    if l >= 2:
+        expr1 = L[1]
+        if l >= 4:
+            expr2 = L[3]
+            if l == 6:
+                expr3 = L[5]
+    builder.push(ast.Raise(expr1, expr2, expr3))
+
+def build_try_stmt(builder, nb):
+    """
+    try_stmt: ('try' ':' suite (except_clause ':' suite)+ #diagram:break
+               ['else' ':' suite] | 'try' ':' suite 'finally' ':' suite)
+    # NB compile.c makes sure that the default except clause is last
+    except_clause: 'except' [test [',' test]]
+   
+    """
+    L = get_atoms(builder, nb)
+    l = len(L)
+    handlers = []
+    else_ = None
+    body = L[2]
+    token = L[3]
+    assert isinstance(token, TokenObject)
+    if token.value == 'finally':
+        builder.push(ast.TryFinally(body, L[5]))
+    else: # token.value == 'except'
+        index = 3
+        while index < l and L[index].value == 'except':
+            tokens_read, expr1, expr2, except_body = parse_except_clause(L[index:])
+            handlers.append((expr1, expr2, except_body))
+            index += tokens_read
+        if index < l:
+            token = L[index]
+            assert isinstance(token, TokenObject)
+            assert token.value == 'else'
+            else_ = L[index+2] # skip ':'
+        builder.push(ast.TryExcept(body, handlers, else_))
+
+
+def parse_except_clause(tokens):
+    """parses 'except' [test [',' test]] ':' suite
+    and returns a 4-tuple : (tokens_read, expr1, expr2, except_body)
+    """
+    clause_length = 1
+    # Read until end of except clause (bound by following 'else',
+    # or 'except' or end of tokens)
+    while clause_length < len(tokens):
+        token = tokens[clause_length]
+        if isinstance(token, TokenObject) and \
+           (token.value == 'except' or token.value == 'else'):
+            break
+        clause_length += 1
+    # if clause_length >= len(tokens):
+    #     raise Exception
+    if clause_length == 3:
+        # case 'except: body'
+        return (3, None, None, tokens[2])
+    elif clause_length == 4:
+        # case 'except Exception: body':
+        return (4, tokens[1], None, tokens[3])
+    else:
+        # case 'except Exception, exc: body'
+        return (6, tokens[1], to_lvalue(tokens[3], consts.OP_ASSIGN), tokens[5])
+
+
 def parse_dotted_names(tokens):
     """parses NAME('.' NAME)* and returns full dotted name
 
@@ -872,6 +945,8 @@ ASTRULES = {
     sym.exec_stmt : build_exec_stmt,
     sym.print_stmt : build_print_stmt,
     sym.global_stmt : build_global_stmt,
+    sym.raise_stmt : build_raise_stmt,
+    sym.try_stmt : build_try_stmt,
     # sym.parameters : build_parameters,
     }
 
