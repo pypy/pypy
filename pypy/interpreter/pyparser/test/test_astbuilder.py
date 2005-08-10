@@ -157,6 +157,11 @@ prints = [
     'print >> err, "error", a',
     ]
 
+globs = [
+    'global a',
+    'global a,b,c',
+    ]
+
 one_stmt_funcdefs = [
     "def f(): return 1",
     "def f(x): return x+1",
@@ -182,7 +187,8 @@ TESTS = [
     imports,
     asserts,
     execs,
-    prints
+    prints,
+    globs,
     ]
 
 EXEC_INPUTS = [

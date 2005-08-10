@@ -655,6 +655,15 @@ def build_print_stmt(builder, nb):
     else:
         builder.push(ast.Printnl(items, dest))
 
+def build_global_stmt(builder, nb):
+    """global_stmt: 'global' NAME (',' NAME)*"""
+    L = get_atoms(builder, nb)
+    names = []
+    for index in range(1, len(L), 2):
+        token = L[index]
+        assert isinstance(token, TokenObject)
+        names.append(token.value)
+    builder.push(ast.Global(names))
 
 def parse_dotted_names(tokens):
     """parses NAME('.' NAME)* and returns full dotted name
@@ -862,6 +871,7 @@ ASTRULES = {
     sym.assert_stmt : build_assert_stmt,
     sym.exec_stmt : build_exec_stmt,
     sym.print_stmt : build_print_stmt,
+    sym.global_stmt : build_global_stmt,
     # sym.parameters : build_parameters,
     }
 
