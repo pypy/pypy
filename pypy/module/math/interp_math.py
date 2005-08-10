@@ -22,10 +22,21 @@ def math1(space, f, x):
     return space.wrap(y)
 math1._annspecialcase_ = 'specialize:arg1'
 
-
-def math2(space, f, x, y):
+def math1_w(space, f, x):
     try:
-        r = f(x, y)
+        r = f(x)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("math range error"))
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("math domain error"))
+    return r
+math1_w._annspecialcase_ = 'specialize:arg1'
+
+def math2(space, f, x, snd):
+    try:
+        r = f(x, snd)
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("math range error"))
@@ -55,7 +66,7 @@ cosh.unwrap_spec = [ObjSpace, float]
 def ldexp(space, x,  i): 
     """ldexp(x, i) -> x * (2**i)
     """
-    return space.wrap(math.ldexp(x,  i))
+    return math2(space, math.ldexp, x,  i)
 ldexp.unwrap_spec = [ObjSpace, float, int]
 
 def hypot(space, x, y): 
@@ -86,10 +97,12 @@ def log(space, x,  w_base=NoneNotWrapped):
     """log(x[, base]) -> the logarithm of x to the given base.
        If the base not specified, returns the natural logarithm (base e) of x.
     """
+    num = math1_w(space, math.log, x) 
     if w_base is None:
-        return space.wrap(math.log(x))
+        return space.wrap(num)
     else:
-        return space.wrap(math.log(x) / math.log(space.float_w(w_base)))
+        den = math1_w(space, math.log, space.float_w(w_base))
+        return space.wrap(num / den)
 log.unwrap_spec = [ObjSpace, float, W_Root]
 
 def fabs(space, x): 
@@ -124,7 +137,7 @@ def frexp(space, x):
        m is a float and e is an int, such that x = m * 2.**e.
        If x is 0, m and e are both 0.  Else 0.5 <= abs(m) < 1.0.
     """
-    mant, expo = math.frexp(x)
+    mant, expo = math1_w(space, math.frexp, x)
     return space.newtuple([space.wrap(mant), space.wrap(expo)])
 frexp.unwrap_spec = [ObjSpace, float]
 
@@ -220,7 +233,7 @@ def modf(space, x):
        Return the fractional and integer parts of x.  Both results carry the sign
        of x.  The integer part is returned as a real.
     """
-    frac, intpart = math.modf(x)
+    frac, intpart = math1_w(space, math.modf, x)
     return space.newtuple([space.wrap(frac), space.wrap(intpart)])
 modf.unwrap_spec = [ObjSpace, float]
 
