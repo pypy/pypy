@@ -24,6 +24,7 @@ EXTERNALS = {
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_time.ll_time_sleep: 'LL_time_sleep',
     ll_time.ll_time_time:  'LL_time_time',
+    ll_math.ll_math_pow:   'LL_math_pow',
     ll_math.ll_math_frexp: 'LL_math_frexp',
     ll_math.ll_math_atan2: 'LL_math_atan2',
     ll_math.ll_math_fmod : 'LL_math_fmod',

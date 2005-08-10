@@ -141,6 +141,19 @@ def test_strerror():
     res = f1()
     assert res == os.strerror(2)
 
+def test_math_pow():
+    import math
+    def fn(x, y):
+        return math.pow(x, y)
+    f = compile(fn, [float, float])
+    assert f(2.0, 3.0) == math.pow(2.0, 3.0)
+    assert f(3.0, 2.0) == math.pow(3.0, 2.0)
+    assert f(2.3, 0.0) == math.pow(2.3, 0.0)
+    assert f(2.3, -1.0) == math.pow(2.3, -1.0)
+    assert f(2.3, -2.0) == math.pow(2.3, -2.0)
+    assert f(2.3, 0.5) == math.pow(2.3, 0.5)
+    assert f(4.0, 0.5) == math.pow(4.0, 0.5)    
+
 def test_math_frexp():
     from math import frexp
     def fn(x):

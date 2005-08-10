@@ -15,6 +15,9 @@ for name in simple_math_functions:
     ll_math_%(name)s.suggested_primitive = True
     """ % {"name": name}).compile()
 
+def ll_math_pow(x, y):
+    return math.pow(x, y)
+ll_math_pow.suggested_primitive = True
 
 FREXP_RESULT = lltype.GcStruct('tuple2', ('item0', lltype.Float),
                                ('item1', lltype.Signed))

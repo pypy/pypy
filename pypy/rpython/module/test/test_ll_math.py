@@ -36,3 +36,7 @@ def test_ll_math_fabs():
 def test_ll_math_fabs():
     assert ll_math_fabs(math.pi/3) == math.fabs(math.pi/3)
     assert ll_math_fabs(-math.pi/3) == math.fabs(-math.pi/3)
+
+def test_ll_math_pow():
+    assert ll_math_pow(2.0, 3.0) == math.pow(2.0, 3.0)
+    assert ll_math_pow(3.0, 2.0) == math.pow(3.0, 2.0)

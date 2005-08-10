@@ -100,6 +100,7 @@ declare(math.floor  , float         ,  'll_math/floor')
 declare(math.ldexp  , float         ,  'll_math/ldexp')
 declare(math.modf   , modfannotation, 'll_math/modf')
 declare(math.hypot  , float         , 'll_math/hypot')
+declare(math.pow    , float         , 'll_math/pow')
 
 # the following functions all take one float, return one float
 # and are part of math.h

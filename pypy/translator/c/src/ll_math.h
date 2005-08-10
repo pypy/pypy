@@ -11,6 +11,10 @@
 /* XXX completely ignoring exceptions/error checking for now */
 
 
+double LL_math_pow(double x, double y) {
+  return pow(x, y);
+}
+
 RPyFREXP_RESULT* LL_math_frexp(double x) {
   int expo;
   double m = frexp(x, &expo);
