@@ -612,6 +612,50 @@ def build_del_stmt(builder, nb):
     assert isinstance(L[1], ast.Name), "build_del_stmt implementation is incomplete !"
     builder.push(ast.AssName(L[1].name, consts.OP_DELETE))
 
+def build_assert_stmt(builder, nb):
+    """assert_stmt: 'assert' test [',' test]"""
+    L = get_atoms(builder, nb)
+    test = L[1]
+    if len(L) == 4:
+        fail = L[3]
+    else:
+        fail = None
+    builder.push(ast.Assert(test, fail))
+
+def build_exec_stmt(builder, nb):
+    """exec_stmt: 'exec' expr ['in' test [',' test]]"""
+    L = get_atoms(builder, nb)
+    expr = L[1]
+    loc = None
+    glob = None
+    if len(L) > 2:
+        loc = L[3]
+        if len(L) > 4:
+            glob = L[5]
+    builder.push(ast.Exec(expr, loc, glob))
+
+def build_print_stmt(builder, nb):
+    """
+    print_stmt: 'print' ( '>>' test [ (',' test)+ [','] ] | [ test (',' test)* [','] ] )
+    """
+    L = get_atoms(builder, nb)
+    l = len(L)
+    items = []
+    dest = None
+    start = 1
+    if l > 1:
+        if isinstance(L[1], TokenObject) and L[1].name == tok.RIGHTSHIFT:
+            dest = L[2]
+            # skip following comma
+            start = 4
+    for index in range(start, l, 2):
+        items.append(L[index])
+    if isinstance(L[-1], TokenObject) and L[-1].name == tok.COMMA:
+        builder.push(ast.Print(items, dest))
+    else:
+        builder.push(ast.Printnl(items, dest))
+
+
 def parse_dotted_names(tokens):
     """parses NAME('.' NAME)* and returns full dotted name
 
@@ -815,6 +859,9 @@ ASTRULES = {
     sym.yield_stmt : build_yield_stmt,
     sym.continue_stmt : build_continue_stmt,
     sym.del_stmt : build_del_stmt,
+    sym.assert_stmt : build_assert_stmt,
+    sym.exec_stmt : build_exec_stmt,
+    sym.print_stmt : build_print_stmt,
     # sym.parameters : build_parameters,
     }
 

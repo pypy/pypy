@@ -131,6 +131,32 @@ else:
 """
     ]
 
+asserts = [
+    'assert False',
+    'assert a == 1',
+    'assert a == 1 and b == 2',
+    'assert a == 1 and b == 2, "assertion failed"',
+    ]
+
+execs = [
+    'exec a',
+    'exec "a=b+3"',
+    'exec a in f()',
+    'exec a in f(), g()',
+    ]
+
+prints = [
+    'print',
+    'print a',
+    'print a,',
+    'print a, b',
+    'print a, "b", c',
+    'print >> err',
+    'print >> err, "error"',
+    'print >> err, "error",',
+    'print >> err, "error", a',
+    ]
+
 one_stmt_funcdefs = [
     "def f(): return 1",
     "def f(x): return x+1",
@@ -154,6 +180,9 @@ TESTS = [
     multiexpr,
     attraccess,
     imports,
+    asserts,
+    execs,
+    prints
     ]
 
 EXEC_INPUTS = [
