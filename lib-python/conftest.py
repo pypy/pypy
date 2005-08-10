@@ -270,7 +270,8 @@ class AppTestCaseMethod(py.test.Item):
 class RegrTest: 
     """ Regression Test Declaration.""" 
     def __init__(self, basename, enabled=False, dumbtest=False,
-                                 oldstyle=False, core=False, uselibfile=False): 
+                                 oldstyle=False, core=False, uselibfile=False,
+                                 usemodules = None): 
         self.basename = basename 
         self.enabled = enabled 
         self.dumbtest = dumbtest 
@@ -279,6 +280,9 @@ class RegrTest:
         # line options haven't been parsed!
         self._oldstyle = oldstyle 
         self._uselibfile = uselibfile
+        if usemodules is None:
+            usemodules = []
+        self._usemodules = usemodules
         self.core = core
 
     def oldstyle(self): 
@@ -289,13 +293,17 @@ class RegrTest:
         return self._uselibfile or pypy_option.uselibfile 
     uselibfile = property(uselibfile)
 
-        
+    def usemodules(self):
+        return self._usemodules + pypy_option.usemodules
+    usemodules = property(usemodules)
 
     def getoptions(self): 
         l = []
         for name in 'oldstyle', 'core', 'uselibfile': 
             if getattr(self, name): 
                 l.append(name)
+        for name in self.usemodules:
+            l.append(name)
         return l 
 
     def ismodified(self): 
@@ -539,7 +547,7 @@ testmap = [
     RegrTest('test_macpath.py', enabled=True),
     RegrTest('test_mailbox.py', enabled=True),
     RegrTest('test_marshal.py', enabled=True, dumbtest=1, core=True),
-    RegrTest('test_math.py', enabled=False, core=True),
+    RegrTest('test_math.py', enabled=False, core=True, usemodules=['math']),
     RegrTest('test_md5.py', enabled=False),
     RegrTest('test_mhlib.py', enabled=True),
     RegrTest('test_mimetools.py', enabled=True, core=True),
@@ -849,7 +857,7 @@ class ReallyRunFileExternal(py.test.Item):
         if regrtest.uselibfile: 
             pypy_options.append('--uselibfile')
         pypy_options.extend(
-            ['--usemodules=%s' % mod for mod in pypy_option.usemodules])
+            ['--usemodules=%s' % mod for mod in regrtest.usemodules])
         sopt = " ".join(pypy_options) 
 
         if regrtest.getoutputpath(): 
