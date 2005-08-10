@@ -46,13 +46,12 @@ def math2(space, f, x, snd):
     return space.wrap(r)
 math2._annspecialcase_ = 'specialize:arg1'    
 
-def pow(space, x, y): # xxx sort out the exception semantics of this, here in the backend and in floatobject
-                      # do we want math.pow here?
+def pow(space, x, y):                     
     """pow(x,y)
        
        Return x**y (x to the power of y).
     """
-    return space.wrap(x ** y)
+    return math2(space, math.pow, x, y)
 pow.unwrap_spec = [ObjSpace, float, float]
 
 def cosh(space, x): 
