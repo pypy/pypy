@@ -92,6 +92,15 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def inplace_or((obj1, obj2)):       return pair(obj1, obj2).or_()
     def inplace_xor((obj1, obj2)):      return pair(obj1, obj2).xor()
 
+    for name, func in locals().items():
+        if name.startswith('inplace_'):
+            func.can_only_throw = []
+
+    inplace_div.can_only_throw = [ZeroDivisionError]
+    inplace_truediv.can_only_throw = [ZeroDivisionError]
+    inplace_floordiv.can_only_throw = [ZeroDivisionError]
+    inplace_mod.can_only_throw = [ZeroDivisionError]
+
     def lt((obj1, obj2)):
         if obj1.is_constant() and obj2.is_constant():
             return immutablevalue(obj1.const < obj2.const)
@@ -335,6 +344,7 @@ class __extend__(pairtype(SomeList, SomeList)):
         lst1.listdef.resize()
         lst1.listdef.union(lst2.listdef)
         return lst1
+    inplace_add.can_only_throw = []
 
     def eq((lst1, lst2)):
         lst1.listdef.union(lst2.listdef)
@@ -349,11 +359,12 @@ class __extend__(pairtype(SomeList, SomeObject)):
         s_iter = obj2.iter()
         pair(lst1, SomeInteger()).setitem(s_iter.next())
         return lst1
+    inplace_add.can_only_throw = []
 
     def inplace_mul((lst1, obj2)):
         lst1.listdef.resize()
         return lst1
-
+    inplace_mul.can_only_throw = []
 
 class __extend__(pairtype(SomeTuple, SomeTuple)):
 

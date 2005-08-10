@@ -212,6 +212,7 @@ class __extend__(SomeTuple):
     def iter(tup):
         getbookkeeper().count("tuple_iter", tup)
         return SomeIterator(tup)
+    iter.can_only_throw = []
 
     def getanyitem(tup):
         return unionof(*tup.items)
@@ -254,6 +255,7 @@ class __extend__(SomeList):
 
     def iter(lst):
         return SomeIterator(lst)
+    iter.can_only_throw = []
 
     def getanyitem(lst):
         return lst.listdef.read_item()
@@ -269,6 +271,7 @@ class __extend__(SomeDict):
 
     def iter(dct):
         return SomeIterator(dct)
+    iter.can_only_throw = []
 
     def getanyitem(dct):
         return dct.dictdef.read_key()
@@ -315,6 +318,7 @@ class __extend__(SomeString):
 
     def iter(str):
         return SomeIterator(str)
+    iter.can_only_throw = []
 
     def getanyitem(str):
         return SomeChar()
@@ -357,6 +361,7 @@ class __extend__(SomeIterator):
 
     def iter(itr):
         return itr
+    iter.can_only_throw = []
 
     def next(itr):
         return itr.s_container.getanyitem()
