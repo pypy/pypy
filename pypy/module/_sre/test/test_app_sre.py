@@ -234,9 +234,8 @@ class AppTestSreScanner:
 
 class AppTestGetlower:
 
-    setup_class = skip_if_faked
-
     def setup_class(cls):
+        skip_if_faked(cls)
         # This imports support_test_sre as the global "s"
         app2interp_temp(app_init_globals_hack)(cls.space)
 
@@ -490,9 +489,8 @@ class AppTestMarksStack:
 
 class AppTestOpcodes:
 
-    setup_class = skip_if_faked
-
     def setup_class(cls):
+        skip_if_faked(cls)
         # This imports support_test_sre as the global "s"
         app2interp_temp(app_init_globals_hack)(cls.space)
 
