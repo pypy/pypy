@@ -1,7 +1,5 @@
-"""Regular expression tests specific to _sre.py and accumulated during TDD.
-XXX some tests are disabled because they fail on faked _sre. These should be
-reenabled once we don't fake anymore by default."""
-from py.test import raises
+"""Regular expression tests specific to _sre.py and accumulated during TDD."""
+from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
 
 def app_init_globals_hack():
@@ -15,8 +13,14 @@ def app_init_globals_hack():
     b.s = support_test_app_sre
     sys.path.pop(0)
 
+def skip_if_faked(cls):
+    if "_sre" not in cls.space.options.usemodules:
+        skip("--usemodules=_sre option not provided")
+
 
 class AppTestSrePy:
+
+    setup_class = skip_if_faked
 
     def test_magic(self):
         import _sre, sre_constants
@@ -29,6 +33,8 @@ class AppTestSrePy:
 
 class AppTestSrePattern:
 
+    setup_class = skip_if_faked
+
     def test_copy(self):
         # copy support is disabled by default in _sre.c
         import re
@@ -36,8 +42,7 @@ class AppTestSrePattern:
         raises(TypeError, p.__copy__)
         raises(TypeError, p.__deepcopy__)
 
-    def DONOTtest_creation_attributes(self):
-        # XXX fails with faked _sre
+    def test_creation_attributes(self):
         import re
         pattern_string = "(b)l(?P<g>a)"
         p = re.compile(pattern_string, re.I | re.M)
@@ -89,6 +94,8 @@ class AppTestSrePattern:
 
 class AppTestSreMatch:
 
+    setup_class = skip_if_faked
+
     def test_copy(self):
         import re
         # copy support is disabled by default in _sre.c
@@ -96,8 +103,7 @@ class AppTestSreMatch:
         raises(TypeError, m.__copy__)
         raises(TypeError, m.__deepcopy__)
 
-    def DONOTtest_match_attributes(self):
-        # XXX fails with faked _sre
+    def test_match_attributes(self):
         import re
         c = re.compile("bla")
         m = c.match("blastring")
@@ -109,8 +115,7 @@ class AppTestSreMatch:
         assert None == m.lastgroup
         assert ((0, 3),) == m.regs
 
-    def DONOTtest_match_attributes_with_groups(self):
-        # XXX fails with faked _sre
+    def test_match_attributes_with_groups(self):
         import re
         m = re.search("a(b)(?P<name>c)", "aabcd")
         assert 0 == m.pos
@@ -119,8 +124,7 @@ class AppTestSreMatch:
         assert "name" == m.lastgroup
         assert ((1, 4), (2, 3), (3, 4)) == m.regs
 
-    def DONOTtest_regs_overlapping_groups(self):
-        # XXX fails with faked _sre
+    def test_regs_overlapping_groups(self):
         import re
         m = re.match("a((b)c)", "abc")
         assert ((0, 3), (1, 3), (1, 2)) == m.regs
@@ -185,8 +189,7 @@ class AppTestSreMatch:
         assert ("rbd\nbr\n", 2) == re.subn("a(.)", r"b\1\n", "radar")
         assert ("bbbba", 2) == re.subn("a", "b", "ababa", 2)
 
-    def DONOTtest_sub_callable(self):
-        # XXX fails with faked _sre
+    def test_sub_callable(self):
         import re
         def call_me(match):
             ret = ""
@@ -196,8 +199,9 @@ class AppTestSreMatch:
         assert ("bbbbb", 3) == re.subn("a", call_me, "ababa")
 
 
-class DONOTAppTestSreScanner:
-    # XXX fails with faked _sre
+class AppTestSreScanner:
+
+    setup_class = skip_if_faked
 
     def test_scanner_attributes(self):
         import re
@@ -229,6 +233,8 @@ class DONOTAppTestSreScanner:
 
 
 class AppTestGetlower:
+
+    setup_class = skip_if_faked
 
     def setup_class(cls):
         # This imports support_test_sre as the global "s"
@@ -273,6 +279,8 @@ class AppTestGetlower:
         
 
 class AppTestSimpleSearches:
+
+    setup_class = skip_if_faked
 
     def test_search_simple_literal(self):
         import re
@@ -447,43 +455,42 @@ class AppTestSimpleSearches:
 
 class AppTestMarksStack:
 
+    setup_class = skip_if_faked
+
     def test_mark_stack_branch(self):
         import re
         m = re.match("b(.)a|b.b", "bob")
         assert None == m.group(1)
-        # XXX fails with faked _sre
-        #assert None == m.lastindex
+        assert None == m.lastindex
 
     def test_mark_stack_repeat_one(self):
         import re
         m = re.match("\d+1((2)|(3))4", "2212413")
         assert ("2", "2", None) == m.group(1, 2, 3)
-        # XXX fails with faked _sre
-        #assert 1 == m.lastindex
+        assert 1 == m.lastindex
 
     def test_mark_stack_min_repeat_one(self):
         import re
         m = re.match("\d+?1((2)|(3))44", "221341244")
         assert ("2", "2", None) == m.group(1, 2, 3)
-        # XXX fails with faked _sre
-        #assert 1 == m.lastindex
+        assert 1 == m.lastindex
 
     def test_mark_stack_max_until(self):
         import re
         m = re.match("(\d)+1((2)|(3))4", "2212413")
         assert ("2", "2", None) == m.group(2, 3, 4)
-        # XXX fails with faked _sre
-        #assert 2 == m.lastindex
+        assert 2 == m.lastindex
 
     def test_mark_stack_min_until(self):
         import re
         m = re.match("(\d)+?1((2)|(3))44", "221341244")
         assert ("2", "2", None) == m.group(2, 3, 4)
-        # XXX fails with faked _sre
-        #assert 2 == m.lastindex
+        assert 2 == m.lastindex
         
 
 class AppTestOpcodes:
+
+    setup_class = skip_if_faked
 
     def setup_class(cls):
         # This imports support_test_sre as the global "s"
@@ -862,6 +869,8 @@ class AppTestOpcodes:
 
 class AppTestOptimizations:
     """These tests try to trigger optmized edge cases."""
+
+    setup_class = skip_if_faked
 
     def test_match_length_optimization(self):
         import re
