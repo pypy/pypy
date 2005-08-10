@@ -107,13 +107,13 @@ def _check_tuples_equality(pypy_tuples, python_tuples, testname):
         repr_pypy   = repr_pypy.replace("Function(None, ", "Function(")
         repr_python = repr_python.replace("Function(None, ", "Function(")
         # XXX hack(bis):
-        #   we changed stablecompiler to use [] instead of () in several
-        #   places (for consistency), so let's make sure the test won't fail
-        #   because of that (the workaround is as drastic as the way we
-        #   compare python and pypy tuples :-), but we'll change that with
-        #   astbuilder.py
-        repr_pypy = repr_pypy.replace("[]", "()")
-        repr_python = repr_python.replace("[]", "()")
+    #   we changed stablecompiler to use [] instead of () in several
+    #   places (for consistency), so let's make sure the test won't fail
+    #   because of that (the workaround is as drastic as the way we
+    #   compare python and pypy tuples :-), but we'll change that with
+    #   astbuilder.py
+    repr_pypy = repr_pypy.replace("[]", "()")
+    repr_python = repr_python.replace("[]", "()")
     assert repr_pypy == repr_python
 
 
