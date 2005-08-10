@@ -106,3 +106,23 @@ class AppTestAppFloatTest:
 
     def test_getnewargs(self):
         assert  0.0 .__getnewargs__() == (0.0,)
+
+
+    def test_pow(self):
+        def pw(x, y):
+            return x ** y
+        def espeq(x, y):
+            return not abs(x-y) > 1e05
+        raises(ZeroDivisionError, pw, 0.0, -1)
+        assert pw(0, 0.5) == 0.0
+        assert espeq(pw(4.0, 0.5), 2.0)
+        assert pw(4.0, 0) == 1.0
+        assert pw(-4.0, 0) == 1.0
+        raises(ValueError, pw, -1.0, 0.5)
+        assert pw(-1.0, 2.0) == 1.0
+        assert pw(-1.0, 3.0) == -1.0
+        assert pw(-1.0, 1e200) == 1.0
+        
+        
+        
+        

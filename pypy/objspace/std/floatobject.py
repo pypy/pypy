@@ -278,15 +278,33 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
             "pow() 3rd argument not allowed unless all arguments are integers"))
     x = w_float1.floatval
     y = w_float2.floatval
-    try:
-        z = x ** y
-    except OverflowError:
-        raise FailedToImplement(space.w_OverflowError, space.wrap("float power"))
-    except ValueError, e:
-        raise FailedToImplement(space.w_ValueError, space.wrap(str(e))) # xxx
-    except ZeroDivisionError, e:   
-        raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("0.0 cannot be raised to a negative power"))        
+    z = 1.0
+    if y == 0.0:
+        z = 1.0
+    elif x == 0.0:
+        if y < 0.0:
+            raise FailedToImplement(space.w_ZeroDivisionError,
+                                    space.wrap("0.0 cannot be raised to a negative power"))
+        z = 0.0
+    else:
+        if x < 0.0:
+            if math.floor(y) != y:
+                raise FailedToImplement(space.w_ValueError,
+                                        space.wrap("negative number "
+                                                   "cannot be raised to a fractional power"))
+            if x == -1.0:
+                # xxx what if y is infinity or a NaN
+                if math.floor(y * 0.5) * 2.0 == y:
+                    return space.wrap(1.0)
+                else:
+                    return space.wrap( -1.0)
+        else:
+                try:
+                    z = math.pow(x,y)
+                except OverflowError:
+                    raise FailedToImplement(space.w_OverflowError, space.wrap("float power"))
+                except ValueError:
+                    raise FailedToImplement(space.w_ValueError, space.wrap("float power")) # xxx
 
     return W_FloatObject(space, z)
 
