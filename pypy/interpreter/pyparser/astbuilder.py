@@ -836,7 +836,6 @@ def build_classdef(builder, nb):
         base = L[3]
         if isinstance(base, ast.Tuple):
             for node in base.nodes:
-                assert isinstance(node, ast.Name)
                 basenames.append(node)
         else:
             basenames.append(base)

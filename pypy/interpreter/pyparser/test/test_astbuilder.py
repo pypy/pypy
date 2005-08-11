@@ -313,6 +313,10 @@ one_stmt_funcdefs = [
     "def f(a, b, (c, (d, e), f, (g, h)), i): pass",
     ]
 
+one_stmt_classdefs = [
+    "class Pdb(bdb.Bdb, cmd.Cmd): pass",
+    ]
+
 docstrings = [
     '''def foo():
     """foo docstring"""
@@ -355,6 +359,7 @@ TESTS = [
     ]
 
 EXEC_INPUTS = [
+    one_stmt_classdefs,
     one_stmt_funcdefs,
     if_stmts,
     tryexcepts,
@@ -445,8 +450,6 @@ STDLIB_PATH = os.path.dirname(os.__file__)
 def test_on_stdlib():
     py.test.skip('too ambitious for now (and time consuming)')
     for basename in os.listdir(STDLIB_PATH):
-        if basename != 'warnings.py':
-            continue
         if not basename.endswith('.py'):
             continue
         filepath = os.path.join(STDLIB_PATH, basename)
