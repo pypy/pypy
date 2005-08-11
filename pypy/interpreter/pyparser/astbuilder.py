@@ -1,4 +1,7 @@
-
+"""This module provides the astbuilder class which is to be used
+by GrammarElements to directly build the AST during parsing
+without going trhough the nested tuples step
+"""
 
 from grammar import BaseGrammarBuilder, AbstractContext
 from pypy.interpreter.astcompiler import ast, consts
@@ -6,19 +9,230 @@ from pypy.interpreter.astcompiler.transformer import WalkerError
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
 
-## these tests should be methods of the ast objects
 DEBUG_MODE = False
 
-def is_lvalue( ast_node ):
-    return True
 
-def to_lvalue( ast_node, OP ):
+### Parsing utilites #################################################
+def parse_except_clause(tokens):
+    """parses 'except' [test [',' test]] ':' suite
+    and returns a 4-tuple : (tokens_read, expr1, expr2, except_body)
+    """
+    clause_length = 1
+    # Read until end of except clause (bound by following 'else',
+    # or 'except' or end of tokens)
+    while clause_length < len(tokens):
+        token = tokens[clause_length]
+        if isinstance(token, TokenObject) and \
+           (token.value == 'except' or token.value == 'else'):
+            break
+        clause_length += 1
+    # if clause_length >= len(tokens):
+    #     raise Exception
+    if clause_length == 3:
+        # case 'except: body'
+        return (3, None, None, tokens[2])
+    elif clause_length == 4:
+        # case 'except Exception: body':
+        return (4, tokens[1], None, tokens[3])
+    else:
+        # case 'except Exception, exc: body'
+        return (6, tokens[1], to_lvalue(tokens[3], consts.OP_ASSIGN), tokens[5])
+
+
+def parse_dotted_names(tokens):
+    """parses NAME('.' NAME)* and returns full dotted name
+
+    this function doesn't assume that the <tokens> list ends after the
+    last 'NAME' element
+    """
+    name = tokens[0].value
+    l = len(tokens)
+    index = 1
+    for index in range(1, l, 2):
+        token = tokens[index]
+        assert isinstance(token, TokenObject)
+        if token.name != tok.DOT:
+            break
+        name = name + '.' + tokens[index+1].value
+    return (index, name)
+
+def parse_argument(tokens):
+    """parses function call arguments"""
+    l = len(tokens)
+    index = 0
+    arguments = []
+    last_token = None
+    building_kw = False
+    kw_built = False
+    stararg_token = None
+    dstararg_token = None
+    while index < l:
+        cur_token = tokens[index]
+        index += 1
+        if not isinstance(cur_token, TokenObject):
+            if not building_kw:
+                arguments.append(cur_token)
+            elif kw_built:
+                raise SyntaxError("non-keyword arg after keyword arg (%s)" % (cur_token))
+            else:
+                last_token = arguments.pop()
+                assert isinstance(last_token, ast.Name) # used by rtyper
+                arguments.append(ast.Keyword(last_token.name, cur_token))
+                building_kw = False
+                kw_built = True
+        elif cur_token.name == tok.COMMA:
+            continue
+        elif cur_token.name == tok.EQUAL:
+            building_kw = True
+            continue
+        elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
+            if cur_token.name == tok.STAR:
+                stararg_token = tokens[index]
+                index += 1
+                if index >= l:
+                    break
+                index += 2 # Skip COMMA and DOUBLESTAR
+            dstararg_token = tokens[index]
+            break
+    return arguments, stararg_token, dstararg_token
+
+
+def parse_arglist(tokens):
+    """returns names, defaults, flags"""
+    l = len(tokens)
+    index = 0
+    defaults = []
+    names = []
+    flags = 0
+    while index < l:
+        cur_token = tokens[index]
+        index += 1
+        if not isinstance(cur_token, TokenObject):
+            # XXX: think of another way to write this test
+            defaults.append(cur_token)
+        elif cur_token.name == tok.COMMA:
+            # We could skip test COMMA by incrementing index cleverly
+            # but we might do some experiment on the grammar at some point
+            continue
+        elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
+            if cur_token.name == tok.STAR:
+                cur_token = tokens[index]
+                index += 1
+                if cur_token.name == tok.NAME:
+                    names.append(cur_token.value)
+                    flags |= consts.CO_VARARGS
+                    index += 1
+                    if index >= l:
+                        break
+                    else:
+                        # still more tokens to read
+                        cur_token = tokens[index]
+                        index += 1
+                else:
+                    raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
+            if cur_token.name != tok.DOUBLESTAR:
+                raise ValueError("Unexpected token: %s" % cur_token)
+            cur_token = tokens[index]
+            index += 1
+            if cur_token.name == tok.NAME:
+                names.append(cur_token.value)
+                flags |= consts.CO_VARKEYWORDS
+                index +=  1
+            else:
+                raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
+            if index < l:
+                raise ValueError("unexpected token: %s" % tokens[index])
+        elif cur_token.name == tok.NAME:
+            names.append(cur_token.value)
+    return names, defaults, flags
+
+
+def parse_listcomp(tokens):
+    """parses 'for j in k for i in j if i %2 == 0' and returns
+    a GenExprFor instance
+    XXX: refactor with listmaker ?
+    """
+    list_fors = []
+    ifs = []
+    index = 0
+    while index < len(tokens):
+        if tokens[index].value == 'for':
+            index += 1 # skip 'for'
+            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
+            index += 2 # skip 'in'
+            iterable = tokens[index]
+            index += 1
+            while index < len(tokens) and tokens[index].value == 'if':
+                ifs.append(ast.ListCompIf(tokens[index+1]))
+                index += 2
+            list_fors.append(ast.ListCompFor(ass_node, iterable, ifs))
+            ifs = []
+        else:
+            raise ValueError('Unexpected token: %s' % tokens[index])
+    return list_fors
+
+
+def parse_genexpr_for(tokens):
+    """parses 'for j in k for i in j if i %2 == 0' and returns
+    a GenExprFor instance
+    XXX: if RPYTHON supports to pass a class object to a function,
+         we could refactor parse_listcomp and parse_genexpr_for,
+         and call :
+           - parse_listcomp(tokens, forclass=ast.GenExprFor, ifclass=...)
+         or:
+           - parse_listcomp(tokens, forclass=ast.ListCompFor, ifclass=...)
+    """
+    genexpr_fors = []
+    ifs = []
+    index = 0
+    while index < len(tokens):
+        if tokens[index].value == 'for':
+            index += 1 # skip 'for'
+            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
+            index += 2 # skip 'in'
+            iterable = tokens[index]
+            index += 1
+            while index < len(tokens) and tokens[index].value == 'if':
+                ifs.append(ast.GenExprIf(tokens[index+1]))
+                index += 2
+            genexpr_fors.append(ast.GenExprFor(ass_node, iterable, ifs))
+            ifs = []
+        else:
+            raise ValueError('Unexpected token: %s' % tokens[index])
+    return genexpr_fors
+
+
+def get_docstring(stmt):
+    """parses a Stmt node.
+    
+    If a docstring if found, the Discard node is **removed**
+    from <stmt> and the docstring is returned.
+
+    If no docstring is found, <stmt> is left unchanged
+    and None is returned
+    """
+    if not isinstance(stmt, ast.Stmt):
+        return None
+    doc = None
+    if len(stmt.nodes):
+        first_child = stmt.nodes[0]
+        if isinstance(first_child, ast.Discard):
+            expr = first_child.expr
+            if isinstance(expr, ast.Const):
+                # This *is* a docstring, remove it from stmt list
+                del stmt.nodes[0]
+                doc = expr.value
+    return doc
+
+
+def to_lvalue(ast_node, OP):
     if isinstance( ast_node, ast.Name ):
         return ast.AssName( ast_node.name, OP )
     elif isinstance(ast_node, ast.Tuple):
         nodes = []
         for node in ast_node.getChildren():
-            nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
+            nodes.append(to_lvalue(node, OP))
+            # nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
         return ast.AssTuple(nodes)
     elif isinstance(ast_node, ast.Getattr):
         expr = ast_node.expr
@@ -38,29 +252,6 @@ def is_augassign( ast_node ):
         return True
     return False
 
-## building functions helpers
-## --------------------------
-##
-## Naming convention:
-## to provide a function handler for a grammar rule name yyy
-## you should provide a build_yyy( builder, nb ) function
-## where builder is the AstBuilder instance used to build the
-## ast tree and nb is the number of items this rule is reducing
-##
-## Example:
-## for example if the rule
-##    term <- var ( '+' expr )*
-## matches
-##    x + (2*y) + z
-## build_term will be called with nb == 2
-## and get_atoms( builder, nb ) should return a list
-## of 5 objects : Var TokenObject('+') Expr('2*y') TokenObject('+') Expr('z')
-## where Var and Expr are AST subtrees and Token is a not yet
-## reduced token
-##
-## AST_RULES is kept as a dictionnary to be rpython compliant this is the
-## main reason why build_* functions are not methods of the AstBuilder class
-##
 def get_atoms( builder, nb ):
     L = []
     i = nb
@@ -82,13 +273,92 @@ def eval_string(value):
     """temporary implementation"""
     return eval(value)
 
+
+## misc utilities, especially for power: rule
+def reduce_callfunc(obj, arglist):
+    """generic factory for CallFunc nodes"""
+    assert isinstance(arglist, ArglistObject)
+    arguments, stararg, dstararg = arglist.value
+    return ast.CallFunc(obj, arguments, stararg, dstararg)        
+
+def reduce_subscript(obj, subscript):
+    """generic factory for Subscript nodes"""
+    assert isinstance(subscript, SubscriptObject)
+    return ast.Subscript(obj, consts.OP_APPLY, subscript.value)
+
+def reduce_slice(obj, sliceobj):
+    """generic factory for Slice nodes"""
+    assert isinstance(sliceobj, SlicelistObject)
+    if sliceobj.name == 'slice':
+        start = sliceobj.value[0]
+        end = sliceobj.value[1]
+        return ast.Slice(obj, consts.OP_APPLY, start, end)
+    else:
+        return ast.Subscript(obj, consts.OP_APPLY, [ast.Sliceobj(sliceobj.value)])
+
+def parse_attraccess(tokens):
+    """parses token list like ['a', '.', 'b', '.', 'c', ...]
+    
+    and returns an ast node : ast.Getattr(Getattr(Name('a'), 'b'), 'c' ...)
+    """
+    result = tokens[0]
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if isinstance(token, TokenObject) and token.name == tok.DOT:
+            index += 1
+            token = tokens[index]
+            assert isinstance(token, TokenObject)
+            result = ast.Getattr(result, token.value)
+        elif isinstance(token, ArglistObject):
+            result = reduce_callfunc(result, token)
+        elif isinstance(token, SubscriptObject):
+            result = reduce_subscript(result, token)
+        elif isinstance(token, SlicelistObject):
+            result = reduce_slice(result, token)
+        else:
+            assert False, "Don't know how to handle index %s of %s" % (index, tokens)
+        index += 1
+    return result
+
+
+## building functions helpers
+## --------------------------
+##
+## Builder functions used to reduce the builder stack into appropriate
+## AST nodes. All the builder functions have the same interface
+##
+## Naming convention:
+## to provide a function handler for a grammar rule name yyy
+## you should provide a build_yyy( builder, nb ) function
+## where builder is the AstBuilder instance used to build the
+## ast tree and nb is the number of items this rule is reducing
+##
+## Example:
+## for example if the rule
+##    term <- var ( '+' expr )*
+## matches
+##    x + (2*y) + z
+## build_term will be called with nb == 2
+## and get_atoms( builder, nb ) should return a list
+## of 5 objects : Var TokenObject('+') Expr('2*y') TokenObject('+') Expr('z')
+## where Var and Expr are AST subtrees and Token is a not yet
+## reduced token
+##
+## AST_RULES is kept as a dictionnary to be rpython compliant this is the
+## main reason why build_* functions are not methods of the AstBuilder class
+##
+
 def build_atom(builder, nb):
     L = get_atoms( builder, nb )
     top = L[0]
     if isinstance(top, TokenObject):
         print "\t reducing atom (%s) (top.name) = %s" % (nb, top.name)
         if top.name == tok.LPAR:
-            builder.push( L[1] )
+            if len(L) == 2:
+                builder.push(ast.Tuple([], top.line))
+            else:
+                builder.push( L[1] )
         elif top.name == tok.LSQB:
             if len(L) == 2:
                 builder.push(ast.List([], top.line))
@@ -118,53 +388,21 @@ def build_atom(builder, nb):
             builder.push( ast.Const(s) )
             # assert False, "TODO (String)"
         else:
-            raise ValueError, "unexpected tokens (%d): %s" % (nb,[ str(i) for i in L] )
-            
+            raise ValueError, "unexpected tokens (%d): %s" % (nb, [str(i) for i in L])
+
 
 def build_power(builder, nb):
+    """power: atom trailer* ['**' factor]"""
     L = get_atoms(builder, nb)
     if len(L) == 1:
-        builder.push( L[0] )
-    elif len(L) == 2:
-        if isinstance(L[1], ArglistObject):
-            arguments, stararg, dstararg = L[1].value
-            builder.push(ast.CallFunc(L[0], arguments, stararg, dstararg))
-        elif isinstance(L[1], SubscriptObject):
-            subs = L[1].value
-            builder.push(ast.Subscript(L[0], consts.OP_APPLY, subs))
-        elif isinstance(L[1], SlicelistObject):
-            if L[1].name == 'slice':
-                start = L[1].value[0]
-                end = L[1].value[1]
-                builder.push(ast.Slice(L[0], consts.OP_APPLY, start, end))
-            else: # sliceobj (with 'step' argument)
-                builder.push(ast.Subscript(L[0], consts.OP_APPLY, [ast.Sliceobj(L[1].value)]))
-        else:
-            assert False, "TODO"
-    elif len(L) == 3:
-        if isinstance(L[1], TokenObject) and L[1].name == tok.DOT:
-            builder.push(ast.Getattr(L[0], L[2].value))
-        else:
-            builder.push(ast.Power([L[0], L[2]]))
-    # FIXME: find a more general way to do this
-    elif isinstance(L[-1], ArglistObject):
-        # for an expression like 'a.b.c.append(3)', we want ['a', 'b', 'c']
-        names = []
-        for index in range(0, len(L)-1, 2):
-            names.append(L[index])
-        while len(names) > 1:
-            left = names.pop(0)
-            right = names.pop(0)
-            assert isinstance(right, TokenObject)
-            names.insert(0, ast.Getattr(left, right.value))
-        left = names[0]
-        arglist = L[-1]
-        assert isinstance(arglist, ArglistObject)
-        arguments, stararg, dstararg = arglist.value
-        builder.push(ast.CallFunc(left, arguments, stararg, dstararg))
-    # FIXME: isinstance(L[-1], (SubscriptObject, SliceObject))
+        builder.push(L[0])
     else:
-        raise ValueError, "unexpected tokens: %s" % L
+        if isinstance(L[-2], TokenObject) and L[-2].name == tok.DOUBLESTAR:
+            obj = parse_attraccess(L[:-2])
+            builder.push(ast.Power([obj, L[-1]]))
+        else:
+            obj = parse_attraccess(L)
+            builder.push(obj)
 
 def build_factor( builder, nb ):
     L = get_atoms( builder, nb )
@@ -421,6 +659,7 @@ def build_trailer(builder, nb):
     """trailer: '(' ')' | '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
     """
     L = get_atoms(builder, nb)
+    print "**** building trailer", L
     # Case 1 : '(' ...
     if L[0].name == tok.LPAR:
         if len(L) == 2: # and L[1].token == tok.RPAR:
@@ -458,7 +697,8 @@ def build_subscript(builder, nb):
     elif len(L) == 1:
         token = L[0]
         if isinstance(token, TokenObject) and token.name == tok.COLON:
-            builder.push(SlicelistObject('slice', [None, None, None], None))
+            sliceinfos = [None, None, None]
+            builder.push(SlicelistObject('slice', sliceinfos, None))
         else:
             # test
             builder.push(L[0])
@@ -482,7 +722,13 @@ def build_subscript(builder, nb):
                 sliceinfos[infosindex] = token
         if subscript_type == 'slice':
             if infosindex == 2:
-                builder.push(SlicelistObject('sliceobj', sliceinfos, None))
+                sliceobj_infos = []
+                for value in sliceinfos:
+                    if value is None:
+                        sliceobj_infos.append(ast.Const(None))
+                    else:
+                        sliceobj_infos.append(value)
+                builder.push(SlicelistObject('sliceobj', sliceobj_infos, None))
             else:
                 builder.push(SlicelistObject('slice', sliceinfos, None))
         else:
@@ -616,6 +862,16 @@ def build_for_stmt(builder, nb):
         else_ = L[8]
     builder.push(ast.For(assign, iterable, body, else_))
 
+def build_exprlist(builder, nb):
+    L = get_atoms(builder, nb)
+    if len(L) <= 2:
+        builder.push(L[0])
+    else:
+        names = []
+        for index in range(0, len(L), 2):
+            names.append(L[index])
+        builder.push(ast.Tuple(names))
+
 
 def build_while_stmt(builder, nb):
     """while_stmt: 'while' test ':' suite ['else' ':' suite]"""
@@ -712,12 +968,6 @@ def build_continue_stmt(builder, nb):
 def build_del_stmt(builder, nb):
     L = get_atoms(builder, nb)
     builder.push(to_lvalue(L[1], consts.OP_DELETE))
-##     if isinstance(L[1], ast.Name):
-##         builder.push(ast.AssName(L[1].name, consts.OP_DELETE))
-##     elif isinstance(L[1], ast.Getattr):
-##         assert "TODO", "build_del_stmt implementation is incomplete !"
-##     else:
-##         assert "TODO", "build_del_stmt implementation is incomplete !"
         
 
 def build_assert_stmt(builder, nb):
@@ -820,217 +1070,6 @@ def build_try_stmt(builder, nb):
         builder.push(ast.TryExcept(body, handlers, else_))
 
 
-def parse_except_clause(tokens):
-    """parses 'except' [test [',' test]] ':' suite
-    and returns a 4-tuple : (tokens_read, expr1, expr2, except_body)
-    """
-    clause_length = 1
-    # Read until end of except clause (bound by following 'else',
-    # or 'except' or end of tokens)
-    while clause_length < len(tokens):
-        token = tokens[clause_length]
-        if isinstance(token, TokenObject) and \
-           (token.value == 'except' or token.value == 'else'):
-            break
-        clause_length += 1
-    # if clause_length >= len(tokens):
-    #     raise Exception
-    if clause_length == 3:
-        # case 'except: body'
-        return (3, None, None, tokens[2])
-    elif clause_length == 4:
-        # case 'except Exception: body':
-        return (4, tokens[1], None, tokens[3])
-    else:
-        # case 'except Exception, exc: body'
-        return (6, tokens[1], to_lvalue(tokens[3], consts.OP_ASSIGN), tokens[5])
-
-
-def parse_dotted_names(tokens):
-    """parses NAME('.' NAME)* and returns full dotted name
-
-    this function doesn't assume that the <tokens> list ends after the
-    last 'NAME' element
-    """
-    name = tokens[0].value
-    l = len(tokens)
-    index = 1
-    for index in range(1, l, 2):
-        token = tokens[index]
-        assert isinstance(token, TokenObject)
-        if token.name != tok.DOT:
-            break
-        name = name + '.' + tokens[index+1].value
-    return (index, name)
-
-def parse_argument(tokens):
-    """parses function call arguments"""
-    l = len(tokens)
-    index = 0
-    arguments = []
-    last_token = None
-    building_kw = False
-    kw_built = False
-    stararg_token = None
-    dstararg_token = None
-    while index < l:
-        cur_token = tokens[index]
-        index += 1
-        if not isinstance(cur_token, TokenObject):
-            if not building_kw:
-                arguments.append(cur_token)
-            elif kw_built:
-                raise SyntaxError("non-keyword arg after keyword arg (%s)" % (cur_token))
-            else:
-                last_token = arguments.pop()
-                assert isinstance(last_token, ast.Name) # used by rtyper
-                arguments.append(ast.Keyword(last_token.name, cur_token))
-                building_kw = False
-                kw_built = True
-        elif cur_token.name == tok.COMMA:
-            continue
-        elif cur_token.name == tok.EQUAL:
-            building_kw = True
-            continue
-        elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
-            if cur_token.name == tok.STAR:
-                stararg_token = tokens[index]
-                index += 1
-                if index >= l:
-                    break
-                index += 2 # Skip COMMA and DOUBLESTAR
-            dstararg_token = tokens[index]
-            break
-    return arguments, stararg_token, dstararg_token
-
-
-def parse_arglist(tokens):
-    """returns names, defaults, flags"""
-    l = len(tokens)
-    index = 0
-    defaults = []
-    names = []
-    flags = 0
-    while index < l:
-        cur_token = tokens[index]
-        index += 1
-        if not isinstance(cur_token, TokenObject):
-            # XXX: think of another way to write this test
-            defaults.append(cur_token)
-        elif cur_token.name == tok.COMMA:
-            # We could skip test COMMA by incrementing index cleverly
-            # but we might do some experiment on the grammar at some point
-            continue
-        elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
-            if cur_token.name == tok.STAR:
-                cur_token = tokens[index]
-                index += 1
-                if cur_token.name == tok.NAME:
-                    names.append(cur_token.value)
-                    flags |= consts.CO_VARARGS
-                    index += 1
-                    if index >= l:
-                        break
-                    else:
-                        # still more tokens to read
-                        cur_token = tokens[index]
-                        index += 1
-                else:
-                    raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
-            if cur_token.name != tok.DOUBLESTAR:
-                raise ValueError("Unexpected token: %s" % cur_token)
-            cur_token = tokens[index]
-            index += 1
-            if cur_token.name == tok.NAME:
-                names.append(cur_token.value)
-                flags |= consts.CO_VARKEYWORDS
-                index +=  1
-            else:
-                raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
-            if index < l:
-                raise ValueError("unexpected token: %s" % tokens[index])
-        elif cur_token.name == tok.NAME:
-            names.append(cur_token.value)
-    return names, defaults, flags
-
-
-def parse_listcomp(tokens):
-    """parses 'for j in k for i in j if i %2 == 0' and returns
-    a GenExprFor instance
-    XXX: refactor with listmaker ?
-    """
-    list_fors = []
-    ifs = []
-    index = 0
-    while index < len(tokens):
-        if tokens[index].value == 'for':
-            index += 1 # skip 'for'
-            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
-            index += 2 # skip 'in'
-            iterable = tokens[index]
-            index += 1
-            while index < len(tokens) and tokens[index].value == 'if':
-                ifs.append(ast.ListCompIf(tokens[index+1]))
-                index += 2
-            list_fors.append(ast.ListCompFor(ass_node, iterable, ifs))
-            ifs = []
-        else:
-            raise ValueError('Unexpected token: %s' % tokens[index])
-    return list_fors
-
-
-def parse_genexpr_for(tokens):
-    """parses 'for j in k for i in j if i %2 == 0' and returns
-    a GenExprFor instance
-    XXX: if RPYTHON supports to pass a class object to a function,
-         we could refactor parse_listcomp and parse_genexpr_for,
-         and call :
-           - parse_listcomp(tokens, forclass=ast.GenExprFor, ifclass=...)
-         or:
-           - parse_listcomp(tokens, forclass=ast.ListCompFor, ifclass=...)
-    """
-    genexpr_fors = []
-    ifs = []
-    index = 0
-    while index < len(tokens):
-        if tokens[index].value == 'for':
-            index += 1 # skip 'for'
-            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
-            index += 2 # skip 'in'
-            iterable = tokens[index]
-            index += 1
-            while index < len(tokens) and tokens[index].value == 'if':
-                ifs.append(ast.GenExprIf(tokens[index+1]))
-                index += 2
-            genexpr_fors.append(ast.GenExprFor(ass_node, iterable, ifs))
-            ifs = []
-        else:
-            raise ValueError('Unexpected token: %s' % tokens[index])
-    return genexpr_fors
-
-
-def get_docstring(stmt):
-    """parses a Stmt node.
-    
-    If a docstring if found, the Discard node is **removed**
-    from <stmt> and the docstring is returned.
-
-    If no docstring is found, <stmt> is left unchanged
-    and None is returned
-    """
-    if not isinstance(stmt, ast.Stmt):
-        return None
-    doc = None
-    if len(stmt.nodes):
-        first_child = stmt.nodes[0]
-        if isinstance(first_child, ast.Discard):
-            expr = first_child.expr
-            if isinstance(expr, ast.Const):
-                # This *is* a docstring, remove it from stmt list
-                del stmt.nodes[0]
-                doc = expr.value
-    return doc
-
 ASTRULES = {
 #    "single_input" : build_single_input,
     sym.atom : build_atom,
@@ -1079,9 +1118,10 @@ ASTRULES = {
     sym.global_stmt : build_global_stmt,
     sym.raise_stmt : build_raise_stmt,
     sym.try_stmt : build_try_stmt,
-    # sym.parameters : build_parameters,
+    sym.exprlist : build_exprlist,
     }
 
+## Stack elements definitions ###################################
 class RuleObject(ast.Node):
     """A simple object used to wrap a rule or token"""
     def __init__(self, name, count, src ):
@@ -1125,8 +1165,13 @@ class TokenObject(ast.Node):
         return "<Token: (%r,%s)>" % (self.get_name(), self.value)
 
 
-class ArglistObject(ast.Node):
-    """helper class to build function's arg list"""
+# FIXME: The ObjectAccessor family is probably not RPYTHON since
+# some attributes have a different type depending on the subclass
+class ObjectAccessor(ast.Node):
+    """base class for ArglistObject, SubscriptObject and SlicelistObject
+
+    FIXME: think about a more appropriate name
+    """
     def __init__(self, name, value, src):
         self.name = name
         self.value = value
@@ -1134,39 +1179,36 @@ class ArglistObject(ast.Node):
         self.line = 0 # src.getline()
         self.col = 0  # src.getcol()
 
+class ArglistObject(ObjectAccessor):
+    """helper class to build function's arg list
+
+    self.value is the 3-tuple (names, defaults, flags)
+    """
     def __str__(self):
         return "<ArgList: (%s, %s, %s)>" % self.value
     
     def __repr__(self):
         return "<ArgList: (%s, %s, %s)>" % self.value
     
-
-class SubscriptObject(ast.Node):
-    """helper class to build function's arg list"""
-    def __init__(self, name, value, src):
-        self.name = name
-        self.value = value
-        self.count = 0
-        self.line = 0 # src.getline()
-        self.col = 0  # src.getcol()
-
+class SubscriptObject(ObjectAccessor):
+    """helper class to build subscript list
+    
+    self.value represents the __getitem__ argument
+    """
     def __str__(self):
         return "<SubscriptList: (%s)>" % self.value
     
     def __repr__(self):
         return "<SubscriptList: (%s)>" % self.value
 
-class SlicelistObject(ast.Node):
-    def __init__(self, name, value, src):
-        self.name = name
-        self.value = value
-##         self.begin = value[0]
-##         self.end = value[1]
-##         self.step = value[2]
-        self.count = 0
-        self.line = 0 # src.getline()
-        self.col = 0  # src.getcol()
+class SlicelistObject(ObjectAccessor):
+    """helper class to build slice objects
 
+    self.value is a 3-tuple (start, end, step)
+    self.name can either be 'slice' or 'sliceobj' depending
+    on if a step is specfied or not (see Python's AST
+    for more information on that)
+    """
     def __str__(self):
         return "<SliceList: (%s)>" % self.value
     
@@ -1257,6 +1299,7 @@ class AstBuilder(BaseGrammarBuilder):
         return True
 
 def show_stack(before, after):
+    """debuggin helper function"""
     L1 = len(before)
     L2 = len(after)
     for i in range(max(L1,L2)):

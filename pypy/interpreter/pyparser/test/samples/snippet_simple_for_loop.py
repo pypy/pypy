@@ -11,3 +11,5 @@ for x in range(5):
 else:
    c = 3
 
+for index, val in enumerate(range(5)):
+   val *= 2

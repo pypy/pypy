@@ -29,7 +29,22 @@ expressions = [
     "del foo.bar",
     "l[0]",
     "m[a,b]",
-]
+    "a.b.c[d]",
+    "file('some.txt').read()",
+    "a[0].read()",
+    "a[1:1].read()",
+    "f('foo')('bar')('spam')",
+    "f('foo')('bar')('spam').read()[0]",
+    "a.b[0][0]",
+    "a.b[0][:]",
+    "a.b[0][::]",
+    "a.b[0][0].pop()[0].push('bar')('baz').spam",
+    "a.b[0].read()[1][2].foo().spam()[0].bar",
+    "a**2",
+    "a**2**2",
+    "a.b[0]**2",
+    "a.b[0].read()[1][2].foo().spam()[0].bar ** 2",
+    ]
 
 funccalls = [
     "l = func()",
@@ -109,10 +124,22 @@ attraccess = [
 
 slices = [
     "l[:]",
+    "l[::]",
     "l[1:2]",
     "l[1:]",
     "l[:2]",
+    "l[1::]",
+    "l[:1:]",
+    "l[::1]",
+    "l[1:2:]",
+    "l[:1:2]",
+    "l[1::2]",
     "l[0:1:2]",
+    "a.b.l[:]",
+    "a.b.l[1:2]",
+    "a.b.l[1:]",
+    "a.b.l[:2]",
+    "a.b.l[0:1:2]",
     ]
 
 imports = [
@@ -263,6 +290,7 @@ one_stmt_funcdefs = [
     "def f(x,y=1,z=t,**kwargs): return x+y",
     "def f(*args): return 1",
     "def f(**kwargs): return 1",
+    "def f(t=()): pass", 
     ]
 
 docstrings = [
@@ -372,7 +400,7 @@ SNIPPETS = [
     'snippet_simple_in_expr.py',
     'snippet_slice.py',
     'snippet_whitespaces.py',
-#    'snippet_samples.py',
+    'snippet_samples.py',
     ]
 
 def test_snippets():
