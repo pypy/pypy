@@ -202,13 +202,30 @@ def test_math_errors():
         return math.log(x)
     f = compile(fn, [float])
     assert f(math.e) == math.log(math.e)
-    py.test.raises(ValueError, f, -1.0)
-    py.test.raises(OverflowError, f, 0.0)
-    import math
-    def fn(y):
+    # this is a platform specific mess
+    def check(mathf, f, v):
+        try:
+            r = mathf(v)
+        except (OverflowError, ValueError), e:
+            #print mathf, v, e.__class__
+            py.test.raises(e.__class__, f, v)
+        else:
+            if r != r: # nans
+                #print mathf, v, "NAN?", r
+                u = f(v)
+                assert u != u
+            else:
+                #print mathf, v, r
+                u = f(v)
+                assert u == r
+                
+    check(math.log, f, -1.0)
+    check(math.log, f, 0.0)
+
+    def fmod1_0(y):
         return math.fmod(1.0, y)
-    f = compile(fn, [float])
-    py.test.raises(ValueError, f, 0.0)    
+    f = compile(fmod1_0, [float])
+    check(fmod1_0, f, 0.0)
 
     
 def test_os_path_exists():
