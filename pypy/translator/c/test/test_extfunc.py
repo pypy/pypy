@@ -196,6 +196,21 @@ def test_simple_math_functions():
     for funcname in simple_math_functions:
         yield math_function_test, funcname
 
+def test_math_errors():
+    import math
+    def fn(x):
+        return math.log(x)
+    f = compile(fn, [float])
+    assert f(math.e) == math.log(math.e)
+    py.test.raises(ValueError, f, -1.0)
+    py.test.raises(OverflowError, f, 0.0)
+    import math
+    def fn(y):
+        return math.fmod(1.0, y)
+    f = compile(fn, [float])
+    py.test.raises(ValueError, f, 0.0)    
+
+    
 def test_os_path_exists():
     tmpfile = str(udir.join('test_os_path_exists.TMP'))
     def fn():

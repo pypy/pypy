@@ -7,105 +7,216 @@
    flag set.
 */
 
+/* xxx macro from pyport.h, at some point define our owns */
+/* xxx this 2.3 name is later deprecated  */
+#define LL_MATH_SET_ERANGE_IF_MATH_ERROR Py_SET_ERANGE_IF_OVERFLOW
 
-/* XXX completely ignoring exceptions/error checking for now */
+int ll_math_is_error(double x) {
+	if (errno == ERANGE) {
+		if (!x) 
+			return 0;
+		RPyRaiseSimpleException(PyExc_OverflowError, "math range error");
+	} else {
+		RPyRaiseSimpleException(PyExc_ValueError, "math domain error");
+	}
+	return 1;
+}
+
+#define LL_MATH_ERROR_RESET errno = 0
+
+#define LL_MATH_CHECK_ERROR(x, errret) do {  \ 
+	LL_MATH_SET_ERANGE_IF_MATH_ERROR(x); \
+	if (errno && ll_math_is_error(x))    \
+		return errret;               \
+} while(0)
+		
+
 
 
 double LL_math_pow(double x, double y) {
-  return pow(x, y);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = pow(x, y);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 RPyFREXP_RESULT* LL_math_frexp(double x) {
-  int expo;
-  double m = frexp(x, &expo);
-  return ll_frexp_result(m, expo);
+	int expo;
+	double m;
+	LL_MATH_ERROR_RESET;
+	m= frexp(x, &expo);
+	LL_MATH_CHECK_ERROR(m, NULL);
+	return ll_frexp_result(m, expo);
 }
 
 double LL_math_atan2(double x, double y) {
-  return atan2(x, y);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = atan2(x, y);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_fmod(double x, double y) {
-  return fmod(x, y);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = fmod(x, y);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_ldexp(double x, long y) {
-  return ldexp(x, (int) y);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = ldexp(x, (int) y);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_hypot(double x, double y) {
-  return hypot(x, y);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = hypot(x, y);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 
 RPyMODF_RESULT* LL_math_modf(double x) {
-  double intpart;
-  double fracpart = modf(x, &intpart);
-  return ll_modf_result(fracpart, intpart);
+	double intpart, fracpart;
+	LL_MATH_ERROR_RESET;
+	fracpart = modf(x, &intpart);
+	LL_MATH_CHECK_ERROR(fracpart, NULL);
+	return ll_modf_result(fracpart, intpart);
 }
 
 /* simple math function */
 
 double LL_math_acos(double x) {
-    return acos(x);
+	double r;	
+	LL_MATH_ERROR_RESET;
+	r = acos(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_asin(double x) {
-    return asin(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = asin(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_atan(double x) {
-    return atan(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = atan(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_ceil(double x) {
-    return ceil(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = ceil(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_cos(double x) {
-    return cos(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = cos(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_cosh(double x) {
-    return cosh(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = cosh(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_exp(double x) {
-    return exp(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = exp(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_fabs(double x) {
-    return fabs(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = fabs(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_floor(double x) {
-    return floor(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = floor(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_log(double x) {
-    return log(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = log(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_log10(double x) {
-    return log10(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = log10(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_sin(double x) {
-    return sin(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = sin(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_sinh(double x) {
-    return sinh(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = sinh(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_sqrt(double x) {
-    return sqrt(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = sqrt(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_tan(double x) {
-    return tan(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = tan(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
 
 double LL_math_tanh(double x) {
-    return tanh(x);
+	double r;
+	LL_MATH_ERROR_RESET;
+	r = tanh(x);
+	LL_MATH_CHECK_ERROR(r, -1.0);
+	return r;
 }
