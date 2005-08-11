@@ -9,7 +9,7 @@ from pypy.interpreter.astcompiler.transformer import WalkerError
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
 
-DEBUG_MODE = False
+DEBUG_MODE = 0
 
 
 ### Parsing utilites #################################################
@@ -72,8 +72,8 @@ def parse_argument(tokens):
         if not isinstance(cur_token, TokenObject):
             if not building_kw:
                 arguments.append(cur_token)
-            elif kw_built:
-                raise SyntaxError("non-keyword arg after keyword arg (%s)" % (cur_token))
+            # elif kw_built:
+            #     raise SyntaxError("non-keyword arg after keyword arg (%s)" % (cur_token))
             else:
                 last_token = arguments.pop()
                 assert isinstance(last_token, ast.Name) # used by rtyper
@@ -97,6 +97,36 @@ def parse_argument(tokens):
     return arguments, stararg_token, dstararg_token
 
 
+def parse_fpdef(tokens):
+    """fpdef: fpdef: NAME | '(' fplist ')'
+    fplist: fpdef (',' fpdef)* [',']
+    """
+    # FIXME: will we need to implement a Stack class to be RPYTHON compliant ?
+    stack = [[],] # list of lists
+    tokens_read = 0
+    to_be_closed = 1 # number of parenthesis to be closed
+    result = None
+    while to_be_closed > 0:
+        token = tokens[tokens_read]
+        tokens_read += 1
+        if isinstance(token, TokenObject) and token.name == tok.COMMA:
+            continue
+        elif isinstance(token, TokenObject) and token.name == tok.LPAR:
+            stack.append([])
+            to_be_closed += 1
+        elif isinstance(token, TokenObject) and token.name == tok.RPAR:
+            to_be_closed -= 1
+            elt = stack.pop()
+            if to_be_closed > 0:
+                stack[-1].append(tuple(elt))
+            else:
+                stack.append(tuple(elt))
+        else:
+            assert isinstance(token, TokenObject)
+            stack[-1].append(token.value)
+    assert len(stack) == 1, "At the end of parse_fpdef, len(stack) should be 1, got %s" % stack
+    return tokens_read, tuple(stack[0])
+
 def parse_arglist(tokens):
     """returns names, defaults, flags"""
     l = len(tokens)
@@ -107,6 +137,8 @@ def parse_arglist(tokens):
     while index < l:
         cur_token = tokens[index]
         index += 1
+##         if isinstance(cur_token, FPListObject):
+##             names.append(cur_token.value)
         if not isinstance(cur_token, TokenObject):
             # XXX: think of another way to write this test
             defaults.append(cur_token)
@@ -114,6 +146,10 @@ def parse_arglist(tokens):
             # We could skip test COMMA by incrementing index cleverly
             # but we might do some experiment on the grammar at some point
             continue
+        elif cur_token.name == tok.LPAR:
+            tokens_read, name = parse_fpdef(tokens[index:])
+            index += tokens_read
+            names.append(name)
         elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
             if cur_token.name == tok.STAR:
                 cur_token = tokens[index]
@@ -234,13 +270,22 @@ def to_lvalue(ast_node, OP):
             nodes.append(to_lvalue(node, OP))
             # nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
         return ast.AssTuple(nodes)
+    elif isinstance(ast_node, ast.List):
+        nodes = []
+        for node in ast_node.getChildren():
+            nodes.append(to_lvalue(node, OP))
+            # nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
+        return ast.AssList(nodes)
     elif isinstance(ast_node, ast.Getattr):
         expr = ast_node.expr
         attrname = ast_node.attrname
         return ast.AssAttr(expr, attrname, OP)
     elif isinstance(ast_node, ast.Subscript):
         ast_node.flags = OP
-        return ast_node        
+        return ast_node
+    elif isinstance(ast_node, ast.Slice):
+        ast_node.flags = OP
+        return ast_node
     else:
         assert False, "TODO"
 
@@ -353,7 +398,6 @@ def build_atom(builder, nb):
     L = get_atoms( builder, nb )
     top = L[0]
     if isinstance(top, TokenObject):
-        print "\t reducing atom (%s) (top.name) = %s" % (nb, top.name)
         if top.name == tok.LPAR:
             if len(L) == 2:
                 builder.push(ast.Tuple([], top.line))
@@ -387,6 +431,8 @@ def build_atom(builder, nb):
                 s += eval_string(token.value)
             builder.push( ast.Const(s) )
             # assert False, "TODO (String)"
+        elif top.name == tok.BACKQUOTE:
+            builder.push(ast.Backquote(L[1]))
         else:
             raise ValueError, "unexpected tokens (%d): %s" % (nb, [str(i) for i in L])
 
@@ -535,18 +581,20 @@ def build_comp_op(builder, nb):
 def build_and_test( builder, nb ):
     return build_binary_expr( builder, nb, ast.And )
 
+def build_not_test(builder, nb):
+    L = get_atoms(builder, nb)
+    if len(L) == 1:
+        builder.push(L[0])
+    elif len(L) == 2:
+        builder.push(ast.Not(L[1]))
+    else:
+        assert False, "not_test implementation incomplete (%s)" % L
+
 def build_test( builder, nb ):
     return build_binary_expr(builder, nb, ast.Or)
     
 def build_testlist( builder, nb ):
     return build_binary_expr( builder, nb, ast.Tuple )
-
-def build_not_test( builder, nb ):
-    L = get_atoms( builder, nb )
-    l = len(L)
-    if l==1:
-        builder.push( L[0] )
-        return
 
 def build_expr_stmt( builder, nb ):
     L = get_atoms( builder, nb )
@@ -594,7 +642,7 @@ def build_return_stmt(builder, nb):
     if len(L) > 2:
         assert False, "return several stmts not implemented"
     elif len(L) == 1:
-        builder.push(ast.Return(Const(None), None)) # XXX lineno
+        builder.push(ast.Return(ast.Const(None), None)) # XXX lineno
     else:
         builder.push(ast.Return(L[1], None)) # XXX lineno
 
@@ -659,7 +707,6 @@ def build_trailer(builder, nb):
     """trailer: '(' ')' | '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
     """
     L = get_atoms(builder, nb)
-    print "**** building trailer", L
     # Case 1 : '(' ...
     if L[0].name == tok.LPAR:
         if len(L) == 2: # and L[1].token == tok.RPAR:
@@ -760,9 +807,11 @@ def build_funcdef(builder, nb):
     funcname = L[1]
     arglist = []
     index = 3
-    while not (isinstance(L[index], TokenObject) and L[index].name == tok.RPAR):
-        arglist.append(L[index])
-        index += 1
+    arglist = L[3:-3]
+    # while not (isinstance(L[index], TokenObject) and L[index].name == tok.COLON):
+    #     arglist.append(L[index])
+    #     index += 1
+    # arglist.pop() # remove ':'
     names, default, flags = parse_arglist(arglist)
     funcname = L[1].value
     arglist = L[2]
@@ -785,10 +834,12 @@ def build_classdef(builder, nb):
         basenames = []
         body = L[6]
         base = L[3]
-        assert isinstance(base, ast.Tuple)
-        for node in base.nodes:
-            assert isinstance(node, ast.Name)
-            basenames.append(node)
+        if isinstance(base, ast.Tuple):
+            for node in base.nodes:
+                assert isinstance(node, ast.Name)
+                basenames.append(node)
+        else:
+            basenames.append(base)
     doc = get_docstring(body)
     builder.push(ast.Class(classname, basenames, doc, body))
 
@@ -871,6 +922,14 @@ def build_exprlist(builder, nb):
         for index in range(0, len(L), 2):
             names.append(L[index])
         builder.push(ast.Tuple(names))
+
+def build_fplist(builder, nb):
+    """fplist: fpdef (',' fpdef)* [',']"""
+    L = get_atoms(builder, nb)
+    names = []
+    for index in range(0, len(L), 2):
+        names.append(L[index].value)
+    builder.push(FPListObject('fplist', tuple(names), None))
 
 
 def build_while_stmt(builder, nb):
@@ -1084,6 +1143,7 @@ ASTRULES = {
     sym.comparison : build_comparison,
     sym.comp_op : build_comp_op,
     sym.and_test : build_and_test,
+    sym.not_test : build_not_test,
     sym.test : build_test,
     sym.testlist : build_testlist,
     sym.expr_stmt : build_expr_stmt,
@@ -1119,6 +1179,7 @@ ASTRULES = {
     sym.raise_stmt : build_raise_stmt,
     sym.try_stmt : build_try_stmt,
     sym.exprlist : build_exprlist,
+    # sym.fplist : build_fplist,
     }
 
 ## Stack elements definitions ###################################
@@ -1165,6 +1226,21 @@ class TokenObject(ast.Node):
         return "<Token: (%r,%s)>" % (self.get_name(), self.value)
 
 
+class FPListObject(ast.Node):
+    """store temp informations for fplist"""
+    def __init__(self, name, value, src):
+        self.name = name
+        self.value = value
+        self.count = 0
+        self.line = 0 # src.getline()
+        self.col = 0  # src.getcol()
+
+    def __str__(self):
+        return "<FPList: (%s)>" % (self.value,)
+    
+    def __repr__(self):
+        return "<FPList: (%s)>" % (self.value,)
+        
 # FIXME: The ObjectAccessor family is probably not RPYTHON since
 # some attributes have a different type depending on the subclass
 class ObjectAccessor(ast.Node):
@@ -1232,7 +1308,8 @@ class AstBuilder(BaseGrammarBuilder):
         return AstBuilderContext(self.rule_stack)
 
     def restore(self, ctx):
-        print "Restoring context (%s)" % (len(ctx.rule_stack))
+        if DEBUG_MODE:
+            print "Restoring context (%s)" % (len(ctx.rule_stack))
         assert isinstance(ctx, AstBuilderContext)
         self.rule_stack = ctx.rule_stack
 
@@ -1242,9 +1319,11 @@ class AstBuilder(BaseGrammarBuilder):
     def push(self, obj):
         self.rule_stack.append( obj )
         if not isinstance(obj, RuleObject) and not isinstance(obj, TokenObject):
-            print "Pushed:", str(obj), len(self.rule_stack)
+            if DEBUG_MODE:
+                print "Pushed:", str(obj), len(self.rule_stack)
         elif isinstance(obj, TempRuleObject):
-            print "Pushed:", str(obj), len(self.rule_stack)            
+            if DEBUG_MODE:
+                print "Pushed:", str(obj), len(self.rule_stack)            
         # print "\t", self.rule_stack
 
     def push_tok(self, name, value, src ):
@@ -1257,18 +1336,20 @@ class AstBuilder(BaseGrammarBuilder):
         # Do nothing, keep rule on top of the stack
         rule_stack = self.rule_stack[:]
         if rule.is_root():
-            print "ALT:", sym.sym_name[rule.codename], self.rule_stack
+            if DEBUG_MODE:
+                print "ALT:", sym.sym_name[rule.codename], self.rule_stack
             F = ASTRULES.get(rule.codename)
             if F:
                 # print "REDUCING ALTERNATIVE %s" % sym.sym_name[rule.codename]
                 F( self, 1 )
             else:
-                print "No reducing implementation for %s, just push it on stack" % (
-                    sym.sym_name[rule.codename])
+                if DEBUG_MODE:
+                    print "No reducing implementation for %s, just push it on stack" % (
+                        sym.sym_name[rule.codename])
                 self.push_rule( rule.codename, 1, source )
         else:
             self.push_rule( rule.codename, 1, source )
-        if DEBUG_MODE:
+        if DEBUG_MODE > 1:
             show_stack(rule_stack, self.rule_stack)
             x = raw_input("Continue ?")
         return True
@@ -1277,24 +1358,27 @@ class AstBuilder(BaseGrammarBuilder):
         """ """
         rule_stack = self.rule_stack[:]
         if rule.is_root():
-            print "SEQ:", sym.sym_name[rule.codename]
+            if DEBUG_MODE:
+                print "SEQ:", sym.sym_name[rule.codename]
             F = ASTRULES.get(rule.codename)
             if F:
                 # print "REDUCING SEQUENCE %s" % sym.sym_name[rule.codename]
                 F( self, elts_number )
             else:
-                print "No reducing implementation for %s, just push it on stack" % (
-                    sym.sym_name[rule.codename])
+                if DEBUG_MODE:
+                    print "No reducing implementation for %s, just push it on stack" % (
+                        sym.sym_name[rule.codename])
                 self.push_rule( rule.codename, elts_number, source )
         else:
             self.push_rule( rule.codename, elts_number, source )
-        if DEBUG_MODE:
+        if DEBUG_MODE > 1:
             show_stack(rule_stack, self.rule_stack)
             x = raw_input("Continue ?")
         return True
 
     def token(self, name, value, source):
-        print "TOK:", tok.tok_name[name], name, value
+        if DEBUG_MODE:
+            print "TOK:", tok.tok_name[name], name, value
         self.push_tok( name, value, source )
         return True
 

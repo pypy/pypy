@@ -44,6 +44,14 @@ expressions = [
     "a**2**2",
     "a.b[0]**2",
     "a.b[0].read()[1][2].foo().spam()[0].bar ** 2",
+    "l[start:end] = l2",
+    "l[::] = l2",
+    "a = `s`",
+    "a = `1 + 2 + f(3, 4)`",
+    "[a, b] = c",
+    "(a, b) = c",
+    "[a, (b,c), d] = e",
+    "a, (b, c), d = e",
     ]
 
 funccalls = [
@@ -55,6 +63,13 @@ funccalls = [
     "l = func(10, 12, a, b=c)",
     "e = l.pop(3)",
     "e = k.l.pop(3)",
+    "simplefilter('ignore', category=PendingDeprecationWarning, append=1)",
+    """methodmap = dict(subdirs=phase4,
+                        same_files=phase3, diff_files=phase3, funny_files=phase3,
+                        common_dirs = phase2, common_files=phase2, common_funny=phase2,
+                        common=phase1, left_only=phase1, right_only=phase1,
+                        left_list=phase0, right_list=phase0)""",
+    "odata = b2a_qp(data, quotetabs = quotetabs, header = header)",
     ]
 
 listmakers = [
@@ -168,7 +183,9 @@ elif a == 2:
     a += 3
 else:
     a += 4
-"""
+""",
+    "if a and not b == c: pass",
+    "if a and not not not b == c: pass",
     ]
 
 asserts = [
@@ -290,7 +307,10 @@ one_stmt_funcdefs = [
     "def f(x,y=1,z=t,**kwargs): return x+y",
     "def f(*args): return 1",
     "def f(**kwargs): return 1",
-    "def f(t=()): pass", 
+    "def f(t=()): pass",
+    "def f(a, b, (c, d), e): pass",
+    "def f(a, b, (c, (d, e), f, (g, h))): pass",
+    "def f(a, b, (c, (d, e), f, (g, h)), i): pass",
     ]
 
 docstrings = [
@@ -304,6 +324,15 @@ docstrings = [
     """bar"""
     return a
     '''
+    ]
+
+returns = [
+    'def f(): return',
+    'def f(): return 1',
+    'def f(): return a.b',
+    'def f(): return a',
+    'def f(): return a,b,c,d',
+    'return (a,b,c,d)',
     ]
 
 TESTS = [
@@ -330,6 +359,7 @@ EXEC_INPUTS = [
     if_stmts,
     tryexcepts,
     docstrings,
+    returns,
     ]
 
 TARGET_DICT = {
@@ -356,6 +386,7 @@ def check_expression(expr, target='single'):
     print 
     print "BUILT:", r1.rule_stack[-1]
     print "-" * 30
+    # r1.rule_stack[-1].equals(ast)
     assert ast == r1.rule_stack[-1], 'failed on %r' % (expr)
 
 
@@ -409,3 +440,19 @@ def test_snippets():
         source = file(filepath).read()
         yield check_expression, source, 'exec'
 
+# FIXME: find the sys' attriubte that define this
+STDLIB_PATH = os.path.dirname(os.__file__)
+def test_on_stdlib():
+    py.test.skip('too ambitious for now (and time consuming)')
+    for basename in os.listdir(STDLIB_PATH):
+        if basename != 'warnings.py':
+            continue
+        if not basename.endswith('.py'):
+            continue
+        filepath = os.path.join(STDLIB_PATH, basename)
+        size = os.stat(filepath)[6]
+        # filter on size
+        if size <= 10000:
+            print "TESTING", filepath
+            source = file(filepath).read()
+            yield check_expression, source, 'exec'
