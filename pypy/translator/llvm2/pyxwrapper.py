@@ -1,14 +1,28 @@
+import sys
 from pypy.translator.llvm2.log import log 
 from pypy.rpython import lltype 
 from pypy.translator.llvm2.genllvm import use_boehm_gc
 log = log.pyrex 
 
-PRIMITIVES_TO_C = {lltype.Signed: "int",
-                   lltype.Unsigned: "unsigned int",
-                   lltype.Bool: "char",
+PRIMITIVES_TO_C = {lltype.Bool: "char",
                    lltype.Float: "double",
                    lltype.Char: "char",
                    }
+
+# 32 bit platform
+if sys.maxint == 2**31-1:
+    PRIMITIVES_TO_C.update({
+        lltype.Signed: "int",
+        lltype.Unsigned: "unsigned int" })
+    
+# 64 bit platform
+elif sys.maxint == 2**63-1:        
+    PRIMITIVES_TO_C.update({
+        lltype.Signed: "long",
+        lltype.Unsigned: "unsigned long" })
+
+else:
+    assert False, "Unsupported platform"        
 
 def write_pyx_wrapper(funcgen, targetpath): 
     def c_declaration():

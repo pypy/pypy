@@ -96,6 +96,7 @@ class OpWriter(object):
                 if not meth:
                     msg = "operation %s not found" %(op.opname,)
                     self.codewriter.comment('XXX: Error: ' + msg)
+                    # XXX commented out for testing
                     #assert meth is not None, msg
                     return
                 meth(op)    
@@ -105,9 +106,12 @@ class OpWriter(object):
         mult_val = self.db.repr_arg(op.args[0])
         last_val = mult_val
         try:
-            operand = int(op.args[1].value)
-        except:
-            msg = 'XXX: Error: _generic_pow: Variable has no value'
+            value = "NO VALUE"
+            value = op.args[1].value
+            operand = int(value)
+        except Exception, exc:
+            msg = 'XXX: Error: _generic_pow: Variable '\
+                  '%s - failed to convert to int %s' % (value, str(exc))
             self.codewriter.comment(msg)
             return
         if operand < 1:
@@ -150,8 +154,11 @@ class OpWriter(object):
                                  self.db.repr_arg(op.args[0]),
                                  )
     def int_neg(self, op):
-        self._generic_neg(op, "0") 
-    uint_neg = int_neg  #this is really generates, don't know why
+        self._generic_neg(op, "0")
+
+    #this is really generated, don't know why
+    # XXX rxe: Surely that cant be right?
+    uint_neg = int_neg  
 
     def float_neg(self, op):
         self._generic_neg(op, "0.0") 
@@ -200,7 +207,8 @@ class OpWriter(object):
                                 self.db.repr_arg(op.args[0]),
                                 tmpvar)
 
-    def cast_primitive(self, op): #works for all primitives
+    def cast_primitive(self, op):
+        " works for all casts "
         assert len(op.args) == 1
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
@@ -256,7 +264,6 @@ class OpWriter(object):
             self.codewriter.call_void(functionref, argrefs, argtypes)
 
     def invoke(self, op):
-        # XXX hack as per remove_voids()
         op_args = [arg for arg in op.args
                    if arg.concretetype is not lltype.Void]
 
@@ -271,6 +278,7 @@ class OpWriter(object):
             else:
                 msg = "exception raising operation %s not found" %(op.opname,)
                 self.codewriter.comment('XXX: Error: ' + msg)
+                # XXX commented out for testing
                 #assert functionref in extfunctions, msg
         
         assert len(op_args) >= 1
@@ -416,7 +424,9 @@ class OpWriter(object):
                                           ("uint", index))        
             self.codewriter.load(targetvar, targettype, tmpvar)
         else:
-            self.codewriter.comment("***Skipping operation getfield()***")  #XXX what if this the last operation of the exception block?
+            #XXX what if this the last operation of the exception block?
+            # XXX rxe: would a getfield() ever raise anyway???
+            self.codewriter.comment("***Skipping operation getfield()***")
  
     def getsubstruct(self, op): 
         struct, structtype = self.db.repr_argwithtype(op.args[0])
@@ -470,14 +480,12 @@ class OpWriter(object):
 
         valuevar = self.db.repr_arg(op.args[2]) 
         valuetype = self.db.repr_arg_type(op.args[2])
-        #XXX These should skip too if the case comes up
         if valuetype != "void":
             self.codewriter.getelementptr(tmpvar, arraytype, array,
                                       ("uint", 1), (indextype, index))
             self.codewriter.store(valuetype, valuevar, tmpvar) 
         else:
             self.codewriter.comment("***Skipping operation setarrayitem()***")
-
 
     def getarraysize(self, op):
         array, arraytype = self.db.repr_argwithtype(op.args[0])

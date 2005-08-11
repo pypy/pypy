@@ -51,8 +51,10 @@ class StructVarsizeTypeNode(StructTypeNode):
     def __init__(self, db, struct): 
         super(StructVarsizeTypeNode, self).__init__(db, struct)
         self.constructor_ref = "%%new.varsizestruct.%s" % (self.name)
-        self.constructor_decl = "%s * %s(int %%len)" % \
-                                (self.ref, self.constructor_ref)
+        self.constructor_decl = "%s * %s(%s %%len)" % \
+                                (self.ref,
+                                 self.constructor_ref,
+                                 self.db.get_machine_word())
 
     def __str__(self):
         return "<StructVarsizeTypeNode %r>" %(self.ref,)
@@ -79,7 +81,7 @@ class StructVarsizeTypeNode(StructTypeNode):
         assert isinstance(current, lltype.Array)
         arraytype = self.db.repr_arg_type(current.OF)
         # XXX write type info as a comment 
-        varsize.write_constructor(codewriter, 
+        varsize.write_constructor(self.db, codewriter, 
             self.ref, self.constructor_decl, arraytype, 
             indices_to_array,
             atomicmalloc=self.is_atomic())

@@ -41,8 +41,8 @@ class CodeWriter(object):
     def structdef(self, name, typereprs):
         self.append("%s = type { %s }" %(name, ", ".join(typereprs)))
 
-    def arraydef(self, name, typerepr):
-        self.append("%s = type { int, [0 x %s] }" % (name, typerepr))
+    def arraydef(self, name, lentype, typerepr):
+        self.append("%s = type { %s, [0 x %s] }" % (name, lentype, typerepr))
 
     def funcdef(self, name, rettyperepr, argtypereprs):
         self.append("%s = type %s (%s)" % (name, rettyperepr,

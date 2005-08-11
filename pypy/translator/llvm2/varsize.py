@@ -15,14 +15,15 @@
    ret %array* %result
 }"""
 
-def write_constructor(codewriter, ref, constructor_decl, elemtype, 
+def write_constructor(db, codewriter, ref, constructor_decl, elemtype, 
                       indices_to_array=(), atomicmalloc=False): 
     #varsized arrays and structs look like this: 
     #Array: {int length , elemtype*}
     #Struct: {...., Array}
 
-    # the following indices access the last element in the array 
-    elemindices = list(indices_to_array) + [("uint", 1), ("int", "%len")]
+    # the following indices access the last element in the array
+    lentype = db.get_machine_word()
+    elemindices = list(indices_to_array) + [("uint", 1), (lentype, "%len")]
    
     codewriter.openfunc(constructor_decl)
     codewriter.getelementptr("%size", ref + "*", "null", *elemindices) 
@@ -35,7 +36,7 @@ def write_constructor(codewriter, ref, constructor_decl, elemtype,
     codewriter.getelementptr("%arraylength", ref + "*", 
                              "%result", 
                              *indices_to_array)
-    codewriter.store("int", "%len", "%arraylength")
+    codewriter.store(lentype, "%len", "%arraylength")
     codewriter.ret(ref + "*", "%result")
     codewriter.closefunc()
 

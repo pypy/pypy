@@ -1,3 +1,4 @@
+import sys
 from pypy.translator.llvm2.log import log 
 from pypy.translator.llvm2.funcnode import FuncNode, FuncTypeNode
 from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
@@ -12,14 +13,6 @@ from pypy.objspace.flow.model import Block, Constant, Variable
 from pypy.rpython.rstr import STR
             
 log = log.database 
-
-PRIMITIVES_TO_LLVM = {lltype.Signed: "int",
-                      lltype.Char: "sbyte",
-                      lltype.Unsigned: "uint",
-                      lltype.Bool: "bool",
-                      lltype.Float: "double",
-                      lltype.UniChar: "uint",
-                      lltype.Void: "void"}
 
 class NormalizingDict(object): 
     """ this is a helper dict for obj2node in order 
@@ -60,17 +53,6 @@ class NormalizingDict(object):
     def items(self): 
         return self._dict.items()
 
-def primitive_to_str(type_, value):
-    if type_ is lltype.Bool:
-        repr = str(value).lower() #False --> false
-    elif type_ is lltype.Char:
-        repr = str(ord(value))
-    elif type_ is lltype.UniChar:
-        repr = str(ord(value))
-    else:
-        repr = str(value)
-    return repr
-
 class Database(object): 
     def __init__(self, translator): 
         self._translator = translator
@@ -81,6 +63,33 @@ class Database(object):
         # debug operation comments
         self._opcomments = {}
 
+        self.primitives_init()
+
+    def primitives_init(self):
+        primitives = {
+            lltype.Char: "sbyte",
+            lltype.Bool: "bool",
+            lltype.Float: "double",
+            lltype.UniChar: "uint",
+            lltype.Void: "void"}
+
+        # 32 bit platform
+        if sys.maxint == 2**31-1:
+            primitives.update({
+                lltype.Signed: "int",
+                lltype.Unsigned: "uint" })
+            
+        # 64 bit platform
+        elif sys.maxint == 2**63-1:        
+            primitives.update({
+                lltype.Signed: "long",
+                lltype.Unsigned: "ulong" })
+            
+        else:
+            assert False, "Unsupported platform"        
+
+        self.primitives = primitives
+        
     #_______for debugging llvm code_________________________
 
     def add_op2comment(self, lenofopstr, op):
@@ -270,11 +279,11 @@ class Database(object):
         
     # __________________________________________________________
     # Representing variables and constants in LLVM source code 
-    
+
     def repr_arg(self, arg):
         if isinstance(arg, Constant):
             if isinstance(arg.concretetype, lltype.Primitive):
-                return primitive_to_str(arg.concretetype, arg.value)
+                return self.primitive_to_str(arg.concretetype, arg.value)
             else:
                 node = self.obj2node.get(arg)
                 if node is None:
@@ -292,7 +301,7 @@ class Database(object):
             return self.obj2node[arg].ref 
         except KeyError: 
             if isinstance(arg, lltype.Primitive):
-                return PRIMITIVES_TO_LLVM[arg]
+                return self.primitives[arg]
             elif isinstance(arg, lltype.Ptr):
                 return self.repr_arg_type(arg.TO) + '*'
             else: 
@@ -311,7 +320,7 @@ class Database(object):
         " returns node and repr as tuple "
         type_ = lltype.typeOf(value)
         if isinstance(type_, lltype.Primitive):
-            repr = primitive_to_str(type_, value)
+            repr = self.primitive_to_str(type_, value)
             return None, "%s %s" % (self.repr_arg_type(type_), repr)
 
         elif isinstance(type_, lltype.Ptr):
@@ -336,3 +345,24 @@ class Database(object):
         count = self._tmpcount 
         self._tmpcount += 1
         return "%tmp." + str(count) 
+
+    # __________________________________________________________
+    # Primitive stuff
+
+    def primitive_to_str(self, type_, value):
+        #XXX Need to watch for special float values (inf, 2E200)
+        if type_ is lltype.Bool:
+            repr = str(value).lower() #False --> false
+        elif type_ is lltype.Char:
+            repr = str(ord(value))
+        elif type_ is lltype.UniChar:
+            repr = str(ord(value))
+        else:
+            repr = str(value)
+        return repr
+
+    def get_machine_word(self):
+        return self.primitives[lltype.Signed]
+
+    def get_machine_uword(self):
+        return self.primitives[lltype.Unsigned]

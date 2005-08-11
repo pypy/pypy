@@ -35,7 +35,7 @@ class LLVMNode(object):
             if hasattr(self, "_constructor_ref"):
                 raise TypeError, ("can only set constructor_ref once!"
                                   " currently: %s" % (self._constructor_ref,))
-            if " " in ref: 
+            if " " in ref or "<" in ref: 
                 ref = '"%s"' % (ref,)
             self._constructor_ref = ref
         return property(_get_ref, _set_ref)
