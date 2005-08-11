@@ -54,9 +54,11 @@ class MarkSweepGC(object):
                 break
             # roots is a list of addresses to addresses:
             objects.append(curr.address[0])
+            gc_info = curr.address[0] - 2 * INT_SIZE
+            assert gc_info.signed[0] == 0
         while 1:  #mark
             curr = objects.pop()
-            print "root: ", curr
+            print "object: ", curr
             if curr == NULL:
                 break
             gc_info = curr - 2 * INT_SIZE

@@ -19,6 +19,10 @@ class LLInterpreter(object):
     def __init__(self, flowgraphs, typer, lltype=lltype, prepare_graphs=None):
         if prepare_graphs is not None:
             prepare_graphs(flowgraphs)
+        if hasattr(lltype, "create_gc"):
+            self.gc = lltype.create_gc(self)
+        else:
+            self.gc = None
         self.flowgraphs = flowgraphs
         self.bindings = {}
         self.typer = typer
@@ -54,6 +58,17 @@ class LLInterpreter(object):
                 else:
                     print "   ",
                 print operation
+
+    def find_roots(self):
+        print "find_roots"
+        frame = self.active_frame
+        roots = []
+        while frame is not None:
+            print frame.graph.name
+            frame.find_roots(roots)
+            frame = frame.f_back
+        return roots
+
 
 # implementations of ops from flow.operation
 from pypy.objspace.flow.operation import FunctionByName
@@ -212,6 +227,16 @@ class LLFrame(object):
             #print "GOT A CPYTHON EXCEPTION:", e.__class__, e
             self.make_llexception(e)
 
+    def find_roots(self, roots):
+        print "find_roots in LLFrame", roots, self.curr_block.inputargs
+        for arg in self.curr_block.inputargs:
+            if (isinstance(arg, Variable) and
+                isinstance(self.getval(arg), self.llt._ptr)):
+                roots.append(self.getval(arg))
+        for op in self.curr_block.operations[:self.curr_operation_index]:
+            if isinstance(self.getval(op.result), self.llt._ptr):
+                roots.append(self.getval(op.result))
+
     # __________________________________________________________
     # misc LL operation implementations
 
@@ -249,7 +274,16 @@ class LLFrame(object):
         return frame.eval()
 
     def op_malloc(self, obj):
-        return self.llt.malloc(obj)
+        if self.llinterpreter.gc is not None:
+            return self.llinterpreter.gc.malloc(obj)
+        else:
+            return self.llt.malloc(obj)
+
+    def op_malloc_varsize(self, obj, size):
+        if self.llinterpreter.gc is not None:
+            return self.llinterpreter.gc.malloc(obj, size)
+        else:
+            return self.llt.malloc(obj, size)
 
     def op_getfield(self, obj, field):
         assert isinstance(obj, self.llt._ptr)
@@ -268,9 +302,6 @@ class LLFrame(object):
         assert (self.llt.typeOf(result) ==
                 self.llt.Ptr(getattr(self.llt.typeOf(obj).TO, field)))
         return result
-
-    def op_malloc_varsize(self, obj, size):
-        return self.llt.malloc(obj, size)
 
     def op_getarraysubstruct(self, array, index):
         assert isinstance(array, self.llt._ptr)

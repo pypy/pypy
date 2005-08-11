@@ -21,7 +21,7 @@ ForwardReference = GcForwardReference = castable = parentlink = notimplemented
 
 
 # the following names from lltype will probably have to be implemented yet:
-# opaqueptr, pyobjectptr, attachRuntimeTypeInfo, getRuntimeTypeInfo,
+# opaqueptr, attachRuntimeTypeInfo, getRuntimeTypeInfo,
 # runtime_type_info
 
 opaqueptr = attachRuntimeTypeInfo = notimplemented
@@ -33,4 +33,17 @@ def prepare_graphs(flowgraphs):
     from pypy.rpython.memory.convertlltype import FlowGraphConstantConverter
     fgcc = FlowGraphConstantConverter(flowgraphs)
     fgcc.convert()
+
+def create_no_gc(llinterp):
+    return None
+
+def create_mark_sweep_gc(llinterp):
+    from pypy.rpython.memory.gcwrapper import GcWrapper, LLInterpObjectModel
+    from pypy.rpython.memory.gc import MarkSweepGC
+    om = LLInterpObjectModel(llinterp)
+    gc = MarkSweepGC(om, 4096)
+    wrapper = GcWrapper(llinterp, gc)
+    return wrapper
+
+create_gc = create_no_gc
 
