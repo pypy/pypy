@@ -437,6 +437,7 @@ SNIPPETS = [
     'snippet_slice.py',
     'snippet_whitespaces.py',
     'snippet_samples.py',
+    'snippet_decorators.py',
     ]
 
 def test_snippets():

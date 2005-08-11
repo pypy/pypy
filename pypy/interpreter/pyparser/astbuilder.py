@@ -346,7 +346,12 @@ def parse_attraccess(tokens):
     
     and returns an ast node : ast.Getattr(Getattr(Name('a'), 'b'), 'c' ...)
     """
-    result = tokens[0]
+    token = tokens[0]
+    # XXX HACK for when parse_attraccess is called from build_decorator
+    if isinstance(token, TokenObject):
+        result = ast.Name(token.value)
+    else:
+        result = token
     index = 1
     while index < len(tokens):
         token = tokens[index]
@@ -800,10 +805,35 @@ def build_listmaker(builder, nb):
         builder.push(ast.List(nodes))
     
 
+def build_decorator(builder, nb):
+    """decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE"""
+    L = get_atoms(builder, nb)
+    print "***** decorator", L
+    nodes = []
+    # remove '@', '(' and ')' from L and use parse_attraccess
+    for token in L[1:]:
+        if isinstance(token, TokenObject) and \
+               token.name in (tok.LPAR, tok.RPAR, tok.NEWLINE):
+            # skip those ones
+            continue
+        else:
+            nodes.append(token)
+    obj = parse_attraccess(nodes)
+    builder.push(obj)
+
 def build_funcdef(builder, nb):
     """funcdef: [decorators] 'def' NAME parameters ':' suite
     """
     L = get_atoms(builder, nb)
+    index = 0
+    decorators = []
+    decorator_node = None
+    while not (isinstance(L[index], TokenObject) and L[index].value == 'def'):
+        decorators.append(L[index])
+        index += 1
+    if decorators:
+        decorator_node = ast.Decorators(decorators)
+    L = L[index:]
     funcname = L[1]
     arglist = []
     index = 3
@@ -818,7 +848,7 @@ def build_funcdef(builder, nb):
     code = L[-1]
     doc = get_docstring(code)
     # FIXME: decorators and docstring !
-    builder.push(ast.Function(None, funcname, names, default, flags, doc, code))
+    builder.push(ast.Function(decorator_node, funcname, names, default, flags, doc, code))
 
 
 def build_classdef(builder, nb):
@@ -1178,6 +1208,7 @@ ASTRULES = {
     sym.raise_stmt : build_raise_stmt,
     sym.try_stmt : build_try_stmt,
     sym.exprlist : build_exprlist,
+    sym.decorator : build_decorator,
     # sym.fplist : build_fplist,
     }
 
