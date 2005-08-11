@@ -24,7 +24,7 @@ int ll_math_is_error(double x) {
 
 #define LL_MATH_ERROR_RESET errno = 0
 
-#define LL_MATH_CHECK_ERROR(x, errret) do {  \ 
+#define LL_MATH_CHECK_ERROR(x, errret) do {  \
 	LL_MATH_SET_ERANGE_IF_MATH_ERROR(x); \
 	if (errno && ll_math_is_error(x))    \
 		return errret;               \
