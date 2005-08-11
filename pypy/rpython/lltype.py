@@ -461,14 +461,32 @@ def parentlink(container):
 
 
 class _ptr(object):
-    _weak = False
+    __slots__ = ('_TYPE', '_T', 
+                 '_weak', '_immortal',
+                 '_obj0', '__weakref__')
+
+    def _set_TYPE(self, TYPE):
+        _ptr._TYPE.__set__(self, TYPE)
+
+    def _set_T(self, T):
+        _ptr._T.__set__(self, T)
+
+    def _set_weak(self, weak):
+        _ptr._weak.__set__(self, weak)
+
+    def _set_immortal(self, immortal):
+        _ptr._immortal.__set__(self, immortal)
+
+    def _set_obj0(self, obj):
+        _ptr._obj0.__set__(self, obj)
 
     def _needsgc(self):
         return self._TYPE._needsgc() # xxx other rules?
 
     def __init__(self, TYPE, pointing_to, immortal=False):
-        self.__dict__['_TYPE'] = TYPE
-        self.__dict__['_T'] = TYPE.TO
+        self._set_TYPE(TYPE)
+        self._set_T(TYPE.TO)
+        self._set_weak(False)
         self._setobj(pointing_to, immortal)
 
     def __eq__(self, other):
@@ -496,10 +514,10 @@ class _ptr(object):
         elif immortal or isinstance(self._T, (GC_CONTAINER, FuncType)):
             obj0 = pointing_to
         else:
-            self.__dict__['_weak'] = True
+            self._set_weak(True)
             obj0 = weakref.ref(pointing_to)
-        self.__dict__['_immortal'] = immortal
-        self.__dict__['_obj0'] = obj0
+        self._set_immortal(immortal)
+        self._set_obj0(obj0)
         
     def _getobj(self):
         obj = self._obj0
@@ -596,10 +614,19 @@ class _ptr(object):
             return callb(*args)
         raise TypeError("%r instance is not a function" % (self._T,))
 
+assert not '__dict__' in dir(_ptr)
 
 class _parentable(object):
-    _wrparent = None
     _kind = "?"
+
+    __slots__ = ('_TYPE',
+                 '_parent_type', '_parent_index', '_keepparent',
+                 '_wrparent',
+                 '__weakref__')
+
+    def __init__(self, TYPE):
+        self._wrparent = None
+        self._TYPE = TYPE
 
     def _setparentstructure(self, parent, parentindex):
         self._wrparent = weakref.ref(parent)
@@ -625,12 +652,30 @@ class _parentable(object):
     def _check(self):
         self._parentstructure()
 
+
+def _struct_variety(flds, cache={}):
+    flds = list(flds)
+    flds.sort()
+    tag = tuple(flds)
+    try:
+        return cache[tag]
+    except KeyError:
+        class _struct1(_struct):
+            __slots__ = flds
+        cache[tag] = _struct1
+        return _struct1
             
 class _struct(_parentable):
     _kind = "structure"
 
+    __slots__ = ()
+
+    def __new__(self, TYPE, n=None, parent=None, parentindex=None):
+        my_variety = _struct_variety(TYPE._names)
+        return object.__new__(my_variety)
+
     def __init__(self, TYPE, n=None, parent=None, parentindex=None):
-        self._TYPE = TYPE
+        _parentable.__init__(self, TYPE)
         if n is not None and TYPE._arrayfld is None:
             raise TypeError("%r is not variable-sized" % (TYPE,))
         if n is None and TYPE._arrayfld is not None:
@@ -666,12 +711,14 @@ class _struct(_parentable):
 class _array(_parentable):
     _kind = "array"
 
+    __slots__ = ('items',)
+
     def __init__(self, TYPE, n, parent=None, parentindex=None):
         if not isinstance(n, int):
             raise TypeError, "array length must be an int"
         if n < 0:
             raise ValueError, "negative array length"
-        self._TYPE = TYPE
+        _parentable.__init__(self, TYPE)
         self.items = [TYPE.OF._defl(parent=self, parentindex=j)
                       for j in range(n)]
         if parent is not None:
@@ -693,6 +740,10 @@ class _array(_parentable):
     def __str__(self):
         return 'array [ %s ]' % (', '.join(['%s' % self._str_item(item)
                                             for item in self.items]),)
+
+assert not '__dict__' in dir(_array)
+assert not '__dict__' in dir(_struct)
+
 
 class _func(object):
     def __init__(self, TYPE, **attrs):
