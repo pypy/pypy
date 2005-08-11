@@ -24,14 +24,12 @@ function_count = {}
 
 class GenLLVM(object):
 
-    def __init__(self, translator, debug=False, embedexterns=True):
-        embedexterns = True # XXX just for now because exception handling globals must be available
+    def __init__(self, translator, debug=False):
     
         # reset counters
         LLVMNode.nodename_count = {}    
         self.db = Database(translator)
         self.translator = translator
-        self.embedexterns = embedexterns
         translator.checkgraphs()
         ExternalFuncNode.used_external_functions = {}
 
@@ -100,9 +98,8 @@ class GenLLVM(object):
             
         if self.debug:  print 'gen_llvm_source extdeclarations) ' + time.ctime()
         nl(); comment("Function Prototypes") ; nl()
-        if self.embedexterns:
-            for extdecl in extdeclarations.split('\n'):
-                codewriter.append(extdecl)
+        for extdecl in extdeclarations.split('\n'):
+            codewriter.append(extdecl)
 
         if self.debug:  print 'gen_llvm_source self._debug_prototype) ' + time.ctime()
         if self.debug:
@@ -178,26 +175,39 @@ class GenLLVM(object):
         if self.debug:  print 'gen_llvm_source return) ' + time.ctime()
         return filename
 
-    def create_module(self, filename, really_compile=True, standalone=False, optimize=True, exe_name=None):
-        if not llvm_is_on_path(): 
-            py.test.skip("llvm not found")  # XXX not good to call py.test.skip here
+    def create_module(self,
+                      filename,
+                      really_compile=True,
+                      standalone=False,
+                      optimize=True,
+                      exe_name=None):
+
+        if not llvm_is_on_path():
+            # XXX not good to call py.test.skip here
+            py.test.skip("llvm not found")
 
         if standalone:
-            return build_llvm_module.make_module_from_llvm(filename, optimize=optimize, exe_name=exe_name)
+            return build_llvm_module.make_module_from_llvm(filename,
+                                                           optimize=optimize,
+                                                           exe_name=exe_name)
         else:
             postfix = ''
-            pyxfile = filename.new(basename=filename.purebasename+'_wrapper'+postfix+'.pyx')
+            basename = filename.purebasename+'_wrapper'+postfix+'.pyx'
+            pyxfile = filename.new(basename = basename)
             write_pyx_wrapper(self.entrynode, pyxfile)    
-            return build_llvm_module.make_module_from_llvm(filename, pyxfile=pyxfile, optimize=optimize)
+            return build_llvm_module.make_module_from_llvm(filename,
+                                                           pyxfile=pyxfile,
+                                                           optimize=optimize)
 
     def _debug_prototype(self, codewriter):
         codewriter.append("declare int %printf(sbyte*, ...)")
 
-def genllvm(translator, really_compile=True, standalone=False, optimize=True, embedexterns=True, exe_name=None):
-    gen = GenLLVM(translator, embedexterns=embedexterns)
+def genllvm(translator, log_source=False, **kwds):
+    gen = GenLLVM(translator)
     filename = gen.gen_llvm_source()
-    #log.genllvm(open(filename).read())
-    return gen.create_module(filename, really_compile=really_compile, standalone=standalone, optimize=optimize, exe_name=exe_name)
+    if log_source:
+        log.genllvm(open(filename).read())
+    return gen.create_module(filename, **kwds)
 
 def llvm_is_on_path():
     try:
@@ -206,19 +216,19 @@ def llvm_is_on_path():
         return False 
     return True
 
-def compile_module(function, annotation, view=False, really_compile=True, standalone=False, optimize=True, embedexterns=True, exe_name=None):
+def compile_module(function, annotation, view=False, **kwds):
     t = Translator(function)
     a = t.annotate(annotation)
     t.specialize()
     if view:
         t.view()
-    return genllvm(t, really_compile=really_compile, standalone=standalone, optimize=optimize, embedexterns=embedexterns, exe_name=exe_name)
+    return genllvm(t, **kwds)
 
-def compile_function(function, annotation, view=False, really_compile=True, standalone=False, optimize=True, embedexterns=True, exe_name=None):
-    mod = compile_module(function, annotation, view=view, really_compile=really_compile, standalone=standalone, optimize=optimize, embedexterns=embedexterns, exe_name=exe_name)
+def compile_function(function, annotation, **kwds):
+    mod = compile_module(function, annotation)
     return getattr(mod, function.func_name + "_wrapper")
 
-def compile_module_function(function, annotation, view=False, really_compile=True, standalone=False, optimize=True, embedexterns=True, exe_name=None):
-    mod = compile_module(function, annotation, view=view, really_compile=really_compile, standalone=standalone, optimize=optimize, embedexterns=embedexterns, exe_name=exe_name)
+def compile_module_function(function, annotation, **kwds):
+    mod = compile_module(function, annotation, **kwds)
     f = getattr(mod, function.func_name + "_wrapper")
     return mod, f

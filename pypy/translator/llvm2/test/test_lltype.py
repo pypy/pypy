@@ -28,7 +28,7 @@ def test_struct_constant1():
     def struct_constant():
         x1 = s.signed + s.unsigned
         return x1
-    f = compile_function(struct_constant, [], embedexterns=False)
+    f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
 def test_struct_constant2():
@@ -41,7 +41,7 @@ def test_struct_constant2():
     s.s2.b = 3
     def struct_constant():
         return s.a + s.s2.b + s.s1.a + s.s1.b
-    f = compile_function(struct_constant, [], embedexterns=False)
+    f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
 def test_struct_constant3():
@@ -62,7 +62,7 @@ def test_struct_constant3():
         return (top.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.a -
                 top.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.s.b)
     
-    f = compile_function(struct_constant, [], embedexterns=False)
+    f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
 def test_struct_constant4():
@@ -73,7 +73,7 @@ def test_struct_constant4():
     s.sptr.a = 21
     def struct_constant():
         return s.sptr.a * 2
-    f = compile_function(struct_constant, [], embedexterns=False)
+    f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
 def test_struct_constant5():
@@ -86,7 +86,7 @@ def test_struct_constant5():
     s.sptr.b.b = 10
     def struct_constant():
         return s.sptr.a + s.sptr.b.a + s.sptr.b.b
-    f = compile_function(struct_constant, [], embedexterns=False)
+    f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
 def test_struct_constant6():
@@ -101,7 +101,7 @@ def test_struct_constant6():
     s.p = s.u
     def struct_constant():
         return s.x.y + s.p.z
-    f = compile_function(struct_constant, [], embedexterns=False)
+    f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
 def test_aliasing():
@@ -112,7 +112,7 @@ def test_aliasing():
     def aliasing(i):
         global_b.x = 17
         return global_a[i].x
-    f = compile_function(aliasing, [int], embedexterns=False)
+    f = compile_function(aliasing, [int])
     assert f(2) == 0
     assert f(3) == 17
 
@@ -126,7 +126,7 @@ def test_aliasing2():
     def aliasing(i):
         global_c.bptr.x = 17
         return global_a[i].x
-    f = compile_function(aliasing, [int], embedexterns=False)
+    f = compile_function(aliasing, [int])
     assert f(2) == 0
     assert f(3) == 17    
 
@@ -138,7 +138,7 @@ def test_array_constant():
     a[2] = 102
     def array_constant():
         return a[0] + a[1] + a[2]    
-    f = compile_function(array_constant, [], embedexterns=False)
+    f = compile_function(array_constant, [])
     assert f() == array_constant()
 
 def test_array_constant2():
@@ -150,7 +150,7 @@ def test_array_constant2():
     def array_constant():
         a[0] = 0
         return a[0] + a[1] + a[2]    
-    f = compile_function(array_constant, [], embedexterns=False)
+    f = compile_function(array_constant, [])
     assert f() == array_constant()
 
 def test_array_constant3():
@@ -161,7 +161,7 @@ def test_array_constant3():
     a[2].x = 102
     def array_constant():
         return a[0].x + a[1].x + a[2].x    
-    f = compile_function(array_constant, [], embedexterns=False)
+    f = compile_function(array_constant, [])
     assert f() == array_constant()
 
 def test_struct_array1():
@@ -173,7 +173,7 @@ def test_struct_array1():
     a[1] = 101
     def array_constant():
         return s.aptr[1] - a[0]
-    f = compile_function(array_constant, [], embedexterns=False)
+    f = compile_function(array_constant, [])
     assert f() == array_constant()
 
 def test_struct_array2():
@@ -185,7 +185,7 @@ def test_struct_array2():
     s.b[1] = 101
     def array_constant():
         return s.b[1] - s.b[0] + s.a
-    f = compile_function(array_constant, [], embedexterns=False)
+    f = compile_function(array_constant, [])
     assert f() == array_constant()
 
 def test_struct_array3():
@@ -201,7 +201,7 @@ def test_struct_array3():
     def array_constant():
         s = b.p
         return s.b[1] - s.b[0] + s.a
-    f = compile_function(array_constant, [], embedexterns=False)
+    f = compile_function(array_constant, [])
     assert f() == array_constant()
 
 def test_struct_opaque():
@@ -211,5 +211,5 @@ def test_struct_opaque():
     s.a = 42
     def array_constant():
         return s.a
-    f = compile_function(array_constant, [], embedexterns=False)
+    f = compile_function(array_constant, [])
     assert f() == array_constant()
