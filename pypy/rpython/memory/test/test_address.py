@@ -4,9 +4,11 @@ import sys
 from pypy.annotation import model as annmodel
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.objspace.flow import FlowObjSpace
+from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.memory.lladdress import address, NULL
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 from pypy.rpython.memory.lladdress import get_py_object, get_address_of_object
+from pypy.rpython.memory.lladdress import Address
 from pypy.rpython.memory.simulator import MemorySimulatorError
 
 class TestAddressAnnotation(object):
@@ -107,6 +109,75 @@ class TestAddressAnnotation(object):
         assert f(1)
         assert not f(0)
         assert not f(-1)
+
+
+class TestAddressRTyping(object):
+    def DONOTtest_null(self):
+        def f():
+            return NULL
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize()
+        rtyp = a.translator.flowgraphs[f].returnblock.inputargs[0].concretetype
+        assert rtyp == Address
+
+    def DONOTtest_raw_malloc(self):
+        def f():
+            return raw_malloc(100)
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
+    def DONOTtest_raw_free(self):
+        def f(addr):
+            raw_free(addr)
+        a = RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeAddress()])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
+    def DONOTtest_memcopy(self):
+        def f(addr1, addr2):
+            raw_memcopy(addr1, addr2, 100)
+        a = RPythonAnnotator()
+        #does not raise:
+        s = a.build_types(f, [annmodel.SomeAddress(), annmodel.SomeAddress()])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
+    def DONOTtest_memory_access(self):
+        def f(offset, value):
+            addr = raw_malloc(offset * 2 + 1)
+            addr.signed[offset] = value
+            return addr.signed[offset]
+        a = RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeInteger(), annmodel.SomeInteger()])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
+    def DONOTtest_address_arithmetic(self):
+        def f(offset, char):
+            addr = raw_malloc(10000)
+            same_offset = (addr + offset) - addr
+            addr.char[offset] = char
+            return (addr + same_offset).char[0]
+        a = RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeInteger(), annmodel.SomeChar()])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
+    def DONOTtest_address_comparison(self):
+        def f(offset):
+            return NULL < NULL + offset
+        a = RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeInteger()])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+        graph = a.translator.flowgraphs[f] 
+        assert graph.startblock.operations[0].result.concretetype == Address
+
 
 class TestAddressSimulation(object):
     def test_null_is_singleton(self):
