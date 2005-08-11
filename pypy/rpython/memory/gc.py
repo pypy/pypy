@@ -11,7 +11,7 @@ class FREED_OBJECT(object):
 
 
 def free_non_gc_object(obj):
-    assert obj.__class__._raw_allocate_
+    assert getattr(obj.__class__, "_raw_allocate_", False), "trying to free regular object"
     obj.__dict__ = {}
     obj.__class__ = FREED_OBJECT
 
