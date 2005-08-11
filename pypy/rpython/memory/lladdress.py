@@ -1,5 +1,4 @@
 import struct
-from pypy.rpython import lltype
 from pypy.rpython.memory.simulator import MemorySimulator
 from pypy.rpython.rarithmetic import r_uint
 
@@ -104,9 +103,12 @@ def get_py_object(address):
     return simulator.get_py_object(address.intaddress)
 
 
+from pypy.rpython import lltype
+Address = lltype.Primitive("Address", NULL)
+
+
 supported_access_types = {"signed":    lltype.Signed,
                           "unsigned":  lltype.Unsigned,
                           "char":      lltype.Char,
-                          "address":   address,
+                          "address":   Address,
                           }
-

@@ -387,6 +387,30 @@ class SomeImpossibleValue(SomeObject):
     def can_be_none(self):
         return False
 
+# ____________________________________________________________
+# memory addresses
+
+from pypy.rpython.memory import lladdress
+
+class SomeAddress(SomeObject):
+    def __init__(self, is_null=False):
+        self.is_null = is_null
+
+    def can_be_none(self):
+        return False
+
+
+# The following class is used to annotate the intermediate value that
+# appears in expressions of the form:
+# addr.signed[offset] and addr.signed[offset] = value
+
+class SomeTypedAddressAccess(SomeObject):
+    def __init__(self, type):
+        self.type = type
+
+    def can_be_none(self):
+        return False
+
 #____________________________________________________________
 # annotation of low-level types
 
@@ -407,6 +431,7 @@ annotation_to_ll_map = [
     (SomeFloat(), lltype.Float),
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
+    (SomeAddress(), lladdress.Address),
 ]
 
 def annotation_to_lltype(s_val, info=None):
@@ -438,41 +463,6 @@ def ll_to_annotation(v):
         from bookkeeper import getbookkeeper
         return getbookkeeper().immutablevalue(None)
     return lltype_to_annotation(lltype.typeOf(v))
-
-# ____________________________________________________________
-# memory addresses
-
-class SomeAddress(SomeObject):
-    def __init__(self, is_null=False):
-        self.is_null = is_null
-
-    def can_be_none(self):
-        return False
-
-
-# The following class is used to annotate the intermediate value that
-# appears in expressions of the form:
-# addr.signed[offset] and addr.signed[offset] = value
-
-class SomeTypedAddressAccess(SomeObject):
-    def __init__(self, type):
-        self.type = type
-
-    def can_be_none(self):
-        return False
-
-def lltype_or_address_to_annotation(T):
-    from pypy.rpython.memory.lladdress import address
-    if T is address:
-        return SomeAddress()
-    return lltype_to_annotation(T)
-
-def annotation_to_lltype_or_address(s_ann):
-    from pypy.rpython.memory.lladdress import address
-    if isinstance(s_ann, SomeAddress):
-        return address
-    else:
-        return annotation_to_lltype(s_ann)
     
 # ____________________________________________________________
 

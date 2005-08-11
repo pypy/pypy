@@ -659,13 +659,13 @@ class __extend__(pairtype(SomeTypedAddressAccess, SomeTypedAddressAccess)):
 
 class __extend__(pairtype(SomeTypedAddressAccess, SomeInteger)):
     def getitem((s_taa, s_int)):
-        from pypy.annotation.model import lltype_or_address_to_annotation
-        return lltype_or_address_to_annotation(s_taa.type)
+        from pypy.annotation.model import lltype_to_annotation
+        return lltype_to_annotation(s_taa.type)
     getitem.can_only_throw = []
 
     def setitem((s_taa, s_int), s_value):
-        from pypy.annotation.model import annotation_to_lltype_or_address
-        assert annotation_to_lltype_or_address(s_value) is s_taa.type
+        from pypy.annotation.model import annotation_to_lltype
+        assert annotation_to_lltype(s_value) is s_taa.type
     setitem.can_only_throw = []
 
 
