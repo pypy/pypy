@@ -604,7 +604,7 @@ show class hierarchy graph"""
         elif options['-no-c']:
             print 'Not generating C code.'
         elif options['-c']:
-            if option['-llvm']:
+            if options['-llvm']:
                 print 'Generating LLVM code without compiling it...'
                 filename = t.llvmcompile(really_compile=False,
                                       standalone=standalone)
