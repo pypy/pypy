@@ -190,6 +190,7 @@ class TestAddressSimulation(object):
         assert addr.unsigned[0] == sys.maxint * 2 + 1
         addr.address[0] = addr
         assert addr.address[0] == addr
+        py.test.raises(MemorySimulatorError, "NULL.signed[0]")
 
     def test_pointer_arithmetic(self):
         addr = raw_malloc(100)

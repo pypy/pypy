@@ -1,5 +1,5 @@
 import struct
-from pypy.rpython.memory.simulator import MemorySimulator
+from pypy.rpython.memory.simulator import MemorySimulator, MemorySimulatorError
 from pypy.rpython.rarithmetic import r_uint
 
 
@@ -44,6 +44,8 @@ class address(object):
 
 class _accessor(object):
     def __init__(self, addr):
+        if addr == NULL:
+            raise MemorySimulatorError("trying to access NULL pointer")
         self.intaddress = addr.intaddress
     def __getitem__(self, offset):
         result = simulator.getstruct(self.format,
