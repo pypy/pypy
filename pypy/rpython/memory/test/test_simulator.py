@@ -63,9 +63,14 @@ class TestMemorySimulator(object):
     def test_out_of_memory(self):
         sim = MemorySimulator(1 * 1024 * 1024)
         def f():
-            for i in xrange(10000000):
+            for i in xrange(10000):
                 sim.malloc(4096)
         py.test.raises(MemorySimulatorError, f)
+        sim = MemorySimulator(1 * 1024 * 1024)
+        def g():
+            for i in xrange(10000):
+                sim.free(sim.malloc(4096))
+        g() #does not raise
 
     def test_object_access(self):
         sim = MemorySimulator()

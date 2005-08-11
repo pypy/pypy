@@ -94,6 +94,7 @@ class MemorySimulator(object):
         self.freememoryaddress = 4 + SIZE_OF_OBJECT_BLOCK
         if ram_size is not None:
             self.size_of_simulated_ram = ram_size
+        self.current_size = 0
 
     def find_block(self, address):
         if address >= self.freememoryaddress:
@@ -115,7 +116,8 @@ class MemorySimulator(object):
         result = self.freememoryaddress
         self.blocks.append(MemoryBlock(result, size))
         self.freememoryaddress += size
-        if self.freememoryaddress > self.size_of_simulated_ram:
+        self.current_size += size
+        if self.current_size + size > self.size_of_simulated_ram:
             raise MemorySimulatorError, "out of memory"
         return result
 
@@ -125,6 +127,7 @@ class MemorySimulator(object):
         block = self.find_block(baseaddress)
         if baseaddress != block.baseaddress:
             raise MemorySimulatorError, "trying to free address not malloc'ed"
+        self.current_size -= block.size
         block.free()
 
     def getstruct(self, fmt, address):
