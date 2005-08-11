@@ -4,7 +4,7 @@ from pypy.rpython.memory.simulator import MemorySimulator
 from pypy.rpython.rarithmetic import r_uint
 
 
-class Address(object):
+class address(object):
     def __new__(cls, intaddress=0):
         if intaddress == 0:
             null = cls.__dict__.get("NULL")
@@ -23,11 +23,11 @@ class Address(object):
 
     def __add__(self, offset):
         assert isinstance(offset, int)
-        return Address(self.intaddress + offset)
+        return address(self.intaddress + offset)
 
     def __sub__(self, other):
         if isinstance(other, int):
-            return Address(self.intaddress - other)
+            return address(self.intaddress - other)
         else:
             return self.intaddress - other.intaddress
 
@@ -76,20 +76,20 @@ class _char_accessor(_accessor):
 class _address_accessor(_accessor):
     format = "P"
     size = struct.calcsize("P")
-    convert_from = Address
-    convert_to = Address._getintattr
+    convert_from = address
+    convert_to = address._getintattr
 
 
-Address.signed = property(_signed_accessor)
-Address.unsigned = property(_unsigned_accessor)
-Address.char = property(_char_accessor)
-Address.address = property(_address_accessor)
+address.signed = property(_signed_accessor)
+address.unsigned = property(_unsigned_accessor)
+address.char = property(_char_accessor)
+address.address = property(_address_accessor)
 
-NULL = Address()
+NULL = address()
 simulator = MemorySimulator()
 
 def raw_malloc(size):
-    return Address(simulator.malloc(size))
+    return address(simulator.malloc(size))
 
 def raw_free(addr):
     simulator.free(addr.intaddress)
@@ -98,7 +98,7 @@ def raw_memcopy(addr1, addr2, size):
     simulator.memcopy(addr1.intaddress, addr2.intaddress, size)
 
 def get_address_of_object(obj):
-    return Address(simulator.get_address_of_object(obj))
+    return address(simulator.get_address_of_object(obj))
 
 def get_py_object(address):
     return simulator.get_py_object(address.intaddress)
@@ -107,6 +107,6 @@ def get_py_object(address):
 supported_access_types = {"signed":    lltype.Signed,
                           "unsigned":  lltype.Unsigned,
                           "char":      lltype.Char,
-                          "address":   Address,
+                          "address":   address,
                           }
 

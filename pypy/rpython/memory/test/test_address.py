@@ -4,7 +4,7 @@ import sys
 from pypy.annotation import model as annmodel
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.objspace.flow import FlowObjSpace
-from pypy.rpython.memory.lladdress import Address, NULL
+from pypy.rpython.memory.lladdress import address, NULL
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 from pypy.rpython.memory.lladdress import get_py_object, get_address_of_object
 from pypy.rpython.memory.simulator import MemorySimulatorError
@@ -110,8 +110,8 @@ class TestAddressAnnotation(object):
 
 class TestAddressSimulation(object):
     def test_null_is_singleton(self):
-        assert Address() is NULL
-        assert Address() is Address(0)
+        assert address() is NULL
+        assert address() is address(0)
 
     def test_memory_access(self):
         addr = raw_malloc(1000)

@@ -462,15 +462,15 @@ class SomeTypedAddressAccess(SomeObject):
         return False
 
 def lltype_or_address_to_annotation(T):
-    from pypy.rpython.memory.lladdress import Address
-    if T is Address:
+    from pypy.rpython.memory.lladdress import address
+    if T is address:
         return SomeAddress()
     return lltype_to_annotation(T)
 
 def annotation_to_lltype_or_address(s_ann):
-    from pypy.rpython.memory.lladdress import Address
+    from pypy.rpython.memory.lladdress import address
     if isinstance(s_ann, SomeAddress):
-        return Address
+        return address
     else:
         return annotation_to_lltype(s_ann)
     

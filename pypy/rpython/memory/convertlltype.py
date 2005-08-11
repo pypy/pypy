@@ -97,7 +97,7 @@ class LLTypeConverter(object):
             addr = self.convert(_ptr._obj)
         else:
             addr = lladdress.NULL
-        assert isinstance(addr, lladdress.Address)
+        assert isinstance(addr, lladdress.address)
         if inline_to_addr is not None:
             inline_to_addr.address[0] = addr
         return simulatorptr(TYPE, addr)

@@ -339,7 +339,7 @@ class Bookkeeper:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (x.__module__, x.__name__))
         elif isinstance(x, lltype._ptr):
             result = SomePtr(lltype.typeOf(x))
-        elif isinstance(x, lladdress.Address):
+        elif isinstance(x, lladdress.address):
             assert x is lladdress.NULL
             result= SomeAddress(is_null=True)
         elif callable(x) or isinstance(x, staticmethod): # XXX
