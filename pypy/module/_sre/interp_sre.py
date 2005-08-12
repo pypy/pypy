@@ -1,4 +1,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace
+# XXX is it allowed to import app-level module like this?
+from pypy.module._sre.app_info import CODESIZE
+from pypy.module.array.app_array import array
 
 #### Category helpers
 
@@ -89,11 +92,14 @@ category_dispatch_table = [
 class MatchContext:
     # XXX This is not complete. It's tailored to at dispatch currently.
     
-    def __init__(self, space, w_string, string_position, end):
+    def __init__(self, space, pattern_codes, w_string, string_position, end):
         self.space = space
+        self.pattern_codes = pattern_codes
         self.w_string = w_string
         self.string_position = string_position
         self.end = end
+        self.code_position = 0
+        self.set_ok = True # XXX maybe get rid of this
 
     def peek_char(self, peek=0):
         return self.space.getitem(self.w_string,
@@ -101,6 +107,12 @@ class MatchContext:
 
     def remaining_chars(self):
         return self.end - self.string_position
+
+    def peek_code(self, peek=0):
+        return self.pattern_codes[self.code_position + peek]
+
+    def skip_code(self, skip_count):
+        self.code_position += skip_count
 
     def at_beginning(self):
         return self.string_position == 0
@@ -126,7 +138,7 @@ def at_dispatch(space, w_atcode, w_string, w_string_position, w_end):
     atcode = space.int_w(w_atcode)
     if atcode >= len(at_dispatch_table):
         return space.newbool(False)
-    context = MatchContext(space, w_string, space.int_w(w_string_position),
+    context = MatchContext(space, [], w_string, space.int_w(w_string_position),
                                                             space.int_w(w_end))
     function, negate = at_dispatch_table[atcode]
     result = function(space, context)
@@ -144,19 +156,19 @@ def at_beginning_line(space, ctx):
 def at_end(space, ctx):
     return ctx.at_end() or (ctx.remaining_chars() == 1 and ctx.at_linebreak())
 
-def at_end_line(self, ctx):
+def at_end_line(space, ctx):
     return ctx.at_linebreak() or ctx.at_end()
 
-def at_end_string(self, ctx):
+def at_end_string(space, ctx):
     return ctx.at_end()
 
-def at_boundary(self, ctx):
+def at_boundary(space, ctx):
     return ctx.at_boundary(is_word)
 
-def at_loc_boundary(self, ctx):
+def at_loc_boundary(space, ctx):
     return ctx.at_boundary(is_loc_word)
 
-def at_uni_boundary(self, ctx):
+def at_uni_boundary(space, ctx):
     return ctx.at_boundary(is_uni_word)
 
 # Maps opcodes by indices to (function, negate) tuples.
@@ -166,4 +178,96 @@ at_dispatch_table = [
     (at_end, False), (at_end_line, False), (at_end_string, False),
     (at_loc_boundary, False), (at_loc_boundary, True), (at_uni_boundary, False),
     (at_uni_boundary, True)
+]
+
+##### Charset evaluation
+
+def check_charset(space, w_pattern_codes, w_char_code, w_string, w_string_position):
+    """Checks whether a character matches set of arbitrary length. Currently
+    assumes the set starts at the first member of pattern_codes."""
+    # XXX temporary ugly method signature until we can call this from
+    # interp-level only
+    pattern_codes_w = space.unpackiterable(w_pattern_codes)
+    pattern_codes = [space.int_w(code) for code in pattern_codes_w]
+    char_code = space.int_w(w_char_code)
+    context = MatchContext(space, pattern_codes, w_string,
+              space.int_w(w_string_position), space.int_w(space.len(w_string)))
+    result = None
+    while result is None:
+        opcode = context.peek_code()
+        if opcode >= len(set_dispatch_table):
+            return space.newbool(False)
+        function = set_dispatch_table[opcode]
+        result = function(space, context, char_code)
+    return space.newbool(result)
+
+def set_failure(space, ctx, char_code):
+    return not ctx.set_ok
+
+def set_literal(space, ctx, char_code):
+    # <LITERAL> <code>
+    if ctx.peek_code(1) == char_code:
+        return ctx.set_ok
+    else:
+        ctx.skip_code(2)
+
+def set_category(space, ctx, char_code):
+    # <CATEGORY> <code>
+    if space.is_true(
+       category_dispatch(space, space.wrap(ctx.peek_code(1)), ctx.peek_char())):
+        return ctx.set_ok
+    else:
+        ctx.skip_code(2)
+
+def set_charset(space, ctx, char_code):
+    # <CHARSET> <bitmap> (16 bits per code word)
+    ctx.skip_code(1) # point to beginning of bitmap
+    if CODESIZE == 2:
+        if char_code < 256 and ctx.peek_code(char_code >> 4) \
+                                        & (1 << (char_code & 15)):
+            return ctx.set_ok
+        ctx.skip_code(16) # skip bitmap
+    else:
+        if char_code < 256 and ctx.peek_code(char_code >> 5) \
+                                        & (1 << (char_code & 31)):
+            return ctx.set_ok
+        ctx.skip_code(8) # skip bitmap
+
+def set_range(space, ctx, char_code):
+    # <RANGE> <lower> <upper>
+    if ctx.peek_code(1) <= char_code <= ctx.peek_code(2):
+        return ctx.set_ok
+    ctx.skip_code(3)
+
+def set_negate(space, ctx, char_code):
+    ctx.set_ok = not ctx.set_ok
+    ctx.skip_code(1)
+
+def set_bigcharset(space, ctx, char_code):
+    # <BIGCHARSET> <blockcount> <256 blockindices> <blocks>
+    # XXX this function probably needs a makeover
+    count = ctx.peek_code(1)
+    ctx.skip_code(2)
+    if char_code < 65536:
+        block_index = char_code >> 8
+        # NB: there are CODESIZE block indices per bytecode
+        # XXX can we really use array here?
+        a = array("B")
+        a.fromstring(array(CODESIZE == 2 and "H" or "I",
+                [ctx.peek_code(block_index / CODESIZE)]).tostring())
+        block = a[block_index % CODESIZE]
+        ctx.skip_code(256 / CODESIZE) # skip block indices
+        block_value = ctx.peek_code(block * (32 / CODESIZE)
+                + ((char_code & 255) >> (CODESIZE == 2 and 4 or 5)))
+        if block_value & (1 << (char_code & ((8 * CODESIZE) - 1))):
+            return ctx.set_ok
+    else:
+        ctx.skip_code(256 / CODESIZE) # skip block indices
+    ctx.skip_code(count * (32 / CODESIZE)) # skip blocks
+
+set_dispatch_table = [
+    set_failure, None, None, None, None, None, None, None, None,
+    set_category, set_charset, set_bigcharset, None, None, None,
+    None, None, None, None, set_literal, None, None, None, None,
+    None, None, set_negate, set_range
 ]

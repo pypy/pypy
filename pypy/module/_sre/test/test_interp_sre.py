@@ -51,29 +51,29 @@ def test_is_uni_space(space):
 
 def test_at_beginning(space):
     assert isre.at_beginning(space,
-                            isre.MatchContext(space, space.wrap(""), 0, 0))
+                            isre.MatchContext(space, [], space.wrap(""), 0, 0))
     assert not isre.at_beginning(space,
-                            isre.MatchContext(space, space.wrap("a"), 1, 1))
+                            isre.MatchContext(space, [], space.wrap("a"), 1, 1))
 
 def test_at_beginning_line(space):
     assert isre.at_beginning_line(space,
-                            isre.MatchContext(space, space.wrap(""), 0, 0))
+                            isre.MatchContext(space, [], space.wrap(""), 0, 0))
     assert isre.at_beginning_line(space,
-                            isre.MatchContext(space, space.wrap("\na"), 1, 3))
+                            isre.MatchContext(space, [], space.wrap("\na"), 1, 3))
     assert not isre.at_beginning_line(space,
-                            isre.MatchContext(space, space.wrap("a"), 1, 2))
+                            isre.MatchContext(space, [], space.wrap("a"), 1, 2))
 
 def test_at_end(space):
     for string, pos, end in [("", 0, 0), ("a", 1, 1), ("a\n", 1, 2)]:
         assert isre.at_end(space,
-                        isre.MatchContext(space, space.wrap(string), pos, end))
+                        isre.MatchContext(space, [], space.wrap(string), pos, end))
     assert not isre.at_end(space,
-                            isre.MatchContext(space, space.wrap("a"), 0, 1))
+                            isre.MatchContext(space, [], space.wrap("a"), 0, 1))
 
 def test_at_boundary(space):
     for string, pos, end in [("a.", 1, 2), (".a", 1, 2)]:
         assert isre.at_boundary(space,
-                        isre.MatchContext(space, space.wrap(string), pos, end))
+                        isre.MatchContext(space, [], space.wrap(string), pos, end))
     for string, pos, end in [(".", 0, 1), (".", 1, 1), ("ab", 1, 2)]:
         assert not isre.at_boundary(space,
-                        isre.MatchContext(space, space.wrap(string), pos, end))
+                        isre.MatchContext(space, [], space.wrap(string), pos, end))

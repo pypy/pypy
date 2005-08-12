@@ -538,7 +538,6 @@ class _OpcodeDispatcher(_Dispatcher):
     
     def __init__(self):
         self.executing_contexts = {}
-        self.set_dispatcher = _CharsetDispatcher()
         
     def match(self, context):
         """Returns True if the current context matches, False if it doesn't and
@@ -669,7 +668,9 @@ class _OpcodeDispatcher(_Dispatcher):
             return
         skip = ctx.peek_code(1)
         ctx.skip_code(2) # set op pointer to the set code
-        if not self.check_charset(ctx, decorate(ord(ctx.peek_char()))):
+        char = decorate(ord(ctx.peek_char()))
+        if not _sre._check_charset(ctx.pattern_codes[ctx.code_position:], char,
+                                         ctx.state.string, ctx.string_position):
             ctx.has_matched = False
             return
         ctx.skip_code(skip - 1)
@@ -1023,18 +1024,7 @@ class _OpcodeDispatcher(_Dispatcher):
     def unknown(self, ctx):
         #self._log(ctx, "UNKNOWN", ctx.peek_code())
         raise RuntimeError("Internal re error. Unknown opcode: %s" % ctx.peek_code())
-                
-    def check_charset(self, ctx, char):
-        """Checks whether a character matches set of arbitrary length. Assumes
-        the code pointer is at the first member of the set."""
-        self.set_dispatcher.reset(char)
-        save_position = ctx.code_position
-        result = None
-        while result is None:
-            result = self.set_dispatcher.dispatch(ctx.peek_code(), ctx)
-        ctx.code_position = save_position
-        return result
-
+    
     def count_repetitions(self, ctx, maxcount):
         """Returns the number of repetitions of a single item, starting from the
         current string position. The code pointer is expected to point to a
@@ -1069,74 +1059,6 @@ class _OpcodeDispatcher(_Dispatcher):
             context.string_position, opname, arg_string))
 
 _OpcodeDispatcher.build_dispatch_table(OPCODES, "op_")
-
-
-class _CharsetDispatcher(_Dispatcher):
-
-    def reset(self, char):
-        self.char = char
-        self.ok = True
-
-    def set_failure(self, ctx):
-        return not self.ok
-    def set_literal(self, ctx):
-        # <LITERAL> <code>
-        if ctx.peek_code(1) == self.char:
-            return self.ok
-        else:
-            ctx.skip_code(2)
-    def set_category(self, ctx):
-        # <CATEGORY> <code>
-        if _sre._category_dispatch(ctx.peek_code(1), ctx.peek_char()):
-            return self.ok
-        else:
-            ctx.skip_code(2)
-    def set_charset(self, ctx):
-        # <CHARSET> <bitmap> (16 bits per code word)
-        char_code = self.char
-        ctx.skip_code(1) # point to beginning of bitmap
-        if CODESIZE == 2:
-            if char_code < 256 and ctx.peek_code(char_code >> 4) \
-                                            & (1 << (char_code & 15)):
-                return self.ok
-            ctx.skip_code(16) # skip bitmap
-        else:
-            if char_code < 256 and ctx.peek_code(char_code >> 5) \
-                                            & (1 << (char_code & 31)):
-                return self.ok
-            ctx.skip_code(8) # skip bitmap
-    def set_range(self, ctx):
-        # <RANGE> <lower> <upper>
-        if ctx.peek_code(1) <= self.char <= ctx.peek_code(2):
-            return self.ok
-        ctx.skip_code(3)
-    def set_negate(self, ctx):
-        self.ok = not self.ok
-        ctx.skip_code(1)
-    def set_bigcharset(self, ctx):
-        # <BIGCHARSET> <blockcount> <256 blockindices> <blocks>
-        char_code = self.char
-        count = ctx.peek_code(1)
-        ctx.skip_code(2)
-        if char_code < 65536:
-            block_index = char_code >> 8
-            # NB: there are CODESIZE block indices per bytecode
-            a = array.array("B")
-            a.fromstring(array.array(CODESIZE == 2 and "H" or "I",
-                    [ctx.peek_code(block_index / CODESIZE)]).tostring())
-            block = a[block_index % CODESIZE]
-            ctx.skip_code(256 / CODESIZE) # skip block indices
-            block_value = ctx.peek_code(block * (32 / CODESIZE)
-                    + ((char_code & 255) >> (CODESIZE == 2 and 4 or 5)))
-            if block_value & (1 << (char_code & ((8 * CODESIZE) - 1))):
-                return self.ok
-        else:
-            ctx.skip_code(256 / CODESIZE) # skip block indices
-        ctx.skip_code(count * (32 / CODESIZE)) # skip blocks
-    def unknown(self, ctx):
-        return False
-
-_CharsetDispatcher.build_dispatch_table(OPCODES, "set_")
 
 
 def _log(message):
