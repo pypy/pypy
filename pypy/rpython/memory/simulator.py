@@ -113,6 +113,7 @@ class MemorySimulator(object):
         return self.blocks[mid]
 
     def malloc(self, size):
+        assert size > 0
         result = self.freememoryaddress
         self.blocks.append(MemoryBlock(result, size))
         self.freememoryaddress += size

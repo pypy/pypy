@@ -32,7 +32,10 @@ class LLInterpObjectModel(object):
             raw_free(self.pseudo_root_pointers)
         self.roots = self.llinterp.find_roots()
         print "found:", self.roots
-        self.pseudo_root_pointers = raw_malloc(len(self.roots) * INT_SIZE)
+        if len(self.roots) == 0:
+            self.pseudo_root_pointers = NULL
+        else:
+            self.pseudo_root_pointers = raw_malloc(len(self.roots) * INT_SIZE)
         ll = AddressLinkedList()
         for i, root in enumerate(self.roots):
             self.pseudo_root_pointers.address[i] = root._address
