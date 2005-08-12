@@ -55,7 +55,9 @@ class MarkSweepGC(object):
             # roots is a list of addresses to addresses:
             objects.append(curr.address[0])
             gc_info = curr.address[0] - 2 * INT_SIZE
-            assert gc_info.signed[0] == 0
+            # constants roots are not malloced and thus don't have their mark
+            # bit reset
+            gc_info.signed[0] = 0 
         while 1:  #mark
             curr = objects.pop()
             print "object: ", curr

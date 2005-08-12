@@ -9,6 +9,7 @@ from pypy.rpython.memory.lltypesimulation import cast_pointer
 from pypy.rpython.memory.lltypesimulation import simulatorptr as _ptr
 from pypy.rpython.memory.lltypesimulation import malloc, functionptr, nullptr
 from pypy.rpython.memory.lltypesimulation import pyobjectptr
+from pypy.rpython.memory.convertlltype import FlowGraphConstantConverter
 
 
 def notimplemented(*args, **kwargs):
@@ -29,21 +30,21 @@ getRuntimeTypeInfo = runtime_type_info = notimplemented
 
 del notimplemented
 
-def prepare_graphs(flowgraphs):
-    from pypy.rpython.memory.convertlltype import FlowGraphConstantConverter
+def create_no_gc(llinterp, flowgraphs):
     fgcc = FlowGraphConstantConverter(flowgraphs)
-    fgcc.convert()
-
-def create_no_gc(llinterp):
+    fgcc.convert()    
     return None
 
-def create_mark_sweep_gc(llinterp):
+def create_mark_sweep_gc(llinterp, flowgraphs):
     from pypy.rpython.memory.gcwrapper import GcWrapper, LLInterpObjectModel
     from pypy.rpython.memory.gc import MarkSweepGC
-    om = LLInterpObjectModel(llinterp)
+    fgcc = FlowGraphConstantConverter(flowgraphs)
+    fgcc.convert()    
+    om = LLInterpObjectModel(llinterp, fgcc.cvter.types,
+                             fgcc.cvter.type_to_typeid,
+                             fgcc.cvter.constantroots)
     gc = MarkSweepGC(om, 4096)
     wrapper = GcWrapper(llinterp, gc)
     return wrapper
 
-create_gc = create_no_gc
-
+prepare_graphs_and_create_gc = create_mark_sweep_gc

@@ -5,9 +5,10 @@ from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.memory.gc import MarkSweepGC
 
 class LLInterpObjectModel(object):
-    def __init__(self, llinterp):
-        self.type_to_typeid = {}
-        self.types = []
+    def __init__(self, llinterp, types, type_to_typeid, constantroots):
+        self.types = types
+        self.type_to_typeid = type_to_typeid
+        self.constantroots = constantroots
         self.roots = []
         self.pseudo_root_pointers = NULL
         self.llinterp = llinterp
@@ -30,7 +31,7 @@ class LLInterpObjectModel(object):
         print "getting roots"
         if self.pseudo_root_pointers != NULL:
             raw_free(self.pseudo_root_pointers)
-        self.roots = self.llinterp.find_roots()
+        self.roots = self.llinterp.find_roots() + self.constantroots
         print "found:", self.roots
         if len(self.roots) == 0:
             self.pseudo_root_pointers = NULL

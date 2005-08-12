@@ -15,10 +15,23 @@ import types, struct
 FUNCTIONTYPES = (types.FunctionType, types.UnboundMethodType,
                  types.BuiltinFunctionType)
 
+INT_SIZE = struct.calcsize("i")
+
 class LLTypeConverter(object):
     def __init__(self, address):
+        self.type_to_typeid = {}
+        self.types = []
         self.converted = {}
         self.curraddress = address
+        self.constantroots = []
+
+    def get_typeid(self, TYPE):
+        if TYPE not in self.type_to_typeid:
+            index = len(self.types)
+            self.type_to_typeid[TYPE] = index
+            self.types.append(TYPE)
+        typeid = self.type_to_typeid[TYPE]
+        return typeid
 
     def convert(self, val_or_ptr, inline_to_addr=None, from_parent=False):
         TYPE = lltype.typeOf(val_or_ptr)
@@ -53,11 +66,16 @@ class LLTypeConverter(object):
             startaddr = inline_to_addr
         else:
             startaddr = self.curraddress
+            startaddr.signed[0] = 0
+            startaddr.signed[1] = self.get_typeid(TYPE)
+            startaddr += 2 * INT_SIZE
+            self.constantroots.append(
+                simulatorptr(lltype.Ptr(TYPE), startaddr))
+            self.curraddress += size + 2 * INT_SIZE
         self.converted[_array] = startaddr
         startaddr.signed[0] = arraylength
         curraddr = startaddr + get_fixed_size(TYPE)
         varsize = get_variable_size(TYPE)
-        self.curraddress += size
         for item in _array.items:
             self.convert(item, curraddr, from_parent=True)
             curraddr += varsize
@@ -84,8 +102,13 @@ class LLTypeConverter(object):
             startaddr = inline_to_addr
         else:
             startaddr = self.curraddress
+            startaddr.signed[0] = 0
+            startaddr.signed[1] = self.get_typeid(TYPE)
+            startaddr += 2 * INT_SIZE
+            self.constantroots.append(
+                simulatorptr(lltype.Ptr(TYPE), startaddr))
+            self.curraddress += size + 2 * INT_SIZE
         self.converted[_struct] = startaddr
-        self.curraddress += size
         for name in TYPE._flds:
             addr = startaddr + layout[name]
             self.convert(getattr(_struct, name), addr, from_parent=True)
@@ -159,20 +182,25 @@ class FlowGraphConstantConverter(object):
             elif isinstance(cand, lltype._array):
                 seen[cand] = True
                 length = len(cand.items)
-                total_size += get_total_size(cand._TYPE, length)
+                total_size += get_total_size(cand._TYPE, length) * 2 * INT_SIZE
                 for item in cand.items:
                     candidates.append(item)
             elif isinstance(cand, lltype._struct):
                 seen[cand] = True
                 parent = cand._parentstructure()
                 if parent is not None:
+                    has_parent = True
                     candidates.append(parent)
-                TYPE = cand._TYPE
-                if TYPE._arrayfld is not None:
-                    total_size += get_total_size(
-                        TYPE, len(getattr(cand, TYPE._arrayfld).items))
                 else:
-                    total_size += get_total_size(TYPE)
+                    has_parent = False
+                TYPE = cand._TYPE
+                if not has_parent:
+                    if TYPE._arrayfld is not None:
+                        total_size += get_total_size(
+                            TYPE, len(getattr(cand, TYPE._arrayfld).items))
+                    else:
+                        total_size += get_total_size(TYPE)
+                    total_size += INT_SIZE * 2
                 for name in TYPE._flds:
                     candidates.append(getattr(cand, name))
             elif isinstance(cand, lltype._opaque):

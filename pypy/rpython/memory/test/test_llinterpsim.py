@@ -41,8 +41,7 @@ def get_interpreter(func, values, view=False, viewbefore=False, policy=None,
         
         t, typer = gengraph(func, [annotation(x)
                       for x in values], viewbefore, policy)
-        interp = LLInterpreter(t.flowgraphs, typer, gclltype,
-                               gclltype.prepare_graphs)
+        interp = LLInterpreter(t.flowgraphs, typer, gclltype)
         _tcache[key] = (t, interp)
         # keep the cache small 
         _lastinterpreted.append(key) 
