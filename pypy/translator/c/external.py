@@ -1,9 +1,12 @@
 from __future__ import generators
 from pypy.rpython.lltype import typeOf, Void
+from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, ErrorValue, somelettersfrom
 
 
-class CExternalFunctionCodeGenerator:
+class CExternalFunctionCodeGenerator(object):
+    if USESLOTS:
+        __slots__ = """db fnptr FUNCTYPE argtypenames resulttypename""".split()
 
     def __init__(self, fnptr, db):
         self.fnptr = fnptr
@@ -20,6 +23,9 @@ class CExternalFunctionCodeGenerator:
     def allconstantvalues(self):
         return []
 
+    def implementation_begin(self):
+        pass
+
     def cfunction_declarations(self):
         if self.FUNCTYPE.RESULT != Void:
             yield '%s;' % cdecl(self.resulttypename, 'result')
@@ -33,3 +39,8 @@ class CExternalFunctionCodeGenerator:
         else:
             yield '%s;' % call
             yield 'if (PyErr_Occurred()) RPyConvertExceptionFromCPython();'
+
+    def implementation_end(self):
+        pass
+
+assert not USESLOTS or '__dict__' not in dir(CExternalFunctionCodeGenerator)

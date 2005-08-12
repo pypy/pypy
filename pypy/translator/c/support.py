@@ -1,6 +1,13 @@
 from pypy.rpython import lltype
 from pypy.translator.gensupp import NameManager
 
+#
+# use __slots__ declarations for node classes etc
+# possible to turn it off while refactoring, experimenting
+#
+USESLOTS = True
+
+
 class ErrorValue:
     def __init__(self, TYPE):
         self.TYPE = TYPE

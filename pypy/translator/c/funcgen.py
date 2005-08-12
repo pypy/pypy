@@ -1,4 +1,5 @@
 from __future__ import generators
+from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.objspace.flow.model import Variable, Constant, Block
@@ -10,11 +11,18 @@ from pypy.rpython.lltype import pyobjectptr, Struct, Array
 PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
 
-class FunctionCodeGenerator:
+class FunctionCodeGenerator(object):
     """
     Collects information about a function which we have to generate
     from a flow graph.
     """
+
+    if USESLOTS:
+        __slots__ = """graph db
+                       cpython_exc
+                       more_ll_values
+                       vars
+                       lltypes""".split()
 
     def __init__(self, graph, db, cpython_exc=False):
         self.graph = graph
@@ -44,39 +52,49 @@ class FunctionCodeGenerator:
         traverse(visit, graph)
         resultvar = graph.getreturnvar()
 
+        self.vars = mix
+        self.lltypes = None
+        for v in self.vars:
+            T = getattr(v, 'concretetype', PyObjPtr)
+            db.gettype(T)
+
+    def implementation_begin(self):
+        db = self.db
+        resultvar = self.graph.getreturnvar()
         self.lltypes = {
             # default, normally overridden:
-            id(resultvar): (resultvar, Void, db.gettype(Void)),
+            id(resultvar): (Void, db.gettype(Void)),
             }
-        for v in mix:
+        for v in self.vars:
             T = getattr(v, 'concretetype', PyObjPtr)
             typename = db.gettype(T)
-            self.lltypes[id(v)] = v, T, typename
+            self.lltypes[id(v)] = T, typename
+
+    def implementation_end(self):
+        self.lltypes = None
 
     def argnames(self):
         return [LOCALVAR % v.name for v in self.graph.getargs()]
 
     def allvariables(self):
-        return [v for v, T, typename in self.lltypes.values()
-                  if isinstance(v, Variable)]
+        return [v for v in self.vars if isinstance(v, Variable)]
 
     def allconstants(self):
-        return [c for c, T, typename in self.lltypes.values()
-                  if isinstance(c, Constant)]
+        return [c for c in self.vars if isinstance(c, Constant)]
 
     def allconstantvalues(self):
-        for c, T, typename in self.lltypes.values():
+        for c in self.vars:
             if isinstance(c, Constant):
                 yield llvalue_from_constant(c)
         for llvalue in self.more_ll_values:
             yield llvalue
 
     def lltypemap(self, v):
-        v, T, typename = self.lltypes[id(v)]
+        T, typename = self.lltypes[id(v)]
         return T
 
     def lltypename(self, v):
-        v, T, typename = self.lltypes[id(v)]
+        T, typename = self.lltypes[id(v)]
         return typename
 
     def expr(self, v, special_case_void=True):
@@ -530,3 +548,5 @@ class FunctionCodeGenerator:
     def cdecref(self, v, expr=None):
         T = self.lltypemap(v)
         return self.db.cdecrefstmt(expr or (LOCALVAR % v.name), T)
+
+assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

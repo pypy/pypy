@@ -5,6 +5,7 @@ from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void, OpaqueType
 from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
+from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, somelettersfrom
 from pypy.translator.c.primitive import PrimitiveType
 from pypy.translator.c import extfunc
@@ -280,10 +281,16 @@ def generic_dealloc(db, expr, T):
 # ____________________________________________________________
 
 
-class ContainerNode:
-    includes = ()
+class ContainerNode(object):
+    if USESLOTS:
+        __slots__ = """db T obj 
+                       typename implementationtypename
+                        name ptrname
+                        globalcontainer
+                        includes""".split()
 
     def __init__(self, db, T, obj):
+        self.includes = ()
         self.db = db
         self.T = T
         self.obj = obj
@@ -319,8 +326,11 @@ class ContainerNode:
     def getlength(self):
         return 1
 
+assert not USESLOTS or '__dict__' not in dir(ContainerNode)
 
 class StructNode(ContainerNode):
+    if USESLOTS:
+        __slots__ = ()
 
     def basename(self):
         return self.T._name
@@ -350,8 +360,11 @@ class StructNode(ContainerNode):
             yield '\t%s' % expr
         yield '}'
 
+assert not USESLOTS or '__dict__' not in dir(StructNode)
 
 class ArrayNode(ContainerNode):
+    if USESLOTS:
+        __slots__ = ()
 
     def basename(self):
         return 'array'
@@ -379,6 +392,7 @@ class ArrayNode(ContainerNode):
                 yield '\t%s' % expr
             yield '} }'
 
+assert not USESLOTS or '__dict__' not in dir(ArrayNode)
 
 def generic_initializationexpr(db, value, access_expr, decoration):
     if isinstance(typeOf(value), ContainerType):
@@ -406,9 +420,11 @@ def generic_initializationexpr(db, value, access_expr, decoration):
 
 
 class FuncNode(ContainerNode):
-    globalcontainer = True
+    if USESLOTS:
+        __slots__ = """funcgen""".split()
 
     def __init__(self, db, T, obj):
+        self.globalcontainer = True
         self.funcgen = select_function_code_generator(obj, db)
         self.db = db
         self.T = T
@@ -422,6 +438,7 @@ class FuncNode(ContainerNode):
             self.includes = obj.includes
             self.name = self.basename()
         else:
+            self.includes = ()
             self.name = db.namespace.uniquename('g_' + self.basename())
         self.ptrname = self.name
 
@@ -443,6 +460,7 @@ class FuncNode(ContainerNode):
         funcgen = self.funcgen
         if funcgen is None:
             return
+        funcgen.implementation_begin()
         yield '%s {' % cdecl(self.implementationtypename, self.name)
         #
         # declare the local variables
@@ -483,7 +501,9 @@ class FuncNode(ContainerNode):
         if lineprefix:         # unlikely
             yield lineprefix
         yield '}'
+        funcgen.implementation_end()
 
+assert not USESLOTS or '__dict__' not in dir(FuncNode)
 
 def select_function_code_generator(fnobj, db):
     if fnobj._callable in extfunc.EXTERNALS:
@@ -511,6 +531,7 @@ def select_function_code_generator(fnobj, db):
 class OpaqueNode(ContainerNode):
     globalcontainer = True
     typename = 'void (@)(void *)'
+    includes = ()
 
     def __init__(self, db, T, obj):
         assert T == RuntimeTypeInfo
@@ -535,6 +556,7 @@ class PyObjectNode(ContainerNode):
     globalcontainer = True
     typename = 'PyObject @'
     implementationtypename = 'PyObject *@'
+    includes = ()
 
     def __init__(self, db, T, obj):
         # obj is a _pyobject here; obj.value is the underlying CPython object
