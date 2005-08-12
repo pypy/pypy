@@ -62,35 +62,48 @@ internal fastcc void %%__prepare_%(exc)s() {
 """ % locals())
 
 
-#binary with ZeroDivisionError only
-for func_inst in "floordiv_zer:div mod_zer:rem".split():
-    func, inst = func_inst.split(':')
-    for type_ in "int uint".split():
-        extfunctions["%%%(type_)s_%(func)s" % locals()] = (("%__prepare_ZeroDivisionError",), """
-internal fastcc %(type_)s %%%(type_)s_%(func)s(%(type_)s %%x, %(type_)s %%y) {
+#error-checking-code
 
-    ;zerodiv test
-    %%cond = seteq %(type_)s %%y, 0
+zer_test = """
+    %%cond = seteq %s %%y, 0
     br bool %%cond, label %%is_0, label %%is_not_0
 is_0:
     call fastcc void %%__prepare_ZeroDivisionError()
     unwind
-    
+
 is_not_0:
+"""
+int_zer_test    = zer_test % ('int',)
+double_zer_test = zer_test % ('double',)
+
+
+#overflow: normal operation, ...if ((x) >= 0 || (x) != -(x)) OK else _OVF()
+#note: XXX this hardcoded int32 minint value is used because of a pre llvm1.6 bug!
+
+int_ovf_test = """
+    %cond2 = setne int %x, -2147483648
+    br bool %cond2, label %return_block, label %ovf
+ovf:
+    call fastcc void %__prepare_OverflowError()
+    unwind
+"""
+
+
+#binary with ZeroDivisionError only
+
+for func_inst in "floordiv_zer:div mod_zer:rem".split():
+    func, inst = func_inst.split(':')
+    for type_ in "int uint".split():
+        type_zer_test = zer_test % type_
+        extfunctions["%%%(type_)s_%(func)s" % locals()] = (("%__prepare_ZeroDivisionError",), """
+internal fastcc %(type_)s %%%(type_)s_%(func)s(%(type_)s %%x, %(type_)s %%y) {
+    %(type_zer_test)s
     %%z = %(inst)s %(type_)s %%x, %%y
     ret %(type_)s %%z
 }
 
 """ % locals())
 
-
-int_ovf_test = """
-    %cond2 = setne int %x, -2147483648  ;-sys.maxint-1
-    br bool %cond2, label %return_block, label %ovf
-ovf:
-    call fastcc void %__prepare_OverflowError()
-    unwind
-"""
 
 #unary with OverflowError only
 
@@ -119,77 +132,72 @@ return_block:
 """ % locals())
 
 
-#XXX TODO
+#binary with OverflowError only
 
-#extfunctions["%float_pow"] = ((), """
-#fastcc double %float_pow(double %x, double %y) {
-#    ; XXX ERROR float_pow exception raising not implemented
-#    %r = call ccc double %pow(double %x, double %y)
-#    ret double %r
-#}
-#
-#""")
-#
-#extfunctions["%float_mod"] = ((), """
-#fastcc double %float_mod(double %x, double %y) {
-#    ; XXX ERROR float_mod exception raising not implemented
-#    %r = call ccc double %fmod(double %x, double %y)
-#    ret double %r
-#}
-#
-#""")
-#
-#for func in 'float_abs float_sub float_add float_mul float_div'.split():
-#    extfunctions["%" + func] = ((), """
-#fastcc double %%%(func)s(double %%x, double %%y) {
-#    ; XXX ERROR %(func)s exception raising not implemented
-#    ret double 0.0
-#}
-#
-#""" % locals())
-#
-#for func in 'int_abs int_sub int_add int_mul int_div int_mod int_add_ovf int_sub_ovf int_mul_ovf int_floordiv_ovf int_mod_ovf int_floordiv_ovf_zer int_mod_ovf_zer int_lshift_ovf int_lshift_ovf_val int_rshift_val int_lshift_val'.split():
-#    extfunctions["%" + func] = ((), """
-#fastcc int %%%(func)s(int %%x, int %%y) {
-#    ; XXX ERROR %(func)s exception raising not implemented
-#    ret int 0
-#}
-#
-#""" % locals())
+extfunctions["%int_add_ovf"] = (("%__prepare_OverflowError",), """
+internal fastcc int %%int_add_ovf(int %%x, int %%y) {
+    %%t = add int %%x, %%y
+    %(int_ovf_test)s
+return_block:
+    ; XXX: TEST int_add_ovf checking
+    ret int %%t
+}
+""" % locals())
+
+extfunctions["%int_sub_ovf"] = (("%__prepare_OverflowError",), """
+internal fastcc int %%int_sub_ovf(int %%x, int %%y) {
+    %%t = sub int %%x, %%y
+    %(int_ovf_test)s
+return_block:
+    ; XXX: TEST int_sub_ovf checking
+    ret int %%t
+}
+""" % locals())
+
+extfunctions["%int_mul_ovf"] = (("%__prepare_OverflowError",), """
+internal fastcc int %%int_mul_ovf(int %%x, int %%y) {
+    %%t = mul int %%x, %%y
+    %(int_ovf_test)s
+return_block:
+    ; XXX: TEST int_mul_ovf checking
+    ret int %%t
+}
+""" % locals())
 
 
-#XXX TODO
+#binary with OverflowError and ValueError
 
-#overflow: normal operation, ...if ((x) >= 0 || (x) != -(x)) ok else _OVF()
-
-#binary with overflow
-#define OP_INT_ADD_OVF(x,y,r,err) \
-#define OP_INT_SUB_OVF(x,y,r,err) \
-#define OP_INT_MUL_OVF(x,y,r,err) \
-#define OP_INT_MUL_OVF(x,y,r,err) \
-#define OP_INT_FLOORDIV_OVF(x,y,r,err) \
-#define OP_INT_MOD_OVF(x,y,r,err) \
-
-#binary with overflow and zerodiv
-#define OP_INT_FLOORDIV_OVF_ZER(x,y,r,err) \
-#define OP_INT_MOD_OVF_ZER(x,y,r,err) \
-
-#shift
-#define OP_INT_LSHIFT_OVF(x,y,r,err) \
-#define OP_INT_LSHIFT_OVF_VAL(x,y,r,err) \
-#define OP_INT_RSHIFT_VAL(x,y,r,err) \
-#define OP_INT_LSHIFT_VAL(x,y,r,err) \
+extfunctions["%int_lshift_ovf_val"] = (("%__prepare_OverflowError","%__prepare_ValueError"), """
+internal fastcc int %%int_lshift_ovf_val(int %%x, int %%y) {
+    %%t = shl int %%x, ubyte %%y
+    %(int_ovf_test)s
+return_block:
+    ; XXX: TODO int_lshift_ovf_val checking VAL
+    ret int %%t
+}
+""" % locals())
 
 
-#DONE
+#binary with OverflowError and ZeroDivisionError
 
-#binary with zerodivisionerror only
-#define OP_INT_FLOORDIV_ZER(x,y,r,err) \
-#define OP_UINT_FLOORDIV_ZER(x,y,r,err) \
-#define OP_INT_MOD_ZER(x,y,r,err) \
-#define OP_UINT_MOD_ZER(x,y,r,err) \
+extfunctions["%int_floordiv_ovf_zer"] = (("%__prepare_OverflowError","%__prepare_ZeroDivisionError"), """
+internal fastcc int %%int_floordiv_zer_val(int %%x, int %%y) {
+    %(int_zer_test)s
+    %%t = div int %%x, %%y
+    %(int_ovf_test)s
+return_block:
+    ; XXX: TEST int_floordiv_zer_val checking
+    ret int %%t
+}
+""" % locals())
 
-#unary with overflow only
-#define OP_INT_ABS_OVF(x,r,err) \   untested
-#define OP_INT_NEG_OVF(x,r,err) \   untested
-
+extfunctions["%int_mod_ovf_zer"] = (("%__prepare_OverflowError","%__prepare_ZeroDivisionError"), """
+internal fastcc int %%int_mod_ovf_zer(int %%x, int %%y) {
+    %(int_zer_test)s
+    %%t = rem int %%x, ubyte %%y
+    %(int_ovf_test)s
+return_block:
+    ; XXX: TEST int_mod_ovf_zer checking
+    ret int %%t
+}
+""" % locals())
