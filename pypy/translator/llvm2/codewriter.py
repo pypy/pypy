@@ -93,13 +93,16 @@ class CodeWriter(object):
     def phi(self, targetvar, type_, refs, blocknames): 
         assert targetvar.startswith('%')
         assert refs and len(refs) == len(blocknames), "phi node requires blocks" 
-        for ref in refs:
-            if targetvar == ref:    #some nodes break SSA-form otherwise?!?
-                return
         mergelist = ", ".join(
             ["[%s, %%%s]" % item 
                 for item in zip(refs, blocknames)])
-        self.indent("%s = phi %s %s" %(targetvar, type_, mergelist))
+        s = "%s = phi %s %s" % (targetvar, type_, mergelist)
+        for ref in refs:
+            if targetvar == ref:
+                self.comment('breaks SSA form: ' + s)
+                break
+        else:
+            self.indent(s)
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
         self.indent("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))

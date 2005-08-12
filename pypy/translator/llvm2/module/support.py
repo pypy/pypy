@@ -194,7 +194,7 @@ return_block:
 extfunctions["%int_mod_ovf_zer"] = (("%__prepare_OverflowError","%__prepare_ZeroDivisionError"), """
 internal fastcc int %%int_mod_ovf_zer(int %%x, int %%y) {
     %(int_zer_test)s
-    %%t = rem int %%x, ubyte %%y
+    %%t = rem int %%x, %%y
     %(int_ovf_test)s
 return_block:
     ; XXX: TEST int_mod_ovf_zer checking

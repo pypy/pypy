@@ -73,13 +73,14 @@ internal fastcc bool %ll_os_isatty(int %fd) {
 
 extfunctions["%ll_os_fstat"] = ((), """
 internal fastcc %structtype.tuple10* %ll_os_fstat(int %fd) {
-    %st = alloca int, uint 32
-    %error = call ccc int %fstat(int %fd, int* %st)
-    ;TODO XXX if error: raise exception
-    ;%ret = %ll_stat_result__Signed__Signed__Signed__Signed__Signed__Signed__Signed__Signed__Signed__Signed(
-    %ret = alloca %structtype.tuple10   ;ERROR
-    store int %s
-    ret %structtype.tuple10* %ret
+    ;%st = alloca int, uint 32
+    ;%error = call ccc int %fstat(int %fd, int* %st)
+    ;;TODO XXX if error: raise exception
+    ;;%ret = %ll_stat_result__Signed__Signed__Signed__Signed__Signed__Signed__Signed__Signed__Signed__Signed(
+    ;%ret = alloca %structtype.tuple10   ;ERROR
+    ;store int %s
+    ;ret %structtype.tuple10* %ret
+    ret %structtype.tuple10* null
 }
 
 """)
