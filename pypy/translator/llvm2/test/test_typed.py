@@ -2,7 +2,7 @@ import sys
 import py
 from py.test import raises
 from pypy.translator.test import snippet 
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 
 from pypy.translator.llvm2.genllvm import compile_function
 
@@ -341,7 +341,56 @@ def test_int_abs():
     f = compile_function(int_abs_, [int])
     for i in (-25, 0, 75):
         assert f(i) == int_abs_(i)
-                                                                        
+
+def test_int_add_ovf():
+    py.test.skip("int add incorrect overflow test")
+    def add_func(i):
+        try:
+            return ovfcheck(i + 1)
+        except OverflowError:
+            return 123
+    f = compile_function(add_func, [int])
+    assert f(0) == add_func(0)
+    assert f(0) == 1
+    assert f(sys.maxint) == add_func(sys.maxint)
+    assert f(sys.maxint) == 123
+
+def test_int_sub_ovf():
+    py.test.skip("ovf test")
+    def sub_func(i):
+        try:
+            return ovfcheck(i - 1)
+        except OverflowError:
+            return 123
+    f = compile_function(sub_func, [int])
+    assert f(0) == sub_func(0)
+    assert f(0) == 1
+    assert f(sys.maxint) == sub_func(sys.maxint)
+    assert f(sys.maxint) == 123
+
+def test_int_div_ovf_zer():
+    py.test.skip("ovf test")
+    f = compile_function(snippet.div_func)
+    raises(OverflowError, fn, -1)
+    raises(ZeroDivisionError, fn, 0)
+
+def test_int_mod_ovf_zer():
+    py.test.skip("ovf test")
+    f = compile_function(snippet.mod_func)
+    raises(OverflowError, fn, -1)
+    raises(ZeroDivisionError, fn, 0)
+
+def test_int_rshift_val():
+    py.test.skip("ovf test")
+    f = compile_function(snippet.rshift_func)
+    raises(ValueError, fn, -1)
+
+def test_int_lshift_ovf_val():
+    py.test.skip("ovf test")
+    f = compile_function(snippet.lshift_func)
+    raises(ValueError, fn, -1)
+    raises(OverflowError, fn, 1)
+
 def test_float_abs():
     def float_abs_(n):
         return abs(n)
