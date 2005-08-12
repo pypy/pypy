@@ -7,6 +7,10 @@ from pypy.rpython.memory.simulator import MemorySimulatorError
 from pypy.rpython.memory import gclltype
 from pypy.rpython.memory.test.test_llinterpsim import interpret
 
+def setup_module(mod):
+    mod.logstate = py.log._getstate()
+    py.log.setconsumer("llinterp", py.log.STDOUT)
+    py.log.setconsumer("llinterp operation", None         )
 
 def test_free_non_gc_object():
     class TestClass(object):
@@ -109,7 +113,7 @@ class TestMarkSweepGC(object):
         assert simulator.current_size - curr < 16000
         print "size before: %s, size after %s" % (curr, simulator.current_size)
 
-    def test_llinterp_tuples(self):
+    def DONOTtest_llinterp_tuples(self):
         from pypy.rpython.memory.lladdress import simulator
         gclltype.create_gc = gclltype.create_mark_sweep_gc
         curr = simulator.current_size
