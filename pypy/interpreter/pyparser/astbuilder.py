@@ -46,7 +46,6 @@ def parse_dotted_names(tokens):
     first = tokens[0]
     assert isinstance(first, TokenObject)
     name = first.get_value()
-    assert isinstance(name, str)
     l = len(tokens)
     index = 1
     for index in range(1, l, 2):
@@ -190,8 +189,8 @@ def working_parse_fpdef(tokens):
     assert len(stack) == 1, "At the end of parse_fpdef, len(stack) should be 1, got %s" % stack
     return tokens_read, tuple(stack[0])
 
-# parse_fpdef = rpython_parse_fpdef
-parse_fpdef = working_parse_fpdef
+parse_fpdef = rpython_parse_fpdef
+# parse_fpdef = working_parse_fpdef
 
 def parse_arglist(tokens):
     """returns names, defaults, flags"""
@@ -433,7 +432,6 @@ def eval_string(value):
     stringobject.c (PyString_DecodeEscape()) for complete implementation)
     """
     # return eval(value)
-    assert isinstance(value, str)
     if len(value) == 2:
         return ''
     result = ''
@@ -1434,7 +1432,7 @@ class TokenObject(ast.Node):
             value = ''
         else:
             value = self.value
-        assert isinstance(value, str)
+        # assert isinstance(value, str)
         return value
     
     def __str__(self):
