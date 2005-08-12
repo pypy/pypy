@@ -10,7 +10,6 @@ import pypy.interpreter.pyparser.pytoken as tok
 
 DEBUG_MODE = 0
 
-
 ### Parsing utilites #################################################
 def parse_except_clause(tokens):
     """parses 'except' [test [',' test]] ':' suite
@@ -22,7 +21,7 @@ def parse_except_clause(tokens):
     while clause_length < len(tokens):
         token = tokens[clause_length]
         if isinstance(token, TokenObject) and \
-           (token.value == 'except' or token.value == 'else'):
+           (token.get_value() == 'except' or token.get_value() == 'else'):
             break
         clause_length += 1
     # if clause_length >= len(tokens):
@@ -44,7 +43,10 @@ def parse_dotted_names(tokens):
     this function doesn't assume that the <tokens> list ends after the
     last 'NAME' element
     """
-    name = tokens[0].value
+    first = tokens[0]
+    assert isinstance(first, TokenObject)
+    name = first.get_value()
+    assert isinstance(name, str)
     l = len(tokens)
     index = 1
     for index in range(1, l, 2):
@@ -52,7 +54,11 @@ def parse_dotted_names(tokens):
         assert isinstance(token, TokenObject)
         if token.name != tok.DOT:
             break
-        name = name + '.' + tokens[index+1].value
+        token = tokens[index+1]
+        assert isinstance(token, TokenObject)
+        name += '.'
+        value = token.get_value()
+        name += value
     return (index, name)
 
 def parse_argument(tokens):
@@ -96,7 +102,65 @@ def parse_argument(tokens):
     return arguments, stararg_token, dstararg_token
 
 
-def parse_fpdef(tokens):
+class BaseItem:
+    """base item class"""
+
+class SimpleItem(BaseItem):
+    def __init__(self, attrname):
+        self.attrname = attrname
+
+class TupleItem(BaseItem):
+    def __init__(self, value):
+        self.value = value
+
+    def append(self, element):
+        assert isinstance(element, BaseItem)
+        self.value.append(element)
+
+    def pop(self):
+        return self.value.pop()
+
+def rpython_parse_fpdef(tokens):
+    """fpdef: fpdef: NAME | '(' fplist ')'
+    fplist: fpdef (',' fpdef)* [',']
+
+    This intend to be a RPYTHON compliant implementation of _parse_fpdef,
+    but it can't work with the default compiler.
+    XXX: incomplete
+    """
+    stack = [] # list of lists
+    tokens_read = 0
+    to_be_closed = 1 # number of parenthesis to be closed
+    result = None
+    while to_be_closed > 0:
+        token = tokens[tokens_read]
+        tokens_read += 1
+        if isinstance(token, TokenObject) and token.name == tok.COMMA:
+            continue
+        elif isinstance(token, TokenObject) and token.name == tok.LPAR:
+            stack.append(TupleItem([]))
+            to_be_closed += 1
+        elif isinstance(token, TokenObject) and token.name == tok.RPAR:
+            to_be_closed -= 1
+            elt = stack.pop()
+            if to_be_closed > 0:
+                top = stack[-1]
+                assert isinstance(top, TupleItem)
+                top.append(elt)
+            else:
+                # stack.append(tuple(elt))
+                break
+        else:
+            assert isinstance(token, TokenObject)
+            if to_be_closed == 1:
+                stack.append(SimpleItem(token.get_value()))
+            else:
+                top = stack[-1]
+                assert isinstance(top, TupleItem)
+                top.append(SimpleItem(token.get_value()))
+    return tokens_read, stack
+
+def working_parse_fpdef(tokens):
     """fpdef: fpdef: NAME | '(' fplist ')'
     fplist: fpdef (',' fpdef)* [',']
     """
@@ -122,9 +186,12 @@ def parse_fpdef(tokens):
                 stack.append(tuple(elt))
         else:
             assert isinstance(token, TokenObject)
-            stack[-1].append(token.value)
+            stack[-1].append(token.get_value())
     assert len(stack) == 1, "At the end of parse_fpdef, len(stack) should be 1, got %s" % stack
     return tokens_read, tuple(stack[0])
+
+# parse_fpdef = rpython_parse_fpdef
+parse_fpdef = working_parse_fpdef
 
 def parse_arglist(tokens):
     """returns names, defaults, flags"""
@@ -137,7 +204,7 @@ def parse_arglist(tokens):
         cur_token = tokens[index]
         index += 1
 ##         if isinstance(cur_token, FPListObject):
-##             names.append(cur_token.value)
+##             names.append(cur_token.get_value())
         if not isinstance(cur_token, TokenObject):
             # XXX: think of another way to write this test
             defaults.append(cur_token)
@@ -152,9 +219,10 @@ def parse_arglist(tokens):
         elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
             if cur_token.name == tok.STAR:
                 cur_token = tokens[index]
+                assert isinstance(cur_token, TokenObject)
                 index += 1
                 if cur_token.name == tok.NAME:
-                    names.append(cur_token.value)
+                    names.append(cur_token.get_value())
                     flags |= consts.CO_VARARGS
                     index += 1
                     if index >= l:
@@ -169,8 +237,9 @@ def parse_arglist(tokens):
                 raise ValueError("Unexpected token: %s" % cur_token)
             cur_token = tokens[index]
             index += 1
+            assert isinstance(cur_token, TokenObject)
             if cur_token.name == tok.NAME:
-                names.append(cur_token.value)
+                names.append(cur_token.get_value())
                 flags |= consts.CO_VARKEYWORDS
                 index +=  1
             else:
@@ -178,7 +247,7 @@ def parse_arglist(tokens):
             if index < l:
                 raise ValueError("unexpected token: %s" % tokens[index])
         elif cur_token.name == tok.NAME:
-            names.append(cur_token.value)
+            names.append(cur_token.get_value())
     return names, defaults, flags
 
 
@@ -191,19 +260,42 @@ def parse_listcomp(tokens):
     ifs = []
     index = 0
     while index < len(tokens):
-        if tokens[index].value == 'for':
+        token = tokens[index]
+        assert isinstance(token, TokenObject) # rtyper info + check
+        if token.get_value() == 'for':
             index += 1 # skip 'for'
             ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
             index += 2 # skip 'in'
             iterable = tokens[index]
             index += 1
-            while index < len(tokens) and tokens[index].value == 'if':
-                ifs.append(ast.ListCompIf(tokens[index+1]))
-                index += 2
+            while index < len(tokens):
+                token = tokens[index]
+                assert isinstance(token, TokenObject) # rtyper info
+                if token.get_value() == 'if':
+                    ifs.append(ast.ListCompIf(tokens[index+1]))
+                    index += 2
+                else:
+                    break
             list_fors.append(ast.ListCompFor(ass_node, iterable, ifs))
             ifs = []
         else:
-            raise ValueError('Unexpected token: %s' % tokens[index])
+            assert False, 'Unexpected token: %s' % token
+        # 
+        # Original implementation:
+        # 
+        # if tokens[index].get_value() == 'for':
+        #     index += 1 # skip 'for'
+        #     ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
+        #     index += 2 # skip 'in'
+        #     iterable = tokens[index]
+        #     index += 1
+        #     while index < len(tokens) and tokens[index].get_value() == 'if':
+        #         ifs.append(ast.ListCompIf(tokens[index+1]))
+        #         index += 2
+        #     list_fors.append(ast.ListCompFor(ass_node, iterable, ifs))
+        #     ifs = []
+        # else:
+        #     raise ValueError('Unexpected token: %s' % tokens[index])
     return list_fors
 
 
@@ -221,19 +313,26 @@ def parse_genexpr_for(tokens):
     ifs = []
     index = 0
     while index < len(tokens):
-        if tokens[index].value == 'for':
+        token = tokens[index]
+        assert isinstance(token, TokenObject) # rtyper info + check
+        if token.get_value() == 'for':
             index += 1 # skip 'for'
             ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
             index += 2 # skip 'in'
             iterable = tokens[index]
             index += 1
-            while index < len(tokens) and tokens[index].value == 'if':
-                ifs.append(ast.GenExprIf(tokens[index+1]))
-                index += 2
+            while index < len(tokens):
+                token = tokens[index]
+                assert isinstance(token, TokenObject) # rtyper info
+                if token.get_value() == 'if':
+                    ifs.append(ast.GenExprIf(tokens[index+1]))
+                    index += 2
+                else:
+                    break
             genexpr_fors.append(ast.GenExprFor(ass_node, iterable, ifs))
             ifs = []
         else:
-            raise ValueError('Unexpected token: %s' % tokens[index])
+            assert False, 'Unexpected token: %s' % token
     return genexpr_fors
 
 
@@ -265,18 +364,23 @@ def to_lvalue(ast_node, flags):
         return ast.AssName( ast_node.name, flags )
     elif isinstance(ast_node, ast.Tuple):
         nodes = []
-        for node in ast_node.getChildren():
+        # FIXME: should ast_node.getChildren() but it's not annotable
+        #        because of flatten()
+        for node in ast_node.nodes:
             nodes.append(to_lvalue(node, flags))
             # nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
         return ast.AssTuple(nodes)
     elif isinstance(ast_node, ast.List):
         nodes = []
-        for node in ast_node.getChildren():
+        # FIXME: should ast_node.getChildren() but it's not annotable
+        #        because of flatten()
+        for node in ast_node.nodes:
             nodes.append(to_lvalue(node, flags))
             # nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
         return ast.AssList(nodes)
     elif isinstance(ast_node, ast.Getattr):
         expr = ast_node.expr
+        assert isinstance(ast_node, ast.Getattr)
         attrname = ast_node.attrname
         return ast.AssAttr(expr, attrname, flags)
     elif isinstance(ast_node, ast.Subscript):
@@ -310,20 +414,56 @@ def get_atoms( builder, nb ):
     return atoms
     
 def eval_number(value):
-    """temporary implementation"""
-    return eval(value)
+    """temporary implementation
+    eval_number intends to replace number = eval(value) ; return number
+    """
+    from pypy.objspace.std.strutil import string_to_int, string_to_float
+    from pypy.objspace.std.strutil import ParseStringError
+    if value.endswith('l') or value.endswith('L'):
+        value = value[:-1]
+    try:
+        return string_to_int(value)
+    except ParseStringError:
+        return string_to_float(value)
 
 def eval_string(value):
-    """temporary implementation"""
-    return eval(value)
+    """temporary implementation
 
+    FIXME: need to be finished (check compile.c (parsestr) and
+    stringobject.c (PyString_DecodeEscape()) for complete implementation)
+    """
+    # return eval(value)
+    assert isinstance(value, str)
+    if len(value) == 2:
+        return ''
+    result = ''
+    length = len(value)
+    quotetype = value[0]
+    index = 1
+    while index < length and value[index] == quotetype:
+        index += 1
+    if index == 6:
+        # empty strings like """""" or ''''''
+        return ''
+    # XXX: is it RPYTHON to do this value[index:-index]
+    chars = [char for char in value[index:len(value)-index]]
+##     for index in range(index, len(value)-index):
+##         result += value[index]
+    result = ''.join(chars)
+    result = result.replace('\\\\', '\\')
+    d = {'\\b' : '\b', '\\f' : '\f', '\\t' : '\t', '\\n' : '\n',
+         '\\r' : '\r', '\\v' : '\v', '\\a' : '\a',
+         }
+    for escaped, value in d.items():
+        result = result.replace(escaped, value)
+    return result
 
 ## misc utilities, especially for power: rule
 def reduce_callfunc(obj, arglist):
     """generic factory for CallFunc nodes"""
     assert isinstance(arglist, ArglistObject)
-    arguments, stararg, dstararg = arglist.value
-    return ast.CallFunc(obj, arguments, stararg, dstararg)        
+    return ast.CallFunc(obj, arglist.arguments,
+                        arglist.stararg, arglist.dstararg)
 
 def reduce_subscript(obj, subscript):
     """generic factory for Subscript nodes"""
@@ -348,7 +488,7 @@ def parse_attraccess(tokens):
     token = tokens[0]
     # XXX HACK for when parse_attraccess is called from build_decorator
     if isinstance(token, TokenObject):
-        result = ast.Name(token.value)
+        result = ast.Name(token.get_value())
     else:
         result = token
     index = 1
@@ -358,7 +498,7 @@ def parse_attraccess(tokens):
             index += 1
             token = tokens[index]
             assert isinstance(token, TokenObject)
-            result = ast.Getattr(result, token.value)
+            result = ast.Getattr(result, token.get_value())
         elif isinstance(token, ArglistObject):
             result = reduce_callfunc(result, token)
         elif isinstance(token, SubscriptObject):
@@ -402,14 +542,15 @@ def build_atom(builder, nb):
     atoms = get_atoms( builder, nb )
     top = atoms[0]
     if isinstance(top, TokenObject):
+        # assert isinstance(top, TokenObject) # rtyper
         if top.name == tok.LPAR:
             if len(atoms) == 2:
-                builder.push(ast.Tuple([], top.line))
+                builder.push(ast.Tuple([])) # , top.line))
             else:
                 builder.push( atoms[1] )
         elif top.name == tok.LSQB:
             if len(atoms) == 2:
-                builder.push(ast.List([], top.line))
+                builder.push(ast.List([])) # , top.line))
             else:
                 list_node = atoms[1]
                 # XXX lineno is not on *every* child class of ast.Node
@@ -423,16 +564,17 @@ def build_atom(builder, nb):
                 # a   :   b   ,   c : d
                 # ^  +1  +2  +3  +4
                 items.append((atoms[index], atoms[index+2]))
-            builder.push(ast.Dict(items, top.line))
+            builder.push(ast.Dict(items)) #  top.line))
         elif top.name == tok.NAME:
-            builder.push( ast.Name(top.value) )
+            builder.push( ast.Name(top.get_value()) )
         elif top.name == tok.NUMBER:
-            builder.push( ast.Const(eval_number(top.value)) )
+            builder.push( ast.Const(eval_number(top.get_value())) )
         elif top.name == tok.STRING:
             # need to concatenate strings in atoms
             s = ''
             for token in atoms:
-                s += eval_string(token.value)
+                assert isinstance(token, TokenObject)
+                s += eval_string(token.get_value())
             builder.push( ast.Const(s) )
             # assert False, "TODO (String)"
         elif top.name == tok.BACKQUOTE:
@@ -550,8 +692,10 @@ def build_comparison( builder, nb ):
         ops = []
         for i in range(1, l, 2):
             # if tok.name isn't in rpunct, then it should be
-            # 'is', 'is not', 'not' or 'not in' => tok.value
-            op_name = tok.tok_rpunct.get(atoms[i].name, atoms[i].value)
+            # 'is', 'is not', 'not' or 'not in' => tok.get_value()
+            token = atoms[i]
+            assert isinstance(token, TokenObject)
+            op_name = tok.tok_rpunct.get(token.name, token.get_value())
             ops.append((op_name, atoms[i+1]))
         builder.push(ast.Compare(atoms[0], ops))
 
@@ -575,7 +719,9 @@ def build_comp_op(builder, nb):
         builder.push(atoms[0])
     # l==2 means 'not in' or 'is not'
     elif l == 2:
-        if atoms[0].value == 'not':
+        token = atoms[0]
+        assert isinstance(token, TokenObject)
+        if token.get_value() == 'not':
             builder.push(TokenObject(tok.NAME, 'not in', None))
         else:
             builder.push(TokenObject(tok.NAME, 'is not', None))
@@ -600,11 +746,11 @@ def build_test( builder, nb ):
 def build_testlist( builder, nb ):
     return build_binary_expr( builder, nb, ast.Tuple )
 
-def build_expr_stmt( builder, nb ):
-    atoms = get_atoms( builder, nb )
+def build_expr_stmt(builder, nb):
+    atoms = get_atoms(builder, nb)
     l = len(atoms)
     if l==1:
-        builder.push( ast.Discard( atoms[0] ) )
+        builder.push(ast.Discard(atoms[0]))
         return
     op = atoms[1]
     if op.name == tok.EQUAL:
@@ -618,8 +764,9 @@ def build_expr_stmt( builder, nb ):
     else:
         assert l==3
         lvalue = atoms[0]
-        assert is_augassign( lvalue )
-        builder.push( ast.AugAssign( lvalue, op.get_name(), atoms[2] ) )
+        # assert is_augassign( lvalue )
+        assert isinstance(op, TokenObject)
+        builder.push(ast.AugAssign(lvalue, op.get_name(), atoms[2]))
 
 def return_one( builder, nb ):
     atoms = get_atoms( builder, nb )
@@ -713,7 +860,7 @@ def build_trailer(builder, nb):
     # Case 1 : '(' ...
     if atoms[0].name == tok.LPAR:
         if len(atoms) == 2: # and atoms[1].token == tok.RPAR:
-            builder.push(ArglistObject('arglist', ([], None, None), None))
+            builder.push(ArglistObject([], None, None))
         elif len(atoms) == 3: # '(' Arglist ')'
             # push arglist on the stack
             builder.push(atoms[1])
@@ -736,7 +883,8 @@ def build_trailer(builder, nb):
 
 def build_arglist(builder, nb):
     atoms = get_atoms(builder, nb)
-    builder.push(ArglistObject('arglist', parse_argument(atoms), None))
+    arguments, stararg, dstararg = parse_argument(atoms)
+    builder.push(ArglistObject(arguments, stararg, dstararg))
 
 def build_subscript(builder, nb):
     """'.' '.' '.' | [test] ':' [test] [':' [test]] | test"""
@@ -788,25 +936,27 @@ def build_subscript(builder, nb):
 def build_listmaker(builder, nb):
     """listmaker: test ( list_for | (',' test)* [','] )"""
     atoms = get_atoms(builder, nb)
-    if len(atoms) >= 2 and isinstance(atoms[1], TokenObject) and atoms[1].value == 'for':
-        # list comp
-        expr = atoms[0]
-        list_for = parse_listcomp(atoms[1:])
-        builder.push(ast.ListComp(expr, list_for))
-    else:
-        # regular list building (like in [1, 2, 3,])
-        index = 0
-        nodes = []
-        while index < len(atoms):
-            nodes.append(atoms[index])
-            index += 2 # skip comas
-        builder.push(ast.List(nodes))
+    if len(atoms) >= 2 and isinstance(atoms[1], TokenObject):
+        token = atoms[1]
+        assert isinstance(token, TokenObject) # rtyper info
+        if token.get_value() == 'for':
+            # list comp
+            expr = atoms[0]
+            list_for = parse_listcomp(atoms[1:])
+            builder.push(ast.ListComp(expr, list_for))
+            return
+    # regular list building (like in [1, 2, 3,])
+    index = 0
+    nodes = []
+    while index < len(atoms):
+        nodes.append(atoms[index])
+        index += 2 # skip comas
+    builder.push(ast.List(nodes))
     
 
 def build_decorator(builder, nb):
     """decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE"""
     atoms = get_atoms(builder, nb)
-    print "***** decorator", atoms
     nodes = []
     # remove '@', '(' and ')' from atoms and use parse_attraccess
     for token in atoms[1:]:
@@ -826,7 +976,16 @@ def build_funcdef(builder, nb):
     index = 0
     decorators = []
     decorator_node = None
-    while not (isinstance(atoms[index], TokenObject) and atoms[index].value == 'def'):
+    # the original loop was:
+    # while not (isinstance(atoms[index], TokenObject) and atoms[index].get_value() == 'def'):
+    #     decorators.append(atoms[index])
+    #     index += 1
+    while index < len(atoms):
+        atom = atoms[index]
+        if isinstance(atom, TokenObject):
+            assert isinstance(atom, TokenObject) # rtyper info
+            if atom.get_value() == 'def':
+                break
         decorators.append(atoms[index])
         index += 1
     if decorators:
@@ -841,7 +1000,9 @@ def build_funcdef(builder, nb):
     #     index += 1
     # arglist.pop() # remove ':'
     names, default, flags = parse_arglist(arglist)
-    funcname = atoms[1].value
+    funcname_token = atoms[1]
+    assert isinstance(funcname_token, TokenObject)
+    funcname = funcname_token.get_value()
     arglist = atoms[2]
     code = atoms[-1]
     doc = get_docstring(code)
@@ -853,12 +1014,14 @@ def build_classdef(builder, nb):
     """classdef: 'class' NAME ['(' testlist ')'] ':' suite"""
     atoms = get_atoms(builder, nb)
     l = len(atoms)
-    # FIXME: docstring
-    classname = atoms[1].value
+    classname_token = atoms[1]
+    assert isinstance(classname_token, TokenObject)
+    classname = classname_token.get_value()
     if l == 4:
         basenames = []
         body = atoms[3]
-    elif l == 7:
+    else:
+        assert l == 7
         basenames = []
         body = atoms[6]
         base = atoms[3]
@@ -902,10 +1065,10 @@ def build_if_stmt(builder, nb):
     while index < len(atoms):
         cur_token = atoms[index]
         assert isinstance(cur_token, TokenObject) # rtyper
-        if cur_token.value == 'elif':
+        if cur_token.get_value() == 'elif':
             tests.append((atoms[index+1], atoms[index+3]))
             index += 4
-        else: # cur_token.value == 'else'
+        else: # cur_token.get_value() == 'else'
             else_ = atoms[index+2]
             break # break is not necessary
     builder.push(ast.If(tests, else_))
@@ -955,7 +1118,9 @@ def build_fplist(builder, nb):
     atoms = get_atoms(builder, nb)
     names = []
     for index in range(0, len(atoms), 2):
-        names.append(atoms[index].value)
+        token = atoms[index]
+        assert isinstance(token, TokenObject)
+        names.append(token.get_value())
     builder.push(FPListObject('fplist', tuple(names), None))
 
 
@@ -996,9 +1161,14 @@ def build_import_name(builder, nb):
         incr, name = parse_dotted_names(atoms[index:])
         index += incr
         # 'as' value
-        if index < l and atoms[index].value == 'as':
-            as_name = atoms[index+1].value
-            index += 2
+        if index < l:
+            token = atoms[index]
+            assert isinstance(token, TokenObject)
+            if token.get_value() == 'as':
+                token = atoms[index+1]
+                assert isinstance(token, TokenObject)
+                as_name = token.get_value()
+                index += 2
         names.append((name, as_name))
         # move forward until next ','
         while index < l and atoms[index].name != tok.COMMA:
@@ -1030,12 +1200,18 @@ def build_import_from(builder, nb):
         l = len(tokens)
         names = []
         while index < l:
-            name = tokens[index].value
+            token = tokens[index]
+            assert isinstance(token, TokenObject)
+            name = token.get_value()
             as_name = None
             index += 1
             if index < l:
-                if tokens[index].value == 'as':
-                    as_name = tokens[index+1].value
+                token = tokens[index]
+                assert isinstance(token, TokenObject)
+                if token.get_value() == 'as':
+                    token = tokens[index+1]
+                    assert isinstance(token, TokenObject)
+                    as_name = token.get_value()
                     index += 2
             names.append((name, as_name))
             if index < l: # case ','
@@ -1106,7 +1282,7 @@ def build_global_stmt(builder, nb):
     for index in range(1, len(atoms), 2):
         token = atoms[index]
         assert isinstance(token, TokenObject)
-        names.append(token.value)
+        names.append(token.get_value())
     builder.push(ast.Global(names))
 
 
@@ -1140,18 +1316,23 @@ def build_try_stmt(builder, nb):
     body = atoms[2]
     token = atoms[3]
     assert isinstance(token, TokenObject)
-    if token.value == 'finally':
+    if token.get_value() == 'finally':
         builder.push(ast.TryFinally(body, atoms[5]))
-    else: # token.value == 'except'
+    else: # token.get_value() == 'except'
         index = 3
-        while index < l and atoms[index].value == 'except':
+        token = atoms[index]
+        while isinstance(token, TokenObject) and token.get_value() == 'except':
             tokens_read, expr1, expr2, except_body = parse_except_clause(atoms[index:])
             handlers.append((expr1, expr2, except_body))
             index += tokens_read
+            if index < l:
+                token = atoms[index]
+            else:
+                break
         if index < l:
             token = atoms[index]
             assert isinstance(token, TokenObject)
-            assert token.value == 'else'
+            assert token.get_value() == 'else'
             else_ = atoms[index+2] # skip ':'
         builder.push(ast.TryExcept(body, handlers, else_))
 
@@ -1247,7 +1428,15 @@ class TokenObject(ast.Node):
     def get_name(self):
         return tok.tok_rpunct.get(self.name,
                                   tok.tok_name.get(self.name, str(self.name)))
-        
+
+    def get_value(self):
+        if self.value is None:
+            value = ''
+        else:
+            value = self.value
+        assert isinstance(value, str)
+        return value
+    
     def __str__(self):
         return "<Token: (%s,%s)>" % (self.get_name(), self.value)
     
@@ -1289,6 +1478,12 @@ class ArglistObject(ObjectAccessor):
 
     self.value is the 3-tuple (names, defaults, flags)
     """
+    def __init__(self, arguments, stararg, dstararg):
+        self.name = 'arglist'
+        self.arguments = arguments
+        self.stararg = stararg
+        self.dstararg = dstararg
+
     def __str__(self):
         return "<ArgList: (%s, %s, %s)>" % self.value
     
@@ -1329,16 +1524,16 @@ class AstBuilderContext(AbstractContext):
 class AstBuilder(BaseGrammarBuilder):
     """A builder that directly produce the AST"""
 
-    def __init__( self, rules=None, debug=0 ):
-        BaseGrammarBuilder.__init__(self, rules, debug )
+    def __init__(self, rules=None, debug=0):
+        BaseGrammarBuilder.__init__(self, rules, debug)
         self.rule_stack = []
 
     def context(self):
         return AstBuilderContext(self.rule_stack)
 
     def restore(self, ctx):
-        if DEBUG_MODE:
-            print "Restoring context (%s)" % (len(ctx.rule_stack))
+##         if DEBUG_MODE:
+##             print "Restoring context (%s)" % (len(ctx.rule_stack))
         assert isinstance(ctx, AstBuilderContext)
         self.rule_stack = ctx.rule_stack
 
@@ -1348,11 +1543,13 @@ class AstBuilder(BaseGrammarBuilder):
     def push(self, obj):
         self.rule_stack.append( obj )
         if not isinstance(obj, RuleObject) and not isinstance(obj, TokenObject):
-            if DEBUG_MODE:
-                print "Pushed:", str(obj), len(self.rule_stack)
+##             if DEBUG_MODE:
+##                 print "Pushed:", str(obj), len(self.rule_stack)
+            pass
         elif isinstance(obj, TempRuleObject):
-            if DEBUG_MODE:
-                print "Pushed:", str(obj), len(self.rule_stack)            
+##             if DEBUG_MODE:
+##                 print "Pushed:", str(obj), len(self.rule_stack)
+            pass
         # print "\t", self.rule_stack
 
     def push_tok(self, name, value, src ):
@@ -1365,53 +1562,53 @@ class AstBuilder(BaseGrammarBuilder):
         # Do nothing, keep rule on top of the stack
         rule_stack = self.rule_stack[:]
         if rule.is_root():
-            if DEBUG_MODE:
-                print "ALT:", sym.sym_name[rule.codename], self.rule_stack
+##             if DEBUG_MODE:
+##                 print "ALT:", sym.sym_name[rule.codename], self.rule_stack
             builder_func = ASTRULES.get(rule.codename, None)
             if builder_func:
                 builder_func(self, 1)
             else:
-                if DEBUG_MODE:
-                    print "No reducing implementation for %s, just push it on stack" % (
-                        sym.sym_name[rule.codename])
+##                 if DEBUG_MODE:
+##                     print "No reducing implementation for %s, just push it on stack" % (
+##                         sym.sym_name[rule.codename])
                 self.push_rule(rule.codename, 1, source)
         else:
             self.push_rule(rule.codename, 1, source)
-        if DEBUG_MODE > 1:
-            show_stack(rule_stack, self.rule_stack)
-            x = raw_input("Continue ?")
+##         if DEBUG_MODE > 1:
+##             show_stack(rule_stack, self.rule_stack)
+##             x = raw_input("Continue ?")
         return True
 
     def sequence(self, rule, source, elts_number):
         """ """
         rule_stack = self.rule_stack[:]
         if rule.is_root():
-            if DEBUG_MODE:
-                print "SEQ:", sym.sym_name[rule.codename]
-            builder_func = ASTRULES.get(rule.codename)
+##             if DEBUG_MODE:
+##                 print "SEQ:", sym.sym_name[rule.codename]
+            builder_func = ASTRULES.get(rule.codename, None)
             if builder_func:
                 # print "REDUCING SEQUENCE %s" % sym.sym_name[rule.codename]
                 builder_func(self, elts_number)
             else:
-                if DEBUG_MODE:
-                    print "No reducing implementation for %s, just push it on stack" % (
-                        sym.sym_name[rule.codename])
+##                 if DEBUG_MODE:
+##                     print "No reducing implementation for %s, just push it on stack" % (
+##                         sym.sym_name[rule.codename])
                 self.push_rule(rule.codename, elts_number, source)
         else:
             self.push_rule(rule.codename, elts_number, source)
-        if DEBUG_MODE > 1:
-            show_stack(rule_stack, self.rule_stack)
-            raw_input("Continue ?")
+##         if DEBUG_MODE > 1:
+##             show_stack(rule_stack, self.rule_stack)
+##             raw_input("Continue ?")
         return True
 
     def token(self, name, value, source):
-        if DEBUG_MODE:
-            print "TOK:", tok.tok_name[name], name, value
+##         if DEBUG_MODE:
+##             print "TOK:", tok.tok_name[name], name, value
         self.push_tok(name, value, source)
         return True
 
 def show_stack(before, after):
-    """debuggin helper function"""
+    """debugging helper function"""
     size1 = len(before)
     size2 = len(after)
     for i in range(max(size1, size2)):

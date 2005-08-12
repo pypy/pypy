@@ -4,6 +4,7 @@ import parser
 
 import pythonparse
 from tuplebuilder import TupleBuilder
+from astbuilder import AstBuilder
 from pypy.interpreter.pyparser.error import ParseError
 from pypy.interpreter.pyparser import pysymbol
 
@@ -99,6 +100,12 @@ def ast_from_input(input, mode, transformer):
     tuples = pypy_parse(input, mode, True)
     ast = transformer.compile_node(tuples)
     return ast
+
+def ast_from_input_(input, mode):
+    builder = AstBuilder()
+    target = TARGET_DICT[mode]
+    PYTHON_PARSER.parse_source(input, target, builder)
+    return builder.rule_stack[-1]
 
 ## TARGET FOR ANNOTATORS #############################################
 def annotateme(source):
