@@ -5,7 +5,6 @@ without going trhough the nested tuples step
 
 from grammar import BaseGrammarBuilder, AbstractContext
 from pypy.interpreter.astcompiler import ast, consts
-from pypy.interpreter.astcompiler.transformer import WalkerError
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
 
@@ -261,30 +260,30 @@ def get_docstring(stmt):
     return doc
 
 
-def to_lvalue(ast_node, OP):
+def to_lvalue(ast_node, flags):
     if isinstance( ast_node, ast.Name ):
-        return ast.AssName( ast_node.name, OP )
+        return ast.AssName( ast_node.name, flags )
     elif isinstance(ast_node, ast.Tuple):
         nodes = []
         for node in ast_node.getChildren():
-            nodes.append(to_lvalue(node, OP))
+            nodes.append(to_lvalue(node, flags))
             # nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
         return ast.AssTuple(nodes)
     elif isinstance(ast_node, ast.List):
         nodes = []
         for node in ast_node.getChildren():
-            nodes.append(to_lvalue(node, OP))
+            nodes.append(to_lvalue(node, flags))
             # nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
         return ast.AssList(nodes)
     elif isinstance(ast_node, ast.Getattr):
         expr = ast_node.expr
         attrname = ast_node.attrname
-        return ast.AssAttr(expr, attrname, OP)
+        return ast.AssAttr(expr, attrname, flags)
     elif isinstance(ast_node, ast.Subscript):
-        ast_node.flags = OP
+        ast_node.flags = flags
         return ast_node
     elif isinstance(ast_node, ast.Slice):
-        ast_node.flags = OP
+        ast_node.flags = flags
         return ast_node
     else:
         assert False, "TODO"
@@ -298,17 +297,17 @@ def is_augassign( ast_node ):
     return False
 
 def get_atoms( builder, nb ):
-    L = []
+    atoms = []
     i = nb
     while i>0:
         obj = builder.pop()
         if isinstance(obj, RuleObject):
             i += obj.count
         else:
-            L.append( obj )
+            atoms.append( obj )
         i -= 1
-    L.reverse()
-    return L
+    atoms.reverse()
+    return atoms
     
 def eval_number(value):
     """temporary implementation"""
@@ -400,19 +399,19 @@ def parse_attraccess(tokens):
 ##
 
 def build_atom(builder, nb):
-    L = get_atoms( builder, nb )
-    top = L[0]
+    atoms = get_atoms( builder, nb )
+    top = atoms[0]
     if isinstance(top, TokenObject):
         if top.name == tok.LPAR:
-            if len(L) == 2:
+            if len(atoms) == 2:
                 builder.push(ast.Tuple([], top.line))
             else:
-                builder.push( L[1] )
+                builder.push( atoms[1] )
         elif top.name == tok.LSQB:
-            if len(L) == 2:
+            if len(atoms) == 2:
                 builder.push(ast.List([], top.line))
             else:
-                list_node = L[1]
+                list_node = atoms[1]
                 # XXX lineno is not on *every* child class of ast.Node
                 #     (will probably crash the annotator, but should be
                 #      easily fixed)
@@ -420,60 +419,60 @@ def build_atom(builder, nb):
                 builder.push(list_node)
         elif top.name == tok.LBRACE:
             items = []
-            for index in range(1, len(L)-1, 4):
+            for index in range(1, len(atoms)-1, 4):
                 # a   :   b   ,   c : d
                 # ^  +1  +2  +3  +4
-                items.append((L[index], L[index+2]))
+                items.append((atoms[index], atoms[index+2]))
             builder.push(ast.Dict(items, top.line))
         elif top.name == tok.NAME:
             builder.push( ast.Name(top.value) )
         elif top.name == tok.NUMBER:
             builder.push( ast.Const(eval_number(top.value)) )
         elif top.name == tok.STRING:
-            # need to concatenate strings in L
+            # need to concatenate strings in atoms
             s = ''
-            for token in L:
+            for token in atoms:
                 s += eval_string(token.value)
             builder.push( ast.Const(s) )
             # assert False, "TODO (String)"
         elif top.name == tok.BACKQUOTE:
-            builder.push(ast.Backquote(L[1]))
+            builder.push(ast.Backquote(atoms[1]))
         else:
-            raise ValueError, "unexpected tokens (%d): %s" % (nb, [str(i) for i in L])
+            raise ValueError, "unexpected tokens (%d): %s" % (nb, [str(i) for i in atoms])
 
 
 def build_power(builder, nb):
     """power: atom trailer* ['**' factor]"""
-    L = get_atoms(builder, nb)
-    if len(L) == 1:
-        builder.push(L[0])
+    atoms = get_atoms(builder, nb)
+    if len(atoms) == 1:
+        builder.push(atoms[0])
     else:
-        if isinstance(L[-2], TokenObject) and L[-2].name == tok.DOUBLESTAR:
-            obj = parse_attraccess(L[:-2])
-            builder.push(ast.Power([obj, L[-1]]))
+        if isinstance(atoms[-2], TokenObject) and atoms[-2].name == tok.DOUBLESTAR:
+            obj = parse_attraccess(atoms[:-2])
+            builder.push(ast.Power([obj, atoms[-1]]))
         else:
-            obj = parse_attraccess(L)
+            obj = parse_attraccess(atoms)
             builder.push(obj)
 
 def build_factor( builder, nb ):
-    L = get_atoms( builder, nb )
-    if len(L) == 1:
-        builder.push( L[0] )
-    elif len(L) == 2 and isinstance(L[0],TokenObject):
-        if L[0].name == tok.PLUS:
-            builder.push( ast.UnaryAdd( L[1] ) )
-        if L[0].name == tok.MINUS:
-            builder.push( ast.UnarySub( L[1] ) )
-        if L[0].name == tok.TILDE:
-            builder.push( ast.Invert( L[1] ) )
+    atoms = get_atoms( builder, nb )
+    if len(atoms) == 1:
+        builder.push( atoms[0] )
+    elif len(atoms) == 2 and isinstance(atoms[0],TokenObject):
+        if atoms[0].name == tok.PLUS:
+            builder.push( ast.UnaryAdd( atoms[1] ) )
+        if atoms[0].name == tok.MINUS:
+            builder.push( ast.UnarySub( atoms[1] ) )
+        if atoms[0].name == tok.TILDE:
+            builder.push( ast.Invert( atoms[1] ) )
 
 def build_term( builder, nb ):
-    L = get_atoms( builder, nb )
-    l = len(L)
-    left = L[0]
+    atoms = get_atoms( builder, nb )
+    l = len(atoms)
+    left = atoms[0]
     for i in range(2,l,2):
-        right = L[i]
-        op = L[i-1].name
+        right = atoms[i]
+        op = atoms[i-1].name
         if op == tok.STAR:
             left = ast.Mul( [ left, right ] )
         elif op == tok.SLASH:
@@ -483,49 +482,49 @@ def build_term( builder, nb ):
         elif op == tok.DOUBLESLASH:
             left = ast.FloorDiv( [ left, right ] )
         else:
-            raise ValueError, "unexpected token: %s" % L[i-1]
+            raise ValueError, "unexpected token: %s" % atoms[i-1]
     builder.push( left )
 
 def build_arith_expr( builder, nb ):
-    L = get_atoms( builder, nb )
-    l = len(L)
-    left = L[0]
+    atoms = get_atoms( builder, nb )
+    l = len(atoms)
+    left = atoms[0]
     for i in range(2,l,2):
-        right = L[i]
-        op = L[i-1].name
+        right = atoms[i]
+        op = atoms[i-1].name
         if op == tok.PLUS:
             left = ast.Add( [ left, right ] )
         elif op == tok.MINUS:
             left = ast.Sub( [ left, right ] )
         else:
-            raise ValueError, "unexpected token: %s : %s" % L[i-1]
+            raise ValueError, "unexpected token: %s : %s" % atoms[i-1]
     builder.push( left )
 
 def build_shift_expr( builder, nb ):
-    L = get_atoms( builder, nb )
-    l = len(L)
-    left = L[0]
+    atoms = get_atoms( builder, nb )
+    l = len(atoms)
+    left = atoms[0]
     for i in range(2,l,2):
-        right = L[i]
-        op = L[i-1].name
+        right = atoms[i]
+        op = atoms[i-1].name
         if op == tok.LEFTSHIFT:
             left = ast.LeftShift( [ left, right ] )
         elif op == tok.RIGHTSHIFT:
             left = ast.RightShift( [ left, right ] )
         else:
-            raise ValueError, "unexpected token: %s : %s" % L[i-1]
+            raise ValueError, "unexpected token: %s : %s" % atoms[i-1]
     builder.push( left )
 
 
 def build_binary_expr(builder, nb, OP):
-    L = get_atoms(builder, nb)
-    l = len(L)
+    atoms = get_atoms(builder, nb)
+    l = len(atoms)
     if l==1:
-        builder.push( L[0] )
+        builder.push( atoms[0] )
         return
     items = []
-    for i in range(0,l,2): # this is L not 1
-        items.append( L[i] )
+    for i in range(0,l,2): # this is atoms not 1
+        items.append( atoms[i] )
     builder.push( OP( items ) )
     return
 
@@ -539,22 +538,22 @@ def build_expr( builder, nb ):
     return build_binary_expr( builder, nb, ast.Bitor )
 
 def build_comparison( builder, nb ):
-    L = get_atoms( builder, nb )
-    l = len(L)
+    atoms = get_atoms( builder, nb )
+    l = len(atoms)
     if l == 1:
-        builder.push( L[0] )
+        builder.push( atoms[0] )
         return
     else:
         # a < b < c is transalted into:
         # Compare(Name('a'), [('<', Name(b)), ('<', Name(c))])
-        left_token = L[0]
+        left_token = atoms[0]
         ops = []
         for i in range(1, l, 2):
             # if tok.name isn't in rpunct, then it should be
             # 'is', 'is not', 'not' or 'not in' => tok.value
-            op_name = tok.tok_rpunct.get(L[i].name, L[i].value)
-            ops.append((op_name, L[i+1]))
-        builder.push(ast.Compare(L[0], ops))
+            op_name = tok.tok_rpunct.get(atoms[i].name, atoms[i].value)
+            ops.append((op_name, atoms[i+1]))
+        builder.push(ast.Compare(atoms[0], ops))
 
 def build_comp_op(builder, nb):
     """comp_op reducing has 2 different cases:
@@ -569,14 +568,14 @@ def build_comp_op(builder, nb):
           operator is one and only one token on the stack (which
           is not the case, by default, with 'not in' and 'is not')
     """
-    L = get_atoms(builder, nb)
-    l = len(L)
+    atoms = get_atoms(builder, nb)
+    l = len(atoms)
     # l==1 means '<', '>', '<=', etc.
     if l == 1:
-        builder.push(L[0])
+        builder.push(atoms[0])
     # l==2 means 'not in' or 'is not'
     elif l == 2:
-        if L[0].value == 'not':
+        if atoms[0].value == 'not':
             builder.push(TokenObject(tok.NAME, 'not in', None))
         else:
             builder.push(TokenObject(tok.NAME, 'is not', None))
@@ -587,13 +586,13 @@ def build_and_test( builder, nb ):
     return build_binary_expr( builder, nb, ast.And )
 
 def build_not_test(builder, nb):
-    L = get_atoms(builder, nb)
-    if len(L) == 1:
-        builder.push(L[0])
-    elif len(L) == 2:
-        builder.push(ast.Not(L[1]))
+    atoms = get_atoms(builder, nb)
+    if len(atoms) == 1:
+        builder.push(atoms[0])
+    elif len(atoms) == 2:
+        builder.push(ast.Not(atoms[1]))
     else:
-        assert False, "not_test implementation incomplete (%s)" % L
+        assert False, "not_test implementation incomplete (%s)" % atoms
 
 def build_test( builder, nb ):
     return build_binary_expr(builder, nb, ast.Or)
@@ -602,40 +601,39 @@ def build_testlist( builder, nb ):
     return build_binary_expr( builder, nb, ast.Tuple )
 
 def build_expr_stmt( builder, nb ):
-    L = get_atoms( builder, nb )
-    l = len(L)
+    atoms = get_atoms( builder, nb )
+    l = len(atoms)
     if l==1:
-        builder.push( ast.Discard( L[0] ) )
+        builder.push( ast.Discard( atoms[0] ) )
         return
-    op = L[1]
+    op = atoms[1]
     if op.name == tok.EQUAL:
         nodes = []
         for i in range(0,l-2,2):
-            lvalue = to_lvalue( L[i], consts.OP_ASSIGN )
+            lvalue = to_lvalue( atoms[i], consts.OP_ASSIGN )
             nodes.append( lvalue )
-        rvalue = L[-1]
+        rvalue = atoms[-1]
         builder.push( ast.Assign( nodes, rvalue ) )
         pass
     else:
         assert l==3
-        lvalue = L[0]
+        lvalue = atoms[0]
         assert is_augassign( lvalue )
-        builder.push( ast.AugAssign( lvalue, op.get_name(), L[2] ) )
+        builder.push( ast.AugAssign( lvalue, op.get_name(), atoms[2] ) )
 
 def return_one( builder, nb ):
-    L = get_atoms( builder, nb )
-    l = len(L)
-    if l==1:
-        builder.push( L[0] )
-        return
-    raise WalkerError("missing one node in stack")
+    atoms = get_atoms( builder, nb )
+    l = len(atoms)
+    assert l == 1, "missing one node in stack"
+    builder.push( atoms[0] )
+    return
 
 def build_simple_stmt( builder, nb ):
-    L = get_atoms( builder, nb )
-    l = len(L)
+    atoms = get_atoms( builder, nb )
+    l = len(atoms)
     nodes = []
     for n in range(0,l,2):
-        node = L[n]
+        node = atoms[n]
         if isinstance(node, TokenObject) and node.name == tok.NEWLINE:
             nodes.append(ast.Discard(ast.Const(None)))
         else:
@@ -643,20 +641,20 @@ def build_simple_stmt( builder, nb ):
     builder.push(ast.Stmt(nodes))
 
 def build_return_stmt(builder, nb):
-    L = get_atoms(builder, nb)
-    if len(L) > 2:
+    atoms = get_atoms(builder, nb)
+    if len(atoms) > 2:
         assert False, "return several stmts not implemented"
-    elif len(L) == 1:
+    elif len(atoms) == 1:
         builder.push(ast.Return(ast.Const(None), None)) # XXX lineno
     else:
-        builder.push(ast.Return(L[1], None)) # XXX lineno
+        builder.push(ast.Return(atoms[1], None)) # XXX lineno
 
 def build_file_input(builder, nb):
     # FIXME: need to handle docstring !
     doc = None
     stmts = []
-    L = get_atoms(builder, nb)
-    for node in L:
+    atoms = get_atoms(builder, nb)
+    for node in atoms:
         if isinstance(node, ast.Stmt):
             stmts.extend(node.nodes)
         elif isinstance(node, TokenObject) and node.name == tok.ENDMARKER:
@@ -671,28 +669,28 @@ def build_file_input(builder, nb):
     return builder.push(ast.Module(doc, main_stmt))
 
 def build_single_input( builder, nb ):
-    L = get_atoms( builder, nb )
-    l = len(L)
+    atoms = get_atoms( builder, nb )
+    l = len(atoms)
     if l >= 1:
-        builder.push(ast.Module(None, L[0]))
+        builder.push(ast.Module(None, atoms[0]))
     else:
         assert False, "Forbidden path"
 
 def build_testlist_gexp(builder, nb):
-    L = get_atoms(builder, nb)
-    l = len(L)
+    atoms = get_atoms(builder, nb)
+    l = len(atoms)
     if l == 1:
-        builder.push(L[0])
+        builder.push(atoms[0])
         return
     items = []
-    if L[1].name == tok.COMMA:
-        for i in range(0, l, 2): # this is L not 1
-            items.append(L[i])
+    if atoms[1].name == tok.COMMA:
+        for i in range(0, l, 2): # this is atoms not 1
+            items.append(atoms[i])
     else:
         # genfor: 'i for i in j'
         # GenExpr(GenExprInner(Name('i'), [GenExprFor(AssName('i', 'OP_ASSIGN'), Name('j'), [])])))]))
-        expr = L[0]
-        genexpr_for = parse_genexpr_for(L[1:])
+        expr = atoms[0]
+        genexpr_for = parse_genexpr_for(atoms[1:])
         builder.push(ast.GenExpr(ast.GenExprInner(expr, genexpr_for)))
         return
     builder.push(ast.Tuple(items))
@@ -702,64 +700,64 @@ def build_varargslist(builder, nb):
     pass
 
 def build_lambdef(builder, nb):
-    L = get_atoms(builder, nb)
-    code = L[-1]
-    names, defaults, flags = parse_arglist(L[1:-2])
+    atoms = get_atoms(builder, nb)
+    code = atoms[-1]
+    names, defaults, flags = parse_arglist(atoms[1:-2])
     builder.push(ast.Lambda(names, defaults, flags, code))
 
 
 def build_trailer(builder, nb):
     """trailer: '(' ')' | '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
     """
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     # Case 1 : '(' ...
-    if L[0].name == tok.LPAR:
-        if len(L) == 2: # and L[1].token == tok.RPAR:
+    if atoms[0].name == tok.LPAR:
+        if len(atoms) == 2: # and atoms[1].token == tok.RPAR:
             builder.push(ArglistObject('arglist', ([], None, None), None))
-        elif len(L) == 3: # '(' Arglist ')'
+        elif len(atoms) == 3: # '(' Arglist ')'
             # push arglist on the stack
-            builder.push(L[1])
-    elif L[0].name == tok.LSQB:
-        if isinstance(L[1], SlicelistObject):
-            builder.push(L[1])
+            builder.push(atoms[1])
+    elif atoms[0].name == tok.LSQB:
+        if isinstance(atoms[1], SlicelistObject):
+            builder.push(atoms[1])
         else:
             subs = []
-            for index in range(1, len(L), 2):
-                subs.append(L[index])
+            for index in range(1, len(atoms), 2):
+                subs.append(atoms[index])
             builder.push(SubscriptObject('subscript', subs, None))
-    elif len(L) == 2:
+    elif len(atoms) == 2:
         # Attribute access: '.' NAME
         # XXX Warning: fails if trailer is used in lvalue
-        builder.push(L[0])
-        builder.push(L[1])
+        builder.push(atoms[0])
+        builder.push(atoms[1])
         builder.push(TempRuleObject('pending-attr-access', 2, None))
     else:
         assert False, "Trailer reducing implementation incomplete !"
 
 def build_arglist(builder, nb):
-    L = get_atoms(builder, nb)
-    builder.push(ArglistObject('arglist', parse_argument(L), None))
+    atoms = get_atoms(builder, nb)
+    builder.push(ArglistObject('arglist', parse_argument(atoms), None))
 
 def build_subscript(builder, nb):
     """'.' '.' '.' | [test] ':' [test] [':' [test]] | test"""
-    L = get_atoms(builder, nb)
-    if isinstance(L[0], TokenObject) and L[0].name == tok.DOT:
+    atoms = get_atoms(builder, nb)
+    if isinstance(atoms[0], TokenObject) and atoms[0].name == tok.DOT:
         # Ellipsis:
         builder.push(ast.Ellipsis())
-    elif len(L) == 1:
-        token = L[0]
+    elif len(atoms) == 1:
+        token = atoms[0]
         if isinstance(token, TokenObject) and token.name == tok.COLON:
             sliceinfos = [None, None, None]
             builder.push(SlicelistObject('slice', sliceinfos, None))
         else:
             # test
-            builder.push(L[0])
-    else: # elif len(L) > 1:
+            builder.push(atoms[0])
+    else: # elif len(atoms) > 1:
         items = []
         sliceinfos = [None, None, None]
         infosindex = 0
         subscript_type = 'subscript'
-        for token in L:
+        for token in atoms:
             if isinstance(token, TokenObject):
                 if token.name == tok.COLON:
                     infosindex += 1
@@ -789,29 +787,29 @@ def build_subscript(builder, nb):
         
 def build_listmaker(builder, nb):
     """listmaker: test ( list_for | (',' test)* [','] )"""
-    L = get_atoms(builder, nb)
-    if len(L) >= 2 and isinstance(L[1], TokenObject) and L[1].value == 'for':
+    atoms = get_atoms(builder, nb)
+    if len(atoms) >= 2 and isinstance(atoms[1], TokenObject) and atoms[1].value == 'for':
         # list comp
-        expr = L[0]
-        list_for = parse_listcomp(L[1:])
+        expr = atoms[0]
+        list_for = parse_listcomp(atoms[1:])
         builder.push(ast.ListComp(expr, list_for))
     else:
         # regular list building (like in [1, 2, 3,])
         index = 0
         nodes = []
-        while index < len(L):
-            nodes.append(L[index])
+        while index < len(atoms):
+            nodes.append(atoms[index])
             index += 2 # skip comas
         builder.push(ast.List(nodes))
     
 
 def build_decorator(builder, nb):
     """decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE"""
-    L = get_atoms(builder, nb)
-    print "***** decorator", L
+    atoms = get_atoms(builder, nb)
+    print "***** decorator", atoms
     nodes = []
-    # remove '@', '(' and ')' from L and use parse_attraccess
-    for token in L[1:]:
+    # remove '@', '(' and ')' from atoms and use parse_attraccess
+    for token in atoms[1:]:
         if isinstance(token, TokenObject) and \
                token.name in (tok.LPAR, tok.RPAR, tok.NEWLINE):
             # skip those ones
@@ -824,28 +822,28 @@ def build_decorator(builder, nb):
 def build_funcdef(builder, nb):
     """funcdef: [decorators] 'def' NAME parameters ':' suite
     """
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     index = 0
     decorators = []
     decorator_node = None
-    while not (isinstance(L[index], TokenObject) and L[index].value == 'def'):
-        decorators.append(L[index])
+    while not (isinstance(atoms[index], TokenObject) and atoms[index].value == 'def'):
+        decorators.append(atoms[index])
         index += 1
     if decorators:
         decorator_node = ast.Decorators(decorators)
-    L = L[index:]
-    funcname = L[1]
+    atoms = atoms[index:]
+    funcname = atoms[1]
     arglist = []
     index = 3
-    arglist = L[3:-3]
-    # while not (isinstance(L[index], TokenObject) and L[index].name == tok.COLON):
-    #     arglist.append(L[index])
+    arglist = atoms[3:-3]
+    # while not (isinstance(atoms[index], TokenObject) and atoms[index].name == tok.COLON):
+    #     arglist.append(atoms[index])
     #     index += 1
     # arglist.pop() # remove ':'
     names, default, flags = parse_arglist(arglist)
-    funcname = L[1].value
-    arglist = L[2]
-    code = L[-1]
+    funcname = atoms[1].value
+    arglist = atoms[2]
+    code = atoms[-1]
     doc = get_docstring(code)
     # FIXME: decorators and docstring !
     builder.push(ast.Function(decorator_node, funcname, names, default, flags, doc, code))
@@ -853,17 +851,17 @@ def build_funcdef(builder, nb):
 
 def build_classdef(builder, nb):
     """classdef: 'class' NAME ['(' testlist ')'] ':' suite"""
-    L = get_atoms(builder, nb)
-    l = len(L)
+    atoms = get_atoms(builder, nb)
+    l = len(atoms)
     # FIXME: docstring
-    classname = L[1].value
+    classname = atoms[1].value
     if l == 4:
         basenames = []
-        body = L[3]
+        body = atoms[3]
     elif l == 7:
         basenames = []
-        body = L[6]
-        base = L[3]
+        body = atoms[6]
+        base = atoms[3]
         if isinstance(base, ast.Tuple):
             for node in base.nodes:
                 basenames.append(node)
@@ -874,19 +872,19 @@ def build_classdef(builder, nb):
 
 def build_suite(builder, nb):
     """suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT"""
-    L = get_atoms(builder, nb)
-    if len(L) == 1:
-        builder.push(L[0])
-    elif len(L) == 4:
+    atoms = get_atoms(builder, nb)
+    if len(atoms) == 1:
+        builder.push(atoms[0])
+    elif len(atoms) == 4:
         # Only one statement for (stmt+)
-        stmt = L[2]
+        stmt = atoms[2]
         if not isinstance(stmt, ast.Stmt):
             stmt = ast.Stmt([stmt])
         builder.push(stmt)
     else:
         # several statements
         stmts = []
-        nodes = L[2:-1]
+        nodes = atoms[2:-1]
         for node in nodes:
             if isinstance(node, ast.Stmt):
                 stmts.extend(node.nodes)
@@ -896,83 +894,83 @@ def build_suite(builder, nb):
 
 
 def build_if_stmt(builder, nb):
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     tests = []
-    tests.append((L[1], L[3]))
+    tests.append((atoms[1], atoms[3]))
     index = 4
     else_ = None
-    while index < len(L):
-        cur_token = L[index]
+    while index < len(atoms):
+        cur_token = atoms[index]
         assert isinstance(cur_token, TokenObject) # rtyper
         if cur_token.value == 'elif':
-            tests.append((L[index+1], L[index+3]))
+            tests.append((atoms[index+1], atoms[index+3]))
             index += 4
         else: # cur_token.value == 'else'
-            else_ = L[index+2]
+            else_ = atoms[index+2]
             break # break is not necessary
     builder.push(ast.If(tests, else_))
 
 def build_pass_stmt(builder, nb):
     """past_stmt: 'pass'"""
-    L = get_atoms(builder, nb)
-    assert len(L) == 1
+    atoms = get_atoms(builder, nb)
+    assert len(atoms) == 1
     builder.push(ast.Pass())
 
 
 def build_break_stmt(builder, nb):
     """past_stmt: 'pass'"""
-    L = get_atoms(builder, nb)
-    assert len(L) == 1
+    atoms = get_atoms(builder, nb)
+    assert len(atoms) == 1
     builder.push(ast.Break())
 
 
 def build_for_stmt(builder, nb):
     """for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]"""
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     else_ = None
     # skip 'for'
-    assign = to_lvalue(L[1], consts.OP_ASSIGN)
+    assign = to_lvalue(atoms[1], consts.OP_ASSIGN)
     # skip 'in'
-    iterable = L[3]
+    iterable = atoms[3]
     # skip ':'
-    body = L[5]
+    body = atoms[5]
     # if there is a "else" statement
-    if len(L) > 6:
+    if len(atoms) > 6:
         # skip 'else' and ':'
-        else_ = L[8]
+        else_ = atoms[8]
     builder.push(ast.For(assign, iterable, body, else_))
 
 def build_exprlist(builder, nb):
-    L = get_atoms(builder, nb)
-    if len(L) <= 2:
-        builder.push(L[0])
+    atoms = get_atoms(builder, nb)
+    if len(atoms) <= 2:
+        builder.push(atoms[0])
     else:
         names = []
-        for index in range(0, len(L), 2):
-            names.append(L[index])
+        for index in range(0, len(atoms), 2):
+            names.append(atoms[index])
         builder.push(ast.Tuple(names))
 
 def build_fplist(builder, nb):
     """fplist: fpdef (',' fpdef)* [',']"""
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     names = []
-    for index in range(0, len(L), 2):
-        names.append(L[index].value)
+    for index in range(0, len(atoms), 2):
+        names.append(atoms[index].value)
     builder.push(FPListObject('fplist', tuple(names), None))
 
 
 def build_while_stmt(builder, nb):
     """while_stmt: 'while' test ':' suite ['else' ':' suite]"""
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     else_ = None
     # skip 'while'
-    test =  L[1]
+    test =  atoms[1]
     # skip ':'
-    body = L[3]
+    body = atoms[3]
     # if there is a "else" statement
-    if len(L) > 4:
+    if len(atoms) > 4:
         # skip 'else' and ':'
-        else_ = L[6]
+        else_ = atoms[6]
     builder.push(ast.While(test, body, else_))
 
 
@@ -988,22 +986,22 @@ def build_import_name(builder, nb):
 
     XXX: refactor build_import_name and build_import_from
     """
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     index = 1 # skip 'import'
-    l = len(L)
+    l = len(atoms)
     names = []
     while index < l:
         as_name = None
         # dotted name (a.b.c)
-        incr, name = parse_dotted_names(L[index:])
+        incr, name = parse_dotted_names(atoms[index:])
         index += incr
         # 'as' value
-        if index < l and L[index].value == 'as':
-            as_name = L[index+1].value
+        if index < l and atoms[index].value == 'as':
+            as_name = atoms[index+1].value
             index += 2
         names.append((name, as_name))
         # move forward until next ','
-        while index < l and L[index].name != tok.COMMA:
+        while index < l and atoms[index].name != tok.COMMA:
             index += 1
         index += 1
     builder.push(ast.Import(names))
@@ -1016,18 +1014,18 @@ def build_import_from(builder, nb):
     import_as_names: import_as_name (',' import_as_name)* [',']
     import_as_name: NAME [NAME NAME]
     """
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     index = 1
-    incr, from_name = parse_dotted_names(L[index:])
+    incr, from_name = parse_dotted_names(atoms[index:])
     index += (incr + 1) # skip 'import'
-    if L[index].name == tok.STAR:
+    if atoms[index].name == tok.STAR:
         names = [('*', None)]
     else:
-        if L[index].name == tok.LPAR:
+        if atoms[index].name == tok.LPAR:
             # mutli-line imports
-            tokens = L[index+1:-1]
+            tokens = atoms[index+1:-1]
         else:
-            tokens = L[index:]
+            tokens = atoms[index:]
         index = 0
         l = len(tokens)
         names = []
@@ -1046,67 +1044,67 @@ def build_import_from(builder, nb):
 
 
 def build_yield_stmt(builder, nb):
-    L = get_atoms(builder, nb)
-    builder.push(ast.Yield(L[1]))
+    atoms = get_atoms(builder, nb)
+    builder.push(ast.Yield(atoms[1]))
 
 def build_continue_stmt(builder, nb):
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     builder.push(ast.Continue())
 
 def build_del_stmt(builder, nb):
-    L = get_atoms(builder, nb)
-    builder.push(to_lvalue(L[1], consts.OP_DELETE))
+    atoms = get_atoms(builder, nb)
+    builder.push(to_lvalue(atoms[1], consts.OP_DELETE))
         
 
 def build_assert_stmt(builder, nb):
     """assert_stmt: 'assert' test [',' test]"""
-    L = get_atoms(builder, nb)
-    test = L[1]
-    if len(L) == 4:
-        fail = L[3]
+    atoms = get_atoms(builder, nb)
+    test = atoms[1]
+    if len(atoms) == 4:
+        fail = atoms[3]
     else:
         fail = None
     builder.push(ast.Assert(test, fail))
 
 def build_exec_stmt(builder, nb):
     """exec_stmt: 'exec' expr ['in' test [',' test]]"""
-    L = get_atoms(builder, nb)
-    expr = L[1]
+    atoms = get_atoms(builder, nb)
+    expr = atoms[1]
     loc = None
     glob = None
-    if len(L) > 2:
-        loc = L[3]
-        if len(L) > 4:
-            glob = L[5]
+    if len(atoms) > 2:
+        loc = atoms[3]
+        if len(atoms) > 4:
+            glob = atoms[5]
     builder.push(ast.Exec(expr, loc, glob))
 
 def build_print_stmt(builder, nb):
     """
     print_stmt: 'print' ( '>>' test [ (',' test)+ [','] ] | [ test (',' test)* [','] ] )
     """
-    L = get_atoms(builder, nb)
-    l = len(L)
+    atoms = get_atoms(builder, nb)
+    l = len(atoms)
     items = []
     dest = None
     start = 1
     if l > 1:
-        if isinstance(L[1], TokenObject) and L[1].name == tok.RIGHTSHIFT:
-            dest = L[2]
+        if isinstance(atoms[1], TokenObject) and atoms[1].name == tok.RIGHTSHIFT:
+            dest = atoms[2]
             # skip following comma
             start = 4
     for index in range(start, l, 2):
-        items.append(L[index])
-    if isinstance(L[-1], TokenObject) and L[-1].name == tok.COMMA:
+        items.append(atoms[index])
+    if isinstance(atoms[-1], TokenObject) and atoms[-1].name == tok.COMMA:
         builder.push(ast.Print(items, dest))
     else:
         builder.push(ast.Printnl(items, dest))
 
 def build_global_stmt(builder, nb):
     """global_stmt: 'global' NAME (',' NAME)*"""
-    L = get_atoms(builder, nb)
+    atoms = get_atoms(builder, nb)
     names = []
-    for index in range(1, len(L), 2):
-        token = L[index]
+    for index in range(1, len(atoms), 2):
+        token = atoms[index]
         assert isinstance(token, TokenObject)
         names.append(token.value)
     builder.push(ast.Global(names))
@@ -1114,17 +1112,17 @@ def build_global_stmt(builder, nb):
 
 def build_raise_stmt(builder, nb):
     """raise_stmt: 'raise' [test [',' test [',' test]]]"""
-    L = get_atoms(builder, nb)
-    l = len(L)
+    atoms = get_atoms(builder, nb)
+    l = len(atoms)
     expr1 = None
     expr2 = None
     expr3 = None
     if l >= 2:
-        expr1 = L[1]
+        expr1 = atoms[1]
         if l >= 4:
-            expr2 = L[3]
+            expr2 = atoms[3]
             if l == 6:
-                expr3 = L[5]
+                expr3 = atoms[5]
     builder.push(ast.Raise(expr1, expr2, expr3))
 
 def build_try_stmt(builder, nb):
@@ -1135,26 +1133,26 @@ def build_try_stmt(builder, nb):
     except_clause: 'except' [test [',' test]]
    
     """
-    L = get_atoms(builder, nb)
-    l = len(L)
+    atoms = get_atoms(builder, nb)
+    l = len(atoms)
     handlers = []
     else_ = None
-    body = L[2]
-    token = L[3]
+    body = atoms[2]
+    token = atoms[3]
     assert isinstance(token, TokenObject)
     if token.value == 'finally':
-        builder.push(ast.TryFinally(body, L[5]))
+        builder.push(ast.TryFinally(body, atoms[5]))
     else: # token.value == 'except'
         index = 3
-        while index < l and L[index].value == 'except':
-            tokens_read, expr1, expr2, except_body = parse_except_clause(L[index:])
+        while index < l and atoms[index].value == 'except':
+            tokens_read, expr1, expr2, except_body = parse_except_clause(atoms[index:])
             handlers.append((expr1, expr2, except_body))
             index += tokens_read
         if index < l:
-            token = L[index]
+            token = atoms[index]
             assert isinstance(token, TokenObject)
             assert token.value == 'else'
-            else_ = L[index+2] # skip ':'
+            else_ = atoms[index+2] # skip ':'
         builder.push(ast.TryExcept(body, handlers, else_))
 
 
@@ -1247,7 +1245,8 @@ class TokenObject(ast.Node):
         self.col = 0  # src.getcol()
 
     def get_name(self):
-        return tok.tok_rpunct.get(self.name, tok.tok_name.get(self.name,str(self.name)))
+        return tok.tok_rpunct.get(self.name,
+                                  tok.tok_name.get(self.name, str(self.name)))
         
     def __str__(self):
         return "<Token: (%s,%s)>" % (self.get_name(), self.value)
@@ -1368,17 +1367,16 @@ class AstBuilder(BaseGrammarBuilder):
         if rule.is_root():
             if DEBUG_MODE:
                 print "ALT:", sym.sym_name[rule.codename], self.rule_stack
-            F = ASTRULES.get(rule.codename)
-            if F:
-                # print "REDUCING ALTERNATIVE %s" % sym.sym_name[rule.codename]
-                F( self, 1 )
+            builder_func = ASTRULES.get(rule.codename, None)
+            if builder_func:
+                builder_func(self, 1)
             else:
                 if DEBUG_MODE:
                     print "No reducing implementation for %s, just push it on stack" % (
                         sym.sym_name[rule.codename])
-                self.push_rule( rule.codename, 1, source )
+                self.push_rule(rule.codename, 1, source)
         else:
-            self.push_rule( rule.codename, 1, source )
+            self.push_rule(rule.codename, 1, source)
         if DEBUG_MODE > 1:
             show_stack(rule_stack, self.rule_stack)
             x = raw_input("Continue ?")
@@ -1390,38 +1388,38 @@ class AstBuilder(BaseGrammarBuilder):
         if rule.is_root():
             if DEBUG_MODE:
                 print "SEQ:", sym.sym_name[rule.codename]
-            F = ASTRULES.get(rule.codename)
-            if F:
+            builder_func = ASTRULES.get(rule.codename)
+            if builder_func:
                 # print "REDUCING SEQUENCE %s" % sym.sym_name[rule.codename]
-                F( self, elts_number )
+                builder_func(self, elts_number)
             else:
                 if DEBUG_MODE:
                     print "No reducing implementation for %s, just push it on stack" % (
                         sym.sym_name[rule.codename])
-                self.push_rule( rule.codename, elts_number, source )
+                self.push_rule(rule.codename, elts_number, source)
         else:
-            self.push_rule( rule.codename, elts_number, source )
+            self.push_rule(rule.codename, elts_number, source)
         if DEBUG_MODE > 1:
             show_stack(rule_stack, self.rule_stack)
-            x = raw_input("Continue ?")
+            raw_input("Continue ?")
         return True
 
     def token(self, name, value, source):
         if DEBUG_MODE:
             print "TOK:", tok.tok_name[name], name, value
-        self.push_tok( name, value, source )
+        self.push_tok(name, value, source)
         return True
 
 def show_stack(before, after):
     """debuggin helper function"""
-    L1 = len(before)
-    L2 = len(after)
-    for i in range(max(L1,L2)):
-        if i<L1:
+    size1 = len(before)
+    size2 = len(after)
+    for i in range(max(size1, size2)):
+        if i< size1:
             obj1 = str(before[i])
         else:
             obj1 = "-"
-        if i<L2:
+        if i< size2:
             obj2 = str(after[i])
         else:
             obj2 = "-"
