@@ -349,14 +349,27 @@ class Database(object):
     # __________________________________________________________
     # Primitive stuff
 
+    def float_to_str(self, value):
+        repr = "%f" % value
+        # llvm requires a . when using e notation
+        if "e" in repr and "." not in repr:
+            repr = repr.replace("e", ".0e")
+        elif repr in ["inf", "nan"]:
+            # Need hex repr
+            import struct
+            packed = struct.pack("d", value)                
+            repr = "0x" + "".join([("%02x" % ord(ii)) for ii in packed])
+        return repr
+    
     def primitive_to_str(self, type_, value):
-        #XXX Need to watch for special float values (inf, 2E200)
         if type_ is lltype.Bool:
             repr = str(value).lower() #False --> false
         elif type_ is lltype.Char:
             repr = str(ord(value))
         elif type_ is lltype.UniChar:
             repr = str(ord(value))
+        elif type_ is lltype.Float:
+            repr = self.float_to_str(value)
         else:
             repr = str(value)
         return repr

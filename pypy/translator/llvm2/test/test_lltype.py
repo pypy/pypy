@@ -213,3 +213,31 @@ def test_struct_opaque():
         return s.a
     f = compile_function(array_constant, [])
     assert f() == array_constant()
+
+def test_floats():
+    " test pbc of floats "
+    F = lltype.GcStruct("f",
+                        ('f1', lltype.Float),
+                        ('f2', lltype.Float),
+                        ('f3', lltype.Float),
+                        ('f4', lltype.Float),
+                        ('f5', lltype.Float),
+                        )
+    floats = lltype.malloc(F)
+    floats.f1 = 1.25
+    floats.f2 = 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.252984
+    floats.f3 = float(29050000000000000000000000000000000000000000000000000000000000000000)
+    floats.f4 = float("inf")
+    floats.f5 = float("nan")
+    f = float("nan")
+    def floats_fn():
+        res  = floats.f1 == 1.25
+        res += floats.f2 > 1e100
+        res += floats.f3 > 1e50
+        # XXX Need to find out more about these in llvm
+        #res += floats.f4 > 1e200
+        #res += floats.f5 == f
+        return res
+    
+    f = compile_function(floats_fn, [])
+    assert f() == floats_fn()
