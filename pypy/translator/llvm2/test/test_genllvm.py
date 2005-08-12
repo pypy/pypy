@@ -16,7 +16,6 @@ def test_return1():
     assert f() == 1
 
 def test_simple_function_pointer(): 
-    py.test.skip("weird casting bug")
     def f1(x): 
         return x + 1
     def f2(x): 
@@ -27,7 +26,7 @@ def test_simple_function_pointer():
     def pointersimple(i): 
         return l[i](i)
 
-    f = compile_function(pointersimple, [int], True)
+    f = compile_function(pointersimple, [int])
     assert f(0) == pointersimple(0)
     assert f(1) == pointersimple(1)
 

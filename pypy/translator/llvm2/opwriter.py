@@ -258,6 +258,8 @@ class OpWriter(object):
         argrefs = self.db.repr_arg_multi(op_args[1:])
         argtypes = self.db.repr_arg_type_multi(op_args[1:])
         if returntype != "void":
+            if self.db.is_function_ptr(op.result):
+                returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
             self.codewriter.call(targetvar, returntype, functionref, argrefs,
                                  argtypes)
         else:

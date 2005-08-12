@@ -307,6 +307,14 @@ class Database(object):
             else: 
                 raise TypeError("cannot represent %r" %(arg,))
 
+    def is_function_ptr(self, arg):
+        if isinstance(arg, (Constant, Variable)): 
+            arg = arg.concretetype 
+            if isinstance(arg, lltype.Ptr):
+                if isinstance(arg.TO, lltype.FuncType):
+                    return True
+        return False
+    
     def repr_argwithtype(self, arg):
         return self.repr_arg(arg), self.repr_arg_type(arg)
             
