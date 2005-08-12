@@ -93,6 +93,9 @@ class CodeWriter(object):
     def phi(self, targetvar, type_, refs, blocknames): 
         assert targetvar.startswith('%')
         assert refs and len(refs) == len(blocknames), "phi node requires blocks" 
+        for ref in refs:
+            if targetvar == ref:    #some nodes break SSA-form otherwise?!?
+                return
         mergelist = ", ".join(
             ["[%s, %%%s]" % item 
                 for item in zip(refs, blocknames)])
