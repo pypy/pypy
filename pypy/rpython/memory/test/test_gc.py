@@ -4,6 +4,8 @@ from pypy.rpython.memory.gc import free_non_gc_object, GCError, MarkSweepGC
 from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory.simulator import MemorySimulatorError
+from pypy.rpython.memory import gclltype
+from pypy.rpython.memory.test.test_llinterpsim import interpret
 
 
 def test_free_non_gc_object():
@@ -90,3 +92,37 @@ class TestMarkSweepGC(object):
         py.test.raises(MemorySimulatorError, "addr1.signed[0]")
         py.test.raises(MemorySimulatorError, "addr2.signed[0]")
 
+    def test_llinterp_lists(self):
+        from pypy.rpython.memory.lladdress import simulator
+        gclltype.create_gc = gclltype.create_mark_sweep_gc
+        curr = simulator.current_size
+        def malloc_a_lot():
+            i = 0
+            while i < 10:
+                i += 1
+                a = [1] * 10
+                j = 0
+                while j < 20:
+                    j += 1
+                    a.append(j)
+        res = interpret(malloc_a_lot, [])
+        assert simulator.current_size - curr < 16000
+        print "size before: %s, size after %s" % (curr, simulator.current_size)
+
+    def test_llinterp_tuples(self):
+        from pypy.rpython.memory.lladdress import simulator
+        gclltype.create_gc = gclltype.create_mark_sweep_gc
+        curr = simulator.current_size
+        def malloc_a_lot():
+            i = 0
+            while i < 10:
+                i += 1
+                a = (1, 2, i)
+                b = [a] * 10
+                j = 0
+                while j < 20:
+                    j += 1
+                    b.append((1, j, i))
+        res = interpret(malloc_a_lot, [])
+        assert simulator.current_size - curr < 16000
+        print "size before: %s, size after %s" % (curr, simulator.current_size)

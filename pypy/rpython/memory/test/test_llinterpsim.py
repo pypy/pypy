@@ -386,19 +386,3 @@ def test_str_of_int():
     assert ''.join(res.chars) == '-123'
 
 
-def test_mark_sweep_gc():
-    from pypy.rpython.memory.lladdress import simulator
-    gclltype.create_gc = gclltype.create_mark_sweep_gc
-    curr = simulator.current_size
-    def malloc_a_lot():
-        i = 0
-        while i < 10:
-            i += 1
-            a = [1] * 10
-            j = 0
-            while j < 20:
-                j += 1
-                a.append(j)
-    res = interpret(malloc_a_lot, [])
-    assert simulator.current_size - curr < 16000
-    print "size before: %s, size after %s" % (curr, simulator.current_size)

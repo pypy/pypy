@@ -70,7 +70,7 @@ class MarkSweepGC(object):
                 pointer = pointers.pop()
                 if pointer == NULL:
                     break
-                objects.append(pointer)
+                objects.append(pointer.address[0])
             gc_info.signed[0] = 1
         newmo = AddressLinkedList()
         while 1:  #sweep
