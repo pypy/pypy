@@ -99,7 +99,7 @@ class StdTypeModel:
             (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
             ]
         self.typeorder[longobject.W_LongObject] += [
-            (floatobject.W_FloatObject, longobject.delegate_Long2Float),
+            (floatobject.W_FloatObject, floatobject.delegate_Long2Float),
             ]
         self.typeorder[stringobject.W_StringObject] += [
          (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),

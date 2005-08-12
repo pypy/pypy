@@ -1,7 +1,6 @@
 import sys, operator
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rpython.rarithmetic import LONG_BIT, LONG_MASK, intmask, r_uint
 
@@ -93,6 +92,7 @@ class W_LongObject(W_Object):
         #    digits, sign = args_from_long(digits)
         w_self.digits = DigitArray(digits)
         w_self.sign = sign
+        w_self.space = space
         assert len(w_self.digits)
 
     def fromint(space, intval):
@@ -175,14 +175,6 @@ def delegate_Bool2Long(w_bool):
 def delegate_Int2Long(w_intobj):
     return long__Int(w_intobj.space, w_intobj)
 
-# long-to-float delegation
-def delegate_Long2Float(w_longobj):
-    try:
-        return W_FloatObject(w_longobj.space, _AsDouble(w_longobj))
-    except OverflowError:
-        raise OperationError(w_longobj.space.w_OverflowError,
-                             w_longobj.space.wrap("long int too large to convert to float"))
-
 
 # long__Long is supposed to do nothing, unless it has
 # a derived long object, where it should return
@@ -211,13 +203,6 @@ def float__Long(space, w_longobj):
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("long int too large to convert to float"))
-
-def long__Float(space, w_floatobj):
-    try:
-        return _FromDouble(space, w_floatobj.floatval)
-    except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("cannot convert float infinity to long"))
 
 def int_w__Long(space, w_value):
     try:
@@ -374,9 +359,8 @@ def _impl_long_long_pow(space, a, b, c=None):
             raise OperationError(space.w_TypeError, space.wrap(
                 "pow() 2nd argument "
                 "cannot be negative when 3rd argument specified"))
-        return space.pow(space.newfloat(_AsDouble(a)),
-                         space.newfloat(_AsDouble(b)),
-                         space.w_None)
+        raise FailedToImplement(space.w_ValueError, space.wrap(
+            "long pow() to negative"))
 
     if c is not None:
         # if modulus == 0:
@@ -1642,7 +1626,7 @@ def _decimalstr_to_long(space, s):
     elif s[p] == '+':
         p += 1
 
-    a = W_LongObject(space, [0], 1)
+    a = W_LongObject.fromint(space, 0)
     cnt = DEC_PER_DIGIT
     tens = 1
     dig = 0
@@ -1670,3 +1654,6 @@ def _count_bits(a):
         digit >>= 1
         bits += 1
     return bits
+
+def _get_odd(a):
+    return a.digits[0] & 1

@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.longobject import W_LongObject, _AsDouble, _FromDouble
 from pypy.rpython.rarithmetic import ovfcheck_float_to_int, intmask
 
 ##############################################################
@@ -38,6 +39,14 @@ def delegate_Bool2Float(w_bool):
 def delegate_Int2Float(w_intobj):
     return W_FloatObject(w_intobj.space, float(w_intobj.intval))
 
+# long-to-float delegation
+def delegate_Long2Float(w_longobj):
+    try:
+        return W_FloatObject(w_longobj.space, _AsDouble(w_longobj))
+    except OverflowError:
+        raise OperationError(w_longobj.space.w_OverflowError,
+                             w_longobj.space.wrap("long int too large to convert to float"))
+
 
 # float__Float is supposed to do nothing, unless it has
 # a derived float object, where it should return
@@ -55,6 +64,13 @@ def int__Float(space, w_value):
         return space.long(w_value)
     else:
         return space.newint(value)
+
+def long__Float(space, w_floatobj):
+    try:
+        return _FromDouble(space, w_floatobj.floatval)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("cannot convert float infinity to long"))
 
 def float_w__Float(space, w_float):
     return w_float.floatval
@@ -308,6 +324,7 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
 
     return W_FloatObject(space, z)
 
+
 def neg__Float(space, w_float1):
     return W_FloatObject(space, -w_float1.floatval)
 
@@ -335,3 +352,18 @@ def getnewargs__Float(space, w_float):
     return space.newtuple([W_FloatObject(space, w_float.floatval)])
 
 register_all(vars())
+
+# pow delegation for negative 1st arg
+def pow_neg__Long_Long_None(space, w_int1, w_int2, thirdarg):
+    w_float1 = delegate_Long2Float(w_int1)
+    w_float2 = delegate_Long2Float(w_int2)
+    return pow__Float_Float_ANY(space, w_float1, w_float2, thirdarg)
+
+StdObjSpace.MM.pow.register(pow_neg__Long_Long_None, W_LongObject, W_LongObject, W_NoneObject, order=1)
+
+def pow_neg__Int_Int_None(space, w_int1, w_int2, thirdarg):
+    w_float1 = delegate_Int2Float(w_int1)
+    w_float2 = delegate_Int2Float(w_int2)
+    return pow__Float_Float_ANY(space, w_float1, w_float2, thirdarg)
+
+StdObjSpace.MM.pow.register(pow_neg__Int_Int_None, W_IntObject, W_IntObject, W_NoneObject, order=2)
