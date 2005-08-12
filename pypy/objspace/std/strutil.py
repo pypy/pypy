@@ -3,7 +3,7 @@ Pure Python implementation of string utilities.
 """
 
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_float_to_int, parts_to_float
-
+from pypy.interpreter.error import OperationError
 import math
 
 # XXX factor more functions out of stringobject.py.
@@ -293,14 +293,14 @@ def applevel_string_to_float(s):
     # 1) parse the string into pieces.
     sign, before_point, after_point, exponent = break_up_float(s)
     
-    if not before_point and not after_point:
+    digits = before_point + after_point
+    if digits:
         raise ParseStringError("invalid literal for float()")
 
     # 2) pre-calculate digit exponent dexp.
     dexp = len(before_point)
 
     # 3) truncate and adjust dexp.
-    digits = before_point + after_point
     p = 0
     plim = dexp + len(after_point)
     while p < plim and digits[p] == '0':
@@ -355,6 +355,127 @@ def applevel_string_to_float(s):
 
     try:
         r = math.ldexp(m, bits)
+    except OverflowError:
+        r = 1e200 * 1e200 # produce inf, hopefully
+
+    if sign == '-':
+        r = -r
+
+    return r
+
+
+# the "real" implementation.
+# for comments, see above.
+# XXX probably this very specific thing should go into longobject?
+
+def interp_string_to_float(space, s):
+    """
+    Conversion of string to float.
+    This version tries to only raise on invalid literals.
+    Overflows should be converted to infinity whenever possible.
+
+    Expects an unwrapped string and return an unwrapped float.
+    """
+
+    if not s:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "empty string for float()"))
+
+    # 1) parse the string into pieces.
+    sign, before_point, after_point, exponent = break_up_float(s)
+    
+    digits = before_point + after_point
+    if not digits:
+        raise ParseStringError("invalid literal for float()")
+
+    # 2) pre-calculate digit exponent dexp.
+    dexp = len(before_point)
+
+    # 3) truncate and adjust dexp.
+    p = 0
+    plim = dexp + len(after_point)
+    while p < plim and digits[p] == '0':
+        p += 1
+        dexp -= 1
+    digits = digits[p : p + MANTISSA_DIGITS]
+    p = len(digits) - 1
+    while p >= 0 and digits[p] == '0':
+        p -= 1
+    dexp -= p + 1
+    p += 1
+    assert p >= 0
+    digits = digits[:p]
+    if len(digits) == 0:
+        digits = '0'
+
+    # a few abbreviations
+    from pypy.objspace.std import longobject
+    mklong = longobject.W_LongObject.fromint
+    d2long = longobject._decimalstr_to_long
+    adlong = longobject.add__Long_Long
+    long2i = longobject._AsLong
+    double = longobject._AsDouble
+    longup = longobject._impl_long_long_pow
+    multip = longobject.mul__Long_Long
+    divide = longobject.div__Long_Long
+    bitlen = longobject._count_bits
+    lshift = longobject.lshift__Long_Long
+    rshift = longobject.rshift__Long_Long
+    getodd = longobject._get_odd
+
+    # 4) compute the exponent and truncate to +-400
+    if not exponent:
+        exponent = '0'
+    w_le = d2long(space, exponent)
+    w_le = adlong(space, w_le, mklong(space, dexp))
+    try:
+        e = long2i(w_le)
+    except OverflowError:
+        e = w_le.sign * 400
+    if e >= 400:
+        e = 400
+    elif e <= -400:
+        e = -400
+
+    # 5) compute the value using long math and proper rounding.
+    w_lr = d2long(space, digits)
+    w_10 = mklong(space, 10)
+    w_1 = mklong(space, 1)
+    if e >= 0:
+        bits = 0
+        w_pten = longup(space, w_10, mklong(space, e), None)
+        w_m = multip(space, w_lr, w_pten)
+    else:
+        # compute a sufficiently large scale
+        prec = MANTISSA_DIGITS * 2 + 22 # 128, maybe
+        bits = - (int(math.ceil(-e / math.log10(2) - 1e-10)) + prec)
+        w_scale = lshift(space, w_1, mklong(space, -bits))
+        w_pten = longup(space, w_10, mklong(space, -e), None)
+        w_tmp = multip(space, w_lr, w_scale)
+        w_m = divide(space, w_tmp, w_pten)
+
+    # we now have a fairly large mantissa.
+    # Shift it and round the last bit.
+
+    # first estimate the bits and do a big shift
+    mbits = bitlen(w_m)
+    needed = MANTISSA_BITS
+    if mbits > needed:
+        if mbits > needed+1:
+            shifted = mbits - (needed+1)
+            w_m = rshift(space, w_m, mklong(space, shifted))
+            bits += shifted
+        # do the rounding
+        bits += 1
+        round = getodd(w_m)
+        w_m = rshift(space, w_m, w_1)
+        w_m = adlong(space, w_m, mklong(space, round))
+
+    try:
+        r = math.ldexp(double(w_m), bits)
+        # XXX I guess we do not check for overflow in ldexp as we agreed to!
+        if r == 2*r and r != 0.0:
+            raise OverflowError
     except OverflowError:
         r = 1e200 * 1e200 # produce inf, hopefully
 
