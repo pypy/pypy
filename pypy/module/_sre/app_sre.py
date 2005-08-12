@@ -494,21 +494,11 @@ class _MatchContext(object):
     def remaining_codes(self):
         return len(self.pattern_codes) - self.code_position
 
-    def at_beginning(self):
-        return self.string_position == 0
-
     def at_end(self):
         return self.string_position == self.state.end
 
     def at_linebreak(self):
-        return not self.at_end() and _sre._is_linebreak(self.peek_char())
-
-    def at_boundary(self, word_checker):
-        if self.at_beginning() and self.at_end():
-            return False
-        that = not self.at_beginning() and word_checker(self.peek_char(-1))
-        this = not self.at_end() and word_checker(self.peek_char())
-        return this != that
+        return not self.at_end() and self.peek_char() == "\n"
 
 
 class _RepeatContext(_MatchContext):
@@ -548,7 +538,6 @@ class _OpcodeDispatcher(_Dispatcher):
     
     def __init__(self):
         self.executing_contexts = {}
-        self.at_dispatcher = _AtcodeDispatcher()
         self.set_dispatcher = _CharsetDispatcher()
         
     def match(self, context):
@@ -632,7 +621,8 @@ class _OpcodeDispatcher(_Dispatcher):
         # match at given position
         # <AT> <code>
         #self._log(ctx, "AT", ctx.peek_code(1))
-        if not self.at_dispatcher.dispatch(ctx.peek_code(1), ctx):
+        if not _sre._at_dispatch(ctx.peek_code(1), ctx.state.string,
+                                            ctx.string_position, ctx.state.end):
             ctx.has_matched = False
             return True
         ctx.skip_code(2)
@@ -1147,37 +1137,6 @@ class _CharsetDispatcher(_Dispatcher):
         return False
 
 _CharsetDispatcher.build_dispatch_table(OPCODES, "set_")
-
-
-class _AtcodeDispatcher(_Dispatcher):
-
-    def at_beginning(self, ctx):
-        return ctx.at_beginning()
-    at_beginning_string = at_beginning
-    def at_beginning_line(self, ctx):
-        return ctx.at_beginning() or _sre._is_linebreak(ctx.peek_char(-1))
-    def at_end(self, ctx):
-        return (ctx.remaining_chars() == 1 and ctx.at_linebreak()) or ctx.at_end()
-    def at_end_line(self, ctx):
-        return ctx.at_linebreak() or ctx.at_end()
-    def at_end_string(self, ctx):
-        return ctx.at_end()
-    def at_boundary(self, ctx):
-        return ctx.at_boundary(_sre._is_word)
-    def at_non_boundary(self, ctx):
-        return not ctx.at_boundary(_sre._is_word)
-    def at_loc_boundary(self, ctx):
-        return ctx.at_boundary(_sre._is_loc_word)
-    def at_loc_non_boundary(self, ctx):
-        return not ctx.at_boundary(_sre._is_loc_word)
-    def at_uni_boundary(self, ctx):
-        return ctx.at_boundary(_sre._is_uni_word)
-    def at_uni_non_boundary(self, ctx):
-        return not ctx.at_boundary(_sre._is_uni_word)
-    def unknown(self, ctx):
-        return False
-
-_AtcodeDispatcher.build_dispatch_table(ATCODES, "")
 
 
 def _log(message):

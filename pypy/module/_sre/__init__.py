@@ -18,12 +18,6 @@ copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
     }
 
     interpleveldefs = {
+        '_at_dispatch':   'interp_sre.at_dispatch',
         '_category_dispatch': 'interp_sre.category_dispatch',
-        '_is_digit':      'interp_sre.is_digit',
-        '_is_space':      'interp_sre.is_space',
-        '_is_word':       'interp_sre.is_word',
-        '_is_uni_word':   'interp_sre.is_uni_word',
-        '_is_loc_word':   'interp_sre.is_loc_word',
-        '_is_linebreak':  'interp_sre.is_linebreak',
-        '_is_uni_linebreak': 'interp_sre.is_uni_linebreak',
     }
