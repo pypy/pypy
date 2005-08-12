@@ -1656,4 +1656,9 @@ def _count_bits(a):
     return bits
 
 def _get_odd(a):
+    # Note: this is a tiny optimization.
+    # Instead of implementing a general "get_bit" operation,
+    # which would be expensive for negative numbers,
+    # get_odd has the nice feature that it is always correct,
+    # no matter what the sign is (two's complement)
     return a.digits[0] & 1

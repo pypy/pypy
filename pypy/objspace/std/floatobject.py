@@ -353,7 +353,7 @@ def getnewargs__Float(space, w_float):
 
 register_all(vars())
 
-# pow delegation for negative 1st arg
+# pow delegation for negative 2nd arg
 def pow_neg__Long_Long_None(space, w_int1, w_int2, thirdarg):
     w_float1 = delegate_Long2Float(w_int1)
     w_float2 = delegate_Long2Float(w_int2)
