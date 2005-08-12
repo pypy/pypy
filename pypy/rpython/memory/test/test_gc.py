@@ -133,7 +133,6 @@ class TestMarkSweepGC(object):
         print "size before: %s, size after %s" % (curr, simulator.current_size)
 
     def test_global_list(self):
-        curr = simulator.current_size
         lst = []
         def append_to_list(i, j):
             lst.append([i] * 500)
@@ -142,6 +141,15 @@ class TestMarkSweepGC(object):
         assert res == 0
         for i in range(1, 15):
             res = interpret(append_to_list, [i, i - 1])
-            assert res == i - 1# crashes if constants are not considered roots
+            assert res == i - 1 # crashes if constants are not considered roots
             
-            
+    def test_string_concatenation(self):
+        curr = simulator.current_size
+        def concat(j):
+            lst = []
+            for i in range(j):
+                lst.append(str(i))
+            return len("".join(lst))
+        res = interpret(concat, [100])
+        assert res == concat(100)
+        assert simulator.current_size - curr < 16000
