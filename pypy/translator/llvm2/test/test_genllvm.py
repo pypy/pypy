@@ -30,6 +30,24 @@ def test_simple_function_pointer():
     assert f(0) == pointersimple(0)
     assert f(1) == pointersimple(1)
 
+def test_invoke_function_pointer(): 
+    def f1(x): 
+        return x + 1
+    def f2(x): 
+        return x + 2
+
+    l = [f1, f2]
+
+    def invokepointer(i): 
+        try:
+            return l[i](i)
+        except:
+            return 123
+
+    f = compile_function(invokepointer, [int])
+    assert f(0) == invokepointer(0)
+    assert f(1) == invokepointer(1)
+
 def test_simple_branching():
     def simple5(b):
         if b:
