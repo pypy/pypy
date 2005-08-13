@@ -111,25 +111,18 @@ class Database(object):
             if (isinstance(k, lltype.LowLevelType) or
                 isinstance(k, Constant)):
                 continue
-            # XXX tmp try blocks
-            try:
-                ref = v.get_ref()
-            except AttributeError, e:
-                ref = "AttributeError: %s" % e
-            except AssertionError, e:
-                ref = "AssertionError: %s" % e
-            try:
-                pbc_ref = v.get_ref()
-            except AttributeError, e:
-                pbc_ref = "AttributeError: %s" % e
-            except AssertionError, e:
-                pbc_ref = "AssertionError: %s" % e
 
             assert isinstance(lltype.typeOf(k), lltype.ContainerType)
-            r += "\ndump_pbcs %s (%s)\n" \
-                 "getref -> %s \n" \
-                 "pbcref -> %s \n" % (v, k, ref, pbc_ref)
-        return r
+            # Only dump top levels
+            p, _ = lltype.parentlink(k)
+            if p is None:
+                ref = v.get_ref()
+                pbc_ref = v.get_ref()
+                
+                r += "\ndump_pbcs %s (%s)\n" \
+                     "getref -> %s \n" \
+                     "pbcref -> %s \n" % (v, k, ref, pbc_ref)
+            return r
     
     #_______create node_____________________________________
 
@@ -194,7 +187,7 @@ class Database(object):
             if isinstance(ct, lltype.Array) or isinstance(ct, lltype.Struct):
                 p, c = lltype.parentlink(value)
                 if p is None:
-                    log.prepare_repr_arg("XXX skipping preparing non root", value)
+                    log.prepare_repr_arg("skipping preparing non root", value)
                     return
 
             if value is not None:
@@ -306,14 +299,6 @@ class Database(object):
                 return self.repr_arg_type(arg.TO) + '*'
             else: 
                 raise TypeError("cannot represent %r" %(arg,))
-
-    def is_function_ptr(self, arg):
-        if isinstance(arg, (Constant, Variable)): 
-            arg = arg.concretetype 
-            if isinstance(arg, lltype.Ptr):
-                if isinstance(arg.TO, lltype.FuncType):
-                    return True
-        return False
     
     def repr_argwithtype(self, arg):
         return self.repr_arg(arg), self.repr_arg_type(arg)
@@ -387,3 +372,17 @@ class Database(object):
 
     def get_machine_uword(self):
         return self.primitives[lltype.Unsigned]
+
+    # __________________________________________________________
+    # Other helpers
+
+    def is_function_ptr(self, arg):
+        if isinstance(arg, (Constant, Variable)): 
+            arg = arg.concretetype 
+            if isinstance(arg, lltype.Ptr):
+                if isinstance(arg.TO, lltype.FuncType):
+                    return True
+        return False
+
+    def is_atomic(self, value):
+        return self.obj2node[value].is_atomic()

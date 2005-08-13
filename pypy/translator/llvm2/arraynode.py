@@ -49,9 +49,8 @@ class ArrayTypeNode(LLVMNode):
         elif isinstance(self.arraytype, lltype.Ptr):
             return False
         else:
-            # XXX Recurse...
-            return False
-
+            return self.db.is_atomic(self.arraytype)
+            
     # ______________________________________________________________________
     # entry points from genllvm
     #
@@ -132,20 +131,15 @@ class ArrayNode(ConstantLLVMNode):
                                         typeval)
 
         p, c = lltype.parentlink(self.value)
-        if p is not None:
-            assert False, "XXX TODO - but NOT needed by rtyper"
+        assert p is None, "child arrays are NOT needed by rtyper"
         return ref
 
     def get_pbcref(self, toptr):
         ref = self.ref
         p, c = lltype.parentlink(self.value)
-        if p is not None:
-            assert False, "XXX TODO - but NOT needed by rtyper"
+        assert p is None, "child arrays are NOT needed by rtyper"
 
         fromptr = "%s*" % self.get_typerepr()
-        # XXX old version
-        #refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
-        #ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
         ref = "cast(%s %s to %s)" % (fromptr, ref, toptr)
         return ref
 

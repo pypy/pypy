@@ -105,7 +105,6 @@ class FuncNode(ConstantLLVMNode):
     def getdecl(self):
         startblock = self.graph.startblock
         returnblock = self.graph.returnblock
-        # XXX hack as per remove_voids()
         startblock_inputargs = [a for a in startblock.inputargs
                                 if a.concretetype is not lltype.Void]
 

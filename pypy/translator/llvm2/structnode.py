@@ -34,8 +34,7 @@ class StructTypeNode(LLVMNode):
                 return False
 
             if not isinstance(f, lltype.Primitive):
-                # XXX Recurse
-                return False
+                return self.db.is_atomic(f)
 
         return True
     # ______________________________________________________________________
@@ -71,7 +70,7 @@ class StructVarsizeTypeNode(StructTypeNode):
 
         # build up a list of indices to get to the last 
         # var-sized struct (or rather the according array) 
-        indices_to_array = [] 
+        indices_to_array = []
         current = self.struct
         while isinstance(current, lltype.Struct):
             last_pos = len(current._names_without_voids()) - 1
@@ -80,12 +79,15 @@ class StructVarsizeTypeNode(StructTypeNode):
             current = current._flds[name]
         assert isinstance(current, lltype.Array)
         arraytype = self.db.repr_arg_type(current.OF)
-        # XXX write type info as a comment 
-        varsize.write_constructor(self.db, codewriter, 
-            self.ref, self.constructor_decl, arraytype, 
-            indices_to_array,
-            atomicmalloc=self.is_atomic())
-
+        # XXX write type info as a comment
+        varsize.write_constructor(self.db,
+                                  codewriter, 
+                                  self.ref,
+                                  self.constructor_decl,
+                                  arraytype, 
+                                  indices_to_array,
+                                  atomicmalloc=self.is_atomic())
+        
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain
     a primitive,
@@ -219,9 +221,7 @@ class StructVarsizeNode(StructNode):
         """ Returns a reference as used per pbc. """        
         ref = self.ref
         p, c = lltype.parentlink(self.value)
-        if p is not None:
-            assert False, "XXX TODO - but NOT needed by rtyper"
-
+        assert p is None, "child arrays are NOT needed by rtyper"
         fromptr = "%s*" % self.get_typerepr()
         refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
         ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
