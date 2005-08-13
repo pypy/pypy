@@ -371,3 +371,45 @@ def test_dict_creation():
     assert createdict(0,1) == 44
     f = compile_function(createdict, [int, int])
     assert f(0,1) == createdict(0,1)
+
+def test_closure(): 
+    class A:
+        def set(self, x):
+            self.x = x
+        def get(self):
+            return self.x
+    class B(A):
+        def get(self):
+            return A.get(self) * 2
+    a = A()
+    b = B()
+    def createfn(y):
+        z = 42
+        def fn(x):
+            return x + y + z + a.get() + b.get()
+        f2 = lambda: A.get(b)
+        def getfn(x):
+            if x % 2:
+                f = A.get
+            else:
+                f = B.get
+            return f
+        def proxy(s):
+            f1 = s.get
+            t = 0
+            for ii in range(5):
+                f3 = getfn(ii)
+                t += f1()
+                t += f2()
+                t += f3(s)
+            return t
+        setattr(B, "f2", proxy)
+        return fn
+    fn = createfn(10)
+    def testf(x):
+        a.set(10)        
+        b.set(25)        
+        return fn(x) + b.get() + b.f2()
+    f = compile_function(testf, [int])
+    assert f(1) == testf(1)
+    assert f(2) == testf(2)
