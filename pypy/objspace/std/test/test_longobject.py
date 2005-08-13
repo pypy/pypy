@@ -121,7 +121,10 @@ class TestW_LongObject:
         y = lobj._AsDouble(f1)
         assert f1.longval() == long(x)
         # check overflow
-        x = 12345.6789e10000000000000000000000000000
+        #x = 12345.6789e10000000000000000000000000000
+        # XXX don't use such consts.Marshal doesn't handle them right.
+        x = 12345.6789e200
+        x *= x
         assert raises(OverflowError, lobj._FromDouble, self.space, x)
 
     # testing Karatsuba stuff
