@@ -169,7 +169,8 @@ return_block:
 
 extfunctions["%int_lshift_ovf_val"] = (("%__prepare_OverflowError","%__prepare_ValueError"), """
 internal fastcc int %%int_lshift_ovf_val(int %%x, int %%y) {
-    %%t = shl int %%x, ubyte %%y
+    %%yu = cast int %%y to ubyte
+    %%t = shl int %%x, ubyte %%yu
     %(int_ovf_test)s
 return_block:
     ; XXX: TODO int_lshift_ovf_val checking VAL
