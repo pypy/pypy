@@ -448,7 +448,7 @@ def interp_string_to_float(space, s):
     else:
         # compute a sufficiently large scale
         prec = MANTISSA_DIGITS * 2 + 22 # 128, maybe
-        bits = - (int(math.ceil(-e / math.log10(2) - 1e-10)) + prec)
+        bits = - (int(math.ceil(-e / math.log10(2.0) - 1e-10)) + prec)
         w_scale = lshift(space, w_1, mklong(space, -bits))
         w_pten = longup(space, w_10, mklong(space, -e), None)
         w_tmp = multip(space, w_lr, w_scale)
