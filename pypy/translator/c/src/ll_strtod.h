@@ -21,6 +21,10 @@ double LL_strtod_parts_to_float(
 		expo = "0";
 	}
 
+	locale_data = localeconv();
+	decimal_point = locale_data->decimal_point;
+	decimal_point_len = strlen(decimal_point);
+
 	buf_size = RPyString_Size(sign) + 
 		RPyString_Size(beforept) +
 		decimal_point_len +
@@ -30,10 +34,6 @@ double LL_strtod_parts_to_float(
 		1 /*  asciiz  */ ;
 
         s = malloc(buf_size);
-
-	locale_data = localeconv();
-	decimal_point = locale_data->decimal_point;
-	decimal_point_len = strlen(decimal_point);
 
 	strcpy(s, RPyString_AsString(sign));
 	strcat(s, RPyString_AsString(beforept));
