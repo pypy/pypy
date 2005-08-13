@@ -299,6 +299,8 @@ class OpWriter(object):
         exc_label   = block_label + '_exception_handling'
 
         if returntype != "void":
+            if self.db.is_function_ptr(op.result):
+                returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
             self.codewriter.invoke(targetvar, returntype, functionref, argrefs,
                                    argtypes, none_label, exc_label)
         else:
