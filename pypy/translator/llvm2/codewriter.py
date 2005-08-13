@@ -97,12 +97,13 @@ class CodeWriter(object):
             ["[%s, %%%s]" % item 
                 for item in zip(refs, blocknames)])
         s = "%s = phi %s %s" % (targetvar, type_, mergelist)
-        for ref in refs:
-            if targetvar == ref:
-                self.comment('breaks SSA form: ' + s)
-                break
-        else:
-            self.indent(s)
+        #for ref in refs:
+        #    if targetvar == ref:
+        #        self.comment('breaks SSA form: ' + s)
+        #        break
+        #else:
+        #    self.indent(s)
+        self.indent(s)
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
         self.indent("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))

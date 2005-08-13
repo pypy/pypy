@@ -85,18 +85,37 @@ internal fastcc %structtype.tuple10* %ll_os_fstat(int %fd) {
 
 """)
 
-#struct stat {
-#     0 : dev_t         res2 : st_dev;      /* device */
-#     1 : ino_t         res1 : st_ino;      /* inode */
-#     2 : mode_t        res0 : st_mode;     /* protection */
-#     3 : nlink_t       res3 : st_nlink;    /* number of hard links */
-#     4 : uid_t         res4 : st_uid;      /* user ID of owner */
-#     5 : gid_t         res5 : st_gid;      /* group ID of owner */
-#     6 : dev_t              : st_rdev;     /* device type (if inode device) */
-#     7 : off_t         res6 : st_size;     /* total size, in bytes */
-#     8 : blksize_t          : st_blksize;  /* blocksize for filesystem I/O */
-#     9 : blkcnt_t           : st_blocks;   /* number of blocks allocated */
-#    10 : time_t        res7 : st_atime;    /* time of last access */
-#    11 : time_t        res8 : st_mtime;    /* time of last modification */
-#    12 : time_t        res9 : st_ctime;    /* time of last status change */
-#};
+extfunctions["%ll_os_ftruncate"] = ((), """
+internal fastcc void %ll_os_ftruncate(int %x, int %y) {
+    ; XXX: TODO: ll_os_ftruncate
+    ret void
+}
+""")
+
+extfunctions["%ll_os_lseek"] = ((), """
+internal fastcc int %ll_os_lseek(int %x, int %y, int %z) {
+    ; XXX: TODO: ll_os_lseek
+    ret int 0
+}
+""")
+
+extfunctions["%ll_os_stat"] = ((), """
+internal fastcc %structtype.tuple10* %ll_os_stat(%structtype.rpy_string* %s) {
+    ; XXX: TODO: ll_os_stat
+    ret %structtype.tuple10* null
+}
+""")
+
+extfunctions["%ll_strtod_formatd"] = ((), """
+internal fastcc %structtype.rpy_string* %ll_strtod_formatd(%structtype.rpy_string* %s, double %x) {
+    ; XXX: TODO: ll_strtod_formatd
+    ret %structtype.rpy_string* null
+}
+""")
+
+extfunctions["%"] = ((), """
+internal fastcc double %ll_strtod_parts_to_float(%structtype.rpy_string* s0, %structtype.rpy_string* s1, %structtype.rpy_string* s2, %structtype.rpy_string* s3) {
+    ; XXX: TODO: ll_strtod_parts_to_float
+    ret double 0.0
+}
+""")

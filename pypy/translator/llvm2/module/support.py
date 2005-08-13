@@ -182,12 +182,12 @@ return_block:
 #binary with OverflowError and ZeroDivisionError
 
 extfunctions["%int_floordiv_ovf_zer"] = (("%__prepare_OverflowError","%__prepare_ZeroDivisionError"), """
-internal fastcc int %%int_floordiv_zer_val(int %%x, int %%y) {
+internal fastcc int %%int_floordiv_ovf_zer(int %%x, int %%y) {
     %(int_zer_test)s
     %%t = div int %%x, %%y
     %(int_ovf_test)s
 return_block:
-    ; XXX: TEST int_floordiv_zer_val checking
+    ; XXX: TEST int_floordiv_ovf_zer checking
     ret int %%t
 }
 """ % locals())
