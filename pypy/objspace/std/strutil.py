@@ -332,7 +332,7 @@ def applevel_string_to_float(s):
     else:
         # compute a sufficiently large scale
         prec = MANTISSA_DIGITS * 2 + 22 # 128, maybe
-        bits = - (int(math.ceil(-e / math.log10(2) - 1e-10)) + prec)
+        bits = - (int(math.ceil(-e / math.log10(2.0) - 1e-10)) + prec)
         scale = 2L ** -bits
         pten = 10L ** -e
         m = (lr * scale) // pten
