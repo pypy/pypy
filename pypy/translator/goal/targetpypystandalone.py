@@ -55,7 +55,7 @@ def target():
                         compiler="pyparseapp",
                         translating=True,
                         #usemodules=['marhsal', '_sre'],
-                        geninterp=False)
+                        geninterp=True)
 
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')
