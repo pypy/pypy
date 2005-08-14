@@ -95,7 +95,7 @@ class FileReader(_BaseReader):
 
 
 class StringWriter(_BaseWriter):
-    # actually we are writing to a stringlist
+    # actually we are writing to a char list
     def __init__(self):
         self.buflis = []
 
@@ -107,20 +107,24 @@ class StringWriter(_BaseWriter):
 
 
 class StringWriter(_BaseWriter):
-    # actually we are writing to a stringlist
+    # actually we are writing to a char list
     def __init__(self):
-        self.buflis = ['']
+        self.buflis = [chr(0)] * 128
         self.bufpos = 0
 
     def write(self, data):
         # append is not (yet) efficient, so we do our own allocation
         #self.buflis.append(data)
         pos = self.bufpos
-        if not pos & (pos-1) and pos > 0:
-            # power of two, double the buffer
-            self.buflis += self.buflis
-        self.buflis[pos] = data
-        self.bufpos = pos + 1
+        lng = len(data)
+        newpos = pos + lng
+	while len(self.buflis) < newpos:
+            self.buflis = self.buflis + self.buflis
+        idx = 0
+        while idx < lng:
+            self.buflis[pos + idx] = data[idx]
+            idx += 1
+        self.bufpos = newpos
 
     def get_value(self):
         return ''.join(self.buflis[:self.bufpos])
