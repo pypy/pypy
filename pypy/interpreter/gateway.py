@@ -511,7 +511,10 @@ class ApplevelClass:
 
     def __init__(self, source, filename = None, modname = '__builtin__'):
         self.filename = filename
-        self.source = source
+        if self.filename is None:
+            self.code = py.code.Source(source).compile()
+        else:
+            self.code = NiceCompile(self.filename)(source)
         self.modname = modname
         # look at the first three lines for a NOT_RPYTHON tag
         first = "\n".join(source.split("\n", 3)[:3])
@@ -536,7 +539,8 @@ class ApplevelClass:
         def appcaller(space, *args_w):
             if not isinstance(space, ObjSpace): 
                 raise TypeError("first argument must be a space instance.")
-            # redirect if the space handles this specially  XXX can this be factored a bit less flow space dependetly
+            # redirect if the space handles this specially
+            # XXX can this be factored a bit less flow space dependently?
             if hasattr(space, 'specialcases'):
                 sc = space.specialcases
                 if ApplevelClass in sc:
@@ -573,13 +577,8 @@ class ApplevelCache(SpaceCache):
 
 def build_applevel_dict(self, space):
     "NOT_RPYTHON"
-    if self.filename is None:
-        code = py.code.Source(self.source).compile()
-    else:
-        code = NiceCompile(self.filename)(self.source)
-
     from pypy.interpreter.pycode import PyCode
-    pycode = PyCode(space)._from_code(code, hidden_applevel=self.hidden_applevel)
+    pycode = PyCode(space)._from_code(self.code, hidden_applevel=self.hidden_applevel)
     w_glob = space.newdict([])
     space.setitem(w_glob, space.wrap('__name__'), space.wrap('__builtin__'))
     space.exec_(pycode, w_glob, w_glob)
@@ -600,10 +599,11 @@ class PyPyCacheDir:
             cls._setup()
 
         from pypy.translator.geninterplevel import translate_as_module
+        import marshal
         scramble = md5.new(cls.seed)
-        scramble.update(self.source)
+        scramble.update(marshal.dumps(self.code))
         key = scramble.hexdigest()
-        initfunc = cls.known_source.get(key)
+        initfunc = cls.known_code.get(key)
         if not initfunc:
             # try to get it from file
             name = key
@@ -618,11 +618,11 @@ class PyPyCacheDir:
                 # print x
                 pass
             else:
-                initfunc = cls.known_source[key]
+                initfunc = cls.known_code[key]
         if not initfunc:
             # build it and put it into a file
             initfunc, newsrc = translate_as_module(
-                self.source, self.filename, self.modname)
+                self.code, self.filename, self.modname)
             fname = cls.cache_path.join(name+".py").strpath
             f = file(fname, "w")
             print >> f, """\
@@ -638,8 +638,8 @@ if __name__ == "__main__":
             pass""" % name
             print >> f
             print >> f, newsrc
-            print >> f, "from pypy._cache import known_source"
-            print >> f, "known_source[%r] = %s" % (key, initfunc.__name__)
+            print >> f, "from pypy._cache import known_code"
+            print >> f, "known_code[%r] = %s" % (key, initfunc.__name__)
         w_glob = initfunc(space)
         return w_glob
     build_applevelinterp_dict = classmethod(build_applevelinterp_dict)
@@ -656,7 +656,7 @@ if __name__ == "__main__":
         try:
             if not ini.check():
                 raise ImportError  # don't import if only a .pyc file left!!!
-            from pypy._cache import known_source, \
+            from pypy._cache import known_code, \
                  GI_VERSION_RENDERED
         except ImportError:
             GI_VERSION_RENDERED = 0
@@ -682,7 +682,7 @@ if __name__ == "__main__":
 
 GI_VERSION_RENDERED = %r
 
-known_source = {}
+known_code = {}
 
 # self-destruct on double-click:
 def harakiri():
@@ -700,7 +700,7 @@ if __name__ == "__main__":
 del harakiri
 """ % GI_VERSION)
         import pypy._cache
-        cls.known_source = pypy._cache.known_source
+        cls.known_code = pypy._cache.known_code
         cls._setup_done = True
     _setup = classmethod(_setup)
 

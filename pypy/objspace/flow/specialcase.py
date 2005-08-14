@@ -58,16 +58,12 @@ class FunctionCache(Cache):
         """NOT_RPYTHON.
         Called indirectly by ApplevelClass.interphook().appcaller()."""
         dic = {}
-        first = "\n".join(app.source.split("\n", 3)[:3])
-        if "NOT_RPYTHON" in first:
+        if not app.can_use_geninterp:
             return None
-        if app.filename is None:
-            code = py.code.Source(app.source).compile()
-        else:
-            code = NiceCompile(app.filename)(app.source)
+        if app.filename is not None:
             dic['__file__'] = app.filename
         dic['__name__'] = app.modname
-        exec code in dic
+        exec app.code in dic
         return dic
     _build = staticmethod(_build)
 

@@ -141,7 +141,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         import pypy.lib as lib
         fname = os.path.join(os.path.split(lib.__file__)[0], pyname)
         fake.filename = fname
-        fake.source = file(fname).read()
+        fake.code = compile(file(fname).read(), fname, "exec")
         fake.modname = publicname
         w_dic = PyPyCacheDir.build_applevelinterp_dict(fake, self)
         from pypy.interpreter.module import Module

@@ -77,7 +77,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.11'  # bump this for substantial changes
+GI_VERSION = '1.1.12'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -1380,10 +1380,14 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     # and now use the members of the dict
     """
     # create something like a module
-    if filename is None: 
-        code = py.code.Source(sourcetext).compile()
-    else: 
-        code = NiceCompile(filename)(sourcetext)
+    if type(sourcetext) is str:
+        if filename is None: 
+            code = py.code.Source(sourcetext).compile()
+        else: 
+            code = NiceCompile(filename)(sourcetext)
+    else:
+        # assume we got an already compiled source
+        code = sourcetext
     dic = {'__name__': modname}
     if filename:
         dic['__file__'] = filename
