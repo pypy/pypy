@@ -90,7 +90,10 @@ class OpWriter(object):
             elif op.opname in self.shift_operations:
                 self.shiftop(op)
             elif op.opname.startswith('cast_'):
-                self.cast_primitive(op)
+                if op.opname == 'cast_char_to_int':
+                    self.cast_char_to_int(op)
+                else:
+                    self.cast_primitive(op)
             else:
                 meth = getattr(self, op.opname, None)
                 if not meth:
@@ -206,6 +209,17 @@ class OpWriter(object):
                                 self.db.repr_arg_type(op.args[0]),
                                 self.db.repr_arg(op.args[0]),
                                 tmpvar)
+
+    def cast_char_to_int(self, op):
+        " works for all casts "
+        assert len(op.args) == 1
+        targetvar = self.db.repr_arg(op.result)
+        targettype = self.db.repr_arg_type(op.result)
+        fromvar = self.db.repr_arg(op.args[0])
+        fromtype = self.db.repr_arg_type(op.args[0])
+        intermediate = self.db.repr_tmpvar()
+        self.codewriter.cast(intermediate, fromtype, fromvar, "ubyte")
+        self.codewriter.cast(targetvar, "ubyte", intermediate, targettype)
 
     def cast_primitive(self, op):
         " works for all casts "
