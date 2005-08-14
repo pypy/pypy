@@ -15,13 +15,18 @@ def test_all_suggested_primitives():
 def suggested_primitive_implemented(func):
     assert func in EXTERNALS, "missing C implementation for %r" % (func,)
 
-
+# note: clock synchronizes itself!
 def test_time_clock():
     def does_stuff():
         return time.clock()
     f1 = compile(does_stuff, [])
     t0 = time.clock()
     t1 = f1()
+    t0 = (t0 + time.clock()) / 2.0
+    correct = t0 - t1
+    # now we can compare!
+    t0 = time.clock()
+    t1 = f1() + correct
     assert type(t1) is float
     t2 = time.clock()
     assert t0 <= t1 <= t2
@@ -78,6 +83,8 @@ def test_open_read_write_seek_close():
     os.unlink(filename)
 
 def test_ftruncate():
+    if not hasattr(os, 'ftruncate'):
+        py.test.skip("this os has no ftruncate :-(")
     filename = str(udir.join('test_open_read_write_close.txt'))
     def does_stuff():
         fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
@@ -108,16 +115,21 @@ def test_os_fstat():
     if os.environ.get('PYPY_CC', '').startswith('tcc'):
         py.test.skip("segfault with tcc :-(")
     filename = str(py.magic.autopath())
-    def call_fstat():
-        fd = os.open(filename, os.O_RDONLY, 0777)
+    fd = os.open(filename, os.O_RDONLY, 0777)
+    def call_fstat(fd):
         st = os.fstat(fd)
-        os.close(fd)
         return st
-    f = compile(call_fstat, [])
-    result = f()
-    assert result[0] == os.stat(filename)[0]
-    assert result[1] == os.stat(filename)[1]
-    assert result[2] == os.stat(filename)[2]
+    f = compile(call_fstat, [int])
+    osstat = os.stat(filename)
+    result = f(fd)
+    os.close(fd)
+    import stat
+    for i in range(len(result)):
+        if i == stat.ST_DEV:
+            continue # does give 3 instead of 0 for windows
+        elif i == stat.ST_ATIME:
+            continue # access time will vary
+        assert (i, result[i]) == (i, osstat[i])
 
 def test_os_isatty():
     def call_isatty(fd):
@@ -190,7 +202,7 @@ def math_function_test(funcname):
     f = compile(fn, [float])
     for x in [0.12334, 0.3, 0.5, 0.9883]:
         print x
-        assert f(x) == mathfn(x)
+        assert (funcname, f(x)) == (funcname, mathfn(x))
 
 def test_simple_math_functions():
     for funcname in simple_math_functions:
