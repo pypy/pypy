@@ -19,13 +19,6 @@ def compile(pattern, flags, code, groups=0, groupindex={}, indexgroup=[None]):
     """Compiles (or rather just converts) a pattern descriptor to a SRE_Pattern
     object. Actual compilation to opcodes happens in sre_compile."""
     return SRE_Pattern(pattern, flags, code, groups, groupindex, indexgroup)
-    
-def getlower(char_ord, flags):
-    if (char_ord < 128) or (flags & SRE_FLAG_UNICODE) \
-                              or (flags & SRE_FLAG_LOCALE and char_ord < 256):
-        return ord(unichr(char_ord).lower())
-    else:
-        return char_ord
 
 
 class SRE_Pattern(object):
@@ -455,7 +448,7 @@ class _State(object):
         self.marks_stack.pop()
 
     def lower(self, char_ord):
-        return getlower(char_ord, self.flags)
+        return _sre.getlower(char_ord, self.flags)
 
 
 class _MatchContext(object):

@@ -3,6 +3,23 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.module._sre.app_info import CODESIZE
 from pypy.module.array.app_array import array
 
+#### Exposed functions
+
+# XXX can we import those safely from sre_constants?
+SRE_FLAG_LOCALE = 4 # honour system locale
+SRE_FLAG_UNICODE = 32 # use unicode locale
+
+def getlower(space, w_char_ord, w_flags):
+    char_ord = space.int_w(w_char_ord)
+    flags = space.int_w(w_flags)
+    if (char_ord < 128) or (flags & SRE_FLAG_UNICODE) \
+                              or (flags & SRE_FLAG_LOCALE and char_ord < 256):
+        w_uni_char = space.newunicode([char_ord])
+        w_lowered = space.call_method(w_uni_char, "lower")
+        return space.ord(w_lowered)
+    else:
+        return space.wrap(char_ord)
+
 #### Category helpers
 
 ascii_char_info = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 2,

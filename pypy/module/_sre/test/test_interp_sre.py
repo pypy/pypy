@@ -77,3 +77,6 @@ def test_at_boundary(space):
     for string, pos, end in [(".", 0, 1), (".", 1, 1), ("ab", 1, 2)]:
         assert not isre.at_boundary(space,
                         isre.MatchContext(space, [], space.wrap(string), pos, end))
+
+def test_getlower(space):
+    assert space.int_w(isre.getlower(space, space.wrap(ord("A")), space.wrap(0))) == ord("a")

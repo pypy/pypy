@@ -14,10 +14,10 @@ copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
         'copyright':      'app_info.copyright',
         'getcodesize':    'app_info.getcodesize',
         'compile':        'app_sre.compile',
-        'getlower':       'app_sre.getlower',
     }
 
     interpleveldefs = {
+        'getlower':       'interp_sre.getlower',
         '_check_charset': 'interp_sre.check_charset',
         '_at_dispatch':   'interp_sre.at_dispatch',
         '_category_dispatch': 'interp_sre.category_dispatch',
