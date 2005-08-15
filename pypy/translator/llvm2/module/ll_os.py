@@ -39,8 +39,8 @@ internal fastcc void %ll_os_close(int %fd) {
 """)
 
 extfunctions["%ll_os_open"] = (("%cast",), """
-internal fastcc int %ll_os_open(%structtype.rpy_string* %structstring, int %flag, int %mode) {
-    %dest  = call fastcc sbyte* %cast(%structtype.rpy_string* %structstring)
+internal fastcc int %ll_os_open(%RPyString* %structstring, int %flag, int %mode) {
+    %dest  = call fastcc sbyte* %cast(%RPyString* %structstring)
     %fd    = call ccc    int    %open(sbyte* %dest, int %flag, int %mode)
     ret int %fd 
 }
@@ -48,10 +48,10 @@ internal fastcc int %ll_os_open(%structtype.rpy_string* %structstring, int %flag
 """)
 
 extfunctions["%ll_os_write"] = (("%cast",), """
-internal fastcc int %ll_os_write(int %fd, %structtype.rpy_string* %structstring) {
-    %reallengthptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 0
+internal fastcc int %ll_os_write(int %fd, %RPyString* %structstring) {
+    %reallengthptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 0
     %reallength    = load int* %reallengthptr 
-    %dest          = call fastcc sbyte* %cast(%structtype.rpy_string* %structstring)
+    %dest          = call fastcc sbyte* %cast(%RPyString* %structstring)
     %byteswritten  = call ccc    int    %write(int %fd, sbyte* %dest, int %reallength)
     ret int %byteswritten
 }
@@ -59,11 +59,11 @@ internal fastcc int %ll_os_write(int %fd, %structtype.rpy_string* %structstring)
 """)
 
 extfunctions["%ll_read_into"] = ((), """
-internal fastcc int %ll_read_into(int %fd, %structtype.rpy_string* %structstring) {
-    %reallengthptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 0
+internal fastcc int %ll_read_into(int %fd, %RPyString* %structstring) {
+    %reallengthptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 0
     %reallength    = load int* %reallengthptr 
 
-    %destptr   = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 1
+    %destptr   = getelementptr %RPyString* %structstring, int 0, uint 1, uint 1
     %dest      = cast [0 x sbyte]* %destptr to sbyte*
 
     %bytesread = call ccc int %read(int %fd, sbyte* %dest, int %reallength)
@@ -137,7 +137,7 @@ RPySTAT_RESULT* LL_os_fstat(long fd) {
 """
 
 extfunctions["%_stat_construct_result_helper"] = ((), """
-internal fastcc %structtype.tuple10* %_stat_construct_result_helper([32 x int]* %src) {
+internal fastcc %RPySTAT_RESULT* %_stat_construct_result_helper([32 x int]* %src) {
 
     %src0ptr = getelementptr [32 x int]* %src, int 0, int 4
     %src1ptr = getelementptr [32 x int]* %src, int 0, int 3
@@ -161,21 +161,21 @@ internal fastcc %structtype.tuple10* %_stat_construct_result_helper([32 x int]* 
     %src8 = load int* %src8ptr
     %src9 = load int* %src9ptr
 
-    %malloc.Size.1162  = getelementptr %structtype.tuple10* null, uint 1
-    %malloc.SizeU.1162 = cast %structtype.tuple10* %malloc.Size.1162 to uint
+    %malloc.Size.1162  = getelementptr %RPySTAT_RESULT* null, uint 1
+    %malloc.SizeU.1162 = cast %RPySTAT_RESULT* %malloc.Size.1162 to uint
     %malloc.Ptr.1162   = call fastcc sbyte* %gc_malloc_atomic(uint %malloc.SizeU.1162)
-    %dest              = cast sbyte* %malloc.Ptr.1162 to %structtype.tuple10*
+    %dest              = cast sbyte* %malloc.Ptr.1162 to %RPySTAT_RESULT*
 
-    %dest0ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 0
-    %dest1ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 1
-    %dest2ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 2
-    %dest3ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 3
-    %dest4ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 4
-    %dest5ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 5
-    %dest6ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 6
-    %dest7ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 7
-    %dest8ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 8
-    %dest9ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 9
+    %dest0ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 0
+    %dest1ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 1
+    %dest2ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 2
+    %dest3ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 3
+    %dest4ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 4
+    %dest5ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 5
+    %dest6ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 6
+    %dest7ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 7
+    %dest8ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 8
+    %dest9ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 9
 
     store int %src0, int* %dest0ptr
     store int %src1, int* %dest1ptr
@@ -188,17 +188,17 @@ internal fastcc %structtype.tuple10* %_stat_construct_result_helper([32 x int]* 
     store int %src8, int* %dest8ptr
     store int %src9, int* %dest9ptr
 
-    ret %structtype.tuple10* %dest
+    ret %RPySTAT_RESULT* %dest
 }
 """)
 
 extfunctions["%ll_os_stat"] = (("%cast", "%__debug", "%_stat_construct_result_helper"), """
-internal fastcc %structtype.tuple10* %ll_os_stat(%structtype.rpy_string* %s) {
+internal fastcc %RPySTAT_RESULT* %ll_os_stat(%RPyString* %s) {
 
     call fastcc void %__debug([12 x sbyte]* %__ll_os_stat) ; XXX: Test: ll_os_stat
 
     %st       = alloca [32 x int]
-    %filename = call fastcc sbyte* %cast(%structtype.rpy_string* %s)
+    %filename = call fastcc sbyte* %cast(%RPyString* %s)
     %error    = call ccc int %stat(sbyte* %filename, [32 x int]* %st)
     %cond     = seteq int %error, 0
     br bool %cond, label %cool, label %bwa
@@ -206,16 +206,16 @@ internal fastcc %structtype.tuple10* %ll_os_stat(%structtype.rpy_string* %s) {
 bwa:
     %errno_ = load int* %errno
     call fastcc void %ll_raise_OSError__Signed(int %errno_)
-    ret %structtype.tuple10* null
+    ret %RPySTAT_RESULT* null
 
 cool:
-    %result = call fastcc %structtype.tuple10* %_stat_construct_result_helper([32 x int]* %st)
-    ret %structtype.tuple10* %result
+    %result = call fastcc %RPySTAT_RESULT* %_stat_construct_result_helper([32 x int]* %st)
+    ret %RPySTAT_RESULT* %result
 }
 """)
 
 extfunctions["%ll_os_fstat"] = (("%__debug", "%_stat_construct_result_helper"), """
-internal fastcc %structtype.tuple10* %ll_os_fstat(int %fd) {
+internal fastcc %RPySTAT_RESULT* %ll_os_fstat(int %fd) {
 
     call fastcc void %__debug([12 x sbyte]* %__ll_os_fstat) ; XXX: Test: ll_os_fstat
 
@@ -227,24 +227,24 @@ internal fastcc %structtype.tuple10* %ll_os_fstat(int %fd) {
 bwa:
     %errno_ = load int* %errno
     call fastcc void %ll_raise_OSError__Signed(int %errno_)
-    ret %structtype.tuple10* null
+    ret %RPySTAT_RESULT* null
 
 cool:
-    %result = call fastcc %structtype.tuple10* %_stat_construct_result_helper([32 x int]* %st)
-    ret %structtype.tuple10* %result
+    %result = call fastcc %RPySTAT_RESULT* %_stat_construct_result_helper([32 x int]* %st)
+    ret %RPySTAT_RESULT* %result
 }
 
 """)
 
 extfunctions["%ll_strtod_formatd"] = (("%__debug",), """
-internal fastcc %structtype.rpy_string* %ll_strtod_formatd(%structtype.rpy_string* %s, double %x) {
+internal fastcc %RPyString* %ll_strtod_formatd(%RPyString* %s, double %x) {
     call fastcc void %__debug([12 x sbyte]* %__ll_strtod_formatd) ; XXX: TODO: ll_strtod_formatd
-    ret %structtype.rpy_string* null
+    ret %RPyString* null
 }
 """)
 
 extfunctions["%ll_strtod_parts_to_float"] = (("%__debug",), """
-internal fastcc double %ll_strtod_parts_to_float(%structtype.rpy_string* s0, %structtype.rpy_string* s1, %structtype.rpy_string* s2, %structtype.rpy_string* s3) {
+internal fastcc double %ll_strtod_parts_to_float(%RPyString* s0, %RPyString* s1, %RPyString* s2, %RPyString* s3) {
     call fastcc void %__debug([12 x sbyte]* %__ll_strtod_parts_to_float) ; XXX: TODO: ll_strtod_parts_to_float
     ret double 0.0
 }

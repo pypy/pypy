@@ -17,8 +17,8 @@ void %__debug([12 x sbyte]* %msg12) {
 """)
 
 extfunctions["%cast"] = ((), """
-internal fastcc sbyte* %cast(%structtype.rpy_string* %structstring) {
-    %source1ptr = getelementptr %structtype.rpy_string* %structstring, int 0, uint 1, uint 1
+internal fastcc sbyte* %cast(%RPyString* %structstring) {
+    %source1ptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 1
     %source1 = cast [0 x sbyte]* %source1ptr to sbyte*
     ret sbyte* %source1
 }
@@ -61,11 +61,11 @@ return_block:
 for exc in "ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
     extfunctions["%%__prepare_%(exc)s" % locals()] = ((), """
 internal fastcc void %%__prepare_%(exc)s() {
-    %%exception_value = call fastcc %%structtype.object* %%instantiate_%(exc)s()
-    %%tmp             = getelementptr %%structtype.object* %%exception_value, int 0, uint 0
-    %%exception_type  = load %%structtype.object_vtable** %%tmp
-    store %%structtype.object_vtable* %%exception_type, %%structtype.object_vtable** %%last_exception_type
-    store %%structtype.object* %%exception_value, %%structtype.object** %%last_exception_value
+    %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%instantiate_%(exc)s()
+    %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
+    %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
+    store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
+    store %%RPYTHON_EXCEPTION* %%exception_value, %%RPYTHON_EXCEPTION** %%last_exception_value
     ret void
 }
 """ % locals())

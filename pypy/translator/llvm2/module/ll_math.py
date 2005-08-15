@@ -48,9 +48,9 @@ for params, functions in simple_functions:
         extfunctions["%ll_math_" + function] = ((), simple_function_template % locals())
 
 extfunctions["%ll_math_frexp"] = (("%__debug",), """
-internal fastcc %structtype.tuple2.6* %ll_math_frexp(double %x) {
+internal fastcc %RPyFREXP_RESULT* %ll_math_frexp(double %x) {
     call fastcc void %__debug([12 x sbyte]* %__ll_math_frexp) ; XXX: TODO: ll_math_frexp
-    ret %structtype.tuple2.6* null
+    ret %RPyFREXP_RESULT* null
 }
 """)
 
@@ -69,9 +69,9 @@ internal fastcc double %ll_math_ldexp(double %x, int %y) {
 """)
 
 extfunctions["%ll_math_modf"] = (("%__debug",), """
-internal fastcc %structtype.tuple2.9* %ll_math_modf(double %x) {
+internal fastcc %RPyMODF_RESULT* %ll_math_modf(double %x) {
     call fastcc void %__debug([12 x sbyte]* %__ll_math_modf) ; XXX: TODO: ll_math_modf
-    ret %structtype.tuple2.9* null
+    ret %RPyMODF_RESULT* null
 }
 """)
 

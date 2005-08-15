@@ -1,13 +1,12 @@
 extdeclarations =  """;rpython stuff
-%structtype.rpy_string = type {int, {int, [0 x sbyte]}}
 
 ;gc-type dependent mallocs
 declare fastcc sbyte* %gc_malloc(uint)
 declare fastcc sbyte* %gc_malloc_atomic(uint)
 
 ;exception handling globals
-%last_exception_type  = global %structtype.object_vtable* null
-%last_exception_value = global %structtype.object* null
+%last_exception_type  = global %RPYTHON_EXCEPTION_VTABLE* null
+%last_exception_value = global %RPYTHON_EXCEPTION* null
 """
 
 gc_boehm = """declare ccc sbyte* %GC_malloc(uint)
