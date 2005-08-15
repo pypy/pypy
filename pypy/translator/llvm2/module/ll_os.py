@@ -166,16 +166,16 @@ internal fastcc %structtype.tuple10* %_stat_construct_result_helper([32 x int]* 
     %malloc.Ptr.1162   = call fastcc sbyte* %gc_malloc_atomic(uint %malloc.SizeU.1162)
     %dest              = cast sbyte* %malloc.Ptr.1162 to %structtype.tuple10*
 
-    %dest0ptr = getelementptr [32 x int]* %dest, int 0, int 0
-    %dest1ptr = getelementptr [32 x int]* %dest, int 0, int 1
-    %dest2ptr = getelementptr [32 x int]* %dest, int 0, int 2
-    %dest3ptr = getelementptr [32 x int]* %dest, int 0, int 3
-    %dest4ptr = getelementptr [32 x int]* %dest, int 0, int 4
-    %dest5ptr = getelementptr [32 x int]* %dest, int 0, int 5
-    %dest6ptr = getelementptr [32 x int]* %dest, int 0, int 6
-    %dest7ptr = getelementptr [32 x int]* %dest, int 0, int 7
-    %dest8ptr = getelementptr [32 x int]* %dest, int 0, int 8
-    %dest9ptr = getelementptr [32 x int]* %dest, int 0, int 9
+    %dest0ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 0
+    %dest1ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 1
+    %dest2ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 2
+    %dest3ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 3
+    %dest4ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 4
+    %dest5ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 5
+    %dest6ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 6
+    %dest7ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 7
+    %dest8ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 8
+    %dest9ptr = getelementptr %structtype.tuple10* %dest, int 0, uint 9
 
     store int %src0, int* %dest0ptr
     store int %src1, int* %dest1ptr

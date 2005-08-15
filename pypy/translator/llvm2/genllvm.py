@@ -199,7 +199,7 @@ class GenLLVM(object):
                       filename,
                       really_compile=True,
                       standalone=False,
-                      optimize=True,
+                      optimize=False,
                       exe_name=None):
 
         if not llvm_is_on_path():
