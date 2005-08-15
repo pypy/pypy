@@ -264,6 +264,8 @@ class GenRpy:
                 "%(res)s = space.call_args(%(func)s, _args)")
             assert isinstance(op.args[1], Constant)
             shape = op.args[1].value
+            # make a list out of the second shape elt.
+            shape = shape[0], list(shape[1]), shape[2], shape[3]
             return fmt % {"res": self.expr(op.result, localscope),
                           "func": exv,
                           "shape": repr(shape),

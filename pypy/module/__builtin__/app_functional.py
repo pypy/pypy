@@ -1,5 +1,3 @@
-# NOT_RPYTHON because it triggers an annotator error in fromshape
-# otherwise it could be geninterped.
 """
 Plain Python definition of the builtin functions oriented towards
 functional programming.
@@ -156,11 +154,11 @@ def range(x, y=None, step=1):
             stop = y
 
     if not isinstance(start, (int, long)):
-        raise TypeError('range() interger start argument expected, got %s' % type(start))
+        raise TypeError('range() integer start argument expected, got %s' % type(start))
     if not isinstance(stop, (int, long)):
-        raise TypeError('range() interger stop argument expected, got %s' % type(stop))
+        raise TypeError('range() integer stop argument expected, got %s' % type(stop))
     if not isinstance(step, (int, long)):
-        raise TypeError('range() interger step argument expected, got %s' % type(step))
+        raise TypeError('range() integer step argument expected, got %s' % type(step))
 
     if step == 0:
         raise ValueError, 'range() arg 3 must not be zero'

@@ -243,8 +243,6 @@ class Arguments:
         args_w = data_w[:shape_cnt]
         p = shape_cnt
         kwds_w = {}
-        shape_keys = list(shape_keys) # XXX seems to be needed by the rtyper
-        # this showed up when I temporarily enabled geninterp
         for i in range(len(shape_keys)):
             kwds_w[shape_keys[i]] = data_w[p]
             p += 1
