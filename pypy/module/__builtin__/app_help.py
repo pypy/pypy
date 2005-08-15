@@ -1,5 +1,3 @@
-# NOT_RPYTHON    - because print is used
-# XXX work on enabling print for flow space
 """
 Plain Python definition of the builtin interactive help functions.
 """

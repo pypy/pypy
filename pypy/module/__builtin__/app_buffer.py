@@ -1,8 +1,5 @@
-# NOT_RPYTHON (because of array import)
 # Might probably be deprecated in Python at some point.
 import sys
-from array import array
-from struct import pack, unpack
 
 class buffer(object):
     """buffer(object [, offset[, size]])
@@ -14,6 +11,7 @@ extend to the end of the target object (or with the specified size).
 """
 
     def __init__(self, object, offset=0, size=None):
+        import struct, array
         if isinstance(object, str):
             pass
         elif isinstance(object, unicode):
@@ -23,11 +21,11 @@ extend to the end of the target object (or with the specified size).
             else:
                 pack_code = "I"
             for char in object:
-                str_object += pack(pack_code, ord(char))
+                str_object += struct.pack(pack_code, ord(char))
             object = str_object
         elif isinstance(object, buffer):
             object = object.buf
-        elif isinstance(object, array):
+        elif isinstance(object, array.array):
             object = object.tostring()
         else:
             raise TypeError, "buffer object expected"

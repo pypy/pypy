@@ -1,4 +1,3 @@
-# NOT_RPYTHON
 """This module defines an object type which can efficiently represent
 an array of basic values: characters, integers, floating point
 numbers.  Arrays are sequence types and behave very much like lists,
