@@ -292,11 +292,8 @@ class GraphDisplay(Display):
             if word in self.layout.links:
                 self.setstatusbar('loading...')
                 self.redraw_now()
-                newlayout = self.layout.followlink(word)
-                if newlayout is not None:
-                    self.setlayout(newlayout)
-                    return
-                self.setstatusbar('')
+                self.layout.request_followlink(word)
+
 
     def search(self):
         searchstr = self.input('Find: ')
@@ -341,7 +338,7 @@ class GraphDisplay(Display):
             self.setstatusbar(msg % item)
 
     def setlayout(self, layout):
-        if self.viewer:
+        if self.viewer and getattr(self.viewer.graphlayout, 'key', True) is not None:
             self.viewers_history.append(self.viewer)
             del self.forward_viewers_history[:]
         self.layout = layout
@@ -415,8 +412,7 @@ class GraphDisplay(Display):
     def reload(self):
         self.setstatusbar('reloading...')
         self.redraw_now()
-        newlayout = self.layout.reload()
-        self.setlayout(newlayout)
+        self.layout.request_reload()
 
     def setstatusbar(self, text, fgcolor=None, bgcolor=None):
         info = (text, fgcolor or self.STATUSBAR_FGCOLOR, bgcolor or self.STATUSBAR_BGCOLOR)
@@ -470,11 +466,8 @@ class GraphDisplay(Display):
         if word in self.layout.links:
             self.setstatusbar('loading...')
             self.redraw_now()
-            newlayout = self.layout.followlink(word)
-            if newlayout is not None:
-                self.setlayout(newlayout)
-                return
-            self.setstatusbar('')
+            self.layout.request_followlink(word)
+            return
         node = self.viewer.node_at_position(pos)
         if node:
             self.look_at_node(node)
@@ -636,14 +629,11 @@ class GraphDisplay(Display):
     def process_Quit(self, event):
         self.quit()
      
-    def async_quit(self):
-        pygame.event.post(pygame.event.Event(QUIT))
-
-    def async_cmd(self, **kwds):
-        pygame.event.post(pygame.event.Event(USEREVENT, **kwds))
-
-    def process_UserEvent(self, event):
-        self.setlayout(event.layout)
+    def process_UserEvent(self, event): # new layout request
+        if event.layout is None:
+            self.setstatusbar('')
+        else:
+            self.setlayout(event.layout)
     
     def quit(self):
         raise StopIteration

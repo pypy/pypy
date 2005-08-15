@@ -2,69 +2,75 @@
 A socket server for GraphPages.
 """
 
-import autopath, sys, thread, struct, marshal
+import sys
+import autopath
 
+from pypy.translator.tool import port as portutil
 
-def run_server(homepage, port=8888, quiet=False, background=False):
-    import socket
-    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_sock.bind(('', port))
-    server_sock.listen(5)
-    if not quiet:
-        print >> sys.stderr, 'Accepting connexions on port %d...' % port
-    def accept_connexions():
-        while True:
-            conn, addr = server_sock.accept()
-            if not quiet:
-                print >> sys.stderr, 'Connected by %r.' % (addr,)
-            thread.start_new_thread(serve_connexion, (conn, homepage))
-    if background:
-        thread.start_new_thread(accept_connexions, ())
-    else:
-        accept_connexions()
+send_msg = portutil.send_msg
+recv_msg = portutil.recv_msg
 
+class GraphserverPort(portutil.Port):
 
-def recv_all(s, count):
-    buf = ''
-    while len(buf) < count:
-        data = s.recv(count - len(buf))
-        if not data:
-            raise SystemExit   # thread exit, rather
-        buf += data
-    return buf
+    def __init__(self, s, homepage):
+        portutil.Port.__init__(self, s)
+        self.pages = {0: homepage}
 
-def recv_msg(s):
-    hdr_size = struct.calcsize("!i")
-    msg_size, = struct.unpack("!i", recv_all(s, hdr_size))
-    msg = recv_all(s, msg_size)
-    return marshal.loads(msg)
-
-def send_msg(s, msg):
-    data = marshal.dumps(msg)
-    s.sendall(struct.pack("!i", len(data)) + data)
-
-
-def serve_connexion(s, homepage):
-    pages = {0: homepage}
-    while True:
-        key, link = recv_msg(s)
-        page = pages[key]
+    def on_msg(self, msg):
+        if msg is None:
+            print "Closing %r." % (self.s.getpeername(),)
+            self.put_msg(None)
+            return
+        key, link = msg
+        page = self.pages[key]
         if link is not None:
             try:
                 page = page.content().followlink(link)
-                key = len(pages)
+                key = len(self.pages)
             except KeyError:
                 page = MissingPage()
                 key = -1
-            pages[key] = page
+            self.pages[key] = page
         page = page.content()
         reply = {
             'key': key,
             'dot': page.source,
             'links': page.links,
             }
-        send_msg(s, reply)
+        self.put_msg(reply)
 
+    def force_page(self, page):
+        key = sys.maxint # dummy
+        self.pages[key] = page
+        page = page.content()
+        self.put_msg({
+            'key': key,
+            'dot': page.source,
+            'links': page.links
+            })
+
+def run_server(homepage, port=8888, quiet=False, background=False):
+
+    last = [None]
+
+    def make_port(s):
+       gport = GraphserverPort(s, homepage)
+       last[0] = gport
+       return gport
+
+    def start():
+        pass
+
+    def show(page): # xxx better broadcast in this case?
+        if last[0]:
+            last[0].force_page(page)
+
+    def stop():
+        pass
+
+    portutil.run_server(make_port, port=port, quiet=quiet, background=background)
+
+    return start, show, stop, stop
 
 class MissingPage:
     links  = {}

@@ -240,6 +240,22 @@ def find_someobjects(translator, quiet=False):
             someobjnum, num) 
         print "=" * 70
 
+def worstblocks_topten(ann, n=10):
+    h = [(count, block) for block, count in ann.reflowcounter.iteritems()]
+    h.sort()
+    if not h:
+        return
+    print
+    ansi_print(',-----------------------  Top %d Most Reflown Blocks  -----------------------.' % n, 36)
+    for i in range(n):
+        if not h:
+            break
+        count, block = h.pop()
+        ansi_print('                                                      #%3d: reflown %d times  |' % (i+1, count), 36)
+        about(block)
+    ansi_print("`----------------------------------------------------------------------------'", 36)
+    print
+
 
 def update_usession_dir(stabledir = udir.dirpath('usession')): 
     from py import path 
@@ -258,32 +274,51 @@ def update_usession_dir(stabledir = udir.dirpath('usession')):
     except path.Invalid: 
         print "ignored: couldn't link or copy to %s" % stabledir 
 
-def run_in_thread(fn, args, cleanup=None, cleanup_args=()):
+def run_debugger_in_thread(fn, args, cleanup=None, cleanup_args=()):
     def _run_in_thread():
-        fn(*args)
-        if cleanup is not None:
-            cleanup(*cleanup_args)
+        try:
+            try:
+                fn(*args)
+                pass # for debugger to land
+            except pdb.bdb.BdbQuit:
+                pass
+        finally:
+            if cleanup is not None:
+                cleanup(*cleanup_args)
     return threading.Thread(target=_run_in_thread, args=())
 
+
+# graph servers
+
+serv_start, serv_show, serv_stop, serv_cleanup = None, None, None, None
+
 def run_async_server():
+    global serv_start, serv_show, serv_stop, serv_cleanup
     from pypy.translator.tool import graphpage, graphserver
     homepage = graphpage.TranslatorPage(t)
-    graphserver.run_server(homepage, port=listen_port, background=True)
-    options['-text'] = True
+    (serv_start, serv_show, serv_stop, serv_cleanup
+     )=graphserver.run_server(homepage, port=listen_port, background=True)
+    
 
-def worstblocks_topten(ann, n=10):
-    h = [(count, block) for block, count in ann.reflowcounter.iteritems()]
-    h.sort()
-    print
-    ansi_print(',-----------------------  Top %d Most Reflown Blocks  -----------------------.' % n, 36)
-    for i in range(n):
-        if not h:
-            break
-        count, block = h.pop()
-        ansi_print('                                                      #%3d: reflown %d times  |' % (i+1, count), 36)
-        about(block)
-    ansi_print("`----------------------------------------------------------------------------'", 36)
-    print
+def run_server():
+    from pypy.translator.tool import graphpage
+    import pygame
+    from pypy.translator.tool.pygame.graphclient import get_layout
+    from pypy.translator.tool.pygame.graphdisplay import GraphDisplay    
+
+    if len(t.functions) <= huge:
+        page = graphpage.TranslatorPage(t)
+    else:
+        page = graphpage.LocalizedCallGraphPage(t, entry_point)
+
+    layout = get_layout(page)
+
+    show, async_quit = layout.connexion.initiate_display, layout.connexion.quit
+
+    display = layout.get_display()
+        
+    return display.run, show, async_quit, pygame.quit
+
 
 
 if __name__ == '__main__':
@@ -366,26 +401,6 @@ if __name__ == '__main__':
             print '--end--'
             return
         print "don't know about", x
-
-    def run_server():
-        from pypy.translator.tool import graphpage
-        from pypy.translator.tool.pygame.graphclient import get_layout
-        from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
-        import pygame
-
-        if not options['-no-mark-some-objects']:
-            find_someobjects(t, quiet=True)
-
-        if len(t.functions) <= huge:
-            page = graphpage.TranslatorPage(t)
-        else:
-            page = graphpage.LocalizedCallGraphPage(t, entry_point)
-
-        display = GraphDisplay(get_layout(page))
-        async_quit = display.async_quit
-        def show(page):
-            display.async_cmd(layout=get_layout(page))
-        return display.run, show, async_quit, pygame.quit
 
     class PdbPlusShow(pdb.Pdb):
 
@@ -533,9 +548,12 @@ show class hierarchy graph"""
             if options['-batch']: 
                 print >>sys.stderr, "batch mode, not calling interactive helpers"
             else:
-                start, show, stop, cleanup = run_server()
+                if serv_start:
+                    start, show, stop, cleanup = serv_start, serv_show, serv_stop, serv_cleanup
+                else:
+                    start, show, stop, cleanup = run_server()
                 pdb_plus_show.show = show
-                debugger = run_in_thread(func, args, stop)
+                debugger = run_debugger_in_thread(func, args, stop)
                 debugger.start()
                 start()
                 debugger.join()

@@ -5,7 +5,8 @@ Client for a graph server (either in-process or over a socket).
 
 import autopath
 from pypy.translator.tool.pygame.drawgraph import GraphLayout
-from pypy.translator.tool.graphserver import send_msg, recv_msg, MissingPage
+from pypy.translator.tool.pygame.drawgraph import display_async_cmd, display_async_quit
+from pypy.translator.tool.graphserver import MissingPage, portutil
 from pypy.tool.udir import udir
 from py.process import cmdexec
 
@@ -60,16 +61,16 @@ class ClientGraphLayout(GraphLayout):
         self.key = key
         self.links.update(links)
 
-    def followlink(self, name):
-        return self.connexion.download(self.key, name)
+    def request_followlink(self, name):
+        self.connexion.initiate_display(self.key, name)
 
-    def reload(self):
-        return self.connexion.download(self.key)
+    def request_reload(self):
+        self.connexion.initiate_display(self.key)
 
 
 class InProcessConnexion:
 
-    def download(self, page, link=None):
+    def get_layout(self, page, link=None):
         if link is not None:
             try:
                 page = page.content().followlink(link)
@@ -77,28 +78,49 @@ class InProcessConnexion:
                 page = MissingPage()
         key = page
         page = page.content()
-        return ClientGraphLayout(self, key, page.source, page.links)
+        layout = ClientGraphLayout(self, key, page.source, page.links)
+        return layout
 
+    def initiate_display(self, page, link=None, do_display=False):
+        layout = self.get_layout(page, link)
+        if do_display:
+            layout.display()
+        else:
+            display_async_cmd(layout=layout)
 
-class SocketConnexion:
+    def quit(self):
+        display_async_quit()
 
-    def __init__(self, s):
-        self.s = s
+class SocketConnexion(portutil.Port):
 
-    def download(self, key, link=None):
-        send_msg(self.s, (key, link))
-        data = recv_msg(self.s)
-        return ClientGraphLayout(self, **data)
+    def initiate_display(self, key, link=None):
+        self.put_msg((key, link))
 
+    def on_msg(self, msg):
+        if msg is None:
+            self.put_msg(None)
+            return
+        
+        data = msg
+        layout = ClientGraphLayout(self, **data)
+        display_async_cmd(layout=layout)        
 
-def get_layout(homepage):
-    return InProcessConnexion().download(homepage)
+def get_layout(homepage): # only local
+    conn = InProcessConnexion()
+    return conn.get_layout(homepage)
 
-def get_remote_layout(hostname, port=8888):
+def display_layout(homepage):
+    conn = InProcessConnexion()
+    conn.initiate_display(homepage, do_display=True)
+
+def display_remote_layout(hostname, port=8888):
     import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((hostname, port))
-    return SocketConnexion(s).download(0)
+    conn = SocketConnexion(s)
+    display = ClientGraphLayout(conn, None, "digraph empty {}", {}).get_display()
+    conn.initiate_display(0)
+    display.run()
 
 
 if __name__ == '__main__':
@@ -110,5 +132,4 @@ if __name__ == '__main__':
         sys.exit(2)
     hostname, port = sys.argv[1].split(':')
     port = int(port)
-    layout = get_remote_layout(hostname, port)
-    layout.display()
+    display_remote_layout(hostname, port)

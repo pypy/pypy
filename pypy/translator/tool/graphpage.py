@@ -32,8 +32,8 @@ class GraphPage:
 
     def display(self):
         "Display a graph page locally."
-        from pypy.translator.tool.pygame.graphclient import get_layout
-        get_layout(self).display()
+        from pypy.translator.tool.pygame.graphclient import display_layout
+        display_layout(self)
 
 
 class SingleGraphPage(GraphPage):

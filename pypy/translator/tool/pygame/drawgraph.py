@@ -75,12 +75,25 @@ class GraphLayout:
                 break
         self.links = {}
 
-    def display(self):
+    def get_display(self):
         from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
-        GraphDisplay(self).run()
+        return GraphDisplay(self)      
+
+    def display(self):
+        self.get_display().run()
 
     def reload(self):
         return self
+
+# async interaction helpers
+
+def display_async_quit():
+    pygame.event.post(pygame.event.Event(QUIT))        
+
+def display_async_cmd(**kwds):                
+    pygame.event.post(pygame.event.Event(USEREVENT, **kwds))
+
+
 
 class Node:
     def __init__(self, name, x, y, w, h, label, style, shape, color, fillcolor):
