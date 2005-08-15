@@ -13,8 +13,8 @@ class ExternalFuncNode(ConstantLLVMNode):
 
     def getdecl(self):
         T = self.value._TYPE
-        args = [self.db.repr_arg_type(a) for a in T.ARGS]
-        decl = "%s %s(%s)" % (self.db.repr_arg_type(T.RESULT),
+        args = [self.db.repr_type(a) for a in T.ARGS]
+        decl = "%s %s(%s)" % (self.db.repr_type(T.RESULT),
                               self.ref,
                               ", ".join(args))
         return decl
