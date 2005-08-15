@@ -387,7 +387,8 @@ class Unmarshaller(_Base):
         return self.reader.read(n)
 
     def get1(self):
-        return self.get(1)
+        # convince typer to use a char
+        return chr(ord(self.get(1)))
 
     def atom_str(self, typecode):
         self.start(typecode)
@@ -408,7 +409,6 @@ class Unmarshaller(_Base):
         tc = self.get1()
         if tc != typecode:
             self.raise_exc('invalid marshal data')
-        self.typecode = tc
 
     def get_short(self):
         s = self.get(2)
