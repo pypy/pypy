@@ -214,7 +214,7 @@ cool:
 }
 """)
 
-extfunctions["%ll_os_fstat"] = (("%__debug",), """
+extfunctions["%ll_os_fstat"] = (("%__debug", "%_stat_construct_result_helper"), """
 internal fastcc %structtype.tuple10* %ll_os_fstat(int %fd) {
 
     call fastcc void %__debug([12 x sbyte]* %__ll_os_fstat) ; XXX: Test: ll_os_fstat
