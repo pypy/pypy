@@ -95,28 +95,48 @@ def test_os_file_ops_open_write_read_close():
 # following from translator/c/test/test_extfunc.py Revision: 15320 (jul 29th 2005)
 
 def test_os_stat():
-    py.test.skip("ll_os_stat not implemented")
     filename = str(py.magic.autopath())
-    def call_stat(n):
+    def call_stat0():
         st = os.stat(filename)
-        return st[n]
-    f = compile_function(call_stat, [int])
-    assert f(0) == os.stat(filename)[0]
-    assert f(1) == os.stat(filename)[1]
-    assert f(2) == os.stat(filename)[2]
+        return st[0]
+    def call_stat1():
+        st = os.stat(filename)
+        return st[1]
+    def call_stat2():
+        st = os.stat(filename)
+        return st[2]
+    f0 = compile_function(call_stat0, [])
+    f1 = compile_function(call_stat1, [])
+    f2 = compile_function(call_stat2, [])
+    st = os.stat(filename)
+    assert f0() == st[0]
+    assert f1() == st[1]
+    assert f2() == st[2]
 
 def test_os_fstat():
-    py.test.skip("ll_os_fstat not implemented")
     filename = str(py.magic.autopath())
-    def call_fstat(n):
+    def call_fstat0():
         fd = os.open(filename, os.O_RDONLY, 0777)
         st = os.fstat(fd)
         os.close(fd)
-        return st[0]    #XXX want to use 0 here!
-    f = compile_function(call_fstat, [int])
-    assert f(0) == os.stat(filename)[0]
-    assert f(1) == os.stat(filename)[1]
-    assert f(2) == os.stat(filename)[2]
+        return st[0]
+    def call_fstat1():
+        fd = os.open(filename, os.O_RDONLY, 0777)
+        st = os.fstat(fd)
+        os.close(fd)
+        return st[1]
+    def call_fstat2():
+        fd = os.open(filename, os.O_RDONLY, 0777)
+        st = os.fstat(fd)
+        os.close(fd)
+        return st[2]
+    f0 = compile_function(call_fstat0, [])
+    f1 = compile_function(call_fstat1, [])
+    f2 = compile_function(call_fstat2, [])
+    st = os.stat(filename)
+    assert f0() == st[0]
+    assert f1() == st[1]
+    assert f2() == st[2]
 
 def test_getcwd():
     py.test.skip("ll_os_getcwd not implemented")
@@ -164,7 +184,6 @@ def test_simple_math_functions():
         yield math_function_test, funcname
 
 def test_os_path_exists():
-    py.test.skip("ll_os_stat not implemented")
     tmpfile = str(udir.join('test_os_path_exists.TMP'))
     def fn():
         return os.path.exists(tmpfile)
@@ -175,7 +194,6 @@ def test_os_path_exists():
     assert f() == False
 
 def test_os_path_isdir():
-    py.test.skip("ll_os_stat not implemented")
     directory = "./."
     def fn():
         return os.path.isdir(directory)

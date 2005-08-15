@@ -1,10 +1,20 @@
 extdeclarations = """
 declare ccc double %pow(double, double)
 declare ccc double %fmod(double, double)
+declare ccc int %puts(sbyte*)
 """
 
 
 extfunctions = {}
+
+extfunctions["%__debug"] = ((), """
+void %__debug([12 x sbyte]* %msg12) {
+    %msg = getelementptr [12 x sbyte]* %msg12, long 0, long 0
+    call int %puts(sbyte* %msg)
+    ret void
+}
+
+""")
 
 extfunctions["%cast"] = ((), """
 internal fastcc sbyte* %cast(%structtype.rpy_string* %structstring) {
@@ -14,7 +24,6 @@ internal fastcc sbyte* %cast(%structtype.rpy_string* %structstring) {
 }
 
 """)
-
 
 #abs functions
 extfunctions["%int_abs"] = ((), """

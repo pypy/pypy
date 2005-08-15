@@ -18,6 +18,12 @@ declare ccc double %tan(double)
 declare ccc double %tanh(double)
 declare ccc double %atan2(double,double)
 declare ccc double %fmod(double,double)
+
+%__ll_math_frexp = internal constant [12 x sbyte] c"frexp......\\00"
+%__ll_math_hypot = internal constant [12 x sbyte] c"hypot......\\00"
+%__ll_math_ldexp = internal constant [12 x sbyte] c"ldexp......\\00"
+%__ll_math_modf  = internal constant [12 x sbyte] c"modf.......\\00"
+%__ll_math_pow   = internal constant [12 x sbyte] c"pow........\\00"
 """
 
 extfunctions = {}
@@ -41,37 +47,37 @@ for params, functions in simple_functions:
     for function in functions:
         extfunctions["%ll_math_" + function] = ((), simple_function_template % locals())
 
-extfunctions["%ll_math_frexp"] = ((), """
+extfunctions["%ll_math_frexp"] = (("%__debug",), """
 internal fastcc %structtype.tuple2.6* %ll_math_frexp(double %x) {
-    ; XXX: TODO: ll_math_frexp
+    call fastcc void %__debug([12 x sbyte]* %__ll_math_frexp) ; XXX: TODO: ll_math_frexp
     ret %structtype.tuple2.6* null
 }
 """)
 
-extfunctions["%ll_math_hypot"] = ((), """
+extfunctions["%ll_math_hypot"] = (("%__debug",), """
 internal fastcc double %ll_math_hypot(double %x, double %y) {
-    ; XXX: TODO: ll_math_hypot
+    call fastcc void %__debug([12 x sbyte]* %__ll_math_hypot) ; XXX: TODO: ll_math_hypot
     ret double 0.0
 }
 """)
 
-extfunctions["%ll_math_ldexp"] = ((), """
+extfunctions["%ll_math_ldexp"] = (("%__debug",), """
 internal fastcc double %ll_math_ldexp(double %x, int %y) {
-    ; XXX: TODO: ll_math_ldexp
+    call fastcc void %__debug([12 x sbyte]* %__ll_math_ldexp) ; XXX: TODO: ll_math_ldexp
     ret double 0.0
 }
 """)
 
-extfunctions["%ll_math_modf"] = ((), """
-internal fastcc %structtype.tuple2.7* %ll_math_modf(double %x) {
-    ; XXX: TODO: ll_math_modf
-    ret %structtype.tuple2.7* null
+extfunctions["%ll_math_modf"] = (("%__debug",), """
+internal fastcc %structtype.tuple2.9* %ll_math_modf(double %x) {
+    call fastcc void %__debug([12 x sbyte]* %__ll_math_modf) ; XXX: TODO: ll_math_modf
+    ret %structtype.tuple2.9* null
 }
 """)
 
-extfunctions["%ll_math_pow"] = ((), """
+extfunctions["%ll_math_pow"] = (("%__debug",), """
 internal fastcc double %ll_math_pow(double %x, double %y) {
-    ; XXX: TODO: ll_math_pow
+    call fastcc void %__debug([12 x sbyte]* %__ll_math_pow) ; XXX: TODO: ll_math_pow
     ret double 0.0
 }
 """)

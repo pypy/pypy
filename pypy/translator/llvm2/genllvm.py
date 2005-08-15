@@ -15,6 +15,10 @@ from pypy.translator.llvm2.module.extfunction import extdeclarations, \
      extfunctions, gc_boehm, gc_disabled, dependencies
 from pypy.translator.llvm2.node import LLVMNode
 
+#XXX commented out because extfuncs temp. not working
+#from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
+#from pypy.rpython.annlowlevel import annotate_lowlevel_helper
+
 from pypy.translator.translator import Translator
 
 import time
@@ -41,9 +45,20 @@ class GenLLVM(object):
             func = self.translator.entrypoint
         self.entrypoint = func
 
+        #XXX commented out because extfuncs temp. not working
+        # # make sure helper functions are available
+        # rtyper = self.translator.rtyper
+        # for ptr in (
+        #             #rtyper.annotate_helper(ll_math.ll_frexp_result, [lltype.Float, lltype.Signed]),
+        #             #rtyper.annotate_helper(ll_math.ll_modf_result , [lltype.Float, lltype.Float ]),
+        #             rtyper.annotate_helper(ll_os.ll_stat_result   , [lltype.Signed] * 10),
+        #            ):
+        #     c = inputconst(lltype.typeOf(ptr), ptr)
+        #     self.db.prepare_arg_value(c)
+
         # make sure exception matching and exception type are available
         e = self.translator.rtyper.getexceptiondata()
-        for ll_helper in (e.ll_exception_match,):
+        for ll_helper in (e.ll_exception_match, e.ll_raise_OSError):
             ptr = getfunctionptr(self.translator, ll_helper)
             c = inputconst(lltype.typeOf(ptr), ptr)
             self.db.prepare_arg_value(c)
@@ -166,6 +181,15 @@ class GenLLVM(object):
         codewriter.append("    ret int %result")
         codewriter.append("}")
         codewriter.newline()
+        # XXX we need to create our own main() that calls the actual entry_point function
+        entryfunc_name = t[1].split('(')[0]
+        if entryfunc_name != 'main' and entryfunc_name == 'entry_point': #XXX just to get on with translate_pypy
+            codewriter.append("int %main() {")
+            codewriter.append("    %argv = call fastcc %structtype.list* %ll_newlist__listPtrConst_Signed.2(int 0)")
+            codewriter.append("    %ret  = call fastcc int %entry_point(%structtype.list* %argv)")
+            codewriter.append("    ret int %ret")
+            codewriter.append("}")
+            codewriter.newline()
 
         comment("End of file") ; nl()
         if self.debug:  print 'gen_llvm_source return) ' + time.ctime()
