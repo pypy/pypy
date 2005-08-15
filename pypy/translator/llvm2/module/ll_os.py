@@ -9,6 +9,8 @@ declare ccc sbyte* %strncpy(sbyte*, sbyte*, int)
 declare ccc int %isatty(int)
 declare ccc int %stat(sbyte*, [32 x int]*)
 declare ccc int %fstat(int, [32 x int]*)
+declare ccc int %lseek(int, int, int)
+declare ccc int %ftruncate(int, int)
 
 %errno = external global int
 
@@ -82,16 +84,21 @@ internal fastcc bool %ll_os_isatty(int %fd) {
 """)
 
 extfunctions["%ll_os_ftruncate"] = (("%__debug",), """
-internal fastcc void %ll_os_ftruncate(int %x, int %y) {
-    call fastcc void %__debug([12 x sbyte]* %__ll_os_ftruncate) ; XXX: TODO: ll_os_ftruncate
+internal fastcc void %ll_os_ftruncate(int %fd, int %length) {
+    call fastcc void %__debug([12 x sbyte]* %__ll_os_ftruncate) ; XXX: Test: ll_os_ftruncate
+    %res = call ccc int %ftruncate(int %fd, int %length)
+    ;if res < 0 raise...
     ret void
 }
 """)
 
 extfunctions["%ll_os_lseek"] = (("%__debug",), """
-internal fastcc int %ll_os_lseek(int %x, int %y, int %z) {
-    call fastcc void %__debug([12 x sbyte]* %__ll_os_lseek) ; XXX: TODO: ll_os_lseek
-    ret int 0
+internal fastcc int %ll_os_lseek(int %fd, int %pos, int %how) {
+    call fastcc void %__debug([12 x sbyte]* %__ll_os_lseek) ; XXX: Test: ll_os_lseek
+    ;TODO: determine correct %how
+    %res = call ccc int %lseek(int %fd, int %pos, int %how)
+    ;if res < 0 raise...
+    ret int %res
 }
 """)
 
