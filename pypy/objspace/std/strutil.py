@@ -10,7 +10,7 @@ import math
 # This module is independent from PyPy.
 
 def strip_spaces(s):
-    # XXX this is not locate-dependent
+    # XXX this is not locale-dependent
     p = 0
     q = len(s)
     while p < q and s[p] in ' \f\n\r\t\v':
@@ -376,6 +376,8 @@ def interp_string_to_float(space, s):
 
     Expects an unwrapped string and return an unwrapped float.
     """
+
+    s = strip_spaces(s)
 
     if not s:
         raise OperationError(space.w_ValueError, space.wrap(
