@@ -21,12 +21,9 @@ def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
     m.put_w_obj(w_data)
 
 def dumps(space, w_data, w_version=Py_MARSHAL_VERSION):
-    # using a list's append directly does not work,
-    # it leads to someobjectness.
-    writer = StringWriter()
-    m = Marshaller(space, writer, space.int_w(w_version))
+    m = StringMarshaller(space, space.int_w(w_version))
     m.put_w_obj(w_data)
-    return space.wrap(writer.get_value())
+    return space.wrap(m.get_value())
 
 def load(space, w_f):
     reader = FileReader(space, w_f)
@@ -34,28 +31,11 @@ def load(space, w_f):
     return u.get_w_obj(False)
 
 def loads(space, w_str):
-    reader = StringReader(space, w_str)
-    u = Unmarshaller(space, reader)
-    return u.get_w_obj(False)
-
-# even faster version using inlined string reader
-def loads(space, w_str):
     u = StringUnmarshaller(space, w_str)
     return u.get_w_obj(False)
 
 
-class _BaseWriter(object):
-    pass
-
-
-class _BaseReader(object):
-    def raise_eof(self):
-        space = self.space
-        raise OperationError(space.w_EOFError, space.wrap(
-            'EOF read where object expected'))
-
-
-class FileWriter(_BaseWriter):
+class FileWriter(object):
     def __init__(self, space, w_f):
         self.space = space
         try:
@@ -75,7 +55,7 @@ class FileWriter(_BaseWriter):
         space.call_function(self.func, space.wrap(data))
 
 
-class FileReader(_BaseReader):
+class FileReader(object):
     def __init__(self, space, w_f):
         self.space = space
         try:
@@ -93,61 +73,10 @@ class FileReader(_BaseReader):
             self.raise_eof()
         return ret
 
-
-class StringWriter(_BaseWriter):
-    # actually we are writing to a char list
-    def __init__(self):
-        self.buflis = []
-
-    def write(self, data):
-        self.buflis.append(data)
-
-    def get_value(self):
-        return ''.join(self.buflis)
-
-
-class StringWriter(_BaseWriter):
-    # actually we are writing to a char list
-    def __init__(self):
-        self.buflis = [chr(0)] * 128
-        self.bufpos = 0
-
-    def write(self, data):
-        # append is not (yet) efficient, so we do our own allocation
-        #self.buflis.append(data)
-        pos = self.bufpos
-        lng = len(data)
-        newpos = pos + lng
-	while len(self.buflis) < newpos:
-            self.buflis = self.buflis + self.buflis
-        idx = 0
-        while idx < lng:
-            self.buflis[pos + idx] = data[idx]
-            idx += 1
-        self.bufpos = newpos
-
-    def get_value(self):
-        return ''.join(self.buflis[:self.bufpos])
-
-
-class StringReader(_BaseReader):
-    def __init__(self, space, w_str):
-        self.space = space
-        try:
-            self.bufstr = space.str_w(w_str)
-        except OperationError:
-            raise OperationError(space.w_TypeError, space.wrap(
-                'marshal.loads() arg must be string'))
-        self.bufpos = 0
-        self.limit = len(self.bufstr)
-
-    def read(self, n):
-        pos = self.bufpos
-        newpos = pos + n
-        if newpos > self.limit:
-            self.raise_eof()
-        self.bufpos = newpos
-        return self.bufstr[pos : newpos]
+    def raise_eof(self):
+        space = self.space
+        raise OperationError(space.w_EOFError, space.wrap(
+            'EOF read where object expected'))
 
 
 MAX_MARSHAL_DEPTH = 5000
@@ -189,12 +118,6 @@ class Marshaller(_Base):
                         * APPLEVEL_STACK_COST + TEST_CONST)
         self.cpy_nesting = 0    # contribution to compatibility
         self.stringtable = {}
-        # since we currently probably can't reach the stringtable (we can't
-        # find interned strings), try to convince rtyper that this is
-        #really a string dict.
-        s = 'hello'
-        self.stringtable[s] = space.wrap(s)
-        del self.stringtable[s]
         self.stackless = False
         self._stack = None
         #self._iddict = {}
@@ -209,10 +132,13 @@ class Marshaller(_Base):
     def put(self, s):
         self.writer.write(s)
 
+    def put1(self, c):
+        self.writer.write(c)
+
     def atom(self, typecode):
         #assert type(typecode) is str and len(typecode) == 1
         # type(char) not supported
-        self.put(typecode)
+        self.put1(typecode)
 
     def atom_int(self, typecode, x):
         a = chr(x & 0xff)
@@ -242,7 +168,6 @@ class Marshaller(_Base):
             atom_str(tc2, item)
 
     def start(self, typecode):
-        #assert type(typecode) is str and len(typecode) == 1
         # type(char) not supported
         self.put(typecode)
 
@@ -344,6 +269,85 @@ class Marshaller(_Base):
 
     def _run_stackless(self, w_obj):
         self.raise_exc('object too deeply nested to marshal')
+
+
+class StringMarshaller(Marshaller):
+    def __init__(self, space, version):
+        Marshaller.__init__(self, space, None, version)
+        self.buflis = [chr(0)] * 128
+        self.bufpos = 0
+
+    def put(self, s):
+        pos = self.bufpos
+        lng = len(s)
+        newpos = pos + lng
+        while len(self.buflis) < newpos:
+            self.buflis = self.buflis + self.buflis
+        idx = 0
+        while idx < lng:
+            self.buflis[pos + idx] = s[idx]
+            idx += 1
+        self.bufpos = newpos
+
+    def put1(self, c):
+        pos = self.bufpos
+        newpos = pos + 1
+        if len(self.buflis) < newpos:
+            self.buflis = self.buflis + self.buflis
+        self.buflis[pos] = c
+        self.bufpos = newpos
+
+    def atom_int(self, typecode, x):
+        a = chr(x & 0xff)
+        x >>= 8
+        b = chr(x & 0xff)
+        x >>= 8
+        c = chr(x & 0xff)
+        x >>= 8
+        d = chr(x & 0xff)
+        pos = self.bufpos
+        newpos = pos + 5
+        if len(self.buflis) < newpos:
+            self.buflis = self.buflis + self.buflis
+        self.buflis[pos] = typecode
+        self.buflis[pos+1] = a
+        self.buflis[pos+2] = b
+        self.buflis[pos+3] = c
+        self.buflis[pos+4] = d
+        self.bufpos = newpos
+
+    def put_short(self, x):
+        a = chr(x & 0xff)
+        x >>= 8
+        b = chr(x & 0xff)
+        pos = self.bufpos
+        newpos = pos + 2
+        if len(self.buflis) < newpos:
+            self.buflis = self.buflis + self.buflis
+        self.buflis[pos]   = a
+        self.buflis[pos+1] = b
+        self.bufpos = newpos
+
+    def put_int(self, x):
+        a = chr(x & 0xff)
+        x >>= 8
+        b = chr(x & 0xff)
+        x >>= 8
+        c = chr(x & 0xff)
+        x >>= 8
+        d = chr(x & 0xff)
+        pos = self.bufpos
+        newpos = pos +4
+        if len(self.buflis) < newpos:
+            self.buflis = self.buflis + self.buflis
+        self.buflis[pos]   = a
+        self.buflis[pos+1] = b
+        self.buflis[pos+2] = c
+        self.buflis[pos+3] = d
+        self.bufpos = newpos
+
+    def get_value(self):
+        return ''.join(self.buflis[:self.bufpos])
 
 
 def invalid_typecode(space, u, tc):
