@@ -213,15 +213,16 @@ class Database(object):
         self.prepare_type(const_or_var.concretetype)
         self.prepare_arg_value(const_or_var)
 
-    def setup_all(self, key):
-        print self.obj2node
-        entrynode = self.obj2node[key]
+
+    def setup_all(self):
         while self._pendingsetup: 
             node = self._pendingsetup.pop()
             log.settingup(node)
             node.setup()
-        self.entrynode = entrynode        
-        return entrynode
+
+    def set_entrynode(self, key):
+        self.entrynode = self.obj2node[key]    
+        return self.entrynode
 
     def getnodes(self):
         return self.obj2node.values()

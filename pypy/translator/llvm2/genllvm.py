@@ -10,7 +10,7 @@ from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.codewriter import CodeWriter
-from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
+from pypy.translator.llvm2 import extfuncnode
 from pypy.translator.llvm2.module.extfunction import extdeclarations, \
      extfunctions, gc_boehm, gc_disabled, dependencies
 from pypy.translator.llvm2.node import LLVMNode
@@ -34,11 +34,44 @@ class GenLLVM(object):
         self.db = Database(translator)
         self.translator = translator
         translator.checkgraphs()
-        ExternalFuncNode.used_external_functions = {}
+        extfuncnode.ExternalFuncNode.used_external_functions = {}
 
         # for debug we create comments of every operation that may be executed
         self.debug = debug
-        
+
+    def _add_to_database(self, name, funcptr):
+        ptr = getfunctionptr(self.translator, func)
+        c = inputconst(lltype.typeOf(funcptr), funcptr)
+        c.value._obj.graph.name = name
+        self.db.prepare_arg_value(c)
+
+    def post_setup_externs(self):
+        import types
+
+        rtyper = self.db._translator.rtyper
+        from pypy.translator.c.extfunc import predeclare_all
+
+        # hacks to make predeclare_all work
+        self.db.standalone = True
+        self.db.externalfuncs = {}
+        decls = list(predeclare_all(self.db, rtyper))
+
+        for c_name, obj in decls:
+            if isinstance(obj, lltype.LowLevelType):
+                self.db.prepare_type(obj)
+            elif isinstance(obj, types.FunctionType):
+                funcptr = getfunctionptr(self.translator, obj)
+                c = inputconst(lltype.typeOf(funcptr), funcptr)
+                self.db.prepare_arg_value(c)
+
+            elif isinstance(lltype.typeOf(obj), lltype.Ptr):
+                self.db.prepare_constant(lltype.typeOf(obj), obj)
+            else:
+                print "XXX  predeclare" , c_name, type(obj), obj
+                assert False
+
+        return decls
+                       
     def gen_llvm_source(self, func=None):
         if self.debug:  print 'gen_llvm_source begin) ' + time.ctime()
         if func is None:
@@ -57,22 +90,32 @@ class GenLLVM(object):
         #     self.db.prepare_arg_value(c)
 
         # make sure exception matching and exception type are available
-        e = self.translator.rtyper.getexceptiondata()
-        for ll_helper in (e.ll_exception_match, e.ll_raise_OSError):
-            ptr = getfunctionptr(self.translator, ll_helper)
-            c = inputconst(lltype.typeOf(ptr), ptr)
-            self.db.prepare_arg_value(c)
+        # XXX Comment out anywat
+        #e = self.translator.rtyper.getexceptiondata()
+        #for ll_helper in (e.ll_exception_match, e.ll_raise_OSError):
+        #    ptr = getfunctionptr(self.translator, ll_helper)
+        #    c = inputconst(lltype.typeOf(ptr), ptr)
+        #    self.db.prepare_arg_value(c)
 
         ptr = getfunctionptr(self.translator, func)
         c = inputconst(lltype.typeOf(ptr), ptr)
         entry_point = c.value._obj
         self.db.prepare_arg_value(c)
 
-        if self.debug:  print 'gen_llvm_source db.setup_all) ' + time.ctime()
+        #if self.debug:  print 'gen_llvm_source db.setup_all) ' + time.ctime()
         #7 minutes
-        self.entrynode = self.db.setup_all(entry_point)
-        if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
-        if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
+
+        # set up all nodes
+        self.db.setup_all()
+        self.entrynode = self.db.set_entrynode(entry_point)
+
+        # post set up externs
+        extern_decls = self.post_setup_externs()
+        self.db._translator.rtyper.specialize_more_blocks()
+        self.db.setup_all()
+
+        #if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
+        #if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
         #3 seconds
         #if self.debug:
         #    log.gen_llvm_source(self.db.dump_pbcs())
@@ -91,6 +134,19 @@ class GenLLVM(object):
         nl = codewriter.newline
 
         nl(); comment("Type Declarations"); nl()
+
+        for c_name, obj in extern_decls:
+
+            if isinstance(obj, lltype.LowLevelType):
+                if isinstance(obj, lltype.Ptr):
+                    obj = obj.TO
+                l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
+                codewriter.append(l)
+            #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   
+            #elif isinstance(obj, types.FunctionType):
+            #    #c.value._obj.graph.name = c_name
+            #    print "XXX  predeclare" , c_name, type(obj), obj
+
         for typ_decl in self.db.getnodes():
             typ_decl.writedatatypedecl(codewriter)
 
@@ -137,7 +193,7 @@ class GenLLVM(object):
 
         if self.debug:  print 'gen_llvm_source used_external_functions) ' + time.ctime()
         depdone = {}
-        for funcname,value in ExternalFuncNode.used_external_functions.iteritems():
+        for funcname,value in extfuncnode.ExternalFuncNode.used_external_functions.iteritems():
             deps = dependencies(funcname,[])
             deps.reverse()
             for dep in deps:
@@ -168,7 +224,7 @@ class GenLLVM(object):
         codewriter.append("    %%result = invoke fastcc %s%%%s to label %%no_exception except label %%exception" % (t[0], t[1]))
         codewriter.newline()
         codewriter.append("no_exception:")
-        codewriter.append("    store %structtype.object_vtable* null, %structtype.object_vtable** %last_exception_type")
+        codewriter.append("    store %RPYTHON_EXCEPTION_VTABLE* null, %RPYTHON_EXCEPTION_VTABLE** %last_exception_type")
         codewriter.append("    ret %s%%result" % t[0])
         codewriter.newline()
         codewriter.append("exception:")
@@ -176,8 +232,8 @@ class GenLLVM(object):
         codewriter.append("}")
         codewriter.newline()
         codewriter.append("ccc int %__entrypoint__raised_LLVMException() {")
-        codewriter.append("    %tmp    = load %structtype.object_vtable** %last_exception_type")
-        codewriter.append("    %result = cast %structtype.object_vtable* %tmp to int")
+        codewriter.append("    %tmp    = load %RPYTHON_EXCEPTION_VTABLE** %last_exception_type")
+        codewriter.append("    %result = cast %RPYTHON_EXCEPTION_VTABLE* %tmp to int")
         codewriter.append("    ret int %result")
         codewriter.append("}")
         codewriter.newline()
