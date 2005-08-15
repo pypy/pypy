@@ -1,11 +1,13 @@
-# NOT_RPYTHON yet
 """
 Plain Python definition of the 'complex' type.
 """
 
 
 #XXX Hack: This float is supposed to overflow to inf
-OVERFLOWED_FLOAT = float("1e10000000000000000000000000000000")
+#OVERFLOWED_FLOAT = float("1e10000000000000000000000000000000")
+# but this would crash with marshal v.1.0
+OVERFLOWED_FLOAT = 1e200
+OVERFLOWED_FLOAT *= OVERFLOWED_FLOAT
 
 class complex(object):
     """complex(real[, imag]) -> complex number
@@ -376,5 +378,6 @@ real_slot = complex.real
 imag_slot = complex.imag
 
 # make the slots read-only
-complex.real = property(real_slot.__get__)
-complex.imag = property(imag_slot.__get__)
+# XXX added doc string as helper for geninterplevel (any other idea?)
+complex.real = property(real_slot.__get__, None, None, 'complex.real.__get__')
+complex.imag = property(imag_slot.__get__, None, None, 'complex.imag.__get__')

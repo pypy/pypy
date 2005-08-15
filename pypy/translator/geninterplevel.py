@@ -77,7 +77,7 @@ needed_passes.remove(transform_ovfcheck)
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.1.12'  # bump this for substantial changes
+GI_VERSION = '1.1.13'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -528,7 +528,13 @@ else:
         name = (name.replace('-', 'minus')
                     .replace('.', 'dot'))
         name = self.uniquename(name)
-        self.initcode.append1('%s = space.wrap(%r)' % (name, value))
+        # handle overflows
+        if value != 0.0 and 2*value == value:
+            self.initcode.append1('float_inf = 1e200\nfloat_inf *= float_inf')
+            sign = '-+'[value >= 0]
+            self.initcode.append('%s = space.wrap(%sfloat_inf)' % (name, sign))
+        else:
+            self.initcode.append('%s = space.wrap(%r)' % (name, value))
         return name
     
     def nameof_str(self, value):
@@ -842,7 +848,6 @@ else:
         types.ClassType: 'space.w_classobj',
         types.MethodType: (eval_helper, "instancemethod",
             "type((lambda:42).__get__(42))"),
-        property: (eval_helper, "property", 'property'),
         type(Ellipsis): (eval_helper, 'EllipsisType', 'types.EllipsisType'),
         builtin_set: (eval_helper, "set", "set"),
         builtin_frozenset: (eval_helper, "frozenset", "frozenset"),
@@ -911,6 +916,23 @@ else:
     nameof_getset_descriptor  = nameof_member_descriptor
     nameof_method_descriptor  = nameof_member_descriptor
     nameof_wrapper_descriptor = nameof_member_descriptor
+
+    def nameof_property(self, prop):
+        origin = prop.__doc__ # XXX quite a hack
+        name = self.uniquename('gprop_' + origin)
+        if not origin:
+            raise ValueError("sorry, cannot build properties"
+                             " without a helper in __doc__")
+        # property is lazy loaded app-level as well, trigger it*s creation
+        self.initcode.append1('space.builtin.get("property") # pull it in')
+        globname = self.nameof(self.moddict)
+        self.initcode.append('space.setitem(%s, space.wrap("__builtins__"), '
+                             'space.builtin.w_dict)' % globname)
+        self.initcode.append('%s = space.eval("property(%s)", %s, %s)' %(
+            name, origin, globname, globname) )
+        self.initcode.append('space.delitem(%s, space.wrap("__builtins__"))'
+                             % globname)
+        return name
 
     def nameof_file(self, fil):
         if fil is sys.stdin:
@@ -1294,9 +1316,10 @@ else:
                     q = "elif"
                 link = exits[-1]
                 yield "else:"
-                yield "    assert %s == %s" % (self.expr(block.exitswitch,
-                                                    localscope),
-                                                    link.exitcase)
+                # debug only, creates lots of fluffy C code
+                ##yield "    assert %s == %s" % (self.expr(block.exitswitch,
+                ##                                    localscope),
+                ##                                    link.exitcase)
                 for op in self.gen_link(exits[-1], localscope, blocknum, block):
                     yield "    %s" % op
 

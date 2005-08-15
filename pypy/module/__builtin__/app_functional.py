@@ -1,4 +1,5 @@
-# NOT_RPYTHON because yield is used
+# NOT_RPYTHON because it triggers an annotator error in fromshape
+# otherwise it could be geninterped.
 """
 Plain Python definition of the builtin functions oriented towards
 functional programming.
@@ -83,7 +84,7 @@ def filter(function, collection):
                 if not isinstance(c, str_type):
                     raise TypeError("can't filter %s to %s: __getitem__ returned different type", str_type.__name__, str_type.__name__)
                 res.append(c)
-        return str_type().join(res)
+        return str_type('').join(res) #added '' to make the annotator happy
         
     if function is None:
         res = [item for item in collection if item]
