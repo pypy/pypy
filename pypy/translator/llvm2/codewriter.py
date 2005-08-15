@@ -15,7 +15,6 @@ class CodeWriter(object):
         self.n_lines += 1
         if self.show_line_numbers:
             line = "%-75s; %d" % (line, self.n_lines)
-        #print >> self.f, line
         self.f.write(line + '\n')
 
     def comment(self, line, indent=True):
@@ -97,12 +96,6 @@ class CodeWriter(object):
             ["[%s, %%%s]" % item 
                 for item in zip(refs, blocknames)])
         s = "%s = phi %s %s" % (targetvar, type_, mergelist)
-        #for ref in refs:
-        #    if targetvar == ref:
-        #        self.comment('breaks SSA form: ' + s)
-        #        break
-        #else:
-        #    self.indent(s)
         self.indent(s)
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
@@ -158,6 +151,3 @@ class CodeWriter(object):
         res += "sbyte* getelementptr ([%s x sbyte]* %s, int 0, int 0) )"
         res = res % (tmpname, len, tmpname)
         self.indent(res)
-        
-    #def __str__(self): 
-    #    return "\n".join(self._lines)

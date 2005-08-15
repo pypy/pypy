@@ -26,7 +26,7 @@ class StructTypeNode(LLVMNode):
     def setup(self):
         # Recurse
         for field in self._fields():
-            self.db.prepare_repr_arg_type(field)
+            self.db.prepare_type(field)
 
     def is_atomic(self):
         for f in self._fields():
@@ -41,9 +41,8 @@ class StructTypeNode(LLVMNode):
     # main entry points from genllvm 
 
     def writedatatypedecl(self, codewriter):
-        fields = self._fields()
-        codewriter.structdef(self.ref,
-                             self.db.repr_arg_type_multi(fields))
+        fields_types = [self.db.repr_type(f) for f in self._fields()]
+        codewriter.structdef(self.ref, fields_types)
 
 class StructVarsizeTypeNode(StructTypeNode):
 
@@ -78,8 +77,7 @@ class StructVarsizeTypeNode(StructTypeNode):
             name = current._names_without_voids()[-1]
             current = current._flds[name]
         assert isinstance(current, lltype.Array)
-        arraytype = self.db.repr_arg_type(current.OF)
-        # XXX write type info as a comment
+        arraytype = self.db.repr_type(current.OF)
         varsize.write_constructor(self.db,
                                   codewriter, 
                                   self.ref,
@@ -125,7 +123,7 @@ class StructNode(ConstantLLVMNode):
             self.db.prepare_constant(lltype.typeOf(p), p)
             
     def get_typerepr(self):
-        return self.db.repr_arg_type(self.structtype)
+        return self.db.repr_type(self.structtype)
 
     def get_childref(self, index):
         pos = 0
@@ -147,8 +145,7 @@ class StructNode(ConstantLLVMNode):
         if p is None:
             ref = self.ref
         else:
-            parent = self.db.obj2node[p]
-            ref = parent.get_childref(c)
+            ref = self.db.get_childref(p, c)
         return ref
 
     def get_pbcref(self, toptr):
@@ -204,14 +201,14 @@ class StructVarsizeNode(StructNode):
     def get_typerepr(self):
         # last type is a special case and need to be worked out recursively
         types = self._gettypes()[:-1]
-        types_repr = [self.db.repr_arg_type(T) for name, T in types]
+        types_repr = [self.db.repr_type(T) for name, T in types]
         types_repr.append(self._get_lastnode().get_typerepr())
         
         return "{%s}" % ", ".join(types_repr)
          
     def get_ref(self):
         ref = super(StructVarsizeNode, self).get_ref()
-        typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
+        typeval = self.db.repr_type(lltype.typeOf(self.value))
         ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
                                         ref,
                                         typeval)

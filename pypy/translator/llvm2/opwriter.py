@@ -298,7 +298,8 @@ class OpWriter(object):
                 #assert functionref in extfunctions, msg
         
         assert len(op_args) >= 1
-        assert len(self.block.exits) >= 2   #at least one label and one exception label
+        # at least one label and one exception label
+        assert len(self.block.exits) >= 2   
 
         link = self.block.exits[0]
         assert link.exitcase is None
@@ -336,8 +337,7 @@ class OpWriter(object):
             assert issubclass(link.exitcase, Exception)
 
             etype = self.db.obj2node[link.llexitcase._obj]
-            current_exception_type = etype.get_ref()
-
+            current_exception_type = etype.get_ref()            
             target          = self.node.block_to_name[link.target]
             exc_found_label = block_label + '_exception_found_branchto_' + target
             last_exc_type_var, last_exc_value_var = None, None
@@ -388,37 +388,27 @@ class OpWriter(object):
             self.codewriter.br_uncond(target)
 
     def malloc(self, op): 
+        arg_type = op.args[0].value
         targetvar = self.db.repr_arg(op.result) 
-        arg = op.args[0]
-        assert (isinstance(arg, Constant) and 
-                isinstance(arg.value, lltype.Struct))
-        #XXX unclean
-        node  = self.db.obj2node[arg.value]
-        type_ = node.ref
-        self.codewriter.malloc(targetvar, type_, atomic=node.is_atomic())
+        
+        type_ = self.db.repr_type(arg_type)
+        atomic = self.db.is_atomic(arg_type)
+        self.codewriter.malloc(targetvar, type_, atomic=atomic)
 
     def malloc_varsize(self, op):
-        targetvar = self.db.repr_arg(op.result)
-        arg_type = op.args[0]
-        assert (isinstance(arg_type, Constant) and 
-                isinstance(arg_type.value, (lltype.Array, lltype.Struct)))
-
-        #XXX unclean
-        node = self.db.obj2node[arg_type.value]
-
-        #XXX AAARRRRRRRRRGFFFFFFFFFFFFGGGGGGGGGGHHHHHHHHHHHHHHHHHHHHHHH
-        from pypy.translator.llvm2.arraynode import VoidArrayTypeNode
-        if isinstance(node, VoidArrayTypeNode):
-            type_ = node.ref
-            self.codewriter.malloc(targetvar, type_, atomic=True) 
+        arg_type = op.args[0].value
+        if isinstance(arg_type, lltype.Array) and arg_type.OF is lltype.Void:
+            # This is a backend decision to NOT represent a void array with
+            # anything and save space - therefore not varsizeda anymore
+            self.malloc(op)
             return
         
-        struct_type = node.ref
-        struct_cons = node.constructor_ref
+        targetvar = self.db.repr_arg(op.result)
+        type_ = self.db.repr_type(arg_type) + "*"
+        type_cons = self.db.repr_constructor(arg_type)
         argrefs = self.db.repr_arg_multi(op.args[1:])
         argtypes = self.db.repr_arg_type_multi(op.args[1:])
-        self.codewriter.call(targetvar, struct_type + "*", struct_cons,
-                             argrefs, argtypes)
+        self.codewriter.call(targetvar, type_, type_cons, argrefs, argtypes)
 
     def _getindexhelper(self, name, struct):
         assert name in list(struct._names)

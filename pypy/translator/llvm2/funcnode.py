@@ -20,12 +20,12 @@ class FuncTypeNode(LLVMNode):
         return "<FuncTypeNode %r>" % self.ref
 
     def setup(self):
-        self.db.prepare_repr_arg_type(self.type_.RESULT)
-        self.db.prepare_repr_arg_type_multi(self.type_._trueargs())
+        self.db.prepare_type(self.type_.RESULT)
+        self.db.prepare_type_multi(self.type_._trueargs())
 
     def writedatatypedecl(self, codewriter):
-        returntype = self.db.repr_arg_type(self.type_.RESULT)
-        inputargtypes = self.db.repr_arg_type_multi(self.type_._trueargs())
+        returntype = self.db.repr_type(self.type_.RESULT)
+        inputargtypes = [self.db.repr_type(a) for a in self.type_._trueargs()]
         codewriter.funcdef(self.ref, returntype, inputargtypes)
 
 class FuncNode(ConstantLLVMNode):
@@ -90,10 +90,23 @@ class FuncNode(ConstantLLVMNode):
         blocks = [x for x in flatten(self.graph) if isinstance(x, Block)]
         for block in blocks:
             for op in block.operations:
-                strop = str(op)
-                l = (len(strop) + 2) # new line & null
+                strop = str(op) + "\n\x00"
+                l = len(strop)
+                if strop.find("direct_call") == -1:
+                    continue
                 tempname = self.db.add_op2comment(l, op)
-                typeandata = '[%s x sbyte] c"%s\\0A\\00"' % (l, strop)
+                printables = dict([(ord(i), None) for i in
+                                   ("0123456789abcdefghijklmnopqrstuvwxyz" +
+                                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+                                    "!#$%&()*+,-./:;<=>?@[\\]^_`{|}~ '")])
+                s = []
+                for c in strop:
+                    if ord(c) in printables:
+                        s.append(c)
+                    else:
+                        s.append("\\%02x" % ord(c))
+                r = 'c"%s"' % "".join(s)
+                typeandata = '[%s x sbyte] %s' % (l, r)
                 codewriter.globalinstance(tempname, typeandata)
 
     def writeglobalconstants(self, codewriter):
@@ -162,7 +175,7 @@ class FuncNode(ConstantLLVMNode):
         else:
             last_op_index = None
         for op_index, op in enumerate(block.operations):
-            if False:   # print out debug string
+            if True:   # print out debug string
                 codewriter.newline()
                 codewriter.comment("** %s **" % str(op))
                 info = self.db.get_op2comment(op)

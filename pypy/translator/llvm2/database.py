@@ -1,3 +1,4 @@
+
 import sys
 from pypy.translator.llvm2.log import log 
 from pypy.translator.llvm2.funcnode import FuncNode, FuncTypeNode
@@ -9,54 +10,14 @@ from pypy.translator.llvm2.arraynode import ArrayNode, StrArrayNode, \
 from pypy.translator.llvm2.opaquenode import OpaqueNode, OpaqueTypeNode
 from pypy.translator.llvm2.node import ConstantLLVMNode
 from pypy.rpython import lltype
-from pypy.objspace.flow.model import Block, Constant, Variable
-from pypy.rpython.rstr import STR
+from pypy.objspace.flow.model import Constant, Variable
             
 log = log.database 
-
-class NormalizingDict(object): 
-    """ this is a helper dict for obj2node in order 
-        to allow saner key-unification for Ptrs to functions 
-        (and possibly other stuff in the future)
-    """ 
-    def __init__(self): 
-        self._dict = {}
-    def __repr__(self): 
-        return repr(self._dict)
-    def dump(self): 
-        r = ""
-        for x,y in self._dict.items():
-            r += "%s -> %s" % (x, y)
-        return r
-    def _get(self, key):
-        if isinstance(key, Constant): 
-            if isinstance(key.value, lltype._ptr):                
-                key = key.value._obj
-        return key 
-    def __getitem__(self, key): 
-        key = self._get(key)
-        return self._dict[key]
-    def __contains__(self, key): 
-        key = self._get(key)
-        return key in self._dict 
-    def __setitem__(self, key, value): 
-        key = self._get(key)
-        self._dict[key] = value 
-    def __delitem__(self, key): 
-        key = self._get(key)
-        del self._dict[key]
-    def get(self, key):
-        key = self._get(key)
-        return self._dict.get(key)
-    def values(self): 
-        return self._dict.values()
-    def items(self): 
-        return self._dict.items()
 
 class Database(object): 
     def __init__(self, translator): 
         self._translator = translator
-        self.obj2node = NormalizingDict() 
+        self.obj2node = {}
         self._pendingsetup = []
         self._tmpcount = 1
 
@@ -108,8 +69,7 @@ class Database(object):
         r = ""
         for k, v in self.obj2node.items():
             
-            if (isinstance(k, lltype.LowLevelType) or
-                isinstance(k, Constant)):
+            if isinstance(k, lltype.LowLevelType):
                 continue
 
             assert isinstance(lltype.typeOf(k), lltype.ContainerType)
@@ -124,7 +84,7 @@ class Database(object):
                      "pbcref -> %s \n" % (v, k, ref, pbc_ref)
             return r
     
-    #_______create node_____________________________________
+    #_______setting up and preperation______________________________
 
     def create_constant_node(self, type_, value):
         node = None
@@ -157,55 +117,23 @@ class Database(object):
     def addpending(self, key, node):
         # santity check we at least have a key of the right type
         assert (isinstance(key, lltype.LowLevelType) or
-                isinstance(key, Constant) or
                 isinstance(lltype.typeOf(key), lltype.ContainerType))
 
         assert key not in self.obj2node, (
             "node with key %r already known!" %(key,))
         
         log("added to pending nodes:", type(key), node)        
+
         self.obj2node[key] = node 
         self._pendingsetup.append(node)
         
-    def prepare_repr_arg(self, const_or_var):
-        """if const_or_var is not already in a dictionary self.obj2node,
-        the appropriate node gets constructed and gets added to
-        self._pendingsetup and to self.obj2node"""
-        if const_or_var in self.obj2node:
-            return
-
-        if isinstance(const_or_var, Constant):
-            ct = const_or_var.concretetype
-            if isinstance(ct, lltype.Primitive):
-                log.prepare(const_or_var, "(is primitive)")
-                return
-
-            assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
-            value = const_or_var.value._obj
-
-            # Only prepare root values at this point 
-            if isinstance(ct, lltype.Array) or isinstance(ct, lltype.Struct):
-                p, c = lltype.parentlink(value)
-                if p is None:
-                    log.prepare_repr_arg("skipping preparing non root", value)
-                    return
-
-            if value is not None:
-                self.addpending(const_or_var, self.create_constant_node(ct.TO, value))
-        else:
-            log.prepare(const_or_var, type(const_or_var))
-
-    def prepare_repr_arg_multi(self, args):
-        for const_or_var in args:
-            self.prepare_repr_arg(const_or_var)
-
-    def prepare_repr_arg_type(self, type_):
+    def prepare_type(self, type_):
         if type_ in self.obj2node:
             return
         if isinstance(type_, lltype.Primitive):
             pass
         elif isinstance(type_, lltype.Ptr): 
-            self.prepare_repr_arg_type(type_.TO)
+            self.prepare_type(type_.TO)
 
         elif isinstance(type_, lltype.Struct):
             if type_._arrayfld:
@@ -227,14 +155,9 @@ class Database(object):
         else:
             assert False, "need to prepare typerepr %s %s" % (type_, type(type_))
 
-    def prepare_repr_arg_type_multi(self, types):
+    def prepare_type_multi(self, types):
         for type_ in types:
-            self.prepare_repr_arg_type(type_)
-
-    def prepare_arg(self, const_or_var):
-        log.prepare(const_or_var)
-        self.prepare_repr_arg_type(const_or_var.concretetype)
-        self.prepare_repr_arg(const_or_var)
+            self.prepare_type(type_)
 
     def prepare_constant(self, type_, value):
         if isinstance(type_, lltype.Primitive):
@@ -256,16 +179,49 @@ class Database(object):
         if value not in self.obj2node: 
             self.addpending(value, self.create_constant_node(type_, value))
 
-        # Always add type (it is safe)
-        self.prepare_repr_arg_type(type_)
+        # always add type (it is safe)
+        self.prepare_type(type_)
         
-    def setup_all(self, entrynode):
-        # Constants setup need to be done after the rest
-        self.entrynode = entrynode
+    def prepare_arg_value(self, const_or_var):
+        """if const_or_var is not already in a dictionary self.obj2node,
+        the appropriate node gets constructed and gets added to
+        self._pendingsetup and to self.obj2node"""
+        if isinstance(const_or_var, Constant):
+            ct = const_or_var.concretetype
+            if isinstance(ct, lltype.Primitive):
+                log.prepare(const_or_var, "(is primitive)")
+                return
+
+            assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
+            value = const_or_var.value._obj
+
+            # Only prepare root values at this point 
+            if isinstance(ct, lltype.Array) or isinstance(ct, lltype.Struct):
+                p, c = lltype.parentlink(value)
+                if p is None:
+                    log.prepare_arg_value("skipping preparing non root", value)
+                    return
+
+            if value is not None and value not in self.obj2node:
+                self.addpending(value, self.create_constant_node(ct.TO, value))
+        else:
+            assert isinstance(const_or_var, Variable)
+
+
+    def prepare_arg(self, const_or_var):
+        log.prepare(const_or_var)
+        self.prepare_type(const_or_var.concretetype)
+        self.prepare_arg_value(const_or_var)
+
+    def setup_all(self, key):
+        print self.obj2node
+        entrynode = self.obj2node[key]
         while self._pendingsetup: 
             node = self._pendingsetup.pop()
             log.settingup(node)
             node.setup()
+        self.entrynode = entrynode        
+        return entrynode
 
     def getnodes(self):
         return self.obj2node.values()
@@ -278,7 +234,8 @@ class Database(object):
             if isinstance(arg.concretetype, lltype.Primitive):
                 return self.primitive_to_str(arg.concretetype, arg.value)
             else:
-                node = self.obj2node.get(arg)
+                assert isinstance(arg.value, lltype._ptr)
+                node = self.obj2node.get(arg.value._obj)
                 if node is None:
                     return 'null'
                 else:
@@ -288,18 +245,21 @@ class Database(object):
             return "%" + str(arg)
 
     def repr_arg_type(self, arg):
-        if isinstance(arg, (Constant, Variable)): 
-            arg = arg.concretetype 
-        try:
-            return self.obj2node[arg].ref 
-        except KeyError: 
-            if isinstance(arg, lltype.Primitive):
-                return self.primitives[arg]
-            elif isinstance(arg, lltype.Ptr):
-                return self.repr_arg_type(arg.TO) + '*'
-            else: 
-                raise TypeError("cannot represent %r" %(arg,))
+        assert isinstance(arg, (Constant, Variable))
+        ct = arg.concretetype 
+        return self.repr_type(ct)
     
+    def repr_type(self, type_):
+        try:
+            return self.obj2node[type_].ref 
+        except KeyError: 
+            if isinstance(type_, lltype.Primitive):
+                return self.primitives[type_]
+            elif isinstance(type_, lltype.Ptr):
+                return self.repr_type(type_.TO) + '*'
+            else: 
+                raise TypeError("cannot represent %r" %(type_,))
+            
     def repr_argwithtype(self, arg):
         return self.repr_arg(arg), self.repr_arg_type(arg)
             
@@ -314,10 +274,10 @@ class Database(object):
         type_ = lltype.typeOf(value)
         if isinstance(type_, lltype.Primitive):
             repr = self.primitive_to_str(type_, value)
-            return None, "%s %s" % (self.repr_arg_type(type_), repr)
+            return None, "%s %s" % (self.repr_type(type_), repr)
 
         elif isinstance(type_, lltype.Ptr):
-            toptr = self.repr_arg_type(type_)
+            toptr = self.repr_type(type_)
             value = value._obj
 
             # special case, null pointer
@@ -338,6 +298,9 @@ class Database(object):
         count = self._tmpcount 
         self._tmpcount += 1
         return "%tmp." + str(count) 
+
+    def repr_constructor(self, type_):
+        return self.obj2node[type_].constructor_ref
 
     # __________________________________________________________
     # Primitive stuff
@@ -386,3 +349,7 @@ class Database(object):
 
     def is_atomic(self, value):
         return self.obj2node[value].is_atomic()
+
+    def get_childref(self, parent, child):
+        node = self.obj2node[parent]
+        return node.get_childref(child)

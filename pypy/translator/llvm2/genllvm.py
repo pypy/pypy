@@ -6,7 +6,6 @@ from pypy.translator.llvm2 import build_llvm_module
 from pypy.translator.llvm2.database import Database 
 from pypy.translator.llvm2.pyxwrapper import write_pyx_wrapper 
 from pypy.translator.llvm2.log import log
-from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
@@ -24,7 +23,7 @@ function_count = {}
 
 class GenLLVM(object):
 
-    def __init__(self, translator, debug=False):
+    def __init__(self, translator, debug=True):
     
         # reset counters
         LLVMNode.nodename_count = {}    
@@ -47,25 +46,22 @@ class GenLLVM(object):
         for ll_helper in (e.ll_exception_match,):
             ptr = getfunctionptr(self.translator, ll_helper)
             c = inputconst(lltype.typeOf(ptr), ptr)
-            self.db.prepare_repr_arg(c)
-            assert c in self.db.obj2node
+            self.db.prepare_arg_value(c)
 
         ptr = getfunctionptr(self.translator, func)
         c = inputconst(lltype.typeOf(ptr), ptr)
-        self.db.prepare_repr_arg(c)
-        assert c in self.db.obj2node
+        entry_point = c.value._obj
+        self.db.prepare_arg_value(c)
 
         if self.debug:  print 'gen_llvm_source db.setup_all) ' + time.ctime()
         #7 minutes
-        self.db.setup_all(self.db.obj2node[c])
+        self.entrynode = self.db.setup_all(entry_point)
         if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
         if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
         #3 seconds
-        if self.debug:
-            log.gen_llvm_source(self.db.dump_pbcs())
-
-        self.entrynode = self.db.obj2node[c]
-
+        #if self.debug:
+        #    log.gen_llvm_source(self.db.dump_pbcs())
+        
         # prevent running the same function twice in a test
         if func.func_name in function_count:
             postfix = '_%d' % function_count[func.func_name]
@@ -74,8 +70,8 @@ class GenLLVM(object):
             postfix = ''
             function_count[func.func_name] = 1
         filename = udir.join(func.func_name + postfix).new(ext='.ll')
-
-        codewriter = CodeWriter( open(str(filename),'w') )
+        f = open(str(filename),'w')
+        codewriter = CodeWriter(f)
         comment = codewriter.comment
         nl = codewriter.newline
 
@@ -91,10 +87,10 @@ class GenLLVM(object):
 
         if self.debug:  print 'gen_llvm_source typ_decl.writecomments) ' + time.ctime()
         #0 minutes
-        if self.debug:
-            nl(); comment("Comments") ; nl()
-            for typ_decl in self.db.getnodes():
-                typ_decl.writecomments(codewriter)
+        #if self.debug:
+        #    nl(); comment("Comments") ; nl()
+        #    for typ_decl in self.db.getnodes():
+        #        typ_decl.writecomments(codewriter)
             
         if self.debug:  print 'gen_llvm_source extdeclarations) ' + time.ctime()
         nl(); comment("Function Prototypes") ; nl()
@@ -102,8 +98,8 @@ class GenLLVM(object):
             codewriter.append(extdecl)
 
         if self.debug:  print 'gen_llvm_source self._debug_prototype) ' + time.ctime()
-        if self.debug:
-            self._debug_prototype(codewriter)
+        #if self.debug:
+        #    self._debug_prototype(codewriter)
             
         if self.debug:  print 'gen_llvm_source typ_decl.writedecl) ' + time.ctime()
         for typ_decl in self.db.getnodes():

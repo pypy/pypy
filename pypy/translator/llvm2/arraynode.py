@@ -41,7 +41,7 @@ class ArrayTypeNode(LLVMNode):
         return "<ArrayTypeNode %r>" % self.ref
         
     def setup(self):
-        self.db.prepare_repr_arg_type(self.arraytype)
+        self.db.prepare_type(self.arraytype)
 
     def is_atomic(self):
         if isinstance(self.arraytype, lltype.Primitive):
@@ -57,7 +57,7 @@ class ArrayTypeNode(LLVMNode):
     def writedatatypedecl(self, codewriter):
         codewriter.arraydef(self.ref,
                             self.db.get_machine_word(),
-                            self.db.repr_arg_type(self.arraytype))
+                            self.db.repr_type(self.arraytype))
 
     def writedecl(self, codewriter): 
         # declaration for constructor
@@ -65,7 +65,7 @@ class ArrayTypeNode(LLVMNode):
 
     def writeimpl(self, codewriter):
         log.writeimpl(self.ref)
-        fromtype = self.db.repr_arg_type(self.arraytype) 
+        fromtype = self.db.repr_type(self.arraytype) 
         varsize.write_constructor(self.db, codewriter, self.ref, 
                                   self.constructor_decl,
                                   fromtype,
@@ -82,6 +82,9 @@ class VoidArrayTypeNode(LLVMNode):
         td = "%s = type { %s }" % (self.ref, self.db.get_machine_word())
         codewriter.append(td)
         
+    def is_atomic(self):
+        return True
+
 class ArrayNode(ConstantLLVMNode):
     """ An arraynode.  Elements can be
     a primitive,
@@ -120,12 +123,12 @@ class ArrayNode(ConstantLLVMNode):
 
     def get_typerepr(self):
         arraylen = self.get_arrayvalue()[0]
-        typeval = self.db.repr_arg_type(self.arraytype)
+        typeval = self.db.repr_type(self.arraytype)
         return "{ %s, [%s x %s] }" % (self.db.get_machine_word(),
                                       arraylen, typeval)
 
     def get_ref(self):
-        typeval = self.db.repr_arg_type(lltype.typeOf(self.value))
+        typeval = self.db.repr_type(lltype.typeOf(self.value))
         ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
                                         self.ref,
                                         typeval)
@@ -151,7 +154,7 @@ class ArrayNode(ConstantLLVMNode):
     
     def constantvalue(self):
         physicallen, arrayrepr = self.get_arrayvalue()
-        typeval = self.db.repr_arg_type(self.arraytype)
+        typeval = self.db.repr_type(self.arraytype)
 
         # first length is logical, second is physical
         value = "%s %s, [%s x %s] %s" % (self.db.get_machine_word(),
