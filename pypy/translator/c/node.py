@@ -180,7 +180,7 @@ class ArrayDefNode:
         self.LLTYPE = ARRAY
         original_varlength = varlength
         if ARRAY is STR.chars:
-            varlength += 1   # for the NULL char at the end of the string
+            varlength += 1   # for the NUL char terminator at the end of the string
         self.varlength = varlength
         if original_varlength == 1:
             basename = 'array'
