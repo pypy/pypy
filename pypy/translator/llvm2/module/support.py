@@ -16,7 +16,7 @@ void %__debug([12 x sbyte]* %msg12) {
 
 """)
 
-extfunctions["%cast"] = ((), """
+extfunctions["%cast"] = (("%string_to_RPyString",), """
 internal fastcc sbyte* %cast(%RPyString* %structstring) {
     %source1ptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 1
     %source1 = cast [0 x sbyte]* %source1ptr to sbyte*
