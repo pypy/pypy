@@ -138,13 +138,12 @@ def test_os_fstat():
     assert f1() == st[1]
     assert f2() == st[2]
 
-def test_getcwd():
-    py.test.skip("ll_os_getcwd not implemented")
+def test_os_getcwd():
+    cwd = os.getcwd()
     def does_stuff():
-        return os.getcwd()
+        return os.getcwd() == cwd
     f1 = compile_function(does_stuff, [])
-    res = f1()
-    assert res == os.getcwd()
+    assert f1()
 
 def test_math_frexp():
     py.test.skip("ll_math_frexp not implemented")

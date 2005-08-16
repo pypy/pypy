@@ -3,10 +3,7 @@ from pypy.rpython import lltype
 from pypy.translator.llvm2.log import log
 from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm2 import varsize 
-import itertools
 log = log.structnode
-
-nextnum = itertools.count().next
 
 class ArrayTypeNode(LLVMNode):
     def __init__(self, db, array):
@@ -20,7 +17,6 @@ class ArrayTypeNode(LLVMNode):
         # for the array type in llvm source code 
         # constructor_decl is used to declare the constructor
         # for the array type (see writeimpl)
-        c = nextnum()
         name = ""        
         if isinstance(arraytype, lltype.Ptr):
             name += "ptr_"

@@ -13,12 +13,8 @@ from pypy.translator.tool import stdoutcapture
 from pypy.translator.llvm2.genllvm import use_boehm_gc
 from pypy.translator.llvm2.log import log
 
-class CompileError(exceptions.Exception):
-    pass
-
-SOURCES = "time.ii ".split()
-
-EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support --regalloc iterativescan"
+EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support"
+#--regalloc iterativescan" #unstable (http://llvm.cs.uiuc.edu/docs/ReleaseNotes.html)
 
 OPTIMIZATION_SWITCHES = (" ".join([
 

@@ -9,7 +9,6 @@ class CodeWriter(object):
         self.f = f
         self.show_line_numbers = show_line_number
         self.n_lines = 0
-        self.count = count().next
 
     def append(self, line): 
         self.n_lines += 1
@@ -70,6 +69,7 @@ class CodeWriter(object):
                     % (intty, cond, defaultdest, labels))
 
     def openfunc(self, decl, is_entrynode=False): 
+        self.malloc_count = count(0).next
         self.newline()
         if is_entrynode:
             linkage_type = ''
@@ -127,12 +127,16 @@ class CodeWriter(object):
                         "%(fromvar)s to %(targettype)s" % locals())
 
     def malloc(self, targetvar, type_, size=1, atomic=False):
-        cnt = self.count()
+        n = self.malloc_count()
+        if n:
+            cnt = ".%d" % n
+        else:
+            cnt = ""
         postfix = ('', '_atomic')[atomic]
-        self.indent("%%malloc.Size.%(cnt)d = getelementptr %(type_)s* null, uint %(size)s" % locals())
-        self.indent("%%malloc.SizeU.%(cnt)d = cast %(type_)s* %%malloc.Size.%(cnt)d to uint" % locals())
-        self.indent("%%malloc.Ptr.%(cnt)d = call fastcc sbyte* %%gc_malloc%(postfix)s(uint %%malloc.SizeU.%(cnt)d)" % locals())
-        self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr.%(cnt)d to %(type_)s*" % locals())
+        self.indent("%%malloc.Size%(cnt)s = getelementptr %(type_)s* null, uint %(size)s" % locals())
+        self.indent("%%malloc.SizeU%(cnt)s = cast %(type_)s* %%malloc.Size%(cnt)s to uint" % locals())
+        self.indent("%%malloc.Ptr%(cnt)s = call fastcc sbyte* %%gc_malloc%(postfix)s(uint %%malloc.SizeU%(cnt)s)" % locals())
+        self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr%(cnt)s to %(type_)s*" % locals())
 
     def getelementptr(self, targetvar, type, typevar, *indices):
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, int 0, " % locals()

@@ -25,6 +25,20 @@ internal fastcc sbyte* %cast(%RPyString* %structstring) {
 
 """)
 
+extfunctions["%string_to_RPyString"] = ((), """
+internal fastcc %RPyString* %string_to_RPyString(sbyte* %s) {
+    %len       = call ccc int %strlen(sbyte* %s)
+    %rpy       = call fastcc %RPyString* %RPyString_New__Signed(int %len)
+    %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
+    %rpystr    = cast [0 x sbyte]* %rpystrptr to sbyte*
+
+    call ccc sbyte* %strncpy(sbyte* %rpystr, sbyte* %s, int %len)
+
+    ret %RPyString* %rpy
+}
+
+""")
+
 #abs functions
 extfunctions["%int_abs"] = ((), """
 internal fastcc int %int_abs(int %x) {

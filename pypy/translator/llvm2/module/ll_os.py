@@ -6,14 +6,17 @@ declare ccc int %open(sbyte*, int, int)
 declare ccc int %write(int, sbyte*, int)
 declare ccc int %read(int, sbyte*, int)
 declare ccc sbyte* %strncpy(sbyte*, sbyte*, int)
+declare ccc int %strlen(sbyte*)
 declare ccc int %isatty(int)
 declare ccc int %stat(sbyte*, [32 x int]*)
 declare ccc int %fstat(int, [32 x int]*)
 declare ccc int %lseek(int, int, int)
 declare ccc int %ftruncate(int, int)
+declare ccc sbyte* %getcwd(sbyte*, int)
 
 %errno = external global int
 
+%__ll_os_getcwd             = internal constant [12 x sbyte] c"getcwd.....\\00"
 %__ll_os_ftruncate          = internal constant [12 x sbyte] c"ftruncate..\\00"
 %__ll_os_lseek              = internal constant [12 x sbyte] c"lseek......\\00"
 %__ll_os_stat               = internal constant [12 x sbyte] c"stat.......\\00"
@@ -28,6 +31,21 @@ extfunctions["%ll_os_dup"] = ((), """
 internal fastcc int %ll_os_dup(int %fd) {
     %ret = call ccc int %dup(int %fd)
     ret int %ret
+}
+
+""")
+
+extfunctions["%ll_os_getcwd"] = (("%string_to_RPyString", "%__debug"), """
+internal fastcc %RPyString* %ll_os_getcwd() {
+
+    call fastcc void %__debug([12 x sbyte]* %__ll_os_getcwd) ; XXX: Test: ll_os_getcwd
+
+    %s = alloca sbyte, uint 1024
+    %res = call ccc sbyte* %getcwd(sbyte* %s, int 1023)
+    ;if %res == null: raise...
+
+    %cwd = call fastcc %RPyString* %string_to_RPyString(sbyte* %s)
+    ret %RPyString* %cwd
 }
 
 """)
@@ -102,60 +120,19 @@ internal fastcc int %ll_os_lseek(int %fd, int %pos, int %how) {
 }
 """)
 
-"""
-RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st) {
-    long res0, res1, res2, res3, res4, res5, res6, res7, res8, res9;
-    res0 = (long)st.st_mode; 
-    res1 = (long)st.st_ino; /*XXX HAVE_LARGEFILE_SUPPORT!*/
-    res2 = (long)st.st_dev; /*XXX HAVE_LONG_LONG!*/
-    res3 = (long)st.st_nlink;
-    res4 = (long)st.st_uid;
-    res5 = (long)st.st_gid;
-    res6 = (long)st.st_size; /*XXX HAVE_LARGEFILE_SUPPORT!*/
-    res7 = (long)st.st_atime; /*XXX ignoring quite a lot of things for time here */
-    res8 = (long)st.st_mtime; /*XXX ignoring quite a lot of things for time here */
-    res9 = (long)st.st_ctime; /*XXX ignoring quite a lot of things for time here */
-    /*XXX ignoring BLOCK info here*/
-}
-
-return ll_stat_result(res0, res1, res2, res3, res4,
-    res5, res6, res7, res8, res9);
-}       
-
-RPySTAT_RESULT* LL_os_stat(RPyString * fname) {
-    STRUCT_STAT st;
-    int error = STAT(RPyString_AsString(fname), &st);
-    if (error != 0) {
-        RPYTHON_RAISE_OSERROR(errno);
-        return NULL;
-    }
-    return _stat_construct_result_helper(st);
-}       
-                                                                            
-RPySTAT_RESULT* LL_os_fstat(long fd) {
-    STRUCT_STAT st;
-    int error = FSTAT(fd, &st);
-    if (error != 0) {
-        RPYTHON_RAISE_OSERROR(errno);
-        return NULL;
-    }             
-    return _stat_construct_result_helper(st);
-} 
-"""
-
 extfunctions["%_stat_construct_result_helper"] = ((), """
 internal fastcc %RPySTAT_RESULT* %_stat_construct_result_helper([32 x int]* %src) {
 
-    %src0ptr = getelementptr [32 x int]* %src, int 0, int 4
-    %src1ptr = getelementptr [32 x int]* %src, int 0, int 3
-    %src2ptr = getelementptr [32 x int]* %src, int 0, int 0
-    %src3ptr = getelementptr [32 x int]* %src, int 0, int 5
-    %src4ptr = getelementptr [32 x int]* %src, int 0, int 6
-    %src5ptr = getelementptr [32 x int]* %src, int 0, int 7
-    %src6ptr = getelementptr [32 x int]* %src, int 0, int 11
-    %src7ptr = getelementptr [32 x int]* %src, int 0, int 14
-    %src8ptr = getelementptr [32 x int]* %src, int 0, int 16
-    %src9ptr = getelementptr [32 x int]* %src, int 0, int 18
+    %src0ptr = getelementptr [32 x int]* %src, int 0, uint 4    ;st_mode
+    %src1ptr = getelementptr [32 x int]* %src, int 0, uint 3    ;st_ino
+    %src2ptr = getelementptr [32 x int]* %src, int 0, uint 0    ;st_dev
+    %src3ptr = getelementptr [32 x int]* %src, int 0, uint 5    ;st_nlink
+    %src4ptr = getelementptr [32 x int]* %src, int 0, uint 6    ;st_uid
+    %src5ptr = getelementptr [32 x int]* %src, int 0, uint 7    ;st_gid
+    %src6ptr = getelementptr [32 x int]* %src, int 0, uint 11   ;st_size
+    %src7ptr = getelementptr [32 x int]* %src, int 0, uint 14   ;st_atime
+    %src8ptr = getelementptr [32 x int]* %src, int 0, uint 16   ;st_mtime
+    %src9ptr = getelementptr [32 x int]* %src, int 0, uint 18   ;st_ctime
 
     %src0 = load int* %src0ptr
     %src1 = load int* %src1ptr
@@ -168,10 +145,10 @@ internal fastcc %RPySTAT_RESULT* %_stat_construct_result_helper([32 x int]* %src
     %src8 = load int* %src8ptr
     %src9 = load int* %src9ptr
 
-    %malloc.Size.1162  = getelementptr %RPySTAT_RESULT* null, uint 1
-    %malloc.SizeU.1162 = cast %RPySTAT_RESULT* %malloc.Size.1162 to uint
-    %malloc.Ptr.1162   = call fastcc sbyte* %gc_malloc_atomic(uint %malloc.SizeU.1162)
-    %dest              = cast sbyte* %malloc.Ptr.1162 to %RPySTAT_RESULT*
+    %malloc.Size  = getelementptr %RPySTAT_RESULT* null, uint 1
+    %malloc.SizeU = cast %RPySTAT_RESULT* %malloc.Size to uint
+    %malloc.Ptr   = call fastcc sbyte* %gc_malloc_atomic(uint %malloc.SizeU)
+    %dest         = cast sbyte* %malloc.Ptr to %RPySTAT_RESULT*
 
     %dest0ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 0
     %dest1ptr = getelementptr %RPySTAT_RESULT* %dest, int 0, uint 1
