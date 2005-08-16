@@ -47,7 +47,7 @@ class Test_TraceObjSpace:
             filter(None, []) # filter implemented in appspace -> has many more bytecodes        
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        assert len(disresult.bytecodes) < len(list(res.getbytecodes()))
+        assert len(disresult.bytecodes) <= len(list(res.getbytecodes()))
 
     def get_operation(self, iter, optype, name):
         for op in iter:
