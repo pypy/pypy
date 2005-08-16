@@ -36,7 +36,7 @@ class SRE_Pattern(object):
         regular expression, return a corresponding MatchObject instance. Return
         None if the string does not match the pattern."""
         state = _State(string, pos, endpos, self.flags)
-        if state.match(self._code):
+        if match(state, self._code):
             return SRE_Match(self, state)
         else:
             return None
@@ -47,7 +47,7 @@ class SRE_Pattern(object):
         instance. Return None if no position in the string matches the
         pattern."""
         state = _State(string, pos, endpos, self.flags)
-        if state.search(self._code):
+        if search(state, self._code):
             return SRE_Match(self, state)
         else:
             return None
@@ -59,7 +59,7 @@ class SRE_Pattern(object):
         while state.start <= state.end:
             state.reset()
             state.string_position = state.start
-            if not state.search(self._code):
+            if not search(state, self._code):
                 break
             match = SRE_Match(self, state)
             if self.groups == 0 or self.groups == 1:
@@ -86,7 +86,7 @@ class SRE_Pattern(object):
         while not count or n < count:
             state.reset()
             state.string_position = state.start
-            if not state.search(self._code):
+            if not search(state, self._code):
                 break
             if last_pos < state.start:
                 sublist.append(string[last_pos:state.start])
@@ -132,7 +132,7 @@ class SRE_Pattern(object):
         while not maxsplit or n < maxsplit:
             state.reset()
             state.string_position = state.start
-            if not state.search(self._code):
+            if not search(state, self._code):
                 break
             if state.start == state.string_position: # zero-width match
                 if last == state.end:                # or end of string
@@ -176,7 +176,7 @@ class SRE_Scanner(object):
         state.reset()
         state.string_position = state.start
         match = None
-        if matcher(self.pattern._code):
+        if matcher(state, self.pattern._code):
             match = SRE_Match(self.pattern, state)
         if match is None or state.string_position == state.start:
             state.start += 1
@@ -185,10 +185,10 @@ class SRE_Scanner(object):
         return match
 
     def match(self):
-        return self._match_search(self._state.match)
+        return self._match_search(match)
 
     def search(self):
-        return self._match_search(self._state.search)
+        return self._match_search(search)
 
 
 class SRE_Match(object):
@@ -326,100 +326,6 @@ class _State(object):
         self.context_stack = []
         self.repeat = None
 
-    def match(self, pattern_codes):
-        # Optimization: Check string length. pattern_codes[3] contains the
-        # minimum length for a string to possibly match.
-        if pattern_codes[0] == OPCODES["info"] and pattern_codes[3]:
-            if self.end - self.string_position < pattern_codes[3]:
-                #_log("reject (got %d chars, need %d)"
-                #         % (self.end - self.string_position, pattern_codes[3]))
-                return False
-        
-        dispatcher = _OpcodeDispatcher()
-        self.context_stack.append(_MatchContext(self, pattern_codes))
-        has_matched = None
-        while len(self.context_stack) > 0:
-            context = self.context_stack[-1]
-            has_matched = dispatcher.match(context)
-            if has_matched is not None: # don't pop if context isn't done
-                self.context_stack.pop()
-        return has_matched
-
-    def search(self, pattern_codes):
-        flags = 0
-        if pattern_codes[0] == OPCODES["info"]:
-            # optimization info block
-            # <INFO> <1=skip> <2=flags> <3=min> <4=max> <5=prefix info>
-            if pattern_codes[2] & SRE_INFO_PREFIX and pattern_codes[5] > 1:
-                return self.fast_search(pattern_codes)
-            flags = pattern_codes[2]
-            pattern_codes = pattern_codes[pattern_codes[1] + 1:]
-
-        string_position = self.start
-        if pattern_codes[0] == OPCODES["literal"]:
-            # Special case: Pattern starts with a literal character. This is
-            # used for short prefixes
-            character = pattern_codes[1]
-            while True:
-                while string_position < self.end \
-                        and ord(self.string[string_position]) != character:
-                    string_position += 1
-                if string_position >= self.end:
-                    return False
-                self.start = string_position
-                string_position += 1
-                self.string_position = string_position
-                if flags & SRE_INFO_LITERAL:
-                    return True
-                if self.match(pattern_codes[2:]):
-                    return True
-            return False
-
-        # General case
-        while string_position <= self.end:
-            self.reset()
-            self.start = self.string_position = string_position
-            if self.match(pattern_codes):
-                return True
-            string_position += 1
-        return False
-
-    def fast_search(self, pattern_codes):
-        """Skips forward in a string as fast as possible using information from
-        an optimization info block."""
-        # pattern starts with a known prefix
-        # <5=length> <6=skip> <7=prefix data> <overlap data>
-        flags = pattern_codes[2]
-        prefix_len = pattern_codes[5]
-        prefix_skip = pattern_codes[6] # don't really know what this is good for
-        prefix = pattern_codes[7:7 + prefix_len]
-        overlap = pattern_codes[7 + prefix_len - 1:pattern_codes[1] + 1]
-        pattern_codes = pattern_codes[pattern_codes[1] + 1:]
-        i = 0
-        string_position = self.string_position
-        while string_position < self.end:
-            while True:
-                if ord(self.string[string_position]) != prefix[i]:
-                    if i == 0:
-                        break
-                    else:
-                        i = overlap[i]
-                else:
-                    i += 1
-                    if i == prefix_len:
-                        # found a potential match
-                        self.start = string_position + 1 - prefix_len
-                        self.string_position = string_position + 1 \
-                                                     - prefix_len + prefix_skip
-                        if flags & SRE_INFO_LITERAL:
-                            return True # matched all of pure literal pattern
-                        if self.match(pattern_codes[2 * prefix_skip:]):
-                            return True
-                        i = overlap[i]
-                    break
-            string_position += 1
-        return False
-
     def set_mark(self, mark_nr, position):
         if mark_nr & 1:
             # This id marks the end of a group.
@@ -449,6 +355,103 @@ class _State(object):
 
     def lower(self, char_ord):
         return _sre.getlower(char_ord, self.flags)
+
+
+def search(state, pattern_codes):
+    flags = 0
+    if pattern_codes[0] == OPCODES["info"]:
+        # optimization info block
+        # <INFO> <1=skip> <2=flags> <3=min> <4=max> <5=prefix info>
+        #if pattern_codes[2] & SRE_INFO_PREFIX and pattern_codes[5] > 1:
+        #    return state.fast_search(pattern_codes)
+        flags = pattern_codes[2]
+        pattern_codes = pattern_codes[pattern_codes[1] + 1:]
+
+    string_position = state.start
+    if pattern_codes[0] == OPCODES["literal"]:
+        # Special case: Pattern starts with a literal character. This is
+        # used for short prefixes
+        character = pattern_codes[1]
+        while True:
+            while string_position < state.end \
+                    and ord(state.string[string_position]) != character:
+                string_position += 1
+            if string_position >= state.end:
+                return False
+            state.start = string_position
+            string_position += 1
+            state.string_position = string_position
+            if flags & SRE_INFO_LITERAL:
+                return True
+            if match(state, pattern_codes[2:]):
+                return True
+        return False
+
+    # General case
+    while string_position <= state.end:
+        state.reset()
+        state.start = state.string_position = string_position
+        if match(state, pattern_codes):
+            return True
+        string_position += 1
+    return False
+
+
+def fast_search(state, pattern_codes):
+    """Skips forward in a string as fast as possible using information from
+    an optimization info block."""
+    # pattern starts with a known prefix
+    # <5=length> <6=skip> <7=prefix data> <overlap data>
+    flags = pattern_codes[2]
+    prefix_len = pattern_codes[5]
+    prefix_skip = pattern_codes[6] # don't really know what this is good for
+    prefix = pattern_codes[7:7 + prefix_len]
+    overlap = pattern_codes[7 + prefix_len - 1:pattern_codes[1] + 1]
+    pattern_codes = pattern_codes[pattern_codes[1] + 1:]
+    i = 0
+    string_position = state.string_position
+    while string_position < state.end:
+        while True:
+            if ord(state.string[string_position]) != prefix[i]:
+                if i == 0:
+                    break
+                else:
+                    i = overlap[i]
+            else:
+                i += 1
+                if i == prefix_len:
+                    # found a potential match
+                    state.start = string_position + 1 - prefix_len
+                    state.string_position = string_position + 1 \
+                                                 - prefix_len + prefix_skip
+                    if flags & SRE_INFO_LITERAL:
+                        return True # matched all of pure literal pattern
+                    if match(state, pattern_codes[2 * prefix_skip:]):
+                        return True
+                    i = overlap[i]
+                break
+        string_position += 1
+    return False
+
+
+def match(state, pattern_codes):
+    # Optimization: Check string length. pattern_codes[3] contains the
+    # minimum length for a string to possibly match.
+    if pattern_codes[0] == OPCODES["info"] and pattern_codes[3]:
+        if state.end - state.string_position < pattern_codes[3]:
+            #_log("reject (got %d chars, need %d)"
+            #         % (state.end - state.string_position, pattern_codes[3]))
+            return False
+    
+    dispatcher = _OpcodeDispatcher()
+    state.context_stack.append(_MatchContext(state, pattern_codes))
+    has_matched = None
+    while len(state.context_stack) > 0:
+        context = state.context_stack[-1]
+        has_matched = dispatcher.match(context)
+        if has_matched is not None: # don't pop if context isn't done
+            state.context_stack.pop()
+    return has_matched
 
 
 class _MatchContext(object):
