@@ -227,13 +227,12 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
 
 
 def build_executable(cfilenames, outputfilename=None, include_dirs=None,
-                     libraries=['m']):
+                     libraries=[]):
     from distutils.ccompiler import new_compiler 
-    if outputfilename is None: 
-        if sys.platform == 'win32': 
-            ext = '.exe'
-        else: 
-            ext = ''
+    if outputfilename is None:
+        ext = ''
+        if sys.platform != 'win32': 
+            libraries.append('m')
         outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
     else: 
         outputfilename = py.path.local(outputfilename) 
