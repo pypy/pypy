@@ -283,22 +283,12 @@ class Translator:
         from pypy.translator.llvm2 import genllvm
         if self.annotator is None:
             raise ValueError, "function has to be annotated."
+        if standalone:
+            exe_name = self.entrypoint.__name__
+        else:
+            exe_name = None
         self.frozen = True
-        return genllvm.genllvm(self, really_compile=really_compile, standalone=standalone, optimize=optimize)
-
-        #self.frozen = True
-        #if standalone:
-        #    builder = genllvm.LLVMStandaloneBuilder(self, optimize=optimize)
-        #else:
-        #    builder = genllvm.LLVMExtModuleBuilder(self, optimize=optimize)
-        #source_filename = builder.generate_source()
-        #if not really_compile:
-        #    return source_filename
-        #builder.compile()
-        #if standalone:
-        #    return builder.executable_name
-        #builder.import_module()
-        #return builder.get_entry_point()
+        return genllvm.genllvm(self, really_compile=really_compile, standalone=standalone, optimize=optimize, exe_name=exe_name)
 
     def call(self, *args):
         """Calls underlying Python function."""

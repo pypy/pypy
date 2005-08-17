@@ -15,10 +15,6 @@ from pypy.translator.llvm2.module.extfunction import extdeclarations, \
      extfunctions, gc_boehm, gc_disabled, dependencies
 from pypy.translator.llvm2.node import LLVMNode
 
-#XXX commented out because extfuncs temp. not working
-#from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
-#from pypy.rpython.annlowlevel import annotate_lowlevel_helper
-
 from pypy.translator.translator import Translator
 
 import time
@@ -77,25 +73,6 @@ class GenLLVM(object):
         if func is None:
             func = self.translator.entrypoint
         self.entrypoint = func
-
-        #XXX commented out because extfuncs temp. not working
-        # # make sure helper functions are available
-        # rtyper = self.translator.rtyper
-        # for ptr in (
-        #             #rtyper.annotate_helper(ll_math.ll_frexp_result, [lltype.Float, lltype.Signed]),
-        #             #rtyper.annotate_helper(ll_math.ll_modf_result , [lltype.Float, lltype.Float ]),
-        #             rtyper.annotate_helper(ll_os.ll_stat_result   , [lltype.Signed] * 10),
-        #            ):
-        #     c = inputconst(lltype.typeOf(ptr), ptr)
-        #     self.db.prepare_arg_value(c)
-
-        # make sure exception matching and exception type are available
-        # XXX Comment out anywat
-        #e = self.translator.rtyper.getexceptiondata()
-        #for ll_helper in (e.ll_exception_match, e.ll_raise_OSError):
-        #    ptr = getfunctionptr(self.translator, ll_helper)
-        #    c = inputconst(lltype.typeOf(ptr), ptr)
-        #    self.db.prepare_arg_value(c)
 
         ptr = getfunctionptr(self.translator, func)
         c = inputconst(lltype.typeOf(ptr), ptr)
@@ -273,7 +250,7 @@ class GenLLVM(object):
                       filename,
                       really_compile=True,
                       standalone=False,
-                      optimize=False,   #XXX disabled because it breaks things (debug output)
+                      optimize=True,
                       exe_name=None):
 
         if not llvm_is_on_path():
