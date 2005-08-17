@@ -284,7 +284,56 @@ def utf_16_ex_decode( data,errors='strict'):
 def escape_decode(data,errors='strict'):
     """None
     """
-    return data,len(data)
+    l = len(data)
+    i = 0
+    res = []
+    while i<l:
+        
+        if data[i] == '\\':
+            i += 1
+            if data[i] == '\\':
+                res += '\\'
+            if data[i] == 'n':
+                res += '\n'
+            if data[i] == 't':
+                res += '\t'
+            if data[i] == 'r':
+                res += '\r'
+            if data[i] == 'b':
+                res += '\b'
+            if data[i] == '\'':
+                res += '\''
+            if data[i] == '\"':
+                res += '\"'
+            if data[i] == 'f':
+                res += '\f'
+            if data[i] == 'a':
+                res += '\a'
+            if data[i] == 'v':
+                res += '\v'
+            if data[i] == '0':
+                octal = data[i+1:i+2]
+                res += chr(int(octal,8))
+                i += 2
+            if data[i] == 'x':
+                hexa = data[i+1:i+2]
+                res += chr(int(hexa,16))
+                i += 2
+            if data[i] == 'u':
+                hexa = data[i+1:i+4]
+                res += unichr(int(hexa,16))
+                i += 4
+            if data[i] == 'U':
+                hexa = data[i+1:i+8]
+                res += unichr(int(hexa,16))
+                i += 8
+            if data[i] == 'N':
+                raise NotImplementedError
+        else:
+            res += data[i]
+        i += 1
+    res = ''.join(res)    
+    return res,len(res)
 
 def charbuffer_encode( obj,errors='strict'):
     """None

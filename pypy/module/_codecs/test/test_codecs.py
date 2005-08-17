@@ -39,3 +39,7 @@ class AppTestCodecs:
     def test_raw_unicode_escape(self):
         assert unicode("\u0663", "raw-unicode-escape") == u"\u0663"
         assert u"\u0663".encode("raw-unicode-escape") == "\u0663"
+
+    def test_escape_decode(self):
+        test = 'a\n\\b\x00c\td\u2045'.encode('string_escape')
+        assert test.decode('string_escape') =='a\n\\b\x00c\td\u2045'
