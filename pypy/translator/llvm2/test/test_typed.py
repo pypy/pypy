@@ -308,3 +308,24 @@ def test_float_abs():
     f = compile_function(float_abs_, [float])
     for i in (-100.1 -50.2, -0.0, 0.0, 25.3, 50.4):
         assert f(i) == float_abs_(i)
+
+def test_cast_to_int():
+    def casting(v):
+        return int(ord(chr(v)))
+    f = compile_function(casting, [int])
+    for ii in range(255):
+        assert f(ii) == ii
+
+def test_char_comparisions():
+    def comps(v):
+        x = chr(v)
+        res = 0
+        res += x < chr(0)
+        res += x > chr(1)
+        res += x >= chr(127)
+        res += x < chr(128)
+        res += x < chr(250)
+        return res
+    f = compile_function(comps, [int])
+    for ii in range(255):
+        assert f(ii) == comps(ii)

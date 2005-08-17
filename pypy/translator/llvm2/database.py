@@ -317,12 +317,20 @@ class Database(object):
             packed = struct.pack("d", value)                
             repr = "0x" + "".join([("%02x" % ord(ii)) for ii in packed])
         return repr
+
+    def char_to_str(self, value):
+        x = ord(value)
+        if x >= 128:
+            r = "cast (ubyte %s to sbyte)" % x
+        else:
+            r = str(x)
+        return r
     
     def primitive_to_str(self, type_, value):
         if type_ is lltype.Bool:
             repr = str(value).lower() #False --> false
         elif type_ is lltype.Char:
-            repr = str(ord(value))
+            repr = self.char_to_str(value)
         elif type_ is lltype.UniChar:
             repr = str(ord(value))
         elif type_ is lltype.Float:

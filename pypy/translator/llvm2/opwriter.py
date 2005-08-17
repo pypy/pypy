@@ -37,13 +37,6 @@ class OpWriter(object):
                          'uint_ge': 'setge',
                          'uint_gt': 'setgt',
 
-                         'char_lt': 'setlt',
-                         'char_le': 'setle',
-                         'char_eq': 'seteq',
-                         'char_ne': 'setne',
-                         'char_ge': 'setge',
-                         'char_gt': 'setgt',
-
                          'unichar_lt': 'setlt',
                          'unichar_le': 'setle',
                          'unichar_eq': 'seteq',
@@ -74,6 +67,14 @@ class OpWriter(object):
                          'uint_rshift': 'shr',
                          }
 
+
+    char_operations  = {'char_lt': 'setlt',
+                        'char_le': 'setle',
+                        'char_eq': 'seteq',
+                        'char_ne': 'setne',
+                        'char_ge': 'setge',
+                        'char_gt': 'setgt'}
+
     def __init__(self, db, codewriter, node, block):
         self.db = db
         self.codewriter = codewriter
@@ -89,6 +90,8 @@ class OpWriter(object):
                 self.binaryop(op)
             elif op.opname in self.shift_operations:
                 self.shiftop(op)
+            elif op.opname in self.char_operations:
+                self.char_binaryop(op)
             elif op.opname.startswith('cast_'):
                 if op.opname == 'cast_char_to_int':
                     self.cast_char_to_int(op)
@@ -195,6 +198,17 @@ class OpWriter(object):
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  self.db.repr_arg(op.args[1]))
+
+    def char_binaryop(self, op):
+        name = self.char_operations[op.opname]
+        assert len(op.args) == 2
+        res = self.db.repr_arg(op.result)
+        c1 = self.db.repr_tmpvar()
+        c2 = self.db.repr_tmpvar()
+        self.codewriter.cast(c1, "sbyte", self.db.repr_arg(op.args[0]), "ubyte")
+        self.codewriter.cast(c2, "sbyte", self.db.repr_arg(op.args[1]), "ubyte")
+        self.codewriter.binaryop(name, res, "ubyte", c1, c2)
+
 
     def shiftop(self, op):
         name = self.shift_operations[op.opname]
