@@ -11,14 +11,19 @@ declare fastcc sbyte* %gc_malloc_atomic(uint)
 
 gc_boehm = """declare ccc sbyte* %GC_malloc(uint)
 declare ccc sbyte* %GC_malloc_atomic(uint)
+declare ccc sbyte* %memset(sbyte*, int, uint)
 
 internal fastcc sbyte* %gc_malloc(uint %n) {
-    %ptr = call ccc sbyte* %GC_malloc(uint %n)
+    %nn = add uint %n, 1
+    %ptr = call ccc sbyte* %GC_malloc(uint %nn)
+    call ccc sbyte* %memset(sbyte* %ptr, int 0, uint %nn)    ;XXX force non-zero init for testing
     ret sbyte* %ptr
 }
 
 internal fastcc sbyte* %gc_malloc_atomic(uint %n) {
-    %ptr = call ccc sbyte* %GC_malloc_atomic(uint %n)
+    %nn = add uint %n, 1
+    %ptr = call ccc sbyte* %GC_malloc_atomic(uint %nn)
+    call ccc sbyte* %memset(sbyte* %ptr, int 0, uint %nn)    ;XXX force non-zero init for testing
     ret sbyte* %ptr
 }
 """

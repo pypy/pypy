@@ -2,6 +2,7 @@ extdeclarations = """
 declare ccc double %pow(double, double)
 declare ccc double %fmod(double, double)
 declare ccc int %puts(sbyte*)
+declare ccc int %strlen(sbyte*)
 """
 
 
