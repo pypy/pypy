@@ -314,7 +314,10 @@ class Database(object):
         elif repr in ["inf", "nan"]:
             # Need hex repr
             import struct
-            packed = struct.pack("d", value)                
+            packed = struct.pack("d", value)
+            if sys.byteorder == 'little':
+                packed = packed[::-1]
+            
             repr = "0x" + "".join([("%02x" % ord(ii)) for ii in packed])
         return repr
 

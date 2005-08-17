@@ -227,16 +227,14 @@ def test_floats():
     floats.f1 = 1.25
     floats.f2 = 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.252984
     floats.f3 = float(29050000000000000000000000000000000000000000000000000000000000000000)
-    floats.f4 = float("inf")
-    floats.f5 = float("nan")
-    f = float("nan")
+    floats.f4 = 1e300 * 1e300
+    nan = floats.f5 = floats.f4/floats.f4
     def floats_fn():
         res  = floats.f1 == 1.25
         res += floats.f2 > 1e100
-        res += floats.f3 > 1e50
-        # XXX Need to find out more about these in llvm
-        #res += floats.f4 > 1e200
-        #res += floats.f5 == f
+        res += floats.f3 > 1e50        
+        res += floats.f4 > 1e200
+        res += floats.f5 == nan
         return res
     
     f = compile_function(floats_fn, [])
