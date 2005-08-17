@@ -14,16 +14,14 @@ declare ccc sbyte* %GC_malloc_atomic(uint)
 declare ccc sbyte* %memset(sbyte*, int, uint)
 
 internal fastcc sbyte* %gc_malloc(uint %n) {
-    %nn = add uint %n, 1
-    %ptr = call ccc sbyte* %GC_malloc(uint %nn)
-    call ccc sbyte* %memset(sbyte* %ptr, int 0, uint %nn)    ;XXX force non-zero init for testing
+    %ptr = call ccc sbyte* %GC_malloc(uint %n)
+    call ccc sbyte* %memset(sbyte* %ptr, int 0, uint %n)
     ret sbyte* %ptr
 }
 
 internal fastcc sbyte* %gc_malloc_atomic(uint %n) {
-    %nn = add uint %n, 1
-    %ptr = call ccc sbyte* %GC_malloc_atomic(uint %nn)
-    call ccc sbyte* %memset(sbyte* %ptr, int 0, uint %nn)    ;XXX force non-zero init for testing
+    %ptr = call ccc sbyte* %GC_malloc_atomic(uint %n)
+    call ccc sbyte* %memset(sbyte* %ptr, int 0, uint %n)
     ret sbyte* %ptr
 }
 """

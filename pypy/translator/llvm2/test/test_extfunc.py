@@ -6,6 +6,7 @@ import py
 
 from pypy.tool.udir import udir
 from pypy.translator.llvm2.genllvm import compile_function
+from pypy.rpython.rarithmetic import r_uint
 
 py.log.setconsumer("genllvm", py.log.STDOUT)
 py.log.setconsumer("genllvm database prepare", None)
@@ -198,7 +199,7 @@ def test_os_path_exists2():
     def fn(l):
         filename = tmpfile[:l]
         return os.path.exists(filename)
-    f = compile_function(fn, [r_uint], view=True)
+    f = compile_function(fn, [r_uint])
     open(tmpfile, 'w').close()
     lfile = len(tmpfile)
     assert f(lfile) == True
