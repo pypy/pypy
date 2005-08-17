@@ -132,9 +132,9 @@ OPTIMIZATION_SWITCHES = (" ".join([
 
     # merge dup global constants
     "-constmerge",
-
     ]))
 
+ 
 # XXX Tmp for debugging
 OPTIMIZATION_SWITCHES = (" ".join([
 
@@ -148,8 +148,14 @@ OPTIMIZATION_SWITCHES = (" ".join([
     "-mem2reg",
 
     # clean up disgusting code
-    "-simplifycfg", ]))
+    "-simplifycfg",
+    ]))
 
+
+# suggested by: gccas /dev/null -o /dev/null -debug-pass=Arguments
+OPTIMIZATION_SWITCHES = (" ".join([
+    "-verify -lowersetjmp -funcresolve -raiseallocs -simplifycfg -mem2reg -globalopt -globaldce -ipconstprop -deadargelim -instcombine -simplifycfg -prune-eh -inline -simplify-libcalls -argpromotion -raise -tailduplicate -simplifycfg -scalarrepl -instcombine -break-crit-edges -condprop -tailcallelim -simplifycfg -reassociate -loopsimplify -licm -instcombine -indvars -loop-unroll -instcombine -load-vn -gcse -sccp -instcombine -break-crit-edges -condprop -dse -mergereturn -adce -simplifycfg -deadtypeelim -constmerge -verify"
+    ]))
 
 def compile_module(module, source_files, object_files, library_files):
     open("%s_setup.py" % module, "w").write(str(py.code.Source(

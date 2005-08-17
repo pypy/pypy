@@ -3,13 +3,21 @@ declare ccc double %pow(double, double)
 declare ccc double %fmod(double, double)
 declare ccc int %puts(sbyte*)
 declare ccc int %strlen(sbyte*)
+declare ccc int %strcmp(sbyte*, sbyte*)
 """
 
 
 extfunctions = {}
 
 extfunctions["%__debug"] = ((), """
-void %__debug([12 x sbyte]* %msg12) {
+internal fastcc void %__debug([12 x sbyte]* %msg12) {
+    %cond = load bool* %__print_debug_info
+    br bool %__print_debug_info, label %print_it, label %do_nothing
+
+do_nothing:
+    ret void
+    
+print_it:
     %msg = getelementptr [12 x sbyte]* %msg12, long 0, long 0
     call int %puts(sbyte* %msg)
     ret void
