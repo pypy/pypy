@@ -114,6 +114,7 @@ OPTIMIZATION_SWITCHES = (" ".join([
     # Run instcombine after redundancy elimination to exploit opportunities
     # opened up by them
     "-instcombine",
+
     # propagate conditionals
     "-condprop",
 
@@ -133,6 +134,21 @@ OPTIMIZATION_SWITCHES = (" ".join([
     "-constmerge",
 
     ]))
+
+# XXX Tmp for debugging
+OPTIMIZATION_SWITCHES = (" ".join([
+
+    # call %malloc -> malloc inst
+    "-raiseallocs",
+
+    # clean up disgusting code
+    "-simplifycfg",
+
+    # kill useless allocas
+    "-mem2reg",
+
+    # clean up disgusting code
+    "-simplifycfg", ]))
 
 
 def compile_module(module, source_files, object_files, library_files):
@@ -229,4 +245,16 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
         os.chdir(str(lastdir))
     if pyxfile:
         return testmodule
-    return None
+    if exe_name:
+        return exe_name
+
+if __name__ == "__main__":
+
+    # TMP - Conveinence during debugging
+    b = "entry_point"
+    print "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES, b, b)
+    print "llc %s %s_optimized.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)
+    print "as %s.s -o %s.o" % (b, b)
+    gc_libs = '-lgc -lpthread'
+    exe_name = "pypy"
+    print "gcc %s.o -static %s -lm -o %s" % (b, gc_libs, exe_name)
