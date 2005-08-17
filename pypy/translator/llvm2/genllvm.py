@@ -217,7 +217,7 @@ class GenLLVM(object):
         # XXX we need to create our own main() that calls the actual entry_point function
         entryfunc_name = t[1].split('(')[0]
         if entryfunc_name != 'main' and entryfunc_name == 'entry_point': #XXX just to get on with translate_pypy
-            codewriter.append("int %main(int% argc, sbyte** %argv) {")
+            codewriter.append("int %main(int %argc, sbyte** %argv) {")
             codewriter.append("entry:")
             codewriter.append("    %pypy_argv = call fastcc %RPyListOfString* %ll_newlist__listPtrConst_Signed.2(int 0)")
             codewriter.append("    br label %no_exit")
