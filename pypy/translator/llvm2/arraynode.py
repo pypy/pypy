@@ -8,7 +8,6 @@ log = log.structnode
 class ArrayTypeNode(LLVMNode):
     def __init__(self, db, array):
         assert isinstance(array, lltype.Array)
-
         self.db = db
         self.array = array
         arraytype = self.arraytype = array.OF
@@ -61,11 +60,11 @@ class ArrayTypeNode(LLVMNode):
 
     def writeimpl(self, codewriter):
         log.writeimpl(self.ref)
-        fromtype = self.db.repr_type(self.arraytype) 
         varsize.write_constructor(self.db, codewriter, self.ref, 
                                   self.constructor_decl,
-                                  fromtype,
+                                  self.array,
                                   atomicmalloc=self.is_atomic())
+
 
 class VoidArrayTypeNode(LLVMNode):
 

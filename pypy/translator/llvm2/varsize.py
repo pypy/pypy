@@ -1,3 +1,4 @@
+from pypy.rpython.rstr import STR
 
 # example for an array constructor in concrete llvm code: 
 # (thanks to chris lattner) 
@@ -15,17 +16,26 @@
    ret %array* %result
 }"""
 
-def write_constructor(db, codewriter, ref, constructor_decl, elemtype, 
+def write_constructor(db, codewriter, ref, constructor_decl, ARRAY, 
                       indices_to_array=(), atomicmalloc=False): 
+    
     #varsized arrays and structs look like this: 
     #Array: {int length , elemtype*}
     #Struct: {...., Array}
 
     # the following indices access the last element in the array
+    elemtype = db.repr_type(ARRAY.OF)
     lentype = db.get_machine_word()
-    elemindices = list(indices_to_array) + [("uint", 1), (lentype, "%len")]
-   
-    codewriter.openfunc(constructor_decl)
+
+    codewriter.openfunc(constructor_decl)    
+
+    # Need room for NUL terminator
+    if ARRAY is STR.chars:
+        codewriter.binaryop("add", "%actuallen", lentype, "%len", 1)
+    else:
+        codewriter.cast("%actuallen", lentype, "%len", lentype)
+
+    elemindices = list(indices_to_array) + [("uint", 1), (lentype, "%actuallen")]
     codewriter.getelementptr("%size", ref + "*", "null", *elemindices) 
     codewriter.cast("%usize", elemtype + "*", "%size", "uint")
     codewriter.malloc("%ptr", "sbyte", "%usize", atomic=atomicmalloc)
@@ -37,6 +47,15 @@ def write_constructor(db, codewriter, ref, constructor_decl, elemtype,
                              "%result", 
                              *indices_to_array)
     codewriter.store(lentype, "%len", "%arraylength")
+
+    if ARRAY is STR.chars:
+        # NUL the last element
+        codewriter.getelementptr("%terminator",
+                                 ref + "*",
+                                 "%result", 
+                                 *elemindices)
+        codewriter.store(elemtype, 0, "%terminator")
+    
     codewriter.ret(ref + "*", "%result")
     codewriter.closefunc()
 

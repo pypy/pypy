@@ -77,12 +77,11 @@ class StructVarsizeTypeNode(StructTypeNode):
             name = current._names_without_voids()[-1]
             current = current._flds[name]
         assert isinstance(current, lltype.Array)
-        arraytype = self.db.repr_type(current.OF)
         varsize.write_constructor(self.db,
                                   codewriter, 
                                   self.ref,
                                   self.constructor_decl,
-                                  arraytype, 
+                                  current, 
                                   indices_to_array,
                                   atomicmalloc=self.is_atomic())
         

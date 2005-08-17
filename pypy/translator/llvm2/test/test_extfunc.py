@@ -192,6 +192,18 @@ def test_os_path_exists():
     os.unlink(tmpfile)
     assert f() == False
 
+def test_os_path_exists2():
+    # forces malloc / versus pbc for NUL testing of C string
+    tmpfile = str(udir.join('test_os_path_exists.TMP'))
+    def fn(l):
+        filename = tmpfile[:l]
+        return os.path.exists(filename)
+    f = compile_function(fn, [r_uint], view=True)
+    open(tmpfile, 'w').close()
+    lfile = len(tmpfile)
+    assert f(lfile) == True
+    assert f(lfile-2) == False
+
 def test_os_path_isdir():
     directory = "./."
     def fn():
