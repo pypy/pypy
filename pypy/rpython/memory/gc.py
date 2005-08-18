@@ -1,8 +1,8 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory.support import AddressLinkedList
+from pypy.rpython import lltype
+from pypy.rpython.memory import lltypesimulation
 import struct
-
-INT_SIZE = struct.calcsize("i")
 
 class GCError(Exception):
     pass
@@ -22,6 +22,7 @@ def free_non_gc_object(obj):
 
 class MarkSweepGC(object):
     _raw_allocate_ = True
+
     def __init__(self, objectmodel, collect_every_bytes):
         self.bytes_malloced = 0
         self.collect_every_bytes = collect_every_bytes
@@ -33,14 +34,13 @@ class MarkSweepGC(object):
     def malloc(self, typeid, size):
         if self.bytes_malloced > self.collect_every_bytes:
             self.collect()
-        result = raw_malloc(size + 2 * INT_SIZE)
+        size_gc_header = self.size_gc_header()
+        result = raw_malloc(size + size_gc_header)
         print "mallocing %s, size %s at %s" % (typeid, size, result)
-        print "real size: %s" % (size + 2 * INT_SIZE, )
-        result.signed[0] = 0
-        result.signed[1] = typeid
+        self.init_gc_object(result, typeid)
         self.malloced_objects.append(result)
-        self.bytes_malloced += size + 2 * INT_SIZE
-        return result + 2 * INT_SIZE
+        self.bytes_malloced += size + size_gc_header
+        return result + size_gc_header
 
     def collect(self):
         print "collecting"
@@ -54,7 +54,7 @@ class MarkSweepGC(object):
                 break
             # roots is a list of addresses to addresses:
             objects.append(curr.address[0])
-            gc_info = curr.address[0] - 2 * INT_SIZE
+            gc_info = curr.address[0] - self.size_gc_header()
             # constants roots are not malloced and thus don't have their mark
             # bit reset
             gc_info.signed[0] = 0 
@@ -63,7 +63,7 @@ class MarkSweepGC(object):
             print "object: ", curr
             if curr == NULL:
                 break
-            gc_info = curr - 2 * INT_SIZE
+            gc_info = curr - self.size_gc_header()
             if gc_info.signed[0] == 1:
                 continue
             pointers = self.objectmodel.get_contained_pointers(
@@ -86,3 +86,12 @@ class MarkSweepGC(object):
                 raw_free(curr)
         free_non_gc_object(self.malloced_objects)
         self.malloced_objects = newmo
+
+    def size_gc_header(self):
+        return lltypesimulation.sizeof(lltype.Signed) * 2
+
+
+    def init_gc_object(self, addr, typeid):
+        addr.signed[0] = 0
+        addr.signed[1] = typeid
+

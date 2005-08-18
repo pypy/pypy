@@ -18,12 +18,13 @@ FUNCTIONTYPES = (types.FunctionType, types.UnboundMethodType,
 INT_SIZE = struct.calcsize("i")
 
 class LLTypeConverter(object):
-    def __init__(self, address):
+    def __init__(self, address, gc=None):
         self.type_to_typeid = {}
         self.types = []
         self.converted = {}
         self.curraddress = address
         self.constantroots = []
+        self.gc = gc
 
     def get_typeid(self, TYPE):
         if TYPE not in self.type_to_typeid:
@@ -66,12 +67,14 @@ class LLTypeConverter(object):
             startaddr = inline_to_addr
         else:
             startaddr = self.curraddress
-            startaddr.signed[0] = 0
-            startaddr.signed[1] = self.get_typeid(TYPE)
-            startaddr += 2 * INT_SIZE
+            if self.gc is not None:
+                self.gc.init_gc_object(startaddr, self.get_typeid(TYPE))
+                startaddr += self.gc.size_gc_header()
             self.constantroots.append(
                 simulatorptr(lltype.Ptr(TYPE), startaddr))
-            self.curraddress += size + 2 * INT_SIZE
+            self.curraddress += size
+            if self.gc is not None:
+                self.curraddress += self.gc.size_gc_header()
         self.converted[_array] = startaddr
         startaddr.signed[0] = arraylength
         curraddr = startaddr + get_fixed_size(TYPE)
@@ -102,12 +105,14 @@ class LLTypeConverter(object):
             startaddr = inline_to_addr
         else:
             startaddr = self.curraddress
-            startaddr.signed[0] = 0
-            startaddr.signed[1] = self.get_typeid(TYPE)
-            startaddr += 2 * INT_SIZE
+            if self.gc is not None:
+                self.gc.init_gc_object(startaddr, self.get_typeid(TYPE))
+                startaddr += self.gc.size_gc_header()
             self.constantroots.append(
                 simulatorptr(lltype.Ptr(TYPE), startaddr))
-            self.curraddress += size + 2 * INT_SIZE
+            self.curraddress += size
+            if self.gc is not None:
+                self.curraddress += self.gc.size_gc_header()
         self.converted[_struct] = startaddr
         for name in TYPE._flds:
             addr = startaddr + layout[name]
@@ -132,11 +137,12 @@ class LLTypeConverter(object):
             return lladdress.get_address_of_object(_obj)
 
 class FlowGraphConstantConverter(object):
-    def __init__(self, flowgraphs):
+    def __init__(self, flowgraphs, gc=None):
         self.flowgraphs = flowgraphs
         self.memory = lladdress.NULL
         self.cvter = None
         self.total_size = 0
+        self.gc = gc
 
     def collect_constants(self):
         constants = {}
@@ -182,7 +188,9 @@ class FlowGraphConstantConverter(object):
             elif isinstance(cand, lltype._array):
                 seen[cand] = True
                 length = len(cand.items)
-                total_size += sizeof(cand._TYPE, length) * 2 * INT_SIZE
+                total_size += sizeof(cand._TYPE, length)
+                if self.gc is not None:
+                    total_size += self.gc.size_gc_header()
                 for item in cand.items:
                     candidates.append(item)
             elif isinstance(cand, lltype._struct):
@@ -200,7 +208,8 @@ class FlowGraphConstantConverter(object):
                             TYPE, len(getattr(cand, TYPE._arrayfld).items))
                     else:
                         total_size += sizeof(TYPE)
-                    total_size += INT_SIZE * 2
+                    if self.gc is not None:
+                        total_size += self.gc.size_gc_header()
                 for name in TYPE._flds:
                     candidates.append(getattr(cand, name))
             elif isinstance(cand, lltype._opaque):
@@ -215,7 +224,7 @@ class FlowGraphConstantConverter(object):
 
     def convert_constants(self):
         self.memory = lladdress.raw_malloc(self.total_size)
-        self.cvter = LLTypeConverter(self.memory)
+        self.cvter = LLTypeConverter(self.memory, self.gc)
         for constant in self.constants.iterkeys():
             if isinstance(constant.value, lltype.LowLevelType):
                 self.constants[constant] = constant.value
