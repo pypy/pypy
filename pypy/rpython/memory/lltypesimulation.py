@@ -82,7 +82,7 @@ def get_variable_size(TYPE):
     else:
         assert 0, "not yet implemented"
 
-def get_total_size(TYPE, i=None):
+def sizeof(TYPE, i=None):
     fixedsize = get_fixed_size(TYPE)
     varsize = get_variable_size(TYPE)
     if i is None:
@@ -122,7 +122,7 @@ class simulatorptr(object):
         self.__dict__['_layout'] = get_layout(TYPE.TO)
 
     def _zero_initialize(self, i=None):
-        size = get_total_size(self._T, i)
+        size = sizeof(self._T, i)
         self._address._store("c" * size, *(["\x00"] * size))
 
     def _init_size(self, size):

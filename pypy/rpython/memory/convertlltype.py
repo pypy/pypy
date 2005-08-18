@@ -1,5 +1,5 @@
 from pypy.rpython.memory import lladdress
-from pypy.rpython.memory.lltypesimulation import simulatorptr, get_total_size
+from pypy.rpython.memory.lltypesimulation import simulatorptr, sizeof
 from pypy.rpython.memory.lltypesimulation import get_fixed_size
 from pypy.rpython.memory.lltypesimulation import get_variable_size
 from pypy.rpython.memory.lltypesimulation import primitive_to_fmt
@@ -61,7 +61,7 @@ class LLTypeConverter(object):
             return address
         TYPE = lltype.typeOf(_array)
         arraylength = len(_array.items)
-        size = get_total_size(TYPE, arraylength)
+        size = sizeof(TYPE, arraylength)
         if inline_to_addr is not None:
             startaddr = inline_to_addr
         else:
@@ -95,9 +95,9 @@ class LLTypeConverter(object):
         layout = get_layout(TYPE)
         if TYPE._arrayfld is not None:
             inlinedarraylength = len(getattr(_struct, TYPE._arrayfld).items)
-            size = get_total_size(TYPE, inlinedarraylength)
+            size = sizeof(TYPE, inlinedarraylength)
         else:
-            size = get_total_size(TYPE)
+            size = sizeof(TYPE)
         if inline_to_addr is not None:
             startaddr = inline_to_addr
         else:
@@ -182,7 +182,7 @@ class FlowGraphConstantConverter(object):
             elif isinstance(cand, lltype._array):
                 seen[cand] = True
                 length = len(cand.items)
-                total_size += get_total_size(cand._TYPE, length) * 2 * INT_SIZE
+                total_size += sizeof(cand._TYPE, length) * 2 * INT_SIZE
                 for item in cand.items:
                     candidates.append(item)
             elif isinstance(cand, lltype._struct):
@@ -196,10 +196,10 @@ class FlowGraphConstantConverter(object):
                 TYPE = cand._TYPE
                 if not has_parent:
                     if TYPE._arrayfld is not None:
-                        total_size += get_total_size(
+                        total_size += sizeof(
                             TYPE, len(getattr(cand, TYPE._arrayfld).items))
                     else:
-                        total_size += get_total_size(TYPE)
+                        total_size += sizeof(TYPE)
                     total_size += INT_SIZE * 2
                 for name in TYPE._flds:
                     candidates.append(getattr(cand, name))

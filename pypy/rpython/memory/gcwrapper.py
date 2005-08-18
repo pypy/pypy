@@ -63,7 +63,7 @@ class GcWrapper(object):
     def malloc(self, TYPE, size=0):
         typeid = self.objectmodel.get_typeid(TYPE)
         address = self.gc.malloc(typeid,
-                                 lltypesimulation.get_total_size(TYPE, size))
+                                 lltypesimulation.sizeof(TYPE, size))
         result = lltypesimulation.simulatorptr(lltype.Ptr(TYPE), address)
         result._zero_initialize(size)
         result._init_size(size)
