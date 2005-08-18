@@ -43,7 +43,7 @@ class AppTestCodecs:
     def test_escape_decode(self):
         test = 'a\n\\b\x00c\td\u2045'.encode('string_escape')
         assert test.decode('string_escape') =='a\n\\b\x00c\td\u2045'
-        skip("string_escape has open bugs")
+       # skip("string_escape has open bugs")
         assert '\\077'.decode('string_escape') == '?'
         assert '\\u1234'.decode('string_escape') == '\u1234'
         assert '\\x41u1234'.decode('string_escape') == 'Au1234'

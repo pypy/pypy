@@ -312,20 +312,18 @@ def escape_decode(data,errors='strict'):
             if data[i] == 'v':
                 res += '\v'
             if data[i] == '0':
-                octal = data[i+1:i+2]
+                octal = data[i+1:i+3]
                 res += chr(int(octal,8))
                 i += 2
             if data[i] == 'x':
-                hexa = data[i+1:i+2]
+                hexa = data[i+1:i+3]
                 res += chr(int(hexa,16))
                 i += 2
             if data[i] == 'u':
-                hexa = data[i+1:i+4]
-                res += unichr(int(hexa,16))
+                res += data[i-1:i+5]
                 i += 4
             if data[i] == 'U':
-                hexa = data[i+1:i+8]
-                res += unichr(int(hexa,16))
+                res += data[i-1:i+9]
                 i += 8
             if data[i] == 'N':
                 raise NotImplementedError
