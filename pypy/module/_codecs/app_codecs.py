@@ -293,40 +293,32 @@ def escape_decode(data,errors='strict'):
             i += 1
             if data[i] == '\\':
                 res += '\\'
-            if data[i] == 'n':
+            elif data[i] == 'n':
                 res += '\n'
-            if data[i] == 't':
+            elif data[i] == 't':
                 res += '\t'
-            if data[i] == 'r':
+            elif data[i] == 'r':
                 res += '\r'
-            if data[i] == 'b':
+            elif data[i] == 'b':
                 res += '\b'
-            if data[i] == '\'':
+            elif data[i] == '\'':
                 res += '\''
-            if data[i] == '\"':
+            elif data[i] == '\"':
                 res += '\"'
-            if data[i] == 'f':
+            elif data[i] == 'f':
                 res += '\f'
-            if data[i] == 'a':
+            elif data[i] == 'a':
                 res += '\a'
-            if data[i] == 'v':
+            elif data[i] == 'v':
                 res += '\v'
-            if data[i] == '0':
-                octal = data[i+1:i+3]
+            elif data[i] in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']:
+                octal = data[i:i+3]
                 res += chr(int(octal,8))
                 i += 2
-            if data[i] == 'x':
+            elif data[i] == 'x':
                 hexa = data[i+1:i+3]
                 res += chr(int(hexa,16))
                 i += 2
-            if data[i] == 'u':
-                res += data[i-1:i+5]
-                i += 4
-            if data[i] == 'U':
-                res += data[i-1:i+9]
-                i += 8
-            if data[i] == 'N':
-                raise NotImplementedError
         else:
             res += data[i]
         i += 1
