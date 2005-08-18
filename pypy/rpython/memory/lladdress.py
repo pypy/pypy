@@ -42,6 +42,10 @@ class address(object):
     def _store(self, fmt, *values):
         simulator.setstruct(fmt, self.intaddress, *values)
 
+    def __nonzero__(self):
+        return self.intaddress != 0
+    
+
 class _accessor(object):
     def __init__(self, addr):
         if addr == NULL:

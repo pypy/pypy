@@ -184,6 +184,13 @@ class TestAddressSimulation(object):
         assert address() is NULL
         assert address() is address(0)
 
+    def test_convert_to_bool(self):
+        assert not address()
+        assert not NULL
+        assert address(1)
+        assert address(2)
+        assert bool(address(3))
+
     def test_memory_access(self):
         addr = raw_malloc(1000)
         addr.signed[0] = -1
