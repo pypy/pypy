@@ -13,6 +13,12 @@ primitive_to_fmt = {lltype.Signed:          "i",
                     lltype.Bool:            "B",
                     }
 
+INT_SIZE = struct.calcsize("i")
+
+#___________________________________________________________________________
+# Utility functions that know about the memory layout of the lltypes
+# in the simulation
+
 #returns some sort of layout information that is useful for the simulatorptr
 def get_layout(TYPE):
     layout = {}
@@ -84,7 +90,7 @@ def get_total_size(TYPE, i=None):
         return fixedsize
     else:
         return fixedsize + i * varsize
-    
+
 
 def _expose(T, address):
     """XXX A nice docstring here"""
@@ -104,8 +110,10 @@ def _expose(T, address):
         assert 0, "not implemented yet"
 
 
+#_____________________________________________________________________________
 # this class is intended to replace the _ptr class in lltype
 # using the memory simulator
+
 class simulatorptr(object):
     def __init__(self, TYPE, address):
         self.__dict__['_TYPE'] = TYPE
@@ -238,6 +246,38 @@ class simulatorptr(object):
 
     def __repr__(self):
         return '<simulatorptr %s to %s>' % (self._TYPE.TO, self._address)
+
+    def get_offsets_of_contained_pointers(self):
+        if isinstance(self._TYPE.TO, lltype.Struct):
+            offsets = self._get_offsets_of_contained_pointers_struct()
+        elif isinstance(self._TYPE.TO, lltype.Array):
+            offsets = self._get_offsets_of_contained_pointers_array()
+        return offsets
+
+    def _get_offsets_of_contained_pointers_struct(self):
+        offsets = []
+        for name in self._TYPE.TO._names:
+            FIELD = getattr(self._TYPE.TO, name)
+            if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+                offsets.append(self._layout[name])
+            elif isinstance(FIELD, (lltype.Struct, lltype.Array)):
+                embedded_ptr = getattr(self, name)
+                suboffsets = embedded_ptr.get_offsets_of_contained_pointers()
+                offsets += [s + self._layout[name] for s in suboffsets]
+        return offsets
+
+    def _get_offsets_of_contained_pointers_array(self):
+        offsets = []
+        if (isinstance(self._TYPE.TO.OF, lltype.Ptr) and
+            self._TYPE.TO.OF._needsgc()):
+            for i in range(len(self)):
+                offsets.append(self._layout[0] + i * self._layout[1])
+        elif isinstance(self._TYPE.TO.OF, lltype.GcStruct):
+            for i in range(len(self)):
+                suboffsets += self[i].get_offsets_of_contained_pointers()
+                offsets += [s + self._layout[0] + i * self._layout[1]
+                               for s in suboffsets]
+        return offsets
 
 
 def cast_pointer(PTRTYPE, ptr):

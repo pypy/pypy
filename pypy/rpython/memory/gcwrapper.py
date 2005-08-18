@@ -27,6 +27,15 @@ class LLInterpObjectModel(object):
         typeid = self.type_to_typeid[TYPE]
         return typeid
 
+    def get_contained_pointers(self, addr, typeid):
+        TYPE = self.types[typeid]
+        ptr = lltypesimulation.simulatorptr(lltype.Ptr(TYPE), addr)
+        ll = AddressLinkedList()
+        offsets = ptr.get_offsets_of_contained_pointers()
+        for offset in offsets:
+            ll.append(addr + offset)
+        return ll
+
     def get_roots(self):
         print "getting roots"
         if self.pseudo_root_pointers != NULL:
@@ -43,50 +52,6 @@ class LLInterpObjectModel(object):
             ll.append(self.pseudo_root_pointers + INT_SIZE * i)
         return ll
 
-    def get_contained_pointers(self, addr, typeid):
-        TYPE = self.types[typeid]
-        if isinstance(TYPE, lltype.Struct):
-            offsets = self.get_contained_pointers_struct(addr, TYPE)
-        elif isinstance(TYPE, lltype.Array):
-            offsets = self.get_contained_pointers_array(addr, TYPE)
-        ll = AddressLinkedList()
-        for offset in offsets:
-            ll.append(addr + offset)
-        print "for the TYPE %s if found the follwing offsets: %s" % (TYPE, offsets)
-        return ll
-
-    def get_contained_pointers_struct(self, addr, TYPE, offset=0):
-        offsets = []
-        substructures = [(TYPE, offset)]
-        while len(substructures):
-            TYPE, offset = substructures.pop()
-            layout = lltypesimulation.get_layout(TYPE)
-            for name in TYPE._names:
-                FIELD = getattr(TYPE, name)
-                if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
-                    offsets.append(offset + layout[name])
-                elif isinstance(FIELD, lltype.Struct):
-                    substructures.append((FIELD, layout[name] + offset))
-                elif isinstance(FIELD, lltype.Array):
-                    assert offset == 0 #can only inline into outermost struct
-                    baseaddr = addr + layout[name]
-                    offsets += self.get_contained_pointers_array(
-                        baseaddr, FIELD, layout[name])
-        return offsets
-
-    def get_contained_pointers_array(self, addr, TYPE, offset=0):
-        offsets = []
-        length = addr.signed[0]
-        itemsize = lltypesimulation.get_variable_size(TYPE)
-        if isinstance(TYPE.OF, lltype.Ptr) and TYPE.OF._needsgc():
-            for i in range(length):
-                offsets.append(offset + INT_SIZE + i * itemsize)
-        elif isinstance(TYPE.OF, lltype.GcStruct):
-            for i in range(length):
-                item_offset = INT_SIZE + i * itemsize
-                offsets += self.get_contained_pointers_array(
-                    TYPE.OF, addr + item_offset, offset + item_offset)
-        return offsets
 
 class GcWrapper(object):
     def __init__(self, llinterp, gc):
