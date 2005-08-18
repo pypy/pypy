@@ -193,7 +193,7 @@ def test_os_path_exists():
     os.unlink(tmpfile)
     assert f() == False
 
-def test_os_path_exists2():
+def test_dynamic_string_null_termination():
     # forces malloc / versus pbc for NUL testing of C string
     tmpfile = str(udir.join('test_os_path_exists.TMP'))
     def fn(l):

@@ -168,24 +168,6 @@ class GenLLVM(object):
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
 
-        if self.debug:  print 'gen_llvm_source used_external_functions) ' + time.ctime()
-        depdone = {}
-        for funcname,value in extfuncnode.ExternalFuncNode.used_external_functions.iteritems():
-            deps = dependencies(funcname,[])
-            deps.reverse()
-            for dep in deps:
-                if dep not in depdone:
-                    try:
-                        llvm_code = extfunctions[dep][1]
-                    except KeyError:
-                        msg = 'primitive function %s has no implementation' % dep
-                        codewriter.comment('XXX: Error: ' + msg)
-                        #raise Exception('primitive function %s has no implementation' %(dep,))
-                        continue
-                    for extfunc in llvm_code.split('\n'):
-                        codewriter.append(extfunc)
-                    depdone[dep] = True
-
         if self.debug:  print 'gen_llvm_source entrypoint) ' + time.ctime()
         #XXX use codewriter methods here
         decl = self.entrynode.getdecl()
@@ -217,30 +199,25 @@ class GenLLVM(object):
         # XXX we need to create our own main() that calls the actual entry_point function
         entryfunc_name = t[1].split('(')[0]
         if entryfunc_name != 'main' and entryfunc_name == 'entry_point': #XXX just to get on with translate_pypy
-            codewriter.append("int %main(int %argc, sbyte** %argv) {")
-            codewriter.append("entry:")
-            codewriter.append("    %pypy_argv = call fastcc %RPyListOfString* %ll_newlist__listPtrConst_Signed.2(int 0)")
-            codewriter.append("    br label %no_exit")
-            codewriter.newline()
-            codewriter.append("no_exit:")
-            codewriter.append("    %indvar = phi uint [ %indvar.next, %no_exit ], [ 0, %entry ]")
-            codewriter.append("    %i.0.0 = cast uint %indvar to int")
-            codewriter.append("    %tmp.8 = getelementptr sbyte** %argv, uint %indvar")
-            codewriter.append("    %tmp.9 = load sbyte** %tmp.8")
-            codewriter.newline()
-            codewriter.append("    %rpy = call fastcc %RPyString* %string_to_RPyString(sbyte* %tmp.9)")
-            codewriter.append("    call fastcc void %ll_append__listPtr_rpy_stringPtr(%RPyListOfString* %pypy_argv, %RPyString* %rpy)")
-            codewriter.newline()
-            codewriter.append("    %inc = add int %i.0.0, 1")
-            codewriter.append("    %tmp.2 = setlt int %inc, %argc")
-            codewriter.append("    %indvar.next = add uint %indvar, 1")
-            codewriter.append("    br bool %tmp.2, label %no_exit, label %loopexit")
-            codewriter.append("loopexit:")
-            codewriter.newline()
-            codewriter.append("    %ret  = call fastcc int %entry_point(%structtype.list* %pypy_argv)")
-            codewriter.append("    ret int %ret")
-            codewriter.append("}")
-            codewriter.newline()
+            extfuncnode.ExternalFuncNode.used_external_functions['%main'] = True
+
+        if self.debug:  print 'gen_llvm_source used_external_functions) ' + time.ctime()
+        depdone = {}
+        for funcname,value in extfuncnode.ExternalFuncNode.used_external_functions.iteritems():
+            deps = dependencies(funcname,[])
+            deps.reverse()
+            for dep in deps:
+                if dep not in depdone:
+                    try:
+                        llvm_code = extfunctions[dep][1]
+                    except KeyError:
+                        msg = 'primitive function %s has no implementation' % dep
+                        codewriter.comment('XXX: Error: ' + msg)
+                        #raise Exception('primitive function %s has no implementation' %(dep,))
+                        continue
+                    for extfunc in llvm_code.split('\n'):
+                        codewriter.append(extfunc)
+                    depdone[dep] = True
 
         comment("End of file") ; nl()
         if self.debug:  print 'gen_llvm_source return) ' + time.ctime()

@@ -15,9 +15,6 @@ declare ccc sbyte* %getcwd(sbyte*, int)
 
 %errno = external global int
 
-%__print_debug_info         = internal global bool false
-%__print_debug_info_option  = internal constant [19 x sbyte] c"--print-debug-info\\00"
-
 %__ll_os_getcwd             = internal constant [12 x sbyte] c"getcwd.....\\00"
 %__ll_os_ftruncate          = internal constant [12 x sbyte] c"ftruncate..\\00"
 %__ll_os_lseek              = internal constant [12 x sbyte] c"lseek......\\00"
