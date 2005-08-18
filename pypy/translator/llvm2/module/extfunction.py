@@ -14,7 +14,7 @@ declare ccc sbyte* %GC_malloc_atomic(uint)
 
 ;XXX now trying to set only null terminator of varsize array for chars!
 ;    might need to clear the hash value of rpystrings too.
-;declare ccc sbyte* %memset(sbyte*, int, uint)
+declare ccc sbyte* %memset(sbyte*, int, uint)
 
 internal fastcc sbyte* %gc_malloc(uint %n) {
     %ptr = call ccc sbyte* %GC_malloc(uint %n)

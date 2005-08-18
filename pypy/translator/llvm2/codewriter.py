@@ -46,8 +46,8 @@ class CodeWriter(object):
         self.append("%s = type %s (%s)" % (name, rettyperepr,
                                            ", ".join(argtypereprs)))
 
-    def declare(self, decl):
-        self.append("declare fastcc %s" %(decl,))
+    def declare(self, decl, cconv='fastcc'):
+        self.append("declare %s %s" %(cconv, decl,))
 
     def startimpl(self):
         self.newline()
@@ -68,14 +68,14 @@ class CodeWriter(object):
         self.indent("switch %s %s, label %%%s [%s ]"
                     % (intty, cond, defaultdest, labels))
 
-    def openfunc(self, decl, is_entrynode=False): 
+    def openfunc(self, decl, is_entrynode=False, cconv='fastcc'): 
         self.malloc_count = count(0).next
         self.newline()
         if is_entrynode:
             linkage_type = ''
         else:
             linkage_type = 'internal '
-        self.append("%sfastcc %s {" % (linkage_type, decl,))
+        self.append("%s%s %s {" % (linkage_type, cconv, decl,))
 
     def closefunc(self): 
         self.append("}") 
@@ -104,29 +104,29 @@ class CodeWriter(object):
     def shiftop(self, name, targetvar, type_, ref1, ref2):
         self.indent("%s = %s %s %s, ubyte %s" % (targetvar, name, type_, ref1, ref2))
 
-    def call(self, targetvar, returntype, functionref, argrefs, argtypes):
+    def call(self, targetvar, returntype, functionref, argrefs, argtypes, cconv='fastcc'):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%s = call fastcc %s %s(%s)" % (targetvar, returntype, functionref,
+        self.indent("%s = call %s %s %s(%s)" % (targetvar, cconv, returntype, functionref,
                                              ", ".join(arglist)))
 
-    def call_void(self, functionref, argrefs, argtypes):
+    def call_void(self, functionref, argrefs, argtypes, cconv='fastcc'):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("call fastcc void %s(%s)" % (functionref, ", ".join(arglist)))
+        self.indent("call %s void %s(%s)" % (cconv, functionref, ", ".join(arglist)))
 
-    def invoke(self, targetvar, returntype, functionref, argrefs, argtypes, label, except_label):
+    def invoke(self, targetvar, returntype, functionref, argrefs, argtypes, label, except_label, cconv='fastcc'):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%s = invoke fastcc %s %s(%s) to label %%%s except label %%%s" % (targetvar, returntype, functionref,
+        self.indent("%s = invoke %s %s %s(%s) to label %%%s except label %%%s" % (targetvar, cconv, returntype, functionref,
                                              ", ".join(arglist), label, except_label))
 
-    def invoke_void(self, functionref, argrefs, argtypes, label, except_label):
+    def invoke_void(self, functionref, argrefs, argtypes, label, except_label, cconv='fastcc'):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("invoke fastcc void %s(%s) to label %%%s except label %%%s" % (functionref, ", ".join(arglist), label, except_label))
+        self.indent("invoke %s void %s(%s) to label %%%s except label %%%s" % (cconv, functionref, ", ".join(arglist), label, except_label))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
         self.indent("%(targetvar)s = cast %(fromtype)s "
                         "%(fromvar)s to %(targettype)s" % locals())
 
-    def malloc(self, targetvar, type_, size=1, atomic=False):
+    def malloc(self, targetvar, type_, size=1, atomic=False, cconv='fastcc'):
         n = self.malloc_count()
         if n:
             cnt = ".%d" % n
@@ -135,7 +135,7 @@ class CodeWriter(object):
         postfix = ('', '_atomic')[atomic]
         self.indent("%%malloc.Size%(cnt)s = getelementptr %(type_)s* null, uint %(size)s" % locals())
         self.indent("%%malloc.SizeU%(cnt)s = cast %(type_)s* %%malloc.Size%(cnt)s to uint" % locals())
-        self.indent("%%malloc.Ptr%(cnt)s = call fastcc sbyte* %%gc_malloc%(postfix)s(uint %%malloc.SizeU%(cnt)s)" % locals())
+        self.indent("%%malloc.Ptr%(cnt)s = call %(cconv)s sbyte* %%gc_malloc%(postfix)s(uint %%malloc.SizeU%(cnt)s)" % locals())
         self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr%(cnt)s to %(type_)s*" % locals())
 
     def getelementptr(self, targetvar, type, typevar, *indices):

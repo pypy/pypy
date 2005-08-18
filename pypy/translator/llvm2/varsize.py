@@ -40,6 +40,9 @@ def write_constructor(db, codewriter, ref, constructor_decl, ARRAY,
     codewriter.cast("%usize", elemtype + "*", "%size", "uint")
     codewriter.malloc("%ptr", "sbyte", "%usize", atomic=atomicmalloc)
     codewriter.cast("%result", "sbyte*", "%ptr", ref + "*")
+
+    if ARRAY is STR.chars:
+        codewriter.call('%memset_result', 'sbyte*', '%memset', ['%ptr', '0', '%usize',], ['sbyte*', 'int', 'uint'], cconv='ccc')
  
     indices_to_arraylength = tuple(indices_to_array) + (("uint", 0),)
     # the following accesses the length field of the array 
@@ -47,15 +50,15 @@ def write_constructor(db, codewriter, ref, constructor_decl, ARRAY,
                              "%result", 
                              *indices_to_arraylength)
     codewriter.store(lentype, "%len", "%arraylength")
-
-    if ARRAY is STR.chars:
-        # NUL the last element
-        lastelemindices = list(indices_to_array) + [("uint", 1), (lentype, "%len")]
-        codewriter.getelementptr("%terminator",
-                                 ref + "*",
-                                 "%result", 
-                                 *lastelemindices)
-        codewriter.store(elemtype, 0, "%terminator")
+    
+    #if ARRAY is STR.chars: #(temp. disabled because we are moving memset from gc_malloc to here)
+    #    # NUL the last element 
+    #    #lastelemindices = list(indices_to_array) + [("uint", 1), (lentype, "%len")]
+    #    #codewriter.getelementptr("%terminator",
+    #    #                         ref + "*",
+    #    #                         "%result", 
+    #    #                         *lastelemindices)
+    #    #codewriter.store(elemtype, 0, "%terminator")
     
     codewriter.ret(ref + "*", "%result")
     codewriter.closefunc()
