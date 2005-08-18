@@ -108,6 +108,7 @@ def get_py_object(address):
 from pypy.rpython import lltype
 Address = lltype.Primitive("Address", NULL)
 
+address._TYPE = Address
 
 supported_access_types = {"signed":    lltype.Signed,
                           "unsigned":  lltype.Unsigned,
