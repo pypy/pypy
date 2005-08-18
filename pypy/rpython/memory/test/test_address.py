@@ -157,6 +157,21 @@ class TestAddressRTyping(object):
         rtyper = RPythonTyper(a)
         rtyper.specialize() #does not raise
 
+    def test_addr_as_bool(self):
+        def f(addr1, addr2):
+            if addr1:
+                return 1
+            else:
+                if not addr2:
+                    return 0
+                else:
+                    return -1
+        a = RPythonAnnotator()
+        #does not raise:
+        s = a.build_types(f, [annmodel.SomeAddress(), annmodel.SomeAddress()])
+        rtyper = RPythonTyper(a)
+        rtyper.specialize() #does not raise
+
     def test_address_arithmetic(self):
         def f(offset, char):
             addr = raw_malloc(10000)

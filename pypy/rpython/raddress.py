@@ -30,6 +30,12 @@ class AddressRepr(Repr):
         v_access = hop.inputarg(address_repr, 0)
         return v_access
 
+    def rtype_is_true(self, hop):
+        v_addr, = hop.inputargs(address_repr)
+        c_null = hop.inputconst(address_repr, NULL)
+        return hop.genop('adr_ne', [v_addr, c_null],
+                         resulttype=lltype.Bool)
+
 
 address_repr = AddressRepr()
 
