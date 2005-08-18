@@ -112,7 +112,7 @@ class TestAddressAnnotation(object):
 
 
 class TestAddressRTyping(object):
-    def DONOTtest_null(self):
+    def test_null(self):
         def f():
             return NULL
         a = RPythonAnnotator()
@@ -122,7 +122,7 @@ class TestAddressRTyping(object):
         rtyp = a.translator.flowgraphs[f].returnblock.inputargs[0].concretetype
         assert rtyp == Address
 
-    def DONOTtest_raw_malloc(self):
+    def test_raw_malloc(self):
         def f():
             return raw_malloc(100)
         a = RPythonAnnotator()
@@ -130,7 +130,7 @@ class TestAddressRTyping(object):
         rtyper = RPythonTyper(a)
         rtyper.specialize() #does not raise
 
-    def DONOTtest_raw_free(self):
+    def test_raw_free(self):
         def f(addr):
             raw_free(addr)
         a = RPythonAnnotator()
@@ -138,7 +138,7 @@ class TestAddressRTyping(object):
         rtyper = RPythonTyper(a)
         rtyper.specialize() #does not raise
 
-    def DONOTtest_memcopy(self):
+    def test_memcopy(self):
         def f(addr1, addr2):
             raw_memcopy(addr1, addr2, 100)
         a = RPythonAnnotator()
@@ -147,7 +147,7 @@ class TestAddressRTyping(object):
         rtyper = RPythonTyper(a)
         rtyper.specialize() #does not raise
 
-    def DONOTtest_memory_access(self):
+    def test_memory_access(self):
         def f(offset, value):
             addr = raw_malloc(offset * 2 + 1)
             addr.signed[offset] = value
@@ -157,7 +157,7 @@ class TestAddressRTyping(object):
         rtyper = RPythonTyper(a)
         rtyper.specialize() #does not raise
 
-    def DONOTtest_address_arithmetic(self):
+    def test_address_arithmetic(self):
         def f(offset, char):
             addr = raw_malloc(10000)
             same_offset = (addr + offset) - addr
@@ -168,7 +168,7 @@ class TestAddressRTyping(object):
         rtyper = RPythonTyper(a)
         rtyper.specialize() #does not raise
 
-    def DONOTtest_address_comparison(self):
+    def test_address_comparison(self):
         def f(offset):
             return NULL < NULL + offset
         a = RPythonAnnotator()

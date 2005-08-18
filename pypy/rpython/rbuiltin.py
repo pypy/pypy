@@ -296,3 +296,23 @@ def make_rtype_extfunc(extfuncinfo):
 for func, extfuncinfo in extfunctable.table.iteritems():
     BUILTIN_TYPER[func] = make_rtype_extfunc(extfuncinfo)
 
+# _________________________________________________________________
+# memory addresses
+
+from pypy.rpython.memory import lladdress
+
+def rtype_raw_malloc(hop):
+    v_size, = hop.inputargs(lltype.Signed)
+    return hop.genop('raw_malloc', [v_size], resulttype=lladdress.Address)
+
+def rtype_raw_free(hop):
+    v_addr, = hop.inputargs(lladdress.Address)
+    return hop.genop('raw_free', [v_addr])
+
+def rtype_raw_memcopy(hop):
+    v_list = hop.inputargs(lladdress.Address, lladdress.Address, lltype.Signed)
+    return hop.genop('raw_memcopy', v_list)
+
+BUILTIN_TYPER[lladdress.raw_malloc] = rtype_raw_malloc
+BUILTIN_TYPER[lladdress.raw_free] = rtype_raw_free
+BUILTIN_TYPER[lladdress.raw_memcopy] = rtype_raw_memcopy
