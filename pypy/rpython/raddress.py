@@ -71,11 +71,6 @@ class __extend__(pairtype(AddressRepr, IntegerRepr)):
 
         return NotImplemented
 
-class __extend__(pairtype(IntegerRepr, AddressRepr)):
-
-    def rtype_add((r_int, r_addr), hop):
-        return pair(r_addr, r_int).rtype_add(hop)
-
 
 class __extend__(pairtype(AddressRepr, AddressRepr)):
 
