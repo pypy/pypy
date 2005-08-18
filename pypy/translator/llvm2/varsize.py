@@ -41,19 +41,20 @@ def write_constructor(db, codewriter, ref, constructor_decl, ARRAY,
     codewriter.malloc("%ptr", "sbyte", "%usize", atomic=atomicmalloc)
     codewriter.cast("%result", "sbyte*", "%ptr", ref + "*")
  
-    indices_to_array = tuple(indices_to_array) + (("uint", 0),)
+    indices_to_arraylength = tuple(indices_to_array) + (("uint", 0),)
     # the following accesses the length field of the array 
     codewriter.getelementptr("%arraylength", ref + "*", 
                              "%result", 
-                             *indices_to_array)
+                             *indices_to_arraylength)
     codewriter.store(lentype, "%len", "%arraylength")
 
     if ARRAY is STR.chars:
         # NUL the last element
+        lastelemindices = list(indices_to_array) + [("uint", 1), (lentype, "%len")]
         codewriter.getelementptr("%terminator",
                                  ref + "*",
                                  "%result", 
-                                 *elemindices)
+                                 *lastelemindices)
         codewriter.store(elemtype, 0, "%terminator")
     
     codewriter.ret(ref + "*", "%result")
