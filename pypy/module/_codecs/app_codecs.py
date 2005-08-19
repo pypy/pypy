@@ -274,7 +274,7 @@ def unicode_internal_decode( unistr,errors='strict'):
         res = u''.join(p)
         return res, len(res)
 
-def utf_16_ex_decode( data,errors='strict'):
+def utf_16_ex_decode( data,errors='strict',final = True):
     """None
     """
     res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'native')
@@ -368,7 +368,7 @@ def ascii_encode( obj,errors='strict'):
 def utf_16_encode( obj,errors='strict'):
     """None
     """
-    res = PyUnicode_EncodeUTF16(obj,len(obj),errors)
+    res = PyUnicode_EncodeUTF16(obj,len(obj),errors,'native')
     res = ''.join(res)
     return res, len(res)
 
@@ -400,14 +400,14 @@ def utf_16_be_encode( obj,errors='strict'):
     res = ''.join(res)
     return res, len(res)
 
-def utf_16_le_decode( data,errors='strict'):
+def utf_16_le_decode( data,errors='strict',final = True):
     """None
     """
     res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'little')
     res = ''.join(res)
     return res, len(res)
 
-def utf_16_be_decode( data,errors='strict'):
+def utf_16_be_decode( data,errors='strict',final = True):
     """None
     """
     res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'big')
@@ -1332,6 +1332,7 @@ def PyUnicode_EncodeLatin1(p,size,errors):
     return res
 
 hexdigits = [hex(i)[-1] for i in range(16)]+[hex(i)[-1].upper() for i in range(10,16)]
+
 def hexescape(s,pos,digits,message,errors):
     chr = 0
     p = []
