@@ -4,6 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rpython.test.test_llinterp import interpret
 
 def test_free_non_gc_object():
     class TestClass(object):
@@ -98,15 +99,14 @@ def test_isinstance():
     assert s.knowntype == int
     rtyper = RPythonTyper(a)
     rtyper.specialize()
-##     res = interpret(f, [1])
-##     assert res == 100
-##     res = interpret(f, [2])
-##     assert res == 110
-##     res = interpret(f, [3])
-##     assert res == 111
-
-##     res = interpret(f, [0])
-##     assert res == 0
+    res = interpret(f, [1])
+    assert res == 100
+    res = interpret(f, [2])
+    assert res == 110
+    res = interpret(f, [3])
+    assert res == 111
+    res = interpret(f, [0])
+    assert res == 0
 
 
 def test_is():
@@ -148,14 +148,13 @@ def test_is():
 
 
 def test_rtype__nongc_object():
+    from pypy.rpython.memory.lladdress import address
     class TestClass(object):
-        _alloc_flavor_ = ""
+        _alloc_flavor_ = "raw"
         def __init__(self, a):
             self.a = a
         def method1(self):
             return self.a
-        def method2(self):
-            return 42
     def malloc_and_free(a):
         ci = TestClass(a)
         b = ci.method1()
@@ -167,3 +166,5 @@ def test_rtype__nongc_object():
     assert isinstance(s, annmodel.SomeAddress)
     rtyper = RPythonTyper(a)
     rtyper.specialize()
+##     res = interpret(malloc_and_free, [address()])
+##     assert res == address()

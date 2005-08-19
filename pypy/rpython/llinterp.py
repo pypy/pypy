@@ -5,6 +5,7 @@ from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
 from pypy.rpython import lltype
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.memory import lladdress
+from pypy.rpython.objectmodel import free_non_gc_object
 
 import math
 import py
@@ -283,6 +284,10 @@ class LLFrame(object):
             return self.llinterpreter.gc.malloc(obj, size)
         else:
             return self.llt.malloc(obj, size)
+
+    def op_flavored_malloc(self, flavor, obj):
+        assert isinstance(flavor, str)
+        return self.llt.malloc(obj, flavor=flavor)
 
     def op_getfield(self, obj, field):
         assert isinstance(obj, self.llt._ptr)
