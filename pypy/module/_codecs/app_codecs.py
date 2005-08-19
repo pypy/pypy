@@ -281,6 +281,7 @@ def utf_16_ex_decode( data,errors='strict',final = True):
     res = ''.join(res)
     return res, len(res)
 # XXX escape_decode Check if this is right
+# XXX needs error messages when the input is invalid
 def escape_decode(data,errors='strict'):
     """None
     """
@@ -311,9 +312,11 @@ def escape_decode(data,errors='strict'):
                 res += '\a'
             elif data[i] == 'v':
                 res += '\v'
-            elif data[i] in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']:
+            elif '0' <= data[i] <= '9':
+                # emulate a strange wrap-around behavior of CPython:
+                # \400 is the same as \000 because 0400 == 256
                 octal = data[i:i+3]
-                res += chr(int(octal,8))
+                res += chr(int(octal,8) & 0xFF)
                 i += 2
             elif data[i] == 'x':
                 hexa = data[i+1:i+3]
