@@ -1,21 +1,17 @@
 from pypy.rpython.memory import lladdress
 from pypy.rpython.memory.lltypesimulation import simulatorptr, sizeof
-from pypy.rpython.memory.lltypesimulation import get_fixed_size
-from pypy.rpython.memory.lltypesimulation import get_variable_size
-from pypy.rpython.memory.lltypesimulation import primitive_to_fmt
-from pypy.rpython.memory.lltypesimulation import get_layout
+from pypy.rpython.memory.lltypesimulation import nullptr, malloc
+from pypy.rpython.memory.lltypesimulation import init_object_on_address
 from pypy.objspace.flow.model import traverse, Link, Constant, Block
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
 
 from pypy.rpython.rmodel import IntegerRepr
 
-import types, struct
+import types
 
 FUNCTIONTYPES = (types.FunctionType, types.UnboundMethodType,
                  types.BuiltinFunctionType)
-
-INT_SIZE = struct.calcsize("i")
 
 class LLTypeConverter(object):
     def __init__(self, address, gc=None):
@@ -34,107 +30,107 @@ class LLTypeConverter(object):
         typeid = self.type_to_typeid[TYPE]
         return typeid
 
-    def convert(self, val_or_ptr, inline_to_addr=None, from_parent=False):
+    def convert(self, val_or_ptr, inline_to_ptr=None):
         TYPE = lltype.typeOf(val_or_ptr)
         if isinstance(TYPE, lltype.Primitive):
-            if inline_to_addr is not None and TYPE != lltype.Void:
-                inline_to_addr._store(primitive_to_fmt[TYPE], val_or_ptr)
+            assert inline_to_ptr is None
             return val_or_ptr
         elif isinstance(TYPE, lltype.Array):
-            return self.convert_array(val_or_ptr, inline_to_addr, from_parent)
+            return self.convert_array(val_or_ptr, inline_to_ptr)
         elif isinstance(TYPE, lltype.Struct):
-            return self.convert_struct(val_or_ptr, inline_to_addr, from_parent)
+            return self.convert_struct(val_or_ptr, inline_to_ptr)
         elif isinstance(TYPE, lltype.Ptr):
-            return self.convert_pointer(val_or_ptr, inline_to_addr, from_parent)
+            return self.convert_pointer(val_or_ptr, inline_to_ptr)
         elif isinstance(TYPE, lltype.OpaqueType):
-            return self.convert_object(val_or_ptr, inline_to_addr, from_parent)
+            return self.convert_object(val_or_ptr, inline_to_ptr)
         elif isinstance(TYPE, lltype.FuncType):
-            return self.convert_object(val_or_ptr, inline_to_addr, from_parent)
+            return self.convert_object(val_or_ptr, inline_to_ptr)
         elif isinstance(TYPE, lltype.PyObjectType):
-            return self.convert_object(val_or_ptr, inline_to_addr, from_parent)
+            return self.convert_object(val_or_ptr, inline_to_ptr)
         else:
             assert 0, "don't know about %s" % (val_or_ptr, )
 
-    def convert_array(self, _array, inline_to_addr, from_parent):
+    def convert_array(self, _array, inline_to_ptr):
         if _array in self.converted:
-            address = self.converted[_array]
-            assert inline_to_addr is None or address == inline_to_addr
-            return address
+            ptr = self.converted[_array]
+            assert inline_to_ptr is None or ptr == inline_to_ptr
+            return ptr
         TYPE = lltype.typeOf(_array)
         arraylength = len(_array.items)
         size = sizeof(TYPE, arraylength)
-        if inline_to_addr is not None:
-            startaddr = inline_to_addr
+        if inline_to_ptr is not None:
+            ptr = inline_to_ptr
         else:
             startaddr = self.curraddress
             if self.gc is not None:
                 self.gc.init_gc_object(startaddr, self.get_typeid(TYPE))
                 startaddr += self.gc.size_gc_header()
-            self.constantroots.append(
-                simulatorptr(lltype.Ptr(TYPE), startaddr))
             self.curraddress += size
             if self.gc is not None:
                 self.curraddress += self.gc.size_gc_header()
-        self.converted[_array] = startaddr
-        startaddr.signed[0] = arraylength
-        curraddr = startaddr + get_fixed_size(TYPE)
-        varsize = get_variable_size(TYPE)
-        for item in _array.items:
-            self.convert(item, curraddr, from_parent=True)
-            curraddr += varsize
-        return startaddr
+            ptr = init_object_on_address(startaddr, TYPE, arraylength)
+            self.constantroots.append(ptr)
+        self.converted[_array] = ptr
+        if isinstance(TYPE.OF, lltype.Struct):
+            for i, item in enumerate(_array.items):
+                self.convert(item, ptr[i])
+        else:
+            for i, item in enumerate(_array.items):
+                ptr[i] = self.convert(item)
+        return ptr
 
-    def convert_struct(self, _struct, inline_to_addr, from_parent):
+    def convert_struct(self, _struct, inline_to_ptr):
         if _struct in self.converted:
-            address = self.converted[_struct]
-            assert inline_to_addr is None or address == inline_to_addr
-            return address
+            ptr = self.converted[_struct]
+            assert inline_to_ptr is None or ptr == inline_to_ptr
+            return ptr
         parent = _struct._parentstructure()
-        if parent is not None and not from_parent:
-            address = self.convert(parent)
-            layout = get_layout(lltype.typeOf(parent))
-            return address + layout[_struct._parent_index]
+        if parent is not None and inline_to_ptr is None:
+            ptr = self.convert(parent)
+            if isinstance(_struct._parent_index, str):
+                return getattr(ptr, _struct._parent_index)
+            else:
+                return ptr[_struct._parent_index]
         TYPE = lltype.typeOf(_struct)
-        layout = get_layout(TYPE)
         if TYPE._arrayfld is not None:
             inlinedarraylength = len(getattr(_struct, TYPE._arrayfld).items)
             size = sizeof(TYPE, inlinedarraylength)
         else:
+            inlinedarraylength = None
             size = sizeof(TYPE)
-        if inline_to_addr is not None:
-            startaddr = inline_to_addr
+        if inline_to_ptr is not None:
+            ptr = inline_to_ptr
         else:
             startaddr = self.curraddress
             if self.gc is not None:
                 self.gc.init_gc_object(startaddr, self.get_typeid(TYPE))
                 startaddr += self.gc.size_gc_header()
-            self.constantroots.append(
-                simulatorptr(lltype.Ptr(TYPE), startaddr))
             self.curraddress += size
             if self.gc is not None:
                 self.curraddress += self.gc.size_gc_header()
-        self.converted[_struct] = startaddr
+            ptr = init_object_on_address(startaddr, TYPE, inlinedarraylength)
+            self.constantroots.append(ptr)
+        self.converted[_struct] = ptr
         for name in TYPE._flds:
-            addr = startaddr + layout[name]
-            self.convert(getattr(_struct, name), addr, from_parent=True)
-        return startaddr
+            FIELD = getattr(TYPE, name)
+            if isinstance(FIELD, (lltype.Struct, lltype.Array)):
+                self.convert(getattr(_struct, name), getattr(ptr, name))
+            else:
+                setattr(ptr, name, self.convert(getattr(_struct, name)))
+        return ptr
 
-    def convert_pointer(self, _ptr, inline_to_addr, from_parent):
+    def convert_pointer(self, _ptr, inline_to_ptr):
+        assert inline_to_ptr is None, "can't inline pointer"
         TYPE = lltype.typeOf(_ptr)
         if _ptr._obj is not None:
-            addr = self.convert(_ptr._obj)
+            return self.convert(_ptr._obj)
         else:
-            addr = lladdress.NULL
-        assert isinstance(addr, lladdress.address)
-        if inline_to_addr is not None:
-            inline_to_addr.address[0] = addr
-        return simulatorptr(TYPE, addr)
+            return nullptr(TYPE.TO)
 
-    def convert_object(self, _obj, inline_to_addr, from_parent):
-        if inline_to_addr is not None:
-            assert 0, "can't inline function or pyobject"
-        else:
-            return lladdress.get_address_of_object(_obj)
+    def convert_object(self, _obj, inline_to_ptr):
+        assert inline_to_ptr is None, "can't inline function or pyobject"
+        return simulatorptr(lltype.Ptr(lltype.typeOf(_obj)),
+                            lladdress.get_address_of_object(_obj))
 
 class FlowGraphConstantConverter(object):
     def __init__(self, flowgraphs, gc=None):
@@ -213,11 +209,11 @@ class FlowGraphConstantConverter(object):
                 for name in TYPE._flds:
                     candidates.append(getattr(cand, name))
             elif isinstance(cand, lltype._opaque):
-                total_size += struct.calcsize("i")
+                total_size += sizeof(lltype.Signed)
             elif isinstance(cand, lltype._func):
-                total_size += struct.calcsize("i")
+                total_size += sizeof(lltype.Signed)
             elif isinstance(cand, lltype._pyobject):
-                total_size += struct.calcsize("i")
+                total_size += sizeof(lltype.Signed)
             else:
                 assert 0, "don't know about %s %s" % (cand, cand.__class__)
         self.total_size = total_size

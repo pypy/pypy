@@ -8,10 +8,6 @@ def test_convert_primitives():
     c = cvter.convert("c")
     assert c1 == 1
     assert c == "c"
-    cvter.convert(10, addr)
-    assert addr.signed[0] == 10
-    cvter.convert("c", addr)
-    assert addr.char[0] == "c"
 
 def test_convert_array_of_primitives():
     cvter = LLTypeConverter(lladdress.raw_malloc(1000))

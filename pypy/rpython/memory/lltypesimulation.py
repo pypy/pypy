@@ -303,6 +303,9 @@ def malloc(T, n=None, immortal=False):
     else:
         size = fixedsize + n * varsize
     address = lladdress.raw_malloc(size)
+    return init_object_on_address(address, T, n)
+        
+def init_object_on_address(address, T, n=None):
     result = simulatorptr(lltype.Ptr(T), address)
     result._zero_initialize(n)
     result._init_size(n)
