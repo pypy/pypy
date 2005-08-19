@@ -16,6 +16,7 @@ class LLInterpObjectModel(object):
         self.types = types
         self._is_varsize = []
         self._offsets_to_gc_pointers = []
+        self._fixed_size = []
         self._varsize_item_sizes = []
         self._varsize_offset_to_variable_part = []
         self._varsize_offset_to_length = []
@@ -30,6 +31,8 @@ class LLInterpObjectModel(object):
             self._is_varsize.append(varsize)
             self._offsets_to_gc_pointers.append(
                 lltypelayout.offsets_to_gc_pointers(TYPE))
+            self._fixed_size.append(
+                lltypelayout.get_fixed_size(TYPE))
             if varsize:
                 self._varsize_item_sizes.append(
                     lltypelayout.get_variable_size(TYPE))
@@ -60,6 +63,9 @@ class LLInterpObjectModel(object):
 
     def offsets_to_gc_pointers(self, typeid):
         return self._offsets_to_gc_pointers[typeid]
+
+    def fixed_size(self, typeid):
+        return self._fixed_size[typeid]
 
     def varsize_item_sizes(self, typeid):
         return self._varsize_item_sizes[typeid]
@@ -99,8 +105,7 @@ class GcWrapper(object):
 
     def malloc(self, TYPE, size=0):
         typeid = self.objectmodel.get_typeid(TYPE)
-        address = self.gc.malloc(typeid,
-                                 lltypesimulation.sizeof(TYPE, size))
+        address = self.gc.malloc(typeid, size)
         return lltypesimulation.init_object_on_address(address, TYPE, size)
         self.objectmodel.update_changed_addresses()
         return result

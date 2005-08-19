@@ -25,9 +25,10 @@ class PseudoObjectModel(object):
     """Object model for testing purposes: you can specify roots and a
     layout_mapping which is a dictionary of typeids to a list of offsets of
     pointers in an object"""
-    def __init__(self, roots, layout_mapping):
+    def __init__(self, roots, layout_mapping, size_mapping):
         self.roots = roots
         self.layout_mapping = layout_mapping
+        self.size_mapping = size_mapping
 
     def get_roots(self):
         self.roots
@@ -39,9 +40,11 @@ class PseudoObjectModel(object):
     def is_varsize(self, typeid):
         False
 
+    def fixed_size(self, typeid):
+        return self.size_mapping[typeid]
+
     def offsets_to_gc_pointers(self, typeid):
-        layout = self.layout_mapping[typeid]
-        return layout
+        return self.layout_mapping[typeid]
 
 class TestMarkSweepGC(object):
     def test_simple(self):
@@ -49,27 +52,27 @@ class TestMarkSweepGC(object):
         roots = [variables + i * INT_SIZE for i in range(4)]
         layout0 = [] #int
         layout1 = [0, INT_SIZE] #(ptr, ptr)
-        om = PseudoObjectModel(roots, {0: layout0, 1: layout1})
+        om = PseudoObjectModel(roots, {0: layout0, 1: layout1}, {0: INT_SIZE, 1: 2 * INT_SIZE})
         gc = MarkSweepGC(om, 2 ** 16)
-        variables.address[0] = gc.malloc(0, INT_SIZE)
-        variables.address[1] = gc.malloc(0, INT_SIZE)
-        variables.address[2] = gc.malloc(0, INT_SIZE)
-        variables.address[3] = gc.malloc(0, INT_SIZE)
+        variables.address[0] = gc.malloc(0)
+        variables.address[1] = gc.malloc(0)
+        variables.address[2] = gc.malloc(0)
+        variables.address[3] = gc.malloc(0)
         print "roots", roots
         gc.collect() #does not crash
-        addr = gc.malloc(0, INT_SIZE)
+        addr = gc.malloc(0)
         addr.signed[0] = 1
         print "roots", roots
         gc.collect()
         py.test.raises(MemorySimulatorError, "addr.signed[0]")
-        variables.address[0] = gc.malloc(1, 2 * INT_SIZE)
+        variables.address[0] = gc.malloc(1)
         variables.address[0].address[0] = variables.address[1]
         variables.address[0].address[1] = NULL
         print "roots", roots
         gc.collect() #does not crash
-        addr0 = gc.malloc(1, 2 * INT_SIZE)
+        addr0 = gc.malloc(1)
         addr0.address[1] = NULL
-        addr1 = gc.malloc(1, 2 * INT_SIZE)
+        addr1 = gc.malloc(1)
         addr1.address[0] = addr1.address[1] = NULL
         addr0.address[0] = addr1
         addr2 = variables.address[1]

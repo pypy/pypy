@@ -21,9 +21,12 @@ class MarkSweepGC(object):
         self.malloced_objects = AddressLinkedList()
         self.objectmodel = objectmodel
 
-    def malloc(self, typeid, size):
+    def malloc(self, typeid, length=0):
         if self.bytes_malloced > self.collect_every_bytes:
             self.collect()
+        size = self.objectmodel.fixed_size(typeid)
+        if self.objectmodel.is_varsize(typeid):
+            size += length * self.objectmodel.varsize_item_sizes(typeid)
         size_gc_header = self.size_gc_header()
         result = raw_malloc(size + size_gc_header)
         print "mallocing %s, size %s at %s" % (typeid, size, result)
