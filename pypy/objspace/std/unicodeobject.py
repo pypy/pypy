@@ -48,7 +48,11 @@ def unicode_to_decimal_w(space, w_unistr):
             if 0 < uchr < 256:
                 result[i] = chr(uchr)
             else:
-                raise OperationError(space.w_UnicodeEncodeError, space.wrap('invalid decimal Unicode string'))
+                w_encoding = space.wrap('decimal')
+                w_start = space.wrap(i)
+                w_end = space.wrap(i+1)
+                w_reason = space.wrap('invalid decimal Unicode string')
+                raise OperationError(space.w_UnicodeEncodeError,space.newtuple ([w_encoding, w_unistr, w_start, w_end, w_reason]))
     return ''.join(result)
 
 # string-to-unicode delegation
@@ -884,9 +888,10 @@ def repr__Unicode(space, w_unicode):
     hexdigits = "0123456789abcdef"
     chars = w_unicode._value
     size = len(chars)
+    quote = "'"
     result = ['\0'] * (2 + size*6 + 1)
     result[0] = 'u'
-    result[1] = "'"
+    result[1] = quote
     i = 2
     for ch in chars:
         if ch == u'\\':
@@ -894,9 +899,11 @@ def repr__Unicode(space, w_unicode):
             i += 2
             continue
         if ch == u"'":
-            result[i] = '\\'
-            result[i + 1] = "'"
-            i += 2
+            quote ='''"'''
+            result[1] = quote
+            result[i] = '\''
+            #result[i + 1] = "'"
+            i += 1
             continue
         code = ord(ch)
         if code > 0x10000:
@@ -948,7 +955,7 @@ def repr__Unicode(space, w_unicode):
             continue
         result[i] = chr(code)
         i += 1
-    result[i] = "'"
+    result[i] = quote
     i += 1
     return space.wrap(''.join(result[:i]))
         
