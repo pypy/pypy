@@ -10,6 +10,7 @@ from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 from pypy.rpython.memory.lladdress import get_py_object, get_address_of_object
 from pypy.rpython.memory.lladdress import Address
 from pypy.rpython.memory.simulator import MemorySimulatorError
+from pypy.rpython.memory.test.test_llinterpsim import interpret
 
 class TestAddressAnnotation(object):
     def test_null(self):
@@ -122,6 +123,13 @@ class TestAddressRTyping(object):
         rtyp = a.translator.flowgraphs[f].returnblock.inputargs[0].concretetype
         assert rtyp == Address
 
+    def test_convert_to_bool(self):
+        def f(addr):
+            return bool(addr)
+        a = RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeAddress()])
+        assert isinstance(s, annmodel.SomeBool)
+
     def test_raw_malloc(self):
         def f():
             return raw_malloc(100)
@@ -193,6 +201,41 @@ class TestAddressRTyping(object):
         graph = a.translator.flowgraphs[f] 
         assert graph.startblock.operations[0].result.concretetype == Address
 
+class TestAddressInLLInterp(object):
+    def test_null(self):
+        def f():
+            return NULL
+        assert interpret(f, []) is NULL
+
+    def test_convert_to_bool(self):
+        def f(addr):
+            return bool(addr)
+        res = interpret(f, [NULL])
+        assert isinstance(res, bool) and not res
+        res = interpret(f, [address(1)])
+        assert isinstance(res, bool) and res
+
+    def test_memory_access(self):
+        def f(value):
+            addr = raw_malloc(16)
+            addr.signed[0] = value
+            return addr.signed[0]
+        res = interpret(f, [42])
+        assert res == 42
+        res = interpret(f, [1])
+        assert res == 1
+        
+
+    def test_pointer_arithmetic(self):
+        def f(offset, char):
+            addr = raw_malloc(10000)
+            same_offset = (addr + 2 * offset - offset) - addr 
+            addr.char[offset] = char
+            return (addr + same_offset).char[0]
+        res = interpret(f, [10, "c"])
+        assert res == "c"
+        res = interpret(f, [12, "x"])
+        assert res == "x"
 
 class TestAddressSimulation(object):
     def test_null_is_singleton(self):

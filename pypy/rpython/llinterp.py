@@ -4,6 +4,7 @@ from pypy.objspace.flow.model import Constant, Variable, last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck
 from pypy.rpython import lltype
 from pypy.rpython.rmodel import getfunctionptr
+from pypy.rpython.memory import lladdress
 
 import math
 import py
@@ -432,7 +433,46 @@ class LLFrame(object):
             assert self.llt.typeOf(pyo) == self.llt.Ptr(self.llt.PyObject)
         res = f._obj.value(*[pyo._obj.value for pyo in args])
         return self.llt.pyobjectptr(res)
-        
+
+    # __________________________________________________________
+    # operations on addresses
+
+    def op_raw_malloc(self, size):
+        assert self.llt.typeOf(size) == self.llt.Signed
+        return lladdress.raw_malloc(size)
+
+    def op_raw_load(self, addr, typ, offset):
+        assert isinstance(addr, lladdress.address)
+        value = getattr(addr, str(typ).lower())[offset]
+        assert self.llt.typeOf(value) == typ
+        return value
+
+    def op_raw_store(self, addr, typ, offset, value):
+        assert isinstance(addr, lladdress.address)
+        assert self.llt.typeOf(value) == typ
+        getattr(addr, str(typ).lower())[offset] = value
+
+    def op_adr_ne(self, addr1, addr2):
+        assert isinstance(addr1, lladdress.address)
+        assert isinstance(addr2, lladdress.address)
+        return addr1 != addr2
+
+    def op_adr_add(self, addr, offset):
+        assert isinstance(addr, lladdress.address)
+        assert self.llt.typeOf(offset) is self.llt.Signed
+        return addr + offset
+
+    def op_adr_sub(self, addr, offset):
+        assert isinstance(addr, lladdress.address)
+        assert self.llt.typeOf(offset) is self.llt.Signed
+        return addr - offset
+
+    def op_adr_delta(self, addr1, addr2):
+        assert isinstance(addr1, lladdress.address)
+        assert isinstance(addr2, lladdress.address)
+        return addr1 - addr2
+
+    
     # __________________________________________________________
     # primitive operations
 
