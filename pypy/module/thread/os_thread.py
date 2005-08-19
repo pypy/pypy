@@ -1,0 +1,63 @@
+"""
+Thread support based on OS-level threads.
+"""
+
+import thread
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
+
+# Force the declaration of thread.start_new_thread() & co. for RPython
+import pypy.module.thread.rpython.exttable
+
+
+class Bootstrapper:
+    def bootstrap(self):
+        space      = self.space
+        w_callable = self.w_callable
+        args       = self.args
+        space.threadlocals.enter_thread(space)
+        try:
+            try:
+                space.call_args(w_callable, args)
+            except OperationError, e:
+                if not e.match(space, space.w_SystemExit):
+                    ident = thread.get_ident()
+                    where = 'thread %d started by' % ident
+                    e.write_unraisable(space, where, w_callable)
+                e.clear(space)
+        finally:
+            # clean up space.threadlocals to remove the ExecutionContext
+            # entry corresponding to the current thread
+            space.threadlocals.leave_thread(space)
+
+
+def start_new_thread(space, w_callable, w_args, w_kwargs=NoneNotWrapped):
+    """Start a new thread and return its identifier.  The thread will call the
+function with positional arguments from the tuple args and keyword arguments
+taken from the optional dictionary kwargs.  The thread exits when the
+function returns; the return value is ignored.  The thread will also exit
+when the function raises an unhandled exception; a stack trace will be
+printed unless the exception is SystemExit."""
+    # XXX check that w_callable is callable
+    # XXX check that w_args is a tuple
+    # XXX check that w_kwargs is a dict
+    args = Arguments.frompacked(space, w_args, w_kwargs)
+    boot = Bootstrapper()
+    boot.space      = space
+    boot.w_callable = w_callable
+    boot.args       = args
+    ident = thread.start_new_thread(Bootstrapper.bootstrap, (boot,))
+    return space.wrap(ident)
+
+
+def get_ident(space):
+    """Return a non-zero integer that uniquely identifies the current thread
+amongst other threads that exist simultaneously.
+This may be used to identify per-thread resources.
+Even though on some platforms threads identities may appear to be
+allocated consecutive numbers starting at 1, this behavior should not
+be relied upon, and the number should be seen purely as a magic cookie.
+A thread's identity may be reused for another thread after it exits."""
+    ident = thread.get_ident()
+    return space.wrap(ident)
