@@ -262,6 +262,7 @@ def import_func(*args):
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
+EXTERNAL_TYPE_ANALYZERS = {}
 for name, value in globals().items():
     if name.startswith('builtin_'):
         original = getattr(__builtin__, name[8:])
@@ -366,8 +367,19 @@ BUILTIN_ANALYZERS[lladdress.raw_memcopy] = raw_memcopy
 
 from pypy.rpython import extfunctable
 
-# import annotation information for external functions 
-# from the extfunctable.table  into our own annotation specific table 
-for func, extfuncinfo in extfunctable.table.iteritems():
-    BUILTIN_ANALYZERS[func] = extfuncinfo.annotation 
+def update_exttables():
 
+    # import annotation information for external functions 
+    # from the extfunctable.table  into our own annotation specific table 
+    for func, extfuncinfo in extfunctable.table.iteritems():
+        BUILTIN_ANALYZERS[func] = extfuncinfo.annotation 
+
+    # import annotation information for external types
+    # from the extfunctable.typetable  into our own annotation specific table 
+    for typ, exttypeinfo in extfunctable.typetable.iteritems():
+        EXTERNAL_TYPE_ANALYZERS[typ] = exttypeinfo.get_annotations()
+
+# Note: calls to declare() may occur after builtin.py is first imported.
+# We must track future changes to the extfunctables.
+extfunctable.table_callbacks.append(update_exttables)
+update_exttables()

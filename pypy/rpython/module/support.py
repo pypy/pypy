@@ -1,3 +1,5 @@
+from pypy.rpython import lltype
+from pypy.rpython import extfunctable
 from pypy.rpython.rstr import STR
 from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
 
@@ -17,3 +19,13 @@ def ll_strcpy(dstchars, srcchars, n):
     while i < n:
         dstchars[i] = srcchars[i]
         i += 1
+
+def to_rexternalobj(obj):
+    exttypeinfo = extfunctable.typetable[type(obj)]
+    OPAQUE = exttypeinfo.get_opaque_lltype()
+    return lltype.opaqueptr(OPAQUE, name=None, externalobj=obj)
+to_rexternalobj._annspecialcase_ = "override:to_rexternalobj"
+
+def from_rexternalobj(objptr):
+    return objptr._obj.externalobj
+from_rexternalobj._annspecialcase_ = "override:from_rexternalobj"

@@ -288,8 +288,10 @@ def make_rtype_extfunc(extfuncinfo):
             return hop.llops.genexternalcall(ll_function.__name__, vars, resulttype=resulttype,
                                              _callable = ll_function)
             
-    return sourcetools.func_with_new_name(rtype_extfunc,
-                                          "rtype_extfunc_%s" % extfuncinfo.func.__name__)
+    if extfuncinfo.func is not None:
+        rtype_extfunc = sourcetools.func_with_new_name(rtype_extfunc,
+            "rtype_extfunc_%s" % extfuncinfo.func.__name__)
+    return rtype_extfunc
 
 # import rtyping information for external functions 
 # from the extfunctable.table  into our own specific table 

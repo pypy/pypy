@@ -11,6 +11,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeFloat
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
+from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeTypedAddressAccess, SomeAddress
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.bookkeeper import getbookkeeper, RPythonCallsSpace
@@ -119,18 +120,21 @@ class __extend__(SomeObject):
 
     def find_method(obj, name):
         "Look for a special-case implementation for the named method."
-        analyser = getattr(obj.__class__, 'method_' + name)
-        return SomeBuiltin(analyser, obj, name)
+        try:
+            analyser = getattr(obj.__class__, 'method_' + name)
+        except AttributeError:
+            return None
+        else:
+            return SomeBuiltin(analyser, obj, name)
 
     def getattr(obj, s_attr):
         # get a SomeBuiltin if the SomeObject has
         # a corresponding method to handle it
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            try:
-                return obj.find_method(attr)
-            except AttributeError:
-                pass
+            s_method = obj.find_method(attr)
+            if s_method is not None:
+                return s_method
             # if the SomeObject is itself a constant, allow reading its attrs
             if obj.is_constant() and hasattr(obj.const, attr):
                 return immutablevalue(getattr(obj.const, attr))
@@ -306,7 +310,10 @@ class __extend__(SomeString):
     def method_endswith(str, frag):
         return SomeBool()
 
-    def method_find(str, frag):
+    def method_find(str, frag, start=None, end=None):
+        return SomeInteger()
+
+    def method_rfind(str, frag, start=None, end=None):
         return SomeInteger()
 
     def method_join(str, s_list):
@@ -478,6 +485,16 @@ class __extend__(SomePBC):
                 if outcome != bool(c):
                     return SomeBool()
         return immutablevalue(outcome)
+
+
+class __extend__(SomeExternalObject):
+    def find_method(obj, name):
+        "Look for a special-case implementation for the named method."
+        type_analyser = builtin.EXTERNAL_TYPE_ANALYZERS[obj.knowntype]
+        if name in type_analyser:
+            analyser = type_analyser[name]
+            return SomeBuiltin(analyser, obj, name)
+        return SomeObject.find_method(obj, name)
 
 
 # annotation of low-level types

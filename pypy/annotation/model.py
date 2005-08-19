@@ -380,6 +380,19 @@ class SomeBuiltin(SomeObject):
     def can_be_none(self):
         return False
 
+
+class SomeExternalObject(SomeObject):
+    """Stands for an object of 'external' type.  External types are defined
+    in pypy.rpython.extfunctable.declaretype(), and represent simple types
+    with some methods that need direct back-end support."""
+
+    def __init__(self, knowntype):
+        self.knowntype = knowntype
+
+    def can_be_none(self):
+        return True
+
+
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""

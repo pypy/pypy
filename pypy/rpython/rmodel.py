@@ -114,9 +114,7 @@ class Repr:
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             s_obj = hop.args_s[0]
-            try:
-                s_obj.find_method(attr)   # just to check it is here
-            except AttributeError:
+            if s_obj.find_method(attr) is None:
                 raise TyperError("no method %s on %r" % (attr, s_obj))
             else:
                 # implement methods (of a known name) as just their 'self'

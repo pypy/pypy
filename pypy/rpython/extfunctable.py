@@ -11,9 +11,12 @@ class ExtFuncInfo:
     def __init__(self, func, annotation, ll_function_path, ll_annotable, backend_functiontemplate):
         self.func = func
         self.annotation = annotation
-        modulename, ignored = ll_function_path.split('/')
-        self.ll_module = ImportMe('pypy.rpython.module.%s' % modulename)
-        self.ll_function_name = ll_function_path.replace('/', '_')
+        modulename, tail = ll_function_path.split('/')
+        if '.' not in modulename:
+            modulename = 'pypy.rpython.module.%s' % modulename
+        self.ll_module = ImportMe(modulename)
+        lastmodulename = modulename[modulename.rfind('.')+1:]
+        self.ll_function_name = '%s_%s' % (lastmodulename, tail)
         self.ll_annotable = ll_annotable
         self.backend_functiontemplate = backend_functiontemplate
 
@@ -22,6 +25,34 @@ class ExtFuncInfo:
         mod = self.ll_module.load()
         return getattr(mod, self.ll_function_name)
     ll_function = property(get_ll_function)
+
+
+class ExtTypeInfo:
+    def __init__(self, typ, tag, methods):
+        self.typ = typ
+        self.tag = tag
+        self.TYPE = None
+        self.methods = methods     # {'name': ExtFuncInfo()}
+
+    def get_annotation(self, methodname):
+        return self.methods[methodname].annotation
+
+    def get_annotations(self):
+        return dict([(name, self.get_annotation(name))
+                     for name in self.methods])
+
+    def get_func_infos(self):
+        for extfuncinfo in self.methods.itervalues():
+            if extfuncinfo.func is not None:
+                yield (extfuncinfo.func, extfuncinfo)
+
+    def get_opaque_lltype(self):
+        if self.TYPE is None:
+            from pypy.rpython import lltype
+            OPAQUE = lltype.OpaqueType(self.tag)
+            OPAQUE.exttypeinfo = self
+            self.TYPE = OPAQUE
+        return self.TYPE
 
 
 class ImportMe:
@@ -35,6 +66,8 @@ class ImportMe:
         return self._mod
 
 
+table_callbacks = []   # to track declare() that occur after 'table' is read
+
 table = {}
 def declare(func, annotation, ll_function, ll_annotable=True, backend_functiontemplate=None):
     # annotation can be a function computing the annotation
@@ -45,7 +78,31 @@ def declare(func, annotation, ll_function, ll_annotable=True, backend_functionte
         def annotation(*args_s):
             from pypy.annotation import bookkeeper
             return bookkeeper.getbookkeeper().valueoftype(typ)
-    table[func] = ExtFuncInfo(func, annotation, ll_function, ll_annotable, backend_functiontemplate)
+    info = ExtFuncInfo(func, annotation, ll_function, ll_annotable, backend_functiontemplate)
+    if func is not None:
+        table[func] = info
+        for callback in table_callbacks:
+            callback()
+    return info
+
+typetable = {}
+def declaretype(typ, tag, **methodsdecl):
+    assert isinstance(typ, type)
+    methods = {}
+    for name, args in methodsdecl.items():
+        # try to get the method object from the typ
+        for cls in typ.__mro__:
+            if name in typ.__dict__:
+                func = typ.__dict__[name]
+                break
+        else:
+            func = None   # failed (typical for old-style C types), ignore it
+        methods[name] = declare(func, *args)
+    info = ExtTypeInfo(typ, tag, methods)
+    typetable[typ] = info
+    for callback in table_callbacks:
+        callback()
+    return info
 
 # _____________________________________________________________
 

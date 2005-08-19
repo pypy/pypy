@@ -5,7 +5,7 @@ The Bookkeeper class.
 from __future__ import generators
 import sys
 from types import FunctionType, ClassType, MethodType
-from types import BuiltinMethodType
+from types import BuiltinMethodType, NoneType
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef, isclassdef
@@ -168,9 +168,7 @@ class Bookkeeper:
 
     def __setstate__(self, dic):
         self.__dict__.update(dic) # normal action
-        # import ordering hack
-        global BUILTIN_ANALYZERS
-        from pypy.annotation.builtin import BUILTIN_ANALYZERS
+        delayed_imports()
 
     def __init__(self, annotator):
         self.annotator = annotator
@@ -201,9 +199,7 @@ class Bookkeeper:
 
         self.stats = Stats(self)
 
-        # import ordering hack
-        global BUILTIN_ANALYZERS
-        from pypy.annotation.builtin import BUILTIN_ANALYZERS
+        delayed_imports()
 
     def count(self, category, *args):
         self.stats.count(category, *args)
@@ -337,6 +333,8 @@ class Bookkeeper:
                     result.dictdef.generalize_value(self.immutablevalue(ev))
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (x.__module__, x.__name__))
+        elif tp in EXTERNAL_TYPE_ANALYZERS:
+            result = SomeExternalObject(tp)
         elif isinstance(x, lltype._ptr):
             result = SomePtr(lltype.typeOf(x))
         elif isinstance(x, lladdress.address):
@@ -349,9 +347,8 @@ class Bookkeeper:
                 x.im_self._freeze_()
             if hasattr(x, '__self__') and x.__self__ is not None:
                 s_self = self.immutablevalue(x.__self__)
-                try:
-                    result = s_self.find_method(x.__name__)
-                except AttributeError:
+                result = s_self.find_method(x.__name__)
+                if result is None:
                     result = SomeObject()
             else:
                 return self.getpbc(x)
@@ -418,6 +415,10 @@ class Bookkeeper:
         elif t is dict:
             return SomeDict(MOST_GENERAL_DICTDEF)
         # can't do tuple
+        elif t is NoneType:
+            return self.getpbc(None)
+        elif t in EXTERNAL_TYPE_ANALYZERS:
+            return SomeExternalObject(t)
         elif t.__module__ != '__builtin__' and t not in self.pbctypes:
             classdef = self.getclassdef(t)
             return SomeInstance(classdef)
@@ -712,3 +713,10 @@ def getbookkeeper():
         return TLS.bookkeeper
     except AttributeError:
         return None
+
+
+def delayed_imports():
+    # import ordering hack
+    global BUILTIN_ANALYZERS, EXTERNAL_TYPE_ANALYZERS
+    from pypy.annotation.builtin import BUILTIN_ANALYZERS
+    from pypy.annotation.builtin import EXTERNAL_TYPE_ANALYZERS

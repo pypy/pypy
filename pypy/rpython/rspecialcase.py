@@ -27,3 +27,11 @@ def rtype_call_specialcase(hop):
 def rtype_override_ignore(hop, clsdef): # ignore works for methods too
     hop.exception_cannot_occur()
     return inputconst(hop.r_result, None)
+
+def rtype_identity_function(hop, clsdef):
+    hop.exception_cannot_occur()
+    v, = hop.inputargs(hop.args_r[0])
+    return v
+
+rtype_override_to_rexternalobj   = rtype_identity_function
+rtype_override_from_rexternalobj = rtype_identity_function

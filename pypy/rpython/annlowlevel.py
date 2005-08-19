@@ -5,7 +5,9 @@ The code needed to flow and annotate low-level helpers -- the ll_*() functions
 import types
 from pypy.annotation import model as annmodel
 from pypy.annotation.specialize import decide_callable
-from pypy.annotation.policy import BasicAnnotatorPolicy
+from pypy.annotation.policy import AnnotatorPolicy
+from pypy.rpython import lltype
+from pypy.rpython import extfunctable
 
 def not_const(s_obj): # xxx move it somewhere else
     if s_obj.is_constant():
@@ -29,10 +31,10 @@ class KeyComp(object):
     def __str__(self):
         return getattr(self.val, '__name__', repr(self.val)) + 'Const'
 
-class LowLevelAnnotatorPolicy(BasicAnnotatorPolicy):
+class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     allow_someobjects = False
 
-    def specialize(pol, bookkeeper, spaceop, func, args, mono):
+    def default_specialize(pol, bookkeeper, ignored, spaceop, func, args, mono):
         args_s, kwds_s = args.unpack()
         assert not kwds_s
         if not args_s or not isinstance(func, types.FunctionType):
@@ -53,7 +55,20 @@ class LowLevelAnnotatorPolicy(BasicAnnotatorPolicy):
                     # for module/ll_*
                     key.append(s_obj.__class__)
         return tuple(key), bookkeeper.build_args('simple_call', new_args_s)
-        
+
+    def override__to_rexternalobj(pol, s_obj):
+        assert isinstance(s_obj, annmodel.SomeExternalObject)
+        exttypeinfo = extfunctable.typetable[s_obj.knowntype]
+        OPAQUE = exttypeinfo.get_opaque_lltype()
+        return annmodel.SomePtr(lltype.Ptr(OPAQUE))
+
+    def override__from_rexternalobj(pol, s_objptr):
+        assert isinstance(s_objptr, annmodel.SomePtr)
+        OPAQUE = s_objptr.ll_ptrtype.TO
+        assert isinstance(OPAQUE, lltype.OpaqueType)
+        exttypeinfo = OPAQUE.exttypeinfo
+        return annmodel.SomeExternalObject(exttypeinfo.typ)
+
 
 def annotate_lowlevel_helper(annotator, ll_function, args_s):
     saved = annotator.policy

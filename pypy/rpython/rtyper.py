@@ -741,5 +741,6 @@ from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rslice
 from pypy.rpython import rlist, rstr, rtuple, rdict 
 from pypy.rpython import rclass, rbuiltin, rpbc, rspecialcase
+from pypy.rpython import rexternalobj
 from pypy.rpython import rptr
 from pypy.rpython import raddress # memory addresses
