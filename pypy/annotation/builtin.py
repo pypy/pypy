@@ -337,6 +337,15 @@ BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
 BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
 BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
 
+#________________________________
+# non-gc objects
+
+def robjmodel_free_non_gc_object(obj):
+    pass
+
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.free_non_gc_object] = (
+    robjmodel_free_non_gc_object)
+
 #_________________________________
 # memory address
 

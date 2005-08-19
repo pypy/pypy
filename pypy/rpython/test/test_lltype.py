@@ -389,3 +389,11 @@ def test_runtime_type_info():
     s1.sub.x = 1
     assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
     
+def test_flavor_malloc():
+    S = Struct('s', ('x', Signed))
+    py.test.raises(TypeError, malloc, S)
+    p = malloc(S, flavor="raw")
+    assert typeOf(p).TO == S
+    assert not isweak(p, S)
+    
+    

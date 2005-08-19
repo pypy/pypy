@@ -3,6 +3,7 @@ from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython.rtyper import RPythonTyper
+from pypy.rpython import rmodel
 import py
 
 def setup_module(mod): 
@@ -107,3 +108,28 @@ def test_ll_calling_ll2():
     a.translator.specialize()
     assert [vT.concretetype for vT in vTs] == [Void] * 3
     
+
+def test_needsgc():
+    class A:
+        pass
+    class B:
+        _alloc_flavor_ = "gc"
+    class R:
+        _alloc_flavor_ = "nongc"
+    class DummyClsDef:
+        def __init__(self, cls):
+            self.cls = cls
+
+    assert rmodel.needsgc(DummyClsDef(A))
+    assert rmodel.needsgc(DummyClsDef(A), nogc=True)
+    assert rmodel.needsgc(DummyClsDef(B))
+    assert rmodel.needsgc(DummyClsDef(B), nogc=True)
+    assert not rmodel.needsgc(DummyClsDef(R))
+    assert not rmodel.needsgc(DummyClsDef(R), nogc=False)
+    assert rmodel.needsgc(None)
+    assert rmodel.needsgc(None, nogc=False)
+    assert not rmodel.needsgc(None, nogc=True)            
+
+    
+
+        

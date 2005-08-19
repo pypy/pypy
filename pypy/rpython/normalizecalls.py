@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import SpaceOperation, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.tool.sourcetools import has_varargs, valid_identifier
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.rmodel import TyperError
+from pypy.rpython.rmodel import TyperError, needsgc
 from pypy.rpython.objectmodel import instantiate
 
 
@@ -325,7 +325,8 @@ def create_class_constructors(rtyper):
 def create_instantiate_functions(annotator):
     # build the 'instantiate() -> instance of C' functions for the vtables
     for cls, classdef in annotator.getuserclasses().items():
-        create_instantiate_function(annotator, cls, classdef)
+        if needsgc(classdef): # only gc-case
+            create_instantiate_function(annotator, cls, classdef)
 
 def create_instantiate_function(annotator, cls, classdef):
     def my_instantiate():

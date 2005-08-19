@@ -348,7 +348,7 @@ class Ptr(LowLevelType):
 
     def _example(self):
         o = self.TO._container_example()
-        return _ptr(self, o, immortal=True)
+        return _ptr(self, o, solid=True)
 
 
 # ____________________________________________________________
@@ -462,7 +462,7 @@ def parentlink(container):
 
 class _ptr(object):
     __slots__ = ('_TYPE', '_T', 
-                 '_weak', '_immortal',
+                 '_weak', '_solid',
                  '_obj0', '__weakref__')
 
     def _set_TYPE(self, TYPE):
@@ -474,8 +474,8 @@ class _ptr(object):
     def _set_weak(self, weak):
         _ptr._weak.__set__(self, weak)
 
-    def _set_immortal(self, immortal):
-        _ptr._immortal.__set__(self, immortal)
+    def _set_solid(self, solid):
+        _ptr._solid.__set__(self, solid)
 
     def _set_obj0(self, obj):
         _ptr._obj0.__set__(self, obj)
@@ -483,11 +483,11 @@ class _ptr(object):
     def _needsgc(self):
         return self._TYPE._needsgc() # xxx other rules?
 
-    def __init__(self, TYPE, pointing_to, immortal=False):
+    def __init__(self, TYPE, pointing_to, solid=False):
         self._set_TYPE(TYPE)
         self._set_T(TYPE.TO)
         self._set_weak(False)
-        self._setobj(pointing_to, immortal)
+        self._setobj(pointing_to, solid)
 
     def __eq__(self, other):
         if not isinstance(other, _ptr):
@@ -508,15 +508,15 @@ class _ptr(object):
 
     # _setobj, _getobj and _obj0 are really _internal_ implementations details of _ptr,
     # use _obj if necessary instead !
-    def _setobj(self, pointing_to, immortal=False):        
+    def _setobj(self, pointing_to, solid=False):        
         if pointing_to is None:
             obj0 = None
-        elif immortal or isinstance(self._T, (GC_CONTAINER, FuncType)):
+        elif solid or isinstance(self._T, (GC_CONTAINER, FuncType)):
             obj0 = pointing_to
         else:
             self._set_weak(True)
             obj0 = weakref.ref(pointing_to)
-        self._set_immortal(immortal)
+        self._set_solid(solid)
         self._set_obj0(obj0)
         
     def _getobj(self):
@@ -811,16 +811,21 @@ class _pyobject(Hashable):
         return "pyobject %s" % (super(_pyobject, self).__str__(),)
 
 
-def malloc(T, n=None, immortal=False):
+def malloc(T, n=None, flavor='gc', immortal=False):
     if isinstance(T, Struct):
         o = _struct(T, n)
     elif isinstance(T, Array):
         o = _array(T, n)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
-    if not isinstance(T, GC_CONTAINER) and not immortal:
-        raise TypeError, "malloc of a non-GC non-immortal structure"
-    return _ptr(Ptr(T), o, immortal)
+    if not isinstance(T, GC_CONTAINER) and not immortal and flavor.startswith('gc'):
+        raise TypeError, "gc flavor malloc of a non-GC non-immortal structure"
+    solid = immortal or not flavor.startswith('gc') # immortal or non-gc case
+    return _ptr(Ptr(T), o, solid)
+
+def flavored_malloc(flavor, T, n=None): # avoids keyword argument usage
+    return malloc(T, n, flavor=flavor)
+    
 
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
@@ -839,7 +844,7 @@ def opaqueptr(TYPE, name, **attrs):
     if not isinstance(TYPE, OpaqueType):
         raise TypeError, "opaqueptr() for OpaqueTypes only"
     o = _opaque(TYPE, _name=name, **attrs)
-    return _ptr(Ptr(TYPE), o, immortal=attrs.get('immortal', True))
+    return _ptr(Ptr(TYPE), o, solid=attrs.get('immortal', True))
 
 def pyobjectptr(obj):
     o = _pyobject(obj)

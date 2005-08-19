@@ -2,7 +2,7 @@ import types
 from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
-from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning
+from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning, needsgc
 from pypy.rpython.lltype import ForwardReference, GcForwardReference
 from pypy.rpython.lltype import Ptr, Struct, GcStruct, malloc
 from pypy.rpython.lltype import cast_pointer, castable, nullptr
@@ -39,6 +39,7 @@ from pypy.rpython.lltype import FuncType, Bool, Signed
 #         ...               // extra instance attributes
 #     }
 #
+# there's also a nongcobject 
 
 OBJECT_VTABLE = ForwardReference()
 TYPEPTR = Ptr(OBJECT_VTABLE)
@@ -49,6 +50,9 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(Array(Char))),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR)))))
+# non-gc case
+NONGCOBJECT = Struct('nongcobject', ('typeptr', TYPEPTR))
+NONGCOBJECTPTR = Ptr(OBJECT)
 
 def getclassrepr(rtyper, classdef):
     try:
@@ -69,16 +73,17 @@ def getclassrepr(rtyper, classdef):
         rtyper.add_pendingsetup(result)
     return result
 
-def getinstancerepr(rtyper, classdef):
+def getinstancerepr(rtyper, classdef, nogc=False):
+    does_need_gc = needsgc(classdef, nogc)
     try:
-        result = rtyper.instance_reprs[classdef]
+        result = rtyper.instance_reprs[classdef, does_need_gc]
     except KeyError:
         if classdef and classdef.cls is Exception:
             # see getclassrepr()
-            result = getinstancerepr(rtyper, None)
+            result = getinstancerepr(rtyper, None, nogc=False)
         else:
-            result = InstanceRepr(rtyper,classdef)
-        rtyper.instance_reprs[classdef] = result
+            result = InstanceRepr(rtyper,classdef, does_need_gc=does_need_gc)
+        rtyper.instance_reprs[classdef, does_need_gc] = result
         rtyper.add_pendingsetup(result)
     return result
 
@@ -217,7 +222,8 @@ class ClassRepr(Repr):
                 vtable.parenttypeptr = rsubcls.rbase.getvtable()
             rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
             rinstance.setup()
-            vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
+            if rinstance.needsgc: # only gc-case
+                vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
             if rsubcls.classdef is None:
                 name = 'object'
             else:
@@ -338,15 +344,23 @@ class __extend__(annmodel.SomeInstance):
 
 
 class InstanceRepr(Repr):
-    def __init__(self, rtyper, classdef):
+    def __init__(self, rtyper, classdef, does_need_gc=True):
         self.rtyper = rtyper
         self.classdef = classdef
         if classdef is None:
-            self.object_type = OBJECT
+            if does_need_gc:
+                self.object_type = OBJECT
+            else:
+                self.object_type = NONGCOBJECT
         else:
-            self.object_type = GcForwardReference()
+            if does_need_gc:
+                self.object_type = GcForwardReference()
+            else:
+                self.object_type = ForwardReference()
+            
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.lowleveltype = Ptr(self.object_type)
+        self.needsgc = does_need_gc
 
     def __repr__(self):
         if self.classdef is None:
@@ -383,9 +397,14 @@ class InstanceRepr(Repr):
                 fields['_hash_cache_'] = 'hash_cache', rint.signed_repr
                 llfields.append(('hash_cache', Signed))
 
-            self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef)
+            self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef, not self.needsgc)
             self.rbase.setup()
-            object_type = GcStruct(self.classdef.cls.__name__,
+            if self.needsgc:
+                MkStruct = GcStruct
+            else:
+                MkStruct = Struct
+            
+            object_type = MkStruct(self.classdef.cls.__name__,
                                    ('super', self.rbase.object_type),
                                    *llfields)
             self.object_type.become(object_type)
@@ -393,12 +412,19 @@ class InstanceRepr(Repr):
         allinstancefields.update(fields)
         self.fields = fields
         self.allinstancefields = allinstancefields
-        attachRuntimeTypeInfo(self.object_type)
+        if self.needsgc: # only gc-case
+            attachRuntimeTypeInfo(self.object_type)
 
     def _setup_repr_final(self):
-        self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
-                                              ll_runtime_type_info,
-                                              OBJECT)
+        if self.needsgc: # only gc-case
+            self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
+                                                  ll_runtime_type_info,
+                                                  OBJECT)
+    def common_repr(self): # -> object or nongcobject reprs
+        return getinstancerepr(self.rtyper, None, nogc=not self.needsgc)
+
+    def getflavor(self):
+        return getattr(self.classdef.cls, '_alloc_flavor_', 'gc')        
 
     def convert_const(self, value):
         if value is None:
@@ -423,7 +449,7 @@ class InstanceRepr(Repr):
             return self.prebuiltinstances[id(value)][1]
         except KeyError:
             self.setup()
-            result = malloc(self.object_type)
+            result = malloc(self.object_type, flavor=self.getflavor()) # pick flavor
             self.prebuiltinstances[id(value)] = value, result
             self.initialize_prebuilt_instance(value, classdef, result)
             return result
@@ -500,9 +526,16 @@ class InstanceRepr(Repr):
 
     def new_instance(self, llops):
         """Build a new instance, without calling __init__."""
+        mallocop = 'malloc'
         ctype = inputconst(Void, self.object_type)
-        vptr = llops.genop('malloc', [ctype],
-                           resulttype = Ptr(self.object_type))
+        vlist = [ctype]
+        if self.classdef is not None:
+            flavor = self.getflavor()
+            if flavor != 'gc': # not defalut flavor
+                mallocop = 'flavored_malloc'
+                vlist = [inputconst(Void, flavor)] + vlist
+        vptr = llops.genop(mallocop, vlist,
+                           resulttype = Ptr(self.object_type)) # xxx flavor
         ctypeptr = inputconst(TYPEPTR, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)
         # initialize instance attributes from their defaults from the class
@@ -561,7 +594,7 @@ class InstanceRepr(Repr):
         vinst, = hop.inputargs(self)
         return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
 
-    def ll_str(i, r):
+    def ll_str(i, r): # doesn't work for non-gc classes!
         instance = cast_pointer(OBJECTPTR, i)
         from pypy.rpython import rstr
         nameLen = len(instance.typeptr.name)
@@ -601,9 +634,11 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
     def rtype_is_((r_ins1, r_ins2), hop):
         if r_ins1.classdef is None or r_ins2.classdef is None:
             basedef = None
+            nogc = not (r_ins1.needsgc and r_ins2.needsgc)
         else:
             basedef = r_ins1.classdef.commonbase(r_ins2.classdef)
-        r_ins = getinstancerepr(r_ins1.rtyper, basedef)
+            nogc = False
+        r_ins = getinstancerepr(r_ins1.rtyper, basedef, nogc=nogc)
         return pairtype(Repr, Repr).rtype_is_(pair(r_ins, r_ins), hop)
 
     rtype_eq = rtype_is_
@@ -630,9 +665,11 @@ def instance_annotation_for_cls(rtyper, cls):
 #
 #  Low-level implementation of operations on classes and instances
 
+# doesn't work for non-gc stuff!
 def ll_cast_to_object(obj):
     return cast_pointer(OBJECTPTR, obj)
 
+# doesn't work for non-gc stuff!
 def ll_type(obj):
     return cast_pointer(OBJECTPTR, obj).typeptr
 
@@ -643,10 +680,10 @@ def ll_issubclass(subcls, cls):
         subcls = subcls.parenttypeptr
     return True
 
-def ll_isinstance(obj, cls):
+def ll_isinstance(obj, cls): # obj should be cast to OBJECT or NONGCOBJECT
     if not obj:
         return False
-    obj_cls = ll_type(obj)
+    obj_cls = obj.typeptr
     return ll_issubclass(obj_cls, cls)
 
 def ll_runtime_type_info(obj):

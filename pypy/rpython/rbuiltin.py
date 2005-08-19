@@ -141,10 +141,11 @@ def rtype_builtin_isinstance(hop):
         vlist = hop.inputarg(rlist, arg=0)
         cnone = hop.inputconst(rlist, None)
         return hop.genop('ptr_ne', [vlist, cnone], resulttype=lltype.Bool)
-    
-    instance_repr = rclass.getinstancerepr(hop.rtyper, None)
+
     class_repr = rclass.get_type_repr(hop.rtyper)
-    
+    assert isinstance(hop.args_r[0], rclass.InstanceRepr)
+    instance_repr = hop.args_r[0].common_repr()
+
     v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
 
     return hop.gendirectcall(rclass.ll_isinstance, v_obj, v_cls)
@@ -318,3 +319,15 @@ def rtype_raw_memcopy(hop):
 BUILTIN_TYPER[lladdress.raw_malloc] = rtype_raw_malloc
 BUILTIN_TYPER[lladdress.raw_free] = rtype_raw_free
 BUILTIN_TYPER[lladdress.raw_memcopy] = rtype_raw_memcopy
+
+# _________________________________________________________________
+# non-gc objects
+
+def rtype_free_non_gc_object(hop):
+    vinst, = hop.inputargs(hop.args_r[0])
+    flavor = hop.args_r[0].getflavor()
+    assert not flavor.startswith('gc')
+    cflavor = hop.inputconst(lltype.Void, flavor)
+    return hop.genop('free_non_gc_object', [cflavor, vinst])
+    
+BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object

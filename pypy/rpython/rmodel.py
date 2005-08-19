@@ -297,3 +297,10 @@ def getfunctionptr(translator, graphfunc, getconcretetype=getconcretetype):
 
 def warning(msg):
     ansi_print("*** WARNING: %s" % (msg,), esc="31") # RED
+
+
+def needsgc(classdef, nogc=False):
+    if classdef is None:
+        return not nogc
+    else:
+        return getattr(classdef.cls, '_alloc_flavor_', 'gc').startswith('gc')

@@ -26,6 +26,6 @@ class FREED_OBJECT(object):
 
 
 def free_non_gc_object(obj):
-    assert getattr(obj.__class__, "_alloc_flavor_", False) == "", "trying to free regular object"
+    assert not getattr(obj.__class__, "_alloc_flavor_", 'gc').startswith('gc'), "trying to free gc object"
     obj.__dict__ = {}
     obj.__class__ = FREED_OBJECT
