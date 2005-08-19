@@ -15,13 +15,13 @@ class FREED_OBJECT(object):
 
 
 def free_non_gc_object(obj):
-    assert getattr(obj.__class__, "_raw_allocate_", False), "trying to free regular object"
+    assert getattr(obj.__class__, "_alloc_flavor_", False) == "", "trying to free regular object"
     obj.__dict__ = {}
     obj.__class__ = FREED_OBJECT
 
 
 class MarkSweepGC(object):
-    _raw_allocate_ = True
+    _alloc_flavor_ = ""
 
     def __init__(self, objectmodel, collect_every_bytes):
         self.bytes_malloced = 0

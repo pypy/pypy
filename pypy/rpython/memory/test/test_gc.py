@@ -1,5 +1,8 @@
 import py
 
+from pypy.annotation import model as annmodel
+from pypy.translator.annrpython import RPythonAnnotator
+from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.memory.gc import free_non_gc_object, GCError, MarkSweepGC
 from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
@@ -19,7 +22,7 @@ def teardown_module(mod):
 
 def test_free_non_gc_object():
     class TestClass(object):
-        _raw_allocate_ = True
+        _alloc_flavor_ = ""
         def __init__(self, a):
             self.a = a
         def method1(self):
@@ -37,6 +40,26 @@ def test_free_non_gc_object():
     py.test.raises(GCError, "t.a")
     py.test.raises(AssertionError, "free_non_gc_object(TestClass2())")
 
+def DONOTtest_rtype_free_non_gc_object():
+    class TestClass(object):
+        _alloc_flavor_ = ""
+        def __init__(self, a):
+            self.a = a
+        def method1(self):
+            return self.a
+        def method2(self):
+            return 42
+    def malloc_and_free(a):
+        ci = TestClass(a)
+        b = ci.a
+        free_non_gc_object(ci)
+        return b
+    a = RPythonAnnotator()
+    #does not raise:
+    s = a.build_types(malloc_and_free, [annmodel.SomeAddress()])
+    assert isinstance(s, annmodel.SomeAddress)
+    rtyper = RPythonTyper(a)
+    rtyper.specialize()
 
 class PseudoObjectModel(object):
     """Object model for testing purposes: you can specify roots and a

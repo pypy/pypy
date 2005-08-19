@@ -5,7 +5,7 @@ import struct
 INT_SIZE = struct.calcsize("i")
 
 class AddressLinkedList(object):
-    _raw_allocate_ = True
+    _alloc_flavor_ = ""
     def __init__(self):
         self.first = NULL
         self.last = NULL
