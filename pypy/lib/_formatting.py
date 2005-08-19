@@ -396,6 +396,8 @@ class UnicodeStringFormatter(Formatter):
     def format(self):
         if isinstance(self.value, unicode):
             return self.std_wp(self.value)
+        if hasattr(self.value,'__unicode__'):
+            return self.std_wp(self.value.__unicode__())
         return self.std_wp(str(self.value))
 
 class UnicodeCharFormatter(Formatter):
