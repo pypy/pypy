@@ -36,14 +36,12 @@ class PseudoObjectModel(object):
             ll.append(root)
         return ll
 
-    def get_contained_pointers(self, addr, typeid):
-        if addr is NULL:
-            return AddressLinkedList()
+    def is_varsize(self, typeid):
+        False
+
+    def offsets_to_gc_pointers(self, typeid):
         layout = self.layout_mapping[typeid]
-        result = AddressLinkedList()
-        for offset in layout:
-            result.append(addr + offset)
-        return result
+        return layout
 
 class TestMarkSweepGC(object):
     def test_simple(self):

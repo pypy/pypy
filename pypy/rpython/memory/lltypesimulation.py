@@ -164,38 +164,6 @@ class simulatorptr(object):
     def __repr__(self):
         return '<simulatorptr %s to %s>' % (self._TYPE.TO, self._address)
 
-    def get_offsets_of_contained_pointers(self):
-        if isinstance(self._TYPE.TO, lltype.Struct):
-            offsets = self._get_offsets_of_contained_pointers_struct()
-        elif isinstance(self._TYPE.TO, lltype.Array):
-            offsets = self._get_offsets_of_contained_pointers_array()
-        return offsets
-
-    def _get_offsets_of_contained_pointers_struct(self):
-        offsets = []
-        for name in self._TYPE.TO._names:
-            FIELD = getattr(self._TYPE.TO, name)
-            if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
-                offsets.append(self._layout[name])
-            elif isinstance(FIELD, (lltype.Struct, lltype.Array)):
-                embedded_ptr = getattr(self, name)
-                suboffsets = embedded_ptr.get_offsets_of_contained_pointers()
-                offsets += [s + self._layout[name] for s in suboffsets]
-        return offsets
-
-    def _get_offsets_of_contained_pointers_array(self):
-        offsets = []
-        if (isinstance(self._TYPE.TO.OF, lltype.Ptr) and
-            self._TYPE.TO.OF._needsgc()):
-            for i in range(len(self)):
-                offsets.append(self._layout[0] + i * self._layout[1])
-        elif isinstance(self._TYPE.TO.OF, lltype.GcStruct):
-            for i in range(len(self)):
-                suboffsets += self[i].get_offsets_of_contained_pointers()
-                offsets += [s + self._layout[0] + i * self._layout[1]
-                               for s in suboffsets]
-        return offsets
-
 
 def cast_pointer(PTRTYPE, ptr):
     if not isinstance(ptr, simulatorptr) or not isinstance(PTRTYPE, lltype.Ptr):

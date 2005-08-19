@@ -56,13 +56,24 @@ class MarkSweepGC(object):
             gc_info = curr - self.size_gc_header()
             if gc_info.signed[0] == 1:
                 continue
-            pointers = self.objectmodel.get_contained_pointers(
-                curr, gc_info.signed[1])
-            while 1:
-                pointer = pointers.pop()
-                if pointer == NULL:
-                    break
+            typeid = gc_info.signed[1]
+            offsets = self.objectmodel.offsets_to_gc_pointers(typeid)
+            for i in range(len(offsets)):
+                pointer = curr + offsets[i]
                 objects.append(pointer.address[0])
+                i += 1
+            if self.objectmodel.is_varsize(typeid):
+                offset = self.objectmodel.varsize_offset_to_variable_part(
+                    typeid)
+                length = (curr + self.objectmodel.varsize_offset_to_length(typeid)).signed[0]
+                offsets = self.objectmodel.varsize_offsets_to_gcpointers_in_var_part(typeid)
+                itemlength = self.objectmodel.varsize_item_sizes(typeid)
+                curr += offset
+                i = 0
+                for i in range(length):
+                    item = curr + itemlength * i
+                    for j in range(len(offsets)):
+                        objects.append((item + offsets[j]).address[0])
             gc_info.signed[0] = 1
         newmo = AddressLinkedList()
         while 1:  #sweep
@@ -79,7 +90,6 @@ class MarkSweepGC(object):
 
     def size_gc_header(self):
         return lltypesimulation.sizeof(lltype.Signed) * 2
-
 
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0

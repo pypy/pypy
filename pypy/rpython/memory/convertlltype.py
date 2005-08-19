@@ -27,6 +27,7 @@ class LLTypeConverter(object):
             index = len(self.types)
             self.type_to_typeid[TYPE] = index
             self.types.append(TYPE)
+            return index
         typeid = self.type_to_typeid[TYPE]
         return typeid
 
@@ -140,13 +141,15 @@ class FlowGraphConstantConverter(object):
         self.total_size = 0
         self.gc = gc
 
-    def collect_constants(self):
+    def collect_constants_and_types(self):
         constants = {}
+        types = {}
         def collect_args(args):
             for arg in args:
                 if (isinstance(arg, Constant) and
                     arg.concretetype is not lltype.Void):
                     constants[arg] = None
+                    types[arg.concretetype] = True
         def visit(obj):
             if isinstance(obj, Link):
                 collect_args(obj.args)
@@ -157,9 +160,12 @@ class FlowGraphConstantConverter(object):
             elif isinstance(obj, Block):
                 for op in obj.operations:
                     collect_args(op.args)
+                    if op.opname in ("malloc", "malloc_varsize"):
+                        types[op.args[0].value] = True
         for graph in self.flowgraphs.itervalues():
             traverse(visit, graph)
         self.constants = constants
+        self.types = types
 
     def calculate_size(self):
         total_size = 0
@@ -248,8 +254,18 @@ class FlowGraphConstantConverter(object):
         for graph in self.flowgraphs.itervalues():
             traverse(visit, graph)
 
+    def create_type_ids(self):
+        for TYPE in self.types:
+            print TYPE
+            if isinstance(TYPE, (lltype.Array, lltype.Struct)):
+                #assign a typeid
+                self.cvter.get_typeid(TYPE)
+            elif isinstance(TYPE, lltype.Ptr):
+                self.cvter.get_typeid(TYPE.TO)
+
     def convert(self):
-        self.collect_constants()
+        self.collect_constants_and_types()
         self.calculate_size()
         self.convert_constants()
         self.patch_graphs()
+        self.create_type_ids()
