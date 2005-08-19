@@ -230,17 +230,17 @@ class ObjSpace(object):
 
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
-        ec = self.threadlocals.executioncontext
+        ec = self.threadlocals.getvalue()
         if ec is None:
             ec = self.createexecutioncontext()
-            self.threadlocals.executioncontext = ec
+            self.threadlocals.setvalue(ec)
         return ec
 
     def _freeze_(self):
         # Important: the annotator must not see a prebuilt ExecutionContext
         # for reasons related to the specialization of the framestack attribute
         # so we make sure there is no executioncontext at freeze-time
-        self.threadlocals.executioncontext = None
+        self.threadlocals.setvalue(None)
         return True 
 
     def createexecutioncontext(self):

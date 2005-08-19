@@ -82,9 +82,20 @@ class RwDictProxy(object):
 
 
 class ThreadLocals:
-    """Thread-local storage."""
-    # XXX this is not really thread-local at the moment.
-    # XXX reconsider how this should be implemented when we add threads.
+    """Pseudo thread-local storage, for 'space.threadlocals'.
+    This is not really thread-local at all; the intention is that the PyPy
+    implementation of the 'thread' module knows how to provide a real
+    implementation for this feature, and patches 'space.threadlocals' when
+    'thread' is initialized.
+    """
+    _value = None
 
-    def __init__(self):
-        self.executioncontext = None
+    def getvalue(self):
+        return self._value
+
+    def setvalue(self, value):
+        self._value = value
+
+    def yield_thread(self):
+        """Called from time to time between the interpretation of bytecodes.
+        Hook for threading models that require it."""

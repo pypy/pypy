@@ -20,7 +20,7 @@ class ExecutionContext:
                                  self.space.wrap("maximum recursion depth exceeded"))
         try:
             frame.f_back = self.framestack.top()
-        except:
+        except IndexError:
             frame.f_back = None
 
         if not frame.hide():
@@ -57,6 +57,7 @@ class ExecutionContext:
 
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
+        self.space.threadlocals.yield_thread()
         if self.is_tracing or frame.w_f_trace is None:
             return
         code = getattr(frame, 'pycode')
