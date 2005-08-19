@@ -1,4 +1,4 @@
-from pypy.rpython.memory.gc import free_non_gc_object
+from pypy.rpython.objectmodel import free_non_gc_object
 from pypy.rpython.memory.support import AddressLinkedList
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 

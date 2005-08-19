@@ -1,23 +1,13 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory.support import AddressLinkedList
-from pypy.rpython import lltype
 from pypy.rpython.memory import lltypesimulation
+from pypy.rpython import lltype
+from pypy.rpython.objectmodel import free_non_gc_object
+
 import struct
 
 class GCError(Exception):
     pass
-
-class FREED_OBJECT(object):
-    def __getattribute__(self, attr):
-        raise GCError("trying to access freed object")
-    def __setattribute__(self, attr, value):
-        raise GCError("trying to access freed object")
-
-
-def free_non_gc_object(obj):
-    assert getattr(obj.__class__, "_alloc_flavor_", False) == "", "trying to free regular object"
-    obj.__dict__ = {}
-    obj.__class__ = FREED_OBJECT
 
 
 class MarkSweepGC(object):
