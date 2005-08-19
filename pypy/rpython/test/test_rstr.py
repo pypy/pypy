@@ -1,9 +1,27 @@
+import random
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
-from pypy.rpython.rstr import parse_fmt_string
+from pypy.rpython.rstr import parse_fmt_string, ll_find, ll_rfind, STR
 from pypy.rpython.rtyper import RPythonTyper, TyperError
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 from pypy.rpython.llinterp import LLException
+
+def llstr(s):
+    p = malloc(STR, len(s))
+    for i in range(len(s)):
+        p.chars[i] = s[i]
+    return p
+
+def test_ll_find_rfind():
+    for i in range(50):
+        n1 = random.randint(0, 10)
+        s1 = ''.join([random.choice("ab") for i in range(n1)])
+        n2 = random.randint(0, 5)
+        s2 = ''.join([random.choice("ab") for i in range(n2)])
+        res = ll_find(llstr(s1), llstr(s2), 0, n1)
+        assert res == s1.find(s2)
+        res = ll_rfind(llstr(s1), llstr(s2), 0, n1)
+        assert res == s1.rfind(s2)
 
 def test_simple():
     def fn(i):
@@ -200,12 +218,35 @@ def test_endswith():
 def test_find():
     def fn(i, j):
         s1 = ['one two three', 'abc abcdab abcdabcdabde']
-        s2 = ['one', 'two', 'abcdab', 'one tou', 'abcdefgh', 'fortytwo']
+        s2 = ['one', 'two', 'abcdab', 'one tou', 'abcdefgh', 'fortytwo', '']
         return s1[i].find(s2[j])
     for i in range(2):
-        for j in range(6):
+        for j in range(7):
             res = interpret(fn, [i,j])
             assert res == fn(i, j)
+
+def test_find_with_start():
+    def fn(i):
+        assert i >= 0
+        return 'ababcabc'.find('abc', i)
+    for i in range(9):
+        res = interpret(fn, [i])
+        assert res == fn(i)
+
+def test_find_with_start_end():
+    def fn(i, j):
+        assert i >= 0
+        assert j >= 0
+        return 'ababcabc'.find('abc', i, j)
+    for (i, j) in [(1,7), (2,6), (3,7), (3,8)]:
+        res = interpret(fn, [i, j])
+        assert res == fn(i, j)
+
+def test_rfind():
+    def fn():
+        return 'aaa'.rfind('a') + 'aaa'.rfind('a', 1) + 'aaa'.rfind('a', 1, 2)
+    res = interpret(fn, [])
+    assert res == 2 + 2 + 1
 
 def test_upper():
     def fn(i):

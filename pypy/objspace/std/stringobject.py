@@ -2,7 +2,8 @@
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from pypy.rpython.rarithmetic import intmask, ovfcheck
+from pypy.rpython.rarithmetic import intmask, ovfcheck, _hash_string
+from pypy.rpython.objectmodel import we_are_translated
 from pypy.objspace.std.intobject   import W_IntObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
@@ -20,7 +21,6 @@ class W_StringObject(W_Object):
     def __init__(w_self, space, str):
         W_Object.__init__(w_self, space)
         w_self._value = str
-        w_self.w_hash = None
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -275,9 +275,7 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         splitcount = maxsplit
 
     while splitcount:             
-        next = _find(value, by, start, len(value), 1)
-        #next = value.find(by, start)    #of course we cannot use 
-                                         #the find method, 
+        next = value.find(by, start)
         if next < 0:
             break
         res_w.append(W_StringObject(space, value[start:next]))
@@ -339,9 +337,7 @@ def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         splitcount = maxsplit
 
     while splitcount:
-        next = _find(value, by, 0, end, -1)
-        #next = value.rfind(by, end)    #of course we cannot use 
-                                        #the find method, 
+        next = value.rfind(by, 0, end)
         if next < 0:
             break
         res_w.append(W_StringObject(space, value[next+bylen:end]))
@@ -445,32 +441,33 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
 
     start = space.int_w(w_start)
     end = space.int_w(w_end)
+    assert start >= 0
+    assert end >= 0
 
     return (self, sub, start, end)
 
 def contains__String_String(space, w_self, w_sub):
     self = w_self._value
     sub = w_sub._value
-    return space.newbool(_find(self, sub, 0, len(self), 1) >= 0)
+    return space.newbool(self.find(sub) >= 0)
 
 def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = _find(self, sub, start, end, 1)
+    res = self.find(sub, start, end)
     return space.wrap(res)
 
 def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = _find(self, sub, start, end, -1)
+    res = self.rfind(sub, start, end)
     return space.wrap(res)
 
 def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = _find(self, sub, start, end, 1)
-
-    if res == -1:
+    res = self.find(sub, start, end)
+    if res < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.index"))
 
@@ -480,8 +477,8 @@ def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = _find(self, sub, start, end, -1)
-    if res == -1:
+    res = self.rfind(sub, start, end)
+    if res < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.rindex"))
 
@@ -499,19 +496,17 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
 
     #what do we have to replace?
     startidx = 0
-    endidx = len(input)
     indices = []
-    foundidx = _find(input, sub, startidx, endidx, 1)
-    while foundidx > -1 and (maxsplit == -1 or maxsplit > 0):
+    foundidx = input.find(sub, startidx)
+    while foundidx >= 0 and maxsplit != 0:
         indices.append(foundidx)
         if len(sub) == 0:
             #so that we go forward, even if sub is empty
             startidx = foundidx + 1
         else: 
             startidx = foundidx + len(sub)        
-        foundidx = _find(input, sub, startidx, endidx, 1)
-        if maxsplit != -1:
-            maxsplit = maxsplit - 1
+        foundidx = input.find(sub, startidx)
+        maxsplit = maxsplit - 1
     indiceslen = len(indices)
     buf = [' '] * (len(input) - indiceslen * len(sub) + indiceslen * len(by))
     startidx = 0
@@ -534,52 +529,52 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
         bufpos = bufpos + 1 
     return space.wrap("".join(buf))
 
-def _find(self, sub, start, end, dir):
+##def _find(self, sub, start, end, dir):
 
-    length = len(self)
+##    length = len(self)
 
-    #adjust_indicies
-    if (end > length):
-        end = length
-    elif (end < 0):
-        end += length
-    if (end < 0):
-        end = 0
-    if (start < 0):
-        start += length
-    if (start < 0):
-        start = 0
+##    #adjust_indicies
+##    if (end > length):
+##        end = length
+##    elif (end < 0):
+##        end += length
+##    if (end < 0):
+##        end = 0
+##    if (start < 0):
+##        start += length
+##    if (start < 0):
+##        start = 0
 
-    if dir > 0:
-        if len(sub) == 0 and start < end:
-            return start
+##    if dir > 0:
+##        if len(sub) == 0 and start < end:
+##            return start
 
-        end = end - len(sub) + 1
+##        end = end - len(sub) + 1
 
-        for i in range(start, end):
-            match = 1
-            for idx in range(len(sub)):
-                if sub[idx] != self[idx+i]:
-                    match = 0
-                    break
-            if match: 
-                return i
-        return -1
-    else:
-        if len(sub) == 0 and start < end:
-            return end
+##        for i in range(start, end):
+##            match = 1
+##            for idx in range(len(sub)):
+##                if sub[idx] != self[idx+i]:
+##                    match = 0
+##                    break
+##            if match: 
+##                return i
+##        return -1
+##    else:
+##        if len(sub) == 0 and start < end:
+##            return end
 
-        end = end - len(sub)
+##        end = end - len(sub)
 
-        for j in range(end, start-1, -1):
-            match = 1
-            for idx in range(len(sub)):
-                if sub[idx] != self[idx+j]:
-                    match = 0
-                    break
-            if match:
-                return j
-        return -1        
+##        for j in range(end, start-1, -1):
+##            match = 1
+##            for idx in range(len(sub)):
+##                if sub[idx] != self[idx+j]:
+##                    match = 0
+##                    break
+##            if match:
+##                return j
+##        return -1        
 
 
 def _strip(space, w_self, w_chars, left, right):
@@ -668,15 +663,19 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     w_end = slicetype.adapt_bound(space, w_end, space.wrap(len(u_self)))
     u_start = space.int_w(w_start)
     u_end = space.int_w(w_end)
-    
-    count = 0  
+    assert u_start >= 0
+    assert u_end >= 0
 
-    pos = u_start - 1 
-    while 1: 
-       pos = _find(u_self, u_arg, pos+1, u_end, 1)
-       if pos == -1:
-          break
-       count += 1
+    if len(u_arg) == 0:
+        count = len(u_self) + 1
+    else:
+        count = 0  
+        while 1: 
+            pos = u_self.find(u_arg, u_start, u_end)
+            if pos < 0:
+                break
+            count += 1
+            u_start = pos + len(u_arg)
        
     return W_IntObject(space, count)
 
@@ -804,21 +803,14 @@ def str_w__String(space, w_str):
     return w_str._value
 
 def hash__String(space, w_str):
-    w_hash = w_str.w_hash
-    if w_hash is None:
-        s = w_str._value
-        try:
-            x = ord(s[0]) << 7
-        except IndexError:
-            x = 0
-        else:
-            for c in s:
-                x = (1000003*x) ^ ord(c)
-            x ^= len(s)
-        # unlike CPython, there is no reason to avoid to return -1
-        w_hash = W_IntObject(space, intmask(x))
-        w_str.w_hash = w_hash
-    return w_hash
+    s = w_str._value
+    if we_are_translated():
+        x = hash(s)            # to use the hash cache in rpython strings
+    else:
+        x = _hash_string(s)    # to make sure we get the same hash as rpython
+        # (otherwise translation will freeze W_DictObjects where we can't find
+        #  the keys any more!)
+    return W_IntObject(space, x)
 
 
 ##EQ = 1

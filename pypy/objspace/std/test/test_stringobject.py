@@ -313,6 +313,7 @@ class AppTestStringObject:
         assert 'aaa'.count('a', -10) == 3
         assert 'aaa'.count('a', 0, -1) == 2
         assert 'aaa'.count('a', 0, -10) == 0
+        assert 'ababa'.count('aba') == 1
      
     def test_startswith(self):
         assert 'ab'.startswith('ab') is True
@@ -592,7 +593,7 @@ class AppTestStringObject:
     def test_hash(self):
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
-        assert hash('') == 0
+        # disabled: assert hash('') == 0 --- different special case
         assert hash('hello') & 0x7fffffff == 0x347697fd
         assert hash('hello world!') & 0x7fffffff == 0x2f0bb411
 

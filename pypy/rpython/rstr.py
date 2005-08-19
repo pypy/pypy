@@ -3,7 +3,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
 from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst, UniCharRepr
-from pypy.rpython.rarithmetic import intmask
+from pypy.rpython.rarithmetic import intmask, _hash_string
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rtuple import TupleRepr
 from pypy.rpython import rint
@@ -107,9 +107,29 @@ class __extend__(StringRepr):
         v_str, v_value = hop.inputargs(string_repr, string_repr)
         return hop.gendirectcall(ll_endswith, v_str, v_value)
 
-    def rtype_method_find(_, hop):
-        v_str, v_value = hop.inputargs(string_repr, string_repr)
-        return hop.gendirectcall(ll_find, v_str, v_value)
+    def rtype_method_find(_, hop, reverse=False):
+        v_str = hop.inputarg(string_repr, arg=0)
+        v_value = hop.inputarg(string_repr, arg=1)
+        if hop.nb_args > 2:
+            v_start = hop.inputarg(Signed, arg=2)
+            if not hop.args_s[2].nonneg:
+                raise TyperError("str.find() start must be proven non-negative")
+        else:
+            v_start = hop.inputconst(Signed, 0)
+        if hop.nb_args > 3:
+            v_end = hop.inputarg(Signed, arg=3)
+            if not hop.args_s[2].nonneg:
+                raise TyperError("str.find() end must be proven non-negative")
+        else:
+            v_end = hop.gendirectcall(ll_strlen, v_str)
+        if reverse:
+            llfn = ll_rfind
+        else:
+            llfn = ll_find
+        return hop.gendirectcall(llfn, v_str, v_value, v_start, v_end)
+
+    def rtype_method_rfind(self, hop):
+        return self.rtype_method_find(hop, reverse=True)
 
     def rtype_method_upper(_, hop):
         v_str, = hop.inputargs(string_repr)
@@ -541,19 +561,8 @@ def ll_strhash(s):
     # special non-computed-yet value.
     x = s.hash
     if x == 0:
-        length = len(s.chars)
-        if length == 0:
-            x = -1
-        else:
-            x = ord(s.chars[0]) << 7
-            i = 0
-            while i < length:
-                x = (1000003*x) ^ ord(s.chars[i])
-                i += 1
-            x ^= length
-            if x == 0:
-                x = -1
-        s.hash = intmask(x)
+        x = _hash_string(s.chars)
+        s.hash = x
     return x
 
 def ll_strconcat(s1, s2):
@@ -643,18 +652,20 @@ def ll_endswith(s1, s2):
 
     return True
 
-def ll_find(s1, s2):
+def ll_find(s1, s2, start, end):
     """Knuth Morris Prath algorithm for substring match"""
-    len1 = len(s1.chars)
     len2 = len(s2.chars)
+    if len2 == 0:
+        return start
     # Construct the array of possible restarting positions
     # T = Array_of_ints [-1..len2]
     # T[-1] = -1 s2.chars[-1] is supposed to be unequal to everything else
     T = malloc( SIGNED_ARRAY, len2 )
-    i = 0
-    j = -1
+    T[0] = 0
+    i = 1
+    j = 0
     while i<len2:
-        if j>=0 and s2.chars[i] == s2.chars[j]:
+        if s2.chars[i] == s2.chars[j]:
             j += 1
             T[i] = j
             i += 1
@@ -667,8 +678,8 @@ def ll_find(s1, s2):
 
     # Now the find algorithm
     i = 0
-    m = 0
-    while m+i<len1:
+    m = start
+    while m+i<end:
         if s1.chars[m+i]==s2.chars[i]:
             i += 1
             if i==len2:
@@ -676,14 +687,53 @@ def ll_find(s1, s2):
         else:
             # mismatch, go back to the last possible starting pos
             if i==0:
-                e = -1
+                m += 1
             else:
                 e = T[i-1]
-            m = m + i - e
-            if i>0:
+                m = m + i - e
                 i = e
     return -1
-    
+
+def ll_rfind(s1, s2, start, end):
+    """Reversed version of ll_find()"""
+    len2 = len(s2.chars)
+    if len2 == 0:
+        return end
+    # Construct the array of possible restarting positions
+    T = malloc( SIGNED_ARRAY, len2 )
+    T[0] = 1
+    i = 1
+    j = 1
+    while i<len2:
+        if s2.chars[len2-i-1] == s2.chars[len2-j]:
+            j += 1
+            T[i] = j
+            i += 1
+        elif j>1:
+            j = T[j-2]
+        else:
+            T[i] = 1
+            i += 1
+            j = 1
+
+    # Now the find algorithm
+    i = 1
+    m = end
+    while m-i>=start:
+        if s1.chars[m-i]==s2.chars[len2-i]:
+            if i==len2:
+                return m-i
+            i += 1
+        else:
+            # mismatch, go back to the last possible starting pos
+            if i==1:
+                m -= 1
+            else:
+                e = T[i-2]
+                m = m - i + e
+                i = e
+    return -1
+
 emptystr = string_repr.convert_const("")
 
 def ll_upper(s):
