@@ -632,12 +632,15 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
             return NotImplemented
 
     def rtype_is_((r_ins1, r_ins2), hop):
+        if r_ins1.needsgc != r_ins2.needsgc:
+            # obscure logic, the is can be true only if both are None
+            v_ins1, v_ins2 = hop.inputargs(r_ins1.common_repr(), r_ins2.common_repr())
+            return hop.gendirectcall(ll_both_none, v_ins1, v_ins2)
+        nogc = not (r_ins1.needsgc and r_ins2.needsgc)
         if r_ins1.classdef is None or r_ins2.classdef is None:
             basedef = None
-            nogc = not (r_ins1.needsgc and r_ins2.needsgc)
         else:
             basedef = r_ins1.classdef.commonbase(r_ins2.classdef)
-            nogc = False
         r_ins = getinstancerepr(r_ins1.rtyper, basedef, nogc=nogc)
         return pairtype(Repr, Repr).rtype_is_(pair(r_ins, r_ins), hop)
 
@@ -646,6 +649,9 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
     def rtype_ne(rpair, hop):
         v = rpair.rtype_eq(hop)
         return hop.genop("bool_not", [v], resulttype=Bool)
+
+def ll_both_none(ins1, ins2):
+    return not ins1 and not ins2
 
 # ____________________________________________________________
 
