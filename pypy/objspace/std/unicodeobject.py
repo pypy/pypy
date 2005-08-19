@@ -888,23 +888,34 @@ def repr__Unicode(space, w_unicode):
     hexdigits = "0123456789abcdef"
     chars = w_unicode._value
     size = len(chars)
-    quote = "'"
+    
+    singlequote = doublequote = False
+    for c in chars:
+        if c == u'\'':
+            singlequote = True
+        elif c == u'"':
+            doublequote = True
+    if singlequote and not doublequote:
+        quote = '"'
+    else:
+        quote = '\''
     result = ['\0'] * (2 + size*6 + 1)
     result[0] = 'u'
     result[1] = quote
     i = 2
     for ch in chars:
-        if ch == u'\\':
-            result[i] = result[i + 1] = '\\'
+        if ch == u'\\' or ch == str(quote) :
+            result[i] =  '\\'
+            result[i + 1] = str(ch)
             i += 2
             continue
-        if ch == u"'":
-            quote ='''"'''
-            result[1] = quote
-            result[i] = '\''
-            #result[i + 1] = "'"
-            i += 1
-            continue
+##        if ch == u"'":
+##            quote ='''"'''
+##            result[1] = quote
+##            result[i] = '\''
+##            #result[i + 1] = "'"
+##            i += 1
+##            continue
         code = ord(ch)
         if code > 0x10000:
             # Resize if needed
