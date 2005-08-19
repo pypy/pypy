@@ -452,11 +452,6 @@ class LLFrame(object):
         assert self.llt.typeOf(value) == typ
         getattr(addr, str(typ).lower())[offset] = value
 
-    def op_adr_ne(self, addr1, addr2):
-        assert isinstance(addr1, lladdress.address)
-        assert isinstance(addr2, lladdress.address)
-        return addr1 != addr2
-
     def op_adr_add(self, addr, offset):
         assert isinstance(addr, lladdress.address)
         assert self.llt.typeOf(offset) is self.llt.Signed
@@ -472,7 +467,14 @@ class LLFrame(object):
         assert isinstance(addr2, lladdress.address)
         return addr1 - addr2
 
-    
+    for opname, op in (("eq", "=="), ("ne", "!="), ("le", "<="), ("lt", "<"),
+                       ("gt", ">"), ("ge", ">=")):
+        exec py.code.Source("""
+            def op_adr_%s(self, addr1, addr2):
+                assert isinstance(addr1, lladdress.address)
+                assert isinstance(addr2, lladdress.address)
+                return addr1 %s addr2""" % (opname, op)).compile()
+
     # __________________________________________________________
     # primitive operations
 

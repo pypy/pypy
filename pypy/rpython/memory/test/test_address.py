@@ -225,7 +225,6 @@ class TestAddressInLLInterp(object):
         res = interpret(f, [1])
         assert res == 1
         
-
     def test_pointer_arithmetic(self):
         def f(offset, char):
             addr = raw_malloc(10000)
@@ -236,6 +235,17 @@ class TestAddressInLLInterp(object):
         assert res == "c"
         res = interpret(f, [12, "x"])
         assert res == "x"
+
+    def test_address_comparison(self):
+        def f(offset):
+            return NULL < NULL + offset or NULL == NULL + offset
+        res = interpret(f, [10])
+        assert res
+        res = interpret(f, [-10])
+        assert not res
+        res = interpret(f, [0])
+        assert res
+        
 
 class TestAddressSimulation(object):
     def test_null_is_singleton(self):
