@@ -35,7 +35,7 @@ class SRE_Pattern(object):
         """If zero or more characters at the beginning of string match this
         regular expression, return a corresponding MatchObject instance. Return
         None if the string does not match the pattern."""
-        state = _State(string, pos, endpos, self.flags)
+        state = _sre._State(string, pos, endpos, self.flags)
         if match(state, self._code):
             return SRE_Match(self, state)
         else:
@@ -46,7 +46,7 @@ class SRE_Pattern(object):
         expression produces a match, and return a corresponding MatchObject
         instance. Return None if no position in the string matches the
         pattern."""
-        state = _State(string, pos, endpos, self.flags)
+        state = _sre._State(string, pos, endpos, self.flags)
         if search(state, self._code):
             return SRE_Match(self, state)
         else:
@@ -55,7 +55,7 @@ class SRE_Pattern(object):
     def findall(self, string, pos=0, endpos=sys.maxint):
         """Return a list of all non-overlapping matches of pattern in string."""
         matchlist = []
-        state = _State(string, pos, endpos, self.flags)
+        state = _sre._State(string, pos, endpos, self.flags)
         while state.start <= state.end:
             state.reset()
             state.string_position = state.start
@@ -79,7 +79,7 @@ class SRE_Pattern(object):
             # handle non-literal strings ; hand it over to the template compiler
             import sre
             filter = sre._subx(self, template)
-        state = _State(string, 0, sys.maxint, self.flags)
+        state = _sre._State(string, 0, sys.maxint, self.flags)
         sublist = []
         
         n = last_pos = 0
@@ -126,7 +126,7 @@ class SRE_Pattern(object):
     def split(self, string, maxsplit=0):
         """Split string by the occurrences of pattern."""
         splitlist = []
-        state = _State(string, 0, sys.maxint, self.flags)
+        state = _sre._State(string, 0, sys.maxint, self.flags)
         n = 0
         last = state.start
         while not maxsplit or n < maxsplit:
@@ -169,7 +169,7 @@ class SRE_Scanner(object):
     
     def __init__(self, pattern, string, start, end):
         self.pattern = pattern
-        self._state = _State(string, start, end, self.pattern.flags)
+        self._state = _sre._State(string, start, end, self.pattern.flags)
 
     def _match_search(self, matcher):
         state = self._state
@@ -201,7 +201,7 @@ class SRE_Match(object):
         self.lastindex = state.lastindex
         if self.lastindex < 0:
             self.lastindex = None
-        self.regs = self._create_regs(state)
+        self.regs = state.create_regs(self.re.groups)
         if pattern._indexgroup and 0 <= self.lastindex < len(pattern._indexgroup):
             # The above upper-bound check should not be necessary, as the re
             # compiler is supposed to always provide an _indexgroup list long
@@ -211,19 +211,6 @@ class SRE_Match(object):
             self.lastgroup = pattern._indexgroup[self.lastindex]
         else:
             self.lastgroup = None
-
-    def _create_regs(self, state):
-        """Creates a tuple of index pairs representing matched groups."""
-        regs = [(state.start, state.string_position)]
-        for group in range(self.re.groups):
-            mark_index = 2 * group
-            if mark_index + 1 < len(state.marks) \
-                                    and state.marks[mark_index] is not None \
-                                    and state.marks[mark_index + 1] is not None:
-                regs.append((state.marks[mark_index], state.marks[mark_index + 1]))
-            else:
-                regs.append((-1, -1))
-        return tuple(regs)
 
     def _get_index(self, group):
         if isinstance(group, int):
@@ -304,57 +291,50 @@ class SRE_Match(object):
         raise TypeError, "cannot copy this pattern object"
 
 
-class _State(object):
+class _MatchContext(object):
 
-    def __init__(self, string, start, end, flags):
-        self.string = string
-        if start < 0:
-            start = 0
-        if end > len(string):
-            end = len(string)
-        self.start = start
-        self.string_position = self.start
-        self.end = end
-        self.pos = start
-        self.flags = flags
-        self.reset()
+    def __init__(self, state, pattern_codes):
+        self.state = state
+        self.pattern_codes = pattern_codes
+        self.string_position = state.string_position
+        self.code_position = 0
+        self.has_matched = None
 
-    def reset(self):
-        self.marks = []
-        self.lastindex = -1
-        self.marks_stack = []
-        self.context_stack = []
-        self.repeat = None
+    def push_new_context(self, pattern_offset):
+        """Creates a new child context of this context and pushes it on the
+        stack. pattern_offset is the offset off the current code position to
+        start interpreting from."""
+        child_context = _MatchContext(self.state,
+            self.pattern_codes[self.code_position + pattern_offset:])
+        self.state.context_stack.append(child_context)
+        return child_context
 
-    def set_mark(self, mark_nr, position):
-        if mark_nr & 1:
-            # This id marks the end of a group.
-            self.lastindex = mark_nr / 2 + 1
-        if mark_nr >= len(self.marks):
-            self.marks.extend([None] * (mark_nr - len(self.marks) + 1))
-        self.marks[mark_nr] = position
+    def peek_char(self, peek=0):
+        return self.state.string[self.string_position + peek]
 
-    def get_marks(self, group_index):
-        marks_index = 2 * group_index
-        if len(self.marks) > marks_index + 1:
-            return self.marks[marks_index], self.marks[marks_index + 1]
-        else:
-            return None, None
+    def skip_char(self, skip_count):
+        self.string_position += skip_count
 
-    def marks_push(self):
-        self.marks_stack.append((self.marks[:], self.lastindex))
+    def remaining_chars(self):
+        return self.state.end - self.string_position
 
-    def marks_pop(self):
-        self.marks, self.lastindex = self.marks_stack.pop()
+    def peek_code(self, peek=0):
+        return self.pattern_codes[self.code_position + peek]
 
-    def marks_pop_keep(self):
-        self.marks, self.lastindex = self.marks_stack[-1]
+    def skip_code(self, skip_count):
+        self.code_position += skip_count
 
-    def marks_pop_discard(self):
-        self.marks_stack.pop()
+    def remaining_codes(self):
+        return len(self.pattern_codes) - self.code_position
 
-    def lower(self, char_ord):
-        return _sre.getlower(char_ord, self.flags)
+    def at_beginning(self):
+        return self.string_position == 0
+
+    def at_end(self):
+        return self.string_position == self.state.end
+
+    def at_linebreak(self):
+        return not self.at_end() and self.peek_char() == "\n"
 
 
 def search(state, pattern_codes):
@@ -368,6 +348,7 @@ def search(state, pattern_codes):
         pattern_codes = pattern_codes[pattern_codes[1] + 1:]
 
     string_position = state.start
+    """
     if pattern_codes[0] == OPCODES["literal"]:
         # Special case: Pattern starts with a literal character. This is
         # used for short prefixes
@@ -386,6 +367,7 @@ def search(state, pattern_codes):
             if match(state, pattern_codes[2:]):
                 return True
         return False
+    """
 
     # General case
     while string_position <= state.end:
@@ -452,49 +434,6 @@ def match(state, pattern_codes):
         if has_matched is not None: # don't pop if context isn't done
             state.context_stack.pop()
     return has_matched
-
-
-class _MatchContext(object):
-
-    def __init__(self, state, pattern_codes):
-        self.state = state
-        self.pattern_codes = pattern_codes
-        self.string_position = state.string_position
-        self.code_position = 0
-        self.has_matched = None
-
-    def push_new_context(self, pattern_offset):
-        """Creates a new child context of this context and pushes it on the
-        stack. pattern_offset is the offset off the current code position to
-        start interpreting from."""
-        child_context = _MatchContext(self.state,
-            self.pattern_codes[self.code_position + pattern_offset:])
-        self.state.context_stack.append(child_context)
-        return child_context
-
-    def peek_char(self, peek=0):
-        return self.state.string[self.string_position + peek]
-
-    def skip_char(self, skip_count):
-        self.string_position += skip_count
-
-    def remaining_chars(self):
-        return self.state.end - self.string_position
-
-    def peek_code(self, peek=0):
-        return self.pattern_codes[self.code_position + peek]
-
-    def skip_code(self, skip_count):
-        self.code_position += skip_count
-
-    def remaining_codes(self):
-        return len(self.pattern_codes) - self.code_position
-
-    def at_end(self):
-        return self.string_position == self.state.end
-
-    def at_linebreak(self):
-        return not self.at_end() and self.peek_char() == "\n"
 
 
 class _RepeatContext(_MatchContext):

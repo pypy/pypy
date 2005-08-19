@@ -1,7 +1,9 @@
-from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 # XXX is it allowed to import app-level module like this?
 from pypy.module._sre.app_info import CODESIZE
 from pypy.module.array.app_array import array
+from pypy.interpreter.typedef import GetSetProperty, TypeDef
+from pypy.interpreter.gateway import interp2app
 
 #### Exposed functions
 
@@ -19,6 +21,113 @@ def getlower(space, w_char_ord, w_flags):
         return space.ord(w_lowered)
     else:
         return space.wrap(char_ord)
+
+#### Core classes
+
+# XXX the wrapped/unwrapped semantics of the following classes are currently
+# very confusing because they are still used at app-level.
+
+def make_state(space, w_string, w_start, w_end, w_flags):
+    # XXX Uhm, temporary
+    return space.wrap(W_State(space, w_string, w_start, w_end, w_flags))
+
+class W_State(Wrappable):
+
+    def __init__(self, space, w_string, w_start, w_end, w_flags):
+        self.space = space
+        self.w_string = w_string
+        start = space.int_w(w_start)
+        end = space.int_w(w_end)
+        if start < 0:
+            start = 0
+        if end > space.int_w(space.len(w_string)):
+            end = space.int_w(space.len(w_string))
+        self.start = start
+        self.string_position = start
+        self.end = end
+        self.pos = start
+        self.flags = space.int_w(w_flags)
+        self.reset()
+
+    def reset(self):
+        self.marks = []
+        self.lastindex = -1
+        self.marks_stack = []
+        self.context_stack = self.space.newlist([])
+        self.w_repeat = self.space.w_None
+
+    def set_mark(self, w_mark_nr, w_position):
+        mark_nr = self.space.int_w(w_mark_nr)
+        if mark_nr & 1:
+            # This id marks the end of a group.
+            self.lastindex = mark_nr / 2 + 1
+        if mark_nr >= len(self.marks):
+            self.marks.extend([None] * (mark_nr - len(self.marks) + 1))
+        self.marks[mark_nr] = self.space.int_w(w_position)
+
+    def get_marks(self, w_group_index):
+        marks_index = 2 * self.space.int_w(w_group_index)
+        if len(self.marks) > marks_index + 1:
+            return self.space.newtuple([self.space.wrap(self.marks[marks_index]),
+                                  self.space.wrap(self.marks[marks_index + 1])])
+        else:
+            return self.space.newtuple([self.space.w_None, self.space.w_None])
+
+    def create_regs(self, w_group_count):
+        """Creates a tuple of index pairs representing matched groups, a format
+        that's convenient for SRE_Match."""
+        regs = [self.space.newtuple([self.space.wrap(self.start), self.space.wrap(self.string_position)])]
+        for group in range(self.space.int_w(w_group_count)):
+            mark_index = 2 * group
+            if mark_index + 1 < len(self.marks) \
+                                    and self.marks[mark_index] is not None \
+                                    and self.marks[mark_index + 1] is not None:
+                regs.append(self.space.newtuple([self.space.wrap(self.marks[mark_index]),
+                                                 self.space.wrap(self.marks[mark_index + 1])]))
+            else:
+                regs.append(self.space.newtuple([self.space.wrap(-1),
+                                                        self.space.wrap(-1)]))
+        return self.space.newtuple(regs)
+
+    def marks_push(self):
+        self.marks_stack.append((self.marks[:], self.lastindex))
+
+    def marks_pop(self):
+        self.marks, self.lastindex = self.marks_stack.pop()
+
+    def marks_pop_keep(self):
+        self.marks, self.lastindex = self.marks_stack[-1]
+
+    def marks_pop_discard(self):
+        self.marks_stack.pop()
+
+    def lower(self, w_char_ord):
+        return getlower(self.space, w_char_ord, self.space.wrap(self.flags))
+
+W_State.typedef = TypeDef("W_State",
+    string = GetSetProperty(lambda space, state: state.w_string,
+        lambda space, state, value: setattr(state, "w_string", value)),
+    start = GetSetProperty(lambda space, state: space.wrap(state.start),
+        lambda space, state, value: setattr(state, "start", space.int_w(value))),
+    end = GetSetProperty(lambda space, state: space.wrap(state.end)),
+    string_position = GetSetProperty(lambda space, state: space.wrap(state.string_position),
+        lambda space, state, value: setattr(state, "string_position", space.int_w(value))),
+    pos = GetSetProperty(lambda space, state: space.wrap(state.pos)),
+    lastindex = GetSetProperty(lambda space, state: space.wrap(state.lastindex)),
+    context_stack = GetSetProperty(lambda space, state: state.context_stack),
+    repeat = GetSetProperty(lambda space, state: state.w_repeat,
+        lambda space, state, value: setattr(state, "w_repeat", value)),
+    reset = interp2app(W_State.reset, unwrap_spec = ["self"]),
+    set_mark = interp2app(W_State.set_mark),
+    get_marks = interp2app(W_State.get_marks),
+    create_regs = interp2app(W_State.create_regs),
+    marks_push = interp2app(W_State.marks_push, unwrap_spec = ["self"]),
+    marks_pop = interp2app(W_State.marks_pop, unwrap_spec = ["self"]),
+    marks_pop_keep = interp2app(W_State.marks_pop_keep, unwrap_spec = ["self"]),
+    marks_pop_discard = interp2app(W_State.marks_pop_discard, unwrap_spec = ["self"]),
+    lower = interp2app(W_State.lower),
+)
+
 
 #### Category helpers
 
