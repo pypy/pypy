@@ -904,11 +904,6 @@ def repr__Unicode(space, w_unicode):
     result[1] = quote
     i = 2
     for ch in chars:
-        if ch == u'\\' or ch == str(quote) :
-            result[i] =  '\\'
-            result[i + 1] = str(ch)
-            i += 2
-            continue
 ##        if ch == u"'":
 ##            quote ='''"'''
 ##            result[1] = quote
@@ -917,7 +912,7 @@ def repr__Unicode(space, w_unicode):
 ##            i += 1
 ##            continue
         code = ord(ch)
-        if code > 0x10000:
+        if code >= 0x10000:
             # Resize if needed
             if i + 12 > len(result):
                 result.extend(['\0'] * 100)
@@ -933,7 +928,7 @@ def repr__Unicode(space, w_unicode):
             result[i + 9] = hexdigits[(code >>  0) & 0xf]
             i += 10
             continue
-        if code > 0x100:
+        if code >= 0x100:
             result[i] = '\\'
             result[i + 1] = "u"
             result[i + 2] = hexdigits[(code >> 12) & 0xf] 
@@ -941,6 +936,11 @@ def repr__Unicode(space, w_unicode):
             result[i + 4] = hexdigits[(code >>  4) & 0xf] 
             result[i + 5] = hexdigits[(code >>  0) & 0xf] 
             i += 6
+            continue
+        if code == ord('\\') or code == ord(quote):
+            result[i] = '\\'
+            result[i + 1] = chr(code)
+            i += 2
             continue
         if code == ord('\t'):
             result[i] = '\\'
