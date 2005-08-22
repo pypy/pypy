@@ -8,6 +8,7 @@ from pypy.rpython.extfunctable import standardexceptions
 
 class ExceptionData:
     """Public information for the code generators to help with exceptions."""
+    standardexceptions = standardexceptions
 
     def __init__(self, rtyper):
         self.make_standard_exceptions(rtyper)
@@ -32,7 +33,7 @@ class ExceptionData:
 
     def make_standard_exceptions(self, rtyper):
         bk = rtyper.annotator.bookkeeper
-        for cls in standardexceptions:
+        for cls in self.standardexceptions:
             classdef = bk.getclassdef(cls)
             rclass.getclassrepr(rtyper, classdef).setup()
 
@@ -69,7 +70,7 @@ class ExceptionData:
             if (clsdef and clsdef.cls is not Exception
                 and issubclass(clsdef.cls, Exception)):
                 cls = clsdef.cls
-                if cls in standardexceptions:
+                if cls in self.standardexceptions:
                     is_standard = True
                     assert not clsdef.attrs, (
                         "%r should not have grown atributes" % (cls,))
