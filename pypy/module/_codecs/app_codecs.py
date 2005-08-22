@@ -201,7 +201,7 @@ def utf_16_decode( data,errors='strict',final=None):
     """
     res,consumed = PyUnicode_DecodeUTF16Stateful(data,len(data),errors)
     res = ''.join(res)
-    return res, consume
+    return res, consumed
 
 def unicode_escape_decode( data,errors='strict'):
     """None
