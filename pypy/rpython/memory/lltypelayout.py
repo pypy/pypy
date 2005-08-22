@@ -7,6 +7,7 @@ primitive_to_fmt = {lltype.Signed:          "i",
                     lltype.Unsigned:        "I",
                     lltype.Char:            "c",
                     lltype.Bool:            "B",
+                    lltype.Float:           "d",
                     lladdress.Address:      "P",
                     }
 
