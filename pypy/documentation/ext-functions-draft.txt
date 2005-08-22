@@ -23,3 +23,13 @@ example of interp-level code needing to somehow call an external function::
 * the backends will have implementations for these helper functions
   (to allow writing such implementations we will need a way to assign
   fixed names for some of the defined lltypes introduced by the rtyper)
+
+* XXX: integrate the following refinement:: 
+
+      interplevel: os.open()
+      annotation knows it returns an int. 
+      rtyper knows to subst by a dummy ll_os_open
+      def ll_os_open(...): 
+          fd = oslevel_open(...) 
+          if fd == -1: 
+            raise ... 
