@@ -4,9 +4,23 @@ from pypy.interpreter.pyparser.pythonparse import PYTHON_PARSER
 from pypy.interpreter.pyparser.astbuilder import AstBuilder
 from pypy.interpreter.pyparser.pythonutil import ast_from_input
 from pypy.interpreter.stablecompiler.transformer import Transformer
+import pypy.interpreter.stablecompiler.ast as stable_ast
+import pypy.interpreter.astcompiler.ast as ast_ast
+
 import py.test
 
 from pypy.interpreter.astcompiler import ast
+
+
+def nodes_equal(left, right):
+    if type(left)!=type(right):
+        return False
+    if not isinstance(left,stable_ast.Node) or not isinstance(right,ast_ast.Node):
+        return left==right
+    for i,j in zip(left.getChildren(),right.getChildren()):
+        if not nodes_equal(i,j):
+            return False
+    return True
 
 expressions = [
     "x = a + 1",
@@ -392,7 +406,7 @@ def check_expression(expr, target='single'):
     print "BUILT:", r1.rule_stack[-1]
     print "-" * 30
     # r1.rule_stack[-1].equals(ast)
-    assert ast == r1.rule_stack[-1], 'failed on %r' % (expr)
+    assert nodes_equal( ast, r1.rule_stack[-1]), 'failed on %r' % (expr)
 
 
 def test_basic_astgen():
@@ -472,3 +486,4 @@ def test_eval_string():
             ]
     for data in test:
         assert eval_string(data) == eval(data)
+
