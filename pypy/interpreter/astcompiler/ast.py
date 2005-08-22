@@ -33,23 +33,6 @@ class Node:
         pass # implemented by subclasses
     def visit(self, visitor, *args):
         return visitor.visitNode(self, *args)
-    def __eq__(self, right):
-        if type(self) != type(right):
-            return False
-        # the following tests prevnts Node1([foo]) and Node2([foo])
-        # from being equals. compare __name__ because class will
-        # be different (astcompiler.class1 and stablecompiler.class1 should
-        # be seen as equals)
-        if self.__class__.__name__ != right.__class__.__name__:
-            return False
-        self_child = self.getChildren()
-        right_child = right.getChildren()
-        if len(self_child) != len(right_child):
-            return False
-        for i,j in zip(self_child, right_child):
-            if not i==j:
-                return False
-        return True
 
 class EmptyNode(Node):
     def visit(self, visitor, *args):
@@ -986,7 +969,6 @@ class ListComp(Node):
 
     def accept(self, visitor, args):
         return visitor.visitListComp(self, args)
-
 
 class ListCompFor(Node):
     def __init__(self, assign, list, ifs, lineno=None):

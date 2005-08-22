@@ -1,4 +1,4 @@
-from compiler import ast
+from pypy.interpreter.astcompiler import ast
 
 # XXX should probably rename ASTVisitor to ASTWalker
 # XXX can it be made even more generic?

@@ -5,8 +5,8 @@ import new
 import sys
 import types
 
-from compiler import misc
-from compiler.consts \
+from pypy.interpreter.astcompiler import misc
+from pypy.interpreter.astcompiler.consts \
      import CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS
 
 class FlowGraph:
@@ -81,6 +81,9 @@ class FlowGraph:
 
         i.e. each node appears before all of its successors
         """
+        # TODO: What we need here is a topological sort that
+        
+        
         # XXX make sure every node that doesn't have an explicit next
         # is set so that next points to exit
         for b in self.blocks.elements():
@@ -244,7 +247,7 @@ class Block:
         op = inst[0]
         if op[:4] == 'JUMP':
             self.outEdges.add(inst[1])
-        self.insts.append(inst)
+        self.insts.append( list(inst) )
 
     def getInstructions(self):
         return self.insts
@@ -343,6 +346,7 @@ class PyFlowGraph(FlowGraph):
             if isinstance(var, TupleArg):
                 self.varnames[i] = var.getName()
         self.stage = RAW
+        self.orderedblocks = []
 
     def setDocstring(self, doc):
         self.docstring = doc
@@ -366,10 +370,10 @@ class PyFlowGraph(FlowGraph):
         """Get a Python code object"""
         if self.stage == RAW:
             self.computeStackDepth()
-            self.flattenGraph()
-        if self.stage == FLAT:
             self.convertArgs()
         if self.stage == CONV:
+            self.flattenGraph()
+        if self.stage == FLAT:
             self.makeByteCode()
         if self.stage == DONE:
             return self.newCodeObject()
@@ -425,35 +429,64 @@ class PyFlowGraph(FlowGraph):
 
     def flattenGraph(self):
         """Arrange the blocks in order and resolve jumps"""
-        assert self.stage == RAW
+        assert self.stage == CONV
         self.insts = insts = []
         pc = 0
         begin = {}
         end = {}
-        for b in self.getBlocksInOrder():
+        forward_refs = []
+        for b in self.orderedblocks:
             begin[b] = pc
             for inst in b.getInstructions():
-                insts.append(inst)
                 if len(inst) == 1:
+                    insts.append(inst)
                     pc = pc + 1
                 elif inst[0] != "SET_LINENO":
-                    # arg takes 2 bytes
-                    pc = pc + 3
+                    opname, arg = inst
+                    if self.hasjrel.has_elt(opname):
+                        # relative jump - no extended arg
+                        forward_refs.append( (arg,  inst, pc ) )
+                        insts.append(inst)
+                        pc = pc + 3
+                    elif self.hasjabs.has_elt(opname):
+                        # absolute jump - can be extended if backward
+                        if arg in begin:
+                            # can only extend argument if backward
+                            offset = begin[arg]
+                            hi, lo = divmod(offset,65536)
+                            if hi>0:
+                                # extended argument
+                                insts.append( ["EXTENDED_ARG", hi ] )
+                                pc = pc + 3
+                            inst[1] = lo
+                        else:
+                            forward_refs.append( (arg,  inst, pc ) )
+                        insts.append(inst)
+                        pc = pc + 3
+                    else:
+                        # numerical arg
+                        assert type(arg)==int
+                        hi,lo = divmod(arg,65536)
+                        if hi>0:
+                            # extended argument
+                            insts.append( ["EXTENDED_ARG", hi ] )
+                            inst[1] = lo
+                            pc = pc + 3    
+                        insts.append(inst)
+                        pc = pc + 3
+                else:
+                    insts.append(inst)
             end[b] = pc
         pc = 0
-        for i in range(len(insts)):
-            inst = insts[i]
-            if len(inst) == 1:
-                pc = pc + 1
-            elif inst[0] != "SET_LINENO":
-                pc = pc + 3
-            opname = inst[0]
+
+        for arg, inst, pc in forward_refs:
+            opname, block = inst
+            abspos = begin[block]
             if self.hasjrel.has_elt(opname):
-                oparg = inst[1]
-                offset = begin[oparg] - pc
-                insts[i] = opname, offset
-            elif self.hasjabs.has_elt(opname):
-                insts[i] = opname, begin[inst[1]]
+                offset = abspos - pc - 3
+                inst[1] = offset
+            else:
+                inst[1] = abspos
         self.stage = FLAT
 
     hasjrel = misc.Set()
@@ -465,16 +498,18 @@ class PyFlowGraph(FlowGraph):
 
     def convertArgs(self):
         """Convert arguments from symbolic to concrete form"""
-        assert self.stage == FLAT
+        assert self.stage == RAW
+        self.orderedblocks = self.getBlocksInOrder()
         self.consts.insert(0, self.docstring)
         self.sort_cellvars()
-        for i in range(len(self.insts)):
-            t = self.insts[i]
-            if len(t) == 2:
-                opname, oparg = t
-                conv = self._converters.get(opname, None)
-                if conv:
-                    self.insts[i] = opname, conv(self, oparg)
+
+        for b in self.orderedblocks:
+            for inst in b.getInstructions():
+                if len(inst) == 2:
+                    opname, oparg = inst
+                    conv = self._converters.get(opname, None)
+                    if conv:
+                        inst[1] = conv(self, oparg)
         self.stage = CONV
 
     def sort_cellvars(self):
@@ -563,10 +598,15 @@ class PyFlowGraph(FlowGraph):
     del name, obj, opname
 
     def makeByteCode(self):
-        assert self.stage == CONV
+        assert self.stage == FLAT
         self.lnotab = lnotab = LineAddrTable()
         for t in self.insts:
             opname = t[0]
+            if self._debug:
+                if len(t)==1:
+                    print "x",opname
+                else:
+                    print "x",opname, t[1]
             if len(t) == 1:
                 lnotab.addCode(self.opnum[opname])
             else:
