@@ -818,6 +818,15 @@ class CodeGenerator:
     def visitConst(self, node):
         self.emit('LOAD_CONST', node.value)
 
+    def visitNoneConst(self, node):
+        self.emit('LOAD_CONST', None)
+
+    def visitNumberConst(self, node):
+        self.emit('LOAD_CONST', node.number_value)
+
+    def visitStringConst(self, node):
+        self.emit('LOAD_CONST', node.string_value)
+
     def visitKeyword(self, node):
         self.emit('LOAD_CONST', node.name)
         self.visit(node.expr)
