@@ -8,12 +8,13 @@ from pypy.translator.c.node import StructDefNode, ArrayDefNode
 from pypy.translator.c.node import ContainerNodeClass, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.pyobj import PyObjMaker
+from pypy.translator.c import gc
 
 # ____________________________________________________________
 
 class LowLevelDatabase:
 
-    def __init__(self, translator=None, standalone=False):
+    def __init__(self, translator=None, standalone=False, gcpolicy=gc.RefcountingGcPolicy):
         self.translator = translator
         self.standalone = standalone
         self.structdefnodes = {}
@@ -23,6 +24,7 @@ class LowLevelDatabase:
         self.namespace = CNameManager()
         if not standalone:
             self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
+        self.gcpolicy = gcpolicy(self)
 
     def gettypedefnode(self, T, varlength=1):
         if varlength <= 1:

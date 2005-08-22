@@ -124,7 +124,7 @@ class FunctionCodeGenerator(object):
             yield '{'
             yield '\t%s;' % cdecl(exc_value_typename, 'vanishing_exc_value')
             yield '\tRPyConvertExceptionToCPython(vanishing_exc_value);'
-            yield '\t%s' % self.db.cdecrefstmt('vanishing_exc_value', lltype_of_exception_value)
+            yield '\t%s' % self.pop_alive_expr('vanishing_exc_value', lltype_of_exception_value)
             yield '}'
         yield 'return %s; ' % self.error_return_value()
 
@@ -156,21 +156,21 @@ class FunctionCodeGenerator(object):
         blocknum = {}
         allblocks = []
 
-        # generate an incref for each input argument
+        # match the subsequent pop_alive for each input argument
         for a in self.graph.getargs():
-            line = self.cincref(a)
+            line = self.push_alive(a)
             if line:
                 yield line
 
         def gen_link(link, linklocalvars=None):
             "Generate the code to jump across the given Link."
-            has_ref = {}
+            is_alive = {}
             linklocalvars = linklocalvars or {}
             for v in to_release:
                 linklocalvars[v] = self.expr(v)
-            has_ref = linklocalvars.copy()
+            is_alive = linklocalvars.copy()
             assignments = []
-            increfs = []
+            stay_alive = []
             for a1, a2 in zip(link.args, link.target.inputargs):
                 if self.lltypemap(a2) == Void:
                     continue
@@ -180,23 +180,23 @@ class FunctionCodeGenerator(object):
                     src = self.expr(a1)
                 dest = self.expr(a2)
                 assignments.append((self.lltypename(a2), dest, src))
-                if a1 in has_ref:
-                    del has_ref[a1]
+                if a1 in is_alive:
+                    del is_alive[a1]
                 else:
                     assert self.lltypemap(a1) == self.lltypemap(a2)
-                    increfs.append(a2)
+                    stay_alive.append(a2)
             # warning, the order below is delicate to get right:
-            # 1. decref the old variables that are not passed over
-            for v in has_ref:
-                line = self.cdecref(v, linklocalvars[v])
+            # 1. forget the old variables that are not passed over
+            for v in is_alive:
+                line = self.pop_alive(v, linklocalvars[v])
                 if line:
                     yield line
             # 2. perform the assignments with collision-avoidance
             for line in gen_assignments(assignments):
                 yield line
-            # 3. incref the new variables if needed
-            for a2 in increfs:
-                line = self.cincref(a2)
+            # 3. keep alive the new variables if needed
+            for a2 in stay_alive:
+                line = self.push_alive(a2)
                 if line:
                     yield line
             yield 'goto block%d;' % blocknum[link.target]
@@ -228,10 +228,9 @@ class FunctionCodeGenerator(object):
                     yield '%s(%s);' % (macro, ', '.join(lst))
                 to_release.append(op.result)
 
-                if op.opname !='direct_call' and self.lltypemap(op.result) != PyObjPtr: # xxx factor out
-                    line = self.cincref(op.result)
-                    if line:
-                        yield line
+                line = self.db.gcpolicy.push_alive_op_result(op.opname, LOCALVAR % op.result.name, self.lltypemap(op.result))
+                if line:
+                    yield line
 
             err_reachable = False
             if len(block.exits) == 0:
@@ -290,11 +289,11 @@ class FunctionCodeGenerator(object):
                     if isinstance(link.last_exception, Variable):
                         d[link.last_exception] = 'exc_cls'
                     else:
-                        yield '\t' + self.db.cdecrefstmt('exc_cls', T1)
+                        yield '\t' + self.pop_alive_expr('exc_cls', T1)
                     if isinstance(link.last_exc_value, Variable):
                         d[link.last_exc_value] = 'exc_value'
                     else:
-                        yield '\t' + self.db.cdecrefstmt('exc_value', T2)
+                        yield '\t' + self.pop_alive_expr('exc_value', T2)
                     for op in gen_link(link, d):
                         yield '\t' + op
                     yield '}'
@@ -333,7 +332,7 @@ class FunctionCodeGenerator(object):
             while to_release:
                 v = to_release.pop()
                 if err_reachable:
-                    yield self.cdecref(v)
+                    yield self.pop_alive(v)
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
@@ -400,10 +399,9 @@ class FunctionCodeGenerator(object):
         result = ['%s = %s;' % (newvalue, sourceexpr)]
         # need to adjust the refcount of the result
 
-        if T == PyObjPtr: # xxx factor out
-            increfstmt = self.db.cincrefstmt(newvalue, T)
-            if increfstmt:
-                result.append(increfstmt)
+        line = self.pyobj_incref_expr(newvalue, T)
+        if line:
+            result.append(line)
         result = '\t'.join(result)
         if T == Void:
             result = '/* %s */' % result
@@ -412,18 +410,9 @@ class FunctionCodeGenerator(object):
     def generic_set(self, op, targetexpr):
         newvalue = self.expr(op.args[2], special_case_void=False)
         result = ['%s = %s;' % (targetexpr, newvalue)]
-        # need to adjust some refcounts
+        # insert write barrier
         T = self.lltypemap(op.args[2])
-        decrefstmt = self.db.cdecrefstmt('prev', T) # xxx factor out write barrier
-        increfstmt = self.db.cincrefstmt(newvalue, T)
-        if increfstmt:
-            result.append(increfstmt)
-        if decrefstmt:
-            result.insert(0, '{ %s = %s;' % (
-                cdecl(self.lltypename(op.args[2]), 'prev'),
-                targetexpr))
-            result.append(decrefstmt)
-            result.append('}')
+        self.db.gcpolicy.write_barrier(result, newvalue, T, targetexpr)
         result = '\t'.join(result)
         if T == Void:
             result = '/* %s */' % result
@@ -531,10 +520,10 @@ class FunctionCodeGenerator(object):
         result.append('%s = (%s)%s;' % (self.expr(op.result),
                                         cdecl(typename, ''),
                                         self.expr(op.args[0])))
-        if TYPE == PyObjPtr: # xxx factor out
-            line = self.cincref(op.result)
-            if line:
-                result.append(line)        
+
+        line = self.pyobj_incref(op.result)
+        if line:
+            result.append(line)        
         return '\t'.join(result)
 
     def OP_SAME_AS(self, op, err):
@@ -544,18 +533,34 @@ class FunctionCodeGenerator(object):
         if TYPE != Void:
             result.append('%s = %s;' % (self.expr(op.result),
                                         self.expr(op.args[0])))
-            if TYPE == PyObjPtr: # xxx factor out
-                line = self.cincref(op.result)
-                if line:
-                    result.append(line)        
+            line = self.pyobj_incref(op.result)
+            if line:
+                result.append(line)
         return '\t'.join(result)
 
-    def cincref(self, v):
+    def pyobj_incref(self, v):
         T = self.lltypemap(v)
-        return self.db.cincrefstmt(LOCALVAR % v.name, T)
+        return self.pyobj_incref_expr(LOCALVAR % v.name, T)
 
-    def cdecref(self, v, expr=None):
+    def pyobj_incref_expr(self, expr, T):
+        return self.db.gcpolicy.pyobj_incref(expr, T)
+
+    def pyobj_decref_expr(self, expr, T):
+        return self.db.gcpolicy.pyobj_decref(expr, T)
+            
+    def push_alive(self, v):
         T = self.lltypemap(v)
-        return self.db.cdecrefstmt(expr or (LOCALVAR % v.name), T)
+        return self.push_alive_expr(LOCALVAR % v.name, T)
+
+    def pop_alive(self, v, expr=None):
+        T = self.lltypemap(v)
+        return self.pop_alive_expr(expr or (LOCALVAR % v.name), T)
+
+    def push_alive_expr(self, expr, T):
+        return self.db.gcpolicy.push_alive(expr, T)
+
+    def pop_alive_expr(self, expr, T):
+        return self.db.gcpolicy.pop_alive(expr, T)
+
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)
