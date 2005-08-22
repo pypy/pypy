@@ -164,9 +164,9 @@ def escape_encode( obj,errors='strict'):
 def utf_8_decode( data,errors='strict',final=None):
     """None
     """
-    res = PyUnicode_DecodeUTF8Stateful(data, len(data), errors, final)
+    res,consumed = PyUnicode_DecodeUTF8Stateful(data, len(data), errors, final)
     res = u''.join(res)
-    return res,len(res)
+    return res, consumed
 
 def raw_unicode_escape_decode( data,errors='strict'):
     """None
@@ -199,7 +199,7 @@ def latin_1_decode( data,errors='strict'):
 def utf_16_decode( data,errors='strict',final=None):
     """None
     """
-    res,consumed = PyUnicode_DecodeUTF16Stateful(data,len(data),errors)
+    res,consumed,byteorder = PyUnicode_DecodeUTF16Stateful(data,len(data),errors)
     res = ''.join(res)
     return res, consumed
 
@@ -282,12 +282,12 @@ def utf_16_ex_decode( data,errors='strict',byteorder=0,final = 0):
     """None
     """
     if byteorder == 0:
-       byteorder = 'native'
+       bm = 'native'
     elif byteorder == -1:
-       byteorder = 'little'
+       bm = 'little'
     else:
-       byteorder = 'big'
-    res,consumed = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,byteorder)
+       bm = 'big'
+    res,consumed,byteorder = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,bm)
     res = ''.join(res)
     return res, consumed, byteorder
 
@@ -416,14 +416,14 @@ def utf_16_be_encode( obj,errors='strict'):
 def utf_16_le_decode( data,errors='strict',byteorder=0, final = 0):
     """None
     """
-    res,consumed = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'little')
+    res,consumed,byteorder = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'little')
     res = u''.join(res)
     return res, consumed
 
 def utf_16_be_decode( data,errors='strict',byteorder=0, final = 0):
     """None
     """
-    res, consumed = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'big')
+    res, consumed,byteorder = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'big')
     res = u''.join(res)
     return res, consumed
 
@@ -879,8 +879,6 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
         ihi = 0
         ilo = 1
     
-    if (size == 0):
-        return [u'']
 
     #/* Unpack UTF-16 encoded data */
 
@@ -913,6 +911,9 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
     else:
         bo = 1
         
+    if (size == 0):
+        return [u''],0,bo
+    
     if (bo == -1):
         #/* force LE */
         ihi = 1
@@ -974,7 +975,7 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
 	endinpos = startinpos+2
     	unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
 	
-    return p,q
+    return p, q, bo
 
 # moved out of local scope, especially because it didn't
 # have any nested variables.
@@ -1092,7 +1093,7 @@ def PyUnicode_DecodeUTF8Stateful(s,size,errors,consumed):
     if (size == 0):
         if (consumed):
             consumed = 0
-        return u''
+        return u'', consumed
     
     p = []
     pos = 0
@@ -1248,7 +1249,7 @@ def PyUnicode_DecodeUTF8Stateful(s,size,errors,consumed):
 
     if (consumed):
         consumed = pos
-    return p
+    return p, consumed
 
 def PyUnicode_EncodeUTF8(s,size,errors):
 
