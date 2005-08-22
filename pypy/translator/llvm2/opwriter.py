@@ -465,6 +465,8 @@ class OpWriter(object):
         index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
         valuevar, valuetype = self.db.repr_argwithtype(op.args[2])
         if valuetype != "void": 
+            #Structure types require uint constants!
+            #see: http://llvm.cs.uiuc.edu/docs/LangRef.html#i_getelementptr
             self.codewriter.getelementptr(tmpvar, structtype, struct,
                                           ("uint", index))
             self.codewriter.store(valuetype, valuevar, tmpvar) 

@@ -73,7 +73,7 @@ class StructVarsizeTypeNode(StructTypeNode):
         current = self.struct
         while isinstance(current, lltype.Struct):
             last_pos = len(current._names_without_voids()) - 1
-            indices_to_array.append(("uint", last_pos))
+            indices_to_array.append(("uint", last_pos)) #struct requires uint consts
             name = current._names_without_voids()[-1]
             current = current._flds[name]
         assert isinstance(current, lltype.Array)
@@ -132,7 +132,8 @@ class StructNode(ConstantLLVMNode):
                 found = True
                 break
             pos += 1
-            
+        #Structure types require uint constants!
+        #see: http://llvm.cs.uiuc.edu/docs/LangRef.html#i_getelementptr
         return "getelementptr(%s* %s, int 0, uint %s)" %(
             self.get_typerepr(),
             self.get_ref(),

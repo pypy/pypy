@@ -1,10 +1,10 @@
 extdeclarations = """
 declare ccc double %pow(double, double)
 declare ccc double %fmod(double, double)
-declare ccc int %puts(sbyte*)
-declare ccc int %strlen(sbyte*)
-declare ccc int %strcmp(sbyte*, sbyte*)
-declare ccc sbyte* %memset(sbyte*, int, uint)
+declare ccc INT %puts(sbyte*)
+declare ccc INT %strlen(sbyte*)
+declare ccc INT %strcmp(sbyte*, sbyte*)
+declare ccc sbyte* %memset(sbyte*, INT, UINT)
 
 %__print_debug_info         = internal global bool false
 %__print_debug_info_option  = internal constant [19 x sbyte] c"--print-debug-info\\00"
@@ -40,12 +40,12 @@ internal fastcc sbyte* %cast(%RPyString* %structstring) {
 
 extfunctions["%string_to_RPyString"] = ((), """
 internal fastcc %RPyString* %string_to_RPyString(sbyte* %s) {
-    %len       = call ccc int %strlen(sbyte* %s)
+    %len       = call ccc INT %strlen(sbyte* %s)
     %rpy       = call fastcc %RPyString* %RPyString_New__Signed(int %len)
     %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
     %rpystr    = cast [0 x sbyte]* %rpystrptr to sbyte*
 
-    call ccc sbyte* %strncpy(sbyte* %rpystr, sbyte* %s, int %len)
+    call ccc sbyte* %strncpy(sbyte* %rpystr, sbyte* %s, INT %len)
 
     ret %RPyString* %rpy
 }
@@ -54,16 +54,16 @@ internal fastcc %RPyString* %string_to_RPyString(sbyte* %s) {
 
 #abs functions
 extfunctions["%int_abs"] = ((), """
-internal fastcc int %int_abs(int %x) {
+internal fastcc INT %int_abs(INT %x) {
 block0:
-    %cond1 = setge int %x, 0
+    %cond1 = setge INT %x, 0
     br bool %cond1, label %return_block, label %block1
 block1:
-    %x2 = sub int 0, %x
+    %x2 = sub INT 0, %x
     br label %return_block
 return_block:
-    %result = phi int [%x, %block0], [%x2, %block1]
-    ret int %result
+    %result = phi INT [%x, %block0], [%x2, %block1]
+    ret INT %result
 }
 
 """)
@@ -117,7 +117,7 @@ double_zer_test = zer_test % ('double',)
 #note: XXX this hardcoded int32 minint value is used because of a pre llvm1.6 bug!
 
 int_ovf_test = """
-    %cond2 = setne int %x, -2147483648
+    %cond2 = setne INT %x, -2147483648
     br bool %cond2, label %return_block, label %ovf
 ovf:
     call fastcc void %__prepare_OverflowError()
@@ -129,10 +129,11 @@ ovf:
 
 for func_inst in "floordiv_zer:div mod_zer:rem".split():
     func, inst = func_inst.split(':')
-    for type_ in "int uint".split():
+    for prefix_type_ in "int:INT uint:UINT".split():
+        prefix, type_ = prefix_type_.split(':')
         type_zer_test = zer_test % type_
-        extfunctions["%%%(type_)s_%(func)s" % locals()] = (("%__prepare_ZeroDivisionError",), """
-internal fastcc %(type_)s %%%(type_)s_%(func)s(%(type_)s %%x, %(type_)s %%y) {
+        extfunctions["%%%(prefix)s_%(func)s" % locals()] = (("%__prepare_ZeroDivisionError",), """
+internal fastcc %(type_)s %%%(prefix)s_%(func)s(%(type_)s %%x, %(type_)s %%y) {
     %(type_zer_test)s
     %%z = %(inst)s %(type_)s %%x, %%y
     ret %(type_)s %%z
@@ -144,26 +145,26 @@ internal fastcc %(type_)s %%%(type_)s_%(func)s(%(type_)s %%x, %(type_)s %%y) {
 #unary with OverflowError only
 
 extfunctions["%int_neg_ovf"] = (("%__prepare_OverflowError",), """
-internal fastcc int %%int_neg_ovf(int %%x) {
+internal fastcc INT %%int_neg_ovf(INT %%x) {
 block1:
-    %%x2 = sub int 0, %%x
+    %%x2 = sub INT 0, %%x
     %(int_ovf_test)s
 return_block:
-    ret int %%x2
+    ret INT %%x2
 }
 """ % locals())
 
 extfunctions["%int_abs_ovf"] = (("%__prepare_OverflowError",), """
-internal fastcc int %%int_abs_ovf(int %%x) {
+internal fastcc INT %%int_abs_ovf(INT %%x) {
 block0:
-    %%cond1 = setge int %%x, 0
+    %%cond1 = setge INT %%x, 0
     br bool %%cond1, label %%return_block, label %%block1
 block1:
-    %%x2 = sub int 0, %%x
+    %%x2 = sub INT 0, %%x
     %(int_ovf_test)s
 return_block:
-    %%result = phi int [%%x, %%block0], [%%x2, %%block1]
-    ret int %%result
+    %%result = phi INT [%%x, %%block0], [%%x2, %%block1]
+    ret INT %%result
 }
 """ % locals())
 
@@ -171,32 +172,32 @@ return_block:
 #binary with OverflowError only
 
 extfunctions["%int_add_ovf"] = (("%__prepare_OverflowError",), """
-internal fastcc int %%int_add_ovf(int %%x, int %%y) {
-    %%t = add int %%x, %%y
+internal fastcc INT %%int_add_ovf(INT %%x, INT %%y) {
+    %%t = add INT %%x, %%y
     %(int_ovf_test)s
 return_block:
     ; XXX: TEST int_add_ovf checking
-    ret int %%t
+    ret INT %%t
 }
 """ % locals())
 
 extfunctions["%int_sub_ovf"] = (("%__prepare_OverflowError",), """
-internal fastcc int %%int_sub_ovf(int %%x, int %%y) {
-    %%t = sub int %%x, %%y
+internal fastcc INT %%int_sub_ovf(INT %%x, INT %%y) {
+    %%t = sub INT %%x, %%y
     %(int_ovf_test)s
 return_block:
     ; XXX: TEST int_sub_ovf checking
-    ret int %%t
+    ret INT %%t
 }
 """ % locals())
 
 extfunctions["%int_mul_ovf"] = (("%__prepare_OverflowError",), """
-internal fastcc int %%int_mul_ovf(int %%x, int %%y) {
-    %%t = mul int %%x, %%y
+internal fastcc INT %%int_mul_ovf(INT %%x, INT %%y) {
+    %%t = mul INT %%x, %%y
     %(int_ovf_test)s
 return_block:
     ; XXX: TEST int_mul_ovf checking
-    ret int %%t
+    ret INT %%t
 }
 """ % locals())
 
@@ -204,13 +205,13 @@ return_block:
 #binary with OverflowError and ValueError
 
 extfunctions["%int_lshift_ovf_val"] = (("%__prepare_OverflowError","%__prepare_ValueError"), """
-internal fastcc int %%int_lshift_ovf_val(int %%x, int %%y) {
-    %%yu = cast int %%y to ubyte
-    %%t = shl int %%x, ubyte %%yu
+internal fastcc INT %%int_lshift_ovf_val(INT %%x, INT %%y) {
+    %%yu = cast INT %%y to ubyte
+    %%t = shl INT %%x, ubyte %%yu
     %(int_ovf_test)s
 return_block:
     ; XXX: TODO int_lshift_ovf_val checking VAL
-    ret int %%t
+    ret INT %%t
 }
 """ % locals())
 
@@ -218,42 +219,42 @@ return_block:
 #binary with OverflowError and ZeroDivisionError
 
 extfunctions["%int_floordiv_ovf_zer"] = (("%__prepare_OverflowError","%__prepare_ZeroDivisionError"), """
-internal fastcc int %%int_floordiv_ovf_zer(int %%x, int %%y) {
+internal fastcc INT %%int_floordiv_ovf_zer(INT %%x, INT %%y) {
     %(int_zer_test)s
-    %%t = div int %%x, %%y
+    %%t = div INT %%x, %%y
     %(int_ovf_test)s
 return_block:
     ; XXX: TEST int_floordiv_ovf_zer checking
-    ret int %%t
+    ret INT %%t
 }
 """ % locals())
 
 extfunctions["%int_mod_ovf_zer"] = (("%__prepare_OverflowError","%__prepare_ZeroDivisionError"), """
-internal fastcc int %%int_mod_ovf_zer(int %%x, int %%y) {
+internal fastcc INT %%int_mod_ovf_zer(INT %%x, INT %%y) {
     %(int_zer_test)s
-    %%t = rem int %%x, %%y
+    %%t = rem INT %%x, %%y
     %(int_ovf_test)s
 return_block:
     ; XXX: TEST int_mod_ovf_zer checking
-    ret int %%t
+    ret INT %%t
 }
 """ % locals())
 
 extfunctions["%main"] = (("%string_to_RPyString"), """
-int %main(int %argc, sbyte** %argv) {
+INT %main(INT %argc, sbyte** %argv) {
 entry:
-    %pypy_argv = call fastcc %RPyListOfString* %ll_newlist__listPtrConst_Signed.2(int 0)
+    %pypy_argv = call fastcc %RPyListOfString* %ll_newlist__listPtrConst_Signed.2(INT 0)
     br label %no_exit
 
 no_exit:
-    %indvar = phi uint [ %indvar.next, %next_arg ], [ 0, %entry ]
-    %i.0.0 = cast uint %indvar to int
-    %tmp.8 = getelementptr sbyte** %argv, uint %indvar
+    %indvar = phi UINT [ %indvar.next, %next_arg ], [ 0, %entry ]
+    %i.0.0 = cast UINT %indvar to INT
+    %tmp.8 = getelementptr sbyte** %argv, UINT %indvar
     %tmp.9 = load sbyte** %tmp.8
 
     %t    = getelementptr [19 x sbyte]* %__print_debug_info_option, int 0, int 0
-    %res  = call ccc int %strcmp(sbyte* %tmp.9, sbyte* %t)
-    %cond = seteq int %res, 0
+    %res  = call ccc INT %strcmp(sbyte* %tmp.9, sbyte* %t)
+    %cond = seteq INT %res, 0
     br bool %cond, label %debugging, label %not_debugging
 
 debugging:
@@ -266,14 +267,14 @@ not_debugging:
     br label %next_arg
 
 next_arg:
-    %inc = add int %i.0.0, 1
-    %tmp.2 = setlt int %inc, %argc
-    %indvar.next = add uint %indvar, 1
+    %inc = add INT %i.0.0, 1
+    %tmp.2 = setlt INT %inc, %argc
+    %indvar.next = add UINT %indvar, 1
     br bool %tmp.2, label %no_exit, label %loopexit
 
 loopexit:
 
-    %ret  = call fastcc int %entry_point(%structtype.list* %pypy_argv)
-    ret int %ret
+    %ret  = call fastcc INT %entry_point(%structtype.list* %pypy_argv)
+    ret INT %ret
 }
 """)

@@ -8,10 +8,12 @@ DEFAULT_TAIL  = 'tail'      #or ''
 DEFAULT_CCONV = 'fastcc'    #or 'ccc'
 
 class CodeWriter(object): 
-    def __init__(self, f, show_line_number=False): 
+    def __init__(self, f, word, uword, show_line_number=False): 
         self.f = f
         self.show_line_numbers = show_line_number
         self.n_lines = 0
+        self.word = word
+        self.uword = uword
 
     def append(self, line): 
         self.n_lines += 1
@@ -145,13 +147,16 @@ class CodeWriter(object):
         else:
             cnt = ""
         postfix = ('', '_atomic')[atomic]
-        self.indent("%%malloc.Size%(cnt)s = getelementptr %(type_)s* null, uint %(size)s" % locals())
-        self.indent("%%malloc.SizeU%(cnt)s = cast %(type_)s* %%malloc.Size%(cnt)s to uint" % locals())
-        self.indent("%%malloc.Ptr%(cnt)s = call %(cconv)s sbyte* %%gc_malloc%(postfix)s(uint %%malloc.SizeU%(cnt)s)" % locals())
+        word  = self.word
+        uword = self.uword
+        self.indent("%%malloc.Size%(cnt)s = getelementptr %(type_)s* null, %(uword)s %(size)s" % locals())
+        self.indent("%%malloc.SizeU%(cnt)s = cast %(type_)s* %%malloc.Size%(cnt)s to %(uword)s" % locals())
+        self.indent("%%malloc.Ptr%(cnt)s = call %(cconv)s sbyte* %%gc_malloc%(postfix)s(%(uword)s %%malloc.SizeU%(cnt)s)" % locals())
         self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr%(cnt)s to %(type_)s*" % locals())
 
     def getelementptr(self, targetvar, type, typevar, *indices):
-        res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, int 0, " % locals()
+        word = self.word
+        res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, %(word)s 0, " % locals()
         res += ", ".join(["%s %s" % (t, i) for t, i in indices])
         self.indent(res)
 
@@ -163,7 +168,8 @@ class CodeWriter(object):
                     "%(valuetype)s* %(ptr)s" % locals())
 
     def debugcomment(self, tempname, len, tmpname):
-        res = "%s = tail call ccc int (sbyte*, ...)* %%printf("
-        res += "sbyte* getelementptr ([%s x sbyte]* %s, int 0, int 0) )"
+        word = self.word
+        res = "%s = tail call ccc %(word)s (sbyte*, ...)* %%printf(" % locals()
+        res += "sbyte* getelementptr ([%s x sbyte]* %s, %(word)s 0, %(word)s 0) )" % locals()
         res = res % (tmpname, len, tmpname)
         self.indent(res)

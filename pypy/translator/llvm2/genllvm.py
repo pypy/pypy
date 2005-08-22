@@ -67,7 +67,10 @@ class GenLLVM(object):
                 assert False
 
         return decls
-                       
+
+    def replace_with_machine_words(self, s):
+        return s.replace('UINT',self.db.get_machine_uword()).replace('INT',self.db.get_machine_word())
+
     def gen_llvm_source(self, func=None):
         if self.debug:  print 'gen_llvm_source begin) ' + time.ctime()
         if func is None:
@@ -106,7 +109,7 @@ class GenLLVM(object):
             function_count[func.func_name] = 1
         filename = udir.join(func.func_name + postfix).new(ext='.ll')
         f = open(str(filename),'w')
-        codewriter = CodeWriter(f)
+        codewriter = CodeWriter(f, self.db.get_machine_word(), self.db.get_machine_uword())
         comment = codewriter.comment
         nl = codewriter.newline
 
@@ -142,7 +145,7 @@ class GenLLVM(object):
             
         if self.debug:  print 'gen_llvm_source extdeclarations) ' + time.ctime()
         nl(); comment("Function Prototypes") ; nl()
-        for extdecl in extdeclarations.split('\n'):
+        for extdecl in self.replace_with_machine_words(extdeclarations).split('\n'):
             codewriter.append(extdecl)
 
         if self.debug:  print 'gen_llvm_source self._debug_prototype) ' + time.ctime()
@@ -160,7 +163,7 @@ class GenLLVM(object):
             gc_funcs = gc_boehm
         else:
             gc_funcs = gc_disabled    
-        for gc_func in gc_funcs.split('\n'):
+        for gc_func in self.replace_with_machine_words(gc_funcs).split('\n'):
             codewriter.append(gc_func)
 
         if self.debug:  print 'gen_llvm_source typ_decl.writeimpl) ' + time.ctime()
@@ -215,7 +218,7 @@ class GenLLVM(object):
                         codewriter.comment('XXX: Error: ' + msg)
                         #raise Exception('primitive function %s has no implementation' %(dep,))
                         continue
-                    for extfunc in llvm_code.split('\n'):
+                    for extfunc in self.replace_with_machine_words(llvm_code).split('\n'):
                         codewriter.append(extfunc)
                     depdone[dep] = True
 

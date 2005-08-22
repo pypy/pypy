@@ -62,7 +62,7 @@ internal fastcc double %ll_math_hypot(double %x, double %y) {
 """)
 
 extfunctions["%ll_math_ldexp"] = (("%__debug",), """
-internal fastcc double %ll_math_ldexp(double %x, int %y) {
+internal fastcc double %ll_math_ldexp(double %x, INT %y) {
     call fastcc void %__debug([12 x sbyte]* %__ll_math_ldexp) ; XXX: TODO: ll_math_ldexp
     ret double 0.0
 }
