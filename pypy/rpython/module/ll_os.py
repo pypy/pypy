@@ -113,3 +113,7 @@ ll_os_stat.suggested_primitive = True
 def ll_os_strerror(errnum):
     return to_rstr(os.strerror(errnum))
 ll_os_getcwd.suggested_primitive = True
+
+def ll_os_system(cmd):
+    return os.system(from_rstr(cmd))
+ll_os_system.suggested_primitive = True

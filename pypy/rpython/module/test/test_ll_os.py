@@ -27,3 +27,10 @@ def test_getcwd():
 def test_strerror():
     data = ll_os_strerror(2)
     assert from_rstr(data) == os.strerror(2)
+
+def test_system():
+    arg = to_rstr('python -c "print 1+1" > x')
+    data = ll_os_system(arg)
+    assert data == 0
+    assert file('x').read().strip() == '2'
+    os.unlink('x')

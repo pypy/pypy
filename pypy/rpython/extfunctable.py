@@ -141,6 +141,7 @@ if hasattr(os, 'ftruncate'):
     declare(os.ftruncate, noneannotation, 'll_os/ftruncate')
 declare(os.fstat    , statannotation, 'll_os/fstat')
 declare(os.stat     , statannotation, 'll_os/stat')
+declare(os.system   , int           , 'll_os/system')
 declare(os.strerror , str           , 'll_os/strerror')           
 declare(os.path.exists, bool        , 'll_os_path/exists')
 declare(os.path.isdir, bool         , 'll_os_path/isdir')
