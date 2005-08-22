@@ -29,8 +29,9 @@ def test_strerror():
     assert from_rstr(data) == os.strerror(2)
 
 def test_system():
-    arg = to_rstr('python -c "print 1+1" > x')
+    filename = str(udir.join('test_system.txt'))
+    arg = to_rstr('python -c "print 1+1" > %s' % filename)
     data = ll_os_system(arg)
     assert data == 0
-    assert file('x').read().strip() == '2'
-    os.unlink('x')
+    assert file(filename).read().strip() == '2'
+    os.unlink(filename)
