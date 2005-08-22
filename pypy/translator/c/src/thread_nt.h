@@ -123,3 +123,20 @@ void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock)
 	if (lock->hevent != NULL)
 		DeleteNonRecursiveMutex(lock);
 }
+
+/*
+ * Return 1 on success if the lock was acquired
+ *
+ * and 0 if the lock was not acquired. This means a 0 is returned
+ * if the lock has already been acquired by this thread!
+ */
+int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
+{
+	return EnterNonRecursiveMutex(lock, (waitflag != 0 ? INFINITE : 0)) == WAIT_OBJECT_0;
+}
+
+void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+{
+	if (!LeaveNonRecursiveMutex(lock))
+		/* XXX complain? */;
+}

@@ -308,12 +308,16 @@ def test_lock():
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
     def fn():
         l = thread.allocate_lock()
-        #ok1 = l.acquire(True)
-        #ok2 = l.acquire(False)
-        #l.release()
-        #ok3 = l.acquire(False)
-        #return ok1 and not ok2 and ok3
-        return True
+        ok1 = l.acquire(True)
+        ok2 = l.acquire(False)
+        l.release()
+        ok2_and_a_half = False
+        try:
+            l.release()
+        except thread.error:
+            ok2_and_a_half = True
+        ok3 = l.acquire(False)
+        return ok1 and not ok2 and ok2_and_a_half and ok3
     f = compile(fn, [])
     res = f()
     assert res is True

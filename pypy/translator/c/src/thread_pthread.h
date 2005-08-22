@@ -74,6 +74,50 @@ void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock)
 	}
 }
 
+/*
+ * As of February 2002, Cygwin thread implementations mistakenly report error
+ * codes in the return value of the sem_ calls (like the pthread_ functions).
+ * Correct implementations return -1 and put the code in errno. This supports
+ * either.
+ */
+static int
+rpythread_fix_status(int status)
+{
+	return (status == -1) ? errno : status;
+}
+
+int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
+{
+	int success;
+	sem_t *thelock = &lock->sem;
+	int status, error = 0;
+
+	do {
+		if (waitflag)
+			status = rpythread_fix_status(sem_wait(thelock));
+		else
+			status = rpythread_fix_status(sem_trywait(thelock));
+	} while (status == EINTR); /* Retry if interrupted by a signal */
+
+	if (waitflag) {
+		CHECK_STATUS("sem_wait");
+	} else if (status != EAGAIN) {
+		CHECK_STATUS("sem_trywait");
+	}
+	
+	success = (status == 0) ? 1 : 0;
+	return success;
+}
+
+void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+{
+	sem_t *thelock = &lock->sem;
+	int status, error = 0;
+
+	status = sem_post(thelock);
+	CHECK_STATUS("sem_post");
+}
+
 /************************************************************/
 #else                                      /* no semaphores */
 /************************************************************/
@@ -122,6 +166,52 @@ void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock)
 		/* 'error' is ignored;
 		   CHECK_STATUS already printed an error message */
 	}
+}
+
+int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
+{
+	int success;
+	int status, error = 0;
+
+	status = pthread_mutex_lock( &lock->mut );
+	CHECK_STATUS("pthread_mutex_lock[1]");
+	success = lock->locked == 0;
+
+	if ( !success && waitflag ) {
+		/* continue trying until we get the lock */
+
+		/* mut must be locked by me -- part of the condition
+		 * protocol */
+		while ( lock->locked ) {
+			status = pthread_cond_wait(&lock->lock_released,
+						   &lock->mut);
+			CHECK_STATUS("pthread_cond_wait");
+		}
+		success = 1;
+	}
+	if (success) lock->locked = 1;
+	status = pthread_mutex_unlock( &lock->mut );
+	CHECK_STATUS("pthread_mutex_unlock[1]");
+
+	if (error) success = 0;
+	return success;
+}
+
+void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+{
+	int status, error = 0;
+
+	status = pthread_mutex_lock( &lock->mut );
+	CHECK_STATUS("pthread_mutex_lock[3]");
+
+	lock->locked = 0;
+
+	status = pthread_mutex_unlock( &lock->mut );
+	CHECK_STATUS("pthread_mutex_unlock[3]");
+
+	/* wake up someone (anyone, if any) waiting on the lock */
+	status = pthread_cond_signal( &lock->lock_released );
+	CHECK_STATUS("pthread_cond_signal");
 }
 
 /************************************************************/

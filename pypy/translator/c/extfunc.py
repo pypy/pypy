@@ -36,7 +36,9 @@ EXTERNALS = {
         'LL_strtod_parts_to_float',
     ll_strtod.ll_strtod_formatd:
         'LL_strtod_formatd',
-    ll_thread.ll_newlock:  'LL_thread_newlock',
+    ll_thread.ll_newlock:     'LL_thread_newlock',
+    ll_thread.ll_acquirelock: 'LL_thread_acquirelock',
+    ll_thread.ll_releaselock: 'LL_thread_releaselock',
     }
 
 #______________________________________________________

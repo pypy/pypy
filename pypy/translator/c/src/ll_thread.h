@@ -15,3 +15,23 @@ void LL_thread_newlock(struct RPyOpaque_ThreadLock *lock)
 	if (!RPyThreadLockInit(lock))
 		RPyRaiseSimpleException(PyExc_thread_error, "out of resources");
 }
+
+int LL_thread_acquirelock(struct RPyOpaque_ThreadLock *lock, int waitflag)
+{
+	return RPyThreadAcquireLock(lock, waitflag);
+}
+
+void LL_thread_releaselock(struct RPyOpaque_ThreadLock *lock)
+{
+	/* XXX this code is only quasi-thread-safe because the GIL is held
+	       across its whole execution! */
+
+	/* Sanity check: the lock must be locked */
+	if (RPyThreadAcquireLock(lock, 0)) {
+		RPyThreadReleaseLock(lock);
+		RPyRaiseSimpleException(PyExc_thread_error, "bad lock");
+	}
+	else {
+		RPyThreadReleaseLock(lock);
+	}
+}
