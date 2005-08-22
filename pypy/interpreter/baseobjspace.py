@@ -1,7 +1,7 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.pycompiler import CPythonCompiler
+from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.pycompiler import PythonCompiler, PyPyCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache 
@@ -258,6 +258,8 @@ class ObjSpace(object):
                 compiler = PythonCompiler(self)
             elif self.options.compiler == 'cpython':
                 compiler = CPythonCompiler(self)
+            elif self.options.compiler == 'astparser':
+                compiler = PythonAstCompiler(self)
             else:
                 raise ValueError('unknown --compiler option value: %r' % (
                     self.options.compiler,))

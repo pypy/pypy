@@ -232,7 +232,6 @@ class PythonCompiler(CPythonCompiler):
         return PyCode(space)._from_code(c)
     compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 
-
 class PythonCompilerApp(PythonCompiler):
     """Temporary.  Calls the stablecompiler package at app-level."""
 
@@ -292,6 +291,64 @@ class PythonCompilerApp(PythonCompiler):
             raise OperationError(space.w_RuntimeError,
                                  space.wrap("code object expected"))
         return code
+
+
+class PythonAstCompiler(CPythonCompiler):
+    """Uses the stdlib's python implementation of compiler
+
+    XXX: This class should override the baseclass implementation of
+         compile_command() in order to optimize it, especially in case
+         of incomplete inputs (e.g. we shouldn't re-compile from sracth
+         the whole source after having only added a new '\n')
+    """
+    def compile(self, source, filename, mode, flags):
+        from pyparser.error import ParseError
+        from pyparser.pythonutil import internal_pypy_parse_to_ast
+        flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
+        # XXX use 'flags'
+        space = self.space
+        try:
+            encoding, ast_tree = internal_pypy_parse_to_ast(source, mode, True, flags)
+        except ParseError, e:
+            raise OperationError(space.w_SyntaxError,
+                                 e.wrap_info(space, filename))
+        return self.compile_parse_result(ast_tree, filename, mode)
+
+    def compile_parse_result(self, ast_tree, filename, mode):
+        """NOT_RPYTHON"""
+        # __________
+        # XXX this uses the non-annotatable astcompiler at interp-level
+        from pypy.interpreter import astcompiler
+        from pypy.interpreter.astcompiler.pycodegen import ModuleCodeGenerator
+        from pypy.interpreter.astcompiler.pycodegen import InteractiveCodeGenerator
+        from pypy.interpreter.astcompiler.pycodegen import ExpressionCodeGenerator
+        space = self.space
+        try:
+            astcompiler.misc.set_filename(filename, ast_tree) ### TODO: doesn't work
+            if mode == 'exec':
+                codegenerator = ModuleCodeGenerator(ast_tree)
+            elif mode == 'single':
+                codegenerator = InteractiveCodeGenerator(ast_tree)
+            else: # mode == 'eval':
+                codegenerator = ExpressionCodeGenerator(ast_tree)
+            c = codegenerator.getCode()
+        except SyntaxError, e:
+            w_synerr = space.newtuple([space.wrap(e.msg),
+                                       space.newtuple([space.wrap(e.filename),
+                                                       space.wrap(e.lineno),
+                                                       space.wrap(e.offset),
+                                                       space.wrap(e.text)])])
+            raise OperationError(space.w_SyntaxError, w_synerr)
+        except ValueError,e:
+            raise OperationError(space.w_ValueError,space.wrap(str(e)))
+        except TypeError,e:
+            raise
+            raise OperationError(space.w_TypeError,space.wrap(str(e)))
+        # __________ end of XXX above
+        from pypy.interpreter.pycode import PyCode
+        return PyCode(space)._from_code(c)
+    compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
+
 
 
 class PyPyCompiler(CPythonCompiler):

@@ -107,6 +107,15 @@ def ast_from_input_(input, mode):
     PYTHON_PARSER.parse_source(input, target, builder)
     return builder.rule_stack[-1]
 
+
+def internal_pypy_parse_to_ast(source, mode='exec', lineno=False, flags=0):
+    builder = AstBuilder()
+    target_rule = TARGET_DICT[mode]
+    PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
+    ast_tree = builder.rule_stack[-1]
+    return (builder.source_encoding, ast_tree)
+
+
 ## TARGET FOR ANNOTATORS #############################################
 def annotateme(source):
     """This function has no other role than testing the parser's annotation

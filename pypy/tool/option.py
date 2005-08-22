@@ -13,8 +13,9 @@ class Options:
     nofaking = 0
     parser = "recparser" # "cpython" / "recparser" / "parser"
     compiler = "pyparse" # "cpython"
-                         # "pyparse" pypy parser, cpython's compiler package
+                         # "pyparse" pypy parser, cpython's compiler and transformer package
                          # "pyparseapp" same, running the compiler at app-level
+                         # "astparser" pypy parser with ast builder using cpython's compiler
                          # "pycomp" pypy parser and compiler (TBD)
     usemodules = []                        
     version = "2.4" # "native" / "2.3" / "2.4"
@@ -55,7 +56,7 @@ def get_standard_options():
     options.append(make_option(
         '--compiler', action="store", type="string", dest="compiler",
         help="select the compiler approach to use internally",
-        metavar="[pyparser|cpython|pyparseapp]"))
+        metavar="[pyparse|astparser|cpython|pyparseapp]"))
     options.append(make_option(
         '--parser', action="store",type="string", dest="parser",
         help="select the parser module to use",

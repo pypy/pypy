@@ -413,6 +413,7 @@ def eval_number(value):
     from pypy.objspace.std.strutil import ParseStringError
     if value.endswith('l') or value.endswith('L'):
         value = value[:-1]
+        return string_to_long(value) # ???
     try:
         return string_to_int(value)
     except ParseStringError:
