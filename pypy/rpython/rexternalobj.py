@@ -18,8 +18,8 @@ class ExternalObjRepr(Repr):
 
     def __init__(self, knowntype):
         self.exttypeinfo = typetable[knowntype]
-        OPAQUE = self.exttypeinfo.get_opaque_lltype()
-        self.lowleveltype = lltype.Ptr(OPAQUE)
+        TYPE = self.exttypeinfo.get_lltype()
+        self.lowleveltype = lltype.Ptr(TYPE)
         # The set of methods supported depends on 'knowntype', so we
         # cannot have rtype_method_xxx() methods directly on the
         # ExternalObjRepr class.  But we can store them in 'self' now.

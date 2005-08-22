@@ -3,14 +3,11 @@ from pypy.rpython import rclass
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.lltype import Array, malloc, Ptr, PyObject, pyobjectptr
 from pypy.rpython.lltype import FuncType, functionptr, Signed
+from pypy.rpython.extfunctable import standardexceptions
 
 
 class ExceptionData:
     """Public information for the code generators to help with exceptions."""
-
-    # the exceptions that can be implicitely raised by some operations
-    standardexceptions = [TypeError, OverflowError, ValueError,
-                          ZeroDivisionError, MemoryError, IOError]
 
     def __init__(self, rtyper):
         self.make_standard_exceptions(rtyper)
@@ -35,7 +32,7 @@ class ExceptionData:
 
     def make_standard_exceptions(self, rtyper):
         bk = rtyper.annotator.bookkeeper
-        for cls in self.standardexceptions:
+        for cls in standardexceptions:
             classdef = bk.getclassdef(cls)
             rclass.getclassrepr(rtyper, classdef).setup()
 
@@ -72,7 +69,14 @@ class ExceptionData:
             if (clsdef and clsdef.cls is not Exception
                 and issubclass(clsdef.cls, Exception)):
                 cls = clsdef.cls
-                if cls.__module__ == 'exceptions' and not clsdef.attrs:
+                if cls in standardexceptions:
+                    is_standard = True
+                    assert not clsdef.attrs, (
+                        "%r should not have grown atributes" % (cls,))
+                else:
+                    is_standard = (cls.__module__ == 'exceptions'
+                                   and not clsdef.attrs)
+                if is_standard:
                     r_inst = rclass.getinstancerepr(rtyper, clsdef)
                     r_inst.setup()
                     example = malloc(r_inst.lowleveltype.TO, immortal=True)

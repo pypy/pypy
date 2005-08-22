@@ -56,17 +56,18 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
                     key.append(s_obj.__class__)
         return tuple(key), bookkeeper.build_args('simple_call', new_args_s)
 
-    def override__to_rexternalobj(pol, s_obj):
-        assert isinstance(s_obj, annmodel.SomeExternalObject)
-        exttypeinfo = extfunctable.typetable[s_obj.knowntype]
-        OPAQUE = exttypeinfo.get_opaque_lltype()
-        return annmodel.SomePtr(lltype.Ptr(OPAQUE))
+    def override__init_opaque_object(pol, s_opaqueptr, s_value):
+        assert isinstance(s_opaqueptr, annmodel.SomePtr)
+        assert isinstance(s_opaqueptr.ll_ptrtype.TO, lltype.OpaqueType)
+        assert isinstance(s_value, annmodel.SomeExternalObject)
+        exttypeinfo = extfunctable.typetable[s_value.knowntype]
+        assert s_opaqueptr.ll_ptrtype.TO._exttypeinfo == exttypeinfo
+        return annmodel.SomeExternalObject(exttypeinfo.typ)
 
-    def override__from_rexternalobj(pol, s_objptr):
-        assert isinstance(s_objptr, annmodel.SomePtr)
-        OPAQUE = s_objptr.ll_ptrtype.TO
-        assert isinstance(OPAQUE, lltype.OpaqueType)
-        exttypeinfo = OPAQUE.exttypeinfo
+    def override__from_opaque_object(pol, s_opaqueptr):
+        assert isinstance(s_opaqueptr, annmodel.SomePtr)
+        assert isinstance(s_opaqueptr.ll_ptrtype.TO, lltype.OpaqueType)
+        exttypeinfo = s_opaqueptr.ll_ptrtype.TO._exttypeinfo
         return annmodel.SomeExternalObject(exttypeinfo.typ)
 
 

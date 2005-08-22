@@ -20,12 +20,12 @@ def ll_strcpy(dstchars, srcchars, n):
         dstchars[i] = srcchars[i]
         i += 1
 
-def to_rexternalobj(obj):
-    exttypeinfo = extfunctable.typetable[type(obj)]
-    OPAQUE = exttypeinfo.get_opaque_lltype()
-    return lltype.opaqueptr(OPAQUE, name=None, externalobj=obj)
-to_rexternalobj._annspecialcase_ = "override:to_rexternalobj"
+def init_opaque_object(opaqueptr, value):
+    "NOT_RPYTHON"
+    opaqueptr._obj.externalobj = value
+init_opaque_object._annspecialcase_ = "override:init_opaque_object"
 
-def from_rexternalobj(objptr):
-    return objptr._obj.externalobj
-from_rexternalobj._annspecialcase_ = "override:from_rexternalobj"
+def from_opaque_object(opaqueptr):
+    "NOT_RPYTHON"
+    return opaqueptr._obj.externalobj
+from_opaque_object._annspecialcase_ = "override:from_opaque_object"

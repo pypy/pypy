@@ -31,7 +31,7 @@ class ExtTypeInfo:
     def __init__(self, typ, tag, methods):
         self.typ = typ
         self.tag = tag
-        self.TYPE = None
+        self._TYPE = None
         self.methods = methods     # {'name': ExtFuncInfo()}
 
     def get_annotation(self, methodname):
@@ -46,13 +46,14 @@ class ExtTypeInfo:
             if extfuncinfo.func is not None:
                 yield (extfuncinfo.func, extfuncinfo)
 
-    def get_opaque_lltype(self):
-        if self.TYPE is None:
+    def get_lltype(self):
+        if self._TYPE is None:
             from pypy.rpython import lltype
             OPAQUE = lltype.OpaqueType(self.tag)
-            OPAQUE.exttypeinfo = self
-            self.TYPE = OPAQUE
-        return self.TYPE
+            OPAQUE._exttypeinfo = self
+            STRUCT = lltype.GcStruct(self.tag, ('obj', OPAQUE))
+            self._TYPE = STRUCT
+        return self._TYPE
 
 
 class ImportMe:
@@ -185,3 +186,14 @@ from pypy.rpython import rarithmetic
 declare(rarithmetic.parts_to_float, float, 'll_strtod/parts_to_float')
 # float->string helper
 declare(rarithmetic.formatd, str, 'll_strtod/formatd')
+
+# ___________________________________________________________
+# the exceptions that can be implicitely raised by some operations
+standardexceptions = {
+    TypeError        : True,
+    OverflowError    : True,
+    ValueError       : True,
+    ZeroDivisionError: True,
+    MemoryError      : True,
+    IOError          : True,
+    }

@@ -275,6 +275,15 @@ class OpaqueType(ContainerType):
     def __str__(self):
         return "%s (opaque)" % self.tag
 
+    def _inline_is_varsize(self, last):
+        return False    # OpaqueType can be inlined
+
+    def _container_example(self):
+        return _opaque(self)
+
+    def _defl(self, parent=None, parentindex=None):
+        return self._container_example()
+
 RuntimeTypeInfo = OpaqueType("RuntimeTypeInfo")
 
 class PyObjectType(ContainerType):

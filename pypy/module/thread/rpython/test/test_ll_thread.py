@@ -23,3 +23,15 @@ def test_lock():
         return ok1 and not ok2 and ok3
     res = interpret(fn, [])
     assert res is True
+
+def test_thread_error():
+    def fn():
+        l = thread.allocate_lock()
+        try:
+            l.release()
+        except thread.error:
+            return True
+        else:
+            return False
+    res = interpret(fn, [])
+    assert res is True

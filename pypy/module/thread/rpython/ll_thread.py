@@ -4,7 +4,12 @@ module.
 """
 
 import thread
-from pypy.rpython.module.support import from_rexternalobj, to_rexternalobj
+from pypy.rpython.lltype import malloc
+from pypy.rpython.module.support import init_opaque_object, from_opaque_object
+from pypy.module.thread.rpython.exttable import locktypeinfo
+
+LOCKCONTAINERTYPE = locktypeinfo.get_lltype()
+
 
 def ll_thread_start_new_thread(funcptr, argtuple):
     # wrapper around ll_thread_start, to extract the single argument
@@ -21,17 +26,27 @@ def ll_thread_get_ident():
 ll_thread_get_ident.suggested_primitive = True
 
 
-def ll_thread_allocate_lock():
-    lock = thread.allocate_lock()
-    return to_rexternalobj(lock)
-ll_thread_allocate_lock.suggested_primitive = True
+def newlock(opaqueptr):
+    init_opaque_object(opaqueptr, thread.allocate_lock())
+newlock.suggested_primitive = True
 
-def ll_thread_acquire_lock(lockptr, waitflag):
-    lock = from_rexternalobj(lockptr)
+def acquirelock(opaqueptr, waitflag):
+    lock = from_opaque_object(opaqueptr)
     return lock.acquire(waitflag)
-ll_thread_acquire_lock.suggested_primitive = True
+acquirelock.suggested_primitive = True
 
-def ll_thread_release_lock(lockptr):
-    lock = from_rexternalobj(lockptr)
+def releaselock(opaqueptr):
+    lock = from_opaque_object(opaqueptr)
     lock.release()
-ll_thread_release_lock.suggested_primitive = True
+releaselock.suggested_primitive = True
+
+def ll_thread_allocate_lock():
+    lockcontainer = malloc(LOCKCONTAINERTYPE)
+    newlock(lockcontainer.obj)
+    return lockcontainer
+
+def ll_thread_acquire_lock(lockcontainer, waitflag):
+    return acquirelock(lockcontainer.obj, waitflag)
+
+def ll_thread_release_lock(lockcontainer):
+    releaselock(lockcontainer.obj)

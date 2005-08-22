@@ -33,5 +33,10 @@ def rtype_identity_function(hop, clsdef):
     v, = hop.inputargs(hop.args_r[0])
     return v
 
-rtype_override_to_rexternalobj   = rtype_identity_function
-rtype_override_from_rexternalobj = rtype_identity_function
+def rtype_override_init_opaque_object(hop, clsdef):
+    return hop.genop('init_opaque_object_should_never_be_seen_by_the_backend',
+                     [], resulttype=hop.r_result)
+
+def rtype_override_from_opaque_object(hop, clsdef):
+    return hop.genop('from_opaque_object_should_never_be_seen_by_the_backend',
+                     [], resulttype=hop.r_result)
