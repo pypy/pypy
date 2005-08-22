@@ -174,9 +174,12 @@ void LL_os_ftruncate(long fd, long length) { /*XXX add longfile support */
 }
 #endif
 
-RPyString *LL_os_strerror(int errnum)
-{
+RPyString *LL_os_strerror(int errnum) {
 	char *res;
 	res = strerror(errnum);
 	return RPyString_FromString(res);
+}
+
+long LL_os_system(RPyString * fname) {
+  return system(RPyString_AsString(fname));
 }
