@@ -5,7 +5,7 @@ declare ccc void %close(INT)
 declare ccc INT %open(sbyte*, INT, INT)
 declare ccc INT %write(INT, sbyte*, INT)
 declare ccc INT %read(INT, sbyte*, INT)
-declare ccc sbyte* %strncpy(sbyte*, sbyte*, int)
+declare ccc sbyte* %strncpy(sbyte*, sbyte*, INT)
 declare ccc INT %isatty(INT)
 declare ccc INT %stat(sbyte*, [32 x INT]*)
 declare ccc INT %fstat(INT, [32 x INT]*)
@@ -13,7 +13,7 @@ declare ccc INT %lseek(INT, INT, INT)
 declare ccc INT %ftruncate(INT, INT)
 declare ccc sbyte* %getcwd(sbyte*, INT)
 
-%errno = external global int
+%errno = external global INT
 
 %__ll_os_getcwd             = internal constant [12 x sbyte] c"getcwd.....\\00"
 %__ll_os_ftruncate          = internal constant [12 x sbyte] c"ftruncate..\\00"

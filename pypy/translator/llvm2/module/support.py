@@ -41,7 +41,7 @@ internal fastcc sbyte* %cast(%RPyString* %structstring) {
 extfunctions["%string_to_RPyString"] = ((), """
 internal fastcc %RPyString* %string_to_RPyString(sbyte* %s) {
     %len       = call ccc INT %strlen(sbyte* %s)
-    %rpy       = call fastcc %RPyString* %RPyString_New__Signed(int %len)
+    %rpy       = call fastcc %RPyString* %RPyString_New__Signed(INT %len)
     %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
     %rpystr    = cast [0 x sbyte]* %rpystrptr to sbyte*
 
