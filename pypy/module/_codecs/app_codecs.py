@@ -199,9 +199,9 @@ def latin_1_decode( data,errors='strict'):
 def utf_16_decode( data,errors='strict',final=None):
     """None
     """
-    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors)
+    res,consumed = PyUnicode_DecodeUTF16Stateful(data,len(data),errors)
     res = ''.join(res)
-    return res, len(res)
+    return res, consume
 
 def unicode_escape_decode( data,errors='strict'):
     """None
@@ -287,9 +287,9 @@ def utf_16_ex_decode( data,errors='strict',byteorder=0,final = 0):
        byteorder = 'little'
     else:
        byteorder = 'big'
-    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,byteorder)
+    res,consumed = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,byteorder)
     res = ''.join(res)
-    return res, len(res), byteorder
+    return res, consumed, byteorder
 
 # XXX needs error messages when the input is invalid
 def escape_decode(data,errors='strict'):
@@ -416,16 +416,16 @@ def utf_16_be_encode( obj,errors='strict'):
 def utf_16_le_decode( data,errors='strict',byteorder=0, final = 0):
     """None
     """
-    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'little')
-    res = ''.join(res)
-    return res, len(res)
+    res,consumed = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'little')
+    res = u''.join(res)
+    return res, consumed
 
 def utf_16_be_decode( data,errors='strict',byteorder=0, final = 0):
     """None
     """
-    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'big')
-    res = ''.join(res)
-    return res, len(res)
+    res, consumed = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'big')
+    res = u''.join(res)
+    return res, consumed
 
 def strict_errors(exc):
     if isinstance(exc,Exception):
@@ -932,7 +932,7 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
     	    errmsg = "truncated data"
     	    startinpos = q
     	    endinpos = len(s)
-    	    unicode_call_errorhandler(errors,'utf-16',errmsg,startinpos,endinpos,True)
+    	    unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
 #    	    /* The remaining input chars are ignored if the callback
 ##    	       chooses to skip the input */
     
@@ -948,7 +948,7 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
             errmsg = "unexpected end of data"
             startinpos = q-2
             endinpos = len(s)
-    	    unicode_call_errorhandler(errors,'utf-16',errmsg,startinpos,endinpos,True)
+    	    unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
 
     	if (0xD800 <= ch and ch <= 0xDBFF):
             ch2 = (ord(s[q+ihi]) << 8) | ord(s[q+ilo])
@@ -967,14 +967,14 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
     	        errmsg = "illegal UTF-16 surrogate"
                 startinpos = q-4
                 endinpos = startinpos+2
-    	        unicode_call_errorhandler(errors,'utf-16',errmsg,startinpos,endinpos,True)
+    	        unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
     	   
 	errmsg = "illegal encoding"
 	startinpos = q-2
 	endinpos = startinpos+2
-    	unicode_call_errorhandler(errors,'utf-16',errmsg,startinpos,endinpos,True)
+    	unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
 	
-    return p
+    return p,q
 
 # moved out of local scope, especially because it didn't
 # have any nested variables.
