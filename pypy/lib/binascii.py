@@ -8,6 +8,9 @@ class Incomplete(Exception):
     pass
 
 def a2b_uu(s):
+    if not s:
+        return ''
+    
     length = (ord(s[0]) - 0x20) % 64
 
     def quadruplets_gen(s):
@@ -255,9 +258,14 @@ def b2a_qp(s):
         linebreak = '\r\n'
     elif lf > 0:
         linebreak = '\n'
-
+    
+    # if linebreak and linebreak == '\r\n':
+    # The above is more efficient for files with \n linebreaks,
+    # but fails badly on files with mixed linebreak encoding
     if linebreak:
         s = s.replace('\r\n', '\n')
+    else:
+        linebreak = '\n'
 
     lines = s.split('\n')
 
@@ -494,6 +502,8 @@ def rlecode_hqx(s):
     The CPython implementation does not do run length encoding
     of \x90 characters. This implementation does.
     """
+    if not s:
+        return ''
     result = []
     prev = s[0]
     count = 1
@@ -602,6 +612,7 @@ crc_32_tab = [
 ]
 
 def crc32(s, crc=0):
+    result = 0
     crc = ~long(crc) & 0xffffffffL
     for c in s:
         crc = crc_32_tab[(crc ^ long(ord(c))) & 0xffL] ^ (crc >> 8)
