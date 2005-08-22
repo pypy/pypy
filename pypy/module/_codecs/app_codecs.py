@@ -90,7 +90,7 @@ def codec_lookup(encoding):
 
 lookup = codec_lookup
 
-def encode(v, encoding='defaultencoding',errors='strict'):
+def encode(v, encoding=None, errors='strict'):
     """encode(obj, [encoding[,errors]]) -> object
     
     Encodes obj using the codec registered for encoding. encoding defaults
@@ -100,6 +100,8 @@ def encode(v, encoding='defaultencoding',errors='strict'):
     'xmlcharrefreplace' as well as any other name registered with
     codecs.register_error that can handle ValueErrors.
     """
+    if encoding == None:
+ 	encoding = sys.getdefaultencoding()
     if isinstance(encoding,str):
         encoder = lookup(encoding)[0]
         if encoder and isinstance(errors,str):
@@ -110,7 +112,7 @@ def encode(v, encoding='defaultencoding',errors='strict'):
     else:
         raise TypeError("Encoding must be a string")
 
-def decode(obj,encoding='defaultencoding',errors='strict'):
+def decode(obj,encoding=None,errors='strict'):
     """decode(obj, [encoding[,errors]]) -> object
 
     Decodes obj using the codec registered for encoding. encoding defaults
@@ -120,6 +122,8 @@ def decode(obj,encoding='defaultencoding',errors='strict'):
     as well as any other name registerd with codecs.register_error that is
     able to handle ValueErrors.
     """
+    if encoding == None:
+	encoding = sys.getdefaultencoding()
     if isinstance(encoding,str):
         decoder = lookup(encoding)[1]
         if decoder and isinstance(errors,str):
@@ -274,13 +278,19 @@ def unicode_internal_decode( unistr,errors='strict'):
         res = u''.join(p)
         return res, len(res)
 
-def utf_16_ex_decode( data,errors='strict',final = True):
+def utf_16_ex_decode( data,errors='strict',byteorder=0,final = 0):
     """None
     """
-    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'native')
+    if byteorder == 0:
+       byteorder = 'native'
+    elif byteorder == -1:
+       byteorder = 'little'
+    else:
+       byteorder = 'big'
+    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,byteorder)
     res = ''.join(res)
-    return res, len(res)
-# XXX escape_decode Check if this is right
+    return res, len(res), byteorder
+
 # XXX needs error messages when the input is invalid
 def escape_decode(data,errors='strict'):
     """None
@@ -403,14 +413,14 @@ def utf_16_be_encode( obj,errors='strict'):
     res = ''.join(res)
     return res, len(res)
 
-def utf_16_le_decode( data,errors='strict',final = True):
+def utf_16_le_decode( data,errors='strict',byteorder=0, final = 0):
     """None
     """
     res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'little')
     res = ''.join(res)
     return res, len(res)
 
-def utf_16_be_decode( data,errors='strict',final = True):
+def utf_16_be_decode( data,errors='strict',byteorder=0, final = 0):
     """None
     """
     res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'big')
@@ -922,8 +932,8 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
     	    errmsg = "truncated data"
     	    startinpos = q
     	    endinpos = len(s)
-    	    unicode_call_errorhandler()
-##    	    /* The remaining input chars are ignored if the callback
+    	    unicode_call_errorhandler(errors,'utf-16',errmsg,startinpos,endinpos,True)
+#    	    /* The remaining input chars are ignored if the callback
 ##    	       chooses to skip the input */
     
     	ch = (ord(s[q+ihi]) << 8) | ord(s[q+ilo])
@@ -938,7 +948,7 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
             errmsg = "unexpected end of data"
             startinpos = q-2
             endinpos = len(s)
-            unicode_call_errorhandler
+    	    unicode_call_errorhandler(errors,'utf-16',errmsg,startinpos,endinpos,True)
 
     	if (0xD800 <= ch and ch <= 0xDBFF):
             ch2 = (ord(s[q+ihi]) << 8) | ord(s[q+ilo])
@@ -957,12 +967,12 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
     	        errmsg = "illegal UTF-16 surrogate"
                 startinpos = q-4
                 endinpos = startinpos+2
-                unicode_call_errorhandler
+    	        unicode_call_errorhandler(errors,'utf-16',errmsg,startinpos,endinpos,True)
     	   
 	errmsg = "illegal encoding"
 	startinpos = q-2
 	endinpos = startinpos+2
-	unicode_call_errorhandler
+    	unicode_call_errorhandler(errors,'utf-16',errmsg,startinpos,endinpos,True)
 	
     return p
 
