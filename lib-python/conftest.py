@@ -968,7 +968,9 @@ class ReallyRunFileExternal(py.test.Item):
 # Sanity check  (could be done more nicely too)
 #
 import os
-if os.path.samefile(os.getcwd(), str(regrtestdir.dirpath())):
+samefile = getattr(os.path, 'samefile', 
+                   lambda x,y : str(x) == str(y))
+if samefile(os.getcwd(), str(regrtestdir.dirpath())):
     raise NotImplementedError(
         "Cannot run py.test with this current directory:\n"
         "the app-level sys.path will contain %s before %s)." % (
