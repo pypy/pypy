@@ -4,6 +4,9 @@ from pypy.translator.llvm2.log import log
 
 log = log.codewriter 
 
+DEFAULT_TAIL  = 'tail'      #or ''
+DEFAULT_CCONV = 'fastcc'    #or 'ccc'
+
 class CodeWriter(object): 
     def __init__(self, f, show_line_number=False): 
         self.f = f
@@ -46,7 +49,7 @@ class CodeWriter(object):
         self.append("%s = type %s (%s)" % (name, rettyperepr,
                                            ", ".join(argtypereprs)))
 
-    def declare(self, decl, cconv='fastcc'):
+    def declare(self, decl, cconv=DEFAULT_CCONV):
         self.append("declare %s %s" %(cconv, decl,))
 
     def startimpl(self):
@@ -68,7 +71,7 @@ class CodeWriter(object):
         self.indent("switch %s %s, label %%%s [%s ]"
                     % (intty, cond, defaultdest, labels))
 
-    def openfunc(self, decl, is_entrynode=False, cconv='fastcc'): 
+    def openfunc(self, decl, is_entrynode=False, cconv=DEFAULT_CCONV): 
         self.malloc_count = count(0).next
         self.newline()
         if is_entrynode:
@@ -104,21 +107,30 @@ class CodeWriter(object):
     def shiftop(self, name, targetvar, type_, ref1, ref2):
         self.indent("%s = %s %s %s, ubyte %s" % (targetvar, name, type_, ref1, ref2))
 
-    def call(self, targetvar, returntype, functionref, argrefs, argtypes, cconv='fastcc'):
+    #from: http://llvm.cs.uiuc.edu/docs/LangRef.html
+    #The optional "tail" marker indicates whether the callee function accesses any
+    # allocas or varargs in the caller. If the "tail" marker is present, the function
+    # call is eligible for tail call optimization. Note that calls may be marked
+    # "tail" even if they do not occur before a ret instruction. 
+    def call(self, targetvar, returntype, functionref, argrefs, argtypes, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
+        if cconv is not 'fastcc':
+            tail = ''
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%s = call %s %s %s(%s)" % (targetvar, cconv, returntype, functionref,
+        self.indent("%s = %s call %s %s %s(%s)" % (targetvar, tail, cconv, returntype, functionref,
                                              ", ".join(arglist)))
 
-    def call_void(self, functionref, argrefs, argtypes, cconv='fastcc'):
+    def call_void(self, functionref, argrefs, argtypes, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
+        if cconv is not 'fastcc':
+            tail = ''
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("call %s void %s(%s)" % (cconv, functionref, ", ".join(arglist)))
+        self.indent("%s call %s void %s(%s)" % (tail, cconv, functionref, ", ".join(arglist)))
 
-    def invoke(self, targetvar, returntype, functionref, argrefs, argtypes, label, except_label, cconv='fastcc'):
+    def invoke(self, targetvar, returntype, functionref, argrefs, argtypes, label, except_label, cconv=DEFAULT_CCONV):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
         self.indent("%s = invoke %s %s %s(%s) to label %%%s except label %%%s" % (targetvar, cconv, returntype, functionref,
                                              ", ".join(arglist), label, except_label))
 
-    def invoke_void(self, functionref, argrefs, argtypes, label, except_label, cconv='fastcc'):
+    def invoke_void(self, functionref, argrefs, argtypes, label, except_label, cconv=DEFAULT_CCONV):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
         self.indent("invoke %s void %s(%s) to label %%%s except label %%%s" % (cconv, functionref, ", ".join(arglist), label, except_label))
 
@@ -126,7 +138,7 @@ class CodeWriter(object):
         self.indent("%(targetvar)s = cast %(fromtype)s "
                         "%(fromvar)s to %(targettype)s" % locals())
 
-    def malloc(self, targetvar, type_, size=1, atomic=False, cconv='fastcc'):
+    def malloc(self, targetvar, type_, size=1, atomic=False, cconv=DEFAULT_CCONV):
         n = self.malloc_count()
         if n:
             cnt = ".%d" % n
