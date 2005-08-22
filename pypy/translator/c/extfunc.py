@@ -5,6 +5,7 @@ from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR
 from pypy.rpython import rlist
 from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
+from pypy.module.thread.rpython import ll_thread
 
 
 # table of functions hand-written in src/ll_*.h
@@ -35,6 +36,7 @@ EXTERNALS = {
         'LL_strtod_parts_to_float',
     ll_strtod.ll_strtod_formatd:
         'LL_strtod_formatd',
+    ll_thread.ll_newlock:  'LL_thread_newlock',
     }
 
 #______________________________________________________
@@ -113,7 +115,10 @@ def predeclare_exception_data(db, rtyper):
             lltype.pyobjectptr(pyexccls))
         # strange naming here because the macro name must be
         # a substring of PyExc_%s
-        yield ('RPyExc_%s' % pyexccls.__name__, exc_llvalue)
+        name = pyexccls.__name__
+        if pyexccls.__module__ != 'exceptions':
+            name = '%s_%s' % (pyexccls.__module__, name)
+        yield ('RPyExc_%s' % name, exc_llvalue)
 
 
 def predeclare_all(db, rtyper):

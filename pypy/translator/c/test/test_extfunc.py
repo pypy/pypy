@@ -302,3 +302,18 @@ def test_rarith_formatd():
     assert f(0.0) == "0.00"
     assert f(1.5) == "1.50"
     assert f(2.0) == "2.00"
+
+def test_lock():
+    import thread
+    import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
+    def fn():
+        l = thread.allocate_lock()
+        #ok1 = l.acquire(True)
+        #ok2 = l.acquire(False)
+        #l.release()
+        #ok3 = l.acquire(False)
+        #return ok1 and not ok2 and ok3
+        return True
+    f = compile(fn, [])
+    res = f()
+    assert res is True

@@ -36,6 +36,7 @@
 #  include "src/ll_time.h"
 #  include "src/ll_math.h"
 #  include "src/ll_strtod.h"
+#  include "src/ll_thread.h"
 #endif
 
 #ifdef PYPY_STANDALONE

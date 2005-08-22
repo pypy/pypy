@@ -97,7 +97,7 @@ static void _RPyConvertExceptionToCPython(void)
 #define RPyConvertExceptionToCPython(vanishing) vanishing = NULL  
 
 #define RPyRaiseSimpleException(exc, msg) \
-		PyErr_SetString(exc, msg)    /* pun */
+		PyErr_SetString(exc, msg)
 
 /******************************************************************/
 #endif                                             /* HAVE_RTYPER */

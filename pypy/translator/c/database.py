@@ -1,11 +1,11 @@
-from pypy.rpython.lltype import Primitive, Ptr, typeOf
+from pypy.rpython.lltype import Primitive, Ptr, typeOf, RuntimeTypeInfo
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObject, Void
 from pypy.rpython.lltype import ContainerType, pyobjectptr, OpaqueType, GcStruct
 from pypy.objspace.flow.model import Constant
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
-from pypy.translator.c.node import ContainerNodeClass
+from pypy.translator.c.node import ContainerNodeClass, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.pyobj import PyObjMaker
 
@@ -37,6 +37,8 @@ class LowLevelDatabase:
                 node = StructDefNode(self, T, varlength)
             elif isinstance(T, Array):
                 node = ArrayDefNode(self, T, varlength)
+            elif isinstance(T, OpaqueType) and hasattr(T, '_exttypeinfo'):
+                node = ExtTypeOpaqueDefNode(self, T)
             else:
                 raise Exception("don't know about %r" % (T,))
             self.structdefnodes[key] = node
@@ -70,8 +72,14 @@ class LowLevelDatabase:
             argtypes = ', '.join(argtypes) or 'void'
             return resulttype.replace('@', '(@)(%s)' % argtypes)
         elif isinstance(T, OpaqueType):
-            if T.tag == 'RuntimeTypeInfo':
+            if T == RuntimeTypeInfo:
                 return 'void (@)(void *)'   # void dealloc_xx(struct xx *)
+            elif hasattr(T, '_exttypeinfo'):
+                # for external types (pypy.rpython.extfunctable.declaretype())
+                node = self.gettypedefnode(T, varlength=varlength)
+                if who_asks is not None:
+                    who_asks.dependencies[node] = True
+                return 'struct %s @' % node.name
             else:
                 raise Exception("don't know about opaque type %r" % (T,))
         else:

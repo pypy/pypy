@@ -131,7 +131,7 @@ class StructDefNode:
             if self.static_deallocator:
                 yield 'void %s(struct %s *p) {' % (self.static_deallocator,
                                                    self.name)
-                for line in self.deallocator_lines('p->'):
+                for line in self.deallocator_lines('(*p)'):
                     yield '\t' + line
                 yield '\tOP_FREE(p);'
                 yield '}'
@@ -154,7 +154,7 @@ class StructDefNode:
             FIELD_T = self.c_struct_field_type(name)
             cname = self.c_struct_field_name(name)
             for line in generic_dealloc(self.db,
-                                        '%s%s' % (prefix, cname),
+                                        '%s.%s' % (prefix, cname),
                                         FIELD_T):
                 yield line
 
@@ -227,7 +227,7 @@ class ArrayDefNode:
 
         elif phase == 2 and self.deallocator:
             yield 'void %s(struct %s *a) {' % (self.deallocator, self.name)
-            for line in self.deallocator_lines('a->'):
+            for line in self.deallocator_lines('(*a)'):
                 yield '\t' + line
             yield '\tOP_FREE(a);'
             yield '}'
@@ -244,12 +244,12 @@ class ArrayDefNode:
         body = list(generic_dealloc(self.db, '(*%s)' % varname, ARRAY.OF))
         if body:
             yield '{'
-            yield '\t%s = %sitems;' % (cdecl(self.itemtypename, '*' + varname),
-                                       prefix)
-            yield '\t%s = %s + %slength;' % (cdecl(self.itemtypename,
-                                                   '*%s_end' % varname),
-                                             varname,
-                                             prefix)
+            yield '\t%s = %s.items;' % (cdecl(self.itemtypename, '*' + varname),
+                                        prefix)
+            yield '\t%s = %s + %s.length;' % (cdecl(self.itemtypename,
+                                                    '*%s_end' % varname),
+                                              varname,
+                                              prefix)
             yield '\twhile (%s != %s_end) {' % (varname, varname)
             for line in body:
                 yield '\t\t' + line
@@ -268,6 +268,25 @@ class ArrayDefNode:
             yield '-1'
 
 
+class ExtTypeOpaqueDefNode:
+    "For OpaqueTypes created by pypy.rpython.extfunctable.ExtTypeInfo."
+
+    def __init__(self, db, T):
+        self.db = db
+        self.T = T
+        self.dependencies = {}
+        self.name = 'RPyOpaque_%s' % (T.tag,)
+
+    def setup(self):
+        pass
+
+    def deallocator_lines(self, prefix):
+        yield 'RPyOpaqueDealloc_%s(&(%s));' % (self.T.tag, prefix)
+
+    def definition(self, phase):
+        return []
+
+
 def generic_dealloc(db, expr, T):
     if isinstance(T, Ptr) and T._needsgc():
         line = db.cdecrefstmt(expr, T)
@@ -275,7 +294,7 @@ def generic_dealloc(db, expr, T):
             yield line
     elif isinstance(T, ContainerType):
         defnode = db.gettypedefnode(T)
-        for line in defnode.deallocator_lines('%s.' % expr):
+        for line in defnode.deallocator_lines(expr):
             yield line
 
 # ____________________________________________________________

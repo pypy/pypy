@@ -26,27 +26,27 @@ def ll_thread_get_ident():
 ll_thread_get_ident.suggested_primitive = True
 
 
-def newlock(opaqueptr):
+def ll_newlock(opaqueptr):
     init_opaque_object(opaqueptr, thread.allocate_lock())
-newlock.suggested_primitive = True
+ll_newlock.suggested_primitive = True
 
-def acquirelock(opaqueptr, waitflag):
+def ll_acquirelock(opaqueptr, waitflag):
     lock = from_opaque_object(opaqueptr)
     return lock.acquire(waitflag)
-acquirelock.suggested_primitive = True
+ll_acquirelock.suggested_primitive = True
 
-def releaselock(opaqueptr):
+def ll_releaselock(opaqueptr):
     lock = from_opaque_object(opaqueptr)
     lock.release()
-releaselock.suggested_primitive = True
+ll_releaselock.suggested_primitive = True
 
 def ll_thread_allocate_lock():
     lockcontainer = malloc(LOCKCONTAINERTYPE)
-    newlock(lockcontainer.obj)
+    ll_newlock(lockcontainer.obj)
     return lockcontainer
 
 def ll_thread_acquire_lock(lockcontainer, waitflag):
-    return acquirelock(lockcontainer.obj, waitflag)
+    return ll_acquirelock(lockcontainer.obj, waitflag)
 
 def ll_thread_release_lock(lockcontainer):
-    releaselock(lockcontainer.obj)
+    ll_releaselock(lockcontainer.obj)
