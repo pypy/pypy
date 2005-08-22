@@ -35,11 +35,12 @@ def create_no_gc(llinterp, flowgraphs):
     fgcc.convert()    
     return None
 
+from pypy.rpython.memory.gc import MarkSweepGC, SemiSpaceGC
+use_gc = MarkSweepGC
 def create_mark_sweep_gc(llinterp, flowgraphs):
     from pypy.rpython.memory.gcwrapper import GcWrapper, LLInterpObjectModel
-    from pypy.rpython.memory.gc import MarkSweepGC
     #XXX hackish: we need the gc before the object model is ready
-    gc = MarkSweepGC(None, 4096)
+    gc = use_gc(None, 4096)
     fgcc = FlowGraphConstantConverter(flowgraphs, gc)
     fgcc.convert()    
     om = LLInterpObjectModel(llinterp, fgcc.cvter.types,

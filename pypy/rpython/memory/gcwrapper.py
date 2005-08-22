@@ -59,24 +59,31 @@ class LLInterpObjectModel(object):
         return typeid
 
     def is_varsize(self, typeid):
+        assert typeid >= 0
         return self._is_varsize[typeid]
 
     def offsets_to_gc_pointers(self, typeid):
+        assert typeid >= 0
         return self._offsets_to_gc_pointers[typeid]
 
     def fixed_size(self, typeid):
+        assert typeid >= 0
         return self._fixed_size[typeid]
 
     def varsize_item_sizes(self, typeid):
+        assert typeid >= 0
         return self._varsize_item_sizes[typeid]
 
     def varsize_offset_to_variable_part(self, typeid):
+        assert typeid >= 0
         return self._varsize_offset_to_variable_part[typeid]
 
     def varsize_offset_to_length(self, typeid):
+        assert typeid >= 0
         return self._varsize_offset_to_length[typeid]
 
     def varsize_offsets_to_gcpointers_in_var_part(self, typeid):
+        assert typeid >= 0
         return self._varsize_offsets_to_gcpointers_in_var_part[typeid]
 
     def get_roots(self):
@@ -84,7 +91,9 @@ class LLInterpObjectModel(object):
         if self.pseudo_root_pointers != NULL:
             raw_free(self.pseudo_root_pointers)
         self.roots = self.llinterp.find_roots() + self.constantroots
-        print "found:", self.roots
+        self.roots = [r for r in self.roots
+                          if isinstance(r._TYPE.TO,
+                                        (lltype.Struct, lltype.Array))]
         if len(self.roots) == 0:
             self.pseudo_root_pointers = NULL
         else:

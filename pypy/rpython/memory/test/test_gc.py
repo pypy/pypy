@@ -3,7 +3,7 @@ import py
 from pypy.annotation import model as annmodel
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.memory.gc import GCError, MarkSweepGC
+from pypy.rpython.memory.gc import GCError, MarkSweepGC, SemiSpaceGC
 from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory.simulator import MemorySimulatorError
@@ -58,8 +58,16 @@ class TestMarkSweepGC(object):
         variables.address[1] = gc.malloc(0)
         variables.address[2] = gc.malloc(0)
         variables.address[3] = gc.malloc(0)
+        variables.address[0].signed[0] = 0
+        variables.address[1].signed[0] = 1
+        variables.address[2].signed[0] = 2
+        variables.address[3].signed[0] = 3
         print "roots", roots
         gc.collect() #does not crash
+        assert variables.address[0].signed[0] == 0
+        assert variables.address[1].signed[0] == 1
+        assert variables.address[2].signed[0] == 2
+        assert variables.address[3].signed[0] == 3
         addr = gc.malloc(0)
         addr.signed[0] = 1
         print "roots", roots
@@ -70,6 +78,8 @@ class TestMarkSweepGC(object):
         variables.address[0].address[1] = NULL
         print "roots", roots
         gc.collect() #does not crash
+        assert variables.address[0].address[0] == variables.address[1]
+        assert variables.address[0].address[1] == NULL        
         addr0 = gc.malloc(1)
         addr0.address[1] = NULL
         addr1 = gc.malloc(1)
@@ -83,7 +93,6 @@ class TestMarkSweepGC(object):
         gc.collect()
         py.test.raises(MemorySimulatorError, "addr0.signed[0]")
         py.test.raises(MemorySimulatorError, "addr1.signed[0]")
-        py.test.raises(MemorySimulatorError, "addr2.signed[0]")
 
     def test_llinterp_lists(self):
         curr = simulator.current_size
@@ -137,3 +146,87 @@ class TestMarkSweepGC(object):
         res = interpret(concat, [100])
         assert res == concat(100)
         assert simulator.current_size - curr < 16000
+
+
+class TestSemiSpaceGC(object):
+    def setup_class(cls):
+        gclltype.use_gc = SemiSpaceGC
+        cls.old = gclltype.use_gc
+    def teardown_class(cls):
+        gclltype.use_gc = cls.old
+
+    def test_simple(self):
+        variables = raw_malloc(4 * INT_SIZE)
+        roots = [variables + i * INT_SIZE for i in range(4)]
+        layout0 = [] #int
+        layout1 = [0, INT_SIZE] #(ptr, ptr)
+        om = PseudoObjectModel(roots, {0: layout0, 1: layout1}, {0: INT_SIZE, 1: 2 * INT_SIZE})
+        gc = SemiSpaceGC(om, 2 ** 16)
+        variables.address[0] = gc.malloc(0)
+        variables.address[1] = gc.malloc(0)
+        variables.address[2] = gc.malloc(0)
+        variables.address[3] = gc.malloc(0)
+        variables.address[0].signed[0] = 0
+        variables.address[1].signed[0] = 1
+        variables.address[2].signed[0] = 2
+        variables.address[3].signed[0] = 3
+        print "roots", roots
+        gc.collect() #does not crash
+        assert variables.address[0].signed[0] == 0
+        assert variables.address[1].signed[0] == 1
+        assert variables.address[2].signed[0] == 2
+        assert variables.address[3].signed[0] == 3
+        addr = gc.malloc(0)
+        addr.signed[0] = 1
+        print "roots", roots
+        gc.collect()
+##         py.test.raises(MemorySimulatorError, "addr.signed[0]")
+        variables.address[0] = gc.malloc(1)
+        variables.address[0].address[0] = variables.address[1]
+        variables.address[0].address[1] = NULL
+        print "roots", roots
+        gc.collect() #does not crash
+        assert variables.address[0].address[0] == variables.address[1]
+        assert variables.address[0].address[1] == NULL        
+        addr0 = gc.malloc(1)
+        addr0.address[1] = NULL
+        addr1 = gc.malloc(1)
+        addr1.address[0] = addr1.address[1] = NULL
+        addr0.address[0] = addr1
+        addr2 = variables.address[1]
+        print "addr0, addr1, addr2 =", addr0, addr1, addr2
+        variables.address[1] == NULL
+        variables.address[0].address[0] = NULL
+        print "roots", roots
+        gc.collect()
+
+    def test_llinterp_lists(self):
+        curr = simulator.current_size
+        def malloc_a_lot():
+            i = 0
+            while i < 10:
+                i += 1
+                a = [1] * 10
+                j = 0
+                while j < 20:
+                    j += 1
+                    a.append(j)
+        res = interpret(malloc_a_lot, [])
+        assert simulator.current_size - curr < 16000
+        print "size before: %s, size after %s" % (curr, simulator.current_size)
+
+    def test_llinterp_tuples(self):
+        curr = simulator.current_size
+        def malloc_a_lot():
+            i = 0
+            while i < 10:
+                i += 1
+                a = (1, 2, i)
+                b = [a] * 10
+                j = 0
+                while j < 20:
+                    j += 1
+                    b.append((1, j, i))
+        res = interpret(malloc_a_lot, [])
+        assert simulator.current_size - curr < 16000
+        print "size before: %s, size after %s" % (curr, simulator.current_size)
