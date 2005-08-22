@@ -20,5 +20,3 @@ def applevelcompile(tuples, filename, mode):
     else: # mode == 'eval':
         codegenerator = ExpressionCodeGenerator(tree)
     return codegenerator.getCode()
-
-return applevelcompile
