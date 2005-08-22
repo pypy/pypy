@@ -240,28 +240,15 @@ class PythonCompilerApp(PythonCompiler):
         PythonCompiler.__init__(self, space)
         debug_print("importing the 'compiler' package at app-level...",
                     newline=False)
-        self.w_applevelcompile = space.appexec([], r'''():
-            from _stablecompiler.misc import set_filename
-            from _stablecompiler.pycodegen import ModuleCodeGenerator
-            from _stablecompiler.pycodegen import InteractiveCodeGenerator
-            from _stablecompiler.pycodegen import ExpressionCodeGenerator
-            from _stablecompiler.transformer import Transformer
-
-            def applevelcompile(tuples, filename, mode):
-                transformer = Transformer()
-                tree = transformer.compile_node(tuples)
-                set_filename(filename, tree)
-                if mode == 'exec':
-                    codegenerator = ModuleCodeGenerator(tree)
-                elif mode == 'single':
-                    codegenerator = InteractiveCodeGenerator(tree)
-                else: # mode == 'eval':
-                    codegenerator = ExpressionCodeGenerator(tree)
-                return codegenerator.getCode()
-
-            return applevelcompile
-        ''')
+        self._load_compiler()
         debug_print(" done")
+
+    def _load_compiler(self):
+        # doing this all the time, to allow patching
+        self.w_applevelcompile = self.space.appexec([], r'''():
+            from _stablecompiler import apphook
+            return apphook.applevelcompile
+        ''')
 
     def compile_parse_result(self, parse_result, filename, mode):
         space = self.space
@@ -281,6 +268,7 @@ class PythonCompilerApp(PythonCompiler):
                 w_nested_tuples,
                 space.wrap(source_encoding)])
 
+        self._load_compiler()
         w_code = space.call_function(self.w_applevelcompile,
                                      w_nested_tuples,
                                      space.wrap(filename),
