@@ -837,7 +837,7 @@ class CodeGenerator:
 
     def visitName(self, node):
         self.set_lineno(node)
-        self.loadName(node.name)
+        self.loadName(node.varname)
 
     def visitPass(self, node):
         self.set_lineno(node)

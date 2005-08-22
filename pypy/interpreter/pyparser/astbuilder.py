@@ -81,7 +81,7 @@ def parse_argument(tokens):
             else:
                 last_token = arguments.pop()
                 assert isinstance(last_token, ast.Name) # used by rtyper
-                arguments.append(ast.Keyword(last_token.name, cur_token))
+                arguments.append(ast.Keyword(last_token.varname, cur_token))
                 building_kw = False
                 kw_built = True
         elif cur_token.name == tok.COMMA:
@@ -360,14 +360,14 @@ def get_docstring(stmt):
 
 def to_lvalue(ast_node, flags):
     if isinstance( ast_node, ast.Name ):
-        return ast.AssName( ast_node.name, flags )
+        return ast.AssName(ast_node.varname, flags)
+        # return ast.AssName(ast_node.name, flags)
     elif isinstance(ast_node, ast.Tuple):
         nodes = []
         # FIXME: should ast_node.getChildren() but it's not annotable
         #        because of flatten()
         for node in ast_node.nodes:
             nodes.append(to_lvalue(node, flags))
-            # nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
         return ast.AssTuple(nodes)
     elif isinstance(ast_node, ast.List):
         nodes = []
@@ -375,7 +375,6 @@ def to_lvalue(ast_node, flags):
         #        because of flatten()
         for node in ast_node.nodes:
             nodes.append(to_lvalue(node, flags))
-            # nodes.append(ast.AssName(node.name, consts.OP_ASSIGN))
         return ast.AssList(nodes)
     elif isinstance(ast_node, ast.Getattr):
         expr = ast_node.expr

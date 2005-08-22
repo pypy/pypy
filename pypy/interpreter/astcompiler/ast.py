@@ -1088,17 +1088,18 @@ class Mul(Node):
 
 class Name(Node):
     def __init__(self, name, lineno=None):
-        self.name = name
+        # self.name = name
+        self.varname = name
         self.lineno = lineno
 
     def getChildren(self):
-        return self.name,
+        return self.varname,
 
     def getChildNodes(self):
         return ()
 
     def __repr__(self):
-        return "Name(%s)" % (repr(self.name),)
+        return "Name(%s)" % (repr(self.varname),)
 
     def accept(self, visitor, args):
         return visitor.visitName(self, args)
