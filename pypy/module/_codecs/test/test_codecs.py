@@ -1,6 +1,20 @@
 import autopath
 
 class AppTestCodecs:
+    def test_seek_utf16le(self):
+        # all codecs should be able to encode these
+        import codecs, StringIO
+        encoding = 'utf-16-le'
+        s = u"%s\n%s\n" % (10*u"abc123", 10*u"def456")
+        reader = codecs.getreader(encoding)(StringIO.StringIO(s.encode(encoding)))
+        for t in xrange(5):
+            # Test that calling seek resets the internal codec state and buffers
+            reader.seek(0, 0)
+            print "before"
+            line = reader.readline()
+            print "after",line
+            assert s[:len(line)] == line
+
 
     def test_unicode_internal_encode(self):
         import sys
