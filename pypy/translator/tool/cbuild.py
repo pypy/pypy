@@ -230,8 +230,11 @@ def build_executable(cfilenames, outputfilename=None, include_dirs=None,
                      libraries=[]):
     from distutils.ccompiler import new_compiler 
     ext = ''
+    extra_preargs = None
     if sys.platform != 'win32': 
         libraries.append('m')
+        libraries.append('pthread')
+        extra_preargs = ['-pthread']   # XXX make this more general
     if outputfilename is None:
         outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
     else: 
@@ -244,7 +247,8 @@ def build_executable(cfilenames, outputfilename=None, include_dirs=None,
         old = cfile.dirpath().chdir() 
         try: 
             res = compiler.compile([cfile.basename], 
-                                   include_dirs=include_dirs)
+                                   include_dirs=include_dirs,
+                                   extra_preargs=extra_preargs)
             assert len(res) == 1
             cobjfile = py.path.local(res[0]) 
             assert cobjfile.check()
@@ -252,6 +256,7 @@ def build_executable(cfilenames, outputfilename=None, include_dirs=None,
         finally: 
             old.chdir() 
     compiler.link_executable(objects, str(outputfilename),
-                             libraries=libraries)
+                             libraries=libraries,
+                             extra_preargs=extra_preargs)
     return str(outputfilename)
 
