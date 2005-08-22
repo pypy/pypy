@@ -786,8 +786,14 @@ Directory = RegrDirectory
 def getrev(path): 
     try: 
         return py.path.svnwc(pypydir).info().rev
-    except py.process.cmdexec.Error: 
-        return 'unknown'  # on windows people not always have 'svn' in their path
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except:
+        # on windows people not always have 'svn' in their path
+        # but there are also other kinds of problems that
+        # could occur and we just default to revision
+        # "unknown" for them
+        return 'unknown'  
 
 class RunFileExternal(py.test.collect.Module): 
     def __init__(self, name, parent, regrtest): 
