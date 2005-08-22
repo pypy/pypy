@@ -1380,12 +1380,8 @@ class StringConst(ast.Const):
     def __repr__(self):
         return "Const(%s)" % (repr(self.string_value),)
 
-    def __eq__(self, other):
-        # XXX yurk : to make tests pass
-        if other.__class__.__name__ == 'Const' and \
-               other.value == self.string_value:
-            return True
-        return False
+    def getChildren(self):
+        return self.string_value,
 
 class NumberConst(ast.Const):
     """specific Const node for numbers"""
@@ -1398,23 +1394,14 @@ class NumberConst(ast.Const):
     def __repr__(self):
         return "Const(%s)" % (repr(self.number_value),)
 
-    def __eq__(self, other):
-        if other.__class__.__name__ == 'Const' and \
-               other.value == self.number_value:
-            return True
-        return False
+    def getChildren(self):
+        return self.number_value,
 
 class NoneConst(ast.Const):
     """specific Const node for None (probably not really needed)"""
     def __init__(self, lineno=None):
         self.lineno = lineno
         self.value = None
-
-    def __eq__(self, other):
-        if other.__class__.__name__ == 'Const' and \
-               other.value is None:
-            return True
-        return False
 
 
 class BaseRuleObject(ast.Node):
