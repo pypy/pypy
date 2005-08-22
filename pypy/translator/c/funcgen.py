@@ -184,9 +184,7 @@ class FunctionCodeGenerator(object):
                     del has_ref[a1]
                 else:
                     assert self.lltypemap(a1) == self.lltypemap(a2)
-                    line = self.cincref(a2)
-                    if line:
-                        increfs.append(line)
+                    increfs.append(a2)
             # warning, the order below is delicate to get right:
             # 1. decref the old variables that are not passed over
             for v in has_ref:
@@ -197,8 +195,10 @@ class FunctionCodeGenerator(object):
             for line in gen_assignments(assignments):
                 yield line
             # 3. incref the new variables if needed
-            for line in increfs:
-                yield line
+            for a2 in increfs:
+                line = self.cincref(a2)
+                if line:
+                    yield line
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
@@ -227,6 +227,11 @@ class FunctionCodeGenerator(object):
                     lst.append(err)
                     yield '%s(%s);' % (macro, ', '.join(lst))
                 to_release.append(op.result)
+
+                if op.opname !='direct_call' and self.lltypemap(op.result) != PyObjPtr: # xxx factor out
+                    line = self.cincref(op.result)
+                    if line:
+                        yield line
 
             err_reachable = False
             if len(block.exits) == 0:
@@ -395,9 +400,10 @@ class FunctionCodeGenerator(object):
         result = ['%s = %s;' % (newvalue, sourceexpr)]
         # need to adjust the refcount of the result
 
-        increfstmt = self.db.cincrefstmt(newvalue, T)
-        if increfstmt:
-            result.append(increfstmt)
+        if T == PyObjPtr: # xxx factor out
+            increfstmt = self.db.cincrefstmt(newvalue, T)
+            if increfstmt:
+                result.append(increfstmt)
         result = '\t'.join(result)
         if T == Void:
             result = '/* %s */' % result
@@ -408,7 +414,7 @@ class FunctionCodeGenerator(object):
         result = ['%s = %s;' % (targetexpr, newvalue)]
         # need to adjust some refcounts
         T = self.lltypemap(op.args[2])
-        decrefstmt = self.db.cdecrefstmt('prev', T)
+        decrefstmt = self.db.cdecrefstmt('prev', T) # xxx factor out write barrier
         increfstmt = self.db.cincrefstmt(newvalue, T)
         if increfstmt:
             result.append(increfstmt)
@@ -484,7 +490,7 @@ class FunctionCodeGenerator(object):
         result = ['OP_ZERO_MALLOC(sizeof(%s), %s, %s);' % (cdecl(typename, ''),
                                                            eresult,
                                                            err),
-                  '%s->%s = 1;' % (eresult,
+                  '%s->%s = 0;' % (eresult, # xxx the incref is generically done on the results
                                    self.db.gettypedefnode(TYPE).refcount),
                   ]
         return '\t'.join(result)
@@ -513,7 +519,7 @@ class FunctionCodeGenerator(object):
                                                    err),
                   '%s->%s = %s;' % (eresult, lenfld,
                                     elength),
-                  '%s->%s = 1;' % (eresult,
+                  '%s->%s = 0;' % (eresult,             # xxx the incref is generically done on the results
                                    nodedef.refcount),
                   ]
         return '\t'.join(result)
@@ -525,20 +531,23 @@ class FunctionCodeGenerator(object):
         result.append('%s = (%s)%s;' % (self.expr(op.result),
                                         cdecl(typename, ''),
                                         self.expr(op.args[0])))
-        line = self.cincref(op.result)
-        if line:
-            result.append(line)        
+        if TYPE == PyObjPtr: # xxx factor out
+            line = self.cincref(op.result)
+            if line:
+                result.append(line)        
         return '\t'.join(result)
 
     def OP_SAME_AS(self, op, err):
         result = []
-        assert self.lltypemap(op.args[0]) == self.lltypemap(op.result)
-        if self.lltypemap(op.result) != Void:
+        TYPE = self.lltypemap(op.result)
+        assert self.lltypemap(op.args[0]) == TYPE
+        if TYPE != Void:
             result.append('%s = %s;' % (self.expr(op.result),
                                         self.expr(op.args[0])))
-            line = self.cincref(op.result)
-            if line:
-                result.append(line)
+            if TYPE == PyObjPtr: # xxx factor out
+                line = self.cincref(op.result)
+                if line:
+                    result.append(line)        
         return '\t'.join(result)
 
     def cincref(self, v):
