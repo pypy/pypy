@@ -24,8 +24,6 @@ def parse_except_clause(tokens):
            (token.get_value() == 'except' or token.get_value() == 'else'):
             break
         clause_length += 1
-    # if clause_length >= len(tokens):
-    #     raise Exception
     if clause_length == 3:
         # case 'except: body'
         return (3, None, None, tokens[2])
@@ -76,8 +74,6 @@ def parse_argument(tokens):
         if not isinstance(cur_token, TokenObject):
             if not building_kw:
                 arguments.append(cur_token)
-            # elif kw_built:
-            #     raise SyntaxError("non-keyword arg after keyword arg (%s)" % (cur_token))
             else:
                 last_token = arguments.pop()
                 assert isinstance(last_token, ast.Name) # used by rtyper
@@ -202,8 +198,6 @@ def parse_arglist(tokens):
     while index < l:
         cur_token = tokens[index]
         index += 1
-##         if isinstance(cur_token, FPListObject):
-##             names.append(cur_token.get_value())
         if not isinstance(cur_token, TokenObject):
             # XXX: think of another way to write this test
             defaults.append(cur_token)
@@ -403,7 +397,7 @@ def get_atoms( builder, nb ):
     i = nb
     while i>0:
         obj = builder.pop()
-        if isinstance(obj, RuleObject):
+        if isinstance(obj, BaseRuleObject):
             i += obj.count
         else:
             atoms.append( obj )
@@ -444,8 +438,6 @@ def eval_string(value):
         return ''
     # XXX: is it RPYTHON to do this value[index:-index]
     chars = [char for char in value[index:len(value)-index]]
-##     for index in range(index, len(value)-index):
-##         result += value[index]
     result = ''.join(chars)
     result = result.replace('\\\\', '\\')
     d = {'\\b' : '\b', '\\f' : '\f', '\\t' : '\t', '\\n' : '\n',
@@ -565,7 +557,6 @@ def build_atom(builder, nb):
         elif top.name == tok.NAME:
             builder.push( ast.Name(top.get_value()) )
         elif top.name == tok.NUMBER:
-            # builder.push( ast.Const(eval_number(top.get_value())) )
             builder.push(NumberConst(eval_number(top.get_value())))
         elif top.name == tok.STRING:
             # need to concatenate strings in atoms
@@ -573,7 +564,6 @@ def build_atom(builder, nb):
             for token in atoms:
                 assert isinstance(token, TokenObject)
                 s += eval_string(token.get_value())
-            # builder.push( ast.Const(s) )
             builder.push(StringConst(s))
         elif top.name == tok.BACKQUOTE:
             builder.push(ast.Backquote(atoms[1]))
@@ -762,7 +752,6 @@ def build_expr_stmt(builder, nb):
     else:
         assert l==3
         lvalue = atoms[0]
-        # assert is_augassign( lvalue )
         assert isinstance(op, TokenObject)
         builder.push(ast.AugAssign(lvalue, op.get_name(), atoms[2]))
 
@@ -780,7 +769,6 @@ def build_simple_stmt( builder, nb ):
     for n in range(0,l,2):
         node = atoms[n]
         if isinstance(node, TokenObject) and node.name == tok.NEWLINE:
-            # nodes.append(ast.Discard(ast.Const(None)))
             nodes.append(ast.Discard(NoneConst()))
         else:
             nodes.append(node)
@@ -791,13 +779,11 @@ def build_return_stmt(builder, nb):
     if len(atoms) > 2:
         assert False, "return several stmts not implemented"
     elif len(atoms) == 1:
-        # builder.push(ast.Return(ast.Const(None), None)) # XXX lineno
         builder.push(ast.Return(NoneConst(), None)) # XXX lineno
     else:
         builder.push(ast.Return(atoms[1], None)) # XXX lineno
 
 def build_file_input(builder, nb):
-    # FIXME: need to handle docstring !
     doc = None
     stmts = []
     atoms = get_atoms(builder, nb)
@@ -843,10 +829,8 @@ def build_testlist_gexp(builder, nb):
     builder.push(ast.Tuple(items))
     return
 
-def build_varargslist(builder, nb):
-    pass
-
 def build_lambdef(builder, nb):
+    """lambdef: 'lambda' [varargslist] ':' test"""
     atoms = get_atoms(builder, nb)
     code = atoms[-1]
     names, defaults, flags = parse_arglist(atoms[1:-2])
@@ -874,7 +858,6 @@ def build_trailer(builder, nb):
             builder.push(SubscriptObject('subscript', subs, None))
     elif len(atoms) == 2:
         # Attribute access: '.' NAME
-        # XXX Warning: fails if trailer is used in lvalue
         builder.push(atoms[0])
         builder.push(atoms[1])
         builder.push(TempRuleObject('pending-attr-access', 2, None))
@@ -882,9 +865,16 @@ def build_trailer(builder, nb):
         assert False, "Trailer reducing implementation incomplete !"
 
 def build_arglist(builder, nb):
+    """
+    arglist: (argument ',')* ( '*' test [',' '**' test] |
+                               '**' test |
+                                argument |
+                                [argument ','] )
+    """
     atoms = get_atoms(builder, nb)
     arguments, stararg, dstararg = parse_argument(atoms)
     builder.push(ArglistObject(arguments, stararg, dstararg))
+
 
 def build_subscript(builder, nb):
     """'.' '.' '.' | [test] ':' [test] [':' [test]] | test"""
@@ -923,7 +913,6 @@ def build_subscript(builder, nb):
                 sliceobj_infos = []
                 for value in sliceinfos:
                     if value is None:
-                        # sliceobj_infos.append(ast.Const(None))
                         sliceobj_infos.append(NoneConst())
                     else:
                         sliceobj_infos.append(value)
@@ -996,10 +985,6 @@ def build_funcdef(builder, nb):
     arglist = []
     index = 3
     arglist = atoms[3:-3]
-    # while not (isinstance(atoms[index], TokenObject) and atoms[index].name == tok.COLON):
-    #     arglist.append(atoms[index])
-    #     index += 1
-    # arglist.pop() # remove ':'
     names, default, flags = parse_arglist(arglist)
     funcname_token = atoms[1]
     assert isinstance(funcname_token, TokenObject)
@@ -1007,7 +992,6 @@ def build_funcdef(builder, nb):
     arglist = atoms[2]
     code = atoms[-1]
     doc = get_docstring(code)
-    # FIXME: decorators and docstring !
     builder.push(ast.Function(decorator_node, funcname, names, default, flags, doc, code))
 
 
@@ -1058,6 +1042,9 @@ def build_suite(builder, nb):
 
 
 def build_if_stmt(builder, nb):
+    """
+    if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
+    """
     atoms = get_atoms(builder, nb)
     tests = []
     tests.append((atoms[1], atoms[3]))
@@ -1105,6 +1092,7 @@ def build_for_stmt(builder, nb):
     builder.push(ast.For(assign, iterable, body, else_))
 
 def build_exprlist(builder, nb):
+    """exprlist: expr (',' expr)* [',']"""
     atoms = get_atoms(builder, nb)
     if len(atoms) <= 2:
         builder.push(atoms[0])
@@ -1113,16 +1101,6 @@ def build_exprlist(builder, nb):
         for index in range(0, len(atoms), 2):
             names.append(atoms[index])
         builder.push(ast.Tuple(names))
-
-def build_fplist(builder, nb):
-    """fplist: fpdef (',' fpdef)* [',']"""
-    atoms = get_atoms(builder, nb)
-    names = []
-    for index in range(0, len(atoms), 2):
-        token = atoms[index]
-        assert isinstance(token, TokenObject)
-        names.append(token.get_value())
-    builder.push(FPListObject('fplist', tuple(names), None))
 
 
 def build_while_stmt(builder, nb):
@@ -1339,7 +1317,6 @@ def build_try_stmt(builder, nb):
 
 
 ASTRULES = {
-#    "single_input" : build_single_input,
     sym.atom : build_atom,
     sym.power : build_power,
     sym.factor : build_factor,
@@ -1362,7 +1339,6 @@ ASTRULES = {
     sym.file_input : build_file_input,
     sym.testlist_gexp : build_testlist_gexp,
     sym.lambdef : build_lambdef,
-    sym.varargslist : build_varargslist,
     sym.trailer : build_trailer,
     sym.arglist : build_arglist,
     sym.subscript : build_subscript,
@@ -1389,7 +1365,6 @@ ASTRULES = {
     sym.try_stmt : build_try_stmt,
     sym.exprlist : build_exprlist,
     sym.decorator : build_decorator,
-    # sym.fplist : build_fplist,
     }
 
 ## Stack elements definitions ###################################
@@ -1405,7 +1380,7 @@ class StringConst(ast.Const):
         return "Const(%s)" % (repr(self.string_value),)
 
     def __eq__(self, other):
-        # XXX yurk : to make test pass
+        # XXX yurk : to make tests pass
         if other.__class__.__name__ == 'Const' and \
                other.value == self.string_value:
             return True
@@ -1440,29 +1415,40 @@ class NoneConst(ast.Const):
             return True
         return False
 
-    
-class RuleObject(ast.Node):
-    """A simple object used to wrap a rule or token"""
-    def __init__(self, name, count, src ):
-        self.name = name
+
+class BaseRuleObject(ast.Node):
+    """Base class for unnamed rules"""
+    def __init__(self, count, src):
         self.count = count
         self.line = 0 # src.getline()
         self.col = 0  # src.getcol()
+        
+    
+class RuleObject(BaseRuleObject):
+    """A simple object used to wrap a rule or token"""
+    def __init__(self, name, count, src):
+        BaseRuleObject.__init__(self, count, src)
+        self.rulename = name
 
     def __str__(self):
-        return "<Rule: %s/%d>" % (sym.sym_name[self.name], self.count)
+        return "<Rule: %s/%d>" % (sym.sym_name[self.rulename], self.count)
 
     def __repr__(self):
-        return "<Rule: %s/%d>" % (sym.sym_name[self.name], self.count)
+        return "<Rule: %s/%d>" % (sym.sym_name[self.rulename], self.count)
 
 
-class TempRuleObject(RuleObject):
+class TempRuleObject(BaseRuleObject):
     """used to keep track of how many items get_atom() should pop"""
+    
+    def __init__(self, name, count, src):
+        BaseRuleObject.__init__(self, count, src)
+        self.temp_rulename = name
+        
     def __str__(self):
-        return "<Rule: %s/%d>" % (self.name, self.count)
+        return "<Rule: %s/%d>" % (self.temp_rulename, self.count)
 
     def __repr__(self):
-        return "<Rule: %s/%d>" % (self.name, self.count)
+        return "<Rule: %s/%d>" % (self.temp_rulename, self.count)
 
     
 class TokenObject(ast.Node):
@@ -1483,7 +1469,6 @@ class TokenObject(ast.Node):
             value = ''
         else:
             value = self.value
-        # assert isinstance(value, str)
         return value
     
     def __str__(self):
@@ -1508,8 +1493,6 @@ class FPListObject(ast.Node):
     def __repr__(self):
         return "<FPList: (%s)>" % (self.value,)
         
-# FIXME: The ObjectAccessor family is probably not RPYTHON since
-# some attributes have a different type depending on the subclass
 class ObjectAccessor(ast.Node):
     """base class for ArglistObject, SubscriptObject and SlicelistObject
 
