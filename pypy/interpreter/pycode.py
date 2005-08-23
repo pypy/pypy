@@ -101,6 +101,53 @@ class PyCode(eval.Code):
         self.co_lnotab = ""          # string: encoding addr<->lineno mapping
         self.hidden_applevel = False
 
+
+    def _code_new( self, argcount, nlocals, stacksize, flags,
+                   code, consts, names, varnames, filename,
+                   name, firstlineno, lnotab, freevars, cellvars,
+                   hidden_applevel=False):
+        """Initialize a new code objects from parameters from new.code"""
+        # simply try to suck in all attributes we know of
+        # with a lot of boring asserts to enforce type knowledge
+        # XXX get rid of that ASAP with a real compiler!
+        import types
+        x = argcount; assert isinstance(x, int)
+        self.co_argcount = x
+        x = nlocals; assert isinstance(x, int)
+        self.co_nlocals = x
+        x = stacksize; assert isinstance(x, int)
+        self.co_stacksize = x
+        x = flags; assert isinstance(x, int)
+        self.co_flags = x
+        x = code; assert isinstance(x, str)
+        self.co_code = x
+        #self.co_consts = <see below>
+        x = names; assert isinstance(x, tuple)
+        self.co_names = [ str(n) for n in x ]
+        x = varnames; assert isinstance(x, tuple)
+        self.co_varnames = [ str(n) for n in x ]
+        x = freevars; assert isinstance(x, tuple)
+        self.co_freevars = [ str(n) for n in x ]
+        x = cellvars; assert isinstance(x, tuple)
+        self.co_cellvars = [ str(n) for n in x ]
+        x = filename; assert isinstance(x, str)
+        self.co_filename = x
+        x = name; assert isinstance(x, str)
+        self.co_name = x
+        x = firstlineno; assert isinstance(x, int)
+        self.co_firstlineno = x
+        x = lnotab; assert isinstance(x, str)
+        self.co_lnotab = x
+        # recursively _from_code()-ify the code objects in code.co_consts
+        space = self.space
+        newconsts_w = []
+        for const in consts:
+            if isinstance(const, types.CodeType):
+                const = PyCode(space)._from_code(const, hidden_applevel=hidden_applevel)
+            newconsts_w.append(space.wrap(const))
+        self.co_consts_w = newconsts_w
+        return self
+
     def _from_code(self, code, hidden_applevel=False):
         """ Initialize the code object from a real (CPython) one.
             This is just a hack, until we have our own compile.
@@ -110,44 +157,21 @@ class PyCode(eval.Code):
         self.hidden_applevel = hidden_applevel
         import types
         assert isinstance(code, types.CodeType)
-        # simply try to suck in all attributes we know of
-        # with a lot of boring asserts to enforce type knowledge
-        # XXX get rid of that ASAP with a real compiler!
-        x = code.co_argcount; assert isinstance(x, int)
-        self.co_argcount = x
-        x = code.co_nlocals; assert isinstance(x, int)
-        self.co_nlocals = x
-        x = code.co_stacksize; assert isinstance(x, int)
-        self.co_stacksize = x
-        x = code.co_flags; assert isinstance(x, int)
-        self.co_flags = x
-        x = code.co_code; assert isinstance(x, str)
-        self.co_code = x
-        #self.co_consts = <see below>
-        x = code.co_names; assert isinstance(x, tuple)
-        self.co_names = [ str(n) for n in x ]
-        x = code.co_varnames; assert isinstance(x, tuple)
-        self.co_varnames = [ str(n) for n in x ]
-        x = code.co_freevars; assert isinstance(x, tuple)
-        self.co_freevars = [ str(n) for n in x ]
-        x = code.co_cellvars; assert isinstance(x, tuple)
-        self.co_cellvars = [ str(n) for n in x ]
-        x = code.co_filename; assert isinstance(x, str)
-        self.co_filename = x
-        x = code.co_name; assert isinstance(x, str)
-        self.co_name = x
-        x = code.co_firstlineno; assert isinstance(x, int)
-        self.co_firstlineno = x
-        x = code.co_lnotab; assert isinstance(x, str)
-        self.co_lnotab = x
-        # recursively _from_code()-ify the code objects in code.co_consts
-        space = self.space
-        newconsts_w = []
-        for const in code.co_consts:
-            if isinstance(const, types.CodeType):
-                const = PyCode(space)._from_code(const, hidden_applevel=hidden_applevel)
-            newconsts_w.append(space.wrap(const))
-        self.co_consts_w = newconsts_w
+        self._code_new( code.co_argcount,
+                        code.co_nlocals,
+                        code.co_stacksize,
+                        code.co_flags,
+                        code.co_code,
+                        code.co_consts,
+                        code.co_names,
+                        code.co_varnames,
+                        code.co_filename,
+                        code.co_name,
+                        code.co_firstlineno,
+                        code.co_lnotab,
+                        code.co_freevars,
+                        code.co_cellvars,
+                        hidden_applevel )
         return self
 
     def create_frame(self, space, w_globals, closure=None):
@@ -235,6 +259,8 @@ class PyCode(eval.Code):
                           W_Root, str, str, int, 
                           str, W_Root, 
                           W_Root]
+
+
     def descr_code__new__(space, w_subtype,
                           argcount, nlocals, stacksize, flags,
                           codestring, w_constants, w_names,

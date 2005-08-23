@@ -345,7 +345,23 @@ class PythonAstCompiler(CPythonCompiler):
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
         # __________ end of XXX above
         from pypy.interpreter.pycode import PyCode
-        return PyCode(space)._from_code(c)
+        code = PyCode(space)        
+        code._code_new( c[0],
+                        c[1],
+                        c[2],
+                        c[3],
+                        c[4],
+                        c[5],
+                        c[6],
+                        c[7],
+                        c[8],
+                        c[9],
+                        c[10],
+                        c[11],
+                        c[12],
+                        c[13],
+                        )
+        return code
     #compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 
 

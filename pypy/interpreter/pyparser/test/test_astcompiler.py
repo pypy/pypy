@@ -38,11 +38,12 @@ def compare_code( code1, code2 ):
     assert code1.co_code == code2.co_code
 
 def check_compile( expr ):
+    import new
     ast_tree = ast_parse_expr( expr )
     misc.set_filename("<?>", ast_tree)
     print ast_tree
     codegenerator = pycodegen.InteractiveCodeGenerator(ast_tree)
-    code1 = codegenerator.getCode()
+    code1 = new.code(*codegenerator.getCode())
     code2 = ast_compile( expr )
     compare_code(code1,code2)
 
