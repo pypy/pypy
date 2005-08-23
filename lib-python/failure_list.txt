@@ -88,3 +88,7 @@ test_sys (FIXED)
 test_multibytecodec
     needs the gb18030 codec, part of the CJK codecs. either remove this test
     from core or maybe fake or reimplement the CJK codecs?
+
+test_traceback
+    test_nocaret fails because the examined SyntaxError doesn't carry a
+    line number
