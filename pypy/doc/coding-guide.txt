@@ -825,6 +825,7 @@ item by following these rules:
 
 
 .. _`testing in PyPy`:
+.. _`test-design`: 
 
 Testing in PyPy
 ===============

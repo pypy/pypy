@@ -83,5 +83,5 @@ over to the `getting started`_ document or read more in the
 `release announcement`_.  *(05/20/2005)*
 
 .. _`release announcement`: http://codespeak.net/pypy/dist/pypy/doc/release-0.6.html
-.. _`getting started`: http://codespeak.net/pypy/pypy/dist/pypy/doc/getting-started
+.. _`getting started`: http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
 
