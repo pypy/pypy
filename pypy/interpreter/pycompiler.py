@@ -240,15 +240,26 @@ class PythonCompilerApp(PythonCompiler):
         PythonCompiler.__init__(self, space)
         debug_print("importing the 'compiler' package at app-level...",
                     newline=False)
-        self._load_compiler()
+        self._load_compiler('single')
         debug_print(" done")
 
-    def _load_compiler(self):
-        # doing this all the time, to allow patching
-        self.w_applevelcompile = self.space.appexec([], r'''():
-            from _stablecompiler import apphook
-            return apphook.applevelcompile
-        ''')
+    def _load_compiler(self, mode):
+        if mode == 'single':
+            self.w_applevelcompile = self.space.appexec([], r'''():
+                from _stablecompiler import apphook
+                return apphook.applevelcompile
+            ''')
+        else:
+            self.w_applevelcompile = self.space.appexec([], r'''():
+                import os
+                from _stablecompiler import apphook
+                if os.path.exists('fakecompiler.py'):
+                    print "faking compiler, because fakecompiler.py is in the current dir"
+                    import fakecompiler
+                    return fakecompiler.fakeapplevelcompile
+                else:
+                    return apphook.applevelcompile
+            ''')
 
     def compile_parse_result(self, parse_result, filename, mode):
         space = self.space
@@ -268,7 +279,7 @@ class PythonCompilerApp(PythonCompiler):
                 w_nested_tuples,
                 space.wrap(source_encoding)])
 
-        self._load_compiler()
+        self._load_compiler(mode)
         w_code = space.call_function(self.w_applevelcompile,
                                      w_nested_tuples,
                                      space.wrap(filename),

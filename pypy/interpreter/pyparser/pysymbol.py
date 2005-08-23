@@ -1,27 +1,32 @@
 # replacement for the CPython symbol module
-from pytoken import N_TOKENS
+from pypy.interpreter.pyparser import symbol
 
 # try to avoid numeric values conflict with tokens
 # it's important for CPython, but I'm not so sure it's still
 # important here
-SYMBOL_START = N_TOKENS+30
-del N_TOKENS
 
-_count = SYMBOL_START
 _anoncount = -10
+_count = 0
 
 sym_name = {}
 sym_values = {}
 
+for _name, _value in symbol.__dict__.items():
+    if type(_value) is type(0):
+        _count = max(_count, _value)
+
 def add_symbol( sym ):
-    global _count
     assert type(sym)==str
     if not sym_values.has_key( sym ):
-        val = _count
+        if hasattr(symbol, sym):
+            val = getattr(symbol, sym)
+        else:
+            global _count
+            _count += 1
+            val = _count
         sym_values[sym] = val
         sym_name[val] = sym
         globals()[sym] = val
-        _count += 1
         return val
     return sym_values[ sym ]
 
