@@ -4,6 +4,9 @@ from pypy.module._sre.app_info import CODESIZE
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.gateway import interp2app
 
+import sys
+BIG_ENDIAN = sys.byteorder == "big"
+
 #### Exposed functions
 
 # XXX can we import those safely from sre_constants?
@@ -324,7 +327,6 @@ def check_charset(space, w_pattern_codes, w_char_code, w_string, w_string_positi
             return space.newbool(False)
         function = set_dispatch_table[opcode]
         result = function(space, context, char_code)
-        print result
     return space.newbool(result == MatchContext.OK)
 
 def set_failure(space, ctx, char_code):
@@ -401,12 +403,11 @@ def set_bigcharset(space, ctx, char_code):
 def to_byte_array(int_value):
     """Creates a list of bytes out of an integer representing data that is
     CODESIZE bytes wide."""
-    import sys
     byte_array = [0] * CODESIZE
     for i in range(CODESIZE):
         byte_array[i] = int_value & 0xff
         int_value = int_value >> 8
-    if sys.byteorder == "big":
+    if BIG_ENDIAN:
         # Uhm, maybe there's a better way to reverse lists
         byte_array_reversed = [0] * CODESIZE
         for i in range(CODESIZE):
