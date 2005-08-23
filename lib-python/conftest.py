@@ -545,7 +545,7 @@ testmap = [
     RegrTest('test_mhlib.py', enabled=True),
     RegrTest('test_mimetools.py', enabled=True),
     RegrTest('test_mimetypes.py', enabled=True),
-    RegrTest('test_MimeWriter.py', enabled=True, core=True),
+    RegrTest('test_MimeWriter.py', enabled=True, core=False),
     RegrTest('test_minidom.py', enabled=False, dumbtest=1),
     RegrTest('test_mmap.py', enabled=False),
     RegrTest('test_module.py', enabled=True, dumbtest=1, core=True),
