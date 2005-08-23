@@ -3,8 +3,8 @@ from pypy.rpython.memory import lladdress
 
 import struct
 
-primitive_to_fmt = {lltype.Signed:          "i",
-                    lltype.Unsigned:        "I",
+primitive_to_fmt = {lltype.Signed:          "l",
+                    lltype.Unsigned:        "L",
                     lltype.Char:            "c",
                     lltype.Bool:            "B",
                     lltype.Float:           "d",

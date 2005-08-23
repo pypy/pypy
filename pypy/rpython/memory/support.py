@@ -1,8 +1,9 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
-
+from pypy.rpython import lltype
+from pypy.rpython.memory.lltypelayout import sizeof
 import struct
 
-INT_SIZE = struct.calcsize("i")
+INT_SIZE = sizeof(lltype.Signed)
 
 class AddressLinkedList(object):
     _alloc_flavor_ = ""
