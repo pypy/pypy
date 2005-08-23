@@ -395,6 +395,10 @@ class Unmarshaller(_Base):
         lng = self.get_lng()
         return self.get(lng)
 
+    def atom_lng(self, typecode):
+        self.start(typecode)
+        return self.get_lng()
+
     def atom_strlist(self, typecode, tc2):
         self.start(typecode)
         lng = self.get_lng()

@@ -376,16 +376,37 @@ def marshal_w_pycode(space, w_pycode, m):
     m.atom_str(TYPE_STRING, x.co_code)
     m.start(TYPE_TUPLE)
     m.put_list_w(x.co_consts_w, len(x.co_consts_w))
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_names)
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_varnames)
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_freevars)
-    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_cellvars)
-    m.atom_str(TYPE_STRING, x.co_filename)
-    m.atom_str(TYPE_STRING, x.co_name)
+    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_names)
+    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_varnames)
+    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_freevars)
+    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_cellvars)
+    m.atom_str(TYPE_INTERNED, x.co_filename)
+    m.atom_str(TYPE_INTERNED, x.co_name)
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_lnotab)
 
 StdObjSpace.MM.marshal_w.register(marshal_w_pycode, PyCode)
+
+# helper for unmarshalling string lists of code objects.
+# unfortunately they now can be interned or referenced,
+# so we no longer can handle it in interp_marshal.atom_strlist
+
+def unmarshal_str(u):
+    w_obj = u.get_w_obj(False)
+    try:
+        return u.space.str_w(w_obj)
+    except OperationError:
+        u.raise_exc('invalid marshal data for code object')
+
+def unmarshal_strlist(u, tc):
+    lng = u.atom_lng(tc)
+    res = [None] * lng
+    idx = 0
+    space = u.space
+    while idx < lng:
+        res[idx] = unmarshal_str(u)
+        idx += 1
+    return res
 
 def unmarshal_pycode(space, u, tc):
     code = PyCode(space)
@@ -393,17 +414,17 @@ def unmarshal_pycode(space, u, tc):
     code.co_nlocals     = u.get_int()
     code.co_stacksize   = u.get_int()
     code.co_flags       = u.get_int()
-    code.co_code        = u.atom_str(TYPE_STRING)
+    code.co_code        = unmarshal_str(u)
     u.start(TYPE_TUPLE)
     code.co_consts_w    = u.get_list_w()
-    code.co_names       = u.atom_strlist(TYPE_TUPLE, TYPE_STRING)
-    code.co_varnames    = u.atom_strlist(TYPE_TUPLE, TYPE_STRING)
-    code.co_freevars    = u.atom_strlist(TYPE_TUPLE, TYPE_STRING)
-    code.co_cellvars    = u.atom_strlist(TYPE_TUPLE, TYPE_STRING)
-    code.co_filename    = u.atom_str(TYPE_STRING)
-    code.co_name        = u.atom_str(TYPE_STRING)
+    code.co_names       = unmarshal_strlist(u, TYPE_TUPLE)
+    code.co_varnames    = unmarshal_strlist(u, TYPE_TUPLE)
+    code.co_freevars    = unmarshal_strlist(u, TYPE_TUPLE)
+    code.co_cellvars    = unmarshal_strlist(u, TYPE_TUPLE)
+    code.co_filename    = unmarshal_str(u)
+    code.co_name        = unmarshal_str(u)
     code.co_firstlineno = u.get_int()
-    code.co_lnotab      = u.atom_str(TYPE_STRING)
+    code.co_lnotab      = unmarshal_str(u)
     return space.wrap(code)
 register(TYPE_CODE, unmarshal_pycode)
 
