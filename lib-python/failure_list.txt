@@ -32,6 +32,7 @@ test_compiler
 test_decorator
     fails because globals and locals are None in a nested function ?
 
+test_enumerate FIXED by skippiing a test for an implementation detail .
 
 test_builtin
     - our compilers need to recognize BOM markers
