@@ -37,3 +37,9 @@ def fakeapplevelcompile(tuples, filename, mode):
     if not done:
         raise ValueError, "could not fake compile!"
     return code
+
+def get_python():
+    try:
+        return file('pythonname').read().strip()
+    except IOError:
+        raise ValueError, "I need a local file 'pythonname'"
