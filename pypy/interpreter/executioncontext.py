@@ -57,7 +57,13 @@ class ExecutionContext:
 
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
+
+        # First, call yield_thread() before each bytecode ---
+        # XXX this should be called only every N bytecodes,
+        #     as selected by sys.setcheckinterval()
         self.space.threadlocals.yield_thread()
+
+        # Tracing logic
         if self.is_tracing or frame.w_f_trace is None:
             return
         code = getattr(frame, 'pycode')
