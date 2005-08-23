@@ -208,3 +208,10 @@ class RefcountingGcPolicy(BasicGcPolicy):
             defnode.name,)
         node.name = defnode.gcinfo.static_deallocator
         node.ptrname = '((void (*)(void *)) %s)' % (node.name,)
+
+    # zero malloc impl
+
+    def zero_malloc(self, TYPE, esize, eresult, err):
+        yield  'OP_ZERO_MALLOC(%s, %s, %s);' % (esize,
+                                                eresult,
+                                                err)

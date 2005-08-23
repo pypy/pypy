@@ -475,12 +475,10 @@ class FunctionCodeGenerator(object):
         TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
         eresult = self.expr(op.result)
-        result = ['OP_ZERO_MALLOC(sizeof(%s), %s, %s);' % (cdecl(typename, ''),
-                                                           eresult,
-                                                           err),
-                  '%s->%s = 0;' % (eresult, # xxx the incref is generically done on the results
-                                   self.db.gettypedefnode(TYPE).gcheader),
-                  ]
+        esize = 'sizeof(%s)' % cdecl(typename, '')
+
+        result = list(self.db.gcpolicy.zero_malloc(TYPE, esize, eresult, err))
+
         return '\t'.join(result)
 
     def OP_MALLOC_VARSIZE(self, op, err):
@@ -491,25 +489,24 @@ class FunctionCodeGenerator(object):
         if isinstance(TYPE, Struct):
             arfld = TYPE._arrayfld
             lenfld = "%s.length" % nodedef.c_struct_field_name(arfld)
-            TYPE = TYPE._flds[TYPE._arrayfld]
-        assert isinstance(TYPE, Array)
-        itemtypename = self.db.gettype(TYPE.OF)
+            VARPART = TYPE._flds[TYPE._arrayfld]
+        else:
+            VARPART = TYPE
+        assert isinstance(VARPART, Array)
+        itemtypename = self.db.gettype(VARPART.OF)
         elength = self.expr(op.args[1])
         eresult = self.expr(op.result)
-        if TYPE.OF == Void:    # strange
-            size = 'sizeof(%s)' % (cdecl(typename, ''),)
+        if VARPART.OF == Void:    # strange
+            esize = 'sizeof(%s)' % (cdecl(typename, ''),)
         else:
-            size = 'sizeof(%s)+((%s-1)*sizeof(%s))' % (cdecl(typename, ''),
+            esize = 'sizeof(%s)+((%s-1)*sizeof(%s))' % (cdecl(typename, ''),
                                                        elength,
                                                        cdecl(itemtypename, ''))
-        result = ['OP_ZERO_MALLOC(%s, %s, %s);' % (size,
-                                                   eresult,
-                                                   err),
+        result = list(self.db.gcpolicy.zero_malloc(TYPE, esize, eresult, err))
+        result.append(
                   '%s->%s = %s;' % (eresult, lenfld,
                                     elength),
-                  '%s->%s = 0;' % (eresult,             # xxx the incref is generically done on the results
-                                   nodedef.gcheader),
-                  ]
+                   )
         return '\t'.join(result)
 
     def OP_CAST_POINTER(self, op, err):
