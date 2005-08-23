@@ -66,7 +66,7 @@ def getobjspace(name=None, _spacecache={}):
             if option.verbose:  
                 import traceback 
                 traceback.print_exc() 
-            py.test.fail("fatal: cannot initialize objspace:  %r" %(module.Space,))
+            py.test.fail("fatal: cannot initialize objspace:  %r" %(Space,))
         _spacecache[name] = space
         space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
                       appsupport.build_pytest_assertion(space))
