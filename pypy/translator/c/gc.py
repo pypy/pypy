@@ -39,15 +39,18 @@ class RefcountingGcPolicy(BasicGcPolicy):
 
     def push_alive_nopyobj(self, expr, T):
         defnode = self.db.gettypedefnode(T.TO)
-        if defnode.refcount is not None:
-            return 'if (%s) %s->%s++;' % (expr, expr, defnode.refcount)
+        if defnode.gcheader is not None:
+            return 'if (%s) %s->%s++;' % (expr, expr, defnode.gcheader)
 
     def pop_alive_nopyobj(self, expr, T):
         defnode = self.db.gettypedefnode(T.TO)
-        if defnode.refcount is not None:
+        if defnode.gcheader is not None:
+            dealloc = 'OP_FREE'
+            if defnode.gcinfo:
+                dealloc = defnode.gcinfo.deallocator or dealloc
             return 'if (%s && !--%s->%s) %s(%s);' % (expr, expr,
-                                                     defnode.refcount,
-                                                     defnode.deallocator or 'OP_FREE',
+                                                     defnode.gcheader,
+                                                     dealloc,
                                                      expr)
 
     def push_alive_op_result(self, opname, expr, T):

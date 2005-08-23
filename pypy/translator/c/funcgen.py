@@ -397,8 +397,7 @@ class FunctionCodeGenerator(object):
         T = self.lltypemap(op.result)
         newvalue = self.expr(op.result, special_case_void=False)
         result = ['%s = %s;' % (newvalue, sourceexpr)]
-        # need to adjust the refcount of the result
-
+        # need to adjust the refcount of the result only for PyObjects
         line = self.pyobj_incref_expr(newvalue, T)
         if line:
             result.append(line)
@@ -480,7 +479,7 @@ class FunctionCodeGenerator(object):
                                                            eresult,
                                                            err),
                   '%s->%s = 0;' % (eresult, # xxx the incref is generically done on the results
-                                   self.db.gettypedefnode(TYPE).refcount),
+                                   self.db.gettypedefnode(TYPE).gcheader),
                   ]
         return '\t'.join(result)
 
@@ -509,7 +508,7 @@ class FunctionCodeGenerator(object):
                   '%s->%s = %s;' % (eresult, lenfld,
                                     elength),
                   '%s->%s = 0;' % (eresult,             # xxx the incref is generically done on the results
-                                   nodedef.refcount),
+                                   nodedef.gcheader),
                   ]
         return '\t'.join(result)
 

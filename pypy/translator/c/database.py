@@ -74,7 +74,7 @@ class LowLevelDatabase:
             argtypes = ', '.join(argtypes) or 'void'
             return resulttype.replace('@', '(@)(%s)' % argtypes)
         elif isinstance(T, OpaqueType):
-            if T == RuntimeTypeInfo:
+            if T == RuntimeTypeInfo: # xxx -> gc
                 return 'void (@)(void *)'   # void dealloc_xx(struct xx *)
             elif hasattr(T, '_exttypeinfo'):
                 # for external types (pypy.rpython.extfunctable.declaretype())
@@ -128,8 +128,8 @@ class LowLevelDatabase:
                 return 'Py_XINCREF(%s);' % expr
             else:
                 defnode = self.gettypedefnode(T.TO)
-                if defnode.refcount is not None:
-                    return 'if (%s) %s->%s++;' % (expr, expr, defnode.refcount)
+                if defnode.gcheader is not None:
+                    return 'if (%s) %s->%s++;' % (expr, expr, defnode.gcheader)
         return ''
 
     def cdecrefstmt(self, expr, T):
@@ -138,10 +138,13 @@ class LowLevelDatabase:
                 return 'Py_XDECREF(%s);' % expr
             else:
                 defnode = self.gettypedefnode(T.TO)
-                if defnode.refcount is not None:
+                if defnode.gcheader is not None:
+                    dealloc = 'OP_FREE'
+                    if defnode.gcinfo:
+                        dealloc = defnode.gcinfo.deallocator or dealloc
                     return 'if (%s && !--%s->%s) %s(%s);' % (expr, expr,
-                                                             defnode.refcount,
-                                               defnode.deallocator or 'OP_FREE',
+                                                             defnode.gcheader,
+                                                             dealloc,
                                                              expr)
         return ''
 
