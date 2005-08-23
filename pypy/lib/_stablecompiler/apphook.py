@@ -30,9 +30,13 @@ def fakeapplevelcompile(tuples, filename, mode):
     import os, marshal
     done = False
     data = marshal.dumps( (tuples, filename, mode, done) )
-    file(DUMPFILE, "wb").write(data)
+    f = file(DUMPFILE, "wb")
+    f.write(data)
+    f.close()
     os.system('%s fakecompiler.py' % get_python())
-    data = file(DUMPFILE, "rb").read()
+    f = file(DUMPFILE, "rb")
+    data = f.read()
+    f.close()
     code, filename, mode, done = marshal.loads(data)
     if not done:
         raise ValueError, "could not fake compile!"
@@ -40,6 +44,8 @@ def fakeapplevelcompile(tuples, filename, mode):
 
 def get_python():
     try:
-        return file('pythonname').read().strip()
+        f = file('pythonname')
+        res = f.read().strip()
+        f.close()
     except IOError:
         raise ValueError, "I need a local file 'pythonname'"
