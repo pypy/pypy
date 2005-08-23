@@ -116,3 +116,12 @@ def dup(space, fd):
     else:
         return space.wrap(newfd)
 dup.unwrap_spec = [ObjSpace, int]
+
+def system(space, cmd):
+    try:
+        rc = os.system(cmd)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+    else: 
+        return space.wrap(rc)
+system.unwrap_spec = [ObjSpace, str]

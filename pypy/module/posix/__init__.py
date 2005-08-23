@@ -24,6 +24,7 @@ corresponding Unix manual entries for more information on calls."""
     'fstat'     : 'interp_posix.fstat',
     'stat'      : 'interp_posix.stat',
     'dup'       : 'interp_posix.dup',
+    'system'    : 'interp_posix.system',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
