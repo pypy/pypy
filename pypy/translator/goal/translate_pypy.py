@@ -139,7 +139,7 @@ def analyse(target):
         print 'Specializing...'
         t.specialize(dont_simplify_again=True,
                      crash_on_first_typeerror=not options['-t-insist'])
-    if not options['-no-o']:
+    if not options['-no-o'] and not options['-llvm']:
         print 'Back-end optimizations...'
         t.backend_optimizations()
     if a:
