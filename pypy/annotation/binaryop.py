@@ -10,6 +10,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat
+from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
@@ -601,6 +602,13 @@ class __extend__(pairtype(SomePBC, SomeObject)):
     def getitem((pbc, o)):
         return SomeImpossibleValue()
 
+class __extend__(pairtype(SomeExternalObject, SomeExternalObject)):
+    def union((ext1, ext2)):
+        if ext1.knowntype == ext2.knowntype:
+            return SomeExternalObject(ext1.knowntype)
+        return SomeObject()
+
+# ____________________________________________________________
 # annotation of low-level types
 from pypy.annotation.model import SomePtr, ll_to_annotation, annotation_to_lltype
 
