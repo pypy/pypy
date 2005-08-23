@@ -20,3 +20,20 @@ def applevelcompile(tuples, filename, mode):
     else: # mode == 'eval':
         codegenerator = ExpressionCodeGenerator(tree)
     return codegenerator.getCode()
+
+# temporary fake stuff, to allow to use the translated
+# PyPy for testing.
+
+DUMPFILE = 'this_is_the_marshal_file'
+
+def fakeapplevelcompile(tuples, filename, mode):
+    import os, marshal
+    done = False
+    data = marshal.dumps( (tuples, filename, mode, done) )
+    file(DUMPFILE, "wb").write(data)
+    os.system('%s fakecompiler.py' % get_python())
+    data = file(DUMPFILE, "rb").read()
+    code, filename, mode, done = marshal.loads(data)
+    if not done:
+        raise ValueError, "could not fake compile!"
+    return code

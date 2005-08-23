@@ -2,17 +2,6 @@ import parser, marshal, os
 
 DUMPFILE = 'this_is_the_marshal_file'
 
-def fakeapplevelcompile(tuples, filename, mode):
-    done = False
-    data = marshal.dumps( (tuples, filename, mode, done) )
-    file(DUMPFILE, "wb").write(data)
-    os.system('%s fakecompiler.py' % get_python())
-    data = file(DUMPFILE, "rb").read()
-    code, filename, mode, done = marshal.loads(data)
-    if not done:
-        raise ValueError, "could not fake compile!"
-    return code
-
 def reallycompile(tuples, filename, mode):
     return parser.compileast(parser.tuple2ast(tuples), filename)
 

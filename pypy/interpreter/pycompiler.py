@@ -244,25 +244,23 @@ class PythonCompilerApp(PythonCompiler):
         debug_print(" done")
 
     def _load_compilers(self):
-        compile1 = self.space.appexec([], r'''():
+        self.w_compileapp = self.space.appexec([], r'''():
             from _stablecompiler import apphook
             return apphook.applevelcompile
         ''')
-        compile2 = self.w_applevelcompile = self.space.appexec([], r'''():
-            import os
+        self.w_compilefake = self.space.appexec([], r'''():
             from _stablecompiler import apphook
-            if os.path.exists('fakecompiler.py'):
-                print "faking compiler, because fakecompiler.py is in the current dir"
-                import fakecompiler
-                return fakecompiler.fakeapplevelcompile
-            else:
-                return apphook.applevelcompile
+            return apphook.fakeapplevelcompile
         ''')
-        self.applevelcompile_w = {
-            'single': compile1,
-            'eval': compile2,
-            'exec': compile2,
-            }
+
+    def _get_compiler(self, mode):
+        from pypy.interpreter.error import debug_print
+        import os
+        if os.path.exists('fakecompiler.py') and mode != 'single':
+            debug_print("faking compiler, because fakecompiler.py is in the current dir")
+            return self.w_compilefake
+        else:
+            return self.w_compileapp
 
     def compile_parse_result(self, parse_result, filename, mode):
         space = self.space
@@ -282,7 +280,7 @@ class PythonCompilerApp(PythonCompiler):
                 w_nested_tuples,
                 space.wrap(source_encoding)])
 
-        w_code = space.call_function(self.applevelcompile_w[mode],
+        w_code = space.call_function(self._get_compiler(mode),
                                      w_nested_tuples,
                                      space.wrap(filename),
                                      space.wrap(mode))
