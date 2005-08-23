@@ -8,15 +8,18 @@ int main(int argc, char *argv[])
 {
     char *errmsg = "out of memory";
     int i;
-    RPyListOfString *list = RPyListOfString_New(argc);
+    RPyListOfString *list;
+    errmsg = RPython_StartupCode();
+    if (errmsg) goto error;
+
+    list = RPyListOfString_New(argc);
     if (RPyExceptionOccurred()) goto error;
     for (i=0; i<argc; i++) {
         RPyString *s = RPyString_FromString(argv[i]);
         if (RPyExceptionOccurred()) goto error;
         RPyListOfString_SetItem(list, i, s);
     }
-    errmsg = RPython_StartupCode();
-    if (errmsg) goto error;
+
 
     return STANDALONE_ENTRY_POINT(list);
 

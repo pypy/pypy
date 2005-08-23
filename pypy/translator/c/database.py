@@ -14,7 +14,7 @@ from pypy.translator.c import gc
 
 class LowLevelDatabase:
 
-    def __init__(self, translator=None, standalone=False, gcpolicy=gc.RefcountingGcPolicy):
+    def __init__(self, translator=None, standalone=False, gcpolicy=None):
         self.translator = translator
         self.standalone = standalone
         self.structdefnodes = {}
@@ -24,6 +24,8 @@ class LowLevelDatabase:
         self.namespace = CNameManager()
         if not standalone:
             self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
+        if gcpolicy is None:
+            gcpolicy = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicy(self)
 
     def gettypedefnode(self, T, varlength=1):

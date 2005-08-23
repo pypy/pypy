@@ -35,6 +35,12 @@ class BasicGcPolicy:
                 return self.pop_alive_nopyobj(expr, T)
         return ''
 
+    def pre_gc_code(self):
+        return []
+
+    def gc_startup_code(self):
+        return []
+
 class RefcountingInfo:
     deallocator = None
     static_deallocator = None
@@ -215,3 +221,5 @@ class RefcountingGcPolicy(BasicGcPolicy):
         yield  'OP_ZERO_MALLOC(%s, %s, %s);' % (esize,
                                                 eresult,
                                                 err)
+
+

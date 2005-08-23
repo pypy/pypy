@@ -30,17 +30,17 @@
 	if (RPythonError == NULL) \
 		return; \
 	PyModule_AddObject(m, "RPythonError", RPythonError); \
+	errmsg = RPython_StartupCode(); \
+	if (errmsg) { \
+		PyErr_SetString(PyExc_RuntimeError, errmsg); \
+		return; \
+	} \
 	if (setup_globalfunctions(globalfunctiondefs, #modname) < 0) \
 		return;	\
 	if (setup_initcode(frozen_initcode, FROZEN_INITCODE_SIZE) < 0) \
 		return;	\
 	if (setup_globalobjects(globalobjectdefs) < 0) \
-		return; \
-	errmsg = RPython_StartupCode(); \
-	if (errmsg) { \
-		PyErr_SetString(PyExc_RuntimeError, errmsg); \
-		return; \
-	} 
+		return;
 
 /*** table of global objects ***/
 

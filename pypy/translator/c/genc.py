@@ -16,14 +16,15 @@ class CBuilder:
     _compiled = False
     symboltable = None
     
-    def __init__(self, translator):
+    def __init__(self, translator, gcpolicy=None):
         self.translator = translator
+        self.gcpolicy = gcpolicy
     
     def generate_source(self):
         assert self.c_source_filename is None
         translator = self.translator
         pf = self.getentrypointptr()
-        db = LowLevelDatabase(translator, standalone=self.standalone)
+        db = LowLevelDatabase(translator, standalone=self.standalone, gcpolicy=self.gcpolicy)
         pfname = db.get(pf)
         db.complete()
 
@@ -163,6 +164,9 @@ def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
     print >> f, 'char *RPython_StartupCode(void) {'
     print >> f, '\tchar *error = NULL;'
+    for line in database.gcpolicy.gc_startup_code():
+        print >> f,"\t" + line
+
     firsttime = True
     for node in database.containerlist:
         lines = list(node.startupcode())
@@ -223,6 +227,10 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     for key, value in defines.items():
         print >> f, '#define %s %s' % (key, value)
     print >> f, '#include "src/g_prerequisite.h"'
+
+    for line in database.gcpolicy.pre_gc_code():
+        print >> f, line
+
     includes = {}
     for node in database.globalcontainers():
         for include in node.includes:
