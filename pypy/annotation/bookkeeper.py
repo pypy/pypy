@@ -192,6 +192,7 @@ class Bookkeeper:
         self.pbc_callables = None
         
         self.pbc_call_sites = {}
+        self.emulated_pbc_calls = {}
 
         self.needs_hash_support = {}
 
@@ -227,6 +228,11 @@ class Bookkeeper:
             pbc = self.annotator.binding(spaceop.args[0], extquery=True)
             self.consider_pbc_call(pbc, shape, spaceop)
         self.pbc_call_sites = {}
+
+        for fn, shape in self.emulated_pbc_calls.iteritems():
+            pbc = SomePBC({fn: True})
+            self.consider_pbc_call(pbc, shape)
+        self.emulated_pbc_calls = {}
 
         for cls in self.needs_hash_support.keys():
             for cls2 in self.needs_hash_support:
@@ -475,8 +481,9 @@ class Bookkeeper:
         else:
             implicit_init = None
 
-        pbc, dontcaresc = self.query_spaceop_callable(spaceop,
-                                                      implicit_init=implicit_init) 
+        if not (spaceop is implicit_init is None):
+            pbc, dontcaresc = self.query_spaceop_callable(spaceop,
+                                            implicit_init=implicit_init) 
 
         nonnullcallables = []
         for func, classdef in pbc.prebuiltinstances.items():
@@ -521,7 +528,9 @@ class Bookkeeper:
                 self.pbc_call_sites[self.position_key] = shape
 
         results = []
-        nonnullcallables = [(func, classdef) for func, classdef in pbc.prebuiltinstances.items()]
+        nonnullcallables = [(func, classdef)
+                            for func, classdef in pbc.prebuiltinstances.items()
+                            if func is not None]
         mono = len(nonnullcallables) == 1
 
         for func, classdef in nonnullcallables:
@@ -533,6 +542,18 @@ class Bookkeeper:
             results.append(self.pycall(func, args1, mono))
 
         return unionof(*results) 
+
+    def emulate_pbc_call(self, pbc, args_s):
+        args = self.build_args("simple_call", args_s)
+        shape = args.rawshape()
+        for func, classdef in pbc.prebuiltinstances.items():
+            if func is not None:
+                assert not isclassdef(classdef)
+                if func in self.emulated_pbc_calls:
+                    assert shape == self.emulated_pbc_calls[func]
+                else:
+                    self.emulated_pbc_calls[func] = shape
+        return self.pbc_call(pbc, args, True)
 
     # decide_callable(position, func, args, mono) -> callb, key
     # query_spaceop_callable(spaceop) -> pbc, isspecialcase

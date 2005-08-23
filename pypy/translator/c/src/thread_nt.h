@@ -8,6 +8,68 @@
 #include <limits.h>
 #include <process.h>
 
+
+/*
+ * Thread support.
+ */
+
+/*
+ * Return the thread Id instead of an handle. The Id is said to uniquely
+   identify the thread in the system
+ */
+#define PyThreadGetIdent GetCurrentThreadId
+
+typedef struct {
+	void (*func)(void*);
+	void *arg;
+	long id;
+	HANDLE done;
+} callobj;
+
+static int
+bootstrap(void *call)
+{
+	callobj *obj = (callobj*)call;
+	/* copy callobj since other thread might free it before we're done */
+	void (*func)(void*) = obj->func;
+	void *arg = obj->arg;
+
+	obj->id = PyThreadGetIdent();
+	ReleaseSemaphore(obj->done, 1, NULL);
+	func(arg);
+	return 0;
+}
+
+long PyThreadStart(void (*func)(void *), void *arg)
+{
+	unsigned long rv;
+	callobj obj;
+
+	obj.id = -1;	/* guilty until proved innocent */
+	obj.func = func;
+	obj.arg = arg;
+	obj.done = CreateSemaphore(NULL, 0, 1, NULL);
+	if (obj.done == NULL)
+		return -1;
+
+	rv = _beginthread(bootstrap, 0, &obj); /* use default stack size */
+	if (rv == (unsigned long)-1) {
+		/* I've seen errno == EAGAIN here, which means "there are
+		 * too many threads".
+		 */
+		obj.id = -1;
+	}
+	else {
+		/* wait for thread to initialize, so we can get its id */
+		WaitForSingleObject(obj.done, INFINITE);
+		assert(obj.id != -1);
+	}
+	CloseHandle((HANDLE)obj.done);
+	return obj.id;
+}
+
+/************************************************************/
+
 typedef struct RPyOpaque_ThreadLock {
 	LONG   owned ;
 	DWORD  thread_id ;

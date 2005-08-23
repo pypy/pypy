@@ -702,15 +702,25 @@ class LowLevelOpList(list):
     def gendirectcall(self, ll_function, *args_v):
         rtyper = self.rtyper
         args_s = []
+        newargs_v = []
         for v in args_v:
             if v.concretetype == Void:
                 s_value = rtyper.binding(v)
                 if not s_value.is_constant():
                     raise TyperError("non-constant variable of type Void")
+                if not isinstance(s_value, annmodel.SomePBC):
+                    # a Void non-PBC constant: can be a SomePtr pointing to a
+                    # constant function.
+                    assert isinstance(s_value, annmodel.SomePtr)
+                    # Drop the 'const'.
+                    s_value = annmodel.SomePtr(s_value.ll_ptrtype)
+                    # Modify args_v so that 'v' gets the llptr concretetype
+                    # stored in s_value
+                    v = inputconst(s_value.ll_ptrtype, v.value)
                 args_s.append(s_value)
-                assert isinstance(s_value, annmodel.SomePBC)
             else:
                 args_s.append(annmodel.lltype_to_annotation(v.concretetype))
+            newargs_v.append(v)
         
         self.rtyper.call_all_setups()  # compute ForwardReferences now
         dontcare, spec_function = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s)
@@ -718,7 +728,7 @@ class LowLevelOpList(list):
         # build the 'direct_call' operation
         f = self.rtyper.getfunctionptr(spec_function)
         c = inputconst(typeOf(f), f)
-        return self.genop('direct_call', [c]+list(args_v),
+        return self.genop('direct_call', [c]+newargs_v,
                           resulttype = typeOf(f).TO.RESULT)
 
     def genexternalcall(self, fnname, args_v, resulttype=None, **flags):

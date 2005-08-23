@@ -321,3 +321,54 @@ def test_lock():
     f = compile(fn, [])
     res = f()
     assert res is True
+
+def test_simple_start_new_thread():
+    import thread
+    import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
+    class Arg:
+        pass
+    def mythreadedfunction(arg):
+        assert arg.value == 42
+    def myotherthreadedfunction(arg):
+        assert arg.value == 43
+    def fn(i):
+        a42 = Arg()
+        a42.value = 42
+        a43 = Arg()
+        a43.value = 43
+        thread.start_new_thread(mythreadedfunction, (a42,))
+        thread.start_new_thread(myotherthreadedfunction, (a43,))
+        if i == 1:
+            x = mythreadedfunction
+            a = a42
+        else:
+            x = myotherthreadedfunction
+            a = a43
+        thread.start_new_thread(x, (a,))
+        return 42
+    f = compile(fn, [int])
+    res = f(1)
+    assert res == 42
+
+def test_start_new_thread():
+    import thread
+    import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
+    class Arg:
+        pass
+    def mythreadedfunction(arg):
+        arg.x += 37
+        arg.myident = thread.get_ident()
+        arg.lock.release()
+    def fn():
+        a = Arg()
+        a.x = 5
+        a.lock = thread.allocate_lock()
+        a.lock.acquire(True)
+        ident = thread.start_new_thread(mythreadedfunction, (a,))
+        assert ident != thread.get_ident()
+        a.lock.acquire(True)  # wait for the thread to finish
+        assert a.myident == ident
+        return a.x
+    f = compile(fn, [])
+    res = f()
+    assert res == 42

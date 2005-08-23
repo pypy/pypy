@@ -26,10 +26,12 @@ def compile_db(db):
                            include_dirs = [os.path.dirname(autopath.this_dir)])
     return m
 
-def compile(fn, argtypes):
+def compile(fn, argtypes, view=False):
     t = Translator(fn)
     t.annotate(argtypes)
     t.specialize()
+    if view:
+        t.view()
     t.backend_optimizations()
     db = LowLevelDatabase(t)
     entrypoint = db.get(pyobjectptr(fn))
@@ -209,3 +211,16 @@ def test_infinite_float():
     f1 = compile(fn, [])
     res = f1()
     assert res > 0 and res == res / 2
+
+
+def test_x():
+    class A:
+        pass
+    a = A()
+    a.d = {}
+    a.d['hey'] = 42
+    def t():
+        a.d['hey'] = 2
+        return a.d['hey']
+    f = compile(t, [])
+    assert f() == 2

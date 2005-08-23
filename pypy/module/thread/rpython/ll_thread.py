@@ -18,7 +18,14 @@ def ll_thread_start_new_thread(funcptr, argtuple):
     return ll_thread_start(funcptr, argument)
 
 def ll_thread_start(funcptr, argument):
-    return thread.start_new_thread(funcptr, (argument,))
+    #return thread.start_new_thread(funcptr, (argument,))
+    # XXX we just return an integer here, because we cannot really call back
+    # XXX into thread.start_new_thread().  Indeed, 'funcptr' is not a normal
+    # XXX function object, but a low-level pointer to a _func.  This also
+    # XXX confuses the annotator.
+    # note that running this won't really work, but anyway llinterpreter
+    # is probably quite confused if we start multiple threads
+    return 1234
 ll_thread_start.suggested_primitive = True
 
 def ll_thread_get_ident():

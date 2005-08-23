@@ -40,6 +40,69 @@
 #define CHECK_STATUS(name)  if (status != 0) { perror(name); error = 1; }
 
 
+/* XXX This implementation is considered (to quote Tim Peters) "inherently
+   hosed" because:
+     - It does not guarantee the promise that a non-zero integer is returned.
+     - The cast to long is inherently unsafe.
+     - It is not clear that the 'volatile' (for AIX?) and ugly casting in the
+       latter return statement (for Alpha OSF/1) are any longer necessary.
+*/
+long RPyThreadGetIdent(void)
+{
+	volatile pthread_t threadid;
+	/* Jump through some hoops for Alpha OSF/1 */
+	threadid = pthread_self();
+#if SIZEOF_PTHREAD_T <= SIZEOF_LONG
+	return (long) threadid;
+#else
+	return (long) *(long *) &threadid;
+#endif
+}
+
+long RPyThreadStart(void (*func)(void *), void *arg)
+{
+	pthread_t th;
+	int status;
+#if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
+	pthread_attr_t attrs;
+#endif
+
+#if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
+	pthread_attr_init(&attrs);
+#endif
+#ifdef THREAD_STACK_SIZE
+	pthread_attr_setstacksize(&attrs, THREAD_STACK_SIZE);
+#endif
+#if defined(PTHREAD_SYSTEM_SCHED_SUPPORTED) && !defined(__FreeBSD__)
+        pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
+#endif
+
+	status = pthread_create(&th, 
+#if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
+				 &attrs,
+#else
+				 (pthread_attr_t*)NULL,
+#endif
+				 (void* (*)(void *))func,
+				 (void *)arg
+				 );
+
+#if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
+	pthread_attr_destroy(&attrs);
+#endif
+	if (status != 0)
+            return -1;
+
+        pthread_detach(th);
+
+#if SIZEOF_PTHREAD_T <= SIZEOF_LONG
+	return (long) th;
+#else
+	return (long) *(long *) &th;
+#endif
+}
+
+
 /************************************************************/
 #ifdef USE_SEMAPHORES
 /************************************************************/
