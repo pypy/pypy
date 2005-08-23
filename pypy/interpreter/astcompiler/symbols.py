@@ -281,11 +281,13 @@ class SymbolVisitor:
         self.handle_free_vars(scope, parent)
 
     def _do_args(self, scope, args):
-        for name in args:
-            if type(name) == types.TupleType:
-                self._do_args(scope, name)
+        for arg in args:
+            if isinstance( arg, ast.AssName ):
+                scope.add_param( arg.name )
+            elif isinstance( arg, ast.AssTuple ):
+                self._do_args( scope, arg.flatten() )
             else:
-                scope.add_param(name)
+                raise TypeError( "Argument list contains %s of type %s" % (arg, type(arg) ) )
 
     def handle_free_vars(self, scope, parent):
         parent.add_child(scope)
@@ -316,9 +318,9 @@ class SymbolVisitor:
 
     def visitName(self, node, scope, assign=0):
         if assign:
-            scope.add_def(node.name)
+            scope.add_def(node.varname)
         else:
-            scope.add_use(node.name)
+            scope.add_use(node.varname)
 
     # operations that bind new names
 

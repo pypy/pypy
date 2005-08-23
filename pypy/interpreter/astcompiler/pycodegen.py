@@ -14,12 +14,8 @@ from pypy.interpreter.astcompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
 from pypy.interpreter.astcompiler.pyassem import TupleArg
 
-# XXX The version-specific code can go, since this code only works with 2.x.
-# Do we have Python 1.x or Python 2.x?
-try:
-    VERSION = sys.version_info[0]
-except AttributeError:
-    VERSION = 1
+# drop VERSION dependency since it the ast transformer for 2.4 doesn't work with 2.3 anyway
+VERSION = 2
 
 callfunc_opcode_info = {
     # (Have *args, Have **args) : opcode
@@ -186,12 +182,6 @@ class CodeGenerator:
     This class is an abstract base class.  Concrete subclasses must
     define an __init__() that defines self.graph and then calls the
     __init__() defined in this class.
-
-    The concrete class must also define the class attributes
-    NameFinder, FunctionGen, and ClassGen.  These attributes can be
-    defined in the initClass() method, which is a hook for
-    initializing these methods after all the classes have been
-    defined.
     """
 
     optimized = 0 # is namespace access optimized?
@@ -199,9 +189,6 @@ class CodeGenerator:
     class_name = None # provide default for instance variable
 
     def __init__(self):
-        if self.__initialized is None:
-            self.initClass()
-            self.__class__.__initialized = 1
         self.checkClass()
         self.locals = misc.Stack()
         self.setups = misc.Stack()
@@ -217,9 +204,6 @@ class CodeGenerator:
                 self._div_op = "BINARY_TRUE_DIVIDE"
             elif feature == "generators":
                 self.graph.setFlag(CO_GENERATOR_ALLOWED)
-
-    def initClass(self):
-        """This method is called once for each class"""
 
     def checkClass(self):
         """Verify that class is constructed correctly"""
@@ -848,8 +832,7 @@ class CodeGenerator:
     def visitImport(self, node):
         self.set_lineno(node)
         for name, alias in node.names:
-            if VERSION > 1:
-                self.emit('LOAD_CONST', None)
+            self.emit('LOAD_CONST', None)
             self.emit('IMPORT_NAME', name)
             mod = name.split(".")[0]
             if alias:
@@ -861,23 +844,19 @@ class CodeGenerator:
     def visitFrom(self, node):
         self.set_lineno(node)
         fromlist = map(lambda (name, alias): name, node.names)
-        if VERSION > 1:
-            self.emit('LOAD_CONST', tuple(fromlist))
+        self.emit('LOAD_CONST', tuple(fromlist))
         self.emit('IMPORT_NAME', node.modname)
         for name, alias in node.names:
-            if VERSION > 1:
-                if name == '*':
-                    self.namespace = 0
-                    self.emit('IMPORT_STAR')
-                    # There can only be one name w/ from ... import *
-                    assert len(node.names) == 1
-                    return
-                else:
-                    self.emit('IMPORT_FROM', name)
-                    self._resolveDots(name)
-                    self.storeName(alias or name)
+            if name == '*':
+                self.namespace = 0
+                self.emit('IMPORT_STAR')
+                # There can only be one name w/ from ... import *
+                assert len(node.names) == 1
+                return
             else:
                 self.emit('IMPORT_FROM', name)
+                self._resolveDots(name)
+                self.storeName(alias or name)
         self.emit('POP_TOP')
 
     def _resolveDots(self, name):
@@ -1221,14 +1200,8 @@ class CodeGenerator:
             self.emit('ROT_THREE')
             self.emit('STORE_SUBSCR')
 
-class NestedScopeMixin:
-    """Defines initClass() for nested scoping (Python 2.2-compatible)"""
-    def initClass(self):
-        self.__class__.NameFinder = LocalNameFinder
-        self.__class__.FunctionGen = FunctionCodeGenerator
-        self.__class__.ClassGen = ClassCodeGenerator
 
-class ModuleCodeGenerator(NestedScopeMixin, CodeGenerator):
+class ModuleCodeGenerator(CodeGenerator):
     __super_init = CodeGenerator.__init__
 
     scopes = None
@@ -1242,7 +1215,7 @@ class ModuleCodeGenerator(NestedScopeMixin, CodeGenerator):
     def get_module(self):
         return self
 
-class ExpressionCodeGenerator(NestedScopeMixin, CodeGenerator):
+class ExpressionCodeGenerator(CodeGenerator):
     __super_init = CodeGenerator.__init__
 
     scopes = None
@@ -1256,7 +1229,7 @@ class ExpressionCodeGenerator(NestedScopeMixin, CodeGenerator):
     def get_module(self):
         return self
 
-class InteractiveCodeGenerator(NestedScopeMixin, CodeGenerator):
+class InteractiveCodeGenerator(CodeGenerator):
 
     __super_init = CodeGenerator.__init__
 
@@ -1324,24 +1297,27 @@ class AbstractFunctionCode:
     def generateArgUnpack(self, args):
         for i in range(len(args)):
             arg = args[i]
-            if type(arg) == types.TupleType:
+            if isinstance(arg, ast.AssTuple):
                 self.emit('LOAD_FAST', '.%d' % (i * 2))
                 self.unpackSequence(arg)
 
     def unpackSequence(self, tup):
         if VERSION > 1:
-            self.emit('UNPACK_SEQUENCE', len(tup))
+            self.emit('UNPACK_SEQUENCE', len(tup.nodes))
         else:
-            self.emit('UNPACK_TUPLE', len(tup))
-        for elt in tup:
-            if type(elt) == types.TupleType:
-                self.unpackSequence(elt)
+            self.emit('UNPACK_TUPLE', len(tup.nodes))
+        
+        for elt in tup.nodes:
+            if isinstance(elt, ast.AssName):
+                self._nameOp('STORE', elt.name)
+            elif isinstance(elt, ast.AssTuple):
+                self.unpackSequence( elt )
             else:
-                self._nameOp('STORE', elt)
+                raise TypeError( "Got argument %s of type %s" % (elt,type(elt)))
 
     unpackTuple = unpackSequence
 
-class FunctionCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
+class FunctionCodeGenerator(AbstractFunctionCode,
                             CodeGenerator):
     super_init = CodeGenerator.__init__ # call be other init
     scopes = None
@@ -1357,7 +1333,7 @@ class FunctionCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
         if self.scope.generator is not None:
             self.graph.setFlag(CO_GENERATOR)
 
-class GenExprCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
+class GenExprCodeGenerator(AbstractFunctionCode,
                            CodeGenerator):
     super_init = CodeGenerator.__init__ # call be other init
     scopes = None
@@ -1394,7 +1370,7 @@ class AbstractClassCode:
         self.emit('LOAD_LOCALS')
         self.emit('RETURN_VALUE')
 
-class ClassCodeGenerator(NestedScopeMixin, AbstractClassCode, CodeGenerator):
+class ClassCodeGenerator(AbstractClassCode, CodeGenerator):
     super_init = CodeGenerator.__init__
     scopes = None
 
@@ -1420,14 +1396,14 @@ def generateArgList(arglist):
     count = 0
     for i in range(len(arglist)):
         elt = arglist[i]
-        if type(elt) == types.StringType:
+        if isinstance(elt, ast.AssName):
             args.append(elt)
-        elif type(elt) == types.TupleType:
+        elif isinstance(elt, ast.AssTuple):
             args.append(TupleArg(i * 2, elt))
-            extra.extend(misc.flatten(elt))
+            extra.extend(ast.flatten(elt))
             count = count + 1
         else:
-            raise ValueError, "unexpect argument type:", elt
+            raise ValueError( "unexpect argument type: %s" % elt )
     return args + extra, count
 
 def findOp(node):
@@ -1485,6 +1461,15 @@ wrapper = {
 
 def wrap_aug(node):
     return wrapper[node.__class__](node)
+
+
+for klass in (ModuleCodeGenerator, ExpressionCodeGenerator, InteractiveCodeGenerator,
+              FunctionCodeGenerator, GenExprCodeGenerator, ClassCodeGenerator):
+    klass.NameFinder = LocalNameFinder
+    klass.FunctionGen = FunctionCodeGenerator
+    klass.ClassGen = ClassCodeGenerator
+
+
 
 if __name__ == "__main__":
     for file in sys.argv[1:]:

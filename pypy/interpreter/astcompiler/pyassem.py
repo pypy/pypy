@@ -5,7 +5,7 @@ import new
 import sys
 import types
 
-from pypy.interpreter.astcompiler import misc
+from pypy.interpreter.astcompiler import misc, ast
 from pypy.interpreter.astcompiler.consts \
      import CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS
 
@@ -340,11 +340,16 @@ class PyFlowGraph(FlowGraph):
         # The offsets used by LOAD_CLOSURE/LOAD_DEREF refer to both
         # kinds of variables.
         self.closure = []
-        self.varnames = list(args) or []
-        for i in range(len(self.varnames)):
-            var = self.varnames[i]
-            if isinstance(var, TupleArg):
-                self.varnames[i] = var.getName()
+        self.varnames = []
+        for var in args:
+            if isinstance(var, ast.AssName):
+                self.varnames.append(var.name)
+            elif isinstance(var, TupleArg):
+                self.varnames.append(var.getName())
+            elif isinstance(var, ast.AssTuple):
+                for n in var.flatten():
+                    assert isinstance(n, ast.AssName)
+                    self.varnames.append(n.name)
         self.stage = RAW
         self.orderedblocks = []
 
@@ -397,6 +402,20 @@ class PyFlowGraph(FlowGraph):
         if io:
             sys.stdout = save
 
+    def _max_depth(self, depth, seen, b, d):
+        if seen.has_key(b):
+            return d
+        seen[b] = 1
+        d = d + depth[b]
+        children = b.get_children()
+        if children:
+            return max([ self._max_depth(depth, seen, c, d) for c in children])
+        else:
+            if not b.label == "exit":
+                return self._max_depth(depth, seen, self.exit, d)
+            else:
+                return d
+
     def computeStackDepth(self):
         """Compute the max stack depth.
 
@@ -411,21 +430,7 @@ class PyFlowGraph(FlowGraph):
 
         seen = {}
 
-        def max_depth(b, d):
-            if seen.has_key(b):
-                return d
-            seen[b] = 1
-            d = d + depth[b]
-            children = b.get_children()
-            if children:
-                return max([max_depth(c, d) for c in children])
-            else:
-                if not b.label == "exit":
-                    return max_depth(self.exit, d)
-                else:
-                    return d
-
-        self.stacksize = max_depth(self.entry, 0)
+        self.stacksize = self._max_depth( depth, seen, self.entry, 0)
 
     def flattenGraph(self):
         """Arrange the blocks in order and resolve jumps"""
@@ -661,7 +666,7 @@ def isJump(opname):
     if opname[:4] == 'JUMP':
         return 1
 
-class TupleArg:
+class TupleArg(ast.Node):
     """Helper for marking func defs with nested tuples in arglist"""
     def __init__(self, count, names):
         self.count = count
