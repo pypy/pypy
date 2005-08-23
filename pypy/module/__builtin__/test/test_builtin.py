@@ -336,6 +336,10 @@ class AppTestBuiltinApp:
         assert eval(" \t1+2\n") == 3
         assert eval("len([])") == 0
         assert eval("len([])", {}) == 0        
+        # cpython 2.4 allows this (raises in 2.3)
+        assert eval("3", None, None) == 3
+        i = 4
+        assert eval("i", None, None) == 4
 
     def test_compile(self):
         co = compile('1+2', '?', 'eval')

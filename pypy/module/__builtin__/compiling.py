@@ -69,7 +69,7 @@ def eval(space, w_code, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
     except IndexError:
         caller = None
 
-    if w_globals is None:
+    if w_globals is None or space.is_w(w_globals, space.w_None): 
         if caller is None:
             w_globals = w_locals = space.newdict([])
         else:
