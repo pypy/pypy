@@ -1,4 +1,5 @@
 import thread
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict

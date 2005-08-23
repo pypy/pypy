@@ -67,3 +67,20 @@ class AppTestLocal(GenericTestThread):
         seen1.sort()
         assert seen1 == [1, 2, 3, 4, 5]
         assert tags == []
+
+    def test_local_setdict(self):
+        import thread
+        x = thread._local()
+        raises(TypeError, "x.__dict__ = 42")
+        done = []
+        def f(n):
+            x.spam = n
+            assert x.__dict__["spam"] == n
+            x.__dict__ = {"bar": n+1}
+            assert x.bar == n+1
+            assert not hasattr(x, "spam")
+            done.append(1)
+        for i in range(5):
+            thread.start_new_thread(f, (i,))
+        self.waitfor(lambda: len(done) == 5, timeout=20.0)
+        assert len(done) == 5
