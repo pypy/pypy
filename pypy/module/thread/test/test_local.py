@@ -48,26 +48,22 @@ class AppTestLocal(GenericTestThread):
 
     def test_local_init(self):
         import thread
-        feedback = []
-        seen = {}
+        tags = [1, 2, 3, 4, 5, 54321]
+        seen = []
 
         class X(thread._local):
             def __init__(self, n):
                 assert n == 42
-                self.tag = len(feedback)
-                feedback.append(1)
+                self.tag = tags.pop()
 
         x = X(42)
-        assert x.tag == 0
-        assert feedback == [1]
+        assert x.tag == 54321
         def f():
-            seen[x.tag] = True
+            seen.append(x.tag)
         for i in range(5):
             thread.start_new_thread(f, ())
         self.waitfor(lambda: len(seen) == 5, timeout=20.0)
-        assert seen == {1: True,
-                        2: True,
-                        3: True,
-                        4: True,
-                        5: True}
-        assert len(feedback) == 6
+        seen1 = seen[:]
+        seen1.sort()
+        assert seen1 == [1, 2, 3, 4, 5]
+        assert tags == []
