@@ -5,6 +5,7 @@ import new
 import sys
 import types
 
+from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.astcompiler import misc, ast
 from pypy.interpreter.astcompiler.consts \
      import CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS
@@ -220,17 +221,27 @@ def dfs_postorder(b, seen):
     order.append(b)
     return order
 
+class BlockCounter:
+    def __init__(self):
+        self._count = 0
+
+    def inc(self):
+        self._count += 1
+
+    def value(self):
+        return self._count
+    
 class Block:
-    _count = 0
+    _count = BlockCounter()
 
     def __init__(self, label=''):
         self.insts = []
         self.inEdges = misc.Set()
         self.outEdges = misc.Set()
         self.label = label
-        self.bid = Block._count
+        self.bid = Block._count.value()
         self.next = []
-        Block._count = Block._count + 1
+        Block._count.inc()
 
     def __repr__(self):
         if self.label:
@@ -239,7 +250,7 @@ class Block:
             return "<block id=%d>" % (self.bid)
 
     def __str__(self):
-        insts = map(str, self.insts)
+        insts = [ str(i) for i in  self.insts ]
         return "<block %s %d:\n%s>" % (self.label, self.bid,
                                        '\n'.join(insts))
 
@@ -260,7 +271,7 @@ class Block:
 
     def addNext(self, block):
         self.next.append(block)
-        assert len(self.next) == 1, map(str, self.next)
+        assert len(self.next) == 1, [ str(i) for i in self.next ]
 
     _uncond_transfer = ('RETURN_VALUE', 'RAISE_VARARGS', 'YIELD_VALUE',
                         'JUMP_ABSOLUTE', 'JUMP_FORWARD', 'CONTINUE_LOOP')
@@ -642,12 +653,14 @@ class PyFlowGraph(FlowGraph):
         argcount = self.argcount
         if self.flags & CO_VARKEYWORDS:
             argcount = argcount - 1
-        return new.code(argcount, nlocals, self.stacksize, self.flags,
-                        self.lnotab.getCode(), self.getConsts(),
-                        tuple(self.names), tuple(self.varnames),
-                        self.filename, self.name, self.lnotab.firstline,
-                        self.lnotab.getTable(), tuple(self.freevars),
-                        tuple(self.cellvars))
+        # was return new.code, now we just return the parameters and let
+        # the caller create the code object
+        return (argcount, nlocals, self.stacksize, self.flags,
+                self.lnotab.getCode(), self.getConsts(),
+                tuple(self.names), tuple(self.varnames),
+                self.filename, self.name, self.lnotab.firstline,
+                self.lnotab.getTable(), tuple(self.freevars),
+                tuple(self.cellvars))
 
     def getConsts(self):
         """Return a tuple for the const slot of the code object
@@ -754,11 +767,55 @@ class LineAddrTable:
         return ''.join(self.code)
 
     def getTable(self):
-        return ''.join(map(chr, self.lnotab))
+        return ''.join( [ chr(i) for i in  self.lnotab ] )
+
+
+def depth_UNPACK_SEQUENCE(count):
+    return count-1
+def depth_BUILD_TUPLE(count):
+    return -count+1
+def depth_BUILD_LIST(count):
+    return -count+1
+def depth_CALL_FUNCTION(argc):
+    hi, lo = divmod(argc, 256)
+    return -(lo + hi * 2)
+def depth_CALL_FUNCTION_VAR(argc):
+    return depth_CALL_FUNCTION(argc)-1
+def depth_CALL_FUNCTION_KW(argc):
+    return depth_CALL_FUNCTION(argc)-1
+def depth_CALL_FUNCTION_VAR_KW(argc):
+    return depth_CALL_FUNCTION(argc)-2
+def depth_MAKE_FUNCTION(argc):
+    return -argc
+def depth_MAKE_CLOSURE(argc):
+    # XXX need to account for free variables too!
+    return -argc
+def depth_BUILD_SLICE(argc):
+    if argc == 2:
+        return -1
+    elif argc == 3:
+        return -2
+def depth_DUP_TOPX(argc):
+    return argc
+
+DEPTH_OP_TRACKER = {
+    "UNPACK_SEQUENCE" : depth_UNPACK_SEQUENCE,
+    "BUILD_TUPLE" : depth_BUILD_TUPLE,
+    "BUILD_LIST" : depth_BUILD_LIST,
+    "CALL_FUNCTION" : depth_CALL_FUNCTION,
+    "CALL_FUNCTION_VAR" : depth_CALL_FUNCTION_VAR,
+    "CALL_FUNCTION_KW" : depth_CALL_FUNCTION_KW,
+    "CALL_FUNCTION_VAR_KW" : depth_CALL_FUNCTION_VAR_KW,
+    "MAKE_FUNCTION" : depth_MAKE_FUNCTION,
+    "MAKE_CLOSURE" : depth_MAKE_CLOSURE,
+    "BUILD_SLICE" : depth_BUILD_SLICE,
+    "DUP_TOPX" : depth_DUP_TOPX,
+    }
 
 class StackDepthTracker:
     # XXX 1. need to keep track of stack depth on jumps
     # XXX 2. at least partly as a result, this code is broken
+    # XXX 3. Don't need a class here!
 
     def findDepth(self, insts, debug=0):
         depth = 0
@@ -779,7 +836,7 @@ class StackDepthTracker:
                         break
                 # if we still haven't found a match
                 if delta is None:
-                    meth = getattr(self, opname, None)
+                    meth = DEPTH_OP_TRACKER.get( opname, None )
                     if meth is not None:
                         depth = depth + meth(i[1])
             if depth > maxDepth:
@@ -832,32 +889,5 @@ class StackDepthTracker:
         ('LOAD_', 1),
         ]
 
-    def UNPACK_SEQUENCE(self, count):
-        return count-1
-    def BUILD_TUPLE(self, count):
-        return -count+1
-    def BUILD_LIST(self, count):
-        return -count+1
-    def CALL_FUNCTION(self, argc):
-        hi, lo = divmod(argc, 256)
-        return -(lo + hi * 2)
-    def CALL_FUNCTION_VAR(self, argc):
-        return self.CALL_FUNCTION(argc)-1
-    def CALL_FUNCTION_KW(self, argc):
-        return self.CALL_FUNCTION(argc)-1
-    def CALL_FUNCTION_VAR_KW(self, argc):
-        return self.CALL_FUNCTION(argc)-2
-    def MAKE_FUNCTION(self, argc):
-        return -argc
-    def MAKE_CLOSURE(self, argc):
-        # XXX need to account for free variables too!
-        return -argc
-    def BUILD_SLICE(self, argc):
-        if argc == 2:
-            return -1
-        elif argc == 3:
-            return -2
-    def DUP_TOPX(self, argc):
-        return argc
 
 findDepth = StackDepthTracker().findDepth

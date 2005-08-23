@@ -1,9 +1,10 @@
-import types
+
+from pypy.interpreter.astcompiler import ast
 
 def flatten(tup):
     elts = []
     for elt in tup:
-        if type(elt) == types.TupleType:
+        if type(elt) == tuple:
             elts = elts + flatten(elt)
         else:
             elts.append(elt)
@@ -70,5 +71,6 @@ def set_filename(filename, tree):
     worklist = [tree]
     while worklist:
         node = worklist.pop(0)
+        assert isinstance(node, ast.Node)
         node.filename = filename
         worklist.extend(node.getChildNodes())

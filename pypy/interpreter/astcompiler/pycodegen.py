@@ -193,7 +193,6 @@ class CodeGenerator:
         self.locals = misc.Stack()
         self.setups = misc.Stack()
         self.last_lineno = None
-        self._setupGraphDelegation()
         self._div_op = "BINARY_DIVIDE"
 
         # XXX set flags based on future features
@@ -216,13 +215,26 @@ class CodeGenerator:
             intro = "Bad class construction for %s" % self.__class__.__name__
             raise AssertionError, intro
 
-    def _setupGraphDelegation(self):
-        self.emit = self.graph.emit
-        self.newBlock = self.graph.newBlock
-        self.startBlock = self.graph.startBlock
-        self.nextBlock = self.graph.nextBlock
-        self.setDocstring = self.graph.setDocstring
 
+    def emit(self, *inst ):
+        self.graph.emit( *inst )
+
+    def nextBlock(self, block=None ):
+        """graph delegation"""
+        self.graph.newBlock( block )
+
+    def startBlock(self, block ):
+        """graph delegation"""
+        self.graph.startBlock( block )
+
+    def newBlock(self):
+        """graph delegation"""
+        self.graph.newBlock()
+
+    def setDocstring(self, doc):
+        """graph delegation"""
+        self.graph.setDocstring( doc )
+    
     def getCode(self):
         """Return a code object"""
         return self.graph.getCode()
@@ -307,7 +319,7 @@ class CodeGenerator:
         and a consistent policy implemented and documented.  Until
         then, this method works around missing line numbers.
         """
-        lineno = getattr(node, 'lineno', None)
+        lineno = node.lineno
         if lineno is not None and (lineno != self.last_lineno
                                    or force):
             self.emit('SET_LINENO', lineno)
@@ -1412,7 +1424,7 @@ def findOp(node):
     walk(node, v, verbose=0)
     return v.op
 
-class OpFinder:
+class OpFinder(ast.ASTVisitor):
     def __init__(self):
         self.op = None
     def visitAssName(self, node):
