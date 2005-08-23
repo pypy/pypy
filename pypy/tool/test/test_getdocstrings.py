@@ -6,8 +6,8 @@ this_dir = autopath.this_dir
 pypy_dir = autopath.pypydir
 # Naming weirdness: why not both pypy_dir and this_dir or pypydir and thisdir
 
-from pypy.tool.getdocstrings import quote, triplequotes, doc
-from pypy.tool.getdocstrings import mk_std_filelist, mk_typelist
+from pypy.tool.getdocstrings import quote, triplequotes
+from pypy.tool.getdocstrings import mk_std_filelist
 
 class TestDocStringInserter:
     def setup_method(self, method):
@@ -24,13 +24,6 @@ class TestDocStringInserter:
             'dicttype.py', 'dictproxytype.py', 'tupletype.py',
             'booltype.py', 'objecttype.py', 'stringtype.py',
             'listtype.py']
-
-    def test_typelist(self):
-        assert mk_typelist(mk_std_filelist()) == [
-            'basestring', 'unicode', 'int', 'none', 'long',
-            'slice', 'iter', 'float', 'type', 'dict',
-            'dictproxy', 'tuple', 'bool', 'object', 'string',
-            'list']
 
     def test_gottestfile(self):
         s = self.fd1.read()       # whole file as string
