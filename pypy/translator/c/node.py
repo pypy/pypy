@@ -22,11 +22,7 @@ def needs_gcheader(T):
 
 class StructDefNode:
     gcheader = None
-
     gcinfo = None
-
-    #deallocator = None
-    #static_deallocator = None
 
     def __init__(self, db, STRUCT, varlength=1):
         self.db = db
@@ -85,7 +81,7 @@ class StructDefNode:
             except ValueError:
                 pass
 
-        # do we need deallocator(s)?
+        # let the gcpolicy do its own setup
         if varlength == 1:
             self.db.gcpolicy.struct_setup(self, rtti)
 
@@ -124,7 +120,7 @@ class StructDefNode:
                 if gcinfo.static_deallocator:
                     yield 'void %s(struct %s *p) {' % (gcinfo.static_deallocator,
                                                    self.name)
-                    for line in self.deallocator_lines('(*p)'):
+                    for line in self.visitor_lines('(*p)', generic_dealloc):
                         yield '\t' + line
                     yield '\tOP_FREE(p);'
                     yield '}'
@@ -141,14 +137,18 @@ class StructDefNode:
                     yield '\t\tstaticdealloc(p);'
                     yield '}'
 
-    def deallocator_lines(self, prefix): # xxx xxx rename, re-factor generic_dealloc use
+    def deallocator_lines(self, prefix):
+        for line in self.visitor_lines(prefix, generic_dealloc):
+            yield line
+
+    def visitor_lines(self, prefix, on_field):
         STRUCT = self.STRUCT
         for name in STRUCT._names:
             FIELD_T = self.c_struct_field_type(name)
             cname = self.c_struct_field_name(name)
-            for line in generic_dealloc(self.db,
-                                        '%s.%s' % (prefix, cname),
-                                        FIELD_T):
+            for line in on_field(self.db,
+                                 '%s.%s' % (prefix, cname),
+                                 FIELD_T):
                 yield line
 
     def debug_offsets(self):
@@ -197,7 +197,7 @@ class ArrayDefNode:
         varlength = self.varlength
         self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
-        # is a specific deallocator needed?
+        # let the gcpolicy do its own setup
         if varlength == 1:
             self.db.gcpolicy.array_setup(self)
 
@@ -227,12 +227,16 @@ class ArrayDefNode:
                 gcinfo = self.gcinfo
                 if gcinfo.deallocator:
                     yield 'void %s(struct %s *a) {' % (gcinfo.deallocator, self.name)
-                    for line in self.deallocator_lines('(*a)'):
+                    for line in self.visitor_lines('(*a)', generic_dealloc):
                         yield '\t' + line
                     yield '\tOP_FREE(a);'
                     yield '}'
 
-    def deallocator_lines(self, prefix): # xxx xxx rename, re-factor generic_dealloc use
+    def deallocator_lines(self, prefix):
+        for line in self.visitor_lines(prefix, generic_dealloc):
+            yield line
+
+    def visitor_lines(self, prefix, on_item):
         ARRAY = self.ARRAY
         # we need a unique name for this C variable, or at least one that does
         # not collide with the expression in 'prefix'
@@ -241,7 +245,7 @@ class ArrayDefNode:
         while prefix.find(varname) >= 0:
             i += 1
             varname = 'p%d' % i
-        body = list(generic_dealloc(self.db, '(*%s)' % varname, ARRAY.OF))
+        body = list(on_item(self.db, '(*%s)' % varname, ARRAY.OF))
         if body:
             yield '{'
             yield '\t%s = %s.items;' % (cdecl(self.itemtypename, '*' + varname),
@@ -280,9 +284,6 @@ class ExtTypeOpaqueDefNode:
     def setup(self):
         pass
 
-    def deallocator_lines(self, prefix):
-        yield 'RPyOpaqueDealloc_%s(&(%s));' % (self.T.tag, prefix)
-
     def definition(self, phase):
         return []
 
@@ -294,8 +295,11 @@ def generic_dealloc(db, expr, T): # xxx -> gc, refactor PyObjPtr case
             yield line
     elif isinstance(T, ContainerType):
         defnode = db.gettypedefnode(T)
-        for line in defnode.deallocator_lines(expr):
-            yield line
+        if isinstance(defnode, ExtTypeOpaqueDefNode):
+            yield 'RPyOpaqueDealloc_%s(&(%s));' % (defnode.T.tag, expr)
+        else:
+            for line in defnode.visitor_lines(expr, generic_dealloc):
+                yield line
 
 # ____________________________________________________________
 
@@ -551,20 +555,17 @@ def select_function_code_generator(fnobj, db):
 
 class OpaqueNode(ContainerNode):
     globalcontainer = True
-    typename = 'void (@)(void *)'
     includes = ()
 
-    def __init__(self, db, T, obj): # xxx this supplies rtti value -> gc
+    def __init__(self, db, T, obj):
         assert T == RuntimeTypeInfo
         assert isinstance(obj.about, GcStruct)
         self.db = db
         self.T = T
         self.obj = obj
         defnode = db.gettypedefnode(obj.about)
-        self.implementationtypename = 'void (@)(struct %s *)' % (
-            defnode.name,)
-        self.name = defnode.gcinfo.static_deallocator
-        self.ptrname = '((void (*)(void *)) %s)' % (self.name,)
+
+        self.db.gcpolicy.rtti_node(defnode, self)
 
     def enum_dependencies(self):
         return []

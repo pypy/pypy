@@ -74,10 +74,6 @@ class RefcountingGcPolicy(BasicGcPolicy):
             result.append(decrefstmt)
             result.append('}')
 
-
-    def rtti_type(self):
-        return 'void (@)(void *)'   # void dealloc_xx(struct xx *)
-
     def gcheader_field_name(self, defnode):
         return 'refcount'
 
@@ -152,3 +148,14 @@ class RefcountingGcPolicy(BasicGcPolicy):
 
     array_gcheader_initialitionexpr = common_gcheader_initializationexpr
 
+    # for rtti node
+
+    def rtti_type(self):
+        return 'void (@)(void *)'   # void dealloc_xx(struct xx *)
+
+    def rtti_node(self, defnode, node):
+        node.typename = 'void (@)(void *)'
+        node.implementationtypename = 'void (@)(struct %s *)' % (
+            defnode.name,)
+        node.name = defnode.gcinfo.static_deallocator
+        node.ptrname = '((void (*)(void *)) %s)' % (node.name,)
