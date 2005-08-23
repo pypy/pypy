@@ -25,6 +25,7 @@ class FlowGraph:
                 print "    next", self.current.next
                 print "   ", self.current.get_children()
             print repr(block)
+        assert block is not None
         self.current = block
 
     def nextBlock(self, block=None):
@@ -354,13 +355,19 @@ class PyFlowGraph(FlowGraph):
         self.varnames = []
         for var in args:
             if isinstance(var, ast.AssName):
-                self.varnames.append(var.name)
+                _name = var.name
+                assert type(_name) == str
+                self.varnames.append( _name )
             elif isinstance(var, TupleArg):
-                self.varnames.append(var.getName())
+                _name = var.getName()
+                assert type(_name) == str
+                self.varnames.append( _name )
             elif isinstance(var, ast.AssTuple):
                 for n in var.flatten():
                     assert isinstance(n, ast.AssName)
-                    self.varnames.append(n.name)
+                    _name = n.name
+                    assert type(_name) == str
+                    self.varnames.append( _name )
         self.stage = RAW
         self.orderedblocks = []
 

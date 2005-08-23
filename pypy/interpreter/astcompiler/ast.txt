@@ -27,6 +27,9 @@ TryExcept: body, handlers!, else_&
 Return: value
 Yield: value
 Const: value*
+NoneConst:
+StringConst: string_value*
+NumberConst: number_value*
 Print: nodes!, dest&
 Printnl: nodes!, dest&
 Discard: expr
@@ -92,7 +95,7 @@ init(Lambda):
         self.kwargs = 1
 
 init(GenExpr):
-    self.argnames = ['[outmost-iterable]']
+    self.argnames = [AssName('[outmost-iterable]', OP_ASSIGN)]
     self.varargs = self.kwargs = None
 
 init(GenExprFor):

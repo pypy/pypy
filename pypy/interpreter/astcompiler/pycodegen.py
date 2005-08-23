@@ -127,7 +127,7 @@ class Module(AbstractCompileMode):
         mtime = struct.pack('<i', mtime)
         return self.MAGIC + mtime
 
-class LocalNameFinder:
+class LocalNameFinder(ast.ASTVisitor):
     """Find local names in scope"""
     def __init__(self, names=()):
         self.names = misc.Set()
@@ -176,7 +176,7 @@ def is_constant_false(node):
             return 1
     return 0
 
-class CodeGenerator:
+class CodeGenerator(ast.ASTVisitor):
     """Defines basic code generator for Python bytecode
 
     This class is an abstract base class.  Concrete subclasses must
@@ -217,23 +217,23 @@ class CodeGenerator:
 
 
     def emit(self, *inst ):
-        self.graph.emit( *inst )
+        return self.graph.emit( *inst )
 
     def nextBlock(self, block=None ):
         """graph delegation"""
-        self.graph.newBlock( block )
+        return self.graph.nextBlock( block )
 
     def startBlock(self, block ):
         """graph delegation"""
-        self.graph.startBlock( block )
+        return self.graph.startBlock( block )
 
     def newBlock(self):
         """graph delegation"""
-        self.graph.newBlock()
+        return self.graph.newBlock()
 
     def setDocstring(self, doc):
         """graph delegation"""
-        self.graph.setDocstring( doc )
+        return self.graph.setDocstring( doc )
     
     def getCode(self):
         """Return a code object"""
@@ -344,7 +344,7 @@ class CodeGenerator:
             self.storeName('__doc__')
         lnf = walk(node.node, self.NameFinder(), verbose=0)
         self.locals.push(lnf.getLocals())
-        self.visit(node.node)
+        node.node.accept( self )
         self.emit('LOAD_CONST', None)
         self.emit('RETURN_VALUE')
 
@@ -352,7 +352,7 @@ class CodeGenerator:
         self.set_lineno(node)
         self.scopes = self.parseSymbols(node)
         self.scope = self.scopes[node]
-        self.visit(node.node)
+        node.node.accept( self )
         self.emit('RETURN_VALUE')
 
     def visitFunction(self, node):
@@ -367,7 +367,7 @@ class CodeGenerator:
     def _visitFuncOrLambda(self, node, isLambda=0):
         if not isLambda and node.decorators:
             for decorator in node.decorators.nodes:
-                self.visit(decorator)
+                decorator.accept( self )
             ndecorators = len(node.decorators.nodes)
         else:
             ndecorators = 0
@@ -378,7 +378,7 @@ class CodeGenerator:
         gen.finish()
         self.set_lineno(node)
         for default in node.defaults:
-            self.visit(default)
+            default.accept( self )
         frees = gen.scope.get_free_vars()
         if frees:
             for name in frees:
@@ -400,7 +400,7 @@ class CodeGenerator:
         self.set_lineno(node)
         self.emit('LOAD_CONST', node.name)
         for base in node.bases:
-            self.visit(base)
+            base.accept( self )
         self.emit('BUILD_TUPLE', len(node.bases))
         frees = gen.scope.get_free_vars()
         for name in frees:
@@ -427,17 +427,17 @@ class CodeGenerator:
                 # XXX will need to check generator stuff here
                 continue
             self.set_lineno(test)
-            self.visit(test)
+            test.accept( self )
             nextTest = self.newBlock()
             self.emit('JUMP_IF_FALSE', nextTest)
             self.nextBlock()
             self.emit('POP_TOP')
-            self.visit(suite)
+            suite.accept( self )
             self.emit('JUMP_FORWARD', end)
             self.startBlock(nextTest)
             self.emit('POP_TOP')
         if node.else_:
-            self.visit(node.else_)
+            node.else_.accept( self )
         self.nextBlock(end)
 
     def visitWhile(self, node):
@@ -453,12 +453,12 @@ class CodeGenerator:
         self.setups.push((LOOP, loop))
 
         self.set_lineno(node, force=True)
-        self.visit(node.test)
+        node.test.accept( self )
         self.emit('JUMP_IF_FALSE', else_ or after)
 
         self.nextBlock()
         self.emit('POP_TOP')
-        self.visit(node.body)
+        node.body.accept( self )
         self.emit('JUMP_ABSOLUTE', loop)
 
         self.startBlock(else_) # or just the POPs if not else clause
@@ -466,7 +466,7 @@ class CodeGenerator:
         self.emit('POP_BLOCK')
         self.setups.pop()
         if node.else_:
-            self.visit(node.else_)
+            node.else_.accept( self )
         self.nextBlock(after)
 
     def visitFor(self, node):
@@ -477,20 +477,20 @@ class CodeGenerator:
 
         self.set_lineno(node)
         self.emit('SETUP_LOOP', after)
-        self.visit(node.list)
+        node.list.accept( self )
         self.emit('GET_ITER')
 
         self.nextBlock(start)
         self.set_lineno(node, force=1)
         self.emit('FOR_ITER', anchor)
-        self.visit(node.assign)
-        self.visit(node.body)
+        node.assign.accept( self )
+        node.body.accept( self )
         self.emit('JUMP_ABSOLUTE', start)
         self.nextBlock(anchor)
         self.emit('POP_BLOCK')
         self.setups.pop()
         if node.else_:
-            self.visit(node.else_)
+            node.else_.accept( self )
         self.nextBlock(after)
 
     def visitBreak(self, node):
@@ -528,11 +528,11 @@ class CodeGenerator:
     def visitTest(self, node, jump):
         end = self.newBlock()
         for child in node.nodes[:-1]:
-            self.visit(child)
+            child.accept( self )
             self.emit(jump, end)
             self.nextBlock()
             self.emit('POP_TOP')
-        self.visit(node.nodes[-1])
+        node.nodes[-1].accept( self )
         self.nextBlock(end)
 
     def visitAnd(self, node):
@@ -542,10 +542,10 @@ class CodeGenerator:
         self.visitTest(node, 'JUMP_IF_TRUE')
 
     def visitCompare(self, node):
-        self.visit(node.expr)
+        node.expr.accept( self )
         cleanup = self.newBlock()
         for op, code in node.ops[:-1]:
-            self.visit(code)
+            code.accept( self )
             self.emit('DUP_TOP')
             self.emit('ROT_THREE')
             self.emit('COMPARE_OP', op)
@@ -555,7 +555,7 @@ class CodeGenerator:
         # now do the last comparison
         if node.ops:
             op, code = node.ops[-1]
-            self.visit(code)
+            code.accept( self )
             self.emit('COMPARE_OP', op)
         if len(node.ops) > 1:
             end = self.newBlock()
@@ -580,16 +580,16 @@ class CodeGenerator:
 
         stack = []
         for i, for_ in zip(range(len(node.quals)), node.quals):
-            start, anchor = self.visit(for_)
+            start, anchor = for_.accept( self )
             cont = None
             for if_ in for_.ifs:
                 if cont is None:
                     cont = self.newBlock()
-                self.visit(if_, cont)
+                if_.accept( self, cont)
             stack.insert(0, (start, cont, anchor))
 
         self._implicitNameOp('LOAD', append)
-        self.visit(node.expr)
+        node.expr.accept( self )
         self.emit('CALL_FUNCTION', 1)
         self.emit('POP_TOP')
 
@@ -610,18 +610,18 @@ class CodeGenerator:
         start = self.newBlock()
         anchor = self.newBlock()
 
-        self.visit(node.list)
+        node.list.accept( self )
         self.emit('GET_ITER')
         self.nextBlock(start)
         self.set_lineno(node, force=True)
         self.emit('FOR_ITER', anchor)
         self.nextBlock()
-        self.visit(node.assign)
+        node.assign.accept( self )
         return start, anchor
 
     def visitListCompIf(self, node, branch):
         self.set_lineno(node, force=True)
-        self.visit(node.test)
+        node.test.accept( self )
         self.emit('JUMP_IF_FALSE', branch)
         self.newBlock()
         self.emit('POP_TOP')
@@ -643,7 +643,7 @@ class CodeGenerator:
             self.emit('MAKE_FUNCTION', 0)
 
         # precomputation of outmost iterable
-        self.visit(node.code.quals[0].iter)
+        node.code.quals[0].iter.accept( self )
         self.emit('GET_ITER')
         self.emit('CALL_FUNCTION', 1)
 
@@ -653,15 +653,15 @@ class CodeGenerator:
 
         stack = []
         for i, for_ in zip(range(len(node.quals)), node.quals):
-            start, anchor = self.visit(for_)
+            start, anchor = for_.accept( self )
             cont = None
             for if_ in for_.ifs:
                 if cont is None:
                     cont = self.newBlock()
-                self.visit(if_, cont)
+                if_.accept( self, cont)
             stack.insert(0, (start, cont, anchor))
 
-        self.visit(node.expr)
+        node.expr.accept( self )
         self.emit('YIELD_VALUE')
 
         for start, cont, anchor in stack:
@@ -682,19 +682,19 @@ class CodeGenerator:
         if node.is_outmost:
             self.loadName('[outmost-iterable]')
         else:
-            self.visit(node.iter)
+            node.iter.accept( self )
             self.emit('GET_ITER')
 
         self.nextBlock(start)
         self.set_lineno(node, force=True)
         self.emit('FOR_ITER', anchor)
         self.nextBlock()
-        self.visit(node.assign)
+        node.assign.accept( self )
         return start, anchor
 
     def visitGenExprIf(self, node, branch):
         self.set_lineno(node, force=True)
-        self.visit(node.test)
+        node.test.accept( self )
         self.emit('JUMP_IF_FALSE', branch)
         self.newBlock()
         self.emit('POP_TOP')
@@ -711,13 +711,13 @@ class CodeGenerator:
             # loaded as a global even if there is a local name.  I guess this
             # is a sort of renaming op.
             self.nextBlock()
-            self.visit(node.test)
+            node.test.accept( self )
             self.emit('JUMP_IF_TRUE', end)
             self.nextBlock()
             self.emit('POP_TOP')
             self.emit('LOAD_GLOBAL', 'AssertionError')
             if node.fail:
-                self.visit(node.fail)
+                node.fail.accept( self )
                 self.emit('RAISE_VARARGS', 2)
             else:
                 self.emit('RAISE_VARARGS', 1)
@@ -728,13 +728,13 @@ class CodeGenerator:
         self.set_lineno(node)
         n = 0
         if node.expr1:
-            self.visit(node.expr1)
+            node.expr1.accept( self )
             n = n + 1
         if node.expr2:
-            self.visit(node.expr2)
+            node.expr2.accept( self )
             n = n + 1
         if node.expr3:
-            self.visit(node.expr3)
+            node.expr3.accept( self )
             n = n + 1
         self.emit('RAISE_VARARGS', n)
 
@@ -750,7 +750,7 @@ class CodeGenerator:
         self.emit('SETUP_EXCEPT', handlers)
         self.nextBlock(body)
         self.setups.push((EXCEPT, body))
-        self.visit(node.body)
+        node.body.accept( self )
         self.emit('POP_BLOCK')
         self.setups.pop()
         self.emit('JUMP_FORWARD', lElse)
@@ -762,7 +762,7 @@ class CodeGenerator:
             self.set_lineno(expr)
             if expr:
                 self.emit('DUP_TOP')
-                self.visit(expr)
+                expr.accept( self )
                 self.emit('COMPARE_OP', 'exception match')
                 next = self.newBlock()
                 self.emit('JUMP_IF_FALSE', next)
@@ -770,11 +770,11 @@ class CodeGenerator:
                 self.emit('POP_TOP')
             self.emit('POP_TOP')
             if target:
-                self.visit(target)
+                target.accept( self )
             else:
                 self.emit('POP_TOP')
             self.emit('POP_TOP')
-            self.visit(body)
+            body.accept( self )
             self.emit('JUMP_FORWARD', end)
             if expr:
                 self.nextBlock(next)
@@ -785,7 +785,7 @@ class CodeGenerator:
         self.emit('END_FINALLY')
         if node.else_:
             self.nextBlock(lElse)
-            self.visit(node.else_)
+            node.else_.accept( self )
         self.nextBlock(end)
 
     def visitTryFinally(self, node):
@@ -795,13 +795,13 @@ class CodeGenerator:
         self.emit('SETUP_FINALLY', final)
         self.nextBlock(body)
         self.setups.push((TRY_FINALLY, body))
-        self.visit(node.body)
+        node.body.accept( self )
         self.emit('POP_BLOCK')
         self.setups.pop()
         self.emit('LOAD_CONST', None)
         self.nextBlock(final)
         self.setups.push((END_FINALLY, final))
-        self.visit(node.final)
+        node.final.accept( self )
         self.emit('END_FINALLY')
         self.setups.pop()
 
@@ -809,7 +809,7 @@ class CodeGenerator:
 
     def visitDiscard(self, node):
         self.set_lineno(node)
-        self.visit(node.expr)
+        node.expr.accept( self )
         self.emit('POP_TOP')
 
     def visitConst(self, node):
@@ -826,7 +826,7 @@ class CodeGenerator:
 
     def visitKeyword(self, node):
         self.emit('LOAD_CONST', node.name)
-        self.visit(node.expr)
+        node.expr.accept( self )
 
     def visitGlobal(self, node):
         # no code to generate
@@ -877,21 +877,21 @@ class CodeGenerator:
             self.emit('LOAD_ATTR', elt)
 
     def visitGetattr(self, node):
-        self.visit(node.expr)
+        node.expr.accept( self )
         self.emit('LOAD_ATTR', self.mangle(node.attrname))
 
     # next five implement assignments
 
     def visitAssign(self, node):
         self.set_lineno(node)
-        self.visit(node.expr)
+        node.expr.accept( self )
         dups = len(node.nodes) - 1
         for i in range(len(node.nodes)):
             elt = node.nodes[i]
             if i < dups:
                 self.emit('DUP_TOP')
             if isinstance(elt, ast.Node):
-                self.visit(elt)
+                elt.accept( self )
 
     def visitAssName(self, node):
         if node.flags == 'OP_ASSIGN':
@@ -903,7 +903,7 @@ class CodeGenerator:
             print "oops", node.flags
 
     def visitAssAttr(self, node):
-        self.visit(node.expr)
+        node.expr.accept( self )
         if node.flags == 'OP_ASSIGN':
             self.emit('STORE_ATTR', self.mangle(node.attrname))
         elif node.flags == 'OP_DELETE':
@@ -916,7 +916,7 @@ class CodeGenerator:
         if findOp(node) != 'OP_DELETE':
             self.emit(op, len(node.nodes))
         for child in node.nodes:
-            self.visit(child)
+            child.accept( self )
 
     if VERSION > 1:
         visitAssTuple = _visitAssSequence
@@ -933,10 +933,10 @@ class CodeGenerator:
     def visitAugAssign(self, node):
         self.set_lineno(node)
         aug_node = wrap_aug(node.node)
-        self.visit(aug_node, "load")
-        self.visit(node.expr)
+        aug_node.accept( self, "load")
+        node.expr.accept( self )
         self.emit(self._augmented_opcode[node.op])
-        self.visit(aug_node, "store")
+        aug_node.accept( self, "store")
 
     _augmented_opcode = {
         '+=' : 'INPLACE_ADD',
@@ -961,7 +961,7 @@ class CodeGenerator:
 
     def visitAugGetattr(self, node, mode):
         if mode == "load":
-            self.visit(node.expr)
+            node.expr.accept( self )
             self.emit('DUP_TOP')
             self.emit('LOAD_ATTR', self.mangle(node.attrname))
         elif mode == "store":
@@ -995,32 +995,32 @@ class CodeGenerator:
             self.emit('STORE_SUBSCR')
 
     def visitExec(self, node):
-        self.visit(node.expr)
+        node.expr.accept( self )
         if node.locals is None:
             self.emit('LOAD_CONST', None)
         else:
-            self.visit(node.locals)
+            node.locals.accept( self )
         if node.globals is None:
             self.emit('DUP_TOP')
         else:
-            self.visit(node.globals)
+            node.globals.accept( self )
         self.emit('EXEC_STMT')
 
     def visitCallFunc(self, node):
         pos = 0
         kw = 0
         self.set_lineno(node)
-        self.visit(node.node)
+        node.node.accept( self )
         for arg in node.args:
-            self.visit(arg)
+            arg.accept( self )
             if isinstance(arg, ast.Keyword):
                 kw = kw + 1
             else:
                 pos = pos + 1
         if node.star_args is not None:
-            self.visit(node.star_args)
+            node.star_args.accept( self )
         if node.dstar_args is not None:
-            self.visit(node.dstar_args)
+            node.dstar_args.accept( self )
         have_star = node.star_args is not None
         have_dstar = node.dstar_args is not None
         opcode = callfunc_opcode_info[have_star, have_dstar]
@@ -1029,11 +1029,11 @@ class CodeGenerator:
     def visitPrint(self, node, newline=0):
         self.set_lineno(node)
         if node.dest:
-            self.visit(node.dest)
+            node.dest.accept( self )
         for child in node.nodes:
             if node.dest:
                 self.emit('DUP_TOP')
-            self.visit(child)
+            child.accept( self )
             if node.dest:
                 self.emit('ROT_TWO')
                 self.emit('PRINT_ITEM_TO')
@@ -1051,25 +1051,25 @@ class CodeGenerator:
 
     def visitReturn(self, node):
         self.set_lineno(node)
-        self.visit(node.value)
+        node.value.accept( self )
         self.emit('RETURN_VALUE')
 
     def visitYield(self, node):
         self.set_lineno(node)
-        self.visit(node.value)
+        node.value.accept( self )
         self.emit('YIELD_VALUE')
 
     # slice and subscript stuff
 
     def visitSlice(self, node, aug_flag=None):
         # aug_flag is used by visitAugSlice
-        self.visit(node.expr)
+        node.expr.accept( self )
         slice = 0
         if node.lower:
-            self.visit(node.lower)
+            node.lower.accept( self )
             slice = slice | 1
         if node.upper:
-            self.visit(node.upper)
+            node.upper.accept( self )
             slice = slice | 2
         if aug_flag:
             if slice == 0:
@@ -1089,9 +1089,9 @@ class CodeGenerator:
             raise
 
     def visitSubscript(self, node, aug_flag=None):
-        self.visit(node.expr)
+        node.expr.accept( self )
         for sub in node.subs:
-            self.visit(sub)
+            sub.accept( self )
         if aug_flag:
             self.emit('DUP_TOPX', 2)
         if len(node.subs) > 1:
@@ -1106,8 +1106,8 @@ class CodeGenerator:
     # binary ops
 
     def binaryOp(self, node, op):
-        self.visit(node.left)
-        self.visit(node.right)
+        node.left.accept( self )
+        node.right.accept( self )
         self.emit(op)
 
     def visitAdd(self, node):
@@ -1140,7 +1140,7 @@ class CodeGenerator:
     # unary ops
 
     def unaryOp(self, node, op):
-        self.visit(node.expr)
+        node.expr.accept( self )
         self.emit(op)
 
     def visitInvert(self, node):
@@ -1164,9 +1164,9 @@ class CodeGenerator:
     # bit ops
 
     def bitOp(self, nodes, op):
-        self.visit(nodes[0])
+        nodes[0].accept( self )
         for node in nodes[1:]:
-            self.visit(node)
+            node.accept( self )
             self.emit(op)
 
     def visitBitand(self, node):
@@ -1186,18 +1186,18 @@ class CodeGenerator:
     def visitTuple(self, node):
         self.set_lineno(node)
         for elt in node.nodes:
-            self.visit(elt)
+            elt.accept( self )
         self.emit('BUILD_TUPLE', len(node.nodes))
 
     def visitList(self, node):
         self.set_lineno(node)
         for elt in node.nodes:
-            self.visit(elt)
+            elt.accept( self )
         self.emit('BUILD_LIST', len(node.nodes))
 
     def visitSliceobj(self, node):
         for child in node.nodes:
-            self.visit(child)
+            child.accept( self )
         self.emit('BUILD_SLICE', len(node.nodes))
 
     def visitDict(self, node):
@@ -1205,8 +1205,8 @@ class CodeGenerator:
         self.emit('BUILD_MAP', 0)
         for k, v in node.items:
             self.emit('DUP_TOP')
-            self.visit(k)
-            self.visit(v)
+            k.accept( self )
+            v.accept( self )
             self.emit('ROT_THREE')
             self.emit('STORE_SUBSCR')
 
@@ -1259,7 +1259,7 @@ class InteractiveCodeGenerator(CodeGenerator):
     def visitDiscard(self, node):
         # XXX Discard means it's an expression.  Perhaps this is a bad
         # name.
-        self.visit(node.expr)
+        node.expr.accept( self )
         self.emit('PRINT_EXPR')
 
 class AbstractFunctionCode:

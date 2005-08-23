@@ -7,6 +7,7 @@ import py.test
 
 from pypy.interpreter.astcompiler import ast, misc, pycodegen
 
+from test_astbuilder import TESTS
 
 TARGET_DICT = {
     'single' : 'single_input',
@@ -31,17 +32,18 @@ def ast_compile( expr, target="single" ):
     
 
 def compare_code( code1, code2 ):
-    print "Filename", code1.co_filename, code2.co_filename
+    #print "Filename", code1.co_filename, code2.co_filename
     assert code1.co_filename == code2.co_filename
-    print repr(code1.co_code)
-    print repr(code2.co_code)
+    #print repr(code1.co_code)
+    #print repr(code2.co_code)
     assert code1.co_code == code2.co_code
+    assert code1.co_varnames == code2.co_varnames
 
 def check_compile( expr ):
     import new
     ast_tree = ast_parse_expr( expr )
     misc.set_filename("<?>", ast_tree)
-    print ast_tree
+    #print ast_tree
     codegenerator = pycodegen.InteractiveCodeGenerator(ast_tree)
     code1 = new.code(*codegenerator.getCode())
     code2 = ast_compile( expr )
@@ -65,3 +67,10 @@ def test_compile_argtuple_3():
     print x,y,z,t,u
 """
     check_compile( code )
+
+
+
+def test_basic_astgen():
+    for family in TESTS:
+        for expr in family:
+            yield check_compile, expr

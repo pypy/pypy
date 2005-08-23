@@ -281,7 +281,7 @@ def get_docstring(stmt):
         first_child = stmt.nodes[0]
         if isinstance(first_child, ast.Discard):
             expr = first_child.expr
-            if isinstance(expr, StringConst):
+            if isinstance(expr, ast.StringConst):
                 # This *is* a docstring, remove it from stmt list
                 del stmt.nodes[0]
                 doc = expr.string_value
@@ -495,14 +495,14 @@ def build_atom(builder, nb):
         elif top.name == tok.NAME:
             builder.push( ast.Name(top.get_value()) )
         elif top.name == tok.NUMBER:
-            builder.push(NumberConst(eval_number(top.get_value())))
+            builder.push(ast.NumberConst(eval_number(top.get_value())))
         elif top.name == tok.STRING:
             # need to concatenate strings in atoms
             s = ''
             for token in atoms:
                 assert isinstance(token, TokenObject)
                 s += eval_string(token.get_value())
-            builder.push(StringConst(s))
+            builder.push(ast.StringConst(s))
         elif top.name == tok.BACKQUOTE:
             builder.push(ast.Backquote(atoms[1]))
         else:
@@ -707,7 +707,7 @@ def build_simple_stmt( builder, nb ):
     for n in range(0,l,2):
         node = atoms[n]
         if isinstance(node, TokenObject) and node.name == tok.NEWLINE:
-            nodes.append(ast.Discard(NoneConst()))
+            nodes.append(ast.Discard(ast.NoneConst()))
         else:
             nodes.append(node)
     builder.push(ast.Stmt(nodes))
@@ -717,7 +717,7 @@ def build_return_stmt(builder, nb):
     if len(atoms) > 2:
         assert False, "return several stmts not implemented"
     elif len(atoms) == 1:
-        builder.push(ast.Return(NoneConst(), None)) # XXX lineno
+        builder.push(ast.Return(ast.NoneConst(), None)) # XXX lineno
     else:
         builder.push(ast.Return(atoms[1], None)) # XXX lineno
 
@@ -851,7 +851,7 @@ def build_subscript(builder, nb):
                 sliceobj_infos = []
                 for value in sliceinfos:
                     if value is None:
-                        sliceobj_infos.append(NoneConst())
+                        sliceobj_infos.append(ast.NoneConst())
                     else:
                         sliceobj_infos.append(value)
                 builder.push(SlicelistObject('sliceobj', sliceobj_infos, None))
@@ -1306,40 +1306,6 @@ ASTRULES = {
     }
 
 ## Stack elements definitions ###################################
-class StringConst(ast.Const):
-    """specicifc Const node for strings"""
-    def __init__(self, value, lineno=None):
-        self.lineno = lineno
-        # don't use "value" for attribute's name to avoid confusing
-        # the annotator
-        self.string_value = value
-
-    def __repr__(self):
-        return "Const(%s)" % (repr(self.string_value),)
-
-    def getChildren(self):
-        return self.string_value,
-
-class NumberConst(ast.Const):
-    """specific Const node for numbers"""
-    def __init__(self, value, lineno=None):
-        self.lineno = lineno
-        # don't use "value" for attribute's name to avoid confusing
-        # the annotator
-        self.number_value = value
-
-    def __repr__(self):
-        return "Const(%s)" % (repr(self.number_value),)
-
-    def getChildren(self):
-        return self.number_value,
-
-class NoneConst(ast.Const):
-    """specific Const node for None (probably not really needed)"""
-    def __init__(self, lineno=None):
-        self.lineno = lineno
-        self.value = None
-
 
 class BaseRuleObject(ast.Node):
     """Base class for unnamed rules"""

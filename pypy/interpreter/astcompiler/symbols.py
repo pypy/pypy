@@ -211,7 +211,7 @@ class ClassScope(Scope):
     def __init__(self, name, module):
         self.__super_init(name, module, name)
 
-class SymbolVisitor:
+class SymbolVisitor(ast.ASTVisitor):
     def __init__(self):
         self.scopes = {}
         self.klass = None
@@ -220,22 +220,22 @@ class SymbolVisitor:
 
     def visitModule(self, node):
         scope = self.module = self.scopes[node] = ModuleScope()
-        self.visit(node.node, scope)
+        node.node.accept(self, scope)
 
     visitExpression = visitModule
 
     def visitFunction(self, node, parent):
         if node.decorators:
-            self.visit(node.decorators, parent)
+            node.decorators.accept(self, parent)
         parent.add_def(node.name)
         for n in node.defaults:
-            self.visit(n, parent)
+            n.accept( self, parent)
         scope = FunctionScope(node.name, self.module, self.klass)
         if parent.nested or isinstance(parent, FunctionScope):
             scope.nested = 1
         self.scopes[node] = scope
         self._do_args(scope, node.argnames)
-        self.visit(node.code, scope)
+        node.code.accept(self, scope)
         self.handle_free_vars(scope, parent)
 
     def visitGenExpr(self, node, parent):
@@ -245,24 +245,24 @@ class SymbolVisitor:
             scope.nested = 1
 
         self.scopes[node] = scope
-        self.visit(node.code, scope)
+        node.code.accept(self, scope)
 
         self.handle_free_vars(scope, parent)
 
     def visitGenExprInner(self, node, scope):
         for genfor in node.quals:
-            self.visit(genfor, scope)
+            genfor.accept( self, scope)
 
-        self.visit(node.expr, scope)
+        node.expr.accept( self, scope)
 
     def visitGenExprFor(self, node, scope):
-        self.visit(node.assign, scope, 1)
-        self.visit(node.iter, scope)
+        node.assign.accept(self, scope, 1)
+        node.iter.accept(self, scope)
         for if_ in node.ifs:
-            self.visit(if_, scope)
+            if_.accept( self, scope)
 
     def visitGenExprIf(self, node, scope):
-        self.visit(node.test, scope)
+        node.test.accept( self, scope)
 
     def visitLambda(self, node, parent, assign=0):
         # Lambda is an expression, so it could appear in an expression
@@ -271,13 +271,13 @@ class SymbolVisitor:
         assert not assign
 
         for n in node.defaults:
-            self.visit(n, parent)
+            n.accept( self, parent)
         scope = LambdaScope(self.module, self.klass)
         if parent.nested or isinstance(parent, FunctionScope):
             scope.nested = 1
         self.scopes[node] = scope
         self._do_args(scope, node.argnames)
-        self.visit(node.code, scope)
+        node.code.accept(self, scope)
         self.handle_free_vars(scope, parent)
 
     def _do_args(self, scope, args):
@@ -296,7 +296,7 @@ class SymbolVisitor:
     def visitClass(self, node, parent):
         parent.add_def(node.name)
         for n in node.bases:
-            self.visit(n, parent)
+            n.accept(self, parent)
         scope = ClassScope(node.name, self.module)
         if parent.nested or isinstance(parent, FunctionScope):
             scope.nested = 1
@@ -306,7 +306,7 @@ class SymbolVisitor:
         self.scopes[node] = scope
         prev = self.klass
         self.klass = node.name
-        self.visit(node.code, scope)
+        node.code.accept(self, scope)
         self.klass = prev
         self.handle_free_vars(scope, parent)
 
@@ -325,11 +325,11 @@ class SymbolVisitor:
     # operations that bind new names
 
     def visitFor(self, node, scope):
-        self.visit(node.assign, scope, 1)
-        self.visit(node.list, scope)
-        self.visit(node.body, scope)
+        node.assign.accept( self, scope, 1)
+        node.list.accept( self, scope)
+        node.body.accept( self, scope)
         if node.else_:
-            self.visit(node.else_, scope)
+            node.else_.accept( self, scope)
 
     def visitFrom(self, node, scope):
         for name, asname in node.names:
@@ -362,34 +362,34 @@ class SymbolVisitor:
         the assign flag to their children.
         """
         for n in node.nodes:
-            self.visit(n, scope, 1)
-        self.visit(node.expr, scope)
+            n.accept( self, scope, 1)
+        node.expr.accept( self, scope)
 
     def visitAssName(self, node, scope, assign=1):
         scope.add_def(node.name)
 
     def visitAssAttr(self, node, scope, assign=0):
-        self.visit(node.expr, scope, 0)
+        node.expr.accept( self, scope, 0)
 
     def visitSubscript(self, node, scope, assign=0):
-        self.visit(node.expr, scope, 0)
+        node.expr.accept( self, scope, 0)
         for n in node.subs:
-            self.visit(n, scope, 0)
+            n.accept( self, scope, 0)
 
     def visitSlice(self, node, scope, assign=0):
-        self.visit(node.expr, scope, 0)
+        node.expr.accept( self, scope, 0)
         if node.lower:
-            self.visit(node.lower, scope, 0)
+            node.lower.accept( self, scope, 0)
         if node.upper:
-            self.visit(node.upper, scope, 0)
+            node.upper.accept( self, scope, 0)
 
     def visitAugAssign(self, node, scope):
         # If the LHS is a name, then this counts as assignment.
         # Otherwise, it's just use.
-        self.visit(node.node, scope)
+        node.node.accept( self, scope)
         if isinstance(node.node, ast.Name):
-            self.visit(node.node, scope, 1) # XXX worry about this
-        self.visit(node.expr, scope)
+            node.node.accept( self, scope, 1) # XXX worry about this
+        node.expr.accept( self, scope)
 
     # prune if statements if tests are false
 
@@ -401,16 +401,16 @@ class SymbolVisitor:
                 if type(test.value) in self._const_types:
                     if not test.value:
                         continue
-            self.visit(test, scope)
-            self.visit(body, scope)
+            test.accept( self, scope)
+            body.accept( self, scope)
         if node.else_:
-            self.visit(node.else_, scope)
+            node.else_.accept( self, scope)
 
     # a yield statement signals a generator
 
     def visitYield(self, node, scope):
         scope.generator = 1
-        self.visit(node.value, scope)
+        node.value.accept( self, scope)
 
 def sort(l):
     l = l[:]

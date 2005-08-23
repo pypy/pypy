@@ -106,6 +106,10 @@ def walk(tree, visitor, walker=None, verbose=None):
     walker.preorder(tree, visitor)
     return walker.visitor
 
+def walk(tree, visitor, verbose=None):
+    tree.accept( visitor )
+    return visitor
+
 def dumpNode(node):
     print node.__class__
     for attr in dir(node):
