@@ -113,10 +113,10 @@ class NodeInfo:
             print >> buf, "    def __init__(self, %s, lineno=None):" % self.args
         else:
             print >> buf, "    def __init__(self, lineno=None):"
+        print >> buf, "        Node.__init__(self, lineno)"
         if self.argnames:
             for name in self.argnames:
                 print >> buf, "        self.%s = %s" % (name, name)
-        print >> buf, "        self.lineno = lineno"
         if self.init:
             print >> buf, "".join(["    " + line for line in self.init])
 
@@ -156,11 +156,11 @@ class NodeInfo:
                          for c in self.argnames
                          if self.argprops[c] == P_NODE]
                 if len(clist) == 0:
-                    print >> buf, "        return ()"
+                    print >> buf, "        return []"
                 elif len(clist) == 1:
-                    print >> buf, "        return %s," % clist[0]
+                    print >> buf, "        return [%s,]" % clist[0]
                 else:
-                    print >> buf, "        return %s" % COMMA.join(clist)
+                    print >> buf, "        return [%s]" % COMMA.join(clist)
             else:
                 print >> buf, "        nodelist = []"
                 template = "        nodelist.%s(%sself.%s%s)"
@@ -174,7 +174,7 @@ class NodeInfo:
                                                   name, ")")
                     elif self.argprops[name] == P_NODE:
                         print >> buf, template % ("append", "", name, "")
-                print >> buf, "        return tuple(nodelist)"
+                print >> buf, "        return nodelist"
 
     def _gen_repr(self, buf):
         print >> buf, "    def __repr__(self):"
@@ -285,6 +285,9 @@ nodes = {}
 
 class Node:
     """Abstract base class for ast nodes."""
+    def __init__(self, lineno = None):
+        self.lineno = lineno
+        
     def getChildren(self):
         pass # implemented by subclasses
     def __iter__(self):
@@ -293,9 +296,18 @@ class Node:
     def asList(self): # for backwards compatibility
         return self.getChildren()
     def getChildNodes(self):
-        pass # implemented by subclasses
+        return [] # implemented by subclasses
     def visit(self, visitor, *args):
         return visitor.visitNode(self, *args)
+    def flatten(self):
+        res = []
+        nodes = self.getChildNodes()
+        if nodes:
+            for n in nodes:
+                res.extend( n.flatten() )
+        else:
+            res.append( self )
+        return res
 
 class EmptyNode(Node):
     def visit(self, visitor, *args):
@@ -305,13 +317,14 @@ class Expression(Node):
     # Expression is an artificial node class to support "eval"
     nodes["expression"] = "Expression"
     def __init__(self, node):
+        Node.__init__(self)
         self.node = node
 
     def getChildren(self):
-        return self.node,
+        return [self.node,]
 
     def getChildNodes(self):
-        return self.node,
+        return [self.node,]
 
     def __repr__(self):
         return "Expression(%s)" % (repr(self.node))

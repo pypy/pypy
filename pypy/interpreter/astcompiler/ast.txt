@@ -47,7 +47,7 @@ List: nodes!
 Dict: items!
 Not: expr
 Compare: expr, ops!
-Name: name*
+Name: varname*
 Global: names*
 Backquote: expr
 Getattr: expr, attrname*
