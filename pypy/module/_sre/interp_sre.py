@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 # XXX is it allowed to import app-level module like this?
 from pypy.module._sre.app_info import CODESIZE
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
+from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app
 
 import sys
@@ -55,7 +56,7 @@ class W_State(Wrappable):
         self.marks = []
         self.lastindex = -1
         self.marks_stack = []
-        self.context_stack = self.space.newlist([])
+        self.w_context_stack = self.space.newlist([])
         self.w_repeat = self.space.w_None
 
     def set_mark(self, w_mark_nr, w_position):
@@ -104,27 +105,39 @@ class W_State(Wrappable):
     def lower(self, w_char_ord):
         return getlower(self.space, w_char_ord, self.space.wrap(self.flags))
 
+def interp_attrproperty_int(name, cls):
+    "NOT_RPYTHON: initialization-time only"
+    def fget(space, obj):
+        return space.wrap(getattr(obj, name))
+    def fset(space, obj, w_value):
+        return setattr(obj, name, space.int_w(w_value))
+    return GetSetProperty(fget, fset, cls=cls)
+
+def interp_attrproperty_obj_w(name, cls):
+    "NOT_RPYTHON: initialization-time only"
+    def fget(space, obj):
+        return getattr(obj, name)
+    def fset(space, obj, w_value):
+        return setattr(state, name, w_value)
+    return GetSetProperty(fget, fset, cls=cls)
+
 W_State.typedef = TypeDef("W_State",
-    string = GetSetProperty(lambda space, state: state.w_string,
-        lambda space, state, value: setattr(state, "w_string", value)),
-    start = GetSetProperty(lambda space, state: space.wrap(state.start),
-        lambda space, state, value: setattr(state, "start", space.int_w(value))),
-    end = GetSetProperty(lambda space, state: space.wrap(state.end)),
-    string_position = GetSetProperty(lambda space, state: space.wrap(state.string_position),
-        lambda space, state, value: setattr(state, "string_position", space.int_w(value))),
-    pos = GetSetProperty(lambda space, state: space.wrap(state.pos)),
-    lastindex = GetSetProperty(lambda space, state: space.wrap(state.lastindex)),
-    context_stack = GetSetProperty(lambda space, state: state.context_stack),
-    repeat = GetSetProperty(lambda space, state: state.w_repeat,
-        lambda space, state, value: setattr(state, "w_repeat", value)),
-    reset = interp2app(W_State.reset, unwrap_spec = ["self"]),
+    string = interp_attrproperty_obj_w("w_string", W_State),
+    start = interp_attrproperty_int("start", W_State),
+    end = interp_attrproperty_int("end", W_State),
+    string_position = interp_attrproperty_int("string_position", W_State),
+    pos = interp_attrproperty("pos", W_State),
+    lastindex = interp_attrproperty("lastindex", W_State),
+    context_stack = interp_attrproperty_w("w_context_stack", W_State),
+    repeat = interp_attrproperty_obj_w("w_repeat", W_State),
+    reset = interp2app(W_State.reset),
     set_mark = interp2app(W_State.set_mark),
     get_marks = interp2app(W_State.get_marks),
     create_regs = interp2app(W_State.create_regs),
-    marks_push = interp2app(W_State.marks_push, unwrap_spec = ["self"]),
-    marks_pop = interp2app(W_State.marks_pop, unwrap_spec = ["self"]),
-    marks_pop_keep = interp2app(W_State.marks_pop_keep, unwrap_spec = ["self"]),
-    marks_pop_discard = interp2app(W_State.marks_pop_discard, unwrap_spec = ["self"]),
+    marks_push = interp2app(W_State.marks_push),
+    marks_pop = interp2app(W_State.marks_pop),
+    marks_pop_keep = interp2app(W_State.marks_pop_keep),
+    marks_pop_discard = interp2app(W_State.marks_pop_discard),
     lower = interp2app(W_State.lower),
 )
 
