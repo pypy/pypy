@@ -271,7 +271,7 @@ class RegrTest:
     """ Regression Test Declaration.""" 
     def __init__(self, basename, enabled=False, dumbtest=False,
                                  oldstyle=False, core=False, uselibfile=False,
-                                 usemodules = None): 
+                                 usemodules = ''): 
         self.basename = basename 
         self.enabled = enabled 
         self.dumbtest = dumbtest 
@@ -280,9 +280,7 @@ class RegrTest:
         # line options haven't been parsed!
         self._oldstyle = oldstyle 
         self._uselibfile = uselibfile
-        if usemodules is None:
-            usemodules = []
-        self._usemodules = usemodules
+        self._usemodules = usemodules.split()
         self.core = core
 
     def oldstyle(self): 
@@ -302,7 +300,7 @@ class RegrTest:
         for name in 'oldstyle', 'core', 'uselibfile': 
             if getattr(self, name): 
                 l.append(name)
-        for name in self.usemodules:
+        for name in self.usemodules: 
             l.append(name)
         return l 
 
@@ -540,7 +538,7 @@ testmap = [
     RegrTest('test_macpath.py', enabled=True),
     RegrTest('test_mailbox.py', enabled=True),
     RegrTest('test_marshal.py', enabled=True, dumbtest=1, core=True),
-    RegrTest('test_math.py', enabled=True, core=True, usemodules=['math']),
+    RegrTest('test_math.py', enabled=True, core=True, usemodules='math'),
     RegrTest('test_md5.py', enabled=False),
     RegrTest('test_mhlib.py', enabled=True),
     RegrTest('test_mimetools.py', enabled=True),
@@ -679,15 +677,15 @@ testmap = [
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
     RegrTest('test_textwrap.py', enabled=True),
-    RegrTest('test_thread.py', enabled=True, core=True),
-    RegrTest('test_threaded_import.py', enabled=True, core=True),
-    RegrTest('test_threadedtempfile.py', enabled=True, core=True),
+    RegrTest('test_thread.py', enabled=True, usemodules="thread", core=True),
+    RegrTest('test_threaded_import.py', usemodules="thread", enabled=True, core=True),
+    RegrTest('test_threadedtempfile.py', usemodules="thread", enabled=True, core=True),
         #rev 10840: ImportError: thread
 
-    RegrTest('test_threading.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_threading.py', usemodules="thread", enabled=True, dumbtest=1, core=True),
         #rev 10840: ImportError: thread
-    RegrTest('test_threading_local.py', enabled=True, dumbtest=1, core=True),
-    RegrTest('test_threadsignals.py', enabled=False, dumbtest=1),
+    RegrTest('test_threading_local.py', usemodules="thread", enabled=True, dumbtest=1, core=True),
+    RegrTest('test_threadsignals.py', usemodules="thread", enabled=False, dumbtest=1),
 
     RegrTest('test_time.py', enabled=True, core=True),
     RegrTest('test_timeout.py', enabled=False),
