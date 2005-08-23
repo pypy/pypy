@@ -5,6 +5,9 @@ from pypy.interpreter.typedef import GetSetProperty, descr_get_dict
 from pypy.interpreter.typedef import descr_set_dict
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 
+# Force the declaration of thread.start_new_thread() & co. for RPython
+import pypy.module.thread.rpython.exttable
+
 
 class Local(Wrappable):
     """Thread-local data"""

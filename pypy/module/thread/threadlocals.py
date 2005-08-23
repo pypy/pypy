@@ -1,5 +1,8 @@
 import thread
 
+# Force the declaration of thread.start_new_thread() & co. for RPython
+import pypy.module.thread.rpython.exttable
+
 
 class OSThreadLocals:
     """Thread-local storage for OS-level threads.
