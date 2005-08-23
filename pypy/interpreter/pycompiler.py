@@ -244,11 +244,11 @@ class PythonCompilerApp(PythonCompiler):
         debug_print(" done")
 
     def _load_compilers(self):
-        comp1 = self.space.appexec([], r'''():
+        compile1 = self.space.appexec([], r'''():
             from _stablecompiler import apphook
             return apphook.applevelcompile
         ''')
-        comp2 = self.w_applevelcompile = self.space.appexec([], r'''():
+        compile2 = self.w_applevelcompile = self.space.appexec([], r'''():
             import os
             from _stablecompiler import apphook
             if os.path.exists('fakecompiler.py'):
