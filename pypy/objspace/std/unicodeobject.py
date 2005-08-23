@@ -21,10 +21,10 @@ class W_UnicodeObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%r)" % (w_self.__class__.__name__, w_self._value)
 
-##    def unwrap(w_self):
-##        # For faked functions taking unicodearguments.
-##        # Remove when we no longer need faking.
-##        return u''.join(w_self._value)
+    def unwrap(w_self):
+        # For faked functions taking unicodearguments.
+        # Remove when we no longer need faking.
+        return u''.join(w_self._value)
 
 registerimplementation(W_UnicodeObject)
 
