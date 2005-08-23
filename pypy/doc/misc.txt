@@ -584,7 +584,7 @@ which would impair the objectives of RPython.
 - Port the built-in Python library to PyPy (functions, types and 
   modules currently implemented in C) -- types needs refactoring,
   the rest is mostly done.  Anthony Baxter has given us a very useful
-  list of the cmodules_ we need to consider porting.
+  list of the cmodules [link missing] we need to consider porting.
 
 - Decide on a case-by-case basis which features are to
   be implemented using RPython or just general Python. -- moving target.
@@ -709,6 +709,3 @@ if we get funding.
 - Make a build- and configuration tool that allows to build custom PyPy 
   versions suitable for specialized environments such as small or very large 
   computing devices.
-
-.. _cmodules: http://codespeak.net/pypy/index.cgi?doc/cmodules.html
-
