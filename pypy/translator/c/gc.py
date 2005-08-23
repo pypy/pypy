@@ -1,5 +1,5 @@
 from pypy.translator.c.support import cdecl
-from pypy.rpython.lltype import typeOf, Ptr, PyObject
+from pypy.rpython.lltype import typeOf, Ptr, PyObject, ContainerType
 from pypy.rpython.lltype import getRuntimeTypeInfo
 
 PyObjPtr = Ptr(PyObject)
@@ -74,6 +74,21 @@ class RefcountingGcPolicy(BasicGcPolicy):
             result.append(decrefstmt)
             result.append('}')
 
+    def generic_dealloc(self, expr, T):
+        db = self.db
+        if isinstance(T, Ptr) and T._needsgc():
+            line = self.pop_alive(expr, T)
+            if line:
+                yield line
+        elif isinstance(T, ContainerType):
+            defnode = db.gettypedefnode(T)
+            from pypy.translator.c.node import ExtTypeOpaqueDefNode
+            if isinstance(defnode, ExtTypeOpaqueDefNode):
+                yield 'RPyOpaqueDealloc_%s(&(%s));' % (defnode.T.tag, expr)
+            else:
+                for line in defnode.visitor_lines(expr, self.generic_dealloc):
+                    yield line
+
     def gcheader_field_name(self, defnode):
         return 'refcount'
 
@@ -88,6 +103,12 @@ class RefcountingGcPolicy(BasicGcPolicy):
 
     def common_gcheader_initializationexpr(self, defnode):
         yield 'REFCOUNT_IMMORTAL,'
+
+    def deallocator_lines(self, defnode, prefix):
+        for line in defnode.visitor_lines(prefix, self.generic_dealloc):
+            yield line
+
+
 
     # for structs
 
@@ -118,7 +139,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
                 gcinfo.rtti_query_funcptr_argtype = db.gettype(T)
             else:
                 # is a deallocator really needed, or would it be empty?
-                if list(structdefnode.deallocator_lines('')):
+                if list(self.deallocator_lines(structdefnode, '')):
                     gcinfo.static_deallocator = gcinfo.deallocator
                 else:
                     gcinfo.deallocator = None
@@ -127,15 +148,36 @@ class RefcountingGcPolicy(BasicGcPolicy):
 
     struct_after_definition = common_after_definition
 
-    def struct_implentationcode(self, structdefnode):
-        pass
+    def struct_implementationcode(self, structdefnode):
+        if structdefnode.gcinfo:
+            gcinfo = structdefnode.gcinfo
+            if gcinfo.static_deallocator:
+                yield 'void %s(struct %s *p) {' % (gcinfo.static_deallocator,
+                                               structdefnode.name)
+                for line in self.deallocator_lines(structdefnode, '(*p)'):
+                    yield '\t' + line
+                yield '\tOP_FREE(p);'
+                yield '}'
+            if gcinfo.deallocator and gcinfo.deallocator != gcinfo.static_deallocator:
+                yield 'void %s(struct %s *p) {' % (gcinfo.deallocator, structdefnode.name)
+                yield '\tvoid (*staticdealloc) (void *);'
+                # the refcount should be 0; temporarily bump it to 1
+                yield '\tp->%s = 1;' % (structdefnode.gcheader,)
+                # cast 'p' to the type expected by the rtti_query function
+                yield '\tstaticdealloc = %s((%s) p);' % (
+                    gcinfo.rtti_query_funcptr,
+                    cdecl(gcinfo.rtti_query_funcptr_argtype, ''))
+                yield '\tif (!--p->%s)' % (structdefnode.gcheader,)
+                yield '\t\tstaticdealloc(p);'
+                yield '}'
+
 
     struct_gcheader_initialitionexpr = common_gcheader_initializationexpr
 
     # for arrays
 
     def array_setup(self, arraydefnode):
-        if arraydefnode.gcheader and list(arraydefnode.deallocator_lines('')):
+        if arraydefnode.gcheader and list(self.deallocator_lines(arraydefnode, '')):
             gcinfo = arraydefnode.gcinfo = RefcountingInfo()
             gcinfo.deallocator = self.db.namespace.uniquename('dealloc_'+arraydefnode.barename)
 
@@ -144,7 +186,14 @@ class RefcountingGcPolicy(BasicGcPolicy):
     array_after_definition = common_after_definition
 
     def array_implementationcode(self, arraydefnode):
-        pass
+        if arraydefnode.gcinfo:
+            gcinfo = arraydefnode.gcinfo
+            if gcinfo.deallocator:
+                yield 'void %s(struct %s *a) {' % (gcinfo.deallocator, arraydefnode.name)
+                for line in self.deallocator_lines(arraydefnode, '(*a)'):
+                    yield '\t' + line
+                yield '\tOP_FREE(a);'
+                yield '}'
 
     array_gcheader_initialitionexpr = common_gcheader_initializationexpr
 

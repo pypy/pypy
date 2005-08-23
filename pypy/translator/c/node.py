@@ -114,40 +114,16 @@ class StructDefNode:
             for line in gcpolicy.struct_after_definition(self):
                 yield line
 
-        elif phase == 2: # xxx -> gc
-            if self.gcinfo:
-                gcinfo = self.gcinfo
-                if gcinfo.static_deallocator:
-                    yield 'void %s(struct %s *p) {' % (gcinfo.static_deallocator,
-                                                   self.name)
-                    for line in self.visitor_lines('(*p)', generic_dealloc):
-                        yield '\t' + line
-                    yield '\tOP_FREE(p);'
-                    yield '}'
-                if gcinfo.deallocator and gcinfo.deallocator != gcinfo.static_deallocator:
-                    yield 'void %s(struct %s *p) {' % (gcinfo.deallocator, self.name)
-                    yield '\tvoid (*staticdealloc) (void *);'
-                    # the refcount should be 0; temporarily bump it to 1
-                    yield '\tp->%s = 1;' % (self.gcheader,)
-                    # cast 'p' to the type expected by the rtti_query function
-                    yield '\tstaticdealloc = %s((%s) p);' % (
-                        gcinfo.rtti_query_funcptr,
-                        cdecl(gcinfo.rtti_query_funcptr_argtype, ''))
-                    yield '\tif (!--p->%s)' % (self.gcheader,)
-                    yield '\t\tstaticdealloc(p);'
-                    yield '}'
-
-    def deallocator_lines(self, prefix):
-        for line in self.visitor_lines(prefix, generic_dealloc):
-            yield line
+        elif phase == 2:
+            for line in gcpolicy.struct_implementationcode(self):
+                yield line
 
     def visitor_lines(self, prefix, on_field):
         STRUCT = self.STRUCT
         for name in STRUCT._names:
             FIELD_T = self.c_struct_field_type(name)
             cname = self.c_struct_field_name(name)
-            for line in on_field(self.db,
-                                 '%s.%s' % (prefix, cname),
+            for line in on_field('%s.%s' % (prefix, cname),
                                  FIELD_T):
                 yield line
 
@@ -223,18 +199,8 @@ class ArrayDefNode:
                 yield line
 
         elif phase == 2:
-            if self.gcinfo:  # xxx -> gc
-                gcinfo = self.gcinfo
-                if gcinfo.deallocator:
-                    yield 'void %s(struct %s *a) {' % (gcinfo.deallocator, self.name)
-                    for line in self.visitor_lines('(*a)', generic_dealloc):
-                        yield '\t' + line
-                    yield '\tOP_FREE(a);'
-                    yield '}'
-
-    def deallocator_lines(self, prefix):
-        for line in self.visitor_lines(prefix, generic_dealloc):
-            yield line
+            for line in gcpolicy.array_implementationcode(self):
+                yield line
 
     def visitor_lines(self, prefix, on_item):
         ARRAY = self.ARRAY
@@ -245,7 +211,7 @@ class ArrayDefNode:
         while prefix.find(varname) >= 0:
             i += 1
             varname = 'p%d' % i
-        body = list(on_item(self.db, '(*%s)' % varname, ARRAY.OF))
+        body = list(on_item('(*%s)' % varname, ARRAY.OF))
         if body:
             yield '{'
             yield '\t%s = %s.items;' % (cdecl(self.itemtypename, '*' + varname),
@@ -286,20 +252,6 @@ class ExtTypeOpaqueDefNode:
 
     def definition(self, phase):
         return []
-
-
-def generic_dealloc(db, expr, T): # xxx -> gc, refactor PyObjPtr case
-    if isinstance(T, Ptr) and T._needsgc():
-        line = db.cdecrefstmt(expr, T)
-        if line:
-            yield line
-    elif isinstance(T, ContainerType):
-        defnode = db.gettypedefnode(T)
-        if isinstance(defnode, ExtTypeOpaqueDefNode):
-            yield 'RPyOpaqueDealloc_%s(&(%s));' % (defnode.T.tag, expr)
-        else:
-            for line in defnode.visitor_lines(expr, generic_dealloc):
-                yield line
 
 # ____________________________________________________________
 
@@ -555,7 +507,7 @@ def select_function_code_generator(fnobj, db):
     else:
         raise ValueError, "don't know how to generate code for %r" % (fnobj,)
 
-
+# xxx move it completly to the gcpolicy
 class RuntimeTypeInfo_OpaqueNode(ContainerNode):
     globalcontainer = True
     includes = ()

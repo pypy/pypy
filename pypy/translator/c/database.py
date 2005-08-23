@@ -120,6 +120,7 @@ class LowLevelDatabase:
             else:
                 raise Exception("don't know about %r" % (obj,))
 
+    """
     def cincrefstmt(self, expr, T):
         if isinstance(T, Ptr) and T._needsgc():
             if expr == 'NULL':    # hum
@@ -147,6 +148,7 @@ class LowLevelDatabase:
                                                              dealloc,
                                                              expr)
         return ''
+"""
 
     def complete(self):
         i = 0
