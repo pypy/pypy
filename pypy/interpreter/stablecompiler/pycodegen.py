@@ -528,7 +528,7 @@ class CodeGenerator:
             self.emit('CONTINUE_LOOP', loop_block)
             self.nextBlock()
         elif kind == END_FINALLY:
-            msg = "'continue' not allowed inside 'finally' clause (%s, %d)"
+            msg = "'continue' not supported inside 'finally' clause (%s, %d)"
             raise SyntaxError, msg % (node.filename, node.lineno)
 
     def visitTest(self, node, jump):
