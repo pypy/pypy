@@ -117,9 +117,19 @@ class BaseXYTestCase(unittest.TestCase):
         # Test with 'URL safe' alternative characters
         eq(base64.urlsafe_b64decode('01a-b_cd'), '\xd3V\xbeo\xf7\x1d')
 
+
+    # This test is testing an implementation specific detail.
+    # In our implementation, we make a best attempt to translate
+    # strings with broken encoding back to their original form.
+    # Since the user will most likely be interested in what remains
+    # of a message which has been broken in transmission, this seems to
+    # be the most reasonable thing to do.
+    # In pypy we disable this test!
+    '''
     def test_b64decode_error(self):
         self.assertRaises(TypeError, base64.b64decode, 'abc')
-
+    '''
+    
     def test_b32encode(self):
         eq = self.assertEqual
         eq(base64.b32encode(''), '')
