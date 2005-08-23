@@ -637,7 +637,7 @@ class Bookkeeper:
                 try:
                     args.fixedunpack(0)
                 except ValueError:
-                    raise Exception, "no __init__ found in %r" % (cls,)
+                    raise Exception, "no __init__ found in %r" % (classdef.cls,)
             return s_instance
 
         assert isinstance(func, FunctionType), "[%s] expected user-defined function, got %r" % (self.whereami(), func)
