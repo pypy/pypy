@@ -679,7 +679,8 @@ testmap = [
     RegrTest('test_textwrap.py', enabled=True),
     RegrTest('test_thread.py', enabled=True, usemodules="thread", core=True),
     RegrTest('test_threaded_import.py', usemodules="thread", enabled=True, core=True),
-    RegrTest('test_threadedtempfile.py', usemodules="thread", enabled=True, core=True),
+    RegrTest('test_threadedtempfile.py', 
+             usemodules="thread", enabled=True, core=False), # tempfile is non-core by itself 
         #rev 10840: ImportError: thread
 
     RegrTest('test_threading.py', usemodules="thread", enabled=True, dumbtest=1, core=True),
