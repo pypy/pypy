@@ -22,10 +22,7 @@ class W_ReverseSeqIterObject(W_Object):
         W_Object.__init__(w_self, space)
         w_self.w_seq = w_seq
         w_self.w_len = space.len(w_seq)
-	if index < 0:
-            w_self.index = space.unwrap(w_self.w_len) + index
-        else:
-            w_self.index = space.unwrap(w_self.w_len) 
+        w_self.index = space.int_w(w_self.w_len) + index
 
 
 registerimplementation(W_SeqIterObject)
