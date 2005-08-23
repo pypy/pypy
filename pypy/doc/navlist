@@ -1,6 +1,6 @@
 [
     'architecture.html', 
-    'getting_started.html', 
+    'getting-started.html', 
     'coding-guide.html', 
     'objspace.html',
     'translation.html',

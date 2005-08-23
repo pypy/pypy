@@ -9,7 +9,7 @@ is eminently a preview release.*
 What it is and where to start 
 -----------------------------
 
-Getting started:    http://codespeak.net/pypy/index.cgi?doc/getting_started.html
+Getting started:    http://codespeak.net/pypy/index.cgi?doc/getting-started.html
 
 PyPy Documentation: http://codespeak.net/pypy/index.cgi?doc
 

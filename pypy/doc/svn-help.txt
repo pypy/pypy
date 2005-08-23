@@ -30,7 +30,7 @@ For complete information, you can go read the subversion guide_.
 
 For linux:
 
-download the tarball.  unzip and untar it.  Then type *./configure*.  Then, as root, *make* followed by *make install*.  Voilà ... a subversion client.
+download the tarball.  unzip and untar it.  Then type *./configure*.  Then, as root, *make* followed by *make install*.  Voila ... a subversion client.
 
 For Debian users::
 

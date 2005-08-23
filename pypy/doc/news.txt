@@ -7,21 +7,22 @@
     nonsense, isn't it?  `more...`_
 
 .. _Python: http://www.python.org/doc/current/ref/ref.html
-.. _`more...`: ../architecture.html#mission-statement 
+.. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
-Next PyPy Sprint in Heidelberg 22nd-29th August 2005
-======================================================
+Ongoing: PyPy Sprint in Heidelberg 22nd-29th August 2005
+==========================================================
 
-The next PyPy sprint will take place at the Heidelberg University
+The current PyPy sprint takes place at the Heidelberg University
 in Germany from 22nd August to 29th August (both days included). 
 Its main focus is translation of the whole PyPy interpreter 
 to a low level language and reaching 2.4.1 Python compliancy.
-The goal of the sprint is to release a first self-contained PyPy-0.7 version.
-To learn more see the `Heidelberg sprint announcement`_ or look at
-the list of people_ that are expected to come.
+The goal of the sprint is to release a first self-contained
+PyPy-0.7 version.  To learn more see the `Heidelberg sprint
+announcement`_ or look at the list of people_ that are
+expected to come.
 
-.. _people: http://codespeak.net/pypy/index.cgi?extradoc/sprintinfo/heidelberg-people.html
-.. _`Heidelberg sprint announcement`: http://codespeak.net/pypy/index.cgi?extradoc/sprintinfo/Heidelberg-sprint.html
+.. _people: http://codespeak.net/pypy/extradoc/sprintinfo/heidelberg-people.html
+.. _`Heidelberg sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/Heidelberg-sprint.html
 
 
 PyPy Hildesheim2 finished: first self-contained PyPy run! 
@@ -67,9 +68,9 @@ the LLVM backends and type inference in general.
 .. _`pypy-dev`: http://codespeak.net/mailman/listinfo/pypy-dev
 
 .. _EuroPython: http://europython.org 
-.. _`translation`: ../translation.html 
-.. _`sprint announcement`: EP2005-announcement.html
-.. _`list of people coming`: http://codespeak.net/pypy/index.cgi?extradoc/sprintinfo/EP2005-people.html
+.. _`translation`: http://codespeak.net/pypy/dist/pypy/doc/translation.html 
+.. _`sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/EP2005-announcement.html
+.. _`list of people coming`: http://codespeak.net/pypy/extradoc/sprintinfo/EP2005-people.html
 
 First PyPy release!
 =================== 
@@ -81,6 +82,6 @@ and nice starting points into the PyPy code base.  We invite you to head
 over to the `getting started`_ document or read more in the 
 `release announcement`_.  *(05/20/2005)*
 
-.. _`release announcement`: http://codespeak.net/pypy/index.cgi?doc/release-0.6.html
-.. _`getting started`: http://codespeak.net/pypy/index.cgi?getting-started
+.. _`release announcement`: http://codespeak.net/pypy/dist/pypy/doc/release-0.6.html
+.. _`getting started`: http://codespeak.net/pypy/pypy/dist/pypy/doc/getting-started
 

@@ -51,7 +51,7 @@ Here are the steps we follow to translate a given program:
 
 .. _`SSA`: http://en.wikipedia.org/wiki/Static_single_assignment_form
 .. _`translator.py`: http://codespeak.net/svn/pypy/dist/pypy/translator/translator.py
-.. _`play around`: getting_started.html#trying-out-the-translator
+.. _`play around`: getting-started.html#trying-out-the-translator
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`control flow graph`: objspace.html#the-flow-model
 .. _`Common Lisp`: http://codespeak.net/svn/pypy/dist/pypy/translator/gencl.py

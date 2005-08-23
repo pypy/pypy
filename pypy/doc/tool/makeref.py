@@ -7,8 +7,8 @@ distdir = pypydir.dirpath()
 dist_url = 'http://codespeak.net/svn/pypy/dist/' 
 issue_url = 'http://codespeak.net/issue/pypy-dev/' 
 
-docdir = pypydir.join('documentation') 
-reffile = pypydir.join('documentation', '_ref.txt') 
+docdir = pypydir.join('doc') 
+reffile = pypydir.join('doc', '_ref.txt') 
 
 linkrex = py.std.re.compile('`(\S+)`_')
 
@@ -27,7 +27,9 @@ for textfile in docdir.visit(lambda x: x.ext == '.txt',
             for startloc in ('', 'pypy'): 
                 cand = distdir.join(startloc, linkname)
                 if cand.check(): 
-                    target = dist_url + cand.relto(distdir)
+                    rel = cand.relto(distdir)
+                    # we are in pypy/doc/x.txt 
+                    target = '../../' + cand.relto(distdir)
                     addlink(linkname, target) 
                     break
             else: 

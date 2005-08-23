@@ -36,7 +36,7 @@ recent compliance test runs against PyPy.
 .. _`coding guide`: coding-guide.html 
 .. _`architecture`: architecture.html 
 .. _`revision report`: http://codespeak.net/pypy/rev/current 
-.. _`getting started`: getting_started.html 
+.. _`getting started`: getting-started.html 
 .. _`theory`: theory.html
 .. _`bytecode interpreter`: interpreter.html 
 
@@ -53,11 +53,9 @@ Directory                      explanation/links
 ============================   =========================================== 
 `annotation/`_                 `type inferencing code`_ for `RPython`_ programs 
 
-`documentation/`_              text versions of PyPy `documentation`_ files shown on the website 
+`doc/`_                        text versions of PyPy developer documentation
 
-`documentation/revreport/`_    the source code for the `revision report`_ 
-
-`documentation/website/`_      text versions of the navigation webpages 
+`doc/revreport/`_              the source code for the `revision report`_ 
 
 `interpreter/`_                `bytecode interpreter`_ and related objects (frames, functions, modules,...) 
 

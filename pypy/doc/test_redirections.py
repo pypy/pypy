@@ -3,6 +3,7 @@ import py
 redir = py.magic.autopath().dirpath('redirections') 
 
 def checkexist(path):
+    print "checking", path
     assert path.new(ext='.txt').check(file=1) 
    
 def test_eval(): 

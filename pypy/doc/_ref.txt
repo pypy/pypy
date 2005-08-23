@@ -1,0 +1,53 @@
+.. _`demo/`: ../../demo
+.. _`lib-python/`: ../../lib-python
+.. _`annotation/`:
+.. _`pypy/annotation`: ../../pypy/annotation
+.. _`annotation/binaryop.py`: ../../pypy/annotation/binaryop.py
+.. _`doc/`: ../../pypy/doc
+.. _`doc/revreport/`: ../../pypy/doc/revreport
+.. _`interpreter/`:
+.. _`pypy/interpreter`: ../../pypy/interpreter
+.. _`pypy/interpreter/argument.py`: ../../pypy/interpreter/argument.py
+.. _`pypy/interpreter/function.py`: ../../pypy/interpreter/function.py
+.. _`pypy/interpreter/gateway.py`: ../../pypy/interpreter/gateway.py
+.. _`pypy/interpreter/generator.py`: ../../pypy/interpreter/generator.py
+.. _`pypy/interpreter/mixedmodule.py`: ../../pypy/interpreter/mixedmodule.py
+.. _`pypy/interpreter/nestedscope.py`: ../../pypy/interpreter/nestedscope.py
+.. _`pypy/interpreter/pyopcode.py`: ../../pypy/interpreter/pyopcode.py
+.. _`pypy/interpreter/typedef.py`: ../../pypy/interpreter/typedef.py
+.. _`lib/`:
+.. _`pypy/lib/`: ../../pypy/lib
+.. _`lib/test2/`:
+.. _`pypy/lib/test2`: ../../pypy/lib/test2
+.. _`module/`:
+.. _`pypy/module`: ../../pypy/module
+.. _`module/__builtin__/`: ../../pypy/module/__builtin__
+.. _`pypy/module/__builtin__/__init__.py`: ../../pypy/module/__builtin__/__init__.py
+.. _`module/_sre_pypy/`: ../../pypy/module/_sre_pypy
+.. _`module/parser/`: ../../pypy/module/parser
+.. _`module/recparser/`: ../../pypy/module/recparser
+.. _`module/sys/`: ../../pypy/module/sys
+.. _`objspace/`:
+.. _`pypy/objspace`: ../../pypy/objspace
+.. _`objspace/flow/`: ../../pypy/objspace/flow
+.. _`objspace/std/`:
+.. _`pypy/objspace/std`: ../../pypy/objspace/std
+.. _`objspace/thunk.py`: ../../pypy/objspace/thunk.py
+.. _`objspace/trace.py`:
+.. _`pypy/objspace/trace.py`: ../../pypy/objspace/trace.py
+.. _`rpython/`: ../../pypy/rpython
+.. _`rpython/lltype.py`: ../../pypy/rpython/lltype.py
+.. _`rpython/rint.py`: ../../pypy/rpython/rint.py
+.. _`rpython/rlist.py`: ../../pypy/rpython/rlist.py
+.. _`rpython/rmodel.py`: ../../pypy/rpython/rmodel.py
+.. _`pypy/test_all.py`: ../../pypy/test_all.py
+.. _`tool/`: ../../pypy/tool
+.. _`tool/pytest/`: ../../pypy/tool/pytest
+.. _`tool/tb_server/`: ../../pypy/tool/tb_server
+.. _`translator/`:
+.. _`pypy/translator`: ../../pypy/translator
+.. _`pypy/translator/annrpython.py`: ../../pypy/translator/annrpython.py
+.. _`translator/c/`: ../../pypy/translator/c
+.. _`translator/java/`: ../../pypy/translator/java
+.. _`translator/llvm2/`: ../../pypy/translator/llvm2
+.. _`translator/tool/`: ../../pypy/translator/tool

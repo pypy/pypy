@@ -696,8 +696,6 @@ and encouraged to let their tests run at interpreter level although
 This allows us to quickly test our python-coded reimplementations
 against CPython.
 
-.. _`pypy/lib/test2`: http://codespeak.net/svn/pypy/dist/pypy/lib/test2
-
 Testing modules in ``pypy/module``
 ----------------------------------
 
