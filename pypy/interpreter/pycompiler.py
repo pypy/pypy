@@ -252,12 +252,21 @@ class PythonCompilerApp(PythonCompiler):
             from _stablecompiler import apphook
             return apphook.fakeapplevelcompile
         ''')
+        self.w_printmessage = self.space.appexec([], r'''():
+            def printmessage(msg):
+                print msg
+            return printmessage
+        ''')
+        def printmessage(self, msg):
+            space = self.space
+            space.call_function(self.w_printmessage, space.wrap(msg))
 
     def _get_compiler(self, mode):
         from pypy.interpreter.error import debug_print
         import os
         if os.path.exists('fakecompiler.py') and mode != 'single':
-            debug_print("faking compiler, because fakecompiler.py is in the current dir")
+            self.printmessage("faking compiler, because fakecompiler.py"
+                              " is in the current dir")
             return self.w_compilefake
         else:
             return self.w_compileapp
