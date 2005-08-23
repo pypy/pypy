@@ -107,20 +107,27 @@ class HtmlReport(object):
         body.append(html.h2("PyPy - latest compliance test results - "
                        "core tests"))
 
-        ok = len([x for x in coretests if x.isok()])
-        err = len([x for x in coretests if x.iserror()])
-        to = len([x for x in coretests if x.istimeout()])
-        sum = ok + err + to
-        sum100 = sum / 100.0
-        body.append(html.div( "%.2f%% passed, %.2f%% timeout, %.2f%% ERROR" % (
-                             ok/sum100, to/sum100, err/sum100), 
-                             style="font-weight: bold"))
+        body.append(self.render_test_summary(coretests))
         body.append(self.render_latest_table(coretests))
-       
         body.append(
             html.h2("PyPy - latest compliance test results - non-core tests"))
+        body.append(self.render_test_summary(noncoretests))
         body.append(self.render_latest_table(noncoretests))
         doc.writetopath(indexpath) 
+
+    def render_test_summary(self, tests):
+        ok = len([x for x in tests if x.isok()])
+        err = len([x for x in tests if x.iserror()])
+        to = len([x for x in tests if x.istimeout()])
+        sum = ok + err + to
+        sum100 = sum / 100.0
+        t = html.table()
+        def row(*args):
+            return html.tr(*[html.td(arg) for arg in args])
+        t.append(row("testmodules passed completely", "%.2f%%" % (ok/sum100)))
+        t.append(row("testmodules (partially) failed", "%.2f%%" % (err/sum100)))
+        t.append(row("testmodules timeout", "%.2f%%" % (to/sum100)))
+        return t
 
 class Document(object): 
     def __init__(self, title=None): 
