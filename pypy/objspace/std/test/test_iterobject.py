@@ -59,66 +59,25 @@ class AppTestW_IterObjectApp:
                           iter,
                           C())
 
-class AppTest_IterObject:
+class AppTest_IterObject(object):
+    def setup_method(self,method):
+        
+        self.iterable = ''
     
-    def check_iter(self,iterable):
-        it = iter(iterable)
+    def test_len(self):#,iterable):
+        self.iterable = (1,2,3,4)
+        it = iter(self.iterable)
         for i in reversed(range(len(it))):
-            assert len(it) == i+1
-            x = it.next()
-            print x
-        raises(StopIteration, it.next)
-        assert len(it) == 0
-    
-    def test_iter_len_tuple(self):
-        iterable = (1,2,3,4)
-        it = iter(iterable)
-        for i in reversed(range(len(it))):
-            assert len(it) == i+1
-            x = it.next()
-            print x
-        raises(StopIteration, it.next)
-        assert len(it) == 0
-
-    def test_iter_len_dict(self):
-        iterable = {1:1,2:2,3:3,4:4}
-        it = iter(iterable)
-        length = len(it)
-        for i in reversed(range(length)):
             assert len(it) == i+1
             x = it.next()
         raises(StopIteration, it.next)
         assert len(it) == 0
     
-    def test_iter_len_list(self):
-        iterable = [1,2,3,4]
-        it = iter(iterable)
-        for i in reversed(range(len(it))):
-            assert len(it) == i+1
-            x = it.next()
-            print x
-        raises(StopIteration, it.next)
-        assert len(it) == 0
     
-    def test_iter_len_str(self):
-        iterable = 'Hello World'
-        it = iter(iterable)
-        for i in reversed(range(len(it))):
-            assert len(it) == i+1
-            x = it.next()
-            print x
-        raises(StopIteration, it.next)
-        assert len(it) == 0
-
-    def test_iter_len_set(self):
-        iterable = set((1,2,3,4))
-        it = iter(iterable)
-        for i in reversed(range(len(it))):
-            assert len(it) == i+1
-            x = it.next()
-            print x
-        raises(StopIteration, it.next)
-        assert len(it) == 0
+class AppTest_lenTuple(AppTest_IterObject):
+    
+    def setup_method(self,method):
+        self.iterable = (1,2,3,4)
         
     def test_iter_len_deque(self):
         from collections import deque
@@ -128,7 +87,7 @@ class AppTest_IterObject:
         for i in reversed(range(len(it))):
             assert len(it) == i+1
             x = it.next()
-            print x
+            
         raises(StopIteration, it.next)
         assert len(it) == 0
 
@@ -138,7 +97,6 @@ class AppTest_IterObject:
         for i in reversed(range(len(it))):
             assert len(it) == i+1
             x = it.next()
-            print x
         raises(StopIteration, it.next)
         assert len(it) == 0
 
@@ -153,4 +111,66 @@ class AppTest_IterObject:
         assert it.next() == 5
         assert len(it) == 0
         raises(StopIteration, it.next)
+        assert len(it) == 0
+
+    def test_mutation_list(self):
+        n = 5
+        d = range(n)
+        it = iter(d)
+        it.next()
+        it.next()
+        assert len(it) == n-2
+        d.append(n)
+        assert len(it) == n-1  # grow with append
+        d[1:] = []
+        assert len(it) == 0
+        assert list(it) == []
+        d.extend(xrange(20))
+        assert len(it) == 0
+
+    def test_mutation_list_reversed(self):
+        n = 5
+        d = range(n)
+        it = reversed(d)
+        it.next()
+        it.next()
+        assert len(it) == n-2
+        d.append(n)
+        assert len(it) == n-2  # Ignore append
+        d[1:] = []
+        assert len(it) == 0
+        assert list(it) == []
+        d.extend(xrange(20))
+        assert len(it) == 0
+
+    def test_mutation_seqiter(self):
+        from UserList import UserList
+        n = 5
+        d = UserList(range(n))
+        it = iter(d)
+        it.next()
+        it.next()
+        assert len(it) == n-2
+        d.append(n)
+        assert len(it) == n-1  # grow with append
+        d[1:] = []
+        assert len(it) == 0
+        assert list(it) == []
+        d.extend(xrange(20))
+        assert len(it) == 0
+
+    def test_mutation_seqiter_reversed(self):
+        from UserList import UserList
+        n = 5
+        d = UserList(range(n))
+        it = reversed(d)
+        it.next()
+        it.next()
+        assert len(it) == n-2
+        d.append(n)
+        assert len(it) == n-2  # ignore append
+        d[1:] = []
+        assert len(it) == 0
+        assert list(it) == []
+        d.extend(xrange(20))
         assert len(it) == 0
