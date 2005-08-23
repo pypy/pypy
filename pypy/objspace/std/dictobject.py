@@ -224,12 +224,16 @@ def lt__Dict_Dict(space, w_left, w_right):
         return space.w_False
     w_rightdiff, w_rightval = characterize(space, w_right.data, w_left)
     w_res = space.w_False
-    if w_rightdiff is not None:
-        w_res = space.lt(w_leftdiff, w_rightdiff)
-    if space.is_w(w_res, space.w_False) and space.eq_w(w_leftdiff, w_rightdiff) and w_rightval is not None:
+    if w_rightdiff is None:
+        # w_leftdiff is not None, w_rightdiff is None
+        return space.w_True 
+    w_isequal = space.eq(w_leftdiff, w_rightdiff)
+    w_res = space.lt(w_leftdiff, w_rightdiff)
+    if (space.is_w(w_res, space.w_False) and 
+        space.is_true(w_isequal) and 
+        w_rightval is not None):
         w_res = space.lt(w_leftval, w_rightval)
     return w_res
-
 
 def hash__Dict(space,w_dict):
     raise OperationError(space.w_TypeError,space.wrap("dict objects are unhashable"))
