@@ -141,9 +141,10 @@ class TestReversed(unittest.TestCase):
             self.assertEqual(list(data)[::-1], list(reversed(data)))
         self.assertRaises(TypeError, reversed, {})
 
-    def test_xrange_optimization(self):
-        x = xrange(1)
-        self.assertEqual(type(reversed(x)), type(iter(x)))
+# Implementation detail
+#    def test_xrange_optimization(self):
+#        x = xrange(1)
+#        self.assertEqual(type(reversed(x)), type(iter(x)))
 
     def test_len(self):
         # This is an implementation detail, not an interface requirement
