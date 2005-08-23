@@ -12,12 +12,52 @@ import py.test
 from pypy.interpreter.astcompiler import ast
 
 
+def arglist_equal(left,right):
+    """needs special case because we handle the argumentlist differently"""
+    for l,r in zip(left,right):
+        if type(l)==str and isinstance(r,ast_ast.AssName):
+            if l!=r.name:
+                print "Name mismatch", l, r.name
+                return False
+        elif type(l)==tuple and isinstance(r,ast_ast.AssTuple):
+            if not arglist_equal(l,r.nodes):
+                print "Tuple mismatch"
+                return False
+        else:
+            print "Type mismatch", repr(l), repr(r)
+            print "l is str", type(l)==str
+            print "r is AssName", isinstance(r,ast_ast.AssName)
+            return False
+    return True
+
+
 def nodes_equal(left, right):
     if type(left)!=type(right):
         return False
     if not isinstance(left,stable_ast.Node) or not isinstance(right,ast_ast.Node):
         return left==right
-    for i,j in zip(left.getChildren(),right.getChildren()):
+    if isinstance(left,stable_ast.Function) and isinstance(right,ast_ast.Function):
+        left_nodes = list(left.getChildren())
+        right_nodes = list(right.getChildren())
+        left_args = left_nodes[2]
+        del left_nodes[2]
+        right_args = right_nodes[2]
+        del right_nodes[2]
+        if not arglist_equal(left_args, right_args):
+            return False
+    elif isinstance(left,stable_ast.Lambda) and isinstance(right,ast_ast.Lambda):
+        left_nodes = list(left.getChildren())
+        right_nodes = list(right.getChildren())
+        left_args = left_nodes[0]
+        del left_nodes[0]
+        right_args = right_nodes[0]
+        del right_nodes[0]
+        if not arglist_equal(left_args, right_args):
+            return False
+    else:
+        left_nodes = left.getChildren()
+        right_nodes = right.getChildren()
+    for i,j in zip(left_nodes,right_nodes):
         if not nodes_equal(i,j):
             return False
     return True

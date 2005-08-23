@@ -19,6 +19,7 @@ GRAMMAR_MISMATCH = PYTHON_VERSION != PYPY_VERSION
 SKIP_IF_NOT_NATIVE = [
     #"snippet_samples.py",
     #"snippet_import_statements.py",
+    "snippet_decorators.py",
 ]
 
 

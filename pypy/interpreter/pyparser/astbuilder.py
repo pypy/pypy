@@ -97,96 +97,32 @@ def parse_argument(tokens):
     return arguments, stararg_token, dstararg_token
 
 
-class BaseItem:
-    """base item class"""
-
-class SimpleItem(BaseItem):
-    def __init__(self, attrname):
-        self.attrname = attrname
-
-class TupleItem(BaseItem):
-    def __init__(self, value):
-        self.value = value
-
-    def append(self, element):
-        assert isinstance(element, BaseItem)
-        self.value.append(element)
-
-    def pop(self):
-        return self.value.pop()
-
-def rpython_parse_fpdef(tokens):
+def parse_fpdef(tokens):
     """fpdef: fpdef: NAME | '(' fplist ')'
     fplist: fpdef (',' fpdef)* [',']
 
     This intend to be a RPYTHON compliant implementation of _parse_fpdef,
     but it can't work with the default compiler.
-    XXX: incomplete
+    We switched to use astcompiler module now
     """
-    stack = [] # list of lists
+    top = ast.AssTuple([])
+    stack = [ top ]
     tokens_read = 0
-    to_be_closed = 1 # number of parenthesis to be closed
-    result = None
-    while to_be_closed > 0:
+    while stack:
         token = tokens[tokens_read]
         tokens_read += 1
         if isinstance(token, TokenObject) and token.name == tok.COMMA:
             continue
         elif isinstance(token, TokenObject) and token.name == tok.LPAR:
-            stack.append(TupleItem([]))
-            to_be_closed += 1
+            new_tuple = ast.AssTuple([])
+            stack[-1].nodes.append( new_tuple )
+            stack.append(new_tuple)
         elif isinstance(token, TokenObject) and token.name == tok.RPAR:
-            to_be_closed -= 1
-            elt = stack.pop()
-            if to_be_closed > 0:
-                top = stack[-1]
-                assert isinstance(top, TupleItem)
-                top.append(elt)
-            else:
-                # stack.append(tuple(elt))
-                break
+            stack.pop()
         else:
             assert isinstance(token, TokenObject)
-            if to_be_closed == 1:
-                stack.append(SimpleItem(token.get_value()))
-            else:
-                top = stack[-1]
-                assert isinstance(top, TupleItem)
-                top.append(SimpleItem(token.get_value()))
-    return tokens_read, stack
-
-def working_parse_fpdef(tokens):
-    """fpdef: fpdef: NAME | '(' fplist ')'
-    fplist: fpdef (',' fpdef)* [',']
-    """
-    # FIXME: will we need to implement a Stack class to be RPYTHON compliant ?
-    stack = [[],] # list of lists
-    tokens_read = 0
-    to_be_closed = 1 # number of parenthesis to be closed
-    result = None
-    while to_be_closed > 0:
-        token = tokens[tokens_read]
-        tokens_read += 1
-        if isinstance(token, TokenObject) and token.name == tok.COMMA:
-            continue
-        elif isinstance(token, TokenObject) and token.name == tok.LPAR:
-            stack.append([])
-            to_be_closed += 1
-        elif isinstance(token, TokenObject) and token.name == tok.RPAR:
-            to_be_closed -= 1
-            elt = stack.pop()
-            if to_be_closed > 0:
-                stack[-1].append(tuple(elt))
-            else:
-                stack.append(tuple(elt))
-        else:
-            assert isinstance(token, TokenObject)
-            stack[-1].append(token.get_value())
-    assert len(stack) == 1, "At the end of parse_fpdef, len(stack) should be 1, got %s" % stack
-    return tokens_read, tuple(stack[0])
-
-# parse_fpdef = rpython_parse_fpdef
-parse_fpdef = working_parse_fpdef
+            stack[-1].nodes.append(ast.AssName(token.get_value(),consts.OP_ASSIGN))
+    return tokens_read, top
 
 def parse_arglist(tokens):
     """returns names, defaults, flags"""
@@ -206,16 +142,16 @@ def parse_arglist(tokens):
             # but we might do some experiment on the grammar at some point
             continue
         elif cur_token.name == tok.LPAR:
-            tokens_read, name = parse_fpdef(tokens[index:])
+            tokens_read, name_tuple = parse_fpdef(tokens[index:])
             index += tokens_read
-            names.append(name)
+            names.append(name_tuple)
         elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
             if cur_token.name == tok.STAR:
                 cur_token = tokens[index]
                 assert isinstance(cur_token, TokenObject)
                 index += 1
                 if cur_token.name == tok.NAME:
-                    names.append(cur_token.get_value())
+                    names.append( ast.AssName( cur_token.get_value(), consts.OP_ASSIGN ) )
                     flags |= consts.CO_VARARGS
                     index += 1
                     if index >= l:
@@ -232,7 +168,7 @@ def parse_arglist(tokens):
             index += 1
             assert isinstance(cur_token, TokenObject)
             if cur_token.name == tok.NAME:
-                names.append(cur_token.get_value())
+                names.append( ast.AssName( cur_token.get_value(), consts.OP_ASSIGN ) )
                 flags |= consts.CO_VARKEYWORDS
                 index +=  1
             else:
@@ -240,7 +176,7 @@ def parse_arglist(tokens):
             if index < l:
                 raise ValueError("unexpected token: %s" % tokens[index])
         elif cur_token.name == tok.NAME:
-            names.append(cur_token.get_value())
+            names.append( ast.AssName( cur_token.get_value(), consts.OP_ASSIGN ) )
     return names, defaults, flags
 
 
@@ -410,10 +346,11 @@ def eval_number(value):
     eval_number intends to replace number = eval(value) ; return number
     """
     from pypy.objspace.std.strutil import string_to_int, string_to_float
+    from pypy.objspace.std.strutil import string_to_long
     from pypy.objspace.std.strutil import ParseStringError
     if value.endswith('l') or value.endswith('L'):
         value = value[:-1]
-        return string_to_long(value) # ???
+        # ???
     try:
         return string_to_int(value)
     except ParseStringError:
