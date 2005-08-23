@@ -159,6 +159,23 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
             print >> f, line
             blank = True
 
+def gen_startupcode(f, database):
+    # generate the start-up code and put it into a function
+    print >> f, 'char *RPython_StartupCode(void) {'
+    print >> f, '\tchar *error = NULL;'
+    firsttime = True
+    for node in database.containerlist:
+        lines = list(node.startupcode())
+        if lines:
+            if firsttime:
+                firsttime = False
+            else:
+                print >> f, '\tif (error) return error;'
+            for line in lines:
+                print >> f, '\t'+line
+    print >> f, '\treturn error;'
+    print >> f, '}'
+
 def gen_source_standalone(database, modulename, targetdir, 
                           entrypointname, defines={}): 
     assert database.standalone
@@ -183,6 +200,10 @@ def gen_source_standalone(database, modulename, targetdir,
     # 2) Implementation of functions and global structures and arrays
     #
     gen_readable_parts_of_main_c_file(f, database, preimplementationlines)
+
+    # 3) start-up code
+    print >> f
+    gen_startupcode(f, database)
 
     f.close()
     return filename
@@ -301,6 +322,8 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     #
     print >> f, '/***********************************************************/'
     print >> f, '/***  Module initialization function                     ***/'
+    print >> f
+    gen_startupcode(f, database)
     print >> f
     print >> f, 'MODULE_INITFUNC(%s)' % modulename
     print >> f, '{'

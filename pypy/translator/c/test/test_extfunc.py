@@ -372,3 +372,20 @@ def test_start_new_thread():
     f = compile(fn, [])
     res = f()
     assert res == 42
+
+def test_prebuilt_lock():
+    import thread
+    import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
+    lock0 = thread.allocate_lock()
+    lock1 = thread.allocate_lock()
+    lock1.acquire()
+    def fn(i):
+        lock = [lock0, lock1][i]
+        ok = lock.acquire(False)
+        if ok: lock.release()
+        return ok
+    f = compile(fn, [int])
+    res = f(0)
+    assert res is True
+    res = f(1)
+    assert res is False

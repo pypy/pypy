@@ -19,6 +19,7 @@
 	PyMODINIT_FUNC init##modname(void)
 
 #define SETUP_MODULE(modname)	\
+	char *errmsg; \
 	PyObject *m = Py_InitModule(#modname, my_methods); \
 	PyModule_AddStringConstant(m, "__sourcefile__", __FILE__); \
 	this_module_globals = PyModule_GetDict(m); \
@@ -34,8 +35,12 @@
 	if (setup_initcode(frozen_initcode, FROZEN_INITCODE_SIZE) < 0) \
 		return;	\
 	if (setup_globalobjects(globalobjectdefs) < 0) \
-		return
-
+		return; \
+	errmsg = RPython_StartupCode(); \
+	if (errmsg) { \
+		PyErr_SetString(PyExc_RuntimeError, errmsg); \
+		return; \
+	} 
 
 /*** table of global objects ***/
 

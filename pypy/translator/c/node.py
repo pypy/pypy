@@ -346,6 +346,9 @@ class ContainerNode(object):
         lines[-1] += ';'
         return lines
 
+    def startupcode(self):
+        return []
+
     def getlength(self):
         return 1
 
@@ -553,7 +556,7 @@ def select_function_code_generator(fnobj, db):
         raise ValueError, "don't know how to generate code for %r" % (fnobj,)
 
 
-class OpaqueNode(ContainerNode):
+class RuntimeTypeInfo_OpaqueNode(ContainerNode):
     globalcontainer = True
     includes = ()
 
@@ -572,6 +575,34 @@ class OpaqueNode(ContainerNode):
 
     def implementation(self):
         return []
+
+
+class ExtType_OpaqueNode(ContainerNode):
+
+    def enum_dependencies(self):
+        return []
+
+    def initializationexpr(self, decoration=''):
+        yield 'RPyOpaque_INITEXPR_%s' % (self.T.tag,)
+
+    def startupcode(self):
+        args = [self.ptrname]
+        # XXX how to make this code more generic?
+        if self.T.tag == 'ThreadLock':
+            lock = self.obj.externalobj
+            if lock.locked():
+                args.append('1')
+            else:
+                args.append('0')
+        yield 'RPyOpaque_SETUP_%s(%s);' % (self.T.tag, ', '.join(args))
+
+
+def opaquenode_factory(db, T, obj):
+    if T == RuntimeTypeInfo:
+        return RuntimeTypeInfo_OpaqueNode(db, T, obj)
+    if hasattr(T, '_exttypeinfo'):
+        return ExtType_OpaqueNode(db, T, obj)
+    raise Exception("don't know about %r" % (T,))
 
 
 class PyObjectNode(ContainerNode):
@@ -601,12 +632,12 @@ class PyObjectNode(ContainerNode):
         return []
 
 
-ContainerNodeClass = {
+ContainerNodeFactory = {
     Struct:       StructNode,
     GcStruct:     StructNode,
     Array:        ArrayNode,
     GcArray:      ArrayNode,
     FuncType:     FuncNode,
-    OpaqueType:   OpaqueNode,
+    OpaqueType:   opaquenode_factory,
     PyObjectType: PyObjectNode,
     }

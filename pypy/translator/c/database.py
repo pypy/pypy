@@ -5,7 +5,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
-from pypy.translator.c.node import ContainerNodeClass, ExtTypeOpaqueDefNode
+from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.pyobj import PyObjMaker
 from pypy.translator.c import gc
@@ -92,8 +92,8 @@ class LowLevelDatabase:
             node = self.containernodes[container]
         except KeyError:
             T = typeOf(container)
-            nodecls = ContainerNodeClass[T.__class__]
-            node = nodecls(self, T, container)
+            nodefactory = ContainerNodeFactory[T.__class__]
+            node = nodefactory(self, T, container)
             self.containernodes[container] = node
             self.containerlist.append(node)
         return node

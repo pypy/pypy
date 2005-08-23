@@ -76,6 +76,9 @@ typedef struct RPyOpaque_ThreadLock {
 	HANDLE hevent ;
 } NRMUTEX, *PNRMUTEX ;
 
+#define RPyOpaque_INITEXPR_ThreadLock  { 0, 0, NULL }
+
+
 typedef PVOID WINAPI interlocked_cmp_xchg_t(PVOID *dest, PVOID exc, PVOID comperand) ;
 
 /* Sorry mate, but we haven't got InterlockedCompareExchange in Win95! */

@@ -50,3 +50,9 @@ long LL_thread_get_ident(void)
 {
 	return RPyThreadGetIdent();
 }
+
+#define RPyOpaque_SETUP_ThreadLock(lock, initially_locked)		\
+        if (!RPyThreadLockInit(lock))					\
+	        error = "Thread lock init error";			\
+        else if ((initially_locked) && !RPyThreadAcquireLock(lock, 1))	\
+		error = "Cannot acquire thread lock at init";
