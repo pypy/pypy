@@ -74,8 +74,8 @@ class LowLevelDatabase:
             argtypes = ', '.join(argtypes) or 'void'
             return resulttype.replace('@', '(@)(%s)' % argtypes)
         elif isinstance(T, OpaqueType):
-            if T == RuntimeTypeInfo: # xxx -> gc
-                return 'void (@)(void *)'   # void dealloc_xx(struct xx *)
+            if T == RuntimeTypeInfo:
+                return  self.gcpolicy.rtti_type()
             elif hasattr(T, '_exttypeinfo'):
                 # for external types (pypy.rpython.extfunctable.declaretype())
                 node = self.gettypedefnode(T, varlength=varlength)

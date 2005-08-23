@@ -1,5 +1,6 @@
 from pypy.translator.c.support import cdecl
-from pypy.rpython.lltype import Ptr, PyObject
+from pypy.rpython.lltype import typeOf, Ptr, PyObject
+from pypy.rpython.lltype import getRuntimeTypeInfo
 
 PyObjPtr = Ptr(PyObject)
 
@@ -34,6 +35,9 @@ class BasicGcPolicy:
                 return self.pop_alive_nopyobj(expr, T)
         return ''
 
+class RefcountingInfo:
+    deallocator = None
+    static_deallocator = None
 
 class RefcountingGcPolicy(BasicGcPolicy):
 
@@ -70,4 +74,81 @@ class RefcountingGcPolicy(BasicGcPolicy):
             result.append(decrefstmt)
             result.append('}')
 
+
+    def rtti_type(self):
+        return 'void (@)(void *)'   # void dealloc_xx(struct xx *)
+
+    def gcheader_field_name(self, defnode):
+        return 'refcount'
+
+    def common_gcheader_definition(self, defnode):
+        yield 'long refcount;'
+
+    def common_after_definition(self, defnode):
+        if defnode.gcinfo:
+            gcinfo = defnode.gcinfo
+            if gcinfo.deallocator:
+                yield 'void %s(struct %s *);' % (gcinfo.deallocator, defnode.name)
+
+    def common_gcheader_initializationexpr(self, defnode):
+        yield 'REFCOUNT_IMMORTAL,'
+
+    # for structs
+
+    def prepare_nested_gcstruct(self, structdefnode, INNER):
+        # check here that there is enough run-time type information to
+        # handle this case
+        getRuntimeTypeInfo(structdefnode.STRUCT)
+        getRuntimeTypeInfo(INNER)
+
+    def struct_setup(self, structdefnode, rtti):        
+        if structdefnode.gcheader:
+            db = self.db
+            gcinfo = structdefnode.gcinfo = RefcountingInfo()
+
+            gcinfo.deallocator = db.namespace.uniquename('dealloc_'+structdefnode.barename)
+
+            # are two deallocators needed (a dynamic one for DECREF, which checks
+            # the real type of the structure and calls the static deallocator) ?
+            if rtti is not None:
+                gcinfo.static_deallocator = db.namespace.uniquename(
+                    'staticdealloc_'+structdefnode.barename)
+                fnptr = rtti._obj.query_funcptr
+                if fnptr is None:
+                    raise NotImplementedError(
+                        "attachRuntimeTypeInfo(): please provide a function")
+                gcinfo.rtti_query_funcptr = db.get(fnptr)
+                T = typeOf(fnptr).TO.ARGS[0]
+                gcinfo.rtti_query_funcptr_argtype = db.gettype(T)
+            else:
+                # is a deallocator really needed, or would it be empty?
+                if list(structdefnode.deallocator_lines('')):
+                    gcinfo.static_deallocator = gcinfo.deallocator
+                else:
+                    gcinfo.deallocator = None
+
+    struct_gcheader_definition = common_gcheader_definition
+
+    struct_after_definition = common_after_definition
+
+    def struct_implentationcode(self, structdefnode):
+        pass
+
+    struct_gcheader_initialitionexpr = common_gcheader_initializationexpr
+
+    # for arrays
+
+    def array_setup(self, arraydefnode):
+        if arraydefnode.gcheader and list(arraydefnode.deallocator_lines('')):
+            gcinfo = arraydefnode.gcinfo = RefcountingInfo()
+            gcinfo.deallocator = self.db.namespace.uniquename('dealloc_'+arraydefnode.barename)
+
+    array_gcheader_definition = common_gcheader_definition
+
+    array_after_definition = common_after_definition
+
+    def array_implementationcode(self, arraydefnode):
+        pass
+
+    array_gcheader_initialitionexpr = common_gcheader_initializationexpr
 

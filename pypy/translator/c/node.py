@@ -20,11 +20,6 @@ def needs_gcheader(T):
             return False   # gcheader already in the first field
     return True
 
-class GcInfo:
-    deallocator = None
-    static_deallocator = None
-
-
 class StructDefNode:
     gcheader = None
 
@@ -51,9 +46,11 @@ class StructDefNode:
         self.dependencies = {}
         self.prefix = somelettersfrom(STRUCT._name) + '_'
 
+        gcpolicy = db.gcpolicy
+
         # look up the gcheader field
         if needs_gcheader(STRUCT):
-            self.gcheader = 'refcount'
+            self.gcheader = gcpolicy.gcheader_field_name(self)
         elif isinstance(STRUCT, GcStruct):
             # gcheader in the first field
             T = self.c_struct_field_type(STRUCT._names[0])
@@ -61,11 +58,10 @@ class StructDefNode:
             firstdefnode = db.gettypedefnode(T)
             firstfieldname = self.c_struct_field_name(STRUCT._names[0])
             self.gcheader = '%s.%s' % (firstfieldname, firstdefnode.gcheader)
-            # check here that there is enough run-time type information to
-            # handle this case
-            # xxx -> gc hook
-            getRuntimeTypeInfo(STRUCT)
-            getRuntimeTypeInfo(T)
+
+            # give the gcpolicy a chance to do sanity checking or special preparation for
+            # this case
+            gcpolicy.prepare_nested_gcstruct(self, T)
 
     def setup(self):
         # this computes self.fields
@@ -91,29 +87,7 @@ class StructDefNode:
 
         # do we need deallocator(s)?
         if varlength == 1:
-            if self.gcheader: # xxx -> gc
-                gcinfo = self.gcinfo = GcInfo()
-
-                gcinfo.deallocator = db.namespace.uniquename('dealloc_'+self.barename)
-
-                # are two deallocators needed (a dynamic one for DECREF, which checks
-                # the real type of the structure and calls the static deallocator) ?
-                if rtti is not None:
-                    gcinfo.static_deallocator = db.namespace.uniquename(
-                        'staticdealloc_'+self.barename)
-                    fnptr = rtti._obj.query_funcptr
-                    if fnptr is None:
-                        raise NotImplementedError(
-                            "attachRuntimeTypeInfo(): please provide a function")
-                    gcinfo.rtti_query_funcptr = db.get(fnptr)
-                    T = typeOf(fnptr).TO.ARGS[0]
-                    gcinfo.rtti_query_funcptr_argtype = db.gettype(T)
-                else:
-                    # is a deallocator really needed, or would it be empty?
-                    if list(self.deallocator_lines('')):
-                        gcinfo.static_deallocator = gcinfo.deallocator
-                    else:
-                        gcinfo.deallocator = None
+            self.db.gcpolicy.struct_setup(self, rtti)
 
     def c_struct_field_name(self, name):
         return self.prefix + name
@@ -126,20 +100,23 @@ class StructDefNode:
         return '%s.%s' % (baseexpr, fldname)
 
     def definition(self, phase):
+        gcpolicy = self.db.gcpolicy
         if phase == 1:
             yield 'struct %s {' % self.name
-            if needs_gcheader(self.STRUCT): # xxx -> gc
-                yield '\tlong refcount;'
+            # gcheader
+            if needs_gcheader(self.STRUCT):
+                for line in gcpolicy.struct_gcheader_definition(self):
+                    yield '\t' + line
+
             for name, typename in self.fields:
                 line = '%s;' % cdecl(typename, name)
                 if typename == PrimitiveType[Void]:
                     line = '/* %s */' % line
                 yield '\t' + line
             yield '};'
-            if self.gcinfo: # xxx -> gc
-                gcinfo = self.gcinfo
-                if gcinfo.deallocator:
-                    yield 'void %s(struct %s *);' % (gcinfo.deallocator, self.name)
+ 
+            for line in gcpolicy.struct_after_definition(self):
+                yield line
 
         elif phase == 2: # xxx -> gc
             if self.gcinfo:
@@ -210,10 +187,10 @@ class ArrayDefNode:
                                               bare=True)
         self.dependencies = {}
 
-        # look up the reference counter field
+        # look up the gcheader field name
         if needs_gcheader(ARRAY):
-            self.gcheader = 'refcount' # xxx -> gc
-
+            self.gcheader = self.db.gcpolicy.gcheader_field_name(self)
+ 
     def setup(self):
         db = self.db
         ARRAY = self.ARRAY
@@ -222,28 +199,28 @@ class ArrayDefNode:
 
         # is a specific deallocator needed?
         if varlength == 1:
-            if self.gcheader and list(self.deallocator_lines('')):
-                gcinfo = self.gcinfo = GcInfo()
-                gcinfo.deallocator = db.namespace.uniquename('dealloc_'+self.barename)
+            self.db.gcpolicy.array_setup(self)
 
     def access_expr(self, baseexpr, index):
         return '%s.items[%d]' % (baseexpr, index)
 
     def definition(self, phase):
+        gcpolicy = self.db.gcpolicy
         if phase == 1:
             yield 'struct %s {' % self.name
+            # gcheader
             if needs_gcheader(self.ARRAY):
-                yield '\tlong refcount;' # xxx -> gc
+                for line in gcpolicy.array_gcheader_definition(self):
+                    yield '\t' + line
             yield '\tlong length;'
             line = '%s;' % cdecl(self.itemtypename, 'items[%d]'% self.varlength)
             if self.ARRAY.OF == Void:    # strange
                 line = '/* %s */' % line
             yield '\t' + line
             yield '};'
-            if self.gcinfo: # xxx -> gc
-                gcinfo = self.gcinfo
-                if gcinfo.deallocator:   
-                    yield 'void %s(struct %s *a);' % (gcinfo.deallocator, self.name)
+
+            for line in gcpolicy.array_after_definition(self):
+                yield line
 
         elif phase == 2:
             if self.gcinfo:  # xxx -> gc
@@ -390,8 +367,9 @@ class StructNode(ContainerNode):
 
     def initializationexpr(self, decoration=''):
         yield '{'
-        if needs_gcheader(self.T): # xxx -> gc
-            yield '\tREFCOUNT_IMMORTAL,'
+        if needs_gcheader(self.T):
+            for line in self.db.gcpolicy.struct_gcheader_initialitionexpr(self):
+                yield '\t' + line
         defnode = self.db.gettypedefnode(self.T)
         for name in self.T._names:
             value = getattr(self.obj, name)
@@ -419,8 +397,9 @@ class ArrayNode(ContainerNode):
 
     def initializationexpr(self, decoration=''):
         yield '{'
-        if needs_gcheader(self.T): # xxx -> gc
-            yield '\tREFCOUNT_IMMORTAL,'
+        if needs_gcheader(self.T):
+            for line in self.db.gcpolicy.array_gcheader_initialitionexpr(self):
+                yield '\t' + line
         if self.T.OF == Void or len(self.obj.items) == 0:
             yield '\t%d' % len(self.obj.items)
             yield '}'
