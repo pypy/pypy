@@ -72,6 +72,7 @@ class StdTypeModel:
             longobject.W_LongObject: [],
             noneobject.W_NoneObject: [],
             iterobject.W_SeqIterObject: [],
+            iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
             dictproxyobject.W_DictProxyObject: [],
             pypy.interpreter.pycode.PyCode: [],
