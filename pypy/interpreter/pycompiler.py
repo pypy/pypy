@@ -325,7 +325,7 @@ class PythonAstCompiler(CPythonCompiler):
         from pypy.interpreter.astcompiler.pycodegen import ExpressionCodeGenerator
         space = self.space
         try:
-            astcompiler.misc.set_filename(filename, ast_tree) ### TODO: doesn't work
+            astcompiler.misc.set_filename(filename, ast_tree)
             if mode == 'exec':
                 codegenerator = ModuleCodeGenerator(ast_tree)
             elif mode == 'single':
@@ -348,7 +348,7 @@ class PythonAstCompiler(CPythonCompiler):
         # __________ end of XXX above
         from pypy.interpreter.pycode import PyCode
         return PyCode(space)._from_code(c)
-    compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
+    #compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 
 
 
