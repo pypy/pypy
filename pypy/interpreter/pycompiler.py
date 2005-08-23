@@ -257,9 +257,10 @@ class PythonCompilerApp(PythonCompiler):
                 print msg
             return printmessage
         ''')
-        def printmessage(self, msg):
-            space = self.space
-            space.call_function(self.w_printmessage, space.wrap(msg))
+
+    def printmessage(self, msg):
+        space = self.space
+        space.call_function(self.w_printmessage, space.wrap(msg))
 
     def _get_compiler(self, mode):
         from pypy.interpreter.error import debug_print
