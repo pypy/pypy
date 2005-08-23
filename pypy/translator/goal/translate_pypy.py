@@ -261,7 +261,7 @@ def update_usession_dir(stabledir = udir.dirpath('usession')):
     from py import path 
     try:
         if stabledir.check(dir=1): 
-            for x in udir.visit(path.checker(file=1)): 
+            for x in udir.visit(lambda x: x.check(file=1)): 
                 target = stabledir.join(x.relto(udir)) 
                 if target.check():
                     target.remove()
