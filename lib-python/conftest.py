@@ -636,7 +636,7 @@ testmap = [
     RegrTest('test_shlex.py', enabled=True),
     RegrTest('test_shutil.py', enabled=True),
     RegrTest('test_signal.py', enabled=False),
-    RegrTest('test_site.py', enabled=True, core=True),
+    RegrTest('test_site.py', enabled=False, core=False), # considered cpython impl-detail 
         # Needs non-faked codecs.
     RegrTest('test_slice.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_socket.py', enabled=False),
