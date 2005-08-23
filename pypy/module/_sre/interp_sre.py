@@ -1,7 +1,6 @@
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 # XXX is it allowed to import app-level module like this?
 from pypy.module._sre.app_info import CODESIZE
-from pypy.module.array.app_array import array
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.gateway import interp2app
 
@@ -62,7 +61,7 @@ class W_State(Wrappable):
             # This id marks the end of a group.
             self.lastindex = mark_nr / 2 + 1
         if mark_nr >= len(self.marks):
-            self.marks.extend([None] * (mark_nr - len(self.marks) + 1))
+            self.marks.extend([-1] * (mark_nr - len(self.marks) + 1))
         self.marks[mark_nr] = self.space.int_w(w_position)
 
     def get_marks(self, w_group_index):
@@ -79,9 +78,7 @@ class W_State(Wrappable):
         regs = [self.space.newtuple([self.space.wrap(self.start), self.space.wrap(self.string_position)])]
         for group in range(self.space.int_w(w_group_count)):
             mark_index = 2 * group
-            if mark_index + 1 < len(self.marks) \
-                                    and self.marks[mark_index] is not None \
-                                    and self.marks[mark_index + 1] is not None:
+            if mark_index + 1 < len(self.marks):
                 regs.append(self.space.newtuple([self.space.wrap(self.marks[mark_index]),
                                                  self.space.wrap(self.marks[mark_index + 1])]))
             else:
@@ -128,7 +125,6 @@ W_State.typedef = TypeDef("W_State",
     lower = interp2app(W_State.lower),
 )
 
-
 #### Category helpers
 
 ascii_char_info = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 2,
@@ -143,9 +139,7 @@ linebreak = ord("\n")
 underline = ord("_")
 
 # Static list of all unicode codepoints reported by Py_UNICODE_ISLINEBREAK.
-# Using a dict as a poor man's set.
-uni_linebreaks = {10: True, 13: True, 28: True, 29: True, 30: True, 133: True,
-                  8232: True, 8233: True}
+uni_linebreaks = [10, 13, 28, 29, 30, 133, 8232, 8233]
 
 def is_digit(space, w_char):
     code = space.int_w(space.ord(w_char))
@@ -186,7 +180,7 @@ def is_linebreak(space, w_char):
 
 def is_uni_linebreak(space, w_char):
     code = space.int_w(space.ord(w_char))
-    return uni_linebreaks.has_key(code)
+    return code in uni_linebreaks
 
 
 #### Category dispatch
@@ -217,6 +211,11 @@ category_dispatch_table = [
 
 class MatchContext:
     # XXX This is not complete. It's tailored to at dispatch currently.
+
+    # XXX These constants should maybe not be here    
+    OK = 1
+    NOT_OK = -1
+    NOT_FINISHED = 0
     
     def __init__(self, space, pattern_codes, w_string, string_position, end):
         self.space = space
@@ -225,7 +224,7 @@ class MatchContext:
         self.string_position = string_position
         self.end = end
         self.code_position = 0
-        self.set_ok = True # XXX maybe get rid of this
+        self.set_ok = self.OK # XXX maybe get rid of this
 
     def peek_char(self, peek=0):
         return self.space.getitem(self.w_string,
@@ -318,17 +317,18 @@ def check_charset(space, w_pattern_codes, w_char_code, w_string, w_string_positi
     char_code = space.int_w(w_char_code)
     context = MatchContext(space, pattern_codes, w_string,
               space.int_w(w_string_position), space.int_w(space.len(w_string)))
-    result = None
-    while result is None:
+    result = MatchContext.NOT_FINISHED
+    while result == MatchContext.NOT_FINISHED:
         opcode = context.peek_code()
         if opcode >= len(set_dispatch_table):
             return space.newbool(False)
         function = set_dispatch_table[opcode]
         result = function(space, context, char_code)
-    return space.newbool(result)
+        print result
+    return space.newbool(result == MatchContext.OK)
 
 def set_failure(space, ctx, char_code):
-    return not ctx.set_ok
+    return -ctx.set_ok
 
 def set_literal(space, ctx, char_code):
     # <LITERAL> <code>
@@ -336,6 +336,7 @@ def set_literal(space, ctx, char_code):
         return ctx.set_ok
     else:
         ctx.skip_code(2)
+        return MatchContext.NOT_FINISHED
 
 def set_category(space, ctx, char_code):
     # <CATEGORY> <code>
@@ -344,6 +345,7 @@ def set_category(space, ctx, char_code):
         return ctx.set_ok
     else:
         ctx.skip_code(2)
+        return MatchContext.NOT_FINISHED
 
 def set_charset(space, ctx, char_code):
     # <CHARSET> <bitmap> (16 bits per code word)
@@ -358,16 +360,19 @@ def set_charset(space, ctx, char_code):
                                         & (1 << (char_code & 31)):
             return ctx.set_ok
         ctx.skip_code(8) # skip bitmap
+    return MatchContext.NOT_FINISHED
 
 def set_range(space, ctx, char_code):
     # <RANGE> <lower> <upper>
     if ctx.peek_code(1) <= char_code <= ctx.peek_code(2):
         return ctx.set_ok
     ctx.skip_code(3)
+    return MatchContext.NOT_FINISHED
 
 def set_negate(space, ctx, char_code):
-    ctx.set_ok = not ctx.set_ok
+    ctx.set_ok = -ctx.set_ok
     ctx.skip_code(1)
+    return MatchContext.NOT_FINISHED
 
 def set_bigcharset(space, ctx, char_code):
     # <BIGCHARSET> <blockcount> <256 blockindices> <blocks>
@@ -377,19 +382,37 @@ def set_bigcharset(space, ctx, char_code):
     if char_code < 65536:
         block_index = char_code >> 8
         # NB: there are CODESIZE block indices per bytecode
-        # XXX can we really use array here?
-        a = array("B")
-        a.fromstring(array(CODESIZE == 2 and "H" or "I",
-                [ctx.peek_code(block_index / CODESIZE)]).tostring())
+        a = to_byte_array(ctx.peek_code(block_index / CODESIZE))
         block = a[block_index % CODESIZE]
         ctx.skip_code(256 / CODESIZE) # skip block indices
+        if CODESIZE == 2:
+            shift = 4
+        else:
+            shift = 5
         block_value = ctx.peek_code(block * (32 / CODESIZE)
-                + ((char_code & 255) >> (CODESIZE == 2 and 4 or 5)))
+                                                + ((char_code & 255) >> shift))
         if block_value & (1 << (char_code & ((8 * CODESIZE) - 1))):
             return ctx.set_ok
     else:
         ctx.skip_code(256 / CODESIZE) # skip block indices
     ctx.skip_code(count * (32 / CODESIZE)) # skip blocks
+    return MatchContext.NOT_FINISHED
+
+def to_byte_array(int_value):
+    """Creates a list of bytes out of an integer representing data that is
+    CODESIZE bytes wide."""
+    import sys
+    byte_array = [0] * CODESIZE
+    for i in range(CODESIZE):
+        byte_array[i] = int_value & 0xff
+        int_value = int_value >> 8
+    if sys.byteorder == "big":
+        # Uhm, maybe there's a better way to reverse lists
+        byte_array_reversed = [0] * CODESIZE
+        for i in range(CODESIZE):
+            byte_array_reversed[-i-1] = byte_array[i]
+        byte_array = byte_array_reversed
+    return byte_array
 
 set_dispatch_table = [
     set_failure, None, None, None, None, None, None, None, None,

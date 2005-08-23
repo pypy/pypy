@@ -1,5 +1,6 @@
 """Interp-level _sre tests."""
 import autopath
+import sys
 from py.test import raises
 import pypy.module._sre.interp_sre as isre
 
@@ -80,3 +81,23 @@ def test_at_boundary(space):
 
 def test_getlower(space):
     assert space.int_w(isre.getlower(space, space.wrap(ord("A")), space.wrap(0))) == ord("a")
+
+def test_get_byte_array(space):
+    if sys.byteorder == "big":
+        if isre.CODESIZE == 2:
+            assert [0, 1] == isre.to_byte_array(1)
+            assert [1, 0] == isre.to_byte_array(256)
+            assert [1, 2] == isre.to_byte_array(258)
+        else:
+            assert [0, 0, 0, 1] == isre.to_byte_array(1)
+            assert [0, 0, 1, 0] == isre.to_byte_array(256)
+            assert [1, 2, 3, 4] == isre.to_byte_array(0x01020304)
+    else:
+        if isre.CODESIZE == 2:
+            assert [1, 0] == isre.to_byte_array(1)
+            assert [0, 1] == isre.to_byte_array(256)
+            assert [2, 1] == isre.to_byte_array(258)
+        else:
+            assert [1, 0, 0, ] == isre.to_byte_array(1)
+            assert [0, 1, 0, 0] == isre.to_byte_array(256)
+            assert [4, 3, 2, 1] == isre.to_byte_array(0x01020304)
