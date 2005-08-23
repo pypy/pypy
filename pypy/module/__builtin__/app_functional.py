@@ -362,6 +362,8 @@ class reversed_iterator(object):
         return self
 
     def next(self):
+        if self.remaining > len(self.seq):
+            self.remaining = 0
         i = self.remaining
         if i > 0:
             i -= 1
@@ -371,4 +373,6 @@ class reversed_iterator(object):
         raise StopIteration
 
     def __len__(self):
+        if self.remaining > len(self.seq):
+            self.remaining = 0
         return self.remaining
