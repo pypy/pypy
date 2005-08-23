@@ -118,7 +118,7 @@ def interp_attrproperty_obj_w(name, cls):
     def fget(space, obj):
         return getattr(obj, name)
     def fset(space, obj, w_value):
-        return setattr(state, name, w_value)
+        return setattr(obj, name, w_value)
     return GetSetProperty(fget, fset, cls=cls)
 
 W_State.typedef = TypeDef("W_State",
