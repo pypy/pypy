@@ -282,7 +282,7 @@ class OpaqueType(ContainerType):
         return _opaque(self)
 
     def _defl(self, parent=None, parentindex=None):
-        return self._container_example()
+        return _opaque(self, parent=parent, parentindex=parentindex)
 
 RuntimeTypeInfo = OpaqueType("RuntimeTypeInfo")
 
@@ -690,12 +690,10 @@ class _struct(_parentable):
         if n is None and TYPE._arrayfld is not None:
             raise TypeError("%r is variable-sized" % (TYPE,))
         for fld, typ in TYPE._flds.items():
-            if isinstance(typ, Struct):
-                value = _struct(typ, parent=self, parentindex=fld)
-            elif fld == TYPE._arrayfld:
+            if fld == TYPE._arrayfld:
                 value = _array(typ, n, parent=self, parentindex=fld)
             else:
-                value = typ._defl()
+                value = typ._defl(parent=self, parentindex=fld)
             setattr(self, fld, value)
         if parent is not None:
             self._setparentstructure(parent, parentindex)
@@ -783,17 +781,13 @@ class _func(object):
     def __hash__(self):
         return hash(frozendict(self.__dict__))
 
-class _opaque(object):
-    def __init__(self, TYPE, **attrs):
-        self._TYPE = TYPE
+class _opaque(_parentable):
+    def __init__(self, TYPE, parent=None, parentindex=None, **attrs):
+        _parentable.__init__(self, TYPE)
         self._name = "?"
         self.__dict__.update(attrs)
-
-    def _parentstructure(self):
-        return None
-
-    def _check(self):
-        pass
+        if parent is not None:
+            self._setparentstructure(parent, parentindex)
 
     def __repr__(self):
         return '<%s>' % (self,)

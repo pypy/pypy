@@ -396,4 +396,14 @@ def test_flavor_malloc():
     assert typeOf(p).TO == S
     assert not isweak(p, S)
     
-    
+def test_opaque():
+    O = OpaqueType('O')
+    p1 = opaqueptr(O, 'p1', hello="world")
+    assert typeOf(p1) == Ptr(O)
+    assert p1._obj.hello == "world"
+    assert parentlink(p1._obj) == (None, None)
+    S = GcStruct('S', ('stuff', O))
+    p2 = malloc(S)
+    assert typeOf(p2) == Ptr(S)
+    assert typeOf(p2.stuff) == Ptr(O)
+    assert parentlink(p2.stuff._obj) == (p2._obj, 'stuff')
