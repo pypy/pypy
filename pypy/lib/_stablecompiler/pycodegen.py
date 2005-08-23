@@ -507,8 +507,7 @@ class CodeGenerator:
 
     def visitContinue(self, node):
         if not self.setups:
-            raise SyntaxError, "'continue' outside loop (%s, %d)" % \
-                  (node.filename, node.lineno)
+            raise SyntaxError, "'continue' not properly in loop" # (%s, %d)" % (node.filename, node.lineno)
         kind, block = self.setups.top()
         if kind == LOOP:
             self.set_lineno(node)
@@ -524,13 +523,12 @@ class CodeGenerator:
                 if kind == LOOP:
                     break
             if kind != LOOP:
-                raise SyntaxError, "'continue' outside loop (%s, %d)" % \
-                      (node.filename, node.lineno)
+                raise SyntaxError, "'continue' not properly in loop" # (%s, %d)" % (node.filename, node.lineno)
             self.emit('CONTINUE_LOOP', loop_block)
             self.nextBlock()
         elif kind == END_FINALLY:
-            msg = "'continue' not supported inside 'finally' clause (%s, %d)"
-            raise SyntaxError, msg % (node.filename, node.lineno)
+            msg = "'continue' not supported inside 'finally' clause" # " (%s, %d)"
+            raise SyntaxError, msg # % (node.filename, node.lineno)
 
     def visitTest(self, node, jump):
         end = self.newBlock()
