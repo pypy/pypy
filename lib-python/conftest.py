@@ -577,7 +577,7 @@ testmap = [
         # XXX this test is _also_ an output test, damn it 
         #     seems to be the only one that invokes run_unittest 
         #     and is an unittest 
-    RegrTest('test_pep292.py', enabled=True, core=True),
+    RegrTest('test_pep292.py', enabled=True),
     RegrTest('test_pickle.py', enabled=True, core=True),
     RegrTest('test_pickletools.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_pkg.py', enabled=True, core=True),

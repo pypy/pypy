@@ -96,3 +96,6 @@ test_traceback
 test_trace
     Fails because of our compiler generating different linenumber information
     than CPythons.
+
+test_pep292
+    Depends on a working re module.
