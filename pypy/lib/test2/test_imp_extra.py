@@ -36,6 +36,13 @@ def test_obscure_functions():
 
 MARKER = 42
 
+def _py_file():
+    fn = __file__
+    if fn.lower().endswith('c') or fn.lower().endswith('o'):
+        fn = fn[:-1]
+    assert fn.lower().endswith('.py')
+    return fn
+
 def _pyc_file():
     # XXX quick hack
     # (that's the bytecode for the module containing only 'marker=42')
@@ -50,9 +57,10 @@ def _pyc_file():
     return '@TEST.pyc'
 
 def test_load_module_py():
+    fn = _py_file()
     descr = ('.py', 'U', imp.PY_SOURCE)
-    f = open(__file__, 'U')
-    mod = imp.load_module('test_imp_extra_AUTO1', f, __file__, descr)
+    f = open(fn, 'U')
+    mod = imp.load_module('test_imp_extra_AUTO1', f, fn, descr)
     f.close()
     assert mod.MARKER == 42
     import test_imp_extra_AUTO1
@@ -72,7 +80,8 @@ def test_load_module_pyc():
         os.unlink(fn)
 
 def test_load_source():
-    mod = imp.load_source('test_imp_extra_AUTO3', __file__)
+    fn = _py_file()
+    mod = imp.load_source('test_imp_extra_AUTO3', fn)
     assert mod.MARKER == 42
     import test_imp_extra_AUTO3
     assert mod is test_imp_extra_AUTO3
@@ -88,8 +97,9 @@ def test_load_module_pyc():
         os.unlink(fn)
 
 def test_load_broken_pyc():
+    fn = _py_file()
     try:
-        imp.load_compiled('test_imp_extra_AUTO5', __file__)
+        imp.load_compiled('test_imp_extra_AUTO5', fn)
     except ImportError:
         pass
     else:
