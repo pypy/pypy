@@ -242,8 +242,8 @@ class SymbolVisitor:
         self.handle_free_vars(scope, parent)
 
     def visitExec(self, node, parent): 
-        # XXX check if we are a bare exec
-        parent.optimized = 0
+        if not (node.globals or node.locals):
+            parent.optimized = 0   # bare exec statement
         for child in node.getChildNodes():
             self.visit(child, parent)
     
