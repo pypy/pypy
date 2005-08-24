@@ -29,8 +29,8 @@ class SyntaxToTupleVisitor(AbstractSyntaxVisitor):
         for n in node.nodes:
             n.visit(self)
         n = len(node.nodes)
-	start = len(self.tuple_stack_w) - n
-	assert start >= 0   # annotator hint
+        start = len(self.tuple_stack_w) - n
+        assert start >= 0   # annotator hint
         l = [ space.wrap( node.name ) ] + self.tuple_stack_w[start:]
         del self.tuple_stack_w[start:]
         self.tuple_stack_w.append( space.newtuple( l ) )

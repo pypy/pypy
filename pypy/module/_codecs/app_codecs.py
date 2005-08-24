@@ -101,7 +101,7 @@ def encode(v, encoding=None, errors='strict'):
     codecs.register_error that can handle ValueErrors.
     """
     if encoding == None:
- 	encoding = sys.getdefaultencoding()
+        encoding = sys.getdefaultencoding()
     if isinstance(encoding,str):
         encoder = lookup(encoding)[0]
         if encoder and isinstance(errors,str):
@@ -123,7 +123,7 @@ def decode(obj,encoding=None,errors='strict'):
     able to handle ValueErrors.
     """
     if encoding == None:
-	encoding = sys.getdefaultencoding()
+        encoding = sys.getdefaultencoding()
     if isinstance(encoding,str):
         decoder = lookup(encoding)[1]
         if decoder and isinstance(errors,str):
@@ -374,10 +374,10 @@ def mbcs_encode( obj,errors='strict'):
     """
     pass
 ##    return (PyUnicode_EncodeMBCS(
-##			       (obj), 
-##			       len(obj),
-##			       errors),
-##		    len(obj))
+##                             (obj), 
+##                             len(obj),
+##                             errors),
+##                  len(obj))
     
 
 def ascii_encode( obj,errors='strict'):
@@ -508,10 +508,10 @@ def backslashreplace_errors(exc):
 
 ## indicate whether a UTF-7 character is special i.e. cannot be directly
 ##       encoded:
-##	   0 - not special
-##	   1 - special
-##	   2 - whitespace (optional)
-##	   3 - RFC2152 Set O (optional)
+##         0 - not special
+##         1 - special
+##         2 - whitespace (optional)
+##         3 - RFC2152 Set O (optional)
     
 utf7_special = [
     1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 1, 1,
@@ -656,7 +656,7 @@ def PyUnicode_DecodeUTF7(s, size, errors):
                     
                 elif SPECIAL(ch,0,0) :
                     raise  UnicodeDecodeError,"unexpected special character"
-	                
+                        
                 else:  
                     p +=  ch 
             else:
@@ -799,11 +799,11 @@ def unicodeescape_string(s, size, quotes):
             pos += 1
             continue        
 #endif
-	#/* Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes */
+        #/* Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes */
         elif (ord(ch) >= 0xD800 and ord(ch) < 0xDC00):
             pos += 1
             ch2 = s[pos]
-	    
+            
             if (ord(ch2) >= 0xDC00 and ord(ch2) <= 0xDFFF):
                 ucs = (((ord(ch) & 0x03FF) << 10) | (ord(ch2) & 0x03FF)) + 0x00010000
                 p += '\\'
@@ -811,10 +811,10 @@ def unicodeescape_string(s, size, quotes):
                 p += '%08x'%ucs
                 pos += 1
                 continue
-	   
-	    #/* Fall through: isolated surrogates are copied as-is */
-	    pos -= 1
-	    
+           
+            #/* Fall through: isolated surrogates are copied as-is */
+            pos -= 1
+            
         #/* Map 16-bit characters to '\uxxxx' */
         if (ord(ch) >= 256):
             p += '\\'
@@ -879,8 +879,8 @@ def PyUnicode_AsASCIIString(unistr):
     if not type(unistr) == unicode:
         raise TypeError
     return PyUnicode_EncodeASCII(unicode(unistr),
-				 len(unicode),
-				None)
+                                 len(unicode),
+                                None)
 
 def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None):
 
@@ -908,19 +908,19 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
             bom = (ord(s[ihi]) << 8) | ord(s[ilo])
 #ifdef BYTEORDER_IS_LITTLE_ENDIAN
             if sys.byteorder == 'little':
-        	    if (bom == 0xFEFF):
-        	        q += 2
-        	        bo = -1
-        	    elif bom == 0xFFFE:
-        	        q += 2
-        	        bo = 1
+                    if (bom == 0xFEFF):
+                        q += 2
+                        bo = -1
+                    elif bom == 0xFFFE:
+                        q += 2
+                        bo = 1
             else:
-        	    if bom == 0xFEFF:
-        	        q += 2
-        	        bo = 1
-        	    elif bom == 0xFFFE:
-        	        q += 2
-        	        bo = -1
+                    if bom == 0xFEFF:
+                        q += 2
+                        bo = 1
+                    elif bom == 0xFFFE:
+                        q += 2
+                        bo = -1
     elif byteorder == 'little':
         bo = -1
     else:
@@ -941,32 +941,32 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
 
     while (q < len(s)):
     
-    	#/* remaining bytes at the end? (size should be even) */
-    	if (len(s)-q<2):
-    	    if (consumed):
+        #/* remaining bytes at the end? (size should be even) */
+        if (len(s)-q<2):
+            if (consumed):
                 break
-    	    errmsg = "truncated data"
-    	    startinpos = q
-    	    endinpos = len(s)
-    	    unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
-#    	    /* The remaining input chars are ignored if the callback
-##    	       chooses to skip the input */
+            errmsg = "truncated data"
+            startinpos = q
+            endinpos = len(s)
+            unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
+#           /* The remaining input chars are ignored if the callback
+##             chooses to skip the input */
     
-    	ch = (ord(s[q+ihi]) << 8) | ord(s[q+ilo])
-    	q += 2
+        ch = (ord(s[q+ihi]) << 8) | ord(s[q+ilo])
+        q += 2
     
-    	if (ch < 0xD800 or ch > 0xDFFF):
-    	   p += unichr(ch)
-    	   continue
+        if (ch < 0xD800 or ch > 0xDFFF):
+           p += unichr(ch)
+           continue
     
-	#/* UTF-16 code pair: */
+        #/* UTF-16 code pair: */
         if (q >= len(s)):
             errmsg = "unexpected end of data"
             startinpos = q-2
             endinpos = len(s)
-    	    unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
+            unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
 
-    	if (0xD800 <= ch and ch <= 0xDBFF):
+        if (0xD800 <= ch and ch <= 0xDBFF):
             ch2 = (ord(s[q+ihi]) << 8) | ord(s[q+ilo])
             q += 2
             if (0xDC00 <= ch2 and ch2 <= 0xDFFF):
@@ -980,16 +980,16 @@ def PyUnicode_DecodeUTF16Stateful(s,size,errors,byteorder='native',consumed=None
                 continue
 
             else:
-    	        errmsg = "illegal UTF-16 surrogate"
+                errmsg = "illegal UTF-16 surrogate"
                 startinpos = q-4
                 endinpos = startinpos+2
-    	        unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
-    	   
-	errmsg = "illegal encoding"
-	startinpos = q-2
-	endinpos = startinpos+2
-    	unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
-	
+                unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
+           
+        errmsg = "illegal encoding"
+        startinpos = q-2
+        endinpos = startinpos+2
+        unicode_call_errorhandler(errors,'utf-16',errmsg,s,startinpos,endinpos,True)
+        
     return p, q, bo
 
 # moved out of local scope, especially because it didn't
@@ -1045,7 +1045,7 @@ def PyUnicode_EncodeMBCS(p, size, errors):
     pass
 ####    /* If there are no characters, bail now! */
 ##    if (size==0)
-##	    return ""
+##          return ""
 ##    from ctypes import *
 ##    WideCharToMultiByte = windll.kernel32.WideCharToMultiByte
 ####    /* First get the size of the result */
@@ -1129,7 +1129,7 @@ def PyUnicode_DecodeUTF8Stateful(s,size,errors,consumed):
                 endinpos = size 
                 res = unicode_call_errorhandler(
                                     errors, "utf8", errmsg,
-			            s,  startinpos, endinpos)
+                                    s,  startinpos, endinpos)
                 p += res[0]
                 pos = res[1]
         if n == 0:
@@ -1186,13 +1186,13 @@ def PyUnicode_DecodeUTF8Stateful(s,size,errors,consumed):
                         ((ord(s[pos+1]) & 0x3f) << 6) +\
                         (ord(s[pos+2]) & 0x3f)       
                         
-##		/* Note: UTF-8 encodings of surrogates are considered
-##		   legal UTF-8 sequences;
+##              /* Note: UTF-8 encodings of surrogates are considered
+##                 legal UTF-8 sequences;
 ##
-##		   XXX For wide builds (UCS-4) we should probably try
-##		       to recombine the surrogates into a single code
-##		       unit.
-##		*/
+##                 XXX For wide builds (UCS-4) we should probably try
+##                     to recombine the surrogates into a single code
+##                     unit.
+##              */
                 if c < 0x0800:
                     errmsg = "illegal encoding"
                     endinpos = startinpos+3
@@ -1225,7 +1225,7 @@ def PyUnicode_DecodeUTF8Stateful(s,size,errors,consumed):
                 if ((c < 0x10000) or (c > 0x10ffff)):
                     #/* minimum value allowed for 4 byte encoding */
                     #/* maximum value allowed for UTF-16 */
-	   
+           
                     errmsg = "illegal encoding"
                     startinpos = pos
                     endinpos = startinpos+4
@@ -1252,15 +1252,15 @@ def PyUnicode_DecodeUTF8Stateful(s,size,errors,consumed):
 ##        default:
 ##            /* Other sizes are only needed for UCS-4 */
             errmsg = "unsupported Unicode code range"
-    	    startinpos = pos
-    	    endinpos = startinpos+n
-    	    res = unicode_call_errorhandler(
+            startinpos = pos
+            endinpos = startinpos+n
+            res = unicode_call_errorhandler(
                      errors, "utf8", errmsg,
                      s,  startinpos, endinpos)
             p += res[0]
             pos = res[1]
             
-	#continue
+        #continue
 
     if (consumed):
         consumed = pos
@@ -1520,17 +1520,17 @@ def PyUnicode_EncodeRawUnicodeEscape(s,size):
 
     p = []
     for ch in s:
-#	/* Map 32-bit characters to '\Uxxxxxxxx' */
+#       /* Map 32-bit characters to '\Uxxxxxxxx' */
         if (ord(ch) >= 0x10000):
             p += '\\'
             p += 'U'
             p += '%08x'%(ord(ch))
         elif (ord(ch) >= 256) :
-#	/* Map 16-bit characters to '\uxxxx' */
+#       /* Map 16-bit characters to '\uxxxx' */
             p += '\\'
             p += 'u'
             p += '%04x'%(ord(ch))
-#	/* Copy everything else as-is */
+#       /* Copy everything else as-is */
         else:
             p += chr(ord(ch))
     
@@ -1566,7 +1566,7 @@ def PyUnicode_EncodeCharmap(p,size,mapping='latin-1',errors='strict'):
     inpos = 0
     res = []
     while (inpos<size):
-	#/* try to encode it */
+        #/* try to encode it */
         try:
             x = charmapencode_output(ord(p[inpos]),mapping)
             res += [x]
@@ -1587,7 +1587,7 @@ def PyUnicode_EncodeCharmap(p,size,mapping='latin-1',errors='strict'):
 ##                raise UnicodeEncodeError("charmap",p,inpos,inpos+1,
 ##                                        "character maps to <undefined>")
 ##    
-	    #/* done with this character => adjust input position */
+            #/* done with this character => adjust input position */
         inpos+=1
     return res
 
@@ -1602,8 +1602,8 @@ def PyUnicode_DecodeCharmap(s, size, mapping, errors):
     p = []
     inpos = 0
     while (inpos< len(s)):
-	
-	#/* Get mapping (char ordinal -> integer, Unicode char or None) */
+        
+        #/* Get mapping (char ordinal -> integer, Unicode char or None) */
         ch = s[inpos]
         try:
             x = mapping[ord(ch)]
@@ -1645,8 +1645,8 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size,errors):
             continue        
         startinpos = pos
         #pos += 1
-##	/* \u-escapes are only interpreted iff the number of leading
-##	   backslashes is odd */
+##      /* \u-escapes are only interpreted iff the number of leading
+##         backslashes is odd */
         bs = pos
         while pos < size:
             if (s[pos] != '\\'):
@@ -1668,7 +1668,7 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size,errors):
             count = 8
         pos += 1
 
-	#/* \uXXXX with 4 hex digits, \Uxxxxxxxx with 8 */
+        #/* \uXXXX with 4 hex digits, \Uxxxxxxxx with 8 */
 
         i = 0
         x = 0

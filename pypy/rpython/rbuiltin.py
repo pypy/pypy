@@ -105,8 +105,8 @@ def rtype_builtin_bool(hop):
 
 def rtype_builtin_int(hop):
     if isinstance(hop.args_s[0], annmodel.SomeString):
-	assert 1 <= hop.nb_args <= 2
-	return hop.args_r[0].rtype_int(hop)
+        assert 1 <= hop.nb_args <= 2
+        return hop.args_r[0].rtype_int(hop)
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_int(hop)
 

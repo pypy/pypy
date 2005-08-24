@@ -447,14 +447,14 @@ def test_int():
         res = int(s, base)
         return res
     for j in (10, 16, 2, 1, 36, 42, -3):
-	for i in range(len(s1)):
-	    try:
-		expected = fn(i, j)
-	    except ValueError:
-		interpret_raises(ValueError, fn, [i, j])
-	    else:
-		res = interpret(fn, [i, j])
-		assert res == expected
+        for i in range(len(s1)):
+            try:
+                expected = fn(i, j)
+            except ValueError:
+                interpret_raises(ValueError, fn, [i, j])
+            else:
+                res = interpret(fn, [i, j])
+                assert res == expected
 
 
 def test_char_mul_n():

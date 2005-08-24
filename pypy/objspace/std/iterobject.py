@@ -80,7 +80,7 @@ def len__ReverseSeqIter(space, w_seqiter):
         w_len = space.wrap(0)
         w_seqiter.w_seq = None
     else:
-	w_len =space.wrap(index)
+        w_len =space.wrap(index)
     if space.is_true(space.lt(w_len,space.wrap(0))):
         w_len = space.wrap(0)
     return w_len
