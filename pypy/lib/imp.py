@@ -1,6 +1,6 @@
 """
 This module provides the components needed to build your own
-__import__ function.  Undocumented functions are obsolete.
+__import__ function.
 """
 
 # XXX partial implementation
@@ -17,13 +17,23 @@ PY_FROZEN       = 7
 PY_CODERESOURCE = 8
 
 def get_magic():
-    return '\x3b\xf2\x0d\x0a'
+    """Return the magic number for .pyc or .pyo files."""
+    return 'm\xf2\r\n'     # XXX hard-coded: the magic of Python 2.4.1
 
 def get_suffixes():
-    return [('.py', 'U', PY_SOURCE)]
+    """Return a list of (suffix, mode, type) tuples describing the files
+    that find_module() looks for."""
+    return [('.py', 'U', PY_SOURCE),
+            ('.pyc', 'rb', PY_COMPILED)]
 
 
 def find_module(name, path=None):
+    """find_module(name, [path]) -> (file, filename, (suffix, mode, type))
+    Search for a module.  If path is omitted or None, search for a
+    built-in, frozen or special module and continue search in sys.path.
+    The module name cannot contain '.'; to search for a submodule of a
+    package, pass the submodule name and the package's __path__.
+    """
     import sys, os
     if path is None:
         if name in sys.builtin_module_names:
@@ -40,26 +50,18 @@ def find_module(name, path=None):
 
 
 def load_module(name, file, filename, description):
+    """Load a module, given information returned by find_module().
+    The module name must include the full package name, if any.
+    """
     import sys, os
-    new_module = type(sys)
     suffix, mode, type = description
-    module = sys.modules.get(name)
 
     if type == PY_SOURCE:
-        source = file.read()
-        co = compile(source, filename, 'exec')
-        if module is None:
-            sys.modules[name] = module = new_module(name)
-        module.__name__ = name
-        module.__doc__ = None
-        module.__file__ = filename
-        exec co in module.__dict__
-        return module
+        return load_source(name, filename, file)
 
     if type == PKG_DIRECTORY:
         initfilename = os.path.join(filename, '__init__.py')
-        if module is None:
-            sys.modules[name] = module = new_module(name)
+        module = sys.modules.setdefault(name, new_module(name))
         module.__name__ = name
         module.__doc__ = None
         module.__file__ = initfilename
@@ -73,6 +75,74 @@ def load_module(name, file, filename, description):
 
     raise ValueError, 'invalid description argument: %r' % (description,)
 
+def load_source(name, pathname, file=None):
+    import sys
+    autoopen = file is None
+    if autoopen:
+        file = open(pathname, 'U')
+    source = file.read()
+    if autoopen:
+        file.close()
+    co = compile(source, pathname, 'exec')
+    module = sys.modules.setdefault(name, new_module(name))
+    module.__name__ = name
+    module.__doc__ = None
+    module.__file__ = pathname
+    exec co in module.__dict__
+    return module
+
+def load_compiled(name, pathname, file=None):
+    import sys, marshal
+    autoopen = file is None
+    if autoopen:
+        file = open(pathname, 'rb')
+    magic = file.read(4)
+    if magic != get_magic():
+        raise ImportError("Bad magic number in %s" % pathname)
+    file.read(4)    # skip timestamp
+    co = marshal.load(file)
+    if autoopen:
+        file.close()
+    module = sys.modules.setdefault(name, new_module(name))
+    module.__name__ = name
+    module.__doc__ = None
+    module.__file__ = pathname
+    exec co in module.__dict__
+    return module
+
+
+def new_module(name):
+    """Create a new module.  Do not enter it in sys.modules.
+    The module name must include the full package name, if any.
+    """
+    import new
+    return new.module(name)
+
+
+def init_builtin(name):
+    import sys
+    if name not in sys.builtin_module_names:
+        return None
+    if name in sys.modules:
+        raise ImportError("cannot initialize a built-in module twice "
+                          "in PyPy")
+    return __import__(name)
+
+def init_frozen(name):
+    return None
+
+def is_builtin(name):
+    import sys
+    if name in sys.builtin_module_names:
+        return -1   # cannot be initialized again
+    else:
+        return 0
+
+def is_frozen(name):
+    return False
+
+
+# ____________________________________________________________
 
 try:
     # PyPy-specific interface: hint from the thread module to ask us to
@@ -80,11 +150,13 @@ try:
     from thread import _please_provide_import_lock
 except ImportError:
     def lock_held():
+        """On platforms without threads, return False."""
         return False
     def acquire_lock():
-        pass
+        """On platforms without threads, this function does nothing."""
     def release_lock():
-        pass
+        """On platforms without threads, this function does nothing."""
+
 else:
     del _please_provide_import_lock
     import thread
@@ -96,9 +168,14 @@ else:
             self.recursions = 0
 
         def held(self):
+            """Return True if the import lock is currently held, else False."""
             return self.in_thread is not None
 
         def acquire(self):
+            """Acquires the interpreter's import lock for the current thread.
+            This lock should be used by import hooks to ensure thread-safety
+            when importing modules.
+            """
             myident = thread.get_ident()
             if self.in_thread == myident:
                 self.recursions += 1
@@ -108,6 +185,7 @@ else:
                 self.recursions = 1
 
         def release(self):
+            """Release the interpreter's import lock."""
             myident = thread.get_ident()
             if self.in_thread != myident:
                 raise RuntimeError("not holding the import lock")
