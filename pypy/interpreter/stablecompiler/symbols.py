@@ -2,7 +2,7 @@
 
 from pypy.interpreter.stablecompiler import ast
 from pypy.interpreter.stablecompiler.consts import SC_LOCAL, SC_GLOBAL, \
-    SC_FREE, SC_CELL, SC_UNKNOWN
+    SC_FREE, SC_CELL, SC_UNKNOWN, SC_DEFAULT
 from pypy.interpreter.stablecompiler.misc import mangle
 import types
 
@@ -12,6 +12,7 @@ import sys
 MANGLE_LEN = 256
 
 class Scope:
+    optimized = False
     # XXX how much information do I need about each name?
     def __init__(self, name, module, klass=None):
         self.name = name
@@ -101,7 +102,7 @@ class Scope:
         if self.nested:
             return SC_UNKNOWN
         else:
-            return SC_GLOBAL
+            return SC_DEFAULT
 
     def get_free_vars(self):
         if not self.nested:
@@ -134,7 +135,8 @@ class Scope:
         Be careful to stop if a child does not think the name is
         free.
         """
-        self.globals[name] = 1
+        if name not in self.defs: 
+            self.globals[name] = 1
         if self.frees.has_key(name):
             del self.frees[name]
         for child in self.children:
@@ -178,6 +180,7 @@ class ModuleScope(Scope):
         self.__super_init("global", self)
 
 class FunctionScope(Scope):
+    optimized = True
     pass
 
 class GenExprScope(Scope):
@@ -238,6 +241,12 @@ class SymbolVisitor:
         self.visit(node.code, scope)
         self.handle_free_vars(scope, parent)
 
+    def visitExec(self, node, parent): 
+        # XXX check if we are a bare exec
+        parent.optimized = 0
+        for child in node.getChildNodes():
+            self.visit(child, parent)
+    
     def visitGenExpr(self, node, parent):
         scope = GenExprScope(self.module, self.klass);
         if parent.nested or isinstance(parent, FunctionScope) \
@@ -332,6 +341,7 @@ class SymbolVisitor:
     def visitFrom(self, node, scope):
         for name, asname in node.names:
             if name == "*":
+                scope.optimized = False
                 continue
             scope.add_def(asname or name)
 

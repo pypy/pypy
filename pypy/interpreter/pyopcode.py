@@ -442,6 +442,8 @@ class PyInterpFrame(pyframe.PyFrame):
         f.space.delitem(f.w_globals, w_varname)
 
     def LOAD_NAME(f, nameindex):
+        assert f.w_locals is not None, (
+               "compiler probably wrongly assumes optimized scopes")
         if f.w_locals is not f.w_globals:
             w_varname = f.getname_w(nameindex)
             try:
