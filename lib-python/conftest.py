@@ -475,7 +475,7 @@ testmap = [
     RegrTest('test_future1.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_future2.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_future3.py', enabled=True, core=True),
-    RegrTest('test_gc.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_gc.py', enabled=True, dumbtest=1),
     RegrTest('test_gdbm.py', enabled=False, dumbtest=1),
     RegrTest('test_generators.py', enabled=True, core=True),
         #rev 10840: 30 of 152 tests fail
