@@ -223,6 +223,9 @@ imports = [
     'import a.b.c.d as abcd',
     'from os import path',
     'from os import path, system',
+    ]
+
+imports_newstyle = [
     'from os import path, system,',
     'from os import path as P, system as S,',
     'from os import (path as P, system as S,)',
@@ -405,6 +408,7 @@ TESTS = [
     attraccess,
     slices,
     imports,
+    imports_newstyle,
     asserts,
     execs,
     prints,
@@ -445,7 +449,6 @@ def check_expression(expr, target='single'):
     print 
     print "BUILT:", r1.rule_stack[-1]
     print "-" * 30
-    # r1.rule_stack[-1].equals(ast)
     assert nodes_equal( ast, r1.rule_stack[-1]), 'failed on %r' % (expr)
 
 
@@ -502,7 +505,7 @@ def test_snippets():
         source = file(filepath).read()
         yield check_expression, source, 'exec'
 
-# FIXME: find the sys' attriubte that define this
+# FIXME: find the sys' attribute that define this
 STDLIB_PATH = os.path.dirname(os.__file__)
 def test_on_stdlib():
     py.test.skip('too ambitious for now (and time consuming)')
