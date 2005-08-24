@@ -71,11 +71,11 @@ static void _RPyConvertExceptionToCPython(void)
 
 
 #define RPyRaiseSimpleException(exc, msg)		        \
-		/* XXX 1. uses officially bad fishing */	\
-		/* XXX 2. msg is ignored */			\
-		rpython_exc_type = (R##exc)->o_typeptr;		\
-		rpython_exc_value = (R##exc);			\
-		rpython_exc_value->refcount++
+	/* XXX 1. uses officially bad fishing */		\
+	/* XXX 2. msg is ignored */				\
+	rpython_exc_type = (R##exc)->o_typeptr;			\
+	rpython_exc_value = (R##exc);				\
+	PUSH_ALIVE(rpython_exc_value)
 
 /******************************************************************/
 #else    /* non-RPython version of exceptions, using CPython only */

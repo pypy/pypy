@@ -16,15 +16,23 @@ class CBuilder:
     _compiled = False
     symboltable = None
     
-    def __init__(self, translator, gcpolicy=None):
+    def __init__(self, translator, gcpolicy=None, libraries=None):
         self.translator = translator
         self.gcpolicy = gcpolicy
-    
+
+        if libraries is None:
+            libraries = []
+        self.libraries = libraries        
+
     def generate_source(self):
         assert self.c_source_filename is None
         translator = self.translator
         pf = self.getentrypointptr()
         db = LowLevelDatabase(translator, standalone=self.standalone, gcpolicy=self.gcpolicy)
+
+        # we need a concrete gcpolicy to do this        
+        self.libraries += db.gcpolicy.gc_libraries()
+
         pfname = db.get(pf)
         db.complete()
 
@@ -59,7 +67,8 @@ class CExtModuleBuilder(CBuilder):
         assert not self._compiled
         compile_c_module(self.c_source_filename, 
                          self.c_source_filename.purebasename,
-                         include_dirs = [autopath.this_dir])
+                         include_dirs = [autopath.this_dir],
+                         libraries=self.libraries)
         self._compiled = True
 
     def import_module(self):
@@ -95,7 +104,8 @@ class CStandaloneBuilder(CBuilder):
         python_inc = sysconfig.get_python_inc()
         self.executable_name = build_executable([self.c_source_filename],
                                          include_dirs = [autopath.this_dir,
-                                                         python_inc])
+                                                         python_inc],
+                                         libraries=self.libraries)
         self._compiled = True
         return self.executable_name
 
@@ -226,6 +236,10 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     #
     for key, value in defines.items():
         print >> f, '#define %s %s' % (key, value)
+
+    for line in database.gcpolicy.pre_pre_gc_code():
+        print >> f, line
+
     print >> f, '#include "src/g_prerequisite.h"'
 
     for line in database.gcpolicy.pre_gc_code():

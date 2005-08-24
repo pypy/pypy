@@ -53,7 +53,10 @@ class StructDefNode:
             assert isinstance(T, GC_CONTAINER)
             firstdefnode = db.gettypedefnode(T)
             firstfieldname = self.c_struct_field_name(STRUCT._names[0])
-            self.gcheader = '%s.%s' % (firstfieldname, firstdefnode.gcheader)
+            if firstdefnode.gcheader:
+                self.gcheader = '%s.%s' % (firstfieldname, firstdefnode.gcheader)
+            else:
+                self.gcheader = None
 
             # give the gcpolicy a chance to do sanity checking or special preparation for
             # this case
@@ -507,28 +510,6 @@ def select_function_code_generator(fnobj, db):
     else:
         raise ValueError, "don't know how to generate code for %r" % (fnobj,)
 
-# xxx move it completly to the gcpolicy
-class RuntimeTypeInfo_OpaqueNode(ContainerNode):
-    globalcontainer = True
-    includes = ()
-
-    def __init__(self, db, T, obj):
-        assert T == RuntimeTypeInfo
-        assert isinstance(obj.about, GcStruct)
-        self.db = db
-        self.T = T
-        self.obj = obj
-        defnode = db.gettypedefnode(obj.about)
-
-        self.db.gcpolicy.rtti_node(defnode, self)
-
-    def enum_dependencies(self):
-        return []
-
-    def implementation(self):
-        return []
-
-
 class ExtType_OpaqueNode(ContainerNode):
 
     def enum_dependencies(self):
@@ -551,7 +532,7 @@ class ExtType_OpaqueNode(ContainerNode):
 
 def opaquenode_factory(db, T, obj):
     if T == RuntimeTypeInfo:
-        return RuntimeTypeInfo_OpaqueNode(db, T, obj)
+        return db.gcpolicy.rtti_node_factory()(db, T, obj)
     if hasattr(T, '_exttypeinfo'):
         return ExtType_OpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))

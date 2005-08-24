@@ -36,7 +36,7 @@ def enable_fast_compilation():
         opt = '-O0'
     gcv['OPT'] = opt
 
-def compile_c_module(cfile, modname, include_dirs=None):
+def compile_c_module(cfile, modname, include_dirs=None, libraries=[]):
     #try:
     #    from distutils.log import set_threshold
     #    set_threshold(10000)
@@ -92,7 +92,8 @@ def compile_c_module(cfile, modname, include_dirs=None):
                             'ext_modules': [
                                 Extension(modname, [str(cfile)],
                                     include_dirs=include_dirs,
-                                    extra_compile_args=extra_compile_args)
+                                    extra_compile_args=extra_compile_args,
+                                    libraries=libraries,)
                                 ],
                             'script_name': 'setup.py',
                             'script_args': ['-q', 'build_ext', '--inplace'],

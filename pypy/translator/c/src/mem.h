@@ -17,6 +17,8 @@
 
 #define OP_FREE(p)	{ PyObject_Free(p); COUNT_FREE; }
 
+/* XXX uses officially bad fishing */
+#define PUSH_ALIVE(obj) obj->refcount++
 
 /*------------------------------------------------------------*/
 #ifndef COUNT_OP_MALLOCS
@@ -42,3 +44,25 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 /*------------------------------------------------------------*/
 #endif /*COUNT_OP_MALLOCS*/
 /*------------------------------------------------------------*/
+
+/* for Boehm GC */
+
+#ifdef USING_BOEHM_GC
+
+#define OP_BOEHM_ZERO_MALLOC(size, r, err)   {                         \
+	r = (void*) GC_MALLOC(size);				       \
+	if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory");	\
+	memset((void*) r, 0, size);				       \
+  }
+
+#define OP_BOEHM_ZERO_MALLOC_FINALIZER(size, r, finalizer, err)   {    \
+	r = (void*) GC_MALLOC(size);				       \
+	if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory");	\
+	GC_REGISTER_FINALIZER(r, finalizer, NULL, NULL, NULL);         \
+	memset((void*) r, 0, size);				       \
+  }
+
+#undef PUSH_ALIVE
+#define PUSH_ALIVE(obj)
+
+#endif /* USING_BOEHM_GC */

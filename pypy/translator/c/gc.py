@@ -1,6 +1,8 @@
 from pypy.translator.c.support import cdecl
+from pypy.translator.c.node import ContainerNode
 from pypy.rpython.lltype import typeOf, Ptr, PyObject, ContainerType
-from pypy.rpython.lltype import getRuntimeTypeInfo
+from pypy.rpython.lltype import GcArray, GcStruct
+from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo
 
 PyObjPtr = Ptr(PyObject)
 
@@ -34,6 +36,44 @@ class BasicGcPolicy:
             else:
                 return self.pop_alive_nopyobj(expr, T)
         return ''
+
+    def push_alive_nopyobj(self, expr, T):
+        return ''
+
+    def pop_alive_nopyobj(self, expr, T):
+        return ''
+
+    def push_alive_op_result(self, opname, expr, T):
+        return ''
+
+    def gcheader_field_name(self, defnode):
+        return None
+
+    def common_gcheader_definition(self, defnode):
+        return []
+
+    def common_after_definition(self, defnode):
+        return []
+
+    def common_gcheader_initializationexpr(self, defnode):
+        return []
+
+    struct_gcheader_definition = common_gcheader_definition
+    struct_after_definition = common_after_definition
+    struct_gcheader_initialitionexpr = common_gcheader_initializationexpr
+
+    def prepare_nested_gcstruct(self, structdefnode, INNER):
+        pass
+
+    array_gcheader_definition = common_gcheader_definition
+    array_after_definition = common_after_definition
+    array_gcheader_initialitionexpr = common_gcheader_initializationexpr
+
+    def gc_libraries(self):
+        return []
+
+    def pre_pre_gc_code(self): # code that goes before include g_prerequisite.h
+        return []
 
     def pre_gc_code(self):
         return []
@@ -113,8 +153,6 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def deallocator_lines(self, defnode, prefix):
         for line in defnode.visitor_lines(prefix, self.generic_dealloc):
             yield line
-
-
 
     # for structs
 
@@ -208,12 +246,8 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def rtti_type(self):
         return 'void (@)(void *)'   # void dealloc_xx(struct xx *)
 
-    def rtti_node(self, defnode, node):
-        node.typename = 'void (@)(void *)'
-        node.implementationtypename = 'void (@)(struct %s *)' % (
-            defnode.name,)
-        node.name = defnode.gcinfo.static_deallocator
-        node.ptrname = '((void (*)(void *)) %s)' % (node.name,)
+    def rtti_node_factory(self):
+        return RefcountingRuntimeTypeInfo_OpaqueNode
 
     # zero malloc impl
 
@@ -222,4 +256,126 @@ class RefcountingGcPolicy(BasicGcPolicy):
                                                 eresult,
                                                 err)
 
+class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
+    globalcontainer = True
+    includes = ()
+    typename = 'void (@)(void *)'
 
+    def __init__(self, db, T, obj):
+        assert T == RuntimeTypeInfo
+        assert isinstance(obj.about, GcStruct)
+        self.db = db
+        self.T = T
+        self.obj = obj
+        defnode = db.gettypedefnode(obj.about)
+        self.implementationtypename = 'void (@)(struct %s *)' % (
+            defnode.name,)
+        self.name = defnode.gcinfo.static_deallocator
+        self.ptrname = '((void (*)(void *)) %s)' % (self.name,)
+
+    def enum_dependencies(self):
+        return []
+
+    def implementation(self):
+        return []
+
+
+
+class BoehmGcInfo:
+    finalizer = None
+
+class BoehmGcPolicy(BasicGcPolicy):
+
+    write_barrier = RefcountingGcPolicy.write_barrier.im_func
+
+    generic_dealloc = RefcountingGcPolicy.generic_dealloc.im_func
+
+    deallocator_lines = RefcountingGcPolicy.deallocator_lines.im_func
+
+    # for arrays
+
+    def array_setup(self, arraydefnode):
+        if isinstance(arraydefnode.LLTYPE, GcArray) and list(self.deallocator_lines(arraydefnode, '')):
+            gcinfo = arraydefnode.gcinfo = RefcountingInfo()
+            gcinfo.finalizer = self.db.namespace.uniquename('finalize_'+arraydefnode.barename)
+
+    def array_implementationcode(self, arraydefnode):
+        if arraydefnode.gcinfo:
+            gcinfo = arraydefnode.gcinfo
+            if gcinfo.finalizer:
+                yield 'void %s(GC_PTR obj, GC_PTR ignore) {' % (gcinfo.finalizer, arraydefnode.name)
+                yield '\tstruct %s *a = (struct %s *)obj;' % (arraydefnode.name, arraydefnode.name)
+                for line in self.deallocator_lines(arraydefnode, '(*a)'):
+                    yield '\t' + line
+                yield '}'
+
+    # for structs
+    def struct_setup(self, structdefnode, rtti):
+        if isinstance(structdefnode.LLTYPE, GcStruct) and list(self.deallocator_lines(structdefnode, '')):
+            gcinfo = structdefnode.gcinfo = RefcountingInfo()
+            gcinfo.finalizer = self.db.namespace.uniquename('finalize_'+structdefnode.barename)
+
+    def struct_implementationcode(self, structdefnode):
+        if structdefnode.gcinfo:
+            gcinfo = structdefnode.gcinfo
+            if gcinfo.finalizer:
+                yield 'void %s(GC_PTR obj, GC_PTR ignore) {' % (gcinfo.finalizer, structdefnode.name)
+                yield '\tstruct %s *p = (struct %s *)obj;' % (structdefnode.name, structdefnode.name)
+                for line in self.deallocator_lines(structdefnode, '(*p)'):
+                    yield '\t' + line
+                yield '}'
+
+    # for rtti node
+
+    def rtti_type(self):
+        return 'long @'
+
+    def rtti_node_factory(self):
+        return BoehmGcRuntimeTypeInfo_OpaqueNode
+
+    # zero malloc impl
+
+    def zero_malloc(self, TYPE, esize, eresult, err):
+        gcinfo = self.db.gettypedefnode(TYPE).gcinfo
+        if gcinfo and gcinfo.finalizer:
+            yield  'OP_BOEHM_ZERO_MALLOC_FINALIZER(%s, %s, %s, %s);' % (esize,
+                                                                        eresult,
+                                                                        gcinfo.finalizer,
+                                                                        err)
+        else:
+            yield  'OP_BOEHM_ZERO_MALLOC(%s, %s, %s);' % (esize,
+                                                          eresult,
+                                                          err)
+
+    def gc_libraries(self):
+        return ['gc'] # xxx on windows?
+
+    def pre_pre_gc_code(self):
+        yield '#include <gc.h>'
+        yield '#define USING_BOEHM_GC'
+
+    def gc_startup_code(self):
+        yield 'GC_INIT();'
+
+
+class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
+    globalcontainer = True
+    includes = ()
+    typename = 'long @'
+    implementationtypename = typename
+
+    def __init__(self, db, T, obj):
+        assert T == RuntimeTypeInfo
+        assert isinstance(obj.about, GcStruct)
+        self.db = db
+        self.T = T
+        self.obj = obj
+        defnode = db.gettypedefnode(obj.about)
+        self.name = self.db.namespace.uniquename('g_rtti_v_'+ defnode.barename)
+        self.ptrname = '&%s' % (self.name,)
+
+    def enum_dependencies(self):
+        return []
+
+    def implementation(self):
+        yield 'long %s = %d;' % (self.name, id(self.obj))

@@ -8,7 +8,6 @@ from pypy.translator.c.node import StructDefNode, ArrayDefNode
 from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.pyobj import PyObjMaker
-from pypy.translator.c import gc
 
 # ____________________________________________________________
 
@@ -25,6 +24,7 @@ class LowLevelDatabase:
         if not standalone:
             self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
         if gcpolicy is None:
+            from pypy.translator.c import gc
             gcpolicy = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicy(self)
 
