@@ -20,19 +20,12 @@ test_import
 
 multiple tests fail because from __future__ import division does 
 not work (true division is never enabled)
-
-test_iterlen (ale will work on this) FIXED  (finally) 
-
-    fails because len is not implemented for SeqIter (and
-    other structures like generators (reversed) )
     
 test_compiler 
     fails because of "maximum recursion depth exceeded"
 
 test_decorator
     fails because globals and locals are None in a nested function ?
-
-test_enumerate FIXED by skippiing a test for an implementation detail .
 
 test_builtin
     - our compilers need to recognize BOM markers
@@ -54,21 +47,9 @@ test_marshal
 test_tuple etc
    do we want to support x is x*1 where x is exactly a tuple?
 
-test_new FIXED
-
 test_extcall
    cannot be fixed.  PyPy produces different TypeError messages but they are
    also correct and useful (reviewed them again).
-
-test_optparse FIXED
-
-
-test_sort FIXED
-   different way of detecting mutations during sort: PyPy didn't detect
-   changes done by the __del__ method of the key-wrapper objects.
-
-test_str FIXED
-   there's some optimisation tests failing => disabled them
 
 test_tempfile
   still failing
@@ -79,11 +60,7 @@ test_exceptions
 
 test_cpickle
 test_descr
-   FIXED? should be re-run.  Were fixed in modified-2.3.4, but then they
-   were somehow lost when we switched to 2.4.1...
-
-test_sys (FIXED)
-    refcount test disabled (considered implementation detail from CPython)
+   have been re-run, still failing
 
 test_multibytecodec
     needs the gb18030 codec, part of the CJK codecs. either remove this test
