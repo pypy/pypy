@@ -73,5 +73,12 @@ def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
 # ____________________________________________________________
 
 long_typedef = StdTypeDef("long",
+    __doc__ = '''long(x[, base]) -> integer
+
+Convert a string or number to a long integer, if possible.  A floating
+point argument will be truncated towards zero (this does not include a
+string representation of a floating point number!)  When converting a
+string, use the optional base.  It is an error to supply a base when
+converting a non-string.''',
     __new__ = newmethod(descr__new__),
     )

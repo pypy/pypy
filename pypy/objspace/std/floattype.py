@@ -42,5 +42,8 @@ def descr__new__(space, w_floattype, w_x=0.0):
 # ____________________________________________________________
 
 float_typedef = StdTypeDef("float",
+    __doc__ = '''float(x) -> floating point number
+
+Convert a string or number to a floating point number, if possible.''',
     __new__ = newmethod(descr__new__),
     )

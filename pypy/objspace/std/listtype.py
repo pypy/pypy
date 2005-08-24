@@ -41,6 +41,8 @@ def descr__new__(space, w_listtype, __args__):
 # ____________________________________________________________
 
 list_typedef = StdTypeDef("list",
+    __doc__ = '''list() -> new list
+list(sequence) -> new list initialized from sequence's items''',
     __new__ = newmethod(descr__new__, unwrap_spec=[gateway.ObjSpace,
                                                    gateway.W_Root,
                                                    gateway.Arguments]),

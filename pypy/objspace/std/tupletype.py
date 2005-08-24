@@ -17,5 +17,9 @@ def descr__new__(space, w_tupletype, w_sequence=NoneNotWrapped):
 # ____________________________________________________________
 
 tuple_typedef = StdTypeDef("tuple",
+    __doc__ = '''tuple() -> an empty tuple
+tuple(sequence) -> tuple initialized from sequence's items
+
+If the argument is a tuple, the return value is the same object.''',
     __new__ = newmethod(descr__new__),
     )

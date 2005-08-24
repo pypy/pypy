@@ -13,6 +13,11 @@ def descr__new__(space, w_booltype, w_obj=None):
 # ____________________________________________________________
 
 bool_typedef = StdTypeDef("bool", int_typedef,
+    __doc__ = '''bool(x) -> bool
+
+Returns True when the argument x is true, False otherwise.
+The builtins True and False are the only two instances of the class bool.
+The class bool is a subclass of the class int, and cannot be subclassed.''',
     __new__ = newmethod(descr__new__),
     )
 bool_typedef.acceptable_as_base_class = False

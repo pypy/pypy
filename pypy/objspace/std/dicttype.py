@@ -106,6 +106,15 @@ def descr__new__(space, w_dicttype, __args__):
 # ____________________________________________________________
 
 dict_typedef = StdTypeDef("dict",
+    __doc__ = '''dict() -> new empty dictionary.
+dict(mapping) -> new dictionary initialized from a mapping object's
+    (key, value) pairs.
+dict(seq) -> new dictionary initialized as if via:
+    d = {}
+    for k, v in seq:
+        d[k] = v
+dict(**kwargs) -> new dictionary initialized with the name=value pairs
+    in the keyword argument list.  For example:  dict(one=1, two=2)''',
     __new__ = newmethod(descr__new__,
                         unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )

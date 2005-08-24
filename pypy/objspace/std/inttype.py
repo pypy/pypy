@@ -89,5 +89,13 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
 # ____________________________________________________________
 
 int_typedef = StdTypeDef("int",
+    __doc__ = '''int(x[, base]) -> integer
+
+Convert a string or number to an integer, if possible.  A floating point
+argument will be truncated towards zero (this does not include a string
+representation of a floating point number!)  When converting a string, use
+the optional base.  It is an error to supply a base when converting a
+non-string. If the argument is outside the integer range a long object
+will be returned instead.''',
     __new__ = newmethod(descr__new__),
     )
