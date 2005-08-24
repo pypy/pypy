@@ -175,3 +175,10 @@ class AppTestUnicodeString:
                      unichr(19), unichr(2), u'\u1234', u'\U00101234']:
             assert eval(repr(ustr)) == ustr
             
+    def test_getnewargs(self):
+        class X(unicode):
+            pass
+        x = X(u"foo\u1234")
+        a = x.__getnewargs__()
+        assert a == (u"foo\u1234",)
+        assert type(a[0]) is unicode

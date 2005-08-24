@@ -97,6 +97,9 @@ def ord__Unicode(space, w_uni):
         raise OperationError(space.w_TypeError, space.wrap('ord() expected a character'))
     return space.wrap(ord(w_uni._value[0]))
 
+def getnewargs__Unicode(space, w_uni):
+    return space.newtuple([W_UnicodeObject(space, w_uni._value)])
+
 def add__Unicode_Unicode(space, w_left, w_right):
     left = w_left._value
     right = w_right._value
