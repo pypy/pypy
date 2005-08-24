@@ -20,6 +20,7 @@ Command-line options for translate_pypy:
    -fork      (UNIX) Create a restartable checkpoint after annotation
    -llvm      Use LLVM instead of C
    -c         Generate the C code, but don't compile it
+   -boehm     Use the Boehm collector when generating C code
    -o         Generate and compile the C code, but don't run it
    -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
                   -- http://fabrice.bellard.free.fr/tcc/
@@ -331,6 +332,7 @@ if __name__ == '__main__':
     options = {'-text': False,
                '-no-c': False,
                '-c':    False,
+               '-boehm': False,
                '-o':    False,
                '-llvm': False,
                '-no-mark-some-objects': False,
@@ -610,6 +612,11 @@ show class hierarchy graph"""
                  )
         if err:
             raise err[0], err[1], err[2]
+        gcpolicy = None
+        if options['-boehm']:
+            from pypy.translator.c import gc
+            gcpolicy = gc.BoehmGcPolicy
+
         if options['-llinterpret']:
             def interpret():
                 import py
@@ -629,7 +636,7 @@ show class hierarchy graph"""
             else:
                 print 'Generating C code without compiling it...'
                 filename = t.ccompile(really_compile=False,
-                                      standalone=standalone)
+                                      standalone=standalone, gcpolicy=gcpolicy)
             update_usession_dir()
             print 'Written %s.' % (filename,)
         else:
@@ -638,7 +645,7 @@ show class hierarchy graph"""
                 c_entry_point = t.llvmcompile(standalone=standalone)
             else:
                 print 'Generating and compiling C code...'
-                c_entry_point = t.ccompile(standalone=standalone)
+                c_entry_point = t.ccompile(standalone=standalone, gcpolicy=gcpolicy)
             update_usession_dir()
             if not options['-o']:
                 print 'Running!'
