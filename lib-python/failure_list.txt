@@ -92,3 +92,7 @@ test_multibytecodec
 test_traceback
     test_nocaret fails because the examined SyntaxError doesn't carry a
     line number
+
+test_trace
+    Fails because of our compiler generating different linenumber information
+    than CPythons.
