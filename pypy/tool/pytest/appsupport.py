@@ -97,7 +97,6 @@ def build_pytest_assertion(space):
                                       space.wrap('__init__'))
         space.call_args(w_parent_init, __args__.prepend(w_self))
         framestack = space.getexecutioncontext().framestack
-        frame = framestack.top(0)
 ##        # Argh! we may see app-level helpers in the frame stack!
 ##        #       that's very probably very bad...
 ##        if frame.code.co_name == 'normalize_exception': 
@@ -108,6 +107,7 @@ def build_pytest_assertion(space):
         if args_w: 
             w_msg = args_w[0]
         else:
+            frame = framestack.top(0)
             runner = AppFrame(frame)
             try:
                 source = runner.statement
