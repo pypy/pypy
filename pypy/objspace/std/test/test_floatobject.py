@@ -1,7 +1,7 @@
 import autopath
 from pypy.objspace.std import floatobject as fobj
 from pypy.objspace.std.objspace import FailedToImplement
-
+import py
 
 class TestW_FloatObject:
 
@@ -122,7 +122,11 @@ class AppTestAppFloatTest:
         assert pw(-1.0, 2.0) == 1.0
         assert pw(-1.0, 3.0) == -1.0
         assert pw(-1.0, 1e200) == 1.0
-        
+
+    def DONOTtest_pow_neg_base(self):
+        def pw(x, y):
+            return x ** y
+        assert pw(-2.0, 2.0) == 4
         
         
         
