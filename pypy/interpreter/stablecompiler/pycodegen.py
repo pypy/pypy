@@ -9,7 +9,7 @@ from cStringIO import StringIO
 from pypy.interpreter.stablecompiler import ast, parse, walk, syntax
 from pypy.interpreter.stablecompiler import pyassem, misc, future, symbols
 from pypy.interpreter.stablecompiler.consts import SC_LOCAL, SC_GLOBAL, \
-    SC_FREE, SC_CELL, SC_DEFAULT
+    SC_FREE, SC_CELL
 from pypy.interpreter.stablecompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
 from pypy.interpreter.stablecompiler.pyassem import TupleArg
@@ -280,14 +280,12 @@ class CodeGenerator:
             else:
                 self.emit(prefix + '_FAST', name)
         elif scope == SC_GLOBAL:
-            self.emit(prefix + '_GLOBAL', name)
+            if not self.optimized:
+                self.emit(prefix + '_NAME', name)
+            else:
+                self.emit(prefix + '_GLOBAL', name)
         elif scope == SC_FREE or scope == SC_CELL:
             self.emit(prefix + '_DEREF', name)
-        elif scope == SC_DEFAULT: 
-            if self.optimized:
-                self.emit(prefix + '_GLOBAL', name)
-            else:
-                self.emit(prefix + '_NAME', name)
         else:
             raise RuntimeError, "unsupported scope for var %s: %d" % \
                   (name, scope)
@@ -1290,7 +1288,7 @@ class AbstractFunctionCode:
 
         args, hasTupleArg = generateArgList(func.argnames)
         self.graph = pyassem.PyFlowGraph(name, func.filename, args,
-                                         self.optimized)
+                                         optimized=1)
         self.isLambda = isLambda
         self.super_init()
 
@@ -1346,7 +1344,6 @@ class FunctionCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
     def __init__(self, func, scopes, isLambda, class_name, mod):
         self.scopes = scopes
         self.scope = scopes[func]
-        self.optimized = self.scope.optimized
         self.__super_init(func, scopes, isLambda, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())

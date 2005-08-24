@@ -52,6 +52,10 @@ class W_TypeObject(W_Object):
         w_self.nslots = 0
         w_self.w_bestbase = None
 
+        # make sure there is a __doc__ in dict_w
+        if '__doc__' not in dict_w:
+            dict_w['__doc__'] = space.w_None
+
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
             w_self.hasdict = overridetypedef.hasdict
