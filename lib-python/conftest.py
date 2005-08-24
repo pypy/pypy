@@ -856,14 +856,14 @@ class ReallyRunFileExternal(py.test.Item):
         pypy_options.extend(
             ['--usemodules=%s' % mod for mod in regrtest.usemodules])
         sopt = " ".join(pypy_options) 
-
-        if regrtest.getoutputpath(): 
-            wrap = str(regr_script)
-        else: 
-            wrap = ""
+        # experimental: always use regrverbose script 
+        # previously we only did it if regrtest.outputpath() was True
+        # the regrverbose script now does the logic that CPython
+        # uses in its regrtest.py 
+        wrap = str(regr_script)
         TIMEOUT = gettimeout()
         cmd = "%s %s %d %s %s %s %s" %(python, alarm_script, TIMEOUT, 
-                pypy_script, wrap, sopt, fspath)
+                pypy_script, sopt, wrap, fspath.purebasename)
         return cmd 
 
     def run(self): 
