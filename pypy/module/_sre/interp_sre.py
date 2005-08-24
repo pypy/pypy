@@ -159,21 +159,21 @@ uni_linebreaks = [10, 13, 28, 29, 30, 133, 8232, 8233]
 
 def is_digit(space, w_char):
     code = space.int_w(space.ord(w_char))
-    return code < 128 and ascii_char_info[code] & 1
+    return code < 128 and (ascii_char_info[code] & 1 != 0)
 
 def is_uni_digit(space, w_char):
     return space.is_true(space.call_method(w_char, "isdigit"))
 
 def is_space(space, w_char):
     code = space.int_w(space.ord(w_char))
-    return code < 128 and ascii_char_info[code] & 2
+    return code < 128 and (ascii_char_info[code] & 2 != 0)
 
 def is_uni_space(space, w_char):
     return space.is_true(space.call_method(w_char, "isspace"))
 
 def is_word(space, w_char):
     code = space.int_w(space.ord(w_char))
-    return code < 128 and ascii_char_info[code] & 16
+    return code < 128 and (ascii_char_info[code] & 16 != 0)
 
 def is_uni_word(space, w_char):
     code = space.int_w(space.ord(w_char))
