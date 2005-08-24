@@ -378,10 +378,13 @@ def load_source_module(space, w_modulename, w_mod, pathname, osfile):
 # difficulties of using it though applevel.
 _r_correction = intmask(1L<<32)    # == 0 on 32-bit machines
 def _r_long(osfile):
-    a = ord(osfile.read(1))
-    b = ord(osfile.read(1))
-    c = ord(osfile.read(1))
-    d = ord(osfile.read(1))
+    s = osfile.read(4)
+    if len(s) < 4:
+        return -1   # good enough for our purposes
+    a = ord(s[0])
+    b = ord(s[1])
+    c = ord(s[2])
+    d = ord(s[3])
     x = a | (b<<8) | (c<<16) | (d<<24)
     if _r_correction and d & 0x80 and x > 0:
         x -= _r_correction
