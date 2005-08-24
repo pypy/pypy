@@ -2,6 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject, _AsDouble, _FromDouble
+from pypy.objspace.std.longobject import isinf
 from pypy.rpython.rarithmetic import ovfcheck_float_to_int, intmask
 
 ##############################################################
@@ -124,6 +125,67 @@ def ge__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
     j = w_float2.floatval
     return space.newbool( i >= j )
+
+# for overflowing comparisons between longs and floats
+# XXX we might have to worry (later) about eq__Float_Int, for the case
+#     where int->float conversion may loose precision :-(
+def eq__Float_Long(space, w_float1, w_long2):
+    # XXX naive implementation
+    x = w_float1.floatval
+    if isinf(x) or math.floor(x) != x:
+        return space.w_False
+    try:
+        w_long1 = _FromDouble(space, x)
+    except OverflowError:
+        return space.w_False
+    return space.eq(w_long1, w_long2)
+
+def eq__Long_Float(space, w_long1, w_float2):
+    return eq__Float_Long(space, w_float2, w_long1)
+
+def ne__Float_Long(space, w_float1, w_long2):
+    return space.not_(eq__Float_Long(space, w_float1, w_long2))
+
+def ne__Long_Float(space, w_long1, w_float2):
+    return space.not_(eq__Float_Long(space, w_float2, w_long1))
+
+def lt__Float_Long(space, w_float1, w_long2):
+    # XXX naive implementation
+    x = w_float1.floatval
+    if isinf(x):
+        return space.newbool(x < 0.0)
+    x_floor = math.floor(x)
+    try:
+        w_long1 = _FromDouble(space, x_floor)
+    except OverflowError:
+        return space.newbool(x < 0.0)
+    return space.lt(w_long1, w_long2)
+
+def lt__Long_Float(space, w_long1, w_float2):
+    return space.not_(le__Float_Long(space, w_float2, w_long1))
+
+def le__Float_Long(space, w_float1, w_long2):
+    # XXX it's naive anyway
+    if space.is_true(space.lt(w_float1, w_long2)):
+        return space.w_True
+    else:
+        return space.eq(w_float1, w_long2)
+
+def le__Long_Float(space, w_long1, w_float2):
+    return space.not_(lt__Float_Long(space, w_float2, w_long1))
+
+def gt__Float_Long(space, w_float1, w_long2):
+    return space.not_(le__Float_Long(space, w_float1, w_long2))
+
+def gt__Long_Float(space, w_long1, w_float2):
+    return lt__Float_Long(space, w_float2, w_long1)
+
+def ge__Float_Long(space, w_float1, w_long2):
+    return space.not_(lt__Float_Long(space, w_float1, w_long2))
+
+def ge__Long_Float(space, w_long1, w_float2):
+    return le__Float_Long(space, w_float2, w_long1)
+
 
 def hash__Float(space, w_value):
     return space.wrap(_hash_float(space, w_value.floatval))

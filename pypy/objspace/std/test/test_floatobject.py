@@ -134,5 +134,45 @@ class AppTestAppFloatTest:
             return x ** y
         assert pw(-2.0, 2.0) == 4
         
-        
-        
+    def test_float_cmp(self):
+        assert 12.5 == 12.5
+        assert 12.5 != -3.2
+        assert 12.5 < 123.4
+        assert .25 <= .25
+        assert -5744.23 <= -51.2
+        assert 4.3 > 2.3
+        assert 0.01 >= -0.01
+        # float+long
+        verylonglong = 10L**400
+        infinite = 1e200*1e200
+        assert 12.0 == 12L
+        assert 1e300 == long(1e300)
+        assert 12.1 != 12L
+        assert infinite != 123456789L
+        assert 12.9 < 13L
+        assert -infinite < -13L
+        assert 12.9 <= 13L
+        assert 13.0 <= 13L
+        assert 13.01 > 13L
+        assert 13.0 >= 13L
+        assert 13.01 >= 13L
+        assert infinite > verylonglong
+        assert infinite >= verylonglong
+        assert 1234.56 < verylonglong
+        assert 1234.56 <= verylonglong
+        # long+float
+        assert 12L == 12.0
+        assert long(1e300) == 1e300
+        assert 12L != 12.1
+        assert 123456789L != infinite
+        assert 13L > 12.9
+        assert -13L > -infinite
+        assert 13L >= 12.9
+        assert 13L >= 13.0
+        assert 13L < 13.01
+        assert 13L <= 13.0
+        assert 13L <= 13.01
+        assert verylonglong < infinite
+        assert verylonglong <= infinite
+        assert verylonglong > 1234.56
+        assert verylonglong >= 1234.56
