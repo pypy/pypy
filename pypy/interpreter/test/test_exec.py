@@ -78,6 +78,84 @@ class AppTestExecStmt:
     def test_global_stmt(self):
         g = {}
         l = {}
-        exec "global a; a=5" in g, l
+        co = compile("global a; a=5", '', 'exec')
+        #import dis
+        #dis.dis(co)
+        exec co in g, l
         assert l == {}
         assert g['a'] == 5
+
+    def test_specialcase_free_load(self):
+        exec """if 1:
+            def f():
+                exec 'a=3'
+                return a
+            x = f()
+        """
+        assert x == 3
+
+    def test_specialcase_free_load2(self):
+        exec """if 1:
+            def f(a):
+                exec 'a=3'
+                return a
+            x = f(4)
+        """
+        assert x == 3
+
+    def test_specialcase_globals_and_exec(self):
+        d = {}
+        exec """if 1:
+            b = 2
+            c = 3 
+            d = 4 
+            def f(a):
+                global b
+                exec 'd=42 ; b=7'
+                return a,b,c,d
+            #import dis
+            #dis.dis(f)
+            res = f(3)
+        """ in d
+        r = d['res']
+        assert r == (3,2,3,42)
+
+    def test_nested_names_are_not_confused(self):
+        def get_nested_class():
+            method_and_var = "var"
+            class Test:
+                def method_and_var(self):
+                    return "method"
+                def test(self):
+                    return method_and_var
+                def actual_global(self):
+                    return str("global")
+                def str(self):
+                    return str(self)
+            return Test()
+        t = get_nested_class()
+        assert t.actual_global() == "global" 
+        assert t.test() == 'var'
+        assert t.method_and_var() == 'method'
+
+    def test_import_star_shadows_global(self):
+        d = {'platform' : 3}
+        exec """if 1:
+            def f():
+                from sys import *
+                return platform
+            res = f()""" in d
+        import sys
+        assert d['res'] == sys.platform
+
+    def test_import_global_takes_precendence(self):
+        d = {'platform' : 3}
+        exec """if 1:
+            def f():
+                global platform
+                from sys import *
+                return platform
+            res = f()""" in d
+        import sys
+        assert d['platform'] == 3
+

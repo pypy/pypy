@@ -9,7 +9,7 @@ from cStringIO import StringIO
 from pypy.interpreter.stablecompiler import ast, parse, walk, syntax
 from pypy.interpreter.stablecompiler import pyassem, misc, future, symbols
 from pypy.interpreter.stablecompiler.consts import SC_LOCAL, SC_GLOBAL, \
-    SC_FREE, SC_CELL
+    SC_FREE, SC_CELL, SC_DEFAULT
 from pypy.interpreter.stablecompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
 from pypy.interpreter.stablecompiler.pyassem import TupleArg
@@ -280,12 +280,14 @@ class CodeGenerator:
             else:
                 self.emit(prefix + '_FAST', name)
         elif scope == SC_GLOBAL:
-            if not self.optimized:
-                self.emit(prefix + '_NAME', name)
-            else:
-                self.emit(prefix + '_GLOBAL', name)
+            self.emit(prefix + '_GLOBAL', name)
         elif scope == SC_FREE or scope == SC_CELL:
             self.emit(prefix + '_DEREF', name)
+        elif scope == SC_DEFAULT: 
+            if self.optimized and self.localsfullyknown:
+                self.emit(prefix + '_GLOBAL', name)
+            else:
+                self.emit(prefix + '_NAME', name)
         else:
             raise RuntimeError, "unsupported scope for var %s: %d" % \
                   (name, scope)
@@ -1344,6 +1346,7 @@ class FunctionCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
     def __init__(self, func, scopes, isLambda, class_name, mod):
         self.scopes = scopes
         self.scope = scopes[func]
+        self.localsfullyknown = self.scope.localsfullyknown 
         self.__super_init(func, scopes, isLambda, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
