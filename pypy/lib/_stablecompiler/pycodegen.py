@@ -10,7 +10,7 @@ import ast, syntax
 from transformer import parse
 from visitor import walk
 import pyassem, misc, future, symbols
-from consts import SC_LOCAL, SC_GLOBAL, SC_FREE, SC_CELL, SC_REALLY_GLOBAL
+from consts import SC_LOCAL, SC_GLOBAL, SC_FREE, SC_CELL
 from consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
 from pyassem import TupleArg
@@ -287,8 +287,6 @@ class CodeGenerator:
                 self.emit(prefix + '_GLOBAL', name)
         elif scope == SC_FREE or scope == SC_CELL:
             self.emit(prefix + '_DEREF', name)
-        elif scope == SC_REALLY_GLOBAL:
-            self.emit(prefix +  '_GLOBAL', name)
         else:
             raise RuntimeError, "unsupported scope for var %s: %d" % \
                   (name, scope)
