@@ -260,6 +260,7 @@ class AppTestCaseMethod(py.test.Item):
         space = self.space
         filename = str(self.fspath) 
         callex(space, set_argv, space, space.wrap(filename))
+        #space.call_function(self.w_method)
         callex(space, run_testcase_method, space, self.w_method) 
 
 # ________________________________________________________________________
@@ -344,7 +345,13 @@ class RegrTest:
                 return prev
             ''')
         try: 
-            callex(space, run_file, str(fspath), space)
+            modname = fspath.purebasename 
+            space.appexec([], '''():
+                from test import %(modname)s
+                m = %(modname)s
+                if hasattr(m, 'test_main'):
+                    m.test_main()
+            ''' % locals())
         finally: 
             space.enable_new_style_classes_as_default_metaclass() 
             if self.uselibfile: 
@@ -738,11 +745,12 @@ testmap = [
     RegrTest('test_xpickle.py', enabled=False),
     RegrTest('test_xrange.py', enabled=True, core=True),
     RegrTest('test_zipfile.py', enabled=False, dumbtest=1),
-    RegrTest('test_zipimport.py', enabled=True, core=True),
-        #rev 10840: ImportError: zlib
+    RegrTest('test_zipimport.py', enabled=True),
+        # considered non-core because it depends on 'import zlib'
+        # which we don't have
 
     RegrTest('test_zlib.py', enabled=False),
-        #rev 10840: ImportError: zlib
+        #10840: ImportError: zlib
 ]
 
 class RegrDirectory(py.test.collect.Directory): 
@@ -858,10 +866,14 @@ class ReallyRunFileExternal(py.test.Item):
         # previously we only did it if regrtest.outputpath() was True
         # the regrverbose script now does the logic that CPython
         # uses in its regrtest.py 
-        wrap = str(regr_script)
+        regrrun = str(regr_script)
+        regrrun_verbosity = regrtest.getoutputpath() and '1' or '0'
+        
         TIMEOUT = gettimeout()
-        cmd = "%s %s %d %s %s %s %s" %(python, alarm_script, TIMEOUT, 
-                pypy_script, sopt, wrap, fspath.purebasename)
+        cmd = "%s %s %d %s %s %s %s %s" %(
+                python, alarm_script, TIMEOUT, 
+                pypy_script, sopt, 
+                regrrun, regrrun_verbosity, fspath.purebasename)
         return cmd 
 
     def run(self): 

@@ -1,8 +1,8 @@
 # refer to 2.4.1/test/regrtest.py's runtest() for comparison
 import sys
 from test import test_support 
-test_support.verbose = False
-sys.argv[:] = sys.argv[1:]
+test_support.verbose = int(sys.argv[1])
+sys.argv[:] = sys.argv[2:]
 
 modname = sys.argv[0] 
 impname = 'test.' + modname 
