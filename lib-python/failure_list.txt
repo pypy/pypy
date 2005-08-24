@@ -5,16 +5,6 @@ test_syntax fails because "del f()" produces SyntaxError with message =
     "can't assign to function call" instead of "can't delete function call". 
     The test is for "delete" to be in the message
 
-test_exceptions fails with exception message mismatches:
-    'continue' not allowed inside 'finally' clause (<fragment>, 5)
-    instead oof 'continue' not supported inside 'finally' clause
-    and
-    'continue' outside loop (<fragment>, 2)
-    instead of 'continue' not properly in loop
-    and
-    'continue' outside loop (<fragment>, 1)
-    instead of 'continue' not properly in loop
-
 test_import 
     fails because os.open is case insensitive (at least on Mac os X)
 
@@ -53,10 +43,6 @@ test_extcall
 
 test_tempfile
   still failing
-
-test_exceptions
-  mismatch in SyntaxError messages
-
 
 test_cpickle
 test_descr
