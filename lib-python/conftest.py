@@ -719,9 +719,9 @@ testmap = [
     RegrTest('test_urllibnet.py', enabled=False),
         # try to understand failure!!!
     RegrTest('test_urlparse.py', enabled=True),
-    RegrTest('test_userdict.py', enabled=True, core=True),
-    RegrTest('test_userlist.py', enabled=True, core=True),
-    RegrTest('test_userstring.py', enabled=True, core=True),
+    RegrTest('test_userdict.py', enabled=True),
+    RegrTest('test_userlist.py', enabled=True),
+    RegrTest('test_userstring.py', enabled=True),
     RegrTest('test_uu.py', enabled=False),
         #rev 10840: 1 of 9 test fails
 
