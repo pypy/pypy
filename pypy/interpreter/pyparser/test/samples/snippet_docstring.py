@@ -14,4 +14,7 @@ class A:
 def foo(self):
     """function docstring"""
 
+def boo(x):
+    """Docstring""";print 1
+
 """world"""

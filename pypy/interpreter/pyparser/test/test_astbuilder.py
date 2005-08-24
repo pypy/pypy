@@ -54,9 +54,21 @@ def nodes_equal(left, right):
         del right_nodes[0]
         if not arglist_equal(left_args, right_args):
             return False
+    elif isinstance(left,stable_ast.Const):
+        if isinstance(right,ast_ast.NoneConst):
+            return left.value == None
+        elif isinstance(right, ast_ast.NumberConst):
+            return left.value == right.number_value
+        elif isinstance(right, ast_ast.StringConst):
+            return left.value == right.string_value
+        else:
+            print "Not const type %s" % repr(right)
+            return False
     else:
         left_nodes = left.getChildren()
         right_nodes = right.getChildren()
+    if len(left_nodes)!=len(right_nodes):
+        return False
     for i,j in zip(left_nodes,right_nodes):
         if not nodes_equal(i,j):
             return False
@@ -384,7 +396,12 @@ docstrings = [
     a = 1
     """bar"""
     return a
-    '''
+    ''',
+    '''def foo():
+    """doc"""; print 1
+    a=1
+    ''',
+    '''"""Docstring""";print 1''',
     ]
 
 returns = [
