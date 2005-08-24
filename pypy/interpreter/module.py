@@ -17,6 +17,10 @@ class Module(Wrappable):
         if w_name is not None:
             space.setitem(w_dict, space.wrap('__name__'), w_name) 
 
+    def setup_after_space_initialization(self):
+        """NOT_RPYTHON: to allow built-in modules to do some more setup
+        after the space is fully initialized."""
+
     def getdict(self):
         return self.w_dict
 

@@ -16,6 +16,7 @@ class Module(MixedModule):
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.getlocktype(space)',
         '_local':                 'os_local.getlocaltype(space)',
+        '_please_provide_import_lock': '(space.w_True)',   # for imp.py
     }
 
     def __init__(self, space, *args):
@@ -26,3 +27,9 @@ class Module(MixedModule):
         space.threadlocals = gil.GILThreadLocals()
         space.threadlocals.setvalue(prev)
         space.threadlocals.enter_thread(space)   # setup the main thread
+
+    def setup_after_space_initialization(self):
+        # the import lock is in imp.py.  Import it after the space is fully
+        # initialized.
+        from pypy.module.__builtin__.importing import importhook
+        importhook(self.space, 'imp')

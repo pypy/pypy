@@ -107,6 +107,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.options.oldstyle: 
             self.enable_old_style_classes_as_default_metaclass()
 
+        # final setup
+        self.setup_builtin_modules()
+
     def enable_old_style_classes_as_default_metaclass(self):
         self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)
 

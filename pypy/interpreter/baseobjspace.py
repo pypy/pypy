@@ -219,6 +219,12 @@ class ObjSpace(object):
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.builtin.w_dict, self.wrap(name), value)
 
+    def setup_builtin_modules(self):
+        "NOT_RPYTHON: only for initializing the space."
+        for modname, mixedname in self.get_builtinmodule_list():
+            mod = self.getbuiltinmodule(modname)
+            mod.setup_after_space_initialization()
+
     def initialize(self):
         """NOT_RPYTHON: Abstract method that should put some minimal
         content into the w_builtins."""
