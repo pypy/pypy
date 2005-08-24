@@ -311,36 +311,39 @@ def escape_decode(data,errors='strict'):
         
         if data[i] == '\\':
             i += 1
-            if data[i] == '\\':
-                res += '\\'
-            elif data[i] == 'n':
-                res += '\n'
-            elif data[i] == 't':
-                res += '\t'
-            elif data[i] == 'r':
-                res += '\r'
-            elif data[i] == 'b':
-                res += '\b'
-            elif data[i] == '\'':
-                res += '\''
-            elif data[i] == '\"':
-                res += '\"'
-            elif data[i] == 'f':
-                res += '\f'
-            elif data[i] == 'a':
-                res += '\a'
-            elif data[i] == 'v':
-                res += '\v'
-            elif '0' <= data[i] <= '9':
-                # emulate a strange wrap-around behavior of CPython:
-                # \400 is the same as \000 because 0400 == 256
-                octal = data[i:i+3]
-                res += chr(int(octal,8) & 0xFF)
-                i += 2
-            elif data[i] == 'x':
-                hexa = data[i+1:i+3]
-                res += chr(int(hexa,16))
-                i += 2
+            if i >= l:
+                raise ValueError("Trailing \\ in string")
+            else:
+                if data[i] == '\\':
+                    res += '\\'
+                elif data[i] == 'n':
+                    res += '\n'
+                elif data[i] == 't':
+                    res += '\t'
+                elif data[i] == 'r':
+                    res += '\r'
+                elif data[i] == 'b':
+                    res += '\b'
+                elif data[i] == '\'':
+                    res += '\''
+                elif data[i] == '\"':
+                    res += '\"'
+                elif data[i] == 'f':
+                    res += '\f'
+                elif data[i] == 'a':
+                    res += '\a'
+                elif data[i] == 'v':
+                    res += '\v'
+                elif '0' <= data[i] <= '9':
+                    # emulate a strange wrap-around behavior of CPython:
+                    # \400 is the same as \000 because 0400 == 256
+                    octal = data[i:i+3]
+                    res += chr(int(octal,8) & 0xFF)
+                    i += 2
+                elif data[i] == 'x':
+                    hexa = data[i+1:i+3]
+                    res += chr(int(hexa,16))
+                    i += 2
         else:
             res += data[i]
         i += 1

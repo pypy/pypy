@@ -1,6 +1,172 @@
 import autopath
 
 class AppTestCodecs:
+
+    def test_indexerror(self):
+        test =   "\\"     # trailing backslash
+             
+        raises (ValueError, test.decode,'string-escape')
+
+    def test_insecure_pickle(self):
+        import pickle
+        insecure = ["abc", "2 + 2", # not quoted
+                    #"'abc' + 'def'", # not a single quoted string
+                    "'abc", # quote is not closed
+                    "'abc\"", # open quote and close quote don't match
+                    "'abc'   ?", # junk after close quote
+                    "'\\'", # trailing backslash
+                    # some tests of the quoting rules
+                    #"'abc\"\''",
+                    #"'\\\\a\'\'\'\\\'\\\\\''",
+                    ]
+        for s in insecure:
+            buf = "S" + s + "\012p0\012."
+            print s
+            raises (ValueError, pickle.loads, buf)
+
+    def test_partial_utf8(self):
+        class Queue(object):
+            """     
+            queue: write bytes at one end, read bytes from the other end
+            """ 
+            def __init__(self):
+                self._buffer = ""
+            
+            def write(self, chars):
+                self._buffer += chars
+    
+            def read(self, size=-1):
+                if size<0:
+                    s = self._buffer
+                    self._buffer = ""
+                    return s
+                else: 
+                    s = self._buffer[:size]
+                    self._buffer = self._buffer[size:]
+                    return s
+        def check_partial(encoding, input, partialresults):
+            import codecs
+            
+            # get a StreamReader for the encoding and feed the bytestring version
+            # of input to the reader byte by byte. Read every available from
+            # the StreamReader and check that the results equal the appropriate
+            # entries from partialresults.
+            q = Queue()
+            r = codecs.getreader(encoding)(q)
+            result = u""
+            for (c, partialresult) in zip(input.encode(encoding), partialresults):
+                q.write(c)
+                result += r.read()
+                assert result == partialresult
+            # check that there's nothing left in the buffers
+            assert  r.read() == u"" 
+            assert  r.bytebuffer ==  "" 
+            assert  r.charbuffer == u""
+        encoding = 'utf-8'
+        check_partial(encoding, 
+                u"\x00\xff\u07ff\u0800\uffff",
+                [
+                    u"\x00",
+                    u"\x00",
+                    u"\x00\xff",
+                    u"\x00\xff",
+                    u"\x00\xff\u07ff",
+                    u"\x00\xff\u07ff",
+                    u"\x00\xff\u07ff",
+                    u"\x00\xff\u07ff\u0800",
+                    u"\x00\xff\u07ff\u0800",
+                    u"\x00\xff\u07ff\u0800",
+                    u"\x00\xff\u07ff\u0800\uffff",
+                ]
+            )
+
+    def test_partial_utf16(self):
+        class Queue(object):
+            """     
+            queue: write bytes at one end, read bytes from the other end
+            """ 
+            def __init__(self):
+                self._buffer = ""
+            
+            def write(self, chars):
+                self._buffer += chars
+    
+            def read(self, size=-1):
+                if size<0:
+                    s = self._buffer
+                    self._buffer = ""
+                    return s
+                else: 
+                    s = self._buffer[:size]
+                    self._buffer = self._buffer[size:]
+                    return s
+        def check_partial(encoding, input, partialresults):
+            import codecs
+            
+            # get a StreamReader for the encoding and feed the bytestring version
+            # of input to the reader byte by byte. Read every available from
+            # the StreamReader and check that the results equal the appropriate
+            # entries from partialresults.
+            q = Queue()
+            r = codecs.getreader(encoding)(q)
+            result = u""
+            for (c, partialresult) in zip(input.encode(encoding), partialresults):
+                q.write(c)
+                result += r.read()
+                assert result == partialresult
+            # check that there's nothing left in the buffers
+            assert  r.read() == u"" 
+            assert  r.bytebuffer ==  "" 
+            assert  r.charbuffer == u""
+        encoding = 'utf-16'
+        check_partial(encoding, 
+                u"\x00\xff\u0100\uffff",
+                [
+                    u"", # first byte of BOM read
+                    u"", # second byte of BOM read => byteorder known
+                    u"",
+                    u"\x00",
+                    u"\x00",
+                    u"\x00\xff",
+                    u"\x00\xff",
+                    u"\x00\xff\u0100",
+                    u"\x00\xff\u0100",
+                    u"\x00\xff\u0100\uffff",
+                ])
+    def test_bug1098990_a(self):
+        import codecs, StringIO
+        self.encoding = 'utf-8'
+        s1 = u"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\r\n"
+        s2 = u"offending line: ladfj askldfj klasdj fskla dfzaskdj fasklfj laskd fjasklfzzzzaa%whereisthis!!!\r\n"
+        s3 = u"next line.\r\n"
+       
+        s = (s1+s2+s3).encode(self.encoding)
+        stream = StringIO.StringIO(s)
+        reader = codecs.getreader(self.encoding)(stream)
+        assert reader.readline() == s1
+        assert reader.readline() == s2
+        assert reader.readline() == s3
+        assert reader.readline() == u""
+
+    def test_bug1098990_b(self):
+        import codecs, StringIO
+        self.encoding = 'utf-8'
+        s1 = u"aaaaaaaaaaaaaaaaaaaaaaaa\r\n"
+        s2 = u"bbbbbbbbbbbbbbbbbbbbbbbb\r\n"
+        s3 = u"stillokay:bbbbxx\r\n"
+        s4 = u"broken!!!!badbad\r\n"
+        s5 = u"againokay.\r\n"
+
+        s = (s1+s2+s3+s4+s5).encode(self.encoding)
+        stream = StringIO.StringIO(s)
+        reader = codecs.getreader(self.encoding)(stream)
+        assert reader.readline() == s1
+        assert reader.readline() == s2
+        assert reader.readline() == s3
+        assert reader.readline() == s4
+        assert reader.readline() == s5
+        assert reader.readline() == u""    
+    
     def test_seek_utf16le(self):
         # all codecs should be able to encode these
         import codecs, StringIO
@@ -10,9 +176,7 @@ class AppTestCodecs:
         for t in xrange(5):
             # Test that calling seek resets the internal codec state and buffers
             reader.seek(0, 0)
-            print "before"
             line = reader.readline()
-            print "after",line
             assert s[:len(line)] == line
 
 
