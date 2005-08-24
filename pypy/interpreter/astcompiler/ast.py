@@ -24,6 +24,7 @@ class Node:
     """Abstract base class for ast nodes."""
     def __init__(self, lineno = None):
         self.lineno = lineno
+        self.filename = ""
         
     def getChildren(self):
         pass # implemented by subclasses

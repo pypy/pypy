@@ -215,69 +215,102 @@ class SymbolVisitor(ast.ASTVisitor):
     def __init__(self):
         self.scopes = {}
         self.klass = None
+        self.scope_stack = []
+        self.assign_stack = [ False ]
 
+    def cur_assignment(self):
+        return self.assign_stack[-1]
+
+    def push_assignment(self, val ):
+        self.assign_stack.append( val )
+
+    def pop_assignment(self):
+        self.assign_stack.pop()
+
+    def push_scope( self, scope ):
+        self.scope_stack.append( scope )
+
+    def pop_scope( self ):
+        self.scope_stack.pop()
+
+    def cur_scope( self ):
+        return self.scope_stack[-1]
+    
     # node that define new scopes
 
     def visitModule(self, node):
         scope = self.module = self.scopes[node] = ModuleScope()
-        node.node.accept(self, scope)
+        self.push_scope(scope)
+        node.node.accept(self)
+        self.pop_scope()
 
     visitExpression = visitModule
 
-    def visitFunction(self, node, parent):
+    def visitFunction(self, node):
+        parent = self.cur_scope()
         if node.decorators:
-            node.decorators.accept(self, parent)
+            node.decorators.accept(self)
         parent.add_def(node.name)
         for n in node.defaults:
-            n.accept( self, parent)
+            n.accept( self )
         scope = FunctionScope(node.name, self.module, self.klass)
         if parent.nested or isinstance(parent, FunctionScope):
             scope.nested = 1
         self.scopes[node] = scope
         self._do_args(scope, node.argnames)
-        node.code.accept(self, scope)
+        self.push_scope( scope )
+        node.code.accept(self )
+        self.pop_scope()
         self.handle_free_vars(scope, parent)
 
-    def visitGenExpr(self, node, parent):
+    def visitGenExpr(self, node ):
+        parent = self.cur_scope()
         scope = GenExprScope(self.module, self.klass);
         if parent.nested or isinstance(parent, FunctionScope) \
                 or isinstance(parent, GenExprScope):
             scope.nested = 1
 
         self.scopes[node] = scope
-        node.code.accept(self, scope)
+        self.push_scope(scope)
+        node.code.accept(self)
+        self.pop_scope()
 
         self.handle_free_vars(scope, parent)
 
-    def visitGenExprInner(self, node, scope):
+    def visitGenExprInner(self, node ):
+        #scope = self.cur_scope()
         for genfor in node.quals:
-            genfor.accept( self, scope)
+            genfor.accept( self )
 
-        node.expr.accept( self, scope)
+        node.expr.accept( self )
 
-    def visitGenExprFor(self, node, scope):
-        node.assign.accept(self, scope, 1)
-        node.iter.accept(self, scope)
+    def visitGenExprFor(self, node ):
+        self.push_assignment( True )
+        node.assign.accept(self)
+        self.pop_assignment()
+        node.iter.accept(self )
         for if_ in node.ifs:
-            if_.accept( self, scope)
+            if_.accept( self )
 
-    def visitGenExprIf(self, node, scope):
-        node.test.accept( self, scope)
+    def visitGenExprIf(self, node ):
+        node.test.accept( self )
 
-    def visitLambda(self, node, parent, assign=0):
+    def visitLambda(self, node ):
         # Lambda is an expression, so it could appear in an expression
         # context where assign is passed.  The transformer should catch
         # any code that has a lambda on the left-hand side.
-        assert not assign
-
+        assert not self.cur_assignment()
+        parent = self.cur_scope()
         for n in node.defaults:
-            n.accept( self, parent)
+            n.accept( self )
         scope = LambdaScope(self.module, self.klass)
         if parent.nested or isinstance(parent, FunctionScope):
             scope.nested = 1
         self.scopes[node] = scope
         self._do_args(scope, node.argnames)
-        node.code.accept(self, scope)
+        self.push_scope(scope)
+        node.code.accept(self)
+        self.pop_scope()
         self.handle_free_vars(scope, parent)
 
     def _do_args(self, scope, args):
@@ -293,10 +326,11 @@ class SymbolVisitor(ast.ASTVisitor):
         parent.add_child(scope)
         scope.handle_children()
 
-    def visitClass(self, node, parent):
+    def visitClass(self, node):
+        parent = self.cur_scope()
         parent.add_def(node.name)
         for n in node.bases:
-            n.accept(self, parent)
+            n.accept(self)
         scope = ClassScope(node.name, self.module)
         if parent.nested or isinstance(parent, FunctionScope):
             scope.nested = 1
@@ -306,7 +340,9 @@ class SymbolVisitor(ast.ASTVisitor):
         self.scopes[node] = scope
         prev = self.klass
         self.klass = node.name
-        node.code.accept(self, scope)
+        self.push_scope( scope )
+        node.code.accept(self)
+        self.pop_scope()
         self.klass = prev
         self.handle_free_vars(scope, parent)
 
@@ -316,39 +352,45 @@ class SymbolVisitor(ast.ASTVisitor):
     # true if the name is being used as an assignment.  only
     # expressions contained within statements may have the assign arg.
 
-    def visitName(self, node, scope, assign=0):
-        if assign:
+    def visitName(self, node ):
+        scope = self.cur_scope()
+        if self.cur_assignment():
             scope.add_def(node.varname)
         else:
             scope.add_use(node.varname)
 
     # operations that bind new names
 
-    def visitFor(self, node, scope):
-        node.assign.accept( self, scope, 1)
-        node.list.accept( self, scope)
-        node.body.accept( self, scope)
+    def visitFor(self, node ):
+        self.push_assignment( True )
+        node.assign.accept( self )
+        self.pop_assignment()
+        node.list.accept( self )
+        node.body.accept( self )
         if node.else_:
-            node.else_.accept( self, scope)
+            node.else_.accept( self )
 
-    def visitFrom(self, node, scope):
+    def visitFrom(self, node ):
+        scope = self.cur_scope()
         for name, asname in node.names:
             if name == "*":
                 continue
             scope.add_def(asname or name)
 
-    def visitImport(self, node, scope):
+    def visitImport(self, node ):
+        scope = self.cur_scope()
         for name, asname in node.names:
             i = name.find(".")
             if i > -1:
                 name = name[:i]
             scope.add_def(asname or name)
 
-    def visitGlobal(self, node, scope):
+    def visitGlobal(self, node ):
+        scope = self.cur_scope()
         for name in node.names:
             scope.add_global(name)
 
-    def visitAssign(self, node, scope):
+    def visitAssign(self, node ):
         """Propagate assignment flag down to child nodes.
 
         The Assign node doesn't itself contains the variables being
@@ -361,56 +403,76 @@ class SymbolVisitor(ast.ASTVisitor):
         visitor handles these nodes specially; they do not propagate
         the assign flag to their children.
         """
+        self.push_assignment( True )
         for n in node.nodes:
-            n.accept( self, scope, 1)
-        node.expr.accept( self, scope)
+            n.accept( self )
+        self.pop_assignment()
+        node.expr.accept( self )
 
-    def visitAssName(self, node, scope, assign=1):
+    def visitAssName(self, node ):
+        scope = self.cur_scope()
         scope.add_def(node.name)
 
-    def visitAssAttr(self, node, scope, assign=0):
-        node.expr.accept( self, scope, 0)
+    def visitAssAttr(self, node ):
+        self.push_assignment( False )
+        node.expr.accept( self )
+        self.pop_assignment()
 
-    def visitSubscript(self, node, scope, assign=0):
-        node.expr.accept( self, scope, 0)
+    def visitSubscript(self, node ):
+        self.push_assignment( False )
+        node.expr.accept( self )
         for n in node.subs:
-            n.accept( self, scope, 0)
+            n.accept( self )
+        self.pop_assignment()
 
-    def visitSlice(self, node, scope, assign=0):
-        node.expr.accept( self, scope, 0)
+    def visitSlice(self, node ):
+        self.push_assignment( False )
+        node.expr.accept( self )
         if node.lower:
-            node.lower.accept( self, scope, 0)
+            node.lower.accept( self )
         if node.upper:
-            node.upper.accept( self, scope, 0)
+            node.upper.accept( self )
+        self.pop_assignment()
 
-    def visitAugAssign(self, node, scope):
+    def visitAugAssign(self, node ):
         # If the LHS is a name, then this counts as assignment.
         # Otherwise, it's just use.
-        node.node.accept( self, scope)
+        node.node.accept( self )
         if isinstance(node.node, ast.Name):
-            node.node.accept( self, scope, 1) # XXX worry about this
-        node.expr.accept( self, scope)
+            self.push_assignment( True ) # XXX worry about this
+            node.node.accept( self )
+            self.pop_assignment()
+        node.expr.accept( self )
 
     # prune if statements if tests are false
 
     _const_types = types.StringType, types.IntType, types.FloatType
 
-    def visitIf(self, node, scope):
+    def visitIf(self, node ):
         for test, body in node.tests:
             if isinstance(test, ast.Const):
+                # XXX: Shouldn't come here anymore
                 if type(test.value) in self._const_types:
                     if not test.value:
                         continue
-            test.accept( self, scope)
-            body.accept( self, scope)
+            if isinstance(test, ast.NumberConst):
+                if not test.number_value:
+                    continue
+            if isinstance(test, ast.NoneConst):
+                continue                
+            if isinstance(test, ast.StringConst):
+                if not test.string_value:
+                    continue
+            test.accept( self )
+            body.accept( self )
         if node.else_:
-            node.else_.accept( self, scope)
+            node.else_.accept( self )
 
     # a yield statement signals a generator
 
-    def visitYield(self, node, scope):
+    def visitYield(self, node ):
         scope.generator = 1
-        node.value.accept( self, scope)
+        node.value.accept( self )
 
 def sort(l):
     l = l[:]
