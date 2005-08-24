@@ -1,6 +1,7 @@
 import autopath
 import re
 from os import listdir
+from sys import stdin, stdout, stderr
 
 where = autopath.pypydir + '/objspace/std/'
 quote = '(' + "'" + '|' + '"' + ')'
@@ -9,12 +10,14 @@ triplequotes = '(' + "'''" + '|' + '"""' + ')'
 # in your docstring.
 
 def mk_std_filelist():
-    ''' go to pypy/objs/std and get all the *type.py files '''
+    ''' go to pypy/objs/std and get all the *type.py files, except for
+        typetype.py which has to be patched by hand.'''
     filelist = []
     filenames = listdir(where)
     for f in filenames:
         if f.endswith('type.py'):
-            filelist.append(f)
+            if f != 'typetype.py':
+                filelist.append(f)
     return filelist
 
 
@@ -24,16 +27,16 @@ def compile_doc():
                       re.DOTALL
                       )
 
-def compile_typedef(match):
+def compile_typedef(typ):
     return re.compile(r"(?P<whitespace>\s+)"
-                      + r"(?P<typeassign>" + match
+                      + r"(?P<typeassign>" + typ 
                       + "_typedef = StdTypeDef+\s*\(\s*"
-                      + quote + match +  quote + ",).*"
+                      + quote + typ +  quote + ",).*"
                       + r"(?P<indent>^\s+)"
                       + r"(?P<newassign>__new__\s*=\s*newmethod)",
                       re.DOTALL | re.MULTILINE)
 
-def get_pypydoc(match, sourcefile):
+def get_pypydoc(sourcefile):
     doc = compile_doc()
     
     try: # if this works we already have a docstring
@@ -44,68 +47,53 @@ def get_pypydoc(match, sourcefile):
 
     return pypydoc
 
-def sub_pypydoc(match, sourcefile, cpydoc):
+def get_cpydoc(typ):
+    # relies on being run by CPython.
     try:
-        typedef = compile_typedef(match)
-        tdsearch = typedef.search(sourcefile).group('typeassign')
-        newsearch = typedef.search(sourcefile).group('newassign')
-        if not tdsearch:
-            print 'tdsearch, not found', match
-        if not newsearch:
-            print 'newsearch, not found', match
-    except AttributeError:
-        pass # so stringtype does not blow up.
-    return None
-
-def get_cpydoc(match):
-    try:
-        cpydoc = eval(match + '.__doc__')
+        cpydoc = eval(typ + '.__doc__')
 
     except NameError: # No CPython docstring
         cpydoc = None
     return cpydoc
 
+def add_docstring(typ, sourcefile):
+    pypydoc = get_pypydoc(sourcefile)
+    cpydoc = get_cpydoc(typ)
+
+    if pypydoc:
+        stderr.write('%s:  already has a pypy docstring\n' % typ)
+        return None
+    elif not cpydoc:
+        stderr.write('%s:  does not have a cpython docstring\n' % typ)
+        return None
+    else:
+        docstring="__doc__ = '''" + cpydoc + "''',"
+
+        typedef = compile_typedef(typ)
+        newsearch = typedef.search(sourcefile)
+        if not newsearch:
+            stderr.write('%s:  has a cpython docstring, but no __new__, to determine where to put it.\n' % typ)
+            return None
+        else:
+            return re.sub(newsearch.group('indent') +
+                          newsearch.group('newassign'),
+                          newsearch.group('indent') +
+                          docstring + '\n' +
+                          newsearch.group('indent') +
+                          newsearch.group('newassign'),
+                          sourcefile)
+
 if __name__ == '__main__':
 
-    #filenames = mk_std_filelist()
-    #filenames = ['basestringtype.py']
-    filenames = ['tupletype.py']
-
-    docstrings = []
-
+    filenames = mk_std_filelist()
+    
     for f in filenames:
-        match = f[:-7]
-        sourcefile = file(where + f).read()
+        inf = file(where + f).read()
+        outs = add_docstring(f[:-7], inf)
+        if outs is not None:
+            outf = file(where + f, 'w')
+            outf.write(outs)
         
-        pypydoc = get_pypydoc(match, sourcefile)
-        cpydoc = get_cpydoc(match)
 
-        if pypydoc:
-            print match, 'already has a pypydoc'
-        elif not cpydoc:
-            print match, 'does not have a cpydoc'
-
-        else:
-            print match, 'has cpydoc.   Trying to insert'
-            docstring="__doc__ = '''" + cpydoc + "'''"
-
-            typedef = compile_typedef(match)
-            
-            try:
-                newsearch = typedef.search(sourcefile)
-                if newsearch:
-                    print match, '__new__ found'
-                    print newsearch.groupdict()
-                    print newsearch.group('newassign')
-                    print re.sub(newsearch.group('indent') +
-                                 newsearch.group('newassign'),
-                                 newsearch.group('indent') +
-                                 docstring + '\n' +
-                                 newsearch.group('indent') +
-                                 newsearch.group('newassign'),
-                                 sourcefile)
-
-            except AttributeError:
-                print match, 'no __new__ found'
                 
             

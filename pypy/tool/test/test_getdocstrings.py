@@ -20,7 +20,7 @@ class TestDocStringInserter:
         assert mk_std_filelist() == [
             'basestringtype.py', 'unicodetype.py', 'inttype.py',
             'nonetype.py', 'longtype.py', 'slicetype.py',
-            'itertype.py', 'floattype.py', 'typetype.py',
+            'itertype.py', 'floattype.py',
             'dicttype.py', 'dictproxytype.py', 'tupletype.py',
             'booltype.py', 'objecttype.py', 'stringtype.py',
             'listtype.py']
