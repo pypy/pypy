@@ -547,7 +547,7 @@ testmap = [
     RegrTest('test_minidom.py', enabled=False, dumbtest=1),
     RegrTest('test_mmap.py', enabled=False),
     RegrTest('test_module.py', enabled=True, dumbtest=1, core=True),
-    RegrTest('test_multibytecodec.py', enabled=True, core=True),
+    RegrTest('test_multibytecodec.py', enabled=True),
     RegrTest('test_multibytecodec_support.py', enabled=True, core=True),
     RegrTest('test_multifile.py', enabled=True),
     RegrTest('test_mutants.py', enabled=True, dumbtest=1, core="possibly"),
