@@ -1221,9 +1221,12 @@ class ModuleCodeGenerator(NestedScopeMixin, CodeGenerator):
 
     scopes = None
 
-    def __init__(self, tree):
+    def __init__(self, tree, futures = []):
         self.graph = pyassem.PyFlowGraph("<module>", tree.filename)
         self.futures = future.find_futures(tree)
+        for f in futures:
+            if f not in self.futures:
+                self.futures.append(f)
         self.__super_init()
         walk(tree, self)
 
@@ -1234,10 +1237,10 @@ class ExpressionCodeGenerator(NestedScopeMixin, CodeGenerator):
     __super_init = CodeGenerator.__init__
 
     scopes = None
-    futures = ()
 
-    def __init__(self, tree):
+    def __init__(self, tree, futures=[]):
         self.graph = pyassem.PyFlowGraph("<expression>", tree.filename)
+        self.futures = futures[:]
         self.__super_init()
         walk(tree, self)
 
@@ -1249,10 +1252,13 @@ class InteractiveCodeGenerator(NestedScopeMixin, CodeGenerator):
     __super_init = CodeGenerator.__init__
 
     scopes = None
-    futures = ()
 
-    def __init__(self, tree):
+    def __init__(self, tree, futures=[]):
         self.graph = pyassem.PyFlowGraph("<interactive>", tree.filename)
+        self.futures = future.find_futures(tree)
+        for f in futures:
+            if f not in self.futures:
+                self.futures.append(f)
         self.__super_init()
         self.set_lineno(tree)
         walk(tree, self)

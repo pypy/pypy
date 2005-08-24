@@ -87,6 +87,13 @@ for fname in __future__.all_feature_names:
     compiler_flags |= flag
     compiler_features[fname] = flag
 
+def get_flag_names( flag ):
+    flag_names = []
+    for name, value in compiler_features.items():
+        if flag & value:
+            flag_names.append( name )
+    return flag_names
+
 
 class CPythonCompiler(AbstractCompiler):
     """Faked implementation of a compiler, using the underlying compile()."""
@@ -189,9 +196,9 @@ class PythonCompiler(CPythonCompiler):
         except ParseError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
-        return self.compile_parse_result(parse_result, filename, mode)
+        return self.compile_parse_result(parse_result, filename, mode, flags)
 
-    def compile_parse_result(self, parse_result, filename, mode):
+    def compile_parse_result(self, parse_result, filename, mode, flags):
         """NOT_RPYTHON"""
         from pyparser.pythonutil import parse_result_to_nested_tuples
         # the result of this conversion has no useful type in RPython
@@ -209,12 +216,13 @@ class PythonCompiler(CPythonCompiler):
             transformer = Transformer()
             tree = transformer.compile_node(tuples)
             stablecompiler.misc.set_filename(filename, tree)
+            flag_names = get_flag_names( flags )
             if mode == 'exec':
-                codegenerator = ModuleCodeGenerator(tree)
+                codegenerator = ModuleCodeGenerator(tree, flag_names)
             elif mode == 'single':
-                codegenerator = InteractiveCodeGenerator(tree)
+                codegenerator = InteractiveCodeGenerator(tree, flag_names)
             else: # mode == 'eval':
-                codegenerator = ExpressionCodeGenerator(tree)
+                codegenerator = ExpressionCodeGenerator(tree, flag_names)
             c = codegenerator.getCode()
         except SyntaxError, e:
             w_synerr = space.newtuple([space.wrap(e.msg),
@@ -272,7 +280,7 @@ class PythonCompilerApp(PythonCompiler):
         else:
             return self.w_compileapp
 
-    def compile_parse_result(self, parse_result, filename, mode):
+    def compile_parse_result(self, parse_result, filename, mode, flags):
         space = self.space
         if space.options.translating and not we_are_translated():
             # to avoid to spend too much time in the app-level compiler
@@ -280,8 +288,10 @@ class PythonCompilerApp(PythonCompiler):
             # doesn't see this because it thinks that we_are_translated()
             # returns True.
             return PythonCompiler.compile_parse_result(self, parse_result,
-                                                       filename, mode)
+                                                       filename, mode, flags)
         source_encoding, stack_element = parse_result
+        flag_names = get_flag_names( flags )
+        w_flag_names = space.newlist( [ space.wrap(n) for n in flag_names ] )
         w_nested_tuples = stack_element.as_w_tuple(space, lineno=True)
         if source_encoding is not None:
             from pypy.interpreter.pyparser import pysymbol
@@ -293,7 +303,8 @@ class PythonCompilerApp(PythonCompiler):
         w_code = space.call_function(self._get_compiler(mode),
                                      w_nested_tuples,
                                      space.wrap(filename),
-                                     space.wrap(mode))
+                                     space.wrap(mode),
+                                     w_flag_names)
         code = space.interpclass_w(w_code)
         from pypy.interpreter.pycode import PyCode
         if not isinstance(code, PyCode):
@@ -321,9 +332,9 @@ class PythonAstCompiler(CPythonCompiler):
         except ParseError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
-        return self.compile_parse_result(ast_tree, filename, mode)
+        return self.compile_parse_result(ast_tree, filename, mode, flags)
 
-    def compile_parse_result(self, ast_tree, filename, mode):
+    def compile_parse_result(self, ast_tree, filename, mode, flags):
         """NOT_RPYTHON"""
         # __________
         # XXX this uses the non-annotatable astcompiler at interp-level
@@ -334,12 +345,13 @@ class PythonAstCompiler(CPythonCompiler):
         space = self.space
         try:
             astcompiler.misc.set_filename(filename, ast_tree)
+            flag_names = get_flag_names( flags )
             if mode == 'exec':
-                codegenerator = ModuleCodeGenerator(ast_tree)
+                codegenerator = ModuleCodeGenerator(ast_tree, flag_names)
             elif mode == 'single':
-                codegenerator = InteractiveCodeGenerator(ast_tree)
+                codegenerator = InteractiveCodeGenerator(ast_tree, flag_names)
             else: # mode == 'eval':
-                codegenerator = ExpressionCodeGenerator(ast_tree)
+                codegenerator = ExpressionCodeGenerator(ast_tree, flag_names)
             c = codegenerator.getCode()
         except SyntaxError, e:
             w_synerr = space.newtuple([space.wrap(e.msg),
@@ -355,22 +367,7 @@ class PythonAstCompiler(CPythonCompiler):
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
         # __________ end of XXX above
         from pypy.interpreter.pycode import PyCode
-        code = PyCode(space)        
-        code._code_new( c[0],
-                        c[1],
-                        c[2],
-                        c[3],
-                        c[4],
-                        c[5],
-                        c[6],
-                        c[7],
-                        c[8],
-                        c[9],
-                        c[10],
-                        c[11],
-                        c[12],
-                        c[13],
-                        )
+        code = PyCode(space)._from_code(c)
         return code
     #compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 

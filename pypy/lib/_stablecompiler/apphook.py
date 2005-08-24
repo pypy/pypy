@@ -9,16 +9,16 @@ from _stablecompiler.pycodegen import InteractiveCodeGenerator
 from _stablecompiler.pycodegen import ExpressionCodeGenerator
 from _stablecompiler.transformer import Transformer
 
-def applevelcompile(tuples, filename, mode):
+def applevelcompile(tuples, filename, mode, flag_names ):
     transformer = Transformer()
     tree = transformer.compile_node(tuples)
     set_filename(filename, tree)
     if mode == 'exec':
-        codegenerator = ModuleCodeGenerator(tree)
+        codegenerator = ModuleCodeGenerator(tree, flag_names)
     elif mode == 'single':
-        codegenerator = InteractiveCodeGenerator(tree)
+        codegenerator = InteractiveCodeGenerator(tree, flag_names)
     else: # mode == 'eval':
-        codegenerator = ExpressionCodeGenerator(tree)
+        codegenerator = ExpressionCodeGenerator(tree, flag_names)
     return codegenerator.getCode()
 
 # temporary fake stuff, to allow to use the translated
@@ -26,10 +26,10 @@ def applevelcompile(tuples, filename, mode):
 
 DUMPFILE = 'this_is_the_marshal_file'
 
-def fakeapplevelcompile(tuples, filename, mode):
+def fakeapplevelcompile(tuples, filename, mode, flag_names):
     import os, marshal
     done = False
-    data = marshal.dumps( (tuples, filename, mode, done) )
+    data = marshal.dumps( (tuples, filename, mode, done, flag_names) )
     f = file(DUMPFILE, "wb")
     f.write(data)
     f.close()
