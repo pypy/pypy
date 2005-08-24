@@ -279,12 +279,15 @@ class Method(Wrappable):
 
     def descr_method_getattribute(self, w_attr):
         space = self.space
-        w_self = space.wrap(self)
-        w_result = space.lookup(w_self, space.str_w(w_attr))
-        if w_result is None:
-            return space.getattr(self.w_function, w_attr)
-        else:
-            return space.get(w_result, w_self)
+        if space.str_w(w_attr) != '__doc__':
+            try:
+                return space.call_method(space.w_object, '__getattribute__',
+                                         space.wrap(self), w_attr)
+            except OperationError, e:
+                if not e.match(space, space.w_AttributeError):
+                    raise
+        # fall-back to the attribute of the underlying 'im_func'
+        return space.getattr(self.w_function, w_attr)
 
     def descr_method_eq(self, w_other):
         space = self.space
