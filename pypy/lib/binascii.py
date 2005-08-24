@@ -1,7 +1,7 @@
 class Error(Exception):
     pass
 
-class Apa(Exception):
+class Done(Exception):
     pass
 
 class Incomplete(Exception):
@@ -421,8 +421,7 @@ def a2b_hqx(s):
                 raise Error('Illegal character')
             elif res == DONE:
                 yield t
-                print 'raising'
-                raise Apa
+                raise Done
             else:
                 t.append(res)
             if len(t) == 4:
@@ -443,7 +442,7 @@ def a2b_hqx(s):
                 result.append(chr(((snippet[1] & 0x0f) << 4) | (snippet[2] >> 2))) 
             elif length == 2:
                 result.append(chr(((snippet[0] & 0x3f) << 2) | (snippet[1] >> 4))) 
-    except Apa:
+    except Done:
         done = 1
     except Error:
         raise
