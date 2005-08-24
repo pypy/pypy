@@ -572,7 +572,7 @@ testmap = [
 
     RegrTest('test_peepholer.py', enabled=True),
     RegrTest('test_pep247.py', enabled=False, dumbtest=1),
-    RegrTest('test_pep263.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_pep263.py', enabled=True, dumbtest=1),
     RegrTest('test_pep277.py', enabled=False),
         # XXX this test is _also_ an output test, damn it 
         #     seems to be the only one that invokes run_unittest 
