@@ -37,6 +37,12 @@ class TestW_FloatObject:
                           self._unwrap_nonimpl(fobj.pow__Float_Float_ANY,
                                                self.space, f1, f2,
                                                self.space.w_None))
+        x = -10
+        y = 2.0
+        f1 = fobj.W_FloatObject(self.space, x)
+        f2 = fobj.W_FloatObject(self.space, y)
+        v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
+        assert v.floatval == x**y
 
 class AppTestAppFloatTest:
     def test_negatives(self):

@@ -314,13 +314,13 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
                     return space.wrap(1.0)
                 else:
                     return space.wrap( -1.0)
-        else:
-                try:
-                    z = math.pow(x,y)
-                except OverflowError:
-                    raise FailedToImplement(space.w_OverflowError, space.wrap("float power"))
-                except ValueError:
-                    raise FailedToImplement(space.w_ValueError, space.wrap("float power")) # xxx
+#        else:
+        try:
+            z = math.pow(x,y)
+        except OverflowError:
+            raise FailedToImplement(space.w_OverflowError, space.wrap("float power"))
+        except ValueError:
+            raise FailedToImplement(space.w_ValueError, space.wrap("float power")) # xxx
 
     return W_FloatObject(space, z)
 
