@@ -733,6 +733,14 @@ if test_support.have_unicode:
 
             self.assertRaises(TypeError, a.fromunicode)
 
+        def test_byteswap(self):
+            import sys
+            if sys.maxunicode > 0xffff:
+                return # Byteswapping results in invalid unicode characters for
+                       # UCS-4 builds. That this works in CPython is really a
+                       # bug.
+            StringTest.test_byteswap(self)
+
     tests.append(UnicodeTest)
 
 class NumberTest(BaseTest):
