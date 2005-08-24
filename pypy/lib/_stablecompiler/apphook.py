@@ -47,5 +47,6 @@ def get_python():
         f = file('pythonname')
         res = f.read().strip()
         f.close()
+        return res
     except IOError:
         raise ValueError, "I need a local file 'pythonname'"
