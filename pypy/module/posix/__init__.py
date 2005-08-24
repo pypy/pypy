@@ -25,6 +25,8 @@ corresponding Unix manual entries for more information on calls."""
     'stat'      : 'interp_posix.stat',
     'dup'       : 'interp_posix.dup',
     'system'    : 'interp_posix.system',
+    'unlink'    : 'interp_posix.unlink',
+    'remove'    : 'interp_posix.remove',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'

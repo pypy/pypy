@@ -239,7 +239,7 @@ def test_math_errors():
     f = compile(fmod1_0, [float])
     check(fmod1_0, f, 0.0)
 
-    
+
 def test_os_path_exists():
     tmpfile = str(udir.join('test_os_path_exists.TMP'))
     def fn():
@@ -389,3 +389,12 @@ def test_prebuilt_lock():
     assert res is True
     res = f(1)
     assert res is False
+
+def test_os_unlink():
+    tmpfile = str(udir.join('test_os_path_exists.TMP'))
+    def fn():
+        os.unlink(tmpfile)
+    f = compile(fn, [])
+    open(tmpfile, 'w').close()
+    fn()
+    assert not os.path.exists(tmpfile)

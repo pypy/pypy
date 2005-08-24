@@ -118,6 +118,9 @@ def dup(space, fd):
 dup.unwrap_spec = [ObjSpace, int]
 
 def system(space, cmd):
+    """system(command) -> exit_status
+
+Execute the command (a string) in a subshell."""
     try:
         rc = os.system(cmd)
     except OSError, e: 
@@ -125,3 +128,23 @@ def system(space, cmd):
     else: 
         return space.wrap(rc)
 system.unwrap_spec = [ObjSpace, str]
+
+def unlink(space, path):
+    """unlink(path)
+
+Remove a file (same as remove(path))."""
+    try:
+        os.unlink(path)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+unlink.unwrap_spec = [ObjSpace, str]
+
+def remove(space, path):
+    """remove(path)
+
+Remove a file (same as unlink(path))."""
+    try:
+        os.unlink(path)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+remove.unwrap_spec = [ObjSpace, str]

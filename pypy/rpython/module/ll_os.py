@@ -117,3 +117,7 @@ ll_os_getcwd.suggested_primitive = True
 def ll_os_system(cmd):
     return os.system(from_rstr(cmd))
 ll_os_system.suggested_primitive = True
+
+def ll_os_unlink(path):
+    os.unlink(from_rstr(path))
+ll_os_unlink.suggested_primitive = True

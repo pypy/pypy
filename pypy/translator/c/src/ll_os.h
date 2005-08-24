@@ -183,3 +183,10 @@ RPyString *LL_os_strerror(int errnum) {
 long LL_os_system(RPyString * fname) {
   return system(RPyString_AsString(fname));
 }
+
+void LL_os_unlink(RPyString * fname) {
+  int error = unlink(RPyString_AsString(fname));
+  if (error != 0) {
+    RPYTHON_RAISE_OSERROR(errno);
+  }
+}
