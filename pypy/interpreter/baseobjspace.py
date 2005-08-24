@@ -164,12 +164,13 @@ class ObjSpace(object):
             pass
 
         modules = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs',
-            'array', 'marshal']
+            'array', 'marshal', 'errno']
 
         if self.options.nofaking:
             modules.append('posix')
             modules.append('math')
             modules.append('time')
+            modules.append('errno')
 
         # there also are the '_sre' and 'marshal' modules 
         # but those currently cause translation problems.  You can
