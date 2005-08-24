@@ -2,7 +2,6 @@
 import math
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.objspace.std import longobject
 
 class State: 
     def __init__(self, space): 
@@ -137,41 +136,15 @@ def degrees(space, x):
     return space.wrap(x / degToRad)
 degrees.unwrap_spec = [ObjSpace, float]
 
-def _log_float(space, x, base):
-    if base == 10.0:
-        return math1(space, math.log10, x)
-    num = math1_w(space, math.log, x) 
-    if base == 0.0:
-        return space.wrap(num)
-    else:
-        den = math1_w(space, math.log, base)
-        return space.wrap(num / den)
-
 def _log_any(space, w_x, base):
     try:
-        x = space.float_w(w_x)
-    except OperationError:
-        pass
-    else:
-        return _log_float(space, x, base)
-    try:
-        w_x = space.long(w_x)
-    except OperationError:
-        raise OperationError(space.w_TypeError, space.wrap(
-            'a float is required')) # yes, this message is as bad as CPython's
-    try:
-        if base == 10.0:
-            return space.wrap(longobject._loghelper(math.log10, w_x))
-        ret = longobject._loghelper(math.log, w_x)
-        if base != 0.0:
-            ret /= math.log(base)
-        return space.wrap(ret)
+        return space.log(w_x, base)
     except OverflowError:
         raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+                             space.wrap('math range error'))
     except ValueError:
         raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
+                             space.wrap('math domain error'))
 
 def log(space, w_x, w_base=NoneNotWrapped):
     """log(x[, base]) -> the logarithm of x to the given base.
@@ -180,11 +153,7 @@ def log(space, w_x, w_base=NoneNotWrapped):
     if w_base is None:
         base = 0.0
     else:
-        try:
-            base = space.float_w(w_base)
-        except OperationError:
-            raise OperationError(space.w_TypeError, space.wrap(
-                'a float is required'))
+        base = space.float_w(w_base)
         if base <= 0.0:
             # just for raising the proper errors
             return math1(space, math.log, base)

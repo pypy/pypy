@@ -565,6 +565,15 @@ def hex__Long(space, w_long1):
 def getnewargs__Long(space, w_long1):
     return space.newtuple([W_LongObject(space, w_long1.digits, w_long1.sign)])
 
+def log__Long(space, w_long, base):
+    # base is supposed to be positive or 0.0, which means we use e
+    if base == 10.0:
+        return space.wrap(_loghelper(math.log10, w_long))
+    ret = _loghelper(math.log, w_long)
+    if base != 0.0:
+        ret /= math.log(base)
+    return space.wrap(ret)
+
 
 register_all(vars())
 
@@ -605,6 +614,7 @@ def pow_ovr__Int_Int_Long(space, w_int1, w_int2, w_long3):
 StdObjSpace.MM.pow.register(pow_ovr__Int_Int_None, W_IntObject, W_IntObject, W_NoneObject, order=1)
 StdObjSpace.MM.pow.register(pow_ovr__Int_Int_Long, W_IntObject, W_IntObject, W_LongObject, order=1)
 
+#_________________________________________________________________
 
 # Helper Functions
 def args_from_long(l): #YYYYYY

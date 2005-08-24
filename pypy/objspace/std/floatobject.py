@@ -413,6 +413,19 @@ StdObjSpace.coerce.register(float_coerce, W_FloatObject)
 def getnewargs__Float(space, w_float):
     return space.newtuple([W_FloatObject(space, w_float.floatval)])
 
+def log__Float(space, w_float, base):
+    # base is supposed to be positive or 0.0, which means we use e
+    x = space.float_w(w_float)
+    if base == 10.0:
+        return space.wrap(math.log10(x))
+    num = math.log(x) 
+    if base == 0.0:
+        return space.wrap(num)
+    else:
+        den = math.log(base)
+        return space.wrap(num / den)
+
+
 register_all(vars())
 
 # pow delegation for negative 2nd arg
