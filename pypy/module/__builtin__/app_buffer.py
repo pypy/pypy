@@ -62,3 +62,7 @@ extend to the end of the target object (or with the specified size).
 
     def __len__(self):
         return len(self.buf)
+
+    def __repr__(self):
+        # We support only read-only buffers anyway
+        return "<read-only buffer for 0x000000>"
