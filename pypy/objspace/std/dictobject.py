@@ -290,7 +290,10 @@ app = gateway.applevel('''
             currently_in_repr[dict_id] = 1
             try:
                 items = []
-                for k, v in d.iteritems():
+                # XXX for now, we cannot use iteritems() at app-level because
+                #     we want a reasonable result instead of a RuntimeError
+                #     even if the dict is mutated by the repr() in the loop.
+                for k, v in d.items():
                     items.append(repr(k) + ": " + repr(v))
                 return "{" +  ', '.join(items) + "}"
             finally:

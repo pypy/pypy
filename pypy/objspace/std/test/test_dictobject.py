@@ -294,7 +294,15 @@ class AppTest_DictObject:
         d[0] = d
         assert str(d) == '{0: {...}}'
 
-        
+        # Mutating while repr'ing
+        class Machiavelli:
+            def __repr__(self):
+                d.clear()
+                return "42"
+        d = {Machiavelli(): True}
+        str(d)
+        assert d == {}
+
     def test_new(self):
         d = dict()
         assert d == {}
