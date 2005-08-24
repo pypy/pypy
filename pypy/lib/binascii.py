@@ -225,13 +225,23 @@ def b2a_base64(s):
                   table_b2a_base64[(b << 2) & 0x3F] + '='
     return ''.join(result) + snippet + '\n'
 
-def a2b_qp(s):
-    parts = s.rstrip().split('=')
-
+def a2b_qp(s, header=False):
+    parts = s.rstrip('\t ')
+    if header:
+        parts = ' '.join(parts.split('_'))
+    parts = parts.split('=')
     # Change the parts in-place
     for index, part in enumerate(parts[1:]):
+        if len(part) and part[0] == '\n':
+            parts[index + 1] = part[1:]
+            continue
+        if len(part) > 1 and part[0] == '\r' and part[1] == '\n':
+            parts[index + 1] = part[2:]
+            continue
         if len(part) > 1 and part[0] in hex_numbers and part[1] in hex_numbers:
             parts[index + 1] = chr(strhex_to_int(part[0:2])) + part[2:]
+            if parts[index + 1] == '_' and header:
+                parts[index + 1] = ' '
         elif index == len(parts) - 2 and len(part) < 2:
             parts[index + 1] = ''
         else:
@@ -239,17 +249,16 @@ def a2b_qp(s):
             
     return ''.join(parts)
 
-def b2a_qp(s):
-    """ In this implementation, we are quoting all spaces and tab character.
-        This is ok by the standard, though it slightly reduces the 
-        readability of the quoted string. The CPython implementation
-        preserves internal whitespace, which is a different way of
-        implementing the standard. The reason we are doing things differently
-        is that it greatly simplifies the code.
+def b2a_qp(s, quotetabs=False, istext=True, header=False):
+    """quotetabs=True means that tab and space characters are always
+       quoted.
+       istext=False means that \r and \n are treated as regular characters
+       header=True encodes space characters with '_' and requires
+       real '_' characters to be quoted.
+       
 
-        The CPython implementation does not escape CR and LF characters
-        and does not encode newlines as CRLF sequences. This seems to be
-        non-standard, and we copy this behaviour.
+        The CPython does not encode newlines as CRLF sequences. This
+        seems to be non-standard, and we copy this behaviour.
     """
     crlf = s.find('\r\n')
     lf = s.find('\n')
@@ -269,24 +278,44 @@ def b2a_qp(s):
 
     lines = s.split('\n')
 
+    soft_lbr = '=\n' # The way CPython does it
+    #soft_lbr = '=\r\n' # The way I think the standard specifies
     result = []
     for line in lines:
         charlist = []
         count = 0
         for c in line:
-            if '!' <= c <= '<' or '>' <= c <= '~' or c in '\n\r':
+            # Don't quote
+            if '!' <= c <= '<' or '>' <= c <= '^' or '`' <= c <= '~' or (
+                c == '_' and not header) or (c in '\n\r' and istext):
                 if count >= 75:
-                    charlist.append('=\r\n')
+                    charlist.append(soft_lbr)
                     count = 0
                 charlist.append(c)
                 count += 1
-            else:
+            elif not quotetabs and c in '\t ':
                 if count >= 72:
-                    charlist.append('=\r\n')
+                    charlist.append(soft_lbr)
                     count = 0
-                snippet = '=' + two_hex_digits(ord(c))
-                count += len(snippet)
-                charlist.append(snippet)
+
+                if count >= 71: # Quote
+                    count += 3
+                    charlist.append('=' + two_hex_digits(ord(c)))
+                else: # Don't quote
+                    if c == ' ' and header:
+                        charlist.append('_')
+                    else:
+                        charlist.append(c)
+                    count += 1
+            else: # Quote
+                if count >= 72:
+                    charlist.append(soft_lbr)
+                    count = 0
+                count += 3
+                charlist.append('=' + two_hex_digits(ord(c)))
+        if charlist and charlist[-1] in '\t ':
+            # Whitespace at end of line has to be quoted
+            charlist[-1] = '=' + two_hex_digits(ord(charlist[-1]))
         result.append(''.join(charlist))
     return linebreak.join(result)
 
