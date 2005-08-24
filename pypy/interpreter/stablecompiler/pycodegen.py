@@ -9,7 +9,7 @@ from cStringIO import StringIO
 from pypy.interpreter.stablecompiler import ast, parse, walk, syntax
 from pypy.interpreter.stablecompiler import pyassem, misc, future, symbols
 from pypy.interpreter.stablecompiler.consts import SC_LOCAL, SC_GLOBAL, \
-    SC_FREE, SC_CELL, SC_REALLY_GLOBAL
+    SC_FREE, SC_CELL
 from pypy.interpreter.stablecompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
 from pypy.interpreter.stablecompiler.pyassem import TupleArg
@@ -286,8 +286,6 @@ class CodeGenerator:
                 self.emit(prefix + '_GLOBAL', name)
         elif scope == SC_FREE or scope == SC_CELL:
             self.emit(prefix + '_DEREF', name)
-        elif scope == SC_REALLY_GLOBAL:
-            self.emit(prefix +  '_GLOBAL', name)
         else:
             raise RuntimeError, "unsupported scope for var %s: %d" % \
                   (name, scope)
