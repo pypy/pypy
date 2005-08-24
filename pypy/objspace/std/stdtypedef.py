@@ -186,8 +186,9 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
         raise Exception, "no longer supported, use __args__"
     if multimethod.extras.get('general__args__', False):
         wrapper_arglist.append('__args__')
+    wrapper_arglist += multimethod.extras.get('extra_args', ())
 
-    miniglobals.update({ 'OperationError': OperationError,                         
+    miniglobals.update({ 'OperationError': OperationError,
                          'typeerrormsg': typeerrormsg})
     
     app_defaults = multimethod.extras.get('defaults', ())
