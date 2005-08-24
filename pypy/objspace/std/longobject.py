@@ -1260,6 +1260,7 @@ def isinf(x):
 # note that math.ldexp checks for overflows,
 # while the C ldexp is not guaranteed to do.
 # XXX make sure that we don't ignore this!
+# YYY no, we decided to do ignore this!
 
 def _AsDouble(v):
     """ Get a C double from a long int object. """
@@ -1270,6 +1271,23 @@ def _AsDouble(v):
         # this is checked by math.ldexp
         return x
     raise OverflowError # can't say "long int too large to convert to float"
+
+def _loghelper(func, w_arg):
+    """
+    A decent logarithm is easy to compute even for huge longs, but libm can't
+    do that by itself -- loghelper can.  func is log or log10, and name is
+    "log" or "log10".  Note that overflow isn't possible:  a long can contain
+    no more than INT_MAX * SHIFT bits, so has value certainly less than
+    2**(2**64 * 2**16) == 2**2**80, and log2 of that is 2**80, which is
+    small enough to fit in an IEEE single.  log and log10 are even smaller.
+    """
+    x, e = _AsScaledDouble(w_arg);
+    # Value is ~= x * 2**(e*SHIFT), so the log ~=
+    # log(x) + log(2) * e * SHIFT.
+    # CAUTION:  e*SHIFT may overflow using int arithmetic,
+    # so force use of double. */
+    return func(x) + (e * float(SHIFT) * func(2.0))
+_loghelper._annspecialcase_ = 'specialize:arg0'
 
 def _long_true_divide(a, b):
     try:

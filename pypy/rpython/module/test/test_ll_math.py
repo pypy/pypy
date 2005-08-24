@@ -19,6 +19,8 @@ def test_ll_frexp():
 def test_ll_log():
     assert ll_math_log(8943.790148912) == math.log(8943.790148912)
     assert ll_math_log10(8943.790148912) == math.log10(8943.790148912)
+    assert ll_math_log(1L << 10000) == math.log(1L << 10000)
+    assert ll_math_log10(1L << 10000) == math.log10(1L << 10000)
 
 def test_ll_cos_sin():
     assert ll_math_cos(math.pi/3) == math.cos(math.pi/3)

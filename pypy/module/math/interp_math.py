@@ -2,6 +2,7 @@
 import math
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
+from pypy.objspace.std import longobject
 
 class State: 
     def __init__(self, space): 
@@ -44,9 +45,9 @@ def math2(space, f, x, snd):
         raise OperationError(space.w_ValueError,
                              space.wrap("math domain error"))
     return space.wrap(r)
-math2._annspecialcase_ = 'specialize:arg1'    
+math2._annspecialcase_ = 'specialize:arg1'
 
-def pow(space, x, y):                     
+def pow(space, x, y):
     """pow(x,y)
        
        Return x**y (x to the power of y).
@@ -92,18 +93,6 @@ def asin(space, x):
     return math1(space, math.asin, x)
 asin.unwrap_spec = [ObjSpace, float]
 
-def log(space, x,  w_base=NoneNotWrapped):
-    """log(x[, base]) -> the logarithm of x to the given base.
-       If the base not specified, returns the natural logarithm (base e) of x.
-    """
-    num = math1_w(space, math.log, x) 
-    if w_base is None:
-        return space.wrap(num)
-    else:
-        den = math1_w(space, math.log, space.float_w(w_base))
-        return space.wrap(num / den)
-log.unwrap_spec = [ObjSpace, float, W_Root]
-
 def fabs(space, x): 
     """fabs(x)
        
@@ -148,11 +137,65 @@ def degrees(space, x):
     return space.wrap(x / degToRad)
 degrees.unwrap_spec = [ObjSpace, float]
 
-def log10(space, x): 
-    """log10(x) -> the base 10 logarithm of x.
+def _log_float(space, x, base):
+    if base == 10.0:
+        return math1(space, math.log10, x)
+    num = math1_w(space, math.log, x) 
+    if base == 0.0:
+        return space.wrap(num)
+    else:
+        den = math1_w(space, math.log, base)
+        return space.wrap(num / den)
+
+def _log_any(space, w_x, base):
+    try:
+        x = space.float_w(w_x)
+    except OperationError:
+        pass
+    else:
+        return _log_float(space, x, base)
+    try:
+        w_x = space.long(w_x)
+    except OperationError:
+        raise OperationError(space.w_TypeError, space.wrap(
+            'a float is required')) # yes, this message is as bad as CPython's
+    try:
+        if base == 10.0:
+            return space.wrap(longobject._loghelper(math.log10, w_x))
+        ret = longobject._loghelper(math.log, w_x)
+        if base != 0.0:
+            ret /= math.log(base)
+        return space.wrap(ret)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("math range error"))
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("math domain error"))
+
+def log(space, w_x, w_base=NoneNotWrapped):
+    """log(x[, base]) -> the logarithm of x to the given base.
+       If the base not specified, returns the natural logarithm (base e) of x.
     """
-    return math1(space, math.log10, x)
-log10.unwrap_spec = [ObjSpace, float]
+    if w_base is None:
+        base = 0.0
+    else:
+        try:
+            base = space.float_w(w_base)
+        except OperationError:
+            raise OperationError(space.w_TypeError, space.wrap(
+                'a float is required'))
+        if base <= 0.0:
+            # just for raising the proper errors
+            return math1(space, math.log, base)
+    return _log_any(space, w_x, base)
+log.unwrap_spec = [ObjSpace, W_Root, W_Root]
+
+def log10(space, w_x): 
+    """log10(x) -> the base 10 logarithm of x.
+    """ 
+    return _log_any(space, w_x, 10.0)
+log10.unwrap_spec = [ObjSpace, W_Root]
 
 def fmod(space, x, y): 
     """fmod(x,y)
