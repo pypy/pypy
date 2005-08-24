@@ -204,7 +204,14 @@ def gen_source_standalone(database, modulename, targetdir,
     defines['PYPY_STANDALONE'] = entrypointname
     for key, value in defines.items():
         print >> f, '#define %s %s' % (key, value)
+
+    for line in database.gcpolicy.pre_pre_gc_code():
+        print >> f, line
+
     print >> f, '#include "src/g_prerequisite.h"'
+
+    for line in database.gcpolicy.pre_gc_code():
+        print >> f, line
 
     preimplementationlines = list(
         pre_include_code_lines(database, database.translator.rtyper))
