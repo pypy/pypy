@@ -17,7 +17,7 @@
  * Return the thread Id instead of an handle. The Id is said to uniquely
    identify the thread in the system
  */
-#define PyThreadGetIdent GetCurrentThreadId
+#define RPyThreadGetIdent GetCurrentThreadId
 
 typedef struct {
 	void (*func)(void*);
@@ -34,13 +34,13 @@ bootstrap(void *call)
 	void (*func)(void*) = obj->func;
 	void *arg = obj->arg;
 
-	obj->id = PyThreadGetIdent();
+	obj->id = RPyThreadGetIdent();
 	ReleaseSemaphore(obj->done, 1, NULL);
 	func(arg);
 	return 0;
 }
 
-long PyThreadStart(void (*func)(void *), void *arg)
+long RPyThreadStart(void (*func)(void *), void *arg)
 {
 	unsigned long rv;
 	callobj obj;
