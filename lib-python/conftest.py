@@ -362,7 +362,7 @@ testmap = [
     RegrTest('test_anydbm.py', enabled=True),
     RegrTest('test_applesingle.py', enabled=False),
     RegrTest('test_array.py', enabled=True, core=True),
-    RegrTest('test_asynchat.py', enabled=False),
+    RegrTest('test_asynchat.py', enabled=False, usemodules='thread'),
     RegrTest('test_atexit.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_audioop.py', enabled=False, dumbtest=1),
     RegrTest('test_augassign.py', enabled=True, core=True),
@@ -529,7 +529,7 @@ testmap = [
     RegrTest('test_linuxaudiodev.py', enabled=False),
     RegrTest('test_list.py', enabled=True, core=True),
     RegrTest('test_locale.py', enabled=False, dumbtest=1),
-    RegrTest('test_logging.py', enabled=False),
+    RegrTest('test_logging.py', enabled=False, usemodules='thread'),
     RegrTest('test_long.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_long_future.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_longexp.py', enabled=True, core=True),
@@ -579,7 +579,7 @@ testmap = [
         #     and is an unittest 
     RegrTest('test_pep292.py', enabled=True),
     RegrTest('test_pickle.py', enabled=True, core=True),
-    RegrTest('test_pickletools.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_pickletools.py', enabled=True, dumbtest=1, core=False),
     RegrTest('test_pkg.py', enabled=True, core=True),
     RegrTest('test_pkgimport.py', enabled=True, core=True),
     RegrTest('test_plistlib.py', enabled=False),
@@ -637,12 +637,10 @@ testmap = [
     RegrTest('test_site.py', enabled=False, core=False), # considered cpython impl-detail 
         # Needs non-faked codecs.
     RegrTest('test_slice.py', enabled=True, dumbtest=1, core=True),
-    RegrTest('test_socket.py', enabled=False),
-        #rev 10840: ImportError: thread
+    RegrTest('test_socket.py', enabled=False, usemodules='thread'),
 
     RegrTest('test_socket_ssl.py', enabled=False),
-    RegrTest('test_socketserver.py', enabled=False),
-        #rev 10840: ImportError: thread
+    RegrTest('test_socketserver.py', enabled=False, usemodules='thread'),
 
     RegrTest('test_softspace.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_sort.py', enabled=True, dumbtest=1, core=True),
