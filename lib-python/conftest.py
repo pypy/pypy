@@ -131,7 +131,16 @@ app = ApplevelClass('''
         return namemethodlist, doctestlist 
 
     def run_testcase_method(method): 
-        method()
+        result = method.defaultTestResult() 
+        method.run(result)
+        if result.errors:
+            assert len(result.errors)
+            print result.errors[0][1]
+        if result.failures:
+            assert len(result.failures)
+            print result.failures[0][1]
+        if result.failures or result.errors:
+            return 1
 
     def set_argv(filename): 
         sys.argv[:] = ['python', filename]
@@ -261,7 +270,10 @@ class AppTestCaseMethod(py.test.Item):
         filename = str(self.fspath) 
         callex(space, set_argv, space, space.wrap(filename))
         #space.call_function(self.w_method)
-        callex(space, run_testcase_method, space, self.w_method) 
+        res = callex(space, run_testcase_method, space, self.w_method) 
+        if res:
+            raise AssertionError(
+        "testcase instance invociation raised errors, see stdoudt")
 
 # ________________________________________________________________________
 #
