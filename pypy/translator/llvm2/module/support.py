@@ -41,7 +41,7 @@ internal fastcc sbyte* %RPyString_AsString(%RPyString* %structstring) {
 
 extfunctions["%RPyString_Size"] = ((), """
 internal fastcc int %RPyString_Size(%RPyString* %structstring) {
-    %sizeptr = getelementptr %RPyString* %structstring, int 0, uint 0
+    %sizeptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 0
     %size = load int* %sizeptr
     return %size
 
