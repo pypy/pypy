@@ -59,22 +59,20 @@ class W_State(Wrappable):
         self.w_context_stack = self.space.newlist([])
         self.w_repeat = self.space.w_None
 
-    def set_mark(self, w_mark_nr, w_position):
-        mark_nr = self.space.int_w(w_mark_nr)
+    def set_mark(self, mark_nr, position):
         if mark_nr & 1:
             # This id marks the end of a group.
             self.lastindex = mark_nr / 2 + 1
         if mark_nr >= len(self.marks):
             self.marks.extend([-1] * (mark_nr - len(self.marks) + 1))
-        self.marks[mark_nr] = self.space.int_w(w_position)
+        self.marks[mark_nr] = position
 
-    def get_marks(self, w_group_index):
-        marks_index = 2 * self.space.int_w(w_group_index)
+    def get_marks(self, group_index):
+        marks_index = 2 * group_index
         if len(self.marks) > marks_index + 1:
-            return self.space.newtuple([self.space.wrap(self.marks[marks_index]),
-                                  self.space.wrap(self.marks[marks_index + 1])])
+            return self.marks[marks_index], self.marks[marks_index + 1]
         else:
-            return self.space.newtuple([self.space.w_None, self.space.w_None])
+            return -1, -1
 
     def create_regs(self, w_group_count):
         """Creates a tuple of index pairs representing matched groups, a format
@@ -140,8 +138,6 @@ W_State.typedef = TypeDef("W_State",
     context_stack = interp_attrproperty_w("w_context_stack", W_State),
     repeat = interp_attrproperty_obj_w("w_repeat", W_State),
     reset = interp2app(W_State.reset),
-    set_mark = interp2app(W_State.set_mark),
-    get_marks = interp2app(W_State.get_marks),
     create_regs = interp2app(W_State.create_regs),
     marks_push = interp2app(W_State.marks_push),
     marks_pop = interp2app(W_State.marks_pop),
@@ -403,6 +399,58 @@ def op_in_ignore(space, ctx):
     general_op_in(space, ctx, ignore=True)
     return True
 
+def op_jump(space, ctx):
+    # jump forward
+    # <JUMP>/<INFO> <offset>
+    ctx.skip_code(ctx.peek_code(1) + 1)
+    return True
+
+def op_mark(space, ctx):
+    # set mark
+    # <MARK> <gid>
+    ctx.state.set_mark(ctx.peek_code(1), ctx.string_position)
+    ctx.skip_code(2)
+    return True
+
+def general_op_groupref(space, ctx, ignore=False):
+    group_start, group_end = ctx.state.get_marks(ctx.peek_code(1))
+    if group_start == -1 or group_end == -1 or group_end < group_start \
+                            or group_end - group_start > ctx.remaining_chars():
+        ctx.has_matched = ctx.NOT_MATCHED
+        return True
+    while group_start < group_end:
+        # XXX This is really a bit unwieldy. Can this be improved?
+        new_char = space.int_w(space.ord(ctx.peek_char()))
+        old_char = space.int_w(space.ord(
+                    space.getitem(ctx.state.w_string, space.wrap(group_start))))
+        if ctx.at_end() or (not ignore and old_char != new_char) \
+                or (ignore and ctx.state.lower(old_char) != ctx.state.lower(new_char)):
+            ctx.has_matched = ctx.NOT_MATCHED
+            return True
+        group_start += 1
+        ctx.skip_char(1)
+    ctx.skip_code(2)
+    return True
+
+def op_groupref(space, ctx):
+    # match backreference
+    # <GROUPREF> <zero-based group index>
+    return general_op_groupref(space, ctx)
+
+def op_groupref_ignore(space, ctx):
+    # match backreference case-insensitive
+    # <GROUPREF_IGNORE> <zero-based group index>
+    return general_op_groupref(space, ctx, ignore=True)
+
+def op_groupref_exists(self, ctx):
+    # <GROUPREF_EXISTS> <group> <skip> codeyes <JUMP> codeno ...
+    group_start, group_end = ctx.state.get_marks(ctx.peek_code(1))
+    if group_start == -1 or group_end == -1 or group_end < group_start:
+        ctx.skip_code(ctx.peek_code(2) + 1)
+    else:
+        ctx.skip_code(3)
+    return True
+
 opcode_dispatch_table = [
     op_failure, op_success,
     op_any, op_any_all,
@@ -412,12 +460,11 @@ opcode_dispatch_table = [
     None, #CALL,
     op_category,
     None, None, #CHARSET, BIGCHARSET,
-    None, None, None, #GROUPREF, GROUPREF_EXISTS, GROUPREF_IGNORE,
+    op_groupref, op_groupref_exists, op_groupref_ignore,
     op_in, op_in_ignore,
-    None, #INFO,
-    None, #JUMP,
+    op_jump, op_jump,
     op_literal, op_literal_ignore,
-    None, #MARK,
+    op_mark,
     None, #MAX_UNTIL,
     None, #MIN_UNTIL,
     op_not_literal, op_not_literal_ignore,

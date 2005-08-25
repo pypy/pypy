@@ -454,25 +454,6 @@ class _OpcodeDispatcher(_Dispatcher):
             self.executing_contexts[id(context)] = generator
         return has_finished
 
-    def op_jump(self, ctx):
-        # jump forward
-        # <JUMP> <offset>
-        #self._log(ctx, "JUMP", ctx.peek_code(1))
-        ctx.skip_code(ctx.peek_code(1) + 1)
-        return True
-
-    # skip info
-    # <INFO> <skip>
-    op_info = op_jump
-
-    def op_mark(self, ctx):
-        # set mark
-        # <MARK> <gid>
-        #self._log(ctx, "OP_MARK", ctx.peek_code(1))
-        ctx.state.set_mark(ctx.peek_code(1), ctx.string_position)
-        ctx.skip_code(2)
-        return True
-
     def op_branch(self, ctx):
         # alternation
         # <BRANCH> <0=skip> code <JUMP> ... <NULL>
@@ -717,43 +698,6 @@ class _OpcodeDispatcher(_Dispatcher):
             repeat.count = count - 1
             ctx.state.string_position = ctx.string_position
         yield True
-
-    def general_op_groupref(self, ctx, decorate=lambda x: x):
-        group_start, group_end = ctx.state.get_marks(ctx.peek_code(1))
-        if group_start is None or group_end is None or group_end < group_start:
-            ctx.has_matched = NOT_MATCHED
-            return True
-        while group_start < group_end:
-            if ctx.at_end() or decorate(ord(ctx.peek_char())) \
-                                != decorate(ord(ctx.state.string[group_start])):
-                ctx.has_matched = NOT_MATCHED
-                return True
-            group_start += 1
-            ctx.skip_char(1)
-        ctx.skip_code(2)
-        return True
-
-    def op_groupref(self, ctx):
-        # match backreference
-        # <GROUPREF> <zero-based group index>
-        #self._log(ctx, "GROUPREF", ctx.peek_code(1))
-        return self.general_op_groupref(ctx)
-
-    def op_groupref_ignore(self, ctx):
-        # match backreference case-insensitive
-        # <GROUPREF_IGNORE> <zero-based group index>
-        #self._log(ctx, "GROUPREF_IGNORE", ctx.peek_code(1))
-        return self.general_op_groupref(ctx, ctx.state.lower)
-
-    def op_groupref_exists(self, ctx):
-        # <GROUPREF_EXISTS> <group> <skip> codeyes <JUMP> codeno ...
-        #self._log(ctx, "GROUPREF_EXISTS", ctx.peek_code(1))
-        group_start, group_end = ctx.state.get_marks(ctx.peek_code(1))
-        if group_start is None or group_end is None or group_end < group_start:
-            ctx.skip_code(ctx.peek_code(2) + 1)
-        else:
-            ctx.skip_code(3)
-        return True
 
     def op_assert(self, ctx):
         # assert subpattern
