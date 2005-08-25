@@ -789,7 +789,7 @@ def unicodeescape_string(s, size, quotes):
         #/* Escape quotes */
         if (quotes and (ch == p[1] or ch == '\\')):
             p += '\\'
-            p += ch
+            p += chr(ord(ch))
             pos += 1
             continue
 
