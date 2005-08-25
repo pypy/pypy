@@ -43,9 +43,9 @@ def find_module(name, path=None):
         filename = os.path.join(base, name)
         if os.path.isdir(filename):
             return (None, filename, ('', '', PKG_DIRECTORY))
-        filename += '.py'
-        if os.path.exists(filename):
-            return (file(filename, 'U'), filename, ('.py', 'U', PY_SOURCE))
+        for ext, mode, kind in get_suffixes():
+            if os.path.exists(filename+ext):
+                return (file(filename+ext, mode), filename+ext, (ext, mode, kind))
     raise ImportError, 'No module named %s' % (name,)
 
 
@@ -72,11 +72,11 @@ def load_module(name, file, filename, description):
     if type == C_BUILTIN:
         module = __import__(name, {}, {}, None)
         return module
-
+    if type == PY_COMPILED:
+       return  load_compiled(name, filename, file)
     raise ValueError, 'invalid description argument: %r' % (description,)
 
 def load_source(name, pathname, file=None):
-    import sys
     autoopen = file is None
     if autoopen:
         file = open(pathname, 'U')
@@ -84,15 +84,10 @@ def load_source(name, pathname, file=None):
     if autoopen:
         file.close()
     co = compile(source, pathname, 'exec')
-    module = sys.modules.setdefault(name, new_module(name))
-    module.__name__ = name
-    module.__doc__ = None
-    module.__file__ = pathname
-    exec co in module.__dict__
-    return module
+    return run_module(name, pathname, co)
 
 def load_compiled(name, pathname, file=None):
-    import sys, marshal
+    import marshal
     autoopen = file is None
     if autoopen:
         file = open(pathname, 'rb')
@@ -103,13 +98,21 @@ def load_compiled(name, pathname, file=None):
     co = marshal.load(file)
     if autoopen:
         file.close()
+    return run_module(name, pathname, co)
+
+def run_module(name, pathname, co):
+    import sys
     module = sys.modules.setdefault(name, new_module(name))
     module.__name__ = name
     module.__doc__ = None
     module.__file__ = pathname
-    exec co in module.__dict__
+    try:
+        exec co in module.__dict__
+    except :
+        sys.module.pop(name,None)
+        raise
     return module
-
+ 
 
 def new_module(name):
     """Create a new module.  Do not enter it in sys.modules.

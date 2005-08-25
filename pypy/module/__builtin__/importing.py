@@ -53,7 +53,7 @@ def info_modtype(space ,filepart):
     if PYC_ONOFF and os.path.exists(pycfile):
         pyc_state = check_compiled_module(space, pyfile, pyfile_ts, pycfile)
         pycfile_exists = pyc_state >= 0
-        pycfile_ts_valid = pyc_state > 0 and pyfile_exist
+        pycfile_ts_valid = pyc_state > 0 or (pyc_state == 0 and not pyfile_exist)
     else:
         pycfile_exists = False
         pycfile_ts_valid = False
@@ -121,13 +121,9 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
             osfile.close()
             
     except OperationError, e:
-        if e.match(space, space.w_SyntaxError):
-            w_mods = space.sys.get('modules')
-            try:
-                space.delitem(w_mods, w_modulename)
-            except OperationError, kerr:
-                if not kerr.match(space, space.w_KeyError):
-                    raise
+         w_mods = space.sys.get('modules')
+         space.call_method(w_mods,'pop', w_modulename, space.w_None)
+         raise
              
     w_mod = check_sys_modules(space, w_modulename)
     if w_mod is not None and w_parent is not None:
