@@ -175,13 +175,13 @@ class Transformer:
         raise WalkerError, ('unexpected node type', n)
 
     def single_input(self, node):
-        ### do we want to do anything about being "interactive" ?
         # NEWLINE | simple_stmt | compound_stmt NEWLINE
         n = node[0][0]
         if n != token.NEWLINE:
-            return self.com_stmt(node[0])
-
-        return Pass()
+            stmt = self.com_stmt(node[0])
+        else:
+            stmt = Pass()
+        return Module(None, stmt)
 
     def file_input(self, nodelist):
         doc = self.get_docstring(nodelist, symbol.file_input)

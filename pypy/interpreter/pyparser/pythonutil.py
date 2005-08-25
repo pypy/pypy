@@ -12,7 +12,7 @@ PYTHON_PARSER = pythonparse.PYTHON_PARSER
 TARGET_DICT = {
     'exec'   : "file_input",
     'eval'   : "eval_input",
-    'single' : "file_input",
+    'single' : "single_input",
     }
 
 ## convenience functions around CPython's parser functions

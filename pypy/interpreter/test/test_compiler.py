@@ -116,15 +116,15 @@ class BaseTestCompiler:
         ex = e.value 
         assert ex.match(self.space, self.space.w_SyntaxError)
 
-    def INPROGRESS_test_toplevel_docstring(self):
+    def test_toplevel_docstring(self):
         space = self.space
-        import pdb; pdb.set_trace()
         code = self.compiler.compile('"spam"; "bar"; x=5', '<hello>', 'exec', 0)
-        assert space.eq_w(code.co_consts_w[0], space.wrap("spam"))
         w_locals = space.newdict([])
         code.exec_code(space, space.newdict([]), w_locals)
         w_x = space.getitem(w_locals, space.wrap('x'))
         assert space.eq_w(w_x, space.wrap(5))
+        w_doc = space.getitem(w_locals, space.wrap('__doc__'))
+        assert space.eq_w(w_doc, space.wrap("spam"))
         #
         code = self.compiler.compile('"spam"; "bar"; x=5',
                                      '<hello>', 'single', 0)
@@ -132,6 +132,8 @@ class BaseTestCompiler:
         code.exec_code(space, space.newdict([]), w_locals)
         w_x = space.getitem(w_locals, space.wrap('x'))
         assert space.eq_w(w_x, space.wrap(5))
+        w_doc = space.call_method(w_locals, 'get', space.wrap('__doc__'))
+        assert space.is_w(w_doc, space.w_None)   # "spam" is not a docstring
 
     def test_barestringstmts_disappear(self):
         space = self.space
