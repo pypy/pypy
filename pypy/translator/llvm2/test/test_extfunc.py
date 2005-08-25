@@ -225,5 +225,37 @@ def test_os_isatty():
     assert f(0) == os.isatty(0)
     assert f(1) == os.isatty(1)
     assert f(2) == os.isatty(2)
+    
+def test_rarith_parts_to_float():
+    from pypy.rpython.rarithmetic import parts_to_float
+    parts = [
+     ["" ,"1","" ,""],
+     ["-","1","" ,""],
+     ["-","1","5",""],
+     ["-","1","5","2"],
+     ["-","1","5","+2"],
+     ["-","1","5","-2"],
+    ]
+    val = [1.0, -1.0, -1.5, -1.5e2, -1.5e2, -1.5e-2]
+    def fn(i):
+        sign, beforept, afterpt, exponent = parts[i]
+        return parts_to_float(sign, beforept, afterpt, exponent)
+    f = compile_function(fn, [int])
+    for i, v in enumerate(val):
+        assert f(i) == v
+
+def test_rarith_formatd():
+    from pypy.rpython.rarithmetic import formatd
+    as_float  = [ 0.0  ,  1.5  ,  2.0  ]
+    as_string = ["0.00", "1.50", "2.01"]
+    def fn(i):
+        if formatd("%.2f", as_float[i]) == as_string[i]:
+            return 1
+        else:
+            return 0
+    f = compile_function(fn, [int])
+    for i, s in enumerate(as_string):
+        res = f(i)
+        assert res == 1
 
 # end of tests taken from c backend

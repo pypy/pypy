@@ -182,12 +182,13 @@ class GenLLVM(object):
 
         j = os.path.join
         p = j(j(os.path.dirname(__file__), "module"), "genexterns.c")
+
         math_fns  = 'acos asin atan ceil cos cosh exp fabs floor log log10 atan2 fmod '
         math_fns += 'sin sinh sqrt tan tanh frexp modf pow hypot ldexp is_error'
         fns = [('ll_math_%s' % f) for f in math_fns.split()]
-        time_fns = "ll_time_time ll_time_clock ll_time_sleep ll_floattime"
-        fns += time_fns.split()
-        fns.append('ll_strtod_formatd')
+        fns += "ll_time_time ll_time_clock ll_time_sleep ll_floattime".split()
+        fns += "ll_strtod_parts_to_float ll_strtod_formatd".split()
+
         return get_ll(open(p).read(), extern_dir, fns)
 
     def gen_llvm_source(self, func=None):
