@@ -170,7 +170,7 @@ class CodeWriter(object):
 
     def debugcomment(self, tempname, len, tmpname):
         word = self.word
-        res = "%s = tail call ccc %(word)s (sbyte*, ...)* %%printf(" % locals()
+        res = "%s = call ccc %(word)s (sbyte*, ...)* %%printf(" % locals()
         res += "sbyte* getelementptr ([%s x sbyte]* %s, %(word)s 0, %(word)s 0) )" % locals()
         res = res % (tmpname, len, tmpname)
         self.indent(res)
