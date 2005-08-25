@@ -189,6 +189,12 @@ class Transformer:
         for node in nodelist:
             if node[0] != token.ENDMARKER and node[0] != token.NEWLINE:
                 self.com_append_stmt(stmts, node)
+
+        if doc is not None:
+            assert isinstance(stmts[0], Discard)
+            assert isinstance(stmts[0].expr, Const)
+            del stmts[0]
+
         return Module(doc, Stmt(stmts))
 
     def eval_input(self, nodelist):
