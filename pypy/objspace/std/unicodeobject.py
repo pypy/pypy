@@ -880,13 +880,17 @@ def unicode_encode__Unicode_ANY_ANY(unistr, encoding=None, errors=None):
                         type(retval).__name__)
     return retval
 
+def repr__Unicode(unistr):
+    import _codecs
+    return ''.join(_codecs.unicodeescape_string(unistr,len(unistr),True))
+
 ''')
 unicode_expandtabs__Unicode_ANY = app.interphook('unicode_expandtabs__Unicode_ANY')
 unicode_translate__Unicode_ANY = app.interphook('unicode_translate__Unicode_ANY')
 mod__Unicode_ANY = app.interphook('mod__Unicode_ANY')
-
 unicode_encode__Unicode_ANY_ANY = app.interphook('unicode_encode__Unicode_ANY_ANY')
 
+# Move this into the _codecs module as 'unicodeescape_string (Remember to cater for quotes)'
 def repr__Unicode(space, w_unicode):
     hexdigits = "0123456789abcdef"
     chars = w_unicode._value
@@ -906,7 +910,9 @@ def repr__Unicode(space, w_unicode):
     result[0] = 'u'
     result[1] = quote
     i = 2
-    for ch in chars:
+    j = 0
+    while j<len(chars):
+        ch = chars[j]
 ##        if ch == u"'":
 ##            quote ='''"'''
 ##            result[1] = quote
@@ -930,7 +936,29 @@ def repr__Unicode(space, w_unicode):
             result[i + 8] = hexdigits[(code >>  4) & 0xf] 
             result[i + 9] = hexdigits[(code >>  0) & 0xf]
             i += 10
+            j += 1
             continue
+        if code >= 0xD800 and code < 0xDC00:
+            ch2 = chars[j+1]
+            code2 = ord(ch2)
+            if code2 >= 0xDC00 and code2 <= 0xDFFF:
+                code = (((code & 0x03FF) << 10) | (code2 & 0x03FF)) + 0x00010000
+                if i + 12 > len(result):
+                    result.extend(['\0'] * 100)
+                result[i] = '\\'
+                result[i + 1] = "U"
+                result[i + 2] = hexdigits[(code >> 28) & 0xf] 
+                result[i + 3] = hexdigits[(code >> 24) & 0xf] 
+                result[i + 4] = hexdigits[(code >> 20) & 0xf] 
+                result[i + 5] = hexdigits[(code >> 16) & 0xf] 
+                result[i + 6] = hexdigits[(code >> 12) & 0xf] 
+                result[i + 7] = hexdigits[(code >>  8) & 0xf] 
+                result[i + 8] = hexdigits[(code >>  4) & 0xf] 
+                result[i + 9] = hexdigits[(code >>  0) & 0xf]
+                i += 10
+                j += 2
+                continue
+                
         if code >= 0x100:
             result[i] = '\\'
             result[i + 1] = "u"
@@ -939,26 +967,31 @@ def repr__Unicode(space, w_unicode):
             result[i + 4] = hexdigits[(code >>  4) & 0xf] 
             result[i + 5] = hexdigits[(code >>  0) & 0xf] 
             i += 6
+            j += 1
             continue
         if code == ord('\\') or code == ord(quote):
             result[i] = '\\'
             result[i + 1] = chr(code)
             i += 2
+            j += 1
             continue
         if code == ord('\t'):
             result[i] = '\\'
             result[i + 1] = "t"
             i += 2
+            j += 1
             continue
         if code == ord('\r'):
             result[i] = '\\'
             result[i + 1] = "r"
             i += 2
+            j += 1
             continue
         if code == ord('\n'):
             result[i] = '\\'
             result[i + 1] = "n"
             i += 2
+            j += 1
             continue
         if code < ord(' ') or code >= 0x7f:
             result[i] = '\\'
@@ -966,13 +999,16 @@ def repr__Unicode(space, w_unicode):
             result[i + 2] = hexdigits[(code >> 4) & 0xf] 
             result[i + 3] = hexdigits[(code >> 0) & 0xf] 
             i += 4
+            j += 1
             continue
         result[i] = chr(code)
         i += 1
+        j += 1
     result[i] = quote
     i += 1
     return space.wrap(''.join(result[:i]))
         
+#repr__Unicode = app.interphook('repr__Unicode') # uncomment when repr code is moved to _codecs
 import unicodetype
 register_all(vars(), unicodetype)
 
