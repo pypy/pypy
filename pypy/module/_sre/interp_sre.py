@@ -153,62 +153,54 @@ def make_context(space, w_state, w_pattern_codes):
 
 class W_MatchContext(Wrappable):
 
+    UNDECIDED = 0
+    MATCHED = 1
+    NOT_MATCHED = 2
+
     def __init__(self, space, w_state, w_pattern_codes):
         self.space = space
-        self.w_state = w_state
+        self.state = w_state
         self.pattern_codes_w = space.unpackiterable(w_pattern_codes)
-        self.w_string_position = space.wrap(w_state.string_position)
-        self.w_code_position = space.wrap(0)
-        self.w_has_matched = space.w_None
-
-        # XXX These attributes are only really used with repeat operations.
-        # Formerly a subclass of MatchContext was used for these, but for
-        # simplictiy we simply add them here for now.
-        #self.count = space.wrap(-1)
-        #self.previous = context.state.repeat
-        #self.last_position = None
+        self.string_position = w_state.string_position
+        self.code_position = 0
+        self.has_matched = self.UNDECIDED
 
     def push_new_context(self, w_pattern_offset):
         """Creates a new child context of this context and pushes it on the
         stack. pattern_offset is the offset off the current code position to
         start interpreting from."""
         pattern_offset = self.space.int_w(w_pattern_offset)
-        pattern_codes_w = self.pattern_codes_w[
-                    self.space.int_w(self.w_code_position) + pattern_offset:]
-        w_child_context = self.space.wrap(W_MatchContext(self.space, self.w_state,
+        pattern_codes_w = self.pattern_codes_w[self.code_position + pattern_offset:]
+        w_child_context = self.space.wrap(W_MatchContext(self.space, self.state,
                                            self.space.newlist(pattern_codes_w)))
-        self.space.call_method(self.w_state.w_context_stack, "append", w_child_context)
-        #context_stack = self.space.unpackiterable(self.w_state.w_context_stack)
-        #context_stack.append(w_child_context)
+        self.space.call_method(self.state.w_context_stack, "append", w_child_context)
         return w_child_context
 
     def peek_char(self, w_peek=0):
-        return self.space.getitem(self.w_state.w_string,
-                                self.space.add(self.w_string_position, w_peek))
+        return self.space.getitem(self.state.w_string,
+                self.space.add(self.space.wrap(self.string_position), w_peek))
 
     def skip_char(self, w_skip_count):
-        self.w_string_position = self.space.add(self.w_string_position, w_skip_count)
+        self.string_position = self.string_position + self.space.int_w(w_skip_count)
 
     def remaining_chars(self):
-        return self.space.sub(self.space.wrap(self.w_state.end), self.w_string_position)
+        return self.space.wrap(self.state.end - self.string_position)
 
     def peek_code(self, w_peek=0):
         space = self.space
-        return self.pattern_codes_w[
-                        space.int_w(space.add(self.w_code_position, w_peek))]
+        return self.pattern_codes_w[self.code_position + self.space.int_w(w_peek)]
 
     def skip_code(self, w_skip_count):
-        self.w_code_position = self.space.add(self.w_code_position, w_skip_count)
+        self.code_position = self.code_position + self.space.int_w(w_skip_count)
 
     def remaining_codes(self):
-        return self.space.sub(self.space.wrap(len(self.pattern_codes_w)),
-                                                           self.w_code_position)
+        return self.space.wrap(len(self.pattern_codes_w) - self.code_position)
 
     def at_beginning(self):
-        return self.space.eq(self.w_string_position, self.space.wrap(0))
+        return self.space.newbool(self.string_position == 0)
 
     def at_end(self):
-        return self.space.eq(self.w_string_position, self.space.wrap(self.w_state.end))
+        return self.space.newbool(self.string_position == self.state.end)
 
     def at_linebreak(self):
         space = self.space
@@ -216,11 +208,11 @@ class W_MatchContext(Wrappable):
                     space.eq(self.peek_char(space.wrap(0)), space.wrap("\n")))
 
 W_MatchContext.typedef = TypeDef("W_MatchContext",
-    state = interp_attrproperty_w("w_state", W_MatchContext),
-    string_position = interp_attrproperty_obj_w("w_string_position", W_MatchContext),
+    state = interp_attrproperty_w("state", W_MatchContext),
+    string_position = interp_attrproperty_int("string_position", W_MatchContext),
     pattern_codes = interp_attrproperty_list_w("pattern_codes_w", W_MatchContext),
-    code_position = interp_attrproperty_obj_w("w_code_position", W_MatchContext),
-    has_matched = interp_attrproperty_obj_w("w_has_matched", W_MatchContext),
+    code_position = interp_attrproperty_int("code_position", W_MatchContext),
+    has_matched = interp_attrproperty_int("has_matched", W_MatchContext),
     push_new_context = interp2app(W_MatchContext.push_new_context),
     peek_char = interp2app(W_MatchContext.peek_char),
     skip_char = interp2app(W_MatchContext.skip_char),
@@ -240,10 +232,10 @@ def make_repeat_context(space, w_context):
 class W_RepeatContext(W_MatchContext):
     
     def __init__(self, space, w_context):
-        W_MatchContext.__init__(self, space, w_context.w_state,
-            space.newlist(w_context.pattern_codes_w[space.int_w(w_context.w_code_position):]))
+        W_MatchContext.__init__(self, space, w_context.state,
+            space.newlist(w_context.pattern_codes_w[w_context.code_position:]))
         self.w_count = space.wrap(-1)
-        self.w_previous = w_context.w_state.w_repeat
+        self.w_previous = w_context.state.w_repeat
         self.w_last_position = space.w_None
 
 W_RepeatContext.typedef = TypeDef("W_RepeatContext", W_MatchContext.typedef,
@@ -264,15 +256,15 @@ def opcode_is_at_interplevel(space, w_opcode):
     opcode = space.int_w(w_opcode)
     return space.newbool(opcode_dispatch_table[opcode] is not None)
 
-def op_success(space, w_ctx):
+def op_success(space, ctx):
     # end of pattern
-    w_ctx.w_state.string_position = space.int_w(w_ctx.w_string_position)
-    w_ctx.w_has_matched = space.newbool(True)
+    ctx.state.string_position = ctx.string_position
+    ctx.has_matched = ctx.MATCHED
     return True
 
-def op_failure(space, w_ctx):
+def op_failure(space, ctx):
     # immediate failure
-    w_ctx.w_has_matched = space.newbool(False)
+    ctx.has_matched = ctx.NOT_MATCHED
     return True
 
 opcode_dispatch_table = [

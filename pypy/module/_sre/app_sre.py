@@ -369,6 +369,10 @@ def fast_search(state, pattern_codes):
         string_position += 1
     return False
 
+# XXX temporary constants for MatchContext.has_matched
+UNDECIDED = 0
+MATCHED = 1
+NOT_MATCHED = 2
 
 def match(state, pattern_codes):
     # Optimization: Check string length. pattern_codes[3] contains the
@@ -381,13 +385,13 @@ def match(state, pattern_codes):
     
     dispatcher = _OpcodeDispatcher()
     state.context_stack.append(_sre._MatchContext(state, pattern_codes))
-    has_matched = None
+    has_matched = UNDECIDED
     while len(state.context_stack) > 0:
         context = state.context_stack[-1]
         has_matched = dispatcher.match(context)
-        if has_matched is not None: # don't pop if context isn't done
+        if has_matched != UNDECIDED: # don't pop if context isn't done
             state.context_stack.pop()
-    return has_matched
+    return has_matched == MATCHED
 
 
 class _Dispatcher(object):
@@ -422,12 +426,12 @@ class _OpcodeDispatcher(_Dispatcher):
         """Returns True if the current context matches, False if it doesn't and
         None if matching is not finished, ie must be resumed after child
         contexts have been matched."""
-        while context.remaining_codes() > 0 and context.has_matched is None:
+        while context.remaining_codes() > 0 and context.has_matched == UNDECIDED:
             opcode = context.peek_code()
             if not self.dispatch(opcode, context):
-                return None
-        if context.has_matched is None:
-            context.has_matched = False
+                return UNDECIDED
+        if context.has_matched == UNDECIDED:
+            context.has_matched = NOT_MATCHED
         return context.has_matched
 
     def dispatch(self, opcode, context):
@@ -453,7 +457,7 @@ class _OpcodeDispatcher(_Dispatcher):
     def general_op_literal(self, ctx, compare, decorate=lambda x: x):
         if ctx.at_end() or not compare(decorate(ord(ctx.peek_char())),
                                             decorate(ctx.peek_code(1))):
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
         ctx.skip_code(2)
         ctx.skip_char(1)
 
@@ -491,7 +495,7 @@ class _OpcodeDispatcher(_Dispatcher):
         #self._log(ctx, "AT", ctx.peek_code(1))
         if not _sre._at_dispatch(ctx.peek_code(1), ctx.state.string,
                                             ctx.string_position, ctx.state.end):
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             return True
         ctx.skip_code(2)
         return True
@@ -502,7 +506,7 @@ class _OpcodeDispatcher(_Dispatcher):
         #self._log(ctx, "CATEGORY", ctx.peek_code(1))
         if ctx.at_end() or \
                  not _sre._category_dispatch(ctx.peek_code(1), ctx.peek_char()):
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             return True
         ctx.skip_code(2)
         ctx.skip_char(1)
@@ -513,7 +517,7 @@ class _OpcodeDispatcher(_Dispatcher):
         # <ANY>
         #self._log(ctx, "ANY")
         if ctx.at_end() or ctx.at_linebreak():
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             return True
         ctx.skip_code(1)
         ctx.skip_char(1)
@@ -524,7 +528,7 @@ class _OpcodeDispatcher(_Dispatcher):
         # <ANY_ALL>
         #self._log(ctx, "ANY_ALL")
         if ctx.at_end():
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             return True
         ctx.skip_code(1)
         ctx.skip_char(1)
@@ -533,14 +537,14 @@ class _OpcodeDispatcher(_Dispatcher):
     def general_op_in(self, ctx, decorate=lambda x: x):
         #self._log(ctx, "OP_IN")
         if ctx.at_end():
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             return
         skip = ctx.peek_code(1)
         ctx.skip_code(2) # set op pointer to the set code
         char = decorate(ord(ctx.peek_char()))
         if not _sre._check_charset(ctx.pattern_codes[ctx.code_position:], char,
                                          ctx.state.string, ctx.string_position):
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             return
         ctx.skip_code(skip - 1)
         ctx.skip_char(1)
@@ -593,14 +597,14 @@ class _OpcodeDispatcher(_Dispatcher):
                 ctx.state.string_position = ctx.string_position
                 child_context = ctx.push_new_context(1)
                 yield False
-                if child_context.has_matched:
-                    ctx.has_matched = True
+                if child_context.has_matched == MATCHED:
+                    ctx.has_matched = MATCHED
                     yield True
                 ctx.state.marks_pop_keep()
             ctx.skip_code(current_branch_length)
             current_branch_length = ctx.peek_code(0)
         ctx.state.marks_pop_discard()
-        ctx.has_matched = False
+        ctx.has_matched = NOT_MATCHED
         yield True
 
     def op_repeat_one(self, ctx):
@@ -613,18 +617,18 @@ class _OpcodeDispatcher(_Dispatcher):
         #self._log(ctx, "REPEAT_ONE", mincount, maxcount)
 
         if ctx.remaining_chars() < mincount:
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             yield True
         ctx.state.string_position = ctx.string_position
         count = self.count_repetitions(ctx, maxcount)
         ctx.skip_char(count)
         if count < mincount:
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             yield True
         if ctx.peek_code(ctx.peek_code(1) + 1) == OPCODES["success"]:
             # tail is empty.  we're finished
             ctx.state.string_position = ctx.string_position
-            ctx.has_matched = True
+            ctx.has_matched = MATCHED
             yield True
 
         ctx.state.marks_push()
@@ -642,8 +646,8 @@ class _OpcodeDispatcher(_Dispatcher):
                 ctx.state.string_position = ctx.string_position
                 child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
                 yield False
-                if child_context.has_matched:
-                    ctx.has_matched = True
+                if child_context.has_matched == MATCHED:
+                    ctx.has_matched = MATCHED
                     yield True
                 ctx.skip_char(-1)
                 count -= 1
@@ -655,15 +659,15 @@ class _OpcodeDispatcher(_Dispatcher):
                 ctx.state.string_position = ctx.string_position
                 child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
                 yield False
-                if child_context.has_matched:
-                    ctx.has_matched = True
+                if child_context.has_matched == MATCHED:
+                    ctx.has_matched = MATCHED
                     yield True
                 ctx.skip_char(-1)
                 count -= 1
                 ctx.state.marks_pop_keep()
 
         ctx.state.marks_pop_discard()
-        ctx.has_matched = False
+        ctx.has_matched = NOT_MATCHED
         yield True
 
     def op_min_repeat_one(self, ctx):
@@ -674,7 +678,7 @@ class _OpcodeDispatcher(_Dispatcher):
         #self._log(ctx, "MIN_REPEAT_ONE", mincount, maxcount)
 
         if ctx.remaining_chars() < mincount:
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             yield True
         ctx.state.string_position = ctx.string_position
         if mincount == 0:
@@ -682,13 +686,13 @@ class _OpcodeDispatcher(_Dispatcher):
         else:
             count = self.count_repetitions(ctx, mincount)
             if count < mincount:
-                ctx.has_matched = False
+                ctx.has_matched = NOT_MATCHED
                 yield True
             ctx.skip_char(count)
         if ctx.peek_code(ctx.peek_code(1) + 1) == OPCODES["success"]:
             # tail is empty.  we're finished
             ctx.state.string_position = ctx.string_position
-            ctx.has_matched = True
+            ctx.has_matched = MATCHED
             yield True
 
         ctx.state.marks_push()
@@ -696,8 +700,8 @@ class _OpcodeDispatcher(_Dispatcher):
             ctx.state.string_position = ctx.string_position
             child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
             yield False
-            if child_context.has_matched:
-                ctx.has_matched = True
+            if child_context.has_matched == MATCHED:
+                ctx.has_matched = MATCHED
                 yield True
             ctx.state.string_position = ctx.string_position
             if self.count_repetitions(ctx, 1) == 0:
@@ -707,7 +711,7 @@ class _OpcodeDispatcher(_Dispatcher):
             ctx.state.marks_pop_keep()
 
         ctx.state.marks_pop_discard()
-        ctx.has_matched = False
+        ctx.has_matched = NOT_MATCHED
         yield True
 
     def op_repeat(self, ctx):
@@ -742,7 +746,7 @@ class _OpcodeDispatcher(_Dispatcher):
             child_context = repeat.push_new_context(4)
             yield False
             ctx.has_matched = child_context.has_matched
-            if not ctx.has_matched:
+            if ctx.has_matched == NOT_MATCHED:
                 repeat.count = count - 1
                 ctx.state.string_position = ctx.string_position
             yield True
@@ -757,9 +761,9 @@ class _OpcodeDispatcher(_Dispatcher):
             child_context = repeat.push_new_context(4)
             yield False
             repeat.last_position = save_last_position
-            if child_context.has_matched:
+            if child_context.has_matched == MATCHED:
                 ctx.state.marks_pop_discard()
-                ctx.has_matched = True
+                ctx.has_matched = MATCHED
                 yield True
             ctx.state.marks_pop()
             repeat.count = count - 1
@@ -770,7 +774,7 @@ class _OpcodeDispatcher(_Dispatcher):
         child_context = ctx.push_new_context(1)
         yield False
         ctx.has_matched = child_context.has_matched
-        if not ctx.has_matched:
+        if ctx.has_matched == NOT_MATCHED:
             ctx.state.repeat = repeat
             ctx.state.string_position = ctx.string_position
         yield True
@@ -793,7 +797,7 @@ class _OpcodeDispatcher(_Dispatcher):
             child_context = repeat.push_new_context(4)
             yield False
             ctx.has_matched = child_context.has_matched
-            if not ctx.has_matched:
+            if ctx.has_matched == NOT_MATCHED:
                 repeat.count = count - 1
                 ctx.state.string_position = ctx.string_position
             yield True
@@ -803,8 +807,8 @@ class _OpcodeDispatcher(_Dispatcher):
         ctx.state.repeat = repeat.previous
         child_context = ctx.push_new_context(1)
         yield False
-        if child_context.has_matched:
-            ctx.has_matched = True
+        if child_context.has_matched == MATCHED:
+            ctx.has_matched = MATCHED
             yield True
         ctx.state.repeat = repeat
         ctx.state.string_position = ctx.string_position
@@ -812,13 +816,13 @@ class _OpcodeDispatcher(_Dispatcher):
 
         # match more until tail matches
         if count >= maxcount and maxcount != MAXREPEAT:
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             yield True
         repeat.count = count
         child_context = repeat.push_new_context(4)
         yield False
         ctx.has_matched = child_context.has_matched
-        if not ctx.has_matched:
+        if ctx.has_matched == NOT_MATCHED:
             repeat.count = count - 1
             ctx.state.string_position = ctx.string_position
         yield True
@@ -826,12 +830,12 @@ class _OpcodeDispatcher(_Dispatcher):
     def general_op_groupref(self, ctx, decorate=lambda x: x):
         group_start, group_end = ctx.state.get_marks(ctx.peek_code(1))
         if group_start is None or group_end is None or group_end < group_start:
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             return True
         while group_start < group_end:
             if ctx.at_end() or decorate(ord(ctx.peek_char())) \
                                 != decorate(ord(ctx.state.string[group_start])):
-                ctx.has_matched = False
+                ctx.has_matched = NOT_MATCHED
                 return True
             group_start += 1
             ctx.skip_char(1)
@@ -866,14 +870,14 @@ class _OpcodeDispatcher(_Dispatcher):
         #self._log(ctx, "ASSERT", ctx.peek_code(2))
         ctx.state.string_position = ctx.string_position - ctx.peek_code(2)
         if ctx.state.string_position < 0:
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
             yield True
         child_context = ctx.push_new_context(3)
         yield False
-        if child_context.has_matched:
+        if child_context.has_matched == MATCHED:
             ctx.skip_code(ctx.peek_code(1) + 1)
         else:
-            ctx.has_matched = False
+            ctx.has_matched = NOT_MATCHED
         yield True
 
     def op_assert_not(self, ctx):
@@ -884,8 +888,8 @@ class _OpcodeDispatcher(_Dispatcher):
         if ctx.state.string_position >= 0:
             child_context = ctx.push_new_context(3)
             yield False
-            if child_context.has_matched:
-                ctx.has_matched = False
+            if child_context.has_matched == MATCHED:
+                ctx.has_matched = NOT_MATCHED
                 yield True
         ctx.skip_code(ctx.peek_code(1) + 1)
         yield True
@@ -914,10 +918,10 @@ class _OpcodeDispatcher(_Dispatcher):
             # a success opcode
             ctx.code_position = reset_position
             self.dispatch(ctx.peek_code(), ctx)
-            if ctx.has_matched is False: # could be None as well
+            if ctx.has_matched == NOT_MATCHED: # could be None as well
                 break
             count += 1
-        ctx.has_matched = None
+        ctx.has_matched = UNDECIDED
         ctx.code_position = code_position
         ctx.string_position = string_position
         return count
