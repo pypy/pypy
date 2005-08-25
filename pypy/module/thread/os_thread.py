@@ -11,25 +11,44 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
 import pypy.module.thread.rpython.exttable
 
 
+THREAD_STARTUP_LOCK = thread.allocate_lock()
+
+
 class Bootstrapper:
     def bootstrap(self):
-        space      = self.space
-        w_callable = self.w_callable
-        args       = self.args
+        space = self.space
+        THREAD_STARTUP_LOCK.release()
         space.threadlocals.enter_thread(space)
         try:
-            try:
-                space.call_args(w_callable, args)
-            except OperationError, e:
-                if not e.match(space, space.w_SystemExit):
-                    ident = thread.get_ident()
-                    where = 'thread %d started by' % ident
-                    e.write_unraisable(space, where, w_callable)
-                e.clear(space)
+            self.run()
         finally:
+            # release ownership of these objects before we release the GIL
+            self.args       = None
+            self.w_callable = None
+            self.space      = None
+            # at this point the thread should only have a reference to
+            # an empty 'self'.  We hold the last reference to 'self'; indeed,
+            # the parent thread already forgot about it because the above
+            # enter_thread() must have blocked until long after the call to
+            # start_new_thread() below returned.
+            # (be careful of resetting *all* local variables to None here!)
+
             # clean up space.threadlocals to remove the ExecutionContext
             # entry corresponding to the current thread
             space.threadlocals.leave_thread(space)
+
+    def run(self):
+        space      = self.space
+        w_callable = self.w_callable
+        args       = self.args
+        try:
+            space.call_args(w_callable, args)
+        except OperationError, e:
+            if not e.match(space, space.w_SystemExit):
+                ident = thread.get_ident()
+                where = 'thread %d started by' % ident
+                e.write_unraisable(space, where, w_callable)
+            e.clear(space)
 
 
 def start_new_thread(space, w_callable, w_args, w_kwargs=NoneNotWrapped):
@@ -47,7 +66,16 @@ printed unless the exception is SystemExit."""
     boot.space      = space
     boot.w_callable = w_callable
     boot.args       = args
+
+    THREAD_STARTUP_LOCK.acquire(True)
+
     ident = thread.start_new_thread(Bootstrapper.bootstrap, (boot,))
+
+    # wait until the thread has really started and acquired a reference to
+    # 'boot'.
+    THREAD_STARTUP_LOCK.acquire(True)
+    THREAD_STARTUP_LOCK.release()
+
     return space.wrap(ident)
 
 

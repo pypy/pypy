@@ -31,6 +31,7 @@ class GILThreadLocals(OSThreadLocals):
     def yield_thread(self):
         """Notification that the current thread is between two bytecodes:
         release the GIL for a little while."""
-        self.GIL.release()
+        GIL = self.GIL
+        GIL.release()
         # Other threads can run here
-        self.GIL.acquire(True)
+        GIL.acquire(True)

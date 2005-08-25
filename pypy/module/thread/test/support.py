@@ -12,7 +12,7 @@ class GenericTestThread:
             def waitfor(expr, timeout=10.0):
                 limit = time.time() + timeout
                 while time.time() <= limit:
-                    time.sleep(0.005)
+                    time.sleep(0.002)
                     if expr():
                         return
                 print '*** timed out ***'
@@ -23,6 +23,6 @@ class GenericTestThread:
             def busywait(t):
                 limit = time.time() + t
                 while time.time() <= limit:
-                    time.sleep(0.005)
+                    time.sleep(0.002)
             return busywait
         """)
