@@ -142,7 +142,7 @@ class PyCode(eval.Code):
         space = self.space
         newconsts_w = []
         for const in consts:
-            if isinstance(const, types.CodeType):
+            if isinstance(const, types.CodeType): # from stable compiler
                 const = PyCode(space)._from_code(const, hidden_applevel=hidden_applevel)
             newconsts_w.append(space.wrap(const))
         self.co_consts_w = newconsts_w
@@ -173,6 +173,52 @@ class PyCode(eval.Code):
                         code.co_cellvars,
                         hidden_applevel )
         return self
+
+
+
+    def _code_new_w( self, argcount, nlocals, stacksize, flags,
+                     code, consts, names, varnames, filename,
+                     name, firstlineno, lnotab, freevars, cellvars,
+                     hidden_applevel=False):
+        """Initialize a new code objects from parameters given by
+        the pypy compiler"""
+        # simply try to suck in all attributes we know of
+        # with a lot of boring asserts to enforce type knowledge
+        # XXX get rid of that ASAP with a real compiler!
+        import types
+        x = argcount; assert isinstance(x, int)
+        self.co_argcount = x
+        x = nlocals; assert isinstance(x, int)
+        self.co_nlocals = x
+        x = stacksize; assert isinstance(x, int)
+        self.co_stacksize = x
+        x = flags; assert isinstance(x, int)
+        self.co_flags = x
+        x = code; assert isinstance(x, str)
+        self.co_code = x
+##         for w in consts:
+##             assert isinstance(w,W_Root)
+        self.co_consts_w = consts
+        x = names; assert isinstance(x, tuple)
+        self.co_names = [ str(n) for n in x ]
+        x = varnames; assert isinstance(x, tuple)
+        self.co_varnames = [ str(n) for n in x ]
+        x = freevars; assert isinstance(x, tuple)
+        self.co_freevars = [ str(n) for n in x ]
+        x = cellvars; assert isinstance(x, tuple)
+        self.co_cellvars = [ str(n) for n in x ]
+        x = filename; assert isinstance(x, str)
+        self.co_filename = x
+        x = name; assert isinstance(x, str)
+        self.co_name = x
+        x = firstlineno; assert isinstance(x, int)
+        self.co_firstlineno = x
+        x = lnotab; assert isinstance(x, str)
+        self.co_lnotab = x
+        # recursively _from_code()-ify the code objects in code.co_consts
+        space = self.space
+        return self
+
 
     def create_frame(self, space, w_globals, closure=None):
         "Create an empty PyFrame suitable for this code object."
