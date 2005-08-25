@@ -421,12 +421,12 @@ You should start looking at the part that attracts you most (all parts are
 relative to the PyPy toplevel directory).  You may look at our `directory reference`_ 
 or start off at one of the following points:
 
-*  `pypy/interpreter`_ contains the basic interpreter: bytecode dispatcher
+*  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
    in pyopcode.py_, frame and code objects in eval.py_ and pyframe.py_,
    function objects and argument passing in function.py_ and argument.py_,
    the object space interface definition in baseobjspace.py_, modules in
-   module.py_ and mixedmodule.py_.  Core types supporting the interpreter are
-   defined in typedef.py_.
+   module.py_ and mixedmodule.py_.  Core types supporting the bytecode 
+   interpreter are defined in typedef.py_.
 
 *  `pypy/objspace/std`_ contains the `Standard object space`_.  The main file
    is objspace.py_.  For each type, the files ``xxxtype.py`` and
@@ -435,7 +435,8 @@ or start off at one of the following points:
 
 *  `pypy/objspace`_ contains a few other object spaces: the thunk_
    one, the trace_ one, the flow_ one.  The latter is a relatively short piece
-   of  code that builds the control flow graphs when the interpreter runs in it.
+   of  code that builds the control flow graphs when the bytecode interpreter
+   runs in it.
 
 *  `pypy/translator`_ contains the code analysis and generation stuff.
    Start reading from translator.py_, from which it should be easy to follow

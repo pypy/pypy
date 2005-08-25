@@ -992,11 +992,11 @@ exceptions implemented nor classes available.
 Solution
 --------
 
-This bootstrap issue is solved by invoking a new interpreter which
+This bootstrap issue is solved by invoking a new bytecode interpreter which
 runs on FlowObjspace. FlowObjspace is complete without complicated
 initialization. It is able to do abstract interpretation of any
 Rpythonic code, without actually implementing anything. It just
-records all the operations the interpreter would have done by
+records all the operations the bytecode interpreter would have done by
 building flowgraphs for all the code. What the Python backend does is
 just to produce correct Python code from these flowgraphs and return
 it as source code.
@@ -1023,8 +1023,9 @@ for the interface::
     ...
     ... """)
 
-This call has invoked a PyPy interpreter running on FlowObjspace, recorded every
-possible codepath into a flowgraph, and then rendered the following source code::
+This call has invoked a PyPy bytecode interpreter running on FlowObjspace,
+recorded every possible codepath into a flowgraph, and then rendered the
+following source code:: 
 
     >>> print source
     #!/bin/env python

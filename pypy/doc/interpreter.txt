@@ -55,7 +55,7 @@ application-level execution (``interp2app``) or allow
 transparent invocation of application-level helpers
 (``app2interp``) at interpreter-level. 
 
-Another task of the interpreter is to expose its basic 
+Another task of the bytecode interpreter is to expose its basic 
 code, frame, module and function objects to application-level 
 code.  Such runtime introspection and modification abilities are 
 implemented via `interpreter descriptors`_ (also see Raymond Hettingers 
@@ -84,8 +84,8 @@ invocations.
 .. _`application level exceptions`: coding-guide.html#applevel-exceptions
 
 
-Interpreter Implementation Classes  
-======================================
+Bytecode Interpreter Implementation Classes  
+===========================================
 
 
 .. _`Frame class`: 
@@ -357,7 +357,7 @@ Introspection and Descriptors
 ------------------------------
 
 Python traditionally has a very far-reaching introspection model 
-for interpreter related objects. In PyPy and in CPython read
+for bytecode interpreter related objects. In PyPy and in CPython read
 and write accesses to such objects are routed to descriptors. 
 Of course, in CPython those are implemented in ``C`` while in
 PyPy they are implemented in interpreter-level Python code. 

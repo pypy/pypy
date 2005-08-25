@@ -73,7 +73,11 @@ Creation of Application Level objects
 ---------------------------------------
 
 **wrap(x):**
-  Returns a wrapped object that is a reference to the interpreter-level object x. This can be used either on simple immutable objects (integers, strings...) to create a new wrapped object, or on complex mutable objects to obtain an application-level-visible reference to them (e.g. instances of internal interpreter classes).
+  Returns a wrapped object that is a reference to the interpreter-level object
+  x. This can be used either on simple immutable objects (integers,
+  strings...) to create a new wrapped object, or on complex mutable objects to
+  obtain an application-level-visible reference to them (e.g. instances of
+  internal bytecode interpreter classes).
 
 **newbool(b):**
   Creates a Bool Object from an interpreter level object.
@@ -103,7 +107,8 @@ Conversions from Application Level to Interpreter Level
   Return Interpreter Level equivalent of w_x
 
 **interpclass_w(w_x):**
-  If w_x is a wrapped instance of an interpreter class -- for example Function, Frame, Cell, etc. -- return it unwrapped.  Otherwise return None.
+  If w_x is a wrapped instance of an bytecode interpreter class -- for example
+  Function, Frame, Cell, etc. -- return it unwrapped.  Otherwise return None. 
 
 **int_w(w_x):**
   If w_x is an application-level integer or long which can be converted without overflow to an integer, return an interpreter-level integer.  Otherwise raise TypeError or OverflowError.
@@ -158,7 +163,17 @@ Introduction
 
 The Standard Object Space (StdObjSpace_) is the direct equivalent of CPython's object library (the "Objects/" subdirectory in the distribution). It is an implementation of the common Python types in a lower-level language.
 
-The Standard Object Space defines an abstract parent class, W_Object, and a bunch of subclasses like W_IntObject, W_ListObject, and so on. A wrapped object (a "black box" for the interpreter main loop) is thus an instance of one of these classes. When the main loop invokes an operation, say the addition, between two wrapped objects w1 and w2, the Standard Object Space does some internal dispatching (similar to "Object/abstract.c" in CPython) and invokes a method of the proper W_XyzObject class that can do the operation. The operation itself is done with the primitives allowed by RestrictedPython. The result is constructed as a wrapped object again. For example, compare the following implementation of integer addition with the function "int_add()" in "Object/intobject.c": ::
+The Standard Object Space defines an abstract parent class, W_Object, and a
+bunch of subclasses like W_IntObject, W_ListObject, and so on. A wrapped
+object (a "black box" for the bytecode interpreter main loop) is thus an
+instance of one of these classes. When the main loop invokes an operation, say
+the addition, between two wrapped objects w1 and w2, the Standard Object Space
+does some internal dispatching (similar to "Object/abstract.c" in CPython) and
+invokes a method of the proper W_XyzObject class that can do the
+operation. The operation itself is done with the primitives allowed by
+RestrictedPython. The result is constructed as a wrapped object again. For
+example, compare the following implementation of integer addition with the
+function "int_add()" in "Object/intobject.c": :: 
 
     def add__Int_Int(space, w_int1, w_int2):
         x = w_int1.intval
@@ -282,9 +297,10 @@ Introduction
 
 The task of the FlowObjSpace_ is to generate a control-flow graph from a function.  This graph will also contain a trace of the individual operations, so that it is actually just an alternate representation for the function.
 
-The FlowObjSpace is an object space, which means that it exports the standard object space interface and it is driven by the interpreter.
+The FlowObjSpace is an object space, which means that it exports the standard
+object space interface and it is driven by the bytecode interpreter.
 
-The basic idea is that if the interpreter is given a function, e.g.::
+The basic idea is that if the bytecode interpreter is given a function, e.g.::
 
   def f(n):
     return 3*n+2
@@ -293,7 +309,10 @@ it will do whatever bytecode dispatching and stack-shuffling needed, during whic
 
 .. _`Abstract Interpretation`: theory.html#abstract-interpretation
 
-For example, if the placeholder ``v1`` is given as the argument to the above function, the interpreter will call ``v2 = space.mul(space.wrap(3), v1)`` and then ``v3 = space.add(v2, space.wrap(2))`` and return ``v3`` as the result.  During these calls the FlowObjSpace will record a basic block::
+For example, if the placeholder ``v1`` is given as the argument to the above
+function, the bytecode interpreter will call ``v2 = space.mul(space.wrap(3),
+v1)`` and then ``v3 = space.add(v2, space.wrap(2))`` and return ``v3`` as the
+result.  During these calls the FlowObjSpace will record a basic block:: 
 
   Block(v1):     # input argument
     v2 = mul(Constant(3), v1)
@@ -378,11 +397,27 @@ Constant
 How the FlowObjSpace works
 --------------------------
 
-The FlowObjSpace works by recording all operations issued by the interpreter into basic blocks.  A basic block ends in one of two cases: when the interpreters calls ``is_true()``, or when a joinpoint is reached.
+The FlowObjSpace works by recording all operations issued by the bytecode
+interpreter into basic blocks.  A basic block ends in one of two cases: when
+the bytecode interpreters calls ``is_true()``, or when a joinpoint is reached.
 
-* A joinpoint occurs when the next operation is about to be recorded into the current block, but there is already another block that records an operation for the same bytecode position.  This means that the interpreter has closed a loop and is interpreting already-seen code again.  In this situation, we interrupt the interpreter and we make a link from the end of the current block back to the previous block, thus closing the loop in the flow graph as well.  (Note that this occurs only when an operation is about to be recorded, which allows some amount of constant-folding.)
+* A joinpoint occurs when the next operation is about to be recorded into the
+  current block, but there is already another block that records an operation
+  for the same bytecode position.  This means that the bytecode interpreter
+  has closed a loop and is interpreting already-seen code again.  In this
+  situation, we interrupt the bytecode interpreter and we make a link from the
+  end of the current block back to the previous block, thus closing the loop
+  in the flow graph as well.  (Note that this occurs only when an operation is
+  about to be recorded, which allows some amount of constant-folding.) 
 
-* If the interpreter calls ``is_true()``, the FlowObjSpace doesn't generally know if the answer should be True or False, so it puts a conditional jump and generates two successor blocks for the current basic block.  There is some trickery involved so that the interpreter is fooled into thinking that ``is_true()`` first returns False (and the subsequent operations are recorded in the first successor block), and later the *same* call to ``is_true()`` also returns True (and the subsequent operations go this time to the other successor block).
+* If the bytecode interpreter calls ``is_true()``, the FlowObjSpace doesn't
+  generally know if the answer should be True or False, so it puts a
+  conditional jump and generates two successor blocks for the current basic
+  block.  There is some trickery involved so that the bytecode interpreter is
+  fooled into thinking that ``is_true()`` first returns False (and the
+  subsequent operations are recorded in the first successor block), and later
+  the *same* call to ``is_true()`` also returns True (and the subsequent
+  operations go this time to the other successor block). 
 
 (This section to be extended...)
 

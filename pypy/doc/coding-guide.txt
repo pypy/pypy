@@ -363,7 +363,7 @@ Naming conventions
 Operations on ``w_xxx``
 -----------------------
 
-The core interpreter considers wrapped objects as black boxes.
+The core bytecode interpreter considers wrapped objects as black boxes.
 It is not allowed to inspect them directly.  The allowed
 operations are all implemented on the object space: they are
 called ``space.xxx()``, where ``xxx`` is a standard operation
@@ -387,13 +387,13 @@ Also note some helpers:
 Building ``w_xxx`` objects
 --------------------------
 
-From the core interpreter, wrapped objects are usually built as the result of
+From the bytecode interpreter, wrapped objects are usually built as the result of
 an object space operation.  The ways to directly create a wrapped object are:
 
 * ``space.wrap(x)``: returns a wrapped object containing the
   value ``x``.  Only works if ``x`` is either a simple value
   (integer, float, string) or an instance of an internal
-  interpreter class (Function, Code, Frame...).
+  bytecode interpreter class (Function, Code, Frame...).
 
 * ``space.newlist([w_x, w_y, w_z...])``: returns a wrapped
   list from a list of already-wrapped objects.
@@ -424,7 +424,7 @@ The most common ones are ``space.w_None`` and
 Inspecting and unwrapping ``w_xxx`` objects
 --------------------------------------------
 
-The most delicate operation is for the interpreter to inspect
+The most delicate operation is for the bytecode interpreter to inspect
 a wrapped object, which must be done via the object space.
 
 * ``space.is_true(w_x)``: checks if the given wrapped object

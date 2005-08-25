@@ -92,7 +92,7 @@ The Standard Interpreter
 The *standard interpreter* is the subsystem implementing the Python language.
 It is divided in two components:
 
-- the `plain interpreter`_ which is responsible for interpreting 
+- the `bytecode interpreter`_ which is responsible for interpreting 
   code objects and implementing bytecodes,
 
 - the `standard object space`_ which implements creation, access and
@@ -102,12 +102,14 @@ Note that the *standard interpreter* can run fine on top of CPython
 (the C Implementation of Python led by Guido van Rossum), if one is
 willing to pay for the double-interpretation performance penalty.
 
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 Please note that we are using the term *interpreter* most often in
 reference to the *plain interpreter* which just knows enough to read,
 dispatch and implement *bytecodes* thus shuffling objects around on the
 stack and between namespaces.  The (plain) interpreter is completely
 ignorant of how to access, modify or construct objects and their
 structure and thus delegates such operations to a so called `Object Space`_.
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 In addition, the standard interpreter requires a parser and bytecode compiler
 to turn the user's Python source code into a form amenable to
@@ -123,7 +125,7 @@ representation of our standard interpreter.  The *translation process*
 is done in four steps:
 
 - producing a *flow graph* representation of the standard interpreter. 
-  A combination of a `plain interpreter`_ and a *flow object space*
+  A combination of a `bytecode interpreter`_ and a *flow object space*
   performs *abstract interpretation* to record the flow of objects
   and execution throughout a python program into such a *flow graph*.
 
@@ -138,7 +140,7 @@ is done in four steps:
 See below for the `translation process in more details`_.
 
 
-.. _`plain interpreter`:
+.. _`bytecode interpreter`:
 
 The Bytecode Interpreter
 =========================
@@ -179,7 +181,7 @@ when add works on built-in sequences.
 
 All object-space operations take and return `application-level`_ objects.
 There are only a few, very simple, object-space operation which allows the
-interpreter to gain some knowledge about the value of an
+bytecode interpreter to gain some knowledge about the value of an
 application-level object.
 The most important one is ``is_true()``, which returns a boolean
 interpreter-level value.  This is necessary to implement, for example,
@@ -187,13 +189,13 @@ if-statements (or rather, to be pedantic, to implement the
 conditional-branching bytecodes into which if-statements get compiled). 
 
 We currently have four working object spaces which can be plugged into
-the interpreter:
+the bytecode interpreter:
 
 .. _`standard object space`:
 
 - The *Standard Object Space* is a complete implementation 
   of the various built-in types and objects of Python.  The Standard Object
-  Space, together with the interpreter, is the foundation of our Python
+  Space, together with the bytecode interpreter, is the foundation of our Python
   implementation.  Internally, it is a set of `interpreter-level`_ classes
   implementing the various `application-level`_ objects -- integers, strings,
   lists, types, etc.  To draw a comparison with CPython, the Standard Object
@@ -210,9 +212,9 @@ the interpreter:
   globally replaces an object with another.
 
 - the *Flow Object Space* transforms a Python program into a
-  flow-graph representation, by recording all operations that the interpreter
-  would like to perform when it is shown the given Python program.  This
-  technique is explained `later in this document`_.
+  flow-graph representation, by recording all operations that the bytecode 
+  interpreter would like to perform when it is shown the given Python
+  program.  This technique is explained `later in this document`_.
 
 For a description of the object spaces, please see the
 `objspace document`_.  The sources of PyPy contain the various object spaces
@@ -348,8 +350,8 @@ RPython, the Flow Object Space and translation
 ==============================================
 
 One of PyPy's now-short-term objectives is to enable translation of our
-interpreter and standard object space into a lower-level language.  In
-order for our translation and type inference mechanisms to work
+bytecode interpreter and standard object space into a lower-level language.
+In order for our translation and type inference mechanisms to work
 effectively, we need to restrict the dynamism of our interpreter-level
 Python code at some point.  However, in the start-up phase, we are
 completely free to use all kind of nice python constructs, including
@@ -359,7 +361,7 @@ when the initialization phase (mainly, the function
 adhere to a more static subset of Python:
 Restricted Python, also known as `RPython`_. 
 
-The Flow Object Space then, with the help of our plain interpreter,
+The Flow Object Space then, with the help of our bytecode interpreter,
 works through those initialized RPython code objects.  The result of
 this `abstract interpretation`_ is a flow graph: yet another
 representation of a python program, but one which is suitable for
