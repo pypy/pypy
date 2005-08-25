@@ -1,7 +1,13 @@
 from os.path import exists
 use_boehm_gc = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
 
+import os
+import time
+import types
+import urllib
+
 import py
+
 from pypy.translator.llvm2 import build_llvm_module
 from pypy.translator.llvm2.database import Database 
 from pypy.translator.llvm2.pyxwrapper import write_pyx_wrapper 
@@ -17,9 +23,12 @@ from pypy.translator.llvm2.node import LLVMNode
 
 from pypy.translator.translator import Translator
 
-import time
 
 function_count = {}
+
+def get_ll(ccode):
+    request = urllib.urlencode({'ccode':ccode})
+    return urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
 
 class GenLLVM(object):
 
@@ -42,7 +51,6 @@ class GenLLVM(object):
         self.db.prepare_arg_value(c)
 
     def post_setup_externs(self):
-        import types
 
         rtyper = self.db._translator.rtyper
         from pypy.translator.c.extfunc import predeclare_all
@@ -54,20 +62,53 @@ class GenLLVM(object):
 
         for c_name, obj in decls:
             if isinstance(obj, lltype.LowLevelType):
+                print 'XXX1', c_name
                 self.db.prepare_type(obj)
             elif isinstance(obj, types.FunctionType):
+                print 'XXX2', c_name
                 funcptr = getfunctionptr(self.translator, obj)
                 c = inputconst(lltype.typeOf(funcptr), funcptr)
                 self.db.prepare_arg_value(c)
-
             elif isinstance(lltype.typeOf(obj), lltype.Ptr):
+                print 'XXX3', c_name
                 self.db.prepare_constant(lltype.typeOf(obj), obj)
             else:
-                print "XXX  predeclare" , c_name, type(obj), obj
-                assert False
+                assert False, "unhandled predeclare %s %s %s" % (c_name, type(obj), obj)
 
         return decls
 
+    def generate_llfile(self, extern_decls):
+        # hack to get file
+
+        genllcode = ""
+
+        def predeclarefn(c_name, llname):
+            assert llname[0] == "%"
+            assert '\n' not in llname
+            return '#define\t%s\t%s' % (c_name, llname[1:])
+
+        for c_name, obj in extern_decls:
+            if isinstance(obj, lltype.LowLevelType):
+                pass
+            elif isinstance(obj, types.FunctionType):
+                funcptr = getfunctionptr(self.translator, obj)
+                c = inputconst(lltype.typeOf(funcptr), funcptr)
+                llname = self.db.repr_arg(c)
+                genllcode += predeclarefn(c_name, llname) + "\n"
+            #elif isinstance(lltype.typeOf(obj), lltype.Ptr):
+            #    if isinstance(obj.TO, lltype.FuncType):
+            #        llname = self.db.repr_constant(obj)[1]
+            #XXXXXXXXXXX        genllcode += predeclarefn(c_name, llname) + "\n"
+
+        j = os.path.join
+        p = j(j(os.path.dirname(__file__), "module"), "genexterns.c")
+        genllcode += open(p).read()
+        print genllcode
+
+        ll_str = get_ll(genllcode)
+        ll_str = ll_str.replace("%struct.", "%")
+        return ll_str
+    
     def replace_with_machine_words(self, s):
         return s.replace('UINT',self.db.get_machine_uword()).replace('INT',self.db.get_machine_word())
 
@@ -91,9 +132,12 @@ class GenLLVM(object):
 
         # post set up externs
         extern_decls = self.post_setup_externs()
-        self.db._translator.rtyper.specialize_more_blocks()
+        self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
 
+        print self.generate_llfile(extern_decls)
+        #XXXXassert False
+ 
         #if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
         #if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
         #3 seconds
@@ -122,6 +166,7 @@ class GenLLVM(object):
                     obj = obj.TO
                 l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
                 codewriter.append(l)
+                
             #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   
             #elif isinstance(obj, types.FunctionType):
             #    #c.value._obj.graph.name = c_name
