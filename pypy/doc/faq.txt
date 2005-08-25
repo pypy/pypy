@@ -4,9 +4,17 @@ Frequently Asked Questions
 
 How fast is PyPy?
 
-    As of June 2005, PyPy still runs on top of CPython and thus
-    is slower by a factor of 2000 compared to CPython.  We don't
-    know yet how fast it will be once we complete our translation
-    efforts, aimed at a first static self-contained low-level
-    translated version.
+    As of August 2005, PyPy was succesfully translated to C.
+    The version of PyPy that still runs on top of CPython
+    is slower by a factor of 2000 compared to CPython. The translated
+    versions seems to be roughly 300 times slower than CPython.
+    On the other hand, the really interesting question is: Why is
+    PyPy so slow?
 
+
+ Why is PyPy so slow?
+
+    Our translation process does not optimize the produced code very
+    much yet. Just one example: if you use a ``for i in range(x)`` loop
+    the loop will be ended by raising an exception (although the ``range``
+    list will not be created in its entirety).
