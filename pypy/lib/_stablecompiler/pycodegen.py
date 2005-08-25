@@ -10,7 +10,7 @@ import ast, syntax
 from transformer import parse
 from visitor import walk
 import pyassem, misc, future, symbols
-from consts import SC_LOCAL, SC_GLOBAL, SC_FREE, SC_CELL
+from consts import SC_LOCAL, SC_GLOBAL, SC_FREE, SC_CELL, SC_DEFAULT
 from consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
 from pyassem import TupleArg
@@ -195,6 +195,9 @@ class CodeGenerator:
     defined.
     """
 
+    scopeambiguity = False
+    parentscopeambiguity = False
+
     optimized = 0 # is namespace access optimized?
     __initialized = None
     class_name = None # provide default for instance variable
@@ -267,9 +270,18 @@ class CodeGenerator:
         self._nameOp('STORE', name)
 
     def loadName(self, name):
+        if (self.scope.nested and self.scopeambiguity and
+            name in self.scope.hasbeenfree):
+            raise SyntaxError("cannot reference variable '%s' because "
+                              "of ambiguity between "
+                              "scopes" % name)
         self._nameOp('LOAD', name)
 
     def delName(self, name):
+        scope = self.scope.check_name(name)
+        if scope == SC_CELL: 
+            raise SyntaxError("can not delete variable '%s' " 
+                              "referenced in nested scope" % name)
         self._nameOp('DELETE', name)
 
     def _nameOp(self, prefix, name):
@@ -281,12 +293,14 @@ class CodeGenerator:
             else:
                 self.emit(prefix + '_FAST', name)
         elif scope == SC_GLOBAL:
-            if not self.optimized:
-                self.emit(prefix + '_NAME', name)
-            else:
-                self.emit(prefix + '_GLOBAL', name)
+            self.emit(prefix + '_GLOBAL', name)
         elif scope == SC_FREE or scope == SC_CELL:
             self.emit(prefix + '_DEREF', name)
+        elif scope == SC_DEFAULT: 
+            if self.optimized and self.localsfullyknown:
+                self.emit(prefix + '_GLOBAL', name)
+            else:
+                self.emit(prefix + '_NAME', name)
         else:
             raise RuntimeError, "unsupported scope for var %s: %d" % \
                   (name, scope)
@@ -376,7 +390,8 @@ class CodeGenerator:
             ndecorators = 0
 
         gen = self.FunctionGen(node, self.scopes, isLambda,
-                               self.class_name, self.get_module())
+                               self.class_name, self.get_module(),
+                               parentscopeambiguity = self.scopeambiguity or self.parentscopeambiguity)
         walk(node.code, gen)
         gen.finish()
         self.set_lineno(node)
@@ -397,7 +412,8 @@ class CodeGenerator:
 
     def visitClass(self, node):
         gen = self.ClassGen(node, self.scopes,
-                            self.get_module())
+                            self.get_module(), 
+                            parentscopeambiguity = self.scopeambiguity or self.parentscopeambiguity)
         walk(node.code, gen)
         gen.finish()
         self.set_lineno(node)
@@ -631,7 +647,8 @@ class CodeGenerator:
 
     def visitGenExpr(self, node):
         gen = GenExprCodeGenerator(node, self.scopes, self.class_name,
-                                   self.get_module())
+                                   self.get_module(), 
+                                   parentscopeambiguity=self.scopeambiguity or self.parentscopeambiguity)
         walk(node.code, gen)
         gen.finish()
         self.set_lineno(node)
@@ -811,6 +828,11 @@ class CodeGenerator:
     # misc
 
     def visitDiscard(self, node):
+        # Important: this function is overridden in InteractiveCodeGenerator,
+        # which also has the effect that the following test only occurs in
+        # non-'single' modes.
+        if isinstance(node.expr, ast.Const):
+            return    # skip LOAD_CONST/POP_TOP pairs (for e.g. docstrings)
         self.set_lineno(node)
         self.visit(node.expr)
         self.emit('POP_TOP')
@@ -1289,7 +1311,8 @@ class AbstractFunctionCode:
 
         args, hasTupleArg = generateArgList(func.argnames)
         self.graph = pyassem.PyFlowGraph(name, func.filename, args,
-                                         optimized=1)
+                                         optimized=self.localsfullyknown,
+                                         newlocals=1)
         self.isLambda = isLambda
         self.super_init()
 
@@ -1342,9 +1365,14 @@ class FunctionCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
 
     __super_init = AbstractFunctionCode.__init__
 
-    def __init__(self, func, scopes, isLambda, class_name, mod):
+    def __init__(self, func, scopes, isLambda, class_name, mod, parentscopeambiguity):
         self.scopes = scopes
         self.scope = scopes[func]
+
+        self.localsfullyknown = self.scope.localsfullyknown 
+        self.parentscopeambiguity = parentscopeambiguity
+        self.scopeambiguity = (not self.localsfullyknown or parentscopeambiguity)
+
         self.__super_init(func, scopes, isLambda, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
@@ -1358,9 +1386,14 @@ class GenExprCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
 
     __super_init = AbstractFunctionCode.__init__
 
-    def __init__(self, gexp, scopes, class_name, mod):
+    def __init__(self, gexp, scopes, class_name, mod, parentscopeambiguity):
         self.scopes = scopes
         self.scope = scopes[gexp]
+
+        self.localsfullyknown = self.scope.localsfullyknown 
+        self.parentscopeambiguity = parentscopeambiguity
+        self.scopeambiguity = (not self.localsfullyknown or parentscopeambiguity)
+
         self.__super_init(gexp, scopes, 1, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
@@ -1394,9 +1427,13 @@ class ClassCodeGenerator(NestedScopeMixin, AbstractClassCode, CodeGenerator):
 
     __super_init = AbstractClassCode.__init__
 
-    def __init__(self, klass, scopes, module):
+    def __init__(self, klass, scopes, module, parentscopeambiguity):
         self.scopes = scopes
         self.scope = scopes[klass]
+
+        self.parentscopeambiguity = parentscopeambiguity
+        self.scopeambiguity = parentscopeambiguity
+
         self.__super_init(klass, scopes, module)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())

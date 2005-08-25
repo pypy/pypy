@@ -172,24 +172,26 @@ class Transformer:
         raise WalkerError, ('unexpected node type', n)
 
     def single_input(self, node):
-        ### do we want to do anything about being "interactive" ?
         # NEWLINE | simple_stmt | compound_stmt NEWLINE
         n = node[0][0]
         if n != token.NEWLINE:
-            return self.com_stmt(node[0])
-
-        return Pass()
+            stmt = self.com_stmt(node[0])
+        else:
+            stmt = Pass()
+        return Module(None, stmt)
 
     def file_input(self, nodelist):
         doc = self.get_docstring(nodelist, symbol.file_input)
-        if doc is not None:
-            i = 1
-        else:
-            i = 0
         stmts = []
-        for node in nodelist[i:]:
+        for node in nodelist:
             if node[0] != token.ENDMARKER and node[0] != token.NEWLINE:
                 self.com_append_stmt(stmts, node)
+
+        if doc is not None:
+            assert isinstance(stmts[0], Discard)
+            assert isinstance(stmts[0].expr, Const)
+            del stmts[0]
+
         return Module(doc, Stmt(stmts))
 
     def eval_input(self, nodelist):
@@ -255,7 +257,8 @@ class Transformer:
         if args[0] == symbol.varargslist:
             names, defaults, flags = self.com_arglist(args[1:])
         else:
-            names = defaults = ()
+            names = []
+            defaults = []
             flags = 0
         doc = self.get_docstring(nodelist[-1])
 
@@ -704,7 +707,7 @@ class Transformer:
 
     def atom_lsqb(self, nodelist):
         if nodelist[1][0] == token.RSQB:
-            return List(())
+            return List([])
         return self.com_list_constructor(nodelist[1])
 
     def atom_lbrace(self, nodelist):
@@ -929,6 +932,7 @@ class Transformer:
         l = self.com_node(node)
         if l.__class__ in (Name, Slice, Subscript, Getattr):
             return l
+        print node # XXX
         raise SyntaxError, "can't assign to %s" % l.__class__.__name__
 
     def com_assign(self, node, assigning):

@@ -1,7 +1,8 @@
 """Module symbol-table generator"""
 
 import ast
-from consts import SC_LOCAL, SC_GLOBAL, SC_FREE, SC_CELL, SC_UNKNOWN
+from consts import SC_LOCAL, SC_GLOBAL, SC_FREE, SC_CELL, \
+                   SC_UNKNOWN, SC_DEFAULT
 from misc import mangle
 import types
 
@@ -11,6 +12,7 @@ import sys
 MANGLE_LEN = 256
 
 class Scope:
+    localsfullyknown = True
     # XXX how much information do I need about each name?
     def __init__(self, name, module, klass=None):
         self.name = name
@@ -20,6 +22,7 @@ class Scope:
         self.globals = {}
         self.params = {}
         self.frees = {}
+        self.hasbeenfree = {}
         self.cells = {}
         self.children = []
         # nested is true if the class could contain free variables,
@@ -100,7 +103,7 @@ class Scope:
         if self.nested:
             return SC_UNKNOWN
         else:
-            return SC_GLOBAL
+            return SC_DEFAULT
 
     def get_free_vars(self):
         if not self.nested:
@@ -111,6 +114,7 @@ class Scope:
             if not (self.defs.has_key(name) or
                     self.globals.has_key(name)):
                 free[name] = 1
+        self.hasbeenfree.update(free)
         return free.keys()
 
     def handle_children(self):
@@ -133,7 +137,8 @@ class Scope:
         Be careful to stop if a child does not think the name is
         free.
         """
-        self.globals[name] = 1
+        if name not in self.defs: 
+            self.globals[name] = 1
         if self.frees.has_key(name):
             del self.frees[name]
         for child in self.children:
@@ -237,6 +242,12 @@ class SymbolVisitor:
         self.visit(node.code, scope)
         self.handle_free_vars(scope, parent)
 
+    def visitExec(self, node, parent): 
+        if not (node.globals or node.locals):
+            parent.localsfullyknown = False # bare exec statement
+        for child in node.getChildNodes():
+            self.visit(child, parent)
+    
     def visitGenExpr(self, node, parent):
         scope = GenExprScope(self.module, self.klass);
         if parent.nested or isinstance(parent, FunctionScope) \
@@ -331,6 +342,7 @@ class SymbolVisitor:
     def visitFrom(self, node, scope):
         for name, asname in node.names:
             if name == "*":
+                scope.localsfullyknown = False 
                 continue
             scope.add_def(asname or name)
 
