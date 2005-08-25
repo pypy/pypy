@@ -4,7 +4,7 @@ def write_constructor(db, codewriter, ref, constructor_decl, ARRAY,
                       indices_to_array=(), atomicmalloc=False): 
     
     #varsized arrays and structs look like this: 
-    #Array: {INT length , elemtype*}
+    #Array: {int length , elemtype*}
     #Struct: {...., Array}
 
     # the following indices access the last element in the array

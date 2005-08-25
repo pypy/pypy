@@ -28,4 +28,4 @@ def test_GC_malloc():
     for i in range(0,25):
         assert f(n) == result
         heap_size_inc = get_heap_size() - heap_size_start
-        assert heap_size_inc < 500000
+        assert heap_size_inc < 1000000

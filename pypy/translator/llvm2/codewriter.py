@@ -4,9 +4,9 @@ from pypy.translator.llvm2.log import log
 
 log = log.codewriter 
 
-DEFAULT_TAIL     = ''       #/tail
-DEFAULT_CCONV    = 'ccc'    #ccc/fastcc
-DEFAULT_INTERNAL = ''       #/internal
+DEFAULT_TAIL     = 'tail'       #/tail
+DEFAULT_CCONV    = 'fastcc'    #ccc/fastcc
+DEFAULT_INTERNAL = 'internal'       #/internal
 
 class CodeWriter(object): 
     def __init__(self, f, word, uword, show_line_number=False): 
@@ -40,7 +40,7 @@ class CodeWriter(object):
         self.append("    %s:" % name)
 
     def globalinstance(self, name, typeandata):
-        self.append("%s = %s global %s" % (name, DEFAULT_INTERNAL, typeandata))
+        self.append("%s = %s global %s" % (name, "internal", typeandata))
 
     def structdef(self, name, typereprs):
         self.append("%s = type { %s }" %(name, ", ".join(typereprs)))
@@ -80,7 +80,7 @@ class CodeWriter(object):
         if is_entrynode:
             linkage_type = ''
         else:
-            linkage_type = DEFAULT_INTERNAL + ' '
+            linkage_type = ' '
         self.append("%s%s %s {" % (linkage_type, cconv, decl,))
 
     def closefunc(self): 
