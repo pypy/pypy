@@ -124,7 +124,7 @@ def generate_tokens(lines, flags):
         if contstr:                            # continued string
             if not line:
                 raise TokenError("EOF while scanning triple-quoted string", line,
-                                 (lnum, 0), token_list)
+                                 (lnum-1, 0), token_list)
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
@@ -277,6 +277,12 @@ def generate_tokens(lines, flags):
                     token_list.append((tok, line, lnum, pos)) 
                     last_comment = ''
             else:
+                start = whiteSpaceDFA.recognize(line, pos)
+                if start < 0:
+                    start = pos
+                if start<max and line[start] in single_quoted:
+                    raise TokenError("EOL while scanning single-quoted string", line,
+                             (lnum, start), token_list)
                 tok = Token(pytoken.ERRORTOKEN, line[pos])
                 token_list.append((tok, line, lnum, pos))
                 last_comment = ''
