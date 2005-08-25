@@ -318,7 +318,9 @@ def to_lvalue(ast_node, flags):
         ast_node.flags = flags
         return ast_node
     else:
-        assert False, "TODO"
+        # TODO: check type of ast_node and raise according SyntaxError in case
+        # of del f()
+        raise SyntaxError("cannot assign to %s" % ast_node )
 
 def is_augassign( ast_node ):
     if ( isinstance( ast_node, ast.Name ) or

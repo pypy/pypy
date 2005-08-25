@@ -929,6 +929,7 @@ class Transformer:
         l = self.com_node(node)
         if l.__class__ in (Name, Slice, Subscript, Getattr):
             return l
+        print node # XXX
         raise SyntaxError, "can't assign to %s" % l.__class__.__name__
 
     def com_assign(self, node, assigning):
@@ -1001,7 +1002,10 @@ class Transformer:
         if t == token.LSQB:
             return self.com_subscriptlist(primary, node[2], assigning)
         if t == token.LPAR:
-            raise SyntaxError, "can't assign to function call"
+            if assigning==OP_DELETE:
+                raise SyntaxError, "can't delete function call"
+            else:
+                raise SyntaxError, "can't assign to function call"
         raise SyntaxError, "unknown trailer type: %s" % t
 
     def com_assign_attr(self, primary, node, assigning):
