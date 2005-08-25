@@ -891,6 +891,22 @@ they are imported at interpreter-level while you test code
 runs at application level. If you need to use modules
 you have to import them within the test function.
 
+Another possibility to pass in data into the AppTest is to use
+the ``setup_class`` method of the AppTest. All wrapped objects that are
+attached to the class there and start with ``w_`` can be accessed
+via self (but without the ``w_``) in the actual test method. An example::
+
+    from pypy.objspace.std import StdObjSpace 
+
+    class AppTestErrno: 
+        def setup_class(cls): 
+            cls.space = StdObjSpace()
+            cls.w_d = cls.space.wrap({"a": 1, "b", 2})
+
+        def test_dict(self):
+            assert self.d["a"] == 1
+            assert self.d["b"] == 2
+
 .. _`run the tests as usual`:
 
 Command line tool test_all
