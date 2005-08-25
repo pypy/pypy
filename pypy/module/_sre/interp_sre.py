@@ -252,6 +252,56 @@ W_RepeatContext.typedef = TypeDef("W_RepeatContext", W_MatchContext.typedef,
     last_position = interp_attrproperty_obj_w("w_last_position", W_RepeatContext),
 )
 
+#### Opcode dispatch
+
+def opcode_dispatch(space, w_opcode, w_context):
+    opcode = space.int_w(w_opcode)
+    if opcode >= len(opcode_dispatch_table):
+        return space.newbool(False)
+    return space.newbool(opcode_dispatch_table[opcode](space, w_context))
+
+def opcode_is_at_interplevel(space, w_opcode):
+    opcode = space.int_w(w_opcode)
+    return space.newbool(opcode_dispatch_table[opcode] is not None)
+
+def op_success(space, w_ctx):
+    # end of pattern
+    w_ctx.w_state.string_position = space.int_w(w_ctx.w_string_position)
+    w_ctx.w_has_matched = space.newbool(True)
+    return True
+
+def op_failure(space, w_ctx):
+    # immediate failure
+    w_ctx.w_has_matched = space.newbool(False)
+    return True
+
+opcode_dispatch_table = [
+    op_failure, op_success, #FAILURE, SUCCESS,
+    None, None, #ANY, ANY_ALL,
+    None, None, #ASSERT, ASSERT_NOT,
+    None, #AT,
+    None, #BRANCH,
+    None, #CALL,
+    None, #CATEGORY,
+    None, None, #CHARSET, BIGCHARSET,
+    None, None, None, #GROUPREF, GROUPREF_EXISTS, GROUPREF_IGNORE,
+    None, None, #IN, IN_IGNORE,
+    None, #INFO,
+    None, #JUMP,
+    None, None, #LITERAL, LITERAL_IGNORE,
+    None, #MARK,
+    None, #MAX_UNTIL,
+    None, #MIN_UNTIL,
+    None, None, #NOT_LITERAL, NOT_LITERAL_IGNORE,
+    None, #NEGATE,
+    None, #RANGE,
+    None, #REPEAT,
+    None, #REPEAT_ONE,
+    None, #SUBPATTERN,
+    None, #MIN_REPEAT_ONE
+]
+
+
 #### Category helpers
 
 ascii_char_info = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 2,

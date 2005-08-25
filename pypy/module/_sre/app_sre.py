@@ -438,27 +438,17 @@ class _OpcodeDispatcher(_Dispatcher):
             del self.executing_contexts[id(context)]
             has_finished = generator.next()
         else:
-            method = self.DISPATCH_TABLE.get(opcode, _OpcodeDispatcher.unknown)
-            has_finished = method(self, context)
+            if _sre._opcode_is_at_interplevel(opcode):
+                has_finished = _sre._opcode_dispatch(opcode, context)
+            else:
+                method = self.DISPATCH_TABLE.get(opcode, _OpcodeDispatcher.unknown)
+                has_finished = method(self, context)
             if hasattr(has_finished, "next"): # avoid using the types module
                 generator = has_finished
                 has_finished = generator.next()
         if not has_finished:
             self.executing_contexts[id(context)] = generator
         return has_finished
-
-    def op_success(self, ctx):
-        # end of pattern
-        #self._log(ctx, "SUCCESS")
-        ctx.state.string_position = ctx.string_position
-        ctx.has_matched = True
-        return True
-
-    def op_failure(self, ctx):
-        # immediate failure
-        #self._log(ctx, "FAILURE")
-        ctx.has_matched = False
-        return True
 
     def general_op_literal(self, ctx, compare, decorate=lambda x: x):
         if ctx.at_end() or not compare(decorate(ord(ctx.peek_char())),
