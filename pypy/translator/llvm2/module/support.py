@@ -99,7 +99,7 @@ internal fastcc void %%__prepare_%(exc)s() {
 """ % locals())
 
 #prepare exceptions
-for exc in "ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
+for exc in "IOError ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
     extfunctions["%%prepare_and_raise_%(exc)s" % locals()] = ((), """
 internal fastcc void %%prepare_and_raise_%(exc)s(sbyte* %%msg) {
     ;XXX %%msg not used right now!

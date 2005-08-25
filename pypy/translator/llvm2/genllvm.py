@@ -45,17 +45,18 @@ def get_ll(ccode, extern_dir, functions=[]):
         "%prepare_and_raise_ZeroDivisionError" : True,
         "%prepare_and_raise_OverflowError"     : True,
         "%prepare_and_raise_ValueError"        : True,
+        "%prepare_and_raise_IOError"           : True,
         }
     for line in llcode.split('\n'):
         comment = line.find(';')
         if comment >= 0:
             line = line[:comment]
         line = line.rstrip()
-        if line[-1:] == '{':
-            returntype, s = line.split(' ', 1)
-            funcname  , s = s.split('(', 1)
-            funcnames[funcname] = True
-            line = '%s %s %s' % ("internal", DEFAULT_CCONV, line,)
+        #if line[-1:] == '{':
+        #   returntype, s = line.split(' ', 1)
+        #   funcname  , s = s.split('(', 1)
+        #   funcnames[funcname] = True
+        #   line = '%s %s %s' % ("", DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
     #patch calls to function that we just declared fastcc
@@ -181,6 +182,8 @@ class GenLLVM(object):
         math_fns  = 'acos asin atan ceil cos cosh exp fabs floor log log10 atan2 fmod '
         math_fns += 'sin sinh sqrt tan tanh frexp modf pow hypot ldexp is_error'
         fns = [('ll_math_%s' % f) for f in math_fns.split()]
+        time_fns = "ll_time_time ll_time_clock ll_time_sleep ll_floattime"
+        fns += time_fns.split()
         return get_ll(open(p).read(), extern_dir, fns)
 
     def gen_llvm_source(self, func=None):
