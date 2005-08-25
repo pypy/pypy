@@ -18,6 +18,7 @@ Command-line options for translate_pypy:
    -no-o      Don't do backend-oriented optimizations
    -no-c      Don't generate the C code
    -fork      (UNIX) Create a restartable checkpoint after annotation
+   -fork2     (UNIX) Create a restartable checkpoint after specializing
    -llvm      Use LLVM instead of C
    -c         Generate the C code, but don't compile it
    -boehm     Use the Boehm collector when generating C code
@@ -143,6 +144,9 @@ def analyse(target):
     if not options['-no-o'] and not options['-llvm']:
         print 'Back-end optimizations...'
         t.backend_optimizations()
+    if a and options['-fork2']:
+        from pypy.translator.goal import unixcheckpoint
+        unixcheckpoint.restartable_point(auto='run')
     if a:
         t.frozen = True   # cannot freeze if we don't have annotations
 
@@ -346,6 +350,7 @@ if __name__ == '__main__':
                '-load': False,
                '-save': False,
                '-fork': False,
+               '-fork2': False,
                '-llinterpret': False,
                '-batch': False,
                }
