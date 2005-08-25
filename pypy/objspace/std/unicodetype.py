@@ -94,8 +94,9 @@ def unicode_from_string(space, w_str):
     return W_UnicodeObject(space, codelist)
 
 
-def descr__new__(space, w_unicodetype, w_obj=None, w_encoding=None, w_errors=None):
+def descr__new__(space, w_unicodetype, w_string=None, w_encoding=None, w_errors=None):
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    w_obj = w_string
     w_obj_type = space.type(w_obj)
     
     if space.is_w(w_obj_type, space.w_unicode):
