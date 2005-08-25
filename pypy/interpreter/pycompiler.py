@@ -231,8 +231,16 @@ class PythonCompiler(CPythonCompiler):
                                                        space.wrap(e.offset),
                                                        space.wrap(e.text)])])
             raise OperationError(space.w_SyntaxError, w_synerr)
+	except UnicodeDecodeError, e:
+            raise OperationError(space.w_UnicodeDecodeError, space.newtuple([
+                                 space.wrap(e.encoding), space.wrap(e.object), space.wrap(e.start),
+                                 space.wrap(e.end), space.wrap(e.reason)]))
         except ValueError,e:
-            raise OperationError(space.w_ValueError,space.wrap(str(e)))
+            if e.__class__ != ValueError:
+                 extra_msg = "(Really go %s)" % e.__class__.__name__
+            else:
+                extra_msg = ""
+            raise OperationError(space.w_ValueError,space.wrap(str(e)+extra_msg))
         except TypeError,e:
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
         # __________ end of XXX above
