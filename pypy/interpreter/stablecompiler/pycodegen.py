@@ -194,6 +194,9 @@ class CodeGenerator:
     defined.
     """
 
+    scopeambiguity = False
+    parentscopeambiguity = False
+
     optimized = 0 # is namespace access optimized?
     __initialized = None
     class_name = None # provide default for instance variable
@@ -266,7 +269,7 @@ class CodeGenerator:
         self._nameOp('STORE', name)
 
     def loadName(self, name):
-        if (self.scope.nested and not self.scope.localsfullyknown and
+        if (self.scope.nested and self.scopeambiguity and
             name in self.scope.hasbeenfree):
             raise SyntaxError("cannot reference variable '%s' because "
                               "of ambiguity between "
@@ -386,7 +389,8 @@ class CodeGenerator:
             ndecorators = 0
 
         gen = self.FunctionGen(node, self.scopes, isLambda,
-                               self.class_name, self.get_module())
+                               self.class_name, self.get_module(),
+                               parentscopeambiguity = self.scopeambiguity or self.parentscopeambiguity)
         walk(node.code, gen)
         gen.finish()
         self.set_lineno(node)
@@ -407,7 +411,8 @@ class CodeGenerator:
 
     def visitClass(self, node):
         gen = self.ClassGen(node, self.scopes,
-                            self.get_module())
+                            self.get_module(), 
+                            parentscopeambiguity = self.scopeambiguity or self.parentscopeambiguity)
         walk(node.code, gen)
         gen.finish()
         self.set_lineno(node)
@@ -641,7 +646,8 @@ class CodeGenerator:
 
     def visitGenExpr(self, node):
         gen = GenExprCodeGenerator(node, self.scopes, self.class_name,
-                                   self.get_module())
+                                   self.get_module(), 
+                                   parentscopeambiguity=self.scopeambiguity or self.parentscopeambiguity)
         walk(node.code, gen)
         gen.finish()
         self.set_lineno(node)
@@ -1353,10 +1359,14 @@ class FunctionCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
 
     __super_init = AbstractFunctionCode.__init__
 
-    def __init__(self, func, scopes, isLambda, class_name, mod):
+    def __init__(self, func, scopes, isLambda, class_name, mod, parentscopeambiguity):
         self.scopes = scopes
         self.scope = scopes[func]
+
         self.localsfullyknown = self.scope.localsfullyknown 
+        self.parentscopeambiguity = parentscopeambiguity
+        self.scopeambiguity = (not self.localsfullyknown or parentscopeambiguity)
+
         self.__super_init(func, scopes, isLambda, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
@@ -1370,10 +1380,14 @@ class GenExprCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
 
     __super_init = AbstractFunctionCode.__init__
 
-    def __init__(self, gexp, scopes, class_name, mod):
+    def __init__(self, gexp, scopes, class_name, mod, parentscopeambiguity):
         self.scopes = scopes
         self.scope = scopes[gexp]
+
         self.localsfullyknown = self.scope.localsfullyknown 
+        self.parentscopeambiguity = parentscopeambiguity
+        self.scopeambiguity = (not self.localsfullyknown or parentscopeambiguity)
+
         self.__super_init(gexp, scopes, 1, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
@@ -1407,9 +1421,13 @@ class ClassCodeGenerator(NestedScopeMixin, AbstractClassCode, CodeGenerator):
 
     __super_init = AbstractClassCode.__init__
 
-    def __init__(self, klass, scopes, module):
+    def __init__(self, klass, scopes, module, parentscopeambiguity):
         self.scopes = scopes
         self.scope = scopes[klass]
+
+        self.parentscopeambiguity = parentscopeambiguity
+        self.scopeambiguity = parentscopeambiguity
+
         self.__super_init(klass, scopes, module)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
