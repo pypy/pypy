@@ -129,6 +129,9 @@ class SemiSpaceGC(object):
         totalsize = size + self.size_gc_header()
         if self.free + totalsize > self.top_of_space:
             self.collect()
+            #XXX need to increase the space size if the object is too big
+            #for bonus points do big blocks differently
+            return self.malloc(typeid, length)
         result = self.free
         self.init_gc_object(result, typeid)
         print "mallocing %s, size %s at %s" % (typeid, size, result)
@@ -156,8 +159,9 @@ class SemiSpaceGC(object):
     def copy(self, obj):
         if not self.fromspace <= obj < self.fromspace + self.space_size:
             return self.copy_non_managed_obj(obj)
-        print "copying regularly", obj
+        print "copying regularly", obj,
         if self.is_forwared(obj):
+            print "already copied to", self.get_forwarding_address(obj)
             return self.get_forwarding_address(obj)
         else:
             newaddr = self.free
@@ -165,11 +169,12 @@ class SemiSpaceGC(object):
             raw_memcopy(obj - self.size_gc_header(), newaddr, totalsize)
             self.free += totalsize
             newobj = newaddr + self.size_gc_header()
+            print "to", newobj
             self.set_forwarding_address(obj, newobj)
             return newobj
 
     def copy_non_managed_obj(self, obj): #umph, PBCs, not really copy
-        print "copying nonmanaged", obj
+        print "copying nonmanaged", obj, self.objectmodel.types[obj.signed[-1]]
         #we have to do the tracing here because PBCs are not moved to tospace
         self.trace_and_copy(obj)
         return obj
@@ -197,14 +202,14 @@ class SemiSpaceGC(object):
                         pointer.address[0] = self.copy(pointer.address[0])
 
     def is_forwared(self, obj):
-        return (obj - self.size_gc_header()).signed[1] == -1
+        return (obj - self.size_gc_header()).signed[1] < 0
 
     def get_forwarding_address(self, obj):
         return (obj - self.size_gc_header()).address[0]
 
     def set_forwarding_address(self, obj, newobj):
         gc_info = obj - self.size_gc_header()
-        gc_info.signed[1] = -1
+        gc_info.signed[1] = -gc_info.signed[1] - 1
         gc_info.address[0] = newobj
 
     def get_size(self, obj):

@@ -115,6 +115,6 @@ class GcWrapper(object):
     def malloc(self, TYPE, size=0):
         typeid = self.objectmodel.get_typeid(TYPE)
         address = self.gc.malloc(typeid, size)
-        return lltypesimulation.init_object_on_address(address, TYPE, size)
+        result = lltypesimulation.init_object_on_address(address, TYPE, size)
         self.objectmodel.update_changed_addresses()
         return result
