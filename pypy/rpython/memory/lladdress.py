@@ -61,14 +61,14 @@ class _accessor(object):
                             self.convert_to(value))
            
 class _signed_accessor(_accessor):
-    format = "i"
-    size = struct.calcsize("i")
+    format = "l"
+    size = struct.calcsize("l")
     convert_from = int
     convert_to = int
 
 class _unsigned_accessor(_accessor):
-    format = "I"
-    size = struct.calcsize("I")
+    format = "L"
+    size = struct.calcsize("L")
     convert_from = r_uint
     convert_to = long
 
