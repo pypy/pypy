@@ -17,16 +17,18 @@ class Local(Wrappable):
         self.space = space
         self.initargs = initargs
         ident = thread.get_ident()
-        self.dicts = {ident: space.newdict([])}
+        # XXX use string-keyed dicts only for now
+        self.dicts = {str(ident): space.newdict([])}
 
     def getdict(self):
         ident = thread.get_ident()
+        key = str(ident)
         try:
-            w_dict = self.dicts[ident]
+            w_dict = self.dicts[key]
         except KeyError:
             # create a new dict for this thread
             space = self.space
-            w_dict = self.dicts[ident] = space.newdict([])
+            w_dict = self.dicts[key] = space.newdict([])
             # call __init__
             try:
                 w_self = space.wrap(self)
@@ -35,7 +37,7 @@ class Local(Wrappable):
                 space.call_args(w_init, self.initargs.prepend(w_self))
             except:
                 # failed, forget w_dict and propagate the exception
-                del self.dicts[ident]
+                del self.dicts[key]
                 raise
             # ready
             space.threadlocals.atthreadexit(space, finish_thread, self)
@@ -47,7 +49,7 @@ class Local(Wrappable):
                                 space.wrap("setting dictionary to a non-dict"))
         self.getdict()   # force a dict to exist first
         ident = thread.get_ident()
-        self.dicts[ident] = w_dict
+        self.dicts[str(ident)] = w_dict
 
     def descr_local__new__(space, w_subtype, __args__):
         # XXX check __args__
@@ -70,4 +72,4 @@ def getlocaltype(space):
 def finish_thread(w_obj):
     assert isinstance(w_obj, Local)
     ident = thread.get_ident()
-    del w_obj.dicts[ident]
+    del w_obj.dicts[str(ident)]

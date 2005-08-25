@@ -15,6 +15,7 @@ class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
 
     def __init__(self):
+        OSThreadLocals.__init__(self)
         self.GIL = thread.allocate_lock()
 
     def enter_thread(self, space):

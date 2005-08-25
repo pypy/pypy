@@ -10,15 +10,17 @@ class OSThreadLocals:
     a thread finishes.  This works as long as the thread was started by
     os_thread.bootstrap()."""
 
-    _valuedict = {}   # {thread_ident: ExecutionContext()}
+    def __init__(self):
+        # XXX use string-keyed dicts only for now
+        self._valuedict = {}   # {str(thread_ident): ExecutionContext()}
 
     def getvalue(self):
         ident = thread.get_ident()
-        return self._valuedict.get(ident, None)
+        return self._valuedict.get(str(ident), None)
 
     def setvalue(self, value):
         ident = thread.get_ident()
-        self._valuedict[ident] = value
+        self._valuedict[str(ident)] = value
 
     def enter_thread(self, space):
         "Notification that the current thread is just starting."
@@ -35,7 +37,7 @@ class OSThreadLocals:
         finally:
             ident = thread.get_ident()
             try:
-                del self._valuedict[ident]
+                del self._valuedict[str(ident)]
             except KeyError:
                 pass
 
