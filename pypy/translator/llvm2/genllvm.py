@@ -27,7 +27,8 @@ from py.process import cmdexec
 
 function_count = {}
 
-def get_ll(ccode, functions=[]):
+def get_ll(ccode, extern_dir, functions=[]):
+    
     # goto codespeak and compile our c code
     request = urllib.urlencode({'ccode':ccode})
     llcode = urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
@@ -72,7 +73,6 @@ def get_ll(ccode, functions=[]):
     llcode = '\n'.join(ll_lines2)
 
     # create file
-    extern_dir = udir.join("externs").mkdir()
     llfilename = extern_dir.join("externs").new(ext='.ll')
     f = open(str(llfilename), 'w')
     f.write(llcode)
@@ -142,7 +142,11 @@ class GenLLVM(object):
         return decls
 
     def generate_llfile(self, extern_decls):
-        # hack to get file
+
+        extern_dir = udir.join("externs")
+        if extern_dir.check(dir=1):
+            return
+        extern_dir.mkdir()
 
         genllcode = ""
 
@@ -166,7 +170,7 @@ class GenLLVM(object):
 
         j = os.path.join
         p = j(j(os.path.dirname(__file__), "module"), "genexterns.c")
-        return get_ll(open(p).read(), ['ll_math_frexp', 'll_math_is_error'])
+        return get_ll(open(p).read(), extern_dir, ['ll_math_frexp', 'll_math_is_error'])
     
     def replace_with_machine_words(self, s):
         return s.replace('UINT',self.db.get_machine_uword()).replace('INT',self.db.get_machine_word())

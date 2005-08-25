@@ -14,129 +14,7 @@ from pypy.translator.llvm2.genllvm import use_boehm_gc
 from pypy.translator.llvm2.log import log
 
 EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support"
-#--regalloc iterativescan" #unstable (http://llvm.cs.uiuc.edu/docs/ReleaseNotes.html)
-
-OPTIMIZATION_SWITCHES = (" ".join([
-
-    # call %malloc -> malloc inst
-    "-raiseallocs",
-
-    # clean up disgusting code
-    "-simplifycfg",
-
-    # kill useless allocas
-    "-mem2reg",
-
-    # optimize out global vars
-    "-globalopt",
-    
-    # remove unused fns and globs
-    "-globaldce",
-
-    # interprocedural constant propagation
-    "-ipconstprop",
-
-    # dead argument elimination
-    "-deadargelim",
-
-    # clean up after
-    # (interprocedural constant propagation) & (dead argument elimination)
-    "-instcombine ", "-simplifycfg ",
-
-    # clean up after
-    # (interprocedural constant propagation) & (dead argument elimination)
-    "-instcombine ", "-simplifycfg ",
-
-    # remove dead EH info
-    "-prune-eh", 
-
-    # inline small functions
-    "-inline", 
-
-    # simplify well-known library calls
-    "-simplify-libcalls", 
-
-    # promote 'by reference' arguments to scalars
-    "-argpromotion", 
-
-    # recover type information
-    "--raise",
-    
-    # simplify cfg by copying code
-    "-tailduplicate",
-
-    # merge & remove bacic blocks
-    "--simplifycfg",
-
-    # break up aggregate allocas
-    "-scalarrepl",
-
-    # combine silly seq's
-    "-instcombine",
-
-    # propagate conditionals
-    "-condprop", 
-
-    # eliminate tail calls
-    '-tailcallelim',
-
-    # merge & remove BBs
-    "-simplifycfg",
-
-    # reassociate expressions
-    "-reassociate",
-
-    # hoist loop invariants (LICM -  Loop Invariant Code Motion)
-    "-licm",
-
-    # clean up after LICM/reassoc
-    "-instcombine",
-    
-    # canonicalize indvars    
-    "-indvars",
-
-    # unroll small loops
-    "-loop-unroll",
-
-    # clean up after the unroller
-    "-instcombine",
-
-    # GVN for load instructions
-    "-load-vn",
-
-    # remove common subexprs (Global Common Subexpression Elimination)
-    "-gcse",
-
-    # constant prop with SCCP (Sparse Conditional Constant Propagation)
-    "-sccp",
-
-
-    # Run instcombine after redundancy elimination to exploit opportunities
-    # opened up by them
-    "-instcombine",
-
-    # propagate conditionals
-    "-condprop",
-
-    # Delete dead stores
-    "-dse",
-
-    # SSA based 'Aggressive DCE'
-    "-adce",
-
-    # merge & remove BBs
-    "-simplifycfg",
-
-    # eliminate dead types
-    "-deadtypeelim",
-
-    # merge dup global constants
-    "-constmerge",
-    ]))
-
- 
-# XXX Tmp for debugging
-OPTIMIZATION_SWITCHES = (" ".join([
+SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
 
     # call %malloc -> malloc inst
     "-raiseallocs",
@@ -150,7 +28,6 @@ OPTIMIZATION_SWITCHES = (" ".join([
     # clean up disgusting code
     "-simplifycfg",
     ]))
-
 
 # suggested by: gccas /dev/null -o /dev/null -debug-pass=Arguments
 OPTIMIZATION_SWITCHES = (" ".join([
@@ -193,11 +70,18 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
         gc_libs = ''
 
     if optimize:
-        cmds = ["llvm-as < %s.ll | opt %s > %s.bc" % (b, OPTIMIZATION_SWITCHES, b)]
+        optimization_switches = OPTIMIZATION_SWITCHES
     else:
-        cmds = ["llvm-as < %s.ll > %s.bc" % (b, b)]
+        optimization_switches = SIMPLE_OPTIMIZATION_SWITCHES
 
-    if sys.maxint == 2147483647:        #32 bit platform
+    cmds = ["llvm-as %s.ll" % b]
+
+    bcfile = dirpath.join("externs", "externs_linked.bc")
+    cmds.append("llvm-link %s.bc %s -o %s_all.bc" % (b, str(bcfile), b))
+    ball = str(dirpath.join('%s_all.bc' % b))
+    cmds.append("opt %s %s -f -o %s.bc" % (OPTIMIZATION_SWITCHES, ball, b))
+
+    if False and sys.maxint == 2147483647:        #32 bit platform
         cmds.append("llc %s %s.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))
         if exe_name:
@@ -219,7 +103,7 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
         try:
             try:
                 for cmd in cmds:
-                    log.build(cmd)
+                    #log.build(cmd)
                     cmdexec(cmd)
                 if pyxfile:
                     make_c_from_pyxfile(pyxfile)
@@ -249,14 +133,3 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
         return testmodule
     if exe_name:
         return exe_name
-
-if __name__ == "__main__":
-
-    # TMP - Conveinence during debugging
-    b = "entry_point"
-    print "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES, b, b)
-    print "llc %s %s_optimized.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b)
-    print "as %s.s -o %s.o" % (b, b)
-    gc_libs = '-lgc -lpthread'
-    exe_name = "pypy"
-    print "gcc %s.o -static %s -lm -o %s" % (b, gc_libs, exe_name)

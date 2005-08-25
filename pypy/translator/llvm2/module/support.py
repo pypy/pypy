@@ -5,12 +5,9 @@ declare ccc INT %puts(sbyte*)
 declare ccc INT %strlen(sbyte*)
 declare ccc INT %strcmp(sbyte*, sbyte*)
 declare ccc sbyte* %memset(sbyte*, INT, UINT)
-declare ccc double %frexp(double, int*)
 
 %__print_debug_info         = internal global bool false
 %__print_debug_info_option  = internal constant [19 x sbyte] c"--print-debug-info\\00"
-%.str_1 = internal constant [17 x sbyte] c"math range error\\00"
-%.str_2 = internal constant [18 x sbyte] c"math domain error\\00"
 """
 
 

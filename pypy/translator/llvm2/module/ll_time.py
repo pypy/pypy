@@ -5,7 +5,7 @@ extdeclarations = '''
 %struct.timezone = type { INT, INT }
 %typedef.fd_set = type { [32 x INT] }
 
-%.str_1 = internal constant [16 x sbyte] c"select() failed\\00"		; <[16 x sbyte]*> [#uses=1]
+%.str_xxx1 = internal constant [16 x sbyte] c"select() failed\\00"		; <[16 x sbyte]*> [#uses=1]
 
 declare ccc double %floor(double)
 declare ccc double %fmod(double, double)
@@ -75,7 +75,7 @@ entry:
 	br bool %tmp.12, label %then.1, label %return
 
 then.1:		; preds = %entry
-	; XXX disabled for now: call void %RaiseSimpleException( INT 1, sbyte* getelementptr ([16 x sbyte]* %.str_1, INT 0, INT 0) )
+	; XXX disabled for now: call void %RaiseSimpleException( INT 1, sbyte* getelementptr ([16 x sbyte]* %.str_xxx1, INT 0, INT 0) )
 	ret void
 
 return:		; preds = %entry
