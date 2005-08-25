@@ -461,34 +461,6 @@ class _OpcodeDispatcher(_Dispatcher):
         ctx.skip_code(2)
         ctx.skip_char(1)
 
-    def op_literal(self, ctx):
-        # match literal string
-        # <LITERAL> <code>
-        #self._log(ctx, "LITERAL", ctx.peek_code(1))
-        self.general_op_literal(ctx, operator.eq)
-        return True
-
-    def op_not_literal(self, ctx):
-        # match anything that is not the given literal character
-        # <NOT_LITERAL> <code>
-        #self._log(ctx, "NOT_LITERAL", ctx.peek_code(1))
-        self.general_op_literal(ctx, operator.ne)
-        return True
-
-    def op_literal_ignore(self, ctx):
-        # match literal regardless of case
-        # <LITERAL_IGNORE> <code>
-        #self._log(ctx, "LITERAL_IGNORE", ctx.peek_code(1))
-        self.general_op_literal(ctx, operator.eq, ctx.state.lower)
-        return True
-
-    def op_not_literal_ignore(self, ctx):
-        # match literal regardless of case
-        # <LITERAL_IGNORE> <code>
-        #self._log(ctx, "LITERAL_IGNORE", ctx.peek_code(1))
-        self.general_op_literal(ctx, operator.ne, ctx.state.lower)
-        return True
-
     def op_at(self, ctx):
         # match at given position
         # <AT> <code>

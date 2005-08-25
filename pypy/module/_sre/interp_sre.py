@@ -102,7 +102,10 @@ class W_State(Wrappable):
     def marks_pop_discard(self):
         self.marks_stack.pop()
 
-    def lower(self, w_char_ord):
+    def lower(self, char_ord):
+        return self.space.int_w(self.w_lower(self.space.wrap(char_ord)))
+
+    def w_lower(self, w_char_ord):
         return getlower(self.space, w_char_ord, self.space.wrap(self.flags))
 
 def interp_attrproperty_int(name, cls):
@@ -144,7 +147,7 @@ W_State.typedef = TypeDef("W_State",
     marks_pop = interp2app(W_State.marks_pop),
     marks_pop_keep = interp2app(W_State.marks_pop_keep),
     marks_pop_discard = interp2app(W_State.marks_pop_discard),
-    lower = interp2app(W_State.lower),
+    lower = interp2app(W_State.w_lower),
 )
 
 def make_context(space, w_state, w_pattern_codes):
@@ -180,18 +183,29 @@ class W_MatchContext(Wrappable):
         return self.space.getitem(self.state.w_string,
                 self.space.add(self.space.wrap(self.string_position), w_peek))
 
-    def skip_char(self, w_skip_count):
-        self.string_position = self.string_position + self.space.int_w(w_skip_count)
+    def peek_char_ord(self, peek=0):
+        return self.space.int_w(self.space.ord(self.peek_char(self.space.wrap(peek))))
+
+    def skip_char(self, skip_count):
+        self.string_position = self.string_position + skip_count
+
+    def w_skip_char(self, w_skip_count):
+        self.skip_char(self.space.int_w(w_skip_count))
 
     def remaining_chars(self):
         return self.space.wrap(self.state.end - self.string_position)
 
-    def peek_code(self, w_peek=0):
-        space = self.space
-        return self.pattern_codes_w[self.code_position + self.space.int_w(w_peek)]
+    def peek_code(self, peek=0):
+        return self.space.int_w(self.pattern_codes_w[self.code_position + peek])
 
-    def skip_code(self, w_skip_count):
-        self.code_position = self.code_position + self.space.int_w(w_skip_count)
+    def w_peek_code(self, w_peek=0):
+        return self.space.wrap(self.peek_code(self.space.int_w(w_peek)))
+
+    def skip_code(self, skip_count):
+        self.code_position = self.code_position + skip_count
+
+    def w_skip_code(self, w_skip_count):
+        self.skip_code(self.space.int_w(w_skip_count))
 
     def remaining_codes(self):
         return self.space.wrap(len(self.pattern_codes_w) - self.code_position)
@@ -200,7 +214,10 @@ class W_MatchContext(Wrappable):
         return self.space.newbool(self.string_position == 0)
 
     def at_end(self):
-        return self.space.newbool(self.string_position == self.state.end)
+        return self.string_position == self.state.end
+
+    def w_at_end(self):
+        return self.space.newbool(self.at_end())
 
     def at_linebreak(self):
         space = self.space
@@ -215,13 +232,13 @@ W_MatchContext.typedef = TypeDef("W_MatchContext",
     has_matched = interp_attrproperty_int("has_matched", W_MatchContext),
     push_new_context = interp2app(W_MatchContext.push_new_context),
     peek_char = interp2app(W_MatchContext.peek_char),
-    skip_char = interp2app(W_MatchContext.skip_char),
+    skip_char = interp2app(W_MatchContext.w_skip_char),
     remaining_chars = interp2app(W_MatchContext.remaining_chars),
-    peek_code = interp2app(W_MatchContext.peek_code),
-    skip_code = interp2app(W_MatchContext.skip_code),
+    peek_code = interp2app(W_MatchContext.w_peek_code),
+    skip_code = interp2app(W_MatchContext.w_skip_code),
     remaining_codes = interp2app(W_MatchContext.remaining_codes),
     at_beginning = interp2app(W_MatchContext.at_beginning),
-    at_end = interp2app(W_MatchContext.at_end),
+    at_end = interp2app(W_MatchContext.w_at_end),
     at_linebreak = interp2app(W_MatchContext.at_linebreak),
 )
 
@@ -267,8 +284,46 @@ def op_failure(space, ctx):
     ctx.has_matched = ctx.NOT_MATCHED
     return True
 
+def op_literal(space, ctx):
+    # match literal string
+    # <LITERAL> <code>
+    if ctx.at_end() or ctx.peek_char_ord() != ctx.peek_code(1):
+        ctx.has_matched = ctx.NOT_MATCHED
+    ctx.skip_code(2)
+    ctx.skip_char(1)
+    return True
+
+def op_not_literal(self, ctx):
+    # match anything that is not the given literal character
+    # <NOT_LITERAL> <code>
+    if ctx.at_end() or ctx.peek_char_ord() == ctx.peek_code(1):
+        ctx.has_matched = ctx.NOT_MATCHED
+    ctx.skip_code(2)
+    ctx.skip_char(1)
+    return True
+
+def op_literal_ignore(self, ctx):
+    # match literal regardless of case
+    # <LITERAL_IGNORE> <code>
+    if ctx.at_end() or \
+      ctx.state.lower(ctx.peek_char_ord()) != ctx.state.lower(ctx.peek_code(1)):
+        ctx.has_matched = ctx.NOT_MATCHED
+    ctx.skip_code(2)
+    ctx.skip_char(1)
+    return True
+
+def op_not_literal_ignore(self, ctx):
+    # match literal regardless of case
+    # <LITERAL_IGNORE> <code>
+    if ctx.at_end() or \
+      ctx.state.lower(ctx.peek_char_ord()) == ctx.state.lower(ctx.peek_code(1)):
+        ctx.has_matched = ctx.NOT_MATCHED
+    ctx.skip_code(2)
+    ctx.skip_char(1)
+    return True
+
 opcode_dispatch_table = [
-    op_failure, op_success, #FAILURE, SUCCESS,
+    op_failure, op_success,
     None, None, #ANY, ANY_ALL,
     None, None, #ASSERT, ASSERT_NOT,
     None, #AT,
@@ -280,11 +335,11 @@ opcode_dispatch_table = [
     None, None, #IN, IN_IGNORE,
     None, #INFO,
     None, #JUMP,
-    None, None, #LITERAL, LITERAL_IGNORE,
+    op_literal, op_literal_ignore,
     None, #MARK,
     None, #MAX_UNTIL,
     None, #MIN_UNTIL,
-    None, None, #NOT_LITERAL, NOT_LITERAL_IGNORE,
+    op_not_literal, op_not_literal_ignore,
     None, #NEGATE,
     None, #RANGE,
     None, #REPEAT,
