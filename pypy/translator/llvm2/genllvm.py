@@ -23,13 +23,41 @@ from pypy.translator.llvm2.node import LLVMNode
 
 from pypy.translator.translator import Translator
 
+from py.process import cmdexec 
 
 function_count = {}
 
-def get_ll(ccode):
+def get_ll(ccode, functions=[]):
+    # goto codespeak and compile our c code
     request = urllib.urlencode({'ccode':ccode})
-    return urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
+    llcode = urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
 
+    # get rid of the struct that llvm-gcc introduces to struct types
+    llcode = llcode.replace("%struct.", "%")
+
+    # create file
+    extern_dir = udir.join("externs").mkdir()
+    llfilename = extern_dir.join("externs").new(ext='.ll')
+    f = open(str(llfilename), 'w')
+    f.write(llcode)
+    f.close()
+
+    # create bytecode
+    os.chdir(str(extern_dir))
+    cmdexec('llvm-as externs.ll')
+    bcfilename = extern_dir.join("externs").new(ext='.bc')
+    if functions:
+        for func in functions:
+            # extract
+            cmdexec('llvm-extract -func %s -o %s.bc externs.bc' % (func, func))
+        
+        # link all the ll files
+        functions_bcs = ' '.join(['%s.bc' % func for func in functions])
+        cmdexec('llvm-link -o externs_linked.bc ' + functions_bcs)
+        bcfilename = extern_dir.join("externs_linked").new(ext='.bc')
+    
+    return bcfilename
+    
 class GenLLVM(object):
 
     def __init__(self, translator, debug=True):
@@ -102,12 +130,7 @@ class GenLLVM(object):
 
         j = os.path.join
         p = j(j(os.path.dirname(__file__), "module"), "genexterns.c")
-        genllcode += open(p).read()
-        print genllcode
-
-        ll_str = get_ll(genllcode)
-        ll_str = ll_str.replace("%struct.", "%")
-        return ll_str
+        return get_ll(open(p).read(), ['ll_math_frexp', 'll_math_is_error'])
     
     def replace_with_machine_words(self, s):
         return s.replace('UINT',self.db.get_machine_uword()).replace('INT',self.db.get_machine_word())
@@ -135,8 +158,7 @@ class GenLLVM(object):
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
 
-        print self.generate_llfile(extern_decls)
-        #XXXXassert False
+        self.generate_llfile(extern_decls)
  
         #if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
         #if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
