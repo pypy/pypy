@@ -47,3 +47,10 @@ class AppTestGenerator:
             yield i
         me = g()
         raises(ValueError, me.next)
+
+    def test_generator_expression(self):
+        import sys
+        if sys.version_info < (2, 4):
+            skip("generator expressions only work on Python >= 2.4")
+        exec "res = sum(i*i for i in range(5))"
+        assert res == 30

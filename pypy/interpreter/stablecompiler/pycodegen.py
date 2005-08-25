@@ -1368,6 +1368,7 @@ class GenExprCodeGenerator(NestedScopeMixin, AbstractFunctionCode,
     def __init__(self, gexp, scopes, class_name, mod):
         self.scopes = scopes
         self.scope = scopes[gexp]
+        self.localsfullyknown = self.scope.localsfullyknown 
         self.__super_init(gexp, scopes, 1, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
