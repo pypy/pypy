@@ -115,6 +115,17 @@ def ast_compile(input, mode):
     code1 = codegenerator.getCode()
     return code1
 
+def target_ast_compile(space, input, mode):
+    from pypy.interpreter.astcompiler import ast, misc, pycodegen
+    builder = AstBuilder(rules=None, debug=0, space=space)
+    target = TARGET_DICT[mode]
+    PYTHON_PARSER.parse_source(input, target, builder)
+    ast_tree = builder.rule_stack[-1]
+    misc.set_filename("<?>", ast_tree)
+    codegenerator = pycodegen.InteractiveCodeGenerator(ast_tree)
+    code1 = codegenerator.getCode()
+    return code1
+
 
 def internal_pypy_parse_to_ast(source, mode='exec', lineno=False, flags=0):
     builder = AstBuilder()

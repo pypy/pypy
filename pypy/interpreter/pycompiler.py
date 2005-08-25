@@ -323,12 +323,15 @@ class PythonAstCompiler(CPythonCompiler):
     """
     def compile(self, source, filename, mode, flags):
         from pyparser.error import ParseError
-        from pyparser.pythonutil import internal_pypy_parse_to_ast
+        from pyparser.pythonutil import AstBuilder, PYTHON_PARSER, TARGET_DICT 
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
-        # XXX use 'flags'
         space = self.space
         try:
-            encoding, ast_tree = internal_pypy_parse_to_ast(source, mode, True, flags)
+            builder = AstBuilder(space=space)
+            target_rule = TARGET_DICT[mode]
+            PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
+            ast_tree = builder.rule_stack[-1]
+            encoding = builder.source_encoding
         except ParseError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
@@ -339,6 +342,7 @@ class PythonAstCompiler(CPythonCompiler):
         # __________
         # XXX this uses the non-annotatable astcompiler at interp-level
         from pypy.interpreter import astcompiler
+        from pyparser.error import SyntaxError
         from pypy.interpreter.astcompiler.pycodegen import ModuleCodeGenerator
         from pypy.interpreter.astcompiler.pycodegen import InteractiveCodeGenerator
         from pypy.interpreter.astcompiler.pycodegen import ExpressionCodeGenerator
@@ -347,11 +351,11 @@ class PythonAstCompiler(CPythonCompiler):
             astcompiler.misc.set_filename(filename, ast_tree)
             flag_names = get_flag_names( flags )
             if mode == 'exec':
-                codegenerator = ModuleCodeGenerator(ast_tree, flag_names)
+                codegenerator = ModuleCodeGenerator(space, ast_tree, flag_names)
             elif mode == 'single':
-                codegenerator = InteractiveCodeGenerator(ast_tree, flag_names)
+                codegenerator = InteractiveCodeGenerator(space, ast_tree, flag_names)
             else: # mode == 'eval':
-                codegenerator = ExpressionCodeGenerator(ast_tree, flag_names)
+                codegenerator = ExpressionCodeGenerator(space, ast_tree, flag_names)
             c = codegenerator.getCode()
         except SyntaxError, e:
             w_synerr = space.newtuple([space.wrap(e.msg),
@@ -367,8 +371,8 @@ class PythonAstCompiler(CPythonCompiler):
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
         # __________ end of XXX above
         from pypy.interpreter.pycode import PyCode
-        code = PyCode(space)._from_code(c)
-        return code
+        assert isinstance(c,PyCode)
+        return c
     #compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 
 

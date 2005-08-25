@@ -265,7 +265,7 @@ def parse_genexpr_for(tokens):
     return genexpr_fors
 
 
-def get_docstring(stmt):
+def get_docstring(builder,stmt):
     """parses a Stmt node.
     
     If a docstring if found, the Discard node is **removed**
@@ -276,15 +276,15 @@ def get_docstring(stmt):
     """
     if not isinstance(stmt, ast.Stmt):
         return None
-    doc = None
+    doc = builder.wrap_none()
     if len(stmt.nodes):
         first_child = stmt.nodes[0]
         if isinstance(first_child, ast.Discard):
             expr = first_child.expr
-            if isinstance(expr, ast.StringConst):
+            if builder.is_string_const(expr):
                 # This *is* a docstring, remove it from stmt list
                 del stmt.nodes[0]
-                doc = expr.string_value
+                doc = expr.value
     return doc
     
 
@@ -341,21 +341,6 @@ def get_atoms( builder, nb ):
     atoms.reverse()
     return atoms
     
-def eval_number(value):
-    """temporary implementation
-    eval_number intends to replace number = eval(value) ; return number
-    """
-    from pypy.objspace.std.strutil import string_to_int, string_to_float
-    from pypy.objspace.std.strutil import string_to_long
-    from pypy.objspace.std.strutil import ParseStringError
-    if value.endswith('l') or value.endswith('L'):
-        value = value[:-1]
-        # ???
-    try:
-        return string_to_int(value)
-    except ParseStringError:
-        return string_to_float(value)
-
 def eval_string(value):
     """temporary implementation
 
@@ -384,6 +369,7 @@ def eval_string(value):
     for escaped, value in d.items():
         result = result.replace(escaped, value)
     return result
+
 
 ## misc utilities, especially for power: rule
 def reduce_callfunc(obj, arglist):
@@ -495,14 +481,14 @@ def build_atom(builder, nb):
         elif top.name == tok.NAME:
             builder.push( ast.Name(top.get_value()) )
         elif top.name == tok.NUMBER:
-            builder.push(ast.NumberConst(eval_number(top.get_value())))
+            builder.push(ast.Const(builder.eval_number(top.get_value())))
         elif top.name == tok.STRING:
             # need to concatenate strings in atoms
             s = ''
             for token in atoms:
                 assert isinstance(token, TokenObject)
                 s += eval_string(token.get_value())
-            builder.push(ast.StringConst(s))
+            builder.push(ast.Const(builder.wrap_string(s)))
         elif top.name == tok.BACKQUOTE:
             builder.push(ast.Backquote(atoms[1]))
         else:
@@ -707,7 +693,7 @@ def build_simple_stmt( builder, nb ):
     for n in range(0,l,2):
         node = atoms[n]
         if isinstance(node, TokenObject) and node.name == tok.NEWLINE:
-            nodes.append(ast.Discard(ast.NoneConst()))
+            nodes.append(ast.Discard(ast.Const(builder.wrap_none())))
         else:
             nodes.append(node)
     builder.push(ast.Stmt(nodes))
@@ -717,12 +703,11 @@ def build_return_stmt(builder, nb):
     if len(atoms) > 2:
         assert False, "return several stmts not implemented"
     elif len(atoms) == 1:
-        builder.push(ast.Return(ast.NoneConst(), None)) # XXX lineno
+        builder.push(ast.Return(ast.Const(builder.wrap_none()), None)) # XXX lineno
     else:
         builder.push(ast.Return(atoms[1], None)) # XXX lineno
 
 def build_file_input(builder, nb):
-    doc = None
     stmts = []
     atoms = get_atoms(builder, nb)
     for node in atoms:
@@ -736,13 +721,20 @@ def build_file_input(builder, nb):
         else:
             stmts.append(node)
     main_stmt = ast.Stmt(stmts)
-    doc = get_docstring(main_stmt)
+    doc = get_docstring(builder,main_stmt)
     return builder.push(ast.Module(doc, main_stmt))
+
+def build_eval_input(builder, nb):
+    doc = builder.wrap_none()
+    stmts = []
+    atoms = get_atoms(builder, nb)
+    assert len(atoms)>=1
+    return builder.push(ast.Expression(atoms[0]))
 
 def build_single_input( builder, nb ):
     atoms = get_atoms( builder, nb )
     l = len(atoms)
-    if l >= 1:
+    if l == 1 or l==2:
         builder.push(ast.Module(None, atoms[0]))
     else:
         assert False, "Forbidden path"
@@ -851,7 +843,7 @@ def build_subscript(builder, nb):
                 sliceobj_infos = []
                 for value in sliceinfos:
                     if value is None:
-                        sliceobj_infos.append(ast.NoneConst())
+                        sliceobj_infos.append(ast.Const(builder.wrap_none()))
                     else:
                         sliceobj_infos.append(value)
                 builder.push(SlicelistObject('sliceobj', sliceobj_infos, None))
@@ -929,7 +921,7 @@ def build_funcdef(builder, nb):
     funcname = funcname_token.get_value()
     arglist = atoms[2]
     code = atoms[-1]
-    doc = get_docstring(code)
+    doc = get_docstring(builder, code)
     builder.push(ast.Function(decorator_node, funcname, names, default, flags, doc, code))
 
 
@@ -953,7 +945,7 @@ def build_classdef(builder, nb):
                 basenames.append(node)
         else:
             basenames.append(base)
-    doc = get_docstring(body)
+    doc = get_docstring(builder,body)
     builder.push(ast.Class(classname, basenames, doc, body))
 
 def build_suite(builder, nb):
@@ -1303,6 +1295,7 @@ ASTRULES = {
     sym.try_stmt : build_try_stmt,
     sym.exprlist : build_exprlist,
     sym.decorator : build_decorator,
+    sym.eval_input : build_eval_input,
     }
 
 ## Stack elements definitions ###################################
@@ -1447,9 +1440,10 @@ class AstBuilderContext(AbstractContext):
 class AstBuilder(BaseGrammarBuilder):
     """A builder that directly produce the AST"""
 
-    def __init__(self, rules=None, debug=0):
+    def __init__(self, rules=None, debug=0, space=None):
         BaseGrammarBuilder.__init__(self, rules, debug)
         self.rule_stack = []
+        self.space = space
 
     def context(self):
         return AstBuilderContext(self.rule_stack)
@@ -1529,6 +1523,47 @@ class AstBuilder(BaseGrammarBuilder):
 ##             print "TOK:", tok.tok_name[name], name, value
         self.push_tok(name, value, source)
         return True
+
+    def eval_number(self, value):
+        """temporary implementation
+        eval_number intends to replace number = eval(value) ; return number
+        """
+        from pypy.objspace.std.strutil import string_to_int, string_to_float
+        from pypy.objspace.std.strutil import string_to_w_long, interp_string_to_float
+        from pypy.objspace.std.strutil import ParseStringError
+        space = self.space
+        base = 10
+        if value.startswith("0x") or value.startswith("0X"):
+            base = 16
+        elif value.startswith("0"):
+            base = 8
+        if value.endswith('l') or value.endswith('L'):
+            value = value[:-1]
+            return string_to_w_long( space, value, base=base )
+        try:
+            value = string_to_int(value, base=base)
+            return space.wrap(value)
+        except ParseStringError:
+            return space.wrap(interp_string_to_float(space,value))
+
+    def is_string_const(self, expr):
+        if not isinstance(expr,ast.Const):
+            return False
+        space = self.space
+        return space.is_true(space.isinstance(expr.value,space.w_str))
+
+    def wrap_string(self, obj):
+        if self.space:
+            return self.space.wrap(obj)
+        else:
+            return obj
+
+    def wrap_none(self):
+        if self.space:
+            return self.space.w_None
+        else:
+            return None
+
 
 def show_stack(before, after):
     """debugging helper function"""

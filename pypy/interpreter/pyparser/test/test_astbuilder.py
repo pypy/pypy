@@ -55,7 +55,9 @@ def nodes_equal(left, right):
         if not arglist_equal(left_args, right_args):
             return False
     elif isinstance(left,stable_ast.Const):
-        if isinstance(right,ast_ast.NoneConst):
+        if isinstance(right,ast_ast.Const):
+            return left.value == right.value
+        elif isinstance(right,ast_ast.NoneConst):
             return left.value == None
         elif isinstance(right, ast_ast.NumberConst):
             return left.value == right.number_value
@@ -159,6 +161,10 @@ genexps = [
     "l = (i for j in k for i in j)",
     "l = (i for j in k for i in j if j%2==0)",
     "l = (i for j in k if j%2 == 0 if j*2 < 20 for i in j if i%2==0)",
+    "l = (i for i in [ j*2 for j in range(10) ] )",
+    "l = [i for i in ( j*2 for j in range(10) ) ]",
+    "l = (i for i in [ j*2 for j in ( k*3 for k in range(10) ) ] )",
+    "l = [i for j in ( j*2 for j in [ k*3 for k in range(10) ] ) ]",
     ]
 
 
@@ -413,8 +419,63 @@ returns = [
     'return (a,b,c,d)',
     ]
 
+augassigns = [
+    'a=1;a+=2',
+    'a=1;a-=2',
+    'a=1;a*=2',
+    'a=1;a/=2',
+    'a=1;a//=2',
+    'a=1;a%=2',
+    'a=1;a**=2',
+    'a=1;a>>=2',
+    'a=1;a<<=2',
+    'a=1;a&=2',
+    'a=1;a^=2',
+    'a=1;a|=2',
+    
+    'a=A();a.x+=2',
+    'a=A();a.x-=2',
+    'a=A();a.x*=2',
+    'a=A();a.x/=2',
+    'a=A();a.x//=2',
+    'a=A();a.x%=2',
+    'a=A();a.x**=2',
+    'a=A();a.x>>=2',
+    'a=A();a.x<<=2',
+    'a=A();a.x&=2',
+    'a=A();a.x^=2',
+    'a=A();a.x|=2',
+
+    'a=A();a[0]+=2',
+    'a=A();a[0]-=2',
+    'a=A();a[0]*=2',
+    'a=A();a[0]/=2',
+    'a=A();a[0]//=2',
+    'a=A();a[0]%=2',
+    'a=A();a[0]**=2',
+    'a=A();a[0]>>=2',
+    'a=A();a[0]<<=2',
+    'a=A();a[0]&=2',
+    'a=A();a[0]^=2',
+    'a=A();a[0]|=2',
+
+    'a=A();a[0:2]+=2',
+    'a=A();a[0:2]-=2',
+    'a=A();a[0:2]*=2',
+    'a=A();a[0:2]/=2',
+    'a=A();a[0:2]//=2',
+    'a=A();a[0:2]%=2',
+    'a=A();a[0:2]**=2',
+    'a=A();a[0:2]>>=2',
+    'a=A();a[0:2]<<=2',
+    'a=A();a[0:2]&=2',
+    'a=A();a[0:2]^=2',
+    'a=A();a[0:2]|=2',
+    ]
+
 TESTS = [
     expressions,
+    augassigns,
     comparisons,
     funccalls,
     backtrackings,
@@ -448,9 +509,27 @@ TARGET_DICT = {
     'eval'   : 'eval_input',
     }
 
+
+class FakeSpace:
+    w_None = None
+    w_str = str
+    w_int = int
+    
+    def wrap(self,obj):
+        return obj
+
+    def isinstance(self, obj, wtype ):
+        return isinstance(obj,wtype)
+
+    def is_true(self, obj):
+        return obj
+
+    def newtuple(self, lst):
+        return tuple(lst)
+    
 def ast_parse_expr(expr, target='single'):
     target = TARGET_DICT[target]
-    builder = AstBuilder()
+    builder = AstBuilder(space=FakeSpace())
     PYTHON_PARSER.parse_source(expr, target, builder)
     return builder
 

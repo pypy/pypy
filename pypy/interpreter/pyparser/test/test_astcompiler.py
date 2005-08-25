@@ -1,19 +1,20 @@
 from pypy.interpreter.pyparser.pythonparse import PYTHON_PARSER
 from pypy.interpreter.pyparser.astbuilder import AstBuilder
-
-
-from pypy.interpreter.pyparser.pythonutil import ast_from_input
+from pypy.interpreter.pycode import PyCode
 import py.test
 
 from pypy.interpreter.astcompiler import ast, misc, pycodegen
 
 from test_astbuilder import expressions, comparisons, funccalls, backtrackings,\
     listmakers, genexps, dictmakers, multiexpr, attraccess, slices, imports,\
-    asserts, execs, prints, globs, raises, imports_newstyle
+    asserts, execs, prints, globs, raises, imports_newstyle, augassigns
+
+from test_astbuilder import FakeSpace
 
 
 TESTS = [
     expressions,
+    augassigns,
     comparisons,
     funccalls,
     backtrackings,
@@ -42,18 +43,18 @@ TARGET_DICT = {
     'eval'   : 'eval_input',
     }
 
-def ast_parse_expr(expr, target='single'):
+def ast_parse_expr(expr, target='single', space=FakeSpace()):
     target = TARGET_DICT[target]
-    builder = AstBuilder()
+    builder = AstBuilder(space=space)
     PYTHON_PARSER.parse_source(expr, target, builder)
     return builder.rule_stack[-1]
 
 
 ### Note: builtin compile and compiler.compile behave differently
-def compile_expr( expr, target="single" ):
+def compile_expr( expr, target="exec" ):
     return compile( expr, "<?>", target )
 
-def ast_compile( expr, target="single" ):
+def ast_compile( expr, target="exec" ):
     from compiler import compile
     return compile( expr, "<?>", target )
     
@@ -71,15 +72,42 @@ def compare_code( code1, code2 ):
         dis.dis(code2)
         assert code1.co_code == code2.co_code
     assert code1.co_varnames == code2.co_varnames
+    
+    assert len(code1.co_consts) == len(code2.co_consts)
+    for c1, c2 in zip( code1.co_consts, code2.co_consts ):
+        if type(c1)==PyCode:
+            c1 = to_code(c1)
+            return compare_code( c1, c2 )
+        else:
+            assert c1 == c2
+
+def to_code( rcode ):
+    import new
+    code = new.code( rcode.co_argcount,
+                     rcode.co_nlocals,
+                     rcode.co_stacksize,
+                     rcode.co_flags,
+                     rcode.co_code,
+                     rcode.co_consts_w,
+                     tuple(rcode.co_names),
+                     tuple(rcode.co_varnames),
+                     rcode.co_filename,
+                     rcode.co_name,
+                     rcode.co_firstlineno,
+                     rcode.co_lnotab,
+                     tuple(rcode.co_freevars),
+                     tuple(rcode.co_cellvars) )
+    return code
 
 def check_compile( expr ):
-    import new
-    ast_tree = ast_parse_expr( expr )
+    space = FakeSpace()
+    ast_tree = ast_parse_expr( expr, target='exec', space=space )
     misc.set_filename("<?>", ast_tree)
     print "Compiling:", expr
-    #print ast_tree
-    codegenerator = pycodegen.InteractiveCodeGenerator(ast_tree)
-    code1 = new.code(*codegenerator.getCode())
+    print ast_tree
+    codegenerator = pycodegen.ModuleCodeGenerator(space,ast_tree)
+    rcode = codegenerator.getCode()
+    code1 = to_code( rcode )
     code2 = ast_compile( expr )
     compare_code(code1,code2)
 

@@ -13,7 +13,7 @@ def is_future(stmt):
     else:
         return 0
 
-class FutureParser:
+class FutureParser(ast.ASTVisitor):
 
     features = ("nested_scopes", "generators", "division")
 
@@ -42,7 +42,7 @@ class FutureParser:
         """Return list of features enabled by future statements"""
         return self.found.keys()
 
-class BadFutureParser:
+class BadFutureParser(ast.ASTVisitor):
     """Check for invalid future statements"""
 
     def visitFrom(self, node):

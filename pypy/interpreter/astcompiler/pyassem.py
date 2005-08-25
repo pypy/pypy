@@ -1,19 +1,20 @@
 """A flow graph representation for Python bytecode"""
 
 import dis
-import new
 import sys
 import types
 
-from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.astcompiler import misc, ast
 from pypy.interpreter.astcompiler.consts \
      import CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS
+from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.baseobjspace import W_Root
 
 class FlowGraph:
-    def __init__(self):
-        self.current = self.entry = Block()
-        self.exit = Block("exit")
+    def __init__(self, space):
+        self.space = space
+        self.current = self.entry = Block(space)
+        self.exit = Block(space,"exit")
         self.blocks = misc.Set()
         self.blocks.add(self.entry)
         self.blocks.add(self.exit)
@@ -54,7 +55,7 @@ class FlowGraph:
         self.startBlock(block)
 
     def newBlock(self):
-        b = Block()
+        b = Block(self.space)
         self.blocks.add(b)
         return b
 
@@ -69,14 +70,41 @@ class FlowGraph:
     def _disable_debug(self):
         self._debug = 0
 
-    def emit(self, *inst):
+    def emit(self, inst):
         if self._debug:
             print "\t", inst
-        if inst[0] in ['RETURN_VALUE', 'YIELD_VALUE']:
+        if inst in ['RETURN_VALUE', 'YIELD_VALUE']:
             self.current.addOutEdge(self.exit)
-        if len(inst) == 2 and isinstance(inst[1], Block):
-            self.current.addOutEdge(inst[1])
-        self.current.emit(inst)
+        self.current.emit( (inst,) )
+
+    def emitop(self, inst, arg ):
+        if self._debug:
+            print "\t", inst, arg
+        self.current.emit( (inst,arg) )
+
+    def emitop_obj(self, inst, obj ):
+        if self._debug:
+            print "\t", inst, repr(obj)
+        self.current.emit( (inst,obj) )
+
+    def emitop_int(self, inst, intval ):
+        if self._debug:
+            print "\t", inst, intval
+        assert type(intval)==int
+        self.current.emit( (inst,intval) )
+        
+    def emitop_block(self, inst, block):
+        if self._debug:
+            print "\t", inst, block
+        assert isinstance(block, Block)
+        self.current.addOutEdge( block )
+        self.current.emit( (inst,block) )
+
+    def emitop_name(self, inst, name ):
+        if self._debug:
+            print "\t", inst, name
+        assert type(name)==str
+        self.current.emit( (inst,name) )
 
     def getBlocksInOrder(self):
         """Return the blocks in reverse postorder
@@ -235,13 +263,14 @@ class BlockCounter:
 class Block:
     _count = BlockCounter()
 
-    def __init__(self, label=''):
+    def __init__(self, space, label=''):
         self.insts = []
         self.inEdges = misc.Set()
         self.outEdges = misc.Set()
         self.label = label
         self.bid = Block._count.value()
         self.next = []
+        self.space = space
         Block._count.inc()
 
     def __repr__(self):
@@ -259,6 +288,8 @@ class Block:
         op = inst[0]
         if op[:4] == 'JUMP':
             self.outEdges.add(inst[1])
+##         if op=="LOAD_CONST":
+##             assert isinstance( inst[1], W_Root ) or hasattr( inst[1], 'getCode')
         self.insts.append( list(inst) )
 
     def getInstructions(self):
@@ -327,13 +358,12 @@ CONV = "CONV"
 DONE = "DONE"
 
 class PyFlowGraph(FlowGraph):
-    super_init = FlowGraph.__init__
 
-    def __init__(self, name, filename, args=(), optimized=0, klass=None):
-        self.super_init()
+    def __init__(self, space, name, filename, args=(), optimized=0, klass=None):
+        FlowGraph.__init__(self, space)
         self.name = name
         self.filename = filename
-        self.docstring = None
+        self.docstring = space.w_None
         self.args = args # XXX
         self.argcount = getArgCount(args)
         self.klass = klass
@@ -569,6 +599,7 @@ class PyFlowGraph(FlowGraph):
     def _convert_LOAD_CONST(self, arg):
         if hasattr(arg, 'getCode'):
             arg = arg.getCode()
+##         assert arg is not None
         return self._lookupName(arg, self.consts)
 
     def _convert_LOAD_FAST(self, arg):
@@ -662,12 +693,13 @@ class PyFlowGraph(FlowGraph):
             argcount = argcount - 1
         # was return new.code, now we just return the parameters and let
         # the caller create the code object
-        return (argcount, nlocals, self.stacksize, self.flags,
-                self.lnotab.getCode(), self.getConsts(),
-                tuple(self.names), tuple(self.varnames),
-                self.filename, self.name, self.lnotab.firstline,
-                self.lnotab.getTable(), tuple(self.freevars),
-                tuple(self.cellvars))
+        return PyCode(self.space)._code_new_w( argcount, nlocals,
+                                               self.stacksize, self.flags,
+                                               self.lnotab.getCode(), self.getConsts(),
+                                               tuple(self.names), tuple(self.varnames),
+                                               self.filename, self.name, self.lnotab.firstline,
+                                               self.lnotab.getTable(), tuple(self.freevars),
+                                               tuple(self.cellvars))
 
     def getConsts(self):
         """Return a tuple for the const slot of the code object
