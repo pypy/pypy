@@ -109,7 +109,7 @@ def run_module(name, pathname, co):
     try:
         exec co in module.__dict__
     except :
-        sys.module.pop(name,None)
+        sys.modules.pop(name,None)
         raise
     return module
  
