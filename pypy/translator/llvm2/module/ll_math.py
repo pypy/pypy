@@ -19,11 +19,11 @@ declare ccc double %tanh(double)
 declare ccc double %atan2(double,double)
 declare ccc double %fmod(double,double)
 
-%__ll_math_frexp = internal constant [12 x sbyte] c"frexp......\\00"
-%__ll_math_hypot = internal constant [12 x sbyte] c"hypot......\\00"
-%__ll_math_ldexp = internal constant [12 x sbyte] c"ldexp......\\00"
-%__ll_math_modf  = internal constant [12 x sbyte] c"modf.......\\00"
-%__ll_math_pow   = internal constant [12 x sbyte] c"pow........\\00"
+%__ll_math_frexp = constant [12 x sbyte] c"frexp......\\00"
+%__ll_math_hypot = constant [12 x sbyte] c"hypot......\\00"
+%__ll_math_ldexp = constant [12 x sbyte] c"ldexp......\\00"
+%__ll_math_modf  = constant [12 x sbyte] c"modf.......\\00"
+%__ll_math_pow   = constant [12 x sbyte] c"pow........\\00"
 """
 
 extfunctions = {}
@@ -36,7 +36,7 @@ simple_functions = [
     ]
 
 simple_function_template = """
-internal fastcc double %%ll_math_%(function)s(%(params)s) {
+ccc double %%ll_math_%(function)s(%(params)s) {
     %%t = call ccc double %%%(function)s(%(params)s)
     ret double %%t
 }
@@ -48,29 +48,29 @@ for params, functions in simple_functions:
         extfunctions["%ll_math_" + function] = ((), simple_function_template % locals())
 
 extfunctions["%ll_math_hypot"] = (("%__debug",), """
-internal fastcc double %ll_math_hypot(double %x, double %y) {
-    call fastcc void %__debug([12 x sbyte]* %__ll_math_hypot) ; XXX: TODO: ll_math_hypot
+ccc double %ll_math_hypot(double %x, double %y) {
+    call ccc void %__debug([12 x sbyte]* %__ll_math_hypot) ; XXX: TODO: ll_math_hypot
     ret double 0.0
 }
 """)
 
 extfunctions["%ll_math_ldexp"] = (("%__debug",), """
-internal fastcc double %ll_math_ldexp(double %x, INT %y) {
-    call fastcc void %__debug([12 x sbyte]* %__ll_math_ldexp) ; XXX: TODO: ll_math_ldexp
+ccc double %ll_math_ldexp(double %x, int %y) {
+    call ccc void %__debug([12 x sbyte]* %__ll_math_ldexp) ; XXX: TODO: ll_math_ldexp
     ret double 0.0
 }
 """)
 
 extfunctions["%ll_math_modf"] = (("%__debug",), """
-internal fastcc %RPyMODF_RESULT* %ll_math_modf(double %x) {
-    call fastcc void %__debug([12 x sbyte]* %__ll_math_modf) ; XXX: TODO: ll_math_modf
+ccc %RPyMODF_RESULT* %ll_math_modf(double %x) {
+    call ccc void %__debug([12 x sbyte]* %__ll_math_modf) ; XXX: TODO: ll_math_modf
     ret %RPyMODF_RESULT* null
 }
 """)
 
 extfunctions["%ll_math_pow"] = (("%__debug",), """
-internal fastcc double %ll_math_pow(double %x, double %y) {
-    call fastcc void %__debug([12 x sbyte]* %__ll_math_pow) ; XXX: TODO: ll_math_pow
+ccc double %ll_math_pow(double %x, double %y) {
+    call ccc void %__debug([12 x sbyte]* %__ll_math_pow) ; XXX: TODO: ll_math_pow
     ret double 0.0
 }
 """)
