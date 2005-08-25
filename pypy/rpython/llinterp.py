@@ -341,14 +341,11 @@ class LLFrame(object):
         assert isinstance(ptr1, self.llt._ptr)
         return not bool(ptr1)
 
-    def op_cast_ptr_to_int(self, ptr1): # xxx should this logic migrate to lltype _ptr itself?
+    def op_cast_ptr_to_int(self, ptr1):
         assert isinstance(ptr1, self.llt._ptr)
         assert isinstance(self.llt.typeOf(ptr1).TO, (self.llt.Array,
                                                      self.llt.Struct))
-        obj = ptr1._obj
-        while obj._parentstructure():
-            obj = obj._parentstructure() 
-        return id(obj)
+        return self.llt.cast_ptr_to_int(ptr1)
 
     def op_cast_int_to_float(self, i):
         assert type(i) is int

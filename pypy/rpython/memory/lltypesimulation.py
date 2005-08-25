@@ -213,3 +213,6 @@ def functionptr(TYPE, name, **attrs):
 def pyobjectptr(obj):
     addr = lladdress.get_address_of_object(lltype._pyobject(obj))
     return simulatorptr(lltype.Ptr(lltype.PyObject), addr)
+
+def cast_ptr_to_int(ptr):
+    return ptr._address.intaddress

@@ -853,6 +853,13 @@ def pyobjectptr(obj):
     o = _pyobject(obj)
     return _ptr(Ptr(PyObject), o) 
 
+def cast_ptr_to_int(ptr):
+    obj = ptr._obj
+    while obj._parentstructure():
+        obj = obj._parentstructure() 
+    return id(obj)
+
+
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None):
     if not isinstance(GCSTRUCT, GcStruct):
         raise TypeError, "expected a GcStruct: %s" % GCSTRUCT
