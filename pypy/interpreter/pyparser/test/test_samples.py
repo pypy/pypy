@@ -21,6 +21,11 @@ SKIP_IF_NOT_NATIVE = [
     #"snippet_import_statements.py",
     "snippet_decorators.py",
 ]
+REAL_EXPECTED_OUTPUT = {
+    # for snippets that show bugs of Python's compiler package
+    "snippet_transformer_bug.py":
+        "Module('This module does nothing', Stmt([Printnl([Const(1)], None)]))",
+    }
 
 
 def name(elt):
@@ -96,11 +101,17 @@ def _check_tuples_equality(pypy_tuples, python_tuples, testname):
     # differences -- typically newlines at the end of the tree.
     print 'Comparing the ASTs of', testname
     transformer1 = PyPyTransformer()
-    transformer2 = PythonTransformer()
     ast_pypy   = transformer1.compile_node(pypy_tuples)
-    ast_python = transformer2.compile_node(python_tuples)
-    repr_pypy   = repr(ast_pypy)
-    repr_python = repr(ast_python)
+    repr_pypy  = repr(ast_pypy)
+
+    key = os.path.basename(testname)
+    if key not in REAL_EXPECTED_OUTPUT:
+        transformer2 = PythonTransformer()
+        ast_python = transformer2.compile_node(python_tuples)
+        repr_python = repr(ast_python)
+    else:
+        repr_python = REAL_EXPECTED_OUTPUT[key]
+
     if GRAMMAR_MISMATCH:
         # XXX hack:
         # hide the more common difference between 2.3 and 2.4, which is
