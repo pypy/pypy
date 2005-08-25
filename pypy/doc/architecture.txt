@@ -102,15 +102,6 @@ Note that the *standard interpreter* can run fine on top of CPython
 (the C Implementation of Python led by Guido van Rossum), if one is
 willing to pay for the double-interpretation performance penalty.
 
-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-Please note that we are using the term *interpreter* most often in
-reference to the *plain interpreter* which just knows enough to read,
-dispatch and implement *bytecodes* thus shuffling objects around on the
-stack and between namespaces.  The (plain) interpreter is completely
-ignorant of how to access, modify or construct objects and their
-structure and thus delegates such operations to a so called `Object Space`_.
-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
 In addition, the standard interpreter requires a parser and bytecode compiler
 to turn the user's Python source code into a form amenable to
 interpretation.  This is currently still borrowed from CPython, but we
