@@ -3,7 +3,7 @@ extdeclarations = """
 declare ccc double %pow(double, double)
 declare ccc double %fmod(double, double)
 declare ccc int %puts(sbyte*)
-declare ccc int %strlen(sbyte*)
+declare ccc uint %strlen(sbyte*)
 declare ccc int %strcmp(sbyte*, sbyte*)
 declare ccc sbyte* %memset(sbyte*, int, uint)
 
@@ -43,7 +43,7 @@ extfunctions["%RPyString_Size"] = ((), """
 internal fastcc int %RPyString_Size(%RPyString* %structstring) {
     %sizeptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 0
     %size = load int* %sizeptr
-    return %size
+    ret int %size
 
 }
 
@@ -51,7 +51,8 @@ internal fastcc int %RPyString_Size(%RPyString* %structstring) {
 
 extfunctions["%RPyString_FromString"] = ((), """
 internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
-    %len       = call ccc int %strlen(sbyte* %s)
+    %lenu      = call ccc uint %strlen(sbyte* %s)
+    %len       = cast uint %lenu to int
     %rpy       = call fastcc %RPyString* %RPyString_New__Signed(int %len)
     %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
     %rpystr    = cast [0 x sbyte]* %rpystrptr to sbyte*

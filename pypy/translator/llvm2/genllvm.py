@@ -55,11 +55,12 @@ def get_ll(ccode, extern_dir, functions=[]):
         if comment >= 0:
             line = line[:comment]
         line = line.rstrip()
-        #if line[-1:] == '{':
-        #   returntype, s = line.split(' ', 1)
-        #   funcname  , s = s.split('(', 1)
-        #   funcnames[funcname] = True
-        #   line = '%s %s %s' % ("", DEFAULT_CCONV, line,)
+        if line[-1:] == '{':
+           returntype, s = line.split(' ', 1)
+           funcname  , s = s.split('(', 1)
+           funcnames[funcname] = True
+	   assert line.find("internal") == -1
+           line = '%s %s %s' % ("", DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
     #patch calls to function that we just declared fastcc
@@ -83,28 +84,31 @@ def get_ll(ccode, extern_dir, functions=[]):
         ll_lines2.append(line)
 
     llcode = '\n'.join(ll_lines2)
+    return llcode.split('implementation')	#XXX testing
 
-    # create file
-    llfilename = extern_dir.join("externs").new(ext='.ll')
-    f = open(str(llfilename), 'w')
-    f.write(llcode)
-    f.close()
-
+    #XXX temp disabled
+    #
+    ## create file
+    #llfilename = extern_dir.join("externs").new(ext='.ll')
+    #f = open(str(llfilename), 'w')
+    #f.write(llcode)
+    #f.close()
+    #
     # create bytecode
-    os.chdir(str(extern_dir))
-    cmdexec('llvm-as externs.ll')
-    bcfilename = extern_dir.join("externs").new(ext='.bc')
-    if functions:
-        for func in functions:
-            # extract
-            cmdexec('llvm-extract -func %s -o %s.bc externs.bc' % (func, func))
-        
-        # link all the ll files
-        functions_bcs = ' '.join(['%s.bc' % func for func in functions])
-        cmdexec('llvm-link -o externs_linked.bc ' + functions_bcs)
-        bcfilename = extern_dir.join("externs_linked").new(ext='.bc')
-    
-    return bcfilename
+    #os.chdir(str(extern_dir))
+    #cmdexec('llvm-as externs.ll')
+    #bcfilename = extern_dir.join("externs").new(ext='.bc')
+    #if functions:
+    #    for func in functions:
+    #        # extract
+    #        cmdexec('llvm-extract -func %s -o %s.bc externs.bc' % (func, func))
+    #    
+    #    # link all the ll files
+    #    functions_bcs = ' '.join(['%s.bc' % func for func in functions])
+    #    cmdexec('llvm-link -o externs_linked.bc ' + functions_bcs)
+    #    bcfilename = extern_dir.join("externs_linked").new(ext='.bc')
+    #
+    #return bcfilename
     
 class GenLLVM(object):
 
@@ -214,7 +218,7 @@ class GenLLVM(object):
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
 
-        self.generate_llfile(extern_decls)
+        lldeclarations, llimplementation = self.generate_llfile(extern_decls)
  
         #if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
         #if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
@@ -234,6 +238,10 @@ class GenLLVM(object):
         codewriter = CodeWriter(f, self.db.get_machine_word(), self.db.get_machine_uword())
         comment = codewriter.comment
         nl = codewriter.newline
+
+        nl(); comment("EXTERNAL FUNCTION DECLARATIONS") ; nl()
+        for s in lldeclarations.split('\n'):
+            codewriter.append(s)
 
         nl(); comment("Type Declarations"); nl()
 
@@ -327,7 +335,10 @@ class GenLLVM(object):
         if entryfunc_name != 'main' and entryfunc_name == 'entry_point': #XXX just to get on with translate_pypy
             extfuncnode.ExternalFuncNode.used_external_functions['%main'] = True
 
-        extfuncnode.ExternalFuncNode.used_external_functions['%RPyString_FromString'] = True
+        for f in "prepare_and_raise_OverflowError prepare_and_raise_ValueError "\
+	         "prepare_and_raise_ZeroDivisionError prepare_and_raise_IOError "\
+		 "RPyString_FromString RPyString_AsString RPyString_Size".split():
+            extfuncnode.ExternalFuncNode.used_external_functions["%" + f] = True
 
         if self.debug:  print 'gen_llvm_source used_external_functions) ' + time.ctime()
         depdone = {}
@@ -347,6 +358,10 @@ class GenLLVM(object):
                         codewriter.append(extfunc)
                     depdone[dep] = True
 
+        nl(); comment("EXTERNAL FUNCTION IMPLEMENTATION") ; nl()
+        for s in llimplementation.split('\n'):
+            codewriter.append(s)
+
         comment("End of file") ; nl()
         if self.debug:  print 'gen_llvm_source return) ' + time.ctime()
         return filename
@@ -355,7 +370,7 @@ class GenLLVM(object):
                       filename,
                       really_compile=True,
                       standalone=False,
-                      optimize=False,
+                      optimize=True,
                       exe_name=None):
 
         if not llvm_is_on_path():

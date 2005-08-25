@@ -247,15 +247,11 @@ def test_rarith_parts_to_float():
 def test_rarith_formatd():
     from pypy.rpython.rarithmetic import formatd
     as_float  = [ 0.0  ,  1.5  ,  2.0  ]
-    as_string = ["0.00", "1.50", "2.01"]
+    as_string = ["0.00", "1.50", "2.00"]
     def fn(i):
-        if formatd("%.2f", as_float[i]) == as_string[i]:
-            return 1
-        else:
-            return 0
+        return formatd("%.2f", as_float[i]) == as_string[i]
     f = compile_function(fn, [int])
     for i, s in enumerate(as_string):
-        res = f(i)
-        assert res == 1
+        assert f(i)
 
 # end of tests taken from c backend

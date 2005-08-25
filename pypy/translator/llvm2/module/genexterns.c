@@ -18,7 +18,7 @@ struct RPyFREXP_RESULT *ll_frexp_result__Float_Signed(double, int);
 struct RPyMODF_RESULT *ll_modf_result__Float_Float(double, double);
 
 char *RPyString_AsString(struct RPyString*);
-int RPyString_Size(struct RPyString_Size*);
+int RPyString_Size(struct RPyString*);
 struct RPyString *RPyString_FromString(char *);
 
 void prepare_and_raise_OverflowError(char *);
@@ -340,8 +340,7 @@ extern int ftime(struct timeb *);
 #endif /* MS_WINDOWS */
 #endif /* HAVE_FTIME */
 
-static double
-ll_floattime(void)
+double ll_floattime(void)
 {
 	/* There are three ways to get the time:
 	  (1) gettimeofday() -- resolution in microseconds
@@ -381,6 +380,7 @@ double ll_time_time(void) /* xxx had support for better resolutions */
 	return ll_floattime();
 }
 
+
 double ll_strtod_parts_to_float(struct RPyString *sign, 
 				struct RPyString *beforept, 
 				struct RPyString *afterpt, 
@@ -392,18 +392,25 @@ double ll_strtod_parts_to_float(struct RPyString *sign,
 	int decimal_point_len;
 	double x;
 	char *last;
-	char *expo = RPyString_AsString(exponent);
 	int buf_size;
 	char *s;
+	char *expo = NULL;
 
+	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX1111111111XXXXXX hello\n");
+
+	expo = RPyString_AsString(exponent);
+
+	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXX222222222XXXXXXXXXXXXXXXXXX hello\n");
 	if (*expo == '\0') {
 		expo = "0";
 	}
 
+	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX33333XXXXXXXXXXXXX hello\n");
 	locale_data = localeconv();
 	decimal_point = locale_data->decimal_point;
 	decimal_point_len = strlen(decimal_point);
 
+	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX44444XXXXXXXX hello\n");
 	buf_size = RPyString_Size(sign) + 
 	  RPyString_Size(beforept) +
 	  decimal_point_len +
@@ -412,6 +419,7 @@ double ll_strtod_parts_to_float(struct RPyString *sign,
 	  strlen(expo) + 
 	  1 /*  asciiz  */ ;
 
+	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX5555XXXX hello\n");
         s = malloc(buf_size);
 
 	strcpy(s, RPyString_AsString(sign));
@@ -421,20 +429,26 @@ double ll_strtod_parts_to_float(struct RPyString *sign,
 	strcat(s, "e");
 	strcat(s, expo);
 
+	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX6666 hello\n");
 	last = s + (buf_size-1);
 	x = strtod(s, &fail_pos);
 	errno = 0;
-	free(s);
+	fprintf(stderr, "XXXXXXXXX77777777777777777777799999999999999999999999hello\n");
 	if (fail_pos > last)
 		fail_pos = last;
+	fprintf(stderr, "XXXXX888888888888888888888888999999999999999999999999hello\n");
 	if (fail_pos == s || *fail_pos != '\0' || fail_pos != last) {
+	free(s);
 		prepare_and_raise_ValueError("invalid float literal");
 		return -1.0;
 	}
+	fprintf(stderr, "XXXXXXaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa9999999999999hello\n");
 	if (x == 0.0) { /* maybe a denormal value, ask for atof behavior */
 		x = strtod(s, NULL);
 		errno = 0;
 	}
+	fprintf(stderr, "XXXXXXXXXXXX99999999999999999999999999999999999999999hello\n");
+	free(s);
 	return x;
 }
 
@@ -443,6 +457,7 @@ struct RPyString *ll_strtod_formatd(struct RPyString *fmt, double x) {
 	char buffer[120]; /* this should be enough, from PyString_Format code */
 	int buflen = 120;
 	int res;
+	
 	res = snprintf(buffer, buflen, RPyString_AsString(fmt), x);
 	if (res <= 0 || res >= buflen) {
 		strcpy(buffer, "??.?"); /* should not occur */

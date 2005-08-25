@@ -74,12 +74,15 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
     else:
         optimization_switches = SIMPLE_OPTIMIZATION_SWITCHES
 
-    cmds = ["llvm-as %s.ll" % b]
+    #XXX outcommented for testing merging extern.ll in main .ll file
+    #cmds = ["llvm-as %s.ll" % b]
+    #
+    #bcfile = dirpath.join("externs", "externs_linked.bc")
+    #cmds.append("llvm-link %s.bc %s -o %s_all.bc" % (b, str(bcfile), b))
+    #ball = str(dirpath.join('%s_all.bc' % b))
+    #cmds.append("opt %s %s -f -o %s.bc" % (OPTIMIZATION_SWITCHES, ball, b))
 
-    bcfile = dirpath.join("externs", "externs_linked.bc")
-    cmds.append("llvm-link %s.bc %s -o %s_all.bc" % (b, str(bcfile), b))
-    ball = str(dirpath.join('%s_all.bc' % b))
-    cmds.append("opt %s %s -f -o %s.bc" % (OPTIMIZATION_SWITCHES, ball, b))
+    cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, OPTIMIZATION_SWITCHES, b)]
 
     if False and sys.maxint == 2147483647:        #32 bit platform
         cmds.append("llc %s %s.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b))
@@ -91,8 +94,8 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
         #this special case for x86-64 (called ia64 in llvm) can go as soon as llc supports ia64 assembly output!
         cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (EXCEPTIONS_SWITCHES, b, b))
         if exe_name:
-            cmds.append("gcc %s.c -c -O2 -fomit-frame-pointer" % (b,))
-            cmds.append("gcc %s.o -static %s -lm -o %s" % (b, gc_libs, exe_name))
+            cmds.append("gcc -g %s.c -c -O2 -fomit-frame-pointer" % (b,))
+            cmds.append("gcc -g %s.o -static %s -lm -o %s" % (b, gc_libs, exe_name))
         source_files.append("%s.c" % b)
 
     try:
