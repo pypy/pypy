@@ -3,6 +3,7 @@ import autopath
 import py
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonCompiler
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.error import OperationError
 
 
 class BaseTestCompiler:
@@ -64,6 +65,57 @@ class BaseTestCompiler:
         w_a = space.getitem(w_globals, space.wrap('a'))
         assert space.int_w(w_a) == 1
 
+    def test_scope_unoptimized_clash1(self):
+        # mostly taken from test_scope.py 
+        e = py.test.raises(OperationError, self.compiler.compile, """if 1:
+            def unoptimized_clash1(strip):
+                def f(s):
+                    from string import *
+                    return strip(s) # ambiguity: free or local
+                return f""", '', 'exec', 0)
+        ex = e.value 
+        assert ex.match(self.space, self.space.w_SyntaxError)
+
+    def test_scope_unoptimized_clash1_b(self):
+        # mostly taken from test_scope.py 
+        e = py.test.raises(OperationError, self.compiler.compile, """if 1:
+            def unoptimized_clash1(strip):
+                def f():
+                    from string import *
+                    return s # ambiguity: free or local
+                return f""", '', 'exec', 0)
+        ex = e.value 
+        assert ex.match(self.space, self.space.w_SyntaxError)
+
+    def test_scope_exec_in_nested(self):
+        e = py.test.raises(OperationError, self.compiler.compile, """if 1:
+            def unoptimized_clash1(x):
+                def f():
+                    exec "z=3"
+                    return x
+                return f""", '', 'exec', 0)
+        ex = e.value 
+        assert ex.match(self.space, self.space.w_SyntaxError)
+
+    def test_scope_importstar_in_nested(self):
+        e = py.test.raises(OperationError, self.compiler.compile, """if 1:
+            def unoptimized_clash1(x):
+                def f():
+                    from string import * 
+                    return x
+                return f""", '', 'exec', 0)
+        ex = e.value 
+        assert ex.match(self.space, self.space.w_SyntaxError)
+
+    def XXXtest_scope_importstar_with_nested_free(self):
+        e = py.test.raises(OperationError, self.compiler.compile, """if 1:
+            def clash(x):
+                from string import *
+                def f(s):
+                    return strip(s)
+                return f""", '', 'exec', 0)
+        ex = e.value 
+        assert ex.match(self.space, self.space.w_SyntaxError)
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):

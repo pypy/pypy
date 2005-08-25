@@ -22,6 +22,7 @@ class Scope:
         self.globals = {}
         self.params = {}
         self.frees = {}
+        self.hasbeenfree = {}
         self.cells = {}
         self.children = []
         # nested is true if the class could contain free variables,
@@ -113,6 +114,7 @@ class Scope:
             if not (self.defs.has_key(name) or
                     self.globals.has_key(name)):
                 free[name] = 1
+        self.hasbeenfree.update(free)
         return free.keys()
 
     def handle_children(self):

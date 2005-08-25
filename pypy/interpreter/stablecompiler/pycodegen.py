@@ -266,6 +266,11 @@ class CodeGenerator:
         self._nameOp('STORE', name)
 
     def loadName(self, name):
+        if (self.scope.nested and not self.scope.localsfullyknown and
+            name in self.scope.hasbeenfree):
+            raise SyntaxError("cannot reference variable '%s' because "
+                              "of ambiguity between "
+                              "scopes" % name)
         self._nameOp('LOAD', name)
 
     def delName(self, name):
