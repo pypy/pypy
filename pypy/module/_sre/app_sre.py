@@ -454,24 +454,6 @@ class _OpcodeDispatcher(_Dispatcher):
             self.executing_contexts[id(context)] = generator
         return has_finished
 
-    def general_op_literal(self, ctx, compare, decorate=lambda x: x):
-        if ctx.at_end() or not compare(decorate(ord(ctx.peek_char())),
-                                            decorate(ctx.peek_code(1))):
-            ctx.has_matched = NOT_MATCHED
-        ctx.skip_code(2)
-        ctx.skip_char(1)
-
-    def op_at(self, ctx):
-        # match at given position
-        # <AT> <code>
-        #self._log(ctx, "AT", ctx.peek_code(1))
-        if not _sre._at_dispatch(ctx.peek_code(1), ctx.state.string,
-                                            ctx.string_position, ctx.state.end):
-            ctx.has_matched = NOT_MATCHED
-            return True
-        ctx.skip_code(2)
-        return True
-
     def op_category(self, ctx):
         # match at given category
         # <CATEGORY> <code>
@@ -481,17 +463,6 @@ class _OpcodeDispatcher(_Dispatcher):
             ctx.has_matched = NOT_MATCHED
             return True
         ctx.skip_code(2)
-        ctx.skip_char(1)
-        return True
-
-    def op_any(self, ctx):
-        # match anything (except a newline)
-        # <ANY>
-        #self._log(ctx, "ANY")
-        if ctx.at_end() or ctx.at_linebreak():
-            ctx.has_matched = NOT_MATCHED
-            return True
-        ctx.skip_code(1)
         ctx.skip_char(1)
         return True
 

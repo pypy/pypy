@@ -180,6 +180,9 @@ class W_MatchContext(Wrappable):
         return w_child_context
 
     def peek_char(self, w_peek=0):
+        # XXX temporary hack
+        if w_peek == 0:
+            w_peek = self.space.wrap(0)
         return self.space.getitem(self.state.w_string,
                 self.space.add(self.space.wrap(self.string_position), w_peek))
 
@@ -193,7 +196,10 @@ class W_MatchContext(Wrappable):
         self.skip_char(self.space.int_w(w_skip_count))
 
     def remaining_chars(self):
-        return self.space.wrap(self.state.end - self.string_position)
+        return self.state.end - self.string_position
+
+    def w_remaining_chars(self):
+        return self.space.wrap(self.remaining_chars())
 
     def peek_code(self, peek=0):
         return self.space.int_w(self.pattern_codes_w[self.code_position + peek])
@@ -211,7 +217,7 @@ class W_MatchContext(Wrappable):
         return self.space.wrap(len(self.pattern_codes_w) - self.code_position)
 
     def at_beginning(self):
-        return self.space.newbool(self.string_position == 0)
+        return self.string_position == 0
 
     def at_end(self):
         return self.string_position == self.state.end
@@ -220,9 +226,16 @@ class W_MatchContext(Wrappable):
         return self.space.newbool(self.at_end())
 
     def at_linebreak(self):
-        space = self.space
-        return space.and_(space.newbool(not space.is_true(self.at_end())),
-                    space.eq(self.peek_char(space.wrap(0)), space.wrap("\n")))
+        return not self.at_end() and is_linebreak(self.space, self.peek_char())
+
+    def at_boundary(self, word_checker):
+        if self.at_beginning() and self.at_end():
+            return False
+        that = not self.at_beginning() \
+                            and word_checker(self.space, self.peek_char(self.space.wrap(-1)))
+        this = not self.at_end() \
+                            and word_checker(self.space, self.peek_char())
+        return this != that
 
 W_MatchContext.typedef = TypeDef("W_MatchContext",
     state = interp_attrproperty_w("state", W_MatchContext),
@@ -233,13 +246,11 @@ W_MatchContext.typedef = TypeDef("W_MatchContext",
     push_new_context = interp2app(W_MatchContext.push_new_context),
     peek_char = interp2app(W_MatchContext.peek_char),
     skip_char = interp2app(W_MatchContext.w_skip_char),
-    remaining_chars = interp2app(W_MatchContext.remaining_chars),
+    remaining_chars = interp2app(W_MatchContext.w_remaining_chars),
     peek_code = interp2app(W_MatchContext.w_peek_code),
     skip_code = interp2app(W_MatchContext.w_skip_code),
     remaining_codes = interp2app(W_MatchContext.remaining_codes),
-    at_beginning = interp2app(W_MatchContext.at_beginning),
     at_end = interp2app(W_MatchContext.w_at_end),
-    at_linebreak = interp2app(W_MatchContext.at_linebreak),
 )
 
 def make_repeat_context(space, w_context):
@@ -293,7 +304,7 @@ def op_literal(space, ctx):
     ctx.skip_char(1)
     return True
 
-def op_not_literal(self, ctx):
+def op_not_literal(space, ctx):
     # match anything that is not the given literal character
     # <NOT_LITERAL> <code>
     if ctx.at_end() or ctx.peek_char_ord() == ctx.peek_code(1):
@@ -302,7 +313,7 @@ def op_not_literal(self, ctx):
     ctx.skip_char(1)
     return True
 
-def op_literal_ignore(self, ctx):
+def op_literal_ignore(space, ctx):
     # match literal regardless of case
     # <LITERAL_IGNORE> <code>
     if ctx.at_end() or \
@@ -312,7 +323,7 @@ def op_literal_ignore(self, ctx):
     ctx.skip_char(1)
     return True
 
-def op_not_literal_ignore(self, ctx):
+def op_not_literal_ignore(space, ctx):
     # match literal regardless of case
     # <LITERAL_IGNORE> <code>
     if ctx.at_end() or \
@@ -322,11 +333,30 @@ def op_not_literal_ignore(self, ctx):
     ctx.skip_char(1)
     return True
 
+def op_at(space, ctx):
+    # match at given position
+    # <AT> <code>
+    if not at_dispatch(space, ctx.peek_code(1), ctx):
+        ctx.has_matched = ctx.NOT_MATCHED
+        return True
+    ctx.skip_code(2)
+    return True
+
+def op_any(self, ctx):
+    # match anything (except a newline)
+    # <ANY>
+    if ctx.at_end() or ctx.at_linebreak():
+        ctx.has_matched = ctx.NOT_MATCHED
+        return True
+    ctx.skip_code(1)
+    ctx.skip_char(1)
+    return True
+
 opcode_dispatch_table = [
     op_failure, op_success,
-    None, None, #ANY, ANY_ALL,
+    op_any, None, #ANY, ANY_ALL,
     None, None, #ASSERT, ASSERT_NOT,
-    None, #AT,
+    op_at,
     None, #BRANCH,
     None, #CALL,
     None, #CATEGORY,
@@ -481,26 +511,22 @@ class MatchContext:
                             and word_checker(self.space, self.peek_char())
         return this != that
 
-def at_dispatch(space, w_atcode, w_string, w_string_position, w_end):
-    # XXX temporary ugly method signature until we can call this from
-    # interp-level only
-    atcode = space.int_w(w_atcode)
-    if atcode >= len(at_dispatch_table):
-        return space.newbool(False)
-    context = MatchContext(space, [], w_string, space.int_w(w_string_position),
-                                                            space.int_w(w_end))
-    function, negate = at_dispatch_table[atcode]
+def at_dispatch(space, atcode, context):
+    try:
+        function, negate = at_dispatch_table[atcode]
+    except IndexError:
+        return False
     result = function(space, context)
     if negate:
-        return space.newbool(not result)
+        return not result
     else:
-        return space.newbool(result)
+        return result
 
 def at_beginning(space, ctx):
     return ctx.at_beginning()
 
 def at_beginning_line(space, ctx):
-    return ctx.at_beginning() or is_linebreak(space, ctx.peek_char(-1))
+    return ctx.at_beginning() or is_linebreak(space, ctx.peek_char(space.wrap(-1)))
     
 def at_end(space, ctx):
     return ctx.at_end() or (ctx.remaining_chars() == 1 and ctx.at_linebreak())
