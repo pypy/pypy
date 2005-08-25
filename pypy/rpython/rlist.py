@@ -123,14 +123,17 @@ class ListRepr(Repr):
             llfn = ll_insert_nonneg
         else:
             llfn = ll_insert
+        hop.exception_cannot_occur()
         hop.gendirectcall(llfn, *args)
 
     def rtype_method_extend(self, hop):
         v_lst1, v_lst2 = hop.inputargs(self, self)
+        hop.exception_cannot_occur()
         hop.gendirectcall(ll_extend, v_lst1, v_lst2)
     
     def rtype_method_reverse(self, hop):
         v_lst, = hop.inputargs(self)
+        hop.exception_cannot_occur()
         hop.gendirectcall(ll_reverse,v_lst)
 
     def rtype_method_pop(self, hop):
@@ -148,6 +151,7 @@ class ListRepr(Repr):
         else:
             args = hop.inputargs(self)
             llfn = ll_pop_default
+        hop.exception_cannot_occur()   # no IndexError support (yet?)
         return hop.gendirectcall(llfn, *args)
 
     def make_iterator_repr(self):

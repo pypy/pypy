@@ -101,10 +101,12 @@ class __extend__(StringRepr):
 
     def rtype_method_startswith(_, hop):
         v_str, v_value = hop.inputargs(string_repr, string_repr)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_startswith, v_str, v_value)
 
     def rtype_method_endswith(_, hop):
         v_str, v_value = hop.inputargs(string_repr, string_repr)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_endswith, v_str, v_value)
 
     def rtype_method_find(_, hop, reverse=False):
@@ -126,6 +128,7 @@ class __extend__(StringRepr):
             llfn = ll_rfind
         else:
             llfn = ll_find
+        hop.exception_cannot_occur()
         return hop.gendirectcall(llfn, v_str, v_value, v_start, v_end)
 
     def rtype_method_rfind(self, hop):
@@ -133,13 +136,16 @@ class __extend__(StringRepr):
 
     def rtype_method_upper(_, hop):
         v_str, = hop.inputargs(string_repr)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_upper, v_str)
         
     def rtype_method_lower(_, hop):
         v_str, = hop.inputargs(string_repr)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_lower, v_str)
         
     def rtype_method_join(_, hop):
+        hop.exception_cannot_occur()
         if hop.s_result.is_constant():
             return inputconst(string_repr, hop.s_result.const)
         r_lst = hop.args_r[1]
@@ -168,12 +174,14 @@ class __extend__(StringRepr):
     def rtype_method_split(_, hop):
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
         c = hop.inputconst(Void, hop.r_result.lowleveltype)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_split_chr, c, v_str, v_chr)
 
     def rtype_method_replace(_, hop):
         if not (hop.args_r[1] == char_repr and hop.args_r[2] == char_repr):
             raise TyperError, 'replace only works for char args'
         v_str, v_c1, v_c2 = hop.inputargs(string_repr, char_repr, char_repr)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_replace_chr_chr, v_str, v_c1, v_c2)
 
     def rtype_int(_, hop):
@@ -394,6 +402,7 @@ class __extend__(CharRepr):
 
     def rtype_method_isspace(_, hop):
         vlist = hop.inputargs(char_repr)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_char_isspace, vlist[0])
 
 class __extend__(pairtype(CharRepr, IntegerRepr)):

@@ -111,14 +111,17 @@ class StrDictRepr(rmodel.Repr):
     def rtype_method_get(self, hop):
         v_dict, v_key, v_default = hop.inputargs(self, rstr.string_repr,
                                                  self.value_repr)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_get, v_dict, v_key, v_default)
 
     def rtype_method_copy(self, hop):
         v_dict, = hop.inputargs(self)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_copy, v_dict)
 
     def rtype_method_update(self, hop):
         v_dic1, v_dic2 = hop.inputargs(self, self)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_update, v_dic1, v_dic2)
 
     def _rtype_method_kvi(self, hop, spec):
@@ -126,6 +129,7 @@ class StrDictRepr(rmodel.Repr):
         r_list = hop.r_result
         v_func = hop.inputconst(lltype.Void, spec)
         c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_kvi, v_dic, c1, v_func)
 
     def rtype_method_keys(self, hop):

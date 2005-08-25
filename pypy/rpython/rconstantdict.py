@@ -90,6 +90,7 @@ class ConstantDictRepr(rmodel.Repr):
                                                  self.value_repr)
         hashcompute = self.get_key_hash_function()
         chashcompute = hop.inputconst(lltype.Void, hashcompute)
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_constantdict_get, v_dict, v_key, v_default,
                                  chashcompute)
 
