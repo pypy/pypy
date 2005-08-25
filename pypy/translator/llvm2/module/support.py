@@ -49,7 +49,6 @@ internal fastcc int %RPyString_Size(%RPyString* %structstring) {
 
 """)
 
-
 extfunctions["%RPyString_FromString"] = ((), """
 internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     %len       = call ccc int %strlen(sbyte* %s)

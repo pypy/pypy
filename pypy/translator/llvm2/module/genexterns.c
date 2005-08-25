@@ -17,6 +17,10 @@ struct RPyString;
 struct RPyFREXP_RESULT *ll_frexp_result__Float_Signed(double, int);
 struct RPyMODF_RESULT *ll_modf_result__Float_Float(double, double);
 
+char *RPyString_AsString(struct RPyString*);
+int RPyString_Size(struct RPyString_Size*);
+struct RPyString *RPyString_FromString(char *);
+
 void prepare_and_raise_OverflowError(char *);
 void prepare_and_raise_ValueError(char *);
 void prepare_and_raise_IOError(char *);
@@ -424,7 +428,7 @@ double ll_strtod_parts_to_float(struct RPyString *sign,
 	if (fail_pos > last)
 		fail_pos = last;
 	if (fail_pos == s || *fail_pos != '\0' || fail_pos != last) {
-		RPyRaiseSimpleException(PyExc_ValueError, "invalid float literal");
+		prepare_and_raise_ValueError("invalid float literal");
 		return -1.0;
 	}
 	if (x == 0.0) { /* maybe a denormal value, ask for atof behavior */
@@ -435,7 +439,7 @@ double ll_strtod_parts_to_float(struct RPyString *sign,
 }
 
 
-struct RPyString *LL_strtod_formatd(struct RPyString *fmt, double x) {
+struct RPyString *ll_strtod_formatd(struct RPyString *fmt, double x) {
 	char buffer[120]; /* this should be enough, from PyString_Format code */
 	int buflen = 120;
 	int res;

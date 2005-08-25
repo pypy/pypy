@@ -40,6 +40,9 @@ def get_ll(ccode, extern_dir, functions=[]):
     #find function names, declare them internal with fastcc calling convertion
     ll_lines = []
     funcnames = {
+        "%RPyString_Size"                      : True,
+        "%RPyString_AsString"                  : True,
+        "%RPyString_FromString"                : True,
         "%ll_frexp_result__Float_Signed"       : True,
         "%ll_modf_result__Float_Float"         : True,
         "%prepare_and_raise_ZeroDivisionError" : True,
@@ -184,6 +187,7 @@ class GenLLVM(object):
         fns = [('ll_math_%s' % f) for f in math_fns.split()]
         time_fns = "ll_time_time ll_time_clock ll_time_sleep ll_floattime"
         fns += time_fns.split()
+        fns.append('ll_strtod_formatd')
         return get_ll(open(p).read(), extern_dir, fns)
 
     def gen_llvm_source(self, func=None):
