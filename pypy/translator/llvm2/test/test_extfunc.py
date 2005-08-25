@@ -156,12 +156,12 @@ def test_math_frexp():
     assert res == fn(10.123)
 
 def test_math_modf():
-    py.test.skip("ll_math_modf not implemented (next)")
     from math import modf
     def fn(x):
-        return modf(x)
+        res = modf(x)
+        return res[0] + res[1]
     f = compile_function(fn, [float])
-    assert f(10.123) == modf(10.123)
+    assert f(10.123) == fn(10.123)
 
 simple_math_functions = [
     'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',

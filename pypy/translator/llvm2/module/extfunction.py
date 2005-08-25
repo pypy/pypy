@@ -41,9 +41,9 @@ gc_disabled = """%(DEFAULT_INTERNAL)s %(DEFAULT_CCONV)s sbyte* %%gc_malloc(uint 
 
 extfunctions = {}   #dependencies, llvm-code
 
-import support, ll_os, ll_os_path, ll_time, ll_math, ll_strtod
+import support, ll_os, ll_os_path, ll_time, ll_strtod
 
-for module in (support, ll_os, ll_os_path, ll_time, ll_math, ll_strtod):
+for module in (support, ll_os, ll_os_path, ll_time, ll_strtod):
     extdeclarations += module.extdeclarations
     extfunctions.update(module.extfunctions)
 extdeclarations += '\n;application function prototypes'

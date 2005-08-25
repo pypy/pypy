@@ -41,6 +41,7 @@ def get_ll(ccode, extern_dir, functions=[]):
     ll_lines = []
     funcnames = {
         "%ll_frexp_result__Float_Signed"       : True,
+        "%ll_modf_result__Float_Float"         : True,
         "%prepare_and_raise_ZeroDivisionError" : True,
         "%prepare_and_raise_OverflowError"     : True,
         "%prepare_and_raise_ValueError"        : True,
@@ -177,7 +178,14 @@ class GenLLVM(object):
 
         j = os.path.join
         p = j(j(os.path.dirname(__file__), "module"), "genexterns.c")
-        return get_ll(open(p).read(), extern_dir, ['ll_math_frexp', 'll_math_is_error'])
+        math_fns  = 'acos asin atan ceil cos cosh exp fabs floor log log10 atan2 fmod '
+        math_fns += 'sin sinh sqrt tan tanh frexp modf pow hypot ldexp is_error'
+        #XXX
+        fns2 = [x[1:] for x in extfuncnode.ExternalFuncNode.used_external_functions.keys()]
+        fns = ["ll_math_is_error"]
+        fns += [('ll_math_%s' % f) for f in math_fns.split() if f in fns2]
+
+        return get_ll(open(p).read(), extern_dir, fns)
 
     def gen_llvm_source(self, func=None):
         if self.debug:  print 'gen_llvm_source begin) ' + time.ctime()
@@ -201,8 +209,6 @@ class GenLLVM(object):
         extern_decls = self.post_setup_externs()
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
-
-        self.generate_llfile(extern_decls)
  
         #if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
         #if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
@@ -314,6 +320,11 @@ class GenLLVM(object):
         entryfunc_name = t[1].split('(')[0]
         if entryfunc_name != 'main' and entryfunc_name == 'entry_point': #XXX just to get on with translate_pypy
             extfuncnode.ExternalFuncNode.used_external_functions['%main'] = True
+        extfuncnode.ExternalFuncNode.used_external_functions['%prepare_and_raise_OverflowError'] = True
+        extfuncnode.ExternalFuncNode.used_external_functions['%prepare_and_raise_ValueError'] = True
+        extfuncnode.ExternalFuncNode.used_external_functions['%prepare_and_raise_ZeroDivisionError'] = True
+
+        self.generate_llfile(extern_decls)
 
         if self.debug:  print 'gen_llvm_source used_external_functions) ' + time.ctime()
         depdone = {}
@@ -341,7 +352,7 @@ class GenLLVM(object):
                       filename,
                       really_compile=True,
                       standalone=False,
-                      optimize=True,
+                      optimize=False,
                       exe_name=None):
 
         if not llvm_is_on_path():

@@ -17,6 +17,7 @@ struct RPyMODF_RESULT *ll_modf_result__Float_Float(double, double);
 void prepare_and_raise_OverflowError(char *);
 void prepare_and_raise_ValueError(char *);
 
+
 int ll_math_is_error(double x) {
 	if (errno == ERANGE) {
 		if (!x) 
