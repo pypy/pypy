@@ -110,15 +110,21 @@ def interp_attrproperty_int(name, cls):
     def fget(space, obj):
         return space.wrap(getattr(obj, name))
     def fset(space, obj, w_value):
-        return setattr(obj, name, space.int_w(w_value))
+        setattr(obj, name, space.int_w(w_value))
     return GetSetProperty(fget, fset, cls=cls)
+
+def interp_attrproperty_list_w(name, cls):
+    "NOT_RPYTHON: initialization-time only"
+    def fget(space, obj):
+        return space.newlist(getattr(obj, name))
+    return GetSetProperty(fget, cls=cls)
 
 def interp_attrproperty_obj_w(name, cls):
     "NOT_RPYTHON: initialization-time only"
     def fget(space, obj):
         return getattr(obj, name)
     def fset(space, obj, w_value):
-        return setattr(obj, name, w_value)
+        setattr(obj, name, w_value)
     return GetSetProperty(fget, fset, cls=cls)
 
 W_State.typedef = TypeDef("W_State",
@@ -139,6 +145,111 @@ W_State.typedef = TypeDef("W_State",
     marks_pop_keep = interp2app(W_State.marks_pop_keep),
     marks_pop_discard = interp2app(W_State.marks_pop_discard),
     lower = interp2app(W_State.lower),
+)
+
+def make_context(space, w_state, w_pattern_codes):
+    # XXX Uhm, temporary
+    return space.wrap(W_MatchContext(space, w_state, w_pattern_codes))
+
+class W_MatchContext(Wrappable):
+
+    def __init__(self, space, w_state, w_pattern_codes):
+        self.space = space
+        self.w_state = w_state
+        self.pattern_codes_w = space.unpackiterable(w_pattern_codes)
+        self.w_string_position = space.wrap(w_state.string_position)
+        self.w_code_position = space.wrap(0)
+        self.w_has_matched = space.w_None
+
+        # XXX These attributes are only really used with repeat operations.
+        # Formerly a subclass of MatchContext was used for these, but for
+        # simplictiy we simply add them here for now.
+        #self.count = space.wrap(-1)
+        #self.previous = context.state.repeat
+        #self.last_position = None
+
+    def push_new_context(self, w_pattern_offset):
+        """Creates a new child context of this context and pushes it on the
+        stack. pattern_offset is the offset off the current code position to
+        start interpreting from."""
+        pattern_offset = self.space.int_w(w_pattern_offset)
+        pattern_codes_w = self.pattern_codes_w[
+                    self.space.int_w(self.w_code_position) + pattern_offset:]
+        w_child_context = self.space.wrap(W_MatchContext(self.space, self.w_state,
+                                           self.space.newlist(pattern_codes_w)))
+        self.space.call_method(self.w_state.w_context_stack, "append", w_child_context)
+        #context_stack = self.space.unpackiterable(self.w_state.w_context_stack)
+        #context_stack.append(w_child_context)
+        return w_child_context
+
+    def peek_char(self, w_peek=0):
+        return self.space.getitem(self.w_state.w_string,
+                                self.space.add(self.w_string_position, w_peek))
+
+    def skip_char(self, w_skip_count):
+        self.w_string_position = self.space.add(self.w_string_position, w_skip_count)
+
+    def remaining_chars(self):
+        return self.space.sub(self.space.wrap(self.w_state.end), self.w_string_position)
+
+    def peek_code(self, w_peek=0):
+        space = self.space
+        return self.pattern_codes_w[
+                        space.int_w(space.add(self.w_code_position, w_peek))]
+
+    def skip_code(self, w_skip_count):
+        self.w_code_position = self.space.add(self.w_code_position, w_skip_count)
+
+    def remaining_codes(self):
+        return self.space.sub(self.space.wrap(len(self.pattern_codes_w)),
+                                                           self.w_code_position)
+
+    def at_beginning(self):
+        return self.space.eq(self.w_string_position, self.space.wrap(0))
+
+    def at_end(self):
+        return self.space.eq(self.w_string_position, self.space.wrap(self.w_state.end))
+
+    def at_linebreak(self):
+        space = self.space
+        return space.and_(space.newbool(not space.is_true(self.at_end())),
+                    space.eq(self.peek_char(space.wrap(0)), space.wrap("\n")))
+
+W_MatchContext.typedef = TypeDef("W_MatchContext",
+    state = interp_attrproperty_w("w_state", W_MatchContext),
+    string_position = interp_attrproperty_obj_w("w_string_position", W_MatchContext),
+    pattern_codes = interp_attrproperty_list_w("pattern_codes_w", W_MatchContext),
+    code_position = interp_attrproperty_obj_w("w_code_position", W_MatchContext),
+    has_matched = interp_attrproperty_obj_w("w_has_matched", W_MatchContext),
+    push_new_context = interp2app(W_MatchContext.push_new_context),
+    peek_char = interp2app(W_MatchContext.peek_char),
+    skip_char = interp2app(W_MatchContext.skip_char),
+    remaining_chars = interp2app(W_MatchContext.remaining_chars),
+    peek_code = interp2app(W_MatchContext.peek_code),
+    skip_code = interp2app(W_MatchContext.skip_code),
+    remaining_codes = interp2app(W_MatchContext.remaining_codes),
+    at_beginning = interp2app(W_MatchContext.at_beginning),
+    at_end = interp2app(W_MatchContext.at_end),
+    at_linebreak = interp2app(W_MatchContext.at_linebreak),
+)
+
+def make_repeat_context(space, w_context):
+    # XXX Uhm, temporary
+    return space.wrap(W_RepeatContext(space, w_context))
+
+class W_RepeatContext(W_MatchContext):
+    
+    def __init__(self, space, w_context):
+        W_MatchContext.__init__(self, space, w_context.w_state,
+            space.newlist(w_context.pattern_codes_w[space.int_w(w_context.w_code_position):]))
+        self.w_count = space.wrap(-1)
+        self.w_previous = w_context.w_state.w_repeat
+        self.w_last_position = space.w_None
+
+W_RepeatContext.typedef = TypeDef("W_RepeatContext", W_MatchContext.typedef,
+    count = interp_attrproperty_obj_w("w_count", W_RepeatContext),
+    previous = interp_attrproperty_obj_w("w_previous", W_RepeatContext),
+    last_position = interp_attrproperty_obj_w("w_last_position", W_RepeatContext),
 )
 
 #### Category helpers

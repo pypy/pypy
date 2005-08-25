@@ -19,6 +19,8 @@ copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
     interpleveldefs = {
         'getlower':       'interp_sre.getlower',
         '_State':         'interp_sre.make_state',
+        '_MatchContext':  'interp_sre.make_context',
+        '_RepeatContext':  'interp_sre.make_repeat_context',
         '_check_charset': 'interp_sre.check_charset',
         '_at_dispatch':   'interp_sre.at_dispatch',
         '_category_dispatch': 'interp_sre.category_dispatch',

@@ -291,52 +291,6 @@ class SRE_Match(object):
         raise TypeError, "cannot copy this pattern object"
 
 
-class _MatchContext(object):
-
-    def __init__(self, state, pattern_codes):
-        self.state = state
-        self.pattern_codes = pattern_codes
-        self.string_position = state.string_position
-        self.code_position = 0
-        self.has_matched = None
-
-    def push_new_context(self, pattern_offset):
-        """Creates a new child context of this context and pushes it on the
-        stack. pattern_offset is the offset off the current code position to
-        start interpreting from."""
-        child_context = _MatchContext(self.state,
-            self.pattern_codes[self.code_position + pattern_offset:])
-        self.state.context_stack.append(child_context)
-        return child_context
-
-    def peek_char(self, peek=0):
-        return self.state.string[self.string_position + peek]
-
-    def skip_char(self, skip_count):
-        self.string_position += skip_count
-
-    def remaining_chars(self):
-        return self.state.end - self.string_position
-
-    def peek_code(self, peek=0):
-        return self.pattern_codes[self.code_position + peek]
-
-    def skip_code(self, skip_count):
-        self.code_position += skip_count
-
-    def remaining_codes(self):
-        return len(self.pattern_codes) - self.code_position
-
-    def at_beginning(self):
-        return self.string_position == 0
-
-    def at_end(self):
-        return self.string_position == self.state.end
-
-    def at_linebreak(self):
-        return not self.at_end() and self.peek_char() == "\n"
-
-
 def search(state, pattern_codes):
     flags = 0
     if pattern_codes[0] == OPCODES["info"]:
@@ -426,7 +380,7 @@ def match(state, pattern_codes):
             return False
     
     dispatcher = _OpcodeDispatcher()
-    state.context_stack.append(_MatchContext(state, pattern_codes))
+    state.context_stack.append(_sre._MatchContext(state, pattern_codes))
     has_matched = None
     while len(state.context_stack) > 0:
         context = state.context_stack[-1]
@@ -434,16 +388,6 @@ def match(state, pattern_codes):
         if has_matched is not None: # don't pop if context isn't done
             state.context_stack.pop()
     return has_matched
-
-
-class _RepeatContext(_MatchContext):
-    
-    def __init__(self, context):
-        _MatchContext.__init__(self, context.state,
-                            context.pattern_codes[context.code_position:])
-        self.count = -1
-        self.previous = context.state.repeat
-        self.last_position = None
 
 
 class _Dispatcher(object):
@@ -781,7 +725,7 @@ class _OpcodeDispatcher(_Dispatcher):
         # operator (MAX_UNTIL, MIN_UNTIL)
         # <REPEAT> <skip> <1=min> <2=max> item <UNTIL> tail
         #self._log(ctx, "REPEAT", ctx.peek_code(2), ctx.peek_code(3))
-        repeat = _RepeatContext(ctx)
+        repeat = _sre._RepeatContext(ctx)
         ctx.state.repeat = repeat
         ctx.state.string_position = ctx.string_position
         child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
