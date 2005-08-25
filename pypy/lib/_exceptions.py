@@ -354,16 +354,8 @@ class UnicodeDecodeError(UnicodeError):
             raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
 
     def __str__(self):
-        # this is a bad hack, please supply an implementation
-        res = ' '.join([
-           'object=' + str(getattr(self, 'object', None)),
-           'end=' + str(getattr(self, 'end', None)),
-           'encoding=' + str(getattr(self, 'encoding', None)),
-           'args=' + str(getattr(self, 'args', None)),
-           'start=' + str(getattr(self, 'start', None)),
-           'reason=' + str(getattr(self, 'reason', None)),
-        ])
-        return res
+        return "%r codec can't decode byte %x in position %d: %s"%(self.encoding, 
+                     ord(self.object[self.start]), self.start, self.reason)
 
 class TypeError(StandardError):
     """Inappropriate argument type."""
@@ -429,13 +421,5 @@ class UnicodeEncodeError(UnicodeError):
             raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
 
     def __str__(self):
-        # this is a bad hack, please supply an implementation
-        res = ' '.join([
-           'object=' + str(getattr(self, 'object', None)),
-           'end=' + str(getattr(self, 'end', None)),
-           'encoding=' + str(getattr(self, 'encoding', None)),
-           'args=' + str(getattr(self, 'args', None)),
-           'start=' + str(getattr(self, 'start', None)),
-           'reason=' + str(getattr(self, 'reason', None)),
-        ])
-        return res
+        return "%r codec can't encode character %r in position %d: %s"%(self.encoding, 
+                     self.object[self.start], self.start, self.reason)
