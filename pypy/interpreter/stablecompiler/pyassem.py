@@ -317,7 +317,8 @@ DONE = "DONE"
 class PyFlowGraph(FlowGraph):
     super_init = FlowGraph.__init__
 
-    def __init__(self, name, filename, args=(), optimized=0, klass=None):
+    def __init__(self, name, filename, args=(), optimized=0, 
+                 klass=None, newlocals=0):
         self.super_init()
         self.name = name
         self.filename = filename
@@ -325,10 +326,11 @@ class PyFlowGraph(FlowGraph):
         self.args = args # XXX
         self.argcount = getArgCount(args)
         self.klass = klass
+        self.flags = 0
         if optimized:
-            self.flags = CO_OPTIMIZED | CO_NEWLOCALS
-        else:
-            self.flags = 0
+            self.flags |= CO_OPTIMIZED
+        if newlocals:
+            self.flags |= CO_NEWLOCALS
         self.consts = []
         self.names = []
         # Free variables found by the symbol table scan, including

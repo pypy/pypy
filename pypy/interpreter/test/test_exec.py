@@ -159,3 +159,13 @@ class AppTestExecStmt:
         import sys
         assert d['platform'] == 3
 
+    def test_exec_load_name(self):
+        d = {'x': 2}
+        exec """if 1:
+            def f():
+                save = x 
+                exec "x=3"
+                return x,save
+        """ in d
+        res = d['f']()
+        assert res == (3, 2)

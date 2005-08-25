@@ -46,9 +46,7 @@ class PyFrame(eval.EvalFrame):
         self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
-        if code.dictscope_needed():
-            self.w_locals = space.newdict([])  # set to None by Frame.__init__
-
+        code.initialize_frame_scopes(self)
         self.fastlocals_w = [None]*self.numlocals
         self.w_f_trace = None
         self.last_instr = -1

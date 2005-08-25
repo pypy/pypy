@@ -1290,7 +1290,8 @@ class AbstractFunctionCode:
 
         args, hasTupleArg = generateArgList(func.argnames)
         self.graph = pyassem.PyFlowGraph(name, func.filename, args,
-                                         optimized=1)
+                                         optimized=self.localsfullyknown,
+                                         newlocals=1)
         self.isLambda = isLambda
         self.super_init()
 

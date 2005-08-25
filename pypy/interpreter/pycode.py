@@ -248,11 +248,20 @@ class PyCode(eval.Code):
         else:
             return None
 
-    def dictscope_needed(self):
+    def initialize_frame_scopes(self, frame): 
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
-        return not (self.co_flags & CO_OPTIMIZED)
-
+        # CO_NEWLOCALS: make a locals dict unless optimized is also set
+        # CO_OPTIMIZED: no locals dict needed at all 
+        flags = self.co_flags
+        if flags & CO_OPTIMIZED: 
+            return 
+        if flags & CO_NEWLOCALS:
+            frame.w_locals = frame.space.newdict([])
+        else:
+            assert frame.w_globals is not None
+            frame.w_locals = frame.w_globals 
+        
     def getjoinpoints(self):
         """Compute the bytecode positions that are potential join points
         (for FlowObjSpace)"""
