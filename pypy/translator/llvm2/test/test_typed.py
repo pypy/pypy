@@ -264,16 +264,6 @@ def test_str2int():
     f = compile_function(wrapper, [int])
     assert f(42)
 
-def test_float2int():
-    py.test.skip("RTyper is cheating")
-    def fn(f):
-        return str(f)
-    def wrapper():
-        res = fn(1.0)
-        return res == "1.0"
-    f = compile_function(wrapper, [])
-    assert f()
-
 def test_int_invert():
     def fn(i):
         return ~i
