@@ -219,6 +219,8 @@ class MultipleFrozenPBCRepr(Repr):
             result = malloc(self.pbc_type, immortal=True)
             self.pbc_cache[pbc] = result
             for attr, (mangled_name, r_value) in self.llfieldmap.items():
+                if r_value.lowleveltype == Void:
+                    continue
                 try: 
                     thisattrvalue = self.access_set.values[(pbc, attr)] 
                 except KeyError:

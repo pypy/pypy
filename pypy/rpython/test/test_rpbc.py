@@ -823,3 +823,26 @@ def test_multiple_ll_one_hl_op():
         except E:
             return None
     res = interpret(call, [0])
+
+def test_multiple_pbc_with_void_attr():
+    class A:
+        def _freeze_(self):
+            return True
+    a1 = A()
+    a2 = A()
+    unique = A()
+    unique.result = 42
+    a1.value = unique
+    a2.value = unique
+    def g(a):
+        return a.value.result
+    def f(i):
+        if i == 1:
+            a = a1
+        else:
+            a = a2
+        return g(a)
+    res = interpret(f, [0])
+    assert res == 42
+    res = interpret(f, [1])
+    assert res == 42
