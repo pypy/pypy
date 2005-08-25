@@ -35,6 +35,42 @@ def get_ll(ccode, functions=[]):
     # get rid of the struct that llvm-gcc introduces to struct types
     llcode = llcode.replace("%struct.", "%")
 
+    #find function names, declare them internal with fastcc calling convertion
+    ll_lines = []
+    funcnames = {
+        "%ll_frexp_result__Float_Signed"       : True,
+        "%prepare_and_raise_ZeroDivisionError" : True,
+        "%prepare_and_raise_OverflowError"     : True,
+        "%prepare_and_raise_ValueError"        : True,
+        }
+    for line in llcode.split('\n'):
+        comment = line.find(';')
+        if comment >= 0:
+            line = line[:comment]
+        line = line.rstrip()
+        if line[-1:] == '{':
+            returntype, s = line.split(' ', 1)
+            funcname  , s = s.split('(', 1)
+            funcnames[funcname] = True
+            line = 'internal fastcc ' + line
+        ll_lines.append(line)
+
+    #patch calls to function that we just declared fastcc
+    ll_lines2 = []
+    for line in ll_lines:
+        calltag = 'call '
+        i = line.find(calltag)
+        if i >= 0:
+            cconv = 'ccc'
+            for funcname in funcnames.keys():
+                if line.find(funcname) >= 0:
+                    cconv = 'fastcc'
+                    break
+            line = "%scall %s %s" % (line[:i], cconv, line[i+len(calltag):])
+        ll_lines2.append(line)
+
+    llcode = '\n'.join(ll_lines2)
+
     # create file
     extern_dir = udir.join("externs").mkdir()
     llfilename = extern_dir.join("externs").new(ext='.ll')
