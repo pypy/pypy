@@ -360,7 +360,7 @@ def schedule():
 
 class Richards:
 
-    iterations = 2
+    iterations = 25
 
     def run(self):
         for i in xrange(self.iterations):
