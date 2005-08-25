@@ -185,12 +185,8 @@ class Transformer:
 
     def file_input(self, nodelist):
         doc = self.get_docstring(nodelist, symbol.file_input)
-        if doc is not None:
-            i = 1
-        else:
-            i = 0
         stmts = []
-        for node in nodelist[i:]:
+        for node in nodelist:
             if node[0] != token.ENDMARKER and node[0] != token.NEWLINE:
                 self.com_append_stmt(stmts, node)
         return Module(doc, Stmt(stmts))

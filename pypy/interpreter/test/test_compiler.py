@@ -44,7 +44,6 @@ class BaseTestCompiler:
                        'if 1:\n  x x', '?', 'exec', 0)
 
     def test_getcodeflags(self):
-        py.test.skip("flags don't work correctly when using the compiler package")
         code = self.compiler.compile('from __future__ import division\n',
                                      '<hello>', 'exec', 0)
         flags = self.compiler.getcodeflags(code)
@@ -116,6 +115,32 @@ class BaseTestCompiler:
                 return f""", '', 'exec', 0)
         ex = e.value 
         assert ex.match(self.space, self.space.w_SyntaxError)
+
+    def INPROGRESS_test_toplevel_docstring(self):
+        space = self.space
+        import pdb; pdb.set_trace()
+        code = self.compiler.compile('"spam"; "bar"; x=5', '<hello>', 'exec', 0)
+        assert space.eq_w(code.co_consts_w[0], space.wrap("spam"))
+        w_locals = space.newdict([])
+        code.exec_code(space, space.newdict([]), w_locals)
+        w_x = space.getitem(w_locals, space.wrap('x'))
+        assert space.eq_w(w_x, space.wrap(5))
+        #
+        code = self.compiler.compile('"spam"; "bar"; x=5',
+                                     '<hello>', 'single', 0)
+        w_locals = space.newdict([])
+        code.exec_code(space, space.newdict([]), w_locals)
+        w_x = space.getitem(w_locals, space.wrap('x'))
+        assert space.eq_w(w_x, space.wrap(5))
+
+    def test_barestringstmts_disappear(self):
+        space = self.space
+        code = self.compiler.compile('"a"\n"b"\n"c"\n', '<hello>', 'exec', 0)
+        for w_const in code.co_consts_w:
+            # "a" should show up as a docstring, but "b" and "c" should not
+            assert not space.eq_w(w_const, space.wrap("b"))
+            assert not space.eq_w(w_const, space.wrap("c"))
+
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
