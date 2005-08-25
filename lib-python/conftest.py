@@ -328,6 +328,9 @@ class RegrTest:
         return fn 
 
     def getoutputpath(self): 
+        p = modregrtestdir.join('output', self.basename).new(ext='')
+        if p.check(file=1):
+            return p
         p = regrtestdir.join('output', self.basename).new(ext='')
         if p.check(file=1): 
             return p 
