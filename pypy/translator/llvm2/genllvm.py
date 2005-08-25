@@ -15,7 +15,8 @@ from pypy.translator.llvm2.log import log
 from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
-from pypy.translator.llvm2.codewriter import CodeWriter
+from pypy.translator.llvm2.codewriter import CodeWriter, \
+     DEFAULT_INTERNAL, DEFAULT_TAIL, DEFAULT_CCONV
 from pypy.translator.llvm2 import extfuncnode
 from pypy.translator.llvm2.module.extfunction import extdeclarations, \
      extfunctions, gc_boehm, gc_disabled, dependencies
@@ -53,7 +54,7 @@ def get_ll(ccode, extern_dir, functions=[]):
             returntype, s = line.split(' ', 1)
             funcname  , s = s.split('(', 1)
             funcnames[funcname] = True
-            line = 'internal fastcc ' + line
+            line = '%s %s %s' % (DEFAULT_INTERNAL, DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
     #patch calls to function that we just declared fastcc
@@ -64,14 +65,14 @@ def get_ll(ccode, extern_dir, functions=[]):
             cconv = 'ccc'
             for funcname in funcnames.keys():
                 if line.find(funcname) >= 0:
-                    cconv = 'fastcc'
+                    cconv = DEFAULT_CCONV
                     break
             line = "%scall %s %s" % (line[:i], cconv, line[i+len(calltag):])
         if line[:len(declaretag)] == declaretag:
             cconv = 'ccc'
             for funcname in funcnames.keys():
                 if line.find(funcname) >= 0:
-                    cconv = 'fastcc'
+                    cconv = DEFAULT_CCONV
                     break
             line = "declare %s %s" % (cconv, line[len(declaretag):])
         ll_lines2.append(line)
@@ -177,9 +178,6 @@ class GenLLVM(object):
         j = os.path.join
         p = j(j(os.path.dirname(__file__), "module"), "genexterns.c")
         return get_ll(open(p).read(), extern_dir, ['ll_math_frexp', 'll_math_is_error'])
-    
-    def replace_with_machine_words(self, s):
-        return s.replace('UINT',self.db.get_machine_uword()).replace('INT',self.db.get_machine_word())
 
     def gen_llvm_source(self, func=None):
         if self.debug:  print 'gen_llvm_source begin) ' + time.ctime()
@@ -258,7 +256,7 @@ class GenLLVM(object):
             
         if self.debug:  print 'gen_llvm_source extdeclarations) ' + time.ctime()
         nl(); comment("Function Prototypes") ; nl()
-        for extdecl in self.replace_with_machine_words(extdeclarations).split('\n'):
+        for extdecl in extdeclarations.split('\n'):
             codewriter.append(extdecl)
 
         if self.debug:  print 'gen_llvm_source self._debug_prototype) ' + time.ctime()
@@ -276,7 +274,7 @@ class GenLLVM(object):
             gc_funcs = gc_boehm
         else:
             gc_funcs = gc_disabled    
-        for gc_func in self.replace_with_machine_words(gc_funcs).split('\n'):
+        for gc_func in gc_funcs.split('\n'):
             codewriter.append(gc_func)
 
         if self.debug:  print 'gen_llvm_source typ_decl.writeimpl) ' + time.ctime()
@@ -296,7 +294,7 @@ class GenLLVM(object):
             no_result = '0'
         codewriter.newline()
         codewriter.append("ccc %s%%__entrypoint__%s {" % (t[0], t[1]))
-        codewriter.append("    %%result = invoke fastcc %s%%%s to label %%no_exception except label %%exception" % (t[0], t[1]))
+        codewriter.append("    %%result = invoke %s %s%%%s to label %%no_exception except label %%exception" % (DEFAULT_CCONV, t[0], t[1]))
         codewriter.newline()
         codewriter.append("no_exception:")
         codewriter.append("    store %RPYTHON_EXCEPTION_VTABLE* null, %RPYTHON_EXCEPTION_VTABLE** %last_exception_type")
@@ -331,7 +329,7 @@ class GenLLVM(object):
                         codewriter.comment('XXX: Error: ' + msg)
                         #raise Exception('primitive function %s has no implementation' %(dep,))
                         continue
-                    for extfunc in self.replace_with_machine_words(llvm_code).split('\n'):
+                    for extfunc in llvm_code.split('\n'):
                         codewriter.append(extfunc)
                     depdone[dep] = True
 
