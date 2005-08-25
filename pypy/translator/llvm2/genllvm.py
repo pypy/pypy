@@ -57,9 +57,8 @@ def get_ll(ccode, extern_dir, functions=[]):
         ll_lines.append(line)
 
     #patch calls to function that we just declared fastcc
-    ll_lines2 = []
+    ll_lines2, calltag, declaretag = [], 'call ', 'declare '
     for line in ll_lines:
-        calltag = 'call '
         i = line.find(calltag)
         if i >= 0:
             cconv = 'ccc'
@@ -68,6 +67,13 @@ def get_ll(ccode, extern_dir, functions=[]):
                     cconv = 'fastcc'
                     break
             line = "%scall %s %s" % (line[:i], cconv, line[i+len(calltag):])
+        if line[:len(declaretag)] == declaretag:
+            cconv = 'ccc'
+            for funcname in funcnames.keys():
+                if line.find(funcname) >= 0:
+                    cconv = 'fastcc'
+                    break
+            line = "declare %s %s" % (cconv, line[len(declaretag):])
         ll_lines2.append(line)
 
     llcode = '\n'.join(ll_lines2)
