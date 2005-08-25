@@ -48,7 +48,7 @@ class PythonParser(object):
         if not result:
             line, lineno = src.debug()
             # XXX needs better error messages
-            raise ParseError("error", lineno, -1, line)
+            raise ParseError("invalid syntax", lineno, -1, line)
             # return None
         return builder
 
