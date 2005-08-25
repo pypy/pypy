@@ -1,3 +1,4 @@
+
 extdeclarations = """
 declare ccc double %pow(double, double)
 declare ccc double %fmod(double, double)
@@ -29,8 +30,8 @@ print_it:
 
 """)
 
-extfunctions["%cast"] = (("%string_to_RPyString",), """
-internal fastcc sbyte* %cast(%RPyString* %structstring) {
+extfunctions["%RPyString_AsString"] = (("%RPyString_FromString",), """
+internal fastcc sbyte* %RPyString_AsString(%RPyString* %structstring) {
     %source1ptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 1
     %source1 = cast [0 x sbyte]* %source1ptr to sbyte*
     ret sbyte* %source1
@@ -38,8 +39,19 @@ internal fastcc sbyte* %cast(%RPyString* %structstring) {
 
 """)
 
-extfunctions["%string_to_RPyString"] = ((), """
-internal fastcc %RPyString* %string_to_RPyString(sbyte* %s) {
+extfunctions["%RPyString_Size"] = ((), """
+internal fastcc int %RPyString_Size(%RPyString* %structstring) {
+    %sizeptr = getelementptr %RPyString* %structstring, int 0, uint 0
+    %size = load int* %sizeptr
+    return %size
+
+}
+
+""")
+
+
+extfunctions["%RPyString_FromString"] = ((), """
+internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     %len       = call ccc int %strlen(sbyte* %s)
     %rpy       = call fastcc %RPyString* %RPyString_New__Signed(int %len)
     %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
@@ -255,7 +267,7 @@ return_block:
 }
 """ % locals())
 
-extfunctions["%main"] = (("%string_to_RPyString"), """
+extfunctions["%main"] = ((), """
 int %main(int %argc, sbyte** %argv) {
 entry:
     %pypy_argv = call fastcc %RPyListOfString* %ll_newlist__listPtrConst_Signed.2(int 0)
@@ -277,7 +289,7 @@ debugging:
     br label %next_arg
 
 not_debugging:
-    %rpy = call fastcc %RPyString* %string_to_RPyString(sbyte* %tmp.9)
+    %rpy = call fastcc %RPyString* %RPyString_FromString(sbyte* %tmp.9)
     call fastcc void %ll_append__listPtr_rpy_stringPtr(%RPyListOfString* %pypy_argv, %RPyString* %rpy)
     br label %next_arg
 

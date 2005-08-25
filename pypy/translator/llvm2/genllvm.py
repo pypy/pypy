@@ -322,6 +322,8 @@ class GenLLVM(object):
         if entryfunc_name != 'main' and entryfunc_name == 'entry_point': #XXX just to get on with translate_pypy
             extfuncnode.ExternalFuncNode.used_external_functions['%main'] = True
 
+        extfuncnode.ExternalFuncNode.used_external_functions['%RPyString_FromString'] = True
+
         if self.debug:  print 'gen_llvm_source used_external_functions) ' + time.ctime()
         depdone = {}
         for funcname,value in extfuncnode.ExternalFuncNode.used_external_functions.iteritems():

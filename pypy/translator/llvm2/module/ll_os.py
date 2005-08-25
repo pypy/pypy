@@ -32,7 +32,7 @@ internal fastcc int %ll_os_dup(int %fd) {
 
 """)
 
-extfunctions["%ll_os_getcwd"] = (("%string_to_RPyString", "%__debug"), """
+extfunctions["%ll_os_getcwd"] = (("%RPyString_FromString", "%__debug"), """
 internal fastcc %RPyString* %ll_os_getcwd() {
 
     call fastcc void %__debug([12 x sbyte]* %__ll_os_getcwd) ; XXX: Test: ll_os_getcwd
@@ -41,7 +41,7 @@ internal fastcc %RPyString* %ll_os_getcwd() {
     %res = call ccc sbyte* %getcwd(sbyte* %s, int 1023)
     ;if %res == null: raise...
 
-    %cwd = call fastcc %RPyString* %string_to_RPyString(sbyte* %s)
+    %cwd = call fastcc %RPyString* %RPyString_FromString(sbyte* %s)
     ret %RPyString* %cwd
 }
 
@@ -55,20 +55,20 @@ internal fastcc void %ll_os_close(int %fd) {
 
 """)
 
-extfunctions["%ll_os_open"] = (("%cast",), """
+extfunctions["%ll_os_open"] = (("%RPyString_AsString",), """
 internal fastcc int %ll_os_open(%RPyString* %structstring, int %flag, int %mode) {
-    %dest  = call fastcc sbyte* %cast(%RPyString* %structstring)
+    %dest  = call fastcc sbyte* %RPyString_AsString(%RPyString* %structstring)
     %fd    = call ccc    int    %open(sbyte* %dest, int %flag, int %mode)
     ret int %fd 
 }
 
 """)
 
-extfunctions["%ll_os_write"] = (("%cast",), """
+extfunctions["%ll_os_write"] = (("%RPyString_AsString",), """
 internal fastcc int %ll_os_write(int %fd, %RPyString* %structstring) {
     %reallengthptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 0
     %reallength    = load int* %reallengthptr 
-    %dest          = call fastcc sbyte* %cast(%RPyString* %structstring)
+    %dest          = call fastcc sbyte* %RPyString_AsString(%RPyString* %structstring)
     %byteswritten  = call ccc    int    %write(int %fd, sbyte* %dest, int %reallength)
     ret int %byteswritten
 }
@@ -173,13 +173,13 @@ internal fastcc %RPySTAT_RESULT* %_stat_construct_result_helper([32 x int]* %src
 }
 """)
 
-extfunctions["%ll_os_stat"] = (("%cast", "%__debug", "%_stat_construct_result_helper"), """
+extfunctions["%ll_os_stat"] = (("%RPyString_AsString", "%__debug", "%_stat_construct_result_helper"), """
 internal fastcc %RPySTAT_RESULT* %ll_os_stat(%RPyString* %s) {
 
     call fastcc void %__debug([12 x sbyte]* %__ll_os_stat) ; XXX: Test: ll_os_stat
 
     %st       = alloca [32 x int]
-    %filename = call fastcc sbyte* %cast(%RPyString* %s)
+    %filename = call fastcc sbyte* %RPyString_AsString(%RPyString* %s)
     %error    = call ccc int %stat(sbyte* %filename, [32 x int]* %st)
     %cond     = seteq int %error, 0
     br bool %cond, label %cool, label %bwa
