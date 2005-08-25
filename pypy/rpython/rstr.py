@@ -361,6 +361,7 @@ def do_stringformat(hop, sourcevarsrepr):
         i = inputconst(Signed, i)
         hop.genop('setarrayitem', [vtemp, i, vchunk])
 
+    hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
     return hop.gendirectcall(ll_join_strs, vtemp)
     
 
