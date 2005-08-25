@@ -454,58 +454,6 @@ class _OpcodeDispatcher(_Dispatcher):
             self.executing_contexts[id(context)] = generator
         return has_finished
 
-    def op_category(self, ctx):
-        # match at given category
-        # <CATEGORY> <code>
-        #self._log(ctx, "CATEGORY", ctx.peek_code(1))
-        if ctx.at_end() or \
-                 not _sre._category_dispatch(ctx.peek_code(1), ctx.peek_char()):
-            ctx.has_matched = NOT_MATCHED
-            return True
-        ctx.skip_code(2)
-        ctx.skip_char(1)
-        return True
-
-    def op_any_all(self, ctx):
-        # match anything
-        # <ANY_ALL>
-        #self._log(ctx, "ANY_ALL")
-        if ctx.at_end():
-            ctx.has_matched = NOT_MATCHED
-            return True
-        ctx.skip_code(1)
-        ctx.skip_char(1)
-        return True
-
-    def general_op_in(self, ctx, decorate=lambda x: x):
-        #self._log(ctx, "OP_IN")
-        if ctx.at_end():
-            ctx.has_matched = NOT_MATCHED
-            return
-        skip = ctx.peek_code(1)
-        ctx.skip_code(2) # set op pointer to the set code
-        char = decorate(ord(ctx.peek_char()))
-        if not _sre._check_charset(ctx.pattern_codes[ctx.code_position:], char,
-                                         ctx.state.string, ctx.string_position):
-            ctx.has_matched = NOT_MATCHED
-            return
-        ctx.skip_code(skip - 1)
-        ctx.skip_char(1)
-
-    def op_in(self, ctx):
-        # match set member (or non_member)
-        # <IN> <skip> <set>
-        #self._log(ctx, "OP_IN")
-        self.general_op_in(ctx)
-        return True
-
-    def op_in_ignore(self, ctx):
-        # match set member (or non_member), disregarding case of current char
-        # <IN_IGNORE> <skip> <set>
-        #self._log(ctx, "OP_IN_IGNORE")
-        self.general_op_in(ctx, ctx.state.lower)
-        return True
-
     def op_jump(self, ctx):
         # jump forward
         # <JUMP> <offset>

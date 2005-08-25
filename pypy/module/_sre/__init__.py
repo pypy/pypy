@@ -23,6 +23,4 @@ copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
         '_RepeatContext': 'interp_sre.make_repeat_context',
         '_opcode_dispatch': 'interp_sre.opcode_dispatch',
         '_opcode_is_at_interplevel': 'interp_sre.opcode_is_at_interplevel',
-        '_check_charset': 'interp_sre.check_charset',
-        '_category_dispatch': 'interp_sre.category_dispatch',
     }

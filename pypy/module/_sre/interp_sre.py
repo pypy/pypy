@@ -282,7 +282,10 @@ def opcode_dispatch(space, w_opcode, w_context):
 
 def opcode_is_at_interplevel(space, w_opcode):
     opcode = space.int_w(w_opcode)
-    return space.newbool(opcode_dispatch_table[opcode] is not None)
+    try:
+        return space.newbool(opcode_dispatch_table[opcode] is not None)
+    except IndexError:
+        return space.newbool(False)
 
 def op_success(space, ctx):
     # end of pattern
@@ -342,6 +345,17 @@ def op_at(space, ctx):
     ctx.skip_code(2)
     return True
 
+def op_category(space, ctx):
+    # match at given category
+    # <CATEGORY> <code>
+    if ctx.at_end() or \
+                not category_dispatch(space, ctx.peek_code(1), ctx.peek_char()):
+        ctx.has_matched = ctx.NOT_MATCHED
+        return True
+    ctx.skip_code(2)
+    ctx.skip_char(1)
+    return True
+
 def op_any(self, ctx):
     # match anything (except a newline)
     # <ANY>
@@ -352,17 +366,54 @@ def op_any(self, ctx):
     ctx.skip_char(1)
     return True
 
+def op_any_all(space, ctx):
+    # match anything
+    # <ANY_ALL>
+    if ctx.at_end():
+        ctx.has_matched = ctx.NOT_MATCHED
+        return True
+    ctx.skip_code(1)
+    ctx.skip_char(1)
+    return True
+
+def general_op_in(space, ctx, ignore=False):
+    if ctx.at_end():
+        ctx.has_matched = ctx.NOT_MATCHED
+        return
+    skip = ctx.peek_code(1)
+    ctx.skip_code(2) # set op pointer to the set code
+    char_code = space.int_w(space.ord(ctx.peek_char()))
+    if ignore:
+        char_code = ctx.state.lower(char_code)
+    if not check_charset(space, char_code, ctx):
+        ctx.has_matched = ctx.NOT_MATCHED
+        return
+    ctx.skip_code(skip - 1)
+    ctx.skip_char(1)
+
+def op_in(space, ctx):
+    # match set member (or non_member)
+    # <IN> <skip> <set>
+    general_op_in(space, ctx)
+    return True
+
+def op_in_ignore(space, ctx):
+    # match set member (or non_member), disregarding case of current char
+    # <IN_IGNORE> <skip> <set>
+    general_op_in(space, ctx, ignore=True)
+    return True
+
 opcode_dispatch_table = [
     op_failure, op_success,
-    op_any, None, #ANY, ANY_ALL,
+    op_any, op_any_all,
     None, None, #ASSERT, ASSERT_NOT,
     op_at,
     None, #BRANCH,
     None, #CALL,
-    None, #CATEGORY,
+    op_category,
     None, None, #CHARSET, BIGCHARSET,
     None, None, None, #GROUPREF, GROUPREF_EXISTS, GROUPREF_IGNORE,
-    None, None, #IN, IN_IGNORE,
+    op_in, op_in_ignore,
     None, #INFO,
     None, #JUMP,
     op_literal, op_literal_ignore,
@@ -439,16 +490,16 @@ def is_uni_linebreak(space, w_char):
 
 #### Category dispatch
 
-def category_dispatch(space, w_chcode, w_char):
-    chcode = space.int_w(w_chcode)
-    if chcode >= len(category_dispatch_table):
-        return space.newbool(False)
-    function, negate = category_dispatch_table[chcode]
+def category_dispatch(space, chcode, w_char):
+    try:
+        function, negate = category_dispatch_table[chcode]
+    except IndexError:
+        return False
     result = function(space, w_char)
     if negate:
-        return space.newbool(not result)
+        return not result
     else:
-        return space.newbool(result)
+        return result
 
 # Maps opcodes by indices to (function, negate) tuples.
 category_dispatch_table = [
@@ -462,54 +513,6 @@ category_dispatch_table = [
 ]
 
 ##### At dispatch
-
-class MatchContext:
-    # XXX This is not complete. It's tailored to at dispatch currently.
-
-    # XXX These constants should maybe not be here    
-    OK = 1
-    NOT_OK = -1
-    NOT_FINISHED = 0
-    
-    def __init__(self, space, pattern_codes, w_string, string_position, end):
-        self.space = space
-        self.pattern_codes = pattern_codes
-        self.w_string = w_string
-        self.string_position = string_position
-        self.end = end
-        self.code_position = 0
-        self.set_ok = self.OK # XXX maybe get rid of this
-
-    def peek_char(self, peek=0):
-        return self.space.getitem(self.w_string,
-                                   self.space.wrap(self.string_position + peek))
-
-    def remaining_chars(self):
-        return self.end - self.string_position
-
-    def peek_code(self, peek=0):
-        return self.pattern_codes[self.code_position + peek]
-
-    def skip_code(self, skip_count):
-        self.code_position += skip_count
-
-    def at_beginning(self):
-        return self.string_position == 0
-
-    def at_end(self):
-        return self.string_position == self.end
-
-    def at_linebreak(self):
-        return not self.at_end() and is_linebreak(self.space, self.peek_char())
-
-    def at_boundary(self, word_checker):
-        if self.at_beginning() and self.at_end():
-            return False
-        that = not self.at_beginning() \
-                            and word_checker(self.space, self.peek_char(-1))
-        this = not self.at_end() \
-                            and word_checker(self.space, self.peek_char())
-        return this != that
 
 def at_dispatch(space, atcode, context):
     try:
@@ -557,24 +560,25 @@ at_dispatch_table = [
 
 ##### Charset evaluation
 
-def check_charset(space, w_pattern_codes, w_char_code, w_string, w_string_position):
+SET_OK = 1
+SET_NOT_OK = -1
+SET_NOT_FINISHED = 0
+
+def check_charset(space, char_code, context):
     """Checks whether a character matches set of arbitrary length. Currently
     assumes the set starts at the first member of pattern_codes."""
-    # XXX temporary ugly method signature until we can call this from
-    # interp-level only
-    pattern_codes_w = space.unpackiterable(w_pattern_codes)
-    pattern_codes = [space.int_w(code) for code in pattern_codes_w]
-    char_code = space.int_w(w_char_code)
-    context = MatchContext(space, pattern_codes, w_string,
-              space.int_w(w_string_position), space.int_w(space.len(w_string)))
-    result = MatchContext.NOT_FINISHED
-    while result == MatchContext.NOT_FINISHED:
+    result = SET_NOT_FINISHED
+    context.set_ok = SET_OK
+    backup_code_position = context.code_position
+    while result == SET_NOT_FINISHED:
         opcode = context.peek_code()
-        if opcode >= len(set_dispatch_table):
-            return space.newbool(False)
-        function = set_dispatch_table[opcode]
+        try:
+            function = set_dispatch_table[opcode]
+        except IndexError:
+            return False
         result = function(space, context, char_code)
-    return space.newbool(result == MatchContext.OK)
+    context.code_position = backup_code_position
+    return result == SET_OK
 
 def set_failure(space, ctx, char_code):
     return -ctx.set_ok
@@ -585,16 +589,15 @@ def set_literal(space, ctx, char_code):
         return ctx.set_ok
     else:
         ctx.skip_code(2)
-        return MatchContext.NOT_FINISHED
+        return SET_NOT_FINISHED
 
 def set_category(space, ctx, char_code):
     # <CATEGORY> <code>
-    if space.is_true(
-       category_dispatch(space, space.wrap(ctx.peek_code(1)), ctx.peek_char())):
+    if category_dispatch(space, ctx.peek_code(1), ctx.peek_char()):
         return ctx.set_ok
     else:
         ctx.skip_code(2)
-        return MatchContext.NOT_FINISHED
+        return SET_NOT_FINISHED
 
 def set_charset(space, ctx, char_code):
     # <CHARSET> <bitmap> (16 bits per code word)
@@ -609,19 +612,19 @@ def set_charset(space, ctx, char_code):
                                         & (1 << (char_code & 31)):
             return ctx.set_ok
         ctx.skip_code(8) # skip bitmap
-    return MatchContext.NOT_FINISHED
+    return SET_NOT_FINISHED
 
 def set_range(space, ctx, char_code):
     # <RANGE> <lower> <upper>
     if ctx.peek_code(1) <= char_code <= ctx.peek_code(2):
         return ctx.set_ok
     ctx.skip_code(3)
-    return MatchContext.NOT_FINISHED
+    return SET_NOT_FINISHED
 
 def set_negate(space, ctx, char_code):
     ctx.set_ok = -ctx.set_ok
     ctx.skip_code(1)
-    return MatchContext.NOT_FINISHED
+    return SET_NOT_FINISHED
 
 def set_bigcharset(space, ctx, char_code):
     # <BIGCHARSET> <blockcount> <256 blockindices> <blocks>
@@ -645,7 +648,7 @@ def set_bigcharset(space, ctx, char_code):
     else:
         ctx.skip_code(256 / CODESIZE) # skip block indices
     ctx.skip_code(count * (32 / CODESIZE)) # skip blocks
-    return MatchContext.NOT_FINISHED
+    return SET_NOT_FINISHED
 
 def to_byte_array(int_value):
     """Creates a list of bytes out of an integer representing data that is
