@@ -5,9 +5,12 @@ declare ccc INT %puts(sbyte*)
 declare ccc INT %strlen(sbyte*)
 declare ccc INT %strcmp(sbyte*, sbyte*)
 declare ccc sbyte* %memset(sbyte*, INT, UINT)
+declare ccc double %frexp(double, int*)
 
 %__print_debug_info         = internal global bool false
 %__print_debug_info_option  = internal constant [19 x sbyte] c"--print-debug-info\\00"
+%.str_1 = internal constant [17 x sbyte] c"math range error\\00"
+%.str_2 = internal constant [18 x sbyte] c"math domain error\\00"
 """
 
 
@@ -84,6 +87,7 @@ return_block:
 """)
 
 
+
 #prepare exceptions
 for exc in "ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
     extfunctions["%%__prepare_%(exc)s" % locals()] = ((), """
@@ -94,6 +98,20 @@ internal fastcc void %%__prepare_%(exc)s() {
     store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
     store %%RPYTHON_EXCEPTION* %%exception_value, %%RPYTHON_EXCEPTION** %%last_exception_value
     ret void
+}
+""" % locals())
+
+#prepare exceptions
+for exc in "ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
+    extfunctions["%%prepare_and_raise_%(exc)s" % locals()] = ((), """
+internal fastcc void %%prepare_and_raise_%(exc)s(sbyte* %%msg) {
+    ;XXX %%msg not used right now!
+    %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%instantiate_%(exc)s()
+    %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
+    %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
+    store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
+    store %%RPYTHON_EXCEPTION* %%exception_value, %%RPYTHON_EXCEPTION** %%last_exception_value
+    unwind
 }
 """ % locals())
 

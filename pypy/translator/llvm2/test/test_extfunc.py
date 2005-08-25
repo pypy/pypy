@@ -147,12 +147,13 @@ def test_os_getcwd():
     assert f1()
 
 def test_math_frexp():
-    py.test.skip("ll_math_frexp not implemented")
     from math import frexp
     def fn(x):
-        return frexp(x)
+        res = frexp(x)
+        return res[0] + float(res[1])
     f = compile_function(fn, [float])
-    assert f(10.123) == frexp(10.123)
+    res = f(10.123)
+    assert res == fn(10.123)
 
 def test_math_modf():
     py.test.skip("ll_math_modf not implemented (next)")
