@@ -396,21 +396,16 @@ double ll_strtod_parts_to_float(struct RPyString *sign,
 	char *s;
 	char *expo = NULL;
 
-	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX1111111111XXXXXX hello\n");
-
 	expo = RPyString_AsString(exponent);
 
-	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXX222222222XXXXXXXXXXXXXXXXXX hello\n");
 	if (*expo == '\0') {
 		expo = "0";
 	}
 
-	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX33333XXXXXXXXXXXXX hello\n");
 	locale_data = localeconv();
 	decimal_point = locale_data->decimal_point;
 	decimal_point_len = strlen(decimal_point);
 
-	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX44444XXXXXXXX hello\n");
 	buf_size = RPyString_Size(sign) + 
 	  RPyString_Size(beforept) +
 	  decimal_point_len +
@@ -419,7 +414,6 @@ double ll_strtod_parts_to_float(struct RPyString *sign,
 	  strlen(expo) + 
 	  1 /*  asciiz  */ ;
 
-	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX5555XXXX hello\n");
         s = malloc(buf_size);
 
 	strcpy(s, RPyString_AsString(sign));
@@ -429,25 +423,20 @@ double ll_strtod_parts_to_float(struct RPyString *sign,
 	strcat(s, "e");
 	strcat(s, expo);
 
-	fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX6666 hello\n");
 	last = s + (buf_size-1);
 	x = strtod(s, &fail_pos);
 	errno = 0;
-	fprintf(stderr, "XXXXXXXXX77777777777777777777799999999999999999999999hello\n");
 	if (fail_pos > last)
 		fail_pos = last;
-	fprintf(stderr, "XXXXX888888888888888888888888999999999999999999999999hello\n");
 	if (fail_pos == s || *fail_pos != '\0' || fail_pos != last) {
-	free(s);
+        	free(s);
 		prepare_and_raise_ValueError("invalid float literal");
 		return -1.0;
 	}
-	fprintf(stderr, "XXXXXXaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa9999999999999hello\n");
 	if (x == 0.0) { /* maybe a denormal value, ask for atof behavior */
 		x = strtod(s, NULL);
 		errno = 0;
 	}
-	fprintf(stderr, "XXXXXXXXXXXX99999999999999999999999999999999999999999hello\n");
 	free(s);
 	return x;
 }

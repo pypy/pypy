@@ -159,10 +159,12 @@ class GenLLVM(object):
 
     def generate_llfile(self, extern_decls):
 
-        extern_dir = udir.join("externs")
-        if extern_dir.check(dir=1):
-            return
-        extern_dir.mkdir()
+        #XXX outcommented because we are not puting files here
+        #extern_dir = udir.join("externs")
+        #if extern_dir.check(dir=1):
+        #    return
+        #extern_dir.mkdir()
+        extern_dir = None
 
         genllcode = ""
 
