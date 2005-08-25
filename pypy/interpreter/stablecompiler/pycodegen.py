@@ -269,6 +269,10 @@ class CodeGenerator:
         self._nameOp('LOAD', name)
 
     def delName(self, name):
+        scope = self.scope.check_name(name)
+        if scope == SC_CELL: 
+            raise SyntaxError("can not delete variable '%s' " 
+                              "referenced in nested scope" % name)
         self._nameOp('DELETE', name)
 
     def _nameOp(self, prefix, name):
