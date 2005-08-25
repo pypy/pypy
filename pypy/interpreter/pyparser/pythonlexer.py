@@ -123,7 +123,7 @@ def generate_tokens(lines, flags):
 
         if contstr:                            # continued string
             if not line:
-                raise TokenError("EOF in multi-line string", line,
+                raise TokenError("EOF while scanning triple-quoted string", line,
                                  (lnum, 0), token_list)
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
@@ -259,7 +259,6 @@ def generate_tokens(lines, flags):
                         tok = Token(pytoken.STRING, token)
                         token_list.append((tok, line, lnum, pos))
                         last_comment = ''
-                        # token_list.append((STRING, token, spos, epos, line))
                 elif initial in namechars:                 # ordinary name
                     tok = Token(pytoken.NAME, token)
                     token_list.append((tok, line, lnum, pos))

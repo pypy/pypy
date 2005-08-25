@@ -20,7 +20,7 @@ $Id: pytokenize.py,v 1.3 2003/10/03 16:31:53 jriehl Exp $
 from __future__ import generators
 from pypy.interpreter.pyparser import automata
 
-__all__ = [ "tokenize", "generate_tokens", ]
+__all__ = [ "tokenize" ]
 
 # ______________________________________________________________________
 # Automatically generated DFA's (with one or two hand tweeks):
