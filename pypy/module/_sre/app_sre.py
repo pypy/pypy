@@ -36,7 +36,7 @@ class SRE_Pattern(object):
         regular expression, return a corresponding MatchObject instance. Return
         None if the string does not match the pattern."""
         state = _sre._State(string, pos, endpos, self.flags)
-        if match(state, self._code):
+        if _sre._match(state, self._code):
             return SRE_Match(self, state)
         else:
             return None
@@ -327,7 +327,7 @@ def search(state, pattern_codes):
     while string_position <= state.end:
         state.reset()
         state.start = state.string_position = string_position
-        if match(state, pattern_codes):
+        if _sre._match(state, pattern_codes):
             return True
         string_position += 1
     return False
@@ -362,7 +362,7 @@ def fast_search(state, pattern_codes):
                                                  - prefix_len + prefix_skip
                     if flags & SRE_INFO_LITERAL:
                         return True # matched all of pure literal pattern
-                    if match(state, pattern_codes[2 * prefix_skip:]):
+                    if _sre._match(state, pattern_codes[2 * prefix_skip:]):
                         return True
                     i = overlap[i]
                 break
@@ -453,31 +453,6 @@ class _OpcodeDispatcher(_Dispatcher):
         if not has_finished:
             self.executing_contexts[id(context)] = generator
         return has_finished
-
-    def op_branch(self, ctx):
-        # alternation
-        # <BRANCH> <0=skip> code <JUMP> ... <NULL>
-        #self._log(ctx, "BRANCH")
-        ctx.state.marks_push()
-        ctx.skip_code(1)
-        current_branch_length = ctx.peek_code(0)
-        while current_branch_length:
-            # The following tries to shortcut branches starting with a
-            # (unmatched) literal. _sre.c also shortcuts charsets here.
-            if not (ctx.peek_code(1) == OPCODES["literal"] and \
-                    (ctx.at_end() or ctx.peek_code(2) != ord(ctx.peek_char()))):
-                ctx.state.string_position = ctx.string_position
-                child_context = ctx.push_new_context(1)
-                yield False
-                if child_context.has_matched == MATCHED:
-                    ctx.has_matched = MATCHED
-                    yield True
-                ctx.state.marks_pop_keep()
-            ctx.skip_code(current_branch_length)
-            current_branch_length = ctx.peek_code(0)
-        ctx.state.marks_pop_discard()
-        ctx.has_matched = NOT_MATCHED
-        yield True
 
     def op_repeat_one(self, ctx):
         # match repeated sequence (maximizing).

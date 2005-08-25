@@ -56,7 +56,7 @@ class W_State(Wrappable):
         self.marks = []
         self.lastindex = -1
         self.marks_stack = []
-        self.w_context_stack = self.space.newlist([])
+        self.context_stack = []
         self.w_repeat = self.space.w_None
 
     def set_mark(self, mark_nr, position):
@@ -135,7 +135,6 @@ W_State.typedef = TypeDef("W_State",
     string_position = interp_attrproperty_int("string_position", W_State),
     pos = interp_attrproperty("pos", W_State),
     lastindex = interp_attrproperty("lastindex", W_State),
-    context_stack = interp_attrproperty_w("w_context_stack", W_State),
     repeat = interp_attrproperty_obj_w("w_repeat", W_State),
     reset = interp2app(W_State.reset),
     create_regs = interp2app(W_State.create_regs),
@@ -163,17 +162,30 @@ class W_MatchContext(Wrappable):
         self.string_position = w_state.string_position
         self.code_position = 0
         self.has_matched = self.UNDECIDED
+        self.backup = []
+        self.resume_at_opcode = -1
 
-    def push_new_context(self, w_pattern_offset):
+    def push_new_context(self, pattern_offset):
         """Creates a new child context of this context and pushes it on the
         stack. pattern_offset is the offset off the current code position to
         start interpreting from."""
-        pattern_offset = self.space.int_w(w_pattern_offset)
         pattern_codes_w = self.pattern_codes_w[self.code_position + pattern_offset:]
         w_child_context = self.space.wrap(W_MatchContext(self.space, self.state,
                                            self.space.newlist(pattern_codes_w)))
-        self.space.call_method(self.state.w_context_stack, "append", w_child_context)
+        self.state.context_stack.append(w_child_context)
+        self.child_context = w_child_context
         return w_child_context
+
+    def is_resumed(self):
+        return self.resume_at_opcode > -1
+
+    def backup_value(self, value):
+        self.backup.append(value)
+
+    def restore_values(self):
+        values = self.backup
+        self.backup = []
+        return values
 
     def peek_char(self, w_peek=0):
         # XXX temporary hack
@@ -239,7 +251,7 @@ W_MatchContext.typedef = TypeDef("W_MatchContext",
     pattern_codes = interp_attrproperty_list_w("pattern_codes_w", W_MatchContext),
     code_position = interp_attrproperty_int("code_position", W_MatchContext),
     has_matched = interp_attrproperty_int("has_matched", W_MatchContext),
-    push_new_context = interp2app(W_MatchContext.push_new_context),
+    #push_new_context = interp2app(W_MatchContext.push_new_context),
     peek_char = interp2app(W_MatchContext.peek_char),
     skip_char = interp2app(W_MatchContext.w_skip_char),
     remaining_chars = interp2app(W_MatchContext.w_remaining_chars),
@@ -268,7 +280,47 @@ W_RepeatContext.typedef = TypeDef("W_RepeatContext", W_MatchContext.typedef,
     last_position = interp_attrproperty_obj_w("w_last_position", W_RepeatContext),
 )
 
-#### Opcode dispatch
+#### Main opcode dispatch loop
+
+def match(space, w_state, w_pattern_codes):
+    # Optimization: Check string length. pattern_codes[3] contains the
+    # minimum length for a string to possibly match.
+    # XXX disabled for now
+    #if pattern_codes[0] == OPCODES["info"] and pattern_codes[3]:
+    #    if state.end - state.string_position < pattern_codes[3]:
+    #        return False
+    state = w_state
+    state.context_stack.append(W_MatchContext(space, state, w_pattern_codes))
+    has_matched = W_MatchContext.UNDECIDED
+    while len(state.context_stack) > 0:
+        context = state.context_stack[-1]
+        if context.has_matched == context.UNDECIDED:
+            has_matched = dispatch_loop(space, context)
+        else:
+            has_matched = context.has_matched
+        if has_matched != context.UNDECIDED: # don't pop if context isn't done
+            state.context_stack.pop()
+    return space.newbool(has_matched == context.MATCHED)
+
+def dispatch_loop(space, context):
+    """Returns MATCHED if the current context matches, NOT_MATCHED if it doesn't
+    and UNDECIDED if matching is not finished, ie must be resumed after child
+    contexts have been matched."""
+    while context.remaining_codes() > 0 and context.has_matched == context.UNDECIDED:
+        if context.is_resumed():
+            opcode = context.resume_at_opcode
+        else:
+            opcode = context.peek_code()
+        #try:
+        has_finished = opcode_dispatch_table[opcode](space, context)
+        #except IndexError:
+        #    raise RuntimeError("Internal re error. Unknown opcode: %s" % opcode)
+        if not has_finished:
+            context.resume_at_opcode = opcode
+            return context.UNDECIDED
+    if context.has_matched == context.UNDECIDED:
+        context.has_matched = context.NOT_MATCHED
+    return context.has_matched
 
 def opcode_dispatch(space, w_opcode, w_context):
     opcode = space.int_w(w_opcode)
@@ -399,6 +451,30 @@ def op_in_ignore(space, ctx):
     general_op_in(space, ctx, ignore=True)
     return True
 
+def op_branch(space, ctx):
+    # alternation
+    # <BRANCH> <0=skip> code <JUMP> ... <NULL>
+    if ctx.is_resumed():
+        last_branch_length = ctx.restore_values()[0]
+        if ctx.child_context.has_matched == ctx.MATCHED:
+            ctx.has_matched = ctx.MATCHED
+            return True
+        ctx.state.marks_pop_keep()
+        ctx.skip_code(last_branch_length)
+        current_branch_length = ctx.peek_code(0)
+    else:
+        ctx.state.marks_push()
+        ctx.skip_code(1)
+        current_branch_length = ctx.peek_code(0)
+    if current_branch_length:
+        ctx.state.string_position = ctx.string_position
+        ctx.push_new_context(1)
+        ctx.backup_value(current_branch_length)
+        return False
+    ctx.state.marks_pop_discard()
+    ctx.has_matched = ctx.NOT_MATCHED
+    return True
+
 def op_jump(space, ctx):
     # jump forward
     # <JUMP>/<INFO> <offset>
@@ -456,7 +532,7 @@ opcode_dispatch_table = [
     op_any, op_any_all,
     None, None, #ASSERT, ASSERT_NOT,
     op_at,
-    None, #BRANCH,
+    op_branch,
     None, #CALL,
     op_category,
     None, None, #CHARSET, BIGCHARSET,

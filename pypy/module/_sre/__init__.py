@@ -21,6 +21,7 @@ copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
         '_State':         'interp_sre.make_state',
         '_MatchContext':  'interp_sre.make_context',
         '_RepeatContext': 'interp_sre.make_repeat_context',
+        '_match':         'interp_sre.match',
         '_opcode_dispatch': 'interp_sre.opcode_dispatch',
         '_opcode_is_at_interplevel': 'interp_sre.opcode_is_at_interplevel',
     }
