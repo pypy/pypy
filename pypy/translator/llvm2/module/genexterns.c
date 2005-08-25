@@ -12,7 +12,7 @@ struct RPyFREXP_RESULT;
 struct RPyMODF_RESULT;
 
 struct RPyFREXP_RESULT *ll_frexp_result__Float_Signed(double, int);
-struct RPyMODF_RESULT *ll_frexp_result__Float_Float(double, double);
+struct RPyMODF_RESULT *ll_modf_result__Float_Float(double, double);
 
 void prepare_and_raise_OverflowError(char *);
 void prepare_and_raise_ValueError(char *);
@@ -82,7 +82,7 @@ struct RPyMODF_RESULT* ll_math_modf(double x) {
 	LL_MATH_ERROR_RESET;
 	fracpart = modf(x, &intpart);
 	LL_MATH_CHECK_ERROR(fracpart, NULL);
-	return ll_modf_result(fracpart, intpart);
+	return ll_modf_result__Float_Float(fracpart, intpart);
 }
 
 /* simple math function */
