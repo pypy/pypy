@@ -454,69 +454,6 @@ class _OpcodeDispatcher(_Dispatcher):
             self.executing_contexts[id(context)] = generator
         return has_finished
 
-    def op_repeat_one(self, ctx):
-        # match repeated sequence (maximizing).
-        # this operator only works if the repeated item is exactly one character
-        # wide, and we're not already collecting backtracking points.
-        # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
-        mincount = ctx.peek_code(2)
-        maxcount = ctx.peek_code(3)
-        #self._log(ctx, "REPEAT_ONE", mincount, maxcount)
-
-        if ctx.remaining_chars() < mincount:
-            ctx.has_matched = NOT_MATCHED
-            yield True
-        ctx.state.string_position = ctx.string_position
-        count = self.count_repetitions(ctx, maxcount)
-        ctx.skip_char(count)
-        if count < mincount:
-            ctx.has_matched = NOT_MATCHED
-            yield True
-        if ctx.peek_code(ctx.peek_code(1) + 1) == OPCODES["success"]:
-            # tail is empty.  we're finished
-            ctx.state.string_position = ctx.string_position
-            ctx.has_matched = MATCHED
-            yield True
-
-        ctx.state.marks_push()
-        if ctx.peek_code(ctx.peek_code(1) + 1) == OPCODES["literal"]:
-            # Special case: Tail starts with a literal. Skip positions where
-            # the rest of the pattern cannot possibly match.
-            char = ctx.peek_code(ctx.peek_code(1) + 2)
-            while True:
-                while count >= mincount and \
-                                (ctx.at_end() or ord(ctx.peek_char()) != char):
-                    ctx.skip_char(-1)
-                    count -= 1
-                if count < mincount:
-                    break
-                ctx.state.string_position = ctx.string_position
-                child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
-                yield False
-                if child_context.has_matched == MATCHED:
-                    ctx.has_matched = MATCHED
-                    yield True
-                ctx.skip_char(-1)
-                count -= 1
-                ctx.state.marks_pop_keep()
-        
-        else:
-            # General case: backtracking
-            while count >= mincount:
-                ctx.state.string_position = ctx.string_position
-                child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
-                yield False
-                if child_context.has_matched == MATCHED:
-                    ctx.has_matched = MATCHED
-                    yield True
-                ctx.skip_char(-1)
-                count -= 1
-                ctx.state.marks_pop_keep()
-
-        ctx.state.marks_pop_discard()
-        ctx.has_matched = NOT_MATCHED
-        yield True
-
     def op_min_repeat_one(self, ctx):
         # match repeated sequence (minimizing)
         # <MIN_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail

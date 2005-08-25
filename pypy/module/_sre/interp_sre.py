@@ -13,6 +13,7 @@ BIG_ENDIAN = sys.byteorder == "big"
 # XXX can we import those safely from sre_constants?
 SRE_FLAG_LOCALE = 4 # honour system locale
 SRE_FLAG_UNICODE = 32 # use unicode locale
+MAXREPEAT = 65535
 
 def getlower(space, w_char_ord, w_flags):
     char_ord = space.int_w(w_char_ord)
@@ -454,23 +455,75 @@ def op_in_ignore(space, ctx):
 def op_branch(space, ctx):
     # alternation
     # <BRANCH> <0=skip> code <JUMP> ... <NULL>
-    if ctx.is_resumed():
-        last_branch_length = ctx.restore_values()[0]
+    if not ctx.is_resumed():
+        ctx.state.marks_push()
+        ctx.skip_code(1)
+        current_branch_length = ctx.peek_code(0)
+    else:
         if ctx.child_context.has_matched == ctx.MATCHED:
             ctx.has_matched = ctx.MATCHED
             return True
         ctx.state.marks_pop_keep()
+        last_branch_length = ctx.restore_values()[0]
         ctx.skip_code(last_branch_length)
-        current_branch_length = ctx.peek_code(0)
-    else:
-        ctx.state.marks_push()
-        ctx.skip_code(1)
         current_branch_length = ctx.peek_code(0)
     if current_branch_length:
         ctx.state.string_position = ctx.string_position
         ctx.push_new_context(1)
         ctx.backup_value(current_branch_length)
         return False
+    ctx.state.marks_pop_discard()
+    ctx.has_matched = ctx.NOT_MATCHED
+    return True
+
+def op_repeat_one(space, ctx):
+    # match repeated sequence (maximizing).
+    # this operator only works if the repeated item is exactly one character
+    # wide, and we're not already collecting backtracking points.
+    # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
+    
+    # Case 1: First entry point
+    if not ctx.is_resumed():
+        mincount = ctx.peek_code(2)
+        maxcount = ctx.peek_code(3)
+        if ctx.remaining_chars() < mincount:
+            ctx.has_matched = ctx.NOT_MATCHED
+            return True
+        ctx.state.string_position = ctx.string_position
+        count = count_repetitions(space, ctx, maxcount)
+        ctx.skip_char(count)
+        if count < mincount:
+            ctx.has_matched = ctx.NOT_MATCHED
+            return True
+        if ctx.peek_code(ctx.peek_code(1) + 1) == 1: # 1 == OPCODES["success"]
+            # tail is empty.  we're finished
+            ctx.state.string_position = ctx.string_position
+            ctx.has_matched = ctx.MATCHED
+            return True
+        ctx.state.marks_push()
+        # XXX literal optimization missing here
+
+    # Case 2: Repetition is resumed (aka backtracked)
+    else:
+        if ctx.child_context.has_matched == ctx.MATCHED:
+            ctx.has_matched = ctx.MATCHED
+            return True
+        values = ctx.restore_values()
+        mincount = values[0]
+        count = values[1]
+        ctx.skip_char(-1)
+        count -= 1
+        ctx.state.marks_pop_keep()
+        
+    # Initialize the actual backtracking
+    if count >= mincount:
+        ctx.state.string_position = ctx.string_position
+        ctx.push_new_context(ctx.peek_code(1) + 1)
+        ctx.backup_value(mincount)
+        ctx.backup_value(count)
+        return False
+
+    # Backtracking failed
     ctx.state.marks_pop_discard()
     ctx.has_matched = ctx.NOT_MATCHED
     return True
@@ -527,6 +580,34 @@ def op_groupref_exists(self, ctx):
         ctx.skip_code(3)
     return True
 
+def count_repetitions(space, ctx, maxcount):
+    """Returns the number of repetitions of a single item, starting from the
+    current string position. The code pointer is expected to point to a
+    REPEAT_ONE operation (with the repeated 4 ahead)."""
+    count = 0
+    real_maxcount = ctx.state.end - ctx.string_position
+    if maxcount < real_maxcount and maxcount != MAXREPEAT:
+        real_maxcount = maxcount
+    # XXX could special case every single character pattern here, as in C.
+    # This is a general solution, a bit hackisch, but works and should be
+    # efficient.
+    code_position = ctx.code_position
+    string_position = ctx.string_position
+    ctx.skip_code(4)
+    reset_position = ctx.code_position
+    while count < real_maxcount:
+        # this works because the single character pattern is followed by
+        # a success opcode
+        ctx.code_position = reset_position
+        opcode_dispatch_table[ctx.peek_code()](space, ctx)
+        if ctx.has_matched == ctx.NOT_MATCHED:
+            break
+        count += 1
+    ctx.has_matched = ctx.UNDECIDED
+    ctx.code_position = code_position
+    ctx.string_position = string_position
+    return count
+
 opcode_dispatch_table = [
     op_failure, op_success,
     op_any, op_any_all,
@@ -547,7 +628,7 @@ opcode_dispatch_table = [
     None, #NEGATE,
     None, #RANGE,
     None, #REPEAT,
-    None, #REPEAT_ONE,
+    op_repeat_one,
     None, #SUBPATTERN,
     None, #MIN_REPEAT_ONE
 ]
