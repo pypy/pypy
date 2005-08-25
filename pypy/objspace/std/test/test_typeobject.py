@@ -321,7 +321,7 @@ class AppTestTypeObject:
         class C:
             __metaclass__ = T
         assert d
-        assert sorted(d[0].keys()) == ['__dict__','__metaclass__','__module__']
+        assert sorted(d[0].keys()) == ['__dict__','__doc__','__metaclass__','__module__']
         d = []
         class T(type):
             def mro(cls):
