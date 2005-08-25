@@ -17,6 +17,9 @@ class AppTestBuiltinApp:
     def test_intern(self):
         raises(TypeError, intern)
         raises(TypeError, intern, 1)
+        class S(str):
+            pass
+        raises(TypeError, intern, S("hello"))
         s = "never interned before"
         s2 = intern(s)
         assert s == s2

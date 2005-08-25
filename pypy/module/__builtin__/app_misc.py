@@ -6,10 +6,9 @@ Plain Python definition of some miscellaneous builtin functions.
 _stringtable = {}
 def intern(s):
     # XXX CPython has also non-immortal interned strings
-    if not isinstance(s, str):
+    if not type(s) is str: 
         raise TypeError("intern() argument 1 must be string.")
     return _stringtable.setdefault(s,s)
-
 
 def reload(module):
     import imp, sys, errno
