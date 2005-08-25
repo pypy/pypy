@@ -629,7 +629,7 @@ testmap = [
     RegrTest('test_re.py', enabled=True, core=True),
 
     RegrTest('test_regex.py', enabled=False),
-    RegrTest('test_repr.py', enabled=True, core="ill-defined"),
+    RegrTest('test_repr.py', enabled=True, oldstyle=True, core=True),
         #rev 10840: 6 of 12 tests fail. Always minor stuff like
         #'<function object at 0x40db3e0c>' != '<built-in function hash>'
 
