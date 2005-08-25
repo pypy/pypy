@@ -31,6 +31,10 @@ import symbol
 import token
 import sys
 
+# transforming is requiring a lot of recursion depth so make sure we have enough
+if sys.getrecursionlimit()<5000:
+    sys.setrecursionlimit(5000)
+
 class WalkerError(StandardError):
     pass
 
