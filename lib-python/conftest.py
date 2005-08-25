@@ -879,7 +879,7 @@ class ReallyRunFileExternal(py.test.Item):
         # the regrverbose script now does the logic that CPython
         # uses in its regrtest.py 
         regrrun = str(regr_script)
-        regrrun_verbosity = regrtest.getoutputpath() and '1' or '0'
+        regrrun_verbosity = regrtest.getoutputpath() and '0' or '1'
         
         TIMEOUT = gettimeout()
         cmd = "%s %s %d %s %s %s %s %s" %(
