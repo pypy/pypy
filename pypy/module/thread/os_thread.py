@@ -25,7 +25,6 @@ class Bootstrapper:
             # release ownership of these objects before we release the GIL
             self.args       = None
             self.w_callable = None
-            self.space      = None
             # at this point the thread should only have a reference to
             # an empty 'self'.  We hold the last reference to 'self'; indeed,
             # the parent thread already forgot about it because the above
