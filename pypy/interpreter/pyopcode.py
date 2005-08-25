@@ -5,6 +5,7 @@ pyfastscope.py and pynestedscope.py.
 """
 
 from pypy.interpreter.baseobjspace import OperationError, BaseWrappable
+from pypy.interpreter.baseobjspace import UnpackValueError
 from pypy.interpreter import gateway, function
 from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
@@ -413,8 +414,8 @@ class PyInterpFrame(pyframe.PyFrame):
         w_iterable = f.valuestack.pop()
         try:
             items = f.space.unpackiterable(w_iterable, itemcount)
-        except ValueError, e:
-            raise OperationError(f.space.w_ValueError, f.space.wrap(str(e)))
+        except UnpackValueError, e:
+            raise OperationError(f.space.w_ValueError, f.space.wrap(e.msg))
         items.reverse()
         for item in items:
             f.valuestack.push(item)

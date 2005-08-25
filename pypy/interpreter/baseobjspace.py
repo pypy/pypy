@@ -100,6 +100,12 @@ class ObjSpaceOptions:
     def _freeze_(self): 
         return True
 
+class UnpackValueError(ValueError):
+    def __init__(self, msg):
+        self.msg = msg
+    def __str__(self):
+        return self.msg
+
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://codespeak.net/pypy/index.cgi?doc/objspace.html"""
@@ -322,7 +328,7 @@ class ObjSpace(object):
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable object into a real (interpreter-level) list.
-        Raise a real ValueError if the length is wrong."""
+        Raise a real (subclass of) ValueError if the length is wrong."""
         w_iterator = self.iter(w_iterable)
         items = []
         while True:
@@ -333,7 +339,7 @@ class ObjSpace(object):
                     raise
                 break  # done
             if expected_length != -1 and len(items) == expected_length:
-                raise ValueError, "too many values to unpack"
+                raise UnpackValueError("too many values to unpack")
             items.append(w_item)
         if expected_length != -1 and len(items) < expected_length:
             i = len(items)
@@ -341,7 +347,8 @@ class ObjSpace(object):
                 plural = ""
             else:
                 plural = "s"
-            raise ValueError, "need more than %d value%s to unpack" % (i, plural)
+            raise UnpackValueError("need more than %d value%s to unpack" %
+                                   (i, plural))
         return items
 
     def unpacktuple(self, w_tuple, expected_length=-1):
@@ -349,8 +356,8 @@ class ObjSpace(object):
         Only use for bootstrapping or performance reasons."""
         tuple_length = self.int_w(self.len(w_tuple))
         if expected_length != -1 and tuple_length != expected_length:
-            raise ValueError, "got a tuple of length %d instead of %d" % (
-                tuple_length, expected_length)
+            raise UnpackValueError("got a tuple of length %d instead of %d" % (
+                tuple_length, expected_length))
         items = [
             self.getitem(w_tuple, self.wrap(i)) for i in range(tuple_length)]
         return items
