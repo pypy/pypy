@@ -6,7 +6,7 @@ declare ccc int %puts(sbyte*)
 declare ccc uint %strlen(sbyte*)
 declare ccc int %strcmp(sbyte*, sbyte*)
 declare ccc sbyte* %memset(sbyte*, int, uint)
-
+declare ccc sbyte* %strncpy(sbyte *, sbyte *, int)
 %__print_debug_info         = internal global bool false
 %__print_debug_info_option  = internal constant [19 x sbyte] c"--print-debug-info\\00"
 """

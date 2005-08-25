@@ -38,9 +38,9 @@ internal fastcc sbyte* %gc_malloc_atomic(uint %n) {
 
 extfunctions = {}   #dependencies, llvm-code
 
-import support, ll_os
+import support
 
-for module in (support, ll_os):
+for module in (support,):
     extdeclarations += module.extdeclarations
     extfunctions.update(module.extfunctions)
 extdeclarations += '\n;application function prototypes'
