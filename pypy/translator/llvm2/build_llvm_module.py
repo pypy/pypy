@@ -77,9 +77,10 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
     cmds = ["llvm-as %s.ll" % b]
 
     bcfile = dirpath.join("externs", "externs_linked.bc")
-    cmds.append("llvm-link %s.bc %s -o %s_all.bc" % (b, str(bcfile), b))
-    ball = str(dirpath.join('%s_all.bc' % b))
-    cmds.append("opt %s %s -f -o %s.bc" % (OPTIMIZATION_SWITCHES, ball, b))
+    if bcfile.check(file=1):
+        cmds.append("llvm-link %s.bc %s -o %s_all.bc" % (b, str(bcfile), b))
+        ball = str(dirpath.join('%s_all.bc' % b))
+        cmds.append("opt %s %s -f -o %s.bc" % (OPTIMIZATION_SWITCHES, ball, b))
 
     if False and sys.maxint == 2147483647:        #32 bit platform
         cmds.append("llc %s %s.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b))

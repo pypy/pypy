@@ -182,8 +182,10 @@ class GenLLVM(object):
         math_fns += 'sin sinh sqrt tan tanh frexp modf pow hypot ldexp is_error'
         #XXX
         fns2 = [x[1:] for x in extfuncnode.ExternalFuncNode.used_external_functions.keys()]
-        fns = ["ll_math_is_error"]
-        fns += [('ll_math_%s' % f) for f in math_fns.split() if f in fns2]
+
+        fns = [('ll_math_%s' % f) for f in math_fns.split() if f in fns2]
+        if fns:
+            fns.append("ll_math_is_error")
 
         return get_ll(open(p).read(), extern_dir, fns)
 
