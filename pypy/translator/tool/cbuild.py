@@ -261,3 +261,22 @@ def build_executable(cfilenames, outputfilename=None, include_dirs=None,
                              extra_preargs=extra_preargs)
     return str(outputfilename)
 
+def check_boehm_presence():
+    from pypy.tool.udir import udir
+    try:
+        cfile = udir.join('check_boehm.c')
+        cfname = str(cfile)
+        cfile = cfile.open('w')
+        cfile.write("""
+#include <gc.h>
+
+int main() {
+  return 0;
+}
+""")
+        cfile.close()
+        build_executable([cfname], libraries=['gc'])
+    except:
+        return False
+    else:
+        return True
