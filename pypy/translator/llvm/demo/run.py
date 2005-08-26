@@ -2,7 +2,7 @@ import py
 import os
 import sys
 
-from pypy.translator.llvm2.genllvm import compile_module
+from pypy.translator.llvm.genllvm import compile_module
 from pypy.translator.translator import Translator
 
 def p():

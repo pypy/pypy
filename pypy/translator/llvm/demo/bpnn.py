@@ -211,7 +211,7 @@ def demo():
     return 0
 #_________________________________________________________
 
-from pypy.translator.llvm2.genllvm import compile_function
+from pypy.translator.llvm.genllvm import compile_function
 import py
 
 def test_demo():
@@ -245,5 +245,5 @@ def main_noargs():
     return 0
     
 if __name__ == "__main__":
-    from pypy.translator.llvm2.demo.run import run
+    from pypy.translator.llvm.demo.run import run
     run(main_noargs, "bpnn")

@@ -4,7 +4,7 @@ import autopath
 from sets import Set
 
 from pypy.rpython.module import ll_os   #XXX keep up to date
-from pypy.translator.llvm2.module.extfunction import extfunctions
+from pypy.translator.llvm.module.extfunction import extfunctions
 
 def main():
     seen = Set()

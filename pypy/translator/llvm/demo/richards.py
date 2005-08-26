@@ -422,5 +422,5 @@ def main_noargs():
 
 if __name__ == "__main__":
     import autopath
-    from pypy.translator.llvm2.demo.run import run
+    from pypy.translator.llvm.demo.run import run
     run(main_noargs, "richards")

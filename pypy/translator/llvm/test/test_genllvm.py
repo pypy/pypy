@@ -4,7 +4,7 @@ import sys
 import py
 
 from pypy.rpython.rarithmetic import r_uint
-from pypy.translator.llvm2.genllvm import compile_function
+from pypy.translator.llvm.genllvm import compile_function
 
 py.log.setconsumer("genllvm", py.log.STDOUT)
 py.log.setconsumer("genllvm database prepare", None)

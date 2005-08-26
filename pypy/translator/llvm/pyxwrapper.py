@@ -1,7 +1,7 @@
 import sys
-from pypy.translator.llvm2.log import log 
+from pypy.translator.llvm.log import log 
 from pypy.rpython import lltype 
-from pypy.translator.llvm2.genllvm import use_boehm_gc
+from pypy.translator.llvm.genllvm import use_boehm_gc
 log = log.pyrex 
 
 PRIMITIVES_TO_C = {lltype.Bool: "char",

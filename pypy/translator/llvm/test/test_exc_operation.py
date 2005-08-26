@@ -1,6 +1,6 @@
 import py
 import sys
-from pypy.translator.llvm2.genllvm import compile_function
+from pypy.translator.llvm.genllvm import compile_function
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 
 def test_zerodiv_int():

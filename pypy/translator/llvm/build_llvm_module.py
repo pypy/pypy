@@ -10,8 +10,8 @@ import py
 
 from pypy.translator.tool.cbuild import make_c_from_pyxfile
 from pypy.translator.tool import stdoutcapture
-from pypy.translator.llvm2.genllvm import use_boehm_gc
-from pypy.translator.llvm2.log import log
+from pypy.translator.llvm.genllvm import use_boehm_gc
+from pypy.translator.llvm.log import log
 
 EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support"
 SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([

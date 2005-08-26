@@ -1,6 +1,6 @@
 import py
 from itertools import count
-from pypy.translator.llvm2.log import log 
+from pypy.translator.llvm.log import log 
 
 log = log.codewriter 
 

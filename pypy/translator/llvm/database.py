@@ -1,14 +1,15 @@
 
 import sys
-from pypy.translator.llvm2.log import log 
-from pypy.translator.llvm2.funcnode import FuncNode, FuncTypeNode
-from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
-from pypy.translator.llvm2.structnode import StructNode, StructVarsizeNode, \
+
+from pypy.translator.llvm.log import log 
+from pypy.translator.llvm.funcnode import FuncNode, FuncTypeNode
+from pypy.translator.llvm.extfuncnode import ExternalFuncNode
+from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode
-from pypy.translator.llvm2.arraynode import ArrayNode, StrArrayNode, \
+from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
      VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
-from pypy.translator.llvm2.opaquenode import OpaqueNode, OpaqueTypeNode
-from pypy.translator.llvm2.node import ConstantLLVMNode
+from pypy.translator.llvm.opaquenode import OpaqueNode, OpaqueTypeNode
+from pypy.translator.llvm.node import ConstantLLVMNode
 from pypy.rpython import lltype
 from pypy.objspace.flow.model import Constant, Variable
             

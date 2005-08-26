@@ -1,8 +1,8 @@
 import py
 from pypy.rpython import lltype
-from pypy.translator.llvm2.log import log
-from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
-from pypy.translator.llvm2 import varsize 
+from pypy.translator.llvm.log import log
+from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.llvm import varsize 
 log = log.structnode
 
 class ArrayTypeNode(LLVMNode):

@@ -199,7 +199,7 @@ class Translator:
         
         Returns LLVM translation.
         """
-        from pypy.translator.llvm2 import genllvm
+        from pypy.translator.llvm import genllvm
         if self.annotator is None:
             raise ValueError, "function has to be annotated."
         gen = genllvm.GenLLVM(self)
@@ -280,7 +280,7 @@ class Translator:
         
         Returns LLVM translation with or without optimization.
         """
-        from pypy.translator.llvm2 import genllvm
+        from pypy.translator.llvm import genllvm
         if self.annotator is None:
             raise ValueError, "function has to be annotated."
         if standalone:

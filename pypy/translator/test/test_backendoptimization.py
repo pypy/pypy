@@ -4,7 +4,7 @@ from pypy.rpython.lltype import Void
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
 from pypy.translator.test.snippet import simple_method
-from pypy.translator.llvm2.log import log
+from pypy.translator.llvm.log import log
 
 import py
 log = py.log.Producer('test_backendoptimization')

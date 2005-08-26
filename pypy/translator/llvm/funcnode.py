@@ -4,9 +4,9 @@ from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_excepti
 from pypy.rpython import lltype
 from pypy.translator.backendoptimization import remove_same_as 
 from pypy.translator.unsimplify import remove_double_links                     
-from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
-from pypy.translator.llvm2.opwriter import OpWriter
-from pypy.translator.llvm2.log import log 
+from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.llvm.opwriter import OpWriter
+from pypy.translator.llvm.log import log 
 log = log.funcnode
 
 class FuncTypeNode(LLVMNode):

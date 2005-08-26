@@ -1,9 +1,9 @@
 import py
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
-from pypy.translator.llvm2.module.extfunction import extfunctions
-from pypy.translator.llvm2.extfuncnode import ExternalFuncNode
-from pypy.translator.llvm2.log import log 
+from pypy.translator.llvm.module.extfunction import extfunctions
+from pypy.translator.llvm.extfuncnode import ExternalFuncNode
+from pypy.translator.llvm.log import log 
 log = log.opwriter
 
 class OpWriter(object):

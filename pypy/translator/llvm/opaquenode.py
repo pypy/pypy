@@ -1,4 +1,4 @@
-from pypy.translator.llvm2.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.rpython import lltype
 
 class OpaqueTypeNode(LLVMNode):

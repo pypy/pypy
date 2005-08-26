@@ -3,8 +3,8 @@ import py
 
 from pypy.rpython import lltype
 
-from pypy.translator.llvm2.genllvm import compile_function
-from pypy.translator.llvm2 import database, codewriter
+from pypy.translator.llvm.genllvm import compile_function
+from pypy.translator.llvm import database, codewriter
 from pypy.rpython import rarithmetic 
 
 py.log.setconsumer("genllvm", py.log.STDOUT)

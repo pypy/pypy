@@ -3,8 +3,8 @@ import py
 
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import Constant, Variable
-from pypy.translator.llvm2.genllvm import compile_function
-from pypy.translator.llvm2.test import llvmsnippet
+from pypy.translator.llvm.genllvm import compile_function
+from pypy.translator.llvm.test import llvmsnippet
 
 class TestLLVMArray(object):
     def test_array(self):

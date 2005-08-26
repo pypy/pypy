@@ -1,6 +1,6 @@
 import py
 
-from pypy.translator.llvm2.genllvm import compile_function
+from pypy.translator.llvm.genllvm import compile_function
 from pypy.translator.test.snippet import try_raise_choose
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 
