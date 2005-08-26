@@ -693,16 +693,24 @@ class PyInterpFrame(pyframe.PyFrame):
     def EXTENDED_ARG(f, oparg):
         opcode = f.nextop()
         oparg = oparg<<16 | f.nextarg()
-        fn = f.dispatch_table_w_arg[opcode]        
+        fn = f.dispatch_table_w_arg[opcode]
         if fn is None:
-            raise pyframe.BytecodeCorruption            
+            raise pyframe.BytecodeCorruption
         fn(f, oparg)
 
     def MISSING_OPCODE(f):
-        raise pyframe.BytecodeCorruption, "unknown opcode"
+        ofs = f.next_instr - 1
+        c = f.pycode.co_code[ofs]
+        name = f.pycode.co_name
+        raise pyframe.BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
+                                           (ofs, ord(c), name) )
 
     def MISSING_OPCODE_W_ARG(f, oparg):
-        raise pyframe.BytecodeCorruption, "unknown opcode"
+        ofs = f.next_instr - 3
+        c = f.pycode.co_code[ofs]
+        name = f.pycode.co_name
+        raise pyframe.BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
+                                           (ofs, ord(c), name) )
 
     ### dispatch_table ###
 
@@ -745,7 +753,7 @@ class PyInterpFrame(pyframe.PyFrame):
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
-# parts of the code needs to do the same thing as a non-trivial opcode,
+# parts of the code need to do the same thing as a non-trivial opcode,
 # like finding out which metaclass a new class should have.
 # This is why they are not methods of PyInterpFrame.
 # There are also a couple of helpers that are methods, defined in the
