@@ -28,8 +28,8 @@ Command-line options for translate_pypy:
    -d         Enable recording of annotator debugging information
    -huge=%    Threshold in the number of functions after which only a local call
               graph and not a full one is displayed
-   -no-snapshot
-              Don't redirect imports to the translation snapshot
+   -use-snapshot
+              Redirect imports to the translation snapshot
    -save filename
               saves the translator to a file. The file type can either
               be .py or .zip (recommended).
@@ -47,7 +47,7 @@ Command-line options for translate_pypy:
 """
 import autopath, sys, os
 
-if '-no-snapshot' not in sys.argv:
+if '-use-snapshot' in sys.argv:
     # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     basedir = autopath.this_dir
 
@@ -55,7 +55,7 @@ if '-no-snapshot' not in sys.argv:
 
     if not os.path.isdir(pypy_translation_snapshot_dir):
         print """
-    Translation is performed on a specific revision of PyPy which lives on
+    Translation will be performed on a specific revision of PyPy which lives on
     a branch. This needs to be checked out into translator/goal with:
 
     svn co http://codespeak.net/svn/pypy/branch/pypy-translation-snapshot
@@ -352,7 +352,7 @@ if __name__ == '__main__':
                '-no-o': False,
                '-tcc':  False,
                '-d': False,
-               '-no-snapshot' : False,
+               '-use-snapshot' : False,
                '-load': False,
                '-save': False,
                '-fork': False,
