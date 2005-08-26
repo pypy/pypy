@@ -99,15 +99,6 @@ def stat(space, path):
         return build_stat_result(space, st)
 stat.unwrap_spec = [ObjSpace, str]
 
-def getcwd(space):
-    try:
-        cur = os.getcwd()
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-    else: 
-        return space.wrap(cur)
-getcwd.unwrap_spec = [ObjSpace]
-
 def dup(space, fd):
     try:
         newfd = os.dup(fd)
@@ -148,3 +139,42 @@ Remove a file (same as unlink(path))."""
     except OSError, e: 
         raise wrap_oserror(space, e) 
 remove.unwrap_spec = [ObjSpace, str]
+
+def getcwd(space):
+    try:
+        cur = os.getcwd()
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+    else: 
+        return space.wrap(cur)
+getcwd.unwrap_spec = [ObjSpace]
+
+def chdir(space, path):
+    """chdir(path)
+
+Change the current working directory to the specified path."""
+    try:
+        os.chdir(path)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+chdir.unwrap_spec = [ObjSpace, str]
+
+def mkdir(space, path, mode=0777):
+    """mkdir(path [, mode=0777])
+
+Create a directory."""
+    try:
+        os.mkdir(path, mode)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+mkdir.unwrap_spec = [ObjSpace, str, int]
+
+def rmdir(space, path):
+    """rmdir(path)
+
+Remove a directory."""
+    try:
+        os.rmdir(path)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+rmdir.unwrap_spec = [ObjSpace, str]

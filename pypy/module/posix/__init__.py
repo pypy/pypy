@@ -27,22 +27,16 @@ corresponding Unix manual entries for more information on calls."""
     'system'    : 'interp_posix.system',
     'unlink'    : 'interp_posix.unlink',
     'remove'    : 'interp_posix.remove',
+    'getcwd'    : 'interp_posix.getcwd',
+    'chdir'     : 'interp_posix.chdir',
+    'mkdir'     : 'interp_posix.mkdir',
+    'rmdir'     : 'interp_posix.rmdir',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
 
 
-for constant in ['EX_CANTCREAT', 'EX_CONFIG', 'EX_DATAERR', 'EX_IOERR',
-                 'EX_NOHOST', 'EX_NOINPUT', 'EX_NOPERM', 'EX_NOUSER',
-                 'EX_OK', 'EX_OSERR', 'EX_OSFILE', 'EX_PROTOCOL',
-                 'EX_SOFTWARE', 'EX_TEMPFAIL', 'EX_UNAVAILABLE', 'EX_USAGE',
-                 'F_OK', 'NGROUPS_MAX', 'O_APPEND', 'O_CREAT', 'O_DIRECT',
-                 'O_DIRECTORY', 'O_DSYNC', 'O_EXCL', 'O_LARGEFILE', 'O_NDELAY',
-                 'O_NOCTTY', 'O_NOFOLLOW', 'O_NONBLOCK', 'O_RDONLY', 'O_RDWR',
-                 'O_RSYNC', 'O_SYNC', 'O_TRUNC', 'O_WRONLY', 'R_OK', 'TMP_MAX',
-                 'WCONTINUED', 'WNOHANG', 'WUNTRACED', 'W_OK', 'X_OK']:
-    try:
-        Module.interpleveldefs[constant] = ("space.wrap(%s)" %
-                                            (getattr(os, constant), ))
-    except AttributeError:
-        pass
+for constant in dir(os):
+    value = getattr(os, constant)
+    if constant.isupper() and type(value) is int:
+        Module.interpleveldefs[constant] = "space.wrap(%s)" % value
