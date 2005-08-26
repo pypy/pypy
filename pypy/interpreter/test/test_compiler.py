@@ -47,6 +47,8 @@ class BaseTestCompiler:
             space = self.space
             space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
                            'if 1:\n  x x', '?', mode, 0)
+            space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
+                           ')', '?', mode, 0)
 
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',

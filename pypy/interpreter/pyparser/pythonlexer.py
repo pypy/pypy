@@ -273,6 +273,9 @@ def generate_tokens(lines, flags):
                         parenlev = parenlev + 1
                     elif initial in ')]}':
                         parenlev = parenlev - 1
+                        if parenlev < 0:
+                            raise TokenError("unmatched '%s'" % initial, line,
+                                             (lnum-1, 0), token_list)
                     if token in pytoken.tok_punct:
                         tok = Token(pytoken.tok_punct[token])
                     else:
