@@ -1170,9 +1170,7 @@ How it works
 XXX to be added later
 
 
-
-.. include:: _ref.txt
-
+.. _extfunccalls:
 
 External Function Calls
 =======================
@@ -1363,3 +1361,6 @@ One test for all this can be found in
 .. _`mixed posix module`: ../module/posix/
 .. _`pypy/rpython/module/ll_os.py`: ../rpython/module/ll_os.py
 .. _`pypy/translator/c/src/ll_os.h`: ../translator/c/src/ll_os.h
+
+
+.. include:: _ref.txt

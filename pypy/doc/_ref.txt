@@ -50,5 +50,5 @@
 .. _`pypy/translator/annrpython.py`: ../../pypy/translator/annrpython.py
 .. _`translator/c/`: ../../pypy/translator/c
 .. _`translator/java/`: ../../pypy/translator/java
-.. _`translator/llvm2/`: ../../pypy/translator/llvm2
+.. _`translator/llvm/`: ../../pypy/translator/llvm
 .. _`translator/tool/`: ../../pypy/translator/tool
