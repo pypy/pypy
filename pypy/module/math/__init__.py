@@ -6,9 +6,6 @@ class Module(MixedModule):
     appleveldefs = {
     }
 
-    # XXX the reason for the commented out names 
-    #     is that we need to add support to
-    #     extfunctable/translation
     interpleveldefs = {
        'e'              : 'interp_math.get(space).w_e', 
        'pi'             : 'interp_math.get(space).w_pi', 
