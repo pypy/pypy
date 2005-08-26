@@ -951,7 +951,7 @@ code from flowgraphs is similar to the `Python back-end`_.
 The LLVM Back-End
 =================
 
-http://codespeak.net/svn/pypy/dist/pypy/translator/llvm2/
+http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/
 
 XXX to be written
 
