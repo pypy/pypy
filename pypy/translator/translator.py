@@ -275,7 +275,7 @@ class Translator:
         else:
             return genc.CExtModuleBuilder(self, gcpolicy=gcpolicy)
 
-    def llvmcompile(self, really_compile=True, standalone=False, optimize=True):
+    def llvmcompile(self, really_compile=True, standalone=False, optimize=True, exe_name=None):
         """llvmcompile(self, really_compile=True, standalone=False, optimize=True) -> LLVM translation
         
         Returns LLVM translation with or without optimization.
@@ -284,7 +284,8 @@ class Translator:
         if self.annotator is None:
             raise ValueError, "function has to be annotated."
         if standalone:
-            exe_name = self.entrypoint.__name__
+            if not exe_name:
+                exe_name = self.entrypoint.__name__
         else:
             exe_name = None
         self.frozen = True
