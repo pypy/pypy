@@ -528,6 +528,64 @@ def op_repeat_one(space, ctx):
     ctx.has_matched = ctx.NOT_MATCHED
     return True
 
+def op_min_repeat_one(space, ctx):
+    # match repeated sequence (minimizing)
+    # <MIN_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
+    
+    # Case 1: First entry point
+    if not ctx.is_resumed():
+        mincount = ctx.peek_code(2)
+        maxcount = ctx.peek_code(3)
+        if ctx.remaining_chars() < mincount:
+            ctx.has_matched = ctx.NOT_MATCHED
+            return True
+        ctx.state.string_position = ctx.string_position
+        if mincount == 0:
+            count = 0
+        else:
+            count = count_repetitions(space, ctx, mincount)
+            if count < mincount:
+                ctx.has_matched = ctx.NOT_MATCHED
+                return True
+            ctx.skip_char(count)
+        if ctx.peek_code(ctx.peek_code(1) + 1) == 1: # OPCODES["success"]
+            # tail is empty.  we're finished
+            ctx.state.string_position = ctx.string_position
+            ctx.has_matched = ctx.MATCHED
+            return True
+        ctx.state.marks_push()
+
+    # Case 2: Repetition resumed, "forwardtracking"
+    else:
+        if ctx.child_context.has_matched == ctx.MATCHED:
+            ctx.has_matched = ctx.MATCHED
+            return True
+        values = ctx.restore_values()
+        maxcount = values[0]
+        count = values[1]        
+        ctx.state.string_position = ctx.string_position
+        if count_repetitions(space, ctx, 1) == 0:
+            # Tail didn't match and no more repetitions --> fail
+            ctx.state.marks_pop_discard()
+            ctx.has_matched = ctx.NOT_MATCHED
+            return True
+        ctx.skip_char(1)
+        count += 1
+        ctx.state.marks_pop_keep()
+
+    # Try to match tail
+    if maxcount == MAXREPEAT or count <= maxcount:
+        ctx.state.string_position = ctx.string_position
+        ctx.push_new_context(ctx.peek_code(1) + 1)
+        ctx.backup_value(maxcount)
+        ctx.backup_value(count)
+        return False
+
+    # Failed
+    ctx.state.marks_pop_discard()
+    ctx.has_matched = ctx.NOT_MATCHED
+    return True
+
 def op_jump(space, ctx):
     # jump forward
     # <JUMP>/<INFO> <offset>
@@ -630,7 +688,7 @@ opcode_dispatch_table = [
     None, #REPEAT,
     op_repeat_one,
     None, #SUBPATTERN,
-    None, #MIN_REPEAT_ONE
+    op_min_repeat_one,
 ]
 
 

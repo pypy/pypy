@@ -454,50 +454,6 @@ class _OpcodeDispatcher(_Dispatcher):
             self.executing_contexts[id(context)] = generator
         return has_finished
 
-    def op_min_repeat_one(self, ctx):
-        # match repeated sequence (minimizing)
-        # <MIN_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
-        mincount = ctx.peek_code(2)
-        maxcount = ctx.peek_code(3)
-        #self._log(ctx, "MIN_REPEAT_ONE", mincount, maxcount)
-
-        if ctx.remaining_chars() < mincount:
-            ctx.has_matched = NOT_MATCHED
-            yield True
-        ctx.state.string_position = ctx.string_position
-        if mincount == 0:
-            count = 0
-        else:
-            count = self.count_repetitions(ctx, mincount)
-            if count < mincount:
-                ctx.has_matched = NOT_MATCHED
-                yield True
-            ctx.skip_char(count)
-        if ctx.peek_code(ctx.peek_code(1) + 1) == OPCODES["success"]:
-            # tail is empty.  we're finished
-            ctx.state.string_position = ctx.string_position
-            ctx.has_matched = MATCHED
-            yield True
-
-        ctx.state.marks_push()
-        while maxcount == MAXREPEAT or count <= maxcount:
-            ctx.state.string_position = ctx.string_position
-            child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
-            yield False
-            if child_context.has_matched == MATCHED:
-                ctx.has_matched = MATCHED
-                yield True
-            ctx.state.string_position = ctx.string_position
-            if self.count_repetitions(ctx, 1) == 0:
-                break
-            ctx.skip_char(1)
-            count += 1
-            ctx.state.marks_pop_keep()
-
-        ctx.state.marks_pop_discard()
-        ctx.has_matched = NOT_MATCHED
-        yield True
-
     def op_repeat(self, ctx):
         # create repeat context.  all the hard work is done by the UNTIL
         # operator (MAX_UNTIL, MIN_UNTIL)
