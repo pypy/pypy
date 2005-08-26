@@ -10,7 +10,7 @@ Command-line options for translate_pypy:
               targetspec.py is a python file defining
               what is the translation target and setting things up for it,
               it should have a target function returning an entry_point ...;
-              defaults to targetpypymain. The .py suffix is optional.
+              defaults to targetpypystandalone. The .py suffix is optional.
    -text      Don't start the Pygame viewer
    -no-a      Don't infer annotations, just translate everything
    -no-t      Don't type-specialize the graph operations with the C typer
@@ -334,7 +334,7 @@ def run_server():
 
 if __name__ == '__main__':
 
-    targetspec = 'targetpypymain'
+    targetspec = 'targetpypystandalone'
     huge = 100
     load_file = None
     save_file = None
