@@ -52,8 +52,8 @@ class Module(MixedModule):
         'version_info'          : 'space.wrap((2,4,1, "alpha", 42))', 
         'version'               : 'space.wrap("2.4.1 (pypy1 build)")', 
         'hexversion'            : 'space.wrap(0x020401a0)', 
-        'ps1'                   : 'space.wrap(">>>>")', 
-        'ps2'                   : 'space.wrap("....")', 
+        'ps1'                   : 'space.wrap(">>>> ")', 
+        'ps2'                   : 'space.wrap(".... ")', 
 
         'displayhook'           : 'hook.displayhook', 
         '__displayhook__'       : 'hook.__displayhook__', 
