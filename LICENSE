@@ -1,9 +1,9 @@
-License for files in the pypy and py directory 
-============================================== 
+License for files in the pypy/ directory 
+==================================================
 
 Except when otherwise stated (look for LICENSE files in directories or
 information at the beginning of each file) all software and
-documentation in the 'pypy' and 'py' directories is licensed as follows: 
+documentation in the 'pypy' directories is licensed as follows: 
 
     The MIT License
 
@@ -37,37 +37,24 @@ copyrighted by one or more of the following people and organizations:
     Armin Rigo <arigo@tunes.org>
     Samuele Pedroni <pedronis@strakt.com>
     Holger Krekel <hpk@trillke.net>
-    Michael Hudson <mwh@python.net>
     Christian Tismer <tismer@tismer.com>
+    Michael Hudson <mwh@python.net>
+    Carl Friedrich Bolz <cfbolz@gmx.de>
+    Eric van Riet Paap <eric@vanrietpaap.nl>
+    Richard Emslie <rxe@ukshells.co.uk>
+    Anders Chrigstrom <ac@strakt.com>
     Seo Sanghyeon <sanxiyn@gmail.com>
     Alex Martelli <aleaxit@yahoo.com>
-    Stefan Schwarzer <sschwarzer@sschwarzer.de>
-    Patrick Maupin <pmaupin@speakeasy.net>
-    Carl Friedrich Bolz <cfbolz@gmx.de>
-    Bob Ippolito <bob@redivi.com>
-    Anders Chrigstrom <ac@strakt.com>
-    Jacob Hallen <jacob@strakt.com>
-    Marius Gedminas <mgedmin@b4net.lt>
-    Laura Creighton <lac@strakt.com>
-    Guido van Rossum <guido@python.org>
-    Richard Emslie <rxe@ukshells.co.uk>
-    Ludovic Aubry <ludovic.aubry@logilab.fr>
-    Adrien Di Mascio <adim@logilab.fr>
-    Stephan Diehl <>
-    Dinu Gherman <gherman@darwin.in-berlin.de>
-    Guenter Jantzen <Guenter.Jantzen@t-mobile.de>
     Anders Lehmann <serendipity-soft@get2net.dk>
-    Rocco Moretti <roccomoretti@hotpop.com>
-    Olivier Dormond <olivier.dormond@gmail.com>
-    Brian Dorsey <briandorsey@gmail.com>
-    Jonathan David Riehl <jriehl@spaceship.com>
-    Andreas Friedge <andreas@trillke.net>
-    Jens-Uwe Mager <jum@anubis.han.de>
-    Alan McIntyre <alan.mcintyre@esrgtech.com>
-    Lutz Paelike <lutz_p@gmx.net>
-    Jacek Generowicz <jacek.generowicz@cern.ch>
-    Ben Young <ben@transversal.com>
-    Michael Chermside <mcherm@mcherm.com>
+    Patrick Maupin <pmaupin@speakeasy.net>
+    Ludovic Aubry <ludovic.aubry@logilab.fr>
+    Bob Ippolito <bob@redivi.com>
+    Adrien Di Mascio <adim@logilab.fr>
+    Jacob Hallen <jacob@strakt.com>
+    Laura Creighton <lac@strakt.com>
+    Marius Gedminas <mgedmin@b4net.lt>
+    Niklaus Haldimann <nhaldimann@gmx.ch>
+    Guido van Rossum <guido@python.org>
 
     Heinrich-Heine University, Germany 
     AB Strakt, Sweden  
@@ -77,31 +64,12 @@ copyrighted by one or more of the following people and organizations:
     DFKI GmbH, Germany 
 
  
-py lib Copyright holders, 2003-2005 
------------------------------------ 
-
-Except when otherwise stated (look for LICENSE files or information at
-the beginning of each file) the files in the 'py' directory are
-copyrighted by one or more of the following people and organizations:    
-
-    Holger Krekel <hpk@trillke.net>
-    merlinux GmbH, Germany <office@merlinux.de>
-    Armin Rigo <arigo@tunes.org>
-    Jan Balster <jan@balster.info>
-
-Contributors include:: 
-
-    Ian Bicking <ianb@colorstudy.com>
-    Grig Gheorghiu <grig@gheorghiu.net>
-    Bob Ippolito <bob@redivi.com>
-
-
-License for 'lib-python/2.3.4' and 'lib-python/2.3.4-modified'
+License for 'lib-python/2.4.1' and 'lib-python/2.4.1-modified'
 ============================================================== 
 
-Except when otherwise stated (look for LICENSE files or information at
-the beginning of each file) the files in the 'lib-python/2.3.4' 
-and 'lib-python/2.3.4-modified' directories are all copyrighted
-by the Python Software Foundation and licensed under the Python 
-Software License of which you can find a copy here:  
+Except when otherwise stated (look for LICENSE files or
+copyright/license information at the beginning of each file) the files
+in the 'lib-python/2.4.1' and 'lib-python/2.4.1-modified' directories
+are all copyrighted by the Python Software Foundation and licensed under
+the Python Software License of which you can find a copy here:
 http://www.python.org/doc/Copyright.html 

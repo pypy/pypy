@@ -26,6 +26,9 @@ items.sort(lambda x,y: -cmp(x[1], y[1]))
 import uconf # http://codespeak.net/svn/uconf/dist/uconf 
 
 for author, count in items: 
-    realname = uconf.system.User(author).realname  # only works on codespeak 
-    print "   ", realname 
+    user = uconf.system.User(author)
+    realname = user.realname 
+    email = user.email 
+    #print "%5d" % count, "   ", realname, "<%s>" % email 
+    print "   ", realname, "<%s>" % email 
 
