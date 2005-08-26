@@ -1,5 +1,6 @@
 from pypy.objspace.std import StdObjSpace 
 from pypy.tool.udir import udir
+import os
 
 def setup_module(mod): 
     mod.space = StdObjSpace(usemodules=['posix'])
@@ -9,7 +10,7 @@ def setup_module(mod):
 class AppTestPosix: 
     def setup_class(cls): 
         cls.space = space 
-        cls.w_posix = space.appexec([], "(): import posix ; return posix")
+        cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
         cls.w_path = space.wrap(str(path))
     
     def test_posix_is_pypy_s(self): 

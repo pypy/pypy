@@ -1,6 +1,7 @@
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.tool.udir import udir 
-import os, posix
+import os
+exec 'import %s as posix' % os.name
 
 def setup_module(module):
     testf = udir.join('test.txt')
@@ -99,4 +100,6 @@ def test_ftruncate():
     fi = os.open(path,os.O_RDWR,0777)
     func = interpret(f,[fi,6]) 
     assert os.fstat(fi).st_size == 6
-    
+
+if not hasattr(os, 'ftruncate'):
+    del test_ftruncate

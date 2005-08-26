@@ -6,6 +6,7 @@ from pypy.interpreter.pycompiler import PythonCompiler, PyPyCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache 
 from pypy.rpython.rarithmetic import r_uint, intmask
+import os
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
            'W_Root']
@@ -190,6 +191,9 @@ class ObjSpace(object):
         # that differs from the app-visible name (because you 
         # can specify implementation variants)
         builtinmodule_list = [(x, None) for x in modules]
+        bml = builtinmodule_list
+        if ('posix', None) in bml:
+            bml[bml.index( ('posix', None) )] = (os.name, 'posix')
         if self.options.parser == "pypy":
             builtinmodule_list.append(('parser', 'recparser'))
             builtinmodule_list.append(('symbol', None))
