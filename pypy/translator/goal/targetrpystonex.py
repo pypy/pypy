@@ -18,7 +18,7 @@ def make_target_definition(LOOPS):
         g.PtrGlbNext = None
         return rpystone.pystones(loops), id(g)
 
-    def target():
+    def target(*args):
         return entry_point, [int]
     
     def run(c_entry_point):

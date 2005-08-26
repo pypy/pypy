@@ -49,18 +49,15 @@ def entry_point(argvstring):
 
 # _____ Define and setup target ___
 
-def target():
+def target(geninterp=True):
     global space, w_entry_point
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
-    # disable geninterp for now -- we have faaar toooo much interp-level code
-    # for the poor translator already
-    # XXX why can't I enable this? crashes the annotator!
     space = StdObjSpace(nofaking=True,
                         compiler="pyparseapp",
                         translating=True,
-                        #usemodules=['marhsal', '_sre'],
-                        geninterp=False)
+                        #usemodules=['marshal', '_sre'],
+                        geninterp=geninterp)
 
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')

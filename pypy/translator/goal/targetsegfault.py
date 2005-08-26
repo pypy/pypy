@@ -4,7 +4,7 @@ def getitem(list, index):
 def entry_point(i):
     return getitem([i, 2, 3, 4], 2) + getitem(None, i)
 
-def target():
+def target(*args):
     return entry_point, [int]
 
 def get_llinterp_args():

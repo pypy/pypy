@@ -4,7 +4,7 @@ entry_point = richards.entry_point
 
 # _____ Define and setup target ___
 
-def target():
+def target(*args):
     return entry_point, []
 
 def get_llinterp_args():
