@@ -375,10 +375,6 @@ class GenLLVM(object):
                       optimize=True,
                       exe_name=None):
 
-        if not llvm_is_on_path():
-            # XXX not good to call py.test.skip here
-            py.test.skip("llvm not found")
-
         if standalone:
             return build_llvm_module.make_module_from_llvm(filename,
                                                            optimize=optimize,
@@ -396,6 +392,10 @@ class GenLLVM(object):
         codewriter.append("declare int %printf(sbyte*, ...)")
 
 def genllvm(translator, log_source=False, **kwds):
+    if not llvm_is_on_path():
+        # XXX not good to call py.test.skip here
+        py.test.skip("llvm not found")
+
     gen = GenLLVM(translator)
     filename = gen.gen_llvm_source()
     if log_source:
