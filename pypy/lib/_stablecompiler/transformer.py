@@ -981,6 +981,9 @@ class Transformer:
 
     def com_assign_tuple(self, node, assigning):
         assigns = []
+        if len(node)>=3:
+            if node[2][0] == symbol.gen_for:
+                raise SyntaxError("assign to generator expression not possible")
         for i in range(1, len(node), 2):
             assigns.append(self.com_assign(node[i], assigning))
         return AssTuple(assigns, lineno=extractLineNo(node))
