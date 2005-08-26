@@ -1258,7 +1258,7 @@ under a fixed name the function ``predeclare_common_types`` needs to be
 changed. This function is a generator that yields tuples of the form
 ``('c_name', LLTYPE)``. This makes the genc assign the name ``c_name`` to the
 type ``LLTYPE``. Similarly all the function defined in
-``predeclare_utility_functions`` are automacially made accessible under their
+``predeclare_utility_functions`` are automatically made accessible under their
 name in C.
 
 .. _`pypy/translator/c/extfunc.py`: ../translator/c/extfunc.py
