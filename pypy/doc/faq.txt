@@ -14,12 +14,12 @@ How fast is PyPy?
 
 Why is PyPy so slow?
 
-    Our translation process does not try to optimize the produced 
-    code very much.  So far the project has been focused on 
-    getting a well tested very compliant self-contained PYthon 
-    static implementation.  During 2005 and 2006 we are targetting 
-    optimizations at various levels. If you then still think 
-    that PyPy is slow then we will have to find a better answer :-) 
+    Our translation process does not try to optimize the produced code
+    very much.  So far the project has been focused on getting a well
+    tested very compliant self-contained static Python implementation.
+    During end 2005 and 2006 we are targetting optimizations at various 
+    levels.  If you then still think that PyPy is slow then we will 
+    have to find a better answer :-) 
 
 What is RPython? 
 
