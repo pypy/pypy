@@ -15,7 +15,7 @@ getting & running the PyPy 0.7 release
 
 Download one of the following release files and unpack it: 
 
-*pypy-0.7
+*pypy-0.7*
     
   * download one of `pypy-0.7.0.tar.bz2`_, `pypy-0.7.0.tar.gz`_ or
     `pypy-0.7.0.zip`_ (windows line-endings) and unpack it 
