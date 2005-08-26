@@ -233,7 +233,7 @@ def test_demo():
     print "compared to", t2
     print "a speed-up of", t2/t1
     
-def main():
+def main_noargs():
     T = time.time()
     os.write(1, 'Running...\n')
 
@@ -246,4 +246,4 @@ def main():
     
 if __name__ == "__main__":
     from pypy.translator.llvm2.demo.run import run
-    run(main, "bpnn")
+    run(main_noargs, "bpnn")

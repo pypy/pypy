@@ -1,12 +1,11 @@
 
 extdeclarations = """
-declare ccc double %pow(double, double)
-declare ccc double %fmod(double, double)
 declare ccc int %puts(sbyte*)
 declare ccc uint %strlen(sbyte*)
 declare ccc int %strcmp(sbyte*, sbyte*)
 declare ccc sbyte* %memset(sbyte*, int, uint)
 declare ccc sbyte* %strncpy(sbyte *, sbyte *, int)
+
 %__print_debug_info         = internal global bool false
 %__print_debug_info_option  = internal constant [19 x sbyte] c"--print-debug-info\\00"
 """
@@ -53,7 +52,7 @@ extfunctions["%RPyString_FromString"] = ((), """
 internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     %lenu      = call ccc uint %strlen(sbyte* %s)
     %len       = cast uint %lenu to int
-    %rpy       = call fastcc %RPyString* %RPyString_New__Signed(int %len)
+    %rpy       = call fastcc %RPyString* %pypy_RPyString_New__Signed(int %len)
     %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
     %rpystr    = cast [0 x sbyte]* %rpystrptr to sbyte*
 
@@ -115,7 +114,7 @@ for exc in "IOError ZeroDivisionError OverflowError ValueError".split():    #_ZE
     extfunctions["%%prepare_and_raise_%(exc)s" % locals()] = ((), """
 internal fastcc void %%prepare_and_raise_%(exc)s(sbyte* %%msg) {
     ;XXX %%msg not used right now!
-    %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%instantiate_%(exc)s()
+    %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%pypy_instantiate_%(exc)s()
     %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
     %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
     store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
@@ -267,10 +266,10 @@ return_block:
 }
 """ % locals())
 
-extfunctions["%main"] = ((), """
+extfunctions["%main"] = [(), """
 int %main(int %argc, sbyte** %argv) {
 entry:
-    %pypy_argv = call fastcc %RPyListOfString* %ll_newlist__listPtrConst_Signed.2(int 0)
+    %pypy_argv = call fastcc %RPyListOfString* %pypy_ll_newlist__listPtrConst_Signed(int 0)
     br label %no_exit
 
 no_exit:
@@ -290,7 +289,80 @@ debugging:
 
 not_debugging:
     %rpy = call fastcc %RPyString* %RPyString_FromString(sbyte* %tmp.9)
-    call fastcc void %ll_append__listPtr_rpy_stringPtr(%RPyListOfString* %pypy_argv, %RPyString* %rpy)
+    call fastcc void %pypy_ll_append__listPtr_rpy_stringPtr(%RPyListOfString* %pypy_argv, %RPyString* %rpy)
+    br label %next_arg
+
+next_arg:
+    %inc = add int %i.0.0, 1
+    %tmp.2 = setlt int %inc, %argc
+    %indvar.next = add uint %indvar, 1
+    br bool %tmp.2, label %no_exit, label %loopexit
+
+loopexit:
+    %ret  = call fastcc int %pypy_entry_point(%structtype.list* %pypy_argv)
+    ret int %ret
+}
+"""]
+
+extfunctions["%main_noargs"] = [(), """
+int %main(int %argc, sbyte** %argv) {
+entry:
+    br label %no_exit
+
+no_exit:
+    %indvar = phi uint [ %indvar.next, %next_arg ], [ 0, %entry ]
+    %i.0.0 = cast uint %indvar to int
+    %tmp.8 = getelementptr sbyte** %argv, uint %indvar
+    %tmp.9 = load sbyte** %tmp.8
+
+    %t    = getelementptr [19 x sbyte]* %__print_debug_info_option, int 0, int 0
+    %res  = call ccc int %strcmp(sbyte* %tmp.9, sbyte* %t)
+    %cond = seteq int %res, 0
+    br bool %cond, label %debugging, label %not_debugging
+
+debugging:
+    store bool true, bool* %__print_debug_info
+    br label %next_arg
+
+not_debugging:
+    br label %next_arg
+
+next_arg:
+    %inc = add int %i.0.0, 1
+    %tmp.2 = setlt int %inc, %argc
+    %indvar.next = add uint %indvar, 1
+    br bool %tmp.2, label %no_exit, label %loopexit
+
+loopexit:
+    %ret  = call fastcc int %pypy_main_noargs()
+    ret int %ret
+}
+"""]
+
+extfunctions["%main"] = [(), """
+int %main(int %argc, sbyte** %argv) {
+entry:
+    %pypy_argv = call fastcc %RPyListOfString* %pypy_ll_newlist__listPtrConst_Signed(int 0)
+    br label %no_exit
+
+no_exit:
+    %indvar = phi uint [ %indvar.next, %next_arg ], [ 0, %entry ]
+    %i.0.0 = cast uint %indvar to int
+    %tmp.8 = getelementptr sbyte** %argv, uint %indvar
+    %tmp.9 = load sbyte** %tmp.8
+
+    %t    = getelementptr [19 x sbyte]* %__print_debug_info_option, int 0, int 0
+    %res  = call ccc int %strcmp(sbyte* %tmp.9, sbyte* %t)
+    %cond = seteq int %res, 0
+    br bool %cond, label %debugging, label %not_debugging
+
+debugging:
+    store bool true, bool* %__print_debug_info
+    br label %next_arg
+
+not_debugging:
+    %rpy = call fastcc %RPyString* %RPyString_FromString(sbyte* %tmp.9)
+    call fastcc void %pypy_ll_append__listPtr_rpy_stringPtr(%RPyListOfString* %pypy_argv, %RPyString* %rpy)
     br label %next_arg
 
 next_arg:
@@ -301,7 +373,7 @@ next_arg:
 
 loopexit:
 
-    %ret  = call fastcc int %entry_point(%structtype.list* %pypy_argv)
+    %ret  = call fastcc int %pypy_entry_point(%structtype.list* %pypy_argv)
     ret int %ret
 }
-""")
+"""]

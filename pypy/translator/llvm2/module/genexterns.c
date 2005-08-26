@@ -13,9 +13,9 @@ struct RPyMODF_RESULT;
 struct RPyString;
 struct RPySTAT_RESULT;
 
-struct RPyFREXP_RESULT *ll_frexp_result__Float_Signed(double, int);
-struct RPyMODF_RESULT *ll_modf_result__Float_Float(double, double);
-struct RPySTAT_RESULT *ll_stat_result__Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed(int, int, int, int, int, 
+struct RPyFREXP_RESULT *pypy_ll_frexp_result__Float_Signed(double, int);
+struct RPyMODF_RESULT *pypy_ll_modf_result__Float_Float(double, double);
+struct RPySTAT_RESULT *pypy_ll_stat_result__Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed(int, int, int, int, int, 
 													     int, int, int, int, int);
 char *RPyString_AsString(struct RPyString*);
 int RPyString_Size(struct RPyString*);
@@ -24,11 +24,11 @@ struct RPyString *RPyString_FromString(char *);
 void prepare_and_raise_OverflowError(char *);
 void prepare_and_raise_ValueError(char *);
 void prepare_and_raise_IOError(char *);
-void ll_raise_OSError__Signed(int error);
+void pypy_ll_raise_OSError__Signed(int error);
 
-#define RPYTHON_RAISE_OSERROR(error) ll_raise_OSError__Signed(error)
+#define RPYTHON_RAISE_OSERROR(error) pypy_ll_raise_OSError__Signed(error)
 
-int ll_math_is_error(double x) {
+int pypy_ll_math_is_error(double x) {
 	if (errno == ERANGE) {
 		if (!x) 
 			return 0;
@@ -43,12 +43,12 @@ int ll_math_is_error(double x) {
 
 #define LL_MATH_CHECK_ERROR(x, errret) do {  \
 	LL_MATH_SET_ERANGE_IF_MATH_ERROR(x); \
-	if (errno && ll_math_is_error(x))    \
+	if (errno && pypy_ll_math_is_error(x))    \
 		return errret;               \
 } while(0)
 
 
-double ll_math_pow(double x, double y) {
+double pypy_ll_math_pow(double x, double y) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = pow(x, y);
@@ -56,7 +56,7 @@ double ll_math_pow(double x, double y) {
 	return r;
 }
 
-double ll_math_atan2(double x, double y) {
+double pypy_ll_math_atan2(double x, double y) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = atan2(x, y);
@@ -64,7 +64,7 @@ double ll_math_atan2(double x, double y) {
 	return r;
 }
 
-double ll_math_fmod(double x, double y) {
+double pypy_ll_math_fmod(double x, double y) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = fmod(x, y);
@@ -72,7 +72,7 @@ double ll_math_fmod(double x, double y) {
 	return r;
 }
 
-double ll_math_ldexp(double x, long y) {
+double pypy_ll_math_ldexp(double x, long y) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = ldexp(x, (int) y);
@@ -80,7 +80,7 @@ double ll_math_ldexp(double x, long y) {
 	return r;
 }
 
-double ll_math_hypot(double x, double y) {
+double pypy_ll_math_hypot(double x, double y) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = hypot(x, y);
@@ -88,17 +88,17 @@ double ll_math_hypot(double x, double y) {
 	return r;
 }
 
-struct RPyMODF_RESULT* ll_math_modf(double x) {
+struct RPyMODF_RESULT* pypy_ll_math_modf(double x) {
 	double intpart, fracpart;
 	LL_MATH_ERROR_RESET;
 	fracpart = modf(x, &intpart);
 	LL_MATH_CHECK_ERROR(fracpart, NULL);
-	return ll_modf_result__Float_Float(fracpart, intpart);
+	return pypy_ll_modf_result__Float_Float(fracpart, intpart);
 }
 
 /* simple math function */
 
-double ll_math_acos(double x) {
+double pypy_ll_math_acos(double x) {
 	double r;	
 	LL_MATH_ERROR_RESET;
 	r = acos(x);
@@ -106,7 +106,7 @@ double ll_math_acos(double x) {
 	return r;
 }
 
-double ll_math_asin(double x) {
+double pypy_ll_math_asin(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = asin(x);
@@ -114,7 +114,7 @@ double ll_math_asin(double x) {
 	return r;
 }
 
-double ll_math_atan(double x) {
+double pypy_ll_math_atan(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = atan(x);
@@ -122,7 +122,7 @@ double ll_math_atan(double x) {
 	return r;
 }
 
-double ll_math_ceil(double x) {
+double pypy_ll_math_ceil(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = ceil(x);
@@ -130,7 +130,7 @@ double ll_math_ceil(double x) {
 	return r;
 }
 
-double ll_math_cos(double x) {
+double pypy_ll_math_cos(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = cos(x);
@@ -138,7 +138,7 @@ double ll_math_cos(double x) {
 	return r;
 }
 
-double ll_math_cosh(double x) {
+double pypy_ll_math_cosh(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = cosh(x);
@@ -146,7 +146,7 @@ double ll_math_cosh(double x) {
 	return r;
 }
 
-double ll_math_exp(double x) {
+double pypy_ll_math_exp(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = exp(x);
@@ -154,7 +154,7 @@ double ll_math_exp(double x) {
 	return r;
 }
 
-double ll_math_fabs(double x) {
+double pypy_ll_math_fabs(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = fabs(x);
@@ -162,7 +162,7 @@ double ll_math_fabs(double x) {
 	return r;
 }
 
-double ll_math_floor(double x) {
+double pypy_ll_math_floor(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = floor(x);
@@ -170,7 +170,7 @@ double ll_math_floor(double x) {
 	return r;
 }
 
-double ll_math_log(double x) {
+double pypy_ll_math_log(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = log(x);
@@ -178,7 +178,7 @@ double ll_math_log(double x) {
 	return r;
 }
 
-double ll_math_log10(double x) {
+double pypy_ll_math_log10(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = log10(x);
@@ -186,7 +186,7 @@ double ll_math_log10(double x) {
 	return r;
 }
 
-double ll_math_sin(double x) {
+double pypy_ll_math_sin(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = sin(x);
@@ -194,7 +194,7 @@ double ll_math_sin(double x) {
 	return r;
 }
 
-double ll_math_sinh(double x) {
+double pypy_ll_math_sinh(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = sinh(x);
@@ -202,7 +202,7 @@ double ll_math_sinh(double x) {
 	return r;
 }
 
-double ll_math_sqrt(double x) {
+double pypy_ll_math_sqrt(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = sqrt(x);
@@ -210,7 +210,7 @@ double ll_math_sqrt(double x) {
 	return r;
 }
 
-double ll_math_tan(double x) {
+double pypy_ll_math_tan(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = tan(x);
@@ -218,7 +218,7 @@ double ll_math_tan(double x) {
 	return r;
 }
 
-double ll_math_tanh(double x) {
+double pypy_ll_math_tanh(double x) {
 	double r;
 	LL_MATH_ERROR_RESET;
 	r = tanh(x);
@@ -226,13 +226,13 @@ double ll_math_tanh(double x) {
 	return r;
 }
 
-struct RPyFREXP_RESULT* ll_math_frexp(double x) {
+struct RPyFREXP_RESULT* pypy_ll_math_frexp(double x) {
 	int expo;
 	double m;
 	LL_MATH_ERROR_RESET;
 	m= frexp(x, &expo);
 	LL_MATH_CHECK_ERROR(m, NULL);
-	return ll_frexp_result__Float_Signed(m, expo);
+	return pypy_ll_frexp_result__Float_Signed(m, expo);
 }
 
 /************************************************************/
@@ -251,7 +251,7 @@ struct RPyFREXP_RESULT* ll_math_frexp(double x) {
    XXX Win64 does not yet, but might when the platform matures. */
 #include <windows.h>
 
-double ll_time_clock(void)
+double pypy_ll_time_clock(void)
 {
 	static LARGE_INTEGER ctrStart;
 	static double divisor = 0.0;
@@ -283,14 +283,14 @@ double ll_time_clock(void)
 #endif
 #endif
 
-double ll_time_clock(void)
+double pypy_ll_time_clock(void)
 {
 	return ((double)clock()) / CLOCKS_PER_SEC;
 }
 #endif /* MS_WINDOWS */
 
 
-void ll_time_sleep(double secs)
+void pypy_ll_time_sleep(double secs)
 {
 #if defined(MS_WINDOWS)
 	double millisecs = secs * 1000.0;
@@ -343,7 +343,7 @@ extern int ftime(struct timeb *);
 #endif /* MS_WINDOWS */
 #endif /* HAVE_FTIME */
 
-double ll_floattime(void)
+double pypy_ll_floattime(void)
 {
 	/* There are three ways to get the time:
 	  (1) gettimeofday() -- resolution in microseconds
@@ -378,13 +378,13 @@ double ll_floattime(void)
 	}
 }
 
-double ll_time_time(void) /* xxx had support for better resolutions */
+double pypy_ll_time_time(void) /* xxx had support for better resolutions */
 {
-	return ll_floattime();
+	return pypy_ll_floattime();
 }
 
 
-double ll_strtod_parts_to_float(struct RPyString *sign, 
+double pypy_ll_strtod_parts_to_float(struct RPyString *sign, 
 				struct RPyString *beforept, 
 				struct RPyString *afterpt, 
 				struct RPyString *exponent)
@@ -445,7 +445,7 @@ double ll_strtod_parts_to_float(struct RPyString *sign,
 }
 
 
-struct RPyString *ll_strtod_formatd(struct RPyString *fmt, double x) {
+struct RPyString *pypy_ll_strtod_formatd(struct RPyString *fmt, double x) {
 	char buffer[120]; /* this should be enough, from PyString_Format code */
 	int buflen = 120;
 	int res;
@@ -512,9 +512,9 @@ struct RPyString *ll_strtod_formatd(struct RPyString *fmt, double x) {
 /* The functions below are mapped to functions from pypy.rpython.module.*
    by the pypy.translator.c.extfunc.EXTERNALS dictionary.
    They should correspond to the functions with the suggested_primitive
-   flag set, and NOT necessarily directly to the ll_os_*() functions.
-   See for example ll_read_into(), which is called by ll_os_read().
-   The latter would be messy to write here, but ll_read_into() is quite easy.
+   flag set, and NOT necessarily directly to the pypy_ll_os_*() functions.
+   See for example pypy_ll_read_into(), which is called by pypy_ll_os_read().
+   The latter would be messy to write here, but pypy_ll_read_into() is quite easy.
 */
 
 
@@ -531,7 +531,7 @@ struct RPyString *ll_strtod_formatd(struct RPyString *fmt, double x) {
 #endif
 
 
-int ll_os_open(struct RPyString *filename, int flag, int mode)
+int pypy_ll_os_open(struct RPyString *filename, int flag, int mode)
 {
 	/* XXX unicode_file_names */
 	char buf[PATH_MAX];
@@ -550,7 +550,7 @@ int ll_os_open(struct RPyString *filename, int flag, int mode)
 	}
 }
 
-long ll_read_into(int fd, struct RPyString *buffer)
+long pypy_ll_read_into(int fd, struct RPyString *buffer)
 {
 	long n = read(fd, RPyString_AsString(buffer), RPyString_Size(buffer));
 	if (n < 0)
@@ -558,7 +558,7 @@ long ll_read_into(int fd, struct RPyString *buffer)
 	return n;
 }
 
-long ll_os_write(int fd, struct RPyString *buffer)
+long pypy_ll_os_write(int fd, struct RPyString *buffer)
 {
 	long n = write(fd, RPyString_AsString(buffer), RPyString_Size(buffer));
 	if (n < 0)
@@ -566,13 +566,13 @@ long ll_os_write(int fd, struct RPyString *buffer)
 	return n;
 }
 
-void ll_os_close(int fd)
+void pypy_ll_os_close(int fd)
 {
 	if (close(fd) < 0)
 		RPYTHON_RAISE_OSERROR(errno);
 }
 
-int ll_os_dup(int fd)
+int pypy_ll_os_dup(int fd)
 {
 	fd = dup(fd);
 	if (fd < 0)
@@ -580,7 +580,7 @@ int ll_os_dup(int fd)
 	return fd;
 }
 
-struct RPyString *ll_os_getcwd(void)
+struct RPyString *pypy_ll_os_getcwd(void)
 {
 	char buf[PATH_MAX];
 	char *res;
@@ -606,12 +606,12 @@ struct RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st) {
   res9 = (long)st.st_ctime; /*XXX ignoring quite a lot of things for time here */
   /*XXX ignoring BLOCK info here*/
 
-  return ll_stat_result__Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed(res0, res1, res2, res3, res4,
+  return pypy_ll_stat_result__Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed_Signed(res0, res1, res2, res3, res4,
 											       res5, res6, res7, res8, res9);
 }
 
 
-struct RPySTAT_RESULT* ll_os_stat(struct RPyString * fname) {
+struct RPySTAT_RESULT* pypy_ll_os_stat(struct RPyString * fname) {
   STRUCT_STAT st;
   int error = STAT(RPyString_AsString(fname), &st);
   if (error != 0) {
@@ -621,7 +621,7 @@ struct RPySTAT_RESULT* ll_os_stat(struct RPyString * fname) {
   return _stat_construct_result_helper(st);
 }
 
-struct RPySTAT_RESULT* ll_os_fstat(long fd) {
+struct RPySTAT_RESULT* pypy_ll_os_fstat(long fd) {
   STRUCT_STAT st;
   int error = FSTAT(fd, &st);
   if (error != 0) {
@@ -631,7 +631,7 @@ struct RPySTAT_RESULT* ll_os_fstat(long fd) {
   return _stat_construct_result_helper(st);
 }
 
-long ll_os_lseek(long fd, long pos, long how) {
+long pypy_ll_os_lseek(long fd, long pos, long how) {
 #if defined(MS_WIN64) || defined(MS_WINDOWS)
     PY_LONG_LONG res;
 #else
@@ -655,12 +655,12 @@ long ll_os_lseek(long fd, long pos, long how) {
     return res;
 }
 
-long ll_os_isatty(long fd) {
+long pypy_ll_os_isatty(long fd) {
     return (int)isatty((int)fd);
 }
 
 #ifdef HAVE_FTRUNCATE
-void ll_os_ftruncate(long fd, long length) { /*XXX add longfile support */
+void pypy_ll_os_ftruncate(long fd, long length) { /*XXX add longfile support */
     int res;
     res = ftruncate((int)fd, (off_t)length);
     if (res < 0) {
@@ -669,17 +669,17 @@ void ll_os_ftruncate(long fd, long length) { /*XXX add longfile support */
 }
 #endif
 
-struct RPyString *ll_os_strerror(int errnum) {
+struct RPyString *pypy_ll_os_strerror(int errnum) {
 	char *res;
 	res = strerror(errnum);
 	return RPyString_FromString(res);
 }
 
-long ll_os_system(struct RPyString * fname) {
+long pypy_ll_os_system(struct RPyString * fname) {
   return system(RPyString_AsString(fname));
 }
 
-void ll_os_unlink(struct RPyString * fname) {
+void pypy_ll_os_unlink(struct RPyString * fname) {
   int error = unlink(RPyString_AsString(fname));
   if (error != 0) {
     RPYTHON_RAISE_OSERROR(errno);

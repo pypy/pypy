@@ -408,7 +408,7 @@ def entry_point():
     endTime = time.time()
     return result, startTime, endTime
 
-def main():
+def main_noargs():
     os.write(1, "Richards benchmark starting... \n")
     result, startTime, endTime = entry_point()
     if not result:
@@ -423,4 +423,4 @@ def main():
 if __name__ == "__main__":
     import autopath
     from pypy.translator.llvm2.demo.run import run
-    run(main, "richards")
+    run(main_noargs, "richards")

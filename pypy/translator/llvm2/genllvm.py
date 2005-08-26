@@ -332,10 +332,14 @@ class GenLLVM(object):
         codewriter.append("    ret int %result")
         codewriter.append("}")
         codewriter.newline()
+
         # XXX we need to create our own main() that calls the actual entry_point function
         entryfunc_name = t[1].split('(')[0]
-        if entryfunc_name != 'main' and entryfunc_name == 'entry_point': #XXX just to get on with translate_pypy
+        if entryfunc_name == 'pypy_entry_point': #XXX just to get on with translate_pypy
             extfuncnode.ExternalFuncNode.used_external_functions['%main'] = True
+
+        elif entryfunc_name == 'pypy_main_noargs': #XXX just to get on with bpnn & richards
+            extfuncnode.ExternalFuncNode.used_external_functions['%main_noargs'] = True
 
         for f in "prepare_and_raise_OverflowError prepare_and_raise_ValueError "\
 	         "prepare_and_raise_ZeroDivisionError prepare_and_raise_IOError "\
