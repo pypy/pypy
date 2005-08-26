@@ -658,6 +658,10 @@ show class hierarchy graph"""
             else:
                 print 'Generating and compiling C code...'
                 c_entry_point = t.ccompile(standalone=standalone, gcpolicy=gcpolicy)
+                if standalone:
+                    p = py.path.local(c_entry_point)
+                    p.rename('pypy-c')
+                    c_entry_point = str(p.new(basename='pypy-c'))
             update_usession_dir()
             if not options['-o']:
                 print 'Running!'
