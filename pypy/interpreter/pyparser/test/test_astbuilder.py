@@ -244,8 +244,8 @@ imports = [
     ]
 
 imports_newstyle = [
-    'from os import path, system,',
-    'from os import path as P, system as S,',
+    'from os import path, system',
+    'from os import path as P, system as S',
     'from os import (path as P, system as S,)',
     'from os import *',
     ]
