@@ -2,6 +2,51 @@ import autopath
 
 class AppTestCodecs:
 
+    def test_unicodedecodeerror(self):
+        assert str(UnicodeDecodeError(
+            "ascii", "g\xfcrk", 1, 2, "ouch")) == "'ascii' codec can't decode byte 0xfc in position 1: ouch"
+        
+        assert str(UnicodeDecodeError(
+            "ascii", "g\xfcrk", 1, 3, "ouch")) == "'ascii' codec can't decode bytes in position 1-2: ouch"
+        
+
+    def test_unicodetranslateerror(self):
+
+        assert str(UnicodeTranslateError(
+            u"g\xfcrk", 1, 2, "ouch"))== "can't translate character u'\\xfc' in position 1: ouch"
+        
+        assert str(UnicodeTranslateError(
+            u"g\u0100rk", 1, 2, "ouch"))== "can't translate character u'\\u0100' in position 1: ouch"
+        
+        assert str(UnicodeTranslateError(
+            u"g\uffffrk", 1, 2, "ouch"))== "can't translate character u'\\uffff' in position 1: ouch"
+        
+        if sys.maxunicode > 0xffff:
+            assert str(UnicodeTranslateError(
+                u"g\U00010000rk", 1, 2, "ouch"))== "can't translate character u'\\U00010000' in position 1: ouch"
+            
+        assert str(UnicodeTranslateError(
+            u"g\xfcrk", 1, 3, "ouch"))=="can't translate characters in position 1-2: ouch"
+
+    def test_unicodeencodeerror(self):
+        assert str(UnicodeEncodeError(
+            "ascii", u"g\xfcrk", 1, 2, "ouch"))=="'ascii' codec can't encode character u'\\xfc' in position 1: ouch"
+            
+        assert str(UnicodeEncodeError(
+            "ascii", u"g\xfcrk", 1, 4, "ouch"))== "'ascii' codec can't encode characters in position 1-3: ouch"
+            
+        assert str(UnicodeEncodeError(
+            "ascii", u"\xfcx", 0, 1, "ouch"))=="'ascii' codec can't encode character u'\\xfc' in position 0: ouch"
+
+        assert str(UnicodeEncodeError(
+            "ascii", u"\u0100x", 0, 1, "ouch"))=="'ascii' codec can't encode character u'\\u0100' in position 0: ouch"
+       
+        assert str(UnicodeEncodeError(
+            "ascii", u"\uffffx", 0, 1, "ouch"))=="'ascii' codec can't encode character u'\\uffff' in position 0: ouch"
+        if sys.maxunicode > 0xffff:
+            assert str(UnicodeEncodeError(
+                "ascii", u"\U00010000x", 0, 1, "ouch")) =="'ascii' codec can't encode character u'\\U00010000' in position 0: ouch"
+    
     def test_indexerror(self):
         test =   "\\"     # trailing backslash
              
@@ -21,7 +66,6 @@ class AppTestCodecs:
                     ]
         for s in insecure:
             buf = "S" + s + "\012p0\012."
-            print s
             raises (ValueError, pickle.loads, buf)
 
     def test_partial_utf8(self):
@@ -62,8 +106,8 @@ class AppTestCodecs:
             assert  r.read() == u"" 
             assert  r.bytebuffer ==  "" 
             assert  r.charbuffer == u""
-        encoding = 'utf-8'
-        check_partial(encoding, 
+            encoding = 'utf-8'
+            check_partial(encoding, 
                 u"\x00\xff\u07ff\u0800\uffff",
                 [
                     u"\x00",
@@ -78,7 +122,7 @@ class AppTestCodecs:
                     u"\x00\xff\u07ff\u0800",
                     u"\x00\xff\u07ff\u0800\uffff",
                 ]
-            )
+                )
 
     def test_partial_utf16(self):
         class Queue(object):
