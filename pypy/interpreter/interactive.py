@@ -126,9 +126,11 @@ class PyPyConsole(code.InteractiveConsole):
         #banner = "Python %s in pypy\n%s / %s" % (
         #    sys.version, self.__class__.__name__,
         #    self.space.__class__.__name__)
+        w_sys = self.space.sys
+        version = self.space.str_w(self.space.getattr(w_sys, self.space.wrap('version')))
         elapsed = time.time() - self.space._starttime
-        banner = "PyPy in %s on top of Python %s (startupttime: %.2f secs)" % (
-            self.space.__repr__(), sys.version.split()[0], elapsed)
+        banner = "PyPy %s in %s on top of Python %s (startupttime: %.2f secs)" % (
+            version.split()[2],self.space.__repr__(), sys.version.split()[0], elapsed)
         code.InteractiveConsole.interact(self, banner)
 
     def raw_input(self, prompt=""):

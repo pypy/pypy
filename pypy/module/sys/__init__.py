@@ -50,7 +50,7 @@ class Module(MixedModule):
         'copyright'             : 'space.wrap("MIT-License")', 
         'api_version'           : 'space.wrap(1012)', 
         'version_info'          : 'space.wrap((2,4,1, "alpha", 42))', 
-        'version'               : 'space.wrap("2.4.1 (pypy1 build)")', 
+        'version'               : 'space.wrap("2.4.1 (pypy 0.7.0beta build)")', 
         'hexversion'            : 'space.wrap(0x020401a0)', 
         'ps1'                   : 'space.wrap(">>>> ")', 
         'ps2'                   : 'space.wrap(".... ")', 
