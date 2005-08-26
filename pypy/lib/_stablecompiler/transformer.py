@@ -123,12 +123,18 @@ class Transformer:
                                }
         self.encoding = None
 
-    def syntaxerror( self, msg, node ):
+    def syntaxerror(self, msg, node):
         offset = 0
-        text = "return x!"
+        text = ""
         lineno = extractLineNo( node )
         args = ( self.filename, lineno, offset, text )
         raise SyntaxError( msg, args )
+
+    def none_assignment_error(self, assigning, node):
+        if assigning==OP_DELETE:
+            self.syntaxerror( "deleting None", node )
+        else:
+            self.syntaxerror( "assignment to None", node )
 
     def transform(self, tree):
         """Transform an AST into a modified parse tree."""
@@ -277,6 +283,8 @@ class Transformer:
             assert isinstance(code, Stmt)
             assert isinstance(code.nodes[0], Discard)
             del code.nodes[0]
+        if name == "None":
+            self.none_assignment_error( OP_ASSIGN, nodelist[-4] )
         return Function(decorators, name, names, defaults, flags, doc, code,
                      lineno=lineno)
 
@@ -312,6 +320,8 @@ class Transformer:
             assert isinstance(code.nodes[0], Discard)
             del code.nodes[0]
 
+        if name == "None":
+            self.none_assignment_error(OP_ASSIGN, nodelist[1])
         return Class(name, bases, doc, code, lineno=nodelist[1][2])
 
     def stmt(self, nodelist):
@@ -455,7 +465,12 @@ class Transformer:
             return From(fromname, [('*', None)],
                         lineno=nodelist[0][2])
         else:
-            node = nodelist[3 + (nodelist[3][0] == token.LPAR)]
+            if nodelist[3][0] == token.LPAR:
+                node = nodelist[4]
+            else:
+                node = nodelist[3]
+                if node[-1][0] == token.COMMA:
+                    self.syntaxerror("trailing comma not allowed without surrounding parentheses", node)
             return From(fromname, self.com_import_as_names(node),
                         lineno=nodelist[0][2])
 
@@ -797,7 +812,11 @@ class Transformer:
                 if node[0] == token.STAR:
                     node = nodelist[i+1]
                     if node[0] == token.NAME:
-                        names.append(node[1])
+                        name = node[1]
+                        if name in names:
+                            self.syntaxerror("duplicate argument '%s' in function definition" %
+                                             name, node)
+                        names.append(name)
                         flags = flags | CO_VARARGS
                         i = i + 3
 
@@ -808,28 +827,38 @@ class Transformer:
                         node = nodelist[i+1]
                     else:
                         raise ValueError, "unexpected token: %s" % t
-                    names.append(node[1])
+                    name = node[1]
+                    if name in names:
+                        self.syntaxerror("duplicate argument '%s' in function definition" %
+                                         name, node)
+                    names.append(name)
                     flags = flags | CO_VARKEYWORDS
 
                 break
 
             # fpdef: NAME | '(' fplist ')'
-            names.append(self.com_fpdef(node))
+            name = self.com_fpdef(node)
+            if name in names:
+                self.syntaxerror("duplicate argument '%s' in function definition" %
+                                         name, node)
+            names.append(name)
 
             i = i + 1
             if i >= len(nodelist):
+                if len(defaults):
+                    self.syntaxerror("non-default argument follows default argument",node)
                 break
-
+            
             if nodelist[i][0] == token.EQUAL:
                 defaults.append(self.com_node(nodelist[i + 1]))
                 i = i + 2
             elif len(defaults):
-                # XXX This should be a syntax error.
-                # Treat "(a=1, b)" as "(a=1, b=None)"
-                defaults.append(Const(None))
+                self.syntaxerror("non-default argument follows default argument",node)
 
             i = i + 1
 
+        if "None" in names:
+            self.syntaxerror( "Invalid syntax.  Assignment to None.", node)
         return names, defaults, flags
 
     def com_fpdef(self, node):
@@ -938,6 +967,11 @@ class Transformer:
         Names, slices, and attributes are the only allowable nodes.
         """
         l = self.com_node(node)
+        if isinstance(l, Name):
+            if l.name == "__debug__":
+                self.syntaxerror( "can not assign to __debug__", node )
+            if l.name == "None":
+                self.none_assignment_error( OP_ASSIGN, node )
         if l.__class__ in (Name, Slice, Subscript, Getattr):
             return l
         self.syntaxerror( "can't assign to %s" % l.__class__.__name__, node)
@@ -980,6 +1014,10 @@ class Transformer:
                         self.syntaxerror( "can't assign to []", node)
                     return self.com_assign_list(node, assigning)
                 elif t == token.NAME:
+                    if node[1][1] == "__debug__":
+                        self.syntaxerror( "can not assign to __debug__", node )
+                    if node[1][1] == "None":
+                        self.none_assignment_error(assigning, node)
                     return self.com_assign_name(node[1], assigning)
                 else:
                     self.syntaxerror( "can't assign to literal", node)
@@ -1022,6 +1060,8 @@ class Transformer:
         self.syntaxerror( "unknown trailer type: %s" % t, node)
 
     def com_assign_attr(self, primary, node, assigning):
+        if node[1]=="None":
+            self.none_assignment_error(assigning, node)
         return AssAttr(primary, node[1], assigning, lineno=node[-1])
 
     def com_binary(self, constructor, nodelist):

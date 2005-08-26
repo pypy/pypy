@@ -25,8 +25,8 @@ g() got multiple values for keyword argument 'x'
 got multiple values for keyword argument 'a'
 keywords must be strings
 h() got an unexpected keyword argument 'e'
-object is not iter()-able
-object is not iter()-able
+iteration over non-sequence
+iteration over non-sequence
 object None is not callable
 argument after ** must be a dictionary
 argument after ** must be a dictionary

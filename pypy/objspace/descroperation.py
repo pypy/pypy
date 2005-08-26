@@ -177,7 +177,7 @@ class DescrOperation:
             w_descr = space.lookup(w_obj, '__getitem__')
             if w_descr is None:
                 raise OperationError(space.w_TypeError,
-                                     space.wrap("object is not iter()-able"))
+                                     space.wrap("iteration over non-sequence"))
             return space.newseqiter(w_obj)
         return space.get_and_call_function(w_descr, w_obj)
 

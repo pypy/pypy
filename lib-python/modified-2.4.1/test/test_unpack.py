@@ -55,7 +55,7 @@ Unpacking non-sequence
     >>> a, b, c = 7
     Traceback (most recent call last):
       ...
-    TypeError: object is not iter()-able
+    TypeError: iteration over non-sequence
 
 Unpacking tuple of wrong size
 
