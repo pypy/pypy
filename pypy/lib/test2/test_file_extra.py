@@ -27,7 +27,7 @@ class TestFile:
     def test_repr(self):
         r = repr(self.file)
         assert r.find('open file') >= 0
-        assert r.find(self.file.name) >= 0
+        assert r.find(repr(self.file.name)) >= 0
         assert r.find(self.file.mode) >= 0
 
 class TestFdFile(TestFile):
