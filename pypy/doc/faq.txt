@@ -11,6 +11,7 @@ How fast is PyPy?
     On the other hand, the really interesting question is: Why is
     PyPy so slow?
 
+.. _whysoslow:
 
 Why is PyPy so slow?
 

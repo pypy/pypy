@@ -53,29 +53,31 @@ faster than CPython.
 .. _Psyco: http://psyco.sourceforge.net
 .. _Stackless: http://stackless.com 
 
-Status of the implementation (May 2005)
+Status of the implementation (Aug 2005)
 ---------------------------------------
 
 In a number of one week sprints, attracting approximately 10 developers each,
-we made an almost complete implementation of Python in Python. Currently it is
-slow, benchmarking at a factor 2000 times slower than regular Python
-(henceforth referred to as CPython). This was expected because running a
-bytecode interpreter on top of CPython obviously imposes a
-double-interpretation penalty. 
+we made an almost complete implementation of Python in Python.
 
-Our rather complete and Python 2.3-compliant interpreter is about 22000 lines 
-of code, with another 7000 lines of unit tests.  If we include the tools, the
-parts related to code analysis and generation, and the standard library
-modules ported from C, PyPy is now 55000 lines of code and 20000 lines of
-tests.
+Our rather complete and Python 2.4-compliant interpreter is about 30'000-50'000
+lines of code (depending on the way you count code borrowed and adapted from
+other sources), with another 14'000 lines of unit tests.
+If we include the tools, the parts related to code analysis and generation,
+and the standard library modules ported from C, PyPy is now 105'000 lines of
+code and 29'000 lines of tests.
 
-PyPy already passes a lot of CPython's own regression tests, including 90% of the 
-core tests not depending on C extension modules (most of the remaining 10% are
+PyPy already passes a lot of CPython's own regression tests, including
+`90% of the core tests`_
+not depending on C extension modules (most of the remaining 10% are
 arguably dependant on very obscure implementation details of CPython).
 
-For some time now the bleeding edge PyPy work has been focused on generating
-reasonably efficient C code from the source of PyPy, thereby reducing the
-speed penalty.  This goal is no longer far away.
+The PyPy code base can be translated to a static executable.  This is done
+by generating either C or LLVM_ code, using the Boehm garbage collector or
+(for C) reference counting.  The result is around `300 times slower`_ than
+CPython (this figure can vary quite a bit).
+
+.. _`90% of the core tests`: http://codespeak.net/~hpk/pypy-testresult/
+.. _`300 times slower`: faq.html#whysoslow
 
 
 Higher level picture
@@ -84,7 +86,7 @@ Higher level picture
 The various parts of PyPy have always been under more or less heavy
 refactoring since its inception. However, the higher level architecture
 remains rather simple and unchanged.  There are two independent basic
-subsystems:
+subsystems: `the Standard Interpreter`_ and `the Translation Process`_.
 
 The Standard Interpreter
 ------------------------
@@ -96,17 +98,11 @@ It is divided in two components:
   code objects and implementing bytecodes,
 
 - the `standard object space`_ which implements creation, access and
-  modification of application level objects,
+  modification of application level objects.
 
 Note that the *standard interpreter* can run fine on top of CPython 
 (the C Implementation of Python led by Guido van Rossum), if one is
 willing to pay for the double-interpretation performance penalty.
-
-In addition, the standard interpreter requires a parser and bytecode compiler
-to turn the user's Python source code into a form amenable to
-interpretation.  This is currently still borrowed from CPython, but we
-have two experimental parser modules in the source tree which are in the
-process of being integrated.
 
 The Translation Process
 -----------------------
@@ -118,15 +114,15 @@ is done in four steps:
 - producing a *flow graph* representation of the standard interpreter. 
   A combination of a `bytecode interpreter`_ and a *flow object space*
   performs *abstract interpretation* to record the flow of objects
-  and execution throughout a python program into such a *flow graph*.
+  and execution throughout a python program into such a *flow graph*;
 
-- the *annotator* which performs type inference on the flow graph 
+- the *annotator* which performs type inference on the flow graph;
 
 - the *typer* which, based on the type annotations, turns the flow graph
-  into one using only low-level, C-like operations
+  into one using only low-level, C-like operations;
 
 - the *code generator* which translates the resulting flow graph into
-  another language, currently C or LLVM.
+  another language, currently C or LLVM_.
 
 See below for the `translation process in more details`_.
 
@@ -136,16 +132,26 @@ See below for the `translation process in more details`_.
 The Bytecode Interpreter
 =========================
 
-The *plain bytecode interpreter* handles python code objects. The interpreter can 
-build code objects from Python sources, when needed, by invoking Python's
-builtin compiler (we also have a way of constructing those code objects
-from python source only, but we have not integrated it yet).  Code objects
+The *plain bytecode interpreter* handles python code objects.
+The interpreter can build code objects from Python sources,
+when needed, by invoking a bytecode compiler.  Code objects
 are a nicely preprocessed, structured representation of source code, and
-their main content is *bytecode*.  In addition, code objects also know
+their main content is *bytecode*.  We use the same compact bytecode format
+than CPython 2.4.
+
+Our bytecode compiler is implemented as a chain of flexible passes
+(tokenizer, lexer, parser, abstract syntax tree builder, bytecode generator).
+The latter passes are based on the ``compiler`` package from the standard
+library of CPython, with various improvements and bug fixes.  (The
+bytecode compiler was recently integrated to the rest of the standard
+interpreter -- it is still in development and not really documented yet.)
+
+In addition to storing bytecode, code objects also know
 how to create a *frame* object which has the responsibility to
 *interpret* a code object's bytecode.  Each bytecode is implemented by a
 python function, which, in turn, delegates operations on
-application-level objects to an object space. 
+application-level objects to an object space.  This interpretation and
+delegation is the core of the bytecode interpreter.
 
 This part is implemented in the `interpreter/`_ directory.  People familiar
 with the CPython implementation of the above concepts will easily recognize
@@ -378,12 +384,12 @@ definition will probably continue to shift marginally as we improve it.
 
 The actual low-level code (and, in fact, also other high-level code) is
 emitted by "visiting" the type-annotated flow graph.  Currently we have
-a C-producing backend, and an LLVM-producing backend.  The former also
+a C-producing backend, and an LLVM_-producing backend.  The former also
 accepts non-annotated or partially-annotated graphs, which allow us to
 test it on a larger class of programs than what the Annotator can (or
 ever will) fully process.
 
-A new piece of this puzzle, still being integrated (May 2005), is the
+The newest piece of this puzzle is the
 *Typer*, which inputs the high-level types inferred by the Annotator and
 uses them to modify the flow graph in-place to replace its operations with
 low-level ones, directly manipulating C-like values and data structures.
@@ -394,5 +400,6 @@ The complete translation process is described in more details in the
 .. _`RPython`: coding-guide.html#rpython
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`translation document`: translation.html
+.. _LLVM: http://llvm.cs.uiuc.edu/
 
 .. include:: _ref.txt
