@@ -254,4 +254,45 @@ def test_rarith_formatd():
     for i, s in enumerate(as_string):
         assert f(i)
 
+def test_os_unlink():
+    tmpfile = str(udir.join('test_os_path_exists.TMP'))
+    def fn():
+        os.unlink(tmpfile)
+        return 0
+    f = compile_function(fn, [])
+    open(tmpfile, 'w').close()
+    fn()
+    assert not os.path.exists(tmpfile)
+
+def test_chdir():
+    path = '..'
+    def does_stuff():
+        os.chdir(path)
+        return 0
+    f1 = compile_function(does_stuff, [])
+    curdir = os.getcwd()
+    try:
+        os.chdir()
+    except: pass # toplevel
+    def does_stuff2():
+        os.chdir(curdir)
+        return 0
+    f1 = compile_function(does_stuff2, [])
+    f1()
+    assert curdir == os.getcwd()
+
+def test_mkdir_rmdir():
+    path = str(udir.join('test_mkdir_rmdir'))
+    def does_stuff(delete):
+        if delete:
+            os.rmdir(path)
+        else:
+            os.mkdir(path, 0777)
+        return 0
+    f1 = compile_function(does_stuff, [bool])
+    f1(False)
+    assert os.path.exists(path) and os.path.isdir(path)
+    f1(True)
+    assert not os.path.exists(path)
+
 # end of tests taken from c backend

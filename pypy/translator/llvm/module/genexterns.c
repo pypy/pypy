@@ -385,9 +385,9 @@ double pypy_ll_time_time(void) /* xxx had support for better resolutions */
 
 
 double pypy_ll_strtod_parts_to_float(struct RPyString *sign, 
-				struct RPyString *beforept, 
-				struct RPyString *afterpt, 
-				struct RPyString *exponent)
+				     struct RPyString *beforept, 
+				     struct RPyString *afterpt, 
+				     struct RPyString *exponent)
 {
 	char *fail_pos;
 	struct lconv *locale_data;
@@ -684,4 +684,25 @@ void pypy_ll_os_unlink(struct RPyString * fname) {
   if (error != 0) {
     RPYTHON_RAISE_OSERROR(errno);
   }
+}
+
+void pypy_ll_os_chdir(struct RPyString * path) {
+    int error = chdir(RPyString_AsString(path));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+
+void pypy_ll_os_mkdir(struct RPyString * path, int mode) {
+    int error = mkdir(RPyString_AsString(path), mode);
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+
+void pypy_ll_os_rmdir(struct RPyString * path) {
+    int error = rmdir(RPyString_AsString(path));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
 }
