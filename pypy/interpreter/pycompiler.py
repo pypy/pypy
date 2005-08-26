@@ -194,8 +194,13 @@ class PythonCompiler(CPythonCompiler):
         try:
             parse_result = internal_pypy_parse(source, mode, True, flags)
         except ParseError, e:
-            raise OperationError(space.w_SyntaxError,
-                                 e.wrap_info(space, filename))
+            w_synerr = space.newtuple([space.wrap(e.msg),
+                                       space.newtuple([space.wrap(filename),
+                                                       space.wrap(e.lineno),
+                                                       space.wrap(e.offset),
+                                                       space.wrap("")
+                                                       ])])
+            raise OperationError(space.w_SyntaxError, w_synerr)            
         return self.compile_parse_result(parse_result, filename, mode, flags)
 
     def compile_parse_result(self, parse_result, filename, mode, flags):
@@ -213,7 +218,7 @@ class PythonCompiler(CPythonCompiler):
         from pypy.interpreter.stablecompiler.transformer import Transformer
         space = self.space
         try:
-            transformer = Transformer()
+            transformer = Transformer(filename)
             tree = transformer.compile_node(tuples)
             stablecompiler.misc.set_filename(filename, tree)
             flag_names = get_flag_names( flags )
@@ -420,8 +425,17 @@ class PythonAstCompiler(CPythonCompiler):
                                                        space.wrap(e.offset),
                                                        space.wrap(e.text)])])
             raise OperationError(space.w_SyntaxError, w_synerr)
+	except UnicodeDecodeError, e:
+            # TODO use a custom UnicodeError
+            raise OperationError(space.w_UnicodeDecodeError, space.newtuple([
+                                 space.wrap(e.encoding), space.wrap(e.object), space.wrap(e.start),
+                                 space.wrap(e.end), space.wrap(e.reason)]))
         except ValueError,e:
-            raise OperationError(space.w_ValueError,space.wrap(str(e)))
+            if e.__class__ != ValueError:
+                 extra_msg = "(Really go %s)" % e.__class__.__name__
+            else:
+                extra_msg = ""
+            raise OperationError(space.w_ValueError,space.wrap(str(e)+extra_msg))
         except TypeError,e:
             raise
             raise OperationError(space.w_TypeError,space.wrap(str(e)))

@@ -10,7 +10,7 @@ from _stablecompiler.pycodegen import ExpressionCodeGenerator
 from _stablecompiler.transformer import Transformer
 
 def applevelcompile(tuples, filename, mode, flag_names ):
-    transformer = Transformer()
+    transformer = Transformer(filename)
     tree = transformer.compile_node(tuples)
     set_filename(filename, tree)
     if mode == 'exec':
