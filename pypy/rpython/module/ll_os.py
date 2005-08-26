@@ -17,7 +17,7 @@ import os, errno
 from pypy.rpython.rstr import STR
 from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
 from pypy.rpython.module.support import to_rstr, from_rstr, ll_strcpy
-
+from pypy.rpython import ros
 
 def ll_os_open(fname, flag, mode):
     return os.open(from_rstr(fname), flag, mode)
@@ -133,3 +133,13 @@ ll_os_mkdir.suggested_primitive = True
 def ll_os_rmdir(path):
     os.rmdir(from_rstr(path))
 ll_os_rmdir.suggested_primitive = True
+
+# this function is not really the os thing, but the internal one.
+def ll_os_putenv(name_eq_value):
+    ros.putenv(from_rstr(name_eq_value))
+ll_os_putenv.suggested_primitive = True
+
+# get the initial environment as a string list
+def ll_os_environ(idx):
+    return ros.environ(idx)
+ll_os_environ.suggested_primitive = True

@@ -4,6 +4,7 @@ import os, time
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.c.extfunc import EXTERNALS
+from pypy.rpython import ros
 
 def test_all_suggested_primitives():
     for modulename in ['ll_math', 'll_os', 'll_os_path', 'll_time']:
@@ -423,3 +424,28 @@ def test_mkdir_rmdir():
     f1(dirname, True)
     assert not os.path.exists(dirname)
 
+def test_putenv():
+    def put(s):
+        ros.putenv(s)
+    func = compile(put, [str])
+    filename = str(udir.join('test_putenv.txt'))
+    func('abcdefgh=12345678')
+    cmd = '''python -c "import os; print os.environ['abcdefgh']" > %s''' % filename
+    os.system(cmd)
+    assert file(filename).read().strip() == '12345678'
+    os.unlink(filename)
+
+def test_environ():
+    def env(idx):
+        # need to as if the result is NULL, or we crash
+        ret = ros.environ(idx)
+        if ret is None:
+            return False
+        return ret
+    func = compile(env, [int])
+    count = 0
+    while 1:
+        if not func(count):
+            break
+        count += 1
+    assert count == len(os.environ.keys())

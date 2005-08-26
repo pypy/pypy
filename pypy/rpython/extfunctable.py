@@ -128,6 +128,10 @@ def modfannotation(*args):
     from pypy.annotation.model import SomeTuple, SomeFloat
     return SomeTuple((SomeFloat(), SomeFloat()))
 
+def strnullannotation(*args):
+    from pypy.annotation.model import SomeString
+    return SomeString(can_be_None=True)
+
 # external function declarations
 declare(os.open     , int           , 'll_os/open')
 declare(os.read     , str           , 'll_os/read')
@@ -191,6 +195,12 @@ from pypy.rpython import rarithmetic
 declare(rarithmetic.parts_to_float, float, 'll_strtod/parts_to_float')
 # float->string helper
 declare(rarithmetic.formatd, str, 'll_strtod/formatd')
+
+# ___________________________________________________________
+# special helpers for os with no equivalent
+from pypy.rpython import ros
+declare(ros.putenv,  noneannotation, 'll_os/putenv')
+declare(ros.environ, strnullannotation, 'll_os/environ')
 
 # ___________________________________________________________
 # the exceptions that can be implicitely raised by some operations

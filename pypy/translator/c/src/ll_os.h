@@ -201,3 +201,43 @@ void LL_os_rmdir(RPyString * path) {
 	RPYTHON_RAISE_OSERROR(errno);
     }
 }
+
+#ifdef HAVE_PUTENV
+
+/* note that this doesn't map to os.putenv, it is the name=value
+ * version of C. See ros.py for the fake implementation.
+ * Note that we are responsible to keep the
+ * value alive. This is done in interp_posix.py
+ */
+void LL_os_putenv(RPyString * name_eq_value) {
+    int error = putenv(RPyString_AsString(name_eq_value));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+#endif
+
+/* Return a dictionary corresponding to the POSIX environment table */
+/*** actually, we create a sring list here and do the rest in posix */
+#ifdef WITH_NEXT_FRAMEWORK
+/* On Darwin/MacOSX a shared library or framework has no access to
+** environ directly, we must obtain it with _NSGetEnviron().
+*/
+#include <crt_externs.h>
+static char **environ;
+#elif !defined(_MSC_VER) && ( !defined(__WATCOMC__) || defined(__QNX__) )
+extern char **environ;
+#endif /* !_MSC_VER */
+
+RPyString* LL_os_environ(int idx) {
+    RPyString *rs = NULL;
+    char *s;
+#ifdef WITH_NEXT_FRAMEWORK
+    if (environ == NULL)
+	environ = *_NSGetEnviron();
+#endif
+    if (environ != NULL && (s = environ[idx]) != NULL) {
+	rs = RPyString_FromString(s);
+    }
+    return rs;
+}

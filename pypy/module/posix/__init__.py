@@ -31,9 +31,12 @@ corresponding Unix manual entries for more information on calls."""
     'chdir'     : 'interp_posix.chdir',
     'mkdir'     : 'interp_posix.mkdir',
     'rmdir'     : 'interp_posix.rmdir',
+    'environ'   : 'interp_posix.get(space).w_environ'
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
+    if hasattr(os, 'putenv'):
+        interpleveldefs['putenv'] = 'interp_posix.putenv'
 
 
 for constant in dir(os):

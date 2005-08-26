@@ -35,3 +35,20 @@ def test_system():
     assert data == 0
     assert file(filename).read().strip() == '2'
     os.unlink(filename)
+
+def test_putenv():
+    filename = str(udir.join('test_putenv.txt'))
+    arg = to_rstr('abcdefgh=12345678')
+    ll_os_putenv(arg)
+    cmd = '''python -c "import os; print os.environ['abcdefgh']" > %s''' % filename
+    os.system(cmd)
+    assert file(filename).read().strip() == '12345678'
+    os.unlink(filename)
+
+def test_environ():
+    count = 0
+    while 1:
+        if not ll_os_environ(count):
+            break
+        count += 1
+    assert count == len(os.environ.keys())

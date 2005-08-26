@@ -27,6 +27,8 @@ EXTERNALS = {
     ll_os  .ll_os_chdir:   'LL_os_chdir',
     ll_os  .ll_os_mkdir:   'LL_os_mkdir',
     ll_os  .ll_os_rmdir:   'LL_os_rmdir',
+    ll_os  .ll_os_putenv:  'LL_os_putenv',
+    ll_os  .ll_os_environ: 'LL_os_environ',
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_time.ll_time_sleep: 'LL_time_sleep',
     ll_time.ll_time_time:  'LL_time_time',

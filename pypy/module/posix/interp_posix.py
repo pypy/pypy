@@ -1,5 +1,6 @@
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.rpython.rarithmetic import intmask
+from pypy.rpython import ros
 from pypy.interpreter.error import OperationError
 
 import os
@@ -77,7 +78,7 @@ def build_stat_result(space, st):
     lst = [st[0], st[1], st[2], st[3], st[4],
            st[5], st[6], st[7], st[8], st[9]]
     w_tuple = space.newtuple([space.wrap(intmask(x)) for x in lst])
-    w_stat_result = space.getattr(space.getbuiltinmodule('posix'),
+    w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
                                   space.wrap('stat_result'))
     return space.call_function(w_stat_result, w_tuple)
 
@@ -178,3 +179,43 @@ Remove a directory."""
     except OSError, e: 
         raise wrap_oserror(space, e) 
 rmdir.unwrap_spec = [ObjSpace, str]
+
+
+# this is a particular case, because we need to supply
+# the storage for the environment variables, at least
+# for some OSes.
+
+class State:
+    def __init__(self, space): 
+        self.posix_putenv_garbage = {}
+        self.w_environ = space.newdict([])
+        _convertenviron(space, self.w_environ)
+def get(space): 
+    return space.fromcache(State) 
+
+def _convertenviron(space, w_env):
+    idx = 0
+    while 1:
+        s = ros.environ(idx)
+        if s is None:
+            break
+        p = s.find('=');
+        if p >= 0:
+            assert p >= 0
+            key = s[:p]
+            value = s[p+1:]
+            space.setitem(w_env, space.wrap(key), space.wrap(value))
+        idx += 1
+
+def putenv(space, name, value):
+    """putenv(key, value)
+
+Change or add an environment variable."""
+    txt = '%s=%s' % name, value
+    ros.putenv(txt)
+    # Install the first arg and newstr in posix_putenv_garbage;
+    # this will cause previous value to be collected.  This has to
+    # happen after the real putenv() call because the old value
+    # was still accessible until then.
+    get(space).posix_putenv_garbage[name] = txt
+putenv.unwrap_spec = [ObjSpace, str, str]
