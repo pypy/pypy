@@ -1296,15 +1296,13 @@ class InteractiveCodeGenerator(NestedScopeMixin, CodeGenerator):
 
 class AbstractFunctionCode:
     optimized = 1
-    lambdaCount = 0
 
     def __init__(self, func, scopes, isLambda, class_name, mod):
         self.class_name = class_name
         self.module = mod
         if isLambda:
             klass = FunctionCodeGenerator
-            name = "<lambda.%d>" % klass.lambdaCount
-            klass.lambdaCount = klass.lambdaCount + 1
+            name = "<lambda>"
         else:
             name = func.name
 
