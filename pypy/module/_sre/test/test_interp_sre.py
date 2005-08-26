@@ -7,6 +7,12 @@ import pypy.module._sre.interp_sre as isre
 EM_SPACE = u"\u2001"
 INDIAN_DIGIT = u"\u0966"
 
+def create_context(space, string, string_position, end):
+    state = isre.W_State(space, space.wrap(string), space.wrap(0),
+                                                space.wrap(end), space.wrap(0))
+    state.string_position = string_position
+    return isre.W_MatchContext(space, state, space.newlist([]))
+
 def test_is_uni_linebreak(space):
     for char in ["\n", "\r"]:
         assert isre.is_uni_linebreak(space, space.wrap(char))
@@ -51,33 +57,24 @@ def test_is_uni_space(space):
         assert not isre.is_uni_space(space, space.wrap(char))
 
 def test_at_beginning(space):
-    assert isre.at_beginning(space,
-                            isre.MatchContext(space, [], space.wrap(""), 0, 0))
-    assert not isre.at_beginning(space,
-                            isre.MatchContext(space, [], space.wrap("a"), 1, 1))
+    assert isre.at_beginning(space, create_context(space, "", 0, 0))
+    assert not isre.at_beginning(space, create_context(space, "a", 1, 1))
 
 def test_at_beginning_line(space):
-    assert isre.at_beginning_line(space,
-                            isre.MatchContext(space, [], space.wrap(""), 0, 0))
-    assert isre.at_beginning_line(space,
-                            isre.MatchContext(space, [], space.wrap("\na"), 1, 3))
-    assert not isre.at_beginning_line(space,
-                            isre.MatchContext(space, [], space.wrap("a"), 1, 2))
+    assert isre.at_beginning_line(space, create_context(space, "", 0, 0))
+    assert isre.at_beginning_line(space, create_context(space, "\na", 1, 3))
+    assert not isre.at_beginning_line(space, create_context(space, "a", 1, 2))
 
 def test_at_end(space):
     for string, pos, end in [("", 0, 0), ("a", 1, 1), ("a\n", 1, 2)]:
-        assert isre.at_end(space,
-                        isre.MatchContext(space, [], space.wrap(string), pos, end))
-    assert not isre.at_end(space,
-                            isre.MatchContext(space, [], space.wrap("a"), 0, 1))
+        assert isre.at_end(space, create_context(space, string, pos, end))
+    assert not isre.at_end(space, create_context(space, "a", 0, 1))
 
 def test_at_boundary(space):
     for string, pos, end in [("a.", 1, 2), (".a", 1, 2)]:
-        assert isre.at_boundary(space,
-                        isre.MatchContext(space, [], space.wrap(string), pos, end))
+        assert isre.at_boundary(space, create_context(space, string, pos, end))
     for string, pos, end in [(".", 0, 1), (".", 1, 1), ("ab", 1, 2)]:
-        assert not isre.at_boundary(space,
-                        isre.MatchContext(space, [], space.wrap(string), pos, end))
+        assert not isre.at_boundary(space, create_context(space, string, pos, end))
 
 def test_getlower(space):
     assert space.int_w(isre.getlower(space, space.wrap(ord("A")), space.wrap(0))) == ord("a")
