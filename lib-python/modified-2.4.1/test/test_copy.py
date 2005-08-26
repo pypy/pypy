@@ -374,7 +374,6 @@ class TestCopy(unittest.TestCase):
         x = []
         x.append(x)
         y = copy.deepcopy(x)
-        self.assertRaises(RuntimeError, cmp, y, x)
         self.assert_(y is not x)
         self.assert_(y[0] is y)
         self.assertEqual(len(y), 1)
@@ -390,9 +389,11 @@ class TestCopy(unittest.TestCase):
         x = ([],)
         x[0].append(x)
         y = copy.deepcopy(x)
-        self.assertRaises(RuntimeError, cmp, y, x)
         self.assert_(y is not x)
-        self.assert_(y[0] is not x[0])
+        self.assertEqual(type(y), tuple)
+        self.assertEqual(len(y), 1)
+        self.assertEqual(type(y[0]), list)
+        self.assertEqual(len(y[0]), 1)
         self.assert_(y[0][0] is y)
 
     def test_deepcopy_dict(self):
@@ -406,7 +407,6 @@ class TestCopy(unittest.TestCase):
         x = {}
         x['foo'] = x
         y = copy.deepcopy(x)
-        self.assertRaises(RuntimeError, cmp, y, x)
         self.assert_(y is not x)
         self.assert_(y['foo'] is y)
         self.assertEqual(len(y), 1)
