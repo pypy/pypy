@@ -26,7 +26,7 @@ PUNCTS = [
     '+=', '>>=', '=', '&=', '/=', '-=', ',', '^',
     '>>', '&', '+', '*', '-', '/', '.', '**',
     '%', '<<', '//', '|', ')', '(', ';', ':',
-    # '@', # XXX This one is skipped for now (?!)
+    '@',
     '[', ']', '`', '{', '}',
     ]
 
@@ -71,10 +71,16 @@ def test_hex_number():
 def test_punct():
     """make sure each punctuation is correctly parsed"""
     for pstr in PUNCTS:
+        if   pstr == ')': prefix = '('
+        elif pstr == ']': prefix = '['
+        elif pstr == '}': prefix = '{'
+        else:             prefix = ''
         try:
-            tokens = parse_source(pstr)
+            tokens = parse_source(prefix+pstr)
         except TokenError, error:
             tokens = [tok for tok, _, _, _ in error.token_stack]
+        if prefix:
+            tokens.pop(0)
         assert tokens[0].codename == tok_punct[pstr]
 
 
