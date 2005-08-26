@@ -939,25 +939,26 @@ def repr__Unicode(space, w_unicode):
             j += 1
             continue
         if code >= 0xD800 and code < 0xDC00:
-            ch2 = chars[j+1]
-            code2 = ord(ch2)
-            if code2 >= 0xDC00 and code2 <= 0xDFFF:
-                code = (((code & 0x03FF) << 10) | (code2 & 0x03FF)) + 0x00010000
-                if i + 12 > len(result):
-                    result.extend(['\0'] * 100)
-                result[i] = '\\'
-                result[i + 1] = "U"
-                result[i + 2] = hexdigits[(code >> 28) & 0xf] 
-                result[i + 3] = hexdigits[(code >> 24) & 0xf] 
-                result[i + 4] = hexdigits[(code >> 20) & 0xf] 
-                result[i + 5] = hexdigits[(code >> 16) & 0xf] 
-                result[i + 6] = hexdigits[(code >> 12) & 0xf] 
-                result[i + 7] = hexdigits[(code >>  8) & 0xf] 
-                result[i + 8] = hexdigits[(code >>  4) & 0xf] 
-                result[i + 9] = hexdigits[(code >>  0) & 0xf]
-                i += 10
-                j += 2
-                continue
+            if j < size - 1:
+                ch2 = chars[j+1]
+                code2 = ord(ch2)
+                if code2 >= 0xDC00 and code2 <= 0xDFFF:
+                    code = (((code & 0x03FF) << 10) | (code2 & 0x03FF)) + 0x00010000
+                    if i + 12 > len(result):
+                        result.extend(['\0'] * 100)
+                    result[i] = '\\'
+                    result[i + 1] = "U"
+                    result[i + 2] = hexdigits[(code >> 28) & 0xf] 
+                    result[i + 3] = hexdigits[(code >> 24) & 0xf] 
+                    result[i + 4] = hexdigits[(code >> 20) & 0xf] 
+                    result[i + 5] = hexdigits[(code >> 16) & 0xf] 
+                    result[i + 6] = hexdigits[(code >> 12) & 0xf] 
+                    result[i + 7] = hexdigits[(code >>  8) & 0xf] 
+                    result[i + 8] = hexdigits[(code >>  4) & 0xf] 
+                    result[i + 9] = hexdigits[(code >>  0) & 0xf]
+                    i += 10
+                    j += 2
+                    continue
                 
         if code >= 0x100:
             result[i] = '\\'
