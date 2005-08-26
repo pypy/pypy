@@ -440,7 +440,7 @@ testmap = [
     RegrTest('test_commands.py', enabled=True),
     RegrTest('test_compare.py', enabled=True, oldstyle=True, core=True),
     RegrTest('test_compile.py', enabled=True, core=True),
-    RegrTest('test_compiler.py', enabled=True, core=True),
+    RegrTest('test_compiler.py', enabled=True, core=False), # this test tests the compiler package from stdlib
     RegrTest('test_complex.py', enabled=True, core=True),
 
     RegrTest('test_contains.py', enabled=True, dumbtest=1, core=True),
