@@ -566,36 +566,6 @@ class _OpcodeDispatcher(_Dispatcher):
             repeat.count = count - 1
             ctx.state.string_position = ctx.string_position
         yield True
-
-    def op_assert(self, ctx):
-        # assert subpattern
-        # <ASSERT> <skip> <back> <pattern>
-        #self._log(ctx, "ASSERT", ctx.peek_code(2))
-        ctx.state.string_position = ctx.string_position - ctx.peek_code(2)
-        if ctx.state.string_position < 0:
-            ctx.has_matched = NOT_MATCHED
-            yield True
-        child_context = ctx.push_new_context(3)
-        yield False
-        if child_context.has_matched == MATCHED:
-            ctx.skip_code(ctx.peek_code(1) + 1)
-        else:
-            ctx.has_matched = NOT_MATCHED
-        yield True
-
-    def op_assert_not(self, ctx):
-        # assert not subpattern
-        # <ASSERT_NOT> <skip> <back> <pattern>
-        #self._log(ctx, "ASSERT_NOT", ctx.peek_code(2))
-        ctx.state.string_position = ctx.string_position - ctx.peek_code(2)
-        if ctx.state.string_position >= 0:
-            child_context = ctx.push_new_context(3)
-            yield False
-            if child_context.has_matched == MATCHED:
-                ctx.has_matched = NOT_MATCHED
-                yield True
-        ctx.skip_code(ctx.peek_code(1) + 1)
-        yield True
         
     def unknown(self, ctx):
         #self._log(ctx, "UNKNOWN", ctx.peek_code())

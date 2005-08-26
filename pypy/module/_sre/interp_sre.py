@@ -319,6 +319,7 @@ def dispatch_loop(space, context):
         if not has_finished:
             context.resume_at_opcode = opcode
             return context.UNDECIDED
+        context.resume_at_opcode = -1
     if context.has_matched == context.UNDECIDED:
         context.has_matched = context.NOT_MATCHED
     return context.has_matched
@@ -629,13 +630,45 @@ def op_groupref_ignore(space, ctx):
     # <GROUPREF_IGNORE> <zero-based group index>
     return general_op_groupref(space, ctx, ignore=True)
 
-def op_groupref_exists(self, ctx):
+def op_groupref_exists(space, ctx):
     # <GROUPREF_EXISTS> <group> <skip> codeyes <JUMP> codeno ...
     group_start, group_end = ctx.state.get_marks(ctx.peek_code(1))
     if group_start == -1 or group_end == -1 or group_end < group_start:
         ctx.skip_code(ctx.peek_code(2) + 1)
     else:
         ctx.skip_code(3)
+    return True
+
+def op_assert(space, ctx):
+    # assert subpattern
+    # <ASSERT> <skip> <back> <pattern>
+    if not ctx.is_resumed():
+        ctx.state.string_position = ctx.string_position - ctx.peek_code(2)
+        if ctx.state.string_position < 0:
+            ctx.has_matched = ctx.NOT_MATCHED
+            return True
+        ctx.push_new_context(3)
+        return False
+    else:
+        if ctx.child_context.has_matched == ctx.MATCHED:
+            ctx.skip_code(ctx.peek_code(1) + 1)
+        else:
+            ctx.has_matched = ctx.NOT_MATCHED
+        return True
+
+def op_assert_not(space, ctx):
+    # assert not subpattern
+    # <ASSERT_NOT> <skip> <back> <pattern>
+    if not ctx.is_resumed():
+        ctx.state.string_position = ctx.string_position - ctx.peek_code(2)
+        if ctx.state.string_position >= 0:
+            ctx.push_new_context(3)
+            return False
+    else:
+        if ctx.child_context.has_matched == ctx.MATCHED:
+            ctx.has_matched = ctx.NOT_MATCHED
+            return True
+    ctx.skip_code(ctx.peek_code(1) + 1)
     return True
 
 def count_repetitions(space, ctx, maxcount):
@@ -669,7 +702,7 @@ def count_repetitions(space, ctx, maxcount):
 opcode_dispatch_table = [
     op_failure, op_success,
     op_any, op_any_all,
-    None, None, #ASSERT, ASSERT_NOT,
+    op_assert, op_assert_not,
     op_at,
     op_branch,
     None, #CALL,
