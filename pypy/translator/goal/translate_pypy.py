@@ -41,9 +41,9 @@ Command-line options for translate_pypy:
    -t-lowmem  try to save as much memory as possible, since many computers
               tend to have less than a gigabyte of memory (512 MB is typical).
               Currently, we avoid to use geninterplevel, which creates a lot
-              of extra blocks, but gains only som 10-20 % of speed, because
+              of extra blocks, but gains only some 10-20 % of speed, because
               we are still lacking annotation of applevel code.
-   -batch     don't use interactive helpers,like pdb
+   -batch     don't use interactive helpers, like pdb
 """
 import autopath, sys, os
 
