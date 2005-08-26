@@ -115,7 +115,7 @@ class ObjSpace(object):
     def __init__(self, usemodules=(), 
                  nofaking=False, 
                  uselibfile=False,
-                 parser="recparser", 
+                 parser="pypy", 
                  compiler="pyparse",
                  translating=False,
                  geninterp=True,
@@ -190,11 +190,9 @@ class ObjSpace(object):
         # that differs from the app-visible name (because you 
         # can specify implementation variants)
         builtinmodule_list = [(x, None) for x in modules]
-        if self.options.parser == "recparser":
+        if self.options.parser == "pypy":
             builtinmodule_list.append(('parser', 'recparser'))
             builtinmodule_list.append(('symbol', None))
-        elif self.options.parser == "parser":
-            builtinmodule_list.append(('parser', None))
         self._builtinmodule_list = builtinmodule_list
         return self._builtinmodule_list
 

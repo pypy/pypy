@@ -11,7 +11,7 @@ class Options:
     oldstyle = 0
     uselibfile = 0
     nofaking = 0
-    parser = "recparser" # "cpython" / "recparser" / "parser"
+    parser = "pypy" # "cpython" / "pypy" 
     compiler = "pyparse" # "cpython"
                          # "pyparse" pypy parser, cpython's compiler and transformer package
                          # "pyparseapp" same, running the compiler at app-level
@@ -60,7 +60,7 @@ def get_standard_options():
     options.append(make_option(
         '--parser', action="store",type="string", dest="parser",
         help="select the parser module to use",
-        metavar="[recparser|cpython|parser]"))
+        metavar="[pypy|cpython]"))
 ## for this to work the option module need to be loaded before the grammar!
 ##     options.append(make_option(
 ##         '--version', action="store",type="string", dest="version",
