@@ -34,6 +34,7 @@ recent compliance test runs against PyPy.
 
 `license`_ contains licensing details (basically a straight MIT-license). 
 
+.. _FAQ: faq.html
 .. _parser: parser.html
 .. _`talks and related projects`: extradoc.html
 .. _`license`: http://codespeak.net/svn/pypy/dist/LICENSE 
@@ -73,8 +74,7 @@ Directory                      explanation/links
 `module/`_                     contains `mixed modules`_ implementing core modules with 
                                both application and interpreter level code 
 
-`module/_sre_pypy/`_           an experimental approach wrapping CPython's ``_sre`` module 
-                               without using faking 
+`module/_sre/`_                full regular expression implementation 
 
 `module/__builtin__/`_         full implementation of CPython's ``__builtin__`` module. 
 
