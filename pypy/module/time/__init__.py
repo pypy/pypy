@@ -12,5 +12,6 @@ class Module(MixedModule):
     interpleveldefs = {
     'clock'    : 'interp_time.clock',
     'time'     : 'interp_time.time_',
+    'sleep'    : 'interp_time.sleep',
     }
 
