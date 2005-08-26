@@ -294,7 +294,7 @@ globs = [
     'global a,b,c',
     ]
 
-raises = [
+raises_ = [      # NB. 'raises' creates a name conflict with py.test magic
     'raise',
     'raise ValueError',
     'raise ValueError("error")',
@@ -491,7 +491,7 @@ TESTS = [
     execs,
     prints,
     globs,
-    raises,
+    raises_,
     ]
 
 EXEC_INPUTS = [

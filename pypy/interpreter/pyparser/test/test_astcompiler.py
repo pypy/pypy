@@ -7,7 +7,7 @@ from pypy.interpreter.astcompiler import ast, misc, pycodegen
 
 from test_astbuilder import expressions, comparisons, funccalls, backtrackings,\
     listmakers, genexps, dictmakers, multiexpr, attraccess, slices, imports,\
-    asserts, execs, prints, globs, raises, imports_newstyle, augassigns
+    asserts, execs, prints, globs, raises_, imports_newstyle, augassigns
 
 from test_astbuilder import FakeSpace
 
@@ -27,7 +27,7 @@ TESTS = [
     execs,
     prints,
     globs,
-    raises,
+    raises_,
     ]
 
 import sys
