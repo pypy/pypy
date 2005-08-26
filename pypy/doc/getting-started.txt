@@ -10,22 +10,19 @@ PyPy - Getting Started
 Just the facts 
 ============== 
 
-getting & running the PyPy 0.6.1 release 
+getting & running the PyPy 0.7 release 
 -----------------------------------------
-
-    Note that the 0.6 release was broken and 
-    thus you find only the 0.6.1 release here. 
 
 Download one of the following release files and unpack it: 
 
-*pypy-0.6.1 (05/21/2005)*
+*pypy-0.7
     
-  * download one of `pypy-0.6.1.tar.bz2`_, `pypy-0.6.1.tar.gz`_ or
-    `pypy-0.6.1.zip`_ (windows line-endings) and unpack it 
+  * download one of `pypy-0.7.0.tar.bz2`_, `pypy-0.7.0.tar.gz`_ or
+    `pypy-0.7.0.zip`_ (windows line-endings) and unpack it 
     
-  * alternatively run ``svn co http://codespeak.net/svn/pypy/release/0.6.1 pypy-0.6.1`` 
+  * alternatively run ``svn co http://codespeak.net/svn/pypy/release/0.7.0 pypy-0.7.0`` 
 
-then change to the ``pypy-0.6.1`` directory
+then change to the ``pypy-0.7.0`` directory
 and execute the following command line:: 
 
     python pypy/bin/py.py 
@@ -41,9 +38,9 @@ Have a look at `interesting starting points`_
 for guidance on how to continue. 
 
 .. _`90% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
-.. _`pypy-0.6.1.tar.bz2`: http://codespeak.net/download/pypy/pypy-0.6.1.tar.bz2
-.. _`pypy-0.6.1.zip`: http://codespeak.net/download/pypy/pypy-0.6.1.zip
-.. _`pypy-0.6.1.tar.gz`: http://codespeak.net/download/pypy/pypy-0.6.1.tar.gz
+.. _`pypy-0.7.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-0.7.0.tar.bz2
+.. _`pypy-0.7.0.zip`: http://codespeak.net/download/pypy/pypy-0.7.0.zip
+.. _`pypy-0.7.0.tar.gz`: http://codespeak.net/download/pypy/pypy-0.7.0.tar.gz
 
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
@@ -346,25 +343,26 @@ The graph can be turned into C code::
    >>> f = t.ccompile()
 
 The first command replaces operations with variables of types that are
-avaiable in C (e.g. int) with low level versions. This can be ommited if no
-annotation (see last subsection) has been performed.
+avaiable in C (e.g. int) with low level versions. This can also be ommited
+although it is not recommended.
 
 
 translating the flow graph to LLVM code
 +++++++++++++++++++++++++++++++++++++++
 
 If you feel adventureous (and have `LLVM installed`_ and on your path) you can
-also try to compile the graph with LLVM. This is still quite experimental
-and only works with some functions: One of the most visible restriction is
-that return type of the entry function has to be and int, float or bool. To
-try it do::
+also try to compile the graph with LLVM_ (low level virtual machine). This
+works nearly as well as for the c backend. There is a restriction, though: The
+return type and the arguments of the entry function has to be an int, float or
+bool. To try it do:: 
 
    >>> print t.llvm()
    >>> f = t.llvmcompile(optimize=True)
    >>> f(28)
    1
 
-This works only with fully annotated graphs.
+In contrast to the C backend this works only for fully annotated and
+specialized graphs.
 
 a slightly larger example
 +++++++++++++++++++++++++
@@ -387,21 +385,37 @@ translating the PyPy interpreter
 ++++++++++++++++++++++++++++++++
 
 Not for the faint of heart nor the owner of a very old machine: you can
-run the annotator over the whole PyPy interpreter itself.  This is the
-largest and ultimate example of source that our annotator can (very
-successfully!) process::
+translate the whole of PyPy to low level C code. This is the largest and
+ultimate example of source that our translation toolchain can process::
 
     cd pypy/translator/goal
-    python translate_pypy.py -no-t -no-c
+    python translate_pypy.py
 
-Moving around is difficult because of the sheer size of the result.
-For this reason, the debugger prompt you get at the end has been
-enhanced with commands to facilitate locating functions and classes.
-Type ``help graphs`` for a list of the new commands.  Help is also
+This whole process will take some time and quite a lot of memory. To reduce
+the memory footprint of the translation process you can use the option
+``-t_lowmem`` With this option the whole process should be runnable on a
+machine with 512Mb of RAM. If the translation is finished running and after
+you closed the graph you will be greeted by the friendly prompt of a PyPy
+executable that is not running on top of CPython any more.
+
+Moving around in the resulting flow graph is difficult because of the sheer
+size of the result. For this reason, the debugger prompt you get at 
+the end has been enhanced with commands to facilitate locating functions and
+classes. Type ``help graphs`` for a list of the new commands.  Help is also
 available on each of these new commands.
 
 The ``translate_pypy`` script itself takes a number of options controlling
-what to translate and how.  See ``translate_pypy.py -h``.  Try out::
+what to translate and how.  See ``translate_pypy.py -h``. Some of the more
+interesting options are:
+
+   * ``-llvm``: produce code for LLVM_ instead of for C. One of the biggest
+     things not working there is threading.
+
+   * ``-boehm``: use the `Boehm-Demers-Weiser garbage collector`_ instead of
+     our own reference counting implementation.
+
+
+Try out::
 
     cd pypy/translator/goal
     python translate_pypy.py targetrpystone
@@ -409,7 +423,6 @@ what to translate and how.  See ``translate_pypy.py -h``.  Try out::
 or a simplified, scaled-down version::
 
     python translate_pypy.py targetrpystone2
-
 
 .. _`start reading sources`: 
 
@@ -446,6 +459,12 @@ or start off at one of the following points:
    can be inferred about a graph.  The graph "walker" that uses this is in
    `pypy/translator/annrpython.py`_.
 
+*  `pypy/rpython`_ contains the code of the RPython typer. The typer transforms
+   annotated flow graphs in a way that makes them very similar to C code so
+   that they can be easy translated. The graph transformations are controlled
+   by the stuff in `pypy/rpython/rtyper.py`_. The object model that is used can
+   be found in `pypy/rpython/lltype.py`_. For each RPython type there is a
+   file rxxxx.py that contains the low level functions needed for this type.
 
 .. _optionaltool: 
 
@@ -466,6 +485,7 @@ want to look at generated flowgraphs:
 
 	pygame: http://www.pygame.org/download.shtml
 
+.. _LLVM:
 .. _`LLVM installed`: 
 
 LLVM  
@@ -556,5 +576,6 @@ conferences such as EuroPython or Pycon.
 .. _bug reports:            https://codespeak.net/issue/pypy-dev/
 
 .. _`directory reference`: index.html#directory-reference
+.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 
 .. include:: _ref.txt

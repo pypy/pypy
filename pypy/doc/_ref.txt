@@ -51,4 +51,7 @@
 .. _`translator/c/`: ../../pypy/translator/c
 .. _`translator/java/`: ../../pypy/translator/java
 .. _`translator/llvm/`: ../../pypy/translator/llvm
-.. _`translator/tool/`: ../../pypy/translator/tool
+.. _`translator/tool/`: ../../pypy/translator/too
+.. _`pypy/rpython`: ../../pypy/rpython
+.. _`pypy/rpython/rtyper.py`: ../../pypy/rpython/rtyper.py
+.. _`pypy/rpython/lltype.py`: ../../pypy/rpython/lltype.py
