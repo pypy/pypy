@@ -1,23 +1,13 @@
-test_pprint 
-    fails because  "dict.__repr__ is dict.__repr__" equals False
 
-test_syntax fails because "del f()" produces SyntaxError with message = 
-    "can't assign to function call" instead of "can't delete function call". 
-    The test is for "delete" to be in the message
+test_cpickle
+    has been re-run, still failing
 
-test_import 
-    fails because os.open is case insensitive (at least on Mac os X)
-
-multiple tests fail because from __future__ import division does 
-not work (true division is never enabled)
-    
-test_compiler 
-    fails because of "maximum recursion depth exceeded"
-
-test_decorator
-    fails because globals and locals are None in a nested function ?
+test_descr
+    cannot easily complete this; after another quick review, the failures
+    left are mostly "don't care" internal details.
 
 test_builtin
+    (some of these might have been fixed by now:)
     - our compilers need to recognize BOM markers
     - eval etc  should accept dict subclasses
     - hex/oct should output '-' for negative numbers
@@ -25,40 +15,34 @@ test_builtin
     - disallow interning of string subclasses
     - __future__ import division problems
 
-
-test_mutants
-   still crashes because it does a str() on a a mutating dict
-   which results in a RuntimeError, what does CPython output in this case?
-
-test_marshal
-   even with our new complete marshall support enabled this one has
-   failures
-
-test_tuple etc
-   do we want to support x is x*1 where x is exactly a tuple?
-
 test_extcall
    cannot be fixed.  PyPy produces different TypeError messages but they are
    also correct and useful (reviewed them again).
 
-test_tempfile
-  still failing
+test_codecscallback
+    Should be fixed by now, takes a long time to re-run
 
-test_cpickle
-test_descr
-   have been re-run, still failing
+test_compiler 
+    not a core mode
 
-test_multibytecodec
-    needs the gb18030 codec, part of the CJK codecs. either remove this test
-    from core or maybe fake or reimplement the CJK codecs?
+test_global
+    should be run and pass with --compiler=pyparseapp
+
+test_codeop
+    could be fixed, maybe (being worked on)
+
+test_compile
+    test_exec_with_general_mapping_for_locals should be modified
+    other tests are minor stuff that seem basically fixable, mostly
+    missing SyntaxErrors
 
 test_traceback
-    test_nocaret fails because the examined SyntaxError doesn't carry a
-    line number
+test_future
+test_genexps
+    some SyntaxErrors don't come with a lineno attached,
+    but ideally we should always produce them.
+    A bug in test_genexps is being worked on (assignment to genexps).
 
 test_trace
     Fails because of our compiler generating different linenumber information
     than CPythons.
-
-test_pep292
-    Depends on a working re module.
