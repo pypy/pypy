@@ -16,13 +16,13 @@ from pickle import StringIO
 
 PythonPickler = Pickler
 class Pickler(PythonPickler):
-    def __init__(self, *args):
+    def __init__(self, *args, **kw):
         self.__f = None
         if len(args) == 1 and isinstance(args[0], int):
             self.__f = StringIO()
-            PythonPickler.__init__(self, self.__f, args[0])
+            PythonPickler.__init__(self, self.__f, args[0], **kw)
         else:
-            PythonPickler.__init__(self, *args)
+            PythonPickler.__init__(self, *args, **kw)
             
     def memoize(self, obj):
         self.memo[None] = None   # cPickle starts counting at one
