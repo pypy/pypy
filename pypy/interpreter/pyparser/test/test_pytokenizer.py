@@ -49,9 +49,8 @@ def test_several_lines_list():
     s = """['a'
     ]"""
     tokens = parse_source(s)
-    assert tokens == [Token(LSQB, None), Token(STRING, "'a'"),
-                      Token(RSQB, None), Token(NEWLINE, ''),
-                      Token(ENDMARKER, '')]
+    assert tokens[:4] == [Token(LSQB, None), Token(STRING, "'a'"),
+                          Token(RSQB, None), Token(NEWLINE, '')]
 
 def test_numbers():
     """make sure all kind of numbers are correctly parsed"""
@@ -66,9 +65,8 @@ def test_numbers():
 def test_hex_number():
     """basic pasrse"""
     tokens = parse_source("a = 0x12L")
-    assert tokens == [Token(NAME, 'a'), Token(EQUAL, None),
-                      Token(NUMBER, '0x12L'), Token(NEWLINE, ''),
-                      Token(ENDMARKER, '')]
+    assert tokens[:4] == [Token(NAME, 'a'), Token(EQUAL, None),
+                          Token(NUMBER, '0x12L'), Token(NEWLINE, '')]
 
 def test_punct():
     """make sure each punctuation is correctly parsed"""
