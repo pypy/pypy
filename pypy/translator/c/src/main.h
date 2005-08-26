@@ -12,12 +12,12 @@ int main(int argc, char *argv[])
     errmsg = RPython_StartupCode();
     if (errmsg) goto error;
 
-    list = RPyListOfString_New(argc);
+    list = _RPyListOfString_New(argc);
     if (RPyExceptionOccurred()) goto error;
     for (i=0; i<argc; i++) {
         RPyString *s = RPyString_FromString(argv[i]);
         if (RPyExceptionOccurred()) goto error;
-        RPyListOfString_SetItem(list, i, s);
+        _RPyListOfString_SetItem(list, i, s);
     }
 
 

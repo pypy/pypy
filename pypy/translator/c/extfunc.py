@@ -75,12 +75,19 @@ def predeclare_utility_functions(db, rtyper):
     def RPyString_New(length=lltype.Signed):
         return lltype.malloc(STR, length)
 
+    # !!!
+    # be extremely careful passing a gc tracked object
+    # from such an helper result to another one
+    # as argument, this could result in leaks
+    # Such result should be only from C code
+    # returned directly as results
+
     p = lltype.Ptr(rlist.LIST_OF_STR)
 
-    def RPyListOfString_New(length=lltype.Signed):
+    def _RPyListOfString_New(length=lltype.Signed):
         return rlist.ll_newlist(p, length)
 
-    def RPyListOfString_SetItem(l=p,
+    def _RPyListOfString_SetItem(l=p,
                                 index=lltype.Signed,
                                 newstring=lltype.Ptr(STR)):
         rlist.ll_setitem_nonneg(l, index, newstring)
