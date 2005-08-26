@@ -100,7 +100,7 @@ def _check_tuples_equality(pypy_tuples, python_tuples, testname):
     # compare the two tuples by transforming them into AST, to hide irrelevant
     # differences -- typically newlines at the end of the tree.
     print 'Comparing the ASTs of', testname
-    transformer1 = PyPyTransformer()
+    transformer1 = PyPyTransformer("")
     ast_pypy   = transformer1.compile_node(pypy_tuples)
     repr_pypy  = repr(ast_pypy)
 

@@ -534,7 +534,7 @@ def ast_parse_expr(expr, target='single'):
     return builder
 
 def tuple_parse_expr(expr, target='single'):
-    t = Transformer()
+    t = Transformer("dummyfile")
     return ast_from_input(expr, target, t)
 
 def check_expression(expr, target='single'):
