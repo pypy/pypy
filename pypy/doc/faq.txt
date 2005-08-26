@@ -29,4 +29,10 @@ What is RPython?
     in this restricted style.  For a more exhaustive definitions
     please refer to `RPython`_. 
 
+Do I have to rewrite my programs in RPython?
+
+    No.  PyPy always runs your code in its own interpreter, which is
+    a full and compliant Python 2.4 interpreter.  RPython is only
+    the language in which parts of PyPy itself are written.
+
 .. _`RPython`: coding-guide.html#rpython
