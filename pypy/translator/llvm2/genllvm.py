@@ -423,9 +423,9 @@ def compile_module(function, annotation, view=False, **kwds):
 
 def compile_function(function, annotation, **kwds):
     mod = compile_module(function, annotation, **kwds)
-    return getattr(mod, function.func_name + "_wrapper")
+    return getattr(mod, 'pypy_' + function.func_name + "_wrapper")
 
 def compile_module_function(function, annotation, **kwds):
     mod = compile_module(function, annotation, **kwds)
-    f = getattr(mod, function.func_name + "_wrapper")
+    f = getattr(mod, 'pypy_' + function.func_name + "_wrapper")
     return mod, f

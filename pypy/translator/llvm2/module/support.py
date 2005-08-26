@@ -100,7 +100,7 @@ return_block:
 for exc in "ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
     extfunctions["%%__prepare_%(exc)s" % locals()] = ((), """
 internal fastcc void %%__prepare_%(exc)s() {
-    %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%instantiate_%(exc)s()
+    %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%pypy_instantiate_%(exc)s()
     %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
     %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
     store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
