@@ -198,8 +198,8 @@ void LL_os_chdir(RPyString * path) {
     }
 }
 
-void LL_os_mkdir(RPyString * path) {
-    int error = mkdir(RPyString_AsString(path));
+void LL_os_mkdir(RPyString * path, int mode) {
+    int error = mkdir(RPyString_AsString(path), mode);
     if (error != 0) {
 	RPYTHON_RAISE_OSERROR(errno);
     }
