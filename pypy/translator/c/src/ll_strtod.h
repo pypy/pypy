@@ -45,10 +45,10 @@ double LL_strtod_parts_to_float(
 	last = s + (buf_size-1);
 	x = strtod(s, &fail_pos);
 	errno = 0;
-	free(s);
 	if (fail_pos > last)
 		fail_pos = last;
 	if (fail_pos == s || *fail_pos != '\0' || fail_pos != last) {
+		free(s);
 		RPyRaiseSimpleException(PyExc_ValueError, "invalid float literal");
 		return -1.0;
 	}
@@ -56,6 +56,7 @@ double LL_strtod_parts_to_float(
 		x = strtod(s, NULL);
 		errno = 0;
 	}
+	free(s);
 	return x;
 }
 
