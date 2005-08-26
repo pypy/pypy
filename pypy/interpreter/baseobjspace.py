@@ -170,11 +170,10 @@ class ObjSpace(object):
             pass
 
         modules = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs',
-            'array', 'marshal', 'errno']
+            'array', 'marshal', 'errno', 'math']
 
         if self.options.nofaking:
             modules.append('posix')
-            modules.append('math')
             modules.append('time')
             modules.append('errno')
 
