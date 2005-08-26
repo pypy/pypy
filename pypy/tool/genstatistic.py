@@ -28,19 +28,20 @@ class relchecker:
 def isfile(p):
     return p.check(file=1) and p.ext in ('.py', '.txt', '')
 
+def recpypy(p):
+    if p.basename[0] == '.': 
+        return False 
+    if p.basename in ('Pyrex', 
+                      '_cache', 
+                      'unicodedata', 
+                      'pypy-translation-snapshot'):
+        return False 
+    return True 
+
 def getpypycounter():
-    def rec(p):
-        if p.basename[0] == '.': 
-            return False 
-        if p.basename in ('Pyrex', 
-                          '_cache', 
-                          'unicodedata', 
-                          'pypy-translation-snapshot'):
-            return False 
-        return True 
     filecounter = countloc.FileCounter() 
     root = py.path.local(autopath.pypydir)
-    filecounter.addrecursive(root, isfile, rec=rec)
+    filecounter.addrecursive(root, isfile, rec=recpypy)
     return filecounter 
 
 class CounterModel: 
@@ -103,7 +104,7 @@ def viewsubdirs(model):
             continue
         if p.check(dir=1): 
             counter = countloc.FileCounter()
-            counter.addrecursive(p, isfile)
+            counter.addrecursive(p, isfile, recpypy)
             model = CounterModel(counter) 
             t.append(row(html.h2(p.relto(pypydir.dirpath()))))
             t.append(viewlocsummary(model))
