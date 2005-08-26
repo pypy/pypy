@@ -27,9 +27,13 @@ class BaseTestCompiler:
             c0 = self.compiler.compile_command('\t # hello\n ', '?', mode, 0)
             c1 = self.compiler.compile_command('print 6*7', '?', mode, 0)
             c2 = self.compiler.compile_command('if 1:\n  x\n', '?', mode, 0)
+            c8 = self.compiler.compile_command('x = 5', '?', mode, 0)
+            c9 = self.compiler.compile_command('x = 5 ', '?', mode, 0)
             assert c0 is not None
             assert c1 is not None
             assert c2 is not None
+            assert c8 is not None
+            assert c9 is not None
             c3 = self.compiler.compile_command('if 1:\n  x', '?', mode, 0)
             c4 = self.compiler.compile_command('x = (', '?', mode, 0)
             c5 = self.compiler.compile_command('x = (\n', '?', mode, 0)

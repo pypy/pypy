@@ -31,9 +31,6 @@ class PythonParser(object):
         if textsrc.endswith('\n'):
             lines.pop()
             flags &= ~PyCF_DONT_IMPLY_DEDENT
-        else:
-            last_line = lines[-1]
-            lines[-1] = last_line[:-1]
         return self.parse_lines(lines, goal, builder, flags)
 
     def parse_lines(self, lines, goal, builder, flags=0):

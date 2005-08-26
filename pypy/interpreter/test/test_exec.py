@@ -169,3 +169,8 @@ class AppTestExecStmt:
         """ in d
         res = d['f']()
         assert res == (3, 2)
+
+    def test_space_bug(self):
+        d = {}
+        exec "x=5 " in d
+        assert d['x'] == 5
