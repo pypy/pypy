@@ -12,11 +12,11 @@ class Options:
     uselibfile = 0
     nofaking = 0
     parser = "pypy" # "cpython" / "pypy" 
-    compiler = "pyparse" # "cpython"
-                         # "pyparse" pypy parser, cpython's compiler and transformer package
-                         # "pyparseapp" same, running the compiler at app-level
-                         # "astparser" pypy parser with ast builder using cpython's compiler
-                         # "pycomp" pypy parser and compiler (TBD)
+    compiler = "stable" 
+         # "stable" uses interpreter/pyparser & interpreter/stablecompiler 
+         # "_stable" uses intepreter/pyparser & lib/_stablecompiler 
+         # "ast" uses interpreter/pyparser & interpreter/astcompiler.py 
+         # "cpython" uses cpython parser and cpython c-level compiler 
     usemodules = []                        
     version = "2.4" # "native" / "2.3" / "2.4"
 
@@ -55,8 +55,8 @@ def get_standard_options():
         help="use web browser for traceback info"))
     options.append(make_option(
         '--compiler', action="store", type="string", dest="compiler",
-        help="select the compiler approach to use internally",
-        metavar="[pyparse|astparser|cpython|pyparseapp]"))
+        help="""select compiling approach. see pypy/doc/README.compiling""",
+        metavar="[stable|_stable|ast|cpython]")) 
     options.append(make_option(
         '--parser', action="store",type="string", dest="parser",
         help="select the parser module to use",

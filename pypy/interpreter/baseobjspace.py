@@ -116,7 +116,7 @@ class ObjSpace(object):
                  nofaking=False, 
                  uselibfile=False,
                  parser="pypy", 
-                 compiler="pyparse",
+                 compiler="stable",
                  translating=False,
                  geninterp=True,
                  **kw
@@ -263,12 +263,12 @@ class ObjSpace(object):
         try:
             return self.default_compiler
         except AttributeError:
-            if (self.options.compiler == 'pyparse' or
-                self.options.compiler == 'pyparseapp'):
+            if (self.options.compiler == 'stable' or
+                self.options.compiler == '_stable'):
                 compiler = PythonCompiler(self)
             elif self.options.compiler == 'cpython':
                 compiler = CPythonCompiler(self)
-            elif self.options.compiler == 'astparser':
+            elif self.options.compiler == 'ast':
                 compiler = PythonAstCompiler(self)
             else:
                 raise ValueError('unknown --compiler option value: %r' % (

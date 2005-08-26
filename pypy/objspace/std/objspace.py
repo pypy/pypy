@@ -99,7 +99,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             self.inituselibfile() 
 
         # XXX hack!: patch the compiler after initialization is complete
-        if self.options.compiler == 'pyparseapp':
+        if self.options.compiler == '_stable':
             from pypy.interpreter.pycompiler import PythonCompilerApp
             self.default_compiler = PythonCompilerApp(self)
             self.getexecutioncontext().compiler = self.default_compiler

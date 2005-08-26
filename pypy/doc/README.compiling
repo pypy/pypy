@@ -1,0 +1,8 @@
+
+Compiling approaches
+--------------------------
+
+stable: use interpreter/stablecompiler at interp-level
+_stable: use lib/_stablecompiler at applevel.
+ast: use in-development translatable interplevel compiling.
+cpython: use cpython builtin c-level compiler.

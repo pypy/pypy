@@ -54,7 +54,7 @@ def target(geninterp=True):
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
     space = StdObjSpace(nofaking=True,
-                        compiler="pyparseapp",
+                        compiler="_stable", # lib/_stablecompiler
                         translating=True,
                         #usemodules=['marshal', '_sre'],
                         geninterp=geninterp)
