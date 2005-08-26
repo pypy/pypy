@@ -398,3 +398,28 @@ def test_os_unlink():
     open(tmpfile, 'w').close()
     fn()
     assert not os.path.exists(tmpfile)
+
+def test_chdir():
+    def does_stuff(path):
+        os.chdir(path)
+    f1 = compile(does_stuff, [str])
+    curdir = os.getcwd()
+    try:
+        os.chdir('..')
+    except: pass # toplevel
+    f1(curdir)
+    assert curdir == os.getcwd()
+
+def test_mkdir_rmdir():
+    def does_stuff(path, delete):
+        if delete:
+            os.rmdir(path)
+        else:
+            os.mkdir(path, 0777)
+    f1 = compile(does_stuff, [str, bool])
+    dirname = str(udir.join('test_mkdir_rmdir'))
+    f1(dirname, False)
+    assert os.path.exists(dirname) and os.path.isdir(dirname)
+    f1(dirname, True)
+    assert not os.path.exists(dirname)
+

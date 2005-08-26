@@ -85,18 +85,6 @@ int LL_os_dup(int fd)
 	return fd;
 }
 
-RPyString *LL_os_getcwd(void)
-{
-	char buf[PATH_MAX];
-	char *res;
-	res = getcwd(buf, sizeof buf);
-	if (res == NULL) {
-		RPYTHON_RAISE_OSERROR(errno);
-		return NULL;
-	}
-	return RPyString_FromString(buf);
-}
-
 RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st) {
   long res0, res1, res2, res3, res4, res5, res6, res7, res8, res9;
   res0 = (long)st.st_mode;
@@ -185,8 +173,41 @@ long LL_os_system(RPyString * fname) {
 }
 
 void LL_os_unlink(RPyString * fname) {
-  int error = unlink(RPyString_AsString(fname));
-  if (error != 0) {
-    RPYTHON_RAISE_OSERROR(errno);
-  }
+    int error = unlink(RPyString_AsString(fname));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+
+RPyString *LL_os_getcwd(void)
+{
+	char buf[PATH_MAX];
+	char *res;
+	res = getcwd(buf, sizeof buf);
+	if (res == NULL) {
+		RPYTHON_RAISE_OSERROR(errno);
+		return NULL;
+	}
+	return RPyString_FromString(buf);
+}
+
+void LL_os_chdir(RPyString * path) {
+    int error = chdir(RPyString_AsString(path));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+
+void LL_os_mkdir(RPyString * path) {
+    int error = mkdir(RPyString_AsString(path));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+
+void LL_os_rmdir(RPyString * path) {
+    int error = rmdir(RPyString_AsString(path));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
 }

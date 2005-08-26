@@ -112,7 +112,7 @@ ll_os_stat.suggested_primitive = True
 
 def ll_os_strerror(errnum):
     return to_rstr(os.strerror(errnum))
-ll_os_getcwd.suggested_primitive = True
+ll_os_strerror.suggested_primitive = True
 
 def ll_os_system(cmd):
     return os.system(from_rstr(cmd))
@@ -121,3 +121,15 @@ ll_os_system.suggested_primitive = True
 def ll_os_unlink(path):
     os.unlink(from_rstr(path))
 ll_os_unlink.suggested_primitive = True
+
+def ll_os_chdir(path):
+    os.chdir(from_rstr(path))
+ll_os_chdir.suggested_primitive = True
+
+def ll_os_mkdir(path, mode):
+    os.mkdir(from_rstr(path), mode)
+ll_os_chdir.suggested_primitive = True
+
+def ll_os_rmdir(path):
+    os.rmdir(from_rstr(path))
+ll_os_chdir.suggested_primitive = True
