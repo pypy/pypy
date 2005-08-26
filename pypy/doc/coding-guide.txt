@@ -818,10 +818,9 @@ item by following these rules:
 
     unread
     chatting
-    need-eg   (jargon for "need example")
     in-progress
     testing
-    done-cbb  (jargon for 'done, could-be-better')
+    duplicate
     resolved
 
 .. _`register with the tracker`: https://codespeak.net/issue/pypy-dev/user?@template=register
