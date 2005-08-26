@@ -128,8 +128,8 @@ ll_os_chdir.suggested_primitive = True
 
 def ll_os_mkdir(path, mode):
     os.mkdir(from_rstr(path), mode)
-ll_os_chdir.suggested_primitive = True
+ll_os_mkdir.suggested_primitive = True
 
 def ll_os_rmdir(path):
     os.rmdir(from_rstr(path))
-ll_os_chdir.suggested_primitive = True
+ll_os_rmdir.suggested_primitive = True
