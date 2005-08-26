@@ -39,20 +39,10 @@
 int LL_os_open(RPyString *filename, int flag, int mode)
 {
 	/* XXX unicode_file_names */
-	char buf[PATH_MAX];
-	int fd, namelen = RPyString_Size(filename);
-	if (namelen >= PATH_MAX) {
-		RPYTHON_RAISE_OSERROR(ENAMETOOLONG);
-		return -1;
-	}
-	else {
-		memcpy(buf, RPyString_AsString(filename), namelen);
-		buf[namelen] = 0;
-		fd = open(buf, flag, mode);
-		if (fd < 0)
-			RPYTHON_RAISE_OSERROR(errno);
-		return fd;
-	}
+	int fd = open(RPyString_AsString(filename), flag, mode);
+	if (fd < 0)
+		RPYTHON_RAISE_OSERROR(errno);
+	return fd;
 }
 
 long LL_read_into(int fd, RPyString *buffer)
