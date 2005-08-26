@@ -44,9 +44,7 @@ class TestDocStringInserter:
                             re.DOTALL
                              )
         
-        print s
         tdsearch = typedef.search(s).group('typeassign')
-        
         assert tdsearch
                  
         
