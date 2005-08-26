@@ -15,6 +15,8 @@ from pypy.translator.llvm.log import log
 
 EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support"
 SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
+    # kill code - hopefully to speed things up
+    "-globaldce -adce -deadtypeelim -simplifycfg",
 
     # call %malloc -> malloc inst
     "-raiseallocs",

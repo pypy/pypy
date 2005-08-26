@@ -4,7 +4,7 @@ from py.test import raises
 from pypy.translator.test import snippet 
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 
-from pypy.translator.llvm.genllvm import compile_function
+from pypy.translator.llvm.test.runtest import compile_function
 
 def test_call_five():
     def wrapper():

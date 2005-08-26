@@ -1,6 +1,6 @@
 from __future__ import division
 
-from pypy.translator.llvm.genllvm import compile_function
+from pypy.translator.llvm.test.runtest import compile_function
 from pypy.translator.test import snippet as test
 
 class TestSnippet(object):

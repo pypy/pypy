@@ -5,7 +5,7 @@ import os
 import py
 
 from pypy.tool.udir import udir
-from pypy.translator.llvm.genllvm import compile_function
+from pypy.translator.llvm.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint
 
 py.log.setconsumer("genllvm", py.log.STDOUT)
