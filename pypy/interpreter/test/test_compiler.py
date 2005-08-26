@@ -23,25 +23,26 @@ class BaseTestCompiler:
                 unicode('\xc3\xa5', 'utf8'))
 
     def test_compile_command(self):
-        c0 = self.compiler.compile_command('\t # hello\n ', '?', 'exec', 0)
-        c1 = self.compiler.compile_command('print 6*7', '?', 'exec', 0)
-        c2 = self.compiler.compile_command('if 1:\n  x\n', '?', 'exec', 0)
-        assert c0 is not None
-        assert c1 is not None
-        assert c2 is not None
-        c3 = self.compiler.compile_command('if 1:\n  x', '?', 'exec', 0)
-        c4 = self.compiler.compile_command('x = (', '?', 'exec', 0)
-        c5 = self.compiler.compile_command('x = (\n', '?', 'exec', 0)
-        c6 = self.compiler.compile_command('x = (\n\n', '?', 'exec', 0)
-        c7 = self.compiler.compile_command('x = """a\n', '?', 'exec', 0)
-        assert c3 is None
-        assert c4 is None
-        assert c5 is None
-        assert c6 is None
-        assert c7 is None
-        space = self.space
-        space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
-                       'if 1:\n  x x', '?', 'exec', 0)
+        for mode in ('single', 'exec'):
+            c0 = self.compiler.compile_command('\t # hello\n ', '?', mode, 0)
+            c1 = self.compiler.compile_command('print 6*7', '?', mode, 0)
+            c2 = self.compiler.compile_command('if 1:\n  x\n', '?', mode, 0)
+            assert c0 is not None
+            assert c1 is not None
+            assert c2 is not None
+            c3 = self.compiler.compile_command('if 1:\n  x', '?', mode, 0)
+            c4 = self.compiler.compile_command('x = (', '?', mode, 0)
+            c5 = self.compiler.compile_command('x = (\n', '?', mode, 0)
+            c6 = self.compiler.compile_command('x = (\n\n', '?', mode, 0)
+            c7 = self.compiler.compile_command('x = """a\n', '?', mode, 0)
+            assert c3 is None
+            assert c4 is None
+            assert c5 is None
+            assert c6 is None
+            assert c7 is None
+            space = self.space
+            space.raises_w(space.w_SyntaxError, self.compiler.compile_command,
+                           'if 1:\n  x x', '?', mode, 0)
 
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',

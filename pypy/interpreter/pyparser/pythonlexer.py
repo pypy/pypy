@@ -101,6 +101,9 @@ def generate_tokens(lines, flags):
         and the line on which the token was found. The line passed is the
         logical line; continuation lines are included.
     """
+    #for line in lines:
+    #    print repr(line)
+    #print '------------------- flags=%s ---->' % flags
     token_list = []
     lnum = parenlev = continued = 0
     namechars = NAMECHARS
@@ -295,11 +298,14 @@ def generate_tokens(lines, flags):
         for indent in indents[1:]:                 # pop remaining indent levels
             tok = Token(pytoken.DEDENT, '')
             token_list.append((tok, line, lnum, pos))
-    if token_list and token_list[-1][0].codename != pytoken.NEWLINE:
-        token_list.append((Token(pytoken.NEWLINE, ''), '\n', lnum, 0))
+    #if token_list and token_list[-1][0].codename != pytoken.NEWLINE:
+    token_list.append((Token(pytoken.NEWLINE, ''), '\n', lnum, 0))
 
     tok = Token(pytoken.ENDMARKER, '',)
     token_list.append((tok, line, lnum, pos))
+    #for t in token_list:
+    #    print '%20s  %-25s %d' % (pytoken.tok_name.get(t[0].codename, '?'), t[0], t[-2])
+    #print '----------------------------------------- pyparser/pythonlexer.py'
     return token_list, encoding
 
 class PythonSource(TokenSource):
