@@ -41,6 +41,9 @@ class AppTestUnicodeData:
         raises(ValueError, unicodedata.name, unichr(0xD7A3 + 1))
 
     def test_cjk(self):
+        import sys
+        if sys.maxunicode < 0x10ffff:
+            skip("requires a 'wide' python build.")
         import unicodedata
         for first, last in ((0x3400, 0x4DB5),
                             (0x4E00, 0x9FA5), # 9FBB in Unicode 4.1
