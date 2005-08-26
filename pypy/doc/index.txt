@@ -32,6 +32,8 @@ and related projects.
 `compliance test status`_ shows outcomes of 
 recent compliance test runs against PyPy. 
 
+`PyPy statistics`_ shows LOC statistics about PyPy. 
+
 `license`_ contains licensing details (basically a straight MIT-license). 
 
 .. _FAQ: faq.html
@@ -39,6 +41,7 @@ recent compliance test runs against PyPy.
 .. _`talks and related projects`: extradoc.html
 .. _`license`: http://codespeak.net/svn/pypy/dist/LICENSE 
 .. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
+.. _`PyPy statistics`: http://codespeak.net/~hpk/pypy-stat/
 .. _`object spaces`: objspace.html 
 .. _`translation`: translation.html 
 .. _`coding guide`: coding-guide.html 
