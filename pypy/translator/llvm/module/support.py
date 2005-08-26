@@ -342,7 +342,7 @@ loopexit:
 extfunctions["%main"] = [(), """
 int %main(int %argc, sbyte** %argv) {
 entry:
-    %pypy_argv = call fastcc %RPyListOfString* %pypy_ll_newlist__listPtrConst_Signed(int 0)
+    %pypy_argv = call fastcc %RPyListOfString* %pypy_ll_newlist__listPtrConst_Signed.2(int 0)
     br label %no_exit
 
 no_exit:
