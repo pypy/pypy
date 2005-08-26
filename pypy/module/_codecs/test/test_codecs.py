@@ -11,7 +11,7 @@ class AppTestCodecs:
         
 
     def test_unicodetranslateerror(self):
-
+        import sys
         assert str(UnicodeTranslateError(
             u"g\xfcrk", 1, 2, "ouch"))== "can't translate character u'\\xfc' in position 1: ouch"
         
@@ -29,6 +29,7 @@ class AppTestCodecs:
             u"g\xfcrk", 1, 3, "ouch"))=="can't translate characters in position 1-2: ouch"
 
     def test_unicodeencodeerror(self):
+        import sys
         assert str(UnicodeEncodeError(
             "ascii", u"g\xfcrk", 1, 2, "ouch"))=="'ascii' codec can't encode character u'\\xfc' in position 1: ouch"
             

@@ -147,15 +147,14 @@ class UnicodeTranslateError(UnicodeError):
             raise TypeError('function takes exactly 4 arguments (%d given)'%argc)
 
     def __str__(self):
-        # this is a bad hack, please supply an implementation
-        res = ' '.join([
-           'start=' + str(getattr(self, 'start', None)),
-           'reason=' + str(getattr(self, 'reason', None)),
-           'args=' + str(getattr(self, 'args', None)),
-           'end=' + str(getattr(self, 'end', None)),
-           'object=' + str(getattr(self, 'object', None)),
-        ])
-        return res
+        if self.end == self.start + 1:
+            badchar = ord(self.object[self.start])
+            if badchar <= 0xff:
+                return "can't translate character u'\\x%02x' in position %d: %s" % (badchar, self.start, self.reason)
+            if badchar <= 0xffff:
+                return "can't translate character u'\\u%04x' in position %d: %s"%(badchar, self.start, self.reason)
+            return "can't translate character u'\\U%08x' in position %d: %s"%(badchar, self.start, self.reason)
+        return "can't translate characters in position %d-%d: %s" % (self.start, self.end - 1, self.reason)
 
 class LookupError(StandardError):
     """Base class for lookup errors."""
@@ -354,8 +353,11 @@ class UnicodeDecodeError(UnicodeError):
             raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
 
     def __str__(self):
-        return "%r codec can't decode byte %x in position %d: %s"%(self.encoding, 
-                     ord(self.object[self.start]), self.start, self.reason)
+        if self.end == self.start + 1:
+            return "%r codec can't decode byte 0x%02x in position %d: %s"%(self.encoding, 
+                         ord(self.object[self.start]), self.start, self.reason)
+        return "%r codec can't decode bytes in position %d-%d: %s" % (
+            self.encoding, self.start, self.end - 1, self.reason)
 
 class TypeError(StandardError):
     """Inappropriate argument type."""
@@ -421,5 +423,16 @@ class UnicodeEncodeError(UnicodeError):
             raise TypeError('function takes exactly 5 arguments (%d given)'%argc)
 
     def __str__(self):
-        return "%r codec can't encode character %r in position %d: %s"%(self.encoding, 
-                     self.object[self.start], self.start, self.reason)
+        if self.end == self.start + 1:
+            badchar = ord(self.object[self.start])
+            if badchar <= 0xff:
+                return "%r codec can't encode character u'\\x%02x' in position %d: %s"%(self.encoding, 
+                     badchar, self.start, self.reason)
+            if badchar <= 0xffff:
+                return "%r codec can't encode character u'\\u%04x' in position %d: %s"%(self.encoding, 
+                     badchar, self.start, self.reason)
+          
+            return "%r codec can't encode character u'\\U%08x' in position %d: %s"%(self.encoding, 
+                     badchar, self.start, self.reason)
+        return "%r codec can't encode characters in position %d-%d: %s" % (
+            self.encoding, self.start, self.end - 1, self.reason)
