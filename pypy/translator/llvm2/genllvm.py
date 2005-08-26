@@ -27,6 +27,7 @@ from pypy.translator.translator import Translator
 from py.process import cmdexec 
 
 function_count = {}
+llcode_header = ll_functions = None
 
 def get_ll(ccode, extern_dir, functions=[]):
     
@@ -84,7 +85,8 @@ def get_ll(ccode, extern_dir, functions=[]):
         ll_lines2.append(line)
 
     llcode = '\n'.join(ll_lines2)
-    return llcode.split('implementation')	#XXX testing
+    global llcode_header, ll_functions 
+    llcode_header, ll_functions = llcode.split('implementation')       # XXX testing
 
     #XXX temp disabled
     #
@@ -158,7 +160,7 @@ class GenLLVM(object):
         return decls
 
     def generate_llfile(self, extern_decls):
-
+        
         #XXX outcommented because we are not puting files here
         #extern_dir = udir.join("externs")
         #if extern_dir.check(dir=1):
@@ -195,7 +197,7 @@ class GenLLVM(object):
         fns += "ll_time_time ll_time_clock ll_time_sleep ll_floattime".split()
         fns += "ll_strtod_parts_to_float ll_strtod_formatd".split()
 
-        return get_ll(open(p).read(), extern_dir, fns)
+        get_ll(open(p).read(), extern_dir, fns)
 
     def gen_llvm_source(self, func=None):
         if self.debug:  print 'gen_llvm_source begin) ' + time.ctime()
@@ -220,7 +222,9 @@ class GenLLVM(object):
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
 
-        lldeclarations, llimplementation = self.generate_llfile(extern_decls)
+        if llcode_header is None:
+            self.generate_llfile(extern_decls)
+        lldeclarations, llimplementation = llcode_header, ll_functions
  
         #if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
         #if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
