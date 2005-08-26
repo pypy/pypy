@@ -1,36 +1,32 @@
-PyPy: Python in Python implementation / Version 0.6 
-=================================================== 
+PyPy: Python in Python implementation / Version 0.7.0
+=======================================================
 
-Welcome to PyPy!   PyPy-0.6 is the first public release 
-after two years of spare-time and half a year of European Union 
-funded development from a multitude of people and organizations.  
+Welcome to PyPy!   PyPy-0.7.0 marks the first public release 
+that allows to build a self-contained Python implementation
+that does not depend or run on top of CPython anymore.  
 
 We invested a lot of time in improving the documentation and
 website and thus invite you to head over to our getting-started
 document 
 
-    pypy/documentation/getting_started.txt  or 
-    http://codespeak.net/pypy/index.cgi?getting-started
+    pypy/doc/getting-started.txt  (local if you got a tarball)
+
+    http://codespeak.net/pypy/dist/pypy/doc/getting-started.html 
 
 which gives you many good starting and entry points into
 playing with PyPy.  It will also point you to our
-documentation section of which you can find the source ReST 
-files in the following directory: 
-
-    pypy/documentation/index.txt or 
-    http://codespeak.net/pypy/index.cgi?doc 
+documentation section which is generated from information
+in the pypy/doc directory. 
 
 Our online release announcement has some more  
-information about the specific PyPy-0.6 release: 
+information about the specific PyPy-0.7.0 release: 
 
-    pypy/documentation/release-0.6.txt or 
-    http://codespeak.net/pypy/index.cgi?doc/release-0.6.html 
+    pypy/documentation/release-0.7.0.txt or 
+    http://codespeak.net/pypy/dist/pypy/doc/release-0.7.0.html 
 
-Please freel free to contact or join us in one of the ways
-listed in our contact page: 
-
-    pypy/documentation/website/contact.txt or 
-    http://codespeak.net/pypy/index.cgi?contact
+Please note that the last 9 months of PyPy development 
+have been funded by the European Union through its research
+programme. 
 
 Enjoy and send us feedback! 
 
