@@ -48,7 +48,8 @@ class StructVarsizeTypeNode(StructTypeNode):
 
     def __init__(self, db, struct): 
         super(StructVarsizeTypeNode, self).__init__(db, struct)
-        self.constructor_ref = "%%new.varsizestruct.%s" % (self.name)
+        prefix = '%new.varsizestruct.'
+        self.constructor_ref = self.make_ref(prefix, self.name)
         self.constructor_decl = "%s * %s(%s %%len)" % \
                                 (self.ref,
                                  self.constructor_ref,

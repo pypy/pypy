@@ -4,6 +4,10 @@ class LLVMNode(object):
     nodename_count = {}
 
     def make_name(self, name):
+        " helper for creating names"
+        if " " in name or "<" in name: 
+            name = '"%s"' % name
+            
         if name in self.nodename_count:
             postfix = '.%d' % self.nodename_count[name]
             self.nodename_count[name] += 1
@@ -14,32 +18,6 @@ class LLVMNode(object):
 
     def make_ref(self, prefix, name):
         return self.make_name(prefix + name)
-
-    def ref(): 
-        def _get_ref(self):
-            return self._ref 
-        def _set_ref(self, ref):
-            if hasattr(self, "_ref"):
-                raise TypeError, ("can only set ref once! currently: %s" %
-                                   (self._ref,))
-            if " " in ref or "<" in ref: 
-                ref = '"%s"' % (ref,)
-            self._ref = ref
-        return property(_get_ref, _set_ref)
-    ref = ref()
-
-    def constructor_ref(): 
-        def _get_ref(self):
-            return self._constructor_ref 
-        def _set_ref(self, ref):
-            if hasattr(self, "_constructor_ref"):
-                raise TypeError, ("can only set constructor_ref once!"
-                                  " currently: %s" % (self._constructor_ref,))
-            if " " in ref or "<" in ref: 
-                ref = '"%s"' % (ref,)
-            self._constructor_ref = ref
-        return property(_get_ref, _set_ref)
-    constructor_ref = constructor_ref()
 
     def setup(self):
         pass
