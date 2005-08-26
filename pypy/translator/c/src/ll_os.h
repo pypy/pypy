@@ -203,14 +203,22 @@ void LL_os_rmdir(RPyString * path) {
 }
 
 #ifdef HAVE_PUTENV
-
-/* note that this doesn't map to os.putenv, it is the name=value
+/* Note that this doesn't map to os.putenv, it is the name=value
  * version of C. See ros.py for the fake implementation.
- * Note that we are responsible to keep the
+ * Also note that we are responsible to keep the
  * value alive. This is done in interp_posix.py
  */
 void LL_os_putenv(RPyString * name_eq_value) {
     int error = putenv(RPyString_AsString(name_eq_value));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+#endif
+
+#ifdef HAVE_UNSETENV
+void LL_os_unsetenv(RPyString * name) {
+    int error = unsetenv(RPyString_AsString(name));
     if (error != 0) {
 	RPYTHON_RAISE_OSERROR(errno);
     }

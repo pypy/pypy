@@ -211,7 +211,7 @@ def putenv(space, name, value):
     """putenv(key, value)
 
 Change or add an environment variable."""
-    txt = '%s=%s' % name, value
+    txt = '%s=%s' % (name, value)
     ros.putenv(txt)
     # Install the first arg and newstr in posix_putenv_garbage;
     # this will cause previous value to be collected.  This has to
@@ -219,3 +219,15 @@ Change or add an environment variable."""
     # was still accessible until then.
     get(space).posix_putenv_garbage[name] = txt
 putenv.unwrap_spec = [ObjSpace, str, str]
+
+def unsetenv(space, name):
+    """unsetenv(key)
+
+Delete an environment variable."""
+    os.unsetenv(name)
+    # Remove the key from posix_putenv_garbage;
+    # this will cause it to be collected.  This has to
+    # happen after the real unsetenv() call because the
+    # old value was still accessible until then.
+    del get(space).posix_putenv_garbage[name]
+unsetenv.unwrap_spec = [ObjSpace, str]

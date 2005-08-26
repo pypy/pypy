@@ -435,6 +435,8 @@ def test_putenv():
     assert file(filename).read().strip() == '12345678'
     os.unlink(filename)
 
+# XXX missing test for unsetenv, please do this on Linux
+
 def test_environ():
     def env(idx):
         # need to as if the result is NULL, or we crash

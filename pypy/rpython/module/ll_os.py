@@ -139,7 +139,11 @@ def ll_os_putenv(name_eq_value):
     ros.putenv(from_rstr(name_eq_value))
 ll_os_putenv.suggested_primitive = True
 
-# get the initial environment as a string list
+def ll_os_unsetenv(name):
+    os.unsetenv(from_rstr(name))
+ll_os_unsetenv.suggested_primitive = True
+
+# get the initial environment by indexing
 def ll_os_environ(idx):
     return ros.environ(idx)
 ll_os_environ.suggested_primitive = True

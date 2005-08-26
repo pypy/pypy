@@ -151,6 +151,7 @@ declare(os.getcwd   , str           , 'll_os/getcwd')
 declare(os.chdir    , noneannotation, 'll_os/chdir')
 declare(os.mkdir    , noneannotation, 'll_os/mkdir')
 declare(os.rmdir    , noneannotation, 'll_os/rmdir')
+declare(os.unsetenv , noneannotation, 'll_os/unsetenv')
 declare(os.path.exists, bool        , 'll_os_path/exists')
 declare(os.path.isdir, bool         , 'll_os_path/isdir')
 declare(time.time   , float         , 'll_time/time')
@@ -199,7 +200,7 @@ declare(rarithmetic.formatd, str, 'll_strtod/formatd')
 # ___________________________________________________________
 # special helpers for os with no equivalent
 from pypy.rpython import ros
-declare(ros.putenv,  noneannotation, 'll_os/putenv')
+declare(ros.putenv, noneannotation, 'll_os/putenv')
 declare(ros.environ, strnullannotation, 'll_os/environ')
 
 # ___________________________________________________________
