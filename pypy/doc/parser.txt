@@ -59,6 +59,12 @@ Here's a basic exemple and how the grammar is represented::
     S = Sequence( A, Alternative( Token('+'), Token('-') ), A )
 
 
+Status
+======
+
+See README.compiling on the status of the parser(s) implementation of PyPy
+
+
 Detailed design
 ===============
 
@@ -137,25 +143,59 @@ The abstract syntax tree for the same expression would look like::
 Examples using the parser within PyPy
 -------------------------------------
 
+The four parser variants are used from within interpreter/pycompiler.py
 
 API Quickref
 ------------
 
 Modules
+~~~~~~~
+
+* interpreter/pyparser contains the tokenizer and grammar parser
+* interpreter/astcompiler contains the soon to be rpythonic compiler
+* interpreter/stablecompiler contains the compiler used by default
+* lib/_stablecompiler contains a modified version of stablecompiler capable
+  of running at application level (that is not recursively calling itself
+  while compiling)
+
 
 Main facade functions
+~~~~~~~~~~~~~~~~~~~~~
+
 
 Grammar
-
+~~~~~~~
 
 Long term goals
 ===============
 
+having enough flexibility in the design that allows us to change the
+grammar at runtime. Such modification needs to be able to:
+* modify the grammar representation
+* modify the ast builder so it produces existing or new AST nodes
+* add new AST nodes
+* modify the compiler so that it knows how to deal with new AST nodes
+
+
 parser implementation
+---------------------
+We can now build AST trees directly from the parser.
+Still missing is the ability to easily provide/change building functions
+easily. The functions are referenced at interpreter level through a dictionnary
+mapping that has rule names as keys.
+
 
 compiler implementation
+-----------------------
+For now we are working at translating the existing compiler module without
+changing it's design too much. That means we won't have enough flexibility
+to be able to handle new AST nodes at runtime.
 
 parser module
+-------------
+enhance the parser module interface so that it allows acces to the internal grammar
+representation, and allows to modify it too.
 
 compiler module
-
+---------------
+same as above
