@@ -654,7 +654,7 @@ show class hierarchy graph"""
         else:
             if options['-llvm']:
                 print 'Generating and compiling LLVM code...'
-                c_entry_point = t.llvmcompile(standalone=standalone)
+                c_entry_point = t.llvmcompile(standalone=standalone, exe_name='pypy-llvm')
             else:
                 print 'Generating and compiling C code...'
                 c_entry_point = t.ccompile(standalone=standalone, gcpolicy=gcpolicy)
