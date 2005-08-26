@@ -395,11 +395,12 @@ uses them to modify the flow graph in-place to replace its operations with
 low-level ones, directly manipulating C-like values and data structures.
 
 The complete translation process is described in more details in the
-`translation document`_.
+`translation document`_. There is a graph_ that gives an overview over the
+whole process.
 
 .. _`RPython`: coding-guide.html#rpython
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`translation document`: translation.html
 .. _LLVM: http://llvm.cs.uiuc.edu/
-
+.. _graph: image/translation.pdf
 .. include:: _ref.txt

@@ -21,7 +21,8 @@ The module `translator.py`_ is the common entry point to the various parts
 of the translation process.  It is available as an interactive utility to
 `play around`_.
 
-Here are the steps we follow to translate a given program:
+There is a graph_ that gives an overview over the different steps of the
+translation process. These are:
 
 1. The complete program is imported.  If needed, extra initialization is
    performed.  Once this is done, the program must be present in memory as
@@ -57,7 +58,7 @@ Here are the steps we follow to translate a given program:
 .. _`Common Lisp`: http://codespeak.net/svn/pypy/dist/pypy/translator/gencl.py
 .. _Pyrex: http://codespeak.net/svn/pypy/dist/pypy/translator/pyrex/genpyrex.py
 .. _Java: http://codespeak.net/svn/pypy/dist/pypy/translator/java/
-
+.. _graph: image/translation.pdf
 
 
 .. _Annotator:
@@ -920,6 +921,41 @@ Exception handling:
         exception-catching links.)
 
 
+The LLInterpreter
+-----------------
+
+The LLInterpreter is a simply piece of code that is able to interpret flow
+graphs. This is very useful for testing purposes, especially if you work on
+the `RPython Typer`_. The most useful interface for it is the ``interpret``
+function in the file `pypy/rpython/test/test_llinterp.py`_. It takes as
+arguments a function and a list of arguments with which the function is
+supposed to be called. Then it generates the flow graph, annotates is
+according to the types of the arguments you passed to it and runs the
+LLInterpreter on the result. Example::
+
+    def test_invert():
+        def f(x):
+            return ~x
+        res = interpret(f, [3])
+        assert res == ~3
+
+Furthermore there is a function ``interpret_raises`` which behaves much like
+``py.test.raises``. It takes an exception as a first argument, the function to
+be called as a second and the list of function arguments as a third. Example::
+
+    def test_raise():
+        def raise_exception(i):
+            if i == 42:
+                raise IndexError
+            elif i == 43:
+                raise ValueError
+            return i
+        res = interpret(raise_exception, [41])
+        assert res == 41
+        interpret_raises(IndexError, raise_exception, [42])
+        interpret_raises(ValueError, raise_exception, [43])
+
+.. _`pypy/rpython/test/test_llinterp.py`: ../rpython/test/test_llinterp.py
 
 .. _C:
 .. _GenC:
