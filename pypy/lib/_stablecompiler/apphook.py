@@ -26,10 +26,10 @@ def applevelcompile(tuples, filename, mode, flag_names ):
 
 DUMPFILE = 'this_is_the_marshal_file'
 
-def fakeapplevelcompile(tuples, filename, mode, flag_names):
+def fakeapplevelcompile(tuples_or_src, filename, mode, flag_names):
     import os, marshal
     done = False
-    data = marshal.dumps( (tuples, filename, mode, done, flag_names) )
+    data = marshal.dumps( (tuples_or_src, filename, mode, done, flag_names))
     f = file(DUMPFILE, "wb")
     f.write(data)
     f.close()
@@ -37,10 +37,12 @@ def fakeapplevelcompile(tuples, filename, mode, flag_names):
     f = file(DUMPFILE, "rb")
     data = f.read()
     f.close()
-    code, filename, mode, done = marshal.loads(data)
+    code_or_syntax, filename, mode, done, flag_names = marshal.loads(data)
     if not done:
         raise ValueError, "could not fake compile!"
-    return code
+    if type(code_or_syntax) is tuple:
+        raise SyntaxError(*code_or_syntax)
+    return code_or_syntax
 
 def get_python():
     try:

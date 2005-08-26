@@ -5,7 +5,7 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 from codeop import PyCF_DONT_IMPLY_DEDENT
 from pypy.interpreter.error import OperationError
 from pypy.rpython.objectmodel import we_are_translated
-
+import os
 
 class AbstractCompiler:
     """Abstract base class for a bytecode compiler."""
@@ -117,10 +117,10 @@ class CPythonCompiler(AbstractCompiler):
                                                        space.wrap(e.offset),
                                                        space.wrap(e.text)])])
             raise OperationError(space.w_SyntaxError, w_synerr)
-        except ValueError,e:
-            raise OperationError(space.w_ValueError,space.wrap(str(e)))
-        except TypeError,e:
-            raise OperationError(space.w_TypeError,space.wrap(str(e)))
+        except ValueError, e:
+            raise OperationError(space.w_ValueError, space.wrap(str(e)))
+        except TypeError, e:
+            raise OperationError(space.w_TypeError, space.wrap(str(e)))
         from pypy.interpreter.pycode import PyCode
         return PyCode(space)._from_code(c)
     compile._annspecialcase_ = "override:cpy_compile"
@@ -182,7 +182,7 @@ class PythonCompiler(CPythonCompiler):
 
     XXX: This class should override the baseclass implementation of
          compile_command() in order to optimize it, especially in case
-         of incomplete inputs (e.g. we shouldn't re-compile from sracth
+         of incomplete inputs (e.g. we shouldn't re-compile from scratch
          the whole source after having only added a new '\n')
     """
     def compile(self, source, filename, mode, flags):
@@ -231,22 +231,23 @@ class PythonCompiler(CPythonCompiler):
                                                        space.wrap(e.offset),
                                                        space.wrap(e.text)])])
             raise OperationError(space.w_SyntaxError, w_synerr)
-	except UnicodeDecodeError, e:
+        except UnicodeDecodeError, e:
             raise OperationError(space.w_UnicodeDecodeError, space.newtuple([
                                  space.wrap(e.encoding), space.wrap(e.object), space.wrap(e.start),
                                  space.wrap(e.end), space.wrap(e.reason)]))
-        except ValueError,e:
+        except ValueError, e:
             if e.__class__ != ValueError:
                  extra_msg = "(Really go %s)" % e.__class__.__name__
             else:
                 extra_msg = ""
-            raise OperationError(space.w_ValueError,space.wrap(str(e)+extra_msg))
-        except TypeError,e:
-            raise OperationError(space.w_TypeError,space.wrap(str(e)))
+            raise OperationError(space.w_ValueError, space.wrap(str(e)+extra_msg))
+        except TypeError, e:
+            raise OperationError(space.w_TypeError, space.wrap(str(e)))
         # __________ end of XXX above
         from pypy.interpreter.pycode import PyCode
         return PyCode(space)._from_code(c)
     compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
+
 
 class PythonCompilerApp(PythonCompiler):
     """Temporary.  Calls the stablecompiler package at app-level."""
@@ -259,7 +260,21 @@ class PythonCompilerApp(PythonCompiler):
         self._load_compilers()
         debug_print(" done")
 
+    def compile(self, source, filename, mode, flags):
+        if (os.path.exists('fakecompletely') and
+            os.path.exists('fakecompiler.py')):
+            self.printmessage("faking all of compiler, cause"
+                              " fakecompletely and fakecompiler.py"
+                              " are in curdir")
+            return self.fakecompile(source, filename, mode, flags)
+        return PythonCompiler.compile(self, source, filename, mode, flags)
+
     def _load_compilers(self):
+        # note: all these helpers, including the
+        # remote compiler, must be initialized early,
+        # or we get annotation errors. An alternative
+        # would be to use applevel instances, instead.
+        # But this code should anyway go away, soon.
         self.w_compileapp = self.space.appexec([], r'''():
             from _stablecompiler import apphook
             return apphook.applevelcompile
@@ -279,7 +294,6 @@ class PythonCompilerApp(PythonCompiler):
         space.call_function(self.w_printmessage, space.wrap(msg))
 
     def _get_compiler(self, mode):
-        from pypy.interpreter.error import debug_print
         import os
         if os.path.exists('fakecompiler.py') and mode != 'single':
             self.printmessage("faking compiler, because fakecompiler.py"
@@ -313,6 +327,40 @@ class PythonCompilerApp(PythonCompiler):
                                      space.wrap(filename),
                                      space.wrap(mode),
                                      w_flag_names)
+        code = space.interpclass_w(w_code)
+        from pypy.interpreter.pycode import PyCode
+        if not isinstance(code, PyCode):
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("code object expected"))
+        return code
+
+    def fakecompile(self, source, filename, mode, flags):
+        flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
+        flag_names = get_flag_names(flags)
+        space = self.space
+
+        w_flag_names = space.newlist( [ space.wrap(n) for n in flag_names ] )
+        try:
+            w_code = space.call_function(self.w_compilefake,
+                                         space.wrap(source),
+                                         space.wrap(filename),
+                                         space.wrap(mode),
+                                         w_flag_names)
+        except OperationError, err:
+            if not err.match(space, space.w_SyntaxError):
+                raise
+            # unfortunately, we need to unnormalize the wrapped SyntaxError,
+            # or the w_value comparison will not work.
+            w_inst = err.w_value
+            w = space.wrap
+            w_synerr = space.newtuple(
+                [space.getattr(w_inst, w('msg')),
+                 space.newtuple([space.getattr(w_inst, w('filename')),
+                                 space.getattr(w_inst, w('lineno')),
+                                 space.getattr(w_inst, w('offset')),
+                                 space.getattr(w_inst, w('text'))])])
+            raise OperationError(space.w_SyntaxError, w_synerr)
+            
         code = space.interpclass_w(w_code)
         from pypy.interpreter.pycode import PyCode
         if not isinstance(code, PyCode):
@@ -383,6 +431,58 @@ class PythonAstCompiler(CPythonCompiler):
         return c
     #compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'
 
+
+class CPythonRemoteCompiler(AbstractCompiler):
+    """Faked implementation of a compiler, using an external Python's compile()."""
+
+    def __init__(self, space):
+        AbstractCompiler.__init__(self, space)
+        self.w_compilefake = self.space.appexec([], r'''():
+            from _stablecompiler import apphook
+            return apphook.fakeapplevelcompile
+        ''')
+
+    def compile(self, source, filename, mode, flags):
+        flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
+        flag_names = get_flag_names(flags)
+        space = self.space
+        return None
+
+        w_code = space.call_function(self.w_compilefake,
+                                     space.wrap(source),
+                                     space.wrap(filename),
+                                     space.wrap(mode),
+                                     space.wrap(flag_names))
+        code = space.interpclass_w(w_code)
+        return code
+
+        try:
+            w_code = space.call_function(self.w_compilefake,
+                                         space.wrap(source),
+                                         space.wrap(filename),
+                                         space.wrap(mode),
+                                         space.wrap(flag_names))
+        except OperationError, err:
+            if not err.match(space, space.w_SyntaxError):
+                raise
+            # unfortunately, we need to unnormalize the wrapped SyntaxError,
+            # or the w_value comparison will not work.
+            w_inst = err.w_value
+            w = space.wrap
+            w_synerr = space.newtuple(
+                [space.getattr(w_inst, w('msg')),
+                 space.newtuple([space.getattr(w_inst, w('filename')),
+                                 space.getattr(w_inst, w('lineno')),
+                                 space.getattr(w_inst, w('offset')),
+                                 space.getattr(w_inst, w('text'))])])
+            raise OperationError(space.w_SyntaxError, w_synerr)
+            
+        code = space.interpclass_w(w_code)
+        from pypy.interpreter.pycode import PyCode
+        if not isinstance(code, PyCode):
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("code object expected"))
+        return code
 
 
 class PyPyCompiler(CPythonCompiler):
