@@ -12,9 +12,21 @@ How fast is PyPy?
     PyPy so slow?
 
 
- Why is PyPy so slow?
+Why is PyPy so slow?
 
-    Our translation process does not optimize the produced code very
-    much yet. Just one example: if you use a ``for i in range(x)`` loop
-    the loop will be ended by raising an exception (although the ``range``
-    list will not be created in its entirety).
+    Our translation process does not try to optimize the produced 
+    code very much.  So far the project has been focused on 
+    getting a well tested very compliant self-contained PYthon 
+    static implementation.  During 2005 and 2006 we are targetting 
+    optimizations at various levels. If you then still think 
+    that PyPy is slow then we will have to find a better answer :-) 
+
+What is RPython? 
+
+    RPython is the restricted subset of the Python language that 
+    we are able to translate to machine level code.  A major part of 
+    PyPy's interpreter and type implementations is written 
+    in this restricted style.  For a more exhaustive definitions
+    please refer to `RPython`_. 
+
+.. _`RPython`: coding-guide.html#rpython
