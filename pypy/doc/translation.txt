@@ -1266,6 +1266,23 @@ name in C.
 .. _`pypy/translator/c/extfunc.py`: ../translator/c/extfunc.py
 .. _`pypy/translator/c/src/`: ../translator/c/src/
 
+Testing
+-------
+
+It's not always trivial to properly test that all the information that is
+needed for a given external function is correct. Usually for a given function
+you test at least two different things: Once the dummy low level function by
+calling it directly. This is usually done in `pypy/rpython/module/test`_ by
+just calling the low level function with appropriately constructed arguments
+directly. In addition there should be test that actually tries to translate
+a function calling the external function to backend code, compile and run
+it. This makes sure that the annotator gets the annotation right and that the
+backend code is correct. For the C backend this is done in
+`pypy/translator/c/test/test_extfunc.py`_. 
+
+.. _`pypy/rpython/module/test`: ../rpython/module/test/
+.. _`pypy/translator/c/test/test_extfunc.py`: ../translator/c/test/test_extfunc.py
+
 
 Example
 -------
@@ -1328,6 +1345,20 @@ The `LL_os_open` function is implemented in the file
                     return fd;
             }
     }
+
+One test for all this can be found in
+`pypy/translator/c/test/test_extfunc.py`_::
+
+    def test_os_open():
+        tmpfile = str(udir.join('test_os_open.txt'))
+        def does_stuff():
+            fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0777)
+            return fd
+        f1 = compile(does_stuff, [])
+        fd = f1()
+        os.close(fd)
+        assert os.path.exists(tmpfile)
+
 
 .. _`mixed posix module`: ../module/posix/
 .. _`pypy/rpython/module/ll_os.py`: ../rpython/module/ll_os.py
