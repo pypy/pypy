@@ -93,7 +93,6 @@ class W_LongObject(W_Object):
         w_self.digits = DigitArray(digits)
         w_self.sign = sign
         w_self.space = space
-        assert len(w_self.digits)
 
     def fromint(space, intval):
         if intval < 0:
@@ -138,7 +137,7 @@ class W_LongObject(W_Object):
     def _normalize(self):
         if len(self.digits) == 0:
             self.sign = 0
-            self.digits = [0]
+            self.digits = []
             return
         i = len(self.digits) - 1
         while i != 0 and self.digits[i] == 0:
