@@ -90,14 +90,14 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
         cmds.append("llc %s %s.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))
         if exe_name:
-            cmds.append("gcc %s.o -static %s -lm -o %s" % (b, gc_libs, exe_name))
+            cmds.append("gcc %s.o %s -lm -ldl -o %s" % (b, gc_libs, exe_name))
         object_files.append("%s.o" % b)
     else:       #assume 64 bit platform (x86-64?)
         #this special case for x86-64 (called ia64 in llvm) can go as soon as llc supports ia64 assembly output!
         cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (EXCEPTIONS_SWITCHES, b, b))
         if exe_name:
             cmds.append("gcc %s.c -c -O2 -fomit-frame-pointer" % (b,))
-            cmds.append("gcc %s.o -static %s -lm -o %s" % (b, gc_libs, exe_name))
+            cmds.append("gcc %s.o %s -lm -ldl -o %s" % (b, gc_libs, exe_name))
         source_files.append("%s.c" % b)
 
     try:

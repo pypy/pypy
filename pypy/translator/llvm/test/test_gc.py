@@ -2,7 +2,7 @@ import sys
 import py
 
 from pypy.translator.llvm.genllvm import use_boehm_gc
-from pypy.translator.llvm.test.runtest import compile_function
+from pypy.translator.llvm.test.runtest import compile_module_function
 
 py.log.setconsumer("genllvm", py.log.STDOUT)
 py.log.setconsumer("genllvm database prepare", None)
