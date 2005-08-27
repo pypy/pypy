@@ -13,6 +13,10 @@ Just the facts
 getting & running the PyPy 0.7 release 
 -----------------------------------------
 
+*please come back tomorrow when the following information 
+will become valid, in particular the tarballs are not 
+there yet*
+
 Download one of the following release files and unpack it: 
 
 *pypy-0.7*
