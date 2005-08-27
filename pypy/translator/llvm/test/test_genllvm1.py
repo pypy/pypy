@@ -54,16 +54,6 @@ class TestGenLLVM(object):
         assert shl(42,2) == llvmsnippet.shiftleft(42, 2)
         assert shr(42,2) == llvmsnippet.shiftright(42,2)
 
-    def test_shift_with_overflow(self):
-        py.test.skip("overflow not working yet")
-        shl = compile_function(llvmsnippet.shiftleft, [int, int])
-        shr = compile_function(llvmsnippet.shiftright, [int, int])
-        for i in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
-            for j in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
-                assert shl(i, j) == i << j
-                assert shr(i, j) == i >> j
-
-
 class TestFloat(object):
     def test_float_f1(self):
         f = compile_function(llvmsnippet.float_f1, [float])
