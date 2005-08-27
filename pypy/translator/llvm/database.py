@@ -304,6 +304,9 @@ class Database(object):
     def repr_constructor(self, type_):
         return self.obj2node[type_].constructor_ref
 
+    def repr_name(self, obj):
+        return self.obj2node[obj].ref
+
     # __________________________________________________________
     # Primitive stuff
 

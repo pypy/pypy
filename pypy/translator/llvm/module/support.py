@@ -43,7 +43,6 @@ internal fastcc int %RPyString_Size(%RPyString* %structstring) {
     %sizeptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 0
     %size = load int* %sizeptr
     ret int %size
-
 }
 
 """)
@@ -265,44 +264,6 @@ return_block:
     ret int %%t
 }
 """ % locals())
-
-extfunctions["%main"] = [(), """
-int %main(int %argc, sbyte** %argv) {
-entry:
-    %pypy_argv = call fastcc %RPyListOfString* %pypy_ll_newlist__listPtrConst_Signed(int 0)
-    br label %no_exit
-
-no_exit:
-    %indvar = phi uint [ %indvar.next, %next_arg ], [ 0, %entry ]
-    %i.0.0 = cast uint %indvar to int
-    %tmp.8 = getelementptr sbyte** %argv, uint %indvar
-    %tmp.9 = load sbyte** %tmp.8
-
-    %t    = getelementptr [19 x sbyte]* %__print_debug_info_option, int 0, int 0
-    %res  = call ccc int %strcmp(sbyte* %tmp.9, sbyte* %t)
-    %cond = seteq int %res, 0
-    br bool %cond, label %debugging, label %not_debugging
-
-debugging:
-    store bool true, bool* %__print_debug_info
-    br label %next_arg
-
-not_debugging:
-    %rpy = call fastcc %RPyString* %RPyString_FromString(sbyte* %tmp.9)
-    call fastcc void %pypy_ll_append__listPtr_rpy_stringPtr(%RPyListOfString* %pypy_argv, %RPyString* %rpy)
-    br label %next_arg
-
-next_arg:
-    %inc = add int %i.0.0, 1
-    %tmp.2 = setlt int %inc, %argc
-    %indvar.next = add uint %indvar, 1
-    br bool %tmp.2, label %no_exit, label %loopexit
-
-loopexit:
-    %ret  = call fastcc int %pypy_entry_point(%structtype.list* %pypy_argv)
-    ret int %ret
-}
-"""]
 
 extfunctions["%main_noargs"] = [(), """
 int %main(int %argc, sbyte** %argv) {

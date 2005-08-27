@@ -29,33 +29,39 @@ from py.process import cmdexec
 function_count = {}
 llcode_header = ll_functions = None
 
-def get_ll(ccode, extern_dir, functions=[]):
-    
+ll_func_names = [
+       "%prepare_and_raise_IOError",
+       "%prepare_and_raise_ValueError",
+       "%prepare_and_raise_OverflowError",
+       "%prepare_and_raise_ZeroDivisionError",
+       "%RPyString_AsString",
+       "%RPyString_FromString",
+       "%RPyString_Size"]
+       
+def get_ll(ccode, function_names):
+
     # goto codespeak and compile our c code
     request = urllib.urlencode({'ccode':ccode})
     llcode = urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
 
-    # get rid of the struct that llvm-gcc introduces to struct types
-    llcode = llcode.replace("%struct.", "%")
-
-    #find function names, declare them internal with fastcc calling convertion
+    # strip lines
     ll_lines = []
-    funcnames = {
-        "%RPyString_Size"                      : True,
-        "%RPyString_AsString"                  : True,
-        "%RPyString_FromString"                : True,
-        "%ll_frexp_result__Float_Signed"       : True,
-        "%ll_modf_result__Float_Float"         : True,
-        "%prepare_and_raise_ZeroDivisionError" : True,
-        "%prepare_and_raise_OverflowError"     : True,
-        "%prepare_and_raise_ValueError"        : True,
-        "%prepare_and_raise_IOError"           : True,
-        }
+    function_names = list(function_names) + ll_func_names
+    funcnames = dict([(k, True) for k in function_names])
+
+    # strip declares tjat in ll_func_names
     for line in llcode.split('\n'):
+
+        # get rid of any of the structs that llvm-gcc introduces to struct types
+        line = line.replace("%struct.", "%")
+
+        # strip comments
         comment = line.find(';')
         if comment >= 0:
             line = line[:comment]
         line = line.rstrip()
+
+        # find function names, declare them internal with fastcc calling convertion
         if line[-1:] == '{':
            returntype, s = line.split(' ', 1)
            funcname  , s = s.split('(', 1)
@@ -64,7 +70,7 @@ def get_ll(ccode, extern_dir, functions=[]):
            line = '%s %s %s' % ("", DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
-    #patch calls to function that we just declared fastcc
+    # patch calls to function that we just declared fastcc
     ll_lines2, calltag, declaretag = [], 'call ', 'declare '
     for line in ll_lines:
         i = line.find(calltag)
@@ -86,31 +92,7 @@ def get_ll(ccode, extern_dir, functions=[]):
 
     llcode = '\n'.join(ll_lines2)
     global llcode_header, ll_functions 
-    llcode_header, ll_functions = llcode.split('implementation')       # XXX testing
-
-    #XXX temp disabled
-    #
-    ## create file
-    #llfilename = extern_dir.join("externs").new(ext='.ll')
-    #f = open(str(llfilename), 'w')
-    #f.write(llcode)
-    #f.close()
-    #
-    # create bytecode
-    #os.chdir(str(extern_dir))
-    #cmdexec('llvm-as externs.ll')
-    #bcfilename = extern_dir.join("externs").new(ext='.bc')
-    #if functions:
-    #    for func in functions:
-    #        # extract
-    #        cmdexec('llvm-extract -func %s -o %s.bc externs.bc' % (func, func))
-    #    
-    #    # link all the ll files
-    #    functions_bcs = ' '.join(['%s.bc' % func for func in functions])
-    #    cmdexec('llvm-link -o externs_linked.bc ' + functions_bcs)
-    #    bcfilename = extern_dir.join("externs_linked").new(ext='.bc')
-    #
-    #return bcfilename
+    llcode_header, ll_functions = llcode.split('implementation')
     
 class GenLLVM(object):
 
@@ -160,44 +142,33 @@ class GenLLVM(object):
         return decls
 
     def generate_llfile(self, extern_decls):
-        
-        #XXX outcommented because we are not puting files here
-        #extern_dir = udir.join("externs")
-        #if extern_dir.check(dir=1):
-        #    return
-        #extern_dir.mkdir()
-        extern_dir = None
-
-        genllcode = ""
+        ccode = []
+        function_names = []
 
         def predeclarefn(c_name, llname):
+            function_names.append(llname)
             assert llname[0] == "%"
+            llname = llname[1:]
             assert '\n' not in llname
-            return '#define\t%s\t%s' % (c_name, llname[1:])
-
+            ccode.append('#define\t%s\t%s\n' % (c_name, llname))
+            
         for c_name, obj in extern_decls:
             if isinstance(obj, lltype.LowLevelType):
                 pass
             elif isinstance(obj, types.FunctionType):
                 funcptr = getfunctionptr(self.translator, obj)
                 c = inputconst(lltype.typeOf(funcptr), funcptr)
-                llname = self.db.repr_arg(c)
-                genllcode += predeclarefn(c_name, llname) + "\n"
-            #elif isinstance(lltype.typeOf(obj), lltype.Ptr):
-            #    if isinstance(obj.TO, lltype.FuncType):
-            #        llname = self.db.repr_constant(obj)[1]
-            #XXXXXXXXXXX        genllcode += predeclarefn(c_name, llname) + "\n"
+                predeclarefn(c_name, self.db.repr_arg(c))
+            elif isinstance(lltype.typeOf(obj), lltype.Ptr):
+                if isinstance(lltype.typeOf(obj._obj), lltype.FuncType):
+                    predeclarefn(c_name, self.db.repr_name(obj._obj))
 
+        # append local file
         j = os.path.join
         p = j(j(os.path.dirname(__file__), "module"), "genexterns.c")
+        ccode.append(open(p).read())
 
-        math_fns  = 'acos asin atan ceil cos cosh exp fabs floor log log10 atan2 fmod '
-        math_fns += 'sin sinh sqrt tan tanh frexp modf pow hypot ldexp is_error'
-        fns = [('ll_math_%s' % f) for f in math_fns.split()]
-        fns += "ll_time_time ll_time_clock ll_time_sleep ll_floattime".split()
-        fns += "ll_strtod_parts_to_float ll_strtod_formatd".split()
-
-        get_ll(open(p).read(), extern_dir, fns)
+        get_ll("".join(ccode), function_names)
 
     def gen_llvm_source(self, func=None):
         if self.debug:  print 'gen_llvm_source begin) ' + time.ctime()
@@ -389,7 +360,7 @@ class GenLLVM(object):
                                                            exe_name=exe_name)
         else:
             postfix = ''
-            basename = filename.purebasename+'_wrapper'+postfix+'.pyx'
+            basename = filename.purebasename + '_wrapper' + postfix + '.pyx'
             pyxfile = filename.new(basename = basename)
             write_pyx_wrapper(self.entrynode, pyxfile)    
             return build_llvm_module.make_module_from_llvm(filename,
@@ -400,22 +371,11 @@ class GenLLVM(object):
         codewriter.append("declare int %printf(sbyte*, ...)")
 
 def genllvm(translator, log_source=False, **kwds):
-    if not llvm_is_on_path():
-        # XXX not good to call py.test.skip here
-        py.test.skip("llvm not found")
-
     gen = GenLLVM(translator)
     filename = gen.gen_llvm_source()
     if log_source:
         log.genllvm(open(filename).read())
     return gen.create_module(filename, **kwds)
-
-def llvm_is_on_path():
-    try:
-        py.path.local.sysfind("llvm-as")
-    except py.error.ENOENT: 
-        return False 
-    return True
 
 def compile_module(function, annotation, view=False, **kwds):
     t = Translator(function)
