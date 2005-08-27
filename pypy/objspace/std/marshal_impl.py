@@ -266,7 +266,9 @@ def unmarshal_Long(space, u, tc):
             raise_exception(space, 'bad marshal data')
         digits[i] = digit
         i += 1
-    return W_LongObject(space, digits, sign)
+    w_long = W_LongObject(space, digits, sign)
+    w_long._normalize()
+    return w_long
 register(TYPE_LONG, unmarshal_Long)
 
 # XXX currently, intern() is at applevel,

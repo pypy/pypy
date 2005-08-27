@@ -90,6 +90,8 @@ class W_LongObject(W_Object):
         W_Object.__init__(w_self, space)
         #if isinstance(digits, long):  #YYYYYY
         #    digits, sign = args_from_long(digits)
+        if len(digits) == 0:
+            digits = [0]
         w_self.digits = DigitArray(digits)
         w_self.sign = sign
         w_self.space = space
@@ -137,7 +139,7 @@ class W_LongObject(W_Object):
     def _normalize(self):
         if len(self.digits) == 0:
             self.sign = 0
-            self.digits = []
+            self.digits = [0]
             return
         i = len(self.digits) - 1
         while i != 0 and self.digits[i] == 0:
@@ -452,13 +454,13 @@ def pow__Long_Long_None(space, w_long1, w_long2, w_long3):
 
 
 def neg__Long(space, w_long1):
-    return W_LongObject(space, w_long1.digits[:], -w_long1.sign)
+    return W_LongObject(space, w_long1.digits, -w_long1.sign)
 
 def pos__Long(space, w_long):
     return long__Long(space, w_long)
 
 def abs__Long(space, w_long):
-    return W_LongObject(space, w_long.digits[:], abs(w_long.sign))
+    return W_LongObject(space, w_long.digits, abs(w_long.sign))
 
 def nonzero__Long(space, w_long):
     return space.newbool(w_long.sign != 0)
