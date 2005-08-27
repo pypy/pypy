@@ -2,7 +2,7 @@ PyPy-0.7.0: first self-contained Python Implementation
 ==============================================================
 
 The PyPy Development Team is happy to announce its first 
-public release of a fully translated self contained Python 
+public release of a fully translatable self contained Python 
 implementation. The 0.7 release is a preview release showcasing the
 results of our efforts in the last few months:
 
@@ -11,7 +11,7 @@ results of our efforts in the last few months:
 
 - the ability to translate with thread support or without 
 
-- a translation choice of using a refcounting or Boehm 
+- a translation choice of using a reference counting or Boehm 
   garbage collector 
 
 - very high compliancy with Python 2.4.1 (fully based on 
