@@ -86,11 +86,15 @@ for fname in __future__.all_feature_names:
     flag = getattr(__future__, fname).compiler_flag
     compiler_flags |= flag
     compiler_features[fname] = flag
+allowed_flags = compiler_flags | PyCF_DONT_IMPLY_DEDENT
 
-def get_flag_names( flag ):
+def get_flag_names(space, flags):
+    if flags & ~allowed_flags:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("compile(): unrecognized flags"))
     flag_names = []
     for name, value in compiler_features.items():
-        if flag & value:
+        if flags & value:
             flag_names.append( name )
     return flag_names
 
@@ -221,7 +225,7 @@ class PythonCompiler(CPythonCompiler):
             transformer = Transformer(filename)
             tree = transformer.compile_node(tuples)
             stablecompiler.misc.set_filename(filename, tree)
-            flag_names = get_flag_names( flags )
+            flag_names = get_flag_names(space, flags)
             if mode == 'exec':
                 codegenerator = ModuleCodeGenerator(tree, flag_names)
             elif mode == 'single':
@@ -317,7 +321,7 @@ class PythonCompilerApp(PythonCompiler):
             return PythonCompiler.compile_parse_result(self, parse_result,
                                                        filename, mode, flags)
         source_encoding, stack_element = parse_result
-        flag_names = get_flag_names( flags )
+        flag_names = get_flag_names(space, flags)
         w_flag_names = space.newlist( [ space.wrap(n) for n in flag_names ] )
         w_nested_tuples = stack_element.as_w_tuple(space, lineno=True)
         if source_encoding is not None:
@@ -341,7 +345,7 @@ class PythonCompilerApp(PythonCompiler):
 
     def fakecompile(self, source, filename, mode, flags):
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
-        flag_names = get_flag_names(flags)
+        flag_names = get_flag_names(self.space, flags)
         space = self.space
 
         w_flag_names = space.newlist( [ space.wrap(n) for n in flag_names ] )
@@ -410,7 +414,7 @@ class PythonAstCompiler(CPythonCompiler):
         space = self.space
         try:
             astcompiler.misc.set_filename(filename, ast_tree)
-            flag_names = get_flag_names( flags )
+            flag_names = get_flag_names(space, flags)
             if mode == 'exec':
                 codegenerator = ModuleCodeGenerator(space, ast_tree, flag_names)
             elif mode == 'single':
@@ -458,7 +462,7 @@ class CPythonRemoteCompiler(AbstractCompiler):
 
     def compile(self, source, filename, mode, flags):
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
-        flag_names = get_flag_names(flags)
+        flag_names = get_flag_names(self.space, flags)
         space = self.space
         return None
 

@@ -116,6 +116,13 @@ def generate_tokens(lines, flags):
     # make the annotator happy
     pos = -1
     lines.append('') # XXX HACK probably not needed
+
+    # look for the bom (byte-order marker) for utf-8
+    # XXX encoding support is incomplete at the moment
+    if lines[0].startswith('\xEF\xBB\xBF'):
+        lines[0] = lines[0][3:]
+        encoding = 'utf-8'
+
     # make the annotator happy
     endDFA = automata.DFA([], [])
     # make the annotator happy
