@@ -1,0 +1,233 @@
+Content-Type: multipart/mixed; boundary="===============1265023865=="
+MIME-Version: 1.0
+execution-time: 4098.8407588
+exit status: 1
+fspath: /Users/anderslehmann/pypy/lib-python/modified-2.4.1/test/test_descr.py
+options: ['oldstyle', 'core']
+outcome: ERR
+platform: darwin
+pypy-revision: 16388
+python-version-info: (2, 4, 1, 'final', 0)
+startdate: Wed Aug 24 16:54:12 2005
+testreport-version: 1.1
+timeout: 10000.0
+userhost: anderslehmann@anders-lehmanns-15-powerbook-g4.local
+_reprs: {'execution-time': 'float', 'python-version-info': 'tuple',
+	'options': 'list', 'timeout': 'float', 'pypy-revision': 'int',
+	'exit status': 'int'}
+
+--===============1265023865==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stdout"
+
+****************************************
+--> weakref_segfault FAILURE(0/92) _weakref
+****************************************
+--> do_this_first OK(1/92)
+****************************************
+--> class_docstrings OK(2/92)
+****************************************
+--> lists FAILURE(2/92) type object 'list' has no attribute '__getslice__'
+****************************************
+--> dicts FAILURE(2/92) type object 'dict' has no attribute '__cmp__'
+****************************************
+--> dict_constructor OK(3/92)
+****************************************
+--> test_dir OK(4/92)
+****************************************
+--> ints OK(5/92)
+****************************************
+--> longs OK(6/92)
+****************************************
+--> floats OK(7/92)
+****************************************
+--> complexes OK(8/92)
+****************************************
+--> spamlists FAILURE(8/92) xxsubtype
+****************************************
+--> spamdicts FAILURE(8/92) xxsubtype
+****************************************
+--> pydicts OK(9/92)
+****************************************
+--> pylists OK(10/92)
+****************************************
+--> metaclass OK(11/92)
+****************************************
+--> pymods OK(12/92)
+****************************************
+--> multi OK(13/92)
+****************************************
+--> mro_disagreement FAILURE(13/92) Message 'cycle among base classes: A < B < A', expected 'Cannot create a consistent method resolution\norder (MRO) for bases '
+****************************************
+--> diamond OK(14/92)
+****************************************
+--> ex5 OK(15/92)
+****************************************
+--> monotonicity OK(16/92)
+****************************************
+--> consistency_with_epg OK(17/92)
+****************************************
+--> objects OK(18/92)
+****************************************
+--> slots FAILURE(18/92) ['foo bar'] slots not caught
+****************************************
+--> slotspecials FAILURE(18/92) test failed
+****************************************
+--> dynamics OK(19/92)
+****************************************
+--> errors FAILURE(19/92) inheritance from CFunction should be illegal
+****************************************
+--> classmethods OK(20/92)
+****************************************
+--> classmethods_in_c FAILURE(20/92) xxsubtype
+****************************************
+--> staticmethods OK(21/92)
+****************************************
+--> staticmethods_in_c FAILURE(21/92) xxsubtype
+****************************************
+--> classic OK(22/92)
+****************************************
+--> compattr OK(23/92)
+****************************************
+--> newslot OK(24/92)
+****************************************
+--> altmro OK(25/92)
+****************************************
+--> overloading OK(26/92)
+****************************************
+--> methods FAILURE(26/92) test failed
+****************************************
+--> specials FAILURE(26/92) shouldn't allow <type 'unicode'>.__cmp__(u'123', '123')
+****************************************
+--> weakrefs FAILURE(26/92) 'module' object has no attribute 'ref'
+****************************************
+--> properties FAILURE(26/92) expected TypeError from trying to set readonly '__doc__' attr on a property
+****************************************
+--> supers OK(27/92)
+****************************************
+--> inherits FAILURE(27/92) test failed
+****************************************
+--> keywords FAILURE(27/92) descr__new__() got an unexpected keyword argument 'string'
+****************************************
+--> restricted OK(28/92)
+****************************************
+--> str_subclass_as_dict_key OK(29/92)
+****************************************
+--> classic_comparisons OK(30/92)
+****************************************
+--> rich_comparisons OK(31/92)
+****************************************
+--> coercions OK(32/92)
+****************************************
+--> descrdoc FAILURE(32/92) 'The most base type' == 'True if the file is closed'
+****************************************
+--> setclass OK(33/92)
+****************************************
+--> setdict OK(34/92)
+****************************************
+--> pickles OK(35/92)
+****************************************
+--> copies OK(36/92)
+****************************************
+--> binopoverride OK(37/92)
+****************************************
+--> subclasspropagation OK(38/92)
+****************************************
+--> buffer_inherit OK(39/92)
+****************************************
+--> str_of_str_subclass OK(40/92)
+****************************************
+--> kwdargs OK(41/92)
+****************************************
+--> delhook OK(42/92)
+****************************************
+--> hashinherit OK(43/92)
+****************************************
+--> strops OK(44/92)
+****************************************
+--> deepcopyrecursive OK(45/92)
+****************************************
+--> modules OK(46/92)
+****************************************
+--> dictproxyiterkeys FAILURE(46/92) ['__dict__', '__module__', 'meth'] == ['__dict__', '__doc__', '__module__', '__weakref__', 'meth']
+****************************************
+--> dictproxyitervalues FAILURE(46/92) 3 == 5
+****************************************
+--> dictproxyiteritems FAILURE(46/92) ['__dict__', '__module__', 'meth'] == ['__dict__', '__doc__', '__module__', '__weakref__', 'meth']
+****************************************
+--> pickleslots OK(47/92)
+****************************************
+--> funnynew OK(48/92)
+****************************************
+--> imulbug OK(49/92)
+****************************************
+--> docdescriptor OK(50/92)
+****************************************
+--> string_exceptions FAILURE(50/92) string subclass allowed as exception
+****************************************
+--> copy_setstate OK(51/92)
+****************************************
+--> slices OK(52/92)
+****************************************
+--> subtype_resurrection OK(53/92)
+****************************************
+--> slottrash OK(54/92)
+****************************************
+--> slotmultipleinheritance FAILURE(54/92) type object 'C' has no attribute '__basicsize__'
+****************************************
+--> testrmul OK(55/92)
+****************************************
+--> testipow OK(56/92)
+****************************************
+--> test_mutable_bases FAILURE(56/92) readonly attribute
+****************************************
+--> test_mutable_bases_with_failing_mro FAILURE(56/92) readonly attribute
+****************************************
+--> test_mutable_bases_catch_mro_conflict OK(57/92)
+****************************************
+--> mutable_names OK(58/92)
+****************************************
+--> subclass_right_op OK(59/92)
+****************************************
+--> dict_type_with_metaclass OK(60/92)
+****************************************
+--> meth_class_get FAILURE(60/92) shouldn't have allowed descr.__get__(None, None)
+****************************************
+--> isinst_isclass OK(61/92)
+****************************************
+--> proxysuper OK(62/92)
+****************************************
+--> carloverre OK(63/92)
+****************************************
+--> filefault OK(64/92)
+****************************************
+--> vicious_descriptor_nonsense OK(65/92)
+****************************************
+--> test_init FAILURE(65/92) did not test __init__() for None return
+
+--===============1265023865==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stderr"
+
+faking <type 'module'>
+Loading grammar /Users/anderslehmann/pypy/pypy/interpreter/pyparser/data/Grammar2.4
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+fake-wrapping interp file <open file '<stdout>', mode 'w' at 0x12068>
+fake-wrapping interp file <open file '<stderr>', mode 'w' at 0x120b0>
+fake-wrapping interp file <open file '<stdin>', mode 'r' at 0x12020>
+faking <type '_sre.SRE_Pattern'>
+faking <type '_sre.SRE_Match'>
+Traceback (application-level):
+  File "/Users/anderslehmann/pypy/pypy/tool/pytest/regrverbose.py", line 12 in <module>
+    indirect_test()
+  File "/Users/anderslehmann/pypy/lib-python/modified-2.4.1/test/test_descr.py", line 4102 in test_main
+    raise TestFailed, "%d/%d" % (success, n)
+TestFailed: 65/92
+
+--===============1265023865==--

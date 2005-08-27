@@ -1,0 +1,317 @@
+Content-Type: multipart/mixed; boundary="===============1565511160=="
+MIME-Version: 1.0
+cpu mhz: unknown
+cpu model: unknown
+execution-time: 671.678878069
+exit status: 1
+fspath: /home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py
+options: ['core']
+outcome: ERR
+platform: linux2
+pypy-revision: 16123
+python-version-info: (2, 4, 1, 'final', 0)
+startdate: Thu Aug 18 02:08:13 2005
+testreport-version: 1.1
+timeout: 3136.0
+userhost: xoraxax@tick
+_reprs: {'execution-time': 'float', 'python-version-info': 'tuple',
+	'options': 'list', 'timeout': 'float', 'pypy-revision': 'int',
+	'exit status': 'int'}
+
+--===============1565511160==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stdout"
+
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.weakref
+Failed example:
+    import weakref
+Exception raised:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.weakref[0]>", line 1, in <interactive>
+        import weakref
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/weakref.py", line 14, in <module>
+        from _weakref import (
+    ImportError: _weakref
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.weakref
+Failed example:
+    wr = weakref.ref(gen)
+Exception raised:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.weakref[2]>", line 1, in <interactive>
+        wr = weakref.ref(gen)
+    NameError: global name 'weakref' is not defined
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.weakref
+Failed example:
+    wr() is gen
+Exception raised:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.weakref[3]>", line 1, in <interactive>
+        wr() is gen
+    NameError: global name 'wr' is not defined
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.weakref
+Failed example:
+    p = weakref.proxy(gen)
+Exception raised:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.weakref[4]>", line 1, in <interactive>
+        p = weakref.proxy(gen)
+    NameError: global name 'weakref' is not defined
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.weakref
+Failed example:
+    wr = weakref.ref(gi)
+Exception raised:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.weakref[6]>", line 1, in <interactive>
+        wr = weakref.ref(gi)
+    NameError: global name 'weakref' is not defined
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.weakref
+Failed example:
+    wr() is gi
+Exception raised:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.weakref[7]>", line 1, in <interactive>
+        wr() is gi
+    NameError: global name 'wr' is not defined
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.weakref
+Failed example:
+    p = weakref.proxy(gi)
+Exception raised:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.weakref[8]>", line 1, in <interactive>
+        p = weakref.proxy(gi)
+    NameError: global name 'weakref' is not defined
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.weakref
+Failed example:
+    list(p)
+Exception raised:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.weakref[9]>", line 1, in <interactive>
+        list(p)
+    NameError: global name 'p' is not defined
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.pep
+Failed example:
+    k.next()
+Expected:
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in ?
+      File "<stdin>", line 2, in g
+      File "<stdin>", line 2, in f
+    ZeroDivisionError: integer division or modulo by zero
+Got:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.pep[10]>", line 1, in <interactive>
+        k.next()
+      File "<doctest test.test_generators.__test__.pep[8]>", line 2, in g
+        yield f()  # the zero division exception propagates
+      File "<doctest test.test_generators.__test__.pep[7]>", line 2, in f
+        return 1//0
+    ZeroDivisionError: integer division by zero
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    def f():
+        return 22
+        yield 1
+Expected:
+    Traceback (most recent call last):
+      ..
+    SyntaxError: 'return' with argument inside generator (<doctest test.test_generators.__test__.syntax[0]>, line 2)
+Got nothing
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    def f():
+        yield 1
+        return 22
+Expected:
+    Traceback (most recent call last):
+      ..
+    SyntaxError: 'return' with argument inside generator (<doctest test.test_generators.__test__.syntax[1]>, line 3)
+Got nothing
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    def f():
+        yield 1
+        return None
+Expected:
+    Traceback (most recent call last):
+      ..
+    SyntaxError: 'return' with argument inside generator (<doctest test.test_generators.__test__.syntax[2]>, line 3)
+Got nothing
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    def f():
+        try:
+            yield 1
+        finally:
+            pass
+Expected:
+    Traceback (most recent call last):
+      ..
+    SyntaxError: 'yield' not allowed in a 'try' block with a 'finally' clause (<doctest test.test_generators.__test__.syntax[4]>, line 3)
+Got nothing
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    def f():
+        try:
+            try:
+                1//0
+            except ZeroDivisionError:
+                yield 666  # bad because *outer* try has finally
+            except:
+                pass
+        finally:
+            pass
+Expected:
+    Traceback (most recent call last):
+      ...
+    SyntaxError: 'yield' not allowed in a 'try' block with a 'finally' clause (<doctest test.test_generators.__test__.syntax[5]>, line 6)
+Got nothing
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    def f():
+       yield
+Expected:
+    Traceback (most recent call last):
+    SyntaxError: invalid syntax
+Got:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.syntax[8]>", line 2
+         def f():
+                ^
+     SyntaxError: error
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    def f():
+       if 0:
+           yield
+Expected:
+    Traceback (most recent call last):
+    SyntaxError: invalid syntax
+Got:
+    Traceback (most recent call last):
+      File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/doctest.py", line 1243, in __run
+        compileflags, 1) in test.globs
+      File "<doctest test.test_generators.__test__.syntax[9]>", line 3
+         def f():
+                ^
+     SyntaxError: error
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    type(f())
+Expected:
+    <type 'generator'>
+Got:
+    <type 'NoneType'>
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    type(f())
+Expected:
+    <type 'generator'>
+Got:
+    <type 'NoneType'>
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    type(f())
+Expected:
+    <type 'generator'>
+Got:
+    <type 'NoneType'>
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    type(f())
+Expected:
+    <type 'generator'>
+Got:
+    <type 'NoneType'>
+**********************************************************************
+File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line ?, in test.test_generators.__test__.syntax
+Failed example:
+    def f():
+        if 0:
+            lambda x:  x        # shouldn't trigger here
+            return              # or here
+            def f(i):
+                return 2*i      # or here
+            if 0:
+                return 3        # but *this* sucks (line 8)
+        if 0:
+            yield 2             # because it's a generator
+Expected:
+    Traceback (most recent call last):
+    SyntaxError: 'return' with argument inside generator (<doctest test.test_generators.__test__.syntax[22]>, line 8)
+Got nothing
+**********************************************************************
+3 items had failures:
+   1 of  22 in test.test_generators.__test__.pep
+  12 of  29 in test.test_generators.__test__.syntax
+   8 of  10 in test.test_generators.__test__.weakref
+***Test Failed*** 21 failures.
+
+--===============1565511160==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stderr"
+
+faking <type 'module'>
+Loading grammar /home/contest/xoraxax/pypy-dist/pypy/interpreter/pyparser/data/Grammar2.4
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+fake-wrapping interp file <open file '<stdout>', mode 'w' at 0xf7fa3068>
+fake-wrapping interp file <open file '<stderr>', mode 'w' at 0xf7fa30b0>
+fake-wrapping interp file <open file '<stdin>', mode 'r' at 0xf7fa3020>
+faking <type '_sre.SRE_Pattern'>
+faking <type '_sre.SRE_Match'>
+faking <type 'callable-iterator'>
+Traceback (application-level):
+  File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line 1405 in <module>
+    test_main(1)
+  File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_generators.py", line 1401 in test_main
+    test_support.run_doctest(test_generators, verbose)
+  File "/home/contest/xoraxax/pypy-dist/lib-python/2.4.1/test/test_support.py", line 319 in run_doctest
+    finally:
+TestFailed: 21 of 154 doctests failed
+
+--===============1565511160==--

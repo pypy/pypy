@@ -1,5 +1,6 @@
 import sys 
 import py
+import re
 
 class Result(object): 
     def __init__(self, init=True): 
@@ -67,10 +68,40 @@ class Result(object):
             outer.attach(m) 
         return outer 
 
-    def isok(self): 
+    def grep_nr(self,text,section='stdout'):
+        stdout = self._blocks[section]
+        find = re.search('%s(?P<nr>\d+)'%text,stdout)
+        if find: 
+            return float(find.group('nr'))
+        return 0. 
+
+    def ratio_of_passed(self):
+        if self.isok():
+            return 1.   
+        elif self.istimeout():
+            return 0.
+        else:
+            nr = self.grep_nr('Ran ')
+            if nr > 0:
+                return (nr - (self.grep_nr('errors=') + self.grep_nr('failures=')))/nr
+            else:
+              passed = self.grep_nr('TestFailed: ',section='stderr')
+              run = self.grep_nr('TestFailed: \d+/',section='stderr')
+              if run > 0:
+                  return passed/run
+              else:
+                  run = self.grep_nr('TestFailed: \d+ of ',section='stderr')
+                  if run >0 :
+                      return (run-passed)/run
+                  else:
+                      return 0 
+
+    def isok(self):
         return self['outcome'].lower() == 'ok'
-    def iserror(self): 
+
+    def iserror(self):
         return self['outcome'].lower()[:3] == 'err'
+
     def istimeout(self): 
         return self['outcome'].lower() == 't/o'
 

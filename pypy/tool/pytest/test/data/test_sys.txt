@@ -1,0 +1,61 @@
+Content-Type: multipart/mixed; boundary="===============1380540766=="
+MIME-Version: 1.0
+cpu mhz: unknown
+cpu model: unknown
+execution-time: 22.5916008949
+exit status: 0
+fspath: /home/contest/xoraxax/pypy-dist/lib-python/modified-2.4.1/test/test_sys.py
+options: ['core']
+outcome: OK
+platform: linux2
+pypy-revision: 16123
+python-version-info: (2, 4, 1, 'final', 0)
+startdate: Thu Aug 18 04:16:48 2005
+testreport-version: 1.1
+timeout: 3364.0
+userhost: xoraxax@tick
+_reprs: {'execution-time': 'float', 'python-version-info': 'tuple',
+	'options': 'list', 'timeout': 'float', 'pypy-revision': 'int',
+	'exit status': 'int'}
+
+--===============1380540766==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stdout"
+
+test_attributes (__main__.SysModuleTest) ... ok
+test_custom_displayhook (__main__.SysModuleTest) ... ok
+test_dlopenflags (__main__.SysModuleTest) ... ok
+test_exc_clear (__main__.SysModuleTest) ... ok
+test_exit (__main__.SysModuleTest) ... ok
+test_getdefaultencoding (__main__.SysModuleTest) ... ok
+test_getframe (__main__.SysModuleTest) ... ok
+test_getwindowsversion (__main__.SysModuleTest) ... ok
+test_lost_displayhook (__main__.SysModuleTest) ... ok
+test_original_displayhook (__main__.SysModuleTest) ... ok
+test_original_excepthook (__main__.SysModuleTest) ... ok
+test_recursionlimit (__main__.SysModuleTest) ... ok
+test_setcheckinterval (__main__.SysModuleTest) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 7.241s
+
+OK
+
+--===============1380540766==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="stderr"
+
+faking <type 'module'>
+Loading grammar /home/contest/xoraxax/pypy-dist/pypy/interpreter/pyparser/data/Grammar2.4
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+fake-wrapping interp file <open file '<stdout>', mode 'w' at 0xf7fa3068>
+fake-wrapping interp file <open file '<stderr>', mode 'w' at 0xf7fa30b0>
+fake-wrapping interp file <open file '<stdin>', mode 'r' at 0xf7fa3020>
+
+--===============1380540766==--
