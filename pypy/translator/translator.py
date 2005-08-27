@@ -202,9 +202,12 @@ class Translator:
         from pypy.translator.llvm.genllvm import GenLLVM
         if self.annotator is None:
             raise ValueError, "function has to be annotated."
-        gen = GenLLVM(translator)
+        gen = GenLLVM(self)
         filename = gen.gen_llvm_source()
-        return filename
+        f = open(filename, "r")
+        result = f.read()
+        f.close()
+        return result
     
     def generatecode(self, gencls, input_arg_types, func):
         if input_arg_types is None:

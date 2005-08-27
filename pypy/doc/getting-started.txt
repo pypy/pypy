@@ -360,10 +360,17 @@ works nearly as well as for the c backend. There is a restriction, though: The
 return type and the arguments of the entry function has to be an int, float or
 bool. To try it do:: 
 
+   >>> t = Translator(test.my_gcd)
+   >>> a = t.annotate([int, int])
+   >>> a.simplify()
+   >>> t.specialize()
    >>> print t.llvm()
+
+   <...  really huge amount of LLVM code  ...>
+
    >>> f = t.llvmcompile(optimize=True)
-   >>> f(28)
-   1
+   >>> f(15, 10)
+   5
 
 In contrast to the C backend this works only for fully annotated and
 specialized graphs.
