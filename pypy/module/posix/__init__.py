@@ -13,6 +13,7 @@ corresponding Unix manual entries for more information on calls."""
     appleveldefs = {
     'error'      : 'app_posix.error',
     'stat_result': 'app_posix.stat_result',
+    'fdopen'     : 'app_posix.fdopen',
     }
     
     interpleveldefs = {

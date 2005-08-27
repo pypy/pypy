@@ -63,3 +63,14 @@ class AppTestPosix:
         ex(self.posix.stat, "qweqwehello")
         # how can getcwd() raise? 
         ex(self.posix.dup, UNUSEDFD)
+
+    def test_fdopen(self):
+        path = self.path 
+        posix = self.posix 
+        fd = posix.open(path, posix.O_RDONLY, 0777)
+        try:
+            f = posix.fdopen(fd, "r")
+        except NotImplementedError:
+            pass
+        else:
+            raise "did not raise"
