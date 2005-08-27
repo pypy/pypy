@@ -10,6 +10,8 @@ standardized by the C Standard and the POSIX standard (a thinly
 disguised Unix interface).  Refer to the library manual and
 corresponding Unix manual entries for more information on calls."""
 
+    applevel_name = os.name
+
     appleveldefs = {
     'error'      : 'app_posix.error',
     'stat_result': 'app_posix.stat_result',

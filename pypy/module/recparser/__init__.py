@@ -12,6 +12,7 @@ class Module(MixedModule):
      """The builtin parser module. 
      """ 
 
+     applevel_name = 'parser'
 
      appleveldefs = {
          'ParserError'  : 'app_class.ParserError',

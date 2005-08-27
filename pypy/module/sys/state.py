@@ -6,60 +6,18 @@ from pypy.interpreter.error import OperationError
 
 import sys, os 
 
-def load_cpython_module(modname):
-    "NOT_RPYTHON. Steal a module from CPython."
-    cpy_module = __import__(modname, globals(), locals(), None)
-    return cpy_module
-
 # ____________________________________________________________
 #
-
-ALL_BUILTIN_MODULES = [
-    'posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
-    'math', 'array', 'select',
-    '_random', '_sre', 'time', '_socket', 'errno',
-    'unicodedata',
-     'parser', 'fcntl', '_codecs', 'binascii'
-]
 
 class State: 
     def __init__(self, space): 
         self.space = space 
 
         self.w_modules = space.newdict([])
-        self.complete_builtinmodules()
 
         self.w_warnoptions = space.newlist([])
         self.w_argv = space.newlist([])
         self.setinitialpath(space) 
-
-    def install_faked_module(self, modname):
-        space = self.space
-        try:
-            module = load_cpython_module(modname)
-        except ImportError:
-            return False
-        else:
-            space.setitem(self.w_modules, space.wrap(modname),
-                          space.wrap(module))
-            return True
-
-    def complete_builtinmodules(self):
-        space = self.space
-        builtinmodule_list = self.space.get_builtinmodule_list()
-        builtinmodule_names = [name for name, mixedname in builtinmodule_list]
-
-        if not space.options.nofaking:
-            for modname in ALL_BUILTIN_MODULES:
-                if modname not in builtinmodule_names:
-                    if not (os.path.exists(
-                            os.path.join(os.path.dirname(pypy.__file__),
-                            'lib', modname+'.py'))):
-                        if self.install_faked_module(modname):
-                             builtinmodule_names.append(modname)
-        builtinmodule_names.sort()
-        self.w_builtin_module_names = space.newtuple(
-            [space.wrap(fn) for fn in builtinmodule_names])
 
     def setinitialpath(self, space): 
         # Initialize the default path

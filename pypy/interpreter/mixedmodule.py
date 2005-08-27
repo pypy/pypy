@@ -10,6 +10,8 @@ import inspect
 class MixedModule(Module):
 
     NOT_RPYTHON_ATTRIBUTES = ['loaders']
+
+    applevel_name = None
     
     def __init__(self, space, w_name): 
         """ NOT_RPYTHON """ 

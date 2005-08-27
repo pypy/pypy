@@ -145,16 +145,28 @@ class ObjSpace(object):
     def __repr__(self):
         return self.__class__.__name__
 
-    def setbuiltinmodule(self, name, importname=None): 
+    def setbuiltinmodule(self, importname, installed_builtin_modules=[]): 
         """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
-        if importname is None: 
-            importname = name 
-        Module = __import__("pypy.module.%s" % importname, 
+        import sys
+
+        fullname = "pypy.module.%s" % importname 
+
+        Module = __import__(fullname, 
                             None, None, ["Module"]).Module
+        if Module.applevel_name is not None:
+            name = Module.applevel_name
+        else:
+            name = importname
+
+        if name in installed_builtin_modules:
+            del sys.modules[fullname]
+            return None
+
         w_name = self.wrap(name) 
         w_mod = self.wrap(Module(self, w_name)) 
         w_modules = self.sys.get('modules')
         self.setitem(w_modules, w_name, w_mod) 
+        return name
 
     def getbuiltinmodule(self, name):
         w_name = self.wrap(name)
@@ -163,20 +175,14 @@ class ObjSpace(object):
 
     # change this to influence which of our own
     # mixed modules should be used 
-    def get_builtinmodule_list(self):
+    def get_builtinmodule_to_install(self):
         """NOT_RPYTHON"""
         try:
             return self._builtinmodule_list
         except AttributeError:
             pass
 
-        modules = ['sys', '__builtin__', 'exceptions', 'unicodedata', '_codecs',
-            'array', 'marshal', 'errno', 'math']
-
-        if self.options.nofaking:
-            modules.append('posix')
-            modules.append('time')
-            modules.append('errno')
+        modules = ['sys', '__builtin__', 'exceptions']
 
         # there also are the '_sre' and 'marshal' modules 
         # but those currently cause translation problems.  You can
@@ -186,19 +192,36 @@ class ObjSpace(object):
             if name not in modules: 
                 modules.append(name) 
 
-        # the returned builtinmodule_list contains tuples of
-        # names because some modules have a filesystem name 
-        # that differs from the app-visible name (because you 
-        # can specify implementation variants)
-        builtinmodule_list = [(x, None) for x in modules]
-        bml = builtinmodule_list
-        if ('posix', None) in bml:
-            bml[bml.index( ('posix', None) )] = (os.name, 'posix')
+        modules.extend(['unicodedata', '_codecs',
+                         'array', 'marshal', 'errno', 'math'])
+
+        if self.options.nofaking:
+            modules.append('posix')
+            modules.append('time')
+            modules.append('errno')
+
         if self.options.parser == "pypy":
-            builtinmodule_list.append(('parser', 'recparser'))
-            builtinmodule_list.append(('symbol', None))
-        self._builtinmodule_list = builtinmodule_list
+            modules.append('recparser')
+            modules.append('symbol')
+
+        import pypy
+        if not self.options.nofaking:
+            for modname in self.ALL_BUILTIN_MODULES:
+                if not (os.path.exists(
+                        os.path.join(os.path.dirname(pypy.__file__),
+                                     'lib', modname+'.py'))):            
+                    modules.append('faked+'+modname)
+
+        self._builtinmodule_list = modules
         return self._builtinmodule_list
+
+    ALL_BUILTIN_MODULES = [
+        'posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
+        'math', 'array', 'select',
+        '_random', '_sre', 'time', '_socket', 'errno',
+        'unicodedata',
+        'parser', 'fcntl', '_codecs', 'binascii'
+    ]
 
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
@@ -216,10 +239,8 @@ class ObjSpace(object):
         self.setitem(w_modules, w_name, w_builtin) 
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
 
-        for modname, mixedname in self.get_builtinmodule_list():
-            if modname not in ('sys', '__builtin__', 'exceptions'):##!!, 'marshal'):
-                self.setbuiltinmodule(modname, mixedname)
-        
+        installed_builtin_modules = ['sys', '__builtin__', 'exceptions'] # bootstrap ones
+
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
             if name.startswith('w_') and not name.endswith('Type'): 
@@ -227,11 +248,55 @@ class ObjSpace(object):
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.builtin.w_dict, self.wrap(name), value)
 
+        # install midex and faked modules and set builtin_module_names on sys
+        for mixedname in self.get_builtinmodule_to_install():
+            if not mixedname.startswith('faked+'):
+                self.install_mixemodule(mixedname, installed_builtin_modules)
+            else:
+                modname = mixedname[6:]
+                self.install_faked_module(modname, installed_builtin_modules)
+
+        installed_builtin_modules.sort()
+        w_builtin_module_names = self.newtuple(
+            [self.wrap(fn) for fn in installed_builtin_modules])
+
+        # force this value into the dict without unlazyfying everything
+        self.setitem(self.sys.w_dict, self.wrap('builtin_module_names'),
+                     w_builtin_module_names)
+
+    def install_mixemodule(self, mixedname, installed_builtin_modules):
+        """NOT_RPYTHON"""        
+        if mixedname not in installed_builtin_modules:
+            modname = self.setbuiltinmodule(mixedname, installed_builtin_modules)
+            if modname:
+                installed_builtin_modules.append(modname)
+
+    def load_cpython_module(self, modname):
+        "NOT_RPYTHON. Steal a module from CPython."
+        cpy_module = __import__(modname, {}, {}, ['*'])
+        return cpy_module
+
+    def install_faked_module(self, modname, installed_builtin_modules):
+        """NOT_RPYTHON"""
+        if modname in installed_builtin_modules:
+            return
+        try:
+            module = self.load_cpython_module(modname)
+        except ImportError:
+            return
+        else:
+            w_modules = self.sys.get('modules')
+            self.setitem(w_modules, self.wrap(modname), self.wrap(module))
+            installed_builtin_modules.append(modname)
+
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
-        for modname, mixedname in self.get_builtinmodule_list():
+        from pypy.interpreter.module import Module
+        for w_modname in self.unpackiterable(self.sys.get('builtin_module_names')):
+            modname = self.unwrap(w_modname)
             mod = self.getbuiltinmodule(modname)
-            mod.setup_after_space_initialization()
+            if isinstance(mod, Module):
+                mod.setup_after_space_initialization()
 
     def initialize(self):
         """NOT_RPYTHON: Abstract method that should put some minimal

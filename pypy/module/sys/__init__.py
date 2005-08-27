@@ -32,7 +32,7 @@ class Module(MixedModule):
         'modules'               : 'state.get(space).w_modules', 
         'argv'                  : 'state.get(space).w_argv', 
         'warnoptions'           : 'state.get(space).w_warnoptions', 
-        'builtin_module_names'  : 'state.get(space).w_builtin_module_names', 
+        'builtin_module_names'  : 'state.w_None',
         'pypy_getudir'          : 'state.pypy_getudir', 
 
         '_getframe'             : 'vm._getframe', 
