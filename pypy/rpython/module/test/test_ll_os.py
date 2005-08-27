@@ -19,7 +19,6 @@ def test_open_read_write_close():
 
     os.unlink(filename)
 
-
 def test_getcwd():
     data = ll_os_getcwd()
     assert from_rstr(data) == os.getcwd()
@@ -36,16 +35,25 @@ def test_system():
     assert file(filename).read().strip() == '2'
     os.unlink(filename)
 
-def test_putenv():
+def test_putenv_unsetenv():
     filename = str(udir.join('test_putenv.txt'))
     arg = to_rstr('abcdefgh=12345678')
     ll_os_putenv(arg)
     cmd = '''python -c "import os; print os.environ['abcdefgh']" > %s''' % filename
     os.system(cmd)
-    assert file(filename).read().strip() == '12345678'
+    f = file(filename)
+    result = f.read().strip()
+    assert result == '12345678'
+    f.close()
     os.unlink(filename)
-
-# XXX missing test for unsetenv, please do this on Linux
+    ll_os_unsetenv(to_rstr("abcdefgh"))
+    cmd = '''python -c "import os; print repr(os.getenv('abcdefgh'))" > %s''' % filename
+    os.system(cmd)
+    f = file(filename)
+    result = f.read().strip()
+    assert result == 'None'
+    f.close()
+    os.unlink(filename)
 
 def test_environ():
     count = 0
