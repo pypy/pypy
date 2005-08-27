@@ -61,7 +61,8 @@ def run_toplevel(f, *fargs, **fkwds):
             # XXX extra debugging info in case the code below goes very wrong
             # XXX (temporary)
             if hasattr(sys, 'stderr'):
-                print >> sys.stderr, "debug: exception-type: ", etype.__name__
+                s = getattr(etype, '__name__', repr(etype))
+                print >> sys.stderr, "debug: exception-type: ", s
                 print >> sys.stderr, "debug: exception-value:", str(evalue)
                 tbentry = etraceback
                 if tbentry:
