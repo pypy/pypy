@@ -27,3 +27,11 @@ class TestInternalStuff:
             print 'max sys depth = %d, mm_hack = %r, marshal limit = %d' % (
                 sys.getrecursionlimit(), do_hack, tupdepth)
 
+
+class AppTestMarshalMore:
+
+    def test_long_0(self):
+        import marshal
+        z = 0L
+        z1 = marshal.loads(marshal.dumps(z))
+        assert z == z1
