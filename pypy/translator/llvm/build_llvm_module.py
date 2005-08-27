@@ -137,4 +137,5 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
     if pyxfile:
         return testmodule
     if exe_name:
-        return exe_name
+        exe_path = str(llvmfile.dirpath().join(exe_name))
+        return exe_path
