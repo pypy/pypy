@@ -126,15 +126,12 @@ class GenLLVM(object):
 
         for c_name, obj in decls:
             if isinstance(obj, lltype.LowLevelType):
-                print 'XXX1', c_name
                 self.db.prepare_type(obj)
             elif isinstance(obj, types.FunctionType):
-                print 'XXX2', c_name
                 funcptr = getfunctionptr(self.translator, obj)
                 c = inputconst(lltype.typeOf(funcptr), funcptr)
                 self.db.prepare_arg_value(c)
             elif isinstance(lltype.typeOf(obj), lltype.Ptr):
-                print 'XXX3', c_name
                 self.db.prepare_constant(lltype.typeOf(obj), obj)
             else:
                 assert False, "unhandled predeclare %s %s %s" % (c_name, type(obj), obj)

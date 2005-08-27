@@ -126,6 +126,13 @@ int_ovf_test = """
     %cond2 = setne int %x, -2147483648
     br bool %cond2, label %return_block, label %ovf
 ovf:
+;    %cond2 = setge int %x, 0
+;    br bool %cond2, label %return_block, label %ovf2
+;ovf2:
+;    %xneg  = sub int 0, %x
+;    %cond3 = setne int %x, %xneg
+;    br bool %cond3, label %return_block, label %ovf3
+;ovf3:
     call fastcc void %prepare_OverflowError()
     unwind
 """
