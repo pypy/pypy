@@ -154,7 +154,8 @@ class GenLLVM(object):
             
         for c_name, obj in extern_decls:
             if isinstance(obj, lltype.LowLevelType):
-                pass
+                s = "#define %s struct %s\n%s;\n" % (c_name, c_name, c_name)
+                ccode.append(s)
             elif isinstance(obj, types.FunctionType):
                 funcptr = getfunctionptr(self.translator, obj)
                 c = inputconst(lltype.typeOf(funcptr), funcptr)

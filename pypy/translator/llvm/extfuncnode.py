@@ -9,7 +9,10 @@ class ExternalFuncNode(ConstantLLVMNode):
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.ref = self.make_ref("%", value._callable.__name__)
+        name = value._callable.__name__
+        assert name.startswith("ll")
+        name = "LL" + name[2:] 
+        self.ref = self.make_ref("%", name)
 
     def getdecl(self):
         T = self.value._TYPE
