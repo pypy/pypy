@@ -605,6 +605,13 @@ class TestAnnotateTestCase:
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == str
 
+    def test_class_spec_confused(self):
+        x = snippet.PolyStk()
+        def f():
+            return x
+        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        py.test.raises(Exception, a.build_types, f, [])
+
     def test_exception_deduction_with_raise1(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.exception_deduction_with_raise1, [bool])

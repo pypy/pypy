@@ -369,7 +369,9 @@ class Bookkeeper:
                 return self.getpbc(x)
             else:
                 clsdef = self.getclassdef(x.__class__)
-                
+                if x.__class__.__dict__.get('_annspecialcase_', '').endswith('ctr_location'):
+                    print "encountered a pre-built mutable instance of a class needing specialization: %s" % x.__class__.__name__
+                    raise Exception, "encountered a pre-built mutable instance of a class needing specialization: %s" % x.__class__.__name__
                 if x not in self.seen_mutable: # avoid circular reflowing, 
                                                # see for example test_circular_mutable_getattr
                     self.seen_mutable[x] = True
