@@ -108,7 +108,7 @@ def print_info():
     except AttributeError:
         print >> sys.stderr, 'no translation information found'
     else:
-        optitems = options.keys()
+        optitems = options.items()
         optitems.sort()
         for name, value in optitems:
             print '   %25s: %s' % (name, value)
