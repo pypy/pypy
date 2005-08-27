@@ -421,6 +421,14 @@ executable that is not running on top of CPython any more::
     2
     >>>> 
 
+With the default options, you can find the produced executable under the
+name ``pypy-c``.  Type ``pypy-c --help`` to see the options it supports --
+mainly the same basic options of CPython.  In addition, ``pypy-c --info``
+prints the translation options that where used to produce this particular
+executable.  This executable contains a lot of things that are hard-coded
+for your particular system (including paths), so it's not really meant to
+be installed or redistributed at the moment.
+
 If you exit the interpreter you get a pygame window with all the flowgraphs
 plus a pdb prompt. Moving around in the resulting flow graph is difficult
 because of the sheer size of the result. For this reason, the debugger prompt

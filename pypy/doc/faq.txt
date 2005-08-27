@@ -36,4 +36,12 @@ Do I have to rewrite my programs in RPython?
     a full and compliant Python 2.4 interpreter.  RPython is only
     the language in which parts of PyPy itself are written.
 
+How do I compile PyPy?
+
+    See the `getting-started`_ guide.  Note that at the moment this
+    produces an executable that contains a lot of things that are
+    hard-coded for your particular system (including paths), so it's
+    not really suitable for being installed or redistributed.
+
 .. _`RPython`: coding-guide.html#rpython
+.. _`getting-started`: getting-started.html
