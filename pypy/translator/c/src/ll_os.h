@@ -218,10 +218,7 @@ void LL_os_putenv(RPyString * name_eq_value) {
 
 #ifdef HAVE_UNSETENV
 void LL_os_unsetenv(RPyString * name) {
-    int error = unsetenv(RPyString_AsString(name));
-    if (error != 0) {
-	RPYTHON_RAISE_OSERROR(errno);
-    }
+    unsetenv(RPyString_AsString(name));
 }
 #endif
 
