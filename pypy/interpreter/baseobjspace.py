@@ -193,7 +193,7 @@ class ObjSpace(object):
                 modules.append(name) 
 
         modules.extend(['unicodedata', '_codecs',
-                         'array', 'marshal', 'errno', 'math'])
+                         'array', 'marshal', 'errno', 'math', '_sre'])
 
         if self.options.nofaking:
             modules.append('posix')
