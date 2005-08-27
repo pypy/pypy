@@ -106,6 +106,8 @@ def dir(*args):
                         % len(args))
     if len(args) == 0:
         local_names = _caller_locals().keys() # 2 stackframes away
+        if not isinstance(local_names, list):
+            raise TypeError("expected locals().keys() to be a list")
         local_names.sort()
         return local_names
 
@@ -116,6 +118,8 @@ def dir(*args):
     if isinstance(obj, types.ModuleType):
         try:
             result = obj.__dict__.keys()
+            if not isinstance(result, list):
+                raise TypeError("expected __dict__.keys() to be a list")
             result.sort()
             return result
         except AttributeError:

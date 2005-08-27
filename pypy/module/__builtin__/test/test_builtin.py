@@ -58,6 +58,14 @@ class AppTestBuiltinApp:
             b = 67
         assert nosp(dir(X)) == ['a', 'b', 'c']
 
+    def test_dir_in_broken_locals(self):
+        class C:
+            def __getitem__(self, item):
+                raise KeyError(item)
+            def keys(self):
+                return 'a'    # not a list!
+        raises(TypeError, eval, "dir()", {}, C())
+
     def test_vars(self):
         def f():
             return vars()
