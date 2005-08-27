@@ -32,9 +32,14 @@ class FutureParser:
             for name, asname in stmt.names:
                 if name in self.features:
                     self.found[name] = 1
+                elif name=="*":
+                    raise SyntaxError(
+                        "future statement does not support import *",
+                        ( stmt.filename, stmt.lineno, 0, "" ) )
                 else:
-                    raise SyntaxError, \
-                          "future feature %s is not defined" % name
+                    raise SyntaxError(
+                        "future feature %s is not defined" % name,
+                        ( stmt.filename, stmt.lineno, 0, "" ) )
             stmt.valid_future = 1
             return 1
         return 0
@@ -44,14 +49,17 @@ class FutureParser:
         return self.found.keys()
 
 class BadFutureParser:
-    """Check for invalid future statements"""
+    """Check for invalid future statements
+    Those not marked valid are appearing after other statements
+    """
 
     def visitFrom(self, node):
         if hasattr(node, 'valid_future'):
             return
         if node.modname != "__future__":
             return
-        raise SyntaxError, "invalid future statement"
+        raise SyntaxError( "from __future__ imports must occur at the beginning of the file",
+                           ( node.filename, node.lineno, 0, "" ) )
 
 def find_futures(node):
     p1 = FutureParser()
