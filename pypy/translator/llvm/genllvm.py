@@ -30,16 +30,16 @@ function_count = {}
 llcode_header = ll_functions = None
 
 ll_func_names = [
-       "%prepare_and_raise_IOError",
-       "%prepare_and_raise_ValueError",
-       "%prepare_and_raise_OverflowError",
-       "%prepare_and_raise_ZeroDivisionError",
+       "%raisePyExc_IOError",
+       "%raisePyExc_ValueError",
+       "%raisePyExc_OverflowError",
+       "%raisePyExc_ZeroDivisionError",
        "%RPyString_AsString",
        "%RPyString_FromString",
        "%RPyString_Size"]
        
 def get_ll(ccode, function_names):
-
+    
     # goto codespeak and compile our c code
     request = urllib.urlencode({'ccode':ccode})
     llcode = urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
@@ -66,8 +66,8 @@ def get_ll(ccode, function_names):
            returntype, s = line.split(' ', 1)
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
-	   assert line.find("internal") == -1
-           line = '%s %s %s' % ("", DEFAULT_CCONV, line,)
+	   if line.find("internal") == -1:
+	   	line = '%s %s %s' % ("", DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
     # patch calls to function that we just declared fastcc
@@ -96,7 +96,7 @@ def get_ll(ccode, function_names):
     
 class GenLLVM(object):
 
-    def __init__(self, translator, debug=True):
+    def __init__(self, translator, debug=False):
     
         # reset counters
         LLVMNode.nodename_count = {}    
@@ -161,12 +161,26 @@ class GenLLVM(object):
                 if isinstance(lltype.typeOf(obj._obj), lltype.FuncType):
                     predeclarefn(c_name, self.db.repr_name(obj._obj))
 
+        include_files = []
         # append local file
         j = os.path.join
-        p = j(j(os.path.dirname(__file__), "module"), "genexterns.c")
-        ccode.append(open(p).read())
+        include_files.append(j(j(os.path.dirname(__file__), "module"), "genexterns.c"))
 
-        get_ll("".join(ccode), function_names)
+        from pypy.translator.c import extfunc
+        for f in ["ll_os", "ll_math", "ll_time", "ll_strtod"]:
+            include_files.append(j(j(os.path.dirname(extfunc.__file__), "src"), f + ".h"))
+            
+        for f in include_files:
+            ccode.append(open(f).read())
+
+        # for debugging
+        ccode = "".join(ccode)
+        filename = udir.join("ccode.c")
+        f = open(str(filename), "w")
+        f.write(ccode)
+        f.close()
+        
+        get_ll(ccode, function_names)
 
     def gen_llvm_source(self, func=None):
         if self.debug:  print 'gen_llvm_source begin) ' + time.ctime()
@@ -314,8 +328,10 @@ class GenLLVM(object):
         elif entryfunc_name == 'pypy_main_noargs': #XXX just to get on with bpnn & richards
             extfuncnode.ExternalFuncNode.used_external_functions['%main_noargs'] = True
 
-        for f in "prepare_and_raise_OverflowError prepare_and_raise_ValueError "\
-	         "prepare_and_raise_ZeroDivisionError prepare_and_raise_IOError "\
+
+
+        for f in "raisePyExc_IOError raisePyExc_ValueError "\
+                 "raisePyExc_OverflowError raisePyExc_ZeroDivisionError "\
                  "prepare_ZeroDivisionError prepare_OverflowError prepare_ValueError "\
 		 "RPyString_FromString RPyString_AsString RPyString_Size".split():
             extfuncnode.ExternalFuncNode.used_external_functions["%" + f] = True

@@ -88,10 +88,11 @@ internal fastcc void %%prepare_%(exc)s() {
 }
 """ % locals())
 
-#prepare exceptions
+
+#prepare and raise exceptions
 for exc in "IOError ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
-    extfunctions["%%prepare_and_raise_%(exc)s" % locals()] = ((), """
-internal fastcc void %%prepare_and_raise_%(exc)s(sbyte* %%msg) {
+    extfunctions["%%raisePyExc_%(exc)s" % locals()] = ((), """
+internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
     ;XXX %%msg not used right now!
     %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%pypy_instantiate_%(exc)s()
     %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
