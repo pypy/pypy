@@ -50,6 +50,7 @@ run_test(test_malloc_a_lot)
 
 def test_boehm():
     import py
+    py.test.skip("boehm test is fragile wrt. the number of dynamically loaded libs")
     from  pypy.translator.tool import cbuild
     if not cbuild.check_boehm_presence():
         py.test.skip("no boehm gc on this machine")
