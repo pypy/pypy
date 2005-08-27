@@ -318,6 +318,7 @@ class GenLLVM(object):
 
         for f in "prepare_and_raise_OverflowError prepare_and_raise_ValueError "\
 	         "prepare_and_raise_ZeroDivisionError prepare_and_raise_IOError "\
+                 "prepare_ZeroDivisionError prepare_OverflowError prepare_ValueError "\
 		 "RPyString_FromString RPyString_AsString RPyString_Size".split():
             extfuncnode.ExternalFuncNode.used_external_functions["%" + f] = True
 

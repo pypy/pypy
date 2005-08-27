@@ -2,6 +2,7 @@ import py
 import sys
 from pypy.translator.llvm.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
+from pypy.translator.test import snippet 
 
 def test_zerodiv_int():
     def zerodiv_int(n):
@@ -69,37 +70,32 @@ def test_abs_int_ovf():
     for i in (-sys.maxint-1, -sys.maxint, 0, sys.maxint-1, sys.maxint):
         assert f(i) == abs_int_ovf(i)
 
-from pypy.translator.test import snippet 
+############################
 
 def test_int_overflow():
-    py.test.skip("int_add_ovf operation missing (raises)")
     fn = compile_function(snippet.add_func, [int])
     raises(OverflowError, fn, sys.maxint)
 
 def test_int_div_ovf_zer():
-    py.test.skip("int_floordiv_ovf_zer operation missing (raises)")
     fn = compile_function(snippet.div_func, [int])
     raises(OverflowError, fn, -1)
     raises(ZeroDivisionError, fn, 0)
 
 def test_int_mod_ovf_zer():
-    py.test.skip("int_mod_ovf_zer operation missing (raises)")
     fn = compile_function(snippet.mod_func, [int])
     raises(OverflowError, fn, -1)
     raises(ZeroDivisionError, fn, 0)
 
 def test_int_rshift_val():
-    py.test.skip("int_rshift_val operation missing (raises)")
     fn = compile_function(snippet.rshift_func, [int])
     raises(ValueError, fn, -1)
 
 def test_int_lshift_ovf_val():
-    py.test.skip("int_lshift_ovf_val operation missing (raises)")
     fn = compile_function(snippet.lshift_func, [int])
     raises(ValueError, fn, -1)
+    raises(OverflowError, fn, 1)
 
 def test_uint_arith():
-    py.test.skip("uint_floordiv_zer operation missing (raises)")
     def fn(i):
         try:
             return ~(i*(i+1))/(i-1)
@@ -111,7 +107,6 @@ def test_uint_arith():
         assert f(i) == fn(i)
 
 def test_int_add_ovf():
-    py.test.skip("int add incorrect overflow test")
     def add_func(i):
         try:
             return ovfcheck(i + 1)
@@ -124,7 +119,6 @@ def test_int_add_ovf():
     assert f(sys.maxint) == 123
 
 def test_int_sub_ovf():
-    py.test.skip("ovf test")
     def sub_func(i):
         try:
             return ovfcheck(i - 1)
@@ -136,25 +130,10 @@ def test_int_sub_ovf():
     assert f(sys.maxint) == sub_func(sys.maxint)
     assert f(sys.maxint) == 123
 
-def test_int_div_ovf_zer():
-    py.test.skip("ovf test")
-    f = compile_function(snippet.div_func)
-    raises(OverflowError, fn, -1)
-    raises(ZeroDivisionError, fn, 0)
-
-def test_int_mod_ovf_zer():
-    py.test.skip("ovf test")
-    f = compile_function(snippet.mod_func)
-    raises(OverflowError, fn, -1)
-    raises(ZeroDivisionError, fn, 0)
-
-def test_int_rshift_val():
-    py.test.skip("ovf test")
-    f = compile_function(snippet.rshift_func)
-    raises(ValueError, fn, -1)
-
-def test_int_lshift_ovf_val():
-    py.test.skip("ovf test")
-    f = compile_function(snippet.lshift_func)
-    raises(ValueError, fn, -1)
-    raises(OverflowError, fn, 1)
+def test_shift_with_overflow(self):
+    shl = compile_function(llvmsnippet.shiftleft, [int, int])
+    shr = compile_function(llvmsnippet.shiftright, [int, int])
+    for i in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
+        for j in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
+            assert shl(i, j) == i << j
+            assert shr(i, j) == i >> j
