@@ -181,3 +181,13 @@ class AppTest_Descroperation:
             def __nonzero__(self):
                 return myint(1)
         raises(TypeError, "not X()")
+
+    def test_string_subclass(self):
+        class S(str):
+            def __hash__(self):
+                return 123
+        s = S("abc")
+        setattr(s, s, s)
+        assert len(s.__dict__) == 1
+        assert type(s.__dict__.keys()[0]) is str   # don't store S keys
+        assert s.abc is s

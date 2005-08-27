@@ -37,7 +37,10 @@ class Object:
                 return
         w_dict = w_obj.getdict()
         if w_dict is not None:
-            space.setitem(w_dict, w_name, w_value)
+            # note: don't use w_name as a key in w_dict directly -- the expected
+            # result of setattr() is that it never stores subclasses of 'str'
+            # in the __dict__
+            space.setitem(w_dict, space.wrap(name), w_value)
             return
         raiseattrerror(space, w_obj, name, w_descr)
 
