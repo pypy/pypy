@@ -129,7 +129,7 @@ class HtmlReport(object):
 
         sum_passed = sum([x.ratio_of_passed() for x in tests])
         t.append(row(html.b("core tests compliancy"), 
-                     html.b("%.2f%%" % (sum_passed/sum100*100,))))
+                     html.b("%.2f%%" % (sum_passed/sum100,))))
 
         t.append(row("testmodules passed completely", "%.2f%%" % (ok/sum100)))
         t.append(row("testmodules (partially) failed", "%.2f%%" % (err/sum100)))
