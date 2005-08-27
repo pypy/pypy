@@ -66,8 +66,8 @@ def get_ll(ccode, function_names):
            returntype, s = line.split(' ', 1)
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
-           if line.find("internal") == -1:
-                line = '%s %s %s' % ("", DEFAULT_CCONV, line,)
+	   if line.find("internal") == -1:
+	   	line = '%s %s %s' % ("", DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
     # patch calls to function that we just declared fastcc
@@ -333,7 +333,7 @@ class GenLLVM(object):
         for f in "raisePyExc_IOError raisePyExc_ValueError "\
                  "raisePyExc_OverflowError raisePyExc_ZeroDivisionError "\
                  "prepare_ZeroDivisionError prepare_OverflowError prepare_ValueError "\
-                 "RPyString_FromString RPyString_AsString RPyString_Size".split():
+		 "RPyString_FromString RPyString_AsString RPyString_Size".split():
             extfuncnode.ExternalFuncNode.used_external_functions["%" + f] = True
 
         if self.debug:  print 'gen_llvm_source used_external_functions) ' + time.ctime()
