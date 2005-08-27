@@ -437,6 +437,19 @@ def test_putenv():
 
 # XXX missing test for unsetenv, please do this on Linux
 
+
+# aaargh: bad idea: the above test updates the environment directly, so the
+# os.environ dict is not updated, which makes the following test fail if not run
+# allone. therefor it is neccessary to use execnet.
+
+test_src = """import py
+import os, time
+from pypy.tool.udir import udir
+from pypy.translator.c.test.test_genc import compile
+from pypy.translator.c.extfunc import EXTERNALS
+from pypy.rpython import ros
+
+
 def test_environ():
     def env(idx):
         # need to as if the result is NULL, or we crash
@@ -450,4 +463,17 @@ def test_environ():
         if not func(count):
             break
         count += 1
-    assert count == len(os.environ.keys())
+    return count == len(os.environ.keys())
+
+def run_test(func):
+    channel.send(func())
+run_test(test_environ)
+"""
+
+def test_environ():
+    import py
+    gw = py.execnet.PopenGateway()
+    chan = gw.remote_exec(py.code.Source(test_src))
+    res = chan.receive()
+    assert res
+    chan.close()
