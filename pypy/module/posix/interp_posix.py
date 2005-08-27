@@ -224,10 +224,11 @@ def unsetenv(space, name):
     """unsetenv(key)
 
 Delete an environment variable."""
-    os.unsetenv(name)
-    # Remove the key from posix_putenv_garbage;
-    # this will cause it to be collected.  This has to
-    # happen after the real unsetenv() call because the
-    # old value was still accessible until then.
-    del get(space).posix_putenv_garbage[name]
+    if name in get(space).posix_putenv_garbage:
+        os.unsetenv(name)
+        # Remove the key from posix_putenv_garbage;
+        # this will cause it to be collected.  This has to
+        # happen after the real unsetenv() call because the
+        # old value was still accessible until then.
+        del get(space).posix_putenv_garbage[name]
 unsetenv.unwrap_spec = [ObjSpace, str]

@@ -74,3 +74,31 @@ class AppTestPosix:
             pass
         else:
             raise "did not raise"
+
+class AppTestEnvironment(object):
+    def setup_class(cls): 
+        cls.space = space 
+        cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
+        cls.w_os = space.appexec([], "(): import os; return os")
+        cls.w_path = space.wrap(str(path))
+    def test_environ(self):
+        posix = self.posix
+        os = self.os
+
+    def test_unsetenv_nonexisting(self):
+        os = self.os
+        os.unsetenv("XYZABC") #does not raise
+        try:
+            os.environ["ABCABC"]
+        except KeyError:
+            pass
+        else:
+            raise AssertionError("did not raise KeyError")
+        os.environ["ABCABC"] = "1"
+        assert os.environ["ABCABC"] == "1"
+        if hasattr(os, "unsetenv"):
+            os.unsetenv("ABCABC")
+            cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
+            res = os.system(cmd)
+            assert res == 0
+
