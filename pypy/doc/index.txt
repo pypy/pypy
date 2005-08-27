@@ -39,7 +39,7 @@ recent compliance test runs against PyPy.
 .. _`FAQ`: faq.html
 .. _parser: parser.html
 .. _`talks and related projects`: extradoc.html
-.. _`license`: http://codespeak.net/svn/pypy/dist/LICENSE 
+.. _`license`: ../../LICENSE
 .. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
 .. _`PyPy statistics`: http://codespeak.net/~hpk/pypy-stat/
 .. _`object spaces`: objspace.html 
