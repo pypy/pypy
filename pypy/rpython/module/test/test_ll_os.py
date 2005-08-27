@@ -55,10 +55,26 @@ def test_putenv_unsetenv():
     f.close()
     os.unlink(filename)
 
+test_src = """
+import os
+from pypy.tool.udir import udir
+from pypy.rpython.module.ll_os import *
+
 def test_environ():
     count = 0
     while 1:
         if not ll_os_environ(count):
             break
         count += 1
-    assert count == len(os.environ.keys())
+    channel.send(count == len(os.environ.keys()))
+test_environ()
+"""
+
+def test_environ():
+    import py
+    gw = py.execnet.PopenGateway()
+    chan = gw.remote_exec(py.code.Source(test_src))
+    res = chan.receive()
+    assert res
+    chan.close()
+
