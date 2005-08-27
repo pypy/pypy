@@ -659,9 +659,8 @@ show class hierarchy graph"""
                 print 'Generating and compiling C code...'
                 c_entry_point = t.ccompile(standalone=standalone, gcpolicy=gcpolicy)
                 if standalone: # xxx fragile and messy
-                    import py
-                    p = py.path.local(c_entry_point)
-                    p.rename('pypy-c')
+                    import shutil
+                    shutil.move(c_entry_point, 'pypy-c')
                     c_entry_point = './pypy-c'
             update_usession_dir()
             if not options['-o']:
