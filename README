@@ -1,3 +1,4 @@
+=======================================================
 PyPy: Python in Python implementation / Version 0.7.0
 =======================================================
 
@@ -31,3 +32,5 @@ programme.
 Enjoy and send us feedback! 
 
     the pypy-dev team <pypy-dev@codespeak.net>
+
+$Id$
