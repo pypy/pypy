@@ -46,6 +46,15 @@ def entry_point(argv):
 
 def target(geninterp=True):
     global space, w_entry_point
+
+    # obscure hack to stuff the translation options into the translated PyPy
+    import __main__, pypy.module.sys
+    options = {}
+    for key, value in __main__.options.items():
+        options[key.lstrip('-')] = value
+    wrapstr = 'space.wrap(%r)' % (options,)
+    pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
     space = StdObjSpace(nofaking=True,
