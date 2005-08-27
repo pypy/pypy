@@ -938,14 +938,18 @@ def getitem__String_ANY(space, w_str, w_index):
     return W_StringObject(space, str[ival])
 
 def getitem__String_Slice(space, w_str, w_slice):
-    # XXX this is really too slow for slices with no step argument
     w = space.wrap
-    length = len(w_str._value)
+    s = w_str._value
+    length = len(s)
     start, stop, step, sl = slicetype.indices4(space, w_slice, length)
-    r = [space.getitem(w_str, w(start + i*step)) for i in range(sl)]
-    w_r = space.newlist(r)
-    w_empty = space.newstring([])
-    return str_join__String_ANY(space, w_empty, w_r)
+    if sl == 0:
+        str = ""
+    elif step == 1:
+        assert start >= 0 and stop >= 0
+        str = s[start:stop]
+    else:
+        str = "".join([s[start + i*step] for i in range(sl)])
+    return W_StringObject(space, str)
 
 def mul_string_times(space, w_str, w_times):
     try:
