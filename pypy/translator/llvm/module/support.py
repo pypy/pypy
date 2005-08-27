@@ -2,7 +2,6 @@
 extdeclarations = """
 declare ccc int %puts(sbyte*)
 declare ccc uint %strlen(sbyte*)
-declare ccc int %strcmp(sbyte*, sbyte*)
 declare ccc sbyte* %memset(sbyte*, int, uint)
 declare ccc sbyte* %strncpy(sbyte *, sbyte *, int)
 """
@@ -270,7 +269,7 @@ entry:
     br label %no_exit
 
 no_exit:
-    %indvar = phi uint [ %indvar.next, %next_arg ], [ 0, %entry ]
+    %indvar = phi uint [ %indvar.next, %no_exit ], [ 0, %entry ]
     %i.0.0 = cast uint %indvar to int
     %tmp.8 = getelementptr sbyte** %argv, uint %indvar
     %tmp.9 = load sbyte** %tmp.8
