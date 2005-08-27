@@ -284,6 +284,7 @@ class RegrTest:
     """ Regression Test Declaration.""" 
     def __init__(self, basename, enabled=False, dumbtest=False,
                                  oldstyle=False, core=False, uselibfile=False,
+                                 compiler=None, 
                                  usemodules = ''): 
         self.basename = basename 
         self.enabled = enabled 
@@ -294,6 +295,7 @@ class RegrTest:
         self._oldstyle = oldstyle 
         self._uselibfile = uselibfile
         self._usemodules = usemodules.split()
+        self.compiler = compiler 
         self.core = core
 
     def oldstyle(self): 
@@ -512,7 +514,7 @@ testmap = [
 
     RegrTest('test_gl.py', enabled=False, dumbtest=1),
     RegrTest('test_glob.py', enabled=True, core=True),
-    RegrTest('test_global.py', enabled=True, core=True),
+    RegrTest('test_global.py', enabled=True, core=True, compiler='_stable'),
         # this fails because it relies on the warnings module 
         # turning a warning into an exception, but PyPy's
         # interplevel doesn't call into the app-level warnings
@@ -874,6 +876,8 @@ class ReallyRunFileExternal(py.test.Item):
             pypy_options.append('--oldstyle') 
         if regrtest.uselibfile: 
             pypy_options.append('--uselibfile')
+        if regrtest.compiler:
+            pypy_options.append('--compiler=%s' % regrtest.compiler)
         pypy_options.extend(
             ['--usemodules=%s' % mod for mod in regrtest.usemodules])
         sopt = " ".join(pypy_options) 

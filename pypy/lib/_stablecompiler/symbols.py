@@ -5,11 +5,20 @@ from consts import SC_LOCAL, SC_GLOBAL, SC_FREE, SC_CELL, \
                    SC_UNKNOWN, SC_DEFAULT
 from misc import mangle
 import types
-
+import warnings
 
 import sys
 
 MANGLE_LEN = 256
+
+def issue_warning(msg, filename, lineno): 
+    try:
+        warnings.warn_explicit(msg, SyntaxWarning, filename, lineno)
+    except SyntaxWarning:
+        err = SyntaxError(msg)
+        err.filename = filename
+        err.lineno = lineno
+        raise err 
 
 class Scope:
     localsfullyknown = True
@@ -355,6 +364,15 @@ class SymbolVisitor:
 
     def visitGlobal(self, node, scope):
         for name in node.names:
+            namescope = scope.check_name(name)
+            if namescope == SC_LOCAL:
+                issue_warning("name '%s' is assigned to before "
+                              "global declaration" %(name,),
+                              node.filename, node.lineno) 
+            elif namescope != SC_GLOBAL and name in scope.uses:
+                issue_warning("name '%s' is used prior "
+                              "to global declaration" %(name,), 
+                              node.filename, node.lineno)
             scope.add_global(name)
 
     def visitAssign(self, node, scope):
