@@ -36,10 +36,10 @@ void LL_thread_releaselock(struct RPyOpaque_ThreadLock *lock)
 	}
 }
 
-long LL_thread_start(void (*func)(void *), void *arg)
+long LL_thread_start(void *func, void *arg)
 {
 	/* XXX func() should not raise exceptions */
-	long ident = RPyThreadStart(func, arg);
+	long ident = RPyThreadStart((void (*)(void*)) func, arg);
 	if (ident == -1)
 		RPyRaiseSimpleException(PyExc_thread_error,
 					"can't start new thread");
