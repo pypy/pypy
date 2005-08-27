@@ -613,7 +613,7 @@ testmap = [
     RegrTest('test_posix.py', enabled=True),
     RegrTest('test_posixpath.py', enabled=True),
     RegrTest('test_pow.py', enabled=True, core=True),
-    RegrTest('test_pprint.py', enabled=True),
+    RegrTest('test_pprint.py', enabled=True, core=True),
     RegrTest('test_profile.py', enabled=True),
     RegrTest('test_profilehooks.py', enabled=True, core=True),
     RegrTest('test_pty.py', enabled=False),

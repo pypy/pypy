@@ -1,6 +1,9 @@
 
 test_cpickle
     has been re-run, still failing
+    ran test_cpickle on c-python using the pickle module instead of cpickle
+    pickle.py fails on all test_recursion but passes the test_nonrecursive 
+    this test has a 60 level deep structure
 
 test_descr
     cannot easily complete this; after another quick review, the failures
