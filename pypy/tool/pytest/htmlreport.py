@@ -54,7 +54,7 @@ class HtmlReport(object):
         if not options: 
             options="&nbsp;"
 
-        failureratio = 1.0 - result.ratio_of_passed()
+        failureratio = 100 * (1.0 - result.ratio_of_passed())
         return html.tr(
                 html.td("%.2f%%" % failureratio, 
                     style = "background-color: %s" % (getresultcolor(result),)), 
@@ -129,7 +129,7 @@ class HtmlReport(object):
 
         sum_passed = sum([x.ratio_of_passed() for x in tests])
         t.append(row(html.b("core tests compliancy"), 
-                     html.b("%.2f%%" % (sum_passed/sum100,))))
+                     html.b("%.2f%%" % (sum_passed/sum100*100,))))
 
         t.append(row("testmodules passed completely", "%.2f%%" % (ok/sum100)))
         t.append(row("testmodules (partially) failed", "%.2f%%" % (err/sum100)))
