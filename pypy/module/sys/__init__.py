@@ -53,7 +53,7 @@ class Module(MixedModule):
         'version'               : 'space.wrap("2.4.1 (pypy 0.7.0 build)")', 
         'pypy_version_info'     : """space.wrap((0,7,0, "alpha", 
                                    int('$Revision$'[11:-1])))""", 
-        'pypy_svn_url'          : 'space.wrap("$HeadURL$"[10:-1])', 
+        'pypy_svn_url'          : 'space.wrap("$HeadURL$"[10:-29])', 
         'hexversion'            : 'space.wrap(0x020401a0)', 
         'ps1'                   : 'space.wrap(">>>> ")', 
         'ps2'                   : 'space.wrap(".... ")', 
