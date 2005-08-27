@@ -7,12 +7,8 @@ This code is based on material licensed under CNRI's Python 1.6 license and
 copyrighted by: Copyright (c) 1997-2001 by Secret Labs AB
 """
 
-import array, operator, sys
-from sre_constants import ATCODES, OPCODES, CHCODES, MAXREPEAT
-from sre_constants import SRE_INFO_PREFIX, SRE_INFO_LITERAL
-from sre_constants import SRE_FLAG_UNICODE, SRE_FLAG_LOCALE
+import sys
 import _sre
-from _sre import CODESIZE
 
 
 def compile(pattern, flags, code, groups=0, groupindex={}, indexgroup=[None]):
@@ -47,7 +43,7 @@ class SRE_Pattern(object):
         instance. Return None if no position in the string matches the
         pattern."""
         state = _sre._State(string, pos, endpos, self.flags)
-        if search(state, self._code):
+        if _sre._search(state, self._code):
             return SRE_Match(self, state)
         else:
             return None
@@ -59,7 +55,7 @@ class SRE_Pattern(object):
         while state.start <= state.end:
             state.reset()
             state.string_position = state.start
-            if not search(state, self._code):
+            if not _sre._search(state, self._code):
                 break
             match = SRE_Match(self, state)
             if self.groups == 0 or self.groups == 1:
@@ -86,7 +82,7 @@ class SRE_Pattern(object):
         while not count or n < count:
             state.reset()
             state.string_position = state.start
-            if not search(state, self._code):
+            if not _sre._search(state, self._code):
                 break
             if last_pos < state.start:
                 sublist.append(string[last_pos:state.start])
@@ -132,7 +128,7 @@ class SRE_Pattern(object):
         while not maxsplit or n < maxsplit:
             state.reset()
             state.string_position = state.start
-            if not search(state, self._code):
+            if not _sre._search(state, self._code):
                 break
             if state.start == state.string_position: # zero-width match
                 if last == state.end:                # or end of string
@@ -185,10 +181,10 @@ class SRE_Scanner(object):
         return match
 
     def match(self):
-        return self._match_search(match)
+        return self._match_search(_sre._match)
 
     def search(self):
-        return self._match_search(search)
+        return self._match_search(_sre._search)
 
 
 class SRE_Match(object):
@@ -289,324 +285,3 @@ class SRE_Match(object):
 
     def __deepcopy__():
         raise TypeError, "cannot copy this pattern object"
-
-
-def search(state, pattern_codes):
-    flags = 0
-    if pattern_codes[0] == OPCODES["info"]:
-        # optimization info block
-        # <INFO> <1=skip> <2=flags> <3=min> <4=max> <5=prefix info>
-        #if pattern_codes[2] & SRE_INFO_PREFIX and pattern_codes[5] > 1:
-        #    return state.fast_search(pattern_codes)
-        flags = pattern_codes[2]
-        pattern_codes = pattern_codes[pattern_codes[1] + 1:]
-
-    string_position = state.start
-    """
-    if pattern_codes[0] == OPCODES["literal"]:
-        # Special case: Pattern starts with a literal character. This is
-        # used for short prefixes
-        character = pattern_codes[1]
-        while True:
-            while string_position < state.end \
-                    and ord(state.string[string_position]) != character:
-                string_position += 1
-            if string_position >= state.end:
-                return False
-            state.start = string_position
-            string_position += 1
-            state.string_position = string_position
-            if flags & SRE_INFO_LITERAL:
-                return True
-            if match(state, pattern_codes[2:]):
-                return True
-        return False
-    """
-
-    # General case
-    while string_position <= state.end:
-        state.reset()
-        state.start = state.string_position = string_position
-        if _sre._match(state, pattern_codes):
-            return True
-        string_position += 1
-    return False
-
-
-def fast_search(state, pattern_codes):
-    """Skips forward in a string as fast as possible using information from
-    an optimization info block."""
-    # pattern starts with a known prefix
-    # <5=length> <6=skip> <7=prefix data> <overlap data>
-    flags = pattern_codes[2]
-    prefix_len = pattern_codes[5]
-    prefix_skip = pattern_codes[6] # don't really know what this is good for
-    prefix = pattern_codes[7:7 + prefix_len]
-    overlap = pattern_codes[7 + prefix_len - 1:pattern_codes[1] + 1]
-    pattern_codes = pattern_codes[pattern_codes[1] + 1:]
-    i = 0
-    string_position = state.string_position
-    while string_position < state.end:
-        while True:
-            if ord(state.string[string_position]) != prefix[i]:
-                if i == 0:
-                    break
-                else:
-                    i = overlap[i]
-            else:
-                i += 1
-                if i == prefix_len:
-                    # found a potential match
-                    state.start = string_position + 1 - prefix_len
-                    state.string_position = string_position + 1 \
-                                                 - prefix_len + prefix_skip
-                    if flags & SRE_INFO_LITERAL:
-                        return True # matched all of pure literal pattern
-                    if _sre._match(state, pattern_codes[2 * prefix_skip:]):
-                        return True
-                    i = overlap[i]
-                break
-        string_position += 1
-    return False
-
-# XXX temporary constants for MatchContext.has_matched
-UNDECIDED = 0
-MATCHED = 1
-NOT_MATCHED = 2
-
-def match(state, pattern_codes):
-    # Optimization: Check string length. pattern_codes[3] contains the
-    # minimum length for a string to possibly match.
-    if pattern_codes[0] == OPCODES["info"] and pattern_codes[3]:
-        if state.end - state.string_position < pattern_codes[3]:
-            #_log("reject (got %d chars, need %d)"
-            #         % (state.end - state.string_position, pattern_codes[3]))
-            return False
-    
-    dispatcher = _OpcodeDispatcher()
-    state.context_stack.append(_sre._MatchContext(state, pattern_codes))
-    has_matched = UNDECIDED
-    while len(state.context_stack) > 0:
-        context = state.context_stack[-1]
-        has_matched = dispatcher.match(context)
-        if has_matched != UNDECIDED: # don't pop if context isn't done
-            state.context_stack.pop()
-    return has_matched == MATCHED
-
-
-class _Dispatcher(object):
-
-    DISPATCH_TABLE = None
-
-    def dispatch(self, code, context):
-        method = self.DISPATCH_TABLE.get(code, self.__class__.unknown)
-        return method(self, context)
-
-    def unknown(self, code, ctx):
-        raise NotImplementedError()
-
-    def build_dispatch_table(cls, code_dict, method_prefix):
-        if cls.DISPATCH_TABLE is not None:
-            return
-        table = {}
-        for key, value in code_dict.items():
-            if hasattr(cls, "%s%s" % (method_prefix, key)):
-                table[value] = getattr(cls, "%s%s" % (method_prefix, key))
-        cls.DISPATCH_TABLE = table
-
-    build_dispatch_table = classmethod(build_dispatch_table)
-
-
-class _OpcodeDispatcher(_Dispatcher):
-    
-    def __init__(self):
-        self.executing_contexts = {}
-        
-    def match(self, context):
-        """Returns True if the current context matches, False if it doesn't and
-        None if matching is not finished, ie must be resumed after child
-        contexts have been matched."""
-        while context.remaining_codes() > 0 and context.has_matched == UNDECIDED:
-            opcode = context.peek_code()
-            if not self.dispatch(opcode, context):
-                return UNDECIDED
-        if context.has_matched == UNDECIDED:
-            context.has_matched = NOT_MATCHED
-        return context.has_matched
-
-    def dispatch(self, opcode, context):
-        """Dispatches a context on a given opcode. Returns True if the context
-        is done matching, False if it must be resumed when next encountered."""
-        if self.executing_contexts.has_key(id(context)):
-            generator = self.executing_contexts[id(context)]
-            del self.executing_contexts[id(context)]
-            has_finished = generator.next()
-        else:
-            if _sre._opcode_is_at_interplevel(opcode):
-                has_finished = _sre._opcode_dispatch(opcode, context)
-            else:
-                method = self.DISPATCH_TABLE.get(opcode, _OpcodeDispatcher.unknown)
-                has_finished = method(self, context)
-            if hasattr(has_finished, "next"): # avoid using the types module
-                generator = has_finished
-                has_finished = generator.next()
-        if not has_finished:
-            self.executing_contexts[id(context)] = generator
-        return has_finished
-
-    def op_repeat(self, ctx):
-        # create repeat context.  all the hard work is done by the UNTIL
-        # operator (MAX_UNTIL, MIN_UNTIL)
-        # <REPEAT> <skip> <1=min> <2=max> item <UNTIL> tail
-        #self._log(ctx, "REPEAT", ctx.peek_code(2), ctx.peek_code(3))
-        repeat = _sre._RepeatContext(ctx)
-        ctx.state.repeat = repeat
-        ctx.state.string_position = ctx.string_position
-        child_context = ctx.push_new_context(ctx.peek_code(1) + 1)
-        yield False
-        ctx.state.repeat = repeat.previous
-        ctx.has_matched = child_context.has_matched
-        yield True
-
-    def op_max_until(self, ctx):
-        # maximizing repeat
-        # <REPEAT> <skip> <1=min> <2=max> item <MAX_UNTIL> tail
-        repeat = ctx.state.repeat
-        if repeat is None:
-            raise RuntimeError("Internal re error: MAX_UNTIL without REPEAT.")
-        mincount = repeat.peek_code(2)
-        maxcount = repeat.peek_code(3)
-        ctx.state.string_position = ctx.string_position
-        count = repeat.count + 1
-        #self._log(ctx, "MAX_UNTIL", count)
-
-        if count < mincount:
-            # not enough matches
-            repeat.count = count
-            child_context = repeat.push_new_context(4)
-            yield False
-            ctx.has_matched = child_context.has_matched
-            if ctx.has_matched == NOT_MATCHED:
-                repeat.count = count - 1
-                ctx.state.string_position = ctx.string_position
-            yield True
-
-        if (count < maxcount or maxcount == MAXREPEAT) \
-                      and ctx.state.string_position != repeat.last_position:
-            # we may have enough matches, if we can match another item, do so
-            repeat.count = count
-            ctx.state.marks_push()
-            save_last_position = repeat.last_position # zero-width match protection
-            repeat.last_position = ctx.state.string_position
-            child_context = repeat.push_new_context(4)
-            yield False
-            repeat.last_position = save_last_position
-            if child_context.has_matched == MATCHED:
-                ctx.state.marks_pop_discard()
-                ctx.has_matched = MATCHED
-                yield True
-            ctx.state.marks_pop()
-            repeat.count = count - 1
-            ctx.state.string_position = ctx.string_position
-
-        # cannot match more repeated items here.  make sure the tail matches
-        ctx.state.repeat = repeat.previous
-        child_context = ctx.push_new_context(1)
-        yield False
-        ctx.has_matched = child_context.has_matched
-        if ctx.has_matched == NOT_MATCHED:
-            ctx.state.repeat = repeat
-            ctx.state.string_position = ctx.string_position
-        yield True
-
-    def op_min_until(self, ctx):
-        # minimizing repeat
-        # <REPEAT> <skip> <1=min> <2=max> item <MIN_UNTIL> tail
-        repeat = ctx.state.repeat
-        if repeat is None:
-            raise RuntimeError("Internal re error: MIN_UNTIL without REPEAT.")
-        mincount = repeat.peek_code(2)
-        maxcount = repeat.peek_code(3)
-        ctx.state.string_position = ctx.string_position
-        count = repeat.count + 1
-        #self._log(ctx, "MIN_UNTIL", count)
-
-        if count < mincount:
-            # not enough matches
-            repeat.count = count
-            child_context = repeat.push_new_context(4)
-            yield False
-            ctx.has_matched = child_context.has_matched
-            if ctx.has_matched == NOT_MATCHED:
-                repeat.count = count - 1
-                ctx.state.string_position = ctx.string_position
-            yield True
-
-        # see if the tail matches
-        ctx.state.marks_push()
-        ctx.state.repeat = repeat.previous
-        child_context = ctx.push_new_context(1)
-        yield False
-        if child_context.has_matched == MATCHED:
-            ctx.has_matched = MATCHED
-            yield True
-        ctx.state.repeat = repeat
-        ctx.state.string_position = ctx.string_position
-        ctx.state.marks_pop()
-
-        # match more until tail matches
-        if count >= maxcount and maxcount != MAXREPEAT:
-            ctx.has_matched = NOT_MATCHED
-            yield True
-        repeat.count = count
-        child_context = repeat.push_new_context(4)
-        yield False
-        ctx.has_matched = child_context.has_matched
-        if ctx.has_matched == NOT_MATCHED:
-            repeat.count = count - 1
-            ctx.state.string_position = ctx.string_position
-        yield True
-        
-    def unknown(self, ctx):
-        #self._log(ctx, "UNKNOWN", ctx.peek_code())
-        raise RuntimeError("Internal re error. Unknown opcode: %s" % ctx.peek_code())
-    
-    def count_repetitions(self, ctx, maxcount):
-        """Returns the number of repetitions of a single item, starting from the
-        current string position. The code pointer is expected to point to a
-        REPEAT_ONE operation (with the repeated 4 ahead)."""
-        count = 0
-        real_maxcount = ctx.state.end - ctx.string_position
-        if maxcount < real_maxcount and maxcount != MAXREPEAT:
-            real_maxcount = maxcount
-        # XXX could special case every single character pattern here, as in C.
-        # This is a general solution, a bit hackisch, but works and should be
-        # efficient.
-        code_position = ctx.code_position
-        string_position = ctx.string_position
-        ctx.skip_code(4)
-        reset_position = ctx.code_position
-        while count < real_maxcount:
-            # this works because the single character pattern is followed by
-            # a success opcode
-            ctx.code_position = reset_position
-            self.dispatch(ctx.peek_code(), ctx)
-            if ctx.has_matched == NOT_MATCHED: # could be None as well
-                break
-            count += 1
-        ctx.has_matched = UNDECIDED
-        ctx.code_position = code_position
-        ctx.string_position = string_position
-        return count
-
-    def _log(self, context, opname, *args):
-        arg_string = ("%s " * len(args)) % args
-        _log("|%s|%s|%s %s" % (context.pattern_codes,
-            context.string_position, opname, arg_string))
-
-_OpcodeDispatcher.build_dispatch_table(OPCODES, "op_")
-
-
-def _log(message):
-    if 0:
-        print message

@@ -11,7 +11,7 @@ def create_context(space, string, string_position, end):
     state = isre.W_State(space, space.wrap(string), space.wrap(0),
                                                 space.wrap(end), space.wrap(0))
     state.string_position = string_position
-    return isre.W_MatchContext(space, state, space.newlist([]))
+    return isre.MatchContext(space, state, [])
 
 def test_is_uni_linebreak(space):
     for char in ["\n", "\r"]:
@@ -77,7 +77,7 @@ def test_at_boundary(space):
         assert not isre.at_boundary(space, create_context(space, string, pos, end))
 
 def test_getlower(space):
-    assert space.int_w(isre.getlower(space, space.wrap(ord("A")), space.wrap(0))) == ord("a")
+    assert isre.getlower(space, ord("A"), 0) == ord("a")
 
 def test_get_byte_array(space):
     if sys.byteorder == "big":

@@ -1,38 +1,57 @@
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
-# XXX is it allowed to import app-level module like this?
-from pypy.module._sre.app_info import CODESIZE
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app
-
 import sys
+
+#### Constants and exposed functions
+
+# Identifying as _sre from Python 2.3 or 2.4
+MAGIC = 20031017
+
+# In _sre.c this is bytesize of the code word type of the C implementation.
+# There it's 2 for normal Python builds and more for wide unicode builds (large 
+# enough to hold a 32-bit UCS-4 encoded character). Since here in pure Python
+# we only see re bytecodes as Python longs, we shouldn't have to care about the
+# codesize. But sre_compile will compile some stuff differently depending on the
+# codesize (e.g., charsets).
+if sys.maxunicode == 65535:
+    CODESIZE = 2
+else:
+    CODESIZE = 4
+
+copyright = "_sre.py 2.4 Copyright 2005 by Nik Haldimann"
+
 BIG_ENDIAN = sys.byteorder == "big"
 
-#### Exposed functions
-
 # XXX can we import those safely from sre_constants?
+SRE_INFO_PREFIX = 1
+SRE_INFO_LITERAL = 2
 SRE_FLAG_LOCALE = 4 # honour system locale
 SRE_FLAG_UNICODE = 32 # use unicode locale
+OPCODE_INFO = 17
+OPCODE_LITERAL = 19
 MAXREPEAT = 65535
 
-def getlower(space, w_char_ord, w_flags):
-    char_ord = space.int_w(w_char_ord)
-    flags = space.int_w(w_flags)
+def w_getlower(space, w_char_ord, w_flags):
+    return space.wrap(getlower(space, space.int_w(w_char_ord), space.int_w(w_flags)))
+
+def getlower(space, char_ord, flags):
     if (char_ord < 128) or (flags & SRE_FLAG_UNICODE) \
                               or (flags & SRE_FLAG_LOCALE and char_ord < 256):
         w_uni_char = space.newunicode([char_ord])
         w_lowered = space.call_method(w_uni_char, "lower")
-        return space.ord(w_lowered)
+        return space.int_w(space.ord(w_lowered))
     else:
-        return space.wrap(char_ord)
+        return char_ord
+
+def w_getcodesize(space):
+    return space.wrap(CODESIZE)
 
 #### Core classes
 
-# XXX the wrapped/unwrapped semantics of the following classes are currently
-# very confusing because they are still used at app-level.
-
 def make_state(space, w_string, w_start, w_end, w_flags):
-    # XXX Uhm, temporary
+    # XXX maybe turn this into a __new__ method of W_State
     return space.wrap(W_State(space, w_string, w_start, w_end, w_flags))
 
 class W_State(Wrappable):
@@ -51,14 +70,28 @@ class W_State(Wrappable):
         self.end = end
         self.pos = start
         self.flags = space.int_w(w_flags)
-        self.reset()
+        self.w_reset()
 
-    def reset(self):
+    def w_reset(self):
         self.marks = []
         self.lastindex = -1
         self.marks_stack = []
         self.context_stack = []
-        self.w_repeat = self.space.w_None
+        self.repeat = None
+
+    def w_create_regs(self, w_group_count):
+        """Creates a tuple of index pairs representing matched groups, a format
+        that's convenient for SRE_Match."""
+        regs = [self.space.newtuple([self.space.wrap(self.start), self.space.wrap(self.string_position)])]
+        for group in range(self.space.int_w(w_group_count)):
+            mark_index = 2 * group
+            if mark_index + 1 < len(self.marks):
+                regs.append(self.space.newtuple([self.space.wrap(self.marks[mark_index]),
+                                                 self.space.wrap(self.marks[mark_index + 1])]))
+            else:
+                regs.append(self.space.newtuple([self.space.wrap(-1),
+                                                        self.space.wrap(-1)]))
+        return self.space.newtuple(regs)
 
     def set_mark(self, mark_nr, position):
         if mark_nr & 1:
@@ -75,20 +108,6 @@ class W_State(Wrappable):
         else:
             return -1, -1
 
-    def create_regs(self, w_group_count):
-        """Creates a tuple of index pairs representing matched groups, a format
-        that's convenient for SRE_Match."""
-        regs = [self.space.newtuple([self.space.wrap(self.start), self.space.wrap(self.string_position)])]
-        for group in range(self.space.int_w(w_group_count)):
-            mark_index = 2 * group
-            if mark_index + 1 < len(self.marks):
-                regs.append(self.space.newtuple([self.space.wrap(self.marks[mark_index]),
-                                                 self.space.wrap(self.marks[mark_index + 1])]))
-            else:
-                regs.append(self.space.newtuple([self.space.wrap(-1),
-                                                        self.space.wrap(-1)]))
-        return self.space.newtuple(regs)
-
     def marks_push(self):
         self.marks_stack.append((self.marks[:], self.lastindex))
 
@@ -102,65 +121,48 @@ class W_State(Wrappable):
         self.marks_stack.pop()
 
     def lower(self, char_ord):
-        return self.space.int_w(self.w_lower(self.space.wrap(char_ord)))
+        return getlower(self.space, char_ord, self.flags)
 
-    def w_lower(self, w_char_ord):
-        return getlower(self.space, w_char_ord, self.space.wrap(self.flags))
+    # Accessors for the typedef
+    
+    def fget_start(space, self):
+        return space.wrap(self.start)
 
-def interp_attrproperty_int(name, cls):
-    "NOT_RPYTHON: initialization-time only"
-    def fget(space, obj):
-        return space.wrap(getattr(obj, name))
-    def fset(space, obj, w_value):
-        setattr(obj, name, space.int_w(w_value))
-    return GetSetProperty(fget, fset, cls=cls)
+    def fset_start(space, self, w_value):
+        self.start = space.int_w(w_value)
 
-def interp_attrproperty_list_w(name, cls):
-    "NOT_RPYTHON: initialization-time only"
-    def fget(space, obj):
-        return space.newlist(getattr(obj, name))
-    return GetSetProperty(fget, cls=cls)
+    def fget_string_position(space, self):
+        return space.wrap(self.string_position)
 
-def interp_attrproperty_obj_w(name, cls):
-    "NOT_RPYTHON: initialization-time only"
-    def fget(space, obj):
-        return getattr(obj, name)
-    def fset(space, obj, w_value):
-        setattr(obj, name, w_value)
-    return GetSetProperty(fget, fset, cls=cls)
+    def fset_string_position(space, self, w_value):
+        self.start = space.int_w(w_value)
+
+getset_start = GetSetProperty(W_State.fget_start, W_State.fset_start, cls=W_State)
+getset_string_position = GetSetProperty(W_State.fget_string_position,
+                                     W_State.fset_string_position, cls=W_State)
 
 W_State.typedef = TypeDef("W_State",
-    string = interp_attrproperty_obj_w("w_string", W_State),
-    start = interp_attrproperty_int("start", W_State),
-    end = interp_attrproperty_int("end", W_State),
-    string_position = interp_attrproperty_int("string_position", W_State),
+    string = interp_attrproperty_w("w_string", W_State),
+    start = getset_start,
+    end = interp_attrproperty("end", W_State),
+    string_position = getset_string_position,
     pos = interp_attrproperty("pos", W_State),
     lastindex = interp_attrproperty("lastindex", W_State),
-    repeat = interp_attrproperty_obj_w("w_repeat", W_State),
-    reset = interp2app(W_State.reset),
-    create_regs = interp2app(W_State.create_regs),
-    marks_push = interp2app(W_State.marks_push),
-    marks_pop = interp2app(W_State.marks_pop),
-    marks_pop_keep = interp2app(W_State.marks_pop_keep),
-    marks_pop_discard = interp2app(W_State.marks_pop_discard),
-    lower = interp2app(W_State.w_lower),
+    reset = interp2app(W_State.w_reset),
+    create_regs = interp2app(W_State.w_create_regs),
 )
 
-def make_context(space, w_state, w_pattern_codes):
-    # XXX Uhm, temporary
-    return space.wrap(W_MatchContext(space, w_state, w_pattern_codes))
-
-class W_MatchContext(Wrappable):
+class MatchContext:
 
     UNDECIDED = 0
     MATCHED = 1
     NOT_MATCHED = 2
 
-    def __init__(self, space, w_state, w_pattern_codes):
+    def __init__(self, space, state, pattern_codes):
         self.space = space
-        self.state = w_state
-        self.pattern_codes_w = space.unpackiterable(w_pattern_codes)
-        self.string_position = w_state.string_position
+        self.state = state
+        self.pattern_codes = pattern_codes
+        self.string_position = state.string_position
         self.code_position = 0
         self.has_matched = self.UNDECIDED
         self.backup = []
@@ -170,12 +172,13 @@ class W_MatchContext(Wrappable):
         """Creates a new child context of this context and pushes it on the
         stack. pattern_offset is the offset off the current code position to
         start interpreting from."""
-        pattern_codes_w = self.pattern_codes_w[self.code_position + pattern_offset:]
-        w_child_context = self.space.wrap(W_MatchContext(self.space, self.state,
-                                           self.space.newlist(pattern_codes_w)))
-        self.state.context_stack.append(w_child_context)
-        self.child_context = w_child_context
-        return w_child_context
+        offset = self.code_position + pattern_offset
+        assert offset >= 0
+        pattern_codes = self.pattern_codes[offset:]
+        child_context = MatchContext(self.space, self.state, pattern_codes)
+        self.state.context_stack.append(child_context)
+        self.child_context = child_context
+        return child_context
 
     def is_resumed(self):
         return self.resume_at_opcode > -1
@@ -188,51 +191,34 @@ class W_MatchContext(Wrappable):
         self.backup = []
         return values
 
-    def peek_char(self, w_peek=0):
-        # XXX temporary hack
-        if w_peek == 0:
-            w_peek = self.space.wrap(0)
+    def peek_char(self, peek=0):
         return self.space.getitem(self.state.w_string,
-                self.space.add(self.space.wrap(self.string_position), w_peek))
+                                   self.space.wrap(self.string_position + peek))
 
     def peek_char_ord(self, peek=0):
-        return self.space.int_w(self.space.ord(self.peek_char(self.space.wrap(peek))))
+        # XXX this is not very nice
+        return self.space.int_w(self.space.ord(self.peek_char(peek)))
 
     def skip_char(self, skip_count):
         self.string_position = self.string_position + skip_count
 
-    def w_skip_char(self, w_skip_count):
-        self.skip_char(self.space.int_w(w_skip_count))
-
     def remaining_chars(self):
         return self.state.end - self.string_position
 
-    def w_remaining_chars(self):
-        return self.space.wrap(self.remaining_chars())
-
     def peek_code(self, peek=0):
-        return self.space.int_w(self.pattern_codes_w[self.code_position + peek])
-
-    def w_peek_code(self, w_peek=0):
-        return self.space.wrap(self.peek_code(self.space.int_w(w_peek)))
+        return self.pattern_codes[self.code_position + peek]
 
     def skip_code(self, skip_count):
         self.code_position = self.code_position + skip_count
 
-    def w_skip_code(self, w_skip_count):
-        self.skip_code(self.space.int_w(w_skip_count))
-
     def remaining_codes(self):
-        return self.space.wrap(len(self.pattern_codes_w) - self.code_position)
+        return len(self.pattern_codes) - self.code_position
 
     def at_beginning(self):
         return self.string_position == 0
 
     def at_end(self):
         return self.string_position == self.state.end
-
-    def w_at_end(self):
-        return self.space.newbool(self.at_end())
 
     def at_linebreak(self):
         return not self.at_end() and is_linebreak(self.space, self.peek_char())
@@ -241,58 +227,114 @@ class W_MatchContext(Wrappable):
         if self.at_beginning() and self.at_end():
             return False
         that = not self.at_beginning() \
-                            and word_checker(self.space, self.peek_char(self.space.wrap(-1)))
+                            and word_checker(self.space, self.peek_char(-1))
         this = not self.at_end() \
                             and word_checker(self.space, self.peek_char())
         return this != that
 
-W_MatchContext.typedef = TypeDef("W_MatchContext",
-    state = interp_attrproperty_w("state", W_MatchContext),
-    string_position = interp_attrproperty_int("string_position", W_MatchContext),
-    pattern_codes = interp_attrproperty_list_w("pattern_codes_w", W_MatchContext),
-    code_position = interp_attrproperty_int("code_position", W_MatchContext),
-    has_matched = interp_attrproperty_int("has_matched", W_MatchContext),
-    #push_new_context = interp2app(W_MatchContext.push_new_context),
-    peek_char = interp2app(W_MatchContext.peek_char),
-    skip_char = interp2app(W_MatchContext.w_skip_char),
-    remaining_chars = interp2app(W_MatchContext.w_remaining_chars),
-    peek_code = interp2app(W_MatchContext.w_peek_code),
-    skip_code = interp2app(W_MatchContext.w_skip_code),
-    remaining_codes = interp2app(W_MatchContext.remaining_codes),
-    at_end = interp2app(W_MatchContext.w_at_end),
-)
 
-def make_repeat_context(space, w_context):
-    # XXX Uhm, temporary
-    return space.wrap(W_RepeatContext(space, w_context))
-
-class W_RepeatContext(W_MatchContext):
+class RepeatContext(MatchContext):
     
-    def __init__(self, space, w_context):
-        W_MatchContext.__init__(self, space, w_context.state,
-            space.newlist(w_context.pattern_codes_w[w_context.code_position:]))
-        self.w_count = space.wrap(-1)
-        self.w_previous = w_context.state.w_repeat
-        self.w_last_position = space.w_None
+    def __init__(self, space, context):
+        offset = context.code_position
+        assert offset >= 0
+        MatchContext.__init__(self, space, context.state,
+                                context.pattern_codes[offset:])
+        self.count = -1
+        self.previous = context.state.repeat
+        self.last_position = -1
+        self.repeat_stack = []
 
-W_RepeatContext.typedef = TypeDef("W_RepeatContext", W_MatchContext.typedef,
-    count = interp_attrproperty_obj_w("w_count", W_RepeatContext),
-    previous = interp_attrproperty_obj_w("w_previous", W_RepeatContext),
-    last_position = interp_attrproperty_obj_w("w_last_position", W_RepeatContext),
-)
 
 #### Main opcode dispatch loop
 
-def match(space, w_state, w_pattern_codes):
+def w_search(space, w_state, w_pattern_codes):
+    assert isinstance(w_state, W_State)
+    pattern_codes = [space.int_w(code) for code
+                                    in space.unpackiterable(w_pattern_codes)]
+    return space.newbool(search(space, w_state, pattern_codes))
+
+def search(space, state, pattern_codes):
+    flags = 0
+    if pattern_codes[0] == OPCODE_INFO:
+        # optimization info block
+        # <INFO> <1=skip> <2=flags> <3=min> <4=max> <5=prefix info>
+        if pattern_codes[2] & SRE_INFO_PREFIX and pattern_codes[5] > 1:
+            return fast_search(space, state, pattern_codes)
+        flags = pattern_codes[2]
+        offset = pattern_codes[1] + 1
+        assert offset >= 0
+        pattern_codes = pattern_codes[offset:]
+
+    string_position = state.start
+    while string_position <= state.end:
+        state.w_reset()
+        state.start = state.string_position = string_position
+        if match(space, state, pattern_codes):
+            return True
+        string_position += 1
+    return False
+
+def fast_search(space, state, pattern_codes):
+    """Skips forward in a string as fast as possible using information from
+    an optimization info block."""
+    # pattern starts with a known prefix
+    # <5=length> <6=skip> <7=prefix data> <overlap data>
+    flags = pattern_codes[2]
+    prefix_len = pattern_codes[5]
+    assert prefix_len >= 0
+    prefix_skip = pattern_codes[6] # don't really know what this is good for
+    assert prefix_skip >= 0
+    prefix = pattern_codes[7:7 + prefix_len]
+    overlap_offset = 7 + prefix_len - 1
+    overlap_stop = pattern_codes[1] + 1
+    assert overlap_offset >= 0
+    assert overlap_stop >= 0
+    overlap = pattern_codes[overlap_offset:overlap_stop]
+    pattern_offset = pattern_codes[1] + 1
+    assert pattern_offset >= 0
+    pattern_codes = pattern_codes[pattern_offset:]
+    i = 0
+    string_position = state.string_position
+    while string_position < state.end:
+        while True:
+            char_ord = space.int_w(space.ord(
+                space.getitem(state.w_string, space.wrap(string_position))))
+            if char_ord != prefix[i]:
+                if i == 0:
+                    break
+                else:
+                    i = overlap[i]
+            else:
+                i += 1
+                if i == prefix_len:
+                    # found a potential match
+                    state.start = string_position + 1 - prefix_len
+                    state.string_position = string_position + 1 \
+                                                 - prefix_len + prefix_skip
+                    if flags & SRE_INFO_LITERAL:
+                        return True # matched all of pure literal pattern
+                    if match(space, state, pattern_codes[2 * prefix_skip:]):
+                        return True
+                    i = overlap[i]
+                break
+        string_position += 1
+    return False
+
+def w_match(space, w_state, w_pattern_codes):
+    assert isinstance(w_state, W_State)
+    pattern_codes = [space.int_w(code) for code
+                                    in space.unpackiterable(w_pattern_codes)]
+    return space.newbool(match(space, w_state, pattern_codes))
+
+def match(space, state, pattern_codes):
     # Optimization: Check string length. pattern_codes[3] contains the
     # minimum length for a string to possibly match.
-    # XXX disabled for now
-    #if pattern_codes[0] == OPCODES["info"] and pattern_codes[3]:
-    #    if state.end - state.string_position < pattern_codes[3]:
-    #        return False
-    state = w_state
-    state.context_stack.append(W_MatchContext(space, state, w_pattern_codes))
-    has_matched = W_MatchContext.UNDECIDED
+    if pattern_codes[0] == OPCODE_INFO and pattern_codes[3] > 0:
+        if state.end - state.string_position < pattern_codes[3]:
+            return False
+    state.context_stack.append(MatchContext(space, state, pattern_codes))
+    has_matched = MatchContext.UNDECIDED
     while len(state.context_stack) > 0:
         context = state.context_stack[-1]
         if context.has_matched == context.UNDECIDED:
@@ -301,7 +343,7 @@ def match(space, w_state, w_pattern_codes):
             has_matched = context.has_matched
         if has_matched != context.UNDECIDED: # don't pop if context isn't done
             state.context_stack.pop()
-    return space.newbool(has_matched == context.MATCHED)
+    return has_matched == MatchContext.MATCHED
 
 def dispatch_loop(space, context):
     """Returns MATCHED if the current context matches, NOT_MATCHED if it doesn't
@@ -312,10 +354,10 @@ def dispatch_loop(space, context):
             opcode = context.resume_at_opcode
         else:
             opcode = context.peek_code()
-        #try:
-        has_finished = opcode_dispatch_table[opcode](space, context)
-        #except IndexError:
-        #    raise RuntimeError("Internal re error. Unknown opcode: %s" % opcode)
+        try:
+            has_finished = opcode_dispatch_table[opcode](space, context)
+        except IndexError:
+            raise RuntimeError("Internal re error. Unknown opcode: %s" % opcode)
         if not has_finished:
             context.resume_at_opcode = opcode
             return context.UNDECIDED
@@ -323,19 +365,6 @@ def dispatch_loop(space, context):
     if context.has_matched == context.UNDECIDED:
         context.has_matched = context.NOT_MATCHED
     return context.has_matched
-
-def opcode_dispatch(space, w_opcode, w_context):
-    opcode = space.int_w(w_opcode)
-    if opcode >= len(opcode_dispatch_table):
-        return space.newbool(False)
-    return space.newbool(opcode_dispatch_table[opcode](space, w_context))
-
-def opcode_is_at_interplevel(space, w_opcode):
-    opcode = space.int_w(w_opcode)
-    try:
-        return space.newbool(opcode_dispatch_table[opcode] is not None)
-    except IndexError:
-        return space.newbool(False)
 
 def op_success(space, ctx):
     # end of pattern
@@ -432,7 +461,7 @@ def general_op_in(space, ctx, ignore=False):
         return
     skip = ctx.peek_code(1)
     ctx.skip_code(2) # set op pointer to the set code
-    char_code = space.int_w(space.ord(ctx.peek_char()))
+    char_code = ctx.peek_char_ord()
     if ignore:
         char_code = ctx.state.lower(char_code)
     if not check_charset(space, char_code, ctx):
@@ -587,6 +616,201 @@ def op_min_repeat_one(space, ctx):
     ctx.has_matched = ctx.NOT_MATCHED
     return True
 
+def op_repeat(space, ctx):
+    # create repeat context.  all the hard work is done by the UNTIL
+    # operator (MAX_UNTIL, MIN_UNTIL)
+    # <REPEAT> <skip> <1=min> <2=max> item <UNTIL> tail
+    if not ctx.is_resumed():
+        ctx.repeat = RepeatContext(space, ctx)
+        ctx.state.repeat = ctx.repeat
+        ctx.state.string_position = ctx.string_position
+        ctx.push_new_context(ctx.peek_code(1) + 1)
+        return False
+    else:
+        ctx.state.repeat = ctx.repeat
+        ctx.has_matched = ctx.child_context.has_matched
+        return True
+
+def op_max_until(space, ctx):
+    # maximizing repeat
+    # <REPEAT> <skip> <1=min> <2=max> item <MAX_UNTIL> tail
+    
+    # Case 1: First entry point
+    if not ctx.is_resumed():
+        repeat = ctx.state.repeat
+        if repeat is None:
+            raise RuntimeError("Internal re error: MAX_UNTIL without REPEAT.")
+        mincount = repeat.peek_code(2)
+        maxcount = repeat.peek_code(3)
+        ctx.state.string_position = ctx.string_position
+        count = repeat.count + 1
+        if count < mincount:
+            # not enough matches
+            repeat.count = count
+            repeat.repeat_stack.append(repeat.push_new_context(4))
+            ctx.backup_value(mincount)
+            ctx.backup_value(maxcount)
+            ctx.backup_value(count)
+            ctx.backup_value(0) # Dummy for last_position
+            ctx.backup_value(0)
+            ctx.repeat = repeat
+            return False
+        if (count < maxcount or maxcount == MAXREPEAT) \
+                        and ctx.state.string_position != repeat.last_position:
+            # we may have enough matches, if we can match another item, do so
+            repeat.count = count
+            ctx.state.marks_push()
+            repeat.last_position = ctx.state.string_position
+            repeat.repeat_stack.append(repeat.push_new_context(4))
+            ctx.backup_value(mincount)
+            ctx.backup_value(maxcount)
+            ctx.backup_value(count)
+            ctx.backup_value(repeat.last_position) # zero-width match protection
+            ctx.backup_value(2) # more matching
+            ctx.repeat = repeat
+            return False
+
+        # Cannot match more repeated items here. Make sure the tail matches.
+        ctx.state.repeat = repeat.previous
+        ctx.push_new_context(1)
+        ctx.backup_value(mincount)
+        ctx.backup_value(maxcount)
+        ctx.backup_value(count)
+        ctx.backup_value(repeat.last_position) # zero-width match protection
+        ctx.backup_value(1) # tail matching
+        ctx.repeat = repeat
+        return False
+
+    # Case 2: Resumed
+    else:
+        repeat = ctx.repeat
+        values = ctx.restore_values()
+        mincount = values[0]
+        maxcount = values[1]
+        count = values[2]
+        save_last_position = values[3]
+        tail_matching = values[4]
+        
+        if tail_matching == 0:
+            ctx.has_matched = repeat.repeat_stack.pop().has_matched
+            if ctx.has_matched == ctx.NOT_MATCHED:
+                repeat.count = count - 1
+                ctx.state.string_position = ctx.string_position
+            return True
+        elif tail_matching == 2:
+            repeat.last_position = save_last_position
+            if repeat.repeat_stack.pop().has_matched == ctx.MATCHED:
+                ctx.state.marks_pop_discard()
+                ctx.has_matched = ctx.MATCHED
+                return True
+            ctx.state.marks_pop()
+            repeat.count = count - 1
+            ctx.state.string_position = ctx.string_position
+
+            # Cannot match more repeated items here. Make sure the tail matches.
+            ctx.state.repeat = repeat.previous
+            ctx.push_new_context(1)
+            ctx.backup_value(mincount)
+            ctx.backup_value(maxcount)
+            ctx.backup_value(count)
+            ctx.backup_value(repeat.last_position) # zero-width match protection
+            ctx.backup_value(1) # tail matching
+            return False
+
+        else: # resuming after tail matching
+            ctx.has_matched = ctx.child_context.has_matched
+            if ctx.has_matched == ctx.NOT_MATCHED:
+                ctx.state.repeat = repeat
+                ctx.state.string_position = ctx.string_position
+            return True
+
+def op_min_until(space, ctx):
+    # minimizing repeat
+    # <REPEAT> <skip> <1=min> <2=max> item <MIN_UNTIL> tail
+    
+    # Case 1: First entry point
+    if not ctx.is_resumed():
+        repeat = ctx.state.repeat
+        if repeat is None:
+            raise RuntimeError("Internal re error: MIN_UNTIL without REPEAT.")
+        mincount = repeat.peek_code(2)
+        maxcount = repeat.peek_code(3)
+        ctx.state.string_position = ctx.string_position
+        count = repeat.count + 1
+
+        if count < mincount:
+            # not enough matches
+            repeat.count = count
+            repeat.repeat_stack.append(repeat.push_new_context(4))
+            ctx.backup_value(mincount)
+            ctx.backup_value(maxcount)
+            ctx.backup_value(count)
+            ctx.backup_value(0)
+            ctx.repeat = repeat
+            return False
+
+        # see if the tail matches
+        ctx.state.marks_push()
+        ctx.state.repeat = repeat.previous
+        ctx.push_new_context(1)
+        ctx.backup_value(mincount)
+        ctx.backup_value(maxcount)
+        ctx.backup_value(count)
+        ctx.backup_value(1)
+        ctx.repeat = repeat
+        return False
+
+    # Case 2: Resumed
+    else:
+        repeat = ctx.repeat
+        if repeat.has_matched == ctx.MATCHED:
+            ctx.has_matched = ctx.MATCHED
+            return True
+        values = ctx.restore_values()
+        mincount = values[0]
+        maxcount = values[1]
+        count = values[2]
+        matching_state = values[3]
+
+        if count < mincount:
+            # not enough matches
+            ctx.has_matched = repeat.repeat_stack.pop().has_matched
+            if ctx.has_matched == ctx.NOT_MATCHED:
+                repeat.count = count - 1
+                ctx.state.string_position = ctx.string_position
+            return True
+        
+        if matching_state == 1:
+            # returning from tail matching
+            if ctx.child_context.has_matched == ctx.MATCHED:
+                ctx.has_matched = ctx.MATCHED
+                return True
+            ctx.state.repeat = repeat
+            ctx.state.string_position = ctx.string_position
+            ctx.state.marks_pop()
+
+        if not matching_state == 2:
+            # match more until tail matches
+            if count >= maxcount and maxcount != MAXREPEAT:
+                ctx.has_matched = ctx.NOT_MATCHED
+                return True
+            repeat.count = count
+            repeat.repeat_stack.append(repeat.push_new_context(4))
+            ctx.backup_value(mincount)
+            ctx.backup_value(maxcount)
+            ctx.backup_value(count)
+            ctx.backup_value(2)
+            ctx.repeat = repeat
+            return False
+
+        # Final return
+        ctx.has_matched = repeat.repeat_stack.pop().has_matched
+        repeat.has_matched = ctx.has_matched
+        if ctx.has_matched == ctx.NOT_MATCHED:
+            repeat.count = count - 1
+            ctx.state.string_position = ctx.string_position
+        return True
+
 def op_jump(space, ctx):
     # jump forward
     # <JUMP>/<INFO> <offset>
@@ -608,7 +832,7 @@ def general_op_groupref(space, ctx, ignore=False):
         return True
     while group_start < group_end:
         # XXX This is really a bit unwieldy. Can this be improved?
-        new_char = space.int_w(space.ord(ctx.peek_char()))
+        new_char = ctx.peek_char_ord()
         old_char = space.int_w(space.ord(
                     space.getitem(ctx.state.w_string, space.wrap(group_start))))
         if ctx.at_end() or (not ignore and old_char != new_char) \
@@ -713,12 +937,12 @@ opcode_dispatch_table = [
     op_jump, op_jump,
     op_literal, op_literal_ignore,
     op_mark,
-    None, #MAX_UNTIL,
-    None, #MIN_UNTIL,
+    op_max_until,
+    op_min_until,
     op_not_literal, op_not_literal_ignore,
     None, #NEGATE,
     None, #RANGE,
-    None, #REPEAT,
+    op_repeat,
     op_repeat_one,
     None, #SUBPATTERN,
     op_min_repeat_one,
@@ -824,7 +1048,7 @@ def at_beginning(space, ctx):
     return ctx.at_beginning()
 
 def at_beginning_line(space, ctx):
-    return ctx.at_beginning() or is_linebreak(space, ctx.peek_char(space.wrap(-1)))
+    return ctx.at_beginning() or is_linebreak(space, ctx.peek_char(-1))
     
 def at_end(space, ctx):
     return ctx.at_end() or (ctx.remaining_chars() == 1 and ctx.at_linebreak())

@@ -451,6 +451,13 @@ class AppTestSimpleSearches:
         assert re.search(r"b(?<!\d.)a", "ba")
         assert not re.search(r"b(?<!\d.)a", "11ba")
 
+    def test_bug_725149(self):
+        # mark_stack_base restoring before restoring marks
+        # test copied from CPython test
+        import re
+        assert re.match('(a)(?:(?=(b)*)c)*', 'abb').groups() == ('a', None)
+        assert re.match('(a)((?!(b)*))*', 'abb').groups() == ('a', None, None)
+
 
 class AppTestMarksStack:
 
@@ -835,7 +842,7 @@ class AppTestOpcodes:
         s.assert_no_match(opcodes, ["b"])
         assert "aab" == s.search(opcodes, "aabb").group(0)
 
-    def test_max_until_error(self):
+    def test_min_until_error(self):
         opcodes = [s.OPCODES["min_until"], s.OPCODES["success"]]
         raises(RuntimeError, s.search, opcodes, "a")
 
