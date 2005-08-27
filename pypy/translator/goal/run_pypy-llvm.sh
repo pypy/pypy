@@ -1,8 +1,8 @@
 export RTYPERORDER=order,module-list.pedronis 
 # stopping on the first error
-#python translate_pypy.py -no-c -no-o -text  -no-snapshot -fork
+#python translate_pypy.py -no-c -no-o -text -fork2
 # running it all 
-python translate_pypy.py target_pypy-llvm -text -no-snapshot -llvm $*
+python translate_pypy.py target_pypy-llvm -text -llvm $*
 
 
 # How to work in parallel:

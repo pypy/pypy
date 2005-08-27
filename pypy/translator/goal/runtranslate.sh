@@ -1,6 +1,6 @@
 export RTYPERORDER=order,module-list.pedronis 
 # stopping on the first error
-#python translate_pypy.py -no-c -no-o -text   -fork
+#python translate_pypy.py -no-c -no-o -text -fork
 # running it all 
 python translate_pypy.py targetpypystandalone -text $*
 
