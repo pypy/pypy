@@ -16,7 +16,8 @@ def reallycompile(tuples_or_src, filename, mode, flag_names):
 
 if __name__ == '__main__':
     s = file(DUMPFILE, "rb").read()
-    tup = marshal.loads(s)
+    #tup = marshal.loads(s)
+    tup = eval(s)
     tuples_or_src, filename, mode, done, flag_names = tup
     try:
         code = reallycompile(tuples_or_src, filename, mode, flag_names)
