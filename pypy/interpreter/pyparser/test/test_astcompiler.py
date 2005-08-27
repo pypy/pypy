@@ -33,7 +33,7 @@ TESTS = [
 import sys
 if sys.version_info[0]==2 and sys.version_info[1]>=4:
     # genexps and new style import don't work on python2.3
-    TESTS.append(genexps)
+    # TESTS.append(genexps) XXX: 2.4 optimizes bytecode so our comparison doesn't work
     TESTS.append(imports_newstyle)
     # assertions give different bytecode with 2.4 (optimize if __debug__)
     TESTS.append(asserts)
