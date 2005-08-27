@@ -16,7 +16,7 @@ PLAIN_FILE = udir.join('graph.plain')
 
 import py
 def dot2plain(dotfile, plainfile): 
-    if 0: 
+    if 1: 
         cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
     elif 0: 
         gw = py.execnet.SshGateway('codespeak.net')

@@ -115,7 +115,7 @@ class CStandaloneBuilder(CBuilder):
 
 
 def translator2database(translator):
-    pf = pyobjectptr(translator.entrypoint)
+    pf = lltype.pyobjectptr(translator.entrypoint)
     db = LowLevelDatabase(translator)
     db.get(pf)
     db.complete()
