@@ -51,13 +51,13 @@ translation process. These are:
 6. This lower-level source file is compiled to produce an executable.
 
 .. _`SSA`: http://en.wikipedia.org/wiki/Static_single_assignment_form
-.. _`translator.py`: http://codespeak.net/svn/pypy/dist/pypy/translator/translator.py
+.. _`translator.py`: http://codespeak.net/pypy/dist/pypy/translator/translator.py
 .. _`play around`: getting-started.html#trying-out-the-translator
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`control flow graph`: objspace.html#the-flow-model
-.. _`Common Lisp`: http://codespeak.net/svn/pypy/dist/pypy/translator/gencl.py
-.. _Pyrex: http://codespeak.net/svn/pypy/dist/pypy/translator/pyrex/genpyrex.py
-.. _Java: http://codespeak.net/svn/pypy/dist/pypy/translator/java/
+.. _`Common Lisp`: http://codespeak.net/pypy/dist/pypy/translator/gencl.py
+.. _Pyrex: http://codespeak.net/pypy/dist/pypy/translator/pyrex/genpyrex.py
+.. _Java: http://codespeak.net/pypy/dist/pypy/translator/java/
 .. _graph: image/translation.pdf
 
 
@@ -438,7 +438,7 @@ Others
 The RPython Typer
 =================
 
-http://codespeak.net/svn/pypy/dist/pypy/rpython/
+http://codespeak.net/pypy/dist/pypy/rpython/
 
 
 Overview
@@ -955,15 +955,13 @@ be called as a second and the list of function arguments as a third. Example::
         interpret_raises(IndexError, raise_exception, [42])
         interpret_raises(ValueError, raise_exception, [43])
 
-.. _`pypy/rpython/test/test_llinterp.py`: ../rpython/test/test_llinterp.py
-
 .. _C:
 .. _GenC:
 
 The C Back-End
 ==============
 
-http://codespeak.net/svn/pypy/dist/pypy/translator/genc/
+http://codespeak.net/pypy/dist/pypy/translator/genc/
 
 
 Overview
@@ -987,7 +985,7 @@ code from flowgraphs is similar to the `Python back-end`_.
 The LLVM Back-End
 =================
 
-http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/
+http://codespeak.net/pypy/dist/pypy/translator/llvm/
 
 XXX to be written
 
@@ -997,7 +995,7 @@ XXX to be written
 The Interplevel Back-End
 ========================
 
-http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
+http://codespeak.net/pypy/dist/pypy/translator/geninterplevel.py
 
 Motivation
 ----------
@@ -1014,8 +1012,8 @@ corresponding interpreted code, but no interpreter is needed
 any longer to execute this code.
 
 .. _`application-level`: architecture.html#app-preferable
-.. _exceptions: http://codespeak.net/svn/pypy/dist/pypy/lib/_exceptions.py
-.. _oldstyle: http://codespeak.net/svn/pypy/dist/pypy/lib/_classobj.py
+.. _exceptions: http://codespeak.net/pypy/dist/pypy/lib/_exceptions.py
+.. _oldstyle: http://codespeak.net/pypy/dist/pypy/lib/_classobj.py
 
 Examples are exceptions_ and oldstyle_ classes. They are
 needed in a very early phase of bootstrapping StdObjspace, but
@@ -1040,7 +1038,7 @@ it as source code.
 Example
 -------
 
-.. _implementation: http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
+.. _implementation: http://codespeak.net/pypy/dist/pypy/translator/geninterplevel.py
 
 Let's try the little example from above_. You might want to look at the
 flowgraph that it produces. Here, we directly run the Python translation
@@ -1178,8 +1176,8 @@ get optimized anyway when we produce the executable.
 Interplevel Snippets in the Sources
 -----------------------------------
 
-.. _`_exceptions.py`: http://codespeak.net/svn/pypy/dist/pypy/lib/_exceptions.py
-.. _`_classobj.py`: http://codespeak.net/svn/pypy/dist/pypy/lib/_classobj.py
+.. _`_exceptions.py`: http://codespeak.net/pypy/dist/pypy/lib/_exceptions.py
+.. _`_classobj.py`: http://codespeak.net/pypy/dist/pypy/lib/_classobj.py
 
 Code written in application space can consist of complete files
 to be translated (`_exceptions.py`_, `_classobj.py`_), or they
@@ -1248,11 +1246,6 @@ replaces calls to ``func`` with calls to the function
 ``module.ll_function``. The backend is supposed to replace calls to functions
 to ``module.ll_function`` by whatever code it finds appropriate.
 
-.. _`pypy/rpython/extfunctable.py`: ../rpython/extfunctable.py
-.. _`pypy/rpython/module/`: ../rpython/module
-
-
-
 Implementating low level replacement functions in Python
 ---------------------------------------------------------
 
@@ -1297,9 +1290,6 @@ type ``LLTYPE``. Similarly all the function defined in
 ``predeclare_utility_functions`` are automatically made accessible under their
 name in C.
 
-.. _`pypy/translator/c/extfunc.py`: ../translator/c/extfunc.py
-.. _`pypy/translator/c/src/`: ../translator/c/src/
-
 Testing
 -------
 
@@ -1313,10 +1303,6 @@ a function calling the external function to backend code, compile and run
 it. This makes sure that the annotator gets the annotation right and that the
 backend code is correct. For the C backend this is done in
 `pypy/translator/c/test/test_extfunc.py`_. 
-
-.. _`pypy/rpython/module/test`: ../rpython/module/test/
-.. _`pypy/translator/c/test/test_extfunc.py`: ../translator/c/test/test_extfunc.py
-
 
 Example
 -------
@@ -1385,8 +1371,6 @@ One test for all this can be found in
 
 
 .. _`mixed posix module`: ../module/posix/
-.. _`pypy/rpython/module/ll_os.py`: ../rpython/module/ll_os.py
-.. _`pypy/translator/c/src/ll_os.h`: ../translator/c/src/ll_os.h
 
 
 .. include:: _ref.txt

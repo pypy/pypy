@@ -1,13 +1,13 @@
 .. _`demo/`: ../../demo
 .. _`lib-python/`: ../../lib-python
 .. _`lib-python/2.4.1/dis.py`: ../../lib-python/2.4.1/dis.py
-.. _`annotation/`:
-.. _`pypy/annotation`: ../../pypy/annotation
+.. _`pypy/annotation`:
+.. _`annotation/`: ../../pypy/annotation
 .. _`annotation/binaryop.py`: ../../pypy/annotation/binaryop.py
 .. _`doc/`: ../../pypy/doc
 .. _`doc/revreport/`: ../../pypy/doc/revreport
-.. _`interpreter/`:
-.. _`pypy/interpreter`: ../../pypy/interpreter
+.. _`pypy/interpreter`:
+.. _`interpreter/`: ../../pypy/interpreter
 .. _`pypy/interpreter/argument.py`: ../../pypy/interpreter/argument.py
 .. _`pypy/interpreter/function.py`: ../../pypy/interpreter/function.py
 .. _`pypy/interpreter/gateway.py`: ../../pypy/interpreter/gateway.py
@@ -28,16 +28,16 @@
 .. _`module/parser/`: ../../pypy/module/parser
 .. _`module/recparser/`: ../../pypy/module/recparser
 .. _`module/sys/`: ../../pypy/module/sys
-.. _`objspace/`:
-.. _`pypy/objspace`: ../../pypy/objspace
+.. _`pypy/objspace`:
+.. _`objspace/`: ../../pypy/objspace
 .. _`objspace/flow/`: ../../pypy/objspace/flow
-.. _`objspace/std/`:
-.. _`pypy/objspace/std`: ../../pypy/objspace/std
+.. _`pypy/objspace/std`:
+.. _`objspace/std/`: ../../pypy/objspace/std
 .. _`objspace/thunk.py`: ../../pypy/objspace/thunk.py
 .. _`objspace/trace.py`:
 .. _`pypy/objspace/trace.py`: ../../pypy/objspace/trace.py
-.. _`rpython/`:
-.. _`pypy/rpython`: ../../pypy/rpython
+.. _`pypy/rpython`:
+.. _`rpython/`: ../../pypy/rpython
 .. _`pypy/rpython/extfunctable.py`: ../../pypy/rpython/extfunctable.py
 .. _`pypy/rpython/lltype.py`:
 .. _`rpython/lltype.py`: ../../pypy/rpython/lltype.py
@@ -53,8 +53,8 @@
 .. _`tool/`: ../../pypy/tool
 .. _`tool/pytest/`: ../../pypy/tool/pytest
 .. _`tool/tb_server/`: ../../pypy/tool/tb_server
-.. _`translator/`:
-.. _`pypy/translator`: ../../pypy/translator
+.. _`pypy/translator`:
+.. _`translator/`: ../../pypy/translator
 .. _`pypy/translator/annrpython.py`: ../../pypy/translator/annrpython.py
 .. _`translator/c/`: ../../pypy/translator/c
 .. _`pypy/translator/c/extfunc.py`: ../../pypy/translator/c/extfunc.py
