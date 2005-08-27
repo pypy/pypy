@@ -91,10 +91,10 @@ class Result(object):
                   return passed/run
               else:
                   run = self.grep_nr('TestFailed: \d+ of ',section='stderr')
-                  if run >0 :
+                  if run > 0 :
                       return (run-passed)/run
                   else:
-                      return 0 
+                      return 0.0
 
     def isok(self):
         return self['outcome'].lower() == 'ok'

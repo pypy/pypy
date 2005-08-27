@@ -29,7 +29,7 @@ class HtmlReport(object):
     def render_latest_table(self, results): 
         table = html.table(
                     [html.th(x, align='left') 
-                        for x in ("status", "filename", "revision", 
+                        for x in ("failure", "filename", "revision", 
                                   "user", "platform", "elapsed", 
                                   "options", "last error line"
                                   )], 
@@ -54,8 +54,9 @@ class HtmlReport(object):
         if not options: 
             options="&nbsp;"
 
+        failureratio = 1.0 - result.ratio_of_passed()
         return html.tr(
-                html.td(result['outcome'], 
+                html.td("%.2f%%" % failureratio, 
                     style = "background-color: %s" % (getresultcolor(result),)), 
                 html.td(self.render_test_references(result)),
                 html.td(result['pypy-revision']),
@@ -119,11 +120,17 @@ class HtmlReport(object):
         ok = len([x for x in tests if x.isok()])
         err = len([x for x in tests if x.iserror()])
         to = len([x for x in tests if x.istimeout()])
-        sum = ok + err + to
-        sum100 = sum / 100.0
+        numtests = ok + err + to
+
         t = html.table()
+        sum100 = numtests / 100.0
         def row(*args):
             return html.tr(*[html.td(arg) for arg in args])
+
+        sum_passed = sum([x.ratio_of_passed() for x in tests])
+        t.append(row(html.b("core tests compliancy"), 
+                     html.b("%.2f%%" % (sum_passed/sum100,))))
+
         t.append(row("testmodules passed completely", "%.2f%%" % (ok/sum100)))
         t.append(row("testmodules (partially) failed", "%.2f%%" % (err/sum100)))
         t.append(row("testmodules timeout", "%.2f%%" % (to/sum100)))
