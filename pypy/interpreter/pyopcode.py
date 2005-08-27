@@ -874,14 +874,12 @@ app = gateway.applevel(r'''
             locals = globals
 
         if not isinstance(globals, dict):
-            if not (hasattr(globals, '__getitem__') and
-                    hasattr(globals, 'keys')):
+            if hasattr(globals, '__getitem__'):
                 raise TypeError("exec: arg 2 must be a dictionary or None")
         if '__builtins__' not in globals:
             globals['__builtins__'] = builtin
         if not isinstance(locals, dict):
-            if not (hasattr(locals, '__getitem__') and
-                    hasattr(locals, 'keys')):
+            if hasattr(locals, '__getitem__'):
                 raise TypeError("exec: arg 3 must be a dictionary or None")
 
         if not isinstance(prog, codetype):

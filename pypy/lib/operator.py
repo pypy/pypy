@@ -101,6 +101,7 @@ def isCallable(obj,):
 # XXX the following is approximative
 def isMappingType(obj,):
     'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
+    # XXX this is fragile and approximative anyway
     return hasattr(obj, '__getitem__') and hasattr(obj, 'keys')
 def isNumberType(obj,):
     'isNumberType(a) -- Return True if a has a numeric type, False otherwise.'

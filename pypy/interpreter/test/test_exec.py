@@ -174,3 +174,16 @@ class AppTestExecStmt:
         d = {}
         exec "x=5 " in d
         assert d['x'] == 5
+
+    def test_mapping_as_locals(self):
+        class M(object):
+            def __getitem__(self, key):
+                return key
+            def __setitem__(self, key, value):
+                self.result[key] = value
+        m = M()
+        m.result = {}
+        exec "x=m" in {}, m
+        assert m.result == {'x': 'm'}
+        exec "y=n" in m   # NOTE: this doesn't work in CPython 2.4
+        assert m.result == {'x': 'm', 'y': 'n'}
