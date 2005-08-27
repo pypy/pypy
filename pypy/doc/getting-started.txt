@@ -386,7 +386,7 @@ As soon as you close the PyGame window, the function is turned into C code,
 compiled and executed.
 
 translating the PyPy interpreter
-++++++++++++++++++++++++++++++++
+--------------------------------
 
 Not for the faint of heart nor the owner of a very old machine: you can
 translate the whole of PyPy to low level C code. This is the largest and
@@ -400,17 +400,33 @@ the memory footprint of the translation process you can use the option
 ``-t_lowmem`` With this option the whole process should be runnable on a
 machine with 512Mb of RAM. If the translation is finished running and after
 you closed the graph you will be greeted by the friendly prompt of a PyPy
-executable that is not running on top of CPython any more.
+executable that is not running on top of CPython any more::
 
-Moving around in the resulting flow graph is difficult because of the sheer
-size of the result. For this reason, the debugger prompt you get at 
-the end has been enhanced with commands to facilitate locating functions and
-classes. Type ``help graphs`` for a list of the new commands.  Help is also
-available on each of these new commands.
+    Running!
+    debug: entry point starting
+    debug:  argv -> ./pypy-c
+    importing code
+    calling code.interact()
+    Python 2.4.1 (pypy 0.7.0 build) on linux2
+    Type "help", "copyright", "credits" or "license" for more information.
+    (InteractiveConsole)
+    >>>> 1 + 1
+    2
+    >>>> 
+
+If you exit the interpreter you get a pygame window with all the flowgraphs
+plus a pdb prompt. Moving around in the resulting flow graph is difficult
+because of the sheer size of the result. For this reason, the debugger prompt
+you get at the end has been enhanced with commands to facilitate locating
+functions and classes. Type ``help graphs`` for a list of the new commands.
+Help is also available on each of these new commands.
 
 The ``translate_pypy`` script itself takes a number of options controlling
 what to translate and how.  See ``translate_pypy.py -h``. Some of the more
 interesting options are:
+
+   * ``-text``: don't show the flowgraph after the translation is done. This
+     is useful if you don't have pygame installed.
 
    * ``-llvm``: produce code for LLVM_ instead of for C. One of the biggest
      things not working there is threading.
@@ -419,7 +435,8 @@ interesting options are:
      our own reference counting implementation.
 
 
-Try out::
+You can also use the translate_pypy.py script to try out several smaller
+programs, e.g. a slightly changed version of Pystone::
 
     cd pypy/translator/goal
     python translate_pypy.py targetrpystone
@@ -427,6 +444,7 @@ Try out::
 or a simplified, scaled-down version::
 
     python translate_pypy.py targetrpystone2
+
 
 .. _`start reading sources`: 
 
