@@ -52,6 +52,15 @@ def pypy_parsefile(filename, lineno=False):
     return pypy_parse(source, 'exec', lineno)
 
 def internal_pypy_parse(source, mode='exec', lineno=False, flags=0):
+    """This function has no other role than testing the parser's annotation
+
+    annotateme() is basically the same code that pypy_parse(), but with the
+    following differences :
+
+     - returns a tuplebuilder.StackElement instead of the *real* nested
+       tuples (StackElement is only a wrapper class around these tuples)
+
+    """
     builder = TupleBuilder(PYTHON_PARSER.rules, lineno=False)
     target_rule = TARGET_DICT[mode]
     PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
@@ -101,20 +110,6 @@ def ast_from_input(input, mode, transformer):
     ast = transformer.compile_node(tuples)
     return ast
 
-def ast_from_input_(input, mode):
-    builder = AstBuilder()
-    target = TARGET_DICT[mode]
-    PYTHON_PARSER.parse_source(input, target, builder)
-    return builder.rule_stack[-1]
-
-def ast_compile(input, mode):
-    from pypy.interpreter.astcompiler import ast, misc, pycodegen
-    ast_tree = ast_from_input_( input, mode )
-    misc.set_filename("<?>", ast_tree)
-    codegenerator = pycodegen.InteractiveCodeGenerator(ast_tree)
-    code1 = codegenerator.getCode()
-    return code1
-
 def target_ast_compile(space, input, mode):
     from pypy.interpreter.astcompiler import ast, misc, pycodegen
     builder = AstBuilder(rules=None, debug=0, space=space)
@@ -122,7 +117,14 @@ def target_ast_compile(space, input, mode):
     PYTHON_PARSER.parse_source(input, target, builder)
     ast_tree = builder.rule_stack[-1]
     misc.set_filename("<?>", ast_tree)
-    codegenerator = pycodegen.InteractiveCodeGenerator(ast_tree)
+    if mode=="single":
+        codegenerator = pycodegen.InteractiveCodeGenerator(space,ast_tree)
+    elif mode=="eval":
+        codegenerator = pycodegen.ExpressionCodeGenerator(space,ast_tree)
+    elif mode=="exec":
+        codegenerator = pycodegen.ModuleCodeGenerator(space,ast_tree)
+    else:
+        raise ValueError("incorrect mode")
     code1 = codegenerator.getCode()
     return code1
 
@@ -133,20 +135,6 @@ def internal_pypy_parse_to_ast(source, mode='exec', lineno=False, flags=0):
     PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
     ast_tree = builder.rule_stack[-1]
     return (builder.source_encoding, ast_tree)
-
-
-## TARGET FOR ANNOTATORS #############################################
-def annotateme(source):
-    """This function has no other role than testing the parser's annotation
-
-    annotateme() is basically the same code that pypy_parse(), but with the
-    following differences :
-
-     - returns a tuplebuilder.StackElement instead of the *real* nested
-       tuples (StackElement is only a wrapper class around these tuples)
-
-    """
-    return internal_pypy_parse(source, 'exec')
 
 
 if __name__ == "__main__":

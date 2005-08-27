@@ -8,16 +8,13 @@ from pypy.annotation.listdef import ListDef
 
 this_dir = os.path.dirname(sys.argv[0])
 
-# from pypy.interpreter.pyparser.pythonutil import annotateme
+from pypy.interpreter.pyparser.pythonutil import internal_pypy_parse
 # __________  Entry point  __________
-# entry_point = annotateme
-
-from pypy.interpreter.pyparser.pythonutil import ast_from_input_
-entry_point = ast_from_input_
+entry_point = internal_pypy_parse
 
 # _____ Define and setup target ___
-def target():
-    return entry_point, [str, str]
+def target(*args):
+    return entry_point, [str, str, bool, int]
 
 # _____ Run translated _____
 def run(c_entry_point):

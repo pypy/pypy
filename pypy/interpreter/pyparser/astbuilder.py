@@ -7,6 +7,7 @@ from grammar import BaseGrammarBuilder, AbstractContext
 from pypy.interpreter.astcompiler import ast, consts
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
+from pypy.interpreter.pyparser.error import SyntaxError
 
 DEBUG_MODE = 0
 

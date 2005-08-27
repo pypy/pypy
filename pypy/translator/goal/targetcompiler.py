@@ -20,7 +20,7 @@ def entry_point( s1, s2 ):
     return target_ast_compile( space, s1, s2 )
 
 # _____ Define and setup target ___
-def target():
+def target(geninterp=True):
     global space, w_entry_point
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
@@ -28,10 +28,10 @@ def target():
     # for the poor translator already
     # XXX why can't I enable this? crashes the annotator!
     space = StdObjSpace(nofaking=True,
-                        compiler="astparser",
+                        compiler="ast",
                         translating=True,
                         #usemodules=['marhsal', '_sre'],
-                        geninterp=False)
+                        geninterp=geninterp)
     return entry_point, [str, str]
 
 # _____ Run translated _____
