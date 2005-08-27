@@ -477,3 +477,18 @@ def test_environ():
     res = chan.receive()
     assert res
     chan.close()
+
+def test_unsetenv():
+    if not hasattr(os, "unsetenv"):
+        py.test.skip("missing unsetenv on this architecture")
+    def unsetenv():
+        os.unsetenv("ABCDEF")
+    f = compile(unsetenv, [])
+    os.putenv("ABCDEF", "a")
+    cmd = '''python -c "import os, sys; sys.exit(os.getenv('ABCDEF') != 'a')"'''
+    assert os.system(cmd) == 0
+    f()
+    cmd = '''python -c "import os, sys; sys.exit(os.getenv('ABCDEF') != None)"'''
+    assert os.system(cmd) == 0
+    f()
+    assert os.system(cmd) == 0
