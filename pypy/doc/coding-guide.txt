@@ -1,0 +1,984 @@
+=====================================
+PyPy - Coding Guide
+=====================================
+
+.. contents::
+.. sectnum::
+
+
+This document describes coding requirements and conventions for
+working with the PyPy code base.  Please read it carefully and
+ask back any questions you might have.
+
+.. _`RPython`:
+
+Restricted Python
+==================
+
+We are writing a Python interpreter in Python, using Python's well known
+ability to step behind the algorithmic problems as language. At first glance,
+one might think this achieves nothing but a better understanding how the
+interpreter works.  This alone would make it worth doing, but we have much
+larger goals.
+
+
+CPython vs. PyPy
+-------------------
+
+Compared to the CPython implementation, Python takes the role of the C
+Code. We rewrite the CPython interpreter in Python itself.  We could
+also aim at writing a more flexible interpreter at C level but but we
+want to use Python to give an alternative description of the interpreter.
+
+The clear advantage is that such a description is shorter and simpler to
+read, and many implementation details vanish. The drawback of this approach is
+that this interpreter will be unbearably slow as long as it is run on top
+of CPython.
+
+To get to a useful interpreter again, we need to translate our
+high-level description of Python to a lower level one.  One rather
+straight-forward way is to do a whole program analysis of the PyPy
+interpreter and create a C source, again. There are many other ways,
+but let's stick with this somewhat canonical approach.
+
+our runtime interpreter is "restricted python"
+----------------------------------------------
+
+In order to make a C code generator feasible we restrict ourselves to a
+subset of the Python language, and we adhere to some rules which make
+translation to lower level languages more obvious.
+
+Unlike source-to-source translations (like e.g. Starkiller_) we start
+translation from live python code objects which constitute our Python
+interpreter.   When doing its work of interpreting bytecode our Python
+implementation must behave in a static way often referenced as
+"RPythonic".
+
+.. _Starkiller: http://www.python.org/pycon/dc2004/papers/1/paper.pdf
+
+However, when the PyPy interpreter is started as a Python program, it
+can use all of the Python language until it reaches interpretation
+runtime. That is, during initialization our program is free to use the
+full dynamism of Python, including dynamic code generation.
+
+An example can be found in the current implementation which is quite
+elegant: For the definition of all the opcodes of the Python
+interpreter, the module ``dis`` is imported and used to initialize our
+bytecode interpreter.  (See ``__initclass__`` in `pyopcode.py`_).  This
+saves us from adding extra modules to PyPy. The import code is run at
+startup time, and we are allowed to use the CPython builtin import
+function.
+
+After the startup code is finished, all resulting objects, functions,
+code blocks etc. must adhere to certain runtime restrictions which we
+describe further below.  Here is some background for why this is so:
+during translation, a whole program analysis ("type inference") is
+performed, which makes use of the restrictions defined in RPython. This
+enables the code generator to emit efficient machine level replacements
+for pure integer objects, for instance.
+
+.. _`pyopcode.py`: http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
+
+RPython Definition, not
+-----------------------
+
+The list and exact details of the "RPython" restrictions are a somewhat
+evolving topic.  In particular, we have no formal language definition
+as we find it more practical to discuss and evolve the set of
+restrictions while working on the whole program analysis.  If you
+have any questions about the restrictions below then please feel
+free to mail us at pypy-dev at codespeak net.
+
+.. _`wrapped object`: coding-guide.html#wrapping-rules
+
+Flow restrictions
+-------------------------
+
+**variables**
+
+  variables should contain values of at most one type as described in
+  `Object restrictions`_ at each control flow point, that means for
+  example that joining control paths using the same variable to
+  contain both a float and a int should be avoided. Mixing None
+  (basically with the role of a null pointer) and `wrapped objects`
+  and class instances is allowed.
+
+**constants**
+
+  all module globals are considered constants.
+
+**control structures**
+
+  all allowed
+
+**range**
+
+  does not create an array. It is only allowed in for loops. The step argument
+  must be a constant.
+
+**definitions**
+
+  run-time definition of classes or functions is not allowed.
+
+**generators**
+
+  generators are not supported.
+
+**exceptions**
+
++ fully supported
++ see below `Exception rules`_ for restrictions on exceptions raised by built-in operations
+
+
+Object restrictions
+-------------------------
+
+We are using
+
+**integer, float, string, boolean**
+
+  avoid string methods and complex operations like slicing with a step
+
+**tuples**
+
+  no variable-length tuples; use them to store or return pairs or n-tuples of
+  values. Each combination of types for elements and length constitute a separate
+  and not mixable type.
+
+**lists**
+
+  lists are used as an allocated array; list.append() does naive resizing, so as
+  far as possible use list comprehensions (see below).  list.extend() or the +=
+  operator are allowed and efficient.  Unless there is really a use case for it,
+  repetition is limited to initialization purposes: '[single_value] * length'.
+
+**dicts**
+
+  dicts with string keys only (preferably the kind of strings that are usually
+  interned in CPython, i.e. short strings that look like identifiers).  The
+  implementation could safely decide that all dict keys should be interned.
+
+
+**list comprehensions**
+
+  may be used to create allocated, initialized array. the array size must be
+  computable in advance, which implies that we don't allow an if clause.
+
+**functions**
+
++ statically called functions may use defaults and a variable number of
+  arguments (which may be passed as a list instead of a tuple, so write code
+  that does not depend on it being a tuple).
+
++ dynamic dispatch enforces use of very simple signatures, equal for all
+  functions to be called in that context. At the moment, this occurs in the
+  opcode dispatch, only.
+
+**builtin functions**
+
+  A few builtin functions will be used, while this set is not defined
+  completely, yet. Some builtin functions are special forms:
+
+**len**
+
++ may be used with basic types that have a length. But len is a special form
+  that is recognized by the compiler.
+
++ If a certain structure is never touched by len, the compiler might save the
+  length field from the underlying structure.
+
+``int, float, ord, chr``... are available as simple conversion functions.
+
+``int, float, str``... have a special meaning as a type inside of isinstance only.
+
+**classes**
+
++ methods and other class attributes do not change after startup
++ inheritance is supported
++ classes are first-class objects too
+
+**objects**
+
+  wrapped objects are borrowed from the object space. Just like in CPython,
+  code that needs e.g. a dictionary can use a wrapped dict and the object space
+  operations on it.
+
+This layout makes the number of types to take care about quite limited.
+
+
+Integer Types
+-------------------------
+
+While implementing the integer type, we stumbled over the problem, that
+integers are quite in flux in CPython right now. Starting on Python 2.2,
+integers mutate into longs on overflow.  However, shifting to the left
+truncates up to 2.3 but extends to longs as well in 2.4.  By contrast, we need
+a way to perform wrap-around machine-sized arithmetic by default, while still
+being able to check for overflow when we need it explicitly.  Moreover, we need
+a consistent behavior before and after translation.
+
+We use normal integers for signed arithmetic.  It means that before
+translation we get longs in case of overflow, and after translation we get a
+silent wrap-around.  Whenever we need more control, we use the following
+helpers:
+
+**ovfcheck()**
+
+  This special function should only be used with a single arithmetic operation
+  as its argument, e.g. ``z = ovfcheck(x+y)``.  Its intended meaning is to
+  perform the given operation in overflow-checking mode.
+
+  At run-time, in Python, the ovfcheck() function itself checks the result
+  and raises OverflowError if it is a ``long``.  But the code generators use
+  ovfcheck() as a hint: they replace the whole ``ovfcheck(x+y)`` expression
+  with a single overflow-checking addition in C.
+
+**ovfcheck_lshift()**
+
+  ovfcheck_lshift(x, y) is a workaround for ovfcheck(x<<y), because the
+  latter doesn't quite work in Python prior to 2.4, where the expression
+  ``x<<y`` will never return a long if the input arguments are ints.  There is
+  a specific function ovfcheck_lshift() to use instead of some convoluted
+  expression like ``x*2**y`` so that code generators can still recognize it as
+  a single simple operation.
+
+**intmask()**
+
+  This function is used for wrap-around arithmetic.  It returns the lower bits
+  of its argument, masking away anything that doesn't fit in a C "signed long int".
+  Its purpose is, in Python, to convert from a Python ``long`` that resulted from a
+  previous operation back to a Python ``int``.  The code generators ignore
+  intmask() entirely, as they are doing wrap-around signed arithmetic all the time
+  by default anyway.  (We have no equivalent of the "int" versus "long int"
+  distinction of C at the moment and assume "long ints" everywhere.)
+
+**r_uint**
+
+  In a few cases (e.g. hash table manipulation), we need machine-sized unsigned
+  arithmetic.  For these cases there is the r_uint class, which is a pure
+  Python implementation of word-sized unsigned integers that silently wrap
+  around.  The purpose of this class (as opposed to helper functions as above)
+  is consistent typing: both Python and the annotator will propagate r_uint
+  instances in the program and interpret all the operations between them as
+  unsigned.  Instances of r_uint are special-cased by the code generators to
+  use the appropriate low-level type and operations.
+  Mixing of (signed) integers and r_uint in operations produces r_uint that
+  means unsigned results.  To convert back from r_uint to signed integers, use
+  intmask().
+
+
+Exception rules
+---------------------
+
+Exceptions are by default not generated for simple cases.::
+
+    #!/usr/bin/python
+
+        lst = [1,2,3,4,5]
+        item = lst[i]    # this code is not checked for out-of-bound access
+
+        try:
+            item = lst[i]
+        except IndexError:
+            # complain
+
+Code with no exception handlers does not raise exceptions (after it has been
+translated, that is.  When you run it on top of CPython, it may raise
+exceptions, of course). By supplying an exception handler, you ask for error
+checking. Without, you assure the system that the operation cannot fail.
+This rule does not apply to *function calls*: any called function is
+assumed to be allowed to raise any exception.
+
+For example::
+
+    x = 5.1
+    x = x + 1.2       # not checked for float overflow
+    try:
+        x = x + 1.2
+    except OverflowError:
+        # float result too big
+
+But::
+
+    z = some_function(x, y)    # can raise any exception
+    try:
+        z = some_other_function(x, y)
+    except IndexError:
+        # only catches explicitly-raised IndexErrors in some_other_function()
+        # other exceptions can be raised, too, and will not be caught here.
+
+The ovfcheck() function described above follows the same rule: in case of
+overflow, it explicitly raise OverflowError, which can be caught anywhere.
+
+Exceptions explicitly raised or re-raised will always be generated.
+
+PyPy is debuggable on top of CPython
+------------------------------------
+
+PyPy has the advantage that it is runnable on standard
+CPython.  That means, we can run all of PyPy with all exception
+handling enabled, so we might catch cases where we failed to
+adhere to our implicit assertions.
+
+.. _`wrapping rules`:
+
+Wrapping rules
+==============
+
+PyPy is made of Python source code at two levels: there is on the one hand
+*application-level code* that looks like normal Python code, and that
+implements some functionalities as one would expect from Python code (e.g. one
+can give a pure Python implementation of some built-in functions like
+``zip()``).  There is also *interpreter-level code* for the functionalities
+that must more directly manipulate interpreter data and objects (e.g. the main
+loop of the interpreter, and the various object spaces).
+
+Application-level code doesn't see object spaces explicitly: it runs using an
+object space to support the objects it manipulates, but this is implicit.
+There is no need for particular conventions for application-level code.  The
+sequel is only about interpreter-level code.  (Ideally, no application-level
+variable should be called ``space`` or ``w_xxx`` to avoid confusion.)
+
+
+Naming conventions
+------------------
+
+* ``space``: the object space is only visible at
+  interpreter-level code, where it is by convention passed around by the name
+  ``space``.
+
+* ``w_xxx``: any object seen by application-level code is an
+  object explicitly managed by the object space.  From the
+  interpreter-level point of view, this is called a *wrapped*
+  object.  The ``w_`` prefix is used for any type of
+  application-level object.
+
+* ``xxx_w``: an interpreter-level container for wrapped
+  objects, for example a list or a dict containing wrapped
+  objects.  Not to be confused with a wrapped object that
+  would be a list or a dict: these are normal wrapped objects,
+  so they use the ``w_`` prefix.
+
+
+Operations on ``w_xxx``
+-----------------------
+
+The core bytecode interpreter considers wrapped objects as black boxes.
+It is not allowed to inspect them directly.  The allowed
+operations are all implemented on the object space: they are
+called ``space.xxx()``, where ``xxx`` is a standard operation
+name (``add``, ``getattr``, ``call``, ``eq``...).  The list of
+standard operations is found in the large table near the end
+of ``pypy.interpreter.baseobjspace``.  These operations take
+wrapped arguments and return a wrapped result (or sometimes
+just None).
+
+Also note some helpers:
+
+* ``space.call_function(w_callable, ...)``: collects the given
+  (already-wrapped) arguments, builds a wrapped tuple for
+  them, and uses ``space.call()`` to perform the call.
+
+* ``space.call_method(w_object, 'method', ...)``: uses
+  ``space.getattr()`` to get the method object, and then
+  ``space.call_function()`` to invoke it.
+
+
+Building ``w_xxx`` objects
+--------------------------
+
+From the bytecode interpreter, wrapped objects are usually built as the result of
+an object space operation.  The ways to directly create a wrapped object are:
+
+* ``space.wrap(x)``: returns a wrapped object containing the
+  value ``x``.  Only works if ``x`` is either a simple value
+  (integer, float, string) or an instance of an internal
+  bytecode interpreter class (Function, Code, Frame...).
+
+* ``space.newlist([w_x, w_y, w_z...])``: returns a wrapped
+  list from a list of already-wrapped objects.
+
+* ``space.newtuple([w_x, w_y, w_z...])``: returns a wrapped
+  tuple from a list of already-wrapped objects.
+
+* ``space.newdict([])``: returns a new, empty wrapped
+  dictionary.  (The argument list can contain tuples ``(w_key,
+  w_value)`` but it seems that such a use is not common.)
+
+* ``space.newbool(x)``: returns ``space.w_False`` or
+  ``space.w_True`` depending on the truth value of ``x``.
+
+There are a few less common constructors, described in the
+comments at the end of ``pypy.interpreter.baseobjspace``.
+
+
+Constant ``w_xxx`` objects
+--------------------------
+
+The object space holds a number of predefined wrapped objects.
+The most common ones are ``space.w_None`` and
+``space.w_XxxError`` for each exception class ``XxxError``
+(e.g. ``space.w_KeyError``, ``space.w_IndexError``, etc.).
+
+
+Inspecting and unwrapping ``w_xxx`` objects
+--------------------------------------------
+
+The most delicate operation is for the bytecode interpreter to inspect
+a wrapped object, which must be done via the object space.
+
+* ``space.is_true(w_x)``: checks if the given wrapped object
+  is considered to be ``True`` or ``False``.  You must never
+  use the truth-value of ``w_x`` directly; doing so (e.g.
+  writing ``if w_x:``) will give you an error reminding you of
+  the problem.
+
+* ``w_x == w_y`` or ``w_x is w_y``: DON'T DO THAT.  The only
+  half-official exception is to check if ``w_x`` contains a
+  wrapped ``None``: you can write ``w_x == space.w_None``.
+  Follow this rule; the case of ``None`` is easy to fix
+  globally later if we find out that we need to.  The
+  rationale for this rule is that there is no reason that two
+  wrappers are related in any way even if they contain what
+  looks like the same object at application-level.  To check
+  for equality, use ``space.is_true(space.eq(w_x, w_y))`` or
+  even better the short-cut ``space.eq_w(w_x, w_y)`` returning
+  directly a interpreter-level bool.  To check for identity,
+  use ``space.is_true(space.is_(w_x, w_y))`` or better
+  ``space.is_w(w_x, w_y)``.
+
+* ``space.unpackiterable(w_x)``: this helper iterates ``w_x``
+  (using ``space.iter()`` and ``space.next()``) and collects
+  the resulting wrapped objects in a list.  Of course, in
+  cases where iterating directly is better than collecting the
+  elements in a list first, you should use ``space.iter()``
+  and ``space.next()`` directly.
+
+* ``space.unwrap(w_x)``: inverse of ``space.wrap()``.
+  Attention!  Using ``space.unwrap()`` must be avoided
+  whenever possible, i.e. only use this when you are well
+  aware that you are cheating, in unit tests or bootstrapping
+  code.
+
+* ``space.interpclass_w(w_x)``: If w_x is a wrapped instance
+  of an interpreter class -- for example Function, Frame,
+  Cell, etc. -- return it unwrapped.  Otherwise return None.
+
+* ``space.int_w(w_x)``: If w_x is an application-level integer
+  or long which can be converted without overflow to an
+  integer, return an interpreter-level integer.  Otherwise
+  raise TypeError or OverflowError.
+
+* ``space.str_w(w_x)``: If w_x is an application-level string,
+  return an interpreter-level string.  Otherwise raise
+  TypeError.
+
+* ``space.float_w(w_x)``: If w_x is an application-level
+  float, integer or long, return interpreter-level float.
+  Otherwise raise TypeError or OverflowError in case of very
+  large longs.
+
+Remember that you can usually obtain the information you want
+by invoking operations or methods on the wrapped objects; e.g.
+``space.call_method(w_dict, 'iterkeys')`` returns a wrapped
+iterable that you can decode with ``space.unpackiterable()``.
+
+.. _`applevel-exceptions`: 
+
+Application-level exceptions
+----------------------------
+
+Interpreter-level code can use exceptions freely.  However,
+all application-level exceptions are represented as an
+``OperationError`` at interpreter-level.  In other words, all
+exceptions that are potentially visible at application-level
+are internally an ``OperationError``.  This is the case of all
+errors reported by the object space operations
+(``space.add()`` etc.).
+
+To raise an application-level exception::
+
+    raise OperationError(space.w_XxxError, space.wrap("message"))
+
+To catch a specific application-level exception::
+
+    try:
+        ...
+    except OperationError, e:
+        if not e.match(space, space.w_XxxError):
+            raise
+        ...
+
+This construct catches all application-level exceptions, so we
+have to match it against the particular ``w_XxxError`` we are
+interested in and re-raise other exceptions.  The exception
+instance ``e`` holds two attributes that you can inspect:
+``e.w_type`` and ``e.w_value``.  Do not use ``e.w_type`` to
+match an exception, as this will miss exceptions that are
+instances of subclasses.
+
+We are thinking about replacing ``OperationError`` with a
+family of common exception classes (e.g. ``AppKeyError``,
+``AppIndexError``...) so that we can more easily catch them.
+The generic ``AppError`` would stand for all other
+application-level classes.
+
+
+.. _`modules`:
+
+Modules in PyPy
+===============
+
+Modules visible from application programs are imported from
+interpreter or application level files.  PyPy reuses almost all python
+modules of CPython's standard library, currently from version 2.4.1.  We
+sometimes need to `modify modules`_ and - more often - regression tests
+because they rely on implementation details of CPython.
+
+If we don't just modify an original CPython module but need to rewrite
+it from scratch we put it into `pypy/lib/`_ as a pure application level
+module.
+
+When we need access to interpreter-level objects we put the module into
+`pypy/module`_.  Such modules use a `mixed module mechanism`_
+which makes it convenient to use both interpreter- and applicationlevel
+parts for the implementation.  Note that there is no extra facility for
+pure-interpreter level modules because we haven't needed it so far.
+
+Determining the location of a module implementation
+---------------------------------------------------
+
+You can interactively find out where a module comes from,
+here are examples for the possible locations::
+
+    >>>> import sys
+    >>>> sys.__file__
+    '/home/hpk/pypy-dist/pypy/module/sys/__init__.pyc'
+
+    >>>> import operator
+    >>>> operator.__file__
+    '/home/hpk/pypy-dist/pypy/lib/operator.py'
+
+    >>>> import types
+    t>>>> types.__file__
+    '/home/hpk/pypy-dist/lib-python/modified-2.4.1/types.py'
+
+    >>>> import os
+    faking <type 'posix.stat_result'>
+    faking <type 'posix.statvfs_result'>
+    >>>> os.__file__
+    '/home/hpk/pypy-dist/lib-python/2.4.1/os.py'
+    >>>>
+
+Module directories / Import order
+---------------------------------
+
+Here is the order in which PyPy looks up Python modules:
+
+*pypy/modules*
+
+    mixed interpreter/app-level builtin modules, such as
+    the ``sys`` and ``__builtin__`` module.
+
+*contents of PYTHONPATH*
+
+    lookup application level modules in each of the ``:`` separated
+    list of directories, specified in the ``PYTHONPATH`` environment
+    variable.
+
+*pypy/lib/*
+
+    contains pure Python reimplementation of modules.
+
+*lib-python/modified-2.4.1/*
+
+    The files and tests that we have modified from the CPython library.
+
+*lib-python/2.4.1/*
+
+    The unmodified CPython library. **Never ever checkin anything here**.
+
+.. _`modify modules`:
+
+Modifying a CPython library module or regression test
+-------------------------------------------------------
+
+Although PyPy is very compatible with CPython we sometimes need
+to change modules contained in our copy of the standard library,
+often due to the fact that PyPy works with all new-style classes
+by default and CPython has a number of places where it relies
+on some classes being old-style.
+
+If you want to change a module or test contained in ``lib-python/2.4.1``
+then make sure that you copy the file to our ``lib-python/modified-2.4.1``
+directory first.  In subversion commandline terms this reads::
+
+    svn cp lib-python/2.4.1/somemodule.py lib-python/modified-2.4.1/
+
+and subsequently you edit and commit
+``lib-python/modified-2.4.1/somemodule.py``.  This copying operation is
+important because it keeps the original CPython tree clean and makes it
+obvious what we had to change.
+
+.. _`mixed module mechanism`:
+.. _`mixed modules`:
+
+Implementing a mixed interpreter/application level Module
+---------------------------------------------------------
+
+If a module needs to access PyPy's interpreter level
+then it is implemented as a mixed module.
+
+Mixed modules are directories in `pypy/module`_ with an  `__init__.py`
+file containing specifications where each name in a module comes from.
+Only specified names will be exported to a Mixed Module's applevel
+namespace.
+
+Sometimes it is neccessary to really write some functions in C (or whatever
+target language). See the `external functions documentation`_ for details.
+
+.. _`external functions documentation`: translation.html#extfunccalls
+
+application level definitions
+.............................
+
+Application level specifications are found in the `appleveldefs`
+dictionary found in ``__init__.py`` files of directories in ``pypy/module``.
+For example, in `pypy/module/__builtin__/__init__.py`_ you find the following
+entry specifying where ``__builtin__.locals`` comes from::
+
+     ...
+     'locals'        : 'app_inspect.locals',
+     ...
+
+The ``app_`` prefix indicates that the submodule ``app_inspect`` is
+interpreted at application level and the wrapped function value for ``locals``
+will be extracted accordingly.
+
+interpreter level definitions
+.............................
+
+Interpreter level specifications are found in the ``interpleveldefs``
+dictionary found in ``__init__.py`` files of directories in ``pypy/module``.
+For example, in `pypy/module/__builtin__/__init__.py`_ the following
+entry specifies where ``__builtin__.len`` comes from::
+
+     ...
+     'len'       : 'operation.len',
+     ...
+
+The ``operation`` submodule lives at interpreter level and ``len``
+is expected to be exposable to application level.  Here is
+the definition for ``operation.len()``::
+
+    def len(space, w_obj):
+        "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
+        return space.len(w_obj)
+
+Exposed interpreter level functions usually take a ``space`` argument
+and some wrapped values (see `wrapping rules`_) .
+
+You can also use a convenient shortcut in ``interpleveldefs`` dictionaries:
+namely an expression in parentheses to specify an interpreter level
+expression directly (instead of pulling it indirectly from a file)::
+
+    ...
+    'None'          : '(space.w_None)',
+    'False'         : '(space.w_False)',
+    ...
+
+The interpreter level expression has a ``space`` binding when
+it is executed.
+
+Testing modules in ``pypy/lib``
+--------------------------------
+
+You can go to the `pypy/lib/test2`_ directory and invoke the testing tool
+("py.test" or "python ../../test_all.py") to run tests against the
+pypy/lib hierarchy.  Note, that tests in `pypy/lib/test2`_ are allowed
+and encouraged to let their tests run at interpreter level although
+`pypy/lib/`_ modules eventually live at PyPy's application level.
+This allows us to quickly test our python-coded reimplementations
+against CPython.
+
+Testing modules in ``pypy/module``
+----------------------------------
+
+Simply change to ``pypy/module`` or to a subdirectory and `run the
+tests as usual`_.
+
+
+Testing modules in ``lib-python``
+-----------------------------------
+
+In order to let CPython's regression tests run against PyPy
+you can switch to the `lib-python/`_ directory and run
+the testing tool in order to start compliance tests.
+(XXX check windows compatibility for producing test reports).
+
+Naming conventions and directory layout
+===========================================
+
+Directory and File Naming
+-------------------------
+
+- directories/modules/namespaces are always **lowercase**
+
+- never use plural names in directory and file names
+
+- ``__init__.py`` is usually empty except for
+  ``pypy/objspace/*`` and ``pypy/module/*/__init__.py``.
+
+- don't use more than 4 directory nesting levels
+
+- keep filenames concise and completion-friendly.
+
+Naming of python objects
+------------------------
+
+- class names are **CamelCase**
+
+- functions/methods are lowercase and ``_`` separated
+
+- objectspace classes are spelled ``XyzObjSpace``. e.g.
+
+  - StdObjSpace
+  - FlowObjSpace
+
+- at interpreter level and in ObjSpace all boxed values
+  have a leading ``w_`` to indicate "wrapped values".  This
+  includes w_self.  Don't use ``w_`` in application level
+  python only code.
+
+Committing & Branching to the repository
+-----------------------------------------------------
+
+- write good log messages because several people
+  are reading the diffs.
+
+- if you add (text/py) files to the repository then please run
+  pypy/tool/fixeol in that directory.  This will make sure
+  that the property 'svn:eol-style' is set to native which
+  allows checkin/checkout in native line-ending format.
+
+- branching (aka "svn copy") of source code should usually
+  happen at ``svn/pypy/dist`` level in order to have a full
+  self-contained pypy checkout for each branch.   For branching
+  a ``try1`` branch you would for example do::
+
+    svn cp http://codespeak.net/svn/pypy/dist \
+           http://codespeak.net/svn/pypy/branch/try1
+
+  This allows to checkout the ``try1`` branch and receive a
+  self-contained working-copy for the branch.   Note that
+  branching/copying is a cheap operation with subversion, as it
+  takes constant time irrespective of the size of the tree.
+
+- To learn more about how to use subversion read `this document`_.
+
+.. _`this document`: svn-help.html
+
+
+
+.. _`using development tracker`:
+
+Using the development bug/feature tracker
+=========================================
+
+We have a `development tracker`_, based on Richard Jones'
+`roundup`_ application.  You can file bugs,
+feature requests or see what's going on
+for the next milestone, both from an E-Mail and from a
+web interface.
+
+use your codespeak login or register
+------------------------------------
+
+If you already committed to the PyPy source code, chances
+are that you can simply use your codespeak login that
+you use for subversion or for shell access.
+
+If you are not a commiter then you can still `register with
+the tracker`_ easily.
+
+modifying Issues from svn commit messages
+-----------------------------------------
+
+If you are committing something related to
+an issue in the development tracker you
+can correlate your login message to a tracker
+item by following these rules:
+
+- put the content of ``issueN STATUS`` on a single
+  new line
+
+- `N` must be an existing issue number from the `development tracker`_.
+
+- STATUS is one of::
+
+    unread
+    chatting
+    in-progress
+    testing
+    duplicate
+    resolved
+
+.. _`register with the tracker`: https://codespeak.net/issue/pypy-dev/user?@template=register
+.. _`development tracker`: http://codespeak.net/issue/pypy-dev/
+.. _`roundup`: http://roundup.sf.net
+
+
+.. _`testing in PyPy`:
+.. _`test-design`: 
+
+Testing in PyPy
+===============
+
+Our tests are based on the new `py.test`_ tool which lets you write
+unittests without boilerplate.  All tests of modules
+in a directory usually reside in a subdirectory **test**.  There are
+basically two types of unit tests:
+
+- **Interpreter Level tests**. They run at the same level as PyPy's
+  interpreter.
+
+- **Application Level tests**. They run at application level which means
+  that they look like straight python code but they are interpreted by PyPy.
+
+Both types of tests need an `objectspace`_ they can run with (the interpreter
+dispatches operations on objects to an objectspace).  If you run a test you
+can usually give the '-o' switch to select an object space.  E.g. '-o thunk'
+will select the thunk object space. The default is the `Standard Object Space`_
+which aims to implement unmodified Python semantics.
+
+.. _`standard object space`: objspace.html#standard-object-space
+.. _`objectspace`: architecture.html#objectspace
+.. _`py.test`: http://codespeak.net/py/current/doc/test.html
+
+Interpreter level tests
+-----------------------
+
+You can write test functions and methods like this::
+
+    def test_something(space):
+        # use space ...
+
+    class TestSomething:
+        def test_some(self):
+            # use 'self.space' here
+
+Note that the prefix `test` for test functions and `Test` for test
+classes is mandatory.  In both cases you can import Python modules at
+module global level and use plain 'assert' statements thanks to the
+usage of the `py.test`_ tool.
+
+Application Level tests
+-----------------------
+
+For testing the conformance and well-behavedness of PyPy it
+is often sufficient to write "normal" application-level
+Python code that doesn't need to be aware of any particular
+coding style or restrictions.  If we have a choice we often
+use application level tests which usually look like this::
+
+    def app_test_something():
+        # application level test code
+
+    class AppTestSomething:
+        def test_this(self):
+            # application level test code
+
+These application level test functions will run on top
+of PyPy, i.e. they have no access to interpreter details.
+You cannot use imported modules from global level because
+they are imported at interpreter-level while you test code
+runs at application level. If you need to use modules
+you have to import them within the test function.
+
+Another possibility to pass in data into the AppTest is to use
+the ``setup_class`` method of the AppTest. All wrapped objects that are
+attached to the class there and start with ``w_`` can be accessed
+via self (but without the ``w_``) in the actual test method. An example::
+
+    from pypy.objspace.std import StdObjSpace 
+
+    class AppTestErrno: 
+        def setup_class(cls): 
+            cls.space = StdObjSpace()
+            cls.w_d = cls.space.wrap({"a": 1, "b", 2})
+
+        def test_dict(self):
+            assert self.d["a"] == 1
+            assert self.d["b"] == 2
+
+.. _`run the tests as usual`:
+
+Command line tool test_all
+--------------------------
+
+You can run almost all of PyPy's tests by invoking::
+
+  python test_all.py
+
+which is a synonym for the general `py.test`_ utility
+located in the ``pypy`` directory.  For switches to
+modify test execution pass the ``-h`` option.
+
+Test conventions
+----------------
+
+- adding features requires adding appropriate tests.  (It often even
+  makes sense to first write the tests so that you are sure that they
+  actually can fail.)
+
+- All over the pypy source code there are test/ directories
+  which contain unittests.  Such scripts can usually be executed
+  directly or are collectively run by pypy/test_all.py
+
+- each test directory needs a copy of pypy/tool/autopath.py which
+  upon import will make sure that sys.path contains the directory
+  where 'pypy' is in.
+
+.. _`change documentation and website`:
+
+Changing documentation and website
+==================================
+
+documentation/website files in your local checkout
+---------------------------------------------------
+
+Most of the PyPy's documentation and website is kept in
+`pypy/documentation` and `pypy/documentation/website` respectively.
+You can simply edit or add '.txt' files which contain ReST-markuped
+files.  Here is a `ReST quickstart`_ but you can also just look
+at the existing documentation and see how things work.
+
+.. _`ReST quickstart`: http://docutils.sourceforge.net/docs/rst/quickref.html
+
+Automatically test documentation/website changes
+------------------------------------------------
+
+.. _`docutils home page`:
+.. _`docutils`: http://docutils.sourceforge.net/
+
+We automatically check referential integrity and ReST-conformance.  In order to
+run the tests you need docutils_ installed.  Then go to the local checkout
+of the documentation directory and run the tests::
+
+    cd .../pypy/documentation
+    python ../test_all.py
+
+If you see no failures chances are high that your modifications at least
+don't produce ReST-errors or wrong local references.  A side effect of running
+the tests is that you have `.html` files in the documentation directory
+which you can point your browser to!
+
+Additionally, if you also want to check for remote references inside
+the documentation issue::
+
+    python ../test_all.py --checkremote
+
+which will check that remote URLs are reachable.
+
+
+.. include:: _ref.txt
