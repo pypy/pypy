@@ -1293,6 +1293,8 @@ def _loghelper(func, w_arg):
     small enough to fit in an IEEE single.  log and log10 are even smaller.
     """
     x, e = _AsScaledDouble(w_arg);
+    if x <= 0.0:
+        raise ValueError
     # Value is ~= x * 2**(e*SHIFT), so the log ~=
     # log(x) + log(2) * e * SHIFT.
     # CAUTION:  e*SHIFT may overflow using int arithmetic,

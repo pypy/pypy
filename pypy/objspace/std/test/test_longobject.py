@@ -395,3 +395,13 @@ class AppTestLong:
         assert hash(123456789L) == 123456789
         assert hash(1234567890123456789L) == -1895067127
         assert hash(-3**333) == -368329968
+
+    def math_log(self):
+        import math
+        raises(ValueError, math.log, 0L) 
+        raises(ValueError, math.log, -1L) 
+        raises(ValueError, math.log, -2L) 
+        raises(ValueError, math.log, -(1L << 10000))
+        raises(ValueError, math.log, 0) 
+        raises(ValueError, math.log, -1) 
+        raises(ValueError, math.log, -2) 
