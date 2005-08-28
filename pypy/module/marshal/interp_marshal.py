@@ -86,23 +86,10 @@ MAX_MARSHAL_DEPTH = 5000
 # PyPy is currently in much bigger trouble, because the
 # multimethod dispatches cause deeper stack nesting.
 
-# we try to do a true stack limit estimate, assuming that
-# one applevel call costs at most APPLEVEL_STACK_COST
-# nested calls.
-
-nesting_limit = sys.getrecursionlimit()
-APPLEVEL_STACK_COST = 25    # XXX check if this is true
-
-CPYTHON_COMPATIBLE = True
-
-TEST_CONST = 10
-
 class _Base(object):
     def raise_exc(self, msg):
         space = self.space
         raise OperationError(space.w_ValueError, space.wrap(msg))
-
-DONT_USE_MM_HACK = True # im_func is not RPython :-(
 
 class Marshaller(_Base):
     # _annspecialcase_ = "specialize:ctr_location" # polymorphic
@@ -113,19 +100,8 @@ class Marshaller(_Base):
         ## self.put = putfunc
         self.writer = writer
         self.version = version
-        # account for the applevel that we will call by one more.
-        self.nesting = ((space.getexecutioncontext().framestack.depth() + 1)
-                        * APPLEVEL_STACK_COST + TEST_CONST)
-        self.cpy_nesting = 0    # contribution to compatibility
+        self.nesting = 0    # contribution to compatibility
         self.stringtable = {}
-        self.stackless = False
-        self._stack = None
-        #self._iddict = {}
-        # XXX consider adding the dict later when it is needed.
-        # XXX I would also love to use an IntDict for this, if
-        # we had that. Otherwise I'd need to either make strings
-        # from ids (not all that bad) or use a real dict.
-        # How expensive would that be?
 
     ## currently we cannot use a put that is a bound method
     ## from outside. Same holds for get.
@@ -194,36 +170,13 @@ class Marshaller(_Base):
         self.put(chr(lng))
         self.put(x)
 
-    # HACK!ing a bit to loose some recursion depth and gain some speed.
-    # XXX it would be nicer to have a clean interface for this.
-    # remove this hack when we have optimization
-    # YYY we can drop the chain of mm dispatchers and save code if a method
-    # does not use NotImplemented at all.
-    def _get_mm_marshal(self, w_obj):
-        mm = getattr(w_obj, '__mm_marshal_w')
-        mm_func = mm.im_func
-        name = mm_func.func_code.co_names[0]
-        assert name.startswith('marshal_w_')
-        return mm_func.func_globals[name]
-
     def put_w_obj(self, w_obj):
-        self.nesting += 2
-        do_nested = self.nesting < nesting_limit
-        if CPYTHON_COMPATIBLE:
-            self.cpy_nesting += 1
-            do_nested = do_nested and self.cpy_nesting < MAX_MARSHAL_DEPTH
-        if do_nested:
-            if DONT_USE_MM_HACK:
-                self.nesting += 2
-                self.space.marshal_w(w_obj, self)
-                self.nesting -= 2
-            else:
-                self._get_mm_marshal(w_obj)(self.space, w_obj, self)
+        self.nesting += 1
+        if self.nesting < MAX_MARSHAL_DEPTH:
+            self.space.marshal_w(w_obj, self)
         else:
-            self._run_stackless(w_obj)
-        self.nesting -= 2
-        if CPYTHON_COMPATIBLE:
-            self.cpy_nesting -= 1
+            self._overflow()
+        self.nesting -= 1
 
     # this function is inlined below
     def put_list_w(self, list_w, lng):
@@ -236,38 +189,20 @@ class Marshaller(_Base):
         self.nesting -= 1
 
     def put_list_w(self, list_w, lng):
-        if DONT_USE_MM_HACK:
-            nest = 4
-            marshal_w = self.space.marshal_w
-        else:
-            nest = 2
-        # inlined version, two stack levels, only, with the hack!
-        self.nesting += nest
+        self.nesting += 1
         self.put_int(lng)
         idx = 0
         space = self.space
-        do_nested = self.nesting < nesting_limit
-        if CPYTHON_COMPATIBLE:
-            self.cpy_nesting += 1
-            do_nested = do_nested and self.cpy_nesting < MAX_MARSHAL_DEPTH
-        if do_nested:
+        if self.nesting < MAX_MARSHAL_DEPTH:
             while idx < lng:
                 w_obj = list_w[idx]
-                if DONT_USE_MM_HACK:
-                    marshal_w(w_obj, self)
-                else:
-                    self._get_mm_marshal(w_obj)(space, w_obj, self)
+                self.space.marshal_w(w_obj, self)
                 idx += 1
         else:
-            while idx < lng:
-                w_obj = list_w[idx]
-                self._run_stackless(w_obj)
-                idx += 1
-        self.nesting -= nest
-        if CPYTHON_COMPATIBLE:
-            self.cpy_nesting -= 1
+            self._overflow()
+        self.nesting -= 1
 
-    def _run_stackless(self, w_obj):
+    def _overflow(self):
         self.raise_exc('object too deeply nested to marshal')
 
 
@@ -337,7 +272,7 @@ class StringMarshaller(Marshaller):
         x >>= 8
         d = chr(x & 0xff)
         pos = self.bufpos
-        newpos = pos +4
+        newpos = pos + 4
         if len(self.buflis) < newpos:
             self.buflis = self.buflis + self.buflis
         self.buflis[pos]   = a
@@ -377,9 +312,7 @@ class Unmarshaller(_Base):
     def __init__(self, space, reader):
         self.space = space
         self.reader = reader
-        # account for the applevel that we will call by one more.
-        self.nesting = ((space.getexecutioncontext().framestack.depth() + 1)
-                        * APPLEVEL_STACK_COST)
+        self.nesting = 0
         self.stringtable_w = []
 
     def get(self, n):
@@ -464,8 +397,8 @@ class Unmarshaller(_Base):
         return res_w
 
     def get_w_obj(self, allow_null):
-        self.nesting += 2
-        if self.nesting < nesting_limit:
+        self.nesting += 1
+        if self.nesting < MAX_MARSHAL_DEPTH:
             tc = self.get1()
             w_ret = self._dispatch[ord(tc)](self.space, self, tc)
             if w_ret is None and not allow_null:
@@ -473,19 +406,19 @@ class Unmarshaller(_Base):
                 raise OperationError(space.w_TypeError, space.wrap(
                     'NULL object in marshal data'))
         else:
-            w_ret = self._run_stackless()
-        self.nesting -= 2
+            self._overflow()
+        self.nesting -= 1
         return w_ret
 
     # inlined version to save a nesting level
     def get_list_w(self):
-        self.nesting += 2
+        self.nesting += 1
         lng = self.get_lng()
         res_w = [None] * lng
         idx = 0
         space = self.space
         w_ret = space.w_None # something not None
-        if self.nesting < nesting_limit:
+        if self.nesting < MAX_MARSHAL_DEPTH:
             while idx < lng:
                 tc = self.get1()
                 w_ret = self._dispatch[ord(tc)](space, self, tc)
@@ -494,19 +427,14 @@ class Unmarshaller(_Base):
                 res_w[idx] = w_ret
                 idx += 1
         else:
-            while idx < lng:
-                w_ret = self._run_stackless()
-                if w_ret is None:
-                    break
-                res_w[idx] = w_ret
-                idx += 1
+            self._overflow()
         if w_ret is None:
             raise OperationError(space.w_TypeError, space.wrap(
                 'NULL object in marshal data'))
-        self.nesting -= 2
+        self.nesting -= 1
         return res_w
 
-    def _run_stackless(self):
+    def _overflow(self):
         self.raise_exc('object too deeply nested to unmarshal')
 
 
