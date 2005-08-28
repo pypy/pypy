@@ -29,8 +29,11 @@ DUMPFILE = 'this_is_the_marshal_file'
 def fakeapplevelcompile(tuples_or_src, filename, mode, flag_names):
     import os, marshal
     done = False
-    #data = marshal.dumps( (tuples_or_src, filename, mode, done, flag_names))
-    data = repr( (tuples_or_src, filename, mode, done, flag_names))
+    try:
+        data = marshal.dumps( (tuples_or_src, filename, mode, done, flag_names))
+    except ValueError:
+        raise ValueError, ("ST tuple too deeply nested for fake compiling!"
+                           " Please use the fakecompletely option")
     f = file(DUMPFILE, "wb")
     f.write(data)
     f.close()
