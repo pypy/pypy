@@ -303,7 +303,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         if arraydefnode.gcinfo:
             gcinfo = arraydefnode.gcinfo
             if gcinfo.finalizer:
-                yield 'void %s(GC_PTR obj, GC_PTR ignore) {' % (gcinfo.finalizer, arraydefnode.name)
+                yield 'void %s(GC_PTR obj, GC_PTR ignore) {' % (gcinfo.finalizer)
                 yield '\tstruct %s *a = (struct %s *)obj;' % (arraydefnode.name, arraydefnode.name)
                 for line in self.deallocator_lines(arraydefnode, '(*a)'):
                     yield '\t' + line
@@ -319,7 +319,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         if structdefnode.gcinfo:
             gcinfo = structdefnode.gcinfo
             if gcinfo.finalizer:
-                yield 'void %s(GC_PTR obj, GC_PTR ignore) {' % (gcinfo.finalizer, structdefnode.name)
+                yield 'void %s(GC_PTR obj, GC_PTR ignore) {' % gcinfo.finalizer
                 yield '\tstruct %s *p = (struct %s *)obj;' % (structdefnode.name, structdefnode.name)
                 for line in self.deallocator_lines(structdefnode, '(*p)'):
                     yield '\t' + line
