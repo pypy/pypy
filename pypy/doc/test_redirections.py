@@ -7,7 +7,7 @@ def checkexist(path):
     assert path.new(ext='.txt').check(file=1) 
    
 def test_eval(): 
-    d = eval(redir.read()) 
+    d = eval(redir.read(mode='r')) 
     return d
 
 def test_redirections(): 
