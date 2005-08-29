@@ -236,6 +236,5 @@ def test_floats():
         res += floats.f4 > 1e200
         res += floats.f5 == nan
         return res
-    
     f = compile_function(floats_fn, [])
     assert f() == floats_fn()
