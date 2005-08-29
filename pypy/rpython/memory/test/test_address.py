@@ -230,7 +230,9 @@ class TestAddressInLLInterp(object):
             addr = raw_malloc(10000)
             same_offset = (addr + 2 * offset - offset) - addr 
             addr.char[offset] = char
-            return (addr + same_offset).char[0]
+            result = (addr + same_offset).char[0]
+            raw_free(addr)
+            return result
         res = interpret(f, [10, "c"])
         assert res == "c"
         res = interpret(f, [12, "x"])
@@ -245,7 +247,7 @@ class TestAddressInLLInterp(object):
         assert not res
         res = interpret(f, [0])
         assert res
-        
+
 
 class TestAddressSimulation(object):
     def test_null_is_singleton(self):

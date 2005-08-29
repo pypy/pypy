@@ -449,6 +449,10 @@ class LLFrame(object):
         assert self.llt.typeOf(size) == self.llt.Signed
         return lladdress.raw_malloc(size)
 
+    def op_raw_free(self, addr):
+        assert self.llt.typeOf(addr) == lladdress.Address
+        lladdress.raw_free(addr)
+
     def op_raw_load(self, addr, typ, offset):
         assert isinstance(addr, lladdress.address)
         value = getattr(addr, str(typ).lower())[offset]
