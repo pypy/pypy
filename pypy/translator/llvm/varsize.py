@@ -1,8 +1,8 @@
 from pypy.rpython.rstr import STR
 
 def write_constructor(db, codewriter, ref, constructor_decl, ARRAY, 
-                      indices_to_array=(), atomicmalloc=False): 
-    
+                      indices_to_array=()): 
+
     #varsized arrays and structs look like this: 
     #Array: {int length , elemtype*}
     #Struct: {...., Array}
@@ -23,7 +23,7 @@ def write_constructor(db, codewriter, ref, constructor_decl, ARRAY,
     elemindices = list(indices_to_array) + [("uint", 1), (lentype, "%actuallen")]
     codewriter.getelementptr("%size", ref + "*", "null", *elemindices) 
     codewriter.cast("%usize", elemtype + "*", "%size", uword)
-    codewriter.malloc("%ptr", "sbyte", "%usize", atomic=atomicmalloc)
+    codewriter.malloc("%ptr", "sbyte", "%usize", atomic=ARRAY._is_atomic())
     codewriter.cast("%result", "sbyte*", "%ptr", ref + "*")
 
     #if ARRAY is STR.chars:

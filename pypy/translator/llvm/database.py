@@ -363,9 +363,6 @@ class Database(object):
                     return True
         return False
 
-    def is_atomic(self, value):
-        return self.obj2node[value].is_atomic()
-
     def get_childref(self, parent, child):
         node = self.obj2node[parent]
         return node.get_childref(child)

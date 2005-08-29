@@ -31,6 +31,7 @@ SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
     "-simplifycfg",
     ]))
 
+# XXX: TODO: refactoring: use gccas to populate this list
 # suggested by: gccas /dev/null -o /dev/null -debug-pass=Arguments
 OPTIMIZATION_SWITCHES = (" ".join([
     "-verify -lowersetjmp -funcresolve -raiseallocs -simplifycfg -mem2reg -globalopt -globaldce -ipconstprop -deadargelim -instcombine -simplifycfg -prune-eh -inline -simplify-libcalls -argpromotion -raise -tailduplicate -simplifycfg -scalarrepl -instcombine -break-crit-edges -condprop -tailcallelim -simplifycfg -reassociate -loopsimplify -licm -instcombine -indvars -loop-unroll -instcombine -load-vn -gcse -sccp -instcombine -break-crit-edges -condprop -dse -mergereturn -adce -simplifycfg -deadtypeelim -constmerge -verify"
@@ -96,7 +97,8 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
         #this special case for x86-64 (called ia64 in llvm) can go as soon as llc supports ia64 assembly output!
         cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (EXCEPTIONS_SWITCHES, b, b))
         if exe_name:
-            cmds.append("gcc %s.c -c -O2 -fomit-frame-pointer" % (b,))
+            #XXX TODO: use CFLAGS when available
+            cmds.append("gcc %s.c -c -march=pentium4 -O2 -fomit-frame-pointer" % (b,))
             cmds.append("gcc %s.o %s -lm -ldl -o %s" % (b, gc_libs, exe_name))
         source_files.append("%s.c" % b)
 

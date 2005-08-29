@@ -28,15 +28,6 @@ class StructTypeNode(LLVMNode):
         for field in self._fields():
             self.db.prepare_type(field)
 
-    def is_atomic(self):
-        for f in self._fields():
-            if isinstance(f, lltype.Ptr):
-                return False
-
-            if not isinstance(f, lltype.Primitive):
-                return self.db.is_atomic(f)
-
-        return True
     # ______________________________________________________________________
     # main entry points from genllvm 
 
@@ -83,8 +74,7 @@ class StructVarsizeTypeNode(StructTypeNode):
                                   self.ref,
                                   self.constructor_decl,
                                   current, 
-                                  indices_to_array,
-                                  atomicmalloc=self.is_atomic())
+                                  indices_to_array)
         
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain

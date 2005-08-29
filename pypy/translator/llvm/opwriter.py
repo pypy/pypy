@@ -406,8 +406,7 @@ class OpWriter(object):
         targetvar = self.db.repr_arg(op.result) 
         
         type_ = self.db.repr_type(arg_type)
-        atomic = self.db.is_atomic(arg_type)
-        self.codewriter.malloc(targetvar, type_, atomic=atomic)
+        self.codewriter.malloc(targetvar, type_, atomic=arg_type._is_atomic())
 
     def malloc_varsize(self, op):
         arg_type = op.args[0].value

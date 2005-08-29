@@ -38,14 +38,6 @@ class ArrayTypeNode(LLVMNode):
     def setup(self):
         self.db.prepare_type(self.arraytype)
 
-    def is_atomic(self):
-        if isinstance(self.arraytype, lltype.Primitive):
-            return True
-        elif isinstance(self.arraytype, lltype.Ptr):
-            return False
-        else:
-            return self.db.is_atomic(self.arraytype)
-            
     # ______________________________________________________________________
     # entry points from genllvm
     #
@@ -62,8 +54,7 @@ class ArrayTypeNode(LLVMNode):
         log.writeimpl(self.ref)
         varsize.write_constructor(self.db, codewriter, self.ref, 
                                   self.constructor_decl,
-                                  self.array,
-                                  atomicmalloc=self.is_atomic())
+                                  self.array)
 
 
 class VoidArrayTypeNode(LLVMNode):
@@ -71,15 +62,13 @@ class VoidArrayTypeNode(LLVMNode):
     def __init__(self, db, array):
         assert isinstance(array, lltype.Array)
         self.db = db
+        self.array = array
         self.ref = "%arraytype.Void"
 
     def writedatatypedecl(self, codewriter):
         td = "%s = type { %s }" % (self.ref, self.db.get_machine_word())
         codewriter.append(td)
         
-    def is_atomic(self):
-        return True
-
 class ArrayNode(ConstantLLVMNode):
     """ An arraynode.  Elements can be
     a primitive,
