@@ -5,7 +5,7 @@ from pypy.rpython.lltype import GC_CONTAINER
 from pypy.rpython.lltype import Signed, Unsigned, Float, Char, Bool, Void
 from pypy.rpython.lltype import UniChar, Ptr, typeOf, InvalidCast
 
-from pypy.rpython.memory.lltypesimulation import cast_pointer
+from pypy.rpython.memory.lltypesimulation import cast_pointer, free
 from pypy.rpython.memory.lltypesimulation import simulatorptr as _ptr
 from pypy.rpython.memory.lltypesimulation import malloc, functionptr, nullptr
 from pypy.rpython.memory.lltypesimulation import pyobjectptr, cast_ptr_to_int

@@ -197,7 +197,13 @@ def malloc(T, n=None, immortal=False, flavor='gc'):
         size = fixedsize + n * varsize
     address = lladdress.raw_malloc(size)
     return init_object_on_address(address, T, n)
-        
+
+def free(obj, flavor="gc"):
+    assert not flavor.startswith("gc")
+    assert isinstance(obj, simulatorptr)
+    lladdress.raw_free(obj._address)
+    obj.__dict__["_address"] = lladdress.NULL
+
 def init_object_on_address(address, T, n=None):
     result = simulatorptr(lltype.Ptr(T), address)
     result._zero_initialize(n)
