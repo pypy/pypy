@@ -27,7 +27,7 @@ from pypy.interpreter.error import OperationError
 baseobjspace.W_Root.w_thunkalias = None
 
 class W_Thunk(baseobjspace.W_Root, object):
-    def __init__(w_self, w_callable, args=argument.Arguments([])):
+    def __init__(w_self, w_callable, args):
         w_self.w_callable = w_callable
         w_self.args = args
 
@@ -42,7 +42,7 @@ def force(space, w_self):
         if w_alias is w_NOT_COMPUTED_THUNK:
             w_callable = w_self.w_callable
             args       = w_self.args
-            if w_callable is None:
+            if w_callable is None or args is None:
                 raise OperationError(space.w_RuntimeError,
                                      "thunk is already being computed")
             w_self.w_callable = None
