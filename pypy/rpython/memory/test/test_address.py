@@ -238,6 +238,18 @@ class TestAddressInLLInterp(object):
         res = interpret(f, [12, "x"])
         assert res == "x"
 
+    def test_pointer_arithmetic_inplace(self):
+        def f(offset, char):
+            addr = raw_malloc(10000)
+            addr += offset
+            addr.char[-offset] = char
+            addr -= offset
+            return addr.char[0]
+        res = interpret(f, [10, "c"])
+        assert res == "c"
+        res = interpret(f, [12, "x"])
+        assert res == "x"
+
     def test_address_comparison(self):
         def f(offset):
             return NULL < NULL + offset or NULL == NULL + offset

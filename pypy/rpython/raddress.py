@@ -69,6 +69,7 @@ class __extend__(pairtype(AddressRepr, IntegerRepr)):
             return hop.genop('adr_add', [v_addr, v_offs], resulttype=Address)
 
         return NotImplemented
+    rtype_inplace_add = rtype_add
 
     def rtype_sub((r_addr, r_int), hop):
         if r_int.lowleveltype == lltype.Signed:
@@ -76,6 +77,7 @@ class __extend__(pairtype(AddressRepr, IntegerRepr)):
             return hop.genop('adr_sub', [v_addr, v_offs], resulttype=Address)
 
         return NotImplemented
+    rtype_inplace_sub = rtype_sub
 
 
 class __extend__(pairtype(AddressRepr, AddressRepr)):
