@@ -328,6 +328,6 @@ def rtype_free_non_gc_object(hop):
     flavor = hop.args_r[0].getflavor()
     assert not flavor.startswith('gc')
     cflavor = hop.inputconst(lltype.Void, flavor)
-    return hop.genop('free_non_gc_object', [cflavor, vinst])
+    return hop.genop('flavored_free', [cflavor, vinst])
     
 BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
