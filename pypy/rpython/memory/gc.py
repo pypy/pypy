@@ -1,5 +1,5 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
-from pypy.rpython.memory.lladdress import NULL
+from pypy.rpython.memory.lladdress import NULL, address
 from pypy.rpython.memory.support import AddressLinkedList
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython import lltype
@@ -23,6 +23,9 @@ gc_interface = {
     "collect": lltype.FuncType((), lltype.Void),
     }
 
+def dummy_get_roots():
+    return [NULL, raw_malloc(10)] #just random addresses
+
 class GCBase(object):
     _alloc_flavor_ = "raw"
 
@@ -38,9 +41,6 @@ class GCBase(object):
         self.varsize_offset_to_variable_part = varsize_offset_to_variable_part
         self.varsize_offset_to_length = varsize_offset_to_length
         self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
-
-    def _freeze_(self):
-        return True
 
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"

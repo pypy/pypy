@@ -169,3 +169,19 @@ class GcWrapper(object):
             self.pseudo_root_pointers.address[i] = root._address
             ll.append(self.pseudo_root_pointers + INT_SIZE * i)
         return ll
+
+class AnnotatingGcWrapper(GcWrapper):
+    def __init__(self, llinterp, gc, qt, constantroots):
+        super(AnnotatingGcWrapper, self).__init__(llinterp, gc, qt,
+                                                  constantroots)
+        self.annotate_rtype_gc()
+
+    def annotate_rtype_gc(self):
+        #XXXXX unfinished
+        func = gc.get_dummy_annotate(self.gc)
+        self.gc.get_roots = gc.dummy_get_roots
+        a = RPythonAnnotator()
+        res = a.build_types(func, [])
+        a.translator.view()
+        a.translator.specialize()
+        self.gc.get_roots = self.get_roots
