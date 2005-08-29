@@ -684,3 +684,19 @@ class __extend__(pairtype(SomeAddress, SomeInteger)):
     def sub((s_addr, s_int)):
         return SomeAddress(is_null=False)
 
+class __extend__(pairtype(SomeAddress, SomeImpossibleValue)):
+    def union((s_addr, s_imp)):
+        return s_addr
+
+class __extend__(pairtype(SomeImpossibleValue, SomeAddress)):
+    def union((s_imp, s_addr)):
+        return s_addr
+
+class __extend__(pairtype(SomeAddress, SomeObject)):
+    def union((s_addr, s_obj)):
+        raise UnionError, "union of address and anything else makes no sense"
+
+class __extend__(pairtype(SomeObject, SomeAddress)):
+    def union((s_obj, s_addr)):
+        raise UnionError, "union of address and anything else makes no sense"
+
