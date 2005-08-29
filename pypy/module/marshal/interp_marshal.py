@@ -398,11 +398,12 @@ class Unmarshaller(_Base):
 
     def get_w_obj(self, allow_null):
         self.nesting += 1
+        space = self.space
+        w_ret = space.w_None # something not None
         if self.nesting < MAX_MARSHAL_DEPTH:
             tc = self.get1()
-            w_ret = self._dispatch[ord(tc)](self.space, self, tc)
+            w_ret = self._dispatch[ord(tc)](space, self, tc)
             if w_ret is None and not allow_null:
-                space = self.space
                 raise OperationError(space.w_TypeError, space.wrap(
                     'NULL object in marshal data'))
         else:
