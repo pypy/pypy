@@ -1,4 +1,3 @@
-import py
 from pypy.interpreter.baseobjspace import ObjSpace
 
 # __________________________________________________________________________
@@ -6,19 +5,8 @@ from pypy.interpreter.baseobjspace import ObjSpace
 def get_operations():
     return [r[0] for r in ObjSpace.MethodTable] + ObjSpace.IrregularOpTable
 
-def create_proxy_space(proxyname, proxymaker, operations=None, space=None):
-    """ Will create a proxy object space if no space supplied.  Otherwise
-    will patch the supplied space."""
-
-    options = None
-    if space is not None and not isinstance(space, ObjSpace):
-        options = space   # XXX temporary hack
-        space = None
-
-    if space is None:
-        # make up a StdObjSpace by default
-        from pypy.objspace import std
-        space = std.Space(options)
+def patch_space_in_place(space, proxyname, proxymaker, operations=None):
+    """Patches the supplied space."""
 
     if operations is None:
         operations = get_operations()
@@ -31,7 +19,5 @@ def create_proxy_space(proxyname, proxymaker, operations=None, space=None):
 
     prevrepr = space.__repr__()
     space.__repr__ = lambda: '%s(%s)' % (proxyname, prevrepr)
-
-    return space
 
 # __________________________________________________________________________

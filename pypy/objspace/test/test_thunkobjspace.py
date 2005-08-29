@@ -2,8 +2,8 @@ from pypy.objspace import thunk
 
 class AppTest_Thunk:
 
-    def setup_class(cls): 
-        cls.space = thunk.Space(cls.space) 
+    def setup_class(cls):
+        cls.space = thunk.Space()
 
     def test_simple(self):
         computed = []

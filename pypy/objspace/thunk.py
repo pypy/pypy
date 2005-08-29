@@ -17,7 +17,7 @@
     <pypy type 'int'>
 """
 
-from proxy import create_proxy_space
+from pypy.objspace.proxy import patch_space_in_place
 from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
 
@@ -110,8 +110,8 @@ del setup
 def proxymaker(space, opname, parentfn):
     nb_args = nb_forcing_args[opname]
     if nb_args == 0:
-        return parentfn
-    if nb_args == 1:
+        proxy = None
+    elif nb_args == 1:
         def proxy(w1, *extra):
             w1 = force(space, w1)
             return parentfn(w1, *extra)
@@ -131,8 +131,11 @@ def proxymaker(space, opname, parentfn):
                                   (opname, nb_args))
     return proxy
 
-def Space(space=None):
-    space = create_proxy_space('thunk', proxymaker, space=space)
+def Space(*args, **kwds):
+    # for now, always make up a wrapped StdObjSpace
+    from pypy.objspace import std
+    space = std.Space(*args, **kwds)
+    patch_space_in_place(space, 'thunk', proxymaker)
     space.setitem(space.builtin.w_dict, space.wrap('thunk'),
                   space.wrap(app_thunk))
     space.setitem(space.builtin.w_dict, space.wrap('is_thunk'),
