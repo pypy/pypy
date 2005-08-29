@@ -46,7 +46,8 @@ def getobjspace(name=None, _spacecache={}):
         return _spacecache[name]
     except KeyError:
         assert name in ('std', 'thunk'), name 
-        from pypy.objspace.std import Space 
+        mod = __import__('pypy.objspace.%s' % name, None, None, ['Space'])
+        Space = mod.Space
         try: 
             space = Space(uselibfile=option.uselibfile, 
                           nofaking=option.nofaking, 

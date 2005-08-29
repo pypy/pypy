@@ -44,10 +44,11 @@ def force(space, w_self):
             args       = w_self.args
             if w_callable is None or args is None:
                 raise OperationError(space.w_RuntimeError,
-                                     "thunk is already being computed")
+                                 space.wrap("thunk is already being computed"))
             w_self.w_callable = None
             w_self.args       = None
             w_alias = space.call_args(w_callable, args)
+            # XXX detect circular w_alias result
             w_self.w_thunkalias = w_alias
         w_self = w_alias
         w_alias = w_self.w_thunkalias

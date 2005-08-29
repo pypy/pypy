@@ -1,9 +1,9 @@
-from pypy.objspace import thunk 
+from pypy.conftest import gettestobjspace
 
 class AppTest_Thunk:
 
     def setup_class(cls):
-        cls.space = thunk.Space()
+        cls.space = gettestobjspace('thunk')
 
     def test_simple(self):
         computed = []
@@ -58,3 +58,15 @@ class AppTest_Thunk:
         become(x, y)
         become(y, z)
         assert x is y is z
+
+    def test_thunk_forcing_while_forcing(self):
+        def f():
+            return x+1
+        x = thunk(f)
+        raises(RuntimeError, 'x+1')
+
+    def INPROGRESS_test_thunk_forcing_while_forcing_2(self):
+        def f():
+            return x
+        x = thunk(f)
+        raises(RuntimeError, 'x+1')
