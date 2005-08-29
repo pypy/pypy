@@ -6,7 +6,7 @@ import struct
 INT_SIZE = sizeof(lltype.Signed)
 
 class AddressLinkedList(object):
-    _alloc_flavor_ = ""
+    _alloc_flavor_ = "raw"
     def __init__(self):
         self.first = NULL
         self.last = NULL
