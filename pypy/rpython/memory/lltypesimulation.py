@@ -15,6 +15,8 @@ def _expose(T, address):
         return simulatorptr(lltype.Ptr(T), address)
     elif T == lltype.Bool:
         return bool(address._load(primitive_to_fmt[T])[0])
+    elif T == lladdress.Address:
+        return (self._address + offset).address[0]
     elif isinstance(T, lltype.Primitive):
         return address._load(primitive_to_fmt[T])[0]
     elif isinstance(T, lltype.Ptr):
@@ -61,6 +63,8 @@ class simulatorptr(object):
                 if isinstance(T, lltype.Primitive):
                     if T == lltype.Void:
                         return None
+                    elif T == lladdress.Address:
+                        return (self._address + offset).address[0]
                     res = (self._address + offset)._load(primitive_to_fmt[T])[0]
                     if T == lltype.Bool:
                         res = bool(res)
@@ -84,7 +88,11 @@ class simulatorptr(object):
                 if isinstance(T, lltype.Primitive):
                     if T == lltype.Void:
                         return
-                    (self._address + offset)._store(primitive_to_fmt[T], value)
+                    if T == lladdress.Address:
+                        (self._address + offset).address[0] = value
+                    else:
+                        (self._address + offset)._store(primitive_to_fmt[T],
+                                                        value)
                     return
                 elif isinstance(T, lltype.Ptr):
                     assert value._TYPE == T
@@ -178,7 +186,7 @@ def cast_pointer(PTRTYPE, ptr):
     return simulatorptr(PTRTYPE, ptr._address)
 
 # for now use the simulators raw_malloc
-def malloc(T, n=None, immortal=False):
+def malloc(T, n=None, immortal=False, flavor='gc'):
     fixedsize = get_fixed_size(T)
     varsize = get_variable_size(T)
     if n is None:
