@@ -53,22 +53,21 @@ def get_main_options():
         
     return options
 
-def make_objspace(cmdlineopt): 
-    from pypy.objspace import std 
-    if cmdlineopt.objspace not in ('std', 'thunk'): 
+def make_objspace(cmdlineopt):
+    if cmdlineopt.objspace == 'std':
+        from pypy.objspace.std import Space
+    elif cmdlineopt.objspace == 'thunk':
+        from pypy.objspace.thunk import Space
+    else:
         raise ValueError("cannot instantiate %r space" %(cmdlineopt.objspace,))
 
-    # so far we always need a StdObjSpace 
-    space = std.Space(usemodules = cmdlineopt.usemodules, 
+    space = Space(usemodules = cmdlineopt.usemodules, 
                   nofaking = cmdlineopt.nofaking,
                   uselibfile = cmdlineopt.uselibfile,
                   oldstyle = cmdlineopt.oldstyle, 
                   parser = cmdlineopt.parser, 
                   compiler = cmdlineopt.compiler,
             ) 
-    if cmdlineopt.objspace == 'thunk': 
-        from pypy.objspace import thunk
-        space = thunk.Space(space) 
     return space 
             
 def main_(argv=None):
