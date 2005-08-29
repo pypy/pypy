@@ -295,6 +295,10 @@ class LLFrame(object):
         assert isinstance(flavor, str)
         return self.llt.malloc(obj, flavor=flavor)
 
+    def op_flavored_free(self, flavor, obj):
+        assert isinstance(flavor, str)
+        self.llt.free(obj, flavor=flavor)
+
     def op_getfield(self, obj, field):
         assert isinstance(obj, self.llt._ptr)
         result = getattr(obj, field)
