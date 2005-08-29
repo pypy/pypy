@@ -1,9 +1,10 @@
+from pypy.translator.annrpython import RPythonAnnotator
 from pypy.rpython import lltype
 from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory import lltypelayout
 from pypy.rpython.memory import lltypesimulation
-from pypy.rpython.memory.gc import MarkSweepGC
+from pypy.rpython.memory import gc
 
 class QueryTypes(object):
     def __init__(self, llinterp):
@@ -121,6 +122,7 @@ class QueryTypes(object):
                 self.varsize_offset_to_length,
                 self.varsize_offsets_to_gcpointers_in_var_part)
 
+
 class GcWrapper(object):
     def __init__(self, llinterp, gc, qt, constantroots):
         self.llinterp = llinterp
@@ -131,9 +133,15 @@ class GcWrapper(object):
         self.pseudo_root_pointers = NULL
         self.roots = []
 
-    def malloc(self, TYPE, size=0):
+    def get_arg_malloc(self, TYPE, size=0):
         typeid = self.query_types.get_typeid(TYPE)
-        address = self.gc.malloc(typeid, size)
+        return [typeid, size]
+
+    def get_funcptr_malloc(self):
+        return self.llinterp.llt.functionptr(gc.gc_interface["malloc"], "malloc",
+                                             _callable=self.gc.malloc)
+
+    def adjust_result_malloc(self, address, TYPE, size=0):
         result = lltypesimulation.init_object_on_address(address, TYPE, size)
         self.update_changed_addresses()
         return result

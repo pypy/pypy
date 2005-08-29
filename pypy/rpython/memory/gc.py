@@ -5,10 +5,23 @@ from pypy.rpython.memory import lltypesimulation
 from pypy.rpython import lltype
 from pypy.rpython.objectmodel import free_non_gc_object
 
-import struct
+int_size = lltypesimulation.sizeof(lltype.Signed)
 
 class GCError(Exception):
     pass
+
+def get_dummy_annotate(gc):
+    def dummy_annotate():
+        a = gc.malloc(1, 2)
+        b = gc.malloc(2, 3)
+        gc.collect()
+        return a - b
+    return dummy_annotate
+
+gc_interface = {
+    "malloc": lltype.FuncType((lltype.Signed, lltype.Signed), lltype.Signed),
+    "collect": lltype.FuncType((), lltype.Void),
+    }
 
 class GCBase(object):
     _alloc_flavor_ = "raw"
@@ -25,7 +38,9 @@ class GCBase(object):
         self.varsize_offset_to_variable_part = varsize_offset_to_variable_part
         self.varsize_offset_to_length = varsize_offset_to_length
         self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
-        
+
+    def _freeze_(self):
+        return True
 
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"
@@ -56,20 +71,20 @@ class MarkSweepGC(GCBase):
             size += length * self.varsize_item_sizes(typeid)
         size_gc_header = self.size_gc_header()
         result = raw_malloc(size + size_gc_header)
-        print "mallocing %s, size %s at %s" % (typeid, size, result)
+##         print "mallocing %s, size %s at %s" % (typeid, size, result)
         self.init_gc_object(result, typeid)
         self.malloced_objects.append(result)
         self.bytes_malloced += size + size_gc_header
         return result + size_gc_header
 
     def collect(self):
-        print "collecting"
+##         print "collecting"
         self.bytes_malloced = 0
         roots = self.get_roots()
         objects = AddressLinkedList()
         while 1:
             curr = roots.pop()
-            print "root: ", curr
+##             print "root: ", curr
             if curr == NULL:
                 break
             # roots is a list of addresses to addresses:
@@ -80,7 +95,7 @@ class MarkSweepGC(GCBase):
             gc_info.signed[0] = 0 
         while 1:  #mark
             curr = objects.pop()
-            print "object: ", curr
+##             print "object: ", curr
             if curr == NULL:
                 break
             gc_info = curr - self.size_gc_header()
@@ -122,14 +137,14 @@ class MarkSweepGC(GCBase):
             else:
                 freed_size += size + self.size_gc_header()
                 raw_free(curr)
-        print "free %s bytes. the heap is %s bytes." % (freed_size, curr_heap_size)
+##         print "free %s bytes. the heap is %s bytes." % (freed_size, curr_heap_size)
         free_non_gc_object(self.malloced_objects)
         self.malloced_objects = newmo
         if curr_heap_size > self.heap_size:
             self.heap_size = curr_heap_size
 
     def size_gc_header(self, typeid=0):
-        return lltypesimulation.sizeof(lltype.Signed) * 2
+        return int_size * 2
 
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0
@@ -170,13 +185,13 @@ class SemiSpaceGC(GCBase):
             return self.malloc(typeid, length)
         result = self.free
         self.init_gc_object(result, typeid)
-        print "mallocing %s, size %s at %s" % (typeid, size, result)
+##         print "mallocing %s, size %s at %s" % (typeid, size, result)
         self.free += totalsize
         return result + self.size_gc_header()
 
 
     def collect(self):
-        print "collecting"
+##         print "collecting"
         self.fromspace, self.tospace = self.tospace, self.fromspace
         self.top_of_space = self.tospace + self.space_size
         roots = self.get_roots()
@@ -185,7 +200,7 @@ class SemiSpaceGC(GCBase):
             root = roots.pop()
             if root == NULL:
                 break
-            print "root", root, root.address[0]
+##             print "root", root, root.address[0]
             root.address[0] = self.copy(root.address[0])
         while scan < self.free:
             curr = scan + self.size_gc_header()
@@ -195,9 +210,9 @@ class SemiSpaceGC(GCBase):
     def copy(self, obj):
         if not self.fromspace <= obj < self.fromspace + self.space_size:
             return self.copy_non_managed_obj(obj)
-        print "copying regularly", obj,
+##         print "copying regularly", obj,
         if self.is_forwared(obj):
-            print "already copied to", self.get_forwarding_address(obj)
+##             print "already copied to", self.get_forwarding_address(obj)
             return self.get_forwarding_address(obj)
         else:
             newaddr = self.free
@@ -205,12 +220,12 @@ class SemiSpaceGC(GCBase):
             raw_memcopy(obj - self.size_gc_header(), newaddr, totalsize)
             self.free += totalsize
             newobj = newaddr + self.size_gc_header()
-            print "to", newobj
+##             print "to", newobj
             self.set_forwarding_address(obj, newobj)
             return newobj
 
     def copy_non_managed_obj(self, obj): #umph, PBCs, not really copy
-        print "copying nonmanaged", obj
+##         print "copying nonmanaged", obj
         #we have to do the tracing here because PBCs are not moved to tospace
         self.trace_and_copy(obj)
         return obj
@@ -218,7 +233,7 @@ class SemiSpaceGC(GCBase):
     def trace_and_copy(self, obj):
         gc_info = obj - self.size_gc_header()
         typeid = gc_info.signed[1]
-        print "scanning", obj, typeid
+##         print "scanning", obj, typeid
         offsets = self.offsets_to_gc_pointers(typeid)
         for i in range(len(offsets)):
             pointer = obj + offsets[i]
@@ -259,7 +274,7 @@ class SemiSpaceGC(GCBase):
 
 
     def size_gc_header(self, typeid=0):
-        return lltypesimulation.sizeof(lltype.Signed) * 2
+        return int_size * 2
 
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0

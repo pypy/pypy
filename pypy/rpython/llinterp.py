@@ -275,13 +275,19 @@ class LLFrame(object):
 
     def op_malloc(self, obj):
         if self.llinterpreter.gc is not None:
-            return self.llinterpreter.gc.malloc(obj)
+            args = self.llinterpreter.gc.get_arg_malloc(obj)
+            malloc = self.llinterpreter.gc.get_funcptr_malloc()
+            result = self.op_direct_call(malloc, *args)
+            return self.llinterpreter.gc.adjust_result_malloc(result, obj)
         else:
             return self.llt.malloc(obj)
 
     def op_malloc_varsize(self, obj, size):
         if self.llinterpreter.gc is not None:
-            return self.llinterpreter.gc.malloc(obj, size)
+            args = self.llinterpreter.gc.get_arg_malloc(obj, size)
+            malloc = self.llinterpreter.gc.get_funcptr_malloc()
+            result = self.op_direct_call(malloc, *args)
+            return self.llinterpreter.gc.adjust_result_malloc(result, obj, size)
         else:
             return self.llt.malloc(obj, size)
 
