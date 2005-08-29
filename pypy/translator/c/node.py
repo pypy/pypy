@@ -104,7 +104,8 @@ class StructDefNode:
             yield 'struct %s {' % self.name
             # gcheader
             if needs_gcheader(self.STRUCT):
-                for line in gcpolicy.struct_gcheader_definition(self):
+                line = gcpolicy.struct_gcheader_definition(self)
+                if line:
                     yield '\t' + line
 
             for name, typename in self.fields:
@@ -189,7 +190,8 @@ class ArrayDefNode:
             yield 'struct %s {' % self.name
             # gcheader
             if needs_gcheader(self.ARRAY):
-                for line in gcpolicy.array_gcheader_definition(self):
+                line = gcpolicy.array_gcheader_definition(self)
+                if line:
                     yield '\t' + line
             yield '\tlong length;'
             line = '%s;' % cdecl(self.itemtypename, 'items[%d]'% self.varlength)
@@ -330,7 +332,8 @@ class StructNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         yield '{'
         if needs_gcheader(self.T):
-            for line in self.db.gcpolicy.struct_gcheader_initialitionexpr(self):
+            line = self.db.gcpolicy.struct_gcheader_initializationexpr(self)
+            if line:
                 yield '\t' + line
         defnode = self.db.gettypedefnode(self.T)
         for name in self.T._names:
@@ -360,7 +363,8 @@ class ArrayNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         yield '{'
         if needs_gcheader(self.T):
-            for line in self.db.gcpolicy.array_gcheader_initialitionexpr(self):
+            line = self.db.gcpolicy.array_gcheader_initializationexpr(self)
+            if line:
                 yield '\t' + line
         if self.T.OF == Void or len(self.obj.items) == 0:
             yield '\t%d' % len(self.obj.items)
@@ -464,25 +468,24 @@ class FuncNode(ContainerNode):
         #
         # generate the body itself
         #
-        lineprefix = ''
-        for line in funcgen.cfunction_body():
+        bodyiter = funcgen.cfunction_body()
+        for line in bodyiter:
             # performs some formatting on the generated body:
             # indent normal lines with tabs; indent labels less than the rest
             if line.endswith(':'):
                 if line.startswith('err'):
-                    lineprefix += '\t' + line
-                    continue  # merge this 'err:' label with the following line
+                    try:
+                        nextline = bodyiter.next()
+                    except StopIteration:
+                        nextline = ''
+                    # merge this 'err:' label with the following line
+                    line = '\t%s\t%s' % (line, nextline)
                 else:
-                    fmt = '%s    %s'
+                    line = '    ' + line
             elif line:
-                fmt = '%s\t%s'
-            else:
-                fmt = '%s%s'
-            yield fmt % (lineprefix, line)
-            lineprefix = ''
+                line = '\t' + line
+            yield line
 
-        if lineprefix:         # unlikely
-            yield lineprefix
         yield '}'
         funcgen.implementation_end()
 

@@ -18,7 +18,7 @@ class FunctionCodeGenerator(object):
     """
 
     if USESLOTS:
-        __slots__ = """graph db
+        __slots__ = """graph db gcpolicy
                        cpython_exc
                        more_ll_values
                        vars
@@ -27,6 +27,7 @@ class FunctionCodeGenerator(object):
     def __init__(self, graph, db, cpython_exc=False):
         self.graph = graph
         self.db = db
+        self.gcpolicy = db.gcpolicy
         self.cpython_exc = cpython_exc
         #
         # collect all variables and constants used in the body,
@@ -168,26 +169,27 @@ class FunctionCodeGenerator(object):
             linklocalvars = linklocalvars or {}
             for v in to_release:
                 linklocalvars[v] = self.expr(v)
-            is_alive = linklocalvars.copy()
+            is_alive_and_dies = linklocalvars.copy()
             assignments = []
-            stay_alive = []
+            multiple_times_alive = []
             for a1, a2 in zip(link.args, link.target.inputargs):
-                if self.lltypemap(a2) == Void:
+                a2type, a2typename = self.lltypes[id(a2)]
+                if a2type == Void:
                     continue
                 if a1 in linklocalvars:
                     src = linklocalvars[a1]
                 else:
                     src = self.expr(a1)
-                dest = self.expr(a2)
-                assignments.append((self.lltypename(a2), dest, src))
-                if a1 in is_alive:
-                    del is_alive[a1]
+                dest = LOCALVAR % a2.name
+                assignments.append((a2typename, dest, src))
+                if a1 in is_alive_and_dies:
+                    del is_alive_and_dies[a1]
                 else:
-                    assert self.lltypemap(a1) == self.lltypemap(a2)
-                    stay_alive.append(a2)
+                    #assert self.lltypemap(a1) == self.lltypemap(a2)
+                    multiple_times_alive.append(a2)
             # warning, the order below is delicate to get right:
             # 1. forget the old variables that are not passed over
-            for v in is_alive:
+            for v in is_alive_and_dies:
                 line = self.pop_alive(v, linklocalvars[v])
                 if line:
                     yield line
@@ -195,7 +197,7 @@ class FunctionCodeGenerator(object):
             for line in gen_assignments(assignments):
                 yield line
             # 3. keep alive the new variables if needed
-            for a2 in stay_alive:
+            for a2 in multiple_times_alive:
                 line = self.push_alive(a2)
                 if line:
                     yield line
@@ -211,28 +213,37 @@ class FunctionCodeGenerator(object):
         assert graph.startblock is allblocks[0]
 
         # generate the body of each block
+        push_alive_op_result = self.gcpolicy.push_alive_op_result
         for block in allblocks:
+            myblocknum = blocknum[block]
             yield ''
-            yield 'block%d:' % blocknum[block]
+            yield 'block%d:' % myblocknum
             to_release = list(block.inputargs)
+            reachable_err = -1   # the number of the first reachable err label
             for op in block.operations:
-                err   = 'err%d_%d' % (blocknum[block], len(to_release))
+                err   = 'err%d_%d' % (myblocknum, len(to_release))
                 macro = 'OP_%s' % op.opname.upper()
                 meth  = getattr(self, macro, None)
                 if meth:
-                    yield meth(op, err)
+                    line = meth(op, err)
                 else:
                     lst = [self.expr(v) for v in op.args]
                     lst.append(self.expr(op.result))
                     lst.append(err)
-                    yield '%s(%s);' % (macro, ', '.join(lst))
+                    line = '%s(%s);' % (macro, ', '.join(lst))
+                yield line
+                if line.find(err) >= 0:
+                    reachable_err = len(to_release)
                 to_release.append(op.result)
 
-                line = self.db.gcpolicy.push_alive_op_result(op.opname, LOCALVAR % op.result.name, self.lltypemap(op.result))
-                if line:
-                    yield line
+                T = self.lltypemap(op.result)
+                if T != Void:
+                    res = LOCALVAR % op.result.name
+                    line = push_alive_op_result(op.opname, res, T)
+                    if line:
+                        yield line
 
-            err_reachable = False
+            fallthrough = False
             if len(block.exits) == 0:
                 if len(block.inputargs) == 2:   # exc_cls, exc_value
                     # exceptional return block
@@ -263,7 +274,8 @@ class FunctionCodeGenerator(object):
                 # which goes to the last err%d_%d label written above.
                 yield ''
                 to_release.pop()  # skip default error handling for this label
-                yield 'err%d_%d:' % (blocknum[block], len(to_release))
+                yield 'err%d_%d:' % (myblocknum, len(to_release))
+                reachable_err = len(to_release)   # XXX assert they are == ?
                 yield ''
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
@@ -297,7 +309,7 @@ class FunctionCodeGenerator(object):
                     for op in gen_link(link, d):
                         yield '\t' + op
                     yield '}'
-                err_reachable = True
+                fallthrough = True
             else:
                 # block ending in a switch on a value
                 TYPE = self.lltypemap(block.exitswitch)
@@ -329,15 +341,16 @@ class FunctionCodeGenerator(object):
                     yield op
                 yield ''
 
-            while to_release:
-                v = to_release.pop()
-                if err_reachable:
-                    yield self.pop_alive(v)
-                yield 'err%d_%d:' % (blocknum[block], len(to_release))
-                err_reachable = True
-            if err_reachable:
-                for line in self.return_with_error():
-                    yield line
+            for i in range(reachable_err, -1, -1):
+                if not fallthrough:
+                    yield 'err%d_%d:' % (myblocknum, i)
+                else:
+                    fallthrough = False    # this label was already generated
+                if i == 0:
+                    for line in self.return_with_error():
+                        yield line
+                else:
+                    yield self.pop_alive(to_release[i-1])
 
     # ____________________________________________________________
 
@@ -398,9 +411,8 @@ class FunctionCodeGenerator(object):
         newvalue = self.expr(op.result, special_case_void=False)
         result = ['%s = %s;' % (newvalue, sourceexpr)]
         # need to adjust the refcount of the result only for PyObjects
-        line = self.pyobj_incref_expr(newvalue, T)
-        if line:
-            result.append(line)
+        if T == PyObjPtr:
+            result.append(self.pyobj_incref_expr(newvalue, T))
         result = '\t'.join(result)
         if T == Void:
             result = '/* %s */' % result
@@ -411,7 +423,7 @@ class FunctionCodeGenerator(object):
         result = ['%s = %s;' % (targetexpr, newvalue)]
         # insert write barrier
         T = self.lltypemap(op.args[2])
-        self.db.gcpolicy.write_barrier(result, newvalue, T, targetexpr)
+        self.gcpolicy.write_barrier(result, newvalue, T, targetexpr)
         result = '\t'.join(result)
         if T == Void:
             result = '/* %s */' % result
@@ -477,9 +489,7 @@ class FunctionCodeGenerator(object):
         eresult = self.expr(op.result)
         esize = 'sizeof(%s)' % cdecl(typename, '')
 
-        result = list(self.db.gcpolicy.zero_malloc(TYPE, esize, eresult, err))
-
-        return '\t'.join(result)
+        return self.gcpolicy.zero_malloc(TYPE, esize, eresult, err)
 
     def OP_MALLOC_VARSIZE(self, op, err):
         TYPE = self.lltypemap(op.result).TO
@@ -502,12 +512,9 @@ class FunctionCodeGenerator(object):
             esize = 'sizeof(%s)+((%s-1)*sizeof(%s))' % (cdecl(typename, ''),
                                                        elength,
                                                        cdecl(itemtypename, ''))
-        result = list(self.db.gcpolicy.zero_malloc(TYPE, esize, eresult, err))
-        result.append(
-                  '%s->%s = %s;' % (eresult, lenfld,
-                                    elength),
-                   )
-        return '\t'.join(result)
+        result = self.gcpolicy.zero_malloc(TYPE, esize, eresult, err)
+        result += '\t%s->%s = %s;' % (eresult, lenfld, elength)
+        return result
 
     def OP_CAST_POINTER(self, op, err):
         TYPE = self.lltypemap(op.result)
@@ -517,9 +524,8 @@ class FunctionCodeGenerator(object):
                                         cdecl(typename, ''),
                                         self.expr(op.args[0])))
 
-        line = self.pyobj_incref(op.result)
-        if line:
-            result.append(line)        
+        if TYPE == PyObjPtr:
+            result.append(self.pyobj_incref(op.result))
         return '\t'.join(result)
 
     def OP_SAME_AS(self, op, err):
@@ -529,9 +535,8 @@ class FunctionCodeGenerator(object):
         if TYPE != Void:
             result.append('%s = %s;' % (self.expr(op.result),
                                         self.expr(op.args[0])))
-            line = self.pyobj_incref(op.result)
-            if line:
-                result.append(line)
+            if TYPE == PyObjPtr:
+                result.append(self.pyobj_incref(op.result))
         return '\t'.join(result)
 
     def pyobj_incref(self, v):
@@ -539,24 +544,21 @@ class FunctionCodeGenerator(object):
         return self.pyobj_incref_expr(LOCALVAR % v.name, T)
 
     def pyobj_incref_expr(self, expr, T):
-        return self.db.gcpolicy.pyobj_incref(expr, T)
+        return self.gcpolicy.pyobj_incref(expr, T)
 
     def pyobj_decref_expr(self, expr, T):
-        return self.db.gcpolicy.pyobj_decref(expr, T)
+        return self.gcpolicy.pyobj_decref(expr, T)
             
     def push_alive(self, v):
         T = self.lltypemap(v)
-        return self.push_alive_expr(LOCALVAR % v.name, T)
+        return self.gcpolicy.push_alive(LOCALVAR % v.name, T)
 
     def pop_alive(self, v, expr=None):
         T = self.lltypemap(v)
-        return self.pop_alive_expr(expr or (LOCALVAR % v.name), T)
-
-    def push_alive_expr(self, expr, T):
-        return self.db.gcpolicy.push_alive(expr, T)
+        return self.gcpolicy.pop_alive(expr or (LOCALVAR % v.name), T)
 
     def pop_alive_expr(self, expr, T):
-        return self.db.gcpolicy.pop_alive(expr, T)
+        return self.gcpolicy.pop_alive(expr, T)
 
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

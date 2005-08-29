@@ -12,9 +12,7 @@ class BasicGcPolicy:
         self.db = db
 
     def pyobj_incref(self, expr, T):
-        if T == PyObjPtr:
-            return 'Py_XINCREF(%s);' % expr
-        return ''
+        return 'Py_XINCREF(%s);' % expr
 
     def pyobj_decref(self, expr, T):
         return 'Py_XDECREF(%s);' % expr
@@ -50,24 +48,24 @@ class BasicGcPolicy:
         return None
 
     def common_gcheader_definition(self, defnode):
-        return []
+        return ''
 
     def common_after_definition(self, defnode):
         return []
 
     def common_gcheader_initializationexpr(self, defnode):
-        return []
+        return ''
 
     struct_gcheader_definition = common_gcheader_definition
     struct_after_definition = common_after_definition
-    struct_gcheader_initialitionexpr = common_gcheader_initializationexpr
+    struct_gcheader_initializationexpr = common_gcheader_initializationexpr
 
     def prepare_nested_gcstruct(self, structdefnode, INNER):
         pass
 
     array_gcheader_definition = common_gcheader_definition
     array_after_definition = common_after_definition
-    array_gcheader_initialitionexpr = common_gcheader_initializationexpr
+    array_gcheader_initializationexpr = common_gcheader_initializationexpr
 
     def gc_libraries(self):
         return []
@@ -139,7 +137,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
         return 'refcount'
 
     def common_gcheader_definition(self, defnode):
-        yield 'long refcount;'
+        return 'long refcount;'
 
     def common_after_definition(self, defnode):
         if defnode.gcinfo:
@@ -148,11 +146,10 @@ class RefcountingGcPolicy(BasicGcPolicy):
                 yield 'void %s(struct %s *);' % (gcinfo.deallocator, defnode.name)
 
     def common_gcheader_initializationexpr(self, defnode):
-        yield 'REFCOUNT_IMMORTAL,'
+        return 'REFCOUNT_IMMORTAL,'
 
     def deallocator_lines(self, defnode, prefix):
-        for line in defnode.visitor_lines(prefix, self.generic_dealloc):
-            yield line
+        return defnode.visitor_lines(prefix, self.generic_dealloc)
 
     # for structs
 
@@ -216,7 +213,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
                 yield '}'
 
 
-    struct_gcheader_initialitionexpr = common_gcheader_initializationexpr
+    struct_gcheader_initializationexpr = common_gcheader_initializationexpr
 
     # for arrays
 
@@ -239,7 +236,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
                 yield '\tOP_FREE(a);'
                 yield '}'
 
-    array_gcheader_initialitionexpr = common_gcheader_initializationexpr
+    array_gcheader_initializationexpr = common_gcheader_initializationexpr
 
     # for rtti node
 
@@ -252,7 +249,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
     # zero malloc impl
 
     def zero_malloc(self, TYPE, esize, eresult, err):
-        yield  'OP_ZERO_MALLOC(%s, %s, %s);' % (esize,
+        return 'OP_ZERO_MALLOC(%s, %s, %s);' % (esize,
                                                 eresult,
                                                 err)
 
@@ -338,12 +335,12 @@ class BoehmGcPolicy(BasicGcPolicy):
     def zero_malloc(self, TYPE, esize, eresult, err):
         gcinfo = self.db.gettypedefnode(TYPE).gcinfo
         if gcinfo and gcinfo.finalizer:
-            yield  'OP_BOEHM_ZERO_MALLOC_FINALIZER(%s, %s, %s, %s);' % (esize,
+            return 'OP_BOEHM_ZERO_MALLOC_FINALIZER(%s, %s, %s, %s);' % (esize,
                                                                         eresult,
                                                                         gcinfo.finalizer,
                                                                         err)
         else:
-            yield  'OP_BOEHM_ZERO_MALLOC(%s, %s, %s);' % (esize,
+            return 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s);' % (esize,
                                                           eresult,
                                                           err)
 
@@ -361,8 +358,7 @@ class BoehmGcPolicy(BasicGcPolicy):
 class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
     globalcontainer = True
     includes = ()
-    typename = 'long @'
-    implementationtypename = typename
+    typename = 'char @'
 
     def __init__(self, db, T, obj):
         assert T == RuntimeTypeInfo
@@ -372,10 +368,10 @@ class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
         self.obj = obj
         defnode = db.gettypedefnode(obj.about)
         self.name = self.db.namespace.uniquename('g_rtti_v_'+ defnode.barename)
-        self.ptrname = '&%s' % (self.name,)
+        self.ptrname = '(&%s)' % (self.name,)
 
     def enum_dependencies(self):
         return []
 
     def implementation(self):
-        yield 'long %s = %d;' % (self.name, id(self.obj))
+        yield 'char %s  /* uninitialized */;' % self.name
