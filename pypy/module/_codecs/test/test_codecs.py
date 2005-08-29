@@ -1,6 +1,55 @@
 import autopath
+from pypy.objspace.std import StdObjSpace
 
 class AppTestCodecs:
+
+    def test_bigU_codecs(self):
+        import sys
+        oldmaxunicode = sys.maxunicode
+        if sys.maxunicode <= 0xffff:
+            sys.maxunicode = 0xffffffff
+        u = u'\U00010001\U00020002\U00030003\U00040004\U00050005'
+        for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
+                         'raw_unicode_escape',
+                         'unicode_escape', 'unicode_internal'):
+            assert unicode(u.encode(encoding),encoding) == u
+        sys.maxunicode = oldmaxunicode
+
+    def test_ucs4(self):
+        import sys
+        oldmaxunicode = sys.maxunicode
+        if sys.maxunicode <= 0xffff:
+            sys.maxunicode = 0xffffffff
+        x = u'\U00100000'
+        y = x.encode("raw-unicode-escape").decode("raw-unicode-escape")
+        assert x == y 
+        sys.maxunicode = oldmaxunicode
+
+    def test_named_unicode(self):
+        assert unicode('\\N{SPACE}','unicode-escape') == u" "
+        raises( UnicodeDecodeError, unicode,'\\N{SPACE','unicode-escape')
+        raises( UnicodeDecodeError, unicode,'\\NSPACE}','unicode-escape')
+        raises( UnicodeDecodeError, unicode,'\\NSPACE','unicode-escape')
+        raises( UnicodeDecodeError, unicode,'\\N','unicode-escape')
+        raises( UnicodeDecodeError, unicode,'\\N{SpaCE}','unicode-escape')
+        assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  " 
+        assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a " 
+
+    def test_insecure_pickle(self):
+        import pickle
+        insecure = ["abc", "2 + 2", # not quoted
+                    #"'abc' + 'def'", # not a single quoted string
+                    "'abc", # quote is not closed
+                    "'abc\"", # open quote and close quote don't match
+                    "'abc'   ?", # junk after close quote
+                    "'\\'", # trailing backslash
+                    # some tests of the quoting rules
+                    #"'abc\"\''",
+                    #"'\\\\a\'\'\'\\\'\\\\\''",
+                    ]
+        for s in insecure:
+            buf = "S" + s + "\012p0\012."
+            raises (ValueError, pickle.loads, buf)
 
     def test_unicodedecodeerror(self):
         assert str(UnicodeDecodeError(
@@ -53,120 +102,39 @@ class AppTestCodecs:
              
         raises (ValueError, test.decode,'string-escape')
 
-    def test_insecure_pickle(self):
-        import pickle
-        insecure = ["abc", "2 + 2", # not quoted
-                    #"'abc' + 'def'", # not a single quoted string
-                    "'abc", # quote is not closed
-                    "'abc\"", # open quote and close quote don't match
-                    "'abc'   ?", # junk after close quote
-                    "'\\'", # trailing backslash
-                    # some tests of the quoting rules
-                    #"'abc\"\''",
-                    #"'\\\\a\'\'\'\\\'\\\\\''",
-                    ]
-        for s in insecure:
-            buf = "S" + s + "\012p0\012."
-            raises (ValueError, pickle.loads, buf)
+class AppTestPartialEvaluation:
 
     def test_partial_utf8(self):
-        class Queue(object):
-            """     
-            queue: write bytes at one end, read bytes from the other end
-            """ 
-            def __init__(self):
-                self._buffer = ""
-            
-            def write(self, chars):
-                self._buffer += chars
-    
-            def read(self, size=-1):
-                if size<0:
-                    s = self._buffer
-                    self._buffer = ""
-                    return s
-                else: 
-                    s = self._buffer[:size]
-                    self._buffer = self._buffer[size:]
-                    return s
-        def check_partial(encoding, input, partialresults):
-            import codecs
-            
-            # get a StreamReader for the encoding and feed the bytestring version
-            # of input to the reader byte by byte. Read every available from
-            # the StreamReader and check that the results equal the appropriate
-            # entries from partialresults.
-            q = Queue()
-            r = codecs.getreader(encoding)(q)
-            result = u""
-            for (c, partialresult) in zip(input.encode(encoding), partialresults):
-                q.write(c)
-                result += r.read()
-                assert result == partialresult
-            # check that there's nothing left in the buffers
-            assert  r.read() == u"" 
-            assert  r.bytebuffer ==  "" 
-            assert  r.charbuffer == u""
-            encoding = 'utf-8'
-            check_partial(encoding, 
+        import _codecs
+        encoding = 'utf-8'
+        check_partial = [
+                u"\x00",
+                u"\x00",
+                u"\x00\xff",
+                u"\x00\xff",
+                u"\x00\xff\u07ff",
+                u"\x00\xff\u07ff",
+                u"\x00\xff\u07ff",
+                u"\x00\xff\u07ff\u0800",
+                u"\x00\xff\u07ff\u0800",
+                u"\x00\xff\u07ff\u0800",
                 u"\x00\xff\u07ff\u0800\uffff",
-                [
-                    u"\x00",
-                    u"\x00",
-                    u"\x00\xff",
-                    u"\x00\xff",
-                    u"\x00\xff\u07ff",
-                    u"\x00\xff\u07ff",
-                    u"\x00\xff\u07ff",
-                    u"\x00\xff\u07ff\u0800",
-                    u"\x00\xff\u07ff\u0800",
-                    u"\x00\xff\u07ff\u0800",
-                    u"\x00\xff\u07ff\u0800\uffff",
-                ]
-                )
+            ]
+            
+        buffer = ''
+        result = u""
+        for (c, partialresult) in zip(u"\x00\xff\u07ff\u0800\uffff".encode(encoding), check_partial):
+            buffer += c
+            res = _codecs.utf_8_decode(buffer,'strict',False)
+            if res[1] >0 :
+                buffer = ''
+            result += res[0]
+            assert result == partialresult
 
     def test_partial_utf16(self):
-        class Queue(object):
-            """     
-            queue: write bytes at one end, read bytes from the other end
-            """ 
-            def __init__(self):
-                self._buffer = ""
-            
-            def write(self, chars):
-                self._buffer += chars
-    
-            def read(self, size=-1):
-                if size<0:
-                    s = self._buffer
-                    self._buffer = ""
-                    return s
-                else: 
-                    s = self._buffer[:size]
-                    self._buffer = self._buffer[size:]
-                    return s
-        def check_partial(encoding, input, partialresults):
-            import codecs
-            
-            # get a StreamReader for the encoding and feed the bytestring version
-            # of input to the reader byte by byte. Read every available from
-            # the StreamReader and check that the results equal the appropriate
-            # entries from partialresults.
-            q = Queue()
-            r = codecs.getreader(encoding)(q)
-            result = u""
-            for (c, partialresult) in zip(input.encode(encoding), partialresults):
-                q.write(c)
-                result += r.read()
-                assert result == partialresult
-            # check that there's nothing left in the buffers
-            assert  r.read() == u"" 
-            assert  r.bytebuffer ==  "" 
-            assert  r.charbuffer == u""
+        import _codecs
         encoding = 'utf-16'
-        check_partial(encoding, 
-                u"\x00\xff\u0100\uffff",
-                [
+        check_partial = [
                     u"", # first byte of BOM read
                     u"", # second byte of BOM read => byteorder known
                     u"",
@@ -177,8 +145,19 @@ class AppTestCodecs:
                     u"\x00\xff\u0100",
                     u"\x00\xff\u0100",
                     u"\x00\xff\u0100\uffff",
-                ])
+                ]
+        buffer = ''
+        result = u""
+        for (c, partialresult) in zip(u"\x00\xff\u0100\uffff".encode(encoding), check_partial):
+            buffer += c
+            res = _codecs.utf_16_decode(buffer,'strict',False)
+            if res[1] >0 :
+                buffer = ''
+            result += res[0]
+            assert result == partialresult
+
     def test_bug1098990_a(self):
+
         import codecs, StringIO
         self.encoding = 'utf-8'
         s1 = u"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\r\n"
