@@ -1508,6 +1508,22 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s == a.bookkeeper.immutablevalue(123)
 
+    def test_class_attribute_is_an_instance_of_itself(self):
+        class Base:
+            hello = None
+        class A(Base):
+            pass
+        A.hello = globalA = A()
+        def f():
+            return (Base().hello, globalA)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeTuple)
+        assert isinstance(s.items[0], annmodel.SomeInstance)
+        assert s.items[0].classdef.cls is A
+        assert s.items[0].can_be_None
+        assert s.items[1] == a.bookkeeper.immutablevalue(A.hello)
+
 def g(n):
     return [0,1,2,n]
 

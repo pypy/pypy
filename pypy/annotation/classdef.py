@@ -158,8 +158,22 @@ class ClassDef:
         if self.basedef:
             self.basedef.subdefs[cls] = self
 
+        # pass some data to the setup() method, which must be called
+        # after the __init__()
+        self.sources_from_the_class = mixeddict, sources
+
+        # forced attributes
+        if cls in FORCE_ATTRIBUTES_INTO_CLASSES:
+            for name, s_value in FORCE_ATTRIBUTES_INTO_CLASSES[cls].items():
+                self.generalize_attr(name, s_value)
+                self.find_attribute(name).readonly = False
+
+    def setup(self):
         # collect the (supposed constant) class attributes
-        for name, value in mixeddict.items():
+        cls = self.cls
+        d, sources = self.sources_from_the_class
+        del self.sources_from_the_class   # setup() shouldn't be called twice
+        for name, value in d.items():
             # ignore some special attributes
             if name.startswith('_') and not isinstance(value, FunctionType):
                 continue
@@ -167,12 +181,6 @@ class ClassDef:
                 if not hasattr(value, 'class_'):
                     value.class_ = cls # remember that this is really a method
             self.add_source_for_attribute(name, sources.get(name, cls), self)
-
-        # forced attributes
-        if cls in FORCE_ATTRIBUTES_INTO_CLASSES:
-            for name, s_value in FORCE_ATTRIBUTES_INTO_CLASSES[cls].items():
-                self.generalize_attr(name, s_value)
-                self.find_attribute(name).readonly = False
 
     def add_source_for_attribute(self, attr, source, clsdef=None):
         """Adds information about a constant source for an attribute.

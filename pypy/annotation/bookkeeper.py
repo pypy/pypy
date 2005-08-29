@@ -253,7 +253,8 @@ class Bookkeeper:
             cdef = ClassDef(cls, self)
             self.userclasses[cls] = cdef
             self.userclasseslist.append(cdef)
-            return self.userclasses[cls]
+            cdef.setup()
+            return cdef
 
     def getlistdef(self, **flags):
         """Get the ListDef associated with the current position."""
