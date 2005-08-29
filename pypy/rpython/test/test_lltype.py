@@ -407,3 +407,17 @@ def test_opaque():
     assert typeOf(p2) == Ptr(S)
     assert typeOf(p2.stuff) == Ptr(O)
     assert parentlink(p2.stuff._obj) == (p2._obj, 'stuff')
+
+def test_is_atomic():
+    U = Struct('inlined', ('z', Signed))
+    P = Ptr(RuntimeTypeInfo)
+    Q = GcStruct('q', ('i', Signed), ('u', U), ('p', P))
+    O = OpaqueType('O')
+    F = GcForwardReference()
+    assert P._is_atomic() is False
+    assert Q.i._is_atomic() is True
+    assert Q.u._is_atomic() is True
+    assert Q.p._is_atomic() is False
+    assert Q._is_atomic() is False
+    assert O._is_atomic() is False
+    assert F._is_atomic() is False

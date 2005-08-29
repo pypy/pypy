@@ -79,6 +79,9 @@ class LowLevelType(object):
     def _inline_is_varsize(self, last):
         return False
 
+    def _is_atomic(self):
+        return False
+
 
 class ContainerType(LowLevelType):
     def _gcstatus(self):
@@ -86,6 +89,7 @@ class ContainerType(LowLevelType):
 
     def _inline_is_varsize(self, last):
         raise TypeError, "%r cannot be inlined in structure" % self
+
 
 class Struct(ContainerType):
     def __init__(self, name, *fields):
@@ -133,6 +137,12 @@ class Struct(ContainerType):
                             "inside another container")
         return False
 
+    def _is_atomic(self):
+        for typ in self._flds.values():
+            if not typ._is_atomic():
+                return False
+        return True
+
     def __getattr__(self, name):
         try:
             return self._flds[name]
@@ -140,15 +150,8 @@ class Struct(ContainerType):
             raise AttributeError, 'struct %s has no field %r' % (self._name,
                                                                  name)
 
-
-
-
-    def _names_without_voids(self, at_root=True):
-        #if at_root:  #XXX debug stuff
-        #    log('_names_without_voids: ' + self._str_without_voids())
+    def _names_without_voids(self):
         names_without_voids = [name for name in self._names if self._flds[name] is not Void]
-        #if names_without_voids != list(self._names):
-        #    log('_names_without_voids: removed Void(s) _names=%s, return=%s' % (str(list(self._names)), str(names_without_voids)))
         return names_without_voids
     
     def _str_fields_without_voids(self):
@@ -159,9 +162,6 @@ class Struct(ContainerType):
     def _str_without_voids(self):
         return "%s %s { %s }" % (self.__class__.__name__,
                                  self._name, self._str_fields_without_voids())
-
-
-
 
     def _str_fields(self):
         return ', '.join(['%s: %s' % (name, self._flds[name])
@@ -218,6 +218,9 @@ class Array(ContainerType):
             raise TypeError("cannot inline an array in another container"
                             " unless as the last field of a structure")
         return True
+
+    def _is_atomic(self):
+        return self.OF._is_atomic()
 
     def _str_fields(self):
         if isinstance(self.OF, Struct):
@@ -324,7 +327,10 @@ class Primitive(LowLevelType):
 
     def _defl(self, parent=None, parentindex=None):
         return self._default
-    
+
+    def _is_atomic(self):
+        return True
+
     _example = _defl
 
 
