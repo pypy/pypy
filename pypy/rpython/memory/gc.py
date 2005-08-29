@@ -10,24 +10,50 @@ import struct
 class GCError(Exception):
     pass
 
-
-class MarkSweepGC(object):
+class GCBase(object):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, objectmodel, start_heap_size):
+    def set_query_functions(self, is_varsize, offsets_to_gc_pointers,
+                            fixed_size, varsize_item_sizes,
+                            varsize_offset_to_variable_part,
+                            varsize_offset_to_length,
+                            varsize_offsets_to_gcpointers_in_var_part):
+        self.is_varsize = is_varsize
+        self.offsets_to_gc_pointers = offsets_to_gc_pointers
+        self.fixed_size = fixed_size
+        self.varsize_item_sizes = varsize_item_sizes
+        self.varsize_offset_to_variable_part = varsize_offset_to_variable_part
+        self.varsize_offset_to_length = varsize_offset_to_length
+        self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
+        
+
+class MarkSweepGC(GCBase):
+    _alloc_flavor_ = "raw"
+
+    def __init__(self, start_heap_size, get_roots, is_varsize,
+                 offsets_to_gc_pointers, fixed_size, varsize_item_sizes,
+                 varsize_offset_to_variable_part, varsize_offset_to_length,
+                 varsize_offsets_to_gcpointers_in_var_part):
         self.bytes_malloced = 0
         self.heap_size = start_heap_size
         #need to maintain a list of malloced objects, since we used the systems
         #allocator and can't walk the heap
         self.malloced_objects = AddressLinkedList()
-        self.objectmodel = objectmodel
+        self.is_varsize = is_varsize
+        self.offsets_to_gc_pointers = offsets_to_gc_pointers
+        self.fixed_size = fixed_size
+        self.varsize_item_sizes = varsize_item_sizes
+        self.varsize_offset_to_variable_part = varsize_offset_to_variable_part
+        self.varsize_offset_to_length = varsize_offset_to_length
+        self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
+        self.get_roots = get_roots
 
     def malloc(self, typeid, length=0):
         if self.bytes_malloced > self.heap_size:
             self.collect()
-        size = self.objectmodel.fixed_size(typeid)
-        if self.objectmodel.is_varsize(typeid):
-            size += length * self.objectmodel.varsize_item_sizes(typeid)
+        size = self.fixed_size(typeid)
+        if self.is_varsize(typeid):
+            size += length * self.varsize_item_sizes(typeid)
         size_gc_header = self.size_gc_header()
         result = raw_malloc(size + size_gc_header)
         print "mallocing %s, size %s at %s" % (typeid, size, result)
@@ -39,7 +65,7 @@ class MarkSweepGC(object):
     def collect(self):
         print "collecting"
         self.bytes_malloced = 0
-        roots = self.objectmodel.get_roots()
+        roots = self.get_roots()
         objects = AddressLinkedList()
         while 1:
             curr = roots.pop()
@@ -61,16 +87,16 @@ class MarkSweepGC(object):
             if gc_info.signed[0] == 1:
                 continue
             typeid = gc_info.signed[1]
-            offsets = self.objectmodel.offsets_to_gc_pointers(typeid)
+            offsets = self.offsets_to_gc_pointers(typeid)
             for i in range(len(offsets)):
                 pointer = curr + offsets[i]
                 objects.append(pointer.address[0])
-            if self.objectmodel.is_varsize(typeid):
-                offset = self.objectmodel.varsize_offset_to_variable_part(
+            if self.is_varsize(typeid):
+                offset = self.varsize_offset_to_variable_part(
                     typeid)
-                length = (curr + self.objectmodel.varsize_offset_to_length(typeid)).signed[0]
-                offsets = self.objectmodel.varsize_offsets_to_gcpointers_in_var_part(typeid)
-                itemlength = self.objectmodel.varsize_item_sizes(typeid)
+                length = (curr + self.varsize_offset_to_length(typeid)).signed[0]
+                offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+                itemlength = self.varsize_item_sizes(typeid)
                 curr += offset
                 for i in range(length):
                     item = curr + itemlength * i
@@ -85,10 +111,10 @@ class MarkSweepGC(object):
             if curr == NULL:
                 break
             typeid = curr.signed[1]
-            size = self.objectmodel.fixed_size(typeid)
-            if self.objectmodel.is_varsize(typeid):
-                length = (curr + self.size_gc_header() + self.objectmodel.varsize_offset_to_length(typeid)).signed[0]
-                size += length * self.objectmodel.varsize_item_sizes(typeid)
+            size = self.fixed_size(typeid)
+            if self.is_varsize(typeid):
+                length = (curr + self.size_gc_header() + self.varsize_offset_to_length(typeid)).signed[0]
+                size += length * self.varsize_item_sizes(typeid)
             if curr.signed[0] == 1:
                 curr.signed[0] = 0
                 newmo.append(curr)
@@ -102,7 +128,7 @@ class MarkSweepGC(object):
         if curr_heap_size > self.heap_size:
             self.heap_size = curr_heap_size
 
-    def size_gc_header(self):
+    def size_gc_header(self, typeid=0):
         return lltypesimulation.sizeof(lltype.Signed) * 2
 
     def init_gc_object(self, addr, typeid):
@@ -110,22 +136,32 @@ class MarkSweepGC(object):
         addr.signed[1] = typeid
 
 
-class SemiSpaceGC(object):
+class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, objectmodel, space_size):
+    def __init__(self, space_size, get_roots, is_varsize,
+                 offsets_to_gc_pointers, fixed_size, varsize_item_sizes,
+                 varsize_offset_to_variable_part, varsize_offset_to_length,
+                 varsize_offsets_to_gcpointers_in_var_part):
         self.bytes_malloced = 0
         self.space_size = space_size
         self.tospace = raw_malloc(space_size)
         self.top_of_space = self.tospace + space_size
         self.fromspace = raw_malloc(space_size)
         self.free = self.tospace
-        self.objectmodel = objectmodel
+        self.is_varsize = is_varsize
+        self.offsets_to_gc_pointers = offsets_to_gc_pointers
+        self.fixed_size = fixed_size
+        self.varsize_item_sizes = varsize_item_sizes
+        self.varsize_offset_to_variable_part = varsize_offset_to_variable_part
+        self.varsize_offset_to_length = varsize_offset_to_length
+        self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
+        self.get_roots = get_roots
 
     def malloc(self, typeid, length=0):
-        size = self.objectmodel.fixed_size(typeid)
-        if self.objectmodel.is_varsize(typeid):
-            size += length * self.objectmodel.varsize_item_sizes(typeid)
+        size = self.fixed_size(typeid)
+        if self.is_varsize(typeid):
+            size += length * self.varsize_item_sizes(typeid)
         totalsize = size + self.size_gc_header()
         if self.free + totalsize > self.top_of_space:
             self.collect()
@@ -143,7 +179,7 @@ class SemiSpaceGC(object):
         print "collecting"
         self.fromspace, self.tospace = self.tospace, self.fromspace
         self.top_of_space = self.tospace + self.space_size
-        roots = self.objectmodel.get_roots()
+        roots = self.get_roots()
         scan = self.free = self.tospace
         while 1:
             root = roots.pop()
@@ -174,7 +210,7 @@ class SemiSpaceGC(object):
             return newobj
 
     def copy_non_managed_obj(self, obj): #umph, PBCs, not really copy
-        print "copying nonmanaged", obj, self.objectmodel.types[obj.signed[-1]]
+        print "copying nonmanaged", obj
         #we have to do the tracing here because PBCs are not moved to tospace
         self.trace_and_copy(obj)
         return obj
@@ -183,17 +219,17 @@ class SemiSpaceGC(object):
         gc_info = obj - self.size_gc_header()
         typeid = gc_info.signed[1]
         print "scanning", obj, typeid
-        offsets = self.objectmodel.offsets_to_gc_pointers(typeid)
+        offsets = self.offsets_to_gc_pointers(typeid)
         for i in range(len(offsets)):
             pointer = obj + offsets[i]
             if pointer.address[0] != NULL:
                 pointer.address[0] = self.copy(pointer.address[0])
-        if self.objectmodel.is_varsize(typeid):
-            offset = self.objectmodel.varsize_offset_to_variable_part(
+        if self.is_varsize(typeid):
+            offset = self.varsize_offset_to_variable_part(
                 typeid)
-            length = (obj + self.objectmodel.varsize_offset_to_length(typeid)).signed[0]
-            offsets = self.objectmodel.varsize_offsets_to_gcpointers_in_var_part(typeid)
-            itemlength = self.objectmodel.varsize_item_sizes(typeid)
+            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
+            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+            itemlength = self.varsize_item_sizes(typeid)
             for i in range(length):
                 item = obj + offset + itemlength * i
                 for j in range(len(offsets)):
@@ -214,15 +250,15 @@ class SemiSpaceGC(object):
 
     def get_size(self, obj):
         typeid = (obj - self.size_gc_header()).signed[1]
-        size = self.objectmodel.fixed_size(typeid)
-        if self.objectmodel.is_varsize(typeid):
-            lenaddr = obj + self.objectmodel.varsize_offset_to_length(typeid)
+        size = self.fixed_size(typeid)
+        if self.is_varsize(typeid):
+            lenaddr = obj + self.varsize_offset_to_length(typeid)
             length = lenaddr.signed[0]
-            size += length * self.objectmodel.varsize_item_sizes(typeid)
+            size += length * self.varsize_item_sizes(typeid)
         return size
 
 
-    def size_gc_header(self):
+    def size_gc_header(self, typeid=0):
         return lltypesimulation.sizeof(lltype.Signed) * 2
 
     def init_gc_object(self, addr, typeid):

@@ -5,86 +5,144 @@ from pypy.rpython.memory import lltypelayout
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.memory.gc import MarkSweepGC
 
-class LLInterpObjectModel(object):
-    def __init__(self, llinterp, types,
-                 type_to_typeid, constantroots):
-        self.type_to_typeid = type_to_typeid
-        self.constantroots = constantroots
-        self.roots = []
-        self.pseudo_root_pointers = NULL
+class QueryTypes(object):
+    def __init__(self, llinterp):
         self.llinterp = llinterp
-        self.types = types
-        self._is_varsize = []
-        self._offsets_to_gc_pointers = []
-        self._fixed_size = []
-        self._varsize_item_sizes = []
-        self._varsize_offset_to_variable_part = []
-        self._varsize_offset_to_length = []
-        self._varsize_offsets_to_gcpointers_in_var_part = []
-        tttid = zip(*zip(*type_to_typeid.items())[::-1])
+        self.types = []
+        self.type_to_typeid = {}
+
+    def get_typeid(self, TYPE):
+        if TYPE not in self.type_to_typeid:
+            index = len(self.types)
+            self.type_to_typeid[TYPE] = index
+            self.types.append(TYPE)
+            return index
+        typeid = self.type_to_typeid[TYPE]
+        return typeid
+
+    def create_query_functions(self):
+        _is_varsize = []
+        _offsets_to_gc_pointers = []
+        _fixed_size = []
+        _varsize_item_sizes = []
+        _varsize_offset_to_variable_part = []
+        _varsize_offset_to_length = []
+        _varsize_offsets_to_gcpointers_in_var_part = []
+        tttid = zip(*zip(*self.type_to_typeid.items())[::-1])
         tttid.sort()
         tttid = zip(*zip(*tttid)[::-1])
         for TYPE, typeid in tttid:
             varsize = (isinstance(TYPE, lltype.Array) or
                        (isinstance(TYPE, lltype.Struct) and
                         TYPE._arrayfld is not None))
-            self._is_varsize.append(varsize)
-            self._offsets_to_gc_pointers.append(
+            _is_varsize.append(varsize)
+            _offsets_to_gc_pointers.append(
                 lltypelayout.offsets_to_gc_pointers(TYPE))
-            self._fixed_size.append(
-                lltypelayout.get_fixed_size(TYPE))
+            _fixed_size.append(lltypelayout.get_fixed_size(TYPE))
             if varsize:
-                self._varsize_item_sizes.append(
-                    lltypelayout.get_variable_size(TYPE))
-                self._varsize_offset_to_variable_part.append(
+                _varsize_item_sizes.append(lltypelayout.get_variable_size(TYPE))
+                _varsize_offset_to_variable_part.append(
                     lltypelayout.get_fixed_size(TYPE))
-                self._varsize_offset_to_length.append(
+                _varsize_offset_to_length.append(
                     lltypelayout.varsize_offset_to_length(TYPE))
-                self._varsize_offsets_to_gcpointers_in_var_part.append(
+                _varsize_offsets_to_gcpointers_in_var_part.append(
                     lltypelayout.varsize_offsets_to_gcpointers_in_var_part(TYPE))
             else:
-                self._varsize_item_sizes.append(0)
-                self._varsize_offset_to_variable_part.append(0)
-                self._varsize_offset_to_length.append(0)
-                self._varsize_offsets_to_gcpointers_in_var_part.append([])
+                _varsize_item_sizes.append(0)
+                _varsize_offset_to_variable_part.append(0)
+                _varsize_offset_to_length.append(0)
+                _varsize_offsets_to_gcpointers_in_var_part.append([])
+        def is_varsize(typeid):
+            return _is_varsize[typeid]
+        def offsets_to_gc_pointers(typeid):
+            return _offsets_to_gc_pointers[typeid]
+        def fixed_size(typeid):
+            return _fixed_size[typeid]
+        def varsize_item_sizes(typeid):
+            return _varsize_item_sizes[typeid]
+        def varsize_offset_to_variable_part(typeid):
+            return _varsize_offset_to_variable_part[typeid]
+        def varsize_offset_to_length(typeid):
+            return _varsize_offset_to_length[typeid]
+        def varsize_offsets_to_gcpointers_in_var_part(typeid):
+            return _varsize_offsets_to_gcpointers_in_var_part[typeid]
+        return (is_varsize, offsets_to_gc_pointers, fixed_size,
+                varsize_item_sizes, varsize_offset_to_variable_part,
+                varsize_offset_to_length,
+                varsize_offsets_to_gcpointers_in_var_part)
+
+    def is_varsize(self, typeid):
+        assert typeid >= 0
+        TYPE = self.types[typeid]
+        return (isinstance(TYPE, lltype.Array) or
+                (isinstance(TYPE, lltype.Struct) and
+                 TYPE._arrayfld is not None))
+
+    def offsets_to_gc_pointers(self, typeid):
+        assert typeid >= 0
+        return lltypelayout.offsets_to_gc_pointers(self.types[typeid])
+
+    def fixed_size(self, typeid):
+        assert typeid >= 0
+        return lltypelayout.get_fixed_size(self.types[typeid])
+
+    def varsize_item_sizes(self, typeid):
+        assert typeid >= 0
+        if self.is_varsize(typeid):
+            return lltypelayout.get_variable_size(self.types[typeid])
+        else:
+            return 0
+
+    def varsize_offset_to_variable_part(self, typeid):
+        assert typeid >= 0
+        if self.is_varsize(typeid):
+            return lltypelayout.get_fixed_size(self.types[typeid])
+        else:
+            return 0
+
+    def varsize_offset_to_length(self, typeid):
+        assert typeid >= 0
+        if self.is_varsize(typeid):
+            return lltypelayout.varsize_offset_to_length(self.types[typeid])
+        else:
+            return 0
+
+    def varsize_offsets_to_gcpointers_in_var_part(self, typeid):
+        assert typeid >= 0
+        if self.is_varsize(typeid):
+            return lltypelayout.varsize_offsets_to_gcpointers_in_var_part(
+                self.types[typeid])
+        else:
+            return 0
+
+    def get_setup_query_functions(self):
+        return (self.is_varsize, self.offsets_to_gc_pointers, self.fixed_size,
+                self.varsize_item_sizes, self.varsize_offset_to_variable_part,
+                self.varsize_offset_to_length,
+                self.varsize_offsets_to_gcpointers_in_var_part)
+
+class GcWrapper(object):
+    def __init__(self, llinterp, gc, qt, constantroots):
+        self.llinterp = llinterp
+        self.gc = gc
+        self.gc.get_roots = self.get_roots
+        self.query_types = qt
+        self.constantroots = constantroots
+        self.pseudo_root_pointers = NULL
+        self.roots = []
+
+    def malloc(self, TYPE, size=0):
+        typeid = self.query_types.get_typeid(TYPE)
+        address = self.gc.malloc(typeid, size)
+        result = lltypesimulation.init_object_on_address(address, TYPE, size)
+        self.update_changed_addresses()
+        return result
 
     def update_changed_addresses(self):
         for i, root in enumerate(self.roots):
             if root._address != self.pseudo_root_pointers.address[i]:
                 print "address changed:", root._address, self.pseudo_root_pointers.address[i]
             root.__dict__['_address'] = self.pseudo_root_pointers.address[i]
-
-    def get_typeid(self, TYPE):
-        typeid = self.type_to_typeid[TYPE]
-        return typeid
-
-    def is_varsize(self, typeid):
-        assert typeid >= 0
-        return self._is_varsize[typeid]
-
-    def offsets_to_gc_pointers(self, typeid):
-        assert typeid >= 0
-        return self._offsets_to_gc_pointers[typeid]
-
-    def fixed_size(self, typeid):
-        assert typeid >= 0
-        return self._fixed_size[typeid]
-
-    def varsize_item_sizes(self, typeid):
-        assert typeid >= 0
-        return self._varsize_item_sizes[typeid]
-
-    def varsize_offset_to_variable_part(self, typeid):
-        assert typeid >= 0
-        return self._varsize_offset_to_variable_part[typeid]
-
-    def varsize_offset_to_length(self, typeid):
-        assert typeid >= 0
-        return self._varsize_offset_to_length[typeid]
-
-    def varsize_offsets_to_gcpointers_in_var_part(self, typeid):
-        assert typeid >= 0
-        return self._varsize_offsets_to_gcpointers_in_var_part[typeid]
 
     def get_roots(self):
         print "getting roots"
@@ -103,18 +161,3 @@ class LLInterpObjectModel(object):
             self.pseudo_root_pointers.address[i] = root._address
             ll.append(self.pseudo_root_pointers + INT_SIZE * i)
         return ll
-
-
-class GcWrapper(object):
-    def __init__(self, llinterp, gc):
-        self.llinterp = llinterp
-        self.objectmodel = gc.objectmodel
-        assert isinstance(self.objectmodel, LLInterpObjectModel)
-        self.gc = gc
-
-    def malloc(self, TYPE, size=0):
-        typeid = self.objectmodel.get_typeid(TYPE)
-        address = self.gc.malloc(typeid, size)
-        result = lltypesimulation.init_object_on_address(address, TYPE, size)
-        self.objectmodel.update_changed_addresses()
-        return result

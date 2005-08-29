@@ -14,22 +14,14 @@ FUNCTIONTYPES = (types.FunctionType, types.UnboundMethodType,
                  types.BuiltinFunctionType)
 
 class LLTypeConverter(object):
-    def __init__(self, address, gc=None):
+    def __init__(self, address, gc=None, qt=None):
         self.type_to_typeid = {}
         self.types = []
         self.converted = {}
         self.curraddress = address
         self.constantroots = []
         self.gc = gc
-
-    def get_typeid(self, TYPE):
-        if TYPE not in self.type_to_typeid:
-            index = len(self.types)
-            self.type_to_typeid[TYPE] = index
-            self.types.append(TYPE)
-            return index
-        typeid = self.type_to_typeid[TYPE]
-        return typeid
+        self.query_types = qt
 
     def convert(self, val_or_ptr, inline_to_ptr=None):
         TYPE = lltype.typeOf(val_or_ptr)
@@ -63,12 +55,12 @@ class LLTypeConverter(object):
             ptr = inline_to_ptr
         else:
             startaddr = self.curraddress
-            if self.gc is not None:
-                self.gc.init_gc_object(startaddr, self.get_typeid(TYPE))
-                startaddr += self.gc.size_gc_header()
             self.curraddress += size
             if self.gc is not None:
-                self.curraddress += self.gc.size_gc_header()
+                typeid = self.query_types.get_typeid(TYPE)
+                self.gc.init_gc_object(startaddr, typeid)
+                startaddr += self.gc.size_gc_header(typeid)
+                self.curraddress += self.gc.size_gc_header(typeid)
             ptr = init_object_on_address(startaddr, TYPE, arraylength)
             self.constantroots.append(ptr)
         self.converted[_array] = ptr
@@ -103,12 +95,12 @@ class LLTypeConverter(object):
             ptr = inline_to_ptr
         else:
             startaddr = self.curraddress
-            if self.gc is not None:
-                self.gc.init_gc_object(startaddr, self.get_typeid(TYPE))
-                startaddr += self.gc.size_gc_header()
             self.curraddress += size
             if self.gc is not None:
-                self.curraddress += self.gc.size_gc_header()
+                typeid = self.query_types.get_typeid(TYPE)
+                self.gc.init_gc_object(startaddr, typeid)
+                startaddr += self.gc.size_gc_header(typeid)
+                self.curraddress += self.gc.size_gc_header(typeid)
             ptr = init_object_on_address(startaddr, TYPE, inlinedarraylength)
             self.constantroots.append(ptr)
         self.converted[_struct] = ptr
@@ -134,12 +126,13 @@ class LLTypeConverter(object):
                             lladdress.get_address_of_object(_obj))
 
 class FlowGraphConstantConverter(object):
-    def __init__(self, flowgraphs, gc=None):
+    def __init__(self, flowgraphs, gc=None, qt=None):
         self.flowgraphs = flowgraphs
         self.memory = lladdress.NULL
         self.cvter = None
         self.total_size = 0
         self.gc = gc
+        self.query_types = qt
 
     def collect_constants_and_types(self):
         constants = {}
@@ -192,7 +185,8 @@ class FlowGraphConstantConverter(object):
                 length = len(cand.items)
                 total_size += sizeof(cand._TYPE, length)
                 if self.gc is not None:
-                    total_size += self.gc.size_gc_header()
+                    typeid = self.query_types.get_typeid(cand._TYPE)
+                    total_size += self.gc.size_gc_header(typeid)
                 for item in cand.items:
                     candidates.append(item)
             elif isinstance(cand, lltype._struct):
@@ -211,7 +205,8 @@ class FlowGraphConstantConverter(object):
                     else:
                         total_size += sizeof(TYPE)
                     if self.gc is not None:
-                        total_size += self.gc.size_gc_header()
+                        typeid = self.query_types.get_typeid(TYPE)
+                        total_size += self.gc.size_gc_header(typeid)
                 for name in TYPE._flds:
                     candidates.append(getattr(cand, name))
             elif isinstance(cand, lltype._opaque):
@@ -226,7 +221,7 @@ class FlowGraphConstantConverter(object):
 
     def convert_constants(self):
         self.memory = lladdress.raw_malloc(self.total_size)
-        self.cvter = LLTypeConverter(self.memory, self.gc)
+        self.cvter = LLTypeConverter(self.memory, self.gc, self.query_types)
         for constant in self.constants.iterkeys():
             if isinstance(constant.value, lltype.LowLevelType):
                 self.constants[constant] = constant.value
@@ -256,16 +251,16 @@ class FlowGraphConstantConverter(object):
 
     def create_type_ids(self):
         for TYPE in self.types:
-            print TYPE
             if isinstance(TYPE, (lltype.Array, lltype.Struct)):
                 #assign a typeid
-                self.cvter.get_typeid(TYPE)
+                self.query_types.get_typeid(TYPE)
             elif isinstance(TYPE, lltype.Ptr):
-                self.cvter.get_typeid(TYPE.TO)
+                self.query_types.get_typeid(TYPE.TO)
 
     def convert(self):
         self.collect_constants_and_types()
         self.calculate_size()
         self.convert_constants()
         self.patch_graphs()
-        self.create_type_ids()
+        if self.query_types is not None:
+            self.create_type_ids()

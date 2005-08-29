@@ -38,16 +38,15 @@ def create_no_gc(llinterp, flowgraphs):
 from pypy.rpython.memory.gc import MarkSweepGC, SemiSpaceGC
 use_gc = MarkSweepGC
 def create_mark_sweep_gc(llinterp, flowgraphs):
-    from pypy.rpython.memory.gcwrapper import GcWrapper, LLInterpObjectModel
-    #XXX hackish: we need the gc before the object model is ready
-    gc = use_gc(None, 4096)
-    fgcc = FlowGraphConstantConverter(flowgraphs, gc)
-    fgcc.convert()    
-    om = LLInterpObjectModel(llinterp, fgcc.cvter.types,
-                             fgcc.cvter.type_to_typeid,
-                             fgcc.cvter.constantroots)
-    gc.objectmodel = om
-    wrapper = GcWrapper(llinterp, gc)
+    from pypy.rpython.memory.gcwrapper import GcWrapper, QueryTypes
+    # XXX there might me GCs that have headers that depend on the type
+    # therefore we have to change the query functions to annotatable ones later
+    qt = QueryTypes(llinterp)
+    gc = use_gc(4096, None, *qt.get_setup_query_functions())
+    fgcc = FlowGraphConstantConverter(flowgraphs, gc, qt)
+    fgcc.convert()
+    gc.set_query_functions(*qt.create_query_functions())
+    wrapper = GcWrapper(llinterp, gc, qt, fgcc.cvter.constantroots)
     return wrapper
 
-prepare_graphs_and_create_gc = create_mark_sweep_gc
+prepare_graphs_and_create_gc = create_no_gc
