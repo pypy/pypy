@@ -1,6 +1,8 @@
 from pypy.rpython import lltype
 
 class LLVMNode(object):
+    __slots__ = "".split()
+
     nodename_count = {}
 
     def make_name(self, name):
@@ -42,6 +44,7 @@ class LLVMNode(object):
         """ write function implementations. """ 
 
 class ConstantLLVMNode(LLVMNode):
+    __slots__ = "".split()
 
     def get_ref(self):
         """ Returns a reference as used for operations in blocks. """        

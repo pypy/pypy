@@ -68,7 +68,7 @@ class Database(object):
 
     def dump_pbcs(self):
         r = ""
-        for k, v in self.obj2node.items():
+        for k, v in self.obj2node.iteritems():
             
             if isinstance(k, lltype.LowLevelType):
                 continue
@@ -226,7 +226,7 @@ class Database(object):
         return self.entrynode
 
     def getnodes(self):
-        return self.obj2node.values()
+        return self.obj2node.itervalues()
         
     # __________________________________________________________
     # Representing variables and constants in LLVM source code 

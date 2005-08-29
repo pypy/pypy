@@ -10,6 +10,8 @@ from pypy.translator.llvm.log import log
 log = log.funcnode
 
 class FuncTypeNode(LLVMNode):
+    __slots__ = "db type_ ref".split()
+    
     def __init__(self, db, type_):
         self.db = db
         assert isinstance(type_, lltype.FuncType)
@@ -29,6 +31,8 @@ class FuncTypeNode(LLVMNode):
         codewriter.funcdef(self.ref, returntype, inputargtypes)
 
 class FuncNode(ConstantLLVMNode):
+    __slots__ = "db value ref graph block_to_name".split()
+
     def __init__(self, db, value):
         self.db = db
         self.value = value

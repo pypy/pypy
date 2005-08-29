@@ -7,6 +7,8 @@ from pypy.rpython import lltype
 log = log.structnode 
 
 class StructTypeNode(LLVMNode):
+    __slots__ = "db struct ref name".split()
+
     def __init__(self, db, struct): 
         assert isinstance(struct, lltype.Struct)
         self.db = db
@@ -36,6 +38,7 @@ class StructTypeNode(LLVMNode):
         codewriter.structdef(self.ref, fields_types)
 
 class StructVarsizeTypeNode(StructTypeNode):
+    __slots__ = "constructor_ref constructor_decl".split()
 
     def __init__(self, db, struct): 
         super(StructVarsizeTypeNode, self).__init__(db, struct)
@@ -82,6 +85,8 @@ class StructNode(ConstantLLVMNode):
     a struct,
     pointer to struct/array
     """
+    __slots__ = "db value structtype ref".split()
+
     def __init__(self, db, value):
         self.db = db
         self.value = value

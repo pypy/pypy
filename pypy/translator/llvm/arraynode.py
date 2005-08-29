@@ -6,11 +6,13 @@ from pypy.translator.llvm import varsize
 log = log.structnode
 
 class ArrayTypeNode(LLVMNode):
+    __slots__ = "db array arraytype ref constructor_ref constructor_decl".split()
+
     def __init__(self, db, array):
         assert isinstance(array, lltype.Array)
         self.db = db
         self.array = array
-        arraytype = self.arraytype = array.OF
+        self.arraytype = arraytype = array.OF
         # ref is used to reference the arraytype in llvm source 
         # constructor_ref is used to reference the constructor 
         # for the array type in llvm source code 
@@ -58,6 +60,7 @@ class ArrayTypeNode(LLVMNode):
 
 
 class VoidArrayTypeNode(LLVMNode):
+    __slots__ = "db array ref".split()
 
     def __init__(self, db, array):
         assert isinstance(array, lltype.Array)
@@ -75,6 +78,8 @@ class ArrayNode(ConstantLLVMNode):
     a struct,
     pointer to struct/array
     """
+    __slots__ = "db value arraytype ref".split()
+    
     def __init__(self, db, value):
         assert isinstance(lltype.typeOf(value), lltype.Array)
         self.db = db
@@ -151,6 +156,8 @@ class ArrayNode(ConstantLLVMNode):
         return s
     
 class StrArrayNode(ArrayNode):
+    __slots__ = "".split()
+
     printables = dict([(ord(i), None) for i in
       ("0123456789abcdefghijklmnopqrstuvwxyz" +
        "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
@@ -173,15 +180,15 @@ class StrArrayNode(ArrayNode):
         return item_length, r
 
 class VoidArrayNode(ConstantLLVMNode):
+    __slots__ = "db value ref".split()
 
     def __init__(self, db, value):
         assert isinstance(lltype.typeOf(value), lltype.Array)
         self.db = db
-        self.ref = self.make_ref('%arrayinstance', '')
         self.value = value
+        self.ref = self.make_ref('%arrayinstance', '')
 
     def constantvalue(self):
         return "{ %s } {%s %s}" % (self.db.get_machine_word(),
                                    self.db.get_machine_word(),
                                    len(self.value.items))
-

@@ -76,7 +76,7 @@ def get_ll(ccode, function_names):
         i = line.find(calltag)
         if i >= 0:
             cconv = 'ccc'
-            for funcname in funcnames.keys():
+            for funcname in funcnames.iterkeys():
                 if line.find(funcname) >= 0:
                     cconv = DEFAULT_CCONV
                     break
@@ -108,11 +108,36 @@ class GenLLVM(object):
         # for debug we create comments of every operation that may be executed
         self.debug = debug
 
-    def _add_to_database(self, name, funcptr):
-        ptr = getfunctionptr(self.translator, func)
-        c = inputconst(lltype.typeOf(funcptr), funcptr)
-        c.value._obj.graph.name = name
-        self.db.prepare_arg_value(c)
+    def _print_node_stats(self):
+        """run_pypy-llvm.sh [aug 29th 2005]
+        before slotifying: 350Mb
+        after  slotifying: 300Mb, 35 minutes until the .ll file is fully written.
+        STATS (1, "<class 'pypy.translator.llvm.arraynode.VoidArrayTypeNode'>")
+        STATS (1, "<class 'pypy.translator.llvm.opaquenode.OpaqueTypeNode'>")
+        STATS (9, "<class 'pypy.translator.llvm.structnode.StructVarsizeTypeNode'>")
+        STATS (46, "<class 'pypy.translator.llvm.extfuncnode.ExternalFuncNode'>")
+        STATS (52, "<class 'pypy.translator.llvm.arraynode.ArrayTypeNode'>")
+        STATS (189, "<class 'pypy.translator.llvm.arraynode.VoidArrayNode'>")
+        STATS (816, "<class 'pypy.translator.llvm.opaquenode.OpaqueNode'>")
+        STATS (1247, "<class 'pypy.translator.llvm.funcnode.FuncTypeNode'>")
+        STATS (1747, "<class 'pypy.translator.llvm.structnode.StructTypeNode'>")
+        STATS (5886, "<class 'pypy.translator.llvm.funcnode.FuncNode'>")
+        STATS (24003, "<class 'pypy.translator.llvm.arraynode.ArrayNode'>")
+        STATS (25410, "<class 'pypy.translator.llvm.structnode.StructVarsizeNode'>")
+        STATS (26206, "<class 'pypy.translator.llvm.arraynode.StrArrayNode'>")
+        STATS (268435, "<class 'pypy.translator.llvm.structnode.StructNode'>")          
+        """
+        nodecount = {}
+        for node in self.db.getnodes():
+            typ = type(node)
+            try:
+                nodecount[typ] += 1
+            except:
+                nodecount[typ] = 1
+        stats = [(count, str(typ)) for typ, count in nodecount.iteritems()]
+        stats.sort()
+        for s in stats:
+            print 'STATS', s
 
     def post_setup_externs(self):
 
@@ -204,6 +229,9 @@ class GenLLVM(object):
         extern_decls = self.post_setup_externs()
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
+
+        if self.debug:
+            self._print_node_stats()
 
         if llcode_header is None:
             self.generate_llfile(extern_decls)
