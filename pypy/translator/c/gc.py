@@ -334,15 +334,18 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def zero_malloc(self, TYPE, esize, eresult, err):
         gcinfo = self.db.gettypedefnode(TYPE).gcinfo
+        atomic = ['','_ATOMIC'][TYPE._is_atomic()]
         if gcinfo and gcinfo.finalizer:
-            return 'OP_BOEHM_ZERO_MALLOC_FINALIZER(%s, %s, %s, %s);' % (esize,
-                                                                        eresult,
-                                                                        gcinfo.finalizer,
-                                                                        err)
+            yield  'OP_BOEHM_ZERO_MALLOC_FINALIZER(%s, %s, %s, %s, %s);' % (esize,
+                                                                            eresult,
+                                                                            atomic,
+                                                                            gcinfo.finalizer,
+                                                                            err)
         else:
-            return 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s);' % (esize,
-                                                          eresult,
-                                                          err)
+            yield  'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %s);' % (esize,
+                                                              eresult,
+                                                              atomic,
+                                                              err)
 
     def gc_libraries(self):
         return ['gc'] # xxx on windows?

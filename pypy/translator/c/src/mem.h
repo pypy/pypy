@@ -49,14 +49,14 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 
 #ifdef USING_BOEHM_GC
 
-#define OP_BOEHM_ZERO_MALLOC(size, r, err)   {                         \
-	r = (void*) GC_MALLOC(size);				       \
+#define OP_BOEHM_ZERO_MALLOC(size, r, atomic, err)   {                         \
+	r = (void*) GC_MALLOC##atomic(size);				       \
 	if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory");	\
 	memset((void*) r, 0, size);				       \
   }
 
-#define OP_BOEHM_ZERO_MALLOC_FINALIZER(size, r, finalizer, err)   {    \
-	r = (void*) GC_MALLOC(size);				       \
+#define OP_BOEHM_ZERO_MALLOC_FINALIZER(size, r, atomic, finalizer, err)   {    \
+	r = (void*) GC_MALLOC##atomic(size);				       \
 	if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory");	\
 	GC_REGISTER_FINALIZER(r, finalizer, NULL, NULL, NULL);         \
 	memset((void*) r, 0, size);				       \
