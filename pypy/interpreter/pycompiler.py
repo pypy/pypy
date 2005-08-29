@@ -429,7 +429,7 @@ class PythonAstCompiler(CPythonCompiler):
                                                        space.wrap(e.offset),
                                                        space.wrap(e.text)])])
             raise OperationError(space.w_SyntaxError, w_synerr)
-	except UnicodeDecodeError, e:
+        except UnicodeDecodeError, e:
             # TODO use a custom UnicodeError
             raise OperationError(space.w_UnicodeDecodeError, space.newtuple([
                                  space.wrap(e.encoding), space.wrap(e.object), space.wrap(e.start),
