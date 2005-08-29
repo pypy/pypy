@@ -40,6 +40,7 @@ def force(space, w_self):
     w_alias = w_self.w_thunkalias
     while w_alias is not None:
         if w_alias is w_NOT_COMPUTED_THUNK:
+            assert isinstance(w_self, W_Thunk)
             w_callable = w_self.w_callable
             args       = w_self.args
             if w_callable is None or args is None:
