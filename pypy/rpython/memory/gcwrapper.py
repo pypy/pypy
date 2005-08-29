@@ -5,6 +5,7 @@ from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory import lltypelayout
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.memory import gc
+from pypy.rpython.memory.convertlltype import FlowGraphConstantConverter
 
 class QueryTypes(object):
     def __init__(self, llinterp):
@@ -124,12 +125,19 @@ class QueryTypes(object):
 
 
 class GcWrapper(object):
-    def __init__(self, llinterp, gc, qt, constantroots):
+    def __init__(self, llinterp, flowgraphs, gc_class):
+        self.query_types = QueryTypes(llinterp)
+        # XXX there might me GCs that have headers that depend on the type
+        # therefore we have to change the query functions to annotatable ones
+        # later
+        self.gc = gc_class(4096, None,
+                           *self.query_types.get_setup_query_functions())
+        fgcc = FlowGraphConstantConverter(flowgraphs, self.gc, self.query_types)
+        fgcc.convert()
+        self.gc.set_query_functions(*self.query_types.create_query_functions())
         self.llinterp = llinterp
-        self.gc = gc
         self.gc.get_roots = self.get_roots
-        self.query_types = qt
-        self.constantroots = constantroots
+        self.constantroots = fgcc.cvter.constantroots
         self.pseudo_root_pointers = NULL
         self.roots = []
 

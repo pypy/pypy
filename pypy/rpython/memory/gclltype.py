@@ -9,7 +9,6 @@ from pypy.rpython.memory.lltypesimulation import cast_pointer, free
 from pypy.rpython.memory.lltypesimulation import simulatorptr as _ptr
 from pypy.rpython.memory.lltypesimulation import malloc, functionptr, nullptr
 from pypy.rpython.memory.lltypesimulation import pyobjectptr, cast_ptr_to_int
-from pypy.rpython.memory.convertlltype import FlowGraphConstantConverter
 
 
 def notimplemented(*args, **kwargs):
@@ -38,15 +37,8 @@ def create_no_gc(llinterp, flowgraphs):
 from pypy.rpython.memory.gc import MarkSweepGC, SemiSpaceGC
 use_gc = MarkSweepGC
 def create_mark_sweep_gc(llinterp, flowgraphs):
-    from pypy.rpython.memory.gcwrapper import GcWrapper, QueryTypes
-    # XXX there might me GCs that have headers that depend on the type
-    # therefore we have to change the query functions to annotatable ones later
-    qt = QueryTypes(llinterp)
-    gc = use_gc(4096, None, *qt.get_setup_query_functions())
-    fgcc = FlowGraphConstantConverter(flowgraphs, gc, qt)
-    fgcc.convert()
-    gc.set_query_functions(*qt.create_query_functions())
-    wrapper = GcWrapper(llinterp, gc, qt, fgcc.cvter.constantroots)
+    from pypy.rpython.memory.gcwrapper import GcWrapper
+    wrapper = GcWrapper(llinterp, flowgraphs, use_gc)
     return wrapper
 
 prepare_graphs_and_create_gc = create_no_gc
