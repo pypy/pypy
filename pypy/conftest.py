@@ -38,22 +38,26 @@ option = py.test.Config.addoptions("pypy options",
                help="(mixed) modules to use."),
     )
 
-def getobjspace(name=None, _spacecache={}): 
+_SPACECACHE={}
+def getobjspace(name=None, **kwds): 
     """ helper for instantiating and caching space's for testing. 
     """ 
-    name = name or option.objspace or 'std' 
+    name = name or option.objspace or 'std'
+    key = kwds.items()
+    key.sort()
+    key = name, tuple(key)
     try:
-        return _spacecache[name]
+        return _SPACECACHE[key]
     except KeyError:
         assert name in ('std', 'thunk'), name 
         mod = __import__('pypy.objspace.%s' % name, None, None, ['Space'])
         Space = mod.Space
         try: 
-            space = Space(uselibfile=option.uselibfile, 
-                          nofaking=option.nofaking, 
-                          oldstyle=option.oldstyle,
-                          usemodules=option.usemodules
-                          )
+            kwds.setdefault('uselibfile', option.uselibfile)
+            kwds.setdefault('nofaking', option.nofaking)
+            kwds.setdefault('oldstyle', option.oldstyle)
+            kwds.setdefault('usemodules', option.usemodules)
+            space = Space(**kwds)
         except KeyboardInterrupt: 
             raise 
         except OperationError, e: 
@@ -68,7 +72,7 @@ def getobjspace(name=None, _spacecache={}):
                 import traceback 
                 traceback.print_exc() 
             py.test.fail("fatal: cannot initialize objspace:  %r" %(Space,))
-        _spacecache[name] = space
+        _SPACECACHE[key] = space
         space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
                       appsupport.build_pytest_assertion(space))
         space.setitem(space.builtin.w_dict, space.wrap('raises'),
@@ -117,11 +121,18 @@ class Module(py.test.collect.Module):
             else: 
                 return IntTestFunction(name, parent=self) 
 
-def gettestobjspace(name=None):
-    space = getobjspace(name)
-    if space is None:
-        py.test.skip('test requires object space %r' % (name,))
+def gettestobjspace(name=None, **kwds):
+    space = getobjspace(name, **kwds)
+    #if space is None:   XXX getobjspace() cannot return None any more I think
+    #    py.test.skip('test requires object space %r' % (name,))
     return space
+
+class LazyObjSpaceGetter(object):
+    def __get__(self, obj, cls=None):
+        space = gettestobjspace()
+        if cls:
+            cls.space = space
+        return space
 
 
 class PyPyTestFunction(py.test.Function):
@@ -187,7 +198,7 @@ class IntClassCollector(py.test.collect.Class):
 
     def setup(self): 
         cls = self.obj 
-        cls.space = gettestobjspace() 
+        cls.space = LazyObjSpaceGetter()
         super(IntClassCollector, self).setup() 
 
 class AppClassInstance(py.test.collect.Instance): 
