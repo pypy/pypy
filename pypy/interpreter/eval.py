@@ -50,9 +50,13 @@ class Code(Wrappable):
     def getdocstring(self):
         return None
 
-    fastcall_1 = None
-    fastcall_2 = None
-    fastcall_3 = None
+    # a performance hack (see gateway.BuiltinCode1/2/3)
+    def fastcall_1(self, space, w1):
+        return None
+    def fastcall_2(self, space, w1, w2):
+        return None
+    def fastcall_3(self, space, w1, w2, w3):
+        return None
 
 class Frame(Wrappable):
     """A frame is an environment supporting the execution of a code object.

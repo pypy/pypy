@@ -86,17 +86,18 @@ class DescrOperation:
             # the fastcall paths are purely for performance, but the resulting
             # increase of speed is huge
             if len(args_w) == 0:
-                fastcall_1 = descr.code.fastcall_1
-                if fastcall_1:
-                    return fastcall_1(space, w_obj)
+                w_res = descr.code.fastcall_1(space, w_obj)
+                if w_res is not None:
+                    return w_res
             elif len(args_w) == 1:
-                fastcall_2 = descr.code.fastcall_2
-                if fastcall_2:
-                    return fastcall_2(space, w_obj, args_w[0])
+                w_res = descr.code.fastcall_2(space, w_obj, args_w[0])
+                if w_res is not None:
+                    return w_res
             elif len(args_w) == 2:
-                fastcall_3 = descr.code.fastcall_3
-                if fastcall_3:
-                    return fastcall_3(space, w_obj, args_w[0], args_w[1])
+                w_res = descr.code.fastcall_3(space, w_obj, args_w[0],
+                                                            args_w[1])
+                if w_res is not None:
+                    return w_res
             args = Arguments(space, list(args_w))
             return descr.call_args(args.prepend(w_obj))
         else:
