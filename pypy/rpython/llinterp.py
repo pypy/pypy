@@ -19,21 +19,23 @@ class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
     def __init__(self, flowgraphs, typer, lltype=lltype):
-        if hasattr(lltype, "prepare_graphs_and_create_gc"):
-            self.gc = lltype.prepare_graphs_and_create_gc(self, flowgraphs)
-        else:
-            self.gc = None
         self.flowgraphs = flowgraphs
         self.bindings = {}
         self.typer = typer
         self.llt = lltype  #module that contains the used lltype classes
         self.active_frame = None
+        # XXX hack hack hack: set gc to None because
+        # prepare_graphs_and_create_gc might already use the llinterpreter!
+        self.gc = None
+        if hasattr(lltype, "prepare_graphs_and_create_gc"):
+            self.gc = lltype.prepare_graphs_and_create_gc(self, flowgraphs)
 
     def getgraph(self, func):
         return self.flowgraphs[func]
 
-    def eval_function(self, func, args=()):
-        graph = self.getgraph(func)
+    def eval_function(self, func, args=(), graph=None):
+        if graph is None:
+            graph = self.getgraph(func)
         llframe = LLFrame(graph, args, self)
         try:
             return llframe.eval()
@@ -51,7 +53,12 @@ class LLInterpreter(object):
         frames.reverse()
         for frame in frames:
             print frame.graph.name,
-            print self.typer.annotator.annotated[frame.curr_block].__module__
+            try:
+                print self.typer.annotator.annotated[frame.curr_block].__module__
+            except KeyError:
+                # if the graph is from the GC it was not produced by the same
+                # translator :-(
+                print "<unknown module>"
             for i, operation in enumerate(frame.curr_block.operations):
                 if i == frame.curr_operation_index:
                     print "E  ",
@@ -60,11 +67,11 @@ class LLInterpreter(object):
                 print operation
 
     def find_roots(self):
-        print "find_roots"
+        log.find_roots("starting")
         frame = self.active_frame
         roots = []
         while frame is not None:
-            print frame.graph.name
+            log.find_roots("graph", frame.graph.name)
             frame.find_roots(roots)
             frame = frame.f_back
         return roots
@@ -228,7 +235,7 @@ class LLFrame(object):
             self.make_llexception(e)
 
     def find_roots(self, roots):
-        print "find_roots in LLFrame", roots, self.curr_block.inputargs
+        log.find_roots(self.curr_block.inputargs)
         for arg in self.curr_block.inputargs:
             if (isinstance(arg, Variable) and
                 isinstance(self.getval(arg), self.llt._ptr)):
@@ -468,6 +475,11 @@ class LLFrame(object):
     def op_raw_free(self, addr):
         assert self.llt.typeOf(addr) == lladdress.Address
         lladdress.raw_free(addr)
+
+    def op_raw_memcopy(self, fromaddr, toaddr, size):
+        assert self.llt.typeOf(fromaddr) == lladdress.Address
+        assert self.llt.typeOf(toaddr) == lladdress.Address
+        lladdress.raw_memcopy(fromaddr, toaddr, size)
 
     def op_raw_load(self, addr, typ, offset):
         assert isinstance(addr, lladdress.address)

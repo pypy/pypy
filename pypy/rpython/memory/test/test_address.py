@@ -260,6 +260,20 @@ class TestAddressInLLInterp(object):
         res = interpret(f, [0])
         assert res
 
+    def test_raw_memcopy(self):
+        def f():
+            addr = raw_malloc(100)
+            addr.signed[0] = 12
+            (addr + 10).signed[0] = 42
+            (addr + 20).char[0] = "a"
+            addr1 = raw_malloc(100)
+            raw_memcopy(addr, addr1, 100)
+            result = addr1.signed[0] == 12
+            result = result and (addr1 + 10).signed[0] == 42
+            result = result and (addr1 + 20).char[0] == "a"
+            return result
+        res = interpret(f, [])
+        assert res
 
 class TestAddressSimulation(object):
     def test_null_is_singleton(self):
