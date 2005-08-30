@@ -886,6 +886,7 @@ def ll_stringslice_minusone(s1):
     return newstr
 
 def ll_split_chr(LISTPTR, s, c):
+    from pypy.rpython.rlist import ll_newlist
     chars = s.chars
     strlen = len(chars)
     count = 1
@@ -894,8 +895,8 @@ def ll_split_chr(LISTPTR, s, c):
         if chars[i] == c:
             count += 1
         i += 1
-    res = malloc(LISTPTR.TO)
-    items = res.items = malloc(LISTPTR.TO.items.TO, count)
+    res = ll_newlist(LISTPTR, count)
+    items = res.items
 
     i = 0
     j = 0

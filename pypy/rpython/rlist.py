@@ -18,6 +18,7 @@ from pypy.rpython import robject
 #  Concrete implementation of RPython lists:
 #
 #    struct list {
+#        int length;
 #        items_array *items;
 #    }
 #
