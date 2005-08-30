@@ -130,8 +130,8 @@ class GcWrapper(object):
         # XXX there might me GCs that have headers that depend on the type
         # therefore we have to change the query functions to annotatable ones
         # later
-        self.gc = gc_class(4096, None,
-                           *self.query_types.get_setup_query_functions())
+        self.gc = gc_class()
+        self.gc.set_query_functions(*self.query_types.get_setup_query_functions())
         fgcc = FlowGraphConstantConverter(flowgraphs, self.gc, self.query_types)
         fgcc.convert()
         self.gc.set_query_functions(*self.query_types.create_query_functions())
@@ -140,6 +140,7 @@ class GcWrapper(object):
         self.constantroots = fgcc.cvter.constantroots
         self.pseudo_root_pointers = NULL
         self.roots = []
+
 
     def get_arg_malloc(self, TYPE, size=0):
         typeid = self.query_types.get_typeid(TYPE)
@@ -153,6 +154,32 @@ class GcWrapper(object):
         result = lltypesimulation.init_object_on_address(address, TYPE, size)
         self.update_changed_addresses()
         return result
+
+
+    def needs_write_barrier(self, TYPE):
+        return (hasattr(self.gc, "write_barrier") and
+                isinstance(TYPE, lltype.Ptr) and
+                isinstance(TYPE.TO, (lltype.GcStruct, lltype.GcArray)))
+
+    def get_arg_write_barrier(self, obj, index_or_field, item):
+        #XXX: quick hack to get the correct addresses, fix later
+        layout = lltypelayout.get_layout(lltype.typeOf(obj).TO)
+        if isinstance(lltype.typeOf(obj).TO, lltype.Array):
+            assert isinstance(index_or_field, int)
+            offset = layout[0] + layout[1] * index_or_field
+            addr_to = obj._address + layout[0] + index_or_field * layout[1]
+            return item._address, addr_to, obj._address
+        else:
+            offset = layout[index_or_field]
+            addr_to = obj._address + offset
+            return item._address, addr_to, obj._address
+            
+
+    def get_funcptr_write_barrier(self):
+        return self.llinterp.llt.functionptr(gc.gc_interface["write_barrier"],
+                                             "write_barrier",
+                                             _callable=self.gc.write_barrier)
+
 
     def update_changed_addresses(self):
         for i, root in enumerate(self.roots):

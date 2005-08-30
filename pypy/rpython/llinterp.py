@@ -247,7 +247,13 @@ class LLFrame(object):
         # obj should be pointer
         FIELDTYPE = getattr(self.llt.typeOf(obj).TO, fieldname)
         if FIELDTYPE != self.llt.Void:
-            setattr(obj, fieldname, fieldvalue)
+            gc = self.llinterpreter.gc
+            if gc is None or not gc.needs_write_barrier(FIELDTYPE):
+                setattr(obj, fieldname, fieldvalue)
+            else:
+                args = gc.get_arg_write_barrier(obj, fieldname, fieldvalue)
+                write_barrier = gc.get_funcptr_write_barrier()
+                result = self.op_direct_call(write_barrier, *args)
 
     def op_getarrayitem(self, array, index):
         return array[index]
@@ -256,7 +262,13 @@ class LLFrame(object):
         # array should be a pointer
         ITEMTYPE = self.llt.typeOf(array).TO.OF
         if ITEMTYPE != self.llt.Void:
-            array[index] = item
+            gc = self.llinterpreter.gc
+            if gc is None or not gc.needs_write_barrier(ITEMTYPE):
+                array[index] = item
+            else:
+                args = gc.get_arg_write_barrier(array, index, item)
+                write_barrier = gc.get_funcptr_write_barrier()
+                self.op_direct_call(write_barrier, *args)
 
     def op_direct_call(self, f, *args):
         has_callable = getattr(f._obj, '_callable', None) is not None

@@ -1,5 +1,5 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
-from pypy.rpython.memory.lladdress import NULL, address
+from pypy.rpython.memory.lladdress import NULL, address, Address
 from pypy.rpython.memory.support import AddressLinkedList
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython import lltype
@@ -21,6 +21,7 @@ def get_dummy_annotate(gc):
 gc_interface = {
     "malloc": lltype.FuncType((lltype.Signed, lltype.Signed), lltype.Signed),
     "collect": lltype.FuncType((), lltype.Void),
+    "write_barrier": lltype.FuncType((Address, ) * 3, lltype.Void),
     }
 
 def dummy_get_roots():
@@ -42,25 +43,19 @@ class GCBase(object):
         self.varsize_offset_to_length = varsize_offset_to_length
         self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
 
+    def write_barrier(self, addr, addr_to, addr_struct):
+        addr_to.address[0] = addr
+
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, start_heap_size, get_roots, is_varsize,
-                 offsets_to_gc_pointers, fixed_size, varsize_item_sizes,
-                 varsize_offset_to_variable_part, varsize_offset_to_length,
-                 varsize_offsets_to_gcpointers_in_var_part):
+    def __init__(self, start_heap_size=4096, get_roots=None):
         self.bytes_malloced = 0
         self.heap_size = start_heap_size
         #need to maintain a list of malloced objects, since we used the systems
         #allocator and can't walk the heap
         self.malloced_objects = AddressLinkedList()
-        self.is_varsize = is_varsize
-        self.offsets_to_gc_pointers = offsets_to_gc_pointers
-        self.fixed_size = fixed_size
-        self.varsize_item_sizes = varsize_item_sizes
-        self.varsize_offset_to_variable_part = varsize_offset_to_variable_part
-        self.varsize_offset_to_length = varsize_offset_to_length
-        self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
+        self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
 
     def malloc(self, typeid, length=0):
@@ -154,23 +149,14 @@ class MarkSweepGC(GCBase):
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, space_size, get_roots, is_varsize,
-                 offsets_to_gc_pointers, fixed_size, varsize_item_sizes,
-                 varsize_offset_to_variable_part, varsize_offset_to_length,
-                 varsize_offsets_to_gcpointers_in_var_part):
+    def __init__(self, space_size=4096, get_roots=None):
         self.bytes_malloced = 0
         self.space_size = space_size
         self.tospace = raw_malloc(space_size)
         self.top_of_space = self.tospace + space_size
         self.fromspace = raw_malloc(space_size)
         self.free = self.tospace
-        self.is_varsize = is_varsize
-        self.offsets_to_gc_pointers = offsets_to_gc_pointers
-        self.fixed_size = fixed_size
-        self.varsize_item_sizes = varsize_item_sizes
-        self.varsize_offset_to_variable_part = varsize_offset_to_variable_part
-        self.varsize_offset_to_length = varsize_offset_to_length
-        self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
+        self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
 
     def malloc(self, typeid, length=0):
@@ -279,3 +265,100 @@ class SemiSpaceGC(GCBase):
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0
         addr.signed[1] = typeid
+
+
+class DeferredRefcountingGC(GCBase):
+    _alloc_flavor_ = "raw"
+
+    def __init__(self, max_refcount_zero=10, get_roots=None):
+        self.zero_ref_counts = AddressLinkedList()
+        self.length_zero_ref_counts = 0
+        self.max_refcount_zero = max_refcount_zero
+        self.set_query_functions(None, None, None, None, None, None, None)
+        self.get_roots = get_roots
+
+    def malloc(self, typeid, length=0):
+        size = self.fixed_size(typeid)
+        if self.is_varsize(typeid):
+            size += length * self.varsize_item_sizes(typeid)
+        size_gc_header = self.size_gc_header()
+        result = raw_malloc(size + size_gc_header)
+        print "mallocing %s, size %s at %s" % (typeid, size, result)
+        self.init_gc_object(result, typeid)
+        return result + size_gc_header
+
+    def collect(self):
+        roots = self.get_roots()
+        while 1:
+            root = roots.pop()
+            if root == NULL:
+                break
+            print "root", root, root.address[0]
+            self.incref(root.address[0])
+        while 1:
+            candidate = self.zero_ref_counts.pop()
+            self.length_zero_ref_counts -= 1
+            if candidate == NULL:
+                break
+            refcount = self.refcount(candidate)
+            if refcount == 0:
+                self.deallocate(candidate)
+        roots = self.get_roots()
+        while 1:
+            root = roots.pop()
+            if root == NULL:
+                break
+            print "root", root, root.address[0]
+            self.decref(root.address[0])
+
+    def write_barrier(self, addr, addr_to, addr_struct):
+        self.decref(addr_to.address[0])
+        addr_to.address[0] = addr
+        self.incref(addr)
+
+    def deallocate(self, addr):
+        gc_info = obj - self.size_gc_header()
+        typeid = gc_info.signed[1]
+        print "deallocating", obj, typeid
+        offsets = self.offsets_to_gc_pointers(typeid)
+        for i in range(len(offsets)):
+            pointer = obj + offsets[i]
+            self.decref(pointer.address[0])
+        if self.is_varsize(typeid):
+            offset = self.varsize_offset_to_variable_part(
+                typeid)
+            length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
+            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+            itemlength = self.varsize_item_sizes(typeid)
+            for i in range(length):
+                item = obj + offset + itemlength * i
+                for j in range(len(offsets)):
+                    pointer = item + offsets[j]
+                    self.decref(pointer.address[0])
+        raw_free(addr)
+
+    def incref(self, addr):
+        (addr - self.size_gc_header()).signed[0] += 1
+
+    def decref(self, addr):
+        if addr == NULL:
+            return
+        refcount = (addr - self.size_gc_header()).signed[0]
+        if refcount == 1:
+            self.zero_ref_counts.append(addr)
+            self.length_zero_ref_counts += 1
+            if self.length_zero_ref_counts > self.max_refcount_zero:
+                self.collect()
+        (addr - self.size_gc_header()).signed[0] = refcount - 1
+        assert refcount > 0
+
+    def refcount(self, addr):
+        (addr - self.size_gc_header()).signed[0]
+
+    def init_gc_object(self, addr, typeid):
+        addr.signed[0] = 0 # refcount
+        addr.signed[1] = typeid
+
+    def size_gc_header(self, typeid=0):
+        return int_size * 2
+
