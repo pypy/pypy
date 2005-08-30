@@ -34,6 +34,10 @@ class AppTestCodecs:
         raises( UnicodeDecodeError, unicode,'\\N{SpaCE}','unicode-escape')
         assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  " 
         assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a " 
+        assert "\\N{foo}xx".decode("unicode-escape", "ignore") == u"xx"
+
+    def test_literals(self):
+        raises(UnicodeError, eval, 'u\'\\Uffffffff\'')
 
     def test_insecure_pickle(self):
         import pickle
