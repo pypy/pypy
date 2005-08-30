@@ -416,17 +416,54 @@ class BuiltinCode(eval.Code):
     def getdocstring(self):
         return self.docstring
 
+
+# (verbose) performance hack below
+
 class BuiltinCode1(BuiltinCode):
     def fastcall_1(self, space, w1):
-        return self.fastfunc_1(space, w1)
+        try:
+            w_result = self.fastfunc_1(space, w1)
+        except KeyboardInterrupt: 
+            raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
+        except MemoryError: 
+            raise OperationError(space.w_MemoryError, space.w_None) 
+        except RuntimeError, e: 
+            raise OperationError(space.w_RuntimeError, 
+                                 space.wrap("internal error: " + str(e))) 
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
 
 class BuiltinCode2(BuiltinCode):
     def fastcall_2(self, space, w1, w2):
-        return self.fastfunc_2(space, w1, w2)
+        try:
+            w_result = self.fastfunc_2(space, w1, w2)
+        except KeyboardInterrupt: 
+            raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
+        except MemoryError: 
+            raise OperationError(space.w_MemoryError, space.w_None) 
+        except RuntimeError, e: 
+            raise OperationError(space.w_RuntimeError, 
+                                 space.wrap("internal error: " + str(e))) 
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
 
 class BuiltinCode3(BuiltinCode):
     def fastcall_3(self, space, w1, w2, w3):
-        return self.fastfunc_3(space, w1, w2, w3)
+        try:
+            w_result = self.fastfunc_3(space, w1, w2, w3)
+        except KeyboardInterrupt: 
+            raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
+        except MemoryError: 
+            raise OperationError(space.w_MemoryError, space.w_None) 
+        except RuntimeError, e: 
+            raise OperationError(space.w_RuntimeError, 
+                                 space.wrap("internal error: " + str(e))) 
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
+
 
 class interp2app(Wrappable):
     """Build a gateway that calls 'f' at interp-level."""
