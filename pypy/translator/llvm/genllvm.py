@@ -230,12 +230,13 @@ class GenLLVM(object):
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
 
+        using_external_functions = extfuncnode.ExternalFuncNode.used_external_functions.keys() != []
+
         if self.debug:
             self._print_node_stats()
 
-        if llcode_header is None:
+        if llcode_header is None and using_external_functions:
             self.generate_llfile(extern_decls)
-        lldeclarations, llimplementation = llcode_header, ll_functions
  
         #if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
         #if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
@@ -256,9 +257,10 @@ class GenLLVM(object):
         comment = codewriter.comment
         nl = codewriter.newline
 
-        nl(); comment("EXTERNAL FUNCTION DECLARATIONS") ; nl()
-        for s in lldeclarations.split('\n'):
-            codewriter.append(s)
+        if using_external_functions:
+            nl(); comment("EXTERNAL FUNCTION DECLARATIONS") ; nl()
+            for s in llcode_header.split('\n'):
+                codewriter.append(s)
 
         nl(); comment("Type Declarations"); nl()
 
@@ -382,9 +384,10 @@ class GenLLVM(object):
                         codewriter.append(extfunc)
                     depdone[dep] = True
 
-        nl(); comment("EXTERNAL FUNCTION IMPLEMENTATION") ; nl()
-        for s in llimplementation.split('\n'):
-            codewriter.append(s)
+        if using_external_functions:
+            nl(); comment("EXTERNAL FUNCTION IMPLEMENTATION") ; nl()
+            for s in ll_functions.split('\n'):
+                codewriter.append(s)
 
         comment("End of file") ; nl()
         if self.debug:  print 'gen_llvm_source return) ' + time.ctime()
