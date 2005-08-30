@@ -300,3 +300,24 @@ def test_hash_preservation():
     assert res.item0 == True
     assert res.item1 == intmask(hash(c)+hash(d))
     
+def test_type():
+    class A:
+        pass
+    class B(A):
+        pass
+    def g(a):
+        return type(a)
+    def f(i):
+        if i > 0:
+            a = A()
+        elif i < 0:
+            a = B()
+        else:
+            a = None
+        return g(a) is A    # should type(None) work?  returns None for now
+    res = interpret(f, [1])
+    assert res is True
+    res = interpret(f, [-1])
+    assert res is False
+    res = interpret(f, [0])
+    assert res is False

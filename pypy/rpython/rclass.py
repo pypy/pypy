@@ -558,8 +558,12 @@ class InstanceRepr(Repr):
         return vptr
 
     def rtype_type(self, hop):
-        vinst, = hop.inputargs(self)
-        return self.getfield(vinst, '__class__', hop.llops)
+        instance_repr = self.common_repr()
+        vinst, = hop.inputargs(instance_repr)
+        if hop.args_s[0].can_be_none():
+            return hop.gendirectcall(ll_inst_type, vinst)
+        else:
+            return instance_repr.getfield(vinst, '__class__', hop.llops)
 
     def rtype_hash(self, hop):
         if self.classdef is None:
@@ -700,3 +704,10 @@ def ll_inst_hash(ins):
     if cached == 0:
        cached = ins.hash_cache = id(ins)
     return cached
+
+def ll_inst_type(obj):
+    if obj:
+        return obj.typeptr
+    else:
+        # type(None) -> NULL  (for now)
+        return nullptr(typeOf(obj).TO.typeptr.TO)
