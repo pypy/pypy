@@ -381,7 +381,7 @@ The LLVM backend is still experimental.  However, it is very close to C backend
 functionality.  Calling compiled LLVM code from CPython is more restrictive
 than the C backend - the return type and the arguments of the entry function
 must be ints, floats or bools.  The emphasis of the LLVM backend is to compile
-standalone executables - please see the pypy/translate/llvm/demo directory for
+standalone executables - please see the pypy/translator/llvm/demo directory for
 examples.
 
 Here is a simple example to try::
