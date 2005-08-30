@@ -17,7 +17,7 @@ def patch_space_in_place(space, proxyname, proxymaker, operations=None):
         if proxy:
             setattr(space, name, proxy)
 
-    prevrepr = space.__repr__()
-    space.__repr__ = lambda: '%s(%s)' % (proxyname, prevrepr)
+    prevrepr = repr(space)
+    space._this_space_repr_ = '%s(%s)' % (proxyname, prevrepr)
 
 # __________________________________________________________________________

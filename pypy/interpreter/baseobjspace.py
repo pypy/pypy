@@ -143,7 +143,10 @@ class ObjSpace(object):
         pass
 
     def __repr__(self):
-        return self.__class__.__name__
+        try:
+            return self._this_space_repr_
+        except AttributeError:
+            return self.__class__.__name__
 
     def setbuiltinmodule(self, importname, installed_builtin_modules=[]): 
         """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
