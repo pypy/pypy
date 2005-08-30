@@ -7,7 +7,7 @@ char *RPython_StartupCode(void);  /* forward */
 int main(int argc, char *argv[])
 {
     char *errmsg = "out of memory";
-    int i;
+    int i, exitcode;
     RPyListOfString *list;
     errmsg = RPython_StartupCode();
     if (errmsg) goto error;
@@ -20,8 +20,14 @@ int main(int argc, char *argv[])
         _RPyListOfString_SetItem(list, i, s);
     }
 
-
-    return STANDALONE_ENTRY_POINT(list);
+    exitcode = STANDALONE_ENTRY_POINT(list);
+    if (RPyExceptionOccurred()) {
+        /* fish for the exception type, at least */
+        fprintf(stderr, "Fatal PyPy error: %s\n",
+                rpython_exc_type->ov_name->items);
+        exitcode = 1;
+    }
+    return exitcode;
 
  error:
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
