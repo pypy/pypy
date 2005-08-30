@@ -12,6 +12,8 @@ class GCError(Exception):
 
 def get_dummy_annotate(gc):
     def dummy_annotate():
+        gc.get_roots = dummy_get_roots1 #prevent the get_roots attribute to 
+        gc.get_roots = dummy_get_roots2 #be constants
         a = gc.malloc(1, 2)
         b = gc.malloc(2, 3)
         gc.collect()
@@ -24,8 +26,18 @@ gc_interface = {
     "write_barrier": lltype.FuncType((Address, ) * 3, lltype.Void),
     }
 
-def dummy_get_roots():
-    return [NULL, raw_malloc(10)] #just random addresses
+def dummy_get_roots1():
+    ll = AddressLinkedList()
+    ll.append(NULL)
+    ll.append(raw_malloc(10))
+    return ll
+
+def dummy_get_roots2():
+    ll = AddressLinkedList()
+    ll.append(raw_malloc(10))
+    ll.append(NULL)
+    return ll
+
 
 class GCBase(object):
     _alloc_flavor_ = "raw"
@@ -98,9 +110,11 @@ class MarkSweepGC(GCBase):
                 continue
             typeid = gc_info.signed[1]
             offsets = self.offsets_to_gc_pointers(typeid)
-            for i in range(len(offsets)):
+            i = 0
+            while i < len(offsets):
                 pointer = curr + offsets[i]
                 objects.append(pointer.address[0])
+                i += 1
             if self.is_varsize(typeid):
                 offset = self.varsize_offset_to_variable_part(
                     typeid)
@@ -108,10 +122,14 @@ class MarkSweepGC(GCBase):
                 offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
                 itemlength = self.varsize_item_sizes(typeid)
                 curr += offset
-                for i in range(length):
+                i = 0
+                while i < length:
                     item = curr + itemlength * i
-                    for j in range(len(offsets)):
+                    j = 0
+                    while j < len(offsets):
                         objects.append((item + offsets[j]).address[0])
+                        j += 1
+                    i += 1
             gc_info.signed[0] = 1
         newmo = AddressLinkedList()
         curr_heap_size = 0
@@ -221,22 +239,28 @@ class SemiSpaceGC(GCBase):
         typeid = gc_info.signed[1]
 ##         print "scanning", obj, typeid
         offsets = self.offsets_to_gc_pointers(typeid)
-        for i in range(len(offsets)):
+        i = 0
+        while i < len(offsets):
             pointer = obj + offsets[i]
             if pointer.address[0] != NULL:
                 pointer.address[0] = self.copy(pointer.address[0])
+            i += 1
         if self.is_varsize(typeid):
             offset = self.varsize_offset_to_variable_part(
                 typeid)
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
             offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
             itemlength = self.varsize_item_sizes(typeid)
-            for i in range(length):
+            i = 0
+            while i < length:
                 item = obj + offset + itemlength * i
-                for j in range(len(offsets)):
+                j = 0
+                while j < len(offsets):
                     pointer = item + offsets[j]
                     if pointer.address[0] != NULL:
                         pointer.address[0] = self.copy(pointer.address[0])
+                    j += 1
+                i += 1
 
     def is_forwared(self, obj):
         return (obj - self.size_gc_header()).signed[1] < 0
@@ -289,12 +313,14 @@ class DeferredRefcountingGC(GCBase):
 
     def collect(self):
         roots = self.get_roots()
+        curr = roots.first
         while 1:
-            root = roots.pop()
-            if root == NULL:
-                break
+            root = curr.address[1]
             print "root", root, root.address[0]
             self.incref(root.address[0])
+            if curr.address[0] == NULL:
+                break
+            curr = curr.address[0]
         while 1:
             candidate = self.zero_ref_counts.pop()
             self.length_zero_ref_counts -= 1
@@ -303,7 +329,6 @@ class DeferredRefcountingGC(GCBase):
             refcount = self.refcount(candidate)
             if refcount == 0:
                 self.deallocate(candidate)
-        roots = self.get_roots()
         while 1:
             root = roots.pop()
             if root == NULL:
@@ -321,20 +346,26 @@ class DeferredRefcountingGC(GCBase):
         typeid = gc_info.signed[1]
         print "deallocating", obj, typeid
         offsets = self.offsets_to_gc_pointers(typeid)
-        for i in range(len(offsets)):
+        i = 0
+        while i < len(offsets):
             pointer = obj + offsets[i]
             self.decref(pointer.address[0])
+            i += 1
         if self.is_varsize(typeid):
             offset = self.varsize_offset_to_variable_part(
                 typeid)
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
             offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
             itemlength = self.varsize_item_sizes(typeid)
-            for i in range(length):
+            i = 0
+            while i < length:
                 item = obj + offset + itemlength * i
-                for j in range(len(offsets)):
+                j = 0
+                while j < len(offsets):
                     pointer = item + offsets[j]
                     self.decref(pointer.address[0])
+                    j += 1
+                i += 1
         raw_free(addr)
 
     def incref(self, addr):
