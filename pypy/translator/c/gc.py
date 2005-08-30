@@ -88,18 +88,12 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def push_alive_nopyobj(self, expr, T):
         defnode = self.db.gettypedefnode(T.TO)
         if defnode.gcheader is not None:
-            return 'if (%s) %s->%s++;' % (expr, expr, defnode.gcheader)
+            return 'pypy_IncRf_%s(%s);' % (defnode.barename, expr)
 
     def pop_alive_nopyobj(self, expr, T):
         defnode = self.db.gettypedefnode(T.TO)
         if defnode.gcheader is not None:
-            dealloc = 'OP_FREE'
-            if defnode.gcinfo:
-                dealloc = defnode.gcinfo.deallocator or dealloc
-            return 'if (%s && !--%s->%s) %s(%s);' % (expr, expr,
-                                                     defnode.gcheader,
-                                                     dealloc,
-                                                     expr)
+            return 'pypy_DecRf_%s(%s);' % (defnode.barename, expr)
 
     def push_alive_op_result(self, opname, expr, T):
         if opname !='direct_call' and T != PyObjPtr:
@@ -144,6 +138,14 @@ class RefcountingGcPolicy(BasicGcPolicy):
             gcinfo = defnode.gcinfo
             if gcinfo.deallocator:
                 yield 'void %s(struct %s *);' % (gcinfo.deallocator, defnode.name)
+        if defnode.gcheader is not None:
+            dealloc = 'OP_FREE'
+            if defnode.gcinfo:
+                dealloc = defnode.gcinfo.deallocator or dealloc
+            yield '#define pypy_IncRf_%s(x) if (x) (x)->%s++' % (
+                defnode.barename, defnode.gcheader,)
+            yield '#define pypy_DecRf_%s(x) if ((x) && !--(x)->%s) %s(x)' % (
+                defnode.barename, defnode.gcheader, dealloc)
 
     def common_gcheader_initializationexpr(self, defnode):
         return 'REFCOUNT_IMMORTAL,'
