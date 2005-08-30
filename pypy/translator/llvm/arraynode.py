@@ -161,7 +161,7 @@ class StrArrayNode(ArrayNode):
     printables = dict([(ord(i), None) for i in
       ("0123456789abcdefghijklmnopqrstuvwxyz" +
        "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-       "!#$%&()*+,-./:;<=>?@[\\]^_`{|}~ '")])
+       "!#$%&()*+,-./:;<=>?@[]^_`{|}~ '")])
 
     def get_arrayvalue(self):
         items = self.value.items
