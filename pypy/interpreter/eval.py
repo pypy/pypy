@@ -50,6 +50,10 @@ class Code(Wrappable):
     def getdocstring(self):
         return None
 
+    fastcall_1 = None
+    fastcall_2 = None
+    fastcall_3 = None
+
 class Frame(Wrappable):
     """A frame is an environment supporting the execution of a code object.
     Abstract base class."""

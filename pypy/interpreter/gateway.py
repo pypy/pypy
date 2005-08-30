@@ -396,6 +396,17 @@ class BuiltinCode(eval.Code):
 
         self.framecls = make_builtin_frame_class(func, orig_sig, unwrap_spec)
 
+        # speed hack
+        if unwrap_spec == [ObjSpace, W_Root]:
+            self.__class__ = BuiltinCode1
+            self.fastfunc_1 = func
+        elif unwrap_spec == [ObjSpace, W_Root, W_Root]:
+            self.__class__ = BuiltinCode2
+            self.fastfunc_2 = func
+        elif unwrap_spec == [ObjSpace, W_Root, W_Root, W_Root]:
+            self.__class__ = BuiltinCode3
+            self.fastfunc_3 = func
+
     def create_frame(self, space, w_globals, closure=None):
         return self.framecls(space, self, w_globals)
 
@@ -404,6 +415,18 @@ class BuiltinCode(eval.Code):
 
     def getdocstring(self):
         return self.docstring
+
+class BuiltinCode1(BuiltinCode):
+    def fastcall_1(self, space, w1):
+        return self.fastfunc_1(space, w1)
+
+class BuiltinCode2(BuiltinCode):
+    def fastcall_2(self, space, w1, w2):
+        return self.fastfunc_2(space, w1, w2)
+
+class BuiltinCode3(BuiltinCode):
+    def fastcall_3(self, space, w1, w2, w3):
+        return self.fastfunc_3(space, w1, w2, w3)
 
 class interp2app(Wrappable):
     """Build a gateway that calls 'f' at interp-level."""
