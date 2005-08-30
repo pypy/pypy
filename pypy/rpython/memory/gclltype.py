@@ -36,9 +36,15 @@ def create_no_gc(llinterp, flowgraphs):
 
 from pypy.rpython.memory.gc import MarkSweepGC, SemiSpaceGC
 use_gc = MarkSweepGC
-def create_mark_sweep_gc(llinterp, flowgraphs):
-    from pypy.rpython.memory.gcwrapper import GcWrapper
+def create_gc(llinterp, flowgraphs):
+    from pypy.rpython.memory.gcwrapper import GcWrapper, AnnotatingGcWrapper
     wrapper = GcWrapper(llinterp, flowgraphs, use_gc)
     return wrapper
+    
+def create_gc_run_on_llinterp(llinterp, flowgraphs):
+    from pypy.rpython.memory.gcwrapper import GcWrapper, AnnotatingGcWrapper
+    wrapper = AnnotatingGcWrapper(llinterp, flowgraphs, use_gc)
+    return wrapper
+
 
 prepare_graphs_and_create_gc = create_no_gc

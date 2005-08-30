@@ -10,12 +10,14 @@ int_size = lltypesimulation.sizeof(lltype.Signed)
 class GCError(Exception):
     pass
 
-def get_dummy_annotate(gc):
+def get_dummy_annotate(gc_class):
     def dummy_annotate():
+        gc = gc_class()
         gc.get_roots = dummy_get_roots1 #prevent the get_roots attribute to 
         gc.get_roots = dummy_get_roots2 #be constants
         a = gc.malloc(1, 2)
         b = gc.malloc(2, 3)
+        gc.write_barrier(raw_malloc(1), raw_malloc(2), raw_malloc(1))
         gc.collect()
         return a - b
     return dummy_annotate
@@ -58,6 +60,11 @@ class GCBase(object):
     def write_barrier(self, addr, addr_to, addr_struct):
         addr_to.address[0] = addr
 
+    def free_memory(self):
+        #this will never be called at runtime, just during setup
+        "NOT_RPYTHON"
+        pass
+
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"
 
@@ -99,7 +106,8 @@ class MarkSweepGC(GCBase):
             gc_info = curr.address[0] - self.size_gc_header()
             # constants roots are not malloced and thus don't have their mark
             # bit reset
-            gc_info.signed[0] = 0 
+            gc_info.signed[0] = 0
+        free_non_gc_object(roots)
         while 1:  #mark
             curr = objects.pop()
 ##             print "object: ", curr
@@ -131,6 +139,7 @@ class MarkSweepGC(GCBase):
                         j += 1
                     i += 1
             gc_info.signed[0] = 1
+        free_non_gc_object(objects)
         newmo = AddressLinkedList()
         curr_heap_size = 0
         freed_size = 0
@@ -177,6 +186,13 @@ class SemiSpaceGC(GCBase):
         self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
 
+    def free_memory(self):
+        "NOT_RPYTHON"
+        raw_free(self.tospace)
+        self.tospace = NULL
+        raw_free(self.fromspace)
+        self.fromspace = NULL
+
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
@@ -185,14 +201,13 @@ class SemiSpaceGC(GCBase):
         if self.free + totalsize > self.top_of_space:
             self.collect()
             #XXX need to increase the space size if the object is too big
-            #for bonus points do big blocks differently
+            #for bonus points do big objects differently
             return self.malloc(typeid, length)
         result = self.free
         self.init_gc_object(result, typeid)
 ##         print "mallocing %s, size %s at %s" % (typeid, size, result)
         self.free += totalsize
         return result + self.size_gc_header()
-
 
     def collect(self):
 ##         print "collecting"
@@ -206,6 +221,7 @@ class SemiSpaceGC(GCBase):
                 break
 ##             print "root", root, root.address[0]
             root.address[0] = self.copy(root.address[0])
+        free_non_gc_object(roots)
         while scan < self.free:
             curr = scan + self.size_gc_header()
             self.trace_and_copy(curr)
@@ -321,14 +337,23 @@ class DeferredRefcountingGC(GCBase):
             if curr.address[0] == NULL:
                 break
             curr = curr.address[0]
+        dealloc_list = AddressLinkedList()
         while 1:
             candidate = self.zero_ref_counts.pop()
             self.length_zero_ref_counts -= 1
             if candidate == NULL:
                 break
             refcount = self.refcount(candidate)
-            if refcount == 0:
-                self.deallocate(candidate)
+            if (refcount == 0 and
+                (candidate - self.size_gc_header()).signed[1] != -1):
+                (candidate - self.size_gc_header()).signed[1] = -1
+                dealloc_list.append(candidate)
+        while 1:
+            deallocate = dealloc_list.pop()
+            if deallocate == NULL:
+                break
+            self.deallocate(deallocate)
+        free_non_gc_object(dealloc_list)
         while 1:
             root = roots.pop()
             if root == NULL:

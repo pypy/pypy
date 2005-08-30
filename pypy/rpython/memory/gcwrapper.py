@@ -124,6 +124,17 @@ class QueryTypes(object):
                 self.varsize_offsets_to_gcpointers_in_var_part)
 
 
+def getfunctionptr(translator, graphfunc):
+    """Make a functionptr from the given Python function."""
+    graph = translator.getflowgraph(graphfunc)
+    llinputs = [v.concretetype for v in graph.getargs()]
+    lloutput = graph.getreturnvar().concretetype
+    FT = lltype.FuncType(llinputs, lloutput)
+    _callable = graphfunc
+    return lltypesimulation.functionptr(FT, graphfunc.func_name,
+                                        graph=graph, _callable=_callable)
+
+
 class GcWrapper(object):
     def __init__(self, llinterp, flowgraphs, gc_class):
         self.query_types = QueryTypes(llinterp)
@@ -183,15 +194,15 @@ class GcWrapper(object):
 
     def update_changed_addresses(self):
         for i, root in enumerate(self.roots):
-            if root._address != self.pseudo_root_pointers.address[i]:
-                print "address changed:", root._address, self.pseudo_root_pointers.address[i]
             root.__dict__['_address'] = self.pseudo_root_pointers.address[i]
 
-    def get_roots(self):
-        print "getting roots"
+    def get_roots_from_llinterp(self):
         if self.pseudo_root_pointers != NULL:
             raw_free(self.pseudo_root_pointers)
-        self.roots = self.llinterp.find_roots() + self.constantroots
+        roots = [r for r in self.llinterp.find_roots()
+                     if isinstance(r._TYPE.TO,
+                                   (lltype.GcStruct, lltype.GcArray))]
+        self.roots = roots + self.constantroots
         self.roots = [r for r in self.roots
                           if isinstance(r._TYPE.TO,
                                         (lltype.Struct, lltype.Array))]
@@ -199,6 +210,10 @@ class GcWrapper(object):
             self.pseudo_root_pointers = NULL
         else:
             self.pseudo_root_pointers = raw_malloc(len(self.roots) * INT_SIZE)
+        return self.roots
+
+    def get_roots(self):
+        self.get_roots_from_llinterp()
         ll = AddressLinkedList()
         for i, root in enumerate(self.roots):
             self.pseudo_root_pointers.address[i] = root._address
@@ -206,17 +221,79 @@ class GcWrapper(object):
         return ll
 
 class AnnotatingGcWrapper(GcWrapper):
-    def __init__(self, llinterp, gc, qt, constantroots):
-        super(AnnotatingGcWrapper, self).__init__(llinterp, gc, qt,
-                                                  constantroots)
+    def __init__(self, llinterp, flowgraphs, gc_class):
+        super(AnnotatingGcWrapper, self).__init__(llinterp, flowgraphs, gc_class)
+        # tell the real-built gc to free its memory as it is only used for
+        # initialisation
+        self.gc.free_memory()
         self.annotate_rtype_gc()
 
     def annotate_rtype_gc(self):
-        #XXXXX unfinished
-        func = gc.get_dummy_annotate(self.gc)
-        self.gc.get_roots = gc.dummy_get_roots
+        # annotate and specialize functions
+        gc_class = self.gc.__class__
+        def instantiate_linked_list():
+            return AddressLinkedList()
+        f1, f2, f3, f4, f5, f6, f7 = self.query_types.create_query_functions()
+        def instantiate_gc():
+            gc = gc_class()
+            gc.set_query_functions(f1, f2, f3, f4, f5, f6, f7)
+            return gc
+        func = gc.get_dummy_annotate(self.gc.__class__)
+        self.gc.get_roots = gc.dummy_get_roots1
         a = RPythonAnnotator()
-        res = a.build_types(func, [])
-        a.translator.view()
+        a.build_types(instantiate_gc, [])
+        a.build_types(func, [])
+        a.build_types(instantiate_linked_list, [])
         a.translator.specialize()
-        self.gc.get_roots = self.get_roots
+        self.annotator = a
+        
+        # convert constants
+        fgcc = FlowGraphConstantConverter(a.translator.flowgraphs)
+        fgcc.convert()
+        self.malloc_graph = a.translator.flowgraphs[self.gc.malloc.im_func]
+
+        # create a gc via invoking instantiate_gc
+        self.gcptr = self.llinterp.eval_function(
+            instantiate_gc, graph=a.translator.flowgraphs[instantiate_gc])
+        GETROOTS_FUNCTYPE = lltype.typeOf(
+            getfunctionptr(a.translator, gc.dummy_get_roots1)).TO
+        setattr(self.gcptr, "inst_get_roots",
+                lltypesimulation.functionptr(GETROOTS_FUNCTYPE, "get_roots",
+                                             _callable=self.get_roots))
+
+        #get funcptrs neccessary to build the result of get_roots
+        self.instantiate_linked_list = getfunctionptr(
+            a.translator, instantiate_linked_list)
+        self.append_linked_list = getfunctionptr(
+            a.translator, AddressLinkedList.append.im_func)
+        self.pop_linked_list = getfunctionptr(
+            a.translator, AddressLinkedList.pop.im_func)
+        self.gc.get_roots = None
+        self.translator = a.translator
+#        a.translator.view()
+
+    def get_arg_malloc(self, TYPE, size=0):
+        typeid = self.query_types.get_typeid(TYPE)
+        return [self.gcptr, typeid, size]
+
+    def get_funcptr_malloc(self):
+        return self.llinterp.llt.functionptr(gc.gc_interface["malloc"], "malloc",
+                                             _callable=self.gc.malloc,
+                                             graph=self.malloc_graph)
+
+    def adjust_result_malloc(self, address, TYPE, size=0):
+        result = lltypesimulation.init_object_on_address(address, TYPE, size)
+        self.update_changed_addresses()
+        return result
+
+    def get_roots(self):
+        # call the llinterpreter to construct the result in a suitable way
+        self.get_roots_from_llinterp()
+        ll = self.llinterp.active_frame.op_direct_call(
+            self.instantiate_linked_list)
+        for i, root in enumerate(self.roots):
+            self.pseudo_root_pointers.address[i] = root._address
+            self.llinterp.active_frame.op_direct_call(
+                self.append_linked_list, ll,
+                self.pseudo_root_pointers + INT_SIZE * i)
+        return ll
