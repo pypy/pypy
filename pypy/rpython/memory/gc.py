@@ -5,6 +5,8 @@ from pypy.rpython.memory import lltypesimulation
 from pypy.rpython import lltype
 from pypy.rpython.objectmodel import free_non_gc_object
 
+import sys
+
 int_size = lltypesimulation.sizeof(lltype.Signed)
 
 class GCError(Exception):
@@ -171,7 +173,7 @@ class MarkSweepGC(GCBase):
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0
         addr.signed[1] = typeid
-
+    init_gc_object_immortal = init_gc_object
 
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
@@ -305,17 +307,18 @@ class SemiSpaceGC(GCBase):
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0
         addr.signed[1] = typeid
-
+    init_gc_object_immortal = init_gc_object
 
 class DeferredRefcountingGC(GCBase):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, max_refcount_zero=10, get_roots=None):
+    def __init__(self, max_refcount_zero=50, get_roots=None):
         self.zero_ref_counts = AddressLinkedList()
         self.length_zero_ref_counts = 0
         self.max_refcount_zero = max_refcount_zero
         self.set_query_functions(None, None, None, None, None, None, None)
         self.get_roots = get_roots
+        self.collecting = False
 
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
@@ -323,53 +326,61 @@ class DeferredRefcountingGC(GCBase):
             size += length * self.varsize_item_sizes(typeid)
         size_gc_header = self.size_gc_header()
         result = raw_malloc(size + size_gc_header)
-        print "mallocing %s, size %s at %s" % (typeid, size, result)
-        self.init_gc_object(result, typeid)
+##         print "mallocing %s, size %s at %s" % (typeid, size, result)
+        result.signed[0] = 0 # refcount
+        result.signed[1] = typeid
         return result + size_gc_header
 
     def collect(self):
+        if self.collecting:
+            return
+        else:
+            self.collecting = True
         roots = self.get_roots()
         curr = roots.first
         while 1:
             root = curr.address[1]
-            print "root", root, root.address[0]
+##             print "root", root, root.address[0]
+##             assert self.refcount(root.address[0]) >= 0, "refcount negative"
             self.incref(root.address[0])
             if curr.address[0] == NULL:
                 break
             curr = curr.address[0]
         dealloc_list = AddressLinkedList()
+        self.length_zero_ref_counts = 0
         while 1:
             candidate = self.zero_ref_counts.pop()
-            self.length_zero_ref_counts -= 1
             if candidate == NULL:
                 break
             refcount = self.refcount(candidate)
-            if (refcount == 0 and
-                (candidate - self.size_gc_header()).signed[1] != -1):
-                (candidate - self.size_gc_header()).signed[1] = -1
+            typeid = (candidate - self.size_gc_header()).signed[1]
+            if (refcount == 0 and typeid >= 0):
+                (candidate - self.size_gc_header()).signed[1] = -typeid - 1
                 dealloc_list.append(candidate)
         while 1:
             deallocate = dealloc_list.pop()
             if deallocate == NULL:
                 break
+            typeid = (deallocate - self.size_gc_header()).signed[1]
+            (deallocate - self.size_gc_header()).signed[1] = -typeid - 1
             self.deallocate(deallocate)
         free_non_gc_object(dealloc_list)
         while 1:
             root = roots.pop()
             if root == NULL:
                 break
-            print "root", root, root.address[0]
             self.decref(root.address[0])
+        self.collecting = False
 
     def write_barrier(self, addr, addr_to, addr_struct):
         self.decref(addr_to.address[0])
         addr_to.address[0] = addr
         self.incref(addr)
 
-    def deallocate(self, addr):
+    def deallocate(self, obj):
         gc_info = obj - self.size_gc_header()
         typeid = gc_info.signed[1]
-        print "deallocating", obj, typeid
+##         print "deallocating", obj, typeid
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
         while i < len(offsets):
@@ -391,7 +402,7 @@ class DeferredRefcountingGC(GCBase):
                     self.decref(pointer.address[0])
                     j += 1
                 i += 1
-        raw_free(addr)
+        raw_free(gc_info)
 
     def incref(self, addr):
         (addr - self.size_gc_header()).signed[0] += 1
@@ -400,19 +411,23 @@ class DeferredRefcountingGC(GCBase):
         if addr == NULL:
             return
         refcount = (addr - self.size_gc_header()).signed[0]
+##         assert refcount > 0, "neg refcount"
         if refcount == 1:
             self.zero_ref_counts.append(addr)
             self.length_zero_ref_counts += 1
             if self.length_zero_ref_counts > self.max_refcount_zero:
                 self.collect()
         (addr - self.size_gc_header()).signed[0] = refcount - 1
-        assert refcount > 0
 
     def refcount(self, addr):
-        (addr - self.size_gc_header()).signed[0]
+        return (addr - self.size_gc_header()).signed[0]
 
     def init_gc_object(self, addr, typeid):
         addr.signed[0] = 0 # refcount
+        addr.signed[1] = typeid
+
+    def init_gc_object_immortal(self, addr, typeid):
+        addr.signed[0] = sys.maxint // 2 # refcount
         addr.signed[1] = typeid
 
     def size_gc_header(self, typeid=0):

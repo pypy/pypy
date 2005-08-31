@@ -190,7 +190,7 @@ class GcWrapper(object):
         return self.llinterp.llt.functionptr(gc.gc_interface["write_barrier"],
                                              "write_barrier",
                                              _callable=self.gc.write_barrier)
-
+ 
 
     def update_changed_addresses(self):
         for i, root in enumerate(self.roots):
@@ -251,6 +251,8 @@ class AnnotatingGcWrapper(GcWrapper):
         fgcc = FlowGraphConstantConverter(a.translator.flowgraphs)
         fgcc.convert()
         self.malloc_graph = a.translator.flowgraphs[self.gc.malloc.im_func]
+        self.write_barrier_graph = a.translator.flowgraphs[
+            self.gc.write_barrier.im_func]
 
         # create a gc via invoking instantiate_gc
         self.gcptr = self.llinterp.eval_function(
@@ -260,7 +262,6 @@ class AnnotatingGcWrapper(GcWrapper):
         setattr(self.gcptr, "inst_get_roots",
                 lltypesimulation.functionptr(GETROOTS_FUNCTYPE, "get_roots",
                                              _callable=self.get_roots))
-
         #get funcptrs neccessary to build the result of get_roots
         self.instantiate_linked_list = getfunctionptr(
             a.translator, instantiate_linked_list)
@@ -270,7 +271,7 @@ class AnnotatingGcWrapper(GcWrapper):
             a.translator, AddressLinkedList.pop.im_func)
         self.gc.get_roots = None
         self.translator = a.translator
-#        a.translator.view()
+##         a.translator.view()
 
     def get_arg_malloc(self, TYPE, size=0):
         typeid = self.query_types.get_typeid(TYPE)
@@ -285,6 +286,26 @@ class AnnotatingGcWrapper(GcWrapper):
         result = lltypesimulation.init_object_on_address(address, TYPE, size)
         self.update_changed_addresses()
         return result
+
+    def get_arg_write_barrier(self, obj, index_or_field, item):
+        #XXX: quick hack to get the correct addresses, fix later
+        layout = lltypelayout.get_layout(lltype.typeOf(obj).TO)
+        if isinstance(lltype.typeOf(obj).TO, lltype.Array):
+            assert isinstance(index_or_field, int)
+            offset = layout[0] + layout[1] * index_or_field
+            addr_to = obj._address + layout[0] + index_or_field * layout[1]
+            return self.gcptr, item._address, addr_to, obj._address
+        else:
+            offset = layout[index_or_field]
+            addr_to = obj._address + offset
+            return self.gcptr, item._address, addr_to, obj._address
+            
+    def get_funcptr_write_barrier(self):
+        return self.llinterp.llt.functionptr(gc.gc_interface["write_barrier"],
+                                             "write_barrier",
+                                             _callable=self.gc.write_barrier,
+                                             graph=self.write_barrier_graph)
+
 
     def get_roots(self):
         # call the llinterpreter to construct the result in a suitable way

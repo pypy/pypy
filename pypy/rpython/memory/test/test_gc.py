@@ -30,6 +30,15 @@ def teardown_module(mod):
     gclltype.prepare_graphs_and_create_gc = gclltype.create_no_gc
 
 class TestMarkSweepGC(object):
+    def setup_class(cls):
+        cls.prep_old = gclltype.prepare_graphs_and_create_gc
+        gclltype.use_gc = MarkSweepGC
+        cls.old = gclltype.use_gc
+
+    def teardown_class(cls):
+        gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
+        gclltype.use_gc = cls.old
+
     def test_llinterp_lists(self):
         curr = simulator.current_size
         def malloc_a_lot():
@@ -108,11 +117,21 @@ class TestSemiSpaceGCRunningOnLLinterp(TestMarkSweepGC):
         gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
         gclltype.use_gc = cls.old
 
-
-class DONOTTestDeferredRefcountingGC(TestMarkSweepGC):
+class TestDeferredRefcountingGC(TestMarkSweepGC):
     def setup_class(cls):
         gclltype.use_gc = DeferredRefcountingGC
         cls.old = gclltype.use_gc
     def teardown_class(cls):
         gclltype.use_gc = cls.old
 
+
+class TestDeferredRefcountingGCRunningOnLLinterp(TestMarkSweepGC):
+    def setup_class(cls):
+        cls.prep_old = gclltype.prepare_graphs_and_create_gc
+        gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
+        gclltype.use_gc = DeferredRefcountingGC
+        cls.old = gclltype.use_gc
+
+    def teardown_class(cls):
+        gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
+        gclltype.use_gc = cls.old

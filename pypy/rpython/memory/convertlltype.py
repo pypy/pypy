@@ -58,7 +58,7 @@ class LLTypeConverter(object):
             self.curraddress += size
             if self.gc is not None:
                 typeid = self.query_types.get_typeid(TYPE)
-                self.gc.init_gc_object(startaddr, typeid)
+                self.gc.init_gc_object_immortal(startaddr, typeid)
                 startaddr += self.gc.size_gc_header(typeid)
                 self.curraddress += self.gc.size_gc_header(typeid)
             ptr = init_object_on_address(startaddr, TYPE, arraylength)
@@ -98,7 +98,7 @@ class LLTypeConverter(object):
             self.curraddress += size
             if self.gc is not None:
                 typeid = self.query_types.get_typeid(TYPE)
-                self.gc.init_gc_object(startaddr, typeid)
+                self.gc.init_gc_object_immortal(startaddr, typeid)
                 startaddr += self.gc.size_gc_header(typeid)
                 self.curraddress += self.gc.size_gc_header(typeid)
             ptr = init_object_on_address(startaddr, TYPE, inlinedarraylength)
