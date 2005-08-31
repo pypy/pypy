@@ -14,6 +14,9 @@ from pypy.rpython.memory.test.test_llinterpsim import interpret
 from pypy.rpython.memory.lladdress import simulator
 from pypy.rpython.objectmodel import free_non_gc_object
 
+import struct
+INT_SIZE = struct.calcsize("l")
+
 def setup_module(mod):
     def stdout_ignore_ll_functions(msg):
         strmsg = str(msg)
@@ -51,7 +54,7 @@ class TestMarkSweepGC(object):
                     j += 1
                     a.append(j)
         res = interpret(malloc_a_lot, [])
-        assert simulator.current_size - curr < 16000
+        assert simulator.current_size - curr < 16000 * INT_SIZE / 4
         print "size before: %s, size after %s" % (curr, simulator.current_size)
 
     def test_llinterp_tuples(self):
@@ -67,7 +70,7 @@ class TestMarkSweepGC(object):
                     j += 1
                     b.append((1, j, i))
         res = interpret(malloc_a_lot, [])
-        assert simulator.current_size - curr < 16000
+        assert simulator.current_size - curr < 16000 * INT_SIZE / 4
         print "size before: %s, size after %s" % (curr, simulator.current_size)
 
     def test_global_list(self):
@@ -90,7 +93,7 @@ class TestMarkSweepGC(object):
             return len("".join(lst))
         res = interpret(concat, [100])
         assert res == concat(100)
-        assert simulator.current_size - curr < 16000
+        assert simulator.current_size - curr < 16000 * INT_SIZE / 4
 
 class TestMarkSweepGCRunningOnLLinterp(TestMarkSweepGC):
     def setup_class(cls):
