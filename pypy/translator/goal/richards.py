@@ -399,9 +399,9 @@ class Richards(object):
 
 def entry_point():
     r = Richards()
-    startTime = time.clock()
+    startTime = time.time()
     result = r.run()
-    endTime = time.clock()
+    endTime = time.time()
     return result, startTime, endTime
 
 def main(entry_point = entry_point):
