@@ -12,6 +12,7 @@ class ExecutionContext:
         self.w_tracefunc = None
         self.w_profilefunc = None
         self.is_tracing = 0
+        self.ticker = 0
         self.compiler = space.createcompiler()
 
     def enter(self, frame):
@@ -58,10 +59,13 @@ class ExecutionContext:
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
 
-        # First, call yield_thread() before each bytecode ---
-        # XXX this should be called only every N bytecodes,
+        # First, call yield_thread() before each Nth bytecode,
         #     as selected by sys.setcheckinterval()
-        self.space.threadlocals.yield_thread()
+        ticker = self.ticker
+        if ticker <= 0:
+            self.space.threadlocals.yield_thread()
+            ticker = self.space.sys.checkinterval
+        self.ticker = ticker - 1
 
         # Tracing logic
         if self.is_tracing or frame.w_f_trace is None:

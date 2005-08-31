@@ -53,13 +53,12 @@ def getrecursionlimit(space):
 
     return space.wrap(space.sys.recursionlimit)
 
-checkinterval = 100
-
 def setcheckinterval(space, w_interval):
     """setcheckinterval(n)
     Tell the Python interpreter to check for asynchronous events every
     n instructions.  This also affects how often thread switches occur."""
     space.sys.checkinterval = space.int_w(w_interval) 
+    space.getexecutioncontext().ticker = 0
 
 def getcheckinterval(space):
     """getcheckinterval() -> current check interval; see setcheckinterval()."""

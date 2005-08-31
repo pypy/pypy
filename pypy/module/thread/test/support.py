@@ -26,3 +26,8 @@ class GenericTestThread:
                     time.sleep(0.002)
             return busywait
         """)
+
+        space.appexec([], """():
+            import sys
+            sys.setcheckinterval(1)
+        """)
