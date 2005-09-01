@@ -772,6 +772,12 @@ img#pyimg {
     top: 4px;
     left: 4px;
 }
+
+img#extraimg {
+    position: absolute;
+    right: 14px; 
+    top: 4px;
+}
     
 div#navspace {
     position: absolute;
