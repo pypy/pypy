@@ -111,7 +111,7 @@ a[href] { color: black; text-decoration: underline; }
 
 span.menu_selected {
 	color: black;
-  	font: 140% Verdana, Helvetica, Arial, sans-serif;
+  	font: 120% Verdana, Helvetica, Arial, sans-serif;
 	text-decoration: none;
     padding-right: 0.3em;
     background-color: #cccccc;
@@ -120,14 +120,14 @@ span.menu_selected {
 
 a.menu {
   	/*color: #3ba6ec; */
-  	font: 140% Verdana, Helvetica, Arial, sans-serif;
+  	font: 120% Verdana, Helvetica, Arial, sans-serif;
 	text-decoration: none;
     padding-right: 0.3em;
 }
 
 a.menu[href]:visited, a.menu[href]:link{
   	/*color: #3ba6ec; */
-  	font: 140% Verdana, Helvetica, Arial, sans-serif;
+  	font: 120% Verdana, Helvetica, Arial, sans-serif;
 	text-decoration: none;
 }
 
