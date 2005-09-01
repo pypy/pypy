@@ -665,7 +665,7 @@ show class hierarchy graph"""
                     import shutil
                     exename = mkexename(c_entry_point)
                     newexename = mkexename('./pypy-c')
-                    shutil.move(exename, newexename)
+                    shutil.copy(exename, newexename)
                     c_entry_point = newexename
             update_usession_dir()
             if not options['-o']:
