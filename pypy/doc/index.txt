@@ -23,6 +23,9 @@ about our low level code generator backends.
 `parser`_ contains the beginnings of documentation about
 the parser (and the compiler at some point). 
 
+`garbage collection`_ contains documentation about
+garbage collection in PyPy.
+
 `FAQ`_ contains the beginning of frequently asked questions.
 Right now it's a bit empty.
 
@@ -50,7 +53,7 @@ recent compliance test runs against PyPy.
 .. _`getting started`: getting-started.html 
 .. _`theory`: theory.html
 .. _`bytecode interpreter`: interpreter.html 
-
+.. _`garbage collection`: garbage_collection.html
 .. _`directory reference`: 
 
 PyPy directory cross-reference 

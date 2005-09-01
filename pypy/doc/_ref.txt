@@ -39,11 +39,16 @@
 .. _`pypy/rpython`:
 .. _`rpython/`: ../../pypy/rpython
 .. _`pypy/rpython/extfunctable.py`: ../../pypy/rpython/extfunctable.py
-.. _`pypy/rpython/lltype.py`:
-.. _`rpython/lltype.py`: ../../pypy/rpython/lltype.py
+.. _`rpython/lltype.py`:
+.. _`pypy/rpython/lltype.py`: ../../pypy/rpython/lltype.py
+.. _`pypy/rpython/memory/gc.py`: ../../pypy/rpython/memory/gc.py
+.. _`pypy/rpython/memory/lladdress.py`: ../../pypy/rpython/memory/lladdress.py
+.. _`pypy/rpython/memory/simulator.py`: ../../pypy/rpython/memory/simulator.py
+.. _`pypy/rpython/memory/support.py`: ../../pypy/rpython/memory/support.py
 .. _`pypy/rpython/module/`: ../../pypy/rpython/module
 .. _`pypy/rpython/module/ll_os.py`: ../../pypy/rpython/module/ll_os.py
 .. _`pypy/rpython/module/test`: ../../pypy/rpython/module/test
+.. _`pypy/rpython/objectmodel.py`: ../../pypy/rpython/objectmodel.py
 .. _`rpython/rint.py`: ../../pypy/rpython/rint.py
 .. _`rpython/rlist.py`: ../../pypy/rpython/rlist.py
 .. _`rpython/rmodel.py`: ../../pypy/rpython/rmodel.py

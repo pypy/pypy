@@ -1,0 +1,318 @@
+==========================
+Garbage Collection in PyPy
+==========================
+
+.. contents::
+.. sectnum::
+
+Current Situation and Objectives
+================================
+
+This document describes the current status as well as plans for the future of
+garbage collection in PyPy. Work on this began as a `Summer-of-Code-project`_
+(thanks Google, especially Chris DiBona, who put lots of effort in making
+everything run smoothly) of Carl Friedrich Bolz.
+
+The central idea is of course to implement PyPy's garbage collectors in Python
+itself. At the moment (August 2005) the backends have the responsibility for
+implementing garbage collection. GenC provides the choice between reference
+counting and using the `Boehm-Demers-Weiser garbage collector`_ The LLVM
+backend offers only the Boehm collector. The idea is that the collectors
+should be written in a way so that the backends can share this code.
+
+.. _`Summer-of-Code-project`: http://code.google.com/summerofcode.html
+.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+
+
+Memory Access
+=============
+
+The garbage collector needs a way to generically access memory. For this there
+is a special ``address`` class that behaves like a pointer to a location in
+memory of unspecified type. Offsets between addresses are regular integers.
+
+Addresses
+---------
+
+The ``address`` class is implemented in the file
+`pypy/rpython/memory/lladdress.py`_. There is one special ``address``
+instance, ``NULL``, which is equivalent to a null pointer.
+
+
+Manipulation of Memory
+++++++++++++++++++++++
+
+The following functions are used to directly manipulate memory:
+
+   ``raw_malloc(size) --> address``: 
+       Allocates a block of memory of ``size`` bytes. This is (apart from the
+       ``NULL`` object) a canonical way to create new addresses.
+
+   ``raw_free(addr) --> None``:
+       Frees a block of memory
+
+   ``raw_memcopy(addr_from, addr_to, size) --> None``:
+       Copies ``size`` bytes from ``addr_from`` to ``addr_to``
+
+
+
+Address arithmetic
+++++++++++++++++++
+
+Pointer arithmetic between the addresses is done via overloaded operators:
+Substraction of two addresses gives an offset (integer), addition/substraction
+of an offset (integer) gives another address. Furthermore addresses can be
+compared to each other.
+
+Accessing Memory
+++++++++++++++++
+
+Given an instance ``addr`` of ``address`` memory is accessed the following
+way:
+
+    ``addr.signed[index] --> signed``:
+         reads a signed integer from the point in memory that is ``index``
+         signed integers distant from the ``addr``
+        
+    ``addr.signed[offset] = value``:
+         writes the signed integer ``value`` to the point in memory that is
+         ``index`` signed integers distant from the ``addr``
+
+Memory access is supported for the datatypes ''signed, unsigned, char`` and ``address``.
+
+Addresses in the Translation Toolchain
+---------------------------------------
+
+Instances of the ``address`` class are annotated as ``SomeAddress``. The
+RTyper produces senseful results for operations with addresses: All the
+basic functions manipulating addresses like ``raw_malloc`` and so on are
+turned into operations in the flow graph.
+
+
+The Memory Simulator
+--------------------
+
+The memory simulator (`pypy/rpython/memory/simulator.py`_) lets instances of
+the ``address`` class and related functions work in a realistic manner while
+using them in a Python program (as opposed to after translation). The
+simulator implements memory using the ``array`` module from the Python
+standard library. It checks for common memory access errors to help finding
+bugs early:
+
+   - reading from uninitialized memory
+   - reading from freed memory or the ``NULL`` address
+   - freeing a memory block twice or more
+   - freeing a memory block that was not malloced
+   - trying to free the ``NULL`` address
+   - trying to malloc more memory than the simulated RAM has
+
+
+The Object Model
+================
+
+The GC needs to gain some sort of information about the objects it works
+with. To achieve this an integer ``typeid`` is attached_ to every object the
+GC manages, which is unique to each `low-level type`_. The GC uses this
+id to find pointers that are contained in the object and to find out the size
+of the object.
+
+.. _`low-level type`: translation.html#low-level-type
+
+.. _above:
+
+Getting Information about Object Layout
+---------------------------------------
+
+The following functions are avaiable to the GC to get information about
+objects:
+
+    ``is_varsize(typeid) --> bool``:
+        returns whether the type is variable sized, i.e. is it an Array or a
+        struct with an inlined array
+
+    ``offsets_to_gc_pointers(typeid)`` --> list of offsets:
+        returns a list of offsets to pointers that need to be traced by the
+        garbage collection and are contained within the object
+
+    ``fixed_size(typeid)`` --> size:
+        returns the size in bytes of the fixed size part of the type. For
+        non-varsize types this is just the size of the whole object.
+
+    ``varsize_item_sizes(typeid)`` --> size:
+        returns the size of one item of the variable sized part of the type
+
+    ``varsize_offset_to_variable_part(typeid)`` --> offset:
+        returns the offset to the first element of the variable sized part of
+        the type
+
+    ``varsize_offset_to_length(typeid)`` --> offset:
+        returns _the offset to the length (number of items) of the variable
+        sized type
+
+    ``varsize_offsets_to_gcpointers_in_var_part(typeid)`` --> list of offsets:
+        returns a list of offsets to pointers that need to be traced by the
+        collection in one element of the variable sized part of the type
+
+
+Garbage Collectors
+==================
+
+Explicit Memory Management
+--------------------------
+
+The data structures of the GC can not be handled by the GC itself. Therefore
+it is neccessary to have explicit management of memory. One possibility for
+doing this is via ``raw_malloc, raw_free``  and addresses. Another possiblity
+is the following: Classes can be declared as being explicitely mangaed by
+attaching a attribute ``_alloc_flavor_ = "raw"`` to the class.
+
+Instance creation is done the regular way, to free an instance there is a
+special function ``free_non_gc_object`` defined in
+`pypy/rpython/objectmodel.py`_. Trying to access any attribute of the instance
+after it was freed gives an exception (which is not equivalent to the
+behaviour after translation: there it would just lead to a crash) Example::
+
+    class A(object):
+        _alloc_flavor_ = "raw"
+        def __init__(self):
+            self.x = ...
+        def method(self):
+            ...
+        ...
+
+    a = A()
+    a.x = 1
+    a.method()
+    free_non_gc_object(a)
+    a.method() #--> crash
+
+The RTyper uses for instantiations of objects with an ``_alloc_flavor_ =
+"raw"`` the space operations ``flavored_malloc`` and the operation
+``flavored_free`` for a call to ``free_non_gc_object``.
+
+Accessing the Root Set
+----------------------
+
+The garbage collector can access the current set of roots via a function
+``get_roots``:
+
+    ``get_roots()`` --> linked list of addresses:
+        returns a linked list (see `pypy/rpython/memory/support.py`_) of
+	addresses to pointers to objects that can be reached from the running
+	program at the moment
+
+The garbage collector needs to make sure that the running program can still
+access the objects in the root set after the collection -- this means that for
+a moving collector the pointers to objects need to be updated.
+
+.. _attached:
+
+Memory Layout of the Data of the Garbage Collector
+--------------------------------------------------
+
+The Garbage Collector stores the data it needs to attach to an object directly
+in front of it. The program sees gets only pointers to the part of the object
+that containt non-GC-data::
+
+                        +---<- object model sees only this
+                        |
+    +---------+---------+----------------------------+
+    | gc info | type id | object data                |
+    | signed  | signed  | whatever ...               |
+    +---------+---------+----------------------------+
+
+At the moment all collectors put two signed integers in front of the
+object. Directly in front of the object data the typeid of the type of the
+object is stored. In front of that is another integer which usage is dependent
+of the type of the GC (for example the refcounting GC stores the reference
+count there).
+
+Garbage Collection Hooks
+------------------------
+
+There are different methods that each GC needs to implement. These will be
+called while the main program is running (either by the LLInterpreter_ or the
+calls are inserted to appropriate places by the backend):
+
+    ``malloc(self, typeid, length=0)`` --> address:
+        returns the address of a suitably sized memory chunk for an object
+        that is supposed to be garbage collected. The GC can calculate the
+        size in bytes with the typeid and the length together with the
+        functions described above_.
+
+    ``collect(self) --> None``:
+        triggers a garbage collection
+
+    ``size_gc_header(self, typeid)`` --> size:
+        returns the size of the GC header (for all GCs implemented at the
+        moment this is a constant, though the size of the GC header might also
+        be dependent on the type of the object for more sophisticated GCs)
+
+    ``init_gc_object(self, addr, typeid) --> None``:
+        initializes the gc header of an object
+
+    ``init_gc_object_immortal(self, addr, typeid) --> None``:
+        initializes the gc header of an object that is supposed to be immortal
+        (for example a refcounting GC might set the refcount to a very big
+        value that will never reach zero).
+
+    ``write_barrier(self, addr, addr_to, addr_struct) --> None``:
+        this method is called if a pointer to an object managed by the GC is
+        written into another object on the heap. The method is supposed to
+        always write the address ``addr`` to the address ``addr_to`` plus do
+        all the things that are needed for the GC. The address ``addr_struct``
+        points to the beginning of the structure that contains
+        ``addr_to``. For example a refcounting GC will increment the refcount
+        of ``addr`` and decrement that of the object stored at the old address
+        in ``addr_to``.
+
+.. _LLInterpreter: translation.html#llinterpreter
+
+Description of Implemented Garbage Collectors
+---------------------------------------------
+
+At the moment there are three different garbage collectors implemented. They
+are all done naively in one way or the other and are mainly there to
+demonstrate the concepts. They can be found in
+`pypy/rpython/memory/gc.py`_. For a more detailed description of the
+algorithms used see `this page`_.
+
+.. _`this page`: http://www.memorymanagement.org/articles/recycle.html
+
+Mark and Sweep
+++++++++++++++
+
+This is quite a regular mark and sweep collector. The biggest difference is
+that it keeps a linked list of all malloced objects because it has no other
+way to find malloced objects later. It uses the gc info fields as a
+ridiculously big mark bit. Collection is triggered if the size of the objects
+malloced since the last collection is as big as the current heap size.
+
+Copying Garbage Collection
+++++++++++++++++++++++++++
+
+This is a simple implementation of `Cheney's copying collector`_. The heap is
+divided in two spaces, fromspace and tospace. New objects are allocated to
+tospace. When tospace is full, the roles of the spaces are exchanged. Then,
+starting from the root objects, all reachable objects are copied to the new
+space. The special feature of Cheney's algorithm is that this is done in an
+essentially non-recursive manner.
+
+.. _`Cheney's copying collector`: http://portal.acm.org/citation.cfm?id=362798
+
+
+Deferred Reference Counting
++++++++++++++++++++++++++++
+
+Deferred reference counting is a reference counting algorithm that tries to
+reduce the overhead of reference counting at the expense of the immediacy of a
+regular refcounting implementation. To achieve this the refcounts of an
+objects count only the references from other objects on the heap, not
+references from the stack. If the refcount of an object reaches zero it can 
+not be freed immediately (since it could be reachable from the stack). Instead
+it is added to a zero-refcount-list. When collection occurs the refcounts of
+all the root objects are increased by one. All the objects of the
+zero-refcount-list that still have a refcount of zero are freed. Afterwards
+the refcounts of roots are decreased by one again.
+
+.. include:: _ref.txt

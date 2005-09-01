@@ -921,6 +921,8 @@ Exception handling:
         exception-catching links.)
 
 
+.. _LLInterpreter:
+
 The LLInterpreter
 -----------------
 
