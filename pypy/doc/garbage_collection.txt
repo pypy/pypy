@@ -60,7 +60,7 @@ Address arithmetic
 ++++++++++++++++++
 
 Pointer arithmetic between the addresses is done via overloaded operators:
-Substraction of two addresses gives an offset (integer), addition/substraction
+Subtraction of two addresses gives an offset (integer), addition/subtraction
 of an offset (integer) gives another address. Furthermore addresses can be
 compared to each other.
 
@@ -84,7 +84,7 @@ Addresses in the Translation Toolchain
 ---------------------------------------
 
 Instances of the ``address`` class are annotated as ``SomeAddress``. The
-RTyper produces senseful results for operations with addresses: All the
+RTyper produces sensible results for operations with addresses: All the
 basic functions manipulating addresses like ``raw_malloc`` and so on are
 turned into operations in the flow graph.
 
@@ -123,7 +123,7 @@ of the object.
 Getting Information about Object Layout
 ---------------------------------------
 
-The following functions are avaiable to the GC to get information about
+The following functions are available to the GC to get information about
 objects:
 
     ``is_varsize(typeid) --> bool``:
@@ -161,9 +161,9 @@ Explicit Memory Management
 --------------------------
 
 The data structures of the GC can not be handled by the GC itself. Therefore
-it is neccessary to have explicit management of memory. One possibility for
-doing this is via ``raw_malloc, raw_free``  and addresses. Another possiblity
-is the following: Classes can be declared as being explicitely mangaed by
+it is necessary to have explicit management of memory. One possibility for
+doing this is via ``raw_malloc, raw_free``  and addresses. Another possibility
+is the following: Classes can be declared as being explicitly managed by
 attaching a attribute ``_alloc_flavor_ = "raw"`` to the class.
 
 Instance creation is done the regular way, to free an instance there is a
@@ -211,10 +211,10 @@ Memory Layout of the Data of the Garbage Collector
 --------------------------------------------------
 
 The Garbage Collector stores the data it needs to attach to an object directly
-in front of it. The program sees gets only pointers to the part of the object
-that containt non-GC-data::
+in front of it. The program sees only pointers to the part of the object
+that contains non-GC-specific data::
 
-                        +---<- object model sees only this
+                        +---<- program sees only this
                         |
     +---------+---------+----------------------------+
     | gc info | type id | object data                |
