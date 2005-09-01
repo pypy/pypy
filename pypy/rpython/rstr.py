@@ -153,6 +153,9 @@ class __extend__(StringRepr):
         if not isinstance(r_lst, ListRepr):
             raise TyperError("string.join of non-list: %r" % r_lst)
         v_str, v_lst = hop.inputargs(string_repr, r_lst)
+        cname = inputconst(Void, "length")
+        v_length = hop.genop("getfield", [v_lst, cname],
+                            resulttype=Signed)
         cname = inputconst(Void, "items")
         v_items = hop.genop("getfield", [v_lst, cname],
                             resulttype=r_lst.lowleveltype.TO.items)
@@ -163,13 +166,13 @@ class __extend__(StringRepr):
                 llfn = ll_join_chars
             else:
                 raise TyperError("''.join() of non-string list: %r" % r_lst)
-            return hop.gendirectcall(llfn, v_items)
+            return hop.gendirectcall(llfn, v_length, v_items)
         else:
             if r_lst.item_repr == string_repr:
                 llfn = ll_join
             else:
                 raise TyperError("sep.join() of non-string list: %r" % r_lst)
-            return hop.gendirectcall(llfn, v_str, v_items)
+            return hop.gendirectcall(llfn, v_str, v_length, v_items)
 
     def rtype_method_split(_, hop):
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
@@ -362,7 +365,7 @@ def do_stringformat(hop, sourcevarsrepr):
         hop.genop('setarrayitem', [vtemp, i, vchunk])
 
     hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
-    return hop.gendirectcall(ll_join_strs, vtemp)
+    return hop.gendirectcall(ll_join_strs, size, vtemp)
     
 
 class __extend__(pairtype(StringRepr, TupleRepr)):
@@ -780,10 +783,10 @@ def ll_lower(s):
         i += 1
     return result
 
-def ll_join(s, items):
+def ll_join(s, length, items):
     s_chars = s.chars
     s_len = len(s_chars)
-    num_items = len(items)
+    num_items = length
     if num_items == 0:
         return emptystr
     itemslen = 0
@@ -820,8 +823,8 @@ def ll_join(s, items):
         i += 1
     return result
 
-def ll_join_strs(items):
-    num_items = len(items)
+def ll_join_strs(length, items):
+    num_items = length
     itemslen = 0
     i = 0
     while i < num_items:
@@ -842,8 +845,8 @@ def ll_join_strs(items):
         i += 1
     return result
 
-def ll_join_chars(chars):
-    num_chars = len(chars)
+def ll_join_chars(length, chars):
+    num_chars = length
     result = malloc(STR, num_chars)
     res_chars = result.chars
     i = 0
