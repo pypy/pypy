@@ -120,7 +120,9 @@ class W_Object(W_Root, object):
     "Parent base class for wrapped objects."
 
     def __init__(w_self, space):
-        w_self.space = space     # XXX not sure this is ever used any more
+        w_self.space = space    # XXX not sure this is ever used any more
+        # YYY I think we need it for calling hash() from an ll dicts impl.
+        # without explicitly passing the space.
 
     def __repr__(self):
         s = '%s(%s)' % (
