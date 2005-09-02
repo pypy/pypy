@@ -179,7 +179,7 @@ class FuncNode(ConstantLLVMNode):
         else:
             last_op_index = None
         for op_index, op in enumerate(block.operations):
-            if True:   # print out debug string
+            if False:   # print out debug string
                 codewriter.newline()
                 codewriter.comment("** %s **" % str(op))
                 info = self.db.get_op2comment(op)

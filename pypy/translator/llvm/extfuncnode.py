@@ -26,8 +26,5 @@ class ExternalFuncNode(ConstantLLVMNode):
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())
 
-    #def writeimpl(self, codewriter): 
-    #    self.used_external_functions[self.ref] = True
-
     def writeglobalconstants(self, codewriter):
         pass

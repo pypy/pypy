@@ -26,11 +26,12 @@ def write_constructor(db, codewriter, ref, constructor_decl, ARRAY,
     codewriter.malloc("%ptr", "sbyte", "%usize", atomic=ARRAY._is_atomic())
     codewriter.cast("%result", "sbyte*", "%ptr", ref + "*")
 
-    #if ARRAY is STR.chars:
-    #    #XXX instead of memset we could probably just zero the hash and string terminator
-    #    codewriter.call('%memset_result', 'sbyte*', '%memset', ['%ptr', '0', '%usize',], ['sbyte*', word, uword], cconv='ccc')
-    codewriter.call('%memset_result', 'sbyte*', '%memset', ['%ptr', '0', '%usize',], ['sbyte*', word, uword], cconv='ccc')
- 
+    if ARRAY is STR.chars:
+        #XXX instead of memset we could probably just zero the hash and string terminator
+        codewriter.call_void('%llvm.memset', ['%ptr', '0', '%usize', '0'], ['sbyte*', 'ubyte', 'uint', 'uint'], cconv='ccc')
+    else:
+        codewriter.call_void('%llvm.memset', ['%ptr', '0', '%usize', '0'], ['sbyte*', 'ubyte', 'uint', 'uint'], cconv='ccc')
+
     indices_to_arraylength = tuple(indices_to_array) + (("uint", 0),)
     # the following accesses the length field of the array 
     codewriter.getelementptr("%arraylength", ref + "*", 

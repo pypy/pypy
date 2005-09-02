@@ -351,7 +351,7 @@ class OpWriter(object):
             assert issubclass(link.exitcase, Exception)
 
             etype = self.db.obj2node[link.llexitcase._obj]
-            current_exception_type = etype.get_ref()            
+            current_exception_type = etype.get_ref()
             target          = self.node.block_to_name[link.target]
             exc_found_label = block_label + '_exception_found_branchto_' + target
             last_exc_type_var, last_exc_value_var = None, None

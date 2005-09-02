@@ -78,37 +78,39 @@ class StructVarsizeTypeNode(StructTypeNode):
                                   self.constructor_decl,
                                   current, 
                                   indices_to_array)
-        
+
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain
     a primitive,
     a struct,
     pointer to struct/array
     """
-    __slots__ = "db value structtype ref".split()
+    __slots__ = "db value structtype ref _get_ref_cache _get_types".split()
 
     def __init__(self, db, value):
         self.db = db
         self.value = value
         self.structtype = self.value._TYPE
         self.ref = self.make_ref('%structinstance', '')
-        
+        self._get_ref_cache = None
+        self._get_types = self._compute_types()
+
     def __str__(self):
         return "<StructNode %r>" % (self.ref,)
 
-    def _gettypes(self):
+    def _compute_types(self):
         return [(name, self.structtype._flds[name])
                 for name in self.structtype._names_without_voids()]
 
     def _getvalues(self):
         values = []
-        for name, T in self._gettypes():
+        for name, T in self._get_types:
             value = getattr(self.value, name)
             values.append(self.db.repr_constant(value)[1])
         return values
     
     def setup(self):
-        for name, T in self._gettypes():
+        for name, T in self._get_types:
             assert T is not lltype.Void
             value = getattr(self.value, name)
             self.db.prepare_constant(T, value)
@@ -137,11 +139,14 @@ class StructNode(ConstantLLVMNode):
 
     def get_ref(self):
         """ Returns a reference as used for operations in blocks. """        
+        if self._get_ref_cache:
+            return self._get_ref_cache
         p, c = lltype.parentlink(self.value)
         if p is None:
             ref = self.ref
         else:
             ref = self.db.get_childref(p, c)
+        self._get_ref_cache = ref
         return ref
 
     def get_pbcref(self, toptr):
@@ -172,14 +177,14 @@ class StructVarsizeNode(StructNode):
 
     def _getvalues(self):
         values = []
-        for name, T in self._gettypes()[:-1]:
+        for name, T in self._get_types[:-1]:
             value = getattr(self.value, name)
             values.append(self.db.repr_constant(value)[1])
         values.append(self._get_lastnoderepr())
         return values
 
     def _get_lastnode_helper(self):
-        lastname, LASTT = self._gettypes()[-1]
+        lastname, LASTT = self._get_types[-1]
         assert isinstance(LASTT, lltype.Array) or (
             isinstance(LASTT, lltype.Struct) and LASTT._arrayfld)
         value = getattr(self.value, lastname)
@@ -195,19 +200,26 @@ class StructVarsizeNode(StructNode):
         super(StructVarsizeNode, self).setup()
     
     def get_typerepr(self):
-        # last type is a special case and need to be worked out recursively
-        types = self._gettypes()[:-1]
-        types_repr = [self.db.repr_type(T) for name, T in types]
-        types_repr.append(self._get_lastnode().get_typerepr())
-        
-        return "{%s}" % ", ".join(types_repr)
+            try:
+                return self._get_typerepr_cache
+            except:
+                # last type is a special case and need to be worked out recursively
+                types = self._get_types[:-1]
+                types_repr = [self.db.repr_type(T) for name, T in types]
+                types_repr.append(self._get_lastnode().get_typerepr())
+                result = "{%s}" % ", ".join(types_repr)
+                self._get_typerepr_cache = result
+                return result
          
     def get_ref(self):
+        if self._get_ref_cache:
+            return self._get_ref_cache
         ref = super(StructVarsizeNode, self).get_ref()
         typeval = self.db.repr_type(lltype.typeOf(self.value))
         ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
                                         ref,
                                         typeval)
+        self._get_ref_cache = ref
         return ref
     
     def get_pbcref(self, toptr):

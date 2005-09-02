@@ -1,9 +1,8 @@
 
 extdeclarations = """
-declare ccc int %puts(sbyte*)
 declare ccc uint %strlen(sbyte*)
-declare ccc sbyte* %memset(sbyte*, int, uint)
-declare ccc sbyte* %strncpy(sbyte *, sbyte *, int)
+declare ccc void %llvm.memset(sbyte*, ubyte, uint, uint)
+declare ccc void %llvm.memcpy(sbyte*, sbyte*, uint, uint)
 """
 
 
@@ -35,7 +34,7 @@ internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
     %rpystr    = cast [0 x sbyte]* %rpystrptr to sbyte*
 
-    call ccc sbyte* %strncpy(sbyte* %rpystr, sbyte* %s, int %len)
+    call ccc void %llvm.memcpy(sbyte* %rpystr, sbyte* %s, uint %lenu, uint 0)
 
     ret %RPyString* %rpy
 }
@@ -89,11 +88,10 @@ internal fastcc void %%prepare_%(exc)s() {
 """ % locals())
 
 
-#prepare and raise exceptions
+#prepare and raise exceptions (%msg not used right now!)
 for exc in "IOError ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
     extfunctions["%%raisePyExc_%(exc)s" % locals()] = ((), """
 internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
-    ;XXX %%msg not used right now!
     %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%pypy_instantiate_%(exc)s()
     %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
     %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp

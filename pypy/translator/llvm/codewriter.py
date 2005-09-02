@@ -4,9 +4,8 @@ from pypy.translator.llvm.log import log
 
 log = log.codewriter 
 
-DEFAULT_TAIL     = 'tail'       #/tail
+DEFAULT_TAIL     = ''       #/tail
 DEFAULT_CCONV    = 'fastcc'    #ccc/fastcc
-DEFAULT_INTERNAL = 'internal'       #/internal
 
 class CodeWriter(object): 
     def __init__(self, f, word, uword, show_line_number=False): 

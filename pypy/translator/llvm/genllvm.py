@@ -1,5 +1,6 @@
 from os.path import exists
 use_boehm_gc = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
+use_boehm_gc = False
 
 import os
 import time
@@ -16,11 +17,12 @@ from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm.codewriter import CodeWriter, \
-     DEFAULT_INTERNAL, DEFAULT_TAIL, DEFAULT_CCONV
+     DEFAULT_TAIL, DEFAULT_CCONV
 from pypy.translator.llvm import extfuncnode
 from pypy.translator.llvm.module.extfunction import extdeclarations, \
      extfunctions, gc_boehm, gc_disabled, dependencies
 from pypy.translator.llvm.node import LLVMNode
+from pypy.translator.llvm.structnode import StructNode
 
 from pypy.translator.translator import Translator
 
@@ -61,13 +63,13 @@ def get_ll(ccode, function_names):
             line = line[:comment]
         line = line.rstrip()
 
-        # find function names, declare them internal with fastcc calling convertion
+        # find function names, declare them with the default calling convertion
         if line[-1:] == '{':
            returntype, s = line.split(' ', 1)
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
            if line.find("internal") == -1:
-                line = '%s %s %s' % ("", DEFAULT_CCONV, line,)
+                line = '%s %s' % (DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
     # patch calls to function that we just declared fastcc
@@ -96,7 +98,7 @@ def get_ll(ccode, function_names):
     
 class GenLLVM(object):
 
-    def __init__(self, translator, debug=False):
+    def __init__(self, translator, debug=True):
     
         # reset counters
         LLVMNode.nodename_count = {}    
@@ -118,14 +120,14 @@ class GenLLVM(object):
         STATS (46, "<class 'pypy.translator.llvm.extfuncnode.ExternalFuncNode'>")
         STATS (52, "<class 'pypy.translator.llvm.arraynode.ArrayTypeNode'>")
         STATS (189, "<class 'pypy.translator.llvm.arraynode.VoidArrayNode'>")
-        STATS (816, "<class 'pypy.translator.llvm.opaquenode.OpaqueNode'>")
-        STATS (1247, "<class 'pypy.translator.llvm.funcnode.FuncTypeNode'>")
-        STATS (1747, "<class 'pypy.translator.llvm.structnode.StructTypeNode'>")
-        STATS (5886, "<class 'pypy.translator.llvm.funcnode.FuncNode'>")
-        STATS (24003, "<class 'pypy.translator.llvm.arraynode.ArrayNode'>")
-        STATS (25410, "<class 'pypy.translator.llvm.structnode.StructVarsizeNode'>")
-        STATS (26206, "<class 'pypy.translator.llvm.arraynode.StrArrayNode'>")
-        STATS (268435, "<class 'pypy.translator.llvm.structnode.StructNode'>")          
+        STATS (819, "<class 'pypy.translator.llvm.opaquenode.OpaqueNode'>")
+        STATS (1250, "<class 'pypy.translator.llvm.funcnode.FuncTypeNode'>")
+        STATS (1753, "<class 'pypy.translator.llvm.structnode.StructTypeNode'>")
+        STATS (5896, "<class 'pypy.translator.llvm.funcnode.FuncNode'>")
+        STATS (24013, "<class 'pypy.translator.llvm.arraynode.ArrayNode'>")
+        STATS (25411, "<class 'pypy.translator.llvm.structnode.StructVarsizeNode'>")
+        STATS (26210, "<class 'pypy.translator.llvm.arraynode.StrArrayNode'>")
+        STATS (268884, "<class 'pypy.translator.llvm.structnode.StructNode'>")
         """
         nodecount = {}
         for node in self.db.getnodes():
@@ -375,10 +377,7 @@ class GenLLVM(object):
                 if dep not in depdone:
                     try:
                         llvm_code = extfunctions[dep][1]
-                    except KeyError:
-                        msg = 'primitive function %s has no implementation' % dep
-                        codewriter.comment('XXX: Error: ' + msg)
-                        #raise Exception('primitive function %s has no implementation' %(dep,))
+                    except KeyError: #external function that is shared with genc
                         continue
                     for extfunc in llvm_code.split('\n'):
                         codewriter.append(extfunc)
