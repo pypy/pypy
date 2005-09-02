@@ -159,8 +159,11 @@ def inline_function(translator, inline_func, graph):
                 if op.args[0].value._obj._callable is inline_func:
                     callsites.append((block, i))
     traverse(find_callsites, graph)
-    for block, index_operation in callsites:
+    while callsites != []:
+        block, index_operation = callsites.pop()
         _inline_function(translator, graph, block, index_operation)
+        callsites = []
+        traverse(find_callsites, graph)
         checkgraph(graph)
     
 def _inline_function(translator, graph, block, index_operation):
