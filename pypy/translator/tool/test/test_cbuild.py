@@ -13,7 +13,7 @@ def test_simple_executable():
             printf("hello world\n");
             return 0;
         }
-    """)
+""")
     testexec = build_executable([t])
     out = py.process.cmdexec(testexec)
     assert out.startswith('hello world')
