@@ -175,6 +175,7 @@ class ListRepr(Repr):
         return rstr.ll_strconcat(
             rstr.list_str_open_bracket,
             rstr.ll_strconcat(rstr.ll_join(rstr.list_str_sep,
+                                           length,
                                            temp),
                               rstr.list_str_close_bracket))
     ll_str = staticmethod(ll_str)
