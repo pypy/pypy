@@ -35,6 +35,56 @@ def insert_empty_block(translator, link, newops=[]):
     link.target = newblock
     return newblock
 
+def split_block(translator, graph, block, index):
+    """split a block in two, inserting a proper link between the new blocks"""
+    assert 0 <= index <= len(block.operations)
+    if block.exitswitch == Constant(last_exception):
+        assert index < len(block.operations)
+    #varmap is the map between names in the new and the old block
+    #but only for variables that are produced in the old block and needed in
+    #the new one
+    varmap = {}
+    vars_produced_in_new_block = {}
+    def get_new_name(var):
+        if var is None:
+            return None
+        if isinstance(var, Constant):
+            return var
+        if var in vars_produced_in_new_block:
+            return var
+        if var not in varmap:
+            varmap[var] = copyvar(translator, var)
+        return varmap[var]
+    moved_operations = block.operations[index:]
+    for op in moved_operations:
+        for i, arg in enumerate(op.args):
+            op.args[i] = get_new_name(op.args[i])
+        vars_produced_in_new_block[op.result] = True
+    for link in block.exits:
+        for i, arg in enumerate(link.args):
+            #last_exception and last_exc_value are considered to be created
+            #when the link is entered
+            if link.args[i] not in [link.last_exception, link.last_exc_value]:
+                link.args[i] = get_new_name(link.args[i])
+    exitswitch = get_new_name(block.exitswitch)
+    #the new block gets all the attributes relevant to outgoing links
+    #from block the old block
+    newblock = Block(varmap.values())
+    newblock.operations = moved_operations
+    newblock.exits = block.exits
+    newblock.exitswitch = exitswitch
+    newblock.exc_handler = block.exc_handler
+    for link in newblock.exits:
+        link.prevblock = newblock
+    link = Link(varmap.keys(), newblock)
+    link.prevblock = block
+    block.operations = block.operations[:index]
+    block.exits = [link]
+    block.exitswitch = None
+    block.exc_handler = False
+    checkgraph(graph)
+    return newblock
+
 def remove_direct_loops(translator, graph):
     """This is useful for code generators: it ensures that no link has
     common input and output variables, which could occur if a block's exit

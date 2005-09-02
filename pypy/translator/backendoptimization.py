@@ -1,8 +1,9 @@
 import autopath
 from pypy.translator.translator import Translator
-from pypy.translator.simplify import eliminate_empty_blocks
+from pypy.translator.simplify import eliminate_empty_blocks, join_blocks, remove_identical_vars
+from pypy.translator.unsimplify import copyvar, split_block
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation
+from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.tool.unionfind import UnionFind
 from pypy.rpython.lltype import Void
@@ -146,6 +147,113 @@ def SSI_to_SSA(graph):
         assert vct == vct[:1] * len(vct), (
             "variables called %s have mixed concretetypes: %r" % (vname, vct))
 
+
+def inline_function(translator, inline_func, graph):
+    callsites = []
+    def find_callsites(block):
+        if isinstance(block, Block):
+            for i, op in enumerate(block.operations):
+                if not (op.opname == "direct_call" and
+                    isinstance(op.args[0], Constant)):
+                    continue
+                if op.args[0].value._obj._callable is inline_func:
+                    callsites.append((block, i))
+    traverse(find_callsites, graph)
+    for block, index_operation in callsites:
+        _inline_function(translator, graph, block, index_operation)
+        checkgraph(graph)
+    
+def _inline_function(translator, graph, block, index_operation):
+    if block.exitswitch == Constant(last_exception):
+        assert index_operation != len(block.operations) - 1, (
+            "can't handle exceptions yet")
+    op = block.operations[index_operation]
+    graph_to_inline = translator.flowgraphs[op.args[0].value._obj._callable]
+    entrymap = mkentrymap(graph_to_inline)
+    beforeblock = block
+    afterblock = split_block(translator, graph, block, index_operation + 1)
+    assert beforeblock.operations[-1] is op
+    #vars that need to be passed through the blocks of the inlined function
+    #this excludes the var resulting of the direct_call
+    passon_vars = {beforeblock: [arg for arg in beforeblock.exits[0].args
+                                     if isinstance(arg, Variable) and
+                                         arg != op.result]}
+    copied_blocks = {}
+    varmap = {}
+    def get_new_name(var):
+        if var is None:
+            return None
+        if isinstance(var, Constant):
+            return var
+        if var not in varmap:
+            varmap[var] = copyvar(translator, var)
+        return varmap[var]
+    def get_new_passon_var_names(block):
+        result = [copyvar(translator, var) for var in passon_vars[beforeblock]]
+        passon_vars[block] = result
+        return result
+    def copy_operation(op):
+        args = [get_new_name(arg) for arg in op.args]
+        return SpaceOperation(op.opname, args, get_new_name(op.result))
+    def copy_block(block):
+        if block in copied_blocks:
+            "already there"
+            return copied_blocks[block]
+        args = ([get_new_name(var) for var in block.inputargs] +
+                get_new_passon_var_names(block))
+        newblock = Block(args)
+        copied_blocks[block] = newblock
+        newblock.operations = [copy_operation(op) for op in block.operations]
+        newblock.exits = [copy_link(link, block) for link in block.exits]
+        newblock.exitswitch = get_new_name(block.exitswitch)
+        newblock.exc_handler = block.exc_handler
+        return newblock
+    def copy_link(link, prevblock):
+        newargs = [get_new_name(a) for a in link.args] + passon_vars[prevblock]
+        newlink = Link(newargs, copy_block(link.target), link.exitcase)
+        newlink.prevblock = copy_block(link.prevblock)
+        newlink.last_exception = get_new_name(link.last_exception)
+        newlink.last_exc_value = get_new_name(link.last_exc_value)
+        if hasattr(link, 'llexitcase'):
+            newlink.llexitcase = link.llexitcase
+        return newlink
+    linktoinlined = beforeblock.exits[0]
+    assert linktoinlined.target is afterblock
+    copiedstartblock = copy_block(graph_to_inline.startblock)
+    copiedstartblock.isstartblock = False
+    copiedreturnblock = copied_blocks[graph_to_inline.returnblock]
+    passon_args = []
+    i = 0
+    for arg in linktoinlined.args:
+        if isinstance(arg, Constant):
+            passon_args.append(arg)
+        elif arg == op.result:
+            passon_args.append(copiedreturnblock.inputargs[0])
+        else:
+            passon_args.append(passon_vars[graph_to_inline.returnblock][i])
+            i += 1
+    linktoinlined.target = copiedstartblock
+    linktoinlined.args = op.args[1:] + passon_vars[beforeblock]
+    afterblock.inputargs = afterblock.inputargs
+    beforeblock.operations = beforeblock.operations[:-1]
+    linkfrominlined = Link(passon_args, afterblock)
+    linkfrominlined.prevblock = copiedreturnblock
+    copiedreturnblock.exitswitch = None
+    copiedreturnblock.exits = [linkfrominlined]
+    assert copiedreturnblock.exits[0].target == afterblock
+    #let links to exceptblock of the graph to inline go to graphs exceptblock
+    if graph_to_inline.exceptblock in entrymap:
+        copiedexceptblock = copied_blocks[graph_to_inline.exceptblock]
+        for link in entrymap[graph_to_inline.exceptblock]:
+            copiedblock = copied_blocks[link.prevblock]
+            assert len(copiedblock.exits) == 1
+            copiedblock.exits[0].args = copiedblock.exits[0].args[:2]
+            copiedblock.exits[0].target = graph.exceptblock
+    #cleaning up -- makes sense to be here, because I insert quite
+    #some empty blocks and blocks that can be joined
+    eliminate_empty_blocks(graph)
+    join_blocks(graph)
+    remove_identical_vars(graph)
 
 def backend_optimizations(graph):
     remove_same_as(graph)
