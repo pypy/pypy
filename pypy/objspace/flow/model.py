@@ -30,6 +30,16 @@ COUNTOBJECTS = False
 
 __metaclass__ = type
 
+class roproperty(object):
+    def __init__(self, getter):
+        self.getter = getter
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self
+        else:
+            return self.getter(obj)
+
+
 class FunctionGraph(object):
     
     def __init__(self, name, startblock, return_var=None):
@@ -51,6 +61,11 @@ class FunctionGraph(object):
 
     def getreturnvar(self):
         return self.returnblock.inputargs[0]
+
+    def getsource(self):
+        from pypy.tool.sourcetools import getsource
+        return getsource(self.func)
+    source = roproperty(getsource)
 
 ##    def hasonlyexceptionreturns(self):
 ##        try:
