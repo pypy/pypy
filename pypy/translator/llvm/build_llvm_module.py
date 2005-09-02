@@ -31,11 +31,13 @@ SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
     "-simplifycfg",
     ]))
 
-# XXX: TODO: refactoring: use gccas to populate this list
-# suggested by: gccas /dev/null -o /dev/null -debug-pass=Arguments
-OPTIMIZATION_SWITCHES = (" ".join([
-    "-verify -lowersetjmp -funcresolve -raiseallocs -simplifycfg -mem2reg -globalopt -globaldce -ipconstprop -deadargelim -instcombine -simplifycfg -prune-eh -inline -simplify-libcalls -argpromotion -raise -tailduplicate -simplifycfg -scalarrepl -instcombine -break-crit-edges -condprop -tailcallelim -simplifycfg -reassociate -loopsimplify -licm -instcombine -indvars -loop-unroll -instcombine -load-vn -gcse -sccp -instcombine -break-crit-edges -condprop -dse -mergereturn -adce -simplifycfg -deadtypeelim -constmerge -verify"
-    ]))
+flags = os.popen("gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1").read()[17:-1].split()
+
+if int(os.popen("opt --help 2>&1").read().find('-heap2stack')) >= 0:
+    flags.insert(flags.index("-inline")+1, "-heap2stack")
+
+OPTIMIZATION_SWITCHES = " ".join(flags)
+#print OPTIMIZATION_SWITCHES
 
 def compile_module(module, source_files, object_files, library_files):
     open("%s_setup.py" % module, "w").write(str(py.code.Source(
