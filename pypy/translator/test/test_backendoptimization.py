@@ -106,3 +106,22 @@ def test_inline_raising():
     assert result == 1
     result = interp.eval_function(h, [2])
     assert result == 2    
+
+def DONOTtest_inline_exceptions():
+    def f(x):
+        if x:
+            raise ValueError
+    def g(x):
+        try:
+            f(x)
+        except ValueError:
+            return 1
+        return 1
+    t = Translator(g)
+    a = t.annotate([int])
+    a.simplify()
+    t.specialize()
+    t.view()
+    inline_function(t, f, t.flowgraphs[g])
+    t.view()
+    
