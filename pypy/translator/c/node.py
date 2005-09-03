@@ -100,10 +100,10 @@ class StructDefNode:
 
     def definition(self, phase):
         gcpolicy = self.db.gcpolicy
-        is_empty = True
         if phase == 1:
             yield 'struct %s {' % self.name
             # gcheader
+            is_empty = True
             if needs_gcheader(self.STRUCT):
                 line = gcpolicy.struct_gcheader_definition(self)
                 if line:
@@ -336,11 +336,13 @@ class StructNode(ContainerNode):
             return len(array.items)
 
     def initializationexpr(self, decoration=''):
+        is_empty = True
         yield '{'
         if needs_gcheader(self.T):
             line = self.db.gcpolicy.struct_gcheader_initializationexpr(self)
             if line:
                 yield '\t' + line
+                is_empty = False
         defnode = self.db.gettypedefnode(self.T)
         for name in self.T._names:
             value = getattr(self.obj, name)
@@ -349,6 +351,10 @@ class StructNode(ContainerNode):
                                               '%s.%s' % (self.name, c_name),
                                               decoration + name)
             yield '\t%s' % expr
+            if not expr.startswith('/*'):
+                is_empty = False
+        if is_empty:
+            yield '\t' + '0,'
         yield '}'
 
 assert not USESLOTS or '__dict__' not in dir(StructNode)
