@@ -100,6 +100,7 @@ class StructDefNode:
 
     def definition(self, phase):
         gcpolicy = self.db.gcpolicy
+        is_empty = True
         if phase == 1:
             yield 'struct %s {' % self.name
             # gcheader
@@ -107,12 +108,17 @@ class StructDefNode:
                 line = gcpolicy.struct_gcheader_definition(self)
                 if line:
                     yield '\t' + line
+                    is_empty = False
 
             for name, typename in self.fields:
                 line = '%s;' % cdecl(typename, name)
                 if typename == PrimitiveType[Void]:
                     line = '/* %s */' % line
+                else:
+                    is_empty = False
                 yield '\t' + line
+            if is_empty:
+                yield '\t' + 'int _dummy; /* this struct is empty */'
             yield '};'
  
             for line in gcpolicy.struct_after_definition(self):
