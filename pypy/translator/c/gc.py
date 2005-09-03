@@ -338,13 +338,13 @@ class BoehmGcPolicy(BasicGcPolicy):
         gcinfo = self.db.gettypedefnode(TYPE).gcinfo
         atomic = ['','_ATOMIC'][TYPE._is_atomic()]
         if gcinfo and gcinfo.finalizer:
-            yield  'OP_BOEHM_ZERO_MALLOC_FINALIZER(%s, %s, %s, %s, %s);' % (esize,
+            return 'OP_BOEHM_ZERO_MALLOC_FINALIZER(%s, %s, %s, %s, %s);' % (esize,
                                                                             eresult,
                                                                             atomic,
                                                                             gcinfo.finalizer,
                                                                             err)
         else:
-            yield  'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %s);' % (esize,
+            return 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %s);' % (esize,
                                                               eresult,
                                                               atomic,
                                                               err)
