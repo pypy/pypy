@@ -22,6 +22,7 @@ Command-line options for translate_pypy:
    -llvm      Use LLVM instead of C
    -c         Generate the C code, but don't compile it
    -boehm     Use the Boehm collector when generating C code
+   -no-gc     Experimental: use no GC and no refcounting at all
    -o         Generate and compile the C code, but don't run it
    -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
                   -- http://fabrice.bellard.free.fr/tcc/
@@ -346,6 +347,7 @@ if __name__ == '__main__':
                '-no-c': False,
                '-c':    False,
                '-boehm': False,
+               '-no-gc': False,
                '-o':    False,
                '-llvm': False,
                '-no-mark-some-objects': False,
@@ -631,6 +633,9 @@ show class hierarchy graph"""
         if options['-boehm']:
             from pypy.translator.c import gc
             gcpolicy = gc.BoehmGcPolicy
+        if options['-no-gc']:
+            from pypy.translator.c import gc
+            gcpolicy = gc.NoneGcPolicy
 
         if options['-llinterpret']:
             def interpret():

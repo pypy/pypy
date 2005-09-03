@@ -161,7 +161,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
         getRuntimeTypeInfo(structdefnode.STRUCT)
         getRuntimeTypeInfo(INNER)
 
-    def struct_setup(self, structdefnode, rtti):        
+    def struct_setup(self, structdefnode, rtti):
         if structdefnode.gcheader:
             db = self.db
             gcinfo = structdefnode.gcinfo = RefcountingInfo()
@@ -372,6 +372,7 @@ class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
         self.T = T
         self.obj = obj
         defnode = db.gettypedefnode(obj.about)
+        self.implementationtypename = self.typename
         self.name = self.db.namespace.uniquename('g_rtti_v_'+ defnode.barename)
         self.ptrname = '(&%s)' % (self.name,)
 
@@ -380,3 +381,19 @@ class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
 
     def implementation(self):
         yield 'char %s  /* uninitialized */;' % self.name
+
+# to get an idea how it looks like with no refcount/gc at all
+
+class NoneGcPolicy(BoehmGcPolicy):
+
+    zero_malloc = RefcountingGcPolicy.zero_malloc.im_func
+    gc_libraries = RefcountingGcPolicy.gc_libraries.im_func
+    gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
+    rtti_type = RefcountingGcPolicy.rtti_type.im_func
+
+    def pre_pre_gc_code(self):
+        yield '#define USING_NO_GC'
+
+    def struct_implementationcode(self, structdefnode):
+        return []
+    array_implementationcode = struct_implementationcode
