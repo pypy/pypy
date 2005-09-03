@@ -66,3 +66,20 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 #define PUSH_ALIVE(obj)
 
 #endif /* USING_BOEHM_GC */
+
+/* for no GC */
+#ifdef USING_NO_GC
+
+#undef OP_ZERO_MALLOC
+
+#define OP_ZERO_MALLOC(size, r, err)  {                                 \
+    r = (void*) malloc(size);                                  \
+    if (r == NULL) FAIL_EXCEPTION(err, PyExc_MemoryError, "out of memory");\
+    memset((void*) r, 0, size);                                         \
+    COUNT_MALLOC;                                                       \
+  }
+
+#undef PUSH_ALIVE
+#define PUSH_ALIVE(obj)
+
+#endif /* USING_NO_GC */
