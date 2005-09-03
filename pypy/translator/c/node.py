@@ -354,7 +354,7 @@ class StructNode(ContainerNode):
             if not expr.startswith('/*'):
                 is_empty = False
         if is_empty:
-            yield '\t' + '0,'
+            yield '\t%s' % '0,'
         yield '}'
 
 assert not USESLOTS or '__dict__' not in dir(StructNode)
