@@ -69,12 +69,15 @@ class SRE_Pattern(object):
                 state.start = state.string_position
         return matchlist        
         
-    def _subx(self, template, string, count=0, subn=False):
-        filter = template
-        if not callable(template) and "\\" in template:
+    def subn(self, repl, string, count=0):
+        """Return the tuple (new_string, number_of_subs_made) found by replacing
+        the leftmost non-overlapping occurrences of pattern with the replacement
+        repl."""
+        filter = repl
+        if not callable(repl) and "\\" in repl:
             # handle non-literal strings ; hand it over to the template compiler
             import sre
-            filter = sre._subx(self, template)
+            filter = sre._subx(self, repl)
         state = _sre._State(string, 0, sys.maxint, self.flags)
         sublist = []
         
@@ -103,21 +106,13 @@ class SRE_Pattern(object):
         if last_pos < state.end:
             sublist.append(string[last_pos:state.end])
         item = "".join(sublist)
-        if subn:
-            return item, n
-        else:
-            return item
+        return item, n
 
     def sub(self, repl, string, count=0):
         """Return the string obtained by replacing the leftmost non-overlapping
         occurrences of pattern in string by the replacement repl."""
-        return self._subx(repl, string, count, False)
-
-    def subn(self, repl, string, count=0):
-        """Return the tuple (new_string, number_of_subs_made) found by replacing
-        the leftmost non-overlapping occurrences of pattern with the replacement
-        repl."""
-        return self._subx(repl, string, count, True)
+        item, n = self.subn(repl, string, count)
+        return item
         
     def split(self, string, maxsplit=0):
         """Split string by the occurrences of pattern."""

@@ -1,7 +1,8 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.error import OperationError
 from pypy.rpython.rarithmetic import intmask
 import sys
 
@@ -34,8 +35,9 @@ OPCODE_INFO = 17
 OPCODE_LITERAL = 19
 MAXREPEAT = 65535
 
-def w_getlower(space, w_char_ord, w_flags):
-    return space.wrap(getlower(space, space.int_w(w_char_ord), space.int_w(w_flags)))
+def w_getlower(space, char_ord, flags):
+    return space.wrap(getlower(space, char_ord, flags))
+w_getlower.unwrap_spec = [ObjSpace, int, int]
 
 def getlower(space, char_ord, flags):
     if (char_ord < 128) or (flags & SRE_FLAG_UNICODE) \
@@ -51,17 +53,16 @@ def w_getcodesize(space):
 
 #### Core classes
 
-def make_state(space, w_string, w_start, w_end, w_flags):
+def make_state(space, w_string, start, end, flags):
     # XXX maybe turn this into a __new__ method of W_State
-    return space.wrap(W_State(space, w_string, w_start, w_end, w_flags))
+    return space.wrap(W_State(space, w_string, start, end, flags))
+make_state.unwrap_spec = [ObjSpace, W_Root, int, int, int]
 
 class W_State(Wrappable):
 
-    def __init__(self, space, w_string, w_start, w_end, w_flags):
+    def __init__(self, space, w_string, start, end, flags):
         self.space = space
         self.w_string = w_string
-        start = space.int_w(w_start)
-        end = space.int_w(w_end)
         if start < 0:
             start = 0
         if end > space.int_w(space.len(w_string)):
@@ -70,7 +71,7 @@ class W_State(Wrappable):
         self.string_position = start
         self.end = end
         self.pos = start
-        self.flags = space.int_w(w_flags)
+        self.flags = flags
         self.w_reset()
 
     def w_reset(self):
@@ -250,10 +251,13 @@ class RepeatContext(MatchContext):
 #### Main opcode dispatch loop
 
 def w_search(space, w_state, w_pattern_codes):
-    assert isinstance(w_state, W_State)
+    state = space.interpclass_w(w_state)
+    if not isinstance(state, W_State):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("State object expected"))
     pattern_codes = [intmask(space.uint_w(code)) for code
                                     in space.unpackiterable(w_pattern_codes)]
-    return space.newbool(search(space, w_state, pattern_codes))
+    return space.newbool(search(space, state, pattern_codes))
 
 def search(space, state, pattern_codes):
     flags = 0
@@ -323,10 +327,13 @@ def fast_search(space, state, pattern_codes):
     return False
 
 def w_match(space, w_state, w_pattern_codes):
-    assert isinstance(w_state, W_State)
+    state = space.interpclass_w(w_state)
+    if not isinstance(state, W_State):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("State object expected"))
     pattern_codes = [intmask(space.uint_w(code)) for code
                                     in space.unpackiterable(w_pattern_codes)]
-    return space.newbool(match(space, w_state, pattern_codes))
+    return space.newbool(match(space, state, pattern_codes))
 
 def match(space, state, pattern_codes):
     # Optimization: Check string length. pattern_codes[3] contains the
