@@ -121,24 +121,69 @@ def test_inline_several_times():
     a.simplify()
     t.specialize()
     inline_function(t, f, t.flowgraphs[g])
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(g, [0])
+    assert result == g(0)
+    result = interp.eval_function(g, [42])
+    assert result == g(42)
 
-def DONOTtest_inline_exceptions():
+def test_inline_exceptions():
     def f(x):
-        if x:
+        if x == 0:
             raise ValueError
+        if x == 1:
+            raise KeyError
     def g(x):
         try:
             f(x)
         except ValueError:
-            return 1
+            return 2
+        except KeyError:
+            return 3
         return 1
     t = Translator(g)
     a = t.annotate([int])
     a.simplify()
     t.specialize()
-    t.view()
     inline_function(t, f, t.flowgraphs[g])
-    t.view()
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(g, [0])
+    assert result == 2
+    result = interp.eval_function(g, [1])
+    assert result == 3
+    result = interp.eval_function(g, [42])
+    assert result == 1
+
+def test_inline_var_exception():
+    def f(x):
+        e = None
+        if x == 0:
+            e = ValueError()
+        elif x == 1:
+            e = KeyError()
+        if x == 0 or x == 1:
+            raise e
+    def g(x):
+        try:
+            f(x)
+        except ValueError:
+            return 2
+        except KeyError:
+            return 3
+        return 1
+    t = Translator(g)
+    a = t.annotate([int])
+    a.simplify()
+    t.specialize()
+    inline_function(t, f, t.flowgraphs[g])
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(g, [0])
+    assert result == 2
+    result = interp.eval_function(g, [1])
+    assert result == 3
+    result = interp.eval_function(g, [42])
+    assert result == 1
+    
 
 def DONOTtest_for_loop():
     def f(x):

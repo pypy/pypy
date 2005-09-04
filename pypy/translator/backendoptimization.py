@@ -5,8 +5,10 @@ from pypy.translator.unsimplify import copyvar, split_block
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
+from pypy.annotation import model as annmodel
 from pypy.tool.unionfind import UnionFind
-from pypy.rpython.lltype import Void
+from pypy.rpython.lltype import Void, Bool
+from pypy.rpython import rmodel
 
 def remove_same_as(graph):
     """Remove all 'same_as' operations.
@@ -176,8 +178,11 @@ def inline_function(translator, inline_func, graph):
         checkgraph(graph)
 
 def _inline_function(translator, graph, block, index_operation):
-    if block.exitswitch == Constant(last_exception):
-        assert index_operation != len(block.operations) - 1, (
+    exception_guarded = False
+    if (block.exitswitch == Constant(last_exception) and
+        index_operation == len(block.operations) - 1):
+        exception_guarded = True
+        assert len(collect_called_functions(graph)) == 0, (
             "can't handle exceptions yet")
     op = block.operations[index_operation]
     graph_to_inline = translator.flowgraphs[op.args[0].value._obj._callable]
@@ -251,14 +256,61 @@ def _inline_function(translator, graph, block, index_operation):
     copiedreturnblock.exitswitch = None
     copiedreturnblock.exits = [linkfrominlined]
     assert copiedreturnblock.exits[0].target == afterblock
-    #let links to exceptblock of the graph to inline go to graphs exceptblock
     if graph_to_inline.exceptblock in entrymap:
+        #let links to exceptblock of the graph to inline go to graphs exceptblock
         copiedexceptblock = copied_blocks[graph_to_inline.exceptblock]
-        for link in entrymap[graph_to_inline.exceptblock]:
-            copiedblock = copied_blocks[link.prevblock]
-            assert len(copiedblock.exits) == 1
-            copiedblock.exits[0].args = copiedblock.exits[0].args[:2]
-            copiedblock.exits[0].target = graph.exceptblock
+        if not exception_guarded:
+            copiedexceptblock = copied_blocks[graph_to_inline.exceptblock]
+            for link in entrymap[graph_to_inline.exceptblock]:
+                copiedblock = copied_blocks[link.prevblock]
+                assert len(copiedblock.exits) == 1
+                copiedblock.exits[0].args = copiedblock.exits[0].args[:2]
+                copiedblock.exits[0].target = graph.exceptblock
+        else:
+            #XXXXX don't look: insert blocks that do exception matching
+            #XXXXXX should do exception matching as far as possible before runtime
+            blocks = []
+            exc_match = Constant(rmodel.getfunctionptr(
+                translator,
+                translator.rtyper.getexceptiondata().ll_exception_match))
+            for i, link in enumerate(afterblock.exits[1:]):
+                etype = copyvar(translator, copiedexceptblock.inputargs[0])
+                evalue = copyvar(translator, copiedexceptblock.inputargs[1])
+                block = Block([etype, evalue] + get_new_passon_var_names(link.target))
+                res = Variable()
+                res.concretetype = Bool
+                translator.annotator.bindings[res] = annmodel.SomeBool()
+                args = [exc_match, etype, Constant(link.llexitcase)]
+                block.operations.append(SpaceOperation("direct_call", args, res))
+                block.exitswitch = res
+                linkargs = []
+                for arg in afterblock.exits[i + 1].args:
+                    if arg == afterblock.exits[i + 1].last_exception:
+                        linkargs.append(etype)
+                    elif arg == afterblock.exits[i + 1].last_exc_value:
+                        linkargs.append(evalue)
+                    elif isinstance(arg, Constant):
+                        linkargs.append(arg)
+                    else:
+                        index = afterblock.inputargs.index(arg)
+                        linkargs.append(passon_vars[link.target][index - 1])
+                l = Link(linkargs, afterblock.exits[i + 1].target)
+                l.prevblock = block
+                l.exitcase = True
+                block.exits.append(l)
+                if i > 0:
+                    l = Link(blocks[-1].inputargs, block)
+                    l.prevblock = blocks[-1]
+                    l.exitcase = False
+                    blocks[-1].exits.insert(0, l)
+                blocks.append(block)
+            blocks[-1].exits = blocks[-1].exits[:1]
+            blocks[-1].operations = []
+            blocks[-1].exitswitch = None
+            linkargs = copiedexceptblock.inputargs
+            copiedexceptblock.closeblock(Link(linkargs, blocks[0]))
+            afterblock.exits = [afterblock.exits[0]]
+            afterblock.exitswitch = None
     #cleaning up -- makes sense to be here, because I insert quite
     #some empty blocks and blocks that can be joined
     eliminate_empty_blocks(graph)
