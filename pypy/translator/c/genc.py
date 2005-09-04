@@ -104,7 +104,8 @@ class CStandaloneBuilder(CBuilder):
         python_inc = sysconfig.get_python_inc()
         self.executable_name = build_executable([self.c_source_filename],
                                          include_dirs = [autopath.this_dir,
-                                                         python_inc],
+                                                         python_inc,
+                                                         autopath.this_dir+'/gc6.5/include',],
                                          libraries=self.libraries)
         self._compiled = True
         return self.executable_name
