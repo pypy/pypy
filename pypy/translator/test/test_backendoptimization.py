@@ -139,3 +139,16 @@ def DONOTtest_inline_exceptions():
     t.view()
     inline_function(t, f, t.flowgraphs[g])
     t.view()
+
+def DONOTtest_for_loop():
+    def f(x):
+        result = 0
+        for i in range(0, x):
+            result += i
+        return result
+    t = Translator(f)
+    a = t.annotate([int])
+    a.simplify()
+    t.specialize()
+    t.view()
+    

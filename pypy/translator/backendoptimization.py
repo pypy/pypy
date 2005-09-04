@@ -147,6 +147,15 @@ def SSI_to_SSA(graph):
         assert vct == vct[:1] * len(vct), (
             "variables called %s have mixed concretetypes: %r" % (vname, vct))
 
+def collect_called_functions(graph):
+    funcs = {}
+    def visit(obj):
+        if not isinstance(obj, Block):
+            return
+        for op in obj.operations:
+            if op.opname == "direct_call":
+                funcs[op.args[0]] = True
+    return funcs
 
 def inline_function(translator, inline_func, graph):
     callsites = []
@@ -165,7 +174,7 @@ def inline_function(translator, inline_func, graph):
         callsites = []
         traverse(find_callsites, graph)
         checkgraph(graph)
-    
+
 def _inline_function(translator, graph, block, index_operation):
     if block.exitswitch == Constant(last_exception):
         assert index_operation != len(block.operations) - 1, (
@@ -174,13 +183,11 @@ def _inline_function(translator, graph, block, index_operation):
     graph_to_inline = translator.flowgraphs[op.args[0].value._obj._callable]
     entrymap = mkentrymap(graph_to_inline)
     beforeblock = block
-    afterblock = split_block(translator, graph, block, index_operation + 1)
-    assert beforeblock.operations[-1] is op
+    afterblock = split_block(translator, graph, block, index_operation)
+    assert afterblock.operations[0] is op
     #vars that need to be passed through the blocks of the inlined function
-    #this excludes the var resulting of the direct_call
     passon_vars = {beforeblock: [arg for arg in beforeblock.exits[0].args
-                                     if isinstance(arg, Variable) and
-                                         arg != op.result]}
+                                     if isinstance(arg, Variable)]}
     copied_blocks = {}
     varmap = {}
     def get_new_name(var):
@@ -225,21 +232,21 @@ def _inline_function(translator, graph, block, index_operation):
     copiedstartblock = copy_block(graph_to_inline.startblock)
     copiedstartblock.isstartblock = False
     copiedreturnblock = copied_blocks[graph_to_inline.returnblock]
+    #find args passed to startblock of inlined function
     passon_args = []
-    i = 0
-    for arg in linktoinlined.args:
+    for arg in op.args[1:]:
         if isinstance(arg, Constant):
             passon_args.append(arg)
-        elif arg == op.result:
-            passon_args.append(copiedreturnblock.inputargs[0])
         else:
-            passon_args.append(passon_vars[graph_to_inline.returnblock][i])
-            i += 1
+            index = afterblock.inputargs.index(arg)
+            passon_args.append(linktoinlined.args[index])
+    passon_args += passon_vars[beforeblock]
+    #rewire blocks
     linktoinlined.target = copiedstartblock
-    linktoinlined.args = op.args[1:] + passon_vars[beforeblock]
-    afterblock.inputargs = afterblock.inputargs
-    beforeblock.operations = beforeblock.operations[:-1]
-    linkfrominlined = Link(passon_args, afterblock)
+    linktoinlined.args = passon_args
+    afterblock.inputargs = [op.result] + afterblock.inputargs
+    afterblock.operations = afterblock.operations[1:]
+    linkfrominlined = Link([copiedreturnblock.inputargs[0]] + passon_vars[graph_to_inline.returnblock], afterblock)
     linkfrominlined.prevblock = copiedreturnblock
     copiedreturnblock.exitswitch = None
     copiedreturnblock.exits = [linkfrominlined]
