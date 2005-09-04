@@ -307,6 +307,63 @@ class __extend__(pairtype(ListRepr, ListRepr)):
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
 
+# adapted C code
+
+def _ll_list_resize(l, newsize):
+    """
+    Ensure ob_item has room for at least newsize elements, and set
+    ob_size to newsize.  If newsize > ob_size on entry, the content
+    of the new slots at exit is undefined heap trash; it's the caller's
+    responsiblity to overwrite them with sane values.
+    The number of allocated elements may grow, shrink, or stay the same.
+    Failure is impossible if newsize <= self.allocated on entry, although
+    that partly relies on an assumption that the system realloc() never
+    fails when passed a number of bytes <= the number of bytes last
+    allocated (the C standard doesn't guarantee this, but it's hard to
+    imagine a realloc implementation where it wouldn't be true).
+    Note that self->ob_item may change, and even if newsize is less
+    than ob_size on entry.
+    """
+    allocated = len(l.items)
+
+    # Bypass realloc() when a previous overallocation is large enough
+    # to accommodate the newsize.  If the newsize falls lower than half
+    # the allocated size, then proceed with the realloc() to shrink the list.
+    if allocated >= newsize and newsize >= (allocated >> 1):
+        # assert l.ob_item != NULL or newsize == 0
+        l.length = newsize
+        return
+
+    # This over-allocates proportional to the list size, making room
+    # for additional growth.  The over-allocation is mild, but is
+    # enough to give linear-time amortized behavior over a long
+    # sequence of appends() in the presence of a poorly-performing
+    # system realloc().
+    # The growth pattern is:  0, 4, 8, 16, 25, 35, 46, 58, 72, 88, ...
+    ## (newsize < 9 ? 3 : 6)
+    if newsize < 9:
+        some = 3
+    else:
+        some = 6
+    new_allocated = (newsize >> 3) + some + newsize
+    if newsize == 0:
+        new_allocated = 0
+    # XXX consider to have a real realloc
+    items = l.items
+    newitems = malloc(typeOf(l).TO.items.TO, new_allocated)
+    if allocated < new_allocated:
+        p = allocated - 1
+    else:
+        p = new_allocated - 1
+    while p >= 0:
+            newitems[p] = items[p]
+            ITEM = typeOf(l).TO.items.TO.OF
+            if isinstance(ITEM, Ptr):
+                items[p] = nullptr(ITEM.TO)
+            p -= 1
+    l.length = newsize
+    l.items = newitems
+
 def ll_copy(l):
     items = l.items
     length = l.length
@@ -327,41 +384,29 @@ def ll_list_is_true(l):
 
 def ll_append(l, newitem):
     length = l.length
-    newitems = malloc(typeOf(l).TO.items.TO, length+1)
-    i = 0
-    while i < length:
-        newitems[i] = l.items[i]
-        i += 1
-    newitems[length] = newitem
-    l.length = length + 1
-    l.items = newitems
+    _ll_list_resize(l, length+1)
+    l.items[length] = newitem
 
 # this one is for the special case of insert(0, x)
 def ll_prepend(l, newitem):
     length = l.length
-    newitems = malloc(typeOf(l).TO.items.TO, length+1)
-    i = 0
-    while i < length:
-        newitems[i+1] = l.items[i]
-        i += 1
-    newitems[0] = newitem
-    l.length = length + 1
-    l.items = newitems
+    _ll_list_resize(l, length+1)
+    i = length
+    items = l.items
+    while i > 0:
+        items[i] = items[i+1]
+        i -= 1
+    items[0] = newitem
 
 def ll_insert_nonneg(l, index, newitem):
     length = l.length
-    newitems = malloc(typeOf(l).TO.items.TO, length+1)
-    i = 0
-    while i < index:
-        newitems[i] = l.items[i]
-        i += 1
-    newitems[i] = newitem
-    i += 1
-    while i <= length:
-        newitems[i] = l.items[i-1]
-        i += 1
-    l.length = length + 1
-    l.items = newitems
+    _ll_list_resize(l, length+1)
+    items = l.items
+    i = length
+    while i > index:
+        items[i] = items[i+1]
+        i -= 1
+    items[i] = newitem
 
 def ll_insert(l, index, newitem):
     if index < 0:
@@ -375,28 +420,27 @@ def ll_pop_nonneg(l, index):
 
 def ll_pop_default(l):
     index = l.length - 1
-    res = l.items[index]
     newlength = index
-    newitems = malloc(typeOf(l).TO.items.TO, newlength)
-    j = 0
-    while j < newlength:
-        newitems[j] = l.items[j]
-        j += 1
-    l.length = newlength
-    l.items = newitems
+    items = l.items
+    res = items[index]
+    ITEM = typeOf(l).TO.items.TO.OF
+    if isinstance(ITEM, Ptr):
+        items[index] = nullptr(ITEM.TO)
+    _ll_list_resize(l, newlength)
     return res
 
 def ll_pop_zero(l):
-    index = l.length - 1
+    newlength = l.length - 1
     res = l.items[0]
-    newlength = index
-    newitems = malloc(typeOf(l).TO.items.TO, newlength)
     j = 0
+    items = l.items
     while j < newlength:
-        newitems[j] = l.items[j+1]
+        items[j] = items[j+1]
         j += 1
-    l.length = newlength
-    l.items = newitems
+    ITEM = typeOf(l).TO.items.TO.OF
+    if isinstance(ITEM, Ptr):
+        items[newlength] = nullptr(ITEM.TO)
+    _ll_list_resize(l, newlength)
     return res
 
 def ll_pop(l, index):
@@ -408,12 +452,13 @@ def ll_pop(l, index):
 
 def ll_reverse(l):
     length = l.length
-    len2 = length // 2 # moved this out of the loop
+    len2 = length // 2
     i = 0
+    items = l.items
     while i < len2:
         tmp = l.items[i]
-        l.items[i] = l.items[length-1-i]
-        l.items[length-1-i] = tmp
+        items[i] = items[length-1-i]
+        items[length-1-i] = tmp
         i += 1
 
 def ll_getitem_nonneg(l, i):
@@ -466,16 +511,15 @@ def ll_delitem_nonneg_checked(l, i):
 
 def ll_delitem_nonneg(l, i):
     newlength = l.length - 1
-    newitems = malloc(typeOf(l).TO.items.TO, newlength)
-    j = 0
-    while j < i:
-        newitems[j] = l.items[j]
-        j += 1
+    j = i
+    items = l.items
     while j < newlength:
-        newitems[j] = l.items[j+1]
+        items[j] = items[j+1]
         j += 1
-    l.length = newlength
-    l.items = newitems
+    ITEM = typeOf(l).TO.items.TO.OF
+    if isinstance(ITEM, Ptr):
+        items[newlength] = nullptr(ITEM.TO)
+    _ll_list_resize(l, newlength)
 
 def ll_delitem(l, i):
     if i < 0:
@@ -495,12 +539,14 @@ def ll_concat(l1, l2):
     newlength = len1 + len2
     newitems = malloc(typeOf(l1).TO.items.TO, newlength)
     j = 0
+    source = l1.items
     while j < len1:
-        newitems[j] = l1.items[j]
+        newitems[j] = source[j]
         j += 1
     i = 0
+    source = l2.items
     while i < len2:
-        newitems[j] = l2.items[i]
+        newitems[j] = source[i]
         i += 1
         j += 1
     l = malloc(typeOf(l1).TO)
@@ -512,26 +558,24 @@ def ll_extend(l1, l2):
     len1 = l1.length
     len2 = l2.length
     newlength = len1 + len2
-    newitems = malloc(typeOf(l1).TO.items.TO, newlength)
-    j = 0
-    while j < len1:
-        newitems[j] = l1.items[j]
-        j += 1
+    _ll_list_resize(l1, newlength)
+    items = l1.items
+    source =l2.items
     i = 0
+    j = len1
     while i < len2:
-        newitems[j] = l2.items[i]
+        items[j] = source[i]
         i += 1
         j += 1
-    l1.length = newlength
-    l1.items = newitems
 
 def ll_listslice_startonly(l1, start):
     len1 = l1.length
     newlength = len1 - start
     newitems = malloc(typeOf(l1).TO.items.TO, newlength)
     j = 0
+    source= l1.items
     while start < len1:
-        newitems[j] = l1.items[start]
+        newitems[j] = source[start]
         start += 1
         j += 1
     l = malloc(typeOf(l1).TO)
@@ -547,8 +591,9 @@ def ll_listslice(l1, slice):
     newlength = stop - start
     newitems = malloc(typeOf(l1).TO.items.TO, newlength)
     j = 0
+    source = l1.items
     while start < stop:
-        newitems[j] = l1.items[start]
+        newitems[j] = source[start]
         start += 1
         j += 1
     l = malloc(typeOf(l1).TO)
@@ -561,49 +606,57 @@ def ll_listslice_minusone(l1):
     assert newlength >= 0
     newitems = malloc(typeOf(l1).TO.items.TO, newlength)
     j = 0
+    source = l1.items
     while j < newlength:
-        newitems[j] = l1.items[j]
+        newitems[j] = source[j]
         j += 1
     l = malloc(typeOf(l1).TO)
     l.length = newlength
     l.items = newitems
     return l
 
-def ll_listdelslice_startonly(l1, start):
-    newitems = malloc(typeOf(l1).TO.items.TO, start)
-    j = 0
-    while j < start:
-        newitems[j] = l1.items[j]
-        j += 1
-    l1.length = start
-    l1.items = newitems
+def ll_listdelslice_startonly(l, start):
+    newlength = start
+    ITEM = typeOf(l).TO.items.TO.OF
+    if isinstance(ITEM, Ptr):
+        j = l.length - 1
+        items = l.items
+        while j >= newlength:
+            items[j] = nullptr(ITEM.TO)
+            j -= 1
+    _ll_list_resize(l, newlength)
 
-def ll_listdelslice(l1, slice):
+def ll_listdelslice(l, slice):
     start = slice.start
     stop = slice.stop
-    if stop > l1.length:
-        stop = l1.length
-    newlength = l1.length - (stop-start)
-    newitems = malloc(typeOf(l1).TO.items.TO, newlength)
-    j = 0
-    while j < start:
-        newitems[j] = l1.items[j]
-        j += 1
+    if stop > l.length:
+        stop = l.length
+    newlength = l.length - (stop-start)
+    j = start
+    items = l.items
     while j < newlength:
-        newitems[j] = l1.items[stop]
+        items[j] = items[stop]
         stop += 1
         j += 1
-    l1.length = newlength
-    l1.items = newitems
+    ITEM = typeOf(l).TO.items.TO.OF
+    if isinstance(ITEM, Ptr):
+        j = l.length - 1
+        while j >= newlength:
+            items[j] = nullptr(ITEM.TO)
+            j -= 1
+    _ll_list_resize(l, newlength)
 
 def ll_listsetslice(l1, slice, l2):
     count = l2.length
     assert count == slice.stop - slice.start, (
         "setslice cannot resize lists in RPython")
+    # XXX but it should be easy enough to support, soon
     start = slice.start
     j = 0
+    items1 = l1.items
+    items2 = l2.items
     while j < count:
-        l1.items[start+j] = l2.items[j]
+        items1[start+j] = items2[j]
         j += 1
 
 # ____________________________________________________________
