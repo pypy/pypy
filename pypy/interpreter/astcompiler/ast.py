@@ -16,14 +16,14 @@ def flatten(list):
             l.append(elt)
     return l
 
-def flatten_nodes(list):
-    return [n for n in flatten(list) if isinstance(n, Node)]
+#def flatten_nodes(list):
+#    return [n for n in flatten(list) if isinstance(n, Node)]
 
 nodes = {}
 
 class Node(Wrappable):
     """Abstract base class for ast nodes."""
-    def __init__(self, lineno=-1):
+    def __init__(self, lineno = -1):
         self.lineno = lineno
         self.filename = ""
         
@@ -79,6 +79,7 @@ class Add(Node):
         self.right = right
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.left, self.right
 
     def getChildNodes(self):
@@ -96,11 +97,12 @@ class And(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -117,6 +119,7 @@ class AssAttr(Node):
         self.flags = flags
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.expr, self.attrname, self.flags
 
     def getChildNodes(self):
@@ -134,11 +137,12 @@ class AssList(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -154,6 +158,7 @@ class AssName(Node):
         self.flags = flags
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.name, self.flags
 
     def getChildNodes(self):
@@ -171,11 +176,12 @@ class AssTuple(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -191,6 +197,7 @@ class Assert(Node):
         self.fail = fail
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.test)
         children.append(self.fail)
@@ -216,6 +223,7 @@ class Assign(Node):
         self.expr = expr
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.extend(flatten(self.nodes))
         children.append(self.expr)
@@ -223,7 +231,7 @@ class Assign(Node):
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         nodelist.append(self.expr)
         return nodelist
 
@@ -241,6 +249,7 @@ class AugAssign(Node):
         self.expr = expr
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.node, self.op, self.expr
 
     def getChildNodes(self):
@@ -258,6 +267,7 @@ class Backquote(Node):
         self.expr = expr
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.expr,
 
     def getChildNodes(self):
@@ -275,11 +285,12 @@ class Bitand(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -294,11 +305,12 @@ class Bitor(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -313,11 +325,12 @@ class Bitxor(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -331,6 +344,7 @@ class Break(Node):
         Node.__init__(self, lineno)
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return []
 
     def getChildNodes(self):
@@ -351,6 +365,7 @@ class CallFunc(Node):
         self.dstar_args = dstar_args
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.node)
         children.extend(flatten(self.args))
@@ -361,7 +376,7 @@ class CallFunc(Node):
     def getChildNodes(self):
         nodelist = []
         nodelist.append(self.node)
-        nodelist.extend(flatten_nodes(self.args))
+        nodelist.extend(self.args)
         if self.star_args is not None:
             nodelist.append(self.star_args)
         if self.dstar_args is not None:
@@ -383,6 +398,7 @@ class Class(Node):
         self.code = code
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.name)
         children.extend(flatten(self.bases))
@@ -392,7 +408,7 @@ class Class(Node):
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.bases))
+        nodelist.extend(self.bases)
         nodelist.append(self.code)
         return nodelist
 
@@ -410,6 +426,7 @@ class Compare(Node):
         self.ops = ops
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.expr)
         children.extend(flatten(self.ops))
@@ -418,10 +435,9 @@ class Compare(Node):
     def getChildNodes(self):
         nodelist = []
         nodelist.append(self.expr)
-        # this is a replacement of flatten_nodes
+        # ops is a list of couples (op_name, node)
         for op_name, node in self.ops:
             nodelist.append(node)
-        # nodelist.extend(flatten_nodes(self.ops))
         return nodelist
 
     def __repr__(self):
@@ -436,6 +452,7 @@ class Const(Node):
         self.value = value
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.value,
 
     def getChildNodes(self):
@@ -452,6 +469,7 @@ class Continue(Node):
         Node.__init__(self, lineno)
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return []
 
     def getChildNodes(self):
@@ -469,11 +487,12 @@ class Decorators(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -489,15 +508,15 @@ class Dict(Node):
         self.items = items
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.items))
 
     def getChildNodes(self):
         nodelist = []
-        # replacement for flatten_nodes()
+        # items is a list of couples (node (key), node (value))
         for key, value in self.items:
             nodelist.append(key)
             nodelist.append(value)
-        # nodelist.extend(flatten_nodes(self.items))
         return nodelist
 
     def __repr__(self):
@@ -512,6 +531,7 @@ class Discard(Node):
         self.expr = expr
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.expr,
 
     def getChildNodes(self):
@@ -530,6 +550,7 @@ class Div(Node):
         self.right = right
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.left, self.right
 
     def getChildNodes(self):
@@ -546,6 +567,7 @@ class Ellipsis(Node):
         Node.__init__(self, lineno)
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return []
 
     def getChildNodes(self):
@@ -565,6 +587,7 @@ class Exec(Node):
         self.globals = globals
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.expr)
         children.append(self.locals)
@@ -593,6 +616,7 @@ class FloorDiv(Node):
         self.right = right
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.left, self.right
 
     def getChildNodes(self):
@@ -613,6 +637,7 @@ class For(Node):
         self.else_ = else_
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.assign)
         children.append(self.list)
@@ -642,6 +667,7 @@ class From(Node):
         self.names = names
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.modname, self.names
 
     def getChildNodes(self):
@@ -672,6 +698,7 @@ class Function(Node):
 
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.decorators)
         children.append(self.name)
@@ -686,7 +713,7 @@ class Function(Node):
         nodelist = []
         if self.decorators is not None:
             nodelist.append(self.decorators)
-        nodelist.extend(flatten_nodes(self.defaults))
+        nodelist.extend(self.defaults)
         nodelist.append(self.code)
         return nodelist
 
@@ -706,6 +733,7 @@ class GenExpr(Node):
 
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.code,
 
     def getChildNodes(self):
@@ -724,9 +752,11 @@ class GenExprFor(Node):
         self.iter = iter
         self.ifs = ifs
         self.is_outmost = False
+    
 
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.assign)
         children.append(self.iter)
@@ -737,7 +767,7 @@ class GenExprFor(Node):
         nodelist = []
         nodelist.append(self.assign)
         nodelist.append(self.iter)
-        nodelist.extend(flatten_nodes(self.ifs))
+        nodelist.extend(self.ifs)
         return nodelist
 
     def __repr__(self):
@@ -752,6 +782,7 @@ class GenExprIf(Node):
         self.test = test
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.test,
 
     def getChildNodes(self):
@@ -770,6 +801,7 @@ class GenExprInner(Node):
         self.quals = quals
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.expr)
         children.extend(flatten(self.quals))
@@ -778,7 +810,7 @@ class GenExprInner(Node):
     def getChildNodes(self):
         nodelist = []
         nodelist.append(self.expr)
-        nodelist.extend(flatten_nodes(self.quals))
+        nodelist.extend(self.quals)
         return nodelist
 
     def __repr__(self):
@@ -794,6 +826,7 @@ class Getattr(Node):
         self.attrname = attrname
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.expr, self.attrname
 
     def getChildNodes(self):
@@ -811,6 +844,7 @@ class Global(Node):
         self.names = names
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.names,
 
     def getChildNodes(self):
@@ -825,10 +859,12 @@ class Global(Node):
 class If(Node):
     def __init__(self, tests, else_, lineno=-1):
         Node.__init__(self, lineno)
+        # tests is a list of couples (node (test), node (suite))
         self.tests = tests
         self.else_ = else_
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.extend(flatten(self.tests))
         children.append(self.else_)
@@ -836,7 +872,10 @@ class If(Node):
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.tests))
+        # tests is a list of couples (node (test), node (suite))
+        for test, suite in self.items:
+            nodelist.append(test)
+            nodelist.append(suite)
         if self.else_ is not None:
             nodelist.append(self.else_)
         return nodelist
@@ -853,6 +892,7 @@ class Import(Node):
         self.names = names
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.names,
 
     def getChildNodes(self):
@@ -870,6 +910,7 @@ class Invert(Node):
         self.expr = expr
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.expr,
 
     def getChildNodes(self):
@@ -888,6 +929,7 @@ class Keyword(Node):
         self.expr = expr
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.name, self.expr
 
     def getChildNodes(self):
@@ -915,6 +957,7 @@ class Lambda(Node):
 
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.argnames)
         children.extend(flatten(self.defaults))
@@ -924,7 +967,7 @@ class Lambda(Node):
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.defaults))
+        nodelist.extend(self.defaults)
         nodelist.append(self.code)
         return nodelist
 
@@ -941,6 +984,7 @@ class LeftShift(Node):
         self.right = right
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.left, self.right
 
     def getChildNodes(self):
@@ -958,11 +1002,12 @@ class List(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -978,6 +1023,7 @@ class ListComp(Node):
         self.quals = quals
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.expr)
         children.extend(flatten(self.quals))
@@ -986,7 +1032,7 @@ class ListComp(Node):
     def getChildNodes(self):
         nodelist = []
         nodelist.append(self.expr)
-        nodelist.extend(flatten_nodes(self.quals))
+        nodelist.extend(self.quals)
         return nodelist
 
     def __repr__(self):
@@ -1003,6 +1049,7 @@ class ListCompFor(Node):
         self.ifs = ifs
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.assign)
         children.append(self.list)
@@ -1013,7 +1060,7 @@ class ListCompFor(Node):
         nodelist = []
         nodelist.append(self.assign)
         nodelist.append(self.list)
-        nodelist.extend(flatten_nodes(self.ifs))
+        nodelist.extend(self.ifs)
         return nodelist
 
     def __repr__(self):
@@ -1028,6 +1075,7 @@ class ListCompIf(Node):
         self.test = test
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.test,
 
     def getChildNodes(self):
@@ -1046,6 +1094,7 @@ class Mod(Node):
         self.right = right
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.left, self.right
 
     def getChildNodes(self):
@@ -1064,6 +1113,7 @@ class Module(Node):
         self.node = node
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.doc, self.node
 
     def getChildNodes(self):
@@ -1082,6 +1132,7 @@ class Mul(Node):
         self.right = right
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.left, self.right
 
     def getChildNodes(self):
@@ -1099,6 +1150,7 @@ class Name(Node):
         self.varname = varname
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.varname,
 
     def getChildNodes(self):
@@ -1115,6 +1167,7 @@ class NoneConst(Node):
         Node.__init__(self, lineno)
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return []
 
     def getChildNodes(self):
@@ -1132,6 +1185,7 @@ class Not(Node):
         self.expr = expr
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.expr,
 
     def getChildNodes(self):
@@ -1149,6 +1203,7 @@ class NumberConst(Node):
         self.number_value = number_value
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.number_value,
 
     def getChildNodes(self):
@@ -1166,11 +1221,12 @@ class Or(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -1184,6 +1240,7 @@ class Pass(Node):
         Node.__init__(self, lineno)
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return []
 
     def getChildNodes(self):
@@ -1202,6 +1259,7 @@ class Power(Node):
         self.right = right
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.left, self.right
 
     def getChildNodes(self):
@@ -1220,6 +1278,7 @@ class Print(Node):
         self.dest = dest
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.extend(flatten(self.nodes))
         children.append(self.dest)
@@ -1227,7 +1286,7 @@ class Print(Node):
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         if self.dest is not None:
             nodelist.append(self.dest)
         return nodelist
@@ -1245,6 +1304,7 @@ class Printnl(Node):
         self.dest = dest
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.extend(flatten(self.nodes))
         children.append(self.dest)
@@ -1252,7 +1312,7 @@ class Printnl(Node):
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         if self.dest is not None:
             nodelist.append(self.dest)
         return nodelist
@@ -1271,6 +1331,7 @@ class Raise(Node):
         self.expr3 = expr3
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.expr1)
         children.append(self.expr2)
@@ -1299,6 +1360,7 @@ class Return(Node):
         self.value = value
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.value,
 
     def getChildNodes(self):
@@ -1317,6 +1379,7 @@ class RightShift(Node):
         self.right = right
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.left, self.right
 
     def getChildNodes(self):
@@ -1337,6 +1400,7 @@ class Slice(Node):
         self.upper = upper
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.expr)
         children.append(self.flags)
@@ -1365,11 +1429,12 @@ class Sliceobj(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -1384,11 +1449,12 @@ class Stmt(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -1403,6 +1469,7 @@ class StringConst(Node):
         self.string_value = string_value
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.string_value,
 
     def getChildNodes(self):
@@ -1421,6 +1488,7 @@ class Sub(Node):
         self.right = right
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.left, self.right
 
     def getChildNodes(self):
@@ -1440,6 +1508,7 @@ class Subscript(Node):
         self.subs = subs
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.expr)
         children.append(self.flags)
@@ -1449,7 +1518,7 @@ class Subscript(Node):
     def getChildNodes(self):
         nodelist = []
         nodelist.append(self.expr)
-        nodelist.extend(flatten_nodes(self.subs))
+        nodelist.extend(self.subs)
         return nodelist
 
     def __repr__(self):
@@ -1467,6 +1536,7 @@ class TryExcept(Node):
         self.else_ = else_
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.body)
         children.extend(flatten(self.handlers))
@@ -1476,7 +1546,7 @@ class TryExcept(Node):
     def getChildNodes(self):
         nodelist = []
         nodelist.append(self.body)
-        # replacement for flatten_nodes(self.handlers)
+        # handlers is a list of triplets (expr1, expr2, body)
         for expr1, expr2, body in self.handlers:
             if expr1 is not None:
                 nodelist.append(expr1)
@@ -1501,6 +1571,7 @@ class TryFinally(Node):
         self.final = final
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.body, self.final
 
     def getChildNodes(self):
@@ -1518,11 +1589,12 @@ class Tuple(Node):
         self.nodes = nodes
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return tuple(flatten(self.nodes))
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.nodes))
+        nodelist.extend(self.nodes)
         return nodelist
 
     def __repr__(self):
@@ -1537,6 +1609,7 @@ class UnaryAdd(Node):
         self.expr = expr
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.expr,
 
     def getChildNodes(self):
@@ -1554,6 +1627,7 @@ class UnarySub(Node):
         self.expr = expr
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.expr,
 
     def getChildNodes(self):
@@ -1573,6 +1647,7 @@ class While(Node):
         self.else_ = else_
 
     def getChildren(self):
+        "NOT_RPYTHON"
         children = []
         children.append(self.test)
         children.append(self.body)
@@ -1599,6 +1674,7 @@ class Yield(Node):
         self.value = value
 
     def getChildren(self):
+        "NOT_RPYTHON"
         return self.value,
 
     def getChildNodes(self):
@@ -1616,7 +1692,7 @@ class ASTVisitor(object):
     method in replacement of the former visitor.visit = walker.dispatch
     It could also use to identify base type for visit arguments of AST nodes
     """
-    
+
     def default(self, node):
         for child in node.getChildNodes():
             child.accept(self)

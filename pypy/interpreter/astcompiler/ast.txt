@@ -100,3 +100,30 @@ init(GenExpr):
 
 init(GenExprFor):
     self.is_outmost = False
+
+flatten_nodes(Compare.ops):
+    # ops is a list of couples (op_name, node)
+    for op_name, node in self.ops:
+        nodelist.append(node)
+
+flatten_nodes(TryExcept.handlers):
+    # handlers is a list of triplets (expr1, expr2, body)
+    for expr1, expr2, body in self.handlers:
+        if expr1 is not None:
+            nodelist.append(expr1)
+        if expr2 is not None:
+            nodelist.append(expr2)
+        if body is not None:
+            nodelist.append(body)
+
+flatten_nodes(Dict.items):
+    # items is a list of couples (node (key), node (value))
+    for key, value in self.items:
+        nodelist.append(key)
+        nodelist.append(value)
+
+flatten_nodes(If.tests):
+    # tests is a list of couples (node (test), node (suite))
+    for test, suite in self.items:
+        nodelist.append(test)
+        nodelist.append(suite)

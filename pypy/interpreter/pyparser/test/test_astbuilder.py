@@ -32,10 +32,10 @@ def arglist_equal(left,right):
 
 
 def nodes_equal(left, right):
-    if type(left)!=type(right):
-        return False
     if not isinstance(left,stable_ast.Node) or not isinstance(right,ast_ast.Node):
         return left==right
+    if left.__class__.__name__ != right.__class__.__name__:
+        return False    
     if isinstance(left,stable_ast.Function) and isinstance(right,ast_ast.Function):
         left_nodes = list(left.getChildren())
         right_nodes = list(right.getChildren())

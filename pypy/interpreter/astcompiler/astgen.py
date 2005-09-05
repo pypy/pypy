@@ -50,6 +50,7 @@ class NodeInfo:
         self.argprops = self.get_argprops()
         self.nargs = len(self.argnames)
         self.init = []
+        self.flatten_nodes = {}
         self.parent = parent
 
     def setup_parent(self, classes):
@@ -130,12 +131,15 @@ class NodeInfo:
             print >> buf, "        Node.__init__(self, lineno)"
         if self.argnames:
             for name in self.argnames:
+                if name in self.flatten_nodes:
+                    print >>buf, "    %s" % self.flatten_nodes[name][0].rstrip()
                 print >> buf, "        self.%s = %s" % (name, name)
         if self.init:
             print >> buf, "".join(["    " + line for line in self.init])
 
     def _gen_getChildren(self, buf):
         print >> buf, "    def getChildren(self):"
+        print >> buf, '        "NOT_RPYTHON"'        
         if len(self.argnames) == 0:
             print >> buf, "        return []"
         else:
@@ -184,8 +188,15 @@ class NodeInfo:
                                "            nodelist.append(self.%s)")
                         print >> buf, tmp % (name, name)
                     elif self.argprops[name] == P_NESTED:
-                        print >> buf, template % ("extend", "flatten_nodes(",
-                                                  name, ")")
+                        if name not in self.flatten_nodes:
+                            print >> buf, template % ("extend", "",
+                                                      name, "")
+                        else:
+                            flat_logic = self.flatten_nodes[name]
+                            while not flat_logic[-1].strip():
+                                flat_logic.pop()
+                            flat_logic[-1] = flat_logic[-1].rstrip()
+                            print >> buf, "".join(["    " + line for line in flat_logic])
                     elif self.argprops[name] == P_NODE:
                         print >> buf, template % ("append", "", name, "")
                 print >> buf, "        return nodelist"
@@ -214,16 +225,27 @@ class NodeInfo:
         print >> buf, "        return self.default( node )"
 
 rx_init = re.compile('init\((.*)\):')
+rx_flatten_nodes = re.compile('flatten_nodes\((.*)\.(.*)\):')
 
 def parse_spec(file):
     classes = {}
     cur = None
+    kind = None
     for line in fileinput.input(file):
-        if line.strip().startswith('#'):
-            continue
-        mo = rx_init.search(line)
+        mo = None
+        comment = line.strip().startswith('#')
+        if not comment:
+            mo = rx_init.search(line)
+            if mo:
+                kind = 'init'
+            else:
+                mo = rx_flatten_nodes.search(line)
+                if mo:
+                    kind = 'flatten_nodes'
         if mo is None:
             if cur is None:
+                if comment:
+                    continue
                 # a normal entry
                 try:
                     name, args = line.split(':')
@@ -236,13 +258,22 @@ def parse_spec(file):
                     parent = None
                 classes[name] = NodeInfo(name, args, parent)
                 cur = None
-            else:
+            elif kind == 'init':
                 # some code for the __init__ method
                 cur.init.append(line)
-        else:
+            elif kind == 'flatten_nodes':
+                cur.flatten_nodes['_cur_'].append(line)
+        elif kind == 'init':
             # some extra code for a Node's __init__ method
             name = mo.group(1)
             cur = classes[name]
+        elif kind == 'flatten_nodes':
+            # special case for getChildNodes flattening
+            name = mo.group(1)
+            attr = mo.group(2)
+            cur = classes[name]
+            cur.flatten_nodes[attr] = cur.flatten_nodes['_cur_'] = []
+            
     for node in classes.values():
         node.setup_parent(classes)
     return sorted(classes.values(), key=lambda n: n.name)
@@ -300,8 +331,8 @@ def flatten(list):
             l.append(elt)
     return l
 
-def flatten_nodes(list):
-    return [n for n in flatten(list) if isinstance(n, Node)]
+#def flatten_nodes(list):
+#    return [n for n in flatten(list) if isinstance(n, Node)]
 
 nodes = {}
 
