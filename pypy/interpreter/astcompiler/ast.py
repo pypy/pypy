@@ -654,7 +654,7 @@ class Function(Node):
         self.flags = flags
         self.doc = doc
         self.code = code
-        self.varargs = self.kwargs = None
+        self.varargs = self.kwargs = 0
         if flags & CO_VARARGS:
             self.varargs = 1
         if flags & CO_VARKEYWORDS:
@@ -692,7 +692,7 @@ class GenExpr(Node):
         Node.__init__(self, lineno)
         self.code = code
         self.argnames = [AssName('[outmost-iterable]', OP_ASSIGN)]
-        self.varargs = self.kwargs = None
+        self.varargs = self.kwargs = 0
     
 
 
@@ -897,7 +897,7 @@ class Lambda(Node):
         self.defaults = defaults
         self.flags = flags
         self.code = code
-        self.varargs = self.kwargs = None
+        self.varargs = self.kwargs = 0
         if flags & CO_VARARGS:
             self.varargs = 1
         if flags & CO_VARKEYWORDS:

@@ -81,14 +81,14 @@ UnarySub: expr
 Invert: expr
 
 init(Function):
-    self.varargs = self.kwargs = None
+    self.varargs = self.kwargs = 0
     if flags & CO_VARARGS:
         self.varargs = 1
     if flags & CO_VARKEYWORDS:
         self.kwargs = 1
 
 init(Lambda):
-    self.varargs = self.kwargs = None
+    self.varargs = self.kwargs = 0
     if flags & CO_VARARGS:
         self.varargs = 1
     if flags & CO_VARKEYWORDS:
@@ -96,7 +96,7 @@ init(Lambda):
 
 init(GenExpr):
     self.argnames = [AssName('[outmost-iterable]', OP_ASSIGN)]
-    self.varargs = self.kwargs = None
+    self.varargs = self.kwargs = 0
 
 init(GenExprFor):
     self.is_outmost = False
