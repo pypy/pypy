@@ -406,6 +406,7 @@ class Compare(Node):
     def __init__(self, expr, ops, lineno=-1):
         Node.__init__(self, lineno)
         self.expr = expr
+        # ops is a list of couples (op_name, node)
         self.ops = ops
 
     def getChildren(self):
@@ -417,7 +418,10 @@ class Compare(Node):
     def getChildNodes(self):
         nodelist = []
         nodelist.append(self.expr)
-        nodelist.extend(flatten_nodes(self.ops))
+        # this is a replacement of flatten_nodes
+        for op_name, node in self.ops:
+            nodelist.append(node)
+        # nodelist.extend(flatten_nodes(self.ops))
         return nodelist
 
     def __repr__(self):
@@ -481,6 +485,7 @@ class Decorators(Node):
 class Dict(Node):
     def __init__(self, items, lineno=-1):
         Node.__init__(self, lineno)
+        # items is a list of couples (node (key), node (value))
         self.items = items
 
     def getChildren(self):
@@ -488,7 +493,11 @@ class Dict(Node):
 
     def getChildNodes(self):
         nodelist = []
-        nodelist.extend(flatten_nodes(self.items))
+        # replacement for flatten_nodes()
+        for key, value in self.items:
+            nodelist.append(key)
+            nodelist.append(value)
+        # nodelist.extend(flatten_nodes(self.items))
         return nodelist
 
     def __repr__(self):
@@ -1453,6 +1462,7 @@ class TryExcept(Node):
     def __init__(self, body, handlers, else_, lineno=-1):
         Node.__init__(self, lineno)
         self.body = body
+        # handlers is a list of triplets (expr1, expr2, body)
         self.handlers = handlers
         self.else_ = else_
 
@@ -1466,7 +1476,14 @@ class TryExcept(Node):
     def getChildNodes(self):
         nodelist = []
         nodelist.append(self.body)
-        nodelist.extend(flatten_nodes(self.handlers))
+        # replacement for flatten_nodes(self.handlers)
+        for expr1, expr2, body in self.handlers:
+            if expr1 is not None:
+                nodelist.append(expr1)
+            if expr2 is not None:
+                nodelist.append(expr2)
+            if body is not None:
+                nodelist.append(body)
         if self.else_ is not None:
             nodelist.append(self.else_)
         return nodelist
