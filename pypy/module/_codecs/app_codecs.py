@@ -296,7 +296,7 @@ def utf_16_ex_decode( data, errors='strict', byteorder=0, final=0):
     consumed = len(data)
     if final:
         consumed = 0
-    res, consumed, byteorder = PyUnicode_DecodeUTF16Stateful(data, len(data), errors, bm, consumed)
+    res, consumed, byteorder = PyUnicode_DecodeUTF16Stateful(data, len(data), errors, bm, final)
     res = ''.join(res)
     return res, consumed, byteorder
 
@@ -431,7 +431,7 @@ def utf_16_le_decode( data, errors='strict', byteorder=0, final = 0):
     consumed = len(data)
     if final:
         consumed = 0
-    res, consumed, byteorder = PyUnicode_DecodeUTF16Stateful(data, len(data), errors, 'little', consumed)
+    res, consumed, byteorder = PyUnicode_DecodeUTF16Stateful(data, len(data), errors, 'little', final)
     res = u''.join(res)
     return res, consumed
 
@@ -441,7 +441,7 @@ def utf_16_be_decode( data, errors='strict', byteorder=0, final = 0):
     consumed = len(data)
     if final:
         consumed = 0
-    res, consumed, byteorder = PyUnicode_DecodeUTF16Stateful(data, len(data), errors, 'big', consumed)
+    res, consumed, byteorder = PyUnicode_DecodeUTF16Stateful(data, len(data), errors, 'big', final)
     res = u''.join(res)
     return res, consumed
 
