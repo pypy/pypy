@@ -529,7 +529,9 @@ def build_term( builder, nb ):
     left = atoms[0]
     for i in range(2,l,2):
         right = atoms[i]
-        op = atoms[i-1].name
+        op_node = atoms[i-1]
+        assert isinstance(op_node, TokenObject)
+        op = op_node.name
         if op == tok.STAR:
             left = ast.Mul( [ left, right ] )
         elif op == tok.SLASH:
@@ -749,7 +751,7 @@ def build_testlist_gexp(builder, nb):
         builder.push(atoms[0])
         return
     items = []
-    if atoms[1].name == tok.COMMA:
+    if isinstance(atoms[1], TokenObject) and atoms[1].name == tok.COMMA:
         for i in range(0, l, 2): # this is atoms not 1
             items.append(atoms[i])
     else:
@@ -775,13 +777,13 @@ def build_trailer(builder, nb):
     """
     atoms = get_atoms(builder, nb)
     # Case 1 : '(' ...
-    if atoms[0].name == tok.LPAR:
+    if isinstance(atoms[0], TokenObject) and atoms[0].name == tok.LPAR:
         if len(atoms) == 2: # and atoms[1].token == tok.RPAR:
             builder.push(ArglistObject([], None, None))
         elif len(atoms) == 3: # '(' Arglist ')'
             # push arglist on the stack
             builder.push(atoms[1])
-    elif atoms[0].name == tok.LSQB:
+    elif isinstance(atoms[0], TokenObject) and atoms[0].name == tok.LSQB:
         if isinstance(atoms[1], SlicelistObject):
             builder.push(atoms[1])
         else:
