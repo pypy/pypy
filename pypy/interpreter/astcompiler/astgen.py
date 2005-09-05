@@ -137,7 +137,7 @@ class NodeInfo:
     def _gen_getChildren(self, buf):
         print >> buf, "    def getChildren(self):"
         if len(self.argnames) == 0:
-            print >> buf, "        return ()"
+            print >> buf, "        return []"
         else:
             if self.hardest_arg < P_NESTED:
                 clist = COMMA.join(["self.%s" % c
@@ -163,7 +163,7 @@ class NodeInfo:
     def _gen_getChildNodes(self, buf):
         print >> buf, "    def getChildNodes(self):"
         if len(self.argnames) == 0:
-            print >> buf, "        return ()"
+            print >> buf, "        return []"
         else:
             if self.hardest_arg < P_NESTED:
                 clist = ["self.%s" % c
