@@ -714,9 +714,9 @@ def build_return_stmt(builder, nb):
     if len(atoms) > 2:
         assert False, "return several stmts not implemented"
     elif len(atoms) == 1:
-        builder.push(ast.Return(ast.Const(builder.wrap_none()), None)) # XXX lineno
+        builder.push(ast.Return(ast.Const(builder.wrap_none()))) # XXX lineno
     else:
-        builder.push(ast.Return(atoms[1], None)) # XXX lineno
+        builder.push(ast.Return(atoms[1])) # XXX lineno
 
 def build_file_input(builder, nb):
     stmts = []
