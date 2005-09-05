@@ -1,7 +1,7 @@
 """Parser for future statements
 
 """
-
+from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.astcompiler import ast, walk
 
 def is_future(stmt):
