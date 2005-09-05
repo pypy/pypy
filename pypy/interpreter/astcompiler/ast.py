@@ -332,7 +332,7 @@ class Break(Node):
         return ()
 
     def getChildNodes(self):
-        return ()
+        return []
 
     def __repr__(self):
         return "Break()"
@@ -449,7 +449,7 @@ class Continue(Node):
         return ()
 
     def getChildNodes(self):
-        return ()
+        return []
 
     def __repr__(self):
         return "Continue()"
@@ -538,7 +538,7 @@ class Ellipsis(Node):
         return ()
 
     def getChildNodes(self):
-        return ()
+        return []
 
     def __repr__(self):
         return "Ellipsis()"
@@ -1107,7 +1107,7 @@ class NoneConst(Node):
         return ()
 
     def getChildNodes(self):
-        return ()
+        return []
 
     def __repr__(self):
         return "NoneConst()"
@@ -1176,7 +1176,7 @@ class Pass(Node):
         return ()
 
     def getChildNodes(self):
-        return ()
+        return []
 
     def __repr__(self):
         return "Pass()"
