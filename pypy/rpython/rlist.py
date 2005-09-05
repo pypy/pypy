@@ -393,8 +393,10 @@ def ll_prepend(l, newitem):
     _ll_list_resize(l, length+1)
     i = length
     items = l.items
+    i1 = i+1
     while i > 0:
-        items[i] = items[i+1]
+        items[i] = items[i1]
+        i1 = i
         i -= 1
     items[0] = newitem
 
@@ -403,8 +405,10 @@ def ll_insert_nonneg(l, index, newitem):
     _ll_list_resize(l, length+1)
     items = l.items
     i = length
+    i1 = i+1
     while i > index:
-        items[i] = items[i+1]
+        items[i] = items[i1]
+        i1 = i
         i -= 1
     items[i] = newitem
 
@@ -434,9 +438,11 @@ def ll_pop_zero(l):
     res = l.items[0]
     j = 0
     items = l.items
+    j1 = j+1
     while j < newlength:
-        items[j] = items[j+1]
-        j += 1
+        items[j] = items[j1]
+        j = j1
+        j1 += 1
     ITEM = typeOf(l).TO.items.TO.OF
     if isinstance(ITEM, Ptr):
         items[newlength] = nullptr(ITEM.TO)
@@ -455,11 +461,13 @@ def ll_reverse(l):
     len2 = length // 2
     i = 0
     items = l.items
+    length_1_i = length-1-i
     while i < len2:
         tmp = l.items[i]
-        items[i] = items[length-1-i]
-        items[length-1-i] = tmp
+        items[i] = items[length_1_i]
+        items[length_1_i] = tmp
         i += 1
+        length_1_i -= 1
 
 def ll_getitem_nonneg(l, i):
     return l.items[i]
@@ -513,9 +521,11 @@ def ll_delitem_nonneg(l, i):
     newlength = l.length - 1
     j = i
     items = l.items
+    j1 = j+1
     while j < newlength:
-        items[j] = items[j+1]
-        j += 1
+        items[j] = items[j1]
+        j = j1
+        j1 += 1
     ITEM = typeOf(l).TO.items.TO.OF
     if isinstance(ITEM, Ptr):
         items[newlength] = nullptr(ITEM.TO)
@@ -560,7 +570,7 @@ def ll_extend(l1, l2):
     newlength = len1 + len2
     _ll_list_resize(l1, newlength)
     items = l1.items
-    source =l2.items
+    source = l2.items
     i = 0
     j = len1
     while i < len2:
@@ -573,10 +583,11 @@ def ll_listslice_startonly(l1, start):
     newlength = len1 - start
     newitems = malloc(typeOf(l1).TO.items.TO, newlength)
     j = 0
-    source= l1.items
-    while start < len1:
-        newitems[j] = source[start]
-        start += 1
+    source = l1.items
+    i = start
+    while i < len1:
+        newitems[j] = source[i]
+        i += 1
         j += 1
     l = malloc(typeOf(l1).TO)
     l.length = newlength
@@ -592,9 +603,10 @@ def ll_listslice(l1, slice):
     newitems = malloc(typeOf(l1).TO.items.TO, newlength)
     j = 0
     source = l1.items
-    while start < stop:
-        newitems[j] = source[start]
-        start += 1
+    i = start
+    while i < stop:
+        newitems[j] = source[i]
+        i += 1
         j += 1
     l = malloc(typeOf(l1).TO)
     l.length = newlength
@@ -634,9 +646,10 @@ def ll_listdelslice(l, slice):
     newlength = l.length - (stop-start)
     j = start
     items = l.items
+    i = stop
     while j < newlength:
-        items[j] = items[stop]
-        stop += 1
+        items[j] = items[i]
+        i += 1
         j += 1
     ITEM = typeOf(l).TO.items.TO.OF
     if isinstance(ITEM, Ptr):
@@ -652,11 +665,13 @@ def ll_listsetslice(l1, slice, l2):
         "setslice cannot resize lists in RPython")
     # XXX but it should be easy enough to support, soon
     start = slice.start
-    j = 0
+    j = start
     items1 = l1.items
     items2 = l2.items
-    while j < count:
-        items1[start+j] = items2[j]
+    i = 0
+    while i < count:
+        items1[j] = items2[i]
+        i += 1
         j += 1
 
 # ____________________________________________________________
