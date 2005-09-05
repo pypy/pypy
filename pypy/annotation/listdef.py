@@ -1,5 +1,5 @@
 from pypy.annotation.model import SomeObject, SomeImpossibleValue
-from pypy.annotation.model import tracking_unionof, TLS, UnionError
+from pypy.annotation.model import unionof, TLS, UnionError, isdegenerated
 
 
 class ListItem:
@@ -28,7 +28,9 @@ class ListItem:
             self.patch()    # which should patch all refs to 'other'
             s_value = self.s_value
             s_other_value = other.s_value
-            s_new_value = tracking_unionof(self.__class__.__name__, s_value, s_other_value)
+            s_new_value = unionof(s_value, s_other_value)
+            if isdegenerated(s_new_value):
+                self.bookkeeper.ondegenerated(self, s_new_value)
             if s_new_value != s_value:
                 self.s_value = s_new_value
                 # reflow from reading points
@@ -44,7 +46,9 @@ class ListItem:
             listdef.listitem = self
 
     def generalize(self, s_other_value):
-        s_new_value = tracking_unionof(self.__class__.__name__, self.s_value, s_other_value)
+        s_new_value = unionof(self.s_value, s_other_value)
+        if isdegenerated(s_new_value):
+            self.bookkeeper.ondegenerated(self, s_new_value)        
         if s_new_value != self.s_value:
             self.s_value = s_new_value
             # reflow from all reading points

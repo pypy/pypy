@@ -684,8 +684,10 @@ class Bookkeeper:
                 self.spec_callsite_keys_results[occurence] = prev_key, r
 
         return r
-        
 
+    def ondegenerated(self, what, s_value, where=None, called_from=None):
+        self.annotator.ondegenerated(what, s_value, where=where, called_from=called_from)
+        
     def whereami(self):
         return self.annotator.whereami(self.position_key)
 

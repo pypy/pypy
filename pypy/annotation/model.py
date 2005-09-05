@@ -493,10 +493,13 @@ def unionof(*somevalues):
         s1.caused_by_merge = somevalues
     return s1
 
+def isdegenerated(s_value):
+    return s_value.__class__ is SomeObject and s_value.knowntype is not type
+
 def tracking_unionof(ctxt, *somevalues):
     s1 = unionof(*somevalues)
-    if not s1.origin and type(ctxt) is tuple:
-        s1.origin = ctxt+(0,)
+    #if not s1.origin and type(ctxt) is tuple:
+    #    s1.origin = ctxt+(0,)
     return s1
         
 # make knowntypedata dictionary

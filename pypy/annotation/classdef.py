@@ -4,8 +4,8 @@ Type inference for user-defined classes.
 
 from __future__ import generators
 from types import FunctionType
-from pypy.annotation.model import SomeImpossibleValue, SomePBC, tracking_unionof
-from pypy.annotation.model import SomeInteger
+from pypy.annotation.model import SomeImpossibleValue, SomePBC, unionof
+from pypy.annotation.model import SomeInteger, isdegenerated
 
 
 # The main purpose of a ClassDef is to collect information about class/instance
@@ -88,15 +88,28 @@ class Attribute:
         else:
             # a prebuilt instance source forces readonly=False, see above
             self.readonly = False
-        self.s_value = tracking_unionof(self, self.s_value, s_value)
+        s_new_value = unionof(self.s_value, s_value)       
+        if isdegenerated(s_new_value):            
+            self.bookkeeper.ondegenerated("source %r attr %s" % (source, self.name),
+                                          s_new_value)
+                
+        self.s_value = s_new_value
 
     def getvalue(self):
         # Same as 'self.s_value' for historical reasons.
         return self.s_value
 
-    def merge(self, other):
+    def merge(self, other, classdef=None):
         assert self.name == other.name
-        self.s_value = tracking_unionof(self, self.s_value, other.s_value)
+        s_new_value = unionof(self.s_value, other.s_value)
+        if isdegenerated(s_new_value):
+            if classdef is None:
+                what = "? attr %s" % self.name
+            else:
+                what = "%r attr %s" % (classdef, self.name)
+            self.bookkeeper.ondegenerated(what, s_new_value)
+
+        self.s_value = s_new_value        
         self.readonly = self.readonly and other.readonly
         self.read_locations.update(other.read_locations)
 
@@ -294,7 +307,7 @@ class ClassDef:
 
         # keep all subattributes' values
         for subattr in subclass_attrs:
-            newattr.merge(subattr)
+            newattr.merge(subattr, classdef=self)
 
         # store this new Attribute, generalizing the previous ones from
         # subclasses -- invariant (A)

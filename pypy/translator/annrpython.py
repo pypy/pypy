@@ -217,7 +217,26 @@ class RPythonAnnotator:
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
 
-    def setbinding(self, arg, s_value, called_from=None):
+    def ondegenerated(self, what, s_value, where=None, called_from=None):
+        if self.policy.allow_someobjects:
+            return
+        msglines = ["annotation of %r degenerated to SomeObject()" % (what,)]
+        try:
+            position_key = where or self.bookkeeper.position_key
+        except AttributeError:
+            pass
+        else:
+            msglines.append(".. position: %s" % (self.whereami(position_key),))
+        if called_from is not None:
+            msglines.append(".. called from %r" % (called_from,))
+            if hasattr(called_from, '__module__'):
+                msglines[-1] += " from module %r"% (called_from.__module__,)
+        if s_value.origin is not None:
+            msglines.append(".. SomeObject() origin: %s" % (
+                self.whereami(s_value.origin),))
+        raise AnnotatorError('\n'.join(msglines))        
+
+    def setbinding(self, arg, s_value, called_from=None, where=None):
         if arg in self.bindings:
             assert s_value.contains(self.bindings[arg])
             # for debugging purposes, record the history of bindings that
@@ -227,25 +246,12 @@ class RPythonAnnotator:
                 history.append(self.bindings[arg])
                 cause_history = self.binding_cause_history.setdefault(arg, [])
                 cause_history.append(self.binding_caused_by[arg])
-        degenerated = (s_value.__class__ is annmodel.SomeObject and
-                       s_value.knowntype is not type)
-        if degenerated and not self.policy.allow_someobjects:
-            msglines = ["annotation of %r degenerated to SomeObject()" % (arg,)]
-            try:
-                position_key = self.bookkeeper.position_key
-            except AttributeError:
-                pass
-            else:
-                msglines.append(".. %r position: %s" % (
-                    arg, self.whereami(position_key),))
-            if called_from is not None:
-                msglines.append(".. called from %r" % (called_from,))
-                if hasattr(called_from, '__module__'):
-                    msglines[-1] += " from module %r"% (called_from.__module__,)
-            if s_value.origin is not None:
-                msglines.append(".. SomeObject() origin: %s" % (
-                    self.whereami(s_value.origin),))
-            raise AnnotatorError('\n'.join(msglines))
+
+        degenerated = annmodel.isdegenerated(s_value)
+
+        if degenerated:
+            self.ondegenerated(arg, s_value, where=where, called_from=called_from)
+
         self.bindings[arg] = s_value
         if annmodel.DEBUG:
             if arg in self.return_bindings:
@@ -373,21 +379,21 @@ class RPythonAnnotator:
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
 
-    def bindinputargs(self, fn, block, inputcells, called_from=None):
+    def bindinputargs(self, fn, block, inputcells, called_from=None, where=None):
         # Create the initial bindings for the input args of a block.
         assert len(block.inputargs) == len(inputcells)
         for a, cell in zip(block.inputargs, inputcells):
-            self.setbinding(a, cell, called_from)
+            self.setbinding(a, cell, called_from, where=where)
         self.annotated[block] = False  # must flowin.
 
     def mergeinputargs(self, fn, block, inputcells, called_from=None):
         # Merge the new 'cells' with each of the block's existing input
         # variables.
         oldcells = [self.binding(a) for a in block.inputargs]
-        unions = [annmodel.tracking_unionof((fn, block), c1,c2) for c1, c2 in zip(oldcells,inputcells)]
+        unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
-            self.bindinputargs(fn, block, unions, called_from)
+            self.bindinputargs(fn, block, unions, called_from, where=(fn, block, None))
 
     def whereami(self, position_key):
         fn, block, i = position_key
