@@ -9,6 +9,20 @@
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
+Next PyPy Sprint in Paris 10th-16th October 2005 
+==========================================================
+
+Our next sprint is going to focus on threads/GC, various
+refactorings as well as JIT_ and `continuation-passing`_ style 
+translation of PyPy's Python interpreter.  The `Paris Announcement`_ 
+details times and logistics as well as the registration procedure. 
+The number of people who can attend is somewhat limited so it's 
+good if you signal your interest as early as possible. 
+
+.. _`Paris Announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/paris-2005-sprint.html 
+.. _JIT: http://en.wikipedia.org/wiki/Just-in-time_compilation
+.. _`continuation-passing`: http://en.wikipedia.org/wiki/Continuation_passing_style
+
 PyPy release 0.7.0
 =================== 
 
@@ -19,21 +33,25 @@ See the `release announcement`_ for further details about the release and
 the `getting started`_ document for instructions about downloading it and
 trying it out.  We also have the beginning of a FAQ_.  *(08/28/2005)*
 
+.. _`pypy-0.7.0`: 
 .. _`release announcement`: http://codespeak.net/pypy/dist/pypy/doc/release-0.7.0.html
 .. _`getting started`: http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
 .. _FAQ: http://codespeak.net/pypy/dist/pypy/doc/faq.html
 
-Ongoing: PyPy Sprint in Heidelberg 22nd-29th August 2005
+PyPy Sprint in Heidelberg 22nd-29th August 2005
 ==========================================================
 
-The current `PyPy sprint`_ takes place at the Heidelberg University
+The last `PyPy sprint`_ took place at the Heidelberg University
 in Germany from 22nd August to 29th August (both days included). 
 Its main focus is translation of the whole PyPy interpreter 
 to a low level language and reaching 2.4.1 Python compliancy.
 The goal of the sprint is to release a first self-contained
-PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_
-and there are also some pictures_ online.
+PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_, 
+there are some pictures_ online and a `heidelberg summary report`_
+detailing some of the works that led to the successful release 
+of `pypy-0.7.0`_! 
 
+.. _`heidelberg summary report`: http://codespeak.net/pypy/extradoc/sprintinfo/Heidelberg-report.html 
 .. _`PyPy sprint`: http://codespeak.net/pypy/extradoc/sprintinfo/Heidelberg-sprint.html
 .. _`day 1 - 3`: http://codespeak.net/pipermail/pypy-dev/2005q3/002287.html
 .. _pictures: http://codespeak.net/~hpk/heidelberg-sprint/
