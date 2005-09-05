@@ -389,7 +389,7 @@ def reduce_subscript(obj, subscript):
 def reduce_slice(obj, sliceobj):
     """generic factory for Slice nodes"""
     assert isinstance(sliceobj, SlicelistObject)
-    if sliceobj.name == 'slice':
+    if sliceobj.fake_rulename == 'slice':
         start = sliceobj.value[0]
         end = sliceobj.value[1]
         return ast.Slice(obj, consts.OP_APPLY, start, end)
@@ -531,14 +531,13 @@ def build_term( builder, nb ):
         right = atoms[i]
         op_node = atoms[i-1]
         assert isinstance(op_node, TokenObject)
-        op = op_node.name
-        if op == tok.STAR:
+        if op_node.name == tok.STAR:
             left = ast.Mul( [ left, right ] )
-        elif op == tok.SLASH:
+        elif op_node.name == tok.SLASH:
             left = ast.Div( [ left, right ] )
-        elif op == tok.PERCENT:
+        elif op_node.name == tok.PERCENT:
             left = ast.Mod( [ left, right ] )
-        elif op == tok.DOUBLESLASH:
+        elif op_node.name == tok.DOUBLESLASH:
             left = ast.FloorDiv( [ left, right ] )
         else:
             raise ValueError, "unexpected token: %s" % atoms[i-1]
@@ -550,10 +549,11 @@ def build_arith_expr( builder, nb ):
     left = atoms[0]
     for i in range(2,l,2):
         right = atoms[i]
-        op = atoms[i-1].name
-        if op == tok.PLUS:
+        op_node = atoms[i-1]
+        assert isinstance(op_node, TokenObject)
+        if op_node.name == tok.PLUS:
             left = ast.Add( [ left, right ] )
-        elif op == tok.MINUS:
+        elif op_node.name == tok.MINUS:
             left = ast.Sub( [ left, right ] )
         else:
             raise ValueError, "unexpected token: %s : %s" % atoms[i-1]
@@ -670,6 +670,7 @@ def build_expr_stmt(builder, nb):
         builder.push(ast.Discard(atoms[0]))
         return
     op = atoms[1]
+    assert isinstance(op, TokenObject)
     if op.name == tok.EQUAL:
         nodes = []
         for i in range(0,l-2,2):
@@ -1085,7 +1086,8 @@ def build_import_name(builder, nb):
                 index += 2
         names.append((name, as_name))
         # move forward until next ','
-        while index < l and atoms[index].name != tok.COMMA:
+        while index < l and isinstance(atoms[index], TokenObject) and \
+                atoms[index].name != tok.COMMA:
             index += 1
         index += 1
     builder.push(ast.Import(names))
@@ -1102,6 +1104,7 @@ def build_import_from(builder, nb):
     index = 1
     incr, from_name = parse_dotted_names(atoms[index:])
     index += (incr + 1) # skip 'import'
+    assert isinstance(atoms[index], TokenObject) # XXX
     if atoms[index].name == tok.STAR:
         names = [('*', None)]
     else:
@@ -1388,7 +1391,7 @@ class ObjectAccessor(ast.Node):
     FIXME: think about a more appropriate name
     """
     def __init__(self, name, value, src):
-        self.name = name
+        self.fake_rulename = name
         self.value = value
         self.count = 0
         self.line = 0 # src.getline()
@@ -1400,7 +1403,7 @@ class ArglistObject(ObjectAccessor):
     self.value is the 3-tuple (names, defaults, flags)
     """
     def __init__(self, arguments, stararg, dstararg):
-        self.name = 'arglist'
+        self.fake_rulename = 'arglist'
         self.arguments = arguments
         self.stararg = stararg
         self.dstararg = dstararg
