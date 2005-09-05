@@ -177,6 +177,21 @@ def inline_function(translator, inline_func, graph):
         traverse(find_callsites, graph)
         checkgraph(graph)
 
+def _find_exception_type(block):
+    #XXX slightly brittle: find the exception type for simple cases
+    #(e.g. if you do only raise XXXError) by doing pattern matching
+    ops = block.operations
+    if (len(ops) < 6 or
+        ops[-6].opname != "malloc" or ops[-5].opname != "cast_pointer" or
+        ops[-4].opname != "setfield" or ops[-3].opname != "cast_pointer" or
+        ops[-2].opname != "getfield" or ops[-1].opname != "cast_pointer" or
+        len(block.exits) != 1 or block.exits[0].args[0] != ops[-2].result or
+        block.exits[0].args[1] != ops[-1].result or
+        not isinstance(ops[-4].args[1], Constant) or
+        ops[-4].args[1].value != "typeptr"):
+        return None
+    return ops[-4].args[2].value
+
 def _inline_function(translator, graph, block, index_operation):
     exception_guarded = False
     if (block.exitswitch == Constant(last_exception) and
@@ -267,12 +282,43 @@ def _inline_function(translator, graph, block, index_operation):
                 copiedblock.exits[0].args = copiedblock.exits[0].args[:2]
                 copiedblock.exits[0].target = graph.exceptblock
         else:
-            #XXXXX don't look: insert blocks that do exception matching
-            #XXXXXX should do exception matching as far as possible before runtime
-            blocks = []
+            def find_args_in_exceptional_case(link, block, etype, evalue):
+                linkargs = []
+                for arg in link.args:
+                    if arg == link.last_exception:
+                        linkargs.append(etype)
+                    elif arg == link.last_exc_value:
+                        linkargs.append(evalue)
+                    elif isinstance(arg, Constant):
+                        linkargs.append(arg)
+                    else:
+                        index = afterblock.inputargs.index(arg)
+                        linkargs.append(passon_vars[block][index - 1])
+                return linkargs
             exc_match = Constant(rmodel.getfunctionptr(
                 translator,
                 translator.rtyper.getexceptiondata().ll_exception_match))
+            #try to match the exceptions for simple cases
+            for link in entrymap[graph_to_inline.exceptblock]:
+                copiedblock = copied_blocks[link.prevblock]
+                copiedlink = copiedblock.exits[0]
+                eclass = _find_exception_type(copiedblock)
+                print copiedblock.operations
+                if eclass is None:
+                    continue
+                etype = copiedlink.args[0]
+                evalue = copiedlink.args[1]
+                for exceptionlink in afterblock.exits[1:]:
+                    if exc_match.value(eclass, exceptionlink.llexitcase):
+                        copiedlink.target = exceptionlink.target
+                        linkargs = find_args_in_exceptional_case(exceptionlink,
+                                                                 copiedblock,
+                                                                 etype, evalue)
+                        copiedlink.args = linkargs
+                        break
+            #XXXXX don't look: insert blocks that do exception matching
+            #for the cases where direct matching did not work
+            blocks = []
             for i, link in enumerate(afterblock.exits[1:]):
                 etype = copyvar(translator, copiedexceptblock.inputargs[0])
                 evalue = copyvar(translator, copiedexceptblock.inputargs[1])
@@ -283,18 +329,9 @@ def _inline_function(translator, graph, block, index_operation):
                 args = [exc_match, etype, Constant(link.llexitcase)]
                 block.operations.append(SpaceOperation("direct_call", args, res))
                 block.exitswitch = res
-                linkargs = []
-                for arg in afterblock.exits[i + 1].args:
-                    if arg == afterblock.exits[i + 1].last_exception:
-                        linkargs.append(etype)
-                    elif arg == afterblock.exits[i + 1].last_exc_value:
-                        linkargs.append(evalue)
-                    elif isinstance(arg, Constant):
-                        linkargs.append(arg)
-                    else:
-                        index = afterblock.inputargs.index(arg)
-                        linkargs.append(passon_vars[link.target][index - 1])
-                l = Link(linkargs, afterblock.exits[i + 1].target)
+                linkargs = find_args_in_exceptional_case(link, link.target,
+                                                         etype, evalue)
+                l = Link(linkargs, link.target)
                 l.prevblock = block
                 l.exitcase = True
                 block.exits.append(l)
