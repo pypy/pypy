@@ -666,6 +666,11 @@ the list of the read positions functions is set to var or _."""
                 print "*** expected obj attrname:", arg
                 return
             arg, attrname = args
+            # allow quotes around attrname
+            if (attrname.startswith("'") and attrname.endswith("'")
+                or attrname.startswith('"') and attrname.endswith('"')):
+                attrname = attrname[1:-1]
+
             obj = self._getobj(arg)
             if obj is None:
                 return
