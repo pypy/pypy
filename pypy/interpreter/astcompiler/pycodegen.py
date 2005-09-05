@@ -194,7 +194,7 @@ class CodeGenerator(ast.ASTVisitor):
         self.checkClass()
         self.locals = misc.Stack()
         self.setups = misc.Stack()
-        self.last_lineno = None
+        self.last_lineno = -1
         self._div_op = "BINARY_DIVIDE"
         self.genexpr_cont_stack = []
 
@@ -335,8 +335,8 @@ class CodeGenerator(ast.ASTVisitor):
         if node is None:
             return False
         lineno = node.lineno
-        if lineno is not None and (lineno != self.last_lineno
-                                   or force):
+        if lineno != -1 and (lineno != self.last_lineno
+                             or force):
             self.emitop_int('SET_LINENO', lineno)
             self.last_lineno = lineno
             return True

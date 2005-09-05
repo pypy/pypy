@@ -121,9 +121,9 @@ class NodeInfo:
         else:
             args = self.parent.args or self.args
         if args:
-            print >> buf, "    def __init__(self, %s, lineno=None):" % args
+            print >> buf, "    def __init__(self, %s, lineno=-1):" % args
         else:
-            print >> buf, "    def __init__(self, lineno=None):"
+            print >> buf, "    def __init__(self, lineno=-1):"
         if self.parent.args:
             print >> buf, "        %s.__init__(self, %s, lineno)" % self.parent.args
         else:
@@ -307,7 +307,7 @@ nodes = {}
 
 class Node(Wrappable):
     """Abstract base class for ast nodes."""
-    def __init__(self, lineno = None):
+    def __init__(self, lineno = -1):
         self.lineno = lineno
         self.filename = ""
         
