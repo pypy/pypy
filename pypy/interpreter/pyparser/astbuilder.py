@@ -163,6 +163,7 @@ def parse_arglist(tokens):
                         index += 1
                 else:
                     raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
+            assert isinstance(cur_token, TokenObject)
             if cur_token.name != tok.DOUBLESTAR:
                 raise ValueError("Unexpected token: %s" % cur_token)
             cur_token = tokens[index]
@@ -504,7 +505,8 @@ def build_power(builder, nb):
     if len(atoms) == 1:
         builder.push(atoms[0])
     else:
-        if isinstance(atoms[-2], TokenObject) and atoms[-2].name == tok.DOUBLESTAR:
+        token = atoms[-2]
+        if isinstance(token, TokenObject) and token.name == tok.DOUBLESTAR:
             obj = parse_attraccess(atoms[:-2])
             builder.push(ast.Power([obj, atoms[-1]]))
         else:
@@ -515,13 +517,15 @@ def build_factor( builder, nb ):
     atoms = get_atoms( builder, nb )
     if len(atoms) == 1:
         builder.push( atoms[0] )
-    elif len(atoms) == 2 and isinstance(atoms[0],TokenObject):
-        if atoms[0].name == tok.PLUS:
-            builder.push( ast.UnaryAdd( atoms[1] ) )
-        if atoms[0].name == tok.MINUS:
-            builder.push( ast.UnarySub( atoms[1] ) )
-        if atoms[0].name == tok.TILDE:
-            builder.push( ast.Invert( atoms[1] ) )
+    elif len(atoms) == 2:
+        token = atoms[0]
+        if isinstance(token, TokenObject):
+            if token.name == tok.PLUS:
+                builder.push( ast.UnaryAdd( atoms[1] ) )
+            if token.name == tok.MINUS:
+                builder.push( ast.UnarySub( atoms[1] ) )
+            if token.name == tok.TILDE:
+                builder.push( ast.Invert( atoms[1] ) )
 
 def build_term( builder, nb ):
     atoms = get_atoms( builder, nb )
@@ -565,10 +569,11 @@ def build_shift_expr( builder, nb ):
     left = atoms[0]
     for i in range(2,l,2):
         right = atoms[i]
-        op = atoms[i-1].name
-        if op == tok.LEFTSHIFT:
+        op_node = atoms[i-1]
+        assert isinstance(op_node, TokenObject)
+        if op_node.name == tok.LEFTSHIFT:
             left = ast.LeftShift( [ left, right ] )
-        elif op == tok.RIGHTSHIFT:
+        elif op_node.name == tok.RIGHTSHIFT:
             left = ast.RightShift( [ left, right ] )
         else:
             raise ValueError, "unexpected token: %s : %s" % atoms[i-1]
@@ -752,7 +757,8 @@ def build_testlist_gexp(builder, nb):
         builder.push(atoms[0])
         return
     items = []
-    if isinstance(atoms[1], TokenObject) and atoms[1].name == tok.COMMA:
+    token = atoms[1]
+    if isinstance(token, TokenObject) and token.name == tok.COMMA:
         for i in range(0, l, 2): # this is atoms not 1
             items.append(atoms[i])
     else:
@@ -777,14 +783,15 @@ def build_trailer(builder, nb):
     """trailer: '(' ')' | '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
     """
     atoms = get_atoms(builder, nb)
+    first_token = atoms[0]
     # Case 1 : '(' ...
-    if isinstance(atoms[0], TokenObject) and atoms[0].name == tok.LPAR:
+    if isinstance(first_token, TokenObject) and first_token.name == tok.LPAR:
         if len(atoms) == 2: # and atoms[1].token == tok.RPAR:
             builder.push(ArglistObject([], None, None))
         elif len(atoms) == 3: # '(' Arglist ')'
             # push arglist on the stack
             builder.push(atoms[1])
-    elif isinstance(atoms[0], TokenObject) and atoms[0].name == tok.LSQB:
+    elif isinstance(first_token, TokenObject) and first_token.name == tok.LSQB:
         if isinstance(atoms[1], SlicelistObject):
             builder.push(atoms[1])
         else:
@@ -815,17 +822,17 @@ def build_arglist(builder, nb):
 def build_subscript(builder, nb):
     """'.' '.' '.' | [test] ':' [test] [':' [test]] | test"""
     atoms = get_atoms(builder, nb)
-    if isinstance(atoms[0], TokenObject) and atoms[0].name == tok.DOT:
+    token = atoms[0]
+    if isinstance(token, TokenObject) and token.name == tok.DOT:
         # Ellipsis:
         builder.push(ast.Ellipsis())
     elif len(atoms) == 1:
-        token = atoms[0]
         if isinstance(token, TokenObject) and token.name == tok.COLON:
             sliceinfos = [None, None, None]
             builder.push(SlicelistObject('slice', sliceinfos, None))
         else:
             # test
-            builder.push(atoms[0])
+            builder.push(token)
     else: # elif len(atoms) > 1:
         items = []
         sliceinfos = [None, None, None]
@@ -862,15 +869,15 @@ def build_subscript(builder, nb):
 def build_listmaker(builder, nb):
     """listmaker: test ( list_for | (',' test)* [','] )"""
     atoms = get_atoms(builder, nb)
-    if len(atoms) >= 2 and isinstance(atoms[1], TokenObject):
+    if len(atoms) >= 2:
         token = atoms[1]
-        assert isinstance(token, TokenObject) # rtyper info
-        if token.get_value() == 'for':
-            # list comp
-            expr = atoms[0]
-            list_for = parse_listcomp(atoms[1:])
-            builder.push(ast.ListComp(expr, list_for))
-            return
+        if isinstance(token, TokenObject):
+            if token.get_value() == 'for':
+                # list comp
+                expr = atoms[0]
+                list_for = parse_listcomp(atoms[1:])
+                builder.push(ast.ListComp(expr, list_for))
+                return
     # regular list building (like in [1, 2, 3,])
     index = 0
     nodes = []
@@ -1086,9 +1093,14 @@ def build_import_name(builder, nb):
                 index += 2
         names.append((name, as_name))
         # move forward until next ','
-        while index < l and isinstance(atoms[index], TokenObject) and \
-                atoms[index].name != tok.COMMA:
+        # XXX: what is it supposed to do ?
+        for atom in atoms[index:]:
+            if isinstance(atom, TokenObject) and atom.name == tok.COMMA:
+                break
             index += 1
+##         while index < l and isinstance(atoms[index], TokenObject) and \
+##                 atoms[index].name != tok.COMMA:
+##             index += 1
         index += 1
     builder.push(ast.Import(names))
 
@@ -1104,11 +1116,12 @@ def build_import_from(builder, nb):
     index = 1
     incr, from_name = parse_dotted_names(atoms[index:])
     index += (incr + 1) # skip 'import'
-    assert isinstance(atoms[index], TokenObject) # XXX
-    if atoms[index].name == tok.STAR:
+    token = atoms[index]
+    assert isinstance(token, TokenObject) # XXX
+    if token.name == tok.STAR:
         names = [('*', None)]
     else:
-        if atoms[index].name == tok.LPAR:
+        if token.name == tok.LPAR:
             # mutli-line imports
             tokens = atoms[index+1:-1]
         else:
@@ -1181,13 +1194,15 @@ def build_print_stmt(builder, nb):
     dest = None
     start = 1
     if l > 1:
-        if isinstance(atoms[1], TokenObject) and atoms[1].name == tok.RIGHTSHIFT:
+        token = atoms[1]
+        if isinstance(token, TokenObject) and token.name == tok.RIGHTSHIFT:
             dest = atoms[2]
             # skip following comma
             start = 4
     for index in range(start, l, 2):
         items.append(atoms[index])
-    if isinstance(atoms[-1], TokenObject) and atoms[-1].name == tok.COMMA:
+    last_token = atoms[-1]
+    if isinstance(last_token, TokenObject) and last_token.name == tok.COMMA:
         builder.push(ast.Print(items, dest))
     else:
         builder.push(ast.Printnl(items, dest))
