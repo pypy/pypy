@@ -12,6 +12,8 @@ this_dir = os.path.dirname(sys.argv[0])
 # __________  Entry point  __________
 # entry_point = annotateme
 
+from pypy.translator.ann_override import PyPyAnnotatorPolicy
+
 from pypy.interpreter.pyparser.pythonutil import target_ast_compile
 from pypy.objspace.std.objspace import StdObjSpace
 
@@ -32,7 +34,7 @@ def target(geninterp=True):
                         translating=True,
                         #usemodules=['marhsal', '_sre'],
                         geninterp=geninterp)
-    return entry_point, [str, str]
+    return entry_point, [str, str], PyPyAnnotatorPolicy()
 
 # _____ Run translated _____
 def run(c_entry_point):
