@@ -162,7 +162,7 @@ class Database(object):
 
     def prepare_constant(self, type_, value):
         if isinstance(type_, lltype.Primitive):
-            #log.prepare_constant(value, "(is primitive)")
+            #log.prepareconstant(value, "(is primitive)")
             return
         
         if isinstance(type_, lltype.Ptr):        
@@ -170,7 +170,7 @@ class Database(object):
             type_ = type_.TO
             value = value._obj
 
-            log.prepare_constant("preparing ptr", value)
+            log.prepareconstant("preparing ptr", value)
 
             # we dont need a node for nulls
             if value is None:
@@ -200,7 +200,7 @@ class Database(object):
             if isinstance(ct, lltype.Array) or isinstance(ct, lltype.Struct):
                 p, c = lltype.parentlink(value)
                 if p is None:
-                    log.prepare_arg_value("skipping preparing non root", value)
+                    log.prepareargvalue("skipping preparing non root", value)
                     return
 
             if value is not None and value not in self.obj2node:
