@@ -54,11 +54,12 @@ def parseFile(path):
     f.close()
     return parse(src)
 
-def parse(buf, mode="exec"):
+# added a filename keyword argument to improve SyntaxErrors' messages
+def parse(buf, mode="exec", filename=''):
     if mode == "exec" or mode == "single":
-        return Transformer().parsesuite(buf)
+        return Transformer(filename).parsesuite(buf)
     elif mode == "eval":
-        return Transformer().parseexpr(buf)
+        return Transformer(filename).parseexpr(buf)
     else:
         raise ValueError("compile() arg 3 must be"
                          " 'exec' or 'eval' or 'single'")
@@ -109,7 +110,7 @@ class Transformer:
         tree = parsefile(fileob | filename)
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename=''):
         self._dispatch = {}
         self.filename = filename
         for value, name in symbol.sym_name.items():

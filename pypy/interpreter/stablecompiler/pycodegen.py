@@ -75,7 +75,7 @@ class AbstractCompileMode:
         self.code = None
 
     def _get_tree(self):
-        tree = parse(self.source, self.mode)
+        tree = parse(self.source, self.mode, self.filename)
         misc.set_filename(self.filename, tree)
         syntax.check(tree)
         return tree
