@@ -93,7 +93,7 @@ class ListRepr(Repr):
     def get_eqfunc(self):
         return inputconst(Void, self.item_repr.get_ll_eq_function())
 
-    def rtype_bltn_list(self,hop):
+    def rtype_bltn_list(self, hop):
         v_lst = hop.inputarg(self, 0)
         return hop.gendirectcall(ll_copy, v_lst)
     
@@ -141,6 +141,11 @@ class ListRepr(Repr):
         hop.gendirectcall(ll_reverse,v_lst)
 
     def rtype_method_pop(self, hop):
+        if hop.has_implicit_exception(IndexError):
+            spec = dum_checkidx
+        else:
+            spec = dum_nocheck
+        v_func = hop.inputconst(Void, spec)
         if hop.nb_args == 2:
             args = hop.inputargs(self, Signed)
             assert hasattr(args[1], 'concretetype')
@@ -155,8 +160,8 @@ class ListRepr(Repr):
         else:
             args = hop.inputargs(self)
             llfn = ll_pop_default
-        hop.exception_cannot_occur()   # no IndexError support (yet?)
-        return hop.gendirectcall(llfn, *args)
+        hop.exception_is_here()
+        return hop.gendirectcall(llfn, v_func, *args)
 
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
@@ -191,54 +196,57 @@ class __extend__(pairtype(ListRepr, Repr)):
 class __extend__(pairtype(ListRepr, IntegerRepr)):
 
     def rtype_getitem((r_lst, r_int), hop):
+        if hop.has_implicit_exception(IndexError):
+            spec = dum_checkidx
+        else:
+            spec = dum_nocheck
+        v_func = hop.inputconst(Void, spec)
         v_lst, v_index = hop.inputargs(r_lst, Signed)
-        if hop.has_implicit_exception(IndexError):
-            if hop.args_s[1].nonneg:
-                llfn = ll_getitem_nonneg_checked
-            else:
-                llfn = ll_getitem_checked
+        if hop.args_s[1].nonneg:
+            llfn = ll_getitem_nonneg
         else:
-            if hop.args_s[1].nonneg:
-                llfn = ll_getitem_nonneg
-            else:
-                llfn = ll_getitem
+            llfn = ll_getitem
         hop.exception_is_here()
-        return hop.gendirectcall(llfn, v_lst, v_index)
-    
+        return hop.gendirectcall(llfn, v_func, v_lst, v_index)
+
     def rtype_setitem((r_lst, r_int), hop):
-        v_lst, v_index, v_item = hop.inputargs(r_lst, Signed, r_lst.item_repr)
         if hop.has_implicit_exception(IndexError):
-            if hop.args_s[1].nonneg:
-                llfn = ll_setitem_nonneg_checked
-            else:
-                llfn = ll_setitem_checked
+            spec = dum_checkidx
         else:
-            if hop.args_s[1].nonneg:
-                llfn = ll_setitem_nonneg
-            else:
-                llfn = ll_setitem
+            spec = dum_nocheck
+        v_func = hop.inputconst(Void, spec)
+        v_lst, v_index, v_item = hop.inputargs(r_lst, Signed, r_lst.item_repr)
+        if hop.args_s[1].nonneg:
+            llfn = ll_setitem_nonneg
+        else:
+            llfn = ll_setitem
         hop.exception_is_here()
-        return hop.gendirectcall(llfn, v_lst, v_index, v_item)
+        return hop.gendirectcall(llfn, v_func, v_lst, v_index, v_item)
 
     def rtype_delitem((r_lst, r_int), hop):
-        v_lst, v_index = hop.inputargs(r_lst, Signed)
         if hop.has_implicit_exception(IndexError):
-            if hop.args_s[1].nonneg:
-                llfn = ll_delitem_nonneg_checked
-            else:
-                llfn = ll_delitem_checked
+            spec = dum_checkidx
         else:
-            if hop.args_s[1].nonneg:
-                llfn = ll_delitem_nonneg
-            else:
-                llfn = ll_delitem
+            spec = dum_nocheck
+        v_func = hop.inputconst(Void, spec)
+        v_lst, v_index = hop.inputargs(r_lst, Signed)
+        if hop.args_s[1].nonneg:
+            llfn = ll_delitem_nonneg
+        else:
+            llfn = ll_delitem
         hop.exception_is_here()
-        return hop.gendirectcall(llfn, v_lst, v_index)
+        return hop.gendirectcall(llfn, v_func, v_lst, v_index)
 
     def rtype_mul((r_lst, r_int), hop):
+        v_func = hop.inputconst(Void, dum_newlist)
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
-        return hop.gendirectcall(ll_mul, v_lst, v_factor)
-    
+        return hop.gendirectcall(ll_mul, v_func, v_lst, v_factor)
+
+    def rtype_inplace_mul((r_lst, r_int), hop):
+        v_func = hop.inputconst(Void, dum_inplace)
+        v_lst, v_factor = hop.inputargs(r_lst, Signed)
+        return hop.gendirectcall(ll_mul, v_func, v_lst, v_factor)
+
 class __extend__(pairtype(ListRepr, SliceRepr)):
 
     def rtype_getitem((r_lst, r_slic), hop):
@@ -417,13 +425,23 @@ def ll_insert(l, index, newitem):
         index += l.length
     ll_insert_nonneg(l, index, newitem)
 
-def ll_pop_nonneg(l, index):
+def dum_checkidx(): pass
+def dum_nocheck(): pass
+def dum_inplace():pass
+def dum_newlist():pass
+
+def ll_pop_nonneg(func, l, index):
+    if func is dum_checkidx and (index >= l.length):
+        raise IndexError
     res = l.items[index]
-    ll_delitem_nonneg(l, index)
+    ll_delitem_nonneg(dum_nocheck, l, index)
     return res
 
-def ll_pop_default(l):
-    index = l.length - 1
+def ll_pop_default(func, l):
+    length = l.length
+    if func is dum_checkidx and (length == 0):
+        raise IndexError
+    index = length - 1
     newlength = index
     items = l.items
     res = items[index]
@@ -433,8 +451,11 @@ def ll_pop_default(l):
     _ll_list_resize(l, newlength)
     return res
 
-def ll_pop_zero(l):
-    newlength = l.length - 1
+def ll_pop_zero(func, l):
+    length = l.length
+    if func is dum_checkidx and (length == 0):
+        raise IndexError
+    newlength = length - 1
     res = l.items[0]
     j = 0
     items = l.items
@@ -449,77 +470,60 @@ def ll_pop_zero(l):
     _ll_list_resize(l, newlength)
     return res
 
-def ll_pop(l, index):
+def ll_pop(func, l, index):
+    length = l.length
     if index < 0:
-        index += l.length
+        index += length
+    if func is dum_checkidx and (index < 0 or index >= length):
+        raise IndexError
     res = l.items[index]
-    ll_delitem_nonneg(l, index)
+    ll_delitem_nonneg(dum_nocheck, l, index)
     return res
 
 def ll_reverse(l):
     length = l.length
-    len2 = length // 2
     i = 0
     items = l.items
     length_1_i = length-1-i
-    while i < len2:
+    while i < length_1_i:
         tmp = l.items[i]
         items[i] = items[length_1_i]
         items[length_1_i] = tmp
         i += 1
         length_1_i -= 1
 
-def ll_getitem_nonneg(l, i):
-    return l.items[i]
-
-def ll_getitem(l, i):
-    if i < 0:
-        i += l.length
-    return l.items[i]
-
-def ll_getitem_nonneg_checked(l, i):
-    if i >= l.length:
+def ll_getitem_nonneg(func, l, index):
+    if func is dum_checkidx and (index >= l.length):
         raise IndexError
-    else:
-        return l.items[i]
+    return l.items[index]
 
-def ll_getitem_checked(l, i):
-    if i < 0:
-        i += l.length
-    if i >= l.length or i < 0:
+def ll_getitem(func, l, index):
+    length = l.length
+    if index < 0:
+        index += length
+    if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
-    else:
-        return l.items[i]
+    return l.items[index]
 
-def ll_setitem_nonneg(l, i, newitem):
-    l.items[i] = newitem
-
-def ll_setitem_nonneg_checked(l, i, newitem):
-    if i >= l.length:
+def ll_setitem_nonneg(func, l, index, newitem):
+    if func is dum_checkidx and (index >= l.length):
         raise IndexError
-    l.items[i] = newitem
+    l.items[index] = newitem
 
-def ll_setitem(l, i, newitem):
-    if i < 0:
-        i += l.length
-    l.items[i] = newitem
-
-def ll_setitem_checked(l, i, newitem):
-    if i < 0:
-        i += l.length
-    if i >= l.length or i < 0:
+def ll_setitem(func, l, index, newitem):
+    length = l.length
+    if index < 0:
+        index += length
+    if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
-    else:
-        l.items[i] = newitem
+    l.items[index] = newitem
 
-def ll_delitem_nonneg_checked(l, i):
-    if i >= l.length:
+def ll_delitem_nonneg(func, l, index):
+    length = l.length
+    if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
-    ll_delitem_nonneg(l, i)
-
-def ll_delitem_nonneg(l, i):
-    newlength = l.length - 1
-    j = i
+    newlength = length - 1
+    j = index
     items = l.items
     j1 = j+1
     while j < newlength:
@@ -531,17 +535,10 @@ def ll_delitem_nonneg(l, i):
         items[newlength] = nullptr(ITEM.TO)
     _ll_list_resize(l, newlength)
 
-def ll_delitem(l, i):
+def ll_delitem(func, l, i):
     if i < 0:
         i += l.length
-    ll_delitem_nonneg(l, i)
-
-def ll_delitem_checked(l, i):
-    if i < 0:
-        i += l.length
-    if i >= l.length or i < 0:
-        raise IndexError
-    ll_delitem_nonneg(l, i)
+    ll_delitem_nonneg(func, l, i)
 
 def ll_concat(l1, l2):
     len1 = l1.length
@@ -730,25 +727,30 @@ def ll_listindex(lst, obj, eqfn):
 
 TEMP = GcArray(Ptr(rstr.STR))
 
-def ll_mul(l, f):
-    items = l.items
+def ll_mul(func, l, factor):
+    source = l.items
     length = l.length
-    if length == 0 or f <= 0:
-        return ll_newlist(typeOf(l), 0)
-
-    resultlen = length * f
-    new_lst = ll_newlist(typeOf(l), resultlen)
+    if factor < 0:
+        factor = 0
+    resultlen = length * factor
+    if func is dum_inplace:
+        res = l
+        _ll_list_resize(res, resultlen)
+        j = length
+    else:
+        res = ll_newlist(typeOf(l), resultlen)
+        j = 0
     i = 0
-    new_items = new_lst.items
-    j = 0
+    target = res.items
     while j < resultlen:
         while i < length:
-            new_items[i + j] = items[i]
+            p = j + i
+            target[p] = source[i]
             i += 1
         j += length
-    return new_lst
+    return res
         
-        
+
 # ____________________________________________________________
 #
 #  Irregular operations.
@@ -775,10 +777,11 @@ def rtype_newlist(hop):
     c1 = hop.inputconst(Void, r_list.lowleveltype)
     c2 = hop.inputconst(Signed, nb_args)
     v_result = hop.gendirectcall(ll_newlist, c1, c2)
+    v_func = hop.inputconst(Void, dum_nocheck)
     for i in range(nb_args):
         ci = hop.inputconst(Signed, i)
         v_item = hop.inputarg(r_listitem, arg=i)
-        hop.gendirectcall(ll_setitem_nonneg, v_result, ci, v_item)
+        hop.gendirectcall(ll_setitem_nonneg, v_func, v_result, ci, v_item)
     return v_result
 
 def ll_alloc_and_set(LISTPTR, count, item):

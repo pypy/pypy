@@ -93,7 +93,7 @@ def predeclare_utility_functions(db, rtyper):
     def _RPyListOfString_SetItem(l=p,
                                 index=lltype.Signed,
                                 newstring=lltype.Ptr(STR)):
-        rlist.ll_setitem_nonneg(l, index, newstring)
+        rlist.ll_setitem_nonneg(rlist.dum_nocheck, l, index, newstring)
 
     for fname, f in locals().items():
         if isinstance(f, types.FunctionType):

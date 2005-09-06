@@ -318,7 +318,8 @@ register(TYPE_STRINGREF, unmarshal_stringref)
 
 def marshal_w__Tuple(space, w_tuple, m):
     m.start(TYPE_TUPLE)
-    m.put_list_w(w_tuple.wrappeditems, len(w_tuple.wrappeditems))
+    items = w_tuple.wrappeditems
+    m.put_list_w(items, len(items))
 
 def unmarshal_Tuple(space, u, tc):
     items_w = u.get_list_w()
@@ -327,8 +328,8 @@ register(TYPE_TUPLE, unmarshal_Tuple)
 
 def marshal_w__List(space, w_list, m):
     m.start(TYPE_LIST)
-    n = w_list.ob_size
-    m.put_list_w(w_list.ob_item, w_list.ob_size)
+    items = w_list.wrappeditems
+    m.put_list_w(items, len(items))
 
 def unmarshal_List(space, u, tc):
     items_w = u.get_list_w()
@@ -488,7 +489,6 @@ def marshal_w_set(space, w_set, m):
     w_lis = set_to_list(space, w_set)
     # cannot access this list directly, because it's
     # type is not exactly known through applevel.
-    # otherwise, I would access ob_item and ob_size, directly.
     lis_w = space.unpackiterable(w_lis)
     m.start(TYPE_SET)
     m.put_list_w(lis_w, len(lis_w))

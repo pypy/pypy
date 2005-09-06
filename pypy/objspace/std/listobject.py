@@ -14,30 +14,17 @@ class W_ListObject(W_Object):
     
     def __init__(w_self, space, wrappeditems):
         W_Object.__init__(w_self, space)
-        w_self.ob_item = []
-        w_self.ob_size = 0
-        newlen = len(wrappeditems)
-        _list_resize(w_self, newlen)
-        w_self.ob_size = newlen
-        items = w_self.ob_item
-        p = newlen
-        while p:
-            p -= 1
-            items[p] = wrappeditems[p]
+        w_self.wrappeditems = wrappeditems
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        reprlist = [repr(w_item) for w_item in w_self.ob_item[:w_self.ob_size]]
+        reprlist = [repr(w_item) for w_item in w_self.wrappeditems]
         return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
 
     def unwrap(w_list):
         space = w_list.space
-        items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]# XXX generic mixed types unwrap
+        items = [space.unwrap(w_item) for w_item in w_list.wrappeditems]# XXX generic mixed types unwrap
         return list(items)
-
-    def clear(w_list):
-        w_list.ob_item = []
-        w_list.ob_size = 0
 
 
 registerimplementation(W_ListObject)
@@ -47,60 +34,45 @@ def init__List(space, w_list, __args__):
     w_iterable, = __args__.parse('list',
                                (['sequence'], None, None),   # signature
                                [W_ListObject(space, [])])    # default argument
-    w_list.clear()
-
-    length = 0
-    try:
-        length = space.int_w(space.len(w_iterable))
-        if length < 0:
-            length = 8 
-    except OperationError, e:
-        pass # for now
-    _list_resize(w_list, length)
-    w_iterator = space.iter(w_iterable)
-    while True:
-        try:
-            w_item = space.next(w_iterator)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break  # done
-        _ins1(w_list, w_list.ob_size, w_item)
-
+    w_list.wrappeditems = space.unpackiterable(w_iterable)
 
 def len__List(space, w_list):
-    result = w_list.ob_size
+    result = len(w_list.wrappeditems)
     return W_IntObject(space, result)
 
 def getitem__List_ANY(space, w_list, w_index):
     idx = space.int_w(w_index)
-    if idx < 0:
-        idx += w_list.ob_size
-    if idx < 0 or idx >= w_list.ob_size:
+    try:
+        w_ret = w_list.wrappeditems[idx]
+    except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
-    w_item = w_list.ob_item[idx]
-    return w_item
+    return w_ret
 
 def getitem__List_Slice(space, w_list, w_slice):
-    length = w_list.ob_size
+    # XXX consider to extend rlist's functionality?
+    length = len(w_list.wrappeditems)
     start, stop, step, slicelength = slicetype.indices4(space, w_slice, length)
     assert slicelength >= 0
-    w_res = W_ListObject(space, [])
-    _list_resize(w_res, slicelength)
-    items = w_list.ob_item
-    subitems = w_res.ob_item
+    if step == 1 and stop >= start >= 0:
+        assert stop >= 0
+        assert start >= 0
+        return W_ListObject(space, w_list.wrappeditems[start:stop])
+    w_res = W_ListObject(space, [None] * slicelength)
+    items = w_list.wrappeditems
+    subitems = w_res.wrappeditems
     for i in range(slicelength):
         subitems[i] = items[start]
         start += step
-    w_res.ob_size = slicelength
     return w_res
 
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
     i = 0
-    while i < w_list.ob_size:
-        if space.eq_w(w_list.ob_item[i], w_obj):
+    items_w = w_list.wrappeditems
+    length = len(items_w)
+    while i < length:
+        if space.eq_w(items_w[i], w_obj):
             return space.w_True
         i += 1
     return space.w_False
@@ -110,21 +82,7 @@ def iter__List(space, w_list):
     return iterobject.W_SeqIterObject(space, w_list)
 
 def add__List_List(space, w_list1, w_list2):
-    w_res = W_ListObject(space, [])
-    newlen = w_list1.ob_size + w_list2.ob_size
-    _list_resize(w_res, newlen)
-    p = 0
-    items = w_res.ob_item
-    src = w_list1.ob_item
-    for i in range(w_list1.ob_size):
-        items[p] = src[i]
-        p += 1
-    src = w_list2.ob_item
-    for i in range(w_list2.ob_size):
-        items[p] = src[i]
-        p += 1
-    w_res.ob_size = p
-    return w_res
+    return W_ListObject(space, w_list1.wrappeditems + w_list2.wrappeditems)
 
 def inplace_add__List_ANY(space, w_list1, w_iterable2):
     list_extend__List_ANY(space, w_list1, w_iterable2)
@@ -137,19 +95,7 @@ def mul_list_times(space, w_list, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    w_res = W_ListObject(space, [])
-    size = w_list.ob_size
-    newlen = size * times  # XXX check overflow
-    _list_resize(w_res, newlen)
-    src = w_list.ob_item
-    items = w_res.ob_item
-    p = 0
-    for _ in range(times):
-        for i in range(size):
-            items[p] = src[i]
-            p += 1
-    w_res.ob_size = p
-    return w_res
+    return W_ListObject(space, w_list.wrappeditems * times)
 
 def mul__List_ANY(space, w_list, w_times):
     return mul_list_times(space, w_list, w_times)
@@ -164,31 +110,19 @@ def inplace_mul__List_ANY(space, w_list, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    if times <= 0:
-        w_list.clear()
-        return w_list
-    size = w_list.ob_size
-    newlen = size * times  # XXX check overflow
-    _list_resize(w_list, newlen)
-    items = w_list.ob_item
-    p = size
-    for _ in range(1, times):
-        for i in range(size):
-            items[p] = items[i]
-            p += 1
-    w_list.ob_size = newlen
+    w_list.wrappeditems *= times
     return w_list
 
 def eq__List_List(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
-    if w_list1.ob_size != w_list2.ob_size:
+    if len(w_list1.wrappeditems) != len(w_list2.wrappeditems):
         return space.w_False
     i = 0
-    while i < w_list1.ob_size and i < w_list2.ob_size:
-        if not space.eq_w(w_list1.ob_item[i], w_list2.ob_item[i]):
+    while i < len(w_list1.wrappeditems) and i < len(w_list2.wrappeditems):
+        if not space.eq_w(w_list1.wrappeditems[i], w_list2.wrappeditems[i]):
             return space.w_False
         i += 1
-    return space.newbool(w_list1.ob_size == w_list2.ob_size)
+    return space.newbool(len(w_list1.wrappeditems) == len(w_list2.wrappeditems))
 
 def _min(a, b):
     if a < b:
@@ -199,57 +133,55 @@ def lt__List_List(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different
     i = 0
-    while i < w_list1.ob_size and i < w_list2.ob_size:
-        w_item1 = w_list1.ob_item[i]
-        w_item2 = w_list2.ob_item[i]
+    while i < len(w_list1.wrappeditems) and i < len(w_list2.wrappeditems):
+        w_item1 = w_list1.wrappeditems[i]
+        w_item2 = w_list2.wrappeditems[i]
         if not space.eq_w(w_item1, w_item2):
             return space.lt(w_item1, w_item2)
         i += 1
     # No more items to compare -- compare sizes
-    return space.newbool(w_list1.ob_size < w_list2.ob_size)
+    return space.newbool(len(w_list1.wrappeditems) < len(w_list2.wrappeditems))
 
 def gt__List_List(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different
     i = 0
-    while i < w_list1.ob_size and i < w_list2.ob_size:
-        w_item1 = w_list1.ob_item[i]
-        w_item2 = w_list2.ob_item[i]
+    while i < len(w_list1.wrappeditems) and i < len(w_list2.wrappeditems):
+        w_item1 = w_list1.wrappeditems[i]
+        w_item2 = w_list2.wrappeditems[i]
         if not space.eq_w(w_item1, w_item2):
             return space.gt(w_item1, w_item2)
         i += 1
     # No more items to compare -- compare sizes
-    return space.newbool(w_list1.ob_size > w_list2.ob_size)
+    return space.newbool(len(w_list1.wrappeditems) > len(w_list2.wrappeditems))
 
-# upto here, lists are nearly identical to tuples, despite the
-# fact that we now support over-allocation!
 
 def delitem__List_ANY(space, w_list, w_idx):
-    i = space.int_w(w_idx)
-    if i < 0:
-        i += w_list.ob_size
-    if i < 0 or i >= w_list.ob_size:
+    idx = space.int_w(w_idx)
+    try:
+        del w_list.wrappeditems[idx]
+    except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list deletion index out of range"))
-    _del_slice(w_list, i, i+1)
     return space.w_None
 
 def delitem__List_Slice(space, w_list, w_slice):
-    start, stop, step, slicelength = slicetype.indices4(space, w_slice, w_list.ob_size)
+    start, stop, step, slicelength = slicetype.indices4(space, w_slice,
+                                                        len(w_list.wrappeditems))
 
     if slicelength==0:
         return
 
-    if step<0:
-        start = start+step*(slicelength-1)
+    if step < 0:
+        start = start + step * (slicelength-1)
         step = -step
         # stop is invalid
         
     if step == 1:
         _del_slice(w_list, start, start+slicelength)
     else:
-        items = w_list.ob_item
-        n = w_list.ob_size
+        items = w_list.wrappeditems
+        n = len(items)
 
         recycle = [None] * slicelength
         i = start
@@ -267,15 +199,13 @@ def delitem__List_Slice(space, w_list, w_slice):
             recycle[discard] = items[i]
 
         j = i+1
-        while j<n:
-            items[j-slicelength] = items[j]            
+        while j < n:
+            items[j-slicelength] = items[j]
             j += 1
-        # make sure entries after ob_size are None, to avoid keeping references
-        n -= slicelength
-        assert n >= 0            # annotator hint
-        w_list.ob_size = n
-        for i in range(w_list.ob_size, n):
-            items[i] = None
+        start = n - slicelength
+        assert start >= 0 # annotator hint
+        # XXX allow negative indices in rlist
+        del items[start:]
         # now we can destruct recycle safely, regardless of
         # side-effects to the list
         del recycle[:]
@@ -284,43 +214,38 @@ def delitem__List_Slice(space, w_list, w_slice):
 
 def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
     idx = space.int_w(w_index)
-    if idx < 0:
-        idx += w_list.ob_size
-    if idx < 0 or idx >= w_list.ob_size:
+    try:
+        w_list.wrappeditems[idx] = w_any
+    except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
-    w_list.ob_item[idx] = w_any
     return space.w_None
 
 def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
-    return _setitem_slice_helper(space, w_list, w_slice, w_list2.ob_item, w_list2.ob_size)
+    l = w_list2.wrappeditems
+    return _setitem_slice_helper(space, w_list, w_slice, l, len(l))
 
 def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
     t = w_tuple.wrappeditems
     return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
 
 def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
-##    if isinstance(w_iterable, W_ListObject):
-##        return _setitem_slice_helper(space, w_list, w_slice,
-##                                     w_iterable.ob_item, w_iterable.ob_size)
-##    if isinstance(w_iterable, W_TupleObject):
-##        t = w_iterable.wrappeditems
-##    else:
-    t = space.unpackiterable(w_iterable)
-    return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
+    l = space.unpackiterable(w_iterable)
+    return _setitem_slice_helper(space, w_list, w_slice, l, len(l))
 
 def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
-    start, stop, step, slicelength = slicetype.indices4(space, w_slice, w_list.ob_size)
+    oldsize = len(w_list.wrappeditems)
+    start, stop, step, slicelength = slicetype.indices4(space, w_slice,
+                                                        oldsize)
     assert slicelength >= 0
+    items = w_list.wrappeditems
 
     if step == 1:  # Support list resizing for non-extended slices
-        oldsize = w_list.ob_size
         delta = len2 - slicelength
         if delta >= 0:
             newsize = oldsize + delta
-            _list_resize(w_list, newsize)
-            w_list.ob_size = newsize
-            items = w_list.ob_item
+            # XXX support this in rlist!
+            items += [None] * delta
             for i in range(newsize-1, start+len2-1, -1):
                 items[i] = items[i-delta]
         else:
@@ -331,7 +256,6 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
               "assign sequence of size %d to extended slice of size %d" %
               (len2,slicelength)))
 
-    items = w_list.ob_item
     if sequence2 is items:
         if step > 0:
             # Always copy starting from the right to avoid
@@ -366,7 +290,7 @@ app = gateway.applevel("""
 listrepr = app.interphook("listrepr")
 
 def repr__List(space, w_list):
-    if w_list.ob_size == 0:
+    if len(w_list.wrappeditems) == 0:
         return space.wrap('[]')
     w_currently_in_repr = space.getexecutioncontext()._py_repr
     return listrepr(space, w_currently_in_repr, w_list)
@@ -374,101 +298,22 @@ def repr__List(space, w_list):
 def hash__List(space,w_list):
     raise OperationError(space.w_TypeError,space.wrap("list objects are unhashable"))
 
-# adapted C code
-def _roundupsize(n):
-    nbits = r_uint(0)
-    n2 = n >> 5
-
-##    /* Round up:
-##     * If n <       256, to a multiple of        8.
-##     * If n <      2048, to a multiple of       64.
-##     * If n <     16384, to a multiple of      512.
-##     * If n <    131072, to a multiple of     4096.
-##     * If n <   1048576, to a multiple of    32768.
-##     * If n <   8388608, to a multiple of   262144.
-##     * If n <  67108864, to a multiple of  2097152.
-##     * If n < 536870912, to a multiple of 16777216.
-##     * ...
-##     * If n < 2**(5+3*i), to a multiple of 2**(3*i).
-##     *
-##     * This over-allocates proportional to the list size, making room
-##     * for additional growth.  The over-allocation is mild, but is
-##     * enough to give linear-time amortized behavior over a long
-##     * sequence of appends() in the presence of a poorly-performing
-##     * system realloc() (which is a reality, e.g., across all flavors
-##     * of Windows, with Win9x behavior being particularly bad -- and
-##     * we've still got address space fragmentation problems on Win9x
-##     * even with this scheme, although it requires much longer lists to
-##     * provoke them than it used to).
-##     */
-    while 1:
-        n2 >>= 3
-        nbits += 3
-        if not n2 :
-            break
-    return ((n >> nbits) + 1) << nbits
-
-# before we have real arrays,
-# we use lists, allocated to fixed size.
-# XXX memory overflow is ignored here.
-# See listobject.c for reference.
-
-for_later = """
-#define NRESIZE(var, type, nitems)              \
-do {                                \
-    size_t _new_size = _roundupsize(nitems);         \
-    if (_new_size <= ((~(size_t)0) / sizeof(type)))     \
-        PyMem_RESIZE(var, type, _new_size);     \
-    else                            \
-        var = NULL;                 \
-} while (0)
-"""
-
-def _list_resize(w_list, newlen):
-    if newlen > len(w_list.ob_item):
-        true_size = _roundupsize(newlen)
-        old_items = w_list.ob_item
-        w_list.ob_item = items = [None] * true_size
-        for p in range(len(old_items)):
-            items[p] = old_items[p]
-
-def _ins1(w_list, where, w_any):
-    _list_resize(w_list, w_list.ob_size+1)
-    size = w_list.ob_size
-    items = w_list.ob_item
-    if where < 0:
-        where += size
-    if where < 0:
-        where = 0
-    if (where > size):
-        where = size
-    for i in range(size, where, -1):
-        items[i] = items[i-1]
-    items[where] = w_any
-    w_list.ob_size += 1
-
 def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
-    _ins1(w_list, space.int_w(w_where), w_any)
+    w_list.wrappeditems.insert(space.int_w(w_where), w_any)
     return space.w_None
 
 def list_append__List_ANY(space, w_list, w_any):
-    _ins1(w_list, w_list.ob_size, w_any)
+    w_list.wrappeditems.append(w_any)
     return space.w_None
 
 def list_extend__List_ANY(space, w_list, w_any):
-    lis = space.unpackiterable(w_any)
-    newlen = w_list.ob_size + len(lis)
-    _list_resize(w_list, newlen)
-    d = w_list.ob_size
-    items = w_list.ob_item
-    for i in range(len(lis)):
-        items[d+i] = lis[i]
-    w_list.ob_size = newlen
+    w_list.wrappeditems += space.unpackiterable(w_any)
     return space.w_None
 
 def _del_slice(w_list, ilow, ihigh):
     """ similar to the deletion part of list_ass_slice in CPython """
-    n = w_list.ob_size
+    items = w_list.wrappeditems
+    n = len(items)
     if ilow < 0:
         ilow = 0
     elif ilow > n:
@@ -477,46 +322,36 @@ def _del_slice(w_list, ilow, ihigh):
         ihigh = ilow
     elif ihigh > n:
         ihigh = n
-    items = w_list.ob_item
-    d = ihigh-ilow
     # keep a reference to the objects to be removed,
     # preventing side effects during destruction
-    recycle = [items[i] for i in range(ilow, ihigh)]
-    for i in range(ilow, n - d):
-        items[i] = items[i+d]
-        items[i+d] = None
-    # make sure entries after ob_size-d are None, to avoid keeping references
-    # (the above loop already set to None all items[ilow+d:old_style])
-    n -= d
-    assert n >= 0            # annotator hint
-    w_list.ob_size = n
-    for i in range(n, ilow + d):
-        items[i] = None
+    recycle = items[ilow:ihigh]
+    del items[ilow:ihigh]
     # now we can destruct recycle safely, regardless of
     # side-effects to the list
     del recycle[:]
 
 # note that the default value will come back wrapped!!!
 def list_pop__List_ANY(space, w_list, w_idx=-1):
-    if w_list.ob_size == 0:
+    items = w_list.wrappeditems
+    if len(items)== 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
-    i = space.int_w(w_idx)
-    if i < 0:
-        i += w_list.ob_size
-    if i < 0 or i >= w_list.ob_size:
+    idx = space.int_w(w_idx)
+    try:
+        w_ret = items.pop(idx)
+    except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop index out of range"))
-    w_res = w_list.ob_item[i]
-    _del_slice(w_list, i, i+1)
-    return w_res
+    return w_ret
 
 def list_remove__List_ANY(space, w_list, w_any):
     # needs to be safe against eq_w() mutating the w_list behind our back
     i = 0
-    while i < w_list.ob_size:
-        if space.eq_w(w_list.ob_item[i], w_any):
-            _del_slice(w_list, i, i+1)
+    items = w_list.wrappeditems
+    length = len(items)
+    while i < length:
+        if space.eq_w(items[i], w_any):
+            del items[i]
             return space.w_None
         i += 1
     raise OperationError(space.w_ValueError,
@@ -524,13 +359,14 @@ def list_remove__List_ANY(space, w_list, w_any):
 
 def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
     # needs to be safe against eq_w() mutating the w_list behind our back
-    size = w_list.ob_size
+    items = w_list.wrappeditems
+    size = len(items)
     w_start = slicetype.adapt_bound(space, w_start, space.wrap(size))
     w_stop = slicetype.adapt_bound(space, w_stop, space.wrap(size))
     i = space.int_w(w_start)
     stop = space.int_w(w_stop)
-    while i < stop and i < w_list.ob_size:
-        if space.eq_w(w_list.ob_item[i], w_any):
+    while i < stop and i < len(items):
+        if space.eq_w(items[i], w_any):
             return space.wrap(i)
         i += 1
     raise OperationError(space.w_ValueError,
@@ -540,14 +376,22 @@ def list_count__List_ANY(space, w_list, w_any):
     # needs to be safe against eq_w() mutating the w_list behind our back
     count = 0
     i = 0
-    while i < w_list.ob_size:
-        if space.eq_w(w_list.ob_item[i], w_any):
+    items = w_list.wrappeditems
+    while i < len(items):
+        if space.eq_w(items[i], w_any):
             count += 1
         i += 1
     return space.wrap(count)
 
+def list_reverse__List(space, w_list):
+    w_list.wrappeditems.reverse()
+    return space.w_None
+
+# ____________________________________________________________
+# Sorting
+
 # Reverse a slice of a list in place, from lo up to (exclusive) hi.
-# (also used in sort, later)
+# (used in sort)
 
 def _reverse_slice(lis, lo, hi):
     hi -= 1
@@ -557,14 +401,6 @@ def _reverse_slice(lis, lo, hi):
         lis[hi] = t
         lo += 1
         hi -= 1
-
-def list_reverse__List(space, w_list):
-    if w_list.ob_size > 1:
-        _reverse_slice(w_list.ob_item, 0, w_list.ob_size)
-    return space.w_None
-
-# ____________________________________________________________
-# Sorting
 
 class KeyContainer(baseobjspace.W_Root):
     def __init__(self, w_key, w_item):
@@ -623,8 +459,8 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
             sorterclass = CustomKeySort
         else: 
             sorterclass = SimpleSort
-            
-    sorter = sorterclass(w_list.ob_item, w_list.ob_size)
+    items = w_list.wrappeditems
+    sorter = sorterclass(items, len(items))
     sorter.space = space
     sorter.w_cmp = w_cmp
 
@@ -632,8 +468,8 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         # The list is temporarily made empty, so that mutations performed
         # by comparison functions can't affect the slice of memory we're
         # sorting (allowing mutations during sorting is an IndexError or
-        # core-dump factory, since ob_item may change).
-        w_list.clear()
+        # core-dump factory, since wrappeditems may change).
+        w_list.wrappeditems = []
 
         # wrap each item in a KeyContainer if needed
         if has_key:
@@ -663,11 +499,10 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
                     sorter.list[i] = w_obj.w_item
 
         # check if the user mucked with the list during the sort
-        mucked = len(w_list.ob_item) > 0
+        mucked = len(w_list.wrappeditems) > 0
 
         # put the items back into the list
-        w_list.ob_item = sorter.list
-        w_list.ob_size = sorter.listlength
+        w_list.wrappeditems = sorter.list
 
     if mucked:
         raise OperationError(space.w_ValueError,

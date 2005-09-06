@@ -55,6 +55,7 @@ class TupleRepr(Repr):
         c1 = inputconst(Void, hop.r_result.lowleveltype)
         c2 = inputconst(Signed, nitems)
         vlist = hop.gendirectcall(rlist.ll_newlist, c1, c2)
+        v_func = hop.inputconst(Void, rlist.dum_nocheck)
         for index in range(nitems):
             name = self.fieldnames[index]
             ritem = self.items_r[index]
@@ -62,7 +63,7 @@ class TupleRepr(Repr):
             vitem = hop.genop('getfield', [vtup, cname], resulttype = ritem)
             vitem = hop.llops.convertvar(vitem, ritem, hop.r_result.item_repr)
             cindex = inputconst(Signed, index)
-            hop.gendirectcall(rlist.ll_setitem_nonneg, vlist, cindex, vitem)
+            hop.gendirectcall(rlist.ll_setitem_nonneg, v_func, vlist, cindex, vitem)
         return vlist
 
     def make_iterator_repr(self):

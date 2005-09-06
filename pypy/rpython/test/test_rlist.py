@@ -6,6 +6,16 @@ from pypy.rpython.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 
+# undo the specialization parameter
+for n1 in 'get set del'.split():
+    for n2 in '','_nonneg':
+        name = 'll_%sitem%s' % (n1, n2)
+        globals()['_'+name] = globals()[name]
+        exec """if 1:
+            def %s(*args):
+                return _%s(dum_checkidx, *args)
+""" % (name, name)
+del n1, n2, name
 
 def sample_list():    # [42, 43, 44, 45]
     rlist = ListRepr(signed_repr)
@@ -379,6 +389,22 @@ def test_list_multiply():
         res = interpret(fn, [arg])
         assert res == fn(arg)
 
+def test_list_inplace_multiply():
+    def fn(i):
+        lst = [i]
+        lst *= i
+        return len(lst)
+    for arg in (1, 9, 0, -1, -27):
+        res = interpret(fn, [arg])
+        assert res == fn(arg)
+    def fn(i):
+        lst = [i, i + 1]
+        lst *= i
+        return len(lst)
+    for arg in (1, 9, 0, -1, -27):
+        res = interpret(fn, [arg])
+        assert res == fn(arg)
+
 def test_indexerror():
     def fn(i):
         l = [5, 8, 3]
@@ -394,6 +420,33 @@ def test_indexerror():
     assert res._obj.value == 3
     res = interpret(fn, [-2])
     assert res._obj.value == "oups"
+
+def list_is_clear(lis, idx):
+    items = lis._obj.items._obj.items
+    for i in range(idx, len(items)):
+        if items[i]._obj is not None:
+            return False
+    return True
+
+def test_no_unneeded_refs():
+    def fndel(p, q):
+        lis = ["5", "3", "99"]
+        assert q >= 0
+        assert p >= 0
+        del lis[p:q]
+        return lis
+    def fnpop(n):
+        lis = ["5", "3", "99"]
+        while n:
+            lis.pop()
+            n -=1
+        return lis
+    for i in range(2, 3+1):
+        lis = interpret(fndel, [0, i])
+        assert list_is_clear(lis, 3-i)
+    for i in range(3):
+        lis = interpret(fnpop, [i])
+        assert list_is_clear(lis, 3-i)
 
 def test_list_basic_ops():
     def list_basic_ops(i=int, j=int):
