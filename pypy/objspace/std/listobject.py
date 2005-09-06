@@ -355,7 +355,6 @@ def list_pop__List_ANY(space, w_list, w_idx=-1):
 
 def list_remove__List_ANY(space, w_list, w_any):
     # needs to be safe against eq_w() mutating the w_list behind our back
-    i = 0
     items = w_list.wrappeditems
     length = len(items)
     for i in range(length):
