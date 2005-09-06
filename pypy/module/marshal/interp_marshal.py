@@ -217,7 +217,7 @@ class StringMarshaller(Marshaller):
         lng = len(s)
         newpos = pos + lng
         while len(self.buflis) < newpos:
-            self.buflis = self.buflis + self.buflis
+            self.buflis *= 2
         idx = 0
         while idx < lng:
             self.buflis[pos + idx] = s[idx]
@@ -228,7 +228,7 @@ class StringMarshaller(Marshaller):
         pos = self.bufpos
         newpos = pos + 1
         if len(self.buflis) < newpos:
-            self.buflis = self.buflis + self.buflis
+            self.buflis *= 2
         self.buflis[pos] = c
         self.bufpos = newpos
 
@@ -243,7 +243,7 @@ class StringMarshaller(Marshaller):
         pos = self.bufpos
         newpos = pos + 5
         if len(self.buflis) < newpos:
-            self.buflis = self.buflis + self.buflis
+            self.buflis *= 2
         self.buflis[pos] = typecode
         self.buflis[pos+1] = a
         self.buflis[pos+2] = b
@@ -258,7 +258,7 @@ class StringMarshaller(Marshaller):
         pos = self.bufpos
         newpos = pos + 2
         if len(self.buflis) < newpos:
-            self.buflis = self.buflis + self.buflis
+            self.buflis *= 2
         self.buflis[pos]   = a
         self.buflis[pos+1] = b
         self.bufpos = newpos
@@ -274,7 +274,7 @@ class StringMarshaller(Marshaller):
         pos = self.bufpos
         newpos = pos + 4
         if len(self.buflis) < newpos:
-            self.buflis = self.buflis + self.buflis
+            self.buflis *= 2
         self.buflis[pos]   = a
         self.buflis[pos+1] = b
         self.buflis[pos+2] = c
