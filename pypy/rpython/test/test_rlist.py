@@ -394,3 +394,20 @@ def test_indexerror():
     assert res._obj.value == 3
     res = interpret(fn, [-2])
     assert res._obj.value == "oups"
+
+def test_list_basic_ops():
+    def list_basic_ops(i=int, j=int):
+        l = [1,2,3]
+        l.insert(0, 42)
+        del l[1]
+        l.append(i)
+        listlen = len(l)
+        l.extend(l) 
+        del l[listlen:]
+        l += [5,6] 
+        l[1] = i
+        return l[j]
+    for i in range(6): 
+        for j in range(6):
+            res = interpret(list_basic_ops, [i, j])
+            assert res == list_basic_ops(i, j)

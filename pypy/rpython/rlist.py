@@ -394,8 +394,8 @@ def ll_prepend(l, newitem):
     i = length
     items = l.items
     i1 = i+1
-    while i > 0:
-        items[i] = items[i1]
+    while i >= 0:
+        items[i1] = items[i]
         i1 = i
         i -= 1
     items[0] = newitem
@@ -406,11 +406,11 @@ def ll_insert_nonneg(l, index, newitem):
     items = l.items
     i = length
     i1 = i+1
-    while i > index:
-        items[i] = items[i1]
+    while i >= index:
+        items[i1] = items[i]
         i1 = i
         i -= 1
-    items[i] = newitem
+    items[index] = newitem
 
 def ll_insert(l, index, newitem):
     if index < 0:
