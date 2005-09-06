@@ -914,11 +914,15 @@ Exception handling:
         'direct_call' and other operations that can just raise any exception.
 
     ``hop.exception_cannot_occur()``
-        A special case for ``override:ignore`` meaning that there is, after
-        all, no operation left that could raise an exception.  (The RTyper
-        class normally verifies that exception_is_here() was really called
-        once for each high-level operation that is in the scope of
-        exception-catching links.)
+        The RTyper normally verifies that exception_is_here() was really
+        called once for each high-level operation that is in the scope of
+        exception-catching links.  By saying exception_cannot_occur(),
+        you say that after all this particular operation cannot raise
+        anything.  (It can be the case that unexpected exception links are
+        attached to flow graphs; e.g. any method call within a
+        ``try:finally:`` block will have an Exception branch to the finally
+        part, which only the RTyper can remove if exception_cannot_occur()
+        is called.)
 
 
 .. _LLInterpreter:
