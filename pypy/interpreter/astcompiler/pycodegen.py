@@ -397,9 +397,11 @@ class CodeGenerator(ast.ASTVisitor):
             for name in frees:
                 self.emitop('LOAD_CLOSURE', name)
             self.emitop_obj('LOAD_CONST', gen)
+            # self.emitop_obj('LOAD_CONST', gen.getCode())
             self.emitop_int('MAKE_CLOSURE', len(node.defaults))
         else:
             self.emitop_obj('LOAD_CONST', gen)
+            # self.emitop_obj('LOAD_CONST', gen.getCode())
             self.emitop_int('MAKE_FUNCTION', len(node.defaults))
 
         for i in range(ndecorators):
@@ -419,6 +421,7 @@ class CodeGenerator(ast.ASTVisitor):
         for name in frees:
             self.emitop('LOAD_CLOSURE', name)
         self.emitop_obj('LOAD_CONST', gen)
+        # self.emitop_obj('LOAD_CONST', gen.getCode())
         if frees:
             self.emitop_int('MAKE_CLOSURE', 0)
         else:
@@ -656,9 +659,11 @@ class CodeGenerator(ast.ASTVisitor):
             for name in frees:
                 self.emitop('LOAD_CLOSURE', name)
             self.emitop_obj('LOAD_CONST', gen)
+            # self.emitop_obj('LOAD_CONST', gen.getCode())            
             self.emitop_int('MAKE_CLOSURE', 0)
         else:
             self.emitop_obj('LOAD_CONST', gen)
+            # self.emitop_obj('LOAD_CONST', gen.getCode())            
             self.emitop_int('MAKE_FUNCTION', 0)
 
         # precomputation of outmost iterable
@@ -1143,7 +1148,7 @@ class CodeGenerator(ast.ASTVisitor):
     # object constructors
 
     def visitEllipsis(self, node):
-        self.emitop_obj('LOAD_CONST', self.space.wrap(Ellipsis) )
+        return self.emitop_obj('LOAD_CONST', self.space.w_Ellipsis)
 
     def visitTuple(self, node):
         self.set_lineno(node)
@@ -1371,7 +1376,8 @@ def generateArgList(arglist):
 def findOp(node):
     """Find the op (DELETE, LOAD, STORE) in an AssTuple tree"""
     v = OpFinder()
-    walk(node, v, verbose=0)
+    # walk(node, v, verbose=0)
+    node.accept(v)
     return v.op
 
 class OpFinder(ast.ASTVisitor):

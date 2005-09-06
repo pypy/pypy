@@ -106,8 +106,8 @@ def walk(tree, visitor, walker=None, verbose=None):
     walker.preorder(tree, visitor)
     return walker.visitor
 
-def walk(tree, visitor, verbose=None):
-    tree.accept( visitor )
+def walk(tree, visitor, verbose=-1):
+    tree.accept(visitor)
     return visitor
 
 def dumpNode(node):
