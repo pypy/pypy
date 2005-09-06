@@ -67,11 +67,11 @@ class LLInterpreter(object):
                 print operation
 
     def find_roots(self):
-        log.find_roots("starting")
+        log.findroots("starting")
         frame = self.active_frame
         roots = []
         while frame is not None:
-            log.find_roots("graph", frame.graph.name)
+            log.findroots("graph", frame.graph.name)
             frame.find_roots(roots)
             frame = frame.f_back
         return roots
@@ -235,7 +235,7 @@ class LLFrame(object):
             self.make_llexception(e)
 
     def find_roots(self, roots):
-        log.find_roots(self.curr_block.inputargs)
+        log.findroots(self.curr_block.inputargs)
         for arg in self.curr_block.inputargs:
             if (isinstance(arg, Variable) and
                 isinstance(self.getval(arg), self.llt._ptr)):

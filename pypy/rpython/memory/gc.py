@@ -405,6 +405,8 @@ class DeferredRefcountingGC(GCBase):
         raw_free(gc_info)
 
     def incref(self, addr):
+        if addr == NULL:
+            return
         (addr - self.size_gc_header()).signed[0] += 1
 
     def decref(self, addr):
