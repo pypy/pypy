@@ -1524,6 +1524,17 @@ class TestAnnotateTestCase:
         assert s.items[0].can_be_None
         assert s.items[1] == a.bookkeeper.immutablevalue(A.hello)
 
+    def test_dict_and_none(self):
+        def f(i):
+            if i:
+                return {}
+            else:
+                return None
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.knowntype == dict
+                        
+
 def g(n):
     return [0,1,2,n]
 

@@ -584,6 +584,17 @@ class __extend__(pairtype(SomePBC, SomeList    )):
     def union((pbc, lst)):
         return pair(lst, pbc).union()
 
+# let mix dicts and None
+class __extend__(pairtype(SomeDict, SomePBC)):
+    def union((dct, pbc)):
+        if pbc.isNone():
+            return dct
+        return SomeObject()
+
+class __extend__(pairtype(SomePBC, SomeDict    )):
+    def union((pbc, dct)):
+        return pair(dct, pbc).union()
+
 # mixing strings and None
 
 class __extend__(pairtype(SomeString, SomePBC)):
