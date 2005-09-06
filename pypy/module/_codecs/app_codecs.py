@@ -476,7 +476,7 @@ def xmlcharrefreplace_errors(exc):
             res += '&#'
             res += str(ord(ch))
             res += ';'
-        return ''.join(res), exc.end
+        return u''.join(res), exc.end
     else:
         raise TypeError("don't know how to handle %.400s in error callback"%type(exc))
     
@@ -495,7 +495,7 @@ def backslashreplace_errors(exc):
             else:
                 p += 'x'
                 p += "%.2x" % ord(c)
-        return ''.join(p), exc.end
+        return u''.join(p), exc.end
     else:
         raise TypeError("don't know how to handle %.400s in error callback"%type(exc))
 
