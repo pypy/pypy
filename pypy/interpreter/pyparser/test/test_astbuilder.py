@@ -396,17 +396,17 @@ docstrings = [
     '''def foo():
     """foo docstring"""
     return 1
-    ''',
+''',
     '''def foo():
     """foo docstring"""
     a = 1
     """bar"""
     return a
-    ''',
+''',
     '''def foo():
     """doc"""; print 1
     a=1
-    ''',
+''',
     '''"""Docstring""";print 1''',
     ]
 
@@ -503,6 +503,18 @@ EXEC_INPUTS = [
     returns,
     ]
 
+SINGLE_INPUTS = [
+   one_stmt_funcdefs,
+   ['\t # hello\n ',
+    'print 6*7',
+    'if 1:  x\n',
+    'x = 5',
+    'x = 5 ',
+    '''"""Docstring""";print 1''',
+    '''"Docstring"''',
+    ]
+]
+
 TARGET_DICT = {
     'single' : 'single_input',
     'exec'   : 'file_input',
@@ -557,7 +569,6 @@ def test_exec_inputs():
     for family in EXEC_INPUTS:
         for expr in family:
             yield check_expression, expr, 'exec'
-
 
 SNIPPETS = [    
     'snippet_1.py',
@@ -626,3 +637,7 @@ def test_eval_string():
     for data in test:
         assert eval_string(data) == eval(data)
 
+def test_single_inputs():
+    for family in SINGLE_INPUTS:
+        for expr in family:
+            yield check_expression, expr, 'single'

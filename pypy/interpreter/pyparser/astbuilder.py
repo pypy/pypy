@@ -746,7 +746,12 @@ def build_single_input( builder, nb ):
     atoms = get_atoms( builder, nb )
     l = len(atoms)
     if l == 1 or l==2:
-        builder.push(ast.Module(None, atoms[0]))
+        atom0 = atoms[0]
+        if isinstance(atom0, TokenObject) and atom0.name == tok.NEWLINE:
+            atom0 = ast.Pass()
+        elif not isinstance(atom0, ast.Stmt):
+            atom0 = ast.Stmt([atom0])
+        builder.push(ast.Module(None, atom0))
     else:
         assert False, "Forbidden path"
 
