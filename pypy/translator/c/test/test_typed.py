@@ -332,3 +332,20 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         
         assert res[0] == True
         assert res[1] == intmask(hash(c)+hash(d))
+
+    def test_list_basic_ops(self):
+        def list_basic_ops(i=int, j=int):
+            l = [1,2,3]
+            l.insert(0, 42)
+            del l[1]
+            l.append(i)
+            listlen = len(l)
+            l.extend(l) 
+            del l[listlen:]
+            l += [5,6] 
+            l[1] = i
+            return l[j]
+        f = self.getcompiled(list_basic_ops)
+        for i in range(6): 
+            for j in range(6): 
+                assert f(i,j) == list_basic_ops(i,j)
