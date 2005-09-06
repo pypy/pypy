@@ -33,8 +33,8 @@ SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
 
 flags = os.popen("gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1").read()[17:-1].split()
 
-if int(os.popen("opt --help 2>&1").read().find('-heap2stack')) >= 0:
-    flags.insert(flags.index("-inline")+1, "-heap2stack")
+#if int(os.popen("opt --help 2>&1").read().find('-heap2stack')) >= 0:
+#    flags.insert(flags.index("-inline")+1, "-heap2stack -debug")
 
 OPTIMIZATION_SWITCHES = " ".join(flags)
 #print OPTIMIZATION_SWITCHES
