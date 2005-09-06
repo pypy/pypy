@@ -3,6 +3,11 @@ from pypy.interpreter.pyparser.astbuilder import AstBuilder
 from pypy.interpreter.pycode import PyCode
 import py.test
 
+def setup_module(mod):
+    import sys
+    if sys.version[:3] != "2.4":
+        py.test.skip("expected to work only on 2.4")
+
 from pypy.interpreter.astcompiler import ast, misc, pycodegen
 
 from test_astbuilder import expressions, comparisons, funccalls, backtrackings,\
@@ -16,27 +21,27 @@ from test_astbuilder import FakeSpace
 
 TESTS = [
     expressions,
-##     augassigns,
-##     comparisons,
-##     funccalls,
-##     backtrackings,
-##     listmakers,
-##     dictmakers,
-##     multiexpr,
-##     attraccess,
-##     slices,
-##     imports,
-##     execs,
-##     prints,
-##     globs,
-##     raises_,
-##     # EXEC INPUTS
-##     # one_stmt_classdefs,
-##     one_stmt_funcdefs,
-##     if_stmts,
-##     tryexcepts,
-##     # docstrings,
-##     # returns,
+    augassigns,
+    comparisons,
+    funccalls,
+     backtrackings,
+     listmakers,
+     dictmakers,
+     multiexpr,
+     attraccess,
+     slices,
+     imports,
+     execs,
+     prints,
+     globs,
+     raises_,
+#  EXEC_INPUTS
+     one_stmt_classdefs,
+     one_stmt_funcdefs,
+     if_stmts,
+     tryexcepts,
+     docstrings,
+     returns,
     ]
 
 import sys
@@ -59,19 +64,15 @@ def ast_parse_expr(expr, target='single', space=FakeSpace()):
     return builder.rule_stack[-1]
 
 
-### Note: builtin compile and compiler.compile behave differently
-def compile_with_builtin_comiple( expr, target="exec" ):
-    return compile( expr, "<?>", target )
-
 def compile_with_astcompiler(expr, target='exec', space=FakeSpace()):
-    ast = ast_parse_expr(epxr, target='exec', space=space)
+    ast = ast_parse_expr(expr, target='exec', space=space)
     misc.set_filename('<?>', ast)
     codegen = pycodegen.ModuleCodeGenerator(space, ast)
-    rcode = codegenerator.getCode()
+    rcode = codegen.getCode()
     return to_code(rcode)
 
 def compile_with_stablecompiler(expr, target='exec'):
-    from pypy.interpreter.stablecompiler import compile
+    from pypy.interpreter.testcompiler import compile
     # from compiler import compile
     return compile(expr, '<?>', target)
 
@@ -119,7 +120,7 @@ def to_code( rcode ):
 def check_compile(expr):
     print "Compiling:", expr
     sc_code = compile_with_stablecompiler(expr, target='exec')
-    as_code = compile_with_astcompiler(expr, target='exec')
+    ac_code = compile_with_astcompiler(expr, target='exec')
     compare_code(ac_code, sc_code)
 
 ## def check_compile( expr ):
@@ -135,14 +136,14 @@ def check_compile(expr):
 ##     compare_code(code1,code2)
 
 def test_compile_argtuple_1():
-    py.test.skip('will be tested when more basic stuff will work')
+    #py.test.skip('will be tested when more basic stuff will work')
     code = """def f( x, (y,z) ):
     print x,y,z
 """
     check_compile( code )
 
 def test_compile_argtuple_2():
-    py.test.skip('will be tested when more basic stuff will work')
+    #py.test.skip('will be tested when more basic stuff will work')
     code = """def f( x, (y,(z,t)) ):
     print x,y,z,t
 """
@@ -150,7 +151,7 @@ def test_compile_argtuple_2():
 
 
 def test_compile_argtuple_3():
-    py.test.skip('will be tested when more basic stuff will work')
+    #py.test.skip('will be tested when more basic stuff will work')
     code = """def f( x, (y,(z,(t,u))) ):
     print x,y,z,t,u
 """
