@@ -833,6 +833,11 @@ class CodeGenerator(ast.ASTVisitor):
     # misc
 
     def visitDiscard(self, node):
+        # Important: this function is overridden in InteractiveCodeGenerator,
+        # which also has the effect that the following test only occurs in
+        # non-'single' modes.
+        if isinstance(node.expr, ast.Const):
+            return    # skip LOAD_CONST/POP_TOP pairs (for e.g. docstrings)
         self.set_lineno(node)
         node.expr.accept( self )
         self.emit('POP_TOP')

@@ -1,7 +1,7 @@
 import __future__
 import autopath
 import py
-from pypy.interpreter.pycompiler import CPythonCompiler, PythonCompiler
+from pypy.interpreter.pycompiler import CPythonCompiler, PythonCompiler, PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 
@@ -113,7 +113,7 @@ class BaseTestCompiler:
         ex = e.value 
         assert ex.match(self.space, self.space.w_SyntaxError)
 
-    def XXXtest_scope_importstar_with_nested_free(self):
+    def test_scope_importstar_with_nested_free(self):
         e = py.test.raises(OperationError, self.compiler.compile, """if 1:
             def clash(x):
                 from string import *
@@ -162,6 +162,25 @@ class TestPyCCompiler(BaseTestCompiler):
 class TestPurePythonCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = PythonCompiler(self.space)
+
+class TestPythonAstCompiler(BaseTestCompiler):
+    def setup_method(self, method):
+        self.compiler = PythonAstCompiler(self.space)
+
+    def test_scope_unoptimized_clash1(self):
+        py.test.skip("INPROGESS")
+
+    def test_scope_unoptimized_clash1_b(self):
+        py.test.skip("INPROGESS")
+
+    def test_scope_exec_in_nested(self):
+        py.test.skip("INPROGESS")
+
+    def test_scope_importstar_in_nested(self):
+        py.test.skip("INPROGESS")
+
+    def test_scope_importstar_with_nested_free(self):
+        py.test.skip("INPROGESS")
 
 class SkippedForNowTestPyPyCompiler(BaseTestCompiler):
     def setup_method(self, method):
