@@ -34,7 +34,7 @@ from pypy.annotation.pairtype import pair, extendabletype
 from pypy.objspace.flow.model import Constant
 from pypy.tool.tls import tlsobject
 import inspect
-import copy
+
 
 DEBUG = True    # set to False to disable recording of debugging information
 TLS = tlsobject()
@@ -119,7 +119,6 @@ class SomeObject:
     def __new__(cls, *args, **kw):
         self = super(SomeObject, cls).__new__(cls, *args, **kw)
         if DEBUG:
-            so = SomeObject
             try:
                 bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
                 position_key = bookkeeper.position_key
@@ -142,9 +141,6 @@ class SomeObject:
         SomeObject._coming_from[id(self)] = self.origin, nvalue
     caused_by_merge = property(caused_by_merge, set_caused_by_merge)
     del set_caused_by_merge
-
-    def __setattr__(self, key, value):
-        object.__setattr__(self, key, value)
 
     def can_be_none(self):
         return True
