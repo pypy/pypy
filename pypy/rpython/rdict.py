@@ -84,6 +84,8 @@ class StrDictRepr(rmodel.Repr):
     def convert_const(self, dictobj):
         # get object from bound dict methods
         #dictobj = getattr(dictobj, '__self__', dictobj) 
+        if dictobj is None:
+            return nullptr(self.STRDICT)
         if not isinstance(dictobj, dict):
             raise TyperError("expected a dict: %r" % (dictobj,))
         try:
@@ -104,6 +106,10 @@ class StrDictRepr(rmodel.Repr):
     def rtype_len(self, hop):
         v_dict, = hop.inputargs(self)
         return hop.gendirectcall(ll_strdict_len, v_dict)
+
+    def rtype_is_true(self, hop):
+        v_dict, = hop.inputargs(self)
+        return hop.gendirectcall(ll_strdict_is_true, v_dict)
 
     def make_iterator_repr(self):
         return StrDictIteratorRepr(self)
@@ -192,6 +198,10 @@ deleted_entry_marker = lltype.malloc(rstr.STR, 0, immortal=True)
 
 def ll_strdict_len(d):
     return d.num_items 
+
+def ll_strdict_is_true(d):
+    # check if a dict is True, allowing for None
+    return bool(d) and d.num_items != 0
 
 def ll_strdict_getitem(d, key): 
     entry = ll_strdict_lookup(d, key) 

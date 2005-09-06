@@ -254,3 +254,21 @@ def test_dict_contains_with_constant_dict():
     res = interpret(func, [1]) 
     assert res is False 
 
+def dict_or_none():
+    class A:
+        pass
+    def negate(d):
+        return not d
+    def func(n):
+        a = A()
+        a.d = None
+        if n > 0:
+            a.d = {str(n): 1, "42": 2}
+            del a.d["42"]
+        return negate(a.d)
+    res = interpret(func, [10])
+    assert res is False
+    res = interpret(func, [0])
+    assert res is True
+    res = interpret(func, [42])
+    assert res is True
