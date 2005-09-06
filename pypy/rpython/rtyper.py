@@ -630,11 +630,14 @@ class HighLevelOp(object):
                           # high-level ops before the last one in the block
         if self.llops.implicit_exceptions_checked is None:
             self.llops.implicit_exceptions_checked = []
+        result = False
         for link in self.exceptionlinks:
             if issubclass(exc_cls, link.exitcase):
                 self.llops.implicit_exceptions_checked.append(link.exitcase)
-                return True
-        return False
+                result = True
+                # go on looping to add possibly more exceptions to the list
+                # (e.g. Exception itself - see test_rlist.test_valueerror)
+        return result
 
     def exception_is_here(self):
         if self.llops.llop_raising_exceptions is not None:

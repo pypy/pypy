@@ -464,3 +464,20 @@ def test_list_basic_ops():
         for j in range(6):
             res = interpret(list_basic_ops, [i, j])
             assert res == list_basic_ops(i, j)
+
+def test_valueerror():
+    def fn(i):
+        l = [4, 7, 3]
+        try:
+            j = l.index(i)
+        except ValueError:
+            j = 100
+        return j
+    res = interpret(fn, [4])
+    assert res == 0
+    res = interpret(fn, [7])
+    assert res == 1
+    res = interpret(fn, [3])
+    assert res == 2
+    res = interpret(fn, [6])
+    assert res == 100
