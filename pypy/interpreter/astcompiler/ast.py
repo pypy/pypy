@@ -873,7 +873,7 @@ class If(Node):
     def getChildNodes(self):
         nodelist = []
         # tests is a list of couples (node (test), node (suite))
-        for test, suite in self.items:
+        for test, suite in self.tests:
             nodelist.append(test)
             nodelist.append(suite)
         if self.else_ is not None:
