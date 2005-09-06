@@ -1,6 +1,6 @@
 from os.path import exists
 use_boehm_gc = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
-use_boehm_gc = False
+#use_boehm_gc = False
 
 import os
 import time
@@ -23,79 +23,15 @@ from pypy.translator.llvm.module.extfunction import extdeclarations, \
      extfunctions, gc_boehm, gc_disabled, dependencies
 from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.structnode import StructNode
+from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
 
 from pypy.translator.translator import Translator
 
-from py.process import cmdexec 
 
 function_count = {}
-llcode_header = ll_functions = None
+llexterns_header = llexterns_functions = None
 
-ll_func_names = [
-       "%raisePyExc_IOError",
-       "%raisePyExc_ValueError",
-       "%raisePyExc_OverflowError",
-       "%raisePyExc_ZeroDivisionError",
-       "%RPyString_AsString",
-       "%RPyString_FromString",
-       "%RPyString_Size"]
-       
-def get_ll(ccode, function_names):
-    
-    # goto codespeak and compile our c code
-    request = urllib.urlencode({'ccode':ccode})
-    llcode = urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
 
-    # strip lines
-    ll_lines = []
-    function_names = list(function_names) + ll_func_names
-    funcnames = dict([(k, True) for k in function_names])
-
-    # strip declares tjat in ll_func_names
-    for line in llcode.split('\n'):
-
-        # get rid of any of the structs that llvm-gcc introduces to struct types
-        line = line.replace("%struct.", "%")
-
-        # strip comments
-        comment = line.find(';')
-        if comment >= 0:
-            line = line[:comment]
-        line = line.rstrip()
-
-        # find function names, declare them with the default calling convertion
-        if line[-1:] == '{':
-           returntype, s = line.split(' ', 1)
-           funcname  , s = s.split('(', 1)
-           funcnames[funcname] = True
-           if line.find("internal") == -1:
-                line = '%s %s' % (DEFAULT_CCONV, line,)
-        ll_lines.append(line)
-
-    # patch calls to function that we just declared fastcc
-    ll_lines2, calltag, declaretag = [], 'call ', 'declare '
-    for line in ll_lines:
-        i = line.find(calltag)
-        if i >= 0:
-            cconv = 'ccc'
-            for funcname in funcnames.iterkeys():
-                if line.find(funcname) >= 0:
-                    cconv = DEFAULT_CCONV
-                    break
-            line = "%scall %s %s" % (line[:i], cconv, line[i+len(calltag):])
-        if line[:len(declaretag)] == declaretag:
-            cconv = 'ccc'
-            for funcname in funcnames.keys():
-                if line.find(funcname) >= 0:
-                    cconv = DEFAULT_CCONV
-                    break
-            line = "declare %s %s" % (cconv, line[len(declaretag):])
-        ll_lines2.append(line)
-
-    llcode = '\n'.join(ll_lines2)
-    global llcode_header, ll_functions 
-    llcode_header, ll_functions = llcode.split('implementation')
-    
 class GenLLVM(object):
 
     def __init__(self, translator, debug=True):
@@ -109,6 +45,15 @@ class GenLLVM(object):
 
         # for debug we create comments of every operation that may be executed
         self.debug = debug
+
+    def _checkpoint(self, msg=None):
+        if self.debug:
+            if msg:
+                t = (time.time() - self.starttime)
+                print '\t%s took %02dm%02ds' % (msg, t/60, t%60)
+            else:
+                print 'GenLLVM:'
+            self.starttime = time.time()
 
     def _print_node_stats(self):
         """run_pypy-llvm.sh [aug 29th 2005]
@@ -129,6 +74,9 @@ class GenLLVM(object):
         STATS (26210, "<class 'pypy.translator.llvm.arraynode.StrArrayNode'>")
         STATS (268884, "<class 'pypy.translator.llvm.structnode.StructNode'>")
         """
+        return #disable node stats output
+        if not self.debug:
+            return
         nodecount = {}
         for node in self.db.getnodes():
             typ = type(node)
@@ -141,76 +89,9 @@ class GenLLVM(object):
         for s in stats:
             print 'STATS', s
 
-    def post_setup_externs(self):
-
-        rtyper = self.db._translator.rtyper
-        from pypy.translator.c.extfunc import predeclare_all
-
-        # hacks to make predeclare_all work
-        self.db.standalone = True
-        self.db.externalfuncs = {}
-        decls = list(predeclare_all(self.db, rtyper))
-
-        for c_name, obj in decls:
-            if isinstance(obj, lltype.LowLevelType):
-                self.db.prepare_type(obj)
-            elif isinstance(obj, types.FunctionType):
-                funcptr = getfunctionptr(self.translator, obj)
-                c = inputconst(lltype.typeOf(funcptr), funcptr)
-                self.db.prepare_arg_value(c)
-            elif isinstance(lltype.typeOf(obj), lltype.Ptr):
-                self.db.prepare_constant(lltype.typeOf(obj), obj)
-            else:
-                assert False, "unhandled predeclare %s %s %s" % (c_name, type(obj), obj)
-
-        return decls
-
-    def generate_llfile(self, extern_decls):
-        ccode = []
-        function_names = []
-
-        def predeclarefn(c_name, llname):
-            function_names.append(llname)
-            assert llname[0] == "%"
-            llname = llname[1:]
-            assert '\n' not in llname
-            ccode.append('#define\t%s\t%s\n' % (c_name, llname))
-            
-        for c_name, obj in extern_decls:
-            if isinstance(obj, lltype.LowLevelType):
-                s = "#define %s struct %s\n%s;\n" % (c_name, c_name, c_name)
-                ccode.append(s)
-            elif isinstance(obj, types.FunctionType):
-                funcptr = getfunctionptr(self.translator, obj)
-                c = inputconst(lltype.typeOf(funcptr), funcptr)
-                predeclarefn(c_name, self.db.repr_arg(c))
-            elif isinstance(lltype.typeOf(obj), lltype.Ptr):
-                if isinstance(lltype.typeOf(obj._obj), lltype.FuncType):
-                    predeclarefn(c_name, self.db.repr_name(obj._obj))
-
-        include_files = []
-        # append local file
-        j = os.path.join
-        include_files.append(j(j(os.path.dirname(__file__), "module"), "genexterns.c"))
-
-        from pypy.translator.c import extfunc
-        for f in ["ll_os", "ll_math", "ll_time", "ll_strtod"]:
-            include_files.append(j(j(os.path.dirname(extfunc.__file__), "src"), f + ".h"))
-            
-        for f in include_files:
-            ccode.append(open(f).read())
-
-        # for debugging
-        ccode = "".join(ccode)
-        filename = udir.join("ccode.c")
-        f = open(str(filename), "w")
-        f.write(ccode)
-        f.close()
-        
-        get_ll(ccode, function_names)
-
     def gen_llvm_source(self, func=None):
-        if self.debug:  print 'gen_llvm_source begin) ' + time.ctime()
+        self._checkpoint()
+
         if func is None:
             func = self.translator.entrypoint
         self.entrypoint = func
@@ -219,33 +100,31 @@ class GenLLVM(object):
         c = inputconst(lltype.typeOf(ptr), ptr)
         entry_point = c.value._obj
         self.db.prepare_arg_value(c)
-
-        #if self.debug:  print 'gen_llvm_source db.setup_all) ' + time.ctime()
-        #7 minutes
+        self._checkpoint('init')
 
         # set up all nodes
         self.db.setup_all()
         self.entrynode = self.db.set_entrynode(entry_point)
+        self._checkpoint('setup_all')
 
         # post set up externs
-        extern_decls = self.post_setup_externs()
+        extern_decls = post_setup_externs(self.db)
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
-
         using_external_functions = extfuncnode.ExternalFuncNode.used_external_functions.keys() != []
+        self._print_node_stats()
+        self._checkpoint('setup_all externs')
 
-        if self.debug:
-            self._print_node_stats()
+        support_functions = "%raisePyExc_IOError %raisePyExc_ValueError "\
+                            "%raisePyExc_OverflowError %raisePyExc_ZeroDivisionError "\
+                            "%prepare_ZeroDivisionError %prepare_OverflowError %prepare_ValueError "\
+                            "%RPyString_FromString %RPyString_AsString %RPyString_Size".split()
 
-        if llcode_header is None and using_external_functions:
-            self.generate_llfile(extern_decls)
+        global llexterns_header, llexterns_functions
+        if llexterns_header is None and using_external_functions:
+            llexterns_header, llexterns_functions = generate_llfile(self.db, extern_decls, support_functions, self.debug)
+            self._checkpoint('generate_ll')
  
-        #if self.debug:  print 'gen_llvm_source typ_decl.writedatatypedecl) ' + time.ctime()
-        #if self.debug:  print 'gen_llvm_source n_nodes) %d' % len(self.db.getnodes())
-        #3 seconds
-        #if self.debug:
-        #    log.gen_llvm_source(self.db.dump_pbcs())
-        
         # prevent running the same function twice in a test
         if func.func_name in function_count:
             postfix = '_%d' % function_count[func.func_name]
@@ -260,55 +139,37 @@ class GenLLVM(object):
         nl = codewriter.newline
 
         if using_external_functions:
-            nl(); comment("EXTERNAL FUNCTION DECLARATIONS") ; nl()
-            for s in llcode_header.split('\n'):
+            nl(); comment("External Function Declarations") ; nl()
+            for s in llexterns_header.split('\n'):
                 codewriter.append(s)
 
         nl(); comment("Type Declarations"); nl()
-
         for c_name, obj in extern_decls:
-
             if isinstance(obj, lltype.LowLevelType):
                 if isinstance(obj, lltype.Ptr):
                     obj = obj.TO
                 l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
                 codewriter.append(l)
-                
-            #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   
-            #elif isinstance(obj, types.FunctionType):
-            #    #c.value._obj.graph.name = c_name
-            #    print "XXX  predeclare" , c_name, type(obj), obj
+        self._checkpoint('write externs type declarations')
 
         for typ_decl in self.db.getnodes():
             typ_decl.writedatatypedecl(codewriter)
+        self._checkpoint('write data type declarations')
 
-        if self.debug:  print 'gen_llvm_source typ_decl.writeglobalconstants) ' + time.ctime()
-        #20 minutes
         nl(); comment("Global Data") ; nl()
         for typ_decl in self.db.getnodes():
             typ_decl.writeglobalconstants(codewriter)
+        self._checkpoint('write global constants')
 
-        if self.debug:  print 'gen_llvm_source typ_decl.writecomments) ' + time.ctime()
-        #0 minutes
-        #if self.debug:
-        #    nl(); comment("Comments") ; nl()
-        #    for typ_decl in self.db.getnodes():
-        #        typ_decl.writecomments(codewriter)
-            
-        if self.debug:  print 'gen_llvm_source extdeclarations) ' + time.ctime()
         nl(); comment("Function Prototypes") ; nl()
         for extdecl in extdeclarations.split('\n'):
             codewriter.append(extdecl)
+        self._checkpoint('write function prototypes')
 
-        if self.debug:  print 'gen_llvm_source self._debug_prototype) ' + time.ctime()
-        #if self.debug:
-        #    self._debug_prototype(codewriter)
-            
-        if self.debug:  print 'gen_llvm_source typ_decl.writedecl) ' + time.ctime()
         for typ_decl in self.db.getnodes():
             typ_decl.writedecl(codewriter)
+        self._checkpoint('write declarations')
 
-        if self.debug:  print 'gen_llvm_source boehm_gc) ' + time.ctime()
         nl(); comment("Function Implementation") 
         codewriter.startimpl()
         if use_boehm_gc:
@@ -318,12 +179,10 @@ class GenLLVM(object):
         for gc_func in gc_funcs.split('\n'):
             codewriter.append(gc_func)
 
-        if self.debug:  print 'gen_llvm_source typ_decl.writeimpl) ' + time.ctime()
-        #XXX ? minutes
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
+        self._checkpoint('write implementations')
 
-        if self.debug:  print 'gen_llvm_source entrypoint) ' + time.ctime()
         #XXX use codewriter methods here
         decl = self.entrynode.getdecl()
         t = decl.split('%', 1)
@@ -360,15 +219,9 @@ class GenLLVM(object):
         elif entryfunc_name == 'pypy_main_noargs': #XXX just to get on with bpnn & richards
             extfuncnode.ExternalFuncNode.used_external_functions['%main_noargs'] = True
 
+        for f in support_functions:
+            extfuncnode.ExternalFuncNode.used_external_functions[f] = True
 
-
-        for f in "raisePyExc_IOError raisePyExc_ValueError "\
-                 "raisePyExc_OverflowError raisePyExc_ZeroDivisionError "\
-                 "prepare_ZeroDivisionError prepare_OverflowError prepare_ValueError "\
-                 "RPyString_FromString RPyString_AsString RPyString_Size".split():
-            extfuncnode.ExternalFuncNode.used_external_functions["%" + f] = True
-
-        if self.debug:  print 'gen_llvm_source used_external_functions) ' + time.ctime()
         depdone = {}
         for funcname,value in extfuncnode.ExternalFuncNode.used_external_functions.iteritems():
             deps = dependencies(funcname,[])
@@ -382,14 +235,15 @@ class GenLLVM(object):
                     for extfunc in llvm_code.split('\n'):
                         codewriter.append(extfunc)
                     depdone[dep] = True
-
+        self._checkpoint('write support functions')
+        
         if using_external_functions:
-            nl(); comment("EXTERNAL FUNCTION IMPLEMENTATION") ; nl()
-            for s in ll_functions.split('\n'):
+            nl(); comment("External Function Implementation") ; nl()
+            for s in llexterns_functions.split('\n'):
                 codewriter.append(s)
+        self._checkpoint('write external functions')
 
         comment("End of file") ; nl()
-        if self.debug:  print 'gen_llvm_source return) ' + time.ctime()
         return filename
 
     def create_module(self,
