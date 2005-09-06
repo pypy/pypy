@@ -60,11 +60,9 @@ def getitem__List_Slice(space, w_list, w_slice):
     w_res = W_ListObject(space, [None] * slicelength)
     items_w = w_list.wrappeditems
     subitems_w = w_res.wrappeditems
-    i = 0
-    while i < slicelength:
+    for i in range(slicelength):
         subitems_w[i] = items_w[start]
         start += step
-        i += 1
     return w_res
 
 def contains__List_ANY(space, w_list, w_obj):
@@ -194,15 +192,13 @@ def delitem__List_Slice(space, w_list, w_slice):
         # preventing side effects during destruction
         recycle[0] = items[i]
 
-        discard = 1
-        while discard < slicelength:
+        for discard in range(1, slicelength):
             j = i+1
             i += step
             while j < i:
                 items[j-discard] = items[j]
                 j += 1
             recycle[discard] = items[i]
-            discard += 1
 
         j = i+1
         while j < n:
@@ -280,11 +276,9 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
         else:
             # Make a shallow copy to more easily handle the reversal case
             sequence2 = list(sequence2)
-    i = 0
-    while i < len2:
+    for i in range(len2):
         items[start] = sequence2[i]
         start += step
-        i += 1
     return space.w_None
 
 app = gateway.applevel("""
@@ -364,11 +358,10 @@ def list_remove__List_ANY(space, w_list, w_any):
     i = 0
     items = w_list.wrappeditems
     length = len(items)
-    while i < length:
+    for i in range(length):
         if space.eq_w(items[i], w_any):
             del items[i]
             return space.w_None
-        i += 1
     raise OperationError(space.w_ValueError,
                          space.wrap("list.remove(x): x not in list"))
 
@@ -488,12 +481,10 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
 
         # wrap each item in a KeyContainer if needed
         if has_key:
-            i = 0
-            while i < sorter.listlength:
+            for i in range(sorter.listlength):
                 w_item = sorter.list[i]
                 w_key = space.call_function(w_keyfunc, w_item)
                 sorter.list[i] = KeyContainer(w_key, w_item)
-                i += 1
 
         # Reverse sort stability achieved by initially reversing the list,
         # applying a stable forward sort, then reversing the final result.
@@ -510,12 +501,10 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
     finally:
         # unwrap each item if needed
         if has_key:
-            i = 0
-            while i < sorter.listlength:
+            for i in range(sorter.listlength):
                 w_obj = sorter.list[i]
                 if isinstance(w_obj, KeyContainer):
                     sorter.list[i] = w_obj.w_item
-                i += 1
 
         # check if the user mucked with the list during the sort
         mucked = len(w_list.wrappeditems) > 0
