@@ -43,11 +43,10 @@ def len__List(space, w_list):
 def getitem__List_ANY(space, w_list, w_index):
     idx = space.int_w(w_index)
     try:
-        w_ret = w_list.wrappeditems[idx]
+        return w_list.wrappeditems[idx]
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
-    return w_ret
 
 def getitem__List_Slice(space, w_list, w_slice):
     # XXX consider to extend rlist's functionality?
@@ -59,19 +58,20 @@ def getitem__List_Slice(space, w_list, w_slice):
         assert start >= 0
         return W_ListObject(space, w_list.wrappeditems[start:stop])
     w_res = W_ListObject(space, [None] * slicelength)
-    items = w_list.wrappeditems
-    subitems = w_res.wrappeditems
-    for i in range(slicelength):
-        subitems[i] = items[start]
+    items_w = w_list.wrappeditems
+    subitems_w = w_res.wrappeditems
+    i = 0
+    while i < slicelength:
+        subitems_w[i] = items_w[start]
         start += step
+        i += 1
     return w_res
 
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
     i = 0
     items_w = w_list.wrappeditems
-    length = len(items_w)
-    while i < length:
+    while i < len(items_w): # intentionally always calling len!
         if space.eq_w(items_w[i], w_obj):
             return space.w_True
         i += 1
@@ -133,27 +133,31 @@ def lt__List_List(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different
     i = 0
-    while i < len(w_list1.wrappeditems) and i < len(w_list2.wrappeditems):
-        w_item1 = w_list1.wrappeditems[i]
-        w_item2 = w_list2.wrappeditems[i]
+    items1_w = w_list1.wrappeditems
+    items2_w = w_list2.wrappeditems
+    while i < len(items1_w) and i < len(items2_w):
+        w_item1 = items1_w[i]
+        w_item2 = items2_w[i]
         if not space.eq_w(w_item1, w_item2):
             return space.lt(w_item1, w_item2)
         i += 1
     # No more items to compare -- compare sizes
-    return space.newbool(len(w_list1.wrappeditems) < len(w_list2.wrappeditems))
+    return space.newbool(len(items1_w) < len(items2_w))
 
 def gt__List_List(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different
     i = 0
+    items1_w = w_list1.wrappeditems
+    items2_w = w_list2.wrappeditems
     while i < len(w_list1.wrappeditems) and i < len(w_list2.wrappeditems):
-        w_item1 = w_list1.wrappeditems[i]
-        w_item2 = w_list2.wrappeditems[i]
+        w_item1 = items1_w[i]
+        w_item2 = items2_w[i]
         if not space.eq_w(w_item1, w_item2):
             return space.gt(w_item1, w_item2)
         i += 1
     # No more items to compare -- compare sizes
-    return space.newbool(len(w_list1.wrappeditems) > len(w_list2.wrappeditems))
+    return space.newbool(len(items1_w) > len(items2_w))
 
 
 def delitem__List_ANY(space, w_list, w_idx):
@@ -189,14 +193,16 @@ def delitem__List_Slice(space, w_list, w_slice):
         # keep a reference to the objects to be removed,
         # preventing side effects during destruction
         recycle[0] = items[i]
-        
-        for discard in range(1, slicelength):
+
+        discard = 1
+        while discard < slicelength:
             j = i+1
             i += step
-            while j<i:
+            while j < i:
                 items[j-discard] = items[j]
                 j += 1
             recycle[discard] = items[i]
+            discard += 1
 
         j = i+1
         while j < n:
@@ -246,8 +252,11 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
             newsize = oldsize + delta
             # XXX support this in rlist!
             items += [None] * delta
-            for i in range(newsize-1, start+len2-1, -1):
+            lim = start+len2
+            i = newsize - 1
+            while i >= lim:
                 items[i] = items[i-delta]
+                i -= 1
         else:
             # shrinking requires the careful memory management of _del_slice()
             _del_slice(w_list, start, start-delta)
@@ -261,14 +270,21 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
             # Always copy starting from the right to avoid
             # having to make a shallow copy in the case where
             # the source and destination lists are the same list.
-            for i in range(len2 - 1, -1, -1):
-                items[start+i*step] = sequence2[i]
+            i = len2 - 1
+            start += i*step
+            while i >= 0:
+                items[start] = sequence2[i]
+                start -= step
+                i -= 1
             return space.w_None
         else:
             # Make a shallow copy to more easily handle the reversal case
             sequence2 = list(sequence2)
-    for i in range(len2):
-        items[start+i*step] = sequence2[i]
+    i = 0
+    while i < len2:
+        items[start] = sequence2[i]
+        start += step
+        i += 1
     return space.w_None
 
 app = gateway.applevel("""
@@ -338,11 +354,10 @@ def list_pop__List_ANY(space, w_list, w_idx=-1):
                              space.wrap("pop from empty list"))
     idx = space.int_w(w_idx)
     try:
-        w_ret = items.pop(idx)
+        return items.pop(idx)
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop index out of range"))
-    return w_ret
 
 def list_remove__List_ANY(space, w_list, w_any):
     # needs to be safe against eq_w() mutating the w_list behind our back
@@ -473,10 +488,12 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
 
         # wrap each item in a KeyContainer if needed
         if has_key:
-            for i in range(sorter.listlength):
+            i = 0
+            while i < sorter.listlength:
                 w_item = sorter.list[i]
                 w_key = space.call_function(w_keyfunc, w_item)
                 sorter.list[i] = KeyContainer(w_key, w_item)
+                i += 1
 
         # Reverse sort stability achieved by initially reversing the list,
         # applying a stable forward sort, then reversing the final result.
@@ -493,10 +510,12 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
     finally:
         # unwrap each item if needed
         if has_key:
-            for i in range(sorter.listlength):
+            i = 0
+            while i < sorter.listlength:
                 w_obj = sorter.list[i]
                 if isinstance(w_obj, KeyContainer):
                     sorter.list[i] = w_obj.w_item
+                i += 1
 
         # check if the user mucked with the list during the sort
         mucked = len(w_list.wrappeditems) > 0
