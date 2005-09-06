@@ -258,7 +258,7 @@ class SomeDict(SomeObject):
         return selfdic == otherdic
 
     def can_be_none(self):
-        return False
+        return True
 
     def fmt_const(self, const):
         if len(const) < 20:
