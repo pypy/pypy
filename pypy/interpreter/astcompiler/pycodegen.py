@@ -919,7 +919,7 @@ class CodeGenerator(ast.ASTVisitor):
             self.set_lineno(node)
             self.delName(node.name)
         else:
-            print "oops", node.flags
+            assert False, "visitAssName unexpected flags: %s" % node.flags
 
     def visitAssAttr(self, node):
         node.expr.accept( self )
@@ -928,8 +928,7 @@ class CodeGenerator(ast.ASTVisitor):
         elif node.flags == 'OP_DELETE':
             self.emitop('DELETE_ATTR', self.mangle(node.attrname))
         else:
-            print "warning: unexpected flags:", node.flags
-            print node
+            assert False, "visitAssAttr unexpected flags: %s" % node.flags            
 
     def _visitAssSequence(self, node, op='UNPACK_SEQUENCE'):
         if findOp(node) != 'OP_DELETE':
@@ -1031,7 +1030,7 @@ class CodeGenerator(ast.ASTVisitor):
 
     # slice and subscript stuff
 
-    def visitSlice(self, node, aug_flag=None):
+    def visitSlice(self, node, aug_flag=0):
         # aug_flag is used by visitAugSlice
         node.expr.accept( self )
         slice = 0
@@ -1058,7 +1057,7 @@ class CodeGenerator(ast.ASTVisitor):
             print "weird slice", node.flags
             raise
 
-    def visitSubscript(self, node, aug_flag=None):
+    def visitSubscript(self, node, aug_flag=0):
         node.expr.accept( self )
         for sub in node.subs:
             sub.accept( self )
@@ -1386,14 +1385,22 @@ def findOp(node):
 class OpFinder(ast.ASTVisitor):
     def __init__(self):
         self.op = None
+
     def visitAssName(self, node):
         if self.op is None:
             self.op = node.flags
         elif self.op != node.flags:
             raise ValueError, "mixed ops in stmt"
-    visitAssAttr = visitAssName
-    visitSubscript = visitAssName
-
+    def visitAssAttr(self, node):
+        if self.op is None:
+            self.op = node.flags
+        elif self.op != node.flags:
+            raise ValueError, "mixed ops in stmt"
+    def visitSubscript(self, node):
+        if self.op is None:
+            self.op = node.flags
+        elif self.op != node.flags:
+            raise ValueError, "mixed ops in stmt"        
 
 
 class AugLoadVisitor(ast.ASTVisitor):

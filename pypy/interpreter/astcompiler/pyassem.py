@@ -420,7 +420,7 @@ DONE = "DONE"
 
 class PyFlowGraph(FlowGraph):
 
-    def __init__(self, space, name, filename, args=(), optimized=0, klass=None):
+    def __init__(self, space, name, filename, args=(), optimized=0, klass=0):
         FlowGraph.__init__(self, space)
         self.name = name
         self.filename = filename
@@ -556,7 +556,7 @@ class PyFlowGraph(FlowGraph):
                     insts.append(inst)
                     pc = pc + 1
                 elif inst.op != "SET_LINENO":
-                    if self.hasjrel.has_elt(inst.op):
+                    if inst.op in self.hasjrel:
                         assert isinstance(inst, InstrBlock)
                         # relative jump - no extended arg
                         block = inst.block
@@ -564,7 +564,7 @@ class PyFlowGraph(FlowGraph):
                         forward_refs.append( (block,  inst, pc) )
                         insts.append(inst)
                         pc = pc + 3
-                    elif self.hasjabs.has_elt(inst.op):
+                    elif inst.op in self.hasjabs:
                         # absolute jump - can be extended if backward
                         assert isinstance(inst, InstrBlock)
                         arg = inst.block
@@ -602,19 +602,19 @@ class PyFlowGraph(FlowGraph):
         for block, inst, pc in forward_refs:
             opname = inst.op
             abspos = begin[block]
-            if self.hasjrel.has_elt(opname):
+            if opname in self.hasjrel:
                 offset = abspos - pc - 3
                 inst.intval = offset
             else:
                 inst.intval = abspos
         self.stage = FLAT
 
-    hasjrel = misc.Set()
+    hasjrel = {}
     for i in dis.hasjrel:
-        hasjrel.add(dis.opname[i])
-    hasjabs = misc.Set()
+        hasjrel[dis.opname[i]] = True
+    hasjabs = {}
     for i in dis.hasjabs:
-        hasjabs.add(dis.opname[i])
+        hasjabs[dis.opname[i]] = True
 
     def convertArgs(self):
         """Convert arguments from symbolic to concrete form"""
@@ -699,7 +699,7 @@ class PyFlowGraph(FlowGraph):
     def _convert_NAME(self, inst):
         assert isinstance(inst, InstrName)
         arg = inst.name        
-        if self.klass is None:
+        if not self.klass:
             self._lookupName(arg, self.varnames)
         index = self._lookupName(arg, self.names)
         return InstrInt(inst.op, index)        

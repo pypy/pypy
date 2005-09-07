@@ -11,18 +11,20 @@ def flatten(tup):
     return elts
 
 class Set:
+    _annspecialcase_ = "specialize:ctr_location" # polymorphic
+
     def __init__(self):
         self.elts = {}
     def __len__(self):
         return len(self.elts)
     def __contains__(self, elt):
-        return self.elts.has_key(elt)
+        return elt in self.elts
     def add(self, elt):
         self.elts[elt] = elt
     def elements(self):
         return self.elts.keys()
     def has_elt(self, elt):
-        return self.elts.has_key(elt)
+        return elt in self.elts
     def remove(self, elt):
         del self.elts[elt]
     def copy(self):
@@ -31,6 +33,8 @@ class Set:
         return c
 
 class Stack:
+    _annspecialcase_ = "specialize:ctr_location" # polymorphic
+
     def __init__(self):
         self.stack = []
         self.pop = self.stack.pop
