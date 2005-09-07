@@ -739,10 +739,10 @@ def ll_mul(func, l, factor):
     else:
         res = ll_newlist(typeOf(l), resultlen)
         j = 0
-    i = 0
     source = l.items
     target = res.items
     while j < resultlen:
+        i = 0
         while i < length:
             p = j + i
             target[p] = source[i]
