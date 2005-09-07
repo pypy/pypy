@@ -314,7 +314,7 @@ show flow graph for function obj, obj can be an expression or a dotted name
         if not isinstance(obj, types.FunctionType):
             print "*** Not a function"
             return
-        self._show(graphpage.FlowGraphPage(t, [obj]))
+        self._show(graphpage.FlowGraphPage(self.translator, [obj]))
 
     def do_callg(self, arg):
         """callg obj
@@ -330,13 +330,13 @@ show localized call-graph for function obj, obj can be an expression or a dotted
         if not isinstance(obj, types.FunctionType):
             print "*** Not a function"
             return
-        self._show(graphpage.LocalizedCallGraphPage(t, obj))
+        self._show(graphpage.LocalizedCallGraphPage(self.translator, obj))
 
     def do_classhier(self, arg):
         """classhier
 show class hierarchy graph"""
         from pypy.translator.tool import graphpage           
-        self._show(graphpage.ClassHierarchyPage(t))
+        self._show(graphpage.ClassHierarchyPage(self.translator))
 
     def help_graphs(self):
         print "graph commands are: showg, flowg, callg, classhier"
