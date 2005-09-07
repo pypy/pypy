@@ -378,13 +378,19 @@ def test_list_slice_minusone():
 def test_list_multiply():
     def fn(i):
         lst = [i] * i
-        return len(lst)
+        ret = len(lst)
+        if ret:
+            ret *= lst[-1]
+        return ret
     for arg in (1, 9, 0, -1, -27):
         res = interpret(fn, [arg])
         assert res == fn(arg)
     def fn(i):
         lst = [i, i + 1] * i
-        return len(lst)
+        ret = len(lst)
+        if ret:
+            ret *= lst[-1]
+        return ret
     for arg in (1, 9, 0, -1, -27):
         res = interpret(fn, [arg])
         assert res == fn(arg)
@@ -393,14 +399,20 @@ def test_list_inplace_multiply():
     def fn(i):
         lst = [i]
         lst *= i
-        return len(lst)
+        ret = len(lst)
+        if ret:
+            ret *= lst[-1]
+        return ret
     for arg in (1, 9, 0, -1, -27):
         res = interpret(fn, [arg])
         assert res == fn(arg)
     def fn(i):
         lst = [i, i + 1]
         lst *= i
-        return len(lst)
+        ret = len(lst)
+        if ret:
+            ret *= lst[-1]
+        return ret
     for arg in (1, 9, 0, -1, -27):
         res = interpret(fn, [arg])
         assert res == fn(arg)
