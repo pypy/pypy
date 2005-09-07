@@ -130,7 +130,7 @@ class Module(AbstractCompileMode):
 
 class LocalNameFinder(ast.ASTVisitor):
     """Find local names in scope"""
-    def __init__(self, names=()):
+    def __init__(self, names=[]):
         self.names = misc.Set()
         self.globals = misc.Set()
         for name in names:
@@ -600,7 +600,7 @@ class CodeGenerator(ast.ASTVisitor):
 
         stack = []
         for i, for_ in zip(range(len(node.quals)), node.quals):
-            start, anchor = for_.accept( self )
+            start, anchor = self._visitListCompFor(for_)
             self.genexpr_cont_stack.append( None )
             for if_ in for_.ifs:
                 if self.genexpr_cont_stack[-1] is None:
@@ -627,7 +627,8 @@ class CodeGenerator(ast.ASTVisitor):
 
         self.__list_count = self.__list_count - 1
 
-    def visitListCompFor(self, node):
+    def _visitListCompFor(self, node):
+        assert isinstance(node, ast.ListCompFor)
         start = self.newBlock()
         anchor = self.newBlock()
 
@@ -675,7 +676,7 @@ class CodeGenerator(ast.ASTVisitor):
 
         stack = []
         for i, for_ in zip(range(len(node.quals)), node.quals):
-            start, anchor = for_.accept( self )
+            start, anchor = self._visitGenExprFor(for_)
             self.genexpr_cont_stack.append( None )
             for if_ in for_.ifs:
                 if self.genexpr_cont_stack[-1] is None:
@@ -698,7 +699,8 @@ class CodeGenerator(ast.ASTVisitor):
             self.startBlock(anchor)
         self.emitop_obj('LOAD_CONST', self.space.w_None)
 
-    def visitGenExprFor(self, node):
+    def _visitGenExprFor(self, node):
+        assert isinstance(node, ast.GenExprFor)
         start = self.newBlock()
         anchor = self.newBlock()
 

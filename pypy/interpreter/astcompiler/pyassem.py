@@ -420,8 +420,10 @@ DONE = "DONE"
 
 class PyFlowGraph(FlowGraph):
 
-    def __init__(self, space, name, filename, args=(), optimized=0, klass=0):
+    def __init__(self, space, name, filename, args=None, optimized=0, klass=0):
         FlowGraph.__init__(self, space)
+        if args is None:
+            args = []
         self.name = name
         self.filename = filename
         self.docstring = space.w_None
