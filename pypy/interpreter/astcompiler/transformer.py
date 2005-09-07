@@ -86,7 +86,7 @@ def extractLineNo(ast):
 
 def Node(*args):
     kind = args[0]
-    if nodes.has_key(kind):
+    if kind in nodes:
         try:
             return nodes[kind](*args[1:])
         except TypeError:

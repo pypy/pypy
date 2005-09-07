@@ -27,12 +27,12 @@ class ParseError(Exception):
 class SyntaxError(Exception):
     """Base class for exceptions raised by the parser."""
 
-    def __init__(self, msg, lineno=0, offset=0, text=0):
+    def __init__(self, msg, lineno=0, offset=0, text="", filename=""):
         self.msg = msg
         self.lineno = lineno
         self.offset = offset
         self.text = text
-        self.filename = ""
+        self.filename = filename
         self.print_file_and_line = False
 
     def wrap_info(self, space, filename):

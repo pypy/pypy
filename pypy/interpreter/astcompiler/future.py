@@ -22,25 +22,33 @@ class FutureParser(ast.ASTVisitor):
 
     def visitModule(self, node):
         stmt = node.node
+        invalid = False
         for s in stmt.nodes:
-            if not self.check_stmt(s):
-                break
+            if not self.check_stmt(s, invalid):
+                invalid = True
 
-    def check_stmt(self, stmt):
-        if is_future(stmt):
-            for name, asname in stmt.names:
-                if name in self.features:
-                    self.found[name] = 1
-                elif name=="*":
-                    raise SyntaxError(
-                        "future statement does not support import *",
-                        ( stmt.filename, stmt.lineno, 0, "" ) )
-                else:
-                    raise SyntaxError(
-                        "future feature %s is not defined" % name,
-                        ( stmt.filename, stmt.lineno, 0, "" ) )
-            stmt.valid_future = 1
-            return 1
+    def check_stmt(self, stmt, invalid):
+        if isinstance(stmt, ast.From):
+            stmt.valid_future = 0
+            if invalid:
+                return 0
+            if is_future(stmt):
+                assert isinstance(stmt, ast.From)
+                for name, asname in stmt.names:
+                    if name in self.features:
+                        self.found[name] = 1
+                    elif name=="*":
+                        raise SyntaxError(
+                            "future statement does not support import *",
+                            filename = stmt.filename,
+                            lineno = stmt.lineno)
+                    else:
+                        raise SyntaxError(
+                            "future feature %s is not defined" % name,
+                            filename = stmt.filename,
+                            lineno = stmt.lineno)                        
+                stmt.valid_future = 1
+                return 1
         return 0
 
     def get_features(self):
@@ -52,13 +60,22 @@ class BadFutureParser(ast.ASTVisitor):
     Those not marked valid are appearing after other statements
     """
 
+    def visitModule(self, node):
+        stmt = node.node
+        for s in stmt.nodes:
+            if isinstance(s, ast.From):
+                if s.valid_future:
+                    continue
+                if s.modname != "__future__":
+                    continue
+                self.visitFrom(s)
+            else:
+                self.default(s)
+
     def visitFrom(self, node):
-        if hasattr(node, 'valid_future'):
-            return
-        if node.modname != "__future__":
-            return
         raise SyntaxError( "from __future__ imports must occur at the beginning of the file",
-                           ( node.filename, node.lineno, 0, "" ) )
+                           filename=node.filename,
+                           lineno=node.lineno)
 
 def find_futures(node):
     p1 = FutureParser()

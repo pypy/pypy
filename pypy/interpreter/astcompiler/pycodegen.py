@@ -1242,6 +1242,7 @@ class AbstractFunctionCode(CodeGenerator):
             name = "<lambda.%d>" % klass.lambdaCount
             klass.lambdaCount = klass.lambdaCount + 1
         else:
+            assert isinstance(func, ast.Function)
             name = func.name
 
         args, hasTupleArg = generateArgList(func.argnames)
