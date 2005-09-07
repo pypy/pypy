@@ -728,7 +728,6 @@ def ll_listindex(lst, obj, eqfn):
 TEMP = GcArray(Ptr(rstr.STR))
 
 def ll_mul(func, l, factor):
-    source = l.items
     length = l.length
     if factor < 0:
         factor = 0
@@ -741,6 +740,7 @@ def ll_mul(func, l, factor):
         res = ll_newlist(typeOf(l), resultlen)
         j = 0
     i = 0
+    source = l.items
     target = res.items
     while j < resultlen:
         while i < length:
