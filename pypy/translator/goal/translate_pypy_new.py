@@ -25,11 +25,13 @@ Command-line options for translate_pypy:
               we are still lacking annotation of applevel code.
    -d         Enable recording of annotator debugging information
 
-   -no-c      Don't generate the C code
-   -llvm      Use LLVM instead of C
+   -b <backend> backend is one 'ccompiler, llvmcompiler' 
+   -gc <garbage collector> can be 'boehm' or 'no-gc' or 'ref' (default)
+   -no-c      Don't generate the code
+   #-llvm      Use LLVM instead of C
    -c         Generate the C code, but don't compile it
-   -boehm     Use the Boehm collector when generating C code
-   -no-gc     Experimental: use no GC and no refcounting at all
+   #-boehm     Use the Boehm collector when generating C code
+   #-no-gc     Experimental: use no GC and no refcounting at all
    -o         Generate and compile the C code, but don't run it
    -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
                   -- http://fabrice.bellard.free.fr/tcc/
@@ -111,7 +113,7 @@ def analyse(target):
 
     policy = AnnotatorPolicy()
     if target:
-        spec = target(not options['-t-lowmem'])
+        spec = target(not options1.lowmem)
         try:
             entry_point, inputtypes, policy = spec
         except ValueError:
@@ -130,7 +132,7 @@ def analyse(target):
 
     if listen_port:
         run_async_server()
-    if not options['-no-a']:
+    if not options1.no_a:
         print 'Annotating...'
         print 'with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__) 
         a = t.annotate(inputtypes, policy=policy)
@@ -143,18 +145,18 @@ def analyse(target):
     if a: #and not options['-no-s']:
         print 'Simplifying...'
         a.simplify()
-    if a and options['-fork']:
-        from pypy.translator.goal import unixcheckpoint
-        assert_rpython_mostly_not_imported() 
-        unixcheckpoint.restartable_point(auto='run')
-    if a and not options['-no-t']:
+        if 'fork1' in options1.fork:
+            from pypy.translator.goal import unixcheckpoint
+            assert_rpython_mostly_not_imported() 
+            unixcheckpoint.restartable_point(auto='run')
+    if a and not options1.specialize:
         print 'Specializing...'
         t.specialize(dont_simplify_again=True,
-                     crash_on_first_typeerror=not options['-t-insist'])
-    if not options['-no-o'] and not options['-llvm']:
+                     crash_on_first_typeerror=not options1.insist)
+    if not options1.optimize and not options1.backend =='-llvm':
         print 'Back-end optimizations...'
         t.backend_optimizations()
-    if a and options['-fork2']:
+    if a and 'fork2' in options1.fork:
         from pypy.translator.goal import unixcheckpoint
         unixcheckpoint.restartable_point(auto='run')
     if a:
@@ -214,7 +216,7 @@ def run_server():
     from pypy.translator.tool.pygame.graphclient import get_layout
     from pypy.translator.tool.pygame.graphdisplay import GraphDisplay    
 
-    if len(t.functions) <= huge:
+    if len(t.functions) <= options1.huge:
         page = graphpage.TranslatorPage(t)
     else:
         page = graphpage.LocalizedCallGraphPage(t, entry_point)
@@ -232,33 +234,6 @@ def mkexename(name):
 if __name__ == '__main__':
 
     targetspec = 'targetpypystandalone'
-    huge = 100
-    load_file = None
-    save_file = None
-
-    options = {'-text': False,
-               '-no-c': False,
-               '-c':    False,
-               '-boehm': False,
-               '-no-gc': False,
-               '-o':    False,
-               '-llvm': False,
-               '-no-mark-some-objects': False,
-               '-no-a': False,
-               '-no-t': False,
-               '-t-insist': False,
-               '-no-o': False,
-               '-tcc':  False,
-               '-d': False,
-               '-use-snapshot' : False,
-               '-load': False,
-               '-save': False,
-               '-fork': False,
-               '-fork2': False,
-               '-llinterpret': False,
-               '-t-lowmem': False,
-               '-batch': False,
-               }
     listen_port = None
     
     def debug(got_error):
@@ -287,13 +262,13 @@ if __name__ == '__main__':
             print 'Done.'
             print
             func, args = pdb_plus_show.set_trace, ()
-        if options['-text']:
-            if options['-batch']:
+        if not options1.pygame:
+            if options1.batch:
                 print >>sys.stderr, "batch mode, not calling interactive helpers"
             else:
                 func(*args)
         else:
-            if options['-batch']: 
+            if options1.batch: 
                 print >>sys.stderr, "batch mode, not calling interactive helpers"
             else:
                 if serv_start:
@@ -332,11 +307,50 @@ if __name__ == '__main__':
             return
         print "don't know about", x
 
-    argiter = iter(sys.argv[1:])
+    from optparse import OptionParser
+    parser = OptionParser()
+    parser.add_option("-u", "--usesnapshot", dest="snapshot", default=False,
+                  action="store_true",help="use snapshot")
+
+    parser.add_option("-f", "--fork", dest="fork", default=[],
+                  action="append",help="(UNIX) Create restartable checkpoint after annotation,specialization")
+    parser.add_option("-m", "--lowmem", dest="lowmem", default=False,
+                  action="store_true",help="Try to save memory")
+    parser.add_option("-t", "--specialize", dest="specialize", default=True,
+                  action="store_false",help="Don't specialize")
+    parser.add_option("-o", "--optimize", dest="optimize", default=True,
+                  action="store_false",help="Don't do backend optimizations")
+    parser.add_option("-n", "--no_annotations", dest="no_a", default=False,
+                  action="store_true", help="Don't infer annotations")    
+    parser.add_option("-l", "--load", dest="loadfile",
+                  help="load translator from file")
+    parser.add_option("-s", "--save", dest="savefile",
+                  help="save translator to file")    
+    parser.add_option("-i", "--insist", dest="insist", default=True,
+                  action="store_true", help="Don't stop on first error")    
+    parser.add_option("-d", "--debug", dest="debug", default=False,
+                  action="store_true", help="record debug information")    
+
+    parser.add_option("-g", "--gc", dest="gc", default="ref",
+                  help="choose garbage collector (ref, boehm, none)")    
+    parser.add_option("-b", "--backend", dest="backend", default='c',
+                  help="choose backend (c, llvm, llinterpret)")    
+    parser.add_option("-c", "--gencode", dest="really_compile", default=True,
+                  action="store_false",help="Don't generate C code")
+
+    parser.add_option("-r", "--no_run", dest="run", default=True,
+                  action="store_false",help="compile but don't run")    
+    parser.add_option("-H", "--huge", dest="huge", type="int",
+                  help="Threshold in the number of functions after which only a local call\
+              graph and not a full one is displayed")
+    parser.add_option("-p", "--pygame", dest="pygame", default=True,
+                  action="store_false", help="Don't start Pygame viewer")    
+    parser.add_option("-x", "--batch", dest="batch", default=False,
+                  action="store_true",help="Don't use interactive helpers, like pdb")
+    (options1, args) = parser.parse_args()
+    print options1,args
+    argiter = iter(args) #sys.argv[1:])
     for arg in argiter:
-        if arg in ('-h', '--help'):
-            print __doc__.strip()
-            sys.exit()
         try:
             listen_port = int(arg)
         except ValueError:
@@ -346,30 +360,25 @@ if __name__ == '__main__':
                 targetspec = arg
             elif os.path.isfile(arg) and arg.endswith('.py'):
                 targetspec = arg[:-3]
-            elif arg.startswith('-huge='):
-                huge = int(arg[6:])
-            else:                
-                assert arg in options, "unknown option %r" % (arg,)
-                options[arg] = True
-                if arg == '-load':
-                    load_file = argiter.next()
-                    loaded_dic = load(load_file)
-                if arg == '-save':
-                    save_file = argiter.next()
-    if options['-tcc']:
-        os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
-    if options['-d']:
+
+    options = {}
+    for opt in parser.option_list[1:]:
+        options[opt.dest] = getattr(options1,opt.dest)
+##    if options['-tcc']:
+##        os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
+    if options1.debug:
         annmodel.DEBUG = True
     try:
         err = None
-        if load_file:
+        if options1.loadfile:
+            loaded_dic = load(options1.filename)
             t = loaded_dic['trans']
             entry_point = t.entrypoint
             inputtypes = loaded_dic['inputtypes']
             targetspec_dic = loaded_dic['targetspec_dic']
             targetspec = loaded_dic['targetspec']
             old_options = loaded_dic['options']
-            for name in '-no-a -no-t -no-o'.split():
+            for name in 'no_a specialize optimize'.split():
                 # if one of these options has not been set, before,
                 # then the action has been done and must be prevented, now.
                 if not old_options[name]:
@@ -377,13 +386,8 @@ if __name__ == '__main__':
                         print 'option %s is implied by the load' % name
                     options[name] = True
             print "continuing Analysis as defined by %s, loaded from %s" %(
-                targetspec, load_file)
+                targetspec, options1.loadname)
             targetspec_dic['target'] = None
-##            print 'options in effect:', options
-##            try:
-##                analyse(None)
-##            except TyperError:
-##                err = sys.exc_info()
         else:
             targetspec_dic = {}
             sys.path.insert(0, os.path.dirname(targetspec))
@@ -400,11 +404,11 @@ if __name__ == '__main__':
         except TyperError:
             err = sys.exc_info()
         print '-'*60
-        if save_file:
+        if options1.savefile:
             print 'saving state to %s' % save_file
             if err:
                 print '*** this save is done after errors occured ***'
-            save(t, save_file,
+            save(t, savefile,
                  trans=t,
                  inputtypes=inputtypes,
                  targetspec=targetspec,
@@ -414,14 +418,14 @@ if __name__ == '__main__':
         if err:
             raise err[0], err[1], err[2]
         gcpolicy = None
-        if options['-boehm']:
+        if options1.gc =='boehm':
             from pypy.translator.c import gc
             gcpolicy = gc.BoehmGcPolicy
-        if options['-no-gc']:
+        if options1.gc == 'none':
             from pypy.translator.c import gc
             gcpolicy = gc.NoneGcPolicy
 
-        if options['-llinterpret']:
+        if options1.backend == 'llinterpret':
             def interpret():
                 import py
                 from pypy.rpython.llinterp import LLInterpreter
@@ -430,34 +434,24 @@ if __name__ == '__main__':
                 interp.eval_function(entry_point,
                                      targetspec_dic['get_llinterp_args']())
             interpret()
-        elif options['-no-c']:
+        elif options1.gencode:
             print 'Not generating C code.'
-        elif options['-c']:
-            if options['-llvm']:
-                print 'Generating LLVM code without compiling it...'
-                filename = t.llvmcompile(really_compile=False,
-                                      standalone=standalone)
-            else:
-                print 'Generating C code without compiling it...'
-                filename = t.ccompile(really_compile=False,
-                                      standalone=standalone, gcpolicy=gcpolicy)
-            update_usession_dir()
-            print 'Written %s.' % (filename,)
         else:
-            if options['-llvm']:
-                print 'Generating and compiling LLVM code...'
-                c_entry_point = t.llvmcompile(standalone=standalone, exe_name='pypy-llvm')
-            else:
-                print 'Generating and compiling C code...'
-                c_entry_point = t.ccompile(standalone=standalone, gcpolicy=gcpolicy)
-                if standalone: # xxx fragile and messy
-                    import shutil
-                    exename = mkexename(c_entry_point)
-                    newexename = mkexename('./pypy-c')
-                    shutil.copy(exename, newexename)
-                    c_entry_point = newexename
+            print 'Generating %s %s code...' %("and compiling " and options1.really_compile or "",options1.backend)
+            keywords = {'really_compile' : options1.really_compile, 
+                        'standalone' : standalone, 
+                        'gcpolicy' : gcpolicy}
+            c_entry_point = t.compile(options1.backend,keywords)
+                             
+            if standalone and options1.backend == 'c': # xxx fragile and messy
+                import shutil
+                exename = mkexename(c_entry_point)
+                newexename = mkexename('./pypy-c')
+                shutil.copy(exename, newexename)
+                c_entry_point = newexename
             update_usession_dir()
-            if not options['-o']:
+            print 'Written %s.' % (c_entry_point,)
+            if not options.run:
                 print 'Running!'
                 if standalone:
                     os.system(c_entry_point)
@@ -466,7 +460,7 @@ if __name__ == '__main__':
     except SystemExit:
         raise
     except:
-        debug(True)
+        if t: debug(True)
         raise SystemExit(1)
     else:
-        debug(False)
+        if t: debug(False)

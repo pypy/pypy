@@ -251,6 +251,14 @@ class Translator:
         mod = make_module_from_pyxstring(name, udir, pyxcode)
         return getattr(mod, name)
 
+    def compile(self, compiler='c', **kw):
+        compiler += 'compile'
+        if hasattr(self, compiler):
+            compiler = getattr(self,compiler)
+            return compiler(**kw)
+        else:
+            raise NotImplementedError, "Compiler not known", compiler
+    
     def ccompile(self, really_compile=True, standalone=False, gcpolicy=None):
         """Returns compiled function (living in a new C-extension module), 
            compiled using the C generator.
