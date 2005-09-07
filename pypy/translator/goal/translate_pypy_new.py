@@ -265,7 +265,7 @@ if __name__ == '__main__':
         from pypy.translator.tool.pdbplus import PdbPlusShow
         from pypy.translator.tool.pdbplus import run_debugger_in_thread
         
-        pdb_plus_show = PdbPlusShow()
+        pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
         
         if got_error:
             import traceback
@@ -300,7 +300,7 @@ if __name__ == '__main__':
                     start, show, stop, cleanup = serv_start, serv_show, serv_stop, serv_cleanup
                 else:
                     start, show, stop, cleanup = run_server()
-                pdb_plus_show.show = show
+                pdb_plus_show.install_show(show)
                 debugger = run_debugger_in_thread(func, args, stop)
                 debugger.start()
                 start()

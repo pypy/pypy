@@ -16,6 +16,10 @@ def run_debugger_in_thread(fn, args, cleanup=None, cleanup_args=()):
 
 class PdbPlusShow(pdb.Pdb):
 
+    def __init__(self, translator):
+        pdb.Pdb.__init__(self)
+        self.translator = translator
+
     def post_mortem(self, t):
         self.reset()
         while t.tb_next is not None:
@@ -23,6 +27,9 @@ class PdbPlusShow(pdb.Pdb):
         self.interaction(t.tb_frame, t)        
 
     show = None
+
+    def install_show(self, show):
+        self.show = show
 
     def _show(self, page):
         if not self.show:
@@ -137,7 +144,7 @@ the candidate class; the result list is assigned to var or _."""
             return
         cls = []
         try:
-            for c in t.annotator.getuserclasses():
+            for c in self.translator.annotator.getuserclasses():
                 if flt(c):
                     cls.append(c)
         except self.GiveUp:
@@ -154,7 +161,7 @@ the candidate function; the result list is assigned to var or _."""
             return
         funcs = []
         try:
-            for f in t.flowgraphs:
+            for f in self.translator.flowgraphs:
                 if flt(f):
                     funcs.append(f)
         except self.GiveUp:
@@ -168,18 +175,19 @@ show graph for obj, obj can be an expression or a dotted name
 if obj is a function or method, the localized call graph is shown;
 if obj is a class or ClassDef the class definition graph is shown"""            
         from pypy.annotation.classdef import ClassDef
-        from pypy.translator.tool import graphpage            
+        from pypy.translator.tool import graphpage
+        translator = self.translator
         obj = self._getobj(arg)
         if obj is None:
             return
         if hasattr(obj, 'im_func'):
             obj = obj.im_func
-        if obj in t.flowgraphs:
-            page = graphpage.LocalizedCallGraphPage(t, obj)
-        elif obj in getattr(t.annotator, 'getuserclasses', lambda: {})():
-            page = graphpage.ClassDefPage(t, t.annotator.getuserclasses()[obj])
+        if obj in translator.flowgraphs:
+            page = graphpage.LocalizedCallGraphPage(translator, obj)
+        elif obj in getattr(translator.annotator, 'getuserclasses', lambda: {})():
+            page = graphpage.ClassDefPage(translator, translator.annotator.getuserclasses()[obj])
         elif isinstance(obj, ClassDef):
-            page = graphpage.ClassDefPage(t, obj)
+            page = graphpage.ClassDefPage(translator, obj)
         else:
             print "*** Nothing to do"
             return
@@ -200,7 +208,7 @@ if obj is a class or ClassDef the class definition graph is shown"""
         def longname(c):
             return "%s.%s" % (c.__module__, c.__name__) 
         obj.sort(lambda x,y: cmp(longname(x), longname(y)))
-        cls = t.annotator.getuserclasses()
+        cls = self.translator.annotator.getuserclasses()
         flt = self._make_flt(expr)
         if flt is None:
             return
@@ -267,7 +275,7 @@ the list of the read positions functions is set to var or _."""
         obj = self._getobj(arg)
         if obj is None:
             return
-        cls = t.annotator.getuserclasses()
+        cls = self.translator.annotator.getuserclasses()
         if obj not in cls:
             return
         attrs = cls[obj].attrs
