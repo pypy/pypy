@@ -417,13 +417,16 @@ if __name__ == '__main__':
                  )
         if err:
             raise err[0], err[1], err[2]
-        gcpolicy = None
-        if options1.gc =='boehm':
-            from pypy.translator.c import gc
-            gcpolicy = gc.BoehmGcPolicy
-        if options1.gc == 'none':
-            from pypy.translator.c import gc
-            gcpolicy = gc.NoneGcPolicy
+        if options1.backend == 'c': #XXX probably better to supply gcpolicy as string to the backends
+            gcpolicy = None
+            if options1.gc =='boehm':
+                from pypy.translator.c import gc
+                gcpolicy = gc.BoehmGcPolicy
+            if options1.gc == 'none':
+                from pypy.translator.c import gc
+                gcpolicy = gc.NoneGcPolicy
+        elif options1.backend == 'llvm':
+            gcpolicy = options1.gc
 
         if options1.backend == 'llinterpret':
             def interpret():
@@ -434,14 +437,14 @@ if __name__ == '__main__':
                 interp.eval_function(entry_point,
                                      targetspec_dic['get_llinterp_args']())
             interpret()
-        elif options1.gencode:
-            print 'Not generating C code.'
+        #elif options1.gencode:
+        #    print 'Not generating C code.'
         else:
-            print 'Generating %s %s code...' %("and compiling " and options1.really_compile or "",options1.backend)
+            print 'Generating %s %s code...' %(options1.really_compile and "and compiling " or "",options1.backend)
             keywords = {'really_compile' : options1.really_compile, 
                         'standalone' : standalone, 
                         'gcpolicy' : gcpolicy}
-            c_entry_point = t.compile(options1.backend,keywords)
+            c_entry_point = t.compile(options1.backend,**keywords)
                              
             if standalone and options1.backend == 'c': # xxx fragile and messy
                 import shutil

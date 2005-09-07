@@ -4,6 +4,7 @@ export RTYPERORDER=order,module-list.pedronis
 #python translate_pypy.py -no-c -no-o -text -fork2
 # running it all 
 python translate_pypy.py target_pypy-llvm -text -llvm $*
+#python translate_pypy_new.py targetpypystandalone --backend=llvm --gc=boehm --pygame $*
 
 
 # How to work in parallel:
