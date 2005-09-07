@@ -1,3 +1,4 @@
+import os
 from pypy.interpreter.pyparser.pythonparse import PYTHON_PARSER
 from pypy.interpreter.pyparser.astbuilder import AstBuilder
 from pypy.interpreter.pycode import PyCode
@@ -14,7 +15,7 @@ from test_astbuilder import expressions, comparisons, funccalls, backtrackings,\
     listmakers, genexps, dictmakers, multiexpr, attraccess, slices, imports,\
     asserts, execs, prints, globs, raises_, imports_newstyle, augassigns, \
     if_stmts, one_stmt_classdefs, one_stmt_funcdefs, tryexcepts, docstrings, \
-    returns
+    returns, SNIPPETS, SINGLE_INPUTS
 
 from test_astbuilder import FakeSpace
 
@@ -67,7 +68,13 @@ def ast_parse_expr(expr, target='single', space=FakeSpace()):
 def compile_with_astcompiler(expr, target='exec', space=FakeSpace()):
     ast = ast_parse_expr(expr, target='exec', space=space)
     misc.set_filename('<?>', ast)
-    codegen = pycodegen.ModuleCodeGenerator(space, ast)
+    if target == 'exec':
+        Generator = pycodegen.ModuleCodeGenerator
+    elif target == 'single':
+        Generator = pycodegen.InteractiveCodeGenerator
+    elif target == 'eval':
+        Generator = pycodegen.ExpressionCodeGenerator
+    codegen = Generator(space, ast)
     rcode = codegen.getCode()
     return to_code(rcode)
 
@@ -117,10 +124,10 @@ def to_code( rcode ):
                      tuple(rcode.co_cellvars) )
     return code
 
-def check_compile(expr):
+def check_compile(expr, target='exec'):
     print "Compiling:", expr
-    sc_code = compile_with_stablecompiler(expr, target='exec')
-    ac_code = compile_with_astcompiler(expr, target='exec')
+    sc_code = compile_with_stablecompiler(expr, target=target)
+    ac_code = compile_with_astcompiler(expr, target=target)
     compare_code(ac_code, sc_code)
 
 ## def check_compile( expr ):
@@ -163,3 +170,15 @@ def test_basic_astgen():
     for family in TESTS:
         for expr in family:
             yield check_compile, expr
+
+def test_snippets():
+    for snippet_name in SNIPPETS:
+        filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)
+        source = file(filepath).read()
+        yield check_compile, source, 'exec'
+
+
+def test_single_inputs():
+    for family in SINGLE_INPUTS:
+        for expr in family:
+            yield check_compile, expr, 'single'

@@ -10,6 +10,61 @@ from pypy.interpreter.astcompiler.consts \
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 
+
+class Instr:
+    has_arg = False
+    
+    def __init__(self, op):
+        self.op = op
+
+class InstrWithArg(Instr):
+    has_arg = True
+
+class InstrName(InstrWithArg):
+    def __init__(self, inst, name):
+        Instr.__init__(self, inst)
+        self.name = name
+
+    def getArg(self):
+        "NOT_RPYTHON"
+        return self.name
+
+class InstrInt(InstrWithArg):
+    def __init__(self, inst, intval):
+        Instr.__init__(self, inst)
+        self.intval = intval
+
+    def getArg(self):
+        "NOT_RPYTHON"
+        return self.intval        
+
+class InstrBlock(InstrWithArg):
+    def __init__(self, inst, block):
+        Instr.__init__(self, inst)
+        self.block = block
+
+    def getArg(self):
+        "NOT_RPYTHON"
+        return self.block        
+
+class InstrObj(InstrWithArg):
+    def __init__(self, inst, obj):
+        Instr.__init__(self, inst)
+        self.obj = obj
+
+    def getArg(self):
+        "NOT_RPYTHON"
+        return self.obj
+
+class InstrCode(InstrWithArg):
+    def __init__(self, inst, gen):
+        Instr.__init__(self, inst)
+        self.gen = gen
+
+    def getArg(self):
+        "NOT_RPYTHON"
+        return self.gen
+
 class FlowGraph:
     def __init__(self, space):
         self.space = space
@@ -75,36 +130,41 @@ class FlowGraph:
             print "\t", inst
         if inst in ['RETURN_VALUE', 'YIELD_VALUE']:
             self.current.addOutEdge(self.exit)
-        self.current.emit( (inst,) )
+        self.current.emit( Instr(inst) )
 
-    def emitop(self, inst, arg ):
-        if self._debug:
-            print "\t", inst, arg
-        self.current.emit( (inst,arg) )
+    #def emitop(self, inst, arg ):
+    #    if self._debug:
+    #        print "\t", inst, arg
+    #    self.current.emit( (inst,arg) )
 
     def emitop_obj(self, inst, obj ):
         if self._debug:
             print "\t", inst, repr(obj)
-        self.current.emit( (inst,obj) )
+        self.current.emit( InstrObj(inst,obj) )
+
+    def emitop_code(self, inst, obj ):
+        if self._debug:
+            print "\t", inst, repr(obj)
+        self.current.emit( InstrCode(inst, obj) )
 
     def emitop_int(self, inst, intval ):
         if self._debug:
             print "\t", inst, intval
         assert type(intval)==int
-        self.current.emit( (inst,intval) )
+        self.current.emit( InstrInt(inst,intval) )
         
     def emitop_block(self, inst, block):
         if self._debug:
             print "\t", inst, block
         assert isinstance(block, Block)
         self.current.addOutEdge( block )
-        self.current.emit( (inst,block) )
+        self.current.emit( InstrBlock(inst,block) )
 
     def emitop_name(self, inst, name ):
         if self._debug:
             print "\t", inst, name
         assert type(name)==str
-        self.current.emit( (inst,name) )
+        self.current.emit( InstrName(inst,name) )
 
     def getBlocksInOrder(self):
         """Return the blocks in reverse postorder
@@ -203,8 +263,9 @@ class FlowGraph:
                         if index[c] < i:
                             forward_p = 0
                             for inst in b.insts:
-                                if inst[0] == 'JUMP_FORWARD':
-                                    if inst[1] == c:
+                                if inst.op == 'JUMP_FORWARD':
+                                    assert isinstance(inst, InstrBlock)
+                                    if inst.block == c:
                                         forward_p = 1
                             if not forward_p:
                                 continue
@@ -285,12 +346,13 @@ class Block:
                                        '\n'.join(insts))
 
     def emit(self, inst):
-        op = inst[0]
+        op = inst.op
         if op[:4] == 'JUMP':
-            self.outEdges.add(inst[1])
+            assert isinstance(inst, InstrBlock)
+            self.outEdges.add(inst.block)
 ##         if op=="LOAD_CONST":
 ##             assert isinstance( inst[1], W_Root ) or hasattr( inst[1], 'getCode')
-        self.insts.append( list(inst) )
+        self.insts.append( inst )
 
     def getInstructions(self):
         return self.insts
@@ -323,10 +385,10 @@ class Block:
         transfer.
         """
         try:
-            op, arg = self.insts[-1]
+            inst = self.insts[-1]
         except (IndexError, ValueError):
             return
-        if op in self._uncond_transfer:
+        if inst.op in self._uncond_transfer:
             self.next = []
 
     def get_children(self):
@@ -342,11 +404,10 @@ class Block:
         """
         contained = []
         for inst in self.insts:
-            if len(inst) == 1:
-                continue
-            op = inst[1]
-            if hasattr(op, 'graph'):
-                contained.append(op.graph)
+            if isinstance(inst, InstrCode):
+                gen = inst.gen
+                if gen:
+                    contained.append(gen)
         return contained
 
 # flags for code objects
@@ -438,14 +499,14 @@ class PyFlowGraph(FlowGraph):
             sys.stdout = io
         pc = 0
         for t in self.insts:
-            opname = t[0]
+            opname = t.op
             if opname == "SET_LINENO":
                 print
-            if len(t) == 1:
+            if not t.has_arg:
                 print "\t", "%3d" % pc, opname
                 pc = pc + 1
             else:
-                print "\t", "%3d" % pc, opname, t[1]
+                print "\t", "%3d" % pc, opname, t.getArg()
                 pc = pc + 3
         if io:
             sys.stdout = save
@@ -491,39 +552,45 @@ class PyFlowGraph(FlowGraph):
         for b in self.orderedblocks:
             begin[b] = pc
             for inst in b.getInstructions():
-                if len(inst) == 1:
+                if not inst.has_arg:
                     insts.append(inst)
                     pc = pc + 1
-                elif inst[0] != "SET_LINENO":
-                    opname, arg = inst
-                    if self.hasjrel.has_elt(opname):
+                elif inst.op != "SET_LINENO":
+                    if self.hasjrel.has_elt(inst.op):
+                        assert isinstance(inst, InstrBlock)
                         # relative jump - no extended arg
-                        forward_refs.append( (arg,  inst, pc ) )
+                        block = inst.block
+                        inst = InstrInt(inst.op, 0)
+                        forward_refs.append( (block,  inst, pc) )
                         insts.append(inst)
                         pc = pc + 3
-                    elif self.hasjabs.has_elt(opname):
+                    elif self.hasjabs.has_elt(inst.op):
                         # absolute jump - can be extended if backward
+                        assert isinstance(inst, InstrBlock)
+                        arg = inst.block
                         if arg in begin:
                             # can only extend argument if backward
                             offset = begin[arg]
                             hi, lo = divmod(offset,65536)
                             if hi>0:
                                 # extended argument
-                                insts.append( ["EXTENDED_ARG", hi ] )
+                                insts.append( InstrInt("EXTENDED_ARG", hi) )
                                 pc = pc + 3
-                            inst[1] = lo
+                            inst = InstrInt(inst.op, lo)
                         else:
+                            inst = InstrInt(inst.op, 0)
                             forward_refs.append( (arg,  inst, pc ) )
                         insts.append(inst)
                         pc = pc + 3
                     else:
+                        assert isinstance(inst, InstrInt)
+                        arg = inst.intval
                         # numerical arg
-                        assert type(arg)==int
                         hi,lo = divmod(arg,65536)
                         if hi>0:
                             # extended argument
-                            insts.append( ["EXTENDED_ARG", hi ] )
-                            inst[1] = lo
+                            insts.append( InstrInt("EXTENDED_ARG", hi) )
+                            inst.intval = lo
                             pc = pc + 3    
                         insts.append(inst)
                         pc = pc + 3
@@ -532,14 +599,14 @@ class PyFlowGraph(FlowGraph):
             end[b] = pc
         pc = 0
 
-        for arg, inst, pc in forward_refs:
-            opname, block = inst
+        for block, inst, pc in forward_refs:
+            opname = inst.op
             abspos = begin[block]
             if self.hasjrel.has_elt(opname):
                 offset = abspos - pc - 3
-                inst[1] = offset
+                inst.intval = offset
             else:
-                inst[1] = abspos
+                inst.intval = abspos
         self.stage = FLAT
 
     hasjrel = misc.Set()
@@ -557,12 +624,14 @@ class PyFlowGraph(FlowGraph):
         self.sort_cellvars()
 
         for b in self.orderedblocks:
-            for inst in b.getInstructions():
-                if len(inst) == 2:
-                    opname, oparg = inst
+            insts = b.getInstructions()
+            for i in range(len(insts)):
+                inst = insts[i]
+                if inst.has_arg:
+                    opname = inst.op
                     conv = self._converters.get(opname, None)
                     if conv:
-                        inst[1] = conv(self, oparg)
+                        insts[i] = conv(self, inst)
         self.stage = CONV
 
     def sort_cellvars(self):
@@ -587,36 +656,54 @@ class PyFlowGraph(FlowGraph):
         must treat these two separately, so it does an explicit type
         comparison before comparing the values.
         """
-        t = type(name)
+        assert isinstance(name, str)
         for i in range(len(list)):
-            if t == type(list[i]) and list[i] == name:
+            if list[i] == name:
                 return i
         end = len(list)
         list.append(name)
         return end
 
-    _converters = {}
-    def _convert_LOAD_CONST(self, arg):
-        if hasattr(arg, 'getCode'):
-            arg = arg.getCode()
-##         assert arg is not None
-        return self._lookupName(arg, self.consts)
+    def _lookupConst(self, w_obj, list_w):
+        space = self.space
+        w_obj_type = space.type(w_obj)
+        for i in range(len(list_w)):
+            cand_w = list_w[i]
+            if space.is_w(space.type(cand_w), w_obj_type) and space.eq_w(list_w[i], w_obj):
+                return i
+        end = len(list_w)
+        list_w.append(w_obj)
+        return end
 
-    def _convert_LOAD_FAST(self, arg):
+    _converters = {}
+
+    def _convert_LOAD_CONST(self, inst):
+        if isinstance(inst, InstrCode):
+            w_obj = inst.gen.getCode()
+        else:
+            assert isinstance(inst, InstrObj)
+            w_obj = inst.obj
+        #assert w_obj is not None
+        index = self._lookupConst(w_obj, self.consts)
+        return InstrInt(inst.op, index)
+
+    def _convert_LOAD_FAST(self, inst):
+        assert isinstance(inst, InstrName)
+        arg = inst.name
         self._lookupName(arg, self.names)
-        return self._lookupName(arg, self.varnames)
+        index= self._lookupName(arg, self.varnames)
+        return InstrInt(inst.op, index)
     _convert_STORE_FAST = _convert_LOAD_FAST
     _convert_DELETE_FAST = _convert_LOAD_FAST
 
-    def _convert_LOAD_NAME(self, arg):
+    def _convert_NAME(self, inst):
+        assert isinstance(inst, InstrName)
+        arg = inst.name        
         if self.klass is None:
             self._lookupName(arg, self.varnames)
-        return self._lookupName(arg, self.names)
-
-    def _convert_NAME(self, arg):
-        if self.klass is None:
-            self._lookupName(arg, self.varnames)
-        return self._lookupName(arg, self.names)
+        index = self._lookupName(arg, self.names)
+        return InstrInt(inst.op, index)        
+    _convert_LOAD_NAME = _convert_NAME
     _convert_STORE_NAME = _convert_NAME
     _convert_DELETE_NAME = _convert_NAME
     _convert_IMPORT_NAME = _convert_NAME
@@ -628,20 +715,30 @@ class PyFlowGraph(FlowGraph):
     _convert_STORE_GLOBAL = _convert_NAME
     _convert_DELETE_GLOBAL = _convert_NAME
 
-    def _convert_DEREF(self, arg):
+    def _convert_DEREF(self, inst):
+        assert isinstance(inst, InstrName)
+        arg = inst.name               
         self._lookupName(arg, self.names)
         self._lookupName(arg, self.varnames)
-        return self._lookupName(arg, self.closure)
+        index = self._lookupName(arg, self.closure)
+        return InstrInt(inst.op, index)                
     _convert_LOAD_DEREF = _convert_DEREF
     _convert_STORE_DEREF = _convert_DEREF
 
-    def _convert_LOAD_CLOSURE(self, arg):
+    def _convert_LOAD_CLOSURE(self, inst):
+        assert isinstance(inst, InstrName)
+        arg = inst.name                
         self._lookupName(arg, self.varnames)
-        return self._lookupName(arg, self.closure)
-
+        index = self._lookupName(arg, self.closure)
+        return InstrInt(inst.op, index)
+    
     _cmp = list(dis.cmp_op)
-    def _convert_COMPARE_OP(self, arg):
-        return self._cmp.index(arg)
+    def _convert_COMPARE_OP(self, inst):
+        assert isinstance(inst, InstrName)
+        arg = inst.name                        
+        index = self._cmp.index(arg)
+        return InstrInt(inst.op, index)
+    
 
     # similarly for other opcodes...
 
@@ -655,16 +752,17 @@ class PyFlowGraph(FlowGraph):
         assert self.stage == FLAT
         self.lnotab = lnotab = LineAddrTable()
         for t in self.insts:
-            opname = t[0]
+            opname = t.op
             if self._debug:
-                if len(t)==1:
+                if not t.has_arg:
                     print "x",opname
                 else:
-                    print "x",opname, t[1]
-            if len(t) == 1:
+                    print "x",opname, t.getArg()
+            if not t.has_arg:
                 lnotab.addCode(self.opnum[opname])
             else:
-                oparg = t[1]
+                assert isinstance(t, InstrInt)
+                oparg = t.intval
                 if opname == "SET_LINENO":
                     lnotab.nextLine(oparg)
                     continue
@@ -672,8 +770,9 @@ class PyFlowGraph(FlowGraph):
                 try:
                     lnotab.addCode(self.opnum[opname], lo, hi)
                 except ValueError:
-                    print opname, oparg
-                    print self.opnum[opname], lo, hi
+                    if self._debug:
+                        print opname, oparg
+                        print self.opnum[opname], lo, hi
                     raise
         self.stage = DONE
 
@@ -693,13 +792,18 @@ class PyFlowGraph(FlowGraph):
             argcount = argcount - 1
         # was return new.code, now we just return the parameters and let
         # the caller create the code object
+        # XXX _code_new_w itself is not really annotable
         return PyCode(self.space)._code_new_w( argcount, nlocals,
                                                self.stacksize, self.flags,
-                                               self.lnotab.getCode(), self.getConsts(),
-                                               tuple(self.names), tuple(self.varnames),
+                                               self.lnotab.getCode(),
+                                               tuple(self.getConsts()),
+                                               tuple(self.names),
+                                               tuple(self.varnames),
                                                self.filename, self.name, self.lnotab.firstline,
-                                               self.lnotab.getTable(), tuple(self.freevars),
-                                               tuple(self.cellvars))
+                                               self.lnotab.getTable(),
+                                               tuple(self.freevars),
+                                               tuple(self.cellvars)
+                                               )
 
     def getConsts(self):
         """Return a tuple for the const slot of the code object
@@ -707,12 +811,7 @@ class PyFlowGraph(FlowGraph):
         Must convert references to code (MAKE_FUNCTION) to code
         objects recursively.
         """
-        l = []
-        for elt in self.consts:
-            if isinstance(elt, PyFlowGraph):
-                elt = elt.getCode()
-            l.append(elt)
-        return tuple(l)
+        return self.consts[:]
 
 def isJump(opname):
     if opname[:4] == 'JUMP':
@@ -860,7 +959,7 @@ class StackDepthTracker:
         depth = 0
         maxDepth = 0
         for i in insts:
-            opname = i[0]
+            opname = i.op
             if debug:
                 print i,
             delta = self.effect.get(opname, None)
@@ -877,7 +976,8 @@ class StackDepthTracker:
                 if delta is None:
                     meth = DEPTH_OP_TRACKER.get( opname, None )
                     if meth is not None:
-                        depth = depth + meth(i[1])
+                        assert isinstance(i, InstrInt)
+                        depth = depth + meth(i.intval)
             if depth > maxDepth:
                 maxDepth = depth
             if debug:

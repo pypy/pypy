@@ -505,7 +505,7 @@ EXEC_INPUTS = [
 
 SINGLE_INPUTS = [
    one_stmt_funcdefs,
-   ['\t # hello\n ',
+   ['\t # hello\n',
     'print 6*7',
     'if 1:  x\n',
     'x = 5',
@@ -535,6 +535,15 @@ class FakeSpace:
 
     def is_true(self, obj):
         return obj
+
+    def eq_w(self, obj1, obj2):
+        return obj1 == obj2
+
+    def is_w(self, obj1, obj2):
+        return obj1 is obj2
+
+    def type(self, obj):
+        return type(obj)
 
     def newtuple(self, lst):
         return tuple(lst)

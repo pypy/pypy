@@ -225,6 +225,9 @@ class CodeGenerator(ast.ASTVisitor):
     def emitop_obj(self, inst, obj):
         return self.graph.emitop_obj( inst, obj )
 
+    def emitop_code(self, inst, gen):
+        return self.graph.emitop_code( inst, gen )    
+
     def emitop_int(self, inst, op):
         assert type(op) == int
         return self.graph.emitop_int( inst, op )
@@ -396,12 +399,10 @@ class CodeGenerator(ast.ASTVisitor):
         if frees:
             for name in frees:
                 self.emitop('LOAD_CLOSURE', name)
-            self.emitop_obj('LOAD_CONST', gen)
-            # self.emitop_obj('LOAD_CONST', gen.getCode())
+            self.emitop_code('LOAD_CONST', gen)
             self.emitop_int('MAKE_CLOSURE', len(node.defaults))
         else:
-            self.emitop_obj('LOAD_CONST', gen)
-            # self.emitop_obj('LOAD_CONST', gen.getCode())
+            self.emitop_code('LOAD_CONST', gen)
             self.emitop_int('MAKE_FUNCTION', len(node.defaults))
 
         for i in range(ndecorators):
@@ -420,8 +421,7 @@ class CodeGenerator(ast.ASTVisitor):
         frees = gen.scope.get_free_vars()
         for name in frees:
             self.emitop('LOAD_CLOSURE', name)
-        self.emitop_obj('LOAD_CONST', gen)
-        # self.emitop_obj('LOAD_CONST', gen.getCode())
+        self.emitop_code('LOAD_CONST', gen)
         if frees:
             self.emitop_int('MAKE_CLOSURE', 0)
         else:
@@ -658,12 +658,10 @@ class CodeGenerator(ast.ASTVisitor):
         if frees:
             for name in frees:
                 self.emitop('LOAD_CLOSURE', name)
-            self.emitop_obj('LOAD_CONST', gen)
-            # self.emitop_obj('LOAD_CONST', gen.getCode())            
+            self.emitop_code('LOAD_CONST', gen)
             self.emitop_int('MAKE_CLOSURE', 0)
         else:
-            self.emitop_obj('LOAD_CONST', gen)
-            # self.emitop_obj('LOAD_CONST', gen.getCode())            
+            self.emitop_code('LOAD_CONST', gen)
             self.emitop_int('MAKE_FUNCTION', 0)
 
         # precomputation of outmost iterable
