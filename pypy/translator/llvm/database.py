@@ -17,7 +17,7 @@ log = log.database
 
 class Database(object): 
     def __init__(self, translator): 
-        self._translator = translator
+        self.translator = translator
         self.obj2node = {}
         self._pendingsetup = []
         self._tmpcount = 1
