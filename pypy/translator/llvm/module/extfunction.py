@@ -9,33 +9,6 @@ declare fastcc sbyte* %gc_malloc_atomic(uint)
 %last_exception_value = global %RPYTHON_EXCEPTION* null
 """
 
-gc_boehm = """declare ccc sbyte* %GC_malloc(uint)
-declare ccc sbyte* %GC_malloc_atomic(uint)
-
-internal fastcc sbyte* %gc_malloc(uint %n) {
-    %ptr = call ccc sbyte* %GC_malloc(uint %n)
-    ret sbyte* %ptr
-}
-
-internal fastcc sbyte* %gc_malloc_atomic(uint %n) {
-    %ptr = call ccc sbyte* %GC_malloc_atomic(uint %n)
-    ret sbyte* %ptr
-}
-"""
-
-gc_disabled = """internal fastcc sbyte* %gc_malloc(uint %n) {
-    %nn  = cast uint %n to uint
-    %ptr = malloc sbyte, uint %nn
-    ret sbyte* %ptr
-}
-
-internal fastcc sbyte* %gc_malloc_atomic(uint %n) {
-    %nn  = cast uint %n to uint
-    %ptr = malloc sbyte, uint %nn
-    ret sbyte* %ptr
-}
-"""
-
 extfunctions = {}   #dependencies, llvm-code
 
 import support

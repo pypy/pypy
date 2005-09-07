@@ -10,7 +10,6 @@ import py
 
 from pypy.translator.tool.cbuild import make_c_from_pyxfile
 from pypy.translator.tool import stdoutcapture
-from pypy.translator.llvm.genllvm import use_boehm_gc
 from pypy.translator.llvm.log import log
 
 EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support"
@@ -55,7 +54,7 @@ def compile_module(module, source_files, object_files, library_files):
     log.build(cmd)
     cmdexec(cmd)
 
-def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
+def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_name=None):
     include_dir = py.magic.autopath().dirpath()
     dirpath = llvmfile.dirpath()
     lastdir = path.local()
@@ -67,12 +66,8 @@ def make_module_from_llvm(llvmfile, pyxfile=None, optimize=True, exe_name=None):
     else:
         source_files = []
     object_files = []
-    library_files = []
-    if use_boehm_gc:
-        gc_libs = '-lgc -lpthread'
-        library_files.append('gc')
-    else:
-        gc_libs = ''
+    library_files = genllvm.gcpolicy.gc_libraries()
+    gc_libs = ' '.join(['-l' + lib for lib in library_files])
 
     if optimize:
         optimization_switches = OPTIMIZATION_SWITCHES

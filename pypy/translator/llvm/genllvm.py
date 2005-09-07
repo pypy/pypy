@@ -1,7 +1,3 @@
-from os.path import exists
-use_boehm_gc = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
-#use_boehm_gc = False
-
 import os
 import time
 import types
@@ -20,10 +16,11 @@ from pypy.translator.llvm.codewriter import CodeWriter, \
      DEFAULT_TAIL, DEFAULT_CCONV
 from pypy.translator.llvm import extfuncnode
 from pypy.translator.llvm.module.extfunction import extdeclarations, \
-     extfunctions, gc_boehm, gc_disabled, dependencies
+     extfunctions, dependencies
 from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.structnode import StructNode
 from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
+from pypy.translator.llvm.gc import GcPolicy
 
 from pypy.translator.translator import Translator
 
@@ -34,12 +31,13 @@ llexterns_header = llexterns_functions = None
 
 class GenLLVM(object):
 
-    def __init__(self, translator, debug=True):
+    def __init__(self, translator, gcpolicy=None, debug=True):
     
         # reset counters
         LLVMNode.nodename_count = {}    
         self.db = Database(translator)
         self.translator = translator
+        self.gcpolicy = gcpolicy
         translator.checkgraphs()
         extfuncnode.ExternalFuncNode.used_external_functions = {}
 
@@ -90,6 +88,20 @@ class GenLLVM(object):
             print 'STATS', s
 
     def gen_llvm_source(self, func=None):
+        """
+        init took 00m00s
+        setup_all took 08m14s
+        setup_all externs took 00m00s
+        generate_ll took 00m02s
+        write externs type declarations took 00m00s
+        write data type declarations took 00m02s
+        write global constants took 09m49s
+        write function prototypes took 00m00s
+        write declarations took 00m03s
+        write implementations took 01m54s
+        write support functions took 00m00s
+        write external functions took 00m00s
+        """
         self._checkpoint()
 
         if func is None:
@@ -172,12 +184,8 @@ class GenLLVM(object):
 
         nl(); comment("Function Implementation") 
         codewriter.startimpl()
-        if use_boehm_gc:
-            gc_funcs = gc_boehm
-        else:
-            gc_funcs = gc_disabled    
-        for gc_func in gc_funcs.split('\n'):
-            codewriter.append(gc_func)
+        
+        codewriter.append(self.gcpolicy.llvm_code())
 
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
@@ -254,23 +262,23 @@ class GenLLVM(object):
                       exe_name=None):
 
         if standalone:
-            return build_llvm_module.make_module_from_llvm(filename,
+            return build_llvm_module.make_module_from_llvm(self, filename,
                                                            optimize=optimize,
                                                            exe_name=exe_name)
         else:
             postfix = ''
             basename = filename.purebasename + '_wrapper' + postfix + '.pyx'
             pyxfile = filename.new(basename = basename)
-            write_pyx_wrapper(self.entrynode, pyxfile)    
-            return build_llvm_module.make_module_from_llvm(filename,
+            write_pyx_wrapper(self, pyxfile)    
+            return build_llvm_module.make_module_from_llvm(self, filename,
                                                            pyxfile=pyxfile,
                                                            optimize=optimize)
 
     def _debug_prototype(self, codewriter):
         codewriter.append("declare int %printf(sbyte*, ...)")
 
-def genllvm(translator, log_source=False, **kwds):
-    gen = GenLLVM(translator)
+def genllvm(translator, gcpolicy=None, log_source=False, **kwds):
+    gen = GenLLVM(translator, GcPolicy.new(gcpolicy))
     filename = gen.gen_llvm_source()
     if log_source:
         log.genllvm(open(filename).read())

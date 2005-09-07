@@ -1,16 +1,16 @@
 import sys
 import py
 
-from pypy.translator.llvm.genllvm import use_boehm_gc
 from pypy.translator.llvm.test.runtest import compile_module_function
 
 py.log.setconsumer("genllvm", py.log.STDOUT)
 py.log.setconsumer("genllvm database prepare", None)
 
 def test_GC_malloc(): 
-    if not use_boehm_gc:
-        py.test.skip("test_GC_malloc skipped because Boehm collector library was not found")
-        return
+    #XXX how to get to gcpolicy?
+    #if not use_boehm_gc:
+    #    py.test.skip("test_GC_malloc skipped because Boehm collector library was not found")
+    #    return
     def tuple_getitem(n): 
         x = 666
         i = 0

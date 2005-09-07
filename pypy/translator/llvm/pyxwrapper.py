@@ -1,7 +1,6 @@
 import sys
 from pypy.translator.llvm.log import log 
 from pypy.rpython import lltype 
-from pypy.translator.llvm.genllvm import use_boehm_gc
 log = log.pyrex 
 
 PRIMITIVES_TO_C = {lltype.Bool: "char",
@@ -24,7 +23,8 @@ elif sys.maxint == 2**63-1:
 else:
     assert False, "Unsupported platform"        
 
-def write_pyx_wrapper(funcgen, targetpath): 
+def write_pyx_wrapper(genllvm, targetpath): 
+    funcgen = genllvm.entrynode
     def c_declaration():
         returntype = PRIMITIVES_TO_C[
             funcgen.graph.returnblock.inputargs[0].concretetype]
@@ -43,12 +43,7 @@ def write_pyx_wrapper(funcgen, targetpath):
     append("class LLVMException(Exception):")
     append("    pass")
     append("")
-    if use_boehm_gc:
-        append("cdef extern int GC_get_heap_size()")
-        append("")
-        append("def GC_get_heap_size_wrapper():")
-        append("    return GC_get_heap_size()")
-        append("")
+    append(genllvm.gcpolicy.pyrex_code())
     append("def %s_wrapper(%s):" % (funcgen.ref.strip("%"), ", ".join(inputargs)))
     append("    result = __entrypoint__%s(%s)" % (funcgen.ref.strip("%"), ", ".join(inputargs)))
     append("    if __entrypoint__raised_LLVMException():    #not caught by the LLVM code itself")
