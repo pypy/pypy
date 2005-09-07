@@ -282,7 +282,7 @@ class Translator:
         else:
             return genc.CExtModuleBuilder(self, gcpolicy=gcpolicy)
 
-    def llvmcompile(self, really_compile=True, standalone=False, optimize=True, exe_name=None):
+    def llvmcompile(self, really_compile=True, standalone=False, optimize=True, exe_name=None, gcpolicy=None):
         """llvmcompile(self, really_compile=True, standalone=False, optimize=True) -> LLVM translation
         
         Returns LLVM translation with or without optimization.
@@ -296,7 +296,7 @@ class Translator:
         else:
             exe_name = None
         self.frozen = True
-        return genllvm.genllvm(self, really_compile=really_compile, standalone=standalone, optimize=optimize, exe_name=exe_name)
+        return genllvm.genllvm(self, really_compile=really_compile, standalone=standalone, optimize=optimize, exe_name=exe_name, gcpolicy=gcpolicy)
 
     def call(self, *args):
         """Calls underlying Python function."""
