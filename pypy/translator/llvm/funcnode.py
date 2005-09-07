@@ -39,7 +39,7 @@ class FuncNode(ConstantLLVMNode):
         self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph 
         remove_same_as(self.graph) 
-        remove_double_links(self.db._translator, self.graph) 
+        remove_double_links(self.db.translator, self.graph) 
 
     def __str__(self):
         return "<FuncNode %r>" %(self.ref,)

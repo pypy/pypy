@@ -335,7 +335,7 @@ class OpWriter(object):
         else:
             self.codewriter.invoke_void(functionref, argrefs, argtypes, none_label, exc_label)
 
-        e = self.db._translator.rtyper.getexceptiondata()
+        e = self.db.translator.rtyper.getexceptiondata()
         ll_exception_match       = '%pypy_' + e.ll_exception_match.__name__
         lltype_of_exception_type = ('%structtype.' +
                                     e.lltype_of_exception_type.TO.__name__

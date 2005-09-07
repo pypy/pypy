@@ -66,7 +66,7 @@ def get_ll(ccode, function_names):
 
 
 def post_setup_externs(db):
-    rtyper = db._translator.rtyper
+    rtyper = db.translator.rtyper
     from pypy.translator.c.extfunc import predeclare_all
 
     # hacks to make predeclare_all work
@@ -78,7 +78,7 @@ def post_setup_externs(db):
         if isinstance(obj, lltype.LowLevelType):
             db.prepare_type(obj)
         elif isinstance(obj, types.FunctionType):
-            funcptr = getfunctionptr(db._translator, obj)
+            funcptr = getfunctionptr(db.translator, obj)
             c = inputconst(lltype.typeOf(funcptr), funcptr)
             db.prepare_arg_value(c)
         elif isinstance(lltype.typeOf(obj), lltype.Ptr):
@@ -105,7 +105,7 @@ def generate_llfile(db, extern_decls, support_functions, debug=False):
             s = "#define %s struct %s\n%s;\n" % (c_name, c_name, c_name)
             ccode.append(s)
         elif isinstance(obj, types.FunctionType):
-            funcptr = getfunctionptr(db._translator, obj)
+            funcptr = getfunctionptr(db.translator, obj)
             c = inputconst(lltype.typeOf(funcptr), funcptr)
             predeclarefn(c_name, db.repr_arg(c))
         elif isinstance(lltype.typeOf(obj), lltype.Ptr):
