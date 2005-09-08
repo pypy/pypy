@@ -30,7 +30,7 @@ def target(geninterp=True):
     # for the poor translator already
     # XXX why can't I enable this? crashes the annotator!
     space = StdObjSpace(nofaking=True,
-                        compiler="ast",
+                        compiler="_stable",
                         translating=True,
                         #usemodules=['marhsal', '_sre'],
                         geninterp=geninterp)
