@@ -121,8 +121,9 @@ class W_Object(W_Root, object):
 
     def __init__(w_self, space):
         w_self.space = space    # XXX not sure this is ever used any more
-        # YYY I think we need it for calling hash() from an ll dicts impl.
-        # without explicitly passing the space.
+        # Note that it is wrong to depend on a .space attribute for a random
+        # wrapped object anyway, because not all wrapped objects inherit from
+        # W_Object.  (They inherit from W_Root.)
 
     def __repr__(self):
         s = '%s(%s)' % (
