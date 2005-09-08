@@ -27,7 +27,7 @@ class Scope:
         # nested is true if the class could contain free variables,
         # i.e. if it is nested within another function.
         self.nested = 0
-        self.generator = 0
+        self.generator = False
         self.klass = None
         if klass is not None:
             for i in range(len(klass)):
@@ -456,7 +456,7 @@ class SymbolVisitor(ast.ASTVisitor):
 
     def visitYield(self, node ):
         scope = self.cur_scope()
-        scope.generator = 1
+        scope.generator = True
         node.value.accept( self )
 
 def sort(l):

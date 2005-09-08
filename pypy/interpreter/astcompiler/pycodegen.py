@@ -1251,7 +1251,7 @@ class FunctionCodeGenerator(AbstractFunctionCode):
         AbstractFunctionCode.__init__(self, space, func, scopes, isLambda, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
-        if self.scope.generator is not None:
+        if self.scope.generator:
             self.graph.setFlag(CO_GENERATOR)
 
 class GenExprCodeGenerator(AbstractFunctionCode):
