@@ -207,13 +207,15 @@ class FlowGraph:
         block isn't next to the right block for implicit control
         transfers.
         """
-        index = {}
-        for i in range(len(blocks)):
-            index[blocks[i]] = i
-
-        for i in range(0, len(blocks) - 1):
+        new_blocks = blocks
+        blocks = blocks[:]
+        del new_blocks[:]
+        i = 0
+        while i < len(blocks) - 1:
             b = blocks[i]
             n = blocks[i + 1]
+            i += 1
+            new_blocks.append(b)
             if not b.next or b.next[0] == default_next or b.next[0] == n:
                 continue
             # The blocks are in the wrong order.  Find the chain of
@@ -226,20 +228,17 @@ class FlowGraph:
                 elt = elt.next[0]
             # Now remove the blocks in the chain from the current
             # block list, so that they can be re-inserted.
-            l = []
             for b in chain:
-                assert index[b] > i
-                l.append((index[b], b))
-            l.sort()
-            l.reverse()
-            for j, b in l:
-                del blocks[index[b]]
-            # Insert the chain in the proper location
-            blocks[i:i + 1] = [cur] + chain
-            # Finally, re-compute the block indexes
-            for i in range(len(blocks)):
-                index[blocks[i]] = i
-
+                for j in range(i + 1, len(blocks)):
+                    if blocks[i] == b:
+                        del blocks[i]
+                else:
+                    assert False, "Can't find block"
+                    
+            new_blocks.extend(chain)
+        if i == len(blocks) - 1:
+            new_blocks.append(blocks[i])
+            
     def fixupOrderForward(self, blocks, default_next):
         """Make sure all JUMP_FORWARDs jump forward"""
         index = {}
@@ -279,7 +278,7 @@ class FlowGraph:
             goes_before, a_chain = constraints[0]
             assert a_chain > goes_before
             c = chains[a_chain]
-            chains.remove(c)
+            del chains[a_chain]
             chains.insert(goes_before, c)
 
         del blocks[:]
