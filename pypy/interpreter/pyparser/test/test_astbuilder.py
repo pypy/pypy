@@ -261,6 +261,7 @@ else:
 """,
     "if a and not b == c: pass",
     "if a and not not not b == c: pass",
+    "if 0: print 'foo'"
     ]
 
 asserts = [
