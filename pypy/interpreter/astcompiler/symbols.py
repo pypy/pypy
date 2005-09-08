@@ -106,7 +106,7 @@ class Scope:
 
     def get_free_vars(self):
         if not self.nested:
-            return ()
+            return []
         free = {}
         free.update(self.frees)
         for name in self.uses.keys():

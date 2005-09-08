@@ -964,8 +964,8 @@ class StackDepthTracker:
             opname = i.op
             if debug:
                 print i,
-            delta = self.effect.get(opname, None)
-            if delta is not None:
+            delta = self.effect.get(opname, sys.maxint)
+            if delta != sys.maxint:
                 depth = depth + delta
             else:
                 # now check patterns
@@ -975,7 +975,7 @@ class StackDepthTracker:
                         depth = depth + delta
                         break
                 # if we still haven't found a match
-                if delta is None:
+                if delta == sys.maxint:
                     meth = DEPTH_OP_TRACKER.get( opname, None )
                     if meth is not None:
                         assert isinstance(i, InstrInt)
