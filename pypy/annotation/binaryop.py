@@ -577,7 +577,7 @@ class __extend__(pairtype(SomePBC, SomeInstance)):
 class __extend__(pairtype(SomeList, SomePBC)):
     def union((lst, pbc)):
         if pbc.isNone():
-            return lst
+            return SomeList(lst.listdef)
         return SomeObject()
 
 class __extend__(pairtype(SomePBC, SomeList    )):
@@ -588,7 +588,7 @@ class __extend__(pairtype(SomePBC, SomeList    )):
 class __extend__(pairtype(SomeDict, SomePBC)):
     def union((dct, pbc)):
         if pbc.isNone():
-            return dct
+            return SomeDict(dct.dictdef)
         return SomeObject()
 
 class __extend__(pairtype(SomePBC, SomeDict    )):

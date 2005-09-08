@@ -1533,6 +1533,30 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.knowntype == dict
+
+    def test_const_list_and_none(self):
+        def g(l=None):
+            return l is None
+        L = [1,2]
+        def f():
+            g()
+            return g(L)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == bool
+        assert not s.is_constant()
+            
+    def test_const_dict_and_none(self):
+        def g(d=None):
+            return d is None
+        D = {1:2}
+        def f():
+            g(D)
+            return g()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == bool
+        assert not s.is_constant()
                         
 
 def g(n):
