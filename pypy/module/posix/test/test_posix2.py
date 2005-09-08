@@ -85,20 +85,19 @@ class AppTestEnvironment(object):
         posix = self.posix
         os = self.os
 
-    def test_unsetenv_nonexisting(self):
-        os = self.os
-        os.unsetenv("XYZABC") #does not raise
-        try:
-            os.environ["ABCABC"]
-        except KeyError:
-            pass
-        else:
-            raise AssertionError("did not raise KeyError")
-        os.environ["ABCABC"] = "1"
-        assert os.environ["ABCABC"] == "1"
-        if hasattr(os, "unsetenv"):
+    if hasattr(__import__(os.name), "unsetenv"):
+        def test_unsetenv_nonexisting(self):
+            os = self.os
+            os.unsetenv("XYZABC") #does not raise
+            try:
+                os.environ["ABCABC"]
+            except KeyError:
+                pass
+            else:
+                raise AssertionError("did not raise KeyError")
+            os.environ["ABCABC"] = "1"
+            assert os.environ["ABCABC"] == "1"
             os.unsetenv("ABCABC")
             cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
             res = os.system(cmd)
             assert res == 0
-

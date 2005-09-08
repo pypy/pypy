@@ -435,8 +435,6 @@ def test_putenv():
     assert file(filename).read().strip() == '12345678'
     os.unlink(filename)
 
-# XXX missing test for unsetenv, please do this on Linux
-
 
 # aaargh: bad idea: the above test updates the environment directly, so the
 # os.environ dict is not updated, which makes the following test fail if not run
@@ -478,17 +476,17 @@ def test_environ():
     assert res
     chan.close()
 
-def test_unsetenv():
-    if not hasattr(os, "unsetenv"):
-        py.test.skip("missing unsetenv on this architecture")
-    def unsetenv():
-        os.unsetenv("ABCDEF")
-    f = compile(unsetenv, [])
-    os.putenv("ABCDEF", "a")
-    cmd = '''python -c "import os, sys; sys.exit(os.getenv('ABCDEF') != 'a')"'''
-    assert os.system(cmd) == 0
-    f()
-    cmd = '''python -c "import os, sys; sys.exit(os.getenv('ABCDEF') != None)"'''
-    assert os.system(cmd) == 0
-    f()
-    assert os.system(cmd) == 0
+posix = __import__(os.name)
+if hasattr(posix, "unsetenv"):
+    def test_unsetenv():
+        def unsetenv():
+            os.unsetenv("ABCDEF")
+        f = compile(unsetenv, [])
+        os.putenv("ABCDEF", "a")
+        cmd = '''python -c "import os, sys; sys.exit(os.getenv('ABCDEF') != 'a')"'''
+        assert os.system(cmd) == 0
+        f()
+        cmd = '''python -c "import os, sys; sys.exit(os.getenv('ABCDEF') != None)"'''
+        assert os.system(cmd) == 0
+        f()
+        assert os.system(cmd) == 0

@@ -46,14 +46,16 @@ def test_putenv_unsetenv():
     assert result == '12345678'
     f.close()
     os.unlink(filename)
-    ll_os_unsetenv(to_rstr("abcdefgh"))
-    cmd = '''python -c "import os; print repr(os.getenv('abcdefgh'))" > %s''' % filename
-    os.system(cmd)
-    f = file(filename)
-    result = f.read().strip()
-    assert result == 'None'
-    f.close()
-    os.unlink(filename)
+    posix = __import__(os.name)
+    if hasattr(posix, "unsetenv"):
+        ll_os_unsetenv(to_rstr("abcdefgh"))
+        cmd = '''python -c "import os; print repr(os.getenv('abcdefgh'))" > %s''' % filename
+        os.system(cmd)
+        f = file(filename)
+        result = f.read().strip()
+        assert result == 'None'
+        f.close()
+        os.unlink(filename)
 
 test_src = """
 import os

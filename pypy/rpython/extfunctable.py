@@ -133,6 +133,7 @@ def strnullannotation(*args):
     return SomeString(can_be_None=True)
 
 # external function declarations
+posix = __import__(os.name)
 declare(os.open     , int           , 'll_os/open')
 declare(os.read     , str           , 'll_os/read')
 declare(os.write    , posannotation , 'll_os/write')
@@ -140,7 +141,7 @@ declare(os.close    , noneannotation, 'll_os/close')
 declare(os.dup      , int           , 'll_os/dup')
 declare(os.lseek    , int           , 'll_os/lseek')
 declare(os.isatty   , bool          , 'll_os/isatty')
-if hasattr(os, 'ftruncate'):
+if hasattr(posix, 'ftruncate'):
     declare(os.ftruncate, noneannotation, 'll_os/ftruncate')
 declare(os.fstat    , statannotation, 'll_os/fstat')
 declare(os.stat     , statannotation, 'll_os/stat')
@@ -151,7 +152,8 @@ declare(os.getcwd   , str           , 'll_os/getcwd')
 declare(os.chdir    , noneannotation, 'll_os/chdir')
 declare(os.mkdir    , noneannotation, 'll_os/mkdir')
 declare(os.rmdir    , noneannotation, 'll_os/rmdir')
-declare(os.unsetenv , noneannotation, 'll_os/unsetenv')
+if hasattr(posix, 'unsetenv'):   # note: faked in os
+    declare(os.unsetenv , noneannotation, 'll_os/unsetenv')
 declare(os.path.exists, bool        , 'll_os_path/exists')
 declare(os.path.isdir, bool         , 'll_os_path/isdir')
 declare(time.time   , float         , 'll_time/time')
