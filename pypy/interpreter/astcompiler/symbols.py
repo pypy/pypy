@@ -173,23 +173,20 @@ class Scope:
         return self.cells.keys()
 
 class ModuleScope(Scope):
-    __super_init = Scope.__init__
 
     def __init__(self):
-        self.__super_init("global", self)
+        Scope.__init__(self, "global", self)
 
 class FunctionScope(Scope):
     pass
 
 class GenExprScope(Scope):
-    __super_init = Scope.__init__
-
     __counter = 1
 
     def __init__(self, module, klass=None):
         i = self.__counter
         self.__counter += 1
-        self.__super_init("generator expression<%d>"%i, module, klass)
+        Scope.__init__(self, "generator expression<%d>"%i, module, klass)
         self.add_param('[outmost-iterable]')
 
     def get_names(self):
@@ -197,20 +194,17 @@ class GenExprScope(Scope):
         return keys
 
 class LambdaScope(FunctionScope):
-    __super_init = Scope.__init__
-
     __counter = 1
 
     def __init__(self, module, klass=None):
         i = self.__counter
         self.__counter += 1
-        self.__super_init("lambda.%d" % i, module, klass)
+        Scope.__init__(self, "lambda.%d" % i, module, klass)
 
 class ClassScope(Scope):
-    __super_init = Scope.__init__
 
     def __init__(self, name, module):
-        self.__super_init(name, module, name)
+        Scope.__init__(self, name, module, name)
 
 class SymbolVisitor(ast.ASTVisitor):
     def __init__(self, space):
