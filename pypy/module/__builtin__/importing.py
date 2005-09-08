@@ -517,6 +517,6 @@ def write_compiled_module(space, co, cpathname, mtime):
             osfile.close()
     except OSError:
         try:
-            os.unlink(pathname)
+            os.unlink(cpathname)
         except OSError:
             pass
