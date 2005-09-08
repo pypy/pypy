@@ -4,52 +4,43 @@
 """
 Command-line options for translate_pypy:
 
-   port       Listen on the given port number for connexions
-                  (see pypy/translator/tool/pygame/graphclient.py)
-   targetspec
-              targetspec.py is a python file defining
-              what is the translation target and setting things up for it,
-              it should have a target function returning an entry_point ...;
-              defaults to targetpypystandalone. The .py suffix is optional.
-
-   -no-a      Don't infer annotations, just translate everything
-   -no-t      Don't type-specialize the graph operations with the C typer
-   -t-insist  Specialize should not stop at the first error
-   -no-o      Don't do backend-oriented optimizations
-   -fork      (UNIX) Create a restartable checkpoint after annotation
-   -fork2     (UNIX) Create a restartable checkpoint after specializing
-   -t-lowmem  try to save as much memory as possible, since many computers
-              tend to have less than a gigabyte of memory (512 MB is typical).
-              Currently, we avoid to use geninterplevel, which creates a lot
-              of extra blocks, but gains only some 10-20 % of speed, because
-              we are still lacking annotation of applevel code.
-   -d         Enable recording of annotator debugging information
-
-   -b <backend> backend is one 'ccompiler, llvmcompiler' 
-   -gc <garbage collector> can be 'boehm' or 'no-gc' or 'ref' (default)
-   -no-c      Don't generate the code
-   #-llvm      Use LLVM instead of C
-   -c         Generate the C code, but don't compile it
-   #-boehm     Use the Boehm collector when generating C code
-   #-no-gc     Experimental: use no GC and no refcounting at all
-   -o         Generate and compile the C code, but don't run it
-   -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
-                  -- http://fabrice.bellard.free.fr/tcc/
-   -llinterpret
-              interprets the flow graph after rtyping it
-
-   -text      Don't start the Pygame viewer
-   -huge=%    Threshold in the number of functions after which only a local call
-              graph and not a full one is displayed
-   -use-snapshot
-              Redirect imports to the translation snapshot
-   -save filename
-              saves the translator to a file. The file type can either
-              be .py or .zip (recommended).
-   -load filename
-              restores the translator from a file. The file type must
-              be either .py or .zip .
-   -batch     don't use interactive helpers, like pdb
+    Option groups:
+        Annotation:
+            -m          --lowmem                Try to save memory
+            -n          --no_annotations        Don't infer annotations
+            -d          --debug                 record debug information
+            -i          --insist                Dont't stop on first error
+            
+        Specialization:
+            -t          --specialize            Don't specialize
+            
+        Backend optimisation
+            -o          --optimize              Don't optimize (should have 
+                                                different name)
+            
+        Process options:
+            -f  fork1[fork2]  --fork fork1[fork2] (UNIX) Create restartable 
+                                                checkpoint after annotation
+                                                [,specialization]
+            -l  file    --load file             load translator from file
+            -s  file    --save file             save translator to file
+        
+        Codegeneration options:
+            -g gc       --gc gc                 Garbage collector
+            -b be       --backend be            Backend selector
+            -c          --gencode               Don't generate code
+            
+        Compilation options:
+            
+        Run options:
+            -r          --no_run                Don't run the compiled code
+            -x          --batch                 Dont run interactive helpers
+        Pygame options:
+            -p          --pygame                Dont run pygame
+            -H number   --huge number           Threshold in the number of 
+                                                functions after which only a 
+                                                local call graph and not a full 
+                                                one is displayed
 """
 import autopath, sys, os
 
@@ -149,11 +140,11 @@ def analyse(target):
             from pypy.translator.goal import unixcheckpoint
             assert_rpython_mostly_not_imported() 
             unixcheckpoint.restartable_point(auto='run')
-    if a and not options1.specialize:
+    if a and options1.specialize:
         print 'Specializing...'
         t.specialize(dont_simplify_again=True,
                      crash_on_first_typeerror=not options1.insist)
-    if not options1.optimize and not options1.backend =='-llvm':
+    if options1.optimize and options1.backend != 'llvm':
         print 'Back-end optimizations...'
         t.backend_optimizations()
     if a and 'fork2' in options1.fork:
@@ -348,7 +339,7 @@ if __name__ == '__main__':
     parser.add_option("-x", "--batch", dest="batch", default=False,
                   action="store_true",help="Don't use interactive helpers, like pdb")
     (options1, args) = parser.parse_args()
-    print options1,args
+    
     argiter = iter(args) #sys.argv[1:])
     for arg in argiter:
         try:
@@ -405,10 +396,10 @@ if __name__ == '__main__':
             err = sys.exc_info()
         print '-'*60
         if options1.savefile:
-            print 'saving state to %s' % save_file
+            print 'saving state to %s' % options1.savefile
             if err:
                 print '*** this save is done after errors occured ***'
-            save(t, savefile,
+            save(t, options1.savefile,
                  trans=t,
                  inputtypes=inputtypes,
                  targetspec=targetspec,
@@ -444,7 +435,7 @@ if __name__ == '__main__':
             keywords = {'really_compile' : options1.really_compile, 
                         'standalone' : standalone, 
                         'gcpolicy' : gcpolicy}
-            c_entry_point = t.compile(options1.backend,**keywords)
+            c_entry_point = t.compile(options1.backend, **keywords)
                              
             if standalone and options1.backend == 'c': # xxx fragile and messy
                 import shutil
