@@ -797,13 +797,14 @@ class PyFlowGraph(FlowGraph):
         return PyCode(self.space)._code_new_w( argcount, nlocals,
                                                self.stacksize, self.flags,
                                                self.lnotab.getCode(),
-                                               tuple(self.getConsts()),
-                                               tuple(self.names),
-                                               tuple(self.varnames),
-                                               self.filename, self.name, self.lnotab.firstline,
+                                               self.getConsts(),
+                                               self.names,
+                                               self.varnames,
+                                               self.filename, self.name,
+                                               self.lnotab.firstline,
                                                self.lnotab.getTable(),
-                                               tuple(self.freevars),
-                                               tuple(self.cellvars)
+                                               self.freevars,
+                                               self.cellvars
                                                )
 
     def getConsts(self):

@@ -93,7 +93,10 @@ class AbstractBuilder(object):
     """Abstract base class for builder objects"""
     def __init__(self, rules=None, debug=0, symbols={} ):
         # a dictionary of grammar rules for debug/reference
-        self.rules = rules or {}
+        if rules is not None:
+            self.rules = rules
+        else:
+            self.rules = {}
         # This attribute is here for convenience
         self.debug = debug
         self.symbols = symbols # mapping from codename to symbols

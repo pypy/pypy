@@ -113,7 +113,7 @@ def to_code( rcode ):
                      rcode.co_stacksize,
                      rcode.co_flags,
                      rcode.co_code,
-                     rcode.co_consts_w,
+                     tuple(rcode.co_consts_w),
                      tuple(rcode.co_names),
                      tuple(rcode.co_varnames),
                      rcode.co_filename,
