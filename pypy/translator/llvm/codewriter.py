@@ -8,12 +8,13 @@ DEFAULT_TAIL     = ''       #/tail
 DEFAULT_CCONV    = 'fastcc'    #ccc/fastcc
 
 class CodeWriter(object): 
-    def __init__(self, f, word, uword, show_line_number=False): 
+    def __init__(self, f, genllvm, show_line_number=False): 
         self.f = f
+        self.genllvm = genllvm
+        self.word  = genllvm.db.get_machine_word()
+        self.uword = genllvm.db.get_machine_uword()
         self.show_line_numbers = show_line_number
         self.n_lines = 0
-        self.word = word
-        self.uword = uword
 
     def append(self, line): 
         self.n_lines += 1
@@ -74,7 +75,6 @@ class CodeWriter(object):
                     % (intty, cond, defaultdest, labels))
 
     def openfunc(self, decl, is_entrynode=False, cconv=DEFAULT_CCONV): 
-        self.malloc_count = count(0).next
         self.newline()
         if is_entrynode:
             linkage_type = ''
@@ -141,18 +141,8 @@ class CodeWriter(object):
                         "%(fromvar)s to %(targettype)s" % locals())
 
     def malloc(self, targetvar, type_, size=1, atomic=False, cconv=DEFAULT_CCONV):
-        n = self.malloc_count()
-        if n:
-            cnt = ".%d" % n
-        else:
-            cnt = ""
-        postfix = ('', '_atomic')[atomic]
-        word  = self.word
-        uword = self.uword
-        self.indent("%%malloc.Size%(cnt)s = getelementptr %(type_)s* null, %(uword)s %(size)s" % locals())
-        self.indent("%%malloc.SizeU%(cnt)s = cast %(type_)s* %%malloc.Size%(cnt)s to %(uword)s" % locals())
-        self.indent("%%malloc.Ptr%(cnt)s = call %(cconv)s sbyte* %%gc_malloc%(postfix)s(%(uword)s %%malloc.SizeU%(cnt)s)" % locals())
-        self.indent("%(targetvar)s = cast sbyte* %%malloc.Ptr%(cnt)s to %(type_)s*" % locals())
+        for s in self.genllvm.gcpolicy.malloc(targetvar, type_, size, atomic, self.word, self.uword).split('\n'):
+            self.indent(s)
 
     def getelementptr(self, targetvar, type, typevar, *indices):
         word = self.word

@@ -21,6 +21,7 @@ from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.structnode import StructNode
 from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
+from pypy.translator.llvm.exception import ExceptionPolicy
 
 from pypy.translator.translator import Translator
 
@@ -31,13 +32,14 @@ llexterns_header = llexterns_functions = None
 
 class GenLLVM(object):
 
-    def __init__(self, translator, gcpolicy=None, debug=True):
+    def __init__(self, translator, gcpolicy=None, exceptionpolicy=None, debug=True):
     
         # reset counters
         LLVMNode.nodename_count = {}    
         self.db = Database(translator)
         self.translator = translator
         self.gcpolicy = gcpolicy
+        self.exceptionpolicy = exceptionpolicy
         translator.checkgraphs()
         extfuncnode.ExternalFuncNode.used_external_functions = {}
 
@@ -146,7 +148,7 @@ class GenLLVM(object):
             function_count[func.func_name] = 1
         filename = udir.join(func.func_name + postfix).new(ext='.ll')
         f = open(str(filename),'w')
-        codewriter = CodeWriter(f, self.db.get_machine_word(), self.db.get_machine_uword())
+        codewriter = CodeWriter(f, self)
         comment = codewriter.comment
         nl = codewriter.newline
 
@@ -174,7 +176,7 @@ class GenLLVM(object):
         self._checkpoint('write global constants')
 
         nl(); comment("Function Prototypes") ; nl()
-        for extdecl in extdeclarations.split('\n'):
+        for extdecl in (extdeclarations+self.gcpolicy.declarations()).split('\n'):
             codewriter.append(extdecl)
         self._checkpoint('write function prototypes')
 
@@ -185,8 +187,6 @@ class GenLLVM(object):
         nl(); comment("Function Implementation") 
         codewriter.startimpl()
         
-        codewriter.append(self.gcpolicy.llvm_code())
-
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
         self._checkpoint('write implementations')
@@ -277,8 +277,8 @@ class GenLLVM(object):
     def _debug_prototype(self, codewriter):
         codewriter.append("declare int %printf(sbyte*, ...)")
 
-def genllvm(translator, gcpolicy=None, log_source=False, **kwds):
-    gen = GenLLVM(translator, GcPolicy.new(gcpolicy))
+def genllvm(translator, gcpolicy=None, exceptionpolicy=None, log_source=False, **kwds):
+    gen = GenLLVM(translator, GcPolicy.new(gcpolicy), ExceptionPolicy.new(exceptionpolicy))
     filename = gen.gen_llvm_source()
     if log_source:
         log.genllvm(open(filename).read())

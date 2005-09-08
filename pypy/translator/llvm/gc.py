@@ -5,20 +5,14 @@ class GcPolicy:
     def gc_libraries(self):
         return []
 
-    def llvm_code(self):
-        return '''
-internal fastcc sbyte* %gc_malloc(uint %n) {
-    %nn  = cast uint %n to uint
-    %ptr = malloc sbyte, uint %nn
-    ret sbyte* %ptr
-}
+    def declarations(self):
+        return ''
 
-internal fastcc sbyte* %gc_malloc_atomic(uint %n) {
-    %nn  = cast uint %n to uint
-    %ptr = malloc sbyte, uint %nn
-    ret sbyte* %ptr
-}
-'''
+    def malloc(self, targetvar, type_, size, is_atomic, word, uword):
+        s = str(size)
+        if s == '0':
+            return '%(targetvar)s = cast %(type_)s* null to %(type_)s* ;was malloc 0 bytes' % locals()
+        return '%(targetvar)s = malloc %(type_)s, uint %(s)s' % locals()
 
     def pyrex_code(self):
         return ''
@@ -50,26 +44,30 @@ class NoneGcPolicy(GcPolicy):
 
 class BoehmGcPolicy(GcPolicy):
     def __init__(self):
-        pass
+        self.n_malloced = 0
 
     def gc_libraries(self):
         return ['gc'] # xxx on windows?
 
-    def llvm_code(self):
+    def declarations(self):
         return '''
 declare ccc sbyte* %GC_malloc(uint)
 declare ccc sbyte* %GC_malloc_atomic(uint)
-
-internal fastcc sbyte* %gc_malloc(uint %n) {
-    %ptr = call ccc sbyte* %GC_malloc(uint %n)
-    ret sbyte* %ptr
-}
-
-internal fastcc sbyte* %gc_malloc_atomic(uint %n) {
-    %ptr = call ccc sbyte* %GC_malloc_atomic(uint %n)
-    ret sbyte* %ptr
-}
 '''
+
+    def malloc(self, targetvar, type_, size, is_atomic, word, uword):
+        s = str(size)
+        if s == '0':
+            return '%(targetvar)s = cast %(type_)s* null to %(type_)s* ;was malloc 0 bytes' % locals()
+        self.n_malloced += 1
+        cnt = '.%d' % self.n_malloced
+        atomic = is_atomic and '_atomic' or ''
+        return '''
+%%malloc.Size%(cnt)s  = getelementptr %(type_)s* null, %(uword)s %(s)s
+%%malloc.SizeU%(cnt)s = cast %(type_)s* %%malloc.Size%(cnt)s to %(uword)s
+%%malloc.Ptr%(cnt)s   = call ccc sbyte* %%GC_malloc%(atomic)s(%(uword)s %%malloc.SizeU%(cnt)s)
+%(targetvar)s = cast sbyte* %%malloc.Ptr%(cnt)s to %(type_)s*
+        ''' % locals()
 
     def pyrex_code(self):
         return '''

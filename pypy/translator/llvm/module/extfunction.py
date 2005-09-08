@@ -1,13 +1,7 @@
-extdeclarations =  """;rpython stuff
-
-;gc-type dependent mallocs
-declare fastcc sbyte* %gc_malloc(uint)
-declare fastcc sbyte* %gc_malloc_atomic(uint)
-
-;exception handling globals
+extdeclarations =  '''
 %last_exception_type  = global %RPYTHON_EXCEPTION_VTABLE* null
 %last_exception_value = global %RPYTHON_EXCEPTION* null
-"""
+'''
 
 extfunctions = {}   #dependencies, llvm-code
 

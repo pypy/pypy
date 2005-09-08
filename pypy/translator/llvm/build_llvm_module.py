@@ -12,7 +12,6 @@ from pypy.translator.tool.cbuild import make_c_from_pyxfile
 from pypy.translator.tool import stdoutcapture
 from pypy.translator.llvm.log import log
 
-EXCEPTIONS_SWITCHES   = "-enable-correct-eh-support"
 SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
     # kill code - hopefully to speed things up
     "-globaldce -adce -deadtypeelim -simplifycfg",
@@ -84,15 +83,16 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
 
     cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, OPTIMIZATION_SWITCHES, b)]
 
-    if False and sys.maxint == 2147483647:        #32 bit platform
-        cmds.append("llc %s %s.bc -f -o %s.s" % (EXCEPTIONS_SWITCHES, b, b))
+    generate_s_file = False
+    if generate_s_file and sys.maxint == 2147483647:        #32 bit platform
+        cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.exceptionpolicy.llc_options(), b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))
         if exe_name:
             cmds.append("gcc %s.o %s -lm -ldl -pipe -o %s" % (b, gc_libs, exe_name))
         object_files.append("%s.o" % b)
     else:       #assume 64 bit platform (x86-64?)
         #this special case for x86-64 (called ia64 in llvm) can go as soon as llc supports ia64 assembly output!
-        cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (EXCEPTIONS_SWITCHES, b, b))
+        cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (genllvm.exceptionpolicy.llc_options(), b, b))
         if exe_name:
             #XXX TODO: use CFLAGS when available
             cmds.append("gcc %s.c -c -O3 -pipe" % (b,))
