@@ -834,7 +834,8 @@ def getArgCount(args):
     if args:
         for arg in args:
             if isinstance(arg, TupleArg):
-                numNames = len(misc.flatten(arg.names))
+                numNames = len(arg.names.getArgNames())
+                # numNames = len(misc.flatten(arg.names))
                 argcount = argcount - numNames
     return argcount
 

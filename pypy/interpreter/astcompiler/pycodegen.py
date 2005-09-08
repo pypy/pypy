@@ -1315,7 +1315,7 @@ def generateArgList(arglist):
             args.append(elt)
         elif isinstance(elt, ast.AssTuple):
             args.append(TupleArg(i * 2, elt))
-            extra.extend(ast.flatten(elt))
+            extra.extend(elt.getChildNodes())
             count = count + 1
         else:
             raise ValueError( "unexpect argument type: %s" % elt )
