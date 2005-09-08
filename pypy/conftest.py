@@ -98,8 +98,9 @@ class Module(py.test.collect.Module):
         return name.startswith('Test') or name.startswith('AppTest') 
 
     def setup(self): 
-        # stick py.test raise in module globals
-        self.obj.raises = py.test.raises 
+        # stick py.test raise in module globals -- carefully
+        if not hasattr(self.obj, 'raises'):
+            self.obj.raises = py.test.raises 
         super(Module, self).setup() 
         #    if hasattr(mod, 'objspacename'): 
         #        mod.space = getttestobjspace(mod.objspacename)
