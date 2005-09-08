@@ -1056,8 +1056,7 @@ class CodeGenerator(ast.ASTVisitor):
         elif node.flags == 'OP_DELETE':
             self.emit('DELETE_SLICE+%d' % slice)
         else:
-            print "weird slice", node.flags
-            raise
+            assert False, "weird slice %s" % node.flags
 
     def visitSubscript(self, node, aug_flag=0):
         node.expr.accept( self )
