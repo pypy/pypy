@@ -935,6 +935,8 @@ def depth_BUILD_SLICE(argc):
         return -1
     elif argc == 3:
         return -2
+    assert False, 'Unexpected argument %s to depth_BUILD_SLICE' % argc
+    
 def depth_DUP_TOPX(argc):
     return argc
 

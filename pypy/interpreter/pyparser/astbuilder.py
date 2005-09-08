@@ -285,6 +285,7 @@ def get_docstring(builder,stmt):
             expr = first_child.expr
             if builder.is_string_const(expr):
                 # This *is* a docstring, remove it from stmt list
+                assert isinstance(expr, ast.Const)
                 del stmt.nodes[0]
                 doc = expr.value
     return doc
@@ -1569,8 +1570,7 @@ class AstBuilder(BaseGrammarBuilder):
             value = value[:-1]
             return string_to_w_long( space, value, base=base )
         try:
-            value = string_to_int(value, base=base)
-            return space.wrap(value)
+            return space.wrap(string_to_int(value, base=base))
         except ParseStringError:
             return space.wrap(interp_string_to_float(space,value))
 
