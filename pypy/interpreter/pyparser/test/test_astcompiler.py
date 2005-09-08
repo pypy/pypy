@@ -15,7 +15,7 @@ from test_astbuilder import expressions, comparisons, funccalls, backtrackings,\
     listmakers, genexps, dictmakers, multiexpr, attraccess, slices, imports,\
     asserts, execs, prints, globs, raises_, imports_newstyle, augassigns, \
     if_stmts, one_stmt_classdefs, one_stmt_funcdefs, tryexcepts, docstrings, \
-    returns, SNIPPETS, SINGLE_INPUTS
+    returns, SNIPPETS, SINGLE_INPUTS, LIBSTUFF
 
 from test_astbuilder import FakeSpace
 
@@ -97,6 +97,7 @@ def compare_code(ac_code, sc_code):
         dis.dis(sc_code)
         assert ac_code.co_code == sc_code.co_code
     assert ac_code.co_varnames == sc_code.co_varnames
+    assert ac_code.co_flags == sc_code.co_flags
     
     assert len(ac_code.co_consts) == len(sc_code.co_consts)
     for c1, c2 in zip( ac_code.co_consts, sc_code.co_consts ):
@@ -176,6 +177,12 @@ def test_snippets():
         filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)
         source = file(filepath).read()
         yield check_compile, source, 'exec'
+
+def test_libstuff():
+    for snippet_name in LIBSTUFF:
+        filepath = os.path.join(os.path.dirname(__file__), '../../../lib', snippet_name)
+        source = file(filepath).read()
+        yield check_compile, source, 'exec'        
 
 
 def test_single_inputs():

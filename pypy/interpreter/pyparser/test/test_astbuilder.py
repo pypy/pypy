@@ -616,11 +616,23 @@ SNIPPETS = [
     'snippet_decorators.py',
     ]
 
+LIBSTUFF = [
+    '_file.py',
+    '_sio.py'
+    ]
+
 def test_snippets():
     for snippet_name in SNIPPETS:
         filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)
         source = file(filepath).read()
         yield check_expression, source, 'exec'
+
+def test_libstuff():
+    py.test.skip("failing, need to investigate")
+    for snippet_name in LIBSTUFF:
+        filepath = os.path.join(os.path.dirname(__file__), '../../../lib', snippet_name)
+        source = file(filepath).read()
+        yield check_expression, source, 'exec'        
 
 # FIXME: find the sys' attribute that define this
 STDLIB_PATH = os.path.dirname(os.__file__)
