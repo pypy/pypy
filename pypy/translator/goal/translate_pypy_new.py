@@ -445,7 +445,7 @@ if __name__ == '__main__':
                 c_entry_point = newexename
             update_usession_dir()
             print 'Written %s.' % (c_entry_point,)
-            if not options.run:
+            if options1.run:
                 print 'Running!'
                 if standalone:
                     os.system(c_entry_point)
