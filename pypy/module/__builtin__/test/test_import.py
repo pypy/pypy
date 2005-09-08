@@ -9,13 +9,71 @@ from pypy.lib._osfilewrapper import OsFileWrapper
 
 from pypy.module.__builtin__ import importing
 
-def get_import_path():
-    j = os.path.join
-    p = os.path.abspath(j(os.path.dirname(__file__), 'impsubdir'))
+def setuppkg(pkgname, **entries):
+    p = udir.join('impsubdir')
+    if pkgname:
+        p = p.join(*pkgname.split('.'))
+    p.ensure(dir=1)
+    f = p.join("__init__.py").open('w')
+    print >> f, "# package"
+    f.close()
+    for filename, content in entries.items():
+        filename += '.py'
+        f = p.join(filename).open('w')
+        print >> f, '#', filename
+        print >> f, content
+        f.close()
     return p
 
+def setup_directory_structure(space):
+    root = setuppkg("",
+                    a = "imamodule = 1\ninpackage = 0",
+                    b = "imamodule = 1\ninpackage = 0",
+                    ambig = "imamodule = 1",
+                    )
+    root.ensure("notapackage", dir=1)    # empty, no __init__.py
+    setuppkg("pkg",
+             a          = "imamodule = 1\ninpackage = 1",
+             relative_a = "import a",
+             abs_b      = "import b",
+             abs_x_y    = "import x.y",
+             )
+    setuppkg("pkg.pkg1", a='')
+    setuppkg("pkg.pkg2", a='', b='')
+    setuppkg("pkg_r", inpkg = "import x.y")
+    setuppkg("pkg_r.x")
+    setuppkg("x", y='')
+    setuppkg("ambig", __init__ = "imapackage = 1")
+    setuppkg("pkg_relative_a",
+             __init__ = "import a",
+             a        = "imamodule = 1\ninpackage = 1",
+             )
+    setuppkg("pkg_substituting",
+             __init__ = "import sys, pkg_substituted\n"
+                        "sys.modules[__name__] = pkg_substituted")
+    setuppkg("pkg_substituted", mod='')
+
+    # create compiled/x.py and a corresponding pyc file
+    p = setuppkg("compiled", x = "x = 84")
+    w = space.wrap
+    w_modname = w("compiled.x")
+    filename = str(p.join("x.py"))
+    fd = os.open(filename, os.O_RDONLY, 0666)
+    osfile = importing.OsFileWrapper(fd)
+    try:
+        importing.load_source_module(space,
+                                     w_modname,
+                                     w(importing.Module(space, w_modname)),
+                                     filename,
+                                     osfile)
+    finally:
+        osfile.close()
+
+    return str(root)
+
+
 def _setup(space):
-    dn = get_import_path()
+    dn = setup_directory_structure(space)
     return space.appexec([space.wrap(dn)], """
         (dn): 
             import sys
