@@ -327,7 +327,7 @@ class BoehmGcPolicy(BasicGcPolicy):
     # for rtti node
 
     def rtti_type(self):
-        return 'long @'
+        return BoehmGcRuntimeTypeInfo_OpaqueNode.typename
 
     def rtti_node_factory(self):
         return BoehmGcRuntimeTypeInfo_OpaqueNode
