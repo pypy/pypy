@@ -8,6 +8,7 @@ from pypy.interpreter.astcompiler import ast, consts
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
 from pypy.interpreter.pyparser.error import SyntaxError
+from pypy.interpreter.pyparser.parsestring import parsestr
 
 DEBUG_MODE = 0
 
@@ -346,34 +347,34 @@ def get_atoms( builder, nb ):
     atoms.reverse()
     return atoms
     
-def eval_string(value):
-    """temporary implementation
-
-    FIXME: need to be finished (check compile.c (parsestr) and
-    stringobject.c (PyString_DecodeEscape()) for complete implementation)
-    """
-    # return eval(value)
-    if len(value) == 2:
-        return ''
-    result = ''
-    length = len(value)
-    quotetype = value[0]
-    index = 1
-    while index < length and value[index] == quotetype:
-        index += 1
-    if index == 6:
-        # empty strings like """""" or ''''''
-        return ''
-    # XXX: is it RPYTHON to do this value[index:-index]
-    chars = [char for char in value[index:len(value)-index]]
-    result = ''.join(chars)
-    result = result.replace('\\\\', '\\')
-    d = {'\\b' : '\b', '\\f' : '\f', '\\t' : '\t', '\\n' : '\n',
-         '\\r' : '\r', '\\v' : '\v', '\\a' : '\a',
-         }
-    for escaped, value in d.items():
-        result = result.replace(escaped, value)
-    return result
+#def eval_string(value):
+#    """temporary implementation
+#
+#    FIXME: need to be finished (check compile.c (parsestr) and
+#    stringobject.c (PyString_DecodeEscape()) for complete implementation)
+#    """
+#    # return eval(value)
+#    if len(value) == 2:
+#        return ''
+#    result = ''
+#    length = len(value)
+#    quotetype = value[0]
+#    index = 1
+#    while index < length and value[index] == quotetype:
+#        index += 1
+#    if index == 6:
+#        # empty strings like """""" or ''''''
+#        return ''
+#    # XXX: is it RPYTHON to do this value[index:-index]
+#    chars = [char for char in value[index:len(value)-index]]
+#    result = ''.join(chars)
+#    result = result.replace('\\\\', '\\')
+#    d = {'\\b' : '\b', '\\f' : '\f', '\\t' : '\t', '\\n' : '\n',
+#         '\\r' : '\r', '\\v' : '\v', '\\a' : '\a',
+#         }
+#    for escaped, value in d.items():
+#        result = result.replace(escaped, value)
+#    return result
 
 
 ## misc utilities, especially for power: rule
@@ -490,10 +491,19 @@ def build_atom(builder, nb):
         elif top.name == tok.STRING:
             # need to concatenate strings in atoms
             s = ''
-            for token in atoms:
+            if len(atoms) == 1:
+                token = atoms[0]
                 assert isinstance(token, TokenObject)
-                s += eval_string(token.get_value())
-            builder.push(ast.Const(builder.wrap_string(s)))
+                builder.push(ast.Const(parsestr(builder.space, None, token.get_value()))) # XXX encoding
+            else:
+                space = builder.space
+                empty = space.wrap('')
+                accum = []
+                for token in atoms:
+                    assert isinstance(token, TokenObject)
+                    accum.append(parsestr(builder.space, None, token.get_value())) # XXX encoding
+                w_s = space.call_method(empty, 'join', space.newlist(accum))
+                builder.push(ast.Const(w_s))
         elif top.name == tok.BACKQUOTE:
             builder.push(ast.Backquote(atoms[1]))
         else:

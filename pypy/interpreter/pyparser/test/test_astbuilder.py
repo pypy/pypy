@@ -35,6 +35,7 @@ def nodes_equal(left, right):
     if not isinstance(left,stable_ast.Node) or not isinstance(right,ast_ast.Node):
         return left==right
     if left.__class__.__name__ != right.__class__.__name__:
+        print "Node type mismatch:", left, right
         return False    
     if isinstance(left,stable_ast.Function) and isinstance(right,ast_ast.Function):
         left_nodes = list(left.getChildren())
@@ -56,20 +57,24 @@ def nodes_equal(left, right):
             return False
     elif isinstance(left,stable_ast.Const):
         if isinstance(right,ast_ast.Const):
-            return left.value == right.value
+            r = left.value == right.value
         elif isinstance(right,ast_ast.NoneConst):
-            return left.value == None
+            r = left.value == None
         elif isinstance(right, ast_ast.NumberConst):
-            return left.value == right.number_value
+            r = left.value == right.number_value
         elif isinstance(right, ast_ast.StringConst):
-            return left.value == right.string_value
+            r = left.value == right.string_value
         else:
             print "Not const type %s" % repr(right)
             return False
+        if not r:
+            print "Constant mismatch:", left, right
+        return True
     else:
         left_nodes = left.getChildren()
         right_nodes = right.getChildren()
     if len(left_nodes)!=len(right_nodes):
+        print "Number of children mismatch:", left, right 
         return False
     for i,j in zip(left_nodes,right_nodes):
         if not nodes_equal(i,j):
@@ -513,6 +518,7 @@ SINGLE_INPUTS = [
     'x = 5 ',
     '''"""Docstring""";print 1''',
     '''"Docstring"''',
+    '''"Docstring" "\\x00"''',
     ]
 ]
 
@@ -546,9 +552,15 @@ class FakeSpace:
     def type(self, obj):
         return type(obj)
 
+    def newlist(self, lst):
+        return list(lst)
+
     def newtuple(self, lst):
         return tuple(lst)
     
+    def call_method(self, obj, meth, *args):
+        return getattr(obj, meth)(*args)
+
 def ast_parse_expr(expr, target='single'):
     target = TARGET_DICT[target]
     builder = AstBuilder(space=FakeSpace())
@@ -628,7 +640,7 @@ def test_snippets():
         yield check_expression, source, 'exec'
 
 def test_libstuff():
-    py.test.skip("failing, need to investigate")
+    #py.test.skip("failing, need to investigate")
     for snippet_name in LIBSTUFF:
         filepath = os.path.join(os.path.dirname(__file__), '../../../lib', snippet_name)
         source = file(filepath).read()
@@ -651,13 +663,13 @@ def test_on_stdlib():
 
 
 def test_eval_string():
-    from pypy.interpreter.pyparser.astbuilder import eval_string
     test = ['""', "''", '""""""', "''''''", "''' '''", '""" """', '"foo"',
             "'foo'", '"""\n"""', '"\\ "', '"\\n"',
-            # '"\""',
+            '"\\""',
+            '"\\x00"',
             ]
     for data in test:
-        assert eval_string(data) == eval(data)
+        yield check_expression, data, 'eval'
 
 def test_single_inputs():
     for family in SINGLE_INPUTS:
