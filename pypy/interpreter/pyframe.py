@@ -125,6 +125,9 @@ class PyFrame(eval.EvalFrame):
             # leave that frame
             w_exitvalue = e.w_exitvalue
             executioncontext.return_trace(self, w_exitvalue)
+            # on exit, we try to release self.last_exception -- breaks an
+            # obvious reference cycle, so it helps refcounting implementations
+            self.last_exception = None
             return w_exitvalue
 
     ### line numbers ###

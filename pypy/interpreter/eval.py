@@ -144,10 +144,6 @@ class EvalFrame(Frame):
         try:
             result = self.eval(executioncontext)
         finally:
-            # on exit, we always release self.last_exception.
-            # this belongs into pyframe's eval, but would cost an extra
-            # try..except clause there which we can save.
-            self.last_exception = None
             executioncontext.leave(self)
         return result
 
