@@ -51,6 +51,7 @@ class NodeInfo:
         self.nargs = len(self.argnames)
         self.init = []
         self.flatten_nodes = {}
+        self.additional_methods = {}
         self.parent = parent
 
     def setup_parent(self, classes):
@@ -110,6 +111,7 @@ class NodeInfo:
         print >> buf
         self._gen_getChildNodes(buf)
         print >> buf
+        self._gen_additional_methods(buf)
         self._gen_repr(buf)
         print >> buf
         self._gen_visit(buf)
@@ -220,12 +222,19 @@ class NodeInfo:
         print >> buf, "    def accept(self, visitor):"
         print >> buf, "        return visitor.visit%s(self)" % self.name
 
+    def _gen_additional_methods(self, buf):
+        for key, value in self.additional_methods.iteritems():
+            if key not in '_cur_':
+                print >> buf, ''.join(value)
+                # print >> buf, '\n\n'
+            
     def gen_base_visit(self, buf):
         print >> buf, "    def visit%s(self, node):" % self.name
         print >> buf, "        return self.default( node )"
 
 rx_init = re.compile('init\((.*)\):')
 rx_flatten_nodes = re.compile('flatten_nodes\((.*)\.(.*)\):')
+rx_additional_methods = re.compile('(.*)\.(.*)\((.*?)\):')
 
 def parse_spec(file):
     classes = {}
@@ -242,6 +251,10 @@ def parse_spec(file):
                 mo = rx_flatten_nodes.search(line)
                 if mo:
                     kind = 'flatten_nodes'
+                else:
+                    mo = rx_additional_methods.search(line)
+                    if mo:
+                        kind = 'additional_method'
         if mo is None:
             if cur is None:
                 if comment:
@@ -263,6 +276,8 @@ def parse_spec(file):
                 cur.init.append(line)
             elif kind == 'flatten_nodes':
                 cur.flatten_nodes['_cur_'].append(line)
+            elif kind == 'additional_method':
+                cur.additional_methods['_cur_'].append(' '*4 + line)
         elif kind == 'init':
             # some extra code for a Node's __init__ method
             name = mo.group(1)
@@ -273,6 +288,13 @@ def parse_spec(file):
             attr = mo.group(2)
             cur = classes[name]
             cur.flatten_nodes[attr] = cur.flatten_nodes['_cur_'] = []
+        elif kind == 'additional_method':
+            name = mo.group(1)
+            methname = mo.group(2)
+            params = mo.group(3)
+            cur = classes[name]
+            cur.additional_methods['_cur_'] = ['    def %s(%s):\n' % (methname, params)]
+            cur.additional_methods[methname] = cur.additional_methods['_cur_']
             
     for node in classes.values():
         node.setup_parent(classes)

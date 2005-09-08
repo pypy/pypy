@@ -127,3 +127,16 @@ flatten_nodes(If.tests):
     for test, suite in self.tests:
         nodelist.append(test)
         nodelist.append(suite)
+
+AssTuple.getArgNames(self):
+    argnames = []
+    for node in self.nodes:
+        if isinstance(node, AssTuple):
+            argnames.extend(node.getArgNames())
+        elif isinstance(node, AssName):
+            name = node.name
+            assert isinstance(name, str)
+            argnames.append(name)
+        else:
+            assert False, "should only have AssName and AssTuple as children"
+    return argnames

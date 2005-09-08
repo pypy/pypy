@@ -184,6 +184,19 @@ class AssTuple(Node):
         nodelist.extend(self.nodes)
         return nodelist
 
+    def getArgNames(self):
+        argnames = []
+        for node in self.nodes:
+            if isinstance(node, AssTuple):
+                argnames.extend(node.getArgNames())
+            elif isinstance(node, AssName):
+                name = node.name
+                assert isinstance(name, str)
+                argnames.append(name)
+            else:
+                assert False, "should only have AssName and AssTuple as children"
+        return argnames
+
     def __repr__(self):
         return "AssTuple(%s)" % (repr(self.nodes),)
 
