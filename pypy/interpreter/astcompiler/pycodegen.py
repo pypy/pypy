@@ -481,7 +481,7 @@ class CodeGenerator(ast.ASTVisitor):
             loop_block = None
             while top > 0:
                 top = top - 1
-                kind, loop_block = self.setups[top]
+                kind, loop_block = self.setups.elementAtIndex(top)
                 if kind == LOOP:
                     break
             if kind != LOOP:
