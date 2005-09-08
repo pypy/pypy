@@ -37,7 +37,7 @@ class Node(Wrappable):
     def getChildNodes(self):
         return [] # implemented by subclasses
     def accept(self, visitor):
-        return visitor.visitNode(self)
+        raise NotImplentedError
     def flatten(self):
         res = []
         nodes = self.getChildNodes()
