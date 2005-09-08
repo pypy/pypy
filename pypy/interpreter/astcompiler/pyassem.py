@@ -230,8 +230,9 @@ class FlowGraph:
             # block list, so that they can be re-inserted.
             for b in chain:
                 for j in range(i + 1, len(blocks)):
-                    if blocks[i] == b:
-                        del blocks[i]
+                    if blocks[j] == b:
+                        del blocks[j]
+                        break
                 else:
                     assert False, "Can't find block"
                     
