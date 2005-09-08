@@ -475,6 +475,8 @@ def sanity_check_methods(translator):
             funcs = dict.fromkeys(meth.s_value.prebuiltinstances.iterkeys())
             for subcls in subclasses:
                 f = subcls.cls.__dict__.get(name)
+                if hasattr(f, 'im_self') and f.im_self is None:
+                    f = f.im_func                
                 if f:
                     if f not in funcs:
                         print "Lost method!", name, subcls.cls, cls, subcls.attrs.keys() 
