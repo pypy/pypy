@@ -142,6 +142,8 @@ class CodeGenerator(ast.ASTVisitor):
     __init__() defined in this class.
     """
 
+    graph = None
+
     optimized = 0 # is namespace access optimized?
     __initialized = None
     class_name = None # provide default for instance variable
@@ -165,12 +167,7 @@ class CodeGenerator(ast.ASTVisitor):
 
     def checkClass(self):
         """Verify that class is constructed correctly"""
-        try:
-            assert hasattr(self, 'graph')
-        except AssertionError, msg:
-            intro = "Bad class construction for %s" % self.__class__.__name__
-            raise AssertionError, intro
-
+        assert self.graph is not None, "bad class construction for %r" % self
 
     def emit(self, inst ):
         return self.graph.emit( inst )
