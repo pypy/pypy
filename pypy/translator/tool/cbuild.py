@@ -27,13 +27,27 @@ def compiler_command():
     return os.getenv('PYPY_CC')
 
 def enable_fast_compilation():
+    if sys.platform == 'win32':
+        dash = '/'
+    else:
+        dash = '-'
     from distutils import sysconfig
     gcv = sysconfig.get_config_vars()
     opt = gcv.get('OPT') # not always existent
     if opt:
-        opt = re.sub('-O\d+', '-O0', opt)
+        opt = re.sub('%sO\d+' % dash, '%sO0' % dash, opt)
     else:
-        opt = '-O0'
+        opt = '%sO0' % dash
+    gcv['OPT'] = opt
+
+def ensure_correct_math():
+    if sys.platform != 'win32':
+        return # so far
+    from distutils import sysconfig
+    gcv = sysconfig.get_config_vars()
+    opt = gcv.get('OPT') # not always existent
+    if opt and '/Op' not in opt:
+        opt += '/Op'
     gcv['OPT'] = opt
 
 def compile_c_module(cfile, modname, include_dirs=None, libraries=[]):
@@ -48,6 +62,7 @@ def compile_c_module(cfile, modname, include_dirs=None, libraries=[]):
 
     dirpath = cfile.dirpath()
     lastdir = dirpath.chdir()
+    ensure_correct_math()
     try:
         if debug: print "modname", modname
         c = stdoutcapture.Capture(mixed_out_err = True)
@@ -74,6 +89,9 @@ def compile_c_module(cfile, modname, include_dirs=None, libraries=[]):
                         # instantiate a Distribution, which also allows us to
                         # ignore unwanted features like config files.
                         extra_compile_args = []
+                        # ensure correct math on windows
+                        if sys.platform == 'win32':
+                            extra_compile_args.append('/Op')
                         if get_default_compiler() == 'unix':
                             old_version = False
                             try:
