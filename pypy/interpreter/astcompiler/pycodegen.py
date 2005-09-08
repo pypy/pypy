@@ -128,49 +128,6 @@ class Module(AbstractCompileMode):
         mtime = struct.pack('<i', mtime)
         return self.MAGIC + mtime
 
-class LocalNameFinder(ast.ASTVisitor):
-    """Find local names in scope"""
-    def __init__(self, names=[]):
-        self.names = misc.Set()
-        self.globals = misc.Set()
-        for name in names:
-            self.names.add(name)
-
-    # XXX list comprehensions and for loops
-
-    def getLocals(self):
-        for elt in self.globals.elements():
-            if self.names.has_elt(elt):
-                self.names.remove(elt)
-        return self.names
-
-    def visitDict(self, node):
-        pass
-
-    def visitGlobal(self, node):
-        for name in node.names:
-            self.globals.add(name)
-
-    def visitFunction(self, node):
-        self.names.add(node.name)
-
-    def visitLambda(self, node):
-        pass
-
-    def visitImport(self, node):
-        for name, alias in node.names:
-            self.names.add(alias or name)
-
-    def visitFrom(self, node):
-        for name, alias in node.names:
-            self.names.add(alias or name)
-
-    def visitClass(self, node):
-        self.names.add(node.name)
-
-    def visitAssName(self, node):
-        self.names.add(node.name)
-
 def is_constant_false(node):
     if isinstance(node, ast.Const):
         if not node.value:
@@ -192,7 +149,6 @@ class CodeGenerator(ast.ASTVisitor):
     def __init__(self, space):
         self.space = space
         self.checkClass()
-        self.locals = misc.Stack()
         self.setups = misc.Stack()
         self.last_lineno = -1
         self._div_op = "BINARY_DIVIDE"
@@ -270,9 +226,6 @@ class CodeGenerator(ast.ASTVisitor):
         raise RuntimeError, "should be implemented by subclasses"
 
     # Next five methods handle name access
-
-    def isLocalName(self, name):
-        return self.locals.top().has_elt(name)
 
     def storeName(self, name):
         self._nameOp('STORE', name)
@@ -357,9 +310,6 @@ class CodeGenerator(ast.ASTVisitor):
         if node.doc:
             self.emitop_obj('LOAD_CONST', node.doc)
             self.storeName('__doc__')
-        lnf = LocalNameFinder()
-        node.node.accept(lnf)
-        self.locals.push(lnf.getLocals())
         node.node.accept( self )
         self.emitop_obj('LOAD_CONST', self.space.w_None )
         self.emit('RETURN_VALUE')
@@ -1255,9 +1205,6 @@ class AbstractFunctionCode(CodeGenerator):
         if not isLambda and func.doc:
             self.setDocstring(func.doc)
 
-        lnf = LocalNameFinder(args)
-        func.code.accept(lnf)
-        self.locals.push(lnf.getLocals())
         if func.varargs:
             self.graph.setFlag(CO_VARARGS)
         if func.kwargs:
@@ -1329,9 +1276,6 @@ class AbstractClassCode(CodeGenerator):
         self.graph = pyassem.PyFlowGraph( space, klass.name, klass.filename,
                                            optimized=0, klass=1)
         CodeGenerator.__init__(self, space)
-        lnf = LocalNameFinder()
-        klass.code.accept(lnf)
-        self.locals.push(lnf.getLocals())
         self.graph.setFlag(CO_NEWLOCALS)
         if klass.doc:
             self.setDocstring(klass.doc)
