@@ -52,6 +52,7 @@ def setup_directory_structure(space):
              __init__ = "import sys, pkg_substituted\n"
                         "sys.modules[__name__] = pkg_substituted")
     setuppkg("pkg_substituted", mod='')
+    p = setuppkg("readonly", x='')
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
@@ -228,6 +229,18 @@ class AppTestImport:
         import sys
         import compiled.x
         assert compiled.x == sys.modules.get('compiled.x')
+
+    def test_cannot_write_pyc(self):
+        import sys, os
+        p = os.path.join(sys.path[-1], 'readonly')
+        try:
+            os.chmod(p, 0555)
+        except:
+            skip("cannot chmod() the test directory to read-only")
+        try:
+            import readonly.x    # cannot write x.pyc, but should not crash
+        finally:
+            os.chmod(p, 0775)
 
 def _getlong(data):
     x = marshal.dumps(data)

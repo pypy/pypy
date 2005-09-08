@@ -27,6 +27,9 @@ class OsFileWrapper(object):
             # os.write will raise an error itself
             writecount += os.write(self.fd, buf[writecount:])
 
+    def seek(self, position):
+        os.lseek(self.fd, position, 0)
+
     def close(self):
         os.close(self.fd)
 

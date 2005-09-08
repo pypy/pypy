@@ -488,13 +488,35 @@ def write_compiled_module(space, co, cpathname, mtime):
         #print "indeed writing", cpathname
     try:
         w_str = space.call_method(w_marshal, 'dumps', space.wrap(co))
+        strbuf = space.str_w(w_str)
     except OperationError:
         #print "Problem while marshalling %s, skipping" % cpathname
         return
-    fd = os.open(cpathname, BIN_WRITEMASK, 0666)
-    osfile = OsFileWrapper(fd)
-    _w_long(osfile, pyc_magic)
-    _w_long(osfile, mtime)
-    strbuf = space.str_w(w_str)
-    osfile.write(strbuf)
-    os.close(fd)
+    #
+    # Careful here: we must not crash nor leave behind something that looks
+    # too much like a valid pyc file but really isn't one.
+    #
+    try:
+        fd = os.open(cpathname, BIN_WRITEMASK, 0666)
+    except OSError:
+        return    # cannot create file
+    try:
+        osfile = OsFileWrapper(fd)
+        try:
+            # will patch the header later; write zeroes until we are sure that
+            # the rest of the file is valid
+            _w_long(osfile, 0)   # pyc_magic
+            _w_long(osfile, 0)   # mtime
+            osfile.write(strbuf)
+
+            # should be ok (XXX or should call os.fsync() to be sure?)
+            osfile.seek(0)
+            _w_long(osfile, pyc_magic)
+            _w_long(osfile, mtime)
+        finally:
+            osfile.close()
+    except OSError:
+        try:
+            os.unlink(pathname)
+        except OSError:
+            pass
