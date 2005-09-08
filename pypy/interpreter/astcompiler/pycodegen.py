@@ -128,9 +128,9 @@ class Module(AbstractCompileMode):
         mtime = struct.pack('<i', mtime)
         return self.MAGIC + mtime
 
-def is_constant_false(node):
+def is_constant_false(space, node):
     if isinstance(node, ast.Const):
-        if not node.value:
+        if not space.is_true(node.value):
             return 1
     return 0
 
@@ -215,7 +215,7 @@ class CodeGenerator(ast.ASTVisitor):
             return name
 
     def parseSymbols(self, tree):
-        s = symbols.SymbolVisitor()
+        s = symbols.SymbolVisitor(self.space)
         walk(tree, s)
         return s.scopes
 
@@ -384,7 +384,7 @@ class CodeGenerator(ast.ASTVisitor):
     def visitIf(self, node):
         end = self.newBlock()
         for test, suite in node.tests:
-            if is_constant_false(test):
+            if is_constant_false(self.space, test):
                 # XXX will need to check generator stuff here
                 continue
             self.set_lineno(test)

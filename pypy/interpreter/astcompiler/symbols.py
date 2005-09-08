@@ -213,7 +213,8 @@ class ClassScope(Scope):
         self.__super_init(name, module, name)
 
 class SymbolVisitor(ast.ASTVisitor):
-    def __init__(self):
+    def __init__(self, space):
+        self.space = space
         self.scopes = {}
         self.klass = None
         self.scope_stack = []
@@ -447,22 +448,10 @@ class SymbolVisitor(ast.ASTVisitor):
 
     # prune if statements if tests are false
 
-    _const_types = types.StringType, types.IntType, types.FloatType
-
     def visitIf(self, node ):
         for test, body in node.tests:
             if isinstance(test, ast.Const):
-                # XXX: Shouldn't come here anymore
-                if type(test.value) in self._const_types:
-                    if not test.value:
-                        continue
-            if isinstance(test, ast.NumberConst):
-                if not test.number_value:
-                    continue
-            if isinstance(test, ast.NoneConst):
-                continue                
-            if isinstance(test, ast.StringConst):
-                if not test.string_value:
+                if not self.space.is_true(test.value):
                     continue
             test.accept( self )
             body.accept( self )
