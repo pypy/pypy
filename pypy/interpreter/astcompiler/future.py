@@ -66,13 +66,13 @@ class BadFutureParser(ast.ASTVisitor):
             if isinstance(s, ast.From):
                 if s.valid_future:
                     continue
-                if s.modname != "__future__":
-                    continue
                 self.visitFrom(s)
             else:
                 self.default(s)
 
     def visitFrom(self, node):
+        if node.modname != "__future__":
+            return
         raise SyntaxError( "from __future__ imports must occur at the beginning of the file",
                            filename=node.filename,
                            lineno=node.lineno)
