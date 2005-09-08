@@ -437,10 +437,10 @@ if __name__ == '__main__':
                         'gcpolicy' : gcpolicy}
             c_entry_point = t.compile(options1.backend, **keywords)
                              
-            if standalone and options1.backend == 'c': # xxx fragile and messy
+            if standalone: # xxx fragile and messy
                 import shutil
                 exename = mkexename(c_entry_point)
-                newexename = mkexename('./pypy-c')
+                newexename = mkexename('./pypy-' + options1.backend)
                 shutil.copy(exename, newexename)
                 c_entry_point = newexename
             update_usession_dir()
