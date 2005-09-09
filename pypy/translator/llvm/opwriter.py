@@ -347,6 +347,7 @@ class OpWriter(object):
         self.codewriter.label(exc_label)
 
         exc_found_labels, last_exception_type = [], None
+        catch_all = False
         for link in self.block.exits[1:]:
             assert issubclass(link.exitcase, Exception)
 
@@ -373,6 +374,7 @@ class OpWriter(object):
             not_this_exception_label = block_label + '_not_exception_' + etype.ref[1:]
 
             if current_exception_type.find('getelementptr') == -1:  #XXX catch all (except:)
+                catch_all = True
                 self.codewriter.br_uncond(exc_found_label)
             else:
                 if not last_exception_type:
@@ -386,11 +388,11 @@ class OpWriter(object):
                                      [last_exception_type, current_exception_type],
                                      [lltype_of_exception_type, lltype_of_exception_type])
                 self.codewriter.br(ll_issubclass_cond, not_this_exception_label, exc_found_label)
+                self.codewriter.label(not_this_exception_label)
 
-            self.codewriter.label(not_this_exception_label)
-
-        self.codewriter.comment('reraise when exception is not caught')
-        self.codewriter.unwind()
+        if not catch_all:
+            self.codewriter.comment('reraise when exception is not caught')
+            self.codewriter.unwind()
 
         for label, target, last_exc_type_var, last_exc_value_var in exc_found_labels:
             self.codewriter.label(label)
