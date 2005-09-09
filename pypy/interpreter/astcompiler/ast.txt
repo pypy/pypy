@@ -9,8 +9,9 @@
 Module: doc*, node
 Stmt: nodes!
 Decorators: nodes!
-Function: decorators&, name*, argnames*, defaults!, flags*, doc*, code
-Lambda: argnames*, defaults!, flags*, code
+AbstractFunction:
+Function(AbstractFunction): decorators&, name*, argnames*, defaults!, flags*, doc*, code
+Lambda(AbstractFunction): argnames*, defaults!, flags*, code
 Class: name*, bases!, doc*, code
 Pass: 
 Break: 
@@ -42,17 +43,18 @@ AssAttr: expr, attrname*, flags*
 ListComp: expr, quals!
 ListCompFor: assign, list, ifs!
 ListCompIf: test
-GenExpr: code 
+GenExpr(AbstractFunction): code 
 GenExprInner: expr, quals!
 GenExprFor: assign, iter, ifs!
 GenExprIf: test
 List: nodes!
 Dict: items!
-Not: expr
+UnaryOp:
+Not(UnaryOp): expr
 Compare: expr, ops!
 Name: varname*
 Global: names*
-Backquote: expr
+Backquote(UnaryOp): expr
 Getattr: expr, attrname*
 CallFunc: node, args!, star_args& = None, dstar_args& = None
 Keyword: name*, expr
@@ -62,23 +64,26 @@ Sliceobj: nodes!
 Slice: expr, flags*, lower&, upper&
 Assert: test, fail&
 Tuple: nodes!
-Or: nodes!
-And: nodes!
-Bitor: nodes!
-Bitxor: nodes!
-Bitand: nodes!
-LeftShift: (left, right)
-RightShift: (left, right)
-Add: (left, right)
-Sub: (left, right)
-Mul: (left, right)
-Div: (left, right)
-Mod: (left, right)
-Power: (left, right)
-FloorDiv: (left, right)
-UnaryAdd: expr
-UnarySub: expr
-Invert: expr
+AbstractTest:
+Or(AbstractTest): nodes!
+And(AbstractTest): nodes!
+BitOp:
+Bitor(BitOp): nodes!
+Bitxor(BitOp): nodes!
+Bitand(BitOp): nodes!
+BinaryOp:
+LeftShift(BinaryOp): (left, right)
+RightShift(BinaryOp): (left, right)
+Add(BinaryOp): (left, right)
+Sub(BinaryOp): (left, right)
+Mul(BinaryOp): (left, right)
+Div(BinaryOp): (left, right)
+Mod(BinaryOp): (left, right)
+Power(BinaryOp): (left, right)
+FloorDiv(BinaryOp): (left, right)
+UnaryAdd(UnaryOp): expr
+UnarySub(UnaryOp): expr
+Invert(UnaryOp): expr
 
 init(Function):
     self.varargs = self.kwargs = 0

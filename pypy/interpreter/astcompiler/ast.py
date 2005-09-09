@@ -72,7 +72,58 @@ class Expression(Node):
     def accept(self, visitor):
         return visitor.visitExpression(self)
 
-class Add(Node):
+class AbstractFunction(Node):
+    def __init__(self, lineno=-1):
+        Node.__init__(self, lineno)
+
+    def getChildren(self):
+        "NOT_RPYTHON"
+        return []
+
+    def getChildNodes(self):
+        return []
+
+    def __repr__(self):
+        return "AbstractFunction()"
+
+    def accept(self, visitor):
+        return visitor.visitAbstractFunction(self)
+
+class AbstractTest(Node):
+    def __init__(self, lineno=-1):
+        Node.__init__(self, lineno)
+
+    def getChildren(self):
+        "NOT_RPYTHON"
+        return []
+
+    def getChildNodes(self):
+        return []
+
+    def __repr__(self):
+        return "AbstractTest()"
+
+    def accept(self, visitor):
+        return visitor.visitAbstractTest(self)
+
+class BinaryOp(Node):
+    def __init__(self, lineno=-1):
+        Node.__init__(self, lineno)
+
+    def getChildren(self):
+        "NOT_RPYTHON"
+        return []
+
+    def getChildNodes(self):
+        return []
+
+    def __repr__(self):
+        return "BinaryOp()"
+
+    def accept(self, visitor):
+        return visitor.visitBinaryOp(self)
+
+class Add(BinaryOp):
     def __init__(self, (left, right), lineno=-1):
         Node.__init__(self, lineno)
         self.left = left
@@ -91,7 +142,7 @@ class Add(Node):
     def accept(self, visitor):
         return visitor.visitAdd(self)
 
-class And(Node):
+class And(AbstractTest):
     def __init__(self, nodes, lineno=-1):
         Node.__init__(self, lineno)
         self.nodes = nodes
@@ -274,7 +325,24 @@ class AugAssign(Node):
     def accept(self, visitor):
         return visitor.visitAugAssign(self)
 
-class Backquote(Node):
+class UnaryOp(Node):
+    def __init__(self, lineno=-1):
+        Node.__init__(self, lineno)
+
+    def getChildren(self):
+        "NOT_RPYTHON"
+        return []
+
+    def getChildNodes(self):
+        return []
+
+    def __repr__(self):
+        return "UnaryOp()"
+
+    def accept(self, visitor):
+        return visitor.visitUnaryOp(self)
+
+class Backquote(UnaryOp):
     def __init__(self, expr, lineno=-1):
         Node.__init__(self, lineno)
         self.expr = expr
@@ -292,7 +360,24 @@ class Backquote(Node):
     def accept(self, visitor):
         return visitor.visitBackquote(self)
 
-class Bitand(Node):
+class BitOp(Node):
+    def __init__(self, lineno=-1):
+        Node.__init__(self, lineno)
+
+    def getChildren(self):
+        "NOT_RPYTHON"
+        return []
+
+    def getChildNodes(self):
+        return []
+
+    def __repr__(self):
+        return "BitOp()"
+
+    def accept(self, visitor):
+        return visitor.visitBitOp(self)
+
+class Bitand(BitOp):
     def __init__(self, nodes, lineno=-1):
         Node.__init__(self, lineno)
         self.nodes = nodes
@@ -312,7 +397,7 @@ class Bitand(Node):
     def accept(self, visitor):
         return visitor.visitBitand(self)
 
-class Bitor(Node):
+class Bitor(BitOp):
     def __init__(self, nodes, lineno=-1):
         Node.__init__(self, lineno)
         self.nodes = nodes
@@ -332,7 +417,7 @@ class Bitor(Node):
     def accept(self, visitor):
         return visitor.visitBitor(self)
 
-class Bitxor(Node):
+class Bitxor(BitOp):
     def __init__(self, nodes, lineno=-1):
         Node.__init__(self, lineno)
         self.nodes = nodes
@@ -556,7 +641,7 @@ class Discard(Node):
     def accept(self, visitor):
         return visitor.visitDiscard(self)
 
-class Div(Node):
+class Div(BinaryOp):
     def __init__(self, (left, right), lineno=-1):
         Node.__init__(self, lineno)
         self.left = left
@@ -622,7 +707,7 @@ class Exec(Node):
     def accept(self, visitor):
         return visitor.visitExec(self)
 
-class FloorDiv(Node):
+class FloorDiv(BinaryOp):
     def __init__(self, (left, right), lineno=-1):
         Node.__init__(self, lineno)
         self.left = left
@@ -692,7 +777,7 @@ class From(Node):
     def accept(self, visitor):
         return visitor.visitFrom(self)
 
-class Function(Node):
+class Function(AbstractFunction):
     def __init__(self, decorators, name, argnames, defaults, flags, doc, code, lineno=-1):
         Node.__init__(self, lineno)
         self.decorators = decorators
@@ -736,7 +821,7 @@ class Function(Node):
     def accept(self, visitor):
         return visitor.visitFunction(self)
 
-class GenExpr(Node):
+class GenExpr(AbstractFunction):
     def __init__(self, code, lineno=-1):
         Node.__init__(self, lineno)
         self.code = code
@@ -917,7 +1002,7 @@ class Import(Node):
     def accept(self, visitor):
         return visitor.visitImport(self)
 
-class Invert(Node):
+class Invert(UnaryOp):
     def __init__(self, expr, lineno=-1):
         Node.__init__(self, lineno)
         self.expr = expr
@@ -954,7 +1039,7 @@ class Keyword(Node):
     def accept(self, visitor):
         return visitor.visitKeyword(self)
 
-class Lambda(Node):
+class Lambda(AbstractFunction):
     def __init__(self, argnames, defaults, flags, code, lineno=-1):
         Node.__init__(self, lineno)
         self.argnames = argnames
@@ -990,7 +1075,7 @@ class Lambda(Node):
     def accept(self, visitor):
         return visitor.visitLambda(self)
 
-class LeftShift(Node):
+class LeftShift(BinaryOp):
     def __init__(self, (left, right), lineno=-1):
         Node.__init__(self, lineno)
         self.left = left
@@ -1100,7 +1185,7 @@ class ListCompIf(Node):
     def accept(self, visitor):
         return visitor.visitListCompIf(self)
 
-class Mod(Node):
+class Mod(BinaryOp):
     def __init__(self, (left, right), lineno=-1):
         Node.__init__(self, lineno)
         self.left = left
@@ -1138,7 +1223,7 @@ class Module(Node):
     def accept(self, visitor):
         return visitor.visitModule(self)
 
-class Mul(Node):
+class Mul(BinaryOp):
     def __init__(self, (left, right), lineno=-1):
         Node.__init__(self, lineno)
         self.left = left
@@ -1192,7 +1277,7 @@ class NoneConst(Node):
     def accept(self, visitor):
         return visitor.visitNoneConst(self)
 
-class Not(Node):
+class Not(UnaryOp):
     def __init__(self, expr, lineno=-1):
         Node.__init__(self, lineno)
         self.expr = expr
@@ -1228,7 +1313,7 @@ class NumberConst(Node):
     def accept(self, visitor):
         return visitor.visitNumberConst(self)
 
-class Or(Node):
+class Or(AbstractTest):
     def __init__(self, nodes, lineno=-1):
         Node.__init__(self, lineno)
         self.nodes = nodes
@@ -1265,7 +1350,7 @@ class Pass(Node):
     def accept(self, visitor):
         return visitor.visitPass(self)
 
-class Power(Node):
+class Power(BinaryOp):
     def __init__(self, (left, right), lineno=-1):
         Node.__init__(self, lineno)
         self.left = left
@@ -1385,7 +1470,7 @@ class Return(Node):
     def accept(self, visitor):
         return visitor.visitReturn(self)
 
-class RightShift(Node):
+class RightShift(BinaryOp):
     def __init__(self, (left, right), lineno=-1):
         Node.__init__(self, lineno)
         self.left = left
@@ -1494,7 +1579,7 @@ class StringConst(Node):
     def accept(self, visitor):
         return visitor.visitStringConst(self)
 
-class Sub(Node):
+class Sub(BinaryOp):
     def __init__(self, (left, right), lineno=-1):
         Node.__init__(self, lineno)
         self.left = left
@@ -1616,7 +1701,7 @@ class Tuple(Node):
     def accept(self, visitor):
         return visitor.visitTuple(self)
 
-class UnaryAdd(Node):
+class UnaryAdd(UnaryOp):
     def __init__(self, expr, lineno=-1):
         Node.__init__(self, lineno)
         self.expr = expr
@@ -1634,7 +1719,7 @@ class UnaryAdd(Node):
     def accept(self, visitor):
         return visitor.visitUnaryAdd(self)
 
-class UnarySub(Node):
+class UnarySub(UnaryOp):
     def __init__(self, expr, lineno=-1):
         Node.__init__(self, lineno)
         self.expr = expr
@@ -1717,6 +1802,10 @@ class ASTVisitor(object):
         return self.default(node)
 
 
+    def visitAbstractFunction(self, node):
+        return self.default( node )
+    def visitAbstractTest(self, node):
+        return self.default( node )
     def visitAdd(self, node):
         return self.default( node )
     def visitAnd(self, node):
@@ -1736,6 +1825,10 @@ class ASTVisitor(object):
     def visitAugAssign(self, node):
         return self.default( node )
     def visitBackquote(self, node):
+        return self.default( node )
+    def visitBinaryOp(self, node):
+        return self.default( node )
+    def visitBitOp(self, node):
         return self.default( node )
     def visitBitand(self, node):
         return self.default( node )
@@ -1856,6 +1949,8 @@ class ASTVisitor(object):
     def visitTuple(self, node):
         return self.default( node )
     def visitUnaryAdd(self, node):
+        return self.default( node )
+    def visitUnaryOp(self, node):
         return self.default( node )
     def visitUnarySub(self, node):
         return self.default( node )

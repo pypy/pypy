@@ -58,7 +58,7 @@ class NodeInfo:
         if self.parent:
             self.parent = classes[self.parent]
         else:
-            self.parent = NodeInfo("Node","")
+            self.parent = Node_NodeInfo
 
     def get_argnames(self):
         if '(' in self.args:
@@ -232,6 +232,8 @@ class NodeInfo:
         print >> buf, "    def visit%s(self, node):" % self.name
         print >> buf, "        return self.default( node )"
 
+Node_NodeInfo = NodeInfo("Node","")
+
 rx_init = re.compile('init\((.*)\):')
 rx_flatten_nodes = re.compile('flatten_nodes\((.*)\.(.*)\):')
 rx_additional_methods = re.compile('(.*)\.(.*)\((.*?)\):')
@@ -331,8 +333,15 @@ def main():
     print prologue
     print
     classes = parse_spec(SPEC)
-    for info in classes:
+    emitted = {Node_NodeInfo: True}
+    def emit(info):
+        if info in emitted:
+            return
+        emitted[info] = True
+        emit(info.parent)
         print info.gen_source()
+    for info in classes:
+        emit(info)
     gen_ast_visitor(classes)
     print epilogue
 
