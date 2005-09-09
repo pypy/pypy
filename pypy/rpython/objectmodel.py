@@ -21,7 +21,7 @@ def we_are_translated():
 class FREED_OBJECT(object):
     def __getattribute__(self, attr):
         raise RuntimeError("trying to access freed object")
-    def __setattribute__(self, attr, value):
+    def __setattr__(self, attr, value):
         raise RuntimeError("trying to access freed object")
 
 
