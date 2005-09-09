@@ -394,7 +394,14 @@ class PythonAstCompiler(CPythonCompiler):
     """
     def compile(self, source, filename, mode, flags):
         from pyparser.error import ParseError
+        from pyparser.error import SyntaxError
+        from pypy.interpreter import astcompiler
+        from pypy.interpreter.astcompiler.pycodegen import ModuleCodeGenerator
+        from pypy.interpreter.astcompiler.pycodegen import InteractiveCodeGenerator
+        from pypy.interpreter.astcompiler.pycodegen import ExpressionCodeGenerator
         from pyparser.pythonutil import AstBuilder, PYTHON_PARSER, TARGET_DICT 
+        from pypy.interpreter.pycode import PyCode
+
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
         try:
@@ -406,17 +413,7 @@ class PythonAstCompiler(CPythonCompiler):
         except ParseError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
-        return self.compile_parse_result(ast_tree, filename, mode, flags)
 
-    def compile_parse_result(self, ast_tree, filename, mode, flags):
-        # __________
-        # XXX this uses the non-annotatable astcompiler at interp-level
-        from pypy.interpreter import astcompiler
-        from pyparser.error import SyntaxError
-        from pypy.interpreter.astcompiler.pycodegen import ModuleCodeGenerator
-        from pypy.interpreter.astcompiler.pycodegen import InteractiveCodeGenerator
-        from pypy.interpreter.astcompiler.pycodegen import ExpressionCodeGenerator
-        space = self.space
         try:
             astcompiler.misc.set_filename(filename, ast_tree)
             flag_names = get_flag_names(space, flags)
@@ -443,15 +440,13 @@ class PythonAstCompiler(CPythonCompiler):
 ##                                  space.wrap(e.end), space.wrap(e.reason)]))
         except ValueError,e:
             #if e.__class__ != ValueError:
-            #     extra_msg = "(Really go %s)" % e.__class__.__name__
+            #     extra_msg = "(Really got %s)" % e.__class__.__name__
             #else:
             #    extra_msg = ""
             raise OperationError(space.w_ValueError,space.wrap(str(e)))
         except TypeError,e:
             raise
             raise OperationError(space.w_TypeError,space.wrap(str(e)))
-        # __________ end of XXX above
-        from pypy.interpreter.pycode import PyCode
         assert isinstance(c,PyCode)
         return c
     #compile_parse_result._annspecialcase_ = 'override:cpy_stablecompiler'

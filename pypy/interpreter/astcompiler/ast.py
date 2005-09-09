@@ -1710,6 +1710,12 @@ class ASTVisitor(object):
         for child in node.getChildNodes():
             child.accept(self)
 
+    def visitExpression(self, node):
+        return self.default(node)
+
+    def visitEmptyNode(self, node):
+        return self.default(node)
+
 
     def visitAdd(self, node):
         return self.default( node )

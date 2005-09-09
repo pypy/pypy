@@ -944,7 +944,7 @@ class CodeGenerator(ast.ASTVisitor):
         opcode = callfunc_opcode_info[have_star, have_dstar]
         self.emitop_int(opcode, kw << 8 | pos)
 
-    def visitPrint(self, node, newline=0):
+    def visitPrint(self, node):
         self.set_lineno(node)
         if node.dest:
             node.dest.accept( self )
@@ -957,11 +957,22 @@ class CodeGenerator(ast.ASTVisitor):
                 self.emit('PRINT_ITEM_TO')
             else:
                 self.emit('PRINT_ITEM')
-        if node.dest and not newline:
+        if node.dest:
             self.emit('POP_TOP')
 
     def visitPrintnl(self, node):
-        self.visitPrint(node, newline=1)
+        self.set_lineno(node)
+        if node.dest:
+            node.dest.accept( self )
+        for child in node.nodes:
+            if node.dest:
+                self.emit('DUP_TOP')
+            child.accept( self )
+            if node.dest:
+                self.emit('ROT_TWO')
+                self.emit('PRINT_ITEM_TO')
+            else:
+                self.emit('PRINT_ITEM')
         if node.dest:
             self.emit('PRINT_NEWLINE_TO')
         else:
@@ -978,8 +989,10 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('YIELD_VALUE')
 
     # slice and subscript stuff
+    def visitSlice(self, node):
+        return self._visitSlice(node, False)
 
-    def visitSlice(self, node, aug_flag=0):
+    def _visitSlice(self, node, aug_flag):
         # aug_flag is used by visitAugSlice
         node.expr.accept( self )
         slice = 0
@@ -1005,7 +1018,10 @@ class CodeGenerator(ast.ASTVisitor):
         else:
             assert False, "weird slice %s" % node.flags
 
-    def visitSubscript(self, node, aug_flag=0):
+    def visitSubscript(self, node):
+        return self._visitSubscript(node, False)
+
+    def _visitSubscript(self, node, aug_flag):
         node.expr.accept( self )
         for sub in node.subs:
             sub.accept( self )
@@ -1362,12 +1378,12 @@ class AugLoadVisitor(ast.ASTVisitor):
         self.main.emitop('LOAD_ATTR', self.main.mangle(node.attrname))
 
     def visitSlice(self, node):
-        self.main.visitSlice(node, 1)
+        self.main._visitSlice(node, True)
 
     def visitSubscript(self, node):
         if len(node.subs) > 1:
             raise SyntaxError( "augmented assignment to tuple is not possible" )
-        self.main.visitSubscript(node, 1)
+        self.main._visitSubscript(node, True)
 
 
 class AugStoreVisitor(ast.ASTVisitor):
