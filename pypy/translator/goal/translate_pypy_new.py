@@ -1,47 +1,48 @@
 #! /usr/bin/env python
 #  
-#
 """
 Command-line options for translate_pypy:
 
-    Option groups:
-        Annotation:
-            -m          --lowmem                Try to save memory
-            -n          --no_annotations        Don't infer annotations
-            -d          --debug                 record debug information
-            -i          --insist                Dont't stop on first error
-            
-        Specialization:
-            -t          --specialize            Don't specialize
-            
-        Backend optimisation
-            -o          --optimize              Don't optimize (should have 
-                                                different name)
-            
-        Process options:
-            -f  fork1[fork2]  --fork fork1[fork2] (UNIX) Create restartable 
-                                                checkpoint after annotation
-                                                [,specialization]
-            -l  file    --load file             load translator from file
-            -s  file    --save file             save translator to file
-        
-        Codegeneration options:
-            -g gc       --gc gc                 Garbage collector
-            -b be       --backend be            Backend selector
-            -c          --gencode               Don't generate code
-            
-        Compilation options:
-            
-        Run options:
-            -r          --no_run                Don't run the compiled code
-            -x          --batch                 Dont run interactive helpers
-        Pygame options:
-            -p          --pygame                Dont run pygame
-            -H number   --huge number           Threshold in the number of 
-                                                functions after which only a 
-                                                local call graph and not a full 
-                                                one is displayed
+    See below
 """
+
+opts = {
+    'Annotation':[
+        ['-m', '--lowmem', 'Try to save memory', [True,False], False],
+        ['-n', '--no_annotations', "Don't infer annotations", [True,False], False],
+        ['-d', '--debug', 'record debug information', [True,False], False],
+        ['-i', '--insist', "Dont't stop on first error", [True,False], True]], 
+            
+    'Specialization':[
+        ['-t', '--specialize', "Don't specialize", [True,False], True]],
+            
+    'Backend optimisation': [
+        ['-o', '--optimize', "Don't optimize (should have different name)", 
+                                                             [True,False], True ]],
+                    
+    'Process options':[
+        ['-f', '--fork', 
+               "(UNIX) Create restartable checkpoint after annotation [,specialization]",
+                            [['fork1','fork2']], [] ],
+        ['-l', '--load', "load translator from file", [str], ''],
+        ['-s', '--save', "save translator to file", [str], '']], 
+        
+    'Codegeneration options':[
+        ['-g', '--gc', 'Garbage collector', ['ref', 'boehm','none'], 'ref'], 
+        ['-b', '--backend', 'Backend selector', ['c','llvm'],'c'], 
+        ['-w', '--gencode', "Don't generate code", [True,False], True], 
+        ['-c', '--compile', "Don't compile generated code", [True,False], True]], 
+            
+    'Compilation options':[],
+            
+    'Run options':[
+        ['-r', '--run', "Don't run the compiled code", [True,False], True], 
+        ['-x', '--batch', "Dont run interactive helpers", [True,False], False]],
+    'Pygame options':[
+        ['-p', '--pygame', "Dont run pygame", [True,False], True], 
+        ['-H', '--huge',
+           "Threshold in the number of functions after which only a local call graph and not a full one is displayed", [int], 0 ]]}
+           
 import autopath, sys, os
 
 if '-use-snapshot' in sys.argv:
@@ -100,7 +101,6 @@ annmodel.DEBUG = False
 # __________  Main  __________
 
 def analyse(target):
-    global t, entry_point, inputtypes, standalone
 
     policy = AnnotatorPolicy()
     if target:
@@ -120,10 +120,10 @@ def analyse(target):
     if standalone:
         ldef = listdef.ListDef(None, annmodel.SomeString())
         inputtypes = [annmodel.SomeList(ldef)]
-
+    
     if listen_port:
         run_async_server()
-    if not options1.no_a:
+    if not options1.no_annotations:
         print 'Annotating...'
         print 'with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__) 
         a = t.annotate(inputtypes, policy=policy)
@@ -152,6 +152,7 @@ def analyse(target):
         unixcheckpoint.restartable_point(auto='run')
     if a:
         t.frozen = True   # cannot freeze if we don't have annotations
+    return t, entry_point, inputtypes, standalone
 
 def assert_rpython_mostly_not_imported(): 
     prefix = 'pypy.rpython.'
@@ -300,46 +301,23 @@ if __name__ == '__main__':
 
     from optparse import OptionParser
     parser = OptionParser()
-    parser.add_option("-u", "--usesnapshot", dest="snapshot", default=False,
-                  action="store_true",help="use snapshot")
-
-    parser.add_option("-f", "--fork", dest="fork", default=[],
-                  action="append",help="(UNIX) Create restartable checkpoint after annotation,specialization")
-    parser.add_option("-m", "--lowmem", dest="lowmem", default=False,
-                  action="store_true",help="Try to save memory")
-    parser.add_option("-t", "--specialize", dest="specialize", default=True,
-                  action="store_false",help="Don't specialize")
-    parser.add_option("-o", "--optimize", dest="optimize", default=True,
-                  action="store_false",help="Don't do backend optimizations")
-    parser.add_option("-n", "--no_annotations", dest="no_a", default=False,
-                  action="store_true", help="Don't infer annotations")    
-    parser.add_option("-l", "--load", dest="loadfile",
-                  help="load translator from file")
-    parser.add_option("-s", "--save", dest="savefile",
-                  help="save translator to file")    
-    parser.add_option("-i", "--insist", dest="insist", default=True,
-                  action="store_true", help="Don't stop on first error")    
-    parser.add_option("-d", "--debug", dest="debug", default=False,
-                  action="store_true", help="record debug information")    
-
-    parser.add_option("-g", "--gc", dest="gc", default="ref",
-                  help="choose garbage collector (ref, boehm, none)")    
-    parser.add_option("-b", "--backend", dest="backend", default='c',
-                  help="choose backend (c, llvm, llinterpret)")    
-    parser.add_option("-c", "--gencode", dest="really_compile", default=True,
-                  action="store_false",help="Don't generate C code")
-
-    parser.add_option("-r", "--no_run", dest="run", default=True,
-                  action="store_false",help="compile but don't run")    
-    parser.add_option("-H", "--huge", dest="huge", type="int",
-                  help="Threshold in the number of functions after which only a local call\
-              graph and not a full one is displayed")
-    parser.add_option("-p", "--pygame", dest="pygame", default=True,
-                  action="store_false", help="Don't start Pygame viewer")    
-    parser.add_option("-x", "--batch", dest="batch", default=False,
-                  action="store_true",help="Don't use interactive helpers, like pdb")
-    (options1, args) = parser.parse_args()
+    for group in opts:
+        for option in opts[group]:
+            if option[-1] in [True,False]:
+                if option[-1] == True: 
+                    action = "store_false"
+                else:
+                    action = "store_true"
+                parser.add_option(option[0],option[1], default=option[-1], 
+                dest=option[1].lstrip('--'), help=option[2], action=action)
+            elif type(option[-2][0]) == list:
+                parser.add_option(option[0],option[1], default=option[-1], 
+                dest=option[1].lstrip('--'), help=option[2], action="append")
+            else:
+                parser.add_option(option[0],option[1], default=option[-1], 
+                dest=option[1].lstrip('--'), help=option[2])
     
+    (options1, args) = parser.parse_args()
     argiter = iter(args) #sys.argv[1:])
     for arg in argiter:
         try:
@@ -351,18 +329,19 @@ if __name__ == '__main__':
                 targetspec = arg
             elif os.path.isfile(arg) and arg.endswith('.py'):
                 targetspec = arg[:-3]
-
+    t = None
     options = {}
     for opt in parser.option_list[1:]:
         options[opt.dest] = getattr(options1,opt.dest)
+    
 ##    if options['-tcc']:
 ##        os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
     if options1.debug:
         annmodel.DEBUG = True
     try:
         err = None
-        if options1.loadfile:
-            loaded_dic = load(options1.filename)
+        if options1.load:
+            loaded_dic = load(options1.load)
             t = loaded_dic['trans']
             entry_point = t.entrypoint
             inputtypes = loaded_dic['inputtypes']
@@ -391,15 +370,15 @@ if __name__ == '__main__':
         for name in optnames: 
             print '   %25s: %s' %(name, options[name])
         try:
-            analyse(targetspec_dic['target'])
+            t, entry_point, inputtypes, standalone = analyse(targetspec_dic['target'])
         except TyperError:
             err = sys.exc_info()
         print '-'*60
-        if options1.savefile:
-            print 'saving state to %s' % options1.savefile
+        if options1.save:
+            print 'saving state to %s' % options1.save
             if err:
                 print '*** this save is done after errors occured ***'
-            save(t, options1.savefile,
+            save(t, options1.save,
                  trans=t,
                  inputtypes=inputtypes,
                  targetspec=targetspec,
@@ -428,11 +407,11 @@ if __name__ == '__main__':
                 interp.eval_function(entry_point,
                                      targetspec_dic['get_llinterp_args']())
             interpret()
-        #elif options1.gencode:
-        #    print 'Not generating C code.'
+        elif not options1.gencode:
+            print 'Not generating C code.'
         else:
-            print 'Generating %s %s code...' %(options1.really_compile and "and compiling " or "",options1.backend)
-            keywords = {'really_compile' : options1.really_compile, 
+            print 'Generating %s %s code...' %(options1.compile and "and compiling" or "",options1.backend)
+            keywords = {'really_compile' : options1.compile, 
                         'standalone' : standalone, 
                         'gcpolicy' : gcpolicy}
             c_entry_point = t.compile(options1.backend, **keywords)
