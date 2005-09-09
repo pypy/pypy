@@ -154,8 +154,7 @@ class GenLLVM(object):
 
         if using_external_functions:
             nl(); comment("External Function Declarations") ; nl()
-            for s in llexterns_header.split('\n'):
-                codewriter.append(s)
+            codewriter.append(llexterns_header)
 
         nl(); comment("Type Declarations"); nl()
         for c_name, obj in extern_decls:
@@ -176,8 +175,8 @@ class GenLLVM(object):
         self._checkpoint('write global constants')
 
         nl(); comment("Function Prototypes") ; nl()
-        for extdecl in (extdeclarations+self.gcpolicy.declarations()).split('\n'):
-            codewriter.append(extdecl)
+        codewriter.append(extdeclarations)
+        codewriter.append(self.gcpolicy.declarations())
         self._checkpoint('write function prototypes')
 
         for typ_decl in self.db.getnodes():
@@ -191,35 +190,11 @@ class GenLLVM(object):
             typ_decl.writeimpl(codewriter)
         self._checkpoint('write implementations')
 
-        #XXX use codewriter methods here
-        decl = self.entrynode.getdecl()
-        t = decl.split('%', 1)
-        if t[0] == 'double ':   #XXX I know, I know... refactor at will!
-            no_result = '0.0'
-        elif t[0] == 'bool ':
-            no_result = 'false'
-        else:
-            no_result = '0'
-        codewriter.newline()
-        codewriter.append("ccc %s%%__entrypoint__%s {" % (t[0], t[1]))
-        codewriter.append("    %%result = invoke %s %s%%%s to label %%no_exception except label %%exception" % (DEFAULT_CCONV, t[0], t[1]))
-        codewriter.newline()
-        codewriter.append("no_exception:")
-        codewriter.append("    store %RPYTHON_EXCEPTION_VTABLE* null, %RPYTHON_EXCEPTION_VTABLE** %last_exception_type")
-        codewriter.append("    ret %s%%result" % t[0])
-        codewriter.newline()
-        codewriter.append("exception:")
-        codewriter.append("    ret %s%s" % (t[0], no_result))
-        codewriter.append("}")
-        codewriter.newline()
-        codewriter.append("ccc int %__entrypoint__raised_LLVMException() {")
-        codewriter.append("    %tmp    = load %RPYTHON_EXCEPTION_VTABLE** %last_exception_type")
-        codewriter.append("    %result = cast %RPYTHON_EXCEPTION_VTABLE* %tmp to int")
-        codewriter.append("    ret int %result")
-        codewriter.append("}")
-        codewriter.newline()
+        codewriter.append(self.exceptionpolicy.pyrex_entrypoint_code(self.entrynode))
 
         # XXX we need to create our own main() that calls the actual entry_point function
+        decl = self.entrynode.getdecl()
+        t = decl.split('%', 1)
         entryfunc_name = t[1].split('(')[0]
         if entryfunc_name == 'pypy_entry_point': #XXX just to get on with translate_pypy
             extfuncnode.ExternalFuncNode.used_external_functions['%main'] = True
@@ -236,19 +211,14 @@ class GenLLVM(object):
             deps.reverse()
             for dep in deps:
                 if dep not in depdone:
-                    try:
-                        llvm_code = extfunctions[dep][1]
-                    except KeyError: #external function that is shared with genc
-                        continue
-                    for extfunc in llvm_code.split('\n'):
-                        codewriter.append(extfunc)
+                    if dep in extfunctions: #else external function that is shared with genc
+                        codewriter.append(extfunctions[dep][1])
                     depdone[dep] = True
         self._checkpoint('write support functions')
         
         if using_external_functions:
             nl(); comment("External Function Implementation") ; nl()
-            for s in llexterns_functions.split('\n'):
-                codewriter.append(s)
+            codewriter.append(llexterns_functions)
         self._checkpoint('write external functions')
 
         comment("End of file") ; nl()
@@ -274,8 +244,6 @@ class GenLLVM(object):
                                                            pyxfile=pyxfile,
                                                            optimize=optimize)
 
-    def _debug_prototype(self, codewriter):
-        codewriter.append("declare int %printf(sbyte*, ...)")
 
 def genllvm(translator, gcpolicy=None, exceptionpolicy=None, log_source=False, **kwds):
     gen = GenLLVM(translator, GcPolicy.new(gcpolicy), ExceptionPolicy.new(exceptionpolicy))
