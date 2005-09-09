@@ -24,6 +24,7 @@ def test_free_non_gc_object():
     py.test.raises(RuntimeError, "t.method1()")
     py.test.raises(RuntimeError, "t.method2()") 
     py.test.raises(RuntimeError, "t.a")
+    py.test.raises(RuntimeError, "t.a = 1")
     py.test.raises(AssertionError, "free_non_gc_object(TestClass2())")
 
 def test_alloc_flavor():
