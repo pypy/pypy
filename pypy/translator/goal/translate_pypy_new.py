@@ -333,7 +333,8 @@ if __name__ == '__main__':
     options = {}
     for opt in parser.option_list[1:]:
         options[opt.dest] = getattr(options1,opt.dest)
-    
+        if options.get('gc') == 'boehm':
+            options['-boehm'] = True
 ##    if options['-tcc']:
 ##        os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
     if options1.debug:
