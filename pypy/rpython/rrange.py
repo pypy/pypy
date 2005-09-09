@@ -54,11 +54,6 @@ class __extend__(pairtype(RangeRepr, IntegerRepr)):
 #
 #  Low-level methods.
 
-# XXX I think range could be simplified and generalized by storing the
-# range length and a current index, but no stop value at all.
-# The iterator would always use indexing, which implies a multiplication
-# in the range, but that's low cost.
-
 def _ll_rangelen(start, stop, step):
     if step > 0:
         result = (stop - start + (step-1)) // step
