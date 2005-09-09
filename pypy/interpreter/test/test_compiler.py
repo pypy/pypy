@@ -10,6 +10,11 @@ class BaseTestCompiler:
     def setup_method(self, method):
         self.compiler = self.space.createcompiler()
 
+    def eval_string(self, string):
+        space = self.space
+        code = self.compiler.compile(string, '<>', 'eval', 0)
+        return code.exec_code(space, space.newdict([]), space.newdict([]))
+
     def test_compile(self):
         code = self.compiler.compile('6*7', '<hello>', 'eval', 0)
         assert isinstance(code, PyCode)
@@ -150,6 +155,21 @@ class BaseTestCompiler:
             assert not space.eq_w(w_const, space.wrap("b"))
             assert not space.eq_w(w_const, space.wrap("c"))
 
+    def test_unicodeliterals(self):
+        e = py.test.raises(OperationError, self.eval_string, "u'\\Ufffffffe'")
+        ex = e.value
+        ex.normalize_exception(self.space)
+        assert ex.match(self.space, self.space.w_UnicodeError)
+
+        e = py.test.raises(OperationError, self.eval_string, "u'\\Uffffffff'")
+        ex = e.value
+        ex.normalize_exception(self.space)
+        assert ex.match(self.space, self.space.w_UnicodeError)
+
+        e = py.test.raises(OperationError, self.eval_string, "u'\\U%08x'" % 0x110000)
+        ex = e.value
+        ex.normalize_exception(self.space)
+        assert ex.match(self.space, self.space.w_UnicodeError)
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
