@@ -125,8 +125,9 @@ def to_code( rcode ):
                      tuple(rcode.co_cellvars) )
     return code
 
-def check_compile(expr, target='exec'):
-    print "Compiling:", expr
+def check_compile(expr, target='exec', quiet=False):
+    if not quiet:
+        print "Compiling:", expr
     sc_code = compile_with_stablecompiler(expr, target=target)
     ac_code = compile_with_astcompiler(expr, target=target)
     compare_code(ac_code, sc_code)
