@@ -1,6 +1,6 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, IteratorRepr
 from pypy.rpython.lltype import Ptr, GcStruct, Signed, malloc, Void
 from pypy.objspace.flow.model import Constant
 
@@ -118,7 +118,7 @@ def ll_range2list(LISTPTR, start, stop, step):
 #
 #  Iteration.
 
-class RangeIteratorRepr(Repr):
+class RangeIteratorRepr(IteratorRepr):
     lowleveltype = Ptr(RANGEITER)
 
     def __init__(self, r_rng):

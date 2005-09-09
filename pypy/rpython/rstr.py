@@ -1,7 +1,7 @@
 from weakref import WeakValueDictionary
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
+from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, IteratorRepr
 from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst, UniCharRepr
 from pypy.rpython.rarithmetic import intmask, _hash_string
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
@@ -994,7 +994,7 @@ def ll_int(s, base):
 #
 #  Iteration.
 
-class StringIteratorRepr(Repr):
+class StringIteratorRepr(IteratorRepr):
     lowleveltype = Ptr(GcStruct('stringiter',
                                 ('string', string_repr.lowleveltype),
                                 ('index', Signed)))

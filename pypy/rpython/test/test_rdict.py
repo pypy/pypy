@@ -163,6 +163,23 @@ def test_dict_iteration():
     res = interpret(func, [6, 7])
     assert res == 42
 
+def test_dict_itermethods():
+    def func():
+        d = {}
+        d['hello'] = 6
+        d['world'] = 7
+        k1 = k2 = k3 = 1
+        for key in d.iterkeys():
+            k1 = k1 * d[key]
+        for value in d.itervalues():
+            k2 = k2 * value
+        for key, value in d.iteritems():
+            assert d[key] == value
+            k3 = k3 * value
+        return k1 + k2 + k3
+    res = interpret(func, [])
+    assert res == 42 + 42 + 42
+
 def test_two_dicts_with_different_value_types():
     def func(i):
         d1 = {}

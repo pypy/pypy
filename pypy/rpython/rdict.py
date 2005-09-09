@@ -111,8 +111,8 @@ class StrDictRepr(rmodel.Repr):
         v_dict, = hop.inputargs(self)
         return hop.gendirectcall(ll_strdict_is_true, v_dict)
 
-    def make_iterator_repr(self):
-        return StrDictIteratorRepr(self)
+    def make_iterator_repr(self, *variant):
+        return StrDictIteratorRepr(self, *variant)
 
     def rtype_method_get(self, hop):
         v_dict, v_key, v_default = hop.inputargs(self, rstr.string_repr,
@@ -146,6 +146,18 @@ class StrDictRepr(rmodel.Repr):
 
     def rtype_method_items(self, hop):
         return self._rtype_method_kvi(hop, dum_items)
+
+    def rtype_method_iterkeys(self, hop):
+        hop.exception_cannot_occur()
+        return StrDictIteratorRepr(self, "keys").newiter(hop)
+
+    def rtype_method_itervalues(self, hop):
+        hop.exception_cannot_occur()
+        return StrDictIteratorRepr(self, "values").newiter(hop)
+
+    def rtype_method_iteritems(self, hop):
+        hop.exception_cannot_occur()
+        return StrDictIteratorRepr(self, "items").newiter(hop)
 
     def rtype_method_clear(self, hop):
         v_dict, = hop.inputargs(self)
@@ -200,6 +212,12 @@ class __extend__(pairtype(StrDictRepr, StrDictRepr)):
 #  get flowed and annotated, mostly with SomePtr.
 
 deleted_entry_marker = lltype.malloc(rstr.STR, 0, immortal=True)
+def dum_keys(): pass
+def dum_values(): pass
+def dum_items():pass
+dum_variant = {"keys":   dum_keys,
+               "values": dum_values,
+               "items":  dum_items}
 
 def ll_strdict_len(d):
     return d.num_items 
@@ -328,10 +346,11 @@ def rtype_newdict(hop):
 #
 #  Iteration.
 
-class StrDictIteratorRepr(rmodel.Repr):
+class StrDictIteratorRepr(rmodel.IteratorRepr):
 
-    def __init__(self, r_dict):
+    def __init__(self, r_dict, variant="keys"):
         self.r_dict = r_dict
+        self.variant = variant
         self.lowleveltype = lltype.Ptr(lltype.GcStruct('strdictiter',
                                          ('dict', r_dict.lowleveltype),
                                          ('index', lltype.Signed)))
@@ -343,9 +362,12 @@ class StrDictIteratorRepr(rmodel.Repr):
 
     def rtype_next(self, hop):
         v_iter, = hop.inputargs(self)
+        r_list = hop.r_result
+        v_func = hop.inputconst(lltype.Void, dum_variant[self.variant])
+        c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
         hop.has_implicit_exception(StopIteration) # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(ll_strdictnext, v_iter)
+        return hop.gendirectcall(ll_strdictnext, v_iter, v_func, c1)
 
 def ll_strdictiter(ITERPTR, d):
     iter = lltype.malloc(ITERPTR.TO)
@@ -353,16 +375,25 @@ def ll_strdictiter(ITERPTR, d):
     iter.index = 0
     return iter
 
-def ll_strdictnext(iter):
+def ll_strdictnext(iter, func, RETURNTYPE):
     entries = iter.dict.entries
     index = iter.index
     entries_len = len(entries)
     while index < entries_len:
-        key = entries[index].key
+        entry = entries[index]
+        key = entry.key
         index = index + 1
         if key and key != deleted_entry_marker:
             iter.index = index
-            return key
+            if func is dum_items:
+                r = lltype.malloc(RETURNTYPE.TO)
+                r.item0 = key
+                r.item1 = entry.value
+                return r
+            elif func is dum_keys:
+                return key
+            elif func is dum_values:
+                return entry.value
     iter.index = index
     raise StopIteration
 
@@ -409,10 +440,6 @@ def ll_update(dic1, dic2):
         if entry.key and entry.key != deleted_entry_marker:
             ll_strdict_setitem(dic1, entry.key, entry.value)
         i += 1
-
-def dum_keys(): pass
-def dum_values(): pass
-def dum_items():pass
 
 # this is an implementation of keys(), values() and items()
 # in a single function.

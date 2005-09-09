@@ -149,16 +149,24 @@ class Repr:
         r_iter = self.make_iterator_repr()
         return r_iter.newiter(hop)
 
-    def make_iterator_repr(self):
+    def make_iterator_repr(self, *variant):
         raise TyperError("%s is not iterable" % (self,))
+
+class IteratorRepr(Repr):
+    """Base class of Reprs of any kind of iterator."""
+
+    def rtype_iter(self, hop):    #   iter(iter(x))  <==>  iter(x)
+        v_iter, = hop.inputargs(self)
+        return v_iter
+
 
 class __extend__(annmodel.SomeIterator):
     # NOTE: SomeIterator is for iterators over any container, not just list
     def rtyper_makerepr(self, rtyper):
         r_container = rtyper.getrepr(self.s_container)
-        return r_container.make_iterator_repr()
+        return r_container.make_iterator_repr(*self.variant)
     def rtyper_makekey(self):
-        return self.__class__, self.s_container.rtyper_makekey()
+        return self.__class__, self.s_container.rtyper_makekey(), self.variant
 
 class __extend__(annmodel.SomeImpossibleValue):
     def rtyper_makerepr(self, rtyper):

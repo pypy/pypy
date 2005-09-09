@@ -2,6 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
+from pypy.rpython.rmodel import IteratorRepr
 from pypy.rpython import rrange
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
@@ -806,7 +807,7 @@ def rtype_alloc_and_set(hop):
 #
 #  Iteration.
 
-class ListIteratorRepr(Repr):
+class ListIteratorRepr(IteratorRepr):
 
     def __init__(self, r_list):
         self.r_list = r_list

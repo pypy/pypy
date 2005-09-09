@@ -266,7 +266,8 @@ class SomeDict(SomeObject):
 class SomeIterator(SomeObject):
     "Stands for an iterator returning objects from a given container."
     knowntype = type(iter([]))  # arbitrarily chose seqiter as the type
-    def __init__(self, s_container):
+    def __init__(self, s_container, *variant):
+        self.variant = variant
         self.s_container = s_container
 
     def can_be_none(self):

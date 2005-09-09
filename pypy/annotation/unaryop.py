@@ -277,8 +277,16 @@ class __extend__(SomeDict):
         return SomeIterator(dct)
     iter.can_only_throw = []
 
-    def getanyitem(dct):
-        return dct.dictdef.read_key()
+    def getanyitem(dct, variant='keys'):
+        if variant == 'keys':
+            return dct.dictdef.read_key()
+        elif variant == 'values':
+            return dct.dictdef.read_value()
+        elif variant == 'items':
+            return SomeTuple((dct.dictdef.read_key(),
+                              dct.dictdef.read_value()))
+        else:
+            raise ValueError
 
     def method_get(dct, key, dfl):
         dct.dictdef.generalize_key(key)
@@ -300,6 +308,15 @@ class __extend__(SomeDict):
     def method_items(dct):
         return getbookkeeper().newlist(SomeTuple((dct.dictdef.read_key(),
                                                   dct.dictdef.read_value())))
+
+    def method_iterkeys(dct):
+        return SomeIterator(dct, 'keys')
+
+    def method_itervalues(dct):
+        return SomeIterator(dct, 'values')
+
+    def method_iteritems(dct):
+        return SomeIterator(dct, 'items')
 
     def method_clear(dct):
         pass
@@ -374,7 +391,7 @@ class __extend__(SomeIterator):
     iter.can_only_throw = []
 
     def next(itr):
-        return itr.s_container.getanyitem()
+        return itr.s_container.getanyitem(*itr.variant)
 
 
 class __extend__(SomeInstance):
