@@ -56,13 +56,13 @@ class __extend__(SomeObject):
         return r
 
     def issubtype(obj, s_cls):
-        if obj.is_constant() and s_cls.is_constant():
-            return immutablevalue(issubclass(obj.const, s_cls.const))
         if hasattr(obj, 'is_type_of'):
             vars = obj.is_type_of
             annotator = getbookkeeper().annotator
             return builtin.builtin_isinstance(annotator.binding(vars[0]),
                                               s_cls, vars)
+        if obj.is_constant() and s_cls.is_constant():
+            return immutablevalue(issubclass(obj.const, s_cls.const))
         return SomeBool()
 
     def len(obj):

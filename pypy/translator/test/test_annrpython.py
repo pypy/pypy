@@ -1558,6 +1558,44 @@ class TestAnnotateTestCase:
         assert s.knowntype == bool
         assert not s.is_constant()
                         
+    def test_issubtype_and_const(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+        class C(A):
+            pass
+        b = B()
+        c = C()
+        def g(f):
+            if f == 1:
+                x = b
+            elif f == 2:
+                x = c
+            else:
+                x = C()
+            t = type(x)
+            return issubclass(t, A)
+
+        def f():
+            x = g(1)
+            y = g(0)
+            return x or y
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == bool
+        assert not s.is_constant()
+        a = self.RPythonAnnotator()
+        # sanity check
+        x = annmodel.SomeInteger()
+        x.const = 1
+        s = a.build_types(g, [x])
+        assert s.const == False
+        a = self.RPythonAnnotator()
+        x = annmodel.SomeInteger()
+        x.const = 2
+        s = a.build_types(g, [x])
+        assert s.const == True
 
 def g(n):
     return [0,1,2,n]
