@@ -26,6 +26,7 @@ class Node(Wrappable):
     def __init__(self, lineno = -1):
         self.lineno = lineno
         self.filename = ""
+        #self.scope = None
         
     def getChildren(self):
         pass # implemented by subclasses
@@ -182,7 +183,24 @@ class AssAttr(Node):
     def accept(self, visitor):
         return visitor.visitAssAttr(self)
 
-class AssList(Node):
+class AssSeq(Node):
+    def __init__(self, lineno=-1):
+        Node.__init__(self, lineno)
+
+    def getChildren(self):
+        "NOT_RPYTHON"
+        return []
+
+    def getChildNodes(self):
+        return []
+
+    def __repr__(self):
+        return "AssSeq()"
+
+    def accept(self, visitor):
+        return visitor.visitAssSeq(self)
+
+class AssList(AssSeq):
     def __init__(self, nodes, lineno=-1):
         Node.__init__(self, lineno)
         self.nodes = nodes
@@ -221,7 +239,7 @@ class AssName(Node):
     def accept(self, visitor):
         return visitor.visitAssName(self)
 
-class AssTuple(Node):
+class AssTuple(AssSeq):
     def __init__(self, nodes, lineno=-1):
         Node.__init__(self, lineno)
         self.nodes = nodes
@@ -1815,6 +1833,8 @@ class ASTVisitor(object):
     def visitAssList(self, node):
         return self.default( node )
     def visitAssName(self, node):
+        return self.default( node )
+    def visitAssSeq(self, node):
         return self.default( node )
     def visitAssTuple(self, node):
         return self.default( node )

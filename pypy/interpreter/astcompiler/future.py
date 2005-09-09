@@ -23,6 +23,7 @@ class FutureParser(ast.ASTVisitor):
     def visitModule(self, node):
         stmt = node.node
         invalid = False
+        assert isinstance(stmt, ast.Stmt)
         for s in stmt.nodes:
             if not self.check_stmt(s, invalid):
                 invalid = True
@@ -62,6 +63,7 @@ class BadFutureParser(ast.ASTVisitor):
 
     def visitModule(self, node):
         stmt = node.node
+        assert isinstance(stmt, ast.Stmt)        
         for s in stmt.nodes:
             if isinstance(s, ast.From):
                 if s.valid_future:

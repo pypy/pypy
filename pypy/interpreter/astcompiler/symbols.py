@@ -248,7 +248,11 @@ class SymbolVisitor(ast.ASTVisitor):
         node.node.accept(self)
         self.pop_scope()
 
-    visitExpression = visitModule
+    def visitExpression(self, node):
+        scope = self.module = node.scope = ModuleScope()
+        self.push_scope(scope)
+        node.node.accept(self)
+        self.pop_scope()
 
     def visitFunction(self, node):
         parent = self.cur_scope()

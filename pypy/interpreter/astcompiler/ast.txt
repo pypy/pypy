@@ -36,8 +36,9 @@ Printnl: nodes!, dest&
 Discard: expr
 AugAssign: node, op*, expr
 Assign: nodes!, expr
-AssTuple: nodes!
-AssList: nodes!
+AssSeq:
+AssTuple(AssSeq): nodes!
+AssList(AssSeq): nodes!
 AssName: name*, flags*
 AssAttr: expr, attrname*, flags*
 ListComp: expr, quals!
