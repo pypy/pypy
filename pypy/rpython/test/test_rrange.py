@@ -51,7 +51,7 @@ def test_range_item():
     res = interpret(dummyfn, [10, 17, -2])
     assert res == 15
 
-def test_range():
+def test_xrange():
     def dummyfn(N):
         total = 0
         for i in xrange(N):
@@ -59,3 +59,11 @@ def test_range():
         return total
     res = interpret(dummyfn, [10])
     assert res == 45
+
+def test_range_len():
+    def dummyfn(start, stop):
+        r = range(start, stop)
+        return len(r)
+    start, stop = 10, 17
+    res = interpret(dummyfn, [start, stop])
+    assert res == len(range(start,stop))
