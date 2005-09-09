@@ -693,6 +693,13 @@ the list of the read positions functions is set to var or _."""
                     func, block, i = p
                     if flt(Pos(func, block, i)):
                         print func.__module__ or '?', func.__name__, block, i
+                        if i >= 0:
+                            op = block.operations[i]
+                            print " ", op
+                            print " ",
+                            for arg in op.args:
+                                print "%s: %s" % (arg, t.annotator.binding(arg)),
+                            print
                         r[func] = True
             except self.GiveUp:
                 return
