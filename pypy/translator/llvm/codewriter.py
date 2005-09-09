@@ -8,18 +8,13 @@ DEFAULT_TAIL     = ''       #/tail
 DEFAULT_CCONV    = 'fastcc'    #ccc/fastcc
 
 class CodeWriter(object): 
-    def __init__(self, f, genllvm, show_line_number=False): 
+    def __init__(self, f, genllvm): 
         self.f = f
         self.genllvm = genllvm
         self.word  = genllvm.db.get_machine_word()
         self.uword = genllvm.db.get_machine_uword()
-        self.show_line_numbers = show_line_number
-        self.n_lines = 0
 
     def append(self, line): 
-        self.n_lines += 1
-        if self.show_line_numbers:
-            line = "%-75s; %d" % (line, self.n_lines)
         self.f.write(line + '\n')
 
     def comment(self, line, indent=True):
