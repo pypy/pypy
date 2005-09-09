@@ -301,6 +301,9 @@ class __extend__(SomeDict):
         return getbookkeeper().newlist(SomeTuple((dct.dictdef.read_key(),
                                                   dct.dictdef.read_value())))
 
+    def method_clear(dct):
+        pass
+
 
 class __extend__(SomeString):
 

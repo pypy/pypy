@@ -147,6 +147,11 @@ class StrDictRepr(rmodel.Repr):
     def rtype_method_items(self, hop):
         return self._rtype_method_kvi(hop, dum_items)
 
+    def rtype_method_clear(self, hop):
+        v_dict, = hop.inputargs(self)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_clear, v_dict)
+
 class __extend__(pairtype(StrDictRepr, rmodel.StringRepr)): 
 
     def rtype_getitem((r_dict, r_string), hop):
@@ -386,6 +391,14 @@ def ll_copy(dict):
         d_entry.value = entry.value
         i += 1
     return d
+
+def ll_clear(d):
+    if len(d.entries) == d.num_pristine_entries == STRDICT_INITSIZE:
+        return
+    DICTPTR = lltype.typeOf(d)
+    d.entries = lltype.malloc(DICTPTR.TO.entries.TO, STRDICT_INITSIZE)
+    d.num_items = 0
+    d.num_pristine_entries = STRDICT_INITSIZE 
 
 def ll_update(dic1, dic2):
     d2len =len(dic2.entries)

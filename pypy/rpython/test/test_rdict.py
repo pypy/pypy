@@ -41,6 +41,17 @@ def test_dict_del_simple():
     res = interpret(func, [6])
     assert res == 1
 
+def test_dict_clear():
+    def func(i):
+        d = {'abc': i}
+        d['def'] = i+1
+        d.clear()
+        d['ghi'] = i+2
+        return ('abc' not in d and 'def' not in d
+                and d['ghi'] == i+2 and len(d) == 1)
+    res = interpret(func, [7])
+    assert res == True
+
 def test_empty_strings():
     def func(i): 
         d = {'' : i}
