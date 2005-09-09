@@ -12,12 +12,11 @@ def test_we_are_translated():
     assert res is True
 
 def test_r_dict():
-    class StrangeDict(r_dict):
-        def key_eq(self, key1, key2):
-            return key1[0] == key2[0]   # only the 1st character is relevant
-        def key_hash(self, key):
-            return ord(key[0])
-    d = StrangeDict()
+    def key_eq(key1, key2):
+        return key1[0] == key2[0]   # only the 1st character is relevant
+    def key_hash(key):
+        return ord(key[0])
+    d = r_dict(key_eq, key_hash)
     d['hello'] = 42
     assert d['hi there'] == 42
     py.test.raises(KeyError, 'd["dumb"]')

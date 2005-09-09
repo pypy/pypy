@@ -36,11 +36,13 @@ def free_non_gc_object(obj):
 class r_dict(object):
     """An RPython dict-like object.
     Only provides the interface supported by RPython.
-    The methods key_eq() and key_hash() are used by the key comparison
-    algorithm and can be subclassed."""
+    The functions key_eq() and key_hash() are used by the key comparison
+    algorithm."""
 
-    def __init__(self):
+    def __init__(self, key_eq, key_hash):
         self._dict = {}
+        self.key_eq = key_eq
+        self.key_hash = key_hash
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]
@@ -65,7 +67,7 @@ class r_dict(object):
         return self._dict.get(_r_dictkey(self, key), default)
 
     def copy(self):
-        result = self.__class__()
+        result = r_dict(self.key_eq, self.key_hash)
         result.update(self)
         return result
 
