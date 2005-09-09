@@ -547,6 +547,7 @@ class CodeGenerator(ast.ASTVisitor):
 
         stack = []
         for i, for_ in zip(range(len(node.quals)), node.quals):
+            assert isinstance(for_, ast.ListCompFor)
             start, anchor = self._visitListCompFor(for_)
             self.genexpr_cont_stack.append( None )
             for if_ in for_.ifs:
@@ -575,7 +576,6 @@ class CodeGenerator(ast.ASTVisitor):
         self.__list_count = self.__list_count - 1
 
     def _visitListCompFor(self, node):
-        assert isinstance(node, ast.ListCompFor)
         start = self.newBlock()
         anchor = self.newBlock()
 
@@ -599,7 +599,9 @@ class CodeGenerator(ast.ASTVisitor):
     def visitGenExpr(self, node):
         gen = GenExprCodeGenerator(self.space, node, self.scopes, self.class_name,
                                    self.get_module())
-        walk(node.code, gen)
+        inner = node.code
+        assert isinstance(inner, ast.GenExprInner)
+        walk(inner, gen)
         gen.finish()
         self.set_lineno(node)
         frees = gen.scope.get_free_vars()
@@ -613,7 +615,9 @@ class CodeGenerator(ast.ASTVisitor):
             self.emitop_int('MAKE_FUNCTION', 0)
 
         # precomputation of outmost iterable
-        node.code.quals[0].iter.accept( self )
+        qual0 = inner.quals[0]
+        assert isinstance(qual0, ast.GenExprFor)
+        qual0.iter.accept( self )
         self.emit('GET_ITER')
         self.emitop_int('CALL_FUNCTION', 1)
 
@@ -623,6 +627,7 @@ class CodeGenerator(ast.ASTVisitor):
 
         stack = []
         for i, for_ in zip(range(len(node.quals)), node.quals):
+            assert isinstance(for_, ast.GenExprFor)            
             start, anchor = self._visitGenExprFor(for_)
             self.genexpr_cont_stack.append( None )
             for if_ in for_.ifs:
@@ -647,7 +652,6 @@ class CodeGenerator(ast.ASTVisitor):
         self.emitop_obj('LOAD_CONST', self.space.w_None)
 
     def _visitGenExprFor(self, node):
-        assert isinstance(node, ast.GenExprFor)
         start = self.newBlock()
         anchor = self.newBlock()
 

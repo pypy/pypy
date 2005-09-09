@@ -29,6 +29,7 @@ TESTS = [
      listmakers,
      dictmakers,
      multiexpr,
+     # genexps, investigate?
      attraccess,
      slices,
      imports,
