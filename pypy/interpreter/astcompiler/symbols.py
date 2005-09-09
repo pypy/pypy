@@ -12,6 +12,15 @@ import sys
 
 MANGLE_LEN = 256
 
+class Counter:
+    def __init__(self, initial):
+        self.count = initial
+
+    def next(self):
+        i = self.count
+        self.count += 1
+        return i
+
 class Scope:
     # XXX how much information do I need about each name?
     def __init__(self, name, module, klass=None):
@@ -180,12 +189,12 @@ class ModuleScope(Scope):
 class FunctionScope(Scope):
     pass
 
+GenExprScopeCounter = Counter(1)
+
 class GenExprScope(Scope):
-    __counter = 1
 
     def __init__(self, module, klass=None):
-        i = self.__counter
-        self.__counter += 1
+        i = GenExprScopeCounter.next()
         Scope.__init__(self, "generator expression<%d>"%i, module, klass)
         self.add_param('[outmost-iterable]')
 
@@ -193,12 +202,12 @@ class GenExprScope(Scope):
         keys = Scope.get_names()
         return keys
 
+LambdaScopeCounter = Counter(1)
+
 class LambdaScope(FunctionScope):
-    __counter = 1
 
     def __init__(self, module, klass=None):
-        i = self.__counter
-        self.__counter += 1
+        i = LambdaScopeCounter.next()
         Scope.__init__(self, "lambda.%d" % i, module, klass)
 
 class ClassScope(Scope):
@@ -209,7 +218,6 @@ class ClassScope(Scope):
 class SymbolVisitor(ast.ASTVisitor):
     def __init__(self, space):
         self.space = space
-        self.scopes = {}
         self.klass = None
         self.scope_stack = []
         self.assign_stack = [ False ]
@@ -235,7 +243,7 @@ class SymbolVisitor(ast.ASTVisitor):
     # node that define new scopes
 
     def visitModule(self, node):
-        scope = self.module = self.scopes[node] = ModuleScope()
+        scope = self.module = node.scope = ModuleScope()
         self.push_scope(scope)
         node.node.accept(self)
         self.pop_scope()
@@ -252,7 +260,7 @@ class SymbolVisitor(ast.ASTVisitor):
         scope = FunctionScope(node.name, self.module, self.klass)
         if parent.nested or isinstance(parent, FunctionScope):
             scope.nested = 1
-        self.scopes[node] = scope
+        node.scope = scope
         self._do_args(scope, node.argnames)
         self.push_scope( scope )
         node.code.accept(self )
@@ -266,7 +274,7 @@ class SymbolVisitor(ast.ASTVisitor):
                 or isinstance(parent, GenExprScope):
             scope.nested = 1
 
-        self.scopes[node] = scope
+        node.scope = scope
         self.push_scope(scope)
         node.code.accept(self)
         self.pop_scope()
@@ -302,7 +310,7 @@ class SymbolVisitor(ast.ASTVisitor):
         scope = LambdaScope(self.module, self.klass)
         if parent.nested or isinstance(parent, FunctionScope):
             scope.nested = 1
-        self.scopes[node] = scope
+        node.scope = scope
         self._do_args(scope, node.argnames)
         self.push_scope(scope)
         node.code.accept(self)
@@ -333,7 +341,7 @@ class SymbolVisitor(ast.ASTVisitor):
         if node.doc is not None:
             scope.add_def('__doc__')
         scope.add_def('__module__')
-        self.scopes[node] = scope
+        node.scope = scope
         prev = self.klass
         self.klass = node.name
         self.push_scope( scope )
@@ -467,6 +475,7 @@ def sort(l):
 def list_eq(l1, l2):
     return sort(l1) == sort(l2)
 
+    
 if __name__ == "__main__":
     import sys
     from pypy.interpreter.astcompiler import parseFile, walk
@@ -488,7 +497,7 @@ if __name__ == "__main__":
         walk(tree, s)
 
         # compare module-level symbols
-        names2 = s.scopes[tree].get_names()
+        names2 = tree.scope.get_names()
 
         if not list_eq(mod_names, names2):
             print
@@ -498,6 +507,7 @@ if __name__ == "__main__":
             sys.exit(-1)
 
         d = {}
+        # this part won't work anymore
         d.update(s.scopes)
         del d[tree]
         scopes = d.values()

@@ -123,7 +123,8 @@ def parse_fpdef(tokens):
             stack.pop()
         else:
             assert isinstance(token, TokenObject)
-            stack[-1].nodes.append(ast.AssName(token.get_value(),consts.OP_ASSIGN))
+            val = token.get_value()
+            stack[-1].nodes.append(ast.AssName(val,consts.OP_ASSIGN))
     return tokens_read, top
 
 def parse_arglist(tokens):
@@ -153,7 +154,8 @@ def parse_arglist(tokens):
                 assert isinstance(cur_token, TokenObject)
                 index += 1
                 if cur_token.name == tok.NAME:
-                    names.append( ast.AssName( cur_token.get_value(), consts.OP_ASSIGN ) )
+                    val = cur_token.get_value()
+                    names.append( ast.AssName( val, consts.OP_ASSIGN ) )
                     flags |= consts.CO_VARARGS
                     index += 1
                     if index >= l:
@@ -171,7 +173,8 @@ def parse_arglist(tokens):
             index += 1
             assert isinstance(cur_token, TokenObject)
             if cur_token.name == tok.NAME:
-                names.append( ast.AssName( cur_token.get_value(), consts.OP_ASSIGN ) )
+                val = cur_token.get_value()
+                names.append( ast.AssName( val, consts.OP_ASSIGN ) )
                 flags |= consts.CO_VARKEYWORDS
                 index +=  1
             else:
@@ -179,7 +182,8 @@ def parse_arglist(tokens):
             if index < l:
                 raise ValueError("unexpected token: %s" % tokens[index])
         elif cur_token.name == tok.NAME:
-            names.append( ast.AssName( cur_token.get_value(), consts.OP_ASSIGN ) )
+            val = cur_token.get_value()
+            names.append( ast.AssName( val, consts.OP_ASSIGN ) )
     return names, defaults, flags
 
 
@@ -407,7 +411,8 @@ def parse_attraccess(tokens):
     token = tokens[0]
     # XXX HACK for when parse_attraccess is called from build_decorator
     if isinstance(token, TokenObject):
-        result = ast.Name(token.get_value())
+        val = token.get_value()
+        result = ast.Name(val)
     else:
         result = token
     index = 1
@@ -485,7 +490,8 @@ def build_atom(builder, nb):
                 items.append((atoms[index], atoms[index+2]))
             builder.push(ast.Dict(items)) #  top.line))
         elif top.name == tok.NAME:
-            builder.push( ast.Name(top.get_value()) )
+            val = top.get_value()
+            builder.push( ast.Name(val) )
         elif top.name == tok.NUMBER:
             builder.push(ast.Const(builder.eval_number(top.get_value())))
         elif top.name == tok.STRING:
@@ -948,6 +954,7 @@ def build_funcdef(builder, nb):
     funcname_token = atoms[1]
     assert isinstance(funcname_token, TokenObject)
     funcname = funcname_token.get_value()
+    assert funcname is not None
     arglist = atoms[2]
     code = atoms[-1]
     doc = get_docstring(builder, code)
@@ -960,7 +967,7 @@ def build_classdef(builder, nb):
     l = len(atoms)
     classname_token = atoms[1]
     assert isinstance(classname_token, TokenObject)
-    classname = classname_token.get_value()
+    classname = classname_token.get_string()
     if l == 4:
         basenames = []
         body = atoms[3]
@@ -1388,10 +1395,9 @@ class TokenObject(ast.Node):
                                   tok.tok_name.get(self.name, str(self.name)))
 
     def get_value(self):
-        if self.value is None:
+        value = self.value
+        if value is None:
             value = ''
-        else:
-            value = self.value
         return value
     
     def __str__(self):

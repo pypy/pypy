@@ -378,6 +378,7 @@ class Node(Wrappable):
     def __init__(self, lineno = -1):
         self.lineno = lineno
         self.filename = ""
+        self.scope = None
         
     def getChildren(self):
         pass # implemented by subclasses

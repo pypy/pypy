@@ -63,13 +63,12 @@ def compile(source, filename, mode, flags=None, dont_inherit=None):
     return gen.code
 
 class AbstractCompileMode:
-
-    mode = None # defined by subclass
-
     def __init__(self, source, filename):
         self.source = source
         self.filename = filename
         self.code = None
+        # XXX: this attribute looks like unused anyway ???
+        self.mode = "" # defined by subclass
 
     def _get_tree(self):
         tree = parse(self.source, self.mode)
@@ -84,17 +83,19 @@ class AbstractCompileMode:
         return self.code
 
 class Expression(AbstractCompileMode):
-
-    mode = "eval"
-
+    def __init__(self, source, filename):
+        AbstractCompileMode.__init__(self, source, filename )
+        self.mode = "eval"
+        
     def compile(self):
         tree = self._get_tree()
         gen = ExpressionCodeGenerator(tree)
         self.code = gen.getCode()
 
 class Interactive(AbstractCompileMode):
-
-    mode = "single"
+    def __init__(self, source, filename):
+        AbstractCompileMode.__init__(self, source, filename )
+        self.mode = "single"
 
     def compile(self):
         tree = self._get_tree()
@@ -102,8 +103,9 @@ class Interactive(AbstractCompileMode):
         self.code = gen.getCode()
 
 class Module(AbstractCompileMode):
-
-    mode = "exec"
+    def __init__(self, source, filename):
+        AbstractCompileMode.__init__(self, source, filename )
+        self.mode = "exec"
 
     def compile(self, display=0):
         tree = self._get_tree()
@@ -136,25 +138,19 @@ def is_constant_false(space, node):
 
 class CodeGenerator(ast.ASTVisitor):
     """Defines basic code generator for Python bytecode
-
-    This class is an abstract base class.  Concrete subclasses must
-    define an __init__() that defines self.graph and then calls the
-    __init__() defined in this class.
     """
 
-    graph = None
 
-    optimized = 0 # is namespace access optimized?
-    __initialized = None
-    class_name = None # provide default for instance variable
 
-    def __init__(self, space):
+    def __init__(self, space, graph):
         self.space = space
-        self.checkClass()
         self.setups = misc.Stack()
         self.last_lineno = -1
         self._div_op = "BINARY_DIVIDE"
         self.genexpr_cont_stack = []
+        self.graph = graph
+        self.optimized = 0 # is namespace access optimized?
+        self.class_name = "" # provide default for instance variable
 
         # XXX set flags based on future features
         futures = self.get_module().futures
@@ -164,10 +160,6 @@ class CodeGenerator(ast.ASTVisitor):
                 self._div_op = "BINARY_TRUE_DIVIDE"
             elif feature == "generators":
                 self.graph.setFlag(CO_GENERATOR_ALLOWED)
-
-    def checkClass(self):
-        """Verify that class is constructed correctly"""
-        assert self.graph is not None, "bad class construction for %r" % self
 
     def emit(self, inst ):
         return self.graph.emit( inst )
@@ -209,15 +201,14 @@ class CodeGenerator(ast.ASTVisitor):
         return self.graph.getCode()
 
     def mangle(self, name):
-        if self.class_name is not None:
+        if self.class_name:
             return misc.mangle(name, self.class_name)
         else:
             return name
 
     def parseSymbols(self, tree):
         s = symbols.SymbolVisitor(self.space)
-        walk(tree, s)
-        return s.scopes
+        tree.accept(s)
 
     def get_module(self):
         raise RuntimeError, "should be implemented by subclasses"
@@ -301,8 +292,9 @@ class CodeGenerator(ast.ASTVisitor):
 
 
     def visitModule(self, node):
-        self.scopes = self.parseSymbols(node)
-        self.scope = self.scopes[node]
+        self.parseSymbols(node)
+        assert node.scope is not None
+        self.scope = node.scope
         self.emitop_int('SET_LINENO', 0)
         if node.doc:
             self.emitop_obj('LOAD_CONST', node.doc)
@@ -313,8 +305,9 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitExpression(self, node):
         self.set_lineno(node)
-        self.scopes = self.parseSymbols(node)
-        self.scope = self.scopes[node]
+        self.parseSymbols(node)
+        assert node.scope is not None
+        self.scope = node.scope
         node.node.accept( self )
         self.emit('RETURN_VALUE')
 
@@ -335,7 +328,7 @@ class CodeGenerator(ast.ASTVisitor):
         else:
             ndecorators = 0
 
-        gen = FunctionCodeGenerator(self.space, node, self.scopes, isLambda,
+        gen = FunctionCodeGenerator(self.space, node, isLambda,
                                self.class_name, self.get_module())
         walk(node.code, gen)
         gen.finish()
@@ -356,7 +349,7 @@ class CodeGenerator(ast.ASTVisitor):
             self.emitop_int('CALL_FUNCTION', 1)
 
     def visitClass(self, node):
-        gen = ClassCodeGenerator(self.space, node, self.scopes,
+        gen = ClassCodeGenerator(self.space, node,
                                  self.get_module())
         walk(node.code, gen)
         gen.finish()
@@ -597,7 +590,7 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('POP_TOP')
 
     def visitGenExpr(self, node):
-        gen = GenExprCodeGenerator(self.space, node, self.scopes, self.class_name,
+        gen = GenExprCodeGenerator(self.space, node, self.class_name,
                                    self.get_module())
         inner = node.code
         assert isinstance(inner, ast.GenExprInner)
@@ -1149,44 +1142,41 @@ class CodeGenerator(ast.ASTVisitor):
 
 
 class ModuleCodeGenerator(CodeGenerator):
-    scopes = None
 
     def __init__(self, space, tree, futures = []):
-        self.graph = pyassem.PyFlowGraph(space, "<module>", tree.filename)
+        graph = pyassem.PyFlowGraph(space, "<module>", tree.filename)
         self.futures = future.find_futures(tree)
         for f in futures:
             if f not in self.futures:
                 self.futures.append(f)
-        CodeGenerator.__init__(self, space)
-        walk(tree, self)
+        CodeGenerator.__init__(self, space, graph)
+        tree.accept(self) # yuck
 
     def get_module(self):
         return self
 
 class ExpressionCodeGenerator(CodeGenerator):
-    scopes = None
 
     def __init__(self, space, tree, futures=[]):
-        self.graph = pyassem.PyFlowGraph(space, "<expression>", tree.filename)
+        graph = pyassem.PyFlowGraph(space, "<expression>", tree.filename)
         self.futures = futures[:]
-        CodeGenerator.__init__(self, space)
-        walk(tree, self)
+        CodeGenerator.__init__(self, space, graph)
+        tree.accept(self) # yuck
 
     def get_module(self):
         return self
 
 class InteractiveCodeGenerator(CodeGenerator):
-    scopes = None
 
     def __init__(self, space, tree, futures=[]):
-        self.graph = pyassem.PyFlowGraph(space, "<interactive>", tree.filename)
+        graph = pyassem.PyFlowGraph(space, "<interactive>", tree.filename)
         self.futures = future.find_futures(tree)
         for f in futures:
             if f not in self.futures:
                 self.futures.append(f)
-        CodeGenerator.__init__(self, space)
+        CodeGenerator.__init__(self, space, graph)
         self.set_lineno(tree)
-        walk(tree, self)
+        tree.accept(self) # yuck
         self.emit('RETURN_VALUE')
 
     def get_module(self):
@@ -1198,26 +1188,24 @@ class InteractiveCodeGenerator(CodeGenerator):
         node.expr.accept( self )
         self.emit('PRINT_EXPR')
 
-class AbstractFunctionCode(CodeGenerator):
-    optimized = 1
-    lambdaCount = 0
+AbstractFunctionCodeLambdaCounter = symbols.Counter(0)
 
-    def __init__(self, space, func, scopes, isLambda, class_name, mod):
+class AbstractFunctionCode(CodeGenerator):
+    def __init__(self, space, func, isLambda, class_name, mod):
         self.class_name = class_name
         self.module = mod
         if isLambda:
-            klass = FunctionCodeGenerator
-            name = "<lambda.%d>" % klass.lambdaCount
-            klass.lambdaCount = klass.lambdaCount + 1
+            name = "<lambda.%d>" % AbstractFunctionCodeLambdaCounter.next()
         else:
             assert isinstance(func, ast.Function)
             name = func.name
 
         args, hasTupleArg = generateArgList(func.argnames)
-        self.graph = pyassem.PyFlowGraph(space, name, func.filename, args,
+        graph = pyassem.PyFlowGraph(space, name, func.filename, args,
                                          optimized=1)
         self.isLambda = isLambda
-        CodeGenerator.__init__(self, space)
+        CodeGenerator.__init__(self, space, graph)
+        self.optimized = 1
 
         if not isLambda and func.doc:
             self.setDocstring(func.doc)
@@ -1263,36 +1251,34 @@ class AbstractFunctionCode(CodeGenerator):
     unpackTuple = unpackSequence
 
 class FunctionCodeGenerator(AbstractFunctionCode):
-    scopes = None
 
-    def __init__(self, space, func, scopes, isLambda, class_name, mod):
-        self.scopes = scopes
-        self.scope = scopes[func]
-        AbstractFunctionCode.__init__(self, space, func, scopes, isLambda, class_name, mod)
+    def __init__(self, space, func, isLambda, class_name, mod):
+        assert func.scope is not None
+        self.scope = func.scope
+        AbstractFunctionCode.__init__(self, space, func, isLambda, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
         if self.scope.generator:
             self.graph.setFlag(CO_GENERATOR)
 
 class GenExprCodeGenerator(AbstractFunctionCode):
-    scopes = None
 
-    def __init__(self, space, gexp, scopes, class_name, mod):
-        self.scopes = scopes
-        self.scope = scopes[gexp]
-        AbstractFunctionCode.__init__(self, space, gexp, scopes, 1, class_name, mod)
+    def __init__(self, space, gexp, class_name, mod):
+        assert gexp.scope is not None
+        self.scope = gexp.scope
+        AbstractFunctionCode.__init__(self, space, gexp, 1, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
         self.graph.setFlag(CO_GENERATOR)
 
 class AbstractClassCode(CodeGenerator):
 
-    def __init__(self, space, klass, scopes, module):
+    def __init__(self, space, klass, module):
         self.class_name = klass.name
         self.module = module
-        self.graph = pyassem.PyFlowGraph( space, klass.name, klass.filename,
+        graph = pyassem.PyFlowGraph( space, klass.name, klass.filename,
                                            optimized=0, klass=1)
-        CodeGenerator.__init__(self, space)
+        CodeGenerator.__init__(self, space, graph)
         self.graph.setFlag(CO_NEWLOCALS)
         if klass.doc:
             self.setDocstring(klass.doc)
@@ -1306,12 +1292,11 @@ class AbstractClassCode(CodeGenerator):
         self.emit('RETURN_VALUE')
 
 class ClassCodeGenerator(AbstractClassCode):
-    scopes = None
 
-    def __init__(self, space, klass, scopes, module):
-        self.scopes = scopes
-        self.scope = scopes[klass]
-        AbstractClassCode.__init__(self, space, klass, scopes, module)
+    def __init__(self, space, klass, module):
+        assert klass.scope is not None
+        self.scope = klass.scope
+        AbstractClassCode.__init__(self, space, klass, module)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
         self.set_lineno(klass)
