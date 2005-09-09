@@ -967,7 +967,7 @@ def build_classdef(builder, nb):
     l = len(atoms)
     classname_token = atoms[1]
     assert isinstance(classname_token, TokenObject)
-    classname = classname_token.get_string()
+    classname = classname_token.get_value()
     if l == 4:
         basenames = []
         body = atoms[3]
