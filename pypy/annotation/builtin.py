@@ -9,7 +9,7 @@ from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof
-from pypy.annotation.model import SomePBC, SomeInstance
+from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
 from pypy.annotation.model import annotation_to_lltype
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -236,6 +236,10 @@ def robjmodel_instantiate(s_clspbc):
 def robjmodel_we_are_translated():
     return immutablevalue(True)
 
+def robjmodel_r_dict(s_eqfn, s_hashfn):
+    dictdef = getbookkeeper().getdictdef()
+    dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
+    return SomeDict(dictdef)
 
 ##def rarith_ovfcheck(s_obj):
 ##    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
@@ -275,6 +279,7 @@ BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.instantiate] = robjmodel_instantiate
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
     robjmodel_we_are_translated)
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init

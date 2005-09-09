@@ -1,5 +1,5 @@
-import py
 from pypy.rpython.objectmodel import *
+from pypy.translator.translator import Translator
 from pypy.rpython.test.test_llinterp import interpret
 
 
@@ -11,15 +11,23 @@ def test_we_are_translated():
     res = interpret(fn, [])
     assert res is True
 
+
+def strange_key_eq(key1, key2):
+    return key1[0] == key2[0]   # only the 1st character is relevant
+def strange_key_hash(key):
+    return ord(key[0])
+
 def test_r_dict():
-    def key_eq(key1, key2):
-        return key1[0] == key2[0]   # only the 1st character is relevant
-    def key_hash(key):
-        return ord(key[0])
-    d = r_dict(key_eq, key_hash)
+    # NB. this test function is also annotated/rtyped by the next tests
+    d = r_dict(strange_key_eq, strange_key_hash)
     d['hello'] = 42
     assert d['hi there'] == 42
-    py.test.raises(KeyError, 'd["dumb"]')
+    try:
+        d["dumb"]
+    except KeyError:
+        pass
+    else:
+        assert False, "should have raised"
     assert len(d) == 1
     assert 'oops' not in d
     assert list(d) == ['hello']
@@ -37,3 +45,20 @@ def test_r_dict():
     assert list(d.iteritems()) == [('hello', 42)]
     d.clear()
     assert d.keys() == []
+    return True   # for the tests below
+
+def test_annotate_r_dict():
+    t = Translator(test_r_dict)
+    a = t.annotate([])
+    #t.view()
+    assert strange_key_eq in t.flowgraphs
+    assert strange_key_hash in t.flowgraphs
+    graph = t.flowgraphs[strange_key_eq]
+    assert a.binding(graph.getargs()[0]).knowntype == str
+    assert a.binding(graph.getargs()[1]).knowntype == str
+    graph = t.flowgraphs[strange_key_hash]
+    assert a.binding(graph.getargs()[0]).knowntype == str
+
+def INPROGRESS_test_rtype_r_dict():
+    res = interpret(test_r_dict, [])
+    assert res is True

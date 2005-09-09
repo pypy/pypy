@@ -49,11 +49,13 @@ class ListItem:
         s_new_value = unionof(self.s_value, s_other_value)
         if isdegenerated(s_new_value):
             self.bookkeeper.ondegenerated(self, s_new_value)        
-        if s_new_value != self.s_value:
+        updated = s_new_value != self.s_value
+        if updated:
             self.s_value = s_new_value
             # reflow from all reading points
             for position_key in self.read_locations:
                 self.bookkeeper.annotator.reflowfromposition(position_key)
+        return updated
 
 
 class ListDef:

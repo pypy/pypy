@@ -1,11 +1,51 @@
 from pypy.annotation.model import SomeObject, SomeImpossibleValue
+from pypy.annotation.model import SomeInteger, SomeBool, unionof
 from pypy.annotation.listdef import ListItem
 
 
 class DictKey(ListItem):
+    custom_eq_hash = False
+
     def patch(self):
         for dictdef in self.itemof:
             dictdef.dictkey = self
+
+    def merge(self, other):
+        if self is not other:
+            assert self.custom_eq_hash == other.custom_eq_hash, (
+                "mixing plain dictionaries with r_dict()")
+            ListItem.merge(self, other)
+            if self.custom_eq_hash:
+                self.update_rdict_annotations(other.s_rdict_eqfn,
+                                              other.s_rdict_hashfn)
+
+    def generalize(self, s_other_value):
+        updated = ListItem.generalize(self, s_other_value)
+        if updated and self.custom_eq_hash:
+            self.emulate_rdict_calls()
+        return updated
+
+    def update_rdict_annotations(self, s_eqfn, s_hashfn):
+        if not self.custom_eq_hash:
+            self.custom_eq_hash = True
+        else:
+            s_eqfn = unionof(s_eqfn, self.s_rdict_eqfn)
+            s_hashfn = unionof(s_hashfn, self.s_rdict_hashfn)
+        self.s_rdict_eqfn = s_eqfn
+        self.s_rdict_hashfn = s_hashfn
+        self.emulate_rdict_calls()
+
+    def emulate_rdict_calls(self):
+        s_key = self.s_value
+        s1 = self.bookkeeper.emulate_pbc_call(self.s_rdict_eqfn, [s_key, s_key])
+        assert SomeBool().contains(s1), (
+            "the custom eq function of an r_dict must return a boolean"
+            " (got %r)" % (s1,))
+        s2 = self.bookkeeper.emulate_pbc_call(self.s_rdict_hashfn, [s_key])
+        assert SomeInteger().contains(s2), (
+            "the custom hash function of an r_dict must return an integer"
+            " (got %r)" % (s2,))
+
 
 class DictValue(ListItem):
     def patch(self):
