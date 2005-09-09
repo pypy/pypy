@@ -3,6 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, IteratorRepr
 from pypy.rpython.lltype import Ptr, GcStruct, Signed, malloc, Void
 from pypy.objspace.flow.model import Constant
+from pypy.rpython.rlist import ll_newlist, dum_nocheck, dum_checkidx
 
 # ____________________________________________________________
 #
@@ -34,9 +35,12 @@ class RangeRepr(Repr):
 class __extend__(pairtype(RangeRepr, IntegerRepr)):
 
     def rtype_getitem((r_rng, r_int), hop):
+        from pypy.rpython.rlist import dum_nocheck, dum_checkidx
         if hop.has_implicit_exception(IndexError):
-            s = "getitem on range with try, except: block not supported."
-            raise TyperError, s
+            spec = dum_checkidx
+        else:
+            spec = dum_nocheck
+        v_func = hop.inputconst(Void, spec)
         v_lst, v_index = hop.inputargs(r_rng, Signed)
         cstep = hop.inputconst(Signed, r_rng.step)
         if hop.args_s[1].nonneg:
@@ -44,11 +48,16 @@ class __extend__(pairtype(RangeRepr, IntegerRepr)):
         else:
             llfn = ll_rangeitem
         hop.exception_is_here()
-        return hop.gendirectcall(llfn, v_lst, v_index, cstep)
+        return hop.gendirectcall(llfn, v_func, v_lst, v_index, cstep)
 
 # ____________________________________________________________
 #
 #  Low-level methods.
+
+# XXX I think range could be simplified and generalized by storing the
+# range length and a current index, but no stop value at all.
+# The iterator would always use indexing, which implies a multiplication
+# in the range, but that's low cost.
 
 def _ll_rangelen(start, stop, step):
     if step > 0:
@@ -62,14 +71,23 @@ def _ll_rangelen(start, stop, step):
 def ll_rangelen(l, step):
     return _ll_rangelen(l.start, l.stop, step)
 
-def ll_rangeitem_nonneg(l, i, step):
-    return l.start + i*step
+def ll_rangeitem_nonneg(func, l, index, step):
+    if func is dum_checkidx and index >= _ll_rangelen(l.start, l.stop, step):
+        raise IndexError
+    return l.start + index * step
 
-def ll_rangeitem(l, i, step):
-    if i < 0:
-        length = ll_rangelen(l, step)
-        i += length
-    return l.start + i*step
+def ll_rangeitem(func, l, index, step):
+    if func is dum_checkidx:
+        length = _ll_rangelen(l.start, l.stop, step)
+        if index < 0:
+            index += length
+        if index < 0 or index >= length:
+            raise IndexError
+    else:
+        if index < 0:
+            length = _ll_rangelen(l.start, l.stop, step)
+            index += length
+    return l.start + index * step
 
 # ____________________________________________________________
 #
@@ -103,7 +121,6 @@ def rtype_builtin_range(hop):
 rtype_builtin_xrange = rtype_builtin_range
 
 def ll_range2list(LISTPTR, start, stop, step):
-    from pypy.rpython.rlist import ll_newlist
     length = _ll_rangelen(start, stop, step)
     l = ll_newlist(LISTPTR, length)
     idx = 0

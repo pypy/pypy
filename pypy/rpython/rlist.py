@@ -3,7 +3,6 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 from pypy.rpython.rmodel import IteratorRepr
-from pypy.rpython import rrange
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rslice import minusone_slice_repr
@@ -29,6 +28,7 @@ from pypy.rpython import robject
 
 class __extend__(annmodel.SomeList):
     def rtyper_makerepr(self, rtyper):
+        from pypy.rpython import rrange
         listitem = self.listdef.listitem
         s_value = listitem.s_value
         if listitem.range_step and not listitem.mutated:

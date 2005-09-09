@@ -8,11 +8,11 @@ def test_rlist_range():
         length = len(expected)
         l = ll_newrange(start, stop)
         assert ll_rangelen(l, step) == length
-        lst = [ll_rangeitem(l, i, step) for i in range(length)]
+        lst = [ll_rangeitem(dum_nocheck, l, i, step) for i in range(length)]
         assert lst == expected
-        lst = [ll_rangeitem_nonneg(l, i, step) for i in range(length)]
+        lst = [ll_rangeitem_nonneg(dum_nocheck, l, i, step) for i in range(length)]
         assert lst == expected
-        lst = [ll_rangeitem(l, i-length, step) for i in range(length)]
+        lst = [ll_rangeitem(dum_nocheck, l, i-length, step) for i in range(length)]
         assert lst == expected
 
     for start in (-10, 0, 1, 10):
@@ -74,6 +74,5 @@ def test_range2list():
         r.reverse()
         return r[0]
     start, stop = 10, 17
-    res = interpret(dummyfn, [start, stop])#, view=True)
+    res = interpret(dummyfn, [start, stop]))
     assert res == dummyfn(start, stop)
-

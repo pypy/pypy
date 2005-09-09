@@ -357,3 +357,14 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
             return r[0]
         f = self.getcompiled(fn)
         assert f() == fn()
+
+    def test_range_idx(self):
+        def fn(idx=int):
+            r = range(10, 37, 4)
+            try:
+                return r[idx]
+            except: raise
+        f = self.getcompiled(fn)
+        assert f(0) == fn(0)
+        assert f(-1) == fn(-1)
+        raises(IndexError, f, 42)
