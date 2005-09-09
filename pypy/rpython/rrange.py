@@ -50,20 +50,23 @@ class __extend__(pairtype(RangeRepr, IntegerRepr)):
 #
 #  Low-level methods.
 
-def ll_rangelen(l, step):
+def _ll_rangelen(start, stop, step):
     if step > 0:
-        result = (l.stop - l.start + (step-1)) // step
+        result = (stop - start + (step-1)) // step
     else:
-        result = (l.start - l.stop - (step+1)) // (-step)
+        result = (start - stop - (step+1)) // (-step)
     if result < 0:
         result = 0
     return result
+
+def ll_rangelen(l, step):
+    return _ll_rangelen(l.start, l.stop, step)
 
 def ll_rangeitem_nonneg(l, i, step):
     return l.start + i*step
 
 def ll_rangeitem(l, i, step):
-    if i<0:
+    if i < 0:
         length = ll_rangelen(l, step)
         i += length
     return l.start + i*step
@@ -99,6 +102,8 @@ def rtype_builtin_range(hop):
 
 rtype_builtin_xrange = rtype_builtin_range
 
+def ll_range2list(start, stop, step):
+    pass
 # ____________________________________________________________
 #
 #  Iteration.
