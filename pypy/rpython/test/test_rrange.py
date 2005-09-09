@@ -74,5 +74,5 @@ def test_range2list():
         r.reverse()
         return r[0]
     start, stop = 10, 17
-    res = interpret(dummyfn, [start, stop]))
+    res = interpret(dummyfn, [start, stop])
     assert res == dummyfn(start, stop)
