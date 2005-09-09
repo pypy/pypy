@@ -349,3 +349,11 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         for i in range(6): 
             for j in range(6): 
                 assert f(i,j) == list_basic_ops(i,j)
+
+    def test_range2list(self):
+        def fn():
+            r = range(10, 37, 4)
+            r.reverse()
+            return r[0]
+        f = self.getcompiled(fn)
+        assert f() == fn()

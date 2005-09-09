@@ -66,4 +66,14 @@ def test_range_len():
         return len(r)
     start, stop = 10, 17
     res = interpret(dummyfn, [start, stop])
-    assert res == len(range(start,stop))
+    assert res == dummyfn(start, stop)
+
+def test_range2list():
+    def dummyfn(start, stop):
+        r = range(start, stop)
+        r.reverse()
+        return r[0]
+    start, stop = 10, 17
+    res = interpret(dummyfn, [start, stop])#, view=True)
+    assert res == dummyfn(start, stop)
+

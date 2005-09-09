@@ -96,14 +96,24 @@ def rtype_builtin_range(hop):
         return hop.gendirectcall(ll_newrange, vstart, vstop)
     else:
         # cannot build a RANGE object, needs a real list
-        raise TyperError("range() result used as a normal list: "
-                         "XXX not implemented")
-        #return hop.gendirectcall(ll_range2list, vstart, vstop, vstep)
+        r_list = hop.r_result
+        c1 = hop.inputconst(Void, r_list.lowleveltype)
+        return hop.gendirectcall(ll_range2list, c1, vstart, vstop, vstep)
 
 rtype_builtin_xrange = rtype_builtin_range
 
-def ll_range2list(start, stop, step):
-    pass
+def ll_range2list(LISTPTR, start, stop, step):
+    from pypy.rpython.rlist import ll_newlist
+    length = _ll_rangelen(start, stop, step)
+    l = ll_newlist(LISTPTR, length)
+    idx = 0
+    items = l.items
+    while idx < length:
+        items[idx] = start
+        start += step
+        idx += 1
+    return l
+
 # ____________________________________________________________
 #
 #  Iteration.
