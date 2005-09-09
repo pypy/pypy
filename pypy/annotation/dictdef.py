@@ -17,7 +17,8 @@ class DictKey(ListItem):
             ListItem.merge(self, other)
             if self.custom_eq_hash:
                 self.update_rdict_annotations(other.s_rdict_eqfn,
-                                              other.s_rdict_hashfn)
+                                              other.s_rdict_hashfn,
+                                              other=other)
 
     def generalize(self, s_other_value):
         updated = ListItem.generalize(self, s_other_value)
@@ -25,7 +26,7 @@ class DictKey(ListItem):
             self.emulate_rdict_calls()
         return updated
 
-    def update_rdict_annotations(self, s_eqfn, s_hashfn):
+    def update_rdict_annotations(self, s_eqfn, s_hashfn, other=None):
         if not self.custom_eq_hash:
             self.custom_eq_hash = True
         else:
@@ -33,15 +34,25 @@ class DictKey(ListItem):
             s_hashfn = unionof(s_hashfn, self.s_rdict_hashfn)
         self.s_rdict_eqfn = s_eqfn
         self.s_rdict_hashfn = s_hashfn
-        self.emulate_rdict_calls()
+        self.emulate_rdict_calls(other=other)
 
-    def emulate_rdict_calls(self):
+    def emulate_rdict_calls(self, other=None):
+        myeq = (self, 'eq')
+        myhash = (self, 'hash')
+        if other:
+            replace_othereq = [(other, 'eq')]
+            replace_otherhash = [(other, 'hash')]
+        else:
+            replace_othereq = replace_otherhash = ()
+
         s_key = self.s_value
-        s1 = self.bookkeeper.emulate_pbc_call(self.s_rdict_eqfn, [s_key, s_key])
+        s1 = self.bookkeeper.emulate_pbc_call(myeq, self.s_rdict_eqfn, [s_key, s_key],
+                                              replace=replace_othereq)
         assert SomeBool().contains(s1), (
             "the custom eq function of an r_dict must return a boolean"
             " (got %r)" % (s1,))
-        s2 = self.bookkeeper.emulate_pbc_call(self.s_rdict_hashfn, [s_key])
+        s2 = self.bookkeeper.emulate_pbc_call(myhash, self.s_rdict_hashfn, [s_key],
+                                              replace=replace_otherhash)
         assert SomeInteger().contains(s2), (
             "the custom hash function of an r_dict must return an integer"
             " (got %r)" % (s2,))

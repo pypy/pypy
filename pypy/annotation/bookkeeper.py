@@ -229,8 +229,7 @@ class Bookkeeper:
             self.consider_pbc_call(pbc, shape, spaceop)
         self.pbc_call_sites = {}
 
-        for fn, shape in self.emulated_pbc_calls.iteritems():
-            pbc = SomePBC({fn: True})
+        for pbc, shape in self.emulated_pbc_calls.itervalues():
             self.consider_pbc_call(pbc, shape)
         self.emulated_pbc_calls = {}
 
@@ -546,16 +545,19 @@ class Bookkeeper:
 
         return unionof(*results) 
 
-    def emulate_pbc_call(self, pbc, args_s):
+    def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[]):
         args = self.build_args("simple_call", args_s)
         shape = args.rawshape()
-        for func, classdef in pbc.prebuiltinstances.items():
-            if func is not None:
-                assert not isclassdef(classdef)
-                if func in self.emulated_pbc_calls:
-                    assert shape == self.emulated_pbc_calls[func]
-                else:
-                    self.emulated_pbc_calls[func] = shape
+        emulated_pbc_calls = self.emulated_pbc_calls
+        prev = [unique_key]
+        prev.extend(replace)
+        for other_key in prev:
+            if other_key in emulated_pbc_calls:
+                pbc, old_shape = emulated_pbc_calls[other_key]
+                assert shape == old_shape
+                del emulated_pbc_calls[other_key]
+        emulated_pbc_calls[unique_key] = pbc, shape
+
         return self.pbc_call(pbc, args, True)
 
     # decide_callable(position, func, args, mono) -> callb, key
