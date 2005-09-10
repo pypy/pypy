@@ -220,6 +220,35 @@ def rtype_instantiate(hop):
 def rtype_we_are_translated(hop):
     return hop.inputconst(lltype.Bool, True)
 
+def rtype_hlinvoke(hop):
+    _, s_repr = hop.r_s_popfirstarg()
+    r_callable = s_repr.const
+
+    r_func, nimplicitarg = r_callable.get_r_implfunc()
+    s_callable = r_callable.get_s_callable()
+
+    _, rinputs, rresult = r_func.get_signature()
+    args_s, s_ret = r_func.get_args_ret_s()
+
+    args_s = args_s[nimplicitarg:]
+    rinputs = rinputs[nimplicitarg:]
+
+    assert 1+len(args_s) == len(hop.args_s)
+
+    new_args_r = [r_callable] + rinputs
+
+    for i in range(len(new_args_r)):
+        assert hop.args_r[i].lowleveltype == new_args_r[i].lowleveltype
+
+    hop.args_r = new_args_r
+    hop.args_s = [s_callable] + args_s
+
+    hop.s_result = s_ret
+    assert hop.r_result.lowleveltype == rresult.lowleveltype
+    hop.r_result = rresult
+
+    return hop.dispatch()
+
 
 # collect all functions
 import __builtin__
@@ -278,6 +307,8 @@ BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
 BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
+
+BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 
 from pypy.rpython import extfunctable
 

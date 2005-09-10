@@ -10,7 +10,7 @@ from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
-from pypy.annotation.model import annotation_to_lltype
+from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Constant
@@ -241,6 +241,14 @@ def robjmodel_r_dict(s_eqfn, s_hashfn):
     dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
     return SomeDict(dictdef)
 
+
+def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
+    from pypy.rpython import rmodel
+    assert s_repr.is_constant() and isinstance(s_repr.const, rmodel.Repr),"hlinvoke expects a constant repr as first argument"
+    r_func, _  = s_repr.const.get_r_implfunc()
+    f, rinputs, rresult = r_func.get_signature()
+    return lltype_to_annotation(rresult.lowleveltype)
+
 ##def rarith_ovfcheck(s_obj):
 ##    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
 ##        getbookkeeper().warning("ovfcheck on unsigned")
@@ -280,6 +288,7 @@ BUILTIN_ANALYZERS[pypy.rpython.objectmodel.instantiate] = robjmodel_instantiate
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
     robjmodel_we_are_translated)
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hlinvoke] = robjmodel_hlinvoke
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init

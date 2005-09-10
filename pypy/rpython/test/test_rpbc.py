@@ -846,3 +846,140 @@ def test_multiple_pbc_with_void_attr():
     assert res == 42
     res = interpret(f, [1])
     assert res == 42
+
+def test_hlinvoke_simple():
+    def f(a,b):
+        return a + b
+    from pypy.translator import annrpython
+    a = annrpython.RPythonAnnotator()
+    from pypy.annotation import model as annmodel
+    
+    def g():
+        f(2,3)
+        f(4,5)
+
+    a.build_types(g, [])
+
+    from pypy.rpython import rtyper
+    rt = rtyper.RPythonTyper(a)
+    rt.specialize()
+
+    def ll_h(R, f, x):
+        from pypy.rpython.objectmodel import hlinvoke
+        return hlinvoke(R, f, x, 2)
+
+    from pypy.rpython import annlowlevel
+
+    s_f = a.bookkeeper.immutablevalue(f)
+    r_f = rt.getrepr(s_f)
+
+    s_R = a.bookkeeper.immutablevalue(r_f)
+    s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
+    s, llfunction = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomeInteger()])
+    assert s.knowntype == int
+    rt.specialize_more_blocks()
+
+    from pypy.rpython.llinterp import LLInterpreter
+    interp = LLInterpreter(a.translator.flowgraphs, rt)
+
+    c_f = r_f.convert_const(f)
+    #a.translator.view()
+    res = interp.eval_function(llfunction, [None, c_f, 3])
+    assert res == 5
+
+def test_hlinvoke_hltype():
+    class A(object):
+        def __init__(self, v):
+            self.v = v
+    def f(a):
+        return A(a)
+
+    from pypy.translator import annrpython
+    a = annrpython.RPythonAnnotator()
+    from pypy.annotation import model as annmodel
+
+    def g():
+        a = A(None)
+        f(a)
+
+    a.build_types(g, [])
+
+    from pypy.rpython import rtyper
+    from pypy.rpython import rclass
+    rt = rtyper.RPythonTyper(a)
+    rt.specialize()
+
+    def ll_h(R, f, a):
+        from pypy.rpython.objectmodel import hlinvoke
+        return hlinvoke(R, f, a)
+
+    from pypy.rpython import annlowlevel
+
+    s_f = a.bookkeeper.immutablevalue(f)
+    r_f = rt.getrepr(s_f)
+
+    s_R = a.bookkeeper.immutablevalue(r_f)
+    s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
+    A_repr = rclass.getinstancerepr(rt, a.getuserclasses()[A])
+    s, llfunction = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomePtr(A_repr.lowleveltype)])
+    assert s.ll_ptrtype == A_repr.lowleveltype
+    rt.specialize_more_blocks()
+    
+    from pypy.rpython.llinterp import LLInterpreter
+    interp = LLInterpreter(a.translator.flowgraphs, rt)
+    
+    c_f = r_f.convert_const(f)
+    #a.translator.view()
+    c_a = A_repr.convert_const(A(None))
+    res = interp.eval_function(llfunction, [None, c_f, c_a])
+    assert typeOf(res) == A_repr.lowleveltype
+
+def test_hlinvoke_method_hltype():
+    class A(object):
+        def __init__(self, v):
+            self.v = v
+    class Impl(object):
+        def f(self, a):
+            return A(a)
+
+    from pypy.translator import annrpython
+    a = annrpython.RPythonAnnotator()
+    from pypy.annotation import model as annmodel
+
+    def g():
+        a = A(None)
+        i = Impl()
+        i.f(a)
+
+    a.build_types(g, [])
+
+    from pypy.rpython import rtyper
+    from pypy.rpython import rclass
+    rt = rtyper.RPythonTyper(a)
+    rt.specialize()
+
+    def ll_h(R, f, a):
+        from pypy.rpython.objectmodel import hlinvoke
+        return hlinvoke(R, f, a)
+
+    from pypy.rpython import annlowlevel
+
+    Impl_def = a.getuserclasses()[Impl]
+    s_f = annmodel.SomePBC({Impl.f.im_func: Impl_def})
+    r_f = rt.getrepr(s_f)
+
+    s_R = a.bookkeeper.immutablevalue(r_f)
+    s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
+    A_repr = rclass.getinstancerepr(rt, a.getuserclasses()[A])
+    s, llfunction = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomePtr(A_repr.lowleveltype)])
+    assert s.ll_ptrtype == A_repr.lowleveltype
+    rt.specialize_more_blocks()
+
+    from pypy.rpython.llinterp import LLInterpreter    
+    interp = LLInterpreter(a.translator.flowgraphs, rt)
+    
+    # low-level value is just the instance
+    c_f = rclass.getinstancerepr(rt, Impl_def).convert_const(Impl())
+    c_a = A_repr.convert_const(A(None))
+    res = interp.eval_function(llfunction, [None, c_f, c_a])
+    assert typeOf(res) == A_repr.lowleveltype

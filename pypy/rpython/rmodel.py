@@ -155,6 +155,14 @@ class Repr:
     def make_iterator_repr(self, *variant):
         raise TyperError("%s is not iterable" % (self,))
 
+    # hlinvoke helpers
+
+    def get_r_implfunc(self):
+        raise TyperError("%s has no corresponding implementation function representation" % (self,))
+
+    def get_s_callable(self):
+        raise TyperError("%s is not callable or cannot reconstruct a pbc annotation for itself" % (self,))
+
 def ll_hash_void(v):
     return 0
 
