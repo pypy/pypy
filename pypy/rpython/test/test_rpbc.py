@@ -882,10 +882,57 @@ def test_hlinvoke_simple():
     from pypy.rpython.llinterp import LLInterpreter
     interp = LLInterpreter(a.translator.flowgraphs, rt)
 
-    c_f = r_f.convert_const(f)
     #a.translator.view()
-    res = interp.eval_function(llfunction, [None, c_f, 3])
+    res = interp.eval_function(llfunction, [None, None, 3])
     assert res == 5
+
+def test_hlinvoke_simple2():
+    def f1(a,b):
+        return a + b
+    def f2(a,b):
+        return a - b
+    from pypy.translator import annrpython
+    a = annrpython.RPythonAnnotator()
+    from pypy.annotation import model as annmodel
+    
+    def g(i):
+        if i:
+            f = f1
+        else:
+            f = f2
+        f(5,4)
+        f(3,2)
+        
+    a.build_types(g, [int])
+
+    from pypy.rpython import rtyper
+    rt = rtyper.RPythonTyper(a)
+    rt.specialize()
+
+    def ll_h(R, f, x):
+        from pypy.rpython.objectmodel import hlinvoke
+        return hlinvoke(R, f, x, 2)
+
+    from pypy.rpython import annlowlevel
+
+    s_f = annmodel.SomePBC({f1: True, f2: True})
+    r_f = rt.getrepr(s_f)
+
+    s_R = a.bookkeeper.immutablevalue(r_f)
+    s_ll_f = annmodel.lltype_to_annotation(r_f.lowleveltype)
+    s, llfunction = annlowlevel.annotate_lowlevel_helper(a, ll_h, [s_R, s_ll_f, annmodel.SomeInteger()])
+    assert s.knowntype == int
+    rt.specialize_more_blocks()
+
+    from pypy.rpython.llinterp import LLInterpreter
+    interp = LLInterpreter(a.translator.flowgraphs, rt)
+
+    #a.translator.view()
+    res = interp.eval_function(llfunction, [None, r_f.convert_const(f1), 3])
+    assert res == 5
+    res = interp.eval_function(llfunction, [None, r_f.convert_const(f2), 3])
+    assert res == 1
+
 
 def test_hlinvoke_hltype():
     class A(object):
@@ -928,10 +975,9 @@ def test_hlinvoke_hltype():
     from pypy.rpython.llinterp import LLInterpreter
     interp = LLInterpreter(a.translator.flowgraphs, rt)
     
-    c_f = r_f.convert_const(f)
     #a.translator.view()
     c_a = A_repr.convert_const(A(None))
-    res = interp.eval_function(llfunction, [None, c_f, c_a])
+    res = interp.eval_function(llfunction, [None, None, c_a])
     assert typeOf(res) == A_repr.lowleveltype
 
 def test_hlinvoke_method_hltype():
