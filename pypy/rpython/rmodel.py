@@ -102,10 +102,7 @@ class Repr:
         raise TyperError, 'no equality function for %r' % self
 
     def get_ll_hash_function(self):
-        if not isinstance(self.lowleveltype, Ptr):
-            raise TyperError, 'no hashing function for %r' % self
-        # default behavior: use the pointer identity as a hash
-        return ll_hash_ptr
+        raise TyperError, 'no hashing function for %r' % self
 
     def rtype_bltn_list(self, hop):
         raise TyperError, 'no list() support for %r' % self
@@ -157,9 +154,6 @@ class Repr:
 
     def make_iterator_repr(self, *variant):
         raise TyperError("%s is not iterable" % (self,))
-
-def ll_hash_ptr(p):
-    return cast_ptr_to_int(p)
 
 def ll_hash_void(v):
     return 0
