@@ -76,6 +76,9 @@ class __extend__(StringRepr):
     def get_ll_eq_function(self):
         return ll_streq
 
+    def get_ll_hash_function(self):
+        return ll_strhash
+
     def rtype_len(_, hop):
         v_str, = hop.inputargs(string_repr)
         return hop.gendirectcall(ll_strlen, v_str)
@@ -393,6 +396,9 @@ class __extend__(CharRepr):
     def get_ll_eq_function(self):
         return None 
 
+    def get_ll_hash_function(self):
+        return ll_char_hash
+
     def rtype_len(_, hop):
         return hop.inputconst(Signed, 1)
 
@@ -445,6 +451,9 @@ class __extend__(UniCharRepr):
 
     def get_ll_eq_function(self):
         return None 
+
+    def get_ll_hash_function(self):
+        return ll_unichar_hash
 
 ##    def rtype_len(_, hop):
 ##        return hop.inputconst(Signed, 1)
@@ -535,6 +544,12 @@ def ll_char_mul(ch, times):
         newstr.chars[j] = ch
         j += 1
     return newstr
+
+def ll_char_hash(ch):
+    return ord(ch)
+
+def ll_unichar_hash(ch):
+    return ord(ch)
 
 def ll_strlen(s):
     return len(s.chars)

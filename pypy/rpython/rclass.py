@@ -202,6 +202,9 @@ class ClassRepr(Repr):
         #
         return getclassrepr(self.rtyper, subclassdef).getvtable()
 
+    def get_ll_eq_function(self):
+        return None
+
     def getvtable(self, cast_to_typeptr=True):
         """Return a ptr to the vtable of this type."""
         if self.vtable is None:

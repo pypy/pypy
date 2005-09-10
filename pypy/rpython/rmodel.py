@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import Void, Bool, Float, Signed, Char, UniChar
 from pypy.rpython.lltype import typeOf, LowLevelType, Ptr, PyObject
-from pypy.rpython.lltype import FuncType, functionptr
+from pypy.rpython.lltype import FuncType, functionptr, cast_ptr_to_int
 from pypy.tool.ansi_print import ansi_print
 from pypy.rpython.error import TyperError, MissingRTypeOperation 
 
@@ -101,6 +101,12 @@ class Repr:
     def get_ll_eq_function(self): 
         raise TyperError, 'no equality function for %r' % self
 
+    def get_ll_hash_function(self):
+        if not isinstance(self.lowleveltype, Ptr):
+            raise TyperError, 'no hashing function for %r' % self
+        # default behavior: use the pointer identity as a hash
+        return ll_hash_ptr
+
     def rtype_bltn_list(self, hop):
         raise TyperError, 'no list() support for %r' % self
 
@@ -151,6 +157,13 @@ class Repr:
 
     def make_iterator_repr(self, *variant):
         raise TyperError("%s is not iterable" % (self,))
+
+def ll_hash_ptr(p):
+    return cast_ptr_to_int(p)
+
+def ll_hash_void(v):
+    return 0
+
 
 class IteratorRepr(Repr):
     """Base class of Reprs of any kind of iterator."""
@@ -251,6 +264,8 @@ class UniCharRepr(Repr):
 
 class VoidRepr(Repr):
     lowleveltype = Void
+    def get_ll_eq_function(self): return None
+    def get_ll_hash_function(self): return ll_hash_void
 impossible_repr = VoidRepr()
 
 # ____________________________________________________________

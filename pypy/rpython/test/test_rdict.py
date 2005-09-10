@@ -90,7 +90,7 @@ def test_deleted_entry_reusage_with_colliding_hashes():
         return d[c2]
 
     char_by_hash = {}
-    base = rdict.STRDICT_INITSIZE
+    base = rdict.DICT_INITSIZE
     for y in range(0, 256):
         y = chr(y)
         y_hash = lowlevelhash(y) % base 
@@ -113,7 +113,7 @@ def test_deleted_entry_reusage_with_colliding_hashes():
 
     res = interpret(func2, [ord(x), ord(y)])
     for i in range(len(res.entries)): 
-        assert res.entries[i].key != rdict.deleted_entry_marker
+        assert not (res.entries[i].everused and not res.entries[i].valid)
 
     def func3(c0, c1, c2, c3, c4, c5, c6, c7):
         d = {}
@@ -127,29 +127,29 @@ def test_deleted_entry_reusage_with_colliding_hashes():
         c7 = chr(c7) ; d[c7] = 1; del d[c7]
         return d
 
-    if rdict.STRDICT_INITSIZE != 8: 
+    if rdict.DICT_INITSIZE != 8: 
         py.test.skip("make dict tests more indepdent from initsize")
     res = interpret(func3, [ord(char_by_hash[i][0]) 
-                               for i in range(rdict.STRDICT_INITSIZE)])
+                               for i in range(rdict.DICT_INITSIZE)])
     count_frees = 0
     for i in range(len(res.entries)):
-        if not res.entries[i].key:
+        if not res.entries[i].everused:
             count_frees += 1
     assert count_frees >= 3
 
 def test_dict_resize():
     def func(want_empty):
         d = {}
-        for i in range(rdict.STRDICT_INITSIZE):
+        for i in range(rdict.DICT_INITSIZE):
             d[chr(ord('a') + i)] = i
         if want_empty:
-            for i in range(rdict.STRDICT_INITSIZE):
+            for i in range(rdict.DICT_INITSIZE):
                 del d[chr(ord('a') + i)]
         return d
     res = interpret(func, [0])
-    assert len(res.entries) > rdict.STRDICT_INITSIZE 
+    assert len(res.entries) > rdict.DICT_INITSIZE 
     res = interpret(func, [1])
-    assert len(res.entries) == rdict.STRDICT_INITSIZE 
+    assert len(res.entries) == rdict.DICT_INITSIZE 
 
 def test_dict_iteration():
     def func(i, j):
@@ -300,3 +300,19 @@ def dict_or_none():
     assert res is True
     res = interpret(func, [42])
     assert res is True
+
+def test_int_dict():
+    def func(a, b):
+        dic = {12: 34}
+        dic[a] = 1000
+        return dic.get(b, -123)
+    res = interpret(func, [12, 12])
+    assert res == 1000
+    res = interpret(func, [12, 13])
+    assert res == -123
+    res = interpret(func, [524, 12])
+    assert res == 34
+    res = interpret(func, [524, 524])
+    assert res == 1000
+    res = interpret(func, [524, 1036])
+    assert res == -123

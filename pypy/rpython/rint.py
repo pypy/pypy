@@ -209,6 +209,9 @@ class __extend__(IntegerRepr):
     def get_ll_eq_function(self):
         return None 
 
+    def get_ll_hash_function(self):
+        return ll_hash_int
+
     def rtype_chr(_, hop):
         vlist =  hop.inputargs(Signed)
         return hop.genop('cast_int_to_char', vlist, resulttype=Char)
@@ -398,6 +401,9 @@ def ll_int2oct(i, addPrefix):
         result.chars[j] = temp[len-j-1]
         j += 1
     return result
+
+def ll_hash_int(n):
+    return n
 
 #
 # _________________________ Conversions _________________________

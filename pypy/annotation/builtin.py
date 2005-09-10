@@ -327,6 +327,9 @@ def cast_pointer(PtrT, s_p):
     cast_p = lltype.cast_pointer(PtrT.const, s_p.ll_ptrtype._defl())
     return SomePtr(ll_ptrtype=lltype.typeOf(cast_p))
 
+def cast_ptr_to_int(s_ptr): # xxx
+    return SomeInteger()
+
 def getRuntimeTypeInfo(T):
     assert T.is_constant()
     return immutablevalue(lltype.getRuntimeTypeInfo(T.const))
@@ -339,6 +342,7 @@ BUILTIN_ANALYZERS[lltype.malloc] = malloc
 BUILTIN_ANALYZERS[lltype.typeOf] = typeOf
 BUILTIN_ANALYZERS[lltype.nullptr] = nullptr
 BUILTIN_ANALYZERS[lltype.cast_pointer] = cast_pointer
+BUILTIN_ANALYZERS[lltype.cast_ptr_to_int] = cast_ptr_to_int
 BUILTIN_ANALYZERS[lltype.getRuntimeTypeInfo] = getRuntimeTypeInfo
 BUILTIN_ANALYZERS[lltype.runtime_type_info] = runtime_type_info
 
