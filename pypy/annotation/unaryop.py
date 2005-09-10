@@ -294,7 +294,7 @@ class __extend__(SomeDict):
         return dct.dictdef.read_value()
 
     def method_copy(dct):
-        return dct
+        return SomeDict(dct.dictdef)
 
     def method_update(dct1, dct2):
         dct1.dictdef.union(dct2.dictdef)
