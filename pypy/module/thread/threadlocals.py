@@ -11,16 +11,15 @@ class OSThreadLocals:
     os_thread.bootstrap()."""
 
     def __init__(self):
-        # XXX use string-keyed dicts only for now
-        self._valuedict = {}   # {str(thread_ident): ExecutionContext()}
+        self._valuedict = {}   # {thread_ident: ExecutionContext()}
 
     def getvalue(self):
         ident = thread.get_ident()
-        return self._valuedict.get(str(ident), None)
+        return self._valuedict.get(ident, None)
 
     def setvalue(self, value):
         ident = thread.get_ident()
-        self._valuedict[str(ident)] = value
+        self._valuedict[ident] = value
 
     def enter_thread(self, space):
         "Notification that the current thread is just starting."
@@ -37,7 +36,7 @@ class OSThreadLocals:
         finally:
             ident = thread.get_ident()
             try:
-                del self._valuedict[str(ident)]
+                del self._valuedict[ident]
             except KeyError:
                 pass
 
