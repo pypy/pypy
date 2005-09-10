@@ -100,21 +100,7 @@ annmodel.DEBUG = False
 
 # __________  Main  __________
 
-def analyse(target):
-
-    policy = AnnotatorPolicy()
-    if target:
-        spec = target(not options1.lowmem)
-        try:
-            entry_point, inputtypes, policy = spec
-        except ValueError:
-            entry_point, inputtypes = spec
-        t = Translator(entry_point, verbose=True, simplifying=True)
-        a = None
-    else:
-        # otherwise we have been loaded
-        a = t.annotator
-        t.frozen = False
+def analyse(t, inputtypes):
 
     standalone = inputtypes is None
     if standalone:
@@ -152,7 +138,7 @@ def analyse(target):
         unixcheckpoint.restartable_point(auto='run')
     if a:
         t.frozen = True   # cannot freeze if we don't have annotations
-    return t, entry_point, inputtypes, standalone
+    return  standalone
 
 def assert_rpython_mostly_not_imported(): 
     prefix = 'pypy.rpython.'
@@ -370,8 +356,23 @@ if __name__ == '__main__':
         optnames.sort()
         for name in optnames: 
             print '   %25s: %s' %(name, options[name])
+
+        policy = AnnotatorPolicy()
+        target = targetspec_dic['target']
+        if target:
+            spec = target(not options1.lowmem)
+            try:
+                entry_point, inputtypes, policy = spec
+            except ValueError:
+                entry_point, inputtypes = spec
+            t = Translator(entry_point, verbose=True, simplifying=True)
+            a = None
+        else:
+            # otherwise we have been loaded
+            a = t.annotator
+            t.frozen = False
         try:
-            t, entry_point, inputtypes, standalone = analyse(targetspec_dic['target'])
+            standalone = analyse(t, inputtypes)
         except TyperError:
             err = sys.exc_info()
         print '-'*60
