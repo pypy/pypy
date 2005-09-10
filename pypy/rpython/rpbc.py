@@ -287,6 +287,13 @@ class MethodOfFrozenPBCRepr(Repr):
         self.r_im_self = rtyper.getrepr(self.s_im_self)
         self.lowleveltype = self.r_im_self.lowleveltype
 
+    def get_s_callable(self):
+        return annmodel.SomePBC({self.function: True})
+
+    def get_r_implfunc(self):
+        r_func = self.rtyper.getrepr(self.get_s_callable())
+        return r_func, 1
+
     def convert_const(self, method):
         if getattr(method, 'im_func', None) is not self.function:
             raise TyperError("not a method bound on %r: %r" % (self.function,
