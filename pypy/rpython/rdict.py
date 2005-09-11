@@ -113,7 +113,7 @@ class DictRepr(rmodel.Repr):
         # get object from bound dict methods
         #dictobj = getattr(dictobj, '__self__', dictobj) 
         if dictobj is None:
-            return nullptr(self.DICT)
+            return lltype.nullptr(self.DICT)
         if not isinstance(dictobj, (dict, objectmodel.r_dict)):
             raise TyperError("expected a dict: %r" % (dictobj,))
         try:
@@ -488,24 +488,27 @@ def ll_dictiter(ITERPTR, d):
     return iter
 
 def ll_dictnext(iter, func, RETURNTYPE):
-    entries = iter.dict.entries
-    index = iter.index
-    entries_len = len(entries)
-    while index < entries_len:
-        entry = entries[index]
-        index = index + 1
-        if entry.valid:
-            iter.index = index
-            if func is dum_items:
-                r = lltype.malloc(RETURNTYPE.TO)
-                r.item0 = entry.key
-                r.item1 = entry.value
-                return r
-            elif func is dum_keys:
-                return entry.key
-            elif func is dum_values:
-                return entry.value
-    iter.index = index
+    dict = iter.dict
+    if dict:
+        entries = dict.entries
+        index = iter.index
+        entries_len = len(entries)
+        while index < entries_len:
+            entry = entries[index]
+            index = index + 1
+            if entry.valid:
+                iter.index = index
+                if func is dum_items:
+                    r = lltype.malloc(RETURNTYPE.TO)
+                    r.item0 = entry.key
+                    r.item1 = entry.value
+                    return r
+                elif func is dum_keys:
+                    return entry.key
+                elif func is dum_values:
+                    return entry.value
+        # clear the reference to the dict and prevent restarts
+        iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
     raise StopIteration
 
 # _____________________________________________________________
