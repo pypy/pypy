@@ -361,18 +361,20 @@ def ll_dict_lookup(d, key, dictrepr):
     entries = d.entries
     mask = len(entries) - 1
     i = r_uint(hash & mask) 
-
-    """XXX MUTATION PROTECTION!"""
-
     # do the first try before any looping 
     entry = entries[i]
     if entry.valid:
-        if entry.key == key:
+        checkingkey = entry.key
+        if checkingkey == key:
             return entry   # found the entry
         if dictrepr.custom_eq_hash:
-            res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, entry.key, key)
+            res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
+            if (entries != d.entries or
+                not entry.valid or entry.key != checkingkey):
+                # the compare did major nasty stuff to the dict: start over
+                return ll_dict_lookup(d, key, dictrepr)
         else:
-            res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(entry.key, key)
+            res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(checkingkey, key)
         if res:
             return entry   # found the entry
         freeslot = lltype.nullptr(lltype.typeOf(entry).TO)
@@ -390,12 +392,17 @@ def ll_dict_lookup(d, key, dictrepr):
         if not entry.everused:
             return freeslot or entry 
         elif entry.valid:
-            if entry.key == key:
+            checkingkey = entry.key
+            if checkingkey == key:
                 return entry
             if dictrepr.custom_eq_hash:
-                res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, entry.key, key)
+                res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
+                if (entries != d.entries or
+                    not entry.valid or entry.key != checkingkey):
+                    # the compare did major nasty stuff to the dict: start over
+                    return ll_dict_lookup(d, key, dictrepr)
             else:
-                res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(entry.key, key)
+                res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(checkingkey, key)
             if res:
                 return entry
         elif not freeslot:
