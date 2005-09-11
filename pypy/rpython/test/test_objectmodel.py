@@ -124,3 +124,20 @@ def test_rtype_r_dict():
 def test_rtype_r_dict_bm():
     res = interpret(test_r_dict_bm, [])
     assert res is True
+
+def test_rtype_constant_r_dicts():
+    d1 = r_dict(strange_key_eq, strange_key_hash)
+    d1['hello'] = 666
+    d2 = r_dict(strange_key_eq, strange_key_hash)
+    d2['hello'] = 777
+    d2['world'] = 888
+    def fn(i):
+        if i == 1:
+            d = d1
+        else:
+            d = d2
+        return len(d)
+    res = interpret(fn, [1])
+    assert res == 1
+    res = interpret(fn, [2])
+    assert res == 2

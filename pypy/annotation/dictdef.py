@@ -5,6 +5,7 @@ from pypy.annotation.listdef import ListItem
 
 class DictKey(ListItem):
     custom_eq_hash = False
+    pending_emulated_calls = ()
 
     def patch(self):
         for dictdef in self.itemof:
@@ -22,7 +23,7 @@ class DictKey(ListItem):
 
     def generalize(self, s_other_value):
         updated = ListItem.generalize(self, s_other_value)
-        if updated and self.custom_eq_hash:
+        if self.custom_eq_hash and (updated or self.pending_emulated_calls):
             self.emulate_rdict_calls()
         return updated
 
@@ -37,13 +38,23 @@ class DictKey(ListItem):
         self.emulate_rdict_calls(other=other)
 
     def emulate_rdict_calls(self, other=None):
+        # hackish: cannot emulate a call if we are not currently handling
+        # an operation
+        # (e.g. a link or a prebuilt constant coming from somewhere,
+        # as in rpython.test.test_objectmodel.test_rtype_constant_r_dicts)
+        if not hasattr(self.bookkeeper, 'position_key'):
+            self.pending_emulated_calls += (other,)
+            return
+
         myeq = (self, 'eq')
         myhash = (self, 'hash')
-        if other:
-            replace_othereq = [(other, 'eq')]
-            replace_otherhash = [(other, 'hash')]
-        else:
-            replace_othereq = replace_otherhash = ()
+        replace_othereq = []
+        replace_otherhash = []
+        for other in self.pending_emulated_calls + (other,):
+            if other:
+                replace_othereq.append((other, 'eq'))
+                replace_otherhash.append((other, 'hash'))
+        self.pending_emulated_calls = ()
 
         s_key = self.s_value
         s1 = self.bookkeeper.emulate_pbc_call(myeq, self.s_rdict_eqfn, [s_key, s_key],
@@ -86,6 +97,8 @@ class DictDef:
             else:
                 position_key = self.bookkeeper.position_key
         self.dictkey.read_locations[position_key] = True
+        if self.dictkey.pending_emulated_calls:
+            self.dictkey.emulate_rdict_calls()
         return self.dictkey.s_value
 
     def read_value(self, position_key=None):
