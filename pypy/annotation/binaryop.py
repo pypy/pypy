@@ -393,9 +393,9 @@ class __extend__(pairtype(SomeDict, SomeObject)):
         dic1.dictdef.generalize_value(s_value)
     setitem.can_only_throw = [KeyError]
 
-    def delitem((dic1, obj1)):
+    def delitem((dic1, obj2)):
         getbookkeeper().count("dict_delitem", dic1)
-        pass
+        dic1.dictdef.generalize_key(obj2)
     delitem.can_only_throw = [KeyError]
 
 
