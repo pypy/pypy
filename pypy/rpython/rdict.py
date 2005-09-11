@@ -121,10 +121,17 @@ class DictRepr(rmodel.Repr):
             return self.dict_cache[key]
         except KeyError:
             self.setup()
+            l_dict = ll_newdict(self)
+            self.dict_cache[key] = l_dict 
+            r_key = self.key_repr
+            r_value = self.value_repr
             if isinstance(dictobj, objectmodel.r_dict):
-                l_eqfn   = self.r_rdict_eqfn  .convert_const(dictobj.key_eq)
-                l_hashfn = self.r_rdict_hashfn.convert_const(dictobj.key_hash)
-                l_dict = ll_newdict_custom_eq_hash(l_eqfn, l_hashfn, self)
+                if self.r_rdict_eqfn.lowleveltype != lltype.Void:
+                    l_fn = self.r_rdict_eqfn.convert_const(dictobj.key_eq)
+                    l_dict.fnkeyeq = l_fn
+                if self.r_rdict_hashfn.lowleveltype != lltype.Void:
+                    l_fn = self.r_rdict_hashfn.convert_const(dictobj.key_hash)
+                    l_dict.fnkeyhash = l_fn
                 # a dummy object with ll_keyeq and ll_keyhash methods to
                 # pass to ll_dict_setitem()
                 class Dummy:
@@ -145,9 +152,6 @@ class DictRepr(rmodel.Repr):
                 dummy = Dummy()
                 dummy.cache = []
 
-                self.dict_cache[key] = l_dict 
-                r_key = self.key_repr
-                r_value = self.value_repr
                 for dictkeycontainer, dictvalue in dictobj._dict.items():
                     llkey = r_key.convert_const(dictkeycontainer.key)
                     llvalue = r_value.convert_const(dictvalue)
@@ -156,10 +160,6 @@ class DictRepr(rmodel.Repr):
                 return l_dict
 
             else:
-                l_dict = ll_newdict(self)
-                self.dict_cache[key] = l_dict 
-                r_key = self.key_repr
-                r_value = self.value_repr
                 for dictkey, dictvalue in dictobj.items():
                     llkey = r_key.convert_const(dictkey)
                     llvalue = r_value.convert_const(dictvalue)
@@ -409,21 +409,10 @@ def ll_dict_lookup(d, key, dictrepr):
 DICT_INITSIZE = 8
 
 def ll_newdict(dictrepr):
-    assert not dictrepr.custom_eq_hash     # use ll_newdict_custom_eq_hash() instead
     d = lltype.malloc(dictrepr.DICT)
     d.entries = lltype.malloc(dictrepr.DICTENTRYARRAY, DICT_INITSIZE)
     d.num_items = 0  # but still be explicit
     d.num_pristine_entries = DICT_INITSIZE
-    return d
-
-def ll_newdict_custom_eq_hash(eqfn, hashfn, dictrepr):
-    assert dictrepr.custom_eq_hash
-    d = lltype.malloc(dictrepr.DICT)
-    d.entries = lltype.malloc(dictrepr.DICTENTRYARRAY, DICT_INITSIZE)
-    d.num_items = 0  # but still be explicit
-    d.num_pristine_entries = DICT_INITSIZE
-    d.fnkeyeq = eqfn
-    d.fnkeyhash = hashfn
     return d
 
 def ll_copy_extra_data(targetdict, sourcedict, dictrepr):
@@ -449,8 +438,13 @@ def rtype_r_dict(hop):
                                      r_dict.r_rdict_hashfn)
     crepr = hop.inputconst(lltype.Void, r_dict)
     hop.exception_cannot_occur()
-    v_result = hop.gendirectcall(ll_newdict_custom_eq_hash,
-                                 v_eqfn, v_hashfn, crepr)
+    v_result = hop.gendirectcall(ll_newdict, crepr)
+    if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
+        cname = hop.inputconst(Void, 'fnkeyeq')
+        hop.genop('setfield', [v_result, cname, v_eqfn])
+    if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
+        cname = hop.inputconst(Void, 'fnkeyhash')
+        hop.genop('setfield', [v_result, cname, v_hashfn])
     return v_result
 
 # ____________________________________________________________
