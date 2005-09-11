@@ -33,7 +33,7 @@ def free_non_gc_object(obj):
 # __ invoke XXX this doesn't seem completely the right place for this
 
 def hlinvoke(repr, llcallable, *args):
-    raise TypeError, "invoke is meant to be rtyped and not called direclty"
+    raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
 
 # ____________________________________________________________
 
