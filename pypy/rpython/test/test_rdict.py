@@ -1,7 +1,7 @@
 
 from pypy.rpython import lltype 
 from pypy.rpython.test.test_llinterp import interpret 
-from pypy.rpython import rstr, rdict
+from pypy.rpython import rstr, rint, rdict
 
 import py
 py.log.setconsumer("rtyper", py.log.STDOUT)
@@ -326,3 +326,59 @@ def test_int_dict():
     assert res == 1000
     res = interpret(func, [524, 1036])
     assert res == -123
+
+# ____________________________________________________________
+
+def not_really_random():
+    """A random-ish generator, which also generates nice patterns from time to time.
+    Could be useful to detect problems associated with specific usage patterns."""
+    import random
+    x = random.random()
+    for i in range(12000):
+        r = 3.4 + i/20000.0
+        x = r*x - x*x
+        assert 0 <= x < 4
+        yield x
+
+def test_stress():
+    dictrepr = rdict.DictRepr(rint.signed_repr, rint.signed_repr)
+    dictrepr.setup()
+    l_dict = rdict.ll_newdict(dictrepr)
+    referencetable = [None] * 400
+    referencelength = 0
+    value = 0
+
+    def complete_check():
+        for n, refvalue in zip(range(len(referencetable)), referencetable):
+            try:
+                gotvalue = rdict.ll_dict_getitem(l_dict, n, dictrepr)
+            except KeyError:
+                assert refvalue is None
+            else:
+                assert gotvalue == refvalue
+
+    for x in not_really_random():
+        n = int(x*100.0)    # 0 <= x < 400
+        op = repr(x)[-1]
+        if op <= '2' and referencetable[n] is not None:
+            rdict.ll_dict_delitem(l_dict, n, dictrepr)
+            referencetable[n] = None
+            referencelength -= 1
+        elif op <= '6':
+            rdict.ll_dict_setitem(l_dict, n, value, dictrepr)
+            if referencetable[n] is None:
+                referencelength += 1
+            referencetable[n] = value
+            value += 1
+        else:
+            try:
+                gotvalue = rdict.ll_dict_getitem(l_dict, n, dictrepr)
+            except KeyError:
+                assert referencetable[n] is None
+            else:
+                assert gotvalue == referencetable[n]
+        if 1.38 <= x <= 1.39:
+            complete_check()
+            print 'current dict length:', referencelength
+        assert l_dict.num_items == referencelength
+    complete_check()
