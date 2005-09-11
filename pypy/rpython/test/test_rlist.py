@@ -320,6 +320,13 @@ def test_list_contains():
             res = interpret(fn, [i, case])
             assert res is fn(i, case)
 
+def test_not_a_char_list_after_all():
+    def fn():
+        l = ['h', 'e', 'l', 'l', 'o']
+        return 'world' in l
+    res = interpret(fn, [])
+    assert res is False
+
 def test_list_index():
     def fn(i):
         foo1 = Foo()

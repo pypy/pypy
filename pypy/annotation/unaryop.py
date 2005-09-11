@@ -244,7 +244,7 @@ class __extend__(SomeList):
         lst.listdef.mutate()
 
     def method_insert(lst, s_index, s_value):
-        self.method_append(lst, s_value)
+        lst.method_append(s_value)
 
     def method_pop(lst, s_index=None):
         lst.listdef.resize()

@@ -32,6 +32,16 @@ def test_dict_getitem_keyerror():
     res = interpret(func, [6])
     assert res == 0
 
+def test_dict_but_not_with_char_keys():
+    def func(i):
+        d = {'h': i}
+        try:
+            return d['hello']
+        except KeyError:
+            return 0
+    res = interpret(func, [6])
+    assert res == 0
+
 def test_dict_del_simple():
     def func(i): 
         d = {'hello' : i}
