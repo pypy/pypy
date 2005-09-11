@@ -1597,6 +1597,38 @@ class TestAnnotateTestCase:
         s = a.build_types(g, [x])
         assert s.const == True
 
+    def test_reading_also_generalizes(self):
+        def f1(i):
+            d = {'c': i}
+            return d['not-a-char'], d
+        a = self.RPythonAnnotator()
+        s = a.build_types(f1, [int])
+        assert dictkey(s.items[1]).__class__ == annmodel.SomeString
+        def f2(i):
+            d = {'c': i}
+            return d.get('not-a-char', i+1), d
+        a = self.RPythonAnnotator()
+        s = a.build_types(f2, [int])
+        assert dictkey(s.items[1]).__class__ == annmodel.SomeString
+        def f3(i):
+            d = {'c': i}
+            return 'not-a-char' in d, d
+        a = self.RPythonAnnotator()
+        s = a.build_types(f3, [int])
+        assert dictkey(s.items[1]).__class__ == annmodel.SomeString
+        def f4():
+            lst = ['a', 'b', 'c']
+            return 'not-a-char' in lst, lst
+        a = self.RPythonAnnotator()
+        s = a.build_types(f4, [])
+        assert listitem(s.items[1]).__class__ == annmodel.SomeString
+        def f5():
+            lst = ['a', 'b', 'c']
+            return lst.index('not-a-char'), lst
+        a = self.RPythonAnnotator()
+        s = a.build_types(f5, [])
+        assert listitem(s.items[1]).__class__ == annmodel.SomeString
+
 def g(n):
     return [0,1,2,n]
 

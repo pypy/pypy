@@ -159,6 +159,9 @@ class __extend__(SomeObject):
         getbookkeeper().warning("cannot follow call(%r, %r)" % (obj, args))
         return SomeObject()
 
+    def op_contains(obj, s_element):
+        return SomeBool()
+
 class __extend__(SomeInteger):
 
     def invert(self):
@@ -227,7 +230,7 @@ class __extend__(SomeList):
 
     def method_append(lst, s_value):
         lst.listdef.resize()
-        pair(lst, SomeInteger()).setitem(s_value)
+        lst.listdef.generalize(s_value)
 
     def method_extend(lst, s_iterable):
         lst.listdef.resize()
@@ -235,21 +238,21 @@ class __extend__(SomeList):
             lst.listdef.union(s_iterable.listdef)
         else:
             s_iter = s_iterable.iter()
-            pair(lst, SomeInteger()).setitem(s_iter.next())
+            self.method_append(s_iter.next())
 
     def method_reverse(lst):
         lst.listdef.mutate()
 
     def method_insert(lst, s_index, s_value):
-        lst.listdef.resize()
-        pair(lst, SomeInteger()).setitem(s_value)
+        self.method_append(lst, s_value)
 
     def method_pop(lst, s_index=None):
         lst.listdef.resize()
         return lst.listdef.read_item()
 
-    def method_index(lst, el):
+    def method_index(lst, s_value):
         getbookkeeper().count("list_index")
+        lst.listdef.generalize(s_value)
         return SomeInteger(nonneg=True)
 
     def len(lst):
@@ -264,6 +267,10 @@ class __extend__(SomeList):
 
     def getanyitem(lst):
         return lst.listdef.read_item()
+
+    def op_contains(lst, s_element):
+        lst.listdef.generalize(s_element)
+        return SomeBool()
 
 class __extend__(SomeDict):
 
@@ -321,6 +328,10 @@ class __extend__(SomeDict):
 
     def method_clear(dct):
         pass
+
+    def op_contains(dct, s_element):
+        dct.dictdef.generalize_key(s_element)
+        return SomeBool()
 
 
 class __extend__(SomeString):

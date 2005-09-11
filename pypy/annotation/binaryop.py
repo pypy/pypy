@@ -342,12 +342,6 @@ class __extend__(pairtype(SomeList, SomeList)):
 
     add = union
 
-    def inplace_add((lst1, lst2)):   # force the union of lst1 and lst2
-        lst1.listdef.resize()
-        lst1.listdef.union(lst2.listdef)
-        return lst1
-    inplace_add.can_only_throw = []
-
     def eq((lst1, lst2)):
         lst1.listdef.union(lst2.listdef)
         return SomeBool()
@@ -357,9 +351,7 @@ class __extend__(pairtype(SomeList, SomeList)):
 class __extend__(pairtype(SomeList, SomeObject)):
 
     def inplace_add((lst1, obj2)):
-        lst1.listdef.resize()
-        s_iter = obj2.iter()
-        pair(lst1, SomeInteger()).setitem(s_iter.next())
+        lst1.method_extend(obj2)
         return lst1
     inplace_add.can_only_throw = []
 
@@ -391,6 +383,7 @@ class __extend__(pairtype(SomeDict, SomeObject)):
 
     def getitem((dic1, obj2)):
         getbookkeeper().count("dict_getitem", dic1)
+        dic1.dictdef.generalize_key(obj2)
         return dic1.dictdef.read_value()
     getitem.can_only_throw = [KeyError]
 

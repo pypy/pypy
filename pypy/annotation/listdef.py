@@ -29,7 +29,7 @@ class ListItem:
             s_value = self.s_value
             s_other_value = other.s_value
             s_new_value = unionof(s_value, s_other_value)
-            if isdegenerated(s_new_value):
+            if isdegenerated(s_new_value) and self.bookkeeper:
                 self.bookkeeper.ondegenerated(self, s_new_value)
             if s_new_value != s_value:
                 self.s_value = s_new_value
@@ -47,7 +47,7 @@ class ListItem:
 
     def generalize(self, s_other_value):
         s_new_value = unionof(self.s_value, s_other_value)
-        if isdegenerated(s_new_value):
+        if isdegenerated(s_new_value) and self.bookkeeper:
             self.bookkeeper.ondegenerated(self, s_new_value)        
         updated = s_new_value != self.s_value
         if updated:
