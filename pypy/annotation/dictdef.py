@@ -46,16 +46,24 @@ class DictKey(ListItem):
             replace_othereq = replace_otherhash = ()
 
         s_key = self.s_value
-        s1 = self.bookkeeper.emulate_pbc_call(myeq, self.s_rdict_eqfn, [s_key, s_key],
-                                              replace=replace_othereq)
-        assert SomeBool().contains(s1), (
-            "the custom eq function of an r_dict must return a boolean"
-            " (got %r)" % (s1,))
-        s2 = self.bookkeeper.emulate_pbc_call(myhash, self.s_rdict_hashfn, [s_key],
-                                              replace=replace_otherhash)
-        assert SomeInteger().contains(s2), (
-            "the custom hash function of an r_dict must return an integer"
-            " (got %r)" % (s2,))
+
+        def check_eqfn(annotator, graph):
+            s = annotator.binding(graph.getreturnvar())
+            assert SomeBool().contains(s), (
+                "the custom eq function of an r_dict must return a boolean"
+                " (got %r)" % (s,))
+        self.bookkeeper.emulate_pbc_call(myeq, self.s_rdict_eqfn, [s_key, s_key],
+                                         replace=replace_othereq,
+                                         callback = check_eqfn)
+
+        def check_hashfn(annotator, graph):
+            s = annotator.binding(graph.getreturnvar())
+            assert SomeInteger().contains(s), (
+                "the custom hash function of an r_dict must return an integer"
+                " (got %r)" % (s,))
+        self.bookkeeper.emulate_pbc_call(myhash, self.s_rdict_hashfn, [s_key],
+                                         replace=replace_otherhash,
+                                         callback = check_hashfn)
 
 
 class DictValue(ListItem):
