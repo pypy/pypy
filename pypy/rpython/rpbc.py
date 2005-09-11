@@ -402,8 +402,11 @@ class FunctionsPBCRepr(Repr):
         if value not in self.function_signatures():
             raise TyperError("%r not in %r" % (value,
                                                self.s_pbc.prebuiltinstances))
-        f, rinputs, rresult = self.function_signatures()[value]
-        return f
+        if self.lowleveltype == Void:
+            return None
+        else:
+            f, rinputs, rresult = self.function_signatures()[value]
+            return f
 
     def rtype_simple_call(self, hop):
         f, rinputs, rresult = self.function_signatures().itervalues().next()

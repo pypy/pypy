@@ -1,5 +1,6 @@
 import py
-from pypy.rpython.test.test_llinterp import interpret 
+from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.objectmodel import r_dict
 
 def test_constant_int_dict(): 
     d = {1: 2, 2: 3, 3: 4} 
@@ -36,3 +37,19 @@ def test_unichar_dict():
     assert res == 123
     res = interpret(func, [63])
     assert res == 321
+
+def test_constant_r_dict():
+    def strange_key_eq(key1, key2):
+        return key1[0] == key2[0]   # only the 1st character is relevant
+    def strange_key_hash(key):
+        return ord(key[0])
+
+    d = r_dict(strange_key_eq, strange_key_hash)
+    d['hello'] = 42
+    d['world'] = 43
+    def func(i):
+        return d[chr(i)]
+    res = interpret(func, [ord('h')])
+    assert res == 42
+    res = interpret(func, [ord('w')])
+    assert res == 43

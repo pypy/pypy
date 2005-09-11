@@ -9,6 +9,7 @@ from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rfloat import float_repr, FloatRepr
 from pypy.rpython.rbool import bool_repr
+from pypy.rpython.rdict import rtype_r_dict
 from pypy.rpython import rclass
 from pypy.tool import sourcetools
 
@@ -153,6 +154,8 @@ def rtype_builtin_isinstance(hop):
 #def rtype_builtin_range(hop): see rrange.py
 
 #def rtype_builtin_xrange(hop): see rrange.py
+
+#def rtype_r_dict(hop): see rdict.py
 
 def rtype_intmask(hop):
     vlist = hop.inputargs(lltype.Signed)
@@ -305,6 +308,7 @@ BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
 BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint
+BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
 

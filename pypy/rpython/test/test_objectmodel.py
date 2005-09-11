@@ -28,7 +28,8 @@ def play_with_r_dict(d):
         assert False, "should have raised"
     assert len(d) == 1
     assert 'oops' not in d
-    assert list(d) == ['hello']
+    x, = d
+    assert x == 'hello'
     assert d.get('hola', -1) == 42
     assert d.get('salut', -1) == -1
     d1 = d.copy()
@@ -38,9 +39,12 @@ def play_with_r_dict(d):
     d.update(d1)
     assert d.values() == [42]
     assert d.items() == [('hello', 42)]
-    assert list(d.iterkeys()) == ['hello']
-    assert list(d.itervalues()) == [42]
-    assert list(d.iteritems()) == [('hello', 42)]
+    x, = d.iterkeys()
+    assert x == 'hello'
+    x, = d.itervalues()
+    assert x == 42
+    x, = d.iteritems()
+    assert x == ('hello', 42)
     d.clear()
     assert d.keys() == []
     return True   # for the tests below

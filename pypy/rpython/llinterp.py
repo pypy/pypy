@@ -39,6 +39,11 @@ class LLInterpreter(object):
         llframe = LLFrame(graph, args, self)
         try:
             return llframe.eval()
+        except LLException, e:
+            etype, evalue = e.args
+            print "LLEXCEPTION:", etype.name
+            self.print_traceback()
+            raise
         except Exception, e:
             print "AN ERROR OCCURED:", e
             self.print_traceback()

@@ -101,24 +101,20 @@ class r_dict(object):
     def clear(self):
         self._dict.clear()
 
-    def key_eq(self, key1, key2):
-        "Called to compare two keys.  Can be overridden in subclasses."
-        return key1 == key2
-
-    def key_hash(self, key):
-        "Called to compute the hash of a key.  Can be overridden in subclasses."
-        return hash(key)
-
     def __repr__(self):
         "Representation for debugging purposes."
         return 'r_dict(%r)' % (dict(self.items()),)
 
+    def __hash__(self):
+        raise TypeError("cannot hash r_dict instances")
+
 
 class _r_dictkey(object):
-    __slots__ = ['dic', 'key']
+    __slots__ = ['dic', 'key', 'hash']
     def __init__(self, dic, key):
         self.dic = dic
         self.key = key
+        self.hash = dic.key_hash(key)
     def __eq__(self, other):
         if not isinstance(other, _r_dictkey):
             return NotImplemented
@@ -128,4 +124,4 @@ class _r_dictkey(object):
             return NotImplemented
         return not self.dic.key_eq(self.key, other.key)
     def __hash__(self):
-        return self.dic.key_hash(self.key)
+        return self.hash
