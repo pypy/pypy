@@ -850,15 +850,14 @@ def test_multiple_pbc_with_void_attr():
 def test_hlinvoke_simple():
     def f(a,b):
         return a + b
+    from pypy.translator import translator
     from pypy.translator import annrpython
-    a = annrpython.RPythonAnnotator()
+    a = annrpython.RPythonAnnotator(translator.Translator(simplifying=True))
     from pypy.annotation import model as annmodel
     
-    def g():
-        f(2,3)
-        f(4,5)
-
-    a.build_types(g, [])
+    s_f = a.bookkeeper.immutablevalue(f) 
+    a.bookkeeper.emulate_pbc_call('f', s_f, [annmodel.SomeInteger(), annmodel.SomeInteger()])
+    a.complete()
 
     from pypy.rpython import rtyper
     rt = rtyper.RPythonTyper(a)
@@ -870,7 +869,6 @@ def test_hlinvoke_simple():
 
     from pypy.rpython import annlowlevel
 
-    s_f = a.bookkeeper.immutablevalue(f)
     r_f = rt.getrepr(s_f)
 
     s_R = a.bookkeeper.immutablevalue(r_f)

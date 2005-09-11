@@ -522,8 +522,8 @@ class Bookkeeper:
 
             callfamily.patterns.update({shape: True})
  
-    def pbc_call(self, pbc, args, implicit_init):
-        if not implicit_init:
+    def pbc_call(self, pbc, args, implicit_init=False, emulated=None):
+        if not implicit_init and not emulated:
             fn, block, i = self.position_key
             assert block.operations[i].opname in ('call_args', 'simple_call')
             assert self.annotator.binding(block.operations[i].args[0], extquery=True) is pbc
@@ -541,17 +541,25 @@ class Bookkeeper:
                             if func is not None]
         mono = len(nonnullcallables) == 1
 
+        if emulated is not None:
+            if emulated is True:
+                context = None
+            else:
+                context = emulated
+        else:
+            context = 'current'
+
         for func, classdef in nonnullcallables:
             if isclassdef(classdef): 
                 s_self = SomeInstance(classdef)
                 args1 = args.prepend(s_self)
             else:
                 args1 = args
-            results.append(self.pycall(func, args1, mono))
+            results.append(self.pycall(func, args1, mono, context=context))
 
         return unionof(*results) 
 
-    def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[]):
+    def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[], callback=None):
         args = self.build_args("simple_call", args_s)
         shape = args.rawshape()
         emulated_pbc_calls = self.emulated_pbc_calls
@@ -564,7 +572,12 @@ class Bookkeeper:
                 del emulated_pbc_calls[other_key]
         emulated_pbc_calls[unique_key] = pbc, shape
 
-        return self.pbc_call(pbc, args, True)
+        if callback is None:
+            emulated = True
+        else:
+            emulated = callback
+
+        return self.pbc_call(pbc, args, emulated=emulated)
 
     # decide_callable(position, func, args, mono) -> callb, key
     # query_spaceop_callable(spaceop) -> pbc, isspecialcase
@@ -644,13 +657,17 @@ class Bookkeeper:
         return inputcells
  
 
-    def pycall(self, func, args, mono):
+    def pycall(self, func, args, mono, context='current'):
         if func is None:   # consider None as a NULL function pointer
             return SomeImpossibleValue()
 
         # decide and pick if necessary a specialized version
         base_func = func
-        func, key = decide_callable(self, self.position_key, func, args, mono, unpacked=True)
+        if context == 'current':
+            position_key = self.position_key
+        else:
+            position_key = None
+        func, key = decide_callable(self, position_key, func, args, mono, unpacked=True)
         
         if func is None:
             assert isinstance(key, SomeObject)
@@ -675,11 +692,15 @@ class Bookkeeper:
         assert isinstance(func, FunctionType), "[%s] expected user-defined function, got %r" % (self.whereami(), func)
 
         inputcells = self.get_inputcells(func, args)
-
-        r = self.annotator.recursivecall(func, self.position_key, inputcells)
+        if context == 'current':
+            whence = self.position_key
+        else:
+            whence = context
+        r = self.annotator.recursivecall(func, whence, inputcells)
 
         # if we got different specializations keys for a same site, mix previous results for stability
         if key is not None:
+            assert context == 'current'
             occurence = (base_func, self.position_key)
             try:
                 prev_key, prev_r = self.spec_callsite_keys_results[occurence]

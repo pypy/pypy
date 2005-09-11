@@ -269,14 +269,23 @@ class RPythonAnnotator:
 
     #___ interface for annotator.bookkeeper _______
 
-    def recursivecall(self, func, position_key, inputcells):
-        parent_fn, parent_block, parent_index = position_key
+    def recursivecall(self, func, whence, inputcells): # whence = position_key|callback taking the annotator, graph 
+        if isinstance(whence, tuple):
+            parent_fn, parent_block, parent_index = position_key = whence
+        else:
+            parent_fn = position_key = None
         graph = self.getflowgraph(func, parent_fn, position_key)
         # self.notify[graph.returnblock] is a dictionary of call
         # points to this func which triggers a reflow whenever the
         # return block of this graph has been analysed.
         callpositions = self.notify.setdefault(graph.returnblock, {})
-        callpositions[position_key] = True
+        if whence is not None:
+            if callable(whence):
+                def callback():
+                    whence(self, graph)
+            else:
+                callback = whence
+            callpositions[callback] = True
 
         # generalize the function's input arguments
         self.addpendingblock(func, graph.startblock, inputcells, position_key)
@@ -584,8 +593,11 @@ class RPythonAnnotator:
             self.addpendingblock(fn, link.target, cells)
         if block in self.notify:
             # reflow from certain positions when this block is done
-            for position_key in self.notify[block]:
-                self.reflowfromposition(position_key)
+            for callback in self.notify[block]:
+                if isinstance(callback, tuple):
+                    self.reflowfromposition(callback) # callback is a position
+                else:
+                    callback()
 
 
     #___ creating the annotations based on operations ______

@@ -1664,6 +1664,44 @@ class TestAnnotateTestCase:
         s = a.build_types(g, [int])
         assert None not in s.prebuiltinstances
 
+    def test_emulated_pbc_call_simple(self):
+        def f(a,b):
+            return a + b
+        from pypy.translator import translator
+        from pypy.translator import annrpython
+        a = annrpython.RPythonAnnotator(translator.Translator(simplifying=True))
+        from pypy.annotation import model as annmodel
+
+        s_f = a.bookkeeper.immutablevalue(f) 
+        a.bookkeeper.emulate_pbc_call('f', s_f, [annmodel.SomeInteger(), annmodel.SomeInteger()])
+        a.complete()
+
+        assert f in a.translator.flowgraphs
+        assert a.binding(a.translator.flowgraphs[f].getreturnvar()).knowntype == int
+
+    def test_emulated_pbc_call_callback(self):
+        def f(a,b):
+            return a + b
+        from pypy.translator import translator
+        from pypy.translator import annrpython
+        a = annrpython.RPythonAnnotator(translator.Translator(simplifying=True))
+        from pypy.annotation import model as annmodel
+
+        memo = []
+        def callb(ann, graph):
+            memo.append(annmodel.SomeInteger().contains(ann.binding(graph.getreturnvar())))
+
+        s_f = a.bookkeeper.immutablevalue(f) 
+        s = a.bookkeeper.emulate_pbc_call('f', s_f, [annmodel.SomeInteger(), annmodel.SomeInteger()],
+                                          callback=callb)
+        assert s == annmodel.SomeImpossibleValue()
+        a.complete()
+
+        assert f in a.translator.flowgraphs
+        assert a.binding(a.translator.flowgraphs[f].getreturnvar()).knowntype == int
+        assert len(memo) >= 1
+        for t in memo:
+            assert t
 
 def g(n):
     return [0,1,2,n]
