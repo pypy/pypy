@@ -370,22 +370,22 @@ class __extend__(SomeString):
     def method_upper(str):
         return SomeString()
 
-    def is_true(str):
-        r = SomeObject.is_true(str)
-        if not isinstance(r, SomeBool):
-            return r
-        bk = getbookkeeper()
-        knowntypedata = r.knowntypedata = {}
-        fn, block, i = bk.position_key
-
-        annotator = bk.annotator
-        op = block.operations[i]
-        assert op.opname == "is_true" or op.opname == "nonzero"
-        assert len(op.args) == 1
-        arg = op.args[0]
-        add_knowntypedata(knowntypedata, False, [arg], str)
-        add_knowntypedata(knowntypedata, True, [arg], str.nonnoneify())
-        return r
+    #def is_true(str):
+    #    r = SomeObject.is_true(str)
+    #    if not isinstance(r, SomeBool):
+    #        return r
+    #    bk = getbookkeeper()
+    #    knowntypedata = r.knowntypedata = {}
+    #    fn, block, i = bk.position_key
+    #
+    #    annotator = bk.annotator
+    #    op = block.operations[i]
+    #    assert op.opname == "is_true" or op.opname == "nonzero"
+    #    assert len(op.args) == 1
+    #    arg = op.args[0]
+    #    add_knowntypedata(knowntypedata, False, [arg], str)
+    #    add_knowntypedata(knowntypedata, True, [arg], str.nonnoneify())
+    #    return r
 
 
 
