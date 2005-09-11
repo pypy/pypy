@@ -14,6 +14,7 @@ from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.objectmodel import r_dict
 from pypy.tool.unionfind import UnionFind
 from pypy.rpython import lltype
 from pypy.rpython.memory import lladdress
@@ -325,7 +326,7 @@ class Bookkeeper:
                 self.immutable_cache[key] = result
                 for e in x:
                     result.listdef.generalize(self.immutablevalue(e))
-        elif tp is dict:   # exactly a dict
+        elif tp is dict or tp is r_dict:
             key = Constant(x)
             try:
                 return self.immutable_cache[key]
@@ -334,6 +335,11 @@ class Bookkeeper:
                                           SomeImpossibleValue(),
                                           SomeImpossibleValue()))
                 self.immutable_cache[key] = result
+                if tp is r_dict:
+                    s_eqfn = self.immutablevalue(x.key_eq)
+                    s_hashfn = self.immutablevalue(x.key_hash)
+                    result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
+                                                                    s_hashfn)
                 for ek, ev in x.iteritems():
                     result.dictdef.generalize_key(self.immutablevalue(ek))
                     result.dictdef.generalize_value(self.immutablevalue(ev))
