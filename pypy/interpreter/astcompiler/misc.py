@@ -10,6 +10,15 @@ def flatten(tup):
             elts.append(elt)
     return elts
 
+class Counter:
+    def __init__(self, initial):
+        self.count = initial
+
+    def next(self):
+        i = self.count
+        self.count += 1
+        return i
+
 class Set:
     _annspecialcase_ = "specialize:ctr_location" # polymorphic
 

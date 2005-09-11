@@ -11,6 +11,30 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 
 
+
+class BlockSet:
+    """A Set implementation specific to Blocks
+    it uses Block.bid as keys to underlying dict"""
+    def __init__(self):
+        self.elts = {}
+    def __len__(self):
+        return len(self.elts)
+    def __contains__(self, elt):
+        return elt.bid in self.elts
+    def add(self, elt):
+        self.elts[elt.bid] = elt
+    def elements(self):
+        return self.elts.values()
+    def has_elt(self, elt):
+        return elt.bid in self.elts
+    def remove(self, elt):
+        del self.elts[elt.bid]
+    def copy(self):
+        c = BlockSet()
+        c.elts.update(self.elts)
+        return c
+
+
 class Instr:
     has_arg = False
     
@@ -70,7 +94,7 @@ class FlowGraph:
         self.space = space
         self.current = self.entry = Block(space)
         self.exit = Block(space,"exit")
-        self.blocks = misc.Set()
+        self.blocks = BlockSet()
         self.blocks.add(self.entry)
         self.blocks.add(self.exit)
 
@@ -246,7 +270,7 @@ class FlowGraph:
         chains = []
         cur = []
         for b in blocks:
-            index[b] = len(chains)
+            index[b.bid] = len(chains)
             cur.append(b)
             if b.next and b.next[0] == default_next:
                 chains.append(cur)
@@ -260,7 +284,7 @@ class FlowGraph:
                 l = chains[i]
                 for b in l:
                     for c in b.get_children():
-                        if index[c] < i:
+                        if index[c.bid] < i:
                             forward_p = 0
                             for inst in b.insts:
                                 if inst.op == 'JUMP_FORWARD':
@@ -269,7 +293,7 @@ class FlowGraph:
                                         forward_p = 1
                             if not forward_p:
                                 continue
-                            constraints.append((index[c], i))
+                            constraints.append((index[c.bid], i))
 
             if not constraints:
                 break
@@ -311,28 +335,18 @@ def dfs_postorder(b, seen):
     order.append(b)
     return order
 
-class BlockCounter:
-    def __init__(self):
-        self._count = 0
+BlockCounter = misc.Counter(0)
 
-    def inc(self):
-        self._count += 1
-
-    def value(self):
-        return self._count
-    
 class Block:
-    _count = BlockCounter()
 
     def __init__(self, space, label=''):
         self.insts = []
-        self.inEdges = misc.Set()
-        self.outEdges = misc.Set()
+        self.inEdges = BlockSet()
+        self.outEdges = BlockSet()
         self.label = label
-        self.bid = Block._count.value()
+        self.bid = BlockCounter.next()
         self.next = []
         self.space = space
-        Block._count.inc()
 
     def __repr__(self):
         if self.label:

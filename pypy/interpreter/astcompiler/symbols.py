@@ -3,7 +3,7 @@
 from pypy.interpreter.astcompiler import ast
 from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
     SC_FREE, SC_CELL, SC_UNKNOWN, SC_REALLY_GLOBAL
-from pypy.interpreter.astcompiler.misc import mangle
+from pypy.interpreter.astcompiler.misc import mangle, Counter
 from pypy.interpreter.pyparser.error import SyntaxError
 import types
 
@@ -11,15 +11,6 @@ import types
 import sys
 
 MANGLE_LEN = 256
-
-class Counter:
-    def __init__(self, initial):
-        self.count = initial
-
-    def next(self):
-        i = self.count
-        self.count += 1
-        return i
 
 class Scope:
     # XXX how much information do I need about each name?

@@ -1188,7 +1188,7 @@ class InteractiveCodeGenerator(CodeGenerator):
         node.expr.accept( self )
         self.emit('PRINT_EXPR')
 
-AbstractFunctionCodeLambdaCounter = symbols.Counter(0)
+AbstractFunctionCodeLambdaCounter = misc.Counter(0)
 
 class AbstractFunctionCode(CodeGenerator):
     def __init__(self, space, func, isLambda, class_name, mod):
@@ -1246,7 +1246,8 @@ class AbstractFunctionCode(CodeGenerator):
             elif isinstance(elt, ast.AssTuple):
                 self.unpackSequence( elt )
             else:
-                raise TypeError( "Got argument %s of type %s" % (elt,type(elt)))
+                #raise TypeError( "Got argument %s of type %s" % (elt,type(elt)))
+                raise TypeError( "Got unexpected argument" )
 
     unpackTuple = unpackSequence
 
