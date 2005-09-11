@@ -18,18 +18,24 @@ def strange_key_hash(key):
     return ord(key[0])
 
 def play_with_r_dict(d):
+    d['hello'] = 41
     d['hello'] = 42
     assert d['hi there'] == 42
     try:
-        d["dumb"]
+        unexpected = d["dumb"]
     except KeyError:
         pass
     else:
-        assert False, "should have raised"
+        assert False, "should have raised, got %s" % unexpected
     assert len(d) == 1
     assert 'oops' not in d
-    x, = d
-    assert x == 'hello'
+
+    count = 0
+    for x in d:
+        assert x == 'hello'
+        count += 1
+    assert count == 1
+
     assert d.get('hola', -1) == 42
     assert d.get('salut', -1) == -1
     d1 = d.copy()
@@ -38,13 +44,28 @@ def play_with_r_dict(d):
     assert d1.keys() == ['hello']
     d.update(d1)
     assert d.values() == [42]
-    assert d.items() == [('hello', 42)]
-    x, = d.iterkeys()
-    assert x == 'hello'
-    x, = d.itervalues()
-    assert x == 42
-    x, = d.iteritems()
-    assert x == ('hello', 42)
+    lst = d.items()
+    assert len(lst) == 1 and len(lst[0]) == 2
+    assert lst[0][0] == 'hello' and lst[0][1] == 42
+
+    count = 0
+    for x in d.iterkeys():
+        assert x == 'hello'
+        count += 1
+    assert count == 1
+
+    count = 0
+    for x in d.itervalues():
+        assert x == 42
+        count += 1
+    assert count == 1
+        
+    count = 0
+    for x in d.iteritems():
+        assert len(x) == 2 and x[0] == 'hello' and x[1] == 42
+        count += 1
+    assert count == 1
+        
     d.clear()
     assert d.keys() == []
     return True   # for the tests below
@@ -96,6 +117,6 @@ def test_annotate_r_dict_bm():
     assert a.binding(graph.getargs()[0]).knowntype == Strange
     assert a.binding(graph.getargs()[1]).knowntype == str
 
-def INPROGRESS_test_rtype_r_dict():
+def test_rtype_r_dict():
     res = interpret(test_r_dict, [])
     assert res is True
