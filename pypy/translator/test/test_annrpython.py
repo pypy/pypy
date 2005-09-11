@@ -1689,7 +1689,7 @@ class TestAnnotateTestCase:
 
         memo = []
         def callb(ann, graph):
-            memo.append(annmodel.SomeInteger().contains(ann.binding(graph.getreturnvar())))
+            memo.append(annmodel.SomeInteger() == ann.binding(graph.getreturnvar()))
 
         s_f = a.bookkeeper.immutablevalue(f) 
         s = a.bookkeeper.emulate_pbc_call('f', s_f, [annmodel.SomeInteger(), annmodel.SomeInteger()],
