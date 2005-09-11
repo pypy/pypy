@@ -369,6 +369,10 @@ class ObjSpace(object):
         """shortcut for space.is_true(space.is_(w_obj1, w_obj2))"""
         return self.is_true(self.is_(w_obj1, w_obj2))
 
+    def hash_w(self, w_obj):
+        """shortcut for space.int_w(space.hash(w_obj))"""
+        return self.int_w(self.hash(w_obj))
+
     def newbool(self, b):
         if b:
             return self.w_True

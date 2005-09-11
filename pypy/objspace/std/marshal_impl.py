@@ -341,17 +341,16 @@ register(TYPE_LIST, unmarshal_List)
 
 def marshal_w__Dict(space, w_dict, m):
     m.start(TYPE_DICT)
-    for entry in w_dict.data:
-        if entry.w_value is not None:
-            m.put_w_obj(entry.w_key)
-            m.put_w_obj(entry.w_value)
+    for w_key, w_value in w_dict.content.iteritems():
+        m.put_w_obj(w_key)
+        m.put_w_obj(w_value)
     m.atom(TYPE_NULL)
 
 def unmarshal_Dict(space, u, tc):
     # since primitive lists are not optimized and we don't know
     # the dict size in advance, use the dict's setitem instead
     # of building a list of tuples.
-    w_dic = W_DictObject(space, [])
+    w_dic = W_DictObject(space)
     setter = dictobject.setitem__Dict_ANY_ANY
     while 1:
         w_key = u.get_w_obj(True)

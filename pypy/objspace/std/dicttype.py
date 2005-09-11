@@ -100,7 +100,7 @@ register_all(vars(), globals())
 def descr__new__(space, w_dicttype, __args__):
     from pypy.objspace.std.dictobject import W_DictObject
     w_obj = space.allocate_instance(W_DictObject, w_dicttype)
-    W_DictObject.__init__(w_obj, space, [])
+    W_DictObject.__init__(w_obj, space)
     return w_obj
 
 # ____________________________________________________________

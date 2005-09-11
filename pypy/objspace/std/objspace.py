@@ -248,7 +248,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_UnicodeObject(self, [unichr(ord(u)) for u in x]) # xxx
         if isinstance(x, dict):
             items_w = [(self.wrap(k), self.wrap(v)) for (k, v) in x.iteritems()]
-            return W_DictObject(self, items_w)
+            return self.newdict(items_w)
         if isinstance(x, float):
             return W_FloatObject(self, x)
         if isinstance(x, tuple):
@@ -324,7 +324,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_ListObject(self, list_w)
 
     def newdict(self, list_pairs_w):
-        return W_DictObject(self, list_pairs_w)
+        w_result = W_DictObject(self)
+        w_result.initialize_content(list_pairs_w)
+        return w_result
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(self, w_start, w_end, w_step)
@@ -395,7 +397,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def is_true(self, w_obj):
         # XXX don't look!
         if isinstance(w_obj, W_DictObject):
-            return not not w_obj.used
+            return len(w_obj.content) != 0
         else:
             return DescrOperation.is_true(self, w_obj)
 

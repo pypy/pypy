@@ -7,13 +7,14 @@ class TestW_DictObject:
 
     def test_empty(self):
         space = self.space
-        d = W_DictObject(space, [])
+        d = W_DictObject(space)
         assert not self.space.is_true(d)
 
     def test_nonempty(self):
         space = self.space
         wNone = space.w_None
-        d = W_DictObject(space, [(wNone, wNone)])
+        d = W_DictObject(space)
+        d.initialize_content([(wNone, wNone)])
         assert space.is_true(d)
         i = space.getitem(d, wNone)
         equal = space.eq(i, wNone)
@@ -23,7 +24,8 @@ class TestW_DictObject:
         space = self.space
         wk1 = space.wrap('key')
         wone = space.wrap(1)
-        d = W_DictObject(space, [(space.wrap('zero'),space.wrap(0))])
+        d = W_DictObject(space)
+        d.initialize_content([(space.wrap('zero'),space.wrap(0))])
         space.setitem(d,wk1,wone)
         wback = space.getitem(d,wk1)
         assert self.space.eq_w(wback,wone)
@@ -31,8 +33,8 @@ class TestW_DictObject:
     def test_delitem(self):
         space = self.space
         wk1 = space.wrap('key')
-        d = W_DictObject(space,
-                              [(space.wrap('zero'),space.wrap(0)),
+        d = W_DictObject(space)
+        d.initialize_content( [(space.wrap('zero'),space.wrap(0)),
                                (space.wrap('one'),space.wrap(1)),
                                (space.wrap('two'),space.wrap(2))])
         space.delitem(d,space.wrap('one'))
@@ -338,11 +340,9 @@ class AppTest_DictObject:
 
 # the minimal 'space' needed to use a W_DictObject
 class FakeSpace:
-    def hash(self, obj):
+    def hash_w(self, obj):
         return hash(obj)
     def unwrap(self, x):
-        return x
-    def int_w(self, x):
         return x
     def is_true(self, x):
         return x
@@ -364,7 +364,7 @@ class TestDictImplementation:
 
     def test_stressdict(self):
         from random import randint
-        d = W_DictObject(self.space, [])
+        d = W_DictObject(self.space)
         N = 10000
         pydict = {}
         for i in range(N):
