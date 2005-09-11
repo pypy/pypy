@@ -134,11 +134,12 @@ def to_code( rcode, space ):
                      tuple(rcode.co_cellvars) )
     return code
 
-def check_compile(expr, target='exec', quiet=False, space=FakeSpace()):
+def check_compile(expr, target='exec', quiet=False, space=None):
     if not quiet:
         print "Compiling:", expr
 
-    space = std_space
+    if space is None:
+        space = std_space
 
     sc_code = compile_with_stablecompiler(expr, target=target)
     ac_code = compile_with_astcompiler(expr, target=target, space=space)
