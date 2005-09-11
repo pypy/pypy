@@ -14,6 +14,7 @@ from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
 from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeTypedAddressAccess, SomeAddress
 from pypy.annotation.model import unionof, set, setunion, missing_operation
+from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper, RPythonCallsSpace
 from pypy.annotation.classdef import isclassdef
 from pypy.annotation import builtin
@@ -368,6 +369,24 @@ class __extend__(SomeString):
 
     def method_upper(str):
         return SomeString()
+
+    def is_true(str):
+        r = SomeObject.is_true(str)
+        if not isinstance(r, SomeBool):
+            return r
+        bk = getbookkeeper()
+        knowntypedata = r.knowntypedata = {}
+        fn, block, i = bk.position_key
+
+        annotator = bk.annotator
+        op = block.operations[i]
+        assert op.opname == "is_true" or op.opname == "nonzero"
+        assert len(op.args) == 1
+        arg = op.args[0]
+        add_knowntypedata(knowntypedata, False, [arg], str)
+        add_knowntypedata(knowntypedata, True, [arg], str.nonnoneify())
+        return r
+
 
 
 class __extend__(SomeChar):
