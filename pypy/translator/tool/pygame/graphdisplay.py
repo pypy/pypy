@@ -46,7 +46,10 @@ def permute_mods(base, args):
 class Display(object):
 
     def __init__(self, (w,h)=(800,680)):
-        pygame.init()
+        # initialize the modules by hand, to avoid initializing too much
+        # (e.g. the sound system)
+        pygame.display.init()
+        pygame.font.init()
         self.resize((w,h))
 
     def resize(self, (w,h)):
