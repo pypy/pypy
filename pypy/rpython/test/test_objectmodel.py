@@ -120,3 +120,7 @@ def test_annotate_r_dict_bm():
 def test_rtype_r_dict():
     res = interpret(test_r_dict, [])
     assert res is True
+
+def test_rtype_r_dict_bm():
+    res = interpret(test_r_dict_bm, [])
+    assert res is True

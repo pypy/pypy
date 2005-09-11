@@ -440,10 +440,10 @@ def rtype_r_dict(hop):
     hop.exception_cannot_occur()
     v_result = hop.gendirectcall(ll_newdict, crepr)
     if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(Void, 'fnkeyeq')
+        cname = hop.inputconst(lltype.Void, 'fnkeyeq')
         hop.genop('setfield', [v_result, cname, v_eqfn])
     if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(Void, 'fnkeyhash')
+        cname = hop.inputconst(lltype.Void, 'fnkeyhash')
         hop.genop('setfield', [v_result, cname, v_hashfn])
     return v_result
 
