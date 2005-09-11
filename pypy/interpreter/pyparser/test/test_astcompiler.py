@@ -8,6 +8,8 @@ def setup_module(mod):
     import sys
     if sys.version[:3] != "2.4":
         py.test.skip("expected to work only on 2.4")
+    import pypy.conftest
+    mod.std_space = pypy.conftest.getobjspace('std')
 
 from pypy.interpreter.astcompiler import ast, misc, pycodegen
 
@@ -77,7 +79,7 @@ def compile_with_astcompiler(expr, target='exec', space=FakeSpace()):
         Generator = pycodegen.ExpressionCodeGenerator
     codegen = Generator(space, ast)
     rcode = codegen.getCode()
-    return to_code(rcode)
+    return rcode
 
 def compile_with_stablecompiler(expr, target='exec'):
     from pypy.interpreter.testcompiler import compile
@@ -85,8 +87,9 @@ def compile_with_stablecompiler(expr, target='exec'):
     return compile(expr, '<?>', target)
 
 
-def compare_code(ac_code, sc_code):
+def compare_code(ac_code, sc_code, space=FakeSpace()):
     #print "Filename", ac_code.co_filename, sc_code.co_filename
+    ac_code = to_code(ac_code, space)
     assert ac_code.co_filename == sc_code.co_filename
     #print repr(ac_code.co_code)
     #print repr(sc_code.co_code)
@@ -99,23 +102,28 @@ def compare_code(ac_code, sc_code):
         assert ac_code.co_code == sc_code.co_code
     assert ac_code.co_varnames == sc_code.co_varnames
     assert ac_code.co_flags == sc_code.co_flags
-    
+
     assert len(ac_code.co_consts) == len(sc_code.co_consts)
     for c1, c2 in zip( ac_code.co_consts, sc_code.co_consts ):
         if type(c1)==PyCode:
-            c1 = to_code(c1)
-            return compare_code( c1, c2 )
+            return compare_code( c1, c2, space )
         else:
             assert c1 == c2
 
-def to_code( rcode ):
+def to_code( rcode, space ):
     import new
+    consts = []
+    for w in rcode.co_consts_w:
+        if type(w)==PyCode:
+            consts.append(w)
+        else:
+            consts.append(space.unwrap(w))
     code = new.code( rcode.co_argcount,
                      rcode.co_nlocals,
                      rcode.co_stacksize,
                      rcode.co_flags,
                      rcode.co_code,
-                     tuple(rcode.co_consts_w),
+                     tuple(consts),
                      tuple(rcode.co_names),
                      tuple(rcode.co_varnames),
                      rcode.co_filename,
@@ -126,12 +134,15 @@ def to_code( rcode ):
                      tuple(rcode.co_cellvars) )
     return code
 
-def check_compile(expr, target='exec', quiet=False):
+def check_compile(expr, target='exec', quiet=False, space=FakeSpace()):
     if not quiet:
         print "Compiling:", expr
+
+    space = std_space
+
     sc_code = compile_with_stablecompiler(expr, target=target)
-    ac_code = compile_with_astcompiler(expr, target=target)
-    compare_code(ac_code, sc_code)
+    ac_code = compile_with_astcompiler(expr, target=target, space=space)
+    compare_code(ac_code, sc_code, space=space)
 
 ## def check_compile( expr ):
 ##     space = FakeSpace()

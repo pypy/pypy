@@ -292,15 +292,16 @@ class CodeGenerator(ast.ASTVisitor):
 
 
     def visitModule(self, node):
+        space = self.space
         self.parseSymbols(node)
         assert node.scope is not None
         self.scope = node.scope
         self.emitop_int('SET_LINENO', 0)
-        if node.doc:
+        if not space.is_w(node.doc, space.w_None):
             self.emitop_obj('LOAD_CONST', node.doc)
             self.storeName('__doc__')
         node.node.accept( self )
-        self.emitop_obj('LOAD_CONST', self.space.w_None )
+        self.emitop_obj('LOAD_CONST', space.w_None )
         self.emit('RETURN_VALUE')
 
     def visitExpression(self, node):
@@ -313,7 +314,8 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitFunction(self, node):
         self._visitFuncOrLambda(node, isLambda=0)
-        if node.doc:
+        space = self.space
+        if not space.is_w(node.doc, space.w_None):
             self.setDocstring(node.doc)
         self.storeName(node.name)
 
@@ -1207,7 +1209,7 @@ class AbstractFunctionCode(CodeGenerator):
         CodeGenerator.__init__(self, space, graph)
         self.optimized = 1
 
-        if not isLambda and func.doc:
+        if not isLambda and not space.is_w(func.doc, space.w_None):
             self.setDocstring(func.doc)
 
         if func.varargs:
@@ -1281,7 +1283,7 @@ class AbstractClassCode(CodeGenerator):
                                            optimized=0, klass=1)
         CodeGenerator.__init__(self, space, graph)
         self.graph.setFlag(CO_NEWLOCALS)
-        if klass.doc:
+        if not space.is_w(klass.doc, space.w_None):
             self.setDocstring(klass.doc)
 
     def get_module(self):
@@ -1303,7 +1305,7 @@ class ClassCodeGenerator(AbstractClassCode):
         self.set_lineno(klass)
         self.emitop("LOAD_GLOBAL", "__name__")
         self.storeName("__module__")
-        if klass.doc:
+        if not space.is_w(klass.doc, space.w_None):
             self.emitop_obj("LOAD_CONST", klass.doc)
             self.storeName('__doc__')
 
