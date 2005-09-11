@@ -69,7 +69,7 @@ class __extend__(SomeObject):
     def len(obj):
         return SomeInteger(nonneg=True)
 
-    def is_true(obj):
+    def is_true_behavior(obj):
         if obj.is_constant():
             return immutablevalue(bool(obj.const))
         else:
@@ -78,6 +78,24 @@ class __extend__(SomeObject):
                 return immutablevalue(s_len.const > 0)
             else:
                 return SomeBool()
+
+    def is_true(s_obj):
+        r = s_obj.is_true_behavior()
+        assert isinstance(r, SomeBool)
+
+        bk = getbookkeeper()
+        knowntypedata = r.knowntypedata = {}
+        fn, block, i = bk.position_key
+        op = block.operations[i]
+        assert op.opname == "is_true" or op.opname == "nonzero"
+        assert len(op.args) == 1
+        arg = op.args[0]
+        s_nonnone_obj = s_obj
+        if s_obj.can_be_none():
+            s_nonnone_obj = s_obj.nonnoneify()
+        add_knowntypedata(knowntypedata, True, [arg], s_nonnone_obj)
+        return r
+        
 
     def nonzero(obj):
         return obj.is_true()
@@ -162,6 +180,21 @@ class __extend__(SomeObject):
     def op_contains(obj, s_element):
         return SomeBool()
 
+class __extend__(SomeFloat):
+
+    def pos(flt):
+        return flt
+
+    def neg(flt):
+        return SomeFloat()
+
+    abs = neg
+
+    def is_true(self):
+        if self.is_constant():
+            return getbookkeeper().immutablevalue(bool(self.const))
+        return SomeBool()
+
 class __extend__(SomeInteger):
 
     def invert(self):
@@ -195,21 +228,9 @@ class __extend__(SomeInteger):
     abs.can_only_throw = []
     abs_ovf = _clone(abs, [OverflowError])
 
-
 class __extend__(SomeBool):
     def is_true(self):
         return self
-
-
-class __extend__(SomeFloat):
-
-    def pos(flt):
-        return flt
-
-    def neg(flt):
-        return SomeFloat()
-
-    abs = neg
 
 
 class __extend__(SomeTuple):
@@ -381,24 +402,6 @@ class __extend__(SomeString):
     def method_upper(str):
         return SomeString()
 
-    #def is_true(str):
-    #    r = SomeObject.is_true(str)
-    #    if not isinstance(r, SomeBool):
-    #        return r
-    #    bk = getbookkeeper()
-    #    knowntypedata = r.knowntypedata = {}
-    #    fn, block, i = bk.position_key
-    #
-    #    annotator = bk.annotator
-    #    op = block.operations[i]
-    #    assert op.opname == "is_true" or op.opname == "nonzero"
-    #    assert len(op.args) == 1
-    #    arg = op.args[0]
-    #    add_knowntypedata(knowntypedata, False, [arg], str)
-    #    add_knowntypedata(knowntypedata, True, [arg], str.nonnoneify())
-    #    return r
-
-
 
 class __extend__(SomeChar):
 
@@ -522,7 +525,7 @@ class __extend__(SomePBC):
                 d[func] = value
         return SomePBC(d)
 
-    def is_true(pbc):
+    def is_true_behavior(pbc):
         outcome = None
         for c in pbc.prebuiltinstances:
             if c is not None and not bool(c):

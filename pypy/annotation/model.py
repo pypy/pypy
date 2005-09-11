@@ -171,20 +171,6 @@ class SomeBool(SomeInteger):
     unsigned = False
     def __init__(self):
         pass
-    #def __eq__(self, other):
-    #    if self.__class__ is not other.__class__:
-    #        return False
-    #    if 'knowntypedata' in self.__dict__:
-    #        selfdic = self.__dict__.copy()
-    #        del selfdic['knowntypedata']
-    #    else:
-    #        selfdic = self.__dict__
-    #    if 'knowntypedata' in other.__dict__:
-    #        otherdic = other.__dict__.copy()
-    #        del otherdic['knowntypedata']
-    #    else:
-    #        otherdic = other.__dict__
-    #    return selfdic == otherdic
 
 class SomeString(SomeObject):
     "Stands for an object which is known to be a string."

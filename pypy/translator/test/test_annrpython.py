@@ -1629,6 +1629,42 @@ class TestAnnotateTestCase:
         s = a.build_types(f5, [])
         assert listitem(s.items[1]).__class__ == annmodel.SomeString
 
+    def test_true_str_is_not_none(self):
+        def f(s):
+            if s:
+                return s
+            else:
+                return ''
+        def g(i):
+            if i:
+                return f(None)
+            else:
+                return f('')
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [int])
+        assert s.knowntype == str
+        assert not s.can_be_None
+
+    def test_true_func_is_not_none(self):
+        def a1():
+            pass
+        def a2():
+            pass
+        def f(a):
+            if a:
+                return a
+            else:
+                return a2
+        def g(i):
+            if i:
+                return f(None)
+            else:
+                return f(a1)
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [int])
+        assert None not in s.prebuiltinstances
+
+
 def g(n):
     return [0,1,2,n]
 
