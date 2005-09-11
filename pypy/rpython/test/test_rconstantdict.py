@@ -47,9 +47,14 @@ def test_constant_r_dict():
     d = r_dict(strange_key_eq, strange_key_hash)
     d['hello'] = 42
     d['world'] = 43
+    for x in range(65, 91):
+        d[chr(x)] = x*x
     def func(i):
         return d[chr(i)]
     res = interpret(func, [ord('h')])
     assert res == 42
     res = interpret(func, [ord('w')])
     assert res == 43
+    for x in range(65, 91):
+        res = interpret(func, [x])
+        assert res == x*x

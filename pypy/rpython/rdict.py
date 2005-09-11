@@ -130,20 +130,28 @@ class DictRepr(rmodel.Repr):
                 class Dummy:
                     custom_eq_hash = False
                     def ll_keyeq(self, key1, key2):
-                        # theory: ll_dict_lookup() will only see new items,
-                        # which are never equal to any existing one
-                        return False
+                        # theory: all low-level values we consider as keys
+                        # can be compared by equality (i.e. identity for
+                        # pointers) because the r_dict itself should have
+                        # ensured that it does not store duplicate equal keys.
+                        return key1 == key2
                     def ll_keyhash(self, key):
-                        return self.currenthash
+                        # theoretically slow, but well (see theory above)
+                        for llkey, hash in self.cache:
+                            if key == llkey:
+                                return hash
+                        raise TyperError("hash missing in convert_const(%r)" %
+                                         (dictobj,))
+                dummy = Dummy()
+                dummy.cache = []
 
                 self.dict_cache[key] = l_dict 
                 r_key = self.key_repr
                 r_value = self.value_repr
                 for dictkeycontainer, dictvalue in dictobj._dict.items():
-                    dummy = Dummy()
-                    dummy.currenthash = dictkeycontainer.hash
                     llkey = r_key.convert_const(dictkeycontainer.key)
                     llvalue = r_value.convert_const(dictvalue)
+                    dummy.cache.insert(0, (llkey, dictkeycontainer.hash))
                     ll_dict_setitem(l_dict, llkey, llvalue, dummy)
                 return l_dict
 
