@@ -101,7 +101,7 @@ class NameManager(object):
             self.seennames[name] = 1
 
     def uniquename(self, basename, with_number=None, bare=False):
-        basename = basename.translate(C_IDENTIFIER)
+        basename = basename[:50].translate(C_IDENTIFIER)
         n = self.seennames.get(basename, 0)
         self.seennames[basename] = n+1
         if with_number is None:
