@@ -130,12 +130,11 @@ def rtype_builtin_range(hop):
         vstart, vstop = hop.inputargs(Signed, Signed)
     else:
         vstart, vstop, vstep = hop.inputargs(Signed, Signed, Signed)
-    const_step = isinstance(vstep, Constant)
-    if const_step and vstep.value == 0:
-        # not really needed, annotator catches it. Just in case...
-        raise TyperError("range cannot have a const step of zero")
+        if isinstance(vstep, Constant) and vstep.value == 0:
+            # not really needed, annotator catches it. Just in case...
+            raise TyperError("range cannot have a const step of zero")
     if isinstance(hop.r_result, RangeRepr):
-        if const_step:
+        if hop.r_result.step != 0:
             return hop.gendirectcall(ll_newrange, vstart, vstop)
         else:
             return hop.gendirectcall(ll_newrangest, vstart, vstop, vstep)

@@ -1,6 +1,7 @@
 from pypy.translator.translator import Translator
 from pypy.rpython.rrange import *
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.rarithmetic import intmask
 
 def test_rlist_range():
     def test1(start, stop, step, varstep):
@@ -118,30 +119,6 @@ def test_range_iter():
         for i in r:
             res = res * 51 + i
         return res
-    res = interpret(fn, [2, 7, 1])#, view=True)
-    # XXX not finished, stunned
-
-# XXX the above test works, but it always turns the range into a list!!!
-#
-# here another test that show that this even happens in a simple case.
-# I think this is an annotator problem
-
-def test_range_funny():
-    # this is just an example.
-    # making start/stop different is ok
-    def fn(start, stop):
-        if stop >= start:
-            r = range(start, stop, 1)
-        else:
-            r = range(start, stop-1, 1)
-        return r[-2]
-    # making step different turns the range into a list!
-    # I think, we should instead either specialize the blocks,
-    # or morph the whole thing into the variable step case???
-    def fn(start, stop):
-        if stop >= start:
-            r = range(start, stop, 1)
-        else:
-            r = range(start, stop, -1)
-        return r[-2]
-    res = interpret(fn, [2, 7])#, view=True)
+    for args in [2, 7, 0], [7, 2, 0], [10, 50, 7], [50, -10, -3]:
+        res = interpret(fn, args)#, view=True)
+        assert res == intmask(fn(*args))

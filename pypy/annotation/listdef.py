@@ -7,6 +7,15 @@ class ListItem:
     resized = False    # True for lists resized after creation
     range_step = None  # the step -- only for lists only created by a range()
 
+    # what to do if range_step is different in merge.
+    # - if one is a list (range_step is None), unify to a list.
+    # - if both have a step, unify to use a variable step (indicated by 0)
+    _step_map = {
+        (type(None), int): None,
+        (int, type(None)): None,
+        (int, int)       : 0,
+        }
+
     def __init__(self, bookkeeper, s_value):
         self.s_value = s_value
         self.bookkeeper = bookkeeper
@@ -20,7 +29,8 @@ class ListItem:
             self.mutated |= other.mutated
             self.resized |= other.resized
             if other.range_step != self.range_step:
-                self.range_step = None
+                self.range_step = self._step_map[type(self.range_step),
+                                                 type(other.range_step)]
             self.itemof.update(other.itemof)
             read_locations = self.read_locations.copy()
             other_read_locations = other.read_locations.copy()

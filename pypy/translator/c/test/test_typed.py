@@ -4,7 +4,7 @@ from py.test import raises
 from pypy.translator.translator import Translator
 from pypy.translator.test import snippet 
 from pypy.translator.tool.cbuild import skip_missing_compiler
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, intmask
 
 from pypy.translator.c.test.test_annotated import TestAnnotatedTestCase as _TestAnnotatedTestCase
 
@@ -380,3 +380,20 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         assert f(1) == fn(1)
         assert f(3) == fn(3)
         raises(ValueError, f, 0)
+
+    def test_range_iter(self):
+        def fn(start=int, stop=int, step=int):
+            res = 0
+            if step == 0:
+                if stop >= start:
+                    r = range(start, stop, 1)
+                else:
+                    r = range(start, stop, -1)
+            else:
+                r = range(start, stop, step)
+            for i in r:
+                res = res * 51 + i
+            return res
+        f = self.getcompiled(fn)
+        for args in [2, 7, 0], [7, 2, 0], [10, 50, 7], [50, -10, -3]:
+            assert f(*args) == intmask(fn(*args))
