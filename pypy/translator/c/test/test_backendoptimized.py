@@ -21,8 +21,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         a.simplify()
         t.specialize()
         for graph in t.flowgraphs.values():
-            backendoptimization.remove_same_as(graph)
-            backendoptimization.SSI_to_SSA(graph)
+            backendoptimization.backend_optimizations(graph)
         t.checkgraphs()
         return skip_missing_compiler(t.ccompile)
 
