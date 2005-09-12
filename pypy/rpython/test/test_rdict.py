@@ -382,3 +382,16 @@ def test_stress():
             print 'current dict length:', referencelength
         assert l_dict.num_items == referencelength
     complete_check()
+
+def test_id_instances_keys():
+    class A:
+        pass
+    def f():
+        a = A()
+        b = A()
+        d = {}
+        d[a] = 1
+        d[b] = 7
+        return len(d) + d[a] + d[b]
+    res = interpret(f, [])
+    assert res == 10

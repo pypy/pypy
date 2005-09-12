@@ -1,10 +1,15 @@
 from pypy.annotation.model import SomeObject, SomeImpossibleValue
 from pypy.annotation.model import SomeInteger, SomeBool, unionof
+from pypy.annotation.model import SomeInstance
 from pypy.annotation.listdef import ListItem
 
 
 class DictKey(ListItem):
     custom_eq_hash = False
+
+    def __init__(self, bookkeeper, s_value):
+        ListItem.__init__(self, bookkeeper, s_value)
+        self.enable_hashing()
 
     def patch(self):
         for dictdef in self.itemof:
@@ -20,8 +25,14 @@ class DictKey(ListItem):
                                               other.s_rdict_hashfn,
                                               other=other)
 
+    def enable_hashing(self):
+        if isinstance(self.s_value, SomeInstance):
+            self.bookkeeper.needs_hash_support[self.s_value.classdef.cls] = True
+
     def generalize(self, s_other_value):
         updated = ListItem.generalize(self, s_other_value)
+        if updated:
+            self.enable_hashing()
         if updated and self.custom_eq_hash:
             self.emulate_rdict_calls()
         return updated

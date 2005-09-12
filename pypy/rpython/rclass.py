@@ -472,7 +472,22 @@ class InstanceRepr(Repr):
             return result
 
     def get_ll_eq_function(self):
-        return None
+        return ll_inst_eq
+
+    def get_ll_hash_function(self):
+        if self.classdef is None:
+            return None
+        if self.rtyper.needs_hash_support( self.classdef.cls):
+            try:
+                return self._ll_hash_function
+            except AttributeError:
+                INSPTR = self.lowleveltype
+                def _ll_hash_function(ins):
+                    return ll_inst_hash(cast_pointer(INSPTR, ins))
+                self._ll_hash_function = _ll_hash_function
+                return _ll_hash_function
+        else:
+            return self.rbase.get_ll_hash_function()
 
     def initialize_prebuilt_instance(self, value, classdef, result):
         if self.classdef is not None:
@@ -671,6 +686,7 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
         v = rpair.rtype_eq(hop)
         return hop.genop("bool_not", [v], resulttype=Bool)
 
+
 def ll_both_none(ins1, ins2):
     return not ins1 and not ins2
 
@@ -721,6 +737,9 @@ def ll_inst_hash(ins):
     if cached == 0:
        cached = ins.hash_cache = id(ins)
     return cached
+
+def ll_inst_eq(ins1, ins2):
+    return ins1 == ins2
 
 def ll_inst_type(obj):
     if obj:
