@@ -768,7 +768,7 @@ def build_single_input( builder, nb ):
             atom0 = ast.Pass()
         elif not isinstance(atom0, ast.Stmt):
             atom0 = ast.Stmt([atom0])
-        builder.push(ast.Module(None, atom0))
+        builder.push(ast.Module(builder.wrap_none(), atom0))
     else:
         assert False, "Forbidden path"
 

@@ -399,6 +399,9 @@ one_stmt_classdefs = [
     ]
 
 docstrings = [
+    '''def foo(): return 1''',
+    '''class Foo: pass''',
+    '''class Foo: "foo"''',
     '''def foo():
     """foo docstring"""
     return 1
