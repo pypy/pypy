@@ -159,7 +159,7 @@ We are using
   dicts with a unique key type only, provided it is hashable. 
   String keys have been the only allowed key types for a while, but this was generalized. 
   After some re-optimization,
-  the implementation could safely decide that all dict keys should be interned.
+  the implementation could safely decide that all string dict keys should be interned.
 
 
 **list comprehensions**
