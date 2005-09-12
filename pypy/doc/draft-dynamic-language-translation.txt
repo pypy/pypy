@@ -65,7 +65,7 @@ The analysis we perform in PyPy is global program discovery (i.e. slicing it out
 
 The global picture is then to run the program while switching between the flow object space for static enough functions, and a normal, concrete object space for functions or initializations requiring the full dynamism.
 
-If the placeholders are endowed with a bit more information, e.g. if they carry a type information that is propagated to resulting placeholders by individual operations, then our abstract interpretation simultaneously performs type inference.  This is, in essence, executing the program while abstracting out some concrete values and replacing them with the set of all values that could actually be there.  If the sets are broad enough, then after some time we will have seen all potential value sets along each possible code paths, and our program analysis is complete.
+If the placeholders are endowed with a bit more information, e.g. if they carry a type information that is propagated to resulting placeholders by individual operations, then our abstract interpretation simultaneously performs type inference.  This is, in essence, executing the program while abstracting out some concrete values and replacing them with the set of all values that could actually be there.  If the sets are broad enough, then after some time we will have seen all potential value sets along each possible code paths, and our program analysis is complete.  An object space is thus an *interpretation domain*; the Flow Object Space is an *abstract interpretation domain*.
 
 This is a theoretical point of view that differs significantly from what we have implemented, for many reasons.  Of course, the devil is in the details -- which the rest of this paper is all about.
 
