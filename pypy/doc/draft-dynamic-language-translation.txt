@@ -9,65 +9,192 @@ Introduction
 Dynamic languages
 ---------------------------
 
-Dynamic languages are definitely not new on the computing scene.  However, new conditions like increased computing power and designs driven by larger communities have allowed the emergence of new aspects in the recent members of the family, or at least made them more practical than they previously were.  The following aspects in particular are typical not only of Python but of most modern dynamic languages:
+Dynamic languages are definitely not new on the computing scene.  
+However, new conditions like increased computing power and designs driven
+by larger communities have allowed the emergence of new aspects in the
+recent members of the family, or at least made them more practical than
+they previously were.  The following aspects in particular are typical not
+only of Python but of most modern dynamic languages:
 
-* The driving force is not minimalistic elegance.  It is a balance between elegance and practicality, and rather un-minimalistic -- the feature sets built into languages tend to be relatively large and growing (though it is still a major difference between languages where exactly they stand on this scale).
+* The driving force is not minimalistic elegance.  It is a balance between
+  elegance and practicality, and rather un-minimalistic -- the feature
+  sets built into languages tend to be relatively large and growing
+  (though it is still a major difference between languages where exactly
+  they stand on this scale).
 
-* High abstractions and theoretically powerful low-level primitives are generally ruled out in favor of a larger number of features that try to cover the most common use cases.  In this respect, one could even regard these languages as mere libraries on top of some simpler (unspecified) language.
+* High abstractions and theoretically powerful low-level primitives are
+  generally ruled out in favor of a larger number of features that try to
+  cover the most common use cases.  In this respect, one could even regard
+  these languages as mere libraries on top of some simpler (unspecified)
+  language.
 
-* Implementation-wise, language design is no longer driven by a desire to enable high performance; any feature straightforward enough to achieve with an interpreter is candidate.  As a result, compilation and most kinds of static inference are made impossible due to this dynamism (unless they are simply tedious due to the size of the language).
+* Implementation-wise, language design is no longer driven by a desire to
+  enable high performance; any feature straightforward enough to achieve
+  with an interpreter is candidate.  As a result, compilation and most
+  kinds of static inference are made impossible due to this dynamism
+  (unless they are simply tedious due to the size of the language).
 
 
 No Declarations
 --------------------------
 
-The notion of "declaration", central in compiled languages, is entirely missing in Python.  There is no aspect of a program that must be declared; the complete program is built and run by executing statements.  Some of these statements have a declarative look and feel; for example, some appear to be function or class declarations.  Actually, they are merely statements that, when executed, build a function or class object and store a reference to that object at some place, under some name, from where it can be retrieved later.  Units of programs -- modules, whose source is a file each -- are similarily mere objects in memory built on demand by some other module executing an ``import`` statement.  Any such statement -- class construction or module import -- can be executed at any time during the execution of a program.
+The notion of "declaration", central in compiled languages, is entirely
+missing in Python.  There is no aspect of a program that must be declared;
+the complete program is built and run by executing statements.  Some of
+these statements have a declarative look and feel; for example, some
+appear to be function or class declarations.  Actually, they are merely
+statements that, when executed, build a function or class object and store
+a reference to that object at some place, under some name, from where it
+can be retrieved later.  Units of programs -- modules, whose source is a
+file each -- are similarily mere objects in memory built on demand by some
+other module executing an ``import`` statement.  Any such statement --
+class construction or module import -- can be executed at any time during
+the execution of a program.
 
-This point of view should help explain why an analysis of a program is theoretically impossible: there is no declared structure.  The program could for example build a class in completely different ways based on the results of NP-complete computations or external factors.  This is not just a theoretical possibility but a regularly used feature: for example, the pure Python module ``os.py`` provides some OS-independent interface to OS-specific system calls, by importing OS-specific modules and defining substitute functions as needed depending on the OS on which ``os.py`` turns out to be executed.  Many large Python projects use custom import mechanisms to control exactly how and from where each module is loaded, simply by tampering with import hooks or just emulating parts of the ``import`` statement manually.
+This point of view should help explain why an analysis of a program is
+theoretically impossible: there is no declared structure.  The program
+could for example build a class in completely different ways based on the
+results of NP-complete computations or external factors.  This is not just
+a theoretical possibility but a regularly used feature: for example, the
+pure Python module ``os.py`` provides some OS-independent interface to
+OS-specific system calls, by importing OS-specific modules and defining
+substitute functions as needed depending on the OS on which ``os.py``
+turns out to be executed.  Many large Python projects use custom import
+mechanisms to control exactly how and from where each module is loaded,
+simply by tampering with import hooks or just emulating parts of the
+``import`` statement manually.
 
-In addition, there are of course classical (and only partially true) arguments against compiling dynamic languages (there is an ``eval`` function that can execute arbitrary code, and introspection can change anything at run-time), but we consider the argument outlined above as more fundamental to the nature of dynamic languages.
+In addition, there are of course classical (and only partially true)
+arguments against compiling dynamic languages (there is an ``eval``
+function that can execute arbitrary code, and introspection can change
+anything at run-time), but we consider the argument outlined above as more
+fundamental to the nature of dynamic languages.
 
 
 Control flow versus data model
 ---------------------------------
 
-Given the absence of declarations, the only preprocessing done on a Python module is the compilation of the source code into pseudo-code (bytecode).  From there, the semantics can be roughly divided in two groups: the control flow semantics and the data model.  In Python and other languages of its family, these two aspects are to some extent conceptually separated.  Indeed, although it is possible -- and common -- to design languages in which the two aspects are more intricately connected, or one aspect is subsumed to the other (e.g. data structures in Lisp), programmers tend to separate the two concepts in common cases -- enough for the "practical-features-beats-obscure-primitives" language design guideline seen above.  So in Python, both aspects are complex on their own.
+Given the absence of declarations, the only preprocessing done on a Python
+module is the compilation of the source code into pseudo-code (bytecode).  
+From there, the semantics can be roughly divided in two groups: the
+control flow semantics and the data model.  In Python and other languages
+of its family, these two aspects are to some extent conceptually
+separated.  Indeed, although it is possible -- and common -- to design
+languages in which the two aspects are more intricately connected, or one
+aspect is subsumed to the other (e.g. data structures in Lisp),
+programmers tend to separate the two concepts in common cases -- enough
+for the "practical-features-beats-obscure-primitives" language design
+guideline seen above.  So in Python, both aspects are complex on their
+own.
 
 .. the above paragraph doesn't make a great deal of sense.  some very long sentences! :)
 
-The control flow semantics include, clearly, all syntactic elements that influence the control flow of a program -- loops, function definitions and calls, etc. -- whereas the data model describes how the first-class objects manipulated by the program behave under some operations.  There is a rich built-in set of object types in Python, and a rich set of operations on them, each corresponding to a syntactic element.  Objects of different types react differently to the same operation, and the variables are not statically typed, which is also part of the dynamic nature of languages like Python -- operations are generally highly polymorphic and types are hard to infer in advance.
+The control flow semantics include, clearly, all syntactic elements that
+influence the control flow of a program -- loops, function definitions and
+calls, etc. -- whereas the data model describes how the first-class
+objects manipulated by the program behave under some operations.  There is
+a rich built-in set of object types in Python, and a rich set of
+operations on them, each corresponding to a syntactic element.  Objects of
+different types react differently to the same operation, and the variables
+are not statically typed, which is also part of the dynamic nature of
+languages like Python -- operations are generally highly polymorphic and
+types are hard to infer in advance.
 
-Note that control flow and object model are not entirely separated.  It is not uncommon for some control flow aspects to be manipulable as first-class objects as well, e.g. functions in Python.  Conversely, almost any operation on any object could lead to a user-defined function being called back.
+Note that control flow and object model are not entirely separated.  It is
+not uncommon for some control flow aspects to be manipulable as
+first-class objects as well, e.g. functions in Python.  Conversely, almost
+any operation on any object could lead to a user-defined function being
+called back.
 
-The data model forms a so-called *Object Space* in PyPy.  The bytecode interpreter works by delegating most operations to the object space, by invoking a well-defined abstract interface.  The objects are regarded as "belonging" to the object space, where the interpreter sees them as black boxes on which it can ask for operations to be performed.
+The data model forms a so-called *Object Space* in PyPy.  The bytecode
+interpreter works by delegating most operations to the object space, by
+invoking a well-defined abstract interface.  The objects are regarded as
+"belonging" to the object space, where the interpreter sees them as black
+boxes on which it can ask for operations to be performed.
 
-Note that the term "object space" has already been reused for other dynamic language implementations, e.g. XXX for Perl 6.
+Note that the term "object space" has already been reused for other
+dynamic language implementations, e.g. XXX for Perl 6.
 
 
 The analysis of live programs
 -----------------------------------
 
-How can we perform some static analysis on a program written in a dynamic language while keeping to the spirit of `No Declarations`_, i.e. without imposing that the program be written in a static way in which these declarative-looking statements would actually *be* declarations?
+How can we perform some static analysis on a program written in a dynamic
+language while keeping to the spirit of `No Declarations`_, i.e. without
+imposing that the program be written in a static way in which these
+declarative-looking statements would actually *be* declarations?
 
-The approach of PyPy is, first of all, to perform analysis on live programs in memory instead of dead source files.  This means that the program to analyse is first fully imported and initialized, and once it has reached a state that is deemed advanced enough, we limit the amount of dynamism that is allowed *after this point* and we analyse the program's objects in memory.  In some sense, we use the full Python as a preprocessor for a subset of the language, called RPython, which differs from Python only in ruling out some operations like creating new classes.  
+The approach of PyPy is, first of all, to perform analysis on live
+programs in memory instead of dead source files.  This means that the
+program to analyse is first fully imported and initialized, and once it
+has reached a state that is deemed advanced enough, we limit the amount of
+dynamism that is allowed *after this point* and we analyse the program's
+objects in memory.  In some sense, we use the full Python as a
+preprocessor for a subset of the language, called RPython, which differs
+from Python only in ruling out some operations like creating new classes.
 
-More theoretically, analysing dead source files is equivalent to giving up all dynamism (in the sense of `No Declarations`_), but static analysis is still possible if we allow a *finite* amount of dynamism -- where an operation is considered dynamic or not depending on whether it is supported or not by the analysis we are performing.  Of course, putting more cleverness in the tools helps too; but the point here is that we are still allowed to build dynamic programs, as long as they only ever build a bounded amount of, say, classes and functions.  The source code of the PyPy interpreter, which is itself written in its [this?] style, also makes extensive use of the fact that it is possible to build new classes at any point in time, not just during an initialization phase, as long as this number of bounded (e.g. `interpreter/gateway.py`_ builds a custom class for each function that some variable can point to -- there is a finite number of functions in total, so this makes a finite number of extra classes).
+More theoretically, analysing dead source files is equivalent to giving up
+all dynamism (in the sense of `No Declarations`_), but static analysis is
+still possible if we allow a *finite* amount of dynamism -- where an
+operation is considered dynamic or not depending on whether it is
+supported or not by the analysis we are performing.  Of course, putting
+more cleverness in the tools helps too; but the point here is that we are
+still allowed to build dynamic programs, as long as they only ever build a
+bounded amount of, say, classes and functions.  The source code of the
+PyPy interpreter, which is itself written in its [this?] style, also makes
+extensive use of the fact that it is possible to build new classes at any
+point in time, not just during an initialization phase, as long as this
+number of bounded (e.g. `interpreter/gateway.py`_ builds a custom class
+for each function that some variable can point to -- there is a finite
+number of functions in total, so this makes a finite number of extra
+classes).
 
 .. the above paragraph is confusing too?
 
-Note that this approach is natural in image-oriented environment like Smalltalk, where the program is by default live instead of in files.  The Python experience forced us to allow some uncontrolled dynamism simply to be able to load the program to memory in the first place; once this was done, it was a mere (but very useful) side-effect that we could allow for some more uncontrolled dynamism at run-time, as opposed to analysing an image in a known frozen state.
+Note that this approach is natural in image-oriented environment like
+Smalltalk, where the program is by default live instead of in files.  The
+Python experience forced us to allow some uncontrolled dynamism simply to
+be able to load the program to memory in the first place; once this was
+done, it was a mere (but very useful) side-effect that we could allow for
+some more uncontrolled dynamism at run-time, as opposed to analysing an
+image in a known frozen state.
 
 
 Abstract interpretation
 ------------------------------
 
-The analysis we perform in PyPy is global program discovery (i.e. slicing it out of all the objects in memory [what?]) and type inference.  The analysis of the non-dynamic parts themselves is based on their `abstract interpretation`_.  The object space separation was also designed for this purpose.  PyPy has an alternate object space called the `Flow Object Space`_, whose objects are empty placeholders.  The over-simplified view is that to analyse a function, we bind its input arguments to such placeholders, and execute the function -- i.e. let the interpreter follow its bytecode and invoke the object space for each operations, one by one.  The Flow object space records each operation when it is issued, and returns a new placeholder as a result.  At the end, the list of recorded operations, along with the involved placeholders, gives an assembler-like view of what the function performs.
+The analysis we perform in PyPy is global program discovery (i.e. slicing
+it out of all the objects in memory [what?]) and type inference.  The
+analysis of the non-dynamic parts themselves is based on their `abstract
+interpretation`_.  The object space separation was also designed for this
+purpose.  PyPy has an alternate object space called the `Flow Object
+Space`_, whose objects are empty placeholders.  The over-simplified view
+is that to analyse a function, we bind its input arguments to such
+placeholders, and execute the function -- i.e. let the interpreter follow
+its bytecode and invoke the object space for each operations, one by one.  
+The Flow object space records each operation when it is issued, and
+returns a new placeholder as a result.  At the end, the list of recorded
+operations, along with the involved placeholders, gives an assembler-like
+view of what the function performs.
 
-The global picture is then to run the program while switching between the flow object space for static enough functions, and a normal, concrete object space for functions or initializations requiring the full dynamism.
+The global picture is then to run the program while switching between the
+flow object space for static enough functions, and a normal, concrete
+object space for functions or initializations requiring the full dynamism.
 
-If the placeholders are endowed with a bit more information, e.g. if they carry a type information that is propagated to resulting placeholders by individual operations, then our abstract interpretation simultaneously performs type inference.  This is, in essence, executing the program while abstracting out some concrete values and replacing them with the set of all values that could actually be there.  If the sets are broad enough, then after some time we will have seen all potential value sets along each possible code paths, and our program analysis is complete.  An object space is thus an *interpretation domain*; the Flow Object Space is an *abstract interpretation domain*.
+If the placeholders are endowed with a bit more information, e.g. if they
+carry a type information that is propagated to resulting placeholders by
+individual operations, then our abstract interpretation simultaneously
+performs type inference.  This is, in essence, executing the program while
+abstracting out some concrete values and replacing them with the set of
+all values that could actually be there.  If the sets are broad enough,
+then after some time we will have seen all potential value sets along each
+possible code paths, and our program analysis is complete.  An object
+space is thus an *interpretation domain*; the Flow Object Space is an
+*abstract interpretation domain*.
 
-This is a theoretical point of view that differs significantly from what we have implemented, for many reasons.  Of course, the devil is in the details -- which the rest of this paper is all about.
+This is a theoretical point of view that differs significantly from what
+we have implemented, for many reasons.  Of course, the devil is in the
+details -- which the rest of this paper is all about.
 
 
 Flow Object Space
