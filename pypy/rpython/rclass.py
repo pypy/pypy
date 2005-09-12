@@ -115,6 +115,13 @@ class ClassRepr(Repr):
             cls = self.classdef.cls
         return '<ClassRepr for %s.%s>' % (cls.__module__, cls.__name__)
 
+    def compact_repr(self):
+        if self.classdef is None:
+            cls = object
+        else:
+            cls = self.classdef.cls
+        return 'ClassR %s.%s' % (cls.__module__, cls.__name__)
+
     def _setup_repr(self):
         # NOTE: don't store mutable objects like the dicts below on 'self'
         #       before they are fully built, to avoid strange bugs in case
@@ -371,6 +378,13 @@ class InstanceRepr(Repr):
         else:
             cls = self.classdef.cls
         return '<InstanceRepr for %s.%s>' % (cls.__module__, cls.__name__)
+
+    def compact_repr(self):
+        if self.classdef is None:
+            cls = object
+        else:
+            cls = self.classdef.cls
+        return 'InstanceR %s.%s' % (cls.__module__, cls.__name__)
 
     def _setup_repr(self):
         # NOTE: don't store mutable objects like the dicts below on 'self'

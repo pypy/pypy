@@ -82,6 +82,9 @@ class DictRepr(rmodel.Repr):
         self._custom_eq_hash_repr = custom_eq_hash
         # setup() needs to be called to finish this initialization
 
+    def compact_repr(self):
+        return 'DictR %s %s' % (self.key_repr.compact_repr(), self.value_repr.compact_repr())
+
     def _setup_repr(self):
         if 'key_repr' not in self.__dict__:
             self.key_repr = self._key_repr_computer()

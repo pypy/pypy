@@ -29,7 +29,17 @@ class KeyComp(object):
     def __hash__(self):
         return hash(self.val)
     def __str__(self):
-        return getattr(self.val, '__name__', repr(self.val)) + 'Const'
+        val = self.val
+        if isinstance(val, lltype.LowLevelType):
+            return val._short_name() + 'LlT'
+        s = getattr(val, '__name__', None)
+        if s is None:
+            compact = getattr(val, 'compact_repr', None)
+            if compact is None:
+                s = repr(s)
+            else:
+                s = compact()        
+        return s + 'Const'
 
 class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     allow_someobjects = False

@@ -36,6 +36,9 @@ class TupleRepr(Repr):
         fields = zip(self.fieldnames, self.lltypes)
         self.lowleveltype = Ptr(GcStruct('tuple%d' % len(items_r), *fields))
 
+    def compact_repr(self):
+        return "TupleR %s" % ' '.join([llt._short_name() for llt in self.lltypes])
+
     def convert_const(self, value):
         assert isinstance(value, tuple) and len(value) == len(self.items_r)
         p = malloc(self.lowleveltype.TO)

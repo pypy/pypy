@@ -243,8 +243,8 @@ class Array(ContainerType):
                                self._str_fields(),)
 
     def _short_name(self):
-        return "%s of %s " % (self.__class__.__name__,
-                               self.OF._short_name(),)
+        return "%s %s" % (self.__class__.__name__,
+                          self.OF._short_name(),)
 
     def _container_example(self):
         return _array(self, 1)
@@ -272,7 +272,7 @@ class FuncType(ContainerType):
 
     def _short_name(self):        
         args = ', '.join([ARG._short_name() for ARG in self.ARGS])
-        return "Func ( %s ) -> %s" % (args, self.RESULT._short_name)        
+        return "Func(%s)->%s" % (args, self.RESULT._short_name)        
         
     def _container_example(self):
         def ex(*args):
@@ -373,7 +373,7 @@ class Ptr(LowLevelType):
         return '* %s' % (self.TO, )
     
     def _short_name(self):
-        return 'Ptr to %s' % (self.TO._short_name(), )
+        return 'Ptr %s' % (self.TO._short_name(), )
     
 
     def _defl(self, parent=None, parentindex=None):

@@ -69,6 +69,9 @@ class ListRepr(Repr):
             self.LIST.become(GcStruct("list", ("length", Signed),
                                               ("items", Ptr(ITEMARRAY))))
 
+    def compact_repr(self):
+        return 'ListR %s' % (self.item_repr.compact_repr(),)
+
     def convert_const(self, listobj):
         # get object from bound list method
         #listobj = getattr(listobj, '__self__', listobj)
