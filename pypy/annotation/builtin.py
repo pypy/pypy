@@ -53,13 +53,15 @@ def builtin_range(*args):
     else:
         raise Exception, "range() takes 1 to 3 arguments"
     if not s_step.is_constant():
-        raise Exception, "range() step argument should be a constant"
-    step = s_step.const
-    if step == 0:
-        raise Exception, "range() with step zero"
-    elif step > 0:
-        nonneg = s_start.nonneg
+        step = 0 # this case signals a variable step
     else:
+        step = s_step.const
+        if step == 0:
+            raise Exception, "range() with step zero"
+    nonneg = False # so far
+    if step > 0:
+        nonneg = s_start.nonneg
+    elif step < 0:
         nonneg = s_stop.nonneg or (s_stop.is_constant() and s_stop.const >= -1)
     return getbookkeeper().newlist(SomeInteger(nonneg=nonneg), range_step=step)
 

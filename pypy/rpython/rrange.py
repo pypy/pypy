@@ -13,20 +13,35 @@ from pypy.rpython.rlist import ll_newlist, dum_nocheck, dum_checkidx
 #    struct range {
 #        Signed start, stop;    // step is always constant
 #    }
+#
+#    struct rangest {
+#        Signed start, stop, step;    // rare case, for completeness
+#    }
 
 RANGE = GcStruct("range", ("start", Signed), ("stop", Signed))
 RANGEITER = GcStruct("range", ("next", Signed), ("stop", Signed))
 
+RANGEST = GcStruct("range", ("start", Signed), ("stop", Signed),("step", Signed))
+RANGESTITER = GcStruct("range", ("next", Signed), ("stop", Signed), ("step", Signed))
 
 class RangeRepr(Repr):
-    lowleveltype = Ptr(RANGE)
-
     def __init__(self, step):
         self.step = step
+        if step != 0:
+            self.lowleveltype = Ptr(RANGE)
+        else:
+            self.lowleveltype = Ptr(RANGEST)
+
+    def _getstep(self, v_rng, hop):
+        return hop.genop('getfield', [v_rng, hop.inputconst(Void, 'step')],
+                         resulttype=Signed)
 
     def rtype_len(self, hop):
         v_rng, = hop.inputargs(self)
-        cstep = hop.inputconst(Signed, self.step)
+        if self.step != 0:
+            cstep = hop.inputconst(Signed, self.step)
+        else:
+            cstep = self._getstep(v_rng, hop)
         return hop.gendirectcall(ll_rangelen, v_rng, cstep)
 
     def make_iterator_repr(self):
@@ -42,7 +57,10 @@ class __extend__(pairtype(RangeRepr, IntegerRepr)):
             spec = dum_nocheck
         v_func = hop.inputconst(Void, spec)
         v_lst, v_index = hop.inputargs(r_rng, Signed)
-        cstep = hop.inputconst(Signed, r_rng.step)
+        if r_rng.step != 0:
+            cstep = hop.inputconst(Signed, r_rng.step)
+        else:
+            cstep = r_rng._getstep(v_lst, hop)
         if hop.args_s[1].nonneg:
             llfn = ll_rangeitem_nonneg
         else:
@@ -94,6 +112,15 @@ def ll_newrange(start, stop):
     l.stop = stop
     return l
 
+def ll_newrangest(start, stop, step):
+    if step == 0:
+        raise ValueError
+    l = malloc(RANGEST)
+    l.start = start
+    l.stop = stop
+    l.step = step
+    return l
+
 def rtype_builtin_range(hop):
     vstep = hop.inputconst(Signed, 1)
     if hop.nb_args == 1:
@@ -103,10 +130,15 @@ def rtype_builtin_range(hop):
         vstart, vstop = hop.inputargs(Signed, Signed)
     else:
         vstart, vstop, vstep = hop.inputargs(Signed, Signed, Signed)
-        assert isinstance(vstep, Constant)
-
+    const_step = isinstance(vstep, Constant)
+    if const_step and vstep.value == 0:
+        # not really needed, annotator catches it. Just in case...
+        raise TyperError("range cannot have a const step of zero")
     if isinstance(hop.r_result, RangeRepr):
-        return hop.gendirectcall(ll_newrange, vstart, vstop)
+        if const_step:
+            return hop.gendirectcall(ll_newrange, vstart, vstop)
+        else:
+            return hop.gendirectcall(ll_newrangest, vstart, vstop, vstep)
     else:
         # cannot build a RANGE object, needs a real list
         r_list = hop.r_result
@@ -116,6 +148,8 @@ def rtype_builtin_range(hop):
 rtype_builtin_xrange = rtype_builtin_range
 
 def ll_range2list(LISTPTR, start, stop, step):
+    if step == 0:
+        raise ValueError
     length = _ll_rangelen(start, stop, step)
     l = ll_newlist(LISTPTR, length)
     idx = 0
@@ -131,10 +165,12 @@ def ll_range2list(LISTPTR, start, stop, step):
 #  Iteration.
 
 class RangeIteratorRepr(IteratorRepr):
-    lowleveltype = Ptr(RANGEITER)
-
     def __init__(self, r_rng):
         self.r_rng = r_rng
+        if r_rng.step != 0:
+            self.lowleveltype = Ptr(RANGEITER)
+        else:
+            self.lowleveltype = Ptr(RANGESTITER)
 
     def newiter(self, hop):
         v_rng, = hop.inputargs(self.r_rng)
@@ -143,19 +179,24 @@ class RangeIteratorRepr(IteratorRepr):
 
     def rtype_next(self, hop):
         v_iter, = hop.inputargs(self)
-        cstep = hop.inputconst(Signed, self.r_rng.step)
+        args = hop.inputconst(Signed, self.r_rng.step),
         if self.r_rng.step > 0:
             llfn = ll_rangenext_up
-        else:
+        elif self.r_rng.step < 0:
             llfn = ll_rangenext_down
+        else:
+            llfn = ll_rangenext_updown
+            args = ()
         hop.has_implicit_exception(StopIteration) # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(llfn, v_iter, cstep)
+        return hop.gendirectcall(llfn, v_iter, *args)
 
 def ll_rangeiter(ITERPTR, rng):
     iter = malloc(ITERPTR.TO)
     iter.next = rng.start
     iter.stop = rng.stop
+    if ITERPTR.TO is RANGESTITER:
+        iter.step = rng.step
     return iter
 
 def ll_rangenext_up(iter, step):
@@ -171,3 +212,10 @@ def ll_rangenext_down(iter, step):
         raise StopIteration
     iter.next = next + step
     return next
+
+def ll_rangenext_updown(iter):
+    step = iter.step
+    if step > 0:
+        return ll_rangenext_up(iter, step)
+    else:
+        return ll_rangenext_down(iter, step)

@@ -3,10 +3,14 @@ from pypy.rpython.rrange import *
 from pypy.rpython.test.test_llinterp import interpret
 
 def test_rlist_range():
-    def test1(start, stop, step):
+    def test1(start, stop, step, varstep):
         expected = range(start, stop, step)
         length = len(expected)
-        l = ll_newrange(start, stop)
+        if varstep:
+            l = ll_newrangest(start, stop, step)
+            step = l.step
+        else:
+            l = ll_newrange(start,stop)
         assert ll_rangelen(l, step) == length
         lst = [ll_rangeitem(dum_nocheck, l, i, step) for i in range(length)]
         assert lst == expected
@@ -18,7 +22,8 @@ def test_rlist_range():
     for start in (-10, 0, 1, 10):
         for stop in (-8, 0, 4, 8, 25):
             for step in (1, 2, 3, -1, -2):
-                test1(start, stop, step)
+                for varstep in False,True:
+                    test1(start, stop, step, varstep)
 
 # ____________________________________________________________
 
@@ -76,3 +81,26 @@ def test_range2list():
     start, stop = 10, 17
     res = interpret(dummyfn, [start, stop])
     assert res == dummyfn(start, stop)
+
+def check_failed(func, *args):
+    try:
+        interpret(func, *args)
+    except:
+        return True
+    else:
+        return False
+
+def test_range_extra():
+    def failingfn_const():
+        r = range(10, 17, 0)
+        return r[-1]
+    assert check_failed(failingfn_const, [])
+
+    def failingfn_var(step):
+        r = range(10, 17, step)
+        return r[-1]
+    step = 3
+    res = interpret(failingfn_var, [step])
+    assert res == failingfn_var(step)
+    step = 0
+    assert check_failed(failingfn_var, [step])

@@ -31,7 +31,7 @@ class __extend__(annmodel.SomeList):
         from pypy.rpython import rrange
         listitem = self.listdef.listitem
         s_value = listitem.s_value
-        if listitem.range_step and not listitem.mutated:
+        if listitem.range_step is not None and not listitem.mutated:
             return rrange.RangeRepr(listitem.range_step)
         elif (s_value.__class__ is annmodel.SomeObject and s_value.knowntype == object):
             return robject.pyobj_repr

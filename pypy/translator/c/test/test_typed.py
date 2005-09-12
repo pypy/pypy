@@ -11,7 +11,7 @@ from pypy.translator.c.test.test_annotated import TestAnnotatedTestCase as _Test
 
 class TestTypedTestCase(_TestAnnotatedTestCase):
 
-    def getcompiled(self, func):
+    def getcompiled(self, func, view=False):
         t = Translator(func, simplifying=True)
         # builds starting-types from func_defs 
         argstypelist = []
@@ -24,6 +24,8 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         a.simplify()
         t.specialize()
         t.checkgraphs()
+        if view:
+            t.view()
         return skip_missing_compiler(t.ccompile)
 
     def test_call_five(self):
@@ -368,3 +370,13 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         assert f(0) == fn(0)
         assert f(-1) == fn(-1)
         raises(IndexError, f, 42)
+
+    def test_range_step(self):
+        def fn(step=int):
+            r = range(10, 37, step)
+            # we always raise on step = 0
+            return r[-2]
+        f = self.getcompiled(fn)#, view=True)
+        assert f(1) == fn(1)
+        assert f(3) == fn(3)
+        raises(ValueError, f, 0)
