@@ -1,8 +1,9 @@
 from pypy.translator.backendoptimization import remove_void, inline_function
+from pypy.translator.backendoptimization import remove_simple_mallocs
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import Void
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.objspace.flow.model import checkgraph
+from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.translator.test.snippet import simple_method, is_perfect_number
 from pypy.translator.llvm.log import log
 
@@ -196,4 +197,54 @@ def DONOTtest_for_loop():
     a.simplify()
     t.specialize()
     t.view()
-    
+
+
+def check_malloc_removed(fn, signature, expected_remaining_mallocs):
+    t = Translator(fn)
+    t.annotate(signature)
+    t.specialize()
+    graph = t.getflowgraph()
+    remove_simple_mallocs(graph)
+    checkgraph(graph)
+    count = 0
+    for node in flatten(graph):
+        if isinstance(node, Block):
+            for op in node.operations:
+                if op.opname == 'malloc':
+                    count += 1
+    assert count == expected_remaining_mallocs
+
+def test_remove_mallocs():
+    def fn1(x, y):
+        s, d = x+y, x-y
+        return s*d
+    yield check_malloc_removed, fn1, [int, int], 0
+    #
+    class T:
+        pass
+    def fn2(x, y):
+        t = T()
+        t.x = x
+        t.y = y
+        if x > 0:
+            return t.x + t.y
+        else:
+            return t.x - t.y
+    yield check_malloc_removed, fn2, [int, int], 0
+    #
+    def fn3(x):
+        a, ((b, c), d, e) = x+1, ((x+2, x+3), x+4, x+5)
+        return a+b+c+d+e
+    yield check_malloc_removed, fn3, [int], 0
+    #
+    class A:
+        pass
+    class B(A):
+        pass
+    def fn4(i):
+        a = A()
+        b = B()
+        a.b = b
+        b.i = i
+        return a.b.i
+    yield check_malloc_removed, fn4, [int], 0
