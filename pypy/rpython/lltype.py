@@ -70,6 +70,9 @@ class LowLevelType(object):
     def __str__(self):
         return self.__class__.__name__
 
+    def _short_name(self):
+        return str(self)
+
     def _defl(self, parent=None, parentindex=None):
         raise NotImplementedError
 
@@ -172,6 +175,9 @@ class Struct(ContainerType):
         return "%s %s { %s }" % (self.__class__.__name__,
                                  self._name, self._str_fields())
 
+    def _short_name(self):
+        return "%s %s" % (self.__class__.__name__, self._name)
+
     def _defl(self, parent=None, parentindex=None):
         return _struct(self, parent=parent, parentindex=parentindex)
 
@@ -236,6 +242,10 @@ class Array(ContainerType):
         return "%s of %s " % (self.__class__.__name__,
                                self._str_fields(),)
 
+    def _short_name(self):
+        return "%s of %s " % (self.__class__.__name__,
+                               self.OF._short_name(),)
+
     def _container_example(self):
         return _array(self, 1)
 
@@ -260,6 +270,10 @@ class FuncType(ContainerType):
         args = ', '.join(map(str, self.ARGS))
         return "Func ( %s ) -> %s" % (args, self.RESULT)
 
+    def _short_name(self):        
+        args = ', '.join([ARG._short_name() for ARG in self.ARGS])
+        return "Func ( %s ) -> %s" % (args, self.RESULT._short_name)        
+        
     def _container_example(self):
         def ex(*args):
             return self.RESULT._defl()
@@ -357,6 +371,10 @@ class Ptr(LowLevelType):
 
     def __str__(self):
         return '* %s' % (self.TO, )
+    
+    def _short_name(self):
+        return 'Ptr to %s' % (self.TO._short_name(), )
+    
 
     def _defl(self, parent=None, parentindex=None):
         return _ptr(self, None)

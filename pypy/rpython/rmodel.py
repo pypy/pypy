@@ -27,7 +27,7 @@ class Repr:
     _initialized = setupstate.NOTINITIALIZED 
 
     def __repr__(self):
-        return '<%s %s>' % (self.__class__.__name__, self.lowleveltype)
+        return '<%s %s>' % (self.__class__.__name__, self.lowleveltype._short_name())
 
     def setup(self): 
         """ call _setup_repr() and keep track of the initializiation
