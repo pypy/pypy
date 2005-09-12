@@ -159,6 +159,7 @@ def collect_called_functions(graph):
         for op in obj.operations:
             if op.opname == "direct_call":
                 funcs[op.args[0]] = True
+    traverse(visit, graph)
     return funcs
 
 def inline_function(translator, inline_func, graph):
@@ -195,14 +196,14 @@ def _find_exception_type(block):
     return ops[-4].args[2].value
 
 def _inline_function(translator, graph, block, index_operation):
+    op = block.operations[index_operation]
+    graph_to_inline = translator.flowgraphs[op.args[0].value._obj._callable]
     exception_guarded = False
     if (block.exitswitch == Constant(last_exception) and
         index_operation == len(block.operations) - 1):
         exception_guarded = True
-        assert len(collect_called_functions(graph)) == 0, (
+        assert len(collect_called_functions(graph_to_inline)) == 0, (
             "can't handle exceptions yet")
-    op = block.operations[index_operation]
-    graph_to_inline = translator.flowgraphs[op.args[0].value._obj._callable]
     entrymap = mkentrymap(graph_to_inline)
     beforeblock = block
     afterblock = split_block(translator, graph, block, index_operation)
