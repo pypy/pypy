@@ -22,7 +22,7 @@ def test_rlist_range():
     for start in (-10, 0, 1, 10):
         for stop in (-8, 0, 4, 8, 25):
             for step in (1, 2, 3, -1, -2):
-                for varstep in False,True:
+                for varstep in False, True:
                     test1(start, stop, step, varstep)
 
 # ____________________________________________________________
