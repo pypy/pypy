@@ -327,9 +327,9 @@ class FlowGraph:
 def dfs_postorder(b, seen):
     """Depth-first search of tree rooted at b, return in postorder"""
     order = []
-    seen[b] = b
+    seen[b.bid] = b
     for c in b.get_children():
-        if c in seen:
+        if c.bid in seen:
             continue
         order = order + dfs_postorder(c, seen)
     order.append(b)
@@ -775,7 +775,7 @@ class PyFlowGraph(FlowGraph):
                 else:
                     print "x",opname, t.getArg()
             if not t.has_arg:
-                lnotab.addCode(self.opnum[opname])
+                lnotab.addCode1(self.opnum[opname])
             else:
                 assert isinstance(t, InstrInt)
                 oparg = t.intval
@@ -784,7 +784,7 @@ class PyFlowGraph(FlowGraph):
                     continue
                 hi, lo = twobyte(oparg)
                 try:
-                    lnotab.addCode(self.opnum[opname], lo, hi)
+                    lnotab.addCode3(self.opnum[opname], lo, hi)
                 except ValueError:
                     if self._debug:
                         print opname, oparg
@@ -882,10 +882,15 @@ class LineAddrTable:
         self.lastoff = 0
         self.lnotab = []
 
-    def addCode(self, *args):
-        for arg in args:
-            self.code.append(chr(arg))
-        self.codeOffset = self.codeOffset + len(args)
+    def addCode1(self, op ):
+        self.code.append(chr(op))
+        self.codeOffset = self.codeOffset + 1
+
+    def addCode3(self, op, hi, lo):
+        self.code.append(chr(op))
+        self.code.append(chr(hi))
+        self.code.append(chr(lo))
+        self.codeOffset = self.codeOffset + 3
 
     def nextLine(self, lineno):
         if self.firstline == 0:
