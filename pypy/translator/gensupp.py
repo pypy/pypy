@@ -100,8 +100,8 @@ class NameManager(object):
                 raise NameError, "%s has already been seen!"
             self.seennames[name] = 1
 
-    def uniquename(self, basename, with_number=None, bare=False):
-        basename = basename[:50].translate(C_IDENTIFIER)
+    def uniquename(self, basename, with_number=None, bare=False, lenmax=50):
+        basename = basename[:lenmax].translate(C_IDENTIFIER)
         n = self.seennames.get(basename, 0)
         self.seennames[basename] = n+1
         if with_number is None:
@@ -114,14 +114,16 @@ class NameManager(object):
                 else:
                     return self.global_prefix + newname
             else:
-                return self.uniquename('%s%d' % (basename, n), bare=bare)
+                return self.uniquename('%s%d' % (basename, n), bare=bare,
+                                       lenmax=sys.maxint)
         if n == 0:
                 if bare:
                     return basename, self.global_prefix + basename
                 else:
                     return self.global_prefix + basename
         else:
-            return self.uniquename('%s_%d' % (basename, n), bare=bare)
+            return self.uniquename('%s_%d' % (basename, n), bare=bare,
+                                   lenmax=sys.maxint)
 
     def localScope(self, parent=None):
         ret = _LocalScope(self, parent)
