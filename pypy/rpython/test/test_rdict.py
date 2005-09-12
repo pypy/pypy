@@ -386,12 +386,14 @@ def test_stress():
 def test_id_instances_keys():
     class A:
         pass
+    class B(A):
+        pass
     def f():
         a = A()
-        b = A()
+        b = B()
         d = {}
-        d[a] = 1
         d[b] = 7
+        d[a] = 3
         return len(d) + d[a] + d[b]
     res = interpret(f, [])
-    assert res == 10
+    assert res == 12
