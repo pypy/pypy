@@ -592,7 +592,8 @@ class PyFlowGraph(FlowGraph):
                         if arg in begin:
                             # can only extend argument if backward
                             offset = begin[arg]
-                            hi, lo = divmod(offset,65536)
+                            hi = offset // 65536
+                            lo = offset % 65536
                             if hi>0:
                                 # extended argument
                                 insts.append( InstrInt("EXTENDED_ARG", hi) )
