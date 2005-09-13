@@ -78,6 +78,17 @@ def test_constant_tuple_contains():
     res = interpret(f, [0])
     assert res is False 
 
+def test_constant_tuple_contains2():
+    def t1():
+        return (1,2,3,4)
+    def f(i): 
+        return i in t1()
+    res = interpret(f, [3], view=False, viewbefore=False) 
+    assert res is True 
+    res = interpret(f, [0])
+    assert res is False 
+
+
 def test_constant_unichar_tuple_contains():
     def f(i):
         return unichr(i) in (u'1', u'9')

@@ -83,16 +83,16 @@ class TupleRepr(Repr):
 
 
 class __extend__(pairtype(TupleRepr, Repr)): 
-    def rtype_contains((r_tup, r_item), hop): 
-        v_tup = hop.args_v[0] 
-        if not isinstance(v_tup, Constant): 
+    def rtype_contains((r_tup, r_item), hop):
+        s_tup = hop.args_s[0]
+        if not s_tup.is_constant():
             raise TyperError("contains() on non-const tuple") 
-        t = v_tup.value 
+        t = s_tup.const
         typ = type(t[0]) 
         for x in t[1:]: 
             if type(x) is not typ: 
                 raise TyperError("contains() on mixed-type tuple "
-                                 "constant %r" % (v_tup,))
+                                 "constant %r" % (t,))
         d = {}
         for x in t: 
             d[x] = None 
