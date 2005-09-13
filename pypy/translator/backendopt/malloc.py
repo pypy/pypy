@@ -3,9 +3,6 @@ from pypy.objspace.flow.model import SpaceOperation, traverse
 from pypy.tool.unionfind import UnionFind
 from pypy.rpython import lltype
 
-class Blocked(Exception):
-    pass
-
 class LifeTime:
 
     def __init__(self, (block, var)):
@@ -121,81 +118,86 @@ def _try_inline_malloc(info):
             flatconstants[S, name] = constant
     flatten(STRUCT, example)
 
-    pending = info.variables.keys()
-    for block, var in pending:
-        newvarsmap = {}
+    variables_by_block = {}
+    for block, var in info.variables:
+        vars = variables_by_block.setdefault(block, {})
+        vars[var] = True
 
-        def var_comes_from_outside():
-            for key in flatnames:
-                newvar = Variable()
-                newvar.concretetype = flatconstants[key].concretetype
-                newvarsmap[key] = newvar
+    for block, vars in variables_by_block.items():
 
-        def var_is_created_here():
-            newvarsmap.update(flatconstants)
+        def flowin(var, newvarsmap):
+            # in this 'block', follow where the 'var' goes to and replace
+            # it by a flattened-out family of variables.  This family is given
+            # by newvarsmap, whose keys are the 'flatnames'.
+            vars = {var: True}
 
-        def make_newvars():
-            return [newvarsmap[key] for key in flatnames]
+            def list_newvars():
+                return [newvarsmap[key] for key in flatnames]
 
-        if var in block.inputargs:
-            var_comes_from_outside()
-            i = block.inputargs.index(var)
-            block.inputargs = (block.inputargs[:i] + make_newvars() +
-                               block.inputargs[i+1:])
-
-        assert block.operations != ()
-        newops = []
-        try:
+            assert block.operations != ()
+            newops = []
             for op in block.operations:
-                assert var not in op.args[1:]   # should be the first arg only
-                if op.args and var == op.args[0]:
+                for arg in op.args[1:]:   # should be the first arg only
+                    assert arg not in vars
+                if op.args and op.args[0] in vars:
                     if op.opname == "getfield":
-                        S = var.concretetype.TO
+                        S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
                         newop = SpaceOperation("same_as",
                                                [newvarsmap[S, fldname]],
                                                op.result)
                         newops.append(newop)
                     elif op.opname == "setfield":
-                        S = var.concretetype.TO
+                        S = op.args[0].concretetype.TO
                         fldname = op.args[1].value
                         assert (S, fldname) in newvarsmap
                         newvarsmap[S, fldname] = op.args[2]
                     elif op.opname in ("same_as", "cast_pointer"):
-                        # temporary pseudo-operation, should be removed below
-                        newop = SpaceOperation("_tmp_same_as",
-                                               make_newvars(),
-                                               op.result)
-                        newops.append(newop)
+                        assert op.result not in vars
+                        vars[op.result] = True
+                        # Consider the two pointers (input and result) as
+                        # equivalent.  We can, and indeed must, use the same
+                        # flattened list of variables for both, as a "setfield"
+                        # via one pointer must be reflected in the other.
                     else:
                         raise AssertionError, op.opname
-                elif var == op.result:
-                    assert not newvarsmap
-                    if op.opname == "malloc":
-                        var_is_created_here()
-                    elif op.opname in ("same_as", "cast_pointer"):
-                        # in a 'v2=same_as(v1)', we must analyse v1 before
-                        # we can analyse v2.  If we get them in the wrong
-                        # order we cancel and reschedule v2.
-                        raise Blocked
-                    elif op.opname == "_tmp_same_as":
-                        # pseudo-operation just introduced by the code
-                        # some lines above.
-                        for key, v in zip(flatnames, op.args):
-                            newvarsmap[key] = v
-                    else:
-                        raise AssertionError, op.opname
+                elif op.result in vars:
+                    assert op.opname == "malloc"
+                    assert vars == {var: True}
+                    # drop the "malloc" operation
                 else:
                     newops.append(op)
-        except Blocked:
-            pending.append((block, var))
-            continue
-        block.operations[:] = newops
+            block.operations[:] = newops
 
-        for link in block.exits:
-            while var in link.args:
-                i = link.args.index(var)
-                link.args = link.args[:i] + make_newvars() + link.args[i+1:]
+            for link in block.exits:
+                newargs = []
+                for arg in link.args:
+                    if arg in vars:
+                        newargs += list_newvars()
+                    else:
+                        newargs.append(arg)
+                link.args[:] = newargs
+
+        # look for variables arriving from outside the block
+        for var in vars:
+            if var in block.inputargs:
+                i = block.inputargs.index(var)
+                newinputargs = block.inputargs[:i]
+                newvarsmap = {}
+                for key in flatnames:
+                    newvar = Variable()
+                    newvar.concretetype = flatconstants[key].concretetype
+                    newvarsmap[key] = newvar
+                    newinputargs.append(newvar)
+                newinputargs += block.inputargs[i+1:]
+                block.inputargs[:] = newinputargs
+                flowin(var, newvarsmap)
+
+        # look for variables created inside the block by a malloc
+        for op in block.operations:
+            if op.opname == "malloc" and op.result in vars:
+                newvarsmap = flatconstants.copy()   # dummy initial values
+                flowin(op.result, newvarsmap)
 
     return True
 
