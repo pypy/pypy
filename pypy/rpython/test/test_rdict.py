@@ -161,6 +161,20 @@ def test_dict_resize():
     res = interpret(func, [1])
     assert len(res.entries) == rdict.DICT_INITSIZE 
 
+def test_dict_valid_resize():
+    # see if we find our keys after resize
+    def func():
+        d = {}
+        # fill it up
+        for i in range(10):
+            d[str(i)] = 0
+        # delete again
+        for i in range(10):
+            del d[str(i)]
+        res = 0
+    # if it does not crash, we are fine. It crashes if you forget the hash field.
+    interpret(func, [])
+
 def test_dict_iteration():
     def func(i, j):
         d = {}

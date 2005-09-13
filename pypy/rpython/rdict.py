@@ -23,6 +23,7 @@ from pypy.rpython import objectmodel
 #        bool valid;      # to mark if the entry is filled
 #        bool everused;   # to mark if the entry is or has ever been filled
 #        DICTVALUE value;
+#        int hash;
 #    }
 #    
 #    struct dicttable {
@@ -95,6 +96,7 @@ class DictRepr(rmodel.Repr):
             self.DICTVALUE = self.value_repr.lowleveltype
             self.DICTENTRY = lltype.Struct("dictentry", 
                                 ("key", self.DICTKEY),
+                                ("hash", lltype.Signed),
                                 ("valid", lltype.Bool),
                                 ("everused", lltype.Bool),
                                 ("value", self.DICTVALUE))
@@ -305,7 +307,12 @@ def ll_dict_setitem(d, key, value, dictrepr):
     entry.value = value
     if entry.valid:
         return
+    if dictrepr.custom_eq_hash:
+        hash = hlinvoke(dictrepr.r_rdict_hashfn, d.fnkeyhash, key)
+    else:
+        hash = dictrepr.ll_keyhash(key)
     entry.key = key 
+    entry.hash = hash
     entry.valid = True
     d.num_items += 1
     if not entry.everused:
@@ -348,6 +355,7 @@ def ll_dict_resize(d, dictrepr):
         if entry.valid:
            new_entry = ll_dict_lookup(d, entry.key, dictrepr)
            new_entry.key = entry.key
+           new_entry.hash = entry.hash
            new_entry.value = entry.value
            new_entry.valid = True
            new_entry.everused = True
@@ -370,16 +378,17 @@ def ll_dict_lookup(d, key, dictrepr):
         checkingkey = entry.key
         if checkingkey == key:
             return entry   # found the entry
-        if dictrepr.custom_eq_hash:
-            res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
-            if (entries != d.entries or
-                not entry.valid or entry.key != checkingkey):
-                # the compare did major nasty stuff to the dict: start over
-                return ll_dict_lookup(d, key, dictrepr)
-        else:
-            res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(checkingkey, key)
-        if res:
-            return entry   # found the entry
+        if entry.hash == hash:
+            if dictrepr.custom_eq_hash:
+                res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
+                if (entries != d.entries or
+                    not entry.valid or entry.key != checkingkey):
+                    # the compare did major nasty stuff to the dict: start over
+                    return ll_dict_lookup(d, key, dictrepr)
+            else:
+                res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(checkingkey, key)
+            if res:
+                return entry   # found the entry
         freeslot = lltype.nullptr(lltype.typeOf(entry).TO)
     elif entry.everused:
         freeslot = entry
@@ -398,16 +407,17 @@ def ll_dict_lookup(d, key, dictrepr):
             checkingkey = entry.key
             if checkingkey == key:
                 return entry
-            if dictrepr.custom_eq_hash:
-                res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
-                if (entries != d.entries or
-                    not entry.valid or entry.key != checkingkey):
-                    # the compare did major nasty stuff to the dict: start over
-                    return ll_dict_lookup(d, key, dictrepr)
-            else:
-                res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(checkingkey, key)
-            if res:
-                return entry
+            if entry.hash == hash:
+                if dictrepr.custom_eq_hash:
+                    res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
+                    if (entries != d.entries or
+                        not entry.valid or entry.key != checkingkey):
+                        # the compare did major nasty stuff to the dict: start over
+                        return ll_dict_lookup(d, key, dictrepr)
+                else:
+                    res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(checkingkey, key)
+                if res:
+                    return entry
         elif not freeslot:
             freeslot = entry 
         perturb >>= PERTURB_SHIFT
@@ -536,6 +546,7 @@ def ll_copy(dict, dictrepr):
         d_entry = d.entries[i]
         entry = dict.entries[i]
         d_entry.key = entry.key
+        d_entry.hash = entry.hash
         d_entry.value = entry.value
         d_entry.valid = entry.valid
         d_entry.everused = entry.everused
