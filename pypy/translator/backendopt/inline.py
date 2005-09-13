@@ -155,12 +155,13 @@ def _inline_function(translator, graph, block, index_operation):
         #let links to exceptblock of the graph to inline go to graphs exceptblock
         copiedexceptblock = copied_blocks[graph_to_inline.exceptblock]
         if not exception_guarded:
-            copiedexceptblock = copied_blocks[graph_to_inline.exceptblock]
+            # find all copied links that go to copiedexceptblock
             for link in entrymap[graph_to_inline.exceptblock]:
                 copiedblock = copied_blocks[link.prevblock]
-                assert len(copiedblock.exits) == 1
-                copiedblock.exits[0].args = copiedblock.exits[0].args[:2]
-                copiedblock.exits[0].target = graph.exceptblock
+                for copiedlink in copiedblock.exits:
+                    if copiedlink.target is copiedexceptblock:
+                        copiedlink.args = copiedlink.args[:2]
+                        copiedlink.target = graph.exceptblock
         else:
             def find_args_in_exceptional_case(link, block, etype, evalue):
                 linkargs = []

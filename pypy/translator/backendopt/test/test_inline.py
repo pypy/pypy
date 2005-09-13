@@ -1,4 +1,5 @@
 import py
+import os
 from pypy.translator.backendopt.inline import inline_function, CannotInline
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.inline import collect_called_functions
@@ -257,3 +258,37 @@ def test_auto_inlining_small_call_big():
     assert result == 45
     result = interp.eval_function(f, [15])
     assert result == -1
+
+def test_inline_exception_catching():
+    def f3():
+        raise KeyError
+    def f2():
+        try:
+            f3()
+        except KeyError:
+            return True
+        else:
+            return False
+    def f():
+        return f2()
+    t = Translator(f)
+    a = t.annotate([])
+    a.simplify()
+    t.specialize()
+    inline_function(t, f2, t.flowgraphs[f])
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(f, [])
+    assert result is True
+
+def test_auto_inline_os_path_isdir():
+    directory = "./."
+    def f():
+        return os.path.isdir(directory)
+    t = Translator(f)
+    a = t.annotate([])
+    a.simplify()
+    t.specialize()
+    auto_inlining(t)
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(f, [])
+    assert result is True
