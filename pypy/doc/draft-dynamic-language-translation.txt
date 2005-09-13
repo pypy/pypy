@@ -202,7 +202,37 @@ Flow Object Space
 
 XXX
 
-Annotator
+In our bytecode-interpreter design evaluation responsibilities are
+split between the Object Space, frames and the so-called execution
+context. The latter two object kinds are properly part of the
+interpretation engine, while the object space implements all
+operations on values which are treated as black boxes by the engine.
+
+The Object Space plays the role of a factory for execution contexts,
+whose base implementation is supplied by the engine, and exposes hooks
+triggered when frames are entered, left and before each bytecode,
+allowing to gather a trace of the execution.
+
+Frames have run/resume methods which embed the interpretation loop,
+These methods take an execution context invoking the appropriate hooks
+at the corresponding situations.
+
+The Flow Object Space in our current design is responsible of
+constructing a flow graph for a single function using abstract
+interpretation.
+
+Concretely the Flow Space plugs itself in the interpreter as an object
+space, and supplying a derived execution context implementation.  It
+also wrap a fix-point loop around invocations of the frame resume
+method which is forced to execute one single bytecode through
+exceptions reaching this loop from the space operations'
+code and the specialised execution context.
+
+
+
+
+
+Annotator 
 ===================================
 
 XXX
