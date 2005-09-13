@@ -214,5 +214,6 @@ def remove_simple_mallocs(graph):
     """Iteratively remove (inline) the mallocs that can be simplified away."""
     done_something = False
     while remove_mallocs_once(graph):
+        print 'simple mallocs removed in %r' % graph.name
         done_something = True
     return done_something

@@ -31,7 +31,11 @@ def check(fn, signature, args, expected_result):
 
 def test_fn1():
     def fn1(x, y):
-        s, d = x+y, x-y
+        if x > 0:
+            t = x+y, x-y
+        else:
+            t = x-y, x+y
+        s, d = t
         return s*d
     check(fn1, [int, int], [15, 10], 125)
 

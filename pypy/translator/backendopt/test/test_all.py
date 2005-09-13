@@ -37,7 +37,6 @@ def big():
 
 
 def test_big():
-    py.test.skip("in progress")
     assert big() == 83
 
     t = Translator(big)
@@ -45,7 +44,6 @@ def test_big():
     t.specialize()
     backend_optimizations(t, inline_threshold=100)
 
-    t.view()
     graph = t.getflowgraph()
     check_malloc_removed(graph)
 

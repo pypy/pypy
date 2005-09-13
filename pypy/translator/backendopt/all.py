@@ -12,13 +12,12 @@ def backend_optimizations(translator, inline_threshold=1, ssa_form=True):
         remove_same_as(graph)
         simplify.eliminate_empty_blocks(graph)
 
-    # inline functions around
-    if inline_threshold and 0:  # XXX in progress
+    # inline functions in each other
+    if inline_threshold:
         auto_inlining(translator, inline_threshold)
 
     # vaporize mallocs
-    # XXX in progress
-    for graph in []:# translator.flowgraphs.values():
+    for graph in translator.flowgraphs.values():
         if remove_simple_mallocs(graph):
             # remove typical leftovers from malloc removal
             remove_same_as(graph)
