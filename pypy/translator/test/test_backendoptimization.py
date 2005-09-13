@@ -140,7 +140,7 @@ def test_inline_exceptions():
         except ValueError:
             return 2
         except KeyError:
-            return 3
+            return x+2
         return 1
     t = Translator(g)
     a = t.annotate([int])
