@@ -160,7 +160,7 @@ def analyse(target):
 def assert_rpython_mostly_not_imported(): 
     prefix = 'pypy.rpython.'
     oknames = ('rarithmetic memory memory.lladdress extfunctable ' 
-               'lltype objectmodel error'.split())
+               'lltype objectmodel error ros'.split())
     wrongimports = []
     for name, module in sys.modules.items(): 
         if module is not None and name.startswith(prefix): 
