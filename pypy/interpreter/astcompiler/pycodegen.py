@@ -912,6 +912,8 @@ class CodeGenerator(ast.ASTVisitor):
         }
 
     def visitExec(self, node):
+        if self.scope.nested and node.locals is None and node.globals is None:
+            raise SyntaxError('unqualified exec is not allowed in a nested function')
         node.expr.accept( self )
         if node.locals is None:
             self.emitop_obj('LOAD_CONST', self.space.w_None)

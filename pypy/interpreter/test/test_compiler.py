@@ -193,9 +193,6 @@ class TestPythonAstCompiler(BaseTestCompiler):
     def test_scope_unoptimized_clash1_b(self):
         py.test.skip("INPROGESS")
 
-    def test_scope_exec_in_nested(self):
-        py.test.skip("INPROGESS")
-
     def test_scope_importstar_in_nested(self):
         py.test.skip("INPROGESS")
 
