@@ -174,7 +174,7 @@ class FlowGraph:
     def emitop_int(self, inst, intval ):
         if self._debug:
             print "\t", inst, intval
-        assert type(intval)==int
+        assert isinstance(intval,int)
         self.current.emit( InstrInt(inst,intval) )
         
     def emitop_block(self, inst, block):
@@ -187,7 +187,7 @@ class FlowGraph:
     def emitop_name(self, inst, name ):
         if self._debug:
             print "\t", inst, name
-        assert type(name)==str
+        assert isinstance(name,str)
         self.current.emit( InstrName(inst,name) )
 
     def getBlocksInOrder(self):
@@ -463,17 +463,17 @@ class PyFlowGraph(FlowGraph):
         for var in args:
             if isinstance(var, ast.AssName):
                 _name = var.name
-                assert type(_name) == str
+                assert isinstance(_name,str)
                 self.varnames.append( _name )
             elif isinstance(var, TupleArg):
                 _name = var.getName()
-                assert type(_name) == str
+                assert isinstance(_name,str)
                 self.varnames.append( _name )
             elif isinstance(var, ast.AssTuple):
                 for n in var.flatten():
                     assert isinstance(n, ast.AssName)
                     _name = n.name
-                    assert type(_name) == str
+                    assert isinstance(_name,str)
                     self.varnames.append( _name )
         self.stage = RAW
         self.orderedblocks = []
@@ -862,7 +862,7 @@ def getArgCount(args):
 
 def twobyte(val):
     """Convert an int argument into high and low bytes"""
-    assert type(val) == types.IntType
+    assert isinstance(val,int)
     return divmod(val, 256)
 
 class LineAddrTable:

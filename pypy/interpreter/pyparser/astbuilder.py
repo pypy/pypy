@@ -7,7 +7,7 @@ from grammar import BaseGrammarBuilder, AbstractContext
 from pypy.interpreter.astcompiler import ast, consts
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
-from pypy.interpreter.pyparser.error import SyntaxError
+from pypy.interpreter.pyparser.error import SyntaxError, TokenError, ASTError
 from pypy.interpreter.pyparser.parsestring import parsestr
 
 DEBUG_MODE = 0
@@ -168,7 +168,7 @@ def parse_arglist(tokens):
                     raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
             assert isinstance(cur_token, TokenObject)
             if cur_token.name != tok.DOUBLESTAR:
-                raise ValueError("Unexpected token: %s" % cur_token)
+                raise TokenError("Unexpected token: ", [cur_token] )
             cur_token = tokens[index]
             index += 1
             assert isinstance(cur_token, TokenObject)
@@ -180,7 +180,7 @@ def parse_arglist(tokens):
             else:
                 raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
             if index < l:
-                raise ValueError("unexpected token: %s" % tokens[index])
+                raise TokenError("unexpected token" , [tokens[index]] )
         elif cur_token.name == tok.NAME:
             val = cur_token.get_value()
             names.append( ast.AssName( val, consts.OP_ASSIGN ) )
@@ -328,7 +328,7 @@ def to_lvalue(ast_node, flags):
     else:
         # TODO: check type of ast_node and raise according SyntaxError in case
         # of del f()
-        raise SyntaxError("cannot assign to %s" % ast_node )
+        raise ASTError("cannot assign to ", ast_node )
 
 def is_augassign( ast_node ):
     if ( isinstance( ast_node, ast.Name ) or
@@ -513,7 +513,7 @@ def build_atom(builder, nb):
         elif top.name == tok.BACKQUOTE:
             builder.push(ast.Backquote(atoms[1]))
         else:
-            raise ValueError, "unexpected tokens (%d): %s" % (nb, [str(i) for i in atoms])
+            raise TokenError("unexpected tokens", atoms)
 
 def slicecut(lst, first, endskip): # endskip is negative
     last = len(lst)+endskip
@@ -568,7 +568,7 @@ def build_term( builder, nb ):
         elif op_node.name == tok.DOUBLESLASH:
             left = ast.FloorDiv( [ left, right ] )
         else:
-            raise ValueError, "unexpected token: %s" % atoms[i-1]
+            raise TokenError("unexpected token", [atoms[i-1]])
     builder.push( left )
 
 def build_arith_expr( builder, nb ):
@@ -584,7 +584,7 @@ def build_arith_expr( builder, nb ):
         elif op_node.name == tok.MINUS:
             left = ast.Sub( [ left, right ] )
         else:
-            raise ValueError, "unexpected token: %s : %s" % atoms[i-1]
+            raise ValueError("unexpected token", [atoms[i-1]] )
     builder.push( left )
 
 def build_shift_expr( builder, nb ):
@@ -600,7 +600,7 @@ def build_shift_expr( builder, nb ):
         elif op_node.name == tok.RIGHTSHIFT:
             left = ast.RightShift( [ left, right ] )
         else:
-            raise ValueError, "unexpected token: %s : %s" % atoms[i-1]
+            raise ValueError("unexpected token", [atoms[i-1]] )
     builder.push( left )
 
 

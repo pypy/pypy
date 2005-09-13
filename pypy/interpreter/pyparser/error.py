@@ -47,3 +47,16 @@ class SyntaxError(Exception):
                                              self.lineno,
                                              self.offset,
                                              self.text)
+
+
+class ASTError(Exception):
+    def __init__(self, msg, ast_node ):
+        self.msg = msg
+        self.ast_node = ast_node
+
+
+class TokenError(Exception):
+    def __init__(self, msg, tokens ):
+        self.msg = msg
+        self.tokens = tokens
+    

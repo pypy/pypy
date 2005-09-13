@@ -174,7 +174,7 @@ class CodeGenerator(ast.ASTVisitor):
         return self.graph.emitop_code( inst, gen )    
 
     def emitop_int(self, inst, op):
-        assert type(op) == int
+        assert isinstance(op, int)
         return self.graph.emitop_int( inst, op )
 
     def emitop_block(self, inst, block):
@@ -1331,7 +1331,7 @@ def generateArgList(arglist):
             extra.extend(elt.getChildNodes())
             count = count + 1
         else:
-            raise ValueError( "unexpect argument type: %s" % elt )
+            raise ValueError( "unexpect argument type:" + str(elt) )
     return args + extra, count
 
 def findOp(node):
@@ -1349,17 +1349,17 @@ class OpFinder(ast.ASTVisitor):
         if self.op is None:
             self.op = node.flags
         elif self.op != node.flags:
-            raise ValueError, "mixed ops in stmt"
+            raise ValueError("mixed ops in stmt")
     def visitAssAttr(self, node):
         if self.op is None:
             self.op = node.flags
         elif self.op != node.flags:
-            raise ValueError, "mixed ops in stmt"
+            raise ValueError("mixed ops in stmt")
     def visitSubscript(self, node):
         if self.op is None:
             self.op = node.flags
         elif self.op != node.flags:
-            raise ValueError, "mixed ops in stmt"        
+            raise ValueError("mixed ops in stmt")
 
 
 class AugLoadVisitor(ast.ASTVisitor):
