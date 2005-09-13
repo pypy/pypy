@@ -825,6 +825,8 @@ class CodeGenerator(ast.ASTVisitor):
         self.emitop('IMPORT_NAME', node.modname)
         for name, alias in node.names:
             if name == '*':
+                if self.scope.nested:
+                    raise SyntaxError('import * is not allowed in a nested function')
                 self.namespace = 0
                 self.emit('IMPORT_STAR')
                 # There can only be one name w/ from ... import *

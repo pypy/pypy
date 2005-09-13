@@ -108,6 +108,16 @@ class BaseTestCompiler:
         ex = e.value 
         assert ex.match(self.space, self.space.w_SyntaxError)
 
+    def test_scope_exec_with_nested_free(self):
+        e = py.test.raises(OperationError, self.compiler.compile, """if 1:
+            def unoptimized_clash1(x):
+                exec "z=3"
+                def f():
+                    return x
+                return f""", '', 'exec', 0)
+        ex = e.value 
+        assert ex.match(self.space, self.space.w_SyntaxError)
+
     def test_scope_importstar_in_nested(self):
         e = py.test.raises(OperationError, self.compiler.compile, """if 1:
             def unoptimized_clash1(x):
@@ -187,16 +197,10 @@ class TestPythonAstCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = PythonAstCompiler(self.space)
 
-    def test_scope_unoptimized_clash1(self):
-        py.test.skip("INPROGESS")
-
-    def test_scope_unoptimized_clash1_b(self):
-        py.test.skip("INPROGESS")
-
-    def test_scope_importstar_in_nested(self):
-        py.test.skip("INPROGESS")
-
     def test_scope_importstar_with_nested_free(self):
+        py.test.skip("INPROGESS")
+
+    def test_scope_exec_with_nested_free(self):
         py.test.skip("INPROGESS")
 
 class SkippedForNowTestPyPyCompiler(BaseTestCompiler):
