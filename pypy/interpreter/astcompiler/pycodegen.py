@@ -541,7 +541,8 @@ class CodeGenerator(ast.ASTVisitor):
 
 
         stack = []
-        for i, for_ in zip(range(len(node.quals)), node.quals):
+        i = 0
+        for for_ in node.quals:
             assert isinstance(for_, ast.ListCompFor)
             start, anchor = self._visitListCompFor(for_)
             self.genexpr_cont_stack.append( None )
@@ -551,6 +552,7 @@ class CodeGenerator(ast.ASTVisitor):
                 if_.accept( self )
             stack.insert(0, (start, self.genexpr_cont_stack[-1], anchor))
             self.genexpr_cont_stack.pop()
+            i += 1
 
         self._implicitNameOp('LOAD', append)
         node.expr.accept( self )
@@ -621,7 +623,8 @@ class CodeGenerator(ast.ASTVisitor):
         # setup list
 
         stack = []
-        for i, for_ in zip(range(len(node.quals)), node.quals):
+        i = 0
+        for for_ in node.quals:
             assert isinstance(for_, ast.GenExprFor)            
             start, anchor = self._visitGenExprFor(for_)
             self.genexpr_cont_stack.append( None )
@@ -631,6 +634,7 @@ class CodeGenerator(ast.ASTVisitor):
                 if_.accept( self )
             stack.insert(0, (start, self.genexpr_cont_stack[-1], anchor))
             self.genexpr_cont_stack.pop()
+            i += 1
 
         node.expr.accept( self )
         self.emit('YIELD_VALUE')
