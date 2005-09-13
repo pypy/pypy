@@ -380,7 +380,7 @@ class SymbolVisitor(ast.ASTVisitor):
         scope = self.cur_scope()
         for name, asname in node.names:
             i = name.find(".")
-            if i > -1:
+            if i >= 0:
                 name = name[:i]
             scope.add_def(asname or name)
 

@@ -515,6 +515,13 @@ def build_atom(builder, nb):
         else:
             raise ValueError, "unexpected tokens (%d): %s" % (nb, [str(i) for i in atoms])
 
+def slicecut(lst, first, endskip): # endskip is negative
+    last = len(lst)+endskip
+    if last > first:
+        return lst[first:last]
+    else:
+        return []
+    
 
 def build_power(builder, nb):
     """power: atom trailer* ['**' factor]"""
@@ -524,7 +531,7 @@ def build_power(builder, nb):
     else:
         token = atoms[-2]
         if isinstance(token, TokenObject) and token.name == tok.DOUBLESTAR:
-            obj = parse_attraccess(atoms[:-2])
+            obj = parse_attraccess(slicecut(atoms, 0, -2))
             builder.push(ast.Power([obj, atoms[-1]]))
         else:
             obj = parse_attraccess(atoms)
@@ -797,7 +804,7 @@ def build_lambdef(builder, nb):
     """lambdef: 'lambda' [varargslist] ':' test"""
     atoms = get_atoms(builder, nb)
     code = atoms[-1]
-    names, defaults, flags = parse_arglist(atoms[1:-2])
+    names, defaults, flags = parse_arglist(slicecut(atoms, 1, -2))
     builder.push(ast.Lambda(names, defaults, flags, code))
 
 
@@ -949,7 +956,7 @@ def build_funcdef(builder, nb):
     funcname = atoms[1]
     arglist = []
     index = 3
-    arglist = atoms[3:-3]
+    arglist = slicecut(atoms, 3, -3)
     names, default, flags = parse_arglist(arglist)
     funcname_token = atoms[1]
     assert isinstance(funcname_token, TokenObject)
@@ -998,7 +1005,7 @@ def build_suite(builder, nb):
     else:
         # several statements
         stmts = []
-        nodes = atoms[2:-1]
+        nodes = slicecut(atoms, 2,-1)
         for node in nodes:
             if isinstance(node, ast.Stmt):
                 stmts.extend(node.nodes)
