@@ -1,0 +1,124 @@
+TyperError-1: (pypy.interpreter.astcompiler.pycodegen:visitListComp)
+don't know about built-in function <built-in function zip>
+.. block@-1 with 1 exits
+.. v179774 = simple_call((builtin_function_or_method zip), v179753, v179761)
+
+TyperError-2: (pypy.interpreter.pyparser.astbuilder:build_arith_expr)
+unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, <InstanceRepr for pypy.interpreter.astcompiler.ast.Node>)
+.. block@212 with 1 exits
+.. v93820 = mod(('unexpected token: %s : %s'), v93785)
+
+TyperError-3: (pypy.interpreter.astcompiler.pyassem:flattenGraph)
+unimplemented operation: 'divmod' on (<IntegerRepr Signed>, <IntegerRepr Signed>)
+.. block@536 with 1 exits
+.. v1539443 = divmod(v1539254, (65536))
+
+TyperError-4: (pypy.interpreter.astcompiler.symbols:_do_args)
+ll_str unsupported for: <ClassRepr for __builtin__.object>
+.. block@112 with 1 exits
+.. v194656 = mod(('Argument list contains %s of type %s'), v194632)
+
+TyperError-5: (pypy.interpreter.astcompiler.future:check_stmt)
+contains() on non-const tuple
+.. block@234 with 2 exits(v165947)
+.. v165938 = contains(v165923, v165912)
+
+TyperError-6: (pypy.interpreter.pyparser.astbuilder:build_lambdef)
+slice stop must be proved non-negative
+.. block@-1 with 1 exits
+.. v91072 = newslice((1), (-2), (None))
+
+TyperError-7: (pypy.interpreter.astcompiler.misc:mangle)
+slice stop must be proved non-negative
+.. block@205 with 1 exits
+.. v216816 = newslice((None), v216804, (None))
+
+TyperError-8: (pypy.interpreter.pyparser.astbuilder:build_suite)
+slice stop must be proved non-negative
+.. block@143 with 1 exits
+.. v89498 = newslice((2), (-1), (None))
+
+TyperError-9: (pypy.interpreter.pyparser.astbuilder:build_power)
+slice stop must be proved non-negative
+.. block@109 with 1 exits
+.. v72361 = newslice((None), (-2), (None))
+
+TyperError-10: (pypy.interpreter.astcompiler.pycodegen:emitop_int)
+unimplemented operation: 'type' on <IntegerRepr Signed>
+.. block@-1 EH with 2 exits(v147808)
+.. v147796 = type(op_147787)
+
+TyperError-11: (pypy.interpreter.astcompiler.symbols:visitImport)
+slice stop must be proved non-negative
+.. block@68 with 1 exits
+.. v140696 = newslice((None), v140691, (None))
+
+TyperError-12: (pypy.interpreter.astcompiler.pyassem:twobyte)
+unimplemented operation: 'type' on <IntegerRepr Signed>
+.. block@-1 EH with 2 exits(v2058259)
+.. v2058251 = type(val_2058244)
+
+TyperError-13: (pypy.interpreter.pyparser.astbuilder:parse_genexpr_for)
+unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, <InstanceRepr for pypy.interpreter.pyparser.astbuilder.TokenObject>)
+.. block@332 with 1 exits
+.. v120242 = mod(('Unexpected token: %s'), v120221)
+
+TyperError-14: (pypy.interpreter.astcompiler.pycodegen:visitGenExprInner)
+don't know about built-in function <built-in function zip>
+.. block@-1 with 1 exits
+.. v158235 = simple_call((builtin_function_or_method zip), v158216, v158223)
+
+TyperError-15: (pypy.interpreter.astcompiler.pyassem:emitop_int)
+unimplemented operation: 'type' on <IntegerRepr Signed>
+.. block@33 EH with 2 exits(v164739)
+.. v164713 = type(intval_164706)
+
+TyperError-16: (pypy.interpreter.astcompiler.pyassem:__init__)
+unimplemented operation: 'type' on <StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>
+.. block@295 with 2 exits(v100109)
+.. v100047 = type(v99980)
+
+TyperError-17: (pypy.interpreter.pyparser.astbuilder:to_lvalue)
+unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, <InstanceRepr for pypy.interpreter.astcompiler.ast.Node>)
+.. block@377 with 1 exits
+.. v116431 = mod(('cannot assign to %s'), v116400)
+
+TyperError-18: (pypy.interpreter.pyparser.astbuilder:build_not_test)
+unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, <ListRepr * GcStruct list { length: Signed, items: * GcArray of * GcStruct Node { super: GcStruct Wrappable { super: GcStruct BaseWrappable { super: GcStruct W_Root { super: GcStruct object { typeptr: * Struct object_vtable { parenttypeptr: * Struct object_vtable { ... }, rtti: * RuntimeTypeInfo (opaque), name: * Array of Char , instantiate: * Func (  ) -> * GcStruct object { ... } } }, hash_cache: Signed } }}, inst_filename: * GcStruct rpy_string { hash: Signed, chars: Array of Char  }, inst_lineno: Signed }  }>)
+.. block@120 with 1 exits
+.. v72744 = mod(('not_test implementation incomplete (%s)'), v72728)
+
+TyperError-19: (pypy.interpreter.pyparser.astbuilder:build_funcdef)
+slice stop must be proved non-negative
+.. block@196 with 1 exits
+.. v73769 = newslice((3), (-3), (None))
+
+TyperError-20: (pypy.interpreter.astcompiler.pyassem:depth_CALL_FUNCTION)
+unimplemented operation: 'divmod' on (<IntegerRepr Signed>, <IntegerRepr Signed>)
+.. block@-1 EH with 1 exits
+.. v220408 = divmod(argc_220401, (256))
+
+TyperError-21: (pypy.interpreter.pyparser.astbuilder:build_term)
+unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, <InstanceRepr for pypy.interpreter.astcompiler.ast.Node>)
+.. block@300 with 1 exits
+.. v89051 = mod(('unexpected token: %s'), v89016)
+
+TyperError-22: (pypy.interpreter.pyparser.astbuilder:build_shift_expr)
+unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, <InstanceRepr for pypy.interpreter.astcompiler.ast.Node>)
+.. block@212 with 1 exits
+.. v86494 = mod(('unexpected token: %s : %s'), v86459)
+
+TyperError-23: (pypy.interpreter.astcompiler.pyassem:__init__)
+unimplemented operation: 'type' on <StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>
+.. block@224 with 2 exits(v99957)
+.. v99901 = type(v99858)
+
+TyperError-24: (pypy.interpreter.astcompiler.pycodegen:generateArgList)
+unimplemented operation: 'mod' on (<StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>, <InstanceRepr for pypy.interpreter.astcompiler.ast.Node>)
+.. block@176 with 1 exits
+.. v202392 = mod(('unexpect argument type: %s'), v202376)
+
+TyperError-25: (pypy.interpreter.astcompiler.pyassem:emitop_name)
+unimplemented operation: 'type' on <StringRepr * GcStruct rpy_string { hash: Signed, chars: Array of Char  }>
+.. block@33 EH with 2 exits(v186456)
+.. v186430 = type(name_186423)
