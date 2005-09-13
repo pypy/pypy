@@ -411,3 +411,18 @@ def test_id_instances_keys():
         return len(d) + d[a] + d[b]
     res = interpret(f, [])
     assert res == 12
+
+def test_captured_get():
+    get = {1:2}.get
+    def f():
+        return get(1, 3)+get(2, 4)
+    res = interpret(f, [])
+    assert res == 6
+
+    def g(h):
+        return h(1, 3)
+    def f():
+        return g(get)
+
+    res = interpret(f, [])
+    assert res == 2    

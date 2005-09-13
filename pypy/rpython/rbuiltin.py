@@ -71,6 +71,9 @@ class BuiltinMethodRepr(Repr):
         # methods of a known name are implemented as just their 'self'
         self.lowleveltype = self.self_repr.lowleveltype
 
+    def convert_const(self, obj):
+        return self.self_repr.convert_const(obj.__self__)
+
     def rtype_simple_call(self, hop):
         # methods: look up the rtype_method_xxx()
         name = 'rtype_method_' + self.methodname
