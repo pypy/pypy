@@ -111,16 +111,20 @@ class CodeWriter(object):
     # "tail" even if they do not occur before a ret instruction. 
     def call(self, targetvar, returntype, functionref, argrefs, argtypes, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
         if cconv is not 'fastcc':
-            tail = ''
+            tail_ = ''
+        else:
+            tail_ = tail + ' '
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%s = %s call %s %s %s(%s)" % (targetvar, tail, cconv, returntype, functionref,
+        self.indent("%s = %scall %s %s %s(%s)" % (targetvar, tail_, cconv, returntype, functionref,
                                              ", ".join(arglist)))
 
     def call_void(self, functionref, argrefs, argtypes, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
         if cconv is not 'fastcc':
-            tail = ''
+            tail_ = ''
+        else:
+            tail_ = tail + ' '
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%s call %s void %s(%s)" % (tail, cconv, functionref, ", ".join(arglist)))
+        self.indent("%scall %s void %s(%s)" % (tail_, cconv, functionref, ", ".join(arglist)))
 
     def invoke(self, targetvar, returntype, functionref, argrefs, argtypes, label, except_label, cconv=DEFAULT_CCONV):
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]

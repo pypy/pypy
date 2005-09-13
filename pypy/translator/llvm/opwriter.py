@@ -327,8 +327,13 @@ class OpWriter(object):
         block_label = self.node.block_to_name[self.block]
         exc_label   = block_label + '_exception_handling'
 
+
+
+
+
+
         if returntype != "void":
-            if self.db.is_function_ptr(op.result):
+            if self.db.is_function_ptr(op.result):  #use longhand form
                 returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
             self.codewriter.invoke(targetvar, returntype, functionref, argrefs,
                                    argtypes, none_label, exc_label)
@@ -402,6 +407,13 @@ class OpWriter(object):
                 self.codewriter.load(last_exc_value_var, lltype_of_exception_value, '%last_exception_value')
             
             self.codewriter.br_uncond(target)
+
+
+
+
+
+
+
 
     def malloc(self, op): 
         arg_type = op.args[0].value
