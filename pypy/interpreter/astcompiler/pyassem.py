@@ -406,7 +406,7 @@ class Block:
             self.next = []
 
     def get_children(self):
-        if self.next and self.next[0] in self.outEdges:
+        if self.next and self.next[0].bid in self.outEdges.elts:
             self.outEdges.remove(self.next[0])
         return self.outEdges.elements() + self.next
 
@@ -608,7 +608,8 @@ class PyFlowGraph(FlowGraph):
                         assert isinstance(inst, InstrInt)
                         arg = inst.intval
                         # numerical arg
-                        hi,lo = divmod(arg,65536)
+                        hi = arg // 65536
+                        lo = arg % 65536
                         if hi>0:
                             # extended argument
                             insts.append( InstrInt("EXTENDED_ARG", hi) )
@@ -863,7 +864,9 @@ def getArgCount(args):
 def twobyte(val):
     """Convert an int argument into high and low bytes"""
     assert isinstance(val,int)
-    return divmod(val, 256)
+    hi = val // 256
+    lo = val % 256
+    return hi, lo
 
 class LineAddrTable:
     """lnotab
@@ -944,7 +947,8 @@ def depth_BUILD_TUPLE(count):
 def depth_BUILD_LIST(count):
     return -count+1
 def depth_CALL_FUNCTION(argc):
-    hi, lo = divmod(argc, 256)
+    hi = argc//256
+    lo = argc%256
     return -(lo + hi * 2)
 def depth_CALL_FUNCTION_VAR(argc):
     return depth_CALL_FUNCTION(argc)-1

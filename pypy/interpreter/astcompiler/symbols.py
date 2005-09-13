@@ -54,8 +54,8 @@ class Scope:
         if name in self.uses or name in self.defs:
             pass # XXX warn about global following def/use
         if name in self.params:
-            raise SyntaxError, "%s in %s is global and parameter" % \
-                  (name, self.name)
+            msg = "%s in %s is global and parameter" % (name, self.name)
+            raise SyntaxError( msg )
         self.globals[name] = 1
         self.module.add_def(name)
 
@@ -319,7 +319,9 @@ class SymbolVisitor(ast.ASTVisitor):
             elif isinstance( arg, ast.AssTuple ):
                 self._do_args( scope, arg.flatten() )
             else:
-                raise TypeError( "Argument list contains %s of type %s" % (arg, type(arg) ) )
+                #msg = "Argument list contains %s of type %s" % (arg, type(arg) )
+                msg = "Argument list contains ASTNodes other than AssName or AssTuple"
+                raise TypeError( msg )
 
     def handle_free_vars(self, scope, parent):
         parent.add_child(scope)

@@ -18,13 +18,13 @@ from pypy.interpreter.pyparser.error import SyntaxError
 # drop VERSION dependency since it the ast transformer for 2.4 doesn't work with 2.3 anyway
 VERSION = 2
 
-callfunc_opcode_info = {
+callfunc_opcode_info = [
     # (Have *args, Have **args) : opcode
-    (0,0) : "CALL_FUNCTION",
-    (1,0) : "CALL_FUNCTION_VAR",
-    (0,1) : "CALL_FUNCTION_KW",
-    (1,1) : "CALL_FUNCTION_VAR_KW",
-}
+    "CALL_FUNCTION",
+    "CALL_FUNCTION_KW",
+    "CALL_FUNCTION_VAR",
+    "CALL_FUNCTION_VAR_KW",
+]
 
 LOOP = 1
 EXCEPT = 2
@@ -469,7 +469,7 @@ class CodeGenerator(ast.ASTVisitor):
         elif kind == EXCEPT or kind == TRY_FINALLY:
             self.set_lineno(node)
             # find the block that starts the loop
-            top = len(self.setups)
+            top = len(self.setups.stack)
             loop_block = None
             while top > 0:
                 top = top - 1
@@ -948,7 +948,7 @@ class CodeGenerator(ast.ASTVisitor):
             node.dstar_args.accept( self )
         have_star = node.star_args is not None
         have_dstar = node.dstar_args is not None
-        opcode = callfunc_opcode_info[have_star, have_dstar]
+        opcode = callfunc_opcode_info[ have_star*2 + have_dstar]
         self.emitop_int(opcode, kw << 8 | pos)
 
     def visitPrint(self, node):

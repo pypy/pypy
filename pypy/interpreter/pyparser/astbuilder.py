@@ -215,7 +215,7 @@ def parse_listcomp(tokens):
             list_fors.append(ast.ListCompFor(ass_node, iterable, ifs))
             ifs = []
         else:
-            assert False, 'Unexpected token: %s' % token
+            assert False, 'Unexpected token: expecting for in listcomp'
         # 
         # Original implementation:
         # 
@@ -268,7 +268,7 @@ def parse_genexpr_for(tokens):
             genexpr_fors.append(ast.GenExprFor(ass_node, iterable, ifs))
             ifs = []
         else:
-            assert False, 'Unexpected token: %s' % token
+            assert False, 'Unexpected token: expected for in genexpr'
     return genexpr_fors
 
 
@@ -684,7 +684,7 @@ def build_not_test(builder, nb):
     elif len(atoms) == 2:
         builder.push(ast.Not(atoms[1]))
     else:
-        assert False, "not_test implementation incomplete (%s)" % atoms
+        assert False, "not_test implementation incomplete in not_test"
 
 def build_test( builder, nb ):
     return build_binary_expr(builder, nb, ast.Or)
@@ -1153,7 +1153,7 @@ def build_import_from(builder, nb):
     else:
         if token.name == tok.LPAR:
             # mutli-line imports
-            tokens = atoms[index+1:-1]
+            tokens = slicecut( atoms, index+1, -1 )
         else:
             tokens = atoms[index:]
         index = 0
