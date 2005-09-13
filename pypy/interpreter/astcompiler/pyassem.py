@@ -534,7 +534,12 @@ class PyFlowGraph(FlowGraph):
         d = d + depth[b]
         children = b.get_children()
         if children:
-            return max([ self._max_depth(depth, seen, c, d) for c in children])
+            maxd = -1
+            for c in children:
+                childd =self._max_depth(depth, seen, c, d)
+                if childd > maxd:
+                    maxd = childd
+            return maxd
         else:
             if not b.label == "exit":
                 return self._max_depth(depth, seen, self.exit, d)
