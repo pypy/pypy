@@ -1703,6 +1703,19 @@ class TestAnnotateTestCase:
         for t in memo:
             assert t
 
+    def test_iterator_union(self):
+        def it(d):
+            return d.iteritems()
+        d0 = {1:2}
+        def f():
+            it(d0)
+            return it({1:2})
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeIterator)
+        assert s.variant == ('items',)
+        
+
 def g(n):
     return [0,1,2,n]
 

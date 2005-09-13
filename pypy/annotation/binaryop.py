@@ -506,7 +506,10 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 
     def union((iter1, iter2)):
-        return SomeIterator(unionof(iter1.s_container, iter2.s_container))
+        s_cont = unionof(iter1.s_container, iter2.s_container)
+        if iter1.variant != iter2.variant:
+            raise UnionError("merging incompatible iterators variants")
+        return SomeIterator(s_cont, *iter1.variant)
 
 
 class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
