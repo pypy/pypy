@@ -573,13 +573,19 @@ def remove_simple_mallocs(graph):
 
 # ____________________________________________________________
 
-def backend_optimizations(graph):
-    remove_same_as(graph)
-    eliminate_empty_blocks(graph)
+def backend_optimizations(graph, opt_remove_same_as=True,
+                                 opt_SSI_to_SSA=True,
+                                 opt_eliminate_empty_blocks=True,
+                                 opt_remove_simple_mallocs=True):
+    if opt_remove_same_as:
+        remove_same_as(graph)
+    if opt_eliminate_empty_blocks:
+        eliminate_empty_blocks(graph)
     checkgraph(graph)
-    SSI_to_SSA(graph)
+    if opt_SSI_to_SSA:
+        SSI_to_SSA(graph)
     #checkgraph(graph)
-    if remove_simple_mallocs(graph):
+    if opt_remove_simple_mallocs and remove_simple_mallocs(graph):
         transform_dead_op_vars(graph)   # typical after malloc removal
         checkgraph(graph)
 

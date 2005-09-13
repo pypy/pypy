@@ -95,7 +95,7 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
         cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (genllvm.exceptionpolicy.llc_options(), b, b))
         if exe_name:
             #XXX TODO: use CFLAGS when available
-            cmds.append("gcc %s.c -c -O3 -pipe" % (b,))
+            cmds.append("gcc %s.c -c -O2 -fomit-frame-pointer -pipe" % (b,))
             cmds.append("gcc %s.o %s -lm -ldl -pipe -o %s" % (b, gc_libs, exe_name))
         source_files.append("%s.c" % b)
 

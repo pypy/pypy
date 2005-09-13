@@ -2,7 +2,7 @@ import py
 from pypy.objspace.flow.model import Block, Constant, Variable, Link
 from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
 from pypy.rpython import lltype
-from pypy.translator.backendoptimization import remove_same_as 
+from pypy.translator.backendoptimization import backend_optimizations
 from pypy.translator.unsimplify import remove_double_links                     
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
@@ -38,7 +38,7 @@ class FuncNode(ConstantLLVMNode):
         self.value = value
         self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph 
-        remove_same_as(self.graph) 
+        backend_optimizations(self.graph, opt_SSI_to_SSA=False)
         remove_double_links(self.db.translator, self.graph) 
 
     def __str__(self):
