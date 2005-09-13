@@ -136,6 +136,8 @@ class CodeWriter(object):
         self.indent("invoke %s void %s(%s) to label %%%s except label %%%s" % (cconv, functionref, ", ".join(arglist), label, except_label))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
+    	if fromtype == 'void' and targettype == 'void':
+		return
         self.indent("%(targetvar)s = cast %(fromtype)s "
                         "%(fromvar)s to %(targettype)s" % locals())
 
