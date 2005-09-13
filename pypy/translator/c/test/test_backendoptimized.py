@@ -1,7 +1,6 @@
 import autopath
 from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import Translator
-from pypy.translator import backendoptimization
 
 from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
 
@@ -20,8 +19,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         a = t.annotate(argstypelist)
         a.simplify()
         t.specialize()
-        for graph in t.flowgraphs.values():
-            backendoptimization.backend_optimizations(graph)
+        t.backend_optimizations()
         t.checkgraphs()
         return skip_missing_compiler(t.ccompile)
 

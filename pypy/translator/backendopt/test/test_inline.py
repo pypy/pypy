@@ -1,47 +1,10 @@
-from pypy.translator.backendoptimization import remove_void, inline_function
-from pypy.translator.backendoptimization import remove_simple_mallocs
-from pypy.translator.translator import Translator
-from pypy.rpython.lltype import Void
-from pypy.rpython.llinterp import LLInterpreter
-from pypy.objspace.flow.model import checkgraph, flatten, Block
-from pypy.translator.test.snippet import simple_method, is_perfect_number
-from pypy.translator.llvm.log import log
-
 import py
-log = py.log.Producer('test_backendoptimization')
-
-def annotate_and_remove_void(f, annotate):
-    t = Translator(f)
-    a = t.annotate(annotate)
-    t.specialize()
-    remove_void(t)
-    return t
-
-def test_remove_void_args():
-    def f(i):
-        return [1,2,3,i][i]
-    t = annotate_and_remove_void(f, [int])
-    for func, graph in t.flowgraphs.iteritems():
-        assert checkgraph(graph) is None
-        for arg in graph.startblock.inputargs:
-            assert arg.concretetype is not Void
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    assert interp.eval_function(f, [0]) == 1 
-
-def test_remove_void_in_struct():
-    t = annotate_and_remove_void(simple_method, [int])
-    #t.view()
-    log(t.flowgraphs.iteritems())
-    for func, graph in t.flowgraphs.iteritems():
-        log('func : ' + str(func))
-        log('graph: ' + str(graph))
-        assert checkgraph(graph) is None
-        #for fieldname in self.struct._names:    #XXX helper (in lltype?) should remove these voids
-        #    type_ = getattr(struct, fieldname)
-        #    log('fieldname=%(fieldname)s , type_=%(type_)s' % locals())
-        #    assert _type is not Void
-    #interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    #assert interp.eval_function(f, [0]) == 1 
+from pypy.translator.backendopt.inline import inline_function, CannotInline
+from pypy.translator.backendopt.inline import auto_inlining
+from pypy.translator.backendopt.inline import collect_called_functions
+from pypy.translator.translator import Translator
+from pypy.rpython.llinterp import LLInterpreter
+from pypy.translator.test.snippet import is_perfect_number
 
 def test_inline_simple():
     def f(x, y):
@@ -233,53 +196,64 @@ def test_for_loop():
     result = interp.eval_function(f, [10])
     assert result == 45
 
-
-def check_malloc_removed(fn, signature, expected_remaining_mallocs):
-    t = Translator(fn)
-    t.annotate(signature)
-    t.specialize()
-    graph = t.getflowgraph()
-    remove_simple_mallocs(graph)
-    checkgraph(graph)
-    count = 0
-    for node in flatten(graph):
-        if isinstance(node, Block):
-            for op in node.operations:
-                if op.opname == 'malloc':
-                    count += 1
-    assert count == expected_remaining_mallocs
-
-def test_remove_mallocs():
-    def fn1(x, y):
-        s, d = x+y, x-y
-        return s*d
-    yield check_malloc_removed, fn1, [int, int], 0
-    #
-    class T:
-        pass
-    def fn2(x, y):
-        t = T()
-        t.x = x
-        t.y = y
-        if x > 0:
-            return t.x + t.y
-        else:
-            return t.x - t.y
-    yield check_malloc_removed, fn2, [int, int], 0
-    #
-    def fn3(x):
-        a, ((b, c), d, e) = x+1, ((x+2, x+3), x+4, x+5)
-        return a+b+c+d+e
-    yield check_malloc_removed, fn3, [int], 0
-    #
+def test_inline_constructor():
     class A:
-        pass
-    class B(A):
-        pass
-    def fn4(i):
-        a = A()
-        b = B()
-        a.b = b
-        b.i = i
-        return a.b.i
-    yield check_malloc_removed, fn4, [int], 0
+        def __init__(self, x, y):
+            self.bounds = (x, y)
+        def area(self, height=10):
+            return height * (self.bounds[1] - self.bounds[0])
+    def f(i):
+        a = A(117, i)
+        return a.area()
+    t = Translator(f)
+    a = t.annotate([int])
+    a.simplify()
+    t.specialize()
+    inline_function(t, A.__init__.im_func, t.flowgraphs[f])
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(f, [120])
+    assert result == 30
+
+def test_cannot_inline_recursive_function():
+    def factorial(n):
+        if n > 1:
+            return n * factorial(n-1)
+        else:
+            return 1
+    def f(n):
+        return factorial(n//2)
+    t = Translator(f)
+    a = t.annotate([int])
+    a.simplify()
+    t.specialize()
+    py.test.raises(CannotInline,
+                   "inline_function(t, factorial, t.flowgraphs[f])")
+
+def test_auto_inlining_small_call_big():
+    def leaf(n):
+        total = 0
+        i = 0
+        while i < n:
+            total += i
+            if total > 100:
+                raise OverflowError
+            i += 1
+        return total
+    def g(n):
+        return leaf(n)
+    def f(n):
+        try:
+            return g(n)
+        except OverflowError:
+            return -1
+    t = Translator(f)
+    a = t.annotate([int])
+    a.simplify()
+    t.specialize()
+    auto_inlining(t, threshold=10)
+    assert len(collect_called_functions(t.getflowgraph(f))) == 0
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(f, [10])
+    assert result == 45
+    result = interp.eval_function(f, [15])
+    assert result == -1

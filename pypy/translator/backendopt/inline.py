@@ -1,16 +1,20 @@
-##from pypy.translator.translator import Translator
-##from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
-##from pypy.translator.simplify import remove_identical_vars
-##from pypy.translator.simplify import transform_dead_op_vars
-##from pypy.translator.unsimplify import copyvar, split_block
-##from pypy.objspace.flow.model import Variable, Constant, Block, Link
-##from pypy.objspace.flow.model import SpaceOperation, last_exception
-##from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
-##from pypy.annotation import model as annmodel
-##from pypy.tool.unionfind import UnionFind
-##from pypy.rpython.lltype import Void, Bool
-##from pypy.rpython import rmodel, lltype
-from pypy.translator.backend_opt import matfunc
+import sys
+from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
+from pypy.translator.simplify import remove_identical_vars
+from pypy.translator.unsimplify import copyvar, split_block
+from pypy.objspace.flow.model import Variable, Constant, Block, Link
+from pypy.objspace.flow.model import SpaceOperation, last_exception
+from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
+from pypy.annotation import model as annmodel
+from pypy.rpython.lltype import Bool
+from pypy.rpython import rmodel
+from pypy.translator.backendopt import matfunc
+
+BASE_INLINE_THRESHOLD = 17.0    # just enough to inline ll_rangeiter_next()
+
+class CannotInline(Exception):
+    pass
+
 
 def collect_called_functions(graph):
     funcs = {}
@@ -23,28 +27,34 @@ def collect_called_functions(graph):
     traverse(visit, graph)
     return funcs
 
-def inline_function(translator, inline_func, graph):
-    count = 0
+def find_callsites(graph, calling_what):
     callsites = []
-    def find_callsites(block):
+    def visit(block):
         if isinstance(block, Block):
             for i, op in enumerate(block.operations):
                 if not (op.opname == "direct_call" and
                     isinstance(op.args[0], Constant)):
                     continue
                 funcobj = op.args[0].value._obj
+                graph = getattr(funcobj, 'graph', None)
                 # accept a function or a graph as 'inline_func'
-                if (getattr(funcobj, 'graph', None) is inline_func or
-                    getattr(funcobj, '_callable', None) is inline_func):
-                    callsites.append((block, i))
-    traverse(find_callsites, graph)
+                if (graph is calling_what or
+                    getattr(funcobj, '_callable', None) is calling_what):
+                    callsites.append((graph, block, i))
+    traverse(visit, graph)
+    return callsites
+
+def inline_function(translator, inline_func, graph):
+    count = 0
+    callsites = find_callsites(graph, inline_func)
     while callsites != []:
-        block, index_operation = callsites.pop()
+        subgraph, block, index_operation = callsites.pop()
+        if find_callsites(subgraph, subgraph):
+            raise CannotInline("inlining a recursive function")
         _inline_function(translator, graph, block, index_operation)
-        callsites = []
-        traverse(find_callsites, graph)
         checkgraph(graph)
         count += 1
+        callsites = find_callsites(graph, inline_func)
     return count
 
 def _find_exception_type(block):
@@ -70,7 +80,7 @@ def _inline_function(translator, graph, block, index_operation):
         index_operation == len(block.operations) - 1):
         exception_guarded = True
         if len(collect_called_functions(graph_to_inline)) != 0:
-            raise NotImplementedError("can't handle exceptions yet")
+            raise CannotInline("can't handle exceptions yet")
     entrymap = mkentrymap(graph_to_inline)
     beforeblock = block
     afterblock = split_block(translator, graph, block, index_operation)
@@ -269,7 +279,7 @@ def inlining_heuristic(graph):
             static_instruction_count(graph))
 
 
-def static_callers(translator):
+def static_callers(translator, ignore_primitives=False):
     result = []
     def build_call_graph(node):
         if isinstance(node, Block):
@@ -279,27 +289,33 @@ def static_callers(translator):
                     funcobj = op.args[0].value._obj
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None:
+                        if ignore_primitives:
+                            if getattr(getattr(funcobj, '_callable', None),
+                                       'suggested_primitive', False):
+                                continue
                         result.append((parentgraph, graph))
     for parentgraph in translator.flowgraphs.itervalues():
         traverse(build_call_graph, parentgraph)
     return result
 
 
-def auto_inlining(translator, threshold=20):
-    from heapq import heappop, heapreplace
+def auto_inlining(translator, threshold=1):
+    from heapq import heappush, heappop, heapreplace
+    threshold *= BASE_INLINE_THRESHOLD
     callers = {}     # {graph: {graphs-that-call-it}}
     callees = {}     # {graph: {graphs-that-it-calls}}
-    for graph1, graph2 in static_callers(translator):
+    for graph1, graph2 in static_callers(translator, ignore_primitives=True):
         callers.setdefault(graph2, {})[graph1] = True
         callees.setdefault(graph1, {})[graph2] = True
     fiboheap = [(0.0, graph) for graph in callers]
     valid_weight = {}
+    couldnt_inline = {}
 
     while fiboheap:
         weight, graph = fiboheap[0]
         if not valid_weight.get(graph):
             weight = inlining_heuristic(graph)
-            print '  + cost %7.2f %50s' % (weight, graph.name)
+            #print '  + cost %7.2f %50s' % (weight, graph.name)
             heapreplace(fiboheap, (weight, graph))
             valid_weight[graph] = True
             continue
@@ -312,13 +328,24 @@ def auto_inlining(translator, threshold=20):
         for parentgraph in callers[graph]:
             if parentgraph == graph:
                 continue
-            print '\t\t-> in %s' % parentgraph.name
+            print '\t\t-> in %s...' % parentgraph.name,
+            sys.stdout.flush()
             try:
-                if backendoptimization.inline_function(translator, graph,
-                                                       parentgraph):
-                    valid_weight[parentgraph] = False
-                    for graph2 in callees.get(graph, {}):
-                        callees[parentgraph][graph2] = True
-                        callers[graph2][parentgraph] = True
-            except NotImplementedError:
-                pass
+                res = bool(inline_function(translator, graph, parentgraph))
+            except CannotInline:
+                couldnt_inline[graph] = True
+                res = CannotInline
+            print res
+            if res is True:
+                # the parentgraph should now contain all calls that were
+                # done by 'graph'
+                for graph2 in callees.get(graph, {}):
+                    callees[parentgraph][graph2] = True
+                    callers[graph2][parentgraph] = True
+                if parentgraph in couldnt_inline:
+                    # the parentgraph was previously uninlinable, but it has
+                    # been modified.  Maybe now we can inline it into further
+                    # parents?
+                    del couldnt_inline[parentgraph]
+                    heappush(fiboheap, (0.0, parentgraph))
+                valid_weight[parentgraph] = False

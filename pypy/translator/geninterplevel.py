@@ -56,7 +56,7 @@ from types import FunctionType, CodeType, ModuleType
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 from pypy.rpython.rarithmetic import r_int, r_uint
-from pypy.translator.backendoptimization import SSI_to_SSA
+from pypy.translator.backendopt.ssa import SSI_to_SSA
 
 from pypy.translator.translator import Translator
 from pypy.objspace.flow import FlowObjSpace

@@ -142,10 +142,9 @@ class Translator:
         self.rtyper = RPythonTyper(self.annotator)
         self.rtyper.specialize(**flags)
 
-    def backend_optimizations(self):
-        from pypy.translator.backendoptimization import backend_optimizations
-        for graph in self.flowgraphs.values():
-            backend_optimizations(graph)
+    def backend_optimizations(self, **kwds):
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(self, **kwds)
 
     def source(self, func=None):
         """Returns original Python source.

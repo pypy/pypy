@@ -1,15 +1,5 @@
-##from pypy.translator.translator import Translator
-##from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
-##from pypy.translator.simplify import remove_identical_vars
-##from pypy.translator.simplify import transform_dead_op_vars
-##from pypy.translator.unsimplify import copyvar, split_block
-##from pypy.objspace.flow.model import Variable, Constant, Block, Link
-##from pypy.objspace.flow.model import SpaceOperation, last_exception
-##from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
-##from pypy.annotation import model as annmodel
-##from pypy.tool.unionfind import UnionFind
-##from pypy.rpython.lltype import Void, Bool
-##from pypy.rpython import rmodel, lltype
+from pypy.objspace.flow.model import Variable, mkentrymap
+from pypy.tool.unionfind import UnionFind
  
 def SSI_to_SSA(graph):
     """Rename the variables in a flow graph as much as possible without
