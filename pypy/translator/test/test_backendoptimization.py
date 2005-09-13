@@ -213,7 +213,7 @@ def DONOTtest_call_call():
     result = interp.eval_function(g, [-100])
     assert result == -1
 
-def FAILING_test_for_loop():
+def test_for_loop():
     def f(x):
         result = 0
         for i in range(0, x):
@@ -226,10 +226,11 @@ def FAILING_test_for_loop():
     for graph in t.flowgraphs.values():
         if graph.name.startswith('ll_rangenext'):
             break
+    else:
+        assert 0, "cannot find ll_rangenext_*() function"
     inline_function(t, graph, t.flowgraphs[f])
-    t.view()
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    result = interp.eval_function(g, [10])
+    result = interp.eval_function(f, [10])
     assert result == 45
 
 

@@ -163,6 +163,7 @@ def collect_called_functions(graph):
     return funcs
 
 def inline_function(translator, inline_func, graph):
+    count = 0
     callsites = []
     def find_callsites(block):
         if isinstance(block, Block):
@@ -170,7 +171,10 @@ def inline_function(translator, inline_func, graph):
                 if not (op.opname == "direct_call" and
                     isinstance(op.args[0], Constant)):
                     continue
-                if op.args[0].value._obj._callable is inline_func:
+                funcobj = op.args[0].value._obj
+                # accept a function or a graph as 'inline_func'
+                if (getattr(funcobj, 'graph', None) is inline_func or
+                    getattr(funcobj, '_callable', None) is inline_func):
                     callsites.append((block, i))
     traverse(find_callsites, graph)
     while callsites != []:
@@ -179,6 +183,8 @@ def inline_function(translator, inline_func, graph):
         callsites = []
         traverse(find_callsites, graph)
         checkgraph(graph)
+        count += 1
+    return count
 
 def _find_exception_type(block):
     #XXX slightly brittle: find the exception type for simple cases
@@ -197,13 +203,13 @@ def _find_exception_type(block):
 
 def _inline_function(translator, graph, block, index_operation):
     op = block.operations[index_operation]
-    graph_to_inline = translator.flowgraphs[op.args[0].value._obj._callable]
+    graph_to_inline = op.args[0].value._obj.graph
     exception_guarded = False
     if (block.exitswitch == Constant(last_exception) and
         index_operation == len(block.operations) - 1):
         exception_guarded = True
-        assert len(collect_called_functions(graph_to_inline)) == 0, (
-            "can't handle exceptions yet")
+        if len(collect_called_functions(graph_to_inline)) != 0:
+            raise NotImplementedError("can't handle exceptions yet")
     entrymap = mkentrymap(graph_to_inline)
     beforeblock = block
     afterblock = split_block(translator, graph, block, index_operation)
@@ -306,7 +312,7 @@ def _inline_function(translator, graph, block, index_operation):
                 copiedblock = copied_blocks[link.prevblock]
                 copiedlink = copiedblock.exits[0]
                 eclass = _find_exception_type(copiedblock)
-                print copiedblock.operations
+                #print copiedblock.operations
                 if eclass is None:
                     continue
                 etype = copiedlink.args[0]
@@ -315,7 +321,7 @@ def _inline_function(translator, graph, block, index_operation):
                     if exc_match.value(eclass, exceptionlink.llexitcase):
                         copiedlink.target = exceptionlink.target
                         linkargs = find_args_in_exceptional_case(exceptionlink,
-                                                                 copiedblock,
+                                                                 link.prevblock,
                                                                  etype, evalue)
                         copiedlink.args = linkargs
                         break
