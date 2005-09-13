@@ -8,9 +8,9 @@ from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Bool
 from pypy.rpython import rmodel
-from pypy.translator.backendopt import matfunc
+#from pypy.translator.backendopt import matfunc
 
-BASE_INLINE_THRESHOLD = 17.0    # just enough to inline ll_rangeiter_next()
+BASE_INLINE_THRESHOLD = 12    # just enough to inline ll_rangeiter_next()
 
 class CannotInline(Exception):
     pass
@@ -276,7 +276,7 @@ def static_instruction_count(graph):
 
 def inlining_heuristic(graph):
     # XXX ponderation factors?
-    return (0.819487132 * measure_median_execution_cost(graph) +
+    return ( #0.819487132 * measure_median_execution_cost(graph) +
             static_instruction_count(graph))
 
 
