@@ -213,7 +213,7 @@ def DONOTtest_call_call():
     result = interp.eval_function(g, [-100])
     assert result == -1
 
-def DONOTtest_for_loop():
+def FAILING_test_for_loop():
     def f(x):
         result = 0
         for i in range(0, x):
@@ -223,7 +223,14 @@ def DONOTtest_for_loop():
     a = t.annotate([int])
     a.simplify()
     t.specialize()
+    for graph in t.flowgraphs.values():
+        if graph.name.startswith('ll_rangenext'):
+            break
+    inline_function(t, graph, t.flowgraphs[f])
     t.view()
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(g, [10])
+    assert result == 45
 
 
 def check_malloc_removed(fn, signature, expected_remaining_mallocs):
