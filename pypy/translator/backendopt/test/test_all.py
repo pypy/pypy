@@ -42,7 +42,7 @@ def test_big():
     t = Translator(big)
     t.annotate([])
     t.specialize()
-    backend_optimizations(t, inline_threshold=100)
+    backend_optimizations(t, inline_threshold=100, mallocs=True)
 
     graph = t.getflowgraph()
     check_malloc_removed(graph)
@@ -62,7 +62,7 @@ def test_for_loop():
     t = Translator(f)
     t.annotate([int])
     t.specialize()
-    t.backend_optimizations()
+    t.backend_optimizations(inline_threshold=1, mallocs=True)
     # this also checks that the BASE_INLINE_THRESHOLD is enough for 'for' loops
 
     graph = t.getflowgraph()
