@@ -7,6 +7,16 @@ from pypy.translator.translator import Translator
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.translator.test.snippet import is_perfect_number
 
+def check_inline(func, in_func, sig):
+    t = Translator(in_func)
+    a = t.annotate(sig)
+    a.simplify()
+    t.specialize()
+    inline_function(t, func, t.flowgraphs[in_func])
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    return interp
+
+
 def test_inline_simple():
     def f(x, y):
         return (g(x, y) + 1) * x
@@ -15,12 +25,7 @@ def test_inline_simple():
             return x * y
         else:
             return -x * y
-    t = Translator(f)
-    a = t.annotate([int, int])
-    a.simplify()
-    t.specialize()
-    inline_function(t, g, t.flowgraphs[f])
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    interp = check_inline(g, f, [int, int])
     result = interp.eval_function(f, [-1, 5])
     assert result == f(-1, 5)
     result = interp.eval_function(f, [2, 12])
@@ -33,12 +38,7 @@ def test_inline_big():
             if is_perfect_number(i):
                 result.append(i)
         return result
-    t = Translator(f)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    inline_function(t, is_perfect_number, t.flowgraphs[f])
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    interp = check_inline(is_perfect_number, f, [int])
     result = interp.eval_function(f, [10])
     assert result.length == len(f(10))
 
@@ -81,12 +81,7 @@ def test_inline_several_times():
         else:
             a = f(x) + 1
         return a + f(x)
-    t = Translator(g)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    inline_function(t, f, t.flowgraphs[g])
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    interp = check_inline(f, g, [int])
     result = interp.eval_function(g, [0])
     assert result == g(0)
     result = interp.eval_function(g, [42])
@@ -106,12 +101,7 @@ def test_inline_exceptions():
         except KeyError:
             return x+2
         return 1
-    t = Translator(g)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    inline_function(t, f, t.flowgraphs[g])
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    interp = check_inline(f, g, [int])
     result = interp.eval_function(g, [0])
     assert result == 2
     result = interp.eval_function(g, [1])
@@ -206,12 +196,7 @@ def test_inline_constructor():
     def f(i):
         a = A(117, i)
         return a.area()
-    t = Translator(f)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    inline_function(t, A.__init__.im_func, t.flowgraphs[f])
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    interp = check_inline(A.__init__.im_func, f, [int])
     result = interp.eval_function(f, [120])
     assert result == 30
 
@@ -223,12 +208,7 @@ def test_cannot_inline_recursive_function():
             return 1
     def f(n):
         return factorial(n//2)
-    t = Translator(f)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    py.test.raises(CannotInline,
-                   "inline_function(t, factorial, t.flowgraphs[f])")
+    py.test.raises(CannotInline, check_inline, factorial, f, [int])
 
 def test_auto_inlining_small_call_big():
     def leaf(n):
@@ -271,12 +251,7 @@ def test_inline_exception_catching():
             return False
     def f():
         return f2()
-    t = Translator(f)
-    a = t.annotate([])
-    a.simplify()
-    t.specialize()
-    inline_function(t, f2, t.flowgraphs[f])
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    interp = check_inline(f2, f, [])
     result = interp.eval_function(f, [])
     assert result is True
 
@@ -301,11 +276,6 @@ def test_inline_raiseonly():
             return f2(x)
         except KeyError:
             return 42
-    t = Translator(f)
-    a = t.annotate([int])
-    a.simplify()
-    t.specialize()
-    inline_function(t, f2, t.flowgraphs[f])
-    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    interp = check_inline(f2, f, [int])
     result = interp.eval_function(f, [98371])
     assert result == 42
