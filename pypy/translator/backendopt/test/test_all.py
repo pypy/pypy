@@ -50,3 +50,24 @@ def test_big():
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     res = interp.eval_function(big, [])
     assert res == 83
+
+
+
+def test_for_loop():
+    def f(n):
+        total = 0
+        for i in range(n):
+            total += i
+        return total
+    t = Translator(f)
+    t.annotate([int])
+    t.specialize()
+    t.backend_optimizations()
+    # this also checks that the BASE_INLINE_THRESHOLD is enough for 'for' loops
+
+    graph = t.getflowgraph()
+    check_malloc_removed(graph)
+
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    res = interp.eval_function(f, [11])
+    assert res == 55

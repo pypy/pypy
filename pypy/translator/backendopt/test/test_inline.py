@@ -4,6 +4,7 @@ from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
 from pypy.translator.backendopt.inline import inline_function, CannotInline
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.inline import collect_called_functions
+from pypy.translator.backendopt.inline import measure_median_execution_cost
 from pypy.translator.translator import Translator
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.translator.test.snippet import is_perfect_number
@@ -303,3 +304,24 @@ def test_inline_raiseonly():
     interp = check_inline(f2, f, [int])
     result = interp.eval_function(f, [98371])
     assert result == 42
+
+def test_measure_median_execution_cost():
+    def f(x):
+        x += 1
+        x += 1
+        x += 1
+        while True:
+            x += 1
+            x += 1
+            x += 1
+            if x: break
+            x += 1
+            x += 1
+            x += 1
+            x += 1
+            x += 1
+        x += 1
+        return x
+    t = Translator(f)
+    res = measure_median_execution_cost(t.getflowgraph())
+    assert res == 17

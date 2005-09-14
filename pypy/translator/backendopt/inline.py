@@ -8,9 +8,9 @@ from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Bool, typeOf
 from pypy.rpython import rmodel
-#from pypy.translator.backendopt import matfunc
+from pypy.translator.backendopt import sparsemat
 
-BASE_INLINE_THRESHOLD = 12    # just enough to inline ll_rangeiter_next()
+BASE_INLINE_THRESHOLD = 18    # just enough to inline ll_rangeiter_next()
 
 class CannotInline(Exception):
     pass
@@ -251,32 +251,29 @@ def _inline_function(translator, graph, block, index_operation):
 # Automatic inlining
 
 def measure_median_execution_cost(graph):
-    linktargets = [graph.startblock]
-    linkmap = {}
+    blocks = []
+    blockmap = {}
     for node in flatten(graph):
-        if isinstance(node, Link):
-            linkmap[node] = len(linktargets)
-            linktargets.append(node.target)
-    matrix = []
+        if isinstance(node, Block):
+            blockmap[node] = len(blocks)
+            blocks.append(node)
+    M = sparsemat.SparseMatrix(len(blocks))
     vector = []
-    for i, target in zip(range(len(linktargets)), linktargets):
-        vector.append(len(target.operations))
-        row = [0.0] * len(linktargets)
-        row[i] = 1.0
-        if target.exits:
-            f = 1.0 / len(target.exits)
-            for nextlink in target.exits:
-                row[linkmap[nextlink]] -= f
-        matrix.append(row)
-    M = matfunc.Mat(matrix)
-    V = matfunc.Vec(vector)
-    # we must solve: M * (vector x1...xn) = V
+    for i, block in enumerate(blocks):
+        vector.append(len(block.operations))
+        M[i, i] = 1
+        if block.exits:
+            f = 1.0 / len(block.exits)
+            for link in block.exits:
+                M[i, blockmap[link.target]] -= f
     try:
-        Solution = M._solve(V)
-    except (OverflowError, ValueError):
+        Solution = M.solve(vector)
+    except ValueError:
         return sys.maxint
     else:
-        return Solution[0]
+        res = Solution[blockmap[graph.startblock]]
+        assert res >= 0
+        return res
 
 def static_instruction_count(graph):
     count = 0
@@ -287,7 +284,7 @@ def static_instruction_count(graph):
 
 def inlining_heuristic(graph):
     # XXX ponderation factors?
-    return ( #0.819487132 * measure_median_execution_cost(graph) +
+    return (0.9999 * measure_median_execution_cost(graph) +
             static_instruction_count(graph))
 
 
