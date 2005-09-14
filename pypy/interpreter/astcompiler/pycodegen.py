@@ -339,6 +339,8 @@ class CodeGenerator(ast.ASTVisitor):
             default.accept( self )
         frees = gen.scope.get_free_vars()
         if frees:
+            # We contain a func with free vars.
+            # Any unqualified exec or import * is a SyntaxError
             for name in frees:
                 self.emitop('LOAD_CLOSURE', name)
             self.emitop_code('LOAD_CONST', gen)
@@ -361,12 +363,15 @@ class CodeGenerator(ast.ASTVisitor):
             base.accept( self )
         self.emitop_int('BUILD_TUPLE', len(node.bases))
         frees = gen.scope.get_free_vars()
-        for name in frees:
-            self.emitop('LOAD_CLOSURE', name)
-        self.emitop_code('LOAD_CONST', gen)
         if frees:
+            # We contain a func with free vars.
+            # Any unqualified exec or import * is a SyntaxError
+            for name in frees:
+                self.emitop('LOAD_CLOSURE', name)
+            self.emitop_code('LOAD_CONST', gen)
             self.emitop_int('MAKE_CLOSURE', 0)
         else:
+            self.emitop_code('LOAD_CONST', gen)
             self.emitop_int('MAKE_FUNCTION', 0)
         self.emitop_int('CALL_FUNCTION', 0)
         self.emit('BUILD_CLASS')
@@ -603,6 +608,8 @@ class CodeGenerator(ast.ASTVisitor):
         self.set_lineno(node)
         frees = gen.scope.get_free_vars()
         if frees:
+            # We contain a func with free vars.
+            # Any unqualified exec or import * is a SyntaxError
             for name in frees:
                 self.emitop('LOAD_CLOSURE', name)
             self.emitop_code('LOAD_CONST', gen)

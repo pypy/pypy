@@ -36,6 +36,9 @@ option = py.test.Config.addoptions("pypy options",
         Option('--usemodules', action="callback", type="string", metavar="NAME",
                callback=usemodules_callback, default=[],
                help="(mixed) modules to use."),
+        Option('--compiler', action="store", type="string", dest="compiler",
+               metavar="[stable|_stable|ast|cpython]", default='stable',
+               help="""select compiling approach. see pypy/doc/README.compiling""")
     )
 
 _SPACECACHE={}
@@ -57,6 +60,7 @@ def getobjspace(name=None, **kwds):
             kwds.setdefault('nofaking', option.nofaking)
             kwds.setdefault('oldstyle', option.oldstyle)
             kwds.setdefault('usemodules', option.usemodules)
+            kwds.setdefault('compiler', option.compiler)
             space = Space(**kwds)
         except KeyboardInterrupt: 
             raise 
