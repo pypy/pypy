@@ -292,3 +292,20 @@ def test_auto_inline_os_path_isdir():
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     result = interp.eval_function(f, [])
     assert result is True
+
+def test_inline_raiseonly():
+    def f2(x):
+        raise KeyError
+    def f(x):
+        try:
+            return f2(x)
+        except KeyError:
+            return 42
+    t = Translator(f)
+    a = t.annotate([int])
+    a.simplify()
+    t.specialize()
+    inline_function(t, f2, t.flowgraphs[f])
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(f, [98371])
+    assert result == 42

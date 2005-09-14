@@ -131,7 +131,6 @@ def _inline_function(translator, graph, block, index_operation):
     assert linktoinlined.target is afterblock
     copiedstartblock = copy_block(graph_to_inline.startblock)
     copiedstartblock.isstartblock = False
-    copiedreturnblock = copied_blocks[graph_to_inline.returnblock]
     #find args passed to startblock of inlined function
     passon_args = []
     for arg in op.args[1:]:
@@ -146,11 +145,13 @@ def _inline_function(translator, graph, block, index_operation):
     linktoinlined.args = passon_args
     afterblock.inputargs = [op.result] + afterblock.inputargs
     afterblock.operations = afterblock.operations[1:]
-    linkfrominlined = Link([copiedreturnblock.inputargs[0]] + passon_vars[graph_to_inline.returnblock], afterblock)
-    linkfrominlined.prevblock = copiedreturnblock
-    copiedreturnblock.exitswitch = None
-    copiedreturnblock.exits = [linkfrominlined]
-    assert copiedreturnblock.exits[0].target == afterblock
+    if graph_to_inline.returnblock in entrymap:
+        copiedreturnblock = copied_blocks[graph_to_inline.returnblock]
+        linkfrominlined = Link([copiedreturnblock.inputargs[0]] + passon_vars[graph_to_inline.returnblock], afterblock)
+        linkfrominlined.prevblock = copiedreturnblock
+        copiedreturnblock.exitswitch = None
+        copiedreturnblock.exits = [linkfrominlined]
+        assert copiedreturnblock.exits[0].target == afterblock
     if graph_to_inline.exceptblock in entrymap:
         #let links to exceptblock of the graph to inline go to graphs exceptblock
         copiedexceptblock = copied_blocks[graph_to_inline.exceptblock]

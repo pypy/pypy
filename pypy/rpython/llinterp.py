@@ -58,6 +58,9 @@ class LLInterpreter(object):
         frames.reverse()
         for frame in frames:
             print frame.graph.name,
+            if frame.curr_block is None:
+                print "<not running yet>"
+                continue
             try:
                 print self.typer.annotator.annotated[frame.curr_block].__module__
             except KeyError:
