@@ -170,6 +170,7 @@ genexps = [
     "l = [i for i in ( j*2 for j in range(10) ) ]",
     "l = (i for i in [ j*2 for j in ( k*3 for k in range(10) ) ] )",
     "l = [i for j in ( j*2 for j in [ k*3 for k in range(10) ] ) ]",
+    "l = f(i for i in j)",
     ]
 
 

@@ -96,6 +96,15 @@ def parse_argument(tokens):
                 index += 2 # Skip COMMA and DOUBLESTAR
             dstararg_token = tokens[index]
             break
+        elif cur_token.get_value() == 'for':
+            if len(arguments) != 1:
+                raise ValueError('SyntaxError("invalid syntax")') # xxx lineno...
+            expr = arguments[0]
+            genexpr_for = parse_genexpr_for(tokens[index-1:])
+            genexpr_for[0].is_outmost = True
+            gexp = ast.GenExpr(ast.GenExprInner(expr, genexpr_for))
+            arguments[0] = gexp
+            break
     return arguments, stararg_token, dstararg_token
 
 
