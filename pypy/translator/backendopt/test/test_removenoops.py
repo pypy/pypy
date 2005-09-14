@@ -1,7 +1,8 @@
-from pypy.translator.backendopt.removenoops import remove_void
+from pypy.translator.backendopt.removenoops import remove_void, remove_same_as
+from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.translator import Translator
 from pypy.translator.test.snippet import simple_method
-from pypy.objspace.flow.model import checkgraph
+from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.lltype import Void
 from pypy.rpython.llinterp import LLInterpreter
 
@@ -41,3 +42,29 @@ def test_remove_void_in_struct():
         #    assert _type is not Void
     #interp = LLInterpreter(t.flowgraphs, t.rtyper)
     #assert interp.eval_function(f, [0]) == 1 
+
+def test_remove_same_as():
+    def nothing(x):
+        return x
+    def f():
+        nothing(False)
+        if nothing(True):
+            return 42
+        else:
+            return 666
+    t = Translator(f)
+    a = t.annotate([])
+    t.specialize()
+    # now we make the 'if True' appear
+    inline_function(t, nothing, t.flowgraphs[f])
+    # here, the graph looks like  v21=same_as(True);  exitswitch: v21
+    remove_same_as(t.flowgraphs[f])
+    t.checkgraphs()
+    # only one path should be left
+    for node in flatten(t.flowgraphs[f]):
+        if isinstance(node, Block):
+            assert len(node.exits) <= 1
+
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    result = interp.eval_function(f, [])
+    assert result == 42

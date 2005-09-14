@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import Block
+from pypy.objspace.flow.model import Block, Variable, Constant
 from pypy.objspace.flow.model import traverse
 from pypy.rpython.lltype import Void
 
@@ -28,7 +28,18 @@ def remove_same_as(graph):
                 if link.args[i] == same_as_result:
                     link.args[i] = same_as_arg
         if block.exitswitch == same_as_result:
-            block.exitswitch = same_as_arg
+            if isinstance(same_as_arg, Variable):
+                block.exitswitch = same_as_arg
+            else:
+                assert isinstance(same_as_arg, Constant)
+                newexits = [link for link in block.exits
+                                 if link.exitcase == same_as_arg.value]
+                assert len(newexits) == 1
+                newexits[0].exitcase = None
+                if hasattr(newexits[0], 'llexitcase'):
+                    newexits[0].llexitcase = None
+                block.exitswitch = None
+                block.recloseblock(*newexits)
         block.operations[index] = None
        
     # remove all same_as operations

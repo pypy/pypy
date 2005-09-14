@@ -60,6 +60,8 @@ def compute_lifetimes(graph):
                         if isinstance(op.args[i], Variable):
                             set_use_point(node, op.args[i], "op", node, op, i)
                     set_creation_point(node, op.result, "op", node, op)
+            if isinstance(node.exitswitch, Variable):
+                set_use_point(node, node.exitswitch, "exitswitch", node)
 
         if isinstance(node, Link):
             if isinstance(node.last_exception, Variable):
@@ -168,6 +170,7 @@ def _try_inline_malloc(info):
                 else:
                     newops.append(op)
             block.operations[:] = newops
+            assert block.exitswitch not in vars
 
             for link in block.exits:
                 newargs = []
