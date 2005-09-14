@@ -31,10 +31,11 @@ def test_ignore_breaking_transformations():
             except:
                 return "hello!"
     t, typer = gengraph(g, [int])
-    from pypy.translator import backendoptimization, simplify
+    from pypy.translator import simplify
+    from pypy.translator.backendopt import removenoops
     from pypy.objspace.flow.model import checkgraph
     graph = t.getflowgraph(g)
-    backendoptimization.remove_same_as(graph)
+    removenoops.remove_same_as(graph)
     simplify.eliminate_empty_blocks(graph)
     #should not crash:
     checkgraph(graph)
