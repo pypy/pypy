@@ -6,8 +6,8 @@ from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator import simplify
 
 
-def backend_optimizations(translator, inline_threshold=0,   # XXX in-progress, should be 1
-                                      mallocs=False,        # XXX in-progress
+def backend_optimizations(translator, inline_threshold=1,
+                                      mallocs=True,
                                       ssa_form=True):
     # remove obvious no-ops
     for graph in translator.flowgraphs.values():
@@ -30,3 +30,5 @@ def backend_optimizations(translator, inline_threshold=0,   # XXX in-progress, s
     if ssa_form:
         for graph in translator.flowgraphs.values():
             SSI_to_SSA(graph)
+
+    translator.checkgraphs()
