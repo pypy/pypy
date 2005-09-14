@@ -9,7 +9,7 @@ from cStringIO import StringIO
 from pypy.interpreter.astcompiler import ast, parse, walk, syntax
 from pypy.interpreter.astcompiler import pyassem, misc, future, symbols
 from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
-    SC_FREE, SC_CELL, SC_REALLY_GLOBAL
+    SC_FREE, SC_CELL, SC_DEFAULT
 from pypy.interpreter.astcompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
 from pypy.interpreter.astcompiler.pyassem import TupleArg
@@ -140,7 +140,7 @@ class CodeGenerator(ast.ASTVisitor):
     """Defines basic code generator for Python bytecode
     """
 
-
+    scopeambiguity = False
 
     def __init__(self, space, graph):
         self.space = space
@@ -219,9 +219,19 @@ class CodeGenerator(ast.ASTVisitor):
         self._nameOp('STORE', name)
 
     def loadName(self, name):
+        if (self.scope.nested and self.scopeambiguity and
+            name in self.scope.hasbeenfree):
+            raise SyntaxError("cannot reference variable '%s' because "
+                              "of ambiguity between "
+                              "scopes" % name)
+
         self._nameOp('LOAD', name)
 
     def delName(self, name):
+        scope = self.scope.check_name(name)
+        if scope == SC_CELL:
+            raise SyntaxError("can not delete variable '%s' "
+                              "referenced in nested scope" % name)
         self._nameOp('DELETE', name)
 
     def _nameOp(self, prefix, name):
@@ -233,14 +243,14 @@ class CodeGenerator(ast.ASTVisitor):
             else:
                 self.emitop(prefix + '_FAST', name)
         elif scope == SC_GLOBAL:
-            if not self.optimized:
-                self.emitop(prefix + '_NAME', name)
-            else:
-                self.emitop(prefix + '_GLOBAL', name)
+            self.emitop(prefix + '_GLOBAL', name)
         elif scope == SC_FREE or scope == SC_CELL:
             self.emitop(prefix + '_DEREF', name)
-        elif scope == SC_REALLY_GLOBAL:
-            self.emitop(prefix +  '_GLOBAL', name)
+        elif scope == SC_DEFAULT:
+            if self.optimized and self.localsfullyknown:
+                self.emitop(prefix + '_GLOBAL', name)
+            else:
+                self.emitop(prefix + '_NAME', name)
         else:
             raise RuntimeError, "unsupported scope for var %s: %d" % \
                   (name, scope)
@@ -331,7 +341,8 @@ class CodeGenerator(ast.ASTVisitor):
             ndecorators = 0
 
         gen = FunctionCodeGenerator(self.space, node, isLambda,
-                               self.class_name, self.get_module())
+                               self.class_name, self.get_module(),
+                                    self.scopeambiguity)
         walk(node.code, gen)
         gen.finish()
         self.set_lineno(node)
@@ -354,7 +365,8 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitClass(self, node):
         gen = ClassCodeGenerator(self.space, node,
-                                 self.get_module())
+                                 self.get_module(),
+                                 self.scopeambiguity)
         walk(node.code, gen)
         gen.finish()
         self.set_lineno(node)
@@ -600,7 +612,7 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitGenExpr(self, node):
         gen = GenExprCodeGenerator(self.space, node, self.class_name,
-                                   self.get_module())
+                                   self.get_module(), self.scopeambiguity)
         inner = node.code
         assert isinstance(inner, ast.GenExprInner)
         walk(inner, gen)
@@ -836,8 +848,6 @@ class CodeGenerator(ast.ASTVisitor):
         self.emitop('IMPORT_NAME', node.modname)
         for name, alias in node.names:
             if name == '*':
-                if self.scope.nested:
-                    raise SyntaxError('import * is not allowed in a nested function')
                 self.namespace = 0
                 self.emit('IMPORT_STAR')
                 # There can only be one name w/ from ... import *
@@ -925,8 +935,6 @@ class CodeGenerator(ast.ASTVisitor):
         }
 
     def visitExec(self, node):
-        if self.scope.nested and node.locals is None and node.globals is None:
-            raise SyntaxError('unqualified exec is not allowed in a nested function')
         node.expr.accept( self )
         if node.locals is None:
             self.emitop_obj('LOAD_CONST', self.space.w_None)
@@ -1205,21 +1213,20 @@ class InteractiveCodeGenerator(CodeGenerator):
         node.expr.accept( self )
         self.emit('PRINT_EXPR')
 
-AbstractFunctionCodeLambdaCounter = misc.Counter(0)
-
 class AbstractFunctionCode(CodeGenerator):
     def __init__(self, space, func, isLambda, class_name, mod):
         self.class_name = class_name
         self.module = mod
         if isLambda:
-            name = "<lambda.%d>" % AbstractFunctionCodeLambdaCounter.next()
+            name = "<lambda>"
         else:
             assert isinstance(func, ast.Function)
             name = func.name
 
         args, hasTupleArg = generateArgList(func.argnames)
         graph = pyassem.PyFlowGraph(space, name, func.filename, args,
-                                         optimized=1)
+                                    optimized=self.localsfullyknown,
+                                    newlocals=1)
         self.isLambda = isLambda
         CodeGenerator.__init__(self, space, graph)
         self.optimized = 1
@@ -1270,10 +1277,13 @@ class AbstractFunctionCode(CodeGenerator):
 
 class FunctionCodeGenerator(AbstractFunctionCode):
 
-    def __init__(self, space, func, isLambda, class_name, mod):
+    def __init__(self, space, func, isLambda, class_name, mod, parentscopeambiguity):
         assert func.scope is not None
         self.scope = func.scope
+        self.localsfullyknown = self.scope.localsfullyknown
+        self.scopeambiguity = (not self.localsfullyknown or parentscopeambiguity)
         AbstractFunctionCode.__init__(self, space, func, isLambda, class_name, mod)
+        
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
         if self.scope.generator:
@@ -1281,9 +1291,12 @@ class FunctionCodeGenerator(AbstractFunctionCode):
 
 class GenExprCodeGenerator(AbstractFunctionCode):
 
-    def __init__(self, space, gexp, class_name, mod):
+    def __init__(self, space, gexp, class_name, mod, parentscopeambiguity):
         assert gexp.scope is not None
         self.scope = gexp.scope
+        self.localsfullyknown = self.scope.localsfullyknown
+        self.scopeambiguity = (not self.localsfullyknown or parentscopeambiguity)
+
         AbstractFunctionCode.__init__(self, space, gexp, 1, class_name, mod)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())
@@ -1296,6 +1309,7 @@ class AbstractClassCode(CodeGenerator):
         self.module = module
         graph = pyassem.PyFlowGraph( space, klass.name, klass.filename,
                                            optimized=0, klass=1)
+
         CodeGenerator.__init__(self, space, graph)
         self.graph.setFlag(CO_NEWLOCALS)
         if not space.is_w(klass.doc, space.w_None):
@@ -1311,9 +1325,10 @@ class AbstractClassCode(CodeGenerator):
 
 class ClassCodeGenerator(AbstractClassCode):
 
-    def __init__(self, space, klass, module):
+    def __init__(self, space, klass, module, parentscopeambiguity):
         assert klass.scope is not None
         self.scope = klass.scope
+        self.scopeambiguity = parentscopeambiguity
         AbstractClassCode.__init__(self, space, klass, module)
         self.graph.setFreeVars(self.scope.get_free_vars())
         self.graph.setCellVars(self.scope.get_cell_vars())

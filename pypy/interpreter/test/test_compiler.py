@@ -197,12 +197,6 @@ class TestPythonAstCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = PythonAstCompiler(self.space)
 
-    def test_scope_importstar_with_nested_free(self):
-        py.test.skip("INPROGESS")
-
-    def test_scope_exec_with_nested_free(self):
-        py.test.skip("INPROGESS")
-
 class SkippedForNowTestPyPyCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = PyPyCompiler(self.space)

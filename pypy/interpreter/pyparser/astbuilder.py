@@ -795,6 +795,7 @@ def build_testlist_gexp(builder, nb):
         # GenExpr(GenExprInner(Name('i'), [GenExprFor(AssName('i', 'OP_ASSIGN'), Name('j'), [])])))]))
         expr = atoms[0]
         genexpr_for = parse_genexpr_for(atoms[1:])
+        genexpr_for[0].is_outmost = True
         builder.push(ast.GenExpr(ast.GenExprInner(expr, genexpr_for)))
         return
     builder.push(ast.Tuple(items))

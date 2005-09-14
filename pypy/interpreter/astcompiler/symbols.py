@@ -2,7 +2,7 @@
 
 from pypy.interpreter.astcompiler import ast
 from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
-    SC_FREE, SC_CELL, SC_UNKNOWN, SC_REALLY_GLOBAL
+    SC_FREE, SC_CELL, SC_UNKNOWN, SC_DEFAULT
 from pypy.interpreter.astcompiler.misc import mangle, Counter
 from pypy.interpreter.pyparser.error import SyntaxError
 import types
@@ -13,6 +13,7 @@ import sys
 MANGLE_LEN = 256
 
 class Scope:
+    localsfullyknown = True
     # XXX how much information do I need about each name?
     def __init__(self, name, module, klass=None):
         self.name = name
@@ -22,6 +23,7 @@ class Scope:
         self.globals = {}
         self.params = {}
         self.frees = {}
+        self.hasbeenfree = {}
         self.cells = {}
         self.children = []
         # nested is true if the class could contain free variables,
@@ -91,7 +93,7 @@ class Scope:
         The scope of a name could be LOCAL, GLOBAL, FREE, or CELL.
         """
         if name in self.globals:
-            return SC_REALLY_GLOBAL
+            return SC_GLOBAL
         if name in self.cells:
             return SC_CELL
         if name in self.defs:
@@ -102,7 +104,7 @@ class Scope:
         if self.nested:
             return SC_UNKNOWN
         else:
-            return SC_GLOBAL
+            return SC_DEFAULT
 
     def get_free_vars(self):
         if not self.nested:
@@ -113,6 +115,7 @@ class Scope:
             if not (name in self.defs or
                     name in self.globals):
                 free[name] = 1
+        self.hasbeenfree.update(free)
         return free.keys()
 
     def handle_children(self):
@@ -135,7 +138,8 @@ class Scope:
         Be careful to stop if a child does not think the name is
         free.
         """
-        self.globals[name] = 1
+        if name not in self.defs:
+            self.globals[name] = 1
         if name in self.frees:
             del self.frees[name]
         for child in self.children:
@@ -156,7 +160,7 @@ class Scope:
                 if sc == SC_UNKNOWN or sc == SC_FREE \
                    or isinstance(self, ClassScope):
                     self.frees[name] = 1
-                elif sc == SC_GLOBAL or sc == SC_REALLY_GLOBAL:
+                elif sc == SC_DEFAULT or sc == SC_GLOBAL:
                     child_globals.append(name)
                 elif isinstance(self, FunctionScope) and sc == SC_LOCAL:
                     self.cells[name] = 1
@@ -261,6 +265,12 @@ class SymbolVisitor(ast.ASTVisitor):
         node.code.accept(self )
         self.pop_scope()
         self.handle_free_vars(scope, parent)
+
+    def visitExec(self, node):
+        if not (node.globals or node.locals):
+            parent = self.cur_scope()
+            parent.localsfullyknown = False # bare exec statement
+        ast.ASTVisitor.visitExec(self, node)
 
     def visitGenExpr(self, node ):
         parent = self.cur_scope()
@@ -375,6 +385,7 @@ class SymbolVisitor(ast.ASTVisitor):
         scope = self.cur_scope()
         for name, asname in node.names:
             if name == "*":
+                scope.localsfullyknown = False
                 continue
             scope.add_def(asname or name)
 
