@@ -225,8 +225,47 @@ Concretely the Flow Space plugs itself in the interpreter as an object
 space, and supplying a derived execution context implementation.  It
 also wrap a fix-point loop around invocations of the frame resume
 method which is forced to execute one single bytecode through
-exceptions reaching this loop from the space operations'
-code and the specialised execution context.
+exceptions reaching this loop from the space operations' code and the
+specialised execution context.
+
+The domain on which the Flow Space operates comprises variables and
+constant objects. They are stored as such in the frame objects without
+problems because by design the interpreter engine treat them
+neutrally.
+
+The Flow Space can synthesise out of a frame content so called frame
+states.  Frame states described the execution state for the frame at a
+given point.
+
+The Flow Space constructs the flow graph by creating new blocks in it,
+when fresh never-seen state is reached. During construction block in
+the graph all have an associated frame state. The Flow Space start
+from an empty block with an a frame state corresponding to setup
+induced but input arguments in the form of variables and constants to
+the analysed function.
+
+When an operation is delegated to the Flow Space by the frame
+interpretation loop, either a constant result is produced, in the case
+the arguments are constant and the operation doesn't have
+side-effects, otherwise the operation is recorded in the current block
+and a fresh new variable is returned as result.
+
+When a new bytecode is about to be executed, as signalled by the
+bytecode hook, the Flow Space considers the frame state corresponding
+to the current frame contents. The Flow Space keeps a mapping between
+byecode instructions, as their position, and frame state, block pairs.
+
+A union operation is defined on frame states, only two equal constants
+unify to a constant of the same value, all other combination unify
+to a fresh new variable.
+
+If some previously associated frame state for the next byecode unifies
+with the current state giving some more general state, i.e. an unequal
+one, the corresponding block will be reused and reset. Otherwise a new
+block is used.
+
+XXX non mergeable data, details
+XXX conditionals, multiple pending blocks
 
 
 
