@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import Bool
+from pypy.rpython.lltype import Bool, typeOf
 from pypy.rpython import rmodel
 #from pypy.translator.backendopt import matfunc
 
@@ -163,6 +163,13 @@ def _inline_function(translator, graph, block, index_operation):
                     if copiedlink.target is copiedexceptblock:
                         copiedlink.args = copiedlink.args[:2]
                         copiedlink.target = graph.exceptblock
+                        for a1, a2 in zip(copiedlink.args,
+                                          graph.exceptblock.inputargs):
+                            if hasattr(a2, 'concretetype'):
+                                assert a1.concretetype == a2.concretetype
+                            else:
+                                # if graph.exceptblock was never used before
+                                a2.concretetype = a1.concretetype
         else:
             def find_args_in_exceptional_case(link, block, etype, evalue):
                 linkargs = []
@@ -180,6 +187,7 @@ def _inline_function(translator, graph, block, index_operation):
             exc_match = Constant(rmodel.getfunctionptr(
                 translator,
                 translator.rtyper.getexceptiondata().ll_exception_match))
+            exc_match.concretetype = typeOf(exc_match.value)
             #try to match the exceptions for simple cases
             for link in entrymap[graph_to_inline.exceptblock]:
                 copiedblock = copied_blocks[link.prevblock]
@@ -208,7 +216,9 @@ def _inline_function(translator, graph, block, index_operation):
                 res = Variable()
                 res.concretetype = Bool
                 translator.annotator.bindings[res] = annmodel.SomeBool()
-                args = [exc_match, etype, Constant(link.llexitcase)]
+                cexitcase = Constant(link.llexitcase)
+                cexitcase.concretetype = typeOf(cexitcase.value)
+                args = [exc_match, etype, cexitcase]
                 block.operations.append(SpaceOperation("direct_call", args, res))
                 block.exitswitch = res
                 linkargs = find_args_in_exceptional_case(link, link.target,

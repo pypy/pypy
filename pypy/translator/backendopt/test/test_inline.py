@@ -1,5 +1,6 @@
 import py
 import os
+from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
 from pypy.translator.backendopt.inline import inline_function, CannotInline
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.inline import collect_called_functions
@@ -7,12 +8,35 @@ from pypy.translator.translator import Translator
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.translator.test.snippet import is_perfect_number
 
+def no_missing_concretetype(node):
+    if isinstance(node, Block):
+        for v in node.inputargs:
+            assert hasattr(v, 'concretetype')
+        for op in node.operations:
+            for v in op.args:
+                assert hasattr(v, 'concretetype')
+            assert hasattr(op.result, 'concretetype')
+    if isinstance(node, Link):
+        for v in node.args:
+            assert hasattr(v, 'concretetype')
+        if isinstance(node.last_exception, (Variable, Constant)):
+            assert hasattr(node.last_exception, 'concretetype')
+        if isinstance(node.last_exc_value, (Variable, Constant)):
+            assert hasattr(node.last_exc_value, 'concretetype')
+
 def check_inline(func, in_func, sig):
     t = Translator(in_func)
     a = t.annotate(sig)
     a.simplify()
     t.specialize()
+    # look for missing '.concretetype' before inlining (so we don't blame it)
+    for graph in t.flowgraphs.values():
+        traverse(no_missing_concretetype, graph)
+    # inline!
     inline_function(t, func, t.flowgraphs[in_func])
+    # look for missing '.concretetype'
+    for graph in t.flowgraphs.values():
+        traverse(no_missing_concretetype, graph)
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     return interp
 
