@@ -107,8 +107,6 @@ def analyse(t, inputtypes):
         ldef = listdef.ListDef(None, annmodel.SomeString())
         inputtypes = [annmodel.SomeList(ldef)]
     
-    if listen_port:
-        run_async_server()
     if not options1.no_annotations:
         print 'Annotating...'
         print 'with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__) 
@@ -180,30 +178,6 @@ def update_usession_dir(stabledir = udir.dirpath('usession')):
 
 serv_start, serv_show, serv_stop, serv_cleanup = None, None, None, None
 
-def run_async_server():
-    global serv_start, serv_show, serv_stop, serv_cleanup
-    from pypy.translator.tool import graphpage, graphserver
-    homepage = graphpage.TranslatorPage(t)
-    (serv_start, serv_show, serv_stop, serv_cleanup
-     )=graphserver.run_server(homepage, port=listen_port, background=True)
-    
-
-def run_server():
-    from pypy.translator.tool import graphpage
-    import pygame
-    from pypy.translator.tool.pygame.graphclient import get_layout
-    from pypy.translator.tool.pygame.graphdisplay import GraphDisplay    
-
-    if len(t.functions) <= options1.huge:
-        page = graphpage.TranslatorPage(t)
-    else:
-        page = graphpage.LocalizedCallGraphPage(t, entry_point)
-
-    layout = get_layout(page)
-    show, async_quit = layout.connexion.initiate_display, layout.connexion.quit
-    display = layout.get_display()
-    return display.run, show, async_quit, pygame.quit
-
 def mkexename(name):
     if sys.platform == 'win32':
         name = os.path.normpath(name + '.exe')
@@ -252,7 +226,8 @@ if __name__ == '__main__':
                 if serv_start:
                     start, show, stop, cleanup = serv_start, serv_show, serv_stop, serv_cleanup
                 else:
-                    start, show, stop, cleanup = run_server()
+                    from pypy.translator.tool.pygame.server import run_translator_server
+                    start, show, stop, cleanup = run_translator_server(t, entry_point, options1)
                 pdb_plus_show.install_show(show)
                 debugger = run_debugger_in_thread(func, args, stop)
                 debugger.start()
@@ -371,6 +346,9 @@ if __name__ == '__main__':
             # otherwise we have been loaded
             a = t.annotator
             t.frozen = False
+        if listen_port:
+            from pypy.translator.tool.graphserver import run_async_server
+            serv_start, serv_show, serv_stop, serv_cleanup = run_async_server(t, listen_port)
         try:
             standalone = analyse(t, inputtypes)
         except TyperError:
