@@ -226,11 +226,13 @@ def _inline_function(translator, graph, block, index_operation):
                 l = Link(linkargs, link.target)
                 l.prevblock = block
                 l.exitcase = True
+                l.llexitcase = True
                 block.exits.append(l)
                 if i > 0:
                     l = Link(blocks[-1].inputargs, block)
                     l.prevblock = blocks[-1]
                     l.exitcase = False
+                    l.llexitcase = False
                     blocks[-1].exits.insert(0, l)
                 blocks.append(block)
             blocks[-1].exits = blocks[-1].exits[:1]

@@ -18,6 +18,8 @@ def no_missing_concretetype(node):
                 assert hasattr(v, 'concretetype')
             assert hasattr(op.result, 'concretetype')
     if isinstance(node, Link):
+        if node.exitcase is not None:
+            assert hasattr(node, 'llexitcase')
         for v in node.args:
             assert hasattr(v, 'concretetype')
         if isinstance(node.last_exception, (Variable, Constant)):
@@ -134,9 +136,7 @@ def test_inline_exceptions():
     result = interp.eval_function(g, [42])
     assert result == 1
 
-def DONOTtest_inline_var_exception():
-    # this test is disabled for now, because f() contains a direct_call
-    # (at the end, to a ll helper, to get the type of the exception object)
+def test_inline_var_exception():
     def f(x):
         e = None
         if x == 0:
@@ -157,7 +157,9 @@ def DONOTtest_inline_var_exception():
     a = t.annotate([int])
     a.simplify()
     t.specialize()
-    inline_function(t, f, t.flowgraphs[g])
+    auto_inlining(t, threshold=10)
+    for graph in t.flowgraphs.values():
+        traverse(no_missing_concretetype, graph)
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     result = interp.eval_function(g, [0])
     assert result == 2
