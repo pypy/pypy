@@ -72,8 +72,8 @@ def parse_argument(tokens):
     dstararg_token = None
     while index < l:
         cur_token = tokens[index]
-        index += 1
         if not isinstance(cur_token, TokenObject):
+            index += 1
             if not building_kw:
                 arguments.append(cur_token)
             else:
@@ -82,12 +82,16 @@ def parse_argument(tokens):
                 arguments.append(ast.Keyword(last_token.varname, cur_token))
                 building_kw = False
                 kw_built = True
+            continue
         elif cur_token.name == tok.COMMA:
+            index += 1
             continue
         elif cur_token.name == tok.EQUAL:
+            index += 1
             building_kw = True
             continue
         elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
+            index += 1
             if cur_token.name == tok.STAR:
                 stararg_token = tokens[index]
                 index += 1
@@ -100,7 +104,7 @@ def parse_argument(tokens):
             if len(arguments) != 1:
                 raise ValueError('SyntaxError("invalid syntax")') # xxx lineno...
             expr = arguments[0]
-            genexpr_for = parse_genexpr_for(tokens[index-1:])
+            genexpr_for = parse_genexpr_for(tokens[index:])
             genexpr_for[0].is_outmost = True
             gexp = ast.GenExpr(ast.GenExprInner(expr, genexpr_for))
             arguments[0] = gexp
