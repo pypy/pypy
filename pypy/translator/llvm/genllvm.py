@@ -255,7 +255,10 @@ def genllvm(translator, gcpolicy=None, exceptionpolicy=None, log_source=False, *
 def compile_module(function, annotation, view=False, **kwds):
     t = Translator(function)
     a = t.annotate(annotation)
+    a.simplify()
     t.specialize()
+    t.backend_optimizations(ssa_form=False)
+    t.checkgraphs()
     if view:
         t.view()
     return genllvm(t, **kwds)

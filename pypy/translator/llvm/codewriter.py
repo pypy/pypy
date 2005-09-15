@@ -74,7 +74,7 @@ class CodeWriter(object):
         if is_entrynode:
             linkage_type = ''
         else:
-            linkage_type = ' '
+            linkage_type = ''	#'internal '
         self.append("%s%s %s {" % (linkage_type, cconv, decl,))
 
     def closefunc(self): 
@@ -113,7 +113,9 @@ class CodeWriter(object):
         if cconv is not 'fastcc':
             tail_ = ''
         else:
-            tail_ = tail + ' '
+            tail_ = tail
+	if tail_:
+		tail_ += ' '
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
         self.indent("%s = %scall %s %s %s(%s)" % (targetvar, tail_, cconv, returntype, functionref,
                                              ", ".join(arglist)))
@@ -122,7 +124,9 @@ class CodeWriter(object):
         if cconv is not 'fastcc':
             tail_ = ''
         else:
-            tail_ = tail + ' '
+            tail_ = tail
+	if tail_:
+		tail_ += ' '
         arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
         self.indent("%scall %s void %s(%s)" % (tail_, cconv, functionref, ", ".join(arglist)))
 
