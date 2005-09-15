@@ -181,7 +181,20 @@ class __extend__(pairtype(NoneFrozenPBCRepr, robject.PyObjRepr)):
 
 # ____________________________________________________________
 
-class MultipleFrozenPBCRepr(Repr):
+class MultiplePBCRepr(Repr):
+    """Base class for PBCReprs of multiple PBCs that can include None
+    (represented as a NULL pointer)."""
+    def rtype_is_true(self, hop):
+        if hop.s_result.is_constant():
+            assert hop.s_result.const is True    # custom __nonzero__ on PBCs?
+            return hop.inputconst(Bool, hop.s_result.const)
+        else:
+            # None is a nullptr, which is false; everything else is true.
+            vlist = hop.inputargs(self)
+            return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
+
+
+class MultipleFrozenPBCRepr(MultiplePBCRepr):
     """Representation selected for multiple non-callable pre-built constants."""
     def __init__(self, rtyper, access_set):
         self.rtyper = rtyper
@@ -233,15 +246,6 @@ class MultipleFrozenPBCRepr(Repr):
                 setattr(result, mangled_name, llvalue)
             return result
 
-    def rtype_is_true(self, hop):
-        if hop.s_result.is_constant():
-            assert hop.s_result.const is True    # custom __nonzero__ on PBCs?
-            return hop.inputconst(Bool, hop.s_result.const)
-        else:
-            # None is a nullptr, which is false; everything else is true.
-            vlist = hop.inputargs(self)
-            return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
-
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
         vpbc, vattr = hop.inputargs(self, Void)
@@ -280,6 +284,9 @@ class MethodOfFrozenPBCRepr(Repr):
         self.function = s_pbc.prebuiltinstances.keys()[0].im_func
         im_selves = {}
         for pbc, not_a_classdef in s_pbc.prebuiltinstances.items():
+            if pbc is None:
+                raise TyperError("unsupported: variable of type "
+                                 "method-of-frozen-PBC or None")
             assert pbc.im_func is self.function
             assert not isclassdef(not_a_classdef)
             im_selves[pbc.im_self] = True
@@ -351,7 +358,7 @@ def samesig(funcs):
     return True
 
 
-class FunctionsPBCRepr(Repr):
+class FunctionsPBCRepr(MultiplePBCRepr):
     """Representation selected for a PBC of function(s)."""
 
     def __init__(self, rtyper, s_pbc):
@@ -482,6 +489,9 @@ class MethodsPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
+        if None in s_pbc.prebuiltinstances:
+            raise TyperError("unsupported: variable of type "
+                             "bound-method-object or None")
         basedef = commonbase(s_pbc.prebuiltinstances.values())
         for classdef1, name in allattributenames(basedef):
             # don't trust the func.func_names and see if this 'name' would be
@@ -577,7 +587,9 @@ class ClassesPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        assert None not in s_pbc.prebuiltinstances, "XXX not implemented"
+        if None in s_pbc.prebuiltinstances:
+            raise TyperError("unsupported: variable of type "
+                             "class-pointer or None")
         if s_pbc.is_constant():
             self.lowleveltype = Void
         else:

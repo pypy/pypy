@@ -1079,3 +1079,21 @@ def test_hlinvoke_pbc_method_hltype():
     c_a = A_repr.convert_const(A(None))
     res = interp.eval_function(llfunction, [None, c_f, c_a])
     assert typeOf(res) == A_repr.lowleveltype
+
+def test_function_or_none():
+    def h(y):
+        return y+84
+    def g(y):
+        return y+42
+    def f(x, y):
+        d = {1: g, 2:h}
+        func = d.get(x, None)
+        if func:
+            return func(y)
+        return -1
+    res = interpret(f, [1, 100])
+    assert res == 142
+    res = interpret(f, [2, 100])
+    assert res == 184
+    res = interpret(f, [3, 100])
+    assert res == -1
