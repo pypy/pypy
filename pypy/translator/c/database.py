@@ -1,3 +1,4 @@
+import sys
 from pypy.rpython.lltype import Primitive, Ptr, typeOf, RuntimeTypeInfo
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObject, Void
 from pypy.rpython.lltype import ContainerType, pyobjectptr, OpaqueType, GcStruct
@@ -19,6 +20,8 @@ class LowLevelDatabase:
         self.structdefnodes = {}
         self.containernodes = {}
         self.containerlist = []
+        self.completedcontainers = 0
+        self.containerstats = {}
         self.externalfuncs = {}
         self.namespace = CNameManager()
         if not standalone:
@@ -98,6 +101,8 @@ class LowLevelDatabase:
             node = nodefactory(self, T, container)
             self.containernodes[container] = node
             self.containerlist.append(node)
+            kind = getattr(node, 'nodekind', '?')
+            self.containerstats[kind] = self.containerstats.get(kind, 0) + 1
         return node
 
     def get(self, obj):
@@ -152,8 +157,17 @@ class LowLevelDatabase:
         return ''
 """
 
-    def complete(self):
-        i = 0
+    def complete(self, show_progress=True):
+        def dump():
+            lst = ['%s: %d' % keyvalue
+                   for keyvalue in self.containerstats.items()]
+            lst.sort()
+            print '%8d nodes  [ %s ]' % (i, '  '.join(lst))
+        i = self.completedcontainers
+        if show_progress:
+            show_i = (i//1000 + 1) * 1000
+        else:
+            show_i = -1
         while True:
             if hasattr(self, 'pyobjmaker'):
                 self.pyobjmaker.collect_initcode()
@@ -166,6 +180,12 @@ class LowLevelDatabase:
                 else:
                     self.get(value)
             i += 1
+            self.completedcontainers = i
+            if i == show_i:
+                dump()
+                show_i += 1000
+        if show_progress:
+            dump()
 
     def globalcontainers(self):
         for node in self.containerlist:

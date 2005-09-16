@@ -257,6 +257,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
                                                 err)
 
 class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
+    nodekind = 'refcnt rtti'
     globalcontainer = True
     includes = ()
     typename = 'void (@)(void *)'
@@ -365,6 +366,7 @@ class BoehmGcPolicy(BasicGcPolicy):
 
 
 class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
+    nodekind = 'boehm rtti'
     globalcontainer = True
     includes = ()
     typename = 'char @'

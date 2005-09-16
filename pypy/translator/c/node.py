@@ -318,6 +318,7 @@ class ContainerNode(object):
 assert not USESLOTS or '__dict__' not in dir(ContainerNode)
 
 class StructNode(ContainerNode):
+    nodekind = 'struct'
     if USESLOTS:
         __slots__ = ()
 
@@ -360,6 +361,7 @@ class StructNode(ContainerNode):
 assert not USESLOTS or '__dict__' not in dir(StructNode)
 
 class ArrayNode(ContainerNode):
+    nodekind = 'array'
     if USESLOTS:
         __slots__ = ()
 
@@ -419,6 +421,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
 
 
 class FuncNode(ContainerNode):
+    nodekind = 'func'
     if USESLOTS:
         __slots__ = """funcgen""".split()
 
@@ -526,6 +529,7 @@ def select_function_code_generator(fnobj, db):
         raise ValueError, "don't know how to generate code for %r" % (fnobj,)
 
 class ExtType_OpaqueNode(ContainerNode):
+    nodekind = 'rpyopaque'
 
     def enum_dependencies(self):
         return []
@@ -554,6 +558,7 @@ def opaquenode_factory(db, T, obj):
 
 
 class PyObjectNode(ContainerNode):
+    nodekind = 'pyobj'
     globalcontainer = True
     typename = 'PyObject @'
     implementationtypename = 'PyObject *@'
