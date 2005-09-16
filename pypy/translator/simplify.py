@@ -453,41 +453,36 @@ def remove_identical_vars(graph):
     which otherwise doesn't realize that tests performed on one of the copies
     of the variable also affect the other."""
 
-    entrymap = mkentrymap(graph)
-    consider_blocks = entrymap
+    from pypy.translator.backendopt.ssa import data_flow_families
+    variable_families = data_flow_families(graph)
+    def merges(varlist):
+        d = {}
+        for i in range(len(varlist)):
+            v = variable_families.find_rep(varlist[i])
+            if v in d:
+                yield d[v], i
+            d[v] = i
 
-    while consider_blocks:
-        blocklist = consider_blocks.keys()
-        consider_blocks = {}
-        for block in blocklist:
-            if not block.exits:
-                continue
-            links = entrymap[block]
-            entryargs = {}
-            for i in range(len(block.inputargs)):
-                # list of possible vars that can arrive in i'th position
-                key = tuple([link.args[i] for link in links])
-                if key not in entryargs:
-                    entryargs[key] = i
-                else:
-                    j = entryargs[key]
-                    # positions i and j receive exactly the same input vars,
-                    # we can remove the argument i and replace it with the j.
-                    argi = block.inputargs[i]
-                    if not isinstance(argi, Variable): continue
-                    argj = block.inputargs[j]
-                    block.renamevariables({argi: argj})
-                    assert block.inputargs[i] == block.inputargs[j] == argj
-                    del block.inputargs[i]
-                    for link in links:
-                        assert link.args[i] == link.args[j]
-                        del link.args[i]
-                    # mark this block and all the following ones as subject to
-                    # possible further optimization
-                    consider_blocks[block] = True
-                    for link in block.exits:
-                        consider_blocks[link.target] = True
-                    break
+    entrymap = mkentrymap(graph)
+    for block, links in entrymap.items():
+        if not block.exits:
+            continue
+        try:
+            while True:
+                # look for the next possible merge (restarting each time)
+                j, i = merges(block.inputargs).next()
+                # we can remove the argument i and replace it with the j.
+                argi = block.inputargs[i]
+                argj = block.inputargs[j]
+                block.renamevariables({argi: argj})
+                assert block.inputargs[i] == block.inputargs[j] == argj
+                del block.inputargs[i]
+                for link in links:
+                    assert (variable_families.find_rep(link.args[i]) ==
+                            variable_families.find_rep(link.args[j]))
+                    del link.args[i]
+        except StopIteration:
+            pass
 
 def coalesce_is_true(graph):
     """coalesce paths that go through an is_true and a directly successive

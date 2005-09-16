@@ -71,3 +71,20 @@ def test_for_loop():
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     res = interp.eval_function(f, [11])
     assert res == 55
+
+
+def test_list_comp():
+    def f(n1, n2):
+        c = [i for i in range(n2)]
+        return 33
+    t = Translator(f)
+    t.annotate([int, int])
+    t.specialize()
+    t.backend_optimizations(inline_threshold=10, mallocs=True)
+
+    graph = t.getflowgraph()
+    check_malloc_removed(graph)
+
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    res = interp.eval_function(f, [11, 22])
+    assert res == 33

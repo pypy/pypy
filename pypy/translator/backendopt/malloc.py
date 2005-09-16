@@ -1,7 +1,8 @@
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation, traverse
+from pypy.objspace.flow.model import SpaceOperation, traverse, checkgraph
 from pypy.tool.unionfind import UnionFind
 from pypy.rpython import lltype
+from pypy.translator.simplify import remove_identical_vars
 
 class LifeTime:
 
@@ -194,18 +195,23 @@ def _try_inline_malloc(info):
                     newinputargs.append(newvar)
                 newinputargs += block.inputargs[i+1:]
                 block.inputargs[:] = newinputargs
+                assert var not in block.inputargs
                 flowin(var, newvarsmap)
 
         # look for variables created inside the block by a malloc
+        vars_created_here = []
         for op in block.operations:
             if op.opname == "malloc" and op.result in vars:
-                newvarsmap = flatconstants.copy()   # dummy initial values
-                flowin(op.result, newvarsmap)
+                vars_created_here.append(op.result)
+        for var in vars_created_here:
+            newvarsmap = flatconstants.copy()   # dummy initial values
+            flowin(var, newvarsmap)
 
     return True
 
 def remove_mallocs_once(graph):
     """Perform one iteration of malloc removal."""
+    remove_identical_vars(graph)
     lifetimes = compute_lifetimes(graph)
     progress = False
     for info in lifetimes:

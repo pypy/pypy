@@ -80,3 +80,19 @@ def test_fn5():
         b = B()
         return b.attr
     check(fn5, [], [], 42)
+
+def test_aliasing():
+    class A:
+        pass
+    def fn6(n):
+        a1 = A()
+        a1.x = 5
+        a2 = A()
+        a2.x = 6
+        if n > 0:
+            a = a1
+        else:
+            a = a2
+        a.x = 12
+        return a1.x
+    check(fn6, [int], [1], 12)
