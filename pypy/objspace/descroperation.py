@@ -1,7 +1,7 @@
 import operator
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, BaseWrappable
-from pypy.interpreter.function import Function
+from pypy.interpreter.function import Function, Method
 from pypy.interpreter.gateway import BuiltinCode
 from pypy.interpreter.argument import Arguments
 from pypy.tool.sourcetools import compile2, func_with_new_name
@@ -106,8 +106,10 @@ class DescrOperation:
             return space.call_args(w_impl, args)
 
     def call_args(space, w_obj, args):
-        # a special case for performance
+        # two special cases for performance
         if isinstance(w_obj, Function):
+            return w_obj.call_args(args)
+        if isinstance(w_obj, Method):
             return w_obj.call_args(args)
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
