@@ -11,8 +11,6 @@ import py.test
 
 from pypy.interpreter.astcompiler import ast
 
-from pypy.objspace.std import objspace
-
 def arglist_equal(left,right):
     """needs special case because we handle the argumentlist differently"""
     for l,r in zip(left,right):
@@ -93,6 +91,8 @@ constants = [
     "3.9",
     "-3.6",
     "1.8e19",
+    "90000000000000",
+    "90000000000000.",
     "3j"
     ]
 
@@ -499,6 +499,7 @@ augassigns = [
     ]
 
 TESTS = [
+    constants,
     expressions,
     augassigns,
     comparisons,
@@ -580,9 +581,14 @@ class FakeSpace:
     def call_method(self, obj, meth, *args):
         return getattr(obj, meth)(*args)
 
-def ast_parse_expr(expr, target='single', space=FakeSpace):
+    def call_function(self, func, *args):
+        return func(*args)
+
+    builtin = dict(int=int, long=long, float=float, complex=complex)
+
+def ast_parse_expr(expr, target='single'):
     target = TARGET_DICT[target]
-    builder = AstBuilder(space=space())
+    builder = AstBuilder(space=FakeSpace())
     PYTHON_PARSER.parse_source(expr, target, builder)
     return builder
 
@@ -610,14 +616,6 @@ def test_exec_inputs():
         for expr in family:
             yield check_expression, expr, 'exec'
 
-def check_constant(expr):
-    ast_parse_expr(expr, 'single', objspace.StdObjSpace)
-    
-def test_constants():
-    for expr in constants:
-        yield check_constant, expr
-
-
 SNIPPETS = [    
     'snippet_1.py',
     'snippet_several_statements.py',
@@ -633,9 +631,7 @@ SNIPPETS = [
     'snippet_2.py',
     'snippet_3.py',
     'snippet_4.py',
-    # XXX: skip snippet_comment because we don't have a replacement of
-    #      eval for numbers and strings (eval_number('0x1L') fails)
-    # 'snippet_comment.py',
+    'snippet_comment.py',
     'snippet_encoding_declaration2.py',
     'snippet_encoding_declaration3.py',
     'snippet_encoding_declaration.py',

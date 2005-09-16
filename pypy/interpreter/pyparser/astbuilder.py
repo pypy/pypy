@@ -1594,9 +1594,6 @@ class AstBuilder(BaseGrammarBuilder):
         """temporary implementation
         eval_number intends to replace number = eval(value) ; return number
         """
-        from pypy.objspace.std.strutil import string_to_int, string_to_float
-        from pypy.objspace.std.strutil import string_to_w_long, interp_string_to_float
-        from pypy.objspace.std.strutil import ParseStringError
         space = self.space
         base = 10
         if value.startswith("0x") or value.startswith("0X"):
@@ -1604,15 +1601,17 @@ class AstBuilder(BaseGrammarBuilder):
         elif value.startswith("0"):
             base = 8
         if value.endswith('l') or value.endswith('L'):
-            value = value[:-1]
-            return string_to_w_long( space, value, base=base )
+            l = space.builtin.get('long')
+            return space.call_function(l, space.wrap(value), space.wrap(base))
         if value.endswith('j') or value.endswith('J'):
             c = space.builtin.get('complex') 
             return space.call_function(c, space.wrap(value))
         try:
-            return space.wrap(string_to_int(value, base=base))
-        except ParseStringError:
-            return space.wrap(interp_string_to_float(space,value))
+            i = space.builtin.get('int')
+            return space.call_function(i, space.wrap(value), space.wrap(base))
+        except: 
+            f = space.builtin.get('float')
+            return space.call_function(f, space.wrap(value))
 
     def is_string_const(self, expr):
         if not isinstance(expr,ast.Const):

@@ -17,12 +17,13 @@ from test_astbuilder import expressions, comparisons, funccalls, backtrackings,\
     listmakers, genexps, dictmakers, multiexpr, attraccess, slices, imports,\
     asserts, execs, prints, globs, raises_, imports_newstyle, augassigns, \
     if_stmts, one_stmt_classdefs, one_stmt_funcdefs, tryexcepts, docstrings, \
-    returns, SNIPPETS, SINGLE_INPUTS, LIBSTUFF
+    returns, SNIPPETS, SINGLE_INPUTS, LIBSTUFF, constants
 
 from test_astbuilder import FakeSpace
 
 
 TESTS = [
+    constants,
     expressions,
     augassigns,
     comparisons,
