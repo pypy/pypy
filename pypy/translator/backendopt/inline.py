@@ -10,7 +10,7 @@ from pypy.rpython.lltype import Bool, typeOf
 from pypy.rpython import rmodel
 from pypy.translator.backendopt import sparsemat
 
-BASE_INLINE_THRESHOLD = 18    # just enough to inline ll_rangeiter_next()
+BASE_INLINE_THRESHOLD = 38.8    # just enough to inline add__Int_Int()
 
 class CannotInline(Exception):
     pass
