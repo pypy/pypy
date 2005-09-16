@@ -59,7 +59,7 @@ def target(geninterp=True):
     StdObjSpace.setup_old_style_classes = lambda self: None
     if __main__.options.get('-boehm'):
         #print "disabling thread with boehm for stabilitiy (combination not tested)"
-        print "trying threads and boehm"
+        #print "trying threads and boehm"
         usemodules = []
     else:
         usemodules = ['thread']
