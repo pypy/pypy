@@ -11,6 +11,7 @@ import py.test
 
 from pypy.interpreter.astcompiler import ast
 
+from pypy.objspace.std import objspace
 
 def arglist_equal(left,right):
     """needs special case because we handle the argumentlist differently"""
@@ -80,6 +81,20 @@ def nodes_equal(left, right):
         if not nodes_equal(i,j):
             return False
     return True
+
+constants = [
+    "0",
+    "7",
+    "-3",
+    "053",
+    "0x18",
+    "14L",
+    "1.0",
+    "3.9",
+    "-3.6",
+    "1.8e19",
+    "3j"
+    ]
 
 expressions = [
     "x = a + 1",
@@ -565,9 +580,9 @@ class FakeSpace:
     def call_method(self, obj, meth, *args):
         return getattr(obj, meth)(*args)
 
-def ast_parse_expr(expr, target='single'):
+def ast_parse_expr(expr, target='single', space=FakeSpace):
     target = TARGET_DICT[target]
-    builder = AstBuilder(space=FakeSpace())
+    builder = AstBuilder(space=space())
     PYTHON_PARSER.parse_source(expr, target, builder)
     return builder
 
@@ -585,7 +600,6 @@ def check_expression(expr, target='single'):
     print "-" * 30
     assert nodes_equal( ast, r1.rule_stack[-1]), 'failed on %r' % (expr)
 
-
 def test_basic_astgen():
     for family in TESTS:
         for expr in family:
@@ -595,6 +609,14 @@ def test_exec_inputs():
     for family in EXEC_INPUTS:
         for expr in family:
             yield check_expression, expr, 'exec'
+
+def check_constant(expr):
+    ast_parse_expr(expr, 'single', objspace.StdObjSpace)
+    
+def test_constants():
+    for expr in constants:
+        yield check_constant, expr
+
 
 SNIPPETS = [    
     'snippet_1.py',

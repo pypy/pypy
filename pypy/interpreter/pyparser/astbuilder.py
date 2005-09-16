@@ -1606,6 +1606,9 @@ class AstBuilder(BaseGrammarBuilder):
         if value.endswith('l') or value.endswith('L'):
             value = value[:-1]
             return string_to_w_long( space, value, base=base )
+        if value.endswith('j') or value.endswith('J'):
+            c = space.builtin.get('complex') 
+            return space.call_function(c, space.wrap(value))
         try:
             return space.wrap(string_to_int(value, base=base))
         except ParseStringError:
