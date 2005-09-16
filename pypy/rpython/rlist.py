@@ -321,7 +321,7 @@ class __extend__(pairtype(ListRepr, ListRepr)):
 
 # adapted C code
 
-def _ll_list_resize(l, newsize):
+def _ll_list_resize_really(l, newsize):
     """
     Ensure ob_item has room for at least newsize elements, and set
     ob_size to newsize.  If newsize > ob_size on entry, the content
@@ -337,14 +337,6 @@ def _ll_list_resize(l, newsize):
     than ob_size on entry.
     """
     allocated = len(l.items)
-
-    # Bypass realloc() when a previous overallocation is large enough
-    # to accommodate the newsize.  If the newsize falls lower than half
-    # the allocated size, then proceed with the realloc() to shrink the list.
-    if allocated >= newsize and newsize >= ((allocated >> 1) - 5):
-        # assert l.ob_item != NULL or newsize == 0
-        l.length = newsize
-        return
 
     # This over-allocates proportional to the list size, making room
     # for additional growth.  The over-allocation is mild, but is
@@ -375,6 +367,20 @@ def _ll_list_resize(l, newsize):
             p -= 1
     l.length = newsize
     l.items = newitems
+
+# this common case was factored out of _ll_list_resize
+# to see if inlining it gives some speed-up.
+
+def _ll_list_resize(l, newsize):
+    # Bypass realloc() when a previous overallocation is large enough
+    # to accommodate the newsize.  If the newsize falls lower than half
+    # the allocated size, then proceed with the realloc() to shrink the list.
+    allocated = len(l.items)
+    if allocated >= newsize and newsize >= ((allocated >> 1) - 5):
+        # assert l.ob_item != NULL or newsize == 0
+        l.length = newsize
+    else:
+        _ll_list_resize_really(l, newsize)
 
 def ll_copy(l):
     items = l.items

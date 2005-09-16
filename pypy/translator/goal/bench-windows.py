@@ -27,12 +27,16 @@ def run_cmd(cmd):
 def run_pystone(executable='python', n=0):
     argstr = PYSTONE_CMD % (str(n) and n or '')
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
-    return get_result(txt, PYSTONE_PATTERN)
+    res = get_result(txt, PYSTONE_PATTERN)
+    print res
+    return res
 
 def run_richards(executable='python', n=10):
     argstr = RICHARDS_CMD % n
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
-    return get_result(txt, RICHARDS_PATTERN)
+    res = get_result(txt, RICHARDS_PATTERN)
+    print res
+    return res
 
 def get_executables():
     exes = [name for name in os.listdir('.') if name.endswith('.exe')]
