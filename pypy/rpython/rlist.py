@@ -341,7 +341,7 @@ def _ll_list_resize(l, newsize):
     # Bypass realloc() when a previous overallocation is large enough
     # to accommodate the newsize.  If the newsize falls lower than half
     # the allocated size, then proceed with the realloc() to shrink the list.
-    if allocated >= newsize and newsize >= (allocated >> 1):
+    if allocated >= newsize and newsize >= ((allocated >> 1) - 5):
         # assert l.ob_item != NULL or newsize == 0
         l.length = newsize
         return
