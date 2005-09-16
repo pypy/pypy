@@ -17,13 +17,14 @@ def check_malloc_removed(graph):
     assert count1 == 0   # number of mallocs left
     assert count2 == 0   # number of direct_calls left
 
-def check(fn, signature, args, expected_result):
+def check(fn, signature, args, expected_result, must_be_removed=True):
     t = Translator(fn)
     t.annotate(signature)
     t.specialize()
     graph = t.getflowgraph()
     remove_simple_mallocs(graph)
-    check_malloc_removed(graph)
+    if must_be_removed:
+        check_malloc_removed(graph)
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     res = interp.eval_function(fn, args)
     assert res == expected_result
@@ -95,4 +96,4 @@ def test_aliasing():
             a = a2
         a.x = 12
         return a1.x
-    check(fn6, [int], [1], 12)
+    check(fn6, [int], [1], 12, must_be_removed=False)
