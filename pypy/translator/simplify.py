@@ -454,35 +454,43 @@ def remove_identical_vars(graph):
     of the variable also affect the other."""
 
     from pypy.translator.backendopt.ssa import data_flow_families
-    variable_families = data_flow_families(graph)
-    def merges(varlist):
-        d = {}
-        for i in range(len(varlist)):
-            v = variable_families.find_rep(varlist[i])
-            if v in d:
-                yield d[v], i
-            d[v] = i
-
-    entrymap = mkentrymap(graph)
-    for block, links in entrymap.items():
-        if not block.exits:
-            continue
-        try:
-            while True:
-                # look for the next possible merge (restarting each time)
-                j, i = merges(block.inputargs).next()
-                # we can remove the argument i and replace it with the j.
-                argi = block.inputargs[i]
-                argj = block.inputargs[j]
-                block.renamevariables({argi: argj})
-                assert block.inputargs[i] == block.inputargs[j] == argj
-                del block.inputargs[i]
+    entrymapitems = mkentrymap(graph).items()
+    progress = True
+    while progress:
+        variable_families = data_flow_families(graph)
+        progress = False
+        for block, links in entrymapitems:
+            if not block.exits:
+                continue
+            entryargs = {}
+            for i in range(len(block.inputargs)):
+                # list of possible vars that can arrive in i'th position
+                key = []
                 for link in links:
-                    assert (variable_families.find_rep(link.args[i]) ==
-                            variable_families.find_rep(link.args[j]))
-                    del link.args[i]
-        except StopIteration:
-            pass
+                    v = link.args[i]
+                    if isinstance(v, Constant):
+                        break
+                    key.append(variable_families.find_rep(v))
+                else: # if no Constant
+                    key = tuple(key)
+                    if key not in entryargs:
+                        entryargs[key] = i
+                    else:
+                        j = entryargs[key]
+                        # positions i and j receive exactly the same input
+                        # vars, we can remove the argument i and replace it
+                        # with the j.
+                        argi = block.inputargs[i]
+                        argj = block.inputargs[j]
+                        block.renamevariables({argi: argj})
+                        assert block.inputargs[i] == block.inputargs[j]== argj
+                        del block.inputargs[i]
+                        for link in links:
+                            assert (variable_families.find_rep(link.args[i])==
+                                    variable_families.find_rep(link.args[j]))
+                            del link.args[i]
+                        progress = True
+                        break   # block.inputargs mutated
 
 def coalesce_is_true(graph):
     """coalesce paths that go through an is_true and a directly successive
