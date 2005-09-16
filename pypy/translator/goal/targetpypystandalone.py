@@ -60,7 +60,7 @@ def target(geninterp=True):
     if __main__.options.get('-boehm'):
         #print "disabling thread with boehm for stabilitiy (combination not tested)"
         print "trying threads and boehm"
-        usemodules = ['thread']
+        usemodules = []
     else:
         usemodules = ['thread']
     space = StdObjSpace(nofaking=True,

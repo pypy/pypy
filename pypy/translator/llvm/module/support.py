@@ -264,7 +264,6 @@ int %main(int %argc, sbyte** %argv) {
 extfunctions["%main"] = [(), """
 int %main(int %argc, sbyte** %argv) {
 entry:
-    ;%pypy_argv = call fastcc %RPyListOfString* %pypy_ll_newlist__Ptr_GcStruct_listLlT_Signed(int 0)
     %pypy_argv = call fastcc %structtype.list* %pypy_ll_newlist__Ptr_GcStruct_listLlT_Signed(int 0)
     br label %no_exit
 
@@ -274,7 +273,6 @@ no_exit:
     %tmp.8 = getelementptr sbyte** %argv, uint %indvar
     %tmp.9 = load sbyte** %tmp.8
     %rpy = call fastcc %RPyString* %RPyString_FromString(sbyte* %tmp.9)
-    ;call fastcc void %pypy_ll_append__listPtr_rpy_stringPtr(%RPyListOfString* %pypy_argv, %RPyString* %rpy)
     call fastcc void %pypy_ll_append__listPtr_rpy_stringPtr(%structtype.list* %pypy_argv, %RPyString* %rpy)
     %inc = add int %i.0.0, 1
     %tmp.2 = setlt int %inc, %argc

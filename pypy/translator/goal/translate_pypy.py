@@ -148,9 +148,9 @@ def analyse(target):
         print 'Specializing...'
         t.specialize(dont_simplify_again=True,
                      crash_on_first_typeerror=not options['-t-insist'])
-    if not options['-no-o'] and not options['-llvm']:
+    if not options['-no-o']:
         print 'Back-end optimizations...'
-        t.backend_optimizations()
+        t.backend_optimizations(ssa_form=not options['-llvm'])
     if a and options['-fork2']:
         from pypy.translator.goal import unixcheckpoint
         unixcheckpoint.restartable_point(auto='run')
