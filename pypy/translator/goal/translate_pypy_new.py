@@ -79,10 +79,7 @@ import threading, pdb
 from pypy.translator.translator import Translator
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef
-from pypy.tool.cache import Cache
 from pypy.annotation.policy import AnnotatorPolicy
-from pypy.tool.udir import udir 
-from pypy.tool.ansi_print import ansi_print
 from pypy.translator.pickle.main import load, save
 # catch TyperError to allow for post-mortem dump
 from pypy.rpython.error import TyperError
@@ -93,7 +90,9 @@ from pypy.translator.goal import query
 from pypy.translator.tool import cbuild
 cbuild.enable_fast_compilation()
 from pypy.translator.tool.util import worstblocks_topten, find_someobjects 
-from pypy.translator.tool.util import sanity_check_exceptblocks
+from pypy.translator.tool.util import sanity_check_exceptblocks, update_usession_dir
+from pypy.translator.tool.util import assert_rpython_mostly_not_imported, mkexename
+
 annmodel.DEBUG = False
 
 
@@ -138,50 +137,9 @@ def analyse(t, inputtypes):
         t.frozen = True   # cannot freeze if we don't have annotations
     return  standalone
 
-def assert_rpython_mostly_not_imported(): 
-    prefix = 'pypy.rpython.'
-    oknames = ('rarithmetic memory memory.lladdress extfunctable ' 
-               'lltype objectmodel error ros'.split())
-    wrongimports = []
-    for name, module in sys.modules.items(): 
-        if module is not None and name.startswith(prefix): 
-            sname = name[len(prefix):]
-            for okname in oknames: 
-                if sname.startswith(okname): 
-                    break
-            else:
-                wrongimports.append(name) 
-    if wrongimports: 
-       raise RuntimeError("cannot fork because improper rtyper code"
-                          " has already been imported: %r" %(wrongimports,))
-                
-
-def update_usession_dir(stabledir = udir.dirpath('usession')): 
-    from py import path 
-    try:
-        if stabledir.check(dir=1): 
-            for x in udir.visit(lambda x: x.check(file=1)): 
-                target = stabledir.join(x.relto(udir)) 
-                if target.check():
-                    target.remove()
-                else:
-                    target.dirpath().ensure(dir=1) 
-                try:
-                    target.mklinkto(x) 
-                except path.Invalid: 
-                    x.copy(target) 
-    except path.Invalid: 
-        print "ignored: couldn't link or copy to %s" % stabledir 
-
-
 # graph servers
 
 serv_start, serv_show, serv_stop, serv_cleanup = None, None, None, None
-
-def mkexename(name):
-    if sys.platform == 'win32':
-        name = os.path.normpath(name + '.exe')
-    return name
 
 if __name__ == '__main__':
 
