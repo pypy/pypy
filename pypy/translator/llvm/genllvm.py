@@ -119,6 +119,7 @@ class GenLLVM(object):
         # set up all nodes
         self.db.setup_all()
         self.entrynode = self.db.set_entrynode(entry_point)
+        entryfunc_name = self.entrynode.getdecl().split('%', 1)[1].split('(')[0]
         self._checkpoint('setup_all')
 
         # post set up externs
@@ -193,9 +194,6 @@ class GenLLVM(object):
         codewriter.append(self.exceptionpolicy.pyrex_entrypoint_code(self.entrynode))
 
         # XXX we need to create our own main() that calls the actual entry_point function
-        decl = self.entrynode.getdecl()
-        t = decl.split('%', 1)
-        entryfunc_name = t[1].split('(')[0]
         if entryfunc_name == 'pypy_entry_point': #XXX just to get on with translate_pypy
             extfuncnode.ExternalFuncNode.used_external_functions['%main'] = True
 
