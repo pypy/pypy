@@ -106,7 +106,7 @@ def analyse(t, inputtypes):
         ldef = listdef.ListDef(None, annmodel.SomeString())
         inputtypes = [annmodel.SomeList(ldef)]
     
-    if not options1.no_annotations:
+    if not cmd_line_opt.no_annotations:
         print 'Annotating...'
         print 'with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__) 
         a = t.annotate(inputtypes, policy=policy)
@@ -119,18 +119,18 @@ def analyse(t, inputtypes):
     if a: #and not options['-no-s']:
         print 'Simplifying...'
         a.simplify()
-        if 'fork1' in options1.fork:
+        if 'fork1' in cmd_line_opt.fork:
             from pypy.translator.goal import unixcheckpoint
             assert_rpython_mostly_not_imported() 
             unixcheckpoint.restartable_point(auto='run')
-    if a and options1.specialize:
+    if a and cmd_line_opt.specialize:
         print 'Specializing...'
         t.specialize(dont_simplify_again=True,
-                     crash_on_first_typeerror=not options1.insist)
-    if options1.optimize and options1.backend != 'llvm':
+                     crash_on_first_typeerror=not cmd_line_opt.insist)
+    if cmd_line_opt.optimize and cmd_line_opt.backend != 'llvm':
         print 'Back-end optimizations...'
         t.backend_optimizations()
-    if a and 'fork2' in options1.fork:
+    if a and 'fork2' in cmd_line_opt.fork:
         from pypy.translator.goal import unixcheckpoint
         unixcheckpoint.restartable_point(auto='run')
     if a:
@@ -172,20 +172,20 @@ if __name__ == '__main__':
             print 'Done.'
             print
             func, args = pdb_plus_show.set_trace, ()
-        if not options1.pygame:
-            if options1.batch:
+        if not cmd_line_opt.pygame:
+            if cmd_line_opt.batch:
                 print >>sys.stderr, "batch mode, not calling interactive helpers"
             else:
                 func(*args)
         else:
-            if options1.batch: 
+            if cmd_line_opt.batch: 
                 print >>sys.stderr, "batch mode, not calling interactive helpers"
             else:
                 if serv_start:
                     start, show, stop, cleanup = serv_start, serv_show, serv_stop, serv_cleanup
                 else:
                     from pypy.translator.tool.pygame.server import run_translator_server
-                    start, show, stop, cleanup = run_translator_server(t, entry_point, options1)
+                    start, show, stop, cleanup = run_translator_server(t, entry_point, cmd_line_opt)
                 pdb_plus_show.install_show(show)
                 debugger = run_debugger_in_thread(func, args, stop)
                 debugger.start()
@@ -236,7 +236,7 @@ if __name__ == '__main__':
                 parser.add_option(option[0],option[1], default=option[-1], 
                 dest=option[1].lstrip('--'), help=option[2])
     
-    (options1, args) = parser.parse_args()
+    (cmd_line_opt, args) = parser.parse_args()
     argiter = iter(args) #sys.argv[1:])
     for arg in argiter:
         try:
@@ -251,17 +251,17 @@ if __name__ == '__main__':
     t = None
     options = {}
     for opt in parser.option_list[1:]:
-        options[opt.dest] = getattr(options1,opt.dest)
+        options[opt.dest] = getattr(cmd_line_opt,opt.dest)
         if options.get('gc') == 'boehm':
             options['-boehm'] = True
 ##    if options['-tcc']:
 ##        os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
-    if options1.debug:
+    if cmd_line_opt.debug:
         annmodel.DEBUG = True
     try:
         err = None
-        if options1.load:
-            loaded_dic = load(options1.load)
+        if cmd_line_opt.load:
+            loaded_dic = load(cmd_line_opt.load)
             t = loaded_dic['trans']
             entry_point = t.entrypoint
             inputtypes = loaded_dic['inputtypes']
@@ -276,14 +276,17 @@ if __name__ == '__main__':
                         print 'option %s is implied by the load' % name
                     options[name] = True
             print "continuing Analysis as defined by %s, loaded from %s" %(
-                targetspec, options1.loadname)
+                targetspec, cmd_line_opt.loadname)
             targetspec_dic['target'] = None
         else:
             targetspec_dic = {}
             sys.path.insert(0, os.path.dirname(targetspec))
             execfile(targetspec+'.py', targetspec_dic)
             print "Analysing target as defined by %s" % targetspec
-            
+            if targetspec_dic.get('options', None):
+                targetspec_dic['options'].update(options)
+                options = targetspec_dic['options']
+                print options,targetspec_dic['options']
         print 'options in effect:'
         optnames = options.keys()
         optnames.sort()
@@ -293,7 +296,7 @@ if __name__ == '__main__':
         policy = AnnotatorPolicy()
         target = targetspec_dic['target']
         if target:
-            spec = target(not options1.lowmem)
+            spec = target(not cmd_line_opt.lowmem)
             try:
                 entry_point, inputtypes, policy = spec
             except ValueError:
@@ -312,11 +315,11 @@ if __name__ == '__main__':
         except TyperError:
             err = sys.exc_info()
         print '-'*60
-        if options1.save:
-            print 'saving state to %s' % options1.save
+        if cmd_line_opt.save:
+            print 'saving state to %s' % cmd_line_opt.save
             if err:
                 print '*** this save is done after errors occured ***'
-            save(t, options1.save,
+            save(t, cmd_line_opt.save,
                  trans=t,
                  inputtypes=inputtypes,
                  targetspec=targetspec,
@@ -325,18 +328,18 @@ if __name__ == '__main__':
                  )
         if err:
             raise err[0], err[1], err[2]
-        if options1.backend == 'c': #XXX probably better to supply gcpolicy as string to the backends
+        if cmd_line_opt.backend == 'c': #XXX probably better to supply gcpolicy as string to the backends
             gcpolicy = None
-            if options1.gc =='boehm':
+            if cmd_line_opt.gc =='boehm':
                 from pypy.translator.c import gc
                 gcpolicy = gc.BoehmGcPolicy
-            if options1.gc == 'none':
+            if cmd_line_opt.gc == 'none':
                 from pypy.translator.c import gc
                 gcpolicy = gc.NoneGcPolicy
-        elif options1.backend == 'llvm':
-            gcpolicy = options1.gc
+        elif cmd_line_opt.backend == 'llvm':
+            gcpolicy = cmd_line_opt.gc
 
-        if options1.backend == 'llinterpret':
+        if cmd_line_opt.backend == 'llinterpret':
             def interpret():
                 import py
                 from pypy.rpython.llinterp import LLInterpreter
@@ -345,24 +348,24 @@ if __name__ == '__main__':
                 interp.eval_function(entry_point,
                                      targetspec_dic['get_llinterp_args']())
             interpret()
-        elif not options1.gencode:
+        elif not cmd_line_opt.gencode:
             print 'Not generating C code.'
         else:
-            print 'Generating %s %s code...' %(options1.compile and "and compiling" or "",options1.backend)
-            keywords = {'really_compile' : options1.compile, 
+            print 'Generating %s %s code...' %(cmd_line_opt.compile and "and compiling" or "",cmd_line_opt.backend)
+            keywords = {'really_compile' : cmd_line_opt.compile, 
                         'standalone' : standalone, 
                         'gcpolicy' : gcpolicy}
-            c_entry_point = t.compile(options1.backend, **keywords)
+            c_entry_point = t.compile(cmd_line_opt.backend, **keywords)
                              
             if standalone: # xxx fragile and messy
                 import shutil
                 exename = mkexename(c_entry_point)
-                newexename = mkexename('./pypy-' + options1.backend)
+                newexename = mkexename('./pypy-' + cmd_line_opt.backend)
                 shutil.copy(exename, newexename)
                 c_entry_point = newexename
             update_usession_dir()
             print 'Written %s.' % (c_entry_point,)
-            if options1.run:
+            if cmd_line_opt.run:
                 print 'Running!'
                 if standalone:
                     os.system(c_entry_point)
