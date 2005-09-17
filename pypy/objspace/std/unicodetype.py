@@ -40,7 +40,7 @@ unicode_title      = MultiMethod('title', 1)
 unicode_translate  = MultiMethod('translate', 2)
 unicode_upper      = MultiMethod('upper', 1)
 unicode_zfill      = MultiMethod('zfill', 2)
-unicode_getslice   = MultiMethod('__getslice__', 3)
+
 # ____________________________________________________________
 
 app = gateway.applevel('''

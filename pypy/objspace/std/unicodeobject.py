@@ -231,19 +231,14 @@ def getitem__Unicode_Slice(space, w_uni, w_slice):
     uni = w_uni._value
     length = len(uni)
     start, stop, step, sl = slicetype.indices4(space, w_slice, length)
-    r = [uni[start + i*step] for i in range(sl)]
-    return W_UnicodeObject(space, r)
-
-def unicode_getslice__Unicode_ANY_ANY(space, w_uni, w_start, w_end):
-    w_slice = space.call_function(space.w_slice, w_start, w_end)
-    uni = w_uni._value
-    length = len(uni)
-    start, stop, step, sl = slicetype.indices4(space, w_slice, length)
-    if start > stop:
-        return W_UnicodeObject(space, [])
+    if sl == 0:
+        r = []
+    elif step == 1:
+        assert start >= 0 and stop >= 0
+        r = uni[start:stop]
     else:
-        assert 0 <= start <= stop
-        return W_UnicodeObject(space, uni[start:stop])
+        r = [uni[start + i*step] for i in range(sl)]
+    return W_UnicodeObject(space, r)
 
 def mul__Unicode_ANY(space, w_uni, w_times):
     chars = w_uni._value
