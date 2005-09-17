@@ -2,6 +2,21 @@
 # to be executed in the goal folder,
 # where a couple of .exe files is expected.
 
+current_result = """
+executable           abs.richards   abs.pystone   rel.richards   rel.pystone
+pypy-c-17439           35671 ms         649.430      41.5           57.5
+pypy-c-17512           46917 ms         661.685      54.6           56.4
+pypy-c-17516           38585 ms         670.494      44.9           55.7
+pypy-c-17545-intern    34849 ms         781.101      40.6           47.8
+pypy-c-17572           36892 ms         755.969      42.9           49.4
+pypy-c-17600           26828 ms         919.220      31.2           40.6
+pypy-c-17600_ll_list   27138 ms         815.223      31.6           45.8
+pypy-c-17623-32_4      25107 ms         994.383      29.2           37.6
+pypy-c-17626-undo2     23873 ms         903.937      27.8           41.3
+pypy-c-17626-unrlist   25206 ms         847.455      29.3           44.1
+python 2.3.3             859 ms       37339.500       1.0            1.0
+"""
+
 import os, sys
 
 PYSTONE_CMD = 'from test import pystone;pystone.main(%s)'
