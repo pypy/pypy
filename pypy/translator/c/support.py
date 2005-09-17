@@ -68,6 +68,34 @@ class CNameManager(NameManager):
            ''')
 
 
+def c_string_constant(s):
+    '''Returns EITHER a " "-delimited string literal for C
+               OR a { }-delimited array of chars.
+    '''
+    def char_repr(c):
+        if c in '\\"': return '\\' + c
+        if ' ' <= c < '\x7F': return c
+        return '\\%03o' % ord(c)
+    def line_repr(s):
+        return ''.join([char_repr(c) for c in s])
+
+    if len(s) < 64:
+        return '"%s"' % line_repr(s)
+
+    elif len(s) < 1024:
+        lines = ['"']
+        for i in range(0, len(s), 32):
+            lines.append(line_repr(s[i:i+32]))
+        lines[-1] += '"'
+        return '\\\n'.join(lines)
+
+    else:
+        lines = []
+        for i in range(0, len(s), 20):
+            lines.append(','.join([str(ord(c)) for c in s[i:i+20]]))
+        return '{\n%s}' % ',\n'.join(lines)
+
+
 def gen_assignments(assignments):
     # Generate a sequence of assignments that is possibly reordered
     # to avoid clashes -- i.e. do the equivalent of a tuple assignment,

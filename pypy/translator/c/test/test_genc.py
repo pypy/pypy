@@ -224,3 +224,16 @@ def test_x():
         return a.d['hey']
     f = compile(t, [])
     assert f() == 2
+
+def test_long_strings():
+    s1 = 'hello'
+    s2 = ''.join([chr(i) for i in range(256)])
+    s3 = 'abcd'*17
+    s4 = open(__file__, 'rb').read()
+    choices = [s1, s2, s3, s4]
+    def f(i, j):
+        return choices[i][j]
+    f1 = compile(f, [int, int])
+    for i, s in enumerate(choices):
+        for j, c in enumerate(s):
+            assert f1(i, j) == c

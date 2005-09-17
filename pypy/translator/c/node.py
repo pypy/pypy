@@ -2,11 +2,11 @@ from __future__ import generators
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObjectType, typeOf
 from pypy.rpython.lltype import GcStruct, GcArray, GC_CONTAINER, ContainerType
 from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void, OpaqueType
-from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo
+from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo, Char
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
-from pypy.translator.c.support import cdecl, somelettersfrom
+from pypy.translator.c.support import cdecl, somelettersfrom, c_string_constant
 from pypy.translator.c.primitive import PrimitiveType
 from pypy.translator.c import extfunc
 from pypy.rpython.rstr import STR
@@ -348,11 +348,12 @@ class StructNode(ContainerNode):
         for name in self.T._names:
             value = getattr(self.obj, name)
             c_name = defnode.c_struct_field_name(name)
-            expr = generic_initializationexpr(self.db, value,
-                                              '%s.%s' % (self.name, c_name),
-                                              decoration + name)
-            yield '\t%s' % expr
-            if not expr.startswith('/*'):
+            lines = generic_initializationexpr(self.db, value,
+                                               '%s.%s' % (self.name, c_name),
+                                               decoration + name)
+            for line in lines:
+                yield '\t' + line
+            if not lines[0].startswith('/*'):
                 is_empty = False
         if is_empty:
             yield '\t%s' % '0,'
@@ -383,14 +384,19 @@ class ArrayNode(ContainerNode):
         if self.T.OF == Void or len(self.obj.items) == 0:
             yield '\t%d' % len(self.obj.items)
             yield '}'
+        elif self.T.OF == Char:
+            yield '\t%d, %s' % (len(self.obj.items),
+                                c_string_constant(''.join(self.obj.items)))
+            yield '}'
         else:
             yield '\t%d, {' % len(self.obj.items)
             for j in range(len(self.obj.items)):
                 value = self.obj.items[j]
-                expr = generic_initializationexpr(self.db, value,
+                lines = generic_initializationexpr(self.db, value,
                                                 '%s.items[%d]' % (self.name, j),
                                                 '%s%d' % (decoration, j))
-                yield '\t%s' % expr
+                for line in lines:
+                    yield '\t' + line
             yield '} }'
 
 assert not USESLOTS or '__dict__' not in dir(ArrayNode)
@@ -398,8 +404,9 @@ assert not USESLOTS or '__dict__' not in dir(ArrayNode)
 def generic_initializationexpr(db, value, access_expr, decoration):
     if isinstance(typeOf(value), ContainerType):
         node = db.getcontainernode(value)
-        expr = '\n'.join(node.initializationexpr(decoration+'.'))
-        expr += ','
+        lines = list(node.initializationexpr(decoration+'.'))
+        lines[-1] += ','
+        return lines
     else:
         comma = ','
         if typeOf(value) == Ptr(PyObject) and value:
@@ -415,7 +422,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
         i = expr.find('\n')
         if i<0: i = len(expr)
         expr = '%s\t/* %s */%s' % (expr[:i], decoration, expr[i:])
-    return expr.replace('\n', '\n\t')      # indentation
+        return expr.split('\n')
 
 # ____________________________________________________________
 
