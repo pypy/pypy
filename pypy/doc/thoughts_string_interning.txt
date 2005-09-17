@@ -58,6 +58,20 @@ Implementation problems for PyPy
   as the flag might be acceptable. A dummyobject can be used if the interned
   rstr is not exposed as an interned string object.
 
+Update: a reasonably simple implementation
+-------------------------------------------
+
+Instead of the complications using the stringobject as a property of an rstr
+instance, I propose to special case this kind of dictionary (mapping rstr
+to stringobject) and to put an integer ``interned`` field into the rstr. The
+default is -1 for not interned. Non-negative values are the direct index
+of this string into the interning dict. That is, we grow an extra function
+that indexes the dict by slot number of the dict table and gives direct
+access to its value. The dictionary gets special handling on dict_resize,
+to recompute the slot numbers of the interned strings. ATM I'd say we leave
+the strings immortal and support mortality later when we have a cheap
+way to express this (less refcount, exclusion from Boehm, whatever).
+
 A prototype brute-force patch
 --------------------------------
 
