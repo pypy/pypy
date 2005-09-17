@@ -163,7 +163,7 @@ class W_TypeObject(W_Object):
                 w_self.hasdict = True
                
             w_type = space.type(w_self)
-            if not space.is_true(space.is_(w_type, space.w_type)):
+            if not space.is_w(w_type, space.w_type):
                 w_self.mro_w = []
                 mro_func = w_type.lookup('mro')
                 mro_func_args = Arguments(space, [w_self])
@@ -280,7 +280,7 @@ class W_TypeObject(W_Object):
 
 def call__Type(space, w_type, __args__):
     # special case for type(x)
-    if space.is_true(space.is_(w_type, space.w_type)):
+    if space.is_w(w_type, space.w_type):
         try:
             w_obj, = __args__.fixedunpack(1)
         except ValueError:

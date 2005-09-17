@@ -44,7 +44,7 @@ str_encode     = MultiMethod('encode', 3, defaults=(None, None))
 def descr__new__(space, w_stringtype, w_object=''):
     from pypy.objspace.std.stringobject import W_StringObject
     w_obj = space.str(w_object)
-    if space.is_true(space.is_(w_stringtype, space.w_str)):
+    if space.is_w(w_stringtype, space.w_str):
         return w_obj  # XXX might be reworked when space.str() typechecks
     value = space.str_w(w_obj)
     w_obj = space.allocate_instance(W_StringObject, w_stringtype)

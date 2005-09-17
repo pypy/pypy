@@ -28,7 +28,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
             # otherwise, use the __long__() method
             w_obj = space.long(w_value)
             # 'long(x)' should return whatever x.__long__() returned
-            if space.is_true(space.is_(w_longtype, space.w_long)):
+            if space.is_w(w_longtype, space.w_long):
                 return w_obj
             if space.is_true(space.isinstance(w_obj, space.w_long)):
                 assert isinstance(w_obj, W_LongObject)  # XXX this could fail!

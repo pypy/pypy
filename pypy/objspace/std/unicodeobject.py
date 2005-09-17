@@ -158,7 +158,7 @@ def unicode_join__Unicode_ANY(space, w_self, w_list):
     if len(list) == 0:
         return W_UnicodeObject(space, [])
     if (len(list) == 1 and
-        space.is_true(space.is_(space.type(list[0]), space.w_unicode))):
+        space.is_w(space.type(list[0]), space.w_unicode)):
         return list[0]
     
     values_list = [None] * len(list)

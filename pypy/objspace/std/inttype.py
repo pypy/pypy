@@ -42,7 +42,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
             # otherwise, use the __int__() method
             w_obj = space.int(w_value)
             # 'int(x)' should return whatever x.__int__() returned
-            if space.is_true(space.is_(w_inttype, space.w_int)):
+            if space.is_w(w_inttype, space.w_int):
                 return w_obj
             # int_w is effectively what we want in this case,
             # we cannot construct a subclass of int instance with an
@@ -76,7 +76,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
             w_longval = retry_to_w_long(space, e.parser, base)                        
 
     if w_longval is not None:
-        if not space.is_true(space.is_(w_inttype, space.w_int)):
+        if not space.is_w(w_inttype, space.w_int):
             raise OperationError(space.w_OverflowError,
                                  space.wrap(
                 "long int too large to convert to int"))          

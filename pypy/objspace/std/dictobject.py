@@ -92,7 +92,7 @@ def iter__Dict(space, w_dict):
     return W_DictIter_Keys(space, w_dict)
 
 def eq__Dict_Dict(space, w_left, w_right):
-    if space.is_true(space.is_(w_left, w_right)):
+    if space.is_w(w_left, w_right):
         return space.w_True
 
     if len(w_left.content) != len(w_right.content):

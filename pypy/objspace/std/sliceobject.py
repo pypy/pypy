@@ -28,14 +28,14 @@ class W_SliceObject(W_Object):
 
     def indices3(w_slice, length):
         space = w_slice.space
-        if space.is_true(space.is_(w_slice.w_step, space.w_None)):
+        if space.is_w(w_slice.w_step, space.w_None):
             step = 1
         else:
             step = _Eval_SliceIndex(space, w_slice.w_step)
             if step == 0:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("slice step cannot be zero"))
-        if space.is_true(space.is_(w_slice.w_start, space.w_None)):
+        if space.is_w(w_slice.w_start, space.w_None):
             if step < 0:
                 start = length - 1
             else:
@@ -54,7 +54,7 @@ class W_SliceObject(W_Object):
                     start = length - 1
                 else:
                     start = length
-        if space.is_true(space.is_(w_slice.w_stop, space.w_None)):
+        if space.is_w(w_slice.w_stop, space.w_None):
             if step < 0:
                 stop = -1
             else:
