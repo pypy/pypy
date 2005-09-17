@@ -214,4 +214,9 @@ standardexceptions = {
     ZeroDivisionError: True,
     MemoryError      : True,
     IOError          : True,
+    OSError          : True,
+    StopIteration    : True,
+    KeyError         : True,
+    IndexError       : True,
+    AssertionError   : True,
     }

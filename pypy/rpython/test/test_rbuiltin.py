@@ -199,6 +199,35 @@ def test_const_isinstance():
     res = interpret(f, [])
     assert res is True
 
+def test_isinstance():
+    class A(object):
+        pass
+    class B(A):
+        pass
+    class C(A):
+        pass
+    def f(x, y):
+        if x == 1:
+            a = A()
+        elif x == 2:
+            a = B()
+        else:
+            a = C()
+        if y == 1:
+            res = isinstance(a, A)
+            cls = A
+        elif y == 2:
+            res = isinstance(a, B)
+            cls = B
+        else:
+            res = isinstance(a, C)
+            cls = C
+        return int(res) + 2 * isinstance(a, cls)
+    for x in [1, 2, 3]:
+        for y in [1, 2, 3]:
+            res = interpret(f, [x, y])
+            assert res == isinstance([A(), B(), C()][x-1], [A, B, C][y-1]) * 3
+
 def test_isinstance_list():
     def f(i):
         if i == 0:

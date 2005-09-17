@@ -1,7 +1,9 @@
+import sys
 import types
 from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
+from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning, needsgc
 from pypy.rpython.lltype import ForwardReference, GcForwardReference
 from pypy.rpython.lltype import Ptr, Struct, GcStruct, malloc
@@ -17,6 +19,8 @@ from pypy.rpython.lltype import FuncType, Bool, Signed
 #      struct object_vtable {
 #          struct object_vtable* parenttypeptr;
 #          RuntimeTypeInfo * rtti;
+#          Signed subclassrange_min;  //this is also the id of the class itself
+#          Signed subclassrange_max;
 #          array { char } * name;
 #          struct object * instantiate();
 #      }
@@ -47,6 +51,8 @@ OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
 OBJECTPTR = Ptr(OBJECT)
 OBJECT_VTABLE.become(Struct('object_vtable',
                             ('parenttypeptr', TYPEPTR),
+                            ('subclassrange_min', Signed),
+                            ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(Array(Char))),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR)))))
@@ -230,6 +236,11 @@ class ClassRepr(Repr):
             # initialize the 'parenttypeptr' and 'name' fields
             if rsubcls.classdef is not None:
                 vtable.parenttypeptr = rsubcls.rbase.getvtable()
+                vtable.subclassrange_min = rsubcls.classdef.minid
+                vtable.subclassrange_max = rsubcls.classdef.maxid
+            else: #for the root class
+                vtable.subclassrange_min = 0
+                vtable.subclassrange_max = sys.maxint
             rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
             rinstance.setup()
             if rinstance.needsgc: # only gc-case
@@ -338,7 +349,13 @@ class ClassRepr(Repr):
     def rtype_issubtype(self, hop): 
         class_repr = get_type_repr(self.rtyper)
         v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
-        return hop.gendirectcall(ll_issubclass, v_cls1, v_cls2)
+        if isinstance(v_cls2, Constant):
+            minid = hop.inputconst(Signed, v_cls2.value.subclassrange_min)
+            maxid = hop.inputconst(Signed, v_cls2.value.subclassrange_max)
+            return hop.gendirectcall(ll_issubclass_const, v_cls1, minid, maxid)
+        else:
+            v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
+            return hop.gendirectcall(ll_issubclass, v_cls1, v_cls2)
 
 def get_type_repr(rtyper):
     return getclassrepr(rtyper, None)
@@ -717,17 +734,22 @@ def ll_type(obj):
     return cast_pointer(OBJECTPTR, obj).typeptr
 
 def ll_issubclass(subcls, cls):
-    while subcls != cls:
-        if not subcls:
-            return False
-        subcls = subcls.parenttypeptr
-    return True
+    return cls.subclassrange_min <= subcls.subclassrange_min < cls.subclassrange_max
+
+def ll_issubclass_const(subcls, minid, maxid):
+    return minid <= subcls.subclassrange_min < maxid
+
 
 def ll_isinstance(obj, cls): # obj should be cast to OBJECT or NONGCOBJECT
     if not obj:
         return False
     obj_cls = obj.typeptr
     return ll_issubclass(obj_cls, cls)
+
+def ll_isinstance_const(obj, minid, maxid):
+    if not obj:
+        return False
+    return ll_issubclass_const(obj.typeptr, minid, maxid)
 
 def ll_runtime_type_info(obj):
     return obj.typeptr.rtti

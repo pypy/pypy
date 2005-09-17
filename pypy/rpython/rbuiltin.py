@@ -151,8 +151,13 @@ def rtype_builtin_isinstance(hop):
     instance_repr = hop.args_r[0].common_repr()
 
     v_obj, v_cls = hop.inputargs(instance_repr, class_repr)
-
-    return hop.gendirectcall(rclass.ll_isinstance, v_obj, v_cls)
+    if isinstance(v_cls, Constant):
+        minid = hop.inputconst(lltype.Signed, v_cls.value.subclassrange_min)
+        maxid = hop.inputconst(lltype.Signed, v_cls.value.subclassrange_max)
+        return hop.gendirectcall(rclass.ll_isinstance_const, v_obj, minid,
+                                 maxid)
+    else:
+        return hop.gendirectcall(rclass.ll_isinstance, v_obj, v_cls)
 
 #def rtype_builtin_range(hop): see rrange.py
 

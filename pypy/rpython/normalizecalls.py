@@ -340,7 +340,19 @@ def create_instantiate_function(annotator, cls, classdef):
     annotator.setbinding(graph.getreturnvar(), generalizedresult)
     classdef.my_instantiate = my_instantiate
 
-
+def assign_inheritance_ids(annotator):
+    def assign_id(classdef, nextid):
+        classdef.minid = nextid
+        nextid += 1
+        for subclass in classdef.subdefs.values():
+            nextid = assign_id(subclass, nextid)
+        classdef.maxid = nextid
+        return classdef.maxid
+    id_ = 0
+    for cls, classdef in annotator.getuserclasses().items():
+        if classdef.basedef is None:
+            id_ = assign_id(classdef, id_)
+        
 def perform_normalizations(rtyper):
     create_class_constructors(rtyper)
     rtyper.annotator.frozen += 1
@@ -348,6 +360,7 @@ def perform_normalizations(rtyper):
         normalize_function_signatures(rtyper.annotator)
         specialize_pbcs_by_memotables(rtyper.annotator) 
         merge_classpbc_getattr_into_classdef(rtyper)
+        assign_inheritance_ids(rtyper.annotator)
     finally:
         rtyper.annotator.frozen -= 1
     create_instantiate_functions(rtyper.annotator)

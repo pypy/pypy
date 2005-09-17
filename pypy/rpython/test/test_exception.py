@@ -42,9 +42,9 @@ def test_exception_data():
     classdef = a.bookkeeper.getclassdef(OverflowError)
     assert ovferr_inst.typeptr == t.rtyper.class_reprs[classdef].getvtable()
 
-    keyerr_inst = data.ll_pyexcclass2exc(pyobjectptr(KeyError))
+    taberr_inst = data.ll_pyexcclass2exc(pyobjectptr(TabError))
     classdef = a.bookkeeper.getclassdef(StandardError) # most precise class seen
-    assert keyerr_inst.typeptr == t.rtyper.class_reprs[classdef].getvtable()
+    assert taberr_inst.typeptr == t.rtyper.class_reprs[classdef].getvtable()
 
     myerr_inst = data.ll_pyexcclass2exc(pyobjectptr(MyException))
     assert myerr_inst.typeptr == t.rtyper.class_reprs[None].getvtable()

@@ -4,7 +4,7 @@ from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.lltype import Array, malloc, Ptr, PyObject, pyobjectptr
 from pypy.rpython.lltype import FuncType, functionptr, Signed
 from pypy.rpython.extfunctable import standardexceptions
-
+from pypy.annotation.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
 
 class ExceptionData:
     """Public information for the code generators to help with exceptions."""
@@ -70,7 +70,7 @@ class ExceptionData:
             if (clsdef and clsdef.cls is not Exception
                 and issubclass(clsdef.cls, Exception)):
                 cls = clsdef.cls
-                if cls in self.standardexceptions:
+                if cls in self.standardexceptions and cls not in FORCE_ATTRIBUTES_INTO_CLASSES:
                     is_standard = True
                     assert not clsdef.attrs, (
                         "%r should not have grown atributes" % (cls,))
