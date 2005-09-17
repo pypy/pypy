@@ -2,7 +2,6 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.rpython.rarithmetic import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 
 class W_TupleObject(W_Object):
@@ -42,7 +41,7 @@ def getitem__Tuple_ANY(space, w_tuple, w_index):
 def getitem__Tuple_Slice(space, w_tuple, w_slice):
     items = w_tuple.wrappeditems
     length = len(items)
-    start, stop, step, slicelength = slicetype.indices4(space, w_slice, length)
+    start, stop, step, slicelength = w_slice.indices4(length)
     assert slicelength >= 0
     subitems = [None] * slicelength
     for i in range(slicelength):

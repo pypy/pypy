@@ -7,6 +7,7 @@ indices method              tested, OK
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
+from pypy.objspace.std.slicetype import _Eval_SliceIndex
 
 
 class W_SliceObject(W_Object):
@@ -25,7 +26,61 @@ class W_SliceObject(W_Object):
         space = w_slice.space
         return slice(space.unwrap(w_slice.w_start), space.unwrap(w_slice.w_stop), space.unwrap(w_slice.w_step))
 
+    def indices3(w_slice, length):
+        space = w_slice.space
+        if space.is_true(space.is_(w_slice.w_step, space.w_None)):
+            step = 1
+        else:
+            step = _Eval_SliceIndex(space, w_slice.w_step)
+            if step == 0:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("slice step cannot be zero"))
+        if space.is_true(space.is_(w_slice.w_start, space.w_None)):
+            if step < 0:
+                start = length - 1
+            else:
+                start = 0
+        else:
+            start = _Eval_SliceIndex(space, w_slice.w_start)
+            if start < 0:
+                start += length
+                if start < 0:
+                    if step < 0:
+                        start = -1
+                    else:
+                        start = 0
+            elif start >= length:
+                if step < 0:
+                    start = length - 1
+                else:
+                    start = length
+        if space.is_true(space.is_(w_slice.w_stop, space.w_None)):
+            if step < 0:
+                stop = -1
+            else:
+                stop = length
+        else:
+            stop = _Eval_SliceIndex(space, w_slice.w_stop)
+            if stop < 0:
+                stop += length
+                if stop < 0:
+                    stop =-1
+            elif stop > length:
+                stop = length
+        return start, stop, step
+
+    def indices4(w_slice, length):
+        start, stop, step = w_slice.indices3(length)
+        if (step < 0 and stop >= start) or (step > 0 and start >= stop):
+            slicelength = 0
+        elif step < 0:
+            slicelength = (stop - start + 1) / step + 1
+        else:
+            slicelength = (stop - start - 1) / step + 1
+        return start, stop, step, slicelength
+
 registerimplementation(W_SliceObject)
+
 
 repr__Slice = gateway.applevel("""
     def repr__Slice(aslice):
@@ -62,13 +117,12 @@ def hash__Slice(space, w_slice):
                          space.wrap("unhashable type"))
 # indices impl
 
-from pypy.objspace.std import slicetype
-
 def slice_indices__Slice_ANY(space, w_slice, w_length):
     length = space.int_w(w_length)
-    start, stop, step = slicetype.indices3(space, w_slice, length)
+    start, stop, step = w_slice.indices3(length)
     return space.newtuple([space.wrap(start), space.wrap(stop),
                            space.wrap(step)])
 
 # register all methods
+from pypy.objspace.std import slicetype
 register_all(vars(), slicetype)

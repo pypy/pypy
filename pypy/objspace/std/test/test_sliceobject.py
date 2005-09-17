@@ -4,25 +4,22 @@ import autopath
 class TestW_SliceObject:
 
     def test_indices(self):
-        from pypy.objspace.std import slicetype
         space = self.space
         w = space.wrap
         w_None = space.w_None
         w_slice = space.newslice(w_None, w_None, w_None)
-        assert slicetype.indices3(space, w_slice, 6) == (0, 6, 1)
+        assert w_slice.indices3(6) == (0, 6, 1)
         w_slice = space.newslice(w(0), w(6), w(1))
-        assert slicetype.indices3(space, w_slice, 6) == (0, 6, 1)
+        assert w_slice.indices3(6) == (0, 6, 1)
         w_slice = space.newslice(w_None, w_None, w(-1))
-        assert slicetype.indices3(space, w_slice, 6) == (5, -1, -1)
+        assert w_slice.indices3(6) == (5, -1, -1)
 
     def test_indices_fail(self):
-        from pypy.objspace.std import slicetype
         space = self.space
         w = space.wrap
         w_None = space.w_None
         w_slice = space.newslice(w_None, w_None, w(0))
-        self.space.raises_w(space.w_ValueError,
-                            slicetype.indices3, space, w_slice, 10)
+        self.space.raises_w(space.w_ValueError, w_slice.indices3, 10)
 
 
 class AppTest_SliceObject:

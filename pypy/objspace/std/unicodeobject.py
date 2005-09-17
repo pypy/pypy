@@ -3,7 +3,6 @@ from pypy.interpreter import gateway
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.objspace.std import slicetype
 from pypy.rpython.rarithmetic import intmask
 from pypy.module.unicodedata import unicodedb
 
@@ -230,7 +229,7 @@ def getitem__Unicode_ANY(space, w_uni, w_index):
 def getitem__Unicode_Slice(space, w_uni, w_slice):
     uni = w_uni._value
     length = len(uni)
-    start, stop, step, sl = slicetype.indices4(space, w_slice, length)
+    start, stop, step, sl = w_slice.indices4(length)
     if sl == 0:
         r = []
     elif step == 1:

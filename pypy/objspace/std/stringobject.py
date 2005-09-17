@@ -941,7 +941,7 @@ def getitem__String_Slice(space, w_str, w_slice):
     w = space.wrap
     s = w_str._value
     length = len(s)
-    start, stop, step, sl = slicetype.indices4(space, w_slice, length)
+    start, stop, step, sl = w_slice.indices4(length)
     if sl == 0:
         str = ""
     elif step == 1:

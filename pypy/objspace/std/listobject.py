@@ -51,7 +51,7 @@ def getitem__List_ANY(space, w_list, w_index):
 def getitem__List_Slice(space, w_list, w_slice):
     # XXX consider to extend rlist's functionality?
     length = len(w_list.wrappeditems)
-    start, stop, step, slicelength = slicetype.indices4(space, w_slice, length)
+    start, stop, step, slicelength = w_slice.indices4(length)
     assert slicelength >= 0
     if step == 1 and stop >= start >= 0:
         assert stop >= 0
@@ -168,8 +168,7 @@ def delitem__List_ANY(space, w_list, w_idx):
     return space.w_None
 
 def delitem__List_Slice(space, w_list, w_slice):
-    start, stop, step, slicelength = slicetype.indices4(space, w_slice,
-                                                        len(w_list.wrappeditems))
+    start, stop, step, slicelength = w_slice.indices4(len(w_list.wrappeditems))
 
     if slicelength==0:
         return
@@ -237,8 +236,7 @@ def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
 
 def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
     oldsize = len(w_list.wrappeditems)
-    start, stop, step, slicelength = slicetype.indices4(space, w_slice,
-                                                        oldsize)
+    start, stop, step, slicelength = w_slice.indices4(oldsize)
     assert slicelength >= 0
     items = w_list.wrappeditems
 
