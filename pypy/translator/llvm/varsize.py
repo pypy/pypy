@@ -28,9 +28,9 @@ def write_constructor(db, codewriter, ref, constructor_decl, ARRAY,
 
     if ARRAY is STR.chars:
         #XXX instead of memset we could probably just zero the hash and string terminator
-        codewriter.call_void('%llvm.memset', ['%ptr', '0', '%usize', '0'], ['sbyte*', 'ubyte', 'uint', 'uint'], cconv='ccc')
+        codewriter.call('%dummy', 'void', '%llvm.memset', ['%ptr', '0', '%usize', '0'], ['sbyte*', 'ubyte', 'uint', 'uint'], cconv='ccc')
     else:
-        codewriter.call_void('%llvm.memset', ['%ptr', '0', '%usize', '0'], ['sbyte*', 'ubyte', 'uint', 'uint'], cconv='ccc')
+        codewriter.call('%dummy', 'void', '%llvm.memset', ['%ptr', '0', '%usize', '0'], ['sbyte*', 'ubyte', 'uint', 'uint'], cconv='ccc')
 
     indices_to_arraylength = tuple(indices_to_array) + (("uint", 0),)
     # the following accesses the length field of the array 

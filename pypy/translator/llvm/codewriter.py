@@ -81,10 +81,10 @@ class CodeWriter(object):
         self.append("}") 
 
     def ret(self, type_, ref): 
-        self.indent("ret %s %s" % (type_, ref))
-
-    def ret_void(self):
-        self.indent("ret void")
+        if type_ == 'void':
+            self.indent("ret void")
+        else:
+            self.indent("ret %s %s" % (type_, ref))
 
     def unwind(self):
         self.indent("unwind")
@@ -109,35 +109,26 @@ class CodeWriter(object):
     # allocas or varargs in the caller. If the "tail" marker is present, the function
     # call is eligible for tail call optimization. Note that calls may be marked
     # "tail" even if they do not occur before a ret instruction. 
-    def call(self, targetvar, returntype, functionref, argrefs, argtypes, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
+    def call(self, targetvar, returntype, functionref, argrefs, argtypes, label=None, except_label=None, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
         if cconv is not 'fastcc':
             tail_ = ''
         else:
             tail_ = tail
 	if tail_:
 		tail_ += ' '
-        arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%s = %scall %s %s %s(%s)" % (targetvar, tail_, cconv, returntype, functionref,
-                                             ", ".join(arglist)))
-
-    def call_void(self, functionref, argrefs, argtypes, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
-        if cconv is not 'fastcc':
-            tail_ = ''
+        args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
+        if except_label:
+            assert label
+            instruction = 'invoke'
+            optional    = ' to label %%%s except label %%%s' % (label, except_label)
         else:
-            tail_ = tail
-	if tail_:
-		tail_ += ' '
-        arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%scall %s void %s(%s)" % (tail_, cconv, functionref, ", ".join(arglist)))
-
-    def invoke(self, targetvar, returntype, functionref, argrefs, argtypes, label, except_label, cconv=DEFAULT_CCONV):
-        arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("%s = invoke %s %s %s(%s) to label %%%s except label %%%s" % (targetvar, cconv, returntype, functionref,
-                                             ", ".join(arglist), label, except_label))
-
-    def invoke_void(self, functionref, argrefs, argtypes, label, except_label, cconv=DEFAULT_CCONV):
-        arglist = ["%s %s" % item for item in zip(argtypes, argrefs)]
-        self.indent("invoke %s void %s(%s) to label %%%s except label %%%s" % (cconv, functionref, ", ".join(arglist), label, except_label))
+            assert not label
+            instruction = 'call'
+            optional    = ''
+        if returntype == 'void':
+            self.indent("%s%s %s void %s(%s)%s" % (tail_, instruction, cconv, functionref, args, optional))
+        else:
+            self.indent("%s = %s%s %s %s %s(%s)%s" % (targetvar, tail_, instruction, cconv, returntype, functionref, args, optional))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
     	if fromtype == 'void' and targettype == 'void':

@@ -205,10 +205,7 @@ class FuncNode(ConstantLLVMNode):
         self.write_block_phi_nodes(codewriter, block)
         inputargtype = self.db.repr_arg_type(block.inputargs[0])
         inputarg = self.db.repr_arg(block.inputargs[0])
-        if inputargtype != "void":
-            codewriter.ret(inputargtype, inputarg)
-        else:
-            codewriter.ret_void()
+        codewriter.ret(inputargtype, inputarg)
 
     def _is_raise_new_exception(self, block):
         is_raise_new = False

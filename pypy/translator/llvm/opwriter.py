@@ -285,13 +285,9 @@ class OpWriter(object):
         functionref = self.db.repr_arg(op_args[0])
         argrefs = self.db.repr_arg_multi(op_args[1:])
         argtypes = self.db.repr_arg_type_multi(op_args[1:])
-        if returntype != "void":
-            if self.db.is_function_ptr(op.result):
-                returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
-            self.codewriter.call(targetvar, returntype, functionref, argrefs,
-                                 argtypes)
-        else:
-            self.codewriter.call_void(functionref, argrefs, argtypes)
+        if self.db.is_function_ptr(op.result):
+            returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
+        self.codewriter.call(targetvar,returntype,functionref,argrefs,argtypes)
 
     def invoke(self, op):
         op_args = [arg for arg in op.args
@@ -332,13 +328,10 @@ class OpWriter(object):
 
 
 
-        if returntype != "void":
-            if self.db.is_function_ptr(op.result):  #use longhand form
-                returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
-            self.codewriter.invoke(targetvar, returntype, functionref, argrefs,
-                                   argtypes, none_label, exc_label)
-        else:
-            self.codewriter.invoke_void(functionref, argrefs, argtypes, none_label, exc_label)
+        if self.db.is_function_ptr(op.result):  #use longhand form
+            returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
+        self.codewriter.call(targetvar, returntype, functionref, argrefs,
+                             argtypes, none_label, exc_label)
 
         e = self.db.translator.rtyper.getexceptiondata()
         ll_exception_match       = '%pypy_' + e.ll_exception_match.__name__
