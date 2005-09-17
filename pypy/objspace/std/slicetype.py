@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter import baseobjspace
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
@@ -5,82 +6,77 @@ from pypy.interpreter.error import OperationError
 
 slice_indices = MultiMethod('indices', 2)
 
-# default application-level implementations for some operations
-# gateway is imported in the stdtypedef module
-app = gateway.applevel("""
-
-    def indices(slice, length):
-        # this is used internally, analogous to CPython's PySlice_GetIndicesEx
-        step = slice.step
-        if step is None:
-            step = 1
-        elif step == 0:
-            raise ValueError, "slice step cannot be zero"
-        if step < 0:
-            defstart = length - 1
-            defstop = -1
-        else:
-            defstart = 0
-            defstop = length
-
-        start = slice.start
-        if start is None:
-            start = defstart
-        else:
-            if start < 0:
-                start += length
-                if start < 0:
-                    if step < 0:
-                        start = -1
-                    else:
-                        start = 0
-            elif start >= length:
-                if step < 0:
-                    start = length - 1
-                else:
-                    start = length
-
-        stop = slice.stop
-        if stop is None:
-            stop = defstop
-        else:
-            if stop < 0:
-                stop += length
-                if stop < 0:
-                    stop = -1
-            elif stop > length:
-                stop = length
-
-        return start, stop, step
-
-    def slice_indices4(slice, sequencelength):
-        start, stop, step = indices(slice, sequencelength)
-        slicelength = stop - start
-        lengthsign = cmp(slicelength, 0)
-        stepsign = cmp(step, 0)
-        if stepsign == lengthsign:
-            slicelength = (slicelength - lengthsign) // step + 1
-        else:
-            slicelength = 0
-
-        return start, stop, step, slicelength
-""", filename=__file__)
-
-slice_indices__ANY_ANY = app.interphook("indices")
-slice_indices3         = slice_indices__ANY_ANY
-slice_indices4         = app.interphook("slice_indices4")
+def slice_indices__ANY_ANY(space, w_slice, w_length):
+    length = space.int_w(w_length)
+    start, stop, step = indices3(space, w_slice, length)
+    return space.newtuple([space.wrap(start), space.wrap(stop),
+                           space.wrap(step)])
 
 # utility functions
+def _Eval_SliceIndex(space, w_int):
+    try:
+        x = space.int_w(w_int)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+        cmp = space.is_true(space.ge(w_int, space.wrap(0)))
+        if cmp:
+            x = sys.maxint
+        else:
+            x = -sys.maxint
+    return x
+
 def indices3(space, w_slice, length):
-    w_result = slice_indices3(space, w_slice, space.wrap(length))
-    w_1, w_2, w_3 = space.unpacktuple(w_result, 3)
-    return space.int_w(w_1), space.int_w(w_2), space.int_w(w_3)
+    if space.is_true(space.is_(w_slice.w_step, space.w_None)):
+        step = 1
+    else:
+        step = _Eval_SliceIndex(space, w_slice.w_step)
+        if step == 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("slice step cannot be zero"))
+    if space.is_true(space.is_(w_slice.w_start, space.w_None)):
+        if step < 0:
+            start = length - 1
+        else:
+            start = 0
+    else:
+        start = _Eval_SliceIndex(space, w_slice.w_start)
+        if start < 0:
+            start += length
+            if start < 0:
+                if step < 0:
+                    start = -1
+                else:
+                    start = 0
+        elif start >= length:
+            if step < 0:
+                start = length - 1
+            else:
+                start = length
+    if space.is_true(space.is_(w_slice.w_stop, space.w_None)):
+        if step < 0:
+            stop = -1
+        else:
+            stop = length
+    else:
+        stop = _Eval_SliceIndex(space, w_slice.w_stop)
+        if stop < 0:
+            stop += length
+            if stop < 0:
+                stop =-1
+        elif stop > length:
+            stop = length
+    return start, stop, step
 
 def indices4(space, w_slice, length):
-    w_result = slice_indices4(space, w_slice, space.wrap(length))
-    w_1, w_2, w_3, w_4 = space.unpacktuple(w_result, 4)
-    return (space.int_w(w_1), space.int_w(w_2),
-            space.int_w(w_3), space.int_w(w_4))
+    start, stop, step = indices3(space, w_slice, length)
+    if (step < 0 and stop >= start) or (step > 0 and start >= stop):
+        slicelength = 0
+    elif step < 0:
+        slicelength = (stop - start + 1) / step + 1
+    else:
+        slicelength = (stop - start - 1) / step + 1
+    return start, stop, step, slicelength
 
 def adapt_bound(space, w_index, w_size):
     if not (space.is_true(space.isinstance(w_index, space.w_int)) or

@@ -24,6 +24,7 @@ class TestW_SliceObject:
         self.space.raises_w(space.w_ValueError,
                             slicetype.indices3, space, w_slice, 10)
 
+
 class AppTest_SliceObject:
     def test_new(self):
         def cmp_slice(sl1, sl2):
@@ -64,3 +65,14 @@ class AppTest_SliceObject:
         assert not (slice(1, 2, 3) < slice(1, 0, 0))
         assert not (slice(1, 2, 3) < slice(1, 2, 0))
         assert not (slice(1, 2, 3) < slice(1, 2, 3))
+
+    def test_long_indices(self):
+        assert slice(-2 ** 100, 10, 1).indices(1000) == (0, 10, 1)
+        assert slice(-2 ** 200, -2 ** 100, 1).indices(1000) == (0, -1, 1)
+        assert slice(2 ** 100, 0, -1).indices(1000) == (999, 0, -1)
+        assert slice(2 ** 100, -2 ** 100, -1).indices(1000) == (999, -1, -1)
+        start, stop, step = slice(0, 1000, 2 ** 200).indices(1000)
+        assert start == 0
+        assert stop == 1000
+        assert step >= 1000
+        raises(OverflowError, "slice(0, 1000, 1).indices(2 ** 100)")
