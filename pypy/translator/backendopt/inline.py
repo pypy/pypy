@@ -10,7 +10,8 @@ from pypy.rpython.lltype import Bool, typeOf
 from pypy.rpython import rmodel
 from pypy.translator.backendopt import sparsemat
 
-BASE_INLINE_THRESHOLD = 38.8    # just enough to inline add__Int_Int()
+BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
+# and just small enough to prevend inlining of some rlist functions.
 
 class CannotInline(Exception):
     pass
