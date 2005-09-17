@@ -136,7 +136,7 @@ def predeclare_exception_data(db, rtyper):
         # a substring of PyExc_%s
         name = pyexccls.__name__
         if pyexccls.__module__ != 'exceptions':
-            name = '%s_%s' % (pyexccls.__module__, name)
+            name = '%s_%s' % (pyexccls.__module__.replace('.', '__'), name)
         yield ('RPyExc_%s' % name, exc_llvalue)
 
 
