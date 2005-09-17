@@ -60,5 +60,15 @@ def hash__Slice(space, w_slice):
     """slices are not hashables but they must have a __hash__ method"""
     raise OperationError(space.w_TypeError,
                          space.wrap("unhashable type"))
+# indices impl
 
-register_all(vars())
+from pypy.objspace.std import slicetype
+
+def slice_indices__Slice_ANY(space, w_slice, w_length):
+    length = space.int_w(w_length)
+    start, stop, step = slicetype.indices3(space, w_slice, length)
+    return space.newtuple([space.wrap(start), space.wrap(stop),
+                           space.wrap(step)])
+
+# register all methods
+register_all(vars(), slicetype)

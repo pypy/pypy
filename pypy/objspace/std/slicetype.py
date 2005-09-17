@@ -4,13 +4,8 @@ from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 
+# indices multimehtod
 slice_indices = MultiMethod('indices', 2)
-
-def slice_indices__ANY_ANY(space, w_slice, w_length):
-    length = space.int_w(w_length)
-    start, stop, step = indices3(space, w_slice, length)
-    return space.newtuple([space.wrap(start), space.wrap(stop),
-                           space.wrap(step)])
 
 # utility functions
 def _Eval_SliceIndex(space, w_int):
