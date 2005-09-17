@@ -103,6 +103,7 @@ class PyPyConsole(code.InteractiveConsole):
         #space.exec_("__pytrace__ = 0", self.w_globals, self.w_globals)
         space.setitem(self.w_globals, space.wrap('__pytrace__'),space.wrap(0))
         self.tracelevel = 0
+        self.console_locals = {}
 
     def enable_command_line_completer(self):
         try:
@@ -143,7 +144,9 @@ class PyPyConsole(code.InteractiveConsole):
             print
             banner = ("Python %s on %s\n" % (sys.version, sys.platform) +
                       "*** Entering interpreter-level console ***")
-            local = self.__dict__.copy()
+            local = self.console_locals
+            local.update(self.__dict__)
+            del local['locals']
             for w_name in self.space.unpackiterable(self.w_globals):
                 local['w_' + self.space.str_w(w_name)] = (
                     self.space.getitem(self.w_globals, w_name))
