@@ -357,8 +357,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         w_type = w_obj.getclass(self)
         return w_type.lookup(name)
 
-    def lookup_where(self, w_obj, name):
-        w_type = w_obj.getclass(self)
+    def lookup_in_type_where(self, w_type, name):
         return w_type.lookup_where(name)
 
     def allocate_instance(self, cls, w_subtype):
