@@ -267,4 +267,4 @@ class TestMethod:
         # Check method returned from unbound_method.__get__()
         # --- with an incompatible class
         w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_str)
-        assert space.is_true(space.is_(w_meth5, w_meth3))
+        assert space.is_w(w_meth5, w_meth3)

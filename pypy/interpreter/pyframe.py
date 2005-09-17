@@ -286,7 +286,7 @@ class PyFrame(eval.EvalFrame):
         return self.w_f_trace
 
     def fset_f_trace(space, self, w_trace):
-        if space.is_true(space.is_(w_trace, space.w_None)):
+        if space.is_w(w_trace, space.w_None):
             self.w_f_trace = None
         else:
             self.w_f_trace = w_trace

@@ -240,7 +240,7 @@ class DescrOperation:
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_where(w_obj1, '__pow__')
-        if space.is_true(space.is_(w_typ1, w_typ2)):
+        if space.is_w(w_typ1, w_typ2):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_where(w_obj2, '__rpow__')
@@ -286,7 +286,7 @@ class DescrOperation:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
-            if space.is_true(space.eq(w_next, w_item)):
+            if space.eq_w(w_next, w_item):
                 return space.w_True
     
     def hash(space, w_obj):
@@ -332,7 +332,7 @@ class DescrOperation:
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_where(w_obj1, '__coerce__')
-        if space.is_true(space.is_(w_typ1, w_typ2)):
+        if space.is_w(w_typ1, w_typ2):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_where(w_obj2, '__coerce__')
@@ -366,7 +366,7 @@ class DescrOperation:
 # helpers
 
 def _check_notimplemented(space, w_obj):
-    return not space.is_true(space.is_(w_obj, space.w_NotImplemented))
+    return not space.is_w(w_obj, space.w_NotImplemented)
 
 def _invoke_binop(space, w_impl, w_obj1, w_obj2):
     if w_impl is not None:
@@ -389,7 +389,7 @@ def _cmp(space, w_obj1, w_obj2):
     w_left_src, w_left_impl = space.lookup_where(w_obj1, '__cmp__')
     do_neg1 = False
     do_neg2 = True
-    if space.is_true(space.is_(w_typ1, w_typ2)):
+    if space.is_w(w_typ1, w_typ2):
         w_right_impl = None
     else:
         w_right_src, w_right_impl = space.lookup_where(w_obj2, '__cmp__')
@@ -405,13 +405,13 @@ def _cmp(space, w_obj1, w_obj2):
     if w_res is not None:
         return _conditional_neg(space, w_res, do_neg2)
     # fall back to internal rules
-    if space.is_true(space.is_(w_obj1, w_obj2)):
+    if space.is_w(w_obj1, w_obj2):
         return space.wrap(0)
-    if space.is_true(space.is_(w_obj1, space.w_None)):
+    if space.is_w(w_obj1, space.w_None):
         return space.wrap(-1)
-    if space.is_true(space.is_(w_obj2, space.w_None)):
+    if space.is_w(w_obj2, space.w_None):
         return space.wrap(1)
-    if space.is_true(space.is_(w_typ1, w_typ2)):
+    if space.is_w(w_typ1, w_typ2):
         w_id1 = space.id(w_obj1)
         w_id2 = space.id(w_obj2)
     else:
@@ -430,7 +430,7 @@ def _make_binop_impl(symbol, specialnames):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_where(w_obj1, left)
-        if space.is_true(space.is_(w_typ1, w_typ2)):
+        if space.is_w(w_typ1, w_typ2):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_where(w_obj2, right)
@@ -458,7 +458,7 @@ def _make_comparison_impl(symbol, specialnames):
         w_first = w_obj1
         w_second = w_obj2
         
-        if space.is_true(space.is_(w_typ1, w_typ2)):
+        if space.is_w(w_typ1, w_typ2):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_where(w_obj2, right)

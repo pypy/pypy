@@ -167,7 +167,7 @@ class ExecutionContext:
             try:
                 try:
                     w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
-                    if space.is_true(space.is_(w_result, space.w_None)):
+                    if space.is_w(w_result, space.w_None):
                         frame.w_f_trace = None
                     else:
                         frame.w_f_trace = w_result

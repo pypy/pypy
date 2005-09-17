@@ -172,7 +172,7 @@ def importhook(space, modulename, w_globals=None,
               space.wrap("__import__() argument 1 must be string" + helper))
     w = space.wrap
 
-    if w_globals is not None and not space.is_true(space.is_(w_globals, space.w_None)):
+    if w_globals is not None and not space.is_w(w_globals, space.w_None):
         ctxt_w_name = try_getitem(space, w_globals, w('__name__'))
         ctxt_w_path = try_getitem(space, w_globals, w('__path__'))
     else:
@@ -192,7 +192,7 @@ def importhook(space, modulename, w_globals=None,
         if rel_modulename is not None:
             w_mod = check_sys_modules(space, w(rel_modulename))
             if (w_mod is None or
-                not space.is_true(space.is_(w_mod,space.w_None))):
+                not space.is_w(w_mod, space.w_None)):
                 
                 w_mod = absolute_import(space, rel_modulename,
                                         len(ctxt_name_prefix_parts),
@@ -256,7 +256,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
     w_modulename = w(modulename)
     w_mod = check_sys_modules(space, w_modulename)
     if w_mod is not None:
-        if not space.is_true(space.is_(w_mod, space.w_None)):
+        if not space.is_w(w_mod, space.w_None):
             return w_mod
     else:
         w_mod = space.sys.getmodule(modulename) 

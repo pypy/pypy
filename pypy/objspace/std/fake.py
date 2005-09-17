@@ -203,7 +203,7 @@ class W_FakeDescriptor(Wrappable):
 
     def descr_descriptor_get(space, descr, w_obj, w_cls=None):
         # XXX HAAAAAAAAAAAACK (but possibly a good one)
-        if w_obj == space.w_None and not space.is_true(space.is_(w_cls, space.type(space.w_None))):
+        if w_obj == space.w_None and not space.is_w(w_cls, space.type(space.w_None)):
             #print descr, w_obj, w_cls
             return space.wrap(descr)
         else:

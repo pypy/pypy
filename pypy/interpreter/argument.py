@@ -132,8 +132,7 @@ class Arguments:
         # self.match_signature() assumes that it can use it directly for
         # a matching *arg in the callee's signature.
         if self.w_stararg is not None:
-            if not space.is_true(space.is_(space.type(self.w_stararg),
-                                           space.w_tuple)):
+            if not space.is_w(space.type(self.w_stararg), space.w_tuple):
                 self.unpack()
         try:
             return self.match_signature(signature, defaults_w)
