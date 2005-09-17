@@ -647,7 +647,29 @@ class PyInterpFrame(pyframe.PyFrame):
         f.valuestack.push(w_result)
 
     def CALL_FUNCTION(f, oparg):
-        f.call_function(oparg)
+        # XXX start of hack for performance
+        if oparg == 1:    # 1 arg, 0 keyword arg
+            w_arg = f.valuestack.pop()
+            w_function = f.valuestack.pop()
+            w_result = f.space.call_function(w_function, w_arg)
+            f.valuestack.push(w_result)
+        elif oparg == 2:    # 2 args, 0 keyword arg
+            w_arg2 = f.valuestack.pop()
+            w_arg1 = f.valuestack.pop()
+            w_function = f.valuestack.pop()
+            w_result = f.space.call_function(w_function, w_arg1, w_arg2)
+            f.valuestack.push(w_result)
+        elif oparg == 3:    # 3 args, 0 keyword arg
+            w_arg3 = f.valuestack.pop()
+            w_arg2 = f.valuestack.pop()
+            w_arg1 = f.valuestack.pop()
+            w_function = f.valuestack.pop()
+            w_result = f.space.call_function(w_function, w_arg1, w_arg2, w_arg3)
+            f.valuestack.push(w_result)
+        # XXX end of hack for performance
+        else:
+            # general case
+            f.call_function(oparg)
 
     def CALL_FUNCTION_VAR(f, oparg):
         w_varargs = f.valuestack.pop()

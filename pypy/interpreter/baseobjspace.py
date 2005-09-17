@@ -464,6 +464,25 @@ class ObjSpace(object):
         return self.call_args(w_callable, args)
 
     def call_function(self, w_func, *args_w):
+        # XXX start of hack for performance
+        from pypy.interpreter.function import Function
+        if isinstance(w_func, Function):
+            if len(args_w) == 1:
+                w_res = w_func.code.fastcall_1(self, args_w[0])
+                if w_res is not None:
+                    return w_res
+            elif len(args_w) == 2:
+                w_res = w_func.code.fastcall_2(self, args_w[0], args_w[1])
+                if w_res is not None:
+                    return w_res
+            elif len(args_w) == 3:
+                w_res = w_func.code.fastcall_3(self, args_w[0],
+                                               args_w[1], args_w[2])
+                if w_res is not None:
+                    return w_res
+            args = Arguments(self, list(args_w))
+            return w_func.call_args(args)
+        # XXX end of hack for performance
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
