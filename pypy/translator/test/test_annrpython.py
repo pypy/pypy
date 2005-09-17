@@ -1715,7 +1715,22 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeIterator)
         assert s.variant == ('items',)
         
-
+    def test_non_none_and_none_with_isinstance(self):
+        class A(object):
+            pass
+        class B(A):
+            pass
+        def g(x):
+            if isinstance(x, A):
+                return x
+            return None
+        def f():
+            g(B())
+            return g(None)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == B
+        
 def g(n):
     return [0,1,2,n]
 
