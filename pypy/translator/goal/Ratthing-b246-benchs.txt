@@ -1,0 +1,8 @@
+executable                     abs.richards   abs.pystone   rel.richards   rel.pystone
+./pypy-c-BNthGeni17627           22770 ms        1075.270      34.5           46.0
+./pypy-c-BNthGeni17631           23801 ms        1156.070      36.1           42.8
+./pypy-c-BNthGeni17640           24124 ms        1142.860      36.6           43.3
+./pypy-c-BNthLowm17627           30187 ms         696.864      45.7           71.0
+./pypy-c-BNthLowm17631           29780 ms         711.744      45.1           69.6
+./pypy-c-BNthLowm17640           28996 ms         751.880      43.9           65.8
+python 2.3.5                       660 ms       49505.000       1.0            1.0
