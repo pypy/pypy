@@ -2,7 +2,7 @@
 """
 
 from pypy.interpreter import eval, baseobjspace, gateway
-from pypy.interpreter.miscutils import Stack
+from pypy.interpreter.miscutils import Stack, FixedStack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 import opcode
@@ -39,7 +39,13 @@ class PyFrame(eval.EvalFrame):
     def __init__(self, space, code, w_globals, closure):
         self.pycode = code
         eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
-        self.valuestack = Stack()
+        # XXX hack: FlowSpace directly manipulates stack
+        # cannot use FixedStack without rewriting framestate
+        if space.full_exceptions:
+            self.valuestack = FixedStack()
+            self.valuestack.setup(code.co_stacksize)
+        else:
+            self.valuestack = Stack()
         self.blockstack = Stack()
         self.last_exception = None
         self.next_instr = 0
