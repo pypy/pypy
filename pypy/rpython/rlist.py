@@ -377,10 +377,22 @@ def _ll_list_resize(l, newsize):
     # the allocated size, then proceed with the realloc() to shrink the list.
     allocated = len(l.items)
     if allocated >= newsize and newsize >= ((allocated >> 1) - 5):
-        # assert l.ob_item != NULL or newsize == 0
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
+
+def _ll_list_resize_ge(l, newsize):
+    if len(l.items) >= newsize:
+        l.length = newsize
+    else:
+        _ll_list_resize_really(l, newsize)
+
+def _ll_list_resize_le(l, newsize):
+    if newsize >= (len(l.items) >> 1) - 5:
+        l.length = newsize
+    else:
+        _ll_list_resize_really(l, newsize)
+
 
 def ll_copy(l):
     items = l.items
@@ -402,13 +414,13 @@ def ll_list_is_true(l):
 
 def ll_append(l, newitem):
     length = l.length
-    _ll_list_resize(l, length+1)
+    _ll_list_resize_ge(l, length+1)
     l.items[length] = newitem
 
 # this one is for the special case of insert(0, x)
 def ll_prepend(l, newitem):
     length = l.length
-    _ll_list_resize(l, length+1)
+    _ll_list_resize_ge(l, length+1)
     i = length
     items = l.items
     i1 = i+1
@@ -420,7 +432,7 @@ def ll_prepend(l, newitem):
 
 def ll_insert_nonneg(l, index, newitem):
     length = l.length
-    _ll_list_resize(l, length+1)
+    _ll_list_resize_ge(l, length+1)
     items = l.items
     i = length
     i1 = i+1
@@ -458,7 +470,7 @@ def ll_pop_default(func, l):
     ITEM = typeOf(l).TO.items.TO.OF
     if isinstance(ITEM, Ptr):
         items[index] = nullptr(ITEM.TO)
-    _ll_list_resize(l, newlength)
+    _ll_list_resize_le(l, newlength)
     return res
 
 def ll_pop_zero(func, l):
@@ -477,7 +489,7 @@ def ll_pop_zero(func, l):
     ITEM = typeOf(l).TO.items.TO.OF
     if isinstance(ITEM, Ptr):
         items[newlength] = nullptr(ITEM.TO)
-    _ll_list_resize(l, newlength)
+    _ll_list_resize_le(l, newlength)
     return res
 
 def ll_pop(func, l, index):
@@ -543,7 +555,7 @@ def ll_delitem_nonneg(func, l, index):
     ITEM = typeOf(l).TO.items.TO.OF
     if isinstance(ITEM, Ptr):
         items[newlength] = nullptr(ITEM.TO)
-    _ll_list_resize(l, newlength)
+    _ll_list_resize_le(l, newlength)
 
 def ll_delitem(func, l, i):
     if i < 0:
@@ -575,7 +587,7 @@ def ll_extend(l1, l2):
     len1 = l1.length
     len2 = l2.length
     newlength = len1 + len2
-    _ll_list_resize(l1, newlength)
+    _ll_list_resize_ge(l1, newlength)
     items = l1.items
     source = l2.items
     i = 0
@@ -643,7 +655,7 @@ def ll_listdelslice_startonly(l, start):
         while j >= newlength:
             items[j] = nullptr(ITEM.TO)
             j -= 1
-    _ll_list_resize(l, newlength)
+    _ll_list_resize_le(l, newlength)
 
 def ll_listdelslice(l, slice):
     start = slice.start
@@ -664,7 +676,7 @@ def ll_listdelslice(l, slice):
         while j >= newlength:
             items[j] = nullptr(ITEM.TO)
             j -= 1
-    _ll_list_resize(l, newlength)
+    _ll_list_resize_le(l, newlength)
 
 def ll_listsetslice(l1, slice, l2):
     count = l2.length
