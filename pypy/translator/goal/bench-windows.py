@@ -4,15 +4,19 @@
 
 current_result = """
 executable           abs.richards   abs.pystone   rel.richards   rel.pystone
-pypy-c-17439           35131 ms         664.546      42.1           61.3
-pypy-c-17512           45805 ms         682.501      54.9           59.7
-pypy-c-17516           37934 ms         727.160      45.5           56.0
-pypy-c-17545-intern    34299 ms         795.603      41.1           51.2
-pypy-c-17572           36121 ms         785.060      43.3           51.9
-pypy-c-17600           26348 ms         932.547      31.6           43.7
-pypy-c-17623-32_4      24825 ms        1010.910      29.8           40.3
-pypy-c-17634           20069 ms        1018.520      24.1           40.0
-python 2.3.3             834 ms       40719.600       1.0            1.0
+pypy-c-17439           35180 ms         661.339      41.9           59.7
+pypy-c-17512           46007 ms         659.205      54.8           59.9
+pypy-c-17516           37944 ms         704.839      45.2           56.0
+pypy-c-17545-intern    34309 ms         764.987      40.8           51.6
+pypy-c-17572           36061 ms         736.094      42.9           53.7
+pypy-c-17600           26348 ms         901.957      31.4           43.8
+pypy-c-17623-32_4      24734 ms         970.845      29.4           40.7
+pypy-c-17634           20088 ms        1018.240      23.9           38.8
+pypy-c-17649           22902 ms        1018.300      27.3           38.8
+python 2.3.3             840 ms       39500.600       1.0            1.0
+
+17649 was with explicit fixed stack.
+Changes after 17634 we not included.
 """
 
 import os, sys
