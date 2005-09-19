@@ -1,5 +1,8 @@
 from pypy.translator.unsimplify import split_block
-from pypy.objspace.flow.model import Block, flatten
+from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
+        last_exception, flatten, SpaceOperation
+from pypy.annotation import model as annmodel
+from pypy.rpython.lltype import Bool, Ptr
 
 
 def create_exception_handling(translator, graph):
@@ -9,9 +12,43 @@ def create_exception_handling(translator, graph):
     from the current graph with an unused value (false/0/0.0/null).
     Because of the added exitswitch we need an additional block.
     """
+    e = translator.rtyper.getexceptiondata()
     blocks = [x for x in flatten(graph) if isinstance(x, Block)]
     for block in blocks:
-        for i in range(len(block.operations)-1, -1, -1):
+        last_operation = len(block.operations)-1
+        if block.exitswitch == Constant(last_exception):
+            last_operation -= 1
+        for i in range(last_operation, -1, -1):
             op = block.operations[i]
-            if op.opname == 'direct_call':
-                split_block(translator, graph, block, i)
+            if op.opname != 'direct_call':
+                continue
+            called_can_raise = True #XXX maybe we even want a list of possible exceptions
+            if not called_can_raise:
+                continue
+
+            afterblock = split_block(translator, graph, block, i+1)
+
+            res = Variable()
+            res.concretetype = Bool
+            translator.annotator.bindings[res] = annmodel.SomeBool()
+
+            etype = Variable('etype')
+            etype.concretetype = e.lltype_of_exception_type
+            translator.annotator.bindings[etype] = e.lltype_of_exception_type
+
+            #XXX better use 'load()' and instantiate '%last_exception_type' (here maybe?)
+            block.operations.append(SpaceOperation("last_exception_type_ptr", [], etype))
+            block.operations.append(SpaceOperation("ptr_iszero", [etype], res))
+
+            block.exitswitch = res
+
+            #non-exception case
+            block.exits[0].exitcase = block.exits[0].llexitcase = True
+
+            #exception occurred case
+            noresulttype = graph.returnblock.inputargs[0].concretetype
+            noresult     = Constant(noresulttype._defl(), noresulttype)
+            l = Link([noresult], graph.returnblock)
+            l.prevblock  = block
+            l.exitcase   = l.llexitcase = False
+            block.exits.insert(0, l)    #False case needs to go first
