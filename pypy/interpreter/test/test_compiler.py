@@ -10,9 +10,9 @@ class BaseTestCompiler:
     def setup_method(self, method):
         self.compiler = self.space.createcompiler()
 
-    def eval_string(self, string):
+    def eval_string(self, string, kind='eval'):
         space = self.space
-        code = self.compiler.compile(string, '<>', 'eval', 0)
+        code = self.compiler.compile(string, '<>', kind, 0)
         return code.exec_code(space, space.newdict([]), space.newdict([]))
 
     def test_compile(self):
@@ -180,6 +180,21 @@ class BaseTestCompiler:
         ex = e.value
         ex.normalize_exception(self.space)
         assert ex.match(self.space, self.space.w_UnicodeError)
+
+    def test_argument_handling(self):
+        for expr in 'lambda a,a:0', 'lambda a,a=1:0', 'lambda a=1,a=1:0':
+            e = py.test.raises(OperationError, self.eval_string, expr)
+            ex = e.value
+            ex.normalize_exception(self.space)
+            assert ex.match(self.space, self.space.w_SyntaxError)
+
+        for code in 'def f(a, a): pass', 'def f(a = 0, a = 1): pass', 'def f(a): global a; a = 1':
+            e = py.test.raises(OperationError, self.eval_string, code, 'exec')
+            ex = e.value
+            ex.normalize_exception(self.space)
+            assert ex.match(self.space, self.space.w_SyntaxError)
+
+
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):

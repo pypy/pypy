@@ -1212,7 +1212,7 @@ class InteractiveCodeGenerator(CodeGenerator):
         # name.
         node.expr.accept( self )
         self.emit('PRINT_EXPR')
-
+        
 class AbstractFunctionCode(CodeGenerator):
     def __init__(self, space, func, isLambda, class_name, mod):
         self.class_name = class_name
@@ -1222,8 +1222,21 @@ class AbstractFunctionCode(CodeGenerator):
         else:
             assert isinstance(func, ast.Function)
             name = func.name
+        # Find duplicated arguments.
+        argnames = {}
+        for arg in func.argnames:
+            if isinstance(arg, ast.AssName):
+                if arg.name in argnames:
+                    raise SyntaxError("duplicate argument '%s' in function definition" % arg.name)
+                argnames[arg.name] = 1
+            elif isinstance(arg, ast.AssTuple):
+                for name in arg.getArgNames():
+                    if name in argnames:
+                        raise SyntaxError("duplicate argument '%s' in function definition" % arg.name)
+                    argnames[name] = 1
 
         args, hasTupleArg = generateArgList(func.argnames)
+
         graph = pyassem.PyFlowGraph(space, name, func.filename, args,
                                     optimized=self.localsfullyknown,
                                     newlocals=1)
