@@ -80,7 +80,7 @@ def parse_argument(tokens):
             else:
                 last_token = arguments.pop()
                 assert isinstance(last_token, ast.Name) # used by rtyper
-                arguments.append(ast.Keyword(last_token.varname, cur_token))
+                arguments.append(ast.Keyword(last_token.varname, cur_token, last_token.lineno))
                 building_kw = False
                 kw_built = True
             continue
@@ -107,7 +107,7 @@ def parse_argument(tokens):
             expr = arguments[0]
             genexpr_for = parse_genexpr_for(tokens[index:])
             genexpr_for[0].is_outmost = True
-            gexp = ast.GenExpr(ast.GenExprInner(expr, genexpr_for))
+            gexp = ast.GenExpr(ast.GenExprInner(expr, genexpr_for, expr.lineno), expr.lineno)
             arguments[0] = gexp
             break
     return arguments, stararg_token, dstararg_token
@@ -121,7 +121,11 @@ def parse_fpdef(tokens):
     but it can't work with the default compiler.
     We switched to use astcompiler module now
     """
-    top = ast.AssTuple([])
+    if tokens:
+        lineno = tokens[0].lineno
+    else:
+        lineno = -1
+    top = ast.AssTuple([], lineno)
     stack = [ top ]
     tokens_read = 0
     while stack:
@@ -130,7 +134,7 @@ def parse_fpdef(tokens):
         if isinstance(token, TokenObject) and token.name == tok.COMMA:
             continue
         elif isinstance(token, TokenObject) and token.name == tok.LPAR:
-            new_tuple = ast.AssTuple([])
+            new_tuple = ast.AssTuple([], lineno)
             stack[-1].nodes.append( new_tuple )
             stack.append(new_tuple)
         elif isinstance(token, TokenObject) and token.name == tok.RPAR:
@@ -138,7 +142,7 @@ def parse_fpdef(tokens):
         else:
             assert isinstance(token, TokenObject)
             val = token.get_value()
-            stack[-1].nodes.append(ast.AssName(val,consts.OP_ASSIGN))
+            stack[-1].nodes.append(ast.AssName(val,consts.OP_ASSIGN, token.lineno))
     return tokens_read, top
 
 def parse_arglist(tokens):
@@ -221,6 +225,10 @@ def parse_listcomp(tokens):
     list_fors = []
     ifs = []
     index = 0
+    if tokens:
+        lineno = tokens[0].lineno
+    else:
+        lineno = -1
     while index < len(tokens):
         token = tokens[index]
         assert isinstance(token, TokenObject) # rtyper info + check
@@ -234,11 +242,11 @@ def parse_listcomp(tokens):
                 token = tokens[index]
                 assert isinstance(token, TokenObject) # rtyper info
                 if token.get_value() == 'if':
-                    ifs.append(ast.ListCompIf(tokens[index+1]))
+                    ifs.append(ast.ListCompIf(tokens[index+1], token.lineno))
                     index += 2
                 else:
                     break
-            list_fors.append(ast.ListCompFor(ass_node, iterable, ifs))
+            list_fors.append(ast.ListCompFor(ass_node, iterable, ifs, lineno))
             ifs = []
         else:
             assert False, 'Unexpected token: expecting for in listcomp'
@@ -274,6 +282,10 @@ def parse_genexpr_for(tokens):
     genexpr_fors = []
     ifs = []
     index = 0
+    if tokens:
+        lineno = tokens[0].lineno
+    else:
+        lineno = -1
     while index < len(tokens):
         token = tokens[index]
         assert isinstance(token, TokenObject) # rtyper info + check
@@ -287,11 +299,11 @@ def parse_genexpr_for(tokens):
                 token = tokens[index]
                 assert isinstance(token, TokenObject) # rtyper info
                 if token.get_value() == 'if':
-                    ifs.append(ast.GenExprIf(tokens[index+1]))
+                    ifs.append(ast.GenExprIf(tokens[index+1], token.lineno))
                     index += 2
                 else:
                     break
-            genexpr_fors.append(ast.GenExprFor(ass_node, iterable, ifs))
+            genexpr_fors.append(ast.GenExprFor(ass_node, iterable, ifs, lineno))
             ifs = []
         else:
             assert False, 'Unexpected token: expected for in genexpr'
@@ -332,7 +344,7 @@ def to_lvalue(ast_node, flags, lineno):
         #        because of flatten()
         for node in ast_node.nodes:
             nodes.append(to_lvalue(node, flags, lineno))
-        return ast.AssTuple(nodes)
+        return ast.AssTuple(nodes, lineno)
     elif isinstance(ast_node, ast.List):
         nodes = []
         # FIXME: should ast_node.getChildren() but it's not annotable
@@ -515,10 +527,6 @@ def build_atom(builder, nb, lineno):
                 builder.push(ast.List([], top.lineno))
             else:
                 list_node = atoms[1]
-                # XXX lineno is not on *every* child class of ast.Node
-                #     (will probably crash the annotator, but should be
-                #      easily fixed)
-                list_node.lineno = top.lineno
                 builder.push(list_node)
         elif top.name == tok.LBRACE:
             items = []
@@ -538,7 +546,7 @@ def build_atom(builder, nb, lineno):
             if len(atoms) == 1:
                 token = atoms[0]
                 assert isinstance(token, TokenObject)
-                builder.push(ast.Const(parsestr(builder.space, None, token.get_value()), lineno)) # XXX encoding
+                builder.push(ast.Const(parsestr(builder.space, None, token.get_value()), top.lineno)) # XXX encoding
             else:
                 space = builder.space
                 empty = space.wrap('')
@@ -549,7 +557,7 @@ def build_atom(builder, nb, lineno):
                 w_s = space.call_method(empty, 'join', space.newlist(accum))
                 builder.push(ast.Const(w_s, top.lineno))
         elif top.name == tok.BACKQUOTE:
-            builder.push(ast.Backquote(atoms[1]))
+            builder.push(ast.Backquote(atoms[1], atoms[1].lineno))
         else:
             raise TokenError("unexpected tokens", atoms)
 
@@ -598,11 +606,11 @@ def build_term(builder, nb, lineno):
         op_node = atoms[i-1]
         assert isinstance(op_node, TokenObject)
         if op_node.name == tok.STAR:
-            left = ast.Mul( [ left, right ], lineno )
+            left = ast.Mul( [ left, right ], left.lineno )
         elif op_node.name == tok.SLASH:
-            left = ast.Div( [ left, right ], lineno )
+            left = ast.Div( [ left, right ], left.lineno )
         elif op_node.name == tok.PERCENT:
-            left = ast.Mod( [ left, right ], lineno )
+            left = ast.Mod( [ left, right ], left.lineno )
         elif op_node.name == tok.DOUBLESLASH:
             left = ast.FloorDiv( [ left, right ], lineno )
         else:
@@ -618,11 +626,11 @@ def build_arith_expr(builder, nb, lineno):
         op_node = atoms[i-1]
         assert isinstance(op_node, TokenObject)
         if op_node.name == tok.PLUS:
-            left = ast.Add([ left, right ], lineno)
+            left = ast.Add([ left, right ], left.lineno)
         elif op_node.name == tok.MINUS:
-            left = ast.Sub([ left, right ], lineno)
+            left = ast.Sub([ left, right ], left.lineno)
         else:
-            raise ValueError("unexpected token", [atoms[i-1]] )
+            raise ValueError("unexpected token", [atoms[i-1]])
     builder.push( left )
 
 def build_shift_expr(builder, nb, lineno):
@@ -648,7 +656,11 @@ def build_binary_expr(builder, nb, OP, lineno):
     if l==1:
         builder.push(atoms[0])
         return
+    # Here, len(atoms) >= 2
     items = []
+    # Apparently, lineno should be set to the line where
+    # the first OP occurs
+    lineno = atoms[1].lineno
     for i in range(0,l,2): # this is atoms not 1
         items.append(atoms[i])
     builder.push(OP(items, lineno))
@@ -681,7 +693,7 @@ def build_comparison(builder, nb, lineno):
             assert isinstance(token, TokenObject)
             op_name = tok.tok_rpunct.get(token.name, token.get_value())
             ops.append((op_name, atoms[i+1]))
-        builder.push(ast.Compare(atoms[0], ops, lineno))
+        builder.push(ast.Compare(atoms[0], ops, atoms[0].lineno))
 
 def build_comp_op(builder, nb, lineno):
     """comp_op reducing has 2 different cases:
@@ -720,7 +732,7 @@ def build_not_test(builder, nb, lineno):
     if len(atoms) == 1:
         builder.push(atoms[0])
     elif len(atoms) == 2:
-        builder.push(ast.Not(atoms[1], lineno))
+        builder.push(ast.Not(atoms[1], atoms[1].lineno))
     else:
         assert False, "not_test implementation incomplete in not_test"
 
@@ -731,7 +743,11 @@ def build_testlist(builder, nb, lineno):
     return build_binary_expr(builder, nb, ast.Tuple, lineno)
 
 def build_expr_stmt(builder, nb, lineno):
+    """expr_stmt: testlist (augassign testlist | ('=' testlist)*)
+    """
     atoms = get_atoms(builder, nb)
+    if atoms:
+        lineno = atoms[0].lineno
     l = len(atoms)
     if l==1:
         builder.push(ast.Discard(atoms[0], lineno))
@@ -779,9 +795,9 @@ def build_return_stmt(builder, nb, lineno):
     if len(atoms) > 2:
         assert False, "return several stmts not implemented"
     elif len(atoms) == 1:
-        builder.push(ast.Return(ast.Const(builder.wrap_none(), lineno))) # XXX lineno
+        builder.push(ast.Return(ast.Const(builder.wrap_none(), lineno), lineno))
     else:
-        builder.push(ast.Return(atoms[1], lineno)) # XXX lineno
+        builder.push(ast.Return(atoms[1], atoms[0].lineno))
 
 def build_file_input(builder, nb, lineno):
     stmts = []
@@ -948,6 +964,7 @@ def build_listmaker(builder, nb, lineno):
     atoms = get_atoms(builder, nb)
     if len(atoms) >= 2:
         token = atoms[1]
+        lineno = token.lineno
         if isinstance(token, TokenObject):
             if token.get_value() == 'for':
                 # list comp
@@ -985,7 +1002,6 @@ def build_funcdef(builder, nb, lineno):
     """funcdef: [decorators] 'def' NAME parameters ':' suite
     """
     atoms = get_atoms(builder, nb)
-    lineno = atoms[0].lineno
     index = 0
     decorators = []
     decorator_node = None
@@ -1005,6 +1021,7 @@ def build_funcdef(builder, nb, lineno):
         decorator_node = ast.Decorators(decorators, lineno)
     atoms = atoms[index:]
     funcname = atoms[1]
+    lineno = funcname.lineno
     arglist = []
     index = 3
     arglist = slicecut(atoms, 3, -3)
@@ -1114,7 +1131,7 @@ def build_for_stmt(builder, nb, lineno):
     if len(atoms) > 6:
         # skip 'else' and ':'
         else_ = atoms[8]
-    builder.push(ast.For(assign, iterable, body, else_))
+    builder.push(ast.For(assign, iterable, body, else_, atoms[0].lineno))
 
 def build_exprlist(builder, nb, lineno):
     """exprlist: expr (',' expr)* [',']"""
@@ -1309,12 +1326,11 @@ def build_raise_stmt(builder, nb, lineno):
     expr3 = None
     if l >= 2:
         expr1 = atoms[1]
-        lineno = expr1.lineno
         if l >= 4:
             expr2 = atoms[3]
             if l == 6:
                 expr3 = atoms[5]
-    builder.push(ast.Raise(expr1, expr2, expr3, lineno))
+    builder.push(ast.Raise(expr1, expr2, expr3, atoms[0].lineno))
 
 def build_try_stmt(builder, nb, lineno):
     """

@@ -30,7 +30,7 @@ def arglist_equal(left,right):
     return True
 
 
-def nodes_equal(left, right):
+def nodes_equal(left, right, check_lineno=False):
     if not isinstance(left,stable_ast.Node) or not isinstance(right,ast_ast.Node):
         return left==right
     if left.__class__.__name__ != right.__class__.__name__:
@@ -68,6 +68,12 @@ def nodes_equal(left, right):
             return False
         if not r:
             print "Constant mismatch:", left, right
+        if check_lineno:
+            # left is a stablecompiler.ast node which means and stable compiler
+            # doesn't set a lineno on each Node
+            if left.lineno is not None and left.lineno != right.lineno:
+                print "(0) (%s) left: %s, right: %s" % (left, left.lineno, right.lineno)
+                return False
         return True
     else:
         left_nodes = left.getChildren()
@@ -76,7 +82,14 @@ def nodes_equal(left, right):
         print "Number of children mismatch:", left, right 
         return False
     for i,j in zip(left_nodes,right_nodes):
-        if not nodes_equal(i,j):
+        if not nodes_equal(i,j, check_lineno):
+            return False
+    if check_lineno:
+        # left is a stablecompiler.ast node which means and stable compiler
+        # doesn't set a lineno on each Node. 
+        # (stablecompiler.ast.Expression doesn't have a lineno attribute)
+        if hasattr(left, 'lineno') and left.lineno is not None and left.lineno != right.lineno:
+            print "(1) (%s) left: %s, right: %s" % (left, left.lineno, right.lineno)
             return False
     return True
 
@@ -604,7 +617,7 @@ def check_expression(expr, target='single'):
     print 
     print "BUILT:", r1.rule_stack[-1]
     print "-" * 30
-    assert nodes_equal( ast, r1.rule_stack[-1]), 'failed on %r' % (expr)
+    assert nodes_equal(ast, r1.rule_stack[-1], check_lineno=True), 'failed on %r' % (expr)
 
 def test_basic_astgen():
     for family in TESTS:
@@ -648,6 +661,8 @@ SNIPPETS = [
     'snippet_whitespaces.py',
     'snippet_samples.py',
     'snippet_decorators.py',
+    'snippet_listlinenos.py',
+    'snippet_whilelineno.py',
     ]
 
 LIBSTUFF = [
