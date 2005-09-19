@@ -811,10 +811,11 @@ def ll_alloc_and_set(LISTPTR, count, item):
     l = malloc(LISTPTR.TO)
     l.length = count
     l.items = malloc(LISTPTR.TO.items.TO, count)
-    i = 0
-    while i < count:
-        l.items[i] = item
-        i += 1
+    if item: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
+        i = 0
+        while i < count:
+            l.items[i] = item
+            i += 1
     return l
 
 def rtype_alloc_and_set(hop):
