@@ -7,7 +7,7 @@ from grammar import BaseGrammarBuilder, AbstractContext
 from pypy.interpreter.astcompiler import ast, consts
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
-from pypy.interpreter.pyparser.error import SyntaxError, TokenError, ASTError
+from pypy.interpreter.pyparser.error import SyntaxError, TokenError, ASTError, ParseError
 from pypy.interpreter.pyparser.parsestring import parsestr
 
 DEBUG_MODE = 0
@@ -342,7 +342,18 @@ def to_lvalue(ast_node, flags, lineno):
     else:
         # TODO: check type of ast_node and raise according SyntaxError in case
         # of del f()
-        raise ASTError("cannot assign to ", ast_node)
+        # #raise ASTError("cannot assign to %s" % ast_node, ast_node)
+        if isinstance(ast_node, ast.GenExpr):
+            raise ParseError("assign to generator expression not possible",
+                             lineno, 0, '')
+        elif isinstance(ast_node, ast.ListComp):
+            raise ParseError("can't assign to list comprehension",
+                             lineno, 0, '')
+        elif isinstance(ast_node, ast.CallFunc):
+            raise ParseError("can't assign to function call",
+                             lineno, 0, '')            
+        else:
+            raise ASTError("cannot assign to %s" % ast_node, ast_node)
 
 def is_augassign( ast_node ):
     if ( isinstance( ast_node, ast.Name ) or
@@ -726,6 +737,9 @@ def build_expr_stmt(builder, nb, lineno):
     else:
         assert l==3
         lvalue = atoms[0]
+        if isinstance(lvalue, (ast.GenExpr, ast.Tuple)):
+            raise ParseError("augmented assign to tuple literal or generator expression not possible",
+                             lineno, 0, "")
         assert isinstance(op, TokenObject)
         builder.push(ast.AugAssign(lvalue, op.get_name(), atoms[2], lineno))
 
