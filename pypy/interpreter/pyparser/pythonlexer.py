@@ -275,6 +275,7 @@ def generate_tokens(lines, flags):
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
                     continued = 1
+                    lnum -= 1
                 else:
                     if initial in '([{':
                         parenlev = parenlev + 1
