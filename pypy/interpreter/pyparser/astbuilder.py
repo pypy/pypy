@@ -35,7 +35,7 @@ def parse_except_clause(tokens):
         return (4, tokens[1], None, tokens[3])
     else:
         # case 'except Exception, exc: body'
-        return (6, tokens[1], to_lvalue(tokens[3], consts.OP_ASSIGN, lineno), tokens[5])
+        return (6, tokens[1], to_lvalue(tokens[3], consts.OP_ASSIGN), tokens[5])
 
 
 def parse_dotted_names(tokens):
@@ -103,7 +103,7 @@ def parse_argument(tokens):
             break
         elif cur_token.get_value() == 'for':
             if len(arguments) != 1:
-                raise ValueError('SyntaxError("invalid syntax")') # xxx lineno...
+                raise ValueError('SyntaxError("invalid syntax")')
             expr = arguments[0]
             genexpr_for = parse_genexpr_for(tokens[index:])
             genexpr_for[0].is_outmost = True
@@ -234,7 +234,7 @@ def parse_listcomp(tokens):
         assert isinstance(token, TokenObject) # rtyper info + check
         if token.get_value() == 'for':
             index += 1 # skip 'for'
-            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN, token.lineno)
+            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
             index += 2 # skip 'in'
             iterable = tokens[index]
             index += 1
@@ -291,7 +291,7 @@ def parse_genexpr_for(tokens):
         assert isinstance(token, TokenObject) # rtyper info + check
         if token.get_value() == 'for':
             index += 1 # skip 'for'
-            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN, token.lineno)
+            ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
             index += 2 # skip 'in'
             iterable = tokens[index]
             index += 1
@@ -334,7 +334,8 @@ def get_docstring(builder,stmt):
     return doc
     
 
-def to_lvalue(ast_node, flags, lineno):
+def to_lvalue(ast_node, flags):
+    lineno = ast_node.lineno
     if isinstance( ast_node, ast.Name ):
         return ast.AssName(ast_node.varname, flags, lineno)
         # return ast.AssName(ast_node.name, flags)
@@ -343,14 +344,14 @@ def to_lvalue(ast_node, flags, lineno):
         # FIXME: should ast_node.getChildren() but it's not annotable
         #        because of flatten()
         for node in ast_node.nodes:
-            nodes.append(to_lvalue(node, flags, lineno))
+            nodes.append(to_lvalue(node, flags))
         return ast.AssTuple(nodes, lineno)
     elif isinstance(ast_node, ast.List):
         nodes = []
         # FIXME: should ast_node.getChildren() but it's not annotable
         #        because of flatten()
         for node in ast_node.nodes:
-            nodes.append(to_lvalue(node, flags, lineno))
+            nodes.append(to_lvalue(node, flags))
         return ast.AssList(nodes, lineno)
     elif isinstance(ast_node, ast.Getattr):
         expr = ast_node.expr
@@ -512,7 +513,7 @@ def parse_attraccess(tokens):
 ## main reason why build_* functions are not methods of the AstBuilder class
 ##
 
-def build_atom(builder, nb, lineno):
+def build_atom(builder, nb):
     atoms = get_atoms(builder, nb)
     top = atoms[0]
     if isinstance(top, TokenObject):
@@ -569,12 +570,13 @@ def slicecut(lst, first, endskip): # endskip is negative
         return []
     
 
-def build_power(builder, nb, lineno):
+def build_power(builder, nb):
     """power: atom trailer* ['**' factor]"""
     atoms = get_atoms(builder, nb)
     if len(atoms) == 1:
         builder.push(atoms[0])
     else:
+        lineno = atoms[0].lineno
         token = atoms[-2]
         if isinstance(token, TokenObject) and token.name == tok.DOUBLESTAR:
             obj = parse_attraccess(slicecut(atoms, 0, -2))
@@ -583,12 +585,13 @@ def build_power(builder, nb, lineno):
             obj = parse_attraccess(atoms)
             builder.push(obj)
 
-def build_factor(builder, nb, lineno):
+def build_factor(builder, nb):
     atoms = get_atoms(builder, nb)
     if len(atoms) == 1:
         builder.push( atoms[0] )
     elif len(atoms) == 2:
         token = atoms[0]
+        lineno = token.lineno
         if isinstance(token, TokenObject):
             if token.name == tok.PLUS:
                 builder.push( ast.UnaryAdd( atoms[1], lineno) )
@@ -597,7 +600,7 @@ def build_factor(builder, nb, lineno):
             if token.name == tok.TILDE:
                 builder.push( ast.Invert( atoms[1], lineno) )
 
-def build_term(builder, nb, lineno):
+def build_term(builder, nb):
     atoms = get_atoms(builder, nb)
     l = len(atoms)
     left = atoms[0]
@@ -612,12 +615,12 @@ def build_term(builder, nb, lineno):
         elif op_node.name == tok.PERCENT:
             left = ast.Mod( [ left, right ], left.lineno )
         elif op_node.name == tok.DOUBLESLASH:
-            left = ast.FloorDiv( [ left, right ], lineno )
+            left = ast.FloorDiv( [ left, right ], left.lineno )
         else:
             raise TokenError("unexpected token", [atoms[i-1]])
     builder.push( left )
 
-def build_arith_expr(builder, nb, lineno):
+def build_arith_expr(builder, nb):
     atoms = get_atoms(builder, nb)
     l = len(atoms)
     left = atoms[0]
@@ -633,10 +636,11 @@ def build_arith_expr(builder, nb, lineno):
             raise ValueError("unexpected token", [atoms[i-1]])
     builder.push( left )
 
-def build_shift_expr(builder, nb, lineno):
+def build_shift_expr(builder, nb):
     atoms = get_atoms(builder, nb)
     l = len(atoms)
     left = atoms[0]
+    lineno = left.lineno
     for i in range(2,l,2):
         right = atoms[i]
         op_node = atoms[i-1]
@@ -650,7 +654,7 @@ def build_shift_expr(builder, nb, lineno):
     builder.push(left)
 
 
-def build_binary_expr(builder, nb, OP, lineno):
+def build_binary_expr(builder, nb, OP):
     atoms = get_atoms(builder, nb)
     l = len(atoms)
     if l==1:
@@ -666,16 +670,16 @@ def build_binary_expr(builder, nb, OP, lineno):
     builder.push(OP(items, lineno))
     return
 
-def build_and_expr(builder, nb, lineno):
-    return build_binary_expr(builder, nb, ast.Bitand, lineno)
+def build_and_expr(builder, nb):
+    return build_binary_expr(builder, nb, ast.Bitand)
 
-def build_xor_expr(builder, nb, lineno):
-    return build_binary_expr(builder, nb, ast.Bitxor, lineno)
+def build_xor_expr(builder, nb):
+    return build_binary_expr(builder, nb, ast.Bitxor)
 
-def build_expr(builder, nb, lineno):
-    return build_binary_expr(builder, nb, ast.Bitor, lineno)
+def build_expr(builder, nb):
+    return build_binary_expr(builder, nb, ast.Bitor)
 
-def build_comparison(builder, nb, lineno):
+def build_comparison(builder, nb):
     atoms = get_atoms(builder, nb)
     l = len(atoms)
     if l == 1:
@@ -695,7 +699,7 @@ def build_comparison(builder, nb, lineno):
             ops.append((op_name, atoms[i+1]))
         builder.push(ast.Compare(atoms[0], ops, atoms[0].lineno))
 
-def build_comp_op(builder, nb, lineno):
+def build_comp_op(builder, nb):
     """comp_op reducing has 2 different cases:
      1. There's only one token to reduce => nothing to
         do, just re-push it on the stack
@@ -716,6 +720,7 @@ def build_comp_op(builder, nb, lineno):
     # l==2 means 'not in' or 'is not'
     elif l == 2:
         token = atoms[0]
+        lineno = token.lineno
         assert isinstance(token, TokenObject)
         if token.get_value() == 'not':
             builder.push(TokenObject(tok.NAME, 'not in', lineno))
@@ -724,10 +729,10 @@ def build_comp_op(builder, nb, lineno):
     else:
         assert False, "TODO" # uh ?
         
-def build_and_test(builder, nb, lineno):
-    return build_binary_expr(builder, nb, ast.And, lineno)
+def build_and_test(builder, nb):
+    return build_binary_expr(builder, nb, ast.And)
 
-def build_not_test(builder, nb, lineno):
+def build_not_test(builder, nb):
     atoms = get_atoms(builder, nb)
     if len(atoms) == 1:
         builder.push(atoms[0])
@@ -736,18 +741,20 @@ def build_not_test(builder, nb, lineno):
     else:
         assert False, "not_test implementation incomplete in not_test"
 
-def build_test(builder, nb, lineno):
-    return build_binary_expr(builder, nb, ast.Or, lineno)
+def build_test(builder, nb):
+    return build_binary_expr(builder, nb, ast.Or)
     
-def build_testlist(builder, nb, lineno):
-    return build_binary_expr(builder, nb, ast.Tuple, lineno)
+def build_testlist(builder, nb):
+    return build_binary_expr(builder, nb, ast.Tuple)
 
-def build_expr_stmt(builder, nb, lineno):
+def build_expr_stmt(builder, nb):
     """expr_stmt: testlist (augassign testlist | ('=' testlist)*)
     """
     atoms = get_atoms(builder, nb)
     if atoms:
         lineno = atoms[0].lineno
+    else:
+        lineno = -1
     l = len(atoms)
     if l==1:
         builder.push(ast.Discard(atoms[0], lineno))
@@ -757,7 +764,7 @@ def build_expr_stmt(builder, nb, lineno):
     if op.name == tok.EQUAL:
         nodes = []
         for i in range(0,l-2,2):
-            lvalue = to_lvalue(atoms[i], consts.OP_ASSIGN, op.lineno)
+            lvalue = to_lvalue(atoms[i], consts.OP_ASSIGN)
             nodes.append(lvalue)
         rvalue = atoms[-1]
         builder.push( ast.Assign(nodes, rvalue, lineno) )
@@ -765,45 +772,52 @@ def build_expr_stmt(builder, nb, lineno):
     else:
         assert l==3
         lvalue = atoms[0]
-        if isinstance(lvalue, (ast.GenExpr, ast.Tuple)):
+        if isinstance(lvalue, ast.GenExpr) or isinstance(lvalue, ast.Tuple):
             raise ParseError("augmented assign to tuple literal or generator expression not possible",
                              lineno, 0, "")
         assert isinstance(op, TokenObject)
         builder.push(ast.AugAssign(lvalue, op.get_name(), atoms[2], lineno))
 
-def return_one(builder, nb, lineno):
+def return_one(builder, nb):
     atoms = get_atoms(builder, nb)
     l = len(atoms)
     assert l == 1, "missing one node in stack"
     builder.push( atoms[0] )
     return
 
-def build_simple_stmt(builder, nb, lineno):
+def build_simple_stmt(builder, nb):
     atoms = get_atoms(builder, nb)
     l = len(atoms)
     nodes = []
+    if atoms:
+        lineno = atoms[0].lineno
+    else:
+        lineno = -1
     for n in range(0,l,2):
         node = atoms[n]
         if isinstance(node, TokenObject) and node.name == tok.NEWLINE:
-            nodes.append(ast.Discard(ast.Const(builder.wrap_none()), lineno))
+            nodes.append(ast.Discard(ast.Const(builder.wrap_none()), node.lineno))
         else:
             nodes.append(node)
     builder.push(ast.Stmt(nodes, lineno))
 
-def build_return_stmt(builder, nb, lineno):
+def build_return_stmt(builder, nb):
     atoms = get_atoms(builder, nb)
+    lineno = atoms[0].lineno
     if len(atoms) > 2:
         assert False, "return several stmts not implemented"
     elif len(atoms) == 1:
         builder.push(ast.Return(ast.Const(builder.wrap_none(), lineno), lineno))
     else:
-        builder.push(ast.Return(atoms[1], atoms[0].lineno))
+        builder.push(ast.Return(atoms[1], lineno))
 
-def build_file_input(builder, nb, lineno):
+def build_file_input(builder, nb):
     stmts = []
     atoms = get_atoms(builder, nb)
     if atoms:
         lineno = atoms[0].lineno
+    else:
+        lineno = -1
     for node in atoms:
         if isinstance(node, ast.Stmt):
             stmts.extend(node.nodes)
@@ -814,34 +828,36 @@ def build_file_input(builder, nb, lineno):
             continue
         else:
             stmts.append(node)
-    main_stmt = ast.Stmt(stmts)
+    main_stmt = ast.Stmt(stmts, lineno)
     doc = get_docstring(builder,main_stmt)
     return builder.push(ast.Module(doc, main_stmt, lineno))
 
-def build_eval_input(builder, nb, lineno):
+def build_eval_input(builder, nb):
     doc = builder.wrap_none()
     stmts = []
     atoms = get_atoms(builder, nb)
     assert len(atoms)>=1
     return builder.push(ast.Expression(atoms[0]))
 
-def build_single_input(builder, nb, lineno):
+def build_single_input(builder, nb):
     atoms = get_atoms(builder, nb)
     l = len(atoms)
     if l == 1 or l==2:
         atom0 = atoms[0]
         if isinstance(atom0, TokenObject) and atom0.name == tok.NEWLINE:
-            atom0 = ast.Pass(lineno)
+            atom0 = ast.Pass(atom0.lineno)
         elif not isinstance(atom0, ast.Stmt):
-            atom0 = ast.Stmt([atom0], lineno)
+            atom0 = ast.Stmt([atom0], atom0.lineno)
         builder.push(ast.Module(builder.wrap_none(), atom0, atom0.lineno))
     else:
         assert False, "Forbidden path"
 
-def build_testlist_gexp(builder, nb, lineno):
+def build_testlist_gexp(builder, nb):
     atoms = get_atoms(builder, nb)
     if atoms:
         lineno = atoms[0].lineno
+    else:
+        lineno = -1
     l = len(atoms)
     if l == 1:
         builder.push(atoms[0])
@@ -862,15 +878,16 @@ def build_testlist_gexp(builder, nb, lineno):
     builder.push(ast.Tuple(items, lineno))
     return
 
-def build_lambdef(builder, nb, lineno):
+def build_lambdef(builder, nb):
     """lambdef: 'lambda' [varargslist] ':' test"""
     atoms = get_atoms(builder, nb)
+    lineno = atoms[0].lineno
     code = atoms[-1]
     names, defaults, flags = parse_arglist(slicecut(atoms, 1, -2))
     builder.push(ast.Lambda(names, defaults, flags, code, lineno))
 
 
-def build_trailer(builder, nb, lineno):
+def build_trailer(builder, nb):
     """trailer: '(' ')' | '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
     """
     atoms = get_atoms(builder, nb)
@@ -898,7 +915,7 @@ def build_trailer(builder, nb, lineno):
     else:
         assert False, "Trailer reducing implementation incomplete !"
 
-def build_arglist(builder, nb, lineno):
+def build_arglist(builder, nb):
     """
     arglist: (argument ',')* ( '*' test [',' '**' test] |
                                '**' test |
@@ -909,13 +926,16 @@ def build_arglist(builder, nb, lineno):
     arguments, stararg, dstararg = parse_argument(atoms)
     if atoms:
         lineno = atoms[0].lineno
+    else:
+        lineno = -1
     builder.push(ArglistObject(arguments, stararg, dstararg, lineno))
 
 
-def build_subscript(builder, nb, lineno):
+def build_subscript(builder, nb):
     """'.' '.' '.' | [test] ':' [test] [':' [test]] | test"""
     atoms = get_atoms(builder, nb)
     token = atoms[0]
+    lineno = token.lineno
     if isinstance(token, TokenObject) and token.name == tok.DOT:
         # Ellipsis:
         builder.push(ast.Ellipsis(lineno))
@@ -959,7 +979,7 @@ def build_subscript(builder, nb, lineno):
             builder.push(SubscriptObject('subscript', items, lineno))
 
         
-def build_listmaker(builder, nb, lineno):
+def build_listmaker(builder, nb):
     """listmaker: test ( list_for | (',' test)* [','] )"""
     atoms = get_atoms(builder, nb)
     if len(atoms) >= 2:
@@ -980,10 +1000,12 @@ def build_listmaker(builder, nb, lineno):
         index += 2 # skip comas
     if atoms:
         lineno = atoms[0].lineno
+    else:
+        lineno = -1
     builder.push(ast.List(nodes, lineno))
     
 
-def build_decorator(builder, nb, lineno):
+def build_decorator(builder, nb):
     """decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE"""
     atoms = get_atoms(builder, nb)
     nodes = []
@@ -998,13 +1020,14 @@ def build_decorator(builder, nb, lineno):
     obj = parse_attraccess(nodes)
     builder.push(obj)
 
-def build_funcdef(builder, nb, lineno):
+def build_funcdef(builder, nb):
     """funcdef: [decorators] 'def' NAME parameters ':' suite
     """
     atoms = get_atoms(builder, nb)
     index = 0
     decorators = []
     decorator_node = None
+    lineno = atoms[0].lineno
     # the original loop was:
     # while not (isinstance(atoms[index], TokenObject) and atoms[index].get_value() == 'def'):
     #     decorators.append(atoms[index])
@@ -1036,7 +1059,7 @@ def build_funcdef(builder, nb, lineno):
     builder.push(ast.Function(decorator_node, funcname, names, default, flags, doc, code, lineno))
 
 
-def build_classdef(builder, nb, lineno):
+def build_classdef(builder, nb):
     """classdef: 'class' NAME ['(' testlist ')'] ':' suite"""
     atoms = get_atoms(builder, nb)
     lineno = atoms[0].lineno
@@ -1060,7 +1083,7 @@ def build_classdef(builder, nb, lineno):
     doc = get_docstring(builder,body)
     builder.push(ast.Class(classname, basenames, doc, body, lineno))
 
-def build_suite(builder, nb, lineno):
+def build_suite(builder, nb):
     """suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT"""
     atoms = get_atoms(builder, nb)
     if len(atoms) == 1:
@@ -1083,7 +1106,7 @@ def build_suite(builder, nb, lineno):
         builder.push(ast.Stmt(stmts, atoms[0].lineno))
 
 
-def build_if_stmt(builder, nb, lineno):
+def build_if_stmt(builder, nb):
     """
     if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
     """
@@ -1103,26 +1126,26 @@ def build_if_stmt(builder, nb, lineno):
             break # break is not necessary
     builder.push(ast.If(tests, else_, atoms[0].lineno))
 
-def build_pass_stmt(builder, nb, lineno):
+def build_pass_stmt(builder, nb):
     """past_stmt: 'pass'"""
     atoms = get_atoms(builder, nb)
     assert len(atoms) == 1
-    builder.push(ast.Pass(lineno))
+    builder.push(ast.Pass(atoms[0].lineno))
 
 
-def build_break_stmt(builder, nb, lineno):
+def build_break_stmt(builder, nb):
     """past_stmt: 'pass'"""
     atoms = get_atoms(builder, nb)
     assert len(atoms) == 1
-    builder.push(ast.Break(lineno))
+    builder.push(ast.Break(atoms[0].lineno))
 
 
-def build_for_stmt(builder, nb, lineno):
+def build_for_stmt(builder, nb):
     """for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]"""
     atoms = get_atoms(builder, nb)
     else_ = None
     # skip 'for'
-    assign = to_lvalue(atoms[1], consts.OP_ASSIGN, atoms[0].lineno)
+    assign = to_lvalue(atoms[1], consts.OP_ASSIGN)
     # skip 'in'
     iterable = atoms[3]
     # skip ':'
@@ -1133,7 +1156,7 @@ def build_for_stmt(builder, nb, lineno):
         else_ = atoms[8]
     builder.push(ast.For(assign, iterable, body, else_, atoms[0].lineno))
 
-def build_exprlist(builder, nb, lineno):
+def build_exprlist(builder, nb):
     """exprlist: expr (',' expr)* [',']"""
     atoms = get_atoms(builder, nb)
     if len(atoms) <= 2:
@@ -1145,7 +1168,7 @@ def build_exprlist(builder, nb, lineno):
         builder.push(ast.Tuple(names, atoms[0].lineno))
 
 
-def build_while_stmt(builder, nb, lineno):
+def build_while_stmt(builder, nb):
     """while_stmt: 'while' test ':' suite ['else' ':' suite]"""
     atoms = get_atoms(builder, nb)
     else_ = None
@@ -1160,7 +1183,7 @@ def build_while_stmt(builder, nb, lineno):
     builder.push(ast.While(test, body, else_, atoms[0].lineno))
 
 
-def build_import_name(builder, nb, lineno):
+def build_import_name(builder, nb):
     """import_name: 'import' dotted_as_names
 
     dotted_as_names: dotted_as_name (',' dotted_as_name)*
@@ -1201,10 +1224,10 @@ def build_import_name(builder, nb, lineno):
 ##                 atoms[index].name != tok.COMMA:
 ##             index += 1
         index += 1
-    builder.push(ast.Import(names, lineno))
+    builder.push(ast.Import(names, atoms[0].lineno))
 
 
-def build_import_from(builder, nb, lineno):
+def build_import_from(builder, nb):
     """
     import_from: 'from' dotted_name 'import' ('*' | '(' import_as_names ')' | import_as_names)
 
@@ -1245,23 +1268,23 @@ def build_import_from(builder, nb, lineno):
             names.append((name, as_name))
             if index < l: # case ','
                 index += 1
-    builder.push(ast.From(from_name, names, lineno))
+    builder.push(ast.From(from_name, names, atoms[0].lineno))
 
 
-def build_yield_stmt(builder, nb, lineno):
+def build_yield_stmt(builder, nb):
     atoms = get_atoms(builder, nb)
-    builder.push(ast.Yield(atoms[1], lineno))
+    builder.push(ast.Yield(atoms[1], atoms[0].lineno))
 
-def build_continue_stmt(builder, nb, lineno):
+def build_continue_stmt(builder, nb):
     atoms = get_atoms(builder, nb)
-    builder.push(ast.Continue(lineno))
+    builder.push(ast.Continue(atoms[0].lineno))
 
-def build_del_stmt(builder, nb, lineno):
+def build_del_stmt(builder, nb):
     atoms = get_atoms(builder, nb)
-    builder.push(to_lvalue(atoms[1], consts.OP_DELETE, lineno))
+    builder.push(to_lvalue(atoms[1], consts.OP_DELETE))
         
 
-def build_assert_stmt(builder, nb, lineno):
+def build_assert_stmt(builder, nb):
     """assert_stmt: 'assert' test [',' test]"""
     atoms = get_atoms(builder, nb)
     test = atoms[1]
@@ -1271,7 +1294,7 @@ def build_assert_stmt(builder, nb, lineno):
         fail = None
     builder.push(ast.Assert(test, fail, atoms[0].lineno))
 
-def build_exec_stmt(builder, nb, lineno):
+def build_exec_stmt(builder, nb):
     """exec_stmt: 'exec' expr ['in' test [',' test]]"""
     atoms = get_atoms(builder, nb)
     expr = atoms[1]
@@ -1283,7 +1306,7 @@ def build_exec_stmt(builder, nb, lineno):
             glob = atoms[5]
     builder.push(ast.Exec(expr, loc, glob, atoms[0].lineno))
 
-def build_print_stmt(builder, nb, lineno):
+def build_print_stmt(builder, nb):
     """
     print_stmt: 'print' ( '>>' test [ (',' test)+ [','] ] | [ test (',' test)* [','] ] )
     """
@@ -1306,7 +1329,7 @@ def build_print_stmt(builder, nb, lineno):
     else:
         builder.push(ast.Printnl(items, dest, atoms[0].lineno))
 
-def build_global_stmt(builder, nb, lineno):
+def build_global_stmt(builder, nb):
     """global_stmt: 'global' NAME (',' NAME)*"""
     atoms = get_atoms(builder, nb)
     names = []
@@ -1314,10 +1337,10 @@ def build_global_stmt(builder, nb, lineno):
         token = atoms[index]
         assert isinstance(token, TokenObject)
         names.append(token.get_value())
-    builder.push(ast.Global(names, lineno))
+    builder.push(ast.Global(names, atoms[0].lineno))
 
 
-def build_raise_stmt(builder, nb, lineno):
+def build_raise_stmt(builder, nb):
     """raise_stmt: 'raise' [test [',' test [',' test]]]"""
     atoms = get_atoms(builder, nb)
     l = len(atoms)
@@ -1332,7 +1355,7 @@ def build_raise_stmt(builder, nb, lineno):
                 expr3 = atoms[5]
     builder.push(ast.Raise(expr1, expr2, expr3, atoms[0].lineno))
 
-def build_try_stmt(builder, nb, lineno):
+def build_try_stmt(builder, nb):
     """
     try_stmt: ('try' ':' suite (except_clause ':' suite)+ #diagram:break
                ['else' ':' suite] | 'try' ':' suite 'finally' ':' suite)
@@ -1591,7 +1614,7 @@ class AstBuilder(BaseGrammarBuilder):
 ##                 print "ALT:", sym.sym_name[rule.codename], self.rule_stack
             builder_func = ASTRULES.get(rule.codename, None)
             if builder_func:
-                builder_func(self, 1, source._lineno)
+                builder_func(self, 1)
             else:
 ##                 if DEBUG_MODE:
 ##                     print "No reducing implementation for %s, just push it on stack" % (
@@ -1613,7 +1636,7 @@ class AstBuilder(BaseGrammarBuilder):
             builder_func = ASTRULES.get(rule.codename, None)
             if builder_func:
                 # print "REDUCING SEQUENCE %s" % sym.sym_name[rule.codename]
-                builder_func(self, elts_number, source._lineno)
+                builder_func(self, elts_number)
             else:
 ##                 if DEBUG_MODE:
 ##                     print "No reducing implementation for %s, just push it on stack" % (
