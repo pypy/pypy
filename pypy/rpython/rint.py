@@ -289,7 +289,7 @@ class __extend__(IntegerRepr):
         vlist = hop.inputargs(Float)
         return vlist[0]
 
-    def ll_str(i, repr):
+    def ll_str(self, i):
         from pypy.rpython.rstr import STR
         temp = malloc(CHAR_ARRAY, 20)
         len = 0
@@ -316,7 +316,6 @@ class __extend__(IntegerRepr):
             result.chars[j] = temp[len-j-1]
             j += 1
         return result
-    ll_str = staticmethod(ll_str)
 
     def rtype_hex(_, hop):
         varg = hop.inputarg(hop.args_r[0], 0)

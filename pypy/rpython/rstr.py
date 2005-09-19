@@ -203,13 +203,9 @@ class __extend__(StringRepr):
         hop.exception_is_here()
         return hop.gendirectcall(ll_int, v_str, v_base)
 
-    def ll_str(s, r):
-        if typeOf(s) == Char:
-            return ll_chr2str(s)
-        else:
-            return s
-    ll_str = staticmethod(ll_str)
-        
+    def ll_str(self, s):
+        return s
+
     def make_iterator_repr(self):
         return string_iterator_repr
 
@@ -341,17 +337,16 @@ def do_stringformat(hop, sourcevarsrepr):
         if isinstance(thing, tuple):
             code = thing[0]
             vitem, r_arg = argsiter.next()
-            rep = inputconst(Void, r_arg)
             if not hasattr(r_arg, 'll_str'):
                 raise TyperError("ll_str unsupported for: %r" % r_arg)
             if code == 's' or (code == 'r' and isinstance(r_arg, InstanceRepr)):
-                vchunk = hop.gendirectcall(r_arg.ll_str, vitem, rep)
+                vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
             elif code == 'd':
                 assert isinstance(r_arg, IntegerRepr)
-                vchunk = hop.gendirectcall(r_arg.ll_str, vitem, rep)
+                vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
             elif code == 'f':
                 #assert isinstance(r_arg, FloatRepr)
-                vchunk = hop.gendirectcall(r_arg.ll_str, vitem, rep)
+                vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
             elif code == 'x':
                 assert isinstance(r_arg, IntegerRepr)
                 vchunk = hop.gendirectcall(rint.ll_int2hex, vitem,
@@ -398,6 +393,9 @@ class __extend__(CharRepr):
 
     def get_ll_hash_function(self):
         return ll_char_hash
+
+    def ll_str(self, ch):
+        return ll_chr2str(ch)
 
     def rtype_len(_, hop):
         return hop.inputconst(Signed, 1)

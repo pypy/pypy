@@ -134,7 +134,7 @@ class __extend__(FloatRepr):
 
     rtype_float = rtype_pos
 
-    def ll_str(f, repr):
+    def ll_str(self, f):
         pyfloat = pyfloat_fromdouble_ptr(f)
         pystring = pyobject_str_ptr(pyfloat)
         stringsize = pystring_size_ptr(pystring)
@@ -144,8 +144,6 @@ class __extend__(FloatRepr):
         tollchararray_ptr(pystring, ret.chars)
 
         return ret
-        
-    ll_str = staticmethod(ll_str)
 
 PyObjectPtr = Ptr(PyObject)
 

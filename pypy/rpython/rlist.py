@@ -170,15 +170,15 @@ class ListRepr(Repr):
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
 
-    def ll_str(l, listrepr):
+    def ll_str(self, l):
         items = l.items
         length = l.length
-        item_repr = listrepr.item_repr
+        item_repr = self.item_repr
 
         temp = malloc(TEMP, length)
         i = 0
         while i < length:
-            temp[i] = item_repr.ll_str(items[i], item_repr)
+            temp[i] = item_repr.ll_str(items[i])
             i += 1
 
         return rstr.ll_strconcat(
@@ -187,8 +187,7 @@ class ListRepr(Repr):
                                            length,
                                            temp),
                               rstr.list_str_close_bracket))
-    ll_str = staticmethod(ll_str)
-    
+
 
 class __extend__(pairtype(ListRepr, Repr)):
 

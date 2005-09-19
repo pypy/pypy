@@ -282,6 +282,11 @@ class MethodOfFrozenPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.function = s_pbc.prebuiltinstances.keys()[0].im_func
+        # a hack to force the underlying function to show up in call_families
+        # (generally not needed, as normalizecalls() should ensure this,
+        # but needed for bound methods that are ll helpers)
+        call_families = rtyper.annotator.getpbccallfamilies()
+        call_families.find((None, self.function))
         im_selves = {}
         for pbc, not_a_classdef in s_pbc.prebuiltinstances.items():
             if pbc is None:

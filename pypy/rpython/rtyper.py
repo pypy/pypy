@@ -728,6 +728,10 @@ class LowLevelOpList(list):
         self.rtyper.call_all_setups()  # compute ForwardReferences now
         dontcare, spec_function = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s)
 
+        # hack for bound methods
+        if hasattr(ll_function, 'im_func'):
+            newargs_v.insert(0, inputconst(Void, ll_function.im_self))
+
         # build the 'direct_call' operation
         f = self.rtyper.getfunctionptr(spec_function)
         c = inputconst(typeOf(f), f)

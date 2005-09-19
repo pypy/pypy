@@ -647,7 +647,7 @@ class InstanceRepr(Repr):
         vinst, = hop.inputargs(self)
         return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
 
-    def ll_str(i, r): # doesn't work for non-gc classes!
+    def ll_str(self, i): # doesn't work for non-gc classes!
         instance = cast_pointer(OBJECTPTR, i)
         from pypy.rpython import rstr
         nameLen = len(instance.typeptr.name)
@@ -659,7 +659,6 @@ class InstanceRepr(Repr):
         return rstr.ll_strconcat(rstr.instance_str_prefix,
                                  rstr.ll_strconcat(nameString,
                                                    rstr.instance_str_suffix))
-    ll_str = staticmethod(ll_str)
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):
