@@ -413,6 +413,9 @@ class PythonAstCompiler(CPythonCompiler):
         except ParseError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))
+        except SyntaxError, e:
+            raise OperationError(space.w_SyntaxError,
+                                 e.wrap_info(space, filename))
 
         try:
             astcompiler.misc.set_filename(filename, ast_tree)

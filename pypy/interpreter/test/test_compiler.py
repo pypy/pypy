@@ -194,7 +194,12 @@ class BaseTestCompiler:
             ex.normalize_exception(self.space)
             assert ex.match(self.space, self.space.w_SyntaxError)
 
-
+    def test_argument_order(self):
+        code = 'def f(a=1, (b, c)): pass'
+        e = py.test.raises(OperationError, self.eval_string, code, 'exec')
+        ex = e.value
+        ex.normalize_exception(self.space)
+        assert ex.match(self.space, self.space.w_SyntaxError)
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):

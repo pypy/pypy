@@ -148,12 +148,15 @@ def parse_arglist(tokens):
     defaults = []
     names = []
     flags = 0
+    first_with_default = -1
     while index < l:
         cur_token = tokens[index]
         index += 1
         if not isinstance(cur_token, TokenObject):
             # XXX: think of another way to write this test
             defaults.append(cur_token)
+            if first_with_default == -1:
+                first_with_default = len(names) - 1
         elif cur_token.name == tok.COMMA:
             # We could skip test COMMA by incrementing index cleverly
             # but we might do some experiment on the grammar at some point
@@ -198,6 +201,15 @@ def parse_arglist(tokens):
         elif cur_token.name == tok.NAME:
             val = cur_token.get_value()
             names.append( ast.AssName( val, consts.OP_ASSIGN ) )
+
+    if first_with_default != -1:
+        num_expected_with_default = len(names) - first_with_default
+        if flags & consts.CO_VARKEYWORDS:
+            num_expected_with_default -= 1
+        if flags & consts.CO_VARARGS:
+            num_expected_with_default -= 1
+        if len(defaults) != num_expected_with_default:
+            raise SyntaxError('non-default argument follows default argument')
     return names, defaults, flags
 
 
