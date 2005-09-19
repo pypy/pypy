@@ -633,12 +633,14 @@ class PyInterpFrame(pyframe.PyFrame):
     def call_function(f, oparg, w_star=None, w_starstar=None):
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
-        keywords = {}
-        for i in range(n_keywords):
-            w_value = f.valuestack.pop()
-            w_key   = f.valuestack.pop()
-            key = f.space.str_w(w_key)
-            keywords[key] = w_value
+        keywords = None
+        if n_keywords:
+            keywords = {}
+            for i in range(n_keywords):
+                w_value = f.valuestack.pop()
+                w_key   = f.valuestack.pop()
+                key = f.space.str_w(w_key)
+                keywords[key] = w_value
         arguments = [f.valuestack.pop() for i in range(n_arguments)]
         arguments.reverse()
         args = Arguments(f.space, arguments, keywords, w_star, w_starstar)

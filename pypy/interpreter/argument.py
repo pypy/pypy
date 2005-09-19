@@ -16,18 +16,18 @@ class Arguments:
 
     blind_arguments = 0
 
-    def __init__(self, space, args_w=[], kwds_w={},
+    def __init__(self, space, args_w=None, kwds_w=None,
                  w_stararg=None, w_starstararg=None):
         self.space = space
-        self.arguments_w = list(args_w)
-        self.kwds_w = kwds_w.copy()
+        self.arguments_w = args_w
+        self.kwds_w = kwds_w
         self.w_stararg = w_stararg
         self.w_starstararg = w_starstararg
 
     def frompacked(space, w_args=None, w_kwds=None):
         """Convenience static method to build an Arguments
            from a wrapped sequence and a wrapped dictionary."""
-        return Arguments(space, w_stararg=w_args, w_starstararg=w_kwds)
+        return Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)
     frompacked = staticmethod(frompacked)
 
     def __repr__(self):
@@ -55,6 +55,8 @@ class Arguments:
             self.arguments_w += self.space.unpackiterable(self.w_stararg)
             self.w_stararg = None
         # --- unpack the ** argument now ---
+        if self.kwds_w is None:
+            self.kwds_w = {}
         if self.w_starstararg is not None:
             space = self.space
             w_starstararg = self.w_starstararg
@@ -63,8 +65,9 @@ class Arguments:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("argument after ** must be "
                                                 "a dictionary"))
-            d = self.kwds_w.copy()   # don't change the original yet,
-                                     # in case something goes wrong
+            # don't change the original yet,
+            # in case something goes wrong               
+            d = self.kwds_w.copy()
             for w_key in space.unpackiterable(w_starstararg):
                 try:
                     key = space.str_w(w_key)
@@ -179,9 +182,13 @@ class Arguments:
                 if name in kwds_w:
                     raise ArgErrMultipleValues(name)
 
-        remainingkwds_w = kwds_w.copy()
+        remainingkwds_w = self.kwds_w
         missing = 0
         if input_argcount < co_argcount:
+            if remainingkwds_w is None:
+                remainingkwds_w = {}
+            else:
+                remainingkwds_w = remainingkwds_w.copy()            
             # not enough args, fill in kwargs or defaults if exists
             def_first = co_argcount - len(defaults_w)
             for i in range(input_argcount, co_argcount):
@@ -209,8 +216,9 @@ class Arguments:
         # collect extra keyword arguments into the **kwarg
         if kwargname is not None:
             w_kwds = self.space.newdict([])
-            for key, w_value in remainingkwds_w.items():
-                self.space.setitem(w_kwds, self.space.wrap(key), w_value)
+            if remainingkwds_w:
+                for key, w_value in remainingkwds_w.items():
+                    self.space.setitem(w_kwds, self.space.wrap(key), w_value)
             scope_w.append(w_kwds)
         elif remainingkwds_w:
             raise ArgErrUnknownKwds(remainingkwds_w)
@@ -223,7 +231,10 @@ class Arguments:
 
     def rawshape(self):
         shape_cnt  = len(self.arguments_w)        # Number of positional args
-        shape_keys = self.kwds_w.keys()           # List of keywords (strings)
+        if self.kwds_w:
+            shape_keys = self.kwds_w.keys()           # List of keywords (strings)
+        else:
+            shape_keys = []
         shape_star = self.w_stararg is not None   # Flag: presence of *arg
         shape_stst = self.w_starstararg is not None # Flag: presence of **kwds
         shape_keys.sort()

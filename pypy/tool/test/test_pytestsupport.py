@@ -31,7 +31,7 @@ def test_myexception(space):
     space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
                   build_pytest_assertion(space))
     try:
-        f.call_args(Arguments([]))
+        f.call_args(Arguments(None, []))
     except OperationError, e:
         assert e.match(space, space.w_AssertionError)
         assert space.unwrap(space.str(e.w_value)) == 'assert 42 == 43'

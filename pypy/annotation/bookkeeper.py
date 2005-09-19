@@ -625,10 +625,10 @@ class Bookkeeper:
     def build_args(self, op, args_s):
         space = RPythonCallsSpace()
         if op == "simple_call":
-            return Arguments(space, args_s)
+            return Arguments(space, list(args_s))
         elif op == "call_args":
             return Arguments.fromshape(space, args_s[0].const, # shape
-                                       args_s[1:])
+                                       list(args_s[1:]))
 
     def get_s_init(self, cls):
         classdef = self.getclassdef(cls)

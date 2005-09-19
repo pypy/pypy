@@ -575,7 +575,7 @@ class ObjSpace(object):
                '''
         """
         w_func = self.fromcache(AppExecCache).getorbuild(source)
-        args = Arguments(self, posargs_w)
+        args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
 
 class AppExecCache(SpaceCache):
