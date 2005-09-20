@@ -482,3 +482,30 @@ def sanity_check_methods(translator):
                         print "Lost method!", name, subcls.cls, cls, subcls.attrs.keys() 
                         lost += 0
     return lost
+
+def graph_footprint(graph):
+    class Counter:
+        blocks = 0
+        links = 0
+        ops = 0
+    count = Counter()
+    def visit(block):
+        if isinstance(block, flowmodel.Block):
+            count.blocks += 1
+            count.ops += len(block.operations)
+        elif isinstance(block, flowmodel.Link):
+            count.links += 1
+    flowmodel.traverse(visit, graph)
+    return count.blocks, count.links, count.ops
+
+# better used before backends opts
+def duplication(t):
+    d = {}
+    funcs = t.flowgraphs.keys()
+    print len(funcs)
+    for f in funcs:
+        fingerprint = f.func_code, graph_footprint(t.flowgraphs[f])
+        d.setdefault(fingerprint  ,[]).append(f)
+    for fingerprint, funcs in d.iteritems():
+        if len(funcs) > 1:
+            print fingerprint[0].co_name, len(funcs)
