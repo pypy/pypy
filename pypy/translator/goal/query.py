@@ -506,6 +506,10 @@ def duplication(t):
     for f in funcs:
         fingerprint = f.func_code, graph_footprint(t.flowgraphs[f])
         d.setdefault(fingerprint  ,[]).append(f)
+    l = []
     for fingerprint, funcs in d.iteritems():
         if len(funcs) > 1:
-            print fingerprint[0].co_name, len(funcs)
+            l.append((fingerprint[0].co_name, len(funcs)))
+    l.sort()
+    for name, c in l:
+        print name, c
