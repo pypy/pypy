@@ -147,7 +147,7 @@ def _floordiv(space, w_int1, w_int2):
         z = ovfcheck(x // y)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("integer division or modulo by zero"))
+                             space.wrap("integer division by zero"))
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer division"))
@@ -168,7 +168,7 @@ def mod__Int_Int(space, w_int1, w_int2):
         z = ovfcheck(x % y)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("integer division or modulo by zero"))
+                             space.wrap("integer modulo by zero"))
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer modulo"))
@@ -181,7 +181,7 @@ def divmod__Int_Int(space, w_int1, w_int2):
         z = ovfcheck(x // y)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("integer division or modulo by zero"))
+                             space.wrap("integer divmod by zero"))
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer modulo"))
