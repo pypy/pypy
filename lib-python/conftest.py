@@ -514,11 +514,7 @@ testmap = [
 
     RegrTest('test_gl.py', enabled=False, dumbtest=1),
     RegrTest('test_glob.py', enabled=True, core=True),
-    RegrTest('test_global.py', enabled=True, core=True, compiler='_stable'),
-        # this fails because it relies on the warnings module 
-        # turning a warning into an exception, but PyPy's
-        # interplevel doesn't call into the app-level warnings
-        # module 
+    RegrTest('test_global.py', enabled=True, core=True, compiler='ast'),
     RegrTest('test_grammar.py', enabled=True, core=True),
     RegrTest('test_grp.py', enabled=False),
         #rev 10840: ImportError: grp
@@ -876,8 +872,9 @@ class ReallyRunFileExternal(py.test.Item):
             pypy_options.append('--oldstyle') 
         if regrtest.uselibfile: 
             pypy_options.append('--uselibfile')
-        if regrtest.compiler:
-            pypy_options.append('--compiler=%s' % regrtest.compiler)
+        #if regrtest.compiler:
+        #    pypy_options.append('--compiler=%s' % regrtest.compiler)
+        pypy_options.append('--compiler=ast')
         pypy_options.extend(
             ['--usemodules=%s' % mod for mod in regrtest.usemodules])
         sopt = " ".join(pypy_options) 
