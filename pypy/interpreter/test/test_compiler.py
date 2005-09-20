@@ -227,6 +227,51 @@ class BaseTestCompiler:
                 ex.normalize_exception(self.space)
                 assert ex.match(self.space, self.space.w_SyntaxError)
 
+    def test_import(self):
+        succeed = [
+            'import sys',
+            'import os, sys',
+            'from __future__ import nested_scopes, generators',
+            'from __future__ import (nested_scopes,\ngenerators)',
+            'from __future__ import (nested_scopes,\ngenerators,)',
+            'from sys import stdin, stderr, stdout',
+            'from sys import (stdin, stderr,\nstdout)',
+            'from sys import (stdin, stderr,\nstdout,)',
+            'from sys import (stdin\n, stderr, stdout)',
+            'from sys import (stdin\n, stderr, stdout,)',
+            'from sys import stdin as si, stdout as so, stderr as se',
+            'from sys import (stdin as si, stdout as so, stderr as se)',
+            'from sys import (stdin as si, stdout as so, stderr as se,)',
+            ]
+        fail = [
+            'import (os, sys)',
+            'import (os), (sys)',
+            'import ((os), (sys))',
+            'import (sys',
+            'import sys)',
+            'import (os,)',
+            'from (sys) import stdin',
+            'from __future__ import (nested_scopes',
+            'from __future__ import nested_scopes)',
+            'from __future__ import nested_scopes,\ngenerators',
+            'from sys import (stdin',
+            'from sys import stdin)',
+            'from sys import stdin, stdout,\nstderr',
+            'from sys import stdin si',
+            'from sys import stdin,'
+            'from sys import (*)',
+            'from sys import (stdin,, stdout, stderr)',
+            'from sys import (stdin, stdout),',
+            ]
+        for stmt in succeed:
+            self.compiler.compile(stmt, 'tmp', 'exec', 0)
+        for stmt in fail:
+            e = py.test.raises(OperationError, self.compiler.compile,
+                               stmt, 'tmp', 'exec', 0)
+            ex = e.value
+            ex.normalize_exception(self.space)
+            assert ex.match(self.space, self.space.w_SyntaxError)
+    
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler

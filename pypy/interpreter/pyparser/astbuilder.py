@@ -1229,9 +1229,9 @@ def build_import_name(builder, nb):
 
 def build_import_from(builder, nb):
     """
-    import_from: 'from' dotted_name 'import' ('*' | '(' import_as_names ')' | import_as_names)
+    import_from: 'from' dotted_name 'import' ('*' | '(' import_as_names [','] ')' | import_as_names)
 
-    import_as_names: import_as_name (',' import_as_name)* [',']
+    import_as_names: import_as_name (',' import_as_name)*
     import_as_name: NAME [NAME NAME]
     """
     atoms = get_atoms(builder, nb)
