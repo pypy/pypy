@@ -3,8 +3,8 @@ export RTYPERORDER=order,module-list.pedronis
 # stopping on the first error
 #python translate_pypy.py -no-c -no-o -text -fork2
 # running it all 
-python translate_pypy.py target_pypy-llvm -text -llvm $*
-#python translate_pypy_new.py targetpypystandalone --backend=llvm --gc=boehm --pygame $*
+#python translate_pypy.py target_pypy-llvm -text -llvm $*
+python translate_pypy_new.py targetpypystandalone --backend=llvm --gc=boehm --pygame --batch --fork=fork2 --lowmem $*
 
 
 # How to work in parallel:
