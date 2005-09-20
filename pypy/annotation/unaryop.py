@@ -420,6 +420,11 @@ class __extend__(SomeChar):
     def method_isalnum(chr):
         return SomeBool()
 
+    def method_islower(chr):
+        return SomeBool()
+
+    def method_isupper(chr):
+        return SomeBool()
 
 class __extend__(SomeUnicodeCodePoint):
 
