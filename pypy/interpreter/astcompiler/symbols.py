@@ -5,6 +5,7 @@ from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
     SC_FREE, SC_CELL, SC_UNKNOWN, SC_DEFAULT
 from pypy.interpreter.astcompiler.misc import mangle, Counter
 from pypy.interpreter.pyparser.error import SyntaxError
+from pypy.interpreter import gateway
 import types
 
 
@@ -210,6 +211,21 @@ class ClassScope(Scope):
     def __init__(self, name, module):
         Scope.__init__(self, name, module, name)
 
+app = gateway.applevel(r'''
+def issue_warning(msg, filename, lineno):
+    import warnings
+    try:
+        warnings.warn_explicit(msg, SyntaxWarning, filename, lineno,
+                               None, None)
+    except SyntaxWarning:
+        raise SyntaxError(msg, filename, lineno)
+''')
+
+_issue_warning = app.interphook('issue_warning')
+def issue_warning(space, msg, filename, lineno):
+    _issue_warning(space, space.wrap(msg), space.wrap(filename),
+                   space.wrap(lineno))
+
 class SymbolVisitor(ast.ASTVisitor):
     def __init__(self, space):
         self.space = space
@@ -400,6 +416,15 @@ class SymbolVisitor(ast.ASTVisitor):
     def visitGlobal(self, node ):
         scope = self.cur_scope()
         for name in node.names:
+            namescope = scope.check_name(name)
+            if namescope == SC_LOCAL:
+                issue_warning(self.space, "name '%s' is assigned to before "
+                              "global declaration" %(name,),
+                              node.filename, node.lineno)
+            elif namescope != SC_GLOBAL and name in scope.uses:
+                issue_warning(self.space, "name '%s' is used prior "
+                              "to global declaration" %(name,),
+                              node.filename, node.lineno)
             scope.add_global(name)
 
     def visitAssign(self, node ):

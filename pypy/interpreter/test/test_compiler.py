@@ -4,6 +4,7 @@ import py
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonCompiler, PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.argument import Arguments
 
 class BaseTestCompiler:
     def setup_method(self, method):
@@ -271,10 +272,45 @@ class BaseTestCompiler:
             ex = e.value
             ex.normalize_exception(self.space)
             assert ex.match(self.space, self.space.w_SyntaxError)
-    
+
+    def test_globals_warnings(self):
+        space = self.space
+        w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
+        w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
+        filter_arg = Arguments(space, [ space.wrap('error') ],
+                       dict(module=space.wrap('<tmp>')))
+                        
+        for code in ('''
+def wrong1():
+    a = 1
+    b = 2
+    global a
+    global b
+''', '''
+def wrong2():
+    print x
+    global x
+''', '''
+def wrong3():
+    print x
+    x = 2
+    global x
+'''):
+
+            space.call_args(w_filterwarnings, filter_arg)
+            e = py.test.raises(OperationError, self.compiler.compile,
+                               code, '<tmp>', 'exec', 0)
+            space.call_method(w_mod, 'resetwarnings') 
+            ex = e.value
+            ex.normalize_exception(space)
+            assert ex.match(space, space.w_SyntaxError)
+                
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler
+
+    def test_globals_warnings(self):
+        py.test.skip('INPROGRES')
 
 class TestPyCCompiler(BaseTestCompiler):
     def setup_method(self, method):
@@ -284,6 +320,9 @@ class TestPurePythonCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = PythonCompiler(self.space)
 
+    def test_globals_warnings(self):
+        py.test.skip('INPROGRES')
+        
 class TestPythonAstCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = PythonAstCompiler(self.space)
