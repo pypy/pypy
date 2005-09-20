@@ -19,7 +19,8 @@ from pypy.objspace.std.objspace import StdObjSpace
 
 def entry_point( s1, s2 ):
     global space
-    return target_ast_compile( space, s1, s2 )
+    pycode = target_ast_compile( space, s1, s2 )
+    return 'target_ast_compile --> %r' % (pycode,)
 
 # _____ Define and setup target ___
 def target(geninterp=True):

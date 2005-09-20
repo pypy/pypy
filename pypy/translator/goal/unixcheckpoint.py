@@ -7,7 +7,7 @@ def restart_process():
 def restartable_point(auto=None):
     while True:
         while True:
-            print '---> Checkpoint: run / restart / quit / pdb ?'
+            print '---> Checkpoint: cont / restart / quit / pdb ?'
             if auto:
                 print 'auto-%s' % (auto,)
                 line = auto
@@ -18,7 +18,7 @@ def restartable_point(auto=None):
                 except (KeyboardInterrupt, EOFError), e:
                     print '(%s ignored)' % e.__class__.__name__
                     continue
-            if line == 'run':
+            if line in ('run', 'cont'):
                 break
             if line == 'quit':
                 raise SystemExit
