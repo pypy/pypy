@@ -33,31 +33,6 @@ class W_StringObject(W_Object):
 registerimplementation(W_StringObject)
 
 
-def _isspace(ch):
-    return ord(ch) in (9, 10, 11, 12, 13, 32)  
-
-def _isdigit(ch):
-    o = ord(ch)
-    return o >= 48 and o <= 57
-
-def _isalpha(ch):
-    o = ord(ch)
-    return (o>=97 and o<=122) or (o>=65 and o<=90)
-
-def _isalnum(ch):
-    o = ord(ch)
-    return (o>=97 and o<=122) \
-        or (o>=65 and o<=90) \
-        or (o>=48 and o<=57)
-
-def _isupper(ch):
-    o = ord(ch)
-    return (o>=65 and o<=90)
-
-def _islower(ch):   
-    o = ord(ch)
-    return (o>=97 and o<=122)
-
 def _is_generic(w_self, fun): 
     space = w_self.space   
     v = w_self._value
@@ -71,32 +46,33 @@ def _is_generic(w_self, fun):
             if not fun(v[idx]):
                 return space.w_False
         return space.w_True
+_is_generic._annspecialcase_ = "specialize:arg1"
 
 def _upper(ch):
-    if _islower(ch):
+    if ch.islower():
         o = ord(ch) - 32
         return chr(o)
     else:
         return ch
     
 def _lower(ch):
-    if _isupper(ch):
+    if ch.isupper():
         o = ord(ch) + 32
         return chr(o)
     else:
         return ch
 
 def str_isspace__String(space, w_self):
-    return _is_generic(w_self, _isspace)
+    return _is_generic(w_self, lambda c: c.isspace())
 
 def str_isdigit__String(space, w_self):
-    return _is_generic(w_self, _isdigit)
+    return _is_generic(w_self, lambda c: c.isdigit())
 
 def str_isalpha__String(space, w_self):
-    return _is_generic(w_self, _isalpha)
+    return _is_generic(w_self, lambda c: c.isalpha())
 
 def str_isalnum__String(space, w_self):
-    return _is_generic(w_self, _isalnum)
+    return _is_generic(w_self, lambda c: c.isalnum())
 
 def str_isupper__String(space, w_self):
     """Return True if all cased characters in S are uppercase and there is
@@ -105,12 +81,12 @@ at least one cased character in S, False otherwise."""
     v = w_self._value
     if len(v) == 1:
         c = v[0]
-        return space.newbool(_isupper(c))
+        return space.newbool(c.isupper())
     cased = False
     for idx in range(len(v)):
-        if _islower(v[idx]):
+        if v[idx].islower():
             return space.w_False
-        elif not cased and _isupper(v[idx]):
+        elif not cased and v[idx].isupper():
             cased = True
     return space.newbool(cased)
 
@@ -121,12 +97,12 @@ at least one cased character in S, False otherwise."""
     v = w_self._value
     if len(v) == 1:
         c = v[0]
-        return space.newbool(_islower(c))
+        return space.newbool(c.islower())
     cased = False
     for idx in range(len(v)):
-        if _isupper(v[idx]):
+        if v[idx].isupper():
             return space.w_False
-        elif not cased and _islower(v[idx]):
+        elif not cased and v[idx].islower():
             cased = True
     return space.newbool(cased)
 
@@ -141,12 +117,12 @@ otherwise."""
 
     for pos in range(0, len(input)):
         ch = input[pos]
-        if _isupper(ch):
+        if ch.isupper():
             if previous_is_cased:
                 return space.w_False
             previous_is_cased = True
             cased = True
-        elif _islower(ch):
+        elif ch.islower():
             if not previous_is_cased:
                 return space.w_False
             cased = True
@@ -178,10 +154,10 @@ def str_swapcase__String(space, w_self):
     res = [' '] * len(self)
     for i in range(len(self)):
         ch = self[i]
-        if _isupper(ch):
+        if ch.isupper():
             o = ord(ch) + 32
             res[i] = chr(o)
-        elif _islower(ch):
+        elif ch.islower():
             o = ord(ch) - 32
             res[i] = chr(o)
         else:
@@ -195,7 +171,7 @@ def str_capitalize__String(space, w_self):
     buffer = [' '] * len(input)
     if len(input) > 0:
         ch = input[0]
-        if _islower(ch):
+        if ch.islower():
             o = ord(ch) - 32
             buffer[0] = chr(o)
         else:
@@ -203,7 +179,7 @@ def str_capitalize__String(space, w_self):
 
         for i in range(1, len(input)):
             ch = input[i]
-            if _isupper(ch):
+            if ch.isupper():
                 o = ord(ch) + 32
                 buffer[i] = chr(o)
             else:
@@ -218,7 +194,7 @@ def str_title__String(space, w_self):
 
     for pos in range(0, len(input)):
         ch = input[pos]
-        if not _isalpha(prev_letter):
+        if not prev_letter.isalpha():
             buffer[pos] = _upper(ch)
         else:
             buffer[pos] = _lower(ch)
@@ -228,36 +204,40 @@ def str_title__String(space, w_self):
     return space.wrap("".join(buffer))
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
-    res = []
-    inword = 0
-    value = w_self._value
     maxsplit = space.int_w(w_maxsplit)
-    pos = 0
-
-    for ch in value:
-        if _isspace(ch):
-            if inword:
-                inword = 0
+    res_w = []
+    value = w_self._value
+    length = len(value)
+    i = 0
+    while True:
+        # find the beginning of the next word
+        while i < length:
+            if not value[i].isspace():
+                break   # found
+            i += 1
         else:
-            if inword:
-                res[-1] += ch
-            else:
-                if maxsplit > -1:
-                    if maxsplit == 0:
-                        res.append(value[pos:])
-                        break
-                    maxsplit = maxsplit - 1
-                res.append(ch)
-                inword = 1
-        pos = pos + 1
+            break  # end of string, finished
 
-    res_w = [None] * len(res)
-    for i in range(len(res)):
-        res_w[i] = W_StringObject(space, res[i])
+        # find the end of the word
+        if maxsplit == 0:
+            j = length   # take all the rest of the string
+        else:
+            j = i + 1
+            while j < length and not value[j].isspace():
+                j += 1
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        # the word is value[i:j]
+        res_w.append(W_StringObject(space, value[i:j]))
+
+        # continue to look from the character following the space after the word
+        i = j + 1
 
     return W_ListObject(space, res_w)
 
+
 def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
+    maxsplit = space.int_w(w_maxsplit)
     res_w = []
     start = 0
     value = w_self._value
@@ -265,61 +245,56 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     bylen = len(by)
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
-    maxsplit = space.int_w(w_maxsplit)
 
-    #if maxsplit is default, then you have no limit
-    #of the length of the resulting array
-    if maxsplit == -1:
-        splitcount = 1
-    else:
-        splitcount = maxsplit
-
-    while splitcount:             
+    while maxsplit != 0:
         next = value.find(by, start)
         if next < 0:
             break
         res_w.append(W_StringObject(space, value[start:next]))
         start = next + bylen
-        #decrese the counter only then, when
-        #we don't have default maxsplit
-        if maxsplit > -1:
-            splitcount = splitcount - 1
+        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
     res_w.append(W_StringObject(space, value[start:]))
 
     return W_ListObject(w_self.space, res_w)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
-    res = []
-    inword = 0
-    value = w_self._value
     maxsplit = space.int_w(w_maxsplit)
-
-    for i in range(len(value)-1, -1, -1):
-        ch = value[i]
-        if _isspace(ch):
-            if inword:
-                inword = 0
+    res_w = []
+    value = w_self._value
+    i = len(value)-1
+    while True:
+        # starting from the end, find the end of the next word
+        while i >= 0:
+            if not value[i].isspace():
+                break   # found
+            i -= 1
         else:
-            if inword:
-                ch = ch + res[-1]
-                res[-1] = ch
-            else:
-                if maxsplit > -1:
-                    if maxsplit == 0:
-                        res.append(value[:i+1])
-                        break
-                    maxsplit = maxsplit - 1
-                res.append(ch)
-                inword = 1
+            break  # end of string, finished
 
-    res_w = [None] * len(res)
-    for i in range(len(res)):
-        res_w[i] = W_StringObject(space, res[i])
+        # find the start of the word
+        # (more precisely, 'j' will be the space character before the word)
+        if maxsplit == 0:
+            j = -1   # take all the rest of the string
+        else:
+            j = i - 1
+            while j >= 0 and not value[j].isspace():
+                j -= 1
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        # the word is value[j+1:i+1]
+        j1 = j + 1
+        assert j1 >= 0
+        res_w.append(W_StringObject(space, value[j1:i+1]))
+
+        # continue to look from the character before the space before the word
+        i = j - 1
+
     res_w.reverse()
     return W_ListObject(space, res_w)
 
 def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
+    maxsplit = space.int_w(w_maxsplit)
     res_w = []
     value = w_self._value
     end = len(value)
@@ -327,25 +302,14 @@ def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     bylen = len(by)
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
-    maxsplit = space.int_w(w_maxsplit)
 
-    #if maxsplit is default, then you have no limit
-    #of the length of the resulting array
-    if maxsplit == -1:
-        splitcount = 1
-    else:
-        splitcount = maxsplit
-
-    while splitcount:
+    while maxsplit != 0:
         next = value.rfind(by, 0, end)
         if next < 0:
             break
         res_w.append(W_StringObject(space, value[next+bylen:end]))
         end = next
-        #decrese the counter only then, when
-        #we don't have default maxsplit
-        if maxsplit > -1:
-            splitcount = splitcount - 1
+        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
     res_w.append(W_StringObject(space, value[:end]))
     res_w.reverse()
@@ -606,11 +570,11 @@ def _strip_none(space, w_self, left, right):
     
     if left:
         #print "while %d < %d and -%s- in -%s-:"%(lpos, rpos, u_self[lpos],w_chars)
-        while lpos < rpos and _isspace(u_self[lpos]):
+        while lpos < rpos and u_self[lpos].isspace():
            lpos += 1
        
     if right:
-        while rpos > lpos and _isspace(u_self[rpos - 1]):
+        while rpos > lpos and u_self[rpos - 1].isspace():
            rpos -= 1
        
     assert rpos >= lpos    # annotator hint, don't remove
