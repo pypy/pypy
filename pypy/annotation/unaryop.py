@@ -411,6 +411,16 @@ class __extend__(SomeChar):
     def method_isspace(chr):
         return SomeBool()
 
+    def method_isdigit(chr):
+        return SomeBool()
+
+    def method_isalpha(chr):
+        return SomeBool()
+
+    def method_isalnum(chr):
+        return SomeBool()
+
+
 class __extend__(SomeUnicodeCodePoint):
 
     def ord(uchr):
