@@ -5,7 +5,6 @@ from pypy.interpreter.pycompiler import CPythonCompiler, PythonCompiler, PythonA
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 
-
 class BaseTestCompiler:
     def setup_method(self, method):
         self.compiler = self.space.createcompiler()
@@ -200,6 +199,33 @@ class BaseTestCompiler:
         ex = e.value
         ex.normalize_exception(self.space)
         assert ex.match(self.space, self.space.w_SyntaxError)
+        
+    def test_debug_assignment(self):
+        code = '__debug__ = 1'
+        e = py.test.raises(OperationError, self.compiler.compile, code, '', 'single', 0)
+        ex = e.value
+        ex.normalize_exception(self.space)
+        assert ex.match(self.space, self.space.w_SyntaxError)
+
+    def test_none_assignment(self):
+        stmts = [
+            'None = 0',
+            'None += 0',
+            '__builtins__.None = 0',
+            'def None(): pass',
+            'class None: pass',
+            '(a, None) = 0, 0',
+            'for None in range(10): pass',
+            'def f(None): pass',
+        ]
+        for stmt in stmts:
+            stmt += '\n'
+            for kind in 'single', 'exec':
+                e = py.test.raises(OperationError, self.compiler.compile, stmt,
+                               '', kind, 0)
+                ex = e.value
+                ex.normalize_exception(self.space)
+                assert ex.match(self.space, self.space.w_SyntaxError)
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):

@@ -214,8 +214,9 @@ class CodeGenerator(ast.ASTVisitor):
         raise RuntimeError, "should be implemented by subclasses"
 
     # Next five methods handle name access
-
     def storeName(self, name):
+        if name in ('None', '__debug__'):
+            raise SyntaxError('assignment to %s is not allowed' % name)
         self._nameOp('STORE', name)
 
     def loadName(self, name):
@@ -228,6 +229,8 @@ class CodeGenerator(ast.ASTVisitor):
         self._nameOp('LOAD', name)
 
     def delName(self, name):
+        if name in ('None', '__debug__'):
+            raise SyntaxError('deleting %s is not allowed' % name)
         scope = self.scope.check_name(name)
         if scope == SC_CELL:
             raise SyntaxError("can not delete variable '%s' "
@@ -895,8 +898,12 @@ class CodeGenerator(ast.ASTVisitor):
     def visitAssAttr(self, node):
         node.expr.accept( self )
         if node.flags == 'OP_ASSIGN':
+            if node.attrname  == 'None':
+                raise SyntaxError('assignment to None is not allowed')
             self.emitop('STORE_ATTR', self.mangle(node.attrname))
         elif node.flags == 'OP_DELETE':
+            if node.attrname == 'None':
+                raise SyntaxError('deleting None is not allowed')
             self.emitop('DELETE_ATTR', self.mangle(node.attrname))
         else:
             assert False, "visitAssAttr unexpected flags: %s" % node.flags            
@@ -1234,6 +1241,8 @@ class AbstractFunctionCode(CodeGenerator):
                     if name in argnames:
                         raise SyntaxError("duplicate argument '%s' in function definition" % arg.name)
                     argnames[name] = 1
+        if 'None' in argnames:
+            raise SyntaxError('assignment to None is not allowed')
 
         args, hasTupleArg = generateArgList(func.argnames)
 
@@ -1279,7 +1288,7 @@ class AbstractFunctionCode(CodeGenerator):
         
         for elt in tup.nodes:
             if isinstance(elt, ast.AssName):
-                self._nameOp('STORE', elt.name)
+                self.storeName(elt.name)
             elif isinstance(elt, ast.AssTuple):
                 self.unpackSequence( elt )
             else:
