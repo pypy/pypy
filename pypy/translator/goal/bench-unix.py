@@ -1,6 +1,6 @@
 # benchmarks on a unix machine.
 # to be executed in the goal folder,
-# where a couple of pypy-c* files is expected.
+# where a couple of pyp-c* files is expected.
 
 import os, sys
 
@@ -39,7 +39,7 @@ def run_richards(executable='python', n=10):
     return res
 
 def get_executables():
-    exes = [os.path.join('.', name) for name in os.listdir('.') if name.startswith('pypy-c')]
+    exes = [os.path.join('.', name) for name in os.listdir('.') if name.startswith('pypy-')]
     exes.sort()
     return exes
 
