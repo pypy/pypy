@@ -62,17 +62,22 @@ def _lower(ch):
     else:
         return ch
 
+_isspace = lambda c: c.isspace()
+_isdigit = lambda c: c.isdigit()
+_isalpha = lambda c: c.isalpha()
+_isalnum = lambda c: c.isalnum()
+
 def str_isspace__String(space, w_self):
-    return _is_generic(w_self, lambda c: c.isspace())
+    return _is_generic(w_self, _isspace)
 
 def str_isdigit__String(space, w_self):
-    return _is_generic(w_self, lambda c: c.isdigit())
+    return _is_generic(w_self, _isdigit)
 
 def str_isalpha__String(space, w_self):
-    return _is_generic(w_self, lambda c: c.isalpha())
+    return _is_generic(w_self, _isalpha)
 
 def str_isalnum__String(space, w_self):
-    return _is_generic(w_self, lambda c: c.isalnum())
+    return _is_generic(w_self, _isalnum)
 
 def str_isupper__String(space, w_self):
     """Return True if all cased characters in S are uppercase and there is
