@@ -114,7 +114,12 @@ class __extend__(StringRepr):
 
     def rtype_method_find(_, hop, reverse=False):
         v_str = hop.inputarg(string_repr, arg=0)
-        v_value = hop.inputarg(string_repr, arg=1)
+        if hop.args_r[1] == char_repr:
+            v_value = hop.inputarg(char_repr, arg=1)
+            llfn = reverse and ll_rfind_char or ll_find_char
+        else:
+            v_value = hop.inputarg(string_repr, arg=1)
+            llfn = reverse and ll_rfind or ll_find
         if hop.nb_args > 2:
             v_start = hop.inputarg(Signed, arg=2)
             if not hop.args_s[2].nonneg:
@@ -127,10 +132,6 @@ class __extend__(StringRepr):
                 raise TyperError("str.find() end must be proven non-negative")
         else:
             v_end = hop.gendirectcall(ll_strlen, v_str)
-        if reverse:
-            llfn = ll_rfind
-        else:
-            llfn = ll_find
         hop.exception_cannot_occur()
         return hop.gendirectcall(llfn, v_str, v_value, v_start, v_end)
 
@@ -408,10 +409,23 @@ class __extend__(CharRepr):
         vlist = hop.inputargs(char_repr)
         return hop.genop('cast_char_to_int', vlist, resulttype=Signed)
 
-    def rtype_method_isspace(_, hop):
+    def _rtype_method_isxxx(_, llfn, hop):
         vlist = hop.inputargs(char_repr)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_char_isspace, vlist[0])
+        return hop.gendirectcall(llfn, vlist[0])
+
+    def rtype_method_isspace(self, hop):
+        return self._rtype_method_isxxx(ll_char_isspace, hop)
+    def rtype_method_isdigit(self, hop):
+        return self._rtype_method_isxxx(ll_char_isdigit, hop)
+    def rtype_method_isalpha(self, hop):
+        return self._rtype_method_isxxx(ll_char_isalpha, hop)
+    def rtype_method_isalnum(self, hop):
+        return self._rtype_method_isxxx(ll_char_isalnum, hop)
+    def rtype_method_isupper(self, hop):
+        return self._rtype_method_isxxx(ll_char_isupper, hop)
+    def rtype_method_islower(self, hop):
+        return self._rtype_method_isxxx(ll_char_islower, hop)
 
 class __extend__(pairtype(CharRepr, IntegerRepr)):
     
@@ -530,10 +544,37 @@ class __extend__(pairtype(StringRepr, PyObjRepr)):
 #  get flowed and annotated, mostly with SomePtr.
 #
 def ll_char_isspace(ch):
-    # XXX: 
-    #return ord(ch) in (9, 10, 11, 12, 13, 32)
     c = ord(ch) 
-    return 9 <= c <= 13 or c == 32 
+    return c == 32 or (c <= 13 and c >= 9)   # c in (9, 10, 11, 12, 13, 32)
+
+def ll_char_isdigit(ch):
+    c = ord(ch)
+    return c <= 57 and c >= 48
+
+def ll_char_isalpha(ch):
+    c = ord(ch)
+    if c >= 97:
+        return c <= 122
+    else:
+        return 65 <= c <= 90
+
+def ll_char_isalnum(ch):
+    c = ord(ch)
+    if c >= 65:
+        if c >= 97:
+            return c <= 122
+        else:
+            return c <= 90
+    else:
+        return 48 <= c <= 57
+
+def ll_char_isupper(ch):
+    c = ord(ch)
+    return 65 <= c <= 90
+
+def ll_char_islower(ch):   
+    c = ord(ch)
+    return 97 <= c <= 122
 
 def ll_char_mul(ch, times):
     newstr = malloc(STR, times)
@@ -678,9 +719,27 @@ def ll_endswith(s1, s2):
 
     return True
 
+def ll_find_char(s, ch, start, end):
+    i = start
+    while i < end:
+        if s.chars[i] == ch:
+            return i
+        i += 1
+    return -1
+
+def ll_rfind_char(s, ch, start, end):
+    i = end
+    while i > start:
+        i -= 1
+        if s.chars[i] == ch:
+            return i
+    return -1
+
 def ll_find(s1, s2, start, end):
     """Knuth Morris Prath algorithm for substring match"""
     len2 = len(s2.chars)
+    if len2 == 1:
+        return ll_find_char(s1, s2.chars[0], start, end)
     if len2 == 0:
         return start
     # Construct the array of possible restarting positions
@@ -723,6 +782,8 @@ def ll_find(s1, s2, start, end):
 def ll_rfind(s1, s2, start, end):
     """Reversed version of ll_find()"""
     len2 = len(s2.chars)
+    if len2 == 1:
+        return ll_rfind_char(s1, s2.chars[0], start, end)
     if len2 == 0:
         return end
     # Construct the array of possible restarting positions

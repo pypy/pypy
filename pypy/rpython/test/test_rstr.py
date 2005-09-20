@@ -109,13 +109,18 @@ def test_char_constant():
     assert res.chars[0] == 'x'
     assert res.chars[1] == '.'
 
-def test_char_isspace():
+def test_char_isxxx():
     def fn(s):
-        return s.isspace() 
-    res = interpret(fn, ['x']) 
-    assert res == False 
-    res = interpret(fn, [' '])
-    assert res == True 
+        return (s.isspace()      |
+                s.isdigit() << 1 |
+                s.isalpha() << 2 |
+                s.isalnum() << 3 |
+                s.isupper() << 4 |
+                s.islower() << 5)
+    for i in range(128):
+        ch = chr(i)
+        res = interpret(fn, [ch])
+        assert res == fn(ch)
 
 def test_char_compare():
     res = interpret(lambda c1, c2: c1 == c2,  ['a', 'b'])
@@ -247,6 +252,15 @@ def test_rfind():
         return 'aaa'.rfind('a') + 'aaa'.rfind('a', 1) + 'aaa'.rfind('a', 1, 2)
     res = interpret(fn, [])
     assert res == 2 + 2 + 1
+
+def test_find_char():
+    def fn(ch):
+        pos1 = 'aiuwraz 483'.find(ch)
+        pos2 = 'aiuwraz 483'.rfind(ch)
+        return pos1 + (pos2*100)
+    for ch in 'a ?3':
+        res = interpret(fn, [ch])
+        assert res == fn(ch)
 
 def test_upper():
     def fn(i):
