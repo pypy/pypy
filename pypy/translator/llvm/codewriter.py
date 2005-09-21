@@ -86,9 +86,6 @@ class CodeWriter(object):
         else:
             self.indent("ret %s %s" % (type_, ref))
 
-    def unwind(self):
-        self.indent("unwind")
-
     def phi(self, targetvar, type_, refs, blocknames): 
         assert targetvar.startswith('%')
         assert refs and len(refs) == len(blocknames), "phi node requires blocks" 
@@ -118,17 +115,12 @@ class CodeWriter(object):
 		tail_ += ' '
         args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
         if except_label:
-            assert label
-            instruction = 'invoke'
-            optional    = ' to label %%%s except label %%%s' % (label, except_label)
+            self.genllvm.exceptionpolicy.invoke(self, targetvar, tail_, cconv, returntype, functionref, args, label, except_label)
         else:
-            assert not label
-            instruction = 'call'
-            optional    = ''
-        if returntype == 'void':
-            self.indent("%s%s %s void %s(%s)%s" % (tail_, instruction, cconv, functionref, args, optional))
-        else:
-            self.indent("%s = %s%s %s %s %s(%s)%s" % (targetvar, tail_, instruction, cconv, returntype, functionref, args, optional))
+            if returntype == 'void':
+                self.indent("%scall %s void %s(%s)" % (tail_, cconv, functionref, args))
+            else:
+                self.indent("%s = %scall %s %s %s(%s)" % (targetvar, tail_, cconv, returntype, functionref, args))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
     	if fromtype == 'void' and targettype == 'void':
