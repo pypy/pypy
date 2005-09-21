@@ -4,21 +4,23 @@
 
 current_result = """
 executable                  abs.richards   abs.pystone   rel.rich   rel.pystone
-pypy-c-17439-hi               35415 ms        620.652      42.6           65.4
-pypy-c-17439-lo               36492 ms        923.530      43.9           44.0
-pypy-c-17600-lo               26542 ms        893.093      31.9           45.5
-pypy-c-17634-lo               20203 ms       1001.520      24.3           40.6
-pypy-c-17649-lo               22792 ms       1028.290      27.4           39.5
-pypy-c-17674-hi               15927 ms       1934.000      19.1           21.0
-pypy-c-17674-lo               17009 ms       1283.800      20.4           31.6
-pypy-c-17707-hi               15942 ms       1971.950      19.2           20.6
-python 2.3.3                    832 ms      40612.100       1.0            1.0
+pypy-c-17439-hi               35135 ms        674.191      42.4           60.7
+pypy-c-17439-lo               36062 ms        972.900      43.6           42.1
+pypy-c-17600-lo               26357 ms        905.379      31.8           45.2
+pypy-c-17634-lo               20098 ms       1016.890      24.3           40.3
+pypy-c-17649-lo               22637 ms       1041.480      27.3           39.3
+pypy-c-17674-hi               15812 ms       2114.430      19.1           19.4
+pypy-c-17674-lo               19253 ms       1356.470      23.3           30.2
+pypy-c-17707-hi-range         14265 ms       2906.260      17.2           14.1
+pypy-c-17707-hi               14105 ms       2120.210      17.0           19.3
+pypy-c-17707-lo-range         18701 ms       2834.690      22.6           14.4
+pypy-c-17707-lo               19042 ms       1357.690      23.0           30.2
+python 2.3.3                    828 ms      40934.500       1.0            1.0
 
-This time, more comparisons between -t-lowmem and without it (using geninterp
-as much as possible) were done. It is interesting how much translation of
-geninterp'ed code is accelerated, now. Note that range() is still at applevel,
-but very efficiently translated. It will anyway be moved to interplevel
-next time, it is too frequently used.
+After implementing range at interp-level, results have changed
+quite dramatically. Revision 17707 runs everywhere fastest
+without the -t-lowmem option. This is probably different on machines
+with less than 2 MB of L2-cache.
 """
 
 import os, sys
