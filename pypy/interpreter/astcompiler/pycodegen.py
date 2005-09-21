@@ -1238,7 +1238,7 @@ class AbstractFunctionCode(CodeGenerator):
             elif isinstance(arg, ast.AssTuple):
                 for name in arg.getArgNames():
                     if name in argnames:
-                        raise SyntaxError("duplicate argument '%s' in function definition" % arg.name)
+                        raise SyntaxError("duplicate argument '%s' in function definition" % name)
                     argnames[name] = 1
         if 'None' in argnames:
             raise SyntaxError('assignment to None is not allowed')
