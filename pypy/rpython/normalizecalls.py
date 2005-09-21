@@ -324,8 +324,12 @@ def create_class_constructors(rtyper):
 
 def create_instantiate_functions(annotator):
     # build the 'instantiate() -> instance of C' functions for the vtables
+
+    needs_generic_instantiate = annotator.bookkeeper.needs_generic_instantiate
+    
     for cls, classdef in annotator.getuserclasses().items():
-        if needsgc(classdef): # only gc-case
+        if cls in needs_generic_instantiate:
+            assert needsgc(classdef) # only gc-case            
             create_instantiate_function(annotator, cls, classdef)
 
 def create_instantiate_function(annotator, cls, classdef):

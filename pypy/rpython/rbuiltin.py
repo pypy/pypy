@@ -212,9 +212,9 @@ def rtype_OSError__init__(hop):
         v_errno = hop.inputarg(lltype.Signed, arg=1)
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
-def ll_instantiate(typeptr, RESULT):
+def ll_instantiate(typeptr):
     my_instantiate = typeptr.instantiate
-    return lltype.cast_pointer(RESULT, my_instantiate())
+    return my_instantiate()
 
 def rtype_instantiate(hop):
     s_class = hop.args_s[0]
@@ -222,8 +222,10 @@ def rtype_instantiate(hop):
     if len(s_class.prebuiltinstances) != 1:
         # instantiate() on a variable class
         vtypeptr, = hop.inputargs(rclass.get_type_repr(hop.rtyper))
-        cresult = hop.inputconst(lltype.Void, hop.r_result.lowleveltype)
-        return hop.gendirectcall(ll_instantiate, vtypeptr, cresult)
+        v_inst = hop.gendirectcall(ll_instantiate, vtypeptr)
+        return hop.genop('cast_pointer', [v_inst],    # v_type implicit in r_result
+                         resulttype = hop.r_result.lowleveltype)
+
 
     klass = s_class.const
     return rclass.rtype_new_instance(hop.rtyper, klass, hop.llops)

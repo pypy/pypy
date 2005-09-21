@@ -197,6 +197,8 @@ class Bookkeeper:
 
         self.needs_hash_support = {}
 
+        self.needs_generic_instantiate = {}
+
         self.memo_tables = []
 
         self.stats = Stats(self)
