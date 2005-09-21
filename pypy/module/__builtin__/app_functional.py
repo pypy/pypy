@@ -140,6 +140,16 @@ def reduce(function, seq, *initialt):
 
 # ____________________________________________________________
 
+"""
+The following is a nice example of collaboration between
+interp-level and app-level.
+range is primarily implemented in functional.py for the integer case.
+On every error or different data types, it redirects to the applevel
+implementation below. functional.py uses this source via the inspect
+module and uses gateway.applevel. This is also an alternative to
+writing longer functions in strings.
+"""
+
 def range(x, y=None, step=1):
     """ returns a list of integers in arithmetic position from start (defaults
         to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
@@ -147,11 +157,11 @@ def range(x, y=None, step=1):
 
 
     if y is None: 
-            start = 0
-            stop = x
+        start = 0
+        stop = x
     else:
-            start = x
-            stop = y
+        start = x
+        stop = y
 
     if not isinstance(start, (int, long)):
         raise TypeError('range() integer start argument expected, got %s' % type(start))
@@ -302,7 +312,7 @@ class xrange(object):
         if not isinstance(index, int):
             raise TypeError, "sequence index must be integer"
         len = self.len 
-        if index<0:
+        if index < 0:
             index += len
         if 0 <= index < len:
             return self.start + index * self.step

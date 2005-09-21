@@ -22,7 +22,9 @@ class Module(MixedModule):
         'filter'        : 'app_functional.filter',
         'zip'           : 'app_functional.zip',
         'reduce'        : 'app_functional.reduce',
-        'range'         : 'app_functional.range',
+        #'range'         : 'app_functional.range',
+        # redirected to functional.py, applevel version
+        # is still needed and should stay where it is.
         'min'           : 'app_functional.min',
         'max'           : 'app_functional.max',
         'enumerate'     : 'app_functional.enumerate',
@@ -106,6 +108,8 @@ class Module(MixedModule):
         'eval'          : 'compiling.eval',
 
         '__import__'    : 'importing.importhook',
+
+        'range'         : 'functional.range_int',
 
         # float->string helper
         '_formatd'      : 'special._formatd'
