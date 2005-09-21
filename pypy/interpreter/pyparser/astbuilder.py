@@ -376,9 +376,11 @@ def to_lvalue(ast_node, flags):
                              lineno, 0, '')
         elif isinstance(ast_node, ast.CallFunc):
             raise ParseError("can't assign to function call",
-                             lineno, 0, '')            
+                             lineno, 0, '')
         else:
-            raise ASTError("cannot assign to %s" % ast_node, ast_node)
+            raise ParseError("can't assign to non-lvalue",
+                             lineno, 0, '') 
+            # raise ASTError("cannot assign to %s" % ast_node, ast_node)
 
 def is_augassign( ast_node ):
     if ( isinstance( ast_node, ast.Name ) or
