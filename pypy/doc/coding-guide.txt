@@ -436,11 +436,7 @@ a wrapped object, which must be done via the object space.
   writing ``if w_x:``) will give you an error reminding you of
   the problem.
 
-* ``w_x == w_y`` or ``w_x is w_y``: DON'T DO THAT.  The only
-  half-official exception is to check if ``w_x`` contains a
-  wrapped ``None``: you can write ``w_x == space.w_None``.
-  Follow this rule; the case of ``None`` is easy to fix
-  globally later if we find out that we need to.  The
+* ``w_x == w_y`` or ``w_x is w_y``: DON'T DO THAT.  The
   rationale for this rule is that there is no reason that two
   wrappers are related in any way even if they contain what
   looks like the same object at application-level.  To check

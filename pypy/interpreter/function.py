@@ -176,8 +176,6 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
                         not space.is_w(w_obj, space.w_None) or
                         space.is_w(w_cls, space.type(space.w_None)))
     if asking_for_bound:
-        #if w_cls == space.w_None:
-        #    w_cls = space.type(w_obj)
         return space.wrap(Method(space, w_function, w_obj, w_cls))
     else:
         return space.wrap(Method(space, w_function, None, w_cls))
@@ -249,8 +247,6 @@ class Method(Wrappable):
             return space.wrap(self)    # already bound
         else:
             # only allow binding to a more specific class than before
-            #if w_cls == space.w_None:
-            #    w_cls = space.type(w_obj)
             if (w_cls is not None and
                 not space.is_w(w_cls, space.w_None) and
                 not space.is_true(space.abstract_issubclass(w_cls, self.w_class))):

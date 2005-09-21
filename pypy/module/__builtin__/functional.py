@@ -71,7 +71,7 @@ def range(space, w_x, w_y=None, w_step=1):
     try:
         # save duplication by redirecting every error to applevel
         x = space.int_w(w_x)
-        if w_y is space.w_None:
+        if space.is_w(w_y, space.w_None):
             start, stop = 0, x
         else:
             start, stop = x, space.int_w(w_y)

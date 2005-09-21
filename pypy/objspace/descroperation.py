@@ -168,11 +168,12 @@ class DescrOperation:
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def is_true(space, w_obj):
-        if w_obj == space.w_False:
+        # first a few shortcuts for performance
+        if w_obj is space.w_False:
             return False
-        if w_obj == space.w_True:
+        if w_obj is space.w_True:
             return True
-        if w_obj == space.w_None:
+        if w_obj is space.w_None:
             return False
         w_descr = space.lookup(w_obj, '__nonzero__')
         if w_descr is None:
@@ -180,10 +181,15 @@ class DescrOperation:
             if w_descr is None:
                 return True
         w_res = space.get_and_call_function(w_descr, w_obj)
+        # more shortcuts for common cases
+        if w_res is space.w_False:
+            return False
+        if w_res is space.w_True:
+            return True
         w_restype = space.type(w_res)
         if (space.is_w(w_restype, space.w_bool) or
             space.is_w(w_restype, space.w_int)):
-            return space.is_true(w_res)
+            return space.int_w(w_res) != 0
         else:
             raise OperationError(space.w_TypeError,
                                  space.wrap('__nonzero__ should return '

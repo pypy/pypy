@@ -202,7 +202,8 @@ class GetSetProperty(Wrappable):
         """property.__get__(obj[, type]) -> value
         Read the value of the property of the given obj."""
         # XXX HAAAAAAAAAAAACK (but possibly a good one)
-        if w_obj == space.w_None and not space.is_w(w_cls, space.type(space.w_None)):
+        if (space.is_w(w_obj, space.w_None)
+            and not space.is_w(w_cls, space.type(space.w_None))):
             #print property, w_obj, w_cls
             return space.wrap(property)
         else:
