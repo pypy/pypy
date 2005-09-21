@@ -4,25 +4,21 @@
 
 current_result = """
 executable                  abs.richards   abs.pystone   rel.rich   rel.pystone
-pypy-c-17439                  35165 ms         668.586      42.4           61.1
-pypy-c-17600                  26388 ms         900.481      31.8           45.4
-pypy-c-17634                  20108 ms        1017.720      24.2           40.1
-pypy-c-17649                  22662 ms        1035.910      27.3           39.4
-pypy-c-17674-nolowmem         15817 ms        1981.470      19.1           20.6
-pypy-c-17674-t-lowmem         16834 ms        1274.650      20.3           32.1
-python 2.3.3                    830 ms       40861.400       1.0            1.0
+pypy-c-17439-hi               35415 ms        620.652      42.6           65.4
+pypy-c-17439-lo               36492 ms        923.530      43.9           44.0
+pypy-c-17600-lo               26542 ms        893.093      31.9           45.5
+pypy-c-17634-lo               20203 ms       1001.520      24.3           40.6
+pypy-c-17649-lo               22792 ms       1028.290      27.4           39.5
+pypy-c-17674-hi               15927 ms       1934.000      19.1           21.0
+pypy-c-17674-lo               17009 ms       1283.800      20.4           31.6
+pypy-c-17707-hi               15942 ms       1971.950      19.2           20.6
+python 2.3.3                    832 ms      40612.100       1.0            1.0
 
-17649 was with explicit fixed stack.
-Changes after 17634 we not included.
-17674 has an outrageous effect. I cannot really
-find out what it was. Did Armin do the fixed stack
-patch already? Probably not. Was it Samuele's avoiding
-of duplicate zeroing? Really just that? I think so, and
-this is incredible.
-Even more incredible is the fact that not using using
-t-lowmem accelerates pystone so much. This is an indicator
-that we missed something used in pystone that still contains
-applevel code. I can't believe it, will find it tomorrow.
+This time, more comparisons between -t-lowmem and without it (using geninterp
+as much as possible) were done. It is interesting how much translation of
+geninterp'ed code is accelerated, now. Note that range() is still at applevel,
+but very efficiently translated. It will anyway be moved to interplevel
+next time, it is too frequently used.
 """
 
 import os, sys
@@ -72,6 +68,13 @@ FMT = '''\
 %-27s   '''                 +  '%5d ms      %9.3f     ' + '%5.1f          %5.1f'
 
 def main():
+    import win32con, win32process
+    curr = win32process.GetCurrentProcess()
+    prio = win32con.HIGH_PRIORITY_CLASS
+    win32process.SetPriorityClass(curr, prio)
+    # unfortunately, the above doesn't help, because the process priority
+    # is not inherited by child process. We also cannot import WIn32 extensions
+    # right now, since PyPycanot handle extension modules.
     print 'getting the richards reference'
     ref_rich = run_richards()
     print 'getting the pystone reference'
