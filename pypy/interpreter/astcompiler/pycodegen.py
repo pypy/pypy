@@ -1222,7 +1222,6 @@ class InteractiveCodeGenerator(CodeGenerator):
         
 class AbstractFunctionCode(CodeGenerator):
     def __init__(self, space, func, isLambda, class_name, mod):
-        self.class_name = class_name
         self.module = mod
         if isLambda:
             name = "<lambda>"
@@ -1251,6 +1250,7 @@ class AbstractFunctionCode(CodeGenerator):
                                     newlocals=1)
         self.isLambda = isLambda
         CodeGenerator.__init__(self, space, graph)
+        self.class_name = class_name
         self.optimized = 1
 
         if not isLambda and not space.is_w(func.doc, space.w_None):
@@ -1327,12 +1327,12 @@ class GenExprCodeGenerator(AbstractFunctionCode):
 class AbstractClassCode(CodeGenerator):
 
     def __init__(self, space, klass, module):
-        self.class_name = klass.name
         self.module = module
         graph = pyassem.PyFlowGraph( space, klass.name, klass.filename,
                                            optimized=0, klass=1)
 
         CodeGenerator.__init__(self, space, graph)
+        self.class_name = klass.name
         self.graph.setFlag(CO_NEWLOCALS)
         if not space.is_w(klass.doc, space.w_None):
             self.setDocstring(klass.doc)
