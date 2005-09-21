@@ -29,7 +29,7 @@ class ExceptionPolicy:
 
     def new(exceptionpolicy=None):  #factory
         if exceptionpolicy is None:
-            exceptionpolicy = 'cpython'
+            exceptionpolicy = 'fast'
         if exceptionpolicy == 'cpython':
             from pypy.translator.llvm.exception import CPythonExceptionPolicy
             exceptionpolicy = CPythonExceptionPolicy()

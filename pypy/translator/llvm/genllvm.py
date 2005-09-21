@@ -22,7 +22,6 @@ from pypy.translator.llvm.structnode import StructNode
 from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.exception import ExceptionPolicy
-
 from pypy.translator.translator import Translator
 
 
@@ -40,11 +39,11 @@ class GenLLVM(object):
         self.translator = translator
         self.gcpolicy = gcpolicy
         self.exceptionpolicy = exceptionpolicy
-        translator.checkgraphs()
         extfuncnode.ExternalFuncNode.used_external_functions = {}
-
-        # for debug we create comments of every operation that may be executed
-        self.debug = debug
+        self.debug = debug # for debug we create comments of every operation that may be executed
+        exceptionpolicy.transform(translator)
+        if debug:
+            translator.checkgraphs()
 
     def _checkpoint(self, msg=None):
         if self.debug:
@@ -256,8 +255,7 @@ def compile_module(function, annotation, view=False, **kwds):
     a.simplify()
     t.specialize()
     t.backend_optimizations(ssa_form=False)
-    t.checkgraphs()
-    if view:
+    if view:    #note: this is without policy transforms
         t.view()
     return genllvm(t, **kwds)
 

@@ -2,10 +2,10 @@ import py
 from pypy.objspace.flow.model import Block, Constant, Variable, Link
 from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
 from pypy.rpython import lltype
-from pypy.translator.unsimplify import remove_double_links                     
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.log import log 
+from pypy.translator.unsimplify import remove_double_links
 log = log.funcnode
 
 class FuncTypeNode(LLVMNode):
@@ -16,7 +16,7 @@ class FuncTypeNode(LLVMNode):
         assert isinstance(type_, lltype.FuncType)
         self.type_ = type_
         self.ref = self.make_ref('%functiontype', '')
-        
+
     def __str__(self):
         return "<FuncTypeNode %r>" % self.ref
 
@@ -37,9 +37,7 @@ class FuncNode(ConstantLLVMNode):
         self.value = value
         self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph
-        # XXX the following needs to be done in advance (e.g. for inlining)
-        #backend_optimizations(self.graph, opt_SSI_to_SSA=False)
-        remove_double_links(self.db.translator, self.graph) 
+        remove_double_links(self.db.translator, self.graph)
 
     def __str__(self):
         return "<FuncNode %r>" %(self.ref,)
@@ -207,33 +205,5 @@ class FuncNode(ConstantLLVMNode):
         inputarg = self.db.repr_arg(block.inputargs[0])
         codewriter.ret(inputargtype, inputarg)
 
-    def _is_raise_new_exception(self, block):
-        is_raise_new = False
-        entrylinks = mkentrymap(self.graph)[block]
-        entrylinks = [x for x in entrylinks if x.prevblock is not None]
-        inputargs = self.db.repr_arg_multi(block.inputargs)
-        for i, arg in enumerate(inputargs):
-            names = self.db.repr_arg_multi([link.args[i] for link in entrylinks])
-            for name in names:  #These tests-by-name are a bit yikes, but I don't see a better way right now
-                if not name.startswith('%last_exception_') and not name.startswith('%last_exc_value_'):
-                    is_raise_new = True
-        return is_raise_new
-
     def write_exceptblock(self, codewriter, block):
-        assert len(block.inputargs) == 2
-
-        if self._is_raise_new_exception(block):
-            self.write_block_phi_nodes(codewriter, block)
-
-            inputargs = self.db.repr_arg_multi(block.inputargs)
-            inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
-
-            codewriter.store(inputargtypes[0], inputargs[0], '%last_exception_type')
-            codewriter.store(inputargtypes[1], inputargs[1], '%last_exception_value')
-        else:
-            codewriter.comment('reraise last exception')
-            #Reraising last_exception.
-            #Which is already stored in the global variables.
-            #So nothing needs to happen here!
-
-        codewriter.unwind()
+        codewriter.genllvm.exceptionpolicy.write_exceptblock(self, codewriter, block)

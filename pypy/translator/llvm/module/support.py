@@ -97,7 +97,7 @@ internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
     %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
     store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
     store %%RPYTHON_EXCEPTION* %%exception_value, %%RPYTHON_EXCEPTION** %%last_exception_value
-    unwind
+    ret void    ; XXX unwind ; (1)
 }
 """ % locals())
 
@@ -109,7 +109,7 @@ zer_test = """
     br bool %%cond, label %%is_0, label %%is_not_0
 is_0:
     call fastcc void %%prepare_ZeroDivisionError()
-    unwind
+    br label %%is_not_0 ; XXX unwind ; (2)
 
 is_not_0:
 """
@@ -132,7 +132,7 @@ ovf:
 ;    br bool %cond3, label %return_block, label %ovf3
 ;ovf3:
     call fastcc void %prepare_OverflowError()
-    unwind
+    ret int 0   ; XXX unwind ; (3)
 """
 
 
