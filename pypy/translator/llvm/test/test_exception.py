@@ -194,6 +194,27 @@ def test_try_raise_choose():
     for i in [-1, 0, 1, 2]:
         assert f(i) == i
 
+def test_two_exceptions():
+    def fn1():
+        raise Exception
+    def fn2():
+        return 10
+    def two_exceptions():
+        r = 50
+        try:
+            fn1()
+            r += 1
+        except:
+            r += 100
+        try:
+            r += fn2()
+        except:
+            r += 300
+        r += fn2()
+        return r
+    f = compile_function(two_exceptions, [])
+    assert f() == two_exceptions()
+            
 def test_raise_outside_testfn():
     def raiser(n):
         if n < 0:
