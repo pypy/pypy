@@ -140,7 +140,7 @@ def PyString_DecodeEscape(space, s, unicode, recode_encoding):
         elif ch == "'":
             lis.append("'")
         elif ch == '"':
-            lis.append("'")
+            lis.append('"')
         elif ch == 'b':
             lis.append("\010")
         elif ch == 'f':

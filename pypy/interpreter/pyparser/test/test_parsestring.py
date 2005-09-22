@@ -32,6 +32,15 @@ class TestParsetring:
         w_ret = parsestring.parsestr(space, None, s)
         assert space.str_w(w_ret) == chr(0xFF)
 
+        s = r'"\""'
+        w_ret = parsestring.parsestr(space, None, s)
+        assert space.str_w(w_ret) == '"'
+        
+        s = r"'\''"
+        w_ret = parsestring.parsestr(space, None, s)
+        assert space.str_w(w_ret) == "'"
+        
+        
     def test_unicode(self):
         space = self.space
         s = u'hello world'
