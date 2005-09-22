@@ -375,8 +375,12 @@ def to_lvalue(ast_node, flags):
             raise ParseError("can't assign to list comprehension",
                              lineno, 0, '')
         elif isinstance(ast_node, ast.CallFunc):
-            raise ParseError("can't assign to function call",
-                             lineno, 0, '')
+            if flags == consts.OP_DELETE:
+                raise ParseError("can't delete function call",
+                                 lineno, 0, '')
+            else:
+                raise ParseError("can't assign to function call",
+                                 lineno, 0, '')
         else:
             raise ParseError("can't assign to non-lvalue",
                              lineno, 0, '') 
