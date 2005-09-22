@@ -364,7 +364,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         """Allocate the memory needed for an instance of an internal or
         user-defined type, without actually __init__ializing the instance."""
         w_type = self.gettypeobject(cls.typedef)
-        if self.is_true(self.is_(w_type, w_subtype)):
+        if self.is_w(w_type, w_subtype):
             instance =  instantiate(cls)
         else:
             w_subtype = w_type.check_user_subclass(w_subtype)

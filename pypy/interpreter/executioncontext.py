@@ -126,14 +126,14 @@ class ExecutionContext:
 
     def settrace(self, w_func):
         """Set the global trace function."""
-        if self.space.is_true(self.space.is_(w_func, self.space.w_None)):
+        if self.space.is_w(w_func, self.space.w_None):
             self.w_tracefunc = None
         else:
             self.w_tracefunc = w_func
 
     def setprofile(self, w_func):
         """Set the global trace function."""
-        if self.space.is_true(self.space.is_(w_func, self.space.w_None)):
+        if self.space.is_w(w_func, self.space.w_None):
             self.w_profilefunc = None
         else:
             self.w_profilefunc = w_func

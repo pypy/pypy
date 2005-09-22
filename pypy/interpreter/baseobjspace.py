@@ -441,7 +441,7 @@ class ObjSpace(object):
         while check_list:
             w_item = check_list.pop()
             # Match identical items.
-            if self.is_true(self.is_(w_exc_type, w_item)):
+            if self.is_w(w_exc_type, w_item):
                 return True
             try:
                 # Match subclasses.

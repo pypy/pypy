@@ -357,8 +357,7 @@ class PyInterpFrame(pyframe.PyFrame):
                                      f.space.gettypeobject(PyCode.typedef))
         w_prog, w_globals, w_locals = f.space.unpacktuple(w_resulttuple, 3)
 
-        plain = (f.w_locals is not None and
-                 f.space.is_true(f.space.is_(w_locals, f.w_locals)))
+        plain = f.w_locals is not None and f.space.is_w(w_locals, f.w_locals)
         if plain:
             w_locals = f.getdictscope()
         pycode = f.space.interpclass_w(w_prog)
