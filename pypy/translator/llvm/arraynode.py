@@ -85,7 +85,9 @@ class ArrayNode(ConstantLLVMNode):
         self.db = db
         self.value = value
         self.arraytype = lltype.typeOf(value).OF
-        self.ref = self.make_ref('%arrayinstance', '')
+        prefix = '%arrayinstance'
+        name = '' #str(value).split()[1]
+        self.ref = self.make_ref(prefix, name)
 
     def __str__(self):
         return "<ArrayNode %r>" % (self.ref,)
@@ -186,7 +188,9 @@ class VoidArrayNode(ConstantLLVMNode):
         assert isinstance(lltype.typeOf(value), lltype.Array)
         self.db = db
         self.value = value
-        self.ref = self.make_ref('%arrayinstance', '')
+        prefix = '%arrayinstance'
+        name = '' #str(value).split()[1]
+        self.ref = self.make_ref(prefix, name)
 
     def constantvalue(self):
         return "{ %s } {%s %s}" % (self.db.get_machine_word(),

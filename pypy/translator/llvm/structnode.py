@@ -91,7 +91,9 @@ class StructNode(ConstantLLVMNode):
         self.db = db
         self.value = value
         self.structtype = self.value._TYPE
-        self.ref = self.make_ref('%structinstance', '')
+        prefix = '%structinstance.'
+        name = str(value).split()[1]
+        self.ref = self.make_ref(prefix, name)
         self._get_ref_cache = None
         self._get_types = self._compute_types()
 

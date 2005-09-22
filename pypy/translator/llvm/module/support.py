@@ -78,7 +78,7 @@ return_block:
 for exc in "ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
     extfunctions["%%prepare_%(exc)s" % locals()] = ((), """
 internal fastcc void %%prepare_%(exc)s() {
-    %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%pypy_instantiate_%(exc)s()
+    %%exception_value = cast %%structtype.%(exc)s* %%structinstance.%(exc)s to %%RPYTHON_EXCEPTION*
     %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
     %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
     store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
@@ -92,7 +92,7 @@ internal fastcc void %%prepare_%(exc)s() {
 for exc in "IOError ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
     extfunctions["%%raisePyExc_%(exc)s" % locals()] = ((), """
 internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
-    %%exception_value = call fastcc %%RPYTHON_EXCEPTION* %%pypy_instantiate_%(exc)s()
+    %%exception_value = cast %%structtype.%(exc)s* %%structinstance.%(exc)s to %%RPYTHON_EXCEPTION*
     %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
     %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
     store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
@@ -109,12 +109,13 @@ zer_test = """
     br bool %%cond, label %%is_0, label %%is_not_0
 is_0:
     call fastcc void %%prepare_ZeroDivisionError()
-    br label %%is_not_0 ; XXX unwind ; (2)
+    ret %s 0 ; XXX unwind ; (2)
+    ;br label %%is_not_0 ; XXX unwind ; (2)
 
 is_not_0:
 """
-int_zer_test    = zer_test % ('int',)
-double_zer_test = zer_test % ('double',)
+int_zer_test    = zer_test % ('int'   ,'int')
+double_zer_test = zer_test % ('double','double')
 
 
 #overflow: normal operation, ...if ((x) >= 0 || (x) != -(x)) OK else _OVF()
@@ -142,7 +143,7 @@ for func_inst in "floordiv_zer:div mod_zer:rem".split():
     func, inst = func_inst.split(':')
     for prefix_type_ in "int:int uint:uint".split():
         prefix, type_ = prefix_type_.split(':')
-        type_zer_test = zer_test % type_
+        type_zer_test = zer_test % (type_, type_)
         extfunctions["%%%(prefix)s_%(func)s" % locals()] = ((), """
 internal fastcc %(type_)s %%%(prefix)s_%(func)s(%(type_)s %%x, %(type_)s %%y) {
     %(type_zer_test)s
