@@ -268,6 +268,9 @@ class BuiltinFrame(eval.Frame):
         """Subclasses with behavior specific for an unwrap spec are generated"""
         raise TypeError, "abstract"
 
+class BuiltinFrameFactory(object):
+    pass
+
 class BuiltinCodeSignature(Signature):
     "NOT_RPYTHON"
 
@@ -280,12 +283,12 @@ class BuiltinCodeSignature(Signature):
         self.through_scope_w = 0
         self.miniglobals = {}
 
-    def _make_unwrap_frame_class(self, cache={}):
+    def _make_unwrap_frame_factory_class(self, cache={}):
         try:
             key = tuple(self.unwrap_spec)
-            frame_cls, run_args = cache[key]
+            frame_factory_cls, run_args = cache[key]
             assert run_args == self.run_args,"unexpected: same spec, different run_args"
-            return frame_cls
+            return frame_factory_cls
         except KeyError:
             parts = []          
             for el in self.unwrap_spec:
@@ -318,23 +321,35 @@ class BuiltinCodeSignature(Signature):
             exec compile2(source) in self.miniglobals, d
             d['_run'] = d['_run_UWS_%s' % label]
             del d['_run_UWS_%s' % label]
-            frame_cls = type("BuiltinFrame_UWS_%s" % label, (BuiltinFrame,), d)
-            cache[key] = frame_cls, self.run_args
-            return frame_cls
 
-    def make_frame_class(self, func, cache={}):
-        frame_uw_cls = self._make_unwrap_frame_class()
-        return type("BuiltinFrame_for_%s" % self.name,
-                    (frame_uw_cls,),{'behavior': staticmethod(func)})
+            frame_cls = type("BuiltinFrame_UwS_%s" % label, (BuiltinFrame,), d)
+
+            class MyBuiltinFrameFactory(BuiltinFrameFactory):
+
+                def create(self, space, code, w_globals):
+                    newframe = frame_cls(space, code, w_globals)
+                    newframe.behavior = self.behavior
+                    return newframe
+
+            MyBuiltinFrameFactory.__name__ = 'BuiltinFrameFactory_UwS_%s' % label
+
+            cache[key] = MyBuiltinFrameFactory, self.run_args
+            return MyBuiltinFrameFactory
+
+    def make_frame_factory(self, func):
+        frame_uw_factory_cls = self._make_unwrap_frame_factory_class()
         
-def make_builtin_frame_class(func, orig_sig, unwrap_spec):
+        factory = frame_uw_factory_cls()
+        factory.behavior = func
+
+        return factory
+        
+def make_builtin_frame_factory(func, orig_sig, unwrap_spec):
     "NOT_RPYTHON"
     name = (getattr(func, '__module__', None) or '')+'_'+func.__name__
     emit_sig = orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpecRecipe().emit,
                                               BuiltinCodeSignature(name=name, unwrap_spec=unwrap_spec))
-    cls = emit_sig.make_frame_class(func)
-    return cls
-
+    return emit_sig.make_frame_factory(func)
 
 
 class BuiltinCode(eval.Code):
@@ -394,7 +409,7 @@ class BuiltinCode(eval.Code):
         else:
             self.maxargs = self.minargs
 
-        self.framecls = make_builtin_frame_class(func, orig_sig, unwrap_spec)
+        self.framefactory = make_builtin_frame_factory(func, orig_sig, unwrap_spec)
 
         # speed hack
         if unwrap_spec == [ObjSpace, W_Root]:
@@ -408,7 +423,7 @@ class BuiltinCode(eval.Code):
             self.fastfunc_3 = func
 
     def create_frame(self, space, w_globals, closure=None):
-        return self.framecls(space, self, w_globals)
+        return self.framefactory.create(space, self, w_globals)
 
     def signature(self):
         return self.sig
