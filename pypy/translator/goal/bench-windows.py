@@ -2,28 +2,39 @@
 # to be executed in the goal folder,
 # where a couple of .exe files is expected.
 
-current_result = """
-executable                  abs.richards   abs.pystone   rel.rich   rel.pystone
-pypy-c-17439-hi               35135 ms        674.191      42.4           60.7
-pypy-c-17439-lo               36062 ms        972.900      43.6           42.1
-pypy-c-17600-lo               26357 ms        905.379      31.8           45.2
-pypy-c-17634-lo               20098 ms       1016.890      24.3           40.3
-pypy-c-17649-lo               22637 ms       1041.480      27.3           39.3
-pypy-c-17674-hi               15812 ms       2114.430      19.1           19.4
-pypy-c-17674-lo               19253 ms       1356.470      23.3           30.2
-pypy-c-17707-hi-range         14265 ms       2906.260      17.2           14.1
-pypy-c-17707-hi               14105 ms       2120.210      17.0           19.3
-pypy-c-17707-lo-range         18701 ms       2834.690      22.6           14.4
-pypy-c-17707-lo               19042 ms       1357.690      23.0           30.2
-python 2.3.3                    828 ms      40934.500       1.0            1.0
+USE_HIGH_PRIORITY = True
+# usage with high priority:
+# the program will try to import subprocess.
+# you can have this with python older than 2.4: copy
+# subprocess into lib and change line 392 to use win32
 
-After implementing range at interp-level, results have changed
-quite dramatically. Revision 17707 runs everywhere fastest
-without the -t-lowmem option. This is probably different on machines
-with less than 2 MB of L2-cache.
+current_result = """
+executable                  a.rich   a.stone   r.rich   r.stone   size
+pypy-c-17439-hi             37413      678.4   48.2     61.6      5.65
+pypy-c-17600-lo             26352      906.2   33.9     46.1      6.43
+pypy-c-17634-lo             20108     1023.5   25.9     40.9      6.42
+pypy-c-17649-lo             22612     1042.0   29.1     40.1      6.41
+pypy-c-17674-lo             19248     1358.8   24.8     30.8      6.40
+pypy-c-17674-hi             12402     1941.4   16.0     21.5      7.37
+pypy-c-17439-lo             29638      971.4   38.1     43.0      6.49
+pypy-c-17707-hi             14095     2092.7   18.1     20.0      7.37
+pypy-c-17707-lo             19102     1354.7   24.6     30.9      6.40
+pypy-c-17707-lo-range       18786     2800.8   24.2     14.9      6.40
+pypy-c-17707-hi-range       13980     2899.9   18.0     14.4      7.38
+pypy-c-17743-hi             13944     2800.3   17.9     14.9      7.30
+pypy-c-17761-hi-samuele     13243     2983.3   17.0     14.0      7.69
+python 2.5a0                  777    41812.1    1.0      1.0      0.96
+
+This new version also shows the size of the plain executable.
+Samuele's locality patch now has a nice impact of over 5 percent.
+I had even expected a bit more, but fine, yeah!
 """
 
-import os, sys
+import os, sys, pickle, md5
+try:
+    from subprocess import *
+except ImportError:
+    Popen = None
 
 PYSTONE_CMD = 'from test import pystone;pystone.main(%s)'
 PYSTONE_PATTERN = 'This machine benchmarks at'
@@ -45,14 +56,58 @@ def run_cmd(cmd):
     print "done"
     return result
 
-def run_pystone(executable='python', n=0):
+def run_cmd_subprocess(cmd):
+    print "running", cmd
+    result = Popen(cmd, stdout=PIPE, creationflags=CREATIONFLAGS
+                   ).communicate()[0]
+    print "done"
+    return result
+
+CREATIONFLAGS = 0
+if Popen:
+    run_cmd = run_cmd_subprocess
+    try:
+        import win32con, win32api
+    except ImportError:
+        pass
+    else:
+        if USE_HIGH_PRIORITY:
+            CREATIONFLAGS = win32con.HIGH_PRIORITY_CLASS
+            print "configured to run under high priority"
+
+BENCH_EXECONFIG = 'bench_windows_exe.txt'
+bench_exe = None
+
+def reference(progname):
+    global bench_exe
+    if not bench_exe:
+        if os.path.exists(BENCH_EXECONFIG):
+            progname = file(BENCH_EXECONFIG).read().strip()
+            print "using %s instead of the system default" % progname
+        bench_exe = progname
+    return bench_exe
+
+def run_version_size(executable=reference('python'), *args):
+    ver, size = run_cmd('''%s -c "import sys,os;print sys.version.split()[0],\\
+                           os.path.getsize(sys.executable)"'''
+                        % executable).split()
+    size = int(size)
+    try:
+        sys.dllhandle
+    except AttributeError:
+        pass
+    else:
+        size += os.path.getsize(win32api.GetModuleFileName(sys.dllhandle))
+    return ver, size
+
+def run_pystone(executable=reference('python'), n=0):
     argstr = PYSTONE_CMD % (str(n) and n or '')
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
     res = get_result(txt, PYSTONE_PATTERN)
     print res
     return res
 
-def run_richards(executable='python', n=20):
+def run_richards(executable=reference('python'), n=20):
     argstr = RICHARDS_CMD % n
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
     res = get_result(txt, RICHARDS_PATTERN)
@@ -64,31 +119,52 @@ def get_executables():
     exes.sort()
     return exes
 
+STAT_FILE = 'bench_windows.dump'
+def load_stats(statfile=STAT_FILE):
+    try:
+        dic = pickle.load(file(statfile, 'rb'))
+    except IOError:
+        dic = {}
+    return dic
+
+def save_stats(dic, statfile=STAT_FILE):
+    pickle.dump(dic, file(statfile, 'wb'))
+
 HEADLINE = '''\
-executable                  abs.richards   abs.pystone   rel.rich   rel.pystone'''
+executable                  a.rich   a.stone   r.rich   r.stone   size'''
 FMT = '''\
-%-27s   '''                 +  '%5d ms      %9.3f     ' + '%5.1f          %5.1f'
+%-27s '''               +  '%5d    %7.1f  ' + '%5.1f    %5.1f     %5.2f'
 
 def main():
-    import win32con, win32process
-    curr = win32process.GetCurrentProcess()
-    prio = win32con.HIGH_PRIORITY_CLASS
-    win32process.SetPriorityClass(curr, prio)
-    # unfortunately, the above doesn't help, because the process priority
-    # is not inherited by child process. We also cannot import WIn32 extensions
-    # right now, since PyPycanot handle extension modules.
     print 'getting the richards reference'
     ref_rich = run_richards()
     print 'getting the pystone reference'
     ref_stone = run_pystone()
-    res = []
+    resdic = {}
+    prior = load_stats()
     for exe in get_executables():
         exename = os.path.splitext(exe)[0]
-        res.append( (exename, run_richards(exe, 2), run_pystone(exe, 20000)) )
-    res.append( ('python %s' % sys.version.split()[0], ref_rich, ref_stone) )
+        mtime = os.path.getmtime(exe)
+        size = os.path.getsize(exe)
+        key = md5.new(file(exe,'rb').read()).digest()
+        if key in prior:
+            print 'skipped', exename
+            resdic[key] = prior[key][:2] + (exename, mtime, size)
+        else:
+            resdic[key] = (run_richards(exe, 2), run_pystone(exe, 20000),
+                           exename, mtime, size)
+            prior[key] = resdic[key] # save result, temporarily
+            save_stats(prior)
+    save_stats(resdic) # save cleaned result
+    res = [ (mtime, exe, size, rich, stone)
+            for rich, stone, exe, mtime, size in resdic.values()]
+    version, size = run_version_size()
+    res.append( (9e9, 'python %s' % version, size, ref_rich, ref_stone) )
+    res.sort()
     print HEADLINE
-    for exe, rich, stone in res:
-        print FMT % (exe, rich, stone, rich / ref_rich, ref_stone / stone)
+    for mtime, exe, size, rich, stone in res:
+        print FMT % (exe, rich, stone, rich / ref_rich, ref_stone / stone,
+                     size / float(1024 * 1024))
 
 if __name__ == '__main__':
     main()
