@@ -28,7 +28,7 @@ class ExceptionPolicy:
         return noresult
 
     def new(exceptionpolicy=None):  #factory
-        exceptionpolicy = exceptionpolicy or 'fast'
+        exceptionpolicy = exceptionpolicy or 'cpython'
         if exceptionpolicy == 'cpython':
             from pypy.translator.llvm.exception import CPythonExceptionPolicy
             exceptionpolicy = CPythonExceptionPolicy()
