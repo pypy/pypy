@@ -440,3 +440,46 @@ class AppTestTypeObject:
         Abc.__name__ = 'Def'
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
+
+    def test_class_variations(self):
+        class A(object):
+            pass
+        assert '__dict__' in A.__dict__
+        a = A()
+        a.x = 3
+        assert a.x == 3
+
+        class A(object):
+            __slots__ = ()
+        assert '__dict__' not in A.__dict__
+        a = A()
+        raises(AttributeError, setattr, a, 'x', 3)
+
+        class B(A):
+            pass
+        assert '__dict__' in B.__dict__
+        b = B()
+        b.x = 3
+        assert b.x == 3
+
+        import sys
+        class A(type(sys)):
+            pass
+        assert '__dict__' not in A.__dict__
+        a = A("a")
+        a.x = 3
+        assert a.x == 3
+
+        class A(type(sys)):
+            __slots__ = ()
+        assert '__dict__' not in A.__dict__
+        a = A("a")
+        a.x = 3
+        assert a.x == 3
+
+        class B(A):
+            pass
+        assert '__dict__' not in B.__dict__
+        b = B("b")
+        b.x = 3
+        assert b.x == 3

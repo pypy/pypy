@@ -63,6 +63,10 @@ for hasdict in False, True:
 def _buildusercls(cls, hasdict, wants_slots):
     "NOT_RPYTHON: initialization-time only"
     typedef = cls.typedef
+
+    if hasdict and typedef.hasdict:
+        return get_unique_interplevel_subclass(cls, False, wants_slots)
+
     name = ['User']
     if not hasdict:
         name.append('NoDict')
@@ -72,27 +76,10 @@ def _buildusercls(cls, hasdict, wants_slots):
 
     name = ''.join(name)
 
-    body = {}
+    if wants_slots:
+        supercls = get_unique_interplevel_subclass(cls, hasdict, False)
 
-    no_extra_dict = typedef.hasdict or not hasdict
-
-    class User_InsertNameHere(object):
-
-        def getclass(self, space):
-            return self.w__class__
-
-        def setclass(self, space, w_subtype):
-            # only used by descr_set___class__
-            self.w__class__ = w_subtype
-
-        def __del__(self):
-            try:
-                self.space.userdel(self)
-            except OperationError, e:
-                e.write_unraisable(self.space, 'method __del__ of ', self)
-                e.clear(self.space)   # break up reference cycles
-
-        if wants_slots:
+        class Proto(object):
             def user_setup_slots(self, nslots):
                 self.slots_w = [None] * nslots 
 
@@ -101,17 +88,10 @@ def _buildusercls(cls, hasdict, wants_slots):
 
             def getslotvalue(self, index):
                 return self.slots_w[index]
-        else:
-            def user_setup_slots(self, nslots):
-                assert nslots == 0
+    elif hasdict:
+        supercls = get_unique_interplevel_subclass(cls, False, False)
 
-        if no_extra_dict:
-            def user_setup(self, space, w_subtype, nslots):
-                self.space = space
-                self.w__class__ = w_subtype
-                self.user_setup_slots(nslots)
-
-        else:
+        class Proto(object):
             def getdict(self):
                 return self.w__dict__
 
@@ -126,15 +106,38 @@ def _buildusercls(cls, hasdict, wants_slots):
                 self.w__class__ = w_subtype
                 self.w__dict__ = space.newdict([])
                 self.user_setup_slots(nslots)
+    else:
+        supercls = cls
+        
+        class Proto(object):
+
+            def getclass(self, space):
+                return self.w__class__
+        
+            def setclass(self, space, w_subtype):
+                # only used by descr_set___class__
+                self.w__class__ = w_subtype
+
+            def __del__(self):
+                try:
+                    self.space.userdel(self)
+                except OperationError, e:
+                    e.write_unraisable(self.space, 'method __del__ of ', self)
+                    e.clear(self.space)   # break up reference cycles
+
+            def user_setup(self, space, w_subtype, nslots):
+                self.space = space
+                self.w__class__ = w_subtype
+                self.user_setup_slots(nslots)
+
+            def user_setup_slots(self, nslots):
+                assert nslots == 0
 
     body = dict([(key, value)
-                 for key, value in User_InsertNameHere.__dict__.items()
+                 for key, value in Proto.__dict__.items()
                  if not key.startswith('_') or key == '__del__'])
-    if not hasdict and not wants_slots:
-        subcls = type(name, (cls,), body)
-    else:
-        basesubcls = get_unique_interplevel_subclass(cls, False, False)
-        subcls = type(name, (basesubcls,), body)
+    
+    subcls = type(name, (supercls,), body)
 
     return subcls
 
