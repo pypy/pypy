@@ -55,7 +55,7 @@ def main():
     ref_stone = run_pystone()
     res = []
     for exe in get_executables():
-        exename = os.path.splitext(exe)[0]
+        exename = os.path.splitext(exe)[0].lstrip('./')
         res.append( (exename, run_richards(exe, 1), run_pystone(exe, 2000)) )
     res.append( ('python %s' % sys.version.split()[0], ref_rich, ref_stone) )
     print HEADLINE
