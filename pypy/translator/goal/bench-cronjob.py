@@ -32,6 +32,8 @@ def compile(backend):
     os.unlink(basename)
 
 def benchmark():
+    os.system('cat /proc/cpuinfo')
+    os.system('free')
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
     os.system('python bench-unix.py 2>&1' % locals())
 
@@ -39,8 +41,9 @@ def main():
     print time.ctime()
     update_pypy()
     update_llvm()
-    for backend in 'c llvm'.split():
+    for backend in 'llvm c'.split():
         compile(backend)
+    benchmark()
     print time.ctime()
     print 80*'-'
 
