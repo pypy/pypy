@@ -383,6 +383,7 @@ class Bookkeeper:
                 if x not in self.seen_mutable: # avoid circular reflowing, 
                                                # see for example test_circular_mutable_getattr
                     self.seen_mutable[x] = True
+                    self.annotator.policy.event(self, 'mutable', x)
                     for attr in x.__dict__:
                         clsdef.add_source_for_attribute(attr, x) # can trigger reflowing
                 result = SomeInstance(clsdef)

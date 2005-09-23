@@ -356,9 +356,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def lookup(self, w_obj, name):
         w_type = w_obj.getclass(self)
         return w_type.lookup(name)
+    lookup._annspecialcase_ = 'specialize:lookup'
 
     def lookup_in_type_where(self, w_type, name):
         return w_type.lookup_where(name)
+    lookup_in_type_where._annspecialcase_ = 'specialize:lookup_in_type_where'
 
     def allocate_instance(self, cls, w_subtype):
         """Allocate the memory needed for an instance of an internal or
