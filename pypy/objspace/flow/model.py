@@ -344,52 +344,65 @@ def uniqueitems(lst):
 #_________________________________________________________
 # a visitor for easy traversal of the above model
 
-import inspect   # for getmro
+##import inspect   # for getmro
 
-class traverse:
+##class traverse:
 
-    def __init__(self, visitor, functiongraph):
-        """ send the visitor over all (reachable) nodes. 
-            the visitor needs to have either callable attributes 'visit_typename'
-            or otherwise is callable itself.  
-        """
-        self.visitor = visitor
-        self.visitor_cache = {}
-        self.seen = {}
-        self.visit(functiongraph)
+##    def __init__(self, visitor, functiongraph):
+##        """ send the visitor over all (reachable) nodes. 
+##            the visitor needs to have either callable attributes 'visit_typename'
+##            or otherwise is callable itself.  
+##        """
+##        self.visitor = visitor
+##        self.visitor_cache = {}
+##        self.seen = {}
+##        self.visit(functiongraph)
 
-    def visit(self, node):
-        if id(node) in self.seen:
-            return
+##    def visit(self, node):
+##        if id(node) in self.seen:
+##            return
 
-        # do the visit
-        cls = node.__class__
-        try:
-            consume = self.visitor_cache[cls]
-        except KeyError:
-            for subclass in inspect.getmro(cls):
-                consume = getattr(self.visitor, "visit_" + subclass.__name__, None)
-                if consume:
-                    break
-            else:
-                consume = getattr(self.visitor, 'visit', self.visitor)
+##        # do the visit
+##        cls = node.__class__
+##        try:
+##            consume = self.visitor_cache[cls]
+##        except KeyError:
+##            for subclass in inspect.getmro(cls):
+##                consume = getattr(self.visitor, "visit_" + subclass.__name__, None)
+##                if consume:
+##                    break
+##            else:
+##                consume = getattr(self.visitor, 'visit', self.visitor)
 
-                assert callable(consume), "visitor not found for %r on %r" % (cls, self.visitor)
+##                assert callable(consume), "visitor not found for %r on %r" % (cls, self.visitor)
 
-                self.visitor_cache[cls] = consume
+##                self.visitor_cache[cls] = consume
 
-        self.seen[id(node)] = consume(node)
+##        self.seen[id(node)] = consume(node)
 
-        # recurse
-        if isinstance(node, Block):
-            for obj in node.exits:
-                self.visit(obj)
-        elif isinstance(node, Link):
-            self.visit(node.target)
-        elif isinstance(node, FunctionGraph):
-            self.visit(node.startblock)
-        else:
-            raise ValueError, "could not dispatch %r" % cls
+##        # recurse
+##        if isinstance(node, Block):
+##            for obj in node.exits:
+##                self.visit(obj)
+##        elif isinstance(node, Link):
+##            self.visit(node.target)
+##        elif isinstance(node, FunctionGraph):
+##            self.visit(node.startblock)
+##        else:
+##            raise ValueError, "could not dispatch %r" % cls
+
+def traverse(visit, functiongraph):
+    pending = [functiongraph.startblock]
+    seen = {id(functiongraph.startblock): True}
+    for block in pending:
+        visit(block)
+        for link in block.exits:
+            visit(link)
+            targetid = id(link.target)
+            if targetid not in seen:
+                pending.append(link.target)
+                seen[targetid] = True
+
 
 def flatten(funcgraph):
     l = []

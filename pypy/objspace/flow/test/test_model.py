@@ -28,27 +28,27 @@ class TestModel:
         graph = self.getflow(self.simplefunc)
         assert all_operations(graph) == {'add': 1}
 
-    def test_class(self):
-        graph = self.getflow(self.simplefunc)
+##    def test_class(self):
+##        graph = self.getflow(self.simplefunc)
 
-        class MyVisitor:
-            def __init__(self):
-                self.blocks = []
-                self.links = []
+##        class MyVisitor:
+##            def __init__(self):
+##                self.blocks = []
+##                self.links = []
 
-            def visit_FunctionGraph(self, graph):
-                self.graph = graph
-            def visit_Block(self, block):
-                self.blocks.append(block)
-            def visit_Link(self, link):
-                self.links.append(link)
+##            def visit_FunctionGraph(self, graph):
+##                self.graph = graph
+##            def visit_Block(self, block):
+##                self.blocks.append(block)
+##            def visit_Link(self, link):
+##                self.links.append(link)
 
-        v = MyVisitor()
-        traverse(v, graph)
-        #assert len(v.blocks) == 2
-        #assert len(v.links) == 1
-        assert v.graph == graph
-        assert v.links[0] == graph.startblock.exits[0]
+##        v = MyVisitor()
+##        traverse(v, graph)
+##        #assert len(v.blocks) == 2
+##        #assert len(v.links) == 1
+##        assert v.graph == graph
+##        assert v.links[0] == graph.startblock.exits[0]
 
 ##    def test_partial_class(self):
 ##        graph = self.getflow(self.simplefunc)
