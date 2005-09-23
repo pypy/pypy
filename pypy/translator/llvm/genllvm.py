@@ -35,13 +35,13 @@ class GenLLVM(object):
     
         # reset counters
         LLVMNode.nodename_count = {}    
-        self.db = Database(translator)
+        self.db = Database(self, translator)
         self.translator = translator
         self.gcpolicy = gcpolicy
         self.exceptionpolicy = exceptionpolicy
         extfuncnode.ExternalFuncNode.used_external_functions = {}
         self.debug = debug # for debug we create comments of every operation that may be executed
-        exceptionpolicy.transform(translator)
+        #exceptionpolicy.transform(translator)  #now done in FuncNode (optimization)
         if debug:
             translator.checkgraphs()
 

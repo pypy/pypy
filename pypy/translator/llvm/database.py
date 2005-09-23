@@ -16,7 +16,8 @@ from pypy.objspace.flow.model import Constant, Variable
 log = log.database 
 
 class Database(object): 
-    def __init__(self, translator): 
+    def __init__(self, genllvm, translator): 
+        self.genllvm = genllvm
         self.translator = translator
         self.obj2node = {}
         self._pendingsetup = []

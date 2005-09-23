@@ -37,6 +37,7 @@ class FuncNode(ConstantLLVMNode):
         self.value = value
         self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph
+        self.db.genllvm.exceptionpolicy.transform(self.db.translator, self.graph)
         remove_double_links(self.db.translator, self.graph)
 
     def __str__(self):
@@ -206,4 +207,4 @@ class FuncNode(ConstantLLVMNode):
         codewriter.ret(inputargtype, inputarg)
 
     def write_exceptblock(self, codewriter, block):
-        codewriter.genllvm.exceptionpolicy.write_exceptblock(self, codewriter, block)
+        self.db.genllvm.exceptionpolicy.write_exceptblock(self, codewriter, block)

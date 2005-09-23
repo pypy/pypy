@@ -5,6 +5,8 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Bool, Ptr
 
 
+n_calls = n_calls_patched = 0
+
 def create_exception_handling(translator, graph):
     """After an exception in a direct_call, that is not catched by an explicit
     except statement, we need to reraise the exception. So after this
@@ -12,6 +14,8 @@ def create_exception_handling(translator, graph):
     from the current graph with an unused value (false/0/0.0/null).
     Because of the added exitswitch we need an additional block.
     """
+    global n_calls, n_calls_patched
+    n_calls_begin = n_calls
     e = translator.rtyper.getexceptiondata()
     blocks = [x for x in flatten(graph) if isinstance(x, Block)]
     for block in blocks:
@@ -22,9 +26,11 @@ def create_exception_handling(translator, graph):
             op = block.operations[i]
             if op.opname != 'direct_call':
                 continue
+            n_calls += 1
             called_can_raise = True #XXX maybe we even want a list of possible exceptions
             if not called_can_raise:
                 continue
+            n_calls_patched += 1
 
             afterblock = split_block(translator, graph, block, i+1)
 
@@ -52,3 +58,5 @@ def create_exception_handling(translator, graph):
             l.prevblock  = block
             l.exitcase   = l.llexitcase = False
             block.exits.insert(0, l)    #False case needs to go first
+    if n_calls != n_calls_begin:
+        print 'create_exception_handling: patched %d out of %d calls' % (n_calls_patched, n_calls)

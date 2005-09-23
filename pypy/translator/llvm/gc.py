@@ -18,6 +18,7 @@ class GcPolicy:
         return ''
 
     def new(gcpolicy=None):  #factory
+        gcpolicy = gcpolicy or 'boehm'
         if gcpolicy is None or gcpolicy == 'boehm':
             from os.path import exists
             boehm_on_path = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')

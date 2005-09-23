@@ -110,7 +110,6 @@ zer_test = """
 is_0:
     call fastcc void %%prepare_ZeroDivisionError()
     ret %s 0 ; XXX unwind ; (2)
-    ;br label %%is_not_0 ; XXX unwind ; (2)
 
 is_not_0:
 """

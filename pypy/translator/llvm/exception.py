@@ -5,7 +5,7 @@ class ExceptionPolicy:
     def __init__(self):
         raise Exception, 'ExceptionPolicy should not be used directly'
 
-    def transform(self, translator):
+    def transform(self, translator, graph=None):
         return
 
     def _noresult(self, returntype):
@@ -28,8 +28,7 @@ class ExceptionPolicy:
         return noresult
 
     def new(exceptionpolicy=None):  #factory
-        if exceptionpolicy is None:
-            exceptionpolicy = 'fast'
+        exceptionpolicy = exceptionpolicy or 'fast'
         if exceptionpolicy == 'cpython':
             from pypy.translator.llvm.exception import CPythonExceptionPolicy
             exceptionpolicy = CPythonExceptionPolicy()
@@ -166,11 +165,14 @@ ccc int %%__entrypoint__raised_LLVMException() {
 }
 ''' % locals()
 
-    def transform(self, translator):
+    def transform(self, translator, graph=None):
         from pypy.translator.backendopt.exception import create_exception_handling
-        for graph in translator.flowgraphs.itervalues():
+        if graph:
             create_exception_handling(translator, graph)
-        #translator.view()
+        else:
+            for graph in translator.flowgraphs.itervalues():
+                create_exception_handling(translator, graph)
+            #translator.view()
 
     def invoke(self, codewriter, targetvar, tail_, cconv, returntype, functionref, args, label, except_label):
         if returntype == 'void':

@@ -81,23 +81,34 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
     #ball = str(dirpath.join('%s_all.bc' % b))
     #cmds.append("opt %s %s -f -o %s.bc" % (OPTIMIZATION_SWITCHES, ball, b))
 
-    cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, OPTIMIZATION_SWITCHES, b)]
+    use_gcc = False
+    profile = False
 
-    generate_s_file = False
-    if generate_s_file and sys.maxint == 2147483647:        #32 bit platform
-        cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.exceptionpolicy.llc_options(), b, b))
-        cmds.append("as %s.s -o %s.o" % (b, b))
+    cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, OPTIMIZATION_SWITCHES, b)]
+    if not use_gcc:
         if exe_name:
-            cmds.append("gcc %s.o %s -lm -ldl -pipe -o %s" % (b, gc_libs, exe_name))
-        object_files.append("%s.o" % b)
-    else:       #assume 64 bit platform (x86-64?)
-        #this special case for x86-64 (called ia64 in llvm) can go as soon as llc supports ia64 assembly output!
+            cmds.append('llvm-ld %s.bc -native -O5 -l=gc -lm -l=dl -o %s' % (b, exe_name))
+        else:
+            cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.exceptionpolicy.llc_options(), b, b))
+            cmds.append("as %s.s -o %s.o" % (b, b))
+            object_files.append("%s.o" % b)
+    else:
         cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (genllvm.exceptionpolicy.llc_options(), b, b))
         if exe_name:
-            #XXX TODO: use CFLAGS when available
-            cmds.append("gcc %s.c -c -O2 -fomit-frame-pointer -march=pentium4 -ffast-math -pipe" % (b,))
-            cmds.append("gcc %s.o %s -lm -ldl -pipe -o %s" % (b, gc_libs, exe_name))
+            cmd = "gcc %s.c -c -O3 -pipe" % b
+            if profile:
+                cmd += ' -pg'
+            cmds.append(cmd)
+            cmd = "gcc %s.o %s -lm -ldl -pipe -o %s" % (b, gc_libs, exe_name)
+            if profile:
+                cmd += ' -pg'
+            cmds.append(cmd)
         source_files.append("%s.c" % b)
+    if exe_name and not profile:
+        cmds.append('strip ' + exe_name)
+        upx = os.popen('which upx').read()
+        if upx: #compress file even further
+            cmds.append('upx ' + exe_name)
 
     try:
         if pyxfile:
