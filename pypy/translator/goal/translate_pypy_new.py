@@ -28,7 +28,7 @@ opts = {
         ['-s', '--save', "save translator to file", [str], '']], 
         
     'Codegeneration options':[
-        ['-g', '--gc', 'Garbage collector', ['ref', 'boehm','none'], 'ref'], 
+        ['-g', '--gc', 'Garbage collector', ['ref', 'boehm','none'], 'boehm'], 
         ['-b', '--backend', 'Backend selector', ['c','llvm'],'c'], 
         ['-w', '--gencode', "Don't generate code", [True,False], True], 
         ['-c', '--compile', "Don't compile generated code", [True,False], True]], 

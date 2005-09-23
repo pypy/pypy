@@ -25,7 +25,7 @@ def get_names():
     
 def compile(backend):
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
-    os.system('python translate_pypy_new.py targetpypystandalone --backend=%(backend)s --gc=boehm --pygame --batch -r 2>&1' % locals())
+    os.system('python translate_pypy_new.py targetpypystandalone --backend=%(backend)s --pygame --batch -r 2>&1' % locals())
     basename, realname = get_names()
     os.open(realname, 'wb').write( open(basename).read() )
     os.chmod(realname, stat.S_IRWXU)
