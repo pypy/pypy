@@ -442,8 +442,7 @@ class PyFlowGraph(FlowGraph):
         self.name = name
         self.filename = filename
         self.docstring = space.w_None
-        self.args = args # XXX
-        self.argcount = getArgCount(args)
+        self.argcount = len(args)
         self.klass = klass
         self.flags = 0
         if optimized:
@@ -463,21 +462,12 @@ class PyFlowGraph(FlowGraph):
         # kinds of variables.
         self.closure = []
         self.varnames = []
-        for var in args:
+        for i in range(len(args)):
+            var = args[i]
             if isinstance(var, ast.AssName):
-                _name = var.name
-                assert isinstance(_name,str)
-                self.varnames.append( _name )
-            elif isinstance(var, TupleArg):
-                _name = var.getName()
-                assert isinstance(_name,str)
-                self.varnames.append( _name )
+                self.varnames.append(var.name )
             elif isinstance(var, ast.AssTuple):
-                for n in var.flatten():
-                    assert isinstance(n, ast.AssName)
-                    _name = n.name
-                    assert isinstance(_name,str)
-                    self.varnames.append( _name )
+                self.varnames.append('.%d' % (2 * i))
         self.stage = RAW
         self.orderedblocks = []
 
@@ -843,26 +833,6 @@ class PyFlowGraph(FlowGraph):
 def isJump(opname):
     if opname[:4] == 'JUMP':
         return 1
-
-class TupleArg(ast.Node):
-    """Helper for marking func defs with nested tuples in arglist"""
-    def __init__(self, count, names):
-        self.count = count
-        self.names = names
-    def __repr__(self):
-        return "TupleArg(%s, %s)" % (self.count, self.names)
-    def getName(self):
-        return ".%d" % self.count
-
-def getArgCount(args):
-    argcount = len(args)
-    if args:
-        for arg in args:
-            if isinstance(arg, TupleArg):
-                numNames = len(arg.names.getArgNames())
-                # numNames = len(misc.flatten(arg.names))
-                argcount = argcount - numNames
-    return argcount
 
 def twobyte(val):
     """Convert an int argument into high and low bytes"""

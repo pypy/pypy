@@ -12,7 +12,6 @@ from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
     SC_FREE, SC_CELL, SC_DEFAULT
 from pypy.interpreter.astcompiler.consts import CO_VARARGS, CO_VARKEYWORDS, \
     CO_NEWLOCALS, CO_NESTED, CO_GENERATOR, CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION
-from pypy.interpreter.astcompiler.pyassem import TupleArg
 from pypy.interpreter.pyparser.error import SyntaxError
 
 # drop VERSION dependency since it the ast transformer for 2.4 doesn't work with 2.3 anyway
@@ -1243,9 +1242,7 @@ class AbstractFunctionCode(CodeGenerator):
         if 'None' in argnames:
             raise SyntaxError('assignment to None is not allowed')
 
-        args, hasTupleArg = generateArgList(func.argnames)
-
-        graph = pyassem.PyFlowGraph(space, name, func.filename, args,
+        graph = pyassem.PyFlowGraph(space, name, func.filename, func.argnames,
                                     optimized=self.localsfullyknown,
                                     newlocals=1)
         self.isLambda = isLambda
@@ -1261,8 +1258,7 @@ class AbstractFunctionCode(CodeGenerator):
         if func.kwargs:
             self.graph.setFlag(CO_VARKEYWORDS)
         self.set_lineno(func)
-        if hasTupleArg:
-            self.generateArgUnpack(func.argnames)
+        self.generateArgUnpack(func.argnames)
 
     def get_module(self):
         return self.module
@@ -1360,23 +1356,6 @@ class ClassCodeGenerator(AbstractClassCode):
         if not space.is_w(klass.doc, space.w_None):
             self.emitop_obj("LOAD_CONST", klass.doc)
             self.storeName('__doc__')
-
-def generateArgList(arglist):
-    """Generate an arg list marking TupleArgs"""
-    args = []
-    extra = []
-    count = 0
-    for i in range(len(arglist)):
-        elt = arglist[i]
-        if isinstance(elt, ast.AssName):
-            args.append(elt)
-        elif isinstance(elt, ast.AssTuple):
-            args.append(TupleArg(i * 2, elt))
-            extra.extend(elt.getChildNodes())
-            count = count + 1
-        else:
-            raise ValueError( "unexpect argument type:" + str(elt) )
-    return args + extra, count
 
 def findOp(node):
     """Find the op (DELETE, LOAD, STORE) in an AssTuple tree"""
