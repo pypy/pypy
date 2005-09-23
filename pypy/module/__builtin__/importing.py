@@ -282,9 +282,8 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         return None
     else:
         # ImportError
-        w_failing = w_modulename
-        w_exc = space.call_function(space.w_ImportError, w_failing)
-        raise OperationError(space.w_ImportError, w_exc)
+	msg = "No module named %s" % modulename
+        raise OperationError(space.w_ImportError, w(msg))
 
 # __________________________________________________________________
 #
