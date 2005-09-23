@@ -25,7 +25,7 @@ def compile(backend):
     basename = homedir + '/projects/pypy-dist/pypy/translator/goal/' + 'pypy-' + backend
     realname = basename + '-' + revision
 
-    os.open(realname, 'wb').write( open(basename).read() )
+    open(realname, 'wb').write( open(basename).read() )
     os.chmod(realname, stat.S_IRWXU)
     os.unlink(basename)
 

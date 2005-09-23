@@ -127,9 +127,9 @@ def analyse(t, inputtypes):
         print 'Specializing...'
         t.specialize(dont_simplify_again=True,
                      crash_on_first_typeerror=not cmd_line_opt.insist)
-    if cmd_line_opt.optimize and cmd_line_opt.backend != 'llvm':
+    if cmd_line_opt.optimize:
         print 'Back-end optimizations...'
-        t.backend_optimizations()
+        t.backend_optimizations(ssa_form=cmd_line_opt.backend != 'llvm')
     if a and 'fork2' in cmd_line_opt.fork:
         from pypy.translator.goal import unixcheckpoint
         unixcheckpoint.restartable_point(auto='run')
