@@ -34,6 +34,14 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         clsdef = getbookkeeper().getclassdef(pycode.PyCode)
         return annmodel.SomeInstance(clsdef)    
 
+    def specialize__wrap(pol, bookkeeper, mod, spaceop, func, args, mono):
+        from pypy.interpreter.baseobjspace import BaseWrappable
+        ignore, args_w = args.flatten()
+        typ = args_w[1].knowntype
+        if issubclass(typ, BaseWrappable):
+            typ = BaseWrappable
+        return (func, typ), args
+    
     def attach_lookup(pol, t, attr):
         cached = "cached_%s" % attr
         if not t.is_heaptype():

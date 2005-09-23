@@ -289,7 +289,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from fake import fake_object
         return fake_object(self, x)
 
-    wrap._annspecialcase_ = "specialize:argtype1"
+    wrap._annspecialcase_ = "specialize:wrap"
 
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""
