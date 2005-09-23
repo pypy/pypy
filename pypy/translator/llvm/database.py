@@ -124,7 +124,7 @@ class Database(object):
         assert key not in self.obj2node, (
             "node with key %r already known!" %(key,))
         
-        log("added to pending nodes:", type(key), node)        
+        #log("added to pending nodes:", type(key), node)        
 
         self.obj2node[key] = node 
         self._pendingsetup.append(node)
@@ -171,7 +171,7 @@ class Database(object):
             type_ = type_.TO
             value = value._obj
 
-            log.prepareconstant("preparing ptr", value)
+            #log.prepareconstant("preparing ptr", value)
 
             # we dont need a node for nulls
             if value is None:
@@ -191,7 +191,7 @@ class Database(object):
         if isinstance(const_or_var, Constant):
             ct = const_or_var.concretetype
             if isinstance(ct, lltype.Primitive):
-                log.prepare(const_or_var, "(is primitive)")
+                #log.prepare(const_or_var, "(is primitive)")
                 return
 
             assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
@@ -201,7 +201,7 @@ class Database(object):
             if isinstance(ct, lltype.Array) or isinstance(ct, lltype.Struct):
                 p, c = lltype.parentlink(value)
                 if p is None:
-                    log.prepareargvalue("skipping preparing non root", value)
+                    #log.prepareargvalue("skipping preparing non root", value)
                     return
 
             if value is not None and value not in self.obj2node:
@@ -211,7 +211,7 @@ class Database(object):
 
 
     def prepare_arg(self, const_or_var):
-        log.prepare(const_or_var)
+        #log.prepare(const_or_var)
         self.prepare_type(const_or_var.concretetype)
         self.prepare_arg_value(const_or_var)
 
@@ -219,7 +219,7 @@ class Database(object):
     def setup_all(self):
         while self._pendingsetup: 
             node = self._pendingsetup.pop()
-            log.settingup(node)
+            #log.settingup(node)
             node.setup()
 
     def set_entrynode(self, key):

@@ -1,6 +1,6 @@
 extdeclarations =  '''
-%last_exception_type  = global %RPYTHON_EXCEPTION_VTABLE* null
-%last_exception_value = global %RPYTHON_EXCEPTION* null
+%last_exception_type  = internal global %RPYTHON_EXCEPTION_VTABLE* null
+%last_exception_value = internal global %RPYTHON_EXCEPTION* null
 '''
 
 extfunctions = {}   #dependencies, llvm-code

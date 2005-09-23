@@ -38,7 +38,7 @@ def get_ll(ccode, function_names):
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
            if line.find("internal") == -1:
-                line = '%s %s' % (DEFAULT_CCONV, line,)
+                line = 'internal %s %s' % (DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
     # patch calls to function that we just declared fastcc
@@ -62,7 +62,17 @@ def get_ll(ccode, function_names):
         ll_lines2.append(line)
 
     llcode = '\n'.join(ll_lines2)
-    return llcode.split('implementation')
+    decl, impl = llcode.split('implementation')
+    impl += """;functions that should return a bool according to
+    ; pypy/rpython/extfunctable.py  , but C doesn't have bools!
+
+internal fastcc bool %LL_os_isatty(int %fd) {
+    %t = call fastcc int %LL_os_isatty(int %fd)
+    %b = cast int %t to bool
+    ret bool %b
+}
+    """
+    return decl, impl
 
 
 def post_setup_externs(db):
@@ -123,9 +133,9 @@ def generate_llfile(db, extern_decls, support_functions, debug=False):
 
     for f in include_files:
         ccode.append(open(f).read())
+    ccode = "".join(ccode)
 
     if debug:
-        ccode = "".join(ccode)
         filename = udir.join("ccode.c")
         f = open(str(filename), "w")
         f.write(ccode)

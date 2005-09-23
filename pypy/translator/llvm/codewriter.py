@@ -71,10 +71,11 @@ class CodeWriter(object):
 
     def openfunc(self, decl, is_entrynode=False, cconv=DEFAULT_CCONV): 
         self.newline()
-        if is_entrynode:
-            linkage_type = ''
-        else:
-            linkage_type = ''	#'internal '
+        #if is_entrynode:
+        #    linkage_type = ''
+        #else:
+        #    linkage_type = 'internal '
+        linkage_type = 'internal '
         self.append("%s%s %s {" % (linkage_type, cconv, decl,))
 
     def closefunc(self): 

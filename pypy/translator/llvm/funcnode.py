@@ -44,7 +44,7 @@ class FuncNode(ConstantLLVMNode):
         return "<FuncNode %r>" %(self.ref,)
     
     def setup(self):
-        log("setup", self)
+        #log("setup", self)
         def visit(node):
             if isinstance(node, Link):
                 map(self.db.prepare_arg, node.args)

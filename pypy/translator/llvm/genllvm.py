@@ -31,7 +31,7 @@ llexterns_header = llexterns_functions = None
 
 class GenLLVM(object):
 
-    def __init__(self, translator, gcpolicy=None, exceptionpolicy=None, debug=True):
+    def __init__(self, translator, gcpolicy=None, exceptionpolicy=None, debug=False):
     
         # reset counters
         LLVMNode.nodename_count = {}    
