@@ -19,11 +19,14 @@ class GcPolicy:
 
     def new(gcpolicy=None):  #factory
         gcpolicy = gcpolicy or 'boehm'
-        if gcpolicy is None or gcpolicy == 'boehm':
-            from os.path import exists
-            boehm_on_path = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
-            if not boehm_on_path:
-                raise Exception, 'Boehm GC libary not found in /usr/lib'
+        
+        from os.path import exists
+        boehm_on_path = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
+        if gcpolicy == 'boehm' and not boehm_on_path:
+            print 'warning: Boehm GC libary not found in /usr/lib, falling back on no gc'
+            gcpolicy = 'none'
+
+        if gcpolicy == 'boehm':
             from pypy.translator.llvm.gc import BoehmGcPolicy
             gcpolicy = BoehmGcPolicy()
         elif gcpolicy == 'ref':
