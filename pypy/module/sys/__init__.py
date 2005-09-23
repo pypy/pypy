@@ -48,13 +48,12 @@ class Module(MixedModule):
         
         'executable'            : 'space.wrap("py.py")', 
         'copyright'             : 'space.wrap("MIT-License")', 
-        'api_version'           : 'space.wrap(1012)', 
-        'version_info'          : 'space.wrap((2,4,1, "alpha", 42))', 
-        'version'               : 'space.wrap("2.4.1 (pypy 0.7.1 build)")', 
-        'pypy_version_info'     : """space.wrap((0,7,1, "alpha", 
-                                   int('$Revision$'[11:-1])))""", 
+        'api_version'           : 'version.get_api_version(space)',
+        'version_info'          : 'version.get_version_info(space)',
+        'version'               : 'version.get_version(space)',
+        'pypy_version_info'     : 'version.get_pypy_version_info(space)',
         'pypy_svn_url'          : 'space.wrap("$HeadURL$"[10:-29])', 
-        'hexversion'            : 'space.wrap(0x020401a0)', 
+        'hexversion'            : 'version.get_hexversion(space)',
         'ps1'                   : 'space.wrap(">>>> ")', 
         'ps2'                   : 'space.wrap(".... ")', 
 

@@ -125,8 +125,9 @@ def getinterpevalloader(pkgroot, spec):
             try: 
                 value = eval(spec, d) 
             except NameError, ex: 
-                #assert name not in d, "huh, am i looping?" 
                 name = ex.args[0].split("'")[1] # super-Evil 
+                if name in d:
+                    raise   # propagate the NameError
                 try: 
                     d[name] = __import__(pkgroot+'.'+name, None, None, [name])
                 except ImportError: 

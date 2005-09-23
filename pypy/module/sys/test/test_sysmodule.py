@@ -18,34 +18,6 @@ def test_stdout_exists(space):
     space.sys.get('__stdout__')
 
 class AppTestAppSysTests:
-    def test_path_exists(self):
-        import sys
-        assert hasattr(sys, 'path'), "sys.path gone missing"
-    def test_modules_exists(self):
-        import sys
-        assert hasattr(sys, 'modules'), "sys.modules gone missing"
-    def test_dict_exists(self):
-        import sys
-        assert hasattr(sys, '__dict__'), "sys.__dict__ gone missing"
-    def test_name_exists(self):
-        import sys
-        assert hasattr(sys, '__name__'), "sys.__name__ gone missing"
-    def test_builtin_module_names_exists(self):
-        import sys
-        assert hasattr(sys, 'builtin_module_names'), (
-                        "sys.builtin_module_names gone missing")        
-    def test_warnoptions_exists(self):
-        import sys
-        assert hasattr(sys, 'warnoptions'), (
-                        "sys.warnoptions gone missing")
-    def test_hexversion_exists(self):
-        import sys
-        assert hasattr(sys, 'hexversion'), (
-                        "sys.hexversion gone missing")
-    def test_platform_exists(self):
-        import sys
-        assert hasattr(sys, 'platform'), "sys.platform gone missing"
-
     def test_sys_in_modules(self):
         import sys
         modules = sys.modules
@@ -97,15 +69,13 @@ class AppTestAppSysTests:
             raise AssertionError, "ZeroDivisionError not caught"
 
 def app_test_io(): 
-    #space.appexec([], """(): 
-        import sys
-        assert isinstance(sys.stdout, file)
-        assert isinstance(sys.__stdout__, file)
-        assert isinstance(sys.stderr, file)
-        assert isinstance(sys.__stderr__, file)
-        assert isinstance(sys.stdin, file)
-        assert isinstance(sys.__stdin__, file)
-    #""")
+    import sys
+    assert isinstance(sys.stdout, file)
+    assert isinstance(sys.__stdout__, file)
+    assert isinstance(sys.stderr, file)
+    assert isinstance(sys.__stderr__, file)
+    assert isinstance(sys.stdin, file)
+    assert isinstance(sys.__stdin__, file)
 
 class AppTestSysModulePortedFromCPython:
 
@@ -338,6 +308,9 @@ class AppTestSysModulePortedFromCPython:
         #)
 
     def test_attributes(self):
+        assert sys.__name__ == 'sys'
+        assert isinstance(sys.modules, dict)
+        assert isinstance(sys.path, list)
         assert isinstance(sys.api_version, int)
         assert isinstance(sys.argv, list)
         assert sys.byteorder in ("little", "big")
@@ -351,6 +324,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.platform, basestring)
         assert isinstance(sys.prefix, basestring)
         assert isinstance(sys.version, basestring)
+        assert isinstance(sys.warnoptions, list)
         vi = sys.version_info
         assert isinstance(vi, tuple)
         assert len(vi) == 5
@@ -373,3 +347,18 @@ class AppTestSysModulePortedFromCPython:
         finally:
             sys.settrace(None)
         assert len(counts) == 1
+
+    def test_pypy_attributes(self):
+        assert isinstance(sys.pypy_objspaceclass, str)
+        assert isinstance(sys.pypy_svn_url, str)
+        vi = sys.pypy_version_info
+        assert isinstance(vi, tuple)
+        assert len(vi) == 5
+        assert isinstance(vi[0], int)
+        assert isinstance(vi[1], int)
+        assert isinstance(vi[2], int)
+        assert vi[3] in ("alpha", "beta", "candidate", "final")
+        assert isinstance(vi[4], int) or vi[4] == '?'
+
+    def test_allattributes(self):
+        sys.__dict__   # check that we don't crash initializing any attribute
