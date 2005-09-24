@@ -85,7 +85,8 @@ class FlowGraphDotGen(DotGen):
         self.func = None
         self.prefix = name
         self.enter_subgraph(name)
-        traverse(self, node)
+        self.visit_FunctionGraph(node)
+        traverse(self.visit, node)
         self.leave_subgraph()
 
     def blockname(self, block):
@@ -97,8 +98,8 @@ class FlowGraphDotGen(DotGen):
             return name
 
     def visit(self, obj):
-        # ignore for now 
-        return
+        if isinstance(obj, Block):
+            self.visit_Block(obj)
 
     def visit_FunctionGraph(self, funcgraph):
         name = self.prefix # +'_'+funcgraph.name
