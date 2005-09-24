@@ -8,33 +8,47 @@ def data_flow_families(graph):
     all following variables where the value is just passed unmerged into the
     next block.
     """
-    entrymaplist = mkentrymap(graph).items()
+
+    # Build a list of "unification opportunities": for each block and each 'n',
+    # an "opportunity" is the list of the block's nth input variable plus
+    # the nth output variable from each of the incoming links.
+    opportunities = []
+    for block, links in mkentrymap(graph).items():
+        if block is graph.startblock:
+            continue
+        assert links
+        for n, inputvar in enumerate(block.inputargs):
+            vars = [inputvar]
+            for link in links:
+                var = link.args[n]
+                if not isinstance(var, Variable):
+                    break
+                vars.append(var)
+            else:
+                # if no Constant found in the incoming links
+                opportunities.append(vars)
+
+    # An "opportunitiy" that lists exactly two distinct variables means that
+    # the two variables can be unified.  We maintain the unification status in
+    # 'variable_families'.  When variables are unified, it might reduce the
+    # number of distinct variables and thus open other "opportunities" for
+    # unification.
     progress = True
     variable_families = UnionFind()
-
-    # group variables by families; a family of variables will be identified.
     while progress:
         progress = False
-        for block, links in entrymaplist:
-            if block is graph.startblock:
-                continue
-            assert links
-            for i in range(len(block.inputargs)):
-                # list of possible vars that can arrive in i'th position
-                v1 = block.inputargs[i]
-                v1 = variable_families.find_rep(v1)
-                inputs = {v1: True}
-                key = []
-                for link in links:
-                    v = link.args[i]
-                    if not isinstance(v, Variable):
-                        break
-                    v = variable_families.find_rep(v)
-                    inputs[v] = True
-                else:
-                    if len(inputs) == 2:
-                        variable_families.union(*inputs)
-                        progress = True
+        pending_opportunities = []
+        for vars in opportunities:
+            repvars = [variable_families.find_rep(v1) for v1 in vars]
+            repvars = dict.fromkeys(repvars).keys()
+            if len(repvars) > 2:
+                # cannot unify now, but maybe later?
+                pending_opportunities.append(repvars)
+            elif len(repvars) == 2:
+                # unify!
+                variable_families.union(*repvars)
+                progress = True
+        opportunities = pending_opportunities
     return variable_families
 
 def SSI_to_SSA(graph):
