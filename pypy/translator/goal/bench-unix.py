@@ -6,13 +6,14 @@ import os, sys
 
 current_result = '''
 executable                       richards              pystone
-pypy-c-17758                     416740ms (326.85x)      916ms (  0.03x)
-pypy-c-17797                     394070ms (309.07x)    99999ms (  3.40x)
-pypy-llvm-17758                  343870ms (269.70x)     1131ms (  0.04x)
-pypy-llvm-17792                  277630ms (217.75x)     1418ms (  0.05x)
-pypy-llvm-17797                  274470ms (215.27x)     1434ms (  0.05x)
-pypy-llvm-17799                  999990ms (784.31x)    99999ms (  3.40x)
-python 2.4.2c1                     1275ms (  1.00x)    29411ms (  1.00x)
+pypy-c-17758                      30626ms ( 35.74x)     1268   ( 33.98x)
+pypy-c-17797                      29657ms ( 34.61x)    error            
+pypy-c-17799                      29184ms ( 34.05x)    error            
+pypy-llvm-17758                   25361ms ( 29.59x)     1525   ( 28.26x)
+pypy-llvm-17792                   20775ms ( 24.24x)     1912   ( 22.53x)
+pypy-llvm-17797                   20423ms ( 23.83x)     1943   ( 22.18x)
+pypy-llvm-17799                   error                error             
+python 2.4.2c1                      857ms (  1.00x)    43103   (  1.00x)
 '''
 
 PYSTONE_CMD = 'from test import pystone;pystone.main(%s)'
@@ -46,7 +47,7 @@ def run_pystone(executable='python', n=0):
 def run_richards(executable='python', n=10):
     argstr = RICHARDS_CMD % n
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
-    res = get_result(txt, RICHARDS_PATTERN) * 10 / n
+    res = get_result(txt, RICHARDS_PATTERN)
     #print res
     return res
 
@@ -56,7 +57,7 @@ def get_executables():
     return exes
 
 HEADLINE = '''executable                       richards              pystone'''
-FMT = '''%-30s   %6dms (%6.2fx)   %6dms (%6.2fx)'''
+FMT = '''%-30s   %6dms (%6.2fx)   %6d   (%6.2fx)'''
 
 def main():
     #print 'getting the richards reference'
@@ -70,7 +71,7 @@ def main():
     res.append( ('python %s' % sys.version.split()[0], ref_rich, ref_stone) )
     print HEADLINE
     for exe, rich, stone in res:
-        print FMT % (exe, rich, rich / ref_rich, stone, stone / ref_stone)
+        print FMT % (exe, rich, rich / ref_rich, stone, ref_stone / stone)
 
 if __name__ == '__main__':
     main()
