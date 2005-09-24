@@ -269,7 +269,10 @@ class BuiltinFrame(eval.Frame):
         raise TypeError, "abstract"
 
 class BuiltinFrameFactory(object):
-    pass
+    """Subclasses can create builtin frames for a associated  builtin"""
+    
+    def create(self, space, code, w_globals):
+        raise TypeError, "abstract"
 
 class BuiltinCodeSignature(Signature):
     "NOT_RPYTHON"
