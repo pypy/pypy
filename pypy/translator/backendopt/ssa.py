@@ -1,55 +1,91 @@
 from pypy.objspace.flow.model import Variable, mkentrymap, flatten, Block
 from pypy.tool.unionfind import UnionFind
 
-def data_flow_families(graph):
-    """Follow the flow of the data in the graph.  Returns a UnionFind grouping
+class DataFlowFamilyBuilder:
+    """Follow the flow of the data in the graph.  Builds a UnionFind grouping
     all the variables by families: each family contains exactly one variable
     where a value is stored into -- either by an operation or a merge -- and
     all following variables where the value is just passed unmerged into the
     next block.
     """
 
-    # Build a list of "unification opportunities": for each block and each 'n',
-    # an "opportunity" is the list of the block's nth input variable plus
-    # the nth output variable from each of the incoming links.
-    opportunities = []
-    for block, links in mkentrymap(graph).items():
-        if block is graph.startblock:
-            continue
-        assert links
-        for n, inputvar in enumerate(block.inputargs):
-            vars = [inputvar]
-            for link in links:
-                var = link.args[n]
-                if not isinstance(var, Variable):
-                    break
-                vars.append(var)
-            else:
-                # if no Constant found in the incoming links
-                opportunities.append(vars)
+    def __init__(self, graph):
+        # Build a list of "unification opportunities": for each block and each
+        # 'n', an "opportunity" groups the block's nth input variable with
+        # the nth output variable from each of the incoming links, in a list:
+        # [Block, blockvar, linkvar, linkvar, linkvar...]
+        opportunities = []
+        for block, links in mkentrymap(graph).items():
+            if block is graph.startblock:
+                continue
+            assert links
+            for n, inputvar in enumerate(block.inputargs):
+                vars = [block, inputvar]
+                for link in links:
+                    var = link.args[n]
+                    if not isinstance(var, Variable):
+                        break
+                    vars.append(var)
+                else:
+                    # if no Constant found in the incoming links
+                    opportunities.append(vars)
+        self.opportunities = opportunities
+        self.variable_families = UnionFind()
 
-    # An "opportunitiy" that lists exactly two distinct variables means that
-    # the two variables can be unified.  We maintain the unification status in
-    # 'variable_families'.  When variables are unified, it might reduce the
-    # number of distinct variables and thus open other "opportunities" for
-    # unification.
-    progress = True
-    variable_families = UnionFind()
-    while progress:
-        progress = False
-        pending_opportunities = []
-        for vars in opportunities:
-            repvars = [variable_families.find_rep(v1) for v1 in vars]
-            repvars = dict.fromkeys(repvars).keys()
-            if len(repvars) > 2:
-                # cannot unify now, but maybe later?
-                pending_opportunities.append(repvars)
-            elif len(repvars) == 2:
-                # unify!
-                variable_families.union(*repvars)
-                progress = True
-        opportunities = pending_opportunities
-    return variable_families
+    def complete(self):
+        # An "opportunitiy" that lists exactly two distinct variables means that
+        # the two variables can be unified.  We maintain the unification status
+        # in 'variable_families'.  When variables are unified, it might reduce
+        # the number of distinct variables and thus open other "opportunities"
+        # for unification.
+        variable_families = self.variable_families
+        any_progress_at_all = False
+        progress = True
+        while progress:
+            progress = False
+            pending_opportunities = []
+            for vars in self.opportunities:
+                repvars = [variable_families.find_rep(v1) for v1 in vars[1:]]
+                repvars_without_duplicates = dict.fromkeys(repvars)
+                count = len(repvars_without_duplicates)
+                if count > 2:
+                    # cannot unify now, but maybe later?
+                    pending_opportunities.append(vars[:1] + repvars)
+                elif count == 2:
+                    # unify!
+                    variable_families.union(*repvars_without_duplicates)
+                    progress = True
+            self.opportunities = pending_opportunities
+            any_progress_at_all |= progress
+        return any_progress_at_all
+
+    def merge_identical_phi_nodes(self):
+        variable_families = self.variable_families
+        any_progress_at_all = False
+        progress = True
+        while progress:
+            progress = False
+            block_phi_nodes = {}   # in the SSA sense
+            for vars in self.opportunities:
+                block, blockvar = vars[:2]
+                linksvars = vars[2:]   # from the incoming links
+                linksvars = [variable_families.find_rep(v) for v in linksvars]
+                phi_node = (block,) + tuple(linksvars) # ignoring n and blockvar
+                if phi_node in block_phi_nodes:
+                    # already seen: we have two phi nodes in the same block that
+                    # get exactly the same incoming vars.  Identify the results.
+                    blockvar1 = block_phi_nodes[phi_node]
+                    if variable_families.union(blockvar1, blockvar)[0]:
+                        progress = True
+                else:
+                    block_phi_nodes[phi_node] = blockvar
+            any_progress_at_all |= progress
+        return any_progress_at_all
+
+    def get_variable_families(self):
+        self.complete()
+        return self.variable_families
+
 
 def SSI_to_SSA(graph):
     """Rename the variables in a flow graph as much as possible without
@@ -61,7 +97,7 @@ def SSI_to_SSA(graph):
     result of an operation only once in the whole graph, but it can be
     passed to other blocks across links.
     """
-    variable_families = data_flow_families(graph)
+    variable_families = DataFlowFamilyBuilder(graph).get_variable_families()
     # rename variables to give them the name of their familiy representant
     for v in variable_families.keys():
         v1 = variable_families.find_rep(v)

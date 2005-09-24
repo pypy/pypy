@@ -453,44 +453,59 @@ def remove_identical_vars(graph):
     which otherwise doesn't realize that tests performed on one of the copies
     of the variable also affect the other."""
 
-    from pypy.translator.backendopt.ssa import data_flow_families
-    entrymapitems = mkentrymap(graph).items()
-    progress = True
-    while progress:
-        variable_families = data_flow_families(graph)
-        progress = False
-        for block, links in entrymapitems:
-            if not block.exits:
-                continue
-            entryargs = {}
-            for i in range(len(block.inputargs)):
-                # list of possible vars that can arrive in i'th position
-                key = []
+    # This algorithm is based on DataFlowFamilyBuilder, used as a
+    # "phi node remover" (in the SSA sense).  'variable_families' is a
+    # UnionFind object that groups variables by families; variables from the
+    # same family can be identified, and if two input arguments of a block
+    # end up in the same family, then we really remove one of them in favor
+    # of the other.
+    #
+    # The idea is to identify as much variables as possible by trying
+    # iteratively two kinds of phi node removal:
+    #
+    #  * "vertical", by identifying variables from different blocks, when
+    #    we see that a value just flows unmodified into the next block without
+    #    needing any merge (this is what backendopt.ssa.SSI_to_SSA() would do
+    #    as well);
+    #
+    #  * "horizontal", by identifying two input variables of the same block,
+    #    when these two variables' phi nodes have the same argument -- i.e.
+    #    when for all possible incoming paths they would get twice the same
+    #    value (this is really the purpose of remove_identical_vars()).
+    #
+    from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
+    builder = DataFlowFamilyBuilder(graph)
+    variable_families = builder.get_variable_families()  # vertical removal
+    while True:
+        if not builder.merge_identical_phi_nodes():    # horizontal removal
+            break
+        if not builder.complete():                     # vertical removal
+            break
+
+    for block, links in mkentrymap(graph).items():
+        if block is graph.startblock:
+            continue
+        renaming = {}
+        family2blockvar = {}
+        kills = []
+        for i, v in enumerate(block.inputargs):
+            v1 = variable_families.find_rep(v)
+            if v1 in family2blockvar:
+                # already seen -- this variable can be shared with the
+                # previous one
+                renaming[v] = family2blockvar[v1]
+                kills.append(i)
+            else:
+                family2blockvar[v1] = v
+        if renaming:
+            block.renamevariables(renaming)
+            # remove the now-duplicate input variables
+            kills.reverse()   # starting from the end
+            for i in kills:
+                del block.inputargs[i]
                 for link in links:
-                    v = link.args[i]
-                    if isinstance(v, Constant):
-                        break
-                    key.append(variable_families.find_rep(v))
-                else: # if no Constant
-                    key = tuple(key)
-                    if key not in entryargs:
-                        entryargs[key] = i
-                    else:
-                        j = entryargs[key]
-                        # positions i and j receive exactly the same input
-                        # vars, we can remove the argument i and replace it
-                        # with the j.
-                        argi = block.inputargs[i]
-                        argj = block.inputargs[j]
-                        block.renamevariables({argi: argj})
-                        assert block.inputargs[i] == block.inputargs[j]== argj
-                        del block.inputargs[i]
-                        for link in links:
-                            assert (variable_families.find_rep(link.args[i])==
-                                    variable_families.find_rep(link.args[j]))
-                            del link.args[i]
-                        progress = True
-                        break   # block.inputargs mutated
+                    del link.args[i]
+
 
 def coalesce_is_true(graph):
     """coalesce paths that go through an is_true and a directly successive

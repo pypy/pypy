@@ -68,21 +68,27 @@ class FunctionGraph(object):
         return getsource(self.func)
     source = roproperty(getsource)
 
-##    def hasonlyexceptionreturns(self):
-##        try:
-##            return self._onlyex
-##        except AttributeError: 
-##            def visit(link):
-##                if isinstance(link, Link):
-##                    if link.target == self.returnblock: 
-##                        raise ValueError(link) 
-##            try:
-##                traverse(visit, self)
-##            except ValueError:
-##                self._onlyex = False 
-##            else:
-##                self._onlyex = True
-##            return self._onlyex 
+    def iterblocks(self):
+        pending = [self.startblock]
+        seen = {id(self.startblock): True}
+        for block in pending:
+            yield block
+            for link in block.exits:
+                targetid = id(link.target)
+                if targetid not in seen:
+                    pending.append(link.target)
+                    seen[targetid] = True
+
+    def iterlinks(self):
+        pending = [self.startblock]
+        seen = {id(self.startblock): True}
+        for block in pending:
+            for link in block.exits:
+                yield link
+                targetid = id(link.target)
+                if targetid not in seen:
+                    pending.append(link.target)
+                    seen[targetid] = True
 
     def show(self):
         from pypy.translator.tool.graphpage import SingleGraphPage
