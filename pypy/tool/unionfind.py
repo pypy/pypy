@@ -32,8 +32,15 @@ class UnionFind(object):
         return self.root_info.values()
 
     def find_rep(self, obj):
-        ignore, rep, info = self.find(obj)
-        return rep
+        try:
+            # fast path (shortcut for performance reasons)
+            parent = self.link_to_parent[obj]
+            self.root_info[parent]   # may raise KeyError
+            return parent
+        except KeyError:
+            # general case
+            ignore, rep, info = self.find(obj)
+            return rep
 
     def find(self, obj):  # -> new_root, obj, info
         if obj not in self.link_to_parent:
