@@ -25,6 +25,7 @@ class RPythonAnnotator:
         self.pendingblocks = {}  # map {block: function}
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
+        self.added_blocks = None # see processblock() below
         self.links_followed = {} # set of links that have ever been followed
         self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
         # --- the following information is recorded for debugging only ---
@@ -381,6 +382,12 @@ class RPythonAnnotator:
             if not hasattr(e, '__annotator_block'):
                 setattr(e, '__annotator_block', block)
             raise
+
+        # The dict 'added_blocks' is used by rpython.annlowlevel to
+        # detect which are the new blocks that annotating an additional
+        # small helper creates.
+        if self.added_blocks is not None:
+            self.added_blocks[block] = True
 
     def reflowpendingblock(self, fn, block):
         assert not self.frozen

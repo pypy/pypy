@@ -82,18 +82,17 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
 
 
 def annotate_lowlevel_helper(annotator, ll_function, args_s):
-    saved = annotator.policy
+    saved = annotator.policy, annotator.added_blocks
     annotator.policy = LowLevelAnnotatorPolicy()
     try:
         args = annotator.bookkeeper.build_args('simple_call', args_s)
         (ll_function, args), key = decide_callable(annotator.bookkeeper, None, ll_function, args, mono=True, unpacked=True)
         args_s, kwds_s = args.unpack()
         assert not kwds_s
-        oldblocks = annotator.annotated.copy()
+        annotator.added_blocks = {}
         s = annotator.build_types(ll_function, args_s)
-        newblocks = [block for block in annotator.annotated.iterkeys() if block not in oldblocks]
         # invoke annotation simplifications for the new blocks
-        annotator.simplify(block_subset=newblocks)
+        annotator.simplify(block_subset=annotator.added_blocks)
     finally:
-        annotator.policy = saved
+        annotator.policy, annotator.added_blocks = saved
     return s, ll_function

@@ -198,10 +198,8 @@ def transform_graph(ann, extra_passes=default_extra_passes, block_subset=None):
     #          modified by t.simplify() after it had been annotated.
     if block_subset is None:
         block_subset = fully_annotated_blocks(ann)
-    d = {}
-    for block in block_subset:
-        d[block] = True
-    block_subset = d
+    if not isinstance(block_subset, dict):
+        block_subset = dict.fromkeys(block_subset)
     if ann.translator:
         checkgraphs(ann, block_subset)
     transform_dead_code(ann, block_subset)
