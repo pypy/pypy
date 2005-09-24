@@ -622,11 +622,12 @@ class _ptr(object):
             if field_name in self._T._flds:
                 T1 = self._T._flds[field_name]
                 T2 = typeOf(val)
-                if T1 != T2:
+                if T1 == T2:
+                    setattr(self._obj, field_name, val)
+                else:
                     raise TypeError("%r instance field %r:\n"
                                     "expects %r\n"
                                     "    got %r" % (self._T, field_name, T1, T2))
-                setattr(self._obj, field_name, val)
                 return
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))

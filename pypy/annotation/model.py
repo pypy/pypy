@@ -482,12 +482,20 @@ class UnionError(Exception):
 
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."
-    s1 = SomeImpossibleValue()
-    for s2 in somevalues:
+    try:
+        s1, s2 = somevalues
+    except ValueError:
+        s1 = SomeImpossibleValue()
+        for s2 in somevalues:
+            if s1 != s2:
+                s1 = pair(s1, s2).union()
+    else:
+        # this is just a performance shortcut
         if s1 != s2:
             s1 = pair(s1, s2).union()
-    if DEBUG and s1.caused_by_merge is None and len(somevalues) > 1:
-        s1.caused_by_merge = somevalues
+    if DEBUG:
+        if s1.caused_by_merge is None and len(somevalues) > 1:
+            s1.caused_by_merge = somevalues
     return s1
 
 def isdegenerated(s_value):
@@ -547,6 +555,17 @@ def missing_operation(cls, name):
         bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
         return SomeImpossibleValue()
     setattr(cls, name, default_op)
+
+#
+# safety check that no-one is trying to make annotation and translation
+# faster by providing the -O option to Python.
+try:
+    assert False
+except AssertionError:
+    pass   # fine
+else:
+    raise RuntimeError("The annotator relies on 'assert' statements from the\n"
+                     "\tannotated program: you cannot run it with 'python -O'.")
 
 # this has the side-effect of registering the unary and binary operations
 from pypy.annotation.unaryop  import UNARY_OPERATIONS
