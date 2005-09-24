@@ -5,6 +5,7 @@
 # a discussion in Berlin, 4th of october 2003
 from __future__ import generators
 from pypy.tool.uid import Hashable
+from pypy.tool.sourcetools import PY_IDENTIFIER
 
 """
     memory size before and after introduction of __slots__
@@ -217,7 +218,7 @@ class Variable(object):
     name = property(name)
 
     def renamed(self):
-        return isinstance(self._name, str)
+        return type(self._name) is not int
     renamed = property(renamed)
     
     def __init__(self, name=None):
@@ -237,19 +238,23 @@ class Variable(object):
         return '%s' % self.name
 
     def rename(self, name):
-        if self.renamed:
+        my_number = self._name
+        if type(my_number) is not int:   # don't rename several times
             return
-        if isinstance(name, Variable):
-            if not name.renamed:
+        if type(name) is not str:
+            #assert isinstance(name, Variable) -- disabled for speed reasons
+            name = name._name
+            if type(name) is int:    # the other Variable wasn't renamed either
                 return
-            name = name.name[:name.name.rfind('_')]
-        # remove strange characters in the name
-        name = ''.join([c for c in name if c.isalnum() or c == '_'])
-        if not name:
-            return
-        if '0' <= name[0] <= '9':
-            name = '_' + name
-        self._name = name + '_' + self.name[1:]
+            name = name[:name.rfind('_')]
+        else:
+            # remove strange characters in the name
+            name = name.translate(PY_IDENTIFIER)
+            if not name:
+                return
+            if name[0] <= '9':   # skipped the   '0' <=   which is always true
+                name = '_' + name
+        self._name = '%s_%d' % (name, my_number)
 
     def __reduce_ex__(self, *args):
         if hasattr(self, 'concretetype'):
