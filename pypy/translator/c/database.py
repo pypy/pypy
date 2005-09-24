@@ -69,7 +69,7 @@ class LowLevelDatabase:
             resulttype = self.gettype(T.RESULT)
             argtypes = []
             for i in range(len(T.ARGS)):
-                if T.ARGS[i] != Void:
+                if T.ARGS[i] is not Void:
                     argtype = self.gettype(T.ARGS[i])
                     try:
                         argname = argnames[i]

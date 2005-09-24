@@ -142,7 +142,7 @@ class StructDefNode:
         STRUCT = self.STRUCT
         for name in STRUCT._names:
             FIELD_T = self.c_struct_field_type(name)
-            if FIELD_T == Void:
+            if FIELD_T is Void:
                 yield '-1'
             else:
                 cname = self.c_struct_field_name(name)
@@ -201,7 +201,7 @@ class ArrayDefNode:
                     yield '\t' + line
             yield '\tlong length;'
             line = '%s;' % cdecl(self.itemtypename, 'items[%d]'% self.varlength)
-            if self.ARRAY.OF == Void:    # strange
+            if self.ARRAY.OF is Void:    # strange
                 line = '/* %s */' % line
             yield '\t' + line
             yield '};'
@@ -241,7 +241,7 @@ class ArrayDefNode:
     def debug_offsets(self):
         # generate three offsets for debugging inspection
         yield 'offsetof(struct %s, length)' % (self.name,)
-        if self.ARRAY.OF != Void:
+        if self.ARRAY.OF is not Void:
             yield 'offsetof(struct %s, items[0])' % (self.name,)
             yield 'offsetof(struct %s, items[1])' % (self.name,)
         else:
@@ -381,7 +381,7 @@ class ArrayNode(ContainerNode):
             line = self.db.gcpolicy.array_gcheader_initializationexpr(self)
             if line:
                 yield '\t' + line
-        if self.T.OF == Void or len(self.obj.items) == 0:
+        if self.T.OF is Void or len(self.obj.items) == 0:
             yield '\t%d' % len(self.obj.items)
             yield '}'
         elif self.T.OF == Char:
@@ -416,7 +416,7 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             node.where_to_copy_me.append('&%s' % access_expr)
         else:
             expr = db.get(value)
-            if typeOf(value) == Void:
+            if typeOf(value) is Void:
                 comma = ''
         expr += comma
         i = expr.find('\n')

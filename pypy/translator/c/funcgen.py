@@ -100,7 +100,7 @@ class FunctionCodeGenerator(object):
 
     def expr(self, v, special_case_void=True):
         if isinstance(v, Variable):
-            if self.lltypemap(v) == Void and special_case_void:
+            if self.lltypemap(v) is Void and special_case_void:
                 return '/* nothing */'
             else:
                 return LOCALVAR % v.name
@@ -143,7 +143,7 @@ class FunctionCodeGenerator(object):
             if name not in seen:
                 seen[name] = True
                 result = cdecl(self.lltypename(v), LOCALVAR % name) + ';'
-                if self.lltypemap(v) == Void:
+                if self.lltypemap(v) is Void:
                     result = '/*%s*/' % result
                 result_by_name.append((v._name, result))
         result_by_name.sort()
@@ -174,7 +174,7 @@ class FunctionCodeGenerator(object):
             multiple_times_alive = []
             for a1, a2 in zip(link.args, link.target.inputargs):
                 a2type, a2typename = self.lltypes[id(a2)]
-                if a2type == Void:
+                if a2type is Void:
                     continue
                 if a1 in linklocalvars:
                     src = linklocalvars[a1]
@@ -237,7 +237,7 @@ class FunctionCodeGenerator(object):
                 to_release.append(op.result)
 
                 T = self.lltypemap(op.result)
-                if T != Void:
+                if T is not Void:
                     res = LOCALVAR % op.result.name
                     line = push_alive_op_result(op.opname, res, T)
                     if line:
@@ -395,8 +395,8 @@ class FunctionCodeGenerator(object):
 
     def OP_DIRECT_CALL(self, op, err):
         # skip 'void' arguments
-        args = [self.expr(v) for v in op.args if self.lltypemap(v) != Void]
-        if self.lltypemap(op.result) == Void:
+        args = [self.expr(v) for v in op.args if self.lltypemap(v) is not Void]
+        if self.lltypemap(op.result) is Void:
             # skip assignment of 'void' return value
             return '%s(%s); if (RPyExceptionOccurred()) FAIL(%s);' % (
                 args[0], ', '.join(args[1:]), err)
@@ -414,7 +414,7 @@ class FunctionCodeGenerator(object):
         if T == PyObjPtr:
             result.append(self.pyobj_incref_expr(newvalue, T))
         result = '\t'.join(result)
-        if T == Void:
+        if T is Void:
             result = '/* %s */' % result
         return result
 
@@ -425,7 +425,7 @@ class FunctionCodeGenerator(object):
         T = self.lltypemap(op.args[2])
         self.gcpolicy.write_barrier(result, newvalue, T, targetexpr)
         result = '\t'.join(result)
-        if T == Void:
+        if T is Void:
             result = '/* %s */' % result
         return result
 
@@ -506,7 +506,7 @@ class FunctionCodeGenerator(object):
         itemtypename = self.db.gettype(VARPART.OF)
         elength = self.expr(op.args[1])
         eresult = self.expr(op.result)
-        if VARPART.OF == Void:    # strange
+        if VARPART.OF is Void:    # strange
             esize = 'sizeof(%s)' % (cdecl(typename, ''),)
         else:
             esize = 'sizeof(%s)+((%s-1)*sizeof(%s))' % (cdecl(typename, ''),
@@ -532,7 +532,7 @@ class FunctionCodeGenerator(object):
         result = []
         TYPE = self.lltypemap(op.result)
         assert self.lltypemap(op.args[0]) == TYPE
-        if TYPE != Void:
+        if TYPE is not Void:
             result.append('%s = %s;' % (self.expr(op.result),
                                         self.expr(op.args[0])))
             if TYPE == PyObjPtr:

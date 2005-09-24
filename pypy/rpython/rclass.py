@@ -270,7 +270,7 @@ class ClassRepr(Repr):
             mro = list(rsubcls.classdef.getmro())
             for fldname in self.clsfields:
                 mangled_name, r = self.clsfields[fldname]
-                if r.lowleveltype == Void:
+                if r.lowleveltype is Void:
                     continue
                 for clsdef in mro:
                     if fldname in clsdef.cls.__dict__:
@@ -279,7 +279,7 @@ class ClassRepr(Repr):
                         break
             # extra PBC attributes
             for (access_set, attr), (mangled_name, r) in self.pbcfields.items():
-                if r.lowleveltype == Void:
+                if r.lowleveltype is Void:
                     continue
                 for clsdef in mro:
                     try:
@@ -513,7 +513,7 @@ class InstanceRepr(Repr):
                                                     result.super)
             # then add instance attributes from this level
             for name, (mangled_name, r) in self.fields.items():
-                if r.lowleveltype == Void:
+                if r.lowleveltype is Void:
                     llattrvalue = None
                 elif name == '_hash_cache_': # hash() support
                     llattrvalue = hash(value)
@@ -596,7 +596,7 @@ class InstanceRepr(Repr):
                 if fldname == '__class__':
                     continue
                 mangled_name, r = self.allinstancefields[fldname]
-                if r.lowleveltype == Void:
+                if r.lowleveltype is Void:
                     continue
                 for clsdef in mro:
                     if fldname in clsdef.cls.__dict__:

@@ -232,7 +232,7 @@ class MultipleFrozenPBCRepr(MultiplePBCRepr):
             result = malloc(self.pbc_type, immortal=True)
             self.pbc_cache[pbc] = result
             for attr, (mangled_name, r_value) in self.llfieldmap.items():
-                if r_value.lowleveltype == Void:
+                if r_value.lowleveltype is Void:
                     continue
                 try: 
                     thisattrvalue = self.access_set.values[(pbc, attr)] 
@@ -436,7 +436,7 @@ class FunctionsPBCRepr(MultiplePBCRepr):
         return self.call(hop, f, vlist, rresult)
 
     def call(self, hop, f, vlist, rresult):
-        if self.lowleveltype == Void:
+        if self.lowleveltype is Void:
             assert len(self.function_signatures()) == 1
             vlist[0] = hop.inputconst(typeOf(f), f)
         hop.exception_is_here()
@@ -466,7 +466,7 @@ class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
             # this check makes sense because both source and dest repr are FunctionsPBCRepr
             if r_fpbc1.lowleveltype == r_fpbc2.lowleveltype:
                 return v
-            if r_fpbc1.lowleveltype == Void:
+            if r_fpbc1.lowleveltype is Void:
                 return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
             return NotImplemented
 
@@ -622,7 +622,7 @@ class ClassesPBCRepr(Repr):
     def convert_const(self, cls):
         if cls not in self.s_pbc.prebuiltinstances:
             raise TyperError("%r not in %r" % (cls, self))
-        if self.lowleveltype == Void:
+        if self.lowleveltype is Void:
             return cls
         return rclass.get_type_repr(self.rtyper).convert_const(cls)
 
@@ -633,7 +633,7 @@ class ClassesPBCRepr(Repr):
         return self.redispatch_call(hop, call_args=True)
 
     def redispatch_call(self, hop, call_args):
-        if self.lowleveltype != Void:
+        if self.lowleveltype is not Void:
             # instantiating a class from multiple possible classes
             vcls = hop.inputarg(self, arg=0)
             access_set = self.get_access_set()
@@ -696,7 +696,7 @@ class __extend__(pairtype(ClassesPBCRepr, ClassesPBCRepr)):
             # this check makes sense because both source and dest repr are ClassesPBCRepr
             if r_clspbc1.lowleveltype == r_clspbc2.lowleveltype:
                 return v
-            if r_clspbc1.lowleveltype == Void:
+            if r_clspbc1.lowleveltype is Void:
                 return inputconst(r_clspbc2, r_clspbc1.s_pbc.const)
             return NotImplemented
             

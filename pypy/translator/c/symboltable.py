@@ -107,7 +107,7 @@ class debugptr:
         if isinstance(FIELD_TYPE, ContainerType):
             return debugptr(Ptr(FIELD_TYPE), address, self._symtable)
         elif isinstance(FIELD_TYPE, Primitive):
-            if FIELD_TYPE == Void:
+            if FIELD_TYPE is Void:
                 return None
             tag = PrimitiveTag[FIELD_TYPE]
             size = struct.calcsize(tag)

@@ -212,7 +212,7 @@ class RPythonTyper:
         if not hasattr(c, 'concretetype'):
             c = inputconst(using_repr, c.value)
         else:
-            if c.concretetype != Void:
+            if c.concretetype is not Void:
                 assert typeOf(c.value) == using_repr.lowleveltype
         return c
 
@@ -393,7 +393,7 @@ class RPythonTyper:
             if hop.s_result.is_constant():
                 if isinstance(resultvar, Constant) and \
                        isinstance(hop.r_result.lowleveltype, Primitive) and \
-                       hop.r_result.lowleveltype != Void:
+                       hop.r_result.lowleveltype is not Void:
                     assert resultvar.value == hop.s_result.const
             resulttype = resultvar.concretetype
             op.result.concretetype = hop.r_result.lowleveltype
@@ -707,7 +707,7 @@ class LowLevelOpList(list):
         args_s = []
         newargs_v = []
         for v in args_v:
-            if v.concretetype == Void:
+            if v.concretetype is Void:
                 s_value = rtyper.binding(v)
                 if not s_value.is_constant():
                     raise TyperError("non-constant variable of type Void")

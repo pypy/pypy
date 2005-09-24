@@ -27,12 +27,12 @@ class CExternalFunctionCodeGenerator(object):
         pass
 
     def cfunction_declarations(self):
-        if self.FUNCTYPE.RESULT != Void:
+        if self.FUNCTYPE.RESULT is not Void:
             yield '%s;' % cdecl(self.resulttypename, 'result')
 
     def cfunction_body(self):
         call = '%s(%s)' % (self.fnptr._name, ', '.join(self.argnames()))
-        if self.FUNCTYPE.RESULT != Void:
+        if self.FUNCTYPE.RESULT is not Void:
             yield 'result = %s;' % call
             yield 'if (PyErr_Occurred()) RPyConvertExceptionFromCPython();'
             yield 'return result;'

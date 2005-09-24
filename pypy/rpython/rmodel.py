@@ -91,7 +91,7 @@ class Repr:
 
     def convert_const(self, value):
         "Convert the given constant value to the low-level repr of 'self'."
-        if self.lowleveltype != Void:
+        if self.lowleveltype is not Void:
             try:
                 realtype = typeOf(value)
             except (AssertionError, AttributeError):
@@ -199,9 +199,9 @@ class __extend__(pairtype(Repr, Repr)):
     def rtype_is_((robj1, robj2), hop):
         if hop.s_result.is_constant():
             return inputconst(Bool, hop.s_result.const)
-        if robj1.lowleveltype == Void:
+        if robj1.lowleveltype is Void:
             robj1 = robj2
-        elif robj2.lowleveltype == Void:
+        elif robj2.lowleveltype is Void:
             robj2 = robj1
         if (not isinstance(robj1.lowleveltype, Ptr) or
             not isinstance(robj2.lowleveltype, Ptr)):
@@ -287,7 +287,7 @@ def inputconst(reqtype, value):
         raise TypeError(repr(reqtype))
     # Void Constants can hold any value;
     # non-Void Constants must hold a correctly ll-typed value
-    if lltype != Void:
+    if lltype is not Void:
         try:
             realtype = typeOf(value)
         except (AssertionError, AttributeError):
