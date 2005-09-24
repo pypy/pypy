@@ -153,7 +153,6 @@ In your home directory edit .subversion/config and comment in ::
 .. _MacOS: http://codespeak.net/~jum/svn-1.1.3-darwin-ppc.tar.gz
 .. _versions: http://subversion.tigris.org/project_packages.html
 .. _Win: http://www.microsoft.com/downloads/details.aspx?displaylang=en&FamilyID=4B6140F9-2D36-4977-8FA1-6F8A0F5DCA8F
-.. _HowToInstallServer: http://codespeak.net/moin/pypy/moin.cgi/HowToInstallServer
 .. _guide: http://svnbook.red-bean.com/book.html#svn-ch-1
 .. _backports: http://www.backports.org
 .. _online: http://codespeak.net/svn/pypy/dist/
