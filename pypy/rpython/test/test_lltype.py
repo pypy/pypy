@@ -305,6 +305,7 @@ def test_hash():
     S = ForwardReference()
     S.become(Struct('S', ('p', Ptr(S))))
     assert S == S
+    hash(S)   # assert no crash, and force the __cached_hash computation
     S1 = Struct('S', ('p', Ptr(S)))
     assert S1 == S
     assert S == S1

@@ -35,6 +35,10 @@ class frozendict(dict):
 
 
 class LowLevelType(object):
+    # the following line prevents '__cached_hash' to be in the __dict__ of
+    # the instance, which is needed for __eq__() and __hash__() to work.
+    __slots__ = ['__dict__', '__cached_hash']
+
     def __eq__(self, other):
         return self.__class__ is other.__class__ and (
             self is other or safe_equal(self.__dict__, other.__dict__))
@@ -44,20 +48,28 @@ class LowLevelType(object):
 
     def __hash__(self):
         # cannot use saferecursive() -- see test_lltype.test_hash().
-        # this version uses a compromize between computation time and
-        # collision-avoidance that can be customized if needed.
+        # NB. the __cached_hash should neither be used nor updated
+        # if we enter with hash_level > 0, because the computed
+        # __hash__ can be different in this situation.
+        hash_level = 0
         try:
-            if TLS.nested_hash_level >= 3:
-                return 0
+            hash_level = TLS.nested_hash_level
+            if hash_level == 0:
+                return self.__cached_hash
         except AttributeError:
-            TLS.nested_hash_level = 0
+            pass
+        if hash_level >= 3:
+            return 0
         items = self.__dict__.items()
         items.sort()
-        TLS.nested_hash_level += 1
+        TLS.nested_hash_level = hash_level + 1
         try:
-            return hash((self.__class__,) + tuple(items))
+            result = hash((self.__class__,) + tuple(items))
         finally:
-            TLS.nested_hash_level -= 1
+            TLS.nested_hash_level = hash_level
+        if hash_level == 0:
+            self.__cached_hash = result
+        return result
 
     # due to this dynamic hash value, we should forbid
     # pickling, until we have an algorithm for that.
