@@ -37,24 +37,24 @@ class AppTest_Thunk:
         assert d[7] == [43]
 
     def test_become(self):
-        x = 5
-        y = 6
+        x = []
+        y = []
         assert x is not y
         become(x, y)
         assert x is y
 
     def test_id(self):
         # these are the Smalltalk semantics of become().
-        x = 5; idx = id(x)
-        y = 6; idy = id(y)
+        x = []; idx = id(x)
+        y = []; idy = id(y)
         assert idx != idy
         become(x, y)
         assert id(x) == id(y) == idy
 
     def test_double_become(self):
-        x = 5
-        y = 6
-        z = 7
+        x = []
+        y = []
+        z = []
         become(x, y)
         become(y, z)
         assert x is y is z
