@@ -52,7 +52,7 @@ class Module(MixedModule):
         'version_info'          : 'version.get_version_info(space)',
         'version'               : 'version.get_version(space)',
         'pypy_version_info'     : 'version.get_pypy_version_info(space)',
-        'pypy_svn_url'          : 'space.wrap("$HeadURL$"[10:-29])', 
+        'pypy_svn_url'          : 'version.get_svn_url(space)',
         'hexversion'            : 'version.get_hexversion(space)',
         'ps1'                   : 'space.wrap(">>>> ")', 
         'ps2'                   : 'space.wrap(".... ")', 

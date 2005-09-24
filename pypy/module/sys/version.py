@@ -11,6 +11,8 @@ CPYTHON_API_VERSION        = 1012
 PYPY_VERSION               = (0, 7, 1, "alpha", '?')
 # the last item is replaced by the svn revision ^^^
 
+SVN_URL = "$HeadURL: http://codespeak.net/svn/pypy/dist/pypy/module/sys/version.py $"[10:-28]
+
 
 # ____________________________________________________________
 
@@ -37,6 +39,9 @@ def get_pypy_version_info(space):
     ver = ver[:-1] + (svn_revision(),)
     return space.wrap(ver)
 
+def get_svn_url(space):
+    return space.wrap((SVN_URL, svn_revision()))
+
 def tuple2hex(ver):
     d = {'alpha':     0xA,
          'beta':      0xB,
@@ -56,7 +61,7 @@ def svn_revision():
     "Return the last-changed svn revision number."
     # NB. we hack the number directly out of the .svn directory to avoid
     # to depend on an external 'svn' executable in the path.
-    rev = '?'
+    rev = 0
     try:
         f = open(os.path.join(autopath.pypydir, '.svn', 'entries'), 'r')
         for line in f:

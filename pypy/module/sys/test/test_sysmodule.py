@@ -358,7 +358,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[1], int)
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
-        assert isinstance(vi[4], int) or vi[4] == '?'
+        assert isinstance(vi[4], int)
 
     def test_allattributes(self):
         sys.__dict__   # check that we don't crash initializing any attribute
