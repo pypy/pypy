@@ -69,7 +69,7 @@ def fixdirectory(path):
     for fn in fns: 
         fixfile(fn) 
 
-    for x in path.listdir(py.path.checker(dir=1, versioned=True)): 
+    for x in path.listdir(lambda x: x.check(dir=1, versioned=True)): 
         fixdirectory(x) 
 
 def fixfile(path): 
