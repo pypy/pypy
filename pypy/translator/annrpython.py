@@ -193,7 +193,13 @@ class RPythonAnnotator:
                                  self.annotated.values().count(False))
         # make sure that the return variables of all graphs is annotated
         if self.translator is not None:
-            for graph in self.translator.flowgraphs.values():
+            if self.added_blocks is not None:
+                newgraphs = [self.translator.flowgraphs[self.annotated[block]]
+                             for block in self.added_blocks]
+                newgraphs = dict.fromkeys(newgraphs)
+            else:
+                newgraphs = self.translator.flowgraphs.itervalues() #all of them
+            for graph in newgraphs:
                 v = graph.getreturnvar()
                 if v not in self.bindings:
                     self.setbinding(v, annmodel.SomeImpossibleValue())

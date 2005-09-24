@@ -17,13 +17,10 @@ from pypy.annotation.specialize import MemoTable
 
 
 def checkgraphs(self, blocks):
-    seen = {}
-    for block in blocks:
-        fn = self.annotated[block]
-        graph = self.translator.flowgraphs[fn]
-        if graph not in seen:
-            checkgraph(graph)
-            seen[graph] = True
+    all_graphs = [self.translator.flowgraphs[fn]
+                  for fn in self.annotated.itervalues()]
+    for graph in dict.fromkeys(all_graphs):
+        checkgraph(graph)
 
 def fully_annotated_blocks(self):
     """Ignore blocked blocks."""
