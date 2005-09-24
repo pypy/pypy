@@ -187,3 +187,8 @@ class AppTestExecStmt:
         assert m.result == {'x': 'm'}
         exec "y=n" in m   # NOTE: this doesn't work in CPython 2.4
         assert m.result == {'x': 'm', 'y': 'n'}
+
+    def test_synerr(self):
+        def x():
+            exec "1 2"
+        raises(SyntaxError, x)
