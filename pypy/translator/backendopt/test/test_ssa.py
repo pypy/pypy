@@ -18,7 +18,7 @@ def test_data_flow_families():
         if isinstance(block, Block):
             operations += block.operations
 
-    variable_families = data_flow_families(graph)
+    variable_families = DataFlowFamilyBuilder(graph).get_variable_families()
 
     # we expect to find xx only once:
     v_xx = variable_families.find_rep(graph.getargs()[0])
