@@ -3,6 +3,7 @@ import py
 from pypy.rpython.rarithmetic import r_uint
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
+from types import NoneType
 
 log = py.log.Producer('lltype')
 
@@ -415,23 +416,27 @@ class Ptr(LowLevelType):
 
 
 def typeOf(val):
-    if isinstance(val, bool):
-        return Bool
-    if isinstance(val, r_uint):
-        return Unsigned
-    if isinstance(val, int):
-        return Signed
-    if isinstance(val, float):
-        return Float
-    if isinstance(val, str):
-        assert len(val) == 1
-        return Char
-    if isinstance(val, unicode):
-        assert len(val) == 1
-        return UniChar
-    if val is None:
-        return Void   # maybe
-    return val._TYPE
+    try:
+        return val._TYPE
+    except AttributeError:
+        tp = type(val)
+        if tp is NoneType:
+            return Void   # maybe
+        if tp is int:
+            return Signed
+        if tp is bool:
+            return Bool
+        if tp is r_uint:
+            return Unsigned
+        if tp is float:
+            return Float
+        if tp is str:
+            assert len(val) == 1
+            return Char
+        if tp is unicode:
+            assert len(val) == 1
+            return UniChar
+        raise TypeError("typeOf(%r object)" % (tp.__name__,))
 
 class InvalidCast(TypeError):
     pass
