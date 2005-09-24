@@ -24,7 +24,22 @@ def saferecursive(func, defl):
             del seeing[seeingkey]
     return safe
 
-safe_equal = saferecursive(operator.eq, True)
+#safe_equal = saferecursive(operator.eq, True)
+def safe_equal(x, y):
+    # a specialized version for performance
+    try:
+        seeing = TLS.seeing_eq
+    except AttributeError:
+        seeing = TLS.seeing_eq = {}
+    seeingkey = (id(x), id(y))
+    if seeingkey in seeing:
+        return True
+    seeing[seeingkey] = True
+    try:
+        return x == y
+    finally:
+        del seeing[seeingkey]
+
 
 class frozendict(dict):
 
