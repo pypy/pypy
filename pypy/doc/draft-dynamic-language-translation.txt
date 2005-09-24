@@ -39,9 +39,9 @@ missing in Python.  There is no aspect of a program that must be declared;
 the complete program is built and run by executing statements.  Some of
 these statements have a declarative look and feel; for example, some
 appear to be function or class declarations.  Actually, they are merely
-statements that, when executed, build a function or class object.  Then a
-reference to the new object is stored at some place, under some name, from
-where it can be accessed.  Units of programs -- modules, whose source is one
+statements that, when executed, build a function or class object.  A
+reference to the new object is then stored in a namespace from where it
+can be accessed.  Units of programs -- modules, whose source is one
 file each -- are similarily mere objects in memory, built on demand by some
 other module executing an ``import`` statement.  Any such statement --
 class construction or module import -- can be executed at any time during
@@ -57,7 +57,7 @@ OS-specific system calls, by importing internal OS-specific modules and
 completing it with substitute functions, as needed by the OS on which
 ``os.py`` turns out to be executed.  Many large Python projects use custom
 import mechanisms to control exactly how and from where each module is
-loaded, simply by tampering with import hooks or just emulating parts of the
+loaded, by tampering with import hooks or just emulating parts of the
 ``import`` statement manually.
 
 In addition, there are of course classical (and only partially true)
@@ -283,14 +283,133 @@ block is used.
 XXX non mergeable data, details
 XXX conditionals, multiple pending blocks
 
+XXX termination for "reasonable" terminating programs
 
+Geninterp
+~~~~~~~~~
 
+YYY
+
+YYY dynamic merging good for geninterp
 
 
 Annotator 
 ---------------------------------
 
+The annotator is the type inference part of our toolchain.  The
+annotator infers *types* in the following sense: given a program
+considered as a family of control flow graphs, it assigns to each
+variable of each graph a so-called *annotation*, which describes what
+are the possible run-time objects that this variable will contain.  Note
+that in the literature such an annotation is usually called a type, but
+we prefer to avoid this terminology to avoid confusion with the Python
+notion of the concrete type of an object.  Annotations are sets of
+possible values that is not always exactly the set of all objects of a
+specific Python type.
+
+We will first expose a simplified, static model of how the annotator
+works, and then hint at some differences between the model and the
+reality.
+
+
+Static model
+~~~~~~~~~~~~
+
+The annotator can be considered as taking as input a finite family of
+functions calling each other, and working mainly on the control flow
+graphs of each of these functions as built by the `Flow Object Space`_.
+Additionally, for a particular "entry point" function, each input
+argument is given a user-specified annotation.
+
+The goal of the annotator is to find the most precise annotation that
+can be given to each variable of all control flow graphs while
+respecting constrains imposed by the operations in which these variables
+are involved.
+
+More precisely, it is usually possible to deduce information about the
+result variable of an operation given information about its arguments.
+For example, we can say that the addition of two integers must be an
+integer.  Most programming languages have this property.  However,
+Python -- like many languages not specifically designed with type
+inference in mind -- does not possess a type system that allows much
+useful information to be derived about variables based on how they are
+*used*; only on how they were *produced*.  For example, a number of very
+different built-in types can be involved in an addition; the meaning of
+the addition and the type of the result depends on the type of the input
+arguments.  Merely knowing that a variable will be used in an addition
+does not give much information per se.  For this reason, our annotator
+works by flowing annotations forward, operation after operation, i.e. by
+performing abstract interpretation of the flow graphs.  By contrast, the
+well-known `Hindley-Milner`_ type inference algorithm works in an
+inside-out direction, by starting from individual operations and
+propagating type constrains outwards.
+
+We use a fixpoint algorithm XXX
+
+XXX only generalizing and no infinite chain
+
+Annotation model
+~~~~~~~~~~~~~~~~
+
+XXX model and rules
+
+XXX constant propagation
+
+Prebuilt constants
+~~~~~~~~~~~~~~~~~~
+
+Mutable objects
+~~~~~~~~~~~~~~~
+
 XXX
+
+Classes and instances
+~~~~~~~~~~~~~~~~~~~~~
+
+XXX
+
+Termination
+~~~~~~~~~~~
+
+XXX termination + soundness + most-precise-fixpoint-ness + complexity 
+
+
+Non-static aspects
+~~~~~~~~~~~~~~~~~~
+
+XXX specialization (tons of fun)
+
+XXX executing more user program code (idem)
+
+XXX constant propagation to remove bootstrap-only code
+
+XXX termination even with non-static aspects
+
+
+Code generation: rewriting to low-level operations
+--------------------------------------------------
+
+XXX introduction, repr
+
+Low-level type system for C
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+XXX
+
+Implementing operations as helpers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+XXX XXX reusing the annotator and specialization
+
+Generating C code
+~~~~~~~~~~~~~~~~~
+
+XXX collecting functions and data structures recursively
+
+XXX inserting hand-written C functions for suggested_primitives
+
+XXX messy
+
 
 
 .. _architecture: architecture.html
@@ -299,5 +418,6 @@ XXX
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`Standard Object Space`: objspace.html#the-standard-object-space
 .. _Psyco: http://psyco.sourceforge.net/
+.. _`Hindley-Milner`: http://en.wikipedia.org/wiki/Hindley-Milner_type_inference
 
 .. include:: _ref.txt
