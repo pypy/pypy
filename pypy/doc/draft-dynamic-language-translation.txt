@@ -339,14 +339,34 @@ the addition and the type of the result depends on the type of the input
 arguments.  Merely knowing that a variable will be used in an addition
 does not give much information per se.  For this reason, our annotator
 works by flowing annotations forward, operation after operation, i.e. by
-performing abstract interpretation of the flow graphs.  By contrast, the
-well-known `Hindley-Milner`_ type inference algorithm works in an
-inside-out direction, by starting from individual operations and
-propagating type constrains outwards.
+performing abstract interpretation of the flow graphs.  In a sense, it
+is a more naive approach than the one taken by type systems specifically
+designed to enable more advanced inference algorithms.  For example,
+`Hindley-Milner`_ type inference works in an inside-out direction, by
+starting from individual operations and propagating type constrains
+outwards.
 
-We use a fixpoint algorithm XXX
+Naturally, simply propagating annotations forward requires the use of a
+fixpoint algorithm in the presence of loops in the flow graphs or in the
+inter-procedural call graph.  Indeed, we flow annotations forward from
+the beginning of the entry point function into each block, operation
+after operation, and follow all calls recursively.  During this process,
+each variable along the way gets an annotation.  In various cases,
+e.g. when we close a loop, the previously assigned annotations can be
+found to be too restrictive.  In this case, we generalize them to allow
+for a larger set of possible run-time values, and schedule the block
+where they appear for reflowing.  The more general annotations can
+generalize the annotations of the results of the variables in the block,
+which in turn can generalize the annotations that flow into the
+following blocks, and so on.  This process continues until a fixpoint is
+reached.
 
-XXX only generalizing and no infinite chain
+We can consider that all variables are initially assigned the "bottom"
+annotation corresponding to an empty set of possible run-time values.
+Annotations can only ever be generalized, and the model is simple enough
+to show that there is no infinite chain of generalization, so that this
+process necessarily terminates, as we will show in the sequel.
+
 
 Annotation model
 ~~~~~~~~~~~~~~~~
@@ -357,6 +377,8 @@ XXX constant propagation
 
 Prebuilt constants
 ~~~~~~~~~~~~~~~~~~
+
+XXX
 
 Mutable objects
 ~~~~~~~~~~~~~~~
