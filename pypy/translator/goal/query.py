@@ -513,3 +513,27 @@ def duplication(t):
     l.sort()
     for name, c in l:
         print name, c
+
+def backcalls(t):
+    g = {}
+    for caller, callee in t.callgraph.itervalues():
+        g.setdefault(caller,[]).append(callee)
+    
+    back = []
+    color = {}
+    WHITE, GRAY, BLACK = 0,1,2
+
+    def visit(fcur,witness=[]):
+        color[fcur] = GRAY
+        for f in dict.fromkeys(g.get(fcur, [])):
+            fcolor = color.get(f, WHITE)
+            if fcolor == WHITE:
+                visit(f,witness+[f])
+            elif fcolor == GRAY:
+                print "*", witness, f
+                back.append((fcur, f))
+        color[fcur] = BLACK
+    
+    visit(t.entrypoint, [t.entrypoint])
+
+    return back
