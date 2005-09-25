@@ -371,6 +371,93 @@ process necessarily terminates, as we will show in the sequel.
 Annotation model
 ~~~~~~~~~~~~~~~~
 
+::
+
+    Bot
+
+    Top
+    
+    Int
+    
+    NonNegInt
+    
+    UnsignedInt
+
+    Bool
+    
+    Float
+    
+    Str
+    
+    NullableStr
+    
+    Char
+    
+    Inst(class)
+    
+    List(x)
+    
+    Dict(x, y)
+
+    Tup(ann_1, ..., ann_n)
+    
+    Pbc({... a finite set ...})
+    
+         with:   None
+                 f
+                 class
+                 class.f
+    
+    v_n = op(v_n1, ...) | v_n', v_n''
+    
+    v_class.attr
+    
+    v_n: Annotation
+
+
+    E: eq rel on V
+    b: V->A
+
+
+
+         E(x,y)
+      ----------------------------------------
+               merge_into(x,y)
+               merge_into(y,x)
+
+
+         z=add(x,y), b(x)=List(v), b(y)=List(w)
+      --------------------------------------------
+               E' = E union (v~w)
+               b' = b with (z->List(v))
+
+
+         z=add(x,y), b(x)<=NullableStr, b(y)<=NullableStr
+      ------------------------------------------------------
+               b' = b with (z->Str)
+
+
+         merge_into(x,y), b(x)=List(v)
+      ---------------------------------------------------------
+               E' = E union (v~w)            if b(y)=List(w)
+               b' = b with (y->b(x)\/b(y))   otherwise
+
+
+         z=new_list() | z'
+      -------------------------------------
+               b' = b with (z->List(z'))
+
+
+         z=getitem(x,y), b(x)=List(v), b(y)=Int
+      --------------------------------------------
+               E' = E union (z~v)
+
+
+         setitem(x,y,z), b(x)=List(v), b(y)=Int
+      --------------------------------------------
+               merge_into(z,v)
+
+
 XXX model and rules
 
 XXX constant propagation
