@@ -414,9 +414,15 @@ Annotation model
     
     v_n: Annotation
 
+    for each function f:
+        arg_f_1 ... arg_f_n
+        returnvar_f
+
 
     E: eq rel on V
     b: V->A
+    V: set of variables
+    A: fixed lattice of the above annotation terms
 
 
 
@@ -437,10 +443,14 @@ Annotation model
                b' = b with (z->Str)
 
 
-         merge_into(x,y), b(x)=List(v)
-      ---------------------------------------------------------
-               E' = E union (v~w)            if b(y)=List(w)
-               b' = b with (y->b(x)\/b(y))   otherwise
+         merge_into(x,y), b(x)=List(v), b(y)=List(w)
+      -------------------------------------------------
+               E' = E union (v~w)
+
+
+         merge_into(x,y), b(x) and b(y) not both Lists
+      ---------------------------------------------------
+               b' = b with (y->b(x)\/b(y))
 
 
          z=new_list() | z'
@@ -448,14 +458,61 @@ Annotation model
                b' = b with (z->List(z'))
 
 
-         z=getitem(x,y), b(x)=List(v), b(y)=Int
+         z=getitem(x,y) | z', b(x)=List(v)
       --------------------------------------------
-               E' = E union (z~v)
+               E' = E union (z'~v)
+               b' = b with (z->b(z'))
 
 
-         setitem(x,y,z), b(x)=List(v), b(y)=Int
+         setitem(x,y,z), b(x)=List(v)
       --------------------------------------------
                merge_into(z,v)
+
+
+         z=getattr(x,attr) | z', b(x)=Inst(A)
+      ---------------------------------------------------------------------
+               E' = E union (A.attr ~ A'.attr)  for all A' subclass of A
+               E' = E union (z' ~ A.attr)
+               b' = b with (z->lookup_filter(b(z'), A))
+
+
+         setattr(x,attr,z), b(x)=Inst(A)
+      ---------------------------------------------------------------------
+               assert b(z) is not a Pbc containing methods
+               E' = E union (A.attr ~ A'.attr)  for all A' subclass of A
+               merge_into(z, A.attr)
+
+
+         z=simplecall(x,y1,...,yn), b(x)=Pbc(set)
+      ---------------------------------------------------------------------
+           for each c in set:
+               if c is a function:
+                   E' = E union (z~returnvar_c)
+                   merge_into(y1, arg_c_1)
+                   ...
+                   merge_into(yn, arg_c_n)
+               if c is a class:
+                   let f = c.__init__
+                   b' = b with (z->b(z)\/Inst(c))
+                   b' = b with (arg_f_1->b(arg_f_1)\/Inst(c))
+                   merge_into(y1, arg_f_2)
+                   ...
+                   merge_into(yn, arg_f_(n+1))
+               if c is a method:
+                   let class.f = c
+                   E' = E union (z~returnvar_f)
+                   b' = b with (arg_f_1->b(arg_f_1)\/Inst(class))
+                   merge_into(y1, arg_f_2)
+                   ...
+                   merge_into(yn, arg_f_(n+1))
+
+
+    lookup_filter(Pbc(set), class) = Pbc(newset) where
+        we only keep in newset the non-methods, and the following methods:
+         * the ones bound to a strict subclass of 'class', and
+         * among the methods bound the 'class' or superclasses, only the
+             one from the most derived class.
+    lookup_filter(NonPbcAnnotation, class) = NonPbcAnnotation
 
 
 XXX model and rules
