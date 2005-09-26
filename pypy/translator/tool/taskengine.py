@@ -108,6 +108,8 @@ annotate:  # includes annotation and annotatation simplifications
 
 rtype: annotate
 
+backendoptimisations: rtype # make little sense otherwise
+
 source_llvm: backendoptimisations, rtype, annotate
 
 source_c: ?backendoptimisations, ?rtype, ?annotate
