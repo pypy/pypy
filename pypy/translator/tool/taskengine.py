@@ -1,11 +1,9 @@
 
 
-
-
 class SimpleTaskEngine:
 
-
     def __init__(self):
+        self._plan_cache = {}
 
         self.tasks = tasks = {}
 
@@ -18,9 +16,14 @@ class SimpleTaskEngine:
 
                 tasks[task_name] = task, task_deps
 
+    def _plan(self, goals, skip=[]):
+        skip = [toskip for toskip in skip if toskip not in goals]
 
-    def _plan(self, goal, skip=[]):
-
+        key = (tuple(goals), tuple(skip))
+        try:
+            return self._plan_cache[key]
+        except KeyError:
+            pass
         constraints = []
 
         def subgoals(task_name):
@@ -31,7 +34,6 @@ class SimpleTaskEngine:
                     if dep in skip:
                         continue
                 yield dep
-
 
         seen = {}
                         
@@ -46,7 +48,8 @@ class SimpleTaskEngine:
                 constraints.append([subgoal, dep])
                 consider(dep)
 
-        consider(goal)
+        for goal in goals:
+            consider(goal)
 
         #sort
 
@@ -73,34 +76,33 @@ class SimpleTaskEngine:
 
         plan.reverse()
 
+        self._plan_cache[key] = plan
+
         return plan
-            
-            
 
-def test_simple():
+    def _execute(self, goals, *args, **kwds):
+        task_skip = kwds.get('task_skip', [])
+        for goal in self._plan(goals, skip=task_skip):
+            taskcallable, _ = self.tasks[goal]
+            self._event('pre', goal, taskcallable)
+            try:
+                self._do(goal, taskcallable, *args, **kwds)
+            except (SystemExit, KeyboardInterrupt):
+                raise
+            except:
+                self._error(goal)
+                raise
+            self._event('post', goal, taskcallable)
+        
+    def _do(self, goal, func, *args, **kwds):
+        func()
 
-    class ABC(SimpleTaskEngine):
+    def _event(self, kind, goal, func):
+        pass
+    
+    def _error(self, goal):
+        pass
 
-        def task_A(self):
-            pass
-
-        task_A.task_deps = ['B', '?C']
-
-        def task_B(self):
-            pass
-
-        def task_C(self):
-            pass
-
-        task_C.task_deps = ['B']
-
-    abc = ABC()
-
-    assert abc._plan('B') == ['B']
-    assert abc._plan('C') == ['B', 'C']
-    assert abc._plan('A') == ['B', 'C', 'A']
-    assert abc._plan('A', skip=['C']) == ['B', 'A']
-   
 
 """ sketch of tasks for translation:
 
