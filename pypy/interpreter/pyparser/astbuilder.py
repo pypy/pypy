@@ -103,7 +103,7 @@ def parse_argument(tokens):
             break
         elif cur_token.get_value() == 'for':
             if len(arguments) != 1:
-                raise ValueError('SyntaxError("invalid syntax")')
+                raise SyntaxError("invalid syntax")
             expr = arguments[0]
             genexpr_for = parse_genexpr_for(tokens[index:])
             genexpr_for[0].is_outmost = True
@@ -306,7 +306,7 @@ def parse_genexpr_for(tokens):
             genexpr_fors.append(ast.GenExprFor(ass_node, iterable, ifs, lineno))
             ifs = []
         else:
-            assert False, 'Unexpected token: expected for in genexpr'
+            raise SyntaxError('invalid syntax')
     return genexpr_fors
 
 
