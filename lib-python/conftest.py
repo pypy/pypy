@@ -295,7 +295,7 @@ class RegrTest:
         self._oldstyle = oldstyle 
         self._uselibfile = uselibfile
         self._usemodules = usemodules.split()
-        self.compiler = compiler 
+        self._compiler = compiler 
         self.core = core
 
     def oldstyle(self): 
@@ -309,6 +309,10 @@ class RegrTest:
     def usemodules(self):
         return self._usemodules + pypy_option.usemodules
     usemodules = property(usemodules)
+
+    def compiler(self): 
+        return self._compiler or pypy_option.compiler 
+    compiler = property(compiler)
 
     def getoptions(self): 
         l = []
