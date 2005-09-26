@@ -64,7 +64,7 @@ class Translator:
                     func.func_globals.get('__name__', '?'),
                     func.func_code.co_firstlineno,
                     func.__name__)
-                log(descr)
+                log.start(descr)
             assert not self.frozen
             space = FlowObjSpace()
             space.builtins_can_raise_exceptions = self.builtins_can_raise_exceptions
