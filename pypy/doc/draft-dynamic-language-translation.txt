@@ -314,9 +314,6 @@ outcome associated with them on construction.
 All this mechanism ensures that all flow paths are considered.
 
 
-
-XXX conditionals, multiple pending blocks
-
 XXX non mergeable data, details
 XXX termination for "reasonable" terminating programs
 
