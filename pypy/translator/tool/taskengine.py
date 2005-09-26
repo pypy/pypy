@@ -102,7 +102,25 @@ def test_simple():
     assert abc._plan('A', skip=['C']) == ['B', 'A']
    
 
-   
+""" sketch of tasks for translation:
+
+annotate:  # includes annotation and annotatation simplifications
+
+rtype: annotate
+
+source_llvm: backendoptimisations, rtype, annotate
+
+source_c: ?backendoptimisations, ?rtype, ?annotate
+
+compile_c : source_c
+
+compile_llvm: source_llvm
+
+run_c: compile_c
+
+run_llvm: compile_llvm
+
+"""
 
         
         
