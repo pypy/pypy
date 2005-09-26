@@ -12,7 +12,10 @@ from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.cbuild import make_module_from_pyxstring
 from pypy.translator.tool.cbuild import make_module_from_c
 from pypy.objspace.flow import FlowObjSpace
-
+from pypy.tool.ansi_print import ansi_log
+import py
+log = py.log.Producer("getflowgraph") 
+py.log.setconsumer("getflowgraph", ansi_log) 
 
 class Translator:
 
@@ -57,11 +60,11 @@ class Translator:
             graph = self.flowgraphs[func]
         except KeyError:
             if self.verbose:
-                print 'getflowgraph (%s:%d) %s' % (
+                descr =  '(%s:%d) %s' % (
                     func.func_globals.get('__name__', '?'),
                     func.func_code.co_firstlineno,
-                    func.__name__),
-                sys.stdout.flush()
+                    func.__name__)
+                log(descr)
             assert not self.frozen
             space = FlowObjSpace()
             space.builtins_can_raise_exceptions = self.builtins_can_raise_exceptions
@@ -70,7 +73,7 @@ class Translator:
             if self.simplifying:
                 simplify_graph(graph, self.simplifying)
             if self.verbose:
-                print
+                log.done(func.__name__)
             self.flowgraphs[func] = graph
             self.functions.append(func)
             graph.func = func
