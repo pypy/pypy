@@ -181,14 +181,14 @@ class RPythonAnnotator:
                         fn = self.why_not_annotated[block][1].break_at[0]
                         self.blocked_functions[fn] = True
                         import traceback
-                        print '-+' * 30
-                        print 'BLOCKED block at:',
-                        print self.whereami(self.why_not_annotated[block][1].break_at)
-                        print 'because of:'
-                        traceback.print_exception(*self.why_not_annotated[block])
-                        print '-+' * 30
-                        print
-                print "++-" * 20
+                        log.ERROR('-+' * 30)
+                        log.ERROR('BLOCKED block at :' +
+                                  self.whereami(self.why_not_annotated[block][1].break_at))
+                        log.ERROR('because of:')
+                        for line in traceback.format_exception(*self.why_not_annotated[block]):
+                            log.ERROR(line)
+                        log.ERROR('-+' * 30)
+
             raise AnnotatorError('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
         # make sure that the return variables of all graphs is annotated
@@ -262,7 +262,7 @@ class RPythonAnnotator:
         self.bindings[arg] = s_value
         if annmodel.DEBUG:
             if arg in self.return_bindings:
-                log.bold("%s -> %s" % 
+                log.event("%s -> %s" % 
                     (self.whereami((self.return_bindings[arg], None, None)), 
                      s_value)) 
 
@@ -284,7 +284,7 @@ class RPythonAnnotator:
         if pos != '?':
             pos = self.whereami(pos)
  
-        log.red("*** WARNING: %s/ %s" % (pos, msg))
+        log.WARNING("%s/ %s" % (pos, msg))
 
 
     #___ interface for annotator.bookkeeper _______
@@ -391,10 +391,6 @@ class RPythonAnnotator:
         try:
             self.flowin(fn, block)
         except BlockedInference, e:
-            #print '_'*60
-            #print 'Blocked at %r:' % (e.break_at,)
-            #import traceback, sys
-            #traceback.print_tb(sys.exc_info()[2])
             self.annotated[block] = False   # failed, hopefully temporarily
         except Exception, e:
             # hack for debug tools only
