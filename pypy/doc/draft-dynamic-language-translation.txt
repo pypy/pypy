@@ -277,9 +277,47 @@ with the current state giving some more general state, i.e. an unequal
 one, the corresponding block will be reused and reset. Otherwise a new
 block is used.
 
-XXX non mergeable data, details
+
+Branching on conditions by the engine usually involves querying the
+truth value of a object through the is_true space operation. This
+needs special treatment to be able to capture all possible flow paths.
+
+Multiple pending blocks can scheduled for abstract interpretation by
+the flow space, which proceeds picking one and reconstructing the
+abstract execution frame from the frame state associated with the
+block. The frame is what will be operated on, its setup is delegated
+to the block and based on the state, the frame setup by the block also
+returns a so called recorder through which, and not directly the
+block, appending of new space operations to the block will be
+delegated. What to do when an is_true operation is about to be
+executed is also responsability to the recorder.
+
+The normal recorder when an is_true operation is encountered will
+create and schedule special blocks which don't have an associated
+frame state, but the previous block ending in the is_true operation
+and an outcome, either True or False.
+
+The special branching blocks when about to be executed, will use the
+chain of previous blocks, and consider all of them up to the first
+non-special branching block included, the state of this one block will
+be used to setup the frame for execution and a chain of so called
+replaying recorders setup except for the scheduled branching block
+which gets a normal recorder. The outcome registered in each special
+block in the chain will be associated with the replayer for the
+previous block.
+
+The replaying recorders will sanity check that the same operations are
+appended by comparing the previous contents of the blocks
+re-encountered by execution and on is_true operation will deliver the
+outcome associated with them on construction.
+
+All this mechanism ensures that all flow paths are considered.
+
+
+
 XXX conditionals, multiple pending blocks
 
+XXX non mergeable data, details
 XXX termination for "reasonable" terminating programs
 
 Geninterp
