@@ -181,13 +181,15 @@ class RPythonAnnotator:
                         fn = self.why_not_annotated[block][1].break_at[0]
                         self.blocked_functions[fn] = True
                         import traceback
-                        log.ERROR('-+' * 30)
-                        log.ERROR('BLOCKED block at :' +
-                                  self.whereami(self.why_not_annotated[block][1].break_at))
-                        log.ERROR('because of:')
-                        for line in traceback.format_exception(*self.why_not_annotated[block]):
-                            log.ERROR(line)
-                        log.ERROR('-+' * 30)
+                        blocked_err = []
+                        blocked_err.append('-+' * 30 +'\n')
+                        blocked_err.append('BLOCKED block at :' +
+                                           self.whereami(self.why_not_annotated[block][1].break_at) +
+                                           '\n')
+                        blocked_err.append('because of:\n')
+                        blocked_err.extend(traceback.format_exception(*self.why_not_annotated[block]))
+                        blocked_err.append('-+' * 30 +'\n')
+                        log.ERROR(''.join(blocked_err))
 
             raise AnnotatorError('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
