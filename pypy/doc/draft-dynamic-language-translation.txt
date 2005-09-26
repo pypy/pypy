@@ -215,9 +215,6 @@ The devil is in the details.
 Flow Object Space
 ---------------------------------
 
-
-XXX
-
 In our bytecode-interpreter design evaluation responsibilities are
 split between the Object Space, frames and the so-called execution
 context. The latter two object kinds are properly part of the
@@ -254,7 +251,7 @@ states.  Frame states described the execution state for the frame at a
 given point.
 
 The Flow Space constructs the flow graph by creating new blocks in it,
-when fresh never-seen state is reached. During construction block in
+when fresh never-seen state is reached. During construction, blocks in
 the graph all have an associated frame state. The Flow Space start
 from an empty block with an a frame state corresponding to setup
 induced but input arguments in the form of variables and constants to
@@ -272,7 +269,7 @@ to the current frame contents. The Flow Space keeps a mapping between
 byecode instructions, as their position, and frame state, block pairs.
 
 A union operation is defined on frame states, only two equal constants
-unify to a constant of the same value, all other combination unify
+unify to a constant of the same value, all other combinations unify
 to a fresh new variable.
 
 If some previously associated frame state for the next byecode unifies
