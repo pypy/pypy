@@ -6,7 +6,6 @@ from __future__ import generators
 import sys
 from types import FunctionType, ClassType, MethodType
 from types import BuiltinMethodType, NoneType
-from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef, isclassdef
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
@@ -378,7 +377,6 @@ class Bookkeeper:
             else:
                 clsdef = self.getclassdef(x.__class__)
                 if x.__class__.__dict__.get('_annspecialcase_', '').endswith('ctr_location'):
-                    print "encountered a pre-built mutable instance of a class needing specialization: %s" % x.__class__.__name__
                     raise Exception, "encountered a pre-built mutable instance of a class needing specialization: %s" % x.__class__.__name__
                 if x not in self.seen_mutable: # avoid circular reflowing, 
                                                # see for example test_circular_mutable_getattr
@@ -724,12 +722,7 @@ class Bookkeeper:
         return self.annotator.whereami(self.position_key)
 
     def warning(self, msg):
-        try:
-            pos = self.whereami()
-        except AttributeError:
-            pos = '?'
-        ansi_print("*** WARNING: [%s] %s" % (pos, msg), esc="31") # RED
-
+        return self.annotator.warning(msg)
 
 def ishashable(x):
     try:

@@ -4,7 +4,6 @@ Built-in functions.
 
 import types
 import sys, math, os, time
-from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
@@ -324,7 +323,6 @@ def malloc(T, n=None):
         n = 1
     p = lltype.malloc(T.const, n)
     r = SomePtr(lltype.typeOf(p))
-    #print "MALLOC", r
     return r
 
 def typeOf(s_val):

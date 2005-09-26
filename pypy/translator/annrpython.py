@@ -267,12 +267,25 @@ class RPythonAnnotator:
                      s_value)) 
 
             if arg in self.return_bindings and degenerated:
-                log.red("*** WARNING: %s result degenerated to SomeObject" %
-                     self.whereami((self.return_bindings[arg],None, None))) 
+                self.warning("result degenerated to SomeObject",
+                             (self.return_bindings[arg],None, None))
                 
             self.binding_caused_by[arg] = called_from
         # XXX make this line available as a debugging option
         ##assert not (s_value.__class__ == annmodel.SomeObject and s_value.knowntype == object) ## debug
+
+
+    def warning(self, msg, pos=None):
+        if pos is None:
+            try:
+                pos = self.bookkeeper.position_key
+            except AttributeError:
+                pos = '?'
+        if pos != '?':
+            pos = self.whereami(pos)
+ 
+        log.red("*** WARNING: %s/ %s" % (pos, msg))
+
 
     #___ interface for annotator.bookkeeper _______
 
