@@ -41,7 +41,6 @@ class GenLLVM(object):
         self.exceptionpolicy = exceptionpolicy
         extfuncnode.ExternalFuncNode.used_external_functions = {}
         self.debug = debug # for debug we create comments of every operation that may be executed
-        #exceptionpolicy.transform(translator)  #now done in FuncNode (optimization)
         if debug:
             translator.checkgraphs()
 
@@ -190,7 +189,7 @@ class GenLLVM(object):
             typ_decl.writeimpl(codewriter)
         self._checkpoint('write implementations')
 
-        codewriter.append(self.exceptionpolicy.pyrex_entrypoint_code(self.entrynode))
+        codewriter.append(self.exceptionpolicy.llvmcode(self.entrynode))
 
         # XXX we need to create our own main() that calls the actual entry_point function
         if entryfunc_name == 'pypy_entry_point': #XXX just to get on with translate_pypy

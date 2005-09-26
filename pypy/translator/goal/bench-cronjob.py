@@ -2,7 +2,8 @@
 
 import time, os, sys, stat
 
-homedir = os.environ['HOME']
+homedir = os.getenv('HOME')
+os.putenv('PATH','~/bin:/usr/local/bin:/usr/bin:/bin:/opt/bin:/usr/i686-pc-linux-gnu/gcc-bin/3.3.6')
 
 def update_pypy():
     os.chdir(homedir + '/projects/pypy-dist')
@@ -25,7 +26,9 @@ def compile(backend):
     basename = homedir + '/projects/pypy-dist/pypy/translator/goal/' + 'pypy-' + backend
     realname = basename + '-' + revision
 
-    open(realname, 'wb').write( open(basename).read() )
+    pypy = open(basename, 'rb').read()
+    if len(pypy) > 0:
+        open(realname, 'wb').write(pypy)
     os.chmod(realname, stat.S_IRWXU)
     os.unlink(basename)
 
@@ -35,15 +38,17 @@ def benchmark():
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
     os.system('python bench-unix.py 2>&1' % locals())
 
-def main():
+def main(backends=[]):
+    if backends == []:
+        backends = 'llvm c'.split()
     print time.ctime()
     update_pypy()
     update_llvm()
-    for backend in 'llvm c'.split():
+    for backend in backends:
         compile(backend)
     benchmark()
     print time.ctime()
     print 80*'-'
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

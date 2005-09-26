@@ -38,7 +38,9 @@ def get_ll(ccode, function_names):
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
            if line.find("internal") == -1:
-                line = 'internal %s %s' % (DEFAULT_CCONV, line,)
+                #internal = ''
+                internal = 'internal '
+                line = '%s%s %s' % (internal, DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
     # patch calls to function that we just declared fastcc

@@ -81,29 +81,29 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
     #ball = str(dirpath.join('%s_all.bc' % b))
     #cmds.append("opt %s %s -f -o %s.bc" % (OPTIMIZATION_SWITCHES, ball, b))
 
-    use_gcc = False
+    use_gcc = True
     profile = False
 
     cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, OPTIMIZATION_SWITCHES, b)]
     if not use_gcc:
-        if exe_name:
-            cmds.append('llvm-ld %s.bc -native -O5 -l=gc -lm -l=dl -o %s' % (b, exe_name))
-        else:
-            cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.exceptionpolicy.llc_options(), b, b))
-            cmds.append("as %s.s -o %s.o" % (b, b))
-            object_files.append("%s.o" % b)
+        cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.exceptionpolicy.llc_options(), b, b))
+        cmds.append("as %s.s -o %s.o" % (b, b))
+        object_files.append("%s.o" % b)
     else:
         cmds.append("llc %s %s.bc -march=c -f -o %s.c" % (genllvm.exceptionpolicy.llc_options(), b, b))
         if exe_name:
-            cmd = "gcc %s.c -c -O3 -pipe" % b
+            cmd = "gcc %s.c -c -O2 -pipe" % b
             if profile:
                 cmd += ' -pg'
+            else:
+                cmd += ' -fomit-frame-pointer'
             cmds.append(cmd)
             cmd = "gcc %s.o %s -lm -ldl -pipe -o %s" % (b, gc_libs, exe_name)
             if profile:
                 cmd += ' -pg'
             cmds.append(cmd)
         source_files.append("%s.c" % b)
+
     if exe_name and not profile:
         cmds.append('strip ' + exe_name)
         upx = os.popen('which upx').read()

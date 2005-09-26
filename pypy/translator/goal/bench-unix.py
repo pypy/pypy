@@ -5,15 +5,16 @@
 import os, sys
 
 current_result = '''
-executable                       richards              pystone
-pypy-c-17758                      30626ms ( 35.74x)     1268   ( 33.98x)
-pypy-c-17797                      29657ms ( 34.61x)    error            
-pypy-c-17799                      29184ms ( 34.05x)    error            
-pypy-llvm-17758                   25361ms ( 29.59x)     1525   ( 28.26x)
-pypy-llvm-17792                   20775ms ( 24.24x)     1912   ( 22.53x)
-pypy-llvm-17797                   20423ms ( 23.83x)     1943   ( 22.18x)
-pypy-llvm-17799                   error                error             
-python 2.4.2c1                      857ms (  1.00x)    43103   (  1.00x)
+executable                        richards             pystone
+python 2.4.2c1                      864ms (  1.00x)    43103 (  1.00x)
+pypy-llvm-17870                   12574ms ( 14.55x)     3069 ( 14.04x)
+pypy-llvm-17862                   12980ms ( 15.02x)     3041 ( 14.17x)
+pypy-llvm-17797                   13473ms ( 15.59x)     2824 ( 15.26x)
+pypy-llvm-17792                   13755ms ( 15.92x)     2823 ( 15.27x)
+pypy-llvm-17758                   17057ms ( 19.74x)     2229 ( 19.34x)
+pypy-c-17853                      22411ms ( 25.94x)     1653 ( 26.07x)
+pypy-c-17806                      22315ms ( 25.83x)     1656 ( 26.03x)
+pypy-c-17758                      23500ms ( 27.20x)     1570 ( 27.45x)
 '''
 
 PYSTONE_CMD = 'from test import pystone;pystone.main(%s)'
@@ -31,47 +32,39 @@ def get_result(txt, pattern):
     return float(line.split()[len(pattern.split())])
 
 def run_cmd(cmd):
-    print "running", cmd
+    #print "running", cmd
     pipe = os.popen(cmd + ' 2>&1')
-    result = pipe.read()
-    #print "done"
-    return result
+    return pipe.read()
 
 def run_pystone(executable='python', n=0):
     argstr = PYSTONE_CMD % (str(n) and n or '')
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
-    res = get_result(txt, PYSTONE_PATTERN)
-    #print res
-    return res
+    return get_result(txt, PYSTONE_PATTERN)
 
 def run_richards(executable='python', n=10):
     argstr = RICHARDS_CMD % n
     txt = run_cmd('%s -c "%s"' % (executable, argstr))
-    res = get_result(txt, RICHARDS_PATTERN)
-    #print res
-    return res
+    return get_result(txt, RICHARDS_PATTERN)
 
 def get_executables():
     exes = [os.path.join('.', name) for name in os.listdir('.') if name.startswith('pypy-')]
     exes.sort()
+    exes.reverse()
     return exes
 
-HEADLINE = '''executable                       richards              pystone'''
-FMT = '''%-30s   %6dms (%6.2fx)   %6d   (%6.2fx)'''
+HEADLINE = 'executable                        richards             pystone'
+FMT      = '%-30s   %6dms (%6.2fx)   %6d (%6.2fx)'
 
 def main():
-    #print 'getting the richards reference'
+    print HEADLINE
     ref_rich = run_richards()
-    #print 'getting the pystone reference'
     ref_stone = run_pystone()
-    res = []
+    print FMT % ('python %s' % sys.version.split()[0], ref_rich, 1.0, ref_stone, 1.0)
     for exe in get_executables():
         exename = os.path.splitext(exe)[0].lstrip('./')
-        res.append( (exename, run_richards(exe, 1), run_pystone(exe)) )
-    res.append( ('python %s' % sys.version.split()[0], ref_rich, ref_stone) )
-    print HEADLINE
-    for exe, rich, stone in res:
-        print FMT % (exe, rich, rich / ref_rich, stone, ref_stone / stone)
+        rich    = run_richards(exe, 1)
+        stone   = run_pystone(exe)
+        print FMT % (exename, rich, rich / ref_rich, stone, ref_stone / stone)
 
 if __name__ == '__main__':
     main()

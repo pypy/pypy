@@ -97,7 +97,7 @@ internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
     %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
     store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
     store %%RPYTHON_EXCEPTION* %%exception_value, %%RPYTHON_EXCEPTION** %%last_exception_value
-    unwind ; XXX (1) if exceptionpolicy == 'boehm'
+    call fastcc void %%unwind()
     ret void
 }
 """ % locals())
@@ -110,7 +110,7 @@ zer_test = """
     br bool %%cond, label %%is_0, label %%is_not_0
 is_0:
     call fastcc void %%prepare_ZeroDivisionError()
-    unwind ; XXX (2) if exceptionpolicy == 'boehm'
+    call fastcc void %%unwind()
     ret %s 0
 
 is_not_0:
@@ -134,7 +134,7 @@ ovf:
 ;    br bool %cond3, label %return_block, label %ovf3
 ;ovf3:
     call fastcc void %prepare_OverflowError()
-    unwind ; XXX (3) if exceptionpolicy == 'boehm'
+    call fastcc void %unwind()
     ret int 0
 """
 

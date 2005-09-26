@@ -53,7 +53,7 @@ class CPythonExceptionPolicy(ExceptionPolicy):  #uses issubclass() and llvm invo
     def __init__(self):
         pass
 
-    def pyrex_entrypoint_code(self, entrynode):
+    def llvmcode(self, entrynode):
         returntype, entrypointname =  entrynode.getdecl().split('%', 1)
         noresult = self._noresult(returntype)
         cconv = DEFAULT_CCONV
@@ -73,6 +73,10 @@ ccc int %%__entrypoint__raised_LLVMException() {
     %%tmp    = load %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
     %%result = cast %%RPYTHON_EXCEPTION_VTABLE* %%tmp to int
     ret int %%result
+}
+
+internal fastcc void %%unwind() {
+    unwind
 }
 ''' % locals()
 
@@ -139,7 +143,7 @@ class FastExceptionPolicy(ExceptionPolicy):    #uses issubclass() and last_excep
     def __init__(self):
         self.invoke_count = 0
 
-    def pyrex_entrypoint_code(self, entrynode):
+    def llvmcode(self, entrynode):
         returntype, entrypointname = entrynode.getdecl().split('%', 1)
         noresult = self._noresult(returntype)
         cconv = DEFAULT_CCONV
@@ -162,6 +166,10 @@ ccc int %%__entrypoint__raised_LLVMException() {
     %%tmp    = load %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
     %%result = cast %%RPYTHON_EXCEPTION_VTABLE* %%tmp to int
     ret int %%result
+}
+
+internal fastcc void %%unwind() {
+    ret void
 }
 ''' % locals()
 
