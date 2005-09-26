@@ -9,7 +9,7 @@ from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import last_exception
 from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
-
+from pypy.translator.backendopt.tailrecursion import get_graph
 # ____________________________________________________________
 
 def eliminate_empty_blocks(graph):
@@ -322,7 +322,57 @@ def remove_assertion_errors(graph):
                 block.exits = tuple(lst)
     traverse(visit, graph)
 
-def transform_dead_op_vars(graph):
+
+# _____________________________________________________________________
+# decide whether a function has side effects
+lloperations_with_side_effects = {"setfield": True,
+                                  "setarrayitem": True,
+                                 }
+
+class HasSideEffects(Exception):
+    pass
+
+# XXX: this could even be improved:
+# if setfield and setarrayitem only occur on things that are malloced
+# in this function then the function still does not have side effects
+
+def has_no_side_effects(translator, graph, seen=None):
+    #is the graph specialized? if no we can't say anything
+    #don't cache the result though
+    if translator.rtyper is None:
+        return False
+    else:
+        if graph.startblock not in translator.rtyper.already_seen:
+            return False
+    if seen is None:
+        seen = []
+    elif graph in seen:
+        return True
+    try:
+        def visit(block):
+            if not isinstance(block, Block):
+                return
+            for op in block.operations:
+                if op.opname in lloperations_with_side_effects:
+                    raise HasSideEffects
+                if op.opname == "direct_call":
+                    if isinstance(op.args[0], Variable):
+                        raise HasSideEffects
+                    g = get_graph(op.args[0], translator)
+                    if g is None:
+                        raise HasSideEffects
+                    if not has_no_side_effects(translator, g, seen + [graph]):
+                        raise HasSideEffects
+        traverse(visit, graph)
+    except HasSideEffects:
+        return False
+    else:
+        return True
+
+# ___________________________________________________________________________
+# remove operations if their result is not used and they have no side effects
+
+def transform_dead_op_vars(graph, translator=None):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a graph."""
     blocks = {}
@@ -330,7 +380,7 @@ def transform_dead_op_vars(graph):
         if isinstance(block, Block):
             blocks[block] = True
     traverse(visit, graph)
-    return transform_dead_op_vars_in_blocks(blocks)
+    return transform_dead_op_vars_in_blocks(blocks, translator)
 
 # the set of operations that can safely be removed
 # (they have no side effects, at least in R-Python)
@@ -349,7 +399,7 @@ CanRemoveBuiltins = {
     hasattr: True,
     }
 
-def transform_dead_op_vars_in_blocks(blocks):
+def transform_dead_op_vars_in_blocks(blocks, translator=None):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a set of blocks"""
     read_vars = {}  # set of variables really used
@@ -427,7 +477,14 @@ def transform_dead_op_vars_in_blocks(blocks):
                                 del block.operations[i]
                         except TypeError:   # func is not hashable
                             pass
-
+                elif op.opname == 'direct_call':
+                    if translator is not None:
+                        graph = get_graph(op.args[0], translator)
+                        if (graph is not None and
+                            has_no_side_effects(translator, graph) and
+                            (block.exitswitch != Constant(last_exception) or
+                             i != len(block.operations)- 1)):
+                            del block.operations[i]
         # look for output variables never used
         # warning: this must be completely done *before* we attempt to
         # remove the corresponding variables from block.inputargs!
