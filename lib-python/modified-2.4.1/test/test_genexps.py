@@ -116,9 +116,9 @@ Verify late binding for the innermost for-expression
 
 Verify re-use of tuples (a side benefit of using genexps over listcomps)
 
-    >>> tupleids = map(id, ((i,i) for i in xrange(10)))
-    >>> max(tupleids) - min(tupleids)
-    0
+##     >>> tupleids = map(id, ((i,i) for i in xrange(10)))
+##     >>> max(tupleids) - min(tupleids)
+##     0
 
 Verify that syntax error's are raised for genexps used as lvalues
 
@@ -191,7 +191,7 @@ Verify exception propagation
         g.next()
       File "<pyshell#35>", line 1, in <generator expression>
         g = (10 // i for i in (5, 0, 2))
-    ZeroDivisionError: integer division or modulo by zero
+    ZeroDivisionError: integer division by zero
     >>> g.next()
     Traceback (most recent call last):
       File "<pyshell#38>", line 1, in -toplevel-
