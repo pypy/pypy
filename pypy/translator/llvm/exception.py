@@ -28,7 +28,7 @@ class ExceptionPolicy:
         return noresult
 
     def new(exceptionpolicy=None):  #factory
-        exceptionpolicy = exceptionpolicy or 'cpython'
+        exceptionpolicy = exceptionpolicy or 'fast'
         if exceptionpolicy == 'cpython':
             from pypy.translator.llvm.exception import CPythonExceptionPolicy
             exceptionpolicy = CPythonExceptionPolicy()
@@ -174,7 +174,7 @@ internal fastcc void %%unwind() {
 ''' % locals()
 
     def transform(self, translator, graph=None):
-        from pypy.translator.backendopt.exception import create_exception_handling
+        from pypy.translator.llvm.backendopt.exception import create_exception_handling
         if graph:
             create_exception_handling(translator, graph)
         else:

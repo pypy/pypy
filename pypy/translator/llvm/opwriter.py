@@ -390,7 +390,11 @@ class OpWriter(object):
     def malloc(self, op): 
         arg_type = op.args[0].value
         targetvar = self.db.repr_arg(op.result) 
-        
+        if isinstance(arg_type, lltype.Struct) and arg_type._names_without_voids() == []:
+            t = self.db.repr_arg_type(op.result)
+            self.codewriter.cast(targetvar, t, 'null', t)
+            self.codewriter.comment('removed malloc(%s) from previous line' % t)
+            return
         type_ = self.db.repr_type(arg_type)
         self.codewriter.malloc(targetvar, type_, atomic=arg_type._is_atomic())
 

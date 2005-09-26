@@ -2,6 +2,21 @@
 
 import time, os, sys, stat
 
+current_result = '''
+executable                        richards             pystone
+python 2.4.2c1                      855ms (  1.00x)    44642 (  1.00x)
+pypy-llvm-17884                   11034ms ( 12.91x)     3362 ( 13.28x)
+pypy-llvm-17881                   11702ms ( 13.69x)     3240 ( 13.78x)
+pypy-llvm-17870                   12683ms ( 14.83x)     3073 ( 14.53x)
+pypy-llvm-17862                   13053ms ( 15.27x)     3017 ( 14.79x)
+pypy-llvm-17797                   13497ms ( 15.79x)     2832 ( 15.76x)
+pypy-llvm-17792                   13808ms ( 16.15x)     2818 ( 15.84x)
+pypy-llvm-17758                   16998ms ( 19.88x)     2237 ( 19.96x)
+pypy-c-17853                      22389ms ( 26.19x)     1651 ( 27.04x)
+pypy-c-17806                      22328ms ( 26.11x)     1660 ( 26.88x)
+pypy-c-17758                      23485ms ( 27.47x)     1598 ( 27.92x)
+'''
+
 homedir = os.getenv('HOME')
 os.putenv('PATH','~/bin:/usr/local/bin:/usr/bin:/bin:/opt/bin:/usr/i686-pc-linux-gnu/gcc-bin/3.3.6')
 
