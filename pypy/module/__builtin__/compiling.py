@@ -9,11 +9,11 @@ from pypy.interpreter.gateway import NoneNotWrapped
 
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
     if space.is_true(space.isinstance(w_source, space.w_unicode)):
-        # hack: encode the unicode string as UTF-8 and attach a 'coding'
-        # declaration at the start
+        # hack: encode the unicode string as UTF-8 and attach
+        # a BOM at the start
         w_source = space.call_method(w_source, 'encode', space.wrap('utf-8'))
         str_ = space.str_w(w_source)
-        str_ = "# -*- coding: utf-8 -*-\n" + str_
+        str_ = '\xEF\xBB\xBF' + str_
     else:
         str_ = space.str_w(w_source)
 

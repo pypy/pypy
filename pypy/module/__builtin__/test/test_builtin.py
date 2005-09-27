@@ -360,6 +360,12 @@ class AppTestBuiltinApp:
         raises(ValueError, compile, '1+2', '?', 'maybenot')
         raises(TypeError, compile, '1+2', 12, 34)
 
+    def test_unicode_compile(self):
+        try:
+            compile(u'-', '?', 'eval')
+        except SyntaxError, e:
+            assert e.lineno == 1
+            
     def test_isinstance(self):
         assert isinstance(5, int)
         assert isinstance(5, object)
