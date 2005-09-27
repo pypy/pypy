@@ -85,3 +85,36 @@ def test_fold_const_blocks():
     assert len(graph.startblock.operations) == 1
     check_graph(graph, [10], g(10), t)
 
+def getitem(l, i):  #LookupError, KeyError
+    if not isinstance(i, int):
+        raise TypeError
+    if i < 0:
+        i = len(l) - i
+    if i>= len(l):
+        raise IndexError
+    return l[i]
+
+def test_dont_coalesce_except():
+    def fn(n):
+        lst = range(10)
+        try:
+            getitem(lst,n)
+        except:
+            pass
+        return 4
+    graph, t = get_graph(fn, [int])
+    coalesce_links(graph)
+    check_graph(graph, [-1], fn(-1), t)
+
+def list_default_argument(i1, l1=[0]):
+    l1.append(i1)
+    return len(l1) + l1[-2]
+
+def call_list_default_argument(i1):
+    return list_default_argument(i1)
+    
+def test_call_list_default_argument():
+    graph, t = get_graph(call_list_default_argument, [int])
+    t.backend_optimizations(propagate=True, ssa_form=False) 
+    for i in range(10):
+        check_graph(graph, [i], call_list_default_argument(i), t)

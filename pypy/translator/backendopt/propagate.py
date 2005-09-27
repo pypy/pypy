@@ -62,6 +62,8 @@ def coalesce_links(graph):
             return
         if len(block.exits) != 2:
             return
+        if block.exitswitch == Constant(last_exception):
+            return
         if (block.exits[0].args == block.exits[1].args and
             block.exits[0].target is block.exits[1].target):
             candidates[block] = True
@@ -103,11 +105,11 @@ def propagate_consts(graph):
                 del link.args[i]
             var = block.inputargs[i]
             del block.inputargs[i]
-	    op = SpaceOperation("same_as", [const], var)
-	    block.operations.insert(0, op)
+            op = SpaceOperation("same_as", [const], var)
+            block.operations.insert(0, op)
             changed[0] = True
     if changed[0]:
-    	remove_same_as(graph)
+        remove_same_as(graph)
         checkgraph(graph)
         return True
     return False
@@ -115,7 +117,7 @@ def propagate_consts(graph):
 _op = """getarrayitem setarrayitem malloc malloc_varsize flavored_malloc
          flavored_free getfield setfield getsubstruct getarraysubstruct
          getarraysize raw_malloc raw_free raw_memcopy raw_load
-         raw_store direct_call cast_pointer""".split()
+         raw_store direct_call cast_pointer cast_ptr_to_int""".split()
 from pypy.objspace.flow.operation import FunctionByName
 _op += FunctionByName.keys() #operations with PyObjects are dangerous
 cannot_constant_fold = {}
