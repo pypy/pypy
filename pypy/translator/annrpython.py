@@ -439,6 +439,9 @@ class RPythonAnnotator:
         else:
             name = 'UNKNOWN'
             firstlineno = -1
+        cls = getattr(fn, 'class_', None)
+        if cls is not None:
+            name = "%s.%s" % (cls.__name__, name)
         blk = ""
         if block:
             at = block.at()
@@ -447,7 +450,7 @@ class RPythonAnnotator:
         opid=""
         if i is not None:
             opid = " op=%d" % i
-        return "(%s:%d) %s%s%s" % (mod, firstlineno, name, blk, opid)
+        return "(%s:%d)%s%s%s" % (mod, firstlineno, name, blk, opid)
 
     def flowin(self, fn, block):
         #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
