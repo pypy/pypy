@@ -334,8 +334,8 @@ from pypy.tool.ansi_print import ansi_log
 
 log = py.log.Producer("rtyper")
 py.log.setconsumer("rtyper", ansi_log)
-#py.log.setconsumer("rtyper translating", None)
-#py.log.setconsumer("rtyper debug", None)
+py.log.setconsumer("rtyper translating", None)
+py.log.setconsumer("rtyper debug", None)
 
 def warning(msg):
     log.WARNING(msg)
