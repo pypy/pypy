@@ -89,7 +89,7 @@ from pypy.translator.goal import query
 # XXX this tries to make compiling faster
 from pypy.translator.tool import cbuild
 cbuild.enable_fast_compilation()
-from pypy.translator.tool.util import worstblocks_topten, find_someobjects 
+from pypy.translator.tool.util import find_someobjects 
 from pypy.translator.tool.util import sanity_check_exceptblocks, update_usession_dir
 from pypy.translator.tool.util import assert_rpython_mostly_not_imported, mkexename
 
@@ -114,7 +114,6 @@ def analyse(t, inputtypes):
         lost = query.sanity_check_methods(t)
         assert not lost, "lost methods, something gone wrong with the annotation of method defs"
         print "*** No lost method defs."
-        worstblocks_topten(a, 3)
         find_someobjects(t)
     if a: #and not options['-no-s']:
         print 'Simplifying...'

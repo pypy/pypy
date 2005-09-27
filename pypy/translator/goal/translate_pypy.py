@@ -135,7 +135,6 @@ def analyse(target):
         lost = query.sanity_check_methods(t)
         assert not lost, "lost methods, something gone wrong with the annotation of method defs"
         print "*** No lost method defs."
-        worstblocks_topten(a, 3)
         find_someobjects(t)
     if a: #and not options['-no-s']:
         print 'Simplifying...'
@@ -251,23 +250,6 @@ def find_someobjects(translator, quiet=False):
         print "(%d out of %d functions get or return SomeObjects" % (
             someobjnum, num) 
         print "=" * 70
-
-def worstblocks_topten(ann, n=10):
-    h = [(count, block) for block, count in ann.reflowcounter.iteritems()]
-    h.sort()
-    if not h:
-        return
-    print
-    ansi_print(',-----------------------  Top %d Most Reflown Blocks  -----------------------.' % n, 36)
-    for i in range(n):
-        if not h:
-            break
-        count, block = h.pop()
-        ansi_print('                                                      #%3d: reflown %d times  |' % (i+1, count), 36)
-        ann.translator.about(block)
-    ansi_print("`----------------------------------------------------------------------------'", 36)
-    print
-
 
 def update_usession_dir(stabledir = udir.dirpath('usession')): 
     from py import path 
