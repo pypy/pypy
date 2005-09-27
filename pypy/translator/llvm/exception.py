@@ -2,6 +2,9 @@ from pypy.translator.llvm.codewriter import DEFAULT_CCONV
 
 
 class ExceptionPolicy:
+    RINGBUFFER_ENTRY_MAXSIZE = 16
+    RINGBUGGER_N_ENTRIES = 1024
+
     def __init__(self):
         raise Exception, 'ExceptionPolicy should not be used directly'
 

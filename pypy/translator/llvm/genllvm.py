@@ -253,7 +253,7 @@ def compile_module(function, annotation, view=False, **kwds):
     a = t.annotate(annotation)
     a.simplify()
     t.specialize()
-    t.backend_optimizations(ssa_form=False)
+    t.backend_optimizations(ssa_form=False, propagate=False, removezerobytemallocs=False)
     if view:    #note: this is without policy transforms
         t.view()
     return genllvm(t, **kwds)

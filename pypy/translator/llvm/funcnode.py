@@ -5,6 +5,8 @@ from pypy.rpython import lltype
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.log import log 
+from pypy.translator.llvm.backendopt.removeexcmallocs import remove_exception_mallocs
+from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
 from pypy.translator.unsimplify import remove_double_links
 log = log.funcnode
 
@@ -38,6 +40,8 @@ class FuncNode(ConstantLLVMNode):
         self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph
         self.db.genllvm.exceptionpolicy.transform(self.db.translator, self.graph)
+        #remove_exception_mallocs(self.db.translator, self.graph)
+        #merge_mallocs(self.db.translator, self.graph)
         remove_double_links(self.db.translator, self.graph)
 
     def __str__(self):
