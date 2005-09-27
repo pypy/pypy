@@ -37,11 +37,9 @@ class PythonParser(object):
         goalnumber = pysymbol.sym_values[goal]
         target = self.rules[goalnumber]
         src = Source(lines, flags)
-        
-        result = target.match(src, builder)
-        # <HACK> XXX find a clean way to process encoding declarations
         builder.source_encoding = src.encoding
-        # </HACK>
+
+        result = target.match(src, builder)
         if not result:
             line, lineno = src.debug()
             # XXX needs better error messages

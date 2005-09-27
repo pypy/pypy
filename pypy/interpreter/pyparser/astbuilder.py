@@ -553,14 +553,14 @@ def build_atom(builder, nb):
             if len(atoms) == 1:
                 token = atoms[0]
                 assert isinstance(token, TokenObject)
-                builder.push(ast.Const(parsestr(builder.space, None, token.get_value()), top.lineno)) # XXX encoding
+                builder.push(ast.Const(parsestr(builder.space, builder.source_encoding, token.get_value()), top.lineno))
             else:
                 space = builder.space
                 empty = space.wrap('')
                 accum = []
                 for token in atoms:
                     assert isinstance(token, TokenObject)
-                    accum.append(parsestr(builder.space, None, token.get_value())) # XXX encoding
+                    accum.append(parsestr(builder.space, builder.source_encoding, token.get_value()))
                 w_s = space.call_method(empty, 'join', space.newlist(accum))
                 builder.push(ast.Const(w_s, top.lineno))
         elif top.name == tok.BACKQUOTE:
@@ -1581,7 +1581,8 @@ class AstBuilder(BaseGrammarBuilder):
         BaseGrammarBuilder.__init__(self, rules, debug)
         self.rule_stack = []
         self.space = space
-
+        self.source_encoding = None
+        
     def context(self):
         return AstBuilderContext(self.rule_stack)
 
