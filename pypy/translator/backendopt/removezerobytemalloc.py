@@ -9,8 +9,8 @@ def remove_zero_byte_mallocs(graph):
             if op.opname != 'malloc':
                 continue
             arg = op.args[0].value
-            if True: #isinstance(arg, lltype.Struct) and arg._names_without_voids() == []:
+            if isinstance(arg, lltype.Struct) and arg._names_without_voids() == []:
                 print 'remove_zero_byte_mallocs: removed malloc(%s) from previous line' % arg
                 nullresulttype = op.result.concretetype
                 nullresult     = Constant(nullresulttype._defl(), nullresulttype)
-                block.operations[i] = SpaceOperation('cast_null_to_ptr', [nullresult], op.result)
+                block.operations[i] = SpaceOperation('cast_pointer', [nullresult], op.result)
