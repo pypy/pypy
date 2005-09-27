@@ -52,21 +52,21 @@ def test_return_tuple():
     rtype(dummyfn, [int, int])
 
 def test_tuple_concatenation():
-    def f():
-        tup = (1,2)
+    def f(n):
+        tup = (1,n)
         tup1 = (3,)
         res = tup + tup1 + ()
         return res[0]*100 + res[1]*10 + res[2]
-    res = interpret(f, []) 
+    res = interpret(f, [2])
     assert res == 123
 
 def test_tuple_concatenation_mix():
-    def f():
-        tup = (1,2)
+    def f(n):
+        tup = (1,n)
         tup1 = ('3',)
         res = tup + tup1
         return res[0]*100 + res[1]*10 + ord(res[2]) - ord('0')
-    res = interpret(f, []) 
+    res = interpret(f, [2])
     assert res == 123
 
 def test_constant_tuple_contains(): 
@@ -123,3 +123,14 @@ def test_conv():
     res = interpret(f, [0])
     assert res.item0 == 3
     assert isinstance(typeOf(res.item2), Ptr) and not res.item2
+
+def test_constant_tuples_shared():
+    def g(n):
+        x = (n, 42)    # constant (5, 42) detected by the annotator
+        y = (5, 42)    # another one, built by the flow space
+        z = x + ()     # yet another
+        return id(x) == id(y) == id(z)
+    def f():
+        return g(5)
+    res = interpret(f, [])
+    assert res is True

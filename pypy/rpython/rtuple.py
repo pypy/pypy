@@ -35,16 +35,22 @@ class TupleRepr(Repr):
         self.lltypes = [r.lowleveltype for r in items_r]
         fields = zip(self.fieldnames, self.lltypes)
         self.lowleveltype = Ptr(GcStruct('tuple%d' % len(items_r), *fields))
+        self.tuple_cache = {}
 
     def compact_repr(self):
         return "TupleR %s" % ' '.join([llt._short_name() for llt in self.lltypes])
 
     def convert_const(self, value):
         assert isinstance(value, tuple) and len(value) == len(self.items_r)
-        p = malloc(self.lowleveltype.TO)
-        for obj, r, name in zip(value, self.items_r, self.fieldnames):
-            setattr(p, name, r.convert_const(obj))
-        return p
+        key = tuple([Constant(item) for item in value])
+        try:
+            return self.tuple_cache[key]
+        except KeyError:
+            p = malloc(self.lowleveltype.TO)
+            self.tuple_cache[key] = p
+            for obj, r, name in zip(value, self.items_r, self.fieldnames):
+                setattr(p, name, r.convert_const(obj))
+            return p
 
     #def get_eqfunc(self):
     #    return inputconst(Void, self.item_repr.get_ll_eq_function())
@@ -115,11 +121,13 @@ class __extend__(pairtype(TupleRepr, IntegerRepr)):
 class __extend__(pairtype(TupleRepr, TupleRepr)):
     
     def rtype_add((r_tup1, r_tup2), hop):
-        v_tuple, v_tuple1 = hop.inputargs(r_tup1.items_r, r_tup2.items_r)
-        items_r = r_tup1.items_r + r_tup2.items_r
-        res = TupleRepr(items_r)
-        vlist = v_tuple + v_tuple1
-        return newtuple(hop.llops, res, vlist)
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
+        vlist = []
+        for i in range(len(r_tup1.items_r)):
+            vlist.append(r_tup1.getitem(hop.llops, v_tuple1, i))
+        for i in range(len(r_tup2.items_r)):
+            vlist.append(r_tup2.getitem(hop.llops, v_tuple2, i))
+        return newtuple_cached(hop, vlist)
     rtype_inplace_add = rtype_add
 
     def convert_from_to((r_from, r_to), v, llops):
@@ -140,6 +148,8 @@ class __extend__(pairtype(TupleRepr, TupleRepr)):
 #  Irregular operations.
 
 def newtuple(llops, r_tuple, items_v):
+    if len(r_tuple.items_r) == 0:
+        return inputconst(r_tuple, ())    # always the same empty tuple
     c1 = inputconst(Void, r_tuple.lowleveltype.TO)
     v_result = llops.genop('malloc', [c1], resulttype = r_tuple.lowleveltype)
     for i in range(len(r_tuple.items_r)):
@@ -147,10 +157,17 @@ def newtuple(llops, r_tuple, items_v):
         llops.genop('setfield', [v_result, cname, items_v[i]])
     return v_result
 
+def newtuple_cached(hop, items_v):
+    r_tuple = hop.r_result
+    if hop.s_result.is_constant():
+        return inputconst(r_tuple, hop.s_result.const)
+    else:
+        return newtuple(hop.llops, r_tuple, items_v)
+
 def rtype_newtuple(hop):
     r_tuple = hop.r_result
     vlist = hop.inputargs(*r_tuple.items_r)
-    return newtuple(hop.llops, r_tuple, vlist)
+    return newtuple_cached(hop, vlist)
 
 #
 # _________________________ Conversions _________________________
