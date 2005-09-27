@@ -25,7 +25,7 @@ def test_dont_remove_external_calls():
 
 def test_remove_recursive_call():
     def rec(a):
-        if a <= 1:block.exitswitch != Constant(last_exception):
+        if a <= 1:
             return 0
         else:
             return rec(a - 1) + 1
