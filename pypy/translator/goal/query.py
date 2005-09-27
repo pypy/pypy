@@ -408,47 +408,6 @@ def tryout(f, *args):
         import traceback
         traceback.print_exc()
 
-def sanity_check_methods(translator):
-    from pypy.annotation.classdef import ClassDef
-    def ismeth(s_val):
-        if not isinstance(s_val, annmodel.SomePBC):
-            return False
-        s_pbc = s_val
-        c = 0
-        for f, clsdef in s_pbc.prebuiltinstances.iteritems():
-            if callable(f) and isinstance(clsdef, ClassDef):
-                c += 1
-        return c == len(s_pbc.prebuiltinstances)
-    usercls = translator.annotator.getuserclasses()
-    withmeths = []
-    for clsdef in usercls.itervalues():
-        meths = []
-        for attr in clsdef.attrs.values():
-            if ismeth(attr.s_value):
-                meths.append(attr)
-        if meths:
-            withmeths.append((clsdef, meths))
-    lost = 0
-    for clsdef, meths in withmeths:
-        cls = clsdef.cls
-        n = 0
-        subclasses = []
-        for clsdef1 in usercls.itervalues():
-            if issubclass(clsdef1.cls, cls):
-                subclasses.append(clsdef1)
-        for meth in meths:
-            name = meth.name
-            funcs = dict.fromkeys(meth.s_value.prebuiltinstances.iterkeys())
-            for subcls in subclasses:
-                f = subcls.cls.__dict__.get(name)
-                if hasattr(f, 'im_self') and f.im_self is None:
-                    f = f.im_func                
-                if f:
-                    if f not in funcs:
-                        print "Lost method!", name, subcls.cls, cls, subcls.attrs.keys() 
-                        lost += 0
-    return lost
-
 def graph_footprint(graph):
     class Counter:
         blocks = 0
@@ -579,6 +538,43 @@ def check_exceptblocks_qgen(translator):
                         continue
             yield "%s exceptblock is not completely sane" % graph.name
 
+def check_methods_qgen(translator):
+    from pypy.annotation.classdef import ClassDef
+    def ismeth(s_val):
+        if not isinstance(s_val, annmodel.SomePBC):
+            return False
+        s_pbc = s_val
+        c = 0
+        for f, clsdef in s_pbc.prebuiltinstances.iteritems():
+            if callable(f) and isinstance(clsdef, ClassDef):
+                c += 1
+        return c == len(s_pbc.prebuiltinstances)
+    usercls = translator.annotator.getuserclasses()
+    withmeths = []
+    for clsdef in usercls.itervalues():
+        meths = []
+        for attr in clsdef.attrs.values():
+            if ismeth(attr.s_value):
+                meths.append(attr)
+        if meths:
+            withmeths.append((clsdef, meths))
+    for clsdef, meths in withmeths:
+        cls = clsdef.cls
+        n = 0
+        subclasses = []
+        for clsdef1 in usercls.itervalues():
+            if issubclass(clsdef1.cls, cls):
+                subclasses.append(clsdef1)
+        for meth in meths:
+            name = meth.name
+            funcs = dict.fromkeys(meth.s_value.prebuiltinstances.iterkeys())
+            for subcls in subclasses:
+                f = subcls.cls.__dict__.get(name)
+                if hasattr(f, 'im_self') and f.im_self is None:
+                    f = f.im_func                
+                if f:
+                    if f not in funcs:
+                        yield "lost method: %s %s %s %s" % (name, subcls.cls, cls, subcls.attrs.keys() )
 
 def qoutput(queryg, write=None):
     if write is None:
@@ -593,4 +589,7 @@ def qoutput(queryg, write=None):
 def polluted(translator):
     c = qoutput(polluted_qgen(translator))
     print c
-    
+
+def sanity_check_methods(translator):
+    lost = qoutput(check_methods_qgen(translator))
+    print lost

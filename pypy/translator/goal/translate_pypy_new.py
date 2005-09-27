@@ -103,9 +103,9 @@ def sanity_check_annotation(t):
     if not irreg:
         print "++ All exceptblocks seem sane"
 
-    lost = query.sanity_check_methods(t)
+    lost = query.qoutput(query.check_methods_qgen(t))
     assert not lost, "lost methods, something gone wrong with the annotation of method defs"
-    print "*** No lost method defs."
+    print "++ No lost method defs"
 
     so = query.qoutput(query.polluted_qgen(t))
     tot = len(t.flowgraphs)
