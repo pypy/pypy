@@ -120,6 +120,7 @@ def find_someobjects(translator, quiet=False):
         print "=" * 70
 
 def worstblocks_topten(ann, n=10):
+    from pypy.tool.ansi_print import ansi_print
     h = [(count, block) for block, count in ann.reflowcounter.iteritems()]
     h.sort()
     if not h:
@@ -131,7 +132,7 @@ def worstblocks_topten(ann, n=10):
             break
         count, block = h.pop()
         ansi_print('                                                      #%3d: reflown %d times  |' % (i+1, count), 36)
-        about(block)
+        ann.translator.about(block)
     ansi_print("`----------------------------------------------------------------------------'", 36)
     print
 

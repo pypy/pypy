@@ -132,6 +132,31 @@ class Translator:
         self.annotator.build_types(graph, input_args_types, func)
         return self.annotator
 
+    def about(self, x):
+        """Interactive debugging helper """
+        from pypy.objspace.flow.model import Block, flatten
+        if isinstance(x, Block):
+            for func, graph in self.flowgraphs.items():
+                if x in graph.iterblocks():
+                    funcname = func.func_name
+                    cls = getattr(func, 'class_', None)
+                    if cls:
+                        funcname = '%s.%s' % (cls.__name__, funcname)
+                    print '%s is a %s in the graph of %s' % (x,
+                                x.__class__.__name__, funcname)
+                    print 'at %s:%d' % (func.func_globals.get('__name__', '?'),
+                                        func.func_code.co_firstlineno)
+                    break
+            else:
+                print '%s is a %s at some unknown location' % (x,
+                                x.__class__.__name__)
+            print 'containing the following operations:'
+            for op in x.operations:
+                print "   ",op
+            print '--end--'
+            return
+        raise TypeError, "don't know about %r" % x
+
     def checkgraphs(self):
         for graph in self.flowgraphs.itervalues():
             checkgraph(graph)

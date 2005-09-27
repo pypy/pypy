@@ -162,7 +162,7 @@ if __name__ == '__main__':
             block = getattr(val, '__annotator_block', None)
             if block:
                 print '-'*60
-                about(block)
+                t.about(block)
                 print '-'*60
 
             print >> sys.stderr
@@ -192,31 +192,6 @@ if __name__ == '__main__':
                 start()
                 debugger.join()
                 cleanup()
-
-    def about(x):
-        """ interactive debugging helper """
-        from pypy.objspace.flow.model import Block, flatten
-        if isinstance(x, Block):
-            for func, graph in t.flowgraphs.items():
-                if x in flatten(graph):
-                    funcname = func.func_name
-                    cls = getattr(func, 'class_', None)
-                    if cls:
-                        funcname = '%s.%s' % (cls.__name__, funcname)
-                    print '%s is a %s in the graph of %s' % (x,
-                                x.__class__.__name__, funcname)
-                    print 'at %s:%d' % (func.func_globals.get('__name__', '?'),
-                                        func.func_code.co_firstlineno)
-                    break
-            else:
-                print '%s is a %s at some unknown location' % (x,
-                                x.__class__.__name__)
-            print 'containing the following operations:'
-            for op in x.operations:
-                print op
-            print '--end--'
-            return
-        print "don't know about", x
 
     from optparse import OptionParser
     parser = OptionParser()
