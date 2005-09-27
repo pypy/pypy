@@ -67,6 +67,7 @@
 .. _`pypy/translator/c/src/`: ../../pypy/translator/c/src
 .. _`pypy/translator/c/src/ll_os.h`: ../../pypy/translator/c/src/ll_os.h
 .. _`pypy/translator/c/test/test_extfunc.py`: ../../pypy/translator/c/test/test_extfunc.py
+.. _`pypy/translator/goal/targetnopstandalone.py`: ../../pypy/translator/goal/targetnopstandalone.py
 .. _`translator/java/`: ../../pypy/translator/java
 .. _`translator/llvm/`: ../../pypy/translator/llvm
 .. _`translator/tool/`: ../../pypy/translator/tool
