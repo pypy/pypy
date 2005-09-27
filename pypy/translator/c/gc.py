@@ -355,9 +355,9 @@ class BoehmGcPolicy(BasicGcPolicy):
         return ['gc'] # xxx on windows?
 
     def pre_pre_gc_code(self):
-        if sys.platform == "linux2":
-            yield "#define _REENTRANT 1"
-            yield "#define GC_LINUX_THREADS 1"
+        #if sys.platform == "linux2":
+        #    yield "#define _REENTRANT 1"
+        #    yield "#define GC_LINUX_THREADS 1"
         yield '#include <gc.h>'
         yield '#define USING_BOEHM_GC'
 
