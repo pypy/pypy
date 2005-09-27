@@ -232,97 +232,267 @@ at the corresponding situations.
 
 The Flow Object Space in our current design is responsible of
 constructing a flow graph for a single function using abstract
-interpretation.
+interpretation.  The domain on which the Flow Space operates comprises
+variables and constant objects. They are stored as such in the frame
+objects without problems because by design the interpreter engine treat
+them as black boxes.
 
-Concretely the Flow Space plugs itself in the interpreter as an object
-space, and supplying a derived execution context implementation.  It
-also wrap a fix-point loop around invocations of the frame resume
-method which is forced to execute one single bytecode through
-exceptions reaching this loop from the space operations' code and the
-specialised execution context.
 
-The domain on which the Flow Space operates comprises variables and
-constant objects. They are stored as such in the frame objects without
-problems because by design the interpreter engine treat them
-neutrally.
+Construction of flow graphs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The Flow Space can synthesise out of a frame content so called frame
-states.  Frame states described the execution state for the frame at a
-given point.
+Concretely, the Flow Space plugs itself in the interpreter as an object
+space and supplies a derived execution context implementation.  It also
+wraps a fix-point loop around invocations of the frame resume method.
+In our current design, this fix-point searching is implemented by
+interrupting the normal interpreter loop in the frame after every
+bytecode, and comparing the state with previously-seen states.  These
+states describe the execution state for the frame at a given point.
+They are synthesised out of the frame by the Flow Space; they contain
+position-dependent data (current bytecode index, current exception
+handlers stack) as well as a flattened list of all variables and
+constants currently handled by the frame.
 
-The Flow Space constructs the flow graph by creating new blocks in it,
-when fresh never-seen state is reached. During construction, blocks in
-the graph all have an associated frame state. The Flow Space start
-from an empty block with an a frame state corresponding to setup
-induced but input arguments in the form of variables and constants to
-the analysed function.
-
-When an operation is delegated to the Flow Space by the frame
-interpretation loop, either a constant result is produced, in the case
-the arguments are constant and the operation doesn't have
-side-effects, otherwise the operation is recorded in the current block
-and a fresh new variable is returned as result.
+The Flow Space constructs the flow graph, operation after operation, as
+a side effect of seeing these operations performed by the interpretation
+of the bytecode.  During construction, blocks in the graph all have an
+associated frame state. The Flow Space start from an empty block with an
+a frame state corresponding to a frame freshly initialized, with a new
+variables for each input argument of the analysed function.  It proceeds
+by recording the operations in this block, as follows: when an operation
+is delegated to the Flow Space by the frame interpretation loop, either
+a constant result is produced -- in the case of constant arguments to an
+operation with no side-effects -- or a fresh new variable is produced.
+In the latter case, the operation (together with its input variables and
+constant arguments, and its output variable) is recorded in the current
+block and the new variable is returned as result to the frame
+interpretation loop.
 
 When a new bytecode is about to be executed, as signalled by the
-bytecode hook, the Flow Space considers the frame state corresponding
-to the current frame contents. The Flow Space keeps a mapping between
-byecode instructions, as their position, and frame state, block pairs.
+bytecode hook, the Flow Space considers the frame state corresponding to
+the current frame contents.  This state is compared with the existing
+states attached to the blocks produced so far.  If the state was not
+seen before, the Flow Space creates a new block in the graph.  If the
+same state was already seen before, then a backlink to the previous
+block is inserted, and the abstract interpretation stops here.  If only
+a "similar enough" state was seen so far, then the current and the
+previous states are merged to produce a more general state.
 
-A union operation is defined on frame states, only two equal constants
-unify to a constant of the same value, all other combinations unify
-to a fresh new variable.
+In more details, "similar enough" is defined as having the same
+position-dependant part, the so-called "non-mergeable frame state",
+which mostly means that only frame states corresponding to the same
+bytecode position can ever be merged.  This process thus produces blocks
+that are generally in one-to-one correspondance with the bytecode
+positions seen so far.  The exception to this rule is in the rare cases
+where frames from the same bytecode position have a different
+non-mergeable state, which typically occurs during the "finally" part of
+a "try: finally:" construct, where the details of the exception handler
+stack differs according to whether the "finally" part was entered
+normally or as a result of an exception.
 
-If some previously associated frame state for the next byecode unifies
-with the current state giving some more general state, i.e. an unequal
-one, the corresponding block will be reused and reset. Otherwise a new
-block is used.
+If two states have the same non-mergeable part, they can be merged using
+a "union" operation: only two equal constants unify to a constant of the
+same value; all other combinations (variable-variable or
+variable-constant) unify to a fresh new variable.
 
+In summary, if some previously associated frame state for the next
+byecode can be unified with the current state, then a backlink to the
+corresponding existing block is inserted; additionally, if the unified
+state is strictly more general than the existing one, then the existing
+block is cleared, and we proceed with the generalized state, reusing the
+block.  (Reusing the block avoids the proliferation of over-specific
+blocks.  Ror example, without this, all loops would typically have their
+first pass unrolled with the first value of the counter as a constant;
+instead, the second pass through the loop that the Flow Space does with
+the counter generalized as a variable will reuse the same entry point
+block, and any further blocks from the first pass are simply
+garbage-collected.)
+
+
+Branching
+~~~~~~~~~
 
 Branching on conditions by the engine usually involves querying the
-truth value of a object through the is_true space operation. This
-needs special treatment to be able to capture all possible flow paths.
+truth value of a object through the ``is_true`` space operation.  When
+this object is a variable, the result is not statically known; this
+needs special treatment to be able to capture both possible flow paths.
+In theory, this would require continuation support at the language level
+so that we can pretend that ``is_true`` returns twice into the engine,
+once for each possible answer, so that the Flow Space can record both
+outcomes.  Without proper continuations in Python, we have implemented a
+more explicit scheme that we describe below.  (The approach is related
+to the one used in Psyco_, where continuations would be entierely
+inpractical, as described in the `ACM SIGPLAN 2004 paper`_.)
 
-Multiple pending blocks can scheduled for abstract interpretation by
-the flow space, which proceeds picking one and reconstructing the
-abstract execution frame from the frame state associated with the
-block. The frame is what will be operated on, its setup is delegated
-to the block and based on the state, the frame setup by the block also
-returns a so called recorder through which, and not directly the
-block, appending of new space operations to the block will be
-delegated. What to do when an is_true operation is about to be
-executed is also responsability to the recorder.
+At any point in time, multiple pending blocks can be scheduled for
+abstract interpretation by the Flow Space, which proceeds by picking one
+of them and reconstructing a frame from the frame state associated with
+the block.  This frame reconstruction is actually delegated to the
+block, which also returns a so-called "recorder" through which the Flow
+Space will append new space operations to the block.  The recorder is
+also responsible for handling the ``is_true`` operation.
 
-The normal recorder when an is_true operation is encountered will
-create and schedule special blocks which don't have an associated
-frame state, but the previous block ending in the is_true operation
-and an outcome, either True or False.
+A normal recorder simply appends the space operations to the block from
+which it comes from.  However, when it sees an ``is_true`` operation, it
+creates and schedules two special blocks (one for the outcome ``True``
+and one for the outcome ``False``) which don't have an associated frame
+state.  The previous block is linked to the two new blocks with
+conditional exits.  At this point, abstract interpretation stops (i.e.
+an exception is raised to interrupt the engine).
 
-The special branching blocks when about to be executed, will use the
-chain of previous blocks, and consider all of them up to the first
-non-special branching block included, the state of this one block will
-be used to setup the frame for execution and a chain of so called
-replaying recorders setup except for the scheduled branching block
-which gets a normal recorder. The outcome registered in each special
-block in the chain will be associated with the replayer for the
-previous block.
+The special blocks have no frame state, and cannot be used to setup a
+frame: indeed, unlike normal blocks, which correspond to the state of
+the engine between the execution of two bytecode, special blocks
+correspond to a call to ``is_true`` issued the engine.  The details of
+the engine state (internal call stack and local variables) are not
+available at this point.
 
-The replaying recorders will sanity check that the same operations are
-appended by comparing the previous contents of the blocks
-re-encountered by execution and on is_true operation will deliver the
-outcome associated with them on construction.
+However, it is still possible to put the engine back into the state
+where it was calling ``is_true``.  This is what occurs later on, when
+one of the special block is scheduled for further execution: the block
+considers its previous block, and possibly its previous block's previous
+block, and so on up to the first normal block.  As we can see, these
+blocks form a binary tree of special blocks with a normal block at the
+root.  A special block thus corresponds to a branch in the tree, whose
+path is described by a list of outcomes -- a list of boolean values.  We
+can thus restore the state of any block by starting from the root and
+asking the engine to replay the execution from there; intermediate
+``is_true`` calls issued by the engine are answered according to the
+list of outcomes until we reach the desired state.
 
-All this mechanism ensures that all flow paths are considered.
+This is implemented by having a special blocks (called ``EggBlocks``
+internally, whereas normal blocks are ``SpamBlocks``) return a chain of
+recorders: one so-called "replaying" recorder for each of the parent
+blocks in the tree, followed by a normal recorder for the block itself.
+When the engine replays the execution from the root of the tree, the
+intermediate recorders check (for consistency) that the same operations
+as the ones already recorded are issued again, ending in a call to
+``is_true``; at this point, the replaying recorder gives the answer
+corresponding to the branch to follow, and switch to the next recorder
+in the chain.
+
+This mechanism ensures that all flow paths are considered, including
+different flow paths inside the engine and not only flow paths that are
+explicit in the bytecode.  For example, an ``UNPACK_SEQUENCE`` bytecode
+in the engine iterates over a sequence object and checks that it
+produces exactly the expected number of values; so the single bytecode
+``UNPACK_SEQUENCE n`` generates a tree with ``n+1`` branches
+corresponding to the ``n+1`` times the engine asks the iterator if it
+has more elements to produce.  A simpler example is a conditional jump,
+which will generate a pair of special blocks for the ``is_true``, each
+of which consisting only in a jump to the normal block corresponding to
+the next bytecode -- either the one following the conditional jump, or
+the target of the jump, depending on whether the replayer answered
+``False`` or ``True`` to the ``is_true``.
+
+Note a limitation of this mechanism: the engine cannot use an unbounded
+loop to implement a single bytecode.  All *loops* must still be
+explicitly present in the bytecodes.  The reason is that the Flow Space
+can only insert backlinks between bytecodes.
 
 
-XXX non mergeable data, details
-XXX termination for "reasonable" terminating programs
+Dynamic merging
+~~~~~~~~~~~~~~~
+
+For simplicity, we have so far omitted a point in the description of how
+frame states are associated to blocks.  In our implementation, there is
+not necessarily a block corresponding to each bytecode position (or more
+precisely each non-mergeable state): we avoid creating blocks at all if
+they would stay empty.  This is done by tentatively running the engine
+on a given frame state and seeing if it creates at least one operation;
+if it does not, then we simply continue with the new frame state without
+having created a block for the previous frame state.  The previous frame
+state is discarded without having even tried to compare it with
+already-seen state to see if it merges.
+
+The effect of this is that merging only occurs at the beginning of a
+bytecode that actually produces an operation.  This allows some amount
+of constant-folding: for example, the two functions below produce the
+same flow graph::
+
+    def f(n):             def g(n):
+        if n < 0:             if n < 0:
+            n = 0                 return 1
+        return n+1            else:
+                                  return n+1
+
+because the two branches of the condition are not merged where the
+``if`` statement syntactically ends: the ``True`` branch propagates a
+constant zero in the local variable ``n``, and the following addition is
+constant-folded and does not generate a residual operation.
+
+Note that this feature means that the Flow Space is not guaranteed to
+terminate.  The analysed function can contain arbitrary computations on
+constant values (with loops) that will be entierely constant-folded by
+the Flow Space.  A function with an obvious infinite loop will send the
+Flow Space following the loop ad infinitum.  This means that it is
+difficult to give precise conditions for when the Flow Space terminates
+and which complexity it has.  Informally, "reasonable" functions should
+not create problems: it is uncommon for a function to perform
+non-trivial constant computations at run-time; and the complexity of the
+Flow Space can more or less be bound by the run-time complexity of the
+constant parts of the function itself, if we ignore pathological cases
+where a part of a function contains infinite loops but cannot be entered
+at run-time for some reasons unknown to the Flow Space.
+
 
 Geninterp
 ~~~~~~~~~
 
-YYY
+Introducing `Dynamic merging`_ can be seen as a practical move: it does
+not, in practice, prevent even large functions to be analysed reasonably
+quickly, and it is useful to simplify the flow graphs of some functions.
+This is specially true for functions that are themselves automatically
+generated.
 
-YYY dynamic merging good for geninterp
+In the PyPy interpreter, for convenience, some of the core functionality
+has been written as application-level Python code, which means that the
+interpreter will consider some core operations as calls to further
+application-level code.  This has, of course, a performance hit due to
+the interpretation overhead.  To minimize this overhead, we
+automatically turn some of this application-level code into
+interpreter-level code, as follows.  Consider the following trivial
+example function at application-level::
+
+    def f_app(n):
+        return n+1
+
+Interpreting it, the engine just issues an ``add`` operation on the
+object space, which means that it is mostly equivalent to the following
+interpreter-level function::
+
+    def f_interp(space, wrapped_n):
+        return space.add(wrapped_n, wrapped_1)
+
+The translation from ``f_app`` to ``f_interp`` can be done automatically
+by using the Flow Space as well: we produce the flow graph of ``f_app``
+using the techniques described above, and then we turn the resulting
+flow graph into ``f_interp`` by generating for each operation a call to
+the corresponding method of ``space``.
+
+This process looses the original syntactic structure of ``f_app``,
+though; the flow graph is merely a collection of blocks that jump to
+each other.  It is not always easy to reconstruct the structure from the
+graph (or even possible at all, in some cases where the flow graph does
+not exactly follow the bytecode).  So, as is common for code generators,
+we use a workaround to the absence of explicit gotos::
+
+    def f_interp(...):
+        next_block = 0
+        while True:
+
+            if next_block == 0:
+                ...
+                next_block = 1
+
+            if next_block == 1:
+                ...
+
+This produces Python code that is particularly sub-efficient when it is
+interpreted; however, if it is further re-analysed by the Flow Space,
+dynamic merging will ensure that ``next_block`` will always be
+constant-folded away, instead of having the various possible values of
+``next_block`` be merged at the beginning of the loop.
 
 
 Annotator 
@@ -405,6 +575,59 @@ Annotation model
 
 ::
 
+                ____________ Top ___________
+               /      /       |       \     \
+              /      /        |        \     \
+             /      /         |         |     \
+            /   NullableStr   |         |      |
+          Int     /   \       |       (lists)  |
+          /     Str    \  (instances)   |    (pbcs)
+    NonNegInt     \     \      \        |      |
+          \       Char   \      \      /      /     
+          Bool      \     \      \    /      /
+            \        \     `----- None -----'
+             \        \           /
+              \        \         /
+               `--------`-- Bottom
+
+
+                             Top
+                              |
+                              |
+                              |
+                       NuInst(object)
+                          /      / \
+                  Inst(object)  /   \
+                     /      \  /     \
+                    /        \/       \
+                   /         /\        \
+                  /         /  \        \
+                 /         /    \        \
+                /  NuInst(cls2)  \     NuInst(cls1)
+               /   /      \       \     /  /
+           Inst(cls2)      \  Inst(cls1)  / 
+                 \          \    /       /
+                  \          \  /       /
+                   \          \/       /
+                    \         /\      /
+                     \       /   None
+                      \     /  /
+                        Bottom
+
+
+
+             __________________ Top __________________
+            /            /     /   \     \            \
+           /            /     /     \     \            \
+          /            /     /       \     \            \
+    List(v_1)       ...        ...        ...         List(v_n)
+          \            \     \       /     /            /
+           \            \     \     /     /            /
+            \            \     \   /     /            /
+             '------------'--- None ----'------------'
+
+
+
     Bot
 
     Top
@@ -412,13 +635,9 @@ Annotation model
     Int
     
     NonNegInt
-    
-    UnsignedInt
 
     Bool
-    
-    Float
-    
+
     Str
     
     NullableStr
@@ -616,6 +835,7 @@ XXX messy
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`Standard Object Space`: objspace.html#the-standard-object-space
 .. _Psyco: http://psyco.sourceforge.net/
+.. _`ACM SIGPLAN 2004 paper`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Hindley-Milner`: http://en.wikipedia.org/wiki/Hindley-Milner_type_inference
 
 .. include:: _ref.txt
