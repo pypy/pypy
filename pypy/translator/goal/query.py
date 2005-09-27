@@ -5,48 +5,6 @@ import re
 import pypy.annotation.model as annmodel
 import pypy.objspace.flow.model as flowmodel
 
-#def sources(translator):
-#    annotator = translator.annotator
-#    d = {}
-#    for v, s in annotator.bindings.iteritems():
-#        if s.__class__ == annmodel.SomeObject and s.knowntype != type:
-#            if s.origin:
-#                d[s.origin[0]] = 1
-#    for func in d:
-#        print func.__module__ or '?', func.__name__
-#    print len(d)
-#    return d.keys()
-
-class Found(Exception):
-    pass
-
-def sovars(translator, g):
-    annotator = translator.annotator
-    def visit(block):
-        if isinstance(block, flowmodel.Block):
-            for v in block.getvariables():
-                s = annotator.binding(v, extquery=True)
-                if s and s.__class__ == annmodel.SomeObject and s.knowntype != type:
-                    print v,s
-    flowmodel.traverse(visit, g)
-
-def polluted(translator):
-    """list functions with still real SomeObject variables"""
-    annotator = translator.annotator
-    def visit(block):
-        if isinstance(block, flowmodel.Block):
-            for v in block.getvariables():
-                s = annotator.binding(v, extquery=True)
-                if s and s.__class__ == annmodel.SomeObject and s.knowntype != type:
-                    raise Found
-    c = 0
-    for f,g in translator.flowgraphs.iteritems():
-        try:
-            flowmodel.traverse(visit, g)
-        except Found:
-            print prettycallable((None, f))
-            c += 1
-    return c
 
 class typerep(object):
     
@@ -122,6 +80,14 @@ def callablereps(bunch):
     classes = [clsdef and clsdef.cls for clsdef, func in bunch]
     return roots(classes), tuple(typereps(callables))
 
+def prettyfunc(func):
+    descr = "(%s:%s)" % (getattr(func, '__module__', None) or '?', func.func_code.co_firstlineno)
+    funcname = getattr(func, '__name__', None) or 'UNKNOWN'
+    cls = getattr(func, 'class_', None)
+    if cls:
+        funcname = "%s.%s" % (cls.__name__, funcname)
+    return descr+funcname
+
 def prettycallable((cls, obj)):
     if cls is None or cls == (True, ()):
         cls = None
@@ -137,7 +103,7 @@ def prettycallable((cls, obj)):
             cls = "_|%s" % cls
 
     if isinstance(obj, types.FunctionType):
-        obj = "(%s)%s" % (getattr(obj, '__module__', None) or '?', getattr(obj, '__name__', None) or 'UNKNOWN')
+        obj = prettyfunc(obj) 
     elif isinstance(obj, tuple):
         obj = "[%s]" % '|'.join([str(x) for x in obj])
     else:
@@ -558,3 +524,73 @@ def worstblocks_topten(t, n=10):
         t.about(block)
     ansi_print("`----------------------------------------------------------------------------'", 36)
     print
+
+# query used for sanity checks by translate_pypy
+
+def short_binding(annotator, var):
+    try:
+        binding = annotator.binding(var)
+    except KeyError:
+        return "?"
+    if binding.is_constant():
+        return 'const %s' % binding.__class__.__name__
+    else:
+        return binding.__class__.__name__
+
+def graph_sig(t, g):
+    ann = t.annotator
+    hbinding = lambda v: short_binding(ann, v)
+    return "%s -> %s" % (
+        ', '.join(map(hbinding, g.getargs())),
+        hbinding(g.getreturnvar()))
+    
+class Found(Exception):
+    pass
+
+def polluted_qgen(translator):
+    """list functions with still real SomeObject variables"""
+    annotator = translator.annotator
+    def visit(block):
+        if isinstance(block, flowmodel.Block):
+            for v in block.getvariables():
+                s = annotator.binding(v, extquery=True)
+                if s and s.__class__ == annmodel.SomeObject and s.knowntype != type:
+                    raise Found
+    for f,g in translator.flowgraphs.iteritems():
+        try:
+            flowmodel.traverse(visit, g)
+        except Found:
+            line = "%s: %s" % (prettyfunc(f), graph_sig(translator, g))
+            yield line
+
+def check_exceptblocks_qgen(translator):
+    annotator = translator.annotator
+    for graph in translator.flowgraphs.itervalues():
+        et, ev = graph.exceptblock.inputargs
+        s_et = annotator.binding(et, extquery=True)
+        s_ev = annotator.binding(ev, extquery=True)
+        if s_et:
+            if s_et.knowntype == type:
+                if s_et.__class__ == annmodel.SomeObject:
+                    if hasattr(s_et, 'is_type_of') and  s_et.is_type_of == [ev]:
+                        continue
+                else:
+                    if s_et.__class__ == annmodel.SomePBC:
+                        continue
+            yield "%s exceptblock is not completely sane" % graph.name
+
+
+def qoutput(queryg, write=None):
+    if write is None:
+        def write(s):
+            print s
+    c = 0
+    for bit in queryg:
+        write(bit)
+        c += 1
+    return c
+
+def polluted(translator):
+    c = qoutput(polluted_qgen(translator))
+    print c
+    

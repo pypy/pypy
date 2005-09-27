@@ -89,8 +89,7 @@ from pypy.translator.goal import query
 # XXX this tries to make compiling faster
 from pypy.translator.tool import cbuild
 cbuild.enable_fast_compilation()
-from pypy.translator.tool.util import find_someobjects 
-from pypy.translator.tool.util import sanity_check_exceptblocks, update_usession_dir
+from pypy.translator.tool.util import update_usession_dir
 from pypy.translator.tool.util import assert_rpython_mostly_not_imported, mkexename
 
 annmodel.DEBUG = False
@@ -98,6 +97,20 @@ annmodel.DEBUG = False
 
 
 # __________  Main  __________
+
+def sanity_check_annotation(t):
+    irreg = query.qoutput(query.check_exceptblocks_qgen(t))
+    if not irreg:
+        print "++ All exceptblocks seem sane"
+
+    lost = query.sanity_check_methods(t)
+    assert not lost, "lost methods, something gone wrong with the annotation of method defs"
+    print "*** No lost method defs."
+
+    so = query.qoutput(query.polluted_qgen(t))
+    tot = len(t.flowgraphs)
+    percent = int(tot and (100.0*so / tot) or 0)
+    print "-- someobjectness %2d (%d of %d functions polluted by SomeObjects)" % (percent, so, tot)
 
 def analyse(t, inputtypes):
 
@@ -110,11 +123,8 @@ def analyse(t, inputtypes):
         print 'Annotating...'
         print 'with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__) 
         a = t.annotate(inputtypes, policy=policy)
-        sanity_check_exceptblocks(t)
-        lost = query.sanity_check_methods(t)
-        assert not lost, "lost methods, something gone wrong with the annotation of method defs"
-        print "*** No lost method defs."
-        find_someobjects(t)
+        sanity_check_annotation(t)
+
     if a: #and not options['-no-s']:
         print 'Simplifying...'
         a.simplify()
