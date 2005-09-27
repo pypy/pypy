@@ -4,7 +4,6 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltype import Void, Bool, Float, Signed, Char, UniChar
 from pypy.rpython.lltype import typeOf, LowLevelType, Ptr, PyObject
 from pypy.rpython.lltype import FuncType, functionptr, cast_ptr_to_int
-from pypy.tool.ansi_print import ansi_print
 from pypy.rpython.error import TyperError, MissingRTypeOperation 
 
 # initialization states for Repr instances 
@@ -322,12 +321,24 @@ def getfunctionptr(translator, graphfunc, getconcretetype=getconcretetype):
     _callable = getattr(graphfunc, '_specializedversionof_', graphfunc)
     return functionptr(FT, graphfunc.func_name, graph = graph, _callable = _callable)
 
-def warning(msg):
-    ansi_print("*** WARNING: %s" % (msg,), esc="31") # RED
-
-
 def needsgc(classdef, nogc=False):
     if classdef is None:
         return not nogc
     else:
         return getattr(classdef.cls, '_alloc_flavor_', 'gc').startswith('gc')
+
+# logging/warning
+
+import py
+from pypy.tool.ansi_print import ansi_log
+
+log = py.log.Producer("rtyper")
+py.log.setconsumer("rtyper", ansi_log)
+#py.log.setconsumer("rtyper translating", None)
+#py.log.setconsumer("rtyper debug", None)
+
+def warning(msg):
+    log.WARNING(msg)
+
+
+

@@ -7,9 +7,8 @@ from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, CharRepr, \
      inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rarithmetic import intmask, r_uint
+from pypy.rpython.rmodel import log
 
-
-debug = False
 
 class __extend__(annmodel.SomeInteger):
     def rtyper_makerepr(self, rtyper):
@@ -29,10 +28,10 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
         if r_from.lowleveltype == Signed and r_to.lowleveltype == Unsigned:
-            if debug: print 'explicit cast_int_to_uint'
+            log.debug('explicit cast_int_to_uint')
             return llops.genop('cast_int_to_uint', [v], resulttype=Unsigned)
         if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Signed:
-            if debug: print 'explicit cast_uint_to_int'
+            log.debug('explicit cast_uint_to_int')
             return llops.genop('cast_uint_to_int', [v], resulttype=Signed)
         return NotImplemented
 

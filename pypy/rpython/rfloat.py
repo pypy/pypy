@@ -8,8 +8,8 @@ from pypy.rpython.lltype import PyObject, Array, Char
 from pypy.rpython.rstr import STR
 from pypy.rpython.lltype import functionptr, FuncType, malloc
 from pypy.rpython import rstr
+from pypy.rpython.rmodel import log
 
-debug = False
 
 class __extend__(annmodel.SomeFloat):
     def rtyper_makerepr(self, rtyper):
@@ -166,17 +166,17 @@ tollchararray_ptr = functionptr(FuncType([PyObjectPtr, Ptr(Array(Char))], Void),
 class __extend__(pairtype(IntegerRepr, FloatRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Float:
-            if debug: print 'explicit cast_uint_to_float'
+            log.debug('explicit cast_uint_to_float')
             return llops.genop('cast_uint_to_float', [v], resulttype=Float)
         if r_from.lowleveltype == Signed and r_to.lowleveltype == Float:
-            if debug: print 'explicit cast_int_to_float'
+            log.debug('explicit cast_int_to_float')
             return llops.genop('cast_int_to_float', [v], resulttype=Float)
         return NotImplemented
 
 class __extend__(pairtype(BoolRepr, FloatRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_from.lowleveltype == Bool and r_to.lowleveltype == Float:
-            if debug: print 'explicit cast_bool_to_float'
+            log.debug('explicit cast_bool_to_float')
             return llops.genop('cast_bool_to_float', [v], resulttype=Float)
         return NotImplemented
 

@@ -3,9 +3,8 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, pyobjectptr
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, BoolRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
+from pypy.rpython.rmodel import log
 
-
-debug = False
 
 class __extend__(annmodel.SomeBool):
     def rtyper_makerepr(self, rtyper):
@@ -44,10 +43,10 @@ class __extend__(BoolRepr):
 class __extend__(pairtype(BoolRepr, IntegerRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         if r_from.lowleveltype == Bool and r_to.lowleveltype == Unsigned:
-            if debug: print 'explicit cast_bool_to_uint'
+            log.debug('explicit cast_bool_to_uint')
             return llops.genop('cast_bool_to_uint', [v], resulttype=Unsigned)
         if r_from.lowleveltype == Bool and r_to.lowleveltype == Signed:
-            if debug: print 'explicit cast_bool_to_int'
+            log.debug('explicit cast_bool_to_int')
             return llops.genop('cast_bool_to_int', [v], resulttype=Signed)
         return NotImplemented
 

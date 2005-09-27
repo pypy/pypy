@@ -31,8 +31,7 @@ from pypy.rpython.normalizecalls import perform_normalizations
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.exceptiondata import ExceptionData
 
-log = py.log.Producer("rtyper")
-py.log.setconsumer("rtyper", None) 
+from pypy.rpython.rmodel import log
 
 
 class RPythonTyper:
@@ -58,9 +57,7 @@ class RPythonTyper:
         try:
             self.seed = int(os.getenv('RTYPERSEED'))
             s = 'Using %d as seed for block shuffling' % self.seed
-            print '*' * len(s)
-            print s
-            print '*' * len(s)
+            log.info(s)
         except:
             self.seed = 0
         self.order = None
@@ -69,9 +66,7 @@ class RPythonTyper:
             order_module = RTYPERORDER.split(',')[0]
             self.order = __import__(order_module, {}, {},  ['*']).order
             s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
-            print '*' * len(s)
-            print s
-            print '*' * len(s)
+            log.info(s)
         self.crash_on_first_typeerror = True
 
     def add_pendingsetup(self, repr): 
@@ -157,20 +152,20 @@ class RPythonTyper:
                         error_report = " but %d errors" % self.typererror_count
                     else:
                         error_report = ''
-                    print 'specializing: %d / %d blocks   (%d%%)%s' % (
-                        n, total, 100 * n // total, error_report)
+                    log.event('specializing: %d / %d blocks   (%d%%)%s' % (
+                        n, total, 100 * n // total, error_report))
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
         if self.typererrors: 
-            self.dump_typererrors() 
+            self.dump_typererrors(to_log=True) 
             raise TyperError("there were %d error" % len(self.typererrors))
         # make sure that the return variables of all graphs are concretetype'd
         for graph in self.annotator.translator.flowgraphs.values():
             v = graph.getreturnvar()
             self.setconcretetype(v)
 
-    def dump_typererrors(self, num=None, minimize=True): 
+    def dump_typererrors(self, num=None, minimize=True, to_log=False): 
         c = 0
         bc = 0
         for err in self.typererrors[:num]: 
@@ -184,11 +179,19 @@ class RPythonTyper:
                 func = "(%s:%s)" %(func.__module__ or '?', func.__name__)
             else:
                 func = "(?:?)"
-            print "TyperError-%d: %s" % (c, func)
-            print str(err)
-            print ""
-        if bc: 
-            print "(minimized %d errors away for this dump)" % (bc,)
+            errmsg = ("TyperError-%d: %s" % (c, func) +
+                      str(err) +
+                      "\n")
+            if to_log:
+                log.ERROR(errmsg)
+            else:
+                print errmsg
+        if bc:
+            minmsg = "(minimized %d errors away for this dump)" % (bc,)
+            if to_log:
+                log.ERROR(minmsg)
+            else:
+                print minmsg
 
     def call_all_setups(self):
         # make sure all reprs so far have had their setup() called
