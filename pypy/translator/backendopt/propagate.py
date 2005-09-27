@@ -1,5 +1,6 @@
 from pypy.objspace.flow.model import Block, Variable, Constant, last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
+from pypy.objspace.flow.model import SpaceOperation
 from pypy.rpython.lltype import Void, Bool
 from pypy.rpython.llinterp import LLInterpreter, LLFrame
 from pypy.translator import simplify
@@ -102,9 +103,11 @@ def propagate_consts(graph):
                 del link.args[i]
             var = block.inputargs[i]
             del block.inputargs[i]
-            block.renamevariables({var: const})
+	    op = SpaceOperation("same_as", [const], var)
+	    block.operations.insert(0, op)
             changed[0] = True
     if changed[0]:
+    	remove_same_as(graph)
         checkgraph(graph)
         return True
     return False
