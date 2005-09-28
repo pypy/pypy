@@ -23,6 +23,10 @@ def test_simple():
     assert abc._plan('C') == ['B', 'C']
     assert abc._plan('A') == ['B', 'C', 'A']
     assert abc._plan('A', skip=['C']) == ['B', 'A']
+
+    assert abc._depending_on('C') == []
+    assert dict.fromkeys(abc._depending_on('B'), True) == {'A':True, 'C':True}
+    assert abc._depending_on('A') == []
    
 def test_execute():
 

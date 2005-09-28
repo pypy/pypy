@@ -80,6 +80,13 @@ class SimpleTaskEngine:
 
         return plan
 
+    def _depending_on(self, goal):
+        l = []
+        for task_name, (task, task_deps) in self.tasks.iteritems():
+            if goal in task_deps:
+                l.append(task_name)
+        return l
+
     def _execute(self, goals, *args, **kwds):
         task_skip = kwds.get('task_skip', [])
         for goal in self._plan(goals, skip=task_skip):
@@ -103,28 +110,6 @@ class SimpleTaskEngine:
     def _error(self, goal):
         pass
 
-
-""" sketch of tasks for translation:
-
-annotate:  # includes annotation and annotatation simplifications
-
-rtype: annotate
-
-backendoptimisations: rtype # make little sense otherwise
-
-source_llvm: backendoptimisations, rtype, annotate
-
-source_c: ?backendoptimisations, ?rtype, ?annotate
-
-compile_c : source_c
-
-compile_llvm: source_llvm
-
-run_c: compile_c
-
-run_llvm: compile_llvm
-
-"""
 
         
         
