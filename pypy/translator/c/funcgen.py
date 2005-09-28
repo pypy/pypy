@@ -33,7 +33,7 @@ class FunctionCodeGenerator(object):
         # collect all variables and constants used in the body,
         # and get their types now
         #
-        # NOTE: cannot use dictionaries with Constants has keys, because
+        # NOTE: cannot use dictionaries with Constants as keys, because
         #       Constants may hash and compare equal but have different lltypes
         mix = []
         self.more_ll_values = []
