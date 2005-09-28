@@ -641,8 +641,8 @@ Annotation model
 ~~~~~~~~~~~~~~~~
 
 As in the `formal definition`_ of Abstract Interpretation, the model for
-our annotation forms a *lattice_*, although we only use its structure of
-*`join-semilattice`_*.
+our annotation forms a lattice_, although we only use its structure of
+`join-semilattice`_.
 
 The set *A* of annotations is defined as the following formal terms:
 
@@ -994,7 +994,7 @@ XXX messy
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`formal definition`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _lattice: http://en.wikipedia.org/wiki/Lattice_%28order%29
-.. _`join-semilattice`: http://en.wikipedia.org/wiki/Lattice_%28order%29
+.. _`join-semilattice`: http://en.wikipedia.org/wiki/Semilattice
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`Standard Object Space`: objspace.html#the-standard-object-space
 .. _Psyco: http://psyco.sourceforge.net/
