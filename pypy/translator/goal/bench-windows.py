@@ -88,16 +88,16 @@ def reference(progname):
     return bench_exe
 
 def run_version_size(executable=reference('python'), *args):
-    ver, size = run_cmd('''%s -c "import sys,os;print sys.version.split()[0],\\
-                           os.path.getsize(sys.executable)"'''
-                        % executable).split()
+    ver, size, dll = run_cmd('%s -c "import sys, os; print sys.version.split()[0], '
+                             'os.path.getsize(sys.executable), sys.dllhandle"'
+                             % executable).split()
     size = int(size)
     try:
-        sys.dllhandle
-    except AttributeError:
+        import win32api
+    except ImportError:
         pass
     else:
-        size += os.path.getsize(win32api.GetModuleFileName(sys.dllhandle))
+        size += os.path.getsize(win32api.GetModuleFileName(int(dll)))
     return ver, size
 
 def run_pystone(executable=reference('python'), n=0):
