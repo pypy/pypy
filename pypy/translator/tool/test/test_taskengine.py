@@ -50,7 +50,7 @@ def test_execute():
 
     def test(goals, task_skip=[]):
         if isinstance(goals, str):
-            gaols = [goals]
+            goals = [goals]
         abc = ABC()
         abc._execute(goals, task_skip=task_skip)
         return abc.done
