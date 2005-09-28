@@ -397,10 +397,17 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def is_true(self, w_obj):
         # XXX don't look!
-        if isinstance(w_obj, W_DictObject):
+        if type(w_obj) is W_DictObject:
             return len(w_obj.content) != 0
         else:
             return DescrOperation.is_true(self, w_obj)
+
+    def finditem(self, w_obj, w_key):
+        # performance shortcut to avoid creating the OperationError(KeyError)
+        if type(w_obj) is W_DictObject:
+            return w_obj.content.get(w_key, None)
+        else:
+            return ObjSpace.finditem(self, w_obj, w_key)
 
     # support for the deprecated __getslice__, __setslice__, __delslice__
 

@@ -31,13 +31,8 @@ class MixedModule(Module):
         return self.space.call_function(w_builtin, *args_w)
 
     def getdictvalue(self, space, name): 
-        try: 
-            return space.getitem(self.w_dict, space.wrap(name))
-        except OperationError, e: 
-            if not e.match(space, space.w_KeyError): 
-                raise 
-            if not self.lazy: 
-                return None 
+        w_value = space.finditem(self.w_dict, space.wrap(name))
+        if self.lazy and w_value is None:
             try: 
                 loader = self.loaders[name]
             except KeyError: 
@@ -57,7 +52,7 @@ class MixedModule(Module):
                         func._builtinversion_ = bltin
                     w_value = space.wrap(bltin)
                 space.setitem(self.w_dict, space.wrap(name), w_value) 
-                return w_value 
+        return w_value
 
     def getdict(self): 
         if self.lazy: 

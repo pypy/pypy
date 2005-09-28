@@ -21,11 +21,7 @@ class W_Root:
     def getdictvalue(self, space, attr):
         w_dict = self.getdict()
         if w_dict is not None:
-            try:
-                return space.getitem(w_dict, space.wrap(attr))
-            except OperationError, e:
-                if not e.match(space, space.w_KeyError):
-                    raise
+            return space.finditem(w_dict, space.wrap(attr))
         return None
 
     def setdict(self, space, w_dict):
@@ -372,6 +368,14 @@ class ObjSpace(object):
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""
         return self.int_w(self.hash(w_obj))
+
+    def finditem(self, w_obj, w_key):
+        try:
+            return self.getitem(w_obj, w_key)
+        except OperationError, e:
+            if e.match(self, self.w_KeyError):
+                return None
+            raise
 
     def newbool(self, b):
         if b:
