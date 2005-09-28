@@ -1404,17 +1404,18 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
             elif ch == 'r' : p += u'\r' 
             elif ch == 'v': p += u'\013' #break; /* VT */
             elif ch == 'a': p += u'\007' # break; /* BEL, not classic C */
-            elif ch in [ '0', '1', '2', '3', '4', '5', '6', '7']:
-                x = int(s[pos, pos+3], 8)
-            #    x = ord(ch) - ord('0')
-            #    ch = s[pos]
-            #    if ('0' <= ch and ch <= '7'):
-            #        x = (x<<3) + ord(ch) - ord('0')
-            #        ch = s[pos+1]
-            #        if ('0' <= ch and ch <= '7'):
-            #            x = (x<<3) + ord(ch) - ord('0')
-            #            pos += 2
-                pos += 3
+            elif '0' <= ch <= '7':
+                x = ord(ch) - ord('0')
+                if pos < size:
+                    ch = s[pos]
+                    if '0' <= ch <= '7':
+                        pos += 1
+                        x = (x<<3) + ord(ch) - ord('0')
+                        if pos < size:
+                            ch = s[pos]
+                            if '0' <= ch <= '7':
+                                pos += 1
+                                x = (x<<3) + ord(ch) - ord('0')
                 p += unichr(x)
     ##        /* hex escapes */
     ##        /* \xXX */
@@ -1471,16 +1472,8 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
                 else:        
                     x = unicode_call_errorhandler(errors, "unicodeescape", message, s, pos-1, look+1)
             else:
-                if (pos > size):
-                    message = "\\ at end of string"
-                    handler = lookup_error(errors)
-                    x = handler(UnicodeDecodeError("unicodeescape", s, pos,
-                                size, message))
-                    p += x[0]
-                    pos = x[1]
-                else:
-                    p += '\\'
-                    p += s[pos]
+                p += '\\'
+                p += ch
     return p
 
 def PyUnicode_EncodeRawUnicodeEscape(s, size):
