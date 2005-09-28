@@ -40,7 +40,12 @@ class FuncNode(ConstantLLVMNode):
         self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph
         self.db.genllvm.exceptionpolicy.transform(self.db.translator, self.graph)
-        #remove_exception_mallocs(self.db.translator, self.graph)
+        if remove_exception_mallocs(self.db.translator, self.graph):
+            print '            from function', self.ref
+            import sys
+            sys.stdout.flush()
+            #if self.ref not in ('%pypy_ll_raise_OSError__Signed', '%pypy_getitem'):
+            #    self.db.translator.view()
         #merge_mallocs(self.db.translator, self.graph)
         remove_double_links(self.db.translator, self.graph)
 

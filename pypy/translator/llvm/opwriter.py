@@ -387,6 +387,18 @@ class OpWriter(object):
             ep.reraise(self.node, self.codewriter)
         ep.fetch_exceptions(self.codewriter, exc_found_labels, lltype_of_exception_type, lltype_of_exception_value)
 
+    def malloc_exception(self, op): 
+        arg_type = op.args[0].value
+        targetvar = self.db.repr_arg(op.result) 
+        type_ = self.db.repr_type(arg_type)
+        tmpvar1 = self.db.repr_tmpvar()
+        tmpvar2 = self.db.repr_tmpvar()
+        tmpvar3 = self.db.repr_tmpvar()
+        self.codewriter.indent('%(tmpvar1)s = getelementptr %(type_)s* null, int 1' % locals())
+        self.codewriter.cast(tmpvar2, type_+'*', tmpvar1, 'uint')
+        self.codewriter.call(tmpvar3, 'sbyte*', '%malloc_exception', [tmpvar2], ['uint'])
+        self.codewriter.cast(targetvar, 'sbyte*', tmpvar3, type_+'*')
+
     def malloc(self, op): 
         arg_type = op.args[0].value
         targetvar = self.db.repr_arg(op.result) 
@@ -397,7 +409,7 @@ class OpWriter(object):
         arg_type = op.args[0].value
         if isinstance(arg_type, lltype.Array) and arg_type.OF is lltype.Void:
             # This is a backend decision to NOT represent a void array with
-            # anything and save space - therefore not varsizeda anymore
+            # anything and save space - therefore not varsized anymore
             self.malloc(op)
             return
         

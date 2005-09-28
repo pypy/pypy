@@ -11,6 +11,7 @@ def merge_mallocs(translator, graph):
 
     warning: some will consider this a dirty hack, that's ok! :)
     """
+    n_times_merged = 0
     blocks = [x for x in flatten(graph) if isinstance(x, Block)]
     for block in blocks:
         n_mallocs_in_block = 0
@@ -20,3 +21,5 @@ def merge_mallocs(translator, graph):
             n_mallocs_in_block += 1
         if n_mallocs_in_block >= 2:
             print 'merge_mallocs: n_mallocs_in_block=%d' % n_mallocs_in_block
+            n_times_merged += 1
+    return n_times_merged

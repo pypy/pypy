@@ -10,8 +10,6 @@ class GcPolicy:
 
     def malloc(self, targetvar, type_, size, is_atomic, word, uword):
         s = str(size)
-        if s == '0':
-            return '%(targetvar)s = cast %(type_)s* null to %(type_)s* ;was malloc 0 bytes' % locals()
         return '%(targetvar)s = malloc %(type_)s, uint %(s)s' % locals()
 
     def pyrex_code(self):
@@ -61,8 +59,6 @@ declare ccc sbyte* %GC_malloc_atomic(uint)
 
     def malloc(self, targetvar, type_, size, is_atomic, word, uword):
         s = str(size)
-        if s == '0':
-            return '%(targetvar)s = cast %(type_)s* null to %(type_)s* ;was malloc 0 bytes' % locals()
         self.n_malloced += 1
         cnt = '.%d' % self.n_malloced
         atomic = is_atomic and '_atomic' or ''

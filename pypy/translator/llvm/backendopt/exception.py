@@ -15,7 +15,7 @@ def create_exception_handling(translator, graph):
     Because of the added exitswitch we need an additional block.
     """
     global n_calls, n_calls_patched
-    n_calls_begin = n_calls
+    n_calls_patched_begin = n_calls_patched
     e = translator.rtyper.getexceptiondata()
     blocks = [x for x in flatten(graph) if isinstance(x, Block)]
     for block in blocks:
@@ -58,5 +58,6 @@ def create_exception_handling(translator, graph):
             l.prevblock  = block
             l.exitcase   = l.llexitcase = False
             block.exits.insert(0, l)    #False case needs to go first
-    if n_calls != n_calls_begin:
-        print 'create_exception_handling: patched %d out of %d calls' % (n_calls_patched, n_calls)
+    #if n_calls_patched != n_calls_patched_begin:
+    #    print 'create_exception_handling: patched %d out of %d calls' % (n_calls_patched, n_calls)
+    return n_calls_patched_begin - n_calls_patched

@@ -2,8 +2,27 @@ from pypy.translator.llvm.codewriter import DEFAULT_CCONV
 
 
 class ExceptionPolicy:
+    RINGBUGGER_SIZE          = 8192
     RINGBUFFER_ENTRY_MAXSIZE = 16
-    RINGBUGGER_N_ENTRIES = 1024
+    RINGBUGGER_OVERSIZE      = RINGBUGGER_SIZE + RINGBUFFER_ENTRY_MAXSIZE
+    RINGBUFFER_LLVMCODE      = '''
+internal fastcc sbyte* %%malloc_exception(uint %%nbytes) {
+    %%cond = setle uint %%nbytes, %d
+    br bool %%cond, label %%then, label %%else
+
+then:
+    %%tmp.3 = load uint* %%exception_ringbuffer_index
+    %%tmp.4 = getelementptr [%d x sbyte]* %%exception_ringbuffer, int 0, uint %%tmp.3
+    %%tmp.6 = add uint %%tmp.3, %%nbytes
+    %%tmp.7 = and uint %%tmp.6, %d
+    store uint %%tmp.7, uint* %%exception_ringbuffer_index
+    ret sbyte* %%tmp.4
+
+else:
+    %%tmp.8  = call ccc sbyte* %%GC_malloc(uint %%nbytes)
+    ret sbyte* %%tmp.8
+}
+''' % (RINGBUFFER_ENTRY_MAXSIZE, RINGBUGGER_OVERSIZE, RINGBUGGER_SIZE-1)
 
     def __init__(self):
         raise Exception, 'ExceptionPolicy should not be used directly'
@@ -81,7 +100,7 @@ ccc int %%__entrypoint__raised_LLVMException() {
 internal fastcc void %%unwind() {
     unwind
 }
-''' % locals()
+''' % locals() + self.RINGBUFFER_LLVMCODE
 
     def invoke(self, codewriter, targetvar, tail_, cconv, returntype, functionref, args, label, except_label):
         labels = 'to label %%%s except label %%%s' % (label, except_label)
@@ -174,7 +193,7 @@ ccc int %%__entrypoint__raised_LLVMException() {
 internal fastcc void %%unwind() {
     ret void
 }
-''' % locals()
+''' % locals() + self.RINGBUFFER_LLVMCODE
 
     def transform(self, translator, graph=None):
         from pypy.translator.llvm.backendopt.exception import create_exception_handling
