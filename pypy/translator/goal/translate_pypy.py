@@ -132,7 +132,7 @@ def analyse(target):
         print 'with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__) 
         a = t.annotate(inputtypes, policy=policy)
         sanity_check_exceptblocks(t)
-        lost = query.sanity_check_methods(t)
+        lost = query.qoutput(query.check_methods_qgen(t))
         assert not lost, "lost methods, something gone wrong with the annotation of method defs"
         print "*** No lost method defs."
         find_someobjects(t)
