@@ -157,10 +157,10 @@ if __name__ == '__main__':
     
     def debug(got_error):
         from pypy.translator.tool.pdbplus import PdbPlusShow
-        from pypy.translator.tool.pdbplus import run_debugger_in_thread
         
         pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
-        
+
+        tb = None
         if got_error:
             import traceback
             exc, val, tb = sys.exc_info()
@@ -173,34 +173,25 @@ if __name__ == '__main__':
                 print '-'*60
                 t.about(block)
                 print '-'*60
-
-            print >> sys.stderr
-            func, args = pdb_plus_show.post_mortem, (tb,)
+            print
         else:
             print '-'*60
             print 'Done.'
             print
-            func, args = pdb_plus_show.set_trace, ()
-        if not cmd_line_opt.pygame:
-            if cmd_line_opt.batch:
-                print >>sys.stderr, "batch mode, not calling interactive helpers"
+
+        if cmd_line_opt.batch:
+            print >>sys.stderr, "batch mode, not calling interactive helpers"
+            return
+
+        def server_setup():
+            if serv_start:
+                return serv_start, serv_show, serv_stop, serv_cleanup
             else:
-                func(*args)
-        else:
-            if cmd_line_opt.batch: 
-                print >>sys.stderr, "batch mode, not calling interactive helpers"
-            else:
-                if serv_start:
-                    start, show, stop, cleanup = serv_start, serv_show, serv_stop, serv_cleanup
-                else:
-                    from pypy.translator.tool.pygame.server import run_translator_server
-                    start, show, stop, cleanup = run_translator_server(t, entry_point, cmd_line_opt)
-                pdb_plus_show.install_show(show)
-                debugger = run_debugger_in_thread(func, args, stop)
-                debugger.start()
-                start()
-                debugger.join()
-                cleanup()
+                from pypy.translator.tool.pygame.server import run_translator_server
+                return run_translator_server(t, entry_point, cmd_line_opt)
+
+        pdb_plus_show.start(tb, server_setup, graphic=cmd_line_opt.pygame)
+
 
     from optparse import OptionParser
     parser = OptionParser()

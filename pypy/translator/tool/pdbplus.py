@@ -1,18 +1,7 @@
 import threading, pdb
 
-def run_debugger_in_thread(fn, args, cleanup=None, cleanup_args=()):
-    def _run_in_thread():
-        try:
-            try:
-                fn(*args)
-                pass # for debugger to land
-            except pdb.bdb.BdbQuit:
-                pass
-        finally:
-            if cleanup is not None:
-                cleanup(*cleanup_args)
-    return threading.Thread(target=_run_in_thread, args=())
-
+class _EnableGraphic:
+    pass
 
 class PdbPlusShow(pdb.Pdb):
 
@@ -346,8 +335,15 @@ show class hierarchy graph"""
         from pypy.translator.tool import graphpage           
         self._show(graphpage.ClassHierarchyPage(self.translator))
 
+    def do_enable_graphic(self, arg):
+        """enable_graphic
+enable pygame graph display even from non-graphic mode"""
+        if self.show:
+            return
+        raise _EnableGraphic
+
     def help_graphs(self):
-        print "graph commands are: showg, flowg, callg, classhier"
+        print "graph commands are: showg, flowg, callg, classhier, enable_graphic"
 
     def help_ann_other(self):
         print "other annotation related commands are: find, findclasses, findfuncs, attrs, attrsann, readpos"
@@ -356,3 +352,40 @@ show class hierarchy graph"""
         print "these prefixes are tried for dotted names in graph commands:"
         print self.TRYPREFIXES
 
+    # start helpers
+    def _run_debugger(self, tb):
+        if tb is None:
+            fn, args = self.set_trace, ()
+        else:
+            fn, args = self.post_mortem, (tb,)
+        try:
+            t = self.translator # define enviroments, xxx more stuff
+            fn(*args)
+            pass # for debugger to land
+        except pdb.bdb.BdbQuit:
+            pass    
+
+    def _run_debugger_in_thread(self, tb, cleanup=None, cleanup_args=()):
+        def _run_in_thread():
+            try:
+                self._run_debugger(tb)
+            finally:
+                if cleanup is not None:
+                    cleanup(*cleanup_args)
+        return threading.Thread(target=_run_in_thread, args=())
+
+    def start(self, tb, server_setup, graphic=False):
+        if not graphic:
+            try:
+                self._run_debugger(tb)
+            except _EnableGraphic:
+                pass
+            else:
+                return
+        start, show, stop, cleanup = server_setup()
+        self.install_show(show)
+        debugger = self._run_debugger_in_thread(tb, stop)
+        debugger.start()
+        start()
+        debugger.join()
+        cleanup()
