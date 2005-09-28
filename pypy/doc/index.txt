@@ -11,6 +11,8 @@ including a two-liner to run PyPy on your system.
 
 `coding guide`_ helps you to write code for PyPy. 
 
+`development methodology`_ describe our sprint-driven approach. 
+
 `object spaces`_ discusses the object space interface 
 and several implementations. 
 
@@ -41,6 +43,7 @@ recent compliance test runs against PyPy.
 
 .. _`FAQ`: faq.html
 .. _parser: parser.html
+.. _`development methodology`: dev_method.html
 .. _`talks and related projects`: extradoc.html
 .. _`license`: ../../LICENSE
 .. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
