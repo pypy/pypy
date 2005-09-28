@@ -9,25 +9,23 @@ USE_HIGH_PRIORITY = True
 # subprocess into lib and change line 392 to use win32
 
 current_result = """
-executable                  a.rich   a.stone   r.rich   r.stone   size
-pypy-c-17439-hi             37413      678.4   48.2     61.6      5.65
-pypy-c-17600-lo             26352      906.2   33.9     46.1      6.43
-pypy-c-17634-lo             20108     1023.5   25.9     40.9      6.42
-pypy-c-17649-lo             22612     1042.0   29.1     40.1      6.41
-pypy-c-17674-lo             19248     1358.8   24.8     30.8      6.40
-pypy-c-17674-hi             12402     1941.4   16.0     21.5      7.37
-pypy-c-17439-lo             29638      971.4   38.1     43.0      6.49
-pypy-c-17707-hi             14095     2092.7   18.1     20.0      7.37
-pypy-c-17707-lo             19102     1354.7   24.6     30.9      6.40
-pypy-c-17707-lo-range       18786     2800.8   24.2     14.9      6.40
-pypy-c-17707-hi-range       13980     2899.9   18.0     14.4      7.38
-pypy-c-17743-hi             13944     2800.3   17.9     14.9      7.30
-pypy-c-17761-hi-samuele     13243     2983.3   17.0     14.0      7.69
-python 2.5a0                  777    41812.1    1.0      1.0      0.96
-
-This new version also shows the size of the plain executable.
-Samuele's locality patch now has a nice impact of over 5 percent.
-I had even expected a bit more, but fine, yeah!
+executable                  richards         pystone            size (MB)
+pypy-c-17439-hi            37413   47.8x      678.4   60.5x       5.65
+pypy-c-17600-lo            26352   33.7x      906.2   45.3x       6.43
+pypy-c-17634-lo            20108   25.7x     1023.5   40.1x       6.42
+pypy-c-17649-lo            22612   28.9x     1042.0   39.4x       6.41
+pypy-c-17674-lo            19248   24.6x     1358.8   30.2x       6.40
+pypy-c-17674-hi            12402   15.9x     1941.4   21.1x       7.37
+pypy-c-17439-lo            29638   37.9x      971.4   42.3x       6.49
+pypy-c-17707-hi            14095   18.0x     2092.7   19.6x       7.37
+pypy-c-17707-lo            19102   24.4x     1354.7   30.3x       6.40
+pypy-c-17707-lo-range      18786   24.0x     2800.8   14.7x       6.40
+pypy-c-17707-hi-range      13980   17.9x     2899.9   14.2x       7.38
+pypy-c-17743-hi            13944   17.8x     2800.3   14.7x       7.30
+pypy-c-17761-hi-samuele    13243   16.9x     2983.3   13.8x       7.69
+pypy-c-17794-ref-crash     41088   52.5x     1084.5   37.9x      14.62
+pypy-c-17950-hi            12888   16.5x     3203.0   12.8x       5.49
+python 2.4.1                 782    1.0x    41058.3    1.0x       0.96
 """
 
 import os, sys, pickle, md5
@@ -131,9 +129,9 @@ def save_stats(dic, statfile=STAT_FILE):
     pickle.dump(dic, file(statfile, 'wb'))
 
 HEADLINE = '''\
-executable                  a.rich   a.stone   r.rich   r.stone   size'''
+executable                  richards         pystone            size (MB)'''
 FMT = '''\
-%-27s '''               +  '%5d    %7.1f  ' + '%5.1f    %5.1f     %5.2f'
+%-27s'''                +    '%5d  %5.1fx    %7.1f  %5.1fx      %5.2f'
 
 def main():
     print 'getting the richards reference'
@@ -163,7 +161,7 @@ def main():
     res.sort()
     print HEADLINE
     for mtime, exe, size, rich, stone in res:
-        print FMT % (exe, rich, stone, rich / ref_rich, ref_stone / stone,
+        print FMT % (exe, rich, rich / ref_rich, stone, ref_stone / stone,
                      size / float(1024 * 1024))
 
 if __name__ == '__main__':
