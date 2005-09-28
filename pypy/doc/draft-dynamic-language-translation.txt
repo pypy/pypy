@@ -2,6 +2,9 @@
        Compiling dynamic language implementations
 ============================================================
 
+.. contents::
+.. sectnum::
+
 
 The analysis of dynamic languages
 ===============================================
@@ -494,6 +497,12 @@ dynamic merging will ensure that ``next_block`` will always be
 constant-folded away, instead of having the various possible values of
 ``next_block`` be merged at the beginning of the loop.
 
+For more information see `The Interplevel Back-End`_ in the reference
+documentation.
+
+.. _`The Interplevel Back-End`: translation.html#the-interplevel-back-end
+
+
 
 Annotator 
 ---------------------------------
@@ -570,10 +579,122 @@ to show that there is no infinite chain of generalization, so that this
 process necessarily terminates, as we will show in the sequel.
 
 
+Flow graph model
+~~~~~~~~~~~~~~~~
+
+For the purpose of the sequel, an informal description of the data model
+used to represent flow graphs will suffice (a `precise description`_ can
+be found in the reference documentation).
+
+The flow graphs are in Static Single Information (SSI) form, an
+extension of Static Single Assignment (SSA_): each variable is only used
+in exactly one basic block.  All variables that are not dead at the end
+of a basic block are explicitely carried over to the next block and
+renamed.  Instead of the traditional phi functions of SSA we use a minor
+variant, parameter-passing style: each block declares a number of *input
+variables* playing the role of input arguments to the block; each link
+going out of a block carries a matching number of variables and
+constants from the previous block into the target block's input
+arguments.
+
+We use the following notation for an *operation* recorded in a block of
+the flow graph of a function::
+
+    z = opname(x_1, ..., x_n) | z'
+
+where *x_1, ..., x_n* are the arguments of the operation (either
+variables defined earlier in the block, or constants), *z* is the
+variable into which the result is stored (each operation introduces a
+new fresh variable as its result), and *z'* is a fresh extra variable
+which we will use in particular cases (which we omit from the notation
+when it is irrelevant).
+
+Let us assume that we are given a user program, which for the purpose of
+the model we assume to be fully known in advance.  Let us define the set
+*V* of all variables as follows:
+
+* *V* contains all the variables that appear in operations, in any flow
+  graph of any function of the program, as described above;
+
+* in addition, for each class ``C`` of the user program and each
+  possible attribute name ``attr``, we add to *V* a variable called
+  *v_C.attr*.
+
+For a function ``f`` of the user program, we call *arg_f_1, ...,
+arg_f_n* the variables bound to the input arguments of ``f`` (which are
+actually the input variables of the first block in the flow graph of
+``f``) and *return_f* the variable bound to the return value of ``f``
+(which is the single input variable of a special empty "return" block
+ending the flow graph).
+
+Note that the complete knowledge of the operations and classes that
+appear in the user program allow us to bound the size of *V*.  Indeed,
+the set of possible attribute names can be defined as all names that
+appear in a ``getattr`` or ``setattr`` operation; no other name will
+play a role during annotation.
+
+.. _`precise description`: objspace.html#the-flow-model
+.. _`SSA`: http://en.wikipedia.org/wiki/Static_single_assignment_form
+
+
 Annotation model
 ~~~~~~~~~~~~~~~~
 
-::
+As in the `formal definition`_ of Abstract Interpretation, the model for
+our annotation forms a *lattice_*, although we only use its structure of
+*`join-semilattice`_*.
+
+The set *A* of annotations is defined as the following formal terms:
+
+* Bot, Top -- the minimum and maximum elements (corresponding to
+  "impossible value" and "most general value");
+
+* Int, NonNegInt, Bool -- integers, known-non-negative integers, booleans;
+
+* Str, Char -- strings, characters (which are strings of length 1);
+
+* Inst(*class*) -- instance of *class* or a subclass thereof (there is
+  one such term per *class*);
+
+* List(*v*) -- list; *v* is a variable summarizing the items of the list
+  (there is one such term per variable);
+
+* Callable(*set*) -- where the *set* is a subset of the (finite) set of
+  all functions, all classes, and all pairs of a class and a function
+  (written ``class.f``).
+
+* None -- stands for the singleton ``None`` object of Python.
+
+More details about the annotations will be introduced in due time.  In
+addition, some of the annotations have a corresponding "nullable" twin,
+which stands for "either the object described or ``None``".  We use it
+to propagate knowledge about which variable, after translation to C,
+could ever contain a NULL pointer.  (More precisely, there are a
+NullableStr, nullable instances, and nulllable callables, and all lists
+are implicitely assumed to be nullable).
+
+Each annotation corresponds to a family of run-time Python object; the
+ordering of the lattice is essentially the subset order.  Formally, it
+is the partial order generated by:
+
+* Bot <= a <= Top -- for any annotation *a*;
+
+* Bool <= NonNegInt <= Int;
+
+* Char <= Str;
+
+* Inst(*subclass*) <= Inst(*class*) -- for any class and subclass;
+
+* Callable(*subset*) <= Callable(*set*);
+
+* a <= b -- for any annotation *a* with a nullable twin *b*;
+
+* None <= b -- for any nullable annotation *b*.
+
+It is left as an exercice to show that this partial order makes *A* a
+lattice.
+
+Graphically::
 
                 ____________ Top ___________
                /      /       |       \     \
@@ -582,14 +703,16 @@ Annotation model
             /   NullableStr   |         |      |
           Int     /   \       |       (lists)  |
           /     Str    \  (instances)   |    (pbcs)
-    NonNegInt     \     \      \        |      |
-          \       Char   \      \      /      /     
-          Bool      \     \      \    /      /
-            \        \     `----- None -----'
-             \        \           /
-              \        \         /
-               `--------`-- Bottom
+    NonNegInt     \     \     |         |      |
+          \       Char   \    |\       /      /     
+          Bool      \     \   | \     /      /
+            \        \     `----- None -----/
+             \        \       |   /        /
+              \        \      |  /        /
+               `--------`-- Bottom ------'
 
+Here is the part about instances and nullable instances, assuming a
+simple class hierarchy with only two direct subclasses of ``object``::
 
                              Top
                               |
@@ -614,7 +737,7 @@ Annotation model
                       \     /  /
                         Bottom
 
-
+All list terms for all variables are unordered::
 
              __________________ Top __________________
             /            /     /   \     \            \
@@ -626,22 +749,27 @@ Annotation model
             \            \     \   /     /            /
              '------------'--- None ----'------------'
 
+The callables form a classical finite set-of-subsets lattice.  In
+practice, we consider ``None`` as a degenerated callable, so the None
+annotation is actually Callable({None}).
+
+We should mention (but ignore for the sequel) that all annotations also
+have a variant where they stand for a single known object; this
+information is used in constant propagation.  In addition, we have left
+out a number of other annotations that are irrelevant for the basic
+description of the annotator, and straightforward to handle.  The
+complete list is defined and documented in `pypy/annotation/model.py`_
+and described in more practical terms in `The Annotation Pass`_ in the
+reference documentation.
+
+.. _`The Annotation Pass`: translation.html#annotator
 
 
-    Bot
+Draft
+~~~~~
 
-    Top
-    
-    Int
-    
-    NonNegInt
+::
 
-    Bool
-
-    Str
-    
-    NullableStr
-    
     Char
     
     Inst(class)
@@ -783,12 +911,44 @@ XXX
 Classes and instances
 ~~~~~~~~~~~~~~~~~~~~~
 
+We assume that the classes in the user program are organized in a single
+inheritance tree rooted at the ``object`` base class.  (Python supports
+multiple inheritance, but the annotator is limited to single inheritance
+plus simple mix-ins.)
+
+Remember that Python has no notion of classes declaring attributes and
+methods.  Classes are merely hierarchical namespaces: an expression like
+``obj.attr`` means that the ``attr`` attribute is looked up in the class
+that ``obj`` is an instance of at run-time, and all parent classes (a
+``getattr`` operation).  Expressions like ``obj.meth()`` that look like
+method calls are actually grouped as ``(obj.meth)()``: they correspond
+to two operations, a ``getattr`` followed by a ``call``.
+
+So it is down to the annotator to reconstruct a static structure for
+each class in the hierarchy XXX.
+
 XXX
 
 Termination
 ~~~~~~~~~~~
 
 XXX termination + soundness + most-precise-fixpoint-ness + complexity 
+
+
+The lattice is finite, although its size depends on the size of the
+program.  The List part has the same size as *V*, and the Callable part
+is exponential on the number of callables.  However, in this model a
+chain of annotations (where each one is larger than the previous) cannot
+be longer than::
+
+    max(5, number-of-callables + 3, depth-of-class-hierarchy + 3).
+
+In the extended lattice used in practice it is more difficult to compute
+an upper bound.  Such a bound exists -- some considerations can even
+show that a finite subset of the extended lattice suffices -- but it
+does not reflect any partical complexity considerations.  It is simpler
+to prove that there is no infinite ascending chain, which is enough to
+guarantee termination.
 
 
 Non-static aspects
@@ -832,6 +992,9 @@ XXX messy
 .. _architecture: architecture.html
 .. _`Thunk Object Space`: objspace.html#the-thunk-object-space
 .. _`abstract interpretation`: theory.html#abstract-interpretation
+.. _`formal definition`: http://en.wikipedia.org/wiki/Abstract_interpretation
+.. _lattice: http://en.wikipedia.org/wiki/Lattice_%28order%29
+.. _`join-semilattice`: http://en.wikipedia.org/wiki/Lattice_%28order%29
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`Standard Object Space`: objspace.html#the-standard-object-space
 .. _Psyco: http://psyco.sourceforge.net/

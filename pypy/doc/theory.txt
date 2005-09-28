@@ -32,8 +32,18 @@ As an example of more abstract object spaces you have the ones with finite domai
 
 In PyPy, the FlowObjSpace_ uses the abstract interpretation technique to generate a control flow graph of the functions of RPython_ programs.
 
+In its `more formal definition`_, Abstract Interpretation typically
+considers abstract objects that are organized in a lattice_: some of
+these objects are more (or less) abstract than others, in the sense that
+they represent less (or more) known information; to say that this forms
+a lattice essentially means that any two abstract objects have
+well-defined unions and intersections (which are again abstract
+objects).
+
 .. _FlowObjSpace: objspace.html#the-flow-object-space
 .. _RPython:      coding-guide.html#restricted-python
+.. _`more formal definition`: http://en.wikipedia.org/wiki/Abstract_interpretation
+.. _lattice:      http://en.wikipedia.org/wiki/Lattice_%28order%29
 
 
 Multimethods
