@@ -1,6 +1,6 @@
 
 
-class SimpleTaskEngine:
+class SimpleTaskEngine(object):
 
     def __init__(self):
         self._plan_cache = {}
