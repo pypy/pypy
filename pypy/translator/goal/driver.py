@@ -185,9 +185,14 @@ class TranslationDriver(SimpleTaskEngine):
             return proceed_with_task
         raise AttribueError, name
 
-    def from_targetspec(targetspec_dic, options=None):
-        target = targetspec_dic['target']
-        spec = target(not options.lowmem)
+    def from_targetspec(targetspec_dic, options=None, args=None):
+        if args is None:
+            args = []
+        if options is None:
+            options = DEFAULT_OPTIONS.copy()
+            
+        target = targetspec_dic['target']        
+        spec = target(options, arg)
         try:
             entry_point, inputtypes, policy = spec
         except ValueError:
