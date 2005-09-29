@@ -8,6 +8,13 @@ from pypy.annotation import listdef
 from pypy.annotation import policy as annpolicy
 import optparse
 
+DEFAULT_OPTIONS = optparse.Values(defaults={
+  'gc': 'ref',
+  'insist': False,
+  'backend': 'c',
+  'lowmem': False,
+})
+
 def taskdef(taskfunc, deps, title, new_state=None, expected_states=[]):
     taskfunc.task_deps = deps
     taskfunc.task_title = title
@@ -17,7 +24,8 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[]):
 
 class TranslationDriver(SimpleTaskEngine):
 
-    def __init__(self, translator, inputtypes, policy, options, runner, disable=[]):
+    def __init__(self, translator, inputtypes, policy=None, options=None,
+                 runner=None, disable=[]):
         SimpleTaskEngine.__init__(self)
 
         self.translator = translator
@@ -28,10 +36,17 @@ class TranslationDriver(SimpleTaskEngine):
             inputtypes = [annmodel.SomeList(ldef)]
         self.inputtypes = inputtypes
 
+        if policy is None:
+            policy = annpolicy.AnnotatorPolicy()            
         self.policy = policy
+        if options is None:
+            options = DEFAULT_OPTIONS
         self.options = options
         self.standalone = standalone
 
+        if runner is None:
+            def runner(f):
+                f()
         self.runner = runner
 
         self.done = {}
@@ -121,7 +136,6 @@ class TranslationDriver(SimpleTaskEngine):
             newexename = mkexename('./pypy-' + backend)
             shutil.copy(exename, newexename)
             c_entryp = newexename
-        update_usession_dir()
         if standalone:
             os.system(c_entryp)
         else:
@@ -162,13 +176,31 @@ class TranslationDriver(SimpleTaskEngine):
     def proceed(self, goal):
         self._execute([goal])
 
-    def __getattr__(self, name):
+    def __getattr__(self, name): # xxx
         if name in self.tasks:
             def proceed_with_task():
                 self.proceed(name)
             return proceed_with_task
         raise AttribueError, name
 
+    def from_targetspec(targetspec_dic, options=None):
+        target = targetspec_dic['target']
+        spec = target(not options.lowmem)
+        try:
+            entry_point, inputtypes, policy = spec
+        except ValueError:
+            entry_point, inputtypes = spec
+            policy = None
+
+        translator = Translator(entry_point, verbose=True, simplifying=True)
+            
+        driver = TranslationDriver(translator, inputtypes,
+                                   policy, options, targetspec_dic['run'])
+
+        return translation
+
+    from_targetspec = staticmethod(from_targetspec)
+        
 
 # xxx reorg/move around
 
@@ -181,30 +213,6 @@ def load_target(targetspec):
     execfile(targetspec, targetspec_dic)
     return targetspec_dic
 
-DEFAULT_OPTIONS = optparse.Values(defaults={
-  'gc': 'ref',
-  'insist': False,
-  'backend': 'c',
-  'lowmem': False,
-})
-
-def make_translation(targetspec_dic, options=DEFAULT_OPTIONS):
-    policy = annpolicy.AnnotatorPolicy()
-    target = targetspec_dic['target']
-    spec = target(not options.lowmem)
-    try:
-        entry_point, inputtypes, policy = spec
-    except ValueError:
-        entry_point, inputtypes = spec
-
-    translator = Translator(entry_point, verbose=True, simplifying=True)
-    
-    translation = TranslationDriver(translator, inputtypes, policy, options, targetspec_dic['run'])
-
-    return translation
-    
-    
-    
 
 # __________ helpers
 
@@ -222,4 +230,4 @@ def sanity_check_annotation(t):
     percent = int(tot and (100.0*so / tot) or 0)
     print "-- someobjectness %2d (%d of %d functions polluted by SomeObjects)" % (percent, so, tot)
 
-from pypy.translator.tool.util import update_usession_dir, mkexename
+from pypy.translator.tool.util import mkexename

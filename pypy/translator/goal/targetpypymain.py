@@ -49,8 +49,11 @@ def entry_point(argvstring):
 
 # _____ Define and setup target ___
 
-def target(geninterp=True):
+def target(options, args):
     global space, w_entry_point
+
+    geninterp = not getattr(options, 'lowmem', False)
+
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
     space = StdObjSpace(nofaking=True,

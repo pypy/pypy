@@ -11,6 +11,6 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
-def target(geninterp=True):
+def target(*args):
     return entry_point, None
 

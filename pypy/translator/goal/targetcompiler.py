@@ -23,8 +23,11 @@ def entry_point( s1, s2 ):
     return 'target_ast_compile --> %r' % (pycode,)
 
 # _____ Define and setup target ___
-def target(geninterp=True):
+def target(options, args):
     global space, w_entry_point
+
+    geniterp = not getattr(options, 'lowmem', False)
+    
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
     # disable geninterp for now -- we have faaar toooo much interp-level code

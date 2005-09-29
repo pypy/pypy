@@ -271,7 +271,7 @@ if __name__ == '__main__':
         policy = AnnotatorPolicy()
         target = targetspec_dic['target']
         if target:
-            spec = target(not cmd_line_opt.lowmem)
+            spec = target(cmd_line_opt, []) # xxx rest args
             try:
                 entry_point, inputtypes, policy = spec
             except ValueError:

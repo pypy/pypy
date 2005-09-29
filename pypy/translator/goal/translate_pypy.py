@@ -95,7 +95,7 @@ from pypy.translator.goal import query
 
 # XXX this tries to make compiling faster
 from pypy.translator.tool import cbuild
-cbuild.enable_fast_compilation()
+#cbuild.enable_fast_compilation()
 
 annmodel.DEBUG = False
 
@@ -108,7 +108,10 @@ def analyse(target):
 
     policy = AnnotatorPolicy()
     if target:
-        spec = target(not options['-t-lowmem'])
+        # forward compatibility
+        import optparse
+        opts = optparse.Values({'lowmem': options['-t-lowmem']})
+        spec = target(opts, [])
         try:
             entry_point, inputtypes, policy = spec
         except ValueError:

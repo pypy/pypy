@@ -44,9 +44,11 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
-def target(geninterp=True):
+def target(options, args):
     global space, w_entry_point
 
+    geninterp = not getattr(options, 'lowmem', False)
+    
     # obscure hack to stuff the translation options into the translated PyPy
     import __main__, pypy.module.sys
     options = {}
