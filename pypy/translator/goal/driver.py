@@ -164,7 +164,7 @@ class TranslationDriver(SimpleTaskEngine):
 
         if self.standalone:
             self.c_entryp = cbuilder.executable_name
-            self.info("written: %s" % (c_entryp,))
+            self.info("written: %s" % (self.c_entryp,))
         else:
             cbuilder.import_module()    
             self.c_entryp = cbuilder.get_entry_point()
@@ -276,6 +276,6 @@ def sanity_check_annotation(t):
     so = query.qoutput(query.polluted_qgen(t))
     tot = len(t.flowgraphs)
     percent = int(tot and (100.0*so / tot) or 0)
-    print "-- someobjectness %2d (%d of %d functions polluted by SomeObjects)" % (percent, so, tot)
+    print "-- someobjectness %2d%% (%d of %d functions polluted by SomeObjects)" % (percent, so, tot)
 
 from pypy.translator.tool.util import mkexename
