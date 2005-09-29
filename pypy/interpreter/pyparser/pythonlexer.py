@@ -6,7 +6,7 @@ import sys
 from codeop import PyCF_DONT_IMPLY_DEDENT
 
 from pypy.interpreter.pyparser.grammar import TokenSource, Token
-from pypy.interpreter.pyparser.error import ParseError
+from pypy.interpreter.pyparser.error import SyntaxError
 import pytoken
 from pytoken import NEWLINE
 
@@ -55,11 +55,11 @@ from pytokenize import tabsize, whiteSpaceDFA, triple_quoted, endDFAs, \
 import automata
 
 
-class TokenError(ParseError):
+class TokenError(SyntaxError):
     """Raised for lexer errors, e.g. when EOF is found prematurely"""
     def __init__(self, msg, line, strstart, token_stack):
         lineno, offset = strstart
-        ParseError.__init__(self, msg, lineno, offset, line)
+        SyntaxError.__init__(self, msg, lineno, offset, line)
         self.token_stack = token_stack
 
 def generate_tokens(lines, flags):

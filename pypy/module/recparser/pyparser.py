@@ -8,7 +8,8 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, GetSetProperty
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.syntaxtree import TokenNode, SyntaxNode, AbstractSyntaxVisitor
-from pypy.interpreter.pyparser.pythonutil import PYTHON_PARSER, ParseError
+from pypy.interpreter.pyparser.pythonutil import PYTHON_PARSER
+from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser import grammar, pysymbol, pytoken
 
 __all__ = [ "ASTType", "STType", "suite", "expr" ]
@@ -147,7 +148,7 @@ def parse_python_source(space, source, goal):
     try:
         PYTHON_PARSER.parse_source(source, goal, builder )
         return builder.stack[-1]
-    except ParseError, e:
+    except SyntaxError, e:
         raise OperationError(space.w_SyntaxError,
                              e.wrap_info(space, '<string>'))
 

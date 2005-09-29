@@ -196,14 +196,14 @@ class PythonCompiler(CPythonCompiler):
          the whole source after having only added a new '\n')
     """
     def compile(self, source, filename, mode, flags):
-        from pyparser.error import ParseError
+        from pyparser.error import SyntaxError
         from pyparser.pythonutil import internal_pypy_parse
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
         # XXX use 'flags'
         space = self.space
         try:
             parse_result = internal_pypy_parse(source, mode, True, flags)
-        except ParseError, e:
+        except SyntaxError, e:
             w_synerr = space.newtuple([space.wrap(e.msg),
                                        space.newtuple([space.wrap(filename),
                                                        space.wrap(e.lineno),
@@ -393,7 +393,6 @@ class PythonAstCompiler(CPythonCompiler):
          the whole source after having only added a new '\n')
     """
     def compile(self, source, filename, mode, flags):
-        from pyparser.error import ParseError
         from pyparser.error import SyntaxError
         from pypy.interpreter import astcompiler
         from pypy.interpreter.astcompiler.pycodegen import ModuleCodeGenerator
@@ -410,9 +409,6 @@ class PythonAstCompiler(CPythonCompiler):
             PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
             ast_tree = builder.rule_stack[-1]
             encoding = builder.source_encoding
-        except ParseError, e:
-            raise OperationError(space.w_SyntaxError,
-                                 e.wrap_info(space, filename))
         except SyntaxError, e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space, filename))

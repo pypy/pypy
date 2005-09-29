@@ -7,7 +7,7 @@ using file_input, single_input and eval_input targets
 """
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import gateway
-from pypy.interpreter.pyparser.error import ParseError
+from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool.option import Options
 from pythonlexer import Source, match_encoding_declaration
 import pysymbol
@@ -53,7 +53,7 @@ class PythonParser(object):
         if not result:
             line, lineno = src.debug()
             # XXX needs better error messages
-            raise ParseError("invalid syntax", lineno, -1, line)
+            raise SyntaxError("invalid syntax", lineno, -1, line)
             # return None
         return builder
     

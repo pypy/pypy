@@ -7,7 +7,7 @@ from grammar import BaseGrammarBuilder, AbstractContext
 from pypy.interpreter.astcompiler import ast, consts
 import pypy.interpreter.pyparser.pysymbol as sym
 import pypy.interpreter.pyparser.pytoken as tok
-from pypy.interpreter.pyparser.error import SyntaxError, TokenError, ASTError, ParseError
+from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.parsestring import parsestr
 
 DEBUG_MODE = 0
@@ -103,7 +103,8 @@ def parse_argument(tokens):
             break
         elif cur_token.get_value() == 'for':
             if len(arguments) != 1:
-                raise SyntaxError("invalid syntax")
+                raise SyntaxError("invalid syntax", cur_token.lineno,
+                                  cur_token.col)
             expr = arguments[0]
             genexpr_for = parse_genexpr_for(tokens[index:])
             genexpr_for[0].is_outmost = True
@@ -186,10 +187,12 @@ def parse_arglist(tokens):
                         cur_token = tokens[index]
                         index += 1
                 else:
-                    raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
+                    raise SyntaxError("incomplete varags", cur_token.lineno,
+                                      cur_token.col)
             assert isinstance(cur_token, TokenObject)
             if cur_token.name != tok.DOUBLESTAR:
-                raise TokenError("Unexpected token: ", [cur_token] )
+                raise SyntaxError("Unexpected token", cur_token.lineno,
+                                  cur_token.col)
             cur_token = tokens[index]
             index += 1
             assert isinstance(cur_token, TokenObject)
@@ -199,9 +202,12 @@ def parse_arglist(tokens):
                 flags |= consts.CO_VARKEYWORDS
                 index +=  1
             else:
-                raise ValueError("FIXME: SyntaxError (incomplete varags) ?")
+                raise SyntaxError("incomplete varags", cur_token.lineno,
+                                  cur_token.col)
             if index < l:
-                raise TokenError("unexpected token" , [tokens[index]] )
+                token = tokens[index]
+                raise SyntaxError("unexpected token" , token.lineno,
+                                  token.col)
         elif cur_token.name == tok.NAME:
             val = cur_token.get_value()
             names.append( ast.AssName( val, consts.OP_ASSIGN ) )
@@ -213,7 +219,8 @@ def parse_arglist(tokens):
         if flags & consts.CO_VARARGS:
             num_expected_with_default -= 1
         if len(defaults) != num_expected_with_default:
-            raise SyntaxError('non-default argument follows default argument')
+            raise SyntaxError('non-default argument follows default argument',
+                              tokens[0].lineno, tokens[0].col)
     return names, defaults, flags
 
 
@@ -306,7 +313,8 @@ def parse_genexpr_for(tokens):
             genexpr_fors.append(ast.GenExprFor(ass_node, iterable, ifs, lineno))
             ifs = []
         else:
-            raise SyntaxError('invalid syntax')
+            raise SyntaxError('invalid syntax',
+                              token.lineno, token.col)
     return genexpr_fors
 
 
@@ -365,26 +373,22 @@ def to_lvalue(ast_node, flags):
         ast_node.flags = flags
         return ast_node
     else:
-        # TODO: check type of ast_node and raise according SyntaxError in case
-        # of del f()
-        # #raise ASTError("cannot assign to %s" % ast_node, ast_node)
         if isinstance(ast_node, ast.GenExpr):
-            raise ParseError("assign to generator expression not possible",
+            raise SyntaxError("assign to generator expression not possible",
                              lineno, 0, '')
         elif isinstance(ast_node, ast.ListComp):
-            raise ParseError("can't assign to list comprehension",
+            raise SyntaxError("can't assign to list comprehension",
                              lineno, 0, '')
         elif isinstance(ast_node, ast.CallFunc):
             if flags == consts.OP_DELETE:
-                raise ParseError("can't delete function call",
+                raise SyntaxError("can't delete function call",
                                  lineno, 0, '')
             else:
-                raise ParseError("can't assign to function call",
+                raise SyntaxError("can't assign to function call",
                                  lineno, 0, '')
         else:
-            raise ParseError("can't assign to non-lvalue",
+            raise SyntaxError("can't assign to non-lvalue",
                              lineno, 0, '') 
-            # raise ASTError("cannot assign to %s" % ast_node, ast_node)
 
 def is_augassign( ast_node ):
     if ( isinstance( ast_node, ast.Name ) or
@@ -566,7 +570,7 @@ def build_atom(builder, nb):
         elif top.name == tok.BACKQUOTE:
             builder.push(ast.Backquote(atoms[1], atoms[1].lineno))
         else:
-            raise TokenError("unexpected tokens", atoms)
+            raise SyntaxError("unexpected tokens", top.lineno, top.col)
 
 def slicecut(lst, first, endskip): # endskip is negative
     last = len(lst)+endskip
@@ -623,7 +627,8 @@ def build_term(builder, nb):
         elif op_node.name == tok.DOUBLESLASH:
             left = ast.FloorDiv( [ left, right ], left.lineno )
         else:
-            raise TokenError("unexpected token", [atoms[i-1]])
+            token = atoms[i-1]
+            raise SyntaxError("unexpected token", token.lineno, token.col)
     builder.push( left )
 
 def build_arith_expr(builder, nb):
@@ -639,7 +644,8 @@ def build_arith_expr(builder, nb):
         elif op_node.name == tok.MINUS:
             left = ast.Sub([ left, right ], left.lineno)
         else:
-            raise ValueError("unexpected token", [atoms[i-1]])
+            token = atoms[i-1]
+            raise SyntaxError("unexpected token", token.lineno, token.col)
     builder.push( left )
 
 def build_shift_expr(builder, nb):
@@ -656,7 +662,8 @@ def build_shift_expr(builder, nb):
         elif op_node.name == tok.RIGHTSHIFT:
             left = ast.RightShift( [ left, right ], lineno )
         else:
-            raise ValueError("unexpected token", [atoms[i-1]] )
+            token = atoms[i-1]
+            raise SyntaxError("unexpected token", token.lineno, token.col)
     builder.push(left)
 
 
@@ -779,7 +786,7 @@ def build_expr_stmt(builder, nb):
         assert l==3
         lvalue = atoms[0]
         if isinstance(lvalue, ast.GenExpr) or isinstance(lvalue, ast.Tuple):
-            raise ParseError("augmented assign to tuple literal or generator expression not possible",
+            raise SyntaxError("augmented assign to tuple literal or generator expression not possible",
                              lineno, 0, "")
         assert isinstance(op, TokenObject)
         builder.push(ast.AugAssign(lvalue, op.get_name(), atoms[2], lineno))

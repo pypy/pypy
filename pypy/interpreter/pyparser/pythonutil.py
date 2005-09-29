@@ -5,7 +5,6 @@ import parser
 import pythonparse
 from tuplebuilder import TupleBuilder
 from astbuilder import AstBuilder
-from pypy.interpreter.pyparser.error import ParseError
 from pypy.interpreter.pyparser import pysymbol
 
 PYTHON_PARSER = pythonparse.PYTHON_PARSER

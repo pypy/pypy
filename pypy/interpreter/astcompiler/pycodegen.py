@@ -213,27 +213,27 @@ class CodeGenerator(ast.ASTVisitor):
         raise RuntimeError, "should be implemented by subclasses"
 
     # Next five methods handle name access
-    def storeName(self, name):
+    def storeName(self, name, lineno):
         if name in ('None', '__debug__'):
-            raise SyntaxError('assignment to %s is not allowed' % name)
+            raise SyntaxError('assignment to %s is not allowed' % name, lineno)
         self._nameOp('STORE', name)
 
-    def loadName(self, name):
+    def loadName(self, name, lineno):
         if (self.scope.nested and self.scopeambiguity and
             name in self.scope.hasbeenfree):
             raise SyntaxError("cannot reference variable '%s' because "
                               "of ambiguity between "
-                              "scopes" % name)
+                              "scopes" % name, lineno)
 
         self._nameOp('LOAD', name)
 
-    def delName(self, name):
+    def delName(self, name, lineno):
         if name in ('None', '__debug__'):
-            raise SyntaxError('deleting %s is not allowed' % name)
+            raise SyntaxError('deleting %s is not allowed' % name, lineno)
         scope = self.scope.check_name(name)
         if scope == SC_CELL:
             raise SyntaxError("can not delete variable '%s' "
-                              "referenced in nested scope" % name)
+                              "referenced in nested scope" % name, lineno)
         self._nameOp('DELETE', name)
 
     def _nameOp(self, prefix, name):
@@ -311,7 +311,7 @@ class CodeGenerator(ast.ASTVisitor):
         self.emitop_int('SET_LINENO', 0)
         if not space.is_w(node.doc, space.w_None):
             self.emitop_obj('LOAD_CONST', node.doc)
-            self.storeName('__doc__')
+            self.storeName('__doc__', node.lineno)
         node.node.accept( self )
         self.emitop_obj('LOAD_CONST', space.w_None )
         self.emit('RETURN_VALUE')
@@ -329,7 +329,7 @@ class CodeGenerator(ast.ASTVisitor):
         space = self.space
         if not space.is_w(node.doc, space.w_None):
             self.setDocstring(node.doc)
-        self.storeName(node.name)
+        self.storeName(node.name, node.lineno)
 
     def visitLambda(self, node):
         self._visitFuncOrLambda(node, isLambda=1)
@@ -389,7 +389,7 @@ class CodeGenerator(ast.ASTVisitor):
             self.emitop_int('MAKE_FUNCTION', 0)
         self.emitop_int('CALL_FUNCTION', 0)
         self.emit('BUILD_CLASS')
-        self.storeName(node.name)
+        self.storeName(node.name, node.lineno)
 
     # The rest are standard visitor methods
 
@@ -470,16 +470,13 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitBreak(self, node):
         if not self.setups:
-            raise SyntaxError( "'break' outside loop (%s, %d)" %
-                               (node.filename, node.lineno) )
+            raise SyntaxError( "'break' outside loop", node.lineno)
         self.set_lineno(node)
         self.emit('BREAK_LOOP')
 
     def visitContinue(self, node):
         if not self.setups:
-            raise SyntaxError( "'continue' not properly in loop"
-                               # (%s, %d)" % (node.filename, node.lineno)
-                               )
+            raise SyntaxError( "'continue' not properly in loop", node.lineno)
         kind, block = self.setups.top()
         if kind == LOOP:
             self.set_lineno(node)
@@ -496,14 +493,12 @@ class CodeGenerator(ast.ASTVisitor):
                 if kind == LOOP:
                     break
             if kind != LOOP:
-                raise SyntaxError( "'continue' not properly in loop"
-                                   # (%s, %d)" % (node.filename, node.lineno)
-                                   )
+                raise SyntaxError( "'continue' not properly in loop", node.lineno)
             self.emitop_block('CONTINUE_LOOP', loop_block)
             self.nextBlock()
         elif kind == END_FINALLY:
-            msg = "'continue' not supported inside 'finally' clause" # " (%s, %d)"
-            raise SyntaxError( msg ) # % (node.filename, node.lineno)
+            msg = "'continue' not supported inside 'finally' clause"
+            raise SyntaxError( msg, node.lineno )
 
     def _visitTest(self, node, jump):
         end = self.newBlock()
@@ -676,7 +671,7 @@ class CodeGenerator(ast.ASTVisitor):
         anchor = self.newBlock()
 
         if node.is_outmost:
-            self.loadName('[outmost-iterable]')
+            self.loadName('[outmost-iterable]', node.lineno)
         else:
             node.iter.accept( self )
             self.emit('GET_ITER')
@@ -826,7 +821,7 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitName(self, node):
         self.set_lineno(node)
-        self.loadName(node.varname)
+        self.loadName(node.varname, node.lineno)
 
     def visitPass(self, node):
         self.set_lineno(node)
@@ -839,9 +834,9 @@ class CodeGenerator(ast.ASTVisitor):
             mod = name.split(".")[0]
             if alias:
                 self._resolveDots(name)
-                self.storeName(alias)
+                self.storeName(alias, node.lineno)
             else:
-                self.storeName(mod)
+                self.storeName(mod, node.lineno)
 
     def visitFrom(self, node):
         self.set_lineno(node)
@@ -858,7 +853,7 @@ class CodeGenerator(ast.ASTVisitor):
             else:
                 self.emitop('IMPORT_FROM', name)
                 self._resolveDots(name)
-                self.storeName(alias or name)
+                self.storeName(alias or name, node.lineno)
         self.emit('POP_TOP')
 
     def _resolveDots(self, name):
@@ -887,10 +882,10 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitAssName(self, node):
         if node.flags == 'OP_ASSIGN':
-            self.storeName(node.name)
+            self.storeName(node.name, node.lineno)
         elif node.flags == 'OP_DELETE':
             self.set_lineno(node)
-            self.delName(node.name)
+            self.delName(node.name, node.lineno)
         else:
             assert False, "visitAssName unexpected flags: %s" % node.flags
 
@@ -898,14 +893,14 @@ class CodeGenerator(ast.ASTVisitor):
         node.expr.accept( self )
         if node.flags == 'OP_ASSIGN':
             if node.attrname  == 'None':
-                raise SyntaxError('assignment to None is not allowed')
+                raise SyntaxError('assignment to None is not allowed', node.lineno)
             self.emitop('STORE_ATTR', self.mangle(node.attrname))
         elif node.flags == 'OP_DELETE':
             if node.attrname == 'None':
-                raise SyntaxError('deleting None is not allowed')
+                raise SyntaxError('deleting None is not allowed', node.lineno)
             self.emitop('DELETE_ATTR', self.mangle(node.attrname))
         else:
-            assert False, "visitAssAttr unexpected flags: %s" % node.flags            
+            assert False, "visitAssAttr unexpected flags: %s" % node.flags         
 
     def _visitAssSequence(self, node, op='UNPACK_SEQUENCE'):
         if findOp(node) != 'OP_DELETE':
@@ -1232,15 +1227,15 @@ class AbstractFunctionCode(CodeGenerator):
         for arg in func.argnames:
             if isinstance(arg, ast.AssName):
                 if arg.name in argnames:
-                    raise SyntaxError("duplicate argument '%s' in function definition" % arg.name)
+                    raise SyntaxError("duplicate argument '%s' in function definition" % arg.name, func.lineno)
                 argnames[arg.name] = 1
             elif isinstance(arg, ast.AssTuple):
                 for argname in arg.getArgNames():
                     if argname in argnames:
-                        raise SyntaxError("duplicate argument '%s' in function definition" % argname)
+                        raise SyntaxError("duplicate argument '%s' in function definition" % argname, func.lineno)
                     argnames[argname] = 1
         if 'None' in argnames:
-            raise SyntaxError('assignment to None is not allowed')
+            raise SyntaxError('assignment to None is not allowed', func.lineno)
 
         graph = pyassem.PyFlowGraph(space, name, func.filename, func.argnames,
                                     optimized=self.localsfullyknown,
@@ -1284,7 +1279,7 @@ class AbstractFunctionCode(CodeGenerator):
         
         for elt in tup.nodes:
             if isinstance(elt, ast.AssName):
-                self.storeName(elt.name)
+                self.storeName(elt.name, elt.lineno)
             elif isinstance(elt, ast.AssTuple):
                 self.unpackSequence( elt )
             else:
@@ -1352,10 +1347,10 @@ class ClassCodeGenerator(AbstractClassCode):
         self.graph.setCellVars(self.scope.get_cell_vars())
         self.set_lineno(klass)
         self.emitop("LOAD_GLOBAL", "__name__")
-        self.storeName("__module__")
+        self.storeName("__module__", klass.lineno)
         if not space.is_w(klass.doc, space.w_None):
             self.emitop_obj("LOAD_CONST", klass.doc)
-            self.storeName('__doc__')
+            self.storeName('__doc__', klass.lineno)
 
 def findOp(node):
     """Find the op (DELETE, LOAD, STORE) in an AssTuple tree"""
@@ -1393,7 +1388,7 @@ class AugLoadVisitor(ast.ASTVisitor):
         raise RuntimeError("shouldn't arrive here!")
     
     def visitName(self, node ):
-        self.main.loadName(node.varname)
+        self.main.loadName(node.varname, node.lineno)
 
     def visitGetattr(self, node):
         node.expr.accept( self )
@@ -1405,7 +1400,8 @@ class AugLoadVisitor(ast.ASTVisitor):
 
     def visitSubscript(self, node):
         if len(node.subs) > 1:
-            raise SyntaxError( "augmented assignment to tuple is not possible" )
+            raise SyntaxError( "augmented assignment to tuple is not possible",
+                               node.lineno)
         self.main._visitSubscript(node, True)
 
 
@@ -1417,7 +1413,7 @@ class AugStoreVisitor(ast.ASTVisitor):
         raise RuntimeError("shouldn't arrive here!")
     
     def visitName(self, node):
-        self.main.storeName(node.varname)
+        self.main.storeName(node.varname, node.lineno)
 
     def visitGetattr(self, node):
         self.main.emit('ROT_TWO')
@@ -1439,7 +1435,8 @@ class AugStoreVisitor(ast.ASTVisitor):
 
     def visitSubscript(self, node):
         if len(node.subs) > 1:
-            raise SyntaxError( "augmented assignment to tuple is not possible" )
+            raise SyntaxError("augmented assignment to tuple is not possible",
+                               node.lineno)
         self.main.emit('ROT_THREE')
         self.main.emit('STORE_SUBSCR')
 
