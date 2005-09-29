@@ -23,6 +23,10 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[]):
     taskfunc.task_expected_states = expected_states
     return taskfunc
 
+# TODO:
+# run is idempotent
+# sanity-checks using states
+
 class TranslationDriver(SimpleTaskEngine):
 
     def __init__(self, translator, inputtypes, policy=None, options=None,
