@@ -1,4 +1,3 @@
-from pypy.annotation.model import SomeObject
 from pypy.tool.udir import udir 
 import sys
 
