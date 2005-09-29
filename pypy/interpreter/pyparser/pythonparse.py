@@ -35,7 +35,7 @@ class PythonParser(object):
         else:
             enc = _normalize_encoding(_check_for_encoding(textsrc))
             if enc is not None and enc not in ('utf-8', 'iso-8859-1'):
-                textsrc = _recode_to_utf8(builder.space, textsrc, enc)
+                textsrc = recode_to_utf8(builder.space, textsrc, enc)
 
         lines = [line + '\n' for line in textsrc.split('\n')]
         builder.source_encoding = enc
@@ -57,13 +57,13 @@ class PythonParser(object):
             # return None
         return builder
     
-app_recode_to_utf8 = gateway.applevel(r'''
-    def app_recode_to_utf8(text, encoding):
+_recode_to_utf8 = gateway.applevel(r'''
+    def _recode_to_utf8(text, encoding):
         return unicode(text, encoding).encode("utf-8")
-''').interphook('app_recode_to_utf8')
+''').interphook('_recode_to_utf8')
 
-def _recode_to_utf8(space, text, encoding):
-    return space.str_w(app_recode_to_utf8(space, space.wrap(text),
+def recode_to_utf8(space, text, encoding):
+    return space.str_w(_recode_to_utf8(space, space.wrap(text),
                                           space.wrap(encoding)))
 def _normalize_encoding(encoding):
     """returns normalized name for <encoding>
