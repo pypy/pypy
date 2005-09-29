@@ -148,7 +148,7 @@ def load_target(targetspec):
     return targetspec_dic
 
 def parse_options_and_load_target():
-    opt_parser = optparse.OptionParser(prog="translate_pypy",
+    opt_parser = optparse.OptionParser(usage="%prog [options] [target]", prog="translate_pypy",
                                        formatter=OptHelpFormatter())
     for group_name, grp_opts in bunchiter(opts):
         grp = opt_parser.add_option_group(group_name)
