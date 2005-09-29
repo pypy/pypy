@@ -110,8 +110,17 @@ def analyse(target):
     if target:
         # forward compatibility
         import optparse
-        opts = optparse.Values({'lowmem': options['-t-lowmem']})
-        spec = target(opts, [])
+        fw_opts = options.copy()
+        if options['-boehm']:
+            gc_ = 'boehm'
+        elif options['-no-gc']:
+            gc_ = 'none'
+        else:
+            gc_ = 'ref'
+        fw_opts['gc'] = gc_
+        fw_opts['lowmem'] = options['-t-lowmem']
+        fw_opts = optparse.Values(fw_opts)
+        spec = target(fw_opts, [])
         try:
             entry_point, inputtypes, policy = spec
         except ValueError:

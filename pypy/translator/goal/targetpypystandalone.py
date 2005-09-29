@@ -50,16 +50,16 @@ def target(options, args):
     geninterp = not getattr(options, 'lowmem', False)
     
     # obscure hack to stuff the translation options into the translated PyPy
-    import __main__, pypy.module.sys
-    options = {}
-    for key, value in __main__.options.items():
-        options[key.lstrip('-')] = value
-    wrapstr = 'space.wrap(%r)' % (options,)
+    import pypy.module.sys
+    d = {}
+    for key, value in options.__dict__.items():
+        d[key.lstrip('-')] = value
+    wrapstr = 'space.wrap(%r)' % (d,)
     pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
 
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
-    if __main__.options.get('-boehm'):
+    if options.gc == 'boehm':
         #print "disabling thread with boehm for stabilitiy (combination not tested)"
         #print "trying threads and boehm"
         usemodules = []
