@@ -34,6 +34,16 @@ class TestFlowObjSpace:
     def show(self, x):
         pass   # or   self.reallyshow(x)
 
+    def all_operations(self, graph):
+        result = {}
+        def visit(node):
+            if isinstance(node, Block):
+                for op in node.operations:
+                    result.setdefault(op.opname, 0)
+                    result[op.opname] += 1
+        traverse(visit, graph)
+        return result
+
     #__________________________________________________________
     def nothing():
         pass
@@ -44,6 +54,14 @@ class TestFlowObjSpace:
         link, = x.startblock.exits
         assert link.target == x.returnblock
         self.show(x)
+
+    #__________________________________________________________
+    def simplefunc(x):
+        return x+1
+
+    def test_simplefunc(self):
+        graph = self.codetest(self.simplefunc)
+        assert self.all_operations(graph) == {'add': 1}
 
     #__________________________________________________________
     def simplebranch(i, j):
@@ -64,6 +82,18 @@ class TestFlowObjSpace:
     def test_ifthenelse(self):
         x = self.codetest(self.simplebranch)
         self.show(x)
+
+    #__________________________________________________________
+    def loop(x):
+        x = abs(x)
+        while x:
+            x = x - 1
+
+    def test_loop(self):
+        graph = self.codetest(self.loop)
+        assert self.all_operations(graph) == {'abs': 1,
+                                              'is_true': 1,
+                                              'sub': 1}
 
     #__________________________________________________________
     def print_(i):

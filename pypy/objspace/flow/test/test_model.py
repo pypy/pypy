@@ -1,95 +1,128 @@
-import autopath
+import autopath, inspect
 
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow import FlowObjSpace
-
-class TestModel:
-    def setup_class(cls): 
-        cls.space = FlowObjSpace() 
-
-    def getflow(self, func):
-        import inspect
-        try:
-            func = func.im_func
-        except AttributeError:
-            pass
-        # disable implicit exceptions to keep the graphs simple and checkable
-        self.space.handle_implicit_exceptions = lambda exceptions: None
-        try:
-            return self.space.build_flow(func)
-        finally:
-            del self.space.handle_implicit_exceptions
-
-    #_____________________________________________
-    def simplefunc(x):
-        return x+1
-
-    def test_simplefunc(self):
-        graph = self.getflow(self.simplefunc)
-        assert all_operations(graph) == {'add': 1}
-
-##    def test_class(self):
-##        graph = self.getflow(self.simplefunc)
-
-##        class MyVisitor:
-##            def __init__(self):
-##                self.blocks = []
-##                self.links = []
-
-##            def visit_FunctionGraph(self, graph):
-##                self.graph = graph
-##            def visit_Block(self, block):
-##                self.blocks.append(block)
-##            def visit_Link(self, link):
-##                self.links.append(link)
-
-##        v = MyVisitor()
-##        traverse(v, graph)
-##        #assert len(v.blocks) == 2
-##        #assert len(v.links) == 1
-##        assert v.graph == graph
-##        assert v.links[0] == graph.startblock.exits[0]
-
-##    def test_partial_class(self):
-##        graph = self.getflow(self.simplefunc)
-
-##        class MyVisitor:
-##            def __init__(self):
-##                self.blocks = []
-##                self.links = []
-
-##            def visit_FunctionGraph(self, graph):
-##                self.graph = graph
-##            def visit_Block(self, block):
-##                self.blocks.append(block)
-##            def visit(self, link):
-##                self.links.append(link)
-
-##        v = MyVisitor()
-##        traverse(v, graph)
-##        assert len(v.blocks) == 2
-##        assert len(v.links) == 1
-##        assert v.graph == graph
-##        assert v.links[0] == graph.startblock.exits[0]
-
-    def loop(x):
-        x = abs(x)
-        while x:
-            x = x - 1
-
-    def test_loop(self):
-        graph = self.getflow(self.loop)
-        assert all_operations(graph) == {'abs': 1,
-                                         'is_true': 1,
-                                         'sub': 1}
 
 
-def all_operations(graph):
-    result = {}
-    def visit(node):
-        if isinstance(node, Block):
-            for op in node.operations:
-                result.setdefault(op.opname, 0)
-                result[op.opname] += 1
-    traverse(visit, graph)
-    return result
+def sample_function(i):
+    sum = 0
+    while i > 0:
+        sum = sum + i
+        i = i - 1
+    return sum
+
+class pieces:
+    """ The manually-built graph corresponding to the sample_function().
+    """
+    i = Variable("i")
+    i1 = Variable("i1")
+    i2 = Variable("i2")
+    i3 = Variable("i3")
+    sum1 = Variable("sum1")
+    sum2 = Variable("sum2")
+    sum3 = Variable("sum3")
+
+    conditionres = Variable("conditionres")
+    conditionop = SpaceOperation("gt", [i1, Constant(0)], conditionres)
+    addop = SpaceOperation("add", [sum2, i2], sum3)
+    decop = SpaceOperation("sub", [i2, Constant(1)], i3)
+    startblock = Block([i])
+    headerblock = Block([i1, sum1])
+    whileblock = Block([i2, sum2])
+
+    graph = FunctionGraph("f", startblock)
+    startblock.closeblock(Link([i, Constant(0)], headerblock))
+    headerblock.operations.append(conditionop)
+    headerblock.exitswitch = conditionres
+    headerblock.closeblock(Link([sum1], graph.returnblock, False),
+                           Link([i1, sum1], whileblock, True))
+    whileblock.operations.append(addop)
+    whileblock.operations.append(decop)
+    whileblock.closeblock(Link([i3, sum3], headerblock))
+
+    graph.func = sample_function
+
+graph = pieces.graph
+
+# ____________________________________________________________
+
+def test_checkgraph():
+    checkgraph(graph)
+
+def test_graphattributes():
+    assert graph.startblock is pieces.startblock
+    assert graph.returnblock is pieces.headerblock.exits[0].target
+    assert graph.getargs() == [pieces.i]
+    assert [graph.getreturnvar()] == graph.returnblock.inputargs
+    assert graph.getsource() == inspect.getsource(sample_function)
+
+def test_iterblocks():
+    assert list(graph.iterblocks()) == [pieces.startblock,
+                                        pieces.headerblock,
+                                        graph.returnblock,
+                                        pieces.whileblock]
+
+def test_iterlinks():
+    assert list(graph.iterlinks()) == [pieces.startblock.exits[0],
+                                       pieces.headerblock.exits[0],
+                                       pieces.headerblock.exits[1],
+                                       pieces.whileblock.exits[0]]
+
+def test_traverse():
+    lst = []
+    traverse(lst.append, graph)
+    assert lst == [pieces.startblock,
+                   pieces.startblock.exits[0],
+                   pieces.headerblock,
+                   pieces.headerblock.exits[0],
+                   graph.returnblock,
+                   pieces.headerblock.exits[1],
+                   pieces.whileblock,
+                   pieces.whileblock.exits[0]]
+    assert flatten(graph) == lst
+
+def test_mkentrymap():
+    entrymap = mkentrymap(graph)
+    startlink = entrymap[graph.startblock][0]
+    assert entrymap == {
+        pieces.startblock:  [startlink],
+        pieces.headerblock: [pieces.startblock.exits[0],
+                             pieces.whileblock.exits[0]],
+        graph.returnblock:  [pieces.headerblock.exits[0]],
+        pieces.whileblock:  [pieces.headerblock.exits[1]],
+        }
+
+def test_blockattributes():
+    block = pieces.whileblock
+    assert block.getvariables() == [pieces.i2,
+                                    pieces.sum2,
+                                    pieces.sum3,
+                                    pieces.i3]
+    assert block.getconstants() == [Constant(1)]
+
+def test_renamevariables():
+    block = pieces.whileblock
+    v = Variable()
+    block.renamevariables({pieces.sum2: v})
+    assert block.getvariables() == [pieces.i2,
+                                    v,
+                                    pieces.sum3,
+                                    pieces.i3]
+    block.renamevariables({v: pieces.sum2})
+    assert block.getvariables() == [pieces.i2,
+                                    pieces.sum2,
+                                    pieces.sum3,
+                                    pieces.i3]
+
+def test_variable():
+    v = Variable()
+    assert v.name[0] == 'v' and v.name[1:].isdigit()
+    assert not v.renamed
+    num = int(v.name[1:])
+    v.rename("foobar")
+    assert v.name == "foobar_%d" % num
+    assert v.renamed
+    v.rename("not again")
+    assert v.name == "foobar_%d" % num
+    v2 = Variable(v)
+    assert v2.renamed
+    assert v2.name.startswith("foobar_") and v2.name != v.name

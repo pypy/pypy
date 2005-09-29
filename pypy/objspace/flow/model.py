@@ -69,26 +69,28 @@ class FunctionGraph(object):
     source = roproperty(getsource)
 
     def iterblocks(self):
-        pending = [self.startblock]
-        seen = {id(self.startblock): True}
-        for block in pending:
-            yield block
-            for link in block.exits:
-                targetid = id(link.target)
-                if targetid not in seen:
-                    pending.append(link.target)
-                    seen[targetid] = True
+        block = self.startblock
+        yield block
+        seen = {id(block): True}
+        stack = list(block.exits[::-1])
+        while stack:
+            block = stack.pop().target
+            if id(block) not in seen:
+                yield block
+                seen[id(block)] = True
+                stack += block.exits[::-1]
 
     def iterlinks(self):
-        pending = [self.startblock]
-        seen = {id(self.startblock): True}
-        for block in pending:
-            for link in block.exits:
-                yield link
-                targetid = id(link.target)
-                if targetid not in seen:
-                    pending.append(link.target)
-                    seen[targetid] = True
+        block = self.startblock
+        seen = {id(block): True}
+        stack = list(block.exits[::-1])
+        while stack:
+            link = stack.pop()
+            yield link
+            block = link.target
+            if id(block) not in seen:
+                seen[id(block)] = True
+                stack += block.exits[::-1]
 
     def show(self):
         from pypy.translator.tool.graphpage import SingleGraphPage
@@ -403,16 +405,18 @@ def uniqueitems(lst):
 ##            raise ValueError, "could not dispatch %r" % cls
 
 def traverse(visit, functiongraph):
-    pending = [functiongraph.startblock]
-    seen = {id(functiongraph.startblock): True}
-    for block in pending:
-        visit(block)
-        for link in block.exits:
-            visit(link)
-            targetid = id(link.target)
-            if targetid not in seen:
-                pending.append(link.target)
-                seen[targetid] = True
+    block = functiongraph.startblock
+    visit(block)
+    seen = {id(block): True}
+    stack = list(block.exits[::-1])
+    while stack:
+        link = stack.pop()
+        visit(link)
+        block = link.target
+        if id(block) not in seen:
+            visit(block)
+            seen[id(block)] = True
+            stack += block.exits[::-1]
 
 
 def flatten(funcgraph):
@@ -431,11 +435,9 @@ def mkentrymap(funcgraph):
     "Returns a dict mapping Blocks to lists of Links."
     startlink = Link(funcgraph.getargs(), funcgraph.startblock)
     result = {funcgraph.startblock: [startlink]}
-    def visit(link):
-        if isinstance(link, Link):
-            lst = result.setdefault(link.target, [])
-            lst.append(link)
-    traverse(visit, funcgraph)
+    for link in funcgraph.iterlinks():
+        lst = result.setdefault(link.target, [])
+        lst.append(link)
     return result
 
 def checkgraph(graph):
