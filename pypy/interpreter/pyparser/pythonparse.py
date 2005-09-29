@@ -35,7 +35,7 @@ class PythonParser(object):
         else:
             enc = _normalize_encoding(_check_for_encoding(textsrc))
             if enc is not None and enc not in ('utf-8', 'iso-8859-1'):
-                textsrc = _recode_in_utf8(builder.space, textsrc, enc)
+                textsrc = _recode_to_utf8(builder.space, textsrc, enc)
 
         lines = [line + '\n' for line in textsrc.split('\n')]
         builder.source_encoding = enc
