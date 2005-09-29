@@ -1,5 +1,5 @@
 
-def run_translator_server(t, entry_point, options):
+def run_translator_server(t, options):
     from pypy.translator.tool import graphpage
     import pygame
     from pypy.translator.tool.pygame.graphclient import get_layout

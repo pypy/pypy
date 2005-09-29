@@ -8,12 +8,16 @@ class PdbPlusShow(pdb.Pdb):
     def __init__(self, translator):
         pdb.Pdb.__init__(self)
         self.translator = translator
+        self.exposed = {}
 
     def post_mortem(self, t):
         self.reset()
         while t.tb_next is not None:
             t = t.tb_next
         self.interaction(t.tb_frame, t)        
+
+    def expose(self, d):
+        self.exposed.update(d)
 
     show = None
 
@@ -360,6 +364,8 @@ enable pygame graph display even from non-graphic mode"""
             fn, args = self.post_mortem, (tb,)
         try:
             t = self.translator # define enviroments, xxx more stuff
+            exec ""
+            locals().update(self.exposed)
             fn(*args)
             pass # for debugger to land
         except pdb.bdb.BdbQuit:
