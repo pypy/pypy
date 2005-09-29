@@ -10,6 +10,7 @@ import optparse
 
 DEFAULT_OPTIONS = optparse.Values(defaults={
   'gc': 'ref',
+  'debug': True,
   'insist': False,
   'backend': 'c',
   'lowmem': False,
@@ -71,6 +72,7 @@ class TranslationDriver(SimpleTaskEngine):
         policy = self.policy
         self.info('with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__))
 
+        annmodel.DEBUG = self.options.debug
         annotator = translator.annotate(self.inputtypes, policy=policy)
         sanity_check_annotation(translator)
         annotator.simplify()        
