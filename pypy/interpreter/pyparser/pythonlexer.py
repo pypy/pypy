@@ -47,24 +47,6 @@ def match_encoding_declaration(comment):
     if encoding != '':
         return encoding
     return None
-    
-def _normalize_encoding(encoding):
-    """returns normalized name for <encoding>
-
-    see dist/src/Parser/tokenizer.c 'get_normal_name()'
-    for implementation details / reference
-
-    NOTE: for now, parser.suite() raises a MemoryError when
-          a bad encoding is used. (SF bug #979739)
-    """
-    # lower() + '_' / '-' conversion
-    encoding = encoding.replace('_', '-').lower()
-    if encoding.startswith('utf-8'):
-        return 'utf-8'
-    for variant in ['latin-1', 'iso-latin-1', 'iso-8859-1']:
-        if encoding.startswith(variant):
-            return 'iso-8859-1'
-    return encoding
 
 ################################################################################
 from pypy.interpreter.pyparser import pytoken
@@ -112,16 +94,11 @@ def generate_tokens(lines, flags):
     contline = None
     indents = [0]
     last_comment = ''
-    encoding = None
     # make the annotator happy
     pos = -1
     lines.append('') # XXX HACK probably not needed
 
     # look for the bom (byte-order marker) for utf-8
-    # XXX encoding support is incomplete at the moment
-    if lines[0].startswith('\xEF\xBB\xBF'):
-        lines[0] = lines[0][3:]
-        encoding = 'utf-8'
 
     # make the annotator happy
     endDFA = automata.DFA([], [])
@@ -175,10 +152,6 @@ def generate_tokens(lines, flags):
                 if line[pos] == '#':
                     tok = Token(pytoken.COMMENT, line[pos:])
                     last_comment = line[pos:]
-                    if lnum <= 2 and encoding is None:
-                        encoding = match_encoding_declaration(last_comment)
-                        if encoding is not None:
-                            encoding = _normalize_encoding(encoding)
                 else:
                     tok = Token(pytoken.NL, line[pos:])
                     last_comment = ''
@@ -237,10 +210,6 @@ def generate_tokens(lines, flags):
                 elif initial == '#':
                     tok = Token(pytoken.COMMENT, token)
                     last_comment = token
-                    if lnum <= 2 and encoding is None:
-                        encoding = match_encoding_declaration(last_comment)
-                        if encoding is not None:
-                            encoding = _normalize_encoding(encoding)
                     # XXX Skip # token_list.append((tok, line, lnum, pos))
                     # token_list.append((COMMENT, token, spos, epos, line))
                 elif token in triple_quoted:
@@ -317,15 +286,14 @@ def generate_tokens(lines, flags):
     #for t in token_list:
     #    print '%20s  %-25s %d' % (pytoken.tok_name.get(t[0].codename, '?'), t[0], t[-2])
     #print '----------------------------------------- pyparser/pythonlexer.py'
-    return token_list, encoding
+    return token_list
 
 class PythonSource(TokenSource):
     """This source uses Jonathan's tokenizer"""
     def __init__(self, strings, flags=0):
         # TokenSource.__init__(self)
-        tokens, encoding = generate_tokens(strings, flags)
+        tokens = generate_tokens(strings, flags)
         self.token_stack = tokens
-        self.encoding = encoding
         self._current_line = '' # the current line (as a string)
         self._lineno = -1
         self._offset = 0
