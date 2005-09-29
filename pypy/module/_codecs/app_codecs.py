@@ -1382,7 +1382,7 @@ def PyUnicode_DecodeUnicodeEscape(s, size, errors):
     while (pos < size): 
 ##        /* Non-escape characters are interpreted as Unicode ordinals */
         if (s[pos] != '\\') :
-            p += s[pos]
+            p += unichr(ord(s[pos]))
             pos += 1
             continue
 ##        /* \ - Escapes */
@@ -1604,7 +1604,7 @@ def PyUnicode_DecodeRawUnicodeEscape(s, size, errors):
         if (((pos - bs) & 1) == 0 or
             pos >= size or
             (s[pos] != 'u' and s[pos] != 'U')) :
-            p += s[pos]
+            p += unichr(ord(s[pos]))
             pos += 1
             continue
         
