@@ -134,7 +134,7 @@ def compile_c_module(cfile, modname, include_dirs=None, libraries=[]):
             # XXX do we need to do some check on fout/ferr?
             # XXX not a nice way to import a module
         except:
-            print data
+            print >>sys.stderr, data
             raise
     finally:
         lastdir.chdir()
