@@ -1012,6 +1012,11 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('RETURN_VALUE')
 
     def visitYield(self, node):
+        kind, block = self.setups.top()
+        if kind  == TRY_FINALLY:
+            raise SyntaxError("'yield' not allowed in a 'try' block "
+                              "with a 'finally' clause",
+                              node.lineno)
         self.set_lineno(node)
         node.value.accept( self )
         self.emit('YIELD_VALUE')

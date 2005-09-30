@@ -215,6 +215,13 @@ class BaseTestCompiler:
         ex.normalize_exception(self.space)
         assert ex.match(self.space, self.space.w_SyntaxError)
 
+    def test_yield_in_finally(self):
+        code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
+        e = py.test.raises(OperationError, self.compiler.compile, code, '', 'single', 0)
+        ex = e.value
+        ex.normalize_exception(self.space)
+        assert ex.match(self.space, self.space.w_SyntaxError)
+
     def test_none_assignment(self):
         stmts = [
             'None = 0',
@@ -322,6 +329,10 @@ class TestECCompiler(BaseTestCompiler):
     def test_return_in_generator(self):
         py.test.skip('INPROGRES')
 
+    def test_yield_in_finally(self):
+        py.test.skip('INPROGRES')
+
+
 class TestPyCCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = CPythonCompiler(self.space)
@@ -334,6 +345,9 @@ class TestPurePythonCompiler(BaseTestCompiler):
         py.test.skip('INPROGRES')
 
     def test_return_in_generator(self):
+        py.test.skip('INPROGRES')
+
+    def test_yield_in_finally(self):
         py.test.skip('INPROGRES')
 
 class TestPythonAstCompiler(BaseTestCompiler):
