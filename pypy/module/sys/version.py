@@ -23,13 +23,14 @@ def get_version_info(space):
     return space.wrap(CPYTHON_VERSION)
 
 def get_version(space):
-    return space.wrap("%d.%d.%d (pypy %d.%d.%d build)" % (
+    return space.wrap("%d.%d.%d (pypy %d.%d.%d build %d)" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
         PYPY_VERSION[0],
         PYPY_VERSION[1],
-        PYPY_VERSION[2]))
+        PYPY_VERSION[2],
+        svn_revision()))
 
 def get_hexversion(space):
     return space.wrap(tuple2hex(CPYTHON_VERSION))
