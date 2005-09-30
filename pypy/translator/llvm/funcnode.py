@@ -1,4 +1,5 @@
 import py
+import sys
 from pypy.objspace.flow.model import Block, Constant, Variable, Link
 from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
 from pypy.rpython import lltype
@@ -42,11 +43,14 @@ class FuncNode(ConstantLLVMNode):
         self.db.genllvm.exceptionpolicy.transform(self.db.translator, self.graph)
         if remove_exception_mallocs(self.db.translator, self.graph):
             print '            from function', self.ref
-            import sys
             sys.stdout.flush()
             #if self.ref not in ('%pypy_ll_raise_OSError__Signed', '%pypy_getitem'):
             #    self.db.translator.view()
-        #merge_mallocs(self.db.translator, self.graph)
+        #if merge_mallocs(self.db.translator, self.graph):
+        #    print '            in function', self.ref
+        #    sys.stdout.flush()
+        #    #self.db.translator.view()
+
         remove_double_links(self.db.translator, self.graph)
 
     def __str__(self):

@@ -2,7 +2,7 @@ from pypy.objspace.flow.model import Block, Constant, flatten, SpaceOperation
 from pypy.translator.backendopt.inline import _find_exception_type
 
 
-def remove_exception_mallocs(translator, graph, ringbuffer_entry_maxsize=16, ringbuffer_n_entries=1024):
+def remove_exception_mallocs(translator, graph):
     """Remove mallocs that occur because an exception is raised.
     Typically this data is shortlived and occuring often in highlevel
     languages like Python. So it would be preferable if we would not need
