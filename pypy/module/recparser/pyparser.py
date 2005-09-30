@@ -145,6 +145,7 @@ STType.typedef = TypeDef("parser.st",
 
 def parse_python_source(space, source, goal):
     builder = grammar.BaseGrammarBuilder(debug=False, rules=PYTHON_PARSER.rules)
+    builder.space = space
     try:
         PYTHON_PARSER.parse_source(source, goal, builder )
         return builder.stack[-1]
