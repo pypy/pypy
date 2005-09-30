@@ -202,7 +202,7 @@ class PythonCompiler(CPythonCompiler):
         # XXX use 'flags'
         space = self.space
         try:
-            parse_result = internal_pypy_parse(source, mode, True, flags)
+            parse_result = internal_pypy_parse(source, mode, True, flags, space)
         except SyntaxError, e:
             w_synerr = space.newtuple([space.wrap(e.msg),
                                        space.newtuple([space.wrap(filename),

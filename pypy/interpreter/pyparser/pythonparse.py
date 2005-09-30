@@ -87,11 +87,13 @@ def _normalize_encoding(encoding):
 
 def _check_for_encoding(s):
     eol = s.find('\n')
-    if eol == -1:
+    if eol < 0:
         return _check_line_for_encoding(s)
     enc = _check_line_for_encoding(s[:eol])
+    if enc:
+        return enc
     eol2 = s.find('\n', eol + 1)
-    if eol2 == -1:
+    if eol2 < 0:
         return _check_line_for_encoding(s[eol + 1:])
     return _check_line_for_encoding(s[eol + 1:eol2])
     

@@ -50,7 +50,7 @@ def pypy_parsefile(filename, lineno=False):
     pyf.close()
     return pypy_parse(source, 'exec', lineno)
 
-def internal_pypy_parse(source, mode='exec', lineno=False, flags=0):
+def internal_pypy_parse(source, mode='exec', lineno=False, flags=0, space=None):
     """This function has no other role than testing the parser's annotation
 
     annotateme() is basically the same code that pypy_parse(), but with the
@@ -61,6 +61,8 @@ def internal_pypy_parse(source, mode='exec', lineno=False, flags=0):
 
     """
     builder = TupleBuilder(PYTHON_PARSER.rules, lineno=False)
+    if space is not None:
+        builder.space = space
     target_rule = TARGET_DICT[mode]
     PYTHON_PARSER.parse_source(source, target_rule, builder, flags)
     stack_element = builder.stack[-1]
