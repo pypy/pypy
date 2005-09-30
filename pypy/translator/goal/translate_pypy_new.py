@@ -38,8 +38,8 @@ opts = {
     },
     
     '2_Backend optimisations': {
-    '_backopt':  [OPT(('-o', '--backopt'), "Do backend optimisations", GOAL),
-                 OPT(('--no-backopt',), "Don't do backend optimisations", SKIP_GOAL)],
+    '_backendopt':  [OPT(('-o', '--backendopt'), "Do backend optimisations", GOAL),
+                 OPT(('--no-backendopt',), "Don't do backend optimisations", SKIP_GOAL)],
     },
 
     '3_Code generation options': {
@@ -88,7 +88,7 @@ defaults = {
     
     'goals': [],
 
-    'default_goals': ['annotate', 'rtype', 'backopt', 'source', 'compile'],
+    'default_goals': ['annotate', 'rtype', 'backendopt', 'source', 'compile'],
     'skipped_goals': ['run'],
     
     'lowmem': False,

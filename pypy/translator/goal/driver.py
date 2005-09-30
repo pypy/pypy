@@ -75,7 +75,7 @@ class TranslationDriver(SimpleTaskEngine):
                 self.proceed(backend_goal)
             setattr(self, task, proc)
 
-        for task in ('annotate', 'rtype', 'backopt', 'source', 'compile', 'run'):
+        for task in ('annotate', 'rtype', 'backendopt', 'source', 'compile', 'run'):
             expose_task(task)
             
     def backend_select_goals(self, goals):
@@ -125,11 +125,11 @@ class TranslationDriver(SimpleTaskEngine):
     #
     task_rtype = taskdef(task_rtype, ['annotate'], "RTyping")
 
-    def task_backopt(self):
+    def task_backendopt(self):
         opt = self.options
         self.translator.backend_optimizations(ssa_form=opt.backend != 'llvm')
     #
-    task_backopt = taskdef(task_backopt, 
+    task_backendopt = taskdef(task_backendopt, 
                                         ['rtype'], "Back-end optimisations") 
 
     def task_source_c(self):  # xxx messy
@@ -152,7 +152,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.cbuilder = cbuilder
     #
     task_source_c = taskdef(task_source_c, 
-                            ['?backopt', '?rtype', '?annotate'], 
+                            ['?backendopt', '?rtype', '?annotate'], 
                             "Generating c source")
 
     def task_compile_c(self): # xxx messy
@@ -191,21 +191,21 @@ class TranslationDriver(SimpleTaskEngine):
         raise NotImplementedError, "llinterpret" # xxx
     #
     task_llinterpret = taskdef(task_llinterpret, 
-                               ['?backopt', 'rtype'], 
+                               ['?backendopt', 'rtype'], 
                                "LLInterpeting")
 
     def task_source_llvm(self):
         raise NotImplementedError, "source_llvm" # xxx
     #
     task_source_llvm = taskdef(task_source_llvm, 
-                               ['backopt', 'rtype'], 
+                               ['backendopt', 'rtype'], 
                                "Generating llvm source")
 
     def task_compile_llvm(self):
         raise NotImplementedError, "compile_llvm" # xxx
     #
     task_compile_llvm = taskdef(task_compile_llvm, 
-                                ['backopt', 'rtype'], 
+                                ['backendopt', 'rtype'], 
                                 "Compiling llvm source")
 
     def task_run_llvm(self):
