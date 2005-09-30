@@ -87,6 +87,17 @@ class SimpleTaskEngine(object):
                 l.append(task_name)
         return l
 
+    def _depending_on_closure(self, goal):
+        d = {}
+        def track(goal):
+            if goal in d:
+                return
+            d[goal] = True
+            for depending in self._depending_on(goal):
+                track(depending)
+        track(goal)
+        return d.keys()
+
     def _execute(self, goals, *args, **kwds):
         task_skip = kwds.get('task_skip', [])
         for goal in self._plan(goals, skip=task_skip):

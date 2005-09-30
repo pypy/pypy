@@ -55,18 +55,11 @@ class TranslationDriver(SimpleTaskEngine):
         self.runner = runner
 
         self.done = {}
-        
-        maybe_skip = {}
-        def add_maybe_skip(goal):
-            if goal in maybe_skip:
-                return
-            maybe_skip[goal] = True
-            for depending in self._depending_on(goal):
-                add_maybe_skip(depending)
 
+        maybe_skip = []
         for goal in self.backend_select_goals(disable):
-            add_maybe_skip(goal)
-        self.maybe_skip = maybe_skip.keys()
+            maybe_skip.extend(self._depending_on_closure(goal))
+        self.maybe_skip = dict.fromkeys(maybe_skip).keys()
 
         if default_goal:
             default_goal, = self.backend_select_goals([default_goal])

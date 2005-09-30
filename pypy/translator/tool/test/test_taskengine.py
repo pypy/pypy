@@ -17,6 +17,17 @@ def test_simple():
 
         task_C.task_deps = ['B']
 
+        def task_D(self):
+            pass
+        task_D.task_deps = ['E']
+
+        def task_E(self):
+            pass
+        task_E.task_deps = ['F']
+
+        def task_F(self):
+            pass
+
     abc = ABC()
 
     assert abc._plan('B') == ['B']
@@ -28,6 +39,19 @@ def test_simple():
     assert dict.fromkeys(abc._depending_on('B'), True) == {'A':True, 'C':True}
     assert abc._depending_on('A') == []
    
+    assert abc._depending_on('F') == ['E']
+    assert abc._depending_on('E') == ['D']
+    assert abc._depending_on('D') == []
+
+    assert abc._depending_on_closure('C') == ['C']
+    assert dict.fromkeys(abc._depending_on_closure('B'), True) == {'A':True, 'C':True, 'B': True}
+    assert abc._depending_on_closure('A') == ['A']
+   
+    assert dict.fromkeys(abc._depending_on_closure('F'), True) == {'D':True, 'E':True, 'F': True}
+    assert dict.fromkeys(abc._depending_on_closure('E'), True) == {'D':True, 'E':True}
+    assert abc._depending_on_closure('D') == ['D']
+
+
 def test_execute():
 
     class ABC(SimpleTaskEngine):
