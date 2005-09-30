@@ -424,24 +424,9 @@ class PythonAstCompiler(CPythonCompiler):
                 codegenerator = ExpressionCodeGenerator(space, ast_tree, flag_names)
             c = codegenerator.getCode()
         except SyntaxError, e:
-            w_synerr = space.newtuple([space.wrap(e.msg),
-                                       space.newtuple([space.wrap(e.filename),
-                                                       space.wrap(e.lineno),
-                                                       space.wrap(e.offset),
-                                                       space.wrap(e.text)])])
-            raise OperationError(space.w_SyntaxError, w_synerr)
-##         except UnicodeDecodeError, e:
-##             # TODO use a custom UnicodeError
-##             import traceback
-##             traceback.print_exc()
-##             raise OperationError(space.w_UnicodeDecodeError, space.newtuple([
-##                                  space.wrap(e.encoding), space.wrap(e.object), space.wrap(e.start),
-##                                  space.wrap(e.end), space.wrap(e.reason)]))
+            raise OperationError(space.w_SyntaxError,
+                                 e.wrap_info(space, filename))
         except ValueError,e:
-            #if e.__class__ != ValueError:
-            #     extra_msg = "(Really got %s)" % e.__class__.__name__
-            #else:
-            #    extra_msg = ""
             raise OperationError(space.w_ValueError,space.wrap(str(e)))
         except TypeError,e:
             raise

@@ -1477,10 +1477,13 @@ class Return(Node):
 
     def getChildren(self):
         "NOT_RPYTHON"
-        return self.value,
+        return tuple(flatten(self.value))
 
     def getChildNodes(self):
-        return [self.value,]
+        nodelist = []
+        if self.value is not None:
+            nodelist.append(self.value)
+        return nodelist
 
     def __repr__(self):
         return "Return(%s)" % (repr(self.value),)

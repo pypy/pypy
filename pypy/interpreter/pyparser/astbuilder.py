@@ -820,7 +820,7 @@ def build_return_stmt(builder, nb):
     if len(atoms) > 2:
         assert False, "return several stmts not implemented"
     elif len(atoms) == 1:
-        builder.push(ast.Return(ast.Const(builder.wrap_none(), lineno), lineno))
+        builder.push(ast.Return(None, lineno))
     else:
         builder.push(ast.Return(atoms[1], lineno))
 
