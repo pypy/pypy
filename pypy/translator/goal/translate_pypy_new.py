@@ -48,7 +48,7 @@ opts = {
 
     '1_backend': [OPT(('-b', '--backend'), "Backend", ['c', 'llvm'])],
 
-    '2_gc': [OPT(('--gc',), "Garbage collector", ['ref', 'boehm', 'none'])],
+    '2_gc': [OPT(('--gc',), "Garbage collector", ['boehm', 'ref', 'none'])],
     },
 
 
@@ -168,6 +168,7 @@ def parse_options_and_load_target():
                 elif isinstance(choice, list):
                     opt_setup['type'] = 'choice'
                     opt_setup['choices'] = choice
+                    opt_setup['metavar'] = "[%s]" % '|'.join(choice)
                 elif isinstance(choice, bool):
                     opt_setup['action'] = ['store_false', 'store_true'][choice]
                 elif choice is int:
