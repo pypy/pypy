@@ -1,5 +1,5 @@
-from pypy.objspace.flow.model import Block, flatten, SpaceOperation, Constant
-from pypy.rpython.lltype import GcStruct, Void
+from pypy.objspace.flow.model import Block, flatten, SpaceOperation, Constant, Variable
+from pypy.rpython.lltype import Struct, GcStruct, Void, Ptr
 
 
 def merge_mallocs(translator, graph):
@@ -23,21 +23,30 @@ def merge_mallocs(translator, graph):
                 continue
             is_atomic = op.args[0].value._is_atomic()
             mallocs[is_atomic].append( (i,op.args[0].value) )
-            print 'merge_malloc: OLD %d, %s, %s, %s' % (i, type(op.args[0]), op.args[0], op.args[0].concretetype)
+
         for a in range(2):
             if len(mallocs[a]) >= 2:
                 indices     = [m[0] for m in mallocs[a]]
-                structs     = [m[1] for m in mallocs[a]]
-                merged_name = 'merged'
+                gcstructs   = [m[1] for m in mallocs[a]]
+                merged_name = 'mergedstructs__' + '_'.join([s._name+str(n) for n, s in enumerate(gcstructs)])
+
+                x = [(gcstruct._name+str(n), gcstruct) for n, gcstruct in enumerate(gcstructs)]
+                mergedstruct= GcStruct(merged_name, *x)
+                c = Constant(mergedstruct, Void)
+                ptr_merged = Variable('ptr_mergedstructs')
+                ptr_merged.concretetype = Ptr(c.value)
+                merged_op  = SpaceOperation('malloc', [c], ptr_merged)
+                block.operations.insert(0, merged_op)
+
+                for n, i in enumerate(indices):
+                    op = block.operations[i+1]
+                    field = Constant(x[n][0], Void)
+                    block.operations[i+1] = SpaceOperation('getsubstruct', [ptr_merged, field], op.result)
+
                 for m in mallocs[a]:
-                    merged_name += '_' + m[1]._name
-                merged = GcStruct(merged_name,
-                                  ('field1', super(GcStruct, structs[0])),
-                                  ('field2', super(GcStruct, structs[1]))
-                                 )
-                print 'merge_mallocs: %s {%s} [%s]' % (indices, structs, merged)
-                c = Constant(merged, Void)
-                print 'merge_malloc: NEW %s, %s' % (c, c.concretetype)
-                block.operations[indices[0]].args[0] = c
+                    index, type_ = m
+                    print 'merge_malloc: OLD %d, %s' % (index, type(type_))
+                print 'merge_mallocs: NEW %s, %s' % (c, c.concretetype)
                 n_times_merged += 1
+
     return n_times_merged

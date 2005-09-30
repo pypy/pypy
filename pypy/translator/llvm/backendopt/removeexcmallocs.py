@@ -1,5 +1,4 @@
-from pypy.objspace.flow.model import Block, Constant, flatten, SpaceOperation
-from pypy.translator.backendopt.inline import _find_exception_type
+from pypy.objspace.flow.model import Block, Constant, flatten
 
 
 def remove_exception_mallocs(translator, graph):
