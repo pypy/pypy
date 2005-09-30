@@ -134,9 +134,11 @@ class OptHelpFormatter(optparse.IndentedHelpFormatter):
         
 def goal_cb(option, opt, value, parser, enable, goal):
     if enable:
-        parser.values.goals = parser.values.goals + [goal]
+        if goal not in parser.values.goals:
+            parser.values.goals = parser.values.goals + [goal]
     else:
-        parser.values.skipped_goals = parser.values.skipped_goals + [goal]
+        if goal not in parser.values.skipped_goals:
+            parser.values.skipped_goals = parser.values.skipped_goals + [goal]
 
 def load_target(targetspec):
     if not targetspec.endswith('.py'):
