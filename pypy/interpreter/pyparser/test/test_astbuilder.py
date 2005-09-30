@@ -75,6 +75,12 @@ def nodes_equal(left, right, check_lineno=False):
                 print "(0) (%s) left: %s, right: %s" % (left, left.lineno, right.lineno)
                 return False
         return True
+    elif isinstance(right, ast_ast.Return) and isinstance(left, stable_ast.Return):
+        left_nodes = left.getChildren()
+        if right.value is None:
+            right_nodes = (ast_ast.Const(None),)
+        else:
+            right_nodes = right.getChildren()    
     else:
         left_nodes = left.getChildren()
         right_nodes = right.getChildren()

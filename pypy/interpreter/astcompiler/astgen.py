@@ -154,7 +154,11 @@ class NodeInfo:
                     print >> buf, "        return %s" % clist
             else:
                 if len(self.argnames) == 1:
-                    print >> buf, "        return tuple(flatten(self.%s))" % self.argnames[0]
+                    name = self.argnames[0]
+                    if self.argprops[name] == P_NESTED:
+                        print >> buf, "        return tuple(flatten(self.%s))" % name
+                    else:
+                        print >> buf, "        return (self.%s,)" % name
                 else:
                     print >> buf, "        children = []"
                     template = "        children.%s(%sself.%s%s)"

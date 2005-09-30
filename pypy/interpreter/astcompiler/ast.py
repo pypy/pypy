@@ -1477,7 +1477,7 @@ class Return(Node):
 
     def getChildren(self):
         "NOT_RPYTHON"
-        return tuple(flatten(self.value))
+        return (self.value,)
 
     def getChildNodes(self):
         nodelist = []
