@@ -179,6 +179,7 @@ class TranslationDriver(SimpleTaskEngine):
 
         cbuilder = translator.cbuilder(standalone=standalone, gcpolicy=gcpolicy)
         c_source_filename = cbuilder.generate_source()
+        self.info("written: %s" % (c_source_filename,))
         self.cbuilder = cbuilder
     #
     task_source_c = taskdef(task_source_c, 
@@ -196,7 +197,7 @@ class TranslationDriver(SimpleTaskEngine):
             newexename = mkexename('./'+'pypy-c')
             shutil.copy(exename, newexename)
             self.c_entryp = newexename
-            self.info("written: %s" % (self.c_entryp,))
+            self.info("created: %s" % (self.c_entryp,))
         else:
             cbuilder.import_module()    
             self.c_entryp = cbuilder.get_entry_point()
