@@ -93,6 +93,21 @@ def display_async_quit():
 def display_async_cmd(**kwds):                
     pygame.event.post(pygame.event.Event(USEREVENT, **kwds))
 
+EventQueue = []
+
+def wait_for_events():
+    if not EventQueue:
+        EventQueue.append(pygame.event.wait())
+        EventQueue.extend(pygame.event.get())
+
+def wait_for_async_cmd():
+    # wait until another thread pushes a USEREVENT in the queue
+    while True:
+        wait_for_events()
+        e = EventQueue.pop(0)
+        if e.type in (USEREVENT, QUIT):   # discard all other events
+            break
+    EventQueue.insert(0, e)   # re-insert the event for further processing
 
 
 class Node:

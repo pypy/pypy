@@ -5,7 +5,9 @@ Client for a graph server (either in-process or over a socket).
 
 import autopath
 from pypy.translator.tool.pygame.drawgraph import GraphLayout
-from pypy.translator.tool.pygame.drawgraph import display_async_cmd, display_async_quit
+from pypy.translator.tool.pygame.drawgraph import display_async_cmd
+from pypy.translator.tool.pygame.drawgraph import display_async_quit
+from pypy.translator.tool.pygame.drawgraph import wait_for_async_cmd
 from pypy.translator.tool.graphserver import MissingPage, portutil
 from pypy.tool.udir import udir
 import py
@@ -89,6 +91,7 @@ class SocketConnexion(portutil.Port):
 
     def initiate_display(self, key, link=None):
         self.put_msg((key, link))
+        wait_for_async_cmd()
 
     def on_msg(self, msg):
         if msg is None:

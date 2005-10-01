@@ -5,6 +5,7 @@ import pygame
 from pygame.locals import *
 from pypy.translator.tool.pygame.drawgraph import GraphRenderer
 from pypy.translator.tool.pygame.drawgraph import Node, Edge
+from pypy.translator.tool.pygame.drawgraph import EventQueue, wait_for_events
 
 
 METAKEYS = dict([
@@ -230,9 +231,12 @@ class GraphDisplay(Display):
 
         pygame.display.flip()
         while True:
-            e = pygame.event.wait()
+            wait_for_events()
+            e = EventQueue.pop(0)
             if e.type in (MOUSEBUTTONDOWN, KEYDOWN, QUIT):
                 break
+        if e.type == QUIT:
+            EventQueue.insert(0, e)   # re-insert a QUIT
         self.must_redraw = True
 
     def input(self, prompt):
@@ -271,11 +275,13 @@ class GraphDisplay(Display):
         text = ""
         self.must_redraw = True
         while True:
-            events = [pygame.event.wait()]
-            events.extend(pygame.event.get())
+            wait_for_events()
             old_text = text
+            events = EventQueue[:]
+            del EventQueue[:]
             for e in events:
                 if e.type == QUIT:
+                    EventQueue.insert(0, e)   # re-insert a QUIT
                     return None
                 elif e.type == KEYDOWN:
                     if e.key == K_ESCAPE:
@@ -565,7 +571,7 @@ class GraphDisplay(Display):
         return moving
 
     def peek(self, typ):
-        for event in self.events:
+        for event in EventQueue:
             if event.type == typ:
                 return True
         return False
@@ -652,19 +658,17 @@ class GraphDisplay(Display):
 
     def run(self):
         self.dragging = self.click_origin = self.click_time = None
-        events = self.events = []
         try:
 
             while True:
 
-                if self.must_redraw and not events:
+                if self.must_redraw and not EventQueue:
                     self.redraw_now()
 
-                if not events:
-                    events.append(pygame.event.wait())
-                    events.extend(pygame.event.get())
+                if not EventQueue:
+                    wait_for_events()
 
-                self.process_event(events.pop(0))
+                self.process_event(EventQueue.pop(0))
 
         except StopIteration:
             pass
