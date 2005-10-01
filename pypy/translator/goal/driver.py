@@ -37,7 +37,7 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[], idemp=Fal
 class TranslationDriver(SimpleTaskEngine):
 
     def __init__(self, translator, inputtypes, policy=None, options=None,
-                 runner=None, disable=[], default_goal = None, extra = {}):
+                 disable=[], default_goal = None, extra = {}):
         SimpleTaskEngine.__init__(self)
 
         self.translator = translator
@@ -55,11 +55,6 @@ class TranslationDriver(SimpleTaskEngine):
             options = DEFAULT_OPTIONS
         self.options = options
         self.standalone = standalone
-
-        if runner is None and not standalone:
-            def runner(f):
-                f()
-        self.runner = runner
 
         self.extra = extra
 
@@ -212,7 +207,8 @@ class TranslationDriver(SimpleTaskEngine):
         if standalone:
             os.system(c_entryp)
         else:
-            self.runner(c_entryp)
+            runner = self.extra.get('run', lambda f: f())
+            runner(c_entryp)
 
     def task_run_c(self):
         self.backend_run('c')
@@ -246,7 +242,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.llvmgen = genllvm.GenLLVM(translator, 
                                        genllvm.GcPolicy.new(opts.gc), 
                                        genllvm.ExceptionPolicy.new(None))
-        self.llvm_filename = gen.gen_llvm_source()
+        self.llvm_filename = self.llvmgen.gen_llvm_source()
         self.info("written: %s" % (self.llvm_filename,))
     #
     task_source_llvm = taskdef(task_source_llvm, 
@@ -254,12 +250,12 @@ class TranslationDriver(SimpleTaskEngine):
                                "Generating llvm source")
 
     def task_compile_llvm(self): # xxx messy
-        self.c_entryp = self.llvmgen.compile_module(self.llvm_filename,
-                                                    standalone=self.standalone,
-                                                    exe_name = 'pypy-llvm')
+        self.c_entryp = self.llvmgen.create_module(self.llvm_filename,
+                                                   standalone=self.standalone,
+                                                   exe_name = 'pypy-llvm')
     #
     task_compile_llvm = taskdef(task_compile_llvm, 
-                                ['backendopt', 'rtype'], 
+                                ['source_llvm'], 
                                 "Compiling llvm source")
 
     def task_run_llvm(self):
@@ -309,7 +305,7 @@ class TranslationDriver(SimpleTaskEngine):
             translator = Translator(entry_point, verbose=True, simplifying=True)
             
         driver = TranslationDriver(translator, inputtypes,
-                                   policy, options, targetspec_dic.get('run'),
+                                   policy, options,
                                    disable=disable,
                                    default_goal = default_goal,
                                    extra = targetspec_dic)
