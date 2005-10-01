@@ -113,6 +113,9 @@ class LowLevelType(object):
     def _is_atomic(self):
         return False
 
+    def _is_varsize(self):
+        return False
+
 
 class ContainerType(LowLevelType):
     def _gcstatus(self):
@@ -173,6 +176,9 @@ class Struct(ContainerType):
             if not typ._is_atomic():
                 return False
         return True
+
+    def _is_varsize(self):
+        return self._arrayfld is not None
 
     def __getattr__(self, name):
         try:
@@ -255,6 +261,9 @@ class Array(ContainerType):
 
     def _is_atomic(self):
         return self.OF._is_atomic()
+
+    def _is_varsize(self):
+        return True
 
     def _str_fields(self):
         if isinstance(self.OF, Struct):
@@ -403,6 +412,8 @@ class Ptr(LowLevelType):
     def _short_name(self):
         return 'Ptr %s' % (self.TO._short_name(), )
     
+    def _is_atomic(self):
+        return not self.TO._gcstatus()
 
     def _defl(self, parent=None, parentindex=None):
         return _ptr(self, None)

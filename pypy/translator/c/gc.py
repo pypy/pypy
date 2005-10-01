@@ -2,7 +2,7 @@ import sys
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.node import ContainerNode
 from pypy.rpython.lltype import typeOf, Ptr, PyObject, ContainerType
-from pypy.rpython.lltype import GcArray, GcStruct
+from pypy.rpython.lltype import Array, GcArray, Struct, GcStruct
 from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo
 
 PyObjPtr = Ptr(PyObject)
@@ -252,6 +252,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
     # zero malloc impl
 
     def zero_malloc(self, TYPE, esize, eresult, err):
+        assert TYPE._gcstatus()   # we don't really support this
         return 'OP_ZERO_MALLOC(%s, %s, %s);' % (esize,
                                                 eresult,
                                                 err)
@@ -338,18 +339,18 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def zero_malloc(self, TYPE, esize, eresult, err):
         gcinfo = self.db.gettypedefnode(TYPE).gcinfo
-        atomic = ['','_ATOMIC'][TYPE._is_atomic()]
+        assert TYPE._gcstatus()   # _is_atomic() depends on this!
+        is_atomic = TYPE._is_atomic()
+        is_varsize = TYPE._is_varsize()
+        result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %d, %d, %s);' % (esize,
+                                                                eresult,
+                                                                is_atomic,
+                                                                is_varsize,
+                                                                err)
         if gcinfo and gcinfo.finalizer:
-            return 'OP_BOEHM_ZERO_MALLOC_FINALIZER(%s, %s, %s, %s, %s);' % (esize,
-                                                                            eresult,
-                                                                            atomic,
-                                                                            gcinfo.finalizer,
-                                                                            err)
-        else:
-            return 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %s);' % (esize,
-                                                              eresult,
-                                                              atomic,
-                                                              err)
+            result += ('\tGC_REGISTER_FINALIZER(%s, %s, NULL, NULL, NULL);'
+                       % (eresult, gcinfo.finalizer))
+        return result
 
     def gc_libraries(self):
         return ['gc'] # xxx on windows?
