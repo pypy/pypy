@@ -55,7 +55,7 @@ class RPythonAnnotator:
 
     def __getstate__(self):
         attrs = """translator pendingblocks bindings annotated links_followed
-        notify bookkeeper frozen policy""".split()
+        notify bookkeeper frozen policy added_blocks""".split()
         ret = self.__dict__.copy()
         for key, value in ret.items():
             if key not in attrs:
