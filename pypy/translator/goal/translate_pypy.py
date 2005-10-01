@@ -229,6 +229,9 @@ def main():
                 return run_server_for_inprocess_client(t, options)
 
     server_setup = ServerSetup()
+    if options.grapserv:
+        server_setup()
+
 
     pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
 
