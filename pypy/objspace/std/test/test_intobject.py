@@ -314,6 +314,7 @@ class AppTestInt:
         assert 42 == int('2A', 16)
         assert 42 == int('42', 10)
         raises(TypeError, int, 1, 10)
+        raises(TypeError, int, '5', '9')
 
     def test_shift_zeros(self):
         assert (1 << 0) == 1
