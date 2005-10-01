@@ -264,6 +264,9 @@ class BaseTranslatorPage(GraphPage):
         return name
 
     def followlink(self, name):
+        if name.endswith('...'):
+            obj = self.object_by_name[name]
+            return LocalizedCallGraphPage(self.translator, obj)
         obj = self.object_by_name[name]
         if isinstance(obj, ClassDef):
             return ClassDefPage(self.translator, obj)
@@ -274,14 +277,19 @@ class TranslatorPage(BaseTranslatorPage):
     """A GraphPage showing a the call graph between functions
     as well as the class hierarchy."""
 
-    def graph_name(self):
+    def graph_name(self, huge=0):
         return 'translator'
 
-    def do_compute(self, dotgen):
+    def do_compute(self, dotgen, huge=100):
         translator = self.translator
 
         # show the call graph
         functions = translator.functions
+
+        if len(functions) > huge:
+            LocalizedCallGraphPage.do_compute.im_func(self, dotgen, translator.entrypoint)
+            return
+
         blocked_functions = self.get_blocked_functions(functions)
 
         highlight_functions = getattr(translator, 'highlight_functions', {}) # XXX
@@ -300,7 +308,8 @@ class TranslatorPage(BaseTranslatorPage):
             else:
                 kw = {}
             dotgen.emit_node(nameof(func), label=data, shape="box", **kw)
-        dotgen.emit_edge('entry', nameof(functions[0]), color="green")
+        if functions:
+            dotgen.emit_edge('entry', nameof(functions[0]), color="green")
         for f1, f2 in translator.callgraph.itervalues():
             dotgen.emit_edge(nameof(f1), nameof(f2))
 
@@ -353,12 +362,6 @@ class LocalizedCallGraphPage(BaseTranslatorPage):
                 dotgen.emit_edge(nameof(func), lcg)
                 self.links[label] = 'go to its localized call graph'
                 self.object_by_name[label] = func
-
-    def followlink(self, name):
-        if name.endswith('...'):
-            obj = self.object_by_name[name]
-            return LocalizedCallGraphPage(self.translator, obj)
-        return BaseTranslatorPage.followlink(self, name)
 
 class ClassHierarchyPage(BaseTranslatorPage):
     """A GraphPage showing the class hierarchy."""
