@@ -112,8 +112,7 @@ class FlowGraphPage(GraphPage):
         self.current_value = {}
         self.caused_by = {}
         if self.annotator:
-            for var in self.annotator.bindings:
-                s_value = self.annotator.binding(var)
+            for var, s_value in self.annotator.bindings.items():
                 info = '%s: %s' % (var.name, s_value)
                 self.links[var.name] = info
                 self.current_value[var.name] = s_value
@@ -210,7 +209,7 @@ class BaseTranslatorPage(GraphPage):
         self.source = dotgen.generate(target=None)
 
         # link the function names to the individual flow graphs
-        for name, obj in self.object_by_name.iteritems():
+        for name, obj in self.object_by_name.items():
             if isinstance(obj, ClassDef):
                 #data = '%s.%s' % (obj.cls.__module__, obj.cls.__name__)
                 data = repr(obj.cls)
@@ -284,7 +283,8 @@ class TranslatorPage(BaseTranslatorPage):
         translator = self.translator
 
         # show the call graph
-        functions = translator.functions
+        callgraph = translator.callgraph.values()
+        functions = list(translator.functions)
 
         if len(functions) > huge:
             LocalizedCallGraphPage.do_compute.im_func(self, dotgen, translator.entrypoint)
@@ -310,7 +310,7 @@ class TranslatorPage(BaseTranslatorPage):
             dotgen.emit_node(nameof(func), label=data, shape="box", **kw)
         if functions:
             dotgen.emit_edge('entry', nameof(functions[0]), color="green")
-        for f1, f2 in translator.callgraph.itervalues():
+        for f1, f2 in callgraph:  # captured above (multithreading fun)
             dotgen.emit_edge(nameof(f1), nameof(f2))
 
         # show the class hierarchy
@@ -329,7 +329,7 @@ class LocalizedCallGraphPage(BaseTranslatorPage):
 
         functions = {}
 
-        for f1, f2 in translator.callgraph.itervalues():
+        for f1, f2 in translator.callgraph.values():
             if f1 is func0 or f2 is func0:
                 dotgen.emit_edge(nameof(f1), nameof(f2))
                 functions[f1] = True
