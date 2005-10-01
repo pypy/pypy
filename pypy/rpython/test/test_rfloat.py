@@ -47,3 +47,10 @@ def test_int_conversion():
     assert type(res) is int 
     res = interpret(fn, [2.34])
     assert res == fn(2.34) 
+
+def test_float2str():
+    def fn(f):
+        return str(f)
+
+    res = interpret(fn, [1.5])
+    assert ''.join(res.chars) == '%f' % 1.5

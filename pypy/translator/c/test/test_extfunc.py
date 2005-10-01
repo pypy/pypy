@@ -304,6 +304,12 @@ def test_rarith_formatd():
     assert f(1.5) == "1.50"
     assert f(2.0) == "2.00"
 
+def test_rarith_float_to_str():
+    def fn(f):
+        return str(f)
+    f = compile(fn, [float])
+    assert f(1.5) == '%f' % 1.5
+
 def test_lock():
     import thread
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()

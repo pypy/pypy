@@ -5,7 +5,7 @@ from pypy.rpython.rmodel import Repr, TyperError, FloatRepr
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.lltype import PyObject, Array, Char
-from pypy.rpython.rstr import STR
+from pypy.rpython.rstr import STR, string_repr
 from pypy.rpython.lltype import functionptr, FuncType, malloc
 from pypy.rpython import rstr
 from pypy.rpython.rmodel import log
@@ -135,31 +135,10 @@ class __extend__(FloatRepr):
     rtype_float = rtype_pos
 
     def ll_str(self, f):
-        pyfloat = pyfloat_fromdouble_ptr(f)
-        pystring = pyobject_str_ptr(pyfloat)
-        stringsize = pystring_size_ptr(pystring)
+        from pypy.rpython.module.ll_strtod import ll_strtod_formatd
+        return ll_strtod_formatd(percent_f, f)
 
-        ret = malloc(STR, stringsize)
-
-        tollchararray_ptr(pystring, ret.chars)
-
-        return ret
-
-PyObjectPtr = Ptr(PyObject)
-
-pystring_size_ptr = functionptr(FuncType([PyObjectPtr], Signed),
-                                "PyString_Size",
-                                external="C")
-pyfloat_fromdouble_ptr = functionptr(FuncType([Float], PyObjectPtr),
-                                     "PyFloat_FromDouble",
-                                     external="C")
-pyobject_str_ptr = functionptr(FuncType([PyObjectPtr], PyObjectPtr),
-                               "PyObject_Str",
-                               external="C")
-tollchararray_ptr = functionptr(FuncType([PyObjectPtr, Ptr(Array(Char))], Void),
-                                "PyString_ToLLCharArray",
-                                external="C")
-    
+percent_f = string_repr.convert_const("%f")
 #
 # _________________________ Conversions _________________________
 
