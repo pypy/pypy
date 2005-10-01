@@ -76,6 +76,10 @@ needed_passes.remove(transform_ovfcheck)
 
 import pypy # __path__
 import py.path
+from pypy.tool.ansi_print import ansi_log
+
+log = py.log.Producer("geninterp")
+py.log.setconsumer("geninterp", ansi_log)
 
 GI_VERSION = '1.1.15'  # bump this for substantial changes
 # ____________________________________________________________
@@ -586,12 +590,12 @@ else:
             func.__name__)
         if self.translator.frozen:
             if func not in self.translator.flowgraphs:
-                print "NOT GENERATING", printable_name
+                log.WARNING("NOT GENERATING %s" % printable_name)
                 return self.skipped_function(func)
         else:
             if (func.func_doc and
                 func.func_doc.lstrip().startswith('NOT_RPYTHON')):
-                print "skipped", printable_name
+                log.WARNING("skipped %s" % printable_name)
                 return self.skipped_function(func)
         name = self.uniquename('gfunc_' + self.trans_funcname(
             namehint + func.__name__))
@@ -658,8 +662,8 @@ else:
                             yield 'space.setattr(%s, %s, %s)' % (
                                 name, self.nameof(key), self.nameof(value))
                     except:
-                        print >> sys.stderr, "Problem while generating %s of %r" % (
-                                name, instance)
+                        log.ERROR("Problem while generating %s of %r" % (
+                                name, instance))
                         raise
         self.initcode.append1("%s = space.call_method(%s, '__new__', %s)" % (
                              name, cls, cls))
@@ -726,7 +730,7 @@ else:
         printable_name = cls.__name__
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             #raise Exception, "%r should never be reached" % (cls,)
-            print "skipped class", printable_name
+            log.WARNING("skipped class %s" % printable_name)
             return self.skipped_class(cls)
 
         metaclass = "space.w_type"
@@ -761,10 +765,10 @@ else:
                 value = getattr(cls, key)
 
                 if isinstance(value, staticmethod) and value.__get__(1) not in self.translator.flowgraphs and self.translator.frozen:
-                    print "skipped staticmethod:", value
+                    log.WARNING("skipped staticmethod: %s" % value)
                     continue
                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
-                    print "skipped function:", value
+                    log.WARNING("skipped function: %s" % value)
                     continue
                     
                 yield 'space.setattr(%s, %s, %s)' % (
