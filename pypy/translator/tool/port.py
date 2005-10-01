@@ -17,7 +17,12 @@ def recv_msg(s):
     hdr_size = struct.calcsize("!i")
     msg_size, = struct.unpack("!i", recv_all(s, hdr_size))
     msg = recv_all(s, msg_size)
-    return marshal.loads(msg)
+    try:
+        return marshal.loads(msg)
+    except ValueError:
+        # fall-back if Python 2.3 receives a 2.4 marshal format
+        from pypy.lib._marshal import loads
+        return loads(msg)
 
 def send_msg(s, msg):
     data = marshal.dumps(msg)

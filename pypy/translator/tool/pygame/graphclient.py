@@ -8,16 +8,15 @@ from pypy.translator.tool.pygame.drawgraph import GraphLayout
 from pypy.translator.tool.pygame.drawgraph import display_async_cmd, display_async_quit
 from pypy.translator.tool.graphserver import MissingPage, portutil
 from pypy.tool.udir import udir
-from py.process import cmdexec
+import py
 
 
 DOT_FILE   = udir.join('graph.dot')
 PLAIN_FILE = udir.join('graph.plain')
 
-import py
-def dot2plain(dotfile, plainfile): 
-    if 0: 
-        cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
+def dot2plain(dotfile, plainfile, use_codespeak=False):
+    if not use_codespeak:
+        py.process.cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
     elif 0: 
         gw = py.execnet.SshGateway('codespeak.net')
         channel = gw.remote_exec("""
@@ -36,27 +35,22 @@ def dot2plain(dotfile, plainfile):
         import urllib
         content = py.path.local(dotfile).read()
         request = urllib.urlencode({'dot': content})
-        try:
-            urllib.urlretrieve('http://codespeak.net/pypy/convertdot.cgi',
-                               str(plainfile),
-                               data=request)
-        except IOError:
-            success = False
-        else:
-            plainfile = py.path.local(plainfile)
-            success = (plainfile.check(file=1) and
-                       plainfile.read().startswith('graph '))
-        if not success:
-            print "NOTE: failed to use codespeak's convertdot.cgi, trying local 'dot'"
-            cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
+        urllib.urlretrieve('http://codespeak.net/pypy/convertdot.cgi',
+                           str(plainfile),
+                           data=request)
 
 class ClientGraphLayout(GraphLayout):
 
     def __init__(self, connexion, key, dot, links, **ignored):
         # generate a temporary .dot file and call dot on it
         DOT_FILE.write(dot)
-        dot2plain(DOT_FILE, PLAIN_FILE) 
-        GraphLayout.__init__(self, PLAIN_FILE)
+        try:
+            dot2plain(DOT_FILE, PLAIN_FILE, use_codespeak=False)
+            GraphLayout.__init__(self, PLAIN_FILE)
+        except (py.error.Error, IOError, TypeError, ValueError):
+            # failed, try via codespeak
+            dot2plain(DOT_FILE, PLAIN_FILE, use_codespeak=True)
+            GraphLayout.__init__(self, PLAIN_FILE)
         self.connexion = connexion
         self.key = key
         self.links.update(links)
