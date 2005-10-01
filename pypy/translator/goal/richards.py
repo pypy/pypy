@@ -361,10 +361,8 @@ def schedule():
 
 class Richards(object):
 
-    iterations = 10
-
-    def run(self):
-        for i in xrange(self.iterations):
+    def run(self, iterations):
+        for i in xrange(iterations):
             taskWorkArea.holdCount = 0
             taskWorkArea.qpktCount = 0
 
@@ -397,23 +395,27 @@ class Richards(object):
 
         return True
 
-def entry_point():
+def entry_point(iterations):
     r = Richards()
     startTime = time.time()
-    result = r.run()
+    result = r.run(iterations)
     endTime = time.time()
     return result, startTime, endTime
 
-def main(entry_point = entry_point):
+def main(entry_point = entry_point, iterations = 10):
     print "Richards benchmark (Python) starting... [%r]" % entry_point
-    result, startTime, endTime = entry_point()
+    result, startTime, endTime = entry_point(iterations)
     if not result:
         print "Incorrect results!"
         return
     print "finished."
     total_s = endTime - startTime
-    print "Total time for %d iterations: %d secs" %(Richards.iterations,total_s)
-    print "Average time for iterations: %d ms" %(total_s*1000/Richards.iterations)
+    print "Total time for %d iterations: %.2f secs" %(iterations,total_s)
+    print "Average time per iteration: %.2f ms" %(total_s*1000/iterations)
 
 if __name__ == '__main__':
-    main()
+    import sys
+    if len(sys.argv) >= 2:
+        main(iterations = int(sys.argv[1]))
+    else:
+        main()

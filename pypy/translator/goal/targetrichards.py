@@ -5,7 +5,7 @@ entry_point = richards.entry_point
 # _____ Define and setup target ___
 
 def target(*args):
-    return entry_point, []
+    return entry_point, [int]
 
 def get_llinterp_args():
     return []
@@ -13,8 +13,8 @@ def get_llinterp_args():
 # _____ Run translated _____
 def run(c_entry_point):
     print "Translated:"
-    richards.main(c_entry_point)
+    richards.main(c_entry_point, iterations=500)
     print "CPython:"
-    richards.main()
+    richards.main(iterations=5)
 
     
