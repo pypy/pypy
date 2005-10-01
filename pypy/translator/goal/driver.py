@@ -37,7 +37,7 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[], idemp=Fal
 class TranslationDriver(SimpleTaskEngine):
 
     def __init__(self, translator, inputtypes, policy=None, options=None,
-                 runner=None, disable=[], default_goal = None):
+                 runner=None, disable=[], default_goal = None, extra = {}):
         SimpleTaskEngine.__init__(self)
 
         self.translator = translator
@@ -61,6 +61,8 @@ class TranslationDriver(SimpleTaskEngine):
                 f()
         self.runner = runner
 
+        self.extra = extra
+
         self.done = {}
 
         maybe_skip = []
@@ -82,7 +84,7 @@ class TranslationDriver(SimpleTaskEngine):
                 self.proceed(backend_goal)
             setattr(self, task, proc)
 
-        for task in ('annotate', 'rtype', 'backendopt', 'source', 'compile', 'run'):
+        for task in ('annotate', 'rtype', 'backendopt', 'source', 'compile', 'run', 'llinterpret'):
             expose_task(task)
             
     def backend_select_goals(self, goals):
@@ -219,15 +221,17 @@ class TranslationDriver(SimpleTaskEngine):
                          "Running compiled c source",
                          idemp=True)
 
-    def task_llinterpret(self): # TODO
-        #def interpret():
-        #    from pypy.rpython.llinterp import LLInterpreter
-        #    py.log.setconsumer("llinterp operation", None)    
-        #    interp = LLInterpreter(translator.flowgraphs, transalator.rtyper)
-        #    interp.eval_function(translator.entrypoint,
-        #                         targetspec_dic['get_llinterp_args']())
-        #interpret()
-        raise NotImplementedError
+    def task_llinterpret(self):
+        from pypy.rpython.llinterp import LLInterpreter
+        py.log.setconsumer("llinterp operation", None)
+        
+        translator = self.translator
+        interp = LLInterpreter(translator.flowgraphs, translator.rtyper)
+        v = interp.eval_function(translator.entrypoint,
+                                 self.extra.get('get_llinterp_args',
+                                                lambda: [])())
+
+        log.llinterpret.event("result -> %s" % v)
     #
     task_llinterpret = taskdef(task_llinterpret, 
                                ['?backendopt', 'rtype'], 
@@ -307,7 +311,8 @@ class TranslationDriver(SimpleTaskEngine):
         driver = TranslationDriver(translator, inputtypes,
                                    policy, options, targetspec_dic.get('run'),
                                    disable=disable,
-                                   default_goal = default_goal)
+                                   default_goal = default_goal,
+                                   extra = targetspec_dic)
 
         return driver
 

@@ -76,14 +76,9 @@ opts = {
     '5_fork_before':  [OPT(('--fork-before',), """(UNIX) Create restartable checkpoint before step""", 
                            ['annotate', 'rtype', 'backendopt', 'source'])],
   
+    '6_llinterpret':  [OPT(('--llinterpret',), "Interpret the rtyped flow graphs", GOAL)],
     },
 
-    
-                    
-    #'Process options':[
-    #    ['-f', '--fork', 
-    #           "(UNIX) Create restartable checkpoint after annotation [,specialization]",
-    #                        [['fork1','fork2']], [] ],
             
 }
 
