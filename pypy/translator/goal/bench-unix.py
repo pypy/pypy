@@ -19,8 +19,8 @@ pypy-c-17758                      23500ms ( 27.20x)     1570 ( 27.45x)
 
 PYSTONE_CMD = 'from test import pystone;pystone.main(%s)'
 PYSTONE_PATTERN = 'This machine benchmarks at'
-RICHARDS_CMD = 'from richards import *;Richards.iterations=%d;main()'
-RICHARDS_PATTERN = 'Average time for iterations:'
+RICHARDS_CMD = 'from richards import *;main(iterations=%d)'
+RICHARDS_PATTERN = 'Average time per iteration:'
 
 def get_result(txt, pattern):
     for line in txt.split('\n'):
