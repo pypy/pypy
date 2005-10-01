@@ -229,7 +229,7 @@ def main():
                 return run_server_for_inprocess_client(t, options)
 
     server_setup = ServerSetup()
-    if options.grapserv:
+    if options.grapserve:
         server_setup()
 
 
