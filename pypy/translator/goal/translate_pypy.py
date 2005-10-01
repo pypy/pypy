@@ -217,7 +217,7 @@ def main():
         
         def __call__(self, port=None):
             if self.async_server is not None:
-                return async_server
+                return self.async_server
             elif options.graphserve or port is not None:
                 if options.graphserve is None:
                     options.graphserve = port
