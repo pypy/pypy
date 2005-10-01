@@ -53,4 +53,4 @@ def test_float2str():
         return str(f)
 
     res = interpret(fn, [1.5])
-    assert ''.join(res.chars) == '%f' % 1.5
+    assert eval(''.join(res.chars)) == 1.5

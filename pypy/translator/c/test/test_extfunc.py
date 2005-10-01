@@ -308,7 +308,8 @@ def test_rarith_float_to_str():
     def fn(f):
         return str(f)
     f = compile(fn, [float])
-    assert f(1.5) == '%f' % 1.5
+    res = f(1.5)
+    assert eval(res) == 1.5
 
 def test_lock():
     import thread
