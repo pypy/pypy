@@ -1,7 +1,8 @@
 import threading, pdb
 
 class _EnableGraphic:
-    pass
+    def __init__(self, port=None):
+        self.port = port
 
 class PdbPlusShow(pdb.Pdb):
 
@@ -343,8 +344,18 @@ show class hierarchy graph"""
         """enable_graphic
 enable pygame graph display even from non-graphic mode"""
         if self.show:
+            print "*** display already there"
             return
         raise _EnableGraphic
+
+    def do_graphserve(self, arg):
+        """graphserve <port>
+start serving graphs on <port>    
+"""
+        if self.show:
+            print "*** display already there"
+            return
+        raise _EnableGraphic(int(arg))
 
     def help_graphs(self):
         print "graph commands are: showg, flowg, callg, classhier, enable_graphic"
@@ -381,14 +392,15 @@ enable pygame graph display even from non-graphic mode"""
         return threading.Thread(target=_run_in_thread, args=())
 
     def start(self, tb, server_setup, graphic=False):
+        port = None
         if not graphic:
             try:
                 self._run_debugger(tb)
-            except _EnableGraphic:
-                pass
+            except _EnableGraphic, engraph:
+                port = engraph.port
             else:
                 return
-        start, show, stop = server_setup()
+        start, show, stop = server_setup(port)
         self.install_show(show)
         debugger = self._run_debugger_in_thread(tb, stop)
         debugger.start()

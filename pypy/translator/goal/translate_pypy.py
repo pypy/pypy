@@ -212,15 +212,23 @@ def main():
  
     t = translator.Translator()
 
-    if options.graphserve:
-        from pypy.translator.tool.graphserver import run_async_server
-        serv_start, serv_show, serv_stop = run_async_server(t, options)
-        def server_setup():
-            return serv_start, serv_show, serv_stop
-    else:
-        def server_setup():
-            from pypy.translator.tool.graphserver import run_server_for_inprocess_client
-            return run_server_for_inprocess_client(t, options)
+    class ServerSetup:
+        async_server = None
+        
+        def __call__(self, port=None):
+            if self.async_server is not None:
+                return async_server
+            elif options.graphserve or port is not None:
+                if options.graphserve is None:
+                    options.graphserve = port
+                from pypy.translator.tool.graphserver import run_async_server
+                serv_start, serv_show, serv_stop = self.async_server = run_async_server(t, options)
+                return serv_start, serv_show, serv_stop
+            else:
+                from pypy.translator.tool.graphserver import run_server_for_inprocess_client
+                return run_server_for_inprocess_client(t, options)
+
+    server_setup = ServerSetup()
 
     pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
 
