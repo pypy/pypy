@@ -206,6 +206,7 @@ def gen_source_standalone(database, modulename, targetdir,
     for key, value in defines.items():
         print >> f, '#define %s %s' % (key, value)
 
+    print >> f, '#include "pyconfig.h"'
     for line in database.gcpolicy.pre_pre_gc_code():
         print >> f, line
 
@@ -245,6 +246,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     for key, value in defines.items():
         print >> f, '#define %s %s' % (key, value)
 
+    print >> f, '#include "pyconfig.h"'
     for line in database.gcpolicy.pre_pre_gc_code():
         print >> f, line
 
