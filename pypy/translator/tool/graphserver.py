@@ -10,10 +10,10 @@ from pypy.translator.tool import port as portutil
 send_msg = portutil.send_msg
 recv_msg = portutil.recv_msg
 
-def run_async_server(t, options):
+def run_async_server(t, options, port):
     import graphpage
     homepage = graphpage.TranslatorPage(t, options.huge)
-    return run_server(homepage, port=options.graphserve, background=True)
+    return run_server(homepage, port=port, background=True)
 
 class GraphserverPort(portutil.Port):
 
