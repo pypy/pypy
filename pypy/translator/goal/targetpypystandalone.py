@@ -53,6 +53,8 @@ def target(options, args):
     import pypy.module.sys
     d = {}
     for key, value in options.__dict__.items():
+        if key == 'log':
+            continue
         d[key.lstrip('-')] = value
     wrapstr = 'space.wrap(%r)' % (d,)
     pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
