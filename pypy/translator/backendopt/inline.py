@@ -9,6 +9,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Bool, typeOf
 from pypy.rpython import rmodel
 from pypy.translator.backendopt import sparsemat
+from pypy.translator.backendopt.support import log
 
 BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -336,18 +337,16 @@ def auto_inlining(translator, threshold=1):
             break   # finished
 
         heappop(fiboheap)
-        print 'Inlining %7.2f %50s' % (weight, graph.name)
+        log.inlining('%7.2f %50s' % (weight, graph.name))
         for parentgraph in callers[graph]:
             if parentgraph == graph:
                 continue
-            print '\t\t-> in %s...' % parentgraph.name,
             sys.stdout.flush()
             try:
                 res = bool(inline_function(translator, graph, parentgraph))
             except CannotInline:
                 couldnt_inline[graph] = True
                 res = CannotInline
-            print res
             if res is True:
                 # the parentgraph should now contain all calls that were
                 # done by 'graph'

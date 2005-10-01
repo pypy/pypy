@@ -3,6 +3,7 @@ from pypy.objspace.flow.model import SpaceOperation, traverse, checkgraph
 from pypy.tool.unionfind import UnionFind
 from pypy.rpython import lltype
 from pypy.translator.simplify import remove_identical_vars
+from pypy.translator.backendopt.support import log
 
 class LifeTime:
 
@@ -232,6 +233,6 @@ def remove_simple_mallocs(graph):
     """Iteratively remove (inline) the mallocs that can be simplified away."""
     done_something = False
     while remove_mallocs_once(graph):
-        print 'simple mallocs removed in %r' % graph.name
+        log.malloc('simple mallocs removed in %r' % graph.name)
         done_something = True
     return done_something
