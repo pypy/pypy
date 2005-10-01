@@ -36,28 +36,15 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[], idemp=Fal
 
 class TranslationDriver(SimpleTaskEngine):
 
-    def __init__(self, translator, inputtypes, policy=None, options=None,
-                 disable=[], default_goal = None, extra = {}):
+    def __init__(self, options=None, default_goal=None, disable=[]): 
         SimpleTaskEngine.__init__(self)
 
-        self.translator = translator
+        self.log = log
 
-        standalone = inputtypes is None
-        if standalone:
-            ldef = listdef.ListDef(None, annmodel.SomeString())
-            inputtypes = [annmodel.SomeList(ldef)]
-        self.inputtypes = inputtypes
-
-        if policy is None:
-            policy = annpolicy.AnnotatorPolicy()            
-        self.policy = policy
         if options is None:
-            options = DEFAULT_OPTIONS
+            options = DEFAULT_OPTIONS 
         self.options = options
-        self.standalone = standalone
-
-        self.extra = extra
-
+ 
         self.done = {}
 
         maybe_skip = []
@@ -95,16 +82,41 @@ class TranslationDriver(SimpleTaskEngine):
                 l.append(goal)
         return l
 
+    def setup(self, entry_point, inputtypes, policy=None, extra={}, empty_translator=None):
+        standalone = inputtypes is None
+        self.standalone = standalone
+
+        if standalone:
+            ldef = listdef.ListDef(None, annmodel.SomeString())
+            inputtypes = [annmodel.SomeList(ldef)]
+        self.inputtypes = inputtypes
+
+        if policy is None:
+            policy = annpolicy.AnnotatorPolicy()            
+        self.policy = policy
+
+        self.extra = extra
+
+        if empty_translator:
+            # re-initialize it
+            empty_translator.__init__(entry_point, verbose=True, simplifying=True)
+            translator = empty_translator
+        else:
+            translator = Translator(entry_point, verbose=True, simplifying=True)
+
+        self.translator = translator
+
+
     def info(self, msg):
         log.info(msg)
 
     def _do(self, goal, func, *args, **kwds):
         title = func.task_title
         if goal in self.done:
-            self.info("already done: %s" % title)
+            self.log.info("already done: %s" % title)
             return
         else:
-            self.info("%s..." % title)
+            self.log.info("%s..." % title)
         func()
         if not func.task_idempotent:
             self.done[goal] = True
@@ -114,7 +126,7 @@ class TranslationDriver(SimpleTaskEngine):
         # includes annotation and annotatation simplifications
         translator = self.translator
         policy = self.policy
-        self.info('with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__))
+        self.log.info('with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__))
 
         annmodel.DEBUG = self.options.debug
         annotator = translator.annotate(self.inputtypes, policy=policy)
@@ -128,17 +140,17 @@ class TranslationDriver(SimpleTaskEngine):
         translator = self.translator
         irreg = query.qoutput(query.check_exceptblocks_qgen(translator))
         if not irreg:
-            self.info("All exceptblocks seem sane")
+            self.log.info("All exceptblocks seem sane")
 
         lost = query.qoutput(query.check_methods_qgen(translator))
         assert not lost, "lost methods, something gone wrong with the annotation of method defs"
-        self.info("No lost method defs")
+        self.log.info("No lost method defs")
 
         so = query.qoutput(query.polluted_qgen(translator))
         tot = len(translator.flowgraphs)
         percent = int(tot and (100.0*so / tot) or 0)
         if percent == 0:
-            pr = self.info
+            pr = self.log.info
         else:
             pr = log.WARNING
         pr("-- someobjectness %2d%% (%d of %d functions polluted by SomeObjects)" % (percent, so, tot))
@@ -176,7 +188,7 @@ class TranslationDriver(SimpleTaskEngine):
 
         cbuilder = translator.cbuilder(standalone=standalone, gcpolicy=gcpolicy)
         c_source_filename = cbuilder.generate_source()
-        self.info("written: %s" % (c_source_filename,))
+        self.log.info("written: %s" % (c_source_filename,))
         self.cbuilder = cbuilder
     #
     task_source_c = taskdef(task_source_c, 
@@ -194,7 +206,7 @@ class TranslationDriver(SimpleTaskEngine):
             newexename = mkexename('./'+'pypy-c')
             shutil.copy(exename, newexename)
             self.c_entryp = newexename
-            self.info("created: %s" % (self.c_entryp,))
+            self.log.info("created: %s" % (self.c_entryp,))
         else:
             cbuilder.import_module()    
             self.c_entryp = cbuilder.get_entry_point()
@@ -243,7 +255,7 @@ class TranslationDriver(SimpleTaskEngine):
                                        genllvm.GcPolicy.new(opts.gc), 
                                        genllvm.ExceptionPolicy.new(None))
         self.llvm_filename = self.llvmgen.gen_llvm_source()
-        self.info("written: %s" % (self.llvm_filename,))
+        self.log.info("written: %s" % (self.llvm_filename,))
     #
     task_source_llvm = taskdef(task_source_llvm, 
                                ['backendopt', 'rtype'], 
@@ -270,7 +282,7 @@ class TranslationDriver(SimpleTaskEngine):
             if self.default_goal:
                 goals = [self.default_goal]
             else:
-                self.info("nothing to do")
+                self.log.info("nothing to do")
                 return
         elif isinstance(goals, str):
             goals = [goals]
@@ -284,31 +296,22 @@ class TranslationDriver(SimpleTaskEngine):
             args = []
         if options is None:
             options = DEFAULT_OPTIONS.copy()
+
+        driver = TranslationDriver(options, default_goal, disable)
             
         target = targetspec_dic['target']
-        try:
-            options.log = log
-            spec = target(options, args)
-        finally:
-            del options.log
+        spec = target(driver, args)
+
         try:
             entry_point, inputtypes, policy = spec
         except ValueError:
             entry_point, inputtypes = spec
             policy = None
 
-        if empty_translator:
-            # re-initialize it
-            empty_translator.__init__(entry_point, verbose=True, simplifying=True)
-            translator = empty_translator
-        else:
-            translator = Translator(entry_point, verbose=True, simplifying=True)
-            
-        driver = TranslationDriver(translator, inputtypes,
-                                   policy, options,
-                                   disable=disable,
-                                   default_goal = default_goal,
-                                   extra = targetspec_dic)
+        driver.setup(entry_point, inputtypes, 
+                     policy=policy, 
+                     extra=targetspec_dic,
+                     empty_translator=empty_translator)
 
         return driver
 

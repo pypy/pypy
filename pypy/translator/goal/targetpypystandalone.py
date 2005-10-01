@@ -44,19 +44,16 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
-def target(options, args):
+def target(driver, args):
+    options = driver.options
+
     global space, w_entry_point
 
     geninterp = not getattr(options, 'lowmem', False)
     
     # obscure hack to stuff the translation options into the translated PyPy
     import pypy.module.sys
-    d = {}
-    for key, value in options.__dict__.items():
-        if key == 'log':
-            continue
-        d[key.lstrip('-')] = value
-    wrapstr = 'space.wrap(%r)' % (d,)
+    wrapstr = 'space.wrap(%r)' % (options.__dict__)
     pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
 
     # disable translation of the whole of classobjinterp.py

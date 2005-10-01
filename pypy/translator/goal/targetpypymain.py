@@ -49,7 +49,9 @@ def entry_point(argvstring):
 
 # _____ Define and setup target ___
 
-def target(options, args):
+def target(driver, args):
+    options = driver.options
+
     global space, w_entry_point
 
     geninterp = not getattr(options, 'lowmem', False)
