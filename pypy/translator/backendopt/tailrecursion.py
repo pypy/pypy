@@ -1,33 +1,13 @@
 import sys
+from pypy.translator.simplify import get_graph
 from pypy.translator.unsimplify import copyvar, split_block
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Bool, typeOf, FuncType, _ptr
-from pypy.rpython import rmodel
 
 # this transformation is very academical -- I had too much time
-
-def get_graph(arg, translator):
-    if isinstance(arg, Variable):
-        return None
-    f = arg.value
-    if not isinstance(f, _ptr):
-        return None
-    try:
-        callable = f._obj._callable
-        #external function calls don't have a real graph
-        if getattr(callable, "suggested_primitive", False):
-            return None
-        if callable in translator.flowgraphs:
-            return translator.flowgraphs[callable]
-    except AttributeError, KeyError:
-        pass
-    try:
-        return f._obj.graph
-    except AttributeError:
-        return None
 
 def _remove_tail_call(translator, graph, block):
     print "removing tail call"

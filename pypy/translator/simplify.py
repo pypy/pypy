@@ -9,7 +9,29 @@ from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import last_exception
 from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
-from pypy.translator.backendopt.tailrecursion import get_graph
+
+def get_graph(arg, translator):
+    if isinstance(arg, Variable):
+        return None
+    f = arg.value
+    from pypy.rpython import lltype
+    if not isinstance(f, lltype._ptr):
+        return None
+    try:
+        callable = f._obj._callable
+        #external function calls don't have a real graph
+        if getattr(callable, "suggested_primitive", False):
+            return None
+        if callable in translator.flowgraphs:
+            return translator.flowgraphs[callable]
+    except AttributeError, KeyError:
+        pass
+    try:
+        return f._obj.graph
+    except AttributeError:
+        return None
+
+
 # ____________________________________________________________
 
 def eliminate_empty_blocks(graph):
