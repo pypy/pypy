@@ -132,8 +132,10 @@ class Translator:
         self.annotator.build_types(graph, input_args_types, func)
         return self.annotator
 
-    def about(self, x):
+    def about(self, x, f=None):
         """Interactive debugging helper """
+        if f is None:
+            f = sys.stdout
         from pypy.objspace.flow.model import Block, flatten
         if isinstance(x, Block):
             for func, graph in self.flowgraphs.items():
@@ -142,18 +144,18 @@ class Translator:
                     cls = getattr(func, 'class_', None)
                     if cls:
                         funcname = '%s.%s' % (cls.__name__, funcname)
-                    print '%s is a %s in the graph of %s' % (x,
+                    print >>f, '%s is a %s in the graph of %s' % (x,
                                 x.__class__.__name__, funcname)
-                    print 'at %s:%d' % (func.func_globals.get('__name__', '?'),
-                                        func.func_code.co_firstlineno)
+                    print >>f, 'at %s:%d' % (func.func_globals.get('__name__', '?'),
+                                             func.func_code.co_firstlineno)
                     break
             else:
-                print '%s is a %s at some unknown location' % (x,
-                                x.__class__.__name__)
-            print 'containing the following operations:'
+                print >>f, '%s is a %s at some unknown location' % (x,
+                                                                    x.__class__.__name__)
+            print >>f, 'containing the following operations:'
             for op in x.operations:
-                print "   ",op
-            print '--end--'
+                print >>f, "   ",op
+            print >>f, '--end--'
             return
         raise TypeError, "don't know about %r" % x
 
