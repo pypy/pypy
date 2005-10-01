@@ -35,41 +35,40 @@ class FunctionCodeGenerator(object):
         #
         # NOTE: cannot use dictionaries with Constants as keys, because
         #       Constants may hash and compare equal but have different lltypes
-        mix = []
+        mix = [self.graph.getreturnvar()]
         self.more_ll_values = []
-        def visit(block):
-            if isinstance(block, Block):
-                mix.extend(block.inputargs)
-                for op in block.operations:
-                    mix.extend(op.args)
-                    mix.append(op.result)
-                for link in block.exits:
-                    mix.extend(link.getextravars())
-                    mix.extend(link.args)
-                    if hasattr(link, 'llexitcase'):
-                        self.more_ll_values.append(link.llexitcase)
-                    elif link.exitcase is not None:
-                        mix.append(Constant(link.exitcase))
-        traverse(visit, graph)
-        resultvar = graph.getreturnvar()
+        for block in graph.iterblocks():
+            mix.extend(block.inputargs)
+            for op in block.operations:
+                mix.extend(op.args)
+                mix.append(op.result)
+            for link in block.exits:
+                mix.extend(link.getextravars())
+                mix.extend(link.args)
+                if hasattr(link, 'llexitcase'):
+                    self.more_ll_values.append(link.llexitcase)
+                elif link.exitcase is not None:
+                    mix.append(Constant(link.exitcase))
 
-        self.vars = mix
-        self.lltypes = None
-        for v in self.vars:
+        uniquemix = []
+        seen = {}
+        for v in mix:
+            if id(v) not in seen:
+                uniquemix.append(v)
+                seen[id(v)] = True
             T = getattr(v, 'concretetype', PyObjPtr)
-            db.gettype(T)
+            db.gettype(T)  # force the type to be considered by the database
+        self.vars = uniquemix
+        self.lltypes = None
 
     def implementation_begin(self):
         db = self.db
-        resultvar = self.graph.getreturnvar()
-        self.lltypes = {
-            # default, normally overridden:
-            id(resultvar): (Void, db.gettype(Void)),
-            }
+        lltypes = {}
         for v in self.vars:
             T = getattr(v, 'concretetype', PyObjPtr)
             typename = db.gettype(T)
-            self.lltypes[id(v)] = T, typename
+            lltypes[id(v)] = T, typename
+        self.lltypes = lltypes
 
     def implementation_end(self):
         self.lltypes = None
