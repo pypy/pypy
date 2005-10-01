@@ -73,8 +73,12 @@ opts = {
     '4_graphserve': [OPT(('--graphserve',), """Serve analysis graphs on port number
 (see pypy/translator/tool/pygame/graphclient.py)""", int)],
 
+    '5_fork_before':  [OPT(('--fork-before',), """(UNIX) Create restartable checkpoint before step""", 
+                           ['annotate', 'rtype', 'backendopt', 'source'])],
+  
     },
 
+    
                     
     #'Process options':[
     #    ['-f', '--fork', 
@@ -103,12 +107,16 @@ defaults = {
     'text': False,
     'graphserve': None,
     'huge': 100,
+
+    'fork_before': None
 }
 
 import py
 # we want 2.4 expand_default functionality
 optparse = py.compat.optparse
-
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("translation")
+py.log.setconsumer("translation", ansi_log)
 
 class OptHelpFormatter(optparse.IndentedHelpFormatter):
 
@@ -141,11 +149,11 @@ def goal_cb(option, opt, value, parser, enable, goal):
             parser.values.skipped_goals = parser.values.skipped_goals + [goal]
 
 def load_target(targetspec):
+    log.info("Translating target as defined by %s" % targetspec)
     if not targetspec.endswith('.py'):
         targetspec += '.py'
     targetspec_dic = {}
     sys.path.insert(0, os.path.dirname(targetspec))
-    #xxx print 
     execfile(targetspec, targetspec_dic)
     return targetspec_dic
 
@@ -193,6 +201,10 @@ def parse_options_and_load_target():
             options.targetspec = arg[:-3]        
 
     targespec_dic = load_target(options.targetspec)
+
+    # tweak: default_goals into default_goal
+    del options.default_goals
+    options.default_goal = 'compile'
     
     return targespec_dic, options, args
 
@@ -202,18 +214,18 @@ def main():
     from pypy.translator import translator
     from pypy.translator.goal import driver
     from pypy.translator.tool.pdbplus import PdbPlusShow
-    from pypy.translator.tool.graphserver import run_async_server
-
+ 
     t = translator.Translator()
 
     if options.graphserve:
-        serv_start, serv_show, serv_stop, serv_cleanup = run_async_server(t, options.graphserve)
+        from pypy.translator.tool.graphserver import run_async_server
+        serv_start, serv_show, serv_stop = run_async_server(t, options)
         def server_setup():
-            return serv_start, serv_show, serv_stop, serv_cleanup
+            return serv_start, serv_show, serv_stop
     else:
         def server_setup():
-            from pypy.translator.tool.pygame.server import run_translator_server
-            return run_translator_server(t, options)
+            from pypy.translator.tool.graphserver import run_server_for_inprocess_client
+            return run_server_for_inprocess_client(t, options)
 
     pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
 
@@ -221,28 +233,36 @@ def main():
         tb = None
         if got_error:
             import traceback
+            errmsg = ["Error:\n"]
             exc, val, tb = sys.exc_info()
-            print >> sys.stderr
-            traceback.print_exception(exc, val, tb)
-            print >> sys.stderr
-            
+            errmsg.extend([" %s" % line for line in traceback.format_exception(exc, val, tb)])
             block = getattr(val, '__annotator_block', None)
             if block:
-                print '-'*60
-                t.about(block)
-                print '-'*60
-            print
+                class FileLike:
+                    def write(self, s):
+                        errmsg.append(" %s" % s)
+                errmsg.append("Processing block:\n")
+                t.about(block, FileLike())
+            log.ERROR(''.join(errmsg))
         else:
-            print '-'*60
-            print 'Done.'
-            print
+            log.event('Done.')
 
         if options.batch:
-            print >>sys.stderr, "batch mode, not calling interactive helpers"
+            log.event("batch mode, not calling interactive helpers")
             return
+        
+        log.event("start debugger...")
 
         pdb_plus_show.start(tb, server_setup, graphic=not options.text)
 
+    # list options (xxx filter, filter for target)
+    log('options in effect:')
+    optnames = options.__dict__.keys()
+    optnames.sort()
+    for name in optnames:
+        optvalue = getattr(options, name)
+        log('%25s: %s' %(name, optvalue))
+   
     try:
         drv = driver.TranslationDriver.from_targetspec(targetspec_dic, options, args,
                                                       empty_translator=t,

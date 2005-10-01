@@ -23,7 +23,7 @@ def mkexename(name):
         name = os.path.normpath(name + '.exe')
     return name
 
-def assert_rpython_mostly_not_imported(): 
+def assert_rtyper_not_imported(): 
     prefix = 'pypy.rpython.'
     oknames = ('rarithmetic memory memory.lladdress extfunctable ' 
                'lltype objectmodel error ros'.split())

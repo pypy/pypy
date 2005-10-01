@@ -8,23 +8,30 @@ from pypy.annotation import listdef
 from pypy.annotation import policy as annpolicy
 import optparse
 
+import py
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("translation")
+py.log.setconsumer("translation", ansi_log)
+
+
 DEFAULT_OPTIONS = optparse.Values(defaults={
   'gc': 'ref',
   'debug': True,
   'insist': False,
   'backend': 'c',
   'lowmem': False,
+  'fork_before': None
 })
 
-def taskdef(taskfunc, deps, title, new_state=None, expected_states=[]):
+def taskdef(taskfunc, deps, title, new_state=None, expected_states=[], idemp=False):
     taskfunc.task_deps = deps
     taskfunc.task_title = title
     taskfunc.task_newstate = None
     taskfunc.task_expected_states = expected_states
+    taskfunc.task_idempotent = idemp
     return taskfunc
 
 # TODO:
-# run is idempotent
 # sanity-checks using states
 
 class TranslationDriver(SimpleTaskEngine):
@@ -92,7 +99,7 @@ class TranslationDriver(SimpleTaskEngine):
         return l
 
     def info(self, msg):
-        print msg
+        log.info(msg)
 
     def _do(self, goal, func, *args, **kwds):
         title = func.task_title
@@ -102,7 +109,8 @@ class TranslationDriver(SimpleTaskEngine):
         else:
             self.info("%s..." % title)
         func()
-        self.done[goal] = True
+        if not func.task_idempotent:
+            self.done[goal] = True
 
 
     def task_annotate(self):  
@@ -113,10 +121,32 @@ class TranslationDriver(SimpleTaskEngine):
 
         annmodel.DEBUG = self.options.debug
         annotator = translator.annotate(self.inputtypes, policy=policy)
-        sanity_check_annotation(translator)
+        self.sanity_check_annotation()
         annotator.simplify()        
     #
     task_annotate = taskdef(task_annotate, [], "Annotating&simplifying")
+
+
+    def sanity_check_annotation(self):
+        translator = self.translator
+        irreg = query.qoutput(query.check_exceptblocks_qgen(translator))
+        if not irreg:
+            self.info("All exceptblocks seem sane")
+
+        lost = query.qoutput(query.check_methods_qgen(translator))
+        assert not lost, "lost methods, something gone wrong with the annotation of method defs"
+        self.info("No lost method defs")
+
+        so = query.qoutput(query.polluted_qgen(translator))
+        tot = len(translator.flowgraphs)
+        percent = int(tot and (100.0*so / tot) or 0)
+        if percent == 0:
+            pr = self.info
+        else:
+            pr = log.WARNING
+        pr("-- someobjectness %2d%% (%d of %d functions polluted by SomeObjects)" % (percent, so, tot))
+
+
 
     def task_rtype(self):
         opt = self.options
@@ -160,7 +190,12 @@ class TranslationDriver(SimpleTaskEngine):
         cbuilder.compile()
 
         if self.standalone:
-            self.c_entryp = cbuilder.executable_name
+            c_entryp = cbuilder.executable_name
+            import shutil
+            exename = mkexename(c_entryp)
+            newexename = mkexename('./'+'pypy-c')
+            shutil.copy(exename, newexename)
+            self.c_entryp = newexename
             self.info("written: %s" % (self.c_entryp,))
         else:
             cbuilder.import_module()    
@@ -168,15 +203,9 @@ class TranslationDriver(SimpleTaskEngine):
     #
     task_compile_c = taskdef(task_compile_c, ['source_c'], "Compiling c source")
 
-    def backend_run(self, backend): # xxx mess
+    def backend_run(self, backend):
         c_entryp = self.c_entryp
         standalone = self.standalone 
-        if standalone: # xxx fragile and messy
-            import shutil
-            exename = mkexename(c_entryp)
-            newexename = mkexename('./pypy-' + backend)
-            shutil.copy(exename, newexename)
-            c_entryp = newexename
         if standalone:
             os.system(c_entryp)
         else:
@@ -185,24 +214,44 @@ class TranslationDriver(SimpleTaskEngine):
     def task_run_c(self):
         self.backend_run('c')
     #
-    task_run_c = taskdef(task_run_c, ['compile_c'], "Running compiled c source")
+    task_run_c = taskdef(task_run_c, ['compile_c'], 
+                         "Running compiled c source",
+                         idemp=True)
 
-    def task_llinterpret(self):
-        raise NotImplementedError, "llinterpret" # xxx
+    def task_llinterpret(self): # TODO
+        #def interpret():
+        #    from pypy.rpython.llinterp import LLInterpreter
+        #    py.log.setconsumer("llinterp operation", None)    
+        #    interp = LLInterpreter(translator.flowgraphs, transalator.rtyper)
+        #    interp.eval_function(translator.entrypoint,
+        #                         targetspec_dic['get_llinterp_args']())
+        #interpret()
+        raise NotImplementedError
     #
     task_llinterpret = taskdef(task_llinterpret, 
                                ['?backendopt', 'rtype'], 
                                "LLInterpeting")
 
-    def task_source_llvm(self):
-        raise NotImplementedError, "source_llvm" # xxx
+    def task_source_llvm(self): # xxx messy
+        translator = self.translator
+        opts = self.options
+        if translator.annotator is None:
+            raise ValueError, "function has to be annotated."
+        from pypy.translator.llvm import genllvm
+        self.llvmgen = genllvm.GenLLVM(translator, 
+                                       genllvm.GcPolicy.new(opts.gc), 
+                                       genllvm.ExceptionPolicy.new(None))
+        self.llvm_filename = gen.gen_llvm_source()
+        self.info("written: %s" % (self.llvm_filename,))
     #
     task_source_llvm = taskdef(task_source_llvm, 
                                ['backendopt', 'rtype'], 
                                "Generating llvm source")
 
-    def task_compile_llvm(self):
-        raise NotImplementedError, "compile_llvm" # xxx
+    def task_compile_llvm(self): # xxx messy
+        self.c_entryp = self.llvmgen.compile_module(self.llvm_filename,
+                                                    standalone=self.standalone,
+                                                    exe_name = 'pypy-llvm')
     #
     task_compile_llvm = taskdef(task_compile_llvm, 
                                 ['backendopt', 'rtype'], 
@@ -212,7 +261,8 @@ class TranslationDriver(SimpleTaskEngine):
         self.backend_run('llvm')
     #
     task_run_llvm = taskdef(task_run_llvm, ['compile_llvm'], 
-                            "Running compiled llvm source")
+                            "Running compiled llvm source",
+                            idemp=True)
 
     def proceed(self, goals):
         if not goals:
@@ -234,8 +284,12 @@ class TranslationDriver(SimpleTaskEngine):
         if options is None:
             options = DEFAULT_OPTIONS.copy()
             
-        target = targetspec_dic['target']        
-        spec = target(options, args)
+        target = targetspec_dic['target']
+        try:
+            options.log = log
+            spec = target(options, args)
+        finally:
+            del options.log
         try:
             entry_point, inputtypes, policy = spec
         except ValueError:
@@ -258,21 +312,21 @@ class TranslationDriver(SimpleTaskEngine):
 
     from_targetspec = staticmethod(from_targetspec)
 
+    def prereq_checkpt_rtype(self):
+        assert_rtyper_not_imported()
 
-# __________ helpers
+    # checkpointing support
+    def _event(self, kind, goal, func):
+        if kind == 'pre':
+            fork_before = self.options.fork_before
+            if fork_before:
+                fork_before, = self.backend_select_goals([fork_before])
+                if not fork_before in self.done and fork_before == goal:
+                    prereq = getattr(self, 'prereq_checkpt_%s' % goal, None)
+                    if prereq:
+                        prereq()
+                        from pypy.translator.goal import unixcheckpoint
+                        unixcheckpoint.restartable_point(auto='run')
 
-def sanity_check_annotation(t):
-    irreg = query.qoutput(query.check_exceptblocks_qgen(t))
-    if not irreg:
-        print "++ All exceptblocks seem sane"
 
-    lost = query.qoutput(query.check_methods_qgen(t))
-    assert not lost, "lost methods, something gone wrong with the annotation of method defs"
-    print "++ No lost method defs"
-
-    so = query.qoutput(query.polluted_qgen(t))
-    tot = len(t.flowgraphs)
-    percent = int(tot and (100.0*so / tot) or 0)
-    print "-- someobjectness %2d%% (%d of %d functions polluted by SomeObjects)" % (percent, so, tot)
-
-from pypy.translator.tool.util import mkexename
+from pypy.translator.tool.util import mkexename, assert_rtyper_not_imported

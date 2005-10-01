@@ -10,11 +10,10 @@ from pypy.translator.tool import port as portutil
 send_msg = portutil.send_msg
 recv_msg = portutil.recv_msg
 
-def run_async_server(t, listen_port):
+def run_async_server(t, options):
     import graphpage
-    homepage = graphpage.TranslatorPage(t)
-    print repr(t),repr(homepage)
-    return run_server(homepage, port=listen_port, background=True)
+    homepage = graphpage.TranslatorPage(t, options.huge)
+    return run_server(homepage, port=options.graphserve, background=True)
 
 class GraphserverPort(portutil.Port):
 
@@ -76,7 +75,7 @@ def run_server(homepage, port=8888, quiet=False, background=False):
 
     portutil.run_server(make_port, port=port, quiet=quiet, background=background)
 
-    return start, show, stop, stop
+    return start, show, stop
 
 class MissingPage:
     links  = {}
@@ -87,3 +86,18 @@ msg [shape="box", label="Error: a link has gone missing.", color="black", fillco
 '''
     def content(self):
         return self
+
+#
+
+def run_server_for_inprocess_client(t, options):
+    from pypy.translator.tool import graphpage
+    from pypy.translator.tool.pygame.graphclient import get_layout
+    from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
+
+    page = graphpage.TranslatorPage(t, options.huge)
+
+    layout = get_layout(page)
+    show, async_quit = layout.connexion.initiate_display, layout.connexion.quit
+    display = layout.get_display()
+    return display.run, show, async_quit
+

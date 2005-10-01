@@ -388,10 +388,9 @@ enable pygame graph display even from non-graphic mode"""
                 pass
             else:
                 return
-        start, show, stop, cleanup = server_setup()
+        start, show, stop = server_setup()
         self.install_show(show)
         debugger = self._run_debugger_in_thread(tb, stop)
         debugger.start()
         start()
         debugger.join()
-        cleanup()

@@ -302,8 +302,10 @@ def run_async_server():
     global serv_start, serv_show, serv_stop, serv_cleanup
     from pypy.translator.tool import graphpage, graphserver
     homepage = graphpage.TranslatorPage(t)
-    (serv_start, serv_show, serv_stop, serv_cleanup
+    (serv_start, serv_show, serv_stop
      )=graphserver.run_server(homepage, port=listen_port, background=True)
+    def serv_cleanup():
+        pass
     
 
 def run_server():
