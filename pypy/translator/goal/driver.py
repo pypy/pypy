@@ -93,6 +93,8 @@ class TranslationDriver(SimpleTaskEngine):
 
         if policy is None:
             policy = annpolicy.AnnotatorPolicy()            
+        if standalone:
+            policy.allow_someobjects = False
         self.policy = policy
 
         self.extra = extra
