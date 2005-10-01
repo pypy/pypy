@@ -9,6 +9,7 @@ from pypy.translator.c.node import StructDefNode, ArrayDefNode
 from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.pyobj import PyObjMaker
+from pypy.translator.c.support import log
 
 # ____________________________________________________________
 
@@ -162,7 +163,7 @@ class LowLevelDatabase:
             lst = ['%s: %d' % keyvalue
                    for keyvalue in self.containerstats.items()]
             lst.sort()
-            print '%8d nodes  [ %s ]' % (i, '  '.join(lst))
+            log.event('%8d nodes  [ %s ]' % (i, '  '.join(lst)))
         i = self.completedcontainers
         if show_progress:
             show_i = (i//1000 + 1) * 1000

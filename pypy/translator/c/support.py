@@ -134,3 +134,10 @@ def gen_assignments(assignments):
             code.insert(0, '{ %s = %s;' % (tmpdecl, starting))
             code[-1] = '%s = tmp; }' % (srcchain[-2],)
         yield ' '.join(code)
+
+# logging
+
+import py
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("c")
+py.log.setconsumer("c", ansi_log)

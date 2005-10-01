@@ -4,6 +4,7 @@ from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.gensupp import builtin_base
+from pypy.translator.c.support import log
 
 from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.rpython.lltype import pyobjectptr, LowLevelType
@@ -153,7 +154,7 @@ class PyObjMaker:
             func.func_globals.get('__name__', '?'),
             func.func_code.co_firstlineno,
             func.__name__)
-        print warning, printable_name
+        log.WARNING("%s %s" % (warning, printable_name))
         name = self.uniquename('gskippedfunc_' + func.__name__)
         self.initcode.append('def %s(*a,**k):' % name)
         self.initcode.append('  raise NotImplementedError')
@@ -311,14 +312,14 @@ class PyObjMaker:
                     # XXX some __NAMES__ are important... nicer solution sought
                     #raise Exception, "unexpected name %r in class %s"%(key, cls)
                 if isinstance(value, staticmethod) and value.__get__(1) not in self.translator.flowgraphs and self.translator.frozen:
-                    print value
+                    log.WARNING(str(value))
                     continue
                 if isinstance(value, classmethod):
                     doc = value.__get__(cls).__doc__
                     if doc and doc.lstrip().startswith("NOT_RPYTHON"):
                         continue
                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
-                    print value
+                    log.WARNING(str(value))
                     continue
                 if key in ignore:
                     continue
