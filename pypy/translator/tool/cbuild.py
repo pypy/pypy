@@ -253,7 +253,7 @@ def build_executable(cfilenames, outputfilename=None, include_dirs=None,
     if sys.platform != 'win32': 
         libraries.append('m')
         libraries.append('pthread')
-        extra_preargs = ['-pthread']   # XXX make this more general
+        extra_preargs = ['-O2', '-pthread']   # XXX 2 x hackish
     if outputfilename is None:
         outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
     else: 
