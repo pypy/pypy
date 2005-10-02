@@ -1,5 +1,9 @@
 """
 Utilities to manipulate graphs (vertices and edges, not control flow graphs).
+
+Convention:
+  'vertices' is a set of vertices (or a dict with vertices as keys);
+  'edges' is a dict mapping vertices to a list of edges with its source.
 """
 
 class Edge:
@@ -23,9 +27,10 @@ def depth_first_search(root, vertices, edges):
 
 def strong_components(vertices, edges):
     """Enumerates the strongly connected components of a graph.  Each one is
-    a set of vertices where any node can be reached from any other vertex by
-    following the edges.  'edges' is a dict {vertex: [edges]})"""
-
+    a set of vertices where any vertex can be reached from any other vertex by
+    following the edges.  In a tree, all strongly connected components are
+    sets of size 1; larger sets are unions of cycles.
+    """
     component_root = {}
     discovery_time = {}
     stack = []
