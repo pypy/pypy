@@ -51,8 +51,10 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 
 #define BOEHM_MALLOC_0_0   GC_MALLOC
 #define BOEHM_MALLOC_1_0   GC_MALLOC_ATOMIC
-#define BOEHM_MALLOC_0_1   GC_MALLOC_IGNORE_OFF_PAGE
-#define BOEHM_MALLOC_1_1   GC_MALLOC_ATOMIC_IGNORE_OFF_PAGE
+#define BOEHM_MALLOC_0_1   GC_MALLOC
+#define BOEHM_MALLOC_1_1   GC_MALLOC_ATOMIC
+/* #define BOEHM_MALLOC_0_1   GC_MALLOC_IGNORE_OFF_PAGE */
+/* #define BOEHM_MALLOC_1_1   GC_MALLOC_ATOMIC_IGNORE_OFF_PAGE */
 
 #define OP_BOEHM_ZERO_MALLOC(size, r, is_atomic, is_varsize, err)   {        \
 	r = (void*) BOEHM_MALLOC_ ## is_atomic ## _ ## is_varsize (size);    \
