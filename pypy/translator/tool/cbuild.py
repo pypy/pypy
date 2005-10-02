@@ -1,9 +1,12 @@
 import autopath
 
-import py
-
 import os, sys, inspect, re, imp
 from pypy.translator.tool import stdoutcapture
+
+import py
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("cbuild")
+py.log.setconsumer("cbuild", ansi_log)
 
 debug = 0
 
@@ -245,6 +248,12 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
     return getattr(mod, func.func_name)
 
 
+def log_spawned_cmd(spawn):
+    def spawn_and_log(cmd, *args, **kwds):
+        log.execute(' '.join(cmd))
+        return spawn(cmd, *args, **kwds)
+    return spawn_and_log
+
 def build_executable(cfilenames, outputfilename=None, include_dirs=None,
                      libraries=[]):
     from distutils.ccompiler import new_compiler 
@@ -259,7 +268,8 @@ def build_executable(cfilenames, outputfilename=None, include_dirs=None,
     else: 
         outputfilename = py.path.local(outputfilename) 
 
-    compiler = new_compiler() 
+    compiler = new_compiler()
+    compiler.spawn = log_spawned_cmd(compiler.spawn)
     objects = []
     for cfile in cfilenames: 
         cfile = py.path.local(cfile)
