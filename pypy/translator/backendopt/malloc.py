@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, traverse, checkgraph
-from pypy.tool.unionfind import UnionFind
+from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython import lltype
 from pypy.translator.simplify import remove_identical_vars
 from pypy.translator.backendopt.support import log

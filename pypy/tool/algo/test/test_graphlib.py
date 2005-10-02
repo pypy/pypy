@@ -1,7 +1,5 @@
 import autopath
-from pypy.tool.math.graphlib import *
-
-# XXX transform.py is difficult to test directly
+from pypy.tool.algo.graphlib import *
 
 edges = {
     'A': [Edge('A','B'), Edge('A','C')],

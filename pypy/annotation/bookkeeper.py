@@ -14,7 +14,7 @@ from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import r_dict
-from pypy.tool.unionfind import UnionFind
+from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython import lltype
 from pypy.rpython.memory import lladdress
 

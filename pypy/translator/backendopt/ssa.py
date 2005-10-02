@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Variable, mkentrymap, flatten, Block
-from pypy.tool.unionfind import UnionFind
+from pypy.tool.algo.unionfind import UnionFind
 
 class DataFlowFamilyBuilder:
     """Follow the flow of the data in the graph.  Builds a UnionFind grouping

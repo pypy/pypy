@@ -8,7 +8,7 @@ from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Bool, typeOf
 from pypy.rpython import rmodel
-from pypy.translator.backendopt import sparsemat
+from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt.support import log
 
 BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
