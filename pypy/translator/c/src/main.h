@@ -6,17 +6,17 @@ char *RPython_StartupCode(void);  /* forward */
 
 int main(int argc, char *argv[])
 {
-    char *errmsg = "out of memory";
+    char *errmsg;
     int i, exitcode;
     RPyListOfString *list;
     errmsg = RPython_StartupCode();
     if (errmsg) goto error;
 
     list = _RPyListOfString_New(argc);
-    if (RPyExceptionOccurred()) goto error;
+    if (RPyExceptionOccurred()) goto memory_out;
     for (i=0; i<argc; i++) {
         RPyString *s = RPyString_FromString(argv[i]);
-        if (RPyExceptionOccurred()) goto error;
+        if (RPyExceptionOccurred()) goto memory_out;
         _RPyListOfString_SetItem(list, i, s);
     }
 
@@ -29,6 +29,8 @@ int main(int argc, char *argv[])
     }
     return exitcode;
 
+ memory_out:
+    errmsg = "out of memory";
  error:
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
     return 1;
