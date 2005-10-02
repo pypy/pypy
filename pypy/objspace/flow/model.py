@@ -27,8 +27,6 @@ from pypy.tool.sourcetools import PY_IDENTIFIER
     Probably an effect of less fragmentation.
 """
 
-COUNTOBJECTS = False
-
 __metaclass__ = type
 
 class roproperty(object):
@@ -214,9 +212,6 @@ class Variable(object):
     __slots__ = ["_name", "concretetype"]
 
     countall = 0
-    if COUNTOBJECTS:
-        countmax = 0
-        countcurr = 0
 
     def name(self):
         name = self._name
@@ -232,15 +227,8 @@ class Variable(object):
     def __init__(self, name=None):
         self._name = Variable.countall
         Variable.countall += 1
-        if COUNTOBJECTS:
-            Variable.countcurr += 1
-            Variable.countmax = max(Variable.countmax, Variable.countcurr)
         if name is not None:
             self.rename(name)
-
-    if COUNTOBJECTS:
-        def __del__(self):
-            Variable.countcurr -= 1
 
     def __repr__(self):
         return '%s' % self.name
@@ -279,9 +267,6 @@ def _bv(_name, concretetype=None):
     if type(_name) is int:
         if _name > Variable.countall:
             Variable.countall = _name
-        if COUNTOBJECTS:
-            Variable.countcurr += 1
-            Variable.countmax = max(Variable.countmax, Variable.countcurr)
     return v
 
 class Constant(Hashable):
