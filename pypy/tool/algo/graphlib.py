@@ -4,12 +4,20 @@ Utilities to manipulate graphs (vertices and edges, not control flow graphs).
 Convention:
   'vertices' is a set of vertices (or a dict with vertices as keys);
   'edges' is a dict mapping vertices to a list of edges with its source.
+  Note that we can usually use 'edges' as the set of 'vertices' too.
 """
 
 class Edge:
     def __init__(self, source, target):
         self.source = source
         self.target = target
+
+def make_edge_dict(edge_list):
+    "Put a list of edges in the official dict format."
+    edges = {}
+    for edge in edge_list:
+        edges.setdefault(edge.source, []).append(edge)
+    return edges
 
 def depth_first_search(root, vertices, edges):
     seen = {}
