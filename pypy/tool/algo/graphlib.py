@@ -95,7 +95,7 @@ def break_cycles(vertices, edges):
             #print '-->', ''.join(component)
             edge_weights = {}
             random_vertex = component.iterkeys().next()
-            for cycle in all_cycles(random_vertex, vertices, edges):
+            for cycle in all_cycles(random_vertex, component, edges):
                 #print '\tcycle:', [e.source+e.target for e in cycle]
                 for edge in cycle:
                     edge_weights[edge] = edge_weights.get(edge, 0) + 1

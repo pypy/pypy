@@ -50,3 +50,23 @@ def test_break_cycles():
     assert (edges['A'][0] in result or
             edges['B'][1] in result or
             edges['E'][0] in result)
+
+def test_break_cycles_2():
+    # a graph with 20 loops of length 10 each, plus an edge from each loop to
+    # the next
+    edges = {}
+    for i in range(200):
+        j = i+1
+        if j % 10 == 0:
+            j -= 10
+        edges[i] = [Edge(i, j)]
+    for i in range(20):
+        edges[i*10].append(Edge(i*10, (i*10+15) % 200))
+    #
+    result = list(break_cycles(edges, edges))
+    assert len(result) == 20
+    result = [(edge.source, edge.target) for edge in result]
+    result.sort()
+    for i in range(20):
+        assert i*10 <= result[i][0] <= (i+1)*10
+        assert i*10 <= result[i][1] <= (i+1)*10
