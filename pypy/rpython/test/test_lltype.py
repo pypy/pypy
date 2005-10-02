@@ -411,10 +411,12 @@ def test_opaque():
 
 def test_is_atomic():
     U = Struct('inlined', ('z', Signed))
-    P = Ptr(RuntimeTypeInfo)
+    A = Ptr(RuntimeTypeInfo)
+    P = Ptr(GcStruct('p'))
     Q = GcStruct('q', ('i', Signed), ('u', U), ('p', P))
     O = OpaqueType('O')
     F = GcForwardReference()
+    assert A._is_atomic() is True
     assert P._is_atomic() is False
     assert Q.i._is_atomic() is True
     assert Q.u._is_atomic() is True
