@@ -295,7 +295,8 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         def fn(i=float):
             return str(i)
         f = self.getcompiled(fn)
-        assert f(1.0) == fn(1.0)
+        res = f(1.0)
+        assert type(res) is str and float(res) == 1.0
         
     def test_uint_arith(self):
         def fn(i=r_uint):
