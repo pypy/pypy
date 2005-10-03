@@ -259,6 +259,7 @@ return_block:
 
 extfunctions["%main_noargs"] = [(), """
 int %main(int %argc, sbyte** %argv) {
+    store int 0, int* %GC_all_interior_pointers
     %ret  = call fastcc int %pypy_main_noargs()
     ret int %ret
 }
@@ -267,6 +268,7 @@ int %main(int %argc, sbyte** %argv) {
 extfunctions["%main"] = [(), """
 int %main(int %argc, sbyte** %argv) {
 entry:
+    store int 0, int* %GC_all_interior_pointers
     %pypy_argv = call fastcc %structtype.list* %pypy__RPyListOfString_New__Signed(int %argc)
     br label %no_exit
 
