@@ -293,7 +293,7 @@ the list of the read positions functions is set to var or _."""
                         print " ", op
                         print " ",
                         for arg in op.args:
-                            print "%s: %s" (arg, self.translator.getbinding(arg)),
+                            print "%s: %s" % (arg, self.translator.annotator.binding(arg)),
                         print
                         
                     r[func] = True
