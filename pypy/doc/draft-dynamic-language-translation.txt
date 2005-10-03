@@ -606,8 +606,8 @@ where *x_1, ..., x_n* are the arguments of the operation (either
 variables defined earlier in the block, or constants), *z* is the
 variable into which the result is stored (each operation introduces a
 new fresh variable as its result), and *z'* is a fresh extra variable
-which we will use in particular cases (which we omit from the notation
-when it is irrelevant).
+called the "auxiliary variable" which we will use in particular cases
+(which we omit from the notation when it is irrelevant).
 
 Let us assume that we are given a user program, which for the purpose of
 the model we assume to be fully known in advance.  Let us define the set
@@ -826,8 +826,9 @@ An ``add`` operation generates the following rules::
 
 The rules are read as follows: for the operation ``z=add(x,y)``, we
 consider the bindings of the variables *x* and *y* in the current state
-*(b,E)*; if one of the above rules apply, then we produce a new state
-*(b',E')* derived from the current state by changing the binding of the
+*(b,E)*; if the bindings satisfy the given conditions, then the rule is
+applicable.  Applying the rule means producing a new state *(b',E')*
+derived from the current state -- here by changing the binding of the
 result variable *z*.  (Note that for conciseness, we have omitted the
 guards in the first rule that prevent it from being applied if the
 second rule (which is more precise) applies as well.)
@@ -841,6 +842,8 @@ error, we take it as a hint that the two strings will not actually be
 None at run-time and proceed.
 
 ~~~~~~~~~~~~~~~~~~~~~~
+
+.. _merge_into:
 
 In the sequel, a lot of rules will be based on the following
 ``merge_into`` operator.  Given two variables *x* and *y*,
@@ -878,10 +881,10 @@ following family of rules (one for each pair *(x,y)*)::
 
 Note that in theory, all rules should be tried repeatedly until none of
 them generalizes the state any more, at which point we have reached a
-fixpoint.  In practice, the rules are well suited to simple metarules
-that track a smaller set of rules that can possibly apply.  Only these
+fixpoint.  In practice, the rules are well suited to a simple metarule
+that tracks a smaller set of rules that can possibly apply.  Only these
 "scheduled" rules are tried.  Rules are always applied sequentially.
-The metarules are as follows:
+The metarule is as follows:
 
 - when an identification *x~y* is added to *E*, then the rule
   ``(x~y) in E`` is scheduled to be considered;
@@ -889,6 +892,8 @@ The metarules are as follows:
 - when a binding *b(x)* is modified, then all rules about operations
   that have *x* as an input argument are (re-)scheduled.  This includes
   the rules ``(x~y) in E`` for each *y* that *E* identifies to *x*.
+  The also includes the cases where *x* is the auxiliary variable
+  (see `Flow graph model`_).
 
 These rules and metarules favor a forward propagation: the rule
 corresponding to an operation in a flow graph typically modifies the
@@ -899,6 +904,93 @@ actually implemented as -- abstract interpretation on the flow graphs,
 considering each operation in turn in the order they appear in the
 block.  Effects that are not local to a block trigger a rescheduling of
 the whole block instead of single operations.
+
+
+Mutable objects
+~~~~~~~~~~~~~~~
+
+Tracking mutable objects is the difficult part of our approach.  RPython
+contains three types of mutable objects that need special care: lists
+(Python's vectors), dictionaries (mappings), and instances of
+user-defined classes.  The current section focuses on lists;
+dictionaries are similar.  `Classes and instances`_ will be described in
+their own section.
+
+For lists, we try to derive a homogenous annotation for all items of the
+list.  In other words, RPython does not support heteregonous lists.  The
+approach is to consider each list-creation point as building a new type
+of list and following the way the list is used to derive the union type
+of its items.
+
+Note that we are not trying to be more precise than finding a single
+item type for each list.  Flow-sensitive techniques could be potentially
+more precise by tracking different possible states for the same list at
+different points in the program and in time.  But even so, a pure
+forward propagation of annotations is not sufficient because of
+aliasing: it is possible to take a reference to a list at any point, and
+store it somewhere for future access.  If a new item is inserted into a
+list in a way that generalizes the list's type, all potential aliases
+must reflect this change -- this means all references that were "forked"
+from the one through which the list is modified.
+
+To solve this, each list annotation -- ``List(v)`` -- contains an
+embedded variable, called the "hidden variable" of the list.  It does
+not appear directly in the flow graphs of the user program, but
+abstractedly stands for "any item of the list".  The same annotation
+``List(v)`` is propagated forward as with other kinds of annotations.
+All aliases of the list end up being annotated as ``List(v)`` with the
+same variable *v*.  The binding of *v* itself, i.e. ``b(v)``, is updated
+to reflect generalization of the list item's type; such an update is
+instantly visible to all aliases.  Moreover, the update is described as
+a change of binding, which means that the metarules will ensure that any
+rule based on the binding of this variable will be reconsidered.
+
+The hidden variable comes from the auxiliary variable syntactically
+attached to the operation that produces a list::
+
+         z=new_list() | z'
+      -------------------------------------
+               b' = b with (z->List(z'))
+
+Inserting an item into a list is done by merging the new item's
+annotation into the list's hidden variable::
+
+         setitem(x,y,z), b(x)=List(v)
+      --------------------------------------------
+               merge_into(z,v)
+
+Reading an item out a list requires care to ensure that the rule is
+rescheduled if the binding of the hidden variable is generalized.  We do
+so be identifying the hidden variable with the current operation's
+auxiliary variable.  The identification ensures that the hidden
+variable's binding will eventually propagate to the auxiliary variable,
+which -- according to the metarule -- will reschedule the operation's
+rule::
+
+         z=getitem(x,y) | z', b(x)=List(v)
+      --------------------------------------------
+               E' = E union (z'~v)
+               b' = b with (z->b(z'))
+
+If you consider the definition of `merge_into`_ again, you will notice
+that merging two different lists (for example, two lists that come from
+different creation points via different code paths) identifies the two
+hidden variables.  This effectively identifies the two lists, as if they
+had the same origin.  It makes the two list annotations aliases for each
+other.  It allows any storage location to contain lists coming from any
+of the two sources indifferently.  This process gradually builds a
+partition of all lists in the program, where two lists are in the
+partition if they are combined in any way.
+
+As an example of further list operations, here is the addition (which is
+the concatenation for lists)::
+
+         z=add(x,y), b(x)=List(v), b(y)=List(w)
+      --------------------------------------------
+               E' = E union (v~w)
+               b' = b with (z->List(v))
+
+As with `merge_into`_, it identifies the two lists.
 
 
 Draft
@@ -1036,11 +1128,6 @@ Prebuilt constants
 XXX
 
 XXX constant arguments to operations
-
-Mutable objects
-~~~~~~~~~~~~~~~
-
-XXX
 
 Classes and instances
 ~~~~~~~~~~~~~~~~~~~~~
