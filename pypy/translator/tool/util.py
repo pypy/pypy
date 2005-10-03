@@ -1,5 +1,5 @@
 from pypy.tool.udir import udir 
-import sys
+import sys, os
 
 def update_usession_dir(stabledir = udir.dirpath('usession')): 
     from py import path 
