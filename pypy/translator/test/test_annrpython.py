@@ -1730,6 +1730,21 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
         assert s.knowntype == B
+
+    def test_type_is_no_improvement(self):
+        class B(object):
+            pass
+        class C(B):
+            pass
+        class D(B):
+            pass
+        def f(x):
+            if type(x) is C:
+                return x
+            raise Exception
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [D])
+        assert s == annmodel.SomeImpossibleValue()
         
 def g(n):
     return [0,1,2,n]

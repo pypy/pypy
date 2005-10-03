@@ -582,9 +582,7 @@ class RPythonAnnotator:
                     cell = self.binding(a)
                     if (link.exitcase, a) in knowntypedata:
                         knownvarvalue = knowntypedata[(link.exitcase, a)]
-                        if not knownvarvalue.contains(cell) and \
-                           cell.contains(knownvarvalue): # sanity check
-                            cell = knownvarvalue
+                        cell = pair(cell, knownvarvalue).improve()
 
                     if hasattr(cell,'is_type_of'):
                         renamed_is_type_of = []

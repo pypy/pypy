@@ -201,6 +201,15 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         getbookkeeper().count("coerce", obj1, obj2)
         return pair(obj1, obj2).union()   # reasonable enough
 
+    # approximation of an annotation intersection, the result should be the annotation obj or 
+    # the intersection of obj and improvement
+    def improve((obj, improvement)):
+        if not improvement.contains(obj) and obj.contains(improvement):
+            return improvement
+        else:
+            return obj
+
+    
 # cloning a function with identical code, for the can_only_throw attribute
 def _clone(f, can_only_throw = None):
     newfunc = type(f)(f.func_code, f.func_globals, f.func_name,
@@ -502,6 +511,25 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
                 # print warning?
                 return SomeObject()
         return SomeInstance(basedef, can_be_None=ins1.can_be_None or ins2.can_be_None)
+
+    def improve((ins1, ins2)):
+        if ins1.classdef is None:
+            resdef = ins2.classdef
+        elif ins2.classdef is None:
+            resdef = ins1.classdef
+        else:
+            basedef = ins1.classdef.commonbase(ins2.classdef)
+            if basedef is ins1.classdef:
+                resdef = ins2.classdef
+            elif basedef is ins2.classdef:
+                resdef = ins1.classdef
+            else:
+                if ins1.can_be_None and ins2.can_be_None:
+                    return SomePBC({None: True})
+                else:
+                    return SomeImpossibleValue()
+        return SomeInstance(resdef, can_be_None=ins1.can_be_None and ins2.can_be_None)
+        
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 
