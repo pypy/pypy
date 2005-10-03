@@ -94,6 +94,7 @@ class FunctionGraph(object):
         from pypy.translator.tool.graphpage import SingleGraphPage
         SingleGraphPage(self).display()
 
+
 class Link(object):
 
     __slots__ = """args target exitcase llexitcase prevblock
@@ -136,6 +137,7 @@ class Link(object):
 
     def __repr__(self):
         return "link from %s to %s" % (str(self.prevblock), str(self.target))
+
 
 class Block(object):
     __slots__ = """isstartblock inputargs operations exitswitch
@@ -209,40 +211,44 @@ class Block(object):
 
 
 class Variable(object):
-    __slots__ = ["_name", "concretetype"]
+    __slots__ = ["_name", "_nr", "concretetype"]
 
-    countall = 0
+    dummyname = intern('v')
+    namesdict = {dummyname : 0}
 
     def name(self):
-        name = self._name
-        if type(name) is int:
-            name = 'v%d' % name
-        return name
+        _name = self._name
+        _nr = self._nr
+        if _nr == -1:
+            # consume numbers lazily
+            nd = self.namesdict
+            _nr = self._nr = nd[_name]
+            nd[_name] = _nr + 1
+        return "%s%d" % (_name, _nr)
     name = property(name)
 
     def renamed(self):
-        return type(self._name) is not int
+        return self._name is not self.dummyname
     renamed = property(renamed)
     
     def __init__(self, name=None):
-        self._name = Variable.countall
-        Variable.countall += 1
+        self._name = self.dummyname
+        self._nr = -1
+        # wait with assigning a vxxx number until the name is requested
         if name is not None:
             self.rename(name)
 
     def __repr__(self):
-        return '%s' % self.name
+        return self.name
 
     def rename(self, name):
-        my_number = self._name
-        if type(my_number) is not int:   # don't rename several times
+        if self._name is not self.dummyname:   # don't rename several times
             return
         if type(name) is not str:
             #assert isinstance(name, Variable) -- disabled for speed reasons
             name = name._name
-            if type(name) is int:    # the other Variable wasn't renamed either
+            if name is self.dummyname:    # the other Variable wasn't renamed either
                 return
-            name = name[:name.rfind('_')]
         else:
             # remove strange characters in the name
             name = name.translate(PY_IDENTIFIER)
@@ -250,24 +256,42 @@ class Variable(object):
                 return
             if name[0] <= '9':   # skipped the   '0' <=   which is always true
                 name = '_' + name
-        self._name = '%s_%d' % (name, my_number)
+            name = intern(name + '_')
+        nd = self.namesdict
+        nr = nd.get(name, 0)
+        nd[name] = nr + 1
+        self._name = name
+        self._nr = nr
+
+    def set_name_from(self, v):
+        # this is for SSI_to_SSA only which should not know about internals
+        v.name  # make sure v's name is finalized
+        self._name = v._name
+        self._nr = v._nr
+
+    def set_name(self, name, nr):
+        # this is for wrapper.py which wants to assign a name explicitly
+        self._name = intern(name)
+        self._nr = nr
 
     def __reduce_ex__(self, *args):
         if hasattr(self, 'concretetype'):
-            return _bv, (self._name, self.concretetype)
+            return _bv, (self._name, self._nr, self.concretetype)
         else:
-            return _bv, (self._name,)
+            return _bv, (self._name, self._nr)
     __reduce__ = __reduce_ex__
 
-def _bv(_name, concretetype=None):
+def _bv(_name, _nr, concretetype=None):
     v = Variable.__new__(Variable, object)
     v._name = _name
+    v._nr = _nr
     if concretetype is not None:
         v.concretetype = concretetype
-    if type(_name) is int:
-        if _name > Variable.countall:
-            Variable.countall = _name
+    nd = v.namesdict
+    if _nr > nd.get(_name, -1):
+        nd[_name] = _nr + 1
     return v
+
 
 class Constant(Hashable):
     __slots__ = ["concretetype"]
@@ -282,6 +306,7 @@ class Constant(Hashable):
         else:
             return Constant, (self.value,)
     __reduce__ = __reduce_ex__
+
 
 class SpaceOperation(object):
     __slots__ = "opname args result offset".split()
@@ -315,6 +340,7 @@ class SpaceOperation(object):
 # a small and efficient restorer
 def _sop(opname, result, offset, *args):
     return SpaceOperation(opname, args, result, offset)
+
 
 class Atom:
     def __init__(self, name):

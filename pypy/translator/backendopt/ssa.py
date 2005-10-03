@@ -102,7 +102,7 @@ def SSI_to_SSA(graph):
     for v in variable_families.keys():
         v1 = variable_families.find_rep(v)
         if v1 != v:
-            v._name = v1.name
+            v.set_name_from(v1)
 
     # sanity-check that the same name is never used several times in a block
     variables_by_name = {}
