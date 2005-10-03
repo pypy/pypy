@@ -856,10 +856,20 @@ In the sequel, a lot of rules will be based on the following
 
 where ``\/`` is the union in the lattice *A*.
 
+The above operator is first of all used to propagate bindings of
+variables across links between basic block in the control flow graphs.
+For every link mapping a variable *x* in the source block to a variable
+*y* in the target block, we generate the following rule (``phi`` is not
+a normal operation in our `Flow graph model`_; we abuse the notation)::
+
+         y = phi(x)
+      ----------------------------------------
+               merge_into(x,y)
+
 The purpose of the equivalence relation *E* is to force two identified
-variables to keep the same binding, as defined by the following rule
-(which is actually a schema of rules, one each pair of variables
-*(x,y)*)::
+variables to keep the same binding.  The rationale for this is explained
+in the `Mutable objects`_ section below.  It is enforced by the
+following family of rules (one for each pair *(x,y)*)::
 
          (x~y) in E
       ----------------------------------------
@@ -1020,14 +1030,12 @@ Draft
     lookup_filter(NonPbcAnnotation, class) = NonPbcAnnotation
 
 
-XXX model and rules
-
-XXX constant propagation
-
 Prebuilt constants
 ~~~~~~~~~~~~~~~~~~
 
 XXX
+
+XXX constant arguments to operations
 
 Mutable objects
 ~~~~~~~~~~~~~~~
