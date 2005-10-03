@@ -702,8 +702,8 @@ Graphically::
              /      /         |         |     \
             /   NullableStr   |         |      |
           Int     /   \       |       (lists)  |
-          /     Str    \  (instances)   |    (pbcs)
-    NonNegInt     \     \     |         |      |
+          /     Str    \  (instances)   |      |
+    NonNegInt     \     \     |         |  (callables)
           \       Char   \    |\       /      /     
           Bool      \     \   | \     /      /
             \        \     `----- None -----/
@@ -759,10 +759,136 @@ information is used in constant propagation.  In addition, we have left
 out a number of other annotations that are irrelevant for the basic
 description of the annotator, and straightforward to handle.  The
 complete list is defined and documented in `pypy/annotation/model.py`_
-and described in more practical terms in `The Annotation Pass`_ in the
-reference documentation.
+and described in the `annotator reference documentation`_.
 
-.. _`The Annotation Pass`: translation.html#annotator
+.. _`annotator reference documentation`: translation.html#annotator
+
+
+Rules
+~~~~~
+
+In the sequel, we will use the following notations:
+
+- *A* is the lattice defined above;
+
+- *V* is the set of variable;
+
+- *E*, *E'*, *E''*... are equivalence relations on *V*; where
+  unambiguous, we write *v~v'* to mean that *v* and *v'* are identified
+  by *E*.
+
+- *b*, *b'*, *b''*... are maps from *V* to *A*.
+
+We call *state* a pair *(b,E)*.  We say that a state *(b',E')* is more
+general than a state *(b,E)* if *E* includes at least all relations of
+*E'* and for all variables *v* we have *b'(v) >= b(v)*.  There is:
+
+- a most general state, with *bmax(v) = Top* for all *v* and *Emax*
+  identifying all variables with each other;
+
+- a least general state, with *bmin(v) = Bottom* for all *v* and *Emin*
+  containing no relation (apart from the mandatory *v~v*).
+
+The goal of the annotator is to find the least general (i.e. most
+precise) state that is sound (i.e. correct for the user program).  We
+will formally introduce the conditions for soundness along the next
+sections.  The algorithm used is a fixpoint search: we start from the
+least general state and consider the conditions repeatedly; if a
+condition is not met, we generalize the state incrementally to
+accomodate for it.  This process continues until all conditions are
+satisfied.
+
+The conditions are presented as a set of rules.  A rule is a functional
+operation that, when applied, maps a state *(b,E)* to a possibly more
+general state *(b',E')* that satisfies the condition represented by the
+rule.
+
+Basically, each operation in the flow graphs of the user program
+generates one such rule.  The rules are conditional on the annotations
+bound to the operation's input argument variables, in a way that mimics
+the ad-hoc polymorphic nature of most Python operations.  We will not
+give all rules in the sequel, but focus on representative examples.
+An ``add`` operation generates the following rules::
+
+         z=add(x,y), b(x)<=Int, b(y)<=Int
+      ------------------------------------------------------
+               b' = b with (z->Int)
+
+
+         z=add(x,y), b(x)<=NonNegInt, b(y)<=NonNegInt
+      ------------------------------------------------------
+               b' = b with (z->NonNegInt)
+
+
+         z=add(x,y), b(x)<=NullableStr, b(y)<=NullableStr
+      ------------------------------------------------------
+               b' = b with (z->Str)
+
+The rules are read as follows: for the operation ``z=add(x,y)``, we
+consider the bindings of the variables *x* and *y* in the current state
+*(b,E)*; if one of the above rules apply, then we produce a new state
+*(b',E')* derived from the current state by changing the binding of the
+result variable *z*.  (Note that for conciseness, we have omitted the
+guards in the first rule that prevent it from being applied if the
+second rule (which is more precise) applies as well.)
+
+Also note that we do not generally try to prove the correctness and
+safety of the user program, preferring to rely on test coverage for
+that.  This is apparent in the third rule above, which considers
+concatenation of two potentially "nullable" strings, i.e. strings that
+the annotator could not prove to be non-None.  Instead of reporting an
+error, we take it as a hint that the two strings will not actually be
+None at run-time and proceed.
+
+~~~~~~~~~~~~~~~~~~~~~~
+
+In the sequel, a lot of rules will be based on the following
+``merge_into`` operator.  Given two variables *x* and *y*,
+``merge_into(x,y)`` modifies the state as follows::
+
+         merge_into(x,y):
+             if b(x)=List(v) and b(y)=List(w):
+                 b' = b
+                 E' = E union (v~w)
+             else:
+                 b' = b with (y -> b(x) \/ b(y))
+                 E' = E
+
+where ``\/`` is the union in the lattice *A*.
+
+The purpose of the equivalence relation *E* is to force two identified
+variables to keep the same binding, as defined by the following rule
+(which is actually a schema of rules, one each pair of variables
+*(x,y)*)::
+
+         (x~y) in E
+      ----------------------------------------
+               merge_into(x,y)
+               merge_into(y,x)
+
+Note that in theory, all rules should be tried repeatedly until none of
+them generalizes the state any more, at which point we have reached a
+fixpoint.  In practice, the rules are well suited to simple metarules
+that track a smaller set of rules that can possibly apply.  Only these
+"scheduled" rules are tried.  Rules are always applied sequentially.
+The metarules are as follows:
+
+- when an identification *x~y* is added to *E*, then the rule
+  ``(x~y) in E`` is scheduled to be considered;
+
+- when a binding *b(x)* is modified, then all rules about operations
+  that have *x* as an input argument are (re-)scheduled.  This includes
+  the rules ``(x~y) in E`` for each *y* that *E* identifies to *x*.
+
+These rules and metarules favor a forward propagation: the rule
+corresponding to an operation in a flow graph typically modifies the
+binding of the operation's result variable which is used in a following
+operation in the same block, thus scheduling the following operation's
+rule for consideration.  The actual process is very similar to -- and
+actually implemented as -- abstract interpretation on the flow graphs,
+considering each operation in turn in the order they appear in the
+block.  Effects that are not local to a block trigger a rescheduling of
+the whole block instead of single operations.
 
 
 Draft
