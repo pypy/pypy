@@ -267,6 +267,13 @@ class TranslationDriver(SimpleTaskEngine):
         self.c_entryp = self.llvmgen.create_module(self.llvm_filename,
                                                    standalone=self.standalone,
                                                    exe_name = 'pypy-llvm')
+        if self.standalone:
+            import shutil
+            exename = mkexename(self.c_entryp)
+            newexename = mkexename('./pypy-llvm')
+            shutil.copy(exename, newexename)
+            self.c_entryp = newexename
+            self.log.info("created: %s" % (self.c_entryp,))
     #
     task_compile_llvm = taskdef(task_compile_llvm, 
                                 ['source_llvm'], 
