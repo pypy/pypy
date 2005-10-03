@@ -6,9 +6,6 @@
  * executables (which are *not* linked against CPython then),
  * to get the convenient macro definitions
  */
-#ifdef PYPY_STANDALONE
-#define Py_BUILD_CORE  /* for Windows: avoid pulling libs in */
-#endif
 #include "Python.h"
 
 
