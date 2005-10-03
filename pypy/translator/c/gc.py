@@ -359,7 +359,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         #if sys.platform == "linux2":
         #    yield "#define _REENTRANT 1"
         #    yield "#define GC_LINUX_THREADS 1"
-        yield '#include <gc.h>'
+        yield '#include <gc/gc.h>'
         yield '#define USING_BOEHM_GC'
 
     def gc_startup_code(self):
