@@ -35,7 +35,6 @@ flags = os.popen("gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1").read
 #    flags.insert(flags.index("-inline")+1, "-heap2stack -debug")
 
 OPTIMIZATION_SWITCHES = " ".join(flags)
-#print OPTIMIZATION_SWITCHES
 
 def compile_module(module, source_files, object_files, library_files):
     open("%s_setup.py" % module, "w").write(str(py.code.Source(

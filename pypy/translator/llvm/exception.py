@@ -46,7 +46,6 @@ else:
         decl = node.getdecl()
         returntype, name = decl.split(' ', 1)
         noresult = self._noresult(returntype)
-        #print 'XXX decl=%s -> returntype=%s -> noresult=ret %s' % (decl, returntype, noresult)
         return noresult
 
     def new(exceptionpolicy=None):  #factory

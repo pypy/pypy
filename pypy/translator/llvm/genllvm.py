@@ -8,7 +8,6 @@ import py
 from pypy.translator.llvm import build_llvm_module
 from pypy.translator.llvm.database import Database 
 from pypy.translator.llvm.pyxwrapper import write_pyx_wrapper 
-from pypy.translator.llvm.log import log
 from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
@@ -24,6 +23,9 @@ from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.exception import ExceptionPolicy
 from pypy.translator.translator import Translator
 
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("llvm")
+log.setconsumer("llvm", ansi_log)
 
 function_count = {}
 llexterns_header = llexterns_functions = None
@@ -48,9 +50,9 @@ class GenLLVM(object):
         if self.debug:
             if msg:
                 t = (time.time() - self.starttime)
-                print '\t%s took %02dm%02ds' % (msg, t/60, t%60)
+                log('\t%s took %02dm%02ds' % (msg, t/60, t%60))
             else:
-                print 'GenLLVM:'
+                log('GenLLVM:')
             self.starttime = time.time()
 
     def _print_node_stats(self):
@@ -85,7 +87,7 @@ class GenLLVM(object):
         stats = [(count, str(typ)) for typ, count in nodecount.iteritems()]
         stats.sort()
         for s in stats:
-            print 'STATS', s
+            log('STATS %s' % str(s))
 
     def gen_llvm_source(self, func=None):
         """
@@ -245,7 +247,7 @@ def genllvm(translator, gcpolicy=None, exceptionpolicy=None, log_source=False, *
     gen = GenLLVM(translator, GcPolicy.new(gcpolicy), ExceptionPolicy.new(exceptionpolicy))
     filename = gen.gen_llvm_source()
     if log_source:
-        log.genllvm(open(filename).read())
+        log(open(filename).read())
     return gen.create_module(filename, **kwds)
 
 def compile_module(function, annotation, view=False, **kwds):

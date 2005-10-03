@@ -1,7 +1,8 @@
 from pypy.objspace.flow.model import Block, Constant, flatten
+from pypy.translator.llvm.backendopt.support import log
 
 
-def remove_exception_mallocs(translator, graph):
+def remove_exception_mallocs(translator, graph, ref):
     """Remove mallocs that occur because an exception is raised.
     Typically this data is shortlived and occuring often in highlevel
     languages like Python. So it would be preferable if we would not need
@@ -27,7 +28,8 @@ def remove_exception_mallocs(translator, graph):
         name = str(ops[0].args[0])
         if 'Exception' not in name and 'Error' not in name: #XXX better to look at the actual structure
             continue
-        print 'remove_exception_malloc: ', name
+        log.removeexceptionmallocs('%s from function %s' % (name, ref))
         ops[0].opname = 'malloc_exception'  #XXX refactor later to not use a new operationtype
         n_removed += 1
+
     return n_removed
