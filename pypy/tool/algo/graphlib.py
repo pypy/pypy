@@ -11,12 +11,15 @@ class Edge:
     def __init__(self, source, target):
         self.source = source
         self.target = target
+    def __repr__(self):
+        return '%r -> %r' % (self.source, self.target)
 
 def make_edge_dict(edge_list):
     "Put a list of edges in the official dict format."
     edges = {}
     for edge in edge_list:
         edges.setdefault(edge.source, []).append(edge)
+        edges.setdefault(edge.target, [])
     return edges
 
 def depth_first_search(root, vertices, edges):
@@ -41,13 +44,15 @@ def strong_components(vertices, edges):
     """
     component_root = {}
     discovery_time = {}
+    remaining = vertices.copy()
     stack = []
 
     for root in vertices:
-        if root not in discovery_time:
+        if root in remaining:
 
-            for event, v in depth_first_search(root, vertices, edges):
+            for event, v in depth_first_search(root, remaining, edges):
                 if event == 'start':
+                    del remaining[v]
                     discovery_time[v] = len(discovery_time)
                     component_root[v] = v
                     stack.append(v)
@@ -60,13 +65,13 @@ def strong_components(vertices, edges):
                             wroot = component_root[w]
                             if discovery_time[wroot] < discovery_time[vroot]:
                                 vroot = wroot
-                    if vroot is v:
+                    if vroot == v:
                         component = {}
                         while True:
                             w = stack.pop()
                             del component_root[w]
                             component[w] = True
-                            if w is v:
+                            if w == v:
                                 break
                         yield component
                     else:
