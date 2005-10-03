@@ -288,7 +288,7 @@ def _bv(_name, _nr, concretetype=None):
     if concretetype is not None:
         v.concretetype = concretetype
     nd = v.namesdict
-    if _nr > nd.get(_name, -1):
+    if _nr >= nd.get(_name, 0):
         nd[_name] = _nr + 1
     return v
 
