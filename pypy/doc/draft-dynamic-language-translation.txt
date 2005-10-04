@@ -813,18 +813,18 @@ give all rules in the sequel, but focus on representative examples.  An
 are replaced by the variables that really appear in each particular
 ``add`` operation in the flow graphs of the user program)::
 
-         z=add(x,y), b(x)<=Int, b(y)<=Int
+         z=add(x,y), Bool<=b(x)<=Int, Bool<=b(y)<=Int
       ------------------------------------------------------
                b' = b with (z->Int)
 
 
-         z=add(x,y), b(x)<=NonNegInt, b(y)<=NonNegInt
-      ------------------------------------------------------
+         z=add(x,y), Bool<=b(x)<=NonNegInt, Bool<=b(y)<=NonNegInt
+      -------------------------------------------------------------
                b' = b with (z->NonNegInt)
 
 
-         z=add(x,y), b(x)<=NullableStr, b(y)<=NullableStr
-      ------------------------------------------------------
+         z=add(x,y), Char<=b(x)<=NullableStr, Char<=b(y)<=NullableStr
+      ----------------------------------------------------------------
                b' = b with (z->Str)
 
 The rules are read as follows: for the operation ``z=add(x,y)``, we
@@ -832,9 +832,12 @@ consider the bindings of the variables *x* and *y* in the current state
 *(b,E)*; if the bindings satisfy the given conditions, then the rule is
 applicable.  Applying the rule means producing a new state *(b',E')*
 derived from the current state -- here by changing the binding of the
-result variable *z*.  (Note that for conciseness, we have omitted the
-guards in the first rule that prevent it from being applied if the
-second rule (which is more precise) applies as well.)
+result variable *z*.
+
+Note that for conciseness, we omitted the guards in the first rule that
+prevent it from being applied if the second rule (which is more precise)
+applies as well.  As none of these rules modify *E*, we also omitted the
+``E'=E``.
 
 Also note that we do not generally try to prove the correctness and
 safety of the user program, preferring to rely on test coverage for
@@ -1033,50 +1036,6 @@ Draft
     b: V->A
     V: set of variables
     A: fixed lattice of the above annotation terms
-
-
-
-         E(x,y)
-      ----------------------------------------
-               merge_into(x,y)
-               merge_into(y,x)
-
-
-         z=add(x,y), b(x)=List(v), b(y)=List(w)
-      --------------------------------------------
-               E' = E union (v~w)
-               b' = b with (z->List(v))
-
-
-         z=add(x,y), b(x)<=NullableStr, b(y)<=NullableStr
-      ------------------------------------------------------
-               b' = b with (z->Str)
-
-
-         merge_into(x,y), b(x)=List(v), b(y)=List(w)
-      -------------------------------------------------
-               E' = E union (v~w)
-
-
-         merge_into(x,y), b(x) and b(y) not both Lists
-      ---------------------------------------------------
-               b' = b with (y->b(x)\/b(y))
-
-
-         z=new_list() | z'
-      -------------------------------------
-               b' = b with (z->List(z'))
-
-
-         z=getitem(x,y) | z', b(x)=List(v)
-      --------------------------------------------
-               E' = E union (z'~v)
-               b' = b with (z->b(z'))
-
-
-         setitem(x,y,z), b(x)=List(v)
-      --------------------------------------------
-               merge_into(z,v)
 
 
          z=getattr(x,attr) | z', b(x)=Inst(A)
