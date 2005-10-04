@@ -103,8 +103,6 @@ class ClientGraphLayout(DotGraphLayout):
         # generate a temporary .dot file and call dot on it
         DOT_FILE.write(dot)
         DotGraphLayout.__init__(self, DOT_FILE)
-        self.mtime = self.dotfilename.stat().mtime
-        DotGraphLayout.__init__(self, dotfilename)
         self.connexion = connexion
         self.key = key
         self.links.update(links)
