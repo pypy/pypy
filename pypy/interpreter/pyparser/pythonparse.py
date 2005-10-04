@@ -39,7 +39,7 @@ class PythonParser(object):
 
         lines = [line + '\n' for line in textsrc.split('\n')]
         builder.source_encoding = enc
-        if textsrc[-1] =='\n':
+        if len(textsrc) and textsrc[-1] == '\n':
             lines.pop()
             flags &= ~PyCF_DONT_IMPLY_DEDENT
         return self.parse_lines(lines, goal, builder, flags)
