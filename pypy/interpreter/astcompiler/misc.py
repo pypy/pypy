@@ -1,4 +1,3 @@
-
 from pypy.interpreter.astcompiler import ast
 
 def flatten(tup):
@@ -18,45 +17,6 @@ class Counter:
         i = self.count
         self.count += 1
         return i
-
-class Set:
-    _annspecialcase_ = "specialize:ctr_location" # polymorphic
-
-    def __init__(self):
-        self.elts = {}
-    def __len__(self):
-        return len(self.elts)
-    def __contains__(self, elt):
-        return elt in self.elts
-    def add(self, elt):
-        self.elts[elt] = elt
-    def elements(self):
-        return self.elts.keys()
-    def has_elt(self, elt):
-        return elt in self.elts
-    def remove(self, elt):
-        del self.elts[elt]
-    def copy(self):
-        c = Set()
-        c.elts.update(self.elts)
-        return c
-
-class Stack:
-    _annspecialcase_ = "specialize:ctr_location" # polymorphic
-
-    def __init__(self):
-        self.stack = []
-        self.pop = self.stack.pop
-    def __len__(self):
-        return len(self.stack)
-    def push(self, elt):
-        self.stack.append(elt)
-    def top(self):
-        return self.stack[-1]
-    def __getitem__(self, index): # needed by visitContinue()
-        return self.stack[index]
-    def elementAtIndex(self, index):
-        return self.stack[index]
 
 MANGLE_LEN = 256 # magic constant from compile.c
 

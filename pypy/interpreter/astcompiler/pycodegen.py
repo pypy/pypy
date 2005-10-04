@@ -143,7 +143,7 @@ class CodeGenerator(ast.ASTVisitor):
 
     def __init__(self, space, graph):
         self.space = space
-        self.setups = misc.Stack()
+        self.setups = [] 
         self.last_lineno = -1
         self._div_op = "BINARY_DIVIDE"
         self.genexpr_cont_stack = []
@@ -425,7 +425,7 @@ class CodeGenerator(ast.ASTVisitor):
         self.emitop_block('SETUP_LOOP', after)
 
         self.nextBlock(loop)
-        self.setups.push((LOOP, loop))
+        self.setups.append((LOOP, loop))
 
         self.set_lineno(node, force=True)
         node.test.accept( self )
@@ -448,7 +448,7 @@ class CodeGenerator(ast.ASTVisitor):
         start = self.newBlock()
         anchor = self.newBlock()
         after = self.newBlock()
-        self.setups.push((LOOP, start))
+        self.setups.append((LOOP, start))
 
         self.set_lineno(node)
         self.emitop_block('SETUP_LOOP', after)
@@ -469,15 +469,15 @@ class CodeGenerator(ast.ASTVisitor):
         self.nextBlock(after)
 
     def visitBreak(self, node):
-        if not self.setups:
+        if len(self.setups) == 0:
             raise SyntaxError( "'break' outside loop", node.lineno)
         self.set_lineno(node)
         self.emit('BREAK_LOOP')
 
     def visitContinue(self, node):
-        if not self.setups:
+        if len(self.setups) == 0:
             raise SyntaxError( "'continue' not properly in loop", node.lineno)
-        kind, block = self.setups.top()
+        kind, block = self.setups[-1]
         if kind == LOOP:
             self.set_lineno(node)
             self.emitop_block('JUMP_ABSOLUTE', block)
@@ -485,11 +485,11 @@ class CodeGenerator(ast.ASTVisitor):
         elif kind == EXCEPT or kind == TRY_FINALLY:
             self.set_lineno(node)
             # find the block that starts the loop
-            top = len(self.setups.stack)
+            top = len(self.setups)
             loop_block = None
             while top > 0:
                 top = top - 1
-                kind, loop_block = self.setups.elementAtIndex(top)
+                kind, loop_block = self.setups[top]
                 if kind == LOOP:
                     break
             if kind != LOOP:
@@ -741,7 +741,7 @@ class CodeGenerator(ast.ASTVisitor):
         self.set_lineno(node)
         self.emitop_block('SETUP_EXCEPT', handlers)
         self.nextBlock(body)
-        self.setups.push((EXCEPT, body))
+        self.setups.append((EXCEPT, body))
         node.body.accept( self )
         self.emit('POP_BLOCK')
         self.setups.pop()
@@ -785,13 +785,13 @@ class CodeGenerator(ast.ASTVisitor):
         self.set_lineno(node)
         self.emitop_block('SETUP_FINALLY', final)
         self.nextBlock(body)
-        self.setups.push((TRY_FINALLY, body))
+        self.setups.append((TRY_FINALLY, body))
         node.body.accept( self )
         self.emit('POP_BLOCK')
         self.setups.pop()
         self.emitop_obj('LOAD_CONST', self.space.w_None)
         self.nextBlock(final)
-        self.setups.push((END_FINALLY, final))
+        self.setups.append((END_FINALLY, final))
         node.final.accept( self )
         self.emit('END_FINALLY')
         self.setups.pop()
@@ -1012,8 +1012,8 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('RETURN_VALUE')
 
     def visitYield(self, node):
-        if self.setups:
-            kind, block = self.setups.top()
+        if len(self.setups):
+            kind, block = self.setups[-1]
             if kind  == TRY_FINALLY:
                 raise SyntaxError("'yield' not allowed in a 'try' block "
                                   "with a 'finally' clause",
