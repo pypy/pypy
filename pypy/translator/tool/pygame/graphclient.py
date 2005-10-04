@@ -41,18 +41,25 @@ def dot2plain(dotfile, plainfile, use_codespeak=False):
                            str(plainfile),
                            data=request)
 
-class ClientGraphLayout(GraphLayout):
+class DotGraphLayout(GraphLayout):
+    """A graph layout computed by dot from a .dot file.
+    """
+    def __init__(self, dotfilename):
+        try:
+            dot2plain(dotfilename, PLAIN_FILE, use_codespeak=False)
+            GraphLayout.__init__(self, PLAIN_FILE)
+        except (py.error.Error, IOError, TypeError, ValueError):
+            # failed, try via codespeak
+            dot2plain(dotfilename, PLAIN_FILE, use_codespeak=True)
+            GraphLayout.__init__(self, PLAIN_FILE)
+
+
+class ClientGraphLayout(DotGraphLayout):
 
     def __init__(self, connexion, key, dot, links, **ignored):
         # generate a temporary .dot file and call dot on it
         DOT_FILE.write(dot)
-        try:
-            dot2plain(DOT_FILE, PLAIN_FILE, use_codespeak=False)
-            GraphLayout.__init__(self, PLAIN_FILE)
-        except (py.error.Error, IOError, TypeError, ValueError):
-            # failed, try via codespeak
-            dot2plain(DOT_FILE, PLAIN_FILE, use_codespeak=True)
-            GraphLayout.__init__(self, PLAIN_FILE)
+        DotGraphLayout.__init__(self, DOT_FILE)
         self.connexion = connexion
         self.key = key
         self.links.update(links)
@@ -117,6 +124,10 @@ def display_remote_layout(hostname, port=8888):
     conn = SocketConnexion(s)
     display = ClientGraphLayout(conn, None, "digraph empty {}", {}).get_display()
     conn.initiate_display(0)
+    display.run()
+
+def display_dot_file(filename):
+    display = DotGraphLayout(filename).get_display()
     display.run()
 
 
