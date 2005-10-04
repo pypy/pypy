@@ -85,10 +85,14 @@ if __name__ == '__main__':
         eps = psfile.new(ext="eps")
         print eps.read()
     elif options.format == "png":
-        ps2eps(psfile)
-        eps = psfile.new(ext="eps")
-        py.process.cmdexec("convert %s %s" % (eps, psfile.new(ext="png")))
         png = psfile.new(ext="png")
+        eps = psfile.new(ext="eps")
+        try:
+            ps2eps(psfile)
+        except:
+            #ok, no eps converter found
+            py.process.cmdexec("convert %s %s" % (psfile, png))
+        else:
+            py.process.cmdexec("convert %s %s" % (eps, png))
         print png.read()
     
-
