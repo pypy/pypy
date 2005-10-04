@@ -66,7 +66,7 @@ def test_constant_fold_call():
     graph, t = get_graph(g, [int])
     while constant_folding(graph, t):
         pass
-    assert len(graph.startblock.operations) == 1
+    assert len(graph.startblock.operations) == 4
     check_graph(graph, [10], g(10), t)
 
 def test_fold_const_blocks():
@@ -82,7 +82,7 @@ def test_fold_const_blocks():
     graph, t = get_graph(g, [int])
     partial_folding(graph, t)
     constant_folding(graph, t)
-    assert len(graph.startblock.operations) == 1
+    assert len(graph.startblock.operations) == 3
     check_graph(graph, [10], g(10), t)
 
 def getitem(l, i):  #LookupError, KeyError

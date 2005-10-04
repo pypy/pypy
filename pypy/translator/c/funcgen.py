@@ -539,7 +539,7 @@ class FunctionCodeGenerator(object):
         return '\t'.join(result)
 
     def OP_KEEPALIVE(self, op, err): # xxx what should be the sematics consequences of this
-        return "/* kept alive: %s */ ;" % ''.join([self.expr(v, special_case_void=False) for v in op.args])
+        return "/* kept alive: %s */ ;" % self.expr(op.args[0], special_case_void=False)
 
     def pyobj_incref(self, v):
         T = self.lltypemap(v)

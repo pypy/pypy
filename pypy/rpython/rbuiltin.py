@@ -398,6 +398,8 @@ BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
 # keepalive
 
 def rtype_keepalive(hop):
-    return hop.genop('keepalive', hop.args_v, resulttype=lltype.Void)
+    for v in hop.args_v:
+        hop.genop('keepalive', hop.args_v, resulttype=lltype.Void)
+    return hop.inputconst(lltype.Void, None)
 
 BUILTIN_TYPER[objectmodel.keepalive] = rtype_keepalive

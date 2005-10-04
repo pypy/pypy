@@ -90,7 +90,7 @@ def test_list_comp():
     res = interp.eval_function(f, [11, 22])
     assert res == 33
 
-def inprogress_test_premature_death():
+def test_premature_death():
     import os
     from pypy.annotation import listdef
 

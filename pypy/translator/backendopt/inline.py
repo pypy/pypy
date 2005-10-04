@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import Bool, typeOf
+from pypy.rpython.lltype import Bool, typeOf, Void
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt.support import log
@@ -62,7 +62,7 @@ def inline_function(translator, inline_func, graph):
 def _find_exception_type(block):
     #XXX slightly brittle: find the exception type for simple cases
     #(e.g. if you do only raise XXXError) by doing pattern matching
-    ops = block.operations
+    ops = [op for op in block.operations if op.opname != 'keepalive'] 
     if (len(ops) < 6 or
         ops[-6].opname != "malloc" or ops[-5].opname != "cast_pointer" or
         ops[-4].opname != "setfield" or ops[-3].opname != "cast_pointer" or
@@ -129,6 +129,14 @@ def _inline_function(translator, graph, block, index_operation):
         if hasattr(link, 'llexitcase'):
             newlink.llexitcase = link.llexitcase
         return newlink
+    def generate_keepalive(vars):
+        keepalive_ops = []
+        for v in vars:
+            v_keepalive = Variable()
+            v_keepalive.concretetype = Void
+            keepalive_ops.append(SpaceOperation('keepalive', [v], v_keepalive))
+        return keepalive_ops
+
     linktoinlined = beforeblock.exits[0]
     assert linktoinlined.target is afterblock
     copiedstartblock = copy_block(graph_to_inline.startblock)
@@ -146,7 +154,7 @@ def _inline_function(translator, graph, block, index_operation):
     linktoinlined.target = copiedstartblock
     linktoinlined.args = passon_args
     afterblock.inputargs = [op.result] + afterblock.inputargs
-    afterblock.operations = afterblock.operations[1:]
+    afterblock.operations = generate_keepalive(afterblock.inputargs) + afterblock.operations[1:]
     if graph_to_inline.returnblock in entrymap:
         copiedreturnblock = copied_blocks[graph_to_inline.returnblock]
         linkfrominlined = Link([copiedreturnblock.inputargs[0]] + passon_vars[graph_to_inline.returnblock], afterblock)
@@ -193,6 +201,7 @@ def _inline_function(translator, graph, block, index_operation):
             #try to match the exceptions for simple cases
             for link in entrymap[graph_to_inline.exceptblock]:
                 copiedblock = copied_blocks[link.prevblock]
+                copiedblock.operations += generate_keepalive(passon_vars[link.prevblock])
                 copiedlink = copiedblock.exits[0]
                 eclass = _find_exception_type(copiedblock)
                 #print copiedblock.operations
@@ -242,6 +251,7 @@ def _inline_function(translator, graph, block, index_operation):
             blocks[-1].exitswitch = None
             linkargs = copiedexceptblock.inputargs
             copiedexceptblock.closeblock(Link(linkargs, blocks[0]))
+            copiedexceptblock.operations += generate_keepalive(linkargs)
             afterblock.exits = [afterblock.exits[0]]
             afterblock.exitswitch = None
     #cleaning up -- makes sense to be here, because I insert quite
