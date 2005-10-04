@@ -17,6 +17,7 @@ def remove_exception_mallocs(translator, graph, ref):
              an exception instance 'long' after it has been raised.
     """
     n_removed = 0
+    n_removed_of_type = {}
     blocks = [x for x in flatten(graph) if isinstance(x, Block)]
     for block in blocks:
         ops = block.operations
@@ -28,8 +29,14 @@ def remove_exception_mallocs(translator, graph, ref):
         name = str(ops[0].args[0])
         if 'Exception' not in name and 'Error' not in name: #XXX better to look at the actual structure
             continue
-        log.removeexceptionmallocs('%s from function %s' % (name, ref))
+        #log.removeexceptionmallocs('%s from function %s' % (name, ref))
         ops[0].opname = 'malloc_exception'  #XXX refactor later to not use a new operationtype
         n_removed += 1
+        if name in n_removed_of_type:   n_removed_of_type[name] += 1
+        else:                           n_removed_of_type[name]  = 1
 
+    if n_removed:
+        log.removeexceptionmallocs('%dx' % (n_removed,))
+        for k,v in n_removed_of_type.iteritems():
+            log.removeexceptionmallocs(' -> %dx %s' % (v, k))
     return n_removed
