@@ -45,6 +45,7 @@ class DotGraphLayout(GraphLayout):
     """A graph layout computed by dot from a .dot file.
     """
     def __init__(self, dotfilename):
+        self.dotfilename = py.path.local(dotfilename)
         try:
             dot2plain(dotfilename, PLAIN_FILE, use_codespeak=False)
             GraphLayout.__init__(self, PLAIN_FILE)
@@ -54,14 +55,56 @@ class DotGraphLayout(GraphLayout):
             GraphLayout.__init__(self, PLAIN_FILE)
     
     def request_reload(self):
-        pass
+        self.__init__(self.dotfilename) 
+        display_async_cmd(layout=self)        
 
+class ReloadingDotGraphLayout(DotGraphLayout):
+    """A graph layout computed by dot from a .dot file.
+    when a reload is requested, it checks whether the date of the dotfile
+    is newer that the saved date and reloads the dot file, if that is the
+    case"""
+    # XXX XXX XXX
+    # this class is a bit hackish and should not be used outside of the dotviewer.py
+    # environment
+    def __init__(self, dotfilename):
+        import pygame
+        import pygame.locals
+        self.ev1 = pygame.event.Event(pygame.KEYDOWN, key=pygame.locals.K_q, mod=0,
+                                      unicode=u"r")
+        self.ev2 = pygame.event.Event(pygame.KEYUP)
+        self.stop = False
+        DotGraphLayout.__init__(self, dotfilename)
+    
+    def get_display(self):
+        from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
+        import threading
+        display = GraphDisplay(self)
+        thread = threading.Thread(target=self.issue_reloads, args=[display])
+        thread.start()
+        return display
+
+    def issue_reloads(self, display):
+        print "starting issue_reloads"
+        import time, pygame
+        mtime = self.dotfilename.stat().mtime
+        while 1:
+            time.sleep(1)
+            newmtime = self.dotfilename.stat().mtime
+            if newmtime > mtime:
+                mtime = newmtime
+                pygame.event.post(self.ev1)
+                pygame.event.post(self.ev2)
+            if self.stop:
+                break
+    
 class ClientGraphLayout(DotGraphLayout):
 
     def __init__(self, connexion, key, dot, links, **ignored):
         # generate a temporary .dot file and call dot on it
         DOT_FILE.write(dot)
         DotGraphLayout.__init__(self, DOT_FILE)
+        self.mtime = self.dotfilename.stat().mtime
+        DotGraphLayout.__init__(self, dotfilename)
         self.connexion = connexion
         self.key = key
         self.links.update(links)
@@ -128,9 +171,15 @@ def display_remote_layout(hostname, port=8888):
     conn.initiate_display(0)
     display.run()
 
-def display_dot_file(filename):
-    display = DotGraphLayout(filename).get_display()
-    display.run()
+def display_dot_file(filename, reload_repeatedly=False):
+    if reload_repeatedly:
+        layout = ReloadingDotGraphLayout(filename)
+        display = layout.get_display()
+        display.run()
+        layout.stop = True
+    else:
+        display = DotGraphLayout(filename).get_display()
+        display.run()
 
 
 if __name__ == '__main__':
