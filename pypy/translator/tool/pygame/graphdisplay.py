@@ -420,8 +420,8 @@ class GraphDisplay(Display):
 
     def reload(self):
         self.setstatusbar('reloading...')
-        self.layout.request_reload()
         self.redraw_now()
+        self.layout.request_reload()
 
     def setstatusbar(self, text, fgcolor=None, bgcolor=None):
         info = (text, fgcolor or self.STATUSBAR_FGCOLOR, bgcolor or self.STATUSBAR_BGCOLOR)
