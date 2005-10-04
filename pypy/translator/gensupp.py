@@ -100,30 +100,28 @@ class NameManager(object):
                 raise NameError, "%s has already been seen!"
             self.seennames[name] = 1
 
+    def _ensure_unique(self, basename):
+        n = self.seennames.get(basename, 0)
+        self.seennames[basename] = n+1
+        if n:
+            return self._ensure_unique('%s_%d' % (basename, n))
+        return basename
+
     def uniquename(self, basename, with_number=None, bare=False, lenmax=50):
         basename = basename[:lenmax].translate(C_IDENTIFIER)
         n = self.seennames.get(basename, 0)
         self.seennames[basename] = n+1
         if with_number is None:
             with_number = basename in ('v', 'w_')
-        if with_number:
-            if n == 0:
-                newname = '%s%d' % (basename, n)
-                if bare:
-                    return newname, self.global_prefix + newname
-                else:
-                    return self.global_prefix + newname
-            else:
-                return self.uniquename('%s%d' % (basename, n), bare=bare,
-                                       lenmax=sys.maxint)
-        if n == 0:
-                if bare:
-                    return basename, self.global_prefix + basename
-                else:
-                    return self.global_prefix + basename
+        fmt = '%s_%d'
+        if with_number and not basename[-1].isdigit():
+            fmt = '%s%d'
+        if n != 0 or with_number:
+            basename = self._ensure_unique(fmt % (basename, n))
+        if bare:
+            return basename, self.global_prefix + basename
         else:
-            return self.uniquename('%s_%d' % (basename, n), bare=bare,
-                                   lenmax=sys.maxint)
+            return self.global_prefix + basename
 
     def localScope(self, parent=None):
         ret = _LocalScope(self, parent)
