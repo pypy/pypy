@@ -12,7 +12,7 @@ class Options:
     uselibfile = 0
     nofaking = 0
     parser = "pypy" # "cpython" / "pypy" 
-    compiler = "stable" 
+    compiler = "ast" 
          # "stable" uses interpreter/pyparser & interpreter/stablecompiler 
          # "_stable" uses intepreter/pyparser & lib/_stablecompiler 
          # "ast" uses interpreter/pyparser & interpreter/astcompiler.py 

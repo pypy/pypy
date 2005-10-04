@@ -65,7 +65,7 @@ def target(driver, args):
     else:
         usemodules = ['thread']
     space = StdObjSpace(nofaking=True,
-                        compiler="_stable", # lib/_stablecompiler
+                        compiler="ast", # interpreter/astcompiler
                         translating=True,
                         usemodules=usemodules,
                         geninterp=geninterp)

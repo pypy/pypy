@@ -113,7 +113,7 @@ class ObjSpace(object):
                  nofaking=False, 
                  uselibfile=False,
                  parser="pypy", 
-                 compiler="stable",
+                 compiler="ast",
                  translating=False,
                  geninterp=True,
                  **kw
