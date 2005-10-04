@@ -31,6 +31,7 @@ class Scope:
         # i.e. if it is nested within another function.
         self.nested = 0
         self.generator = False
+        self.firstReturnWithArgument = None
         self.klass = None
         if klass is not None:
             for i in range(len(klass)):
@@ -232,7 +233,7 @@ class SymbolVisitor(ast.ASTVisitor):
         self.klass = None
         self.scope_stack = []
         self.assign_stack = [ False ]
-
+        
     def cur_assignment(self):
         return self.assign_stack[-1]
 
@@ -303,7 +304,6 @@ class SymbolVisitor(ast.ASTVisitor):
         self.handle_free_vars(scope, parent)
 
     def visitGenExprInner(self, node ):
-        #scope = self.cur_scope()
         for genfor in node.quals:
             genfor.accept( self )
 
@@ -483,23 +483,27 @@ class SymbolVisitor(ast.ASTVisitor):
 
     # prune if statements if tests are false
 
-    def visitIf(self, node ):
-        for test, body in node.tests:
-            if isinstance(test, ast.Const):
-                if not self.space.is_true(test.value):
-                    continue
-            test.accept( self )
-            body.accept( self )
-        if node.else_:
-            node.else_.accept( self )
-
     # a yield statement signals a generator
 
     def visitYield(self, node ):
         scope = self.cur_scope()
         scope.generator = True
+        if scope.firstReturnWithArgument is not None:
+                raise SyntaxError("'return' with argument inside generator",
+                                  scope.firstReturnWithArgument.lineno)
+            
         node.value.accept( self )
-
+        
+    def visitReturn(self, node):
+        scope = self.cur_scope()
+        if node.value is not None:
+            if scope.generator:
+                raise SyntaxError("'return' with argument inside generator",
+                                  node.lineno)
+            if scope.firstReturnWithArgument is None:
+                scope.firstReturnWithArgument = node
+            node.value.accept(self)
+            
 def sort(l):
     l = l[:]
     l.sort()

@@ -1006,8 +1006,6 @@ class CodeGenerator(ast.ASTVisitor):
         if node.value is None:
             self.emitop_obj('LOAD_CONST', self.space.w_None)
         else:
-            if self.scope.generator:
-                raise SyntaxError("'return' with argument inside generator", node.lineno)
             node.value.accept( self )
         self.emit('RETURN_VALUE')
 
