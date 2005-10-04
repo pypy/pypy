@@ -213,8 +213,8 @@ class Block(object):
 class Variable(object):
     __slots__ = ["_name", "_nr", "concretetype"]
 
-    dummyname = intern('v')
-    namesdict = {dummyname : 0}
+    dummyname = 'v'
+    namesdict = {dummyname : (dummyname, 0)}
 
     def name(self):
         _name = self._name
@@ -222,8 +222,8 @@ class Variable(object):
         if _nr == -1:
             # consume numbers lazily
             nd = self.namesdict
-            _nr = self._nr = nd[_name]
-            nd[_name] = _nr + 1
+            _nr = self._nr = nd[_name][1]
+            nd[_name] = (_name, _nr + 1)
         return "%s%d" % (_name, _nr)
     name = property(name)
 
@@ -234,7 +234,7 @@ class Variable(object):
     def __init__(self, name=None):
         self._name = self.dummyname
         self._nr = -1
-        # wait with assigning a vxxx number until the name is requested
+        # numbers are bound lazily, when the name is requested
         if name is not None:
             self.rename(name)
 
@@ -251,17 +251,11 @@ class Variable(object):
                 return
         else:
             # remove strange characters in the name
-            name = name.translate(PY_IDENTIFIER)
-            if not name:
-                return
+            name = name.translate(PY_IDENTIFIER) + '_'
             if name[0] <= '9':   # skipped the   '0' <=   which is always true
                 name = '_' + name
-            name = intern(name + '_')
-        nd = self.namesdict
-        nr = nd.get(name, 0)
-        nd[name] = nr + 1
+            name = self.namesdict.setdefault(name, (name, 0))[0]
         self._name = name
-        self._nr = nr
 
     def set_name_from(self, v):
         # this is for SSI_to_SSA only which should not know about internals
