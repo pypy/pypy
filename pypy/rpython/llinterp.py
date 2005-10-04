@@ -109,6 +109,9 @@ class LLFrame(object):
     # _______________________________________________________
     # variable setters/getters helpers
 
+    def clear(self):
+        self.bindings.clear()
+
     def fillvars(self, block, values):
         vars = block.inputargs
         assert len(vars) == len(values), (
@@ -150,6 +153,7 @@ class LLFrame(object):
         nextblock = graph.startblock
         args = self.args
         while 1:
+            self.clear()
             self.fillvars(nextblock, args)
             nextblock, args = self.eval_block(nextblock)
             if nextblock is None:

@@ -3,6 +3,7 @@ from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.backendopt.test.test_malloc import check_malloc_removed
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import Constant
+from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 
 
@@ -88,3 +89,42 @@ def test_list_comp():
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     res = interp.eval_function(f, [11, 22])
     assert res == 33
+
+def inprogress_test_premature_death():
+    import os
+    from pypy.annotation import listdef
+
+    ldef = listdef.ListDef(None, annmodel.SomeString())
+    inputtypes = [annmodel.SomeList(ldef)]
+
+    def debug(msg): 
+        os.write(2, "debug: " + msg + '\n')
+
+    def entry_point(argv):
+        #debug("entry point starting") 
+        for arg in argv: 
+            #debug(" argv -> " + arg)
+            r = arg.replace('_', '-')
+            #debug(' replaced -> ' + r)
+            a = r.lower()
+            #debug(" lowered -> " + a)
+        return 0
+
+    t = Translator(entry_point)
+    t.annotate(inputtypes)
+    t.specialize()
+    t.backend_optimizations(inline_threshold=1, mallocs=True)
+
+    graph = t.getflowgraph()
+
+    from pypy.rpython.module.support import to_rstr
+
+    argv = t.rtyper.getrepr(inputtypes[0]).convert_const(['./pypy-c'])
+
+    interp = LLInterpreter(t.flowgraphs, t.rtyper)
+    interp.eval_function(entry_point, [argv])
+
+    
+
+
+ 
