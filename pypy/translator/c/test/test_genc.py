@@ -237,3 +237,15 @@ def test_long_strings():
     for i, s in enumerate(choices):
         for j, c in enumerate(s):
             assert f1(i, j) == c
+
+
+def test_keepalive():
+    from pypy.rpython import objectmodel
+    def f():
+        x = [1]
+        y = ['b']
+        objectmodel.keepalive(x,y)
+        return 1
+
+    f1 = compile(f, [])
+    assert f1() == 1

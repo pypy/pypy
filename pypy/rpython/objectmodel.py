@@ -17,6 +17,9 @@ def we_are_translated():
     return False
 # annotation -> True
 
+def keepalive(*values):
+    pass
+
 
 class FREED_OBJECT(object):
     def __getattribute__(self, attr):

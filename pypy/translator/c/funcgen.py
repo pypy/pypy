@@ -538,6 +538,9 @@ class FunctionCodeGenerator(object):
                 result.append(self.pyobj_incref(op.result))
         return '\t'.join(result)
 
+    def OP_KEEPALIVE(self, op, err): # xxx what should be the sematics consequences of this
+        return "/* kept alive: %s */ ;" % ''.join([self.expr(v, special_case_void=False) for v in op.args])
+
     def pyobj_incref(self, v):
         T = self.lltypemap(v)
         return self.pyobj_incref_expr(LOCALVAR % v.name, T)

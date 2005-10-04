@@ -259,6 +259,9 @@ class LLFrame(object):
     # __________________________________________________________
     # misc LL operation implementations
 
+    def op_keepalive(self, *values):
+        pass
+
     def op_same_as(self, x):
         return x
 

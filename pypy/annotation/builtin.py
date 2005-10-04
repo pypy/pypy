@@ -254,6 +254,10 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     f, rinputs, rresult = r_func.get_signature()
     return lltype_to_annotation(rresult.lowleveltype)
 
+def robjmodel_keepalive(*args_s):
+    return immutablevalue(None)
+    
+
 ##def rarith_ovfcheck(s_obj):
 ##    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
 ##        getbookkeeper().warning("ovfcheck on unsigned")
@@ -294,6 +298,7 @@ BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
     robjmodel_we_are_translated)
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hlinvoke] = robjmodel_hlinvoke
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive] = robjmodel_keepalive
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init

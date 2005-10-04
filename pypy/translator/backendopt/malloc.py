@@ -108,12 +108,16 @@ def _try_inline_malloc(info):
     STRUCT = lltypes.keys()[0].TO
     assert isinstance(STRUCT, lltype.GcStruct)
 
-    # must be only ever accessed via getfield/setfield
+    # must be only ever accessed via getfield/setfield or touched by keepalive
     for up in info.usepoints:
         if up[0] != "op":
             return False
-        if (up[2].opname, up[3]) not in [("getfield", 0), ("setfield", 0)]:
-            return False
+        kind, node, op, index = up
+        if op.opname == 'keepalive':
+            continue
+        if (op.opname, index) in [("getfield", 0), ("setfield", 0)]:
+            continue
+        return False
 
     # success: replace each variable with a family of variables (one per field)
     example = STRUCT._container_example()
@@ -172,6 +176,8 @@ def _try_inline_malloc(info):
                         # equivalent.  We can, and indeed must, use the same
                         # flattened list of variables for both, as a "setfield"
                         # via one pointer must be reflected in the other.
+                    elif op.opname == 'keepalive':
+                        pass
                     else:
                         raise AssertionError, op.opname
                 elif op.result in vars:

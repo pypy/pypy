@@ -349,6 +349,7 @@ def remove_assertion_errors(graph):
 # decide whether a function has side effects
 lloperations_with_side_effects = {"setfield": True,
                                   "setarrayitem": True,
+                                  "keepalive": True,
                                  }
 
 class HasSideEffects(Exception):

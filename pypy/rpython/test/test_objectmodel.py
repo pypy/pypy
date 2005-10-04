@@ -141,3 +141,14 @@ def test_rtype_constant_r_dicts():
     assert res == 1
     res = interpret(fn, [2])
     assert res == 2
+
+def test_rtype_keepalive():
+    from pypy.rpython import objectmodel
+    def f():
+        x = [1]
+        y = ['b']
+        objectmodel.keepalive(x,y)
+        return 1
+
+    res = interpret(f, [])
+    assert res == 1
