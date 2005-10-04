@@ -528,8 +528,15 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
                     return SomePBC({None: True})
                 else:
                     return SomeImpossibleValue()
-        return SomeInstance(resdef, can_be_None=ins1.can_be_None and ins2.can_be_None)
-        
+        res = SomeInstance(resdef, can_be_None=ins1.can_be_None and ins2.can_be_None)
+        if ins1.contains(res) and ins2.contains(res):
+            return res    # fine
+        else:
+            # this case can occur in the presence of 'const' attributes,
+            # which we should try to preserve.  Fall-back...
+            thistype = pairtype(SomeInstance, SomeInstance)
+            return super(thistype, pair(ins1, ins2)).improve()
+
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 

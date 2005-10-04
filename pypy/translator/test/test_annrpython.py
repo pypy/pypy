@@ -1745,7 +1745,20 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [D])
         assert s == annmodel.SomeImpossibleValue()
-        
+
+    def test_is_constant_instance(self):
+        class A(object):
+            pass
+        prebuilt_instance = A()
+        def f(x):
+            if x is prebuilt_instance:
+                return x
+            raise Exception
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [A])
+        assert s.is_constant()
+        assert s.const is prebuilt_instance
+
 def g(n):
     return [0,1,2,n]
 
