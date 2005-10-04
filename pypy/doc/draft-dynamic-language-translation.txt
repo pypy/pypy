@@ -888,9 +888,8 @@ following family of rules (one for each pair *(x,y)*)::
 Note that in theory, all rules should be tried repeatedly until none of
 them generalizes the state any more, at which point we have reached a
 fixpoint.  In practice, the rules are well suited to a simple metarule
-that tracks a smaller set of rules that can possibly apply.  Only these
-"scheduled" rules are tried.  Rules are always applied sequentially.
-The metarule is as follows:
+that tracks a small set of rules that can possibly apply.  Only these
+"scheduled" rules are tried.  The metarule is as follows:
 
 - when an identification *x~y* is added to *E*, then the rule
   ``(x~y) in E`` is scheduled to be considered;
@@ -898,8 +897,8 @@ The metarule is as follows:
 - when a binding *b(x)* is modified, then all rules about operations
   that have *x* as an input argument are (re-)scheduled.  This includes
   the rules ``(x~y) in E`` for each *y* that *E* identifies to *x*.
-  The also includes the cases where *x* is the auxiliary variable
-  (see `Flow graph model`_).
+  This also includes the cases where *x* is the auxiliary variable
+  of an operation (see `Flow graph model`_).
 
 These rules and metarules favor a forward propagation: the rule
 corresponding to an operation in a flow graph typically modifies the
@@ -931,7 +930,7 @@ of its items.
 Note that we are not trying to be more precise than finding a single
 item type for each list.  Flow-sensitive techniques could be potentially
 more precise by tracking different possible states for the same list at
-different points in the program and in time.  But even so, a pure
+different points in the program and in time.  But in any case, a pure
 forward propagation of annotations is not sufficient because of
 aliasing: it is possible to take a reference to a list at any point, and
 store it somewhere for future access.  If a new item is inserted into a
@@ -942,14 +941,15 @@ from the one through which the list is modified.
 To solve this, each list annotation -- ``List(v)`` -- contains an
 embedded variable, called the "hidden variable" of the list.  It does
 not appear directly in the flow graphs of the user program, but
-abstractedly stands for "any item of the list".  The same annotation
-``List(v)`` is propagated forward as with other kinds of annotations.
-All aliases of the list end up being annotated as ``List(v)`` with the
-same variable *v*.  The binding of *v* itself, i.e. ``b(v)``, is updated
-to reflect generalization of the list item's type; such an update is
-instantly visible to all aliases.  Moreover, the update is described as
-a change of binding, which means that the metarules will ensure that any
-rule based on the binding of this variable will be reconsidered.
+abstractedly stands for "any item of the list".  The annotation
+``List(v)`` is propagated forward as with other kinds of annotations, so
+that all aliases of the list end up being annotated as ``List(v)`` with
+the same variable *v*.  The binding of *v* itself, i.e. ``b(v)``, is
+updated to reflect generalization of the list item's type; such an
+update is instantly visible to all aliases.  Moreover, the update is
+described as a change of binding, which means that the metarules will
+ensure that any rule based on the binding of this variable will be
+reconsidered.
 
 The hidden variable comes from the auxiliary variable syntactically
 attached to the operation that produces a list::
@@ -959,7 +959,8 @@ attached to the operation that produces a list::
                b' = b with (z->List(z'))
 
 Inserting an item into a list is done by merging the new item's
-annotation into the list's hidden variable::
+annotation into the list's hidden variable (*y* is the index in the list
+*x* and *z* is the new item)::
 
          setitem(x,y,z), b(x)=List(v)
       --------------------------------------------
@@ -983,8 +984,8 @@ that merging two different lists (for example, two lists that come from
 different creation points via different code paths) identifies the two
 hidden variables.  This effectively identifies the two lists, as if they
 had the same origin.  It makes the two list annotations aliases for each
-other.  It allows any storage location to contain lists coming from any
-of the two sources indifferently.  This process gradually builds a
+other, allowing any storage location to contain lists coming from any of
+the two sources indifferently.  This process gradually builds a
 partition of all lists in the program, where two lists are in the
 partition if they are combined in any way.
 
@@ -1129,7 +1130,7 @@ be longer than::
 In the extended lattice used in practice it is more difficult to compute
 an upper bound.  Such a bound exists -- some considerations can even
 show that a finite subset of the extended lattice suffices -- but it
-does not reflect any partical complexity considerations.  It is simpler
+does not reflect any practical complexity considerations.  It is simpler
 to prove that there is no infinite ascending chain, which is enough to
 guarantee termination.
 
