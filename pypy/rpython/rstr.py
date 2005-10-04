@@ -831,12 +831,10 @@ def ll_upper(s):
     i = 0
     result = malloc(STR, s_len)
     while i < s_len:
-        ochar = ord(s_chars[i])
-        if ochar >= 97 and ochar <= 122:
-            upperchar = ochar - 32
-        else:
-            upperchar = ochar
-        result.chars[i] = chr(upperchar)
+        ch = s_chars[i]
+        if 'a' <= ch <= 'z':
+            ch = chr(ord(ch) - 32)
+        result.chars[i] = ch
         i += 1
     return result
 
@@ -848,12 +846,10 @@ def ll_lower(s):
     i = 0
     result = malloc(STR, s_len)
     while i < s_len:
-        ochar = ord(s_chars[i])
-        if ochar >= 65 and ochar <= 96:
-            lowerchar = ochar + 32
-        else:
-            lowerchar = ochar
-        result.chars[i] = chr(lowerchar)
+        ch = s_chars[i]
+        if 'A' <= ch <= 'Z':
+            ch = chr(ord(ch) + 32)
+        result.chars[i] = ch
         i += 1
     return result
 

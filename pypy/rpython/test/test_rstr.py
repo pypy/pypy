@@ -263,18 +263,20 @@ def test_find_char():
         assert res == fn(ch)
 
 def test_upper():
+    strings = ['', ' ', 'upper', 'UpPeR', ',uppEr,']
+    for i in range(256): strings.append(chr(i))
     def fn(i):
-        strings = ['', ' ', 'upper', 'UpPeR', ',uppEr,']
         return strings[i].upper()
-    for i in range(5):
+    for i in range(len(strings)):
         res = interpret(fn, [i])
         assert ''.join(res.chars) == fn(i)
 
 def test_lower():
+    strings = ['', ' ', 'lower', 'LoWeR', ',lowEr,']
+    for i in range(256): strings.append(chr(i))
     def fn(i):
-        strings = ['', ' ', 'lower', 'LoWeR', ',lowEr,']
         return strings[i].lower()
-    for i in range(5):
+    for i in range(len(strings)):
         res = interpret(fn, [i])
         assert ''.join(res.chars) == fn(i)
 
