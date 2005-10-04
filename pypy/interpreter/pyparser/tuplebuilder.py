@@ -95,7 +95,7 @@ class TupleBuilder(AbstractBuilder):
         return True
 
     def token(self, codename, value, source):
-        lineno = source.current_lineno()
+        lineno = source._token_lnum
         if value is None:
             if codename not in ( NEWLINE, INDENT, DEDENT, ENDMARKER ):
                 value = tok_rpunct.get(codename, "unknown op")
