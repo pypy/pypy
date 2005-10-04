@@ -781,8 +781,8 @@ In the sequel, we will use the following notations:
 - *b*, *b'*, *b''*... are maps from *V* to *A*.
 
 We call *state* a pair *(b,E)*.  We say that a state *(b',E')* is more
-general than a state *(b,E)* if *E* includes at least all relations of
-*E'* and for all variables *v* we have *b'(v) >= b(v)*.  There is:
+general than a state *(b,E)* if for all variables *v* we have *b'(v) >=
+b(v)* and *E'* includes at least all relations of *E*.  There is:
 
 - a most general state, with *bmax(v) = Top* for all *v* and *Emax*
   identifying all variables with each other;
@@ -791,25 +791,27 @@ general than a state *(b,E)* if *E* includes at least all relations of
   containing no relation (apart from the mandatory *v~v*).
 
 The goal of the annotator is to find the least general (i.e. most
-precise) state that is sound (i.e. correct for the user program).  We
-will formally introduce the conditions for soundness along the next
-sections.  The algorithm used is a fixpoint search: we start from the
-least general state and consider the conditions repeatedly; if a
-condition is not met, we generalize the state incrementally to
-accomodate for it.  This process continues until all conditions are
-satisfied.
+precise) state that is sound (i.e. correct for the user program).  The
+algorithm used is a fixpoint search: we start from the least general
+state and consider the conditions repeatedly; if a condition is not met,
+we generalize the state incrementally to accomodate for it.  This
+process continues until all conditions are satisfied.
 
 The conditions are presented as a set of rules.  A rule is a functional
 operation that, when applied, maps a state *(b,E)* to a possibly more
 general state *(b',E')* that satisfies the condition represented by the
-rule.
+rule.  *Soundness* is formally defined as a state in which all the
+conditions are already satisfied, i.e. none of the rules would produce a
+strictly more general state.
 
 Basically, each operation in the flow graphs of the user program
 generates one such rule.  The rules are conditional on the annotations
 bound to the operation's input argument variables, in a way that mimics
 the ad-hoc polymorphic nature of most Python operations.  We will not
-give all rules in the sequel, but focus on representative examples.
-An ``add`` operation generates the following rules::
+give all rules in the sequel, but focus on representative examples.  An
+``add`` operation generates the following rules (where *x*, *y* and *z*
+are replaced by the variables that really appear in each particular
+``add`` operation in the flow graphs of the user program)::
 
          z=add(x,y), b(x)<=Int, b(y)<=Int
       ------------------------------------------------------
