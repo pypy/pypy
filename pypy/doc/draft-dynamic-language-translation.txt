@@ -91,7 +91,7 @@ by our analysis toolchain (e.g. class creation, and most non-local effects).
 Of course, putting more efforts into the toolchain would allow us to
 support a larger subset of Python.  We do not claim that our toolchain --
 which we describe in the sequel of this paper -- is particularly advanced.
-To make our point, let us assume a given an analysis tool, which supports
+To make our point, let us assume as given an analysis tool, which supports
 a given subset of a language.  Then:
 
 * Analysing dead source files is equivalent to giving up all dynamism
@@ -109,8 +109,9 @@ sections are entered a *bounded* number of times.
 For example, the source code of the PyPy
 interpreter, which is itself written in this bounded-dynamism style, makes
 extensive use of the fact that it is possible to build new classes at any
-point in time -- not just during an initialization phase -- as long as this
-number of bounded.  E.g. `interpreter/gateway.py`_ builds a custom class
+point in time -- not just during an initialization phase -- as long as the
+number of new classes is bounded.  E.g. `interpreter/gateway.py`_ builds a
+custom class
 for each function that some variable can point to.  There is a finite
 number of functions in total, so this can obviously only create
 a finite number of extra classes.  But the precise set of functions that
