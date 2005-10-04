@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError
 class SyntaxError(Exception):
     """Base class for exceptions raised by the parser."""
 
-    def __init__(self, msg, lineno=0, offset=0, text="", filename=""):
+    def __init__(self, msg, lineno=0, offset=0, text=None, filename=None):
         self.msg = msg
         self.lineno = lineno
         self.offset = offset
