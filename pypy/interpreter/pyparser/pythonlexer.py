@@ -296,6 +296,7 @@ class PythonSource(TokenSource):
         self.token_stack = tokens
         self._current_line = '' # the current line (as a string)
         self._lineno = -1
+        self._token_lnum = 0
         self._offset = 0
         self.stack_pos = 0
 
@@ -307,6 +308,7 @@ class PythonSource(TokenSource):
         self.stack_pos += 1
         self._current_line = line
         self._lineno = max(self._lineno, lnum)
+        self._token_lnum = lnum
         self._offset = pos
         return tok
 

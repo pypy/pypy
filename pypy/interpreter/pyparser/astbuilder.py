@@ -1615,10 +1615,10 @@ class AstBuilder(BaseGrammarBuilder):
         # print "\t", self.rule_stack
 
     def push_tok(self, name, value, src ):
-        self.push( TokenObject( name, value, src._lineno ) )
+        self.push( TokenObject( name, value, src._token_lnum ) )
 
     def push_rule(self, name, count, src ):
-        self.push( RuleObject( name, count, src._lineno ) )
+        self.push( RuleObject( name, count, src._token_lnum ) )
 
     def alternative( self, rule, source ):
         # Do nothing, keep rule on top of the stack
