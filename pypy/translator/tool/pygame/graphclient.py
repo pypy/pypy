@@ -52,7 +52,9 @@ class DotGraphLayout(GraphLayout):
             # failed, try via codespeak
             dot2plain(dotfilename, PLAIN_FILE, use_codespeak=True)
             GraphLayout.__init__(self, PLAIN_FILE)
-
+    
+    def request_reload(self):
+        pass
 
 class ClientGraphLayout(DotGraphLayout):
 
