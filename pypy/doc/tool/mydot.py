@@ -60,6 +60,15 @@ def process_dot(dot):
     oldpath.chdir()
     return output
 
+def ps2eps(ps):
+    try:
+        py.process.cmdexec("ps2eps -l -f %s" % ps)
+    except:
+        try:
+            py.process.cmdexec("ps2epsi %s %s" % (psfile, eps))
+        except:
+            raise OSError("neither ps2eps nor ps2epsi found")
+
 if __name__ == '__main__':
     import optparse
     parser = optparse.OptionParser()
@@ -72,12 +81,13 @@ if __name__ == '__main__':
     if options.format == "ps":
         print psfile.read()
     elif options.format == "eps":
-        py.process.cmdexec("ps2eps -l -f %s" % psfile)
+        ps2eps(psfile)
         eps = psfile.new(ext="eps")
         print eps.read()
     elif options.format == "png":
-        py.process.cmdexec("convert %s %s" %
-                           (psfile, psfile.new(ext="png")))
+        ps2eps(psfile)
+        eps = psfile.new(ext="eps")
+        py.process.cmdexec("convert %s %s" % (eps, psfile.new(ext="png")))
         png = psfile.new(ext="png")
         print png.read()
     
