@@ -413,7 +413,7 @@ for _op in '''
         pos neg nonzero abs hex oct ord invert add sub mul
         truediv floordiv div mod divmod pow lshift rshift and_ or_
         xor int float long lt le eq ne gt ge cmp coerce contains
-        iter get same_as cast_pointer getfield '''.split():
+        iter get same_as cast_pointer getfield getarrayitem getsubstruct'''.split():
     CanRemove[_op] = True
 del _op
 CanRemoveBuiltins = {
@@ -427,6 +427,10 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
     read_vars = {}  # set of variables really used
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
 
+    transport_flow = {} # map {Var: list-of-Vars-depending-on-it-through-links-or-indentity-ops}
+
+    keepalive_vars = {} # set of variables in keepalives 
+
     def canremove(op, block):
         if op.opname not in CanRemove:
             return False
@@ -439,7 +443,9 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
     for block in blocks:
         # figure out which variables are ever read
         for op in block.operations:
-            if not canremove(op, block):   # mark the inputs as really needed
+            if op.opname == 'keepalive':
+                keepalive_vars[op.args[0]] = True
+            elif not canremove(op, block):   # mark the inputs as really needed
                 for arg in op.args:
                     read_vars[arg] = True
             else:
@@ -447,6 +453,8 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
                 # on the input variables
                 deps = variable_flow.setdefault(op.result, [])
                 deps.extend(op.args)
+                if op.opname in ('cast_pointer', 'same_as'):
+                    transport_flow.setdefault(op.args[0], []).append(op.result)
 
         if isinstance(block.exitswitch, Variable):
             read_vars[block.exitswitch] = True
@@ -461,6 +469,7 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
                     for arg, targetarg in zip(link.args, link.target.inputargs):
                         deps = variable_flow.setdefault(targetarg, [])
                         deps.append(arg)
+                        transport_flow.setdefault(arg, []).append(targetarg)                        
         else:
             # return and except blocks implicitely use their input variable(s)
             for arg in block.inputargs:
@@ -473,12 +482,40 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
 
     # flow read_vars backwards so that any variable on which a read_vars
     # depends is also included in read_vars
-    pending = list(read_vars)
+    def flow_read_var_backward(pending):
+        pending = list(pending)
+        for var in pending:
+            for prevvar in variable_flow.get(var, []):
+                if prevvar not in read_vars:
+                    read_vars[prevvar] = True
+                    pending.append(prevvar)
+
+    flow_read_var_backward(read_vars)
+    
+    # compute vars depending on a read-var through the transport-flow
+    read_var_aliases = {}
+    pending = []
+    for var in transport_flow:
+        if var in read_vars:
+            pending.append(var)
+            read_var_aliases[var] = True
     for var in pending:
-        for prevvar in variable_flow.get(var, []):
-            if prevvar not in read_vars:
-                read_vars[prevvar] = True
-                pending.append(prevvar)
+        for nextvar in transport_flow.get(var, []):
+            if nextvar not in read_var_aliases:
+                read_var_aliases[nextvar] = True
+                pending.append(nextvar)
+        
+    # a keepalive var is read-var if it's an alias reached from some read-var
+    # through the transport flow
+    new_read_vars = {}
+    for var in keepalive_vars:
+        if var in read_var_aliases:
+            read_vars[var] = True
+            new_read_vars[var] = True
+
+    # flow backward the new read-vars
+    flow_read_var_backward(new_read_vars)
+    
 
     for block in blocks:
 
@@ -488,6 +525,9 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
             if op.result not in read_vars: 
                 if canremove(op, block):
                     del block.operations[i]
+                elif op.opname == 'keepalive':
+                    if op.args[0] not in read_vars:
+                        del block.operations[i]                        
                 elif op.opname == 'simple_call': 
                     # XXX we want to have a more effective and safe 
                     # way to check if this operation has side effects
