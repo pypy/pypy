@@ -17,7 +17,7 @@ def we_are_translated():
     return False
 # annotation -> True
 
-def keepalive(*values):
+def keepalive_until_here(*values):
     pass
 
 

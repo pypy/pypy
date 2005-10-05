@@ -254,7 +254,7 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     f, rinputs, rresult = r_func.get_signature()
     return lltype_to_annotation(rresult.lowleveltype)
 
-def robjmodel_keepalive(*args_s):
+def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
     
 
@@ -298,7 +298,7 @@ BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
     robjmodel_we_are_translated)
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hlinvoke] = robjmodel_hlinvoke
-BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive] = robjmodel_keepalive
+BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init

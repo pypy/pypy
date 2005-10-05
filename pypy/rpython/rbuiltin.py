@@ -395,11 +395,11 @@ def rtype_free_non_gc_object(hop):
     
 BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
 
-# keepalive
+# keepalive_until_here
 
-def rtype_keepalive(hop):
+def rtype_keepalive_until_here(hop):
     for v in hop.args_v:
-        hop.genop('keepalive', hop.args_v, resulttype=lltype.Void)
+        hop.genop('keepalive', [v], resulttype=lltype.Void)
     return hop.inputconst(lltype.Void, None)
 
-BUILTIN_TYPER[objectmodel.keepalive] = rtype_keepalive
+BUILTIN_TYPER[objectmodel.keepalive_until_here] = rtype_keepalive_until_here

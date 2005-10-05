@@ -244,7 +244,7 @@ def test_keepalive():
     def f():
         x = [1]
         y = ['b']
-        objectmodel.keepalive(x,y)
+        objectmodel.keepalive_until_here(x,y)
         return 1
 
     f1 = compile(f, [])
