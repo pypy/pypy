@@ -68,6 +68,7 @@ def _find_exception_type(block):
         ops[-4].opname != "setfield" or ops[-3].opname != "cast_pointer" or
         ops[-2].opname != "getfield" or ops[-1].opname != "cast_pointer" or
         len(block.exits) != 1 or block.exits[0].args[0] != ops[-2].result or
+        block.exitswitch is not None or
         block.exits[0].args[1] != ops[-1].result or
         not isinstance(ops[-4].args[1], Constant) or
         ops[-4].args[1].value != "typeptr"):
@@ -201,7 +202,6 @@ def _inline_function(translator, graph, block, index_operation):
             #try to match the exceptions for simple cases
             for link in entrymap[graph_to_inline.exceptblock]:
                 copiedblock = copied_blocks[link.prevblock]
-                copiedblock.operations += generate_keepalive(passon_vars[link.prevblock])
                 copiedlink = copiedblock.exits[0]
                 eclass = _find_exception_type(copiedblock)
                 #print copiedblock.operations
@@ -211,6 +211,8 @@ def _inline_function(translator, graph, block, index_operation):
                 evalue = copiedlink.args[1]
                 for exceptionlink in afterblock.exits[1:]:
                     if exc_match.value(eclass, exceptionlink.llexitcase):
+                        copiedblock.operations += generate_keepalive(
+                            passon_vars[link.prevblock])
                         copiedlink.target = exceptionlink.target
                         linkargs = find_args_in_exceptional_case(exceptionlink,
                                                                  link.prevblock,
@@ -249,13 +251,18 @@ def _inline_function(translator, graph, block, index_operation):
             blocks[-1].exits = blocks[-1].exits[:1]
             blocks[-1].operations = []
             blocks[-1].exitswitch = None
+            blocks[-1].exits[0].exitcase = None
+            del blocks[-1].exits[0].llexitcase
             linkargs = copiedexceptblock.inputargs
             copiedexceptblock.closeblock(Link(linkargs, blocks[0]))
             copiedexceptblock.operations += generate_keepalive(linkargs)
-            afterblock.exits = [afterblock.exits[0]]
-            afterblock.exitswitch = None
+    if exception_guarded:
+        assert afterblock.exits[0].exitcase is None
+        afterblock.exits = [afterblock.exits[0]]
+        afterblock.exitswitch = None
     #cleaning up -- makes sense to be here, because I insert quite
     #some empty blocks and blocks that can be joined
+    checkgraph(graph)
     eliminate_empty_blocks(graph)
     join_blocks(graph)
     remove_identical_vars(graph)

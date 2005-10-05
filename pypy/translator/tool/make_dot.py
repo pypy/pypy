@@ -134,8 +134,10 @@ class FlowGraphDotGen(DotGen):
             shape = "box"
         else:
             color = "red"
-            lines.append("exitswitch: %s" % block.exitswitch)
             shape = "octagon"
+
+        if block.exitswitch is not None:
+            lines.append("exitswitch: %s" % block.exitswitch)
 
         iargs = " ".join(map(repr, block.inputargs))
         if block.exc_handler:
@@ -164,16 +166,14 @@ class FlowGraphDotGen(DotGen):
         self.emit_node(name, label=data, shape=shape, color=color, style="filled", fillcolor=fillcolor)
 
         # do links/exits
-        if numblocks == 1:
-            name2 = self.blockname(block.exits[0].target)
-            label = " ".join(map(repr, block.exits[0].args))
-            self.emit_edge(name, name2, label, style="solid")
-        elif numblocks >1:
-            for link in block.exits:
-                name2 = self.blockname(link.target)
-                label = " ".join(map(repr, link.args))
+        for link in block.exits:
+            name2 = self.blockname(link.target)
+            label = " ".join(map(repr, link.args))
+            if link.exitcase is not None:
                 label = "%s: %s" %(link.exitcase, label)
-                self.emit_edge(name, name2, label, style="dotted", color=color)
+                self.emit_edge(name, name2, label, style="dotted", color="red")
+            else:
+                self.emit_edge(name, name2, label, style="solid")
 
 
 def make_dot(graphname, graph, storedir=None, target='ps'):

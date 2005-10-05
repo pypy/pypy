@@ -1,12 +1,14 @@
 import py
 import os
 from pypy.objspace.flow.model import traverse, Block, Link, Variable, Constant
+from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.backendopt.inline import inline_function, CannotInline
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.inline import collect_called_functions
 from pypy.translator.backendopt.inline import measure_median_execution_cost
 from pypy.translator.translator import Translator
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.rarithmetic import ovfcheck
 from pypy.translator.test.snippet import is_perfect_number
 
 def no_missing_concretetype(node):
@@ -27,19 +29,21 @@ def no_missing_concretetype(node):
         if isinstance(node.last_exc_value, (Variable, Constant)):
             assert hasattr(node.last_exc_value, 'concretetype')
 
+def sanity_check(t):
+    # look for missing '.concretetype'
+    for graph in t.flowgraphs.values():
+        checkgraph(graph)
+        traverse(no_missing_concretetype, graph)
+
 def check_inline(func, in_func, sig):
     t = Translator(in_func)
     a = t.annotate(sig)
     a.simplify()
     t.specialize()
-    # look for missing '.concretetype' before inlining (so we don't blame it)
-    for graph in t.flowgraphs.values():
-        traverse(no_missing_concretetype, graph)
     # inline!
+    sanity_check(t)    # also check before inlining (so we don't blame it)
     inline_function(t, func, t.flowgraphs[in_func])
-    # look for missing '.concretetype'
-    for graph in t.flowgraphs.values():
-        traverse(no_missing_concretetype, graph)
+    sanity_check(t)
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     return interp
 
@@ -90,7 +94,9 @@ def test_inline_raising():
     a = t.annotate([int])
     a.simplify()
     t.specialize()
+    sanity_check(t)    # also check before inlining (so we don't blame it)
     inline_function(t, f, t.flowgraphs[g])
+    sanity_check(t)
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     result = interp.eval_function(h, [0])
     assert result == 0
@@ -168,6 +174,18 @@ def test_inline_var_exception():
     result = interp.eval_function(g, [42])
     assert result == 1
 
+def test_inline_nonraising_into_catching():
+    def f(x):
+        return x+1
+    def g(x):
+        try:
+            return f(x)
+        except KeyError:
+            return 42
+    interp = check_inline(f, g, [int])
+    result = interp.eval_function(g, [7654])
+    assert result == 7655
+
 def DONOTtest_call_call():
     # for reference.  Just remove this test if we decide not to support
     # catching exceptions while inlining a graph that contains further
@@ -187,7 +205,9 @@ def DONOTtest_call_call():
     a = t.annotate([int])
     a.simplify()
     t.specialize()
+    sanity_check(t)    # also check before inlining (so we don't blame it)
     inline_function(t, f, t.flowgraphs[g])
+    sanity_check(t)
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     result = interp.eval_function(g, [100])
     assert result == 106
@@ -209,7 +229,9 @@ def test_for_loop():
             break
     else:
         assert 0, "cannot find ll_rangenext_*() function"
+    sanity_check(t)    # also check before inlining (so we don't blame it)
     inline_function(t, graph, t.flowgraphs[f])
+    sanity_check(t)
     interp = LLInterpreter(t.flowgraphs, t.rtyper)
     result = interp.eval_function(f, [10])
     assert result == 45
@@ -281,6 +303,22 @@ def test_inline_exception_catching():
     interp = check_inline(f2, f, [])
     result = interp.eval_function(f, [])
     assert result is True
+
+def test_inline_catching_different_exception():
+    d = {1: 2}
+    def f2(n):
+        try:
+            return ovfcheck(n+1)
+        except OverflowError:
+            raise
+    def f(n):
+        try:
+            return f2(n)
+        except ValueError:
+            return -1
+    interp = check_inline(f2, f, [int])
+    result = interp.eval_function(f, [54])
+    assert result == 55
 
 def test_auto_inline_os_path_isdir():
     directory = "./."
