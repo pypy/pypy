@@ -134,7 +134,7 @@ def test_simple_exception():
     for i in range(10, 20):
         assert f(i) == fn(i)
 
-def test_two_exceptions():
+def test_two_exceptionsA():
     def fn(n):
         lst = range(10)
         try:
@@ -194,12 +194,12 @@ def test_try_raise_choose():
     for i in [-1, 0, 1, 2]:
         assert f(i) == i
 
-def test_two_exceptions():
+def test_two_exceptionsB():
     def fn1():
         raise Exception
     def fn2():
         return 10
-    def two_exceptions():
+    def two_exceptionsB():
         r = 50
         try:
             fn1()
@@ -212,8 +212,8 @@ def test_two_exceptions():
             r += 300
         r += fn2()
         return r
-    f = compile_function(two_exceptions, [])
-    assert f() == two_exceptions()
+    f = compile_function(two_exceptionsB, [])
+    assert f() == two_exceptionsB()
             
 def test_raise_outside_testfn():
     def raiser(n):
