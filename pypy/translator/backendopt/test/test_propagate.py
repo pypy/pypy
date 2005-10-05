@@ -66,7 +66,7 @@ def test_constant_fold_call():
     graph, t = get_graph(g, [int])
     while constant_folding(graph, t):
         pass
-    assert len(graph.startblock.operations) == 4
+    assert len(graph.startblock.operations) == 1
     check_graph(graph, [10], g(10), t)
 
 def test_fold_const_blocks():

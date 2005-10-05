@@ -6,6 +6,7 @@ from pypy.rpython.llinterp import LLInterpreter, LLFrame
 from pypy.translator import simplify
 from pypy.translator.backendopt.tailrecursion import get_graph
 from pypy.translator.backendopt.removenoops import remove_same_as
+from pypy.translator.backendopt.inline import OP_WEIGHTS
 
 def do_atmost(n, f, *args):
     i = 0
@@ -138,7 +139,7 @@ class CountingLLFrame(LLFrame):
     def eval_operation(self, operation):
         if operation is None: #can happen in the middle of constant folding
             return
-        self.count += 1
+        self.count += OP_WEIGHTS.get(operation.opname, 1)
         if self.count > self.maxcount:
             raise TooManyOperations
         return super(CountingLLFrame, self).eval_operation(operation)

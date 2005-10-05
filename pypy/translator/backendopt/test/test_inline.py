@@ -326,4 +326,4 @@ def test_measure_median_execution_cost():
         return x
     t = Translator(f)
     res = measure_median_execution_cost(t.getflowgraph())
-    assert res == 17
+    assert res == 19

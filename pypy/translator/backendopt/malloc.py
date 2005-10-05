@@ -113,10 +113,10 @@ def _try_inline_malloc(info):
         if up[0] != "op":
             return False
         kind, node, op, index = up
-        if op.opname == 'keepalive':
-            continue
-        if (op.opname, index) in [("getfield", 0), ("setfield", 0)]:
-            continue
+        if (op.opname, index) in [("getfield", 0),
+                                  ("setfield", 0),
+                                  ("keepalive", 0)]:
+            continue   # ok
         return False
 
     # success: replace each variable with a family of variables (one per field)

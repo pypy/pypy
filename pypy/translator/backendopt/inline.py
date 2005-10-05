@@ -4,7 +4,7 @@ from pypy.translator.simplify import remove_identical_vars
 from pypy.translator.unsimplify import copyvar, split_block
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, last_exception
-from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
+from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltype import Bool, typeOf, Void
 from pypy.rpython import rmodel
@@ -264,17 +264,31 @@ def _inline_function(translator, graph, block, index_operation):
 #
 # Automatic inlining
 
+OP_WEIGHTS = {'same_as': 0,
+              'cast_pointer': 0,
+              'keepalive': 0,
+              'direct_call': 2,    # guess
+              }
+
+def block_weight(block, weights=OP_WEIGHTS):
+    total = 0
+    for op in block.operations:
+        total += weights.get(op.opname, 1)
+    if block.exitswitch is not None:
+        total += 1
+    return total
+
+
 def measure_median_execution_cost(graph):
     blocks = []
     blockmap = {}
-    for node in flatten(graph):
-        if isinstance(node, Block):
-            blockmap[node] = len(blocks)
-            blocks.append(node)
+    for block in graph.iterblocks():
+        blockmap[block] = len(blocks)
+        blocks.append(block)
     M = sparsemat.SparseMatrix(len(blocks))
     vector = []
     for i, block in enumerate(blocks):
-        vector.append(len(block.operations))
+        vector.append(block_weight(block))
         M[i, i] = 1
         if block.exits:
             f = 1.0 / len(block.exits)
@@ -291,9 +305,8 @@ def measure_median_execution_cost(graph):
 
 def static_instruction_count(graph):
     count = 0
-    for node in flatten(graph):
-        if isinstance(node, Block):
-            count += len(node.operations)
+    for block in graph.iterblocks():
+        count += block_weight(block)
     return count
 
 def inlining_heuristic(graph):
