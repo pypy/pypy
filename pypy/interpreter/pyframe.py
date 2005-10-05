@@ -62,7 +62,8 @@ class PyFrame(eval.EvalFrame):
         # For tracing
         self.instr_lb = 0
         self.instr_ub = -1
-
+        self.instr_prev = -1;
+        
     def hide(self):
         return self.pycode.hidden_applevel
 

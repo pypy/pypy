@@ -72,42 +72,46 @@ class ExecutionContext:
             return
         code = getattr(frame, 'pycode')
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:
-            return
-
-        size = len(code.co_lnotab) / 2
-        addr = 0
-        line = code.co_firstlineno
-        p = 0
-        lineno = code.co_lnotab
-        while size > 0:
-            c = ord(lineno[p])
-            if (addr + c) > frame.last_instr:
-                break
-            addr += c
-            if c:
-                frame.instr_lb = addr
-
-            line += ord(lineno[p + 1])
-            p += 2
-            size -= 1
-            
-        if addr == frame.last_instr:
-            frame.f_lineno = line
-            self._trace(frame, 'line', self.space.w_None)
-
-        if size > 0:
-            while True:
-                size -= 1
-                if size < 0:
-                    break
-                addr += ord(lineno[p])
-                if ord(lineno[p + 1]):
-                    break
-                p += 2
-            frame.instr_ub = addr
+            if frame.last_instr <= frame.instr_prev:
+                # We jumped backwards in the same line.
+                self._trace(frame, 'line', self.space.w_None)
         else:
-            frame.instr_ub = sys.maxint
+            size = len(code.co_lnotab) / 2
+            addr = 0
+            line = code.co_firstlineno
+            p = 0
+            lineno = code.co_lnotab
+            while size > 0:
+                c = ord(lineno[p])
+                if (addr + c) > frame.last_instr:
+                    break
+                addr += c
+                if c:
+                    frame.instr_lb = addr
 
+                line += ord(lineno[p + 1])
+                p += 2
+                size -= 1
+
+            if size > 0:
+                while True:
+                    size -= 1
+                    if size < 0:
+                        break
+                    addr += ord(lineno[p])
+                    if ord(lineno[p + 1]):
+                        break
+                    p += 2
+                frame.instr_ub = addr
+            else:
+                frame.instr_ub = sys.maxint
+
+            if frame.instr_lb == frame.last_instr: # At start of line!
+                frame.f_lineno = line
+                self._trace(frame, 'line', self.space.w_None)
+
+        frame.instr_prev = frame.last_instr
+            
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
