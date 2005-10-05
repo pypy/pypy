@@ -913,12 +913,26 @@ def build_trailer(builder, nb):
             # push arglist on the stack
             builder.push(atoms[1])
     elif isinstance(first_token, TokenObject) and first_token.name == tok.LSQB:
-        if isinstance(atoms[1], SlicelistObject):
+        if len(atoms) == 3 and isinstance(atoms[1], SlicelistObject):
             builder.push(atoms[1])
         else:
             subs = []
             for index in range(1, len(atoms), 2):
-                subs.append(atoms[index])
+                atom = atoms[index]
+                if isinstance(atom, SlicelistObject):
+                    num_slicevals = 3
+                    slicevals = []
+                    if atom.fake_rulename == 'slice':
+                        num_slicevals = 2
+                    for val in atom.value[:num_slicevals]:
+                        if val is None:
+                            slicevals.append(ast.Const(builder.wrap_none(),
+                                                       atom.lineno))
+                        else:
+                            slicevals.append(val)
+                    subs.append(ast.Sliceobj(slicevals, atom.lineno))
+                else:
+                    subs.append(atom)
             builder.push(SubscriptObject('subscript', subs, first_token.lineno))
     elif len(atoms) == 2:
         # Attribute access: '.' NAME
