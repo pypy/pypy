@@ -492,6 +492,11 @@ def checkgraph(graph):
                         assert block.exits[0].exitcase is None
                 elif block.exitswitch == Constant(last_exception):
                     assert len(block.operations) >= 1
+                    # check if an exception catch is done on a reasonable
+                    # operation
+                    assert block.operations[-1].opname not in ("keepalive",
+                                                               "cast_pointer",
+                                                               "same_as")
                     assert len(block.exits) >= 2
                     assert block.exits[0].exitcase is None
                     for link in block.exits[1:]:
