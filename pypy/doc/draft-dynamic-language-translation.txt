@@ -610,6 +610,8 @@ new fresh variable as its result), and *z'* is a fresh extra variable
 called the "auxiliary variable" which we will use in particular cases
 (which we omit from the notation when it is irrelevant).
 
+.. _`definition of V`:
+
 Let us assume that we are given a user program, which for the purpose of
 the model we assume to be fully known in advance.  Let us define the set
 *V* of all variables as follows:
@@ -1000,6 +1002,78 @@ the concatenation for lists)::
 As with `merge_into`_, it identifies the two lists.
 
 
+Classes and instances
+~~~~~~~~~~~~~~~~~~~~~
+
+Remember that Python has no notion of classes declaring attributes and
+methods.  Classes are merely hierarchical namespaces: an expression like
+``obj.attr`` means that the ``attr`` attribute is looked up in the class
+that ``obj`` is an instance of at run-time, and all parent classes (a
+``getattr`` operation).  Expressions like ``obj.meth()`` that look like
+method calls are actually grouped as ``(obj.meth)()``: they correspond
+to two operations, a ``getattr`` followed by a ``call``.  The
+intermediate object ``obj.meth`` is a bound method.
+
+As the goal of annotator is to derive type information about the user
+program that is static enough, it must reconstruct a static structure
+for each class in the hierarchy.  It does so by observing the usage
+patterns of the classes and their instances, by propagating annotations
+of the form ``SomeInstance(cls)`` -- which stands for "an instance of
+the class *cls* or any subclass".  Instance fields are attached to a
+class whenever we see that the field is being written to an instance of
+this class.  If the user program manipulates instances polymorphically,
+the variables holding the instances will be annotated
+``SomeInstance(cls)`` with some abstract base class *cls*; accessing
+attributes on such generalized instances lifts the inferred attribute
+declarations up to *cls*.  The same technique works for inferring the
+location of both fields and methods.
+
+~~~~~~~~~~~~~~~~~~~~~~
+
+We assume that the classes in the user program are organized in a single
+inheritance tree rooted at the ``object`` base class.  (Python supports
+multiple inheritance, but the annotator is limited to single inheritance
+plus simple mix-ins.)  We also assume that polymorphic instance usage is
+"bounded" in the sense that all instances that can reach a specific
+program point are instances of a user-defined common base class, i.e.
+not ``object``.
+
+We recall from `definition of V`_ that we have a variable ``v_C.attr``
+for each class ``C`` and each possible attribute name ``attr``.  The
+annotation state *(b,E)* has the following meaning on these variables:
+
+* the binding map *b* gives an annotation to each of them, as with other
+  variables.  The annotation ``b(v_C.attr)`` is the inferred type of the
+  values that can show up when the attribute ``attr`` is read out of an
+  instance of ``C``.
+
+* to account for the inheritance between classes, the equivalence
+  relation *E* identifies some of these variables as follows: if an
+  attribute ``attr`` is found to belong to a base class ``C``, then all
+  variables ``v_D.attr`` for all subclasses ``D`` of ``C`` are
+  identified with ``v_C.attr``.  This ensures that the instances of the
+  subclasses are all given the same generic attribute defined in ``C``.
+
+Formally::
+
+         z=getattr(x,attr) | z', b(x)=Inst(C)
+      ---------------------------------------------------------------------
+               E' = E union (v_C.attr ~ v_D.attr)  for all D subclass of C
+               E' = E union (z' ~ v_C.attr)
+               b' = b with (z->lookup_filter(b(z'), C))
+
+
+         setattr(x,attr,z), b(x)=Inst(C)
+      ---------------------------------------------------------------------
+               E' = E union (v_C.attr ~ v_D.attr)  for all D subclass of C
+               merge_into(z, v_C.attr)
+
+Note the similarity with the lists' ``getitem`` and ``setitem``, in
+particular the usage of the auxiliary variable *z'*.
+
+XXX
+
+
 Draft
 ~~~~~
 
@@ -1091,27 +1165,6 @@ Prebuilt constants
 XXX
 
 XXX constant arguments to operations
-
-Classes and instances
-~~~~~~~~~~~~~~~~~~~~~
-
-We assume that the classes in the user program are organized in a single
-inheritance tree rooted at the ``object`` base class.  (Python supports
-multiple inheritance, but the annotator is limited to single inheritance
-plus simple mix-ins.)
-
-Remember that Python has no notion of classes declaring attributes and
-methods.  Classes are merely hierarchical namespaces: an expression like
-``obj.attr`` means that the ``attr`` attribute is looked up in the class
-that ``obj`` is an instance of at run-time, and all parent classes (a
-``getattr`` operation).  Expressions like ``obj.meth()`` that look like
-method calls are actually grouped as ``(obj.meth)()``: they correspond
-to two operations, a ``getattr`` followed by a ``call``.
-
-So it is down to the annotator to reconstruct a static structure for
-each class in the hierarchy XXX.
-
-XXX
 
 Termination
 ~~~~~~~~~~~
