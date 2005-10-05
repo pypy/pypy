@@ -20,10 +20,11 @@ class defaultdict(dict):
         try:
             return dict.__getitem__(self, key)
         except KeyError:
+            if key == '__builtins__': raise
             return self.default
 
     def get(self, key, *args):
-        if not args:
+        if not args and key != '__builtins__':
             args = (self.default,)
         return dict.get(self, key, *args)
 
@@ -174,14 +175,47 @@ Under the new proposal, the __methods__ attribute no longer exists:
 
 Instead, you can get the same information from the list type:
 
-    >>> 'append' in dir(list)    # like list.__dict__.keys(), but sorted
-    True
-    >>> 'sort' in dir(list)
-    True
-    >>> 'pop' in dir(list)
-    True
-    >>> '__getitem__' in dir(list)
-    True
+    >>> pprint.pprint(dir(list))    # like list.__dict__.keys(), but sorted
+    ['__add__',
+     '__class__',
+     '__contains__',
+     '__delattr__',
+     '__delitem__',
+     '__doc__',
+     '__eq__',
+     '__ge__',
+     '__getattribute__',
+     '__getitem__',
+     '__gt__',
+     '__hash__',
+     '__iadd__',
+     '__imul__',
+     '__init__',
+     '__iter__',
+     '__le__',
+     '__len__',
+     '__lt__',
+     '__mul__',
+     '__ne__',
+     '__new__',
+     '__radd__',
+     '__reduce__',
+     '__reduce_ex__',
+     '__repr__',
+     '__reversed__',
+     '__rmul__',
+     '__setattr__',
+     '__setitem__',
+     '__str__',
+     'append',
+     'count',
+     'extend',
+     'index',
+     'insert',
+     'pop',
+     'remove',
+     'reverse',
+     'sort']
 
 The new introspection API gives more information than the old one:  in
 addition to the regular methods, it also shows the methods that are
