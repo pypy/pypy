@@ -35,3 +35,6 @@ class GILThreadLocals(OSThreadLocals):
         GIL.release()
         # Other threads can run here
         GIL.acquire(True)
+
+    def getGIL(self):
+        return self.GIL    # XXX temporary hack!

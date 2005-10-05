@@ -3,7 +3,7 @@ from pypy.module.thread.test.support import GenericTestThread
 
 class AppTestLocal(GenericTestThread):
 
-    def test_local(self):
+    def test_local_1(self):
         import thread
         from thread import _local as tlsobject
         freed = []

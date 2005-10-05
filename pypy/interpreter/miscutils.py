@@ -145,3 +145,6 @@ class ThreadLocals:
     def yield_thread(self):
         """Called from time to time between the interpretation of bytecodes.
         Hook for threading models that require it."""
+
+    def getGIL(self):
+        return None    # XXX temporary hack!
