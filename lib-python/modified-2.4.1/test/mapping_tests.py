@@ -640,7 +640,7 @@ class TestHashMappingProtocol(TestMappingProtocol):
         class Exc(Exception): pass
 
         class BadCmp(object):
-            def __eq__(self, other):
+            def __cmp__(self, other):
                 raise Exc()
 
         d1 = self._full_mapping({BadCmp(): 1})

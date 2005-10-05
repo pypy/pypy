@@ -383,7 +383,7 @@ class DictTest(unittest.TestCase):
         class Exc(Exception): pass
 
         class BadCmp(object):
-            def __eq__(self, other):
+            def __cmp__(self, other):
                 raise Exc()
 
         d1 = {BadCmp(): 1}
