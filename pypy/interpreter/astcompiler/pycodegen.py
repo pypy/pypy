@@ -135,6 +135,12 @@ def is_constant_false(space, node):
             return 1
     return 0
 
+def is_constant_true(space, node):
+    if isinstance(node, ast.Const):
+        if space.is_true(node.value):
+            return 1
+    return 0
+
 class CodeGenerator(ast.ASTVisitor):
     """Defines basic code generator for Python bytecode
     """
@@ -428,11 +434,14 @@ class CodeGenerator(ast.ASTVisitor):
         self.setups.append((LOOP, loop))
 
         self.set_lineno(node, force=True)
-        node.test.accept( self )
-        self.emitop_block('JUMP_IF_FALSE', else_ or after)
+        if is_constant_true(self.space, node.test):
+            self.nextBlock()
+        else:
+            node.test.accept( self )
+            self.emitop_block('JUMP_IF_FALSE', else_ or after)
 
-        self.nextBlock()
-        self.emit('POP_TOP')
+            self.nextBlock()
+            self.emit('POP_TOP')
         node.body.accept( self )
         self.emitop_block('JUMP_ABSOLUTE', loop)
 
