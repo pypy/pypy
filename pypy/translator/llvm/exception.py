@@ -205,7 +205,8 @@ internal fastcc void %%unwind() {
 
     def invoke(self, codewriter, targetvar, tail_, cconv, returntype, functionref, args, label, except_label):
         if returntype == 'void':
-            codewriter.indent('%scall %s void %s(%s)' % (tail_, cconv, functionref, args))
+            if functionref != '%keepalive': #XXX I think keepalive should not be the last operation here!
+                codewriter.indent('%scall %s void %s(%s)' % (tail_, cconv, functionref, args))
         else:
             codewriter.indent('%s = %scall %s %s %s(%s)' % (targetvar, tail_, cconv, returntype, functionref, args))
         tmp = '%%invoke.tmp.%d' % self.invoke_count
