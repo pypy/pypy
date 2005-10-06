@@ -84,6 +84,7 @@ python d:\pypy\dist\pypy\translator\goal\win32\gc_patch_windows.py
 nmake CFG="gc - Win32 Release"
 copy Release\gc_pypy.dll c:\windows\system32
 copy Release\gc_pypy.lib "e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\lib"
+mkdir "e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\include\gc"
 copy include "e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\include\gc"
 
 cheers - chris
