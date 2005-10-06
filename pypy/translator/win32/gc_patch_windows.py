@@ -62,9 +62,12 @@ That's all, folks!
 
 In case of a debug build, replace "Release" by "Debug", and also copy
 gc_pypy.pdb to your lib folder. This allows you to use source-level
-debugging.
+debugging. Please note: If you want to both build the default gc.dll
+and gc_pypy.dll, please delete the Debug resp. Release folders in
+between. The generated .sbr files are in the way.
 
 Please use the above recipe and report any bugs to me.
+In case of trouble, I also can provide you with pre-built dlls.
 
 cheers - chris
 """
