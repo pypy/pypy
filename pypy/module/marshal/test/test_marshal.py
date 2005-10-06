@@ -114,6 +114,25 @@ class AppTestMarshal:
         x = marshal.load(f)
         assert x == case
 
+    def test__minus_17(self):
+        import sys
+        hello = "he"
+        hello += "llo"
+        def func(x):
+            return lambda y: x+y
+        scopefunc = func(42)
+        import marshal, StringIO
+        case = -17
+        print "case: %-30s   func=_minus_17" % (case, )
+        s = marshal.dumps(case)
+        x = marshal.loads(s)
+        assert x == case
+        f = StringIO.StringIO()
+        marshal.dump(case, f)
+        f.seek(0)
+        x = marshal.load(f)
+        assert x == case
+
     def test_sys_dot_maxint(self):
         import sys
         hello = "he"

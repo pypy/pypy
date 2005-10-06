@@ -6,6 +6,7 @@ TESTCASES = """\
     StopIteration
     Ellipsis
     42
+    -17
     sys.maxint
     -1.25
     -1.25 #2

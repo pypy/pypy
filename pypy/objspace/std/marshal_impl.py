@@ -146,9 +146,9 @@ register(TYPE_INT, unmarshal_Int)
 
 def unmarshal_Int64(space, u, tc):
     if LONG_BIT >= 64:
-        lo = u.get_int() & 0xffff
+        lo = u.get_int() & (2**32-1)
         hi = u.get_int()
-        return W_IntObject(space, (hi << 32) or lo)
+        return W_IntObject(space, (hi << 32) | lo)
     else:
         # fall back to a long
         # XXX at some point, we need to extend longobject
