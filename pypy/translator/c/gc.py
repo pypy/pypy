@@ -363,7 +363,6 @@ class BoehmGcPolicy(BasicGcPolicy):
         yield '#define USING_BOEHM_GC'
 
     def gc_startup_code(self):
-        yield 'GC_all_interior_pointers = 0;'
         yield 'GC_INIT();'
 
 
