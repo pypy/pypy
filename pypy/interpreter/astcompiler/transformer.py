@@ -29,7 +29,6 @@ parseFile(path) -> AST
 
 # make sure we import the parser with the correct grammar
 import pypy.interpreter.pyparser.pythonparse
-from pypy.interpreter.stablecompiler.ast import *
 import parser
 import pypy.interpreter.pyparser.pysymbol as symbol
 import pypy.interpreter.pyparser.pytoken as token

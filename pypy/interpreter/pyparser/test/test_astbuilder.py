@@ -3,8 +3,8 @@ import os
 from pypy.interpreter.pyparser.pythonparse import PYTHON_PARSER
 from pypy.interpreter.pyparser.astbuilder import AstBuilder
 from pypy.interpreter.pyparser.pythonutil import ast_from_input
-from pypy.interpreter.stablecompiler.transformer import Transformer
-import pypy.interpreter.stablecompiler.ast as stable_ast
+from pypy.interpreter.testcompiler.transformer import Transformer
+import pypy.interpreter.testcompiler.ast as test_ast
 import pypy.interpreter.astcompiler.ast as ast_ast
 
 import py.test
@@ -31,12 +31,12 @@ def arglist_equal(left,right):
 
 
 def nodes_equal(left, right, check_lineno=False):
-    if not isinstance(left,stable_ast.Node) or not isinstance(right,ast_ast.Node):
+    if not isinstance(left,test_ast.Node) or not isinstance(right,ast_ast.Node):
         return left==right
     if left.__class__.__name__ != right.__class__.__name__:
         print "Node type mismatch:", left, right
         return False    
-    if isinstance(left,stable_ast.Function) and isinstance(right,ast_ast.Function):
+    if isinstance(left,test_ast.Function) and isinstance(right,ast_ast.Function):
         left_nodes = list(left.getChildren())
         right_nodes = list(right.getChildren())
         left_args = left_nodes[2]
@@ -45,7 +45,7 @@ def nodes_equal(left, right, check_lineno=False):
         del right_nodes[2]
         if not arglist_equal(left_args, right_args):
             return False
-    elif isinstance(left,stable_ast.Lambda) and isinstance(right,ast_ast.Lambda):
+    elif isinstance(left,test_ast.Lambda) and isinstance(right,ast_ast.Lambda):
         left_nodes = list(left.getChildren())
         right_nodes = list(right.getChildren())
         left_args = left_nodes[0]
@@ -54,7 +54,7 @@ def nodes_equal(left, right, check_lineno=False):
         del right_nodes[0]
         if not arglist_equal(left_args, right_args):
             return False
-    elif isinstance(left,stable_ast.Const):
+    elif isinstance(left,test_ast.Const):
         if isinstance(right,ast_ast.Const):
             r = left.value == right.value
         elif isinstance(right,ast_ast.NoneConst):
@@ -75,7 +75,7 @@ def nodes_equal(left, right, check_lineno=False):
                 print "(0) (%s) left: %s, right: %s" % (left, left.lineno, right.lineno)
                 return False
         return True
-    elif isinstance(right, ast_ast.Return) and isinstance(left, stable_ast.Return):
+    elif isinstance(right, ast_ast.Return) and isinstance(left, test_ast.Return):
         left_nodes = left.getChildren()
         if right.value is None:
             right_nodes = (ast_ast.Const(None),)

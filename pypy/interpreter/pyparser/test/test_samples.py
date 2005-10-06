@@ -93,7 +93,7 @@ def DISABLED_check_tuples_equality(pypy_tuples, python_tuples, testname):
         assert False, testname
 
 
-from pypy.interpreter.stablecompiler.transformer import Transformer as PyPyTransformer
+from pypy.interpreter.testcompiler.transformer import Transformer as PyPyTransformer
 from compiler.transformer import Transformer as PythonTransformer
 
 def _check_tuples_equality(pypy_tuples, python_tuples, testname):

@@ -234,7 +234,7 @@ class TestInterpreter:
 
 class TestPyPyInterpreter(TestInterpreter):
     """Runs the previous test with the pypy parser"""
-    from pypy.interpreter.pycompiler import PythonCompiler as CompilerClass
+    from pypy.interpreter.pycompiler import PythonAstCompiler as CompilerClass
 
     def test_extended_arg(self):
         py.test.skip("expression too large for the recursive parser")

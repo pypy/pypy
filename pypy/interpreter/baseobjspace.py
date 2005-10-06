@@ -2,7 +2,6 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
-from pypy.interpreter.pycompiler import PythonCompiler, PyPyCompiler
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache 
 from pypy.rpython.rarithmetic import r_uint, intmask
@@ -331,10 +330,7 @@ class ObjSpace(object):
         try:
             return self.default_compiler
         except AttributeError:
-            if (self.options.compiler == 'stable' or
-                self.options.compiler == '_stable'):
-                compiler = PythonCompiler(self)
-            elif self.options.compiler == 'cpython':
+            if self.options.compiler == 'cpython':
                 compiler = CPythonCompiler(self)
             elif self.options.compiler == 'ast':
                 compiler = PythonAstCompiler(self)

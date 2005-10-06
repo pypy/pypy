@@ -37,7 +37,7 @@ option = py.test.Config.addoptions("pypy options",
                callback=usemodules_callback, default=[],
                help="(mixed) modules to use."),
         Option('--compiler', action="store", type="string", dest="compiler",
-               metavar="[stable|_stable|ast|cpython]", default='ast',
+               metavar="[ast|cpython]", default='ast',
                help="""select compiling approach. see pypy/doc/README.compiling""")
     )
 

@@ -1,7 +1,7 @@
 import __future__
 import autopath
 import py
-from pypy.interpreter.pycompiler import CPythonCompiler, PythonCompiler, PythonAstCompiler
+from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
@@ -323,38 +323,11 @@ class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler
 
-    def test_globals_warnings(self):
-        py.test.skip('INPROGRES')
-
-    def test_return_in_generator(self):
-        py.test.skip('INPROGRES')
-
-    def test_yield_in_finally(self):
-        py.test.skip('INPROGRES')
-
-
 class TestPyCCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = CPythonCompiler(self.space)
 
-class TestPurePythonCompiler(BaseTestCompiler):
-    def setup_method(self, method):
-        self.compiler = PythonCompiler(self.space)
-
-    def test_globals_warnings(self):
-        py.test.skip('INPROGRES')
-
-    def test_return_in_generator(self):
-        py.test.skip('INPROGRES')
-
-    def test_yield_in_finally(self):
-        py.test.skip('INPROGRES')
-
 class TestPythonAstCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = PythonAstCompiler(self.space)
-
-class SkippedForNowTestPyPyCompiler(BaseTestCompiler):
-    def setup_method(self, method):
-        self.compiler = PyPyCompiler(self.space)
 

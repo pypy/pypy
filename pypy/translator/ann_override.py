@@ -29,11 +29,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         clsdef = getbookkeeper().getclassdef(pycode.PyCode)
         return annmodel.SomeInstance(clsdef)    
 
-    def override__cpy_stablecompiler(pol, self, parse_result, filename, mode):
-        from pypy.interpreter import pycode
-        clsdef = getbookkeeper().getclassdef(pycode.PyCode)
-        return annmodel.SomeInstance(clsdef)    
-
     def specialize__wrap(pol, bookkeeper, mod, spaceop, func, args, mono):
         from pypy.interpreter.baseobjspace import BaseWrappable
         ignore, args_w = args.flatten()

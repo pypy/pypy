@@ -98,12 +98,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.options.uselibfile:
             self.inituselibfile() 
 
-        # XXX hack!: patch the compiler after initialization is complete
-        if self.options.compiler == '_stable':
-            from pypy.interpreter.pycompiler import PythonCompilerApp
-            self.default_compiler = PythonCompilerApp(self)
-            self.getexecutioncontext().compiler = self.default_compiler
-
         if self.options.oldstyle: 
             self.enable_old_style_classes_as_default_metaclass()
 

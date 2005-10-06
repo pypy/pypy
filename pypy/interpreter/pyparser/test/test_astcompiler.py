@@ -82,7 +82,7 @@ def compile_with_astcompiler(expr, target='exec', space=FakeSpace()):
     rcode = codegen.getCode()
     return rcode
 
-def compile_with_stablecompiler(expr, target='exec'):
+def compile_with_testcompiler(expr, target='exec'):
     from pypy.interpreter.testcompiler import compile
     # from compiler import compile
     return compile(expr, '<?>', target)
@@ -142,7 +142,7 @@ def check_compile(expr, target='exec', quiet=False, space=None):
     if space is None:
         space = std_space
 
-    sc_code = compile_with_stablecompiler(expr, target=target)
+    sc_code = compile_with_testcompiler(expr, target=target)
     ac_code = compile_with_astcompiler(expr, target=target, space=space)
     compare_code(ac_code, sc_code, space=space)
 

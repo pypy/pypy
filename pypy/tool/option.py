@@ -13,8 +13,6 @@ class Options:
     nofaking = 0
     parser = "pypy" # "cpython" / "pypy" 
     compiler = "ast" 
-         # "stable" uses interpreter/pyparser & interpreter/stablecompiler 
-         # "_stable" uses intepreter/pyparser & lib/_stablecompiler 
          # "ast" uses interpreter/pyparser & interpreter/astcompiler.py 
          # "cpython" uses cpython parser and cpython c-level compiler 
     usemodules = []                        
@@ -56,7 +54,7 @@ def get_standard_options():
     options.append(make_option(
         '--compiler', action="store", type="string", dest="compiler",
         help="""select compiling approach. see pypy/doc/README.compiling""",
-        metavar="[stable|_stable|ast|cpython]")) 
+        metavar="[ast|cpython]")) 
     options.append(make_option(
         '--parser', action="store",type="string", dest="parser",
         help="select the parser module to use",
