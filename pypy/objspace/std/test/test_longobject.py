@@ -393,8 +393,12 @@ class AppTestLong:
             assert hash(i) == hash(long(i))
         # might check too much -- it's ok to change the hashing algorithm
         assert hash(123456789L) == 123456789
-        assert hash(1234567890123456789L) == -1895067127
-        assert hash(-3**333) == -368329968
+        assert hash(1234567890123456789L) in (
+            -1895067127,            # with 32-bit platforms
+            1234567890123456789)    # with 64-bit platforms
+        assert hash(-3**333) in (
+            -368329968,             # with 32-bit platforms
+            4437666303107791123)    # with 64-bit platforms
 
     def math_log(self):
         import math

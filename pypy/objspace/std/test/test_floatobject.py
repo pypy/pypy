@@ -61,7 +61,9 @@ class AppTestAppFloatTest:
         import math
         assert hash(42.0) == 42
         assert hash(42.125) == 1413677056
-        assert hash(math.ldexp(0.125, 1000)) == 32
+        assert hash(math.ldexp(0.125, 1000)) in (
+            32,              # answer on 32-bit machines
+            137438953472)    # answer on 64-bit machines
         # testing special overflow values
         assert hash(1e200 * 1e200) == 314159
         assert hash(-1e200 * 1e200) == -271828
