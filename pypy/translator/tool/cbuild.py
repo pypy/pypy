@@ -296,7 +296,7 @@ def check_boehm_presence():
         cfname = str(cfile)
         cfile = cfile.open('w')
         cfile.write("""
-#include <gc.h>
+#include <gc/gc.h>
 
 int main() {
   return 0;
