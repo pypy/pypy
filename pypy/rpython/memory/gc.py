@@ -213,10 +213,13 @@ class SemiSpaceGC(GCBase):
 
     def collect(self):
 ##         print "collecting"
-        self.fromspace, self.tospace = self.tospace, self.fromspace
-        self.top_of_space = self.tospace + self.space_size
+        tospace = self.fromspace
+        fromspace = self.tospace
+        self.fromspace = fromspace
+        self.tospace = tospace
+        self.top_of_space = tospace + self.space_size
         roots = self.get_roots()
-        scan = self.free = self.tospace
+        scan = self.free = tospace
         while 1:
             root = roots.pop()
             if root == NULL:
