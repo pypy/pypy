@@ -76,6 +76,9 @@ Directory                      explanation/links
 
 `interpreter/`_                `bytecode interpreter`_ and related objects (frames, functions, modules,...) 
 
+`interpreter/astcompiler/`_    interpreter-level bytecode compiler, via an AST
+                               representation
+
 `lib/`_                        PyPy's wholesale reimplementations of CPython modules_
 
 `lib/test2/`_                  tests running at interp-level against the reimplementations 
@@ -87,9 +90,7 @@ Directory                      explanation/links
 
 `module/__builtin__/`_         full implementation of CPython's ``__builtin__`` module. 
 
-`module/parser/`_              parser package from Jonathan David Riehl's `basil`_ package
-
-`module/recparser/`_           parser package from Logilab 
+`module/recparser/`_           parser_ package from Logilab 
 
 `module/sys/`_                 implementation of CPython's ``sys`` module.  
 
@@ -105,7 +106,13 @@ Directory                      explanation/links
 
 `rpython/`_                    the `RPython Typer`_ 
 
+`rpython/memory/`_             experimental `garbage collector`_ construction
+                               framework
+
 `tool/`_                       various utilities and hacks used from various places 
+
+`tool/algo/`_                  general-purpose algorithmic and mathematic
+                               tools
 
 `tool/pytest/`_                support code for our `testing methods`_
 
@@ -114,15 +121,16 @@ Directory                      explanation/links
 
 `translator/`_                 translation_ backends and support code
 
-`translator/c/`_               the `GenC backend`_ producing a CPython C-extension 
-                               module from a given RPython program. 
-
-`translator/java/`_            experimental code to utilize Java for annotation 
+`translator/c/`_               the `GenC backend`_, producing C code from an
+                               RPython program (generally via the RTyper)
 
 `translator/llvm/`_            contains the `LLVM backend`_ producing LLVM assembler 
                                from fully annotated RPython programs 
 
 `translator/tool/`_            helper tools for translation 
+
+`translator/goal/`_            currently our main PyPy-translation scripts
+                               live here
 
 ``*/test/``                    many directories have a test subdirectory containing test 
                                modules (see `Testing in PyPy`_) 
@@ -152,6 +160,7 @@ Directory                      explanation/links
 .. _`GenC backend`: translation.html#genc 
 .. _`LLVM backend`: translation.html#llvm 
 .. _`revision report`: http://codespeak.net/pypy/rev/current 
+.. _`garbage collector`: garbage_collection.html
 
 
 .. include:: _ref.txt

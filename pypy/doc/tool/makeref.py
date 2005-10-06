@@ -42,6 +42,7 @@ items.sort()
 
 lines = []
 for linktarget, linknamelist in items: 
+    linknamelist.sort()
     for linkname in linknamelist[:-1]: 
         lines.append(".. _`%s`:" % linkname)
     lines.append(".. _`%s`: %s" %(linknamelist[-1], linktarget))
