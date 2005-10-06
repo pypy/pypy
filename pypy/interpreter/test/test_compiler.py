@@ -1,6 +1,6 @@
 import __future__
 import autopath
-import py
+import py, sys
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
@@ -326,6 +326,13 @@ class TestECCompiler(BaseTestCompiler):
 class TestPyCCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = CPythonCompiler(self.space)
+
+    if sys.version_info < (2, 4):
+        def skip_on_2_3(self):
+            py.test.skip("syntax not supported by the CPython 2.3 compiler")
+        test_unicodeliterals = skip_on_2_3
+        test_none_assignment = skip_on_2_3
+        test_import = skip_on_2_3
 
 class TestPythonAstCompiler(BaseTestCompiler):
     def setup_method(self, method):
