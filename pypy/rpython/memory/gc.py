@@ -178,7 +178,7 @@ class MarkSweepGC(GCBase):
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, space_size=4096, get_roots=None):
+    def __init__(self, space_size=1024*int_size, get_roots=None):
         self.bytes_malloced = 0
         self.space_size = space_size
         self.tospace = raw_malloc(space_size)
@@ -204,7 +204,8 @@ class SemiSpaceGC(GCBase):
             self.collect()
             #XXX need to increase the space size if the object is too big
             #for bonus points do big objects differently
-            return self.malloc(typeid, length)
+            if self.free + totalsize > self.top_of_space:
+                raise MemoryError
         result = self.free
         self.init_gc_object(result, typeid)
 ##         print "mallocing %s, size %s at %s" % (typeid, size, result)

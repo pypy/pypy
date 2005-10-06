@@ -13,7 +13,9 @@ import py
 log = py.log.Producer('llinterp')
 
 class LLException(Exception):
-    pass
+    def __str__(self):
+        etype, evalue = self.args
+        return '<LLException %r>' % (''.join(etype.name).rstrip('\x00'),)
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
@@ -40,8 +42,7 @@ class LLInterpreter(object):
         try:
             return llframe.eval()
         except LLException, e:
-            etype, evalue = e.args
-            print "LLEXCEPTION:", etype.name
+            print "LLEXCEPTION:", e
             self.print_traceback()
             raise
         except Exception, e:
