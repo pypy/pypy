@@ -366,7 +366,7 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def gc_startup_code(self):
         if sys.platform == 'win32':
-            yield 'assert GC_all_interior_pointers == 0;'
+            yield 'assert(GC_all_interior_pointers == 0);'
         else:
             yield 'GC_all_interior_pointers = 0;'
             yield 'GC_INIT();'
