@@ -353,7 +353,9 @@ class BoehmGcPolicy(BasicGcPolicy):
         return result
 
     def gc_libraries(self):
-        return ['gc'] # xxx on windows?
+        if sys.platform == 'win32':
+            return ['gc_pypy']
+        return ['gc']
 
     def pre_pre_gc_code(self):
         #if sys.platform == "linux2":
@@ -363,8 +365,11 @@ class BoehmGcPolicy(BasicGcPolicy):
         yield '#define USING_BOEHM_GC'
 
     def gc_startup_code(self):
-        yield 'GC_all_interior_pointers = 0;'
-        yield 'GC_INIT();'
+        if sys.platform == 'win32':
+            yield 'assert GC_all_interior_pointers == 0;'
+        else:
+            yield 'GC_all_interior_pointers = 0;'
+            yield 'GC_INIT();'
 
 
 class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
