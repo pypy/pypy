@@ -19,10 +19,11 @@ Then copy the file NT_THREADS_MAKEFILE to Makefile:
 copy NT_THREADS_MAKEFILE Makefile
 
 This file is the general-purpose gc dll makefile. For some internal
-reasons, this file's defaults are bad for PyPy. Use this script to
+reasons, this file's defaults are bad for PyPy. The early initialisation
+in DllMain() inhibits the changes necessary for PyPy. Use this script to
 do a patch: (assuming that you have d:\pypy\dist\pypy\translator\goal)
 
-python d:\pypy\dist\pypy\translator\goal\gc_patch_windows.py
+python d:\pypy\dist\pypy\translator\goal\win32\gc_patch_windows.py
 
 Now, your makefile is patched a little bit. In particular,
 
@@ -41,7 +42,7 @@ With my setup, I have to do
 After that, you can either build a release or a debug gc. 
 
 After a successful build, you need to enable gc_pypy.dll for your compiler.
-There are many ways to install this. The followong recommendation just
+There are many ways to install this. The following recommendation just
 works without changing your environment variables. I think this is the
 easiest way possible, but this is a matter of taste. What I did is:
 
@@ -54,7 +55,7 @@ in your PATH variable.
 Also, copy Release\gc_pypy.lib to (in my case)
 "e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\lib";
 
-finally, copy d:\tmpgc6.5\include to
+finally, copy d:\tmp\gc6.5\include to
 "e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\include"
 and rename this folder to "gc", so that "gc/gc.h" is valid.
 
@@ -68,6 +69,22 @@ between. The generated .sbr files are in the way.
 
 Please use the above recipe and report any bugs to me.
 In case of trouble, I also can provide you with pre-built dlls.
+Note: We also could have solved this by including the gc source
+into the PyPy build. This may or may not become necessary if something
+changes dramatically, again. As long as this is not needed, I prefer
+this simple solution.
+
+Summary transcript of the steps involved: (please adjust paths)
+
+d:
+cd \tmp\gc6.5
+copy NT_THREADS_MAKEFILE Makefile
+python d:\pypy\dist\pypy\translator\goal\win32\gc_patch_windows.py
+"e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\bin\vcvars32.bat"
+nmake CFG="gc - Win32 Release"
+copy Release\gc_pypy.dll c:\windows\system32
+copy Release\gc_pypy.lib "e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\lib"
+copy include "e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\include\gc"
 
 cheers - chris
 """
