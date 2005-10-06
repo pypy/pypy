@@ -18,7 +18,7 @@ Then copy the file NT_THREADS_MAKEFILE to Makefile:
 
 copy NT_THREADS_MAKEFILE Makefile
 
-This file is the general-purpose gc dllmakefile. For some internal
+This file is the general-purpose gc dll makefile. For some internal
 reasons, this file's defaults are bad for PyPy. Use this script to
 do a patch: (assuming that you have d:\pypy\dist\pypy\translator\goal)
 
@@ -52,7 +52,11 @@ Copy this file to c:\windows\system32 or any other folder that is always
 in your PATH variable.
 
 Also, copy Release\gc_pypy.lib to (in my case)
-"e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\lib"
+"e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\lib";
+
+finally, copy d:\tmpgc6.5\include to
+"e:\Programme\Microsoft Visual Studio .NET 2003\Vc7\include"
+and rename this folder to "gc", so that "gc/gc.h" is valid.
 
 That's all, folks!
 
