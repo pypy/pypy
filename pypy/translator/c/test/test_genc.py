@@ -211,6 +211,11 @@ def test_infinite_float():
     f1 = compile(fn, [])
     res = f1()
     assert res > 0 and res == res / 2
+    def fn():
+        return -x
+    f1 = compile(fn, [])
+    res = f1()
+    assert res < 0 and res == res / 2
 
 
 def test_x():
