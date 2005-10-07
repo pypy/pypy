@@ -1,17 +1,17 @@
 
 import sys
 
-from pypy.translator.llvm.log import log 
-from pypy.translator.llvm.funcnode import FuncNode, FuncTypeNode
-from pypy.translator.llvm.extfuncnode import ExternalFuncNode
-from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
+from pypy.translator.js.funcnode import FuncNode, FuncTypeNode
+from pypy.translator.js.extfuncnode import ExternalFuncNode
+from pypy.translator.js.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode
-from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
+from pypy.translator.js.arraynode import ArrayNode, StrArrayNode, \
      VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
-from pypy.translator.llvm.opaquenode import OpaqueNode, OpaqueTypeNode
-from pypy.translator.llvm.node import ConstantLLVMNode
+from pypy.translator.js.opaquenode import OpaqueNode, OpaqueTypeNode
+from pypy.translator.js.node import ConstantLLVMNode
 from pypy.rpython import lltype
 from pypy.objspace.flow.model import Constant, Variable
+from pypy.translator.js.log import log 
             
 log = log.database 
 
@@ -245,7 +245,7 @@ class Database(object):
                     return node.get_ref()
         else:
             assert isinstance(arg, Variable)
-            return "%" + str(arg)
+            return str(arg)
 
     def repr_arg_type(self, arg):
         assert isinstance(arg, (Constant, Variable))
@@ -300,7 +300,7 @@ class Database(object):
     def repr_tmpvar(self): 
         count = self._tmpcount 
         self._tmpcount += 1
-        return "%tmp." + str(count) 
+        return "tmp_" + str(count) 
 
     def repr_constructor(self, type_):
         return self.obj2node[type_].constructor_ref

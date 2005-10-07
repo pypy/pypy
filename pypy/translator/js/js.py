@@ -3,7 +3,7 @@ reference material:
     http://webreference.com/javascript/reference/core_ref/
     http://webreference.com/programming/javascript/
     http://mochikit.com/
-    
+    http://www.mozilla.org/js/spidermonkey/
 '''
 
 #import os
@@ -13,10 +13,10 @@ reference material:
 
 import py
 
-from pypy.translator.llvm.database import Database 
 from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
+from pypy.translator.js.database import Database 
 from pypy.translator.js.codewriter import CodeWriter
 from pypy.translator.js.gc import GcPolicy
 from pypy.translator.js.exception import ExceptionPolicy
@@ -51,8 +51,8 @@ class JS(object):   # JS = Javascript
 
         # set up all nodes
         self.db.setup_all()
-        self.entrynode = self.db.set_entrynode(entry_point)
-        entryfunc_name = self.entrynode.getdecl().split('%', 1)[1].split('(')[0]
+        #self.entrynode = self.db.set_entrynode(entry_point)
+        #entryfunc_name = self.entrynode.getdecl().split('%', 1)[1].split('(')[0]
 
         ## post set up externs
         #extern_decls = post_setup_externs(self.db)
@@ -79,14 +79,12 @@ class JS(object):   # JS = Javascript
         self.filename = udir.join(func.func_name + postfix).new(ext='.js')
         f = open(str(self.filename),'w')
         codewriter = CodeWriter(f, self)
-        comment = codewriter.comment
-        nl = codewriter.newline
 
         #if using_external_functions:
-        #    nl(); comment("External Function Declarations") ; nl()
+        #    codewriter.comment("External Function Declarations")
         #    codewriter.append(llexterns_header)
 
-        nl(); comment("Type Declarations"); nl()
+        codewriter.comment("Type Declarations", 0)
         #for c_name, obj in extern_decls:
         #    if isinstance(obj, lltype.LowLevelType):
         #        if isinstance(obj, lltype.Ptr):
@@ -97,18 +95,18 @@ class JS(object):   # JS = Javascript
         for typ_decl in self.db.getnodes():
             typ_decl.writedatatypedecl(codewriter)
 
-        nl(); comment("Global Data") ; nl()
+        codewriter.comment("Global Data", 0)
         for typ_decl in self.db.getnodes():
             typ_decl.writeglobalconstants(codewriter)
 
-        nl(); comment("Function Prototypes") ; nl()
+        codewriter.comment("Function Prototypes", 0)
         #codewriter.append(extdeclarations)
         #codewriter.append(self.gcpolicy.declarations())
 
         for typ_decl in self.db.getnodes():
             typ_decl.writedecl(codewriter)
 
-        nl(); comment("Function Implementation") 
+        codewriter.comment("Function Implementation", 0)
         codewriter.startimpl()
         
         for typ_decl in self.db.getnodes():
@@ -137,16 +135,18 @@ class JS(object):   # JS = Javascript
         #            depdone[dep] = True
         #
         #if using_external_functions:
-        #    nl(); comment("External Function Implementation") ; nl()
+        #    codewriter.comment("External Function Implementation", 0)
         #    codewriter.append(llexterns_functions)
 
-        comment("Wrapper code for the Javascript CLI") ; nl()
-        graph        = self.db.entrynode.graph
+        codewriter.newline()
+        codewriter.comment("Wrapper code for the Javascript CLI", 0)
+        codewriter.newline()
+        graph        = self.db.obj2node[entry_point].graph
         startblock  = graph.startblock
         args        = ','.join(['arguments[%d]' % i for i,v in enumerate(startblock.inputargs)])
-        wrappercode = 'pypy_%s(%s);\n' % (graph.name, args)
-        codewriter.indent(wrappercode)
-
-        comment("End of file") ; nl()
+        wrappercode = 'print(pypy_%s(%s))' % (graph.name, args)
+        codewriter.append(wrappercode, 0)
+        codewriter.newline()
+        codewriter.comment("EOF", 0)
         log('Written:', self.filename)
         return self.filename

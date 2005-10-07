@@ -3,12 +3,12 @@ import sys
 from pypy.objspace.flow.model import Block, Constant, Variable, Link
 from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
 from pypy.rpython import lltype
-from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
-from pypy.translator.llvm.opwriter import OpWriter
-from pypy.translator.llvm.log import log 
-from pypy.translator.llvm.backendopt.removeexcmallocs import remove_exception_mallocs
-from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
+from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.js.opwriter import OpWriter
+#from pypy.translator.js.backendopt.removeexcmallocs import remove_exception_mallocs
+#from pypy.translator.js.backendopt.mergemallocs import merge_mallocs
 from pypy.translator.unsimplify import remove_double_links
+from pypy.translator.js.log import log 
 log = log.funcnode
 
 class FuncTypeNode(LLVMNode):
@@ -33,16 +33,16 @@ class FuncTypeNode(LLVMNode):
         codewriter.funcdef(self.ref, returntype, inputargtypes)
 
 class FuncNode(ConstantLLVMNode):
-    __slots__ = "db value ref graph block_to_name".split()
+    __slots__ = "db value ref graph blockindex".split()
 
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        self.ref   = self.make_ref('%pypy_', value.graph.name)
+        self.ref   = self.make_ref('pypy_', value.graph.name)
         self.graph = value.graph
 
         self.db.genllvm.exceptionpolicy.transform(self.db.translator, self.graph)
-        remove_exception_mallocs(self.db.translator, self.graph, self.ref)
+        #remove_exception_mallocs(self.db.translator, self.graph, self.ref)
         #merge_mallocs(self.db.translator, self.graph, self.ref)
 
         remove_double_links(self.db.translator, self.graph)
@@ -78,21 +78,22 @@ class FuncNode(ConstantLLVMNode):
     def writeimpl(self, codewriter):
         graph = self.graph
         log.writeimpl(graph.name)
-        codewriter.openfunc(self.getdecl(), self is self.db.entrynode)
         nextblock = graph.startblock
         args = graph.startblock.inputargs 
-        l = [x for x in flatten(graph) if isinstance(x, Block)]
-        self.block_to_name = {}
-        for i, block in enumerate(l):
-            self.block_to_name[block] = "block%s" % i
-        for block in l:
-            codewriter.label(self.block_to_name[block])
+        blocks = [x for x in flatten(graph) if isinstance(x, Block)]
+        self.blockindex= {}
+        for i, block in enumerate(blocks):
+            self.blockindex[block] = i
+        codewriter.openfunc(self, blocks)
+        for block in blocks:
+            codewriter.openblock(self.blockindex[block])
             for name in 'startblock returnblock exceptblock'.split():
                 if block is getattr(graph, name):
                     getattr(self, 'write_' + name)(codewriter, block)
                     break
             else:
                 self.write_block(codewriter, block)
+            codewriter.closeblock()
         codewriter.closefunc()
 
     def writecomments(self, codewriter):
@@ -134,10 +135,10 @@ class FuncNode(ConstantLLVMNode):
         inputargs = self.db.repr_arg_multi(startblock_inputargs)
         inputargtypes = self.db.repr_arg_type_multi(startblock_inputargs)
         returntype = self.db.repr_arg_type(self.graph.returnblock.inputargs[0])
-        result = "%s %s" % (returntype, self.ref)
-        args = ["%s %s" % item for item in zip(inputargtypes, inputargs)]
-        result += "(%s)" % ", ".join(args)
-        return result 
+        #result = "%s %s" % (returntype, self.ref)
+        #args = ["%s %s" % item for item in zip(inputargtypes, inputargs)]
+        #result += "(%s)" % ", ".join(args)
+        return self.ref + "(%s)" % ", ".join(inputargs)
 
     def write_block(self, codewriter, block):
         self.write_block_phi_nodes(codewriter, block)
@@ -152,12 +153,11 @@ class FuncNode(ConstantLLVMNode):
         inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
         for i, (arg, type_) in enumerate(zip(inputargs, inputargtypes)):
             names = self.db.repr_arg_multi([link.args[i] for link in entrylinks])
-            blocknames = [self.block_to_name[link.prevblock]
-                              for link in entrylinks]
+            blocknames = [self.blockindex[link.prevblock] for link in entrylinks]
             for i, link in enumerate(entrylinks):   #XXX refactor into a transformation
                 if link.prevblock.exitswitch == Constant(last_exception) and \
                    link.prevblock.exits[0].target != block:
-                    blocknames[i] += '_exception_found_branchto_' + self.block_to_name[block]
+                    blocknames[i] += '_exception_found_branchto_' + self.blockindex[block]
             data.append( (arg, type_, names, blocknames) )
         return data
 
@@ -172,11 +172,11 @@ class FuncNode(ConstantLLVMNode):
             #codewriter.comment('FuncNode(ConstantLLVMNode) *last_exception* write_block_branches @%s@' % str(block.exits))
             return
         if len(block.exits) == 1:
-            codewriter.br_uncond(self.block_to_name[block.exits[0].target])
+            codewriter.br_uncond(self.blockindex[block.exits[0].target])
         elif len(block.exits) == 2:
             cond = self.db.repr_arg(block.exitswitch)
-            codewriter.br(cond, self.block_to_name[block.exits[0].target],
-                          self.block_to_name[block.exits[1].target])
+            codewriter.br(cond, self.blockindex[block.exits[0].target],
+                          self.blockindex[block.exits[1].target])
 
     def write_block_operations(self, codewriter, block):
         opwriter = OpWriter(self.db, codewriter, self, block)

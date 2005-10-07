@@ -1,6 +1,6 @@
 import py
-from pypy.translator.llvm.node import ConstantLLVMNode
-from pypy.translator.llvm.log import log 
+from pypy.translator.js.node import ConstantLLVMNode
+from pypy.translator.js.log import log 
 log = log.extfuncnode
 
 class ExternalFuncNode(ConstantLLVMNode):

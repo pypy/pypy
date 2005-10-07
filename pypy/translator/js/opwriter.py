@@ -1,9 +1,9 @@
 import py
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import lltype
-from pypy.translator.llvm.module.extfunction import extfunctions
-from pypy.translator.llvm.extfuncnode import ExternalFuncNode
-from pypy.translator.llvm.log import log 
+#from pypy.translator.js.module.extfunction import extfunctions
+from pypy.translator.js.extfuncnode import ExternalFuncNode
+from pypy.translator.js.log import log 
 log = log.opwriter
 
 class OpWriter(object):
@@ -286,8 +286,8 @@ class OpWriter(object):
 
     def last_exception_type_ptr(self, op):
         e = self.db.translator.rtyper.getexceptiondata()
-        lltype_of_exception_type = ('%structtype.' + e.lltype_of_exception_type.TO.__name__ + '*')
-        self.codewriter.load('%'+str(op.result), lltype_of_exception_type, '%last_exception_type')
+        lltype_of_exception_type = ('structtype.' + e.lltype_of_exception_type.TO.__name__ + '*')
+        self.codewriter.load('%'+str(op.result), lltype_of_exception_type, 'last_exception_type')
 
     def invoke(self, op):
         op_args = [arg for arg in op.args
@@ -319,8 +319,8 @@ class OpWriter(object):
         argrefs     = self.db.repr_arg_multi(op_args[1:])
         argtypes    = self.db.repr_arg_type_multi(op_args[1:])
 
-        none_label  = self.node.block_to_name[link.target]
-        block_label = self.node.block_to_name[self.block]
+        none_label  = self.node.blockindex[link.target]
+        block_label = self.node.blockindex[self.block]
         exc_label   = block_label + '_exception_handling'
 
         if self.db.is_function_ptr(op.result):  #use longhand form
@@ -329,11 +329,11 @@ class OpWriter(object):
                              argtypes, none_label, exc_label)
 
         e = self.db.translator.rtyper.getexceptiondata()
-        ll_exception_match       = '%pypy_' + e.ll_exception_match.__name__
-        lltype_of_exception_type = ('%structtype.' +
+        ll_exception_match       = 'pypy_' + e.ll_exception_match.__name__
+        lltype_of_exception_type = ('structtype.' +
                                     e.lltype_of_exception_type.TO.__name__
                                     + '*')
-        lltype_of_exception_value = ('%structtype.' +
+        lltype_of_exception_value = ('structtype.' +
                                     e.lltype_of_exception_value.TO.__name__
                                     + '*')
 
@@ -346,7 +346,7 @@ class OpWriter(object):
 
             etype = self.db.obj2node[link.llexitcase._obj]
             current_exception_type = etype.get_ref()
-            target          = self.node.block_to_name[link.target]
+            target          = self.node.blockindex[link.target]
             exc_found_label = block_label + '_exception_found_branchto_' + target
             last_exc_type_var, last_exc_value_var = None, None
 
@@ -355,9 +355,9 @@ class OpWriter(object):
                 for name, blockname in zip(names, blocknames):
                     if blockname != exc_found_label:
                         continue
-                    if name.startswith('%last_exception_'):
+                    if name.startswith('last_exception_'):
                         last_exc_type_var = name
-                    if name.startswith('%last_exc_value_'):
+                    if name.startswith('last_exc_value_'):
                         last_exc_value_var = name
 
             t = (exc_found_label,target,last_exc_type_var,last_exc_value_var)
@@ -371,7 +371,7 @@ class OpWriter(object):
             else:   #catch specific exception (class) type
                 if not last_exception_type: #load pointer only once
                     last_exception_type = self.db.repr_tmpvar()
-                    self.codewriter.load(last_exception_type, lltype_of_exception_type, '%last_exception_type')
+                    self.codewriter.load(last_exception_type, lltype_of_exception_type, 'last_exception_type')
                     self.codewriter.newline()
                 ll_issubclass_cond = self.db.repr_tmpvar()
                 self.codewriter.call(ll_issubclass_cond,
@@ -394,9 +394,9 @@ class OpWriter(object):
         tmpvar1 = self.db.repr_tmpvar()
         tmpvar2 = self.db.repr_tmpvar()
         tmpvar3 = self.db.repr_tmpvar()
-        self.codewriter.indent('%(tmpvar1)s = getelementptr %(type_)s* null, int 1' % locals())
+        self.codewriter.append('%(tmpvar1)s = getelementptr %(type_)s* null, int 1' % locals())
         self.codewriter.cast(tmpvar2, type_+'*', tmpvar1, 'uint')
-        self.codewriter.call(tmpvar3, 'sbyte*', '%malloc_exception', [tmpvar2], ['uint'])
+        self.codewriter.call(tmpvar3, 'sbyte*', 'malloc_exception', [tmpvar2], ['uint'])
         self.codewriter.cast(targetvar, 'sbyte*', tmpvar3, type_+'*')
 
     def malloc(self, op): 

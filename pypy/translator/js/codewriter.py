@@ -1,144 +1,173 @@
 import py
 from itertools import count
-from pypy.translator.llvm.log import log 
+from pypy.translator.js.log import log 
 
 log = log.codewriter 
 
-DEFAULT_TAIL     = ''       #/tail
-DEFAULT_CCONV    = 'fastcc'    #ccc/fastcc
-
 class CodeWriter(object): 
-    def __init__(self, f, genllvm): 
+
+    tabstring = '  '
+
+    def __init__(self, f, js): 
         self.f = f
-        self.genllvm = genllvm
-        self.word  = genllvm.db.get_machine_word()
-        self.uword = genllvm.db.get_machine_uword()
+        self.js = js
 
-    def append(self, line): 
-        self.f.write(line + '\n')
-
-    def comment(self, line, indent=True):
-        line = "// " + line
-        if indent:
-            self.indent(line)
+    def append(self, line, indentation_level=4): 
+        if indentation_level:
+            s = self.tabstring * indentation_level
         else:
-            self.append(line)
+            s = ''
+        self.f.write(s + line + '\n')
+
+    def comment(self, line, indentation_level=4):
+        self.append("// " + line, indentation_level)
+
+    def llvm(self, line, indentation_level=4):
+        self.comment("LLVM " + line, indentation_level)
 
     def newline(self):
         self.append("")
 
-    def indent(self, line): 
-        self.append("        " + line) 
-
     def label(self, name):
-        self.newline()
-        self.append("// QQQ    %s:" % name)
+        self.append("case %d:" % name, 3)
+    openblock = label
+
+    def closeblock(self):
+        self.append('break')
 
     def globalinstance(self, name, typeandata):
-        self.append("// QQQ %s = %s global %s" % (name, "internal", typeandata))
+        self.llvm("%s = %s global %s" % (name, "internal", typeandata))
 
     def structdef(self, name, typereprs):
-        self.append("// QQQ %s = type { %s }" %(name, ", ".join(typereprs)))
+        self.llvm("%s = type { %s }" %(name, ", ".join(typereprs)))
 
     def arraydef(self, name, lentype, typerepr):
-        self.append("// QQQ %s = type { %s, [0 x %s] }" % (name, lentype, typerepr))
+        self.llvm("%s = type { %s, [0 x %s] }" % (name, lentype, typerepr))
 
     def funcdef(self, name, rettyperepr, argtypereprs):
-        self.append("// QQQ %s = type %s (%s)" % (name, rettyperepr,
+        self.llvm("%s = type %s (%s)" % (name, rettyperepr,
                                            ", ".join(argtypereprs)))
 
-    def declare(self, decl, cconv=DEFAULT_CCONV):
-        self.append("// QQQ declare %s %s" %(cconv, decl,))
+    def declare(self, decl):
+        #self.llvm("declare %s" % decl, 0)
+        pass
 
     def startimpl(self):
-        self.newline()
-        self.append("// QQQ implementation")
-        self.newline()
+        #self.llvm("implementation", 0)
+        pass
 
     def br_uncond(self, blockname): 
-        self.indent("// QQQ br label %%%s" %(blockname,))
+        self.append('prevblock = block')
+        self.append('block = %d' % blockname)
+        #self.llvm("br label %s" %(blockname,))
 
     def br(self, cond, blockname_false, blockname_true):
-        self.indent("// QQQ br bool %s, label %%%s, label %%%s"
+        self.llvm("br bool %s, label %s, label %s"
                     % (cond, blockname_true, blockname_false))
 
     def switch(self, intty, cond, defaultdest, value_label):
         labels = ''
         for value, label in value_label:
-            labels += ' %s %s, label %%%s' % (intty, value, label)
-        self.indent("// QQQ switch %s %s, label %%%s [%s ]"
+            labels += ' %s %s, label %s' % (intty, value, label)
+        self.llvm("switch %s %s, label %s [%s ]"
                     % (intty, cond, defaultdest, labels))
 
-    def openfunc(self, decl, is_entrynode=False, cconv=DEFAULT_CCONV): 
+    def openfunc(self, funcnode, blocks): 
+        self.funcnode = funcnode
+        self.blocks   = blocks
+        usedvars      = {}  #XXX could probably be limited to inputvars
+        for block in blocks:
+            for op in block.operations:
+                targetvar = self.js.db.repr_arg(op.result)
+                usedvars[targetvar] = True
         self.newline()
-        self.append("%s {" % decl)
+        self.append("function %s {" % self.funcnode.getdecl(), 0)
+        self.append("var %s" % ' = 0, '.join(usedvars.keys()), 1)
+        self.append("var block = 0", 1)
+        self.append("while (block != undefined) {", 1)
+        self.append("switch (block) {", 2)
 
     def closefunc(self): 
-        self.append("}") 
+        self.append("} // end of switch (block)", 2)
+        self.append("} // end of while (block != undefined)", 1)
+        self.append("} // end of function %s" % self.funcnode.getdecl(), 0)
 
     def ret(self, type_, ref): 
-        if type_ == '// QQQ void':
-            self.indent("// QQQ ret void")
+        if type_ == 'void':
+            self.append("return")
         else:
-            self.indent("// QQQ ret %s %s" % (type_, ref))
+            self.append("return " + ref)
 
     def phi(self, targetvar, type_, refs, blocknames): 
-        assert targetvar.startswith('%')
         assert refs and len(refs) == len(blocknames), "phi node requires blocks" 
         mergelist = ", ".join(
-            ["[%s, %%%s]" % item 
+            ["[%s, %s]" % item 
                 for item in zip(refs, blocknames)])
         s = "%s = phi %s %s" % (targetvar, type_, mergelist)
-        self.indent('// QQQ ' + s)
+        self.llvm(s)
+        self.append('switch (prevblock) {')
+        for i, blockname in enumerate(blocknames):
+            self.append('case %d: %s = %s; break' % (blockname, targetvar, refs[i]), 5)
+        self.append('} // end of switch (prevblock)')
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
-        self.indent("// QQQ %s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
+        self.llvm("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
+        conv = { 'mul':'*', 'add':'+', 'sub':'-', 'div':'/' }
+        if name in conv:
+            c = conv[name]
+            self.append("%(targetvar)s = %(ref1)s %(c)s %(ref2)s" % locals())
+        else:
+            self.append("TODO: binaryop")
 
     def shiftop(self, name, targetvar, type_, ref1, ref2):
-        self.indent("// QQQ %s = %s %s %s, ubyte %s" % (targetvar, name, type_, ref1, ref2))
+        self.llvm("%s = %s %s %s, ubyte %s" % (targetvar, name, type_, ref1, ref2))
 
-    def call(self, targetvar, returntype, functionref, argrefs, argtypes, label=None, except_label=None, tail=DEFAULT_TAIL, cconv=DEFAULT_CCONV):
-        if cconv is not 'fastcc':
-            tail_ = ''
-        else:
-            tail_ = tail
-	if tail_:
-		tail_ += ' '
+    def call(self, targetvar, returntype, functionref, argrefs, argtypes, label=None, except_label=None):
         args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
         if except_label:
-            self.genllvm.exceptionpolicy.invoke(self, targetvar, tail_, cconv, returntype, functionref, args, label, except_label)
+            self.js.exceptionpolicy.invoke(self, targetvar, returntype, functionref, args, label, except_label)
         else:
             if returntype == 'void':
-                self.indent("// QQQ call void %s(%s)" % (functionref, args))
+                self.llvm("call void %s(%s)" % (functionref, args))
             else:
-                self.indent("// QQQ %s = call %s %s(%s)" % (targetvar, returntype, functionref, args))
+                self.llvm("%s = call %s %s(%s)" % (targetvar, returntype, functionref, args))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
     	if fromtype == 'void' and targettype == 'void':
 		return
-        self.indent("// QQQ %(targetvar)s = cast %(fromtype)s "
+        self.llvm("%(targetvar)s = cast %(fromtype)s "
                         "%(fromvar)s to %(targettype)s" % locals())
+        if targettype == fromtype:
+            self.append("%(targetvar)s = %(fromvar)s%(convfunc)s" % locals())
+        elif targettype in ('int','uint',):
+            self.append("%(targetvar)s = 0 + %(fromvar)s" % locals())
+        elif targettype in ('double',):
+            self.append("%(targetvar)s = 0.0 + %(fromvar)s" % locals())
+        elif targettype in ('bool',):
+            self.append("%(targetvar)s = %(fromvar)s == 0" % locals())
+        else:
+            self.append("// TODO %(targetvar)s = %(fromvar)s...()" % locals())
 
-    def malloc(self, targetvar, type_, size=1, atomic=False, cconv=DEFAULT_CCONV):
-        for s in self.genllvm.gcpolicy.malloc(targetvar, type_, size, atomic, self.word, self.uword).split('\n'):
-            self.indent('// QQQ ' + s)
+    def malloc(self, targetvar, type_, size=1, atomic=False):
+        for s in self.js.gcpolicy.malloc(targetvar, type_, size, atomic, 'word', 'uword').split('\n'):
+            self.llvm(s)
 
     def getelementptr(self, targetvar, type, typevar, *indices):
         word = self.word
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, %(word)s 0, " % locals()
         res += ", ".join(["%s %s" % (t, i) for t, i in indices])
-        self.indent('// QQQ ' + res)
+        self.llvm(res)
 
     def load(self, targetvar, targettype, ptr):
-        self.indent("// QQQ %(targetvar)s = load %(targettype)s* %(ptr)s" % locals())
+        self.llvm("%(targetvar)s = load %(targettype)s* %(ptr)s" % locals())
 
     def store(self, valuetype, valuevar, ptr): 
-        self.indent("// QQQ store %(valuetype)s %(valuevar)s, "
+        self.llvm("store %(valuetype)s %(valuevar)s, "
                     "%(valuetype)s* %(ptr)s" % locals())
 
     def debugcomment(self, tempname, len, tmpname):
         word = self.word
-        res = "%s = call ccc %(word)s (sbyte*, ...)* %%printf(" % locals()
+        res = "%s = call ccc %(word)s (sbyte*, ...)* printf(" % locals()
         res += "sbyte* getelementptr ([%s x sbyte]* %s, %(word)s 0, %(word)s 0) )" % locals()
         res = res % (tmpname, len, tmpname)
-        self.indent('// QQQ ' + res)
+        self.llvm(res)

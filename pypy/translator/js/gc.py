@@ -28,13 +28,13 @@ class GcPolicy:
             gcpolicy = 'none'
 
         if gcpolicy == 'boehm':
-            from pypy.translator.llvm.gc import BoehmGcPolicy
+            from pypy.translator.js.gc import BoehmGcPolicy
             gcpolicy = BoehmGcPolicy()
         elif gcpolicy == 'ref':
-            from pypy.translator.llvm.gc import RefcountingGcPolicy
+            from pypy.translator.js.gc import RefcountingGcPolicy
             gcpolicy = RefcountingGcPolicy()
         elif gcpolicy == 'none':
-            from pypy.translator.llvm.gc import NoneGcPolicy
+            from pypy.translator.js.gc import NoneGcPolicy
             gcpolicy = NoneGcPolicy()
         else:
             raise Exception, 'unknown gcpolicy: ' + str(gcpolicy)
