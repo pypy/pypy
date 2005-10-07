@@ -30,13 +30,15 @@ class compile_function(object):
     def __call__(self, *kwds):
         args = ', '.join([str(kw).lower() for kw in kwds]) #lowerstr for (py)False->(js)false, etc.
         wrappercode = self.js.wrappertemplate % args
-        cmd = 'echo "%s" | js' % wrappercode
+        cmd = 'echo "%s" | js 2>&1' % wrappercode
         log(cmd)
         s   = os.popen(cmd).read().strip()
         if s == 'false':
             res = False
         elif s == 'true':
             res = True
+        elif s == 'undefined':
+            res = None
         else:
             res = eval(s)
         return res

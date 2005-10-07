@@ -131,7 +131,11 @@ class OpWriter(object):
                 last_val = res_val
         targetvar = self.db.repr_arg(op.result)
         self.codewriter.cast(targetvar, mult_type, res_val, mult_type)        
-
+        
+    def _skipped(self, op):
+            self.codewriter.comment('Skipping operation %s()' % op.opname)
+    keepalive = _skipped 
+    
     def int_abs(self, op):
         functionref = '%' + op.opname
         ExternalFuncNode.used_external_functions[functionref] = True
@@ -442,7 +446,7 @@ class OpWriter(object):
                                           ("uint", index))        
             self.codewriter.load(targetvar, targettype, tmpvar)
         else:
-            self.codewriter.comment("***Skipping operation getfield()***")
+            self._skipped(op)
  
     def getsubstruct(self, op): 
         struct, structtype = self.db.repr_argwithtype(op.args[0])
@@ -465,7 +469,7 @@ class OpWriter(object):
                                           ("uint", index))
             self.codewriter.store(valuetype, valuevar, tmpvar) 
         else:
-            self.codewriter.comment("***Skipping operation setfield()***")
+            self._skipped(op)
             
     def getarrayitem(self, op):        
         array, arraytype = self.db.repr_argwithtype(op.args[0])
@@ -479,7 +483,7 @@ class OpWriter(object):
                                           ("uint", 1), (indextype, index))
             self.codewriter.load(targetvar, targettype, tmpvar)
         else:
-            self.codewriter.comment("***Skipping operation getarrayitem()***")
+            self._skipped(op)
 
     def getarraysubstruct(self, op):        
         array, arraytype = self.db.repr_argwithtype(op.args[0])
@@ -503,7 +507,7 @@ class OpWriter(object):
                                       ("uint", 1), (indextype, index))
             self.codewriter.store(valuetype, valuevar, tmpvar) 
         else:
-            self.codewriter.comment("***Skipping operation setarrayitem()***")
+            self._skipped(op)
 
     def getarraysize(self, op):
         array, arraytype = self.db.repr_argwithtype(op.args[0])

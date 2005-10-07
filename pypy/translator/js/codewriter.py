@@ -102,24 +102,40 @@ class CodeWriter(object):
 
     def phi(self, targetvar, type_, refs, blocknames): 
         assert refs and len(refs) == len(blocknames), "phi node requires blocks" 
-        mergelist = ", ".join(
-            ["[%s, %s]" % item 
-                for item in zip(refs, blocknames)])
-        s = "%s = phi %s %s" % (targetvar, type_, mergelist)
-        self.llvm(s)
-        self.append('switch (prevblock) {')
-        for i, blockname in enumerate(blocknames):
-            self.append('case %d: %s = %s; break' % (blockname, targetvar, refs[i]), 5)
-        self.append('} // end of switch (prevblock)')
+        #mergelist = ", ".join(
+        #    ["[%s, %s]" % item 
+        #        for item in zip(refs, blocknames)])
+        #s = "%s = phi %s %s" % (targetvar, type_, mergelist)
+        #self.llvm(s)
+        all_refs_identical = True
+        for ref in refs:
+            if ref != refs[0]:
+                all_refs_identical = False
+                break
+        if all_refs_identical:
+            if targetvar != refs[0]:
+                self.append('%s = %s' % (targetvar, refs[0]))
+        else:
+            if len(blocknames) == 1:
+                self.append('%s = %s' % (targetvar, refs[i]))
+            else:
+                n = 0
+                for i, blockname in enumerate(blocknames):
+                    if targetvar != refs[i]:
+                        if n > 0:
+                            s = 'else '
+                        else:
+                            s = ''
+                        self.append('%sif (prevblock == %d) %s = %s' % (s, blockname, targetvar, refs[i]))
+                        n += 1
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
-        self.llvm("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
         conv = { 'mul':'*', 'add':'+', 'sub':'-', 'div':'/' }
         if name in conv:
             c = conv[name]
             self.append("%(targetvar)s = %(ref1)s %(c)s %(ref2)s" % locals())
         else:
-            self.append("TODO: binaryop")
+            self.llvm("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
 
     def shiftop(self, name, targetvar, type_, ref1, ref2):
         self.llvm("%s = %s %s %s, ubyte %s" % (targetvar, name, type_, ref1, ref2))
@@ -137,8 +153,6 @@ class CodeWriter(object):
     def cast(self, targetvar, fromtype, fromvar, targettype):
     	if fromtype == 'void' and targettype == 'void':
 		return
-        self.llvm("%(targetvar)s = cast %(fromtype)s "
-                        "%(fromvar)s to %(targettype)s" % locals())
         if targettype == fromtype:
             self.append("%(targetvar)s = %(fromvar)s%(convfunc)s" % locals())
         elif targettype in ('int','uint',):
@@ -148,7 +162,7 @@ class CodeWriter(object):
         elif targettype in ('bool',):
             self.append("%(targetvar)s = %(fromvar)s == 0" % locals())
         else:
-            self.append("// TODO %(targetvar)s = %(fromvar)s...()" % locals())
+            self.llvm("%(targetvar)s = cast %(fromtype)s %(fromvar)s to %(targettype)s" % locals())
 
     def malloc(self, targetvar, type_, size=1, atomic=False):
         for s in self.js.gcpolicy.malloc(targetvar, type_, size, atomic, 'word', 'uword').split('\n'):
