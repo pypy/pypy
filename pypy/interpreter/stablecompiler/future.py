@@ -1,0 +1,80 @@
+"""Parser for future statements
+
+"""
+
+from pypy.interpreter.stablecompiler import ast, walk
+
+def is_future(stmt):
+    """Return true if statement is a well-formed future statement"""
+    if not isinstance(stmt, ast.From):
+        return 0
+    if stmt.modname == "__future__":
+        return 1
+    else:
+        return 0
+
+class FutureParser:
+
+    features = ("nested_scopes", "generators", "division")
+
+    def __init__(self):
+        self.found = {} # set
+
+    def visitModule(self, node):
+        stmt = node.node
+        for s in stmt.nodes:
+            if not self.check_stmt(s):
+                break
+
+    def check_stmt(self, stmt):
+        if is_future(stmt):
+            for name, asname in stmt.names:
+                if name in self.features:
+                    self.found[name] = 1
+                elif name=="*":
+                    raise SyntaxError(
+                        "future statement does not support import *",
+                        ( stmt.filename, stmt.lineno, 0, "" ) )
+                else:
+                    raise SyntaxError(
+                        "future feature %s is not defined" % name,
+                        ( stmt.filename, stmt.lineno, 0, "" ) )
+            stmt.valid_future = 1
+            return 1
+        return 0
+
+    def get_features(self):
+        """Return list of features enabled by future statements"""
+        return self.found.keys()
+
+class BadFutureParser:
+    """Check for invalid future statements
+    Those not marked valid are appearing after other statements
+    """
+
+    def visitFrom(self, node):
+        if hasattr(node, 'valid_future'):
+            return
+        if node.modname != "__future__":
+            return
+        raise SyntaxError( "from __future__ imports must occur at the beginning of the file",
+                           ( node.filename, node.lineno, 0, "" ) )
+
+def find_futures(node):
+    p1 = FutureParser()
+    p2 = BadFutureParser()
+    walk(node, p1)
+    walk(node, p2)
+    return p1.get_features()
+
+if __name__ == "__main__":
+    import sys
+    from pypy.interpreter.stablecompiler import parseFile, walk
+
+    for file in sys.argv[1:]:
+        print file
+        tree = parseFile(file)
+        v = FutureParser()
+        walk(tree, v)
+        print v.found
+        print
