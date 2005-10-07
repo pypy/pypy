@@ -5,7 +5,7 @@ def f(a, b):
 
 @accepts(int, (int,float))
 @returns((int,float))
-def func(arg1, arg2):
+def func0(arg1, arg2):
     return arg1 * arg2
 
 

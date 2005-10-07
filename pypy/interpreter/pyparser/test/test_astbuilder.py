@@ -3,8 +3,8 @@ import os
 from pypy.interpreter.pyparser.pythonparse import PYTHON_PARSER
 from pypy.interpreter.pyparser.astbuilder import AstBuilder
 from pypy.interpreter.pyparser.pythonutil import ast_from_input
-from pypy.interpreter.testcompiler.transformer import Transformer
-import pypy.interpreter.testcompiler.ast as test_ast
+from pypy.interpreter.stablecompiler.transformer import Transformer
+import pypy.interpreter.stablecompiler.ast as test_ast
 import pypy.interpreter.astcompiler.ast as ast_ast
 
 import py.test

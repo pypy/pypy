@@ -1,13 +1,11 @@
 import os
 from pypy.interpreter.pyparser.pythonparse import PYTHON_PARSER
 from pypy.interpreter.pyparser.astbuilder import AstBuilder
+from pypy.interpreter.pyparser.tuplebuilder import TupleBuilder
 from pypy.interpreter.pycode import PyCode
 import py.test
 
 def setup_module(mod):
-    import sys
-    if sys.version[:3] != "2.4":
-        py.test.skip("expected to work only on 2.4")
     import pypy.conftest
     mod.std_space = pypy.conftest.getobjspace('std')
 
@@ -70,7 +68,7 @@ def ast_parse_expr(expr, target='single', space=FakeSpace()):
 
 
 def compile_with_astcompiler(expr, target='exec', space=FakeSpace()):
-    ast = ast_parse_expr(expr, target='exec', space=space)
+    ast = ast_parse_expr(expr, target='exec', space=space) # xxx exec: single not really tested, mumble
     misc.set_filename('<?>', ast)
     if target == 'exec':
         Generator = pycodegen.ModuleCodeGenerator
@@ -82,10 +80,23 @@ def compile_with_astcompiler(expr, target='exec', space=FakeSpace()):
     rcode = codegen.getCode()
     return rcode
 
-def compile_with_testcompiler(expr, target='exec'):
-    from pypy.interpreter.testcompiler import compile
-    # from compiler import compile
-    return compile(expr, '<?>', target)
+def compile_with_testcompiler(expr, target='exec', space=FakeSpace()):
+    target2 = TARGET_DICT['exec'] # xxx exec: single not really tested
+    builder = TupleBuilder()
+    PYTHON_PARSER.parse_source(expr, target2, builder)
+    tuples =  builder.stack[-1].as_tuple(True)
+    from pypy.interpreter.stablecompiler import transformer, pycodegen, misc
+    ast = transformer.Transformer('<?>').compile_node(tuples)
+    misc.set_filename('<?>', ast)
+    if target == 'exec':
+        Generator = pycodegen.ModuleCodeGenerator
+    elif target == 'single':
+        Generator = pycodegen.InteractiveCodeGenerator
+    elif target == 'eval':
+        Generator = pycodegen.ExpressionCodeGenerator
+    codegen = Generator(ast)
+    rcode = codegen.getCode()
+    return rcode
 
 
 def compare_code(ac_code, sc_code, space=FakeSpace()):
