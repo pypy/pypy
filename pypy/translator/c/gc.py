@@ -369,7 +369,7 @@ class BoehmGcPolicy(BasicGcPolicy):
             yield 'assert(GC_all_interior_pointers == 0);'
         else:
             yield 'GC_all_interior_pointers = 0;'
-            yield 'GC_INIT();'
+        yield 'GC_INIT();'
 
 
 class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
