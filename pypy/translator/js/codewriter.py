@@ -84,7 +84,7 @@ class CodeWriter(object):
         self.newline()
         self.append("function %s {" % self.decl, 0)
         if usedvars:
-            self.append("var %s" % ' = 0, '.join(usedvars.keys()), 1)
+            self.append("var %s" % ', '.join(usedvars.keys()), 1)
         self.append("var block = 0", 1)
         self.append("while (block != undefined) {", 1)
         self.append("switch (block) {", 2)
@@ -142,7 +142,7 @@ class CodeWriter(object):
         if targettype == fromtype:
             self.append("%(targetvar)s = %(fromvar)s%(convfunc)s" % locals())
         elif targettype in ('int','uint',):
-            self.append("%(targetvar)s = 0 + %(fromvar)s" % locals())
+            self.append("%(targetvar)s = Math.floor(%(fromvar)s)" % locals())
         elif targettype in ('double',):
             self.append("%(targetvar)s = 0.0 + %(fromvar)s" % locals())
         elif targettype in ('bool',):
