@@ -7,57 +7,57 @@ from pypy.translator.js.log import log
 log = log.opwriter
 
 class OpWriter(object):
-    binary_operations = {'int_mul': 'mul',
-                         'int_add': 'add',
-                         'int_sub': 'sub',
-                         'int_floordiv': 'div',
+    binary_operations = {'int_mul': '*',
+                         'int_add': '+',
+                         'int_sub': '-',
+                         'int_floordiv': '/',
                          'int_mod': 'rem',
                          'int_and': 'and',
                          'int_or': 'or',
                          'int_xor': 'xor',
-                         'int_lt': 'setlt',
-                         'int_le': 'setle',
-                         'int_eq': 'seteq',
-                         'int_ne': 'setne',
-                         'int_ge': 'setge',
-                         'int_gt': 'setgt',
+                         'int_lt': '<',
+                         'int_le': '<=',
+                         'int_eq': '==',
+                         'int_ne': '!=',
+                         'int_ge': '>=',
+                         'int_gt': '>',
 
-                         'uint_mul': 'mul',
-                         'uint_add': 'add',
-                         'uint_sub': 'sub',
-                         'uint_floordiv': 'div',
+                         'uint_mul': '*',
+                         'uint_add': '+',
+                         'uint_sub': '-',
+                         'uint_floordiv': '/',
                          'uint_mod': 'rem',
                          'uint_and': 'and',
                          'uint_or': 'or',
                          'uint_xor': 'xor',
-                         'uint_lt': 'setlt',
-                         'uint_le': 'setle',
-                         'uint_eq': 'seteq',
-                         'uint_ne': 'setne',
-                         'uint_ge': 'setge',
-                         'uint_gt': 'setgt',
+                         'uint_lt': '<',
+                         'uint_le': '<=',
+                         'uint_eq': '==',
+                         'uint_ne': '!=',
+                         'uint_ge': '>=',
+                         'uint_gt': '>',
 
-                         'unichar_lt': 'setlt',
-                         'unichar_le': 'setle',
-                         'unichar_eq': 'seteq',
-                         'unichar_ne': 'setne',
-                         'unichar_ge': 'setge',
-                         'unichar_gt': 'setgt',
+                         'unichar_lt': '<',
+                         'unichar_le': '<=',
+                         'unichar_eq': '==',
+                         'unichar_ne': '!=',
+                         'unichar_ge': '>=',
+                         'unichar_gt': '>',
 
-                         'float_mul': 'mul',
-                         'float_add': 'add',
-                         'float_sub': 'sub',
-                         'float_truediv': 'div',
+                         'float_mul': '*',
+                         'float_add': '+',
+                         'float_sub': '-',
+                         'float_truediv': '/',
                          'float_mod': 'rem',
-                         'float_lt': 'setlt',
-                         'float_le': 'setle',
-                         'float_eq': 'seteq',
-                         'float_ne': 'setne',
-                         'float_ge': 'setge',
-                         'float_gt': 'setgt',
+                         'float_lt': '<',
+                         'float_le': '<=',
+                         'float_eq': '==',
+                         'float_ne': '!=',
+                         'float_ge': '>=',
+                         'float_gt': '>',
 
-                         'ptr_eq': 'seteq',
-                         'ptr_ne': 'setne',
+                         'ptr_eq': '==',
+                         'ptr_ne': '!=',
                          }
 
     shift_operations  = {'int_lshift': 'shl',
@@ -68,12 +68,12 @@ class OpWriter(object):
                          }
 
 
-    char_operations  = {'char_lt': 'setlt',
-                        'char_le': 'setle',
-                        'char_eq': 'seteq',
-                        'char_ne': 'setne',
-                        'char_ge': 'setge',
-                        'char_gt': 'setgt'}
+    char_operations  = {'char_lt': '<',
+                        'char_le': '<=',
+                        'char_eq': '==',
+                        'char_ne': '!=',
+                        'char_ge': '>=',
+                        'char_gt': '>'}
 
     def __init__(self, db, codewriter, node, block):
         self.db = db
@@ -133,7 +133,8 @@ class OpWriter(object):
         self.codewriter.cast(targetvar, mult_type, res_val, mult_type)        
         
     def _skipped(self, op):
-            self.codewriter.comment('Skipping operation %s()' % op.opname)
+            #self.codewriter.comment('Skipping operation %s()' % op.opname)
+            pass
     keepalive = _skipped 
     
     def int_abs(self, op):
@@ -247,7 +248,7 @@ class OpWriter(object):
     same_as = cast_primitive
 
     def int_is_true(self, op):
-        self.codewriter.binaryop("setne",
+        self.codewriter.binaryop("!=",
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
@@ -255,21 +256,21 @@ class OpWriter(object):
     uint_is_true = int_is_true
 
     def float_is_true(self, op):
-        self.codewriter.binaryop("setne",
+        self.codewriter.binaryop("!=",
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  "0.0")
 
     def ptr_nonzero(self, op):
-        self.codewriter.binaryop("setne",
+        self.codewriter.binaryop("!=",
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  "null")
 
     def ptr_iszero(self, op):
-        self.codewriter.binaryop("seteq",
+        self.codewriter.binaryop("==",
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),

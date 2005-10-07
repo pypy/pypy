@@ -62,8 +62,9 @@ class CodeWriter(object):
         #self.llvm("br label %s" %(blockname,))
 
     def br(self, cond, blockname_false, blockname_true):
-        self.llvm("br bool %s, label %s, label %s"
-                    % (cond, blockname_true, blockname_false))
+        self.append('prevblock = block')
+        self.append('block = %s ? %d : %d' % (cond, blockname_true, blockname_false))
+        #self.llvm("br bool %s, label %s, label %s" % (cond, blockname_true, blockname_false))
 
     def switch(self, intty, cond, defaultdest, value_label):
         labels = ''
@@ -130,10 +131,10 @@ class CodeWriter(object):
                         n += 1
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
-        conv = { 'mul':'*', 'add':'+', 'sub':'-', 'div':'/' }
-        if name in conv:
-            c = conv[name]
-            self.append("%(targetvar)s = %(ref1)s %(c)s %(ref2)s" % locals())
+        arithmetic = '*/+-'
+        comparison = ('<', '<=', '==', '!=', '>=', '>')
+        if name in arithmetic or name in comparison:
+            self.append("%(targetvar)s = %(ref1)s %(name)s %(ref2)s" % locals())
         else:
             self.llvm("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
 
