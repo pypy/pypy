@@ -1,8 +1,5 @@
-import py
-from pypy.tool.ansi_print import ansi_log
-log = py.log.Producer("llvm")
-log.setconsumer("llvm", ansi_log)
-
+from pypy.translator.js.log import log
+log = log.gc
 
 class GcPolicy:
     def __init__(self):
@@ -27,7 +24,7 @@ class GcPolicy:
         from os.path import exists
         boehm_on_path = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
         if gcpolicy == 'boehm' and not boehm_on_path:
-            log.gc.WARNING('warning: Boehm GC libary not found in /usr/lib, falling back on no gc')
+            log.WARNING('warning: Boehm GC libary not found in /usr/lib, falling back on no gc')
             gcpolicy = 'none'
 
         if gcpolicy == 'boehm':

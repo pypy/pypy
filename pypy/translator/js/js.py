@@ -13,32 +13,20 @@ reference material:
 
 import py
 
-#from pypy.translator.llvm import build_llvm_module
 from pypy.translator.llvm.database import Database 
-#from pypy.translator.llvm.pyxwrapper import write_pyx_wrapper 
 from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
-from pypy.translator.llvm.codewriter import CodeWriter
-#from pypy.translator.llvm.codewriter import , DEFAULT_TAIL, DEFAULT_CCONV
-#from pypy.translator.llvm import extfuncnode
-#from pypy.translator.llvm.module.extfunction import extdeclarations, extfunctions, dependencies
-#from pypy.translator.llvm.node import JSNode
-#from pypy.translator.llvm.structnode import StructNode
-#from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
-from pypy.translator.llvm.gc import GcPolicy
-from pypy.translator.llvm.exception import ExceptionPolicy
-#from pypy.translator.translator import Translator
-
+from pypy.translator.js.codewriter import CodeWriter
+from pypy.translator.js.gc import GcPolicy
+from pypy.translator.js.exception import ExceptionPolicy
 from pypy.translator.js.log import log
-
-function_count = {}
-#llexterns_header = llexterns_functions = None
 
 
 class JS(object):   # JS = Javascript
-
-    def __init__(self, translator, func=None, gcpolicy=None, exceptionpolicy=None, debug=False):
+    function_count = {}
+    
+    def __init__(self, translator, function=None, gcpolicy=None, exceptionpolicy=None, debug=False):
         self.db = Database(self, translator)
         self.translator = translator
         self.gcpolicy = GcPolicy.new(gcpolicy)
@@ -48,10 +36,14 @@ class JS(object):   # JS = Javascript
         if debug:
             translator.checkgraphs()
 
-        if func is None:
-            func = self.translator.entrypoint
-        self.entrypoint = func
+        if function is None:
+            function= self.translator.entrypoint
+        self.entrypoint = function
 
+        self.filename = self.wrapper_filename = None
+
+    def write_source(self):
+        func = self.entrypoint
         ptr = getfunctionptr(self.translator, func)
         c = inputconst(lltype.typeOf(ptr), ptr)
         entry_point = c.value._obj
@@ -78,14 +70,14 @@ class JS(object):   # JS = Javascript
         #    llexterns_header, llexterns_functions = generate_llfile(self.db, extern_decls, support_functions, self.debug)
  
         # prevent running the same function twice in a test
-        if func.func_name in function_count:
-            postfix = '_%d' % function_count[func.func_name]
-            function_count[func.func_name] += 1
+        if func.func_name in self.function_count:
+            postfix = '_%d' % self.function_count[func.func_name]
+            self.function_count[func.func_name] += 1
         else:
             postfix = ''
-            function_count[func.func_name] = 1
-        filename = udir.join(func.func_name + postfix).new(ext='.js')
-        f = open(str(filename),'w')
+            self.function_count[func.func_name] = 1
+        self.filename = udir.join(func.func_name + postfix).new(ext='.js')
+        f = open(str(self.filename),'w')
         codewriter = CodeWriter(f, self)
         comment = codewriter.comment
         nl = codewriter.newline
@@ -148,5 +140,13 @@ class JS(object):   # JS = Javascript
         #    nl(); comment("External Function Implementation") ; nl()
         #    codewriter.append(llexterns_functions)
 
+        comment("Wrapper code for the Javascript CLI") ; nl()
+        graph        = self.db.entrynode.graph
+        startblock  = graph.startblock
+        args        = ','.join(['arguments[%d]' % i for i,v in enumerate(startblock.inputargs)])
+        wrappercode = 'pypy_%s(%s);\n' % (graph.name, args)
+        codewriter.indent(wrappercode)
+
         comment("End of file") ; nl()
-        self.filename = filename
+        log('Written:', self.filename)
+        return self.filename

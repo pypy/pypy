@@ -12,38 +12,26 @@ def _CLI_is_on_path():
         return False
     return True
 
-def write_wrapper(js_filename):
-    jswrapper_filename = js_filename.new(ext='_wrapper.js')
-    f = open(str(jswrapper_filename), 'w')
-    f.write('print(42);\n')
-    f.close()
-    log('Written:', jswrapper_filename)
-    return jswrapper_filename
+class compile_function(object):
+    def __init__(self, function, annotation, view=False):
+        if not _CLI_is_on_path():
+            py.test.skip('Javascript CLI (js) not found')
 
-class jscallable(object):
-    def __init__(self, jswrapper_filename):
-        self.jswrapper_filename = jswrapper_filename
-        
-    def __call__(self):
-        cmd = 'js "%s"' % str(self.jswrapper_filename)
+        t = Translator(function)
+        a = t.annotate(annotation)
+        a.simplify()
+        t.specialize()
+        t.backend_optimizations()
+        if view:
+            t.view()
+        self.js = JS(t, function)
+        self.js.write_source()
+
+    def __call__(self, *kwds):
+        #note: lowercase string for (py)False->(js)false, etc.
+        args = ' '.join([str(kw).lower() for kw in kwds])
+        cmd = 'js %s %s' % (self.js.filename, args)
+        log(cmd)
         s   = os.popen(cmd).read()
-        e   = eval(s)
-        return e
-    
-def compile(function, annotation=[], view=False):
-    if not _CLI_is_on_path():
-        py.test.skip('Javascript CLI (js) not found')
-
-    t = Translator(function)
-    a = t.annotate(annotation)
-    a.simplify()
-    t.specialize()
-    t.backend_optimizations()
-    if view:
-        t.view()
-
-    js = JS(t, function)
-    log('Written:', js.filename)
-
-    jswrapper_filename = write_wrapper(js.filename)
-    return jscallable(jswrapper_filename)
+        res = eval(s)
+        return res

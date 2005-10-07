@@ -49,13 +49,13 @@ else:
         return noresult
 
     def new(exceptionpolicy=None):  #factory
-        exceptionpolicy = exceptionpolicy or 'fast'
-        if exceptionpolicy == 'cpython':
-            from pypy.translator.llvm.exception import CPythonExceptionPolicy
-            exceptionpolicy = CPythonExceptionPolicy()
-        elif exceptionpolicy == 'fast':
-            from pypy.translator.llvm.exception import FastExceptionPolicy
-            exceptionpolicy = FastExceptionPolicy()
+        exceptionpolicy = exceptionpolicy or 'explicit'
+        if exceptionpolicy == 'invokeunwind':
+            from pypy.translator.llvm.exception import InvokeUnwindExceptionPolicy
+            exceptionpolicy = InvokeUnwindExceptionPolicy()
+        elif exceptionpolicy == 'explicit':
+            from pypy.translator.llvm.exception import ExplicitExceptionPolicy
+            exceptionpolicy = ExplicitExceptionPolicy()
         elif exceptionpolicy == 'none':
             from pypy.translator.llvm.exception import NoneExceptionPolicy
             exceptionpolicy = NoneExceptionPolicy()
@@ -70,7 +70,7 @@ class NoneExceptionPolicy(ExceptionPolicy): #XXX untested
         pass
 
 
-class CPythonExceptionPolicy(ExceptionPolicy):  #uses issubclass() and llvm invoke&unwind
+class InvokeUnwindExceptionPolicy(ExceptionPolicy):  #uses issubclass() and llvm invoke&unwind
     def __init__(self):
         pass
 
@@ -160,7 +160,7 @@ internal fastcc void %%unwind() {
         return '-enable-correct-eh-support'
 
 
-class FastExceptionPolicy(ExceptionPolicy):    #uses issubclass() and last_exception tests after each call
+class ExplicitExceptionPolicy(ExceptionPolicy):    #uses issubclass() and last_exception tests after each call
     def __init__(self):
         self.invoke_count = 0
 
@@ -205,7 +205,8 @@ internal fastcc void %%unwind() {
 
     def invoke(self, codewriter, targetvar, tail_, cconv, returntype, functionref, args, label, except_label):
         if returntype == 'void':
-            codewriter.indent('%scall %s void %s(%s)' % (tail_, cconv, functionref, args))
+            if functionref != '%keepalive': #XXX I think keepalive should not be the last operation here!
+                codewriter.indent('%scall %s void %s(%s)' % (tail_, cconv, functionref, args))
         else:
             codewriter.indent('%s = %scall %s %s %s(%s)' % (targetvar, tail_, cconv, returntype, functionref, args))
         tmp = '%%invoke.tmp.%d' % self.invoke_count
