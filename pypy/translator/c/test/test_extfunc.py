@@ -431,29 +431,36 @@ def test_mkdir_rmdir():
     f1(dirname, True)
     assert not os.path.exists(dirname)
 
+# ____________________________________________________________
+
+def _real_getenv(var):
+    cmd = '''python -c "import os; x=os.environ.get('%s'); print (x is None) and 'F' or ('T'+x)"''' % var
+    g = os.popen(cmd, 'r')
+    output = g.read().strip()
+    g.close()
+    if output == 'F':
+        return None
+    elif output.startswith('T'):
+        return output[1:]
+    else:
+        raise ValueError, 'probing for env var returned %r' % (output,)
+
+def _real_envkeys():
+    cmd = '''python -c "import os; print os.environ.keys()"'''
+    g = os.popen(cmd, 'r')
+    output = g.read().strip()
+    g.close()
+    if output.startswith('[') and output.endswith(']'):
+        return eval(output)
+    else:
+        raise ValueError, 'probing for all env vars returned %r' % (output,)
+
 def test_putenv():
     def put(s):
         ros.putenv(s)
     func = compile(put, [str])
-    filename = str(udir.join('test_putenv.txt'))
     func('abcdefgh=12345678')
-    cmd = '''python -c "import os; print os.environ['abcdefgh']" > %s''' % filename
-    os.system(cmd)
-    assert file(filename).read().strip() == '12345678'
-    os.unlink(filename)
-
-
-# aaargh: bad idea: the above test updates the environment directly, so the
-# os.environ dict is not updated, which makes the following test fail if not run
-# allone. therefor it is neccessary to use execnet.
-
-test_src = """import py
-import os, time
-from pypy.tool.udir import udir
-from pypy.translator.c.test.test_genc import compile
-from pypy.translator.c.extfunc import EXTERNALS
-from pypy.rpython import ros
-
+    assert _real_getenv('abcdefgh') == '12345678'
 
 def test_environ():
     def env(idx):
@@ -463,25 +470,16 @@ def test_environ():
             return False
         return ret
     func = compile(env, [int])
-    count = 0
+    keys = []
     while 1:
-        if not func(count):
+        s = func(len(keys))
+        if not s:
             break
-        count += 1
-    return count == len(os.environ.keys())
-
-def run_test(func):
-    channel.send(func())
-run_test(test_environ)
-"""
-
-def test_environ():
-    import py
-    gw = py.execnet.PopenGateway()
-    chan = gw.remote_exec(py.code.Source(test_src))
-    res = chan.receive()
-    assert res
-    chan.close()
+        keys.append(s)
+    expected = _real_envkeys()
+    keys.sort()
+    expected.sort()
+    return keys == expected
 
 posix = __import__(os.name)
 if hasattr(posix, "unsetenv"):
@@ -490,10 +488,8 @@ if hasattr(posix, "unsetenv"):
             os.unsetenv("ABCDEF")
         f = compile(unsetenv, [])
         os.putenv("ABCDEF", "a")
-        cmd = '''python -c "import os, sys; sys.exit(os.getenv('ABCDEF') != 'a')"'''
-        assert os.system(cmd) == 0
+        assert _real_getenv('ABCDEF') == 'a'
         f()
-        cmd = '''python -c "import os, sys; sys.exit(os.getenv('ABCDEF') != None)"'''
-        assert os.system(cmd) == 0
+        assert _real_getenv('ABCDEF') is None
         f()
-        assert os.system(cmd) == 0
+        assert _real_getenv('ABCDEF') is None
