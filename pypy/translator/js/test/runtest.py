@@ -28,10 +28,15 @@ class compile_function(object):
         self.js.write_source()
 
     def __call__(self, *kwds):
-        #note: lowercase string for (py)False->(js)false, etc.
-        args = ' '.join([str(kw).lower() for kw in kwds])
-        cmd = 'js %s %s' % (self.js.filename, args)
+        args = ', '.join([str(kw).lower() for kw in kwds]) #lowerstr for (py)False->(js)false, etc.
+        wrappercode = self.js.wrappertemplate % args
+        cmd = 'echo "%s" | js' % wrappercode
         log(cmd)
-        s   = os.popen(cmd).read()
-        res = eval(s)
+        s   = os.popen(cmd).read().strip()
+        if s == 'false':
+            res = False
+        elif s == 'true':
+            res = True
+        else:
+            res = eval(s)
         return res

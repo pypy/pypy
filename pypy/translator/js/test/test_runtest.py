@@ -5,12 +5,12 @@ from pypy.translator.js.test.runtest import compile_function
 def test_bool_return():
     def bool_return_False():
         return False
-    def bool_return_Trur():
+    def bool_return_True():
         return True
-    f_false = compile_function(bool_return_false, [])
-    f_true  = compile_function(bool_return_true , [])
-    assert f_false() == bool_return_false()
-    assert f_true()  == bool_return_true()
+    f_false = compile_function(bool_return_False, [])
+    assert f_false() == bool_return_False()
+    f_true  = compile_function(bool_return_True , [])
+    assert f_true()  == bool_return_True()
 
 def test_int_return():
     def int_return():

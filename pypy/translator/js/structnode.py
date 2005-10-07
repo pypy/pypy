@@ -13,7 +13,7 @@ class StructTypeNode(LLVMNode):
         assert isinstance(struct, lltype.Struct)
         self.db = db
         self.struct = struct
-        prefix = '%structtype.'
+        prefix = 'structtype_'
         name = self.struct._name
         self.ref = self.make_ref(prefix, name)
         self.name = self.ref[len(prefix):]

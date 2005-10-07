@@ -138,15 +138,17 @@ class JS(object):   # JS = Javascript
         #    codewriter.comment("External Function Implementation", 0)
         #    codewriter.append(llexterns_functions)
 
-        codewriter.newline()
-        codewriter.comment("Wrapper code for the Javascript CLI", 0)
-        codewriter.newline()
-        graph        = self.db.obj2node[entry_point].graph
-        startblock  = graph.startblock
-        args        = ','.join(['arguments[%d]' % i for i,v in enumerate(startblock.inputargs)])
-        wrappercode = 'print(pypy_%s(%s))' % (graph.name, args)
-        codewriter.append(wrappercode, 0)
+        graph      = self.db.obj2node[entry_point].graph
+        startblock = graph.startblock
+        args       = ','.join(['arguments[%d]' % i for i,v in enumerate(startblock.inputargs)])
+        self.wrappertemplate = "load('%s'); print(pypy_%s(%%s))" % (self.filename, graph.name)
+
+        #codewriter.newline()
+        #codewriter.comment("Wrapper code for the Javascript CLI", 0)
+        #codewriter.newline()
+        #codewriter.append(self.wrappercode, 0)
         codewriter.newline()
         codewriter.comment("EOF", 0)
+
         log('Written:', self.filename)
         return self.filename

@@ -72,7 +72,8 @@ class CodeWriter(object):
         self.llvm("switch %s %s, label %s [%s ]"
                     % (intty, cond, defaultdest, labels))
 
-    def openfunc(self, funcnode, blocks): 
+    def openfunc(self, decl, funcnode, blocks): 
+        self.decl     = decl
         self.funcnode = funcnode
         self.blocks   = blocks
         usedvars      = {}  #XXX could probably be limited to inputvars
@@ -81,8 +82,9 @@ class CodeWriter(object):
                 targetvar = self.js.db.repr_arg(op.result)
                 usedvars[targetvar] = True
         self.newline()
-        self.append("function %s {" % self.funcnode.getdecl(), 0)
-        self.append("var %s" % ' = 0, '.join(usedvars.keys()), 1)
+        self.append("function %s {" % self.decl, 0)
+        if usedvars:
+            self.append("var %s" % ' = 0, '.join(usedvars.keys()), 1)
         self.append("var block = 0", 1)
         self.append("while (block != undefined) {", 1)
         self.append("switch (block) {", 2)
@@ -90,7 +92,7 @@ class CodeWriter(object):
     def closefunc(self): 
         self.append("} // end of switch (block)", 2)
         self.append("} // end of while (block != undefined)", 1)
-        self.append("} // end of function %s" % self.funcnode.getdecl(), 0)
+        self.append("} // end of function %s" % self.decl, 0)
 
     def ret(self, type_, ref): 
         if type_ == 'void':
@@ -153,8 +155,7 @@ class CodeWriter(object):
             self.llvm(s)
 
     def getelementptr(self, targetvar, type, typevar, *indices):
-        word = self.word
-        res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, %(word)s 0, " % locals()
+        res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, word 0, " % locals()
         res += ", ".join(["%s %s" % (t, i) for t, i in indices])
         self.llvm(res)
 
@@ -166,8 +167,7 @@ class CodeWriter(object):
                     "%(valuetype)s* %(ptr)s" % locals())
 
     def debugcomment(self, tempname, len, tmpname):
-        word = self.word
         res = "%s = call ccc %(word)s (sbyte*, ...)* printf(" % locals()
-        res += "sbyte* getelementptr ([%s x sbyte]* %s, %(word)s 0, %(word)s 0) )" % locals()
+        res += "sbyte* getelementptr ([%s x sbyte]* %s, word 0, word 0) )" % locals()
         res = res % (tmpname, len, tmpname)
         self.llvm(res)

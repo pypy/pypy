@@ -84,7 +84,7 @@ class FuncNode(ConstantLLVMNode):
         self.blockindex= {}
         for i, block in enumerate(blocks):
             self.blockindex[block] = i
-        codewriter.openfunc(self, blocks)
+        codewriter.openfunc(self.getdecl(), self, blocks)
         for block in blocks:
             codewriter.openblock(self.blockindex[block])
             for name in 'startblock returnblock exceptblock'.split():
