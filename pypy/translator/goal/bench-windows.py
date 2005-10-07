@@ -10,22 +10,27 @@ USE_HIGH_PRIORITY = True
 
 current_result = """
 executable                  richards         pystone            size (MB)
-pypy-c-17439-hi            37413   47.8x      678.4   60.5x       5.65
-pypy-c-17600-lo            26352   33.7x      906.2   45.3x       6.43
-pypy-c-17634-lo            20108   25.7x     1023.5   40.1x       6.42
-pypy-c-17649-lo            22612   28.9x     1042.0   39.4x       6.41
-pypy-c-17674-lo            19248   24.6x     1358.8   30.2x       6.40
-pypy-c-17674-hi            12402   15.9x     1941.4   21.1x       7.37
-pypy-c-17439-lo            29638   37.9x      971.4   42.3x       6.49
-pypy-c-17707-hi            14095   18.0x     2092.7   19.6x       7.37
-pypy-c-17707-lo            19102   24.4x     1354.7   30.3x       6.40
+pypy-c-17439               37413   47.7x      678.4   60.7x       5.65
+pypy-c-17600-lo            26352   33.6x      906.2   45.4x       6.43
+pypy-c-17634-lo            20108   25.7x     1023.5   40.2x       6.42
+pypy-c-17649-lo            22612   28.9x     1042.0   39.5x       6.41
+pypy-c-17674-lo            19248   24.6x     1358.8   30.3x       6.40
+pypy-c-17674               12402   15.8x     1941.4   21.2x       7.37
+pypy-c-17439-lo            29638   37.8x      971.4   42.4x       6.49
+pypy-c-17707               14095   18.0x     2092.7   19.7x       7.37
+pypy-c-17707-lo            19102   24.4x     1354.7   30.4x       6.40
 pypy-c-17707-lo-range      18786   24.0x     2800.8   14.7x       6.40
-pypy-c-17707-hi-range      13980   17.9x     2899.9   14.2x       7.38
-pypy-c-17743-hi            13944   17.8x     2800.3   14.7x       7.30
-pypy-c-17761-hi-samuele    13243   16.9x     2983.3   13.8x       7.69
-pypy-c-17794-ref-crash     41088   52.5x     1084.5   37.9x      14.62
-pypy-c-17950-hi            12888   16.5x     3203.0   12.8x       5.49
-python 2.4.1                 782    1.0x    41058.3    1.0x       0.96
+pypy-c-17707-range         13980   17.8x     2899.9   14.2x       7.38
+pypy-c-17743               13944   17.8x     2800.3   14.7x       7.30
+pypy-c-17761-samuele       13243   16.9x     2983.3   13.8x       7.69
+pypy-c-17794-ref-crash     41088   52.4x     1084.5   37.9x      14.62
+pypy-c-17950               12888   16.4x     3203.0   12.8x       5.49
+pypy-c-18236                9263   11.8x     3702.8   11.1x       5.12
+python 2.4.1                 783    1.0x    41150.3    1.0x       0.96
+
+Defaults are: --gc=boehm
+'lo' indicates --lowmem
+STarting with rev. 18236, gc_pypy.dll is used
 """
 
 import os, sys, pickle, md5
