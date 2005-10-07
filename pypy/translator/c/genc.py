@@ -43,15 +43,16 @@ class CBuilder:
         if not self.standalone:
             from pypy.translator.c.symboltable import SymbolTable
             self.symboltable = SymbolTable()
-            cfile = gen_source(db, modulename, targetdir,
-                               defines = defines,
-                               exports = {translator.entrypoint.func_name: pf},
-                               symboltable = self.symboltable)
+            cfile, extra = gen_source(db, modulename, targetdir,
+                                      defines = defines,
+                                      exports = {translator.entrypoint.func_name: pf},
+                                      symboltable = self.symboltable)
         else:
-            cfile = gen_source_standalone(db, modulename, targetdir,
-                                          entrypointname = pfname,
-                                          defines = defines)
+            cfile, extra = gen_source_standalone(db, modulename, targetdir,
+                                                 entrypointname = pfname,
+                                                 defines = defines)
         self.c_source_filename = py.path.local(cfile)
+        self.extrafiles = extra
         return cfile 
 
 
@@ -65,7 +66,7 @@ class CExtModuleBuilder(CBuilder):
     def compile(self):
         assert self.c_source_filename 
         assert not self._compiled
-        compile_c_module(self.c_source_filename, 
+        compile_c_module([self.c_source_filename] + self.extrafiles,
                          self.c_source_filename.purebasename,
                          include_dirs = [autopath.this_dir],
                          libraries=self.libraries)
@@ -104,8 +105,7 @@ class CStandaloneBuilder(CBuilder):
         python_inc = sysconfig.get_python_inc()
         self.executable_name = build_executable([self.c_source_filename],
                                          include_dirs = [autopath.this_dir,
-                                                         python_inc,
-                                                         autopath.this_dir+'/gc6.5/include',],
+                                                         python_inc],
                                          libraries=self.libraries)
         self._compiled = True
         return self.executable_name
@@ -123,6 +123,122 @@ def translator2database(translator):
     return db, pf
 
 # ____________________________________________________________
+
+class SourceGenerator:
+    one_source_file = True
+
+    def __init__(self, database, preimplementationlines=[]):
+        self.database = database
+        self.preimpl = preimplementationlines
+        self.extrafiles = []
+        self.path = None
+
+    def set_strategy(self, path):
+        #self.one_source_file = False
+        # disabled for now, until all the includes are updated!
+        self.path = path
+
+    def makefile(self, name):
+        filepath = self.path.join(name)
+        if name.endswith('.c'):
+            self.extrafiles.append(filepath)
+        return filepath.open('w')
+
+    def getextrafiles(self):
+        return self.extrafiles
+
+    def splitglobalcontainers(self):
+        return [('theimplementations.c', self.database.globalcontainers())]
+
+    def gen_readable_parts_of_source(self, f):
+        if self.one_source_file:
+            return gen_readable_parts_of_main_c_file(f, self.database,
+                                                     self.preimpl)
+        #
+        # All declarations
+        #
+        database= self.database
+        structdeflist = database.getstructdeflist()
+        name = 'structdef.h'
+        fi = self.makefile(name)
+        print >> f, '#include "%s"' % name
+        print >> fi, '/***********************************************************/'
+        print >> fi, '/***  Structure definitions                              ***/'
+        print >> fi
+        for node in structdeflist:
+            print >> fi, 'struct %s;' % node.name
+        print >> fi
+        for node in structdeflist:
+            for line in node.definition(phase=1):
+                print >> fi, line
+        print >> fi
+        print >> fi, '/***********************************************************/'
+        fi.close()
+        name = 'forwarddecl.h'
+        fi = self.makefile(name)
+        print >> f, '#include "%s"' % name
+        print >> fi, '/***********************************************************/'
+        print >> fi, '/***  Forward declarations                               ***/'
+        print >> fi
+        for node in database.globalcontainers():
+            for line in node.forward_declaration():
+                print >> fi, line
+        print >> fi
+        print >> fi, '/***********************************************************/'
+        fi.close()
+
+        #
+        # Implementation of functions and global structures and arrays
+        #
+        print >> f
+        print >> f, '/***********************************************************/'
+        print >> f, '/***  Implementations                                    ***/'
+        print >> f
+        for line in self.preimpl:
+            print >> f, line
+        print >> f, '#include "src/g_include.h"'
+        print >> f
+        name = 'structimpl.c'
+        print >> f, '/* %s */' % name
+        fc = self.makefile(name)
+        print >> fc, '/***********************************************************/'
+        print >> fc, '/***  Structure Implementations                          ***/'
+        print >> fc
+        print >> fc, '#include "common_header.h"'
+        print >> fc
+        for node in structdeflist:
+            for line in node.definition(phase=2):
+                print >> fc, line
+        print >> fc
+        print >> fc, '/***********************************************************/'
+        fc.close()
+        for name, nodes in self.splitglobalcontainers():
+            print >> f, '/* %s */' % name
+            fc = self.makefile(name)
+            print >> fc, '/***********************************************************/'
+            print >> fc, '/***  Implementations                                    ***/'
+            print >> fc
+            print >> fc, '#include "common_header.h"'
+            print >> fc, '#include "structdef.h"'
+            print >> fc, '#include "forwarddecl.h"'
+            print >> fc
+            for line in self.preimpl:
+                print >> fc, line
+            print >> fc
+            print >> fc, '#define PYPY_NOT_MAIN_FILE'
+            print >> fc, '#include "src/g_include.h"'
+            print >> fc
+            for node in nodes:
+                for line in node.implementation():
+                    print >> fc, line
+            print >> fc
+            print >> fc, '/***********************************************************/'
+            fc.close()
+        print >> f
+
+# this function acts as the fallback for small sources for now.
+# Maybe we drop this completely if source splitting is the way
+# to go. Currently, I'm quite fine with keeping a working fallback.
 
 def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     #
@@ -198,23 +314,37 @@ def gen_source_standalone(database, modulename, targetdir,
         targetdir = py.path.local(targetdir)
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')
+    incfilename = targetdir.join('common_header.h')
+    fi = incfilename.open('w')
 
     #
     # Header
     #
+    print >> f, '#include "common_header.h"'
+    print >> f
     defines['PYPY_STANDALONE'] = entrypointname
     for key, value in defines.items():
-        print >> f, '#define %s %s' % (key, value)
+        print >> fi, '#define %s %s' % (key, value)
 
-    print >> f, '#define Py_BUILD_CORE  /* for Windows: avoid pulling libs in */'
-    print >> f, '#include "pyconfig.h"'
+    print >> fi, '#define Py_BUILD_CORE  /* for Windows: avoid pulling libs in */'
+    print >> fi, '#include "pyconfig.h"'
     for line in database.gcpolicy.pre_pre_gc_code():
-        print >> f, line
+        print >> fi, line
 
-    print >> f, '#include "src/g_prerequisite.h"'
+    print >> fi, '#include "src/g_prerequisite.h"'
 
     for line in database.gcpolicy.pre_gc_code():
-        print >> f, line
+        print >> fi, line
+
+    includes = {}
+    for node in database.globalcontainers():
+        for include in node.includes:
+            includes[include] = True
+    includes = includes.keys()
+    includes.sort()
+    for include in includes:
+        print >> fi, '#include <%s>' % (include,)
+    fi.close()
 
     preimplementationlines = list(
         pre_include_code_lines(database, database.translator.rtyper))
@@ -223,14 +353,16 @@ def gen_source_standalone(database, modulename, targetdir,
     # 1) All declarations
     # 2) Implementation of functions and global structures and arrays
     #
-    gen_readable_parts_of_main_c_file(f, database, preimplementationlines)
+    sg = SourceGenerator(database, preimplementationlines)
+    sg.set_strategy(targetdir)
+    sg.gen_readable_parts_of_source(f)
 
     # 3) start-up code
     print >> f
     gen_startupcode(f, database)
 
     f.close()
-    return filename
+    return filename, sg.getextrafiles()
 
 
 def gen_source(database, modulename, targetdir, defines={}, exports={},
@@ -240,21 +372,25 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
         targetdir = py.path.local(targetdir)
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')
+    incfilename = targetdir.join('common_header.h')
+    fi = incfilename.open('w')
 
     #
     # Header
     #
+    print >> f, '#include "common_header.h"'
+    print >> f
     for key, value in defines.items():
-        print >> f, '#define %s %s' % (key, value)
+        print >> fi, '#define %s %s' % (key, value)
 
-    print >> f, '#include "pyconfig.h"'
+    print >> fi, '#include "pyconfig.h"'
     for line in database.gcpolicy.pre_pre_gc_code():
-        print >> f, line
+        print >> fi, line
 
-    print >> f, '#include "src/g_prerequisite.h"'
+    print >> fi, '#include "src/g_prerequisite.h"'
 
     for line in database.gcpolicy.pre_gc_code():
-        print >> f, line
+        print >> fi, line
 
     includes = {}
     for node in database.globalcontainers():
@@ -263,7 +399,8 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     includes = includes.keys()
     includes.sort()
     for include in includes:
-        print >> f, '#include <%s>' % (include,)
+        print >> fi, '#include <%s>' % (include,)
+    fi.close()
 
     if database.translator is None or database.translator.rtyper is None:
         preimplementationlines = []
@@ -275,7 +412,9 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     # 1) All declarations
     # 2) Implementation of functions and global structures and arrays
     #
-    gen_readable_parts_of_main_c_file(f, database, preimplementationlines)
+    sg = SourceGenerator(database, preimplementationlines)
+    sg.set_strategy(targetdir)
+    sg.gen_readable_parts_of_source(f)
 
     #
     # Debugging info
@@ -377,7 +516,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     f.write(SETUP_PY % locals())
     f.close()
 
-    return filename
+    return filename, sg.getextrafiles()
 
 
 SETUP_PY = '''

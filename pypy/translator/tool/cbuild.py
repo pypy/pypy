@@ -53,7 +53,7 @@ def ensure_correct_math():
         opt += '/Op'
     gcv['OPT'] = opt
 
-def compile_c_module(cfile, modname, include_dirs=None, libraries=[]):
+def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
     #try:
     #    from distutils.log import set_threshold
     #    set_threshold(10000)
@@ -63,7 +63,7 @@ def compile_c_module(cfile, modname, include_dirs=None, libraries=[]):
     if include_dirs is None:
         include_dirs = []
 
-    dirpath = cfile.dirpath()
+    dirpath = cfiles[0].dirpath()
     lastdir = dirpath.chdir()
     ensure_correct_math()
     try:
@@ -111,7 +111,7 @@ def compile_c_module(cfile, modname, include_dirs=None, libraries=[]):
                         attrs = {
                             'name': "testmodule",
                             'ext_modules': [
-                                Extension(modname, [str(cfile)],
+                                Extension(modname, [str(cfile) for cfile in cfiles],
                                     include_dirs=include_dirs,
                                     extra_compile_args=extra_compile_args,
                                     libraries=libraries,)
@@ -145,7 +145,7 @@ def compile_c_module(cfile, modname, include_dirs=None, libraries=[]):
 def make_module_from_c(cfile, include_dirs=None):
     cfile = py.path.local(cfile)
     modname = cfile.purebasename
-    compile_c_module(cfile, modname, include_dirs)
+    compile_c_module([cfile], modname, include_dirs)
     return import_module_from_directory(cfile.dirpath(), modname)
 
 def import_module_from_directory(dir, modname):
