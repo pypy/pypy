@@ -564,6 +564,10 @@ class PyFlowGraph(FlowGraph):
         end = {}
         forward_refs = []
         for b in self.orderedblocks:
+            # Prune any setlineno before the 'implicit return' block.
+            if b is self.exit:
+                while len(insts) and insts[-1].op == "SET_LINENO":
+                    insts.pop()
             begin[b] = pc
             for inst in b.getInstructions():
                 if not inst.has_arg:
