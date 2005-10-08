@@ -30,7 +30,19 @@ static RPYTHON_EXCEPTION	rpython_exc_value = NULL;
 					(RPYTHON_EXCEPTION_VTABLE) etype)
 
 #ifndef PYPY_STANDALONE
-static void RPyConvertExceptionFromCPython(void)
+
+
+/* prototypes */
+
+void RPyConvertExceptionFromCPython(void);
+void _RPyConvertExceptionToCPython(void);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
+void RPyConvertExceptionFromCPython(void)
 {
 	/* convert the CPython exception to an RPython one */
 	PyObject *exc_type, *exc_value, *exc_tb;
@@ -42,7 +54,7 @@ static void RPyConvertExceptionFromCPython(void)
 	rpython_exc_type = RPYTHON_TYPE_OF_EXC_INST(rpython_exc_value);
 }
 
-static void _RPyConvertExceptionToCPython(void)
+void _RPyConvertExceptionToCPython(void)
 {
 	/* XXX 1. uses officially bad fishing */
 	/* XXX 2. looks for exception classes by name, fragile */
@@ -60,6 +72,8 @@ static void _RPyConvertExceptionToCPython(void)
 		PyErr_SetString(RPythonError, clsname);
 	}
 }
+
+#endif /* PYPY_NOT_MAIN_FILE */
 
 #define RPyConvertExceptionToCPython(vanishing)    \
 	_RPyConvertExceptionToCPython();		\

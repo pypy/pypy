@@ -39,6 +39,8 @@
 
 /***  Implementation  ***/
 
+#ifndef PYPY_NOT_MAIN_FILE
+
 #if defined(USE_CALL_TRACE)
 
 static int callstack_depth = -1;
@@ -307,3 +309,5 @@ static PyObject* PyList_CrazyStringPack(char *begin, ...)
 }
 
 #endif /* defined(USE_CALL_TRACE) */
+
+#endif /* PYPY_NOT_MAIN_FILE */

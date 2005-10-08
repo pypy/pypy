@@ -19,12 +19,38 @@
 #define FAIL_ZER(err, msg) FAIL_EXCEPTION(err, PyExc_ZeroDivisionError, msg)
 #define CFAIL(err)         { RPyConvertExceptionFromCPython(); FAIL(err); }
 
+#define PyString_FromLLCharArrayAndSize(itemsarray, size) \
+		PyString_FromStringAndSize(itemsarray->items, size)
+
+#define PyString_ToLLCharArray(s, itemsarray)                           \
+		memcpy(itemsarray->items, PyString_AS_STRING(s),        \
+                       itemsarray->length)
 
 #ifndef PYPY_STANDALONE
 
+/* prototypes */
+
+PyObject * gencfunc_descr_get(PyObject *func, PyObject *obj, PyObject *type);
+PyObject* PyList_Pack(int n, ...);
+PyObject* PyDict_Pack(int n, ...);
+PyObject* PyTuple_Pack(int n, ...);
+PyObject* PyObject_GetItem1(PyObject* obj, PyObject* index);
+PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v);
+PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...);
+PyObject* decode_arg(PyObject* fname, int position, PyObject* name,
+			    PyObject* vargs, PyObject* vkwds, PyObject* def);
+int check_no_more_arg(PyObject* fname, int n, PyObject* vargs);
+PyObject *PyTuple_GetItem_WithIncref(PyObject *tuple, int index);
+int PyTuple_SetItem_WithIncref(PyObject *tuple, int index, PyObject *o);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
 /* we need a subclass of 'builtin_function_or_method' which can be used
    as methods: builtin function objects that can be bound on instances */
-static PyObject *
+PyObject *
 gencfunc_descr_get(PyObject *func, PyObject *obj, PyObject *type)
 {
 	if (obj == Py_None)
@@ -72,7 +98,7 @@ static PyTypeObject PyGenCFunction_Type = {
 
 /*** misc support functions ***/
 
-static PyObject* PyList_Pack(int n, ...)
+PyObject* PyList_Pack(int n, ...)
 {
 	int i;
 	PyObject *o;
@@ -93,7 +119,7 @@ static PyObject* PyList_Pack(int n, ...)
 	return result;
 }
 
-static PyObject* PyDict_Pack(int n, ...)
+PyObject* PyDict_Pack(int n, ...)
 {
 	int i;
 	PyObject *key, *val;
@@ -118,7 +144,7 @@ static PyObject* PyDict_Pack(int n, ...)
 }
 
 #if PY_VERSION_HEX < 0x02040000   /* 2.4 */
-static PyObject* PyTuple_Pack(int n, ...)
+PyObject* PyTuple_Pack(int n, ...)
 {
 	int i;
 	PyObject *o;
@@ -147,7 +173,7 @@ static PyObject* PyTuple_Pack(int n, ...)
 # define PyObject_SetItem1  PyObject_SetItem
 #else
 /* for Python 2.2 only */
-static PyObject* PyObject_GetItem1(PyObject* obj, PyObject* index)
+PyObject* PyObject_GetItem1(PyObject* obj, PyObject* index)
 {
 	int start, stop, step;
 	if (!PySlice_Check(index)) {
@@ -182,7 +208,8 @@ static PyObject* PyObject_GetItem1(PyObject* obj, PyObject* index)
 	}
 	return PySequence_GetSlice(obj, start, stop);
 }
-static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
+
+PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
 {
 	int start, stop, step;
 	if (!PySlice_Check(index)) {
@@ -219,7 +246,7 @@ static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
 }
 #endif
 
-static PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...)
+PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...)
 {
 	/* XXX the 'shape' argument is a tuple as specified by
 	   XXX pypy.interpreter.argument.fromshape().  This code should
@@ -304,7 +331,7 @@ static PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...)
 	return result;
 }
 
-static PyObject* decode_arg(PyObject* fname, int position, PyObject* name,
+PyObject* decode_arg(PyObject* fname, int position, PyObject* name,
 			    PyObject* vargs, PyObject* vkwds, PyObject* def)
 {
 	PyObject* result;
@@ -342,7 +369,7 @@ static PyObject* decode_arg(PyObject* fname, int position, PyObject* name,
 	return NULL;
 }
 
-static int check_no_more_arg(PyObject* fname, int n, PyObject* vargs)
+int check_no_more_arg(PyObject* fname, int n, PyObject* vargs)
 {
 	int size = PyTuple_Size(vargs);
 	if (size < 0)
@@ -359,23 +386,19 @@ static int check_no_more_arg(PyObject* fname, int n, PyObject* vargs)
 
 /************************************************************/
 
-static PyObject *PyTuple_GetItem_WithIncref(PyObject *tuple, int index)
+PyObject *PyTuple_GetItem_WithIncref(PyObject *tuple, int index)
 {
 	PyObject *result = PyTuple_GetItem(tuple, index);
 	Py_XINCREF(result);
 	return result;
 }
 
-static int PyTuple_SetItem_WithIncref(PyObject *tuple, int index, PyObject *o)
+int PyTuple_SetItem_WithIncref(PyObject *tuple, int index, PyObject *o)
 {
 	Py_INCREF(o);
 	return PyTuple_SetItem(tuple, index, o);
 }
 
-#define PyString_FromLLCharArrayAndSize(itemsarray, size) \
-		PyString_FromStringAndSize(itemsarray->items, size)
-
-#define PyString_ToLLCharArray(s, itemsarray)                           \
-		memcpy(itemsarray->items, PyString_AS_STRING(s),        \
-                       itemsarray->length)
 #endif /* PYPY_STANDALONE */
+
+#endif /* PYPY_NOT_MAIN_FILE */

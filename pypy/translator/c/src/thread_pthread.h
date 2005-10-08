@@ -39,6 +39,23 @@
 
 #define CHECK_STATUS(name)  if (status != 0) { perror(name); error = 1; }
 
+/* prototypes */
+
+long RPyThreadGetIdent(void);
+long RPyThreadStart(void (*func)(void *), void *arg);
+int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
+void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
+int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
+void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
+int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
+void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
+int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
+void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
 
 /* XXX This implementation is considered (to quote Tim Peters) "inherently
    hosed" because:
@@ -288,3 +305,5 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 /************************************************************/
 #endif                                     /* no semaphores */
 /************************************************************/
+
+#endif /* PYPY_NOT_MAIN_FILE */

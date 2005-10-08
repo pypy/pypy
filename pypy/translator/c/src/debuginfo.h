@@ -11,6 +11,16 @@
 		{ "debuginfo_global", debuginfo_global, METH_VARARGS },	\
 		{ "debuginfo_peek",   debuginfo_peek,   METH_VARARGS },
 
+/* prototypes */
+
+static PyObject *debuginfo_offset(PyObject *self, PyObject *args);
+static PyObject *debuginfo_global(PyObject *self, PyObject *args);
+static PyObject *debuginfo_peek(PyObject *self, PyObject *args);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
 
 static PyObject *debuginfo_offset(PyObject *self, PyObject *args)
 {
@@ -40,3 +50,5 @@ static PyObject *debuginfo_peek(PyObject *self, PyObject *args)
 		return NULL;
 	return PyString_FromStringAndSize((char *)start, size);
 }
+
+#endif /* PYPY_NOT_MAIN_FILE */

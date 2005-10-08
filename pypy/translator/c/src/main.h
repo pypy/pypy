@@ -4,6 +4,15 @@
 char *RPython_StartupCode(void);  /* forward */
 
 
+/* prototypes */
+
+int main(int argc, char *argv[]);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
 int main(int argc, char *argv[])
 {
     char *errmsg;
@@ -35,3 +44,5 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
     return 1;
 }
+
+#endif /* PYPY_NOT_MAIN_FILE */

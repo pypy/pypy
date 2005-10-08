@@ -10,6 +10,27 @@
  *  - the macro redefining LL_thread_newlock (produced by genc) is not defined
  *    yet
  */
+
+#define RPyOpaque_SETUP_ThreadLock(lock, initially_locked)		\
+        if (!RPyThreadLockInit(lock))					\
+	        error = "Thread lock init error";			\
+        else if ((initially_locked) && !RPyThreadAcquireLock(lock, 1))	\
+		error = "Cannot acquire thread lock at init";
+
+
+/* prototypes */
+
+void LL_thread_newlock(struct RPyOpaque_ThreadLock *lock);
+int LL_thread_acquirelock(struct RPyOpaque_ThreadLock *lock, int waitflag);
+void LL_thread_releaselock(struct RPyOpaque_ThreadLock *lock);
+long LL_thread_start(void *func, void *arg);
+long LL_thread_get_ident(void);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
 void LL_thread_newlock(struct RPyOpaque_ThreadLock *lock)
 {
 	if (!RPyThreadLockInit(lock))
@@ -51,8 +72,4 @@ long LL_thread_get_ident(void)
 	return RPyThreadGetIdent();
 }
 
-#define RPyOpaque_SETUP_ThreadLock(lock, initially_locked)		\
-        if (!RPyThreadLockInit(lock))					\
-	        error = "Thread lock init error";			\
-        else if ((initially_locked) && !RPyThreadAcquireLock(lock, 1))	\
-		error = "Cannot acquire thread lock at init";
+#endif /* PYPY_NOT_MAIN_FILE */

@@ -11,6 +11,47 @@
 /* xxx this 2.3 name is later deprecated  */
 #define LL_MATH_SET_ERANGE_IF_MATH_ERROR Py_SET_ERANGE_IF_OVERFLOW
 
+#define LL_MATH_ERROR_RESET errno = 0
+
+#define LL_MATH_CHECK_ERROR(x, errret) do {  \
+	LL_MATH_SET_ERANGE_IF_MATH_ERROR(x); \
+	if (errno && ll_math_is_error(x))    \
+		return errret;               \
+} while(0)
+
+
+/* prototypes */
+
+int ll_math_is_error(double x);
+double LL_math_pow(double x, double y);
+RPyFREXP_RESULT* LL_math_frexp(double x);
+double LL_math_atan2(double x, double y);
+double LL_math_fmod(double x, double y);
+double LL_math_ldexp(double x, long y);
+double LL_math_hypot(double x, double y);
+RPyMODF_RESULT* LL_math_modf(double x);
+double LL_math_acos(double x);
+double LL_math_asin(double x);
+double LL_math_atan(double x);
+double LL_math_ceil(double x);
+double LL_math_cos(double x);
+double LL_math_cosh(double x);
+double LL_math_exp(double x);
+double LL_math_fabs(double x);
+double LL_math_floor(double x);
+double LL_math_log(double x);
+double LL_math_log10(double x);
+double LL_math_sin(double x);
+double LL_math_sinh(double x);
+double LL_math_sqrt(double x);
+double LL_math_tan(double x);
+double LL_math_tanh(double x);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
 int ll_math_is_error(double x) {
 	if (errno == ERANGE) {
 		if (!x) 
@@ -21,17 +62,6 @@ int ll_math_is_error(double x) {
 	}
 	return 1;
 }
-
-#define LL_MATH_ERROR_RESET errno = 0
-
-#define LL_MATH_CHECK_ERROR(x, errret) do {  \
-	LL_MATH_SET_ERANGE_IF_MATH_ERROR(x); \
-	if (errno && ll_math_is_error(x))    \
-		return errret;               \
-} while(0)
-		
-
-
 
 double LL_math_pow(double x, double y) {
 	double r;
@@ -220,3 +250,5 @@ double LL_math_tanh(double x) {
 	LL_MATH_CHECK_ERROR(r, -1.0);
 	return r;
 }
+
+#endif /* PYPY_NOT_MAIN_FILE */

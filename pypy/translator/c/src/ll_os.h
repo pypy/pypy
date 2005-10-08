@@ -36,6 +36,28 @@
 #endif
 
 
+/* prototypes */
+
+RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st);
+RPySTAT_RESULT* LL_os_stat(RPyString * fname);
+RPySTAT_RESULT* LL_os_fstat(long fd);
+long LL_os_lseek(long fd, long pos, long how);
+long LL_os_isatty(long fd);
+RPyString *LL_os_strerror(int errnum);
+long LL_os_system(RPyString * fname);
+void LL_os_unlink(RPyString * fname);
+RPyString *LL_os_getcwd(void);
+void LL_os_chdir(RPyString * path);
+void LL_os_mkdir(RPyString * path, int mode);
+void LL_os_rmdir(RPyString * path);
+void LL_os_putenv(RPyString * name_eq_value);
+void LL_os_unsetenv(RPyString * name);
+RPyString* LL_os_environ(int idx);
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
 int LL_os_open(RPyString *filename, int flag, int mode)
 {
 	/* XXX unicode_file_names */
@@ -169,8 +191,7 @@ void LL_os_unlink(RPyString * fname) {
     }
 }
 
-RPyString *LL_os_getcwd(void)
-{
+RPyString *LL_os_getcwd(void) {
 	char buf[PATH_MAX];
 	char *res;
 	res = getcwd(buf, sizeof buf);
@@ -246,3 +267,4 @@ RPyString* LL_os_environ(int idx) {
     }
     return rs;
 }
+#endif /* PYPY_NOT_MAIN_FILE */

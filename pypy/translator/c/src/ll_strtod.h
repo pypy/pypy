@@ -1,6 +1,18 @@
 #include <locale.h>
 #include <ctype.h>
 
+
+/* prototypes */
+
+double LL_strtod_parts_to_float(RPyString *sign, RPyString *beforept,
+				RPyString *afterpt, RPyString *exponent);
+RPyString *LL_strtod_formatd(RPyString *fmt, double x);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
 double LL_strtod_parts_to_float(
 	RPyString *sign, 
 	RPyString *beforept, 
@@ -107,3 +119,5 @@ RPyString *LL_strtod_formatd(RPyString *fmt, double x) {
 
 	return RPyString_FromString(buffer);
 }
+
+#endif /* PYPY_NOT_MAIN_FILE */

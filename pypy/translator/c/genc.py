@@ -204,7 +204,10 @@ class SourceGenerator:
         print >> fc, '/***********************************************************/'
         print >> fc, '/***  Structure Implementations                          ***/'
         print >> fc
+        print >> fc, '#define PYPY_NOT_MAIN_FILE'
         print >> fc, '#include "common_header.h"'
+        print >> fc, '#include "structdef.h"'
+        print >> fc, '#include "forwarddecl.h"'
         print >> fc
         for node in structdeflist:
             for line in node.definition(phase=2):
@@ -218,6 +221,7 @@ class SourceGenerator:
             print >> fc, '/***********************************************************/'
             print >> fc, '/***  Implementations                                    ***/'
             print >> fc
+            print >> fc, '#define PYPY_NOT_MAIN_FILE'
             print >> fc, '#include "common_header.h"'
             print >> fc, '#include "structdef.h"'
             print >> fc, '#include "forwarddecl.h"'
@@ -225,7 +229,6 @@ class SourceGenerator:
             for line in self.preimpl:
                 print >> fc, line
             print >> fc
-            print >> fc, '#define PYPY_NOT_MAIN_FILE'
             print >> fc, '#include "src/g_include.h"'
             print >> fc
             for node in nodes:

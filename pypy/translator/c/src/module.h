@@ -57,6 +57,11 @@ typedef struct {
 	PyMethodDef ml;
 } globalfunctiondef_t;
 
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
 static int setup_globalobjects(globalobjectdef_t* def)
 {
 	PyObject* obj;
@@ -134,3 +139,5 @@ static int setup_initcode(char* frozendata[], int len)
 	Py_DECREF(res);
 	return 0;
 }
+
+#endif /* PYPY_NOT_MAIN_FILE */

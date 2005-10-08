@@ -26,6 +26,27 @@ typedef struct {
 	HANDLE done;
 } callobj;
 
+typedef struct RPyOpaque_ThreadLock {
+	LONG   owned ;
+	DWORD  thread_id ;
+	HANDLE hevent ;
+} NRMUTEX, *PNRMUTEX ;
+
+/* prototypes */
+long RPyThreadStart(void (*func)(void *), void *arg);
+BOOL InitializeNonRecursiveMutex(PNRMUTEX mutex);
+VOID DeleteNonRecursiveMutex(PNRMUTEX mutex);
+DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, BOOL wait);
+BOOL LeaveNonRecursiveMutex(PNRMUTEX mutex);
+void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
+int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
+void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
 static int
 bootstrap(void *call)
 {
@@ -69,12 +90,6 @@ long RPyThreadStart(void (*func)(void *), void *arg)
 }
 
 /************************************************************/
-
-typedef struct RPyOpaque_ThreadLock {
-	LONG   owned ;
-	DWORD  thread_id ;
-	HANDLE hevent ;
-} NRMUTEX, *PNRMUTEX ;
 
 #define RPyOpaque_INITEXPR_ThreadLock  { 0, 0, NULL }
 
@@ -205,3 +220,5 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 	if (!LeaveNonRecursiveMutex(lock))
 		/* XXX complain? */;
 }
+
+#endif /* PYPY_NOT_MAIN_FILE */

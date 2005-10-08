@@ -7,12 +7,24 @@
 #endif
 
 
+/* prototypes */
+
+double LL_time_clock(void);
+void LL_time_sleep(double secs);
+double LL_time_time(void);
+
+
+/* implementations */
+
+#ifndef PYPY_NOT_MAIN_FILE
+
 /****** clock() ******/
 
 #if defined(MS_WINDOWS) && !defined(MS_WIN64) && !defined(__BORLANDC__)
 /* Win32 has better clock replacement
    XXX Win64 does not yet, but might when the platform matures. */
 #include <windows.h>
+
 
 double LL_time_clock(void)
 {
@@ -149,3 +161,5 @@ double LL_time_time(void) /* xxx had support for better resolutions */
 {
 	return ll_floattime();
 }
+
+#endif /* PYPY_NOT_MAIN_FILE */
