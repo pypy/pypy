@@ -39,6 +39,38 @@
 
 #define CHECK_STATUS(name)  if (status != 0) { perror(name); error = 1; }
 
+/********************* structs ***********/
+
+#ifdef USE_SEMAPHORES
+
+#include <semaphore.h>
+
+struct RPyOpaque_ThreadLock {
+	sem_t sem;
+	int initialized;
+};
+
+#define RPyOpaque_INITEXPR_ThreadLock  { { /* sem */ }, 0 }
+
+#else                                      /* no semaphores */
+
+/* A pthread mutex isn't sufficient to model the Python lock type
+   (see explanations in CPython's Python/thread_pthread.h */
+struct RPyOpaque_ThreadLock {
+	char             locked; /* 0=unlocked, 1=locked */
+	char             initialized;
+	/* a <cond, mutex> pair to handle an acquire of a locked lock */
+	pthread_cond_t   lock_released;
+	pthread_mutex_t  mut;
+};
+
+#define RPyOpaque_INITEXPR_ThreadLock  {        \
+		0, 0,                           \
+		PTHREAD_COND_INITIALIZER,       \
+		PTHREAD_MUTEX_INITIALIZER       \
+	}
+#endif                                     /* no semaphores */
+
 /* prototypes */
 
 long RPyThreadGetIdent(void);
@@ -126,13 +158,6 @@ long RPyThreadStart(void (*func)(void *), void *arg)
 
 #include <semaphore.h>
 
-struct RPyOpaque_ThreadLock {
-	sem_t sem;
-	int initialized;
-};
-
-#define RPyOpaque_INITEXPR_ThreadLock  { { /* sem */ }, 0 }
-
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
@@ -203,22 +228,6 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 /************************************************************/
 #else                                      /* no semaphores */
 /************************************************************/
-
-/* A pthread mutex isn't sufficient to model the Python lock type
-   (see explanations in CPython's Python/thread_pthread.h */
-struct RPyOpaque_ThreadLock {
-	char             locked; /* 0=unlocked, 1=locked */
-	char             initialized;
-	/* a <cond, mutex> pair to handle an acquire of a locked lock */
-	pthread_cond_t   lock_released;
-	pthread_mutex_t  mut;
-};
-
-#define RPyOpaque_INITEXPR_ThreadLock  {        \
-		0, 0,                           \
-		PTHREAD_COND_INITIALIZER,       \
-		PTHREAD_MUTEX_INITIALIZER       \
-	}
 
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 {
