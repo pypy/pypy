@@ -3,7 +3,7 @@ import os, py
 from pypy.translator.c.node import PyObjectNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
-from pypy.translator.gensupp import uniquemodulename
+from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import compile_c_module
 from pypy.translator.tool.cbuild import build_executable
 from pypy.translator.tool.cbuild import import_module_from_directory
@@ -103,10 +103,10 @@ class CStandaloneBuilder(CBuilder):
         # XXX for now, we always include Python.h
         from distutils import sysconfig
         python_inc = sysconfig.get_python_inc()
-        self.executable_name = build_executable([self.c_source_filename],
-                                         include_dirs = [autopath.this_dir,
-                                                         python_inc],
-                                         libraries=self.libraries)
+        self.executable_name = build_executable(
+            [self.c_source_filename] + self.extrafiles,
+            include_dirs = [autopath.this_dir, python_inc],
+            libraries=self.libraries)
         self._compiled = True
         return self.executable_name
 
@@ -124,6 +124,8 @@ def translator2database(translator):
 
 # ____________________________________________________________
 
+SPLIT_CRITERIA = 2000
+
 class SourceGenerator:
     one_source_file = True
 
@@ -132,11 +134,18 @@ class SourceGenerator:
         self.preimpl = preimplementationlines
         self.extrafiles = []
         self.path = None
+        self.namespace = NameManager()
 
     def set_strategy(self, path):
-        #self.one_source_file = False
-        # disabled for now, until all the includes are updated!
+        self.all_nodes = list(self.database.globalcontainers())
+        if len(self.all_nodes) >= SPLIT_CRITERIA:
+            pass # self.one_source_file = False
+        # disabled. still a problem: compiles but infinite recursion etc.
         self.path = path
+
+    def uniquecname(self, name):
+        assert name.endswith('.c')
+        return self.namespace.uniquename(name[:-2]) + '.c'
 
     def makefile(self, name):
         filepath = self.path.join(name)
@@ -148,7 +157,14 @@ class SourceGenerator:
         return self.extrafiles
 
     def splitglobalcontainers(self):
-        return [('theimplementations.c', self.database.globalcontainers())]
+        # silly first split, just by node count
+        # XXX filter constant stuff off and put it elsewhere
+        nodes = self.all_nodes[:]
+        nchunks = len(nodes) // SPLIT_CRITERIA
+        chunksize = (len(nodes) + nchunks - 1) // nchunks
+        while nodes:
+            yield self.uniquecname('implement.c'), nodes[:chunksize]
+            del nodes[:chunksize]
 
     def gen_readable_parts_of_source(self, f):
         if self.one_source_file:
@@ -198,7 +214,7 @@ class SourceGenerator:
             print >> f, line
         print >> f, '#include "src/g_include.h"'
         print >> f
-        name = 'structimpl.c'
+        name = self.uniquecname('structimpl.c')
         print >> f, '/* %s */' % name
         fc = self.makefile(name)
         print >> fc, '/***********************************************************/'
