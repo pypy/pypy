@@ -1,13 +1,13 @@
 from __future__ import generators
 from pypy.rpython.lltype import Struct, Array, FuncType, PyObjectType, typeOf
 from pypy.rpython.lltype import GcStruct, GcArray, GC_CONTAINER, ContainerType
-from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void, OpaqueType
+from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void, OpaqueType, Float
 from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo, Char
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, somelettersfrom, c_string_constant
-from pypy.translator.c.primitive import PrimitiveType
+from pypy.translator.c.primitive import PrimitiveType, isinf
 from pypy.translator.c import extfunc
 from pypy.rpython.rstr import STR
 
@@ -414,6 +414,9 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             node = db.getcontainernode(value._obj)
             expr = 'NULL /*%s*/' % node.name
             node.where_to_copy_me.append('&%s' % access_expr)
+        elif typeOf(value) == Float and isinf(value):
+            db.infs.append(('%s' % access_expr, db.get(value)))
+            expr = '0.0'
         else:
             expr = db.get(value)
             if typeOf(value) is Void:

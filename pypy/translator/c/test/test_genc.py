@@ -221,18 +221,25 @@ def test_infinite_float():
         def __init__(self, d):
             self.d = d
     b1 = Box(x)
-    b2 = Box(0.0)
+    b2 = Box(-x)
+    b3 = Box(1.5)
 
     def f(i):
-        if i:
+        if i==0:
             b = b1
-        else:
+        elif i==1:
             b = b2
+        else:
+            b = b3
         return b.d
 
     f1 = compile(f, [int])
-    res = f1(1)
+    res = f1(0)
     assert res > 0 and res == res / 2
+    res = f1(1)
+    assert res < 0 and res == res / 2
+    res = f1(3)
+    assert res == 1.5
 
 def test_x():
     class A:

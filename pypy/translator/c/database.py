@@ -24,6 +24,7 @@ class LowLevelDatabase:
         self.completedcontainers = 0
         self.containerstats = {}
         self.externalfuncs = {}
+        self.infs = []
         self.namespace = CNameManager()
         if not standalone:
             self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
