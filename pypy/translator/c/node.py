@@ -416,7 +416,8 @@ def generic_initializationexpr(db, value, access_expr, decoration):
             node.where_to_copy_me.append('&%s' % access_expr)
         elif typeOf(value) == Float and isinf(value):
             db.infs.append(('%s' % access_expr, db.get(value)))
-            expr = '0.0'
+            expr = '0.0 /* patched later by %sinfinity */' % (
+                '-+'[value > 0])
         else:
             expr = db.get(value)
             if typeOf(value) is Void:
