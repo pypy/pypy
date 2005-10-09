@@ -133,6 +133,10 @@ def _inline_function(translator, graph, block, index_operation):
     def generate_keepalive(vars):
         keepalive_ops = []
         for v in vars:
+            if isinstance(v, Constant):
+                continue
+            if v.concretetype._is_atomic():
+                continue
             v_keepalive = Variable()
             v_keepalive.concretetype = Void
             keepalive_ops.append(SpaceOperation('keepalive', [v], v_keepalive))
