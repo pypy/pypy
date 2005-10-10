@@ -127,7 +127,7 @@ def test_aliasing2():
     assert f(2) == 0
     assert f(3) == 17    
 
-def test_array_constant():
+def test_array_constant1():
     A = lltype.GcArray(lltype.Signed)
     a = lltype.malloc(A, 3)
     a[0] = 100

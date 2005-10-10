@@ -56,8 +56,8 @@ class BoehmGcPolicy(GcPolicy):
 
     def declarations(self):
         return '''
-declare ccc sbyte* %GC_malloc(uint)
-declare ccc sbyte* %GC_malloc_atomic(uint)
+declare sbyte* %GC_malloc(uint)
+declare sbyte* %GC_malloc_atomic(uint)
 %GC_all_interior_pointers = external global int
 '''
 
@@ -69,12 +69,12 @@ declare ccc sbyte* %GC_malloc_atomic(uint)
         t = '''
 %%malloc.Size%(cnt)s  = getelementptr %(type_)s* null, %(uword)s %(s)s
 %%malloc.SizeU%(cnt)s = cast %(type_)s* %%malloc.Size%(cnt)s to %(uword)s
-%%malloc.Ptr%(cnt)s   = call ccc sbyte* %%GC_malloc%(atomic)s(%(uword)s %%malloc.SizeU%(cnt)s)
+%%malloc.Ptr%(cnt)s   = call sbyte* %%GC_malloc%(atomic)s(%(uword)s %%malloc.SizeU%(cnt)s)
 %(targetvar)s = cast sbyte* %%malloc.Ptr%(cnt)s to %(type_)s*
 ''' % locals()
         if is_atomic:
             t += '''
-call ccc void %%llvm.memset(sbyte* %%malloc.Ptr%(cnt)s, ubyte 0, uint %%malloc.SizeU%(cnt)s, uint 0)
+call void %%llvm.memset(sbyte* %%malloc.Ptr%(cnt)s, ubyte 0, uint %%malloc.SizeU%(cnt)s, uint 0)
 ''' % locals()
         return t
 

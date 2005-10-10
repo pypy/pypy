@@ -16,6 +16,16 @@ from pypy.translator.js.log import log
 log = log.database 
 
 class Database(object): 
+
+    primitives = {
+            lltype.Char: "sbyte",
+            lltype.Bool: "bool",
+            lltype.Float: "double",
+            lltype.Signed: "int",
+            lltype.Unsigned: "uint",
+            lltype.UniChar: "uint",
+            lltype.Void: "void"}
+
     def __init__(self, genllvm, translator): 
         self.genllvm = genllvm
         self.translator = translator
@@ -26,33 +36,6 @@ class Database(object):
         # debug operation comments
         self._opcomments = {}
 
-        self.primitives_init()
-
-    def primitives_init(self):
-        primitives = {
-            lltype.Char: "sbyte",
-            lltype.Bool: "bool",
-            lltype.Float: "double",
-            lltype.UniChar: "uint",
-            lltype.Void: "void"}
-
-        # 32 bit platform
-        if sys.maxint == 2**31-1:
-            primitives.update({
-                lltype.Signed: "int",
-                lltype.Unsigned: "uint" })
-            
-        # 64 bit platform
-        elif sys.maxint == 2**63-1:        
-            primitives.update({
-                lltype.Signed: "long",
-                lltype.Unsigned: "ulong" })
-            
-        else:
-            assert False, "Unsupported platform"        
-
-        self.primitives = primitives
-        
     #_______for debugging llvm code_________________________
 
     def add_op2comment(self, lenofopstr, op):
@@ -346,12 +329,6 @@ class Database(object):
         else:
             repr = str(value)
         return repr
-
-    def get_machine_word(self):
-        return self.primitives[lltype.Signed]
-
-    def get_machine_uword(self):
-        return self.primitives[lltype.Unsigned]
 
     # __________________________________________________________
     # Other helpers

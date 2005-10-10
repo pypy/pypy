@@ -3,7 +3,7 @@ from pypy.rpython.rstr import STR
 def write_constructor(db, codewriter, ref, constructor_decl, ARRAY, 
                       indices_to_array=()): 
 
-    codewriter.comment('TODO: ' + constructor_decl)
+    codewriter.comment('TODO: ' + constructor_decl, 0)
     return
 
     #varsized arrays and structs look like this: 

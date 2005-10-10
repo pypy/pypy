@@ -3,7 +3,7 @@ class ExceptionPolicy:
     RINGBUFFER_ENTRY_MAXSIZE = 16
     RINGBUGGER_OVERSIZE      = RINGBUGGER_SIZE + RINGBUFFER_ENTRY_MAXSIZE
     RINGBUFFER_LLVMCODE      = '''
-internal fastcc sbyte* %%malloc_exception(uint %%nbytes) {
+sbyte* %%malloc_exception(uint %%nbytes) {
     %%cond = setle uint %%nbytes, %d
     br bool %%cond, label %%then, label %%else
 
@@ -16,7 +16,7 @@ then:
     ret sbyte* %%tmp.4
 
 else:
-    %%tmp.8  = call ccc sbyte* %%GC_malloc(uint %%nbytes)
+    %%tmp.8  = call sbyte* %%GC_malloc(uint %%nbytes)
     ret sbyte* %%tmp.8
 }
 ''' % (RINGBUFFER_ENTRY_MAXSIZE, RINGBUGGER_OVERSIZE, RINGBUGGER_SIZE-1)
@@ -46,7 +46,7 @@ else:
         return noresult
 
     def new(exceptionpolicy=None):  #factory
-        exceptionpolicy = exceptionpolicy or 'explicit'
+        exceptionpolicy = exceptionpolicy or 'invokeunwind'
         if exceptionpolicy == 'invokeunwind':
             from pypy.translator.js.exception import InvokeUnwindExceptionPolicy
             exceptionpolicy = InvokeUnwindExceptionPolicy()
@@ -75,7 +75,7 @@ class InvokeUnwindExceptionPolicy(ExceptionPolicy):  #uses issubclass() and llvm
         returntype, entrypointname =  entrynode.getdecl().split('%', 1)
         noresult = self._noresult(returntype)
         return '''
-ccc %(returntype)s%%__entrypoint__%(entrypointname)s {
+%(returntype)s%%__entrypoint__%(entrypointname)s {
     %%result = invoke %(returntype)s%%%(entrypointname)s to label %%no_exception except label %%exception
 
 no_exception:
@@ -86,13 +86,13 @@ exception:
     ret %(noresult)s
 }
 
-ccc int %%__entrypoint__raised_LLVMException() {
+int %%__entrypoint__raised_LLVMException() {
     %%tmp    = load %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
     %%result = cast %%RPYTHON_EXCEPTION_VTABLE* %%tmp to int
     ret int %%result
 }
 
-internal fastcc void %%unwind() {
+void %%unwind() {
     unwind
 }
 ''' % locals() + self.RINGBUFFER_LLVMCODE
@@ -164,7 +164,7 @@ class ExplicitExceptionPolicy(ExceptionPolicy):    #uses issubclass() and last_e
         returntype, entrypointname = entrynode.getdecl().split('%', 1)
         noresult = self._noresult(returntype)
         return '''
-ccc %(returntype)s%%__entrypoint__%(entrypointname)s {
+%(returntype)s%%__entrypoint__%(entrypointname)s {
     store %%RPYTHON_EXCEPTION_VTABLE* null, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
     %%result = call %(returntype)s%%%(entrypointname)s
     %%tmp    = load %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
@@ -178,13 +178,13 @@ exception:
     ret %(noresult)s
 }
 
-ccc int %%__entrypoint__raised_LLVMException() {
+int %%__entrypoint__raised_LLVMException() {
     %%tmp    = load %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
     %%result = cast %%RPYTHON_EXCEPTION_VTABLE* %%tmp to int
     ret int %%result
 }
 
-internal fastcc void %%unwind() {
+void %%unwind() {
     ret void
 }
 ''' % locals() + self.RINGBUFFER_LLVMCODE

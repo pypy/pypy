@@ -12,21 +12,25 @@ from pypy.translator.js.log import log
 log = log.funcnode
 
 class FuncTypeNode(LLVMNode):
+    #def __init__(self, db, type_):
+    #    #XXX not sure if we need FuncTypeNode with Javascript
+    #    pass
+
     __slots__ = "db type_ ref".split()
-    
+ 
     def __init__(self, db, type_):
         self.db = db
         assert isinstance(type_, lltype.FuncType)
         self.type_ = type_
         self.ref = self.make_ref('%functiontype', '')
-
+ 
     def __str__(self):
         return "<FuncTypeNode %r>" % self.ref
-
+ 
     def setup(self):
         self.db.prepare_type(self.type_.RESULT)
         self.db.prepare_type_multi(self.type_._trueargs())
-
+ 
     def writedatatypedecl(self, codewriter):
         returntype = self.db.repr_type(self.type_.RESULT)
         inputargtypes = [self.db.repr_type(a) for a in self.type_._trueargs()]

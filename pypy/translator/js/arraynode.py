@@ -43,7 +43,7 @@ class ArrayTypeNode(LLVMNode):
     #
     def writedatatypedecl(self, codewriter):
         codewriter.arraydef(self.ref,
-                            self.db.get_machine_word(),
+                            'int',
                             self.db.repr_type(self.arraytype))
 
     def writedecl(self, codewriter): 
@@ -67,7 +67,7 @@ class VoidArrayTypeNode(LLVMNode):
         self.ref = "arraytype_Void"
 
     def writedatatypedecl(self, codewriter):
-        td = "%s = type { %s }" % (self.ref, self.db.get_machine_word())
+        td = "%s = type { int }" % self.ref
         codewriter.append(td)
         
 class ArrayNode(ConstantLLVMNode):
@@ -83,7 +83,7 @@ class ArrayNode(ConstantLLVMNode):
         self.db = db
         self.value = value
         self.arraytype = lltype.typeOf(value).OF
-        prefix = '%arrayinstance'
+        prefix = 'arrayinstance'
         name = '' #str(value).split()[1]
         self.ref = self.make_ref(prefix, name)
 
@@ -113,18 +113,15 @@ class ArrayNode(ConstantLLVMNode):
     def get_typerepr(self):
         arraylen = self.get_arrayvalue()[0]
         typeval = self.db.repr_type(self.arraytype)
-        return "{ %s, [%s x %s] }" % (self.db.get_machine_word(),
-                                      arraylen, typeval)
+        return "{ int, [%s x %s] }" % (arraylen, typeval)
 
     def get_ref(self):
-        typeval = self.db.repr_type(lltype.typeOf(self.value))
-        ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
-                                        self.ref,
-                                        typeval)
-
+        #typeval = self.db.repr_type(lltype.typeOf(self.value))
+        #ref = "cast (%s* %s to %s*)" % (self.get_typerepr(), self.ref, typeval)
         p, c = lltype.parentlink(self.value)
         assert p is None, "child arrays are NOT needed by rtyper"
-        return ref
+        #return ref
+        return self.ref
 
     def get_pbcref(self, toptr):
         ref = self.ref
@@ -146,11 +143,14 @@ class ArrayNode(ConstantLLVMNode):
         typeval = self.db.repr_type(self.arraytype)
 
         # first length is logical, second is physical
-        value = "%s %s, [%s x %s] %s" % (self.db.get_machine_word(),
-                                         self.get_length(),
-                                         physicallen,
-                                         typeval,
-                                         arrayrepr)
+        value = "[%s, %s]" % (self.get_length(), arrayrepr)
+        return value
+
+        # first length is logical, second is physical
+        value = "int %s, [%s x %s] %s" % (self.get_length(),
+                                          physicallen,
+                                          typeval,
+                                          arrayrepr)
 
         s = "%s {%s}" % (self.get_typerepr(), value)
         return s
@@ -186,11 +186,9 @@ class VoidArrayNode(ConstantLLVMNode):
         assert isinstance(lltype.typeOf(value), lltype.Array)
         self.db = db
         self.value = value
-        prefix = '%arrayinstance'
+        prefix = 'arrayinstance'
         name = '' #str(value).split()[1]
         self.ref = self.make_ref(prefix, name)
 
     def constantvalue(self):
-        return "{ %s } {%s %s}" % (self.db.get_machine_word(),
-                                   self.db.get_machine_word(),
-                                   len(self.value.items))
+        return "{ int } {int %s}" % len(self.value.items)

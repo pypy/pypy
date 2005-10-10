@@ -33,20 +33,25 @@ class CodeWriter(object):
     openblock = label
 
     def closeblock(self):
-        self.append('break')
+        self.append('continue')
 
-    def globalinstance(self, name, typeandata):
-        self.llvm("%s = %s global %s" % (name, "internal", typeandata))
+    def globalinstance(self, name, typeanddata):
+        #self.append('%s = %s' % (name, typeanddata[1:].split('{')[1][:-1]), 0)
+        lines = typeanddata.split('\n')
+        #self.llvm("%s = global %s" % (name, lines[0]), 0)
+        self.append("%s = %s" % (name, lines[0]), 0)
+        for line in lines[1:]:
+            self.llvm(line, 0)
 
     def structdef(self, name, typereprs):
-        self.llvm("%s = type { %s }" %(name, ", ".join(typereprs)))
+        self.llvm("%s = type { %s }" %(name, ", ".join(typereprs)), 0)
 
     def arraydef(self, name, lentype, typerepr):
-        self.llvm("%s = type { %s, [0 x %s] }" % (name, lentype, typerepr))
+        self.llvm("%s = type { %s, [0 x %s] }" % (name, lentype, typerepr), 0)
 
     def funcdef(self, name, rettyperepr, argtypereprs):
         self.llvm("%s = type %s (%s)" % (name, rettyperepr,
-                                           ", ".join(argtypereprs)))
+                                           ", ".join(argtypereprs)), 0)
 
     def declare(self, decl):
         #self.llvm("declare %s" % decl, 0)
@@ -139,20 +144,25 @@ class CodeWriter(object):
             self.llvm("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
 
     def call(self, targetvar, returntype, functionref, argrefs, argtypes, label=None, except_label=None):
-        args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
+        #args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
+        args = ", ".join(argrefs)
         if except_label:
             self.js.exceptionpolicy.invoke(self, targetvar, returntype, functionref, args, label, except_label)
         else:
             if returntype == 'void':
-                self.llvm("call void %s(%s)" % (functionref, args))
+                #self.llvm("call void %s(%s)" % (functionref, args))
+                self.append('%s(%s)' % (functionref, args))
             else:
-                self.llvm("%s = call %s %s(%s)" % (targetvar, returntype, functionref, args))
+                #self.llvm("%s = call %s %s(%s)" % (targetvar, returntype, functionref, args))
+                self.append('%s = %s(%s)' % (targetvar, functionref, args))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
+        self.comment('codewriter cast 1 targettype=%(targettype)s, targetvar=%(targetvar)s, fromtype=%(fromtype)s, fromvar=%(fromvar)s' % locals())
     	if fromtype == 'void' and targettype == 'void':
 		return
+        self.comment('codewriter cast 2')
         if targettype == fromtype:
-            self.append("%(targetvar)s = %(fromvar)s%(convfunc)s" % locals())
+            self.append("%(targetvar)s = %(fromvar)s" % locals())
         elif targettype in ('int','uint',):
             self.append("%(targetvar)s = Math.floor(%(fromvar)s)" % locals())
         elif targettype in ('double',):
@@ -170,16 +180,30 @@ class CodeWriter(object):
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, word 0, " % locals()
         res += ", ".join(["%s %s" % (t, i) for t, i in indices])
         self.llvm(res)
+        
+        #res = "%(targetvar)s = %(typevar)s" % locals()
+        #res += ''.join(['[%s]' % i for t, i in indices])
+        #self.append(res)
 
-    def load(self, targetvar, targettype, ptr):
-        self.llvm("%(targetvar)s = load %(targettype)s* %(ptr)s" % locals())
+    #def load(self, targetvar, targettype, ptr):
+    #    self.llvm("%(targetvar)s = load %(targettype)s* %(ptr)s" % locals())
 
-    def store(self, valuetype, valuevar, ptr): 
-        self.llvm("store %(valuetype)s %(valuevar)s, "
-                    "%(valuetype)s* %(ptr)s" % locals())
+    def load(self, destvar, src, srcindices):
+        res  = "%(destvar)s = %(src)s" % locals()
+        res += ''.join(['[%s]' % index for index in srcindices])
+        self.append(res)
+
+    #def store(self, valuetype, valuevar, ptr): 
+    #    self.llvm("store %(valuetype)s %(valuevar)s, %(valuetype)s* %(ptr)s" % locals())
+
+    def store(self, dest, destindices, srcvar):
+        res  = dest
+        res += ''.join(['[%s]' % index for index in destindices])
+        res += " = %(srcvar)s" % locals()
+        self.append(res)
 
     def debugcomment(self, tempname, len, tmpname):
-        res = "%s = call ccc %(word)s (sbyte*, ...)* printf(" % locals()
+        res = "%s = call %(word)s (sbyte*, ...)* printf(" % locals()
         res += "sbyte* getelementptr ([%s x sbyte]* %s, word 0, word 0) )" % locals()
         res = res % (tmpname, len, tmpname)
         self.llvm(res)

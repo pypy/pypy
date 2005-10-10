@@ -224,6 +224,7 @@ class OpWriter(object):
         targettype = self.db.repr_arg_type(op.result)
         fromvar = self.db.repr_arg(op.args[0])
         fromtype = self.db.repr_arg_type(op.args[0])
+        self.codewriter.comment(op.opname)
         self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
     same_as = cast_primitive
 
@@ -444,8 +445,6 @@ class OpWriter(object):
         index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
         valuevar, valuetype = self.db.repr_argwithtype(op.args[2])
         if valuetype != "void": 
-            #Structure types require uint constants!
-            #see: http://llvm.cs.uiuc.edu/docs/LangRef.html#i_getelementptr
             self.codewriter.getelementptr(tmpvar, structtype, struct,
                                           ("uint", index))
             self.codewriter.store(valuetype, valuevar, tmpvar) 
@@ -456,13 +455,14 @@ class OpWriter(object):
         array, arraytype = self.db.repr_argwithtype(op.args[0])
         index = self.db.repr_arg(op.args[1])
         indextype = self.db.repr_arg_type(op.args[1])
-        tmpvar = self.db.repr_tmpvar()
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
         if targettype != "void":
-            self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                          ("uint", 1), (indextype, index))
-            self.codewriter.load(targetvar, targettype, tmpvar)
+            #tmpvar = self.db.repr_tmpvar()
+            #self.codewriter.getelementptr(tmpvar, arraytype, array,
+            #                              ("uint", 1), (indextype, index))
+            #self.codewriter.load(targetvar, targettype, tmpvar)
+            self.codewriter.load(targetvar, array, (1, index))
         else:
             self._skipped(op)
 
@@ -478,15 +478,14 @@ class OpWriter(object):
         array, arraytype = self.db.repr_argwithtype(op.args[0])
         index = self.db.repr_arg(op.args[1])
         indextype = self.db.repr_arg_type(op.args[1])
-
-        tmpvar = self.db.repr_tmpvar()
-
         valuevar = self.db.repr_arg(op.args[2]) 
         valuetype = self.db.repr_arg_type(op.args[2])
         if valuetype != "void":
-            self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                      ("uint", 1), (indextype, index))
-            self.codewriter.store(valuetype, valuevar, tmpvar) 
+            #tmpvar = self.db.repr_tmpvar()
+            #self.codewriter.getelementptr(tmpvar, arraytype, array,
+            #                          ("uint", 1), (indextype, index))
+            #self.codewriter.store(valuetype, valuevar, tmpvar) 
+            self.codewriter.store(array, (1, index), valuevar)
         else:
             self._skipped(op)
 
