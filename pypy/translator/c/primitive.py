@@ -1,5 +1,6 @@
 import sys
 from pypy.rpython.lltype import *
+from pypy.rpython.memory.lladdress import Address, NULL
 
 # ____________________________________________________________
 #
@@ -43,7 +44,11 @@ def name_void(value):
 def name_unichar(value):
     assert type(value) is unicode and len(value) == 1
     return '%d' % ord(value)
-    
+
+def name_address(value):
+    assert value == NULL
+    return 'NULL' 
+
 
 PrimitiveName = {
     Signed:   name_signed,
@@ -53,6 +58,7 @@ PrimitiveName = {
     UniChar:  name_unichar,
     Bool:     name_bool,
     Void:     name_void,
+    Address:  name_address,
     }
 
 PrimitiveType = {
@@ -63,6 +69,7 @@ PrimitiveType = {
     UniChar:  'unsigned int @',
     Bool:     'char @',
     Void:     'void @',
+    Address:  'void* @',
     }
 
 PrimitiveErrorValue = {
@@ -73,4 +80,5 @@ PrimitiveErrorValue = {
     UniChar:  '((unsigned) -1)',
     Bool:     '((char) -1)',
     Void:     '/* error */',
+    Address:  'NULL',
     }

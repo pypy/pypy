@@ -28,6 +28,7 @@
 #include "src/unichar.h"
 #include "src/float.h"
 #include "src/pyobj.h"
+#include "src/address.h"
 
 /*** modules ***/
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
