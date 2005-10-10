@@ -541,6 +541,23 @@ class FunctionCodeGenerator(object):
     def OP_KEEPALIVE(self, op, err): # xxx what should be the sematics consequences of this
         return "/* kept alive: %s */ ;" % self.expr(op.args[0], special_case_void=False)
 
+    #address operations
+    def OP_RAW_STORE(self, op, err):
+       addr = self.expr(op.args[0])
+       TYPE = op.args[1].value
+       offset = self.expr(op.args[2])
+       value = self.expr(op.args[3])
+       typename = self.db.gettype(TYPE).replace("@", "*") #XXX help! is this the way to do it?
+       return "*(((%(typename)s) %(addr)s ) + %(offset)s) = %(value)s;" % locals()
+
+    def OP_RAW_LOAD(self, op, err):
+        addr = self.expr(op.args[0])
+        TYPE = op.args[1].value
+        offset = self.expr(op.args[2])
+        result = self.expr(op.result)
+        typename = self.db.gettype(TYPE).replace("@", "*") #XXX see above
+        return "%(result)s = *(((%(typename)s) %(addr)s ) + %(offset)s);" % locals()
+
     def pyobj_incref(self, v):
         T = self.lltypemap(v)
         return self.pyobj_incref_expr(LOCALVAR % v.name, T)
