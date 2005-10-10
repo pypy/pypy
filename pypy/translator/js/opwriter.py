@@ -11,10 +11,10 @@ class OpWriter(object):
                          'int_add': '+',
                          'int_sub': '-',
                          'int_floordiv': '/',
-                         'int_mod': 'rem',
-                         'int_and': 'and',
-                         'int_or': 'or',
-                         'int_xor': 'xor',
+                         'int_mod': '%',
+                         'int_and': '&',
+                         'int_or': '|',
+                         'int_xor': '^',
                          'int_lt': '<',
                          'int_le': '<=',
                          'int_eq': '==',
@@ -26,10 +26,10 @@ class OpWriter(object):
                          'uint_add': '+',
                          'uint_sub': '-',
                          'uint_floordiv': '/',
-                         'uint_mod': 'rem',
-                         'uint_and': 'and',
-                         'uint_or': 'or',
-                         'uint_xor': 'xor',
+                         'uint_mod': '%',
+                         'uint_and': '&',
+                         'uint_or': '|',
+                         'uint_xor': '^',
                          'uint_lt': '<',
                          'uint_le': '<=',
                          'uint_eq': '==',
@@ -48,7 +48,7 @@ class OpWriter(object):
                          'float_add': '+',
                          'float_sub': '-',
                          'float_truediv': '/',
-                         'float_mod': 'rem',
+                         'float_mod': '%',
                          'float_lt': '<',
                          'float_le': '<=',
                          'float_eq': '==',
@@ -123,7 +123,7 @@ class OpWriter(object):
             res_val = mult_val
             for ii in range(operand - 1):
                 res_val = self.db.repr_tmpvar()
-                self.codewriter.binaryop("mul", 
+                self.codewriter.binaryop('*', 
                                          res_val,
                                          mult_type,
                                          last_val,
@@ -172,21 +172,21 @@ class OpWriter(object):
         self._generic_neg(op, "0.0") 
 
     def bool_not(self, op):
-        self.codewriter.binaryop("xor",
+        self.codewriter.binaryop('^',
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
                                  "true")
 
     def int_invert(self, op):
-        self.codewriter.binaryop("xor",
+        self.codewriter.binaryop('^',
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
                                  -1)
 
     def uint_invert(self, op):
-        self.codewriter.binaryop("xor",
+        self.codewriter.binaryop('^',
                                  self.db.repr_arg(op.result),
                                  self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
