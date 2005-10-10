@@ -327,6 +327,12 @@ class Translator:
         self.frozen = True
         return genllvm.genllvm(self, really_compile=really_compile, standalone=standalone, optimize=optimize, exe_name=exe_name, gcpolicy=gcpolicy)
 
+    def asmcompile(self, processor='ppc'):
+        from pypy.translator.asm import genasm
+        assert processor == 'ppc', 'only ppc asm-generation supported for now'
+        assert self.rtyper is not None, 'must specialize'
+        return genasm.genasm(self)
+
     def call(self, *args):
         """Calls underlying Python function."""
         return self.entrypoint(*args)

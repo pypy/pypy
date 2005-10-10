@@ -606,7 +606,7 @@ class GraphDisplay(Display):
     def process_MouseButtonDown(self, event):
         self.dragging = self.click_origin = event.pos
         self.click_time = time.time()
-        pygame.event.set_grab(True)
+#        pygame.event.set_grab(True)
 
     def process_MouseButtonUp(self, event):
         self.dragging = None
