@@ -15,6 +15,8 @@ class OpWriter(object):
                          'int_and': '&',
                          'int_or': '|',
                          'int_xor': '^',
+                         'int_lshift': '<<',
+                         'int_rshift': '>>',
                          'int_lt': '<',
                          'int_le': '<=',
                          'int_eq': '==',
@@ -30,6 +32,8 @@ class OpWriter(object):
                          'uint_and': '&',
                          'uint_or': '|',
                          'uint_xor': '^',
+                         'uint_lshift': '<<',
+                         'uint_rshift': '>>',
                          'uint_lt': '<',
                          'uint_le': '<=',
                          'uint_eq': '==',
@@ -60,13 +64,6 @@ class OpWriter(object):
                          'ptr_ne': '!=',
                          }
 
-    shift_operations  = {'int_lshift': '<<',
-                         'int_rshift': '>>',
-
-                         'uint_lshift': '<<',
-                         'uint_rshift': '>>',
-                         }
-
 
     char_operations  = {'char_lt': '<',
                         'char_le': '<=',
@@ -88,8 +85,6 @@ class OpWriter(object):
         else:
             if op.opname in self.binary_operations:
                 self.binaryop(op)
-            elif op.opname in self.shift_operations:
-                self.shiftop(op)
             elif op.opname in self.char_operations:
                 self.char_binaryop(op)
             elif op.opname.startswith('cast_'):
@@ -210,21 +205,6 @@ class OpWriter(object):
         self.codewriter.cast(c1, "sbyte", self.db.repr_arg(op.args[0]), "ubyte")
         self.codewriter.cast(c2, "sbyte", self.db.repr_arg(op.args[1]), "ubyte")
         self.codewriter.binaryop(name, res, "ubyte", c1, c2)
-
-
-    def shiftop(self, op):
-        name = self.shift_operations[op.opname]
-        assert len(op.args) == 2
-        if isinstance(op.args[1], Constant):
-            tmpvar = self.db.repr_arg(op.args[1])
-        else:
-            tmpvar = self.db.repr_tmpvar()
-            self.codewriter.cast(tmpvar, self.db.repr_arg_type(op.args[1]), self.db.repr_arg(op.args[1]), 'ubyte')
-        self.codewriter.shiftop(name,
-                                self.db.repr_arg(op.result),
-                                self.db.repr_arg_type(op.args[0]),
-                                self.db.repr_arg(op.args[0]),
-                                tmpvar)
 
     def cast_char_to_int(self, op):
         " works for all casts "

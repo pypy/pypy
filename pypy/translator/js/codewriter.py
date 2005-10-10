@@ -133,13 +133,10 @@ class CodeWriter(object):
     def binaryop(self, name, targetvar, type_, ref1, ref2):
         arithmetic = ('*', '/', '+', '-', '%', '^', '&', '|', '<<', '>>')
         comparison = ('<', '<=', '==', '!=', '>=', '>')
-        if name in arithmetic or name in comparison:
+        if name in arithmetic or name in comparison:    #XXX this should now always true
             self.append("%(targetvar)s = %(ref1)s %(name)s %(ref2)s" % locals())
         else:
             self.llvm("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
-
-    def shiftop(self, name, targetvar, type_, ref1, ref2):
-        self.llvm("%s = %s %s %s, ubyte %s" % (targetvar, name, type_, ref1, ref2))
 
     def call(self, targetvar, returntype, functionref, argrefs, argtypes, label=None, except_label=None):
         args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
