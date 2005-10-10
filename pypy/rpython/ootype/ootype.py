@@ -129,8 +129,43 @@ Bool     = Primitive("Bool", False)
 Void     = Primitive("Void", None)
 UniChar  = Primitive("UniChar", u'\x00')
 
+class Class(OOType):
+
+    def __init__(self, name, superclass, fields):
+        self._fields = fields
+
+        for name, defn in fields.iteritems():
+            if type(defn) is not tuple:
+                fields[name] = (defn, defn._defl())
+
 # ____________________________________________________________
 
+class _instance(object):
+    
+    def __init__(self, CLASS):
+        self.__dict__["_TYPE"] = CLASS
+
+        for name, (ootype, default) in self._TYPE._fields.iteritems():
+            self.__dict__[name] = default
+
+    def __getattr__(self, name):
+        try:
+            self._TYPE._fields[name]
+        except KeyError:
+            raise TypeError("No field named %r" % name)
+
+        return self.__dict__[name]
+
+    def __setattr__(self, name, value):
+        self.__getattr__(name)
+            
+        if self._TYPE._fields[name][0] != typeOf(value):
+            raise TypeError("Expected type %r" % self._TYPE._fields[name][0])
+
+        self.__dict__[name] = value
+
+def new(CLASS):
+    return _instance(CLASS)
 
 def typeOf(val):
     try:
