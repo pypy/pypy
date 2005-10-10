@@ -2,16 +2,21 @@
 /************************************************************/
  /***  C header subsection: exceptions                     ***/
 
-#ifndef PYPY_STANDALONE
-   static PyObject *RPythonError;
+#if !defined(PYPY_STANDALONE) && !defined(PYPY_NOT_MAIN_FILE)
+   PyObject *RPythonError;
 #endif 
 
 /******************************************************************/
 #ifdef HAVE_RTYPER               /* RPython version of exceptions */
 /******************************************************************/
 
-static RPYTHON_EXCEPTION_VTABLE	rpython_exc_type = NULL;
-static RPYTHON_EXCEPTION	rpython_exc_value = NULL;
+#ifdef PYPY_NOT_MAIN_FILE
+extern RPYTHON_EXCEPTION_VTABLE	rpython_exc_type;
+extern RPYTHON_EXCEPTION	rpython_exc_value;
+#else
+RPYTHON_EXCEPTION_VTABLE	rpython_exc_type = NULL;
+RPYTHON_EXCEPTION		rpython_exc_value = NULL;
+#endif
 
 #define RPyExceptionOccurred()	(rpython_exc_type != NULL)
 

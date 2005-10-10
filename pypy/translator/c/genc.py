@@ -124,7 +124,9 @@ def translator2database(translator):
 
 # ____________________________________________________________
 
-SPLIT_CRITERIA = 2000
+SPLIT_CRITERIA = 170
+
+MARKER = '/*/*/' # provide an easy way to split after generating
 
 class SourceGenerator:
     one_source_file = True
@@ -137,10 +139,22 @@ class SourceGenerator:
         self.namespace = NameManager()
 
     def set_strategy(self, path):
-        self.all_nodes = list(self.database.globalcontainers())
-        if len(self.all_nodes) >= SPLIT_CRITERIA:
-            pass # self.one_source_file = False
-        # disabled. still a problem: compiles but infinite recursion etc.
+        all_nodes = list(self.database.globalcontainers())
+        # split off non-function nodes
+        # win32 has a problem: compiles but infinite recursion etc.
+        # trytocicumvent this by placing all non-func nodes into one file.
+        funcnodes = []
+        othernodes = []
+        for node in all_nodes:
+            if node.nodekind == 'func':
+                funcnodes.append(node)
+            else:
+                othernodes.append(node)
+        #if len(funcnodes) >= SPLIT_CRITERIA:
+        # always now
+        self.one_source_file = False
+        self.funcnodes = funcnodes
+        self.othernodes = othernodes
         self.path = path
 
     def uniquecname(self, name):
@@ -156,11 +170,14 @@ class SourceGenerator:
     def getextrafiles(self):
         return self.extrafiles
 
-    def splitglobalcontainers(self):
+    def getothernodes(self):
+        return self.othernodes[:]
+
+    def splitfuncnodes(self):
         # silly first split, just by node count
         # XXX filter constant stuff off and put it elsewhere
-        nodes = self.all_nodes[:]
-        nchunks = len(nodes) // SPLIT_CRITERIA
+        nodes = self.funcnodes[:]
+        nchunks = len(nodes) // SPLIT_CRITERIA or 1
         chunksize = (len(nodes) + nchunks - 1) // nchunks
         while nodes:
             yield self.uniquecname('implement.c'), nodes[:chunksize]
@@ -225,13 +242,43 @@ class SourceGenerator:
         print >> fc, '#include "structdef.h"'
         print >> fc, '#include "forwarddecl.h"'
         print >> fc
-        for node in structdeflist:
-            for line in node.definition(phase=2):
-                print >> fc, line
+        print >> fc, '#include "src/g_include.h"'
         print >> fc
+        print >> fc, MARKER
+
+        def render_nonempty(seq):
+            lines = list(seq)
+            if lines:
+                print >> fc, '\n'.join(lines)
+                print >> fc, MARKER
+                return len(lines) + 1
+            return 0
+
+        for node in structdeflist:
+            render_nonempty(node.definition(phase=2))
         print >> fc, '/***********************************************************/'
         fc.close()
-        for name, nodes in self.splitglobalcontainers():
+
+        name = self.uniquecname('nonfuncnodes.c')
+        print >> f, '/* %s */' % name
+        fc = self.makefile(name)
+        print >> fc, '/***********************************************************/'
+        print >> fc, '/***  Non-function Implementations                       ***/'
+        print >> fc
+        print >> fc, '#define PYPY_NOT_MAIN_FILE'
+        print >> fc, '#include "common_header.h"'
+        print >> fc, '#include "structdef.h"'
+        print >> fc, '#include "forwarddecl.h"'
+        print >> fc
+        print >> fc, '#include "src/g_include.h"'
+        print >> fc
+        print >> fc, MARKER
+        for node in self.getothernodes():
+            render_nonempty(node.implementation())
+        print >> fc, '/***********************************************************/'
+        fc.close()
+
+        for name, nodes in self.splitfuncnodes():
             print >> f, '/* %s */' % name
             fc = self.makefile(name)
             print >> fc, '/***********************************************************/'
@@ -247,10 +294,10 @@ class SourceGenerator:
             print >> fc
             print >> fc, '#include "src/g_include.h"'
             print >> fc
+            print >> fc, MARKER
+            linecount = 12 + len(self.preimpl)
             for node in nodes:
-                for line in node.implementation():
-                    print >> fc, line
-            print >> fc
+                linecount += render_nonempty(node.implementation())
             print >> fc, '/***********************************************************/'
             fc.close()
         print >> f

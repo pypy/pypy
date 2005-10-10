@@ -66,7 +66,7 @@
 #define OP_INT_MUL_OVF(x,y,r,err) \
 	{ \
 		PY_LONG_LONG lr = (PY_LONG_LONG)(x) * (PY_LONG_LONG)(y); \
-		r = lr; \
+		r = (long)lr; \
 		if ((PY_LONG_LONG)r == lr); \
 		else FAIL_OVF(err, "integer multiplication"); \
 	}

@@ -38,6 +38,11 @@
 
 /* prototypes */
 
+int LL_os_open(RPyString *filename, int flag, int mode);
+long LL_read_into(int fd, RPyString *buffer);
+long LL_os_write(int fd, RPyString *buffer);
+void LL_os_close(int fd);
+int LL_os_dup(int fd);
 RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st);
 RPySTAT_RESULT* LL_os_stat(RPyString * fname);
 RPySTAT_RESULT* LL_os_fstat(long fd);

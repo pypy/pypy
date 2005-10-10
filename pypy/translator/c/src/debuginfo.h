@@ -13,16 +13,16 @@
 
 /* prototypes */
 
-static PyObject *debuginfo_offset(PyObject *self, PyObject *args);
-static PyObject *debuginfo_global(PyObject *self, PyObject *args);
-static PyObject *debuginfo_peek(PyObject *self, PyObject *args);
+PyObject *debuginfo_offset(PyObject *self, PyObject *args);
+PyObject *debuginfo_global(PyObject *self, PyObject *args);
+PyObject *debuginfo_peek(PyObject *self, PyObject *args);
 
 
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE
 
-static PyObject *debuginfo_offset(PyObject *self, PyObject *args)
+PyObject *debuginfo_offset(PyObject *self, PyObject *args)
 {
 	int index;
 	if (!PyArg_ParseTuple(args, "i", &index))
@@ -30,7 +30,7 @@ static PyObject *debuginfo_offset(PyObject *self, PyObject *args)
 	return PyInt_FromLong(debuginfo_offsets[index]);
 }
 
-static PyObject *debuginfo_global(PyObject *self, PyObject *args)
+PyObject *debuginfo_global(PyObject *self, PyObject *args)
 {
 	int index;
 	if (!PyArg_ParseTuple(args, "i", &index))
@@ -38,7 +38,7 @@ static PyObject *debuginfo_global(PyObject *self, PyObject *args)
 	return PyLong_FromVoidPtr(debuginfo_globals[index]);
 }
 
-static PyObject *debuginfo_peek(PyObject *self, PyObject *args)
+PyObject *debuginfo_peek(PyObject *self, PyObject *args)
 {
 	PyObject *o;
 	int size;

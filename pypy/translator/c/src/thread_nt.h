@@ -18,6 +18,7 @@
    identify the thread in the system
  */
 #define RPyThreadGetIdent GetCurrentThreadId
+#define RPyOpaque_INITEXPR_ThreadLock  { 0, 0, NULL }
 
 typedef struct {
 	void (*func)(void*);
@@ -90,8 +91,6 @@ long RPyThreadStart(void (*func)(void *), void *arg)
 }
 
 /************************************************************/
-
-#define RPyOpaque_INITEXPR_ThreadLock  { 0, 0, NULL }
 
 
 typedef PVOID WINAPI interlocked_cmp_xchg_t(PVOID *dest, PVOID exc, PVOID comperand) ;
