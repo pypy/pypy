@@ -8,7 +8,7 @@ def target(*args):
     return entry_point, [int]
 
 def get_llinterp_args():
-    return []
+    return [1]
 
 # _____ Run translated _____
 def run(c_entry_point):
