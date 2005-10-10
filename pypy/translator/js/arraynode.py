@@ -107,7 +107,8 @@ class ArrayNode(ConstantLLVMNode):
     def get_arrayvalue(self):
         items = self.value.items
         l = len(items)
-        r = "[%s]" % ", ".join([self.db.repr_constant(v)[1] for v in items])
+        #r = "[%s]" % ", ".join([self.db.repr_constant(v)[1] for v in items])
+        r = "[%s]" % ", ".join([str(v) for v in items])
         return l, r 
 
     def get_typerepr(self):
@@ -140,20 +141,17 @@ class ArrayNode(ConstantLLVMNode):
     
     def constantvalue(self):
         physicallen, arrayrepr = self.get_arrayvalue()
-        typeval = self.db.repr_type(self.arraytype)
+        return arrayrepr
 
-        # first length is logical, second is physical
-        value = "[%s, %s]" % (self.get_length(), arrayrepr)
-        return value
-
-        # first length is logical, second is physical
-        value = "int %s, [%s x %s] %s" % (self.get_length(),
-                                          physicallen,
-                                          typeval,
-                                          arrayrepr)
-
-        s = "%s {%s}" % (self.get_typerepr(), value)
-        return s
+        ## first length is logical, second is physical
+        #typeval = self.db.repr_type(self.arraytype)
+        #value = "int %s, [%s x %s] %s" % (self.get_length(),
+        #                                  physicallen,
+        #                                  typeval,
+        #                                  arrayrepr)
+        #
+        #s = "%s {%s}" % (self.get_typerepr(), value)
+        #return s
     
 class StrArrayNode(ArrayNode):
     __slots__ = "".split()

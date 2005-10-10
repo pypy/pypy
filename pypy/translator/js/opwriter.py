@@ -462,7 +462,7 @@ class OpWriter(object):
             #self.codewriter.getelementptr(tmpvar, arraytype, array,
             #                              ("uint", 1), (indextype, index))
             #self.codewriter.load(targetvar, targettype, tmpvar)
-            self.codewriter.load(targetvar, array, (1, index))
+            self.codewriter.load(targetvar, array, (index,))
         else:
             self._skipped(op)
 
@@ -485,7 +485,7 @@ class OpWriter(object):
             #self.codewriter.getelementptr(tmpvar, arraytype, array,
             #                          ("uint", 1), (indextype, index))
             #self.codewriter.store(valuetype, valuevar, tmpvar) 
-            self.codewriter.store(array, (1, index), valuevar)
+            self.codewriter.store(array, (index,), valuevar)
         else:
             self._skipped(op)
 
