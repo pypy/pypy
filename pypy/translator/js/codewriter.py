@@ -131,7 +131,7 @@ class CodeWriter(object):
                         n += 1
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
-        arithmetic = '*/+-%^&|'
+        arithmetic = ('*', '/', '+', '-', '%', '^', '&', '|', '<<', '>>')
         comparison = ('<', '<=', '==', '!=', '>=', '>')
         if name in arithmetic or name in comparison:
             self.append("%(targetvar)s = %(ref1)s %(name)s %(ref2)s" % locals())

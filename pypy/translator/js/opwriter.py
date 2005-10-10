@@ -60,11 +60,11 @@ class OpWriter(object):
                          'ptr_ne': '!=',
                          }
 
-    shift_operations  = {'int_lshift': 'shl',
-                         'int_rshift': 'shr',
+    shift_operations  = {'int_lshift': '<<',
+                         'int_rshift': '>>',
 
-                         'uint_lshift': 'shl',
-                         'uint_rshift': 'shr',
+                         'uint_lshift': '<<',
+                         'uint_rshift': '>>',
                          }
 
 
