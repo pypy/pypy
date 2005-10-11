@@ -15,6 +15,7 @@ class CBuilder:
     c_source_filename = None
     _compiled = False
     symboltable = None
+    stackless = False
     
     def __init__(self, translator, gcpolicy=None, libraries=None):
         self.translator = translator
@@ -98,7 +99,6 @@ class CExtModuleBuilder(CBuilder):
 class CStandaloneBuilder(CBuilder):
     standalone = True
     executable_name = None
-    stackless = False
 
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
