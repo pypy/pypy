@@ -9,19 +9,21 @@
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
-Next PyPy Sprint in Paris 10th-16th October 2005 
-==========================================================
+PyPy Sprint in Paris 10th-16th October 2005 
+========================================================
 
-Our next sprint is going to focus on threads/GC, various
-refactorings as well as JIT_ and `continuation-passing`_ style 
-translation of PyPy's Python interpreter.  The `Paris Announcement`_ 
-details times and logistics as well as the registration procedure. 
-The number of people who can attend is somewhat limited so it's 
-good if you signal your interest as early as possible. 
+At the moment one of the biggest PyPy sprint ever is taking place: 18 people
+are sitting in `Logilabs offices in Paris`_. We are happy to greet five new 
+developers to the PyPy Community! Currently we are focusing on implementing
+`continuation-passing`_ style (stackless), making the translation process
+work for target languages with more powerful object systems and some tiny
+steps into the JIT_ direction. Michael and Carl have written
+a `report about day one`_. *(10/11/2005)*
 
-.. _`Paris Announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/paris-2005-sprint.html 
+.. _`Logilabs offices in Paris`: http://codespeak.net/pypy/extradoc/sprintinfo/paris-2005-sprint.html 
 .. _JIT: http://en.wikipedia.org/wiki/Just-in-time_compilation
 .. _`continuation-passing`: http://en.wikipedia.org/wiki/Continuation_passing_style
+.. _`report about day one`: http://codespeak.net/pipermail/pypy-dev/2005q4/002510.html
 
 PyPy release 0.7.0
 =================== 
