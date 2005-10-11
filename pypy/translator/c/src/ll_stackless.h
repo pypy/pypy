@@ -6,11 +6,7 @@
 #endif
 
 #ifndef MAX_STACK_SIZE
-#  ifdef MS_WINDOWS
-#    define MAX_STACK_SIZE (1 << 19)
-#  else
 #    define MAX_STACK_SIZE (1 << 20)
-#  endif
 #endif
 
 #define STANDALONE_ENTRY_POINT   slp_standalone_entry_point
@@ -109,11 +105,12 @@ char LL_stackless_stack_too_big(void)
 {
   char local;
   long result;
+  int simple_check = MAX_STACK_SIZE / 2;
   /* compute the difference between local variable and
    * and a stack origin pointer
    */
   result = &local - slp_base_stack_pointer;
-  if (-MAX_STACK_SIZE < result && result < MAX_STACK_SIZE){
+  if (-simple_check < result && result < simple_check){
     return 0;
   }
   return 1;
