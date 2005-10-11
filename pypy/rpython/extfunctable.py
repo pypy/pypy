@@ -209,6 +209,7 @@ declare(ros.environ, strnullannotation, 'll_os/environ')
 # stackless
 from pypy.rpython import objectmodel
 declare(objectmodel.stack_frames_depth, int, 'll_stackless/stack_frames_depth')
+declare(objectmodel.stack_too_big, bool, 'll_stackless/stack_too_big')
 
 # ___________________________________________________________
 # the exceptions that can be implicitely raised by some operations

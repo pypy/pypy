@@ -5,6 +5,10 @@
 #  error "Stackless support: only for stand-alone executables"
 #endif
 
+#ifndef MAX_STACK_SIZE
+#define MAX_STACK_SIZE (1 << 20)
+#endif
+
 #define STANDALONE_ENTRY_POINT   slp_standalone_entry_point
 
 
@@ -28,10 +32,12 @@ extern int slp_restart_substate;
 extern long slp_retval_long;
 extern double slp_retval_double;
 extern void *slp_retval_voidptr;
+extern char *slp_base_stack_pointer;
 
 slp_frame_t* slp_new_frame(int size, int state);
 long LL_stackless_stack_frames_depth(void);
 void slp_main_loop(void);
+char LL_stackless_stack_too_big(void);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
@@ -43,6 +49,7 @@ int slp_restart_substate;
 long slp_retval_long;
 double slp_retval_double;
 void *slp_retval_voidptr;
+char *slp_base_stack_pointer = NULL;
 
 slp_frame_t* slp_new_frame(int size, int state)
 {
@@ -80,6 +87,19 @@ long LL_stackless_stack_frames_depth(void)
     }
 }
 
+char LL_stackless_stack_too_big(void)
+{
+  char local;
+  long result;
+  /* compute the difference between local variable and
+   * and a stack origin pointer
+   */
+  result = &local - slp_base_stack_pointer;
+  if (-MAX_STACK_SIZE < result && result < MAX_STACK_SIZE){
+    return 0;
+  }
+  return 1;
+}
 #include "slp_state_decoding.h"
 
 
@@ -132,7 +152,10 @@ void slp_main_loop(void)
 
 int slp_standalone_entry_point(RPyListOfString *argv)
 {
-	int result = PYPY_STANDALONE(argv);
+	char local;
+	int result;
+	slp_base_stack_pointer = &local;
+	result = PYPY_STANDALONE(argv);
 	if (slp_frame_stack_bottom) {
 		slp_main_loop();
 		result = (int) slp_retval_long;

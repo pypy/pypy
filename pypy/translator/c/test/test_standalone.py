@@ -2,7 +2,7 @@ from pypy.translator.translator import Translator
 from pypy.translator.tool.cbuild import build_executable 
 from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
-from pypy.rpython.objectmodel import stack_frames_depth
+from pypy.rpython.objectmodel import stack_frames_depth, stack_too_big
 import os
 
 
@@ -65,6 +65,19 @@ def test_stack_withptr():
     assert data.strip() == '10'
 
 
+def test_stack_too_big():
+    def f(n):
+        if stack_too_big():
+            return n
+        return f(n+1)
+
+    def fn():
+        return f(0)
+    data = wrap_stackless_function(fn)
+    assert int(data.strip()) > 500
+
+
+    
 def wrap_stackless_function(fn):
     def entry_point(argv):
         os.write(1, str(fn())+"\n")
