@@ -3,15 +3,16 @@ import py
 import os
 
 class TestAsm(object):
-        
+
     def setup_class(cls):
-        if os.uname()[-1] != 'Power Macintosh':
+        if not hasattr(os, "uname") or os.uname()[-1] != 'Power Macintosh':
             py.test.skip('asm generation only on PPC')
+        
         cls.processor = 'ppc'
-    
+
     def getcompiled(self, func, view=False):
         t = Translator(func, simplifying=True)
-        # builds starting-types from func_defs 
+        # builds starting-types from func_defs
         argstypelist = []
         if func.func_defaults is None:
             assert func.func_code.co_argcount == 0
@@ -33,7 +34,7 @@ class TestAsm(object):
             return None
         f = self.getcompiled(testfn)
         assert f() == None
-        
+
     def test_int_add(self):
         def testfn(x=int, y=int):
             z = 1 + x
@@ -42,7 +43,8 @@ class TestAsm(object):
             else:
                 return x + y - 42
         f = self.getcompiled(testfn)#, view=True)
+
         assert f(2, 3) == testfn(2, 3)
         assert f(-2, 3) == testfn(-2, 3)
-        
-        
+
+

@@ -1,11 +1,30 @@
+import sys
 from pypy.objspace.flow.model import traverse, Block, Variable, Constant
-from pypy.translator.asm.ppcgen.ppc_assembler import PPCAssembler
-from pypy.translator.asm.ppcgen.func_builder import make_func
+
+
+#Available Machine code targets (processor+operating system)
+TARGET_PPC=1
+TARGET_WIN386=2
+
+#set one of these
+ASM_TARGET=TARGET_PPC
+#ASM_TARGET=TARGET_WIN386
+
+
+if ASM_TARGET==TARGET_PPC:
+    from pypy.translator.asm.ppcgen.ppc_assembler import PPCAssembler
+    from pypy.translator.asm.ppcgen.func_builder import make_func
+elif ASM_TARGET==TARGET_WIN386:
+    from pypy.translator.asm.i386gen.i386_assembler import i386Assembler as PPCAssembler  #spoof system for time being
+    from pypy.translator.asm.i386gen.i386_assembler import make_func
+else:
+    raise Exception,'Unknown Machine-code target specified.  Set ASM_TARGET=TARGET_XXXX  '
+
 
 def genlinkcode(link):
     for s, t in zip(link.args, link.target.inputargs):
         print '    ', 'mr', t, s
-    
+
 
 def genasm(translator):
 
@@ -15,8 +34,10 @@ def genasm(translator):
 
     g = FuncGenerator(graph)
     g.gencode()
+    if ASM_TARGET==TARGET_WIN386:
+        g.assembler.dump()
     return make_func(g.assembler, 'i', 'ii')
-    
+
 
 class FuncGenerator(object):
 
@@ -33,8 +54,12 @@ class FuncGenerator(object):
         self.next_register = 3
         for var in graph.startblock.inputargs:
             self.assign_register(var)
+
         self._block_counter = 0
         self.assembler = PPCAssembler()
+
+
+
 
     def assign_register(self, var):
         assert var not in self._var2reg
@@ -116,4 +141,4 @@ class FuncGenerator(object):
     def same_as(self, dest, v1):
         self.assembler.mr(self.reg(dest), self.reg(v1))
 
-        
+
