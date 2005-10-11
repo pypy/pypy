@@ -692,7 +692,7 @@ class PPCAssembler(BasicPPCAssembler):
 
     crset = BA.creqv(crbA="crbD", crbB="crbD")
     crclr = BA.crxor(crbA="crbD", crbB="crbD")
-    cmove = BA.cror(crbA="crbB")
+    crmove = BA.cror(crbA="crbB")
     crnot = BA.crnor(crbA="crbB")
 
     # F.7 Simplified Mnemonics for Trap Instructions
