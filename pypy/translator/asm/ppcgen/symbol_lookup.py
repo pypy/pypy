@@ -1,11 +1,15 @@
-import py
 
-_ppcgen = py.magic.autopath().dirpath().join('_ppcgen.c').getpymodule()
+def lookup(sym):
+    global lookup
+    import py
 
-try:
-    from _ppcgen import NSLookupAndBindSymbol
+    _ppcgen = py.magic.autopath().dirpath().join('_ppcgen.c').getpymodule()
 
-    def lookup(sym):
-        return NSLookupAndBindSymbol('_' + sym)
-except ImportError:
-    from _ppcgen import dlsym as lookup
+    try:
+        from _ppcgen import NSLookupAndBindSymbol
+
+        def lookup(sym):
+            return NSLookupAndBindSymbol('_' + sym)
+    except ImportError:
+        from _ppcgen import dlsym as lookup
+    return lookup(sym)

@@ -1,6 +1,13 @@
 import py
-_ppcgen = py.magic.autopath().dirpath().join('_ppcgen.c').getpymodule()
 import mmap, struct
+
+_ppcgen = None
+
+def get_ppcgen():
+    global _ppcgen
+    if _ppcgen is None:
+        _ppcgen = py.magic.autopath().dirpath().join('_ppcgen.c').getpymodule()
+    return _ppcgen
 
 class AsmCode(object):
     def __init__(self, size):
@@ -10,7 +17,7 @@ class AsmCode(object):
     def emit(self, insn):
         self.code.write(struct.pack('i', insn))
     def __call__(self, *args):
-        return _ppcgen.mmap_exec(self.code, args)
+        return get_ppcgen().mmap_exec(self.code, args)
     def flush_cache(self):
-        _ppcgen.mmap_flush(self.code)
-        
+        get_ppcgen().mmap_flush(self.code)
+
