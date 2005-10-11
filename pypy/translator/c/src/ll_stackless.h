@@ -60,6 +60,19 @@ slp_frame_t* slp_new_frame(int size, int state)
   return f;
 }
 
+void LL_stackless_stack_unwind(void)
+{
+    if (slp_frame_stack_top)
+        goto resume;
+
+    slp_frame_stack_top = slp_frame_stack_bottom =
+        slp_new_frame(sizeof(slp_frame_t), 0);
+    return ;
+
+ resume:
+    slp_frame_stack_top = NULL;
+}
+
 
 /* example function for testing */
 
@@ -69,7 +82,7 @@ long LL_stackless_stack_frames_depth(void)
 	    goto resume;
 
 	slp_frame_stack_top = slp_frame_stack_bottom =
-		slp_new_frame(sizeof(slp_frame_t), 0);
+		slp_new_frame(sizeof(slp_frame_t), 1);
 	return -1;
 
  resume:
@@ -87,18 +100,6 @@ long LL_stackless_stack_frames_depth(void)
     }
 }
 
-void LL_stackless_stack_unwind(void)
-{
-    if (slp_frame_stack_top)
-        goto resume;
-
-    slp_frame_stack_top = slp_frame_stack_bottom =
-        slp_new_frame(sizeof(slp_frame_t), 0);
-    return ;
-
- resume:
-    slp_frame_stack_top = NULL;
-}
 
 char LL_stackless_stack_too_big(void)
 {
