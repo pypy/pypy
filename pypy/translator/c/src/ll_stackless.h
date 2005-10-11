@@ -87,6 +87,19 @@ long LL_stackless_stack_frames_depth(void)
     }
 }
 
+void LL_stackless_stack_unwind(void)
+{
+    if (slp_frame_stack_top)
+        goto resume;
+
+    slp_frame_stack_top = slp_frame_stack_bottom =
+        slp_new_frame(sizeof(slp_frame_t), 0);
+    return ;
+
+ resume:
+    slp_frame_stack_top = NULL;
+}
+
 char LL_stackless_stack_too_big(void)
 {
   char local;
@@ -166,3 +179,4 @@ int slp_standalone_entry_point(RPyListOfString *argv)
 #endif /* PYPY_NOT_MAIN_FILE */
 
 #endif USE_STACKLESS
+

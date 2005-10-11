@@ -21,10 +21,13 @@ class StacklessData:
         self.decode_table = []
         # start the decoding table with entries for the functions that
         # are written manually in ll_stackless.h
+
+        self.registerunwindable('LL_stackless_stack_unwind',
+                                lltype.FuncType([], lltype.Void),
+                                resume_points=1)
         self.registerunwindable('LL_stackless_stack_frames_depth',
                                 lltype.FuncType([], lltype.Signed),
                                 resume_points=1)
-
     def registerunwindable(self, functionname, FUNC, resume_points):
         if resume_points >= 1:
             try:

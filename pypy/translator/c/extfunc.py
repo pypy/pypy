@@ -50,6 +50,7 @@ EXTERNALS = {
     ll_thread.ll_thread_start:     'LL_thread_start',
     ll_thread.ll_thread_get_ident: 'LL_thread_get_ident',
     ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
+    ll_stackless.ll_stackless_stack_unwind: 'LL_stackless_stack_unwind',
     ll_stackless.ll_stackless_stack_too_big: 'LL_stackless_stack_too_big',
     }
 
