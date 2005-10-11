@@ -7,6 +7,7 @@ with in http://codespeak.net/svn/user/arigo/hack/misc/stackless.c
 import py
 from pypy.objspace.flow.model import Variable
 from pypy.rpython import lltype
+from pypy.rpython.memory.lladdress import Address
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 
 
@@ -255,11 +256,9 @@ def erase_ptr_type(T):
     basic pointer type.
     """
     if isinstance(T, lltype.Ptr):
-        return ERASED_PTR_TYPE
+        return Address
     else:
         return T
-
-ERASED_PTR_TYPE = lltype.Ptr(lltype.OpaqueType("rawmemory"))
 
 
 def simplified_type(T):
