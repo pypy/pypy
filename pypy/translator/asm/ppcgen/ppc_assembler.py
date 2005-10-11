@@ -505,7 +505,8 @@ class PPCAssembler(BasicPPCAssembler):
 
     # F.4 Simplified Mnemonics for Rotate and Shift Instructions
 
-
+    def slwi(self, rA, rS, n):
+        self.rlwinm(rA, rS, n, 0, 31-n)
 
     # F.5 Simplified Mnemonics for Branch Instructions
 
