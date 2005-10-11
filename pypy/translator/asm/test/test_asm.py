@@ -46,3 +46,19 @@ class TestAsm(object):
 
         assert f(2, 3) == testfn(2, 3)
         assert f(-2, 3) == testfn(-2, 3)
+
+    def test_loop(self):
+        def testfn(lim=int):
+            r = 0
+            i = 0
+            while i < lim:
+                r += i*i
+                i += 1
+            return r
+        f = self.getcompiled(testfn)#, view=True)
+
+        assert f(0) == testfn(0)
+        assert f(10) == testfn(10)
+        assert f(100) == testfn(100)
+        assert f(1000) == testfn(1000)
+            

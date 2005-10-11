@@ -1,6 +1,7 @@
 import sys, os
 from pypy.objspace.flow.model import traverse, Block, Variable, Constant
 from pypy.translator.asm import infregmachine
+from pypy.rpython.lltype import Signed
 
 #Available Machine code targets (processor+operating system)
 TARGET_UNKNOWN=0
@@ -38,12 +39,19 @@ def genasm(translator):
 
     graph = translator.getflowgraph(f)
 
+    retvar = graph.returnblock.inputargs[0]
+
+    assert retvar.concretetype is Signed
+
+    for v in graph.startblock.inputargs:
+        assert v.concretetype is Signed
+
     g = FuncGenerator(graph)
     g.gencode()
 #    g.assembler.dump()
     finreg = g.assembler.allocate_registers(30)
 
-    return make_func(finreg.assemble(), 'i', 'ii')
+    return make_func(finreg.assemble(), 'i', 'i'*len(graph.startblock.inputargs))
 
 class FuncGenerator(object):
 
@@ -97,7 +105,7 @@ class FuncGenerator(object):
     def genlinkcode(self, link):
         A = self.assembler
         for s, t in zip(link.args, link.target.inputargs):
-            if s.name != t.name:
+            if isinstance(s, Constant) or s.name != t.name:
                 A.emit('MOV', self.reg(t), self.reg(s))
         A.emit('J', self.blocktarget(link.target))
 

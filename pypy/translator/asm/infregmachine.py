@@ -78,12 +78,18 @@ class FiniteRegisterAssembler(Assembler):
     def int_add(self, A, dest, a, b):
         A.add(dest + 2, a + 2, b + 2)
 
+    def int_sub(self, A, dest, a, b):
+        A.sub(dest + 2, a + 2, b + 2)
+
+    def int_mul(self, A, dest, a, b):
+        A.mullw(dest + 2, a + 2, b + 2)
+
     def int_gt(self, A, a, b):
         A.cmpw(a + 2, b + 2)
-        A.mfcr(0)
-        # copy bit 1 ('gt') of register 0 to bit 0 of register 0 ('lt')
-        A.rlwimi(0, 0, 1, 0, 0)
-        A.mtcr(0)
+        A.crmove(0, 1)
+
+    def int_lt(self, A, a, b):
+        A.cmpw(a + 2, b + 2)
 
     def JT(self, A, branch):
         # should be "A.bt(BI=0, BD=branch)" but this crashes.
@@ -91,9 +97,6 @@ class FiniteRegisterAssembler(Assembler):
 
     def J(self, A, branch):
         A.b(branch)
-
-    def int_sub(self, A, dest, a, b):
-        A.sub(dest + 2, a + 2, b + 2)
 
     def RETPYTHON(self, A, reg):
         A.mr(3, reg + 2)
