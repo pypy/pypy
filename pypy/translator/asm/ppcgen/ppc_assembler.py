@@ -508,6 +508,9 @@ class PPCAssembler(BasicPPCAssembler):
     def slwi(self, rA, rS, n):
         self.rlwinm(rA, rS, n, 0, 31-n)
 
+    def inslwi(self, rA, rS, n, b):
+        self.rwlimi(rA, rS, 32-b, b, b + n -1)
+
     # F.5 Simplified Mnemonics for Branch Instructions
 
     # there's a lot of these!
