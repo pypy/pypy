@@ -5,7 +5,6 @@ import os
 class TestAsm(object):
 
     def setup_class(cls):
-        py.test.skip('broken broken broken')
         if not hasattr(os, "uname") or os.uname()[-1] != 'Power Macintosh':
             py.test.skip('asm generation only on PPC')
         
@@ -38,7 +37,7 @@ class TestAsm(object):
 
     def test_int_add(self):
         def testfn(x=int, y=int):
-            z = 666 + x
+            z = 1 + x
             if z > 0:
                 return x + y + z
             else:

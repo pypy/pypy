@@ -40,9 +40,10 @@ def genasm(translator):
 
     g = FuncGenerator(graph)
     g.gencode()
-    g.assembler.dump()
-    return lambda x,y:1#make_func(g.assembler, 'i', 'ii')
+#    g.assembler.dump()
+    finreg = g.assembler.allocate_registers(30)
 
+    return make_func(finreg.assemble(), 'i', 'ii')
 
 class FuncGenerator(object):
 
@@ -117,7 +118,7 @@ class FuncGenerator(object):
 
         if len(block.exits) == 2:
             assert block.exitswitch is not None
-            truelink, falselink = block.exits
+            falselink, truelink = block.exits
             lastop = block.operations[-1]
             assert lastop.opname in ['int_gt', 'int_lt', 'int_ge']
             A.emit(lastop.opname, *map(self.reg, lastop.args))
