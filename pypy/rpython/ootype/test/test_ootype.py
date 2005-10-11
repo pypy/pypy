@@ -31,3 +31,33 @@ def test_simple_null():
     assert typeOf(c) == C
 
     py.test.raises(RuntimeError, "c.a")
+
+def test_simple_class_field():
+    C = Class("test", None, {})
+
+    D = Class("test2", None, {"a": C})
+    d = new(D)
+
+    assert typeOf(d.a) == C
+
+    assert d.a == null(C)
+
+def test_simple_recursive_class():
+    C = Class("test", None, {})
+
+    addFields(C, {"inst": C})
+
+    c = new(C)
+    assert c.inst == null(C)
+
+def test_simple_super():
+    C = Class("test", None, {"a": (Signed, 3)})
+    D = Class("test2", C, {})
+
+    d = new(D)
+    assert d.a == 3
+
+def test_simple_field_shadowing():
+    C = Class("test", None, {"a": (Signed, 3)})
+    
+    py.test.raises(TypeError, """D = Class("test2", C, {"a": (Signed, 3)})""")

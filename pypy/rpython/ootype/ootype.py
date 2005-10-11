@@ -132,9 +132,23 @@ UniChar  = Primitive("UniChar", u'\x00')
 class Class(OOType):
 
     def __init__(self, name, superclass, fields):
-        self._fields = fields
+        self._superclass = superclass
+
+        self._fields = {}
+	self._add_fields(fields)
+
+    	self._null = _null_instance(self)
+
+    def _defl(self):
+        return self._null
+
+    def _add_fields(self, fields):
 
         for name, defn in fields.iteritems():
+            if self._superclass is not None:
+                if self._superclass._has_field(name):
+                    raise TypeError("Field %r exists in superclass" % name)
+
             if type(defn) is not tuple:
                 fields[name] = (defn, defn._defl())
             else:
@@ -143,6 +157,29 @@ class Class(OOType):
                 if ootype != typeOf(default):
                     raise TypeError("Expected type %r for default" % ootype)
 
+	self._fields.update(fields)
+
+    def _init_instance(self, instance):
+        if self._superclass is not None:
+            self._superclass._init_instance(instance)
+        
+        for name, (ootype, default) in self._fields.iteritems():
+            instance.__dict__[name] = default
+
+    def _has_field(self, name):
+        try:
+            self._fields[name]
+            return True
+        except KeyError:
+	    if self._superclass is None:
+                return False
+
+            return self._superclass._has_field(name)
+
+    def _check_field(self, name):
+        if not self._has_field(name):
+	    raise TypeError("No field named %r" % name)
+
 # ____________________________________________________________
 
 class _instance(object):
@@ -150,14 +187,10 @@ class _instance(object):
     def __init__(self, CLASS):
         self.__dict__["_TYPE"] = CLASS
 
-        for name, (ootype, default) in self._TYPE._fields.iteritems():
-            self.__dict__[name] = default
+        CLASS._init_instance(self)
 
     def __getattr__(self, name):
-        try:
-            self._TYPE._fields[name]
-        except KeyError:
-            raise TypeError("No field named %r" % name)
+        self._TYPE._check_field(name)
 
         return self.__dict__[name]
 
@@ -172,13 +205,13 @@ class _instance(object):
 class _null_instance(_instance):
 
     def __init__(self, CLASS):
-        _instance.__init__(self, CLASS)
+        self.__dict__["_TYPE"] = CLASS
 
     def __getattribute__(self, name):
         if name.startswith("_"):
             return object.__getattribute__(self, name)
     
-        _instance.__getattr__(self, name)
+        self._TYPE._check_field(name)
         
         raise RuntimeError("Access to field in null object")
 
@@ -191,7 +224,10 @@ def new(CLASS):
     return _instance(CLASS)
 
 def null(CLASS):
-    return _null_instance(CLASS)
+    return CLASS._null
+
+def addFields(CLASS, fields):
+   CLASS._add_fields(fields)
 
 def typeOf(val):
     try:
