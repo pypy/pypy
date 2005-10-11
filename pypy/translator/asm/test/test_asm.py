@@ -24,7 +24,7 @@ class TestAsm(object):
         a.simplify()
         t.specialize()
         t.checkgraphs()
-#        t.backend_optimizations()
+        t.backend_optimizations()
         if view:
             t.view()
         return t.asmcompile(self.processor)
@@ -46,5 +46,3 @@ class TestAsm(object):
 
         assert f(2, 3) == testfn(2, 3)
         assert f(-2, 3) == testfn(-2, 3)
-
-
