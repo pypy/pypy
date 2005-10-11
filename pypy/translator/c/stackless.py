@@ -230,13 +230,13 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
             vartype = self.lltypename(v).replace('@', '')
             lines.append('%s = (%s)(((struct %s*) f)->%s);' % (
                 varname, vartype, structname, fieldname))
-            retvarname = self.expr(op.result)
-            retvartype = self.lltypename(op.result).replace('@', '')
-            retvarst = simplified_type(op.result.concretetype)
-            if retvarst is not None:
-                globalretvalvarname = RETVALVARS[retvarst]
-                lines.append('%s = (%s) %s;' % (
-                    retvarname, retvartype, globalretvalvarname))
+        retvarname = self.expr(op.result)
+        retvartype = self.lltypename(op.result).replace('@', '')
+        retvarst = simplified_type(op.result.concretetype)
+        if retvarst is not None:
+            globalretvalvarname = RETVALVARS[retvarst]
+            lines.append('%s = (%s) %s;' % (
+                retvarname, retvartype, globalretvalvarname))
         lines.append('goto %s;' % (resumelabel,))
         self.resumeblocks.append(lines)
 

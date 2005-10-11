@@ -26,7 +26,7 @@ def test_hello_world():
     assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
 
-def INPROGRESS_test_stack_unwind():
+def test_stack_unwind():
     def f(n):
         if n > 0:
             return f(n-1)
