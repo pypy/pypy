@@ -21,3 +21,5 @@ def test_simple_default_class():
 
     c = new(C)
     assert c.a == 3
+
+    py.test.raises(TypeError, "Class('test', None, {'a': (Signed, 3.0)})")

@@ -137,6 +137,11 @@ class Class(OOType):
         for name, defn in fields.iteritems():
             if type(defn) is not tuple:
                 fields[name] = (defn, defn._defl())
+            else:
+                ootype, default = defn
+
+                if ootype != typeOf(default):
+                    raise TypeError("Expected type %r for default" % ootype)
 
 # ____________________________________________________________
 
