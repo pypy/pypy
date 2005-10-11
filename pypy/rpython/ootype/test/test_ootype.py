@@ -23,3 +23,11 @@ def test_simple_default_class():
     assert c.a == 3
 
     py.test.raises(TypeError, "Class('test', None, {'a': (Signed, 3.0)})")
+
+def test_simple_null():
+    C = Class("test", None, {"a": Signed})
+
+    c = null(C)
+    assert typeOf(c) == C
+
+    py.test.raises(RuntimeError, "c.a")

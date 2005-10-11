@@ -169,8 +169,29 @@ class _instance(object):
 
         self.__dict__[name] = value
 
+class _null_instance(_instance):
+
+    def __init__(self, CLASS):
+        _instance.__init__(self, CLASS)
+
+    def __getattribute__(self, name):
+        if name.startswith("_"):
+            return object.__getattribute__(self, name)
+    
+        _instance.__getattr__(self, name)
+        
+        raise RuntimeError("Access to field in null object")
+
+    def __setattr__(self, name, value):
+        _instance.__setattr__(self, name, value)
+
+        raise RuntimeError("Assignment to field in null object")
+
 def new(CLASS):
     return _instance(CLASS)
+
+def null(CLASS):
+    return _null_instance(CLASS)
 
 def typeOf(val):
     try:
