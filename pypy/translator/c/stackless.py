@@ -166,6 +166,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
             argtypes = [erase_ptr_type(v.concretetype)
                         for v in self.graph.getargs()]
             argtypes = [T for T in argtypes if T is not lltype.Void]
+            import sys
             rettype = erase_ptr_type(self.graph.getreturnvar().concretetype)
             FUNC = lltype.FuncType(argtypes, rettype)
             slpdata.registerunwindable(self.functionname, FUNC,
@@ -180,24 +181,11 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         curpos = block.operations.index(op)
 
         # XXX obscure: find all variables that are produced before 'op'
-        # and still used by or after 'op'.
-        produced = {}
+        vars = []
         for v in block.inputargs:
-            produced[v] = True
+            vars.append(v)
         for op1 in block.operations[:curpos]:
-            produced[op1.result] = True
-        consumed = {}
-        for op1 in block.operations[curpos:]:
-            for v in op1.args:
-                if isinstance(v, Variable):
-                    consumed[v] = True
-        if isinstance(block.exitswitch, Variable):
-            consumed[block.exitswitch] = True
-        for link in block.exits:
-            for v in link.args:
-                if isinstance(v, Variable):
-                    consumed[v] = True
-        vars = [v for v in produced if v in consumed]
+            vars.append(op1.result)
 
         # get the simplified frame struct that can store these vars
         counts = {"long":   [],
@@ -205,7 +193,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
                   "void*":  []}
         variables_to_restore = []
         for v in vars:
-            st = simplified_type(v.concretetype)
+            st = simplified_type(erase_ptr_type(v.concretetype))
             if st is not None:   # ignore the Voids
                 varname = self.expr(v)
                 # XXX hackish: the name of the field in the structure is
@@ -250,7 +238,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
                 varname, cdecl(vartype, ''), structname, fieldname))
         retvarname = self.expr(op.result)
         retvartype = self.lltypename(op.result)
-        retvarst = simplified_type(op.result.concretetype)
+        retvarst = simplified_type(erase_ptr_type(op.result.concretetype))
         if retvarst is not None:
             globalretvalvarname = RETVALVARS[retvarst]
             lines.append('%s = (%s) %s;' % (
@@ -283,10 +271,10 @@ def simplified_type(T):
         return None
     elif T is lltype.Float:
         return "double"
+    elif T is Address:
+        return "void*"
     elif isinstance(T, lltype.Primitive):
         return "long"   # large enough for all other primitives
-    elif isinstance(T, lltype.Ptr):
-        return "void*"
     else:
         raise Exception("don't know about %r" % (T,))
 

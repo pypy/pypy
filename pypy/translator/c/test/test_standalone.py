@@ -48,7 +48,7 @@ def test_stack_unwind():
     data = wrap_stackless_function(fn)
     assert data.strip() == '10'
 
-def INPROGRESStest_stack_withptr():
+def test_stack_withptr():
     def f(n):
         if n > 0:
             res = f(n-1)
