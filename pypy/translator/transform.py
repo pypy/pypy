@@ -14,7 +14,7 @@ from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.annrpython import CannotSimplify
 from pypy.annotation import model as annmodel
 from pypy.annotation.specialize import MemoTable
-
+from pypy.rpython.objectmodel import auto_stack_unwind
 
 def checkgraphs(self, blocks):
     seen = {}
@@ -186,6 +186,30 @@ def transform_specialization(self, block_subset):
                                     op.args[0] = Constant(memo_table)
                                 else:
                                     op.opname = intern('call_specialcase')
+
+def insert_stackcheck(ann):
+    from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles
+    edges = []
+    for callposition, (caller, callee) in ann.translator.callgraph.items():
+        edge = Edge(caller, callee)
+        edge.callposition = callposition
+        edges.append(edge)
+    edgedict = make_edge_dict(edges)
+    for edge in break_cycles(edgedict, edgedict):
+        caller = edge.source
+        _, _, call_tag = edge.callposition
+        if call_tag:
+            _, caller_block, _ = call_tag
+        else:
+            ann.warning("cycle detected but no information on where to insert "
+                        "auto_stack_unwind()")
+            continue
+        # caller block found, insert auto_stack_unwind()
+        v = Variable()
+        # push annotation on v
+        ann.setbinding(v, annmodel.SomeImpossibleValue())
+        unwind_op = SpaceOperation('simple_call', [Constant(auto_stack_unwind)], v)
+        caller_block.operations.insert(0, unwind_op)
 
 default_extra_passes = [
     transform_specialization,

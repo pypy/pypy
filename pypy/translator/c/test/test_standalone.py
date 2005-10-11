@@ -1,5 +1,6 @@
 from pypy.translator.translator import Translator
-from pypy.translator.tool.cbuild import build_executable 
+from pypy.translator.tool.cbuild import build_executable
+from pypy.translator.transform import insert_stackcheck
 from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 from pypy.rpython.objectmodel import stack_unwind, stack_frames_depth, stack_too_big
@@ -111,34 +112,39 @@ def test_stack_too_big():
 
 
     
-def wrap_stackless_function(fn):
+def wrap_stackless_function(fn, stackcheck=False):
     def entry_point(argv):
         os.write(1, str(fn())+"\n")
         return 0
 
     t = Translator(entry_point)
     s_list_of_strings = SomeList(ListDef(None, SomeString()))
-    t.annotate([s_list_of_strings])
+    ann = t.annotate([s_list_of_strings])
+    if stackcheck:
+        insert_stackcheck(ann)
     t.specialize()
     cbuilder = t.cbuilder(standalone=True)
     cbuilder.stackless = True
     cbuilder.generate_source()
     cbuilder.compile() 
-    data = cbuilder.cmdexec('')
-    return data
+    return cbuilder.cmdexec('')
 
 def test_stack_unwind():
-    def entry_point(argv):
+    def f():
         stack_unwind()
-        return 0
+        return 42
 
-    t = Translator(entry_point)
-    s_list_of_strings = SomeList(ListDef(None, SomeString()))
-    t.annotate([s_list_of_strings])
-    t.specialize()
-    cbuilder = t.cbuilder(standalone=True)
-    cbuilder.stackless = True
-    cbuilder.generate_source()
-    cbuilder.compile()
-    data = cbuilder.cmdexec('')
-    return cbuilder.cmdexec('')
+    data = wrap_stackless_function(f)
+    assert int(data.strip()) == 42
+
+    
+def test_auto_stack_unwind():
+    def f(n):
+        if n == 1:
+            return 1 
+        return (n+f(n-1)) % 1291
+
+    def fn():
+        return f(10**6)
+    data = wrap_stackless_function(fn, stackcheck=True)
+    assert int(data.strip()) == 704

@@ -43,9 +43,13 @@ def stack_unwind():
 
 def stack_frames_depth():
     return len(inspect.stack())
+
 def stack_too_big():
     return False
 
+def auto_stack_unwind():
+    if stack_too_big():
+        stack_unwind()
 # ____________________________________________________________
 
 
