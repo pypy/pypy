@@ -228,16 +228,16 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         for v, fieldname in variables_to_restore:
             varname = self.expr(v)
             vartype = self.lltypename(v).replace('@', '')
-            lines.append('\t%s = (%s)(((struct %s*) f)->%s);' % (
+            lines.append('%s = (%s)(((struct %s*) f)->%s);' % (
                 varname, vartype, structname, fieldname))
             retvarname = self.expr(op.result)
             retvartype = self.lltypename(op.result).replace('@', '')
             retvarst = simplified_type(op.result.concretetype)
             if retvarst is not None:
                 globalretvalvarname = RETVALVARS[retvarst]
-                lines.append('\t%s = (%s) %s;' % (
+                lines.append('%s = (%s) %s;' % (
                     retvarname, retvartype, globalretvalvarname))
-            lines.append('\tgoto %s;' % (resumelabel,))
+        lines.append('goto %s;' % (resumelabel,))
         self.resumeblocks.append(lines)
 
         # add the checks for the unwinding case just after the directcall
@@ -245,9 +245,9 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         unwind_check = "if (slp_frame_stack_bottom) goto %s;" % (savelabel,)
         exception_check = (super(SlpFunctionCodeGenerator, self)
                            .check_directcall_result(op, err))
-        return '%s\n%s:\n%s' % (unwind_check,
-                                resumelabel,
-                                exception_check)
+        return '%s\n     %s:\n\t%s' % (unwind_check,
+                                       resumelabel,
+                                       exception_check)
 
 
 def erase_ptr_type(T):

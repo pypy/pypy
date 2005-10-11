@@ -30,6 +30,7 @@ slp_frame_t* slp_new_frame(int size, int state);
 slp_frame_t* slp_new_frame(int size, int state)
 {
   slp_frame_t* f = (slp_frame_t*) malloc(size);
+  assert(f != NULL);   /* XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX */
   f->f_back = NULL;
   f->state = state;
   return f;

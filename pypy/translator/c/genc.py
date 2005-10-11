@@ -30,6 +30,10 @@ class CBuilder:
         pf = self.getentrypointptr()
         db = LowLevelDatabase(translator, standalone=self.standalone, gcpolicy=self.gcpolicy)
 
+        if self.stackless:
+            from pypy.translator.c.stackless import StacklessData
+            db.stacklessdata = StacklessData()
+
         # we need a concrete gcpolicy to do this        
         self.libraries += db.gcpolicy.gc_libraries()
 
@@ -50,8 +54,6 @@ class CBuilder:
                                       symboltable = self.symboltable)
         else:
             if self.stackless:
-                from pypy.translator.c.stackless import StacklessData
-                db.stacklessdata = StacklessData()
                 defines['USE_STACKLESS'] = '1'
             cfile, extra = gen_source_standalone(db, modulename, targetdir,
                                                  entrypointname = pfname,
