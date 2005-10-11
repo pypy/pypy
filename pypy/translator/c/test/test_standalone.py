@@ -95,7 +95,7 @@ def test_stackless_arguments():
         return "[" + str(count10 - count0) + ", " + str(d) + ", " + str(t[0]) + ", " + str(t[1]) + "]"
 
     data = wrap_stackless_function(fn)
-    assert eval(data) == [10, 5.500000, 1, 2]
+    assert eval(data) == [10, 5.5, 1, 2]
 
 
 def test_stack_too_big():
@@ -125,7 +125,7 @@ def wrap_stackless_function(fn):
     cbuilder.generate_source()
     cbuilder.compile() 
     data = cbuilder.cmdexec('')
-    assert data.strip() == '10'
+    return data
 
 def test_stack_unwind():
     def entry_point(argv):

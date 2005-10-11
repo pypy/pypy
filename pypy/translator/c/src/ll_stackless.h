@@ -6,7 +6,11 @@
 #endif
 
 #ifndef MAX_STACK_SIZE
-#define MAX_STACK_SIZE (1 << (20-1))
+#  ifdef MS_WINDOWS
+#    define MAX_STACK_SIZE (1 << 19)
+#  else
+#    define MAX_STACK_SIZE (1 << 20)
+#  endif
 #endif
 
 #define STANDALONE_ENTRY_POINT   slp_standalone_entry_point
