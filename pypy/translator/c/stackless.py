@@ -16,18 +16,18 @@ class StacklessData:
 
     def __init__(self):
         self.frame_types = {}
-        self.globalstatecounter = 2
         self.allsignatures = {}
         self.decode_table = []
+
         # start the decoding table with entries for the functions that
         # are written manually in ll_stackless.h
-
         self.registerunwindable('LL_stackless_stack_unwind',
                                 lltype.FuncType([], lltype.Void),
                                 resume_points=1)
         self.registerunwindable('LL_stackless_stack_frames_depth',
                                 lltype.FuncType([], lltype.Signed),
                                 resume_points=1)
+
     def registerunwindable(self, functionname, FUNC, resume_points):
         if resume_points >= 1:
             try:
@@ -214,8 +214,13 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         # generate the 'save:' line, e.g.
         #      save_0: return (int) save_frame_1(0, (long) n);
         savelabel = 'save_%d' % len(self.savelines)
-        arguments = ['%d' % stacklessdata.globalstatecounter] + vars
-        stacklessdata.globalstatecounter += 1
+
+        # Find the globally unique number for our state.
+        # It is the total number of saved states so far
+        globalstatecounter = len(stacklessdata.decode_table) + len(self.savelines)
+        
+        arguments = ['%d' % globalstatecounter] + vars
+
         savecall = 'save_%s(%s);' % (structname, ', '.join(arguments))
         savecall += ' return %s;' % self.error_return_value()
         self.savelines.append('%s: %s' % (savelabel, savecall))
