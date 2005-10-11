@@ -1,21 +1,28 @@
 from pypy.rpython import lltype
 
+
+_nodename_count = {}
+
 class LLVMNode(object):
     __slots__ = "".split()
 
-    nodename_count = {}
+    def reset_nodename_count():
+        global _nodename_count
+        _nodename_count = {}
+    reset_nodename_count = staticmethod(reset_nodename_count)
 
     def make_name(self, name):
         " helper for creating names"
         if " " in name or "<" in name: 
             name = '"%s"' % name
-            
-        if name in self.nodename_count:
-            postfix = '.%d' % self.nodename_count[name]
-            self.nodename_count[name] += 1
+
+        global _nodename_count 
+        if name in _nodename_count:
+            postfix = '_%d' % _nodename_count[name]
+            _nodename_count[name] += 1
         else:
             postfix = ''
-            self.nodename_count[name] = 1
+            _nodename_count[name] = 1
         return name + postfix
 
     def make_ref(self, prefix, name):

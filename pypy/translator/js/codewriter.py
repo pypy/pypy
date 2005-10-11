@@ -136,13 +136,11 @@ class CodeWriter(object):
                         n += 1
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
-        arithmetic = ('*', '/', '+', '-', '%', '^', '&', '|', '<<', '>>')
-        comparison = ('<', '<=', '==', '!=', '>=', '>')
-        if name in arithmetic or name in comparison:    #XXX this should now always true
-            self.append("%(targetvar)s = %(ref1)s %(name)s %(ref2)s" % locals())
-        else:
-            self.llvm("%s = %s %s %s, %s" % (targetvar, name, type_, ref1, ref2))
+        self.append("%(targetvar)s = %(ref1)s %(name)s %(ref2)s" % locals())
 
+    def neg(self, targetvar, source):
+        self.append('%(targetvar)s = -%(source)s' % locals())
+        
     def call(self, targetvar, returntype, functionref, argrefs, argtypes, label=None, except_label=None):
         #args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
         args = ", ".join(argrefs)

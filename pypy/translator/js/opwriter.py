@@ -64,7 +64,6 @@ class OpWriter(object):
                          'ptr_ne': '!=',
                          }
 
-
     char_operations  = {'char_lt': '<',
                         'char_le': '<=',
                         'char_eq': '==',
@@ -133,11 +132,10 @@ class OpWriter(object):
     keepalive = _skipped 
     
     def int_abs(self, op):
-        functionref = '%' + op.opname
-        ExternalFuncNode.used_external_functions[functionref] = True
+        #ExternalFuncNode.used_external_functions[functionref] = True
         self.codewriter.call(self.db.repr_arg(op.result),
                              self.db.repr_arg_type(op.result),
-                             functionref,
+                             'Math.abs',
                              [self.db.repr_arg(op.args[0])],
                              [self.db.repr_arg_type(op.args[0])])
     float_abs = int_abs
@@ -149,22 +147,12 @@ class OpWriter(object):
     def float_pow(self, op):
         self._generic_pow(op, "1.0") 
 
-    def _generic_neg(self, op, zerostr): 
-        self.codewriter.binaryop("sub", 
-                                 self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
-                                 zerostr, 
-                                 self.db.repr_arg(op.args[0]),
-                                 )
-    def int_neg(self, op):
-        self._generic_neg(op, "0")
-
-    #this is really generated, don't know why
-    # XXX rxe: Surely that cant be right?
-    uint_neg = int_neg
-
-    def float_neg(self, op):
-        self._generic_neg(op, "0.0") 
+    def _generic_neg(self, op): 
+        self.codewriter.neg(self.db.repr_arg(op.result),
+                            self.db.repr_arg(op.args[0]))
+    int_neg   = _generic_neg
+    uint_neg  = _generic_neg
+    float_neg = _generic_neg
 
     def bool_not(self, op):
         self.codewriter.binaryop('^',

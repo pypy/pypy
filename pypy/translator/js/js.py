@@ -16,6 +16,7 @@ import py
 from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
+from pypy.translator.js.node import LLVMNode
 from pypy.translator.js.database import Database 
 from pypy.translator.js.codewriter import CodeWriter
 from pypy.translator.js.gc import GcPolicy
@@ -24,13 +25,12 @@ from pypy.translator.js.log import log
 
 
 class JS(object):   # JS = Javascript
-    function_count = {}
-    
     def __init__(self, translator, function=None, gcpolicy=None, exceptionpolicy=None, debug=False):
         self.db = Database(self, translator)
         self.translator = translator
         self.gcpolicy = GcPolicy.new(gcpolicy)
         self.exceptionpolicy = ExceptionPolicy.new(exceptionpolicy)
+        LLVMNode.reset_nodename_count()
         #extfuncnode.ExternalFuncNode.used_external_functions = {}
         self.debug = debug # for debug we create comments of every operation that may be executed
         if debug:
@@ -69,14 +69,7 @@ class JS(object):   # JS = Javascript
         #if llexterns_header is None and using_external_functions:
         #    llexterns_header, llexterns_functions = generate_llfile(self.db, extern_decls, support_functions, self.debug)
  
-        # prevent running the same function twice in a test
-        if func.func_name in self.function_count:
-            postfix = '_%d' % self.function_count[func.func_name]
-            self.function_count[func.func_name] += 1
-        else:
-            postfix = ''
-            self.function_count[func.func_name] = 1
-        self.filename = udir.join(func.func_name + postfix).new(ext='.js')
+        self.filename = udir.join(func.func_name).new(ext='.js')
         f = open(str(self.filename),'w')
         codewriter = CodeWriter(f, self)
 
