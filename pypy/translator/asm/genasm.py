@@ -1,15 +1,28 @@
-import sys
+import sys, os
 from pypy.objspace.flow.model import traverse, Block, Variable, Constant
 
 
 #Available Machine code targets (processor+operating system)
+TARGET_UNKNOWN=0
 TARGET_PPC=1
 TARGET_WIN386=2
 
 #set one of these
-ASM_TARGET=TARGET_PPC
+ASM_TARGET=TARGET_UNKNOWN
 #ASM_TARGET=TARGET_WIN386
 
+def determine_target():
+    global ASM_TARGET
+    if sys.platform == 'darwin':
+        if os.uname()[-1] == 'Power Macintosh':
+            ASM_TARGET = TARGET_PPC
+    elif sys.platform == 'win32':
+        if 'Intel' in sys.version:
+            ASM_TARGET = TARGET_WIN386
+
+determine_target()
+if ASM_TARGET == TARGET_UNKNOWN:
+    raise Exception, 'Unknown Machine-code target specified.'
 
 if ASM_TARGET==TARGET_PPC:
     from pypy.translator.asm.ppcgen.ppc_assembler import PPCAssembler
@@ -17,13 +30,6 @@ if ASM_TARGET==TARGET_PPC:
 elif ASM_TARGET==TARGET_WIN386:
     from pypy.translator.asm.i386gen.i386_assembler import i386Assembler as PPCAssembler  #spoof system for time being
     from pypy.translator.asm.i386gen.i386_assembler import make_func
-else:
-    raise Exception,'Unknown Machine-code target specified.  Set ASM_TARGET=TARGET_XXXX  '
-
-
-def genlinkcode(link):
-    for s, t in zip(link.args, link.target.inputargs):
-        print '    ', 'mr', t, s
 
 
 def genasm(translator):
