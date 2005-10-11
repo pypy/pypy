@@ -181,13 +181,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         stacklessdata = self.db.stacklessdata
         block = self.currentblock
         curpos = block.operations.index(op)
-
-        # XXX obscure: find all variables that are produced before 'op'
-        vars = []
-        for v in block.inputargs:
-            vars.append(v)
-        for op1 in block.operations[:curpos]:
-            vars.append(op1.result)
+        vars = list(variables_to_save_across_op(block, curpos))
 
         # get the simplified frame struct that can store these vars
         counts = {"long":   [],
@@ -284,3 +278,31 @@ RETVALVARS = {
     "long"  : "slp_retval_long",
     "void*" : "slp_retval_voidptr",
     }
+
+
+def variables_to_save_across_op(block, opindex):
+    # variable lifetime detection:
+    # 1) find all variables that are produced before the operation
+    produced = {}
+    for v in block.inputargs:
+        produced[v] = True
+    for op1 in block.operations[:opindex]:
+        produced[op1.result] = True
+    # 2) find all variables that are used by or after the operation
+    consumed = {}
+    for op1 in block.operations[opindex:]:
+        for v in op1.args:
+            if isinstance(v, Variable):
+                consumed[v] = True
+    if isinstance(block.exitswitch, Variable):
+        consumed[block.exitswitch] = True
+    for link in block.exits:
+        for v in link.args:
+            if isinstance(v, Variable):
+                consumed[v] = True
+    # 3) variables that are atomic and not consumed after the operation
+    #    don't have to have their lifetime extended; that leaves only
+    #    the ones that are not atomic or consumed.
+    for v in produced:
+        if v in consumed or not v.concretetype._is_atomic():
+            yield v
