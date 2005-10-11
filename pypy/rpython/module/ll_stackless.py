@@ -1,6 +1,10 @@
 from pypy.rpython import objectmodel
 
 
+def ll_stackless_stack_unwind():
+    pass
+ll_stackless_stack_unwind.suggested_primitive = True
+
 def ll_stackless_stack_frames_depth():
     return objectmodel.stack_frames_depth()
 ll_stackless_stack_frames_depth.suggested_primitive = True

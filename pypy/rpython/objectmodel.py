@@ -38,9 +38,11 @@ def free_non_gc_object(obj):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
 
+def stack_unwind():
+    pass
+
 def stack_frames_depth():
     return len(inspect.stack())
-
 def stack_too_big():
     return False
 
