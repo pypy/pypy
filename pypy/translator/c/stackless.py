@@ -213,11 +213,15 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         savelabel = 'save_%d' % len(self.savelines)
         arguments = ['%d' % stacklessdata.globalstatecounter] + vars
         stacklessdata.globalstatecounter += 1
-        self.savelines.append('%s: return (%s) save_%s(%s);' % (
-            savelabel,
-            self.lltypename(self.graph.getreturnvar()).replace('@', ''),
-            structname,
-            ', '.join(arguments)))
+        savecall = 'save_%s(%s);' % (structname, ', '.join(arguments))
+        retvar = self.graph.getreturnvar()
+        if retvar.concretetype is lltype.Void:
+            savecall += ' return;'
+        else:
+            savecall = 'return (%s) %s' % (
+                self.lltypename(retvar).replace('@', ''),
+                savecall)
+        self.savelines.append('%s: %s' % (savelabel, savecall))
 
         # generate the resume block, e.g.
         #        case 1:

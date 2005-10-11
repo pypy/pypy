@@ -27,11 +27,18 @@ def test_hello_world():
 
 
 def test_stack_unwind():
+    def g1():
+        "just to check Void special cases around the code"
+    def g2(ignored):
+        g1()
     def f(n):
+        g1()
         if n > 0:
-            return f(n-1)
+            res = f(n-1)
         else:
-            return stack_frames_depth()
+            res = stack_frames_depth()
+        g2(g1)
+        return res
     def entry_point(argv):
         count0 = f(0)
         count10 = f(10)
