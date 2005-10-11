@@ -39,11 +39,35 @@ def test_stack_unwind():
             res = stack_frames_depth()
         g2(g1)
         return res
-    def entry_point(argv):
+
+    def fn():
         count0 = f(0)
         count10 = f(10)
-        diff = count10 - count0
-        os.write(1, str(diff)+"\n")
+        return count10 - count0
+
+    data = wrap_stackless_function(fn)
+    assert data.strip() == '10'
+
+def INPROGRESStest_stack_withptr():
+    def f(n):
+        if n > 0:
+            res = f(n-1)
+        else:
+            res = stack_frames_depth(), 1
+        return res
+
+    def fn():
+        count0, _ = f(0)
+        count10, _ = f(10)
+        return count10 - count0
+
+    data = wrap_stackless_function(fn)
+    assert data.strip() == '10'
+
+
+def wrap_stackless_function(fn):
+    def entry_point(argv):
+        os.write(1, str(fn())+"\n")
         return 0
 
     t = Translator(entry_point)
@@ -54,5 +78,4 @@ def test_stack_unwind():
     cbuilder.stackless = True
     cbuilder.generate_source()
     cbuilder.compile() 
-    data = cbuilder.cmdexec('')
-    assert data.strip() == '10'
+    return cbuilder.cmdexec('')
