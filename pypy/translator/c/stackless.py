@@ -8,6 +8,7 @@ import py
 from pypy.objspace.flow.model import Variable
 from pypy.rpython import lltype
 from pypy.rpython.memory.lladdress import Address
+from pypy.translator.c.support import cdecl
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 
 
@@ -106,9 +107,9 @@ class StacklessData:
             # XXX '0' is hopefully fine for a dummy value of any type
             #     for most compilers
             dummyargs = ['0'] * len(FUNC.ARGS)
-            callexpr = '((%s) fn) (%s);' % (
-                sg.database.gettype(lltype.Ptr(FUNC)).replace('@', ''),
-                ', '.join(dummyargs))
+            functiontype = sg.database.gettype(lltype.Ptr(FUNC))
+            callexpr = '((%s) fn) (%s);' % (cdecl(functiontype, ''),
+                                            ', '.join(dummyargs))
             globalretvalvartype = simplified_type(FUNC.RESULT)
             if globalretvalvartype is not None:
                 globalretvalvarname = RETVALVARS[globalretvalvartype]
@@ -230,9 +231,9 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         if retvar.concretetype is lltype.Void:
             savecall += ' return;'
         else:
-            savecall = 'return (%s) %s' % (
-                self.lltypename(retvar).replace('@', ''),
-                savecall)
+            retvartype = self.lltypename(retvar)
+            savecall = 'return (%s) %s' % (cdecl(retvartype, ''),
+                                           savecall)
         self.savelines.append('%s: %s' % (savelabel, savecall))
 
         # generate the resume block, e.g.
@@ -244,16 +245,16 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         lines = ['case %d:' % len(self.resumeblocks)]
         for v, fieldname in variables_to_restore:
             varname = self.expr(v)
-            vartype = self.lltypename(v).replace('@', '')
+            vartype = self.lltypename(v)
             lines.append('%s = (%s)(((struct %s*) f)->%s);' % (
-                varname, vartype, structname, fieldname))
+                varname, cdecl(vartype, ''), structname, fieldname))
         retvarname = self.expr(op.result)
-        retvartype = self.lltypename(op.result).replace('@', '')
+        retvartype = self.lltypename(op.result)
         retvarst = simplified_type(op.result.concretetype)
         if retvarst is not None:
             globalretvalvarname = RETVALVARS[retvarst]
             lines.append('%s = (%s) %s;' % (
-                retvarname, retvartype, globalretvalvarname))
+                retvarname, cdecl(retvartype, ''), globalretvalvarname))
         lines.append('goto %s;' % (resumelabel,))
         self.resumeblocks.append(lines)
 
