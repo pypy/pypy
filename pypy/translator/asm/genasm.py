@@ -46,9 +46,33 @@ class FuncGenerator(object):
         self.allblocks = []
         self.blocknum = {}
 
+##         origins = {}
+##         lastuse = {}
+
+##         opindex = 0
+
         for block in graph.iterblocks():
             self.allblocks.append(block)
             self.blocknum[block] = len(self.blocknum)
+
+
+##             for arg in block.inputargs:
+##                 if op.result.name not in origins:
+##                     origins[op.result.name] = opindex
+
+##             for op in blocks:
+##                 origins[op.result.name] = opindex
+##                 for arg in op.args:
+##                     if isinstance(arg, Variable):
+##                         lastuse[arg.name] = opindex
+##                 opindex += 1
+
+##         liveranges = []
+
+##         for n in origins:
+##             if n not in lastuse:
+##                 continue
+##             liveranges.append((lastuse[n], origins[n], n))
 
         self._var2reg = {}
         self.next_register = 3
