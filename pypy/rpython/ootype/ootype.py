@@ -131,15 +131,14 @@ UniChar  = Primitive("UniChar", u'\x00')
 
 class Class(OOType):
 
-    def __init__(self, name, superclass, fields, methods=None):
+    def __init__(self, name, superclass, fields, methods={}):
         self._superclass = superclass
 
+	self._methods = {}
         self._fields = {}
-	self._add_fields(fields)
 
-        if methods is None:
-            methods = {}
-        self._methods = methods
+	self._add_fields(fields)
+	self._add_methods(methods)
 
     	self._null = _null_instance(self)
 
@@ -147,8 +146,10 @@ class Class(OOType):
         return self._null
 
     def _add_fields(self, fields):
-
         for name, defn in fields.iteritems():
+            if self._lookup(name) is not None:
+                raise TypeError("Cannot add field %r: method already exists" % name)
+	
             if self._superclass is not None:
                 if self._superclass._has_field(name):
                     raise TypeError("Field %r exists in superclass" % name)
@@ -168,6 +169,12 @@ class Class(OOType):
                     raise TypeError("Expected type %r for default" % ootype)
 
 	self._fields.update(fields)
+
+    def _add_methods(self, methods):
+        for name in methods:
+	    if self._has_field(name):
+	        raise TypeError("Can't add method %r: field already exists" % name)
+        self._methods.update(methods)
 
     def _init_instance(self, instance):
         if self._superclass is not None:
@@ -193,7 +200,8 @@ class Class(OOType):
     def _lookup(self, meth_name):
         meth = self._methods.get(meth_name)
 
-        # XXX superclass
+        if meth is None and self._superclass is not None:
+            meth = self._superclass._lookup(meth_name)
 
         return meth
 
@@ -206,7 +214,7 @@ class Func(OOType):
 class Meth(Func):
 
     def __init__(self, args, result):
-       Func.__init__(self, args, result)
+        Func.__init__(self, args, result)
 # ____________________________________________________________
 
 class _instance(object):
@@ -265,6 +273,9 @@ class _callable(object):
 
        for a, ARG in zip(args, self._TYPE.ARGS):
            if typeOf(a) != ARG:
+               if isinstance(ARG, Class) and isinstance(a, _instance):
+                    if instanceof(a, ARG):
+                        continue
                raise TypeError,"calling %r with wrong argument types: %r" % (self._TYPE, args)
        callb = self._callable
        if callb is None:
@@ -278,7 +289,7 @@ class _func(_callable):
        _callable.__init__(self, FUNCTION, **attrs)
 
    def __call__(self, *args):
-        return self._checkargs(args)(*args)
+       return self._checkargs(args)(*args)
 
 class _meth(_callable):
    
@@ -311,7 +322,19 @@ def null(CLASS):
     return CLASS._null
 
 def addFields(CLASS, fields):
-   CLASS._add_fields(fields)
+    CLASS._add_fields(fields)
+
+def addMethods(CLASS, methods):
+    CLASS._add_methods(methods)
+
+def instanceof(inst, CLASS):
+    c = inst._TYPE
+    while c is not None:
+        if c is CLASS:
+            return True
+        c = c._superclass
+
+    return False
 
 def typeOf(val):
     try:
