@@ -81,9 +81,9 @@ def make_func(code, retcode, signature):
 
     ourcode.label(FAST_ENTRY_LABEL)
     # err, should be an Assembler method:
-    l = code.labels.copy()
-    for k in l:
-        l[k] += 4*len(ourcode.insts)
+    l = {}
+    for k in code.labels:
+        l[k] = code.labels[k] + 4*len(ourcode.insts)
     r = code.rlabels.copy()
     for k in code.rlabels:
         r[k + 4*len(ourcode.insts)] = code.rlabels[k]
