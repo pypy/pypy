@@ -131,11 +131,15 @@ UniChar  = Primitive("UniChar", u'\x00')
 
 class Class(OOType):
 
-    def __init__(self, name, superclass, fields):
+    def __init__(self, name, superclass, fields, methods=None):
         self._superclass = superclass
 
         self._fields = {}
 	self._add_fields(fields)
+
+        if methods is None:
+            methods = {}
+        self._methods = methods
 
     	self._null = _null_instance(self)
 
@@ -150,9 +154,15 @@ class Class(OOType):
                     raise TypeError("Field %r exists in superclass" % name)
 
             if type(defn) is not tuple:
+                if isinstance(defn, Meth):
+                    raise TypeError("Attempting to store method in field")
+                
                 fields[name] = (defn, defn._defl())
             else:
                 ootype, default = defn
+
+                if isinstance(ootype, Meth):
+                    raise TypeError("Attempting to store method in field")
 
                 if ootype != typeOf(default):
                     raise TypeError("Expected type %r for default" % ootype)
@@ -180,6 +190,23 @@ class Class(OOType):
         if not self._has_field(name):
 	    raise TypeError("No field named %r" % name)
 
+    def _lookup(self, meth_name):
+        meth = self._methods.get(meth_name)
+
+        # XXX superclass
+
+        return meth
+
+class Func(OOType):
+
+    def __init__(self, args, result):
+    	self.ARGS = tuple(args)
+	self.RESULT = result
+
+class Meth(Func):
+
+    def __init__(self, args, result):
+       Func.__init__(self, args, result)
 # ____________________________________________________________
 
 class _instance(object):
@@ -190,6 +217,10 @@ class _instance(object):
         CLASS._init_instance(self)
 
     def __getattr__(self, name):
+        meth = self._TYPE._lookup(name)
+        if meth is not None:
+            return meth._bound(self)
+        
         self._TYPE._check_field(name)
 
         return self.__dict__[name]
@@ -220,8 +251,61 @@ class _null_instance(_instance):
 
         raise RuntimeError("Assignment to field in null object")
 
+class _callable(object):
+
+   def __init__(self, TYPE, **attrs):
+       self._TYPE = TYPE
+       self._name = "?"
+       self._callable = None
+       self.__dict__.update(attrs)
+
+   def _checkargs(self, args):
+       if len(args) != len(self._TYPE.ARGS):
+	   raise TypeError,"calling %r with wrong argument number: %r" % (self._TYPE, args)
+
+       for a, ARG in zip(args, self._TYPE.ARGS):
+           if typeOf(a) != ARG:
+               raise TypeError,"calling %r with wrong argument types: %r" % (self._TYPE, args)
+       callb = self._callable
+       if callb is None:
+           raise RuntimeError,"calling undefined function"
+       return callb
+
+class _func(_callable):
+
+   def __init__(self, FUNCTION, **attrs):
+       assert isinstance(FUNCTION, Func)
+       _callable.__init__(self, FUNCTION, **attrs)
+
+   def __call__(self, *args):
+        return self._checkargs(args)(*args)
+
+class _meth(_callable):
+   
+    def __init__(self, METHOD, **attrs):
+        assert isinstance(METHOD, Meth)
+        _callable.__init__(self, METHOD, **attrs)
+
+    def _bound(self, inst):
+        return _bound_meth(inst, self)
+
+class _bound_meth(object):
+
+    def __init__(self, inst, meth):
+        self.inst = inst
+        self.meth = meth
+
+    def __call__(self, *args):
+        return self.meth._checkargs(args)(self.inst, *args)
+
 def new(CLASS):
     return _instance(CLASS)
+
+def func(FUNCTION, **attrs):
+    return _func(FUNCTION, **attrs)
+
+def meth(METHOD, **attrs):
+    return _meth(METHOD, **attrs)
 
 def null(CLASS):
     return CLASS._null

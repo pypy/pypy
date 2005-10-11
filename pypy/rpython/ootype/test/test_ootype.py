@@ -61,3 +61,49 @@ def test_simple_field_shadowing():
     C = Class("test", None, {"a": (Signed, 3)})
     
     py.test.raises(TypeError, """D = Class("test2", C, {"a": (Signed, 3)})""")
+
+def test_simple_function():
+   F = Func([Signed, Signed], Signed)
+   def f_(a, b):
+       return a+b
+   f = func(F, _name="f", _callable=f_)
+   assert typeOf(f) == F
+
+   result = f(2, 3)
+   assert typeOf(result) == Signed
+   assert result == 5
+
+def test_function_args():
+   F = Func([Signed, Signed], Signed)
+   def f_(a, b):
+       return a+b
+   f = func(F, _name="f", _callable=f_)
+
+   py.test.raises(TypeError, "f(2.0, 3.0)")
+   py.test.raises(TypeError, "f()")
+   py.test.raises(TypeError, "f(1, 2, 3)")
+
+def test_class_method():
+   M = Meth([Signed], Signed)
+   def m_(self, b):
+       return self.a + b
+   m = meth(M, _name="m", _callable=m_)
+   
+   C = Class("test", None, {"a": (Signed, 2)}, {"m": m})
+   c = new(C)
+
+   assert c.m(3) == 5
+
+   py.test.raises(TypeError, "c.m(3.0)")
+   py.test.raises(TypeError, "c.m()")
+   py.test.raises(TypeError, "c.m(1, 2, 3)")
+
+def test_class_method_field_clash():
+   M = Meth([Signed], Signed)
+   def m_(self, b):
+       return self.a + b
+   m = meth(M, _name="m", _callable=m_)
+   
+   py.test.raises(TypeError, """Class("test", None, {"a": M})""")
+
+   py.test.raises(TypeError, """Class("test", None, {"m": Signed}, {"m":m})""")
