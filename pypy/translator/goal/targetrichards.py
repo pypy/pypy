@@ -1,6 +1,8 @@
 from pypy.translator.goal import richards
+from pypy.translator.tool.taskengine import SimpleTaskEngine
 
 entry_point = richards.entry_point
+
 
 # _____ Define and setup target ___
 
@@ -18,3 +20,34 @@ def run(c_entry_point):
     richards.main(iterations=5)
 
     
+class Tasks(SimpleTaskEngine):
+
+    def task_annotate(self):
+        pass
+    task_annotate.task_deps = []
+
+    def task
+
+
+""" sketch of tasks for translation:
+
+annotate:  # includes annotation and annotatation simplifications
+
+rtype: annotate
+
+backendoptimisations: rtype # make little sense otherwise
+
+source_llvm: backendoptimisations, rtype, annotate
+
+source_c: ?backendoptimisations, ?rtype, ?annotate
+
+compile_c : source_c
+
+compile_llvm: source_llvm
+
+run_c: compile_c
+
+run_llvm: compile_llvm
+
+"""
+ 
