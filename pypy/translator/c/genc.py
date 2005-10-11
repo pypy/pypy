@@ -48,6 +48,10 @@ class CBuilder:
                                       exports = {translator.entrypoint.func_name: pf},
                                       symboltable = self.symboltable)
         else:
+            if self.stackless:
+                from pypy.translator.c.stackless import StacklessData
+                db.stacklessdata = StacklessData()
+                defines['USE_STACKLESS'] = '1'
             cfile, extra = gen_source_standalone(db, modulename, targetdir,
                                                  entrypointname = pfname,
                                                  defines = defines)
@@ -91,6 +95,7 @@ class CExtModuleBuilder(CBuilder):
 class CStandaloneBuilder(CBuilder):
     standalone = True
     executable_name = None
+    stackless = False
 
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
@@ -301,6 +306,9 @@ class SourceGenerator:
             print >> fc, '/***********************************************************/'
             fc.close()
         print >> f
+
+        if hasattr(self.database, 'stacklessdata'):
+            self.database.stacklessdata.writefiles(self)
 
 # this function acts as the fallback for small sources for now.
 # Maybe we drop this completely if source splitting is the way

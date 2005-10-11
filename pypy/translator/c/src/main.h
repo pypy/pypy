@@ -1,5 +1,7 @@
 
-#define STANDALONE_ENTRY_POINT   PYPY_STANDALONE
+#ifndef STANDALONE_ENTRY_POINT
+#  define STANDALONE_ENTRY_POINT   PYPY_STANDALONE
+#endif
 
 char *RPython_StartupCode(void);  /* forward */
 

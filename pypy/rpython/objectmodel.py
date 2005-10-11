@@ -3,7 +3,7 @@ This file defines utilities for manipulating objects in an
 RPython-compliant way.
 """
 
-import new
+import new, inspect
 
 
 def instantiate(cls):
@@ -37,6 +37,9 @@ def free_non_gc_object(obj):
 
 def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
+
+def stack_frames_depth():
+    return len(inspect.stack())
 
 # ____________________________________________________________
 

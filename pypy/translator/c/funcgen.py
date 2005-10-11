@@ -22,7 +22,8 @@ class FunctionCodeGenerator(object):
                        cpython_exc
                        more_ll_values
                        vars
-                       lltypes""".split()
+                       lltypes
+                       currentblock""".split()
 
     def __init__(self, graph, db, cpython_exc=False):
         self.graph = graph
@@ -214,6 +215,7 @@ class FunctionCodeGenerator(object):
         # generate the body of each block
         push_alive_op_result = self.gcpolicy.push_alive_op_result
         for block in allblocks:
+            self.currentblock = block
             myblocknum = blocknum[block]
             yield ''
             yield 'block%d:' % myblocknum
@@ -395,14 +397,16 @@ class FunctionCodeGenerator(object):
     def OP_DIRECT_CALL(self, op, err):
         # skip 'void' arguments
         args = [self.expr(v) for v in op.args if self.lltypemap(v) is not Void]
-        if self.lltypemap(op.result) is Void:
+        line = '%s(%s);' % (args[0], ', '.join(args[1:]))
+        if self.lltypemap(op.result) is not Void:
             # skip assignment of 'void' return value
-            return '%s(%s); if (RPyExceptionOccurred()) FAIL(%s);' % (
-                args[0], ', '.join(args[1:]), err)
-        else:
             r = self.expr(op.result)
-            return '%s = %s(%s); if (RPyExceptionOccurred()) FAIL(%s);' % (
-                r, args[0], ', '.join(args[1:]), err)
+            line = '%s = %s' % (r, line)
+        line = '%s %s' % (line, self.check_directcall_result(op, err))
+        return line
+
+    def check_directcall_result(self, op, err):
+        return 'if (RPyExceptionOccurred()) FAIL(%s);' % err
 
     # low-level operations
     def generic_get(self, op, sourceexpr):

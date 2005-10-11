@@ -529,7 +529,12 @@ def select_function_code_generator(fnobj, db):
             fnobj._callable,)
     elif hasattr(fnobj, 'graph'):
         cpython_exc = getattr(fnobj, 'exception_policy', None) == "CPython"
-        return FunctionCodeGenerator(fnobj.graph, db, cpython_exc)
+        if hasattr(db, 'stacklessdata'):
+            from pypy.translator.c.stackless import SlpFunctionCodeGenerator
+            gencls = SlpFunctionCodeGenerator
+        else:
+            gencls = FunctionCodeGenerator
+        return gencls(fnobj.graph, db, cpython_exc)
     elif getattr(fnobj, 'external', None) == 'C':
         # deprecated case
         if getattr(fnobj, 'includes', None):

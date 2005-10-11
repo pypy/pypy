@@ -206,6 +206,11 @@ declare(ros.putenv, noneannotation, 'll_os/putenv')
 declare(ros.environ, strnullannotation, 'll_os/environ')
 
 # ___________________________________________________________
+# stackless
+from pypy.rpython import objectmodel
+declare(objectmodel.stack_frames_depth, int, 'll_stackless/stack_frames_depth')
+
+# ___________________________________________________________
 # the exceptions that can be implicitely raised by some operations
 standardexceptions = {
     TypeError        : True,

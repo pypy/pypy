@@ -4,7 +4,7 @@ from pypy.translator.c.support import cdecl
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR
 from pypy.rpython import rlist
-from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
+from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod, ll_stackless
 from pypy.module.thread.rpython import ll_thread
 
 
@@ -49,6 +49,7 @@ EXTERNALS = {
     ll_thread.ll_releaselock:      'LL_thread_releaselock',
     ll_thread.ll_thread_start:     'LL_thread_start',
     ll_thread.ll_thread_get_ident: 'LL_thread_get_ident',
+    ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
     }
 
 #______________________________________________________
