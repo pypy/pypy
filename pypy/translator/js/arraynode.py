@@ -1,7 +1,6 @@
 import py
 from pypy.rpython import lltype
 from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
-from pypy.translator.js import varsize 
 from pypy.translator.js.log import log
 log = log.structnode
 
@@ -28,8 +27,7 @@ class ArrayTypeNode(LLVMNode):
             name += str(arraytype)
 
         self.ref = self.make_ref('arraytype_', name)
-        self.constructor_ref = self.make_ref('new_array_', name)
-        #self.constructor_decl = "%s * %s(%s %%len)" % \
+        self.constructor_ref = 'new Array'
         self.constructor_decl = "%s(len)" % self.constructor_ref
 
     def __str__(self):
@@ -49,12 +47,6 @@ class ArrayTypeNode(LLVMNode):
     def writedecl(self, codewriter): 
         # declaration for constructor
         codewriter.declare(self.constructor_decl)
-
-    def writeimpl(self, codewriter):
-        log.writeimpl(self.ref)
-        varsize.write_constructor(self.db, codewriter, self.ref, 
-                                  self.constructor_decl,
-                                  self.array)
 
 
 class VoidArrayTypeNode(LLVMNode):

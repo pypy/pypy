@@ -1,6 +1,5 @@
 import py
 from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
-from pypy.translator.js import varsize
 from pypy.rpython import lltype
 from pypy.translator.js.log import log
 
@@ -42,7 +41,7 @@ class StructVarsizeTypeNode(StructTypeNode):
 
     def __init__(self, db, struct): 
         super(StructVarsizeTypeNode, self).__init__(db, struct)
-        prefix = '%new.varsizestruct.'
+        prefix = 'new_varsizestruct_'
         self.constructor_ref = self.make_ref(prefix, self.name)
         self.constructor_decl = "%s * %s(int %%len)" % \
                                 (self.ref,
@@ -71,12 +70,6 @@ class StructVarsizeTypeNode(StructTypeNode):
             name = current._names_without_voids()[-1]
             current = current._flds[name]
         assert isinstance(current, lltype.Array)
-        varsize.write_constructor(self.db,
-                                  codewriter, 
-                                  self.ref,
-                                  self.constructor_decl,
-                                  current, 
-                                  indices_to_array)
 
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain
