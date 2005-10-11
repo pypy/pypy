@@ -18,14 +18,31 @@ struct slp_state_decoding_entry_s {
   int signature;
 };
 
+#include "slp_defs.h"
+
+/* prototypes */
+
+extern slp_frame_t* slp_frame_stack_top;
+extern slp_frame_t* slp_frame_stack_bottom;
+extern int slp_restart_substate;
+extern long slp_retval_long;
+extern double slp_retval_double;
+extern void *slp_retval_voidptr;
+
+slp_frame_t* slp_new_frame(int size, int state);
+long LL_stackless_stack_frames_depth(void);
+void slp_main_loop(void);
+
+#ifndef PYPY_NOT_MAIN_FILE
+
+/* implementations */
+
 slp_frame_t* slp_frame_stack_top = NULL;
 slp_frame_t* slp_frame_stack_bottom = NULL;
 int slp_restart_substate;
 long slp_retval_long;
 double slp_retval_double;
 void *slp_retval_voidptr;
-slp_frame_t* slp_new_frame(int size, int state);
-
 
 slp_frame_t* slp_new_frame(int size, int state)
 {
@@ -41,7 +58,8 @@ slp_frame_t* slp_new_frame(int size, int state)
 
 long LL_stackless_stack_frames_depth(void)
 {
-	if (slp_frame_stack_top) goto resume;
+	if (slp_frame_stack_top)
+	    goto resume;
 
 	slp_frame_stack_top = slp_frame_stack_bottom =
 		slp_new_frame(sizeof(slp_frame_t), 0);
@@ -61,9 +79,6 @@ long LL_stackless_stack_frames_depth(void)
 	return result;
     }
 }
-
-
-#include "slp_defs.h"
 
 #include "slp_state_decoding.h"
 
@@ -124,5 +139,7 @@ int slp_standalone_entry_point(RPyListOfString *argv)
 	}
 	return result;
 }
+
+#endif /* PYPY_NOT_MAIN_FILE */
 
 #endif USE_STACKLESS

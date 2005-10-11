@@ -46,7 +46,15 @@ class StacklessData:
 
     def writefiles(self, sg):
         # generate slp_defs.h
-        f = sg.makefile('slp_defs.h')
+        fi = sg.makefile('slp_defs.h')
+        cname = 'slp_impl.c'
+        assert sg.uniquecname(cname) == cname
+        fc = sg.makefile(cname)
+        print >> fc, '#define PYPY_NOT_MAIN_FILE'
+        print >> fc, '#include "common_header.h"'
+        for line in sg.preimpl:
+            print >> fc, line
+        print >> fc, '#include "src/g_include.h"'
         items = self.frame_types.items()
         items.sort()
         for (n_integers, n_floats, n_pointers), structname in items:
@@ -59,7 +67,7 @@ class StacklessData:
             fields = []
             for type, varname in zip(types, varnames):
                 fields.append('%s %s;' % (type, varname))
-            print >> f, 'struct %s { slp_frame_t header; %s };' % (
+            print >> fi, 'struct %s { slp_frame_t header; %s };' % (
                 structname, ' '.join(fields))
 
             arguments = ['int state']
@@ -69,6 +77,7 @@ class StacklessData:
                 saving_lines.append('((struct %s*) f)->%s = %s;' % (
                     structname, varname, varname))
 
+            head = 'void *save_%(name)s(%(arguments)s);'
             code = str(py.code.Source('''
              void *save_%(name)s(%(arguments)s)
              {
@@ -79,18 +88,21 @@ class StacklessData:
                  return NULL;
              }
             '''))
-            print >> f, code % {'name': structname,
-                                'arguments': ', '.join(arguments),
-                                'saving_lines': '\n    '.join(saving_lines)}
-        f.close()
+            argdict = {'name': structname,
+                       'arguments': ', '.join(arguments),
+                       'saving_lines': '\n    '.join(saving_lines)}
+            print >> fi, head % argdict
+            print >> fc, code % argdict
+        fi.close()
+        fc.close()
 
         # generate slp_signatures.h
-        f = sg.makefile('slp_signatures.h')
+        fi = sg.makefile('slp_signatures.h')
         items = [(num, FUNC) for (FUNC, num) in self.allsignatures.items()]
         items.sort()
         for num, FUNC in items:
             # 'FUNC' is a lltype.FuncType instance
-            print >> f, 'case %d:' % num
+            print >> fi, 'case %d:' % num
             # XXX '0' is hopefully fine for a dummy value of any type
             #     for most compilers
             dummyargs = ['0'] * len(FUNC.ARGS)
@@ -103,19 +115,19 @@ class StacklessData:
                 callexpr = '%s = (%s) %s' % (globalretvalvarname,
                                              globalretvalvartype,
                                              callexpr)
-            print >> f, '\t' + callexpr
-            print >> f, '\tbreak;'
-            print >> f
-        f.close()
+            print >> fi, '\t' + callexpr
+            print >> fi, '\tbreak;'
+            print >> fi
+        fi.close()
 
         # generate slp_state_decoding.h
-        f = sg.makefile('slp_state_decoding.h')
-        print >> f, 'static struct slp_state_decoding_entry_s',
-        print >> f, 'slp_state_decoding_table[] = {'
+        fi = sg.makefile('slp_state_decoding.h')
+        print >> fi, 'static struct slp_state_decoding_entry_s',
+        print >> fi, 'slp_state_decoding_table[] = {'
         for i, (functionname, signum) in enumerate(self.decode_table):
-            print >> f, '/* %d */ { %s, %d },' % (i, functionname, signum)
-        print >> f, '};'
-        f.close()
+            print >> fi, '/* %d */ { %s, %d },' % (i, functionname, signum)
+        print >> fi, '};'
+        fi.close()
 
 
 class SlpFunctionCodeGenerator(FunctionCodeGenerator):

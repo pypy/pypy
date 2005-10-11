@@ -158,7 +158,7 @@ class SourceGenerator:
                 funcnodes.append(node)
             else:
                 othernodes.append(node)
-        if len(funcnodes) >= SPLIT_CRITERIA:
+        if 1 or len(funcnodes) >= SPLIT_CRITERIA:##!!
             self.one_source_file = False
         self.funcnodes = funcnodes
         self.othernodes = othernodes
