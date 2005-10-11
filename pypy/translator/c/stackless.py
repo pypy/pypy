@@ -16,7 +16,7 @@ class StacklessData:
 
     def __init__(self):
         self.frame_types = {}
-        self.globalstatecounter = 1
+        self.globalstatecounter = 2
         self.allsignatures = {}
         self.decode_table = []
         # start the decoding table with entries for the functions that
@@ -81,15 +81,14 @@ class StacklessData:
                 saving_lines.append('((struct %s*) f)->%s = %s;' % (
                     structname, varname, varname))
 
-            head = 'void *save_%(name)s(%(arguments)s);'
+            head = 'void save_%(name)s(%(arguments)s);'
             code = str(py.code.Source('''
-             void *save_%(name)s(%(arguments)s)
+             void save_%(name)s(%(arguments)s)
              {
                  slp_frame_t* f = slp_new_frame(sizeof(struct %(name)s), state);
                  slp_frame_stack_bottom->f_back = f;
                  slp_frame_stack_bottom = f;
                  %(saving_lines)s
-                 return NULL;
              }
             '''))
             argdict = {'name': structname,
@@ -218,13 +217,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         arguments = ['%d' % stacklessdata.globalstatecounter] + vars
         stacklessdata.globalstatecounter += 1
         savecall = 'save_%s(%s);' % (structname, ', '.join(arguments))
-        retvar = self.graph.getreturnvar()
-        if retvar.concretetype is lltype.Void:
-            savecall += ' return;'
-        else:
-            retvartype = self.lltypename(retvar)
-            savecall = 'return (%s) %s' % (cdecl(retvartype, ''),
-                                           savecall)
+        savecall += ' return %s;' % self.error_return_value()
         self.savelines.append('%s: %s' % (savelabel, savecall))
 
         # generate the resume block, e.g.

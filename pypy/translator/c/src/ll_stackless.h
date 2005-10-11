@@ -6,7 +6,7 @@
 #endif
 
 #ifndef MAX_STACK_SIZE
-#define MAX_STACK_SIZE (1 << 20)
+#define MAX_STACK_SIZE (1 << (20-1))
 #endif
 
 #define STANDALONE_ENTRY_POINT   slp_standalone_entry_point
