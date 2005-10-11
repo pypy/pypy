@@ -5,6 +5,8 @@ with in http://codespeak.net/svn/user/arigo/hack/misc/stackless.c
 """
 
 import py
+from pypy.objspace.flow.model import Variable
+from pypy.rpython import lltype
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 
 
@@ -13,6 +15,24 @@ class StacklessData:
     def __init__(self):
         self.frame_types = {}
         self.globalstatecounter = 1
+        self.allsignatures = {}
+        self.decode_table = []
+        # start the decoding table with entries for the functions that
+        # are written manually in ll_stackless.h
+        self.registerunwindable('LL_stackless_stack_frames_depth',
+                                lltype.FuncType([], lltype.Signed),
+                                resume_points=1)
+
+    def registerunwindable(self, functionname, FUNC, resume_points):
+        if resume_points >= 1:
+            try:
+                signum = self.allsignatures[FUNC]
+            except KeyError:
+                signum = len(self.allsignatures)
+                self.allsignatures[FUNC] = signum
+            self.decode_table.append((functionname, signum))
+            for n in range(1, resume_points):
+                self.decode_table.append(('NULL', n))
 
     def get_frame_type(self, n_integers, n_floats, n_pointers):
         key = n_integers, n_floats, n_pointers
@@ -24,6 +44,7 @@ class StacklessData:
             return name
 
     def writefiles(self, sg):
+        # generate slp_defs.h
         f = sg.makefile('slp_defs.h')
         items = self.frame_types.items()
         items.sort()
@@ -31,9 +52,9 @@ class StacklessData:
             types = (['long']*n_integers +
                      ['double']*n_floats +
                      ['void *']*n_pointers)
-            varnames = (['l%d;' % i for i in range(n_integers)] +
-                        ['d%d;' % i for i in range(n_floats)] +
-                        ['p%d;' % i for i in range(n_pointers)])
+            varnames = (['l%d' % i for i in range(n_integers)] +
+                        ['d%d' % i for i in range(n_floats)] +
+                        ['v%d' % i for i in range(n_pointers)])
             fields = []
             for type, varname in zip(types, varnames):
                 fields.append('%s %s;' % (type, varname))
@@ -48,25 +69,51 @@ class StacklessData:
                     structname, varname, varname))
 
             code = str(py.code.Source('''
-                void *save_%(name)s(%(arguments)s)
-                {
-                    frame_t* f = new_frame(sizeof(struct %(name)s), state);
-                    frame_stack_bottom->f_back = f;
-                    frame_stack_bottom = f;
-                    %(saving_lines)s
-                    return NULL;
-                }
+             void *save_%(name)s(%(arguments)s)
+             {
+                 slp_frame_t* f = slp_new_frame(sizeof(struct %(name)s), state);
+                 slp_frame_stack_bottom->f_back = f;
+                 slp_frame_stack_bottom = f;
+                 %(saving_lines)s
+                 return NULL;
+             }
             '''))
             print >> f, code % {'name': structname,
                                 'arguments': ', '.join(arguments),
-                                'saving_lines': '\n'.join(saving_lines)}
+                                'saving_lines': '\n    '.join(saving_lines)}
+        f.close()
 
-        f.close()
+        # generate slp_signatures.h
         f = sg.makefile('slp_signatures.h')
-        ...
+        items = [(num, FUNC) for (FUNC, num) in self.allsignatures.items()]
+        items.sort()
+        for num, FUNC in items:
+            # 'FUNC' is a lltype.FuncType instance
+            print >> f, 'case %d:' % num
+            # XXX '0' is hopefully fine for a dummy value of any type
+            #     for most compilers
+            dummyargs = ['0'] * len(FUNC.ARGS)
+            callexpr = '((%s) fn) (%s);' % (
+                sg.database.gettype(lltype.Ptr(FUNC)).replace('@', ''),
+                ', '.join(dummyargs))
+            globalretvalvartype = simplified_type(FUNC.RESULT)
+            if globalretvalvartype is not None:
+                globalretvalvarname = RETVALVARS[globalretvalvartype]
+                callexpr = '%s = (%s) %s' % (globalretvalvarname,
+                                             globalretvalvartype,
+                                             callexpr)
+            print >> f, '\t' + callexpr
+            print >> f, '\tbreak;'
+            print >> f
         f.close()
-        f = sg.makefile('slp_XXX.h')
-        ...
+
+        # generate slp_state_decoding.h
+        f = sg.makefile('slp_state_decoding.h')
+        print >> f, 'static struct slp_state_decoding_entry_s',
+        print >> f, 'slp_state_decoding_table[] = {'
+        for i, (functionname, signum) in enumerate(self.decode_table):
+            print >> f, '/* %d */ { %s, %d },' % (i, functionname, signum)
+        print >> f, '};'
         f.close()
 
 
@@ -94,14 +141,27 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
             yield '\tswitch (slp_restart_substate) {'
             for block in self.resumeblocks:
                 for line in block:
-                    yield line
+                    yield '\t'+line
             yield '\t}'
             yield '\tassert(!"bad restart_substate");'
             yield '}'
+            
+            # record extra data needed to generate the slp_*.h tables:
+            # find the signatures of all functions
+            slpdata = self.db.stacklessdata
+            argtypes = [erase_ptr_type(v.concretetype)
+                        for v in self.graph.getargs()]
+            argtypes = [T for T in argtypes if T is not lltype.Void]
+            rettype = erase_ptr_type(self.graph.getreturnvar().concretetype)
+            FUNC = lltype.FuncType(argtypes, rettype)
+            slpdata.registerunwindable(self.functionname, FUNC,
+                                       resume_points = len(self.resumeblocks))
+
         del self.savelines
         del self.resumeblocks
 
     def check_directcall_result(self, op, err):
+        stacklessdata = self.db.stacklessdata
         block = self.currentblock
         curpos = block.operations.index(op)
 
@@ -114,7 +174,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
             produced[op1.result] = True
         consumed = {}
         for op1 in block.operations[curpos:]:
-            for v in op1:
+            for v in op1.args:
                 if isinstance(v, Variable):
                     consumed[v] = True
         if isinstance(block.exitswitch, Variable):
@@ -129,31 +189,77 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         counts = {"long":   [],
                   "double": [],
                   "void*":  []}
+        variables_to_restore = []
         for v in vars:
             st = simplified_type(v.concretetype)
             if st is not None:   # ignore the Voids
-                counts[st].append('(%s)%s' % (st, self.expr(v)))
-        structname = self.get_frame_type(len(counts["long"]),
-                                         len(counts["double"]),
-                                         len(counts["void*"]))
+                varname = self.expr(v)
+                # XXX hackish: the name of the field in the structure is
+                # computed from the 1st letter of the 'st' type, counting
+                # from 0 for each of the 'st' types independently
+                variables_to_restore.append((v, '%s%d' % (
+                    st[0], len(counts[st]))))
+                counts[st].append('(%s)%s' % (st, varname))
+        structname = stacklessdata.get_frame_type(len(counts["long"]),
+                                                  len(counts["double"]),
+                                                  len(counts["void*"]))
 
         # reorder the vars according to their type
         vars = counts["long"] + counts["double"] + counts["void*"]
 
-        # generate the 'save:' line
-        label = 'save_%d' % len(self.savelines)
-        arguments = ['%d' % self.globalstatecounter] + vars
+        # generate the 'save:' line, e.g.
+        #      save_0: return (int) save_frame_1(0, (long) n);
+        savelabel = 'save_%d' % len(self.savelines)
+        arguments = ['%d' % stacklessdata.globalstatecounter] + vars
+        stacklessdata.globalstatecounter += 1
         self.savelines.append('%s: return (%s) save_%s(%s);' % (
-            label,
+            savelabel,
             self.lltypename(self.graph.getreturnvar()).replace('@', ''),
             structname,
-            ', '.join(arguments))
-        
-        save_0: return (int) save_frame_1(0, n);
-        
+            ', '.join(arguments)))
 
-        ...
-        ...
+        # generate the resume block, e.g.
+        #        case 1:
+        #          n = (long)(((struct frame_1_s*) f)->i1);
+        #          b = (long) retval_long;
+        #          goto resume_1;
+        resumelabel = 'resume_%d' % len(self.resumeblocks)
+        lines = ['case %d:' % len(self.resumeblocks)]
+        for v, fieldname in variables_to_restore:
+            varname = self.expr(v)
+            vartype = self.lltypename(v).replace('@', '')
+            lines.append('\t%s = (%s)(((struct %s*) f)->%s);' % (
+                varname, vartype, structname, fieldname))
+            retvarname = self.expr(op.result)
+            retvartype = self.lltypename(op.result).replace('@', '')
+            retvarst = simplified_type(op.result.concretetype)
+            if retvarst is not None:
+                globalretvalvarname = RETVALVARS[retvarst]
+                lines.append('\t%s = (%s) %s;' % (
+                    retvarname, retvartype, globalretvalvarname))
+            lines.append('\tgoto %s;' % (resumelabel,))
+        self.resumeblocks.append(lines)
+
+        # add the checks for the unwinding case just after the directcall
+        # in the source
+        unwind_check = "if (slp_frame_stack_bottom) goto %s;" % (savelabel,)
+        exception_check = (super(SlpFunctionCodeGenerator, self)
+                           .check_directcall_result(op, err))
+        return '%s\n%s:\n%s' % (unwind_check,
+                                resumelabel,
+                                exception_check)
+
+
+def erase_ptr_type(T):
+    """Return T unless it's a pointer type, in which case we return a general
+    basic pointer type.
+    """
+    if isinstance(T, lltype.Ptr):
+        return ERASED_PTR_TYPE
+    else:
+        return T
+
+ERASED_PTR_TYPE = lltype.Ptr(lltype.OpaqueType("rawmemory"))
 
 
 def simplified_type(T):
@@ -167,3 +273,9 @@ def simplified_type(T):
         return "void*"
     else:
         raise Exception("don't know about %r" % (T,))
+
+RETVALVARS = {
+    "double": "slp_retval_double",
+    "long"  : "slp_retval_long",
+    "void*" : "slp_retval_voidptr",
+    }

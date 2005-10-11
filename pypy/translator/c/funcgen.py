@@ -23,13 +23,15 @@ class FunctionCodeGenerator(object):
                        more_ll_values
                        vars
                        lltypes
+                       functionname
                        currentblock""".split()
 
-    def __init__(self, graph, db, cpython_exc=False):
+    def __init__(self, graph, db, cpython_exc=False, functionname=None):
         self.graph = graph
         self.db = db
         self.gcpolicy = db.gcpolicy
         self.cpython_exc = cpython_exc
+        self.functionname = functionname
         #
         # collect all variables and constants used in the body,
         # and get their types now

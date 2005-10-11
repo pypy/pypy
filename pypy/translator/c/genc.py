@@ -38,6 +38,7 @@ class CBuilder:
 
         modulename = uniquemodulename('testing')
         targetdir = udir.ensure(modulename, dir=1)
+        self.targetdir = targetdir
         defines = {}
         # defines={'COUNT_OP_MALLOCS': 1}
         if not self.standalone:
@@ -110,7 +111,7 @@ class CStandaloneBuilder(CBuilder):
         python_inc = sysconfig.get_python_inc()
         self.executable_name = build_executable(
             [self.c_source_filename] + self.extrafiles,
-            include_dirs = [autopath.this_dir, python_inc],
+            include_dirs = [autopath.this_dir, python_inc, str(self.targetdir)],
             libraries=self.libraries)
         self._compiled = True
         return self.executable_name
@@ -155,9 +156,8 @@ class SourceGenerator:
                 funcnodes.append(node)
             else:
                 othernodes.append(node)
-        #if len(funcnodes) >= SPLIT_CRITERIA:
-        # always now
-        self.one_source_file = False
+        if len(funcnodes) >= SPLIT_CRITERIA:
+            self.one_source_file = False
         self.funcnodes = funcnodes
         self.othernodes = othernodes
         self.path = path
@@ -307,9 +307,6 @@ class SourceGenerator:
             fc.close()
         print >> f
 
-        if hasattr(self.database, 'stacklessdata'):
-            self.database.stacklessdata.writefiles(self)
-
 # this function acts as the fallback for small sources for now.
 # Maybe we drop this completely if source splitting is the way
 # to go. Currently, I'm quite fine with keeping a working fallback.
@@ -435,6 +432,10 @@ def gen_source_standalone(database, modulename, targetdir,
     sg = SourceGenerator(database, preimplementationlines)
     sg.set_strategy(targetdir)
     sg.gen_readable_parts_of_source(f)
+
+    # 2bis) stackless data
+    if hasattr(database, 'stacklessdata'):
+        database.stacklessdata.writefiles(sg)
 
     # 3) start-up code
     print >> f

@@ -22,8 +22,49 @@ slp_frame_t* slp_frame_stack_top = NULL;
 slp_frame_t* slp_frame_stack_bottom = NULL;
 int slp_restart_substate;
 long slp_retval_long;
-void *slp_retval_ptr;
+double slp_retval_double;
+void *slp_retval_voidptr;
 slp_frame_t* slp_new_frame(int size, int state);
+
+
+slp_frame_t* slp_new_frame(int size, int state)
+{
+  slp_frame_t* f = (slp_frame_t*) malloc(size);
+  f->f_back = NULL;
+  f->state = state;
+  return f;
+}
+
+
+/* example function for testing */
+
+long LL_stackless_stack_frames_depth(void)
+{
+	if (slp_frame_stack_top) goto resume;
+
+	slp_frame_stack_top = slp_frame_stack_bottom =
+		slp_new_frame(sizeof(slp_frame_t), 0);
+	return -1;
+
+ resume:
+    {
+	slp_frame_t* f = slp_frame_stack_top;
+	int result;
+	slp_frame_stack_top = NULL;
+
+	result = 0;
+	while (f) {
+		result++;
+		f = f->f_back;
+	}
+	return result;
+    }
+}
+
+
+#include "slp_defs.h"
+
+#include "slp_state_decoding.h"
 
 
 void slp_main_loop(void)
@@ -56,10 +97,6 @@ void slp_main_loop(void)
 
           switch (signature) {
 
-	  case -1:
-		  slp_retval_long = ((long(*)(void)) fn) ();
-		  break;
-
 #include "slp_signatures.h"
 
 	  }
@@ -77,14 +114,6 @@ void slp_main_loop(void)
     }
 }
 
-slp_frame_t* slp_new_frame(int size, int state)
-{
-  slp_frame_t* f = (slp_frame_t*) malloc(size);
-  f->f_back = NULL;
-  f->state = state;
-  return f;
-}
-
 int slp_standalone_entry_point(RPyListOfString *argv)
 {
 	int result = PYPY_STANDALONE(argv);
@@ -94,41 +123,5 @@ int slp_standalone_entry_point(RPyListOfString *argv)
 	}
 	return result;
 }
-
-
-/* example function for testing */
-
-long LL_stackless_stack_frames_depth(void)
-{
-	if (slp_frame_stack_top) goto resume;
-
-	slp_frame_stack_top = slp_frame_stack_bottom =
-		slp_new_frame(sizeof(slp_frame_t), 0);
-	return -1;
-
- resume:
-    {
-	slp_frame_t* f = slp_frame_stack_top;
-	int result;
-	slp_frame_stack_top = NULL;
-
-	result = 0;
-	while (f) {
-		result++;
-		f = f->f_back;
-	}
-	return result;
-    }
-}
-
-
-struct slp_state_decoding_entry_s slp_state_decoding_table[] = {
-	{ LL_stackless_stack_frames_depth, -1 },    /* 0 */
-	/* XXX WARNING FOR NOW MAKE SURE StacklessData.globalstatecounter
-	   counts the number of manually-inserted lines above !!!!!!!!!! */
-#include "slp_state_decoding.h"
-};
-
-#include "slp_defs.h"
 
 #endif USE_STACKLESS

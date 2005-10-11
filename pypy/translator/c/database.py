@@ -89,6 +89,8 @@ class LowLevelDatabase:
                 if who_asks is not None:
                     who_asks.dependencies[node] = True
                 return 'struct %s @' % node.name
+            elif T.tag == 'rawmemory':
+                return 'void @'
             else:
                 raise Exception("don't know about opaque type %r" % (T,))
         else:

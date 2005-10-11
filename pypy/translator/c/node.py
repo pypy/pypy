@@ -438,21 +438,21 @@ class FuncNode(ContainerNode):
 
     def __init__(self, db, T, obj):
         self.globalcontainer = True
-        self.funcgen = select_function_code_generator(obj, db)
         self.db = db
         self.T = T
         self.obj = obj
-        #self.dependencies = {}
-        self.typename = db.gettype(T)  #, who_asks=self)
-        if self.funcgen:
-            argnames = self.funcgen.argnames()
-            self.implementationtypename = db.gettype(T, argnames=argnames)
         if hasattr(obj, 'includes'):
             self.includes = obj.includes
             self.name = self.basename()
         else:
             self.includes = ()
             self.name = db.namespace.uniquename('g_' + self.basename())
+        self.funcgen = select_function_code_generator(obj, db, self.name)
+        #self.dependencies = {}
+        self.typename = db.gettype(T)  #, who_asks=self)
+        if self.funcgen:
+            argnames = self.funcgen.argnames()
+            self.implementationtypename = db.gettype(T, argnames=argnames)
         self.ptrname = self.name
 
     def basename(self):
@@ -517,7 +517,7 @@ class FuncNode(ContainerNode):
 
 assert not USESLOTS or '__dict__' not in dir(FuncNode)
 
-def select_function_code_generator(fnobj, db):
+def select_function_code_generator(fnobj, db, functionname):
     if fnobj._callable in extfunc.EXTERNALS:
         # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
         # flag in pypy.rpython.module.*.  The corresponding C wrappers are
@@ -534,7 +534,7 @@ def select_function_code_generator(fnobj, db):
             gencls = SlpFunctionCodeGenerator
         else:
             gencls = FunctionCodeGenerator
-        return gencls(fnobj.graph, db, cpython_exc)
+        return gencls(fnobj.graph, db, cpython_exc, functionname)
     elif getattr(fnobj, 'external', None) == 'C':
         # deprecated case
         if getattr(fnobj, 'includes', None):
