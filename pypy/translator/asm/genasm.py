@@ -1,6 +1,6 @@
 import sys, os
 from pypy.objspace.flow.model import traverse, Block, Variable, Constant
-
+from pypy.translator.asm import infregmachine
 
 #Available Machine code targets (processor+operating system)
 TARGET_UNKNOWN=0
@@ -40,9 +40,8 @@ def genasm(translator):
 
     g = FuncGenerator(graph)
     g.gencode()
-    if ASM_TARGET==TARGET_WIN386:
-        g.assembler.dump()
-    return make_func(g.assembler, 'i', 'ii')
+    g.assembler.dump()
+    return lambda x,y:1#make_func(g.assembler, 'i', 'ii')
 
 
 class FuncGenerator(object):
@@ -52,126 +51,87 @@ class FuncGenerator(object):
         self.allblocks = []
         self.blocknum = {}
 
-##         origins = {}
-##         lastuse = {}
-
-##         opindex = 0
+        self._var2reg = {}
+        self.next_register = 1
 
         for block in graph.iterblocks():
             self.allblocks.append(block)
             self.blocknum[block] = len(self.blocknum)
 
-
-##             for arg in block.inputargs:
-##                 if op.result.name not in origins:
-##                     origins[op.result.name] = opindex
-
-##             for op in blocks:
-##                 origins[op.result.name] = opindex
-##                 for arg in op.args:
-##                     if isinstance(arg, Variable):
-##                         lastuse[arg.name] = opindex
-##                 opindex += 1
-
-##         liveranges = []
-
-##         for n in origins:
-##             if n not in lastuse:
-##                 continue
-##             liveranges.append((lastuse[n], origins[n], n))
-
-        self._var2reg = {}
-        self.next_register = 3
-        for var in graph.startblock.inputargs:
-            self.assign_register(var)
-
         self._block_counter = 0
-        self.assembler = PPCAssembler()
+        self.assembler = infregmachine.Assembler()
+
+        for i, var in enumerate(graph.startblock.inputargs):
+            self.emit('LIA', self.reg(var), i)
 
     def assign_register(self, var):
         assert var not in self._var2reg
         self._var2reg[var.name] = self.next_register
         self.next_register += 1
 
+    def emit(self, *args):
+        self.assembler.emit(*args)
+
     def reg(self, var):
-        assert isinstance(var, Variable)
-        if var.name not in self._var2reg:
-            self.assign_register(var)
-        return self._var2reg[var.name]
+        if isinstance(var, Constant):
+            r = self.next_register
+            assert isinstance(var.value, int)
+            self.assembler.emit("LOAD", r, var.value)
+            self.next_register += 1
+            return r
+        elif isinstance(var, Variable):
+            if var.name not in self._var2reg:
+                self.assign_register(var)
+            return self._var2reg[var.name]
+        else:
+            assert False, "reg of non-Variable, non-Constant!?"
 
     def blockname(self):
         self._block_counter += 1
         return 'anonblock' + str(self._block_counter)
 
+    def blocktarget(self, block):
+        return 'block' + str(self.blocknum[block])
+
     def genlinkcode(self, link):
         A = self.assembler
         for s, t in zip(link.args, link.target.inputargs):
             if s.name != t.name:
-                A.mr(self.reg(t), self.reg(s))
-        A.b('block' + str(self.blocknum[link.target]))
+                A.emit('MOV', self.reg(t), self.reg(s))
+        A.emit('J', self.blocktarget(link.target))
 
     def genblockcode(self, block):
         A = self.assembler
-        A.label('block'+str(self.blocknum[block]))
-        for op in block.operations:
-            getattr(self, op.opname)(op.result, *op.args)
+        A.label(self.blocktarget(block))
+
         assert len(block.exits) in [0, 1, 2]
+
+        ordinaryops = block.operations[:]
+        if len(block.exits) == 2:
+            assert block.exitswitch is not None
+            assert block.operations[-1].result is block.exitswitch
+            del ordinaryops[-1]
+
+        for op in ordinaryops:
+            A.emit(op.opname, self.reg(op.result), *map(self.reg, op.args))
+
         if len(block.exits) == 2:
             assert block.exitswitch is not None
             truelink, falselink = block.exits
+            lastop = block.operations[-1]
+            assert lastop.opname in ['int_gt', 'int_lt', 'int_ge']
+            A.emit(lastop.opname, *map(self.reg, lastop.args))
             b = self.blockname()
-            A.cmpwi(0, self.reg(block.exitswitch), 1)
-            A.bne(b)
-            self.genlinkcode(truelink)
-            A.label(b)
+            A.emit('JT', b)
             self.genlinkcode(falselink)
+            A.label(b)
+            self.genlinkcode(truelink)
         elif len(block.exits) == 1:
             self.genlinkcode(block.exits[0])
         else:
-            A.mr(3, self.reg(block.inputargs[0]))
-            A.blr()
+            assert len(block.inputargs) == 1
+            A.emit('RETPYTHON', self.reg(block.inputargs[0]))
 
     def gencode(self):
-        #print map(self.reg, self.graph.startblock.inputargs)
         for block in self.allblocks:
             self.genblockcode(block)
-
-
-    def int_add(self, dest, v1, v2):
-        A = self.assembler
-        if isinstance(v1, Constant):
-            A.addi(self.reg(dest), self.reg(v2), v1.value)
-        elif isinstance(v2, Constant):
-            A.addi(self.reg(dest), self.reg(v1), v2.value)
-        else:
-            A.add(self.reg(dest), self.reg(v1), self.reg(v2))
-
-    def int_sub(self, dest, v1, v2):
-        A = self.assembler
-        if isinstance(v1, Constant):
-            A.subfi(self.reg(dest), self.reg(v2), v1.value)
-        elif isinstance(v2, Constant):
-            A.addi(self.reg(dest), self.reg(v1), -v2.value)
-        else:
-            A.sub(self.reg(dest), self.reg(v1), self.reg(v2))
-
-    def int_gt(self, dest, v1, v2):
-        A = self.assembler
-        conditional = 'bgt'
-        if isinstance(v1, Constant):
-            conditional = 'ble'
-            A.cmpwi(0, self.reg(v2), v1.value)
-        elif isinstance(v2, Constant):
-            A.cmpwi(0, self.reg(v1), v2.value)
-        else:
-            A.cmpw(0, self.reg(v2), self.reg(v1))
-        b = self.blockname()
-        A.xor(self.reg(dest), self.reg(dest), self.reg(dest))
-        getattr(self.assembler, conditional)(b)
-        A.addi(self.reg(dest), self.reg(dest), 1)
-        A.label(b)
-
-    def same_as(self, dest, v1):
-        self.assembler.mr(self.reg(dest), self.reg(v1))
-
-
