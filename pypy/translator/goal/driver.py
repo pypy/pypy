@@ -339,8 +339,8 @@ class TranslationDriver(SimpleTaskEngine):
                     prereq = getattr(self, 'prereq_checkpt_%s' % goal, None)
                     if prereq:
                         prereq()
-                        from pypy.translator.goal import unixcheckpoint
-                        unixcheckpoint.restartable_point(auto='run')
+                    from pypy.translator.goal import unixcheckpoint
+                    unixcheckpoint.restartable_point(auto='run')
 
 
 from pypy.translator.tool.util import mkexename, assert_rtyper_not_imported

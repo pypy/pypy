@@ -1,12 +1,14 @@
-import os
+import os, sys
 
 def restart_process():
     import sys
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
-def restartable_point(auto=None):
+def restartable_point_fork(auto=None, extra_msg=None):
     while True:
         while True:
+            if extra_msg:
+                print extra_msg
             print '---> Checkpoint: cont / restart / quit / pdb ?'
             if auto:
                 print 'auto-%s' % (auto,)
@@ -27,7 +29,11 @@ def restartable_point(auto=None):
             if line == 'restart':
                 restart_process()
 
-        pid = os.fork()
+        try:
+            pid = os.fork()
+        except AttributeError:
+            # windows case
+            return
         if pid != 0:
             # in parent
             while True:
@@ -52,6 +58,18 @@ def restartable_point(auto=None):
         print '_'*78
         break
 
+# special version for win32 which does not have fork() at all,
+# but epople can simulate it by hand using VMware
+
+def restartable_point_nofork(auto=None):
+    # auto ignored, no way to automate VMware, yet
+    restartable_point_fork(None, '+++ this system does not support fork +++\n'
+        'if you have a virtual machine, you can save a snapshot now')
+
+if sys.platform == 'win32':
+    restartable_point = restartable_point_nofork
+else:
+    restartable_point = restartable_point_fork
 
 if __name__ == '__main__':
     print 'doing stuff...'
