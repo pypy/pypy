@@ -18,6 +18,7 @@ def suggested_primitive_implemented(func):
 
 # note: clock synchronizes itself!
 def test_time_clock():
+    py.test.skip("time.clock like it is used here is not reliable")
     def does_stuff():
         return time.clock()
     f1 = compile(does_stuff, [])
