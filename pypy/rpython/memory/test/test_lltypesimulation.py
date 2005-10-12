@@ -121,6 +121,11 @@ def test_varsizestruct():
     assert s1.a == 17
     assert s1.rest[3].v == 5
 
+def test_empty_struct():
+    S1 = lltype.GcStruct("s1")
+    s1 = malloc(S1)
+    assert s1 == s1
+
 def test_substructure_ptr():
     S3 = lltype.Struct("s3", ('a', lltype.Signed))
     S2 = lltype.Struct("s2", ('s3', S3), ('char', lltype.Char))

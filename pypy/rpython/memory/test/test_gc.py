@@ -5,7 +5,7 @@ from pypy.annotation import model as annmodel
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.memory.gc import GCError, MarkSweepGC, SemiSpaceGC
-from pypy.rpython.memory.gc import DeferredRefcountingGC
+from pypy.rpython.memory.gc import DeferredRefcountingGC, DummyGC
 from pypy.rpython.memory.support import AddressLinkedList, INT_SIZE
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
 from pypy.rpython.memory.simulator import MemorySimulatorError
@@ -138,3 +138,22 @@ class TestDeferredRefcountingGCRunningOnLLinterp(TestMarkSweepGC):
     def teardown_class(cls):
         gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
         gclltype.use_gc = cls.old
+
+class TestDummyGC(TestMarkSweepGC):
+    def setup_class(cls):
+        gclltype.use_gc = DummyGC
+        cls.old = gclltype.use_gc
+    def teardown_class(cls):
+        gclltype.use_gc = cls.old
+
+class TestDummyGCRunningOnLLinterp(TestMarkSweepGC):
+    def setup_class(cls):
+        cls.prep_old = gclltype.prepare_graphs_and_create_gc
+        gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
+        gclltype.use_gc = DummyGC
+        cls.old = gclltype.use_gc
+
+    def teardown_class(cls):
+        gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
+        gclltype.use_gc = cls.old
+

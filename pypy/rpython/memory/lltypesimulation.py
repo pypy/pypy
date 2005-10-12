@@ -48,7 +48,7 @@ class simulatorptr(object):
         if isinstance(self._T, lltype.Array):
             self._address.signed[0] = size
         elif isinstance(self._T, lltype.Struct):
-            if isinstance(self._T._flds[self._T._names[-1]], lltype.Array):
+            if self._T._arrayfld is not None:
                 addr = self._address + self._layout[self._T._arrayfld]
                 addr.signed[0] = size
         else:

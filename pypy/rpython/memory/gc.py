@@ -34,12 +34,14 @@ def dummy_get_roots1():
     ll = AddressLinkedList()
     ll.append(NULL)
     ll.append(raw_malloc(10))
+    ll.pop() #make the annotator see pop
     return ll
 
 def dummy_get_roots2():
     ll = AddressLinkedList()
     ll.append(raw_malloc(10))
     ll.append(NULL)
+    ll.pop() #make the annotator see pop
     return ll
 
 
@@ -66,6 +68,30 @@ class GCBase(object):
         #this will never be called at runtime, just during setup
         "NOT_RPYTHON"
         pass
+
+class DummyGC(GCBase):
+    _alloc_flavor_ = "raw"
+
+    def __init__(self, dummy=None, get_roots=None):
+        self.get_roots = get_roots
+        self.set_query_functions(None, None, None, None, None, None, None)
+   
+    def malloc(self, typeid, length=0):
+        size = self.fixed_size(typeid)
+        if self.is_varsize(typeid):
+            size += length * self.varsize_item_sizes(typeid)
+        return raw_malloc(size)
+         
+    def collect(self):
+        self.get_roots() #this is there so that the annotator thinks get_roots is a function
+
+    def size_gc_header(self, typeid=0):
+        return 0
+
+    def init_gc_object(self, addr, typeid):
+        return
+    init_gc_object_immortal = init_gc_object
+   
 
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"
