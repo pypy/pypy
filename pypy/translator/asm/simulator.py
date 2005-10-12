@@ -89,17 +89,25 @@ class Machine:
     def EXCH(self,destination,source):
         self._registers[destination],self._registers[source]=self.register(source),self.register(destination)
 
+
     def int_gt(self,rega,regb):
         self._creg = self.register(rega) > self.register(regb)
 
     def int_lt(self,rega,regb):
         self._creg = self.register(rega) < self.register(regb)
 
-    def int_eq(self,rega,regb):
-        self._creg = self.register(rega) == self.register(regb)
+    def int_ge(self,rega,regb):
+        self._creg = self.register(rega) >= self.register(regb)
 
     def int_le(self,rega,regb):
         self._creg = self.register(rega) <= self.register(regb)
+
+    def int_eq(self,rega,regb):
+        self._creg = self.register(rega) == self.register(regb)
+
+    def int_ne(self,rega,regb):
+        self._creg = self.register(rega) != self.register(regb)
+
 
     def llop(self, opcode, destination, *sources):
         sourcevalues = []

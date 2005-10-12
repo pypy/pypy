@@ -89,7 +89,25 @@ class TestAsm(object):
         f = self.getcompiled(f1)
         assert f(10) == f1(10)
 
-        
+    def test_comparisons(self):
+        def f(x=int):
+            if x == 0:
+                return 0
+            elif x > 10:
+                return 10
+            elif x >= 5:
+                return 5
+            elif x < -10:
+                return -10
+            elif x <= -5:
+                return -5
+            elif x != 1:
+                return 1
+            else:
+                return x
+        g = self.getcompiled(f)
+        for i in range(-20, 20):
+            assert g(i) == f(i)
 
 class TestAsmPPC(TestAsm):
 

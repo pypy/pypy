@@ -96,10 +96,18 @@ class PPCCodeGen(object):
     def int_lt(self, A, a, b):
         A.cmpw(a + 2, b + 2)
 
-    def int_eq(self, A, a, b):
+    def int_ge(self, A, a, b):
         A.cmpw(a + 2, b + 2)
-        A.crmove(0, 2)
+        A.cror(0, 1, 2)
 
     def int_le(self, A, a, b):
         A.cmpw(a + 2, b + 2)
         A.cror(0, 0, 2)
+
+    def int_eq(self, A, a, b):
+        A.cmpw(a + 2, b + 2)
+        A.crmove(0, 2)
+
+    def int_ne(self, A, a, b):
+        A.cmpw(a + 2, b + 2)
+        A.cror(0, 0, 1)
