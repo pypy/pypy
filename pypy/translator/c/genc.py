@@ -11,7 +11,7 @@ from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
 
-class CBuilder: 
+class CBuilder(object):
     c_source_filename = None
     _compiled = False
     symboltable = None
@@ -23,7 +23,7 @@ class CBuilder:
 
         if libraries is None:
             libraries = []
-        self.libraries = libraries        
+        self.libraries = libraries
 
     def generate_source(self):
         assert self.c_source_filename is None
