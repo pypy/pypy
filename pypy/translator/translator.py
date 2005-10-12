@@ -329,7 +329,7 @@ class Translator:
 
     def asmcompile(self, processor='virt'):
         from pypy.translator.asm import genasm
-        assert processor in ['ppc', 'virt']
+        assert processor in ['ppc', 'virt', 'virtfinite']
         assert self.rtyper is not None, 'must specialize'
         return genasm.genasm(self, processor)
 
