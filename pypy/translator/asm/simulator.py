@@ -98,6 +98,9 @@ class Machine:
     def int_eq(self,rega,regb):
         self._creg = self.register(rega) == self.register(regb)
 
+    def int_le(self,rega,regb):
+        self._creg = self.register(rega) <= self.register(regb)
+
     def llop(self, opcode, destination, *sources):
         sourcevalues = []
         for r in sources:

@@ -138,7 +138,7 @@ class FuncGenerator(object):
             falselink, truelink = block.exits
             lastop = block.operations[-1]
             assert lastop.opname in ['int_gt', 'int_lt', 'int_ge',
-                                     'int_eq']
+                                     'int_eq', 'int_le']
             A.emit(lastop.opname, *map(self.reg, lastop.args))
             b = self.blockname()
             A.emit('JT', b)

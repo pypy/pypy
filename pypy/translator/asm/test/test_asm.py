@@ -70,7 +70,26 @@ class TestAsm(object):
 
         assert f(25) == 5
         assert f(27) == 3
+        assert f(17*13) == 13
         assert f(29) == 29
+
+    def test_from_psyco(self):
+        def f1(n=int):
+            "Arbitrary test function."
+            i = 0
+            x = 1
+            while i<n:
+                j = 0
+                while j<=i:
+                    j = j + 1
+                    x = x + (i&j)
+                i = i + 1
+            return x
+
+        f = self.getcompiled(f1)
+        assert f(10) == f1(10)
+
+        
 
 class TestAsmPPC(TestAsm):
 
