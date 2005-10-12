@@ -58,6 +58,20 @@ class TestAsm(object):
         assert f(100) == testfn(100)
         assert f(1000) == testfn(1000)
 
+    def test_factor(self):
+        def factor(n=int):
+            i = 2
+            while i < n:
+                if n % i == 0:
+                    return i
+                i += 1
+            return i
+        f = self.getcompiled(factor)
+
+        assert f(25) == 5
+        assert f(27) == 3
+        assert f(29) == 29
+
 class TestAsmPPC(TestAsm):
 
     processor = 'ppc'

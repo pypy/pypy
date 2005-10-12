@@ -52,6 +52,12 @@ class PPCCodeGen(object):
     def int_mul(self, A, dest, a, b):
         A.mullw(dest + 2, a + 2, b + 2)
 
+    def int_mod(self, A, dest, a, b):
+        dest += 2; a += 2; b += 2
+        A.divw(dest, a, b)
+        A.mullw(dest, dest, b)
+        A.subf(dest, dest, a)
+
     def int_gt(self, A, a, b):
         A.cmpw(a + 2, b + 2)
         A.crmove(0, 1)
@@ -59,6 +65,10 @@ class PPCCodeGen(object):
     def int_lt(self, A, a, b):
         A.cmpw(a + 2, b + 2)
 
+    def int_eq(self, A, a, b):
+        A.cmpw(a + 2, b + 2)
+        A.crmove(0, 2)
+        
     def JT(self, A, branch):
         # should be "A.bt(BI=0, BD=branch)" but this crashes.
         A.blt(branch)
