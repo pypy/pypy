@@ -2,6 +2,7 @@ import sys, os
 from pypy.objspace.flow.model import traverse, Block, Variable, Constant
 from pypy.translator.asm import infregmachine
 from pypy.rpython.lltype import Signed
+from pypy.translator.asm.simulator import Machine
 
 #Available Machine code targets (processor+operating system)
 TARGET_UNKNOWN=0
@@ -33,7 +34,7 @@ elif ASM_TARGET==TARGET_WIN386:
     from pypy.translator.asm.i386gen.i386_assembler import make_func
 
 
-def genasm(translator):
+def genasm(translator, processor):
 
     f = translator.entrypoint
 
@@ -48,10 +49,19 @@ def genasm(translator):
 
     g = FuncGenerator(graph)
     g.gencode()
-#    g.assembler.dump()
-#    finreg = g.assembler.allocate_registers(5)
 
-    return make_func(finreg.assemble(), 'i', 'i'*len(graph.startblock.inputargs))
+    if processor == 'virt':
+        def r(*args):
+            return Machine.RunProgram(g.assembler.instructions,
+                                      args,
+                                      1000,
+                                      tracing=True)
+
+        return r
+    elif processor == 'ppc':
+        fin = g.assembler.allocate_registers(30)
+        return make_func(fin.assemble(), 'i',
+                         'i'*len(graph.startblock.inputargs))
 
 class FuncGenerator(object):
 

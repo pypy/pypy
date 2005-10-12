@@ -33,6 +33,19 @@ class Instruction(object):
             args = ', '.join(map(c, self.arguments))
         return '%-30s'%('    %-10s %s'%(self.name, args),)
 
+class Program(object):
+    # approximately a list of Instructions, but with sprinkles
+    # not used yet.
+
+    def __init__(self, insns):
+        self.insns = insns
+
+    def iterinsns(self):
+        for insn in self.insns:
+            if isinstance(ins, str):
+                continue
+            yield insn
+
 class Assembler(object):
     def __init__(self):
         self.instructions = []
@@ -53,9 +66,6 @@ class Assembler(object):
         from pypy.translator.asm import regalloc
         r = FiniteRegisterAssembler(nregisters)
         r.instructions = regalloc.regalloc(self.instructions, nregisters)
-#        for i in r.instructions:
-#            if not isinstance(i, str): # labels
-#                assert max(i.registers_used() + [0]) < nregisters
         r.dump()
         return r
 

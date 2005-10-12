@@ -4,11 +4,7 @@ import os
 
 class TestAsm(object):
 
-    def setup_class(cls):
-        #if not hasattr(os, "uname") or os.uname()[-1] != 'Power Macintosh':
-        #    py.test.skip('asm generation only on PPC')
-        # 
-        #cls.processor = 'ppc'
+    processor = 'virt'
 
     def getcompiled(self, func, view=False):
         t = Translator(func, simplifying=True)
@@ -61,4 +57,13 @@ class TestAsm(object):
         assert f(10) == testfn(10)
         assert f(100) == testfn(100)
         assert f(1000) == testfn(1000)
-            
+
+class TestAsmPPC(TestAsm):
+
+    processor = 'ppc'
+
+    def setup_class(cls):
+        if not hasattr(os, "uname") or os.uname()[-1] != 'Power Macintosh':
+            py.test.skip('asm generation only on PPC')
+
+
