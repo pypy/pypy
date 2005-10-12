@@ -47,7 +47,7 @@ def make_func(code, retcode, signature):
         load_arg(ourcode, 1, signature[1])
 
     ourcode.bl(FAST_ENTRY_LABEL)
-    
+
     if retcode == 'i':
         s = lookup("PyInt_FromLong")
         ourcode.load_word(r0, s)
@@ -96,7 +96,7 @@ def make_func(code, retcode, signature):
     return r
 
 def wrap(funcname, retcode, signature):
-    
+
     argcount = len(signature)
 
     ourcode = MyPPCAssembler()
@@ -118,11 +118,11 @@ def wrap(funcname, retcode, signature):
     if argcount > 1:
         load_arg(ourcode, 1, signature[1])
 
-    
+
     ourcode.load_word(r0, lookup(funcname))
     ourcode.mtctr(r0)
     ourcode.bctrl()
-    
+
     if retcode == 'i':
         s = lookup("PyInt_FromLong")
         ourcode.load_word(r0, s)
