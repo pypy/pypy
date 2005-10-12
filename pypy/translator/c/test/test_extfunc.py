@@ -18,20 +18,23 @@ def suggested_primitive_implemented(func):
 
 # note: clock synchronizes itself!
 def test_time_clock():
-    py.test.skip("time.clock like it is used here is not reliable")
     def does_stuff():
         return time.clock()
     f1 = compile(does_stuff, [])
     t0 = time.clock()
     t1 = f1()
-    t0 = (t0 + time.clock()) / 2.0
-    correct = t0 - t1
-    # now we can compare!
-    t0 = time.clock()
-    t1 = f1() + correct
-    assert type(t1) is float
     t2 = time.clock()
-    assert t0 <= t1 <= t2
+    t3 = f1()
+    t4 = time.clock()
+    t5 = f1()
+    t6 = time.clock()
+    # time.clock() and t1() might have a different notion of zero, so
+    # we can only subtract two numbers returned by the same function.
+    assert 0 <= t2-t0
+    assert 0 <= t3-t1 <= t4-t0
+    assert 0 <= t4-t2 <= t5-t1 <= t6-t0
+    assert 0 <= t5-t3 <= t6-t2
+    assert 0 <= t6-t4
 
 def test_time_sleep():
     def does_nothing():
