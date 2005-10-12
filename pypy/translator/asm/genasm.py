@@ -59,16 +59,8 @@ def genasm(translator, processor):
 
         return r
     elif processor == 'ppc':
-        maxregs = 0
-        for insn in g.assembler.instructions:
-            if isinstance(insn, str):
-                continue
-            for r in insn.registers_used():
-                maxregs = max(r, maxregs)
-        fin = g.assembler.allocate_registers(30)
-        return make_func(fin.assemble(), 'i',
-                         'i'*len(graph.startblock.inputargs),
-                         maxregs)
+        from pypy.translator.asm.ppc import codegen
+        return codegen.make_native_code(graph, g.assembler.instructions)
 
 class FuncGenerator(object):
 
