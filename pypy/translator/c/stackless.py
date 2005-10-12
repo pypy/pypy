@@ -170,10 +170,10 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
             # record extra data needed to generate the slp_*.h tables:
             # find the signatures of all functions
             slpdata = self.db.stacklessdata
-            argtypes = [signature_type(v.concretetype)
+            argtypes = [signature_type(self.lltypemap(v))
                         for v in self.graph.getargs()]
             argtypes = [T for T in argtypes if T is not lltype.Void]
-            rettype = signature_type(self.graph.getreturnvar().concretetype)
+            rettype = signature_type(self.lltypemap(self.graph.getreturnvar()))
             FUNC = lltype.FuncType(argtypes, rettype)
             slpdata.registerunwindable(self.functionname, FUNC,
                                        resume_points = len(self.resumeblocks))
@@ -191,7 +191,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         counts = dict([(type, []) for type in STATE_TYPES])
         variables_to_restore = []
         for v in vars:
-            st = storage_type(v.concretetype)
+            st = storage_type(self.lltypemap(v))
             if st is not None:   # ignore the Voids
                 varname = self.expr(v)
                 # The name of the field in the structure is computed from
@@ -233,7 +233,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
                 varname, cdecl(vartype, ''), structname, fieldname))
         retvarname = self.expr(op.result)
         retvartype = self.lltypename(op.result)
-        retvarst = storage_type(op.result.concretetype)
+        retvarst = storage_type(self.lltypemap(op.result))
         if retvarst is not None:
             globalretvalvarname = retvarst.global_name
             lines.append('%s = (%s) %s;' % (
