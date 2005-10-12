@@ -25,7 +25,8 @@ class GcPolicy:
         gcpolicy = gcpolicy or 'boehm'
         
         from os.path import exists
-        boehm_on_path = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a')
+        boehm_on_path = exists('/usr/lib/libgc.so') or exists('/usr/lib/libgc.a') or \
+                        exists('/sw/lib/libgc.so') or exists('/sw/lib/libgc.a')
         if gcpolicy == 'boehm' and not boehm_on_path:
             log.gc.WARNING('warning: Boehm GC libary not found in /usr/lib, falling back on no gc')
             gcpolicy = 'none'

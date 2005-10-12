@@ -82,13 +82,19 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
 
     use_gcc = True
     profile = False
+    cleanup = False
+
+    if sys.platform == 'darwin':
+        gc_libs_path = '-L/sw/lib -ldl'
+    else:
+        gc_libs_path = '-static'
 
     cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, OPTIMIZATION_SWITCHES, b)]
     if not use_gcc:
         cmds.append("llc %s %s.bc -f -o %s.s" % (genllvm.exceptionpolicy.llc_options(), b, b))
         cmds.append("as %s.s -o %s.o" % (b, b))
         if exe_name:
-            cmd = "gcc %s.o %s -lm -ldl -pipe -o %s" % (b, gc_libs, exe_name)
+            cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
             cmds.append(cmd)
         object_files.append("%s.o" % b)
     else:
@@ -100,13 +106,13 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
             else:
                 cmd += ' -fomit-frame-pointer'
             cmds.append(cmd)
-            cmd = "gcc %s.o %s -lm -ldl -pipe -o %s" % (b, gc_libs, exe_name)
+            cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
             if profile:
                 cmd += ' -pg'
             cmds.append(cmd)
         source_files.append("%s.c" % b)
 
-    if exe_name and not profile:
+    if cleanup and exe_name and not profile:
         cmds.append('strip ' + exe_name)
         upx = os.popen('which upx').read()
         if upx: #compress file even further

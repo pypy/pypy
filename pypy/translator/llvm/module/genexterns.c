@@ -19,7 +19,9 @@ void RPYTHON_RAISE_OSERROR(int error);
 #include <errno.h>
 #include <locale.h>
 #include <ctype.h>
-#include <python2.3/Python.h>
+
+//the placeholder in the next line gets replaced by the actual python.h path
+#include __PYTHON_H__
 
 // Do this manually from python :-(
 //#include "ll_os.h"

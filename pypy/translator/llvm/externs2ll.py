@@ -1,4 +1,5 @@
 import os
+import sys
 import types
 import urllib
 
@@ -11,10 +12,20 @@ from pypy.tool.udir import udir
 
 
 def get_ll(ccode, function_names):
+    filename = str(udir.join("ccode.c"))
+    f = open(filename, "w")
+    f.write(ccode)
+    f.close()
     
-    # goto codespeak and compile our c code
-    request = urllib.urlencode({'ccode':ccode})
-    llcode = urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
+    if os.popen('which llvm-gcc').read():   #local llvm CFE available
+        #log('using local llvm-gcc')
+        plain = filename[:-2]
+        os.system("llvm-gcc -S %s.c -o %s.ll 2>&1" % (plain, plain))
+        llcode = open(plain + '.ll').read()
+    else:   #as fallback use remove CFE. XXX local and remote should be similar machines!
+        #log('falling back on remote llvm-gcc')
+        request = urllib.urlencode({'ccode':ccode}) # goto codespeak and compile our c code
+        llcode = urllib.urlopen('http://codespeak.net/pypy/llvm-gcc.cgi', request).read()
 
     # strip lines
     ll_lines = []
@@ -134,13 +145,14 @@ def generate_llfile(db, extern_decls, support_functions, debug=False):
         include_files.append(j(j(os.path.dirname(extfunc.__file__), "src"), f + ".h"))
 
     for f in include_files:
-        ccode.append(open(f).read())
+        s = open(f).read()
+        if f.find('genexterns.c'):
+            if sys.platform == 'darwin':
+                python_h = '"/System/Library/Frameworks/Python.framework/Versions/2.3/include/python2.3/Python.h"'
+            else:
+                python_h = '<python2.3/Python.h>'
+            s = s.replace('__PYTHON_H__', python_h)
+        ccode.append(s)
     ccode = "".join(ccode)
 
-    if debug:
-        filename = udir.join("ccode.c")
-        f = open(str(filename), "w")
-        f.write(ccode)
-        f.close()
-    
     return get_ll(ccode, function_names + support_functions)
