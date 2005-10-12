@@ -52,7 +52,6 @@ def TranslateProgram(commands,nreg):
     """answer this program into one which only uses nreg fast registers"""
     totreg=maxRegister(commands)
     assert nreg>=3 ,'Some commands may use 3 registers!!!!'
-    assert totreg>=nreg
     newprog=[]
     pipe=[]
     old2new=range(0,totreg+1)  #this must be as big as the total number of registers+1 (we start at index 1)
