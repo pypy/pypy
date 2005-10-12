@@ -22,8 +22,10 @@ def load_arg(code, argi, typecode):
 
 FAST_ENTRY_LABEL = "FAST-ENTRY-LABEL"
 
-def make_func(code, retcode, signature):
+def make_func(code, retcode, signature, localwords=0):
     """code shouldn't contain prologue/epilogue (or touch r31)"""
+
+    stacksize = 80 + 4*localwords
 
     argcount = len(signature)
 
@@ -31,7 +33,7 @@ def make_func(code, retcode, signature):
     ourcode.mflr(r0)
     ourcode.stmw(r31, r1, -4)
     ourcode.stw(r0, r1, 8)
-    ourcode.stwu(r1, r1, -80)
+    ourcode.stwu(r1, r1, -stacksize)
 
     ourcode.lwz(r3, r4, 8)
     ourcode.cmpwi(r3, argcount)
@@ -60,8 +62,8 @@ def make_func(code, retcode, signature):
         ourcode.bctrl()
 
     ourcode.label("epilogue")
-    ourcode.lwz(r0, r1, 88)
-    ourcode.addi(r1, r1, 80)
+    ourcode.lwz(r0, r1, stacksize + 8)
+    ourcode.addi(r1, r1, stacksize)
     ourcode.mtlr(r0)
     ourcode.lmw(r31, r1, -4)
     ourcode.blr()
