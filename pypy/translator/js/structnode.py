@@ -147,9 +147,16 @@ class StructNode(ConstantLLVMNode):
     
     def constantvalue(self):
         """ Returns the constant representation for this node. """
-        values = self._getvalues()
-        all_values = ",\n  ".join(values)
-        return "%s {\n  %s\n  }\n" % (self.get_typerepr(), all_values)
+        vars = []
+        for i, value in enumerate(self._getvalues()):
+            name = self._get_types[i][0]
+            var  = (name, str(value))
+            vars.append(var)
+        return "(%s)" % ", ".join(["{%s:%s}" % var for var in vars])
+
+        #values = self._getvalues()
+        #all_values = ",\n  ".join(values)
+        #return "%s {\n  %s\n  }\n" % (self.get_typerepr(), all_values)
                 
                 
 class StructVarsizeNode(StructNode):

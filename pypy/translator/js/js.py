@@ -105,13 +105,15 @@ class JS(object):   # JS = Javascript
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
 
+        pypy_prefix = '' #pypy_
+
         #codewriter.append(self.exceptionpolicy.llvmcode(self.entrynode))
         #
         ## XXX we need to create our own main() that calls the actual entry_point function
-        #if entryfunc_name == 'pypy_entry_point': #XXX just to get on with translate_pypy
+        #if entryfunc_name == pypy_prefix + 'entry_point': #XXX just to get on with translate_pypy
         #    extfuncnode.ExternalFuncNode.used_external_functions['%main'] = True
         #
-        #elif entryfunc_name == 'pypy_main_noargs': #XXX just to get on with bpnn & richards
+        #elif entryfunc_name == pypy_prefix + 'main_noargs': #XXX just to get on with bpnn & richards
         #    extfuncnode.ExternalFuncNode.used_external_functions['%main_noargs'] = True
         #
         #for f in support_functions:
@@ -134,7 +136,7 @@ class JS(object):   # JS = Javascript
         graph      = self.db.obj2node[entry_point].graph
         startblock = graph.startblock
         args       = ','.join(['arguments[%d]' % i for i,v in enumerate(startblock.inputargs)])
-        self.wrappertemplate = "load('%s'); print(pypy_%s(%%s))" % (self.filename, graph.name)
+        self.wrappertemplate = "load('%s'); print(%s%s(%%s))" % (self.filename, pypy_prefix, graph.name)
 
         #codewriter.newline()
         #codewriter.comment("Wrapper code for the Javascript CLI", 0)

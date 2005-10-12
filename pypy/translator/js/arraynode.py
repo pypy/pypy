@@ -166,7 +166,7 @@ class StrArrayNode(ArrayNode):
             else:
                 s.append("\\%02x" % ord(c))
                 
-        r = 'c"%s"' % "".join(s)
+        r = '"%s"' % "".join(s)
         return item_length, r
 
 class VoidArrayNode(ConstantLLVMNode):

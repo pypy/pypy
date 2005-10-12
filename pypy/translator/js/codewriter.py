@@ -71,29 +71,39 @@ class CodeWriter(object):
         #self.llvm("implementation", 0)
         pass
 
-    def br_uncond(self, block): 
-        self.append('prevblock = ' + str(self._currentblock))
+    def _goto_block(self, block, indentation_level=4):
         if block == self._currentblock + 1:
             self._skip_closeblock = True
         else:
-            self.append('block = ' + str(block))
+            self.append('block = ' + str(block), indentation_level)
+            self.append('break', indentation_level)
 
-    def br(self, cond, block_false, block_true):
-        self.append('prevblock = ' + str(self._currentblock))
+    def _phi(self, targetblock, exit, indentation_level=4):
+        #self.comment('target.inputargs=%s, args=%s, targetblock=%d' % (exit.target.inputargs, exit.args, targetblock), indentation_level)
+        for i, exitarg in enumerate(exit.args):
+            dest = str(exit.target.inputargs[i])
+            src = str(exitarg)
+            if src == 'False':
+                src = 'false'
+            elif src == 'True':
+                src = 'true'
+            if dest != src:
+                self.append('%s = %s' % (dest, src), indentation_level)
+
+    def br_uncond(self, block, exit): 
+        self._phi(block, exit)
+        self._goto_block(block)
+        self._skip_closeblock = True
+
+    def br(self, cond, block_false, exit_false, block_true, exit_true):
         self.append('if (%s) {' % cond)
-        if block_true == self._currentblock + 1:
-            self._skip_closeblock = True
-        else:
-            self.append('block = ' + str(block_true), 5)
-            self.append('break', 5)
-        if block_false == self._currentblock + 1:
-            self._skip_closeblock = True
-        else:
-            self.append('} else {')
-            self.append('block = ' + str(block_false), 5)
-            self.append('break', 5)
+        self._phi(block_true, exit_true, 5)
+        self._goto_block(block_true, 5)
+        self.append('} else {')
+        self._phi(block_false, exit_false, 5)
+        self._goto_block(block_false, 5)
         self.append('}')
-        self.comment('block = %s ? %d : %d' % (cond, block_true, block_false))
+        self._skip_closeblock = True
 
     def switch(self, intty, cond, defaultdest, value_label):
         labels = ''
@@ -108,6 +118,10 @@ class CodeWriter(object):
         self.blocks   = blocks
         usedvars      = {}  #XXX could probably be limited to inputvars
         for block in blocks:
+            if block != blocks[0]:  #don't double startblock inputargs
+                for inputarg in block.inputargs:
+                    targetvar = self.js.db.repr_arg(inputarg)
+                    usedvars[targetvar] = True
             for op in block.operations:
                 targetvar = self.js.db.repr_arg(op.result)
                 usedvars[targetvar] = True
@@ -129,36 +143,6 @@ class CodeWriter(object):
         else:
             self.append("return " + ref)
         self._skip_closeblock = True
-
-    def phi(self, targetvar, type_, refs, blocks): 
-        assert refs and len(refs) == len(blocks), "phi node requires blocks" 
-        mergelist = ", ".join(
-            ["[%s, %s]" % item 
-                for item in zip(refs, blocks)])
-        s = "%s = phi %s %s" % (targetvar, type_, mergelist)
-        self.llvm(s)
-
-        all_refs_identical = True
-        for ref in refs:
-            if ref != refs[0]:
-                all_refs_identical = False
-                break
-        if all_refs_identical:
-            if targetvar != refs[0]:
-                self.append('%s = %s' % (targetvar, refs[0]))
-        else:
-            if len(blocks) == 1:
-                self.append('%s = %s' % (targetvar, refs[i]))
-            else:
-                n = 0
-                for i, block in enumerate(blocks):
-                    if targetvar != refs[i]:
-                        if n > 0:
-                            s = 'else '
-                        else:
-                            s = ''
-                        self.append('%sif (prevblock == %d) %s = %s' % (s, block, targetvar, refs[i]))
-                        n += 1
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
         self.append("%(targetvar)s = %(ref1)s %(name)s %(ref2)s" % locals())

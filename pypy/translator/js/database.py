@@ -260,7 +260,8 @@ class Database(object):
         type_ = lltype.typeOf(value)
         if isinstance(type_, lltype.Primitive):
             repr = self.primitive_to_str(type_, value)
-            return None, "%s %s" % (self.repr_type(type_), repr)
+            return None, repr
+            #return None, "%s %s" % (self.repr_type(type_), repr)
 
         elif isinstance(type_, lltype.Ptr):
             toptr = self.repr_type(type_)
