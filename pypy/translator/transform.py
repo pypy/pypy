@@ -222,6 +222,7 @@ def transform_graph(ann, extra_passes=default_extra_passes, block_subset=None):
     #          modified by t.simplify() after it had been annotated.
     if block_subset is None:
         block_subset = fully_annotated_blocks(ann)
+        insert_stackcheck(ann)
     if not isinstance(block_subset, dict):
         block_subset = dict.fromkeys(block_subset)
     if ann.translator:

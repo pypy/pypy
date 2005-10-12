@@ -15,14 +15,14 @@ def test_hello_world():
         for s in argv:
             os.write(1, "   '" + str(s) + "'\n")
         return 0
-    
+
     t = Translator(entry_point)
     s_list_of_strings = SomeList(ListDef(None, SomeString()))
     t.annotate([s_list_of_strings])
     t.specialize()
     cbuilder = t.cbuilder(standalone=True)
     cbuilder.generate_source()
-    cbuilder.compile() 
+    cbuilder.compile()
     data = cbuilder.cmdexec('hi there')
     assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
@@ -100,10 +100,22 @@ def test_stackless_arguments():
 
 
 def test_stack_too_big():
+    def f1():
+        return stack_too_big()
+    def f2():
+        return lst[1]()
+    def f3():
+        return lst[2]()
+    def f4():
+        return lst[3]()
+    def f5():
+        return lst[4]()
+    lst = [None,f1,f2,f3,f4,f5]
+
     def f(n):
-        if stack_too_big():
+        if lst[5]():
             return n
-        return f(n+1)
+        return f(n)+1
 
     def fn():
         return f(0)
@@ -111,7 +123,7 @@ def test_stack_too_big():
     assert int(data.strip()) > 500
 
 
-    
+
 def wrap_stackless_function(fn, stackcheck=False):
     def entry_point(argv):
         os.write(1, str(fn())+"\n")
@@ -120,13 +132,11 @@ def wrap_stackless_function(fn, stackcheck=False):
     t = Translator(entry_point)
     s_list_of_strings = SomeList(ListDef(None, SomeString()))
     ann = t.annotate([s_list_of_strings])
-    if stackcheck:
-        insert_stackcheck(ann)
     t.specialize()
     cbuilder = t.cbuilder(standalone=True)
     cbuilder.stackless = True
     cbuilder.generate_source()
-    cbuilder.compile() 
+    cbuilder.compile()
     return cbuilder.cmdexec('')
 
 def test_stack_unwind():
@@ -137,11 +147,10 @@ def test_stack_unwind():
     data = wrap_stackless_function(f)
     assert int(data.strip()) == 42
 
-    
 def test_auto_stack_unwind():
     def f(n):
         if n == 1:
-            return 1 
+            return 1
         return (n+f(n-1)) % 1291
 
     def fn():
