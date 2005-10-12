@@ -4,11 +4,11 @@ digraph lattice {
     Top -> "*instances*" -> Bottom;
     "*instances*" -> None;
     NullableStr -> None;
-    Top -> "*callables*" -> Bottom;
-    "*callables*" -> None;
+    Top -> "*PBCs*" -> Bottom;
+    "*PBCs*" -> None;
     Top -> "*lists*" -> None -> Bottom;
 
     "*lists*" [shape=box];
     "*instances*" [shape=box];
-    "*callables*" [shape=box];
+    "*PBCs*" [shape=box];
 }
