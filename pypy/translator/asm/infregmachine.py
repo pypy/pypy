@@ -1,3 +1,4 @@
+from pypy.translator.asm import regalloc
 
 class Instruction(object):
 
@@ -6,12 +7,15 @@ class Instruction(object):
         self.arguments = arguments
 
     def registers_used(self):
-        if self.name == 'LIA' or self.name == 'LOAD':
-            return [self.arguments[0]]
-        elif self.name in ('JT', 'JF', 'J'):
-            return []
-        else:
-            return list(self.arguments)
+        return [a for a in self.arguments if isinstance(a, int)]
+
+    def renumber(self, regmap):
+        def _(a):
+            if isinstance(a, int) and a in regmap:
+                return regmap[a]
+            else:
+                return a
+        return Instruction(self.name, map(_, self.arguments))
 
     def __repr__(self):
         if self.name == 'LIA':
@@ -20,10 +24,15 @@ class Instruction(object):
         elif self.name in ('JT', 'JF', 'J'):
             args = self.arguments[0]
         elif self.name == 'LOAD':
-            args = 'r%s, %s'%tuple(self.arguments)
+            args = 'r%s, #%s'%tuple(self.arguments)
         else:
-            args = ', '.join(['r%s'%a for a in self.arguments])
-        return '    %-10s %s'%(self.name, args)
+            def c(x):
+                if isinstance(x, int):
+                    return 'r%s'%x
+                else:
+                    return str(x)
+            args = ', '.join(map(c, self.arguments))
+        return '%-30s'%('    %-10s %s'%(self.name, args),)
 
 class Assembler(object):
     def __init__(self):
@@ -43,10 +52,11 @@ class Assembler(object):
 
     def allocate_registers(self, nregisters):
         r = FiniteRegisterAssembler(nregisters)
-        for i in self.instructions:
-            if not isinstance(i, str): # labels
-                assert max(i.registers_used() + [0]) < nregisters
-            r.instructions.append(i)
+        r.instructions = regalloc.regalloc(self.instructions, nregisters)
+#        for i in r.instructions:
+#            if not isinstance(i, str): # labels
+#                assert max(i.registers_used() + [0]) < nregisters
+        r.dump()
         return r
 
 class FiniteRegisterAssembler(Assembler):
@@ -68,9 +78,10 @@ class FiniteRegisterAssembler(Assembler):
         return A
 
     def LIA(self, A, dest, argindex):
-        assert dest + 2 == argindex + 3
+        assert dest + 2 == argindex.value + 3
 
     def LOAD(self, A, dest, value):
+        value = value.value
         assert isinstance(value, int)
         assert -30000 < value < 30000
         A.li(dest + 2, value)
@@ -104,3 +115,8 @@ class FiniteRegisterAssembler(Assembler):
 
     def MOV(self, A, dest, src):
         A.mr(dest + 2, src + 2)
+
+    def EXCH(self, A, a, b):
+        A.xor(a, a, b)
+        A.xor(b, b, a)
+        A.xor(a, a, b)

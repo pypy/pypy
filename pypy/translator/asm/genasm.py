@@ -49,7 +49,7 @@ def genasm(translator):
     g = FuncGenerator(graph)
     g.gencode()
 #    g.assembler.dump()
-    finreg = g.assembler.allocate_registers(30)
+#    finreg = g.assembler.allocate_registers(5)
 
     return make_func(finreg.assemble(), 'i', 'i'*len(graph.startblock.inputargs))
 
@@ -71,7 +71,7 @@ class FuncGenerator(object):
         self.assembler = infregmachine.Assembler()
 
         for i, var in enumerate(graph.startblock.inputargs):
-            self.emit('LIA', self.reg(var), i)
+            self.emit('LIA', self.reg(var), Constant(i))
 
     def assign_register(self, var):
         assert var not in self._var2reg
@@ -85,7 +85,7 @@ class FuncGenerator(object):
         if isinstance(var, Constant):
             r = self.next_register
             assert isinstance(var.value, int)
-            self.assembler.emit("LOAD", r, var.value)
+            self.assembler.emit("LOAD", r, var)
             self.next_register += 1
             return r
         elif isinstance(var, Variable):
