@@ -7,14 +7,14 @@ def load_arg(code, argi, typecode):
     code.lwz(rD, r4, 12 + 4*argi)
     if typecode == 'i':
         code.load_word(r0, lookup("PyInt_Type"))
-        code.lwz(r15, rD, 4) # XXX ick!
-        code.cmpw(r0, r15)
+        code.lwz(r31, rD, 4) # XXX ick!
+        code.cmpw(r0, r31)
         code.bne("argserror")
         code.lwz(rD, rD, 8)
     elif typecode == 'f':
         code.load_word(r0, lookup("PyFloat_Type"))
-        code.lwz(r15, rD, 4)
-        code.cmpw(r0, r15)
+        code.lwz(r31, rD, 4)
+        code.cmpw(r0, r31)
         code.bne("argserror")
         code.lfd(rD-2, rD, 8)
     elif typecode != "O":
