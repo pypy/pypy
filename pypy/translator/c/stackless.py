@@ -40,6 +40,9 @@ class StacklessData:
                 self.decode_table.append(('NULL', n))
 
     def get_frame_type(self, n_integers, n_floats, n_pointers):
+        """Return the frame struct name,
+        named after the number of saved variables of each kind 
+        """
         key = n_integers, n_floats, n_pointers
         try:
             return self.frame_types[key]
@@ -59,24 +62,25 @@ class StacklessData:
         for line in sg.preimpl:
             print >> fc, line
         print >> fc, '#include "src/g_include.h"'
+
         items = self.frame_types.items()
         items.sort()
         for (n_integers, n_floats, n_pointers), structname in items:
-            types = (['long']*n_integers +
-                     ['double']*n_floats +
-                     ['void *']*n_pointers)
-            varnames = (['l%d' % i for i in range(n_integers)] +
-                        ['d%d' % i for i in range(n_floats)] +
-                        ['v%d' % i for i in range(n_pointers)])
+            varnames = ([('long',   'l%d' % i) for i in range(n_integers)] +
+                        [('double', 'd%d' % i) for i in range(n_floats)] +
+                        [('void *', 'v%d' % i) for i in range(n_pointers)])
+
+            # generate the struct definition
             fields = []
-            for type, varname in zip(types, varnames):
+            for type, varname in varnames:
                 fields.append('%s %s;' % (type, varname))
             print >> fi, 'struct %s { slp_frame_t header; %s };' % (
                 structname, ' '.join(fields))
 
+            # generate the 'save_' function
             arguments = ['int state']
             saving_lines = []
-            for type, varname in zip(types, varnames):
+            for type, varname in varnames:
                 arguments.append('%s %s' % (type, varname))
                 saving_lines.append('((struct %s*) f)->%s = %s;' % (
                     structname, varname, varname))
@@ -112,7 +116,7 @@ class StacklessData:
             functiontype = sg.database.gettype(lltype.Ptr(FUNC))
             callexpr = '((%s) fn) (%s);' % (cdecl(functiontype, ''),
                                             ', '.join(dummyargs))
-            globalretvalvartype = simplified_type(FUNC.RESULT)
+            globalretvalvartype = storage_type(FUNC.RESULT)
             if globalretvalvartype is not None:
                 globalretvalvarname = RETVALVARS[globalretvalvartype]
                 callexpr = '%s = (%s) %s' % (globalretvalvarname,
@@ -165,11 +169,11 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
             # record extra data needed to generate the slp_*.h tables:
             # find the signatures of all functions
             slpdata = self.db.stacklessdata
-            argtypes = [erase_ptr_type(v.concretetype)
+            argtypes = [signature_type(v.concretetype)
                         for v in self.graph.getargs()]
             argtypes = [T for T in argtypes if T is not lltype.Void]
             import sys
-            rettype = erase_ptr_type(self.graph.getreturnvar().concretetype)
+            rettype = signature_type(self.graph.getreturnvar().concretetype)
             FUNC = lltype.FuncType(argtypes, rettype)
             slpdata.registerunwindable(self.functionname, FUNC,
                                        resume_points = len(self.resumeblocks))
@@ -189,7 +193,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
                   "void*":  []}
         variables_to_restore = []
         for v in vars:
-            st = simplified_type(erase_ptr_type(v.concretetype))
+            st = storage_type(v.concretetype)
             if st is not None:   # ignore the Voids
                 varname = self.expr(v)
                 # XXX hackish: the name of the field in the structure is
@@ -233,7 +237,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
                 varname, cdecl(vartype, ''), structname, fieldname))
         retvarname = self.expr(op.result)
         retvartype = self.lltypename(op.result)
-        retvarst = simplified_type(erase_ptr_type(op.result.concretetype))
+        retvarst = storage_type(op.result.concretetype)
         if retvarst is not None:
             globalretvalvarname = RETVALVARS[retvarst]
             lines.append('%s = (%s) %s;' % (
@@ -251,9 +255,10 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
                                        exception_check)
 
 
-def erase_ptr_type(T):
+def signature_type(T):
     """Return T unless it's a pointer type, in which case we return a general
     basic pointer type.
+    The returned type must have the same behaviour when put on the C stack.
     """
     if isinstance(T, lltype.Ptr):
         return Address
@@ -261,12 +266,14 @@ def erase_ptr_type(T):
         return T
 
 
-def simplified_type(T):
+def storage_type(T):
+    """Return the type, used to save values of this type
+    """
     if T is lltype.Void:
         return None
     elif T is lltype.Float:
         return "double"
-    elif T is Address:
+    elif T is Address or isinstance(T, lltype.Ptr):
         return "void*"
     elif isinstance(T, lltype.Primitive):
         return "long"   # large enough for all other primitives
