@@ -41,6 +41,8 @@
 #  include "src/ll_stackless.h"
 #endif
 
+#include "src/stack.h"
+
 #ifdef PYPY_STANDALONE
 #  include "src/main.h"
 #endif

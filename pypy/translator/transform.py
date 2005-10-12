@@ -14,7 +14,7 @@ from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.annrpython import CannotSimplify
 from pypy.annotation import model as annmodel
 from pypy.annotation.specialize import MemoTable
-from pypy.rpython.objectmodel import auto_stack_unwind
+from pypy.rpython.objectmodel import stack_check
 
 def checkgraphs(self, blocks):
     seen = {}
@@ -202,13 +202,13 @@ def insert_stackcheck(ann):
             _, caller_block, _ = call_tag
         else:
             ann.warning("cycle detected but no information on where to insert "
-                        "auto_stack_unwind()")
+                        "stack_check()")
             continue
-        # caller block found, insert auto_stack_unwind()
+        # caller block found, insert stack_check()
         v = Variable()
         # push annotation on v
         ann.setbinding(v, annmodel.SomeImpossibleValue())
-        unwind_op = SpaceOperation('simple_call', [Constant(auto_stack_unwind)], v)
+        unwind_op = SpaceOperation('simple_call', [Constant(stack_check)], v)
         caller_block.operations.insert(0, unwind_op)
 
 default_extra_passes = [

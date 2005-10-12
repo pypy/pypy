@@ -209,8 +209,9 @@ declare(ros.environ, strnullannotation, 'll_os/environ')
 # stackless
 from pypy.rpython import objectmodel
 declare(objectmodel.stack_frames_depth, int, 'll_stackless/stack_frames_depth')
-declare(objectmodel.stack_too_big, bool, 'll_stackless/stack_too_big')
-declare(objectmodel.auto_stack_unwind, noneannotation, 'll_stackless/auto_stack_unwind')
+declare(objectmodel.stack_too_big, bool, 'll_stack/too_big')
+declare(objectmodel.stack_check, noneannotation, 'll_stack/check')
+declare(objectmodel.stack_unwind, noneannotation, 'll_stack/unwind')
 
 # ___________________________________________________________
 # the exceptions that can be implicitely raised by some operations
@@ -226,4 +227,5 @@ standardexceptions = {
     KeyError         : True,
     IndexError       : True,
     AssertionError   : True,
+    RuntimeError     : True,
     }

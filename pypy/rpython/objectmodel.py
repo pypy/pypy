@@ -47,9 +47,13 @@ def stack_frames_depth():
 def stack_too_big():
     return False
 
-def auto_stack_unwind():
+def stack_check():
     if stack_too_big():
+        # stack_unwind implementation is different depending on if stackless
+        # is enabled. If it is it unwinds the stack, otherwise it simply
+        # raises a RuntimeError.
         stack_unwind()
+
 # ____________________________________________________________
 
 
