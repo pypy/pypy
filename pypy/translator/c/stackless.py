@@ -11,7 +11,6 @@ from pypy.rpython.memory.lladdress import Address
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 
-
 class StacklessData:
 
     def __init__(self):
@@ -39,15 +38,17 @@ class StacklessData:
             for n in range(1, resume_points):
                 self.decode_table.append(('NULL', n))
 
-    def get_frame_type(self, n_integers, n_floats, n_pointers):
+    def get_frame_type(self, counts):
         """Return the frame struct name,
-        named after the number of saved variables of each kind 
+        named after the number of saved variables of each kind.
+        counts is a sequence of numbers, ordered like STATE_TYPES
         """
-        key = n_integers, n_floats, n_pointers
+        key = tuple(counts)
         try:
             return self.frame_types[key]
         except KeyError:
-            name = 'slp_frame_%d_%d_%d_s' % key
+            nums = "_".join([str(c) for c in key])
+            name = 'slp_frame_%s_s' % nums
             self.frame_types[key] = name
             return name
 
@@ -65,10 +66,11 @@ class StacklessData:
 
         items = self.frame_types.items()
         items.sort()
-        for (n_integers, n_floats, n_pointers), structname in items:
-            varnames = ([('long',   'l%d' % i) for i in range(n_integers)] +
-                        [('double', 'd%d' % i) for i in range(n_floats)] +
-                        [('void *', 'v%d' % i) for i in range(n_pointers)])
+        for counts, structname in items:
+            varnames = []
+            for count, vartype in zip(counts, STATE_TYPES):
+                varnames.extend([(vartype.ctype, '%s%d' % (vartype.prefix, i))
+                                 for i in range(count)])
 
             # generate the struct definition
             fields = []
@@ -118,9 +120,8 @@ class StacklessData:
                                             ', '.join(dummyargs))
             globalretvalvartype = storage_type(FUNC.RESULT)
             if globalretvalvartype is not None:
-                globalretvalvarname = RETVALVARS[globalretvalvartype]
-                callexpr = '%s = (%s) %s' % (globalretvalvarname,
-                                             globalretvalvartype,
+                callexpr = '%s = (%s) %s' % (globalretvalvartype.global_name,
+                                             globalretvalvartype.ctype,
                                              callexpr)
             print >> fi, '\t' + callexpr
             print >> fi, '\tbreak;'
@@ -172,7 +173,6 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
             argtypes = [signature_type(v.concretetype)
                         for v in self.graph.getargs()]
             argtypes = [T for T in argtypes if T is not lltype.Void]
-            import sys
             rettype = signature_type(self.graph.getreturnvar().concretetype)
             FUNC = lltype.FuncType(argtypes, rettype)
             slpdata.registerunwindable(self.functionname, FUNC,
@@ -188,33 +188,29 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         vars = list(variables_to_save_across_op(block, curpos))
 
         # get the simplified frame struct that can store these vars
-        counts = {"long":   [],
-                  "double": [],
-                  "void*":  []}
+        counts = dict([(type, []) for type in STATE_TYPES])
         variables_to_restore = []
         for v in vars:
             st = storage_type(v.concretetype)
             if st is not None:   # ignore the Voids
                 varname = self.expr(v)
-                # XXX hackish: the name of the field in the structure is
-                # computed from the 1st letter of the 'st' type, counting
-                # from 0 for each of the 'st' types independently
+                # The name of the field in the structure is computed from
+                # the prefix of the 'st' type, counting from 0 for each
+                # of the 'st' types independently
                 variables_to_restore.append((v, '%s%d' % (
-                    st[0], len(counts[st]))))
-                counts[st].append('(%s)%s' % (st, varname))
-        structname = stacklessdata.get_frame_type(len(counts["long"]),
-                                                  len(counts["double"]),
-                                                  len(counts["void*"]))
+                    st.prefix, len(counts[st]))))
+                counts[st].append('(%s)%s' % (st.ctype, varname))
+        structname = stacklessdata.get_frame_type([len(counts[st]) for st in STATE_TYPES])
 
         # reorder the vars according to their type
-        vars = counts["long"] + counts["double"] + counts["void*"]
+        vars = sum([counts[st] for st in STATE_TYPES],[])
 
         # generate the 'save:' line, e.g.
         #      save_0: return (int) save_frame_1(0, (long) n);
         savelabel = 'save_%d' % len(self.savelines)
 
-        # Find the globally unique number for our state.
-        # It is the total number of saved states so far
+        # The globally unique number for our state
+        # is the total number of saved states so far
         globalstatecounter = len(stacklessdata.decode_table) + len(self.savelines)
         
         arguments = ['%d' % globalstatecounter] + vars
@@ -239,7 +235,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         retvartype = self.lltypename(op.result)
         retvarst = storage_type(op.result.concretetype)
         if retvarst is not None:
-            globalretvalvarname = RETVALVARS[retvarst]
+            globalretvalvarname = retvarst.global_name
             lines.append('%s = (%s) %s;' % (
                 retvarname, cdecl(retvartype, ''), globalretvalvarname))
         lines.append('goto %s;' % (resumelabel,))
@@ -266,26 +262,31 @@ def signature_type(T):
         return T
 
 
+class StateVariableType:
+    def __init__(self, ctype, prefix, global_name):
+        self.ctype = ctype
+        self.prefix = prefix
+        self.global_name = global_name
+
+STATE_TYPES = [
+    StateVariableType('long',   'l', 'slp_retval_long'),
+    StateVariableType('void*',  'p', 'slp_retval_voidptr'),
+    StateVariableType('double', 'd', 'slp_retval_double'),
+    ]
+
 def storage_type(T):
-    """Return the type, used to save values of this type
+    """Return the type used to save values of this type
     """
     if T is lltype.Void:
         return None
     elif T is lltype.Float:
-        return "double"
+        return STATE_TYPES[ 2 ]
     elif T is Address or isinstance(T, lltype.Ptr):
-        return "void*"
+        return STATE_TYPES[ 1 ]
     elif isinstance(T, lltype.Primitive):
-        return "long"   # large enough for all other primitives
+        return STATE_TYPES[ 0 ] # long is large enough for all other primitives
     else:
         raise Exception("don't know about %r" % (T,))
-
-RETVALVARS = {
-    "double": "slp_retval_double",
-    "long"  : "slp_retval_long",
-    "void*" : "slp_retval_voidptr",
-    }
-
 
 def variables_to_save_across_op(block, opindex):
     # variable lifetime detection:
