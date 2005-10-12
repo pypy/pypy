@@ -256,6 +256,7 @@ class Variable(object):
                 name = '_' + name
             name = self.namesdict.setdefault(name, (name, 0))[0]
         self._name = name
+        self._nr = -1
 
     def set_name_from(self, v):
         # this is for SSI_to_SSA only which should not know about internals
