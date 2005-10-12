@@ -1,4 +1,5 @@
 from pypy.translator.translator import Translator
+from pypy.rpython.rarithmetic import ovfcheck
 import py
 import os
 
@@ -109,6 +110,17 @@ class TestAsm(object):
         for i in range(-20, 20):
             assert g(i) == f(i)
 
+    def dont_test_overflow(self):
+        def f(x=int, y=int):
+            try:
+                return ovfcheck(x*y)
+            except OverflowError:
+                return 0
+        g = self.getcompiled(f, view=True)
+        assert f(3, 4) == g(3, 4)
+        big = 1000000000
+        assert f(big, big) == g(big, big)
+        
 class TestAsmPPC(TestAsm):
 
     processor = 'ppc'
