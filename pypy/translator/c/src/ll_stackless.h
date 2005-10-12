@@ -156,5 +156,5 @@ int slp_standalone_entry_point(RPyListOfString *argv)
 
 #endif /* PYPY_NOT_MAIN_FILE */
 
-#endif USE_STACKLESS
+#endif /* USE_STACKLESS */
 

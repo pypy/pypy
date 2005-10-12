@@ -24,6 +24,7 @@ from pypy.rpython.lltype import FuncType, functionptr, typeOf, RuntimeTypeInfo
 from pypy.rpython.lltype import attachRuntimeTypeInfo, Primitive
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
+from pypy.translator.transform import insert_stackcheck
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.rmodel import TyperError, BrokenReprTyperError
 from pypy.rpython.rmodel import getfunctionptr, warning
@@ -109,7 +110,9 @@ class RPythonTyper:
         self.crash_on_first_typeerror = crash_on_first_typeerror
         # specialize depends on annotator simplifications
         if not dont_simplify_again:
+            insert_stackcheck(self.annotator)
             self.annotator.simplify()
+            
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
         perform_normalizations(self)

@@ -166,14 +166,3 @@ class TestAnnotatedTestCase:
         fn = self.getcompiled(f)
         assert fn(-4.5) == 92.125
         assert fn(4.5) == 90.125
-
-    def test_recursion_detection(self):
-        def f(n=int, accum=int):
-            if n == 0:
-                return accum
-            else:
-                return f(n-1, accum*n)
-        fn = self.getcompiled(f)
-        assert fn(7, 1) == 5040
-        py.test.skip("recursion detection: in-progress")
-        py.test.raises(RuntimeError, fn, -1, 0)

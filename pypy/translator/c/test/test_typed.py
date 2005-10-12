@@ -1,5 +1,6 @@
 import autopath
 import sys
+import py
 from py.test import raises
 from pypy.translator.translator import Translator
 from pypy.translator.test import snippet 
@@ -398,3 +399,13 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         f = self.getcompiled(fn)
         for args in [2, 7, 0], [7, 2, 0], [10, 50, 7], [50, -10, -3]:
             assert f(*args) == intmask(fn(*args))
+
+    def test_recursion_detection(self):
+        def f(n=int, accum=int):
+            if n == 0:
+                return accum
+            else:
+                return f(n-1, accum*n)
+        fn = self.getcompiled(f)
+        assert fn(7, 1) == 5040
+        py.test.raises(RuntimeError, fn, -1, 0)
