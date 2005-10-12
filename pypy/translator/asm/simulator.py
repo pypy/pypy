@@ -11,6 +11,8 @@ class Machine:
         machine=Machine(nreg,args)
         machine._tracing = tracing
         ip=0
+        if tracing:
+            print 'args', args
         while not machine.stopped():
             if ip>=len(commands):
                 return None
@@ -27,6 +29,8 @@ class Machine:
             else:
                 machine.op(cmd.name,*cmd.arguments)
             ip+=1
+        if tracing:
+            print 'ret', machine._retval
         return machine._retval
     RunProgram=classmethod(RunProgram)
 
@@ -87,6 +91,9 @@ class Machine:
 
     def int_gt(self,rega,regb):
         self._creg = self.register(rega) > self.register(regb)
+
+    def int_lt(self,rega,regb):
+        self._creg = self.register(rega) < self.register(regb)
 
     def llop(self, opcode, destination, *sources):
         sourcevalues = []
