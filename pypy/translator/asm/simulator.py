@@ -157,7 +157,7 @@ class Machine:
                     args.append('r%s=%s'%(arg, self._registers[arg]))
                 else:
                     args.append(arg)
-            #print opcode, ', '.join(map(str, args))
+            print opcode, ', '.join(map(str, args))
             #will want to trap later to defer unimplemented to the LLInterpreter...
         m = getattr(self,opcode,None)
         if m is not None:

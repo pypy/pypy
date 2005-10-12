@@ -2,7 +2,7 @@ import sys, os
 from pypy.objspace.flow.model import traverse, Block, Variable, Constant
 from pypy.translator.asm import infregmachine
 from pypy.rpython.lltype import Signed
-from pypy.translator.asm.simulator import Machine
+from pypy.translator.asm.simulator import Machine, TranslateProgram
 
 #Available Machine code targets (processor+operating system)
 TARGET_UNKNOWN=0
@@ -53,6 +53,16 @@ def genasm(translator, processor):
     if processor == 'virt':
         def r(*args):
             return Machine.RunProgram(g.assembler.instructions,
+                                      args,
+                                      tracing=True)
+
+        return r
+    elif processor == 'virtfinite':
+        insns = TranslateProgram(g.assembler.instructions, 50)
+        for i in insns:
+            print i
+        def r(*args):
+            return Machine.RunProgram(insns,
                                       args,
                                       tracing=True)
 

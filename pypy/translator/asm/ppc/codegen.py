@@ -1,4 +1,5 @@
 
+
 def make_native_code(graph, infreginsns):
     from pypy.translator.asm.ppcgen.func_builder import make_func
     maxregs = 0
@@ -8,9 +9,11 @@ def make_native_code(graph, infreginsns):
         for r in insn.registers_used():
             maxregs = max(r, maxregs)
     
-    from pypy.translator.asm import regalloc
+    from pypy.translator.asm import regalloc, simulator
 
     insns = regalloc.regalloc(infreginsns, 30)
+
+    #insns = simulator.TranslateProgram(infreginsns, 5)
 
     codegen = PPCCodeGen()
 
