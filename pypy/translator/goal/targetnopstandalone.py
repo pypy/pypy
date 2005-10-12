@@ -1,5 +1,4 @@
 import os, sys
-from pypy.translator.test.snippet import sieve_of_eratosthenes as soe
 
 def debug(msg): 
     os.write(2, "debug: " + msg + '\n')
@@ -8,8 +7,8 @@ def debug(msg):
 # __________  Entry point  __________
 
 def entry_point(argv):
-    count = soe()
-    return count
+    debug("hello world")
+    return 0
 
 # _____ Define and setup target ___
 
