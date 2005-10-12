@@ -54,7 +54,6 @@ def genasm(translator, processor):
         def r(*args):
             return Machine.RunProgram(g.assembler.instructions,
                                       args,
-                                      1000,
                                       tracing=True)
 
         return r
