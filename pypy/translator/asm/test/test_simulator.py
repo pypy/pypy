@@ -1,5 +1,8 @@
+import random
 import autopath
-from pypy.translator.asm.simulator import Machine
+
+
+from pypy.translator.asm.simulator import Machine,TranslateProgram
 from pypy.objspace.flow.model import Constant
 from pypy.translator.asm.infregmachine import Instruction
 
@@ -63,7 +66,44 @@ def test_programs():
           Instruction('LIA', (3, Constant(2))),
           'label',
           Instruction('RETPYTHON', (3,))]
-    
+
     assert Machine.RunProgram(prog, [1,2,3]) == 3
     assert Machine.RunProgram(prog, [2,1,3]) == 77
+
+
+#now we want to test our translation system.
+#we create a random program, and demonstrate that the results are the same in translated and untranslated form
+
+
+
+def test_translation(n=10,runs=20,size=50):
+    random.seed(1001) #ensure we get the same tests each time
+    def r():
+        return random.randint(1,n)
+
+    for x in range(runs):
+        prog=[]
+        for v in range(1,n+1):
+            prog.append(Instruction('LOAD',(v,Constant(v*10))))
+        for v in range(size):
+            prog.append(Instruction('EXCH',(r(),r())))
+            prog.append(Instruction('MOV',(r(),r())))
+            prog.append(Instruction('int_add',(r(),r(),r())))
+
+        prog.append('foo')
+        for exitreg in range(1,n+1):
+            prog[-1]=Instruction('RETPYTHON',(exitreg,))
+            assert Machine.RunProgram(prog)==Machine.RunProgram(TranslateProgram(prog,nreg=3))
+
+
+def test_zeroRegisterAbuse():
+    try:
+        Machine.RunProgram([Instruction('MOV',(0,0))])
+    except AssertionError:
+        pass
+    else:
+        assert False, "should not get here"
+
+
+
 
