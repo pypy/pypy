@@ -22,7 +22,7 @@ class FuncTypeNode(LLVMNode):
         self.db = db
         assert isinstance(type_, lltype.FuncType)
         self.type_ = type_
-        self.ref = self.make_ref('%functiontype', '')
+        self.ref = self.make_ref('functiontype', '')
  
     def __str__(self):
         return "<FuncTypeNode %r>" % self.ref

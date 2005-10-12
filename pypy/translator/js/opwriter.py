@@ -212,7 +212,7 @@ class OpWriter(object):
         targettype = self.db.repr_arg_type(op.result)
         fromvar = self.db.repr_arg(op.args[0])
         fromtype = self.db.repr_arg_type(op.args[0])
-        self.codewriter.comment(op.opname)
+        self.codewriter.comment('next line='+op.opname)
         self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
     same_as = cast_primitive
 
@@ -412,9 +412,11 @@ class OpWriter(object):
         targettype = self.db.repr_arg_type(op.result)
         if targettype != "void":
             assert index != -1
-            self.codewriter.getelementptr(tmpvar, structtype, struct,
-                                          ("uint", index))        
-            self.codewriter.load(targetvar, targettype, tmpvar)
+            #self.codewriter.getelementptr(tmpvar, structtype, struct,
+            #                              ("uint", index))        
+            #self.codewriter.load(targetvar, targettype, tmpvar)
+            self.codewriter.comment('XXX getfield')
+            self.codewriter.load(targetvar, struct, (index,))
         else:
             self._skipped(op)
  
@@ -433,9 +435,11 @@ class OpWriter(object):
         index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
         valuevar, valuetype = self.db.repr_argwithtype(op.args[2])
         if valuetype != "void": 
-            self.codewriter.getelementptr(tmpvar, structtype, struct,
-                                          ("uint", index))
-            self.codewriter.store(valuetype, valuevar, tmpvar) 
+            #self.codewriter.getelementptr(tmpvar, structtype, struct,
+            #                              ("uint", index))
+            #self.codewriter.store(valuetype, valuevar, tmpvar) 
+            self.codewriter.comment('XXX setfield')
+            self.codewriter.store(struct, (index,), valuevar) 
         else:
             self._skipped(op)
             
