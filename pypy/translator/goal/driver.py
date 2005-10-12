@@ -16,6 +16,7 @@ py.log.setconsumer("translation", ansi_log)
 
 DEFAULT_OPTIONS = optparse.Values(defaults={
   'gc': 'ref',
+  'stackless': False,
   'debug': True,
   'insist': False,
   'backend': 'c',
@@ -189,6 +190,7 @@ class TranslationDriver(SimpleTaskEngine):
             gcpolicy = gc.NoneGcPolicy
 
         cbuilder = translator.cbuilder(standalone=standalone, gcpolicy=gcpolicy)
+        cbuilder.stackless = opt.stackless
         c_source_filename = cbuilder.generate_source()
         self.log.info("written: %s" % (c_source_filename,))
         self.cbuilder = cbuilder

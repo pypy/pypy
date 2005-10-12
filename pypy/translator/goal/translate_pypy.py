@@ -49,6 +49,7 @@ opts = {
     '1_backend': [OPT(('-b', '--backend'), "Backend", ['c', 'llvm'])],
 
     '2_gc': [OPT(('--gc',), "Garbage collector", ['boehm', 'ref', 'none'])],
+    '3_stackless': [OPT(('--stackless',), "Stackless code generation", True)],
     },
 
 
@@ -97,6 +98,7 @@ defaults = {
 
     'gc': 'boehm',
     'backend': 'c',
+    'stackless': False,
     
     'batch': False,
     'text': False,
