@@ -472,6 +472,17 @@ def test_int():
                 res = interpret(fn, [i, j])
                 assert res == expected
 
+def test_int_valueerror():
+    s1 = ['42g', '?']
+    def fn(i):
+        try:
+            return int(s1[i])
+        except ValueError:
+            return -654
+    res = interpret(fn, [0])
+    assert res == -654
+    res = interpret(fn, [1])
+    assert res == -654
 
 def test_char_mul_n():
     def f(c, n):

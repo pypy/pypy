@@ -267,7 +267,7 @@ class TestFlowObjSpace:
     def implicitException_int_and_id(x):
         try:
             return int(x) + id(x)
-        except ValueError:   # not captured by the flow graph!
+        except TypeError:   # not captured by the flow graph!
             return 0
 
     def test_implicitException_int_and_id(self):

@@ -395,7 +395,7 @@ class FlowObjSpace(ObjSpace):
                                    types.ClassType,
                                    types.TypeType)) and
                       c.__module__ in ['__builtin__', 'exceptions']):
-                    exceptions = None
+                    exceptions = implicit_exceptions.get(c, None)
         self.handle_implicit_exceptions(exceptions)
         return w_res
 
@@ -434,7 +434,9 @@ for _name, _exc in(
     op_appendices[_exc] = _name
 del _name, _exc
 
-implicit_exceptions = {}
+implicit_exceptions = {
+    int: [ValueError],      # built-ins that can always raise exceptions
+    }
 
 def _add_exceptions(names, exc):
     for name in names.split():
