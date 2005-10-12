@@ -50,7 +50,6 @@ def maxRegister(commands):
 
 def TranslateProgram(commands,nreg):
     """answer this program into one which only uses nreg fast registers"""
-    totreg=max([max(cmd.registers_used()) for cmd in commands])
     totreg=maxRegister(commands)
     assert nreg>=3 ,'Some commands may use 3 registers!!!!'
     assert totreg>=nreg
