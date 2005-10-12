@@ -5,10 +5,10 @@ import os
 class TestAsm(object):
 
     def setup_class(cls):
-        if not hasattr(os, "uname") or os.uname()[-1] != 'Power Macintosh':
-            py.test.skip('asm generation only on PPC')
-        
-        cls.processor = 'ppc'
+        #if not hasattr(os, "uname") or os.uname()[-1] != 'Power Macintosh':
+        #    py.test.skip('asm generation only on PPC')
+        # 
+        #cls.processor = 'ppc'
 
     def getcompiled(self, func, view=False):
         t = Translator(func, simplifying=True)
@@ -44,8 +44,8 @@ class TestAsm(object):
                 return x + y - 42
         f = self.getcompiled(testfn)#, view=True)
 
-        assert f(2, 3) == testfn(2, 3)
         assert f(-2, 3) == testfn(-2, 3)
+        assert f(2, 5) == testfn(2, 5)
 
     def test_loop(self):
         def testfn(lim=int):
