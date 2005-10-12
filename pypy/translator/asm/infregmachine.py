@@ -1,4 +1,3 @@
-from pypy.translator.asm import regalloc
 
 class Instruction(object):
 
@@ -51,6 +50,7 @@ class Assembler(object):
             print i
 
     def allocate_registers(self, nregisters):
+        from pypy.translator.asm import regalloc
         r = FiniteRegisterAssembler(nregisters)
         r.instructions = regalloc.regalloc(self.instructions, nregisters)
 #        for i in r.instructions:
