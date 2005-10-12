@@ -127,6 +127,12 @@ class FiniteRegisterAssembler(Assembler):
         A.mr(dest + 2, src + 2)
 
     def EXCH(self, A, a, b):
-        A.xor(a, a, b)
-        A.xor(b, b, a)
-        A.xor(a, a, b)
+        A.xor(a+2, a+2, b+2)
+        A.xor(b+2, b+2, a+2)
+        A.xor(a+2, a+2, b+2)
+
+    def STORESTACK(self, A, s, v):
+        A.stw(v+2, 1, 24+4*s.value)
+
+    def LOADSTACK(self, A, v, s):
+        A.lwz(v+2, 1, 24+4*s.value)
