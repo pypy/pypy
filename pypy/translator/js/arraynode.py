@@ -156,9 +156,10 @@ class StrArrayNode(ArrayNode):
     def get_arrayvalue(self):
         items = self.value.items
         item_length = len(items)
-        if item_length == 0 or items[-1] != chr(0):
-            items = items + [chr(0)]
-            item_length += 1
+        #don't force null termination anymore!
+        #if item_length == 0 or items[-1] != chr(0):
+        #    items = items + [chr(0)]
+        #    item_length += 1
         s = []
         for c in items:
             if ord(c) in StrArrayNode.printables:

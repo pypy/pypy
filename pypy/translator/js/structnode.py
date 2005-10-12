@@ -83,7 +83,7 @@ class StructNode(ConstantLLVMNode):
         self.db = db
         self.value = value
         self.structtype = self.value._TYPE
-        prefix = 'structinstance.'
+        prefix = 'structinstance_'
         name = str(value).split()[1]
         self.ref = self.make_ref(prefix, name)
         self._get_ref_cache = None
@@ -152,7 +152,7 @@ class StructNode(ConstantLLVMNode):
             name = self._get_types[i][0]
             var  = (name, str(value))
             vars.append(var)
-        return "(%s)" % ", ".join(["{%s:%s}" % var for var in vars])
+        return "({%s})" % ", ".join(["%s:%s" % var for var in vars])
 
         #values = self._getvalues()
         #all_values = ",\n  ".join(values)
