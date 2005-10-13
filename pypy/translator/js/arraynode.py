@@ -109,21 +109,22 @@ class ArrayNode(ConstantLLVMNode):
         return "{ int, [%s x %s] }" % (arraylen, typeval)
 
     def get_ref(self):
+        return self.ref
         #typeval = self.db.repr_type(lltype.typeOf(self.value))
         #ref = "cast (%s* %s to %s*)" % (self.get_typerepr(), self.ref, typeval)
-        p, c = lltype.parentlink(self.value)
-        assert p is None, "child arrays are NOT needed by rtyper"
+        #p, c = lltype.parentlink(self.value)
+        #assert p is None, "child arrays are NOT needed by rtyper"
         #return ref
-        return self.ref
 
     def get_pbcref(self, toptr):
-        ref = self.ref
-        p, c = lltype.parentlink(self.value)
-        assert p is None, "child arrays are NOT needed by rtyper"
-
-        fromptr = "%s*" % self.get_typerepr()
-        ref = "cast(%s %s to %s)" % (fromptr, ref, toptr)
-        return ref
+        return self.ref
+        #ref = self.ref
+        #p, c = lltype.parentlink(self.value)
+        #assert p is None, "child arrays are NOT needed by rtyper"
+        #
+        #fromptr = "%s*" % self.get_typerepr()
+        #ref = "cast(%s %s to %s)" % (fromptr, ref, toptr)
+        #return ref
 
     def get_childref(self, index):
         return "getelementptr(%s* %s, int 0, uint 1, int %s)" %(

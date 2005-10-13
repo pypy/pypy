@@ -213,7 +213,7 @@ class Database(object):
         return self.obj2node.itervalues()
         
     # __________________________________________________________
-    # Representing variables and constants in LLVM source code 
+    # Representing variables and constants in Javascript source code 
 
     def repr_arg(self, arg):
         if isinstance(arg, Constant):

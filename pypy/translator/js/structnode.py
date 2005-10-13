@@ -211,22 +211,24 @@ class StructVarsizeNode(StructNode):
                 return result
          
     def get_ref(self):
-        if self._get_ref_cache:
-            return self._get_ref_cache
-        ref = super(StructVarsizeNode, self).get_ref()
-        typeval = self.db.repr_type(lltype.typeOf(self.value))
-        ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
-                                        ref,
-                                        typeval)
-        self._get_ref_cache = ref
-        return ref
+        return self.ref
+        #if self._get_ref_cache:
+        #    return self._get_ref_cache
+        #ref = super(StructVarsizeNode, self).get_ref()
+        #typeval = self.db.repr_type(lltype.typeOf(self.value))
+        #ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
+        #                                ref,
+        #                                typeval)
+        #self._get_ref_cache = ref
+        #return ref
     
     def get_pbcref(self, toptr):
         """ Returns a reference as used per pbc. """        
-        ref = self.ref
-        p, c = lltype.parentlink(self.value)
-        assert p is None, "child arrays are NOT needed by rtyper"
-        fromptr = "%s*" % self.get_typerepr()
-        refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
-        ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
-        return ref
+        return self.ref
+        #ref = self.ref
+        #p, c = lltype.parentlink(self.value)
+        #assert p is None, "child arrays are NOT needed by rtyper"
+        #fromptr = "%s*" % self.get_typerepr()
+        #refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
+        #ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
+        #return ref

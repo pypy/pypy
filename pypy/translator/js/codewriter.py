@@ -82,7 +82,8 @@ class CodeWriter(object):
         #self.comment('target.inputargs=%s, args=%s, targetblock=%d' % (exit.target.inputargs, exit.args, targetblock), indentation_level)
         for i, exitarg in enumerate(exit.args):
             dest = str(exit.target.inputargs[i])
-            src = str(exitarg)
+            #src = str(exitarg)
+            src = str(self.js.db.repr_arg(exitarg))
             if src == 'False':
                 src = 'false'
             elif src == 'True':

@@ -407,39 +407,27 @@ class OpWriter(object):
     def getfield(self, op): 
         tmpvar = self.db.repr_tmpvar()
         struct, structtype = self.db.repr_argwithtype(op.args[0])
-        index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
         targetvar = self.db.repr_arg(op.result)
         targettype = self.db.repr_arg_type(op.result)
         if targettype != "void":
-            assert index != -1
-            #self.codewriter.getelementptr(tmpvar, structtype, struct,
-            #                              ("uint", index))        
-            #self.codewriter.load(targetvar, targettype, tmpvar)
-            self.codewriter.comment('XXX getfield')
-            self.codewriter.load(targetvar, struct, (index,))
+            self.codewriter.append('%s = %s.%s' % (targetvar, struct, op.args[1].value)) #XXX move to codewriter
         else:
             self._skipped(op)
  
     def getsubstruct(self, op): 
         struct, structtype = self.db.repr_argwithtype(op.args[0])
-        index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
+        #index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
         targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        assert targettype != "void"
-        self.codewriter.getelementptr(targetvar, structtype, 
-                                      struct, ("uint", index))        
+        #targettype = self.db.repr_arg_type(op.result)
+        #assert targettype != "void"
+        self.codewriter.append('%s = %s.%s' % (targetvar, struct, op.args[1].value)) #XXX move to codewriter
+        #self.codewriter.getelementptr(targetvar, structtype, struct, ("uint", index))        
          
     def setfield(self, op): 
-        tmpvar = self.db.repr_tmpvar()
         struct, structtype = self.db.repr_argwithtype(op.args[0])
-        index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
         valuevar, valuetype = self.db.repr_argwithtype(op.args[2])
         if valuetype != "void": 
-            #self.codewriter.getelementptr(tmpvar, structtype, struct,
-            #                              ("uint", index))
-            #self.codewriter.store(valuetype, valuevar, tmpvar) 
-            self.codewriter.comment('XXX setfield')
-            self.codewriter.store(struct, (index,), valuevar) 
+            self.codewriter.append('%s.%s = %s' % (struct, op.args[1].value, valuevar)) #XXX move to codewriter
         else:
             self._skipped(op)
             
@@ -483,8 +471,9 @@ class OpWriter(object):
 
     def getarraysize(self, op):
         array, arraytype = self.db.repr_argwithtype(op.args[0])
-        tmpvar = self.db.repr_tmpvar()
-        self.codewriter.getelementptr(tmpvar, arraytype, array, ("uint", 0))
+        #tmpvar = self.db.repr_tmpvar()
+        #self.codewriter.getelementptr(tmpvar, arraytype, array, ("uint", 0))
         targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
-        self.codewriter.load(targetvar, targettype, tmpvar)
+        #targettype = self.db.repr_arg_type(op.result)
+        #self.codewriter.load(targetvar, targettype, tmpvar)
+        self.codewriter.append('%s = %s.length' % (targetvar, array)) #XXX move to codewriter
