@@ -1019,9 +1019,9 @@ families: the "frozen prebuilt constants" ones and the "prebuilt
 instances".  By default, instances of some user-defined class that
 happens to pre-exist annotation have no constantness requirement on
 their own; after annotation and possibly compilation, these instances
-will continue to behave as regular mutable instances of that class.
-These prebuilt instances are decribed in another section (`Constant
-annotations`_).  However, the user program can give a hint that forces
+will continue to behave as regular mutable instances of that class,
+turned into mostly regular ``Inst(C)`` annotations when the annotator
+encounters them.  However, the user program can give a hint that forces
 the annotator to consider the object as a "frozen prebuilt constant".
 The object is then considered as a now-immutable container of
 attributes.  It looses its object-oriented aspects and its class becomes
@@ -1071,15 +1071,15 @@ As the goal of annotator is to derive type information about the user
 program that is static enough, it must reconstruct a static structure
 for each class in the hierarchy.  It does so by observing the usage
 patterns of the classes and their instances, by propagating annotations
-of the form ``SomeInstance(cls)`` -- which stands for "an instance of
-the class *cls* or any subclass".  Instance fields are attached to a
-class whenever we see that the field is being written to an instance of
-this class.  If the user program manipulates instances polymorphically,
-the variables holding the instances will be annotated
-``SomeInstance(cls)`` with some abstract base class *cls*; accessing
-attributes on such generalized instances lifts the inferred attribute
-declarations up to *cls*.  The same technique works for inferring the
-location of both fields and methods.
+of the form ``Inst(cls)`` -- which stands for "an instance of the class
+*cls* or any subclass".  Instance fields are attached to a class
+whenever we see that the field is being written to an instance of this
+class.  If the user program manipulates instances polymorphically, the
+variables holding the instances will be annotated ``Inst(cls)`` with
+some abstract base class *cls*; accessing attributes on such generalized
+instances lifts the inferred attribute declarations up to *cls*.  The
+same technique works for inferring the location of both fields and
+methods.
 
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1121,120 +1121,74 @@ Formally::
                E' = E union (v_C.attr ~ v_D.attr)  for all D subclass of C
                merge_into(z, v_C.attr)
 
-The purpose of ``lookup_filter`` is to avoid loosing precision in method
-calls.  Indeed, as described more precisely in `Constant annotations`_
-below, if ``attr`` names a method of the class ``C`` then the binding
-``b(v_C.attr)`` is a ``Pbc`` that includes all the "potental bound
-method" objects ``D.f``, for each subclass ``D`` of ``C`` where a
-function ``f`` is present under the name ``attr``.
-
-XXX
-
-
-if ``attr`` is a method defined on XXX::
-
-    lookup_filter(Pbc(set), class) = Pbc(newset) where
-        we only keep in newset the non-methods, and the following methods:
-         * the ones bound to a strict subclass of 'class', and
-         * among the methods bound the 'class' or superclasses, only the
-             one from the most derived class.
-    lookup_filter(NonPbcAnnotation, class) = NonPbcAnnotation
-
 Note the similarity with the ``getitem`` and ``setitem`` of lists, in
 particular the usage of the auxiliary variable *z'*.
 
-XXX
+The purpose of ``lookup_filter`` is to avoid loosing precision in method
+calls.  Indeed, if ``attr`` names a method of the class ``C`` then the
+binding ``b(v_C.attr)`` is initialized to ``Pbc(m)``, where *m* is the
+following set:
+
+* for each subclass ``D`` of ``C``, if the class ``D`` introduces a method
+  ``attr`` implemented as, say, the function ``f``, then the "potential
+  bound method" object ``D.f`` belongs to *m*.
+
+However, because of the possible identification between the variable
+``v_C.attr`` and the corresponding variable ``v_B.attr`` of a
+superclass, the set *m* might end up containing potential bound methods
+of other unrelated subclasses of ``B``, even when performing a
+``getattr`` on what we know is an instance of ``C``.  The
+``lookup_filter`` reverses this effect as follows::
+
+    lookup_filter(Pbc(set), C) = Pbc(newset)
+    lookup_filter(NonPbcAnnotation, C) = NonPbcAnnotation
+
+where the *newset* only keeps the non-methods of *set* (if any) plus the
+following methods:
+
+* the ones bound to a strict subclass of ``C``, plus
+
+* among the methods bound to ``C`` or superclasses of ``C``, only the
+  one from the most derived class.
 
 
-Constant annotations
-~~~~~~~~~~~~~~~~~~~~
-
-XXX constant arguments to operations
-
-
-Draft
+Calls
 ~~~~~
 
-::
-
-    Char
-    
-    Inst(class)
-    
-    List(x)
-    
-    Dict(x, y)
-
-    Tup(ann_1, ..., ann_n)
-    
-    Pbc({... a finite set ...})
-    
-         with:   None
-                 f
-                 class
-                 class.f
-    
-    v_n = op(v_n1, ...) | v_n', v_n''
-    
-    v_class.attr
-    
-    v_n: Annotation
-
-    for each function f:
-        arg_f_1 ... arg_f_n
-        returnvar_f
-
-
-    E: eq rel on V
-    b: V->A
-    V: set of variables
-    A: fixed lattice of the above annotation terms
-
-
-         z=getattr(x,attr) | z', b(x)=Inst(A)
-      ---------------------------------------------------------------------
-               E' = E union (A.attr ~ A'.attr)  for all A' subclass of A
-               E' = E union (z' ~ A.attr)
-               b' = b with (z->lookup_filter(b(z'), A))
-
-
-         setattr(x,attr,z), b(x)=Inst(A)
-      ---------------------------------------------------------------------
-               assert b(z) is not a Pbc containing methods
-               E' = E union (A.attr ~ A'.attr)  for all A' subclass of A
-               merge_into(z, A.attr)
-
+The ``Pbc`` annotations regroup (among others) all user-defined callable
+objects: functions, methods and classes.  A call in the user program
+turns into a ``simplecall`` operation whose first argument is the object
+to call.  Here is the corresponding rule -- regrouping all cases because
+the same ``Pbc(set)`` could mix several kinds of callables::
 
          z=simplecall(x,y1,...,yn), b(x)=Pbc(set)
       ---------------------------------------------------------------------
            for each c in set:
                if c is a function:
-                   E' = E union (z~returnvar_c)
+                   E' = E union (z ~ returnvar_c)
                    merge_into(y1, arg_c_1)
                    ...
                    merge_into(yn, arg_c_n)
                if c is a class:
                    let f = c.__init__
-                   b' = b with (z->b(z)\/Inst(c))
-                   b' = b with (arg_f_1->b(arg_f_1)\/Inst(c))
+                   b' = b with (z -> b(z) \/ Inst(c))
+                           and (arg_f_1 -> b(arg_f_1) \/ Inst(c))
                    merge_into(y1, arg_f_2)
                    ...
                    merge_into(yn, arg_f_(n+1))
                if c is a method:
                    let class.f = c
-                   E' = E union (z~returnvar_f)
-                   b' = b with (arg_f_1->b(arg_f_1)\/Inst(class))
+                   E' = E union (z ~ returnvar_f)
+                   b' = b with (arg_f_1 -> b(arg_f_1) \/ Inst(class))
                    merge_into(y1, arg_f_2)
                    ...
                    merge_into(yn, arg_f_(n+1))
 
-
-    lookup_filter(Pbc(set), class) = Pbc(newset) where
-        we only keep in newset the non-methods, and the following methods:
-         * the ones bound to a strict subclass of 'class', and
-         * among the methods bound the 'class' or superclasses, only the
-             one from the most derived class.
-    lookup_filter(NonPbcAnnotation, class) = NonPbcAnnotation
+Calling a class returns an instance and flows the annotations into the
+contructor ``__init__`` of the class.  Calling a method inserts the
+instance annotation as the first argument of the underlying function
+(the annotation is exactly ``Inst(C)`` for the class ``C`` in which the
+method is found).
 
 
 Termination
@@ -1257,6 +1211,9 @@ show that a finite subset of the extended lattice suffices -- but it
 does not reflect any practical complexity considerations.  It is simpler
 to prove that there is no infinite ascending chain, which is enough to
 guarantee termination.
+
+Additionally, an important property of ``lookup_filter`` is to be
+monotonic: XXX
 
 
 Non-static aspects
