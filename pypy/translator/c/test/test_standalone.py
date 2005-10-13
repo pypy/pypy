@@ -1,6 +1,5 @@
 from pypy.translator.translator import Translator
 from pypy.translator.tool.cbuild import build_executable
-from pypy.translator.transform import insert_stackcheck
 from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 from pypy.rpython.objectmodel import stack_unwind, stack_frames_depth, stack_too_big
@@ -124,7 +123,7 @@ def test_stack_too_big():
 
 
 
-def wrap_stackless_function(fn, stackcheck=False):
+def wrap_stackless_function(fn):
     def entry_point(argv):
         os.write(1, str(fn())+"\n")
         return 0
@@ -155,5 +154,5 @@ def test_auto_stack_unwind():
 
     def fn():
         return f(10**6)
-    data = wrap_stackless_function(fn, stackcheck=True)
+    data = wrap_stackless_function(fn)
     assert int(data.strip()) == 704
