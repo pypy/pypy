@@ -35,6 +35,9 @@ from pypy.tool.pytest.result import Result, ResultFromMime
 
 Option = py.test.Config.Option 
 option = py.test.Config.addoptions("compliance testing options", 
+    Option('-C', '--compiled', action="store_true", 
+           default=False, dest="use_compiled", 
+           help="use a compiled version of pypy, expected in pypy/bin/pypy-c"),
     Option('-E', '--extracttests', action="store_true", 
            default=False, dest="extracttests", 
            help="try to extract single tests and run them via py.test/PyPy"), 
@@ -889,7 +892,14 @@ class ReallyRunFileExternal(py.test.Item):
         regrrun_verbosity = regrtest.getoutputpath() and '0' or '1'
         
         TIMEOUT = gettimeout()
-        cmd = "%s %s %d %s %s %s %s %s" %(
+        if option.use_compiled:
+            python = pypydir.join('bin', 'pypy-c')
+            cmd = "%s %s %s %s" %(
+                python, 
+                regrrun, regrrun_verbosity, fspath.purebasename)
+            print cmd
+        else:
+            cmd = "%s %s %d %s %s %s %s %s" %(
                 python, alarm_script, TIMEOUT, 
                 pypy_script, sopt, 
                 regrrun, regrrun_verbosity, fspath.purebasename)
@@ -952,9 +962,13 @@ class ReallyRunFileExternal(py.test.Item):
         cmd = self.getinvocation(regrtest) 
         result = Result()
         fspath = regrtest.getfspath() 
-        result['fspath'] = str(fspath)  
+        result['fspath'] = str(fspath) 
+        if option.use_compiled:
+            #Please fix this, breaks the report table
+            result['pypy-revision'] = '%s compiled' % getrev(pypydir)
+        else: 
+            result['pypy-revision'] = getrev(pypydir) 
         result['options'] = regrtest.getoptions() 
-        result['pypy-revision'] = getrev(pypydir) 
         result['timeout'] = gettimeout()
         result['startdate'] = time.ctime()
         starttime = time.time() 
@@ -980,6 +994,9 @@ class ReallyRunFileExternal(py.test.Item):
                     res, out, err = callcapture(reportdiff, expected, test_stdout)
                     outcome = 'ERROUT' 
                     result.addnamedtext('reportdiff', out)
+            else:
+                if 'FAIL' in test_stdout or 'ERROR' in test_stderr:
+                    outcome = 'FAIL'
         elif timedout: 
             outcome = "T/O"    
         else: 
