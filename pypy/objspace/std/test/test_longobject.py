@@ -409,3 +409,9 @@ class AppTestLong:
         raises(ValueError, math.log, 0) 
         raises(ValueError, math.log, -1) 
         raises(ValueError, math.log, -2) 
+
+    def test_long(self):
+        import sys
+        n = -sys.maxint-1
+        assert long(n) == n
+        assert str(long(n)) == str(n)

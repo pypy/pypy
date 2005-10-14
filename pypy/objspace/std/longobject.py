@@ -99,10 +99,10 @@ class W_LongObject(W_Object):
     def fromint(space, intval):
         if intval < 0:
             sign = -1
-            ival = -intval
+            ival = r_uint(-intval)
         elif intval > 0:
             sign = 1
-            ival = intval
+            ival = r_uint(intval)
         else:
             return W_LongObject(space, [0], 0)
         # Count the number of Python digits.
@@ -118,7 +118,7 @@ class W_LongObject(W_Object):
         t = ival
         p = 0
         while t:
-            v.digits[p] = t & MASK
+            v.digits[p] = intmask(t & MASK)
             t >>= SHIFT
             p += 1
         return v
