@@ -148,17 +148,32 @@ def test_getaddrinfo():
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
-    w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port), space.wrap(0)],
-                        """(_socket, host, port, family):
-                            try:
-                                return _socket.getaddrinfo(host, port, family)
-                            except TypeError: # arguments are missing
-                                return [1]
-                        """)
-    assert space.unwrap(w_l) == [1]
     py.test.skip("Too long...")
     w_l = space.appexec([w_socket, space.wrap(unicode(host)), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
+    
+def test_getnameinfo():
+    host = "localhost"
+    port = 25
+    info = socket.getnameinfo((host, port), 0)
+    w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
+                        "(_socket, host, port): return _socket.getnameinfo((host, port), 0)")
+    assert space.unwrap(w_l) == info
+
+def test_timeout():
+    space.appexec([w_socket, space.wrap(25.4)],
+                  "(_socket, timeout): _socket.setdefaulttimeout(timeout)")
+    w_t = space.appexec([w_socket],
+                  "(_socket): return _socket.getdefaulttimeout()")
+    assert space.unwrap(w_t) == 25.4
+
+    space.appexec([w_socket, space.w_None],
+                  "(_socket, timeout): _socket.setdefaulttimeout(timeout)")
+    w_t = space.appexec([w_socket],
+                  "(_socket): return _socket.getdefaulttimeout()")
+    assert space.unwrap(w_t) is None
+    
+    
     
     

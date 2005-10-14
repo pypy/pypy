@@ -171,9 +171,7 @@ def inet_ntop(space, af, packed):
     return space.wrap(socket.inet_ntop(af, packed))
 inet_ntop.unwrap_spec = [ObjSpace, int, str]
 
-def getaddrinfo(space, w_host, w_port, w_family=NoneNotWrapped,
-                w_socktype=None, w_proto=None,
-                w_flags=None):
+def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
     """getaddrinfo(host, port [, family, socktype, proto, flags])
         -> list of (family, socktype, proto, canonname, sockaddr)
 
@@ -188,18 +186,35 @@ def getaddrinfo(space, w_host, w_port, w_family=NoneNotWrapped,
     else:
         port = space.str_w(w_port)
     
-    if w_family is None:
-        return space.wrap(socket.getaddrinfo(host, port))
-    else:
-        family = space.int_w(w_family)
-        socktype = space.int_w(w_socktype)
-        proto = space.int_w(w_proto)
-        flags = space.int_w(w_flags)
-        return space.wrap(socket.getaddrinfo(host, port, family, socktype, proto, flags))
-getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root, W_Root]
-        
+    return space.wrap(socket.getaddrinfo(host, port, family, socktype, proto, flags))
+getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]
+
+def getnameinfo(space, w_sockaddr, flags):
+    """getnameinfo(sockaddr, flags) --> (host, port)
+
+    Get host and port for a sockaddr."""
+    sockaddr = space.unwrap(w_sockaddr)
+    return space.wrap(socket.getnameinfo(sockaddr, flags))
+getnameinfo.unwrap_spec = [ObjSpace, W_Root, int]
+
+def getdefaulttimeout(space):
+    """getdefaulttimeout() -> timeout
+
+    Returns the default timeout in floating seconds for new socket objects.
+    A value of None indicates that new socket objects have no timeout.
+    When the socket module is first imported, the default is None.
+    """
+    return space.wrap(socket.getdefaulttimeout())
+getdefaulttimeout.unwrap_spec = [ObjSpace]
     
+def setdefaulttimeout(space, w_timeout):
+    """setdefaulttimeout(timeout)
 
+    Set the default timeout in floating seconds for new socket objects.
+    A value of None indicates that new socket objects have no timeout.
+    When the socket module is first imported, the default is None.
+    """
+    timeout = space.unwrap(w_timeout)
+    return space.wrap(socket.setdefaulttimeout(timeout))
+setdefaulttimeout.unwrap_spec = [ObjSpace, W_Root]
 
-#    getaddrinfo getnameinfo
-#    getdefaulttimeout setdefaulttimeout
