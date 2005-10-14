@@ -26,7 +26,7 @@ def test_simple():
         return a + b
     specialize(f, [int, int])
 
-def inprogress_test_simple_call():
+def test_simple_call():
     def f(a, b):
         return a + b
 

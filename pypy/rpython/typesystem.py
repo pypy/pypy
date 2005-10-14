@@ -13,6 +13,11 @@ class TypeSystem(object):
         """Dereference `obj' to concrete object."""
         raise NotImplementedError()
 
+    def check_null(self, repr, hop):
+        """Emit operations to check that `hop's argument is not a null object.
+"""
+        raise NotImplementedError()
+
     def getcallable(self, translator, graphfunc, getconcretetype=None):
         """Return callable given a Python function."""
         if getconcretetype is None:
@@ -59,6 +64,11 @@ class LowLevelTypeSystem(TypeSystem):
     def deref(self, obj):
         assert isinstance(lltype.typeOf(obj), lltype.Ptr)
         return obj._obj
+
+    def check_null(self, repr, hop):
+        # None is a nullptr, which is false; everything else is true.
+        vlist = hop.inputargs(repr)
+        return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
 
     def getconcretetype(self, v):
         return getattr(v, 'concretetype', lltype.Ptr(lltype.PyObject))

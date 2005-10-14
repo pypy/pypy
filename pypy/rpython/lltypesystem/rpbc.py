@@ -10,32 +10,20 @@ from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning
 from pypy.rpython import robject
 from pypy.rpython import rtuple
 from pypy.rpython.rpbc import SingleFrozenPBCRepr, getsignature, samesig,\
-                                commonbase, allattributenames, get_access_set
+                                commonbase, allattributenames, get_access_set,\
+                                MultiplePBCRepr, FunctionsPBCRepr
 from pypy.rpython.lltypesystem import rclass
 from pypy.tool.sourcetools import has_varargs
 
 from pypy.rpython import callparse
 
 def rtype_is_None(robj1, rnone2, hop, pos=0):
-        if not isinstance(robj1.lowleveltype, Ptr):
-            raise TyperError('is None of instance of the non-pointer: %r' % (robj1))           
-        v1 = hop.inputarg(robj1, pos)
-        return hop.genop('ptr_iszero', [v1], resulttype=Bool)
+    if not isinstance(robj1.lowleveltype, Ptr):
+        raise TyperError('is None of instance of the non-pointer: %r' % (robj1))           
+    v1 = hop.inputarg(robj1, pos)
+    return hop.genop('ptr_iszero', [v1], resulttype=Bool)
     
 # ____________________________________________________________
-
-class MultiplePBCRepr(Repr):
-    """Base class for PBCReprs of multiple PBCs that can include None
-    (represented as a NULL pointer)."""
-    def rtype_is_true(self, hop):
-        if hop.s_result.is_constant():
-            assert hop.s_result.const is True    # custom __nonzero__ on PBCs?
-            return hop.inputconst(Bool, hop.s_result.const)
-        else:
-            # None is a nullptr, which is false; everything else is true.
-            vlist = hop.inputargs(self)
-            return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
-
 
 class MultipleFrozenPBCRepr(MultiplePBCRepr):
     """Representation selected for multiple non-callable pre-built constants."""
@@ -183,116 +171,6 @@ def adjust_shape(hop2, s_shape):
     s_shape = hop2.rtyper.annotator.bookkeeper.immutablevalue(new_shape)
     hop2.v_s_insertfirstarg(c_shape, s_shape) # reinsert adjusted shape
     
-# ____________________________________________________________
-
-
-class FunctionsPBCRepr(MultiplePBCRepr):
-    """Representation selected for a PBC of function(s)."""
-
-    def __init__(self, rtyper, s_pbc):
-        self.rtyper = rtyper
-        self.s_pbc = s_pbc
-        self._function_signatures = None
-        if len(s_pbc.prebuiltinstances) == 1:
-            # a single function
-            self.lowleveltype = Void
-        else:
-            signatures = self.function_signatures().values()
-            sig0 = signatures[0]
-            for sig1 in signatures[1:]:
-                assert typeOf(sig0[0]) == typeOf(sig1[0])  # XXX not implemented
-                assert sig0[1:] == sig1[1:]                # XXX not implemented
-            self.lowleveltype = typeOf(sig0[0])
-
-    def get_s_callable(self):
-        return self.s_pbc
-
-    def get_r_implfunc(self):
-        return self, 0
-
-    def get_signature(self):
-        return self.function_signatures().itervalues().next()
-
-    def get_args_ret_s(self):
-        f, _, _ = self.get_signature()
-        graph = self.rtyper.type_system_deref(f).graph
-        rtyper = self.rtyper
-        return [rtyper.binding(arg) for arg in graph.getargs()], rtyper.binding(graph.getreturnvar())
-
-    def function_signatures(self):
-        if self._function_signatures is None:
-            self._function_signatures = {}
-            for func in self.s_pbc.prebuiltinstances:
-                if func is not None:
-                    self._function_signatures[func] = getsignature(self.rtyper,
-                                                                   func)
-            assert self._function_signatures
-        return self._function_signatures
-
-    def convert_const(self, value):
-        if value is None:
-            return nullptr(self.lowleveltype.TO)
-        if isinstance(value, types.MethodType) and value.im_self is None:
-            value = value.im_func   # unbound method -> bare function
-        if value not in self.function_signatures():
-            raise TyperError("%r not in %r" % (value,
-                                               self.s_pbc.prebuiltinstances))
-        f, rinputs, rresult = self.function_signatures()[value]
-        return f
-
-    def rtype_simple_call(self, hop):
-        f, rinputs, rresult = self.function_signatures().itervalues().next()
-
-        if getattr(self.rtyper.type_system_deref(f).graph, 'normalized_for_calls', False):
-            # should not have an argument count mismatch
-            assert len(rinputs) == hop.nb_args-1, "normalization bug"
-            vlist = hop.inputargs(self, *rinputs)
-        else:
-            # if not normalized, should be a call to a known function
-            # or to functions all with same signature
-            funcs = self.function_signatures().keys()
-            assert samesig(funcs), "normalization bug"
-            func = funcs[0]
-            vlist = [hop.inputarg(self, arg=0)]
-            vlist += callparse.callparse('simple_call', func, rinputs, hop)
-
-        return self.call(hop, f, vlist, rresult)
-
-    def call(self, hop, f, vlist, rresult):
-        if self.lowleveltype is Void:
-            assert len(self.function_signatures()) == 1
-            vlist[0] = hop.inputconst(typeOf(f), f)
-        hop.exception_is_here()
-        v = hop.genop('direct_call', vlist, resulttype = rresult)
-        return hop.llops.convertvar(v, rresult, hop.r_result)
-
-    def rtype_call_args(self, hop):
-        f, rinputs, rresult = self.function_signatures().itervalues().next()
-        # the function arguments may have been normalized by normalizecalls()
-        # already
-        if getattr(self.rtyper.type_system_deref(f).graph, 'normalized_for_calls', False):
-            vlist = hop.inputargs(self, Void, *rinputs)
-            vlist = vlist[:1] + vlist[2:]
-        else:
-            # if not normalized, should be a call to a known function
-            # or to functions all with same signature
-            funcs = self.function_signatures().keys()
-            assert samesig(funcs), "normalization bug"
-            func = funcs[0]
-            vlist = [hop.inputarg(self, arg=0)] 
-            vlist += callparse.callparse('call_args', func, rinputs, hop)
-
-        return self.call(hop, f, vlist, rresult)
-
-class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
-        def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
-            # this check makes sense because both source and dest repr are FunctionsPBCRepr
-            if r_fpbc1.lowleveltype == r_fpbc2.lowleveltype:
-                return v
-            if r_fpbc1.lowleveltype is Void:
-                return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
-            return NotImplemented
-
 # ____________________________________________________________
 
 class MethodsPBCRepr(Repr):
