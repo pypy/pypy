@@ -5,9 +5,9 @@
 
 /***  binary operations ***/
 
-#define OP_ADR_DELTA(x,y,r,err) r = ((x) - (y))
-#define OP_ADR_SUB(x,y,r,err)   r = ((x) - (y))
-#define OP_ADR_ADD(x,y,r,err)   r = ((x) + (y))
+#define OP_ADR_DELTA(x,y,r,err) r = ((char *)(x) - (char *)(y))
+#define OP_ADR_SUB(x,y,r,err)   r = ((char *)(x) - (y))
+#define OP_ADR_ADD(x,y,r,err)   r = ((char *)(x) + (y))
 
 #define OP_ADR_EQ(x,y,r,err)	  r = ((x) == (y))
 #define OP_ADR_NE(x,y,r,err)	  r = ((x) != (y))

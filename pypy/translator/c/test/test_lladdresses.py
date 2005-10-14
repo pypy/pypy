@@ -71,4 +71,18 @@ def test_raw_memcopy():
     res = fc()
     assert res
 
-
+def test_pointer_comparison():
+    def f():
+        result = 0
+        for addr1 in [raw_malloc(1), NULL]:
+            addr2 = addr1 + 1
+            result = result * 2 + int(addr1 == addr2)
+            result = result * 2 + int(addr1 != addr2)
+            result = result * 2 + int(addr1 <  addr2)
+            result = result * 2 + int(addr1 <= addr2)
+            result = result * 2 + int(addr1 >  addr2)
+            result = result * 2 + int(addr1 >= addr2)
+        return result
+    fc = compile(f, [])
+    res = fc()
+    assert res == int('011100' * 2, 2)
