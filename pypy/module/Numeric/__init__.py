@@ -1,4 +1,4 @@
-from pypy.interpreter.mixedmodule import MixedModule 
+from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     """An RPython reimplementation of the Numeric module
@@ -12,6 +12,8 @@ class Module(MixedModule):
         'Int' : "space.wrap('l')",
 #        'array' : 'interp_numeric.w_array',
         'zeros' : 'interp_numeric.w_zeros',
+        'nzeros' : 'interp_numeric.w_nzeros',
+        'array'  : 'interp_numeric.w_array',   
         }
         
 ##         'CODESIZE':       'space.wrap(interp_sre.CODESIZE)',
