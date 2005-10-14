@@ -53,6 +53,8 @@ class LowLevelTypeSystem(TypeSystem):
             self.BUILTIN_TYPER = rbuiltin.BUILTIN_TYPER
 
             return self.BUILTIN_TYPER
+        else:
+            raise AttributeError(name)
 
     def deref(self, obj):
         assert isinstance(lltype.typeOf(obj), lltype.Ptr)
