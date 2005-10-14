@@ -3,6 +3,17 @@
  /***  C header subsection: operations on LowLevelTypes    ***/
 
 
+/* a reasonably safe bound on the largest allowed argument value
+   that we can pass to malloc.  This is used for var-sized mallocs
+   to compute the largest allowed number of items in the array. */
+#define MAXIMUM_MALLOCABLE_SIZE   (LONG_MAX-4096)
+
+#define OP_MAX_VARSIZE(numitems, itemtype, err)  {			\
+    if ((numitems) > (MAXIMUM_MALLOCABLE_SIZE / sizeof(itemtype)))	\
+        FAIL_EXCEPTION(err, PyExc_MemoryError, "addr space overflow");	\
+  } 
+
+
 /* XXX hack to initialize the refcount of global structures: officially,
    we need a value equal to the number of references to this global from
    other globals, plus one.  This upper bound "approximation" will do... */

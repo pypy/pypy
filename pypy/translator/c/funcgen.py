@@ -517,11 +517,19 @@ class FunctionCodeGenerator(object):
         eresult = self.expr(op.result)
         if VARPART.OF is Void:    # strange
             esize = 'sizeof(%s)' % (cdecl(typename, ''),)
+            result = ''
         else:
-            esize = 'sizeof(%s)+((%s-1)*sizeof(%s))' % (cdecl(typename, ''),
-                                                       elength,
-                                                       cdecl(itemtypename, ''))
-        result = self.gcpolicy.zero_malloc(TYPE, esize, eresult, err)
+            itemtype = cdecl(itemtypename, '')
+            result = 'OP_MAX_VARSIZE(%s, %s, %s);\n' % (
+                elength,
+                itemtype,
+                err)
+            esize = 'sizeof(%s)-sizeof(%s)+%s*sizeof(%s)' % (
+                cdecl(typename, ''),
+                itemtype,
+                elength,
+                itemtype)
+        result += self.gcpolicy.zero_malloc(TYPE, esize, eresult, err)
         result += '\n%s->%s = %s;' % (eresult, lenfld, elength)
         return result
 

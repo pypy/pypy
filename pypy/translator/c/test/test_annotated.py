@@ -1,5 +1,5 @@
 import autopath
-import py
+import py, sys
 from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import Translator
 
@@ -166,3 +166,14 @@ class TestAnnotatedTestCase:
         fn = self.getcompiled(f)
         assert fn(-4.5) == 92.125
         assert fn(4.5) == 90.125
+
+    def test_memoryerror(self):
+        def f(i=int):
+            lst = [0]*i
+            lst[-1] = 5
+            return lst[0]
+        fn = self.getcompiled(f)
+        assert fn(1) == 5
+        assert fn(2) == 0
+        py.test.raises(MemoryError, fn, sys.maxint//2+1)
+        py.test.raises(MemoryError, fn, sys.maxint)
