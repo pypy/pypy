@@ -83,7 +83,93 @@ def fromfd(space, fd, family, type, w_proto=NoneNotWrapped):
         return space.wrap(socket.fromfd(fd, family, type, space.int_w(w_proto)))
 fromfd.unwrap_spec = [ObjSpace, int, int, int, W_Root]
 
-#    fromfd socketpair
-#    ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop
+def socketpair(space, w_family=NoneNotWrapped, w_type=NoneNotWrapped, w_proto=NoneNotWrapped):
+    """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
+
+    Create a pair of socket objects from the sockets returned by the platform
+    socketpair() function.
+    The arguments are the same as for socket() except the default family is
+    AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
+    """
+    if w_family is None:
+        return space.wrap(socket.socketpair())
+    elif w_type is None:
+        return space.wrap(socket.socketpair(space.int_w(w_family)))
+    elif w_proto is None:
+        return space.wrap(socket.socketpair(space.int_w(w_family),
+                                            space.int_w(w_type)))
+    else:
+        return space.wrap(socket.socketpair(space.int_w(w_family),
+                                            space.int_w(w_type),
+                                            space.int_w(w_proto)))
+socketpair.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
+
+def ntohs(space, x):
+    """ntohs(integer) -> integer
+
+    Convert a 16-bit integer from network to host byte order.
+    """
+    return space.wrap(socket.ntohs(x))
+ntohs.unwrap_spec = [ObjSpace, int]
+
+def ntohl(space, x):
+    """ntohl(integer) -> integer
+
+    Convert a 32-bit integer from network to host byte order.
+    """
+    return space.wrap(socket.ntohl(x))
+ntohl.unwrap_spec = [ObjSpace, int]
+    
+def htons(space, x):
+    """htons(integer) -> integer
+
+    Convert a 16-bit integer from host to network byte order.
+    """
+    return space.wrap(socket.htons(x))
+htons.unwrap_spec = [ObjSpace, int]
+    
+def htonl(space, x):
+    """htonl(integer) -> integer
+
+    Convert a 32-bit integer from host to network byte order.
+    """
+    return space.wrap(socket.htonl(x))
+htonl.unwrap_spec = [ObjSpace, int]
+
+def inet_aton(space, ip):
+    """inet_aton(string) -> packed 32-bit IP representation
+
+    Convert an IP address in string format (123.45.67.89) to the 32-bit packed
+    binary format used in low-level network functions.
+    """
+    return space.wrap(socket.inet_aton(ip))
+inet_aton.unwrap_spec = [ObjSpace, str]
+
+def inet_ntoa(space, packed):
+    """inet_ntoa(packed_ip) -> ip_address_string
+
+    Convert an IP address from 32-bit packed binary format to string format
+    """
+    return space.wrap(socket.inet_ntoa(packed))
+inet_ntoa.unwrap_spec = [ObjSpace, str]
+
+def inet_pton(space, af, ip):
+    """inet_pton(af, ip) -> packed IP address string
+
+    Convert an IP address from string format to a packed string suitable
+    for use with low-level network functions.
+    """
+    return space.wrap(socket.inet_pton(af, ip))
+inet_pton.unwrap_spec = [ObjSpace, int, str]
+
+def inet_ntop(space, af, packed):
+    """inet_ntop(af, packed_ip) -> string formatted IP address
+
+    Convert a packed IP address of the given family to string format.
+    """
+    return space.wrap(socket.inet_ntop(af, packed))
+inet_ntop.unwrap_spec = [ObjSpace, int, str]
+
+
 #    getaddrinfo getnameinfo
 #    getdefaulttimeout setdefaulttimeout

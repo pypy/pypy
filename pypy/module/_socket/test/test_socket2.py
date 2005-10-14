@@ -72,16 +72,14 @@ def test_getservbyport():
 
 def test_getprotobyname():
     name = "tcp"
-    num = space.appexec([w_socket, space.wrap(name)],
+    w_n = space.appexec([w_socket, space.wrap(name)],
                         "(_socket, name): return _socket.getprotobyname(name)")
-    assert space.unwrap(num) == socket.IPPROTO_TCP
-
-def test_has_ipv6():
-    res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
-    assert space.unwrap(res) == socket.has_ipv6
+    assert space.unwrap(w_n) == socket.IPPROTO_TCP
 
 def test_fromfd():
     # XXX review
+    if not hasattr(socket, 'fromfd'):
+        py.test.skip("No socket.fromfd on this platform")
     orig_fd = path.open()
     fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
             space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM),
@@ -96,3 +94,49 @@ def test_fromfd():
                     return _socket.fromfd(fd, family, type)""")
 
     assert space.unwrap(fd).fileno()
+
+def test_ntohs():
+    w_n = space.appexec([w_socket, space.wrap(125)],
+                        "(_socket, x): return _socket.ntohs(x)")
+    assert space.unwrap(w_n) == socket.ntohs(125)
+
+def test_ntohl():
+    w_n = space.appexec([w_socket, space.wrap(125)],
+                        "(_socket, x): return _socket.ntohl(x)")
+    assert space.unwrap(w_n) == socket.ntohl(125)
+
+def test_htons():
+    w_n = space.appexec([w_socket, space.wrap(125)],
+                        "(_socket, x): return _socket.htons(x)")
+    assert space.unwrap(w_n) == socket.htons(125)
+
+def test_htonl():
+    w_n = space.appexec([w_socket, space.wrap(125)],
+                        "(_socket, x): return _socket.htonl(x)")
+    assert space.unwrap(w_n) == socket.htonl(125)
+
+def test_packed_ip():
+    ip = '123.45.67.89'
+    packed = socket.inet_aton(ip)
+    w_p = space.appexec([w_socket, space.wrap(ip)],
+                        "(_socket, ip): return _socket.inet_aton(ip)")
+    assert space.unwrap(w_p) == packed
+    w_ip = space.appexec([w_socket, space.wrap(packed)],
+                         "(_socket, p): return _socket.inet_ntoa(p)")
+    assert space.unwrap(w_ip) == ip
+
+def test_pton():
+    if not hasattr(socket, 'inet_pton'):
+        py.test.skip('No socket.(inet_pton|inet_ntop) on this platform')
+    w_p = space.appexec([w_socket, space.wrap(ip)],
+                        "(_socket, ip): return _socket.inet_pton(_socket.AF_INET, ip)")
+    assert space.unwrap(w_p) == packed
+    w_ip = space.appexec([w_socket, space.wrap(packed)],
+                         "(_socket, p): return _socket.inet_ntop(_socket.AF_INET, p)")
+    assert space.unwrap(w_ip) == ip
+    
+
+def test_has_ipv6():
+    res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
+    assert space.unwrap(res) == socket.has_ipv6
+
