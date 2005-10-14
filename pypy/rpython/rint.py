@@ -213,6 +213,9 @@ class __extend__(IntegerRepr):
 
     def rtype_chr(_, hop):
         vlist =  hop.inputargs(Signed)
+        if hop.has_implicit_exception(ValueError):
+            hop.exception_is_here()
+            hop.gendirectcall(ll_check_chr, vlist[0])
         return hop.genop('cast_int_to_char', vlist, resulttype=Char)
 
     def rtype_unichr(_, hop):
@@ -404,6 +407,12 @@ def ll_int2oct(i, addPrefix):
 
 def ll_hash_int(n):
     return n
+
+def ll_check_chr(n):
+    if 0 <= n <= 255:
+        return
+    else:
+        raise ValueError
 
 #
 # _________________________ Conversions _________________________

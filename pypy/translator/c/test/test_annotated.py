@@ -177,3 +177,14 @@ class TestAnnotatedTestCase:
         assert fn(2) == 0
         py.test.raises(MemoryError, fn, sys.maxint//2+1)
         py.test.raises(MemoryError, fn, sys.maxint)
+
+    def test_chr(self):
+        def f(x=int):
+            try:
+                return 'Yes ' + chr(x)
+            except ValueError:
+                return 'No'
+        fn = self.getcompiled(f)
+        assert fn(65) == 'Yes A'
+        assert fn(256) == 'No'
+        assert fn(-1) == 'No'

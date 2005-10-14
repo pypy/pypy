@@ -276,3 +276,16 @@ def test_method_repr():
         return x
     res = interpret(f, [0])
     assert res == 3
+
+def test_chr():
+    def f(x=int):
+        try:
+            return chr(x)
+        except ValueError:
+            return '?'
+    res = interpret(f, [65])
+    assert res == 'A'
+    res = interpret(f, [256])
+    assert res == '?'
+    res = interpret(f, [-1])
+    assert res == '?'
