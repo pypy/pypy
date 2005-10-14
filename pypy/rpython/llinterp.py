@@ -324,7 +324,10 @@ class LLFrame(object):
             result = self.op_direct_call(malloc, *args)
             return self.llinterpreter.gc.adjust_result_malloc(result, obj, size)
         else:
-            return self.llt.malloc(obj, size)
+            try:
+                return self.llt.malloc(obj, size)
+            except MemoryError, e:
+                self.make_llexception(e)
 
     def op_flavored_malloc(self, flavor, obj):
         assert isinstance(flavor, str)

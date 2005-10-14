@@ -1,3 +1,4 @@
+import sys
 from pypy.translator.translator import Translator
 from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
@@ -500,3 +501,14 @@ def test_valueerror():
     assert res == 2
     res = interpret(fn, [6])
     assert res == 100
+
+def test_memoryerror():
+    def fn(i):
+        lst = [0] * i
+        lst[i-1] = 5
+        return lst[0]
+    res = interpret(fn, [1])
+    assert res == 5
+    res = interpret(fn, [2])
+    assert res == 0
+    interpret_raises(MemoryError, fn, [sys.maxint])
