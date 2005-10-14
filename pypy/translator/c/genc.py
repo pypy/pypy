@@ -132,7 +132,8 @@ def translator2database(translator):
 
 # ____________________________________________________________
 
-SPLIT_CRITERIA = 32767 # support VC++ 6.0  (7.1 can do 65535)
+#SPLIT_CRITERIA = 32767 # enable to support VC++ 6.0
+SPLIT_CRITERIA = 65535 # support VC++ 7.2
 
 MARKER = '/*/*/' # provide an easy way to split after generating
 
