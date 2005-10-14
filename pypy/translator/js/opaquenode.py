@@ -15,9 +15,9 @@ class OpaqueTypeNode(LLVMNode):
     # ______________________________________________________________________
     # main entry points from genllvm 
 
-    def writedatatypedecl(self, codewriter):
-        # XXX Dummy - not sure what what we want
-        codewriter.funcdef(self.ref, 'sbyte*', ['sbyte *'])
+    #def writedatatypedecl(self, codewriter):
+    #    # XXX Dummy - not sure what what we want
+    #    codewriter.funcdef(self.ref, 'sbyte*', ['sbyte *'])
 
 
 class OpaqueNode(ConstantLLVMNode):

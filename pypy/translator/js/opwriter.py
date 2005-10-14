@@ -254,8 +254,8 @@ class OpWriter(object):
         functionref = self.db.repr_arg(op_args[0])
         argrefs = self.db.repr_arg_multi(op_args[1:])
         argtypes = self.db.repr_arg_type_multi(op_args[1:])
-        if self.db.is_function_ptr(op.result):
-            returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
+        #if self.db.is_function_ptr(op.result):
+        #    returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
         self.codewriter.call(targetvar,returntype,functionref,argrefs,argtypes)
 
     def last_exception_type_ptr(self, op):
@@ -297,8 +297,8 @@ class OpWriter(object):
         block_label = self.node.blockindex[self.block]
         exc_label   = block_label + '_exception_handling'
 
-        if self.db.is_function_ptr(op.result):  #use longhand form
-            returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
+        #if self.db.is_function_ptr(op.result):  #use longhand form
+        #    returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
         self.codewriter.call(targetvar, returntype, functionref, argrefs,
                              argtypes, none_label, exc_label)
 

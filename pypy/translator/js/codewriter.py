@@ -54,18 +54,20 @@ class CodeWriter(object):
             self.llvm(line, 0)
 
     def structdef(self, name, typereprs):
-        self.llvm("%s = type { %s }" %(name, ", ".join(typereprs)), 0)
+        #self.llvm("%s = type { %s }" %(name, ", ".join(typereprs)), 0)
+        pass
 
     def arraydef(self, name, lentype, typerepr):
-        self.llvm("%s = type { %s, [0 x %s] }" % (name, lentype, typerepr), 0)
+        #self.llvm("%s = type { %s, [0 x %s] }" % (name, lentype, typerepr), 0)
+        pass
 
     def funcdef(self, name, rettyperepr, argtypereprs):
-        self.llvm("%s = type %s (%s)" % (name, rettyperepr,
-                                           ", ".join(argtypereprs)), 0)
+        #self.llvm("%s = type %s (%s)" % (name, rettyperepr,
+        #                                   ", ".join(argtypereprs)), 0)
+        pass
 
     def declare(self, decl):
-        #self.llvm("declare %s" % decl, 0)
-        pass
+        self.append(decl, 0)
 
     def startimpl(self):
         #self.llvm("implementation", 0)
@@ -88,6 +90,8 @@ class CodeWriter(object):
                 src = 'false'
             elif src == 'True':
                 src = 'true'
+            elif src == 'None':
+                src = 'undefined'
             if dest != src:
                 self.append('%s = %s' % (dest, src), indentation_level)
 

@@ -242,7 +242,7 @@ class Database(object):
             if isinstance(type_, lltype.Primitive):
                 return self.primitives[type_]
             elif isinstance(type_, lltype.Ptr):
-                return self.repr_type(type_.TO) + '*'
+                return '' #self.repr_type(type_.TO) + 'XXX*'
             else: 
                 raise TypeError("cannot represent %r" %(type_,))
             
@@ -334,13 +334,13 @@ class Database(object):
     # __________________________________________________________
     # Other helpers
 
-    def is_function_ptr(self, arg):
-        if isinstance(arg, (Constant, Variable)): 
-            arg = arg.concretetype 
-            if isinstance(arg, lltype.Ptr):
-                if isinstance(arg.TO, lltype.FuncType):
-                    return True
-        return False
+    #def is_function_ptr(self, arg):
+    #    if isinstance(arg, (Constant, Variable)): 
+    #        arg = arg.concretetype 
+    #        if isinstance(arg, lltype.Ptr):
+    #            if isinstance(arg.TO, lltype.FuncType):
+    #                return True
+    #    return False
 
     def get_childref(self, parent, child):
         node = self.obj2node[parent]

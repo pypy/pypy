@@ -31,10 +31,10 @@ class FuncTypeNode(LLVMNode):
         self.db.prepare_type(self.type_.RESULT)
         self.db.prepare_type_multi(self.type_._trueargs())
  
-    def writedatatypedecl(self, codewriter):
-        returntype = self.db.repr_type(self.type_.RESULT)
-        inputargtypes = [self.db.repr_type(a) for a in self.type_._trueargs()]
-        codewriter.funcdef(self.ref, returntype, inputargtypes)
+    #def writedatatypedecl(self, codewriter):
+    #    returntype = self.db.repr_type(self.type_.RESULT)
+    #    inputargtypes = [self.db.repr_type(a) for a in self.type_._trueargs()]
+    #    codewriter.funcdef(self.ref, returntype, inputargtypes)
 
 class FuncNode(ConstantLLVMNode):
     __slots__ = "db value ref graph blockindex".split()
@@ -77,8 +77,8 @@ class FuncNode(ConstantLLVMNode):
 
     # ______________________________________________________________________
     # main entry points from genllvm 
-    def writedecl(self, codewriter): 
-        codewriter.declare(self.getdecl())
+    #def writedecl(self, codewriter): 
+    #    codewriter.declare(self.getdecl())
 
     def writeimpl(self, codewriter):
         graph = self.graph

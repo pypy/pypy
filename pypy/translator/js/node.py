@@ -32,10 +32,10 @@ class LLVMNode(object):
         pass
 
     # __________________ before "implementation" ____________________
-    def writedatatypedecl(self, codewriter):
-        """ write out declare names of data types 
-            (structs/arrays/function pointers)
-        """
+    #def writedatatypedecl(self, codewriter):
+    #    """ write out declare names of data types 
+    #        (structs/arrays/function pointers)
+    #    """
 
     def writeglobalconstants(self, codewriter):
         """ write out global values.  """

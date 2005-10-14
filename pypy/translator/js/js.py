@@ -4,6 +4,7 @@ reference material:
     http://webreference.com/programming/javascript/
     http://mochikit.com/
     http://www.mozilla.org/js/spidermonkey/
+    svn co http://codespeak.net/svn/kupu/trunk/ecmaunit 
 '''
 
 #import os
@@ -77,7 +78,7 @@ class JS(object):   # JS = Javascript
         #    codewriter.comment("External Function Declarations")
         #    codewriter.append(llexterns_header)
 
-        codewriter.comment("Type Declarations", 0)
+        #codewriter.comment("Type Declarations", 0)
         #for c_name, obj in extern_decls:
         #    if isinstance(obj, lltype.LowLevelType):
         #        if isinstance(obj, lltype.Ptr):
@@ -85,25 +86,23 @@ class JS(object):   # JS = Javascript
         #        l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
         #        codewriter.append(l)
 
+        codewriter.comment("Function Implementation", 0)
         for typ_decl in self.db.getnodes():
-            typ_decl.writedatatypedecl(codewriter)
+            typ_decl.writeimpl(codewriter)
+
+        codewriter.comment("Forward Declarations", 0)
+        #for typ_decl in self.db.getnodes():
+        #    typ_decl.writedatatypedecl(codewriter)
+        for typ_decl in self.db.getnodes():
+            typ_decl.writedecl(codewriter)
 
         codewriter.comment("Global Data", 0)
         for typ_decl in self.db.getnodes():
             typ_decl.writeglobalconstants(codewriter)
 
-        codewriter.comment("Function Prototypes", 0)
+        #codewriter.comment("Function Prototypes", 0)
         #codewriter.append(extdeclarations)
         #codewriter.append(self.gcpolicy.declarations())
-
-        for typ_decl in self.db.getnodes():
-            typ_decl.writedecl(codewriter)
-
-        codewriter.comment("Function Implementation", 0)
-        codewriter.startimpl()
-        
-        for typ_decl in self.db.getnodes():
-            typ_decl.writeimpl(codewriter)
 
         pypy_prefix = '' #pypy_
 
