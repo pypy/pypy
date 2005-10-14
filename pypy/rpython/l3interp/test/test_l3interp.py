@@ -11,7 +11,7 @@ def test_very_simple():
     graph.set_constants_int([3, 4])
     g = model.Globals()
     g.graphs = [graph]
-    l3interp = l3interp.LLInterpreter()
-    result = l3interp.eval_graph_int(graph, [])
+    interp = l3interp.LLInterpreter()
+    result = interp.eval_graph_int(graph, [])
     assert result == 7
     

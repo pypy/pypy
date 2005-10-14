@@ -1,4 +1,4 @@
-from pypy.rpython.llinterpreter import model
+from pypy.rpython.l3interp import model
 from pypy.rpython.memory import lladdress
 
 class LLException(Exception):
@@ -13,7 +13,7 @@ class LLInterpreter(object):
 
 class LLFrame(object):
     def __init__(self, graph, lli):
-        self.llinterpreter = lli
+        self.interp = lli
         self.graph = graph
         self.int_vars = [0] * graph.max_num_ints
 
