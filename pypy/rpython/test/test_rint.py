@@ -1,3 +1,4 @@
+import sys
 from pypy.translator.translator import Translator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
@@ -62,7 +63,10 @@ def test_str_of_int():
 
     res = interpret(dummy, [-123])
     assert ''.join(res.chars) == '-123'
-    
+
+    res = interpret(dummy, [-sys.maxint-1])
+    assert ''.join(res.chars) == str(-sys.maxint-1)
+
 def test_hex_of_int():
     def dummy(i):
         return hex(i)

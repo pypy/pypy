@@ -295,7 +295,9 @@ class __extend__(IntegerRepr):
         sign = 0
         if i < 0:
             sign = 1
-            i = -i
+            i = r_uint(-i)
+        else:
+            i = r_uint(i)
         if i == 0:
             len = 1
             temp[0] = '0'
