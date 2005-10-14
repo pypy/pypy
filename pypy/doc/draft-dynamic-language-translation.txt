@@ -783,8 +783,8 @@ In the sequel, we will use the following notations:
 - *b*, *b'*, *b''*... are maps from *V* to *A*.
 
 We call *state* a pair *(b,E)*.  We say that a state *(b',E')* is more
-general than a state *(b,E)* if for all variables *v* we have *b'(v) >=
-b(v)* and *E'* includes at least all relations of *E*.  There is:
+general than a state *(b,E)* if for all variables *v* we have ``b'(v) >=
+b(v)`` and *E'* includes at least all relations of *E*.  There is:
 
 - a most general state, with *bmax(v) = Top* for all *v* and *Emax*
   identifying all variables with each other;
@@ -854,15 +854,15 @@ None at run-time and proceed.
 .. _merge_into:
 
 In the sequel, a lot of rules will be based on the following
-``merge_into`` operator.  Given two variables *x* and *y*,
-``merge_into(x,y)`` modifies the state as follows::
+``merge_into`` operator.  Given an annotation *a* and a variable *x*,
+``merge_into(a,x)`` modifies the state as follows::
 
-         merge_into(x,y):
-             if b(x)=List(v) and b(y)=List(w):
+         merge_into(a,x):
+             if a=List(v) and b(x)=List(w):
                  b' = b
-                 E' = E union (v~w)
+                 E' = E union (v ~ w)
              else:
-                 b' = b with (y -> b(x) \/ b(y))
+                 b' = b with (x -> a \/ b(x))
                  E' = E
 
 where ``\/`` is the union in the lattice *A*.
@@ -875,7 +875,7 @@ a normal operation in our `Flow graph model`_; we abuse the notation)::
 
          y = phi(x)
       ----------------------------------------
-               merge_into(x,y)
+               merge_into(b(x),y)
 
 The purpose of the equivalence relation *E* is to force two identified
 variables to keep the same binding.  The rationale for this is explained
@@ -884,13 +884,13 @@ following family of rules (one for each pair *(x,y)*)::
 
          (x~y) in E
       ----------------------------------------
-               merge_into(x,y)
-               merge_into(y,x)
+               merge_into(b(x),y)
+               merge_into(b(y),x)
 
-Note that in theory, all rules should be tried repeatedly until none of
+Note that a priori, all rules should be tried repeatedly until none of
 them generalizes the state any more, at which point we have reached a
-fixpoint.  In practice, the rules are well suited to a simple metarule
-that tracks a small set of rules that can possibly apply.  Only these
+fixpoint.  However, the rules are well suited to a simple metarule that
+tracks a small set of rules that can possibly apply.  Only these
 "scheduled" rules are tried.  The metarule is as follows:
 
 - when an identification *x~y* is added to *E*, then the rule
@@ -966,7 +966,7 @@ annotation into the list's hidden variable (*y* is the index in the list
 
          setitem(x,y,z), b(x)=List(v)
       --------------------------------------------
-               merge_into(z,v)
+               merge_into(b(z),v)
 
 Reading an item out a list requires care to ensure that the rule is
 rescheduled if the binding of the hidden variable is generalized.  We do
@@ -1119,7 +1119,7 @@ Formally::
          setattr(x,attr,z), b(x)=Inst(C)
       ---------------------------------------------------------------------
                E' = E union (v_C.attr ~ v_D.attr)  for all D subclass of C
-               merge_into(z, v_C.attr)
+               merge_into(b(z), v_C.attr)
 
 Note the similarity with the ``getitem`` and ``setitem`` of lists, in
 particular the usage of the auxiliary variable *z'*.
@@ -1166,23 +1166,23 @@ the same ``Pbc(set)`` could mix several kinds of callables::
            for each c in set:
                if c is a function:
                    E' = E union (z ~ returnvar_c)
-                   merge_into(y1, arg_c_1)
+                   merge_into(b(y1), arg_c_1)
                    ...
-                   merge_into(yn, arg_c_n)
+                   merge_into(b(yn), arg_c_n)
                if c is a class:
                    let f = c.__init__
-                   b' = b with (z -> b(z) \/ Inst(c))
-                           and (arg_f_1 -> b(arg_f_1) \/ Inst(c))
-                   merge_into(y1, arg_f_2)
+                   merge_into(Inst(c), z)
+                   merge_into(Inst(c), arg_f_1)
+                   merge_into(b(y1), arg_f_2)
                    ...
-                   merge_into(yn, arg_f_(n+1))
+                   merge_into(b(yn), arg_f_(n+1))
                if c is a method:
                    let class.f = c
                    E' = E union (z ~ returnvar_f)
-                   b' = b with (arg_f_1 -> b(arg_f_1) \/ Inst(class))
-                   merge_into(y1, arg_f_2)
+                   merge_into(Inst(class), arg_f_1)
+                   merge_into(b(y1), arg_f_2)
                    ...
-                   merge_into(yn, arg_f_(n+1))
+                   merge_into(b(yn), arg_f_(n+1))
 
 Calling a class returns an instance and flows the annotations into the
 contructor ``__init__`` of the class.  Calling a method inserts the
@@ -1191,17 +1191,67 @@ instance annotation as the first argument of the underlying function
 method is found).
 
 
+Termination and soundness
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As the annotation process is a fix-point search, it is necessary for
+completeness to prove more formally that it is well-behaved.  The
+following proofs are all rather easy given the approach we have taken.
+
 Termination
-~~~~~~~~~~~
+***********
+
+We first have to check that each rule can only turn a state *(b,E)* into
+a state *(b',E')* that is either identical or more general.  To do so,
+we first verify that they all have the following properties:
+
+* if *z* is the result variable of an operation, the binding ``b(z)`` is
+  only ever modified by the rule (or rules) about this operation: this
+  is true because *E* never identifies such a result variable with any
+  other variable.
+
+* the annotation ``b(z)`` of such a result variable can only become more
+  general: using the previous point, this can be checked on the rule (or
+  rules) of each operation independently.  Indeed, there are only two
+  ways in which ``b(z)`` is modified: by ``merge_into(..., z)``, which
+  trivially guarantees the property by being based on the union operator
+  ``\/`` of the lattice, or explicitely in a way that can easily be
+  checked to respect the property.
+
+...
+
+
+Each basic step (execution of one rule) can lead to the generalization
+of the state.  If it does, then other rules may be scheduled or
+re-scheduled for execution.  The state can only be generalized a finite
+number of times because both the lattice *A* and the set of variables
+*V* of which *E* is an equivalence relation are finite.  If a rule does
+not lead to any generalization, then it does not trigger re-scheduling
+of any other rule.  This ensures that the process eventually terminates.
+
+The extended lattice used in practice is a priori not finite.  As we did
+not describe this lattice formally here, we have to skip the (easy)
+proof that it still contains no infinite ascending chain.  An ascending
+chain is a sequence where each item is strictly larger than the previous
+one.
+
+Soundness
+*********
+
+We define an annotation state to be *sound* if none of the rules would
+lead to further Xxx.
+
 
 XXX termination + soundness + most-precise-fixpoint-ness + complexity 
 
 
+Complexity
+**********
+
 The lattice is finite, although its size depends on the size of the
 program.  The List part has the same size as *V*, and the Pbc part is
 exponential on the number of prebuilt constants.  However, in this model
-a chain of annotations (where each one is larger than the previous)
-cannot be longer than::
+a chain of annotations cannot be longer than::
 
     max(5, number-of-pbcs + 3, depth-of-class-hierarchy + 3).
 
