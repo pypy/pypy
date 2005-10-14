@@ -174,7 +174,7 @@ class TranslationDriver(SimpleTaskEngine):
     task_backendopt = taskdef(task_backendopt, 
                                         ['rtype'], "Back-end optimisations") 
 
-    def task_source_c(self):  # xxx messy
+    def task_database_c(self):
         translator = self.translator
         opt = self.options
         if translator.annotator is not None:
@@ -191,13 +191,23 @@ class TranslationDriver(SimpleTaskEngine):
 
         cbuilder = translator.cbuilder(standalone=standalone, gcpolicy=gcpolicy)
         cbuilder.stackless = opt.stackless
-        c_source_filename = cbuilder.generate_source()
-        self.log.info("written: %s" % (c_source_filename,))
+        database = cbuilder.build_database()
+        self.log.info("database for generating C source was created")
         self.cbuilder = cbuilder
+        self.database = database
     #
-    task_source_c = taskdef(task_source_c, 
+    task_database_c = taskdef(task_database_c, 
                             ['?backendopt', '?rtype', '?annotate'], 
-                            "Generating c source")
+                            "Creating database for generating c source")
+    
+    def task_source_c(self):  # xxx messy
+        translator = self.translator
+        cbuilder = self.cbuilder
+        database = self.database
+        c_source_filename = cbuilder.generate_source(database)
+        self.log.info("written: %s" % (c_source_filename,))
+    #
+    task_source_c = taskdef(task_source_c, ['database_c'], "Generating c source")
 
     def task_compile_c(self): # xxx messy
         cbuilder = self.cbuilder

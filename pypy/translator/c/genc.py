@@ -25,21 +25,33 @@ class CBuilder(object):
             libraries = []
         self.libraries = libraries
 
-    def generate_source(self):
-        assert self.c_source_filename is None
+    def build_database(self):
         translator = self.translator
-        pf = self.getentrypointptr()
         db = LowLevelDatabase(translator, standalone=self.standalone, gcpolicy=self.gcpolicy)
 
         if self.stackless:
             from pypy.translator.c.stackless import StacklessData
             db.stacklessdata = StacklessData()
 
-        # we need a concrete gcpolicy to do this        
+        # we need a concrete gcpolicy to do this
         self.libraries += db.gcpolicy.gc_libraries()
 
+        # XXX the following has the side effect to generate
+        # some needed things. Find out why.
+        pf = self.getentrypointptr()
         pfname = db.get(pf)
+        # XXX
         db.complete()
+        return db
+
+    def generate_source(self, db=None):
+        assert self.c_source_filename is None
+        translator = self.translator
+
+        if db is None:
+            db = self.build_database()
+        pf = self.getentrypointptr()
+        pfname = db.get(pf)
 
         modulename = uniquemodulename('testing')
         targetdir = udir.ensure(modulename, dir=1)

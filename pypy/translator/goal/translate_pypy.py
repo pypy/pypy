@@ -75,7 +75,7 @@ opts = {
 (see pypy/translator/tool/pygame/graphclient.py)""", int)],
 
     '5_fork_before':  [OPT(('--fork-before',), """(UNIX) Create restartable checkpoint before step""", 
-                           ['annotate', 'rtype', 'backendopt', 'source'])],
+                           ['annotate', 'rtype', 'backendopt', 'database', 'source'])],
   
     '6_llinterpret':  [OPT(('--llinterpret',), "Interpret the rtyped flow graphs", GOAL)],
     },
