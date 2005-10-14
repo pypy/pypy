@@ -715,10 +715,8 @@ def test_on_stdlib():
         filepath = os.path.join(STDLIB_PATH, basename)
         size = os.stat(filepath)[6]
         # filter on size
-        if size <= 10000:
-            print "TESTING", filepath
-            source = file(filepath).read()
-            yield check_expression, source, 'exec'
+        source = file(filepath).read()
+        yield check_expression, source, 'exec'
 
 
 def test_eval_string():

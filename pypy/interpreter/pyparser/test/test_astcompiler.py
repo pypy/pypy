@@ -204,6 +204,19 @@ def test_snippets():
         source = file(filepath).read()
         yield check_compile, source, 'exec'
 
+STDLIB_PATH = os.path.dirname(os.__file__)
+def test_on_stdlib():
+    py.test.skip('too ambitious for now (and time consuming)')
+    for basename in os.listdir(STDLIB_PATH):
+        if not basename.endswith('.py'):
+            continue
+        filepath = os.path.join(STDLIB_PATH, basename)
+        # size = os.stat(filepath)[6]
+        # filter on size
+        # if size <= 10000:
+        source = file(filepath).read()
+        yield check_compile, source, 'exec'
+
 def test_libstuff():
     for snippet_name in LIBSTUFF:
         filepath = os.path.join(os.path.dirname(__file__), '../../../lib', snippet_name)
