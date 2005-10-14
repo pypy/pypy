@@ -1,7 +1,8 @@
 
 import socket
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
+from pypy.interpreter.gateway import W_Root
+from pypy.interpreter.gateway import ObjSpace, NoneNotWrapped
 
 def gethostname(space):
     """gethostname() -> string
@@ -169,6 +170,35 @@ def inet_ntop(space, af, packed):
     """
     return space.wrap(socket.inet_ntop(af, packed))
 inet_ntop.unwrap_spec = [ObjSpace, int, str]
+
+def getaddrinfo(space, w_host, w_port, w_family=NoneNotWrapped,
+                w_socktype=None, w_proto=None,
+                w_flags=None):
+    """getaddrinfo(host, port [, family, socktype, proto, flags])
+        -> list of (family, socktype, proto, canonname, sockaddr)
+
+    Resolve host and port into addrinfo struct.
+    """
+    if space.is_true(space.isinstance(w_host, space.w_unicode)):
+        w_host = space.call_method(w_host, "encode", space.wrap("idna"))
+    host = space.unwrap(w_host)
+
+    if space.is_true(space.isinstance(w_port, space.w_int)):
+        port = str(space.int_w(w_port))
+    else:
+        port = space.str_w(w_port)
+    
+    if w_family is None:
+        return space.wrap(socket.getaddrinfo(host, port))
+    else:
+        family = space.int_w(w_family)
+        socktype = space.int_w(w_socktype)
+        proto = space.int_w(w_proto)
+        flags = space.int_w(w_flags)
+        return space.wrap(socket.getaddrinfo(host, port, family, socktype, proto, flags))
+getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root, W_Root]
+        
+    
 
 
 #    getaddrinfo getnameinfo

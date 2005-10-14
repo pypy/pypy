@@ -141,3 +141,24 @@ def test_has_ipv6():
     res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
     assert space.unwrap(res) == socket.has_ipv6
 
+def test_getaddrinfo():
+    host = "localhost"
+    port = 25
+    info = socket.getaddrinfo(host, port)
+    w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
+                        "(_socket, host, port): return _socket.getaddrinfo(host, port)")
+    assert space.unwrap(w_l) == info
+    w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port), space.wrap(0)],
+                        """(_socket, host, port, family):
+                            try:
+                                return _socket.getaddrinfo(host, port, family)
+                            except TypeError: # arguments are missing
+                                return [1]
+                        """)
+    assert space.unwrap(w_l) == [1]
+    py.test.skip("Too long...")
+    w_l = space.appexec([w_socket, space.wrap(unicode(host)), space.wrap(port)],
+                        "(_socket, host, port): return _socket.getaddrinfo(host, port)")
+    assert space.unwrap(w_l) == info
+    
+    
