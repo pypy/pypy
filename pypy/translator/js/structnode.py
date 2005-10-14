@@ -121,8 +121,8 @@ class StructNode(ConstantLLVMNode):
     def writedecl(self, codewriter):
         codewriter.declare(self.ref + ' = new Object()')
         
-    def get_typerepr(self):
-        return self.db.repr_type(self.structtype)
+    #def get_typerepr(self):
+    #    return self.db.repr_type(self.structtype)
 
     def get_childref(self, index):
         return self.get_ref() #XXX what to do with index?
@@ -150,9 +150,9 @@ class StructNode(ConstantLLVMNode):
         self._get_ref_cache = ref
         return ref
 
-    def get_pbcref(self, toptr):
-        """ Returns a reference as used per pbc. """        
-        return self.get_ref()
+    #def get_pbcref(self, toptr):
+    #    """ Returns a reference as used per pbc. """        
+    #    return self.get_ref()
 
     def constantvalue(self):
         """ Returns the constant representation for this node. """
@@ -208,37 +208,21 @@ class StructVarsizeNode(StructNode):
     def setup(self):
         super(StructVarsizeNode, self).setup()
     
-    def get_typerepr(self):
-            try:
-                return self._get_typerepr_cache
-            except:
-                # last type is a special case and need to be worked out recursively
-                types = self._get_types[:-1]
-                types_repr = [self.db.repr_type(T) for name, T in types]
-                types_repr.append(self._get_lastnode().get_typerepr())
-                result = "{%s}" % ", ".join(types_repr)
-                self._get_typerepr_cache = result
-                return result
+    #def get_typerepr(self):
+    #        try:
+    #            return self._get_typerepr_cache
+    #        except:
+    #            # last type is a special case and need to be worked out recursively
+    #            types = self._get_types[:-1]
+    #            types_repr = [self.db.repr_type(T) for name, T in types]
+    #            types_repr.append(self._get_lastnode().get_typerepr())
+    #            result = "{%s}" % ", ".join(types_repr)
+    #            self._get_typerepr_cache = result
+    #            return result
          
     def get_ref(self):
         return self.ref
-        #if self._get_ref_cache:
-        #    return self._get_ref_cache
-        #ref = super(StructVarsizeNode, self).get_ref()
-        #typeval = self.db.repr_type(lltype.typeOf(self.value))
-        #ref = "cast (%s* %s to %s*)" % (self.get_typerepr(),
-        #                                ref,
-        #                                typeval)
-        #self._get_ref_cache = ref
-        #return ref
     
-    def get_pbcref(self, toptr):
-        """ Returns a reference as used per pbc. """        
-        return self.ref
-        #ref = self.ref
-        #p, c = lltype.parentlink(self.value)
-        #assert p is None, "child arrays are NOT needed by rtyper"
-        #fromptr = "%s*" % self.get_typerepr()
-        #refptr = "getelementptr (%s %s, int 0)" % (fromptr, ref)
-        #ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)
-        #return ref
+    #def get_pbcref(self, toptr):
+    #    """ Returns a reference as used per pbc. """        
+    #    return self.ref

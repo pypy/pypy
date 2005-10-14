@@ -105,14 +105,13 @@ class ArrayNode(ConstantLLVMNode):
     def get_arrayvalue(self):
         items = self.value.items
         l = len(items)
-        #r = "[%s]" % ", ".join([self.db.repr_constant(v)[1] for v in items])
-        r = "[%s]" % ", ".join([str(v) for v in items])
+        r = "[%s]" % ", ".join([self.db.repr_constant(v)[1] for v in items])
         return l, r 
 
-    def get_typerepr(self):
-        arraylen = self.get_arrayvalue()[0]
-        typeval = self.db.repr_type(self.arraytype)
-        return "{ int, [%s x %s] }" % (arraylen, typeval)
+    #def get_typerepr(self):
+    #    arraylen = self.get_arrayvalue()[0]
+    #    typeval = self.db.repr_type(self.arraytype)
+    #    return "{ int, [%s x %s] }" % (arraylen, typeval)
 
     def get_ref(self):
         return self.ref
