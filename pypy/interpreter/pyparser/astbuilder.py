@@ -890,10 +890,15 @@ def build_testlist_gexp(builder, nb):
         builder.push(ast.GenExpr(ast.GenExprInner(expr, genexpr_for, lineno), lineno))
         return
     isConst = True
+    values = []
     for item in items:
-        isConst &= isinstance(item,ast.Const)
+        if isinstance(item, ast.Const):
+            values.append(item.value)
+        else:
+            isConst = False
+            break
     if isConst:
-        builder.push(ast.Const(builder.space.newtuple([i.value for i in items]), lineno))
+        builder.push(ast.Const(builder.space.newtuple(values), lineno))
     else:
         builder.push(ast.Tuple(items, lineno))
     return
@@ -1196,12 +1201,17 @@ def build_exprlist(builder, nb):
         builder.push(atoms[0])
     else:
         names = []
+        values = []
         isConst = True
         for index in range(0, len(atoms), 2):
-            names.append(atoms[index])
-            isConst &= isinstance(atoms[index],ast.Const)
+            item = atoms[index]
+            names.append(item)
+            if isinstance(item, ast.Const):
+                values.append(item)
+            else:
+                isConst = False
         if isConst:
-            builder.push(ast.Const(builder.space.newtuple([n.value for n in names]), atoms[0].lineno))
+            builder.push(ast.Const(builder.space.newtuple(values), atoms[0].lineno))
         else:
             builder.push(ast.Tuple(names, atoms[0].lineno))
 
