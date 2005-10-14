@@ -18,12 +18,13 @@ developers to the PyPy Community! Currently we are focusing on implementing
 `continuation-passing`_ style (stackless), making the translation process
 work for target languages with more powerful object systems and some tiny
 steps into the JIT_ direction. Michael and Carl have written
-a `report about day one`_. *(10/11/2005)*
+a `report about day one`_ and `one about day two and three`_. *(10/14/2005)*
 
 .. _`Logilabs offices in Paris`: http://codespeak.net/pypy/extradoc/sprintinfo/paris-2005-sprint.html 
 .. _JIT: http://en.wikipedia.org/wiki/Just-in-time_compilation
 .. _`continuation-passing`: http://en.wikipedia.org/wiki/Continuation_passing_style
 .. _`report about day one`: http://codespeak.net/pipermail/pypy-dev/2005q4/002510.html
+.. _`one about day two and three`: http://codespeak.net/pipermail/pypy-dev/2005q4/002512.html
 
 PyPy release 0.7.0
 =================== 
