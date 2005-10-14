@@ -126,6 +126,8 @@ def test_packed_ip():
     assert space.unwrap(w_ip) == ip
 
 def test_pton():
+    ip = '123.45.67.89'
+    packed = socket.inet_aton(ip)
     if not hasattr(socket, 'inet_pton'):
         py.test.skip('No socket.(inet_pton|inet_ntop) on this platform')
     w_p = space.appexec([w_socket, space.wrap(ip)],
@@ -134,7 +136,6 @@ def test_pton():
     w_ip = space.appexec([w_socket, space.wrap(packed)],
                          "(_socket, p): return _socket.inet_ntop(_socket.AF_INET, p)")
     assert space.unwrap(w_ip) == ip
-    
 
 def test_has_ipv6():
     res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
