@@ -107,10 +107,12 @@ class RefcountingGcPolicy(BasicGcPolicy):
         if increfstmt:
             result.append(increfstmt)
         if decrefstmt:
-            result.insert(0, '{ %s = %s;' % (
+            result.insert(0, '%s = %s;' % (
                 cdecl(self.db.gettype(T), 'prev'),
                 targetexpr))
             result.append(decrefstmt)
+            result[:] = ['\t%s' % line for line in result]
+            result[0] = '{' + result[0]
             result.append('}')
 
     def generic_dealloc(self, expr, T):
@@ -348,7 +350,7 @@ class BoehmGcPolicy(BasicGcPolicy):
                                                                 is_varsize,
                                                                 err)
         if gcinfo and gcinfo.finalizer:
-            result += ('\tGC_REGISTER_FINALIZER(%s, %s, NULL, NULL, NULL);'
+            result += ('\nGC_REGISTER_FINALIZER(%s, %s, NULL, NULL, NULL);'
                        % (eresult, gcinfo.finalizer))
         return result
 

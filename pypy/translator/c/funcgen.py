@@ -234,7 +234,11 @@ class FunctionCodeGenerator(object):
                     lst.append(self.expr(op.result))
                     lst.append(err)
                     line = '%s(%s);' % (macro, ', '.join(lst))
-                yield line
+                if '\n' in line:
+                    for subline in line.split('\n'):
+                        yield subline
+                else:
+                    yield line
                 if line.find(err) >= 0:
                     reachable_err = len(to_release)
                 to_release.append(op.result)
@@ -404,11 +408,11 @@ class FunctionCodeGenerator(object):
             # skip assignment of 'void' return value
             r = self.expr(op.result)
             line = '%s = %s' % (r, line)
-        line = '%s %s' % (line, self.check_directcall_result(op, err))
+        line = '%s\n%s' % (line, self.check_directcall_result(op, err))
         return line
 
     def check_directcall_result(self, op, err):
-        return 'if (RPyExceptionOccurred()) FAIL(%s);' % err
+        return 'if (RPyExceptionOccurred())\n\tFAIL(%s);' % err
 
     # low-level operations
     def generic_get(self, op, sourceexpr):
@@ -418,7 +422,7 @@ class FunctionCodeGenerator(object):
         # need to adjust the refcount of the result only for PyObjects
         if T == PyObjPtr:
             result.append(self.pyobj_incref_expr(newvalue, T))
-        result = '\t'.join(result)
+        result = '\n'.join(result)
         if T is Void:
             result = '/* %s */' % result
         return result
@@ -429,7 +433,7 @@ class FunctionCodeGenerator(object):
         # insert write barrier
         T = self.lltypemap(op.args[2])
         self.gcpolicy.write_barrier(result, newvalue, T, targetexpr)
-        result = '\t'.join(result)
+        result = '\n'.join(result)
         if T is Void:
             result = '/* %s */' % result
         return result
@@ -518,7 +522,7 @@ class FunctionCodeGenerator(object):
                                                        elength,
                                                        cdecl(itemtypename, ''))
         result = self.gcpolicy.zero_malloc(TYPE, esize, eresult, err)
-        result += '\t%s->%s = %s;' % (eresult, lenfld, elength)
+        result += '\n%s->%s = %s;' % (eresult, lenfld, elength)
         return result
 
     def OP_CAST_POINTER(self, op, err):

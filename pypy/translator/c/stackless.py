@@ -243,12 +243,12 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
 
         # add the checks for the unwinding case just after the directcall
         # in the source
-        unwind_check = "if (slp_frame_stack_bottom) goto %s;" % (savelabel,)
+        unwind_check = "if (slp_frame_stack_bottom)\n\tgoto %s;" % (savelabel,)
         exception_check = (super(SlpFunctionCodeGenerator, self)
                            .check_directcall_result(op, err))
-        return '%s\n     %s:\n\t%s' % (unwind_check,
-                                       resumelabel,
-                                       exception_check)
+        return '%s\n  %s:\n%s' % (unwind_check,
+                                    resumelabel,
+                                    exception_check)
 
 
 def signature_type(T):
