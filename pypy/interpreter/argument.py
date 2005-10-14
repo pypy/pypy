@@ -207,7 +207,11 @@ class Arguments:
         # collect extra positional arguments into the *vararg
         if varargname is not None:
             if self.w_stararg is None:   # common case
-                scope_w.append(self.space.newtuple(args_w[co_argcount:]))
+                if len(args_w) > co_argcount:  # check required by rpython
+                    starargs_w = args_w[co_argcount:]
+                else:
+                    starargs_w = []
+                scope_w.append(self.space.newtuple(starargs_w))
             else:      # shortcut for the non-unpack() case above
                 scope_w.append(self.w_stararg)
         elif len(args_w) > co_argcount:
