@@ -77,11 +77,11 @@ def fromfd(space, fd, family, type, w_proto=NoneNotWrapped):
     Create a socket object from the given file descriptor.
     The remaining arguments are the same as for socket().
     """
-    if proto is None:
+    if w_proto is None:
         return space.wrap(socket.fromfd(fd, family, type))
     else:
-        return space.wrap(socket.fromfd(fd, family, type, space.int_w(proto)))
-fromfd.unwrap_spec = [ObjSpace, int, int, int, int]
+        return space.wrap(socket.fromfd(fd, family, type, space.int_w(w_proto)))
+fromfd.unwrap_spec = [ObjSpace, int, int, int, W_Root]
 
 #    fromfd socketpair
 #    ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop

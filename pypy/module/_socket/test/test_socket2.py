@@ -1,12 +1,14 @@
-from pypy.objspace.std import StdObjSpace 
+from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
 import py
 import socket, sys
 
-def setup_module(mod): 
+def setup_module(mod):
     mod.space = StdObjSpace(usemodules=['_socket'])
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
-    
+    mod.path = udir.join('fd')
+    mod.path.write('fo')
+
 def test_gethostname():
     host = space.appexec([w_socket], "(_socket): return _socket.gethostname()")
     assert space.unwrap(host) == socket.gethostname()
@@ -62,7 +64,7 @@ def test_getservbyport():
                          except TypeError:
                              return 'OK'
                          """)
-    assert space.unwrap(name) == 'OK' 
+    assert space.unwrap(name) == 'OK'
     # 1 arg version
     name = space.appexec([w_socket, space.wrap(port)],
                          "(_socket, port): return _socket.getservbyport(port)")
@@ -73,9 +75,24 @@ def test_getprotobyname():
     num = space.appexec([w_socket, space.wrap(name)],
                         "(_socket, name): return _socket.getprotobyname(name)")
     assert space.unwrap(num) == socket.IPPROTO_TCP
-    
 
 def test_has_ipv6():
     res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
     assert space.unwrap(res) == socket.has_ipv6
 
+def test_fromfd():
+    # XXX review
+    orig_fd = path.open()
+    fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
+            space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM),
+            space.wrap(0)],
+           """(_socket, fd, family, type, proto): 
+                 return _socket.fromfd(fd, family, type, proto)""")
+
+    assert space.unwrap(fd).fileno()
+    fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
+            space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM)],
+                """(_socket, fd, family, type):
+                    return _socket.fromfd(fd, family, type)""")
+
+    assert space.unwrap(fd).fileno()
