@@ -538,6 +538,7 @@ def build_atom(builder, nb):
                 builder.push(ast.List([], top.lineno))
             else:
                 list_node = atoms[1]
+                list_node.lineno = top.lineno
                 builder.push(list_node)
         elif top.name == tok.LBRACE:
             items = []
@@ -888,7 +889,13 @@ def build_testlist_gexp(builder, nb):
         genexpr_for[0].is_outmost = True
         builder.push(ast.GenExpr(ast.GenExprInner(expr, genexpr_for, lineno), lineno))
         return
-    builder.push(ast.Tuple(items, lineno))
+    isConst = True
+    for item in items:
+        isConst &= isinstance(item,ast.Const)
+    if isConst:
+        builder.push(ast.Const(builder.space.newtuple([i.value for i in items]), lineno))
+    else:
+        builder.push(ast.Tuple(items, lineno))
     return
 
 def build_lambdef(builder, nb):
@@ -926,8 +933,7 @@ def build_trailer(builder, nb):
                         num_slicevals = 2
                     for val in atom.value[:num_slicevals]:
                         if val is None:
-                            slicevals.append(ast.Const(builder.wrap_none(),
-                                                       atom.lineno))
+                            slicevals.append(ast.Const(builder.wrap_none(), atom.lineno))
                         else:
                             slicevals.append(val)
                     subs.append(ast.Sliceobj(slicevals, atom.lineno))
@@ -1190,9 +1196,14 @@ def build_exprlist(builder, nb):
         builder.push(atoms[0])
     else:
         names = []
+        isConst = True
         for index in range(0, len(atoms), 2):
             names.append(atoms[index])
-        builder.push(ast.Tuple(names, atoms[0].lineno))
+            isConst &= isinstance(atoms[index],ast.Const)
+        if isConst:
+            builder.push(ast.Const(builder.space.newtuple([n.value for n in names]), atoms[0].lineno))
+        else:
+            builder.push(ast.Tuple(names, atoms[0].lineno))
 
 
 def build_while_stmt(builder, nb):

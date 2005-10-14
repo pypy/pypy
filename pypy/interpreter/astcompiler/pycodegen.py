@@ -316,6 +316,7 @@ class CodeGenerator(ast.ASTVisitor):
         self.scope = node.scope
         self.emitop_int('SET_LINENO', 0)
         if not space.is_w(node.doc, space.w_None):
+            self.set_lineno(node)
             self.emitop_obj('LOAD_CONST', node.doc)
             self.storeName('__doc__', node.lineno)
         node.node.accept( self )
@@ -818,6 +819,9 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('POP_TOP')
 
     def visitConst(self, node):
+        space = self.space
+        if space.is_true(space.isinstance(node.value, space.w_tuple)):
+            self.set_lineno(node)
         self.emitop_obj('LOAD_CONST', node.value)
 
     def visitKeyword(self, node):
