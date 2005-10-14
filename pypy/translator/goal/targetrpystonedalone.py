@@ -51,8 +51,8 @@ def entry_point(argv):
             try:
                 n = abs(int(s))
             except ValueError:
-                os.write(2, '%s is neither a valid option (pystone, richards)'
-                            ' nor an integer\n')
+                os.write(2, '"%s" is neither a valid option (pystone, richards)'
+                            ' nor an integer\n' % s)
                 return 1
     if not n:
         n = default

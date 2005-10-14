@@ -78,7 +78,7 @@ if Popen:
             CREATIONFLAGS = win32con.HIGH_PRIORITY_CLASS
             print "configured to run under high priority"
 
-BENCH_EXECONFIG = 'bench_windows_exe.txt'
+BENCH_EXECONFIG = '_bench_windows_exe.txt'
 bench_exe = None
 
 def reference(progname):
@@ -103,16 +103,22 @@ def run_version_size(executable=reference('python'), *args):
         size += os.path.getsize(win32api.GetModuleFileName(int(dll)))
     return ver, size
 
-def run_pystone(executable=reference('python'), n=0):
-    argstr = PYSTONE_CMD % (str(n) and n or '')
-    txt = run_cmd('%s -c "%s"' % (executable, argstr))
+def run_pystone(executable=reference('python'), n=0, rpy=False):
+    if rpy:
+        txt = run_cmd('%s pystone' % executable)
+    else:
+        argstr = PYSTONE_CMD % (str(n) and n or '')
+        txt = run_cmd('%s -c "%s"' % (executable, argstr))
     res = get_result(txt, PYSTONE_PATTERN)
     print res
     return res
 
-def run_richards(executable=reference('python'), n=20):
-    argstr = RICHARDS_CMD % n
-    txt = run_cmd('%s -c "%s"' % (executable, argstr))
+def run_richards(executable=reference('python'), n=20, rpy=False):
+    if rpy:
+        txt = run_cmd('%s richards' % executable)
+    else:
+        argstr = RICHARDS_CMD % n
+        txt = run_cmd('%s -c "%s"' % (executable, argstr))
     res = get_result(txt, RICHARDS_PATTERN)
     print res
     return res
@@ -122,7 +128,7 @@ def get_executables():
     exes.sort()
     return exes
 
-STAT_FILE = 'bench_windows.dump'
+STAT_FILE = '_bench_windows.dump'
 def load_stats(statfile=STAT_FILE):
     try:
         dic = pickle.load(file(statfile, 'rb'))
@@ -134,9 +140,11 @@ def save_stats(dic, statfile=STAT_FILE):
     pickle.dump(dic, file(statfile, 'wb'))
 
 HEADLINE = '''\
-executable                  richards         pystone            size (MB)'''
+executable                  richards           pystone            size (MB)'''
 FMT = '''\
-%-27s'''                +    '%5d  %5.1fx    %7.1f  %5.1fx      %5.2f'
+%-27s'''             +    '%5d  %5.1fx' +  '  %9.1f  %5.1fx       %5.3f'
+FMT2 = '''\
+%-27s'''             +  '%5.3f  %5.1f/' +  '  %9.1f  %5.1f/       %5.3f'
 
 def main():
     print 'getting the richards reference'
@@ -149,25 +157,30 @@ def main():
         exename = os.path.splitext(exe)[0]
         mtime = os.path.getmtime(exe)
         size = os.path.getsize(exe)
+        rpy = size < 500000
         key = md5.new(file(exe,'rb').read()).digest()
         if key in prior:
             print 'skipped', exename
             resdic[key] = prior[key][:2] + (exename, mtime, size)
         else:
-            resdic[key] = (run_richards(exe, 2), run_pystone(exe, 20000),
+            resdic[key] = (run_richards(exe, 2,rpy), run_pystone(exe, 20000, rpy),
                            exename, mtime, size)
             prior[key] = resdic[key] # save result, temporarily
             save_stats(prior)
     save_stats(resdic) # save cleaned result
-    res = [ (mtime, exe, size, rich, stone)
+    res = [ (stone / rich, exe, size, rich, stone)
             for rich, stone, exe, mtime, size in resdic.values()]
     version, size = run_version_size()
-    res.append( (9e9, 'python %s' % version, size, ref_rich, ref_stone) )
+    res.append( (1.0, 'python %s' % version, size, ref_rich, ref_stone) )
     res.sort()
     print HEADLINE
-    for mtime, exe, size, rich, stone in res:
-        print FMT % (exe, rich, rich / ref_rich, stone, ref_stone / stone,
-                     size / float(1024 * 1024))
+    for speed2, exe, size, rich, stone in res:
+        if speed2 <= 1.0:
+            print FMT % (exe, rich, rich / ref_rich, stone, ref_stone / stone,
+                         size / float(1024 * 1024))
+        else:
+            print FMT2 % (exe, rich, ref_rich / rich, stone, stone / ref_stone,
+                          size / float(1024 * 1024))
 
 if __name__ == '__main__':
     main()
