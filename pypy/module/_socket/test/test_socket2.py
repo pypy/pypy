@@ -173,7 +173,11 @@ def test_timeout():
     w_t = space.appexec([w_socket],
                   "(_socket): return _socket.getdefaulttimeout()")
     assert space.unwrap(w_t) is None
-    
-    
-    
-    
+
+class AppTestSocket:
+    def setup_class(cls):
+        cls.space = space
+
+    def INPROGRESStest_newsocket(self):
+        import _socket
+        s = _socket.socket()
