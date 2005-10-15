@@ -1,34 +1,11 @@
 
 
-from Numeric import zeros,nzeros,array
-from Numeric import  Float
+from Numeric import zeros,array
+from Numeric import  Float,TOWER_TYPES,TOWER_TYPES_VALUES
 
 
 
-class TestArray:
-    def test(self):
-        a = zeros( (3,2), Float )
-        assert (3,2) == a.shape
 
-        b = zeros( (8,), Float )
-        assert 0.==b[1]
-        b[1]= 1.
-        assert 1.==b[1]
-
-    def testZeros(self):
-        pass
-
-TestArray().test()
-TestArray().testZeros()
-#### Original test above.
-
-a=nzeros((2,7),Float)
-
-assert (2,7)== a.shape
-b=nzeros((10,),Float)
-assert 0.==b[2]
-b[3]=555
-assert b[3]==555
 
 def assertRaises(block,exception=Exception,shout='This should raise an exception'):
     try:
@@ -38,8 +15,32 @@ def assertRaises(block,exception=Exception,shout='This should raise an exception
     else:
         assert False,shout
 
+"""
+PyPy issues : >>>> 1=1 produces syntax error, but in script, takes AGES to eventually do this.
+this is due to the size of the traceback which is generated in the script.
 
-assertRaises(lambda :array(()),exception=ValueError)   #this should fail
+"""
+#first we check the really simple, empty or minimal arrays
+assert (0,)==array(()).shape
+assert ()==array((1)).shape
+assert array(()).isArray()  and array((1)).isArray()
 
-a=array([1])
-#assert a[0]==1   last test broken...
+#next we check the typecodes on these small examples
+assert 'l'==array(()).typecode()
+assert 'l'==array((1)).typecode()
+assert 'd'==array((1.0)).typecode()
+
+#we are not supporting complex numbers or any other objects yet
+assertRaises(lambda :array((1j)),ValueError)
+assertRaises(lambda :array((1j,)),ValueError)
+assertRaises(lambda :array(('a')),ValueError)
+
+#now check accessing of values on empty array, and a scalar
+#assertRaises(lambda :array(())[0],IndexError
+
+
+
+
+
+
+

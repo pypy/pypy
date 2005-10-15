@@ -153,7 +153,7 @@ class W_Array_Float(W_Array):
         if len(idx_tuple)!=len(self.dims):
             # TODO raise OperationError or remove this and make it a pre-condition
             raise RuntimeError
-        
+
         idx = self.get_array_offset( idx_tuple )
         return space.wrap( self.storage[idx] )
 
@@ -180,7 +180,7 @@ class W_Array_Float(W_Array):
                 offset+= idx.index*self.strides[i]
         array = W_Array_Float( space, dims, strides, self.storage )
         return space.wrap(array)
-        
+
 
 descr___getitem__ = interp2app( W_Array.descr___getitem__, unwrap_spec=['self', ObjSpace, W_Root ] )
 descr___setitem__ = interp2app( W_Array.descr___setitem__, unwrap_spec=['self', ObjSpace, W_Root, W_Root ] )
@@ -211,18 +211,10 @@ w_zeros.unwrap_spec = [ ObjSpace, W_Root, str ]
 """
 class W_NumericArray(Wrappable):
 
-    def __init__(self, space, dims ):
+    def __init__(self, space, dims ,value=None ):
         self.space = space
-        assert isinstance(dims, list)
         self.dims = dims
-        self.strides = [1]
-        self.base_object = None
-        self.base_offset = 0 # needed later for offseting into a shared storage
-        stride = 1
-        for n in self.dims[:-1]:
-            stride *= n
-            self.strides.append( stride )
-        self.strides.reverse()
+        self.value= value
 
     def check_space_true(self, space, w_index):
         if not space.is_true(space.isinstance( w_index, space.w_int )):
@@ -230,6 +222,15 @@ class W_NumericArray(Wrappable):
         idx = space.unwrap( w_index )
         assert isinstance( idx, int )
         return idx
+
+    def isArray(self,space):
+        return self.space.wrap(True)
+
+    def typecode(self,space):
+        code='l'
+        if isinstance(self.value,float):
+            code='d'
+        return self.space.wrap(code)
 
     def descr___getitem__( self, space, w_index ):
         return self.get_single_item( space, [ self.check_space_true( space, w_index)])
@@ -252,22 +253,6 @@ class W_NumericArray(Wrappable):
             idx += self.strides[i]*idx_tuple[i]
         return idx
 
-
-class W_NumericArray_Float(W_NumericArray):
-
-    def __init__(self, space, dims, storage=None ):
-        W_NumericArray.__init__(self, space, dims )
-        storage_size = get_storage_size(dims)
-        self.storage = []
-        if storage is not None:
-            assert isinstance(storage, list)
-            # TODO return proper exception here
-            assert len(storage)==storage_size
-            assert isinstance(storage[0], float)
-            self.storage = storage
-        else:
-            self.storage = [0.0]*storage_size
-
     def get_single_item( self, space, idx_tuple ):
         if len(idx_tuple)!=len(self.dims):
             # TODO raise OperationError or remove this and make it a pre-condition
@@ -280,32 +265,44 @@ class W_NumericArray_Float(W_NumericArray):
         value = space.float_w( w_value )
         self.storage[idx] = value
 
+
+
+
 descr___getitem__ = interp2app( W_NumericArray.descr___getitem__, unwrap_spec=['self', ObjSpace, W_Root ] )
 descr___setitem__ = interp2app( W_NumericArray.descr___setitem__, unwrap_spec=['self', ObjSpace, W_Root, W_Root ] )
+
+isArray = interp2app( W_NumericArray.isArray, unwrap_spec=['self', ObjSpace ] )
+typecode = interp2app( W_NumericArray.typecode, unwrap_spec=['self', ObjSpace ] )
+
 
 
 W_NumericArray.typedef = TypeDef("W_NumericArray",
                           shape = GetSetProperty( W_NumericArray.fget_shape, cls=W_NumericArray),
+                          isArray = isArray,
+                          typecode= typecode,
                           __getitem__ = descr___getitem__,
                           __setitem__ = descr___setitem__,
                           )
 
-W_NumericArray_Float.typedef = TypeDef("W_NumericArray_Float", W_NumericArray.typedef,
-                                )
+TOWER_TYPES_VALUES=[(int,1),(float,1.0),(complex,2.0+3j)] #we will work with these types to start with
+TOWER_TYPES_VALUES=TOWER_TYPES_VALUES[0:2]   #cannot unpack complex values yet at interp level.
 
-def w_nzeros( space, w_dim_tuple, type_str ):
-    dims = []
-    for w_int in space.unpackiterable(w_dim_tuple):
-        dims.append( space.unwrap( w_int ) )
-    if type_str == 'd':
-        return space.wrap(W_NumericArray_Float( space, dims ))
-    raise OperationError( space.w_ValueError, space.wrap('Unknown type code') )
+TOWER_TYPES=[typ for typ,val in TOWER_TYPES_VALUES]
 
-w_nzeros.unwrap_spec = [ ObjSpace, W_Root, str ]
+def OpError(space,w_arg):
+    raise OperationError( space.w_ValueError,space.wrap('Cannot unwrap this <%s>'%str(w_arg)))
 
+def array( space, w_arg):
+    try:
+        arg=space.unwrap( w_arg)
+    except:
+        OpError(space,w_arg)
+    if arg in ((),[]):
+        return W_NumericArray(space,(0,))
+    if type(arg) not in (int,float):
+        OpError(space,w_arg)
+    else:
+        return W_NumericArray(space,(),value=arg)
 
-def w_array( space, w_dim_tuple):
-    raise OperationError( space.w_ValueError, space.wrap('Cannot create void array'))
-
-w_array.unwrap_spec = [ ObjSpace, W_Root ]
+array.unwrap_spec = [ ObjSpace, W_Root ]
 

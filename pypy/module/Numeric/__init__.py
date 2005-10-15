@@ -3,7 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     """An RPython reimplementation of the Numeric module
 """
-    
+
     appleveldefs = {
     }
 
@@ -12,10 +12,11 @@ class Module(MixedModule):
         'Int' : "space.wrap('l')",
 #        'array' : 'interp_numeric.w_array',
         'zeros' : 'interp_numeric.w_zeros',
-        'nzeros' : 'interp_numeric.w_nzeros',
-        'array'  : 'interp_numeric.w_array',   
+        'array'  : 'interp_numeric.array',
+        'TOWER_TYPES' : 'space.wrap(interp_numeric.TOWER_TYPES)',
+        'TOWER_TYPES_VALUES' :'space.wrap(interp_numeric.TOWER_TYPES_VALUES)'
         }
-        
+
 ##         'CODESIZE':       'space.wrap(interp_sre.CODESIZE)',
 ##         'MAGIC':          'space.wrap(interp_sre.MAGIC)',
 ##         'copyright':      'space.wrap(interp_sre.copyright)',
