@@ -1,7 +1,10 @@
 from pypy.rpython.l3interp import l3interp
 from pypy.rpython.l3interp import model
+from pypy.translator.c.test.test_genc import compile
+from pypy.translator.translator import Translator
+from pypy.annotation import policy
 
-def test_very_simple():
+def eval_seven():
     op = model.Operation(l3interp.LLFrame.op_int_add, 0, [-1, -2])
     returnlink = model.ReturnLink(None, [])
     block = model.Block([], model.ONE_EXIT, [returnlink])
@@ -12,6 +15,19 @@ def test_very_simple():
     g = model.Globals()
     g.graphs = [graph]
     interp = l3interp.LLInterpreter()
-    result = interp.eval_graph_int(graph, [])
+    return interp.eval_graph_int(graph, [])
+      
+
+def test_very_simple():
+    result = eval_seven()
     assert result == 7
-    
+
+def test_very_simple_translated():
+    t = Translator(eval_seven)
+    pol = policy.AnnotatorPolicy()
+    pol.allow_someobjects = False
+    t.annotate([], policy=pol)
+    t.specialize()
+    t.view()
+    fn = t.ccompile()
+

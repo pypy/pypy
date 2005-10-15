@@ -21,7 +21,7 @@ class LLFrame(object):
         assert len(args) == 0, "not implemented, XXX"
         link = self.graph.startlink
 #        self.fill_input_arg(...
-        while type(link) == model.Link:
+        while type(link) is model.Link:
             link = self.eval_block(link.target)
             self.copy_link_vars(link)
         return link
@@ -37,6 +37,8 @@ class LLFrame(object):
         
 
     def copy_link_vars(self, link):
+        if not len(link.move_int_registers):
+            return
         for i in range(0, len(link.move_int_registers), 2):
             source = link.move_int_registers[i]
             target = link.move_int_registers[i + 1]
