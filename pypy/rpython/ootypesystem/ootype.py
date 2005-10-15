@@ -68,9 +68,15 @@ class Instance(OOType):
 	self._fields.update(fields)
 
     def _add_methods(self, methods):
-        for name in methods:
+        # Note to the unwary: _add_methods adds *methods* whereas
+        # _add_fields adds *descriptions* of fields.  This is obvious
+        # if you are in the right state of mind (swiss?), but
+        # certainly not necessarily if not.
+        for name, method in methods.iteritems():
 	    if self._has_field(name):
 	        raise TypeError("Can't add method %r: field already exists" % name)
+            if not isinstance(typeOf(method), Meth):
+                raise TypeError("added methods must be _meths, not %s" % type(defn))
         self._methods.update(methods)
 
     def _init_instance(self, instance):
