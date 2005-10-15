@@ -28,6 +28,6 @@ def test_very_simple_translated():
     pol.allow_someobjects = False
     t.annotate([], policy=pol)
     t.specialize()
-    t.view()
     fn = t.ccompile()
+    assert fn() == 7
 
