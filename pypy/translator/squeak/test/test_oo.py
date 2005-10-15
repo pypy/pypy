@@ -12,7 +12,7 @@ def build_sqfunc(func, args=[], view=False):
    t.specialize(type_system="ootype")
    t.simplify()
    if view:
-      t.view()
+      t.viewcg()
    GenSqueak(udir, t)
 
 
@@ -30,8 +30,17 @@ def f_meth():
    c = new(C)
    return c.m(5)
 
+def f_fields():
+   c = new(C)
+   x = c.a + 1
+   c.a = x
+   return x
+
 def test_simple_new():
    build_sqfunc(f_new)
 
 def test_simple_meth():
-   build_sqfunc(f_meth, view=False)
+   build_sqfunc(f_meth)
+
+def test_simple_fields():
+   build_sqfunc(f_fields, view=False)

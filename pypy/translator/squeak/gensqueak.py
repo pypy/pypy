@@ -9,8 +9,9 @@ from pypy.translator.simplify import simplify_graph
 selectormap = {
     'setitem:with:': 'at:put:',
     'getitem:':      'at:',
-    'new':        'new',
+    'new':           'new',
     'sameAs':        'yourself',
+    'intAdd:':       '+',
 }
 
 def camel_case(str):
@@ -39,10 +40,15 @@ def signature(sel, args):
     if (':' in sel):
 	parts = []
 	names = sel.split(':')
+#	assert len(names) == len(args)
 	while args:
 	    parts.append(names.pop(0) + ': ' + args.pop(0))
 	return ' '.join(parts)
+    elif not sel[0].isalnum():
+#	assert len(args) == 1
+        return "%s %s" %(sel, args[0])
     else:
+#	assert len(args) == 0
 	return sel
 
 
@@ -151,10 +157,18 @@ class GenSqueak:
 	def oper(op):
 	    args = [expr(arg) for arg in op.args]
 	    if op.opname == "oosend":
-		name = args[0]
+		name = op.args[0].value
 		receiver = args[1]
 		args = args[2:]
 		self.note_meth(op.args[1].concretetype, name)
+	    elif op.opname == "oogetfield":
+		receiver = args[0]
+		name = op.args[1].value
+		args = args[2:]
+	    elif op.opname == "oosetfield":
+		receiver = args[0]
+		name = op.args[1].value
+		args = args[2:]
 	    else:
 		name = op.opname
 		receiver = args[0]
@@ -258,7 +272,7 @@ class GenSqueak:
 	return str(i)
 
     def nameof_str(self, s):
-	return s
+	return "'s'"
 
     def nameof_function(self, func):
 	#XXX this should actually be a StaticMeth
