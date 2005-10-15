@@ -38,7 +38,7 @@ def test_simple_call():
 class EmptyBase(object):
     pass
 
-def inprogress_test_simple_empty_base():
+def test_simple_empty_base():
     def dummyfn():
         x = EmptyBase()
         return x

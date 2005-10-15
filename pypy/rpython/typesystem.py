@@ -9,6 +9,27 @@ from pypy.rpython.lltypesystem import lltype
 class TypeSystem(object):
     __metaclass__ = extendabletype
 
+    def __getattr__(self, name):
+        """Lazy import to avoid circular dependencies."""
+        def load(modname):
+            try:
+                return __import__("pypy.rpython.%s.%s" % (self.name, modname),
+                                  None, None, ['__doc__'])
+            except ImportError:
+                return None
+        if name in ('rclass', 'rpbc'):
+            mod = load(name)
+            if mod is not None:
+                setattr(self, name, mod)
+                return mod
+        elif name == "BUILTIN_TYPER":
+            rbuiltin = load('rbuiltin')
+            if rbuiltin is not None:
+                self.BUILTIN_TYPER = rbuiltin.BUILTIN_TYPER
+                return self.BUILTIN_TYPER
+
+        raise AttributeError(name)
+
     def deref(self, obj):
         """Dereference `obj' to concrete object."""
         raise NotImplementedError()
@@ -38,28 +59,8 @@ in a graph."""
         raise NotImplementedError()
 
 class LowLevelTypeSystem(TypeSystem):
+    name = "lltypesystem"
     callable_trait = (lltype.FuncType, lltype.functionptr)
-
-    def __getattr__(self, name):
-        """Lazy import to avoid circular dependencies."""
-        # FIXME refactor into TypeSystem
-        if name == "rclass":
-            from pypy.rpython.lltypesystem import rclass
-            self.rclass = rclass
-
-            return rclass
-        elif name == "rpbc":
-            from pypy.rpython.lltypesystem import rpbc
-            self.rpbc = rpbc
-
-            return rpbc
-        elif name == "BUILTIN_TYPER":
-            from pypy.rpython.lltypesystem import rbuiltin
-            self.BUILTIN_TYPER = rbuiltin.BUILTIN_TYPER
-
-            return self.BUILTIN_TYPER
-        else:
-            raise AttributeError(name)
 
     def deref(self, obj):
         assert isinstance(lltype.typeOf(obj), lltype.Ptr)
@@ -74,6 +75,7 @@ class LowLevelTypeSystem(TypeSystem):
         return getattr(v, 'concretetype', lltype.Ptr(lltype.PyObject))
 
 class ObjectOrientedTypeSystem(TypeSystem):
+    name = "ootypesystem"
     callable_trait = (ootype.StaticMethod, ootype.static_meth)
 
     # FIXME rclass
