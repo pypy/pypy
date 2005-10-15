@@ -143,6 +143,7 @@ class JS(object):   # JS = Javascript
         #codewriter.append(self.wrappercode, 0)
         codewriter.newline()
         codewriter.comment("EOF", 0)
+        f.close()
 
         log('Written:', self.filename)
         return self.filename

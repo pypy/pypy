@@ -295,7 +295,7 @@ class OpWriter(object):
 
         none_label  = self.node.blockindex[link.target]
         block_label = self.node.blockindex[self.block]
-        exc_label   = block_label + '_exception_handling'
+        exc_label   = 10000 + block_label   #_exception_label
 
         #if self.db.is_function_ptr(op.result):  #use longhand form
         #    returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
@@ -303,11 +303,12 @@ class OpWriter(object):
                              argtypes, none_label, exc_label)
 
         e = self.db.translator.rtyper.getexceptiondata()
-        ll_exception_match       = 'pypy_' + e.ll_exception_match.__name__
-        lltype_of_exception_type = ('structtype.' +
+        pypy_prefix              = '' #pypy_
+        ll_exception_match       = pypy_prefix + e.ll_exception_match.__name__
+        lltype_of_exception_type = ('structtype_' +
                                     e.lltype_of_exception_type.TO.__name__
                                     + '*')
-        lltype_of_exception_value = ('structtype.' +
+        lltype_of_exception_value = ('structtype_' +
                                     e.lltype_of_exception_value.TO.__name__
                                     + '*')
 
@@ -321,7 +322,8 @@ class OpWriter(object):
             etype = self.db.obj2node[link.llexitcase._obj]
             current_exception_type = etype.get_ref()
             target          = self.node.blockindex[link.target]
-            exc_found_label = block_label + '_exception_found_branchto_' + target
+            #exc_found_label = block_label + '_exception_found_branchto_' + target
+            exc_found_label = '%d_exception_found_branchto_%d' % (block_label, target)
             last_exc_type_var, last_exc_value_var = None, None
 
             for p in self.node.get_phi_data(link.target):

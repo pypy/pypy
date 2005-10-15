@@ -13,6 +13,9 @@ class CodeWriter(object):
         self.js = js
         self._skip_closeblock = False
 
+    def skip_closeblock(self, flag=True):
+        self._skip_closeblock = flag
+
     def append(self, line, indentation_level=4): 
         if indentation_level:
             s = self.tabstring * indentation_level
@@ -43,7 +46,7 @@ class CodeWriter(object):
     def closeblock(self):
         if not self._skip_closeblock:
             self.append('break')
-        self._skip_closeblock = False
+        self.skip_closeblock(False)
 
     def globalinstance(self, name, typeanddata):
         #self.append('%s = %s' % (name, typeanddata[1:].split('{')[1][:-1]), 0)
@@ -98,7 +101,7 @@ class CodeWriter(object):
     def br_uncond(self, block, exit): 
         self._phi(block, exit)
         self._goto_block(block)
-        self._skip_closeblock = True
+        self.skip_closeblock()
 
     def br(self, cond, block_false, exit_false, block_true, exit_true):
         self.append('if (%s) {' % cond)
@@ -108,7 +111,7 @@ class CodeWriter(object):
         self._phi(block_false, exit_false, 5)
         self._goto_block(block_false, 5)
         self.append('}')
-        self._skip_closeblock = True
+        self.skip_closeblock()
 
     def switch(self, intty, cond, defaultdest, value_label):
         labels = ''
@@ -147,7 +150,7 @@ class CodeWriter(object):
             self.append("return")
         else:
             self.append("return " + ref)
-        self._skip_closeblock = True
+        self.skip_closeblock()
 
     def binaryop(self, name, targetvar, type_, ref1, ref2):
         self.append("%(targetvar)s = %(ref1)s %(name)s %(ref2)s" % locals())

@@ -15,6 +15,7 @@ class LLVMNode(object):
         " helper for creating names"
         if " " in name or "<" in name: 
             name = '"%s"' % name
+        name = name.replace('.', '_')
 
         global _nodename_count 
         if name in _nodename_count:
