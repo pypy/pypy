@@ -1,6 +1,6 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rclass import AbstractClassRepr, AbstractInstanceRepr, \
-                                getclassrepr
+                                getinstancerepr
 from pypy.rpython.ootypesystem import ootype
 
 CLASSTYPE = ootype.Class
@@ -22,12 +22,15 @@ class InstanceRepr(AbstractInstanceRepr):
     def __init__(self, rtyper, classdef, does_need_gc=True):
         AbstractInstanceRepr.__init__(self, rtyper, classdef)
 
-        self.lowleveltype = ootype.Instance(classdef.cls.__name__, None, {}, {})
+        b = self.classdef.basedef
+        if b is not None:
+            b = getinstancerepr(rtyper, b).lowleveltype
+
+        self.lowleveltype = ootype.Instance(classdef.cls.__name__, b, {}, {})
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
 
     def _setup_repr(self):
         # FIXME methods
-        assert self.classdef.basedef is None
 
         fields = {}
         attrs = self.classdef.attrs.items()

@@ -56,3 +56,17 @@ def test_instance_attribute():
         return x.a
     specialize(dummyfn, [])
 
+class Subclass(EmptyBase):
+    pass
+
+def test_subclass_attributes():
+    def dummyfn():
+        x = EmptyBase()
+        x.a = 1
+        y = Subclass()
+        y.a = 2
+        y.b = 3
+        return x.a + y.a + y.b
+    specialize(dummyfn, [])
+    
+        
