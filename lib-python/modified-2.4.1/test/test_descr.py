@@ -511,86 +511,6 @@ def complexes():
     vereq(repr(a), "234.5")
     vereq(a.prec, 12)
 
-def spamlists():
-    if verbose: print "Testing spamlist operations..."
-    import copy, xxsubtype as spam
-    def spamlist(l, memo=None):
-        import xxsubtype as spam
-        return spam.spamlist(l)
-    # This is an ugly hack:
-    copy._deepcopy_dispatch[spam.spamlist] = spamlist
-
-    testbinop(spamlist([1]), spamlist([2]), spamlist([1,2]), "a+b", "__add__")
-    testbinop(spamlist([1,2,3]), 2, 1, "b in a", "__contains__")
-    testbinop(spamlist([1,2,3]), 4, 0, "b in a", "__contains__")
-    testbinop(spamlist([1,2,3]), 1, 2, "a[b]", "__getitem__")
-    testternop(spamlist([1,2,3]), 0, 2, spamlist([1,2]),
-               "a[b:c]", "__getslice__")
-    testsetop(spamlist([1]), spamlist([2]), spamlist([1,2]),
-              "a+=b", "__iadd__")
-    testsetop(spamlist([1,2]), 3, spamlist([1,2,1,2,1,2]), "a*=b", "__imul__")
-    testunop(spamlist([1,2,3]), 3, "len(a)", "__len__")
-    testbinop(spamlist([1,2]), 3, spamlist([1,2,1,2,1,2]), "a*b", "__mul__")
-    testbinop(spamlist([1,2]), 3, spamlist([1,2,1,2,1,2]), "b*a", "__rmul__")
-    testset2op(spamlist([1,2]), 1, 3, spamlist([1,3]), "a[b]=c", "__setitem__")
-    testset3op(spamlist([1,2,3,4]), 1, 3, spamlist([5,6]),
-               spamlist([1,5,6,4]), "a[b:c]=d", "__setslice__")
-    # Test subclassing
-    class C(spam.spamlist):
-        def foo(self): return 1
-    a = C()
-    vereq(a, [])
-    vereq(a.foo(), 1)
-    a.append(100)
-    vereq(a, [100])
-    vereq(a.getstate(), 0)
-    a.setstate(42)
-    vereq(a.getstate(), 42)
-
-def spamdicts():
-    if verbose: print "Testing spamdict operations..."
-    import copy, xxsubtype as spam
-    def spamdict(d, memo=None):
-        import xxsubtype as spam
-        sd = spam.spamdict()
-        for k, v in d.items(): sd[k] = v
-        return sd
-    # This is an ugly hack:
-    copy._deepcopy_dispatch[spam.spamdict] = spamdict
-
-    testbinop(spamdict({1:2}), spamdict({2:1}), -1, "cmp(a,b)", "__cmp__")
-    testbinop(spamdict({1:2,3:4}), 1, 1, "b in a", "__contains__")
-    testbinop(spamdict({1:2,3:4}), 2, 0, "b in a", "__contains__")
-    testbinop(spamdict({1:2,3:4}), 1, 2, "a[b]", "__getitem__")
-    d = spamdict({1:2,3:4})
-    l1 = []
-    for i in d.keys(): l1.append(i)
-    l = []
-    for i in iter(d): l.append(i)
-    vereq(l, l1)
-    l = []
-    for i in d.__iter__(): l.append(i)
-    vereq(l, l1)
-    l = []
-    for i in type(spamdict({})).__iter__(d): l.append(i)
-    vereq(l, l1)
-    straightd = {1:2, 3:4}
-    spamd = spamdict(straightd)
-    testunop(spamd, 2, "len(a)", "__len__")
-    testunop(spamd, repr(straightd), "repr(a)", "__repr__")
-    testset2op(spamdict({1:2,3:4}), 2, 3, spamdict({1:2,2:3,3:4}),
-               "a[b]=c", "__setitem__")
-    # Test subclassing
-    class C(spam.spamdict):
-        def foo(self): return 1
-    a = C()
-    vereq(a.items(), [])
-    vereq(a.foo(), 1)
-    a['foo'] = 'bar'
-    vereq(a.items(), [('foo', 'bar')])
-    vereq(a.getstate(), 0)
-    a.setstate(100)
-    vereq(a.getstate(), 100)
 
 def pydicts():
     if verbose: print "Testing Python subclass of dict..."
@@ -1493,19 +1413,6 @@ def classmethods():
     else:
         raise TestFailed, "classmethod should check for callability"
 
-def classmethods_in_c():
-    if verbose: print "Testing C-based class methods..."
-    import xxsubtype as spam
-    a = (1, 2, 3)
-    d = {'abc': 123}
-    x, a1, d1 = spam.spamlist.classmeth(*a, **d)
-    veris(x, spam.spamlist)
-    vereq(a, a1)
-    vereq(d, d1)
-    x, a1, d1 = spam.spamlist().classmeth(*a, **d)
-    veris(x, spam.spamlist)
-    vereq(a, a1)
-    vereq(d, d1)
 
 def staticmethods():
     if verbose: print "Testing static methods..."
@@ -1524,19 +1431,6 @@ def staticmethods():
     vereq(d.foo(1), (d, 1))
     vereq(D.foo(d, 1), (d, 1))
 
-def staticmethods_in_c():
-    if verbose: print "Testing C-based static methods..."
-    import xxsubtype as spam
-    a = (1, 2, 3)
-    d = {"abc": 123}
-    x, a1, d1 = spam.spamlist.staticmeth(*a, **d)
-    veris(x, None)
-    vereq(a, a1)
-    vereq(d, d1)
-    x, a1, d2 = spam.spamlist().staticmeth(*a, **d)
-    veris(x, None)
-    vereq(a, a1)
-    vereq(d, d1)
 
 def classic():
     if verbose: print "Testing classic classes..."
@@ -4000,8 +3894,8 @@ def test_main():
     longs,
     floats,
     complexes,
-    spamlists,
-    spamdicts,
+    # spamlists,
+    # spamdicts,
     pydicts,
     pylists,
     metaclass,
@@ -4018,9 +3912,9 @@ def test_main():
     dynamics,
     errors,
     classmethods,
-    classmethods_in_c,
+    # classmethods_in_c,
     staticmethods,
-    staticmethods_in_c,
+    # staticmethods_in_c,
     classic,
     compattr,
     newslot,
