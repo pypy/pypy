@@ -246,7 +246,8 @@ def ntohl(space, w_x):
         x = space.uint_w(w_x)
     else:
         raise OperationError(space.w_TypeError,
-                             space.wrap("expected int/long"))
+                             space.wrap("expected int/long, %s found" %
+                                        (space.type(w_x).getname(space, "?"))))
     
     return space.wrap(socket.ntohl(x))
 ntohl.unwrap_spec = [ObjSpace, W_Root]
@@ -270,7 +271,8 @@ def htonl(space, w_x):
         x = space.uint_w(w_x)
     else:
         raise OperationError(space.w_TypeError,
-                             space.wrap("expected int/long"))
+                             space.wrap("expected int/long, %s found" %
+                                        (space.type(w_x).getname(space, "?"))))
     
     return space.wrap(socket.htonl(x))
 htonl.unwrap_spec = [ObjSpace, W_Root]
