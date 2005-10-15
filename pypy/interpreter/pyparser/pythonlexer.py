@@ -67,7 +67,12 @@ def generate_tokens(lines, flags):
     This is a rewrite of pypy.module.parser.pytokenize.generate_tokens since
     the original function is not RPYTHON (uses yield)
     It was also slightly modified to generate Token instances instead
-    of the original 5-tuples
+    of the original 5-tuples -- it's now a 4-tuple of
+    
+    * the Token instance
+    * the whole line as a string
+    * the line number (the real one, counting continuation lines)
+    * the position on the line of the end of the token.
 
     Original docstring ::
     
@@ -189,7 +194,7 @@ def generate_tokens(lines, flags):
                     raise TokenError("Unknown character", line,
                                  (lnum, start), token_list)
 
-                spos, epos, pos = (lnum, start), (lnum, end), end
+                pos = end
                 token, initial = line[start:end], line[start]
                 if initial in numchars or \
                    (initial == '.' and token != '.'):      # ordinary number
@@ -244,7 +249,7 @@ def generate_tokens(lines, flags):
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
                     continued = 1
-                    lnum -= 1
+                    # lnum -= 1  disabled: count continuation lines separately
                 else:
                     if initial in '([{':
                         parenlev = parenlev + 1

@@ -336,7 +336,7 @@ def wrong3():
         w_fline = space.getitem(w_d, space.wrap('fline'))
         w_gline = space.getitem(w_d, space.wrap('gline'))
         assert space.int_w(w_fline) == 2
-        #IN-PROGRESS assert space.int_w(w_gline) == 6
+        assert space.int_w(w_gline) == 6
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
