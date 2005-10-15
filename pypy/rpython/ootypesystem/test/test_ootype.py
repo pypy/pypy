@@ -22,6 +22,16 @@ def test_simple_class():
     i.a = 3
     assert i.a == 3
 
+def test_assign_super_attr():
+    C = Instance("test", None, {"a": (Signed, 3)})
+    D = Instance("test2", C, {})
+
+    d = new(D)
+
+    d.a = 1
+
+    assert d.a == 1
+
 def test_runtime_instanciation():
     I = Instance("test", None, {"a": Signed})
     c = runtimeClass(I)

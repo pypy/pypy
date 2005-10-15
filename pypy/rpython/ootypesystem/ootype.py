@@ -96,9 +96,16 @@ class Instance(OOType):
 
             return self._superclass._has_field(name)
 
-    def _check_field(self, name):
-        if not self._has_field(name):
-	    raise TypeError("No field named %r" % name)
+    def _field_type(self, name):
+        try:
+            return self._fields[name][0]
+        except KeyError:
+	    if self._superclass is None:
+                raise TypeError("No field names %r" % name)
+
+            return self._superclass._field_type(name)
+
+    _check_field = _field_type
 
     def _lookup(self, meth_name):
         meth = self._methods.get(meth_name)
@@ -147,8 +154,8 @@ class _instance(object):
     def __setattr__(self, name, value):
         self.__getattr__(name)
             
-        if self._TYPE._fields[name][0] != typeOf(value):
-            raise TypeError("Expected type %r" % self._TYPE._fields[name][0])
+        if self._TYPE._field_type(name) != typeOf(value):
+            raise TypeError("Expected type %r" % self._TYPE._field_type(name))
 
         self.__dict__[name] = value
 
