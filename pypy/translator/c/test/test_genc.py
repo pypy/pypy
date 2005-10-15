@@ -202,6 +202,24 @@ def test_recursive_struct():
     res = f1(42)
     assert res == 42
 
+def test_recursive_struct_2():
+    class L:
+        def __init__(self, target):
+            self.target = target
+    class RL(L):
+        pass
+    class SL(L):
+        pass
+    class B:
+        def __init__(self, exits):
+            self.exits = exits
+    def fn(i):
+        rl = RL(None)
+        b = B([rl])
+        sl = SL(b)
+    f1 = compile(fn, [int])
+    f1(42)
+
 def test_infinite_float():
     x = 1.0
     while x != x / 2:

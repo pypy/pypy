@@ -49,6 +49,7 @@ def test_inlined_struct():
     s.x.y = 42
     assert db.get(s).startswith('(&'+pfx)
     assert db.containernodes.keys() == [s._obj]
+    db.complete()
     assert len(db.structdefnodes) == 2
     assert S in db.structdefnodes
     assert S.x in db.structdefnodes

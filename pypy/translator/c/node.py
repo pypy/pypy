@@ -20,9 +20,18 @@ def needs_gcheader(T):
             return False   # gcheader already in the first field
     return True
 
+class defaultproperty(object):
+    def __init__(self, fget):
+        self.fget = fget
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self
+        else:
+            return self.fget(obj)
+
+
 class StructDefNode:
     gcheader = None
-    gcinfo = None
 
     def __init__(self, db, STRUCT, varlength=1):
         self.db = db
@@ -76,17 +85,22 @@ class StructDefNode:
             else:
                 typename = db.gettype(T, who_asks=self)
             self.fields.append((self.c_struct_field_name(name), typename))
+        self.gcinfo  # force it to be computed
 
+    def computegcinfo(self):
+        # let the gcpolicy do its own setup
+        self.gcinfo = None   # unless overwritten below
         rtti = None
+        STRUCT = self.STRUCT
         if isinstance(STRUCT, GcStruct):
             try:
                 rtti = getRuntimeTypeInfo(STRUCT)
             except ValueError:
                 pass
-
-        # let the gcpolicy do its own setup
-        if varlength == 1:
+        if self.varlength == 1:
             self.db.gcpolicy.struct_setup(self, rtti)
+        return self.gcinfo
+    gcinfo = defaultproperty(computegcinfo)
 
     def c_struct_field_name(self, name):
         return self.prefix + name
@@ -151,7 +165,6 @@ class StructDefNode:
 
 class ArrayDefNode:
     gcheader = None
-    gcinfo = None
 
     def __init__(self, db, ARRAY, varlength=1):
         self.db = db
@@ -180,12 +193,16 @@ class ArrayDefNode:
     def setup(self):
         db = self.db
         ARRAY = self.ARRAY
-        varlength = self.varlength
         self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
+        self.gcinfo    # force it to be computed
 
+    def computegcinfo(self):
         # let the gcpolicy do its own setup
-        if varlength == 1:
+        self.gcinfo = None   # unless overwritten below
+        if self.varlength == 1:
             self.db.gcpolicy.array_setup(self)
+        return self.gcinfo
+    gcinfo = defaultproperty(computegcinfo)
 
     def access_expr(self, baseexpr, index):
         return '%s.items[%d]' % (baseexpr, index)

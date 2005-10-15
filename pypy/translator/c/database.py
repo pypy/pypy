@@ -19,6 +19,7 @@ class LowLevelDatabase:
         self.translator = translator
         self.standalone = standalone
         self.structdefnodes = {}
+        self.pendingsetupnodes = []
         self.containernodes = {}
         self.containerlist = []
         self.completedcontainers = 0
@@ -51,7 +52,7 @@ class LowLevelDatabase:
             else:
                 raise Exception("don't know about %r" % (T,))
             self.structdefnodes[key] = node
-            node.setup()
+            self.pendingsetupnodes.append(node)
         return node
 
     def gettype(self, T, varlength=1, who_asks=None, argnames=[]):
@@ -129,36 +130,6 @@ class LowLevelDatabase:
             else:
                 raise Exception("don't know about %r" % (obj,))
 
-    """
-    def cincrefstmt(self, expr, T):
-        if isinstance(T, Ptr) and T._needsgc():
-            if expr == 'NULL':    # hum
-                return ''
-            if T.TO == PyObject:
-                return 'Py_XINCREF(%s);' % expr
-            else:
-                defnode = self.gettypedefnode(T.TO)
-                if defnode.gcheader is not None:
-                    return 'if (%s) %s->%s++;' % (expr, expr, defnode.gcheader)
-        return ''
-
-    def cdecrefstmt(self, expr, T):
-        if isinstance(T, Ptr) and T._needsgc():
-            if T.TO == PyObject:
-                return 'Py_XDECREF(%s);' % expr
-            else:
-                defnode = self.gettypedefnode(T.TO)
-                if defnode.gcheader is not None:
-                    dealloc = 'OP_FREE'
-                    if defnode.gcinfo:
-                        dealloc = defnode.gcinfo.deallocator or dealloc
-                    return 'if (%s && !--%s->%s) %s(%s);' % (expr, expr,
-                                                             defnode.gcheader,
-                                                             dealloc,
-                                                             expr)
-        return ''
-"""
-
     def complete(self, show_progress=True):
         def dump():
             lst = ['%s: %d' % keyvalue
@@ -173,6 +144,11 @@ class LowLevelDatabase:
         while True:
             if hasattr(self, 'pyobjmaker'):
                 self.pyobjmaker.collect_initcode()
+            while self.pendingsetupnodes:
+                lst = self.pendingsetupnodes
+                self.pendingsetupnodes = []
+                for nodedef in lst:
+                    nodedef.setup()
             if i == len(self.containerlist):
                 break
             node = self.containerlist[i]
