@@ -5,24 +5,6 @@ class ExceptionPolicy:
     def transform(self, translator, graph=None):
         return
 
-    def _noresult(self, returntype):
-        r = returntype.strip()
-        if r == 'void':
-            return 'void'
-        elif r == 'bool':
-            return 'bool false'
-        elif r in 'float double'.split():
-            return r + ' 0.0'
-        elif r in 'ubyte sbyte ushort short uint int ulong long'.split():
-            return r + ' 0'
-        return r + ' null'
-
-    def _nonoderesult(self, node):
-        decl = node.getdecl()
-        returntype, name = decl.split(' ', 1)
-        noresult = self._noresult(returntype)
-        return noresult
-
     def new(exceptionpolicy=None):  #factory
         exceptionpolicy = exceptionpolicy or 'invokeunwind'
         if exceptionpolicy == 'invokeunwind':
@@ -94,9 +76,9 @@ class InvokeUnwindExceptionPolicy(ExceptionPolicy):  #uses issubclass() and llvm
         for label, target, last_exc_type_var, last_exc_value_var in exc_found_labels:
             codewriter.label(label)
             if last_exc_type_var:    
-                codewriter.load(last_exc_type_var, lltype_of_exception_type, 'last_exception_type')
+                codewriter.load(last_exc_type_var , 'last_exception_type' , [])
             if last_exc_value_var:   
-                codewriter.load(last_exc_value_var, lltype_of_exception_value, 'last_exception_value')
+                codewriter.load(last_exc_value_var, 'last_exception_value', [])
             codewriter.br_uncond(target)
 
     def reraise(self, funcnode, codewriter):
@@ -123,8 +105,7 @@ class ExplicitExceptionPolicy(ExceptionPolicy):    #uses issubclass() and last_e
 
     def invoke(self, codewriter, targetvar, returntype, functionref, args, label, except_label):
         if returntype == 'void':
-            if functionref != '%keepalive': #XXX I think keepalive should not be the last operation here!
-                codewriter.append('call void %s(%s)' % (functionref, args))
+            codewriter.append('call void %s(%s)' % (functionref, args))
         else:
             codewriter.llvm('%s = call %s %s(%s)' % (targetvar, returntype, functionref, args))
         tmp = '%%invoke.tmp.%d' % self.invoke_count
@@ -137,31 +118,29 @@ class ExplicitExceptionPolicy(ExceptionPolicy):    #uses issubclass() and last_e
     def write_exceptblock(self, funcnode, codewriter, block):
         assert len(block.inputargs) == 2
 
-        noresult = self._nonoderesult(funcnode)
-
         funcnode.write_block_phi_nodes(codewriter, block)
 
         inputargs     = funcnode.db.repr_arg_multi(block.inputargs)
         inputargtypes = funcnode.db.repr_arg_type_multi(block.inputargs)
 
-        codewriter.store(inputargtypes[0], inputargs[0], 'last_exception_type')
-        codewriter.store(inputargtypes[1], inputargs[1], 'last_exception_value')
-        codewriter.llvm('ret ' + noresult)
+        codewriter.store('last_exception_type' , [], inputargs[0])
+        codewriter.store('last_exception_value', [], inputargs[1])
+        codewriter.ret('void', '')
 
     def fetch_exceptions(self, codewriter, exc_found_labels, lltype_of_exception_type, lltype_of_exception_value):
         for label, target, last_exc_type_var, last_exc_value_var in exc_found_labels:
             codewriter.label(label)
             if last_exc_type_var:    
-                codewriter.load(last_exc_type_var, lltype_of_exception_type, 'last_exception_type')
+                codewriter.load(last_exc_type_var , 'last_exception_type' , [])
             if last_exc_value_var:   
-                codewriter.load(last_exc_value_var, lltype_of_exception_value, 'last_exception_value')
-            codewriter.store(lltype_of_exception_type , 'null', 'last_exception_type')
-            codewriter.store(lltype_of_exception_value, 'null', 'last_exception_value')
+                codewriter.load(last_exc_value_var, 'last_exception_value', [])
+            codewriter.store('last_exception_type' , [], 'null')
+            codewriter.store('last_exception_value', [], 'null')
             codewriter.br_uncond(target)
+            codewriter.skip_closeblock()
 
     def reraise(self, funcnode, codewriter):
-        noresult = self._nonoderesult(funcnode)
-        codewriter.llvm('ret ' + noresult)
+        codewriter.ret('void', '')
 
     def llc_options(self):
         return ''
