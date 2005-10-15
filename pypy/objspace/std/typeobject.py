@@ -138,11 +138,26 @@ class W_TypeObject(W_Object):
 
                 w_slots = dict_w['__slots__']
                 if space.is_true(space.isinstance(w_slots, space.w_str)):
+                    if space.int_w(space.len(w_slots)) == 0:
+                        raise OperationError(space.w_TypeError,
+                                             space.wrap('__slots__ must be identifiers'))
                     slot_names_w = [w_slots]
                 else:
                     slot_names_w = space.unpackiterable(w_slots)
                 for w_slot_name in slot_names_w:
                     slot_name = space.str_w(w_slot_name)
+                    # slot_name should be a valid identifier
+                    if len(slot_name) == 0:
+                        raise OperationError(space.w_TypeError,
+                                             space.wrap('__slots__ must be identifiers'))
+                    first_char = slot_name[0]
+                    if not first_char.isalpha() and first_char != '_':
+                        raise OperationError(space.w_TypeError,
+                                             space.wrap('__slots__ must be identifiers'))                        
+                    for c in slot_name:
+                        if not c.isalnum() and c!= '_':
+                            raise OperationError(space.w_TypeError,
+                                                 space.wrap('__slots__ must be identifiers'))
                     if slot_name == '__dict__':
                         if wantdict or w_self.hasdict:
                             raise OperationError(space.w_TypeError,

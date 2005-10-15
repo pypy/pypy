@@ -267,10 +267,11 @@ class Method(Wrappable):
             w_class = self.w_class
         typename = w_class.getname(self.space, '?')
         if self.w_instance is None:
-            s = "<method '%s' of '%s' objects>" %(name, typename)
+            s = "<unbound method %s.%s>" % (typename, name)
             return space.wrap(s)
         else:
-            info = "method %s of %s object" % (name, typename)
+            info = 'bound method %s.%s' % (typename, name)
+            # info = "method %s of %s object" % (name, typename)
             return self.w_instance.getrepr(self.space, info)
 
     def descr_method_getattribute(self, w_attr):
