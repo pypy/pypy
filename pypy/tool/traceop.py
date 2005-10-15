@@ -5,10 +5,6 @@ import autopath
 
 import sys
 
-def reversed(seq):
-    length = len(seq)
-    for index in range(length-1, -1, -1):
-        yield seq[index]
 
 class Stack(list):
     push = list.append
@@ -22,16 +18,18 @@ class Stack(list):
         except IndexError:
             return None
 
-class ResultPrinter:
+class ResultPrinter(object):
 
     def __init__(self,
                  indentor = '  ',
                  repr_type_simple = True,
                  show_bytecode = True,
                  output_filename = None,
+                 tree_pos_indicator = "|-",
                  show_hidden_applevel = False,
                  recursive_operations = False,
                  show_wrapped_consts_bytecode = True,
+                 **kwds
                  ):
 
         if output_filename is None:
@@ -41,6 +39,7 @@ class ResultPrinter:
             
         # Configurable stuff
         self.indentor = indentor        
+        self.tree_pos_indicator = tree_pos_indicator
         self.show_bytecode = show_bytecode
         self.show_hidden_applevel = show_hidden_applevel
         self.recursive_operations = recursive_operations
@@ -72,7 +71,7 @@ class ResultPrinter:
             if indent_count:
                 indent = indent_count - 1
                 assert (indent >= 0)
-                line = (self.indentor * indent) + "|-" + line 
+                line = (self.indentor * indent) + self.tree_pos_indicator + line 
 
         if new_line:
             self.last_line_was_new = True
@@ -207,9 +206,32 @@ class ResultPrinter:
             self.indent_state.pop()                
 
     def get_last_frame(self):
-        for c, t, f in reversed(self.indent_state):
+        for c, t, f in self.indent_state[::-1]:
             if f is not None:
                 return f
+
+class ResultPrinterVerbose(ResultPrinter):
+    """ Puts result on same line """
+    def print_op_enter(self, space, name, args):
+        if not self.valid_state():
+            return
+
+        s = " " * 4
+        s += "%s" % name
+        s += "(" + ", ".join([self.repr_value(space, ii) for ii in args]) + ")"
+        self.print_line(s)
+
+    def print_op_exc(self, name, exc, space):
+        if not self.valid_state():
+            return
+
+        if self.last_line_was_new:
+            s = " " * 4
+        else:
+            s = "  "
+        s += "x-> %s" % self.repr_value(space, exc)
+
+        self.print_line(s)
 
     
 def simple_repr(space, obj):
@@ -239,8 +261,9 @@ def repr_value_complex(space, obj):
     # Special case - arguments
     if isinstance(obj, Arguments):
         args = [repr_value(space, ii) for ii in obj.arguments_w]
-        args += ["%s = %s" % (k, repr_value(space, v))
-                 for k, v in obj.kwds_w.items()]
+        if obj.kwds_w:
+            args += ["%s = %s" % (k, repr_value(space, v))
+                     for k, v in obj.kwds_w.items()]
         if not obj.w_stararg is None:
             args.append("*" + repr_value_complex(space, obj.w_stararg))
         if not obj.w_starstararg is None:
@@ -265,19 +288,17 @@ def repr_value(space, obj):
 
 # __________________________________________________________________________
 
-def perform_trace(tspace, app_func, *args_w, **kwds_w):
+def perform_trace(tspace, app_func, *args_w):
     from pypy.interpreter.gateway import app2interp
     from pypy.interpreter.argument import Arguments    
 
     # Create our function
     func_gw = app2interp(app_func)
-    func = func_gw.get_function(tspace)
-    w_func = tspace.wrap(func)
-    args = Arguments(tspace, args_w, kwds_w)
+    w_func = func_gw.get_function(tspace)
 
     # Run the func in the trace space and return results
     tspace.settrace()
-    w_result = tspace.call_args(w_func, args)
+    w_result = tspace.call_function(w_func, *args_w)
     trace_result = tspace.getresult()
     tspace.settrace()
     return w_result, trace_result

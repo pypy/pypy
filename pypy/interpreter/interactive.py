@@ -178,7 +178,11 @@ class PyPyConsole(code.InteractiveConsole):
 
             # execute it
             self.settrace()
-            code.exec_code(self.space, self.w_globals, self.w_globals)
+            try:
+                code.exec_code(self.space, self.w_globals, self.w_globals)
+            finally:
+                if self.tracelevel:
+                    self.space.unsettrace()
             self.checktrace()
 
         # run doit() in an exception-catching box
@@ -208,22 +212,9 @@ class PyPyConsole(code.InteractiveConsole):
             
         if self.tracelevel == 0 and tracelevel > 0:
             trace.create_trace_space(s)
+            self.space.unsettrace()
             print "Tracing enabled"
-
-        self.tracelevel = tracelevel
-
-    def set_tracelevel(self, tracelevel):
-        # Disable tracing altogether?
-        from pypy.objspace import trace
-
-        if self.tracelevel > 0 and tracelevel == 0:
-            self.space.reset_trace()
-            print self.get_banner()
-            
-        if self.tracelevel == 0 and tracelevel > 0:
-            trace.create_trace_space(self.space)
-            print self.get_banner()
-
+                        
         self.tracelevel = tracelevel
 
 

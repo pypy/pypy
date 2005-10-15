@@ -3,10 +3,7 @@
    in frames.
 """
 
-from __future__ import generators
 from pypy.tool import pydis
-from pypy.tool.traceop import ResultPrinter
-from pypy.interpreter.baseobjspace import ObjSpace
 
 # __________________________________________________________________________
 #
@@ -57,7 +54,8 @@ class TraceResult(object):
         self.events = []
         self.reentrant = True
         self.tracespace = tracespace
-        self.printer = ResultPrinter(**printer_options)
+        result_printer_clz = printer_options["result_printer_clz"]
+        self.printer = result_printer_clz(**printer_options)
         self._cache = {}
         
     def append(self, event):
@@ -156,38 +154,28 @@ class CallableTracer(object):
 # __________________________________________________________________________
 #            
 
-operations = None
-def get_operations():
-    global operations
-    if operations is None:
-        operations = dict([(r[0], r[0]) for r in ObjSpace.MethodTable])
-        for name in ObjSpace.IrregularOpTable + ["get_and_call_function"]:
-            operations[name] = name
-
-    # Remove list
-    for name in ["wrap", "unwrap", "interpclass_w"]:
-        if name in operations:
-            del operations[name]
-    return operations
-
-def create_trace_space(space, operations = None):    
-    """ Will create a trace object space if no space supplied.  Otherwise
-    will turn the supplied into a traceable space by extending its class."""
+def create_trace_space(space):    
+    """ Will turn the supplied into a traceable space by extending its class."""
 
     # Don't trace an already traceable space
     if hasattr(space, "__pypytrace__"):
         return space
-    
-    if operations is None:
-        operations = get_operations()
 
     class Trace(space.__class__):
 
         def __getattribute__(self, name):
             obj = super(Trace, self).__getattribute__(name)
-            if name in operations and not self._in_cache:
-                    assert callable(obj)
-                    obj = CallableTracer(self._result, name, obj)
+            if name in ["_result", "_in_cache",
+                        "_tracing", "_config_options"]:
+                return obj
+
+            if not self._tracing or self._in_cache:
+                return obj
+
+            if name in self._config_options["operations"]:
+                assert callable(obj)
+                obj = CallableTracer(self._result, name, obj)
+                            
             return obj
 
         def __pypytrace__(self):
@@ -201,7 +189,11 @@ def create_trace_space(space, operations = None):
 
         def settrace(self):
             self._result = TraceResult(self, **self._config_options)
+            self._tracing = True
 
+        def unsettrace(self):
+            self._tracing = False
+            
         def getresult(self):
             return self._result
             
@@ -212,24 +204,25 @@ def create_trace_space(space, operations = None):
                 ec = ExecutionContextTracer(self._result, ec)
             return ec
         
+        # XXX Rename
         def reset_trace(self):
             """ Returns the class to it's original form. """
             space.__class__ = space.__oldclass__
             del space.__oldclass__
 
-            for k in ["_result", "_in_cache", "_config_options"]:               
+            for k in ["_result", "_in_cache", "_config_options", "_operations"]:
                 if hasattr(self, k):
                     delattr(self, k)
-
+            
     trace_clz = type("Trace%s" % repr(space), (Trace,), {})
     space.__oldclass__, space.__class__ = space.__class__, trace_clz
 
-    from pypy.tool.traceconfig import config as config_options
-
-    # Avoid __getattribute__() woes
-    space._in_cache = 0
-    space._config_options = config_options
+    # Do config
+    from pypy.tool.traceconfig import config
+    space._tracing = False
     space._result = None
+    space._in_cache = 0
+    space._config_options = config
 
     space.settrace()
     return space
