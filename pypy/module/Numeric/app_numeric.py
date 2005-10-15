@@ -1,6 +1,6 @@
 
 
-from Numeric import zeros,array
+from Numeric import zeros,array,ArrayType
 from Numeric import  Float,TOWER_TYPES,TOWER_TYPES_VALUES
 
 
@@ -21,9 +21,10 @@ this is due to the size of the traceback which is generated in the script.
 
 """
 #first we check the really simple, empty or minimal arrays
+print "Checking scalars"
 assert (0,)==array(()).shape
 assert ()==array((1)).shape
-assert array(()).isArray()  and array((1)).isArray()
+assert isinstance( array(()), ArrayType)  and isinstance( array((1)), ArrayType )
 
 #next we check the typecodes on these small examples
 assert 'l'==array(()).typecode()
@@ -31,13 +32,15 @@ assert 'l'==array((1)).typecode()
 assert 'd'==array((1.0)).typecode()
 
 #we are not supporting complex numbers or any other objects yet
-assertRaises(lambda :array((1j)),ValueError)
-assertRaises(lambda :array((1j,)),ValueError)
-assertRaises(lambda :array(('a')),ValueError)
+print "checking unsupported types"
+assertRaises(lambda :array((1j)),TypeError)
+assertRaises(lambda :array((1j,)),TypeError)
+assertRaises(lambda :array(('a')),TypeError)
 
 #now check accessing of values on empty array, and a scalar
 #assertRaises(lambda :array(())[0],IndexError
 
+print "DONE"
 
 
 

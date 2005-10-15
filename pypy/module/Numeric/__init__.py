@@ -13,6 +13,7 @@ class Module(MixedModule):
 #        'array' : 'interp_numeric.w_array',
         'zeros' : 'interp_numeric.w_zeros',
         'array'  : 'interp_numeric.array',
+        'ArrayType' : 'space.gettypeobject(interp_numeric.W_Array.typedef)',
         'TOWER_TYPES' : 'space.wrap(interp_numeric.TOWER_TYPES)',
         'TOWER_TYPES_VALUES' :'space.wrap(interp_numeric.TOWER_TYPES_VALUES)'
         }
