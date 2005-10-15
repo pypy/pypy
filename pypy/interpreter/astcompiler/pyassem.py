@@ -559,6 +559,7 @@ class PyFlowGraph(FlowGraph):
         """Arrange the blocks in order and resolve jumps"""
         assert self.stage == CONV
         self.insts = insts = []
+        firstline = 0
         pc = 0
         begin = {}
         end = {}
@@ -616,6 +617,8 @@ class PyFlowGraph(FlowGraph):
                         pc = pc + 3
                 else:
                     insts.append(inst)
+                    if firstline == 0:
+                        firstline = inst.intval
             end[b] = pc
         pc = 0
 
@@ -627,6 +630,7 @@ class PyFlowGraph(FlowGraph):
                 inst.intval = offset
             else:
                 inst.intval = abspos
+        self.firstline = firstline
         self.stage = FLAT
 
     hasjrel = {}
@@ -770,7 +774,7 @@ class PyFlowGraph(FlowGraph):
 
     def makeByteCode(self):
         assert self.stage == FLAT
-        self.lnotab = lnotab = LineAddrTable()
+        self.lnotab = lnotab = LineAddrTable(self.firstline)
         for t in self.insts:
             opname = t.op
             if self._debug:
@@ -820,7 +824,7 @@ class PyFlowGraph(FlowGraph):
                                                self.names,
                                                self.varnames,
                                                self.filename, self.name,
-                                               self.lnotab.firstline,
+                                               self.firstline,
                                                self.lnotab.getTable(),
                                                self.freevars,
                                                self.cellvars
@@ -860,11 +864,11 @@ class LineAddrTable:
     compile.c for the delicate details.
     """
 
-    def __init__(self):
+    def __init__(self, firstline):
         self.code = []
         self.codeOffset = 0
-        self.firstline = 0
-        self.lastline = 0
+        self.firstline = firstline
+        self.lastline = firstline
         self.lastoff = 0
         self.lnotab = []
 
@@ -879,36 +883,32 @@ class LineAddrTable:
         self.codeOffset = self.codeOffset + 3
 
     def nextLine(self, lineno):
-        if self.firstline == 0:
-            self.firstline = lineno
+        # compute deltas
+        addr = self.codeOffset - self.lastoff
+        line = lineno - self.lastline
+        # Python assumes that lineno always increases with
+        # increasing bytecode address (lnotab is unsigned char).
+        # Depending on when SET_LINENO instructions are emitted
+        # this is not always true.  Consider the code:
+        #     a = (1,
+        #          b)
+        # In the bytecode stream, the assignment to "a" occurs
+        # after the loading of "b".  This works with the C Python
+        # compiler because it only generates a SET_LINENO instruction
+        # for the assignment.
+        if line >= 0:
+            push = self.lnotab.append
+            while addr > 255:
+                push(255); push(0)
+                addr -= 255
+            while line > 255:
+                push(addr); push(255)
+                line -= 255
+                addr = 0
+            if addr > 0 or line > 0:
+                push(addr); push(line)
             self.lastline = lineno
-        else:
-            # compute deltas
-            addr = self.codeOffset - self.lastoff
-            line = lineno - self.lastline
-            # Python assumes that lineno always increases with
-            # increasing bytecode address (lnotab is unsigned char).
-            # Depending on when SET_LINENO instructions are emitted
-            # this is not always true.  Consider the code:
-            #     a = (1,
-            #          b)
-            # In the bytecode stream, the assignment to "a" occurs
-            # after the loading of "b".  This works with the C Python
-            # compiler because it only generates a SET_LINENO instruction
-            # for the assignment.
-            if line >= 0:
-                push = self.lnotab.append
-                while addr > 255:
-                    push(255); push(0)
-                    addr -= 255
-                while line > 255:
-                    push(addr); push(255)
-                    line -= 255
-                    addr = 0
-                if addr > 0 or line > 0:
-                    push(addr); push(line)
-                self.lastline = lineno
-                self.lastoff = self.codeOffset
+            self.lastoff = self.codeOffset
 
     def getCode(self):
         return ''.join(self.code)

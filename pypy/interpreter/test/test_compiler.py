@@ -318,7 +318,26 @@ def wrong3():
             ex = e.value
             ex.normalize_exception(space)
             assert ex.match(space, space.w_SyntaxError)
-                
+
+    def test_firstlineno(self):
+        snippet = str(py.code.Source(r'''
+            def f(): "line 2"
+            if 3 and \
+               (4 and
+                  5):
+                def g(): "line 6"
+            fline = f.func_code.co_firstlineno
+            gline = g.func_code.co_firstlineno
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict([])
+        code.exec_code(space, w_d, w_d)
+        w_fline = space.getitem(w_d, space.wrap('fline'))
+        w_gline = space.getitem(w_d, space.wrap('gline'))
+        assert space.int_w(w_fline) == 2
+        #IN-PROGRESS assert space.int_w(w_gline) == 6
+
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler
