@@ -11,7 +11,8 @@ from pypy.rpython import robject
 from pypy.rpython import rtuple
 from pypy.rpython.rpbc import SingleFrozenPBCRepr, getsignature, samesig,\
                                 commonbase, allattributenames, get_access_set,\
-                                MultiplePBCRepr, FunctionsPBCRepr
+                                MultiplePBCRepr, FunctionsPBCRepr, \
+                                AbstractClassesPBCRepr
 from pypy.rpython.lltypesystem import rclass
 from pypy.tool.sourcetools import has_varargs
 
@@ -273,45 +274,10 @@ class MethodsPBCRepr(Repr):
 # ____________________________________________________________
 
 
-class ClassesPBCRepr(Repr):
+class ClassesPBCRepr(AbstractClassesPBCRepr):
     """Representation selected for a PBC of class(es)."""
 
-    def __init__(self, rtyper, s_pbc):
-        self.rtyper = rtyper
-        self.s_pbc = s_pbc
-        if None in s_pbc.prebuiltinstances:
-            raise TyperError("unsupported: variable of type "
-                             "class-pointer or None")
-        if s_pbc.is_constant():
-            self.lowleveltype = Void
-        else:
-            self.lowleveltype = rclass.TYPEPTR
-        self._access_set = None
-        self._class_repr = None
-
-    def get_access_set(self):
-        if self._access_set is None:
-            access_sets = self.rtyper.annotator.getpbcaccesssets()
-            classes = self.s_pbc.prebuiltinstances.keys()
-            _, _, access = access_sets.find(classes[0])
-            for obj in classes[1:]:
-                _, _, access1 = access_sets.find(obj)
-                assert access1 is access       # XXX not implemented
-            commonbase = access.commonbase
-            self._class_repr = rclass.getclassrepr(self.rtyper, commonbase)
-            self._access_set = access
-        return self._access_set
-
-    def get_class_repr(self):
-        self.get_access_set()
-        return self._class_repr
-
-    def convert_const(self, cls):
-        if cls not in self.s_pbc.prebuiltinstances:
-            raise TyperError("%r not in %r" % (cls, self))
-        if self.lowleveltype is Void:
-            return cls
-        return rclass.get_type_repr(self.rtyper).convert_const(cls)
+    # no __init__ here, AbstractClassesPBCRepr.__init__ is good enough
 
     def rtype_simple_call(self, hop):
         return self.redispatch_call(hop, call_args=False)
@@ -359,18 +325,6 @@ class ClassesPBCRepr(Repr):
             hop2.dispatch()
         return v_instance
 
-    def rtype_getattr(self, hop):
-        if hop.s_result.is_constant():
-            return hop.inputconst(hop.r_result, hop.s_result.const)
-        else:
-            attr = hop.args_s[1].const
-            vcls, vattr = hop.inputargs(self, Void)
-            return self.getfield(vcls, attr, hop.llops)
-
-    def getfield(self, vcls, attr, llops):
-        access_set = self.get_access_set()
-        class_repr = self.get_class_repr()
-        return class_repr.getpbcfield(vcls, access_set, attr, llops)
 
 class __extend__(pairtype(ClassesPBCRepr, rclass.AbstractClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):

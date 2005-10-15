@@ -293,6 +293,76 @@ class __extend__(pairtype(NoneFrozenPBCRepr, robject.PyObjRepr)):
 
 # ____________________________________________________________
 
+class AbstractClassesPBCRepr(Repr):
+    """Representation selected for a PBC of class(es)."""
+
+    def __init__(self, rtyper, s_pbc):
+        self.rtyper = rtyper
+        self.s_pbc = s_pbc
+        if None in s_pbc.prebuiltinstances:
+            raise TyperError("unsupported: variable of type "
+                             "class-pointer or None")
+        if s_pbc.is_constant():
+            self.lowleveltype = Void
+        else:
+            self.lowleveltype = rtyper.type_system.rclass.CLASSTYPE
+        self._access_set = None
+        self._class_repr = None
+
+    def get_access_set(self):
+        if self._access_set is None:
+            access_sets = self.rtyper.annotator.getpbcaccesssets()
+            classes = self.s_pbc.prebuiltinstances.keys()
+            _, _, access = access_sets.find(classes[0])
+            for obj in classes[1:]:
+                _, _, access1 = access_sets.find(obj)
+                assert access1 is access       # XXX not implemented
+            commonbase = access.commonbase
+            self._class_repr = rclass.getclassrepr(self.rtyper, commonbase)
+            self._access_set = access
+        return self._access_set
+
+    def get_class_repr(self):
+        self.get_access_set()
+        return self._class_repr
+
+    def convert_const(self, cls):
+        if cls not in self.s_pbc.prebuiltinstances:
+            raise TyperError("%r not in %r" % (cls, self))
+        if self.lowleveltype is Void:
+            return cls
+        return rclass.get_type_repr(self.rtyper).convert_const(cls)
+
+    def rtype_getattr(self, hop):
+        if hop.s_result.is_constant():
+            return hop.inputconst(hop.r_result, hop.s_result.const)
+        else:
+            attr = hop.args_s[1].const
+            vcls, vattr = hop.inputargs(self, Void)
+            return self.getfield(vcls, attr, hop.llops)
+
+    def getfield(self, vcls, attr, llops):
+        access_set = self.get_access_set()
+        class_repr = self.get_class_repr()
+        return class_repr.getpbcfield(vcls, access_set, attr, llops)
+
+class __extend__(pairtype(AbstractClassesPBCRepr, rclass.AbstractClassRepr)):
+    def convert_from_to((r_clspbc, r_cls), v, llops):
+        if r_cls.lowleveltype != r_clspbc.lowleveltype:
+            return NotImplemented   # good enough for now
+        return v
+
+class __extend__(pairtype(AbstractClassesPBCRepr, AbstractClassesPBCRepr)):
+    def convert_from_to((r_clspbc1, r_clspbc2), v, llops):
+        # this check makes sense because both source and dest repr are ClassesPBCRepr
+        if r_clspbc1.lowleveltype == r_clspbc2.lowleveltype:
+            return v
+        if r_clspbc1.lowleveltype is Void:
+            return inputconst(r_clspbc2, r_clspbc1.s_pbc.const)
+        return NotImplemented
+
+# ____________________________________________________________
+
 def getsignature(rtyper, func):
     f = rtyper.getcallable(func)
     graph = rtyper.type_system_deref(f).graph

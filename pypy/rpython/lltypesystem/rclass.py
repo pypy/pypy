@@ -52,18 +52,18 @@ from pypy.rpython.lltype import FuncType, Bool, Signed
 # there's also a nongcobject 
 
 OBJECT_VTABLE = ForwardReference()
-TYPEPTR = Ptr(OBJECT_VTABLE)
-OBJECT = GcStruct('object', ('typeptr', TYPEPTR))
+CLASSTYPE = Ptr(OBJECT_VTABLE)
+OBJECT = GcStruct('object', ('typeptr', CLASSTYPE))
 OBJECTPTR = Ptr(OBJECT)
 OBJECT_VTABLE.become(Struct('object_vtable',
-                            ('parenttypeptr', TYPEPTR),
+                            ('parenttypeptr', CLASSTYPE),
                             ('subclassrange_min', Signed),
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(Array(Char))),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR)))))
 # non-gc case
-NONGCOBJECT = Struct('nongcobject', ('typeptr', TYPEPTR))
+NONGCOBJECT = Struct('nongcobject', ('typeptr', CLASSTYPE))
 NONGCOBJECTPTR = Ptr(OBJECT)
 
 def cast_vtable_to_typeptr(vtable):
@@ -496,7 +496,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 vlist = [inputconst(Void, flavor)] + vlist
         vptr = llops.genop(mallocop, vlist,
                            resulttype = Ptr(self.object_type)) # xxx flavor
-        ctypeptr = inputconst(TYPEPTR, self.rclass.getvtable())
+        ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)
         # initialize instance attributes from their defaults from the class
         if self.classdef is not None:
