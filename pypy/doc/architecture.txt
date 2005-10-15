@@ -152,7 +152,7 @@ for performing numeric addition when add works on numbers, concatenation
 when add works on built-in sequences.
 
 All object-space operations take and return `application-level`_ objects.
-There are only a few, very simple, object-space operation which allows the
+There are only a few, very simple, object-space operations which allow the
 bytecode interpreter to gain some knowledge about the value of an
 application-level object.
 The most important one is ``is_true()``, which returns a boolean
