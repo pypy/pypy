@@ -2,10 +2,14 @@ from pypy.translator.translator import Translator
 from pypy.rpython import lltype
 from pypy.rpython.ootypesystem import ootype
 
-def specialize(f, input_types):
+def specialize(f, input_types, viewBefore=False, viewAfter=False):
     t = Translator(f)
     t.annotate(input_types)
+    if viewBefore:
+        t.view()
     t.specialize(type_system="ootype")
+    if viewAfter:
+        t.view()
 
     graph = t.flowgraphs[f]
     check_only_ootype(graph)
@@ -43,3 +47,12 @@ def test_simple_empty_base():
         x = EmptyBase()
         return x
     specialize(dummyfn, [])
+
+
+def test_instance_attribute():
+    def dummyfn():
+        x = EmptyBase()
+        x.a = 1
+        return x.a
+    specialize(dummyfn, [])
+
