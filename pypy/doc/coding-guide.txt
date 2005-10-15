@@ -154,6 +154,18 @@ We are using
   operator are allowed and efficient.  
   Repetition via `*` or `*=` is fully supported as well.
 
+  - *indexing*
+    negative indexes are disallowed. Indexes are checked when requested
+    by an IndexError exception clause.
+  
+  - *slicing*
+    the slice start must be within bounds. The stop doesn't need to.
+    Negative indexes are disallowed, except for the [:-1] special case.
+
+  - *insert*
+    the index must be withing bounds (not checked) and must not be negative
+    (checked at compile-time).
+
 **dicts**
 
   dicts with a unique key type only, provided it is hashable. 
