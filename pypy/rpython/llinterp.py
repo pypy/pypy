@@ -6,6 +6,7 @@ from pypy.rpython import lltype
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.memory import lladdress
 from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rpython.ootypesystem import ootype
 
 import math
 import py
@@ -619,6 +620,22 @@ class LLFrame(object):
         func = opimpls['ne']
         return func(x, y)
 
+    #Operation of ootype
+
+    def op_new(self, INST):
+        assert isinstance(INST, ootype.Instance)
+        return ootype.new(INST)
+
+    def op_oosetfield(self, inst, name, value):
+        assert isinstance(inst, ootype._instance)
+        assert isinstance(name, str)
+        setattr(inst, name, value)
+
+    def op_oogetfield(self, inst, name):
+        assert isinstance(inst, ootype._instance)
+        assert isinstance(name, str)
+        return getattr(inst, name)
+    
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
 # for failing tests

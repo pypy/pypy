@@ -19,7 +19,6 @@ def setup_module(mod):
 def teardown_module(mod):
     py.log._setstate(mod.logstate)
 
-
 def find_exception(exc, interp):
     assert isinstance(exc, LLException)
     import exceptions
@@ -41,7 +40,8 @@ def timelog(prefix, call, *args, **kwds):
     #print "%.2f secs" %(elapsed,)
     return res 
 
-def gengraph(func, argtypes=[], viewbefore=False, policy=None):
+def gengraph(func, argtypes=[], viewbefore=False, policy=None,
+             type_system="lltype"):
     t = Translator(func)
 
     timelog("annotating", t.annotate, argtypes, policy=policy)
@@ -49,7 +49,7 @@ def gengraph(func, argtypes=[], viewbefore=False, policy=None):
         t.annotator.simplify()
         t.view()
     global typer # we need it for find_exception
-    typer = RPythonTyper(t.annotator)
+    typer = RPythonTyper(t.annotator, type_system=type_system)
     timelog("rtyper-specializing", typer.specialize) 
     #t.view()
     timelog("checking graphs", t.checkgraphs) 
@@ -57,7 +57,8 @@ def gengraph(func, argtypes=[], viewbefore=False, policy=None):
 
 _lastinterpreted = []
 _tcache = {}
-def get_interpreter(func, values, view=False, viewbefore=False, policy=None, someobjects=False):
+def get_interpreter(func, values, view=False, viewbefore=False, policy=None,
+                    someobjects=False, type_system="lltype"):
     key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,)
     try: 
         (t, interp) = _tcache[key]
@@ -72,7 +73,8 @@ def get_interpreter(func, values, view=False, viewbefore=False, policy=None, som
                 return lltype_to_annotation(T)
         
         t, typer = gengraph(func, [annotation(x)
-                      for x in values], viewbefore, policy)
+                                       for x in values],
+                            viewbefore, policy, type_system=type_system)
         interp = LLInterpreter(t.flowgraphs, typer)
         _tcache[key] = (t, interp)
         # keep the cache small 
@@ -84,14 +86,15 @@ def get_interpreter(func, values, view=False, viewbefore=False, policy=None, som
     return interp
 
 def interpret(func, values, view=False, viewbefore=False, policy=None,
-              someobjects=False):
+              someobjects=False, type_system="lltype"):
     interp = get_interpreter(func, values, view, viewbefore, policy,
-                             someobjects)
+                             someobjects, type_system=type_system)
     return interp.eval_function(func, values)
 
-def interpret_raises(exc, func, values, view=False, viewbefore=False, policy=None, someobjects=False):
+def interpret_raises(exc, func, values, view=False, viewbefore=False,
+                     policy=None, someobjects=False, type_system="lltype"):
     interp = get_interpreter(func, values, view, viewbefore, policy,
-                             someobjects)
+                             someobjects, type_system=type_system)
     info = py.test.raises(LLException, "interp.eval_function(func, values)")
     assert find_exception(info.value, interp) is exc, "wrong exception type"
 
