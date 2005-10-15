@@ -1,7 +1,13 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr
-from pypy.rpython.ootypesystem.ootype import Void
+from pypy.rpython.ootypesystem.ootype import Void, Class
 from pypy.annotation.pairtype import pairtype
+
+class __extend__(annmodel.SomeOOClass):
+    def rtyper_makerepr(self, rtyper):
+        return ooclass_repr
+    def rtyper_makekey(self):
+        return self.__class__,
 
 class __extend__(annmodel.SomeOOInstance):
     def rtyper_makerepr(self, rtyper):
@@ -14,6 +20,10 @@ class __extend__(annmodel.SomeOOBoundMeth):
         return OOBoundMethRepr(self.ootype, self.name)
     def rtyper_makekey(self):
         return self.__class__, self.ootype, self.name
+
+class OOClassRepr(Repr):
+    lowleveltype = Class
+ooclass_repr = OOClassRepr()
 
 class OOInstanceRepr(Repr):
     def __init__(self, ootype):

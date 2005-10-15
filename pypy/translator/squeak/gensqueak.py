@@ -10,6 +10,8 @@ selectormap = {
     'setitem:with:': 'at:put:',
     'getitem:':      'at:',
     'new':           'new',
+    'runtimenew':    'new',
+    'classof':       'class',
     'sameAs':        'yourself',
     'intAdd:':       '+',
 }

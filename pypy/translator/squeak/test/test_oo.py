@@ -23,24 +23,35 @@ def m_(self, b):
 m = meth(M, _name="m", _callable=m_)
 addMethods(C, {"m": m})
 
-def f_new():
-   return new(C)
-
-def f_meth():
-   c = new(C)
-   return c.m(5)
-
-def f_fields():
-   c = new(C)
-   x = c.a + 1
-   c.a = x
-   return x
-
 def test_simple_new():
+   def f_new():
+      return new(C)
    build_sqfunc(f_new)
 
 def test_simple_meth():
+   def f_meth():
+      c = new(C)
+      return c.m(5)
    build_sqfunc(f_meth)
 
 def test_simple_fields():
+   def f_fields():
+      c = new(C)
+      x = c.a + 1
+      c.a = x
+      return x
    build_sqfunc(f_fields, view=False)
+
+def test_simple_classof():
+   def f_classof():
+      c = new(C)
+      return classof(c)
+   build_sqfunc(f_classof)
+
+def test_simple_runtimenew():
+   def f_runtimenew():
+      c = new(C)
+      m = classof(c)
+      i = runtimenew(m)
+      return i.a
+   build_sqfunc(f_runtimenew)
