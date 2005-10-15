@@ -102,6 +102,10 @@ class Link(object):
         self.move_int_registers = None
 
 class ReturnLink(Link):
+    def __init__(self, return_val=0, exitcase=None):
+        Link.__init__(self, None, exitcase)
+        if return_val != 0:
+            self.move_int_registers = [return_val, 0]
     pass
 
 class StartLink(Link):

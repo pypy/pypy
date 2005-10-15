@@ -64,4 +64,6 @@ class LLFrame(object):
         int2 = self.get_int(args[1])
         self.set_int(result, int1 + int2)
         
-
+    def op_int_is_true(self, result, args):
+        int1 = self.get_int(args[0])
+        self.set_int(result, bool(int1))
