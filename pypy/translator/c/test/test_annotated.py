@@ -188,3 +188,14 @@ class TestAnnotatedTestCase:
         assert fn(65) == 'Yes A'
         assert fn(256) == 'No'
         assert fn(-1) == 'No'
+
+    def test_unichr(self):
+        def f(x=int):
+            try:
+                return ord(unichr(x))
+            except ValueError:
+                return -42
+        fn = self.getcompiled(f)
+        assert fn(65) == 65
+        assert fn(-12) == -42
+        assert fn(sys.maxint) == -42

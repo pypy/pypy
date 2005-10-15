@@ -337,8 +337,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         try:
             chars = [unichr(c) for c in chars]
         except ValueError, e:  # unichr(out-of-range)
-            raise OperationError(self.w_ValueError,
-                                 self.wrap("character code not in range(0x110000)"))
+            msg = "character code not in range(%s)" % hex(sys.maxunicode+1)
+            raise OperationError(self.w_ValueError, self.wrap(msg))
         return W_UnicodeObject(self, chars)
 
     def newseqiter(self, w_obj):

@@ -1,3 +1,4 @@
+import sys
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.objspace import op_appendices
@@ -220,6 +221,9 @@ class __extend__(IntegerRepr):
 
     def rtype_unichr(_, hop):
         vlist =  hop.inputargs(Signed)
+        if hop.has_implicit_exception(ValueError):
+            hop.exception_is_here()
+            hop.gendirectcall(ll_check_unichr, vlist[0])
         return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
 
     def rtype_is_true(self, hop):
@@ -410,6 +414,12 @@ def ll_hash_int(n):
 
 def ll_check_chr(n):
     if 0 <= n <= 255:
+        return
+    else:
+        raise ValueError
+
+def ll_check_unichr(n):
+    if 0 <= n <= sys.maxunicode:
         return
     else:
         raise ValueError

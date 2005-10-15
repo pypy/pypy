@@ -437,6 +437,7 @@ del _name, _exc
 implicit_exceptions = {
     int: [ValueError],      # built-ins that can always raise exceptions
     chr: [ValueError],
+    unichr: [ValueError],
     }
 
 def _add_exceptions(names, exc):
