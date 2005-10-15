@@ -295,14 +295,15 @@ class LLFrame(object):
                 self.op_direct_call(write_barrier, *args)
 
     def op_direct_call(self, f, *args):
-        has_callable = getattr(f._obj, '_callable', None) is not None
-        if has_callable and getattr(f._obj._callable, 'suggested_primitive', False):
+        obj = self.llinterpreter.typer.type_system.deref(f)
+        has_callable = getattr(obj, '_callable', None) is not None
+        if has_callable and getattr(obj._callable, 'suggested_primitive', False):
                 return self.invoke_callable_with_pyexceptions(f, *args)
-        if hasattr(f._obj, 'graph'):
-            graph = f._obj.graph
+        if hasattr(obj, 'graph'):
+            graph = obj.graph
         else:
             try:
-                graph = self.llinterpreter.getgraph(f._obj._callable)
+                graph = self.llinterpreter.getgraph(obj._callable)
             except KeyError:
                 assert has_callable, "don't know how to execute %r" % f
                 return self.invoke_callable_with_pyexceptions(f, *args)
