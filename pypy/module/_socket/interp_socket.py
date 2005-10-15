@@ -4,8 +4,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import W_Root
 from pypy.interpreter.gateway import ObjSpace, NoneNotWrapped
 
-#w_socketerror = ???
-
 if sys.platform == 'win32':
     WIN32_ERROR_MESSAGES = {
         errno.WSAEINTR:  "Interrupted system call",
@@ -58,7 +56,7 @@ if sys.platform == 'win32':
         errno.WSAEDISCON: "Graceful shutdown in progress",
 
         # Resolver errors
-        # XXX replace by the values in winsock.h
+        # XXX Not exported by errno. Replace by the values in winsock.h
         # errno.WSAHOST_NOT_FOUND: "No such host is known",
         # errno.WSATRY_AGAIN: "Host not found, or server failed",
         # errno.WSANO_RECOVERY: "Unexpected server error encountered",
@@ -76,9 +74,19 @@ def wrap_socketerror(space, e):
     assert isinstance(e, socket.error)
     errno = e.args[0]
     msg = socket_strerror(errno)
-    w_error = space.call_function(w_socketerror,
+    
+    w_module = space.getbuiltinmodule('_socket')
+    if isinstance(e, socket.gaierror):
+        w_error = space.getattr(w_module, space.wrap('gaierror'))
+    elif isinstance(e, socket.herror):
+        w_error = space.getattr(w_module, space.wrap('gaierror'))
+    else:
+        w_error = space.getattr(w_module, space.wrap('error'))
+        
+    w_error = space.call_function(w_error,
                                   space.wrap(errno),
                                   space.wrap(msg))
+    return w_error
 
 def gethostname(space):
     """gethostname() -> string
@@ -88,7 +96,7 @@ def gethostname(space):
     try:
         return space.wrap(socket.gethostname())
     except socket.error, e:
-        return wrap_socketerror(space, e)
+        raise wrap_socketerror(space, e)
 gethostname.unwrap_spec = [ObjSpace]
 
 def gethostbyname(space, name):
@@ -96,7 +104,10 @@ def gethostbyname(space, name):
 
     Return the IP address (a string of the form '255.255.255.255') for a host.
     """
-    return space.wrap(socket.gethostbyname(name))
+    try:
+        return space.wrap(socket.gethostbyname(name))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 gethostbyname.unwrap_spec = [ObjSpace, str]
 
 def gethostbyname_ex(space, name):
@@ -105,7 +116,10 @@ def gethostbyname_ex(space, name):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    return space.wrap(socket.gethostbyname_ex(name))
+    try:
+        return space.wrap(socket.gethostbyname_ex(name))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 gethostbyname_ex.unwrap_spec = [ObjSpace, str]
 
 def gethostbyaddr(space, ip_num):
@@ -114,7 +128,10 @@ def gethostbyaddr(space, ip_num):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    return space.wrap(socket.gethostbyaddr(ip_num))
+    try:
+        return space.wrap(socket.gethostbyaddr(ip_num))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 gethostbyaddr.unwrap_spec = [ObjSpace, str]
 
 def getservbyname(space, name, w_proto=NoneNotWrapped):
@@ -124,10 +141,13 @@ def getservbyname(space, name, w_proto=NoneNotWrapped):
     The optional protocol name, if given, should be 'tcp' or 'udp',
     otherwise any protocol will match.
     """
-    if w_proto is None:
-        return space.wrap(socket.getservbyname(name))
-    else:
-        return space.wrap(socket.getservbyname(name, space.str_w(w_proto)))
+    try:
+        if w_proto is None:
+            return space.wrap(socket.getservbyname(name))
+        else:
+            return space.wrap(socket.getservbyname(name, space.str_w(w_proto)))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 getservbyname.unwrap_spec = [ObjSpace, str, W_Root]
 
 def getservbyport(space, port, w_proto=NoneNotWrapped):
@@ -137,10 +157,13 @@ def getservbyport(space, port, w_proto=NoneNotWrapped):
     The optional protocol name, if given, should be 'tcp' or 'udp',
     otherwise any protocol will match.
     """
-    if w_proto is None:
-        return space.wrap(socket.getservbyport(port))
-    else:
-        return space.wrap(socket.getservbyport(port, space.str_w(w_proto)))
+    try:
+        if w_proto is None:
+            return space.wrap(socket.getservbyport(port))
+        else:
+            return space.wrap(socket.getservbyport(port, space.str_w(w_proto)))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 getservbyport.unwrap_spec = [ObjSpace, int, W_Root]
 
 def getprotobyname(space, name):
@@ -148,7 +171,10 @@ def getprotobyname(space, name):
 
     Return the protocol number for the named protocol.  (Rarely used.)
     """
-    return space.wrap(socket.getprotobyname(name))
+    try:
+        return space.wrap(socket.getprotobyname(name))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 getprotobyname.unwrap_spec = [ObjSpace, str]
 
 def fromfd(space, fd, family, type, w_proto=NoneNotWrapped):
@@ -157,10 +183,13 @@ def fromfd(space, fd, family, type, w_proto=NoneNotWrapped):
     Create a socket object from the given file descriptor.
     The remaining arguments are the same as for socket().
     """
-    if w_proto is None:
-        return space.wrap(socket.fromfd(fd, family, type))
-    else:
-        return space.wrap(socket.fromfd(fd, family, type, space.int_w(w_proto)))
+    try:
+        if w_proto is None:
+            return space.wrap(socket.fromfd(fd, family, type))
+        else:
+            return space.wrap(socket.fromfd(fd, family, type, space.int_w(w_proto)))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 fromfd.unwrap_spec = [ObjSpace, int, int, int, W_Root]
 
 def socketpair(space, w_family=NoneNotWrapped, w_type=NoneNotWrapped, w_proto=NoneNotWrapped):
@@ -171,17 +200,20 @@ def socketpair(space, w_family=NoneNotWrapped, w_type=NoneNotWrapped, w_proto=No
     The arguments are the same as for socket() except the default family is
     AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
     """
-    if w_family is None:
-        return space.wrap(socket.socketpair())
-    elif w_type is None:
-        return space.wrap(socket.socketpair(space.int_w(w_family)))
-    elif w_proto is None:
-        return space.wrap(socket.socketpair(space.int_w(w_family),
-                                            space.int_w(w_type)))
-    else:
-        return space.wrap(socket.socketpair(space.int_w(w_family),
-                                            space.int_w(w_type),
-                                            space.int_w(w_proto)))
+    try:
+        if w_family is None:
+            return space.wrap(socket.socketpair())
+        elif w_type is None:
+            return space.wrap(socket.socketpair(space.int_w(w_family)))
+        elif w_proto is None:
+            return space.wrap(socket.socketpair(space.int_w(w_family),
+                                                space.int_w(w_type)))
+        else:
+            return space.wrap(socket.socketpair(space.int_w(w_family),
+                                                space.int_w(w_type),
+                                                space.int_w(w_proto)))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 socketpair.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
 def ntohs(space, x):
@@ -189,7 +221,10 @@ def ntohs(space, x):
 
     Convert a 16-bit integer from network to host byte order.
     """
-    return space.wrap(socket.ntohs(x))
+    try:
+        return space.wrap(socket.ntohs(x))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 ntohs.unwrap_spec = [ObjSpace, int]
 
 def ntohl(space, x):
@@ -197,7 +232,10 @@ def ntohl(space, x):
 
     Convert a 32-bit integer from network to host byte order.
     """
-    return space.wrap(socket.ntohl(x))
+    try:
+        return space.wrap(socket.ntohl(x))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 ntohl.unwrap_spec = [ObjSpace, int]
     
 def htons(space, x):
@@ -205,7 +243,10 @@ def htons(space, x):
 
     Convert a 16-bit integer from host to network byte order.
     """
-    return space.wrap(socket.htons(x))
+    try:
+        return space.wrap(socket.htons(x))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 htons.unwrap_spec = [ObjSpace, int]
     
 def htonl(space, x):
@@ -213,7 +254,10 @@ def htonl(space, x):
 
     Convert a 32-bit integer from host to network byte order.
     """
-    return space.wrap(socket.htonl(x))
+    try:
+        return space.wrap(socket.htonl(x))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 htonl.unwrap_spec = [ObjSpace, int]
 
 def inet_aton(space, ip):
@@ -222,7 +266,10 @@ def inet_aton(space, ip):
     Convert an IP address in string format (123.45.67.89) to the 32-bit packed
     binary format used in low-level network functions.
     """
-    return space.wrap(socket.inet_aton(ip))
+    try:
+        return space.wrap(socket.inet_aton(ip))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 inet_aton.unwrap_spec = [ObjSpace, str]
 
 def inet_ntoa(space, packed):
@@ -230,7 +277,10 @@ def inet_ntoa(space, packed):
 
     Convert an IP address from 32-bit packed binary format to string format
     """
-    return space.wrap(socket.inet_ntoa(packed))
+    try:
+        return space.wrap(socket.inet_ntoa(packed))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 inet_ntoa.unwrap_spec = [ObjSpace, str]
 
 def inet_pton(space, af, ip):
@@ -239,7 +289,10 @@ def inet_pton(space, af, ip):
     Convert an IP address from string format to a packed string suitable
     for use with low-level network functions.
     """
-    return space.wrap(socket.inet_pton(af, ip))
+    try:
+        return space.wrap(socket.inet_pton(af, ip))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 inet_pton.unwrap_spec = [ObjSpace, int, str]
 
 def inet_ntop(space, af, packed):
@@ -247,7 +300,10 @@ def inet_ntop(space, af, packed):
 
     Convert a packed IP address of the given family to string format.
     """
-    return space.wrap(socket.inet_ntop(af, packed))
+    try:
+        return space.wrap(socket.inet_ntop(af, packed))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 inet_ntop.unwrap_spec = [ObjSpace, int, str]
 
 def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
@@ -265,7 +321,10 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
     else:
         port = space.str_w(w_port)
     
-    return space.wrap(socket.getaddrinfo(host, port, family, socktype, proto, flags))
+    try:
+        return space.wrap(socket.getaddrinfo(host, port, family, socktype, proto, flags))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]
 
 def getnameinfo(space, w_sockaddr, flags):
@@ -273,7 +332,10 @@ def getnameinfo(space, w_sockaddr, flags):
 
     Get host and port for a sockaddr."""
     sockaddr = space.unwrap(w_sockaddr)
-    return space.wrap(socket.getnameinfo(sockaddr, flags))
+    try:
+        return space.wrap(socket.getnameinfo(sockaddr, flags))
+    except socket.error, e:
+        raise wrap_socketerror(space, e)
 getnameinfo.unwrap_spec = [ObjSpace, W_Root, int]
 
 def getdefaulttimeout(space):
@@ -296,3 +358,4 @@ def setdefaulttimeout(space, w_timeout):
     timeout = space.unwrap(w_timeout)
     return space.wrap(socket.setdefaulttimeout(timeout))
 setdefaulttimeout.unwrap_spec = [ObjSpace, W_Root]
+
