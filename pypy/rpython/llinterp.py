@@ -635,6 +635,11 @@ class LLFrame(object):
         assert isinstance(inst, ootype._instance)
         assert isinstance(name, str)
         return getattr(inst, name)
+
+    def op_oosend(self, message, inst, *args):
+        assert isinstance(inst, ootype._instance)
+        assert isinstance(message, str)
+        return getattr(inst, message)(*args)
     
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
