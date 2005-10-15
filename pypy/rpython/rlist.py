@@ -129,7 +129,7 @@ class ListRepr(Repr):
         elif arg1.nonneg:
             llfn = ll_insert_nonneg
         else:
-            llfn = ll_insert
+            raise TyperError("insert() index must be proven non-negative")
         hop.exception_cannot_occur()
         hop.gendirectcall(llfn, *args)
 
@@ -439,11 +439,6 @@ def ll_insert_nonneg(l, index, newitem):
         i1 = i
         i -= 1
     items[index] = newitem
-
-def ll_insert(l, index, newitem):
-    if index < 0:
-        index += l.length
-    ll_insert_nonneg(l, index, newitem)
 
 def dum_checkidx(): pass
 def dum_nocheck(): pass

@@ -307,7 +307,15 @@ def hash__List(space,w_list):
     raise OperationError(space.w_TypeError,space.wrap("list objects are unhashable"))
 
 def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
-    w_list.wrappeditems.insert(space.int_w(w_where), w_any)
+    where = space.int_w(w_where)
+    length = len(w_list.wrappeditems)
+    if where < 0:
+        where += length
+        if where < 0:
+            where = 0
+    elif where > length:
+        where = length
+    w_list.wrappeditems.insert(where, w_any)
     return space.w_None
 
 def list_append__List_ANY(space, w_list, w_any):

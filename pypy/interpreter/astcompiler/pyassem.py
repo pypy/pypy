@@ -301,7 +301,7 @@ class FlowGraph:
             # XXX just do one for now
             # do swaps to get things in the right order
             goes_before, a_chain = constraints[0]
-            assert a_chain > goes_before
+            assert a_chain > goes_before >= 0
             c = chains[a_chain]
             del chains[a_chain]
             chains.insert(goes_before, c)
