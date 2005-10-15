@@ -78,6 +78,8 @@ the value for this attribute is one of None (no newline read yet),
 Note:  open() is an alias for file().
     """
 
+    _closed = True   # Until the file is successfully opened
+
     def __init__(self, name, mode='r', buffering=None):
         self.fd = None
         self._name = name
@@ -122,7 +124,10 @@ Note:  open() is an alias for file().
             flag |= O_BINARY
 
         if self.fd is None:
-            self.fd = os.open(self.name, flag)
+            try:
+                self.fd = os.open(self.name, flag)
+            except OSError, e:
+                raise IOError(*e.args)
         if basemode == 'a':
             try:
                 os.lseek(self.fd, 0, 2)
@@ -131,8 +136,6 @@ Note:  open() is an alias for file().
             
         reading = basemode == 'r' or plus
         writing = basemode != 'r' or plus
-
-        self._closed = True   # Until the file is successfully opened
 
         self.softspace = 0    # Required according to file object docs
         self.encoding = None  # This is not used internally by file objects

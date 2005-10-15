@@ -99,25 +99,42 @@ class DiskFile(Stream):
         self.fd = fd
 
     def seek(self, offset, whence=0):
-        os.lseek(self.fd, offset, whence)
+        try:
+            os.lseek(self.fd, offset, whence)
+        except OSError, e:
+            raise IOError(*e.args)
 
     def tell(self):
-        return os.lseek(self.fd, 0, 1)
+        try:
+            return os.lseek(self.fd, 0, 1)
+        except OSError, e:
+            raise IOError(*e.args)
 
     def read(self, n):
-        return os.read(self.fd, n)
+        try:
+            return os.read(self.fd, n)
+        except OSError, e:
+            raise IOError(*e.args)
 
     def write(self, data):
-        while data:
-            n = os.write(self.fd, data)
-            data = data[n:]
+        try:
+            while data:
+                n = os.write(self.fd, data)
+                data = data[n:]
+        except OSError, e:
+            raise IOError(*e.args)
 
     def close(self):
-        os.close(self.fd)
+        try:
+            os.close(self.fd)
+        except OSError, e:
+            raise IOError(*e.args)
 
     def truncate(self, size):
         try:
             os.ftruncate(self.fd, size)
+        except OSError, e:
+            raise IOError(*e.args)
         except AttributeError:
             raise NotImplementedError
 
