@@ -1,6 +1,8 @@
 from pypy.translator.translator import Translator
 from pypy.rpython import lltype
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.test.test_llinterp import interpret
+import py
 
 def specialize(f, input_types, viewBefore=False, viewAfter=False):
     t = Translator(f)
@@ -28,7 +30,8 @@ def check_only_ootype(graph):
 def test_simple():
     def f(a, b):
         return a + b
-    specialize(f, [int, int])
+    result = interpret(f, [1, 2], type_system='ootype')
+    assert result == 3
 
 def test_simple_call():
     def f(a, b):
@@ -36,7 +39,8 @@ def test_simple_call():
 
     def g():
         return f(5, 3)
-    specialize(g, [])
+    result = interpret(g, [], type_system='ootype')
+    assert result == 8
 
 # Adjusted from test_rclass.py
 class EmptyBase(object):
@@ -46,7 +50,8 @@ def test_simple_empty_base():
     def dummyfn():
         x = EmptyBase()
         return x
-    specialize(dummyfn, [])
+    result = interpret(dummyfn, [], type_system='ootype')
+    assert isinstance(ootype.typeOf(result), ootype.Instance)
 
 
 def test_instance_attribute():
@@ -54,7 +59,8 @@ def test_instance_attribute():
         x = EmptyBase()
         x.a = 1
         return x.a
-    specialize(dummyfn, [])
+    result = interpret(dummyfn, [], type_system='ootype')
+    assert result == 1
 
 class Subclass(EmptyBase):
     pass
@@ -67,6 +73,16 @@ def test_subclass_attributes():
         y.a = 2
         y.b = 3
         return x.a + y.a + y.b
-    specialize(dummyfn, [])
-    
+    result = interpret(dummyfn, [], type_system='ootype')
+    assert result == 1 + 2 + 3
+
+class HasAMethod(object):
+    def f(self):
+        return 1
         
+def test_method():
+    py.test.skip('in progress')
+    def dummyfn():
+        inst = HasAMethod()
+        return inst.f()
+    specialize(dummyfn, [])#, viewBefore=True)
