@@ -69,6 +69,7 @@ if sys.platform == 'win32':
     def socket_strerror(errno):
         return WIN32_ERROR_MESSAGES.get(errno, "winsock error")
 else:
+    import os
     def socket_strerror(errno):
         return os.strerror(errno)
 
