@@ -683,7 +683,7 @@ SNIPPETS = [
     'snippet_whitespaces.py',
     'snippet_samples.py',
     'snippet_decorators.py',
-    # 'snippet_listlinenos.py',
+    'snippet_listlinenos.py',
     'snippet_whilelineno.py',
     ]
 

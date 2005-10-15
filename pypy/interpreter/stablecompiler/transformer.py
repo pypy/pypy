@@ -734,8 +734,8 @@ class Transformer:
 
     def atom_lsqb(self, nodelist):
         if nodelist[1][0] == token.RSQB:
-            return List([])
-        return self.com_list_constructor(nodelist[1])
+            return List([], lineno=nodelist[0][2])
+        return self.com_list_constructor(nodelist[1], nodelist[0][2])
 
     def atom_lbrace(self, nodelist):
         if nodelist[1][0] == token.RBRACE:
@@ -1097,7 +1097,7 @@ class Transformer:
             stmts.append(result)
 
     if hasattr(symbol, 'list_for'):
-        def com_list_constructor(self, nodelist):
+        def com_list_constructor(self, nodelist, lineno):
             # listmaker: test ( list_for | (',' test)* [','] )
             values = []
             for i in range(1, len(nodelist)):
@@ -1108,7 +1108,7 @@ class Transformer:
                 elif nodelist[i][0] == token.COMMA:
                     continue
                 values.append(self.com_node(nodelist[i]))
-            return List(values, lineno=values[0].lineno)
+            return List(values, lineno=lineno)
 
         def com_list_comprehension(self, expr, node):
             # list_iter: list_for | list_if
@@ -1149,11 +1149,11 @@ class Transformer:
             assert node[0] == symbol.list_iter
             return node[1]
     else:
-        def com_list_constructor(self, nodelist):
+        def com_list_constructor(self, nodelist, lineno):
             values = []
             for i in range(1, len(nodelist), 2):
                 values.append(self.com_node(nodelist[i]))
-            return List(values)
+            return List(values, lineno)
 
     if hasattr(symbol, 'gen_for'):
         def com_generator_expression(self, expr, node):
