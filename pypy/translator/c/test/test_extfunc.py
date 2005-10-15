@@ -497,3 +497,12 @@ if hasattr(posix, "unsetenv"):
         assert _real_getenv('ABCDEF') is None
         f()
         assert _real_getenv('ABCDEF') is None
+
+def INPROGRESStest_socket():
+    import _socket
+    import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
+    def fn():
+        print _socket.ntohs(123)
+    f = compile(fn, [])
+    f()
+

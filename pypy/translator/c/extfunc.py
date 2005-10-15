@@ -7,6 +7,7 @@ from pypy.rpython import rlist
 from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.module.thread.rpython import ll_thread
+from pypy.module._socket.rpython import ll__socket
 
 
 # table of functions hand-written in src/ll_*.h
@@ -53,6 +54,7 @@ EXTERNALS = {
     ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
     ll_stack.ll_stack_unwind: 'LL_stack_unwind',
     ll_stack.ll_stack_too_big: 'LL_stack_too_big',
+    ll__socket.ll__socket_ntohs: 'LL__socket_ntohs',
     }
 
 #______________________________________________________
