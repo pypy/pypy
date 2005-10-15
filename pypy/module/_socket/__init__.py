@@ -9,6 +9,8 @@ class Module(MixedModule):
         'herror'     : 'app_socket.herror',
         'gaierror'   : 'app_socket.gaierror',
         'timeout'    : 'app_socket.timeout',
+        'setdefaulttimeout'    : 'app_socket.setdefaulttimeout',
+        'getdefaulttimeout'    : 'app_socket.getdefaulttimeout',
     }
 
     interpleveldefs = {
@@ -20,7 +22,6 @@ for name in """
     fromfd socketpair
     ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop
     getaddrinfo getnameinfo
-    getdefaulttimeout setdefaulttimeout
     """.split():
     
     if hasattr(_socket, name):

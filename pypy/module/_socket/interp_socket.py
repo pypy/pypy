@@ -338,24 +338,3 @@ def getnameinfo(space, w_sockaddr, flags):
         raise wrap_socketerror(space, e)
 getnameinfo.unwrap_spec = [ObjSpace, W_Root, int]
 
-def getdefaulttimeout(space):
-    """getdefaulttimeout() -> timeout
-
-    Returns the default timeout in floating seconds for new socket objects.
-    A value of None indicates that new socket objects have no timeout.
-    When the socket module is first imported, the default is None.
-    """
-    return space.wrap(socket.getdefaulttimeout())
-getdefaulttimeout.unwrap_spec = [ObjSpace]
-    
-def setdefaulttimeout(space, w_timeout):
-    """setdefaulttimeout(timeout)
-
-    Set the default timeout in floating seconds for new socket objects.
-    A value of None indicates that new socket objects have no timeout.
-    When the socket module is first imported, the default is None.
-    """
-    timeout = space.unwrap(w_timeout)
-    return space.wrap(socket.setdefaulttimeout(timeout))
-setdefaulttimeout.unwrap_spec = [ObjSpace, W_Root]
-
