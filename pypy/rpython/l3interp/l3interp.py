@@ -17,10 +17,9 @@ class LLFrame(object):
         self.graph = graph
         self.int_vars = [0] * graph.max_num_ints
 
-    def eval(self, args):
-        assert len(args) == 0, "not implemented, XXX"
+    def eval(self, int_values):
         link = self.graph.startlink
-#        self.fill_input_arg(...
+        self.copy_startlink_vars(link, int_values)
         while type(link) is model.Link:
             link = self.eval_block(link.target)
             self.copy_link_vars(link)
@@ -35,9 +34,16 @@ class LLFrame(object):
             return link
         return block.exits[0]
         
+    def copy_startlink_vars(self, link, int_values):
+        if link.move_int_registers is None:
+            return
+        for i in range(0, len(link.move_int_registers), 2):
+            source = link.move_int_registers[i]
+            target = link.move_int_registers[i + 1]
+            self.set_int(target, int_values[source])
 
     def copy_link_vars(self, link):
-        if not len(link.move_int_registers):
+        if link.move_int_registers is None: 
             return
         for i in range(0, len(link.move_int_registers), 2):
             source = link.move_int_registers[i]

@@ -36,17 +36,25 @@ def test_very_simple_translated():
     assert fn() == 7
 
 #----------------------------------------------------------------------
+def eval_eight(number):
+    op = model.Operation(l3interp.LLFrame.op_int_add, 1, [0, -1])
+    returnlink = model.ReturnLink(target=None)
+    returnlink.move_int_registers = [1, 0]
+    block = model.Block([], model.ONE_EXIT, [returnlink])
+    block.operations.append(op)
+    startlink = model.Link(target=block)
+    startlink.move_int_registers = [0, 0]
+    graph = model.Graph("testgraph", startlink)
+    graph.set_constants_int([4])
+    g = model.Globals()
+    g.graphs = [graph]
+    interp = l3interp.LLInterpreter()
+    return interp.eval_graph_int(graph, [number])
 
-def Xtest_simple():
-    result = eval_seven()
-    assert result == 7
+def test_simple():
+    result = eval_eight(4)
+    assert result == 8
 
-def Xtest_very_simple_translated():
-    t = Translator(eval_seven)
-    pol = policy.AnnotatorPolicy()
-    pol.allow_someobjects = False
-    t.annotate([], policy=pol)
-    t.specialize()
-    t.view()
-    fn = t.ccompile()
-
+def test_simple_translated():
+    fn = translate(eval_eight, [int]) 
+    assert fn(4) == 8 

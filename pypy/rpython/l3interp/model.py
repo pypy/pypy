@@ -95,12 +95,11 @@ class Operation(object):
         self.result = result # resulting variable
 
 class Link(object):
-    def __init__(self, target, args, exitcase=None):
+    def __init__(self, target, exitcase=None):
         self.target = target # target is a Block
-        self.intargs = args  # args is a list of ints, same meaning as Operation.args
         self.exitcase = exitcase  # NULL for non-exceptional case
                                   # address of exception class else
-        self.move_int_registers = []
+        self.move_int_registers = None
 
 class ReturnLink(Link):
     pass
