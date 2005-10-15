@@ -232,44 +232,48 @@ def ntohs(space, x):
 
     Convert a 16-bit integer from network to host byte order.
     """
-    try:
-        return space.wrap(socket.ntohs(x))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    return space.wrap(socket.ntohs(x))
 ntohs.unwrap_spec = [ObjSpace, int]
 
-def ntohl(space, x):
+def ntohl(space, w_x):
     """ntohl(integer) -> integer
 
     Convert a 32-bit integer from network to host byte order.
     """
-    try:
-        return space.wrap(socket.ntohl(x))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
-ntohl.unwrap_spec = [ObjSpace, int]
+    if space.is_true(space.isinstance(w_x, space.w_int)):
+        x = space.int_w(w_x)
+    elif space.is_true(space.isinstance(w_x, space.w_long)):
+        x = space.uint_w(w_x)
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expected int/long"))
+    
+    return space.wrap(socket.ntohl(x))
+ntohl.unwrap_spec = [ObjSpace, W_Root]
     
 def htons(space, x):
     """htons(integer) -> integer
 
     Convert a 16-bit integer from host to network byte order.
     """
-    try:
-        return space.wrap(socket.htons(x))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
+    return space.wrap(socket.htons(x))
 htons.unwrap_spec = [ObjSpace, int]
     
-def htonl(space, x):
+def htonl(space, w_x):
     """htonl(integer) -> integer
 
     Convert a 32-bit integer from host to network byte order.
     """
-    try:
-        return space.wrap(socket.htonl(x))
-    except socket.error, e:
-        raise wrap_socketerror(space, e)
-htonl.unwrap_spec = [ObjSpace, int]
+    if space.is_true(space.isinstance(w_x, space.w_int)):
+        x = space.int_w(w_x)
+    elif space.is_true(space.isinstance(w_x, space.w_long)):
+        x = space.uint_w(w_x)
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expected int/long"))
+    
+    return space.wrap(socket.htonl(x))
+htonl.unwrap_spec = [ObjSpace, W_Root]
 
 def inet_aton(space, ip):
     """inet_aton(string) -> packed 32-bit IP representation

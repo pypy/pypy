@@ -178,6 +178,27 @@ class AppTestSocket:
     def setup_class(cls):
         cls.space = space
 
+    def test_NtoH(self):
+        import _socket as socket
+        # This just checks that htons etc. are their own inverse,
+        # when looking at the lower 16 or 32 bits.
+        sizes = {socket.htonl: 32, socket.ntohl: 32,
+                 socket.htons: 16, socket.ntohs: 16}
+        for func, size in sizes.items():
+            mask = (1L<<size) - 1
+            for i in (0, 1, 0xffff, ~0xffff, 2, 0x01234567, 0x76543210):
+                assert i & mask == func(func(i&mask)) & mask
+
+            swapped = func(mask)
+            assert swapped & mask == mask
+            try:
+                func(1L<<34)
+            except OverflowError:
+                pass
+            else:
+                assert False
+
+
     def test_newsocket(self):
         import socket
         s = socket.socket()
