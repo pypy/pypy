@@ -379,13 +379,13 @@ class __extend__(pairtype(ClassesPBCRepr, rclass.AbstractClassRepr)):
         return v
 
 class __extend__(pairtype(ClassesPBCRepr, ClassesPBCRepr)):
-        def convert_from_to((r_clspbc1, r_clspbc2), v, llops):
-            # this check makes sense because both source and dest repr are ClassesPBCRepr
-            if r_clspbc1.lowleveltype == r_clspbc2.lowleveltype:
-                return v
-            if r_clspbc1.lowleveltype is Void:
-                return inputconst(r_clspbc2, r_clspbc1.s_pbc.const)
-            return NotImplemented
+    def convert_from_to((r_clspbc1, r_clspbc2), v, llops):
+        # this check makes sense because both source and dest repr are ClassesPBCRepr
+        if r_clspbc1.lowleveltype == r_clspbc2.lowleveltype:
+            return v
+        if r_clspbc1.lowleveltype is Void:
+            return inputconst(r_clspbc2, r_clspbc1.s_pbc.const)
+        return NotImplemented
             
 
 
