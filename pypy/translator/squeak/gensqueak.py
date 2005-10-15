@@ -9,6 +9,8 @@ from pypy.translator.simplify import simplify_graph
 selectormap = {
     'setitem:with:': 'at:put:',
     'getitem:':      'at:',
+    'new':        'new',
+    'sameAs':        'yourself',
 }
 
 def camel_case(str):
@@ -80,6 +82,9 @@ class GenSqueak:
 	}
         self.seennames = {}
         self.pendingfunctions = []
+        self.pendingclasses = []
+        self.pendingmethods = []
+	self.classes = [] 
 	self.methods = [] 
 
 	t = self.translator
@@ -98,9 +103,40 @@ class GenSqueak:
 
 
     def gen_source(self, file):
-        while self.pendingfunctions:
-            func = self.pendingfunctions.pop()
-            self.gen_sqfunction(func, file)
+	while self.pendingfunctions or self.pendingclasses or self.pendingmethods:
+	    while self.pendingfunctions:
+		func = self.pendingfunctions.pop()
+		self.gen_sqfunction(func, file)
+	    while self.pendingclasses:
+		inst = self.pendingclasses.pop()
+		self.gen_sqclass(inst, file)
+	    while self.pendingmethods:
+		(inst, meth) = self.pendingmethods.pop()
+		self.gen_sqmethod(inst, meth, file)
+
+    def gen_sqclass(self, inst, f):
+	self.classes.append(inst)
+	print >> f, """%s subclass: #%s
+	instanceVariableNames: '%s'
+	classVariableNames: ''
+	poolDictionaries: ''
+	category: 'PyPy-Test'!
+	""" % (
+	    self.nameof_Instance(inst._superclass), 
+	    self.nameof_Instance(inst),
+	    ' '.join(inst._fields.iterkeys()))
+
+    def gen_sqmethod(self, inst, meth, f):
+	if (inst, meth) in self.methods:
+	    return
+	self.methods.append((inst, meth))
+	print >> f, "!%s methodsFor: 'methods' stamp: 'pypy 1/1/2000 00:00'!" % (
+            self.nameof_Instance(inst))
+	print >> f, "%s" % meth
+	print >> f, '	"XXX methods not generated yet"'
+	print >> f, "! !"
+	print >> f
+
 
     def gen_sqfunction(self, func, f):
 
@@ -114,17 +150,21 @@ class GenSqueak:
 
 	def oper(op):
 	    args = [expr(arg) for arg in op.args]
-	    name = 'py_'+op.opname
-	    receiver = args[0]
-	    args = args[1:]
+	    if op.opname == "oosend":
+		name = args[0]
+		receiver = args[1]
+		args = args[2:]
+		self.note_meth(op.args[1].concretetype, name)
+	    else:
+		name = op.opname
+		receiver = args[0]
+		args = args[1:]
 	    argnames = ['with'] * len(args)
 	    if argnames:
 		argnames[0] = ''
 	    sel = selector(name, argnames)
-	    try:
-		sel = selectormap[sel]
-	    except KeyError:
-		pass
+	    if op.opname != "oosend":
+		sel = selectormap.get(sel, sel)
 	    return "%s := %s %s." % (expr(op.result), receiver, signature(sel, args))
 
 	def render_return(args):
@@ -140,26 +180,13 @@ class GenSqueak:
 
 	def render_link(link):
 	    block = link.target
-#	    if len(block.exits) == 0:
-#		#short-cut return block
-#		for line in render_return(link.args):
-#		    yield line
-#		return
 	    if link.args:
-#		yield '| %s |' % repr(block.inputargs[0])
 		for i in range(len(link.args)):
 		    yield '%s := %s.' % (expr(block.inputargs[i]), expr(link.args[i]))
 	    for line in render_block(block):
 		yield line
 
 	def render_block(block):
-            #yield '"%s"' % repr(block)
-#	    temps = []
-#	    for op in block.operations:
-#		if isinstance(op.result, Variable):
-#		    temps.append(expr(op.result))
-#	    if temps:
-#		yield "| %s | " % ' '.join(temps)
 	    if loops.has_key(block):
 		if not loops[block]:
 		    yield '"skip1"'
@@ -206,7 +233,7 @@ class GenSqueak:
 	loops = LoopFinder(start).loops
 
 	for line in render_block(start):
-	    print >> f, '    %s' % line
+	    print >> f, '	%s' % line
 	print >> f
 
     def nameof(self, obj):
@@ -214,28 +241,27 @@ class GenSqueak:
         try:
             return self.sqnames[key]
         except KeyError:
-            if (type(obj).__module__ != '__builtin__' and
-                not isinstance(obj, type)):   # skip user-defined metaclasses
-                # assume it's a user defined thingy
-                name = self.nameof_instance(obj)
-            else:
-                for cls in type(obj).__mro__:
-                    meth = getattr(self,
-                                   'nameof_' + cls.__name__.replace(' ', ''),
-                                   None)
-                    if meth:
-                        break
-                else:
-		    types = ['nameof_'+t.__name__ for t in type(obj).mro()]
-                    raise Exception, "nameof(%r): no method %s" % (obj, types)
-                name = meth(obj)
+	    for cls in type(obj).__mro__:
+		meth = getattr(self,
+			       'nameof_' + cls.__name__.replace(' ', ''),
+			       None)
+		if meth:
+		    break
+	    else:
+		types = ['nameof_'+t.__name__ for t in type(obj).__mro__]
+		raise Exception, "nameof(%r): no method %s" % (obj, types)
+	    name = meth(obj)
             self.sqnames[key] = name
             return name
 
     def nameof_int(self, i):
 	return str(i)
 
+    def nameof_str(self, s):
+	return s
+
     def nameof_function(self, func):
+	#XXX this should actually be a StaticMeth
         printable_name = '(%s:%d) %s' % (
             func.func_globals.get('__name__', '?'),
             func.func_code.co_firstlineno,
@@ -255,6 +281,23 @@ class GenSqueak:
         self.pendingfunctions.append(func)
         return sel
 
+    def nameof_Instance(self, inst):
+	if inst is None:
+	    #empty superclass
+	    return "Object"
+	self.note_Instance(inst)
+	return "Py%s" % inst._name.capitalize()
+
+    def note_Instance(self, inst):
+	if inst not in self.classes:
+	    if inst not in self.pendingclasses:
+		self.pendingclasses.append(inst)
+
+    def note_meth(self, inst, meth):
+        bm = (inst, meth)
+	if bm not in self.methods:
+	    if bm not in self.pendingmethods:
+		self.pendingmethods.append(bm)
 
     def unique_name(self, basename):
         n = self.seennames.get(basename, 0)
