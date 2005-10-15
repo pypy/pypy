@@ -688,12 +688,29 @@ class PyFlowGraph(FlowGraph):
         list.append(name)
         return end
 
+    def _cmpConsts(self, w_left, w_right):
+        space = self.space
+        t = space.type(w_left)
+        if space.is_w(t, space.type(w_right)):
+            if space.is_w(t, space.w_tuple):
+                left_len = space.int_w(space.len(w_left))
+                right_len = space.int_w(space.len(w_right))
+                if left_len == right_len:
+                    for i in range(left_len):
+                        w_lefti = space.getitem(w_left, space.wrap(i))
+                        w_righti = space.getitem(w_right, space.wrap(i))
+                        if not self._cmpConsts(w_lefti, w_righti):
+                            return False
+                    return True
+            elif space.eq_w(w_left, w_right):
+                 return True
+        return False
+
     def _lookupConst(self, w_obj, list_w):
         space = self.space
         w_obj_type = space.type(w_obj)
         for i in range(len(list_w)):
-            cand_w = list_w[i]
-            if space.is_w(space.type(cand_w), w_obj_type) and space.eq_w(list_w[i], w_obj):
+            if self._cmpConsts(w_obj, list_w[i]):
                 return i
         end = len(list_w)
         list_w.append(w_obj)
