@@ -71,13 +71,8 @@ def _issubtype(space, w_cls1, w_cls2):
 
 # ____________________________________________________________
 
-def _floor(f):
-    return f - (f % 1.0)
-
-def _ceil(f):
-    if f - (f % 1.0) == f:
-        return f
-    return f + 1.0 - (f % 1.0)
+from math import floor as _floor
+from math import ceil as _ceil
 
 def round(space, number, ndigits=0):
     """round(number[, ndigits]) -> floating point number

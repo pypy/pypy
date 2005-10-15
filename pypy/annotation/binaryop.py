@@ -337,7 +337,7 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
     def union((flt1, flt2)):
         return SomeFloat()
 
-    add = sub = mul = div = truediv = floordiv = mod = union
+    add = sub = mul = div = truediv = union
 
     def pow((flt1, flt2), obj3):
         return SomeFloat()
