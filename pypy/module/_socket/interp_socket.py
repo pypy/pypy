@@ -389,20 +389,29 @@ getdefaulttimeout.unwrap_spec = [ObjSpace]
 def getsockettype(space):
     return space.gettypeobject(Socket.typedef)
 
-def newsocket(space, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):
+def newsocket(space, w_subtype, family=socket.AF_INET,
+              type=socket.SOCK_STREAM, proto=0):
+    # sets the timeout for the CPython implementation
+    timeout = getstate(space).defaulttimeout
+    if timeout < 0.0:
+        socket.setdefaulttimeout(None)
+    else:
+        socket.setdefaulttimeout(timeout)
+            
     try:
-        socket.setdefaulttimeout(getstate(space).defaulttimeout)
         fd = socket.socket(family, type, proto)
     except socket.error, e:
         raise wrap_socketerror(space, e)
-    return Socket(fd, family, type, proto)
-descr_socket_init = interp2app(newsocket,
-                               unwrap_spec=[ObjSpace, int, int, int])
+    sock = space.allocate_instance(Socket, w_subtype)
+    Socket.__init__(sock, space, fd, family, type, proto)
+    return space.wrap(sock)
+descr_socket_new = interp2app(newsocket,
+                               unwrap_spec=[ObjSpace, W_Root, int, int, int])
     
 class Socket(Wrappable):
     "A wrappable box around an interp-level socket object."
 
-    def __init__(self, fd, family, type, proto):
+    def __init__(self, space, fd, family, type, proto):
         self.fd = fd
         self.family = family
         self.type = type
@@ -433,7 +442,7 @@ class Socket(Wrappable):
         """
         addr = space.unwrap(w_addr)
         try:
-            self.fd.bind(adrr)
+            self.fd.bind(addr)
         except socket.error, e:
             raise wrap_socketerror(space, e)
     bind.unwrap_spec = ['self', ObjSpace, W_Root]
@@ -657,7 +666,7 @@ class Socket(Wrappable):
         The value argument can either be an integer or a string.
         """
         
-        if space.isinstance(w_value, space.w_string):
+        if space.is_true(space.isinstance(w_value, space.w_str)):
             strvalue = space.str_w(w_value)
             self.fd.setsockopt(level, option, strvalue)
         else:
@@ -708,15 +717,15 @@ class Socket(Wrappable):
         self.fd.shutdown(how)
     shutdown.unwrap_spec = ['self', ObjSpace, int]
 
+socketmethodnames = """
+accept bind close connect connect_ex dup fileno
+getpeername getsockname getsockopt listen makefile recv
+recvfrom send sendall sendto setblocking setsockopt gettimeout
+settimeout shutdown
+""".split()
 socketmethods = {}
-for methodname in dir(Socket):
-    if methodname in dir(Wrappable):
-        continue
-    if methodname.startswith('_'):
-        continue
+for methodname in socketmethodnames:
     method = getattr(Socket, methodname)
-    if not callable(method):
-        continue
     assert hasattr(method,'unwrap_spec'), methodname
     assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
     socketmethods[methodname] = interp2app(method, method.unwrap_spec)
@@ -759,6 +768,6 @@ settimeout(None | float) -- set or clear the timeout
 shutdown(how) -- shut down traffic in one or both directions
 
  [*] not available on all platforms!""",
-    __init__ = descr_socket_init,
+    __new__ = descr_socket_new,
     **socketmethods
     )

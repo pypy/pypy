@@ -178,6 +178,6 @@ class AppTestSocket:
     def setup_class(cls):
         cls.space = space
 
-    def INPROGRESStest_newsocket(self):
-        import _socket
-        s = _socket.socket()
+    def test_newsocket(self):
+        import socket
+        s = socket.socket()
