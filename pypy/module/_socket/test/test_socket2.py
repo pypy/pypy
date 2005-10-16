@@ -152,9 +152,9 @@ def test_getaddrinfo():
     w_l = space.appexec([w_socket, space.wrap(unicode(host)), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
-    
+
 def test_getnameinfo():
-    host = "localhost"
+    host = "127.0.0.1"
     port = 25
     info = socket.getnameinfo((host, port), 0)
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],

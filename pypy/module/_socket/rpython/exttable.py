@@ -11,3 +11,6 @@ module = 'pypy.module._socket.rpython.ll__socket'
 # Built-in functions needed in the rtyper
 
 declare(_socket.ntohs, int, '%s/ntohs' % module)
+declare(_socket.htons, int, '%s/ntohs' % module)
+declare(_socket.ntohl, int, '%s/ntohl' % module)
+declare(_socket.htonl, int, '%s/htonl' % module)

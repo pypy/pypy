@@ -39,6 +39,7 @@
 #  include "src/ll_strtod.h"
 #  include "src/ll_thread.h"
 #  include "src/ll_stackless.h"
+#  include "src/ll__socket.h"
 #endif
 
 #include "src/stack.h"

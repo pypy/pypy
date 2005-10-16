@@ -169,7 +169,7 @@ def test_math_pow():
     assert f(2.3, -1.0) == math.pow(2.3, -1.0)
     assert f(2.3, -2.0) == math.pow(2.3, -2.0)
     assert f(2.3, 0.5) == math.pow(2.3, 0.5)
-    assert f(4.0, 0.5) == math.pow(4.0, 0.5)    
+    assert f(4.0, 0.5) == math.pow(4.0, 0.5)
 
 def test_math_frexp():
     from math import frexp
@@ -201,7 +201,7 @@ def math_function_test(funcname):
     import random
     import math
     mathfn = getattr(math, funcname)
-    print funcname, 
+    print funcname,
     def fn(x):
         return mathfn(x)
     f = compile(fn, [float])
@@ -235,7 +235,7 @@ def test_math_errors():
                 #print mathf, v, r
                 u = f(v)
                 assert u == r
-                
+
     check(math.log, f, -1.0)
     check(math.log, f, 0.0)
 
@@ -284,7 +284,7 @@ def test_rarith_parts_to_float():
         return parts_to_float(sign, beforept, afterpt, exponent)
 
     f = compile(fn, [str, str, str, str])
-    
+
     data = [
     (("","1","","")     , 1.0),
     (("-","1","","")    , -1.0),
@@ -498,11 +498,50 @@ if hasattr(posix, "unsetenv"):
         f()
         assert _real_getenv('ABCDEF') is None
 
-def INPROGRESStest_socket():
+def test_socket():
     import _socket
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
     def fn():
-        print _socket.ntohs(123)
+        return _socket.ntohs(123)
     f = compile(fn, [])
-    f()
+    assert f() == _socket.ntohs(123)
+    def fn():
+        return _socket.htons(123)
+    f = compile(fn, [])
+    assert f() == _socket.htons(123)
+    def fn():
+        return _socket.ntohl(123)
+    f = compile(fn, [])
+    assert f() == _socket.ntohl(123)
+    def fn():
+        return _socket.htonl(123)
+    f = compile(fn, [])
+    assert f() == _socket.htonl(123)
 
+def INPROGRESStest_NtoH():
+    import _socket
+    # This just checks that htons etc. are their own inverse,
+    # when looking at the lower 16 or 32 bits.
+    def fn1(n):
+        return _socket.htonl(n)
+    def fn2(n):
+        return _socket.ntohl(n)
+    def fn3(n):
+        return _socket.ntohs(n)
+    def fn4(n):
+        return _socket.htons(n)
+    sizes = {compile(fn1, [int]): 32, compile(fn2, [int]): 32,
+             compile(fn4, [int]): 16, compile(fn3, [int]): 16}
+    for func, size in sizes.items():
+        mask = (1L<<size) - 1
+        for i in (0, 1, 0xffff, ~0xffff, 2, 0x01234567, 0x76543210):
+            assert i & mask == func(func(i&mask)) & mask
+
+        swapped = func(mask)
+        assert swapped & mask == mask
+        try:
+            func(1L<<34)
+        except OverflowError:
+            pass
+        else:
+            assert False

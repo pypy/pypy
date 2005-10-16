@@ -1,4 +1,3 @@
-
 import socket, errno, sys
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
@@ -71,13 +70,16 @@ if sys.platform == 'win32':
 else:
     import os
     def socket_strerror(errno):
-        return os.strerror(errno)
+        try:
+            return os.strerror(errno)
+        except TypeError:
+            return errno
 
 def wrap_socketerror(space, e):
     assert isinstance(e, socket.error)
     errno = e.args[0]
     msg = socket_strerror(errno)
-    
+
     w_module = space.getbuiltinmodule('_socket')
     if isinstance(e, socket.gaierror):
         w_errortype = space.getattr(w_module, space.wrap('gaierror'))
@@ -85,16 +87,16 @@ def wrap_socketerror(space, e):
         w_errortype = space.getattr(w_module, space.wrap('herror'))
     else:
         w_errortype = space.getattr(w_module, space.wrap('error'))
-        
+
     return OperationError(w_errortype,
                           space.wrap(errno),
                           space.wrap(msg))
 
 def wrap_timeouterror(space):
-    
+
     w_module = space.getbuiltinmodule('_socket')
     w_error = space.getattr(w_module, space.wrap('timeout'))
-        
+
     w_error = space.call_function(w_error,
                                   space.wrap("timed out"))
     return w_error
@@ -248,10 +250,10 @@ def ntohl(space, w_x):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected int/long, %s found" %
                                         (space.type(w_x).getname(space, "?"))))
-    
+
     return space.wrap(socket.ntohl(x))
 ntohl.unwrap_spec = [ObjSpace, W_Root]
-    
+
 def htons(space, x):
     """htons(integer) -> integer
 
@@ -259,7 +261,7 @@ def htons(space, x):
     """
     return space.wrap(socket.htons(x))
 htons.unwrap_spec = [ObjSpace, int]
-    
+
 def htonl(space, w_x):
     """htonl(integer) -> integer
 
@@ -273,7 +275,7 @@ def htonl(space, w_x):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected int/long, %s found" %
                                         (space.type(w_x).getname(space, "?"))))
-    
+
     return space.wrap(socket.htonl(x))
 htonl.unwrap_spec = [ObjSpace, W_Root]
 
@@ -337,7 +339,7 @@ def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
         port = str(space.int_w(w_port))
     else:
         port = space.str_w(w_port)
-    
+
     try:
         return space.wrap(socket.getaddrinfo(host, port, family, socktype, proto, flags))
     except socket.error, e:
@@ -359,13 +361,13 @@ getnameinfo.unwrap_spec = [ObjSpace, W_Root, int]
 #
 # Timeout management
 
-class State: 
+class State:
     def __init__(self, space):
         self.space = space
-        
+
         self.defaulttimeout = -1 # Default timeout for new sockets
-        
-def getstate(space): 
+
+def getstate(space):
     return space.fromcache(State)
 
 def setdefaulttimeout(space, w_timeout):
@@ -404,7 +406,7 @@ def newsocket(space, w_subtype, family=socket.AF_INET,
         socket.setdefaulttimeout(None)
     else:
         socket.setdefaulttimeout(timeout)
-            
+
     try:
         fd = socket.socket(family, type, proto)
     except socket.error, e:
@@ -414,7 +416,7 @@ def newsocket(space, w_subtype, family=socket.AF_INET,
     return space.wrap(sock)
 descr_socket_new = interp2app(newsocket,
                                unwrap_spec=[ObjSpace, W_Root, int, int, int])
-    
+
 class Socket(Wrappable):
     "A wrappable box around an interp-level socket object."
 
@@ -439,7 +441,7 @@ class Socket(Wrappable):
         newsock = Socket(newfd, self.family, self.type, self.proto)
         return space.wrap((newsock, address))
     accept.unwrap_spec = ['self', ObjSpace]
-        
+
     def bind(self, space, w_addr):
         """bind(address)
         
@@ -453,7 +455,7 @@ class Socket(Wrappable):
         except socket.error, e:
             raise wrap_socketerror(space, e)
     bind.unwrap_spec = ['self', ObjSpace, W_Root]
-        
+
     def close(self, space):
         """close()
 
@@ -479,7 +481,7 @@ class Socket(Wrappable):
         except socket.error, e:
             raise wrap_socketerror(space, e)
     connect.unwrap_spec = ['self', ObjSpace, W_Root]
-        
+
     def connect_ex(self, space, w_addr):
         """connect_ex(address) -> errno
         
@@ -492,7 +494,7 @@ class Socket(Wrappable):
         except socket.error, e:
             return space.wrap(e.errno)
     connect_ex.unwrap_spec = ['self', ObjSpace, W_Root]
-        
+
     def dup(self, space):
         """dup() -> socket object
 
@@ -537,7 +539,7 @@ class Socket(Wrappable):
         except socket.error, e:
             raise wrap_socketerror(space, e)
     getsockname.unwrap_spec = ['self', ObjSpace]
-        
+
     def getsockopt(self, space, level, option, w_buffersize=NoneNotWrapped):
         """getsockopt(level, option[, buffersize]) -> value
 
@@ -554,7 +556,7 @@ class Socket(Wrappable):
         except socket.error, e:
             raise wrap_socketerror(space, e)
     getsockopt.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
-        
+
     def listen(self, space, backlog):
         """listen(backlog)
 
@@ -567,7 +569,7 @@ class Socket(Wrappable):
         except socket.error, e:
             raise wrap_socketerror(space, e)
     listen.unwrap_spec = ['self', ObjSpace, int]
-        
+
     def makefile(self, space, mode="r", buffersize=-1):
         """makefile([mode[, buffersize]]) -> file object
 
@@ -618,7 +620,7 @@ class Socket(Wrappable):
         except socket.error, e:
             raise wrap_socketerror(space, e)
     send.unwrap_spec = ['self', ObjSpace, str, int]
-        
+
     def sendall(self, space, data, flags=0):
         """sendall(data[, flags])
 
@@ -632,7 +634,7 @@ class Socket(Wrappable):
         except socket.error, e:
             raise wrap_socketerror(space, e)
     sendall.unwrap_spec = ['self', ObjSpace, str, int]
-    
+
     def sendto(self, space, data, w_param2, w_param3=NoneNotWrapped):
         """sendto(data[, flags], address) -> count
 
@@ -652,7 +654,7 @@ class Socket(Wrappable):
         except socket.error, e:
             raise wrap_socketerror(space, e)
     sendto.unwrap_spec = ['self', ObjSpace, str, W_Root, W_Root]
-    
+
     def setblocking(self, space, flag):
         """setblocking(flag)
 
@@ -672,7 +674,7 @@ class Socket(Wrappable):
         Set a socket option.  See the Unix manual for level and option.
         The value argument can either be an integer or a string.
         """
-        
+
         if space.is_true(space.isinstance(w_value, space.w_str)):
             strvalue = space.str_w(w_value)
             self.fd.setsockopt(level, option, strvalue)
