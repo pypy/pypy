@@ -86,17 +86,14 @@ class JS(object):   # JS = Javascript
         #        l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
         #        codewriter.append(l)
 
-        codewriter.comment("Function Implementation", 0)
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
 
-        codewriter.comment("Forward Declarations", 0)
-        #for typ_decl in self.db.getnodes():
-        #    typ_decl.writedatatypedecl(codewriter)
+        codewriter.newline()
         for typ_decl in self.db.getnodes():
             typ_decl.writedecl(codewriter)
 
-        codewriter.comment("Global Data", 0)
+        codewriter.newline()
         for typ_decl in self.db.getnodes():
             typ_decl.writeglobalconstants(codewriter)
 

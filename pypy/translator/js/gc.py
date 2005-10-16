@@ -62,6 +62,7 @@ declare sbyte* %GC_malloc_atomic(uint)
 '''
 
     def malloc(self, targetvar, type_, size, is_atomic, word, uword):
+        return '%(targetvar)s = new Object()' % locals()
         s = str(size)
         self.n_malloced += 1
         cnt = '.%d' % self.n_malloced

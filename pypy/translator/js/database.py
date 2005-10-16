@@ -1,13 +1,11 @@
 
 import sys
 
-from pypy.translator.js.funcnode import FuncNode, FuncTypeNode
+from pypy.translator.js.funcnode import FuncNode
 from pypy.translator.js.extfuncnode import ExternalFuncNode
-from pypy.translator.js.structnode import StructNode, StructVarsizeNode, \
-     StructTypeNode, StructVarsizeTypeNode
-from pypy.translator.js.arraynode import ArrayNode, StrArrayNode, \
-     VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
-from pypy.translator.js.opaquenode import OpaqueNode, OpaqueTypeNode
+from pypy.translator.js.structnode import StructNode, StructVarsizeNode
+from pypy.translator.js.arraynode import ArrayNode, StrArrayNode, VoidArrayNode
+from pypy.translator.js.opaquenode import OpaqueNode
 from pypy.translator.js.node import ConstantLLVMNode
 from pypy.rpython import lltype
 from pypy.objspace.flow.model import Constant, Variable
@@ -112,37 +110,39 @@ class Database(object):
         self.obj2node[key] = node 
         self._pendingsetup.append(node)
         
-    def prepare_type(self, type_):
-        if type_ in self.obj2node:
-            return
-        if isinstance(type_, lltype.Primitive):
-            pass
-        elif isinstance(type_, lltype.Ptr): 
-            self.prepare_type(type_.TO)
-
-        elif isinstance(type_, lltype.Struct):
-            if type_._arrayfld:
-                self.addpending(type_, StructVarsizeTypeNode(self, type_))
-            else:
-                self.addpending(type_, StructTypeNode(self, type_))                
-        elif isinstance(type_, lltype.FuncType): 
-            self.addpending(type_, FuncTypeNode(self, type_))
-
-        elif isinstance(type_, lltype.Array): 
-            if type_.OF is lltype.Void:
-                self.addpending(type_, VoidArrayTypeNode(self, type_))
-            else:
-                self.addpending(type_, ArrayTypeNode(self, type_))
-
-        elif isinstance(type_, lltype.OpaqueType):
-            self.addpending(type_, OpaqueTypeNode(self, type_))            
-
-        else:
-            assert False, "need to prepare typerepr %s %s" % (type_, type(type_))
-
-    def prepare_type_multi(self, types):
-        for type_ in types:
-            self.prepare_type(type_)
+    #def prepare_type(self, type_):
+    #    return  #forget about the types in Javascript
+    # 
+    #    #if type_ in self.obj2node:
+    #    #    return
+    #    #if isinstance(type_, lltype.Primitive):
+    #    #    pass
+    #    #elif isinstance(type_, lltype.Ptr): 
+    #    #    self.prepare_type(type_.TO)
+    #    #
+    #    #elif isinstance(type_, lltype.Struct):
+    #    #    if type_._arrayfld:
+    #    #        self.addpending(type_, StructVarsizeTypeNode(self, type_))
+    #    #    else:
+    #    #        self.addpending(type_, StructTypeNode(self, type_))                
+    #    #elif isinstance(type_, lltype.FuncType): 
+    #    #    self.addpending(type_, FuncTypeNode(self, type_))
+    #    #
+    #    #elif isinstance(type_, lltype.Array): 
+    #    #    if type_.OF is lltype.Void:
+    #    #        self.addpending(type_, VoidArrayTypeNode(self, type_))
+    #    #    else:
+    #    #        self.addpending(type_, ArrayTypeNode(self, type_))
+    #    #
+    #    #elif isinstance(type_, lltype.OpaqueType):
+    #    #    self.addpending(type_, OpaqueTypeNode(self, type_))            
+    #    #
+    #    #else:
+    #    #    assert False, "need to prepare typerepr %s %s" % (type_, type(type_))
+    #
+    #def prepare_type_multi(self, types):
+    #    for type_ in types:
+    #        self.prepare_type(type_)
 
     def prepare_constant(self, type_, value):
         if isinstance(type_, lltype.Primitive):
@@ -165,7 +165,7 @@ class Database(object):
             self.addpending(value, self.create_constant_node(type_, value))
 
         # always add type (it is safe)
-        self.prepare_type(type_)
+        #self.prepare_type(type_)
         
     def prepare_arg_value(self, const_or_var):
         """if const_or_var is not already in a dictionary self.obj2node,
@@ -194,10 +194,7 @@ class Database(object):
 
 
     def prepare_arg(self, const_or_var):
-        #log.prepare(const_or_var)
-        self.prepare_type(const_or_var.concretetype)
         self.prepare_arg_value(const_or_var)
-
 
     def setup_all(self):
         while self._pendingsetup: 
@@ -230,30 +227,19 @@ class Database(object):
             assert isinstance(arg, Variable)
             return str(arg)
 
-    def repr_arg_type(self, arg):
-        assert isinstance(arg, (Constant, Variable))
-        ct = arg.concretetype 
-        return self.repr_type(ct)
-    
-    def repr_type(self, type_):
+    def repr_concretetype(self, ct): #used by casts
         try:
-            return self.obj2node[type_].ref 
+             return self.obj2node[ct].ref 
         except KeyError: 
-            if isinstance(type_, lltype.Primitive):
-                return self.primitives[type_]
-            elif isinstance(type_, lltype.Ptr):
-                return '' #self.repr_type(type_.TO) + 'XXX*'
+            if isinstance(ct, lltype.Primitive):
+                return self.primitives[ct]
+            elif isinstance(ct, lltype.Ptr):
+                return '' #self.repr_concretetype(type_.TO)
             else: 
-                raise TypeError("cannot represent %r" %(type_,))
-            
-    def repr_argwithtype(self, arg):
-        return self.repr_arg(arg), self.repr_arg_type(arg)
-            
+                raise TypeError("cannot represent %r" % ct)
+
     def repr_arg_multi(self, args):
         return [self.repr_arg(arg) for arg in args]
-
-    def repr_arg_type_multi(self, args):
-        return [self.repr_arg_type(arg) for arg in args]
 
     def repr_constant(self, value):
         " returns node and repr as tuple "
@@ -261,10 +247,9 @@ class Database(object):
         if isinstance(type_, lltype.Primitive):
             repr = self.primitive_to_str(type_, value)
             return None, repr
-            #return None, "%s %s" % (self.repr_type(type_), repr)
 
         elif isinstance(type_, lltype.Ptr):
-            toptr = self.repr_type(type_)
+            toptr = '' #self.repr_type(type_)
             value = value._obj
 
             # special case, null pointer
@@ -333,14 +318,6 @@ class Database(object):
 
     # __________________________________________________________
     # Other helpers
-
-    #def is_function_ptr(self, arg):
-    #    if isinstance(arg, (Constant, Variable)): 
-    #        arg = arg.concretetype 
-    #        if isinstance(arg, lltype.Ptr):
-    #            if isinstance(arg.TO, lltype.FuncType):
-    #                return True
-    #    return False
 
     def get_childref(self, parent, child):
         node = self.obj2node[parent]

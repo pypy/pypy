@@ -145,14 +145,11 @@ class CodeWriter(object):
         self.append("}", 1)
         self.append("};", 0)
 
-    def ret(self, type_, ref): 
-        if type_ == 'void':
-            self.append("return")
-        else:
-            self.append("return " + ref)
+    def ret(self, ref=''): 
+        self.append("return " + ref)
         self.skip_closeblock()
 
-    def binaryop(self, name, targetvar, type_, ref1, ref2):
+    def binaryop(self, name, targetvar, ref1, ref2):
         self.append("%(targetvar)s = %(ref1)s %(name)s %(ref2)s" % locals())
 
     def neg(self, targetvar, source):
@@ -172,10 +169,8 @@ class CodeWriter(object):
                 self.append('%s = %s(%s)' % (targetvar, functionref, args))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
-        #self.comment('codewriter cast 1 targettype=%(targettype)s, targetvar=%(targetvar)s, fromtype=%(fromtype)s, fromvar=%(fromvar)s' % locals())
     	if fromtype == 'void' and targettype == 'void':
 		return
-        #self.comment('codewriter cast 2')
         if targettype == fromtype:
             self.append("%(targetvar)s = %(fromvar)s" % locals())
         elif targettype in ('int','uint',):
@@ -189,7 +184,7 @@ class CodeWriter(object):
 
     def malloc(self, targetvar, type_, size=1, atomic=False):
         for s in self.js.gcpolicy.malloc(targetvar, type_, size, atomic, 'word', 'uword').split('\n'):
-            self.llvm(s)
+            self.append(s)
 
     def getelementptr(self, targetvar, type, typevar, *indices):
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, word 0, " % locals()
@@ -200,16 +195,10 @@ class CodeWriter(object):
         #res += ''.join(['[%s]' % i for t, i in indices])
         #self.append(res)
 
-    #def load(self, targetvar, targettype, ptr):
-    #    self.llvm("%(targetvar)s = load %(targettype)s* %(ptr)s" % locals())
-
     def load(self, destvar, src, srcindices):
         res  = "%(destvar)s = %(src)s" % locals()
         res += ''.join(['[%s]' % index for index in srcindices])
         self.append(res)
-
-    #def store(self, valuetype, valuevar, ptr): 
-    #    self.llvm("store %(valuetype)s %(valuevar)s, %(valuetype)s* %(ptr)s" % locals())
 
     def store(self, dest, destindices, srcvar):
         res  = dest

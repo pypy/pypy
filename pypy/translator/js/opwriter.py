@@ -99,7 +99,6 @@ class OpWriter(object):
                 meth(op)    
 
     def _generic_pow(self, op, onestr): 
-        mult_type = self.db.repr_arg_type(op.args[0])
         mult_val = self.db.repr_arg(op.args[0])
         last_val = mult_val
         try:
@@ -119,7 +118,6 @@ class OpWriter(object):
                 res_val = self.db.repr_tmpvar()
                 self.codewriter.binaryop('*', 
                                          res_val,
-                                         mult_type,
                                          last_val,
                                          mult_val)
                 last_val = res_val
@@ -157,21 +155,18 @@ class OpWriter(object):
     def bool_not(self, op):
         self.codewriter.binaryop('^',
                                  self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
                                  "true")
 
     def int_invert(self, op):
         self.codewriter.binaryop('^',
                                  self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
                                  -1)
 
     def uint_invert(self, op):
         self.codewriter.binaryop('^',
                                  self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]), 
                                  str((1L<<32) - 1))
 
@@ -180,7 +175,6 @@ class OpWriter(object):
         assert len(op.args) == 2
         self.codewriter.binaryop(name,
                                  self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  self.db.repr_arg(op.args[1]))
 
@@ -192,7 +186,7 @@ class OpWriter(object):
         c2 = self.db.repr_tmpvar()
         self.codewriter.cast(c1, "sbyte", self.db.repr_arg(op.args[0]), "ubyte")
         self.codewriter.cast(c2, "sbyte", self.db.repr_arg(op.args[1]), "ubyte")
-        self.codewriter.binaryop(name, res, "ubyte", c1, c2)
+        self.codewriter.binaryop(name, res, c1, c2)
 
     def cast_char_to_int(self, op):
         " works for all casts "
@@ -209,17 +203,16 @@ class OpWriter(object):
         " works for all casts "
         assert len(op.args) == 1
         targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
+        targettype = self.db.repr_concretetype(op.result.concretetype)
         fromvar = self.db.repr_arg(op.args[0])
-        fromtype = self.db.repr_arg_type(op.args[0])
-        self.codewriter.comment('next line='+op.opname)
+        fromtype = self.db.repr_concretetype(op.args[0].concretetype)
+        self.codewriter.comment('next line=%s, from %s to %s' % (op.opname, fromtype, targettype))
         self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
     same_as = cast_primitive
 
     def int_is_true(self, op):
         self.codewriter.binaryop("!=",
                                  self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  "0")
     uint_is_true = int_is_true
@@ -227,21 +220,18 @@ class OpWriter(object):
     def float_is_true(self, op):
         self.codewriter.binaryop("!=",
                                  self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  "0.0")
 
     def ptr_nonzero(self, op):
         self.codewriter.binaryop("!=",
                                  self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  "null")
 
     def ptr_iszero(self, op):
         self.codewriter.binaryop("==",
                                  self.db.repr_arg(op.result),
-                                 self.db.repr_arg_type(op.args[0]),
                                  self.db.repr_arg(op.args[0]),
                                  "null")
 
@@ -250,18 +240,11 @@ class OpWriter(object):
                    if arg.concretetype is not lltype.Void]
         assert len(op_args) >= 1
         targetvar = self.db.repr_arg(op.result)
-        returntype = self.db.repr_arg_type(op.result)
+        returntype = '' #self.db.repr_arg_type(op.result)
         functionref = self.db.repr_arg(op_args[0])
         argrefs = self.db.repr_arg_multi(op_args[1:])
-        argtypes = self.db.repr_arg_type_multi(op_args[1:])
-        #if self.db.is_function_ptr(op.result):
-        #    returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
+        argtypes = [] #self.db.repr_arg_type_multi(op_args[1:])
         self.codewriter.call(targetvar,returntype,functionref,argrefs,argtypes)
-
-    def last_exception_type_ptr(self, op):
-        e = self.db.translator.rtyper.getexceptiondata()
-        lltype_of_exception_type = ('structtype.' + e.lltype_of_exception_type.TO.__name__ + '*')
-        self.codewriter.load('%'+str(op.result), lltype_of_exception_type, 'last_exception_type')
 
     def invoke(self, op):
         op_args = [arg for arg in op.args
@@ -363,38 +346,13 @@ class OpWriter(object):
             ep.reraise(self.node, self.codewriter)
         ep.fetch_exceptions(self.codewriter, exc_found_labels, lltype_of_exception_type, lltype_of_exception_value)
 
-    def malloc_exception(self, op): 
-        arg_type = op.args[0].value
-        targetvar = self.db.repr_arg(op.result) 
-        type_ = self.db.repr_type(arg_type)
-        tmpvar1 = self.db.repr_tmpvar()
-        tmpvar2 = self.db.repr_tmpvar()
-        tmpvar3 = self.db.repr_tmpvar()
-        self.codewriter.append('%(tmpvar1)s = getelementptr %(type_)s* null, int 1' % locals())
-        self.codewriter.cast(tmpvar2, type_+'*', tmpvar1, 'uint')
-        self.codewriter.call(tmpvar3, 'sbyte*', 'malloc_exception', [tmpvar2], ['uint'])
-        self.codewriter.cast(targetvar, 'sbyte*', tmpvar3, type_+'*')
-
     def malloc(self, op): 
         arg_type = op.args[0].value
         targetvar = self.db.repr_arg(op.result) 
-        type_ = self.db.repr_type(arg_type)
+        type_ = '' #self.db.repr_type(arg_type)
         self.codewriter.malloc(targetvar, type_, atomic=arg_type._is_atomic())
-
-    def malloc_varsize(self, op):
-        arg_type = op.args[0].value
-        if isinstance(arg_type, lltype.Array) and arg_type.OF is lltype.Void:
-            # This is a backend decision to NOT represent a void array with
-            # anything and save space - therefore not varsized anymore
-            self.malloc(op)
-            return
-        
-        targetvar = self.db.repr_arg(op.result)
-        type_ = self.db.repr_type(arg_type) + "*"
-        type_cons = self.db.repr_constructor(arg_type)
-        argrefs = self.db.repr_arg_multi(op.args[1:])
-        argtypes = self.db.repr_arg_type_multi(op.args[1:])
-        self.codewriter.call(targetvar, type_, type_cons, argrefs, argtypes)
+    malloc_exception = malloc
+    malloc_varsize = malloc
 
     def _getindexhelper(self, name, struct):
         assert name in list(struct._names)
@@ -407,17 +365,16 @@ class OpWriter(object):
         return index
 
     def getfield(self, op): 
-        tmpvar = self.db.repr_tmpvar()
-        struct, structtype = self.db.repr_argwithtype(op.args[0])
+        struct = self.db.repr_arg(op.args[0])
         targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
+        targettype = 'undefined' #self.db.repr_arg_type(op.result)
         if targettype != "void":
             self.codewriter.append('%s = %s.%s' % (targetvar, struct, op.args[1].value)) #XXX move to codewriter
         else:
             self._skipped(op)
  
     def getsubstruct(self, op): 
-        struct, structtype = self.db.repr_argwithtype(op.args[0])
+        struct = self.db.repr_arg(op.args[0])
         #index = self._getindexhelper(op.args[1].value, op.args[0].concretetype.TO)
         targetvar = self.db.repr_arg(op.result)
         #targettype = self.db.repr_arg_type(op.result)
@@ -426,19 +383,20 @@ class OpWriter(object):
         #self.codewriter.getelementptr(targetvar, structtype, struct, ("uint", index))        
          
     def setfield(self, op): 
-        struct, structtype = self.db.repr_argwithtype(op.args[0])
-        valuevar, valuetype = self.db.repr_argwithtype(op.args[2])
-        if valuetype != "void": 
+        struct   = self.db.repr_arg(op.args[0])
+        valuevar = self.db.repr_arg(op.args[2])
+        valuetype = 'undefined'  #XXX how to get to this when no longer keep track of type
+        if valuetype != "void":
             self.codewriter.append('%s.%s = %s' % (struct, op.args[1].value, valuevar)) #XXX move to codewriter
         else:
             self._skipped(op)
-            
+
     def getarrayitem(self, op):        
-        array, arraytype = self.db.repr_argwithtype(op.args[0])
+        array = self.db.repr_arg(op.args[0])
         index = self.db.repr_arg(op.args[1])
-        indextype = self.db.repr_arg_type(op.args[1])
+        #indextype = self.db.repr_arg_type(op.args[1])
         targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
+        targettype = 'undefined' #self.db.repr_arg_type(op.result)
         if targettype != "void":
             #tmpvar = self.db.repr_tmpvar()
             #self.codewriter.getelementptr(tmpvar, arraytype, array,
@@ -449,19 +407,20 @@ class OpWriter(object):
             self._skipped(op)
 
     def getarraysubstruct(self, op):        
-        array, arraytype = self.db.repr_argwithtype(op.args[0])
+        array = self.db.repr_arg(op.args[0])
+        arraytype = ''
         index = self.db.repr_arg(op.args[1])
-        indextype = self.db.repr_arg_type(op.args[1])
+        indextype = '' #self.db.repr_arg_type(op.args[1])
         targetvar = self.db.repr_arg(op.result)
         self.codewriter.getelementptr(targetvar, arraytype, array,
                                       ("uint", 1), (indextype, index))
 
     def setarrayitem(self, op):
-        array, arraytype = self.db.repr_argwithtype(op.args[0])
+        array = self.db.repr_arg(op.args[0])
         index = self.db.repr_arg(op.args[1])
-        indextype = self.db.repr_arg_type(op.args[1])
+        #indextype = self.db.repr_arg_type(op.args[1])
         valuevar = self.db.repr_arg(op.args[2]) 
-        valuetype = self.db.repr_arg_type(op.args[2])
+        valuetype = 'undefined' #self.db.repr_arg_type(op.args[2])
         if valuetype != "void":
             #tmpvar = self.db.repr_tmpvar()
             #self.codewriter.getelementptr(tmpvar, arraytype, array,
@@ -472,7 +431,7 @@ class OpWriter(object):
             self._skipped(op)
 
     def getarraysize(self, op):
-        array, arraytype = self.db.repr_argwithtype(op.args[0])
+        array = self.db.repr_arg(op.args[0])
         #tmpvar = self.db.repr_tmpvar()
         #self.codewriter.getelementptr(tmpvar, arraytype, array, ("uint", 0))
         targetvar = self.db.repr_arg(op.result)

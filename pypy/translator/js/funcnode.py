@@ -11,30 +11,6 @@ from pypy.translator.unsimplify import remove_double_links
 from pypy.translator.js.log import log 
 log = log.funcnode
 
-class FuncTypeNode(LLVMNode):
-    #def __init__(self, db, type_):
-    #    #XXX not sure if we need FuncTypeNode with Javascript
-    #    pass
-
-    __slots__ = "db type_ ref".split()
- 
-    def __init__(self, db, type_):
-        self.db = db
-        assert isinstance(type_, lltype.FuncType)
-        self.type_ = type_
-        self.ref = self.make_ref('functiontype', '')
- 
-    def __str__(self):
-        return "<FuncTypeNode %r>" % self.ref
- 
-    def setup(self):
-        self.db.prepare_type(self.type_.RESULT)
-        self.db.prepare_type_multi(self.type_._trueargs())
- 
-    #def writedatatypedecl(self, codewriter):
-    #    returntype = self.db.repr_type(self.type_.RESULT)
-    #    inputargtypes = [self.db.repr_type(a) for a in self.type_._trueargs()]
-    #    codewriter.funcdef(self.ref, returntype, inputargtypes)
 
 class FuncNode(ConstantLLVMNode):
     __slots__ = "db value ref graph blockindex".split()
@@ -74,11 +50,6 @@ class FuncNode(ConstantLLVMNode):
                                             
         assert self.graph, "cannot traverse"
         traverse(visit, self.graph)
-
-    # ______________________________________________________________________
-    # main entry points from genllvm 
-    #def writedecl(self, codewriter): 
-    #    codewriter.declare(self.getdecl())
 
     def writeimpl(self, codewriter):
         graph = self.graph
@@ -138,41 +109,13 @@ class FuncNode(ConstantLLVMNode):
                                 if a.concretetype is not lltype.Void]
 
         inputargs = self.db.repr_arg_multi(startblock_inputargs)
-        inputargtypes = self.db.repr_arg_type_multi(startblock_inputargs)
-        returntype = self.db.repr_arg_type(self.graph.returnblock.inputargs[0])
-        #result = "%s %s" % (returntype, self.ref)
-        #args = ["%s %s" % item for item in zip(inputargtypes, inputargs)]
-        #result += "(%s)" % ", ".join(args)
         return self.ref + "(%s)" % ", ".join(inputargs)
 
     def write_block(self, codewriter, block):
-        #self.write_block_phi_nodes(codewriter, block)
         self.write_block_operations(codewriter, block)
         self.write_block_branches(codewriter, block)
 
-    #def get_phi_data(self, block):
-    #    data = []
-    #    entrylinks = mkentrymap(self.graph)[block]
-    #    entrylinks = [x for x in entrylinks if x.prevblock is not None]
-    #    inputargs = self.db.repr_arg_multi(block.inputargs)
-    #    inputargtypes = self.db.repr_arg_type_multi(block.inputargs)
-    #    for i, (arg, type_) in enumerate(zip(inputargs, inputargtypes)):
-    #        names = self.db.repr_arg_multi([link.args[i] for link in entrylinks])
-    #        blocknames = [self.blockindex[link.prevblock] for link in entrylinks]
-    #        for i, link in enumerate(entrylinks):   #XXX refactor into a transformation
-    #            if link.prevblock.exitswitch == Constant(last_exception) and \
-    #               link.prevblock.exits[0].target != block:
-    #                blocknames[i] += '_exception_found_branchto_' + self.blockindex[block]
-    #        data.append( (arg, type_, names, blocknames) )
-    #    return data
-    #
-    #def write_block_phi_nodes(self, codewriter, block):
-    #    for arg, type_, names, blocknames in self.get_phi_data(block):
-    #        if type_ != "void":
-    #            codewriter.phi(arg, type_, names, blocknames)
-
     def write_block_branches(self, codewriter, block):
-        #assert len(block.exits) <= 2    #more exits are possible (esp. in combination with exceptions)
         if block.exitswitch == Constant(last_exception):
             #codewriter.comment('FuncNode(ConstantLLVMNode) *last_exception* write_block_branches @%s@' % str(block.exits))
             return
@@ -214,10 +157,11 @@ class FuncNode(ConstantLLVMNode):
 
     def write_returnblock(self, codewriter, block):
         assert len(block.inputargs) == 1
-        #self.write_block_phi_nodes(codewriter, block)
-        inputargtype = self.db.repr_arg_type(block.inputargs[0])
-        inputarg = self.db.repr_arg(block.inputargs[0])
-        codewriter.ret(inputargtype, inputarg)
+        # #self.write_block_phi_nodes(codewriter, block)
+        # inputargtype = self.db.repr_arg_type(block.inputargs[0])
+        # inputarg = self.db.repr_arg(block.inputargs[0])
+        # codewriter.ret(inputargtype, inputarg)
+        codewriter.ret( self.db.repr_arg(block.inputargs[0]) )
 
     def write_exceptblock(self, codewriter, block):
         self.db.genllvm.exceptionpolicy.write_exceptblock(self, codewriter, block)

@@ -21,7 +21,8 @@ class compile_function(object):
         a = t.annotate(annotation)
         a.simplify()
         t.specialize()
-        t.backend_optimizations()
+        t.backend_optimizations(inline_threshold=0, mallocs=False)
+        #t.backend_optimizations()
         if view:
             t.view()
         self.js = JS(t, function)

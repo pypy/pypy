@@ -2,79 +2,14 @@ import py
 from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
 from pypy.rpython import lltype
 from pypy.translator.js.log import log
-
 log = log.structnode 
+
 
 def _rename_reserved_keyword(name):
     if name in 'if then else function for while witch continue break super int bool Array String Struct Number'.split():
         name += '_'
     return name
 
-class StructTypeNode(LLVMNode):
-    __slots__ = "db struct ref name".split()
-
-    def __init__(self, db, struct): 
-        assert isinstance(struct, lltype.Struct)
-        self.db = db
-        self.struct = struct
-        prefix = 'structtype_'
-        name = self.struct._name
-        self.ref = self.make_ref(prefix, name)
-        self.name = self.ref[len(prefix):]
-        
-    def __str__(self):
-        return "<StructTypeNode %r>" %(self.ref,)
-
-    def _fields(self):
-        return [getattr(self.struct, name) 
-                for name in self.struct._names_without_voids()]
-    
-    def setup(self):
-        # Recurse
-        for field in self._fields():
-            self.db.prepare_type(field)
-
-    # ______________________________________________________________________
-    # main entry points from genllvm 
-
-    #def writedatatypedecl(self, codewriter):
-    #    fields_types = [self.db.repr_type(f) for f in self._fields()]
-    #    codewriter.structdef(self.ref, fields_types)
-
-class StructVarsizeTypeNode(StructTypeNode):
-    __slots__ = "constructor_ref constructor_decl".split()
-
-    def __init__(self, db, struct): 
-        super(StructVarsizeTypeNode, self).__init__(db, struct)
-        prefix = 'new_varsizestruct_'
-        self.constructor_ref = self.make_ref(prefix, self.name)
-        self.constructor_decl = "%s * %s(int %%len)" % \
-                                (self.ref,
-                                 self.constructor_ref)
-
-    def __str__(self):
-        return "<StructVarsizeTypeNode %r>" %(self.ref,)
-        
-    # ______________________________________________________________________
-    # main entry points from genllvm 
-
-    #def writedecl(self, codewriter): 
-    #    # declaration for constructor
-    #    codewriter.declare(self.constructor_decl)
-
-    def writeimpl(self, codewriter):
-        log.writeimpl(self.ref)
-
-        # build up a list of indices to get to the last 
-        # var-sized struct (or rather the according array) 
-        indices_to_array = []
-        current = self.struct
-        while isinstance(current, lltype.Struct):
-            last_pos = len(current._names_without_voids()) - 1
-            indices_to_array.append(("uint", last_pos)) #struct requires uint consts
-            name = current._names_without_voids()[-1]
-            current = current._flds[name]
-        assert isinstance(current, lltype.Array)
 
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain
@@ -121,9 +56,6 @@ class StructNode(ConstantLLVMNode):
     def writedecl(self, codewriter):
         codewriter.declare(self.ref + ' = new Object()')
         
-    #def get_typerepr(self):
-    #    return self.db.repr_type(self.structtype)
-
     def get_childref(self, index):
         return self.get_ref() #XXX what to do with index?
         #pos = 0
@@ -149,10 +81,6 @@ class StructNode(ConstantLLVMNode):
             ref = self.db.get_childref(p, c)
         self._get_ref_cache = ref
         return ref
-
-    #def get_pbcref(self, toptr):
-    #    """ Returns a reference as used per pbc. """        
-    #    return self.get_ref()
 
     def constantvalue(self):
         """ Returns the constant representation for this node. """
@@ -222,7 +150,3 @@ class StructVarsizeNode(StructNode):
          
     def get_ref(self):
         return self.ref
-    
-    #def get_pbcref(self, toptr):
-    #    """ Returns a reference as used per pbc. """        
-    #    return self.ref

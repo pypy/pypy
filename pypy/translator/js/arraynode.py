@@ -4,64 +4,7 @@ from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.js.log import log
 log = log.structnode
 
-class ArrayTypeNode(LLVMNode):
-    __slots__ = "db array arraytype ref constructor_ref constructor_decl".split()
 
-    def __init__(self, db, array):
-        assert isinstance(array, lltype.Array)
-        self.db = db
-        self.array = array
-        self.arraytype = arraytype = array.OF
-        # ref is used to reference the arraytype in llvm source 
-        # constructor_ref is used to reference the constructor 
-        # for the array type in llvm source code 
-        # constructor_decl is used to declare the constructor
-        # for the array type (see writeimpl)
-        name = ""        
-        if isinstance(arraytype, lltype.Ptr):
-            name += "ptr_"
-            arraytype = arraytype.TO
-        if hasattr(arraytype, "_name"):            
-            name += arraytype._name
-        else:
-            name += str(arraytype)
-
-        self.ref = self.make_ref('arraytype_', name)
-        self.constructor_ref = 'new Array'
-        self.constructor_decl = "%s(len)" % self.constructor_ref
-
-    def __str__(self):
-        return "<ArrayTypeNode %r>" % self.ref
-        
-    def setup(self):
-        self.db.prepare_type(self.arraytype)
-
-    # ______________________________________________________________________
-    # entry points from genllvm
-    #
-    #def writedatatypedecl(self, codewriter):
-    #    codewriter.arraydef(self.ref,
-    #                        'int',
-    #                        self.db.repr_type(self.arraytype))
-
-    #def writedecl(self, codewriter): 
-    #    # declaration for constructor
-    #    codewriter.declare(self.constructor_decl)
-
-
-class VoidArrayTypeNode(LLVMNode):
-    __slots__ = "db array ref".split()
-
-    def __init__(self, db, array):
-        assert isinstance(array, lltype.Array)
-        self.db = db
-        self.array = array
-        self.ref = "arraytype_Void"
-
-    #def writedatatypedecl(self, codewriter):
-    #    td = "%s = type { int }" % self.ref
-    #    codewriter.append(td)
-        
 class ArrayNode(ConstantLLVMNode):
     """ An arraynode.  Elements can be
     a primitive,
@@ -76,7 +19,7 @@ class ArrayNode(ConstantLLVMNode):
         self.value = value
         self.arraytype = lltype.typeOf(value).OF
         prefix = 'arrayinstance'
-        name = '' #str(value).split()[1]
+        name = ''   #XXX how to get the name
         self.ref = self.make_ref(prefix, name)
 
     def __str__(self):
@@ -92,8 +35,8 @@ class ArrayNode(ConstantLLVMNode):
             self.db.prepare_constant(lltype.typeOf(p), p)
 
     def writedecl(self, codewriter):
-        if self.arraytype is lltype.Char:  #or use seperate nodetype
-            codewriter.declare(self.ref + ' = new String()')
+        if self.arraytype is lltype.Char:
+            codewriter.declare(self.ref + ' = new String()') #XXX string should be earlier
         else:
             codewriter.declare(self.ref + ' = new Array()')
 
@@ -108,28 +51,18 @@ class ArrayNode(ConstantLLVMNode):
         r = "[%s]" % ", ".join([self.db.repr_constant(v)[1] for v in items])
         return l, r 
 
-    #def get_typerepr(self):
-    #    arraylen = self.get_arrayvalue()[0]
-    #    typeval = self.db.repr_type(self.arraytype)
-    #    return "{ int, [%s x %s] }" % (arraylen, typeval)
-
     def get_ref(self):
         return self.ref
-        #typeval = self.db.repr_type(lltype.typeOf(self.value))
-        #ref = "cast (%s* %s to %s*)" % (self.get_typerepr(), self.ref, typeval)
-        #p, c = lltype.parentlink(self.value)
-        #assert p is None, "child arrays are NOT needed by rtyper"
-        #return ref
 
-    def get_pbcref(self, toptr):
-        return self.ref
-        #ref = self.ref
-        #p, c = lltype.parentlink(self.value)
-        #assert p is None, "child arrays are NOT needed by rtyper"
-        #
-        #fromptr = "%s*" % self.get_typerepr()
-        #ref = "cast(%s %s to %s)" % (fromptr, ref, toptr)
-        #return ref
+    #def get_pbcref(self, toptr):
+    #    return self.ref
+    #    #ref = self.ref
+    #    #p, c = lltype.parentlink(self.value)
+    #    #assert p is None, "child arrays are NOT needed by rtyper"
+    #    #
+    #    #fromptr = "%s*" % self.get_typerepr()
+    #    #ref = "cast(%s %s to %s)" % (fromptr, ref, toptr)
+    #    #return ref
 
     def get_childref(self, index):
         return "getelementptr(%s* %s, int 0, uint 1, int %s)" %(
@@ -141,16 +74,7 @@ class ArrayNode(ConstantLLVMNode):
         physicallen, arrayrepr = self.get_arrayvalue()
         return arrayrepr
 
-        ## first length is logical, second is physical
-        #typeval = self.db.repr_type(self.arraytype)
-        #value = "int %s, [%s x %s] %s" % (self.get_length(),
-        #                                  physicallen,
-        #                                  typeval,
-        #                                  arrayrepr)
-        #
-        #s = "%s {%s}" % (self.get_typerepr(), value)
-        #return s
-    
+
 class StrArrayNode(ArrayNode):
     __slots__ = "".split()
 
@@ -172,6 +96,7 @@ class StrArrayNode(ArrayNode):
         r = '"%s"' % "".join(s)
         return item_length, r
 
+
 class VoidArrayNode(ConstantLLVMNode):
     __slots__ = "db value ref".split()
 
@@ -179,8 +104,8 @@ class VoidArrayNode(ConstantLLVMNode):
         assert isinstance(lltype.typeOf(value), lltype.Array)
         self.db = db
         self.value = value
-        prefix = 'arrayinstance'
-        name = '' #str(value).split()[1]
+        prefix = 'arrayinstance_Void'
+        name = ''
         self.ref = self.make_ref(prefix, name)
 
     def constantvalue(self):
