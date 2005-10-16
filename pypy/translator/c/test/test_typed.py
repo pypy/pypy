@@ -248,9 +248,10 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
 
     # floats 
     def test_float_operations(self): 
+        import math
         def func(x=float, y=float): 
             z = x + y / 2.1 * x 
-            z = z % 60.0
+            z = math.fmod(z, 60.0)
             z = pow(z, 2)
             z = -z
             return int(z) 
