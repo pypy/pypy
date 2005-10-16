@@ -18,7 +18,9 @@ def eval_seven():
     #    return 3 + 4
     op = model.Operation(l3interp.LLFrame.op_int_add, 0, [-1, -2])
     returnlink = model.ReturnLink()
-    block = model.Block(model.ONE_EXIT, [returnlink])
+    block = model.Block()
+    block.exitswitch = model.ONE_EXIT
+    block.exits = [returnlink]
     block.operations.append(op)
     startlink = model.Link(block, [])
     graph = model.Graph("testgraph", startlink)
@@ -42,7 +44,9 @@ def eval_eight(number):
     #    return x + 4
     op = model.Operation(l3interp.LLFrame.op_int_add, 1, [0, -1])
     returnlink = model.ReturnLink(return_val=1)
-    block = model.Block(model.ONE_EXIT, [returnlink])
+    block = model.Block()
+    block.exitswitch = model.ONE_EXIT
+    block.exits = [returnlink]
     block.operations.append(op)
     startlink = model.Link(target=block)
     startlink.move_int_registers = [0, 0]
@@ -70,7 +74,9 @@ def eval_branch(number):
     op = model.Operation(l3interp.LLFrame.op_int_is_true, 1, [0])
     returnlink1 = model.ReturnLink(-1)
     returnlink2 = model.ReturnLink(-2)
-    block = model.Block(1, [returnlink1, returnlink2])
+    block = model.Block()
+    block.exitswitch = 1
+    block.exits = [returnlink1, returnlink2]
     block.operations.append(op)
     startlink = model.Link(target=block)
     startlink.move_int_registers = [0, 0]
@@ -105,14 +111,18 @@ def eval_call(number):
     call_op = model.Operation(l3interp.LLFrame.op_call_graph_int, 1, [0, 0])
     returnlink_g = model.ReturnLink(1)
     returnlink_f = model.ReturnLink(2)
-    block_g = model.Block(model.ONE_EXIT, [returnlink_g])
+    block_g = model.Block()
+    block_g.exitswitch = model.ONE_EXIT
+    block_g.exits = [returnlink_g]
     block_g.operations.append(op_g)
     startlink_g = model.StartLink(target=block_g)
     startlink_g.move_int_registers = [0, 0]
     graph_g = model.Graph("g", startlink_g)
     graph_g.set_constants_int([1])
 
-    block_f = model.Block(model.ONE_EXIT, [returnlink_f])
+    block_f = model.Block()
+    block_f.exitswitch = model.ONE_EXIT
+    block_f.exits = [returnlink_f]
     block_f.operations.extend([call_op, op_f])
     startlink_f = model.StartLink(target=block_f)
     startlink_f.move_int_registers = [0, 0]

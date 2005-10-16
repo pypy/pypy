@@ -114,11 +114,11 @@ class StartLink(Link):
     pass
 
 class Block(object):
-    def __init__(self, exitswitch, exits):
-        self.operations = []         # list of Operations
-        self.exitswitch = exitswitch # positives are variables
-                                     # negatives see above
-        self.exits = exits           # list of Links
+    def __init__(self):
+        self.operations = [] # list of Operations
+        self.exitswitch = 0  # positives are variables
+                             # negatives see above
+        self.exits = []      # list of Links
 
 class Graph(object):
     def __init__(self, name, startlink):
@@ -129,19 +129,6 @@ class Graph(object):
 
     def set_constants_int(self, constants):
         self.constants_int = constants
-
-    def blocklist(self):
-        result = []
-        pending = [self.startblock]
-        seen = {}
-        while len(pending):
-            block = pending.pop()
-            if block in seen:
-                continue
-            result.append(block)
-            for i in range(len(block.exits)):
-                pending.append(block.exits[i].target)
-        return result
 
 class Globals(object):
     def __init__(self):
