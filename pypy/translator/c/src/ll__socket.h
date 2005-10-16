@@ -1,9 +1,8 @@
 
 #ifdef MS_WINDOWS
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
+# pragma comment(lib, "ws2_32.lib")
 #else
-    #include <arpa/inet.h>
+# include <arpa/inet.h>
 #endif
 
 int LL__socket_ntohs(int htons);

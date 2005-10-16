@@ -4,6 +4,10 @@
 /* Fast NonRecursiveMutex support by Yakov Markovitch, markovitch@iso.ru */
 /* Eliminated some memory leaks, gsw@agere.com */
 
+/* Windows.h includes winsock.h, but the socket module needs */ 
+/* winsock2.h. So I include it before. Ugly. */
+#include <winsock2.h>
+
 #include <windows.h>
 #include <limits.h>
 #include <process.h>
