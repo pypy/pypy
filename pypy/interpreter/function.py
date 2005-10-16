@@ -270,7 +270,8 @@ class Method(Wrappable):
             s = "<unbound method %s.%s>" % (typename, name)
             return space.wrap(s)
         else:
-            info = 'bound method %s.%s' % (typename, name)
+            objrepr = space.str_w(space.repr(self.w_instance))
+            info = 'bound method %s.%s of %s' % (typename, name, objrepr)
             # info = "method %s of %s object" % (name, typename)
             return self.w_instance.getrepr(self.space, info)
 

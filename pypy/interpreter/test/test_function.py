@@ -194,20 +194,17 @@ class AppTestMethod:
         assert (c.m != c.m) is False
 
     def test_method_repr(self): 
-        assert repr(dict.items) == "<method 'items' of 'dict' objects>"
         class A(object): 
             def f(self): 
                 pass
-        assert repr(A.f) == "<method 'f' of 'A' objects>"
-        assert repr(A().f).startswith("<method f of A object at") 
-        assert repr(A.f.__get__(None)).startswith("<method f")
+        assert repr(A.f) == "<unbound method A.f>"
+        assert repr(A().f).startswith("<bound method A.f of <") 
         class B:
             __metaclass__ = _classobj
             def f(self):
                 pass
-        assert repr(B.f) == "<method 'f' of 'B' objects>"
-        assert repr(B().f).startswith("<method f of B object at") 
-        assert repr(B.f.__get__(None)).startswith("<method f")
+        assert repr(B.f) == "<unbound method B.f>"
+        assert repr(B().f).startswith("<bound method B.f of <") 
 
 class TestMethod: 
     def setup_method(self, method):
