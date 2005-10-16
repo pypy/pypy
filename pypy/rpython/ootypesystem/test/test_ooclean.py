@@ -81,8 +81,8 @@ class HasAMethod(object):
         return 1
         
 def test_method():
-    py.test.skip('in progress')
     def dummyfn():
         inst = HasAMethod()
         return inst.f()
-    specialize(dummyfn, [])#, viewBefore=True)
+    result = interpret(dummyfn, [], type_system='ootype')
+    assert result == 1

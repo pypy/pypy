@@ -12,7 +12,7 @@ from pypy.rpython import rtuple
 from pypy.rpython.rpbc import SingleFrozenPBCRepr, getsignature, samesig,\
                                 commonbase, allattributenames, get_access_set,\
                                 MultiplePBCRepr, FunctionsPBCRepr, \
-                                AbstractClassesPBCRepr
+                                AbstractClassesPBCRepr, AbstractMethodsPBCRepr
 from pypy.rpython.lltypesystem import rclass
 from pypy.tool.sourcetools import has_varargs
 
@@ -174,58 +174,10 @@ def adjust_shape(hop2, s_shape):
     
 # ____________________________________________________________
 
-class MethodsPBCRepr(Repr):
+class MethodsPBCRepr(AbstractMethodsPBCRepr):
     """Representation selected for a PBC of the form {func: classdef...}.
     It assumes that all the methods come from the same name in a base
     classdef."""
-
-    def __init__(self, rtyper, s_pbc):
-        self.rtyper = rtyper
-        self.s_pbc = s_pbc
-        if None in s_pbc.prebuiltinstances:
-            raise TyperError("unsupported: variable of type "
-                             "bound-method-object or None")
-        basedef = commonbase(s_pbc.prebuiltinstances.values())
-        for classdef1, name in allattributenames(basedef):
-            # don't trust the func.func_names and see if this 'name' would be
-            # the one under which we can find all these methods
-            for func, classdef in s_pbc.prebuiltinstances.items():
-                try:
-                    if func != getattr(classdef.cls, name).im_func:
-                        break
-                except AttributeError:
-                    break
-            else:
-                # yes!
-                self.methodname = name
-                self.classdef = classdef1   # where the Attribute is defined
-                break
-        else:
-            raise TyperError("cannot find a unique name under which the "
-                             "methods can be found: %r" % (
-                s_pbc.prebuiltinstances,))
-        # the low-level representation is just the bound 'self' argument.
-        self.s_im_self = annmodel.SomeInstance(self.classdef)
-        self.r_im_self = rclass.getinstancerepr(rtyper, self.classdef)
-        self.lowleveltype = self.r_im_self.lowleveltype
-
-    def convert_const(self, method):
-        if getattr(method, 'im_func', None) is None:
-            raise TyperError("not a bound method: %r" % method)
-        return self.r_im_self.convert_const(method.im_self)
-
-    def get_r_implfunc(self):
-        r_class = self.r_im_self.rclass
-        mangled_name, r_func = r_class.clsfields[self.methodname]
-        return r_func, 1
-
-    def get_s_callable(self):
-        return self.s_pbc
-
-    def get_method_from_instance(self, r_inst, v_inst, llops):
-        # The 'self' might have to be cast to a parent class
-        # (as shown for example in test_rclass/test_method_both_A_and_B)
-        return llops.convertvar(v_inst, r_inst, self.r_im_self)
 
     def rtype_hardwired_simple_call(self, hop):
         return self.redispatch_call(hop, call_args=False, hardwired=True)
