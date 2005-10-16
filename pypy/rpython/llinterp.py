@@ -221,7 +221,7 @@ class LLFrame(object):
         ophandler = self.getoperationhandler(operation.opname)
         vals = [self.getval(x) for x in operation.args]
         # if these special cases pile up, do something better here
-        if operation.opname in ['cast_pointer', 'ooupcast']:
+        if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast']:
             vals.insert(0, operation.result.concretetype)
         retval = ophandler(*vals)
         self.setvar(operation.result, retval)
@@ -640,11 +640,17 @@ class LLFrame(object):
     def op_oosend(self, message, inst, *args):
         assert isinstance(inst, ootype._instance)
         assert isinstance(message, str)
-        return getattr(inst, message)(*args)
+        bm = getattr(inst, message)
+	m = bm.meth
+	m._checkargs(args)
+	return self.op_direct_call(m, inst, *args)
 
     def op_ooupcast(self, INST, inst):
         return ootype.ooupcast(INST, inst)
     
+    def op_oodowncast(self, INST, inst):
+        return ootype.oodowncast(INST, inst)
+
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
 # for failing tests

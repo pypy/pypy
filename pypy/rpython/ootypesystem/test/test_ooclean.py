@@ -101,3 +101,19 @@ def test_method():
         return inst.f()
     result = interpret(dummyfn, [], type_system='ootype')
     assert result == 1
+
+class OverridesAMethod(HasAMethod):
+    def f(self):
+        return 2
+
+def test_override():
+    def dummyfn(flag):
+	if flag:
+	    inst = HasAMethod()
+	else:
+	    inst = OverridesAMethod()
+        return inst.f()
+    result = interpret(dummyfn, [True], type_system='ootype')
+    assert result == 1
+    result = interpret(dummyfn, [False], type_system='ootype')
+    assert result == 2

@@ -48,20 +48,20 @@ class InstanceRepr(AbstractInstanceRepr):
         methods = {}
         baseInstance = self.lowleveltype._superclass
 
-        for name, attrdef in attrs:
-            if attrdef.readonly:
-                # if the following line suffers an AttributeError,
-                # maybe the attr is actually not a method.
-                assert len(attrdef.s_value.prebuiltinstances) == 1, 'no support for overridden methods yet'
-                # XXX following might not always succeed
-                impl = self.classdef.cls.__dict__[name]
-
-                f, inputs, ret = getsignature(self.rtyper, impl)
-                M = ootype.Meth([r.lowleveltype for r in inputs[1:]], ret.lowleveltype)
-                m = ootype.meth(M, _name=name, _callable=impl)
-                
-                methods[name] = m
-
+	for classdef in self.classdef.getmro():
+	    attrs = classdef.attrs.items()
+	    for name, attrdef in attrs:
+		if attrdef.readonly:
+		    try:
+			impl = self.classdef.cls.__dict__[name]
+		    except KeyError:
+			pass
+		    else:
+			f, inputs, ret = getsignature(self.rtyper, impl)
+			M = ootype.Meth([r.lowleveltype for r in inputs[1:]], ret.lowleveltype)
+			m = ootype.meth(M, _name=name, _callable=impl)
+			methods[name] = m
+	
         ootype.addMethods(self.lowleveltype, methods)
             
     def rtype_getattr(self, hop):

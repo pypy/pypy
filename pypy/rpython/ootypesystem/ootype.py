@@ -283,3 +283,7 @@ def ooupcast(INSTANCE, instance):
     assert instanceof(instance, INSTANCE)
     return instance
     
+def oodowncast(INSTANCE, instance):
+    assert instanceof(instance, INSTANCE)
+    return instance
+    
