@@ -26,7 +26,19 @@ class DemoNode:
         self.func = func
         self.name = self._get_name(func)
         self.callees = []
+        self._callers = None # computed
         self.calls = 0
+
+    def __repr__(self):
+        return '(%s)' % self.name
+
+    def __cmp__(self, other):
+        if isinstance(other, self.__class__):
+            return cmp(self.name, other.name)
+        return cmp(id(self), id(other))
+
+    def __hash__(self):
+        return id(self)
 
     def _get_name(self, func):
         # to be overridden
@@ -49,6 +61,28 @@ class DemoNode:
     def simulate_call(self, weight=1):
         self.calls += weight
 
+    # calls and returns are symmetric. We provide a callers
+    # interface that is computed on demand.
+
+    def _get_callers(self):
+        if not self.sim._callers_computed:
+            self.sim._compute_callers()
+        return self.callers
+    callers = property(_get_callers)
+
+    def get_relations(self):
+        # get callees and callers with frequency, ordered
+        # by decreasing frequency and then by name.
+        ret = []
+        for node in self.callees:
+            freq = self.sim.transitions[ (self, node) ]
+            ret.append( (-freq, node) )
+        for node in self.callers:
+            freq = self.sim.transitions[ (node, self) ]
+            ret.append( (-freq, node) )
+        ret.sort()
+        freqs, nodes = zip(*ret)
+        return nodes, [-freq for freq in freqs]
 
 class DemoSim:
     def __init__(self, funcnodes, nodefactory=DemoNode):
@@ -67,6 +101,7 @@ class DemoSim:
                 callee = name2node[name]
                 node.callees.append(callee)
                 self.transitions[ (node, callee) ] = 0
+        self._callers_computed = False
 
     def _find_names_width(self):
         n = 0
@@ -78,6 +113,7 @@ class DemoSim:
         self.transitions[ (caller, callee) ] += weight
 
     def run(self, reps=1, root=0):
+        self._callers_computed = False
         self.repetitions_per_call = reps
         root = self.nodes[root]
         root.call()
@@ -113,6 +149,7 @@ class DemoSim:
         # the transitions in a weighted manner.
         # this allows us to handle recursions as well.
         # first, stimulate nodes if no transitions are pending
+        self._callers_computed = False
         if not self.pending:
             if root is not None:
                 startnodes = [self.nodes[root]]
@@ -134,6 +171,17 @@ class DemoSim:
         self.simulate(call_prob, root)
         while self.pending:
             self.simulate(call_prob)
+
+    def _compute_callers(self):
+        nodes = {}
+        for node in self.nodes:
+            nodes[node] = node
+            node.callers = []
+        returns = [ (callee, caller)
+                    for caller, callee in self.transitions.keys()]
+        returns.sort()
+        for callee, caller in returns:
+            nodes[callee].callers.append(caller)
 
 # sample functions for proof of correctness
 
@@ -157,6 +205,7 @@ def test(debug=False):
         sim.sim_all(prob)
         state2 = sim.get_state()
         assert state1 == state2
+    return sim
 
 if __name__ == '__main__':
     test()
