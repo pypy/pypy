@@ -124,7 +124,7 @@ class LLFrame(object):
 
     def setvar(self, var, val):
         if var.concretetype != self.llt.Void:
-            assert var.concretetype == self.llt.typeOf(val)
+            assert self.llinterpreter.typer.type_system.isCompatibleType(self.llt.typeOf(val), var.concretetype)
         assert isinstance(var, Variable)
         self.bindings[var] = val
 
@@ -221,7 +221,7 @@ class LLFrame(object):
         ophandler = self.getoperationhandler(operation.opname)
         vals = [self.getval(x) for x in operation.args]
         # if these special cases pile up, do something better here
-        if operation.opname == 'cast_pointer':
+        if operation.opname in ['cast_pointer', 'ooupcast']:
             vals.insert(0, operation.result.concretetype)
         retval = ophandler(*vals)
         self.setvar(operation.result, retval)
@@ -641,6 +641,9 @@ class LLFrame(object):
         assert isinstance(inst, ootype._instance)
         assert isinstance(message, str)
         return getattr(inst, message)(*args)
+
+    def op_ooupcast(self, INST, inst):
+        return ootype.ooupcast(INST, inst)
     
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help

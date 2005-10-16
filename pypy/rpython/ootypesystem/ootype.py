@@ -190,10 +190,7 @@ class _callable(object):
 	   raise TypeError,"calling %r with wrong argument number: %r" % (self._TYPE, args)
 
        for a, ARG in zip(args, self._TYPE.ARGS):
-           if typeOf(a) != ARG:
-               if isinstance(ARG, Instance) and isinstance(a, _instance):
-                    if instanceof(a, ARG):
-                        continue
+           if not isCompatibleType(typeOf(a), ARG):
                raise TypeError,"calling %r with wrong argument types: %r" % (self._TYPE, args)
        callb = self._callable
        if callb is None:
@@ -273,3 +270,16 @@ def commonBaseclass(INSTANCE1, INSTANCE2):
             return c
         c = c._superclass
     return None
+
+def isCompatibleType(TYPE1, TYPE2):
+    if TYPE1 == TYPE2:
+        return True
+    if isinstance(TYPE1, Instance) and isinstance(TYPE2, Instance):
+        return isSubclass(TYPE1, TYPE2)
+    else:
+        return False
+        
+def ooupcast(INSTANCE, instance):
+    assert instanceof(instance, INSTANCE)
+    return instance
+    

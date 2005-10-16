@@ -3,6 +3,7 @@ from pypy.rpython.rclass import AbstractClassRepr, AbstractInstanceRepr, \
                                 getinstancerepr
 from pypy.rpython.rpbc import getsignature
 from pypy.rpython.ootypesystem import ootype
+from pypy.annotation.pairtype import pairtype
 
 CLASSTYPE = ootype.Class
 
@@ -90,3 +91,26 @@ class InstanceRepr(AbstractInstanceRepr):
 
         return llops.genop("new",
             [inputconst(ootype.Void, self.lowleveltype)], self.lowleveltype)
+
+
+class __extend__(pairtype(InstanceRepr, InstanceRepr)):
+    def convert_from_to((r_ins1, r_ins2), v, llops):
+        # which is a subclass of which?
+        if r_ins1.classdef is None or r_ins2.classdef is None:
+            basedef = None
+        else:
+            basedef = r_ins1.classdef.commonbase(r_ins2.classdef)
+        if basedef == r_ins2.classdef:
+            # r_ins1 is an instance of the subclass: converting to parent
+            v = llops.genop('ooupcast', [v],
+                            resulttype = r_ins2.lowleveltype)
+            return v
+        elif basedef == r_ins1.classdef:
+            # r_ins2 is an instance of the subclass: potentially unsafe
+            # casting, but we do it anyway (e.g. the annotator produces
+            # such casts after a successful isinstance() check)
+            v = llops.genop('oodowncast', [v],
+                            resulttype = r_ins2.lowleveltype)
+            return v
+        else:
+            return NotImplemented

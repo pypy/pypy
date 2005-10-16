@@ -76,6 +76,21 @@ def test_subclass_attributes():
     result = interpret(dummyfn, [], type_system='ootype')
     assert result == 1 + 2 + 3
 
+def test_polymorphic_field():
+    def dummyfn(choosesubclass):
+        if choosesubclass:
+            y = Subclass()
+            y.a = 0
+            y.b = 1
+        else:
+            y = EmptyBase()
+            y.a = 1
+        return y.a
+    result = interpret(dummyfn, [True], type_system='ootype')
+    assert result == 0
+    result = interpret(dummyfn, [False], type_system='ootype')
+    assert result == 1    
+
 class HasAMethod(object):
     def f(self):
         return 1

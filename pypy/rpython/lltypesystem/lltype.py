@@ -962,6 +962,9 @@ def runtime_type_info(p):
                                  "        returned: %s,\n"
                                  "should have been: %s" % (p, result2, result))
     return result
+
+def isCompatibleType(TYPE1, TYPE2):
+    return TYPE1 == TYPE2
     
 # FIXME
 __all__ = ['Array', 'Bool', 'Char', 'ContainerType', 'Float',
@@ -974,5 +977,5 @@ __all__ = ['Array', 'Bool', 'Char', 'ContainerType', 'Float',
 'castable', 'flavored_malloc', 'frozendict', 'functionptr',
 'getRuntimeTypeInfo', 'log', 'malloc', 'nullptr', 'opaqueptr', 'operator',
 'parentlink', 'py', 'pyobjectptr', 'r_uint', 'runtime_type_info', 'safe_equal',
-'saferecursive', 'tlsobject', 'typeOf', 'weakref']
+'saferecursive', 'tlsobject', 'typeOf', 'weakref', 'isCompatibleType']
 

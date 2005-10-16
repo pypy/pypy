@@ -74,6 +74,9 @@ class LowLevelTypeSystem(TypeSystem):
     def getconcretetype(self, v):
         return getattr(v, 'concretetype', lltype.Ptr(lltype.PyObject))
 
+    def isCompatibleType(self, t1, t2):
+        return lltype.isCompatibleType(t1, t2)
+
 class ObjectOrientedTypeSystem(TypeSystem):
     name = "ootypesystem"
     callable_trait = (ootype.StaticMethod, ootype.static_meth)
@@ -83,6 +86,9 @@ class ObjectOrientedTypeSystem(TypeSystem):
     def deref(self, obj):
         assert isinstance(ootype.typeOf(obj), ootype.OOType)
         return obj
+
+    def isCompatibleType(self, t1, t2):
+        return ootype.isCompatibleType(t1, t2)
 
 # All typesystems are singletons
 LowLevelTypeSystem.instance = LowLevelTypeSystem()
