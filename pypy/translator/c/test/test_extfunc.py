@@ -1,6 +1,6 @@
 import autopath
 import py
-import os, time
+import os, time, sys
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.c.extfunc import EXTERNALS
@@ -438,7 +438,8 @@ def test_mkdir_rmdir():
 # ____________________________________________________________
 
 def _real_getenv(var):
-    cmd = '''python -c "import os; x=os.environ.get('%s'); print (x is None) and 'F' or ('T'+x)"''' % var
+    cmd = '''%s -c "import os; x=os.environ.get('%s'); print (x is None) and 'F' or ('T'+x)"''' % (
+        sys.executable, var)
     g = os.popen(cmd, 'r')
     output = g.read().strip()
     g.close()
@@ -450,7 +451,7 @@ def _real_getenv(var):
         raise ValueError, 'probing for env var returned %r' % (output,)
 
 def _real_envkeys():
-    cmd = '''python -c "import os; print os.environ.keys()"'''
+    cmd = '''%s -c "import os; print os.environ.keys()"''' % sys.executable
     g = os.popen(cmd, 'r')
     output = g.read().strip()
     g.close()
