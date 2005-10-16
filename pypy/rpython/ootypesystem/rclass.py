@@ -33,8 +33,6 @@ class InstanceRepr(AbstractInstanceRepr):
         self.allmethods = {}
 
     def _setup_repr(self):
-        # FIXME methods
-
         fields = {}
         attrs = self.classdef.attrs.items()
 
