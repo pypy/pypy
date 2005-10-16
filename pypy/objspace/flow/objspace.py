@@ -353,7 +353,8 @@ class FlowObjSpace(ObjSpace):
                 return self.w_None
             except UnwrapException:
                 pass
-        return self.do_operation('setitem', w_obj, w_key, w_val)
+        return self.do_operation_with_implicit_exceptions('setitem', w_obj, 
+                                                          w_key, w_val)
 
     def call_args(self, w_callable, args):
         try:
@@ -456,9 +457,7 @@ def _add_except_ovf(names):
         implicit_exceptions[name+"_ovf"] = lis
 
 for _err in IndexError, KeyError:
-    _add_exceptions("""getitem""", _err)
-    _add_exceptions("""delitem""", _err)
-    # no implicit exceptions for setitem
+    _add_exceptions("""getitem setitem delitem""", _err)
 for _name in 'getattr', 'delattr':
     _add_exceptions(_name, AttributeError)
 for _name in 'iter', 'coerce':

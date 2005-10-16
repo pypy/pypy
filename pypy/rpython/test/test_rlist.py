@@ -429,6 +429,10 @@ def test_indexerror():
     def fn(i):
         l = [5, 8, 3]
         try:
+            l[i] = 99
+        except IndexError:
+            pass
+        try:
             del l[i]
         except IndexError:
             pass

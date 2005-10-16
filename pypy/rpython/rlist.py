@@ -535,7 +535,7 @@ def ll_setitem(func, l, index, newitem):
 
 def ll_delitem_nonneg(func, l, index):
     length = l.length
-    if func is dum_checkidx and (index < 0 or index >= length):
+    if func is dum_checkidx and (index >= length):
         raise IndexError
     newlength = length - 1
     j = index
@@ -551,9 +551,12 @@ def ll_delitem_nonneg(func, l, index):
     _ll_list_resize_le(l, newlength)
 
 def ll_delitem(func, l, i):
+    length = l.length
     if i < 0:
-        i += l.length
-    ll_delitem_nonneg(func, l, i)
+        i += length
+    if func is dum_checkidx and (i < 0 or i >= length):
+        raise IndexError
+    ll_delitem_nonneg(dum_nocheck, l, i)
 
 def ll_concat(l1, l2):
     len1 = l1.length

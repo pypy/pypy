@@ -199,3 +199,17 @@ class TestAnnotatedTestCase:
         assert fn(65) == 65
         assert fn(-12) == -42
         assert fn(sys.maxint) == -42
+
+    def test_list_indexerror(self):
+        def f(i=int):
+            lst = [123, 456]
+            try:
+                lst[i] = 789
+            except IndexError:
+                return 42
+            return lst[0]
+        fn = self.getcompiled(f)
+        assert fn(1) == 123
+        assert fn(2) == 42
+        assert fn(-2) == 789
+        assert fn(-3) == 42
