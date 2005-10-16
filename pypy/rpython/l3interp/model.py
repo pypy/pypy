@@ -95,6 +95,7 @@ class Operation(object):
         self.result = result # resulting variable
 
 class Link(object):
+    stop_graph_evaluation = False
     def __init__(self, target, exitcase=None):
         self.target = target # target is a Block
         self.exitcase = exitcase  # NULL for non-exceptional case
@@ -102,6 +103,7 @@ class Link(object):
         self.move_int_registers = None
 
 class ReturnLink(Link):
+    stop_graph_evaluation = True
     def __init__(self, return_val=0, exitcase=None):
         Link.__init__(self, None, exitcase)
         if return_val != 0:

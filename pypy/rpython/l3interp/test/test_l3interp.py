@@ -25,7 +25,7 @@ def eval_seven():
     graph.set_constants_int([3, 4])
     g = model.Globals()
     g.graphs = [graph]
-    interp = l3interp.LLInterpreter()
+    interp = l3interp.LLInterpreter(g)
     return interp.eval_graph_int(graph, [])
       
 def test_very_simple():
@@ -50,7 +50,7 @@ def eval_eight(number):
     graph.set_constants_int([4])
     g = model.Globals()
     g.graphs = [graph]
-    interp = l3interp.LLInterpreter()
+    interp = l3interp.LLInterpreter(g)
     return interp.eval_graph_int(graph, [number])
 
 def test_simple():
@@ -78,7 +78,7 @@ def eval_branch(number):
     graph.set_constants_int([1, 2])
     g = model.Globals()
     g.graphs = [graph]
-    interp = l3interp.LLInterpreter()
+    interp = l3interp.LLInterpreter(g)
     return interp.eval_graph_int(graph, [number])
 
 def test_branch():
@@ -91,4 +91,47 @@ def test_branch_translated():
     fn = translate(eval_branch, [int]) 
     assert fn(4) == 2 
     assert fn(0) == 1
+
+#----------------------------------------------------------------------
+
+def eval_call(number):
+    #XXX uh: this isn't funny anymore
+    #def g(x):
+    #    return x + 1
+    #def f(x):
+    #    return g(x) + 2
+    op_g = model.Operation(l3interp.LLFrame.op_int_add, 1, [0, -1])
+    op_f = model.Operation(l3interp.LLFrame.op_int_add, 2, [1, -1])
+    call_op = model.Operation(l3interp.LLFrame.op_call_graph_int, 1, [0, 0])
+    returnlink_g = model.ReturnLink(1)
+    returnlink_f = model.ReturnLink(2)
+    block_g = model.Block(model.ONE_EXIT, [returnlink_g])
+    block_g.operations.append(op_g)
+    startlink_g = model.StartLink(target=block_g)
+    startlink_g.move_int_registers = [0, 0]
+    graph_g = model.Graph("g", startlink_g)
+    graph_g.set_constants_int([1])
+
+    block_f = model.Block(model.ONE_EXIT, [returnlink_f])
+    block_f.operations.extend([call_op, op_f])
+    startlink_f = model.StartLink(target=block_f)
+    startlink_f.move_int_registers = [0, 0]
+    graph_f = model.Graph("f", startlink_f)
+    graph_f.set_constants_int([2])
+    g = model.Globals()
+    g.graphs = [graph_g, graph_f]
+    interp = l3interp.LLInterpreter(g)
+    return interp.eval_graph_int(graph_f, [number])
+
+def test_call():
+    result = eval_call(4)
+    assert result == 7
+    result = eval_call(0)
+    assert result == 3
+
+def test_call_translated():
+    fn = translate(eval_call, [int]) 
+    assert fn(4) == 7 
+    assert fn(0) == 3
+
 
