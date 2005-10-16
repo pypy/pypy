@@ -34,19 +34,37 @@ RPYTHON_EXCEPTION		rpython_exc_value = NULL;
 #define RPyMatchException(etype)	RPYTHON_EXCEPTION_MATCH(rpython_exc_type,  \
 					(RPYTHON_EXCEPTION_VTABLE) etype)
 
-#ifndef PYPY_STANDALONE
-
 
 /* prototypes */
 
+#define RPyRaiseSimpleException(exc, msg)   _RPyRaiseSimpleException(R##exc)
+void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc);
+
+#ifndef PYPY_STANDALONE
 void RPyConvertExceptionFromCPython(void);
 void _RPyConvertExceptionToCPython(void);
+#define RPyConvertExceptionToCPython(vanishing)    \
+	_RPyConvertExceptionToCPython();		\
+	vanishing = rpython_exc_value;		\
+	rpython_exc_type = NULL;		\
+	rpython_exc_value = NULL
+#endif
 
 
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE
 
+void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc)
+{
+	/* XXX 1. uses officially bad fishing */
+	/* XXX 2. msg is ignored */
+	rpython_exc_type = rexc->o_typeptr;
+	rpython_exc_value = rexc;
+	PUSH_ALIVE(rpython_exc_value);
+}
+
+#ifndef PYPY_STANDALONE
 void RPyConvertExceptionFromCPython(void)
 {
 	/* convert the CPython exception to an RPython one */
@@ -77,24 +95,11 @@ void _RPyConvertExceptionToCPython(void)
 		PyErr_SetString(RPythonError, clsname);
 	}
 }
+#endif   /* !PYPY_STANDALONE */
 
 #endif /* PYPY_NOT_MAIN_FILE */
 
-#define RPyConvertExceptionToCPython(vanishing)    \
-	_RPyConvertExceptionToCPython();		\
-	vanishing = rpython_exc_value;		\
-	rpython_exc_type = NULL;		\
-	rpython_exc_value = NULL
 
-#endif   /* !PYPY_STANDALONE */
-
-
-#define RPyRaiseSimpleException(exc, msg)		        \
-	/* XXX 1. uses officially bad fishing */		\
-	/* XXX 2. msg is ignored */				\
-	rpython_exc_type = (R##exc)->o_typeptr;			\
-	rpython_exc_value = (R##exc);				\
-	PUSH_ALIVE(rpython_exc_value)
 
 /******************************************************************/
 #else    /* non-RPython version of exceptions, using CPython only */

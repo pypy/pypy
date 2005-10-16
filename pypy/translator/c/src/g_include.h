@@ -14,6 +14,7 @@
 #  include "src/standalone.h"
 #endif
 
+#include "src/mem.h"
 #include "src/exception.h"
 #include "src/trace.h"
 #include "src/support.h"
@@ -22,7 +23,6 @@
 #  include "src/module.h"
 #endif
 
-#include "src/mem.h"
 #include "src/int.h"
 #include "src/char.h"
 #include "src/unichar.h"
