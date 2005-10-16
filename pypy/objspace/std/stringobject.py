@@ -855,6 +855,11 @@ def getitem__String_Slice(space, w_str, w_slice):
         str = "".join([s[start + i*step] for i in range(sl)])
     return W_StringObject(space, str)
 
+def _makebuf(length):
+    """This helper needs to be a separate function so that we can safely
+    catch the MemoryErrors that it raises."""
+    return ['\x00'] * length
+
 def mul_string_times(space, w_str, w_times):
     try:
         mul = space.int_w(w_times)
@@ -867,7 +872,7 @@ def mul_string_times(space, w_str, w_times):
         return space.wrap("")
     input_len = len(input)
     try:
-        buffer = [' '] * ovfcheck(mul*input_len)
+        buffer = _makebuf(ovfcheck(mul*input_len))
     except (MemoryError,OverflowError,ValueError):
         # ugh. ValueError is what you get on 64-bit machines for
         # integers in range(2**31, 2**63).
