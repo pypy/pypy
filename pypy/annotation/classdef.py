@@ -19,7 +19,7 @@ from pypy.annotation.model import SomeInteger, isdegenerated
 #     classdef of A or a parent class of A has an Attribute object corresponding
 #     to that name.
 #
-# (I) if B is a subclass of A, then they don't have both an Attribute for the
+# (I) if B is a subclass of A, then they don't both have an Attribute for the
 #     same name.  (All information from B's Attribute must be merged into A's.)
 #
 # Additionally, each ClassDef records an 'attr_sources': it maps attribute
