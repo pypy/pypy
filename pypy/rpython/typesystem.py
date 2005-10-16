@@ -81,8 +81,6 @@ class ObjectOrientedTypeSystem(TypeSystem):
     name = "ootypesystem"
     callable_trait = (ootype.StaticMethod, ootype.static_meth)
 
-    # FIXME rclass
-
     def deref(self, obj):
         assert isinstance(ootype.typeOf(obj), ootype.OOType)
         return obj
