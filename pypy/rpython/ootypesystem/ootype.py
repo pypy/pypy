@@ -115,6 +115,14 @@ class Instance(OOType):
 
         return meth
 
+    def _allfields(self):
+	if self._superclass is None:
+	    all = {}
+	else:
+	    all = self._superclass._allfields()
+	all.update(self._fields)
+	return all
+
 class StaticMethod(OOType):
 
     def __init__(self, args, result):

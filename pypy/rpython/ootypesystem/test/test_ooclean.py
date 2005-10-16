@@ -117,3 +117,15 @@ def test_override():
     assert result == 1
     result = interpret(dummyfn, [False], type_system='ootype')
     assert result == 2
+
+class HasAField(object):
+    def f(self):
+        return self.a
+
+def test_prebuilt_instance():
+    inst = HasAField()
+    inst.a = 3
+    def dummyfn():
+        return inst.f()
+    result = interpret(dummyfn, [], type_system='ootype')
+    assert result == 3
