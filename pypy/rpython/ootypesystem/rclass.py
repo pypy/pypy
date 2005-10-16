@@ -49,6 +49,8 @@ class InstanceRepr(AbstractInstanceRepr):
 
         for name, attrdef in attrs:
             if attrdef.readonly:
+                # if the following line suffers an AttributeError,
+                # maybe the attr is actually not a method.
                 assert len(attrdef.s_value.prebuiltinstances) == 1, 'no support for overridden methods yet'
                 # XXX following might not always succeed
                 impl = self.classdef.cls.__dict__[name]
