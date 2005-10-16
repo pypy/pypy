@@ -508,6 +508,9 @@ class PPCAssembler(BasicPPCAssembler):
     def slwi(self, rA, rS, n):
         self.rlwinm(rA, rS, n, 0, 31-n)
 
+    def srwi(self, rA, rS, n):
+        self.rlwinm(rA, rS, 32-n, n, 31)
+
     def inslwi(self, rA, rS, n, b):
         self.rwlimi(rA, rS, 32-b, b, b + n -1)
 
