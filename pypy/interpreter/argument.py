@@ -177,7 +177,7 @@ class Arguments:
         # note that for this purpose we ignore the first blind_arguments,
         # which were put into place by prepend().  This way, keywords do
         # not conflict with the hidden extra argument bound by methods.
-        if kwds_w:
+        if kwds_w and input_argcount > self.blind_arguments:
             for name in argnames[self.blind_arguments:input_argcount]:
                 if name in kwds_w:
                     raise ArgErrMultipleValues(name)
