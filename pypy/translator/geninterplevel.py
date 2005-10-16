@@ -727,6 +727,7 @@ else:
         return name
 
     def nameof_classobj(self, cls):
+        initcode = []
         printable_name = cls.__name__
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             #raise Exception, "%r should never be reached" % (cls,)
@@ -775,13 +776,13 @@ else:
                     name, self.nameof(key), self.nameof(value))
 
         baseargs = ", ".join(basenames)
-        self.initcode.append('_dic = space.newdict([])')
+        initcode.append('_dic = space.newdict([])')
         for key, value in cls.__dict__.items():
             if key.startswith('__'):
                 if key in ['__module__', '__metaclass__', '__slots__','__new__']:
                     keyname = self.nameof(key)
                     valname = self.nameof(value)
-                    self.initcode.append("space.setitem(_dic, %s, %s)" % (
+                    initcode.append("space.setitem(_dic, %s, %s)" % (
                         keyname, valname))
 
         if cls.__doc__ is not None:
@@ -789,16 +790,19 @@ else:
             docobj = cls.__dict__["__doc__"]
             if type(docobj) in (str, unicode):
                 docstr = render_docstr(cls, "_doc = space.wrap(", ")")
-                self.initcode.append((docstr,)) # not splitted
+                initcode.append((docstr,)) # not splitted
             else:
-                self.initcode.append("_doc = %s" % self.nameof(docobj) )
-            self.initcode.append("space.setitem(_dic, %s, _doc)" % (sdoc,))
+                initcode.append("_doc = %s" % self.nameof(docobj) )
+            initcode.append("space.setitem(_dic, %s, _doc)" % (sdoc,))
+        cls_name = self.nameof(cls.__name__)
+        for l in initcode:
+            self.initcode.append(l)
         self.initcode.append1('_bases = space.newtuple([%(bases)s])\n'
                              '_args = space.newtuple([%(name)s, _bases, _dic])\n'
                              '%(klass)s = space.call(%(meta)s, _args)'
                              % {"bases": baseargs,
                                 "klass": name,
-                                "name" : self.nameof(cls.__name__),
+                                "name" : cls_name,
                                 "meta" : metaclass} )
         
         self.later(initclassobj())
