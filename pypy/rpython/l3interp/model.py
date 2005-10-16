@@ -112,12 +112,11 @@ class StartLink(Link):
     pass
 
 class Block(object):
-    def __init__(self, int_a, exitswitch, exits):
+    def __init__(self, exitswitch, exits):
         self.operations = []         # list of Operations
         self.exitswitch = exitswitch # positives are variables
                                      # negatives see above
         self.exits = exits           # list of Links
-        self.int_inputargs = int_a   # list of ints
 
 class Graph(object):
     def __init__(self, name, startlink):

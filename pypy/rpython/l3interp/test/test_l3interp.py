@@ -18,7 +18,7 @@ def eval_seven():
     #    return 3 + 4
     op = model.Operation(l3interp.LLFrame.op_int_add, 0, [-1, -2])
     returnlink = model.ReturnLink()
-    block = model.Block([], model.ONE_EXIT, [returnlink])
+    block = model.Block(model.ONE_EXIT, [returnlink])
     block.operations.append(op)
     startlink = model.Link(block, [])
     graph = model.Graph("testgraph", startlink)
@@ -42,7 +42,7 @@ def eval_eight(number):
     #    return x + 4
     op = model.Operation(l3interp.LLFrame.op_int_add, 1, [0, -1])
     returnlink = model.ReturnLink(return_val=1)
-    block = model.Block([], model.ONE_EXIT, [returnlink])
+    block = model.Block(model.ONE_EXIT, [returnlink])
     block.operations.append(op)
     startlink = model.Link(target=block)
     startlink.move_int_registers = [0, 0]
@@ -70,7 +70,7 @@ def eval_branch(number):
     op = model.Operation(l3interp.LLFrame.op_int_is_true, 1, [0])
     returnlink1 = model.ReturnLink(-1)
     returnlink2 = model.ReturnLink(-2)
-    block = model.Block([], 1, [returnlink1, returnlink2])
+    block = model.Block(1, [returnlink1, returnlink2])
     block.operations.append(op)
     startlink = model.Link(target=block)
     startlink.move_int_registers = [0, 0]
@@ -91,3 +91,4 @@ def test_branch_translated():
     fn = translate(eval_branch, [int]) 
     assert fn(4) == 2 
     assert fn(0) == 1
+
