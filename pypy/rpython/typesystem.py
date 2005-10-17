@@ -17,16 +17,11 @@ class TypeSystem(object):
                                   None, None, ['__doc__'])
             except ImportError:
                 return None
-        if name in ('rclass', 'rpbc'):
+        if name in ('rclass', 'rpbc', 'rbuiltin'):
             mod = load(name)
             if mod is not None:
                 setattr(self, name, mod)
                 return mod
-        elif name == "BUILTIN_TYPER":
-            rbuiltin = load('rbuiltin')
-            if rbuiltin is not None:
-                self.BUILTIN_TYPER = rbuiltin.BUILTIN_TYPER
-                return self.BUILTIN_TYPER
 
         raise AttributeError(name)
 

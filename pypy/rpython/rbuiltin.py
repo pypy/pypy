@@ -57,7 +57,8 @@ class BuiltinFunctionRepr(Repr):
         except KeyError:
             try:
                 rtyper = hop.rtyper
-                bltintyper = rtyper.type_system.BUILTIN_TYPER[self.builtinfunc]
+                bltintyper = rtyper.type_system.rbuiltin.\
+                                    BUILTIN_TYPER[self.builtinfunc]
             except KeyError:
                 raise TyperError("don't know about built-in function %r" % (
                     self.builtinfunc,))
