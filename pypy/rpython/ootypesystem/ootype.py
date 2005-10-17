@@ -21,13 +21,13 @@ class Instance(OOType):
         self._name = name
         self._superclass = superclass
 
-	self._methods = frozendict()
+        self._methods = frozendict()
         self._fields = frozendict()
 
-	self._add_fields(fields)
-	self._add_methods(methods)
+        self._add_fields(fields)
+        self._add_methods(methods)
 
-    	self._null = _null_instance(self)
+        self._null = _null_instance(self)
         self._class = _class(self)
         
     def _defl(self):
@@ -46,7 +46,7 @@ class Instance(OOType):
         for name, defn in fields.iteritems():
             if self._lookup(name) is not None:
                 raise TypeError("Cannot add field %r: method already exists" % name)
-	
+        
             if self._superclass is not None:
                 if self._superclass._has_field(name):
                     raise TypeError("Field %r exists in superclass" % name)
@@ -65,7 +65,7 @@ class Instance(OOType):
                 if ootype != typeOf(default):
                     raise TypeError("Expected type %r for default" % ootype)
 
-	self._fields.update(fields)
+        self._fields.update(fields)
 
     def _add_methods(self, methods):
         # Note to the unwary: _add_methods adds *methods* whereas
@@ -73,8 +73,8 @@ class Instance(OOType):
         # if you are in the right state of mind (swiss?), but
         # certainly not necessarily if not.
         for name, method in methods.iteritems():
-	    if self._has_field(name):
-	        raise TypeError("Can't add method %r: field already exists" % name)
+            if self._has_field(name):
+                raise TypeError("Can't add method %r: field already exists" % name)
             if not isinstance(typeOf(method), Meth):
                 raise TypeError("added methods must be _meths, not %s" % type(defn))
         self._methods.update(methods)
@@ -91,7 +91,7 @@ class Instance(OOType):
             self._fields[name]
             return True
         except KeyError:
-	    if self._superclass is None:
+            if self._superclass is None:
                 return False
 
             return self._superclass._has_field(name)
@@ -100,7 +100,7 @@ class Instance(OOType):
         try:
             return self._fields[name][0]
         except KeyError:
-	    if self._superclass is None:
+            if self._superclass is None:
                 raise TypeError("No field names %r" % name)
 
             return self._superclass._field_type(name)
@@ -116,18 +116,18 @@ class Instance(OOType):
         return meth
 
     def _allfields(self):
-	if self._superclass is None:
-	    all = {}
-	else:
-	    all = self._superclass._allfields()
-	all.update(self._fields)
-	return all
+        if self._superclass is None:
+            all = {}
+        else:
+            all = self._superclass._allfields()
+        all.update(self._fields)
+        return all
 
 class StaticMethod(OOType):
 
     def __init__(self, args, result):
-    	self.ARGS = tuple(args)
-	self.RESULT = result
+        self.ARGS = tuple(args)
+        self.RESULT = result
 
     def _example(self):
         _retval = self.RESULT._example()
@@ -195,7 +195,7 @@ class _callable(object):
 
    def _checkargs(self, args):
        if len(args) != len(self._TYPE.ARGS):
-	   raise TypeError,"calling %r with wrong argument number: %r" % (self._TYPE, args)
+           raise TypeError,"calling %r with wrong argument number: %r" % (self._TYPE, args)
 
        for a, ARG in zip(args, self._TYPE.ARGS):
            if not isCompatibleType(typeOf(a), ARG):

@@ -24,21 +24,21 @@ class InstanceRepr(AbstractInstanceRepr):
     def __init__(self, rtyper, classdef, does_need_gc=True):
         AbstractInstanceRepr.__init__(self, rtyper, classdef)
 
-	self.baserepr = None
+        self.baserepr = None
         b = self.classdef.basedef
         if b is not None:
-	    self.baserepr = getinstancerepr(rtyper, b)
+            self.baserepr = getinstancerepr(rtyper, b)
             b = self.baserepr.lowleveltype
 
         self.lowleveltype = ootype.Instance(classdef.cls.__name__, b, {}, {})
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
-	self.object_type = self.lowleveltype
+        self.object_type = self.lowleveltype
 
     def _setup_repr(self):
-	if self.baserepr is not None:
-	    self.allfields = self.baserepr.allfields.copy()
-	else:
-	    self.allfields = {}
+        if self.baserepr is not None:
+            self.allfields = self.baserepr.allfields.copy()
+        else:
+            self.allfields = {}
         self.allmethods = {}
 
         fields = {}
@@ -46,8 +46,8 @@ class InstanceRepr(AbstractInstanceRepr):
 
         for name, attrdef in attrs:
             if not attrdef.readonly:
-		repr = self.rtyper.getrepr(attrdef.s_value)
-		self.allfields[name] = repr
+                repr = self.rtyper.getrepr(attrdef.s_value)
+                self.allfields[name] = repr
                 oot = repr.lowleveltype
                 fields[name] = oot
 
@@ -56,20 +56,20 @@ class InstanceRepr(AbstractInstanceRepr):
         methods = {}
         baseInstance = self.lowleveltype._superclass
 
-	for classdef in self.classdef.getmro():
-	    attrs = classdef.attrs.items()
-	    for name, attrdef in attrs:
-		if attrdef.readonly:
-		    try:
-			impl = self.classdef.cls.__dict__[name]
-		    except KeyError:
-			pass
-		    else:
-			f, inputs, ret = getsignature(self.rtyper, impl)
-			M = ootype.Meth([r.lowleveltype for r in inputs[1:]], ret.lowleveltype)
-			m = ootype.meth(M, _name=name, _callable=impl)
-			methods[name] = m
-	
+        for classdef in self.classdef.getmro():
+            attrs = classdef.attrs.items()
+            for name, attrdef in attrs:
+                if attrdef.readonly:
+                    try:
+                        impl = self.classdef.cls.__dict__[name]
+                    except KeyError:
+                        pass
+                    else:
+                        f, inputs, ret = getsignature(self.rtyper, impl)
+                        M = ootype.Meth([r.lowleveltype for r in inputs[1:]], ret.lowleveltype)
+                        m = ootype.meth(M, _name=name, _callable=impl)
+                        methods[name] = m
+        
         ootype.addMethods(self.lowleveltype, methods)
             
     def rtype_getattr(self, hop):
@@ -127,21 +127,21 @@ class InstanceRepr(AbstractInstanceRepr):
             [inputconst(ootype.Void, self.lowleveltype)], self.lowleveltype)
 
     def initialize_prebuilt_instance(self, value, result):
-	# then add instance attributes from this level
-	for name, (oot, default) in self.lowleveltype._allfields().items():
-	    if oot is ootype.Void:
-		llattrvalue = None
-	    elif name == '_hash_cache_': # hash() support
-		llattrvalue = hash(value)
-	    else:
-		try:
-		    attrvalue = getattr(value, name)
-		except AttributeError:
-		    warning("prebuilt instance %r has no attribute %r" % (
-			value, name))
-		    continue
-		llattrvalue = self.allfields[name].convert_const(attrvalue)
-	    setattr(result, name, llattrvalue)
+        # then add instance attributes from this level
+        for name, (oot, default) in self.lowleveltype._allfields().items():
+            if oot is ootype.Void:
+                llattrvalue = None
+            elif name == '_hash_cache_': # hash() support
+                llattrvalue = hash(value)
+            else:
+                try:
+                    attrvalue = getattr(value, name)
+                except AttributeError:
+                    warning("prebuilt instance %r has no attribute %r" % (
+                        value, name))
+                    continue
+                llattrvalue = self.allfields[name].convert_const(attrvalue)
+            setattr(result, name, llattrvalue)
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):

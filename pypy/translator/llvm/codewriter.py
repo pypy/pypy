@@ -112,8 +112,8 @@ class CodeWriter(object):
             tail_ = ''
         else:
             tail_ = tail
-	if tail_:
-		tail_ += ' '
+        if tail_:
+                tail_ += ' '
         args = ", ".join(["%s %s" % item for item in zip(argtypes, argrefs)])
         if except_label:
             self.genllvm.exceptionpolicy.invoke(self, targetvar, tail_, cconv, returntype, functionref, args, label, except_label)
@@ -124,8 +124,8 @@ class CodeWriter(object):
                 self.indent("%s = %scall %s %s %s(%s)" % (targetvar, tail_, cconv, returntype, functionref, args))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
-    	if fromtype == 'void' and targettype == 'void':
-		return
+        if fromtype == 'void' and targettype == 'void':
+                return
         self.indent("%(targetvar)s = cast %(fromtype)s "
                         "%(fromvar)s to %(targettype)s" % locals())
 

@@ -169,8 +169,8 @@ class CodeWriter(object):
                 self.append('%s = %s(%s)' % (targetvar, functionref, args))
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
-    	if fromtype == 'void' and targettype == 'void':
-		return
+        if fromtype == 'void' and targettype == 'void':
+                return
         if targettype == fromtype:
             self.append("%(targetvar)s = %(fromvar)s" % locals())
         elif targettype in ('int','uint',):

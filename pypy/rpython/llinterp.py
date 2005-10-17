@@ -641,9 +641,9 @@ class LLFrame(object):
         assert isinstance(inst, ootype._instance)
         assert isinstance(message, str)
         bm = getattr(inst, message)
-	m = bm.meth
-	m._checkargs(args)
-	return self.op_direct_call(m, inst, *args)
+        m = bm.meth
+        m._checkargs(args)
+        return self.op_direct_call(m, inst, *args)
 
     def op_ooupcast(self, INST, inst):
         return ootype.ooupcast(INST, inst)

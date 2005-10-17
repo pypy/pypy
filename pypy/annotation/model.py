@@ -482,10 +482,10 @@ ll_to_annotation_map = dict([(ll, ann) for ann,ll in annotation_to_ll_map])
 def lltype_to_annotation(T):
     s = ll_to_annotation_map.get(T)
     if s is None:
-	if isinstance(T, ootype.Instance):
-	    return SomeOOInstance(T)
+        if isinstance(T, ootype.Instance):
+            return SomeOOInstance(T)
         else:
-	    return SomePtr(T)
+            return SomePtr(T)
     else:
         return s
 

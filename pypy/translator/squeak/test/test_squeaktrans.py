@@ -6,9 +6,9 @@ from pypy.translator.translator import Translator
 
 def looping(i = (int), j = (int)):
     while i > 0:
-	i -= 1
-	while j > 0:
-	    j -= 1
+        i -= 1
+        while j > 0:
+            j -= 1
 
 class TestSqueakTrans:
 

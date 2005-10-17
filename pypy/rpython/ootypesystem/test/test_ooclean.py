@@ -20,12 +20,12 @@ def check_only_ootype(graph):
     def check_ootype(v):
         t = v.concretetype
         assert isinstance(t, ootype.Primitive) or isinstance(t, ootype.OOType)
-	
+        
     for block in graph.iterblocks():
-    	for var in block.getvariables():
-	    check_ootype(var)
-	for const in block.getconstants():
-	    check_ootype(const)
+        for var in block.getvariables():
+            check_ootype(var)
+        for const in block.getconstants():
+            check_ootype(const)
 
 def test_simple():
     def f(a, b):
@@ -108,10 +108,10 @@ class OverridesAMethod(HasAMethod):
 
 def test_override():
     def dummyfn(flag):
-	if flag:
-	    inst = HasAMethod()
-	else:
-	    inst = OverridesAMethod()
+        if flag:
+            inst = HasAMethod()
+        else:
+            inst = OverridesAMethod()
         return inst.f()
     result = interpret(dummyfn, [True], type_system='ootype')
     assert result == 1
