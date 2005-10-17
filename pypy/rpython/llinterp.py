@@ -242,8 +242,9 @@ class LLFrame(object):
         raise LLException(etype, evalue)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
+        obj = self.llinterpreter.typer.type_system.deref(fptr)
         try:
-            return fptr._obj._callable(*args)
+            return obj._callable(*args)
         except Exception, e:
             #print "GOT A CPYTHON EXCEPTION:", e.__class__, e
             self.make_llexception(e)
