@@ -1,9 +1,10 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rclass import AbstractClassRepr, AbstractInstanceRepr, \
-                                getinstancerepr
+                                getinstancerepr, getclassrepr
 from pypy.rpython.rpbc import getsignature
 from pypy.rpython.ootypesystem import ootype
 from pypy.annotation.pairtype import pairtype
+from pypy.tool.sourcetools import func_with_new_name
 
 CLASSTYPE = ootype.Class
 
@@ -36,10 +37,13 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def _setup_repr(self):
         if self.baserepr is not None:
-            self.allfields = self.baserepr.allfields.copy()
+            allfields = self.baserepr.allfields.copy()
+            allmethods = self.baserepr.allmethods.copy()
+            allclassattributes = self.baserepr.allclassattributes.copy()
         else:
-            self.allfields = {}
-        self.allmethods = {}
+            allfields = {}
+            allmethods = {}
+            allclassattributes = {}
 
         fields = {}
         attrs = self.classdef.attrs.items()
@@ -47,44 +51,89 @@ class InstanceRepr(AbstractInstanceRepr):
         for name, attrdef in attrs:
             if not attrdef.readonly:
                 repr = self.rtyper.getrepr(attrdef.s_value)
-                self.allfields[name] = repr
+                allfields[name] = repr
                 oot = repr.lowleveltype
                 fields[name] = oot
 
         ootype.addFields(self.lowleveltype, fields)
 
         methods = {}
+        classattributes = {}
         baseInstance = self.lowleveltype._superclass
+        classrepr = getclassrepr(self.rtyper, self.classdef)
 
         for classdef in self.classdef.getmro():
             attrs = classdef.attrs.items()
             for name, attrdef in attrs:
-                if attrdef.readonly:
-                    try:
-                        impl = self.classdef.cls.__dict__[name]
-                    except KeyError:
-                        pass
-                    else:
-                        f, inputs, ret = getsignature(self.rtyper, impl)
-                        M = ootype.Meth([r.lowleveltype for r in inputs[1:]], ret.lowleveltype)
-                        m = ootype.meth(M, _name=name, _callable=impl)
-                        methods[name] = m
+                if not attrdef.readonly:
+                    continue
+                try:
+                    impl = self.classdef.cls.__dict__[name]
+                except KeyError:
+                    continue
+                if classrepr.prepare_method(attrdef.s_value) is not None:
+                    # a regular method
+                    f, inputs, ret = getsignature(self.rtyper, impl)
+                    M = ootype.Meth([r.lowleveltype for r in inputs[1:]], ret.lowleveltype)
+                    m = ootype.meth(M, _name=name, _callable=impl,
+                                    graph=f.graph)
+                    methods[name] = m
+                    allmethods[name] = True
+                else:
+                    # a non-method class attribute
+                    allclassattributes[name] = True
+                    if not attrdef.s_value.is_constant():
+                        classattributes[name] = attrdef.s_value, impl
         
         ootype.addMethods(self.lowleveltype, methods)
-            
+        self.allfields = allfields
+        self.allmethods = allmethods
+        self.allclassattributes = allclassattributes
+
+        # step 2: provide accessor methods for class attributes that are
+        # really overridden in subclasses (this is done after the rest of
+        # the initialization because convert_const can require 'self' to
+        # be fully initialized)
+        for name, (s_value, impl) in classattributes.items():
+            r = self.rtyper.getrepr(s_value)
+            oovalue = r.convert_const(impl)
+            m = self.attach_class_attr_accessor(name, oovalue, r.lowleveltype)
+
+    def attach_class_attr_accessor(self, name, oovalue, oovaluetype):
+        def ll_getclassattr(self):
+            return oovalue
+        ll_getclassattr = func_with_new_name(ll_getclassattr, 'll_get_' + name)
+        sm = self.rtyper.annotate_helper(ll_getclassattr, [self.lowleveltype])
+        M = ootype.Meth([], oovaluetype)
+        m = ootype.meth(M, _name=name, _callable=ll_getclassattr,
+                        graph=sm.graph)
+        ootype.addMethods(self.lowleveltype, {name: m})
+
     def rtype_getattr(self, hop):
         vlist = hop.inputargs(self, ootype.Void)
         attr = hop.args_s[1].const
         s_inst = hop.args_s[0]
-        meth = self.lowleveltype._lookup(attr)
-        if meth is not None:
+        if attr in self.allfields:
+            # regular instance attributes
+            self.lowleveltype._check_field(attr)
+            return hop.genop("oogetfield", vlist,
+                             resulttype = hop.r_result.lowleveltype)
+        elif attr in self.allmethods:
             # special case for methods: represented as their 'self' only
             # (see MethodsPBCRepr)
             return hop.r_result.get_method_from_instance(self, vlist[0],
                                                          hop.llops)
-        self.lowleveltype._check_field(attr)
-        return hop.genop("oogetfield", vlist,
-                         resulttype = hop.r_result.lowleveltype)
+        elif attr in self.allclassattributes:
+            # class attributes
+            if hop.s_result.is_constant():
+                oovalue = hop.r_result.convert_const(hop.s_result.const)
+                return hop.inputconst(hop.r_result, oovalue)
+            else:
+                cname = hop.inputconst(ootype.Void, attr)
+                return hop.genop("oosend", [cname, vlist[0]],
+                                 resulttype = hop.r_result.lowleveltype)
+        else:
+            raise TyperError("no attribute %r on %r" % (attr, self))
 
     def rtype_setattr(self, hop):
         attr = hop.args_s[1].const

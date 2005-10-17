@@ -53,7 +53,7 @@ class RPythonTyper:
             def getconcretetype(v):
                 return self.bindingrepr(v).lowleveltype
 
-            return LowLevelTypeSystem.instance.getcallable(
+            return self.type_system.getcallable(
                         self.annotator.translator, graphfunc, getconcretetype)
         
         self.getfunctionptr = getfunctionptr

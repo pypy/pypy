@@ -129,3 +129,30 @@ def test_prebuilt_instance():
         return inst.f()
     result = interpret(dummyfn, [], type_system='ootype')
     assert result == 3
+
+class HasClassAttr(object):
+    a = 3
+    def f(self, n):
+        return n + self.a
+
+class OverridesClassAttr(HasClassAttr):
+    a = 42
+
+def test_single_class_attr():
+    def dummyfn():
+        inst = HasClassAttr()
+        return inst.f(100)
+    result = interpret(dummyfn, [], type_system='ootype')
+    assert result == 103
+
+def test_class_attr():
+    def dummyfn(flag):
+        if flag:
+            inst = HasClassAttr()
+        else:
+            inst = OverridesClassAttr()
+        return inst.f(100)
+    result = interpret(dummyfn, [True], type_system='ootype')
+    assert result == 103
+    result = interpret(dummyfn, [False], type_system='ootype')
+    assert result == 142

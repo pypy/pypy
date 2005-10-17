@@ -98,7 +98,10 @@ class ClassRepr(AbstractClassRepr):
             for name, attrdef in attrs:
                 if attrdef.readonly:
                     s_value = attrdef.s_value
-                    s_value = self.prepare_method(name, s_value, allmethods)
+                    s_unboundmethod = self.prepare_method(s_value)
+                    if s_unboundmethod is not None:
+                        allmethods[name] = True
+                        s_value = s_unboundmethod
                     r = self.rtyper.getrepr(s_value)
                     mangled_name = 'cls_' + name
                     clsfields[name] = mangled_name, r
@@ -124,36 +127,6 @@ class ClassRepr(AbstractClassRepr):
         self.pbcfields = pbcfields
         self.allmethods = allmethods
         self.vtable = None
-
-    def prepare_method(self, name, s_value, allmethods):
-        # special-casing for methods:
-        #  - a class (read-only) attribute that would contain a PBC
-        #    with {func: classdef...} is probably meant to be used as a
-        #    method, but in corner cases it could be a constant object
-        #    of type MethodType that just sits here in the class.  But
-        #    as MethodType has a custom __get__ too and we don't support
-        #    it, it's a very bad idea anyway.
-        if isinstance(s_value, annmodel.SomePBC):
-            s_value = self.classdef.matching(s_value)
-            debound = {}
-            count = 0
-            for x, classdef in s_value.prebuiltinstances.items():
-                if isclassdef(classdef):
-                    #if classdef.commonbase(self.classdef) != self.classdef:
-                    #    raise TyperError("methods from PBC set %r don't belong "
-                    #                     "in %r" % (s_value.prebuiltinstances,
-                    #                                self.classdef.cls))
-                    count += 1
-                    classdef = True
-                debound[x] = classdef
-            if count > 0:
-                if count != len(s_value.prebuiltinstances):
-                    raise TyperError("mixing functions and methods "
-                                     "in PBC set %r" % (
-                        s_value.prebuiltinstances,))
-                s_value = annmodel.SomePBC(debound)
-                allmethods[name] = True
-        return s_value
 
     def convert_const(self, value):
         if not isinstance(value, (type, types.ClassType)):
