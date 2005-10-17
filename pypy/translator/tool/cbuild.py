@@ -255,18 +255,27 @@ def log_spawned_cmd(spawn):
     return spawn_and_log
 
 def build_executable(cfilenames, outputfilename=None, include_dirs=None,
-                     libraries=[]):
+                     libraries=[], library_dirs=None):
     from distutils.ccompiler import new_compiler 
     ext = ''
     extra_preargs = None
-    if sys.platform != 'win32': 
+    if not include_dirs:
+        include_dirs = []
+    if not library_dirs:
+        library_dirs = []
+    if not sys.platform in ('win32', 'darwin'): 
         libraries.append('m')
         libraries.append('pthread')
         extra_preargs = ['-O2', '-pthread']   # XXX 2 x hackish
+    if sys.platform == 'darwin':
+        include_dirs.append('/sw/include')
     if outputfilename is None:
         outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
     else: 
         outputfilename = py.path.local(outputfilename) 
+
+    if sys.platform == 'darwin':
+        library_dirs=['/sw/lib']
 
     compiler = new_compiler()
     compiler.spawn = log_spawned_cmd(compiler.spawn)
@@ -286,7 +295,8 @@ def build_executable(cfilenames, outputfilename=None, include_dirs=None,
             old.chdir() 
     compiler.link_executable(objects, str(outputfilename),
                              libraries=libraries,
-                             extra_preargs=extra_preargs)
+                             extra_preargs=extra_preargs,
+                            library_dirs=library_dirs)
     return str(outputfilename)
 
 def check_boehm_presence():
