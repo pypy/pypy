@@ -25,7 +25,7 @@ test_fieldmap = {
 
 def p(w):
     import struct
-    return struct.pack('i', w)
+    return struct.pack('>i', w)
 
 
 class TestForm(Form):
