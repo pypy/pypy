@@ -31,42 +31,6 @@ class Database(object):
         self._pendingsetup = []
         self._tmpcount = 1
 
-        # debug operation comments
-        self._opcomments = {}
-
-    #_______for debugging llvm code_________________________
-
-    def add_op2comment(self, lenofopstr, op):
-        """ internal method for adding comments on each operation """
-        tmpname = self.repr_tmpvar() + ".comment"
-        self._opcomments[op] = (lenofopstr, tmpname)
-        return tmpname
-        
-    def get_op2comment(self, op):
-        """ internal method for adding comments on each operation """
-        return self._opcomments.get(op, None)
-    
-    #_______debuggging______________________________________
-
-    def dump_pbcs(self):
-        r = ""
-        for k, v in self.obj2node.iteritems():
-            
-            if isinstance(k, lltype.LowLevelType):
-                continue
-
-            assert isinstance(lltype.typeOf(k), lltype.ContainerType)
-            # Only dump top levels
-            p, _ = lltype.parentlink(k)
-            if p is None:
-                ref = v.get_ref()
-                pbc_ref = v.get_ref()
-                
-                r += "\ndump_pbcs %s (%s)\n" \
-                     "getref -> %s \n" \
-                     "pbcref -> %s \n" % (v, k, ref, pbc_ref)
-            return r
-    
     #_______setting up and preperation______________________________
 
     def create_constant_node(self, type_, value):
@@ -110,40 +74,6 @@ class Database(object):
         self.obj2node[key] = node 
         self._pendingsetup.append(node)
         
-    #def prepare_type(self, type_):
-    #    return  #forget about the types in Javascript
-    # 
-    #    #if type_ in self.obj2node:
-    #    #    return
-    #    #if isinstance(type_, lltype.Primitive):
-    #    #    pass
-    #    #elif isinstance(type_, lltype.Ptr): 
-    #    #    self.prepare_type(type_.TO)
-    #    #
-    #    #elif isinstance(type_, lltype.Struct):
-    #    #    if type_._arrayfld:
-    #    #        self.addpending(type_, StructVarsizeTypeNode(self, type_))
-    #    #    else:
-    #    #        self.addpending(type_, StructTypeNode(self, type_))                
-    #    #elif isinstance(type_, lltype.FuncType): 
-    #    #    self.addpending(type_, FuncTypeNode(self, type_))
-    #    #
-    #    #elif isinstance(type_, lltype.Array): 
-    #    #    if type_.OF is lltype.Void:
-    #    #        self.addpending(type_, VoidArrayTypeNode(self, type_))
-    #    #    else:
-    #    #        self.addpending(type_, ArrayTypeNode(self, type_))
-    #    #
-    #    #elif isinstance(type_, lltype.OpaqueType):
-    #    #    self.addpending(type_, OpaqueTypeNode(self, type_))            
-    #    #
-    #    #else:
-    #    #    assert False, "need to prepare typerepr %s %s" % (type_, type(type_))
-    #
-    #def prepare_type_multi(self, types):
-    #    for type_ in types:
-    #        self.prepare_type(type_)
-
     def prepare_constant(self, type_, value):
         if isinstance(type_, lltype.Primitive):
             #log.prepareconstant(value, "(is primitive)")
@@ -163,9 +93,6 @@ class Database(object):
         # we can share data via pointers
         if value not in self.obj2node: 
             self.addpending(value, self.create_constant_node(type_, value))
-
-        # always add type (it is safe)
-        #self.prepare_type(type_)
         
     def prepare_arg_value(self, const_or_var):
         """if const_or_var is not already in a dictionary self.obj2node,
@@ -227,9 +154,18 @@ class Database(object):
             assert isinstance(arg, Variable)
             return str(arg)
 
+    def repr_type(self, arg):
+        try:
+            node = self.obj2node.get(arg.value._obj)
+            if isinstance(node, ArrayNode):
+                return 'Array'
+        except:
+            pass
+        return 'Object'
+
     def repr_concretetype(self, ct): #used by casts
         try:
-             return self.obj2node[ct].ref 
+            return self.obj2node[ct].ref 
         except KeyError: 
             if isinstance(ct, lltype.Primitive):
                 return self.primitives[ct]
@@ -249,16 +185,14 @@ class Database(object):
             return None, repr
 
         elif isinstance(type_, lltype.Ptr):
-            toptr = '' #self.repr_type(type_)
             value = value._obj
 
             # special case, null pointer
             if value is None:
-                return None, "%s null" % (toptr,)
+                return None, "null"
 
             node = self.obj2node[value]
-            ref = node.get_pbcref(toptr)
-            return node, "%s %s" % (toptr, ref)
+            return node, node.get_ref()
 
         elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):
             node = self.obj2node[value]
@@ -319,6 +253,14 @@ class Database(object):
     # __________________________________________________________
     # Other helpers
 
+    def is_function_ptr(self, arg):
+        if isinstance(arg, (Constant, Variable)): 
+            arg = arg.concretetype 
+            if isinstance(arg, lltype.Ptr):
+                if isinstance(arg.TO, lltype.FuncType):
+                    return True
+        return False
+     
     def get_childref(self, parent, child):
         node = self.obj2node[parent]
         return node.get_childref(child)

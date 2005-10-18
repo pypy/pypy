@@ -90,7 +90,13 @@ class StructNode(ConstantLLVMNode):
             name = _rename_reserved_keyword(name)
             var  = (name, str(value))
             vars.append(var)
-        return "({%s})" % ", ".join(["%s:%s" % var for var in vars])
+        lines = []
+        for var in vars:
+            name, value = var
+            #s = "({%s})" % ", ".join(["%s:%s" % var for var in vars])
+            line = "%s.%s = %s" % (self.ref, name, value)
+            lines.append(line)
+        return lines
 
         #values = self._getvalues()
         #all_values = ",\n  ".join(values)

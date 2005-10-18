@@ -20,17 +20,13 @@ from pypy.tool.udir import udir
 from pypy.translator.js.node import LLVMNode
 from pypy.translator.js.database import Database 
 from pypy.translator.js.codewriter import CodeWriter
-from pypy.translator.js.gc import GcPolicy
-from pypy.translator.js.exception import ExceptionPolicy
 from pypy.translator.js.log import log
 
 
 class JS(object):   # JS = Javascript
-    def __init__(self, translator, function=None, gcpolicy=None, exceptionpolicy=None, debug=False):
+    def __init__(self, translator, function=None, debug=False):
         self.db = Database(self, translator)
         self.translator = translator
-        self.gcpolicy = GcPolicy.new(gcpolicy)
-        self.exceptionpolicy = ExceptionPolicy.new(exceptionpolicy)
         LLVMNode.reset_nodename_count()
         #extfuncnode.ExternalFuncNode.used_external_functions = {}
         self.debug = debug # for debug we create comments of every operation that may be executed

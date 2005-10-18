@@ -5,9 +5,6 @@ from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_excepti
 from pypy.rpython import lltype
 from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.js.opwriter import OpWriter
-#from pypy.translator.js.backendopt.removeexcmallocs import remove_exception_mallocs
-#from pypy.translator.js.backendopt.mergemallocs import merge_mallocs
-from pypy.translator.unsimplify import remove_double_links
 from pypy.translator.js.log import log 
 log = log.funcnode
 
@@ -21,12 +18,6 @@ class FuncNode(ConstantLLVMNode):
         pypy_prefix     = '' #pypy_
         self.ref   = self.make_ref(pypy_prefix, value.graph.name)
         self.graph = value.graph
-
-        self.db.genllvm.exceptionpolicy.transform(self.db.translator, self.graph)
-        #remove_exception_mallocs(self.db.translator, self.graph, self.ref)
-        #merge_mallocs(self.db.translator, self.graph, self.ref)
-
-        #remove_double_links(self.db.translator, self.graph)
 
     def __str__(self):
         return "<FuncNode %r>" %(self.ref,)
@@ -72,33 +63,6 @@ class FuncNode(ConstantLLVMNode):
             codewriter.closeblock()
         codewriter.closefunc()
 
-    def writecomments(self, codewriter):
-        """ write operations strings for debugging purposes. """ 
-        blocks = [x for x in flatten(self.graph) if isinstance(x, Block)]
-        for block in blocks:
-            for op in block.operations:
-                strop = str(op) + "\n\x00"
-                l = len(strop)
-                if strop.find("direct_call") == -1:
-                    continue
-                tempname = self.db.add_op2comment(l, op)
-                printables = dict([(ord(i), None) for i in
-                                   ("0123456789abcdefghijklmnopqrstuvwxyz" +
-                                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-                                    "!#$%&()*+,-./:;<=>?@[\\]^_`{|}~ '")])
-                s = []
-                for c in strop:
-                    if ord(c) in printables:
-                        s.append(c)
-                    else:
-                        s.append("\\%02x" % ord(c))
-                r = 'c"%s"' % "".join(s)
-                typeandata = '[%s x sbyte] %s' % (l, r)
-                codewriter.globalinstance(tempname, typeandata)
-
-    def writeglobalconstants(self, codewriter):
-        pass
-    
     # ______________________________________________________________________
     # writing helpers for entry points
 
@@ -134,15 +98,6 @@ class FuncNode(ConstantLLVMNode):
         else:
             last_op_index = None
         for op_index, op in enumerate(block.operations):
-            if False:   # print out debug string
-                codewriter.newline()
-                codewriter.comment("** %s **" % str(op))
-                info = self.db.get_op2comment(op)
-                if info is not None:
-                    lenofopstr, opstrname = info
-                    codewriter.debugcomment(self.db.repr_tmpvar(),
-                                            lenofopstr,
-                                            opstrname)
             if op_index == last_op_index:
                 #could raise an exception and should therefor have a function
                 #implementation that can be invoked by the llvm-code.
@@ -164,4 +119,7 @@ class FuncNode(ConstantLLVMNode):
         codewriter.ret( self.db.repr_arg(block.inputargs[0]) )
 
     def write_exceptblock(self, codewriter, block):
-        self.db.genllvm.exceptionpolicy.write_exceptblock(self, codewriter, block)
+        #self.db.genllvm.exceptionpolicy.write_exceptblock(self, codewriter, block)
+        codewriter.comment('XXX TODO write_exceptblock')
+        codewriter.append('throw "Pypy exception"')
+        codewriter.skip_closeblock()

@@ -12,19 +12,19 @@ class ExternalFuncNode(ConstantLLVMNode):
         name = value._callable.__name__
         assert name.startswith("ll")
         name = "LL" + name[2:] 
-        self.ref = self.make_ref("%", name)
+        self.ref = self.make_ref("", name)
         self.used_external_functions[self.ref] = True
 
-    def getdecl(self):
-        T = self.value._TYPE
-        args = [self.db.repr_type(a) for a in T.ARGS]
-        decl = "%s %s(%s)" % (self.db.repr_type(T.RESULT),
-                              self.ref,
-                              ", ".join(args))
-        return decl
-
-    def writedecl(self, codewriter): 
-        codewriter.declare(self.getdecl())
-
-    def writeglobalconstants(self, codewriter):
-        pass
+    #def getdecl(self):
+    #    T = self.value._TYPE
+    #    args = [self.db.repr_type(a) for a in T.ARGS]
+    #    decl = "%s %s(%s)" % (self.db.repr_type(T.RESULT),
+    #                          self.ref,
+    #                          ", ".join(args))
+    #    return decl
+    #
+    #def writedecl(self, codewriter): 
+    #    codewriter.declare(self.getdecl())
+    #
+    #def writeglobalconstants(self, codewriter):
+    #    pass

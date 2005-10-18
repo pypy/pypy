@@ -40,29 +40,8 @@ class ArrayNode(ConstantLLVMNode):
         else:
             codewriter.declare(self.ref + ' = new Array()')
 
-    def get_length(self):
-        """ returns logical length of array """
-        items = self.value.items
-        return len(items)
-
-    def get_arrayvalue(self):
-        items = self.value.items
-        l = len(items)
-        r = "[%s]" % ", ".join([self.db.repr_constant(v)[1] for v in items])
-        return l, r 
-
     def get_ref(self):
         return self.ref
-
-    #def get_pbcref(self, toptr):
-    #    return self.ref
-    #    #ref = self.ref
-    #    #p, c = lltype.parentlink(self.value)
-    #    #assert p is None, "child arrays are NOT needed by rtyper"
-    #    #
-    #    #fromptr = "%s*" % self.get_typerepr()
-    #    #ref = "cast(%s %s to %s)" % (fromptr, ref, toptr)
-    #    #return ref
 
     def get_childref(self, index):
         return "getelementptr(%s* %s, int 0, uint 1, int %s)" %(
@@ -71,8 +50,12 @@ class ArrayNode(ConstantLLVMNode):
             index)
     
     def constantvalue(self):
-        physicallen, arrayrepr = self.get_arrayvalue()
-        return arrayrepr
+        lines = []
+        for i, v in enumerate(self.value.items):
+            s = self.db.repr_constant(v)[1]
+            line = "%s[%d] = %s" % (self.ref, i, s)
+            lines.append(line)
+        return lines
 
 
 class StrArrayNode(ArrayNode):
@@ -83,21 +66,18 @@ class StrArrayNode(ArrayNode):
        "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
        "!#$%&()*+,-./:;<=>?@[]^_`{|}~ '")])
 
-    def get_arrayvalue(self):
-        items = self.value.items
-        item_length = len(items)
-        s = []
-        for c in items:
+    def constantvalue(self):
+        s = '"'
+        for c in self.value.items:
             if ord(c) in StrArrayNode.printables:
-                s.append(c)
+                s += c
             else:
-                s.append("\\%02x" % ord(c))
-                
-        r = '"%s"' % "".join(s)
-        return item_length, r
+                s += "\\%02x" % ord(c)
+        s += '"'
+        return [self.ref + " = " + s]
 
 
-class VoidArrayNode(ConstantLLVMNode):
+class VoidArrayNode(ArrayNode):
     __slots__ = "db value ref".split()
 
     def __init__(self, db, value):
@@ -107,6 +87,3 @@ class VoidArrayNode(ConstantLLVMNode):
         prefix = 'arrayinstance_Void'
         name = ''
         self.ref = self.make_ref(prefix, name)
-
-    def constantvalue(self):
-        return "{ int } {int %s}" % len(self.value.items)

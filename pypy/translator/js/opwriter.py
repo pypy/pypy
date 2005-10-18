@@ -132,10 +132,8 @@ class OpWriter(object):
     def int_abs(self, op):
         #ExternalFuncNode.used_external_functions[functionref] = True
         self.codewriter.call(self.db.repr_arg(op.result),
-                             self.db.repr_arg_type(op.result),
                              'Math.abs',
-                             [self.db.repr_arg(op.args[0])],
-                             [self.db.repr_arg_type(op.args[0])])
+                             [self.db.repr_arg(op.args[0])])
     float_abs = int_abs
 
     def int_pow(self, op):
@@ -240,11 +238,9 @@ class OpWriter(object):
                    if arg.concretetype is not lltype.Void]
         assert len(op_args) >= 1
         targetvar = self.db.repr_arg(op.result)
-        returntype = '' #self.db.repr_arg_type(op.result)
         functionref = self.db.repr_arg(op_args[0])
         argrefs = self.db.repr_arg_multi(op_args[1:])
-        argtypes = [] #self.db.repr_arg_type_multi(op_args[1:])
-        self.codewriter.call(targetvar,returntype,functionref,argrefs,argtypes)
+        self.codewriter.call(targetvar, functionref, argrefs)
 
     def invoke(self, op):
         op_args = [arg for arg in op.args
@@ -254,7 +250,7 @@ class OpWriter(object):
             functionref = self.db.repr_arg(op_args[0])
         else:   #operation
             opname = op.opname.split(':',1)[1]
-            op_args = ['%' + opname] + op_args
+            op_args = [opname] + op_args
             functionref = op_args[0]
             if functionref in extfunctions:
                 ExternalFuncNode.used_external_functions[functionref] = True
@@ -263,7 +259,7 @@ class OpWriter(object):
                 self.codewriter.comment('XXX: Error: ' + msg)
                 # XXX commented out for testing
                 #assert functionref in extfunctions, msg
-        
+
         assert len(op_args) >= 1
         # at least one label and one exception label
         assert len(self.block.exits) >= 2   
@@ -272,18 +268,16 @@ class OpWriter(object):
         assert link.exitcase is None
 
         targetvar   = self.db.repr_arg(op.result)
-        returntype  = self.db.repr_arg_type(op.result)
+        #returntype  = self.db.repr_arg_type(op.result)
         argrefs     = self.db.repr_arg_multi(op_args[1:])
-        argtypes    = self.db.repr_arg_type_multi(op_args[1:])
+        #argtypes    = self.db.repr_arg_type_multi(op_args[1:])
 
         none_label  = self.node.blockindex[link.target]
         block_label = self.node.blockindex[self.block]
-        exc_label   = 10000 + block_label   #_exception_label
+        #exc_label   = block_label   #_exception_label
 
-        #if self.db.is_function_ptr(op.result):  #use longhand form
-        #    returntype = "%s (%s)*" % (returntype, ", ".join(argtypes))
-        self.codewriter.call(targetvar, returntype, functionref, argrefs,
-                             argtypes, none_label, exc_label)
+        self.codewriter.call(targetvar, functionref, argrefs, none_label, self.block.exits[1:])
+        return
 
         e = self.db.translator.rtyper.getexceptiondata()
         pypy_prefix              = '' #pypy_
@@ -295,7 +289,7 @@ class OpWriter(object):
                                     e.lltype_of_exception_value.TO.__name__
                                     + '*')
 
-        self.codewriter.label(exc_label)
+        self.codewriter.openblock(exc_label)
 
         exc_found_labels, last_exception_type = [], None
         catch_all = False
@@ -306,27 +300,29 @@ class OpWriter(object):
             current_exception_type = etype.get_ref()
             target          = self.node.blockindex[link.target]
             #exc_found_label = block_label + '_exception_found_branchto_' + target
-            exc_found_label = '%d_exception_found_branchto_%d' % (block_label, target)
+            exc_found_label = target #'%d_exception_found_branchto_%d' % (block_label, target)
             last_exc_type_var, last_exc_value_var = None, None
 
-            for p in self.node.get_phi_data(link.target):
-                arg, type_, names, blocknames = p
-                for name, blockname in zip(names, blocknames):
-                    if blockname != exc_found_label:
-                        continue
-                    if name.startswith('last_exception_'):
-                        last_exc_type_var = name
-                    if name.startswith('last_exc_value_'):
-                        last_exc_value_var = name
+            #XXX refactor this
+            #for p in self.node.get_phi_data(link.target):
+            #    arg, type_, names, blocknames = p
+            #    for name, blockname in zip(names, blocknames):
+            #        if blockname != exc_found_label:
+            #            continue
+            #        if name.startswith('last_exception_'):
+            #            last_exc_type_var = name
+            #        if name.startswith('last_exc_value_'):
+            #            last_exc_value_var = name
 
             t = (exc_found_label,target,last_exc_type_var,last_exc_value_var)
             exc_found_labels.append(t)
 
-            not_this_exception_label = block_label + '_not_exception_' + etype.ref[1:]
+            not_this_exception_label = str(block_label) + '_not_exception_' + etype.ref[1:]
 
             if current_exception_type.find('getelementptr') == -1:  #catch all (except:)
                 catch_all = True
-                self.codewriter.br_uncond(exc_found_label)
+                self.codewriter.comment('br_uncond %s' % exc_found_label)
+                #self.codewriter.br_uncond(exc_found_label)
             else:   #catch specific exception (class) type
                 if not last_exception_type: #load pointer only once
                     last_exception_type = self.db.repr_tmpvar()
@@ -334,23 +330,22 @@ class OpWriter(object):
                     self.codewriter.newline()
                 ll_issubclass_cond = self.db.repr_tmpvar()
                 self.codewriter.call(ll_issubclass_cond,
-                                     'bool',
                                      ll_exception_match,
                                      [last_exception_type, current_exception_type],
                                      [lltype_of_exception_type, lltype_of_exception_type])
                 self.codewriter.br(ll_issubclass_cond, not_this_exception_label, exc_found_label)
-                self.codewriter.label(not_this_exception_label)
+                self.codewriter.openblock(not_this_exception_label)
 
-        ep = self.codewriter.genllvm.exceptionpolicy
+        ep = self.codewriter.js.exceptionpolicy
         if not catch_all:
             ep.reraise(self.node, self.codewriter)
-        ep.fetch_exceptions(self.codewriter, exc_found_labels, lltype_of_exception_type, lltype_of_exception_value)
+        ep.fetch_exceptions(self.codewriter,self.block,exc_found_labels,lltype_of_exception_type,lltype_of_exception_value)
 
     def malloc(self, op): 
         arg_type = op.args[0].value
         targetvar = self.db.repr_arg(op.result) 
-        type_ = '' #self.db.repr_type(arg_type)
-        self.codewriter.malloc(targetvar, type_, atomic=arg_type._is_atomic())
+        type_ = self.db.repr_type(arg_type)
+        self.codewriter.malloc(targetvar, type_)
     malloc_exception = malloc
     malloc_varsize = malloc
 
