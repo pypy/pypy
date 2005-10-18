@@ -1,7 +1,7 @@
 from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr
 from pypy.rpython.rclass import rtype_new_instance
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.ootypesystem.rclass import InstanceRepr
+from pypy.rpython.ootypesystem.rclass import InstanceRepr, mangle
 from pypy.annotation.pairtype import pairtype
 
 class ClassesPBCRepr(AbstractClassesPBCRepr):
@@ -18,7 +18,8 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
 
     def rtype_simple_call(self, hop):
         vlist = hop.inputargs(self, *hop.args_r[1:])
-        cname = hop.inputconst(ootype.Void, self.methodname)
+        mangled = mangle(self.methodname)
+        cname = hop.inputconst(ootype.Void, mangled)
         return hop.genop("oosend", [cname]+vlist,
                          resulttype = hop.r_result.lowleveltype)
 

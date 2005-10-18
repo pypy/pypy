@@ -178,3 +178,16 @@ def test_classattr_as_defaults():
         return x.a
     res = interpret(dummyfn, [], type_system='ootype')
     assert res == 4
+
+def test_name_clashes():
+    class NameClash1(object):
+        def _TYPE(self):
+            return 6
+    def dummyfn(n):
+        x = NameClash1()
+        y = EmptyBase()
+        y._TYPE = n+1
+        return x._TYPE() * y._TYPE
+    res = interpret(dummyfn, [6], type_system='ootype')
+    assert res == 42
+

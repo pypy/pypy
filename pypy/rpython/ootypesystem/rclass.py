@@ -21,6 +21,17 @@ class ClassRepr(AbstractClassRepr):
         # FIXME
         pass
 
+
+def mangle(name):
+    # XXX temporary: for now it looks like a good idea to mangle names
+    # systematically to trap bugs related to a confusion between mangled
+    # and non-mangled names
+    return 'o' + name
+
+def unmangle(mangled):
+    assert mangled.startswith('o')
+    return mangled[1:]
+
 class InstanceRepr(AbstractInstanceRepr):
     def __init__(self, rtyper, classdef, does_need_gc=True):
         AbstractInstanceRepr.__init__(self, rtyper, classdef)
@@ -46,14 +57,20 @@ class InstanceRepr(AbstractInstanceRepr):
             allclassattributes = {}
 
         fields = {}
+        fielddefaults = {}
         attrs = self.classdef.attrs.items()
 
         for name, attrdef in attrs:
             if not attrdef.readonly:
+                mangled = mangle(name)
                 repr = self.rtyper.getrepr(attrdef.s_value)
-                allfields[name] = repr
+                allfields[mangled] = repr
                 oot = repr.lowleveltype
-                fields[name] = oot
+                fields[mangled] = oot
+                try:
+                    fielddefaults[mangled] = getattr(self.classdef.cls, name)
+                except AttributeError:
+                    pass
 
         ootype.addFields(self.lowleveltype, fields)
 
@@ -71,19 +88,20 @@ class InstanceRepr(AbstractInstanceRepr):
                     impl = self.classdef.cls.__dict__[name]
                 except KeyError:
                     continue
+                mangled = mangle(name)
                 if classrepr.prepare_method(attrdef.s_value) is not None:
                     # a regular method
                     f, inputs, ret = getsignature(self.rtyper, impl)
                     M = ootype.Meth([r.lowleveltype for r in inputs[1:]], ret.lowleveltype)
-                    m = ootype.meth(M, _name=name, _callable=impl,
+                    m = ootype.meth(M, _name=mangled, _callable=impl,
                                     graph=f.graph)
-                    methods[name] = m
-                    allmethods[name] = True
+                    methods[mangled] = m
+                    allmethods[mangled] = True
                 else:
                     # a non-method class attribute
-                    allclassattributes[name] = True
+                    allclassattributes[mangled] = True
                     if not attrdef.s_value.is_constant():
-                        classattributes[name] = attrdef.s_value, impl
+                        classattributes[mangled] = attrdef.s_value, impl
         
         ootype.addMethods(self.lowleveltype, methods)
         self.allfields = allfields
@@ -94,64 +112,66 @@ class InstanceRepr(AbstractInstanceRepr):
         # convert_const can require 'self' to be fully initialized.
 
         # step 2: provide default values for fields
-        for name, oot in fields.items():
-            try:
-                impl = getattr(self.classdef.cls, name)
-            except AttributeError:
-                pass
-            else:
-                r = allfields[name]
-                oovalue = r.convert_const(impl)
-                ootype.addFields(self.lowleveltype, {name: (oot, oovalue)})
+        for mangled, impl in fielddefaults.items():
+            oot = fields[mangled]
+            r = allfields[mangled]
+            oovalue = r.convert_const(impl)
+            ootype.addFields(self.lowleveltype, {mangled: (oot, oovalue)})
 
         # step 3: provide accessor methods for class attributes that are
         # really overridden in subclasses
-        for name, (s_value, impl) in classattributes.items():
+        for mangled, (s_value, impl) in classattributes.items():
             r = self.rtyper.getrepr(s_value)
             oovalue = r.convert_const(impl)
-            m = self.attach_class_attr_accessor(name, oovalue, r.lowleveltype)
+            m = self.attach_class_attr_accessor(mangled, oovalue,
+                                                r.lowleveltype)
 
-    def attach_class_attr_accessor(self, name, oovalue, oovaluetype):
+    def attach_class_attr_accessor(self, mangled, oovalue, oovaluetype):
         def ll_getclassattr(self):
             return oovalue
-        ll_getclassattr = func_with_new_name(ll_getclassattr, 'll_get_' + name)
+        ll_getclassattr = func_with_new_name(ll_getclassattr,
+                                             'll_get_' + mangled)
         sm = self.rtyper.annotate_helper(ll_getclassattr, [self.lowleveltype])
         M = ootype.Meth([], oovaluetype)
-        m = ootype.meth(M, _name=name, _callable=ll_getclassattr,
+        m = ootype.meth(M, _name=mangled, _callable=ll_getclassattr,
                         graph=sm.graph)
-        ootype.addMethods(self.lowleveltype, {name: m})
+        ootype.addMethods(self.lowleveltype, {mangled: m})
 
     def rtype_getattr(self, hop):
-        vlist = hop.inputargs(self, ootype.Void)
-        attr = hop.args_s[1].const
+        v_inst, _ = hop.inputargs(self, ootype.Void)
         s_inst = hop.args_s[0]
-        if attr in self.allfields:
+        attr = hop.args_s[1].const
+        mangled = mangle(attr)
+        v_attr = hop.inputconst(ootype.Void, mangled)
+        if mangled in self.allfields:
             # regular instance attributes
-            self.lowleveltype._check_field(attr)
-            return hop.genop("oogetfield", vlist,
+            self.lowleveltype._check_field(mangled)
+            return hop.genop("oogetfield", [v_inst, v_attr],
                              resulttype = hop.r_result.lowleveltype)
-        elif attr in self.allmethods:
+        elif mangled in self.allmethods:
             # special case for methods: represented as their 'self' only
             # (see MethodsPBCRepr)
-            return hop.r_result.get_method_from_instance(self, vlist[0],
+            return hop.r_result.get_method_from_instance(self, v_inst,
                                                          hop.llops)
-        elif attr in self.allclassattributes:
+        elif mangled in self.allclassattributes:
             # class attributes
             if hop.s_result.is_constant():
                 oovalue = hop.r_result.convert_const(hop.s_result.const)
                 return hop.inputconst(hop.r_result, oovalue)
             else:
-                cname = hop.inputconst(ootype.Void, attr)
-                return hop.genop("oosend", [cname, vlist[0]],
+                cname = hop.inputconst(ootype.Void, mangled)
+                return hop.genop("oosend", [cname, v_inst],
                                  resulttype = hop.r_result.lowleveltype)
         else:
             raise TyperError("no attribute %r on %r" % (attr, self))
 
     def rtype_setattr(self, hop):
         attr = hop.args_s[1].const
-        self.lowleveltype._check_field(attr)
-        vlist = hop.inputargs(self, ootype.Void, hop.args_r[2])
-        return hop.genop('oosetfield', vlist)
+        mangled = mangle(attr)
+        self.lowleveltype._check_field(mangled)
+        v_inst, _, v_newval = hop.inputargs(self, ootype.Void, hop.args_r[2])
+        v_attr = hop.inputconst(ootype.Void, mangled)
+        return hop.genop('oosetfield', [v_inst, v_attr, v_newval])
 
     def convert_const(self, value):
         if value is None:
@@ -189,7 +209,8 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def initialize_prebuilt_instance(self, value, result):
         # then add instance attributes from this level
-        for name, (oot, default) in self.lowleveltype._allfields().items():
+        for mangled, (oot, default) in self.lowleveltype._allfields().items():
+            name = unmangle(mangled)
             if oot is ootype.Void:
                 llattrvalue = None
             elif name == '_hash_cache_': # hash() support
@@ -201,8 +222,8 @@ class InstanceRepr(AbstractInstanceRepr):
                     warning("prebuilt instance %r has no attribute %r" % (
                         value, name))
                     continue
-                llattrvalue = self.allfields[name].convert_const(attrvalue)
-            setattr(result, name, llattrvalue)
+                llattrvalue = self.allfields[mangled].convert_const(attrvalue)
+            setattr(result, mangled, llattrvalue)
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):
