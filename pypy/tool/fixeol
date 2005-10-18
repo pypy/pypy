@@ -39,13 +39,11 @@ def can_set_eol_style(path):
     if data != original:
         print "*"*30 
         print "--->  %s  <---" % path 
-        print ("Hum, in order to run fixeol on this file "
-               "you need to be on the platform which "
-               "matches its line-endings.  Modifying "
-               "the file content here would otherwise "
-               "lead to huge diffs!")
+        print ("WARNING: the file content was modified "
+               "by fixing the EOL style.")
         print "*"*30 
-        return False 
+        #return False
+        return True
     return True
 
 def checkeolfile(path):     
