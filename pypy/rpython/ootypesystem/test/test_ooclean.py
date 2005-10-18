@@ -212,3 +212,29 @@ def test_null_instance():
     assert res is False
     res = interpret(dummyfn, [False], type_system='ootype')
     assert res is True
+
+def test_isinstance():
+    class A:
+        pass
+    class B(A):
+        pass
+    class C(B):
+        pass
+    def f(i):
+        if i == 0:
+            o = None
+        elif i == 1:
+            o = A()
+        elif i == 2:
+            o = B()
+        else:
+            o = C()
+        return 100*isinstance(o, A)+10*isinstance(o, B)+1*isinstance(o ,C)
+    res = interpret(f, [1], type_system='ootype')
+    assert res == 100
+    res = interpret(f, [2], type_system='ootype')
+    assert res == 110
+    res = interpret(f, [3], type_system='ootype')
+    assert res == 111
+    res = interpret(f, [0], type_system='ootype')
+    assert res == 0

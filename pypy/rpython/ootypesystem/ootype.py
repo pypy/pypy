@@ -255,7 +255,11 @@ def null(INSTANCE):
     return INSTANCE._null
 
 def instanceof(inst, INSTANCE):
-    return isSubclass(inst._TYPE, INSTANCE)
+    # this version of instanceof() accepts a NULL instance and always
+    # returns False in this case.
+    assert isinstance(inst, _instance)
+    assert isinstance(INSTANCE, Instance)
+    return bool(inst) and isSubclass(inst._TYPE, INSTANCE)
 
 def classof(inst):
     return runtimeClass(inst._TYPE)

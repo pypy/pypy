@@ -1,6 +1,7 @@
+import types
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rclass import AbstractClassRepr, AbstractInstanceRepr, \
-                                getinstancerepr, getclassrepr
+                                getinstancerepr, getclassrepr, get_type_repr
 from pypy.rpython.rpbc import getsignature
 from pypy.rpython.ootypesystem import ootype
 from pypy.annotation.pairtype import pairtype
@@ -17,9 +18,19 @@ class ClassRepr(AbstractClassRepr):
     def _setup_repr(self):
         pass # not actually needed?
 
-    def convert_const(self):
-        # FIXME
-        pass
+    def convert_const(self, value):
+        if not isinstance(value, (type, types.ClassType)):
+            raise TyperError("not a class: %r" % (value,))
+        try:
+            subclassdef = self.rtyper.annotator.getuserclasses()[value]
+        except KeyError:
+            raise TyperError("no classdef: %r" % (value,))
+        if self.classdef is not None:
+            if self.classdef.commonbase(subclassdef) != self.classdef:
+                raise TyperError("not a subclass of %r: %r" % (
+                    self.classdef.cls, value))
+        #
+        return getinstancerepr(self.rtyper, subclassdef).lowleveltype._class
 
 
 def mangle(name):
@@ -179,7 +190,7 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def convert_const(self, value):
         if value is None:
-            return null(self.lowleveltype)
+            return ootype.null(self.lowleveltype)
         try:
             classdef = self.rtyper.annotator.getuserclasses()[value.__class__]
         except KeyError:

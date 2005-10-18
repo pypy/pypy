@@ -656,6 +656,9 @@ class LLFrame(object):
         assert isinstance(inst, ootype._instance)
         return bool(inst)
 
+    def op_instanceof(self, inst, INST):
+        return ootype.instanceof(inst, INST)
+
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
 # for failing tests
