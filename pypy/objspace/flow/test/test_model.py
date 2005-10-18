@@ -117,12 +117,14 @@ def test_variable():
     v = Variable()
     assert v.name[0] == 'v' and v.name[1:].isdigit()
     assert not v.renamed
-    num = int(v.name[1:])
     v.rename("foobar")
-    assert v.name == "foobar_%d" % num
+    name1 = v.name
+    assert name1.startswith('foobar_')
+    assert name1.split('_', 1)[1].isdigit()
     assert v.renamed
     v.rename("not again")
-    assert v.name == "foobar_%d" % num
+    assert v.name == name1
     v2 = Variable(v)
     assert v2.renamed
     assert v2.name.startswith("foobar_") and v2.name != v.name
+    assert v2.name.split('_', 1)[1].isdigit()
