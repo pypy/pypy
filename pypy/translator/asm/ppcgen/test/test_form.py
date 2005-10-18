@@ -1,6 +1,5 @@
 import autopath
 from pypy.translator.asm.ppcgen.ppc_assembler import b
-import unittest
 import random
 import sys
 

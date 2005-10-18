@@ -1,3 +1,4 @@
+import py
 import random, sys, os
 
 from pypy.translator.asm.ppcgen.ppc_assembler import BasicPPCAssembler, MyPPCAssembler
@@ -18,7 +19,8 @@ class TestDisassemble(object):
 class TestAssemble(object):
         
     def setup_class(cls):
-        if os.uname()[-1] != 'Power Macintosh':
+        if (not hasattr(os, 'uname') or
+            os.uname()[-1] != 'Power Macintosh'):
             py.test.skip("can't test all of ppcgen on non-PPC!")
 
     def test_tuplelength(self):

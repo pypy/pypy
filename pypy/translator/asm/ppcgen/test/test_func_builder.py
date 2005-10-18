@@ -1,5 +1,4 @@
-import unittest
-
+import py
 import random, sys, os
 
 from pypy.translator.asm.ppcgen.ppc_assembler import MyPPCAssembler
@@ -10,7 +9,8 @@ from pypy.translator.asm.ppcgen.regname import *
 
 class TestFuncBuilderTest(object):
     def setup_class(cls):
-        if os.uname()[-1] != 'Power Macintosh':
+        if (not hasattr(os, 'uname') or
+            os.uname()[-1] != 'Power Macintosh'):
             py.test.skip("can't test all of ppcgen on non-PPC!")
 
     def test_simple(self):
