@@ -17,8 +17,6 @@ class StructNode(ConstantLLVMNode):
     a struct,
     pointer to struct/array
     """
-    __slots__ = "db value structtype ref _get_ref_cache _get_types".split()
-
     def __init__(self, db, value):
         self.db = db
         self.value = value
@@ -26,7 +24,6 @@ class StructNode(ConstantLLVMNode):
         prefix = 'structinstance_'
         name = str(value).split()[1]
         self.ref = self.make_ref(prefix, name)
-        self._get_ref_cache = None
         self._get_types = self._compute_types()
 
     def __str__(self):
@@ -72,14 +69,11 @@ class StructNode(ConstantLLVMNode):
 
     def get_ref(self):
         """ Returns a reference as used for operations in blocks. """        
-        if self._get_ref_cache:
-            return self._get_ref_cache
         p, c = lltype.parentlink(self.value)
         if p is None:
             ref = self.ref
         else:
             ref = self.db.get_childref(p, c)
-        self._get_ref_cache = ref
         return ref
 
     def constantvalue(self):
@@ -143,16 +137,12 @@ class StructVarsizeNode(StructNode):
         super(StructVarsizeNode, self).setup()
     
     #def get_typerepr(self):
-    #        try:
-    #            return self._get_typerepr_cache
-    #        except:
-    #            # last type is a special case and need to be worked out recursively
-    #            types = self._get_types[:-1]
-    #            types_repr = [self.db.repr_type(T) for name, T in types]
-    #            types_repr.append(self._get_lastnode().get_typerepr())
-    #            result = "{%s}" % ", ".join(types_repr)
-    #            self._get_typerepr_cache = result
-    #            return result
+    #    # last type is a special case and need to be worked out recursively
+    #    types = self._get_types[:-1]
+    #    types_repr = [self.db.repr_type(T) for name, T in types]
+    #    types_repr.append(self._get_lastnode().get_typerepr())
+    #    result = "{%s}" % ", ".join(types_repr)
+    #    return result
          
     def get_ref(self):
         return self.ref

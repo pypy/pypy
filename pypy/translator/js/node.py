@@ -4,8 +4,6 @@ from pypy.rpython import lltype
 _nodename_count = {}
 
 class LLVMNode(object):
-    __slots__ = "".split()
-
     def reset_nodename_count():
         global _nodename_count
         _nodename_count = {}
@@ -50,8 +48,6 @@ class LLVMNode(object):
 
 
 class ConstantLLVMNode(LLVMNode):
-    __slots__ = "".split()
-
     def get_ref(self):
         """ Returns a reference as used for operations in blocks. """        
         return self.ref

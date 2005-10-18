@@ -10,8 +10,6 @@ log = log.funcnode
 
 
 class FuncNode(ConstantLLVMNode):
-    __slots__ = "db value ref graph blockindex".split()
-
     def __init__(self, db, value):
         self.db = db
         self.value = value

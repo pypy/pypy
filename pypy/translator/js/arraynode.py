@@ -11,8 +11,6 @@ class ArrayNode(ConstantLLVMNode):
     a struct,
     pointer to struct/array
     """
-    __slots__ = "db value arraytype ref".split()
-    
     def __init__(self, db, value):
         assert isinstance(lltype.typeOf(value), lltype.Array)
         self.db = db
@@ -59,8 +57,6 @@ class ArrayNode(ConstantLLVMNode):
 
 
 class StrArrayNode(ArrayNode):
-    __slots__ = "".split()
-
     printables = dict([(ord(i), None) for i in
       ("0123456789abcdefghijklmnopqrstuvwxyz" +
        "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
@@ -78,8 +74,6 @@ class StrArrayNode(ArrayNode):
 
 
 class VoidArrayNode(ArrayNode):
-    __slots__ = "db value ref".split()
-
     def __init__(self, db, value):
         assert isinstance(lltype.typeOf(value), lltype.Array)
         self.db = db
