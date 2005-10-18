@@ -149,22 +149,26 @@ We are using
 
 **lists**
 
-  lists are used as an allocated array; list.append() does naive resizing, so as
-  far as possible use list comprehensions (see below).  list.extend() or the +=
-  operator are allowed and efficient.  
-  Repetition via `*` or `*=` is fully supported as well.
+  lists are used as an allocated array.  Lists are over-allocated, so list.append()
+  is reasonably fast.  Negative or out-of-bound indexes are only allowed for the
+  most common operations, as follows:
 
-  - *indexing*
-    negative indexes are disallowed. Indexes are checked when requested
+  - *indexing*:
+    positive and negative indexes are allowed. Indexes are checked when requested
     by an IndexError exception clause.
   
-  - *slicing*
-    the slice start must be within bounds. The stop doesn't need to.
-    Negative indexes are disallowed, except for the [:-1] special case.
+  - *slicing*:
+    the slice start must be within bounds. The stop doesn't need to, but it must
+    not be smaller than the start.  All negative indexes are disallowed, except for
+    the [:-1] special case.  No step.
 
-  - *insert*
-    the index must be withing bounds (not checked) and must not be negative
-    (checked at compile-time).
+  - *other operators*:
+    ``+``, ``+=``, ``in``, ``*``, ``*=``, ``==``, ``!=`` work as expected.
+
+  - *methods*:
+    append, index, insert, extend, reverse, pop.  The index used in pop() follows
+    the same rules as for *indexing* above.  The index used in insert() must be within
+    bounds and not negative.
 
 **dicts**
 
