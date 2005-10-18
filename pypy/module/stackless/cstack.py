@@ -10,7 +10,7 @@ def frames_depth(space):
 frames_depth.unwrap_spec = [ObjSpace]
 
 def too_big(space):
-    return space.wrap(objectmodel.stack_too_big())
+    return space.newbool(objectmodel.stack_too_big())
 too_big.unwrap_spec = [ObjSpace]
 
 def check():
