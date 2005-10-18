@@ -12,19 +12,24 @@
 PyPy Sprint in Paris 10th-16th October 2005 
 ========================================================
 
-At the moment one of the biggest PyPy sprint ever is taking place: 18 people
-are sitting in `Logilabs offices in Paris`_. We are happy to greet five new 
-developers to the PyPy Community! Currently we are focusing on implementing
+The Paris sprint is over. We are all at home again and more or less exhausted.
+The sprint attracted 18 participants and took place in
+`Logilabs offices in Paris`_. We were happy to have five new 
+developers to the PyPy Community! The focus was on implementing
 `continuation-passing`_ style (stackless), making the translation process
 work for target languages with more powerful object systems and some tiny
 steps into the JIT_ direction. Michael and Carl have written
-a `report about day one`_ and `one about day two and three`_. *(10/14/2005)*
+a `report about day one`_ and `one about day two and three`_. 
+Together with Armin they wrote one about `the rest of the sprint`_ on the
+way back.
+*(10/18/2005)*
 
 .. _`Logilabs offices in Paris`: http://codespeak.net/pypy/extradoc/sprintinfo/paris-2005-sprint.html 
 .. _JIT: http://en.wikipedia.org/wiki/Just-in-time_compilation
 .. _`continuation-passing`: http://en.wikipedia.org/wiki/Continuation_passing_style
 .. _`report about day one`: http://codespeak.net/pipermail/pypy-dev/2005q4/002510.html
 .. _`one about day two and three`: http://codespeak.net/pipermail/pypy-dev/2005q4/002512.html
+.. _`the rest of the sprint`: http://codespeak.net/pipermail/pypy-dev/2005q4/002514.html
 
 PyPy release 0.7.0
 =================== 
