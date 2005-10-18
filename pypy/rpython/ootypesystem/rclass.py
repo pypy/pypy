@@ -90,10 +90,22 @@ class InstanceRepr(AbstractInstanceRepr):
         self.allmethods = allmethods
         self.allclassattributes = allclassattributes
 
-        # step 2: provide accessor methods for class attributes that are
-        # really overridden in subclasses (this is done after the rest of
-        # the initialization because convert_const can require 'self' to
-        # be fully initialized)
+        # the following is done after the rest of the initialization because
+        # convert_const can require 'self' to be fully initialized.
+
+        # step 2: provide default values for fields
+        for name, oot in fields.items():
+            try:
+                impl = getattr(self.classdef.cls, name)
+            except AttributeError:
+                pass
+            else:
+                r = allfields[name]
+                oovalue = r.convert_const(impl)
+                ootype.addFields(self.lowleveltype, {name: (oot, oovalue)})
+
+        # step 3: provide accessor methods for class attributes that are
+        # really overridden in subclasses
         for name, (s_value, impl) in classattributes.items():
             r = self.rtyper.getrepr(s_value)
             oovalue = r.convert_const(impl)

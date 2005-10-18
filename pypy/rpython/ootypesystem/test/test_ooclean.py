@@ -130,6 +130,18 @@ def test_prebuilt_instance():
     result = interpret(dummyfn, [], type_system='ootype')
     assert result == 3
 
+def test_recursive_prebuilt_instance():
+    a = EmptyBase()
+    b = EmptyBase()
+    a.x = 5
+    b.x = 6
+    a.peer = b
+    b.peer = a
+    def dummyfn():
+        return a.peer.peer.peer.x
+    res = interpret(dummyfn, [], type_system='ootype')
+    assert res == 6
+
 class HasClassAttr(object):
     a = 3
     def f(self, n):
@@ -156,3 +168,13 @@ def test_class_attr():
     assert result == 103
     result = interpret(dummyfn, [False], type_system='ootype')
     assert result == 142
+
+def test_classattr_as_defaults():
+    class MySubclass(HasClassAttr):
+        pass
+    def dummyfn():
+        x = MySubclass()
+        x.a += 1
+        return x.a
+    res = interpret(dummyfn, [], type_system='ootype')
+    assert res == 4

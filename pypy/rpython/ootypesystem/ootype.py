@@ -43,6 +43,7 @@ class Instance(OOType):
         return '%s(%s)' % (self.__class__.__name__, self._name)
 
     def _add_fields(self, fields):
+        fields = fields.copy()    # mutated below
         for name, defn in fields.iteritems():
             if self._lookup(name) is not None:
                 raise TypeError("Cannot add field %r: method already exists" % name)
@@ -63,7 +64,7 @@ class Instance(OOType):
                     raise TypeError("Attempting to store method in field")
 
                 if ootype != typeOf(default):
-                    raise TypeError("Expected type %r for default" % ootype)
+                    raise TypeError("Expected type %r for default" % (ootype,))
 
         self._fields.update(fields)
 
