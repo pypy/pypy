@@ -4,34 +4,34 @@ from pypy.translator.asm import infregmachine
 from pypy.rpython.lltype import Signed
 from pypy.translator.asm.simulator import Machine, TranslateProgram
 
-#Available Machine code targets (processor+operating system)
-TARGET_UNKNOWN=0
-TARGET_PPC=1
-TARGET_WIN386=2
+# #Available Machine code targets (processor+operating system)
+# TARGET_UNKNOWN=0
+# TARGET_PPC=1
+# TARGET_WIN386=2
 
-#set one of these
-ASM_TARGET=TARGET_UNKNOWN
-#ASM_TARGET=TARGET_WIN386
+# #set one of these
+# ASM_TARGET=TARGET_UNKNOWN
+# #ASM_TARGET=TARGET_WIN386
 
-def determine_target():
-    global ASM_TARGET
-    if sys.platform == 'darwin':
-        if os.uname()[-1] == 'Power Macintosh':
-            ASM_TARGET = TARGET_PPC
-    elif sys.platform == 'win32':
-        if 'Intel' in sys.version:
-            ASM_TARGET = TARGET_WIN386
+# def determine_target():
+#     global ASM_TARGET
+#     if sys.platform == 'darwin':
+#         if os.uname()[-1] == 'Power Macintosh':
+#             ASM_TARGET = TARGET_PPC
+#     elif sys.platform == 'win32':
+#         if 'Intel' in sys.version:
+#             ASM_TARGET = TARGET_WIN386
 
-determine_target()
-if ASM_TARGET == TARGET_UNKNOWN:
-    raise Exception, 'Unknown Machine-code target specified.'
+# determine_target()
+# if ASM_TARGET == TARGET_UNKNOWN:
+#     raise Exception, 'Unknown Machine-code target specified.'
 
-if ASM_TARGET==TARGET_PPC:
-    from pypy.translator.asm.ppcgen.ppc_assembler import PPCAssembler
-    from pypy.translator.asm.ppcgen.func_builder import make_func
-elif ASM_TARGET==TARGET_WIN386:
-    from pypy.translator.asm.i386gen.i386_assembler import i386Assembler as PPCAssembler  #spoof system for time being
-    from pypy.translator.asm.i386gen.i386_assembler import make_func
+# if ASM_TARGET==TARGET_PPC:
+#     from pypy.translator.asm.ppcgen.ppc_assembler import PPCAssembler
+#     from pypy.translator.asm.ppcgen.func_builder import make_func
+# elif ASM_TARGET==TARGET_WIN386:
+#     from pypy.translator.asm.i386gen.i386_assembler import i386Assembler as PPCAssembler  #spoof system for time being
+#     from pypy.translator.asm.i386gen.i386_assembler import make_func
 
 
 def genasm(translator, processor):
