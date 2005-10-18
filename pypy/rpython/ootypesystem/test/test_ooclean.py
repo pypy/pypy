@@ -201,3 +201,14 @@ def test_name_clashes():
     res = interpret(dummyfn, [6], type_system='ootype')
     assert res == 42
 
+def test_null_instance():
+    def dummyfn(flag):
+        if flag:
+            x = EmptyBase()
+        else:
+            x = None
+        return not x
+    res = interpret(dummyfn, [True], type_system='ootype')
+    assert res is False
+    res = interpret(dummyfn, [False], type_system='ootype')
+    assert res is True

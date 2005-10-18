@@ -168,6 +168,9 @@ class _instance(object):
 
         self.__dict__[name] = value
 
+    def __nonzero__(self):
+        return True    # better be explicit -- overridden in _null_instance
+
 class _null_instance(_instance):
 
     def __init__(self, INSTANCE):
@@ -185,6 +188,9 @@ class _null_instance(_instance):
         _instance.__setattr__(self, name, value)
 
         raise RuntimeError("Assignment to field in null object")
+
+    def __nonzero__(self):
+        return False
 
 class _callable(object):
 

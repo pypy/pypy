@@ -173,6 +173,10 @@ class InstanceRepr(AbstractInstanceRepr):
         v_attr = hop.inputconst(ootype.Void, mangled)
         return hop.genop('oosetfield', [v_inst, v_attr, v_newval])
 
+    def rtype_is_true(self, hop):
+        vinst, = hop.inputargs(self)
+        return hop.genop('oononnull', [vinst], resulttype=ootype.Bool)
+
     def convert_const(self, value):
         if value is None:
             return null(self.lowleveltype)

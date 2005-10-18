@@ -652,6 +652,10 @@ class LLFrame(object):
     def op_oodowncast(self, INST, inst):
         return ootype.oodowncast(INST, inst)
 
+    def op_oononnull(self, inst):
+        assert isinstance(inst, ootype._instance)
+        return bool(inst)
+
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
 # for failing tests
