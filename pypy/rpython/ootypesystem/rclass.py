@@ -185,8 +185,7 @@ class InstanceRepr(AbstractInstanceRepr):
         elif mangled in self.allclassattributes:
             # class attributes
             if hop.s_result.is_constant():
-                oovalue = hop.r_result.convert_const(hop.s_result.const)
-                return hop.inputconst(hop.r_result, oovalue)
+                return hop.inputconst(hop.r_result, hop.s_result.const)
             else:
                 cname = hop.inputconst(ootype.Void, mangled)
                 return hop.genop("oosend", [cname, v_inst],

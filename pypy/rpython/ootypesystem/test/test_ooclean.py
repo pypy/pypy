@@ -311,6 +311,15 @@ def test_issubclass_type():
     res = interpret(g, [1], type_system='ootype')
     assert res is True
 
+def test_staticmethod():
+    class A(object):
+        f = staticmethod(lambda x, y: x*y)
+    def f():
+        a = A()
+        return a.f(6, 7)
+    res = interpret(f, [], type_system='ootype')
+    assert res == 42
+
 def test_instance_comparison():
     def f(flag):
         a = Subclass()
