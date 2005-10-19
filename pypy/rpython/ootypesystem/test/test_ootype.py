@@ -273,3 +273,18 @@ def test_equality():
         0, 0, 0, 1, 1,
         0, 0, 0, 1, 1,
         ]
+
+def test_subclassof():
+    A = Instance("A", None)
+    B = Instance("B", A)
+    C = Instance("C", B)
+    result = []
+    for first in [A, B, C]:
+        for second in [A, B, C]:
+            result.append(subclassof(runtimeClass(first),
+                                     runtimeClass(second)))
+    assert result == [
+        1, 0, 0,
+        1, 1, 0,
+        1, 1, 1,
+        ]

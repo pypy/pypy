@@ -284,6 +284,33 @@ def test_isinstance():
     res = interpret(f, [0], type_system='ootype')
     assert res == 0
 
+def test_issubclass_type():
+    class A:
+        pass
+    class B(A):
+        pass
+    def f(i):
+        if i == 0: 
+            c1 = A()
+        else: 
+            c1 = B()
+        return issubclass(type(c1), B)
+    res = interpret(f, [0], type_system='ootype')
+    assert res is False
+    res = interpret(f, [1], type_system='ootype')
+    assert res is True
+
+    def g(i):
+        if i == 0: 
+            c1 = A()
+        else: 
+            c1 = B()
+        return issubclass(type(c1), A)
+    res = interpret(g, [0], type_system='ootype')
+    assert res is True
+    res = interpret(g, [1], type_system='ootype')
+    assert res is True
+
 def test_instance_comparison():
     def f(flag):
         a = Subclass()

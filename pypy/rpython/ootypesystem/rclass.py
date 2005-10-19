@@ -32,6 +32,11 @@ class ClassRepr(AbstractClassRepr):
         #
         return getinstancerepr(self.rtyper, subclassdef).lowleveltype._class
 
+    def rtype_issubtype(self, hop):
+        class_repr = get_type_repr(self.rtyper)
+        vlist = hop.inputargs(class_repr, class_repr)
+        return hop.genop('subclassof', vlist, resulttype=ootype.Bool)
+
 
 def mangle(name):
     # XXX temporary: for now it looks like a good idea to mangle names
@@ -200,6 +205,10 @@ class InstanceRepr(AbstractInstanceRepr):
     def rtype_is_true(self, hop):
         vinst, = hop.inputargs(self)
         return hop.genop('oononnull', [vinst], resulttype=ootype.Bool)
+
+    def rtype_type(self, hop):
+        vinst, = hop.inputargs(self)
+        return hop.genop('classof', [vinst], resulttype=ootype.Class)
 
     def convert_const(self, value):
         if value is None:

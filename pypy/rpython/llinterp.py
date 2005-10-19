@@ -664,6 +664,12 @@ class LLFrame(object):
     def op_instanceof(self, inst, INST):
         return ootype.instanceof(inst, INST)
 
+    def op_classof(self, inst):
+        return ootype.classof(inst)
+
+    def op_subclassof(self, class1, class2):
+        return ootype.subclassof(class1, class2)
+
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
 # for failing tests

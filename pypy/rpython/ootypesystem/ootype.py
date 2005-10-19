@@ -275,7 +275,13 @@ def instanceof(inst, INSTANCE):
     return bool(inst) and isSubclass(inst._TYPE, INSTANCE)
 
 def classof(inst):
+    assert isinstance(inst, _instance)
     return runtimeClass(inst._TYPE)
+
+def subclassof(class1, class2):
+    assert isinstance(class1, _class)
+    assert isinstance(class2, _class)
+    return isSubclass(class1._INSTANCE, class2._INSTANCE)
 
 def addFields(INSTANCE, fields):
     INSTANCE._add_fields(fields)
