@@ -198,7 +198,7 @@ class SourceGenerator:
         used = nextra
         part = []
         for node in nodes:
-            impl = list(node.implementation())
+            impl = '\n'.join(list(node.implementation())).split('\n')
             if not impl:
                 continue
             cost = len(impl) + nbetween
