@@ -182,7 +182,7 @@ def entry_point(executable, argv):
             print >> sys.stderr, "debug: calling code.interact()"
             run_toplevel(code.interact, local=mainmodule.__dict__)
     except SystemExit, e:
-        return e.exitcode
+        return e.code
     else:
         return 0
 

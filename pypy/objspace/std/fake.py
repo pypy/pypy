@@ -249,5 +249,6 @@ W_FakeDescriptor.typedef = TypeDef(
                                            baseobjspace.W_Root]),
     )
 
-_fake_type_cache[type(file.softspace)] = W_FakeDescriptor
+if hasattr(file, 'softspace'):    # CPython only
+    _fake_type_cache[type(file.softspace)] = W_FakeDescriptor
 _fake_type_cache[type(type.__dict__['__dict__'])] = W_FakeDescriptor

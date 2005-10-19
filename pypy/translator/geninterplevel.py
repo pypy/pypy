@@ -192,9 +192,10 @@ class GenRpy:
         # with modified builtins
 
         # add a dummy _issubtype() to builtins
-        def _issubtype(cls1, cls2):
-            raise TypeError, "this dummy should *not* be reached"
-        __builtin__._issubtype = _issubtype
+        if not hasattr(__builtin__, '_issubtype'):
+            def _issubtype(cls1, cls2):
+                raise TypeError, "this dummy should *not* be reached"
+            __builtin__._issubtype = _issubtype
         
         class bltinstub:
             def __init__(self, name):
