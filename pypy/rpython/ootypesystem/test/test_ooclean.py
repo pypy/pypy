@@ -130,6 +130,19 @@ def test_method_used_in_subclasses_only():
     res = interpret(f, [], type_system='ootype')
     assert res == 123
 
+def test_method_both_A_and_B():
+    class A:
+        def meth(self):
+            return 123
+    class B(A):
+        pass
+    def f():
+        a = A()
+        b = B()
+        return a.meth() + b.meth()
+    res = interpret(f, [], type_system='ootype')
+    assert res == 246
+
 class HasAField(object):
     def f(self):
         return self.a
@@ -283,3 +296,107 @@ def test_instance_comparison():
     assert res == 110
     res = interpret(f, [False], type_system='ootype')
     assert res == 1
+
+def test_is():
+    class A: pass
+    class B(A): pass
+    class C: pass
+    def f(i):
+        a = A()
+        b = B()
+        c = C()
+        d = None
+        e = None
+        if i == 0:
+            d = a
+        elif i == 1:
+            d = b
+        elif i == 2:
+            e = c
+        return (0x0001*(a is b) | 0x0002*(a is c) | 0x0004*(a is d) |
+                0x0008*(a is e) | 0x0010*(b is c) | 0x0020*(b is d) |
+                0x0040*(b is e) | 0x0080*(c is d) | 0x0100*(c is e) |
+                0x0200*(d is e))
+    res = interpret(f, [0], type_system='ootype')
+    assert res == 0x0004
+    res = interpret(f, [1], type_system='ootype')
+    assert res == 0x0020
+    res = interpret(f, [2], type_system='ootype')
+    assert res == 0x0100
+    res = interpret(f, [3], type_system='ootype')
+    assert res == 0x0200
+
+def test_eq():
+    class A: pass
+    class B(A): pass
+    class C: pass
+    def f(i):
+        a = A()
+        b = B()
+        c = C()
+        d = None
+        e = None
+        if i == 0:
+            d = a
+        elif i == 1:
+            d = b
+        elif i == 2:
+            e = c
+        return (0x0001*(a == b) | 0x0002*(a == c) | 0x0004*(a == d) |
+                0x0008*(a == e) | 0x0010*(b == c) | 0x0020*(b == d) |
+                0x0040*(b == e) | 0x0080*(c == d) | 0x0100*(c == e) |
+                0x0200*(d == e))
+    res = interpret(f, [0], type_system='ootype')
+    assert res == 0x0004
+    res = interpret(f, [1], type_system='ootype')
+    assert res == 0x0020
+    res = interpret(f, [2], type_system='ootype')
+    assert res == 0x0100
+    res = interpret(f, [3], type_system='ootype')
+    assert res == 0x0200
+
+def test_istrue():
+    class A:
+        pass
+    def f(i):
+        if i == 0:
+            a = A()
+        else:
+            a = None
+        if a:
+            return 1
+        else:
+            return 2
+    res = interpret(f, [0], type_system='ootype')
+    assert res == 1
+    res = interpret(f, [1], type_system='ootype')
+    assert res == 2
+
+def test_ne():
+    class A: pass
+    class B(A): pass
+    class C: pass
+    def f(i):
+        a = A()
+        b = B()
+        c = C()
+        d = None
+        e = None
+        if i == 0:
+            d = a
+        elif i == 1:
+            d = b
+        elif i == 2:
+            e = c
+        return (0x0001*(a != b) | 0x0002*(a != c) | 0x0004*(a != d) |
+                0x0008*(a != e) | 0x0010*(b != c) | 0x0020*(b != d) |
+                0x0040*(b != e) | 0x0080*(c != d) | 0x0100*(c != e) |
+                0x0200*(d != e))
+    res = interpret(f, [0], type_system='ootype')
+    assert res == ~0x0004 & 0x3ff
+    res = interpret(f, [1], type_system='ootype')
+    assert res == ~0x0020 & 0x3ff
+    res = interpret(f, [2], type_system='ootype')
+    assert res == ~0x0100 & 0x3ff
+    res = interpret(f, [3], type_system='ootype')
+    assert res == ~0x0200 & 0x3ff
