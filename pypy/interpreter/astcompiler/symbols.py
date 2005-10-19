@@ -157,6 +157,7 @@ class Scope:
         """
         child_globals = []
         for name in names:
+            name = self.mangle(name)
             sc = self.check_name(name)
             if self.nested:
                 if sc == SC_UNKNOWN or sc == SC_FREE \
@@ -416,6 +417,7 @@ class SymbolVisitor(ast.ASTVisitor):
     def visitGlobal(self, node ):
         scope = self.cur_scope()
         for name in node.names:
+            name = scope.mangle(name)
             namescope = scope.check_name(name)
             if namescope == SC_LOCAL:
                 issue_warning(self.space, "name '%s' is assigned to before "

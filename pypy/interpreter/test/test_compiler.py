@@ -338,6 +338,36 @@ def wrong3():
         assert space.int_w(w_fline) == 2
         assert space.int_w(w_gline) == 6
 
+    def test_mangling(self):
+        snippet = str(py.code.Source(r'''
+            __g = "42"
+            class X:
+                def __init__(self, u):
+                    self.__u = u
+                def __f(__self, __n):
+                    global __g
+                    __NameError = NameError
+                    try:
+                        yield "found: " + __g
+                    except __NameError, __e:
+                        yield "not found: " + str(__e)
+                    del __NameError
+                    for __i in range(__self.__u * __n):
+                        yield locals()
+            result = X(2)
+            assert not hasattr(result, "__f")
+            result = list(result._X__f(3))
+            assert len(result) == 7
+            assert result[0].startswith("not found: ")
+            for d in result[1:]:
+                for key, value in d.items():
+                    assert not key.startswith('__')
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict([])
+        space.exec_(code, w_d, w_d)
+
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler

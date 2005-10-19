@@ -434,8 +434,8 @@ DONE = "DONE"
 
 class PyFlowGraph(FlowGraph):
 
-    def __init__(self, space, name, filename, args=None, optimized=0,
-                 klass=0, newlocals=0):
+    def __init__(self, space, name, filename, args=None, mangler=None,
+                 optimized=0, klass=0, newlocals=0):
         FlowGraph.__init__(self, space)
         if args is None:
             args = []
@@ -465,7 +465,7 @@ class PyFlowGraph(FlowGraph):
         for i in range(len(args)):
             var = args[i]
             if isinstance(var, ast.AssName):
-                self.varnames.append(var.name )
+                self.varnames.append(mangler.mangle(var.name))
             elif isinstance(var, ast.AssTuple):
                 self.varnames.append('.%d' % (2 * i))
         self.stage = RAW

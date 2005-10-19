@@ -146,6 +146,7 @@ class CodeGenerator(ast.ASTVisitor):
     """
 
     scopeambiguity = False
+    class_name = ""
 
     def __init__(self, space, graph):
         self.space = space
@@ -155,7 +156,6 @@ class CodeGenerator(ast.ASTVisitor):
         self.genexpr_cont_stack = []
         self.graph = graph
         self.optimized = 0 # is namespace access optimized?
-        self.class_name = "" # provide default for instance variable
 
         # XXX set flags based on future features
         futures = self.get_module().futures
@@ -236,7 +236,7 @@ class CodeGenerator(ast.ASTVisitor):
     def delName(self, name, lineno):
         if name in ('None', '__debug__'):
             raise SyntaxError('deleting %s is not allowed' % name, lineno)
-        scope = self.scope.check_name(name)
+        scope = self.scope.check_name(self.mangle(name))
         if scope == SC_CELL:
             raise SyntaxError("can not delete variable '%s' "
                               "referenced in nested scope" % name, lineno)
@@ -1238,6 +1238,7 @@ class InteractiveCodeGenerator(CodeGenerator):
         
 class AbstractFunctionCode(CodeGenerator):
     def __init__(self, space, func, isLambda, class_name, mod):
+        self.class_name = class_name
         self.module = mod
         if isLambda:
             name = "<lambda>"
@@ -1248,11 +1249,13 @@ class AbstractFunctionCode(CodeGenerator):
         argnames = {}
         for arg in func.argnames:
             if isinstance(arg, ast.AssName):
-                if arg.name in argnames:
-                    raise SyntaxError("duplicate argument '%s' in function definition" % arg.name, func.lineno)
-                argnames[arg.name] = 1
+                argname = self.mangle(arg.name)
+                if argname in argnames:
+                    raise SyntaxError("duplicate argument '%s' in function definition" % argname, func.lineno)
+                argnames[argname] = 1
             elif isinstance(arg, ast.AssTuple):
                 for argname in arg.getArgNames():
+                    argname = self.mangle(argname)
                     if argname in argnames:
                         raise SyntaxError("duplicate argument '%s' in function definition" % argname, func.lineno)
                     argnames[argname] = 1
@@ -1260,11 +1263,11 @@ class AbstractFunctionCode(CodeGenerator):
             raise SyntaxError('assignment to None is not allowed', func.lineno)
 
         graph = pyassem.PyFlowGraph(space, name, func.filename, func.argnames,
+                                    mangler=self,
                                     optimized=self.localsfullyknown,
                                     newlocals=1)
         self.isLambda = isLambda
         CodeGenerator.__init__(self, space, graph)
-        self.class_name = class_name
         self.optimized = 1
 
         if not isLambda and not space.is_w(func.doc, space.w_None):
