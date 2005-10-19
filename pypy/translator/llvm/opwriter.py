@@ -48,7 +48,6 @@ class OpWriter(object):
                          'float_add': 'add',
                          'float_sub': 'sub',
                          'float_truediv': 'div',
-                         'float_mod': 'rem',
                          'float_lt': 'setlt',
                          'float_le': 'setle',
                          'float_eq': 'seteq',
