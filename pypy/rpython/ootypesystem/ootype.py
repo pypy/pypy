@@ -324,4 +324,10 @@ def ooupcast(INSTANCE, instance):
 def oodowncast(INSTANCE, instance):
     assert instanceof(instance, INSTANCE)
     return instance
-    
+
+def ooidentityhash(inst):
+    assert isinstance(inst, _instance)
+    if inst:
+        return id(inst)
+    else:
+        return 0   # for all null instances

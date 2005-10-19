@@ -436,3 +436,27 @@ def test_ne():
     assert res == ~0x0100 & 0x3ff
     res = interpret(f, [3], type_system='ootype')
     assert res == ~0x0200 & 0x3ff
+
+def test_hash_preservation():
+    class C:
+        pass
+    class D(C):
+        pass
+    def f1():
+        d2 = D()
+        # xxx we assume that the identityhash doesn't change from
+        #     one line to the next
+        current_identityhash = id(d2)
+        instance_hash = hash(d2)
+        return current_identityhash == instance_hash
+    res = interpret(f1, [], type_system='ootype')
+    assert res is True
+
+    c = C()
+    d = D()
+    def f2(): return hash(c)
+    def f3(): return hash(d)
+    res = interpret(f2, [], type_system='ootype')
+    assert res == hash(c)
+    res = interpret(f3, [], type_system='ootype')
+    assert res == hash(d)

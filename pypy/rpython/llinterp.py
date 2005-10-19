@@ -670,6 +670,9 @@ class LLFrame(object):
     def op_subclassof(self, class1, class2):
         return ootype.subclassof(class1, class2)
 
+    def op_ooidentityhash(self, inst):
+        return ootype.ooidentityhash(inst)
+
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
 # for failing tests

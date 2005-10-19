@@ -393,11 +393,16 @@ def runtimenew(c):
     assert isinstance(c, SomeOOClass)
     return SomeOOInstance(c.ootype)
 
+def ooidentityhash(i):
+    assert isinstance(i, SomeOOInstance)
+    return SomeInteger()
+
 BUILTIN_ANALYZERS[ootype.instanceof] = instanceof
 BUILTIN_ANALYZERS[ootype.new] = new
 BUILTIN_ANALYZERS[ootype.null] = null
 BUILTIN_ANALYZERS[ootype.runtimenew] = runtimenew
 BUILTIN_ANALYZERS[ootype.classof] = classof
+BUILTIN_ANALYZERS[ootype.ooidentityhash] = ooidentityhash
 
 #________________________________
 # non-gc objects

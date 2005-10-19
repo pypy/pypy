@@ -775,8 +775,9 @@ class LowLevelOpList(list):
         # build the 'direct_call' operation
         f = self.rtyper.getfunctionptr(spec_function)
         c = inputconst(typeOf(f), f)
+        fobj = self.rtyper.type_system_deref(f)
         return self.genop('direct_call', [c]+newargs_v,
-                          resulttype = typeOf(f).TO.RESULT)
+                          resulttype = typeOf(fobj).RESULT)
 
     def genexternalcall(self, fnname, args_v, resulttype=None, **flags):
         if isinstance(resulttype, Repr):

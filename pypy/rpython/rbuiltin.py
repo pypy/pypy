@@ -11,7 +11,6 @@ from pypy.rpython.rfloat import float_repr, FloatRepr
 from pypy.rpython.rbool import bool_repr
 from pypy.rpython.rdict import rtype_r_dict
 from pypy.tool import sourcetools
-from pypy.rpython.ootypesystem import ootype
 
 class __extend__(annmodel.SomeBuiltin):
     def rtyper_makerepr(self, rtyper):
@@ -265,22 +264,6 @@ def rtype_runtime_type_info(hop):
     return hop.genop('runtime_type_info', vlist,
                  resulttype = rptr.PtrRepr(lltype.Ptr(lltype.RuntimeTypeInfo)))
 
-def rtype_new(hop):
-    assert hop.args_s[0].is_constant()
-    vlist = hop.inputargs(lltype.Void)
-    return hop.genop('new', vlist,
-                     resulttype = hop.r_result.lowleveltype)
-
-def rtype_classof(hop):
-    assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)
-    return hop.genop('classof', hop.args_v,
-                     resulttype = ootype.Class)
-
-def rtype_runtimenew(hop):
-    assert isinstance(hop.args_s[0], annmodel.SomeOOClass)
-    return hop.genop('runtimenew', hop.args_v,
-                     resulttype = hop.r_result.lowleveltype)
-
 BUILTIN_TYPER[lltype.malloc] = rtype_malloc
 BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
 BUILTIN_TYPER[lltype.cast_ptr_to_int] = rtype_cast_ptr_to_int
@@ -294,9 +277,6 @@ BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
 
 BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
-BUILTIN_TYPER[ootype.new] = rtype_new
-BUILTIN_TYPER[ootype.classof] = rtype_classof
-BUILTIN_TYPER[ootype.runtimenew] = rtype_runtimenew
 
 from pypy.rpython import extfunctable
 
