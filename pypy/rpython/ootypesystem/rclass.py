@@ -1,5 +1,5 @@
 import types
-from pypy.rpython.rmodel import inputconst
+from pypy.rpython.rmodel import inputconst, TyperError
 from pypy.rpython.rclass import AbstractClassRepr, AbstractInstanceRepr, \
                                 getinstancerepr, getclassrepr, get_type_repr
 from pypy.rpython.rpbc import getsignature
@@ -95,11 +95,24 @@ class InstanceRepr(AbstractInstanceRepr):
             for name, attrdef in attrs:
                 if not attrdef.readonly:
                     continue
-                try:
-                    impl = self.classdef.cls.__dict__[name]
-                except KeyError:
-                    continue
                 mangled = mangle(name)
+                if mangled in allmethods or mangled in allclassattributes:
+                    # if the method/attr was already found in a parent class,
+                    # we register it again only if it is overridden.
+                    if name not in self.classdef.cls.__dict__:
+                        continue
+                    impl = self.classdef.cls.__dict__[name]
+                else:
+                    # otherwise, for new method/attrs, we look in all parent
+                    # classes to see if it's defined in a parent but only
+                    # actually first used in self.classdef.
+                    for clsdef in self.classdef.getmro():
+                        if name in clsdef.cls.__dict__:
+                            impl = clsdef.cls.__dict__[name]
+                            break
+                    else:
+                        raise TyperError("class %r has no attribute %r" % (
+                            self.classdef.cls, name))
                 if classrepr.prepare_method(attrdef.s_value) is not None:
                     # a regular method
                     f, inputs, ret = getsignature(self.rtyper, impl)

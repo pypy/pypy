@@ -118,6 +118,18 @@ def test_override():
     result = interpret(dummyfn, [False], type_system='ootype')
     assert result == 2
 
+def test_method_used_in_subclasses_only():
+    class A:
+        def meth(self):
+            return 123
+    class B(A):
+        pass
+    def f():
+        x = B()
+        return x.meth()
+    res = interpret(f, [], type_system='ootype')
+    assert res == 123
+
 class HasAField(object):
     def f(self):
         return self.a
@@ -188,6 +200,26 @@ def test_classattr_as_defaults():
         return x.a
     res = interpret(dummyfn, [], type_system='ootype')
     assert res == 4
+
+def test_classattr_used_in_subclasses_only():
+    class Subclass1(HasClassAttr):
+        pass
+    class Subclass2(HasClassAttr):
+        pass
+    class SubSubclass2(Subclass2):
+        a = 5432
+    def dummyfn(flag):
+        inst1 = Subclass1()
+        inst1.a += 42         # used as default
+        if flag:
+            inst2 = Subclass2()
+        else:
+            inst2 = SubSubclass2()
+        return inst1.a + inst2.a
+    res = interpret(dummyfn, [True], type_system='ootype')
+    assert res == (3 + 42) + 3
+    res = interpret(dummyfn, [False], type_system='ootype')
+    assert res == (3 + 42) + 5432
 
 def test_name_clashes():
     class NameClash1(object):
