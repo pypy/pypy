@@ -276,6 +276,7 @@ def instanceof(inst, INSTANCE):
 
 def classof(inst):
     assert isinstance(inst, _instance)
+    assert bool(inst)
     return runtimeClass(inst._TYPE)
 
 def subclassof(class1, class2):

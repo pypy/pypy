@@ -1,20 +1,9 @@
 from pypy.translator.translator import Translator
 from pypy.rpython import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import get_interpreter
 import py
 
-def specialize(f, input_types, viewBefore=False, viewAfter=False):
-    t = Translator(f)
-    t.annotate(input_types)
-    if viewBefore:
-        t.view()
-    t.specialize(type_system="ootype")
-    if viewAfter:
-        t.view()
-
-    graph = t.flowgraphs[f]
-    check_only_ootype(graph)
 
 def check_only_ootype(graph):
     def check_ootype(v):
@@ -27,10 +16,20 @@ def check_only_ootype(graph):
         for const in block.getconstants():
             check_ootype(const)
 
+def interpret(func, values, view=False, viewbefore=False, policy=None,
+              someobjects=False):
+    interp = get_interpreter(func, values, view, viewbefore, policy,
+                             someobjects, type_system='ootype')
+    for graph in interp.flowgraphs.values():
+        check_only_ootype(graph)
+    return interp.eval_function(func, values)
+
+# ____________________________________________________________
+
 def test_simple():
     def f(a, b):
         return a + b
-    result = interpret(f, [1, 2], type_system='ootype')
+    result = interpret(f, [1, 2])
     assert result == 3
 
 def test_simple_call():
@@ -39,7 +38,7 @@ def test_simple_call():
 
     def g():
         return f(5, 3)
-    result = interpret(g, [], type_system='ootype')
+    result = interpret(g, [])
     assert result == 8
 
 # Adjusted from test_rclass.py
@@ -50,7 +49,7 @@ def test_simple_empty_base():
     def dummyfn():
         x = EmptyBase()
         return x
-    result = interpret(dummyfn, [], type_system='ootype')
+    result = interpret(dummyfn, [])
     assert isinstance(ootype.typeOf(result), ootype.Instance)
 
 
@@ -59,7 +58,7 @@ def test_instance_attribute():
         x = EmptyBase()
         x.a = 1
         return x.a
-    result = interpret(dummyfn, [], type_system='ootype')
+    result = interpret(dummyfn, [])
     assert result == 1
 
 class Subclass(EmptyBase):
@@ -73,7 +72,7 @@ def test_subclass_attributes():
         y.a = 2
         y.b = 3
         return x.a + y.a + y.b
-    result = interpret(dummyfn, [], type_system='ootype')
+    result = interpret(dummyfn, [])
     assert result == 1 + 2 + 3
 
 def test_polymorphic_field():
@@ -86,9 +85,9 @@ def test_polymorphic_field():
             y = EmptyBase()
             y.a = 1
         return y.a
-    result = interpret(dummyfn, [True], type_system='ootype')
+    result = interpret(dummyfn, [True])
     assert result == 0
-    result = interpret(dummyfn, [False], type_system='ootype')
+    result = interpret(dummyfn, [False])
     assert result == 1    
 
 class HasAMethod(object):
@@ -99,7 +98,7 @@ def test_method():
     def dummyfn():
         inst = HasAMethod()
         return inst.f()
-    result = interpret(dummyfn, [], type_system='ootype')
+    result = interpret(dummyfn, [])
     assert result == 1
 
 class OverridesAMethod(HasAMethod):
@@ -113,9 +112,9 @@ def test_override():
         else:
             inst = OverridesAMethod()
         return inst.f()
-    result = interpret(dummyfn, [True], type_system='ootype')
+    result = interpret(dummyfn, [True])
     assert result == 1
-    result = interpret(dummyfn, [False], type_system='ootype')
+    result = interpret(dummyfn, [False])
     assert result == 2
 
 def test_method_used_in_subclasses_only():
@@ -127,7 +126,7 @@ def test_method_used_in_subclasses_only():
     def f():
         x = B()
         return x.meth()
-    res = interpret(f, [], type_system='ootype')
+    res = interpret(f, [])
     assert res == 123
 
 def test_method_both_A_and_B():
@@ -140,7 +139,7 @@ def test_method_both_A_and_B():
         a = A()
         b = B()
         return a.meth() + b.meth()
-    res = interpret(f, [], type_system='ootype')
+    res = interpret(f, [])
     assert res == 246
 
 class HasAField(object):
@@ -152,7 +151,7 @@ def test_prebuilt_instance():
     inst.a = 3
     def dummyfn():
         return inst.f()
-    result = interpret(dummyfn, [], type_system='ootype')
+    result = interpret(dummyfn, [])
     assert result == 3
 
 def test_recursive_prebuilt_instance():
@@ -164,7 +163,7 @@ def test_recursive_prebuilt_instance():
     b.peer = a
     def dummyfn():
         return a.peer.peer.peer.x
-    res = interpret(dummyfn, [], type_system='ootype')
+    res = interpret(dummyfn, [])
     assert res == 6
 
 def test_prebuilt_instances_with_void():
@@ -174,7 +173,7 @@ def test_prebuilt_instances_with_void():
     a.nothing_special = marker
     def dummyfn():
         return a.nothing_special()
-    res = interpret(dummyfn, [], type_system='ootype')
+    res = interpret(dummyfn, [])
     assert res == 42
 
 class HasClassAttr(object):
@@ -189,7 +188,7 @@ def test_single_class_attr():
     def dummyfn():
         inst = HasClassAttr()
         return inst.f(100)
-    result = interpret(dummyfn, [], type_system='ootype')
+    result = interpret(dummyfn, [])
     assert result == 103
 
 def test_class_attr():
@@ -199,9 +198,9 @@ def test_class_attr():
         else:
             inst = OverridesClassAttr()
         return inst.f(100)
-    result = interpret(dummyfn, [True], type_system='ootype')
+    result = interpret(dummyfn, [True])
     assert result == 103
-    result = interpret(dummyfn, [False], type_system='ootype')
+    result = interpret(dummyfn, [False])
     assert result == 142
 
 def test_classattr_as_defaults():
@@ -211,7 +210,7 @@ def test_classattr_as_defaults():
         x = MySubclass()
         x.a += 1
         return x.a
-    res = interpret(dummyfn, [], type_system='ootype')
+    res = interpret(dummyfn, [])
     assert res == 4
 
 def test_classattr_used_in_subclasses_only():
@@ -229,9 +228,9 @@ def test_classattr_used_in_subclasses_only():
         else:
             inst2 = SubSubclass2()
         return inst1.a + inst2.a
-    res = interpret(dummyfn, [True], type_system='ootype')
+    res = interpret(dummyfn, [True])
     assert res == (3 + 42) + 3
-    res = interpret(dummyfn, [False], type_system='ootype')
+    res = interpret(dummyfn, [False])
     assert res == (3 + 42) + 5432
 
 def test_name_clashes():
@@ -243,7 +242,7 @@ def test_name_clashes():
         y = EmptyBase()
         y._TYPE = n+1
         return x._TYPE() * y._TYPE
-    res = interpret(dummyfn, [6], type_system='ootype')
+    res = interpret(dummyfn, [6])
     assert res == 42
 
 def test_null_instance():
@@ -253,9 +252,9 @@ def test_null_instance():
         else:
             x = None
         return not x
-    res = interpret(dummyfn, [True], type_system='ootype')
+    res = interpret(dummyfn, [True])
     assert res is False
-    res = interpret(dummyfn, [False], type_system='ootype')
+    res = interpret(dummyfn, [False])
     assert res is True
 
 def test_isinstance():
@@ -275,13 +274,13 @@ def test_isinstance():
         else:
             o = C()
         return 100*isinstance(o, A)+10*isinstance(o, B)+1*isinstance(o ,C)
-    res = interpret(f, [1], type_system='ootype')
+    res = interpret(f, [1])
     assert res == 100
-    res = interpret(f, [2], type_system='ootype')
+    res = interpret(f, [2])
     assert res == 110
-    res = interpret(f, [3], type_system='ootype')
+    res = interpret(f, [3])
     assert res == 111
-    res = interpret(f, [0], type_system='ootype')
+    res = interpret(f, [0])
     assert res == 0
 
 def test_issubclass_type():
@@ -295,9 +294,9 @@ def test_issubclass_type():
         else: 
             c1 = B()
         return issubclass(type(c1), B)
-    res = interpret(f, [0], type_system='ootype')
+    res = interpret(f, [0])
     assert res is False
-    res = interpret(f, [1], type_system='ootype')
+    res = interpret(f, [1])
     assert res is True
 
     def g(i):
@@ -306,9 +305,9 @@ def test_issubclass_type():
         else: 
             c1 = B()
         return issubclass(type(c1), A)
-    res = interpret(g, [0], type_system='ootype')
+    res = interpret(g, [0])
     assert res is True
-    res = interpret(g, [1], type_system='ootype')
+    res = interpret(g, [1])
     assert res is True
 
 def test_staticmethod():
@@ -317,7 +316,7 @@ def test_staticmethod():
     def f():
         a = A()
         return a.f(6, 7)
-    res = interpret(f, [], type_system='ootype')
+    res = interpret(f, [])
     assert res == 42
 
 def test_instance_comparison():
@@ -328,9 +327,9 @@ def test_instance_comparison():
         else:
             b = EmptyBase()
         return (a is b)*100 + (a == b)*10 + (a != b)
-    res = interpret(f, [True], type_system='ootype')
+    res = interpret(f, [True])
     assert res == 110
-    res = interpret(f, [False], type_system='ootype')
+    res = interpret(f, [False])
     assert res == 1
 
 def test_is():
@@ -353,13 +352,13 @@ def test_is():
                 0x0008*(a is e) | 0x0010*(b is c) | 0x0020*(b is d) |
                 0x0040*(b is e) | 0x0080*(c is d) | 0x0100*(c is e) |
                 0x0200*(d is e))
-    res = interpret(f, [0], type_system='ootype')
+    res = interpret(f, [0])
     assert res == 0x0004
-    res = interpret(f, [1], type_system='ootype')
+    res = interpret(f, [1])
     assert res == 0x0020
-    res = interpret(f, [2], type_system='ootype')
+    res = interpret(f, [2])
     assert res == 0x0100
-    res = interpret(f, [3], type_system='ootype')
+    res = interpret(f, [3])
     assert res == 0x0200
 
 def test_eq():
@@ -382,13 +381,13 @@ def test_eq():
                 0x0008*(a == e) | 0x0010*(b == c) | 0x0020*(b == d) |
                 0x0040*(b == e) | 0x0080*(c == d) | 0x0100*(c == e) |
                 0x0200*(d == e))
-    res = interpret(f, [0], type_system='ootype')
+    res = interpret(f, [0])
     assert res == 0x0004
-    res = interpret(f, [1], type_system='ootype')
+    res = interpret(f, [1])
     assert res == 0x0020
-    res = interpret(f, [2], type_system='ootype')
+    res = interpret(f, [2])
     assert res == 0x0100
-    res = interpret(f, [3], type_system='ootype')
+    res = interpret(f, [3])
     assert res == 0x0200
 
 def test_istrue():
@@ -403,9 +402,9 @@ def test_istrue():
             return 1
         else:
             return 2
-    res = interpret(f, [0], type_system='ootype')
+    res = interpret(f, [0])
     assert res == 1
-    res = interpret(f, [1], type_system='ootype')
+    res = interpret(f, [1])
     assert res == 2
 
 def test_ne():
@@ -428,13 +427,13 @@ def test_ne():
                 0x0008*(a != e) | 0x0010*(b != c) | 0x0020*(b != d) |
                 0x0040*(b != e) | 0x0080*(c != d) | 0x0100*(c != e) |
                 0x0200*(d != e))
-    res = interpret(f, [0], type_system='ootype')
+    res = interpret(f, [0])
     assert res == ~0x0004 & 0x3ff
-    res = interpret(f, [1], type_system='ootype')
+    res = interpret(f, [1])
     assert res == ~0x0020 & 0x3ff
-    res = interpret(f, [2], type_system='ootype')
+    res = interpret(f, [2])
     assert res == ~0x0100 & 0x3ff
-    res = interpret(f, [3], type_system='ootype')
+    res = interpret(f, [3])
     assert res == ~0x0200 & 0x3ff
 
 def test_hash_preservation():
@@ -449,14 +448,37 @@ def test_hash_preservation():
         current_identityhash = id(d2)
         instance_hash = hash(d2)
         return current_identityhash == instance_hash
-    res = interpret(f1, [], type_system='ootype')
+    res = interpret(f1, [])
     assert res is True
 
     c = C()
     d = D()
     def f2(): return hash(c)
     def f3(): return hash(d)
-    res = interpret(f2, [], type_system='ootype')
+    res = interpret(f2, [])
     assert res == hash(c)
-    res = interpret(f3, [], type_system='ootype')
+    res = interpret(f3, [])
     assert res == hash(d)
+
+def test_type():
+    py.test.skip('in progress')
+    class A:
+        pass
+    class B(A):
+        pass
+    def g(a):
+        return type(a)
+    def f(i):
+        if i > 0:
+            a = A()
+        elif i < 0:
+            a = B()
+        else:
+            a = None
+        return g(a) is A    # should type(None) work?  returns None for now
+    res = interpret(f, [1])
+    assert res is True
+    res = interpret(f, [-1])
+    assert res is False
+    res = interpret(f, [0])
+    assert res is False
