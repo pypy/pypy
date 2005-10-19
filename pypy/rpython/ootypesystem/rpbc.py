@@ -1,7 +1,8 @@
 from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr
 from pypy.rpython.rclass import rtype_new_instance
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.ootypesystem.rclass import InstanceRepr, mangle
+from pypy.rpython.ootypesystem.rclass import ClassRepr, InstanceRepr, mangle
+from pypy.rpython.ootypesystem.rclass import rtype_classes_is_
 from pypy.annotation.pairtype import pairtype
 
 class ClassesPBCRepr(AbstractClassesPBCRepr):
@@ -29,3 +30,10 @@ class __extend__(pairtype(InstanceRepr, MethodsPBCRepr)):
 
     def convert_from_to(_, v, llops):
         return v
+
+
+class __extend__(pairtype(ClassRepr, ClassesPBCRepr)):
+    rtype_is_ = rtype_classes_is_
+
+class __extend__(pairtype(ClassesPBCRepr, ClassRepr)):
+    rtype_is_ = rtype_classes_is_

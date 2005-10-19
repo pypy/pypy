@@ -38,6 +38,22 @@ class ClassRepr(AbstractClassRepr):
         return hop.genop('subclassof', vlist, resulttype=ootype.Bool)
 
 
+    def rtype_is_((r_cls1, r_cls2), hop):
+        class_repr = get_type_repr(self.rtyper)
+        vlist = hop.inputargs(class_repr, class_repr)
+        return hop.genop('oosameclass', vlist, resulttype=ootype.Bool)
+
+
+def rtype_classes_is_(_, hop):
+    class_repr = get_type_repr(hop.rtyper)
+    vlist = hop.inputargs(class_repr, class_repr)
+    return hop.genop('oosameclass', vlist, resulttype=ootype.Bool)
+
+class __extend__(pairtype(ClassRepr, ClassRepr)):
+    rtype_is_ = rtype_classes_is_
+
+# ____________________________________________________________
+
 def mangle(name):
     # XXX temporary: for now it looks like a good idea to mangle names
     # systematically to trap bugs related to a confusion between mangled
@@ -213,7 +229,10 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def rtype_type(self, hop):
         vinst, = hop.inputargs(self)
-        return hop.genop('classof', [vinst], resulttype=ootype.Class)
+        if hop.args_s[0].can_be_none():
+            return hop.gendirectcall(ll_inst_type, vinst)
+        else:
+            return hop.genop('classof', [vinst], resulttype=ootype.Class)
 
     def rtype_hash(self, hop):
         if self.classdef is None:
@@ -320,3 +339,10 @@ def ll_inst_hash(ins):
     if cached == 0:
         cached = ins._hash_cache_ = ootype.ooidentityhash(ins)
     return cached
+
+def ll_inst_type(obj):
+    if obj:
+        return ootype.classof(obj)
+    else:
+        # type(None) -> NULL  (for now)
+        return ootype.nullruntimeclass

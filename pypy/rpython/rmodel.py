@@ -199,6 +199,8 @@ class __extend__(pairtype(Repr, Repr)):
     def rtype_is_((robj1, robj2), hop):
         if hop.s_result.is_constant():
             return inputconst(Bool, hop.s_result.const)
+        roriginal1 = robj1
+        roriginal2 = robj2
         if robj1.lowleveltype is Void:
             robj1 = robj2
         elif robj2.lowleveltype is Void:
@@ -206,10 +208,10 @@ class __extend__(pairtype(Repr, Repr)):
         if (not isinstance(robj1.lowleveltype, Ptr) or
             not isinstance(robj2.lowleveltype, Ptr)):
             raise TyperError('is of instances of the non-pointers: %r, %r' % (
-                robj1, robj2))
+                roriginal1, roriginal2))
         if robj1.lowleveltype != robj2.lowleveltype:
             raise TyperError('is of instances of different pointer types: %r, %r' % (
-                robj1, robj2))
+                roriginal1, roriginal2))
             
         v_list = hop.inputargs(robj1, robj2)
         return hop.genop('ptr_eq', v_list, resulttype=Bool)

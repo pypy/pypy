@@ -391,7 +391,10 @@ def classof(i):
 
 def runtimenew(c):
     assert isinstance(c, SomeOOClass)
-    return SomeOOInstance(c.ootype)
+    if c.ootype is None:
+        return SomeImpossibleValue()   # can't call runtimenew(NULL)
+    else:
+        return SomeOOInstance(c.ootype)
 
 def ooidentityhash(i):
     assert isinstance(i, SomeOOInstance)

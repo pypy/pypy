@@ -144,7 +144,8 @@ class _class(object):
     _TYPE = Class
     def __init__(self, INSTANCE):
         self._INSTANCE = INSTANCE
-        
+nullruntimeclass = _class(None)
+
 class _instance(object):
     
     def __init__(self, INSTANCE):
@@ -256,6 +257,7 @@ def new(INSTANCE):
 
 def runtimenew(class_):
     assert isinstance(class_, _class)
+    assert class_ is not nullruntimeclass
     return _instance(class_._INSTANCE)
 
 def static_meth(FUNCTION, name,  **attrs):
@@ -282,6 +284,8 @@ def classof(inst):
 def subclassof(class1, class2):
     assert isinstance(class1, _class)
     assert isinstance(class2, _class)
+    assert class1 is not nullruntimeclass
+    assert class2 is not nullruntimeclass
     return isSubclass(class1._INSTANCE, class2._INSTANCE)
 
 def addFields(INSTANCE, fields):

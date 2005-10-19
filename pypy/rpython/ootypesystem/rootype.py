@@ -1,5 +1,6 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.ootype import Void, Class
 from pypy.annotation.pairtype import pairtype
 
@@ -46,6 +47,18 @@ class OOInstanceRepr(Repr):
         self.lowleveltype._check_field(attr)
         vlist = hop.inputargs(self, Void, hop.args_r[2])
         return hop.genop('oosetfield', vlist)
+
+    def rtype_is_true(self, hop):
+        vlist = hop.inputargs(self)
+        return hop.genop('oononnull', vlist, resulttype=ootype.Bool)
+
+
+class __extend__(pairtype(OOInstanceRepr, OOInstanceRepr)):
+    def rtype_is_((r_ins1, r_ins2), hop):
+        # NB. this version performs no cast to the common base class
+        vlist = hop.inputargs(r_ins1, r_ins2)
+        return hop.genop('oois', vlist, resulttype=ootype.Bool)
+
 
 class OOBoundMethRepr(Repr):
     def __init__(self, ootype, name):

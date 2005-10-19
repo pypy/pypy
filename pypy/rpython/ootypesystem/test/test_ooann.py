@@ -146,3 +146,16 @@ def test_static_method():
 
     assert s.knowntype == int
 
+def test_truth_value():
+    C = Instance("C", None)
+    def oof(f):
+        if f:
+            c = new(C)
+        else:
+            c = null(C)
+        return not c
+
+    a = RPythonAnnotator()
+    s = a.build_types(oof, [bool])
+    assert isinstance(s, annmodel.SomeBool)
+    assert not s.is_constant()

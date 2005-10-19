@@ -695,8 +695,14 @@ class __extend__(pairtype(SomeOOInstance, SomeOOInstance)):
 
 class __extend__(pairtype(SomeOOClass, SomeOOClass)):
     def union((r1, r2)):
-        common = ootype.commonBaseclass(r1.ootype, r2.ootype)
-        assert common is not None, 'Mixing of incompatible classes %r, %r' %(r1.ootype, r2.ootype)
+        if r1.ootype is None:
+            common = r2.ootype
+        elif r2.ootype is None:
+            common = r1.ootype
+        else:
+            common = ootype.commonBaseclass(r1.ootype, r2.ootype)
+            assert common is not None, ('Mixing of incompatible classes %r, %r'
+                                        % (r1.ootype, r2.ootype))
         return SomeOOClass(common)
 
 class __extend__(pairtype(SomeOOInstance, SomeObject)):

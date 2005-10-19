@@ -3,6 +3,7 @@ from pypy.rpython.ootypesystem.ootype import *
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import Translator
+from pypy.rpython.test.test_llinterp import interpret
 
 def gengraph(f, args=[], viewBefore=False, viewAfter=False):
     t = Translator(f)
@@ -52,3 +53,22 @@ def test_simple_method():
     g = gengraph(f)
     rettype = g.getreturnvar().concretetype
     assert rettype == Signed
+
+def test_truth_value():
+    C = Instance("C", None)
+    NULL = null(C)
+    def oof(f):
+        if f:
+            c = new(C)
+        else:
+            c = NULL
+        return not c
+
+    g = gengraph(oof, [bool])
+    rettype = g.getreturnvar().concretetype
+    assert rettype == Bool
+
+    res = interpret(oof, [True], type_system='ootype')
+    assert res is False
+    res = interpret(oof, [False], type_system='ootype')
+    assert res is True

@@ -461,7 +461,6 @@ def test_hash_preservation():
     assert res == hash(d)
 
 def test_type():
-    py.test.skip('in progress')
     class A:
         pass
     class B(A):

@@ -15,7 +15,8 @@ from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import r_dict
 from pypy.tool.algo.unionfind import UnionFind
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.memory import lladdress
 
 from pypy.annotation.specialize import decide_callable
@@ -355,6 +356,10 @@ class Bookkeeper:
             result= SomeAddress(is_null=True)
         elif isinstance(x, ootype._static_meth):
             result = SomeOOStaticMeth(ootype.typeOf(x))
+        elif isinstance(x, ootype._class):
+            result = SomeOOClass(x._INSTANCE)   # NB. can be None
+        elif isinstance(x, ootype._instance):
+            result = SomeOOInstance(ootype.typeOf(x))
         elif callable(x) or isinstance(x, staticmethod): # XXX
             # maybe 'x' is a method bound to a not-yet-frozen cache?
             # fun fun fun.

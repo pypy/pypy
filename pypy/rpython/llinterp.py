@@ -670,6 +670,11 @@ class LLFrame(object):
     def op_subclassof(self, class1, class2):
         return ootype.subclassof(class1, class2)
 
+    def op_oosameclass(self, class1, class2):
+        assert isinstance(class1, ootype._class)
+        assert isinstance(class2, ootype._class)
+        return class1 is class2
+
     def op_ooidentityhash(self, inst):
         return ootype.ooidentityhash(inst)
 
