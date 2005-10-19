@@ -248,3 +248,28 @@ def test_commonBaseclass():
     assert commonBaseclass(E, B) is None
     assert commonBaseclass(F, A) is None
     
+def test_equality():
+    A = Instance("A", None)
+    B = Instance("B", A)
+    a1 = new(A)
+    a2 = new(A)
+    b1 = new(B)
+    az = null(A)
+    bz = null(B)
+    assert a1
+    assert a2
+    assert not az
+    assert not bz
+    result = []
+    for first in [a1, a2, b1, az, bz]:
+        for second in [a1, a2, b1, az, bz]:
+            eq = first == second
+            assert (first != second) == (not eq)
+            result.append(eq)
+    assert result == [
+        1, 0, 0, 0, 0,
+        0, 1, 0, 0, 0,
+        0, 0, 1, 0, 0,
+        0, 0, 0, 1, 1,
+        0, 0, 0, 1, 1,
+        ]

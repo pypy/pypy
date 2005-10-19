@@ -238,3 +238,16 @@ def test_isinstance():
     assert res == 111
     res = interpret(f, [0], type_system='ootype')
     assert res == 0
+
+def test_instance_comparison():
+    def f(flag):
+        a = Subclass()
+        if flag:
+            b = a
+        else:
+            b = EmptyBase()
+        return (a is b)*100 + (a == b)*10 + (a != b)
+    res = interpret(f, [True], type_system='ootype')
+    assert res == 110
+    res = interpret(f, [False], type_system='ootype')
+    assert res == 1

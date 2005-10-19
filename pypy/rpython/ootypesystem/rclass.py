@@ -262,3 +262,14 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
             return v
         else:
             return NotImplemented
+
+    def rtype_is_((r_ins1, r_ins2), hop):
+        # NB. this version performs no cast to the common base class
+        vlist = hop.inputargs(r_ins1, r_ins2)
+        return hop.genop('oois', vlist, resulttype=ootype.Bool)
+
+    rtype_eq = rtype_is_
+
+    def rtype_ne(rpair, hop):
+        v = rpair.rtype_eq(hop)
+        return hop.genop("bool_not", [v], resulttype=ootype.Bool)

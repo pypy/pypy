@@ -171,6 +171,14 @@ class _instance(object):
     def __nonzero__(self):
         return True    # better be explicit -- overridden in _null_instance
 
+    def __eq__(self, other):
+        if not isinstance(other, _instance):
+            raise TypeError("comparing an _instance with %r" % (other,))
+        return self is other   # same comment as __nonzero__
+
+    def __ne__(self, other):
+        return not (self == other)
+
 class _null_instance(_instance):
 
     def __init__(self, INSTANCE):
@@ -191,6 +199,11 @@ class _null_instance(_instance):
 
     def __nonzero__(self):
         return False
+
+    def __eq__(self, other):
+        if not isinstance(other, _instance):
+            raise TypeError("comparing an _instance with %r" % (other,))
+        return not other
 
 class _callable(object):
 

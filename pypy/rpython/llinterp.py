@@ -656,6 +656,11 @@ class LLFrame(object):
         assert isinstance(inst, ootype._instance)
         return bool(inst)
 
+    def op_oois(self, inst1, inst2):
+        assert isinstance(inst1, ootype._instance)
+        assert isinstance(inst2, ootype._instance)
+        return inst1 == inst2   # NB. differently-typed NULLs must be equal
+
     def op_instanceof(self, inst, INST):
         return ootype.instanceof(inst, INST)
 
