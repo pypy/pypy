@@ -219,7 +219,8 @@ class InstanceRepr(AbstractInstanceRepr):
         attr = hop.args_s[1].const
         mangled = mangle(attr)
         self.lowleveltype._check_field(mangled)
-        v_inst, _, v_newval = hop.inputargs(self, ootype.Void, hop.args_r[2])
+        r_value = self.allfields[mangled]
+        v_inst, _, v_newval = hop.inputargs(self, ootype.Void, r_value)
         v_attr = hop.inputconst(ootype.Void, mangled)
         return hop.genop('oosetfield', [v_inst, v_attr, v_newval])
 

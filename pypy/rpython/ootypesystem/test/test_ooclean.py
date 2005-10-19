@@ -481,3 +481,13 @@ def test_type():
     assert res is False
     res = interpret(f, [0])
     assert res is False
+
+def test_void_fnptr():
+    def g():
+        return 42
+    def f():
+        e = EmptyBase()
+        e.attr = g
+        return e.attr()
+    res = interpret(f, [])
+    assert res == 42

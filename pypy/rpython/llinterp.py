@@ -631,7 +631,9 @@ class LLFrame(object):
     def op_oosetfield(self, inst, name, value):
         assert isinstance(inst, ootype._instance)
         assert isinstance(name, str)
-        setattr(inst, name, value)
+        FIELDTYPE = self.llt.typeOf(inst)._field_type(name)
+        if FIELDTYPE != self.llt.Void:
+            setattr(inst, name, value)
 
     def op_oogetfield(self, inst, name):
         assert isinstance(inst, ootype._instance)
