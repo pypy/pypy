@@ -269,7 +269,7 @@ extfunctions["%main"] = [(), """
 int %main(int %argc, sbyte** %argv) {
 entry:
     store int 0, int* %GC_all_interior_pointers
-    %pypy_argv = call fastcc %structtype.list* %pypy__RPyListOfString_New__Signed(int %argc)
+    %pypy_argv = call fastcc %RPyListOfString* %pypy__RPyListOfString_New__Signed(int %argc)
     br label %no_exit
 
 no_exit:
@@ -278,14 +278,14 @@ no_exit:
     %tmp.8 = getelementptr sbyte** %argv, uint %indvar
     %tmp.9 = load sbyte** %tmp.8
     %rpy = call fastcc %RPyString* %RPyString_FromString(sbyte* %tmp.9)
-    call fastcc void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%structtype.list* %pypy_argv, int %i.0.0, %RPyString* %rpy)
+    call fastcc void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%RPyListOfString* %pypy_argv, int %i.0.0, %RPyString* %rpy)
     %inc = add int %i.0.0, 1
     %tmp.2 = setlt int %inc, %argc
     %indvar.next = add uint %indvar, 1
     br bool %tmp.2, label %no_exit, label %loopexit
 
 loopexit:
-    %ret  = call fastcc int %pypy_entry_point(%structtype.list* %pypy_argv)
+    %ret  = call fastcc int %pypy_entry_point(%RPyListOfString* %pypy_argv)
     ret int %ret
 }
 """]
