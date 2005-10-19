@@ -609,6 +609,9 @@ class __extend__(SomeOOInstance):
         setattr(r.ootype._example(), s_attr.const,
                 v._example())
 
+    def is_true(p):
+        return SomeBool()
+
 class __extend__(SomeOOBoundMeth):
     def simple_call(m, *args_s):
         llargs = [annotation_to_lltype(arg_s)._example() for arg_s in args_s]
