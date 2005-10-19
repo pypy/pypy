@@ -56,7 +56,7 @@ class BoehmGcPolicy(GcPolicy):
         self.n_malloced = 0
 
     def gc_libraries(self):
-        return ['gc'] # xxx on windows?
+        return ['gc', 'pthread'] # XXX on windows?
 
     def declarations(self):
         return '''
