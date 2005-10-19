@@ -349,10 +349,11 @@ class __extend__(pairtype(SomeList, SomeList)):
     def union((lst1, lst2)):
         return SomeList(lst1.listdef.union(lst2.listdef))
 
-    add = union
+    def add((lst1, lst2)):
+        return lst1.listdef.offspring(lst2.listdef)
 
     def eq((lst1, lst2)):
-        lst1.listdef.union(lst2.listdef)
+        lst1.listdef.agree(lst2.listdef)
         return SomeBool()
     ne = eq
 

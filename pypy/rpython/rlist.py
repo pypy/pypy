@@ -289,7 +289,8 @@ class __extend__(pairtype(ListRepr, ListRepr)):
         if r_lst1.listitem is None or r_lst2.listitem is None:
             return NotImplemented
         if r_lst1.listitem is not r_lst2.listitem:
-            return NotImplemented
+            if r_lst1.lowleveltype != r_lst2.lowleveltype:
+                return NotImplemented
         return v
 
     def rtype_add((self, _), hop):

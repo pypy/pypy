@@ -99,6 +99,21 @@ class ListDef:
             self.listitem.merge(other.listitem)
             return self
 
+    def agree(self, other):
+        s_self_value = self.read_item()
+        s_other_value = other.read_item()
+        self.generalize(s_other_value)
+        other.generalize(s_self_value)
+
+    def offspring(self, other):
+        s_self_value = self.read_item()
+        s_other_value = other.read_item()        
+        s_newlst = self.bookkeeper.newlist(s_self_value, s_other_value)
+        s_newvalue = s_newlst.listdef.read_item()
+        self.generalize(s_newvalue)
+        other.generalize(s_newvalue)
+        return s_newlst
+
     def generalize(self, s_value):
         self.listitem.generalize(s_value)
 

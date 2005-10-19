@@ -256,7 +256,7 @@ class __extend__(SomeList):
     def method_extend(lst, s_iterable):
         lst.listdef.resize()
         if isinstance(s_iterable, SomeList):   # unify the two lists
-            lst.listdef.union(s_iterable.listdef)
+            lst.listdef.agree(s_iterable.listdef)
         else:
             s_iter = s_iterable.iter()
             self.method_append(s_iter.next())
