@@ -56,7 +56,8 @@ class ArrayTypeNode(LLVMNode):
         log.writeimpl(self.ref)
         varsize.write_constructor(self.db, codewriter, self.ref, 
                                   self.constructor_decl,
-                                  self.array)
+                                  self.array,
+                                  atomic=self.array._is_atomic())
 
 
 class VoidArrayTypeNode(LLVMNode):

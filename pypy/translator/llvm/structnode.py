@@ -77,7 +77,8 @@ class StructVarsizeTypeNode(StructTypeNode):
                                   self.ref,
                                   self.constructor_decl,
                                   current, 
-                                  indices_to_array)
+                                  indices_to_array,
+                                  self.struct._is_atomic())
 
 class StructNode(ConstantLLVMNode):
     """ A struct constant.  Can simply contain
