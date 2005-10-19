@@ -47,7 +47,7 @@ RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st);
 RPySTAT_RESULT* LL_os_stat(RPyString * fname);
 RPySTAT_RESULT* LL_os_fstat(long fd);
 long LL_os_lseek(long fd, long pos, long how);
-long LL_os_isatty(long fd);
+int LL_os_isatty(long fd);
 RPyString *LL_os_strerror(int errnum);
 long LL_os_system(RPyString * fname);
 void LL_os_unlink(RPyString * fname);
@@ -165,8 +165,8 @@ long LL_os_lseek(long fd, long pos, long how) {
     return res;
 }
 
-long LL_os_isatty(long fd) {
-    return (int)isatty((int)fd);
+int LL_os_isatty(long fd) {
+    return isatty((int)fd);
 }
 
 #ifdef HAVE_FTRUNCATE

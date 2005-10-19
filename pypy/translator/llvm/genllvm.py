@@ -132,6 +132,7 @@ class GenLLVM(object):
 
         support_functions = "%raisePyExc_IOError %raisePyExc_ValueError "\
                             "%raisePyExc_OverflowError %raisePyExc_ZeroDivisionError "\
+                            "%raisePyExc_RuntimeError "\
                             "%prepare_ZeroDivisionError %prepare_OverflowError %prepare_ValueError "\
                             "%RPyString_FromString %RPyString_AsString %RPyString_Size".split()
 

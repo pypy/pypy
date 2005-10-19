@@ -6,7 +6,8 @@
 #    define MAX_STACK_SIZE (1 << 19)
 #endif
 
-char LL_stack_too_big(void);
+void LL_stack_unwind(void);
+int LL_stack_too_big(void);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
@@ -19,7 +20,7 @@ void LL_stack_unwind(void)
 #endif
 }
 
-char LL_stack_too_big(void)
+int LL_stack_too_big(void)
 {
   char local;
   long result;

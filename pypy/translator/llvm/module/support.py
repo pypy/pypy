@@ -89,7 +89,7 @@ internal fastcc void %%prepare_%(exc)s() {
 
 
 #prepare and raise exceptions (%msg not used right now!)
-for exc in "IOError ZeroDivisionError OverflowError ValueError".split():    #_ZER _OVF _VAL
+for exc in "IOError ZeroDivisionError OverflowError ValueError RuntimeError".split():    #_ZER _OVF _VAL
     extfunctions["%%raisePyExc_%(exc)s" % locals()] = ((), """
 internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
     %%exception_value = cast %%structtype.%(exc)s* %%structinstance.%(exc)s to %%RPYTHON_EXCEPTION*

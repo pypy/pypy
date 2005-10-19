@@ -211,9 +211,10 @@ def test_unichr_unichr():
 def test_float_operations(): 
     #llvm rem operation working starting llvm1.6")    
     #see: http://llvm.cs.uiuc.edu/bugs/show_bug.cgi?id=611
+    import math
     def func(x, y): 
         z = x + y / 2.1 * x 
-        z = z % 60.0
+        z = math.fmod(z, 60.0)
         z = pow(z, 2)
         z = -z
         return int(z)

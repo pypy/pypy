@@ -84,6 +84,11 @@ internal fastcc bool %LL_os_isatty(int %fd) {
     %b = cast int %t to bool
     ret bool %b
 }
+internal fastcc bool %LL_stack_too_big() {
+    %t = call fastcc int %LL_stack_too_big()
+    %b = cast int %t to bool
+    ret bool %b
+}
     """
     return decl, impl
 
@@ -141,7 +146,7 @@ def generate_llfile(db, extern_decls, support_functions, debug=False):
     include_files.append(j(j(os.path.dirname(__file__), "module"), "genexterns.c"))
 
     from pypy.translator.c import extfunc
-    for f in ["ll_os", "ll_math", "ll_time", "ll_strtod"]:
+    for f in ["ll_os", "ll_math", "ll_time", "ll_strtod", "stack"]:
         include_files.append(j(j(os.path.dirname(extfunc.__file__), "src"), f + ".h"))
 
     for f in include_files:
