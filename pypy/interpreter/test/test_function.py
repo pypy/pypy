@@ -55,6 +55,12 @@ class AppTestFunctionIntrospection:
         del f.__module__
         assert f.__module__ is None
 
+    def test_new(self):
+        def f(): return 42
+        FuncType = type(f)
+        f2 = FuncType(f.func_code, f.func_globals, 'f2', None, None)
+        assert f2() == 42
+
 class AppTestFunction: 
     def test_simple_call(self):
         def func(arg1, arg2):

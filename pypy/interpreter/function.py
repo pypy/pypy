@@ -50,7 +50,7 @@ class Function(Wrappable):
     # unwrapping is done through unwrap_specs in typedef.py
 
     def descr_method__new__(space, w_subtype, w_code, w_globals, 
-                            w_name=None, w_argdefs=None, w_closure=NoneNotWrapped):
+                            w_name=None, w_argdefs=None, w_closure=None):
         code = space.interpclass_w(w_code)
         if code is None or not isinstance(code, Code):
             raise OperationError(space.w_TypeError, space.wrap("expected code"))
@@ -64,7 +64,7 @@ class Function(Wrappable):
             defs_w = space.unpackiterable(w_argdefs)
         else:
             defs_w = []
-        if w_closure is None:
+        if space.is_w(w_closure, space.w_None):
             closure = None
         elif not space.is_w(space.type(w_closure), space.w_tuple):
             raise OperationError(space.w_TypeError, space.wrap("invalid closure"))
