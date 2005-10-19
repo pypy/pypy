@@ -434,8 +434,7 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
 class __extend__(pairtype(SomeList, SomeInteger)):
     
     def mul((lst1, int2)):
-        #return getbookkeeper().newlist(lst1.listdef.read_item())
-        return SomeList(lst1.listdef)
+        return lst1.listdef.offspring()
 
     def getitem((lst1, int2)):
         getbookkeeper().count("list_getitem", int2)
@@ -456,8 +455,7 @@ class __extend__(pairtype(SomeList, SomeInteger)):
 class __extend__(pairtype(SomeList, SomeSlice)):
 
     def getitem((lst, slic)):
-        #return getbookkeeper().newlist(lst.listdef.read_item())
-        return SomeList(lst.listdef)
+        return lst.listdef.offspring()
     getitem.can_only_throw = []
 
     def setitem((lst, slic), s_iterable):
@@ -496,8 +494,7 @@ class __extend__(pairtype(SomeInteger, SomeString)):
 class __extend__(pairtype(SomeInteger, SomeList)):
     
     def mul((int1, lst2)):
-        #return getbookkeeper().newlist(lst2.listdef.read_item())
-        return SomeList(lst2.listdef)
+        return lst2.listdef.offspring()
 
 
 class __extend__(pairtype(SomeInstance, SomeInstance)):

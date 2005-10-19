@@ -78,13 +78,16 @@ class ListDef:
         self.listitem.itemof[self] = True
         self.bookkeeper = bookkeeper
 
+    def getbookkeeper(self):
+        if self.bookkeeper is None:
+            from pypy.annotation.bookkeeper import getbookkeeper
+            return getbookkeeper()
+        else:
+            return self.bookkeeper
+
     def read_item(self, position_key=None):
         if position_key is None:
-            if self.bookkeeper is None:   # for tests
-                from pypy.annotation.bookkeeper import getbookkeeper
-                position_key = getbookkeeper().position_key
-            else:
-                position_key = self.bookkeeper.position_key
+            position_key = self.getbookkeeper().position_key
         self.listitem.read_locations[position_key] = True
         return self.listitem.s_value
 
@@ -105,13 +108,16 @@ class ListDef:
         self.generalize(s_other_value)
         other.generalize(s_self_value)
 
-    def offspring(self, other):
+    def offspring(self, *others):
         s_self_value = self.read_item()
-        s_other_value = other.read_item()        
-        s_newlst = self.bookkeeper.newlist(s_self_value, s_other_value)
+        s_other_values = []
+        for other in others:
+            s_other_values.append(other.read_item())
+        s_newlst = self.getbookkeeper().newlist(s_self_value, *s_other_values)
         s_newvalue = s_newlst.listdef.read_item()
         self.generalize(s_newvalue)
-        other.generalize(s_newvalue)
+        for other in others:
+            other.generalize(s_newvalue)
         return s_newlst
 
     def generalize(self, s_value):
