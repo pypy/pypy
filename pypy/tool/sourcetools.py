@@ -209,8 +209,7 @@ def compile_template(source, resultname):
 
 # ____________________________________________________________
 
-if (sys.version_info >= (2, 3) and
-    not hasattr(sys, 'pypy_objspaceclass')):
+if sys.version_info >= (2, 3):
     def func_with_new_name(func, newname):
         """Make a renamed copy of a function."""
         f = new.function(func.func_code, func.func_globals,
