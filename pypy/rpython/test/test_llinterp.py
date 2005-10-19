@@ -72,8 +72,7 @@ def get_interpreter(func, values, view=False, viewbefore=False, policy=None,
             else:
                 return lltype_to_annotation(T)
         
-        t, typer = gengraph(func, [annotation(x)
-                                       for x in values],
+        t, typer = gengraph(func, [annotation(x) for x in values],
                             viewbefore, policy, type_system=type_system)
         interp = LLInterpreter(t.flowgraphs, typer)
         _tcache[key] = (t, interp)
