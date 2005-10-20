@@ -35,7 +35,8 @@ corresponding Unix manual entries for more information on calls."""
     'chdir'     : 'interp_posix.chdir',
     'mkdir'     : 'interp_posix.mkdir',
     'rmdir'     : 'interp_posix.rmdir',
-    'environ'   : 'interp_posix.get(space).w_environ'
+    'environ'   : 'interp_posix.get(space).w_environ',
+    'listdir'   : 'interp_posix.listdir',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'

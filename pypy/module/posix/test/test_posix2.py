@@ -6,12 +6,18 @@ def setup_module(mod):
     mod.space = StdObjSpace(usemodules=['posix'])
     mod.path = udir.join('posixtestfile.txt') 
     mod.path.write("this is a test")
+    pdir = udir.ensure('posixtestdir', dir=True)
+    pdir.join('file1').write("test1")
+    pdir.join('file2').write("test2")
+    pdir.join('another_longer_file_name').write("test3")
+    mod.pdir = pdir
 
 class AppTestPosix: 
     def setup_class(cls): 
         cls.space = space 
         cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
         cls.w_path = space.wrap(str(path))
+        cls.w_pdir = space.wrap(str(pdir))
     
     def test_posix_is_pypy_s(self): 
         assert self.posix.__file__ 
@@ -74,6 +80,15 @@ class AppTestPosix:
             pass
         else:
             raise "did not raise"
+
+    def test_listdir(self):
+        pdir = self.pdir
+        posix = self.posix 
+        result = posix.listdir(pdir)
+        result.sort()
+        assert result == ['another_longer_file_name',
+                          'file1',
+                          'file2']
 
 class AppTestEnvironment(object):
     def setup_class(cls): 

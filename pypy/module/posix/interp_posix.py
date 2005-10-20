@@ -232,3 +232,24 @@ Delete an environment variable."""
         # old value was still accessible until then.
         del get(space).posix_putenv_garbage[name]
 unsetenv.unwrap_spec = [ObjSpace, str]
+
+
+def enumeratedir(space, dir):
+    result = []
+    while True:
+        nextentry = dir.readdir()
+        if nextentry is None:
+            break
+        if nextentry not in ('.' , '..'):
+            result.append(space.wrap(nextentry))
+    return space.newlist(result)
+
+def listdir(space, dirname):
+    dir = ros.opendir(dirname)
+    try:
+        # sub-function call to make sure that 'try:finally:' will catch
+        # everything including MemoryErrors
+        return enumeratedir(space, dir)
+    finally:
+        dir.closedir()
+listdir.unwrap_spec = [ObjSpace, str]
