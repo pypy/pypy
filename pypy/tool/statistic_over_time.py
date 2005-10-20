@@ -34,12 +34,7 @@ try:
         olddate = datetime.date(*time.gmtime(pypy.info(0).mtime)[:3])
         date = olddate
         while date == olddate:
-            counter, nf, nl, ntf, ntl = get_loccount([pypy.localpath])
             num_revs += 1
-            num_files = max(num_files, nf)
-            num_testfiles = max(num_testfiles, ntf)
-            num_lines = max(num_lines, nl)
-            num_testlines = max(num_testlines, ntl)
             olddate = date
             try:
                 tempdir.update(rev=curr_rev - 1)
@@ -47,8 +42,10 @@ try:
                 tempdir.localpath.remove(1)
                 tempdir.localpath.mkdir()
                 tempdir.checkout(URL, rev=curr_rev - 1)
-            curr_rev = tempdir.info(usecache=0).rev
-            date = datetime.date(*time.gmtime(pypy.info(0).mtime)[:3])
+            info = tempdir.info(usecache=0)
+            curr_rev = info.rev
+            date = datetime.date(*time.gmtime(info.mtime)[:3])
+        counter, num_files, num_lines, num_testfiles, num_testlines = get_loccount([pypy.localpath])
         print date, num_revs, num_files, num_testfiles, num_lines, num_testlines
         statistic.append([date, num_revs, num_files, num_testfiles, num_lines, num_testlines])
 finally:
