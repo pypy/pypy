@@ -200,6 +200,8 @@ class PyObjMaker:
                 func, ob, typ))
             return name
 
+    nameof_method = nameof_instancemethod   # when run on top of PyPy
+
     def should_translate_attr(self, pbc, attr):
         ann = self.translator.annotator
         if ann is None or isinstance(pbc, ObjSpace):
