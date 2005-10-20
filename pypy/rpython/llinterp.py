@@ -646,6 +646,8 @@ class LLFrame(object):
         bm = getattr(inst, message)
         m = bm.meth
         m._checkargs(args)
+        if getattr(m, 'abstract', False):
+            raise RuntimeError("calling abstract method %r" % (m,))
         return self.op_direct_call(m, inst, *args)
 
     def op_ooupcast(self, INST, inst):

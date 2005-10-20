@@ -158,7 +158,7 @@ class InstanceRepr(AbstractInstanceRepr):
                         m = ootype.meth(M, _name=mangled, _callable=impl,
                                         graph=f.graph)
                     else:
-                        m = None
+                        m = ootype.meth(M, _name=mangled, abstract=True)
                     methods[mangled] = m
                     allmethods[mangled] = True
                 else:

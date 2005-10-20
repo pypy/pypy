@@ -73,11 +73,10 @@ class Instance(OOType):
         # _add_fields adds *descriptions* of fields.  This is obvious
         # if you are in the right state of mind (swiss?), but
         # certainly not necessarily if not.
-        # NB. a None method is a purely abstract one.
         for name, method in methods.iteritems():
             if self._has_field(name):
                 raise TypeError("Can't add method %r: field already exists" % name)
-            if method is not None and not isinstance(typeOf(method), Meth):
+            if not isinstance(typeOf(method), Meth):
                 raise TypeError("added methods must be _meths, not %s" % type(defn))
         self._methods.update(methods)
 
