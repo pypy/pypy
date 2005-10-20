@@ -851,13 +851,13 @@ None at run-time and proceed.
 
 ~~~~~~~~~~~~~~~~~~~~~~
 
-.. _merge_into:
+.. _merge:
 
 In the sequel, a lot of rules will be based on the following
-``merge_into`` operator.  Given an annotation *a* and a variable *x*,
-``merge_into(a,x)`` modifies the state as follows::
+``merge`` operator.  Given an annotation *a* and a variable *x*,
+``merge a => x`` modifies the state as follows::
 
-         merge_into(a,x):
+         merge a => x:
              if a=List(v) and b(x)=List(w):
                  b' = b
                  E' = E union (v ~ w)
@@ -875,7 +875,7 @@ a normal operation in our `Flow graph model`_; we abuse the notation)::
 
          y = phi(x)
       ----------------------------------------
-               merge_into(b(x),y)
+               merge b(x) => y
 
 The purpose of the equivalence relation *E* is to force two identified
 variables to keep the same binding.  The rationale for this is explained
@@ -884,8 +884,8 @@ following family of rules (one for each pair *(x,y)*)::
 
          (x~y) in E
       ----------------------------------------
-               merge_into(b(x),y)
-               merge_into(b(y),x)
+               merge b(x) => y
+               merge b(y) => x
 
 Note that a priori, all rules should be tried repeatedly until none of
 them generalizes the state any more, at which point we have reached a
@@ -966,7 +966,7 @@ annotation into the list's hidden variable (*y* is the index in the list
 
          setitem(x,y,z), b(x)=List(v)
       --------------------------------------------
-               merge_into(b(z),v)
+               merge b(z) => v
 
 Reading an item out a list requires care to ensure that the rule is
 rescheduled if the binding of the hidden variable is generalized.  We do
@@ -981,7 +981,7 @@ rule::
                E' = E union (z'~v)
                b' = b with (z->b(z'))
 
-If you consider the definition of `merge_into`_ again, you will notice
+If you consider the definition of `merge`_ again, you will notice
 that merging two different lists (for example, two lists that come from
 different creation points via different code paths) identifies the two
 hidden variables.  This effectively identifies the two lists, as if they
@@ -999,7 +999,7 @@ the concatenation for lists)::
                E' = E union (v~w)
                b' = b with (z->List(v))
 
-As with `merge_into`_, it identifies the two lists.
+As with `merge`_, it identifies the two lists.
 
 
 Prebuilt constants
@@ -1119,7 +1119,8 @@ Formally::
          setattr(x,attr,z), b(x)=Inst(C)
       ---------------------------------------------------------------------
                E' = E union (v_C.attr ~ v_D.attr)  for all D subclass of C
-               merge_into(b(z), v_C.attr)
+               check b(z) for the absence of potential bound method objects
+               merge b(z) => v_C.attr
 
 Note the similarity with the ``getitem`` and ``setitem`` of lists, in
 particular the usage of the auxiliary variable *z'*.
@@ -1151,6 +1152,17 @@ following methods:
 * among the methods bound to ``C`` or superclasses of ``C``, only the
   one from the most derived class.
 
+Finally, note that we still allow real bound methods to be handled quite
+generically, in the way that is quite unique to Python: if ``meth`` is
+the name of a method of *x*, then ``y = x.meth`` is allowed, and the
+object *y* can be passed around and stored in data structures.  However,
+we do not allow such objects to be stored directly back into other
+instances (it is the purpose of the check in the rule for ``setattr``).
+This would create a confusion between class-level and instance-level
+attributes in a subsequent ``getattr``, because our annotator does not
+distinguish these two levels -- there is only one set of ``v_C.attr``
+variables for both.
+
 
 Calls
 ~~~~~
@@ -1166,23 +1178,23 @@ the same ``Pbc(set)`` could mix several kinds of callables::
            for each c in set:
                if c is a function:
                    E' = E union (z ~ returnvar_c)
-                   merge_into(b(y1), arg_c_1)
+                   merge b(y1) => arg_c_1
                    ...
-                   merge_into(b(yn), arg_c_n)
+                   merge b(yn) => arg_c_n
                if c is a class:
                    let f = c.__init__
-                   merge_into(Inst(c), z)
-                   merge_into(Inst(c), arg_f_1)
-                   merge_into(b(y1), arg_f_2)
+                   merge Inst(c) => z
+                   merge Inst(c) => arg_f_1
+                   merge b(y1) => arg_f_2
                    ...
-                   merge_into(b(yn), arg_f_(n+1))
+                   merge b(yn) => arg_f_(n+1)
                if c is a method:
                    let class.f = c
                    E' = E union (z ~ returnvar_f)
-                   merge_into(Inst(class), arg_f_1)
-                   merge_into(b(y1), arg_f_2)
+                   merge Inst(class) => arg_f_1
+                   merge b(y1) => arg_f_2
                    ...
-                   merge_into(b(yn), arg_f_(n+1))
+                   merge b(yn) => arg_f_(n+1)
 
 Calling a class returns an instance and flows the annotations into the
 contructor ``__init__`` of the class.  Calling a method inserts the
@@ -1202,23 +1214,91 @@ Termination
 ***********
 
 We first have to check that each rule can only turn a state *(b,E)* into
-a state *(b',E')* that is either identical or more general.  To do so,
-we first verify that they all have the following properties:
+a state *(b',E')* that is either identical or more general.  Clearly,
+*E'* can only be generalized -- applying a rule can only add new
+identifications, not remove existing ones.  What is left to check is
+that the annotation ``b(v)`` of each variable, when modified, can only
+become more general.  We prove it in the following order:
 
-* if *z* is the result variable of an operation, the binding ``b(z)`` is
-  only ever modified by the rule (or rules) about this operation: this
-  is true because *E* never identifies such a result variable with any
-  other variable.
+1. the annotations ``b(v_C.attr)`` of variables corresponding to
+   attributes on classes;
 
-* the annotation ``b(z)`` of such a result variable can only become more
-  general: using the previous point, this can be checked on the rule (or
-  rules) of each operation independently.  Indeed, there are only two
-  ways in which ``b(z)`` is modified: by ``merge_into(..., z)``, which
-  trivially guarantees the property by being based on the union operator
-  ``\/`` of the lattice, or explicitely in a way that can easily be
-  checked to respect the property.
+2. the annotations of the input variables of blocks;
 
-...
+3. the annotations of the auxiliary variable of operations;
+
+4. the annotations of the input and result variables of operations.
+
+Proof:
+
+1. Variables corresponding to attributes of classes
+
+       The annotation of such variables can only be modified by the
+       ``setattr`` rule and by being identified with other variables,
+       i.e. by the ``(x~y) in E`` rule.  In both cases the modification
+       is done with a ``merge``.  The latter trivially guarantees the
+       property of generalization, as it is based on the union operator
+       ``\/`` of the lattice.
+
+2. Input variables of blocks
+
+       The annotation of these variables are only modified by the
+       ``phi`` rule, which is based on ``merge``.
+
+3. Auxiliary variables of operations
+
+       The auxiliary variable *z'* of an operation is only ever modified
+       by being identified with other variables.
+
+4. Input and result variables of operations
+
+       First note that the result variable *z* of an operation is only
+       ever modified by the rule or rules specific to that operation.
+       This is true because *E* never identifies such a result variable
+       with any other variable.  This allows us to check the property of
+       generalization on a case-by-case basis.
+
+       For a given block, we prove this point by recurrence on the
+       number of operations present in the block.  The recurrence is
+       based on the fact that each input variable of an operation must
+       be either the result variable of a previous operation of the same
+       block or an input variable of the block.  By the point 2 above,
+       if it is an input variable of the block then it can only get
+       generalized, as desired.  So the recurrence step only needs to
+       check that if all the input variables of an operation can only be
+       generalized, then the same property holds for its result
+       variable.
+
+       Most cases are easy to check.  Cases like ``b' = b with
+       (z->b(z'))`` are based on point 3 above.  The only non-trivial
+       case is in the rule for ``getattr``::
+
+            b' = b with (z->lookup_filter(b(z'), C))
+
+       The class ``C`` comes from the annotation ``Inst(C)`` of an input
+       variable.  This is where the recurrence hypothesis is needed.  It
+       is enough to prove that given annotations ``a1 <= a2`` and
+       ``Inst(C1) <= Inst(C2)``, we have::
+
+            lookup_filter(a1, Inst(C1)) <= lookup_filter(a2, Inst(C2))
+
+       The only interesting case is if ``a1 = Pbc(set1)`` and ``a2 =
+       Pbc(set2)``.  In this case *set1* is a subset of *set2*.  ...
+
+       XXX first prove that the sets are "reasonable": if C.f in set,
+           then D.f in set for all parent classes D
+
+
+STOP
+
+using the previous point, this can be checked on the rule (or rules) of
+each operation independently.  Indeed, there are only two ways in which
+``b(z)`` is modified: by ``merge .. => z``, which trivially
+guarantees the property by being based on the union operator ``\/`` of
+the lattice, or explicitely in a way that can easily be checked to
+respect the property.
+
+
 
 
 Each basic step (execution of one rule) can lead to the generalization

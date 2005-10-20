@@ -1,0 +1,120 @@
+============================================================
+      Encapsulating low-level implementation aspects
+============================================================
+
+.. contents::
+.. sectnum::
+
+
+Abstract
+===============================================
+
+It has always been a major goal of PyPy to not make implementation
+decisions. This means that even after the interpreter and core objects
+are implemented we want to be able to make decisions about aspects such
+as garbage collection strategy, target platform or even execution model.
+
+In the following document, we expose these aspects in more detail and
+contrast the potential of our approach with CPython.
+
+
+Background
+===============================================
+
+One of the better known significant modifications to CPython are
+Christian Tismer's "stackless" patches [#]_, which allow for far more
+flexible control flow than the typical function call/return supported by
+CPython.  Originally implemented as a series of invasive patches,
+Christian found that maintaining these patches as CPython itself was
+further developed was time consuming to the point of no longer being
+able to work on the new functionality that was the point of the
+exercise.
+
+One solution would have been for the patches to become part of core
+CPython but this was not done partly because the code that fully enabled
+stackless required widespread modifications that made the code harder to
+understand (as the "stackless" model contains control flow that is not
+naturally expressable in C, the implementation became much less
+"natural" in some sense).
+
+With PyPy, however, it is possible to obtain this flexible control flow
+with transparent implementation code as the necessary modifications can
+be implemented as a localized translation aspect, and indeed this was
+done at the Paris sprint in a couple of days (as compared to XXX weeks
+for the original stackless patches).
+
+Of course, this is not the only aspect that can be so decided a
+posteriori, during translation.
+
+.. [#] http://www.stackless.com
+
+
+Translation aspects
+===============================================
+
+Our standard interpreter[#]_ is implemented at a very high level of
+abstraction.  This has a number of happy consequences, among which is
+enabling the encapsulation of language aspects described in this
+document.  The implementation code simply makes no reference to memory
+management, for example, which gives the translator complete freedom to
+decide about this aspect.  This constrasts with CPython where the
+decision to use reference counting is reflected tens or even hundreds of
+times in each C source file in the codebase.
+
+.. [#] "standard interpreter" in this context means the code which
+       implements the interpreter and the standard object space.
+
+As described in `...`_, producing a Python implementation from the
+source of our standard interpreter involves various stages: the
+initialization code is run, the resulting code is annotated, specialized
+and finally translated.  By the nature of the task, the encapsulation of
+*low-level aspects* mainly affects the specializer and the translation
+process.  At the coarsest level, the selection of target platform
+involves writing a new backend -- still a significant task, but much
+much easier than writing a complete implementation of Python!
+
+Other aspects affect different levels, as their needs require.  The
+stackless modifications for instance are mostly implemented in the C
+backend but also change the low-level graphs in small ways.  The total
+changes only required about 300 lines of source, vindicating our
+abstract approach.
+
+Another implementation detail that causes tension between functionality
+and both code clarity and memory consumption in CPython is the issue of
+multiple independent interpreters in the same process.  In CPython there
+is a partial implementation of this idea in the "interpreter state" API,
+but the interpreters produced by this are not truly independent -- for
+instance the dictionary that contains interned strings is implemented as
+file-level static object, and is thus shared between the interpreters.
+A full implementation of this idea would entirely eschew the use of file
+level statics and place all interpreter-global data in some large
+structure, which would hamper readability and maintainability.  In
+addition, in many situations it is necessary to determine which
+interpreter a given object is "from" -- and this is not possible in
+CPython largely because of the memory overhead that adding a 'interp'
+pointer to all Python objects would create.
+
+Because all of our implementation code manipulates an object space
+instance, the situation of multiple interpreters is handled entirely
+automatically.  If there is only one space instance, it is regarded as a
+pre-constructed constant and the space object pointer (though not all of
+its contents) disappears from the produced source.  If there are two or
+more such instances, a 'space' attribute will be automatically added to
+all application objects, the best of both worlds.
+
+The aspect of CPython's implementation that has probably caused more
+discussion than any other mentioned here is that of the threading model.
+Python has supported threads since version 1.5 with what is commonly
+referred to as a "Global Interpreter Lock" or GIL; the execution of
+bytecodes is serialized such that only one thread can be executing
+Python code at one time.  This has the benefit of being relatively
+unintrisive and not too complex, but has the disadvantage that
+multi-threaded computation-bound Python code does not gain performance
+on multi-processing machines.
+
+PyPy will offer the opportunity to experiment with different models,
+although currently only offers a version with no thread support and
+another with a GIL-like model.
+
+
+.. _`...`: http://www.example.com
