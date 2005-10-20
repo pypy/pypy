@@ -38,10 +38,20 @@ try:
             olddate = date
             try:
                 tempdir.update(rev=curr_rev - 1)
+            except KeyboardInterrupt:
+                raise
             except:
                 tempdir.localpath.remove(1)
                 tempdir.localpath.mkdir()
-                tempdir.checkout(URL, rev=curr_rev - 1)
+                while 1:
+                    try:
+                        tempdir.checkout(URL, rev=curr_rev - 1)
+                    except KeyboardInterrupt:
+                        raise
+                    except:
+                        curr_rev -= 1
+                    else:
+                        break
             info = tempdir.info(usecache=0)
             curr_rev = info.rev
             date = datetime.date(*time.gmtime(info.mtime)[:3])
