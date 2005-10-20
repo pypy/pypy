@@ -493,7 +493,7 @@ def extract_cell_content(c):
     x = X()
     x_cell, = (lambda: x).func_closure
     x_cell == c
-    return x.other
+    return x.other    # crashes if the cell is actually empty
 
 def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):
