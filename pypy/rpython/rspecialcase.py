@@ -40,3 +40,7 @@ def rtype_override_init_opaque_object(hop, clsdef):
 def rtype_override_from_opaque_object(hop, clsdef):
     return hop.genop('from_opaque_object_should_never_be_seen_by_the_backend',
                      [], resulttype=hop.r_result)
+
+def rtype_override_to_opaque_object(hop, clsdef):
+    return hop.genop('to_opaque_object_should_never_be_seen_by_the_backend',
+                     [], resulttype=hop.r_result)

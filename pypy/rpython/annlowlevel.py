@@ -80,6 +80,11 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         exttypeinfo = s_opaqueptr.ll_ptrtype.TO._exttypeinfo
         return annmodel.SomeExternalObject(exttypeinfo.typ)
 
+    def override__to_opaque_object(pol, s_value):
+        assert isinstance(s_value, annmodel.SomeExternalObject)
+        exttypeinfo = extfunctable.typetable[s_value.knowntype]
+        return annmodel.SomePtr(lltype.Ptr(exttypeinfo.get_lltype()))
+
 
 def annotate_lowlevel_helper(annotator, ll_function, args_s):
     saved = annotator.policy, annotator.added_blocks

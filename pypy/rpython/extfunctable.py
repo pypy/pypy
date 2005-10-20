@@ -28,11 +28,12 @@ class ExtFuncInfo:
 
 
 class ExtTypeInfo:
-    def __init__(self, typ, tag, methods):
+    def __init__(self, typ, tag, methods, needs_container=True):
         self.typ = typ
         self.tag = tag
         self._TYPE = None
         self.methods = methods     # {'name': ExtFuncInfo()}
+        self.needs_container = needs_container
 
     def get_annotation(self, methodname):
         return self.methods[methodname].annotation
@@ -51,8 +52,11 @@ class ExtTypeInfo:
             from pypy.rpython import lltype
             OPAQUE = lltype.OpaqueType(self.tag)
             OPAQUE._exttypeinfo = self
-            STRUCT = lltype.GcStruct(self.tag, ('obj', OPAQUE))
-            self._TYPE = STRUCT
+            if self.needs_container:
+                STRUCT = lltype.GcStruct(self.tag, ('obj', OPAQUE))
+                self._TYPE = STRUCT
+            else:
+                self._TYPE = OPAQUE
         return self._TYPE
 
 
@@ -87,7 +91,7 @@ def declare(func, annotation, ll_function, ll_annotable=True, backend_functionte
     return info
 
 typetable = {}
-def declaretype(typ, tag, **methodsdecl):
+def declaretype1(typ, tag, methodsdecl, needs_container):
     assert isinstance(typ, type)
     methods = {}
     for name, args in methodsdecl.items():
@@ -99,11 +103,17 @@ def declaretype(typ, tag, **methodsdecl):
         else:
             func = None   # failed (typical for old-style C types), ignore it
         methods[name] = declare(func, *args)
-    info = ExtTypeInfo(typ, tag, methods)
+    info = ExtTypeInfo(typ, tag, methods, needs_container)
     typetable[typ] = info
     for callback in table_callbacks:
         callback()
     return info
+
+def declaretype(typ, tag, **methodsdecl):
+    return declaretype1(typ, tag, methodsdecl, needs_container=True)
+
+def declareptrtype(typ, tag, **methodsdecl):
+    return declaretype1(typ, tag, methodsdecl, needs_container=False)
 
 # _____________________________________________________________
 
@@ -204,6 +214,10 @@ declare(rarithmetic.formatd, str, 'll_strtod/formatd')
 from pypy.rpython import ros
 declare(ros.putenv, noneannotation, 'll_os/putenv')
 declare(ros.environ, strnullannotation, 'll_os/environ')
+declare(ros.opendir, ros.DIR, 'll_os/opendir')
+declareptrtype(ros.DIR, "DIR",
+               readdir = (strnullannotation, 'll_os/readdir'),
+               closedir = (noneannotation,   'll_os/closedir'))
 
 # ___________________________________________________________
 # stackless

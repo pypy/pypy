@@ -17,6 +17,7 @@ import os, errno
 from pypy.rpython.rstr import STR
 from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
 from pypy.rpython.module.support import to_rstr, from_rstr, ll_strcpy
+from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython import ros
 
 def ll_os_open(fname, flag, mode):
@@ -147,3 +148,22 @@ ll_os_unsetenv.suggested_primitive = True
 def ll_os_environ(idx):
     return ros.environ(idx)
 ll_os_environ.suggested_primitive = True
+
+# ____________________________________________________________
+# opendir/readdir
+
+def ll_os_opendir(dirname):
+    dir = ros.opendir(from_rstr(dirname))
+    return to_opaque_object(dir)
+ll_os_opendir.suggested_primitive = True
+
+def ll_os_readdir(opaquedir):
+    dir = from_opaque_object(opaquedir)
+    nextentry = dir.readdir()
+    return to_rstr(nextentry)
+ll_os_readdir.suggested_primitive = True
+
+def ll_os_closedir(opaquedir):
+    dir = from_opaque_object(opaquedir)
+    dir.closedir()
+ll_os_closedir.suggested_primitive = True

@@ -80,3 +80,24 @@ def test_environ():
     assert res
     chan.close()
 
+def test_opendir_readdir():
+    dirname = str(udir)
+    rsdirname = to_rstr(dirname)
+    result = []
+    DIR = ll_os_opendir(rsdirname)
+    try:
+        while True:
+            nextentry = ll_os_readdir(DIR)
+            if not nextentry:   # null pointer check
+                break
+            result.append(from_rstr(nextentry))
+    finally:
+        ll_os_closedir(DIR)
+    assert '.' in result
+    assert '..' in result
+    result.remove('.')
+    result.remove('..')
+    result.sort()
+    compared_with = os.listdir(dirname)
+    compared_with.sort()
+    assert result == compared_with
