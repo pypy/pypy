@@ -2,6 +2,17 @@
       Encapsulating low-level implementation aspects
 ============================================================
 
+.. so this mentions the following aspects:
+    threading
+    gc policy
+    target platform
+    stacklessness
+    supporting multiple interpreter states
+    the thunk object space.
+
+   it does so in a very boring "here's one aspect, here's another"
+   sort of way.  this needs to change.  it's probably also too short.
+
 .. contents::
 .. sectnum::
 
@@ -46,13 +57,10 @@ for the original stackless patches).
 Of course, this is not the only aspect that can be so decided a
 posteriori, during translation.
 
-.. [#] http://www.stackless.com
-
-
 Translation aspects
 ===============================================
 
-Our standard interpreter[#]_ is implemented at a very high level of
+Our standard interpreter [#]_ is implemented at a very high level of
 abstraction.  This has a number of happy consequences, among which is
 enabling the encapsulation of language aspects described in this
 document.  The implementation code simply makes no reference to memory
@@ -60,9 +68,6 @@ management, for example, which gives the translator complete freedom to
 decide about this aspect.  This constrasts with CPython where the
 decision to use reference counting is reflected tens or even hundreds of
 times in each C source file in the codebase.
-
-.. [#] "standard interpreter" in this context means the code which
-       implements the interpreter and the standard object space.
 
 As described in `...`_, producing a Python implementation from the
 source of our standard interpreter involves various stages: the
@@ -72,6 +77,8 @@ and finally translated.  By the nature of the task, the encapsulation of
 process.  At the coarsest level, the selection of target platform
 involves writing a new backend -- still a significant task, but much
 much easier than writing a complete implementation of Python!
+
+.. _`...`: http://www.example.com
 
 Other aspects affect different levels, as their needs require.  The
 stackless modifications for instance are mostly implemented in the C
@@ -114,7 +121,42 @@ on multi-processing machines.
 
 PyPy will offer the opportunity to experiment with different models,
 although currently only offers a version with no thread support and
-another with a GIL-like model.
+another with a GIL-like model.  XXX Could speculatively waffle here
+easily enough.
 
+A final low-level aspect is that of memory management.  As mentioned
+above, CPython's decision to use a garbage collector based on
+reference counting is reflected throughout the source.  In the
+implementation code of PyPy, it is not, and in fact the standard
+interpreter can currently be compiled to use a reference counted
+scheme or Boehm's `garbage collector for C`_.
 
-.. _`...`: http://www.example.com
+.. _`garbage collector for C`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+
+Another advantage of the aspect oriented approach shows itself most
+clearly with this memory management aspect: that of correctness.
+Although reference counting is a fairly simple scheme, writing code
+for CPython requires that the programmer make a large number of
+not-quite-trivial decisions about the refcounting code and experience
+suggests that mistakes will always creep in, leading to crashes or
+leaks.  While tools exist to help find these mistakes, it is surely
+better to not write the reference count manipulations at all and this
+is what PyPy's approach allows.  Writing the code that emits the
+correct reference count manipulations is surely harder than writing
+any one piece of explicit refcounting code, but once it's done and
+tested, you it just works without further effort.
+
+Possibly the most radical aspect to tinker with is the evaluation
+strategy.  The thunk object space wraps the standard object space to
+allow the production of "lazily computed objects", objects whose
+values are only calculated when needed, and to allow the global and
+total replacement of one object with another.  The thunk object space
+is mostly meant as an example of what our approach can acheive -- the
+combination of side-effects and lazy evaluation is not easy to
+understand.
+
+.. [#] "standard interpreter" in this context means the code which
+       implements the interpreter and the standard object space.
+
+.. [#] http://www.stackless.com
+
