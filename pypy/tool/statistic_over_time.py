@@ -23,35 +23,36 @@ statistic = []
 
 curr_rev = tempdir.info().rev
 
-while curr_rev > 1:
-    num_revs = 0
-    num_files = 0
-    num_testfiles = 0
-    num_lines = 0
-    num_testlines = 0
-    curr_rev = tempdir.info(usecache=0).rev
-    olddate = datetime.date(*time.gmtime(pypy.info(0).mtime)[:3])
-    date = olddate
-    while date == olddate:
-        counter, nf, nl, ntf, ntl = get_loccount([pypy.localpath])
-        num_revs += 1
-        num_files = max(num_files, nf)
-        num_testfiles = max(num_testfiles, ntf)
-        num_lines = max(num_lines, nl)
-        num_testlines = max(num_testlines, ntl)
-        olddate = date
-	try:
-	    tempdir.update(rev=curr_rev - 1)
-	except:
-	    tempdir.localpath.remove(1)
-	    tempdir.localpath.makedir()
-	    tempdir.checkout(URL, rev=curr_rev - 1)
+try:
+    while curr_rev > 1:
+        num_revs = 0
+        num_files = 0
+        num_testfiles = 0
+        num_lines = 0
+        num_testlines = 0
         curr_rev = tempdir.info(usecache=0).rev
-        date = datetime.date(*time.gmtime(pypy.info(0).mtime)[:3])
-    print date, num_revs, num_files, num_testfiles, num_lines, num_testlines
-    statistic.append([date, num_revs, num_files, num_testfiles, num_lines, num_testlines])
-
-import pickle
-f = file("out.txt", "w")
-pickle.dump(statistic, f)
-f.close()
+        olddate = datetime.date(*time.gmtime(pypy.info(0).mtime)[:3])
+        date = olddate
+        while date == olddate:
+            counter, nf, nl, ntf, ntl = get_loccount([pypy.localpath])
+            num_revs += 1
+            num_files = max(num_files, nf)
+            num_testfiles = max(num_testfiles, ntf)
+            num_lines = max(num_lines, nl)
+            num_testlines = max(num_testlines, ntl)
+            olddate = date
+            try:
+                tempdir.update(rev=curr_rev - 1)
+            except:
+                tempdir.localpath.remove(1)
+                tempdir.localpath.mkdir()
+                tempdir.checkout(URL, rev=curr_rev - 1)
+            curr_rev = tempdir.info(usecache=0).rev
+            date = datetime.date(*time.gmtime(pypy.info(0).mtime)[:3])
+        print date, num_revs, num_files, num_testfiles, num_lines, num_testlines
+        statistic.append([date, num_revs, num_files, num_testfiles, num_lines, num_testlines])
+finally:
+    import pickle
+    f = file("out.txt", "w")
+    pickle.dump(statistic, f)
+    f.close()
