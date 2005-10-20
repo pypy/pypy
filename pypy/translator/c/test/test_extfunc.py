@@ -499,6 +499,31 @@ if hasattr(posix, "unsetenv"):
         f()
         assert _real_getenv('ABCDEF') is None
 
+def test_opendir_readdir():
+    def mylistdir(s):
+        result = []
+        dir = ros.opendir(s)
+        try:
+            while True:
+                nextentry = dir.readdir()
+                if nextentry is None:
+                    break
+                result.append(nextentry)
+        finally:
+            dir.closedir()
+        return '\x00'.join(result)
+    func = compile(mylistdir, [str])
+    result = func(str(udir))
+    result = result.split('\x00')
+    assert '.' in result
+    assert '..' in result
+    result.remove('.')
+    result.remove('..')
+    result.sort()
+    compared_with = os.listdir(str(udir))
+    compared_with.sort()
+    assert result == compared_with
+
 def test_socket():
     import _socket
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()

@@ -58,6 +58,9 @@ void LL_os_rmdir(RPyString * path);
 void LL_os_putenv(RPyString * name_eq_value);
 void LL_os_unsetenv(RPyString * name);
 RPyString* LL_os_environ(int idx);
+struct RPyOpaque_DIR *LL_os_opendir(RPyString *dirname);
+RPyString *LL_os_readdir(struct RPyOpaque_DIR *dir);
+void LL_os_closedir(struct RPyOpaque_DIR *dir);
 
 /* implementations */
 
@@ -272,4 +275,55 @@ RPyString* LL_os_environ(int idx) {
     }
     return rs;
 }
+
+/******************** opendir/readdir/closedir ********************/
+
+#ifdef HAVE_DIRENT_H
+#include <dirent.h>
+#define NAMLEN(dirent) strlen((dirent)->d_name)
+#else
+#if defined(__WATCOMC__) && !defined(__QNX__)
+#include <direct.h>
+#define NAMLEN(dirent) strlen((dirent)->d_name)
+#else
+#define dirent direct
+#define NAMLEN(dirent) (dirent)->d_namlen
+#endif
+#ifdef HAVE_SYS_NDIR_H
+#include <sys/ndir.h>
+#endif
+#ifdef HAVE_SYS_DIR_H
+#include <sys/dir.h>
+#endif
+#ifdef HAVE_NDIR_H
+#include <ndir.h>
+#endif
+#endif
+
+struct RPyOpaque_DIR *LL_os_opendir(RPyString *dirname)
+{
+	DIR *dir = opendir(RPyString_AsString(dirname));
+	if (dir == NULL)
+		RPYTHON_RAISE_OSERROR(errno);
+	return (struct RPyOpaque_DIR *) dir;
+}
+
+RPyString *LL_os_readdir(struct RPyOpaque_DIR *dir)
+{
+	struct dirent *d;
+	errno = 0;
+	d = readdir((DIR *) dir);
+	if (d != NULL)
+		return RPyString_FromString(d->d_name);
+	if (errno)
+		RPYTHON_RAISE_OSERROR(errno);
+	return NULL;
+}
+
+void LL_os_closedir(struct RPyOpaque_DIR *dir)
+{
+	if (closedir((DIR *) dir) < 0)
+		RPYTHON_RAISE_OSERROR(errno);
+}
+
 #endif /* PYPY_NOT_MAIN_FILE */
