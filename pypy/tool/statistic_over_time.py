@@ -8,9 +8,11 @@ try:
 except IndexError: 
     path = py.path.svnwc()
 
+URL = "http://codespeak.net/svn/pypy/dist"
+
 tempdir = py.path.svnwc(py.test.ensuretemp("pypy-dist"))
 print "checking out"
-tempdir.checkout("http://codespeak.net/svn/pypy/dist")
+tempdir.checkout(URL)
 print "done"
 pypy = tempdir.join('pypy')
 
@@ -38,7 +40,18 @@ while curr_rev > 1:
         num_lines = max(num_lines, nl)
         num_testlines = max(num_testlines, ntl)
         olddate = date
-        tempdir.update(rev=curr_rev - 2)
+	try:
+	    tempdir.update(rev=curr_rev - 1)
+	except:
+	    tempdir.localpath.remove(1)
+	    tempdir.localpath.makedir()
+	    tempdir.checkout(URL, rev=curr_rev - 1)
         curr_rev = tempdir.info(usecache=0).rev
         date = datetime.date(*time.gmtime(pypy.info(0).mtime)[:3])
     print date, num_revs, num_files, num_testfiles, num_lines, num_testlines
+    statistic.append([date, num_revs, num_files, num_testfiles, num_lines, num_testlines])
+
+import pickle
+f = file("out.txt", "w")
+pickle.dump(statistic, f)
+f.close()
