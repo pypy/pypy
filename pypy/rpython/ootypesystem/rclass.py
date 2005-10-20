@@ -123,9 +123,15 @@ class InstanceRepr(AbstractInstanceRepr):
                 if not attrdef.readonly:
                     continue
                 mangled = mangle(name)
+                is_method = (classrepr.prepare_method(attrdef.s_value)
+                             is not None)
                 if mangled in allmethods or mangled in allclassattributes:
                     # if the method/attr was already found in a parent class,
                     # we register it again only if it is overridden.
+                    if is_method and mangled in allclassattributes:
+                        raise TyperError("method overrides class attribute")
+                    if not is_method and mangled in allmethods:
+                        raise TyperError("class attribute overrides method")
                     if name not in self.classdef.cls.__dict__:
                         continue
                     impl = self.classdef.cls.__dict__[name]
@@ -138,14 +144,21 @@ class InstanceRepr(AbstractInstanceRepr):
                             impl = clsdef.cls.__dict__[name]
                             break
                     else:
-                        raise TyperError("class %r has no attribute %r" % (
-                            self.classdef.cls, name))
-                if classrepr.prepare_method(attrdef.s_value) is not None:
+                        if is_method:
+                            impl = None    # abstract base method
+                        else:
+                            raise TyperError("class %r has no attribute %r" % (
+                                self.classdef.cls, name))
+                if is_method:
                     # a regular method
-                    f, inputs, ret = getsignature(self.rtyper, impl)
+                    exmpl = impl or attrdef.s_value.prebuiltinstances.keys()[0]
+                    f, inputs, ret = getsignature(self.rtyper, exmpl)
                     M = ootype.Meth([r.lowleveltype for r in inputs[1:]], ret.lowleveltype)
-                    m = ootype.meth(M, _name=mangled, _callable=impl,
-                                    graph=f.graph)
+                    if impl:
+                        m = ootype.meth(M, _name=mangled, _callable=impl,
+                                        graph=f.graph)
+                    else:
+                        m = None
                     methods[mangled] = m
                     allmethods[mangled] = True
                 else:

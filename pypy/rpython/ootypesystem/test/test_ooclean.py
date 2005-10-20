@@ -491,3 +491,23 @@ def test_void_fnptr():
         return e.attr()
     res = interpret(f, [])
     assert res == 42
+
+def test_abstract_base_method():
+    class A(object):
+        pass
+    class B(A):
+        def f(self):
+            return 2
+    class C(A):
+        def f(self):
+            return 3
+    def f(flag):
+        if flag:
+            x = B()
+        else:
+            x = C()
+        return x.f()
+    res = interpret(f, [True])
+    assert res == 2
+    res = interpret(f, [False])
+    assert res == 3
