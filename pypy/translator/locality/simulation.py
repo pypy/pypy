@@ -7,20 +7,20 @@ The purpose of this module is to simulate function calls
 in the call-graph of a program, to gather information
 about frequencies of transitions between functions.
 
-The following DemoNode/DemoSim classes show an example of the
+The following SimNode/SimGraph classes show an example of the
 simulation performed. They can be subclassed to connect them
 to client structures like flowgraphs.
 
-- DemoSim.run was used to get an obviously correct reference implementation.
+- SimGraph.run was used to get an obviously correct reference implementation.
 
-- DemoSim.sim_all simulates the calls of the run method. The results are
+- SimGraph.sim_all simulates the calls of the run method. The results are
   exactly the same, although the computation time ir orders of magnitudes
-  smaller, and the DemoSim.simulate method is able to handle recursions
+  smaller, and the SimGraph.simulate method is able to handle recursions
   and function call probabilities which are fractions.
 """
 
 
-class DemoNode:
+class SimNode:
     def __init__(self, sim, func):
         self.sim = sim
         self.func = func
@@ -84,11 +84,13 @@ class DemoNode:
         freqs, nodes = zip(*ret)
         return nodes, [-freq for freq in freqs]
 
-class DemoSim:
-    def __init__(self, funcnodes, nodefactory=DemoNode):
+
+class SimGraph:
+    def __init__(self, funcnodes, nodefactory=SimNode, clientdata=None):
         self.nodes = []
         self.transitions = {}
         self.pending = {}
+        self.clientdata = clientdata
 
         name2node = {}
         for func in funcnodes:
@@ -127,15 +129,16 @@ class DemoSim:
             self.transitions[key] = 0
         for node in self.nodes:
             node.clear()
+        self.pending.clear()
 
     def display(self):
         d = {'w': max(self._names_width, 6) }
-        print '%%%(w)ds %%%(w)ds  repetition' % d % ('caller', 'callee')
+        print '%%%(w)ds %%%(w)gs  repetition' % d % ('caller', 'callee')
         for caller, callee, reps in self.get_state():
-            print '%%%(w)ds %%%(w)ds %%6d' % d % (caller, callee, reps)
-        print '%%%(w)ds  calls' % d % 'node'
+            print '%%%(w)ds %%%(w)gs %%6g' % d % (caller, callee, reps)
+        print '%%%(w)gs  calls' % d % 'node'
         for node in self.nodes:
-            print '%%%(w)ds %%6d' % d % (node.name, node.calls)
+            print '%%%(w)gs %%6g' % d % (node.name, node.calls)
 
     def get_state(self):
         lst = []
@@ -166,11 +169,15 @@ class DemoSim:
                 pending[callee] = pending.get(callee, 0) + ntrans * call_prob
         self.pending = pending
 
-    def sim_all(self, call_prob=1, root=None):
-        # for testing, only. Would run infinitely with recursions.
+    def sim_all(self, call_prob=1, maxrun=None, root=None):
+        # simulate and stop after maxrun loops
         self.simulate(call_prob, root)
+        i = 0
         while self.pending:
             self.simulate(call_prob)
+            i += 1
+            if maxrun and i >= maxrun:
+                break
 
     def _compute_callers(self):
         nodes = {}
@@ -192,12 +199,12 @@ def test(debug=False):
     def c(): pass
     def d(): c(); e()
     def e(): c()
-    sim = DemoSim([a, b, c, d, e])
+    sim = SimGraph([a, b, c, d, e])
     if debug:
         globals().update(locals())
 
     sim.clear()
-    for prob in 1, 2, 3:
+    for prob in 1, 3, 2:
         sim.clear()
         sim.run_all(prob)
         state1 = sim.get_state()

@@ -28,10 +28,24 @@ See pypy/translator/locality/projection.py.
 """
 
 from pypy.objspace.flow.model import Variable, Constant
+from pypy.translator.locality.support import log
+from pypy.translator.locality.simulation import SimNode, SimGraph
+from pypy.translator.locality.projection import SpaceNode, SpaceGraph
+
+
+class FlowSimNode(SimNode):
+    def _get_name(self, func):
+        return func.name
+
+    def _find_callee_names(self):
+        calls = self.sim.clientdata[self.func]
+        return [func.name for func in calls]
+
 
 class CallTree:
-    def __init__(self, funcnodes):
+    def __init__(self, funcnodes, database):
         self.nodes = funcnodes
+        self.database = database
         self.graphs2nodes = self._build_graph2nodes()
         self.calls = {}
         for node in self.nodes:
@@ -46,6 +60,10 @@ class CallTree:
     def find_callees(self, node):
         graph = node.obj.graph
         res = []
+        if node.obj._callable in self.database.externalfuncs:
+            s = "skipped external function %s" % node.obj._callable.__name__
+            log.calltree.findCallees(s)
+            return res
         for block in graph.iterblocks():
             for op in block.operations:
                 if op.opname == 'direct_call':
@@ -57,10 +75,20 @@ class CallTree:
                         try:
                             callednode = self.graphs2nodes[graph]
                         except KeyError:
-                            print "No node found for graph %s" % graph.name
+                            s = "No node found for graph %s" % graph.name
+                            log.calltree.findCallees(s)
                             continue
                         else:
                             res.append(callednode)
                     else:
-                        print "Node %s calls Variable %s" % (node, fnarg)
+                        s = "Node %s calls Variable %s" % (node.name, fnarg)
+                        log.calltree.findCallees(s)
         return res
+
+    def simulate(self):
+        log.calltree('building CallTree...')
+        sim = SimGraph(self.nodes, FlowSimNode, self.calls)
+        log.calltree('simulating...')
+        sim.sim_all(0.9, 50)
+        import pdb
+        pdb.set_trace()

@@ -10,6 +10,7 @@ from pypy.translator.tool.cbuild import import_module_from_directory
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython import lltype
 from pypy.tool.udir import udir
+from pypy.translator.locality.calltree import CallTree
 
 class CBuilder(object):
     c_source_filename = None
@@ -175,6 +176,9 @@ class SourceGenerator:
         self.funcnodes = funcnodes
         self.othernodes = othernodes
         self.path = path
+        return # the below is under development
+        graph = CallTree(self.funcnodes, self.database)
+        graph.simulate()
 
     def uniquecname(self, name):
         assert name.endswith('.c')
