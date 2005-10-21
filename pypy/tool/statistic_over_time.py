@@ -43,6 +43,8 @@ try:
             except:
                 tempdir.localpath.remove(1)
                 tempdir.localpath.mkdir()
+                if curr_rev < 8359:
+                    URL = "http://codespeak.net/svn/pypy/trunk"
                 while 1:
                     try:
                         tempdir.checkout(URL, rev=curr_rev - 1)
