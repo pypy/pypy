@@ -510,7 +510,7 @@ using the techniques described above, and then we turn the resulting
 flow graph into ``f_interp`` by generating for each operation a call to
 the corresponding method of ``space``.
 
-This process looses the original syntactic structure of ``f_app``,
+This process loses the original syntactic structure of ``f_app``,
 though; the flow graph is merely a collection of blocks that jump to
 each other.  It is not always easy to reconstruct the structure from the
 graph (or even possible at all, in some cases where the flow graph does
@@ -1101,26 +1101,25 @@ Classes and instances
 
 Remember that Python has no notion of classes declaring attributes and
 methods.  Classes are merely hierarchical namespaces: an expression like
-``obj.attr`` means that the ``attr`` attribute is looked up in the class
-that ``obj`` is an instance of at run-time, and all parent classes (a
-``getattr`` operation).  Expressions like ``obj.meth()`` that look like
+``obj.attr`` (a ``getattr`` operation) means that the ``attr`` attribute
+is looked up in the class that ``obj`` is an instance of at run-time,
+and all parent classes.  Expressions like ``obj.meth()`` that look like
 method calls are actually grouped as ``(obj.meth)()``: they correspond
 to two operations, a ``getattr`` followed by a ``call``.  The
-intermediate object ``obj.meth`` is a bound method.
+intermediate object returned by ``obj.meth`` is a bound method.
 
-As the goal of annotator is to derive type information about the user
-program that is static enough, it must reconstruct a static structure
-for each class in the hierarchy.  It does so by observing the usage
-patterns of the classes and their instances, by propagating annotations
-of the form ``Inst(cls)`` -- which stands for "an instance of the class
-*cls* or any subclass".  Instance fields are attached to a class
-whenever we see that the field is being written to an instance of this
-class.  If the user program manipulates instances polymorphically, the
-variables holding the instances will be annotated ``Inst(cls)`` with
-some abstract base class *cls*; accessing attributes on such generalized
-instances lifts the inferred attribute declarations up to *cls*.  The
-same technique works for inferring the location of both fields and
-methods.
+As the goal of annotator is to derive some static type information about
+the user program, it must reconstruct a static structure for each class
+in the hierarchy.  It does so by observing the usage patterns of the
+classes and their instances, by propagating annotations of the form
+``Inst(cls)`` -- which stands for "an instance of the class *cls* or any
+subclass".  Instance fields are attached to a class whenever we see that
+the field is being written to an instance of this class.  If the user
+program manipulates instances polymorphically, the variables holding the
+instances will be annotated ``Inst(cls)`` with some abstract base class
+*cls*; accessing attributes on such generalized instances lifts the
+inferred attribute declarations up to *cls*.  The same technique works
+for inferring the location of both fields and methods.
 
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1132,14 +1131,14 @@ plus simple mix-ins.)  We also assume that polymorphic instance usage is
 program point are instances of a user-defined common base class, i.e.
 not ``object``.
 
-Remember from `definition of V`_ that we have a variable ``v_C.attr``
-for each class ``C`` and each possible attribute name ``attr``.  The
-annotation state *(b,E)* has the following meaning on these variables:
+Remember from the `definition of V`_ that we have a variable
+``v_C.attr`` for each class ``C`` and each possible attribute name
+``attr``.  The annotation state *(b,E)* gives the following meaning to
+these variables:
 
-* the binding map *b* gives an annotation to each of them, as with other
-  variables.  The annotation ``b(v_C.attr)`` is the inferred type of the
-  values that can show up when the attribute ``attr`` is read out of an
-  instance of ``C``.
+* the annotation ``b(v_C.attr)`` is the inferred type of the values that
+  can result from reading the attribute ``attr`` out of an instance of
+  ``C``;
 
 * to account for the inheritance between classes, the equivalence
   relation *E* identifies some of these variables as follows: if an
@@ -1166,7 +1165,7 @@ Formally::
 Note the similarity with the ``getitem`` and ``setitem`` of lists, in
 particular the usage of the auxiliary variable *z'*.
 
-The purpose of ``lookup_filter`` is to avoid loosing precision in method
+The purpose of ``lookup_filter`` is to avoid losing precision in method
 calls.  Indeed, if ``attr`` names a method of the class ``C`` then the
 binding ``b(v_C.attr)`` is initialized to ``Pbc(m)``, where *m* is the
 following set:
@@ -1180,39 +1179,51 @@ However, because of the possible identification between the variable
 superclass, the set *m* might end up containing potential bound methods
 of other unrelated subclasses of ``B``, even when performing a
 ``getattr`` on what we know is an instance of ``C``.  The
-``lookup_filter`` reverses this effect as follows::
+``lookup_filter`` reverses this effect.  Its definition reflects where a
+method lookup can actually find a method if it is performed on an
+instance of an unspecified subclass of ``C``: either in one of these
+subclasses, or in ``C`` or the closest parent class that defines the
+method.  If the method is also defined in further parents, these
+definitions are hidden.  More precisely::
 
-    lookup_filter(Pbc(set), C) = Pbc(newset)
+    lookup_filter(Pbc(m), C) = Pbc(newset)
     lookup_filter(NonPbcAnnotation, C) = NonPbcAnnotation
 
-where the *newset* only keeps the non-methods of *set* (if any) plus the
-following methods:
+where the *newset* is a subset of the set *m* with the following
+objects:
 
-* the ones bound to a strict subclass of ``C``, plus
+* all the objects of *m* that are not potential bound method objects;
+  plus
 
-* among the methods bound to ``C`` or superclasses of ``C``, only the
-  one from the most derived class.
+* the potential bound method objects of *m* that are of the form
+  ``D.f``, where ``D`` is a strict subclass of ``C``; plus
 
-Finally, note that we still allow real bound methods to be handled quite
-generically, in the way that is quite unique to Python: if ``meth`` is
+* among the potential bound method objects (if any) whose class is ``C``
+  or a superclass of ``C``, we select the ones whose class is the most
+  derived class thus represented.  In other words, if ``C`` inherits
+  from ``B`` which inherits from ``A``, then potential bound method
+  objects ``A.f`` would be included in the *newset* only if there is no
+  ``B.g`` or ``C.h`` in *m*.
+
+Finally, note that we still allow real bound methods to be handled and
+passed around in the way that is quite unique to Python: if ``meth`` is
 the name of a method of *x*, then ``y = x.meth`` is allowed, and the
 object *y* can be passed around and stored in data structures.  However,
 we do not allow such objects to be stored directly back into other
 instances (it is the purpose of the check in the rule for ``setattr``).
 This would create a confusion between class-level and instance-level
-attributes in a subsequent ``getattr``, because our annotator does not
-distinguish these two levels -- there is only one set of ``v_C.attr``
-variables for both.
+attributes in a subsequent ``getattr``.  It is a limitation of our
+annotator to not distinguish these two levels -- there is only one set
+of ``v_C.attr`` variables for both.
 
 
 Calls
 ~~~~~
 
-The ``Pbc`` annotations regroup (among others) all user-defined callable
-objects: functions, methods and classes.  A call in the user program
-turns into a ``simplecall`` operation whose first argument is the object
-to call.  Here is the corresponding rule -- regrouping all cases because
-the same ``Pbc(set)`` could mix several kinds of callables::
+A call in the user program turns into a ``simplecall`` operation whose
+first argument is the object to call.  Here is the corresponding rule --
+regrouping all cases because a single ``Pbc(set)`` annotation could mix
+several kinds of callables::
 
          z=simplecall(x,y1,...,yn), b(x)=Pbc(set)
       ---------------------------------------------------------------------
@@ -1247,8 +1258,8 @@ method is found).
 Termination and soundness
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As the annotation process is a fix-point search, it is necessary for
-completeness to prove more formally that it is well-behaved.  The
+As the annotation process is a fix-point search, we should prove for
+completeness that it is, in some sense yet to define, well-behaved.  The
 following proofs are all rather easy given the approach we have taken.
 
 Termination
