@@ -435,6 +435,14 @@ def test_mkdir_rmdir():
     f1(dirname, True)
     assert not os.path.exists(dirname)
 
+def test_strerror():
+    def does_stuff(n):
+        return os.strerror(n)
+    f1 = compile(does_stuff, [int])
+    for i in range(4):
+        res = f1(i)
+        assert res == os.strerror(i)
+
 # ____________________________________________________________
 
 def _real_getenv(var):

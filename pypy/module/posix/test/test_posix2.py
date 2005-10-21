@@ -90,6 +90,10 @@ class AppTestPosix:
                           'file1',
                           'file2']
 
+    def test_strerror(self):
+        assert isinstance(self.posix.strerror(0), str)
+        assert isinstance(self.posix.strerror(1), str)
+
 class AppTestEnvironment(object):
     def setup_class(cls): 
         cls.space = space 

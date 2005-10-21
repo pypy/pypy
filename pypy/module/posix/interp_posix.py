@@ -8,8 +8,11 @@ from os import *
 
 def wrap_oserror(space, e): 
     assert isinstance(e, OSError) 
-    errno = e.errno 
-    msg = os.strerror(errno) 
+    errno = e.errno
+    try:
+        msg = os.strerror(errno)
+    except ValueError:
+        msg = 'error %d' % errno
     w_error = space.call_function(space.w_OSError,
                                   space.wrap(errno),
                                   space.wrap(msg))
@@ -180,6 +183,16 @@ Remove a directory."""
         raise wrap_oserror(space, e) 
 rmdir.unwrap_spec = [ObjSpace, str]
 
+def strerror(space, errno):
+    'strerror(code) -> string\n\nTranslate an error code to a message string.'
+    try:
+        text = os.strerror(errno)
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("strerror() argument out of range"))
+    return space.wrap(text)
+strerror.unwrap_spec = [ObjSpace, int]
+
 
 # this is a particular case, because we need to supply
 # the storage for the environment variables, at least
@@ -245,6 +258,14 @@ def enumeratedir(space, dir):
     return space.newlist(result)
 
 def listdir(space, dirname):
+    """listdir(path) -> list_of_strings
+
+Return a list containing the names of the entries in the directory.
+
+\tpath: path of directory to list
+
+The list is in arbitrary order.  It does not include the special
+entries '.' and '..' even if they are present in the directory."""
     dir = ros.opendir(dirname)
     try:
         # sub-function call to make sure that 'try:finally:' will catch

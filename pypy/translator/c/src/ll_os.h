@@ -185,6 +185,11 @@ void LL_os_ftruncate(long fd, long length) { /*XXX add longfile support */
 RPyString *LL_os_strerror(int errnum) {
 	char *res;
 	res = strerror(errnum);
+	if (res == NULL) {
+		RPyRaiseSimpleException(PyExc_ValueError,
+					"strerror() argument out of range");
+		return NULL;
+	}
 	return RPyString_FromString(res);
 }
 
