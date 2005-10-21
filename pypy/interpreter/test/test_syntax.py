@@ -254,12 +254,16 @@ if __name__ == '__main__':
     for s in VALID:
         try:
             compile(s, '?', 'exec')
-        except:
+        except Exception, e:
+            print '-'*20, 'FAILED TO COMPILE:', '-'*20
             print s
-            raise
+            print '%s: %s' % (e.__class__, e)
+            print '-'*60
     for s in INVALID:
         try:
             raises(SyntaxError, compile, s, '?', 'exec')
-        except:
+        except Exception ,e:
+            print '-'*20, 'UNEXPECTEDLY COMPILED:', '-'*20
             print s
-            raise
+            print '%s: %s' % (e.__class__, e)
+            print '-'*60

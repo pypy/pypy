@@ -79,7 +79,7 @@ class FixedStack(RootStack):
 
     def pop(self):
         ptr = self.ptr - 1
-        ret = self.items[ptr]
+        ret = self.items[ptr]   # you get OverflowError if the stack is empty
         self.items[ptr] = None
         self.ptr = ptr
         return ret
