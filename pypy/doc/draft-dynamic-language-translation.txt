@@ -27,11 +27,12 @@ only of Python but of most modern dynamic languages:
   these languages as mere libraries on top of some simpler (unspecified)
   language.
 
-* Implementation-wise, language design is no longer driven by a desire to
-  enable high performance; any feature straightforward enough to achieve
-  with an interpreter is candidate.  As a result, compilation and most
-  kinds of static inference are made impossible due to this dynamism
-  (unless they are simply tedious due to the size of the language).
+* Implementation-wise, language design is no longer driven by a desire
+  to enable high performance; any feature straightforward enough to
+  achieve with an interpreter is a candidate for being accepted.  As a
+  result, compilation and most kinds of static inference are made
+  impossible due to this dynamism (or at best tedious, due to the
+  complexity of the language).
 
 
 No Declarations
@@ -55,7 +56,7 @@ theoretically impossible: there is no declared structure.  The program
 could for example build a class in completely different ways based on the
 results of NP-complete computations or external factors.  This is not just
 a theoretical possibility but a regularly used feature: for example, the
-pure Python module ``os.py`` provides some OS-independent interface to
+standard Python module ``os.py`` provides some OS-independent interface to
 OS-specific system calls, by importing internal OS-specific modules and
 completing it with substitute functions, as needed by the OS on which
 ``os.py`` turns out to be executed.  Many large Python projects use custom
@@ -103,30 +104,37 @@ a given subset of a language.  Then:
   in time.  This is natural in image-oriented environments like Smalltalk,
   where the program resides in memory and not in files in the first place.
 
-Our approach goes further and analyses *live* programs in memory:
-the program is allowed to contain fully dynamic sections, as long as these
-sections are entered a *bounded* number of times.
-For example, the source code of the PyPy
-interpreter, which is itself written in this bounded-dynamism style, makes
-extensive use of the fact that it is possible to build new classes at any
-point in time -- not just during an initialization phase -- as long as the
-number of new classes is bounded.  E.g. `interpreter/gateway.py`_ builds a
-custom class
-for each function that some variable can point to.  There is a finite
-number of functions in total, so this can obviously only create
-a finite number of extra classes.  But the precise set of functions that
-need a corresponding class is difficult to manually compute in advance;
-instead, the code that builds and cache a new class is invoked by the
-analysis tool itself each time it discovers that a new function object can
-reach the corresponding point.
+Our approach goes further and analyses *live* programs in memory: the
+program is allowed to contain fully dynamic sections, as long as these
+sections are entered a *bounded* number of times.  For example, the
+source code of the PyPy interpreter, which is itself written in this
+bounded-dynamism style, makes extensive use of the fact that it is
+possible to build new classes at any point in time -- not just during an
+initialization phase -- as long as the number of new classes is bounded.
+For example, `interpreter/gateway.py`_ builds a custom wrapper class
+corresponding to each function that a particular variable can reference.
+There is a finite number of functions in total, so this can only create
+a finite number of extra wrapper classes.  But the precise set of
+functions that need such a wrapper class is difficult to manually
+compute in advance.  It would also be redundant to do so: indeed, it is
+part of the type inference tool's job to discover all functions that can
+reach each point in the program.  In this case, whenever it discovers
+that a new function could reach the particular variable mentioned above,
+the analysis tool itself will invoke the class-building code in
+`interpreter/gateway.py`_ as part of the inference process.  This
+triggers the building of the necessary wrapper class, implicitely
+extending the set of classes that need to be analysed.  (This is
+essentially done by a hint that marks the code building the wrapper
+class for a given function as requiring memoization.)
 
-This approach is derived from dynamic analysis techniques that can support
-unrestricted dynamic languages by falling back to a regular interpreter for
-unsupported features (e.g. Psyco, described in
-http://psyco.sourceforge.net/psyco-pepm-a.ps.gz).
-The above argumentation should have shown why we think that being similarily
-able to fall back to regular interpretation for parts that cannot be
+This approach is derived from dynamic analysis techniques that can
+support unrestricted dynamic languages by falling back to a regular
+interpreter for unsupported features (e.g. [Psyco]_).  The above
+argumentation should have shown why we think that being similarily able
+to fall back to regular interpretation for parts that cannot be
 understood is a central feature of the analysis of dynamic languages.
+
+.. [Psyco] http://psyco.sourceforge.net/ or the `ACM SIGPLAN 2004 paper`_.
 
 
 Concrete and abstract interpretation
@@ -151,11 +159,11 @@ the object library's semantics.  The former, called *bytecode interpreter*,
 considers objects as black boxes; any operation on objects requested by the
 bytecode is handled over to the object library, called *object space*.
 The point of this architecture is, precisely, that neither of these two
-components is trivial; separating them explicitely, with a well-defined
+components is trivial; separating them explicitly, with a well-defined
 interface inbetween, allows each part to be reused independently.  This is
 a major flexibility feature of PyPy: we can for example insert proxy object
-spaces in front of the real one, like the `Thunk Object Space`_ adding lazy
-evaluation of objects.
+spaces in front of the real one, as in the `Thunk Object Space`_ which adds
+lazy evaluation of objects.
 
 Note that the term "object space" has already been reused for other
 dynamic language implementations, e.g. XXX for Perl 6.
@@ -182,14 +190,16 @@ The global picture is then to run the program while switching between the
 flow object space for static enough functions, and a standard, concrete
 object space for functions or initializations requiring the full dynamism.
 
-If the placeholders are endowed with a bit more information, e.g. if they
-carry a type information that is propagated to resulting placeholders by
-individual operations, then our abstract interpretation simultaneously
-performs type inference.  This is, in essence, executing the program while
-abstracting out some concrete values and replacing them with the set of
-all values that could actually be there.  If the sets are broad enough,
-then after some time we will have seen all potential value sets along each
-possible code paths, and our program analysis is complete.
+If, for example, the placeholders are endowed with a bit more
+information, e.g. if they carry a type information that is propagated to
+resulting placeholders by individual operations, then our abstract
+interpretation simultaneously performs type inference.  This is, in
+essence, executing the program while abstracting out some concrete
+values and replacing them with the set of all values that could actually
+be there.  If the sets are broad enough, then after some time we will
+have seen all potential value sets along each possible code paths, and
+our program analysis is complete.  (Note that this is not exactly how
+`the PyPy analysis toolchain`_ does type inference: see below.)
 
 An object space is thus an *interpretation domain*; the Flow Object Space
 is an *abstract interpretation domain*.  We are thus interpreting the
@@ -202,10 +212,10 @@ general information about the program, and for parts that cannot be analysed
 we switch to the concrete level.  The restrictions placed on the program
 to statically analyse are that to be crafted in such a way that this process
 eventually terminates; from this point of view, more abstract is better (it
-covers whole sets of objects in a single pass).  Thus the compromize that
+covers whole sets of objects in a single pass).  Thus the compromises that
 the author of the program to analyse faces are less strong but more subtle
-than not using a specific set of dynamic features at all, but using them
-sparsingly enough.
+than a rule forbidding most dynamic features.  The rule is, roughly
+speaking, to use dynamic features sparsingly enough.
 
 
 The PyPy analysis toolchain
@@ -213,18 +223,22 @@ The PyPy analysis toolchain
 
 We developed above a theoretical point of view that differs
 significantly from what we have implemented, for many reasons.  The
-devil is in the details.
-
-The rest of this document is organized as follows:
+devil is in the details.  Our toolchain is organized in three main
+passes, each described in its own chapter in the sequel:
 
 * the `Flow Object Space`_ chapter describes how we turn Python bytecode
   objects into control flow graphs by performing its abstract
   interpretation;
 
-* the `Annotator`_ chapter describes our type inference model and process;
+* the `Annotator`_ chapter describes our type inference model and process,
+  by doing abstract interpretation of the control flow graphs;
 
 * the `Code Generation`_ chapter gives an overview about how we turn
   annotated flow graphs into low-level code.
+
+The third pass is further divided into turning the control flow graphs
+into low-level ones, generating (e.g.) C source code for a C compiler,
+and invoking the C compiler to actually produce the executable.
 
 
 Flow Object Space
@@ -236,20 +250,18 @@ context. The latter two object kinds are properly part of the
 interpretation engine, while the object space implements all
 operations on values which are treated as black boxes by the engine.
 
-The Object Space plays the role of a factory for execution contexts,
-whose base implementation is supplied by the engine, and exposes hooks
-triggered when frames are entered, left and before each bytecode,
-allowing to gather a trace of the execution.
-
-Frames have run/resume methods which embed the interpretation loop,
-These methods take an execution context invoking the appropriate hooks
-at the corresponding situations.
+The Object Space plays the role of a factory for execution contexts.
+The base implementation of execution contexts is supplied by the engine,
+and exposes hooks triggered when frames are entered and left and before
+each bytecode, allowing a trace of the execution to be gathered.  Frames
+have run/resume methods which embed the interpretation loop and invoke
+the hooks at the appropriate times.
 
 The Flow Object Space in our current design is responsible of
 constructing a flow graph for a single function using abstract
 interpretation.  The domain on which the Flow Space operates comprises
 variables and constant objects. They are stored as such in the frame
-objects without problems because by design the interpreter engine treat
+objects without problems because by design the interpreter engine treats
 them as black boxes.
 
 
@@ -270,18 +282,18 @@ constants currently handled by the frame.
 
 The Flow Space constructs the flow graph, operation after operation, as
 a side effect of seeing these operations performed by the interpretation
-of the bytecode.  During construction, blocks in the graph all have an
-associated frame state. The Flow Space start from an empty block with an
-a frame state corresponding to a frame freshly initialized, with a new
-variables for each input argument of the analysed function.  It proceeds
-by recording the operations in this block, as follows: when an operation
-is delegated to the Flow Space by the frame interpretation loop, either
-a constant result is produced -- in the case of constant arguments to an
-operation with no side-effects -- or a fresh new variable is produced.
-In the latter case, the operation (together with its input variables and
-constant arguments, and its output variable) is recorded in the current
-block and the new variable is returned as result to the frame
-interpretation loop.
+of the bytecode.  During construction, the operations are grouped in
+basic blocks that all have an associated frame state. The Flow Space
+starts from an empty block with a frame state corresponding to a freshly
+initialized frame, with a new variable for each input argument of the
+analysed function.  It proceeds by recording the operations into this
+fresh block, as follows: when an operation is delegated to the Flow
+Space by the frame interpretation loop, either a constant result is
+produced -- in the case of constant arguments to an operation with no
+side-effects -- or a fresh new variable is produced.  In the latter
+case, the operation (together with its input variables and constant
+arguments, and its output variable) is recorded in the current block and
+the new variable is returned as result to the frame interpretation loop.
 
 When a new bytecode is about to be executed, as signalled by the
 bytecode hook, the Flow Space considers the frame state corresponding to
@@ -296,14 +308,17 @@ previous states are merged to produce a more general state.
 In more details, "similar enough" is defined as having the same
 position-dependant part, the so-called "non-mergeable frame state",
 which mostly means that only frame states corresponding to the same
-bytecode position can ever be merged.  This process thus produces blocks
-that are generally in one-to-one correspondance with the bytecode
-positions seen so far.  The exception to this rule is in the rare cases
+bytecode position can ever be merged.  This process thus produces basic
+blocks that are generally in one-to-one correspondance with the bytecode
+positions seen so far [#]_.  The exception to this rule is in the rare cases
 where frames from the same bytecode position have a different
 non-mergeable state, which typically occurs during the "finally" part of
 a "try: finally:" construct, where the details of the exception handler
 stack differs according to whether the "finally" part was entered
 normally or as a result of an exception.
+
+.. [#] this creates many small basic blocks; for convenience, a
+       post-processing phase merges them into larger blocks when possible.
 
 If two states have the same non-mergeable part, they can be merged using
 a "union" operation: only two equal constants unify to a constant of the
@@ -316,7 +331,7 @@ corresponding existing block is inserted; additionally, if the unified
 state is strictly more general than the existing one, then the existing
 block is cleared, and we proceed with the generalized state, reusing the
 block.  (Reusing the block avoids the proliferation of over-specific
-blocks.  Ror example, without this, all loops would typically have their
+blocks.  For example, without this, all loops would typically have their
 first pass unrolled with the first value of the counter as a constant;
 instead, the second pass through the loop that the Flow Space does with
 the counter generalized as a variable will reuse the same entry point
@@ -335,9 +350,11 @@ In theory, this would require continuation support at the language level
 so that we can pretend that ``is_true`` returns twice into the engine,
 once for each possible answer, so that the Flow Space can record both
 outcomes.  Without proper continuations in Python, we have implemented a
-more explicit scheme that we describe below.  (The approach is related
-to the one used in Psyco_, where continuations would be entierely
-inpractical, as described in the `ACM SIGPLAN 2004 paper`_.)
+more explicit scheme (describe below) where the execution context and
+the object space collaborate to emulate this effect.  (The approach is
+related to the one used in [Psyco]_, where regular continuations would
+be entirely impractical due to the need of huge amounts of them -- as
+described in the `ACM SIGPLAN 2004 paper`_.)
 
 At any point in time, multiple pending blocks can be scheduled for
 abstract interpretation by the Flow Space, which proceeds by picking one
@@ -376,15 +393,18 @@ asking the engine to replay the execution from there; intermediate
 list of outcomes until we reach the desired state.
 
 This is implemented by having a special blocks (called ``EggBlocks``
-internally, whereas normal blocks are ``SpamBlocks``) return a chain of
-recorders: one so-called "replaying" recorder for each of the parent
-blocks in the tree, followed by a normal recorder for the block itself.
-When the engine replays the execution from the root of the tree, the
-intermediate recorders check (for consistency) that the same operations
-as the ones already recorded are issued again, ending in a call to
-``is_true``; at this point, the replaying recorder gives the answer
-corresponding to the branch to follow, and switch to the next recorder
-in the chain.
+internally, whereas normal blocks are ``SpamBlocks`` [#]_) return a
+chain of recorders: one so-called "replaying" recorder for each of the
+parent blocks in the tree, followed by a normal recorder for the block
+itself.  When the engine replays the execution from the root of the
+tree, the intermediate recorders check (for consistency) that the same
+operations as the ones already recorded are issued again, ending in a
+call to ``is_true``; at this point, the replaying recorder gives the
+answer corresponding to the branch to follow, and switch to the next
+recorder in the chain.
+
+.. [#] "eggs, eggs, eggs, eggs and spam" -- references to Monthy Python
+       are common in Python :-)
 
 This mechanism ensures that all flow paths are considered, including
 different flow paths inside the engine and not only flow paths that are
@@ -403,7 +423,8 @@ the target of the jump, depending on whether the replayer answered
 Note a limitation of this mechanism: the engine cannot use an unbounded
 loop to implement a single bytecode.  All *loops* must still be
 explicitly present in the bytecodes.  The reason is that the Flow Space
-can only insert backlinks between bytecodes.
+can only insert backlinks from the end of a bytecode to the beginning of
+another one.
 
 
 Dynamic merging
@@ -438,7 +459,7 @@ constant-folded and does not generate a residual operation.
 
 Note that this feature means that the Flow Space is not guaranteed to
 terminate.  The analysed function can contain arbitrary computations on
-constant values (with loops) that will be entierely constant-folded by
+constant values (with loops) that will be entirely constant-folded by
 the Flow Space.  A function with an obvious infinite loop will send the
 Flow Space following the loop ad infinitum.  This means that it is
 difficult to give precise conditions for when the Flow Space terminates
@@ -447,8 +468,12 @@ not create problems: it is uncommon for a function to perform
 non-trivial constant computations at run-time; and the complexity of the
 Flow Space can more or less be bound by the run-time complexity of the
 constant parts of the function itself, if we ignore pathological cases
-where a part of a function contains infinite loops but cannot be entered
-at run-time for some reasons unknown to the Flow Space.
+-- e.g. a function containing some infinite loops that cannot be reached
+at run-time for reasons unknown to the Flow Space.
+
+However, barring extreme examples we can disregard pathological cases
+because of testing -- we make sure that the code that we send to the
+Flow Space is first well-tested.  This philosophy will be seen again.
 
 
 Geninterp
@@ -526,9 +551,9 @@ variable of each graph a so-called *annotation*, which describes what
 are the possible run-time objects that this variable will contain.  Note
 that in the literature such an annotation is usually called a type, but
 we prefer to avoid this terminology to avoid confusion with the Python
-notion of the concrete type of an object.  Annotations are sets of
-possible values that is not always exactly the set of all objects of a
-specific Python type.
+notion of the concrete type of an object.  An annotation is a set of
+possible values, and this set is not always exactly the set of all
+objects of a specific Python type.
 
 We will first expose a simplified, static model of how the annotator
 works, and then hint at some differences between the model and the
@@ -601,7 +626,7 @@ be found in the reference documentation).
 The flow graphs are in Static Single Information (SSI) form, an
 extension of Static Single Assignment (SSA_): each variable is only used
 in exactly one basic block.  All variables that are not dead at the end
-of a basic block are explicitely carried over to the next block and
+of a basic block are explicitly carried over to the next block and
 renamed.  Instead of the traditional phi functions of SSA we use a minor
 variant, parameter-passing style: each block declares a number of *input
 variables* playing the role of input arguments to the block; each link
@@ -838,7 +863,7 @@ are replaced by the variables that really appear in each particular
 
          z=add(x,y), Char<=b(x)<=NullableStr, Char<=b(y)<=NullableStr
       ----------------------------------------------------------------
-               b' = b with (z->Str)
+               b' = b with (z->Str)      [see note below!]
 
 The rules are read as follows: for the operation ``z=add(x,y)``, we
 consider the bindings of the variables *x* and *y* in the current state
@@ -852,7 +877,7 @@ prevent it from being applied if the second rule (which is more precise)
 applies as well.  As none of these rules modify *E*, we also omitted the
 ``E'=E``.
 
-Also note that we do not generally try to prove the correctness and
+Also ``[note]`` that we do not generally try to prove the correctness and
 safety of the user program, preferring to rely on test coverage for
 that.  This is apparent in the third rule above, which considers
 concatenation of two potentially "nullable" strings, i.e. strings that
@@ -979,9 +1004,9 @@ annotation into the list's hidden variable (*y* is the index in the list
       --------------------------------------------
                merge b(z) => v
 
-Reading an item out a list requires care to ensure that the rule is
+Reading an item out of a list requires care to ensure that the rule is
 rescheduled if the binding of the hidden variable is generalized.  We do
-so be identifying the hidden variable with the current operation's
+so by identifying the hidden variable with the current operation's
 auxiliary variable.  The identification ensures that the hidden
 variable's binding will eventually propagate to the auxiliary variable,
 which -- according to the metarule -- will reschedule the operation's
@@ -999,8 +1024,8 @@ hidden variables.  This effectively identifies the two lists, as if they
 had the same origin.  It makes the two list annotations aliases for each
 other, allowing any storage location to contain lists coming from any of
 the two sources indifferently.  This process gradually builds a
-partition of all lists in the program, where two lists are in the
-partition if they are combined in any way.
+partition of all lists in the program, where two lists are in the same
+part if they are combined in any way.
 
 As an example of further list operations, here is the addition (which is
 the concatenation for lists)::
@@ -1016,28 +1041,32 @@ As with `merge`_, it identifies the two lists.
 Prebuilt constants
 ~~~~~~~~~~~~~~~~~~
 
-The ``Pbc`` annotations play a special role in our approach.  They
-regroup in a single family most of the constant user-defined objects
-that pre-exist the annotation phase.  This includes the functions and
-classes defined in the user program, but also some other objects that
-have been built while the user program was initializing itself.
+The ``Pbc`` annotations play a special role in our approach.  They group
+in a single family all the constant user-defined objects that exist
+before the annotation phase.  This includes the functions and classes
+defined in the user program, but also some other objects that have been
+built while the user program was initializing itself.
 
-The presence of the latter kind of objects -- which comes with a number
-of new problems to solve -- is a distinguishing property of the idea of
+The presence of the latter kind of object -- which come with a number of
+new problems to solve -- is a distinguishing property of the idea of
 analysing a live program instead of static source code.  All the user
-objects that pre-exist the annotation phase are divided in two further
-families: the "frozen prebuilt constants" ones and the "prebuilt
-instances".  By default, instances of some user-defined class that
-happens to pre-exist annotation have no constantness requirement on
-their own; after annotation and possibly compilation, these instances
-will continue to behave as regular mutable instances of that class,
-turned into mostly regular ``Inst(C)`` annotations when the annotator
-encounters them.  However, the user program can give a hint that forces
-the annotator to consider the object as a "frozen prebuilt constant".
-The object is then considered as a now-immutable container of
-attributes.  It looses its object-oriented aspects and its class becomes
-irrelevant -- it was only useful to the user program to build the object
-up to its current state.
+objects that exist before the annotation phase are divided in two
+further families: the "prebuilt instances" and the "frozen prebuilt
+constants".
+
+1. Normally, all instances of user-defined classes have the same
+   behaviour, independently of whether they exist before annotation or are
+   built dynamically by the program after annotation and compilation.
+   Both correspond to the ``Inst(C)`` annotation.  Instances that are
+   prebuilt will simply be compiled into the resulting executable as
+   prebuilt data structures.
+
+2. However, as an exception to 1., the user program can give a hint that
+   forces the annotator to consider such an object as a "frozen prebuilt
+   constant" instead.  The object is then considered as an *immutable*
+   container of attributes.  It loses its object-oriented aspects and its
+   class becomes irrelevant.  It is not possible to further instantiate
+   its class at run-time.
 
 In summary, the prebuilt constants are:
 
@@ -1046,7 +1075,7 @@ In summary, the prebuilt constants are:
 
 * all classes ``C`` of the user program;
 
-* all frozen prebuilt constants;
+* all frozen prebuilt constants.
 
 For convenience, we add the following objects to the above set:
 
@@ -1055,15 +1084,16 @@ For convenience, we add the following objects to the above set:
 
 * the singleton None object (a special case of frozen prebuilt constant).
 
-The annotation ``Pbc(*set*)`` stands for an object that belongs to the
-specified *set* of prebuilt constant objects, which is a subset of all
+The annotation ``Pbc(set)`` stands for an object that belongs to the
+specified ``set`` of prebuilt constant objects, which is a subset of all
 the prebuilt constant objects.
 
 In practice, the set of all prebuilt constants is not fixed in advance,
 but grows while annotation discovers new functions and classes and
-frozen user objects; only the objects that are still alive will be
-included in the set, leaving out the ones that were only relevant during
-the initialization phase of the program.
+frozen prebuilt constants; in this way we can be sure that only the
+objects that are still alive will be included in the set, leaving out
+the ones that were only relevant during the initialization phase of the
+program.
 
 
 Classes and instances
@@ -1306,7 +1336,7 @@ using the previous point, this can be checked on the rule (or rules) of
 each operation independently.  Indeed, there are only two ways in which
 ``b(z)`` is modified: by ``merge .. => z``, which trivially
 guarantees the property by being based on the union operator ``\/`` of
-the lattice, or explicitely in a way that can easily be checked to
+the lattice, or explicitly in a way that can easily be checked to
 respect the property.
 
 
@@ -1431,7 +1461,6 @@ XXX messy
 .. _`join-semilattice`: http://en.wikipedia.org/wiki/Semilattice
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`Standard Object Space`: objspace.html#the-standard-object-space
-.. _Psyco: http://psyco.sourceforge.net/
 .. _`ACM SIGPLAN 2004 paper`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Hindley-Milner`: http://en.wikipedia.org/wiki/Hindley-Milner_type_inference
 
