@@ -149,7 +149,7 @@ def load_target(targetspec):
     log.info("Translating target as defined by %s" % targetspec)
     if not targetspec.endswith('.py'):
         targetspec += '.py'
-    targetspec_dic = {}
+    targetspec_dic = {'__name__':'__rpythonmain__'}
     sys.path.insert(0, os.path.dirname(targetspec))
     execfile(targetspec, targetspec_dic)
     return targetspec_dic
