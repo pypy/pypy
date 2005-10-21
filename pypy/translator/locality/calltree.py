@@ -90,5 +90,6 @@ class CallTree:
         sim = SimGraph(self.nodes, FlowSimNode, self.calls)
         log.calltree('simulating...')
         sim.sim_all(0.9, 50)
+        # here I'm still playing around with parameters.
         import pdb
         pdb.set_trace()
