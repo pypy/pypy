@@ -1365,22 +1365,24 @@ Specialization
 
 The type system used by the annotator does not include polymorphism
 support beyond object-oriented polymorphism with subclasses and
-overriding and parametric polymorphism for  builtin containers (lists,
-...). In this respect we opted for simplicity, considering this in
+overriding and parametric polymorphism for builtin containers (lists,
+...).  In this respect we opted for simplicity, considering this in
 most cases sufficient for the kind of system programming RPython is
-aimed at and matching our main targets. It mostly eschews the
-complexity of needing strategies to infer type parameters and to
-control instantiation explosion or type erase and coalesce after the
-fact, strategies that would also need to be target specific.
+aimed at and matching our main targets.
 
-We opted instead for either using the expressivity allowed for
-bootstrap code which is unrestricted Python or having the annotator
-support special explicit flags attached to functions or classes,
-to achieve necessary forms of ad-hoc or parametric polymorphism when
-the limited support for polymorphism in the annotator is insufficient
-or in other cases to control what is effectively translated versus the
-original code with annotation-time forms of specialization or even
-substitution for code units (functions or classes).
+Not all of our target code fits into this model.  The fact that we
+allow unrestricted dynamism at bootstrap helps a great deal, but in
+addition we also support the explicit flagging of certain functions or
+classes as requiring special treatment.  One such special treatment is
+support for parametric polymorphism, which if supported for all
+callables would lead to an explosion of function implementations and
+likely the need for some kind of target specific type erasure and
+coalescing.
+
+Another special treatment is more outright special casing: providing
+code to explicitly provide the annotation information for a give
+function as opposed to abstractly interpreting the function's
+bytecode.
 
 XXX details of what is supported
 
