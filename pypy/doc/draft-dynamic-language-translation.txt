@@ -1370,17 +1370,17 @@ overriding and parametric polymorphism for builtin containers (lists,
 most cases sufficient for the kind of system programming RPython is
 aimed at and matching our main targets.
 
-Not all of our target code fits into this model.  The fact that we
-allow unrestricted dynamism at bootstrap helps a great deal, but in
-addition we also support the explicit flagging of certain functions or
-classes as requiring special treatment.  One such special treatment is
-support for parametric polymorphism, which if supported for all
-callables would lead to an explosion of function implementations and
-likely the need for some kind of target specific type erasure and
-coalescing.
+Not all of our target code or expressivity needs fit into this model.
+The fact that we allow unrestricted dynamism at bootstrap helps a
+great deal, but in addition we also support the explicit flagging of
+certain functions or classes as requiring special treatment.  One such
+special treatment is support for parametric polymorphism, which if
+supported for all callables would lead to an explosion of function
+implementations and likely the need for some kind of target specific
+type erasure and coalescing.
 
 Another special treatment is more outright special casing: providing
-code to explicitly provide the annotation information for a give
+code to explicitly compute the annotation information for a given
 function as opposed to abstractly interpreting the function's
 bytecode.
 
