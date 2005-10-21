@@ -35,7 +35,7 @@ only of Python but of most modern dynamic languages:
 
 
 No Declarations
---------------------------
+~~~~~~~~~~~~~~~
 
 The notion of "declaration", central in compiled languages, is entirely
 missing in Python.  There is no aspect of a program that must be declared;
@@ -71,7 +71,7 @@ fundamental to the nature of dynamic languages.
 
 
 The analysis of live programs
------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 How can we perform some static analysis on a program written in a dynamic
 language while keeping to the spirit of `No Declarations`_, i.e. without
@@ -133,7 +133,7 @@ Concrete and abstract interpretation
 ======================================================
 
 Object Spaces
----------------------------------
+~~~~~~~~~~~~~
 
 The semantics of Python can be roughly divided in two groups: the syntax of
 the language, which focuses on control flow aspects, and the object semantics,
@@ -162,7 +162,7 @@ dynamic language implementations, e.g. XXX for Perl 6.
 
 
 Abstract interpretation
-------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 In the sequel of this paper, we will consider another application
 of the object space separation.  The analysis we perform in PyPy
@@ -209,15 +209,26 @@ sparsingly enough.
 
 
 The PyPy analysis toolchain
-===========================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The previous sections have developed a theoretical point of view that
-differs significantly from what we have implemented, for many reasons.
-The devil is in the details.
+We developed above a theoretical point of view that differs
+significantly from what we have implemented, for many reasons.  The
+devil is in the details.
+
+The rest of this document is organized as follows:
+
+* the `Flow Object Space`_ chapter describes how we turn Python bytecode
+  objects into control flow graphs by performing its abstract
+  interpretation;
+
+* the `Annotator`_ chapter describes our type inference model and process;
+
+* the `Code Generation`_ chapter gives an overview about how we turn
+  annotated flow graphs into low-level code.
 
 
 Flow Object Space
----------------------------------
+===========================================
 
 In our bytecode-interpreter design evaluation responsibilities are
 split between the Object Space, frames and the so-called execution
@@ -506,7 +517,7 @@ documentation.
 
 
 Annotator 
----------------------------------
+=================================
 
 The annotator is the type inference part of our toolchain.  The
 annotator infers *types* in the following sense: given a program
@@ -1358,8 +1369,10 @@ XXX constant propagation to remove bootstrap-only code
 XXX termination even with non-static aspects
 
 
-Code generation: rewriting to low-level operations
---------------------------------------------------
+Code Generation
+===============================
+
+XXX rewriting to low-level operations
 
 XXX introduction, repr
 
