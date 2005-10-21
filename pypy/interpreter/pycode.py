@@ -80,6 +80,8 @@ def setup_frame_classes():
 
 class PyCode(eval.Code):
     "CPython-style code objects."
+
+    magic = 62061 | 0x0a0d0000       # value for Python 2.4.1
     
     def __init__(self, space, co_name=''):
         self.space = space
@@ -105,7 +107,7 @@ class PyCode(eval.Code):
     def _code_new( self, argcount, nlocals, stacksize, flags,
                    code, consts, names, varnames, filename,
                    name, firstlineno, lnotab, freevars, cellvars,
-                   hidden_applevel=False):
+                   hidden_applevel=False, from_cpython=False):
         """Initialize a new code objects from parameters from new.code"""
         # simply try to suck in all attributes we know of
         # with a lot of boring asserts to enforce type knowledge
@@ -143,12 +145,20 @@ class PyCode(eval.Code):
         newconsts_w = []
         for const in consts:
             if isinstance(const, types.CodeType): # from stable compiler
-                const = PyCode(space)._from_code(const, hidden_applevel=hidden_applevel)
+                const = PyCode(space)._from_code(const, hidden_applevel=hidden_applevel,
+                                                        from_cpython=from_cpython)
             newconsts_w.append(space.wrap(const))
         self.co_consts_w = newconsts_w
+        # stick the underlying CPython magic value, if the code object
+        # comes from there
+        if from_cpython:
+            import imp, struct
+            magic, = struct.unpack("<i", imp.get_magic())
+            if magic != self.magic:
+                self.magic = magic
         return self
 
-    def _from_code(self, code, hidden_applevel=False):
+    def _from_code(self, code, hidden_applevel=False, from_cpython=True):
         """ Initialize the code object from a real (CPython) one.
             This is just a hack, until we have our own compile.
             At the moment, we just fake this.
@@ -171,7 +181,8 @@ class PyCode(eval.Code):
                         code.co_lnotab,
                         code.co_freevars,
                         code.co_cellvars,
-                        hidden_applevel )
+                        hidden_applevel,
+                        from_cpython )
         return self
 
 
