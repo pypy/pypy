@@ -1684,11 +1684,9 @@ class FuncDefNode(StatNode, BlockNode):
         # ----- Default return value
         code.putln("")
         if self.return_type.is_pyobject:
-            if self.return_type.is_extension_type:
-                lhs = "(PyObject *)%s" % Naming.retval_cname
-            else:
-                lhs = Naming.retval_cname
-            code.put_init_to_py_none(lhs)
+            cast = self.return_type.is_extension_type
+            lhs = Naming.retval_cname
+            code.put_init_to_py_none(cast, lhs)
         else:
             val = self.return_type.default_value
             if val:

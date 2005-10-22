@@ -806,7 +806,7 @@ class NameNode(AtomicExprNode):
             if self.type.is_pyobject:
                 rhs.make_owned_reference(code)
                 code.put_decref(self.result, self.type)
-            code.putln('%s = %s;' % (self.result, rhs.result))
+            code.putln('%s = %s;' % (self.entry.cname, rhs.result))
             if debug_disposal_code:
                 print "NameNode.generate_assignment_code:"
                 print "...generating post-assignment code for", rhs

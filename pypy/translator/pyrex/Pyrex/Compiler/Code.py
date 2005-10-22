@@ -218,14 +218,16 @@ class CCodeWriter:
         for entry in entries:
             self.put_var_xdecref_clear(entry)
     
-    def put_init_to_py_none(self, cname):
-        self.putln("%s = Py_None; Py_INCREF(%s);" % (cname, cname))
+    def put_init_to_py_none(self, cast, cname):
+        if cast:
+            self.putln("%s = (void *)Py_None; Py_INCREF((PyObject *)%s);" % (cname, cname))
+        else:
+            self.putln("%s = Py_None; Py_INCREF(%s);" % (cname, cname))
     
     def put_init_var_to_py_none(self, entry, template = "%s"):
         code = template % entry.cname
-        if entry.type.is_extension_type:
-            code = "((PyObject*)%s)" % code
-        self.put_init_to_py_none(code)
+        cast = entry.type.is_extension_type
+        self.put_init_to_py_none(cast, code)
 
     def put_pymethoddef(self, entry, term):
         if entry.doc:
