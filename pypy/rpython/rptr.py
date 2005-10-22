@@ -1,7 +1,8 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
+from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltype import Ptr, _ptr
-from pypy.rpython.lltype import ContainerType, Void, Signed, Bool, FuncType
+from pypy.rpython.lltype import ContainerType, Void, Signed, Bool, FuncType, typeOf
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 
 
@@ -26,6 +27,8 @@ class PtrRepr(Repr):
 
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
+        if isinstance(hop.s_result, annmodel.SomeLLADTMeth):
+            return hop.inputarg(hop.r_result, arg=0)
         FIELD_TYPE = getattr(self.lowleveltype.TO, attr)
         if isinstance(FIELD_TYPE, ContainerType):
             newopname = 'getsubstruct'
@@ -121,3 +124,35 @@ class __extend__(pairtype(Repr, PtrRepr)):
     def rtype_ne((r_any, r_ptr), hop):
         vlist = hop.inputargs(r_ptr, r_ptr)
         return hop.genop('ptr_ne', vlist, resulttype=Bool)
+
+# ________________________________________________________________
+# ADT  methods
+
+class __extend__(annmodel.SomeLLADTMeth):
+    def rtyper_makerepr(self, rtyper):
+        return LLADTMethRepr(self)
+    def rtyper_makekey(self):
+        return self.__class__, self.ll_ptrtype, self.func
+
+class LLADTMethRepr(Repr):
+
+    def __init__(self, adtmeth):
+        self.adtmeth = adtmeth
+        self.lowleveltype = adtmeth.ll_ptrtype
+
+    def rtype_hardwired_simple_call(self, hop):
+        hop2 = hop.copy()
+        hop2.swap_fst_snd_args()
+        r_func, s_func = hop2.r_s_popfirstarg()
+        fptr = hop2.rtyper.getcallable(s_func.const)
+        hop2.v_s_insertfirstarg(flowmodel.Constant(fptr), annmodel.SomePtr(typeOf(fptr)))
+        return hop2.dispatch(opname='simple_call')
+
+class __extend__(pairtype(PtrRepr, LLADTMethRepr)):
+
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.lowleveltype == r_to.lowleveltype:
+            return v
+        return NotImplemented
+
+    

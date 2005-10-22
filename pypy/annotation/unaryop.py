@@ -566,7 +566,8 @@ class __extend__(SomeExternalObject):
 
 
 # annotation of low-level types
-from pypy.annotation.model import SomePtr, SomeOOInstance, SomeOOBoundMeth, SomeOOStaticMeth
+from pypy.annotation.model import SomePtr, SomeLLADTMeth 
+from pypy.annotation.model import SomeOOInstance, SomeOOBoundMeth, SomeOOStaticMeth
 from pypy.annotation.model import ll_to_annotation, annotation_to_lltype
 
 class __extend__(SomePtr):
@@ -593,6 +594,12 @@ class __extend__(SomePtr):
 
     def is_true(p):
         return SomeBool()
+
+class __extend__(SomeLLADTMeth):
+
+    def call(adtmeth, args):
+        bookkeeper = getbookkeeper()
+        return bookkeeper.pycall(adtmeth.func, args.prepend(SomePtr(adtmeth.ll_ptrtype)), mono=True)
 
 from pypy.rpython.ootypesystem import ootype
 class __extend__(SomeOOInstance):

@@ -186,6 +186,12 @@ def transform_specialization(self, block_subset):
                                     op.args[0] = Constant(memo_table)
                                 else:
                                     op.opname = intern('call_specialcase')
+                elif isinstance(callb, annmodel.SomeLLADTMeth):
+                    specialized_callb, specialcase = self.bookkeeper.query_spaceop_callable(op)
+                    assert not specialcase
+                    assert not isinstance(op.args[0], Constant) and not callb.is_constant()
+                    op.opname = intern('hardwired_'+op.opname)
+                    op.args.insert(1, Constant(specialized_callb.func))
 
 def insert_stackcheck(ann):
     from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles

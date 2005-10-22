@@ -37,7 +37,7 @@ class __extend__(annmodel.SomeList):
         else:
             # cannot do the rtyper.getrepr() call immediately, for the case
             # of recursive structures -- i.e. if the listdef contains itself
-            return ListRepr(lambda: rtyper.getrepr(listitem.s_value),
+            return ListRepr(rtyper, lambda: rtyper.getrepr(listitem.s_value),
                             listitem)
 
     def rtyper_makekey(self):
@@ -46,21 +46,33 @@ class __extend__(annmodel.SomeList):
 
 class ListRepr(Repr):
 
-    def __init__(self, item_repr, listitem=None):
+    def __init__(self, rtyper, item_repr, listitem=None):
+        self.rtyper = rtyper
         self.LIST = GcForwardReference()
         self.lowleveltype = Ptr(self.LIST)
         if not isinstance(item_repr, Repr):  # not computed yet, done by setup()
             assert callable(item_repr)
             self._item_repr_computer = item_repr
         else:
-            self.item_repr = item_repr
+            self.set_item_repr(item_repr)
         self.listitem = listitem
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
 
+    def set_item_repr(self, item_repr):
+        from pypy.rpython import rclass
+        if isinstance(item_repr, rclass.AbstractInstanceRepr):
+            self.item_repr = rclass.getinstancerepr(self.rtyper, None)
+            self.external_item_repr = item_repr
+        else:
+            self.item_repr = self.external_item_repr = item_repr
+        
+    def recast(self, llops, v):
+        return llops.convertvar(v, self.item_repr, self.external_item_repr)
+
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
-            self.item_repr = self._item_repr_computer()
+            self.set_item_repr(self._item_repr_computer())
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
             ITEMARRAY = GcArray(ITEM)
@@ -164,7 +176,8 @@ class ListRepr(Repr):
             args = hop.inputargs(self)
             llfn = ll_pop_default
         hop.exception_is_here()
-        return hop.gendirectcall(llfn, v_func, *args)
+        v_res = hop.gendirectcall(llfn, v_func, *args)
+        return self.recast(hop.llops, v_res)
 
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
@@ -209,7 +222,8 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
         else:
             llfn = ll_getitem
         hop.exception_is_here()
-        return hop.gendirectcall(llfn, v_func, v_lst, v_index)
+        v_res = hop.gendirectcall(llfn, v_func, v_lst, v_index)
+        return r_lst.recast(hop.llops, v_res)
 
     def rtype_setitem((r_lst, r_int), hop):
         if hop.has_implicit_exception(IndexError):
@@ -843,7 +857,8 @@ class ListIteratorRepr(IteratorRepr):
         v_iter, = hop.inputargs(self)
         hop.has_implicit_exception(StopIteration) # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(ll_listnext, v_iter)
+        v_res = hop.gendirectcall(ll_listnext, v_iter)
+        return self.r_list.recast(hop.llops, v_res)
 
 def ll_listiter(ITERPTR, lst):
     iter = malloc(ITERPTR.TO)

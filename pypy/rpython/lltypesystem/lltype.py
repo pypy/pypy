@@ -116,17 +116,32 @@ class LowLevelType(object):
     def _is_varsize(self):
         return False
 
+NFOUND = object()
 
 class ContainerType(LowLevelType):
+    _adtmeths = {}
+
     def _gcstatus(self):
         return isinstance(self, GC_CONTAINER)
 
     def _inline_is_varsize(self, last):
         raise TypeError, "%r cannot be inlined in structure" % self
 
+    def _install_adtmeths(self, adtmeths={}):
+        self._adtmeths = frozendict(adtmeths)
+
+    def __getattr__(self, name):
+        adtmeth = self._adtmeths.get(name, NFOUND)
+        if adtmeth is not NFOUND:
+            return adtmeth
+        self._nofield(name)
+
+    def _nofield(self, name):
+        raise AttributeError("no field %r" % name)
+        
 
 class Struct(ContainerType):
-    def __init__(self, name, *fields):
+    def __init__(self, name, *fields, **kwds):
         self._name = self.__name__ = name
         flds = {}
         names = []
@@ -157,6 +172,8 @@ class Struct(ContainerType):
         self._flds = frozendict(flds)
         self._names = tuple(names)
 
+        self._install_adtmeths(**kwds)
+
     def _first_struct(self):
         if self._names:
             first = self._names[0]
@@ -184,8 +201,12 @@ class Struct(ContainerType):
         try:
             return self._flds[name]
         except KeyError:
-            raise AttributeError, 'struct %s has no field %r' % (self._name,
-                                                                 name)
+            return ContainerType.__getattr__(self, name)
+
+
+    def _nofield(self, name):
+        raise AttributeError, 'struct %s has no field %r' % (self._name,
+                                                             name)
 
     def _names_without_voids(self):
         names_without_voids = [name for name in self._names if self._flds[name] is not Void]
@@ -243,7 +264,7 @@ class Array(ContainerType):
     __name__ = 'array'
     _anonym_struct = False
     
-    def __init__(self, *fields):
+    def __init__(self, *fields, **kwds):
         if len(fields) == 1 and isinstance(fields[0], LowLevelType):
             self.OF = fields[0]
         else:
@@ -252,6 +273,8 @@ class Array(ContainerType):
         if isinstance(self.OF, GcStruct):
             raise TypeError("cannot have a GC structure as array item type")
         self.OF._inline_is_varsize(False)
+
+        self._install_adtmeths(**kwds)
 
     def _inline_is_varsize(self, last):
         if not last:
@@ -611,6 +634,10 @@ class _ptr(object):
             if field_name in self._T._flds:
                 o = getattr(self._obj, field_name)
                 return _expose(o)
+        if isinstance(self._T, ContainerType):
+            adtmeth = self._T._adtmeths.get(field_name)
+            if adtmeth is not None:
+                return adtmeth.__get__(self)
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
 

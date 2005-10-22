@@ -431,6 +431,14 @@ class SomePtr(SomeObject):
     def can_be_none(self):
         return False
 
+class SomeLLADTMeth(SomeObject):
+    def __init__(self, ll_ptrtype, func):
+        self.ll_ptrtype = ll_ptrtype
+        self.func = func 
+
+    def can_be_none(self):
+        return False
+
 class SomeOOClass(SomeObject):
     def __init__(self, ootype):
         self.ootype = ootype
@@ -495,6 +503,10 @@ def ll_to_annotation(v):
         # functions
         from bookkeeper import getbookkeeper
         return getbookkeeper().immutablevalue(None)
+    if isinstance(v, MethodType):
+        ll_ptrtype = lltype.typeOf(v.im_self)
+        assert isinstance(ll_ptrtype, lltype.Ptr)
+        return SomeLLADTMeth(ll_ptrtype, v.im_func)
     return lltype_to_annotation(lltype.typeOf(v))
     
 # ____________________________________________________________

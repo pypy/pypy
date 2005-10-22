@@ -271,6 +271,16 @@ def test_dict_keys():
     res = interpret(func, ())#, view=True)
     assert res == 14
 
+def test_dict_inst_keys():
+    class A:
+        pass
+    def func():
+        dic = {A(): 1, A(): 2}
+        keys = dic.keys()
+        return (isinstance(keys[1], A))*2+(isinstance(keys[0],A))
+    res = interpret(func, [])
+    assert res == 3
+
 def test_dict_values():
     def func():
         dic = {' 4':1000, ' 8':200}
@@ -278,6 +288,17 @@ def test_dict_values():
         return values[0] + values[1] + len(values)
     res = interpret(func, ())
     assert res == 1202
+
+def test_dict_inst_value():
+    class A:
+        pass
+    def func():
+        dic = {1: A(), 2: A()}
+        vals = dic.values()
+        return (isinstance(vals[1], A))*2+(isinstance(vals[0],A))
+    res = interpret(func, [])
+    assert res == 3
+
 
 def test_dict_items():
     def func():

@@ -487,6 +487,8 @@ class Bookkeeper:
                 
         return s_result
 
+    # xxx refactor
+
     def consider_pbc_call(self, pbc, shape, spaceop=None, implicit_init=None): # computation done at fix-point
         if not isinstance(pbc, SomePBC):
             return
@@ -602,22 +604,27 @@ class Bookkeeper:
             else:
                 s_obj, init_classdef = implicit_init
 
-            assert isinstance(s_obj, SomePBC)
-            if len(s_obj.prebuiltinstances) > 1: # no specialization expected
-                return s_obj, False
-
             argsvars = spaceop.args[1:]
             args_s = [self.annotator.binding(v) for v in argsvars]
             args = self.build_args(spaceop.opname, args_s)
 
-            func, classdef = s_obj.prebuiltinstances.items()[0]
+            if isinstance(s_obj, SomePBC):
+                if len(s_obj.prebuiltinstances) > 1: # no specialization expected
+                    return s_obj, False
 
-            if init_classdef:
-                args = args.prepend(SomeInstance(init_classdef))
-            elif isclassdef(classdef): 
-                s_self = SomeInstance(classdef)
-                args = args.prepend(s_self)
-            
+                func, classdef = s_obj.prebuiltinstances.items()[0]
+
+                if init_classdef:
+                    args = args.prepend(SomeInstance(init_classdef))
+                elif isclassdef(classdef): 
+                    s_self = SomeInstance(classdef)
+                    args = args.prepend(s_self)
+            elif isinstance(s_obj, SomeLLADTMeth):
+                func = s_obj.func
+                args = args.prepend(SomePtr(s_obj.ll_ptrtype))
+            else:
+                assert False, "unexpected callable %r for query_spaceop_callable" % s_obj
+
             func, key = decide_callable(self, spaceop, func, args, mono=True)
 
             if key is None:
@@ -626,7 +633,10 @@ class Bookkeeper:
             if func is None: # specialisation computes annotation direclty
                 return s_obj, True
 
-            return SomePBC({func: classdef}), False
+            if isinstance(s_obj, SomePBC):
+                return SomePBC({func: classdef}), False
+            else:
+                return SomeLLADTMeth(s_obj.ll_ptrtype, func), False
         finally:
             self.leave()
 

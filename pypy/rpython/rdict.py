@@ -593,9 +593,15 @@ def ll_kvi(dic, LISTPTR, func):
                 r.item1 = entry.value
                 items[p] = r
             elif func is dum_keys:
-                items[p] = entry.key
+                k = entry.key
+                if isinstance(LISTPTR.TO.items.TO.OF, lltype.Ptr):
+                    k = lltype.cast_pointer(LISTPTR.TO.items.TO.OF, k)
+                items[p] = k
             elif func is dum_values:
-                items[p] = entry.value
+                val = entry.value
+                if isinstance(LISTPTR.TO.items.TO.OF, lltype.Ptr):
+                    val = lltype.cast_pointer(LISTPTR.TO.items.TO.OF, val)
+                items[p] = val
             p += 1
         i += 1
     return res

@@ -424,3 +424,32 @@ def test_is_atomic():
     assert Q._is_atomic() is False
     assert O._is_atomic() is False
     assert F._is_atomic() is False
+
+def test_adtmeths():
+    def h_newstruct():
+        return malloc(S)
+    
+    S = GcStruct('s', ('x', Signed), 
+                 adtmeths={"h_newstruct": h_newstruct})
+
+    s = S.h_newstruct()
+
+    assert typeOf(s) == Ptr(S)
+
+    def h_alloc(n):
+        return malloc(A, n)
+
+    def h_length(a):
+        return len(a)
+
+    A = GcArray(Signed,
+                adtmeths={"h_alloc": h_alloc,
+                          "h_length": h_length})
+
+    a = A.h_alloc(10)
+
+    assert typeOf(a) == Ptr(A)
+    assert len(a) == 10
+
+    assert a.h_length() == 10
+    

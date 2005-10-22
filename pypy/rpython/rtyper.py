@@ -156,6 +156,11 @@ class RPythonTyper:
             self.exceptiondata.make_helpers(self)
             self.specialize_more_blocks()   # for the helpers just made
 
+        #
+        from pypy.annotation import listdef
+        ldef = listdef.ListDef(None, annmodel.SomeString())
+        self.list_of_str_repr = self.getrepr(annmodel.SomeList(ldef))
+
     def specialize_more_blocks(self):
         while True:
             # look for blocks not specialized yet
@@ -300,6 +305,7 @@ class RPythonTyper:
         block.operations[:] = newops
         block.renamevariables(varmapping)
 
+        extrablock = None
         pos = newops.llop_raising_exceptions
         if (pos is not None and pos != len(newops)-1):
             # this is for the case where the llop that raises the exceptions
@@ -322,16 +328,24 @@ class RPythonTyper:
                 assert 0 <= pos < len(newops) - 1
                 extraops = block.operations[pos+1:]
                 del block.operations[pos+1:]
-                insert_empty_block(self.annotator.translator,
-                                   noexclink,
-                                   newops = extraops)
+                extrablock = insert_empty_block(self.annotator.translator,
+                                                noexclink,
+                                                newops = extraops)
 
-        self.insert_link_conversions(block)
+        if extrablock is None:
+            self.insert_link_conversions(block)
+        else:
+            # skip the extrablock as a link target, its link doesn't need conversions
+            # by construction, OTOH some of involved vars have no annotation
+            # so proceeding with it would kill information
+            self.insert_link_conversions(block, skip=1)
+            # consider it as a link source instead
+            self.insert_link_conversions(extrablock)
 
-    def insert_link_conversions(self, block):
+    def insert_link_conversions(self, block, skip=0):
         # insert the needed conversions on the links
         can_insert_here = block.exitswitch is None and len(block.exits) == 1
-        for link in block.exits:
+        for link in block.exits[skip:]:
             if link.exitcase is not None:
                 if isinstance(block.exitswitch, Variable):
                     r_case = self.bindingrepr(block.exitswitch)

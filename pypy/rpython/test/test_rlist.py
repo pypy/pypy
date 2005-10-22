@@ -19,7 +19,7 @@ for n1 in 'get set del'.split():
 del n1, n2, name
 
 def sample_list():    # [42, 43, 44, 45]
-    rlist = ListRepr(signed_repr)
+    rlist = ListRepr(None, signed_repr)
     rlist.setup()
     l = ll_newlist(rlist.lowleveltype, 3)
     ll_setitem(l, 0, 42)
@@ -204,6 +204,19 @@ def test_insert_pop():
     res = interpret(dummyfn, ())#, view=True)
     assert res == 42
 
+def test_inst_pop():
+    class A:
+        pass
+    l = [A(), A()]
+    def f(idx):
+        try:
+            return l.pop(idx)
+        except IndexError:
+            return None
+    res = interpret(f, [1])
+    assert ''.join(res.super.typeptr.name) == 'A\00'
+        
+
 def test_reverse():
     def dummyfn():
         l = [5, 3, 2]
@@ -374,6 +387,23 @@ def test_list_or_None():
     assert res == 0
     res = interpret(fn, [2])
     assert res == 1
+
+def test_inst_list():
+    def fn():
+        l = [None]
+        l[0] = Foo()
+        l.append(Bar())
+        l2 = [l[1], l[0], l[0]]
+        l.extend(l2)
+        for x in l2:
+            l.append(x)
+        x = l.pop()
+        x = l.pop()
+        x = l.pop()
+        x = l2.pop()
+        return str(x)+";"+str(l)
+    res = interpret(fn, [])
+    assert ''.join(res.chars) == '<Foo object>;[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
 
 def test_list_slice_minusone():
     def fn(i):

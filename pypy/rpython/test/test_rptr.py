@@ -1,5 +1,5 @@
 from pypy.translator.annrpython import RPythonAnnotator
-from pypy.rpython.annlowlevel import annotate_lowlevel_helper
+from pypy.rpython.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from pypy.rpython.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
@@ -43,3 +43,52 @@ def test_runtime_type_info():
     s, t = ll_rtype(ll_example, [annmodel.SomePtr(Ptr(S))])
     assert s == annmodel.SomeTuple([annmodel.SomePtr(Ptr(RuntimeTypeInfo)),
                                     annmodel.SomeBool()])
+
+from pypy.rpython.test.test_llinterp import interpret, gengraph
+
+def test_adtmeths():
+    policy = LowLevelAnnotatorPolicy()
+
+    def h_newstruct():
+        return malloc(S)
+    
+    S = GcStruct('s', ('x', Signed), 
+                 adtmeths={"h_newstruct": h_newstruct})
+
+    def f():
+        return S.h_newstruct()
+
+    s = interpret(f, [], policy=policy)
+
+    assert typeOf(s) == Ptr(S)
+
+    def h_alloc(n):
+        return malloc(A, n)
+    def h_length(a):
+        return len(a)
+
+    A = GcArray(Signed,
+                adtmeths={"h_alloc": h_alloc,
+                          "h_length": h_length,
+                          'flag': True})
+
+    def f():
+        return A.h_alloc(10)
+
+    a = interpret(f, [], policy=policy)
+
+    assert typeOf(a) == Ptr(A)
+    assert len(a) == 10
+    
+
+    def f():
+        a = A.h_alloc(10)
+        return a.h_length()
+
+    res = interpret(f, [], policy=policy)
+    assert res == 10
+
+    def f():
+        return A.flag
+    res = interpret(f, [], policy=policy)
+    assert res
