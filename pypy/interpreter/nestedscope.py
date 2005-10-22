@@ -170,7 +170,12 @@ class PyNestedScopeFrame(PyInterpFrame):
         assert isinstance(codeobj, pycode.PyCode)
         if codeobj.magic >= 0xa0df281:    # CPython 2.5 AST branch merge
             w_freevarstuple = f.valuestack.pop()
-            freevars = f.space.unpacktuple(w_freevarstuple)
+            freevars = []
+            for cell in f.space.unpacktuple(w_freevarstuple):
+                cell = f.space.interpclass_w(cell)
+                if not isinstance(cell, Cell):
+                    raise pyframe.BytecodeCorruption
+                freevars.append(cell)                
         else:
             nfreevars = len(codeobj.co_freevars)
             freevars = []
