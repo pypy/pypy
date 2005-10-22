@@ -57,6 +57,7 @@ EXTERNALS = {
     ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
     ll_stack.ll_stack_unwind: 'LL_stack_unwind',
     ll_stack.ll_stack_too_big: 'LL_stack_too_big',
+    ll__socket.ll__socket_gethostname: 'LL__socket_gethostname',
     ll__socket.ll__socket_ntohs: 'LL__socket_ntohs',
     ll__socket.ll__socket_htons: 'LL__socket_htons',
     ll__socket.ll__socket_htonl: 'LL__socket_htonl',

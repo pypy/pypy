@@ -1,6 +1,6 @@
 import autopath
 import py
-import os, time, sys
+import os, time, sys, _socket
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.c.extfunc import EXTERNALS
@@ -532,8 +532,7 @@ def test_opendir_readdir():
     compared_with.sort()
     assert result == compared_with
 
-def test_socket():
-    import _socket
+def test_htonl():
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
     # This just checks that htons etc. are their own inverse,
     # when looking at the lower 16 or 32 bits.
@@ -552,4 +551,14 @@ def test_socket():
         # Don't try with 'long' values: type conversion is done
         # at the interp level, not at the C level
         for i in (0, 1, 0xffff, 2, 0x01234567, 0x76543210):
+            print func, hex(i&mask)
             assert i & mask == func(func(i&mask)) & mask
+
+def test_gethostname():
+    import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
+    def does_stuff():
+        return _socket.gethostname()
+    f1 = compile(does_stuff, [])
+    res = f1()
+    assert res == _socket.gethostname()
+

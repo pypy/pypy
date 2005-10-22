@@ -40,4 +40,20 @@ long LL__socket_htonl(long ntohl)
 
 }
 
+RPyString *LL__socket_gethostname()
+{
+	char buf[1024];
+	char *res;
+	res = gethostname(buf, sizeof buf - 1);
+	if (res < 0) {
+		//XXX
+		//RPYTHON_RAISE_OSERROR(errno);
+		RPyRaiseSimpleException(PyExc_ValueError,
+					"gethostname() error");
+		return NULL;
+	}
+	buf[sizeof buf - 1] = '\0';
+	return RPyString_FromString(buf);
+}
+
 #endif
