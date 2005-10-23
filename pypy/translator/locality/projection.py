@@ -87,6 +87,8 @@ class Vector:
         return Vector([-k for k in self.coords])
 
     def norm2(self):
+        if len(self.coords) == 1:
+            return abs(self.coords[0])
         return sqrt(sum([k * k for k in self.coords]))
 
     def getdim(self):
@@ -138,7 +140,7 @@ class SpaceNode:
     def forcevector(self):
         # weighted implementation of the "rubber2" algorithm,
         # from "PolyTop", (C) Christian Tismer / Gerhard G. Thomas  1992
-        vec = self.position * 0.0
+        vec = Vector()
         for w, rel in zip(self.weights, self.relations):
             tmp = rel.position - self.position
             lng = tmp.norm2()
