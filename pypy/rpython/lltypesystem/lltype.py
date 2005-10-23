@@ -133,7 +133,10 @@ class ContainerType(LowLevelType):
     def __getattr__(self, name):
         adtmeth = self._adtmeths.get(name, NFOUND)
         if adtmeth is not NFOUND:
-            return adtmeth
+            if getattr(adtmeth, '_type_method', False):
+                return adtmeth.__get__(self)
+            else:
+                return adtmeth
         self._nofield(name)
 
     def _nofield(self, name):
@@ -992,6 +995,12 @@ def runtime_type_info(p):
 
 def isCompatibleType(TYPE1, TYPE2):
     return TYPE1 == TYPE2
+
+# mark type ADT methods
+
+def typeMethod(func):
+    func._type_method = True
+    return func
     
 # FIXME
 __all__ = ['Array', 'Bool', 'Char', 'ContainerType', 'Float',
@@ -1004,5 +1013,6 @@ __all__ = ['Array', 'Bool', 'Char', 'ContainerType', 'Float',
 'castable', 'flavored_malloc', 'frozendict', 'functionptr',
 'getRuntimeTypeInfo', 'log', 'malloc', 'nullptr', 'opaqueptr', 'operator',
 'parentlink', 'py', 'pyobjectptr', 'r_uint', 'runtime_type_info', 'safe_equal',
-'saferecursive', 'tlsobject', 'typeOf', 'weakref', 'isCompatibleType']
+'saferecursive', 'tlsobject', 'typeOf', 'weakref', 'isCompatibleType',
+'typeMethod']
 

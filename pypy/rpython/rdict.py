@@ -205,9 +205,9 @@ class DictRepr(rmodel.Repr):
         v_dic, = hop.inputargs(self)
         r_list = hop.r_result
         v_func = hop.inputconst(lltype.Void, spec)
-        c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
+        cLIST = hop.inputconst(lltype.Void, r_list.lowleveltype.TO)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_kvi, v_dic, c1, v_func)
+        return hop.gendirectcall(ll_kvi, v_dic, cLIST, v_func)
 
     def rtype_method_keys(self, hop):
         return self._rtype_method_kvi(hop, dum_keys)
@@ -577,30 +577,30 @@ def ll_update(dic1, dic2, dictrepr):
 # note that by specialization on func, three different
 # and very efficient functions are created.
 
-def ll_kvi(dic, LISTPTR, func):
-    res = rlist.ll_newlist(LISTPTR, dic.num_items)
+def ll_kvi(dic, LIST, func):
+    res = LIST.ll_newlist(dic.num_items)
     dlen = len(dic.entries)
     entries = dic.entries
-    items = res.items
+    items = res.ll_items()
     i = 0
     p = 0
     while i < dlen:
         entry = entries[i]
         if entry.valid:
             if func is dum_items:
-                r = lltype.malloc(LISTPTR.TO.items.TO.OF.TO)
+                r = lltype.malloc(LIST.items.TO.OF.TO)
                 r.item0 = entry.key
                 r.item1 = entry.value
                 items[p] = r
             elif func is dum_keys:
                 k = entry.key
-                if isinstance(LISTPTR.TO.items.TO.OF, lltype.Ptr):
-                    k = lltype.cast_pointer(LISTPTR.TO.items.TO.OF, k)
+                if isinstance(LIST.items.TO.OF, lltype.Ptr):
+                    k = lltype.cast_pointer(LIST.items.TO.OF, k)
                 items[p] = k
             elif func is dum_values:
                 val = entry.value
-                if isinstance(LISTPTR.TO.items.TO.OF, lltype.Ptr):
-                    val = lltype.cast_pointer(LISTPTR.TO.items.TO.OF, val)
+                if isinstance(LIST.items.TO.OF, lltype.Ptr):
+                    val = lltype.cast_pointer(LIST.items.TO.OF, val)
                 items[p] = val
             p += 1
         i += 1

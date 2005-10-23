@@ -21,7 +21,7 @@ del n1, n2, name
 def sample_list():    # [42, 43, 44, 45]
     rlist = ListRepr(None, signed_repr)
     rlist.setup()
-    l = ll_newlist(rlist.lowleveltype, 3)
+    l = ll_newlist(rlist.lowleveltype.TO, 3)
     ll_setitem(l, 0, 42)
     ll_setitem(l, -2, 43)
     ll_setitem_nonneg(l, 2, 44)
@@ -61,21 +61,22 @@ def test_rlist_extend_concat():
     l = sample_list()
     ll_extend(l, l)
     check_list(l, [42, 43, 44, 45] * 2)
-    l1 = ll_concat(l, l)
+    l1 = ll_concat(typeOf(l).TO, l, l)
     assert l1 != l
     check_list(l1, [42, 43, 44, 45] * 4)
 
 def test_rlist_slice():
     l = sample_list()
-    check_list(ll_listslice_startonly(l, 0), [42, 43, 44, 45])
-    check_list(ll_listslice_startonly(l, 1), [43, 44, 45])
-    check_list(ll_listslice_startonly(l, 2), [44, 45])
-    check_list(ll_listslice_startonly(l, 3), [45])
-    check_list(ll_listslice_startonly(l, 4), [])
+    LIST = typeOf(l).TO
+    check_list(ll_listslice_startonly(LIST, l, 0), [42, 43, 44, 45])
+    check_list(ll_listslice_startonly(LIST, l, 1), [43, 44, 45])
+    check_list(ll_listslice_startonly(LIST, l, 2), [44, 45])
+    check_list(ll_listslice_startonly(LIST, l, 3), [45])
+    check_list(ll_listslice_startonly(LIST, l, 4), [])
     for start in range(5):
         for stop in range(start, 8):
             s = ll_newslice(start, stop)
-            check_list(ll_listslice(l, s), [42, 43, 44, 45][start:stop])
+            check_list(ll_listslice(LIST, l, s), [42, 43, 44, 45][start:stop])
 
 def test_rlist_delslice():
     l = sample_list()
@@ -104,7 +105,7 @@ def test_rlist_setslice():
                 ll_setitem(l2, i, n)
                 n += 1
             s = ll_newslice(start, stop)
-            l2 = ll_listslice(l2, s)
+            l2 = ll_listslice(typeOf(l2).TO, l2, s)
             ll_listsetslice(l1, s, l2)
             check_list(l1, expected)
 

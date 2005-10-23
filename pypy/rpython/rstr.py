@@ -156,12 +156,10 @@ class __extend__(StringRepr):
         if not isinstance(r_lst, ListRepr):
             raise TyperError("string.join of non-list: %r" % r_lst)
         v_str, v_lst = hop.inputargs(string_repr, r_lst)
-        cname = inputconst(Void, "length")
-        v_length = hop.genop("getfield", [v_lst, cname],
-                            resulttype=Signed)
-        cname = inputconst(Void, "items")
-        v_items = hop.genop("getfield", [v_lst, cname],
-                            resulttype=r_lst.lowleveltype.TO.items)
+        LIST = r_lst.lowleveltype.TO
+        v_length = hop.gendirectcall(LIST.ll_length, v_lst)
+        v_items = hop.gendirectcall(LIST.ll_items, v_lst)
+                       
         if hop.args_s[0].is_constant() and hop.args_s[0].const == '':
             if r_lst.item_repr == string_repr:
                 llfn = ll_join_strs
@@ -179,9 +177,9 @@ class __extend__(StringRepr):
 
     def rtype_method_split(_, hop):
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
-        c = hop.inputconst(Void, hop.r_result.lowleveltype)
+        cLIST = hop.inputconst(Void, hop.r_result.lowleveltype.TO)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_split_chr, c, v_str, v_chr)
+        return hop.gendirectcall(ll_split_chr, cLIST, v_str, v_chr)
 
     def rtype_method_replace(_, hop):
         if not (hop.args_r[1] == char_repr and hop.args_r[2] == char_repr):
@@ -958,8 +956,7 @@ def ll_stringslice_minusone(s1):
         j += 1
     return newstr
 
-def ll_split_chr(LISTPTR, s, c):
-    from pypy.rpython.rlist import ll_newlist
+def ll_split_chr(LIST, s, c):
     chars = s.chars
     strlen = len(chars)
     count = 1
@@ -968,9 +965,8 @@ def ll_split_chr(LISTPTR, s, c):
         if chars[i] == c:
             count += 1
         i += 1
-    res = ll_newlist(LISTPTR, count)
-    items = res.items
-
+    res = LIST.ll_newlist(count)
+    items = res.ll_items()
     i = 0
     j = 0
     resindex = 0

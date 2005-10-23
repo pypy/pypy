@@ -8,7 +8,7 @@ from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rslice import minusone_slice_repr
 from pypy.rpython.lltype import GcForwardReference, Ptr, GcArray, GcStruct
 from pypy.rpython.lltype import Void, Signed, malloc, typeOf, Primitive
-from pypy.rpython.lltype import Bool, nullptr
+from pypy.rpython.lltype import Bool, nullptr, typeMethod
 from pypy.rpython import rstr
 from pypy.rpython import robject
 
@@ -78,7 +78,13 @@ class ListRepr(Repr):
             ITEMARRAY = GcArray(ITEM)
             # XXX we might think of turning length stuff into Unsigned
             self.LIST.become(GcStruct("list", ("length", Signed),
-                                              ("items", Ptr(ITEMARRAY))))
+                                              ("items", Ptr(ITEMARRAY)),
+                                      adtmeths = {
+                                          "ll_newlist": ll_newlist,
+                                          "ll_length": ll_length,
+                                          "ll_items": ll_items,
+                                      })
+                             )
 
     def compact_repr(self):
         return 'ListR %s' % (self.item_repr.compact_repr(),)
@@ -110,7 +116,8 @@ class ListRepr(Repr):
 
     def rtype_bltn_list(self, hop):
         v_lst = hop.inputarg(self, 0)
-        return hop.gendirectcall(ll_copy, v_lst)
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+        return hop.gendirectcall(ll_copy, cRESLIST, v_lst)
     
     def rtype_len(self, hop):
         v_lst, = hop.inputargs(self)
@@ -183,8 +190,8 @@ class ListRepr(Repr):
         return ListIteratorRepr(self)
 
     def ll_str(self, l):
-        items = l.items
-        length = l.length
+        items = l.ll_items()
+        length = l.ll_length()
         item_repr = self.item_repr
 
         temp = malloc(TEMP, length)
@@ -254,27 +261,27 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
         return hop.gendirectcall(llfn, v_func, v_lst, v_index)
 
     def rtype_mul((r_lst, r_int), hop):
-        v_func = hop.inputconst(Void, dum_newlist)
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
-        return hop.gendirectcall(ll_mul, v_func, v_lst, v_factor)
+        return hop.gendirectcall(ll_mul, cRESLIST, v_lst, v_factor)
 
     def rtype_inplace_mul((r_lst, r_int), hop):
-        v_func = hop.inputconst(Void, dum_inplace)
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
-        return hop.gendirectcall(ll_mul, v_func, v_lst, v_factor)
+        return hop.gendirectcall(ll_inplace_mul, v_lst, v_factor)
 
 class __extend__(pairtype(ListRepr, SliceRepr)):
 
     def rtype_getitem((r_lst, r_slic), hop):
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
         if r_slic == startonly_slice_repr:
             v_lst, v_start = hop.inputargs(r_lst, startonly_slice_repr)
-            return hop.gendirectcall(ll_listslice_startonly, v_lst, v_start)
+            return hop.gendirectcall(ll_listslice_startonly, cRESLIST, v_lst, v_start)
         if r_slic == startstop_slice_repr:
             v_lst, v_slice = hop.inputargs(r_lst, startstop_slice_repr)
-            return hop.gendirectcall(ll_listslice, v_lst, v_slice)
+            return hop.gendirectcall(ll_listslice, cRESLIST, v_lst, v_slice)
         if r_slic == minusone_slice_repr:
             v_lst, v_ignored = hop.inputargs(r_lst, minusone_slice_repr)
-            return hop.gendirectcall(ll_listslice_minusone, v_lst)
+            return hop.gendirectcall(ll_listslice_minusone, cRESLIST, v_lst)
         raise TyperError('getitem does not support slices with %r' % (r_slic,))
 
     def rtype_setitem((r_lst, r_slic), hop):
@@ -309,7 +316,8 @@ class __extend__(pairtype(ListRepr, ListRepr)):
 
     def rtype_add((self, _), hop):
         v_lst1, v_lst2 = hop.inputargs(self, self)
-        return hop.gendirectcall(ll_concat, v_lst1, v_lst2)
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+        return hop.gendirectcall(ll_concat, cRESLIST, v_lst1, v_lst2)
 
     def rtype_inplace_add((self, _), hop):
         v_lst1, v_lst2 = hop.inputargs(self, self)
@@ -407,12 +415,12 @@ def _ll_list_resize_le(l, newsize):
         _ll_list_resize_really(l, newsize)
 
 
-def ll_copy(l):
-    items = l.items
-    length = l.length
-    new_lst = ll_newlist(typeOf(l), length)
+def ll_copy(RESLIST, l):
+    items = l.ll_items()
+    length = l.ll_length()
+    new_lst = RESLIST.ll_newlist(length)
     i = 0
-    new_items = new_lst.items
+    new_items = new_lst.ll_items()
     while i < length:
         new_items[i] = items[i]
         i += 1
@@ -423,7 +431,7 @@ def ll_len(l):
 
 def ll_list_is_true(l):
     # check if a list is True, allowing for None
-    return bool(l) and l.length != 0
+    return bool(l) and l.ll_length() != 0
 
 def ll_append(l, newitem):
     length = l.length
@@ -511,42 +519,42 @@ def ll_pop(func, l, index):
     return res
 
 def ll_reverse(l):
-    length = l.length
+    length = l.ll_length()
     i = 0
-    items = l.items
+    items = l.ll_items()
     length_1_i = length-1-i
     while i < length_1_i:
-        tmp = l.items[i]
+        tmp = items[i]
         items[i] = items[length_1_i]
         items[length_1_i] = tmp
         i += 1
         length_1_i -= 1
 
 def ll_getitem_nonneg(func, l, index):
-    if func is dum_checkidx and (index >= l.length):
+    if func is dum_checkidx and (index >= l.ll_length()):
         raise IndexError
-    return l.items[index]
+    return l.ll_items()[index]
 
 def ll_getitem(func, l, index):
-    length = l.length
+    length = l.ll_length()
     if index < 0:
         index += length
     if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
-    return l.items[index]
+    return l.ll_items()[index]
 
 def ll_setitem_nonneg(func, l, index, newitem):
-    if func is dum_checkidx and (index >= l.length):
+    if func is dum_checkidx and (index >= l.ll_length()):
         raise IndexError
-    l.items[index] = newitem
+    l.ll_items()[index] = newitem
 
 def ll_setitem(func, l, index, newitem):
-    length = l.length
+    length = l.ll_length()
     if index < 0:
         index += length
     if func is dum_checkidx and (index < 0 or index >= length):
         raise IndexError
-    l.items[index] = newitem
+    l.ll_items()[index] = newitem
 
 def ll_delitem_nonneg(func, l, index):
     length = l.length
@@ -573,34 +581,32 @@ def ll_delitem(func, l, i):
         raise IndexError
     ll_delitem_nonneg(dum_nocheck, l, i)
 
-def ll_concat(l1, l2):
-    len1 = l1.length
-    len2 = l2.length
+def ll_concat(RESLIST, l1, l2):
+    len1 = l1.ll_length()
+    len2 = l2.ll_length()
     newlength = len1 + len2
-    newitems = malloc(typeOf(l1).TO.items.TO, newlength)
+    l = RESLIST.ll_newlist(newlength)
+    newitems = l.ll_items()
     j = 0
-    source = l1.items
+    source = l1.ll_items()
     while j < len1:
         newitems[j] = source[j]
         j += 1
     i = 0
-    source = l2.items
+    source = l2.ll_items()
     while i < len2:
         newitems[j] = source[i]
         i += 1
         j += 1
-    l = malloc(typeOf(l1).TO)
-    l.length = newlength
-    l.items = newitems
     return l
 
 def ll_extend(l1, l2):
     len1 = l1.length
-    len2 = l2.length
+    len2 = l2.ll_length()
     newlength = len1 + len2
     _ll_list_resize_ge(l1, newlength)
     items = l1.items
-    source = l2.items
+    source = l2.ll_items()
     i = 0
     j = len1
     while i < len2:
@@ -608,53 +614,48 @@ def ll_extend(l1, l2):
         i += 1
         j += 1
 
-def ll_listslice_startonly(l1, start):
-    len1 = l1.length
+def ll_listslice_startonly(RESLIST, l1, start):
+    len1 = l1.ll_length()
     newlength = len1 - start
-    newitems = malloc(typeOf(l1).TO.items.TO, newlength)
+    l = RESLIST.ll_newlist(newlength)
+    newitems = l.ll_items()
     j = 0
-    source = l1.items
+    source = l1.ll_items()
     i = start
     while i < len1:
         newitems[j] = source[i]
         i += 1
         j += 1
-    l = malloc(typeOf(l1).TO)
-    l.length = newlength
-    l.items = newitems
     return l
 
-def ll_listslice(l1, slice):
+def ll_listslice(RESLIST, l1, slice):
     start = slice.start
     stop = slice.stop
-    if stop > l1.length:
-        stop = l1.length
+    length = l1.ll_length()
+    if stop > length:
+        stop = length
     newlength = stop - start
-    newitems = malloc(typeOf(l1).TO.items.TO, newlength)
+    l = RESLIST.ll_newlist(newlength)
+    newitems = l.ll_items()
     j = 0
-    source = l1.items
+    source = l1.ll_items()
     i = start
     while i < stop:
         newitems[j] = source[i]
         i += 1
         j += 1
-    l = malloc(typeOf(l1).TO)
-    l.length = newlength
-    l.items = newitems
     return l
 
-def ll_listslice_minusone(l1):
-    newlength = l1.length - 1
+def ll_listslice_minusone(RESLIST, l1):
+    newlength = l1.ll_length() - 1
     assert newlength >= 0
-    newitems = malloc(typeOf(l1).TO.items.TO, newlength)
+    l = RESLIST.ll_newlist(newlength)
+    newitems = l.ll_items()
     j = 0
-    source = l1.items
+    source = l1.ll_items()
     while j < newlength:
         newitems[j] = source[j]
         j += 1
-    l = malloc(typeOf(l1).TO)
-    l.length = newlength
-    l.items = newitems
     return l
 
 def ll_listdelslice_startonly(l, start):
@@ -690,14 +691,14 @@ def ll_listdelslice(l, slice):
     _ll_list_resize_le(l, newlength)
 
 def ll_listsetslice(l1, slice, l2):
-    count = l2.length
+    count = l2.ll_length()
     assert count == slice.stop - slice.start, (
         "setslice cannot resize lists in RPython")
     # XXX but it should be easy enough to support, soon
     start = slice.start
     j = start
-    items1 = l1.items
-    items2 = l2.items
+    items1 = l1.ll_items()
+    items2 = l2.ll_items()
     i = 0
     while i < count:
         items1[j] = items2[i]
@@ -713,13 +714,13 @@ def ll_listeq(l1, l2, eqfn):
         return True
     if not l1 or not l2:
         return False
-    len1 = l1.length
-    len2 = l2.length
+    len1 = l1.ll_length()
+    len2 = l2.ll_length()
     if len1 != len2:
         return False
     j = 0
-    items1 = l1.items
-    items2 = l2.items
+    items1 = l1.ll_items()
+    items2 = l2.ll_items()
     while j < len1:
         if eqfn is None:
             if items1[j] != items2[j]:
@@ -731,8 +732,8 @@ def ll_listeq(l1, l2, eqfn):
     return True
 
 def ll_listcontains(lst, obj, eqfn):
-    items = lst.items
-    lng = lst.length
+    items = lst.ll_items()
+    lng = lst.ll_length()
     j = 0
     while j < lng:
         if eqfn is None:
@@ -745,8 +746,8 @@ def ll_listcontains(lst, obj, eqfn):
     return False
 
 def ll_listindex(lst, obj, eqfn):
-    items = lst.items
-    lng = lst.length
+    items = lst.ll_items()
+    lng = lst.ll_length()
     j = 0
     while j < lng:
         if eqfn is None:
@@ -760,20 +761,35 @@ def ll_listindex(lst, obj, eqfn):
 
 TEMP = GcArray(Ptr(rstr.STR))
 
-def ll_mul(func, l, factor):
-    length = l.length
+def ll_inplace_mul(l, factor):
+    length = l.ll_length()
     if factor < 0:
         factor = 0
     resultlen = length * factor
-    if func is dum_inplace:
-        res = l
-        _ll_list_resize(res, resultlen)
-        j = length
-    else:
-        res = ll_newlist(typeOf(l), resultlen)
-        j = 0
-    source = l.items
-    target = res.items
+    res = l
+    _ll_list_resize(res, resultlen)
+    j = length
+    source = l.ll_items()
+    target = res.ll_items()
+    while j < resultlen:
+        i = 0
+        while i < length:
+            p = j + i
+            target[p] = source[i]
+            i += 1
+        j += length
+    return res
+
+
+def ll_mul(RESLIST, l, factor):
+    length = l.ll_length()
+    if factor < 0:
+        factor = 0
+    resultlen = length * factor
+    res = RESLIST.ll_newlist(resultlen)
+    j = 0
+    source = l.ll_items()
+    target = res.ll_items()
     while j < resultlen:
         i = 0
         while i < length:
@@ -788,11 +804,18 @@ def ll_mul(func, l, factor):
 #
 #  Irregular operations.
 
-def ll_newlist(LISTPTR, length):
-    l = malloc(LISTPTR.TO)
+def ll_newlist(LIST, length):
+    l = malloc(LIST)
     l.length = length
-    l.items = malloc(LISTPTR.TO.items.TO, length)
+    l.items = malloc(LIST.items.TO, length)
     return l
+ll_newlist = typeMethod(ll_newlist)
+
+def ll_length(l):
+    return l.length
+
+def ll_items(l):
+    return l.items
 
 def rtype_newlist(hop):
     nb_args = hop.nb_args
@@ -807,9 +830,9 @@ def rtype_newlist(hop):
             hop.genop('simple_call', [v_meth, v_item], resulttype = robject.pyobj_repr)
         return v_result
     r_listitem = r_list.item_repr
-    c1 = hop.inputconst(Void, r_list.lowleveltype)
-    c2 = hop.inputconst(Signed, nb_args)
-    v_result = hop.gendirectcall(ll_newlist, c1, c2)
+    LIST = r_list.LIST
+    cno = hop.inputconst(Signed, nb_args)
+    v_result = hop.gendirectcall(LIST.ll_newlist, cno)
     v_func = hop.inputconst(Void, dum_nocheck)
     for i in range(nb_args):
         ci = hop.inputconst(Signed, i)
@@ -817,24 +840,23 @@ def rtype_newlist(hop):
         hop.gendirectcall(ll_setitem_nonneg, v_func, v_result, ci, v_item)
     return v_result
 
-def ll_alloc_and_set(LISTPTR, count, item):
+def ll_alloc_and_set(LIST, count, item):
     if count < 0:
         count = 0
-    l = malloc(LISTPTR.TO)
-    l.length = count
-    l.items = malloc(LISTPTR.TO.items.TO, count)
+    l = LIST.ll_newlist(count)
     if item: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
         i = 0
+        items = l.ll_items()
         while i < count:
-            l.items[i] = item
+            items[i] = item
             i += 1
     return l
 
 def rtype_alloc_and_set(hop):
     r_list = hop.r_result
     v_count, v_item = hop.inputargs(Signed, r_list.item_repr)
-    c1 = hop.inputconst(Void, r_list.lowleveltype)
-    return hop.gendirectcall(ll_alloc_and_set, c1, v_count, v_item)
+    cLIST = hop.inputconst(Void, r_list.LIST)
+    return hop.gendirectcall(ll_alloc_and_set, cLIST, v_count, v_item)
 
 # ____________________________________________________________
 #
@@ -869,13 +891,18 @@ def ll_listiter(ITERPTR, lst):
 def ll_listnext(iter):
     l = iter.list
     index = iter.index
-    if index >= l.length:
+    if index >= l.ll_length():
         raise StopIteration
     iter.index = index + 1
-    return l.items[index]
+    return l.ll_items()[index]
             
 # ___________________________________________________________
 
 LIST_OF_STR = GcStruct("list",
                        ("length", Signed),
-                       ("items", Ptr(GcArray(Ptr(rstr.STR)))))
+                       ("items", Ptr(GcArray(Ptr(rstr.STR)))),
+                       adtmeths = {
+                           "ll_newlist": ll_newlist,
+                           "ll_length": ll_length,
+                           "ll_items": ll_items,
+        })

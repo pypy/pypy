@@ -62,9 +62,9 @@ class TupleRepr(Repr):
         from pypy.rpython import rlist
         nitems = len(self.items_r)
         vtup = hop.inputarg(self, 0)
-        c1 = inputconst(Void, hop.r_result.lowleveltype)
-        c2 = inputconst(Signed, nitems)
-        vlist = hop.gendirectcall(rlist.ll_newlist, c1, c2)
+        LIST = hop.r_result.lowleveltype.TO
+        cno = inputconst(Signed, nitems)
+        vlist = hop.gendirectcall(LIST.ll_newlist, cno)
         v_func = hop.inputconst(Void, rlist.dum_nocheck)
         for index in range(nitems):
             name = self.fieldnames[index]

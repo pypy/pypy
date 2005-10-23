@@ -141,18 +141,18 @@ def rtype_builtin_range(hop):
     else:
         # cannot build a RANGE object, needs a real list
         r_list = hop.r_result
-        c1 = hop.inputconst(Void, r_list.lowleveltype)
-        return hop.gendirectcall(ll_range2list, c1, vstart, vstop, vstep)
+        cLIST = hop.inputconst(Void, r_list.lowleveltype.TO)
+        return hop.gendirectcall(ll_range2list, cLIST, vstart, vstop, vstep)
 
 rtype_builtin_xrange = rtype_builtin_range
 
-def ll_range2list(LISTPTR, start, stop, step):
+def ll_range2list(LIST, start, stop, step):
     if step == 0:
         raise ValueError
     length = _ll_rangelen(start, stop, step)
-    l = ll_newlist(LISTPTR, length)
+    l = LIST.ll_newlist(length)
     idx = 0
-    items = l.items
+    items = l.ll_items()
     while idx < length:
         items[idx] = start
         start += step

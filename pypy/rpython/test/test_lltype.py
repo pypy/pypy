@@ -452,4 +452,21 @@ def test_adtmeths():
     assert len(a) == 10
 
     assert a.h_length() == 10
+
+def test_adt_typemethod():
+    def h_newstruct(S):
+        return malloc(S)
+    h_newstruct = typeMethod(h_newstruct)
     
+    S = GcStruct('s', ('x', Signed), 
+                 adtmeths={"h_newstruct": h_newstruct})
+
+    s = S.h_newstruct()
+
+    assert typeOf(s) == Ptr(S)
+
+    Sprime = GcStruct('s', ('x', Signed), 
+                      adtmeths={"h_newstruct": h_newstruct})
+
+    assert S == Sprime
+
