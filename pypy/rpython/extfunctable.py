@@ -1,5 +1,5 @@
 """
-information table about external functions for annotation/ rtyping and backends
+information table about external functions for annotation/rtyping and backends
 """
 import os
 import time

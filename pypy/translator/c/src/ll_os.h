@@ -257,7 +257,7 @@ void LL_os_unsetenv(RPyString * name) {
 #endif
 
 /* Return a dictionary corresponding to the POSIX environment table */
-/*** actually, we create a sring list here and do the rest in posix */
+/*** actually, we create a string list here and do the rest in posix */
 #ifdef WITH_NEXT_FRAMEWORK
 /* On Darwin/MacOSX a shared library or framework has no access to
 ** environ directly, we must obtain it with _NSGetEnviron().
