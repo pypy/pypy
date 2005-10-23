@@ -66,6 +66,8 @@ void LL_os_closedir(struct RPyOpaque_DIR *dir);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
+#include "ll_osdefs.h"
+
 int LL_os_open(RPyString *filename, int flag, int mode)
 {
 	/* XXX unicode_file_names */
@@ -223,7 +225,12 @@ void LL_os_chdir(RPyString * path) {
 }
 
 void LL_os_mkdir(RPyString * path, int mode) {
+#if defined(MS_WIN64) || defined(MS_WINDOWS)
+    /* no mode support on Windows */
+    int error = mkdir(RPyString_AsString(path));
+#else
     int error = mkdir(RPyString_AsString(path), mode);
+#endif
     if (error != 0) {
 	RPYTHON_RAISE_OSERROR(errno);
     }
@@ -283,52 +290,118 @@ RPyString* LL_os_environ(int idx) {
 
 /******************** opendir/readdir/closedir ********************/
 
-#ifdef HAVE_DIRENT_H
-#include <dirent.h>
-#define NAMLEN(dirent) strlen((dirent)->d_name)
-#else
-#if defined(__WATCOMC__) && !defined(__QNX__)
-#include <direct.h>
-#define NAMLEN(dirent) strlen((dirent)->d_name)
-#else
-#define dirent direct
-#define NAMLEN(dirent) (dirent)->d_namlen
-#endif
-#ifdef HAVE_SYS_NDIR_H
-#include <sys/ndir.h>
-#endif
-#ifdef HAVE_SYS_DIR_H
-#include <sys/dir.h>
-#endif
-#ifdef HAVE_NDIR_H
-#include <ndir.h>
-#endif
-#endif
+#if defined(MS_WINDOWS) && !defined(HAVE_OPENDIR)
+
+/* emulation of opendir, readdir, closedir */
+
+/* 
+    the problem is that Windows does not have something like
+    opendir. Instead, FindFirstFile creates a handle and
+    yields the first entry found. Furthermore, we need
+    to mangle the filename.
+    To keep the rpython interface, we need to buffer the
+    first result and let readdir return this first time.
+    Drawback of this approach: we need to use malloc,
+    and the way I'm emulating dirent is maybe somewhat hackish.
+
+    XXX we are lacking unicode support, completely.
+    Might need a different interface.
+ */
+
+#undef dirent
+
+typedef struct dirent {
+    HANDLE hFind;
+    WIN32_FIND_DATA FileData;
+    char *d_name; /* faking dirent */
+    int first_done;
+} DIR;
+
+static DIR *opendir(char *dirname)
+{
+    DIR *d = malloc(sizeof(DIR));
+    int lng = strlen(dirname);
+    char *mangled = strcpy(_alloca(lng + 5), dirname);
+    char *p = mangled + lng;
+
+    if (d == NULL)
+	return NULL;
+
+    if (lng && p[-1] == '\\')
+	p--;
+    strcpy(p, "\\*.*");
+
+    d->first_done = 0;
+    d->hFind = FindFirstFile(mangled, &d->FileData);
+    if (d->hFind == INVALID_HANDLE_VALUE) {
+	d->d_name = NULL;
+	errno = GetLastError();
+	if (errno == ERROR_FILE_NOT_FOUND) {
+	    errno = 0;
+	    return d;
+	}
+	free(d);
+	return NULL;
+    }
+    d->d_name = d->FileData.cFileName;
+    return d;
+}
+
+static struct dirent *readdir(DIR *d)
+{
+    if (!d->first_done) {
+	d->first_done = 1;
+	return d;
+    }
+    if (!FindNextFile(d->hFind, &d->FileData)) 
+    {
+	errno = GetLastError();
+	if (errno == ERROR_NO_MORE_FILES)
+	    errno = 0;
+	return NULL;
+    }
+    d->d_name = d->FileData.cFileName;
+    return d;
+}
+
+static int closedir(DIR *d)
+{
+    HANDLE hFind = d->hFind;
+
+    free(d);
+    if (FindClose(hFind) == 0) {
+	errno = GetLastError();
+	return -1;
+    }
+    return 0;
+}
+
+#endif /* defined(MS_WINDOWS) && !defined(HAVE_OPENDIR) */
 
 struct RPyOpaque_DIR *LL_os_opendir(RPyString *dirname)
 {
-	DIR *dir = opendir(RPyString_AsString(dirname));
-	if (dir == NULL)
-		RPYTHON_RAISE_OSERROR(errno);
-	return (struct RPyOpaque_DIR *) dir;
+    DIR *dir = opendir(RPyString_AsString(dirname));
+    if (dir == NULL)
+	RPYTHON_RAISE_OSERROR(errno);
+    return (struct RPyOpaque_DIR *) dir;
 }
 
 RPyString *LL_os_readdir(struct RPyOpaque_DIR *dir)
 {
-	struct dirent *d;
-	errno = 0;
-	d = readdir((DIR *) dir);
-	if (d != NULL)
-		return RPyString_FromString(d->d_name);
-	if (errno)
-		RPYTHON_RAISE_OSERROR(errno);
-	return NULL;
+    struct dirent *d;
+    errno = 0;
+    d = readdir((DIR *) dir);
+    if (d != NULL)
+	return RPyString_FromString(d->d_name);
+    if (errno)
+	RPYTHON_RAISE_OSERROR(errno);
+    return NULL;
 }
 
 void LL_os_closedir(struct RPyOpaque_DIR *dir)
 {
-	if (closedir((DIR *) dir) < 0)
-		RPYTHON_RAISE_OSERROR(errno);
+    if (closedir((DIR *) dir) < 0)
+	RPYTHON_RAISE_OSERROR(errno);
 }
 
 #endif /* PYPY_NOT_MAIN_FILE */
