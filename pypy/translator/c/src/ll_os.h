@@ -346,8 +346,7 @@ static struct dirent *readdir(DIR *d)
 	    return NULL;
 	return d;
     }
-    if (!FindNextFile(d->hFind, &d->FileData)) 
-    {
+    if (!FindNextFile(d->hFind, &d->FileData)) {
 	errno = GetLastError();
 	if (errno == ERROR_NO_MORE_FILES)
 	    errno = 0;
