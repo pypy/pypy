@@ -342,6 +342,8 @@ static struct dirent *readdir(DIR *d)
 {
     if (!d->first_done) {
 	d->first_done = 1;
+	if (d->d_name == NULL)
+	    return NULL;
 	return d;
     }
     if (!FindNextFile(d->hFind, &d->FileData)) 
