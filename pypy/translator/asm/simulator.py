@@ -1,7 +1,7 @@
 """ IRM Simulator """
 import autopath
 from pypy.rpython.llinterp import LLFrame
-from pypy.translator.asm.infregmachine import Instruction
+#from pypy.translator.asm.infregmachine import Instruction
 from pypy.objspace.flow.model import Constant
 
 """
@@ -54,15 +54,20 @@ def TranslateProgram(commands,nreg):
     assert nreg>=3 ,'Some commands may use 3 registers!!!!'
     newprog=[]
     pipe=[]
-    old2new=range(0,totreg+1)  #this must be as big as the total number of registers+1 (we start at index 1)
+    
+    # this must be as big as the total number of registers+1 (we start
+    # at index 1)
+    old2new=range(0,totreg+1)
 
 
     for cmd in commands:
-        #if we use any registers, we must possibly swap first, and then remap
-        if  isinstance(cmd,str) or cmd.name in ('J','JT','JF'): #label or jump so  pass through
+        # if we use any registers, we must possibly swap first, and
+        # then remap
+        if isinstance(cmd,str) or cmd.name in ('J','JT','JF'):
+            # label or jump so  pass through
             newprog.append(cmd)
         else:
-            #so now remap the registers!
+            # so now remap the registers!
 
             regused=cmd.registers_used()
             t2p=[old2new[x] for x in regused]

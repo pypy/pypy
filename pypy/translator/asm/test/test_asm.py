@@ -121,9 +121,9 @@ class TestAsm(object):
         big = 1000000000
         assert f(big, big) == g(big, big)
         
-class TestAsmAfterAllocation(TestAsm):
+## class TestAsmAfterAllocation(TestAsm):
 
-    processor = 'virtfinite'
+##     processor = 'virtfinite'
 
 
 class TestAsmPPC(TestAsm):

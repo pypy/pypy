@@ -1,24 +1,28 @@
-from pypy.objspace.flow.model import Constant
+from pypy.translator.asm.model import *
 
 def regalloc(insns, nregisters):
-    from pypy.translator.asm.infregmachine import Instruction
-
     output = []
-    
+
     for insn in insns:
-        if isinstance(insn, str):
-            output.append(insn)
-            continue
         thismap = {}
-        for i, r in enumerate(insn.registers_used()):
+        i = 1
+        target = insn.target_register()
+        if target is not None:
+            if not isinstance(insn, LOAD_ARGUMENT):
+                thismap[target] = i
+                i += 1
+            else:
+                thismap[target] = target
+
+        for r in insn.source_registers():
             if r not in thismap:
-                if insn.name != 'LIA':
-                    output.append(Instruction('LOADSTACK', (i+1, Constant(r))))
-                    thismap[r] = i+1
-                else:
-                    thismap[r] = r
+                output.append(LOAD_STACK(i+1, r))
+                thismap[r] = i+1
+                i += 1
+
         output.append(insn.renumber(thismap))
-        for r, i in thismap.items():
-            output.append(Instruction('STORESTACK', (Constant(r), i)))
-            
+
+        if target is not None:
+            output.append(STORE_STACK(target, thismap[target]))
+
     return output
