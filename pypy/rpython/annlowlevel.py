@@ -36,7 +36,7 @@ class KeyComp(object):
         if s is None:
             compact = getattr(val, 'compact_repr', None)
             if compact is None:
-                s = repr(s)
+                s = repr(val)
             else:
                 s = compact()        
         return s + 'Const'
