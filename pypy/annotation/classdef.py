@@ -194,6 +194,8 @@ class ClassDef:
                 if not hasattr(value, 'class_'):
                     value.class_ = cls # remember that this is really a method
             self.add_source_for_attribute(name, sources.get(name, cls), self)
+        if self.bookkeeper:
+            self.bookkeeper.event('classdef_setup', self)
 
     def add_source_for_attribute(self, attr, source, clsdef=None):
         """Adds information about a constant source for an attribute.
