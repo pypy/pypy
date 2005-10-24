@@ -305,55 +305,45 @@ typedef struct dirent {
     HANDLE hFind;
     WIN32_FIND_DATA FileData;
     char *d_name; /* faking dirent */
-    int first_done;
+    char arg[1]; /*also used as flag */
 } DIR;
 
 static DIR *opendir(char *dirname)
 {
-    DIR *d = malloc(sizeof(DIR));
     int lng = strlen(dirname);
-    char *mangled = strcpy(_alloca(lng + 5), dirname);
-    char *p = mangled + lng;
+    DIR *d = malloc(sizeof(DIR) + lng + 4);
 
-    if (d == NULL)
-	return NULL;
-
-    if (lng && p[-1] == '\\')
-	p--;
-    strcpy(p, "\\*.*");
-
-    d->first_done = 0;
-    d->hFind = FindFirstFile(mangled, &d->FileData);
-    if (d->hFind == INVALID_HANDLE_VALUE) {
-	d->d_name = NULL;
-	errno = GetLastError();
-	if (errno == ERROR_FILE_NOT_FOUND) {
-	    errno = 0;
-	    return d;
+    if (d != NULL) {
+	strcpy(&d->arg, dirname);
+	strcpy(&d->arg + lng, "\\*.*" + (&d->arg + lng - 1 == '\\'));
+	d->hFind = FindFirstFile(&d->arg, &d->FileData);
+	d->d_name = d->FileData.cFileName;
+	if (d->hFind == INVALID_HANDLE_VALUE) {
+	    d->d_name = NULL;
+	    if (GetLastError() != ERROR_FILE_NOT_FOUND) {
+		errno = GetLastError();
+    		free(d);
+		d = NULL;
+	    }
 	}
-	free(d);
-	return NULL;
     }
-    d->d_name = d->FileData.cFileName;
     return d;
 }
 
 static struct dirent *readdir(DIR *d)
 {
-    if (!d->first_done) {
-	d->first_done = 1;
-	if (d->d_name == NULL)
-	    return NULL;
-	return d;
+    if (d->arg[0])
+	d->arg[0] = 0; /* use existing result first time */
+    else {
+	if (FindNextFile(d->hFind, &d->FileData))
+	    d->d_name = d->FileData.cFileName;
+	else {
+	    d->d_name = NULL;
+	    if (GetLastError() != ERROR_NO_MORE_FILES)
+		errno = GetLastError();
+	}
     }
-    if (!FindNextFile(d->hFind, &d->FileData)) {
-	errno = GetLastError();
-	if (errno == ERROR_NO_MORE_FILES)
-	    errno = 0;
-	return NULL;
-    }
-    d->d_name = d->FileData.cFileName;
-    return d;
+    return d->d_name ? d : NULL;
 }
 
 static int closedir(DIR *d)
