@@ -131,7 +131,8 @@ class W_Object(W_Root, object):
            #', '.join(['%s=%r' % keyvalue for keyvalue in self.__dict__.items()])
             getattr(self, 'name', '')
             )
-        if hasattr(self, 'w__class__'):
+        w_cls = getattr(self, 'w__class__', None)
+        if w_cls is not None and w_cls is not self:
             s += ' instance of %s' % self.w__class__
         return '<%s>' % s
 
