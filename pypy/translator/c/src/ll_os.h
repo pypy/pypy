@@ -322,7 +322,7 @@ static DIR *opendir(char *dirname)
 	    d->d_name = NULL;
 	    if (GetLastError() != ERROR_FILE_NOT_FOUND) {
 		errno = GetLastError();
-    		free(d);
+		free(d);
 		d = NULL;
 	    }
 	}
