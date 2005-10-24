@@ -2,7 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
-from pypy.rpython.rmodel import IteratorRepr
+from pypy.rpython.rmodel import IteratorRepr, externalvsinternal
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rslice import minusone_slice_repr
@@ -54,25 +54,17 @@ class ListRepr(Repr):
             assert callable(item_repr)
             self._item_repr_computer = item_repr
         else:
-            self.set_item_repr(item_repr)
+            self.external_item_repr, self.item_repr = externalvsinternal(rtyper, item_repr)
         self.listitem = listitem
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
-
-    def set_item_repr(self, item_repr):
-        from pypy.rpython import rclass
-        if isinstance(item_repr, rclass.AbstractInstanceRepr):
-            self.item_repr = rclass.getinstancerepr(self.rtyper, None)
-            self.external_item_repr = item_repr
-        else:
-            self.item_repr = self.external_item_repr = item_repr
         
     def recast(self, llops, v):
         return llops.convertvar(v, self.item_repr, self.external_item_repr)
 
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
-            self.set_item_repr(self._item_repr_computer())
+            self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer())
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
             ITEMARRAY = GcArray(ITEM)

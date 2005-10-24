@@ -62,6 +62,7 @@ class RPythonTyper:
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
         self.specialized_ll_functions = {}
+        self._dict_traits = {}
         self.class_reprs = {}
         self.instance_reprs = {}
         self.pbc_reprs = {}

@@ -319,6 +319,14 @@ def needsgc(classdef, nogc=False):
     else:
         return getattr(classdef.cls, '_alloc_flavor_', 'gc').startswith('gc')
 
+def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr
+    from pypy.rpython import rclass
+    if isinstance(item_repr, rclass.AbstractInstanceRepr):
+        return item_repr, rclass.getinstancerepr(rtyper, None)
+    else:
+        return item_repr, item_repr
+        
+
 # logging/warning
 
 import py

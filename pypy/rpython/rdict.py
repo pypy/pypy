@@ -51,7 +51,8 @@ class __extend__(annmodel.SomeDict):
                                           rtyper.getrepr(dictkey.s_rdict_hashfn))
             else:
                 custom_eq_hash = None
-            return DictRepr(lambda: rtyper.getrepr(s_key),
+            return DictRepr(rtyper,
+                            lambda: rtyper.getrepr(s_key),
                             lambda: rtyper.getrepr(s_value),
                             dictkey,
                             dictvalue,
@@ -60,37 +61,84 @@ class __extend__(annmodel.SomeDict):
     def rtyper_makekey(self):
         return (self.__class__, self.dictdef.dictkey, self.dictdef.dictvalue)
 
+class DictTrait:
+    # avoid explosion of one helper function per repr
+    # vs. layout and functions
+
+    def __init__(self, dictrepr):
+        self.DICT = dictrepr.DICT
+        self.DICTENTRYARRAY = dictrepr.DICTENTRYARRAY
+        self.custom_eq_hash = False
+        self.ll_keyhash = dictrepr.ll_keyhash
+        self.ll_keyeq = dictrepr.ll_keyeq
+
+    def _freeze_(self):
+        return True
+
+    def __repr__(self):
+        return "DictT %s" % self.DICT._short_name()
+
+def dict_trait(rtyper, dictrepr):
+    if dictrepr.custom_eq_hash: # in this case use there is not much point in not just using the repr
+        return dictrepr
+
+    key = (dictrepr.DICT, dictrepr.ll_keyhash, dictrepr.ll_keyeq)
+    try:
+        return rtyper._dict_traits[key]
+    except KeyError:
+        trait = DictTrait(dictrepr)
+        rtyper._dict_traits[key] = trait
+        return trait
+    
+
 class DictRepr(rmodel.Repr):
 
-    def __init__(self, key_repr, value_repr, dictkey=None, dictvalue=None,
+    def __init__(self, rtyper, key_repr, value_repr, dictkey=None, dictvalue=None,
                  custom_eq_hash=None):
+        self.rtyper = rtyper
         self.DICT = lltype.GcForwardReference()
         self.lowleveltype = lltype.Ptr(self.DICT)
+        self.custom_eq_hash = custom_eq_hash is not None
         if not isinstance(key_repr, rmodel.Repr):  # not computed yet, done by setup()
             assert callable(key_repr)
             self._key_repr_computer = key_repr 
         else:
-            self.key_repr = key_repr  
+            self.external_key_repr, self.key_repr = self.pickkeyrepr(key_repr)
         if not isinstance(value_repr, rmodel.Repr):  # not computed yet, done by setup()
             assert callable(value_repr)
             self._value_repr_computer = value_repr 
         else:
-            self.value_repr = value_repr  
+            self.external_value_repr, self.value_repr = self.pickrepr(value_repr)
         self.dictkey = dictkey
         self.dictvalue = dictvalue
         self.dict_cache = {}
-        self.custom_eq_hash = custom_eq_hash is not None
         self._custom_eq_hash_repr = custom_eq_hash
+        self._trait = None # cache for get_trait
         # setup() needs to be called to finish this initialization
+        
+    def pickrepr(self, item_repr):
+        if self.custom_eq_hash:
+            return item_repr, item_repr
+        else:
+            return rmodel.externalvsinternal(self.rtyper, item_repr)
 
+    def pickkeyrepr(self, key_repr):
+        external, internal = self.pickrepr(key_repr)
+        if external != internal:
+            internal = external
+            while not self.rtyper.needs_hash_support(internal.classdef.cls):
+                internal = internal.rbase
+        return external, internal
+        
     def compact_repr(self):
         return 'DictR %s %s' % (self.key_repr.compact_repr(), self.value_repr.compact_repr())
 
     def _setup_repr(self):
         if 'key_repr' not in self.__dict__:
-            self.key_repr = self._key_repr_computer()
+            key_repr = self._key_repr_computer()
+            self.external_key_repr, self.key_repr = self.pickkeyrepr(key_repr)
         if 'value_repr' not in self.__dict__:
-            self.value_repr = self._value_repr_computer()
+            self.external_value_repr, self.value_repr = self.pickrepr(self._value_repr_computer())
         if isinstance(self.DICT, lltype.GcForwardReference):
             self.DICTKEY = self.key_repr.lowleveltype
             self.DICTVALUE = self.value_repr.lowleveltype
@@ -113,6 +161,17 @@ class DictRepr(rmodel.Repr):
             # figure out which functions must be used to hash and compare keys
             self.ll_keyeq   = self.key_repr.get_ll_eq_function()   # can be None
             self.ll_keyhash = self.key_repr.get_ll_hash_function()
+
+    def recast_value(self, llops, v):
+        return llops.convertvar(v, self.value_repr, self.external_value_repr)
+
+    def recast_key(self, llops, v):
+        return llops.convertvar(v, self.key_repr, self.external_key_repr)
+
+    def get_trait(self):
+        if self._trait is None:
+            self._trait = dict_trait(self.rtyper, self)
+        return self._trait   
 
     def convert_const(self, dictobj):
         # get object from bound dict methods
@@ -185,21 +244,22 @@ class DictRepr(rmodel.Repr):
     def rtype_method_get(self, hop):
         v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
                                                  self.value_repr)
-        crepr = hop.inputconst(lltype.Void, self)
+        ctrait = hop.inputconst(lltype.Void, self.get_trait())
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_get, v_dict, v_key, v_default, crepr)
+        v_res = hop.gendirectcall(ll_get, v_dict, v_key, v_default, ctrait)
+        return self.recast_value(hop.llops, v_res)
 
     def rtype_method_copy(self, hop):
         v_dict, = hop.inputargs(self)
-        crepr = hop.inputconst(lltype.Void, self)
+        ctrait = hop.inputconst(lltype.Void, self.get_trait())
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_copy, v_dict, crepr)
+        return hop.gendirectcall(ll_copy, v_dict, ctrait)
 
     def rtype_method_update(self, hop):
         v_dic1, v_dic2 = hop.inputargs(self, self)
-        crepr = hop.inputconst(lltype.Void, self)
+        ctrait = hop.inputconst(lltype.Void, self.get_trait())
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_update, v_dic1, v_dic2, crepr)
+        return hop.gendirectcall(ll_update, v_dic1, v_dic2, ctrait)
 
     def _rtype_method_kvi(self, hop, spec):
         v_dic, = hop.inputargs(self)
@@ -239,27 +299,28 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
-        crepr = hop.inputconst(lltype.Void, r_dict)
+        ctrait = hop.inputconst(lltype.Void, r_dict.get_trait())
         hop.has_implicit_exception(KeyError)   # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(ll_dict_getitem, v_dict, v_key, crepr)
+        v_res = hop.gendirectcall(ll_dict_getitem, v_dict, v_key, ctrait)
+        return r_dict.recast_value(hop.llops, v_res)
 
     def rtype_delitem((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
-        crepr = hop.inputconst(lltype.Void, r_dict)
+        ctrait = hop.inputconst(lltype.Void, r_dict.get_trait())
         hop.has_implicit_exception(KeyError)   # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(ll_dict_delitem, v_dict, v_key, crepr)
+        return hop.gendirectcall(ll_dict_delitem, v_dict, v_key, ctrait)
 
     def rtype_setitem((r_dict, r_key), hop):
         v_dict, v_key, v_value = hop.inputargs(r_dict, r_dict.key_repr, r_dict.value_repr)
-        crepr = hop.inputconst(lltype.Void, r_dict)
-        hop.gendirectcall(ll_dict_setitem, v_dict, v_key, v_value, crepr)
+        ctrait = hop.inputconst(lltype.Void, r_dict.get_trait())
+        hop.gendirectcall(ll_dict_setitem, v_dict, v_key, v_value, ctrait)
 
     def rtype_contains((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
-        crepr = hop.inputconst(lltype.Void, r_dict)
-        return hop.gendirectcall(ll_contains, v_dict, v_key, crepr)
+        ctrait = hop.inputconst(lltype.Void, r_dict.get_trait())
+        return hop.gendirectcall(ll_contains, v_dict, v_key, ctrait)
         
 class __extend__(pairtype(DictRepr, DictRepr)):
     def convert_from_to((r_dict1, r_dict2), v, llops):
@@ -295,22 +356,22 @@ def ll_dict_is_true(d):
     # check if a dict is True, allowing for None
     return bool(d) and d.num_items != 0
 
-def ll_dict_getitem(d, key, dictrepr):
-    entry = ll_dict_lookup(d, key, dictrepr)
+def ll_dict_getitem(d, key, dictrait):
+    entry = ll_dict_lookup(d, key, dictrait)
     if entry.valid:
         return entry.value 
     else: 
         raise KeyError 
 
-def ll_dict_setitem(d, key, value, dictrepr):
-    entry = ll_dict_lookup(d, key, dictrepr)
+def ll_dict_setitem(d, key, value, dictrait):
+    entry = ll_dict_lookup(d, key, dictrait)
     entry.value = value
     if entry.valid:
         return
-    if dictrepr.custom_eq_hash:
-        hash = hlinvoke(dictrepr.r_rdict_hashfn, d.fnkeyhash, key)
+    if dictrait.custom_eq_hash:
+        hash = hlinvoke(dictrait.r_rdict_hashfn, d.fnkeyhash, key)
     else:
-        hash = dictrepr.ll_keyhash(key)
+        hash = dictrait.ll_keyhash(key)
     entry.key = key 
     entry.hash = hash
     entry.valid = True
@@ -319,10 +380,10 @@ def ll_dict_setitem(d, key, value, dictrepr):
         entry.everused = True
         d.num_pristine_entries -= 1
         if d.num_pristine_entries <= len(d.entries) / 3:
-            ll_dict_resize(d, dictrepr)
+            ll_dict_resize(d, dictrait)
 
-def ll_dict_delitem(d, key, dictrepr):
-    entry = ll_dict_lookup(d, key, dictrepr)
+def ll_dict_delitem(d, key, dictrait):
+    entry = ll_dict_lookup(d, key, dictrait)
     if not entry.valid:
         raise KeyError
     entry.valid = False
@@ -337,9 +398,9 @@ def ll_dict_delitem(d, key, dictrepr):
         entry.value = lltype.nullptr(valuetype.TO)
     num_entries = len(d.entries)
     if num_entries > DICT_INITSIZE and d.num_items < num_entries / 4:
-        ll_dict_resize(d, dictrepr)
+        ll_dict_resize(d, dictrait)
 
-def ll_dict_resize(d, dictrepr):
+def ll_dict_resize(d, dictrait):
     old_entries = d.entries
     old_size = len(old_entries) 
     # make a 'new_size' estimate and shrink it if there are many
@@ -353,7 +414,7 @@ def ll_dict_resize(d, dictrepr):
     while i < old_size:
         entry = old_entries[i]
         if entry.valid:
-           new_entry = ll_dict_lookup(d, entry.key, dictrepr)
+           new_entry = ll_dict_lookup(d, entry.key, dictrait)
            new_entry.key = entry.key
            new_entry.hash = entry.hash
            new_entry.value = entry.value
@@ -364,11 +425,11 @@ def ll_dict_resize(d, dictrepr):
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
 
-def ll_dict_lookup(d, key, dictrepr):
-    if dictrepr.custom_eq_hash:
-        hash = hlinvoke(dictrepr.r_rdict_hashfn, d.fnkeyhash, key)
+def ll_dict_lookup(d, key, dictrait):
+    if dictrait.custom_eq_hash:
+        hash = hlinvoke(dictrait.r_rdict_hashfn, d.fnkeyhash, key)
     else:
-        hash = dictrepr.ll_keyhash(key)
+        hash = dictrait.ll_keyhash(key)
     entries = d.entries
     mask = len(entries) - 1
     i = r_uint(hash & mask) 
@@ -379,14 +440,14 @@ def ll_dict_lookup(d, key, dictrepr):
         if checkingkey == key:
             return entry   # found the entry
         if entry.hash == hash:
-            if dictrepr.custom_eq_hash:
-                res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
+            if dictrait.custom_eq_hash:
+                res = hlinvoke(dictrait.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
                 if (entries != d.entries or
                     not entry.valid or entry.key != checkingkey):
                     # the compare did major nasty stuff to the dict: start over
-                    return ll_dict_lookup(d, key, dictrepr)
+                    return ll_dict_lookup(d, key, dictrait)
             else:
-                res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(checkingkey, key)
+                res = dictrait.ll_keyeq is not None and dictrait.ll_keyeq(checkingkey, key)
             if res:
                 return entry   # found the entry
         freeslot = lltype.nullptr(lltype.typeOf(entry).TO)
@@ -408,14 +469,14 @@ def ll_dict_lookup(d, key, dictrepr):
             if checkingkey == key:
                 return entry
             if entry.hash == hash:
-                if dictrepr.custom_eq_hash:
-                    res = hlinvoke(dictrepr.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
+                if dictrait.custom_eq_hash:
+                    res = hlinvoke(dictrait.r_rdict_eqfn, d.fnkeyeq, checkingkey, key)
                     if (entries != d.entries or
                         not entry.valid or entry.key != checkingkey):
                         # the compare did major nasty stuff to the dict: start over
-                        return ll_dict_lookup(d, key, dictrepr)
+                        return ll_dict_lookup(d, key, dictrait)
                 else:
-                    res = dictrepr.ll_keyeq is not None and dictrepr.ll_keyeq(checkingkey, key)
+                    res = dictrait.ll_keyeq is not None and dictrait.ll_keyeq(checkingkey, key)
                 if res:
                     return entry
         elif not freeslot:
@@ -428,15 +489,15 @@ def ll_dict_lookup(d, key, dictrepr):
 
 DICT_INITSIZE = 8
 
-def ll_newdict(dictrepr):
-    d = lltype.malloc(dictrepr.DICT)
-    d.entries = lltype.malloc(dictrepr.DICTENTRYARRAY, DICT_INITSIZE)
+def ll_newdict(dictrait):
+    d = lltype.malloc(dictrait.DICT)
+    d.entries = lltype.malloc(dictrait.DICTENTRYARRAY, DICT_INITSIZE)
     d.num_items = 0  # but still be explicit
     d.num_pristine_entries = DICT_INITSIZE
     return d
 
-def ll_copy_extra_data(targetdict, sourcedict, dictrepr):
-    if dictrepr.custom_eq_hash:
+def ll_copy_extra_data(targetdict, sourcedict, dictrait):
+    if dictrait.custom_eq_hash:
         targetdict.fnkeyeq   = sourcedict.fnkeyeq
         targetdict.fnkeyhash = sourcedict.fnkeyhash
 
@@ -446,8 +507,8 @@ def rtype_newdict(hop):
     if r_dict == robject.pyobj_repr: # special case: SomeObject: SomeObject dicts!
         cdict = hop.inputconst(robject.pyobj_repr, dict)
         return hop.genop('simple_call', [cdict], resulttype = robject.pyobj_repr)
-    crepr = hop.inputconst(lltype.Void, r_dict)
-    v_result = hop.gendirectcall(ll_newdict, crepr)
+    ctrait = hop.inputconst(lltype.Void, r_dict.get_trait())
+    v_result = hop.gendirectcall(ll_newdict, ctrait)
     return v_result
 
 def rtype_r_dict(hop):
@@ -456,9 +517,9 @@ def rtype_r_dict(hop):
         raise TyperError("r_dict() call does not return an r_dict instance")
     v_eqfn, v_hashfn = hop.inputargs(r_dict.r_rdict_eqfn,
                                      r_dict.r_rdict_hashfn)
-    crepr = hop.inputconst(lltype.Void, r_dict)
+    ctrait = hop.inputconst(lltype.Void, r_dict)
     hop.exception_cannot_occur()
-    v_result = hop.gendirectcall(ll_newdict, crepr)
+    v_result = hop.gendirectcall(ll_newdict, ctrait)
     if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
         cname = hop.inputconst(lltype.Void, 'fnkeyeq')
         hop.genop('setfield', [v_result, cname, v_eqfn])
@@ -486,13 +547,22 @@ class DictIteratorRepr(rmodel.IteratorRepr):
         return hop.gendirectcall(ll_dictiter, citerptr, v_dict)
 
     def rtype_next(self, hop):
+        variant = self.variant
         v_iter, = hop.inputargs(self)
-        r_list = hop.r_result
         v_func = hop.inputconst(lltype.Void, dum_variant[self.variant])
-        c1 = hop.inputconst(lltype.Void, r_list.lowleveltype)
+        if variant in ('keys', 'values'):
+            c1 = hop.inputconst(lltype.Void, None)
+        else:
+            c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype)
         hop.has_implicit_exception(StopIteration) # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(ll_dictnext, v_iter, v_func, c1)
+        v = hop.gendirectcall(ll_dictnext, v_iter, v_func, c1)
+        if variant == 'keys':
+            return self.r_dict.recast_key(hop.llops, v)
+        elif variant == 'values':
+            return self.r_dict.recast_value(hop.llops, v)
+        else:
+            return v
 
 def ll_dictiter(ITERPTR, d):
     iter = lltype.malloc(ITERPTR.TO)
@@ -513,8 +583,8 @@ def ll_dictnext(iter, func, RETURNTYPE):
                 iter.index = index
                 if func is dum_items:
                     r = lltype.malloc(RETURNTYPE.TO)
-                    r.item0 = entry.key
-                    r.item1 = entry.value
+                    r.item0 = recast(RETURNTYPE.TO.item0, entry.key)
+                    r.item1 = recast(RETURNTYPE.TO.item1, entry.value)
                     return r
                 elif func is dum_keys:
                     return entry.key
@@ -527,20 +597,20 @@ def ll_dictnext(iter, func, RETURNTYPE):
 # _____________________________________________________________
 # methods
 
-def ll_get(dict, key, default, dictrepr):
-    entry = ll_dict_lookup(dict, key, dictrepr) 
+def ll_get(dict, key, default, dictrait):
+    entry = ll_dict_lookup(dict, key, dictrait) 
     if entry.valid:
         return entry.value
     else: 
         return default
 
-def ll_copy(dict, dictrepr):
+def ll_copy(dict, dictrait):
     dictsize = len(dict.entries)
-    d = lltype.malloc(dictrepr.DICT)
-    d.entries = lltype.malloc(dictrepr.DICTENTRYARRAY, dictsize)
+    d = lltype.malloc(dictrait.DICT)
+    d.entries = lltype.malloc(dictrait.DICTENTRYARRAY, dictsize)
     d.num_items = dict.num_items
     d.num_pristine_entries = dict.num_pristine_entries
-    ll_copy_extra_data(d, dict, dictrepr)
+    ll_copy_extra_data(d, dict, dictrait)
     i = 0
     while i < dictsize:
         d_entry = d.entries[i]
@@ -561,7 +631,7 @@ def ll_clear(d):
     d.num_items = 0
     d.num_pristine_entries = DICT_INITSIZE
 
-def ll_update(dic1, dic2, dictrepr):
+def ll_update(dic1, dic2, dictrait):
     # XXX warning, no protection against ll_dict_setitem mutating dic2
     d2len = len(dic2.entries)
     entries = dic2.entries
@@ -569,13 +639,19 @@ def ll_update(dic1, dic2, dictrepr):
     while i < d2len:
         entry = entries[i]
         if entry.valid:
-            ll_dict_setitem(dic1, entry.key, entry.value, dictrepr)
+            ll_dict_setitem(dic1, entry.key, entry.value, dictrait)
         i += 1
 
 # this is an implementation of keys(), values() and items()
 # in a single function.
 # note that by specialization on func, three different
 # and very efficient functions are created.
+
+def recast(P, v):
+    if isinstance(P, lltype.Ptr):
+        return lltype.cast_pointer(P, v)
+    else:
+        return v
 
 def ll_kvi(dic, LIST, func):
     res = LIST.ll_newlist(dic.num_items)
@@ -587,25 +663,20 @@ def ll_kvi(dic, LIST, func):
     while i < dlen:
         entry = entries[i]
         if entry.valid:
+            ELEM = lltype.typeOf(items).TO.OF
             if func is dum_items:
-                r = lltype.malloc(LIST.items.TO.OF.TO)
-                r.item0 = entry.key
-                r.item1 = entry.value
+                r = lltype.malloc(ELEM.TO)
+                r.item0 = recast(ELEM.TO.item0, entry.key)
+                r.item1 = recast(ELEM.TO.item1, entry.value)
                 items[p] = r
             elif func is dum_keys:
-                k = entry.key
-                if isinstance(LIST.items.TO.OF, lltype.Ptr):
-                    k = lltype.cast_pointer(LIST.items.TO.OF, k)
-                items[p] = k
+                items[p] = recast(ELEM, entry.key)
             elif func is dum_values:
-                val = entry.value
-                if isinstance(LIST.items.TO.OF, lltype.Ptr):
-                    val = lltype.cast_pointer(LIST.items.TO.OF, val)
-                items[p] = val
+                 items[p] = recast(ELEM, entry.value)
             p += 1
         i += 1
     return res
 
-def ll_contains(d, key, dictrepr):
-    entry = ll_dict_lookup(d, key, dictrepr)
+def ll_contains(d, key, dictrait):
+    entry = ll_dict_lookup(d, key, dictrait)
     return entry.valid

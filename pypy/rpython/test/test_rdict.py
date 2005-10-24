@@ -272,14 +272,32 @@ def test_dict_keys():
     assert res == 14
 
 def test_dict_inst_keys():
-    class A:
+    class Empty:
+        pass
+    class A(Empty):
         pass
     def func():
+        dic0 = {Empty(): 2}
         dic = {A(): 1, A(): 2}
         keys = dic.keys()
         return (isinstance(keys[1], A))*2+(isinstance(keys[0],A))
     res = interpret(func, [])
     assert res == 3
+
+def test_dict_inst_iterkeys():
+    class Empty:
+        pass
+    class A(Empty):
+        pass
+    def func():
+        dic0 = {Empty(): 2}
+        dic = {A(): 1, A(): 2}
+        a = 0
+        for k in dic.iterkeys():
+            a += isinstance(k, A)
+        return a
+    res = interpret(func, [])
+    assert res == 2
 
 def test_dict_values():
     def func():
@@ -289,7 +307,7 @@ def test_dict_values():
     res = interpret(func, ())
     assert res == 1202
 
-def test_dict_inst_value():
+def test_dict_inst_values():
     class A:
         pass
     def func():
@@ -299,6 +317,56 @@ def test_dict_inst_value():
     res = interpret(func, [])
     assert res == 3
 
+def test_dict_inst_itervalues():
+    class A:
+        pass
+    def func():
+        dic = {1: A(), 2: A()}
+        a = 0
+        for v in dic.itervalues():
+            a += isinstance(v, A)
+        return a
+    res = interpret(func, [])
+    assert res == 2
+
+def test_dict_inst_items():
+    class Empty:
+        pass
+    class A:
+        pass
+    class B(Empty):
+        pass
+    def func():
+        dic0 = {Empty(): 2}
+        dic = {B(): A(), B(): A()}
+        items = dic.items()
+        b = 0
+        a = 0
+        for k, v in items:
+            b += isinstance(k, B)
+            a += isinstance(v, A) 
+        return 3*b+a
+    res = interpret(func, [])
+    assert res == 8
+
+def test_dict_inst_iteritems():
+    class Empty:
+        pass
+    class A:
+        pass
+    class B(Empty):
+        pass
+    def func():
+        dic0 = {Empty(): 2}
+        dic = {B(): A(), B(): A()}
+        b = 0
+        a = 0
+        for k, v in dic.iteritems():
+            b += isinstance(k, B)
+            a += isinstance(v, A) 
+        return 3*b+a
+    res = interpret(func, [])
+    assert res == 8
 
 def test_dict_items():
     def func():
@@ -376,7 +444,7 @@ def not_really_random():
         yield x
 
 def test_stress():
-    dictrepr = rdict.DictRepr(rint.signed_repr, rint.signed_repr)
+    dictrepr = rdict.DictRepr(None, rint.signed_repr, rint.signed_repr)
     dictrepr.setup()
     l_dict = rdict.ll_newdict(dictrepr)
     referencetable = [None] * 400
