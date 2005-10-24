@@ -657,7 +657,7 @@ the model we assume to be fully known in advance.  Let us define the set
 
 * in addition, for each class ``C`` of the user program and each
   possible attribute name ``attr``, we add to *V* a variable called
-  *v_C.attr*.
+  ``v_C.attr``.
 
 For a function ``f`` of the user program, we call *arg_f_1, ...,
 arg_f_n* the variables bound to the input arguments of ``f`` (which are
@@ -1260,8 +1260,8 @@ Termination and soundness
 
 As the annotation process is a fix-point search, we should prove for
 completeness that it is, in some sense yet to be defined, well-behaved.
-The following proofs are all rather easy given the approach we have
-taken.
+The following proofs are all rather straightforward given the approach
+we have taken.
 
 Generalization
 **************
@@ -1307,54 +1307,157 @@ Proof:
 
 4. Input and result variables of operations
 
-       First note that the result variable *z* of an operation is only
-       ever modified by the rule or rules specific to that operation.
-       This is true because *E* never identifies such a result variable
-       with any other variable.  This allows us to check the property of
-       generalization on a case-by-case basis.
+       By construction of the flow graphs, the input variables of any
+       given operation must also appear before in the block, either as
+       the result variable of a previous operation, or as an input
+       variable of the block itself.  So assume for now that the input
+       variables of this operation can only get generalized; we claim
+       that in this case the same holds for its result variable.  If
+       this holds, then we conclude by reccurence on the number of
+       operations in the block: indeed, starting from point 1 above for
+       the input variables of the block, it shows that each result
+       variable -- so also all input arguments of the next operation --
+       can only get generalized.
 
-       For a given block, we prove this point by recurrence on the
-       number of operations present in the block.  The recurrence is
-       based on the fact that each input variable of an operation must
-       be either the result variable of a previous operation of the same
-       block or an input variable of the block.  By the point 1 above,
-       if it is an input variable of the block then it can only get
-       generalized, as desired.  So the recurrence step only needs to
-       check that if all the input variables of an operation can only be
-       generalized, then the same property holds for its result
-       variable.
+       To prove our claim, first note that none of these input and
+       result variables is ever identified with any other variable via
+       *E*: indeed, the rules described above only identify auxiliary
+       variables and attribute-of-class variables with each other.  It
+       means that the only way the result variable *z* of an operation
+       can be modified is directly by the rule or rules specific to that
+       operation.  This allows us to check the property of
+       generalization on a case-by-case basis.
 
        Most cases are easy to check.  Cases like ``b' = b with
        (z->b(z'))`` are based on point 2 above.  The only non-trivial
        case is in the rule for ``getattr``::
 
-            b' = b with (z->lookup_filter(b(z'), C))
+           b' = b with (z->lookup_filter(b(z'), C))
 
-       The class ``C`` comes from the annotation ``Inst(C)`` of an input
-       variable.  This is where the recurrence hypothesis is needed.  It
-       is enough to prove that given annotations ``a1 <= a2`` and
-       ``Inst(C1) <= Inst(C2)``, we have::
+       For this case, we need the following lemma:
 
-            lookup_filter(a1, Inst(C1)) <= lookup_filter(a2, Inst(C2))
+           Let ``v_C.attr`` be an attribute-of-class variable.  Let
+           ``(b,E)`` be any state seen during the annotation process.
+           Assume that ``b(v_C.attr) = Pbc(set)`` where *set* is a set
+           containing potential bound method objects.  Call *m* the
+           family of potential bound method objects appearing in *set*.
+           Then *m* has the following shape: it is "regular" in the
+           sense that it contains only potential bound method objects
+           ``D.f`` such that ``f`` is exactly the function found under
+           the name ``attr`` in some class ``D``; moreover, it is
+           "downwards-closed" in the sense that if it contains a
+           ``D.f``, then it also contains all ``E.g`` for all subclasses
+           ``E`` of ``D`` that override the method (i.e. have a function
+           ``g`` found under the same name ``attr``).
 
-       The only interesting case is if ``a1 = Pbc(set1)`` and ``a2 =
-       Pbc(set2)``.  In this case *set1* is a subset of *set2*.  ...
+       Proof:
 
-       XXX first prove that the sets are "reasonable": if C.f in set,
-           then D.f in set for all parent classes D
+           As we have seen in `Classes and instances`_ above, the
+           initial binding of ``v_C.attr`` is regular and
+           downwards-closed by construction.  Moreover, the ``setattr``
+           rule explicitely checks that it is never adding any potential
+           bound method object to ``b(v_C.attr)``, so that the only way
+           such objects can be added to ``b(v_C.attr)`` is via the
+           identification of ``v_C.attr`` with other ``v_B.attr``
+           variables, for the same name ``attr`` -- which implies that
+           the set *m* will always be regular.  Moreover, the union of
+           two downwards-closed sets of potential bound method objects
+           is still downwards-closed.  This concludes the proof.
+
+       Let us consider the rule for ``getattr`` again::
+
+           b' = b with (z->lookup_filter(b(z'), C))
+
+       The only interesting case is when the binding ``b(z')`` is a
+       ``Pbc(set)`` -- more precisely, we are interested in the part *m*
+       of *set* that is the subset of all potential bound method
+       objects; the function ``lookup_filter`` is the identity on the
+       rest.  Given that ``b(z')`` comes from ``z'`` being identified
+       with various ``v_C.attr`` for a fixed name ``attr``, the set *m*
+       is regular and downwards-closed, as we can deduce from the lemma.
+
+       The class ``C`` in the rule for ``getattr`` comes from the
+       annotation ``Inst(C)`` of the first input variable of the
+       operation.  So what we need to prove is the following: if the
+       binding of this input variable is generalized, and/or if the
+       binding of ``z'`` is generalized, then the annotation computed by
+       ``lookup_filter`` is also generalized (if modified at all)::
+
+           if          b(x)  = Inst(C)   <=   b'(x)  = Inst(C')
+           and         b(z') = Pbc(set)  <=   b'(z') = Pbc(set')
+
+           then  lookup_filter(b(z'), C) <= lookup_filter(b'(z'), C')
+
+       Proof:
+
+           Call respectively *m* and *m'* the subsets of potential bound
+           method objects of *set* and *set'*, as above.  Call *l* the
+           subset of *m* as computed by ``lookup_filter``, i.e.: *l*
+           contains all objects ``D.f`` of *m* for strict subclasses
+           ``D`` of ``C``, plus the single ``B.g`` coming for the most
+           derived non-strict superclass ``B>=C`` which appears in *m*.
+           (Note that as *m* is regular, it cannot actually contain
+           several potential bound method objects with the same class.)
+           Similarily for *l'* computed from *m'* and ``C'``.
+
+           By hypothesis, *m* is contained in *m'*, but we need to check
+           that *l* is contained in *l'*.  This is where we will use the
+           fact that *m* is downwards-closed.  Let ``D.f`` be an element
+           of *l*.
+
+           Case 1: if ``D`` is a strict subclass of ``C``, then it is
+           also a strict subclass of ``C'``.  In this case, ``D.f``,
+           which also belong to *m* and thus to *m'*, also belongs to
+           *l'*.  Graphically::
+
+                               C'
+                             / | \
+                            /  |  \
+                           /   |   \
+                          C    E2  E3
+                        / | \
+                       /  |  \
+                      D1  D2  D3
+
+           (In this diagram, as far as they correspond to real methods,
+           potential bound method objects ``D1.f1``, ``D2.f2`` and
+           ``D3.f3`` all belong to both *l* and *l'*.  The family *l'*
+           additionally contains ``C.g``, ``E2.h2`` and ``E3.h3``.  Both
+           families *l* and *l'* also contain one extra item coming from
+           the second part of their construction rule.)
+
+           Case 2: ``D`` is instead to most derived non-strict
+           superclass of ``C`` which appears in *m*; assume that ``D``
+           is still a strict subclass of ``C'``.  In this case, ``D.f``
+           belongs to *l'* as previously.  (For example, if there is a
+           ``C.g`` in *m*, then ``D = C`` and as seen in the above
+           diagram ``C.g`` is indeed in *l'*.)
+
+           Case 3: ``D`` is still the most derived non-strict superclass
+           of ``C`` which appears in *m*, but this time ``D`` is not a
+           strict subclass of ``C'``.  The situation is as follows::
+
+                               D
+                               |
+                               C'
+                               |
+                               C
+
+           where extra intermediate classes could be present too.  To be
+           able to conclude that ``D.f`` is in *l'*, we now have to
+           prove that ``D`` is also the most derived non-strict
+           superclass of ``C'`` that appears in *m'*.  Ab absurdo,
+           assume that this is not the case.  Then there is a class
+           ``B``, strict superclass of ``C'`` but strict subclass of
+           ``D``, such that *m'* contains an element ``B.g``.  But *m*
+           contains ``D.f`` and it is downwards-closed, so it must also
+           contain ``B.g``.  This contradicts the original hypothesis on
+           ``D``: this ``B`` would be another more derived superclass of
+           ``C`` that appears in *m*.  CQFD.
 
 
-STOP
-
-using the previous point, this can be checked on the rule (or rules) of
-each operation independently.  Indeed, there are only two ways in which
-``b(z)`` is modified: by ``merge .. => z``, which trivially
-guarantees the property by being based on the union operator ``\/`` of
-the lattice, or explicitly in a way that can easily be checked to
-respect the property.
-
-
-
+Termination
+***********
 
 Each basic step (execution of one rule) can lead to the generalization
 of the state.  If it does, then other rules may be scheduled or
