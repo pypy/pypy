@@ -29,6 +29,7 @@ class W_Root:
                              space.wrap("attribute '__dict__' of %s objects "
                                         "is not writable" % typename))
 
+    # to be used directly only by space.type implementations
     def getclass(self, space):
         return space.gettypeobject(self.typedef)
 

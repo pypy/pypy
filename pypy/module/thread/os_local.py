@@ -32,7 +32,7 @@ class Local(Wrappable):
             # call __init__
             try:
                 w_self = space.wrap(self)
-                w_type = self.getclass(space)
+                w_type = space.type(w_self)
                 w_init = space.getattr(w_type, space.wrap("__init__"))
                 space.call_args(w_init, self.initargs.prepend(w_self))
             except:

@@ -79,5 +79,5 @@ def target(driver, args):
     res = entry_point(["pypy", "app_basic_example.py"])
     assert res == 0
 
-    return entry_point, None, PyPyAnnotatorPolicy()
+    return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
 

@@ -9,10 +9,11 @@ from pypy.annotation import specialize
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
     allow_someobjects = False
 
-    def __init__(pol):
+    def __init__(pol, single_space=None):
         pol.lookups = {}
         pol.lookups_where = {}
         pol.pypytypes = {}
+        pol.single_space = single_space
 
     def override__wrap_exception_cls(pol, space, x):
         import pypy.objspace.std.typeobject as typeobject
@@ -125,7 +126,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
 
 CACHED_LOOKUP = """
 def lookup_%(attr)s(space, w_obj, name):
-    w_type = w_obj.getclass(space)
+    w_type = space.type(w_obj)
     if not w_type.is_heaptype():
         return w_type.cached_%(attr)s
     return w_type.lookup("%(attr)s")
