@@ -1469,18 +1469,41 @@ of any other rule.  This ensures that the process eventually terminates.
 
 The extended lattice used in practice is a priori not finite.  As we did
 not describe this lattice formally here, we have to skip the (easy)
-proof that it still contains no infinite ascending chain.  An ascending
+proof that it still contains no infinite ascending chain (an ascending
 chain is a sequence where each item is strictly larger than the previous
-one.
+one).
+
 
 Soundness
 *********
 
 We define an annotation state to be *sound* if none of the rules would
-lead to further Xxx.
+lead to further generalization.  To define this notion more formally, we
+will use the following notation: let *Rules* be the set of all rules
+(for the given user program).  If *r* is a rule, then it can be
+considered as a (mathematical) function from the set of states to the
+set of states, so that "applying" the rule means computing ``(b',E') =
+r( (b,E) )``.  To formalize the meta-rule describing rescheduling of
+rules, we introduce a third component in the state: a subset *S* of the
+*Rules* which stands for the currently scheduled rules.  Finally, for
+any variable *v* we write *Rules_v* for the set of rules that have *v*
+as an input or auxiliary variable.
+
+The meta-rule can be formalized as follows: we start from the initial
+"meta-state" *(S,b,E)*, where *S=Rules* and *(b,E)* is the initial
+state; then we apply the following meta-rule that computes a new
+meta-state *(S',b',E')*::
+
+    pick any r in S
+    compute (b',E') = r( (b,E) )
+    let S' = 
+
+The meta-rule is applied repeatedly, feeding the new meta-state back
+into it, until the *S* component is empty, at which point annotation is
+complete and the process stops.
 
 
-XXX termination + soundness + most-precise-fixpoint-ness + complexity 
+XXX most-precise-fixpoint-ness
 
 
 Complexity
