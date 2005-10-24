@@ -1259,11 +1259,12 @@ Termination and soundness
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 As the annotation process is a fix-point search, we should prove for
-completeness that it is, in some sense yet to define, well-behaved.  The
-following proofs are all rather easy given the approach we have taken.
+completeness that it is, in some sense yet to be defined, well-behaved.
+The following proofs are all rather easy given the approach we have
+taken.
 
-Termination
-***********
+Generalization
+**************
 
 We first have to check that each rule can only turn a state *(b,E)* into
 a state *(b',E')* that is either identical or more general.  Clearly,
@@ -1272,10 +1273,10 @@ identifications, not remove existing ones.  What is left to check is
 that the annotation ``b(v)`` of each variable, when modified, can only
 become more general.  We prove it in the following order:
 
-1. the annotations ``b(v_C.attr)`` of variables corresponding to
-   attributes on classes;
+1. the annotations of the input variables of blocks;
 
-2. the annotations of the input variables of blocks;
+2. the annotations ``b(v_C.attr)`` of variables corresponding to
+   attributes on classes;
 
 3. the annotations of the auxiliary variable of operations;
 
@@ -1283,24 +1284,26 @@ become more general.  We prove it in the following order:
 
 Proof:
 
-1. Variables corresponding to attributes of classes
-
-       The annotation of such variables can only be modified by the
-       ``setattr`` rule and by being identified with other variables,
-       i.e. by the ``(x~y) in E`` rule.  In both cases the modification
-       is done with a ``merge``.  The latter trivially guarantees the
-       property of generalization, as it is based on the union operator
-       ``\/`` of the lattice.
-
-2. Input variables of blocks
+1. Input variables of blocks
 
        The annotation of these variables are only modified by the
-       ``phi`` rule, which is based on ``merge``.
+       ``phi`` rule, which is based on ``merge``.  The ``merge``
+       operation trivially guarantees the property of generalization
+       because it is based on the union operator ``\/`` of the lattice.
 
-3. Auxiliary variables of operations
+2. Auxiliary variables of operations
 
-       The auxiliary variable *z'* of an operation is only ever modified
-       by being identified with other variables.
+       The binding of an auxiliary variable *z'* of an operation is
+       never directly modified: it is only ever identified with other
+       variables via *E*.  So ``b(z')`` is only updated by the rule
+       ``(z'~v) in E``, which is based on the ``merge`` operator as
+       well.
+
+3. Variables corresponding to attributes of classes
+
+       The annotation of such variables can only be modified by the
+       ``setattr`` rule (with a ``merge``) or as a result of having been
+       identified with other variables via *E*.  We conclude as above.
 
 4. Input and result variables of operations
 
@@ -1314,7 +1317,7 @@ Proof:
        number of operations present in the block.  The recurrence is
        based on the fact that each input variable of an operation must
        be either the result variable of a previous operation of the same
-       block or an input variable of the block.  By the point 2 above,
+       block or an input variable of the block.  By the point 1 above,
        if it is an input variable of the block then it can only get
        generalized, as desired.  So the recurrence step only needs to
        check that if all the input variables of an operation can only be
@@ -1322,7 +1325,7 @@ Proof:
        variable.
 
        Most cases are easy to check.  Cases like ``b' = b with
-       (z->b(z'))`` are based on point 3 above.  The only non-trivial
+       (z->b(z'))`` are based on point 2 above.  The only non-trivial
        case is in the rule for ``getattr``::
 
             b' = b with (z->lookup_filter(b(z'), C))
