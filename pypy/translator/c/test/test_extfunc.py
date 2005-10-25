@@ -562,3 +562,24 @@ def test_gethostname():
     res = f1()
     assert res == _socket.gethostname()
 
+def test_getaddrinfo():
+    #py.test.skip("In progress")
+    # XXX fails on 'assert mallocs == frees'
+    # needs a way to decref rstrings from ll__socket.h
+    import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
+    from pypy.module._socket.rpython import rsocket
+    def does_stuff(host, port):
+        addr = rsocket.getaddrinfo(host, port, 0, 0, 0, 0)
+        result = []
+        while True: 
+            info = addr.nextinfo()
+            if info[0] == 0:
+                break
+            result.append("(%d, %d, %d, '%s', ('%s', %d))" %
+                          (info[0],info[1],info[2],info[3],info[4],info[5]))
+        addr.free()
+        return str(result)
+    f1 = compile(does_stuff, [str, str])
+    res = f1("localhost", "25")
+    assert eval(res) == _socket.getaddrinfo("localhost", "25")
+

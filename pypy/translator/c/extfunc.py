@@ -58,6 +58,9 @@ EXTERNALS = {
     ll_stack.ll_stack_unwind: 'LL_stack_unwind',
     ll_stack.ll_stack_too_big: 'LL_stack_too_big',
     ll__socket.ll__socket_gethostname: 'LL__socket_gethostname',
+    ll__socket.ll__socket_getaddrinfo:  'LL__socket_getaddrinfo',
+    ll__socket.ll__socket_nextaddrinfo: 'LL__socket_nextaddrinfo',
+    ll__socket.ll__socket_freeaddrinfo: 'LL__socket_freeaddrinfo',
     ll__socket.ll__socket_ntohs: 'LL__socket_ntohs',
     ll__socket.ll__socket_htons: 'LL__socket_htons',
     ll__socket.ll__socket_htonl: 'LL__socket_htonl',
@@ -85,6 +88,7 @@ def predeclare_common_types(db, rtyper):
     yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
     yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
     yield ('RPySTAT_RESULT', ll_os.STAT_RESULT)
+    yield ('RPySOCKET_ADDRINFO', ll__socket.ADDRINFO_RESULT)
 
 def predeclare_utility_functions(db, rtyper):
     # Common utility functions
@@ -122,6 +126,10 @@ def predeclare_extfunc_helpers(db, rtyper):
     yield annotate(ll_math.ll_frexp_result, lltype.Float, lltype.Signed)
     yield annotate(ll_math.ll_modf_result, lltype.Float, lltype.Float)
     yield annotate(ll_os.ll_stat_result, *([lltype.Signed] * 10))
+
+    args = [lltype.Signed, lltype.Signed, lltype.Signed, lltype.Ptr(STR),
+            lltype.Ptr(STR), lltype.Signed, lltype.Signed, lltype.Signed]
+    yield annotate(ll__socket.ll__socket_addrinfo, *args)
 
 def predeclare_extfuncs(db, rtyper):
     for func, funcobj in db.externalfuncs.items():

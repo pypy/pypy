@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import ObjSpace, interp2app
+from pypy.module._socket.rpython import rsocket
 
 if sys.platform == 'win32':
     WIN32_ERROR_MESSAGES = {
@@ -325,25 +326,53 @@ def inet_ntop(space, af, packed):
         raise wrap_socketerror(space, e)
 inet_ntop.unwrap_spec = [ObjSpace, int, str]
 
+def enumerateaddrinfo(space, addr):
+    result = []
+    while addr.nextinfo():
+        info = (addr.family, addr.socktype, addr.proto,
+                addr.canonname, addr.sockaddr)
+        result.append(space.wrap(info))
+    return space.newlist(result)
+
 def getaddrinfo(space, w_host, w_port, family=0, socktype=0, proto=0, flags=0):
     """getaddrinfo(host, port [, family, socktype, proto, flags])
         -> list of (family, socktype, proto, canonname, sockaddr)
 
     Resolve host and port into addrinfo struct.
     """
-    if space.is_true(space.isinstance(w_host, space.w_unicode)):
-        w_host = space.call_method(w_host, "encode", space.wrap("idna"))
-    host = space.unwrap(w_host)
-
-    if space.is_true(space.isinstance(w_port, space.w_int)):
-        port = str(space.int_w(w_port))
+    # host can be None, string or unicode
+    if space.is_w(w_host, space.w_None):
+        host = None
+    elif space.is_true(space.isinstance(w_host, space.w_str)):
+        host = space.str_w(w_host)
+    elif space.is_true(space.isinstance(w_host, space.w_unicode)):
+        w_shost = space.call_method(w_host, "encode", space.wrap("idna"))
+        host = space.str_w(w_shost)
     else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap(
+            "getaddrinfo() argument 1 must be string or None"))
+
+    # port can be None, int or string
+    if space.is_w(w_port, space.w_None):
+        port = None
+    elif space.is_true(space.isinstance(w_port, space.w_int)):
+        port = str(space.int_w(w_port))
+    elif space.is_true(space.isinstance(w_port, space.w_str)):
         port = space.str_w(w_port)
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("Int or String expected"))
 
     try:
-        return space.wrap(socket.getaddrinfo(host, port, family, socktype, proto, flags))
+        addr = rsocket.getaddrinfo(host, port, family, socktype, proto, flags)
     except socket.error, e:
         raise wrap_socketerror(space, e)
+
+    try:
+        return enumerateaddrinfo(space, addr)
+    finally:
+        addr.free()
 getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]
 
 def getnameinfo(space, w_sockaddr, flags):
