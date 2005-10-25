@@ -3,12 +3,16 @@
 # pragma comment(lib, "ws2_32.lib")
 #else
 # include <arpa/inet.h>
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netdb.h>
 #endif
 
 int LL__socket_ntohs(int htons);
 int LL__socket_htons(int ntohs);
 long LL__socket_ntohl(long htonl);
 long LL__socket_htonl(long ntohl);
+RPyString *LL__socket_gethostname(void);
 struct RPyOpaque_ADDRINFO *LL__socket_getaddrinfo(RPyString *host, RPyString *port, 
 						  int family, int socktype, 
 						  int proto, int flags);
@@ -39,7 +43,7 @@ long LL__socket_htonl(long ntohl)
     return htonl(ntohl);
 }
 
-RPyString *LL__socket_gethostname()
+RPyString *LL__socket_gethostname(void)
 {
 	char buf[1024];
 	int res;
@@ -121,12 +125,13 @@ RPySOCKET_ADDRINFO *LL__socket_nextaddrinfo(struct RPyOpaque_ADDRINFO *addr)
 					  ntohs(a->sin_port),0,0);
 		// XXX DECREF(canonname)
 		// XXX DECREF(ipaddr)
+		return ret;
 	}
 }
 
 void LL__socket_freeaddrinfo(struct RPyOpaque_ADDRINFO *addr)
 {
 	freeaddrinfo(addr->info0);
-	free(addr2);
+	free(addr);
 }
 #endif
