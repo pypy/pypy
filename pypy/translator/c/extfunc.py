@@ -54,6 +54,7 @@ EXTERNALS = {
     ll_thread.ll_releaselock:      'LL_thread_releaselock',
     ll_thread.ll_thread_start:     'LL_thread_start',
     ll_thread.ll_thread_get_ident: 'LL_thread_get_ident',
+    ll_stackless.ll_stackless_switch:             'LL_stackless_switch',
     ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
     ll_stack.ll_stack_unwind: 'LL_stack_unwind',
     ll_stack.ll_stack_too_big: 'LL_stack_too_big',

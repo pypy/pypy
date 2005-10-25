@@ -13,6 +13,11 @@ typedef struct slp_frame_s {
   int state;
 } slp_frame_t;
 
+typedef struct {
+  slp_frame_t header;
+  void* p0;
+} slp_frame_1ptr_t;
+
 struct slp_state_decoding_entry_s {
   void *function;
   int signature;
@@ -33,6 +38,9 @@ slp_frame_t* slp_new_frame(int size, int state);
 long LL_stackless_stack_frames_depth(void);
 void slp_main_loop(void);
 char LL_stackless_stack_too_big(void);
+struct RPyOpaque_frame_stack_top *slp_return_current_frame_to_caller(void);
+struct RPyOpaque_frame_stack_top *
+LL_stackless_switch(struct RPyOpaque_frame_stack_top *c);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
@@ -65,6 +73,51 @@ void LL_stackless_stack_unwind(void)
 
  resume:
     slp_frame_stack_top = NULL;
+}
+
+struct RPyOpaque_frame_stack_top *slp_return_current_frame_to_caller(void)
+{
+  slp_frame_t *result = slp_frame_stack_top;
+  assert(slp_frame_stack_top != NULL);
+  assert(slp_frame_stack_bottom != NULL);
+  slp_frame_stack_bottom->f_back = slp_new_frame(sizeof(slp_frame_t), 3);
+  slp_frame_stack_top = slp_frame_stack_bottom = NULL;  /* stop unwinding */
+  return (struct RPyOpaque_frame_stack_top *) result;
+}
+
+struct RPyOpaque_frame_stack_top *slp_end_of_yielding_function(void)
+{
+  assert(slp_frame_stack_top != NULL); /* can only be resumed from
+                                       slp_return_current_frame_to_caller() */
+  assert(slp_retval_voidptr != NULL);
+  slp_frame_stack_top = (slp_frame_t *) slp_retval_voidptr;
+  return NULL;
+}
+
+struct RPyOpaque_frame_stack_top *
+LL_stackless_switch(struct RPyOpaque_frame_stack_top *c)
+{
+	slp_frame_t *f;
+	slp_frame_t *result;
+	if (slp_frame_stack_top)
+		goto resume;
+
+	/* first, unwind the current stack */
+	f = slp_new_frame(sizeof(slp_frame_1ptr_t), 2);
+	((slp_frame_1ptr_t *) f)->p0 = c;
+	slp_frame_stack_top = slp_frame_stack_bottom = f;
+	return NULL;
+
+   resume:
+	/* ready to do the switch.  The current (old) frame_stack_top is
+	   f->f_back, which we store where it will be found immediately
+	   after the switch */
+	f = slp_frame_stack_top;
+	result = f->f_back;
+
+	/* grab the saved value of 'c' and do the switch */
+	slp_frame_stack_top = (slp_frame_t *) (((slp_frame_1ptr_t *) f)->p0);
+	return (struct RPyOpaque_frame_stack_top *) result;
 }
 
 
@@ -131,15 +184,20 @@ void slp_main_loop(void)
 	  }
 
           free(pending);  /* consumed by the previous call */
-          if (slp_frame_stack_bottom)
+          if (slp_frame_stack_top)
             break;
           if (!back)
             return;
           pending = back;
           slp_frame_stack_top = pending;
         }
-      assert(slp_frame_stack_bottom->f_back == NULL);
-      slp_frame_stack_bottom->f_back = back;
+      /* slp_frame_stack_bottom is usually non-NULL here, apart from
+         when returning from switch() */
+      if (slp_frame_stack_bottom != NULL)
+        {
+          assert(slp_frame_stack_bottom->f_back == NULL);
+          slp_frame_stack_bottom->f_back = back;
+        }
     }
 }
 

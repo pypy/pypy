@@ -9,12 +9,14 @@ from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
+from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Constant
 import pypy.rpython.rarithmetic
 import pypy.rpython.objectmodel
+import pypy.rpython.rstack
 
 # convenience only!
 def immutablevalue(x):
@@ -256,6 +258,9 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
 
 def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
+
+def rstack_yield_current_frame_to_caller():
+    return SomeExternalObject(pypy.rpython.rstack.frame_stack_top)
     
 
 ##def rarith_ovfcheck(s_obj):
@@ -299,6 +304,8 @@ BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
+BUILTIN_ANALYZERS[pypy.rpython.rstack.yield_current_frame_to_caller] = (
+    rstack_yield_current_frame_to_caller)
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init

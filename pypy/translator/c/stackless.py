@@ -26,6 +26,12 @@ class StacklessData:
         self.registerunwindable('LL_stackless_stack_frames_depth',
                                 lltype.FuncType([], lltype.Signed),
                                 resume_points=1)
+        self.registerunwindable('LL_stackless_switch',
+                                lltype.FuncType([Address], Address),
+                                resume_points=1)
+        self.registerunwindable('slp_end_of_yielding_function',
+                                lltype.FuncType([], Address),
+                                resume_points=1)
 
     def registerunwindable(self, functionname, FUNC, resume_points):
         if resume_points >= 1:
@@ -181,7 +187,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         del self.savelines
         del self.resumeblocks
 
-    def check_directcall_result(self, op, err):
+    def check_directcall_result(self, op, err, specialreturnvalue=None):
         stacklessdata = self.db.stacklessdata
         block = self.currentblock
         curpos = block.operations.index(op)
@@ -216,7 +222,8 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         arguments = ['%d' % globalstatecounter] + vars
 
         savecall = 'save_%s(%s);' % (structname, ', '.join(arguments))
-        savecall += ' return %s;' % self.error_return_value()
+        returnvalue = specialreturnvalue or self.error_return_value()
+        savecall += ' return %s;' % returnvalue
         self.savelines.append('%s: %s' % (savelabel, savecall))
 
         # generate the resume block, e.g.
@@ -249,6 +256,17 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         return '%s\n  %s:\n%s' % (unwind_check,
                                     resumelabel,
                                     exception_check)
+
+    def OP_YIELD_CURRENT_FRAME_TO_CALLER(self, op, err):
+        # special handling of this operation: call stack_unwind() to force the
+        # current frame to be saved into the heap, but don't propagate the
+        # unwind -- instead, capture it and return it normally
+        line = '/* yield_current_frame_to_caller */\n'
+        line += '%s = NULL;\n' % self.expr(op.result)
+        line += 'LL_stackless_stack_unwind();\n'
+        line += self.check_directcall_result(op, err,
+                    specialreturnvalue='slp_return_current_frame_to_caller()')
+        return line
 
 
 def signature_type(T):

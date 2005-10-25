@@ -3,7 +3,7 @@ This file defines utilities for manipulating objects in an
 RPython-compliant way.
 """
 
-import new, inspect
+import new
 
 
 def instantiate(cls):
@@ -37,22 +37,6 @@ def free_non_gc_object(obj):
 
 def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
-
-def stack_unwind():
-    pass
-
-def stack_frames_depth():
-    return len(inspect.stack())
-
-def stack_too_big():
-    return False
-
-def stack_check():
-    if stack_too_big():
-        # stack_unwind implementation is different depending on if stackless
-        # is enabled. If it is it unwinds the stack, otherwise it simply
-        # raises a RuntimeError.
-        stack_unwind()
 
 # ____________________________________________________________
 

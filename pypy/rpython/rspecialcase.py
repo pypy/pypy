@@ -44,3 +44,7 @@ def rtype_override_from_opaque_object(hop, clsdef):
 def rtype_override_to_opaque_object(hop, clsdef):
     return hop.genop('to_opaque_object_should_never_be_seen_by_the_backend',
                      [], resulttype=hop.r_result)
+
+def rtype_override_yield_current_frame_to_caller(hop, clsdef):
+    return hop.genop('yield_current_frame_to_caller', [], 
+                     resulttype=hop.r_result)

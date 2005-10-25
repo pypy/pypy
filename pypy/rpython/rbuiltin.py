@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython import lltype
-from pypy.rpython import rarithmetic, objectmodel
+from pypy.rpython import rarithmetic, objectmodel, rstack
 from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange 
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, Constant
@@ -189,6 +189,10 @@ def rtype_OSError__init__(hop):
 def rtype_we_are_translated(hop):
     return hop.inputconst(lltype.Bool, True)
 
+def rtype_yield_current_frame_to_caller(hop):
+    return hop.genop('yield_current_frame_to_caller', [],
+                     resulttype=hop.r_result)
+
 def rtype_hlinvoke(hop):
     _, s_repr = hop.r_s_popfirstarg()
     r_callable = s_repr.const
@@ -275,6 +279,8 @@ BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
 BUILTIN_TYPER[rarithmetic.r_uint] = rtype_r_uint
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
+BUILTIN_TYPER[rstack.yield_current_frame_to_caller] = (
+    rtype_yield_current_frame_to_caller)
 
 BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 

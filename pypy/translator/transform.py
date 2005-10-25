@@ -14,7 +14,7 @@ from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.translator.annrpython import CannotSimplify
 from pypy.annotation import model as annmodel
 from pypy.annotation.specialize import MemoTable
-from pypy.rpython.objectmodel import stack_check
+from pypy.rpython.rstack import stack_check
 
 def checkgraphs(self, blocks):
     seen = {}

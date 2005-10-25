@@ -221,11 +221,14 @@ declareptrtype(ros.DIR, "DIR",
 
 # ___________________________________________________________
 # stackless
-from pypy.rpython import objectmodel
-declare(objectmodel.stack_frames_depth, int, 'll_stackless/stack_frames_depth')
-declare(objectmodel.stack_too_big, bool, 'll_stack/too_big')
-declare(objectmodel.stack_check, noneannotation, 'll_stack/check')
-declare(objectmodel.stack_unwind, noneannotation, 'll_stack/unwind')
+from pypy.rpython import rstack
+declare(rstack.stack_frames_depth, int, 'll_stackless/stack_frames_depth')
+declare(rstack.stack_too_big, bool, 'll_stack/too_big')
+declare(rstack.stack_check, noneannotation, 'll_stack/check')
+declare(rstack.stack_unwind, noneannotation, 'll_stack/unwind')
+frametop_type_info = declareptrtype(rstack.frame_stack_top, 'frame_stack_top',
+                                        switch = (rstack.frame_stack_top,
+                                                  'll_stackless/switch'))
 
 # ___________________________________________________________
 # the exceptions that can be implicitely raised by some operations
