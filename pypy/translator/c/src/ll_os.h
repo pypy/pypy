@@ -280,7 +280,6 @@ RPyString* LL_os_environ(int idx) {
 }
 
 /******************** opendir/readdir/closedir ********************/
-
 #if defined(MS_WINDOWS) && !defined(HAVE_OPENDIR)
 
 /* emulation of opendir, readdir, closedir */
@@ -314,9 +313,10 @@ static DIR *opendir(char *dirname)
     DIR *d = malloc(sizeof(DIR) + lng + 4);
 
     if (d != NULL) {
-	strcpy(&d->arg, dirname);
-	strcpy(&d->arg + lng, "\\*.*" + (&d->arg + lng - 1 == '\\'));
-	d->hFind = FindFirstFile(&d->arg, &d->FileData);
+	char *ptr = (char*)d->arg;
+	strcpy(ptr, dirname);
+	strcpy(ptr + lng, "\\*.*" + (*(ptr + lng - 1) == '\\'));
+	d->hFind = FindFirstFile(ptr, &d->FileData);
 	d->d_name = d->FileData.cFileName;
 	if (d->hFind == INVALID_HANDLE_VALUE) {
 	    d->d_name = NULL;
