@@ -1,7 +1,7 @@
 import sys, os
 from pypy.objspace.flow.model import traverse, Block, Variable, Constant
 #from pypy.translator.asm import infregmachine
-from pypy.rpython.lltype import Signed
+from pypy.rpython.lltypesystem.lltype import Signed
 from pypy.translator.asm.simulator import Machine, TranslateProgram
 from pypy.translator.asm.model import *
 

@@ -1,5 +1,5 @@
 from pypy.translator.translator import Translator
-from pypy.rpython.lltype import pyobjectptr
+from pypy.rpython.lltypesystem.lltype import pyobjectptr
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet

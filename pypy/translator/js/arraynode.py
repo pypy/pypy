@@ -1,5 +1,5 @@
 import py
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.js.log import log
 log = log.structnode

@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import Bool, typeOf, Void
+from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt.support import log

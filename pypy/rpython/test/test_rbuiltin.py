@@ -1,7 +1,7 @@
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test import test_llinterp
 from pypy.rpython.objectmodel import instantiate, we_are_translated
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow import model as flowmodel
 from pypy.tool import udir
 

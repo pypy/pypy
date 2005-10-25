@@ -4,8 +4,8 @@ from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import traverse, last_exception
-from pypy.rpython.lltype import Ptr, PyObject, Void, Bool
-from pypy.rpython.lltype import pyobjectptr, Struct, Array
+from pypy.rpython.lltypesystem.lltype import \
+     Ptr, PyObject, Void, Bool, pyobjectptr, Struct, Array
 
 
 PyObjPtr = Ptr(PyObject)

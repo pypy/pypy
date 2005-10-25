@@ -4,7 +4,7 @@ from pypy.rpython.memory.lltypesimulation import nullptr, malloc
 from pypy.rpython.memory.lltypesimulation import init_object_on_address
 from pypy.objspace.flow.model import traverse, Link, Constant, Block
 from pypy.objspace.flow.model import Constant
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 
 from pypy.rpython.rmodel import IntegerRepr
 

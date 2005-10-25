@@ -7,7 +7,7 @@ from pypy.translator.js.structnode import StructNode, StructVarsizeNode
 from pypy.translator.js.arraynode import ArrayNode, StrArrayNode, VoidArrayNode
 from pypy.translator.js.opaquenode import OpaqueNode
 from pypy.translator.js.node import ConstantLLVMNode
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.translator.js.log import log 
             

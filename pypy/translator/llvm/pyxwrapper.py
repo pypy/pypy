@@ -1,6 +1,6 @@
 import sys
 from pypy.translator.llvm.log import log 
-from pypy.rpython import lltype 
+from pypy.rpython.lltypesystem import lltype 
 log = log.pyrex 
 
 PRIMITIVES_TO_C = {lltype.Bool: "char",

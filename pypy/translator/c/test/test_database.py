@@ -1,5 +1,5 @@
 import autopath, sys
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.translator.translator import Translator
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation

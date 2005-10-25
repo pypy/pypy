@@ -1,4 +1,4 @@
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.translator.tool.cbuild import skip_missing_compiler
 from pypy.translator.translator import Translator
 from pypy.objspace.flow import FlowObjSpace 

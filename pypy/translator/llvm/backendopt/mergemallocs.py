@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Block, flatten, SpaceOperation, Constant, Variable
-from pypy.rpython.lltype import Struct, GcStruct, Void, Ptr
+from pypy.rpython.lltypesystem.lltype import Struct, GcStruct, Void, Ptr
 from pypy.translator.llvm.backendopt.support import log
 
 

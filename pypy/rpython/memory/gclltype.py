@@ -1,9 +1,10 @@
-from pypy.rpython.lltype import LowLevelType, ContainerType, Struct, GcStruct
-from pypy.rpython.lltype import Array, GcArray, FuncType, OpaqueType
-from pypy.rpython.lltype import RuntimeTypeInfo, PyObjectType, PyObject
-from pypy.rpython.lltype import GC_CONTAINER
-from pypy.rpython.lltype import Signed, Unsigned, Float, Char, Bool, Void
-from pypy.rpython.lltype import UniChar, Ptr, typeOf, InvalidCast
+from pypy.rpython.lltypesystem.lltype import \
+     LowLevelType, ContainerType, Struct, GcStruct, \
+     Array, GcArray, FuncType, OpaqueType, \
+     RuntimeTypeInfo, PyObjectType, PyObject, \
+     GC_CONTAINER, \
+     Signed, Unsigned, Float, Char, Bool, Void, \
+     UniChar, Ptr, typeOf, InvalidCast
 from pypy.rpython.memory.convertlltype import FlowGraphConstantConverter
 from pypy.rpython.memory.lltypesimulation import cast_pointer, free
 from pypy.rpython.memory.lltypesimulation import simulatorptr as _ptr

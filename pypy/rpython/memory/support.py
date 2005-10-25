@@ -1,5 +1,5 @@
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.lltypelayout import sizeof
 import struct
 

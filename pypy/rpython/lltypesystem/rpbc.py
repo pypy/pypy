@@ -4,8 +4,9 @@ from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltype import typeOf, Void, ForwardReference, Struct, Bool
-from pypy.rpython.lltype import Ptr, malloc, nullptr
+from pypy.rpython.lltypesystem.lltype import \
+     typeOf, Void, ForwardReference, Struct, Bool, \
+     Ptr, malloc, nullptr
 from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning
 from pypy.rpython import robject
 from pypy.rpython import rtuple

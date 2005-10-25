@@ -1,5 +1,5 @@
 
-from pypy.rpython import lltype 
+from pypy.rpython.lltypesystem import lltype 
 from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython import rstr, rint, rdict
 

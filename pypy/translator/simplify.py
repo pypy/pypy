@@ -14,7 +14,7 @@ def get_graph(arg, translator):
     if isinstance(arg, Variable):
         return None
     f = arg.value
-    from pypy.rpython import lltype
+    from pypy.rpython.lltypesystem import lltype
     if not isinstance(f, lltype._ptr):
         return None
     try:

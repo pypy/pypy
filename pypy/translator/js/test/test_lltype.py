@@ -1,7 +1,7 @@
 
 import py
 
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 
 from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.js import database, codewriter

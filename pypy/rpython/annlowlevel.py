@@ -6,7 +6,7 @@ import types
 from pypy.annotation import model as annmodel
 from pypy.annotation.specialize import decide_callable
 from pypy.annotation.policy import AnnotatorPolicy
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import extfunctable
 
 def not_const(s_obj): # xxx move it somewhere else

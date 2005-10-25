@@ -1,8 +1,9 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
-from pypy.rpython.lltype import Array, malloc, Ptr, PyObject, pyobjectptr
-from pypy.rpython.lltype import FuncType, functionptr, Signed
+from pypy.rpython.lltypesystem.lltype import \
+     Array, malloc, Ptr, PyObject, pyobjectptr, \
+     FuncType, functionptr, Signed
 from pypy.rpython.extfunctable import standardexceptions
 from pypy.annotation.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
 

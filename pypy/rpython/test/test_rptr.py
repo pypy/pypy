@@ -1,6 +1,6 @@
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
 

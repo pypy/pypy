@@ -1,5 +1,5 @@
 import py
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.log import log
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm import varsize 

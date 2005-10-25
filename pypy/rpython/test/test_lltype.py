@@ -1,4 +1,4 @@
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 
 def isweak(p, T):
     return p._weak and typeOf(p).TO == T

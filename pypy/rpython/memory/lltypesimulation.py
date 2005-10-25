@@ -4,7 +4,7 @@ from pypy.rpython.memory.lltypelayout import get_layout, get_fixed_size
 from pypy.rpython.memory.lltypelayout import get_variable_size, sizeof
 from pypy.rpython.memory.lltypelayout import primitive_to_fmt
 from pypy.rpython.memory import lladdress
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 
 log = py.log.Producer("lltypesim")
 

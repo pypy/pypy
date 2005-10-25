@@ -1,4 +1,4 @@
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 
 
 _nodename_count = {}

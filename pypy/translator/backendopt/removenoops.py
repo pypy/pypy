@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import Block, Variable, Constant
 from pypy.objspace.flow.model import traverse
-from pypy.rpython.lltype import Void
+from pypy.rpython.lltypesystem.lltype import Void
 
 def remove_same_as(graph):
     """Remove all 'same_as' operations.

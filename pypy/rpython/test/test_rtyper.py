@@ -1,7 +1,7 @@
 from pypy.annotation import model as annmodel
 from pypy.translator.translator import Translator
 from pypy.translator import annrpython
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.test.test_llinterp import interpret 
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython import rmodel

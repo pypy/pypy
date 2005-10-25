@@ -1,5 +1,5 @@
 from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 
 
 class OpaqueNode(ConstantLLVMNode):

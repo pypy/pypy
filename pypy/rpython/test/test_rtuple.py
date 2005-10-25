@@ -1,5 +1,5 @@
 from pypy.translator.translator import Translator
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.rtuple import *
 from pypy.rpython.rint import signed_repr

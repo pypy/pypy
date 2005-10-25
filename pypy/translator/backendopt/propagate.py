@@ -1,7 +1,7 @@
 from pypy.objspace.flow.model import Block, Variable, Constant, last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.objspace.flow.model import SpaceOperation
-from pypy.rpython.lltype import Void, Bool
+from pypy.rpython.lltypesystem.lltype import Void, Bool
 from pypy.rpython.llinterp import LLInterpreter, LLFrame
 from pypy.translator import simplify
 from pypy.translator.backendopt.tailrecursion import get_graph

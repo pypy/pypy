@@ -3,7 +3,7 @@ from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.translator import Translator
 from pypy.translator.test.snippet import simple_method
 from pypy.objspace.flow.model import checkgraph, flatten, Block
-from pypy.rpython.lltype import Void
+from pypy.rpython.lltypesystem.lltype import Void
 from pypy.rpython.llinterp import LLInterpreter
 
 import py

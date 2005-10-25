@@ -1,4 +1,4 @@
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.objspace.flow import FlowObjSpace 

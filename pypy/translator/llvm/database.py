@@ -10,7 +10,7 @@ from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
      VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
 from pypy.translator.llvm.opaquenode import OpaqueNode, OpaqueTypeNode
 from pypy.translator.llvm.node import ConstantLLVMNode
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Constant, Variable
             
 log = log.database 

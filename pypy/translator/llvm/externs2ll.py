@@ -4,7 +4,7 @@ import types
 import urllib
 
 from pypy.rpython.rmodel import inputconst, getfunctionptr
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.codewriter import CodeWriter, \
      DEFAULT_TAIL, DEFAULT_CCONV
 

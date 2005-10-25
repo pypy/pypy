@@ -1,8 +1,8 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import model as flowmodel
-from pypy.rpython.lltype import Ptr, _ptr
-from pypy.rpython.lltype import ContainerType, Void, Signed, Bool, FuncType, typeOf
+from pypy.rpython.lltypesystem.lltype import \
+     Ptr, _ptr, ContainerType, Void, Signed, Bool, FuncType, typeOf
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 
 

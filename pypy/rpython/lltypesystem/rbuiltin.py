@@ -1,11 +1,11 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import rclass
 from pypy.rpython import objectmodel
 from pypy.rpython.rmodel import TyperError, Constant
 from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rbool import bool_repr
-from pypy.rpython.lltypesystem import rclass
 
 def rtype_builtin_isinstance(hop):
     if hop.s_result.is_constant():

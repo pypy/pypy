@@ -1,5 +1,5 @@
 import types
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.translator.c.support import cdecl
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.rstr import STR

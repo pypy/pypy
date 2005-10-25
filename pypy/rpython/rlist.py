@@ -6,9 +6,10 @@ from pypy.rpython.rmodel import IteratorRepr, externalvsinternal
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rslice import minusone_slice_repr
-from pypy.rpython.lltype import GcForwardReference, Ptr, GcArray, GcStruct
-from pypy.rpython.lltype import Void, Signed, malloc, typeOf, Primitive
-from pypy.rpython.lltype import Bool, nullptr, typeMethod
+from pypy.rpython.lltypesystem. lltype import \
+     GcForwardReference, Ptr, GcArray, GcStruct, \
+     Void, Signed, malloc, typeOf, Primitive, \
+     Bool, nullptr, typeMethod
 from pypy.rpython import rstr
 from pypy.rpython import robject
 

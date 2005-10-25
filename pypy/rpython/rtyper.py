@@ -18,10 +18,11 @@ from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, last_exception
-from pypy.rpython.lltype import Signed, Unsigned, Float, Char, Bool, Void
-from pypy.rpython.lltype import LowLevelType, Ptr, ContainerType
-from pypy.rpython.lltype import FuncType, functionptr, typeOf, RuntimeTypeInfo
-from pypy.rpython.lltype import attachRuntimeTypeInfo, Primitive
+from pypy.rpython.lltypesystem.lltype import \
+     Signed, Unsigned, Float, Char, Bool, Void, \
+     LowLevelType, Ptr, ContainerType, \
+     FuncType, functionptr, typeOf, RuntimeTypeInfo, \
+     attachRuntimeTypeInfo, Primitive
 from pypy.rpython.ootypesystem import ootype
 from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block

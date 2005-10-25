@@ -8,7 +8,7 @@ from pypy.translator.tool.cbuild import compile_c_module
 from pypy.translator.tool.cbuild import build_executable
 from pypy.translator.tool.cbuild import import_module_from_directory
 from pypy.rpython.rmodel import getfunctionptr
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.locality.calltree import CallTree
 

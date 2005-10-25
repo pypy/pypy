@@ -1,7 +1,8 @@
 import sys
-from pypy.rpython.lltype import Primitive, Ptr, typeOf, RuntimeTypeInfo
-from pypy.rpython.lltype import Struct, Array, FuncType, PyObject, Void
-from pypy.rpython.lltype import ContainerType, pyobjectptr, OpaqueType, GcStruct
+from pypy.rpython.lltypesystem.lltype import \
+     Primitive, Ptr, typeOf, RuntimeTypeInfo, \
+     Struct, Array, FuncType, PyObject, Void, \
+     ContainerType, pyobjectptr, OpaqueType, GcStruct
 from pypy.objspace.flow.model import Constant
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue

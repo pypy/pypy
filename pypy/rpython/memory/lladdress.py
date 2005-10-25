@@ -109,7 +109,7 @@ def get_py_object(address):
     return simulator.get_py_object(address.intaddress)
 
 
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 Address = lltype.Primitive("Address", NULL)
 
 address._TYPE = Address

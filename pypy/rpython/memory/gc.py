@@ -2,7 +2,7 @@ from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 from pypy.rpython.memory.lladdress import NULL, address, Address
 from pypy.rpython.memory.support import AddressLinkedList
 from pypy.rpython.memory import lltypesimulation
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import free_non_gc_object
 
 import sys

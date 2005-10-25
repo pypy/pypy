@@ -1,6 +1,6 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import rarithmetic, objectmodel, rstack
 from pypy.rpython.rtyper import TyperError
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange 

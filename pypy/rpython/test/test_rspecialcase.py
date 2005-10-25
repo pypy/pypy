@@ -1,4 +1,4 @@
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.test.test_llinterp import interpret, gengraph
 
 from pypy.translator.ann_override import PyPyAnnotatorPolicy

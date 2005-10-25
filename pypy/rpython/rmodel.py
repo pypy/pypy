@@ -1,9 +1,10 @@
 from pypy.annotation.pairtype import pair, pairtype, extendabletype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltype import Void, Bool, Float, Signed, Char, UniChar
-from pypy.rpython.lltype import typeOf, LowLevelType, Ptr, PyObject
-from pypy.rpython.lltype import FuncType, functionptr, cast_ptr_to_int
+from pypy.rpython.lltypesystem.lltype import \
+     Void, Bool, Float, Signed, Char, UniChar, \
+     typeOf, LowLevelType, Ptr, PyObject, \
+     FuncType, functionptr, cast_ptr_to_int
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.error import TyperError, MissingRTypeOperation 
 

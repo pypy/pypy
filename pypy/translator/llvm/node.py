@@ -1,4 +1,4 @@
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 
 class LLVMNode(object):
     __slots__ = "".split()

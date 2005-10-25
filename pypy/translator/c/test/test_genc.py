@@ -1,5 +1,5 @@
 import autopath, sys, os, py
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.annotation import model as annmodel
 from pypy.translator.translator import Translator
 from pypy.translator.c.database import LowLevelDatabase

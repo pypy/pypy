@@ -1,8 +1,9 @@
 from __future__ import generators
-from pypy.rpython.lltype import Struct, Array, FuncType, PyObjectType, typeOf
-from pypy.rpython.lltype import GcStruct, GcArray, GC_CONTAINER, ContainerType
-from pypy.rpython.lltype import parentlink, Ptr, PyObject, Void, OpaqueType, Float
-from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo, Char
+from pypy.rpython.lltypesystem.lltype import \
+     Struct, Array, FuncType, PyObjectType, typeOf, \
+     GcStruct, GcArray, GC_CONTAINER, ContainerType, \
+     parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
+     RuntimeTypeInfo, getRuntimeTypeInfo, Char
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring

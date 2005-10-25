@@ -1,12 +1,12 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void, Ptr
+from pypy.rpython.lltypesystem.lltype import \
+     Signed, Unsigned, Bool, Float, Void, Ptr, \
+     PyObject, Array, Char, functionptr, FuncType, malloc
 from pypy.rpython.rmodel import Repr, TyperError, FloatRepr
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.lltype import PyObject, Array, Char
 from pypy.rpython.rstr import STR, string_repr
-from pypy.rpython.lltype import functionptr, FuncType, malloc
 from pypy.rpython import rstr
 from pypy.rpython.rmodel import log
 

@@ -7,7 +7,7 @@ from pypy.translator.gensupp import builtin_base
 from pypy.translator.c.support import log
 
 from pypy.rpython.rarithmetic import r_int, r_uint
-from pypy.rpython.lltype import pyobjectptr, LowLevelType
+from pypy.rpython.lltypesystem.lltype import pyobjectptr, LowLevelType
 
 # XXX maybe this can be done more elegantly:
 # needed to convince should_translate_attr

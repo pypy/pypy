@@ -1,4 +1,4 @@
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 
 import math
 import py

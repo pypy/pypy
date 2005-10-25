@@ -1,6 +1,6 @@
 from pypy.rpython.memory import lladdress
 from pypy.objspace.flow import model as flowmodel
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 
 very_low_level_ops = [
     #operations with adresses:

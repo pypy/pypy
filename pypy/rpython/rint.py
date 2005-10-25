@@ -2,8 +2,8 @@ import sys
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.objspace import op_appendices
-from pypy.rpython.lltype import Signed, Unsigned, Bool, Float, Void, Char, \
-     UniChar, GcArray, malloc, Array, pyobjectptr
+from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
+     Void, Char, UniChar, GcArray, malloc, Array, pyobjectptr
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, CharRepr, \
      inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr

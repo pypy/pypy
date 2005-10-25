@@ -49,7 +49,7 @@ class ExtTypeInfo:
 
     def get_lltype(self):
         if self._TYPE is None:
-            from pypy.rpython import lltype
+            from pypy.rpython.lltypesystem import lltype
             OPAQUE = lltype.OpaqueType(self.tag)
             OPAQUE._exttypeinfo = self
             if self.needs_container:

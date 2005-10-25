@@ -1,8 +1,8 @@
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import Ptr, PyObject, typeOf, Signed, Void
-from pypy.rpython.lltype import FuncType, functionptr
+from pypy.rpython.lltypesystem.lltype import \
+     Ptr, PyObject, typeOf, Signed, Void, FuncType, functionptr
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rmodel import inputconst, getfunctionptr, PyObjPtr
 from pypy.rpython.robject import pyobj_repr

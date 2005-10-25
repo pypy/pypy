@@ -2,7 +2,7 @@ from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
         last_exception, flatten, SpaceOperation
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import Bool, Ptr
+from pypy.rpython.lltypesystem.lltype import Bool, Ptr
 
 
 n_calls = n_calls_patched = 0

@@ -4,7 +4,7 @@ module.
 """
 
 import thread
-from pypy.rpython.lltype import malloc
+from pypy.rpython.lltypesystem.lltype import malloc
 from pypy.rpython.module.support import init_opaque_object, from_opaque_object
 from pypy.module.thread.rpython.exttable import locktypeinfo
 

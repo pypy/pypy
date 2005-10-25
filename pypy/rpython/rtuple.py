@@ -4,8 +4,8 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
 from pypy.rpython.rmodel import IteratorRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.lltype import Ptr, GcStruct, Void, Signed, malloc
-from pypy.rpython.lltype import typeOf, nullptr
+from pypy.rpython.lltypesystem.lltype import \
+     Ptr, GcStruct, Void, Signed, malloc, typeOf, nullptr
 
 # ____________________________________________________________
 #

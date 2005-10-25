@@ -1,5 +1,5 @@
 import sys
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.memory.lladdress import Address, NULL
 
 # ____________________________________________________________

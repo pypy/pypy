@@ -10,8 +10,9 @@ from pypy.rpython import rint
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rslice import minusone_slice_repr
-from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
-from pypy.rpython.lltype import Bool, Void, GcArray, nullptr, typeOf, pyobjectptr
+from pypy.rpython.lltypesystem.lltype import \
+     GcStruct, Signed, Array, Char, Ptr, malloc, \
+     Bool, Void, GcArray, nullptr, typeOf, pyobjectptr
 
 
 # ____________________________________________________________

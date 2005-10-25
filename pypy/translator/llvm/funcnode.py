@@ -2,7 +2,7 @@ import py
 import sys
 from pypy.objspace.flow.model import Block, Constant, Variable, Link
 from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.log import log 

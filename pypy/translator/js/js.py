@@ -15,7 +15,7 @@ reference material:
 import py
 
 from pypy.rpython.rmodel import inputconst, getfunctionptr
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.js.node import LLVMNode
 from pypy.translator.js.database import Database 

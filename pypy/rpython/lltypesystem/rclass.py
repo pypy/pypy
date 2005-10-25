@@ -11,12 +11,13 @@ from pypy.rpython.rclass import AbstractClassRepr,\
                                 getclassrepr, getinstancerepr,\
                                 get_type_repr, rtype_new_instance,\
                                 instance_annotation_for_cls
-from pypy.rpython.lltype import ForwardReference, GcForwardReference
-from pypy.rpython.lltype import Ptr, Struct, GcStruct, malloc
-from pypy.rpython.lltype import cast_pointer, castable, nullptr
-from pypy.rpython.lltype import RuntimeTypeInfo, getRuntimeTypeInfo, typeOf
-from pypy.rpython.lltype import Array, Char, Void, attachRuntimeTypeInfo
-from pypy.rpython.lltype import FuncType, Bool, Signed
+from pypy.rpython.lltypesystem.lltype import \
+     ForwardReference, GcForwardReference, \
+     Ptr, Struct, GcStruct, malloc, \
+     cast_pointer, castable, nullptr, \
+     RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, \
+     Array, Char, Void, attachRuntimeTypeInfo, \
+     FuncType, Bool, Signed
 
 #
 #  There is one "vtable" per user class, with the following structure:

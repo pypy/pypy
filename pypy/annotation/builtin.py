@@ -326,7 +326,7 @@ BUILTIN_ANALYZERS[__import__] = import_func
 
 # annotation of low-level types
 from pypy.annotation.model import SomePtr
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 
 def malloc(T, n=None):
     assert n is None or n.knowntype == int

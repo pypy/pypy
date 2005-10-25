@@ -1,5 +1,5 @@
 from pypy.translator.translator import Translator
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.rarithmetic import intmask
 

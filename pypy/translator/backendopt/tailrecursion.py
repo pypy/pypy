@@ -5,7 +5,7 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltype import Bool, typeOf, FuncType, _ptr
+from pypy.rpython.lltypesystem.lltype import Bool, typeOf, FuncType, _ptr
 
 # this transformation is very academical -- I had too much time
 

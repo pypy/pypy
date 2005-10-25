@@ -9,7 +9,7 @@ from pypy.translator.llvm import build_llvm_module
 from pypy.translator.llvm.database import Database 
 from pypy.translator.llvm.pyxwrapper import write_pyx_wrapper 
 from pypy.rpython.rmodel import inputconst, getfunctionptr
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm.codewriter import CodeWriter, \
      DEFAULT_TAIL, DEFAULT_CCONV

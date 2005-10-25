@@ -1,6 +1,6 @@
 import py
 from pypy.objspace.flow.model import Constant
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 #from pypy.translator.js.module.extfunction import extfunctions
 from pypy.translator.js.extfuncnode import ExternalFuncNode
 from pypy.translator.js.log import log 

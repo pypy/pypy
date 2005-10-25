@@ -1,4 +1,4 @@
-from pypy.rpython.lltype import *
+from pypy.rpython.lltypesystem.lltype import *
 
 
 class SymbolTable:

@@ -456,7 +456,7 @@ class SomeOOStaticMeth(SomeObject):
     def __init__(self, method):
         self.method = method
         
-from pypy.rpython import lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 
 annotation_to_ll_map = [
