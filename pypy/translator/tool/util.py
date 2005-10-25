@@ -26,7 +26,7 @@ def mkexename(name):
 def assert_rtyper_not_imported(): 
     prefix = 'pypy.rpython.'
     oknames = ('rarithmetic memory memory.lladdress extfunctable ' 
-               'lltype objectmodel error ros'.split())
+               'lltype objectmodel error ros ootypesystem ootypesystem.ootype'.split())
     wrongimports = []
     for name, module in sys.modules.items(): 
         if module is not None and name.startswith(prefix): 
