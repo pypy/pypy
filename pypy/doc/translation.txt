@@ -485,10 +485,10 @@ then obviously we want to type it and replace it with::
 where -- in C notation -- all three variables v1, v2 and v3 are typed ``int``.
 This is done by attaching an attribute ``concretetype`` to v1, v2 and v3
 (which might be instances of Variable or possibly Constant).  In our model,
-this ``concretetype`` is ``pypy.rpython.lltype.Signed``.  Of course, the
-purpose of replacing the operation called ``add`` with ``int_add`` is that
-code generators no longer have to worry about what kind of addition (or
-concatenation maybe?) it means.
+this ``concretetype`` is ``pypy.rpython.lltypesystem.lltype.Signed``.  Of
+course, the purpose of replacing the operation called ``add`` with
+``int_add`` is that code generators no longer have to worry about what kind
+of addition (or concatenation maybe?) it means.
 
 
 The process in more details
@@ -563,13 +563,14 @@ Low-Level Types
 
 The RPython Typer uses a standard low-level model which we believe can
 correspond rather directly to various target languages from C to LLVM_ to Java.
-This model is implemented in the first part of `rpython/lltype.py`_.
+This model is implemented in the first part of 
+`rpython/lltypesystem/lltype.py`_.
 
-The second part of `rpython/lltype.py`_ is a runnable implementation of these
-types, for testing purposes.  It allows us to write and test plain Python code
-using a malloc() function to obtain and manipulate structures and arrays.
-This is useful for example to implement and test RPython types like 'list' with
-its operations and methods.
+The second part of `rpython/lltypesystem/lltype.py`_ is a runnable
+implementation of these types, for testing purposes.  It allows us to write
+and test plain Python code using a malloc() function to obtain and manipulate
+structures and arrays.  This is useful for example to implement and test
+RPython types like 'list' with its operations and methods.
 
 The basic assumption is that Variables (i.e. local variables and function
 arguments and return value) all contain "simple" values: basically, just
@@ -624,9 +625,9 @@ representation.
 a very limited, easily controllable set of types, and define implementations of
 types like list in this elementary world.  The ``malloc()`` function is a kind
 of placeholder, which must eventually be provided by the code generator for the
-target platform; but as we have just seen its Python implementation in 
-`rpython/lltype.py`_ works too, which is primarily useful for testing,
-interactive exploring, etc.
+target platform; but as we have just seen its Python implementation in
+`rpython/lltypesystem/lltype.py`_ works too, which is primarily useful for
+testing, interactive exploring, etc.
 
 The argument to ``malloc()`` is the structure type directly, but it returns a
 pointer to the structure, as ``typeOf()`` tells you::
@@ -678,7 +679,8 @@ Void
 Structure Types
 +++++++++++++++
 
-Structure types are built as instances of ``pypy.rpython.lltype.Struct``::
+Structure types are built as instances of 
+``pypy.rpython.lltypesystem.lltype.Struct``::
 
     MyStructType = Struct('somename',  ('field1', Type1), ('field2', Type2)...)
     MyStructType = GcStruct('somename',  ('field1', Type1), ('field2', Type2)...)
@@ -709,7 +711,8 @@ GcStruct: the parent structure uses the same GC header as the substructure.
 Array Types
 +++++++++++
 
-An array type is built as an instance of ``pypy.rpython.lltype.Array``::
+An array type is built as an instance of 
+``pypy.rpython.lltypesystem.lltype.Array``::
 
     MyIntArray = Array(Signed)
     MyOtherArray = Array(MyItemType)
@@ -748,11 +751,11 @@ go away when their container is deallocated (Struct, Array) must be handled
 with care: the bigger structure of which they are part of could be freed while
 the Ptr to the substructure is still in use.  In general, it is a good idea to
 avoid passing around pointers to inlined substructures of malloc()ed structures.
-(The testing implementation of `rpython/lltype.py`_ checks to some extend that
-you are not trying to use a pointer to a structure after its container has been
-freed, using weak references.  But pointers to non-GC structures are not
-officially meant to be weak references: using them after what they point to has
-been freed just crashes.)
+(The testing implementation of `rpython/lltypesystem/lltype.py`_ checks to some
+extent that you are not trying to use a pointer to a structure after its
+container has been freed, using weak references.  But pointers to non-GC
+structures are not officially meant to be weak references: using them after what
+they point to has been freed just crashes.)
 
 The malloc() operation allocates and returns a Ptr to a new GC structure or
 array.  In a refcounting implementation, malloc() would allocate enough space

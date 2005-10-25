@@ -547,8 +547,9 @@ or start off at one of the following points:
    annotated flow graphs in a way that makes them very similar to C code so
    that they can be easy translated. The graph transformations are controlled
    by the stuff in `pypy/rpython/rtyper.py`_. The object model that is used can
-   be found in `pypy/rpython/lltype.py`_. For each RPython type there is a
-   file rxxxx.py that contains the low level functions needed for this type.
+   be found in `pypy/rpython/lltypesystem/lltype.py`_. For each RPython type
+   there is a file rxxxx.py that contains the low level functions needed for
+   this type.
 
 .. _optionaltool: 
 
