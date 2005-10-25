@@ -328,9 +328,11 @@ inet_ntop.unwrap_spec = [ObjSpace, int, str]
 
 def enumerateaddrinfo(space, addr):
     result = []
-    while addr.nextinfo():
-        info = (addr.family, addr.socktype, addr.proto,
-                addr.canonname, addr.sockaddr)
+    while True:
+        addrinfo = addr.nextinfo()
+        if addrinfo[0] == 0:
+            break
+        info = addrinfo[:4] + (addrinfo[4:],)
         result.append(space.wrap(info))
     return space.newlist(result)
 
