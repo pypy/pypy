@@ -12,12 +12,9 @@ URL = "http://codespeak.net/svn/pypy/dist"
 
 tempdir = py.path.svnwc(py.test.ensuretemp("pypy-dist"))
 print "checking out"
-tempdir.checkout(URL)
+tempdir.checkout(URL, 8500)
 print "done"
 pypy = tempdir.join('pypy')
-
-class DailyStatistic(object):
-    pass
 
 statistic = []
 
@@ -43,14 +40,14 @@ try:
             except:
                 tempdir.localpath.remove(1)
                 tempdir.localpath.mkdir()
-                if curr_rev < 8359:
-                    URL = "http://codespeak.net/svn/pypy/trunk"
                 while 1:
+		    if curr_rev < 8359:
+                        URL = "http://codespeak.net/svn/pypy/trunk"
                     try:
                         tempdir.checkout(URL, rev=curr_rev - 1)
                     except KeyboardInterrupt:
                         raise
-                    except:
+                    except Exception, e:
                         curr_rev -= 1
                     else:
                         break
