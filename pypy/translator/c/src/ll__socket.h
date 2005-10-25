@@ -1,6 +1,6 @@
 
 #ifdef MS_WINDOWS
-# pragma comment(lib, "ws2_32.lib")
+  /* winsock2.h has already been included before windows.h in thread_nt.h */
 #else
 # include <arpa/inet.h>
 # include <sys/types.h>
@@ -19,9 +19,39 @@ struct RPyOpaque_ADDRINFO *LL__socket_getaddrinfo(RPyString *host, RPyString *po
 RPySOCKET_ADDRINFO *LL__socket_nextaddrinfo(struct RPyOpaque_ADDRINFO *addr);
 
 #ifndef PYPY_NOT_MAIN_FILE
+
 #ifdef MS_WINDOWS
+# pragma comment(lib, "ws2_32.lib")
 # include <Ws2tcpip.h>
+# if _MSC_VER >= 1300
+#  define HAVE_ADDRINFO
+#  define HAVE_SOCKADDR_STORAGE
+#  define HAVE_GETADDRINFO
+#  define HAVE_GETNAMEINFO
+#  define ENABLE_IPV6
+# endif
 #endif
+
+#include "addrinfo.h"
+
+#ifndef HAVE_INET_PTON
+int inet_pton(int af, const char *src, void *dst);
+const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
+#endif
+
+/* I know this is a bad practice, but it is the easiest... */
+#if !defined(HAVE_GETADDRINFO)
+/* avoid clashes with the C library definition of the symbol. */
+#define getaddrinfo fake_getaddrinfo
+#define gai_strerror fake_gai_strerror
+#define freeaddrinfo fake_freeaddrinfo
+#include "getaddrinfo.c"
+#endif
+#if !defined(HAVE_GETNAMEINFO)
+#define getnameinfo fake_getnameinfo
+#include "getnameinfo.c"
+#endif
+
 
 int LL__socket_ntohs(int htons)
 {
@@ -134,4 +164,42 @@ void LL__socket_freeaddrinfo(struct RPyOpaque_ADDRINFO *addr)
 	freeaddrinfo(addr->info0);
 	free(addr);
 }
-#endif
+
+#ifndef HAVE_INET_PTON
+
+/* Simplistic emulation code for inet_pton that only works for IPv4 */
+/* These are not exposed because they do not set errno properly */
+
+int
+inet_pton(int af, const char *src, void *dst)
+{
+	if (af == AF_INET) {
+		long packed_addr;
+		packed_addr = inet_addr(src);
+		if (packed_addr == INADDR_NONE)
+			return 0;
+		memcpy(dst, &packed_addr, 4);
+		return 1;
+	}
+	/* Should set errno to EAFNOSUPPORT */
+	return -1;
+}
+
+const char *
+inet_ntop(int af, const void *src, char *dst, socklen_t size)
+{
+	if (af == AF_INET) {
+		struct in_addr packed_addr;
+		if (size < 16)
+			/* Should set errno to ENOSPC. */
+			return NULL;
+		memcpy(&packed_addr, src, sizeof(packed_addr));
+		return strncpy(dst, inet_ntoa(packed_addr), size);
+	}
+	/* Should set errno to EAFNOSUPPORT */
+	return NULL;
+}
+
+#endif /* !HAVE_INET_PTON */
+
+#endif /* PYPY_NOT_MAIN_FILE */
