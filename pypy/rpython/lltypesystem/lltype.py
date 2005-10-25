@@ -299,7 +299,8 @@ class Array(ContainerType):
             else:
                 return "%s { %s }" % (of._name, of._str_fields())
         else:
-            return self.OF
+            return str(self.OF)
+    _str_fields = saferecursive(_str_fields, '...')
 
     def __str__(self):
         return "%s of %s " % (self.__class__.__name__,
@@ -308,6 +309,7 @@ class Array(ContainerType):
     def _short_name(self):
         return "%s %s" % (self.__class__.__name__,
                           self.OF._short_name(),)
+    _short_name = saferecursive(_short_name, '...')
 
     def _container_example(self):
         return _array(self, 1)
@@ -332,11 +334,13 @@ class FuncType(ContainerType):
     def __str__(self):
         args = ', '.join(map(str, self.ARGS))
         return "Func ( %s ) -> %s" % (args, self.RESULT)
+    __str__ = saferecursive(__str__, '...')
 
     def _short_name(self):        
         args = ', '.join([ARG._short_name() for ARG in self.ARGS])
-        return "Func(%s)->%s" % (args, self.RESULT._short_name)        
-        
+        return "Func(%s)->%s" % (args, self.RESULT._short_name())        
+    _short_name = saferecursive(_short_name, '...')
+
     def _container_example(self):
         def ex(*args):
             return self.RESULT._defl()
