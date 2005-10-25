@@ -153,8 +153,10 @@ RPySOCKET_ADDRINFO *LL__socket_nextaddrinfo(struct RPyOpaque_ADDRINFO *addr)
 					  canonname,
 					  ipaddr, // XXX AF_INET Only!
 					  ntohs(a->sin_port),0,0);
-		// XXX DECREF(canonname)
-		// XXX DECREF(ipaddr)
+#if !defined(USING_BOEHM_GC) && !defined(USING_NO_GC)
+		canonname->refcount--;
+		ipaddr->refcount--;
+#endif
 		return ret;
 	}
 }
