@@ -1,4 +1,5 @@
-from pypy.rpython import rstack, lltype, extfunctable
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython import rstack, extfunctable
 from pypy.rpython.module.support import from_opaque_object, to_opaque_object
 
 FRAMETOPTYPE = extfunctable.frametop_type_info.get_lltype()

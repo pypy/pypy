@@ -1,7 +1,7 @@
 import _socket
 
 from pypy.rpython.rstr import STR
-from pypy.rpython.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
+from pypy.rpython.lltypesystem.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
 from pypy.rpython.module.support import to_rstr, from_rstr
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.module._socket.rpython import rsocket
