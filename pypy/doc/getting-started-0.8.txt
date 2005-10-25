@@ -482,7 +482,7 @@ interesting options are:
 
    * ``--gc=boehm|ref``: choose between using the `Boehm-Demers-Weiser
      garbage collector`_ or our own reference counting implementation
-     (as we seen Boehm's collector is the default). 
+     (as we have seen Boehm's collector is the default). 
 
 .. XXX:
    --stackless ? it's own section?
