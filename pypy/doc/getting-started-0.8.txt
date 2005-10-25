@@ -446,12 +446,13 @@ finished running and after you closed the graph you will be greeted
 (because of ``--run`` option) by the friendly prompt of a PyPy
 executable that is not running on top of CPython any more::
 
-    Running!
+    [translation:info] created: ./pypy-c
+    [translation:info] Running compiled c source...
     debug: entry point starting
     debug:  argv -> ./pypy-c
-    importing code
-    calling code.interact()
-    Python 2.4.1 (pypy 0.7.0 build) on linux2
+    debug: importing code
+    debug: calling code.interact()
+    Python 2.4.1 (pypy 0.7.1 build 18929) on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     (InteractiveConsole)
     >>>> 1 + 1
