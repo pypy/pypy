@@ -4,10 +4,9 @@ Annotation support for interp-level socket objects.
 
 import _socket
 from pypy.module._socket.rpython import rsocket
-from pypy.rpython.extfunctable import declare, declareptrtype
-from pypy.annotation.model import Constant, SomeTuple, SomeList, SomeInteger, SomeString
-from pypy.annotation.listdef import ListDef
-from pypy.annotation.model import unionof
+from pypy.rpython.extfunctable import declare, declaretype, declareptrtype
+from pypy.rpython.extfunctable import standardexceptions
+from pypy.annotation.model import SomeTuple, SomeInteger, SomeString
 
 module = 'pypy.module._socket.rpython.ll__socket'
 
@@ -29,6 +28,7 @@ def ann_addrinfo(*s_args):
     return addrinfo
 
 declare(_socket.gethostname, str, '%s/gethostname' % module)
+declare(_socket.gethostbyname, str, '%s/gethostbyname' % module)
 
 declare(rsocket.getaddrinfo, rsocket.ADDRINFO, '%s/getaddrinfo' % module)
 declareptrtype(rsocket.ADDRINFO, "ADDRINFO",
@@ -39,3 +39,9 @@ declare(_socket.ntohs, int, '%s/ntohs' % module)
 declare(_socket.htons, int, '%s/ntohs' % module)
 declare(_socket.ntohl, int, '%s/ntohl' % module)
 declare(_socket.htonl, int, '%s/htonl' % module)
+
+# ____________________________________________________________
+# _socket.error can be raised by the above
+
+# XXX a bit hackish
+standardexceptions[_socket.error] = True

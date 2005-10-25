@@ -13,6 +13,7 @@ int LL__socket_htons(int ntohs);
 long LL__socket_ntohl(long htonl);
 long LL__socket_htonl(long ntohl);
 RPyString *LL__socket_gethostname(void);
+RPyString *LL__socket_gethostbyname(RPyString *name);
 struct RPyOpaque_ADDRINFO *LL__socket_getaddrinfo(RPyString *host, RPyString *port, 
 						  int family, int socktype, 
 						  int proto, int flags);
@@ -73,15 +74,181 @@ long LL__socket_htonl(long ntohl)
     return htonl(ntohl);
 }
 
+/* ____________________________________________________________________________ */
+
+/* Lock to allow python interpreter to continue, but only allow one
+   thread to be in gethostbyname or getaddrinfo */
+#if defined(USE_GETHOSTBYNAME_LOCK) || defined(USE_GETADDRINFO_LOCK)
+/* XXX */
+/* RPyThread_type_lock netdb_lock; */
+#endif
+
+#ifdef USE_GETADDRINFO_LOCK
+/* XXX not used */
+/* #define ACQUIRE_GETADDRINFO_LOCK PyThread_acquire_lock(netdb_lock, 1); */
+/* #define RELEASE_GETADDRINFO_LOCK PyThread_release_lock(netdb_lock); */ 
+#else
+/* #define ACQUIRE_GETADDRINFO_LOCK */
+/* #define RELEASE_GETADDRINFO_LOCK */
+#endif
+
+
+/* Convert a string specifying a host name or one of a few symbolic
+   names to a numeric IP address.  This usually calls gethostbyname()
+   to do the work; the names "" and "<broadcast>" are special.
+   Return the length (IPv4 should be 4 bytes), or negative if
+   an error occurred; then an exception is raised. */
+
+static int
+setipaddr(char *name, struct sockaddr *addr_ret, size_t addr_ret_size, int af)
+{
+	struct addrinfo hints, *res;
+	int error;
+	int d1, d2, d3, d4;
+	char ch;
+
+	memset((void *) addr_ret, '\0', sizeof(*addr_ret));
+	if (name[0] == '\0') {
+		int siz;
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = af;
+		hints.ai_socktype = SOCK_DGRAM;	/*dummy*/
+		hints.ai_flags = AI_PASSIVE;
+		/* XXX Py_BEGIN_ALLOW_THREADS */
+		/* XXX ACQUIRE_GETADDRINFO_LOCK */
+		error = getaddrinfo(NULL, "0", &hints, &res);
+		/* XXX Py_END_ALLOW_THREADS */
+		/* We assume that those thread-unsafe getaddrinfo() versions
+		   *are* safe regarding their return value, ie. that a
+		   subsequent call to getaddrinfo() does not destroy the
+		   outcome of the first call. */
+		/* XXX RELEASE_GETADDRINFO_LOCK */
+		if (error) {
+			RPYTHON_RAISE_OSERROR(errno); /* XXX set_gaierror(error);*/
+			return -1;
+		}
+		switch (res->ai_family) {
+		case AF_INET:
+			siz = 4;
+			break;
+#ifdef ENABLE_IPV6
+		case AF_INET6:
+			siz = 16;
+			break;
+#endif
+		default:
+			freeaddrinfo(res);
+			RPyRaiseSimpleException(PyExc_socket_error,
+				"unsupported address family");
+			return -1;
+		}
+		if (res->ai_next) {
+			freeaddrinfo(res);
+			RPyRaiseSimpleException(PyExc_socket_error,
+				"wildcard resolved to multiple address");
+			return -1;
+		}
+		if (res->ai_addrlen < addr_ret_size)
+			addr_ret_size = res->ai_addrlen;
+		memcpy(addr_ret, res->ai_addr, addr_ret_size);
+		freeaddrinfo(res);
+		return siz;
+	}
+	if (name[0] == '<' && strcmp(name, "<broadcast>") == 0) {
+		struct sockaddr_in *sin;
+		if (af != AF_INET && af != AF_UNSPEC) {
+			RPyRaiseSimpleException(PyExc_socket_error,
+				"address family mismatched");
+			return -1;
+		}
+		sin = (struct sockaddr_in *)addr_ret;
+		memset((void *) sin, '\0', sizeof(*sin));
+		sin->sin_family = AF_INET;
+#ifdef HAVE_SOCKADDR_SA_LEN
+		sin->sin_len = sizeof(*sin);
+#endif
+		sin->sin_addr.s_addr = INADDR_BROADCAST;
+		return sizeof(sin->sin_addr);
+	}
+	if (sscanf(name, "%d.%d.%d.%d%c", &d1, &d2, &d3, &d4, &ch) == 4 &&
+	    0 <= d1 && d1 <= 255 && 0 <= d2 && d2 <= 255 &&
+	    0 <= d3 && d3 <= 255 && 0 <= d4 && d4 <= 255) {
+		struct sockaddr_in *sin;
+		sin = (struct sockaddr_in *)addr_ret;
+		sin->sin_addr.s_addr = htonl(
+			((long) d1 << 24) | ((long) d2 << 16) |
+			((long) d3 << 8) | ((long) d4 << 0));
+		sin->sin_family = AF_INET;
+#ifdef HAVE_SOCKADDR_SA_LEN
+		sin->sin_len = sizeof(*sin);
+#endif
+		return 4;
+	}
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = af;
+	/* XXX Py_BEGIN_ALLOW_THREADS */
+	/* XXX ACQUIRE_GETADDRINFO_LOCK */
+	error = getaddrinfo(name, NULL, &hints, &res);
+#if defined(__digital__) && defined(__unix__)
+	if (error == EAI_NONAME && af == AF_UNSPEC) {
+		/* On Tru64 V5.1, numeric-to-addr conversion fails
+		   if no address family is given. Assume IPv4 for now.*/
+		hints.ai_family = AF_INET;
+		error = getaddrinfo(name, NULL, &hints, &res);
+	}
+#endif
+	/* XXX Py_END_ALLOW_THREADS */
+	/* XXX RELEASE_GETADDRINFO_LOCK */ /* see comment in setipaddr() */
+	if (error) {
+		RPYTHON_RAISE_OSERROR(errno); /* XXX set_gaierror(error); */
+		return -1;
+	}
+	if (res->ai_addrlen < addr_ret_size)
+		addr_ret_size = res->ai_addrlen;
+	memcpy((char *) addr_ret, res->ai_addr, addr_ret_size);
+	freeaddrinfo(res);
+	switch (addr_ret->sa_family) {
+	case AF_INET:
+		return 4;
+#ifdef ENABLE_IPV6
+	case AF_INET6:
+		return 16;
+#endif
+	default:
+		RPyRaiseSimpleException(PyExc_socket_error,
+					"unknown address family");
+		return -1;
+	}
+}
+
+
+/* Create a string object representing an IP address.
+   This is always a string of the form 'dd.dd.dd.dd' (with variable
+   size numbers). */
+
+RPyString *makeipaddr(struct sockaddr *addr, int addrlen)
+{
+	char buf[NI_MAXHOST];
+	int error;
+
+	error = getnameinfo(addr, addrlen, buf, sizeof(buf), NULL, 0,
+		NI_NUMERICHOST);
+	if (error) {
+		return RPyString_FromString("socket.gaierror"); // XXX
+	}
+	return RPyString_FromString(buf);
+}
+
+/* ____________________________________________________________________________ */
+
 RPyString *LL__socket_gethostname(void)
 {
 	char buf[1024];
 	int res;
 	res = gethostname(buf, sizeof buf - 1);
 	if (res < 0) {
-		//XXX
-		//RPYTHON_RAISE_OSERROR(errno);
-		RPyRaiseSimpleException(PyExc_ValueError,
+		/* XXX set_error(); */
+		RPyRaiseSimpleException(PyExc_socket_error,
 					"gethostname() error");
 		return NULL;
 	}
@@ -117,17 +284,18 @@ struct RPyOpaque_ADDRINFO *LL__socket_getaddrinfo(RPyString *host, RPyString *po
 	return addr;
 }
 
-RPyString *makeipaddr(struct sockaddr *addr)
+RPyString *LL__socket_gethostbyname(RPyString *name)
 {
-	char buf[NI_MAXHOST];
-	int error;
-
-	error = getnameinfo(addr, sizeof (struct sockaddr), buf, sizeof(buf), NULL, 0,
-		NI_NUMERICHOST);
-	if (error) {
-		return RPyString_FromString("Error"); // XXX
-	}
-	return RPyString_FromString(buf);
+#ifdef ENABLE_IPV6
+	struct sockaddr_storage addrbuf;
+#else
+        struct sockaddr_in addrbuf;
+#endif
+	if (setipaddr(RPyString_AsString(name), (struct sockaddr *)&addrbuf,  
+		      sizeof(addrbuf), AF_INET) < 0)
+		return NULL;
+	return makeipaddr((struct sockaddr *)&addrbuf,
+			  sizeof(struct sockaddr_in));
 }
 
 RPySOCKET_ADDRINFO *LL__socket_nextaddrinfo(struct RPyOpaque_ADDRINFO *addr)
@@ -145,7 +313,8 @@ RPySOCKET_ADDRINFO *LL__socket_nextaddrinfo(struct RPyOpaque_ADDRINFO *addr)
 
 		RPyString *canonname = RPyString_FromString(
 			info->ai_canonname?info->ai_canonname:"");
-		RPyString *ipaddr = makeipaddr(info->ai_addr);
+		RPyString *ipaddr = makeipaddr(info->ai_addr,
+					       sizeof(struct sockaddr_in));
 
 		ret = ll__socket_addrinfo(info->ai_family,
 					  info->ai_socktype,

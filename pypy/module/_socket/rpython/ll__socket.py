@@ -10,6 +10,10 @@ def ll__socket_gethostname():
     return to_rstr(_socket.gethostname())
 ll__socket_gethostname.suggested_primitive = True
 
+def ll__socket_gethostbyname(name):
+    return to_rstr(_socket.gethostbyname(name))
+ll__socket_gethostbyname.suggested_primitive = True
+
 def ll__socket_getaddrinfo(host, port, family, socktype, proto, flags):
     addr = rsocket.getaddrinfo(from_rstr(host), port,
                                family, socktype, proto, flags)

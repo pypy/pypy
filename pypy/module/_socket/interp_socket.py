@@ -6,6 +6,9 @@ from pypy.interpreter.gateway import W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import ObjSpace, interp2app
 from pypy.module._socket.rpython import rsocket
 
+# Force the declarations of external functions
+import pypy.module.thread.rpython.exttable
+
 if sys.platform == 'win32':
     WIN32_ERROR_MESSAGES = {
         errno.WSAEINTR:  "Interrupted system call",
@@ -768,7 +771,7 @@ for methodname in socketmethodnames:
     method = getattr(Socket, methodname)
     assert hasattr(method,'unwrap_spec'), methodname
     assert method.im_func.func_code.co_argcount == len(method.unwrap_spec), methodname
-    socketmethods[methodname] = interp2app(method, method.unwrap_spec)
+    socketmethods[methodname] = interp2app(method, unwrap_spec=method.unwrap_spec)
 
 Socket.typedef = TypeDef("_socket.socket",
     __doc__ = """\

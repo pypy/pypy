@@ -562,6 +562,15 @@ def test_gethostname():
     res = f1()
     assert res == _socket.gethostname()
 
+
+def test_gethostbyname():
+    import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
+    def does_stuff(host):
+        return _socket.gethostbyname(host)
+    f1 = compile(does_stuff, [str])
+    res = f1("localhost")
+    assert res == _socket.gethostbyname("localhost")
+
 def test_getaddrinfo():
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
     from pypy.module._socket.rpython import rsocket
@@ -579,4 +588,3 @@ def test_getaddrinfo():
     f1 = compile(does_stuff, [str, str])
     res = f1("localhost", "25")
     assert eval(res) == _socket.getaddrinfo("localhost", "25")
-
