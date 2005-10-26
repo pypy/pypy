@@ -4,6 +4,7 @@ import dis
 import imp
 import os
 from sys import path, prefix
+import __builtin__
 
 """
 so design goal:
@@ -118,10 +119,21 @@ class Scope(object):
 
 
 class Module(object):
-    def __init__(self, system):
+    def __init__(self, name, system):
+        self.name = name
         self.system = system
         self._imports = {} # {modname:{name:was-it-used?}}
-        self.definitions = []
+        self.definitions = ['__file__']
+        if name == 'pypy.objspace.std.objspace':
+            self.definitions.extend([
+                'W_NoneObject', 'W_BoolObject', 'W_BoolObject', 'W_TypeObject',
+                'W_TypeObject', 'W_TypeObject', 'W_IntObject',
+                'W_StringObject', 'W_UnicodeObject', 'W_FloatObject',
+                'W_TupleObject', 'W_ListObject', 'W_LongObject', 'W_SliceObject',
+                'W_IntObject', 'W_FloatObject', 'W_LongObject', 'W_TupleObject',
+                'W_ListObject', 'W_DictObject', 'W_SliceObject',
+                'W_StringObject', 'W_UnicodeObject', 'W_SeqIterObject',
+                'W_TupleObject', 'W_DictObject', 'W_DictObject'])
         self.toplevelscope = Scope()
         self.importers = []
     def import_(self, modname):
@@ -205,6 +217,19 @@ def process(r, codeob, scope, toplevel=False):
                 scope.modvars[storename] = modname.split('.')[0]
                 i += 1
             elif fromlist == ('*',):
+                assert toplevel
+                if modname.startswith('pypy.'):
+                    if modname not in r.system.modules:
+                        if modname in r.system.pendingmodules:
+                            del r.system.pendingmodules[modname]
+                        process_module(modname, r.system)
+                    M = r.system.modules[modname]
+                    for d in M.definitions + list(M.toplevelscope.modvars) + \
+                            [a[1] for a in M.toplevelscope.varsources.itervalues()]:
+                        if d[0] != '_':
+                            #print '* got ', d
+                            scope.varsources[d] = modname, d
+                            r.import_(modname)[d] = -1
                 r.import_(modname)['*'] = True
             else:
                 # ok, this is from foo import bar
@@ -276,6 +301,13 @@ def process(r, codeob, scope, toplevel=False):
             if m:
                 assert a in r.import_(m)
                 r.import_(m)[a] = True
+##             else:
+##                 if name not in r.definitions \
+##                        and scope.mod_for_name(name) is None \
+##                        and scope.var_source(name) == (None, None) \
+##                        and name not in __builtin__.__dict__ \
+##                        and (op == LOAD_GLOBAL or toplevel):
+##                     print 'where did', name, 'come from?'
         elif op in [LOAD_FAST]:
             name = codeob.co_varnames[oparg]
             m, a = scope.var_source(name)
@@ -307,7 +339,7 @@ def process_module(dottedname, system):
         ispackage = True
         path += '/__init__.py'
     code = compile(open(path, "U").read(), '', 'exec')
-    r = Module(system)
+    r = Module(dottedname, system)
     r.ispackage = ispackage
 
     try:
@@ -357,6 +389,7 @@ def main(path):
     print '------'
 
     for name, mod in sorted(system.modules.iteritems()):
+        printed = False
         if not 'pypy.' in name or '_cache' in name:
             continue
         u = {}
@@ -367,9 +400,13 @@ def main(path):
             for field, used in mod._imports[n].iteritems():
                 if n in system.modules:
                     M = system.modules[n]
-                    if not M.ispackage and field != '*' and field not in M.definitions:
-                        print '***', name
-                        print field, 'used from', n, 'but not defined there'
+                    if not M.ispackage and field != '*' and field not in M.definitions \
+                           and used != -1:
+                        if not printed:
+                            print '*', name
+                            printed = True
+                        sourcemod, nam = M.toplevelscope.var_source(field)
+                        print '   ', field, 'used from', n, 'but came from', sourcemod
                 if not used:
                     u.setdefault(n, []).append(field)
                 else:
@@ -380,7 +417,9 @@ def main(path):
                 else:
                     u[n] = 'entirely'
         if u:
-            print name
+            if not printed:
+                print '*', name
+                printed = True
             for k, v in u.iteritems():
                 print '   ', k, v
                     
