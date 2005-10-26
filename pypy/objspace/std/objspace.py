@@ -6,7 +6,7 @@ from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.gateway import PyPyCacheDir
 from pypy.tool.cache import Cache 
 from pypy.objspace.std.model import W_Object, UnwrapError
-from pypy.objspace.std.model import W_ANY, MultiMethod, StdTypeModel
+from pypy.objspace.std.model import W_ANY, StdObjspaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
@@ -40,7 +40,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         # install all the MultiMethods into the space instance
         for name, mm in self.MM.__dict__.items():
-            if isinstance(mm, MultiMethod) and not hasattr(self, name):
+            if isinstance(mm, StdObjspaceMultiMethod) and not hasattr(self, name):
                 if name.endswith('_w'): # int_w, str_w...: these do not return a wrapped object
                     func = mm.install_not_sliced(self.model.typeorder, baked_perform_call=True)
                 else:               
@@ -431,21 +431,21 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     class MM:
         "Container for multimethods."
-        call    = MultiMethod('call', 1, ['__call__'], general__args__=True)
-        init    = MultiMethod('__init__', 1, general__args__=True)
-        getnewargs = MultiMethod('__getnewargs__', 1)
+        call    = StdObjspaceMultiMethod('call', 1, ['__call__'], general__args__=True)
+        init    = StdObjspaceMultiMethod('__init__', 1, general__args__=True)
+        getnewargs = StdObjspaceMultiMethod('__getnewargs__', 1)
         # special visible multimethods
-        int_w   = MultiMethod('int_w', 1, [])     # returns an unwrapped int
-        str_w   = MultiMethod('str_w', 1, [])     # returns an unwrapped string
-        float_w = MultiMethod('float_w', 1, [])   # returns an unwrapped float
-        uint_w  = MultiMethod('uint_w', 1, [])    # returns an unwrapped unsigned int (r_uint)
-        marshal_w = MultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
-        log     = MultiMethod('log', 1, [], extra_args=['base'])
+        int_w   = StdObjspaceMultiMethod('int_w', 1, [])     # returns an unwrapped int
+        str_w   = StdObjspaceMultiMethod('str_w', 1, [])     # returns an unwrapped string
+        float_w = StdObjspaceMultiMethod('float_w', 1, [])   # returns an unwrapped float
+        uint_w  = StdObjspaceMultiMethod('uint_w', 1, [])    # returns an unwrapped unsigned int (r_uint)
+        marshal_w = StdObjspaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
+        log     = StdObjspaceMultiMethod('log', 1, [], extra_args=['base'])
 
         # add all regular multimethods here
         for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
             if _name not in locals():
-                mm = MultiMethod(_symbol, _arity, _specialnames)
+                mm = StdObjspaceMultiMethod(_symbol, _arity, _specialnames)
                 locals()[_name] = mm
                 del mm
 

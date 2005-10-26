@@ -5,7 +5,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 
 # indices multimehtod
-slice_indices = MultiMethod('indices', 2)
+slice_indices = StdObjspaceMultiMethod('indices', 2)
 
 # utility functions
 def _Eval_SliceIndex(space, w_int):

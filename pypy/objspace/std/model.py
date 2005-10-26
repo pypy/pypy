@@ -143,7 +143,7 @@ class UnwrapError(Exception):
     pass
 
 
-class MultiMethod(MultiMethodTable):
+class StdObjspaceMultiMethod(MultiMethodTable):
 
     def __init__(self, operatorsymbol, arity, specialnames=None, **extras):
         """NOT_RPYTHON: cannot create new multimethods dynamically.
