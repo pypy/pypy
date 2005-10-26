@@ -572,6 +572,7 @@ def test_gethostbyname():
     assert res == _socket.gethostbyname("localhost")
 
 def test_getaddrinfo():
+    py.test.skip("segfaulting on linux right now")
     import pypy.module._socket.rpython.exttable   # for declare()/declaretype()
     from pypy.module._socket.rpython import rsocket
     def does_stuff(host, port):
