@@ -18,96 +18,143 @@ for n1 in 'get set del'.split():
 """ % (name, name)
 del n1, n2, name
 
-def sample_list():    # [42, 43, 44, 45]
-    rlist = ListRepr(None, signed_repr)
-    rlist.setup()
-    l = ll_newlist(rlist.lowleveltype.TO, 3)
-    ll_setitem(l, 0, 42)
-    ll_setitem(l, -2, 43)
-    ll_setitem_nonneg(l, 2, 44)
-    ll_append(l, 45)
-    return l
+class BaseTestListImpl:
 
-def check_list(l1, expected):
-    assert ll_len(l1) == len(expected)
-    for i, x in zip(range(len(expected)), expected):
-        assert ll_getitem_nonneg(l1, i) == x
+    def check_list(self, l1, expected):
+        assert ll_len(l1) == len(expected)
+        for i, x in zip(range(len(expected)), expected):
+            assert ll_getitem_nonneg(l1, i) == x
 
-def test_rlist_basic():
-    l = sample_list()
-    assert ll_getitem(l, -4) == 42
-    assert ll_getitem_nonneg(l, 1) == 43
-    assert ll_getitem(l, 2) == 44
-    assert ll_getitem(l, 3) == 45
-    assert ll_len(l) == 4
-    check_list(l, [42, 43, 44, 45])
+    def test_rlist_basic(self):
+        l = self.sample_list()
+        assert ll_getitem(l, -4) == 42
+        assert ll_getitem_nonneg(l, 1) == 43
+        assert ll_getitem(l, 2) == 44
+        assert ll_getitem(l, 3) == 45
+        assert ll_len(l) == 4
+        self.check_list(l, [42, 43, 44, 45])
 
-def test_rlist_set_del():
-    l = sample_list()
-    ll_setitem(l, -1, 99)
-    check_list(l, [42, 43, 44, 99])
-    ll_setitem_nonneg(l, 1, 77)
-    check_list(l, [42, 77, 44, 99])
-    ll_delitem_nonneg(l, 0)
-    check_list(l, [77, 44, 99])
-    ll_delitem(l, -2)
-    check_list(l, [77, 99])
-    ll_delitem(l, 1)
-    check_list(l, [77])
-    ll_delitem(l, 0)
-    check_list(l, [])
+    def test_rlist_set(self):
+        l = self.sample_list()
+        ll_setitem(l, -1, 99)
+        self.check_list(l, [42, 43, 44, 99])
+        ll_setitem_nonneg(l, 1, 77)
+        self.check_list(l, [42, 77, 44, 99])
 
-def test_rlist_extend_concat():
-    l = sample_list()
-    ll_extend(l, l)
-    check_list(l, [42, 43, 44, 45] * 2)
-    l1 = ll_concat(typeOf(l).TO, l, l)
-    assert l1 != l
-    check_list(l1, [42, 43, 44, 45] * 4)
+    def test_rlist_slice(self):
+        l = self.sample_list()
+        LIST = typeOf(l).TO
+        self.check_list(ll_listslice_startonly(LIST, l, 0), [42, 43, 44, 45])
+        self.check_list(ll_listslice_startonly(LIST, l, 1), [43, 44, 45])
+        self.check_list(ll_listslice_startonly(LIST, l, 2), [44, 45])
+        self.check_list(ll_listslice_startonly(LIST, l, 3), [45])
+        self.check_list(ll_listslice_startonly(LIST, l, 4), [])
+        for start in range(5):
+            for stop in range(start, 8):
+                s = ll_newslice(start, stop)
+                self.check_list(ll_listslice(LIST, l, s), [42, 43, 44, 45][start:stop])
 
-def test_rlist_slice():
-    l = sample_list()
-    LIST = typeOf(l).TO
-    check_list(ll_listslice_startonly(LIST, l, 0), [42, 43, 44, 45])
-    check_list(ll_listslice_startonly(LIST, l, 1), [43, 44, 45])
-    check_list(ll_listslice_startonly(LIST, l, 2), [44, 45])
-    check_list(ll_listslice_startonly(LIST, l, 3), [45])
-    check_list(ll_listslice_startonly(LIST, l, 4), [])
-    for start in range(5):
-        for stop in range(start, 8):
-            s = ll_newslice(start, stop)
-            check_list(ll_listslice(LIST, l, s), [42, 43, 44, 45][start:stop])
+    def test_rlist_setslice(self):
+        n = 100
+        for start in range(5):
+            for stop in range(start, 5):
+                l1 = self.sample_list()
+                l2 = self.sample_list()
+                expected = [42, 43, 44, 45]
+                for i in range(start, stop):
+                    expected[i] = n
+                    ll_setitem(l2, i, n)
+                    n += 1
+                s = ll_newslice(start, stop)
+                l2 = ll_listslice(typeOf(l2).TO, l2, s)
+                ll_listsetslice(l1, s, l2)
+                self.check_list(l1, expected)
 
-def test_rlist_delslice():
-    l = sample_list()
-    ll_listdelslice_startonly(l, 3)
-    check_list(l, [42, 43, 44])
-    ll_listdelslice_startonly(l, 0)
-    check_list(l, [])
-    for start in range(5):
-        for stop in range(start, 8):
-            l = sample_list()
-            s = ll_newslice(start, stop)
-            ll_listdelslice(l, s)
-            expected = [42, 43, 44, 45]
-            del expected[start:stop]
-            check_list(l, expected)
+class TestListImpl(BaseTestListImpl):
 
-def test_rlist_setslice():
-    n = 100
-    for start in range(5):
-        for stop in range(start, 5):
-            l1 = sample_list()
-            l2 = sample_list()
-            expected = [42, 43, 44, 45]
-            for i in range(start, stop):
-                expected[i] = n
-                ll_setitem(l2, i, n)
-                n += 1
-            s = ll_newslice(start, stop)
-            l2 = ll_listslice(typeOf(l2).TO, l2, s)
-            ll_listsetslice(l1, s, l2)
-            check_list(l1, expected)
+    def sample_list(self):    # [42, 43, 44, 45]
+        rlist = ListRepr(None, signed_repr)
+        rlist.setup()
+        l = ll_newlist(rlist.lowleveltype.TO, 3)
+        ll_setitem(l, 0, 42)
+        ll_setitem(l, -2, 43)
+        ll_setitem_nonneg(l, 2, 44)
+        ll_append(l, 45)
+        return l
+
+    def test_rlist_del(self):
+        l = self.sample_list()
+        ll_delitem_nonneg(l, 0)
+        self.check_list(l, [43, 44, 45])
+        ll_delitem(l, -2)
+        self.check_list(l, [43, 45])
+        ll_delitem(l, 1)
+        self.check_list(l, [43])
+        ll_delitem(l, 0)
+        self.check_list(l, [])
+
+    def test_rlist_extend_concat(self):
+        l = self.sample_list()
+        ll_extend(l, l)
+        self.check_list(l, [42, 43, 44, 45] * 2)
+        l1 = ll_concat(typeOf(l).TO, l, l)
+        assert typeOf(l1) == typeOf(l)
+        assert l1 != l
+        self.check_list(l1, [42, 43, 44, 45] * 4)
+
+    def test_rlist_delslice(self):
+        l = self.sample_list()
+        ll_listdelslice_startonly(l, 3)
+        self.check_list(l, [42, 43, 44])
+        ll_listdelslice_startonly(l, 0)
+        self.check_list(l, [])
+        for start in range(5):
+            for stop in range(start, 8):
+                l = self.sample_list()
+                s = ll_newslice(start, stop)
+                ll_listdelslice(l, s)
+                expected = [42, 43, 44, 45]
+                del expected[start:stop]
+                self.check_list(l, expected)
+
+class TestFixedSizeListImpl(BaseTestListImpl):
+
+    def sample_list(self):    # [42, 43, 44, 45]
+        rlist = FixedSizeListRepr(None, signed_repr)
+        rlist.setup()
+        l = ll_fixed_newlist(rlist.lowleveltype.TO, 4)
+        ll_setitem(l, 0, 42)
+        ll_setitem(l, -3, 43)
+        ll_setitem_nonneg(l, 2, 44)
+        ll_setitem(l, 3, 45)
+        return l
+
+    def test_rlist_extend_concat(self):
+        l = self.sample_list()
+        lvar = TestListImpl.sample_list(TestListImpl())
+        ll_extend(lvar, l)
+        self.check_list(lvar, [42, 43, 44, 45] * 2)
+
+        l1 = ll_concat(typeOf(l).TO, lvar, l)
+        assert typeOf(l1) == typeOf(l)
+        assert l1 != l
+        self.check_list(l1, [42, 43, 44, 45] * 3)
+
+        l1 = ll_concat(typeOf(l).TO, l, lvar)
+        assert typeOf(l1) == typeOf(l)
+        assert l1 != l
+        self.check_list(l1, [42, 43, 44, 45] * 3)
+
+        lvar1 = ll_concat(typeOf(lvar).TO, lvar, l)
+        assert typeOf(lvar1) == typeOf(lvar)
+        assert lvar1 != lvar
+        self.check_list(l1, [42, 43, 44, 45] * 3)
+
+        lvar1 = ll_concat(typeOf(lvar).TO, l, lvar)
+        assert typeOf(lvar1) == typeOf(lvar)
+        assert lvar1 != lvar
+        self.check_list(lvar1, [42, 43, 44, 45] * 3)
+
 
 # ____________________________________________________________
 
@@ -125,21 +172,36 @@ def test_simple():
     def dummyfn():
         l = [10, 20, 30]
         return l[2]
-    rtype(dummyfn)
+    res = interpret(dummyfn, [])
+    assert res == 30
 
 def test_append():
     def dummyfn():
         l = []
-        l.append(5)
-        l.append(6)
-        return l[0]
-    rtype(dummyfn)
+        l.append(50)
+        l.append(60)
+        l.append(70)
+        l.append(80)
+        l.append(90)
+        return len(l), l[0], l[-1]
+    res = interpret(dummyfn, [])
+    assert res.item0 == 5 
+    assert res.item1 == 50
+    assert res.item2 == 90
 
 def test_len():
     def dummyfn():
         l = [5, 10]
         return len(l)
-    rtype(dummyfn)
+    res = interpret(dummyfn, [])
+    assert res == 2
+
+    def dummyfn():
+        l = [5]
+        l.append(6)
+        return len(l)
+    res = interpret(dummyfn, [])
+    assert res == 2
 
 def test_iterate():
     def dummyfn():
@@ -147,7 +209,17 @@ def test_iterate():
         for x in [1, 3, 5, 7, 9]:
             total += x
         return total
-    rtype(dummyfn)
+    res = interpret(dummyfn, [])
+    assert res == 25
+    def dummyfn():
+        total = 0
+        l = [1, 3, 5, 7]
+        l.append(9)
+        for x in l:
+            total += x
+        return total
+    res = interpret(dummyfn, [])
+    assert res == 25
 
 def test_recursive():
     def dummyfn(N):
@@ -156,22 +228,76 @@ def test_recursive():
             l = [l]
             N -= 1
         return len(l)
-    rtype(dummyfn, [int]) #.view()
+    res = interpret(dummyfn, [5])
+    assert res == 1
+
+    def dummyfn(N):
+        l = []
+        while N > 0:
+            l.append(l)
+            N -= 1
+        return len(l)
+    res = interpret(dummyfn, [5])
+    assert res == 5
+
+def tolst(l):
+    return map(None, l.ll_items())[:l.ll_length()]
 
 def test_add():
     def dummyfn():
         l = [5]
         l += [6,7]
         return l + [8]
-    rtype(dummyfn)
+    res = interpret(dummyfn, [])
+    assert tolst(res) == [5, 6, 7, 8]
+
+    def dummyfn():
+        l = [5]
+        l += [6,7]
+        l2 =  l + [8]
+        l2.append(9)
+        return l2
+    res = interpret(dummyfn, [])
+    assert tolst(res) == [5, 6, 7, 8, 9]
 
 def test_slice():
     def dummyfn():
         l = [5, 6, 7, 8, 9]
         return l[:2], l[1:4], l[3:]
-    rtype(dummyfn)
+    res = interpret(dummyfn, [])
+    assert tolst(res.item0) == [5, 6]
+    assert tolst(res.item1) == [6, 7, 8]
+    assert tolst(res.item2) == [8, 9]
+
+    def dummyfn():
+        l = [5, 6, 7, 8]
+        l.append(9)
+        return l[:2], l[1:4], l[3:]
+    res = interpret(dummyfn, [])
+    assert tolst(res.item0) == [5, 6]
+    assert tolst(res.item1) == [6, 7, 8]
+    assert tolst(res.item2) == [8, 9]
 
 def test_set_del_item():
+    def dummyfn():
+        l = [5, 6, 7]
+        l[1] = 55
+        l[-1] = 66
+        return l
+    res = interpret(dummyfn, [])
+    assert tolst(res) == [5, 55, 66]
+
+    def dummyfn():
+        l = []
+        l.append(5)
+        l.append(6)
+        l.append(7)
+        l[1] = 55
+        l[-1] = 66
+        return l
+    res = interpret(dummyfn, [])
+    assert tolst(res) == [5, 55, 66]
+
     def dummyfn():
         l = [5, 6, 7]
         l[1] = 55
@@ -179,11 +305,24 @@ def test_set_del_item():
         del l[0]
         del l[-1]
         del l[:]
-    rtype(dummyfn)
+        return len(l)
+    res = interpret(dummyfn, [])
+    assert res == 0
 
 def test_setslice():
     def dummyfn():
         l = [10, 9, 8, 7]
+        l[:2] = [6, 5]
+        return l[0], l[1], l[2], l[3]
+    res = interpret(dummyfn, ())
+    assert res.item0 == 6
+    assert res.item1 == 5
+    assert res.item2 == 8
+    assert res.item3 == 7
+
+    def dummyfn():
+        l = [10, 9, 8]
+        l.append(7)
         l[:2] = [6, 5]
         return l[0], l[1], l[2], l[3]
     res = interpret(dummyfn, ())
@@ -226,6 +365,15 @@ def test_reverse():
     res = interpret(dummyfn, ())
     assert res == 235
 
+    def dummyfn():
+        l = [5]
+        l.append(3)
+        l.append(2)
+        l.reverse()
+        return l[0]*100 + l[1]*10 + l[2]
+    res = interpret(dummyfn, ())
+    assert res == 235
+
 def test_prebuilt_list():
     klist = ['a', 'd', 'z', 'k']
     def dummyfn(n):
@@ -235,6 +383,19 @@ def test_prebuilt_list():
     res = interpret(dummyfn, [3])
     assert res == 'k'
     res = interpret(dummyfn, [-2])
+    assert res == 'z'
+
+    klist = ['a', 'd', 'z']
+    def mkdummyfn():
+        def dummyfn(n):
+            klist.append('k')
+            return klist[n]
+        return dummyfn
+    res = interpret(mkdummyfn(), [0])
+    assert res == 'a'
+    res = interpret(mkdummyfn(), [3])
+    assert res == 'k'
+    res = interpret(mkdummyfn(), [-2])
     assert res == 'z'
 
 def test_bound_list_method():
@@ -263,7 +424,8 @@ def test_list_is():
     assert res is False
     def dummyfn():
         l1 = [1, 2]
-        l2 = [1, 2]
+        l2 = [1]
+        l2.append(2)
         return l1 is l2
     res = interpret(dummyfn, [])
     assert res is False
@@ -271,6 +433,14 @@ def test_list_is():
     def dummyfn():
         l1 = None
         l2 = [1, 2]
+        return l1 is l2
+    res = interpret(dummyfn, [])
+    assert res is False
+
+    def dummyfn():
+        l1 = None
+        l2 = [1]
+        l2.append(2)
         return l1 is l2
     res = interpret(dummyfn, [])
     assert res is False
@@ -287,6 +457,21 @@ def test_list_compare():
             for case in False, True:
                 res = interpret(fn, [i,j,case])
                 assert res is fn(i, j, case)
+
+    def fn(i, j, neg=False):
+        s1 = [[1, 2, 3], [4, 5, 1], None]
+        l = []
+        l.extend([1,2,3])
+        s2 = [l, [4, 5, 1], [1], [1, 2], [4, 5, 1, 6],
+              [7, 1, 1, 8, 9, 10], None]
+        if neg: return s1[i] != s2[i]
+        return s1[i] == s2[j]
+    for i in range(3):
+        for j in range(7):
+            for case in False, True:
+                res = interpret(fn, [i,j,case])
+                assert res is fn(i, j, case)
+
 
 def test_list_comparestr():
     def fn(i, j, neg=False):
@@ -320,6 +505,24 @@ def test_list_compareinst():
                 res = interpret(fn, [i, j, case])
                 assert res is fn(i, j, case)
 
+    def fn(i, j, neg=False):
+        foo1 = Foo()
+        foo2 = Foo()
+        bar1 = Bar()
+        s1 = [[foo1], [foo2], [bar1]]
+        s2 = s1[:]
+
+        s2[0].extend([])
+        
+        if neg: return s1[i] != s2[i]
+        return s1[i] == s2[j]
+    for i in range(3):
+        for j in range(3):
+            for case in False, True:
+                res = interpret(fn, [i, j, case])
+                assert res is fn(i, j, case)
+
+
 def test_list_contains():
     def fn(i, neg=False):
         foo1 = Foo()
@@ -334,6 +537,22 @@ def test_list_contains():
         for case in False, True:
             res = interpret(fn, [i, case])
             assert res is fn(i, case)
+
+    def fn(i, neg=False):
+        foo1 = Foo()
+        foo2 = Foo()
+        bar1 = Bar()
+        bar2 = Bar()
+        lis = [foo1, foo2, bar1]
+        lis.append(lis.pop())
+        args = lis + [bar2]
+        if neg : return args[i] not in lis
+        return args[i] in lis
+    for i in range(4):
+        for case in False, True:
+            res = interpret(fn, [i, case])
+            assert res is fn(i, case)
+
 
 def test_not_a_char_list_after_all():
     def fn():
@@ -352,12 +571,32 @@ def test_list_index():
         args = lis + [bar2]
         return lis.index(args[i])
     for i in range(4):
-        try:
-            res2 = fn(i)
-            res1 = interpret(fn, [i])
-            assert res1 == res2
-        except Exception, e:
-            interpret_raises(e.__class__, fn, [i])
+        for varsize in False, True:
+            try:
+                res2 = fn(i)
+                res1 = interpret(fn, [i])
+                assert res1 == res2
+            except Exception, e:
+                interpret_raises(e.__class__, fn, [i])
+
+    def fn(i):
+        foo1 = Foo()
+        foo2 = Foo()
+        bar1 = Bar()
+        bar2 = Bar()
+        lis = [foo1, foo2, bar1]
+        args = lis + [bar2]
+        lis.append(lis.pop())
+        return lis.index(args[i])
+    for i in range(4):
+        for varsize in False, True:
+            try:
+                res2 = fn(i)
+                res1 = interpret(fn, [i])
+                assert res1 == res2
+            except Exception, e:
+                interpret_raises(e.__class__, fn, [i])
+
 
 def test_list_str():
     def fn():
@@ -368,6 +607,22 @@ def test_list_str():
 
     def fn():
         return str([[1,2,3]])
+    
+    res = interpret(fn, [])
+    assert ''.join(res.chars) == fn()
+
+    def fn():
+        l = [1,2]
+        l.append(3)
+        return str(l)
+    
+    res = interpret(fn, [])
+    assert ''.join(res.chars) == fn()
+
+    def fn():
+        l = [1,2]
+        l.append(3)
+        return str([l])
     
     res = interpret(fn, [])
     assert ''.join(res.chars) == fn()
@@ -389,6 +644,27 @@ def test_list_or_None():
     res = interpret(fn, [2])
     assert res == 1
 
+
+    nonempty_list = [1, 2]
+    def fn(i):
+        empty_list = [1]
+        empty_list.pop()
+        nonempty_list = []
+        nonempty_list.extend([1,2])
+        test = [None, empty_list, nonempty_list][i]
+        if test:
+            return 1
+        else:
+            return 0
+
+    res = interpret(fn, [0])
+    assert res == 0
+    res = interpret(fn, [1])
+    assert res == 0
+    res = interpret(fn, [2])
+    assert res == 1
+ 
+
 def test_inst_list():
     def fn():
         l = [None]
@@ -406,9 +682,31 @@ def test_inst_list():
     res = interpret(fn, [])
     assert ''.join(res.chars) == '<Foo object>;[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
 
+    def fn():
+        l = [None] * 2
+        l[0] = Foo()
+        l[1] = Bar()
+        l2 = [l[1], l[0], l[0]]
+        l = l + [None] * 3
+        i = 2
+        for x in l2:
+            l[i] = x
+            i += 1
+        return str(l)
+    res = interpret(fn, [])
+    assert ''.join(res.chars) == '[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
+
 def test_list_slice_minusone():
     def fn(i):
         lst = [i, i+1, i+2]
+        lst2 = lst[:-1]
+        return lst[-1] * lst2[-1]
+    res = interpret(fn, [5])
+    assert res == 42
+
+    def fn(i):
+        lst = [i, i+1, i+2, 7]
+        lst.pop()
         lst2 = lst[:-1]
         return lst[-1] * lst2[-1]
     res = interpret(fn, [5])
@@ -459,6 +757,26 @@ def test_list_inplace_multiply():
 def test_indexerror():
     def fn(i):
         l = [5, 8, 3]
+        try:
+            l[i] = 99
+        except IndexError:
+            pass
+        try:
+            del l[i]
+        except IndexError:
+            pass
+        try:
+            return l[2]    # implicit int->PyObj conversion here
+        except IndexError:
+            return "oups"
+    res = interpret(fn, [6])
+    assert res._obj.value == 3
+    res = interpret(fn, [-2])
+    assert res._obj.value == "oups"
+
+    def fn(i):
+        l = [5, 8]
+        l.append(3)
         try:
             l[i] = 99
         except IndexError:
@@ -536,6 +854,26 @@ def test_valueerror():
     assert res == 2
     res = interpret(fn, [6])
     assert res == 100
+
+    def fn(i):
+        l = [5, 8]
+        l.append(3)
+        try:
+            l[i] = 99
+        except IndexError:
+            pass
+        try:
+            del l[i]
+        except IndexError:
+            pass
+        try:
+            return l[2]    # implicit int->PyObj conversion here
+        except IndexError:
+            return "oups"
+    res = interpret(fn, [6])
+    assert res._obj.value == 3
+    res = interpret(fn, [-2])
+    assert res._obj.value == "oups"
 
 def test_memoryerror():
     def fn(i):

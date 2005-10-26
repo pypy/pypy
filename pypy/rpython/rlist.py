@@ -1,4 +1,4 @@
-from pypy.annotation.pairtype import pairtype
+from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
@@ -25,6 +25,11 @@ from pypy.rpython import robject
 #    'items' points to a C-like array in memory preceded by a 'length' header,
 #    where each item contains a primitive value or pointer to the actual list
 #    item.
+#
+#    or for fixed-size lists an array is directly used:
+#
+#    item_t list_items[]
+#
 
 class __extend__(annmodel.SomeList):
     def rtyper_makerepr(self, rtyper):
@@ -38,14 +43,18 @@ class __extend__(annmodel.SomeList):
         else:
             # cannot do the rtyper.getrepr() call immediately, for the case
             # of recursive structures -- i.e. if the listdef contains itself
-            return ListRepr(rtyper, lambda: rtyper.getrepr(listitem.s_value),
-                            listitem)
+            if self.listdef.listitem.resized:
+                return ListRepr(rtyper, lambda: rtyper.getrepr(listitem.s_value),
+                                listitem)
+            else:
+                return FixedSizeListRepr(rtyper, lambda: rtyper.getrepr(listitem.s_value),
+                                         listitem)
 
     def rtyper_makekey(self):
         return self.__class__, self.listdef.listitem
 
 
-class ListRepr(Repr):
+class BaseListRepr(Repr):
 
     def __init__(self, rtyper, item_repr, listitem=None):
         self.rtyper = rtyper
@@ -62,6 +71,81 @@ class ListRepr(Repr):
         
     def recast(self, llops, v):
         return llops.convertvar(v, self.item_repr, self.external_item_repr)
+
+    def convert_const(self, listobj):
+        # get object from bound list method
+        #listobj = getattr(listobj, '__self__', listobj)
+        if listobj is None:
+            return nullptr(self.LIST)
+        if not isinstance(listobj, list):
+            raise TyperError("expected a list: %r" % (listobj,))
+        try:
+            key = Constant(listobj)
+            return self.list_cache[key]
+        except KeyError:
+            self.setup()
+            n = len(listobj)
+            result = self.prepare_const(n)
+            self.list_cache[key] = result
+            r_item = self.item_repr
+            items = result.ll_items()
+            for i in range(n):
+                x = listobj[i]
+                items[i] = r_item.convert_const(x)
+            return result
+
+    def prepare_const(self, nitems):
+        raise NotImplementedError
+
+    def get_eqfunc(self):
+        return inputconst(Void, self.item_repr.get_ll_eq_function())
+
+    def rtype_bltn_list(self, hop):
+        v_lst = hop.inputarg(self, 0)
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+        return hop.gendirectcall(ll_copy, cRESLIST, v_lst)
+    
+    def rtype_len(self, hop):
+        v_lst, = hop.inputargs(self)
+        return hop.gendirectcall(ll_len, v_lst)
+
+    def rtype_is_true(self, hop):
+        v_lst, = hop.inputargs(self)
+        return hop.gendirectcall(ll_list_is_true, v_lst)
+
+    def rtype_method_index(self, hop):
+        v_lst, v_value = hop.inputargs(self, self.item_repr)
+        hop.has_implicit_exception(ValueError)   # record that we know about it
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_listindex, v_lst, v_value, self.get_eqfunc())
+    
+    def rtype_method_reverse(self, hop):
+        v_lst, = hop.inputargs(self)
+        hop.exception_cannot_occur()
+        hop.gendirectcall(ll_reverse,v_lst)
+
+    def make_iterator_repr(self):
+        return ListIteratorRepr(self)
+
+    def ll_str(self, l):
+        items = l.ll_items()
+        length = l.ll_length()
+        item_repr = self.item_repr
+
+        temp = malloc(TEMP, length)
+        i = 0
+        while i < length:
+            temp[i] = item_repr.ll_str(items[i])
+            i += 1
+
+        return rstr.ll_strconcat(
+            rstr.list_str_open_bracket,
+            rstr.ll_strconcat(rstr.ll_join(rstr.list_str_sep,
+                                           length,
+                                           temp),
+                              rstr.list_str_close_bracket))
+
+class ListRepr(BaseListRepr):
 
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
@@ -82,54 +166,16 @@ class ListRepr(Repr):
     def compact_repr(self):
         return 'ListR %s' % (self.item_repr.compact_repr(),)
 
-    def convert_const(self, listobj):
-        # get object from bound list method
-        #listobj = getattr(listobj, '__self__', listobj)
-        if listobj is None:
-            return nullptr(self.LIST)
-        if not isinstance(listobj, list):
-            raise TyperError("expected a list: %r" % (listobj,))
-        try:
-            key = Constant(listobj)
-            return self.list_cache[key]
-        except KeyError:
-            self.setup()
-            result = malloc(self.LIST, immortal=True)
-            self.list_cache[key] = result
-            result.length = len(listobj)
-            result.items = malloc(self.LIST.items.TO, result.length)
-            r_item = self.item_repr
-            for i in range(result.length):
-                x = listobj[i]
-                result.items[i] = r_item.convert_const(x)
-            return result
-
-    def get_eqfunc(self):
-        return inputconst(Void, self.item_repr.get_ll_eq_function())
-
-    def rtype_bltn_list(self, hop):
-        v_lst = hop.inputarg(self, 0)
-        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
-        return hop.gendirectcall(ll_copy, cRESLIST, v_lst)
-    
-    def rtype_len(self, hop):
-        v_lst, = hop.inputargs(self)
-        return hop.gendirectcall(ll_len, v_lst)
-
-    def rtype_is_true(self, hop):
-        v_lst, = hop.inputargs(self)
-        return hop.gendirectcall(ll_list_is_true, v_lst)
+    def prepare_const(self, n):
+        result = malloc(self.LIST, immortal=True)
+        result.length = n
+        result.items = malloc(self.LIST.items.TO, n)
+        return result
 
     def rtype_method_append(self, hop):
         v_lst, v_value = hop.inputargs(self, self.item_repr)
         hop.exception_cannot_occur()
         hop.gendirectcall(ll_append, v_lst, v_value)
-
-    def rtype_method_index(self, hop):
-        v_lst, v_value = hop.inputargs(self, self.item_repr)
-        hop.has_implicit_exception(ValueError)   # record that we know about it
-        hop.exception_is_here()
-        return hop.gendirectcall(ll_listindex, v_lst, v_value, self.get_eqfunc())
 
     def rtype_method_insert(self, hop):
         v_lst, v_index, v_value = hop.inputargs(self, Signed, self.item_repr)
@@ -146,14 +192,9 @@ class ListRepr(Repr):
         hop.gendirectcall(llfn, *args)
 
     def rtype_method_extend(self, hop):
-        v_lst1, v_lst2 = hop.inputargs(self, self)
+        v_lst1, v_lst2 = hop.inputargs(*hop.args_r)
         hop.exception_cannot_occur()
         hop.gendirectcall(ll_extend, v_lst1, v_lst2)
-    
-    def rtype_method_reverse(self, hop):
-        v_lst, = hop.inputargs(self)
-        hop.exception_cannot_occur()
-        hop.gendirectcall(ll_reverse,v_lst)
 
     def rtype_method_pop(self, hop):
         if hop.has_implicit_exception(IndexError):
@@ -179,36 +220,37 @@ class ListRepr(Repr):
         v_res = hop.gendirectcall(llfn, v_func, *args)
         return self.recast(hop.llops, v_res)
 
-    def make_iterator_repr(self):
-        return ListIteratorRepr(self)
+class FixedSizeListRepr(BaseListRepr):
 
-    def ll_str(self, l):
-        items = l.ll_items()
-        length = l.ll_length()
-        item_repr = self.item_repr
+    def _setup_repr(self):
+        if 'item_repr' not in self.__dict__:
+            self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer())
+        if isinstance(self.LIST, GcForwardReference):
+            ITEM = self.item_repr.lowleveltype
+            ITEMARRAY = GcArray(ITEM,
+                                adtmeths = {
+                                     "ll_newlist": ll_fixed_newlist,
+                                     "ll_length": ll_fixed_length,
+                                     "ll_items": ll_fixed_items,
+                                })
 
-        temp = malloc(TEMP, length)
-        i = 0
-        while i < length:
-            temp[i] = item_repr.ll_str(items[i])
-            i += 1
+            self.LIST.become(ITEMARRAY)
 
-        return rstr.ll_strconcat(
-            rstr.list_str_open_bracket,
-            rstr.ll_strconcat(rstr.ll_join(rstr.list_str_sep,
-                                           length,
-                                           temp),
-                              rstr.list_str_close_bracket))
+    def compact_repr(self):
+        return 'FixedSizeListR %s' % (self.item_repr.compact_repr(),)
 
+    def prepare_const(self, n):
+        result = malloc(self.LIST, n, immortal=True)
+        return result
 
-class __extend__(pairtype(ListRepr, Repr)):
+class __extend__(pairtype(BaseListRepr, Repr)):
 
     def rtype_contains((r_lst, _), hop):
         v_lst, v_any = hop.inputargs(r_lst, r_lst.item_repr)
         return hop.gendirectcall(ll_listcontains, v_lst, v_any, r_lst.get_eqfunc())
 
 
-class __extend__(pairtype(ListRepr, IntegerRepr)):
+class __extend__(pairtype(BaseListRepr, IntegerRepr)):
 
     def rtype_getitem((r_lst, r_int), hop):
         if hop.has_implicit_exception(IndexError):
@@ -239,6 +281,13 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
         hop.exception_is_here()
         return hop.gendirectcall(llfn, v_func, v_lst, v_index, v_item)
 
+    def rtype_mul((r_lst, r_int), hop):
+        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+        v_lst, v_factor = hop.inputargs(r_lst, Signed)
+        return hop.gendirectcall(ll_mul, cRESLIST, v_lst, v_factor)
+
+class __extend__(pairtype(ListRepr, IntegerRepr)):
+
     def rtype_delitem((r_lst, r_int), hop):
         if hop.has_implicit_exception(IndexError):
             spec = dum_checkidx
@@ -253,16 +302,11 @@ class __extend__(pairtype(ListRepr, IntegerRepr)):
         hop.exception_is_here()
         return hop.gendirectcall(llfn, v_func, v_lst, v_index)
 
-    def rtype_mul((r_lst, r_int), hop):
-        cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
-        v_lst, v_factor = hop.inputargs(r_lst, Signed)
-        return hop.gendirectcall(ll_mul, cRESLIST, v_lst, v_factor)
-
     def rtype_inplace_mul((r_lst, r_int), hop):
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
         return hop.gendirectcall(ll_inplace_mul, v_lst, v_factor)
 
-class __extend__(pairtype(ListRepr, SliceRepr)):
+class __extend__(pairtype(BaseListRepr, SliceRepr)):
 
     def rtype_getitem((r_lst, r_slic), hop):
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
@@ -282,10 +326,12 @@ class __extend__(pairtype(ListRepr, SliceRepr)):
         #    not implemented
         if r_slic == startstop_slice_repr:
             v_lst, v_slice, v_lst2 = hop.inputargs(r_lst, startstop_slice_repr,
-                                                   r_lst)
+                                                   hop.args_r[2])
             hop.gendirectcall(ll_listsetslice, v_lst, v_slice, v_lst2)
             return
         raise TyperError('setitem does not support slices with %r' % (r_slic,))
+
+class __extend__(pairtype(ListRepr, SliceRepr)):
 
     def rtype_delitem((r_lst, r_slic), hop):
         if r_slic == startonly_slice_repr:
@@ -298,7 +344,7 @@ class __extend__(pairtype(ListRepr, SliceRepr)):
             return
         raise TyperError('delitem does not support slices with %r' % (r_slic,))
 
-class __extend__(pairtype(ListRepr, ListRepr)):
+class __extend__(pairtype(BaseListRepr, BaseListRepr)):
     def convert_from_to((r_lst1, r_lst2), v, llops):
         if r_lst1.listitem is None or r_lst2.listitem is None:
             return NotImplemented
@@ -307,24 +353,39 @@ class __extend__(pairtype(ListRepr, ListRepr)):
                 return NotImplemented
         return v
 
-    def rtype_add((self, _), hop):
-        v_lst1, v_lst2 = hop.inputargs(self, self)
+    def rtype_is_((r_lst1, r_lst2), hop):
+        if r_lst1.lowleveltype != r_lst2.lowleveltype:
+            # obscure logic, the is can be true only if both are None
+            v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
+            return hop.gendirectcall(ll_both_none, v_lst1, v_lst2)
+
+        return pairtype(Repr, Repr).rtype_is_(pair(r_lst1, r_lst2), hop)
+
+    def rtype_add((r_lst1, r_lst2), hop):
+        v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
         return hop.gendirectcall(ll_concat, cRESLIST, v_lst1, v_lst2)
 
-    def rtype_inplace_add((self, _), hop):
-        v_lst1, v_lst2 = hop.inputargs(self, self)
+    def rtype_eq((r_lst1, r_lst2), hop):
+        assert r_lst1.item_repr == r_lst2.item_repr
+        v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
+        return hop.gendirectcall(ll_listeq, v_lst1, v_lst2, r_lst1.get_eqfunc())
+
+    def rtype_ne((r_lst1, r_lst2), hop):
+        assert r_lst1.item_repr == r_lst2.item_repr
+        v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
+        flag = hop.gendirectcall(ll_listeq, v_lst1, v_lst2, r_lst1.get_eqfunc())
+        return hop.genop('bool_not', [flag], resulttype=Bool)
+
+def ll_both_none(lst1, lst2):
+    return not lst1 and not lst2
+
+class __extend__(pairtype(ListRepr, BaseListRepr)):
+
+    def rtype_inplace_add((r_lst1, r_lst2), hop):
+        v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
         hop.gendirectcall(ll_extend, v_lst1, v_lst2)
         return v_lst1
-
-    def rtype_eq((self, _), hop):
-        v_lst1, v_lst2 = hop.inputargs(self, self)
-        return hop.gendirectcall(ll_listeq, v_lst1, v_lst2, self.get_eqfunc())
-
-    def rtype_ne((self, _), hop):
-        v_lst1, v_lst2 = hop.inputargs(self, self)
-        flag = hop.gendirectcall(ll_listeq, v_lst1, v_lst2, self.get_eqfunc())
-        return hop.genop('bool_not', [flag], resulttype=Bool)
 
 
 # ____________________________________________________________
@@ -420,7 +481,7 @@ def ll_copy(RESLIST, l):
     return new_lst
 
 def ll_len(l):
-    return l.length
+    return l.ll_length()
 
 def ll_list_is_true(l):
     # check if a list is True, allowing for None
@@ -809,6 +870,19 @@ def ll_length(l):
 
 def ll_items(l):
     return l.items
+
+# fixed size versions
+
+def ll_fixed_newlist(LIST, length):
+    l = malloc(LIST, length)
+    return l
+ll_fixed_newlist = typeMethod(ll_fixed_newlist)
+
+def ll_fixed_length(l):
+    return len(l)
+
+def ll_fixed_items(l):
+    return l
 
 def rtype_newlist(hop):
     nb_args = hop.nb_args

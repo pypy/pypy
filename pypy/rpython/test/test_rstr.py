@@ -299,6 +299,16 @@ def test_join():
             res = interpret(fn, [i,j])
             assert ''.join(res.chars) == fn(i, j)
 
+    def fn(i, j):
+        s1 = [ '', ',', ' and ']
+        s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
+        s2[1].extend(['x'])
+        return s1[i].join(s2[j])
+    for i in range(3):
+        for j in range(3):
+            res = interpret(fn, [i,j])
+            assert ''.join(res.chars) == fn(i, j)
+
 def test_parse_fmt():
     assert parse_fmt_string('a') == ['a']
     assert parse_fmt_string('%s') == [('s',)]
