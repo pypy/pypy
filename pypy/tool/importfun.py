@@ -191,7 +191,18 @@ def process(r, codeob, scope, toplevel=False):
 
                 #assert not '.' in modname
 
-                scope.modvars[codeob.co_names[postoparg]] = modname.split('.')[0]
+                assert postop in [STORE_NAME, STORE_FAST, STORE_DEREF, STORE_GLOBAL]
+                if postop == STORE_FAST:
+                    storename = codeob.co_varnames[postoparg]
+                elif postop == STORE_DEREF:
+                    if postoparg < len(codeob.co_cellvars):
+                        storename = codeob.co_cellvars[postoparg]
+                    else:
+                        storename = codeob.co_freevars[postoparg - len(codeob.co_cellvars)]
+                else:
+                    storename = codeob.co_names[postoparg]
+
+                scope.modvars[storename] = modname.split('.')[0]
                 i += 1
             elif fromlist == ('*',):
                 r.import_(modname)['*'] = True
@@ -243,7 +254,6 @@ def process(r, codeob, scope, toplevel=False):
                     if mod:
                         scope.modvars[storename] = submod
                     else:
-                        #print 's', storename, 'm', modname, 'f', f
                         scope.varsources[storename] = modname, f
                     i += 1
                 op, oparg = opcodes[i]
@@ -292,10 +302,13 @@ def process(r, codeob, scope, toplevel=False):
 
 def process_module(dottedname, system):
     path = find_from_dotted_name(dottedname)
+    ispackage = False
     if os.path.isdir(path):
+        ispackage = True
         path += '/__init__.py'
     code = compile(open(path, "U").read(), '', 'exec')
     r = Module(system)
+    r.ispackage = ispackage
 
     try:
         process(r, code, r.toplevelscope, True)
@@ -328,10 +341,10 @@ def main(path):
         process_module(path, system)
 
     # strip out non-pypy imports
-    for name, mod in system.modules.iteritems():
-        for n in mod._imports.copy():
-            if not n.startswith('pypy.') or n == 'pypy._cache':
-                del mod._imports[n]
+##     for name, mod in system.modules.iteritems():
+##         for n in mod._imports.copy():
+##             if not n.startswith('pypy.') or n == 'pypy._cache':
+##                 del mod._imports[n]
 
     # record importer information
 #    for name, mod in system.modules.iteritems():
@@ -343,24 +356,33 @@ def main(path):
     print
     print '------'
 
-    for name, mod in system.modules.iteritems():
+    for name, mod in sorted(system.modules.iteritems()):
+        if not 'pypy.' in name or '_cache' in name:
+            continue
         u = {}
         for n in mod._imports:
+            if n in ('autopath', '__future__'):
+                continue
             usedany = False
             for field, used in mod._imports[n].iteritems():
+                if n in system.modules:
+                    M = system.modules[n]
+                    if not M.ispackage and field != '*' and field not in M.definitions:
+                        print '***', name
+                        print field, 'used from', n, 'but not defined there'
                 if not used:
                     u.setdefault(n, []).append(field)
                 else:
                     usedany = True
             if not usedany:
-                u[n] = []
+                if n in u:
+                    u[n].append('(i.e. entirely)')
+                else:
+                    u[n] = 'entirely'
         if u:
             print name
             for k, v in u.iteritems():
-                if v:
-                    print '   ', k, v
-                else:
-                    print '   ', k, '(entirely)'
+                print '   ', k, v
                     
 
 if __name__=='__main__':
