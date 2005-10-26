@@ -259,7 +259,7 @@ class __extend__(SomeList):
             lst.listdef.agree(s_iterable.listdef)
         else:
             s_iter = s_iterable.iter()
-            self.method_append(s_iter.next())
+            lst.method_append(s_iter.next())
 
     def method_reverse(lst):
         lst.listdef.mutate()
