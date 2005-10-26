@@ -1,5 +1,5 @@
 from __future__ import generators
-import autopath, sys, __builtin__, marshal, zlib
+import autopath, os, sys, __builtin__, marshal, zlib
 from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.objspace.flow.model import Variable, Constant
