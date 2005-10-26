@@ -56,9 +56,6 @@ class ConstantLLVMNode(LLVMNode):
         """ Returns the constant representation for this node. """
         return []
 
-    # ______________________________________________________________________
-    # entry points from genllvm
-
     def writeglobalconstants(self, codewriter):
         p, c = lltype.parentlink(self.value)
         if p is None:

@@ -24,8 +24,7 @@ class Database(object):
             lltype.UniChar: "uint",
             lltype.Void: "void"}
 
-    def __init__(self, genllvm, translator): 
-        self.genllvm = genllvm
+    def __init__(self, translator): 
         self.translator = translator
         self.obj2node = {}
         self._pendingsetup = []

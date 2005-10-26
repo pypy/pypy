@@ -7,8 +7,6 @@ class OpaqueNode(ConstantLLVMNode):
         self.db = db
         self.value = value
         self.ref = "null"
-    # ______________________________________________________________________
-    # main entry points from genllvm 
 
     def writeglobalconstants(self, codewriter):
         # XXX Dummy - not sure what what we want

@@ -25,7 +25,7 @@ from pypy.translator.js.log import log
 
 class JS(object):   # JS = Javascript
     def __init__(self, translator, function=None, debug=False):
-        self.db = Database(self, translator)
+        self.db = Database(translator)
         self.translator = translator
         LLVMNode.reset_nodename_count()
         #extfuncnode.ExternalFuncNode.used_external_functions = {}
@@ -41,10 +41,15 @@ class JS(object):   # JS = Javascript
 
     def write_source(self):
         func = self.entrypoint
-        ptr = getfunctionptr(self.translator, func)
-        c = inputconst(lltype.typeOf(ptr), ptr)
-        entry_point = c.value._obj
+        ptr  = getfunctionptr(self.translator, func)
+        c    = inputconst(lltype.typeOf(ptr), ptr)
         self.db.prepare_arg_value(c)
+
+        #add functions
+        e          = self.db.translator.rtyper.getexceptiondata()
+        matchptr   = getfunctionptr(self.db.translator, e.ll_exception_match)
+        matchconst = inputconst(lltype.typeOf(matchptr), matchptr)
+        self.db.prepare_arg_value(matchconst)
 
         # set up all nodes
         self.db.setup_all()
@@ -125,6 +130,7 @@ class JS(object):   # JS = Javascript
         #    codewriter.comment("External Function Implementation", 0)
         #    codewriter.append(llexterns_functions)
 
+        entry_point= c.value._obj
         graph      = self.db.obj2node[entry_point].graph
         startblock = graph.startblock
         args       = ','.join(['arguments[%d]' % i for i,v in enumerate(startblock.inputargs)])

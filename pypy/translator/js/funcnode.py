@@ -110,14 +110,9 @@ class FuncNode(ConstantLLVMNode):
 
     def write_returnblock(self, codewriter, block):
         assert len(block.inputargs) == 1
-        # #self.write_block_phi_nodes(codewriter, block)
-        # inputargtype = self.db.repr_arg_type(block.inputargs[0])
-        # inputarg = self.db.repr_arg(block.inputargs[0])
-        # codewriter.ret(inputargtype, inputarg)
         codewriter.ret( self.db.repr_arg(block.inputargs[0]) )
 
     def write_exceptblock(self, codewriter, block):
-        #self.db.genllvm.exceptionpolicy.write_exceptblock(self, codewriter, block)
-        codewriter.comment('XXX TODO write_exceptblock')
-        codewriter.append('throw "Pypy exception"')
+        assert len(block.inputargs) == 2
+        codewriter.throw( str(block.inputargs[1]) )
         codewriter.skip_closeblock()

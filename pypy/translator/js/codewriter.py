@@ -17,7 +17,7 @@ class CodeWriter(object):
         self._skip_closeblock = flag
 
     def append(self, line, indentation_level=4): 
-        if indentation_level:
+        if line and indentation_level:
             s = self.tabstring * indentation_level
         else:
             s = ''
@@ -131,8 +131,8 @@ class CodeWriter(object):
     def neg(self, targetvar, source):
         self.append('%(targetvar)s = -%(source)s' % locals())
         
-    def call(self, targetvar, functionref, argrefs, label=None, exception_exits=[]):
-        if exception_exits:
+    def call(self, targetvar, functionref, argrefs, label=None, exceptions=[], ll_issubclass=None):
+        if exceptions:
             assert label is not None
             self.append('try {')
             indentation_level = 5
@@ -143,12 +143,18 @@ class CodeWriter(object):
         args = ", ".join(argrefs)
         self.append('%s = %s(%s)' % (targetvar, functionref, args), indentation_level)
 
-        if exception_exits:
-            self.append('block = %d' % label, indentation_level)
+        if exceptions:
+            self._goto_block(label, indentation_level)
             self.append('} catch (e) {')
-            for exception in exception_exits:
-                self.comment('exception.target = %s' % str(exception.target), indentation_level)
-            self.append('block = %d' % label, indentation_level)    #XXX temp
+            for i, exception in enumerate(exceptions):
+                exception_match, exception_ref, exception_target = exception
+                if i:
+                    s = 'else '
+                else:
+                    s = ''
+                self.append('%sif (%s(e.typeptr, %s) == true) {' % (s, exception_match, exception_ref), indentation_level)
+                self._goto_block(exception_target, indentation_level+1)
+                self.append('}', indentation_level)
             self.append('}')
 
     def cast(self, targetvar, fromtype, fromvar, targettype):
@@ -187,3 +193,6 @@ class CodeWriter(object):
         res += ''.join(['[%s]' % index for index in destindices])
         res += " = %(srcvar)s" % locals()
         self.append(res)
+
+    def throw(self, exc):
+        self.append('throw ' + exc)

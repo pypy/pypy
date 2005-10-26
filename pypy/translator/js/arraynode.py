@@ -64,7 +64,11 @@ class StrArrayNode(ArrayNode):
 
     def constantvalue(self):
         s = '"'
-        for c in self.value.items:
+        if len(self.value.items) > 0 and self.value.items[-1] == '\0':
+            items = self.value.items[:-1]   #remove string null terminator
+        else:
+            items = self.value.items
+        for c in items:
             if ord(c) in StrArrayNode.printables:
                 s += c
             else:

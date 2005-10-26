@@ -1,7 +1,7 @@
 import py
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
-#from pypy.translator.js.module.extfunction import extfunctions
+from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.translator.js.extfuncnode import ExternalFuncNode
 from pypy.translator.js.log import log 
 log = log.opwriter
@@ -204,7 +204,8 @@ class OpWriter(object):
         targettype = self.db.repr_concretetype(op.result.concretetype)
         fromvar = self.db.repr_arg(op.args[0])
         fromtype = self.db.repr_concretetype(op.args[0].concretetype)
-        self.codewriter.comment('next line=%s, from %s to %s' % (op.opname, fromtype, targettype))
+        if op.opname not in ('cast_pointer',):
+            self.codewriter.comment('next line=%s, from %s to %s' % (op.opname, fromtype, targettype))
         self.codewriter.cast(targetvar, fromtype, fromvar, targettype)
     same_as = cast_primitive
 
@@ -267,17 +268,24 @@ class OpWriter(object):
         link = self.block.exits[0]
         assert link.exitcase is None
 
-        targetvar   = self.db.repr_arg(op.result)
-        #returntype  = self.db.repr_arg_type(op.result)
-        argrefs     = self.db.repr_arg_multi(op_args[1:])
-        #argtypes    = self.db.repr_arg_type_multi(op_args[1:])
+        targetvar  = self.db.repr_arg(op.result)
+        argrefs    = self.db.repr_arg_multi(op_args[1:])
+        none_label = self.node.blockindex[link.target]
 
-        none_label  = self.node.blockindex[link.target]
-        block_label = self.node.blockindex[self.block]
-        #exc_label   = block_label   #_exception_label
+        exceptions = []
+        for exit in self.block.exits[1:]:
+            assert issubclass(exit.exitcase, Exception)
+            exception_match  = self.db.translator.rtyper.getexceptiondata().ll_exception_match.__name__
+            exception_ref    = self.db.obj2node[exit.llexitcase._obj].get_ref()
+            exception_target = self.node.blockindex[exit.target]
+            exception        = (exception_match, exception_ref, exception_target)
+            exceptions.append(exception)
 
-        self.codewriter.call(targetvar, functionref, argrefs, none_label, self.block.exits[1:])
+        self.codewriter.call(targetvar, functionref, argrefs, none_label, exceptions)
         return
+
+
+
 
         e = self.db.translator.rtyper.getexceptiondata()
         pypy_prefix              = '' #pypy_
