@@ -1,14 +1,13 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
+from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import rarithmetic, objectmodel, rstack
-from pypy.rpython.rtyper import TyperError
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange 
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, Constant
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
-from pypy.rpython.rfloat import float_repr, FloatRepr
-from pypy.rpython.rbool import bool_repr
 from pypy.rpython.rdict import rtype_r_dict
 from pypy.tool import sourcetools
 

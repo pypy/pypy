@@ -1,8 +1,7 @@
-from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr
-import sys
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Ptr, Void, malloc
 

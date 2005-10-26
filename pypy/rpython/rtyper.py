@@ -12,11 +12,11 @@ computation part.
 """
 
 from __future__ import generators
-import sys, os
+import os
 import py
 from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
-from pypy.objspace.flow.model import Variable, Constant, Block, Link
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import SpaceOperation, last_exception
 from pypy.rpython.lltypesystem.lltype import \
      Signed, Unsigned, Float, Char, Bool, Void, \
@@ -24,11 +24,10 @@ from pypy.rpython.lltypesystem.lltype import \
      FuncType, functionptr, typeOf, RuntimeTypeInfo, \
      attachRuntimeTypeInfo, Primitive
 from pypy.rpython.ootypesystem import ootype
-from pypy.tool.sourcetools import func_with_new_name, valid_identifier
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.transform import insert_stackcheck
-from pypy.rpython.rmodel import Repr, inputconst
-from pypy.rpython.rmodel import TyperError, BrokenReprTyperError
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import Repr, inputconst, BrokenReprTyperError
 from pypy.rpython.rmodel import warning
 from pypy.rpython.normalizecalls import perform_normalizations
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
@@ -812,7 +811,7 @@ class LowLevelOpList(list):
 # and the rtyper_chooserepr() methods
 from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
-from pypy.rpython import rslice
+from pypy.rpython import rslice, rrange
 from pypy.rpython import rlist, rstr, rtuple, rdict 
 from pypy.rpython import rclass, rbuiltin, rpbc, rspecialcase
 from pypy.rpython import rexternalobj

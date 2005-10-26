@@ -1,8 +1,5 @@
-from pypy.annotation.pairtype import pairtype
-from pypy.annotation import model as annmodel
-from pypy.objspace.flow.model import Constant
-from pypy.rpython import rclass
-from pypy.rpython.rmodel import TyperError, inputconst
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import inputconst
 
 
 def rtype_call_specialcase(hop):

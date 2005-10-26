@@ -2,8 +2,9 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import \
-     Ptr, _ptr, ContainerType, Void, Signed, Bool, FuncType, typeOf
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
+     Ptr, ContainerType, Void, Signed, Bool, FuncType, typeOf
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import Repr, IntegerRepr
 
 
 class __extend__(annmodel.SomePtr):

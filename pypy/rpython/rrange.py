@@ -1,9 +1,9 @@
 from pypy.annotation.pairtype import pairtype
-from pypy.annotation import model as annmodel
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, IteratorRepr
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import Repr, IntegerRepr, IteratorRepr
 from pypy.rpython.lltypesystem.lltype import Ptr, GcStruct, Signed, malloc, Void
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rlist import ll_newlist, dum_nocheck, dum_checkidx
+from pypy.rpython.rlist import dum_nocheck, dum_checkidx
 
 # ____________________________________________________________
 #

@@ -1,12 +1,12 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import \
-     Signed, Unsigned, Bool, Float, Void, Ptr, \
-     PyObject, Array, Char, functionptr, FuncType, malloc
-from pypy.rpython.rmodel import Repr, TyperError, FloatRepr
-from pypy.rpython.rmodel import IntegerRepr, BoolRepr
+     Signed, Unsigned, Bool, Float, Void
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import FloatRepr
+from pypy.rpython.rmodel import IntegerRepr, BoolRepr, StringRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.rstr import STR, string_repr
+from pypy.rpython.rstr import string_repr
 from pypy.rpython import rstr
 from pypy.rpython.rmodel import log
 
@@ -81,7 +81,7 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
     def rtype_ge(_, hop):
         return _rtype_compare_template(hop, 'ge')
 
-class __extend__(pairtype(rstr.StringRepr, FloatRepr)):
+class __extend__(pairtype(StringRepr, FloatRepr)):
     def rtype_mod(_, hop):
         return rstr.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 

@@ -1,10 +1,8 @@
-import sys
 import types
-from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
-from pypy.objspace.flow.model import Constant
-from pypy.rpython.rmodel import Repr, TyperError, needsgc
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import Repr, needsgc
 
 def getclassrepr(rtyper, classdef):
     try:

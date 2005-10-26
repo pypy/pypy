@@ -2,7 +2,7 @@ from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.annotation import model as annmodel
 from pypy.rpython import rtuple
-from pypy.rpython.rmodel import TyperError
+from pypy.rpython.error import TyperError
 
 class CallPatternTooComplex(TyperError):
     pass

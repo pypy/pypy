@@ -1,7 +1,8 @@
 from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import IteratorRepr, externalvsinternal
 from pypy.rpython.rslice import SliceRepr
 from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr

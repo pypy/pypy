@@ -1,4 +1,3 @@
-from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rmodel import Repr
@@ -6,7 +5,6 @@ from pypy.rpython.extfunctable import typetable
 from pypy.rpython import rbuiltin
 from pypy.rpython.module.support import init_opaque_object
 from pypy.objspace.flow.model import Constant
-from pypy.tool import sourcetools
 
 
 class __extend__(annmodel.SomeExternalObject):

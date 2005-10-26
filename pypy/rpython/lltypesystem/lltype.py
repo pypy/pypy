@@ -1,4 +1,4 @@
-import weakref, operator
+import weakref
 import py
 from pypy.rpython.rarithmetic import r_uint
 from pypy.tool.uid import Hashable
@@ -1006,17 +1006,4 @@ def typeMethod(func):
     func._type_method = True
     return func
     
-# FIXME
-__all__ = ['Array', 'Bool', 'Char', 'ContainerType', 'Float',
-'ForwardReference', 'FuncType', 'GC_CONTAINER', 'GcArray', 'GcForwardReference',
-'GcStruct', 'Hashable', 'InvalidCast', 'LowLevelType', 'NoneType', 'OpaqueType',
-'Primitive', 'Ptr', 'PyObject', 'PyObjectType', 'RuntimeTypeInfo', 'Signed',
-'Struct', 'TLS', 'UniChar', 'Unsigned', 'Void', '_array', '_castdepth',
-'_expose', '_func', '_opaque', '_parentable', '_ptr', '_pyobject', '_struct',
-'_struct_variety', 'attachRuntimeTypeInfo', 'cast_pointer', 'cast_ptr_to_int',
-'castable', 'flavored_malloc', 'frozendict', 'functionptr',
-'getRuntimeTypeInfo', 'log', 'malloc', 'nullptr', 'opaqueptr', 'operator',
-'parentlink', 'py', 'pyobjectptr', 'r_uint', 'runtime_type_info', 'safe_equal',
-'saferecursive', 'tlsobject', 'typeOf', 'weakref', 'isCompatibleType',
-'typeMethod']
 

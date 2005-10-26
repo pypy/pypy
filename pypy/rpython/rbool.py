@@ -1,7 +1,8 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, pyobjectptr
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, BoolRepr
+from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import IntegerRepr, BoolRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import log
 

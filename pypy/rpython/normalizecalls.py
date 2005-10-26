@@ -2,11 +2,12 @@ import py
 import types
 import inspect
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation, checkgraph
+from pypy.objspace.flow.model import checkgraph
 from pypy.annotation import model as annmodel
 from pypy.tool.sourcetools import has_varargs, valid_identifier
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.rmodel import TyperError, needsgc
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import needsgc
 from pypy.rpython.objectmodel import instantiate
 
 

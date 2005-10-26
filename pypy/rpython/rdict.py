@@ -4,7 +4,6 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import hlinvoke
-from pypy.rpython import rlist
 from pypy.rpython import robject
 from pypy.rpython import objectmodel
 from pypy.rpython import rmodel

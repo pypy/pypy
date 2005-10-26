@@ -1,9 +1,10 @@
 from weakref import WeakValueDictionary
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, IteratorRepr
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import IntegerRepr, IteratorRepr
 from pypy.rpython.rmodel import StringRepr, CharRepr, inputconst, UniCharRepr
-from pypy.rpython.rarithmetic import intmask, _hash_string
+from pypy.rpython.rarithmetic import _hash_string
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rtuple import TupleRepr
 from pypy.rpython import rint
@@ -12,7 +13,7 @@ from pypy.rpython.rslice import startstop_slice_repr, startonly_slice_repr
 from pypy.rpython.rslice import minusone_slice_repr
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, Ptr, malloc, \
-     Bool, Void, GcArray, nullptr, typeOf, pyobjectptr
+     Bool, Void, GcArray, nullptr, pyobjectptr
 
 
 # ____________________________________________________________

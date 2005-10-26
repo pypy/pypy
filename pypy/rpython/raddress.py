@@ -1,8 +1,8 @@
 # rtyping of memory address operations
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.memory.lladdress import address, NULL, Address
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
+from pypy.rpython.memory.lladdress import NULL, Address
+from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.lltypesystem import lltype
 
 class __extend__(annmodel.SomeAddress):

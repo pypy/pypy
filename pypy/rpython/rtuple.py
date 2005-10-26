@@ -1,7 +1,8 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rmodel import Repr, TyperError, IntegerRepr, inputconst
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import IteratorRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.lltypesystem.lltype import \

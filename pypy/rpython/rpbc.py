@@ -1,17 +1,15 @@
 import types
 import sys
-from pypy.annotation.pairtype import pairtype, pair
+from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lltype import \
-     typeOf, Void, ForwardReference, Struct, Bool, \
-     Ptr, malloc, nullptr
-from pypy.rpython.rmodel import Repr, TyperError, inputconst, warning
+     typeOf, Void, Bool, nullptr
+from pypy.rpython.error import TyperError
+from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython import rclass
 from pypy.rpython import robject
-from pypy.rpython import rtuple
-from pypy.tool.sourcetools import has_varargs
 
 from pypy.rpython import callparse
 
