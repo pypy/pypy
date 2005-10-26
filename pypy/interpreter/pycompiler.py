@@ -4,8 +4,6 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 """
 from codeop import PyCF_DONT_IMPLY_DEDENT
 from pypy.interpreter.error import OperationError
-from pypy.rpython.objectmodel import we_are_translated
-import os
 
 class AbstractCompiler:
     """Abstract base class for a bytecode compiler."""

@@ -2,10 +2,11 @@
 
 
 """
-from pypy.interpreter.gateway import interp2app, ObjSpace, Arguments, W_Root 
-from pypy.interpreter.baseobjspace import BaseWrappable, Wrappable
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.baseobjspace import \
+     BaseWrappable, Wrappable, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
-from pypy.tool.cache import Cache
 from pypy.tool.sourcetools import compile2
 from pypy.rpython.objectmodel import instantiate
 

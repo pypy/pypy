@@ -1,4 +1,3 @@
-from pypy.interpreter.error import OperationError
 
 class SyntaxError(Exception):
     """Base class for exceptions raised by the parser."""

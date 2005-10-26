@@ -1,7 +1,7 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
-from pypy.interpreter import eval, baseobjspace, gateway
+from pypy.interpreter import eval, baseobjspace
 from pypy.interpreter.miscutils import Stack, FixedStack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback

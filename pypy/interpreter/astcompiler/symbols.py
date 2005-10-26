@@ -6,7 +6,6 @@ from pypy.interpreter.astcompiler.consts import SC_LOCAL, SC_GLOBAL, \
 from pypy.interpreter.astcompiler.misc import mangle, Counter
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter import gateway
-import types
 
 
 import sys

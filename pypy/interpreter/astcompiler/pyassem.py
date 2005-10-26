@@ -2,7 +2,6 @@
 
 import dis
 import sys
-import types
 
 from pypy.interpreter.astcompiler import misc, ast
 from pypy.interpreter.astcompiler.consts \

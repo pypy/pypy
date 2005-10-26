@@ -790,7 +790,6 @@ def appdef(source, applevel=ApplevelClass):
                            return x+y
                     ''')
     """ 
-    from pypy.interpreter.pycode import PyCode
     if not isinstance(source, str): 
         source = str(py.code.Source(source).strip())
         assert source.startswith("def "), "can only transform functions" 

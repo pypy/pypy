@@ -3,7 +3,6 @@ Module objects.
 """
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.error import OperationError
 
 class Module(Wrappable):
     """A module."""

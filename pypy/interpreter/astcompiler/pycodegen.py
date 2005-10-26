@@ -3,8 +3,6 @@ import os
 import marshal
 import struct
 import sys
-import types
-from cStringIO import StringIO
 
 from pypy.interpreter.astcompiler import ast, parse, walk, syntax
 from pypy.interpreter.astcompiler import pyassem, misc, future, symbols

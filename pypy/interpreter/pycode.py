@@ -9,7 +9,6 @@ from pypy.interpreter import eval
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root 
-from pypy.tool.cache import Cache 
 
 # helper
 

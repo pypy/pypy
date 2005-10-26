@@ -584,7 +584,6 @@ class AppExecCache(SpaceCache):
         """ NOT_RPYTHON """
         space = cache.space
         # XXX will change once we have our own compiler 
-        from pypy.interpreter.pycode import PyCode
         import py
         source = source.lstrip()
         assert source.startswith('('), "incorrect header in:\n%s" % (source,)
