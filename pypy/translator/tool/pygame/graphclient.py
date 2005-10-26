@@ -8,7 +8,8 @@ from pypy.translator.tool.pygame.drawgraph import GraphLayout
 from pypy.translator.tool.pygame.drawgraph import display_async_cmd
 from pypy.translator.tool.pygame.drawgraph import display_async_quit
 from pypy.translator.tool.pygame.drawgraph import wait_for_async_cmd
-from pypy.translator.tool.graphserver import MissingPage, portutil
+from pypy.translator.tool.graphserver import MissingPage
+from pypy.translator.tool import port as portutil
 from pypy.tool.udir import udir
 import py
 

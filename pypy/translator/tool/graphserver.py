@@ -92,7 +92,6 @@ msg [shape="box", label="Error: a link has gone missing.", color="black", fillco
 def run_server_for_inprocess_client(t, options):
     from pypy.translator.tool import graphpage
     from pypy.translator.tool.pygame.graphclient import get_layout
-    from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
 
     page = graphpage.TranslatorPage(t, options.huge)
 

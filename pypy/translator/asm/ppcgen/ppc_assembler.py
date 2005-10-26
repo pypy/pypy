@@ -1,4 +1,3 @@
-import array
 from pypy.translator.asm.ppcgen.ppc_form import PPCForm as Form
 from pypy.translator.asm.ppcgen.ppc_field import ppc_fields
 from pypy.translator.asm.ppcgen.assembler import Assembler

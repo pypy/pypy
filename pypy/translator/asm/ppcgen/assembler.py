@@ -1,4 +1,3 @@
-import array
 import os
 from pypy.translator.asm.ppcgen import form
 

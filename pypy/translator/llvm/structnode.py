@@ -1,4 +1,3 @@
-import py
 from pypy.translator.llvm.log import log
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm import varsize

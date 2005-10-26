@@ -1,4 +1,3 @@
-import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.log import log
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode

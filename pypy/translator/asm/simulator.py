@@ -2,7 +2,6 @@
 import autopath
 from pypy.rpython.llinterp import LLFrame
 #from pypy.translator.asm.infregmachine import Instruction
-from pypy.objspace.flow.model import Constant
 
 """
 Notes on the register allocation algorithm:
@@ -30,7 +29,6 @@ FRMxxx.yyy denotes a finite-register machine, with xxx fast registers, and a tot
 
 
 def regmap(regperm):
-    import operator
     """answer a map IRM notation -> current FRM notation"""
     map={}
     for reg in range(1,len(regperm)):

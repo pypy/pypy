@@ -1,4 +1,3 @@
-import sys, os
 from pypy.objspace.flow.model import Variable, Constant
 #from pypy.translator.asm import infregmachine
 from pypy.rpython.lltypesystem.lltype import Signed
@@ -11,6 +10,7 @@ TARGET_PPC=1
 TARGET_WIN386=2
 
 # def determine_target():
+#     import sys, os
 #     if sys.platform == 'darwin':
 #         if os.uname()[-1] == 'Power Macintosh':
 #             return TARGET_PPC

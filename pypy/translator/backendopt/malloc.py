@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation, traverse, checkgraph
+from pypy.objspace.flow.model import SpaceOperation, traverse
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import remove_identical_vars

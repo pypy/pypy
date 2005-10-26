@@ -2,7 +2,7 @@
 Build a Python module out of llvmfile and a Pyrex wrapper file.
 """
 
-import os, sys, inspect, re, exceptions
+import os, sys
 
 from py.process import cmdexec 
 from py import path 

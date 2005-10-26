@@ -44,18 +44,15 @@ pieces in pypy svn.
 """
 
 from __future__ import generators
-import autopath, os, sys, exceptions, inspect, types
+import autopath, os, sys, types
 import cPickle as pickle, __builtin__
 from copy_reg import _HEAPTYPE
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.objspace.flow.model import FunctionGraph, Block, Link
-from pypy.objspace.flow.model import last_exception
-from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
+from pypy.objspace.flow.model import last_exception, checkgraph
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from types import FunctionType, CodeType, ModuleType
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
-from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 
 from pypy.translator.translator import Translator
@@ -64,7 +61,7 @@ from pypy.objspace.flow import FlowObjSpace
 from pypy.tool.sourcetools import render_docstr, NiceCompile
 
 from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
-     c_string, uniquemodulename, C_IDENTIFIER, NameManager
+     uniquemodulename, C_IDENTIFIER, NameManager
 
 
 # list of simplifcation passes needed by geninterp

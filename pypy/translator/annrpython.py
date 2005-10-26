@@ -1,12 +1,12 @@
 from __future__ import generators
 
-from types import FunctionType, ClassType
+from types import ClassType
 from pypy.tool.ansi_print import ansi_log 
 from pypy.annotation import model as annmodel
-from pypy.annotation.model import pair
+from pypy.annotation.pairtype import pair
 from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
+from pypy.objspace.flow.model import FunctionGraph
 from pypy.objspace.flow.model import last_exception, checkgraph
 import py
 log = py.log.Producer("annrpython") 

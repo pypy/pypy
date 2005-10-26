@@ -1,5 +1,5 @@
 import autopath
-import os, py
+import py
 from pypy.translator.c.node import PyObjectNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines

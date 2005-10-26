@@ -9,9 +9,8 @@ from __future__ import generators
 
 import types
 from pypy.objspace.flow.model import SpaceOperation
-from pypy.objspace.flow.model import Variable, Constant, Block, Link
+from pypy.objspace.flow.model import Variable, Constant, Link
 from pypy.objspace.flow.model import last_exception, checkgraph
-from pypy.translator.annrpython import CannotSimplify
 from pypy.annotation import model as annmodel
 from pypy.annotation.specialize import MemoTable
 from pypy.rpython.rstack import stack_check

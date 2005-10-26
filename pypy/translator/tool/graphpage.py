@@ -1,8 +1,6 @@
 import inspect, types
 from pypy.objspace.flow.model import traverse, Block, Link
 from pypy.translator.tool.make_dot import DotGen, make_dot, make_dot_graphs
-from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
-from pypy.annotation import model
 from pypy.annotation.classdef import ClassDef
 from pypy.tool.uid import uid
 

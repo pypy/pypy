@@ -1,11 +1,5 @@
-import sys
 from pypy.translator.simplify import get_graph
-from pypy.translator.unsimplify import copyvar, split_block
-from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation, last_exception
-from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph, flatten
-from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem.lltype import Bool, typeOf, FuncType, _ptr
+from pypy.objspace.flow.model import mkentrymap, checkgraph
 
 # this transformation is very academical -- I had too much time
 

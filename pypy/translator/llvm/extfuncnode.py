@@ -1,4 +1,3 @@
-import py
 from pypy.translator.llvm.node import ConstantLLVMNode
 from pypy.translator.llvm.log import log 
 log = log.extfuncnode

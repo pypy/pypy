@@ -1,4 +1,3 @@
-from pypy.objspace.flow.model import checkgraph
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy.translator.backendopt.malloc import remove_simple_mallocs

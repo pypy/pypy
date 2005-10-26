@@ -1,7 +1,7 @@
 from __future__ import generators
 from pypy.rpython.lltypesystem.lltype import typeOf, Void
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
-from pypy.translator.c.support import cdecl, ErrorValue, somelettersfrom
+from pypy.translator.c.support import cdecl, somelettersfrom
 
 
 class CExternalFunctionCodeGenerator(object):

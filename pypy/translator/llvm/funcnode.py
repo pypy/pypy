@@ -1,13 +1,11 @@
-import py
-import sys
-from pypy.objspace.flow.model import Block, Constant, Variable, Link
+from pypy.objspace.flow.model import Block, Constant, Link
 from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.log import log 
 from pypy.translator.llvm.backendopt.removeexcmallocs import remove_exception_mallocs
-from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
+#from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
 from pypy.translator.unsimplify import remove_double_links
 log = log.funcnode
 

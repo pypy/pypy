@@ -1,4 +1,3 @@
-import py
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.module.extfunction import extfunctions

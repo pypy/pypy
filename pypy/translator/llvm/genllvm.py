@@ -1,9 +1,4 @@
-import os
 import time
-import types
-import urllib
-
-import py
 
 from pypy.translator.llvm import build_llvm_module
 from pypy.translator.llvm.database import Database 
@@ -11,13 +6,11 @@ from pypy.translator.llvm.pyxwrapper import write_pyx_wrapper
 from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
-from pypy.translator.llvm.codewriter import CodeWriter, \
-     DEFAULT_TAIL, DEFAULT_CCONV
+from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
 from pypy.translator.llvm.module.extfunction import extdeclarations, \
      extfunctions, dependencies
 from pypy.translator.llvm.node import LLVMNode
-from pypy.translator.llvm.structnode import StructNode
 from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.exception import ExceptionPolicy

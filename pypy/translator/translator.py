@@ -8,9 +8,7 @@ import autopath, os, sys, types
 
 from pypy.objspace.flow.model import *
 from pypy.translator.simplify import simplify_graph
-from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.cbuild import make_module_from_pyxstring
-from pypy.translator.tool.cbuild import make_module_from_c
 from pypy.objspace.flow import FlowObjSpace
 from pypy.tool.ansi_print import ansi_log
 import py
@@ -136,7 +134,6 @@ class Translator:
         """Interactive debugging helper """
         if f is None:
             f = sys.stdout
-        from pypy.objspace.flow.model import Block, flatten
         if isinstance(x, Block):
             for func, graph in self.flowgraphs.items():
                 if x in graph.iterblocks():

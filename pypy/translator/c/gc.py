@@ -2,7 +2,7 @@ import sys
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.node import ContainerNode
 from pypy.rpython.lltypesystem.lltype import \
-     typeOf, Ptr, PyObject, ContainerType, Array, GcArray, Struct, GcStruct, \
+     typeOf, Ptr, PyObject, ContainerType, GcArray, GcStruct, \
      RuntimeTypeInfo, getRuntimeTypeInfo
 
 PyObjPtr = Ptr(PyObject)

@@ -1,5 +1,3 @@
-import py
-from itertools import count
 from pypy.translator.llvm.log import log 
 
 log = log.codewriter 
