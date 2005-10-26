@@ -246,7 +246,6 @@ class FlowExecutionContext(ExecutionContext):
         return outcome, w_exc_cls, w_exc_value
 
     def build_flow(self):
-        from pypy.objspace.flow.objspace import UnwrapException
         while self.pendingblocks:
             block = self.pendingblocks.pop(0)
             frame = self.create_frame()

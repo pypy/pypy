@@ -1,5 +1,4 @@
 from pypy.objspace.std.objspace import *
-from pypy.interpreter.typedef import GetSetProperty
 
 def descr_get_dictproxy(space, w_obj):
     return W_DictProxyObject(space, w_obj.getdict())

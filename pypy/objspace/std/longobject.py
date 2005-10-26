@@ -1,8 +1,8 @@
-import sys, operator
+import sys
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rpython.rarithmetic import LONG_BIT, LONG_MASK, intmask, r_uint
+from pypy.rpython.rarithmetic import LONG_BIT, intmask, r_uint
 
 import math
 

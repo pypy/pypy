@@ -1,6 +1,6 @@
 from pypy.interpreter.pyframe import PyFrame, ControlFlowException
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import instantiate
+from pypy.rpython.objectmodel import instantiate
 from pypy.objspace.flow.model import *
 
 class FrameState:

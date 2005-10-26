@@ -8,7 +8,6 @@ for order comparisons.
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
-from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython.objectmodel import r_dict
 
 

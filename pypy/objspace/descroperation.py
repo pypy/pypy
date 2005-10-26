@@ -1,8 +1,7 @@
 import operator
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root, BaseWrappable
+from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method
-from pypy.interpreter.gateway import BuiltinCode
 from pypy.interpreter.argument import Arguments
 from pypy.tool.sourcetools import compile2, func_with_new_name
 

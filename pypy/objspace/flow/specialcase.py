@@ -1,13 +1,8 @@
-import types, operator, sys
-from pypy.interpreter import pyframe, baseobjspace
-from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.objspace import UnwrapException
-from pypy.objspace.flow.model import Constant, Variable
+from pypy.objspace.flow.model import Constant
 from pypy.objspace.flow.operation import OperationName, Arity
-from pypy.interpreter import pyopcode
 from pypy.interpreter.gateway import ApplevelClass
 from pypy.tool.cache import Cache
-from pypy.tool.sourcetools import NiceCompile, compile2
 
 def sc_import(space, fn, args):
     w_name, w_glob, w_loc, w_frm = args.fixedunpack(4)

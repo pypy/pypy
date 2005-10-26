@@ -12,7 +12,8 @@ def register_all(module_dict, alt_ns=None):
     If the name doesn't exist then the alternative namespace is tried
     for registration. 
     """
-    from pypy.objspace.std.objspace import StdObjSpace, W_ANY, W_Object
+    from pypy.objspace.std.objspace import StdObjSpace
+    from pypy.objspace.std.model import W_ANY, W_Object
     namespaces = [StdObjSpace.MM, StdObjSpace]
     if alt_ns:
         namespaces.insert(0, alt_ns)
@@ -111,7 +112,7 @@ def add_extra_comparisons():
     We try to add them in the order defined by the OP_CORRESPONDANCES
     table, thus favouring swapping the arguments over negating the result.
     """
-    from pypy.objspace.std.objspace import StdObjSpace, W_ANY
+    from pypy.objspace.std.objspace import StdObjSpace
     originalentries = {}
     for op in OPERATORS:
         originalentries[op] = getattr(StdObjSpace.MM, op).signatures()

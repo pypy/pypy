@@ -1,9 +1,10 @@
-from pypy.interpreter import eval, function, gateway
+from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
 from pypy.interpreter.baseobjspace import SpaceCache
-from pypy.objspace.std.model import MultiMethod, FailedToImplement
+from pypy.objspace.std.model import MultiMethod
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.tool.sourcetools import compile2
 
 __all__ = ['StdTypeDef', 'newmethod', 'gateway',
@@ -246,13 +247,13 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
 
 def wrap_trampoline_in_gateway(func, methname, multimethod):
     """NOT_RPYTHON"""
-    unwrap_spec = [gateway.ObjSpace] + [gateway.W_Root]*multimethod.arity
+    unwrap_spec = [baseobjspace.ObjSpace] + [baseobjspace.W_Root]*multimethod.arity
     if multimethod.extras.get('varargs_w', False):
         unwrap_spec.append('args_w')
     if multimethod.extras.get('w_varargs', False):
         unwrap_spec.append('w_args')        
     if multimethod.extras.get('general__args__', False):
-        unwrap_spec.append(gateway.Arguments)
+        unwrap_spec.append(argument.Arguments)
     return gateway.interp2app(func, app_name=methname, unwrap_spec=unwrap_spec)
 
 def slicemultimethod(space, multimethod, typedef, result, local=False):

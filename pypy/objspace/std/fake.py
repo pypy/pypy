@@ -3,8 +3,8 @@ from pypy.interpreter import baseobjspace
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objspace import W_Object, StdObjSpace
-from pypy.objspace.std.model import UnwrapError
+from pypy.objspace.std.objspace import StdObjSpace
+from pypy.objspace.std.model import W_Object, UnwrapError
 
 # this file automatically generates non-reimplementations of CPython
 # types that we do not yet implement in the standard object space

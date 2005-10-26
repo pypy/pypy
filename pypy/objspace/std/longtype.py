@@ -1,11 +1,10 @@
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.inttype import int_typedef
 from pypy.interpreter.gateway import NoneNotWrapped
 
 def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
-    from pypy.objspace.std.longobject import W_LongObject, args_from_long
+    from pypy.objspace.std.longobject import W_LongObject
     w_value = w_x     # 'x' is the keyword argument name in CPython
     if w_base is None:
         # check for easy cases

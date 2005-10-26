@@ -2,7 +2,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import ObjSpace, BaseWrappable
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.interpreter.typedef import instantiate
+from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.gateway import PyPyCacheDir
 from pypy.tool.cache import Cache 
 from pypy.objspace.std.model import W_Object, UnwrapError
@@ -10,7 +10,6 @@ from pypy.objspace.std.model import W_ANY, MultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
-import types
 import sys
 import os
 
@@ -135,7 +134,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # generate on-the-fly
         class Fake: pass
         fake = Fake()
-        import pypy.lib as lib
+        from pypy import lib
         fname = os.path.join(os.path.split(lib.__file__)[0], pyname)
         fake.filename = fname
         fake.code = compile(file(fname).read(), fname, "exec")
