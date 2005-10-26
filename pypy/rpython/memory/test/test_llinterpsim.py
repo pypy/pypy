@@ -152,9 +152,10 @@ def test_list_creation():
     def f():
         return [1,2,3]
     res = interpret(f,[])
-    assert len(res.items) == len([1,2,3])
+    items = res.ll_items()
+    assert len(items) == len([1,2,3])
     for i in range(3):
-        assert res.items[i] == i+1
+        assert items[i] == i+1
 
 def test_list_itemops():
     def f(i):
@@ -210,10 +211,11 @@ def test_list_reverse():
         l.reverse()
         return l
     res = interpret(f,[])
-    assert len(res.items) == len([3,2,1])
+    items = res.ll_items()
+    assert len(items) == len([3,2,1])
     print res
     for i in range(3):
-        assert res.items[i] == 3-i
+        assert items[i] == 3-i
         
 def test_list_pop():
     def f():
@@ -223,7 +225,8 @@ def test_list_pop():
         l3 = l.pop(-1)
         return [l1,l2,l3]
     res = interpret(f,[])
-    assert len(res.items) == 3
+    items = res.ll_items()
+    assert len(items) == 3
 
 def test_obj_obj_add():
     def f(x,y):

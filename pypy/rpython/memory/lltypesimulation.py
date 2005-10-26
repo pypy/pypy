@@ -77,6 +77,10 @@ class simulatorptr(object):
                     return res
                 else:
                     assert 0, "not implemented"
+        if isinstance(self._T, lltype.ContainerType):
+            adtmeth = self._T._adtmeths.get(field_name)
+            if adtmeth is not None:
+                return adtmeth.__get__(self)
         raise AttributeError, ("%r instance has no field %r" % (self._T,
                                                                 field_name))
 
