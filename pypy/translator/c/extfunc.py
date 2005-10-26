@@ -134,8 +134,21 @@ def predeclare_extfunc_helpers(db, rtyper):
     yield annotate(ll__socket.ll__socket_addrinfo, *args)
 
 def predeclare_extfuncs(db, rtyper):
+    modules = {}
+    def module_name(c_name):
+        frags = c_name[3:].split('_')
+        if frags[0] == '':
+            return '_' + frags[1]
+        else:
+            return frags[0]
+
     for func, funcobj in db.externalfuncs.items():
         c_name = EXTERNALS[func]
+        # construct a define LL_NEED_<modname> to make it possible to isolate in-develpoment externals and headers
+        modname = module_name(c_name)
+        if modname not in modules:
+            modules[modname] = True
+            yield 'LL_NEED_%s' % modname.upper(), 1
         funcptr = lltype._ptr(lltype.Ptr(lltype.typeOf(funcobj)), funcobj) # hum
         yield c_name, funcptr
 

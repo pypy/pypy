@@ -1,3 +1,4 @@
+#ifdef LL_NEED__SOCKET /* isolate */
 
 #ifdef MS_WINDOWS
   /* winsock2.h has already been included before windows.h in thread_nt.h */
@@ -374,3 +375,5 @@ inet_ntop(int af, const void *src, char *dst, socklen_t size)
 #endif /* !HAVE_INET_PTON */
 
 #endif /* PYPY_NOT_MAIN_FILE */
+
+#endif /* isolate */
