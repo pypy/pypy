@@ -3,13 +3,13 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
 from pypy.interpreter.baseobjspace import SpaceCache
-from pypy.objspace.std.model import StdObjspaceMultiMethod
+from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.tool.sourcetools import compile2
 
 __all__ = ['StdTypeDef', 'newmethod', 'gateway',
            'GetSetProperty', 'Member',
-           'StdObjspaceMultiMethod', 'descr_get_dict']
+           'StdObjSpaceMultiMethod', 'descr_get_dict']
 
 
 class StdTypeDef(TypeDef):
@@ -93,7 +93,7 @@ def hack_out_multimethods(ns):
     "NOT_RPYTHON: initialization-time only."
     result = []
     for value in ns.itervalues():
-        if isinstance(value, StdObjspaceMultiMethod):
+        if isinstance(value, StdObjSpaceMultiMethod):
             result.append(value)
     return result
 

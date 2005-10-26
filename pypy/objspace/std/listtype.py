@@ -3,16 +3,16 @@ from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
 from sys import maxint
 
-list_append   = StdObjspaceMultiMethod('append', 2)
-list_insert   = StdObjspaceMultiMethod('insert', 3)
-list_extend   = StdObjspaceMultiMethod('extend', 2)
-list_pop      = StdObjspaceMultiMethod('pop',    2, defaults=(-1,))
-list_remove   = StdObjspaceMultiMethod('remove', 2)
-list_index    = StdObjspaceMultiMethod('index',  4, defaults=(0,maxint))
-list_count    = StdObjspaceMultiMethod('count',  2)
-list_reverse  = StdObjspaceMultiMethod('reverse',1)
-list_sort     = StdObjspaceMultiMethod('sort',   4, defaults=(None, None, False), argnames=['cmp', 'key', 'reverse'])
-list_reversed = StdObjspaceMultiMethod('__reversed__', 1)
+list_append   = StdObjSpaceMultiMethod('append', 2)
+list_insert   = StdObjSpaceMultiMethod('insert', 3)
+list_extend   = StdObjSpaceMultiMethod('extend', 2)
+list_pop      = StdObjSpaceMultiMethod('pop',    2, defaults=(-1,))
+list_remove   = StdObjSpaceMultiMethod('remove', 2)
+list_index    = StdObjSpaceMultiMethod('index',  4, defaults=(0,maxint))
+list_count    = StdObjSpaceMultiMethod('count',  2)
+list_reverse  = StdObjSpaceMultiMethod('reverse',1)
+list_sort     = StdObjSpaceMultiMethod('sort',   4, defaults=(None, None, False), argnames=['cmp', 'key', 'reverse'])
+list_reversed = StdObjSpaceMultiMethod('__reversed__', 1)
 ##
 ### gateway is imported in the stdtypedef module
 ##list_reversed__ANY = gateway.applevel('''
