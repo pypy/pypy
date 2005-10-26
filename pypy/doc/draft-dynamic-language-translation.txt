@@ -1487,23 +1487,45 @@ r( (b,E) )``.  To formalize the meta-rule describing rescheduling of
 rules, we introduce a third component in the state: a subset *S* of the
 *Rules* which stands for the currently scheduled rules.  Finally, for
 any variable *v* we write *Rules_v* for the set of rules that have *v*
-as an input or auxiliary variable.
+as an input or auxiliary variable.  The rule titled ``(x~y) in E`` is
+called *r_x~y* for short, and it belongs to *Rules_x* and *Rules_y*.
 
 The meta-rule can be formalized as follows: we start from the initial
-"meta-state" *(S,b,E)*, where *S=Rules* and *(b,E)* is the initial
-state; then we apply the following meta-rule that computes a new
-meta-state *(S',b',E')*::
+"meta-state" *(S_0, b_0, E_0)*, where *S_0=Rules* and *(b_0, E_0)* is
+the initial state; then we apply the following meta-rule that computes a
+new meta-state *(S_i+1, b_i+1, E_i+1)* from a meta-state *(S_i, b_i,
+E_i)*::
 
-    pick any r in S
-    compute (b',E') = r( (b,E) )
-    let S' = 
+    pick a random r_i in the set of scheduled rules S_i
+    compute (b_i+1, E_i+1) = r_i( (b_i, E_i) )
+    let S_i+1 = ( S_i - {r_i}
+                  union Rules_v for all v for which b_i+1(v) != b_i(v)
+                  union {r_x~y} for all (x~y) in E_i+1 but not in E_i )
 
-The meta-rule is applied repeatedly, feeding the new meta-state back
-into it, until the *S* component is empty, at which point annotation is
-complete and the process stops.
+The meta-rule is applied repeatedly, giving rise to a sequence of
+meta-states *(S_0, b_0, E_0), (S_1, b_1, E_1), ... (S_n, b_n, E_n)*.
+The sequence ends when *S_n* is empty, at which point annotation is
+complete.  The informal argument of the Termination_ paragraph shows
+that this sequence is necessarily of finite length.  In the
+Generalization_ paragraph we have also seen that each state *(b_i+1,
+E_i+1)* is equal to or more general than the previous state *(b_i,
+E_i)*.
 
+We define an annotation state *(b,E)* to be *sound* if for all rules *r*
+we have ``r( (b,E) ) = (b,E)``.  We say that *(b,E)* is *degenerated* if
+there is a variable *v* for which ``b(v) = Top``.  We will show the
+following propositions:
 
-XXX most-precise-fixpoint-ness
+1. The final state *(b_n, E_n)* is sound.
+
+2. If we assume that there exists (at all) a *non-degenerated* *sound*
+   state *(b,E)* which is at least as general as *(b_0, E_0)*, then there
+   is a unique minimal one among all such states, and this global minimum
+   is exactly *(b_n, E_n)*.
+
+Proof:
+
+   XXX
 
 
 Complexity
