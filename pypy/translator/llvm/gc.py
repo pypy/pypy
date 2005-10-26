@@ -1,8 +1,5 @@
-import py
-from pypy.tool.ansi_print import ansi_log
-log = py.log.Producer("llvm")
-log.setconsumer("llvm", ansi_log)
-
+from pypy.translator.llvm.log import log
+log = log.gc
 
 class GcPolicy:
     def __init__(self):
@@ -32,13 +29,10 @@ class GcPolicy:
             gcpolicy = 'none'
 
         if gcpolicy == 'boehm':
-            from pypy.translator.llvm.gc import BoehmGcPolicy
             gcpolicy = BoehmGcPolicy()
         elif gcpolicy == 'ref':
-            from pypy.translator.llvm.gc import RefcountingGcPolicy
             gcpolicy = RefcountingGcPolicy()
         elif gcpolicy == 'none':
-            from pypy.translator.llvm.gc import NoneGcPolicy
             gcpolicy = NoneGcPolicy()
         else:
             raise Exception, 'unknown gcpolicy: ' + str(gcpolicy)

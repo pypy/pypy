@@ -3,9 +3,6 @@ import py
 
 from pypy.translator.llvm.test.runtest import compile_module_function
 
-py.log.setconsumer("genllvm", py.log.STDOUT)
-py.log.setconsumer("genllvm database prepare", None)
-
 def test_GC_malloc(): 
     #XXX how to get to gcpolicy?
     #if not use_boehm_gc:

@@ -6,9 +6,6 @@ import py
 from pypy.rpython.rarithmetic import r_uint
 from pypy.translator.llvm.test.runtest import compile_function
 
-py.log.setconsumer("genllvm", py.log.STDOUT)
-py.log.setconsumer("genllvm database prepare", None)
-
 def test_return1():
     def simple1():
         return 1

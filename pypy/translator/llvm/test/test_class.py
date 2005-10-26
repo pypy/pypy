@@ -6,8 +6,6 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.translator.llvm.test.runtest import compile_function
 from pypy.translator.llvm.test import llvmsnippet
 
-#py.log.setconsumer("genllvm", py.log.STDOUT)
-
 class TestClass(object):
     def test_classsimple(self):
         f = compile_function(llvmsnippet.class_simple, [])

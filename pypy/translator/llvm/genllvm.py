@@ -22,10 +22,7 @@ from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.exception import ExceptionPolicy
 from pypy.translator.translator import Translator
-
-from pypy.tool.ansi_print import ansi_log
-log = py.log.Producer("llvm")
-log.setconsumer("llvm", ansi_log)
+from pypy.translator.llvm.log import log
 
 function_count = {}
 llexterns_header = llexterns_functions = None

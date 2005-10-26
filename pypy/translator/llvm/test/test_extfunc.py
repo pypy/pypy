@@ -8,9 +8,6 @@ from pypy.tool.udir import udir
 from pypy.translator.llvm.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint
 
-py.log.setconsumer("genllvm", py.log.STDOUT)
-py.log.setconsumer("genllvm database prepare", None)
-
 def test_external_function_ll_os_dup():
     def fn():
         return os.dup(0)

@@ -7,9 +7,6 @@ from pypy.translator.llvm.test.runtest import compile_function
 from pypy.translator.llvm import database, codewriter
 from pypy.rpython import rarithmetic 
 
-py.log.setconsumer("genllvm", py.log.STDOUT)
-py.log.setconsumer("genllvm database prepare", None)
-
 S = lltype.Struct("base", ('a', lltype.Signed), ('b', lltype.Signed))
 
 def test_struct_constant1():

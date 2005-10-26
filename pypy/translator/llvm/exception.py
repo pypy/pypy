@@ -51,13 +51,10 @@ else:
     def new(exceptionpolicy=None):  #factory
         exceptionpolicy = exceptionpolicy or 'explicit'
         if exceptionpolicy == 'invokeunwind':
-            from pypy.translator.llvm.exception import InvokeUnwindExceptionPolicy
             exceptionpolicy = InvokeUnwindExceptionPolicy()
         elif exceptionpolicy == 'explicit':
-            from pypy.translator.llvm.exception import ExplicitExceptionPolicy
             exceptionpolicy = ExplicitExceptionPolicy()
         elif exceptionpolicy == 'none':
-            from pypy.translator.llvm.exception import NoneExceptionPolicy
             exceptionpolicy = NoneExceptionPolicy()
         else:
             raise Exception, 'unknown exceptionpolicy: ' + str(exceptionpolicy)
