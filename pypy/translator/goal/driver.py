@@ -89,6 +89,7 @@ class TranslationDriver(SimpleTaskEngine):
 
         if standalone:
             ldef = listdef.ListDef(None, annmodel.SomeString())
+            ldef.resize()
             inputtypes = [annmodel.SomeList(ldef)]
         self.inputtypes = inputtypes
 

@@ -16,6 +16,7 @@ def test_hello_world():
 
     t = Translator(entry_point)
     s_list_of_strings = SomeList(ListDef(None, SomeString()))
+    s_list_of_strings.listdef.resize()
     t.annotate([s_list_of_strings])
     t.specialize()
     cbuilder = t.cbuilder(standalone=True)
