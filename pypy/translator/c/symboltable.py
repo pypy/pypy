@@ -127,10 +127,15 @@ class debugptr:
             try:
                 field_index = list(STRUCT._names).index(name)
             except ValueError:
-                raise AttributeError, name
-            FIELD_TYPE = STRUCT._flds[name]
-            offset = self._nth_offset(field_index)
-            return self._read(FIELD_TYPE, offset)
+                pass
+            else:
+                FIELD_TYPE = STRUCT._flds[name]
+                offset = self._nth_offset(field_index)
+                return self._read(FIELD_TYPE, offset)
+        if isinstance(self._TYPE.TO, ContainerType):
+            adtmeth = self._TYPE.TO._adtmeths.get(name)
+            if adtmeth is not None:
+                return adtmeth.__get__(self)
         raise AttributeError, name
 
     def __len__(self):

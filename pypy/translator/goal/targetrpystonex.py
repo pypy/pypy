@@ -56,16 +56,18 @@ def check_g_results(symtable, g_addr):
 
 
 def compare_array_of_array(array, pylist):
-    assert len(array.items) == len(pylist)
+    items = array.ll_items()
+    assert len(items) == len(pylist)
     for i in range(len(pylist)):
-        x1 = array.items[i]
+        x1 = items[i]
         x2 = pylist[i]
         compare_array(x1, x2)
 
 def compare_array(array, pylist):
-    assert len(array.items) == len(pylist)
+    items = array.ll_items()
+    assert len(items) == len(pylist)
     for i in range(len(pylist)):
-        x1 = array.items[i]
+        x1 = items[i]
         x2 = pylist[i]
         assert x1 == x2
 

@@ -15,7 +15,8 @@ def test_simple():
 
     symtable = getsymboltable(f.__module__)
     debug_list = symtable[addr]
-    assert len(debug_list.items) == 3
-    assert debug_list.items[0] == 4
-    assert debug_list.items[1] == 5
-    assert debug_list.items[2] == 6
+    debug_items = debug_list.ll_items()
+    assert len(debug_items) == 3
+    assert debug_items[0] == 4
+    assert debug_items[1] == 5
+    assert debug_items[2] == 6
