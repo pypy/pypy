@@ -77,7 +77,7 @@ class Completer:
             w_bases = s.getattr(w_clz, s.wrap("__bases__"))             
             bases_w = s.unpacktuple(w_bases)
 
-        except OperationError:
+        except error.OperationError:
             return words
 
         for w_clz in bases_w:
