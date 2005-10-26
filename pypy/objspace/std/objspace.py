@@ -348,7 +348,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return w_obj.getclass(self)
 
     def lookup(self, w_obj, name):
-        w_type = w_obj.getclass(self)
+        w_type = self.type(w_obj)
         return w_type.lookup(name)
     lookup._annspecialcase_ = 'specialize:lookup'
 
