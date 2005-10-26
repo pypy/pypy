@@ -115,7 +115,7 @@ class Scope(object):
             return self.parent.var_source(name)
         else:
             return None, None
-        
+
 
 class Module(object):
     def __init__(self, system):
@@ -123,6 +123,7 @@ class Module(object):
         self._imports = {} # {modname:{name:was-it-used?}}
         self.definitions = []
         self.toplevelscope = Scope()
+        self.importers = []
     def import_(self, modname):
         if modname not in self._imports:
             if modname not in self.system.modules:
@@ -152,6 +153,7 @@ IMPORT_FROM = opcode.opmap["IMPORT_FROM"]
 LOAD_CONST = opcode.opmap["LOAD_CONST"]
 LOAD_ATTR = opcode.opmap["LOAD_ATTR"]
 
+LOAD_DEREF = opcode.opmap["LOAD_DEREF"]
 LOAD_FAST = opcode.opmap["LOAD_FAST"]
 LOAD_NAME = opcode.opmap["LOAD_NAME"]
 LOAD_GLOBAL = opcode.opmap["LOAD_GLOBAL"]
@@ -167,10 +169,10 @@ def process(r, codeob, scope, toplevel=False):
     i = 0
 
     codeobjs = []
-    
+
     while i < len(opcodes):
         op, oparg = opcodes[i]
-        
+
         if op == IMPORT_NAME:
             preop, preoparg = opcodes[i-1]
             assert preop == LOAD_CONST
@@ -178,7 +180,7 @@ def process(r, codeob, scope, toplevel=False):
             fromlist = codeob.co_consts[preoparg]
 
             modname = codeob.co_names[oparg]
-            
+
             if fromlist is None:
                 # this is the 'import foo' case
                 r.import_(modname)
@@ -186,47 +188,63 @@ def process(r, codeob, scope, toplevel=False):
                 postop, postoparg = opcodes[i+1]
 
                 # ban 'import foo.bar' (it's dubious style anyway, imho)
-                
+
                 #assert not '.' in modname
-                
+
                 scope.modvars[codeob.co_names[postoparg]] = modname.split('.')[0]
                 i += 1
             elif fromlist == ('*',):
-                r.import_(modname)['*'] = False
+                r.import_(modname)['*'] = True
             else:
                 # ok, this is from foo import bar
                 path = None
-                for part in modname.split('.'):
-                    path = [imp.find_module(part, path)[1]]
-#                assert '.' not in codeob.co_names[oparg]
+                try:
+                    for part in modname.split('.'):
+                        path = [imp.find_module(part, path)[1]]
+                except ImportError:
+                    path = -1
                 i += 1
-                vars = mods = None
                 for f in fromlist:
                     op, oparg = opcodes[i]
                     assert op == IMPORT_FROM
                     assert codeob.co_names[oparg] == f
                     i += 1
 
+                    if path == -1:
+                        i += 1
+                        continue
+
+                    var = mod = None
+
                     try:
                         imp.find_module(f, path)
                     except ImportError:
-                        assert mods is None
-                        vars = True
+                        var = True
                         r.import_(modname)[f] = False
                     else:
-                        assert vars is None
-                        mods = True
+                        mod = True
                         submod = modname + '.' + f
                         r.import_(submod)
-                        
+
                     op, oparg = opcodes[i]
 
                     assert op in [STORE_NAME, STORE_FAST, STORE_DEREF, STORE_GLOBAL]
-
-                    if mods is not None:
-                        scope.modvars[codeob.co_names[oparg]] = submod
+                    if op == STORE_FAST:
+                        storename = codeob.co_varnames[oparg]
+                    elif op == STORE_DEREF:
+                        if oparg < len(codeob.co_cellvars):
+                            storename = codeob.co_cellvars[oparg]
+                        else:
+                            storename = codeob.co_freevars[oparg - len(codeob.co_cellvars)]
                     else:
-                        scope.varsources[codeob.co_names[oparg]] = modname, f
+                        storename = codeob.co_names[oparg]
+
+                        
+                    if mod:
+                        scope.modvars[storename] = submod
+                    else:
+                        #print 's', storename, 'm', modname, 'f', f
+                        scope.varsources[storename] = modname, f
                     i += 1
                 op, oparg = opcodes[i]
                 assert op == POP_TOP
@@ -241,7 +259,7 @@ def process(r, codeob, scope, toplevel=False):
             elif preop in [LOAD_FAST]:
                 m = scope.mod_for_name(codeob.co_varnames[preoparg])
                 if m:
-                    r.import_(m)[codeob.co_names[oparg]] = True                
+                    r.import_(m)[codeob.co_names[oparg]] = True
         elif op in [LOAD_NAME, LOAD_GLOBAL]:
             name = codeob.co_names[oparg]
             m, a = scope.var_source(name)
@@ -254,11 +272,20 @@ def process(r, codeob, scope, toplevel=False):
             if m:
                 assert a in r.import_(m)
                 r.import_(m)[a] = True
+        elif op in [LOAD_DEREF]:
+            if oparg < len(codeob.co_cellvars):
+                name = codeob.co_cellvars[oparg]
+            else:
+                name = codeob.co_freevars[oparg - len(codeob.co_cellvars)]
+            m, a = scope.var_source(name)
+            if m:
+                assert a in r.import_(m)
+                r.import_(m)[a] = True
         elif op in [MAKE_FUNCTION, MAKE_CLOSURE]:
             preop, preoparg = opcodes[i-1]
             assert preop == LOAD_CONST
             codeobjs.append(codeob.co_consts[preoparg])
-                
+
         i += 1
     for c in codeobjs:
         process(r, c, Scope(scope))
@@ -278,7 +305,7 @@ def process_module(dottedname, system):
         assert dottedname not in system.pendingmodules
 
         system.modules[dottedname] = r
-        
+
     return r
 
 a = 1
@@ -294,10 +321,47 @@ def main(path):
     system.pendingmodules[path] = None
     while system.pendingmodules:
         path, d = system.pendingmodules.popitem()
-        print len(system.pendingmodules), path
+        print '\r', len(system.pendingmodules), path, '        ',
+        sys.stdout.flush()
         if not path.startswith('pypy.') or path == 'pypy._cache':
             continue
         process_module(path, system)
+
+    # strip out non-pypy imports
+    for name, mod in system.modules.iteritems():
+        for n in mod._imports.copy():
+            if not n.startswith('pypy.') or n == 'pypy._cache':
+                del mod._imports[n]
+
+    # record importer information
+#    for name, mod in system.modules.iteritems():
+#        for n in mod._imports:
+#            system.modules[n].importers.append(name)
+
+    unuseds = {}
+
+    print
+    print '------'
+
+    for name, mod in system.modules.iteritems():
+        u = {}
+        for n in mod._imports:
+            usedany = False
+            for field, used in mod._imports[n].iteritems():
+                if not used:
+                    u.setdefault(n, []).append(field)
+                else:
+                    usedany = True
+            if not usedany:
+                u[n] = []
+        if u:
+            print name
+            for k, v in u.iteritems():
+                if v:
+                    print '   ', k, v
+                else:
+                    print '   ', k, '(entirely)'
+                    
 
 if __name__=='__main__':
     main(*sys.argv[1:])
