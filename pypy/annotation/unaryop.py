@@ -3,19 +3,13 @@ Unary operations on SomeValues.
 """
 
 from types import FunctionType
-from pypy.interpreter.argument import Arguments
-from pypy.annotation.pairtype import pair
-from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
-from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
-from pypy.annotation.model import SomeUnicodeCodePoint
-from pypy.annotation.model import SomeTuple, SomeImpossibleValue
-from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeFloat
-from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
-from pypy.annotation.model import SomeExternalObject
-from pypy.annotation.model import SomeTypedAddressAccess, SomeAddress
-from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.model import add_knowntypedata
-from pypy.annotation.bookkeeper import getbookkeeper, RPythonCallsSpace
+from pypy.annotation.model import \
+     SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
+     SomeDict, SomeUnicodeCodePoint, SomeTuple, SomeImpossibleValue, \
+     SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
+     SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
+     unionof, set, missing_operation, add_knowntypedata
+from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 from pypy.annotation import builtin
 

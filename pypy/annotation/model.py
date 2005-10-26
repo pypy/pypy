@@ -31,7 +31,6 @@ generic element in some specific subset of the set of all objects.
 from types import BuiltinFunctionType, MethodType
 import pypy
 from pypy.annotation.pairtype import pair, extendabletype
-from pypy.objspace.flow.model import Constant
 from pypy.tool.tls import tlsobject
 import inspect
 

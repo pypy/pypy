@@ -4,8 +4,8 @@ The Bookkeeper class.
 
 from __future__ import generators
 import sys
-from types import FunctionType, ClassType, MethodType
-from types import BuiltinMethodType, NoneType
+from types import FunctionType, ClassType, NoneType
+from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef, isclassdef
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF

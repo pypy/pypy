@@ -3,7 +3,7 @@ Built-in functions.
 """
 
 import types
-import sys, math, os, time
+import sys, os
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress

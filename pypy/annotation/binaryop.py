@@ -16,7 +16,7 @@ from pypy.annotation.model import unionof, UnionError, set, missing_operation, T
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
-from pypy.objspace.flow.model import Constant, Variable
+from pypy.objspace.flow.model import Variable
 
 # convenience only!
 def immutablevalue(x):
