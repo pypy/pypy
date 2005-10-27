@@ -4,6 +4,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import IteratorRepr
+from pypy.rpython.rmodel import externalvsinternal
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, GcStruct, Void, Signed, malloc, typeOf, nullptr
@@ -21,7 +22,7 @@ from pypy.rpython.lltypesystem.lltype import \
 
 class __extend__(annmodel.SomeTuple):
     def rtyper_makerepr(self, rtyper):
-        return TupleRepr([rtyper.getrepr(s_item) for s_item in self.items])
+        return TupleRepr(rtyper, [rtyper.getrepr(s_item) for s_item in self.items])
     
     def rtyper_makekey_ex(self, rtyper):
         keys = [rtyper.makekey(s_item) for s_item in self.items]
@@ -30,8 +31,14 @@ class __extend__(annmodel.SomeTuple):
 
 class TupleRepr(Repr):
 
-    def __init__(self, items_r):
-        self.items_r = items_r
+    def __init__(self, rtyper, items_r):
+        self.items_r = []
+        self.external_items_r = []
+        for item_r in items_r:
+            external_repr, internal_repr = externalvsinternal(rtyper, item_r)
+            self.items_r.append(internal_repr)
+            self.external_items_r.append(external_repr)
+        items_r = self.items_r
         self.fieldnames = ['item%d' % i for i in range(len(items_r))]
         self.lltypes = [r.lowleveltype for r in items_r]
         fields = zip(self.fieldnames, self.lltypes)
@@ -82,11 +89,12 @@ class TupleRepr(Repr):
             return Length1TupleIteratorRepr(self)
         raise TyperError("can only iterate over tuples of length 1 for now")
 
-    def getitem(self, llops, v_tuple, index):
+    def getitem(self, llops, v_tuple, index): # ! returns internal repr lowleveltype
         name = self.fieldnames[index]
         llresult = self.lltypes[index]
         cname = inputconst(Void, name)
-        return llops.genop('getfield', [v_tuple, cname], resulttype = llresult)
+        return  llops.genop('getfield', [v_tuple, cname], resulttype = llresult)
+
 
 
 class __extend__(pairtype(TupleRepr, Repr)): 
@@ -117,7 +125,8 @@ class __extend__(pairtype(TupleRepr, IntegerRepr)):
         if not isinstance(v_index, Constant):
             raise TyperError("non-constant tuple index")
         index = v_index.value
-        return r_tup.getitem(hop.llops, v_tuple, index)
+        v = r_tup.getitem(hop.llops, v_tuple, index)
+        return hop.llops.convertvar(v, r_tup.items_r[index], r_tup.external_items_r[index])
 
 class __extend__(pairtype(TupleRepr, TupleRepr)):
     
@@ -133,6 +142,8 @@ class __extend__(pairtype(TupleRepr, TupleRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
         if len(r_from.items_r) == len(r_to.items_r):
+            if r_from.lowleveltype == r_to.lowleveltype:
+                return v
             n = len(r_from.items_r)
             items_v = []
             for i in range(n):
@@ -148,7 +159,7 @@ class __extend__(pairtype(TupleRepr, TupleRepr)):
 #
 #  Irregular operations.
 
-def newtuple(llops, r_tuple, items_v):
+def newtuple(llops, r_tuple, items_v): # items_v should have the lowleveltype of the internal reprs
     if len(r_tuple.items_r) == 0:
         return inputconst(r_tuple, ())    # always the same empty tuple
     c1 = inputconst(Void, r_tuple.lowleveltype.TO)
@@ -221,7 +232,8 @@ class Length1TupleIteratorRepr(IteratorRepr):
         v_iter, = hop.inputargs(self)
         hop.has_implicit_exception(StopIteration) # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(ll_tuplenext, v_iter)
+        v = hop.gendirectcall(ll_tuplenext, v_iter)
+        return hop.llops.convertvar(v, self.r_tuple.items_r[0], self.r_tuple.external_items_r[0])
 
 def ll_tupleiter(ITERPTR, tuple):
     iter = malloc(ITERPTR.TO)

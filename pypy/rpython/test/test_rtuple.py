@@ -8,7 +8,7 @@ from pypy.rpython.test.test_llinterp import interpret
 import py
 
 def test_rtuple():
-    rtuple = TupleRepr([signed_repr, bool_repr])
+    rtuple = TupleRepr(None, [signed_repr, bool_repr])
     assert rtuple.lowleveltype == Ptr(GcStruct('tuple2',
                                                ('item0', Signed),
                                                ('item1', Bool),
@@ -134,3 +134,61 @@ def test_constant_tuples_shared():
         return g(5)
     res = interpret(f, [])
     assert res is True
+
+def test_inst_tuple_getitem():
+    class A:
+        pass
+    class B(A):
+        pass
+
+    def f(i):
+        if i:
+            x = (1, A())
+        else:
+            x = (1, B())
+        return x[1]
+    
+    res = interpret(f, [0])
+    assert ''.join(res.super.typeptr.name) == "B\00"
+    
+def test_inst_tuple_iter():
+    class A:
+        pass
+    class B(A):
+        pass
+
+    def f(i):
+        if i:
+            x = (A(),)
+        else:
+            x = (B(),)
+        l = []
+        for y in x:
+            l.append(y)
+        return l[0]
+
+    res = interpret(f, [0])
+    assert ''.join(res.super.typeptr.name) == "B\00"
+
+    
+def test_inst_tuple_add_getitem():
+    class A:
+        pass
+    class B(A):
+        pass
+
+    def f(i):
+        x = (1, A())
+        y = (2, B())
+        if i:
+            z = x + y
+        else:
+            z = y + x
+        return z[1]
+    
+    res = interpret(f, [1])
+    assert ''.join(res.super.typeptr.name) == "A\00"
+
+    res = interpret(f, [0])
+    assert ''.join(res.super.typeptr.name) == "B\00"
+    
