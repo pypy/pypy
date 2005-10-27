@@ -1,4 +1,5 @@
 from __future__ import generators
+from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
 from sys import maxint
@@ -14,7 +15,6 @@ list_reverse  = StdObjSpaceMultiMethod('reverse',1)
 list_sort     = StdObjSpaceMultiMethod('sort',   4, defaults=(None, None, False), argnames=['cmp', 'key', 'reverse'])
 list_reversed = StdObjSpaceMultiMethod('__reversed__', 1)
 ##
-### gateway is imported in the stdtypedef module
 ##list_reversed__ANY = gateway.applevel('''
 ##    # NOT_RPYTHON -- uses yield
 ##

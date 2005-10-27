@@ -1,3 +1,4 @@
+from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.interpreter.error import OperationError

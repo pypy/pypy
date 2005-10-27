@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import *
 
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):

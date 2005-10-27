@@ -23,7 +23,6 @@ IMPLEMENTATIONS = [
 
 def import_implementations():
     # populate the multimethod tables by importing all object implementations
-    from pypy.objspace.std import default
     result = []
     for fullpath in IMPLEMENTATIONS:
         i = fullpath.rfind('.')
