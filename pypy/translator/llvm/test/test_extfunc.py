@@ -7,6 +7,7 @@ import py
 from pypy.tool.udir import udir
 from pypy.translator.llvm.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython import ros
 
 def test_external_function_ll_os_dup():
     def fn():
@@ -292,4 +293,83 @@ def test_mkdir_rmdir():
     f1(True)
     assert not os.path.exists(path)
 
+# more from translator/c/test/test_extfunc.py Revision: 19054
+
+
+def _real_getenv(var):
+    cmd = '''%s -c "import os; x=os.environ.get('%s'); print (x is None) and 'F' or ('T'+x)"''' % (
+        sys.executable, var)
+    g = os.popen(cmd, 'r')
+    output = g.read().strip()
+    g.close()
+    if output == 'F':
+        return None
+    elif output.startswith('T'):
+        return output[1:]
+    else:
+        raise ValueError, 'probing for env var returned %r' % (output,)
+
+def _real_envkeys():
+    cmd = '''%s -c "import os; print os.environ.keys()"''' % sys.executable
+    g = os.popen(cmd, 'r')
+    output = g.read().strip()
+    g.close()
+    if output.startswith('[') and output.endswith(']'):
+        return eval(output)
+    else:
+        raise ValueError, 'probing for all env vars returned %r' % (output,)
+
+def test_putenv():
+    s = 'abcdefgh=12345678'
+    def put():
+        ros.putenv(s)
+        return 0
+    func = compile_function(put, [])
+    func()
+    assert _real_getenv('abcdefgh') == '12345678'
+
+posix = __import__(os.name)
+if hasattr(posix, "unsetenv"):
+    def test_unsetenv():
+        def unsetenv():
+            os.unsetenv("ABCDEF")
+            return 0
+        f = compile_function(unsetenv, [])
+        os.putenv("ABCDEF", "a")
+        assert _real_getenv('ABCDEF') == 'a'
+        f()
+        assert _real_getenv('ABCDEF') is None
+        f()
+        assert _real_getenv('ABCDEF') is None
+
+def test_opendir_readdir():
+    py.test.skip("XXX need to implement opaque types")
+    s = str(udir)
+    result = []
+    def mylistdir():
+        dir = ros.opendir(s)
+        try:
+            while True:
+                nextentry = dir.readdir()
+                if nextentry is None:
+                    break
+                result.append(nextentry)
+        finally:
+            dir.closedir()
+        return 0
+    func = compile_function(mylistdir, [])
+    result = func()
+    result = result.split('\x00')
+    assert '.' in result
+    assert '..' in result
+    result.remove('.')
+    result.remove('..')
+    result.sort()
+    compared_with = os.listdir(str(udir))
+    compared_with.sort()
+    assert result == compared_with
+
 # end of tests taken from c backend
+
+
+
