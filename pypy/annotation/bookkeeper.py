@@ -6,7 +6,12 @@ from __future__ import generators
 import sys
 from types import FunctionType, ClassType, NoneType
 from pypy.objspace.flow.model import Constant
-from pypy.annotation.model import *
+from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
+     SomePtr, unionof, SomeInstance, SomeDict, SomeBuiltin, SomePBC, \
+     SomeInteger, SomeExternalObject, SomeOOInstance, TLS, SomeAddress, \
+     new_or_old_class, SomeUnicodeCodePoint, SomeOOStaticMeth, \
+     SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
+     SomeList, SomeObject
 from pypy.annotation.classdef import ClassDef, isclassdef
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
