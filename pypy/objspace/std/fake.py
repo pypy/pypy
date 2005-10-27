@@ -3,7 +3,6 @@ from pypy.interpreter import baseobjspace
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objspace import StdObjSpace
 from pypy.objspace.std.model import W_Object, UnwrapError
 
 # this file automatically generates non-reimplementations of CPython
@@ -99,9 +98,9 @@ def really_build_fake_type(cpy_type):
         return w_obj
 
     kw['__new__'] = gateway.interp2app(fake__new__,
-                         unwrap_spec = [baseobjspace.ObjSpace,
-                                        baseobjspace.W_Root,
-                                        gateway.Arguments])
+                                       unwrap_spec=[baseobjspace.ObjSpace,
+                                                    baseobjspace.W_Root,
+                                                    argument.Arguments])
     if cpy_type.__base__ is not object:
         assert cpy_type.__base__ is basestring
         from pypy.objspace.std.basestringtype import basestring_typedef
@@ -193,7 +192,7 @@ _fake_type_cache[type(type(None).__repr__)] = fake_builtin_callable
 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter import gateway, argument
 
 class W_FakeDescriptor(Wrappable):
     # Mimics pypy.interpreter.typedef.GetSetProperty.
