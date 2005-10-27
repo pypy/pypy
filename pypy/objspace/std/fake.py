@@ -4,6 +4,9 @@ from pypy.interpreter import eval
 from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.model import W_Object, UnwrapError
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter import gateway, argument
 
 # this file automatically generates non-reimplementations of CPython
 # types that we do not yet implement in the standard object space
@@ -189,11 +192,6 @@ _fake_type_cache[type(len)] = fake_builtin_function
 _fake_type_cache[type(list.append)] = fake_builtin_callable
 _fake_type_cache[type(type(None).__repr__)] = fake_builtin_callable
 
-
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter import gateway, argument
-
 class W_FakeDescriptor(Wrappable):
     # Mimics pypy.interpreter.typedef.GetSetProperty.
 
@@ -236,14 +234,14 @@ class W_FakeDescriptor(Wrappable):
 
 W_FakeDescriptor.typedef = TypeDef(
     "FakeDescriptor",
-    __get__ = interp2app(W_FakeDescriptor.descr_descriptor_get.im_func,
+    __get__ = gateway.interp2app(W_FakeDescriptor.descr_descriptor_get.im_func,
                          unwrap_spec = [baseobjspace.ObjSpace, W_FakeDescriptor,
                                         baseobjspace.W_Root,
                                         baseobjspace.W_Root]),
-    __set__ = interp2app(W_FakeDescriptor.descr_descriptor_set.im_func,
+    __set__ = gateway.interp2app(W_FakeDescriptor.descr_descriptor_set.im_func,
                          unwrap_spec = [baseobjspace.ObjSpace, W_FakeDescriptor,
                                         baseobjspace.W_Root, baseobjspace.W_Root]),
-    __delete__ = interp2app(W_FakeDescriptor.descr_descriptor_del.im_func,
+    __delete__ = gateway.interp2app(W_FakeDescriptor.descr_descriptor_del.im_func,
                             unwrap_spec = [baseobjspace.ObjSpace, W_FakeDescriptor,
                                            baseobjspace.W_Root]),
     )
