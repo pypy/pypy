@@ -12,13 +12,28 @@ class CodeWriter(object):
         self.f = f
         self.js = js
         self._skip_closeblock = False
+        self.set_indentation_level(0)
 
     def skip_closeblock(self, flag=True):
         self._skip_closeblock = flag
 
-    def append(self, line, indentation_level=4): 
-        if line and indentation_level:
-            s = self.tabstring * indentation_level
+    def set_indentation_level(self, indentation_level):
+        try:
+            old = self.indentation_level
+        except:
+            old = 0
+        self.indentation_level = indentation_level
+        return old
+
+    def indent_more(self):
+        self.indentation_level += 1
+
+    def indent_less(self):
+        self.indentation_level -= 1
+
+    def append(self, line): 
+        if line and self.indentation_level:
+            s = self.tabstring * self.indentation_level
         else:
             s = ''
         if not line or line[-1] in '{:};' or line.lstrip()[:2] == '//':
@@ -27,43 +42,45 @@ class CodeWriter(object):
             eol = ';\n'
         self.f.write(s + line + eol)
 
-    def comment(self, line, indentation_level=4):
-        self.append("// " + line, indentation_level)
+    def comment(self, line):
+        self.append("// " + line)
 
-    def llvm(self, line, indentation_level=4):
-        self.comment("LLVM " + line, indentation_level)
+    def llvm(self, line):
+        self.comment("LLVM " + line)
 
     def newline(self):
         self.append("")
 
     def openblock(self, name):
-        self.append("case %d:" % name, 3)
+        self.indent_more()
+        self.append("case %d:" % name)
+        self.indent_more()
         self._currentblock = name
 
     def closeblock(self):
         if not self._skip_closeblock:
             self.append('break')
+        self.indent_less()
+        self.indent_less()
         self.skip_closeblock(False)
 
     def globalinstance(self, lines=[]):
         for line in lines:
-            self.append(line, 0)
+            self.append(line)
 
     def declare(self, decl):
-        self.append(decl, 0)
+        self.append(decl)
 
-    def _goto_block(self, block, indentation_level=4):
+    def _goto_block(self, block):
         if block == self._currentblock + 1:
             self._skip_closeblock = True
         else:
-            self.append('block = ' + str(block), indentation_level)
-            self.append('break', indentation_level)
+            self.append('block = ' + str(block))
+            self.append('break')
 
-    def _phi(self, targetblock, exit, indentation_level=4):
-        #self.comment('target.inputargs=%s, args=%s, targetblock=%d' % (exit.target.inputargs, exit.args, targetblock), indentation_level)
+    def _phi(self, targetblock, exit):
         for i, exitarg in enumerate(exit.args):
             dest = str(exit.target.inputargs[i])
-            #src = str(exitarg)
             src = str(self.js.db.repr_arg(exitarg))
             if src == 'False':
                 src = 'false'
@@ -72,7 +89,7 @@ class CodeWriter(object):
             elif src == 'None':
                 src = 'undefined'
             if dest != src:
-                self.append('%s = %s' % (dest, src), indentation_level)
+                self.append('%s = %s' % (dest, src))
 
     def br_uncond(self, block, exit): 
         self._phi(block, exit)
@@ -81,20 +98,24 @@ class CodeWriter(object):
 
     def br(self, cond, block_false, exit_false, block_true, exit_true):
         self.append('if (%s) {' % cond)
-        self._phi(block_true, exit_true, 5)
-        self._goto_block(block_true, 5)
+        self.indent_more()
+        self._phi(block_true, exit_true)
+        self._goto_block(block_true)
+        self.indent_less()
         self.append('} else {')
-        self._phi(block_false, exit_false, 5)
-        self._goto_block(block_false, 5)
+        self.indent_more()
+        self._phi(block_false, exit_false)
+        self._goto_block(block_false)
+        self.indent_less()
         self.append('}')
         self.skip_closeblock()
 
-    def switch(self, intty, cond, defaultdest, value_label):
-        labels = ''
-        for value, label in value_label:
-            labels += ' %s %s, label %s' % (intty, value, label)
-        self.llvm("switch %s %s, label %s [%s ]"
-                    % (intty, cond, defaultdest, labels))
+    #def switch(self, intty, cond, defaultdest, value_label):
+    #    labels = ''
+    #    for value, label in value_label:
+    #        labels += ' %s %s, label %s' % (intty, value, label)
+    #    self.llvm("switch %s %s, label %s [%s ]"
+    #                % (intty, cond, defaultdest, labels))
 
     def openfunc(self, decl, funcnode, blocks): 
         self.decl     = decl
@@ -110,16 +131,20 @@ class CodeWriter(object):
                 targetvar = self.js.db.repr_arg(op.result)
                 usedvars[targetvar] = True
         self.newline()
-        self.append("function %s {" % self.decl, 0)
+        self.append("function %s {" % self.decl)
+        self.indent_more()
         if usedvars:
-            self.append("var %s" % ', '.join(usedvars.keys()), 1)
-        self.append("for (var block = 0;;) {", 1)
-        self.append("switch (block) {", 2)
+            self.append("var %s" % ', '.join(usedvars.keys()))
+        self.append("for (var block = 0;;) {")
+        self.indent_more()
+        self.append("switch (block) {")
 
     def closefunc(self): 
-        self.append("}", 2)
-        self.append("}", 1)
-        self.append("};", 0)
+        self.append("}")
+        self.indent_less()
+        self.append("}")
+        self.indent_less()
+        self.append("};")
 
     def ret(self, ref=''): 
         self.append("return " + ref)
@@ -131,30 +156,46 @@ class CodeWriter(object):
     def neg(self, targetvar, source):
         self.append('%(targetvar)s = -%(source)s' % locals())
         
-    def call(self, targetvar, functionref, argrefs, label=None, exceptions=[], ll_issubclass=None):
-        if exceptions:
+    def call(self, targetvar, functionref, argrefs, label=None, exceptions=[]):
+        args = ", ".join(argrefs)
+
+        if not exceptions:
+            assert label is None
+            self.append('%s = %s(%s)' % (targetvar, functionref, args))
+        else:
             assert label is not None
             self.append('try {')
-            indentation_level = 5
-        else:
-            assert label is None
-            indentation_level = 4
-
-        args = ", ".join(argrefs)
-        self.append('%s = %s(%s)' % (targetvar, functionref, args), indentation_level)
-
-        if exceptions:
-            self._goto_block(label, indentation_level)
+            self.indent_more()
+            self._goto_block(label)
+            self.indent_less()
+            
             self.append('} catch (e) {')
+            self.indent_more()
+            catch_all = False
             for i, exception in enumerate(exceptions):
                 exception_match, exception_ref, exception_target = exception
                 if i:
-                    s = 'else '
+                    else_ = 'else '
                 else:
-                    s = ''
-                self.append('%sif (%s(e.typeptr, %s) == true) {' % (s, exception_match, exception_ref), indentation_level)
-                self._goto_block(exception_target, indentation_level+1)
-                self.append('}', indentation_level)
+                    else_ = ''
+                if exception_ref.startswith('structinstance_object_vtable'):
+                    catch_all = True
+                    matcher   = ''
+                else:
+                    matcher   = 'if (%s(e.typeptr, %s) == true) ' % (exception_match, exception_ref)
+                self.append('%s%s{' % (else_, matcher))
+                self.indent_more()
+                self._goto_block(exception_target)
+                self.indent_less()
+                self.append('}')
+            if not catch_all:
+                self.append('else {')
+                self.indent_more()
+                self.throw('e') #reraise exception when not caught above
+                self.indent_less()
+                self.append('}')
+
+            self.indent_less()
             self.append('}')
 
     def cast(self, targetvar, fromtype, fromvar, targettype):

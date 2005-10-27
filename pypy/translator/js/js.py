@@ -45,7 +45,7 @@ class JS(object):   # JS = Javascript
         c    = inputconst(lltype.typeOf(ptr), ptr)
         self.db.prepare_arg_value(c)
 
-        #add functions
+        #add exception matching function (XXX should only be done when needed)
         e          = self.db.translator.rtyper.getexceptiondata()
         matchptr   = getfunctionptr(self.db.translator, e.ll_exception_match)
         matchconst = inputconst(lltype.typeOf(matchptr), matchptr)
@@ -141,7 +141,7 @@ class JS(object):   # JS = Javascript
         #codewriter.newline()
         #codewriter.append(self.wrappercode, 0)
         codewriter.newline()
-        codewriter.comment("EOF", 0)
+        codewriter.comment("EOF")
         f.close()
 
         log('Written:', self.filename)
