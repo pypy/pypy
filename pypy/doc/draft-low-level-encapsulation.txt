@@ -45,7 +45,7 @@ One solution would have been for the patches to become part of core
 CPython but this was not done partly because the code that fully enabled
 stackless required widespread modifications that made the code harder to
 understand (as the "stackless" model contains control flow that is not
-naturally expressable in C, the implementation became much less
+easily expressable in C, the implementation became much less
 "natural" in some sense).
 
 With PyPy, however, it is possible to obtain this flexible control flow
