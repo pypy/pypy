@@ -1,0 +1,22 @@
+"This week in PyPy" stuff
+-------------------------
+
+I (mwh) am going to write a summary of what's been happening in
+pypy-land each week.  To help me along, please add (append) things
+worth mentioning to the file ``log`` in this directory.
+
+To be most helpful, please say who you are, roughly when you're adding
+things and mention where in the #pypy logs relavent discussion can be
+found.  For example::
+
+    2005-10-27  mwh
+
+      I decided to write "This week in PyPy" each week!  See 
+      http://tismerysoft.de/pypy/irc-logs/pypy/%23pypy.log.20051027
+      around 13:30 server time.
+
+Once a week (probably after the Thursday lunchtime pypy-sync meeting)
+I'll run through the file, write up the the best bits, send that to
+pypy-dev, copy the log file to log.YEAR-MONTH-DAY and make a new one.
+
+Thanks in advance!
