@@ -15,8 +15,9 @@ def get_ll(ccode, function_names):
     f = open(filename, "w")
     f.write(ccode)
     f.close()
-    
-    if os.popen('which llvm-gcc').read():   #local llvm CFE available
+
+    llvm_gcc = os.popen('which llvm-gcc 2>&1').read()
+    if llvm_gcc and not llvm_gcc.startswith('which'):   #local llvm CFE available
         #log('using local llvm-gcc')
         plain = filename[:-2]
         os.system("llvm-gcc -S %s.c -o %s.ll 2>&1" % (plain, plain))
@@ -74,7 +75,10 @@ def get_ll(ccode, function_names):
         ll_lines2.append(line)
 
     llcode = '\n'.join(ll_lines2)
-    decl, impl = llcode.split('implementation')
+    try:
+        decl, impl = llcode.split('implementation')
+    except:
+        raise "Can't compile external function code (llcode.c): ERROR:", llcode
     impl += """;functions that should return a bool according to
     ; pypy/rpython/extfunctable.py  , but C doesn't have bools!
 

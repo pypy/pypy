@@ -24,9 +24,4 @@ void RPYTHON_RAISE_OSERROR(int error);
 //the placeholder in the next line gets replaced by the actual python.h path
 #include __PYTHON_H__
 
-// Do this manually from python :-(
-//#include "ll_os.h"
-//#include "ll_math.h"
-//#include "ll_time.h"
-//#include "ll_strtod.h"
-
+// Append some genc files here manually from python

@@ -114,8 +114,8 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
 
     if cleanup and exe_name and not profile:
         cmds.append('strip ' + exe_name)
-        upx = os.popen('which upx').read()
-        if upx: #compress file even further
+        upx = os.popen('which upx 2>&1').read()
+        if upx and not upx.startswith('which'): #compress file even further
             cmds.append('upx ' + exe_name)
 
     try:
