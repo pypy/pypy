@@ -1,5 +1,4 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 
 # ____________________________________________________________
