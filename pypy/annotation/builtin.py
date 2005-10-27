@@ -2,10 +2,9 @@
 Built-in functions.
 """
 
-import types
-import sys, os
+import sys
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
-from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
+from pypy.annotation.model import SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
@@ -195,11 +194,6 @@ def builtin_apply(*stuff):
     getbookkeeper().warning("ignoring apply%r" % (stuff,))
     return SomeObject()
 
-##def builtin_compile(*stuff):
-##    s = SomeObject()
-##    s.knowntype = types.CodeType
-##    return s
-
 def builtin_slice(*args):
     bk = getbookkeeper()
     if len(args) == 1:
@@ -279,9 +273,6 @@ def unicodedata_decimal(s_uchr):
 def test(*args):
     return SomeBool()
 
-def pathpart(*args):
-    return SomeString()
-
 def import_func(*args):
     return SomeObject()
 
@@ -315,11 +306,6 @@ BUILTIN_ANALYZERS[AssertionError.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 import unicodedata
 BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
-
-# os.path stuff
-#BUILTIN_ANALYZERS[os.path.dirname] = pathpart
-#BUILTIN_ANALYZERS[os.path.normpath] = pathpart
-#BUILTIN_ANALYZERS[os.path.join] = pathpart
 
 # import
 BUILTIN_ANALYZERS[__import__] = import_func
