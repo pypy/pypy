@@ -13,6 +13,7 @@ def wrap_stackless_function(fn):
 
     t = Translator(entry_point)
     s_list_of_strings = SomeList(ListDef(None, SomeString()))
+    s_list_of_strings.listdef.resize()
     ann = t.annotate([s_list_of_strings])
     t.specialize()
     cbuilder = t.cbuilder(standalone=True)
