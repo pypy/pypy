@@ -7,7 +7,7 @@ class OpaqueTypeNode(LLVMNode):
         assert isinstance(opaquetype, lltype.OpaqueType)
         self.db = db
         self.opaquetype = opaquetype
-        self.ref = "%%opaquetype.%s" % (opaquetype.tag)
+        self.ref = "%%RPyOpaque_%s" % (opaquetype.tag)
         
     def __str__(self):
         return "<OpaqueNode %r>" %(self.ref,)
@@ -17,7 +17,7 @@ class OpaqueTypeNode(LLVMNode):
 
     def writedatatypedecl(self, codewriter):
         # XXX Dummy - not sure what what we want
-        codewriter.funcdef(self.ref, 'sbyte*', ['sbyte *'])
+        codewriter.append("%s = type sbyte*" % self.ref)
 
 
 class OpaqueNode(ConstantLLVMNode):

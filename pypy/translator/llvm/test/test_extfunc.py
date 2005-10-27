@@ -343,7 +343,6 @@ if hasattr(posix, "unsetenv"):
         assert _real_getenv('ABCDEF') is None
 
 def test_opendir_readdir():
-    py.test.skip("XXX need to implement opaque types")
     s = str(udir)
     result = []
     def mylistdir():
@@ -359,6 +358,8 @@ def test_opendir_readdir():
         return 0
     func = compile_function(mylistdir, [])
     result = func()
+    py.test.skip("XXX need to check result - somehow")
+
     result = result.split('\x00')
     assert '.' in result
     assert '..' in result
