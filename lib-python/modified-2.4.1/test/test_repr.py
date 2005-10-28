@@ -135,7 +135,7 @@ class ReprTests(unittest.TestCase):
         eq(repr(hash), '<built-in function hash>')
         # Methods
         self.failUnless(repr(''.split).find(
-            'method split of str object at 0x') > -1)
+            "bound method str.split of '' at 0x") > -1)
 
     def test_xrange(self):
         import warnings
@@ -174,7 +174,7 @@ class ReprTests(unittest.TestCase):
     def test_descriptors(self):
         eq = self.assertEquals
         # method descriptors
-        eq(repr(dict.items), "<method 'items' of 'dict' objects>")
+        eq(repr(dict.items), "<unbound method dict.items>")
         # XXX member descriptors
         # XXX attribute descriptors
         # XXX slot descriptors
