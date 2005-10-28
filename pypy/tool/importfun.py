@@ -156,24 +156,32 @@ def iteropcodes(codestring):
             i += 2
         yield op, oparg
 
-STORE_DEREF = opcode.opmap["STORE_DEREF"]
-STORE_FAST = opcode.opmap["STORE_FAST"]
-STORE_GLOBAL = opcode.opmap["STORE_GLOBAL"]
-STORE_NAME = opcode.opmap["STORE_NAME"]
-IMPORT_NAME = opcode.opmap["IMPORT_NAME"]
-IMPORT_FROM = opcode.opmap["IMPORT_FROM"]
-LOAD_CONST = opcode.opmap["LOAD_CONST"]
-LOAD_ATTR = opcode.opmap["LOAD_ATTR"]
 
-LOAD_DEREF = opcode.opmap["LOAD_DEREF"]
-LOAD_FAST = opcode.opmap["LOAD_FAST"]
-LOAD_NAME = opcode.opmap["LOAD_NAME"]
-LOAD_GLOBAL = opcode.opmap["LOAD_GLOBAL"]
+class _Op(object):
+    def __getattr__(self, name):
+        if name in opcode.opmap:
+            return opcode.opmap[name]
+        else:
+            raise AttributeError, name
 
-MAKE_CLOSURE = opcode.opmap["MAKE_CLOSURE"]
-MAKE_FUNCTION = opcode.opmap["MAKE_FUNCTION"]
+_op_ = _Op()
 
-POP_TOP = opcode.opmap['POP_TOP']
+
+loadops = [_op_.LOAD_NAME, _op_.LOAD_GLOBAL, _op_.LOAD_FAST, _op_.LOAD_DEREF]
+storeops = [_op_.STORE_NAME, _op_.STORE_FAST, _op_.STORE_DEREF, _op_.STORE_GLOBAL]
+
+def name_for_op(code, op, oparg):
+    if op in [_op_.LOAD_GLOBAL, _op_.STORE_GLOBAL, _op_.LOAD_NAME,  _op_.STORE_NAME]:
+        return code.co_names[oparg]
+    elif op in [_op_.LOAD_FAST, _op_.STORE_FAST]:
+        return code.co_varnames[oparg]
+    elif op in [_op_.LOAD_DEREF, _op_.STORE_DEREF]:
+        if oparg < len(code.co_cellvars):
+            return code.co_cellvars[oparg]
+        else:
+            return code.co_freevars[oparg - len(code.co_cellvars)]
+    else:
+        assert 0, "%s is not an opcode with a name!"%(opcode.opname[op],)
 
 def process(r, codeob, scope, toplevel=False):
     opcodes = list(iteropcodes(codeob.co_code))
@@ -185,9 +193,9 @@ def process(r, codeob, scope, toplevel=False):
     while i < len(opcodes):
         op, oparg = opcodes[i]
 
-        if op == IMPORT_NAME:
+        if op == _op_.IMPORT_NAME:
             preop, preoparg = opcodes[i-1]
-            assert preop == LOAD_CONST, 'LOAD_CONST'
+            assert preop == _op_.LOAD_CONST, 'LOAD_CONST'
 
             fromlist = codeob.co_consts[preoparg]
 
@@ -206,17 +214,8 @@ def process(r, codeob, scope, toplevel=False):
                 # this assert actually triggers quite frequently, for things like
                 # import py.lib as lib
                 # (which is strange code, in my book...)
-                assert postop in [STORE_NAME, STORE_FAST, STORE_DEREF, STORE_GLOBAL], 'postop'
-                if postop == STORE_FAST:
-                    storename = codeob.co_varnames[postoparg]
-                elif postop == STORE_DEREF:
-                    if postoparg < len(codeob.co_cellvars):
-                        storename = codeob.co_cellvars[postoparg]
-                    else:
-                        storename = codeob.co_freevars[postoparg - len(codeob.co_cellvars)]
-                else:
-                    storename = codeob.co_names[postoparg]
-
+                assert postop in storeops, 'postop'
+                storename = name_for_op(codeob, postop, postoparg)
                 scope.modvars[storename] = modname.split('.')[0]
                 i += 1
             elif fromlist == ('*',):
@@ -245,7 +244,7 @@ def process(r, codeob, scope, toplevel=False):
                 i += 1
                 for f in fromlist:
                     op, oparg = opcodes[i]
-                    assert op == IMPORT_FROM, 'IMPORT_FROM'
+                    assert op == _op_.IMPORT_FROM, 'IMPORT_FROM'
                     assert codeob.co_names[oparg] == f, 'f'
                     i += 1
 
@@ -267,17 +266,8 @@ def process(r, codeob, scope, toplevel=False):
 
                     op, oparg = opcodes[i]
 
-                    assert op in [STORE_NAME, STORE_FAST, STORE_DEREF, STORE_GLOBAL], 'opstore'
-                    if op == STORE_FAST:
-                        storename = codeob.co_varnames[oparg]
-                    elif op == STORE_DEREF:
-                        if oparg < len(codeob.co_cellvars):
-                            storename = codeob.co_cellvars[oparg]
-                        else:
-                            storename = codeob.co_freevars[oparg - len(codeob.co_cellvars)]
-                    else:
-                        storename = codeob.co_names[oparg]
-
+                    assert op in storeops, 'opstore'
+                    storename = name_for_op(codeob, op, oparg)
 
                     if mod:
                         scope.modvars[storename] = submod
@@ -285,21 +275,18 @@ def process(r, codeob, scope, toplevel=False):
                         scope.varsources[storename] = modname, f
                     i += 1
                 op, oparg = opcodes[i]
-                assert op == POP_TOP, 'POP_TOP'
-        elif op == STORE_NAME and toplevel or op == STORE_GLOBAL:
+                assert op == _op_.POP_TOP, 'POP_TOP'
+        elif op == _op_.STORE_NAME and toplevel or op == _op_.STORE_GLOBAL:
             r.definitions.append(codeob.co_names[oparg])
-        elif op == LOAD_ATTR:
+        elif op == _op_.LOAD_ATTR:
             preop, preoparg = opcodes[i-1]
-            if preop in [LOAD_NAME, LOAD_GLOBAL]:
-                m = scope.mod_for_name(codeob.co_names[preoparg])
+            if preop in loadops:
+                name = name_for_op(codeob, preop, preoparg)
+                m = scope.mod_for_name(name)
                 if m:
                     r.import_(m)[codeob.co_names[oparg]] = True
-            elif preop in [LOAD_FAST]:
-                m = scope.mod_for_name(codeob.co_varnames[preoparg])
-                if m:
-                    r.import_(m)[codeob.co_names[oparg]] = True
-        elif op in [LOAD_NAME, LOAD_GLOBAL]:
-            name = codeob.co_names[oparg]
+        elif op in loadops:
+            name = name_for_op(codeob, op, oparg)
             m, a = scope.var_source(name)
             if m:
                 assert a in r.import_(m), 'a'
@@ -311,24 +298,9 @@ def process(r, codeob, scope, toplevel=False):
 ##                        and name not in __builtin__.__dict__ \
 ##                        and (op == LOAD_GLOBAL or toplevel):
 ##                     print 'where did', name, 'come from?'
-        elif op in [LOAD_FAST]:
-            name = codeob.co_varnames[oparg]
-            m, a = scope.var_source(name)
-            if m:
-                assert a in r.import_(m), 'a2'
-                r.import_(m)[a] = True
-        elif op in [LOAD_DEREF]:
-            if oparg < len(codeob.co_cellvars):
-                name = codeob.co_cellvars[oparg]
-            else:
-                name = codeob.co_freevars[oparg - len(codeob.co_cellvars)]
-            m, a = scope.var_source(name)
-            if m:
-                assert a in r.import_(m), 'a3'
-                r.import_(m)[a] = True
-        elif op in [MAKE_FUNCTION, MAKE_CLOSURE]:
+        elif op in [_op_.MAKE_FUNCTION, _op_.MAKE_CLOSURE]:
             preop, preoparg = opcodes[i-1]
-            assert preop == LOAD_CONST, 'preop'
+            assert preop == _op_.LOAD_CONST, 'preop'
             codeobjs.append(codeob.co_consts[preoparg])
 
         i += 1
@@ -357,6 +329,7 @@ def process_module(dottedname, system):
         process(r, code, r.toplevelscope, True)
     except (ImportError, AssertionError, SyntaxError), e:
         print "failed!", e
+        #raise
     else:
         if dottedname in system.pendingmodules:
             print
