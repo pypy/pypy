@@ -129,7 +129,7 @@ class CompilerVisitor(ASTVisitor):
         self.setups.append((self.LOOP, loop))
 
         node.test.visit(self)
-        self.emit(CondJump('IF_FALSE', else_or after))
+        self.emit(CondJump('IF_FALSE', else_or, after))
 
         self.nextBlock()
         self.emit(PopTop())
