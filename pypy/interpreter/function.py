@@ -63,7 +63,8 @@ class Function(Wrappable):
             defs_w = space.unpackiterable(w_argdefs)
         else:
             defs_w = []
-        if space.is_w(w_closure, space.w_None):
+        nfreevars = len(code.co_freevars)
+        if space.is_w(w_closure, space.w_None) and nfreevars == 0:
             closure = None
         elif not space.is_w(space.type(w_closure), space.w_tuple):
             raise OperationError(space.w_TypeError, space.wrap("invalid closure"))
@@ -72,9 +73,9 @@ class Function(Wrappable):
             from pypy.interpreter.nestedscope import Cell
             closure_w = space.unpackiterable(w_closure)
             n = len(closure_w)
-            if not isinstance(code, PyCode) or len(code.co_freevars) == 0:
+            if not isinstance(code, PyCode) or nfreevars == 0:
                 raise OperationError(space.w_ValueError, space.wrap("no closure needed"))
-            elif len(code.co_freevars) != n:
+            elif nfreevars != n:
                 raise OperationError(space.w_ValueError, space.wrap("closure is wrong size"))
             closure = []
             for w_cell in closure_w:

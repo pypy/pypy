@@ -61,6 +61,13 @@ class AppTestFunctionIntrospection:
         f2 = FuncType(f.func_code, f.func_globals, 'f2', None, None)
         assert f2() == 42
 
+        def g(x):
+            def f():
+                return x
+            return f
+        f = g(42)
+        raises(TypeError, FuncType, f.func_code, f.func_globals, 'f2', None, None)
+
 class AppTestFunction: 
     def test_simple_call(self):
         def func(arg1, arg2):
