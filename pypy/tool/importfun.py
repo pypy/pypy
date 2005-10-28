@@ -3,8 +3,8 @@ import opcode
 import dis
 import imp
 import os
-from sys import path, prefix
 import __builtin__
+import time
 
 """
 so design goal:
@@ -138,7 +138,7 @@ class Module(object):
         self.importers = []
     def import_(self, modname):
         if modname not in self._imports:
-            if modname not in self.system.modules:
+            if recursive and modname not in self.system.modules:
                 self.system.pendingmodules[modname] = None
             self._imports[modname] = {}
         return self._imports[modname]
@@ -275,7 +275,7 @@ def process(r, codeob, scope, toplevel=False):
                     else:
                         storename = codeob.co_names[oparg]
 
-                        
+
                     if mod:
                         scope.modvars[storename] = submod
                     else:
@@ -333,61 +333,47 @@ def process(r, codeob, scope, toplevel=False):
         process(r, c, Scope(scope))
 
 def process_module(dottedname, system):
-    path = find_from_dotted_name(dottedname)
+    if dottedname.endswith('.py'):
+        path = dottedname
+        dottedname = path.lstrip('./').rstrip()[:-3].replace('/', '.')
+    else:
+        path = find_from_dotted_name(dottedname)
+
     ispackage = False
     if os.path.isdir(path):
         ispackage = True
         path += '/__init__.py'
-    code = compile(open(path, "U").read(), '', 'exec')
     r = Module(dottedname, system)
     r.ispackage = ispackage
 
+    if dottedname in system.modules:
+        return system.modules[dottedname]
+
     try:
+        code = compile(open(path, "U").read(), path, 'exec')
         process(r, code, r.toplevelscope, True)
-    except ImportError, e:
+    except (ImportError, AssertionError, SyntaxError), e:
         print "failed!", e
     else:
-        assert dottedname not in system.pendingmodules
+        if dottedname in system.pendingmodules:
+            print
+            del system.pendingmodules[dottedname]
 
         system.modules[dottedname] = r
 
     return r
 
-a = 1
-
 def find_from_dotted_name(modname):
     path = None
     for part in modname.split('.'):
-        path = [imp.find_module(part, path)[1]]
+        try:
+            path = [imp.find_module(part, path)[1]]
+        except ImportError:
+            print modname
+            raise
     return path[0]
 
-def main(path):
-    system = System()
-    system.pendingmodules[path] = None
-    while system.pendingmodules:
-        path, d = system.pendingmodules.popitem()
-        print '\r', len(system.pendingmodules), path, '        ',
-        sys.stdout.flush()
-        if not path.startswith('pypy.') or path == 'pypy._cache':
-            continue
-        process_module(path, system)
-
-    # strip out non-pypy imports
-##     for name, mod in system.modules.iteritems():
-##         for n in mod._imports.copy():
-##             if not n.startswith('pypy.') or n == 'pypy._cache':
-##                 del mod._imports[n]
-
-    # record importer information
-#    for name, mod in system.modules.iteritems():
-#        for n in mod._imports:
-#            system.modules[n].importers.append(name)
-
-    unuseds = {}
-
-    print
-    print '------'
-
+def report_unused_symbols(system):
     for name, mod in sorted(system.modules.iteritems()):
         printed = False
         if not 'pypy.' in name or '_cache' in name:
@@ -422,7 +408,205 @@ def main(path):
                 printed = True
             for k, v in u.iteritems():
                 print '   ', k, v
-                    
+
+def find_cycles(system):
+    from pypy.tool.algo import graphlib
+    vertices = dict.fromkeys(system.modules)
+    edges = {}
+    for m in system.modules:
+        edges[m] = []
+        for n in system.modules[m]._imports:
+            edges[m].append(graphlib.Edge(m, n))
+    cycles = []
+    for component in graphlib.strong_components(vertices, edges):
+        random_vertex = component.iterkeys().next()
+        cycles.extend(graphlib.all_cycles(random_vertex, component, edges))
+
+    ncycles = []
+    for cycle in cycles:
+        packs = {}
+        for edge in cycle:
+            package = edge.source.rsplit('.', 1)[0]
+            packs[package] = True
+        if len(packs) > 1:
+            ncycles.append(cycle)
+    cycles = ncycles
+
+    for cycle in cycles:
+        l = len(cycle[0].source)
+        print cycle[0].source, '->', cycle[0].target
+        for edge in cycle[1:]:
+            print ' '*l, '->', edge.target
+    print len(cycles), 'inter-package cycles'
+
+def summary(system):
+    mcount = float(len(system.modules))
+    importcount = 0
+    importstars = 0
+    importstarusage = 0
+    defcount = 0
+    importedcount = 0
+    for m in system.modules:
+        m = system.modules[m]
+        defcount += len(m.definitions)
+        importedcount += len(m.importers)
+        importcount += len(m._imports)
+        for n in m._imports:
+            if '*' in m._imports[n]:
+                importstars += 1
+                importstarusage += len([o for (o, v) in m._imports[n].iteritems() if v == True])
+    print
+    print 'the average module'
+    print 'was imported %.2f times'%(importedcount/mcount)
+    print 'imported %.2f other modules'%(importcount/mcount)
+    print 'defined %.2f names'%(defcount/mcount)
+    print
+    print 'there were %d import *s'%(importstars)
+    print 'the average one produced %.2f names that were actually used'\
+          %((1.0*importstarusage)/importstars)
+
+def not_imported(system):
+    for m, M in sorted(system.modules.iteritems()):
+        if not M.importers and 'test' not in m and '__init__' not in m:
+            print m
+
+def import_stars(system):
+    for m in sorted(system.modules):
+        m = system.modules[m]
+        for n in sorted(m._imports):
+            if '*' in m._imports[n]:
+                print m.name, 'imports * from', n
+                used = [o for (o, v) in m._imports[n].iteritems() if v == True and o != '*']
+                print len(used), 'out of', len(m._imports[n]) - 1, 'names are used'
+                print '    ', ', '.join(sorted(used))
+
+def find_varargs_users(system):
+    for m in sorted(system.modules):
+        m = system.modules[m]
+        if 'pypy.interpreter.pycode' in m._imports:
+            if m._imports['pypy.interpreter.pycode'].get('CO_VARARGS') == True:
+                print m.name
+
+
+def html_for_module(module):
+    from py.xml import html
+    out = open('importfunhtml/%s.html'%module.name, 'w')
+    head = [html.title(module.name)]
+    body = [html.h1(module.name)]
+    body.append(html.p('This module defines these names:'))
+    listbody = []
+    for d in module.definitions:
+        if not d.startswith('_'):
+            listbody.append(html.li(
+                html.a(d, href=module.name+'-'+d+'.html')))
+    body.append(html.ul(listbody))
+    body.append(html.p('This module imports the following:'))
+    listbody1 = []
+    for n in sorted(module._imports):
+        if n in module.system.modules:
+            listbody2 = [html.a(n, href=n+'.html')]
+        else:
+            listbody2 = [n]
+        listbody3 = []
+        for o in sorted(module._imports[n]):
+            if module._imports[n][o] == True:
+                if n in module.system.modules:
+                    listbody3.append(
+                        html.li(html.a(o, href=n+'-'+o+'.html')))
+                else:
+                    listbody3.append(html.li(o))
+        if listbody3:
+            listbody2.append(html.ul(listbody3))
+        listbody1.append(html.li(listbody2))
+    body.append(html.ul(listbody1))
+    body.append(html.p('This module is imported by the following:'))
+    listbody1 = []
+    for n in module.importers:
+        licontents = [html.a(n, href=n+'.html')]
+        contents = []
+        for o in sorted(module.system.modules[n]._imports[module.name]):
+            contents.append(html.li(html.a(o, href=module.name+'-'+o+'.html')))
+        if contents:
+            licontents.append(html.ul(contents))
+        listbody1.append(html.li(licontents))
+    body.append(html.ul(listbody1))
+
+    out.write(html.html(head, body).unicode())
+
+    for d in module.definitions:
+        out = open('importfunhtml/%s-%s.html'%(module.name, d), 'w')
+        head = [html.title(module.name + '.' + d)]
+        body = [html.h1([html.a(module.name, href=module.name+'.html'), '.' + d])]
+
+        contents = []
+
+        for n in module.importers:
+            if module.system.modules[n]._imports[module.name].get(d) == True:
+                contents.append(html.li(html.a(n, href=n+'.html')))
+
+        if contents:
+            body.append(html.p('This name is used in'))
+            body.append(html.ul(contents))
+        else:
+            body.append(html.p('This name is not used outside the module.'))
+        
+        out.write(html.html(head, body).unicode())
+
+def make_html_report(system):
+    if os.path.isdir('importfunhtml'):
+        os.system('rm -rf importfunhtml')
+    os.mkdir('importfunhtml')
+    for m in system.modules.itervalues():
+        html_for_module(m)
+
+def main(*paths):
+    system = System()
+
+    for path in paths:
+        system.pendingmodules[path] = None
+
+    T = time.time()
+
+    while system.pendingmodules:
+        path, d = system.pendingmodules.popitem()
+        print '\r', len(system.pendingmodules), path, '        ',
+        sys.stdout.flush()
+        if '._cache' in path or '/_cache' in path:
+            continue
+        if '/' not in path and not path.startswith('pypy.'):
+            continue
+        process_module(path, system)
+
+    print
+    print 'analysed', len(system.modules), 'modules in %.2f seconds'%(time.time() - T)
+    print '------'
+
+    # record importer information
+    for name, mod in system.modules.iteritems():
+        for n in mod._imports:
+            if n in system.modules:
+                system.modules[n].importers.append(name)
+
+    make_html_report(system)
+
+    if interactive:
+        import pdb
+        pdb.set_trace()
+
+recursive = False
+interactive = False
 
 if __name__=='__main__':
-    main(*sys.argv[1:])
+    if '-r' in sys.argv:
+        recursive = True
+        sys.argv.remove('-r')
+    if '-i' in sys.argv:
+        interactive = True
+        sys.argv.remove('-i')
+    if len(sys.argv) > 1:
+        main(*sys.argv[1:])
+    else:
+        paths = []
+        for line in os.popen("find pypy -name '*.py'"):
+            paths.append(line[:-1])
+        main(*paths)
