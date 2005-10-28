@@ -488,9 +488,40 @@ def find_varargs_users(system):
                 print m.name
 
 
+def file_for_module(module):
+    fname = os.path.join('importfunhtml', *module.name.split('.')) + '.html'
+    dname = os.path.dirname(fname)
+    if not os.path.isdir(dname):
+        os.makedirs(dname)
+    return open(fname, 'w')
+
+def link_for_module(fromlink, module):
+    link = '/'.join(module.name.split('.')) + '.html'
+    prefix = '/'.join(['..']*fromlink.count('/'))
+    if prefix:
+        return prefix + '/' + link
+    else:
+        return link
+
+def file_for_name(module, name):
+    fname = os.path.join('importfunhtml', *(module.name.split('.') + [name])) + '.html'
+    dname = os.path.dirname(fname)
+    if not os.path.isdir(dname):
+        os.makedirs(dname)
+    return open(fname, 'w')
+
+def link_for_name(fromlink, module, name):
+    link = '/'.join(module.name.split('.') + [name]) + '.html'
+    prefix = '/'.join(['..']*fromlink.count('/'))
+    if prefix:
+        return prefix + '/' + link
+    else:
+        return link
+
 def html_for_module(module):
     from py.xml import html
-    out = open('importfunhtml/%s.html'%module.name, 'w')
+    out = file_for_module(module)
+    ourlink = link_for_module('', module)
     head = [html.title(module.name)]
     body = [html.h1(module.name)]
     body.append(html.p('This module defines these names:'))
@@ -498,13 +529,14 @@ def html_for_module(module):
     for d in module.definitions:
         if not d.startswith('_'):
             listbody.append(html.li(
-                html.a(d, href=module.name+'-'+d+'.html')))
+                html.a(d, href=link_for_name(ourlink, module, d))))
     body.append(html.ul(listbody))
     body.append(html.p('This module imports the following:'))
     listbody1 = []
     for n in sorted(module._imports):
         if n in module.system.modules:
-            listbody2 = [html.a(n, href=n+'.html')]
+            listbody2 = [html.a(
+                n, href=link_for_module(ourlink, module.system.modules[n]))]
         else:
             listbody2 = [n]
         listbody3 = []
@@ -512,7 +544,8 @@ def html_for_module(module):
             if module._imports[n][o] == True:
                 if n in module.system.modules:
                     listbody3.append(
-                        html.li(html.a(o, href=n+'-'+o+'.html')))
+                        html.li(html.a(
+                        o, href=link_for_name(ourlink, module.system.modules[n], o))))
                 else:
                     listbody3.append(html.li(o))
         if listbody3:
@@ -522,10 +555,10 @@ def html_for_module(module):
     body.append(html.p('This module is imported by the following:'))
     listbody1 = []
     for n in module.importers:
-        licontents = [html.a(n, href=n+'.html')]
+        licontents = [html.a(n, href=link_for_module(ourlink, module.system.modules[n]))]
         contents = []
         for o in sorted(module.system.modules[n]._imports[module.name]):
-            contents.append(html.li(html.a(o, href=module.name+'-'+o+'.html')))
+            contents.append(html.li(html.a(o, href=link_for_name(ourlink, module, o))))
         if contents:
             licontents.append(html.ul(contents))
         listbody1.append(html.li(licontents))
@@ -534,15 +567,17 @@ def html_for_module(module):
     out.write(html.html(head, body).unicode())
 
     for d in module.definitions:
-        out = open('importfunhtml/%s-%s.html'%(module.name, d), 'w')
+        out = file_for_name(module, d)
+        ourlink = link_for_name('', module, d)
         head = [html.title(module.name + '.' + d)]
-        body = [html.h1([html.a(module.name, href=module.name+'.html'), '.' + d])]
+        body = [html.h1([html.a(module.name, href=link_for_module(ourlink, module)), '.' + d])]
 
         contents = []
 
         for n in module.importers:
-            if module.system.modules[n]._imports[module.name].get(d) == True:
-                contents.append(html.li(html.a(n, href=n+'.html')))
+            N = module.system.modules[n]
+            if N._imports[module.name].get(d) == True:
+                contents.append(html.li(html.a(n, href=link_for_module(ourlink, N))))
 
         if contents:
             body.append(html.p('This name is used in'))
@@ -569,8 +604,9 @@ def main(*paths):
 
     while system.pendingmodules:
         path, d = system.pendingmodules.popitem()
-        print '\r', len(system.pendingmodules), path, '        ',
-        sys.stdout.flush()
+        if sys.stdout.isatty():
+            print '\r\033[K', len(system.pendingmodules), path,
+            sys.stdout.flush()
         if '._cache' in path or '/_cache' in path:
             continue
         if '/' not in path and not path.startswith('pypy.'):
