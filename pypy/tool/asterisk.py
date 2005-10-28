@@ -169,4 +169,3 @@ class Analyser:
             stmts.append(stmt)
             start = lno
         self.statements = stmts
-        
