@@ -342,7 +342,7 @@ def process_module(dottedname, system):
     try:
         code = compile(open(path, "U").read(), path, 'exec')
         process(r, code, r.toplevelscope, True)
-    except (ImportError, AssertionError, SyntaxError), e:
+    except (ImportError, SyntaxError), e:
         print "failed!", e
         #raise
     else:
