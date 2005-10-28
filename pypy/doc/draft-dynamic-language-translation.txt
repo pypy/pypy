@@ -851,7 +851,12 @@ give all rules in the sequel, but focus on representative examples.  An
 are replaced by the variables that really appear in each particular
 ``add`` operation in the flow graphs of the user program)::
 
-         z=add(x,y), Bool<=b(x)<=Int, Bool<=b(y)<=Int
+         z=add(x,y), b(x)=Int, Bool<=b(y)<=Int
+      ------------------------------------------------------
+               b' = b with (z->Int)
+
+
+         z=add(x,y), Bool<=b(x)<=Int, b(y)=Int
       ------------------------------------------------------
                b' = b with (z->Int)
 
@@ -872,10 +877,8 @@ applicable.  Applying the rule means producing a new state *(b',E')*
 derived from the current state -- here by changing the binding of the
 result variable *z*.
 
-Note that for conciseness, we omitted the guards in the first rule that
-prevent it from being applied if the second rule (which is more precise)
-applies as well.  As none of these rules modify *E*, we also omitted the
-``E'=E``.
+Note that for conciseness we omitted the ``E'=E`` (none of these rules
+modify *E*).
 
 Also ``[note]`` that we do not generally try to prove the correctness and
 safety of the user program, preferring to rely on test coverage for
@@ -1565,13 +1568,13 @@ Proof:
        (b_i, E_i) ) = (b_i, E_i)``.  The result will follow from this
        claim because the final *S_n* is empty.
 
-       The claim is trivially true for ``i=0``.  Assume that it holds
-       for some ``i<n`` and prove it for ``i+1``: let *r* be a rule not
-       in *S_i+1*.  By definition of *S_i+1*, the input/auxiliary
-       variables of *r* have the same bindings at the steps ``i`` and
-       ``i+1``, i.e. *(b_i, E_i)* is equal to *(b_i+1, E_i+1)* on *V_r*.
-       Let *(bf,Ef)* be the effect of *r* on *(b_i, E_i)* as above.  We
-       have::
+       The claim is trivially true for ``i=0``.  Let us assume that it
+       holds for some ``i<n`` and prove it for ``i+1``: let *r* be a
+       rule not in *S_i+1*.  By definition of *S_i+1*, the
+       input/auxiliary variables of *r* have the same bindings at the
+       steps ``i`` and ``i+1``, i.e. *(b_i, E_i)* is equal to *(b_i+1,
+       E_i+1)* on *V_r*.  Let *(bf,Ef)* be the effect of *r* on *(b_i,
+       E_i)* as above.  We have::
 
            r( (b_i,   E_i) )   = (b_i,   E_i)   union (bf,Ef)
            r( (b_i+1, E_i+1) ) = (b_i+1, E_i+1) union (bf,Ef)
@@ -1600,7 +1603,33 @@ Proof:
 
        This concludes the proof.
 
-2. XXX
+2. *(b_n, E_n)* is the minimum of all sound non-degenerated states.
+
+       Let *(bs,Es)* be any sound non-degenerated state such that
+       ``(b_0, E_0) <= (bs,Es)``.  We will show by induction that for
+       each ``i<=n`` we have ``(b_i, E_i) <= (bs,Es)``.  The conclusion
+       follows from the case ``i=n``.
+
+       The claim holds for ``i=0`` by hypothesis.  Let us assume that it
+       is true for some ``i<n`` and prove it for ``i+1``.  We need to
+       consider separate cases for each of the kind of rules that *r_i*
+       can be.  We only show a few representative examples and leave the
+       complete proof to the reader.  These example show why it is a key
+       point that *(bs,Es)* is not degenerated.
+
+       Example 1.  The rule *r_i* is::
+
+           z=add(x,y), b(x)=Int, Bool<=b(y)<=Int
+
+       In this example, *b_i+1* is *b_i* with ``z->Int``.  We must show
+       that ``bs(z) >= Int``.  To do so, consider that for
+       non-degenerated states the guards of the above rule are
+       equivalent to ``b(x)>=Int, b(y)>=Bool``.  As *z* is not the same
+       variable as *x* or *y*, we know from ``(b_i, E_i) <= (bs,Es)``
+       that ``bs(x)>=Int`` and ``bs(y)>=Bool``.  Moreover, by definition
+       ``r( (bs,Es) ) = (bs,Es)``.  We conclude that ``bs(z)=Int``.
+
+       XXX
 
 
 Complexity
