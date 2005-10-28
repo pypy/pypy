@@ -137,6 +137,7 @@ class Module(object):
         self.toplevelscope = Scope()
         self.importers = []
     def import_(self, modname):
+        # should probably handle relative imports here.
         if modname not in self._imports:
             if recursive and modname not in self.system.modules:
                 self.system.pendingmodules[modname] = None
@@ -205,19 +206,21 @@ def process(r, codeob, scope, toplevel=False):
                 # this is the 'import foo' case
                 r.import_(modname)
 
-                postop, postoparg = opcodes[i+1]
-
-                # ban 'import foo.bar' (it's dubious style anyway, imho)
-
-                #assert not '.' in modname
-
-                # this assert actually triggers quite frequently, for things like
-                # import py.lib as lib
-                # (which is strange code, in my book...)
+                seenloadattr = False
+                while 1:
+                    postop, postoparg = opcodes[i+1]
+                    i += 1
+                    if postop != _op_.LOAD_ATTR:
+                        break
+                    seenloadattr = True
+                    
                 assert postop in storeops, 'postop'
+
                 storename = name_for_op(codeob, postop, postoparg)
-                scope.modvars[storename] = modname.split('.')[0]
-                i += 1
+                if seenloadattr:
+                    scope.modvars[storename] = modname
+                else:
+                    scope.modvars[storename] = modname.split('.')[0]
             elif fromlist == ('*',):
                 assert toplevel, 'toplevel'
                 if modname.startswith('pypy.'):
@@ -264,7 +267,9 @@ def process(r, codeob, scope, toplevel=False):
                         submod = modname + '.' + f
                         r.import_(submod)
 
+                    
                     op, oparg = opcodes[i]
+                    i += 1
 
                     assert op in storeops, 'opstore'
                     storename = name_for_op(codeob, op, oparg)
@@ -273,7 +278,7 @@ def process(r, codeob, scope, toplevel=False):
                         scope.modvars[storename] = submod
                     else:
                         scope.varsources[storename] = modname, f
-                    i += 1
+
                 op, oparg = opcodes[i]
                 assert op == _op_.POP_TOP, 'POP_TOP'
         elif op == _op_.STORE_NAME and toplevel or op == _op_.STORE_GLOBAL:
@@ -307,6 +312,16 @@ def process(r, codeob, scope, toplevel=False):
     for c in codeobjs:
         process(r, c, Scope(scope))
 
+def find_from_dotted_name(modname):
+    path = None
+    for part in modname.split('.'):
+        try:
+            path = [imp.find_module(part, path)[1]]
+        except ImportError:
+            print modname
+            raise
+    return path[0]
+
 def process_module(dottedname, system):
     if dottedname.endswith('.py'):
         path = dottedname
@@ -339,15 +354,7 @@ def process_module(dottedname, system):
 
     return r
 
-def find_from_dotted_name(modname):
-    path = None
-    for part in modname.split('.'):
-        try:
-            path = [imp.find_module(part, path)[1]]
-        except ImportError:
-            print modname
-            raise
-    return path[0]
+# --- stuff that uses the processed data ---
 
 def report_unused_symbols(system):
     for name, mod in sorted(system.modules.iteritems()):
@@ -463,6 +470,7 @@ def find_varargs_users(system):
             if m._imports['pypy.interpreter.pycode'].get('CO_VARARGS') == True:
                 print m.name
 
+# --- HTML generation stuff ---
 
 def file_for_module(module):
     fname = os.path.join('importfunhtml', *module.name.split('.')) + '.html'
@@ -579,6 +587,8 @@ def make_html_report(system):
     os.mkdir('importfunhtml')
     for m in system.modules.itervalues():
         html_for_module(m)
+
+# --- the driver stuff! ---
 
 def main(*paths):
     system = System()
