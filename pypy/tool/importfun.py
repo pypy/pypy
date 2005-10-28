@@ -255,29 +255,21 @@ def process(r, codeob, scope, toplevel=False):
                         i += 1
                         continue
 
-                    var = mod = None
-
-                    try:
-                        imp.find_module(f, path)
-                    except ImportError:
-                        var = True
-                        r.import_(modname)[f] = False
-                    else:
-                        mod = True
-                        submod = modname + '.' + f
-                        r.import_(submod)
-
-                    
                     op, oparg = opcodes[i]
                     i += 1
 
                     assert op in storeops, 'opstore'
                     storename = name_for_op(codeob, op, oparg)
 
-                    if mod:
-                        scope.modvars[storename] = submod
-                    else:
+                    try:
+                        imp.find_module(f, path)
+                    except ImportError:
+                        r.import_(modname)[f] = False
                         scope.varsources[storename] = modname, f
+                    else:
+                        submod = modname + '.' + f
+                        r.import_(submod)
+                        scope.modvars[storename] = submod
 
                 op, oparg = opcodes[i]
                 assert op == _op_.POP_TOP, 'POP_TOP'
