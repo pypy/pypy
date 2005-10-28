@@ -1260,8 +1260,13 @@ Termination and soundness
 
 As the annotation process is a fix-point search, we should prove for
 completeness that it is, in some sense yet to be defined, well-behaved.
-The following proofs are all rather straightforward given the approach
-we have taken.
+Given the approach we have taken, none of the following proofs is
+"deep": the intended goal of the whole approach is to allow the
+development of an intuitive understanding of why annotation works.
+However, despide their straightforwardness the following proofs are
+quite technical; they are oriented towards the more
+mathematically-minded reader.
+
 
 Generalization
 **************
@@ -1313,7 +1318,7 @@ Proof:
        variable of the block itself.  So assume for now that the input
        variables of this operation can only get generalized; we claim
        that in this case the same holds for its result variable.  If
-       this holds, then we conclude by reccurence on the number of
+       this holds, then we conclude by induction on the number of
        operations in the block: indeed, starting from point 1 above for
        the input variables of the block, it shows that each result
        variable -- so also all input arguments of the next operation --
@@ -1508,8 +1513,10 @@ The sequence ends when *S_n* is empty, at which point annotation is
 complete.  The informal argument of the Termination_ paragraph shows
 that this sequence is necessarily of finite length.  In the
 Generalization_ paragraph we have also seen that each state *(b_i+1,
-E_i+1)* is equal to or more general than the previous state *(b_i,
-E_i)*.
+E_i+1)* is equal to or more general than the previous state *(b_i, E_i)*
+-- more generally, that applying any rule *r* to any state seen in the
+sequence leads to generalization, or in formal terms ``r( (b_i, E_i) )
+>= (b_i, E_i)``.
 
 We define an annotation state *(b,E)* to be *sound* if for all rules *r*
 we have ``r( (b,E) ) = (b,E)``.  We say that *(b,E)* is *degenerated* if
@@ -1525,7 +1532,75 @@ following propositions:
 
 Proof:
 
-   XXX
+1. The final state *(b_n, E_n)* is sound.
+
+       The proof is based on the fact that the "effect" of any rule only
+       depends on the annotation of its input and auxiliary variables.
+       This "effect" is to merge some bindings and/or add some
+       identifications; it can formalized by saying that ``r( (b,E) ) =
+       (b,E) union (bf,Ef)`` for a certain *(bf,Ef)* that contains only
+       the new bindings and identifications.
+
+       More precisely, let *r* be a rule.  Let *V_r* be the set of input
+       and auxiliary variables of *r*, i.e.::
+
+           V_r = { v | r in Rules_v }
+
+       Let *(b,E)* be a state.  Then there exists a state *(bf,Ef)*
+       representing the "effect" of the rule on *(b,E)* as follows:
+
+           r( (b,E) )   = (b,E)   union (bf,Ef)
+
+       and the same *(bf,Ef)* works for any *(b',E')* which is equal to
+       *(b,E)* on *V_r*::
+
+           r( (b',E') ) = (b',E') union (bf,Ef)
+
+       This is easily verified on a case-by-case basis for each kind of
+       rule presented above.  The details are left to the reader.
+
+       To show the proposition, we proceed by induction on *i* to show
+       that each of the meta-states *(S_i, b_i, E_i)* has the following
+       property: for each rule *r* which is not in *S_i* we have ``r(
+       (b_i, E_i) ) = (b_i, E_i)``.  The result will follow from this
+       claim because the final *S_n* is empty.
+
+       The claim is trivially true for ``i=0``.  Assume that it holds
+       for some ``i<n`` and prove it for ``i+1``: let *r* be a rule not
+       in *S_i+1*.  By definition of *S_i+1*, the input/auxiliary
+       variables of *r* have the same bindings at the steps ``i`` and
+       ``i+1``, i.e. *(b_i, E_i)* is equal to *(b_i+1, E_i+1)* on *V_r*.
+       Let *(bf,Ef)* be the effect of *r* on *(b_i, E_i)* as above.  We
+       have::
+
+           r( (b_i,   E_i) )   = (b_i,   E_i)   union (bf,Ef)
+           r( (b_i+1, E_i+1) ) = (b_i+1, E_i+1) union (bf,Ef)
+
+       Case 1: *r* is in *S_i*.  As it is not in *S_i+1* it must be
+       precisely *r_i*.  In this case ``r( (b_i, E_i) ) = (b_i+1,
+       E_i+1)``, so that::
+
+           r( (b_i+1, E_i+1) ) = (b_i+1, E_i+1) union (bf,Ef)
+                               = r( (b_i, E_i) ) union (bf,Ef)
+                               = (b_i, E_i) union (bf,Ef) union (bf,Ef)
+                               = (b_i, E_i) union (bf,Ef)
+                               = r( (b_i, E_i) )
+                               = (b_i+1, E_i+1).
+
+       which concludes the induction step.
+
+       Case 2: *r* is not in *S_i*.  By induction hypothesis ``(b_i,
+       E_i) = r( (b_i, E_i) )``.
+
+           (b_i, E_i) = (b_i, E_i) union (bf,Ef)
+           (b_i, E_i) >= (bf,Ef)
+           (b_i+1, E_i+1) >= (b_i, E_i) >= (bf,Ef)
+           (b_i+1, E_i+1) = (b_i+1, E_i+1) union (bf,Ef)
+           (b_i+1, E_i+1) = r( (b_i+1, E_i+1) ).
+
+       This concludes the proof.
+
+2. XXX
 
 
 Complexity
