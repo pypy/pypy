@@ -150,7 +150,7 @@ def iteropcodes(codestring):
         op = ord(codestring[i])
         i += 1
         oparg = None
-        assert op != opcode.EXTENDED_ARG
+        assert op != opcode.EXTENDED_ARG, 'EXTENDED_ARG'
         if op >= opcode.HAVE_ARGUMENT:
             oparg = ord(codestring[i]) + ord(codestring[i+1])*256
             i += 2
@@ -187,7 +187,7 @@ def process(r, codeob, scope, toplevel=False):
 
         if op == IMPORT_NAME:
             preop, preoparg = opcodes[i-1]
-            assert preop == LOAD_CONST
+            assert preop == LOAD_CONST, 'LOAD_CONST'
 
             fromlist = codeob.co_consts[preoparg]
 
@@ -203,7 +203,10 @@ def process(r, codeob, scope, toplevel=False):
 
                 #assert not '.' in modname
 
-                assert postop in [STORE_NAME, STORE_FAST, STORE_DEREF, STORE_GLOBAL]
+                # this assert actually triggers quite frequently, for things like
+                # import py.lib as lib
+                # (which is strange code, in my book...)
+                assert postop in [STORE_NAME, STORE_FAST, STORE_DEREF, STORE_GLOBAL], 'postop'
                 if postop == STORE_FAST:
                     storename = codeob.co_varnames[postoparg]
                 elif postop == STORE_DEREF:
@@ -217,7 +220,7 @@ def process(r, codeob, scope, toplevel=False):
                 scope.modvars[storename] = modname.split('.')[0]
                 i += 1
             elif fromlist == ('*',):
-                assert toplevel
+                assert toplevel, 'toplevel'
                 if modname.startswith('pypy.'):
                     if modname not in r.system.modules:
                         if modname in r.system.pendingmodules:
@@ -242,8 +245,8 @@ def process(r, codeob, scope, toplevel=False):
                 i += 1
                 for f in fromlist:
                     op, oparg = opcodes[i]
-                    assert op == IMPORT_FROM
-                    assert codeob.co_names[oparg] == f
+                    assert op == IMPORT_FROM, 'IMPORT_FROM'
+                    assert codeob.co_names[oparg] == f, 'f'
                     i += 1
 
                     if path == -1:
@@ -264,7 +267,7 @@ def process(r, codeob, scope, toplevel=False):
 
                     op, oparg = opcodes[i]
 
-                    assert op in [STORE_NAME, STORE_FAST, STORE_DEREF, STORE_GLOBAL]
+                    assert op in [STORE_NAME, STORE_FAST, STORE_DEREF, STORE_GLOBAL], 'opstore'
                     if op == STORE_FAST:
                         storename = codeob.co_varnames[oparg]
                     elif op == STORE_DEREF:
@@ -282,7 +285,7 @@ def process(r, codeob, scope, toplevel=False):
                         scope.varsources[storename] = modname, f
                     i += 1
                 op, oparg = opcodes[i]
-                assert op == POP_TOP
+                assert op == POP_TOP, 'POP_TOP'
         elif op == STORE_NAME and toplevel or op == STORE_GLOBAL:
             r.definitions.append(codeob.co_names[oparg])
         elif op == LOAD_ATTR:
@@ -299,7 +302,7 @@ def process(r, codeob, scope, toplevel=False):
             name = codeob.co_names[oparg]
             m, a = scope.var_source(name)
             if m:
-                assert a in r.import_(m)
+                assert a in r.import_(m), 'a'
                 r.import_(m)[a] = True
 ##             else:
 ##                 if name not in r.definitions \
@@ -312,7 +315,7 @@ def process(r, codeob, scope, toplevel=False):
             name = codeob.co_varnames[oparg]
             m, a = scope.var_source(name)
             if m:
-                assert a in r.import_(m)
+                assert a in r.import_(m), 'a2'
                 r.import_(m)[a] = True
         elif op in [LOAD_DEREF]:
             if oparg < len(codeob.co_cellvars):
@@ -321,11 +324,11 @@ def process(r, codeob, scope, toplevel=False):
                 name = codeob.co_freevars[oparg - len(codeob.co_cellvars)]
             m, a = scope.var_source(name)
             if m:
-                assert a in r.import_(m)
+                assert a in r.import_(m), 'a3'
                 r.import_(m)[a] = True
         elif op in [MAKE_FUNCTION, MAKE_CLOSURE]:
             preop, preoparg = opcodes[i-1]
-            assert preop == LOAD_CONST
+            assert preop == LOAD_CONST, 'preop'
             codeobjs.append(codeob.co_consts[preoparg])
 
         i += 1
@@ -526,14 +529,28 @@ def html_for_module(module):
     body = [html.h1(module.name)]
     body.append(html.p('This module defines these names:'))
     listbody = []
+    defuses = {}
     for d in module.definitions:
+        uses = []
+        for n in sorted(module.importers):
+            N = module.system.modules[n]
+            if N._imports[module.name].get(d) == True:
+                uses.append(n)
+
         if not d.startswith('_'):
-            listbody.append(html.li(
-                html.a(d, href=link_for_name(ourlink, module, d))))
+            if uses:
+                listbody.append(html.li(
+                    html.a(d, href=link_for_name(ourlink, module, d))))
+                defuses[d] = uses
+            else:
+                listbody.append(html.li(d))
+
     body.append(html.ul(listbody))
     body.append(html.p('This module imports the following:'))
     listbody1 = []
     for n in sorted(module._imports):
+        if n in ('autopath', '__future__'):
+            continue
         if n in module.system.modules:
             listbody2 = [html.a(
                 n, href=link_for_module(ourlink, module.system.modules[n]))]
@@ -566,25 +583,21 @@ def html_for_module(module):
 
     out.write(html.html(head, body).unicode())
 
-    for d in module.definitions:
+    for d in defuses:
         out = file_for_name(module, d)
         ourlink = link_for_name('', module, d)
         head = [html.title(module.name + '.' + d)]
         body = [html.h1([html.a(module.name, href=link_for_module(ourlink, module)), '.' + d])]
-
+        
         contents = []
 
-        for n in module.importers:
+        for n in defuses[d]: 
             N = module.system.modules[n]
-            if N._imports[module.name].get(d) == True:
-                contents.append(html.li(html.a(n, href=link_for_module(ourlink, N))))
+            contents.append(html.li(html.a(n, href=link_for_module(ourlink, N))))
 
-        if contents:
-            body.append(html.p('This name is used in'))
-            body.append(html.ul(contents))
-        else:
-            body.append(html.p('This name is not used outside the module.'))
-        
+        body.append(html.p('This name is used in'))
+        body.append(html.ul(contents))
+
         out.write(html.html(head, body).unicode())
 
 def make_html_report(system):
@@ -605,7 +618,7 @@ def main(*paths):
     while system.pendingmodules:
         path, d = system.pendingmodules.popitem()
         if sys.stdout.isatty():
-            print '\r\033[K', len(system.pendingmodules), path,
+            print '\r\033[K', len(system.modules), '/', len(system.pendingmodules), path,
             sys.stdout.flush()
         if '._cache' in path or '/_cache' in path:
             continue
