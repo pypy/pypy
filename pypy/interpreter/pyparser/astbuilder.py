@@ -1041,7 +1041,7 @@ def build_listmaker(builder, nb):
     else:
         lineno = -1
     builder.push(ast.List(nodes, lineno))
-    
+
 
 def build_decorator(builder, nb):
     """decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE"""
@@ -1614,7 +1614,8 @@ class SlicelistObject(ObjectAccessor):
 class AstBuilderContext(AbstractContext):
     """specific context management for AstBuidler"""
     def __init__(self, rule_stack):
-        self.rule_stack = list(rule_stack)
+        #self.rule_stack = list(rule_stack)
+        self.d = len(rule_stack)
 
 class AstBuilder(BaseGrammarBuilder):
     """A builder that directly produce the AST"""
@@ -1632,7 +1633,9 @@ class AstBuilder(BaseGrammarBuilder):
 ##         if DEBUG_MODE:
 ##             print "Restoring context (%s)" % (len(ctx.rule_stack))
         assert isinstance(ctx, AstBuilderContext)
-        self.rule_stack = ctx.rule_stack
+        assert len(self.rule_stack) >= ctx.d
+        del self.rule_stack[ctx.d:]
+        #self.rule_stack = ctx.rule_stack
 
     def pop(self):
         return self.rule_stack.pop(-1)
@@ -1657,7 +1660,7 @@ class AstBuilder(BaseGrammarBuilder):
 
     def alternative( self, rule, source ):
         # Do nothing, keep rule on top of the stack
-        rule_stack = self.rule_stack[:]
+##        rule_stack = self.rule_stack[:]
         if rule.is_root():
 ##             if DEBUG_MODE:
 ##                 print "ALT:", sym.sym_name[rule.codename], self.rule_stack
@@ -1678,7 +1681,7 @@ class AstBuilder(BaseGrammarBuilder):
 
     def sequence(self, rule, source, elts_number):
         """ """
-        rule_stack = self.rule_stack[:]
+##        rule_stack = self.rule_stack[:]
         if rule.is_root():
 ##             if DEBUG_MODE:
 ##                 print "SEQ:", sym.sym_name[rule.codename]

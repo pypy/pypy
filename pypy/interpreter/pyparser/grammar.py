@@ -536,8 +536,11 @@ class KleenStar(GrammarElement):
         """
         if DEBUG > 1:
             print "try kle:", self.display()
-        ctx = source.context()
-        bctx = builder.context()
+        ctx = 0
+        bctx = None
+        if self.min:
+            ctx = source.context()
+            bctx = builder.context()
         rules = 0
         rule = self.args[0]
         while True:
