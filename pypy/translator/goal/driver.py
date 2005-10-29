@@ -16,6 +16,9 @@ py.log.setconsumer("translation", ansi_log)
 
 DEFAULT_OPTIONS = optparse.Values(defaults={
   'gc': 'ref',
+
+  'thread': False, # influences GC policy
+
   'stackless': False,
   'debug': True,
   'insist': False,
@@ -190,7 +193,9 @@ class TranslationDriver(SimpleTaskEngine):
             from pypy.translator.c import gc
             gcpolicy = gc.NoneGcPolicy
 
-        cbuilder = translator.cbuilder(standalone=standalone, gcpolicy=gcpolicy)
+        cbuilder = translator.cbuilder(standalone=standalone, 
+                                       gcpolicy=gcpolicy,
+                                       thread_enabled = getattr(opt, 'thread', False))
         cbuilder.stackless = opt.stackless
         database = cbuilder.build_database()
         self.log.info("database for generating C source was created")

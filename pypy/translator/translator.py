@@ -303,12 +303,12 @@ class Translator:
         cbuilder.import_module()    
         return cbuilder.get_entry_point()
 
-    def cbuilder(self, standalone=False, gcpolicy=None):
+    def cbuilder(self, standalone=False, gcpolicy=None, thread_enabled=False):
         from pypy.translator.c import genc
         if standalone:
-            return genc.CStandaloneBuilder(self, gcpolicy=gcpolicy)
+            return genc.CStandaloneBuilder(self, gcpolicy=gcpolicy, thread_enabled=thread_enabled)
         else:
-            return genc.CExtModuleBuilder(self, gcpolicy=gcpolicy)
+            return genc.CExtModuleBuilder(self, gcpolicy=gcpolicy, thread_enabled=thread_enabled)
 
     def llvmcompile(self, really_compile=True, standalone=False, optimize=True, exe_name=None, gcpolicy=None):
         """llvmcompile(self, really_compile=True, standalone=False, optimize=True) -> LLVM translation

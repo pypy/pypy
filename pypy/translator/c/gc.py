@@ -9,8 +9,9 @@ PyObjPtr = Ptr(PyObject)
 
 class BasicGcPolicy:
     
-    def __init__(self, db):
+    def __init__(self, db, thread_enabled=False):
         self.db = db
+        self.thread_enabled = thread_enabled
 
     def pyobj_incref(self, expr, T):
         return 'Py_XINCREF(%s);' % expr
@@ -296,6 +297,12 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     deallocator_lines = RefcountingGcPolicy.deallocator_lines.im_func
 
+    def common_after_definition(self, defnode):
+        if defnode.gcinfo:
+            gcinfo = defnode.gcinfo
+            if gcinfo.finalizer:
+                yield 'void %s(GC_PTR obj, GC_PTR ignore);' % (gcinfo.finalizer,)
+
     # for arrays
 
     def array_setup(self, arraydefnode):
@@ -313,11 +320,15 @@ class BoehmGcPolicy(BasicGcPolicy):
                     yield '\t' + line
                 yield '}'
 
+    array_after_definition = common_after_definition
+
     # for structs
     def struct_setup(self, structdefnode, rtti):
         if isinstance(structdefnode.LLTYPE, GcStruct) and list(self.deallocator_lines(structdefnode, '')):
             gcinfo = structdefnode.gcinfo = RefcountingInfo()
             gcinfo.finalizer = self.db.namespace.uniquename('finalize_'+structdefnode.barename)
+
+    struct_after_definition = common_after_definition
 
     def struct_implementationcode(self, structdefnode):
         if structdefnode.gcinfo:
@@ -360,9 +371,9 @@ class BoehmGcPolicy(BasicGcPolicy):
         return ['gc']
 
     def pre_pre_gc_code(self):
-        #if sys.platform == "linux2":
-        #    yield "#define _REENTRANT 1"
-        #    yield "#define GC_LINUX_THREADS 1"
+        if sys.platform == "linux2" and self.thread_enabled:
+            yield "#define _REENTRANT 1"
+            yield "#define GC_LINUX_THREADS 1"
         yield '#include <gc/gc.h>'
         yield '#define USING_BOEHM_GC'
 

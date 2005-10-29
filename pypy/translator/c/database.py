@@ -14,7 +14,7 @@ from pypy.translator.c.support import log
 
 class LowLevelDatabase:
 
-    def __init__(self, translator=None, standalone=False, gcpolicy=None):
+    def __init__(self, translator=None, standalone=False, gcpolicy=None, thread_enabled=False):
         self.translator = translator
         self.standalone = standalone
         self.structdefnodes = {}
@@ -31,7 +31,7 @@ class LowLevelDatabase:
         if gcpolicy is None:
             from pypy.translator.c import gc
             gcpolicy = gc.RefcountingGcPolicy
-        self.gcpolicy = gcpolicy(self)
+        self.gcpolicy = gcpolicy(self, thread_enabled)
 
     def gettypedefnode(self, T, varlength=1):
         if varlength <= 1:

@@ -44,8 +44,30 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
+# for now this will do for option handling
+
+take_options = True
+
+def opt_parser():
+    import py
+    defl = {'thread': False}
+    parser = py.compat.optparse.OptionParser(usage="target PyPy standalone", add_help_option=False)
+    parser.set_defaults(**defl)
+    parser.add_option("--thread", action="store_true", dest="thread", help="enable threading")
+    return parser
+
+def print_help():
+    opt_parser().print_help()
+
+
 def target(driver, args):
     options = driver.options
+
+    tgt_options, _ = opt_parser().parse_args(args)
+
+    translate_pypy.log_options(tgt_options, "target PyPy options in effect")
+
+    options.thread = tgt_options.thread
 
     global space, w_entry_point
 
@@ -58,12 +80,13 @@ def target(driver, args):
 
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
-    if options.gc == 'boehm':
-        #print "disabling thread with boehm for stabilitiy (combination not tested)"
-        #print "trying threads and boehm"
-        usemodules = []
-    else:
-        usemodules = ['thread']
+
+    usemodules = []
+    if options.thread:
+        print "threads unsupported right now: need thread-safe stack_too_big"
+        raise SystemExit        
+        usemodules.append('thread')
+        
     space = StdObjSpace(nofaking=True,
                         compiler="ast", # interpreter/astcompiler
                         translating=True,

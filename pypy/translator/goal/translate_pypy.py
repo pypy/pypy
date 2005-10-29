@@ -84,6 +84,8 @@ opts = {
 }
 
 defaults = {
+    'help': False,
+
     'targetspec': 'targetpypystandalone',
     
     'goals': [],
@@ -139,24 +141,31 @@ class OptHelpFormatter(optparse.IndentedHelpFormatter):
         
 def goal_cb(option, opt, value, parser, enable, goal):
     if enable:
-        if goal not in parser.values.goals:
+        if goal not in parser.values.ensure_value('goals', []):
             parser.values.goals = parser.values.goals + [goal]
     else:
-        if goal not in parser.values.skipped_goals:
+        if goal not in parser.values.ensure_value('skipped_goals', []):
             parser.values.skipped_goals = parser.values.skipped_goals + [goal]
 
 def load_target(targetspec):
     log.info("Translating target as defined by %s" % targetspec)
     if not targetspec.endswith('.py'):
         targetspec += '.py'
-    targetspec_dic = {'__name__':'__rpythonmain__'}
+    thismod = sys.modules[__name__]
+    targetspec_dic = {'__name__':'__rpythonmain__',
+                      'translate_pypy': thismod}
     sys.path.insert(0, os.path.dirname(targetspec))
     execfile(targetspec, targetspec_dic)
     return targetspec_dic
 
 def parse_options_and_load_target():
-    opt_parser = optparse.OptionParser(usage="%prog [options] [target]", prog="translate_pypy",
-                                       formatter=OptHelpFormatter())
+    opt_parser = optparse.OptionParser(usage="%prog [options] [target] [target-specific-options]",
+                                       prog="translate_pypy",
+                                       formatter=OptHelpFormatter(),
+                                       add_help_option=False)
+
+    opt_parser.disable_interspersed_args()
+
     for group_name, grp_opts in bunchiter(opts):
         grp = opt_parser.add_option_group(group_name)
         for dest, dest_opts in bunchiter(grp_opts):
@@ -183,7 +192,10 @@ def parse_options_and_load_target():
 
                 grp.add_option(*names, **opt_setup)
 
-    opt_parser.set_defaults(**defaults)
+    # add help back as a flag
+    opt_parser.add_option("-h", "--help",
+                          action="store_true", dest="help",
+                          help="show this help message and exit")
 
     options, args = opt_parser.parse_args()
 
@@ -195,16 +207,49 @@ def parse_options_and_load_target():
                 "ambiguous file naming, please rename %s" % arg)
             options.targetspec = arg
         elif os.path.isfile(arg) and arg.endswith('.py'):
-            options.targetspec = arg[:-3]        
+            options.targetspec = arg[:-3]
+        else:
+            args = [arg] + args
 
-    targespec_dic = load_target(options.targetspec)
+    # for help, applied later
+    opt_parser.set_defaults(**defaults)
+
+    targetspec = options.ensure_value('targetspec', opt_parser.defaults['targetspec'])
+    targetspec_dic = load_target(targetspec)
+
+    if args and not targetspec_dic.get('take_options', False):
+        log.WARNING("target specific arguments supplied but will be ignored: %s" % ' '.join(args))
+
+    # target specific defaults taking over
+    if 'opt_defaults' in targetspec_dic:
+        opt_parser.set_defaults(targetspec_dic['op_defaults'])
+
+    if options.help:
+        opt_parser.print_help()
+        if 'print_help' in targetspec_dic:
+            print
+            targetspec_dic['print_help']()
+        sys.exit(0)
+
+    # apply defaults
+    for name, val in opt_parser.defaults.iteritems():
+        options.ensure_value(name, val)
 
     # tweak: default_goals into default_goal
     del options.default_goals
     options.default_goal = 'compile'
     
-    return targespec_dic, options, args
+    return targetspec_dic, options, args
 
+def log_options(options, header="options in effect"):
+    # list options (xxx filter, filter for target)
+    log('%s:' % header)
+    optnames = options.__dict__.keys()
+    optnames.sort()
+    for name in optnames:
+        optvalue = getattr(options, name)
+        log('%25s: %s' %(name, optvalue))
+   
 def main():
     targetspec_dic, options, args = parse_options_and_load_target()
 
@@ -259,14 +304,8 @@ def main():
 
         pdb_plus_show.start(tb, server_setup, graphic=not options.text)
 
-    # list options (xxx filter, filter for target)
-    log('options in effect:')
-    optnames = options.__dict__.keys()
-    optnames.sort()
-    for name in optnames:
-        optvalue = getattr(options, name)
-        log('%25s: %s' %(name, optvalue))
-   
+    log_options(options)
+
     try:
         drv = driver.TranslationDriver.from_targetspec(targetspec_dic, options, args,
                                                       empty_translator=t,

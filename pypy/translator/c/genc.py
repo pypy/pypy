@@ -18,9 +18,10 @@ class CBuilder(object):
     symboltable = None
     stackless = False
     
-    def __init__(self, translator, gcpolicy=None, libraries=None):
+    def __init__(self, translator, gcpolicy=None, libraries=None, thread_enabled=False):
         self.translator = translator
         self.gcpolicy = gcpolicy
+        self.thread_enabled = thread_enabled
 
         if libraries is None:
             libraries = []
@@ -28,7 +29,8 @@ class CBuilder(object):
 
     def build_database(self):
         translator = self.translator
-        db = LowLevelDatabase(translator, standalone=self.standalone, gcpolicy=self.gcpolicy)
+        db = LowLevelDatabase(translator, standalone=self.standalone, 
+                              gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled)
 
         if self.stackless:
             from pypy.translator.c.stackless import StacklessData
