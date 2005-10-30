@@ -58,12 +58,15 @@ def target(driver, args):
 
     # disable translation of the whole of classobjinterp.py
     Space.setup_old_style_classes = lambda self: None
-    if options.gc == 'boehm':
-        #print "disabling thread with boehm for stabilitiy (combination not tested)"
-        #print "trying threads and boehm"
-        usemodules = []
-    else:
-        usemodules = ['thread']
+    # XXX threads are not working right now!
+    #if options.gc == 'boehm':
+    #    #print "disabling thread with boehm for stabilitiy (combination not tested)"
+    #    #print "trying threads and boehm"
+    #    usemodules = []
+    #else:
+    #    usemodules = ['thread']
+    usemodules = []
+
     space = Space(nofaking=True,
                   compiler="ast", # interpreter/astcompiler
                   translating=True,
