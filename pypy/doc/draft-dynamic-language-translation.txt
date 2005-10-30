@@ -1847,29 +1847,109 @@ into infinite loops.)
 Code Generation
 ===============================
 
-XXX rewriting to low-level operations
+The actual generation of low-level code from the information computed by
+the annotator is not the central subject of the present report, so we
+will only skim it and refer to the reference documentation when
+appropriate.
 
-XXX introduction, repr
+The main difficulty with turning annotated flow graphs into C code is
+that the RPython definition is still quite large, in the sense that an
+important fraction of the built-in data structures of Python, and the
+methods on them, are supported -- sometimes requiring highly non-trivial
+implementations, in a polymorphic way.  Various approaches have been
+tried out, including writing a lot of template C code that gets filled
+with concrete types.
 
-Low-level type system for C
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The approach eventually selected is different.  We proceed in two steps:
 
-XXX
+* the annotated graphs are rewritten so that each RPython-level
+  operation is replaced by one or a few low-level operations (or a call
+  to a helper for more complex operations);
 
-Implementing operations as helpers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* the low-level flow graphs thus obtained are easy to handle in a
+  back-end -- we can currently turn them into either C or LLVM_ code.
 
-XXX XXX reusing the annotator and specialization
+
+The RPython typer
+~~~~~~~~~~~~~~~~~
+
+The first step is called "RTyping" or "specializing" as it turns general
+high-level operations into low-level C-like operations specialized for
+the types derived by the annotator.  This process produces a globally
+consistant low-level family of flow graphs by assuming that the
+annotation state is sound.  It is described in more details in the
+`RPython typer`_ reference.
+
+A noteworthy point of the RTyper is that for each operation that has no
+obvious C-level equivalent, we write a helper function in Python; each
+usage of the operation in the source (high-level) annotated flow graph
+is replaced by a call to this function.  The function in question is
+implemented in terms of "simpler" operations.  The function is then fed
+back into the flow object space and the annotator and the RTyper itself
+so that it gets turned into another low-level control flow graph.  At
+this point, the annotator runs with a different set of default
+specializations: it allows several copies of the helper functions to be
+automatically built, one for each low-level type of its arguments.  We
+do this by default at this level because of the intended purpose of
+these helpers: they are usually methods of a polymorphic container.
+
+This approach shows that our annotator is versatile enough to accomodate
+different kinds of sub-languages at different levels: it is
+straightforward to adapt it for the so-called "low-level Python"
+language in which we constrain ourselves to write the low-level
+operation helpers.  Automatic specialization was a key point here; the
+resulting language feels like a basic C++ without any type or template
+declarations.
+
 
 Generating C code
 ~~~~~~~~~~~~~~~~~
 
-XXX collecting functions and data structures recursively
+So far, all data structures (flow graphs, prebuilt constants...) 
+manipulated by the translation process only existed as objects in
+memory.  The last step is to turn them into an external representation
+like C source code.
 
-XXX inserting hand-written C functions for suggested_primitives
+This step is theoretically straightforward, if messy in practice for
+various reasons including the limitations, constrains and irregularities
+of the C language.
 
-XXX messy
+The `GenC back-end`_ works again in two steps:
 
+* it first collects recursively all functions (i.e. their low-level flow
+  graphs) and all prebuilt data structures, remembering all "struct" C
+  types that will need to be declared;
+
+* it then generates one or multiple C source files containing:
+
+  1. a forward declaration of all the "struct" C types;
+
+  2. the full declarations of the latter;
+
+  3. a forward declaration of all the functions and prebuilt data
+     structures;
+
+  4. the implementation of the latter (i.e. the body of functions and
+     the static initializers of prebuilt data structures).
+
+Each function's body is implemented as basic blocks (following the basic
+blocks of the control flow graphs) with jumps between them.  The
+low-level operations that appear in the low-level flow graphs are each
+turned into a simple C operation.  A few functions have no flow graph
+attached to them: the "primitive" functions.  No body is written for
+them; GenC assumes that a manually-written implementation will be
+provided in another C file.
+
+
+Conclusion
+===============
+
+XXX looks like a general approach for dynamic language translation
+
+XXX static analysis is delicate; dynamic analysis interesting potential
+
+XXX tests are good, otherwise translating the whole of PyPy would have
+been a nightmare
 
 
 .. _architecture: architecture.html
@@ -1882,5 +1962,8 @@ XXX messy
 .. _`Standard Object Space`: objspace.html#the-standard-object-space
 .. _`ACM SIGPLAN 2004 paper`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Hindley-Milner`: http://en.wikipedia.org/wiki/Hindley-Milner_type_inference
+.. _LLVM: http://llvm.cs.uiuc.edu/
+.. _`RPython typer`: translation.html#rpython-typer
+.. _`GenC back-end`: translation.html#genc
 
 .. include:: _ref.txt
