@@ -1662,7 +1662,6 @@ Proof:
        (bs,Es) ) = (bs,Es)`` we conclude that ``(v~w) in Es``.
 
 
-
 Complexity
 **********
 
@@ -1680,8 +1679,23 @@ does not reflect any practical complexity considerations.  It is simpler
 to prove that there is no infinite ascending chain, which is enough to
 guarantee termination.
 
-Additionally, an important property of ``lookup_filter`` is to be
-monotonic: XXX
+We will not present a formal bound on the complexity of the algorithm.
+Worst-case senarios would expose severe theoretical problems.  In
+practice, these senarios are unlikely.  Empirically, when annotating a
+large program like PyPy consisting of some 20'000 basic blocks from
+4'000 functions, the whole annotation process finishes in 5 minutes on a
+modern computer.  This suggests that our approach scales quite well.  We
+also measured how many times each rule is re-applied; the results change
+from run to run due to the non-deterministic nature of the meta-rule --
+we pick a random next rule to apply at each step -- but seems to be
+consistently between 20 and 40, which suggests an ``n log(n)`` practical
+complexity.
+
+Moreover, we will have to explore modular annotation in the near future
+for other reasons -- to make the compiled PyPy interpreter modular,
+which is an important strength of CPython.  We plan to do this by
+imposing the annotations at selected interface boundaries and annotating
+each part independently.
 
 
 Non-static aspects
