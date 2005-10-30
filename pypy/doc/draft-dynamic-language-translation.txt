@@ -1747,19 +1747,101 @@ PyPy):
 * ignoring -- the function call is ignored.  Useful for writing tests or
   debugging support code that should be removed during translation.
 
-* ``*args`` XXX
+* by arity -- for functions taking a variable number of (non-keyword)
+  arguments via a ``*args``, the default specialization is by the number
+  of extra arguments.  (This follows naturally from the fact that the
+  extended annotation lattice we use has annotations of the form
+  ``Tuple(A_1, ..., A_n)`` representing a heterogenous tuple of length
+  *n* whose items are respectively annotated with ``A_1, ..., A_n``, but
+  there is no annotation for tuples of unknown length.)
 
-* memo XXX
+* ctr_location -- for classes.  A fresh independent copy of the class is
+  made for each program point that instantiate the class.  This is a
+  simple (but potentially overspecializing) way to obtain class
+  polymorphism for the couple of container classes we needed in PyPy
+  (e.g. Stack).
 
-* ctr_location XXX
+* memo -- the calls to such functions are fully computed at annotation
+  time.  This requires that each call site finds each argument to be
+  either constant or element of a finite set (``Pbc(m)`` or ``Bool``).
+  All possible call patterns are tried at annotation time, and the
+  return annotation is the union of all possible results.  Such
+  functions are then compiled as memo table lookups -- their
+  implementation is neither analysed nor translated.
 
 
+Concrete mode execution
+***********************
 
-XXX executing more user program code (idem)
+The *memo* specialization_ is used at key points in PyPy to obtain the
+effect described in the introduction (see `Abstract interpretation`_):
+the memo functions and all the code it invokes is concretely executed
+during annotation.  There is no staticness restriction on that code --
+it will typically instantiate classes, creating more prebuilt instances,
+and sometimes even build new classes and functions; this possibility is
+used quite extensively in PyPy.
 
-XXX constant propagation to remove bootstrap-only code
+The input arguments to a memo function are not known in advance: they
+are discovered by the annotator, typically as a ``Pbc(m)`` annotation
+where the set *m* grows over time when rules are re-applied.  In this
+sense, switching to concrete mode execution is an integral part of our
+annotation process.
 
-XXX termination even with non-static aspects
+
+Constant propagation
+********************
+
+The extended lattice of annotations used in practice differs from the
+one presented above in that almost any annotation can also optionally
+carry a constant value.  For example, there are annotations like
+``NonNegInt(const=42)`` for all integers; these annotations are between
+``Bottom`` and ``NonNegInt``.  The annotator carries the constant tag
+across simple operations whenever possible.  The main effect we are
+researching here is not merely constant propagation (low-level compilers
+are very good at this already), but dead code removal.  Indeed, when a
+branch condition is ``Bool(const=True)`` or ``Bool(const=False)``, then
+the annotator will only follow one of the branches -- or in the above
+formalism: the ``y=phi(x)`` rules that propagate annotations across
+links between basic blocks are guarded by the condition that the switch
+variable carries an annotation of either ``Bool(const=<link case>)`` or
+``Bool``.
+
+The dead code removal effect is used in an essential way to hide
+bootstrap-only code from the annotator where it could not analyse such
+code.  For example, some frozen prebuilt constants force some of their
+caches to be filled when they are frozen (which occurs the first time
+the annotator discovers such a constant).  This allows the regular
+access methods of the frozen prebuilt constant to contain code like::
+
+    if self.not_computed_yet:
+        self.compute_result()
+    return self.result
+
+As the annotator only sees frozen ``self`` constants with
+``not_computed_yet=False``, it annotates this attribute as
+``Bool(const=False)`` and never follows the call to
+``compute_result()``.
+
+
+Termination with non-static aspects
+***********************************
+
+The non-static aspects, and concrete mode execution more particularly,
+makes it impossible to prove that annotation terminates in general.  It
+could be the case that a memo function builds and returns a new class
+for each class that it receives as argument, and the result of this memo
+function could be fed back to its input.  However, what can be proved is
+that annotation terminates under some conditions on the user program.  A
+typical sufficient condition (which is true for PyPy) is that there must
+be a computable bound on the number of functions and classes that can
+ever exist in the user program at run-time.
+
+For annotation to terminate -- and anyway for translation to a low-level
+language like C to have any chance of being reasonably straightforward
+to do -- it is up to the user program to satisfy such a condition.  (It
+is similar to, but more "global" than, the flow object space's
+restriction to terminate only if fed functions that don't obviously go
+into infinite loops.)
 
 
 Code Generation
