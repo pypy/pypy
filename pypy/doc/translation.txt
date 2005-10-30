@@ -987,9 +987,11 @@ This version of GenC, using the RPython Typer, is recent but quite stable and
 already flexible (for example, it can produce code with two different memory
 management policies, reference-counting or using the Boehm garabage collector).
 
-GenC is not documented at the moment.  The basic principle of creating
-code from flowgraphs is similar to the `Python back-end`_.
+GenC is not really documented at the moment.  The basic principle of
+creating code from flowgraphs is similar to the `Python back-end`_.
+See also `Generating C code`_ in another draft.
 
+.. _`Generating C code`: draft-dynamic-language-translation.html#generating-c-code
 
 
 .. _LLVM:
@@ -1020,11 +1022,12 @@ Richard worked on it, achieving a standalone executable just prior to the
 Heidelberg sprint.  During the Heildelberg sprint Eric and Richard mainly
 worked on sharing the backend external code with GenC.
 
-.. _`Python again`:
-.. _`Python back-end`:
-
 .. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
 .. _`here`: getting-started.html#translating-the-flow-graph-to-llvm-code
+
+
+.. _`Python again`:
+.. _`Python back-end`:
 
 The Interplevel Back-End
 ========================
