@@ -1491,12 +1491,13 @@ will use the following notation: let *Rules* be the set of all rules
 (for the given user program).  If *r* is a rule, then it can be
 considered as a (mathematical) function from the set of states to the
 set of states, so that "applying" the rule means computing ``(b',E') =
-r( (b,E) )``.  To formalize the meta-rule describing rescheduling of
-rules, we introduce a third component in the state: a subset *S* of the
-*Rules* which stands for the currently scheduled rules.  Finally, for
-any variable *v* we write *Rules_v* for the set of rules that have *v*
-as an input or auxiliary variable.  The rule titled ``(x~y) in E`` is
-called *r_x~y* for short, and it belongs to *Rules_x* and *Rules_y*.
+r( (b,E) )``.  If the guards of the rule *r* are not satisfied then ``r(
+(b,E) ) = (b,E)``.  To formalize the meta-rule describing rescheduling
+of rules, we introduce a third component in the state: a subset *S* of
+the *Rules* which stands for the currently scheduled rules.  Finally,
+for any variable *v* we write *Rules_v* for the set of rules that have
+*v* as an input or auxiliary variable.  The rule titled ``(x~y) in E``
+is called *r_x~y* for short, and it belongs to *Rules_x* and *Rules_y*.
 
 The meta-rule can be formalized as follows: we start from the initial
 "meta-state" *(S_0, b_0, E_0)*, where *S_0=Rules* and *(b_0, E_0)* is
@@ -1615,21 +1616,51 @@ Proof:
        consider separate cases for each of the kind of rules that *r_i*
        can be.  We only show a few representative examples and leave the
        complete proof to the reader.  These example show why it is a key
-       point that *(bs,Es)* is not degenerated.
+       point that *(bs,Es)* is not degenerated: most rules no longer
+       apply if an annotation degenerates to ``Top``, but continue to
+       apply if it is generalized to anything below ``Top``.  The
+       general idea is to turn each rule into a step of the complete
+       proof, showing that if a sound state is at least as general as
+       ``(b_i, E_i)`` then it must be at least as general as ``(b_i+1,
+       E_i+1)``.
 
        Example 1.  The rule *r_i* is::
 
-           z=add(x,y), b(x)=Int, Bool<=b(y)<=Int
+              z=add(x,y), b(x)=Int, Bool<=b(y)<=Int
+           ------------------------------------------------------
+                    b' = b with (z->Int)
 
-       In this example, *b_i+1* is *b_i* with ``z->Int``.  We must show
-       that ``bs(z) >= Int``.  To do so, consider that for
-       non-degenerated states the guards of the above rule are
-       equivalent to ``b(x)>=Int, b(y)>=Bool``.  As *z* is not the same
-       variable as *x* or *y*, we know from ``(b_i, E_i) <= (bs,Es)``
-       that ``bs(x)>=Int`` and ``bs(y)>=Bool``.  Moreover, by definition
-       ``r( (bs,Es) ) = (bs,Es)``.  We conclude that ``bs(z)=Int``.
+       In this example, assuming that the guards are satisfied, *b_i+1*
+       is *b_i* with ``z->Int``.  We must show that ``bs(z) >= Int``.
+       We know from ``(b_i, E_i) <= (bs,Es)`` that ``bs(x) >= Int`` and
+       ``bs(y) >= Bool``.  As *bs* is not degenerated, we have more
+       precisely ``bs(x) = Int, Bool <= bs(y) <= Int``.  Moreover, by
+       definition ``r( (bs,Es) ) = (bs,Es)``.  We conclude that ``bs(z)
+       = Int``.
 
-       XXX
+       Example 2.  The rule *r_i* is::
+
+              y = phi(x)
+           ----------------------------------------
+                    merge b(x) => y
+
+       We must show that ``bs(y) >= b_i+1(y)``.  We need to subdivide
+       this example in two cases: either ``b(x)`` and ``b(y)`` are both
+       ``List`` annotations or not.
+
+       If they are not, we know that ``b_i+1(y) = b_i(y) \/ b_i(x)`` and
+       ``bs(y) >= b_i(y)``, so that we must show that ``bs(y) >=
+       b_i(x)``.  We know that ``r( (bs,Es) ) = (bs,Es)`` so that
+       ``bs(y) = bs(x) \/ bs(y)``, i.e. ``bs(y) >= bs(x)``.  We conclude
+       by noting that ``bs(x) >= b_i(x)``.
+
+       On the other hand, if ``b(x) = List(v)`` and ``b(y) = List(w)``,
+       then *b_i+1* is *b_i* but *E_i+1* is *E_i* with ``v~w``.  We must
+       show that ``(v~w) in Es``.  As *(bs,Es)* is at least as general
+       as *(b_i, E_i)* but not degenerated we know that ``bs(x) =
+       List(v)`` and ``bs(y) = List(w)`` as well.  Again, because ``r(
+       (bs,Es) ) = (bs,Es)`` we conclude that ``(v~w) in Es``.
+
 
 
 Complexity
