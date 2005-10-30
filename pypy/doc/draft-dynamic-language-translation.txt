@@ -1363,7 +1363,7 @@ Proof:
            As we have seen in `Classes and instances`_ above, the
            initial binding of ``v_C.attr`` is regular and
            downwards-closed by construction.  Moreover, the ``setattr``
-           rule explicitely checks that it is never adding any potential
+           rule explicitly checks that it is never adding any potential
            bound method object to ``b(v_C.attr)``, so that the only way
            such objects can be added to ``b(v_C.attr)`` is via the
            identification of ``v_C.attr`` with other ``v_B.attr``
@@ -1701,6 +1701,14 @@ each part independently.
 Non-static aspects
 ~~~~~~~~~~~~~~~~~~
 
+In practice, the annotation is much less "static" than the theoretical
+model presented above.  All functions and classes are discovered while
+annotating, not in advance.  In addition, as explained above, annotation
+occasionally reverts to concrete mode execution to force lazy objects to
+be computed or to fill more caches.  We describe below some of these
+aspects.
+
+
 Specialization
 ***************
 
@@ -1715,17 +1723,35 @@ Not all of our target code or expressivity needs fit into this model.
 The fact that we allow unrestricted dynamism at bootstrap helps a
 great deal, but in addition we also support the explicit flagging of
 certain functions or classes as requiring special treatment.  One such
-special treatment is support for parametric polymorphism, which if
-supported for all callables would lead to an explosion of function
+special treatment is support for parametric polymorphism.  If this were
+supported for all callables, it would lead to an explosion of function
 implementations and likely the need for some kind of target specific
-type erasure and coalescing.
+type erasure and coalescing.  Instead, the user-provided flag instructs
+the annotator to only create a new copy of a few specific functions for
+each annotation seen for a specific argument.
 
-Another special treatment is more outright special casing: providing
-code to explicitly compute the annotation information for a given
-function as opposed to abstractly interpreting the function's
-bytecode.
+Another special treatment is more outright special casing
+(black-boxing): the user can provide code to explicitly compute the
+annotation information for a given function, without letting the flow
+object space and annotator abstractly interpret the function's bytecode.
 
-XXX details of what is supported
+In more details, the following special-cases are supported by default
+(more advanced specializations have been implemented specifically for
+PyPy):
+
+* specializing a function by the annotation of a given argument
+
+* specializing a function by the value of a given argument (requires all
+  calls to the function to resolve the argument to a constant value)
+
+* ignoring -- the function call is ignored.  Useful for writing tests or
+  debugging support code that should be removed during translation.
+
+* ``*args`` XXX
+
+* memo XXX
+
+* ctr_location XXX
 
 
 
