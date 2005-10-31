@@ -281,7 +281,7 @@ class TranslatorPage(BaseTranslatorPage):
         translator = self.translator
 
         # show the call graph
-        callgraph = translator.callgraph.values()
+        callgraph = translator.complete_callgraph.values()
         functions = list(translator.functions)
 
         if len(functions) > huge:
@@ -316,7 +316,7 @@ class TranslatorPage(BaseTranslatorPage):
 
 
 class LocalizedCallGraphPage(BaseTranslatorPage):
-    """A GraphPage showing a the localized call graph for a function,
+    """A GraphPage showing the localized call graph for a function,
     that means just including direct callers and callees"""
 
     def graph_name(self, func0):

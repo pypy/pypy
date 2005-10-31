@@ -18,6 +18,8 @@ def pystones_main(loops):
              (VERSION, loops, benchtime) + '\n' + (
              "This machine benchmarks at %f pystones/second" % stones))
     os.write(1, s)
+    if loops == 12345:
+        pystones_main(loops-1)
 
 def richards_main(iterations):
     s = "Richards benchmark (RPython) starting...\n"
