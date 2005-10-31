@@ -32,6 +32,7 @@ class LowLevelDatabase:
             from pypy.translator.c import gc
             gcpolicy = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicy(self, thread_enabled)
+        self.completed = False
 
     def gettypedefnode(self, T, varlength=1):
         if varlength <= 1:
@@ -161,6 +162,7 @@ class LowLevelDatabase:
             if i == show_i:
                 dump()
                 show_i += 1000
+        self.completed = True
         if show_progress:
             dump()
 
