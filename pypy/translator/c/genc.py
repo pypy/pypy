@@ -5,7 +5,7 @@ from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import compile_c_module
-from pypy.translator.tool.cbuild import build_executable
+from pypy.translator.tool.cbuild import build_executable, CCompiler
 from pypy.translator.tool.cbuild import import_module_from_directory
 from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.lltypesystem import lltype
@@ -76,6 +76,8 @@ class CBuilder(object):
                                                  defines = defines)
         self.c_source_filename = py.path.local(cfile)
         self.extrafiles = extra
+        if self.standalone:
+            self.gen_makefile(targetdir)
         return cfile 
 
 
@@ -120,22 +122,67 @@ class CStandaloneBuilder(CBuilder):
         # signature:  list-of-strings -> int
         return getfunctionptr(self.translator, self.translator.entrypoint)
 
-    def compile(self):
-        assert self.c_source_filename
-        assert not self._compiled
+    def getccompiler(self, extra_includes):
         # XXX for now, we always include Python.h
         from distutils import sysconfig
         python_inc = sysconfig.get_python_inc()
-        self.executable_name = build_executable(
+        return CCompiler(
             [self.c_source_filename] + self.extrafiles,
-            include_dirs = [autopath.this_dir, python_inc, str(self.targetdir)],
-            libraries=self.libraries)
+            include_dirs = [autopath.this_dir, python_inc] + extra_includes,
+            libraries    = self.libraries)
+
+    def compile(self):
+        assert self.c_source_filename
+        assert not self._compiled
+        compiler = self.getccompiler(extra_includes=[str(self.targetdir)])
+        compiler.build()
+        self.executable_name = str(compiler.outputfilename)
         self._compiled = True
         return self.executable_name
 
     def cmdexec(self, args=''):
         assert self._compiled
         return py.process.cmdexec('"%s" %s' % (self.executable_name, args))
+
+    def gen_makefile(self, targetdir):
+        def write_list(lst, prefix):
+            for i, fn in enumerate(lst):
+                print >> f, prefix, fn,
+                if i < len(lst)-1:
+                    print >> f, '\\'
+                else:
+                    print >> f
+                prefix = ' ' * len(prefix)
+
+        compiler = self.getccompiler(extra_includes=['.'])
+        cfiles = []
+        ofiles = []
+        for fn in compiler.cfilenames:
+            fn = py.path.local(fn).basename
+            assert fn.endswith('.c')
+            cfiles.append(fn)
+            ofiles.append(fn[:-2] + '.o')
+
+        f = targetdir.join('Makefile').open('w')
+        print >> f, '# automatically generated Makefile'
+        print >> f
+        print >> f, 'TARGET =', py.path.local(compiler.outputfilename).basename
+        print >> f
+        write_list(cfiles, 'SOURCES =')
+        print >> f
+        write_list(ofiles, 'OBJECTS =')
+        print >> f
+        args = ['-l'+libname for libname in compiler.libraries]
+        print >> f, 'LIBS =', ' '.join(args)
+        args = ['-L'+path for path in compiler.library_dirs]
+        print >> f, 'LIBDIRS =', ' '.join(args)
+        args = ['-I'+path for path in compiler.include_dirs]
+        write_list(args, 'INCLUDEDIRS =')
+        print >> f
+        print >> f, 'CFLAGS =', ' '.join(compiler.compile_extra)
+        print >> f, 'LDFLAGS =', ' '.join(compiler.link_extra)
+        print >> f, MAKEFILE.strip()
+        f.close()
 
 
 def translator2database(translator):
@@ -344,6 +391,7 @@ class SourceGenerator:
             print >> fc, '/***********************************************************/'
             fc.close()
         print >> f
+
 
 # this function acts as the fallback for small sources for now.
 # Maybe we drop this completely if source splitting is the way
@@ -654,4 +702,17 @@ setup(name="%(modulename)s",
                             sources = ["%(modulename)s.c"],
                  extra_compile_args = extra_compile_args,
                        include_dirs = [PYPY_INCLUDE_DIR])])
+'''
+
+MAKEFILE = '''
+CC = gcc
+
+$(TARGET): $(OBJECTS)
+\t$(CC) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)
+
+%.o: %.c
+\t$(CC) $(CFLAGS) -o $@ -c $< $(INCLUDEDIRS)
+
+clean:
+\trm -f $(OBJECTS)
 '''

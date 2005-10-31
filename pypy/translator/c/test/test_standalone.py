@@ -1,5 +1,4 @@
 from pypy.translator.translator import Translator
-from pypy.translator.tool.cbuild import build_executable
 from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 import os

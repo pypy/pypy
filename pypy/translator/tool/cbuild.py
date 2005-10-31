@@ -254,55 +254,64 @@ def log_spawned_cmd(spawn):
         return spawn(cmd, *args, **kwds)
     return spawn_and_log
 
-def build_executable(cfilenames, outputfilename=None, include_dirs=None,
-                     libraries=[], library_dirs=None):
-    from distutils.ccompiler import new_compiler 
-    ext = ''
-    compile_extra = []
-    link_extra = []
 
-    if not include_dirs:
-        include_dirs = []
-    if not library_dirs:
-        library_dirs = []
-    if not sys.platform in ('win32', 'darwin'): # xxx
-        libraries.append('m')
-        libraries.append('pthread')
-        compile_extra += ['-O2', '-pthread']
-        link_extra += ['-pthread']
-    if sys.platform == 'darwin':
-        include_dirs.append('/sw/include')
-        compile_extra += ['-O2']
-        
-    if outputfilename is None:
-        outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
-    else: 
-        outputfilename = py.path.local(outputfilename) 
+class CCompiler:
 
-    if sys.platform == 'darwin':
-        library_dirs=['/sw/lib']
+    def __init__(self, cfilenames, outputfilename=None, include_dirs=[],
+                 libraries=[], library_dirs=[]):
+        self.cfilenames = cfilenames
+        ext = ''
+        self.compile_extra = []
+        self.link_extra = []
+        self.libraries = list(libraries)
+        self.include_dirs = list(include_dirs)
+        self.library_dirs = list(library_dirs)
+        if not sys.platform in ('win32', 'darwin'): # xxx
+            if 'm' not in self.libraries:
+                self.libraries.append('m')
+            if 'pthread' not in self.libraries:
+                self.libraries.append('pthread')
+            self.compile_extra += ['-O2', '-pthread']
+            self.link_extra += ['-pthread']
+        if sys.platform == 'darwin':
+            if '/sw/include' not in self.include_dirs:
+                self.include_dirs.append('/sw/include')
+            if '/sw/lib' not in self.library_dirs:
+                self.library_dirs.append('/sw/lib')
+            self.compile_extra += ['-O2']
 
-    compiler = new_compiler()
-    compiler.spawn = log_spawned_cmd(compiler.spawn)
-    objects = []
-    for cfile in cfilenames: 
-        cfile = py.path.local(cfile)
-        old = cfile.dirpath().chdir() 
-        try: 
-            res = compiler.compile([cfile.basename], 
-                                   include_dirs=include_dirs,
-                                   extra_preargs=compile_extra)
-            assert len(res) == 1
-            cobjfile = py.path.local(res[0]) 
-            assert cobjfile.check()
-            objects.append(str(cobjfile))
-        finally: 
-            old.chdir() 
-    compiler.link_executable(objects, str(outputfilename),
-                             libraries=libraries,
-                             extra_preargs=link_extra,
-                             library_dirs=library_dirs)
-    return str(outputfilename)
+        if outputfilename is None:
+            self.outputfilename = py.path.local(cfilenames[0]).new(ext=ext)
+        else: 
+            self.outputfilename = py.path.local(outputfilename) 
+
+    def build(self):
+        from distutils.ccompiler import new_compiler 
+        compiler = new_compiler()
+        compiler.spawn = log_spawned_cmd(compiler.spawn)
+        objects = []
+        for cfile in self.cfilenames: 
+            cfile = py.path.local(cfile)
+            old = cfile.dirpath().chdir() 
+            try: 
+                res = compiler.compile([cfile.basename], 
+                                       include_dirs=self.include_dirs,
+                                       extra_preargs=self.compile_extra)
+                assert len(res) == 1
+                cobjfile = py.path.local(res[0]) 
+                assert cobjfile.check()
+                objects.append(str(cobjfile))
+            finally: 
+                old.chdir() 
+        compiler.link_executable(objects, str(self.outputfilename),
+                                 libraries=self.libraries,
+                                 extra_preargs=self.link_extra,
+                                 library_dirs=self.library_dirs)
+
+def build_executable(*args, **kwds):
+    compiler = CCompiler(*args, **kwds)
+    compiler.build()
+    return str(compiler.outputfilename)
 
 def check_boehm_presence():
     from pypy.tool.udir import udir
