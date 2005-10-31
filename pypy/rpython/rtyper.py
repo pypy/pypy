@@ -739,7 +739,7 @@ class LowLevelOpList(list):
                 raise TyperError("don't know how to convert from %r to %r" %
                                  (r_from, r_to))
             if v.concretetype != r_to.lowleveltype:
-                raise TyperError("bug in convertion from %r to %r: "
+                raise TyperError("bug in conversion from %r to %r: "
                                  "returned a %r" % (r_from, r_to,
                                                     v.concretetype))
         return v
