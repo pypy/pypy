@@ -9,7 +9,8 @@
 #define MAXIMUM_MALLOCABLE_SIZE   (LONG_MAX-4096)
 
 #define OP_MAX_VARSIZE(numitems, itemtype, err)  {			\
-    if (((unsigned)(numitems)) > (MAXIMUM_MALLOCABLE_SIZE / sizeof(itemtype)))\
+    if (((unsigned long)(numitems)) >					\
+		(MAXIMUM_MALLOCABLE_SIZE / sizeof(itemtype)))		\
         FAIL_EXCEPTION(err, PyExc_MemoryError, "addr space overflow");	\
   } 
 
