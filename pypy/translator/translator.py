@@ -15,7 +15,7 @@ import py
 log = py.log.Producer("getflowgraph") 
 py.log.setconsumer("getflowgraph", ansi_log) 
 
-class Translator:
+class Translator(object):
 
     def __init__(self, func=None, verbose=False, simplifying=True,
                  do_imports_immediately=True,
@@ -37,6 +37,8 @@ class Translator:
         self.frozen = False   # when frozen, no more flowgraphs can be generated
         #self.concretetypes = {}  # see getconcretetype()
         #self.ctlist = []         #  "
+        # the following is an index into self.functions from where to check
+        self._callgraph_complete = 0
         if self.entrypoint:
             self.getflowgraph()
 
@@ -161,6 +163,7 @@ class Translator:
             checkgraph(graph)
 
     def specialize(self, **flags):
+        self._callgraph_complete = 0
         if self.annotator is None:
             raise ValueError("you need to call annotate() first")
         if self.rtyper is not None:
@@ -172,6 +175,7 @@ class Translator:
         self.rtyper.specialize(**flags)
 
     def backend_optimizations(self, **kwds):
+        self._callgraph_complete = 0
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self, **kwds)
 
@@ -364,3 +368,34 @@ class Translator:
 ##            result = self.concretetypes[cls, args] = cls(self, *args)
 ##            self.ctlist.append(result)
 ##            return result
+
+    def get_complete_callgraph(self):
+        if self._callgraph_complete < len(self.functions):
+            self._complete_callgraph()
+        return self.callgraph
+    complete_callgraph = property(get_complete_callgraph)
+
+    def _complete_callgraph(self):
+        # walk through all functions, which may grow
+        # if we pull new graphs in.
+        graphs = self.flowgraphs
+        funcs = self.functions
+        was_frozen = self.frozen
+        self.frozen = False
+        complete = self._callgraph_complete
+        while complete < len(funcs):
+            sofar = len(funcs)
+            for func in funcs[complete:]:
+                graph = graphs[func]
+                for block in graph.iterblocks():
+                    for op in block.operations:
+                        if op.opname == 'direct_call':
+                            fnarg = op.args[0]
+                            if isinstance(fnarg, Constant):
+                                fnptr = fnarg.value
+                                fn = fnptr._obj._callable
+                                fg = self.getflowgraph(fn, called_by = func,
+                                                       call_tag = block)
+            complete = sofar
+        self.frozen = was_frozen
+        self._callgraph_complete = complete
