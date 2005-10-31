@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 """
     Translator Demo
 
@@ -190,6 +190,7 @@ if __name__ == '__main__':
     print 'Annotating...'
     a = t.annotate([])
     a.simplify()
+    t.viewcg()
 
     print 'Specializing...'
     t.specialize()   # enable this to see (some) lower-level Cish operations
