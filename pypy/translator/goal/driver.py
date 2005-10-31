@@ -263,7 +263,7 @@ class TranslationDriver(SimpleTaskEngine):
     #
     task_llinterpret = taskdef(task_llinterpret, 
                                ['?backendopt', 'rtype'], 
-                               "LLInterpeting")
+                               "LLInterpreting")
 
     def task_source_llvm(self): # xxx messy
         translator = self.translator
