@@ -13,25 +13,85 @@ from pypy.translator.c.funcgen import FunctionCodeGenerator
 
 class StacklessData:
 
-    def __init__(self):
+    def __init__(self, database):
         self.frame_types = {}
         self.allsignatures = {}
         self.decode_table = []
+        self.stackless_roots = {}
 
         # start the decoding table with entries for the functions that
         # are written manually in ll_stackless.h
-        self.registerunwindable('LL_stackless_stack_unwind',
+        def reg(name):
+            self.stackless_roots[name.lower()] = True
+            return name
+
+        reg('LL_stack_unwind')
+        self.registerunwindable(reg('LL_stackless_stack_unwind'),
                                 lltype.FuncType([], lltype.Void),
                                 resume_points=1)
-        self.registerunwindable('LL_stackless_stack_frames_depth',
+        self.registerunwindable(reg('LL_stackless_stack_frames_depth'),
                                 lltype.FuncType([], lltype.Signed),
                                 resume_points=1)
-        self.registerunwindable('LL_stackless_switch',
+        self.registerunwindable(reg('LL_stackless_switch'),
                                 lltype.FuncType([Address], Address),
                                 resume_points=1)
-        self.registerunwindable('slp_end_of_yielding_function',
+        self.registerunwindable(reg('slp_end_of_yielding_function'),
                                 lltype.FuncType([], Address),
                                 resume_points=1)
+
+        self.can_reach_unwind = {}
+        self.database = database
+        self.count_calls = [0, 0]
+
+    def unwind_reachable(self, func):
+        reach_dict = self.can_reach_unwind
+        if func not in reach_dict:
+            self.setup()
+        return reach_dict[func]
+
+    def setup(self):
+        # to be called after database is complete, or we would
+        # not have valid externals info
+        self._compute_reach_unwind()
+
+    def _compute_reach_unwind(self):
+        callers = {}
+        assert self.database.completed
+        translator = self.database.translator
+        here = len(translator.functions)
+        for func in translator.functions:
+            callers[func] = []
+        for caller, callee in translator.complete_callgraph.values():
+            callers[caller].append(callee)
+        # add newly generated ones
+        for func in translator.functions[here:]:
+            callers.setdefault(func, [])
+        # check all callees if they can reach unwind
+        seen = self.can_reach_unwind
+        
+        pending = {}
+        ext = self.database.externalfuncs
+        def check_unwind(func):
+            if func in pending:
+                ret = func not in ext
+                # typical pseudo-recursion of externals
+                # but true recursions do unwind
+                seen[func] = ret
+                return ret
+            pending[func] = func
+            for callee in callers[func]:
+                if callee in seen:
+                    ret = seen[callee]
+                else:
+                    ret = check_unwind(callee)
+                if ret:
+                    break
+            else:
+                ret = func.__name__ in self.stackless_roots
+            del pending[func]
+            seen[func] = ret
+            return ret
+        [check_unwind(caller) for caller in callers if caller not in seen]
 
     def registerunwindable(self, functionname, FUNC, resume_points):
         if resume_points >= 1:
@@ -188,7 +248,22 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
         del self.resumeblocks
 
     def check_directcall_result(self, op, err, specialreturnvalue=None):
-        stacklessdata = self.db.stacklessdata
+        slp = self.db.stacklessdata
+        # don't generate code for calls that cannot unwind
+        if not specialreturnvalue:
+            need_stackless = slp.unwind_reachable(self.graph.func)
+            if need_stackless:
+                try:
+                    callee = op.args[0].value._obj.graph.func
+                except AttributeError:
+                    pass # assume we need it really
+                else:
+                    need_stackless = slp.unwind_reachable(callee)
+            if not need_stackless:
+                slp.count_calls[False] += 1
+                return (super(SlpFunctionCodeGenerator, self)
+                        .check_directcall_result(op, err))
+        slp.count_calls[True] += 1
         block = self.currentblock
         curpos = block.operations.index(op)
         vars = list(variables_to_save_across_op(block, curpos))
@@ -206,7 +281,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
                 variables_to_restore.append((v, '%s%d' % (
                     st.prefix, len(counts[st]))))
                 counts[st].append('(%s)%s' % (st.ctype, varname))
-        structname = stacklessdata.get_frame_type([len(counts[st]) for st in STATE_TYPES])
+        structname = slp.get_frame_type([len(counts[st]) for st in STATE_TYPES])
 
         # reorder the vars according to their type
         vars = sum([counts[st] for st in STATE_TYPES],[])
@@ -217,7 +292,7 @@ class SlpFunctionCodeGenerator(FunctionCodeGenerator):
 
         # The globally unique number for our state
         # is the total number of saved states so far
-        globalstatecounter = len(stacklessdata.decode_table) + len(self.savelines)
+        globalstatecounter = len(slp.decode_table) + len(self.savelines)
         
         arguments = ['%d' % globalstatecounter] + vars
 

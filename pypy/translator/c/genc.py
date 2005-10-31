@@ -34,7 +34,7 @@ class CBuilder(object):
 
         if self.stackless:
             from pypy.translator.c.stackless import StacklessData
-            db.stacklessdata = StacklessData()
+            db.stacklessdata = StacklessData(db)
 
         # we need a concrete gcpolicy to do this
         self.libraries += db.gcpolicy.gc_libraries()
@@ -194,8 +194,8 @@ def translator2database(translator):
 
 # ____________________________________________________________
 
-#SPLIT_CRITERIA = 32767 # enable to support VC++ 6.0
 SPLIT_CRITERIA = 65535 # support VC++ 7.2
+#SPLIT_CRITERIA = 32767 # enable to support VC++ 6.0
 
 MARKER = '/*/*/' # provide an easy way to split after generating
 
@@ -225,9 +225,11 @@ class SourceGenerator:
         self.funcnodes = funcnodes
         self.othernodes = othernodes
         self.path = path
-        return # the below is under development
-        graph = CallTree(self.funcnodes, self.database)
-        graph.simulate()
+        # disabled this for a while, does worsen things
+#        graph = CallTree(self.funcnodes, self.database)
+#        graph.simulate()
+#        graph.optimize()
+#        self.funcnodes = graph.ordered_funcnodes()
 
     def uniquecname(self, name):
         assert name.endswith('.c')
@@ -273,7 +275,7 @@ class SourceGenerator:
         #
         # All declarations
         #
-        database= self.database
+        database = self.database
         structdeflist = database.getstructdeflist()
         name = 'structdef.h'
         fi = self.makefile(name)

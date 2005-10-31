@@ -165,3 +165,28 @@ def test_yield_frame():
 
     data = wrap_stackless_function(f)
     assert int(data.strip()) == 1234567
+
+def test_yield_noswitch_frame():
+    # this time we make sure that function 'g' does not
+    # need to switch and even does not need to be stackless
+
+    def g(lst):
+        lst.append(2)
+        frametop_before_5 = yield_current_frame_to_caller()
+        lst.append(4)
+        return frametop_before_5
+
+    def f():
+        lst = [1]
+        frametop_before_4 = g(lst)
+        lst.append(3)
+        frametop_after_return = frametop_before_4.switch()
+        lst.append(5)
+        assert frametop_after_return is None
+        n = 0
+        for i in lst:
+            n = n*10 + i
+        return n
+
+    data = wrap_stackless_function(f)
+    assert int(data.strip()) == 12345
