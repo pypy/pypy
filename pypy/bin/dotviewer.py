@@ -17,7 +17,7 @@ usage = '''
 
 In the first form, show the graph contained in a .dot file.
 In the other forms, connect to a graph server like
-goal/translate_pypy
+goal/translate_pypy.
 ''' % (sys.argv[0], sys.argv[0], sys.argv[0])
 
 parser = optparse.OptionParser(usage=usage)
@@ -28,7 +28,10 @@ parser.add_option("--reload", action="store_true", dest="reload",
 if __name__ == '__main__':
     options, args = parser.parse_args()
     if len(args) != 1:
-        parser.error("too many options")
+        if args:
+            parser.error("too many arguments")
+        else:
+            parser.print_help()
         sys.exit(2)
     filename = args[0]
     if py.path.local(filename).check():
