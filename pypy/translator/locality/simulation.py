@@ -80,6 +80,9 @@ class SimNode:
         for node in self.callers:
             freq = self.sim.transitions[ (node, self) ]
             ret.append( (-freq, node) )
+        # if there is nothing, link it to itself
+        if not ret:
+            ret.append( (-1, self) )
         ret.sort()
         freqs, nodes = zip(*ret)
         return nodes, [-freq for freq in freqs]

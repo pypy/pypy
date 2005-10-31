@@ -138,16 +138,12 @@ class SpaceNode:
         return Vector(lonely).norm2()
 
     def forcevector(self):
-        # weighted implementation of the "rubber2" algorithm,
-        # from "PolyTop", (C) Christian Tismer / Gerhard G. Thomas  1992
         vec = Vector()
+        k = sum(self.weights)
         for w, rel in zip(self.weights, self.relations):
             tmp = rel.position - self.position
-            lng = tmp.norm2()
-            tmp *= w * lng
+            tmp *= w
             vec += tmp
-            # this is a little faster than
-            # vec += (rel.position - self.position) * w * self.distance(rel)
         return vec
 
 
@@ -203,6 +199,11 @@ class SpaceGraph:
                         todo.append(rel)
             self.subgraphs.append(todo)
 
+    def order_subgraphs(self):
+        sgs = [ (-len(sg), sg[0].name, sg) for sg in self.subgraphs]
+        sgs.sort()
+        self.subgraphs = [sg for lng, name, sg in sgs]
+
     def normalize(self):
         # identify disjoint subgraphs.
         # for every subgraph:
@@ -211,6 +212,7 @@ class SpaceGraph:
         # shift all graphs to be in disjoint intervals on the x-axis.
         if not self.subgraphs:
             self.compute_subgraphs()
+            self.order_subgraphs()
         def distort(nodes):
             # stretch collapsed x-axis
             for i, node in enumerate(nodes):
@@ -221,8 +223,11 @@ class SpaceGraph:
             xmin, xmax = self.xminmax(nodes)
             xwidth = xmax - xmin
             if not xwidth: # degenerated
-                return norm_subgraph(distort(nodes))
-            factor = (len(nodes) - 1) / xwidth
+                if len(nodes) > 1:
+                    return norm_subgraph(distort(nodes), start)
+                factor = 1.0
+            else:
+                factor = (len(nodes) - 1) / xwidth
             mean = Vector()
             for node in nodes:
                 mean += node.position
@@ -244,16 +249,10 @@ class SpaceGraph:
             start += len(nodes)
         self.lastdim = dim
 
-    def do_correction(self, korr=0.13):
+    def do_correction(self, korr=0.0002):
         forcevecs = [node.forcevector() for node in self.nodes]
-        corrx = [vec[0] for vec in forcevecs]
-        maxcorr = abs(max(corrx))
-        xmin, xmax = self.xminmax()
-        xwidth = xmax - xmin
-        scale = xwidth / maxcorr
-        scale = scale * korr
         for node, forcevec in zip(self.nodes, forcevecs):
-            corrvec = forcevec * scale
+            corrvec = forcevec * korr
             node.shift(corrvec)
 
     def squeeze_dim(self):
@@ -273,16 +272,16 @@ class SpaceGraph:
         return Vector(lonely).norm2()
 
     def lonelyness(self):
-        # square norm of lonelynesses
+        # sum norm of lonelynesses
         lonely = 0.0
         for node in self.nodes:
             lonely += node.lonelyness()
         return lonely / len(self.nodes)
 
     def order(self):
-        sorter = [(node.position[0], node) for node in self.nodes]
+        sorter = [(node.position[0], node.name, node) for node in self.nodes]
         sorter.sort()
-        return [node for x, node in sorter]
+        return [node for x, x, node in sorter]
 
     def display(self):
         for node in self.order():
@@ -297,9 +296,15 @@ if __name__ == '__main__':
         def d(): e()
         def e(): f()
         def f(): a()
-        sim = DemoSim([a, b, c, d, e, f])
+        sim = SimGraph([a, b, c, d, e, f])
+        sim.sim_all(0.9, 50)
+        return sim
+    def test_singleton():
+        def s(): pass
+        sim = SimGraph([s])
         sim.sim_all(0.9, 50)
         return sim
     g = SpaceGraph(test())
     g.addgraph(test())
     g.addgraph(test())
+    g.addgraph(test_singleton())

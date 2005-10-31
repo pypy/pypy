@@ -86,10 +86,29 @@ class CallTree:
         return res
 
     def simulate(self):
-        log.calltree('building CallTree...')
+        log.simulate('building SimGraph for simulation...')
         sim = SimGraph(self.nodes, FlowSimNode, self.calls)
-        log.calltree('simulating...')
-        sim.sim_all(0.9, 50)
-        # here I'm still playing around with parameters.
-        import pdb
-        pdb.set_trace()
+        log.simulate('simulating...')
+        sim.sim_all(1.9, 50)
+        self.statgraph = sim
+
+    def optimize(self):
+        log.topology('building SpaceGraph for topological sort...')
+        sg = SpaceGraph(self.statgraph)
+        steps = 500
+        try:
+            for i in range(steps):
+                for k in range(10):
+                    sg.do_correction()
+                sg.normalize()
+                s = "step %d of %d lonelyness = %g" % (i+1, steps, sg.lonelyness())
+                log.topology(s)
+        except KeyboardInterrupt:
+            log.topology("aborted after %d steps" % (i+1))
+        self.topology = sg
+        log.topology("done.")
+
+    def ordered_funcnodes(self):
+        nodes = self.topology.order()
+        ret = [node.func for node in nodes]
+        return ret
