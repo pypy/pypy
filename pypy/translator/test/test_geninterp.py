@@ -40,7 +40,12 @@ class TestGenRpyTestCase:
     snippet_ad = """if 1:
         def import_func():
             import copy_reg
-            return copy_reg._reconstructor.func_code.co_name"""
+            return copy_reg._reconstructor.func_code.co_name
+
+        def import_sys_func():
+            import sys
+            return sys.__name__
+"""
 
     def setup_class(cls): 
         # simply compile snippets just once
@@ -78,6 +83,10 @@ class TestGenRpyTestCase:
         import copy_reg
         impfunc = self.build_interpfunc(snippet.import_func)
         assert impfunc() == '_reconstructor'
+
+    def test_import_sys(self):
+        impfunc = self.build_interpfunc(snippet.import_sys_func)
+        assert impfunc() == 'sys'
         
     def test_simple_func(self):
         cfunc = self.build_interpfunc(snippet.simple_func)

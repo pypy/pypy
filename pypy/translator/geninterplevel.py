@@ -243,6 +243,14 @@ class GenRpy:
                 exv = space_shortcut
                 fmt = "%(res)s = %(func)s(%(args)s)"
             else:
+                # import sys|__builtin__|_codecs avoid going through __import__
+                if isinstance(v, Constant) and v.value is __builtin__.__import__:
+                    name, glb, loc, frm_lst = op.args[1:]
+                    if (isinstance(name, Constant) and name.value in ('sys', '__builtin__', '_codecs') and
+                        isinstance(loc, Constant) and loc.value is None and
+                        isinstance(frm_lst, Constant) and frm_lst.value is None):
+                        return "%s = space.getbuiltinmodule(%r)" % (self.expr(op.result, localscope),
+                                                                    name.value)
                 exv = self.expr(v, localscope)                
                 # default for a spacecall:
                 fmt = "%(res)s = space.call_function(%(func)s, %(args)s)"
