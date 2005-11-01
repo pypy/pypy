@@ -87,6 +87,21 @@ def test_open_read_write_seek_close():
     assert open(filename, 'r').read() == "hello world\n"
     os.unlink(filename)
 
+def segfaulting_test_big_read():
+    filename = str(udir.join('test_open_read_write_close.txt'))
+    def does_stuff():
+        fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
+        count = os.write(fd, "hello world\n")
+        os.close(fd)
+        fd = os.open(filename, os.O_RDONLY, 0777)
+        data = os.read(fd, 500000)
+        os.close(fd)
+
+    f1 = compile(does_stuff, [])
+    f1()
+    os.unlink(filename)
+
+
 def test_ftruncate():
     if not hasattr(os, 'ftruncate'):
         py.test.skip("this os has no ftruncate :-(")
