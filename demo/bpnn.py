@@ -23,8 +23,8 @@ import sys
 import math
 import time
 
-# XXX the Translator needs the plain Python version of random.py:
-import autopath; from pypy.lib import random
+# RPython version of random: rrandom
+import autopath; import rrandom as random
 
 PRINT_IT = False
 
