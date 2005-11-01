@@ -89,7 +89,7 @@ class ResultPrinter(object):
             print >>self.out, ""
             self.last_line_was_new = True
             
-        code = getattr(frame, 'code', None)
+        code = getattr(frame, 'pycode', None)
         filename = getattr(code, 'co_filename', "")
         filename = filename.replace("\n", "\\n")
         lineno = getattr(code, 'co_firstlineno', "")
