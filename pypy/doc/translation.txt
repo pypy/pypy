@@ -578,11 +578,9 @@ integers or pointers.  All the "container" data structures (struct and array)
 are allocated in the heap, and they are always manipulated via pointers.
 (There is no equivalent to the C notion of local variable of a ``struct`` type.)
 
-Here is a quick tour (NOTE: this is up-to-date with the Subversion head.  If you
-have some older version, the ``lltype`` module might be called ``lltypes`` and
-you may need to add or remove a few ``Gc`` prefixes here and there)::
+Here is a quick tour::
 
-    >>> from pypy.rpython.lltype import *
+    >>> from pypy.rpython.lltypesystem.lltype import *
 
 Here are a few primitive low-level types, and the typeOf() function to figure
 them out::
@@ -613,12 +611,12 @@ representation.
 
     >>> p = malloc(POINT)
     >>> p
-    <ptr(gc) to struct point { x=0, y=0 }>
+    <* struct point { x=0, y=0 }>
     >>> p.x = 5
     >>> p.x
     5
     >>> p
-    <ptr(gc) to struct point { x=5, y=0 }>
+    <* struct point { x=5, y=0 }>
 
 ``malloc()`` allocates a structure from the heap, initalizes it to 0
 (currently), and returns a pointer to it.  The point of all this is to work with
@@ -633,7 +631,7 @@ The argument to ``malloc()`` is the structure type directly, but it returns a
 pointer to the structure, as ``typeOf()`` tells you::
 
     >>> typeOf(p)
-    <ptr(gc) to GcStruct point { x: Signed, y: Signed }>
+    <* GcStruct point { x: Signed, y: Signed }>
 
 For the purpose of creating structures with pointers to other structures, we can
 declare pointer types explicitly::
@@ -643,7 +641,7 @@ declare pointer types explicitly::
     >>> BIZARRE = GcStruct('bizarre', ('p1', Ptr(POINT)), ('p2', Ptr(POINT)))
     >>> b = malloc(BIZARRE)
     >>> b.p1
-    <ptr(gc) to None>
+    <* None>
     >>> b.p1 = b.p2 = p
     >>> b.p1.y = 42
     >>> b.p2.y
