@@ -87,7 +87,7 @@ def test_open_read_write_seek_close():
     assert open(filename, 'r').read() == "hello world\n"
     os.unlink(filename)
 
-def segfaulting_test_big_read():
+def test_big_read():
     filename = str(udir.join('test_open_read_write_close.txt'))
     def does_stuff():
         fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)

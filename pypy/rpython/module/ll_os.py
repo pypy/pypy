@@ -17,7 +17,7 @@ import os, errno
 from pypy.rpython.rstr import STR
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, Ptr, malloc
-from pypy.rpython.module.support import to_rstr, from_rstr, ll_strcpy
+from pypy.rpython.module.support import to_rstr, from_rstr, ll_strcpy, _ll_strfill
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython import ros
 
@@ -28,7 +28,7 @@ ll_os_open.suggested_primitive = True
 
 def ll_read_into(fd, buffer):
     data = os.read(fd, len(buffer.chars))
-    ll_strcpy(buffer.chars, data, len(data))
+    _ll_strfill(buffer, data, len(data))
     return len(data)
 ll_read_into.suggested_primitive = True
 
@@ -39,7 +39,7 @@ def ll_os_read(fd, count):
     n = ll_read_into(fd, buffer)
     if n != count:
         s = malloc(STR, n)
-        ll_strcpy(s.chars, buffer.chars, n)
+        ll_strcpy(s, buffer, n)
         buffer = s
     return buffer
 

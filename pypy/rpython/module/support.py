@@ -20,7 +20,16 @@ def from_rstr(rs):
     else:
         return ''.join([rs.chars[i] for i in range(len(rs.chars))])
 
-def ll_strcpy(dstchars, srcchars, n):
+def ll_strcpy(dst_s, src_s, n):
+    dstchars = dst_s.chars
+    srcchars = src_s.chars
+    i = 0
+    while i < n:
+        dstchars[i] = srcchars[i]
+        i += 1
+
+def _ll_strfill(dst_s, srcchars, n):
+    dstchars = dst_s.chars
     i = 0
     while i < n:
         dstchars[i] = srcchars[i]
