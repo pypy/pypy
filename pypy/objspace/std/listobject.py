@@ -17,8 +17,7 @@ class W_ListObject(W_Object):
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        reprlist = [repr(w_item) for w_item in w_self.wrappeditems]
-        return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
+        return "%s(%s)" % (w_self.__class__.__name__, w_self.wrappeditems)
 
     def unwrap(w_list):
         space = w_list.space
