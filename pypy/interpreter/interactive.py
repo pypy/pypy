@@ -145,7 +145,11 @@ class PyPyConsole(code.InteractiveConsole):
             banner = ("Python %s on %s\n" % (sys.version, sys.platform) +
                       "*** Entering interpreter-level console ***")
             local = self.console_locals
-            local.update(self.__dict__)
+            # don't copy attributes that look like names that came
+            # from self.w_globals (itself the main offender) as they
+            # would then get copied back into the applevel namespace.
+            local.update([(k,v) for (k, v) in self.__dict__.iteritems()
+                          if not k.startswith('w_')])
             del local['locals']
             for w_name in self.space.unpackiterable(self.w_globals):
                 local['w_' + self.space.str_w(w_name)] = (
