@@ -70,6 +70,12 @@ def play_with_r_dict(d):
     assert d.keys() == []
     return True   # for the tests below
 
+def test_recursive_r_dict_repr():
+    import operator
+    rdic = r_dict(operator.eq, hash)
+    rdic['x'] = rdic
+    assert str(rdic) == "r_dict({'x': r_dict({...})})"
+    assert repr(rdic)== "r_dict({'x': r_dict({...})})"
 
 def test_r_dict():
     # NB. this test function is also annotated/rtyped by the next tests

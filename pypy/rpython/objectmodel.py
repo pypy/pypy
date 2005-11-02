@@ -106,7 +106,7 @@ class r_dict(object):
 
     def __repr__(self):
         "Representation for debugging purposes."
-        return 'r_dict(%r)' % (dict(self.items()),)
+        return 'r_dict(%r)' % (self._dict,)
 
     def __hash__(self):
         raise TypeError("cannot hash r_dict instances")
@@ -128,3 +128,6 @@ class _r_dictkey(object):
         return not self.dic.key_eq(self.key, other.key)
     def __hash__(self):
         return self.hash
+
+    def __repr__(self):
+        return repr(self.key)
