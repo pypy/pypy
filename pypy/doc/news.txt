@@ -9,6 +9,20 @@
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
+PyPy release 0.8.0
+=================== 
+
+The third PyPy release is out, with an integrated and translatable
+compiler, speed progress, and now the possibility to translate our
+experimental "Thunk" object space (supporting lazy computed objects)
+with its features preserved.
+
+See the `release 0.8 announcement`_ for further details about the release and
+the `getting started`_ document for instructions about downloading it and
+trying it out.  There is also a short FAQ_.  *(11/03/2005)*
+
+.. _`release 0.8 announcement`: http://codespeak.net/pypy/dist/pypy/doc/release-0.8.0.html
+
 PyPy Sprint in Paris 10th-16th October 2005 
 ========================================================
 
