@@ -1,0 +1,38 @@
+=======================================================
+PyPy: Python in Python implementation / Version 0.8.0
+=======================================================
+
+PyPy is an implementation of the Python programming language, written
+in Python.
+
+PyPy is very much a work in progress, but can already build a
+self-contained Python implementation that is completely independent of
+Python.
+
+For more, we invite you to head over to our getting-started document:
+
+    pypy/doc/getting-started.txt
+    (local if you got a tarball or svn checkout)
+
+    http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
+
+which gives you many good starting and entry points into playing with
+PyPy.  It will also point you to our documentation section which is
+generated from information in the pypy/doc directory.
+
+For information in what's new in this release, please read the release
+announcement:
+
+    pypy/doc/release-0.8.0.txt
+    http://codespeak.net/pypy/dist/pypy/doc/release-0.8.0.html
+
+Since December 2004, the development of PyPy has been funded by the
+European Union's research programme.  For more information on this
+aspect of the project please visit http://pypy.org/.
+
+Enjoy and send us feedback!
+
+    the pypy-dev team <pypy-dev@codespeak.net>
+
+$Id$
+$HeadURL$
