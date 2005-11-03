@@ -1,0 +1,78 @@
+.. _`demo/`: ../../demo
+.. _`lib-python/`: ../../lib-python
+.. _`lib-python/2.4.1/dis.py`: ../../lib-python/2.4.1/dis.py
+.. _`annotation/`:
+.. _`pypy/annotation`: ../../pypy/annotation
+.. _`annotation/binaryop.py`: ../../pypy/annotation/binaryop.py
+.. _`pypy/annotation/model.py`: ../../pypy/annotation/model.py
+.. _`doc/`: ../../pypy/doc
+.. _`doc/revreport/`: ../../pypy/doc/revreport
+.. _`interpreter/`:
+.. _`pypy/interpreter`: ../../pypy/interpreter
+.. _`pypy/interpreter/argument.py`: ../../pypy/interpreter/argument.py
+.. _`interpreter/astcompiler/`:
+.. _`pypy/interpreter/astcompiler`: ../../pypy/interpreter/astcompiler
+.. _`pypy/interpreter/function.py`: ../../pypy/interpreter/function.py
+.. _`interpreter/gateway.py`:
+.. _`pypy/interpreter/gateway.py`: ../../pypy/interpreter/gateway.py
+.. _`pypy/interpreter/generator.py`: ../../pypy/interpreter/generator.py
+.. _`pypy/interpreter/mixedmodule.py`: ../../pypy/interpreter/mixedmodule.py
+.. _`pypy/interpreter/nestedscope.py`: ../../pypy/interpreter/nestedscope.py
+.. _`pypy/interpreter/pyopcode.py`: ../../pypy/interpreter/pyopcode.py
+.. _`pypy/interpreter/pyparser`: ../../pypy/interpreter/pyparser
+.. _`pypy/interpreter/typedef.py`: ../../pypy/interpreter/typedef.py
+.. _`lib/`:
+.. _`pypy/lib/`: ../../pypy/lib
+.. _`lib/test2/`:
+.. _`pypy/lib/test2`: ../../pypy/lib/test2
+.. _`module/`:
+.. _`pypy/module`: ../../pypy/module
+.. _`module/__builtin__/`: ../../pypy/module/__builtin__
+.. _`pypy/module/__builtin__/__init__.py`: ../../pypy/module/__builtin__/__init__.py
+.. _`module/_sre/`: ../../pypy/module/_sre
+.. _`module/recparser/`: ../../pypy/module/recparser
+.. _`module/sys/`: ../../pypy/module/sys
+.. _`objspace/`:
+.. _`pypy/objspace`: ../../pypy/objspace
+.. _`objspace/flow/`: ../../pypy/objspace/flow
+.. _`objspace/std/`:
+.. _`pypy/objspace/std`: ../../pypy/objspace/std
+.. _`objspace/thunk.py`: ../../pypy/objspace/thunk.py
+.. _`objspace/trace.py`:
+.. _`pypy/objspace/trace.py`: ../../pypy/objspace/trace.py
+.. _`pypy/rpython`:
+.. _`rpython/`: ../../pypy/rpython
+.. _`pypy/rpython/extfunctable.py`: ../../pypy/rpython/extfunctable.py
+.. _`pypy/rpython/lltypesystem/lltype.py`:
+.. _`rpython/lltypesystem/lltype.py`: ../../pypy/rpython/lltypesystem/lltype.py
+.. _`rpython/memory/`: ../../pypy/rpython/memory
+.. _`pypy/rpython/memory/gc.py`: ../../pypy/rpython/memory/gc.py
+.. _`pypy/rpython/memory/lladdress.py`: ../../pypy/rpython/memory/lladdress.py
+.. _`pypy/rpython/memory/simulator.py`: ../../pypy/rpython/memory/simulator.py
+.. _`pypy/rpython/memory/support.py`: ../../pypy/rpython/memory/support.py
+.. _`pypy/rpython/module/`: ../../pypy/rpython/module
+.. _`pypy/rpython/module/ll_os.py`: ../../pypy/rpython/module/ll_os.py
+.. _`pypy/rpython/module/test`: ../../pypy/rpython/module/test
+.. _`pypy/rpython/objectmodel.py`: ../../pypy/rpython/objectmodel.py
+.. _`rpython/rint.py`: ../../pypy/rpython/rint.py
+.. _`rpython/rlist.py`: ../../pypy/rpython/rlist.py
+.. _`rpython/rmodel.py`: ../../pypy/rpython/rmodel.py
+.. _`pypy/rpython/rtyper.py`: ../../pypy/rpython/rtyper.py
+.. _`pypy/rpython/test/test_llinterp.py`: ../../pypy/rpython/test/test_llinterp.py
+.. _`pypy/test_all.py`: ../../pypy/test_all.py
+.. _`tool/`: ../../pypy/tool
+.. _`tool/algo/`: ../../pypy/tool/algo
+.. _`tool/pytest/`: ../../pypy/tool/pytest
+.. _`tool/tb_server/`: ../../pypy/tool/tb_server
+.. _`pypy/translator`:
+.. _`translator/`: ../../pypy/translator
+.. _`pypy/translator/annrpython.py`: ../../pypy/translator/annrpython.py
+.. _`translator/c/`: ../../pypy/translator/c
+.. _`pypy/translator/c/extfunc.py`: ../../pypy/translator/c/extfunc.py
+.. _`pypy/translator/c/src/`: ../../pypy/translator/c/src
+.. _`pypy/translator/c/src/ll_os.h`: ../../pypy/translator/c/src/ll_os.h
+.. _`pypy/translator/c/test/test_extfunc.py`: ../../pypy/translator/c/test/test_extfunc.py
+.. _`translator/goal/`: ../../pypy/translator/goal
+.. _`pypy/translator/goal/targetnopstandalone.py`: ../../pypy/translator/goal/targetnopstandalone.py
+.. _`translator/llvm/`: ../../pypy/translator/llvm
+.. _`translator/tool/`: ../../pypy/translator/tool

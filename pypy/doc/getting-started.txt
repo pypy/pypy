@@ -1,0 +1,655 @@
+==================================
+PyPy - Getting Started 
+==================================
+
+.. contents::
+.. sectnum::
+
+.. _howtopypy: 
+
+Just the facts 
+============== 
+
+getting & running the PyPy 0.8 release 
+-----------------------------------------
+
+Download one of the following release files and unpack it: 
+
+*pypy-0.8*
+    
+  * download one of 
+
+    * `pypy-0.8.0.tar.bz2`_ (unix line endings) or
+    * `pypy-0.8.0.tar.gz`_ (unix line endings) or
+    * `pypy-0.8.0.zip`_ (windows line-endings) and unpack it 
+    
+  * alternatively run 
+  
+    * ``svn co http://codespeak.net/svn/pypy/release/0.8.x pypy-0.8.x``
+      (the 0.8 maintenance branch)
+
+then change to the ``pypy-0.8.0`` or ``pypy-0.8.x`` directory
+and execute the following command line:: 
+
+    python pypy/bin/py.py 
+
+This will give you a PyPy prompt, i.e. a very compliant 
+Python interpreter implemented in Python.  PyPy passes 
+around `90% of CPythons core language regression tests`_. 
+Because this invocation of PyPy still runs on top of 
+CPython, it runs around 2000 times slower than the 
+original CPython.  
+
+However, since the 0.7.0 release it is possible to use PyPy to `translate
+itself to lower level languages`_ after which it runs standalone, is not
+dependant on CPython anymore and becomes faster.
+
+.. _`90% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
+.. _`pypy-0.8.0.tar.bz2`: http://code2.codespeak.net/download/pypy/pypy-0.8.0.tar.bz2
+.. _`pypy-0.8.0.zip`: http://code2.codespeak.net/download/pypy/pypy-0.8.0.zip
+.. _`pypy-0.8.0.tar.gz`: http://code2.codespeak.net/download/pypy/pypy-0.8.0.tar.gz
+
+Svn-check out & run the latest PyPy as a two-liner
+--------------------------------------------------
+
+If you want to play with the ongoing development PyPy version 
+you can check it out from the repository using subversion. Download 
+and install subversion_ if you don't allready have it. Then you can
+issue on the command line (DOS box or terminal)::
+
+    svn co http://codespeak.net/svn/pypy/dist pypy-dist 
+
+This will create a directory named ``pypy-dist``, and will get you the PyPy
+source in ``pypy-dist/pypy`` and documentation files in
+``pypy-dist/pypy/doc``.
+
+After checkout you can get a PyPy interpreter via:: 
+
+    python pypy-dist/pypy/bin/py.py
+
+have fun :-) 
+
+We have some `help on installing subversion`_ for PyPy. 
+Have a look at `interesting starting points`_ 
+for some guidance on how to continue. 
+
+.. _`help on installing subversion`: svn-help.html
+.. _subversion: svn-help.html
+
+Understanding PyPy's architecture
+---------------------------------
+
+For in-depth information about architecture and coding documentation 
+head over to the `documentation section`_ where you'll find lots of 
+interesting information.  Additionally, in true hacker spirit, you 
+may just `start reading sources`_ . 
+
+.. _`documentation section`: index.html 
+
+running all of PyPy's tests  
+---------------------------
+
+If you want to see if PyPy works on your machine/platform 
+you can simply run PyPy's large test suite with:: 
+
+    cd pypy
+    python test_all.py 
+
+test_all.py is just another name for `py.test`_ which is the
+testing tool that we are using and enhancing for PyPy.   
+
+Filing bugs or feature requests 
+-------------------------------
+
+You may file `bug reports`_ on our issue tracker which is
+also accessible through the 'issues' top menu of 
+the PyPy website.  `using the development tracker`_ has 
+more detailed information on specific features of the tracker. 
+
+.. _`using the development tracker`: coding-guide.html#using-development-tracker
+
+.. _`interesting starting points`: 
+
+Interesting Starting Points in PyPy 
+===================================
+
+The following assumes that you have successfully downloaded and extracted the
+PyPy release or have checked out PyPy using svn. It assumes that you are in
+the top level directory of the PyPy source tree, e.g. pypy-x.x (if you
+got a release) or pypy-dist (if you checked out the most recent version using
+subversion).
+
+Main entry point  
+------------------------------------------
+
+The py.py interpreter
++++++++++++++++++++++
+
+To start interpreting Python with PyPy, use Python 2.3 or greater::
+
+    cd pypy/bin
+    python py.py
+
+After a few seconds (remember: this is running on top of CPython), 
+you should be at the PyPy prompt, which is the same as the Python 
+prompt, but with an extra ">".
+
+Now you are ready to start running Python code.  Most Python
+modules should work if they don't involve CPython extension 
+modules.  Here is an example of determining PyPy's performance 
+in pystones:: 
+
+    >>>> from test import pystone 
+    >>>> pystone.main(10)
+
+The parameter is the number of loops to run through the test. The
+default is 50000, which is far too many to run in a reasonable time
+on the current PyPy implementation.
+
+py.py options
++++++++++++++
+
+To list the PyPy interpreter command line options, type::
+
+    cd pypy/bin
+    python py.py --help
+
+As an example of using PyPy from the command line, you could type::
+
+    python py.py -c "from test import pystone; pystone.main(10)"
+
+Alternatively, as with regular Python, you can simply give a
+script name on the command line::
+
+    python py.py ../../lib-python/2.4.1/test/pystone.py 10
+
+special PyPy features 
+-------------------------- 
+
+Interpreter-level console
++++++++++++++++++++++++++
+
+There are a few extra features of the PyPy console: If you press
+<Ctrl-C> on the console you enter the interpreter-level console, a
+usual CPython console.  You can then access internal objects of PyPy
+(e.g. the object space) and any variables you have created on the PyPy
+prompt with the prefix ``w_``:: 
+
+    >>>> a = 123
+    >>>> <Ctrl-C>
+    *** Entering interpreter-level console ***
+    >>> w_a
+    W_IntObject(123)
+
+Note that the prompt of the interpreter-level console is only '>>>' since
+it runs on CPython level. If you want to return to PyPy, press <Ctrl-D> (under
+Linux) or <Ctrl-Z>, <Enter> (under Windows).
+
+You may be interested in reading more about the distinction between
+`interpreter-level and app-level`_.
+
+.. _`interpreter-level and app-level`: architecture.html#interpreter-level
+
+.. _`trace example`: 
+
+Tracing bytecode and operations on objects
+++++++++++++++++++++++++++++++++++++++++++ 
+
+You can use the trace object space to monitor the interpretation
+of bytecodes in connection with object space operations.  To enable 
+it, set ``__pytrace__=1`` on the interactive PyPy console:: 
+
+    >>>> __pytrace__ = 1
+    Tracing enabled
+    >>>> a = 1 + 2
+    |- <<<< enter <inline>a = 1 + 2 @ 1 >>>>
+    |- 0    LOAD_CONST    0 (W_IntObject(1))
+    |- 3    LOAD_CONST    1 (W_IntObject(2))
+    |- 6    BINARY_ADD
+      |-    add(W_IntObject(1), W_IntObject(2))   -> W_IntObject(3)
+    |- 7    STORE_NAME    0 (a)
+      |-    setitem(W_DictObject([<Entry 3098577608L,W_StringObject('__builtins__'),
+                    <pypy.module..., W_StringObject('a'), W_IntObject(3))   
+            -> <W_NoneObject()>
+    |-10    LOAD_CONST    2 (<W_NoneObject()>)
+    |-13    RETURN_VALUE
+    |- <<<< leave <inline>a = 1 + 2 @ 1 >>>>
+
+
+.. _ `lazily computed objects`:
+
+lazily computed objects 
++++++++++++++++++++++++
+
+One of the original features provided by PyPy is the "thunk" 
+object space, providing lazily-computed objects in a fully
+transparent manner::
+
+    cd pypy/bin
+    python py.py -o thunk
+
+    >>>> def longcomputation(lst):
+    ....     print "computing..."
+    ....     return sum(lst)
+    .... 
+    >>>> x = thunk(longcomputation, range(5))
+    >>>> y = thunk(longcomputation, range(10))
+
+from the application perspective, ``x`` and ``y`` represent 
+exactly the objects being returned by the ``longcomputation()``
+invocations.  You can put these objects into a dictionary 
+without triggering the computation:: 
+
+    >>>> d = {5: x, 10: y}
+    >>>> result = d[5]
+    >>>> result
+    computing...
+    10
+    >>>> type(d[10])
+    computing...
+    <type 'int'>
+    >>>> d[10]
+    45
+
+It is interesting to note that this lazy-computing Python extension 
+is solely implemented in a small `objspace/thunk.py`_ file consisting 
+of around 100 lines of code. Since the 0.8.0 release it is even possible
+to `translate PyPy with the thunk object space`_.
+
+Running the tests
++++++++++++++++++
+
+The PyPy project uses test-driven-development.  Right now, there are
+a couple of different categories of tests which you can run.
+To run all the unit tests::
+
+    cd pypy
+    python test_all.py
+
+Alternatively, you may run subtests by going to the correct subdirectory
+and running them individually::
+
+    python test_all.py interpreter/test/test_pyframe.py
+
+``test_all.py`` is actually just a synonym for `py.test`_ which is 
+our external testing tool. If you have installed that you 
+can as well just issue ``py.test DIRECTORY_OR_FILE`` in order 
+to perform test runs or simply start it without arguments to 
+run all tests below the current directory. 
+
+Finally, there are the CPython regression tests which you can 
+run like this (this will take hours and hours and hours)::
+
+    cd lib-python/2.4.1/test 
+    python ../../../pypy/test_all.py
+
+or if you have `installed py.test`_ then you simply say::
+
+    py.test
+
+from the lib-python/2.4.1/test directory. You need to have a checkout of the
+testresult directory. Running one of the above commands tells you how to
+proceed.
+
+.. _`installed py.test`: http://codespeak.net/py/current/doc/getting-started.html
+
+Demos
++++++
+
+The `demo/`_ directory contains examples of various aspects of PyPy,
+ranging from running regular Python programs (that we used as compliance goals) 
+over experimental distribution mechanisms to examples translating 
+sufficiently static programs into low level code. 
+
+.. _`try out the translator`:
+
+Trying out the translator
+------------------------- 
+
+The translator is a tool based on the PyPy interpreter which can translate
+sufficiently static Python programs into low-level code. To be able to use it
+you need to:
+
+  * Download and install Pygame_ if you do not already have it.
+
+  * Have an internet connection. The flowgraph viewer connects to
+    codespeak.net and lets it convert the flowgraph by a patched version of
+    `Dot Graphviz`_ that does not crash. This is only needed if you want to
+    look at the flowgraphs.
+
+To start the interactive translator do::
+
+    cd pypy/bin
+    python translator.py
+
+Test snippets of translatable code are provided in the file
+``pypy/translator/test/snippet.py``, which is imported under the name
+``test``.  For example::
+
+    >>> t = Translator(test.is_perfect_number)
+    >>> t.view()
+        
+After that, the graph viewer pops up, that lets you interactively inspect the
+flowgraph. To move around, click on something that you want to inspect.
+To get help about how to use it, press 'H'. To close it again, press 'Q'.
+
+trying out the type annotator
++++++++++++++++++++++++++++++
+
+We have a type annotator that can completely infer types for functions like
+``is_perfect_number`` (as well as for much larger examples)::
+
+    >>> a = t.annotate([int])
+    >>> t.view()
+
+Move the mouse over variable names (in red) to see their inferred types. To
+perform simplifications based on the annotation you can do::
+
+    >>> a.simplify()
+
+
+translating the flow graph to C code
+++++++++++++++++++++++++++++++++++++
+
+The graph can be turned into C code::
+
+   >>> t.specialize()
+   >>> f = t.ccompile()
+
+The first command replaces the operations with other low level versions that
+only use low level types that are available in C (e.g. int). This can also be
+ommited although it is not recommended. To try out the compiled version::
+
+   >>> f(5)
+   False
+   >>> f(6)
+   True
+
+.. _LLVM:
+
+translating the flow graph to LLVM code
++++++++++++++++++++++++++++++++++++++++
+
+To translate for LLVM (`low level virtual machine`_) you must first have `LLVM
+installed with the CVS version`_ - the `how to install LLVM`_ provides some
+helpful hints.  Please note that you do not need the CFrontend to compile, make
+tools-only.
+
+The LLVM backend is still experimental.  However, it is very close to C backend
+functionality.  Calling compiled LLVM code from CPython is more restrictive
+than the C backend - the return type and the arguments of the entry function
+must be ints, floats or bools.  The emphasis of the LLVM backend is to compile
+standalone executables - please see the pypy/translator/llvm/demo directory for
+examples.
+
+Here is a simple example to try::
+
+   >>> t = Translator(test.my_gcd)
+   >>> a = t.annotate([int, int])
+   >>> t.specialize()
+   >>> print t.llvm()
+
+   <...  really huge amount of LLVM code  ...>
+
+   >>> f = t.llvmcompile()
+   >>> f.pypy_my_gcd_wrapper(15, 10)
+   5
+
+
+a slightly larger example
++++++++++++++++++++++++++
+
+There is a small-to-medium demo showing the translator and the annotator::
+
+    cd demo
+    python bpnn.py
+
+This causes ``bpnn.py`` to display itself as a call graph and class
+hierarchy.  Clicking on functions shows the flow graph of the particular
+function.  Clicking on a class shows the attributes of its instances.  All
+this information (call graph, local variables' types, attributes of
+instances) is computed by the annotator.
+
+As soon as you close the PyGame window, the function is turned into C code,
+compiled and executed.
+
+.. _`translate itself to lower level languages`: 
+
+translating the PyPy interpreter
+--------------------------------
+
+Not for the faint of heart nor the owner of a very old machine: you can
+translate the whole of PyPy to low level C code. This is the largest and
+ultimate example of source that our translation toolchain can process::
+
+    cd pypy/translator/goal
+    python translate_pypy.py --run
+
+By default the translation process will try to use the
+`Boehm-Demers-Weiser garbage collector`_ for the translated PyPy (Use
+``--gc=ref`` to use our own reference counting implementation which
+at the moment is slower but doesn't have external dependencies).
+
+This whole process will take some time and quite a lot of memory. To
+reduce the memory footprint of the translation process you can use the
+option ``--lowmem`` With this option the whole process should be
+runnable on a machine with 512Mb of RAM. If the translation is
+finished running and after you closed the graph you will be greeted
+(because of ``--run`` option) by the friendly prompt of a PyPy
+executable that is not running on top of CPython any more::
+
+    [translation:info] created: ./pypy-c
+    [translation:info] Running compiled c source...
+    debug: entry point starting
+    debug:  argv -> ./pypy-c
+    debug: importing code
+    debug: calling code.interact()
+    Python 2.4.1 (pypy 0.7.1 build 18929) on linux2
+    Type "help", "copyright", "credits" or "license" for more information.
+    (InteractiveConsole)
+    >>>> 1 + 1
+    2
+    >>>> 
+
+With the default options, you can find the produced executable under the
+name ``pypy-c``.  Type ``pypy-c --help`` to see the options it supports --
+mainly the same basic options of CPython.  In addition, ``pypy-c --info``
+prints the translation options that where used to produce this particular
+executable.  This executable contains a lot of things that are hard-coded
+for your particular system (including paths), so it's not really meant to
+be installed or redistributed at the moment.
+
+If you exit the interpreter you get a pygame window with all the flowgraphs
+plus a pdb prompt. Moving around in the resulting flow graph is difficult
+because of the sheer size of the result. For this reason, the debugger prompt
+you get at the end has been enhanced with commands to facilitate locating
+functions and classes. Type ``help graphs`` for a list of the new commands.
+Help is also available on each of these new commands.
+
+The ``translate_pypy`` script itself takes a number of options controlling
+what to translate and how.  See ``translate_pypy.py -h``. Some of the more
+interesting options are:
+
+   * ``--text``: don't show the flowgraph after the translation is done. This
+     is useful if you don't have pygame installed.
+
+   * ``--gc=boehm|ref``: choose between using the `Boehm-Demers-Weiser
+     garbage collector`_ or our own reference counting implementation
+     (as we have seen Boehm's collector is the default). 
+
+You can also use the translate_pypy.py script to try out several smaller
+programs, e.g. a slightly changed version of Pystone::
+
+    cd pypy/translator/goal
+    python translate_pypy.py targetrpystone
+
+
+.. _`translate PyPy with the thunk object space`:
+
+Translating with the thunk object space
+++++++++++++++++++++++++++++++++++++++++
+
+
+It is also possible to experimentally translate a PyPy version using
+the "thunk" object space::
+
+    cd pypy/translator/goal
+    python translate_pypy.py --run targetthunkstandalone
+
+the examples in `lazily computed objects`_ should work in the translated
+result.
+
+Translating using the LLVM backend
+++++++++++++++++++++++++++++++++++
+
+
+To create a standalone executable using the experimental LLVM_ compiler
+infrastructure::
+
+    ./run_pypy-llvm.sh
+
+.. _`start reading sources`: 
+
+Where to start reading the sources
+---------------------------------- 
+
+PyPy is made from parts that are relatively independent from each other.
+You should start looking at the part that attracts you most (all parts are
+relative to the PyPy toplevel directory).  You may look at our `directory reference`_ 
+or start off at one of the following points:
+
+*  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
+   in pyopcode.py_, frame and code objects in eval.py_ and pyframe.py_,
+   function objects and argument passing in function.py_ and argument.py_,
+   the object space interface definition in baseobjspace.py_, modules in
+   module.py_ and mixedmodule.py_.  Core types supporting the bytecode 
+   interpreter are defined in typedef.py_.
+
+*  `pypy/interpreter/pyparser`_ contains a recursive descent parser,
+   and input data files that allow it to parse both Python 2.3 and 2.4
+   syntax.  Once the input data has been processed, the parser can be
+   translated by the above machinery into efficient code.
+ 
+*  `pypy/interpreter/astcompiler`_ contains the compiler.  This
+   contains a modified version of the compiler package from CPython
+   that fixes some bugs and is translatable.  That the compiler and
+   parser are translatable is new in 0.8.0 and it makes using the
+   resulting binary interactively much more pleasant.
+
+*  `pypy/objspace/std`_ contains the `Standard object space`_.  The main file
+   is objspace.py_.  For each type, the files ``xxxtype.py`` and
+   ``xxxobject.py`` contain respectively the definition of the type and its
+   (default) implementation.
+
+*  `pypy/objspace`_ contains a few other object spaces: the thunk_,
+   trace_ and flow_ object spaces.  The latter is a relatively short piece
+   of code that builds the control flow graphs when the bytecode interpreter
+   runs in it.
+
+*  `pypy/translator`_ contains the code analysis and generation stuff.
+   Start reading from translator.py_, from which it should be easy to follow
+   the pieces of code involved in the various translation phases.
+
+*  `pypy/annotation`_ contains the data model for the type annotation that
+   can be inferred about a graph.  The graph "walker" that uses this is in
+   `pypy/translator/annrpython.py`_.
+
+*  `pypy/rpython`_ contains the code of the RPython typer. The typer transforms
+   annotated flow graphs in a way that makes them very similar to C code so
+   that they can be easy translated. The graph transformations are controlled
+   by the stuff in `pypy/rpython/rtyper.py`_. The object model that is used can
+   be found in `pypy/rpython/lltypesystem/lltype.py`_. For each RPython type
+   there is a file rxxxx.py that contains the low level functions needed for
+   this type.
+
+.. _optionaltool: 
+
+Additional Tools for running (and hacking) PyPy 
+-----------------------------------------------
+
+We use some optional tools for developing PyPy. They are not required to run 
+the basic tests or to get an interactive PyPy prompt but they help to
+understand  and debug PyPy especially for the ongoing translation work.  
+
+graphviz & pygame for flowgraph viewing (highly recommended)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+graphviz and pygame are both neccessary if you
+want to look at generated flowgraphs: 
+
+	graphviz: http://www.research.att.com/sw/tools/graphviz/download.html 
+
+	pygame: http://www.pygame.org/download.shtml
+
+CLISP
++++++++
+
+The CLISP backend is optional and not quite uptodate with the rest of
+PyPy. Still there are a few examples you can try our backend out on. 
+Here is a link to a LISP implementation that should basically work: 
+
+    http://clisp.cons.org/ 
+
+
+.. _`py.test`:  
+
+py.test and the py lib 
++++++++++++++++++++++++
+
+The `py library`_ is used for supporting PyPy development and 
+running our tests against code and documentation as well as
+compliancy tests.  You don't need to install the py library because 
+it ships with PyPy and `pypy/test_all.py`_ is an alias for ``py.test``
+but if you want to have the ``py.test`` tool generally in your 
+path, you might like to visit: 
+
+    http://codespeak.net/py/current/doc/getting-started.html
+
+
+
+Getting involved 
+================================== 
+
+PyPy employs an open development process.  You are invited 
+to join our `pypy-dev mailing list`_ or look at the other 
+`contact possibilities`_.   We are also doing coding Sprints
+which are separatedly announced and often happen around Python
+conferences such as EuroPython or Pycon. 
+
+.. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`contact possibilities`: contact.html
+
+.. _`py library`: http://codespeak.net/py 
+.. _`PyPy/LLVM backend`: translation.html#llvm 
+.. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
+.. _`how to install LLVM`: http://llvm.cs.uiuc.edu/docs/GettingStarted.html
+.. _`LLVM mailing list`: http://mail.cs.uiuc.edu/mailman/listinfo/llvmdev
+.. _`LLVM installed with the CVS version`: http://llvm.cs.uiuc.edu/releases
+
+
+.. _Dot Graphviz:           http://www.research.att.com/sw/tools/graphviz/
+.. _Pygame:                 http://www.pygame.org/
+.. _pyopcode.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
+.. _eval.py:                http://codespeak.net/svn/pypy/dist/pypy/interpreter/eval.py
+.. _pyframe.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyframe.py
+.. _function.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/function.py
+.. _argument.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/argument.py
+.. _baseobjspace.py:        http://codespeak.net/svn/pypy/dist/pypy/interpreter/baseobjspace.py
+.. _module.py:              http://codespeak.net/svn/pypy/dist/pypy/interpreter/module.py
+.. _mixedmodule.py:          http://codespeak.net/svn/pypy/dist/pypy/interpreter/mixedmodule.py
+.. _typedef.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/typedef.py
+.. _Standard object space:  objspace.html#the-standard-object-space
+.. _objspace.py:            http://codespeak.net/pypy/dist/pypy/objspace/std/objspace.py
+.. _thunk:                  http://codespeak.net/pypy/dist/pypy/objspace/thunk.py
+.. _trace:                  http://codespeak.net/pypy/dist/pypy/objspace/trace.py
+.. _flow:                   http://codespeak.net/pypy/dist/pypy/objspace/flow/
+.. _translator.py:          http://codespeak.net/pypy/dist/pypy/translator/translator.py
+.. _mailing lists:          contact.html
+.. _documentation:          index.html 
+.. _unit tests:             coding-guide.html#test-design
+.. _bug reports:            https://codespeak.net/issue/pypy-dev/
+
+.. _`directory reference`: index.html#directory-reference
+.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+
+.. include:: _ref.txt

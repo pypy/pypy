@@ -1,0 +1,107 @@
+==========================
+Frequently Asked Questions
+==========================
+
+.. contents::
+
+
+General
+============================================================
+
+Do I have to rewrite my programs in RPython?
+--------------------------------------------
+
+No.  PyPy always runs your code in its own interpreter, which is a full
+and compliant Python 2.4 interpreter.  RPython_ is only the language in
+which parts of PyPy itself are written.
+
+I am getting strange errors while playing with PyPy, what should I do?
+----------------------------------------------------------------------
+
+It seems that a lot of strange, unexplainable problems can be magically
+solved by removing all the \*.pyc files from the PyPy source
+tree. Another thing you can do is removing the pypy/_cache
+completely. If the error is persistent and still annoys you after this
+treatment please send us a bug report (or even better, a fix :-)
+
+
+Using the PyPy translator
+============================================================
+
+How do I compile PyPy?
+----------------------
+
+See the `getting-started`_ guide.  Note that at the moment this produces
+an executable that contains a lot of things that are hard-coded for your
+particular system (including paths and other stuff), so it's not
+suitable for being installed or redistributed.
+
+How do I compile my own programs?
+---------------------------------
+
+Start from the example of
+`pypy/translator/goal/targetnopstandalone.py`_, which you compile by
+typing::
+
+    python translate_pypy.py targetnopstandalone
+
+You can have a look at intermediate C source code, which is (at the
+moment) put in ``/tmp/usession-*/testing_1/testing_1.c``.  Of course,
+all the function and stuff indirectly used by your ``entry_point()``
+function has to be RPython_.
+
+
+Compiling to other languages
+============================================================
+
+Couldn't we simply take a Python syntax tree and turn it into Lisp?
+-------------------------------------------------------------------
+
+It's not necessarily nonsense, but it's not really The PyPy Way.  It's
+pretty hard, without some kind of type inference, to translate, say this
+Python::
+
+    a + b
+
+into anything significantly more efficient than this Common Lisp::
+
+    (py:add a b)
+
+And making type inference possible is what RPython is all about.
+
+You could make ``#'py:add`` a generic function and see if a given CLOS
+implementation is fast enough to give a useful speed (but I think the
+coercion rules would probably drive you insane first).  -- mwh
+
+
+Speed
+============================================================
+
+How fast is PyPy?
+-----------------
+
+As of August 2005, PyPy was successfully translated to C.  The version
+of PyPy that still runs on top of CPython is slower by a factor of 2000
+compared to CPython. The first translated version was roughly 300 times
+slower than CPython, and current versions (as of the 0.8.0 release) about
+10-20 times slower than CPython.  On the other hand, the really interesting 
+question is: Why is PyPy so slow?
+
+.. _whysoslow:
+
+Why is PyPy so slow?
+--------------------
+
+Our translation process does not try to optimize the produced code very
+much.  So far the project has been focused on getting a well tested very
+compliant self-contained static Python implementation.  During end 2005
+and 2006 we are targetting optimizations at various levels.  If you then
+still think that PyPy is slow then we will have to find a better answer
+:-)
+
+
+
+.. _`RPython`: coding-guide.html#rpython
+.. _`getting-started`: getting-started.html
+
+.. include:: _ref.txt
