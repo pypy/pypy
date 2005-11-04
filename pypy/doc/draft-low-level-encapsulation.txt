@@ -2,35 +2,30 @@
       Encapsulating low-level implementation aspects
 ============================================================
 
-.. so this mentions the following aspects:
-    threading
-    gc policy
-    target platform
-    stacklessness
-    supporting multiple interpreter states
-    the thunk object space.
-
-   it does so in a very boring "here's one aspect, here's another"
-   sort of way.  this needs to change.  it's probably also too short.
-
 .. contents::
 .. sectnum::
 
 
 Abstract
-===============================================
+========
 
-It has always been a major goal of PyPy to not make implementation
-decisions. This means that even after the interpreter and core objects
-are implemented we want to be able to make decisions about aspects such
-as garbage collection strategy, target platform or even execution model.
+It has always been a major goal of PyPy to not force implementation
+decisions.  This means that even after the implementation of the
+standard interpreter has been written we are still able to experiment
+with different approaches to memory management or concurrency and to
+target wildly different platforms such as the Java Virtual Machine or
+a very memory-limited embedded environment.
 
-In the following document, we expose these aspects in more detail and
-contrast the potential of our approach with CPython.
+We do this by allowing the encapsulation of these low level aspects as
+well defined parts of the translation process.
+
+In the following document, we give examples of aspects that have been
+successfully encapsulated in more detail and contrast the potential of
+our approach with CPython.
 
 
 Background
-===============================================
+==========
 
 One of the better known significant modifications to CPython are
 Christian Tismer's "stackless" patches [#]_, which allow for far more
@@ -48,43 +43,57 @@ understand (as the "stackless" model contains control flow that is not
 easily expressable in C, the implementation became much less
 "natural" in some sense).
 
-With PyPy, however, it is possible to obtain this flexible control flow
-with transparent implementation code as the necessary modifications can
-be implemented as a localized translation aspect, and indeed this was
-done at the Paris sprint in a couple of days (as compared to XXX weeks
-for the original stackless patches).
+With PyPy, however, it is possible to obtain this flexible control
+flow whilst retaining transparent implementation code as the necessary
+modifications can be implemented as a localized translation aspect,
+and indeed this was done at the Paris sprint in a couple of days (as
+compared to XXX weeks for the original stackless patches).
 
 Of course, this is not the only aspect that can be so decided a
 posteriori, during translation.
 
+
 Translation aspects
-===============================================
+===================
 
 Our standard interpreter [#]_ is implemented at a very high level of
 abstraction.  This has a number of happy consequences, among which is
-enabling the encapsulation of language aspects described in this
-document.  The implementation code simply makes no reference to memory
-management, for example, which gives the translator complete freedom to
-decide about this aspect.  This constrasts with CPython where the
-decision to use reference counting is reflected tens or even hundreds of
-times in each C source file in the codebase.
+enabling the encapsulation of language aspects as described in this
+document.  For example, the implementation code simply makes no
+reference to memory management, which clealy gives the translator
+complete freedom to decide about this aspect.  This constrasts with
+CPython where the decision to use reference counting is reflected tens
+or even hundreds of times in each C source file in the codebase.
 
-As described in `...`_, producing a Python implementation from the
+As described in `XXX`_, producing a Python implementation from the
 source of our standard interpreter involves various stages: the
-initialization code is run, the resulting code is annotated, specialized
-and finally translated.  By the nature of the task, the encapsulation of
-*low-level aspects* mainly affects the specializer and the translation
+initialization code is run, the resulting code is annotated, typed and
+finally translated.  By the nature of the task, the encapsulation of
+*low-level aspects* mainly affects the typer and the translation
 process.  At the coarsest level, the selection of target platform
 involves writing a new backend -- still a significant task, but much
 much easier than writing a complete implementation of Python!
 
-.. _`...`: http://www.example.com
+.. _`XXX`: http://www.example.com
 
 Other aspects affect different levels, as their needs require.  The
-stackless modifications for instance are mostly implemented in the C
-backend but also change the low-level graphs in small ways.  The total
-changes only required about 300 lines of source, vindicating our
-abstract approach.
+remainder of this section describes a few aspects that we have
+successfully enscapsulated.
+
+
+Stacklessness
+-------------
+
+The stackless modifications are mostly implemented in the C backend
+but also change the low-level graphs in small ways.  The total changes
+vonly required about 300 lines of source, vindicating our abstract
+approach.
+
+XXX More!
+
+
+Multiple Interpreters
+---------------------
 
 Another implementation detail that causes tension between functionality
 and both code clarity and memory consumption in CPython is the issue of
@@ -109,20 +118,29 @@ its contents) disappears from the produced source.  If there are two or
 more such instances, a 'space' attribute will be automatically added to
 all application objects, the best of both worlds.
 
+
+Concurrency
+-----------
+
 The aspect of CPython's implementation that has probably caused more
-discussion than any other mentioned here is that of the threading model.
-Python has supported threads since version 1.5 with what is commonly
-referred to as a "Global Interpreter Lock" or GIL; the execution of
-bytecodes is serialized such that only one thread can be executing
-Python code at one time.  This has the benefit of being relatively
-unintrisive and not too complex, but has the disadvantage that
-multi-threaded computation-bound Python code does not gain performance
-on multi-processing machines.
+discussion than any other mentioned here is that of the threading
+model.  Python has supported threads since version 1.5 with what is
+commonly referred to as the "Global Interpreter Lock" or GIL; the
+execution of bytecodes is serialized such that only one thread can be
+executing Python code at one time.  This has the benefit of being
+relatively unintrusive and not too complex, but has the disadvantage
+that multi-threaded, computation-bound Python code does not gain
+performance on multi-processor machines.
 
 PyPy will offer the opportunity to experiment with different models,
-although currently only offers a version with no thread support and
-another with a GIL-like model.  XXX Could speculatively waffle here
-easily enough.
+although currently we only offer a version with no thread support and
+another with a GIL-like model.
+
+XXX Could speculatively waffle here easily enough.
+
+
+Memory Management
+-----------------
 
 A final low-level aspect is that of memory management.  As mentioned
 above, CPython's decision to use a garbage collector based on
@@ -144,7 +162,11 @@ better to not write the reference count manipulations at all and this
 is what PyPy's approach allows.  Writing the code that emits the
 correct reference count manipulations is surely harder than writing
 any one piece of explicit refcounting code, but once it's done and
-tested, you it just works without further effort.
+tested, it just works without further effort.
+
+
+Evaluation Strategy
+-------------------
 
 Possibly the most radical aspect to tinker with is the evaluation
 strategy.  The thunk object space wraps the standard object space to
@@ -154,6 +176,15 @@ total replacement of one object with another.  The thunk object space
 is mostly meant as an example of what our approach can acheive -- the
 combination of side-effects and lazy evaluation is not easy to
 understand.
+
+
+Conclusion
+==========
+
+Although still a work in progress, we believe that the successes we
+have had in enscapsulating implementation aspects justifies the
+approach we have taken.
+
 
 .. [#] "standard interpreter" in this context means the code which
        implements the interpreter and the standard object space.
