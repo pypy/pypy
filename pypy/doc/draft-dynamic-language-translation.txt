@@ -22,7 +22,7 @@ only of Python but of most modern dynamic languages:
   (to some extent, depending on the language).
 
 * High abstractions and theoretically powerful low-level primitives are
-  generally ruled out in favor of a larger number of features that try to
+  generally ruled out in favour of a larger number of features that try to
   cover the most common use cases.  In this respect, one could even regard
   these languages as mere libraries on top of some simpler (unspecified)
   language.
@@ -46,7 +46,7 @@ appear to be function or class declarations.  Actually, they are merely
 statements that, when executed, build a function or class object.  A
 reference to the new object is then stored in a namespace from where it
 can be accessed.  Units of programs -- modules, whose source is one
-file each -- are similarily mere objects in memory, built on demand by some
+file each -- are similarly mere objects in memory, built on demand by some
 other module executing an ``import`` statement.  Any such statement --
 class construction or module import -- can be executed at any time during
 the execution of a program.
@@ -81,7 +81,7 @@ declarative-looking statements would actually *be* declarations?
 
 The approach of PyPy is, first of all, to perform analysis on live
 programs in memory instead of dead source files.  This means that the
-program to analyse is first fully imported and initialized, and once it
+program to analyse is first fully imported and initialised, and once it
 has reached a state that is deemed advanced enough, we limit the amount of
 dynamism that is allowed *after this point* and we analyse the program's
 objects in memory.  In some sense, we use the full Python as a
@@ -100,7 +100,7 @@ a given subset of a language.  Then:
   static declarations.
 
 * Analysing a frozen memory image of a program that we loaded and
-  initialized is equivalent to giving up all dynamic after a certain point
+  initialised is equivalent to giving up all dynamic after a certain point
   in time.  This is natural in image-oriented environments like Smalltalk,
   where the program resides in memory and not in files in the first place.
 
@@ -110,7 +110,7 @@ sections are entered a *bounded* number of times.  For example, the
 source code of the PyPy interpreter, which is itself written in this
 bounded-dynamism style, makes extensive use of the fact that it is
 possible to build new classes at any point in time -- not just during an
-initialization phase -- as long as the number of new classes is bounded.
+initialisation phase -- as long as the number of new classes is bounded.
 For example, `interpreter/gateway.py`_ builds a custom wrapper class
 corresponding to each function that a particular variable can reference.
 There is a finite number of functions in total, so this can only create
@@ -122,7 +122,7 @@ reach each point in the program.  In this case, whenever it discovers
 that a new function could reach the particular variable mentioned above,
 the analysis tool itself will invoke the class-building code in
 `interpreter/gateway.py`_ as part of the inference process.  This
-triggers the building of the necessary wrapper class, implicitely
+triggers the building of the necessary wrapper class, implicitly
 extending the set of classes that need to be analysed.  (This is
 essentially done by a hint that marks the code building the wrapper
 class for a given function as requiring memoization.)
@@ -130,7 +130,7 @@ class for a given function as requiring memoization.)
 This approach is derived from dynamic analysis techniques that can
 support unrestricted dynamic languages by falling back to a regular
 interpreter for unsupported features (e.g. [Psyco]_).  The above
-argumentation should have shown why we think that being similarily able
+argumentation should have shown why we think that being similarly able
 to fall back to regular interpretation for parts that cannot be
 understood is a central feature of the analysis of dynamic languages.
 
@@ -160,7 +160,7 @@ considers objects as black boxes; any operation on objects requested by the
 bytecode is handled over to the object library, called *object space*.
 The point of this architecture is, precisely, that neither of these two
 components is trivial; separating them explicitly, with a well-defined
-interface inbetween, allows each part to be reused independently.  This is
+interface in-between, allows each part to be reused independently.  This is
 a major flexibility feature of PyPy: we can for example insert proxy object
 spaces in front of the real one, as in the `Thunk Object Space`_ which adds
 lazy evaluation of objects.
@@ -188,7 +188,7 @@ view of what the function performs.
 
 The global picture is then to run the program while switching between the
 flow object space for static enough functions, and a standard, concrete
-object space for functions or initializations requiring the full dynamism.
+object space for functions or initialisations requiring the full dynamism.
 
 If, for example, the placeholders are endowed with a bit more
 information, e.g. if they carry a type information that is propagated to
@@ -215,7 +215,7 @@ eventually terminates; from this point of view, more abstract is better (it
 covers whole sets of objects in a single pass).  Thus the compromises that
 the author of the program to analyse faces are less strong but more subtle
 than a rule forbidding most dynamic features.  The rule is, roughly
-speaking, to use dynamic features sparsingly enough.
+speaking, to use dynamic features sparingly enough.
 
 
 The PyPy analysis toolchain
@@ -223,7 +223,7 @@ The PyPy analysis toolchain
 
 We developed above a theoretical point of view that differs
 significantly from what we have implemented, for many reasons.  The
-devil is in the details.  Our toolchain is organized in three main
+devil is in the details.  Our toolchain is organised in three main
 passes, each described in its own chapter in the sequel:
 
 * the `Flow Object Space`_ chapter describes how we turn Python bytecode
@@ -285,7 +285,7 @@ a side effect of seeing these operations performed by the interpretation
 of the bytecode.  During construction, the operations are grouped in
 basic blocks that all have an associated frame state. The Flow Space
 starts from an empty block with a frame state corresponding to a freshly
-initialized frame, with a new variable for each input argument of the
+initialised frame, with a new variable for each input argument of the
 analysed function.  It proceeds by recording the operations into this
 fresh block, as follows: when an operation is delegated to the Flow
 Space by the frame interpretation loop, either a constant result is
@@ -306,10 +306,10 @@ a "similar enough" state was seen so far, then the current and the
 previous states are merged to produce a more general state.
 
 In more details, "similar enough" is defined as having the same
-position-dependant part, the so-called "non-mergeable frame state",
+position-dependent part, the so-called "non-mergeable frame state",
 which mostly means that only frame states corresponding to the same
 bytecode position can ever be merged.  This process thus produces basic
-blocks that are generally in one-to-one correspondance with the bytecode
+blocks that are generally in one-to-one correspondence with the bytecode
 positions seen so far [#]_.  The exception to this rule is in the rare cases
 where frames from the same bytecode position have a different
 non-mergeable state, which typically occurs during the "finally" part of
@@ -326,15 +326,15 @@ same value; all other combinations (variable-variable or
 variable-constant) unify to a fresh new variable.
 
 In summary, if some previously associated frame state for the next
-byecode can be unified with the current state, then a backlink to the
+bytecode can be unified with the current state, then a backlink to the
 corresponding existing block is inserted; additionally, if the unified
 state is strictly more general than the existing one, then the existing
-block is cleared, and we proceed with the generalized state, reusing the
+block is cleared, and we proceed with the generalised state, reusing the
 block.  (Reusing the block avoids the proliferation of over-specific
 blocks.  For example, without this, all loops would typically have their
 first pass unrolled with the first value of the counter as a constant;
 instead, the second pass through the loop that the Flow Space does with
-the counter generalized as a variable will reuse the same entry point
+the counter generalised as a variable will reuse the same entry point
 block, and any further blocks from the first pass are simply
 garbage-collected.)
 
@@ -489,7 +489,7 @@ In the PyPy interpreter, for convenience, some of the core functionality
 has been written as application-level Python code, which means that the
 interpreter will consider some core operations as calls to further
 application-level code.  This has, of course, a performance hit due to
-the interpretation overhead.  To minimize this overhead, we
+the interpretation overhead.  To minimise this overhead, we
 automatically turn some of this application-level code into
 interpreter-level code, as follows.  Consider the following trivial
 example function at application-level::
@@ -601,18 +601,18 @@ the beginning of the entry point function into each block, operation
 after operation, and follow all calls recursively.  During this process,
 each variable along the way gets an annotation.  In various cases,
 e.g. when we close a loop, the previously assigned annotations can be
-found to be too restrictive.  In this case, we generalize them to allow
+found to be too restrictive.  In this case, we generalise them to allow
 for a larger set of possible run-time values, and schedule the block
 where they appear for reflowing.  The more general annotations can
-generalize the annotations of the results of the variables in the block,
-which in turn can generalize the annotations that flow into the
+generalise the annotations of the results of the variables in the block,
+which in turn can generalise the annotations that flow into the
 following blocks, and so on.  This process continues until a fixpoint is
 reached.
 
 We can consider that all variables are initially assigned the "bottom"
 annotation corresponding to an empty set of possible run-time values.
-Annotations can only ever be generalized, and the model is simple enough
-to show that there is no infinite chain of generalization, so that this
+Annotations can only ever be generalised, and the model is simple enough
+to show that there is no infinite chain of generalisation, so that this
 process necessarily terminates, as we will show in the sequel.
 
 
@@ -695,7 +695,7 @@ The set *A* of annotations is defined as the following formal terms:
 * Inst(*class*) -- instance of *class* or a subclass thereof (there is
   one such term per *class*);
 
-* List(*v*) -- list; *v* is a variable summarizing the items of the list
+* List(*v*) -- list; *v* is a variable summarising the items of the list
   (there is one such term per variable);
 
 * Pbc(*set*) -- where the *set* is a subset of the (finite) set of all
@@ -710,7 +710,7 @@ which stands for "either the object described or ``None``".  We use it
 to propagate knowledge about which variable, after translation to C,
 could ever contain a NULL pointer.  (More precisely, there are a
 NullableStr, nullable instances, and nullable Pbcs, and all lists are
-implicitely assumed to be nullable).
+implicitly assumed to be nullable).
 
 Each annotation corresponds to a family of run-time Python object; the
 ordering of the lattice is essentially the subset order.  Formally, it
@@ -730,7 +730,7 @@ is the partial order generated by:
 
 * None <= b -- for any nullable annotation *b*.
 
-It is left as an exercice to show that this partial order makes *A* a
+It is left as an exercise to show that this partial order makes *A* a
 lattice.
 
 Graphically::
@@ -832,7 +832,7 @@ The goal of the annotator is to find the least general (i.e. most
 precise) state that is sound (i.e. correct for the user program).  The
 algorithm used is a fixpoint search: we start from the least general
 state and consider the conditions repeatedly; if a condition is not met,
-we generalize the state incrementally to accomodate for it.  This
+we generalise the state incrementally to accommodate for it.  This
 process continues until all conditions are satisfied.
 
 The conditions are presented as a set of rules.  A rule is a functional
@@ -927,7 +927,7 @@ following family of rules (one for each pair *(x,y)*)::
                merge b(y) => x
 
 Note that a priori, all rules should be tried repeatedly until none of
-them generalizes the state any more, at which point we have reached a
+them generalises the state any more, at which point we have reached a
 fixpoint.  However, the rules are well suited to a simple metarule that
 tracks a small set of rules that can possibly apply.  Only these
 "scheduled" rules are tried.  The metarule is as follows:
@@ -941,7 +941,7 @@ tracks a small set of rules that can possibly apply.  Only these
   This also includes the cases where *x* is the auxiliary variable
   of an operation (see `Flow graph model`_).
 
-These rules and metarules favor a forward propagation: the rule
+These rules and metarules favour a forward propagation: the rule
 corresponding to an operation in a flow graph typically modifies the
 binding of the operation's result variable which is used in a following
 operation in the same block, thus scheduling the following operation's
@@ -962,8 +962,8 @@ user-defined classes.  The current section focuses on lists;
 dictionaries are similar.  `Classes and instances`_ will be described in
 their own section.
 
-For lists, we try to derive a homogenous annotation for all items of the
-list.  In other words, RPython does not support heteregonous lists.  The
+For lists, we try to derive a homogeneous annotation for all items of the
+list.  In other words, RPython does not support heterogeneous lists.  The
 approach is to consider each list-creation point as building a new type
 of list and following the way the list is used to derive the union type
 of its items.
@@ -975,7 +975,7 @@ different points in the program and in time.  But in any case, a pure
 forward propagation of annotations is not sufficient because of
 aliasing: it is possible to take a reference to a list at any point, and
 store it somewhere for future access.  If a new item is inserted into a
-list in a way that generalizes the list's type, all potential aliases
+list in a way that generalises the list's type, all potential aliases
 must reflect this change -- this means all references that were "forked"
 from the one through which the list is modified.
 
@@ -986,7 +986,7 @@ abstractedly stands for "any item of the list".  The annotation
 ``List(v)`` is propagated forward as with other kinds of annotations, so
 that all aliases of the list end up being annotated as ``List(v)`` with
 the same variable *v*.  The binding of *v* itself, i.e. ``b(v)``, is
-updated to reflect generalization of the list item's type; such an
+updated to reflect generalisation of the list item's type; such an
 update is instantly visible to all aliases.  Moreover, the update is
 described as a change of binding, which means that the metarules will
 ensure that any rule based on the binding of this variable will be
@@ -1008,7 +1008,7 @@ annotation into the list's hidden variable (*y* is the index in the list
                merge b(z) => v
 
 Reading an item out of a list requires care to ensure that the rule is
-rescheduled if the binding of the hidden variable is generalized.  We do
+rescheduled if the binding of the hidden variable is generalised.  We do
 so by identifying the hidden variable with the current operation's
 auxiliary variable.  The identification ensures that the hidden
 variable's binding will eventually propagate to the auxiliary variable,
@@ -1048,7 +1048,7 @@ The ``Pbc`` annotations play a special role in our approach.  They group
 in a single family all the constant user-defined objects that exist
 before the annotation phase.  This includes the functions and classes
 defined in the user program, but also some other objects that have been
-built while the user program was initializing itself.
+built while the user program was initialising itself.
 
 The presence of the latter kind of object -- which come with a number of
 new problems to solve -- is a distinguishing property of the idea of
@@ -1095,7 +1095,7 @@ In practice, the set of all prebuilt constants is not fixed in advance,
 but grows while annotation discovers new functions and classes and
 frozen prebuilt constants; in this way we can be sure that only the
 objects that are still alive will be included in the set, leaving out
-the ones that were only relevant during the initialization phase of the
+the ones that were only relevant during the initialisation phase of the
 program.
 
 
@@ -1120,13 +1120,13 @@ subclass".  Instance fields are attached to a class whenever we see that
 the field is being written to an instance of this class.  If the user
 program manipulates instances polymorphically, the variables holding the
 instances will be annotated ``Inst(cls)`` with some abstract base class
-*cls*; accessing attributes on such generalized instances lifts the
+*cls*; accessing attributes on such generalised instances lifts the
 inferred attribute declarations up to *cls*.  The same technique works
 for inferring the location of both fields and methods.
 
 ~~~~~~~~~~~~~~~~~~~~~~
 
-We assume that the classes in the user program are organized in a single
+We assume that the classes in the user program are organised in a single
 inheritance tree rooted at the ``object`` base class.  (Python supports
 multiple inheritance, but the annotator is limited to single inheritance
 plus simple mix-ins.)  We also assume that polymorphic instance usage is
@@ -1170,7 +1170,7 @@ particular the usage of the auxiliary variable *z'*.
 
 The purpose of ``lookup_filter`` is to avoid losing precision in method
 calls.  Indeed, if ``attr`` names a method of the class ``C`` then the
-binding ``b(v_C.attr)`` is initialized to ``Pbc(m)``, where *m* is the
+binding ``b(v_C.attr)`` is initialised to ``Pbc(m)``, where *m* is the
 following set:
 
 * for each subclass ``D`` of ``C``, if the class ``D`` introduces a method
@@ -1252,7 +1252,7 @@ several kinds of callables::
                    merge b(yn) => arg_f_(n+1)
 
 Calling a class returns an instance and flows the annotations into the
-contructor ``__init__`` of the class.  Calling a method inserts the
+constructor ``__init__`` of the class.  Calling a method inserts the
 instance annotation as the first argument of the underlying function
 (the annotation is exactly ``Inst(C)`` for the class ``C`` in which the
 method is found).
@@ -1266,17 +1266,17 @@ completeness that it is, in some sense yet to be defined, well-behaved.
 Given the approach we have taken, none of the following proofs is
 "deep": the intended goal of the whole approach is to allow the
 development of an intuitive understanding of why annotation works.
-However, despide their straightforwardness the following proofs are
+However, despite their straightforwardness the following proofs are
 quite technical; they are oriented towards the more
 mathematically-minded reader.
 
 
-Generalization
+Generalisation
 **************
 
 We first have to check that each rule can only turn a state *(b,E)* into
 a state *(b',E')* that is either identical or more general.  Clearly,
-*E'* can only be generalized -- applying a rule can only add new
+*E'* can only be generalised -- applying a rule can only add new
 identifications, not remove existing ones.  What is left to check is
 that the annotation ``b(v)`` of each variable, when modified, can only
 become more general.  We prove it in the following order:
@@ -1296,7 +1296,7 @@ Proof:
 
        The annotation of these variables are only modified by the
        ``phi`` rule, which is based on ``merge``.  The ``merge``
-       operation trivially guarantees the property of generalization
+       operation trivially guarantees the property of generalisation
        because it is based on the union operator ``\/`` of the lattice.
 
 2. Auxiliary variables of operations
@@ -1319,13 +1319,13 @@ Proof:
        given operation must also appear before in the block, either as
        the result variable of a previous operation, or as an input
        variable of the block itself.  So assume for now that the input
-       variables of this operation can only get generalized; we claim
+       variables of this operation can only get generalised; we claim
        that in this case the same holds for its result variable.  If
        this holds, then we conclude by induction on the number of
        operations in the block: indeed, starting from point 1 above for
        the input variables of the block, it shows that each result
        variable -- so also all input arguments of the next operation --
-       can only get generalized.
+       can only get generalised.
 
        To prove our claim, first note that none of these input and
        result variables is ever identified with any other variable via
@@ -1334,7 +1334,7 @@ Proof:
        means that the only way the result variable *z* of an operation
        can be modified is directly by the rule or rules specific to that
        operation.  This allows us to check the property of
-       generalization on a case-by-case basis.
+       generalisation on a case-by-case basis.
 
        Most cases are easy to check.  Cases like ``b' = b with
        (z->b(z'))`` are based on point 2 above.  The only non-trivial
@@ -1387,9 +1387,9 @@ Proof:
        The class ``C`` in the rule for ``getattr`` comes from the
        annotation ``Inst(C)`` of the first input variable of the
        operation.  So what we need to prove is the following: if the
-       binding of this input variable is generalized, and/or if the
-       binding of ``z'`` is generalized, then the annotation computed by
-       ``lookup_filter`` is also generalized (if modified at all)::
+       binding of this input variable is generalised, and/or if the
+       binding of ``z'`` is generalised, then the annotation computed by
+       ``lookup_filter`` is also generalised (if modified at all)::
 
            if          b(x)  = Inst(C)   <=   b'(x)  = Inst(C')
            and         b(z') = Pbc(set)  <=   b'(z') = Pbc(set')
@@ -1406,7 +1406,7 @@ Proof:
            derived non-strict superclass ``B>=C`` which appears in *m*.
            (Note that as *m* is regular, it cannot actually contain
            several potential bound method objects with the same class.)
-           Similarily for *l'* computed from *m'* and ``C'``.
+           Similarly for *l'* computed from *m'* and ``C'``.
 
            By hypothesis, *m* is contained in *m'*, but we need to check
            that *l* is contained in *l'*.  This is where we will use the
@@ -1461,18 +1461,18 @@ Proof:
            contains ``D.f`` and it is downwards-closed, so it must also
            contain ``B.g``.  This contradicts the original hypothesis on
            ``D``: this ``B`` would be another more derived superclass of
-           ``C`` that appears in *m*.  CQFD.
+           ``C`` that appears in *m*.  QED.
 
 
 Termination
 ***********
 
-Each basic step (execution of one rule) can lead to the generalization
+Each basic step (execution of one rule) can lead to the generalisation
 of the state.  If it does, then other rules may be scheduled or
-re-scheduled for execution.  The state can only be generalized a finite
+re-scheduled for execution.  The state can only be generalised a finite
 number of times because both the lattice *A* and the set of variables
 *V* of which *E* is an equivalence relation are finite.  If a rule does
-not lead to any generalization, then it does not trigger re-scheduling
+not lead to any generalisation, then it does not trigger re-scheduling
 of any other rule.  This ensures that the process eventually terminates.
 
 The extended lattice used in practice is a priori not finite.  As we did
@@ -1486,20 +1486,20 @@ Soundness
 *********
 
 We define an annotation state to be *sound* if none of the rules would
-lead to further generalization.  To define this notion more formally, we
+lead to further generalisation.  To define this notion more formally, we
 will use the following notation: let *Rules* be the set of all rules
 (for the given user program).  If *r* is a rule, then it can be
 considered as a (mathematical) function from the set of states to the
 set of states, so that "applying" the rule means computing ``(b',E') =
 r( (b,E) )``.  If the guards of the rule *r* are not satisfied then ``r(
-(b,E) ) = (b,E)``.  To formalize the meta-rule describing rescheduling
+(b,E) ) = (b,E)``.  To formalise the meta-rule describing rescheduling
 of rules, we introduce a third component in the state: a subset *S* of
 the *Rules* which stands for the currently scheduled rules.  Finally,
 for any variable *v* we write *Rules_v* for the set of rules that have
 *v* as an input or auxiliary variable.  The rule titled ``(x~y) in E``
 is called *r_x~y* for short, and it belongs to *Rules_x* and *Rules_y*.
 
-The meta-rule can be formalized as follows: we start from the initial
+The meta-rule can be formalised as follows: we start from the initial
 "meta-state" *(S_0, b_0, E_0)*, where *S_0=Rules* and *(b_0, E_0)* is
 the initial state; then we apply the following meta-rule that computes a
 new meta-state *(S_i+1, b_i+1, E_i+1)* from a meta-state *(S_i, b_i,
@@ -1516,10 +1516,10 @@ meta-states *(S_0, b_0, E_0), (S_1, b_1, E_1), ... (S_n, b_n, E_n)*.
 The sequence ends when *S_n* is empty, at which point annotation is
 complete.  The informal argument of the Termination_ paragraph shows
 that this sequence is necessarily of finite length.  In the
-Generalization_ paragraph we have also seen that each state *(b_i+1,
+Generalisation_ paragraph we have also seen that each state *(b_i+1,
 E_i+1)* is equal to or more general than the previous state *(b_i, E_i)*
 -- more generally, that applying any rule *r* to any state seen in the
-sequence leads to generalization, or in formal terms ``r( (b_i, E_i) )
+sequence leads to generalisation, or in formal terms ``r( (b_i, E_i) )
 >= (b_i, E_i)``.
 
 We define an annotation state *(b,E)* to be *sound* if for all rules *r*
@@ -1541,7 +1541,7 @@ Proof:
        The proof is based on the fact that the "effect" of any rule only
        depends on the annotation of its input and auxiliary variables.
        This "effect" is to merge some bindings and/or add some
-       identifications; it can formalized by saying that ``r( (b,E) ) =
+       identifications; it can formalised by saying that ``r( (b,E) ) =
        (b,E) union (bf,Ef)`` for a certain *(bf,Ef)* that contains only
        the new bindings and identifications.
 
@@ -1618,7 +1618,7 @@ Proof:
        complete proof to the reader.  These example show why it is a key
        point that *(bs,Es)* is not degenerated: most rules no longer
        apply if an annotation degenerates to ``Top``, but continue to
-       apply if it is generalized to anything below ``Top``.  The
+       apply if it is generalised to anything below ``Top``.  The
        general idea is to turn each rule into a step of the complete
        proof, showing that if a sound state is at least as general as
        ``(b_i, E_i)`` then it must be at least as general as ``(b_i+1,
@@ -1680,8 +1680,8 @@ to prove that there is no infinite ascending chain, which is enough to
 guarantee termination.
 
 We will not present a formal bound on the complexity of the algorithm.
-Worst-case senarios would expose severe theoretical problems.  In
-practice, these senarios are unlikely.  Empirically, when annotating a
+Worst-case scenarios would expose severe theoretical problems.  In
+practice, these scenarios are unlikely.  Empirically, when annotating a
 large program like PyPy consisting of some 20'000 basic blocks from
 4'000 functions, the whole annotation process finishes in 5 minutes on a
 modern computer.  This suggests that our approach scales quite well.  We
@@ -1709,7 +1709,7 @@ be computed or to fill more caches.  We describe below some of these
 aspects.
 
 
-Specialization
+Specialisation
 ***************
 
 The type system used by the annotator does not include polymorphism
@@ -1736,28 +1736,28 @@ annotation information for a given function, without letting the flow
 object space and annotator abstractly interpret the function's bytecode.
 
 In more details, the following special-cases are supported by default
-(more advanced specializations have been implemented specifically for
+(more advanced specialisations have been implemented specifically for
 PyPy):
 
-* specializing a function by the annotation of a given argument
+* specialising a function by the annotation of a given argument
 
-* specializing a function by the value of a given argument (requires all
+* specialising a function by the value of a given argument (requires all
   calls to the function to resolve the argument to a constant value)
 
 * ignoring -- the function call is ignored.  Useful for writing tests or
   debugging support code that should be removed during translation.
 
 * by arity -- for functions taking a variable number of (non-keyword)
-  arguments via a ``*args``, the default specialization is by the number
+  arguments via a ``*args``, the default specialisation is by the number
   of extra arguments.  (This follows naturally from the fact that the
   extended annotation lattice we use has annotations of the form
-  ``Tuple(A_1, ..., A_n)`` representing a heterogenous tuple of length
+  ``Tuple(A_1, ..., A_n)`` representing a heterogeneous tuple of length
   *n* whose items are respectively annotated with ``A_1, ..., A_n``, but
   there is no annotation for tuples of unknown length.)
 
 * ctr_location -- for classes.  A fresh independent copy of the class is
   made for each program point that instantiate the class.  This is a
-  simple (but potentially overspecializing) way to obtain class
+  simple (but potentially over-specialising) way to obtain class
   polymorphism for the couple of container classes we needed in PyPy
   (e.g. Stack).
 
@@ -1773,7 +1773,7 @@ PyPy):
 Concrete mode execution
 ***********************
 
-The *memo* specialization_ is used at key points in PyPy to obtain the
+The *memo* specialisation_ is used at key points in PyPy to obtain the
 effect described in the introduction (see `Abstract interpretation`_):
 the memo functions and all the code it invokes is concretely executed
 during annotation.  There is no staticness restriction on that code --
@@ -1873,10 +1873,10 @@ The approach eventually selected is different.  We proceed in two steps:
 The RPython typer
 ~~~~~~~~~~~~~~~~~
 
-The first step is called "RTyping" or "specializing" as it turns general
-high-level operations into low-level C-like operations specialized for
+The first step is called "RTyping" or "specialising" as it turns general
+high-level operations into low-level C-like operations specialised for
 the types derived by the annotator.  This process produces a globally
-consistant low-level family of flow graphs by assuming that the
+consistent low-level family of flow graphs by assuming that the
 annotation state is sound.  It is described in more details in the
 `RPython typer`_ reference.
 
@@ -1888,16 +1888,16 @@ implemented in terms of "simpler" operations.  The function is then fed
 back into the flow object space and the annotator and the RTyper itself
 so that it gets turned into another low-level control flow graph.  At
 this point, the annotator runs with a different set of default
-specializations: it allows several copies of the helper functions to be
+specialisations: it allows several copies of the helper functions to be
 automatically built, one for each low-level type of its arguments.  We
 do this by default at this level because of the intended purpose of
 these helpers: they are usually methods of a polymorphic container.
 
-This approach shows that our annotator is versatile enough to accomodate
+This approach shows that our annotator is versatile enough to accommodate
 different kinds of sub-languages at different levels: it is
 straightforward to adapt it for the so-called "low-level Python"
 language in which we constrain ourselves to write the low-level
-operation helpers.  Automatic specialization was a key point here; the
+operation helpers.  Automatic specialisation was a key point here; the
 resulting language feels like a basic C++ without any type or template
 declarations.
 
@@ -1930,7 +1930,7 @@ The `GenC back-end`_ works again in two steps:
      structures;
 
   4. the implementation of the latter (i.e. the body of functions and
-     the static initializers of prebuilt data structures).
+     the static initialisers of prebuilt data structures).
 
 Each function's body is implemented as basic blocks (following the basic
 blocks of the control flow graphs) with jumps between them.  The
