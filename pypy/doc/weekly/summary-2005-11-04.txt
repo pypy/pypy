@@ -70,10 +70,9 @@ the PyPy project (RPython is essentially an implementation detail) the
 frequency of raising of the subject means that there probably is some
 interest in a "rpythonc" type tool that would compile an RPython
 program.  A fairly serious problem, though, is that when the target of
-compilation turns out not to be RPython, working out *why* can be
-arbitrarily difficult, even for an experienced PyPyer.  For these
-reasons, it seems unlikely that such a tool will be written all that
-soon (at least, I'm not going to do it :).
+compilation turns out not to be RPython, working out *why* can be very
+difficult.  For these reasons, it seems unlikely that such a tool will
+be written all that soon (at least, I'm not going to do it :).
 
 PyPy-sync
 =========
