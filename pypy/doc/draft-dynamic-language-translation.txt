@@ -280,7 +280,7 @@ the claimed goals):
 
 * the `Annotator`_ is performing type inference.  This part is best
   implemented separately from other parts because it is based on a
-  fixpoint research algorithm.  It is mostly this part that defines and
+  fixpoint search algorithm.  It is mostly this part that defines and
   restricts what RPython exactly is.  After annotation, the control flow
   graphs still contain all the original relatively-high-level RPython
   operations; the inferred information is only used in the next step.
@@ -643,7 +643,7 @@ argument is given a user-specified annotation.
 
 The goal of the annotator is to find the most precise annotation that
 can be given to each variable of all control flow graphs while
-respecting constrains imposed by the operations in which these variables
+respecting constraints imposed by the operations in which these variables
 are involved.
 
 More precisely, it is usually possible to deduce information about the
@@ -663,7 +663,7 @@ performing abstract interpretation of the flow graphs.  In a sense, it
 is a more naive approach than the one taken by type systems specifically
 designed to enable more advanced inference algorithms.  For example,
 `Hindley-Milner`_ type inference works in an inside-out direction, by
-starting from individual operations and propagating type constrains
+starting from individual operations and propagating type constraints
 outwards.
 
 Naturally, simply propagating annotations forward requires the use of a
@@ -1366,129 +1366,125 @@ Proof:
 
 1. Input variables of blocks
 
-       The annotation of these variables are only modified by the
-       ``phi`` rule, which is based on ``merge``.  The ``merge``
-       operation trivially guarantees the property of generalisation
-       because it is based on the union operator ``\/`` of the lattice.
+   The annotation of these variables are only modified by the ``phi``
+   rule, which is based on ``merge``.  The ``merge`` operation trivially
+   guarantees the property of generalisation because it is based on the
+   union operator ``\/`` of the lattice.
 
 2. Auxiliary variables of operations
 
-       The binding of an auxiliary variable *z'* of an operation is
-       never directly modified: it is only ever identified with other
-       variables via *E*.  So ``b(z')`` is only updated by the rule
-       ``(z'~v) in E``, which is based on the ``merge`` operator as
-       well.
+   The binding of an auxiliary variable *z'* of an operation is never
+   directly modified: it is only ever identified with other variables
+   via *E*.  So ``b(z')`` is only updated by the rule ``(z'~v) in E``,
+   which is based on the ``merge`` operator as well.
 
 3. Variables corresponding to attributes of classes
 
-       The annotation of such variables can only be modified by the
-       ``setattr`` rule (with a ``merge``) or as a result of having been
-       identified with other variables via *E*.  We conclude as above.
+   The annotation of such variables can only be modified by the
+   ``setattr`` rule (with a ``merge``) or as a result of having been
+   identified with other variables via *E*.  We conclude as above.
 
 4. Input and result variables of operations
 
-       By construction of the flow graphs, the input variables of any
-       given operation must also appear before in the block, either as
-       the result variable of a previous operation, or as an input
-       variable of the block itself.  So assume for now that the input
-       variables of this operation can only get generalised; we claim
-       that in this case the same holds for its result variable.  If
-       this holds, then we conclude by induction on the number of
-       operations in the block: indeed, starting from point 1 above for
-       the input variables of the block, it shows that each result
-       variable -- so also all input arguments of the next operation --
-       can only get generalised.
+   By construction of the flow graphs, the input variables of any given
+   operation must also appear before in the block, either as the result
+   variable of a previous operation, or as an input variable of the
+   block itself.  So assume for now that the input variables of this
+   operation can only get generalised; we claim that in this case the
+   same holds for its result variable.  If this holds, then we conclude
+   by induction on the number of operations in the block: indeed,
+   starting from point 1 above for the input variables of the block, it
+   shows that each result variable -- so also all input arguments of the
+   next operation -- can only get generalised.
 
-       To prove our claim, first note that none of these input and
-       result variables is ever identified with any other variable via
-       *E*: indeed, the rules described above only identify auxiliary
-       variables and attribute-of-class variables with each other.  It
-       means that the only way the result variable *z* of an operation
-       can be modified is directly by the rule or rules specific to that
-       operation.  This allows us to check the property of
-       generalisation on a case-by-case basis.
+   To prove our claim, first note that none of these input and result
+   variables is ever identified with any other variable via *E*: indeed,
+   the rules described above only identify auxiliary variables and
+   attribute-of-class variables with each other.  It means that the only
+   way the result variable *z* of an operation can be modified is
+   directly by the rule or rules specific to that operation.  This
+   allows us to check the property of generalisation on a case-by-case
+   basis.
 
-       Most cases are easy to check.  Cases like ``b' = b with
-       (z->b(z'))`` are based on point 2 above.  The only non-trivial
-       case is in the rule for ``getattr``::
+   Most cases are easy to check.  Cases like ``b' = b with (z->b(z'))``
+   are based on point 2 above.  The only non-trivial case is in the rule
+   for ``getattr``::
 
-           b' = b with (z->lookup_filter(b(z'), C))
+       b' = b with (z->lookup_filter(b(z'), C))
 
-       For this case, we need the following lemma:
+   For this case, we need the following lemma:
 
-           Let ``v_C.attr`` be an attribute-of-class variable.  Let
-           ``(b,E)`` be any state seen during the annotation process.
-           Assume that ``b(v_C.attr) = Pbc(set)`` where *set* is a set
-           containing potential bound method objects.  Call *m* the
-           family of potential bound method objects appearing in *set*.
-           Then *m* has the following shape: it is "regular" in the
-           sense that it contains only potential bound method objects
-           ``D.f`` such that ``f`` is exactly the function found under
-           the name ``attr`` in some class ``D``; moreover, it is
-           "downwards-closed" in the sense that if it contains a
-           ``D.f``, then it also contains all ``E.g`` for all subclasses
-           ``E`` of ``D`` that override the method (i.e. have a function
-           ``g`` found under the same name ``attr``).
+       Let ``v_C.attr`` be an attribute-of-class variable.  Let
+       ``(b,E)`` be any state seen during the annotation process.
+       Assume that ``b(v_C.attr) = Pbc(set)`` where *set* is a set
+       containing potential bound method objects.  Call *m* the family
+       of potential bound method objects appearing in *set*.  Then *m*
+       has the following shape: it is "regular" in the sense that it
+       contains only potential bound method objects ``D.f`` such that
+       ``f`` is exactly the function found under the name ``attr`` in
+       some class ``D``; moreover, it is "downwards-closed" in the sense
+       that if it contains a ``D.f``, then it also contains all ``E.g``
+       for all subclasses ``E`` of ``D`` that override the method
+       (i.e. have a function ``g`` found under the same name ``attr``).
 
-       Proof:
+   Proof:
 
-           As we have seen in `Classes and instances`_ above, the
-           initial binding of ``v_C.attr`` is regular and
-           downwards-closed by construction.  Moreover, the ``setattr``
-           rule explicitly checks that it is never adding any potential
-           bound method object to ``b(v_C.attr)``, so that the only way
-           such objects can be added to ``b(v_C.attr)`` is via the
-           identification of ``v_C.attr`` with other ``v_B.attr``
-           variables, for the same name ``attr`` -- which implies that
-           the set *m* will always be regular.  Moreover, the union of
-           two downwards-closed sets of potential bound method objects
-           is still downwards-closed.  This concludes the proof.
+       As we have seen in `Classes and instances`_ above, the initial
+       binding of ``v_C.attr`` is regular and downwards-closed by
+       construction.  Moreover, the ``setattr`` rule explicitly checks
+       that it is never adding any potential bound method object to
+       ``b(v_C.attr)``, so that the only way such objects can be added
+       to ``b(v_C.attr)`` is via the identification of ``v_C.attr`` with
+       other ``v_B.attr`` variables, for the same name ``attr`` -- which
+       implies that the set *m* will always be regular.  Moreover, the
+       union of two downwards-closed sets of potential bound method
+       objects is still downwards-closed.  This concludes the proof.
 
-       Let us consider the rule for ``getattr`` again::
+   Let us consider the rule for ``getattr`` again::
 
-           b' = b with (z->lookup_filter(b(z'), C))
+       b' = b with (z->lookup_filter(b(z'), C))
 
-       The only interesting case is when the binding ``b(z')`` is a
-       ``Pbc(set)`` -- more precisely, we are interested in the part *m*
-       of *set* that is the subset of all potential bound method
-       objects; the function ``lookup_filter`` is the identity on the
-       rest.  Given that ``b(z')`` comes from ``z'`` being identified
-       with various ``v_C.attr`` for a fixed name ``attr``, the set *m*
-       is regular and downwards-closed, as we can deduce from the lemma.
+   The only interesting case is when the binding ``b(z')`` is a
+   ``Pbc(set)`` -- more precisely, we are interested in the part *m* of
+   *set* that is the subset of all potential bound method objects; the
+   function ``lookup_filter`` is the identity on the rest.  Given that
+   ``b(z')`` comes from ``z'`` being identified with various
+   ``v_C.attr`` for a fixed name ``attr``, the set *m* is regular and
+   downwards-closed, as we can deduce from the lemma.
 
-       The class ``C`` in the rule for ``getattr`` comes from the
-       annotation ``Inst(C)`` of the first input variable of the
-       operation.  So what we need to prove is the following: if the
-       binding of this input variable is generalised, and/or if the
-       binding of ``z'`` is generalised, then the annotation computed by
-       ``lookup_filter`` is also generalised (if modified at all)::
+   The class ``C`` in the rule for ``getattr`` comes from the annotation
+   ``Inst(C)`` of the first input variable of the operation.  So what we
+   need to prove is the following: if the binding of this input variable
+   is generalised, and/or if the binding of ``z'`` is generalised, then
+   the annotation computed by ``lookup_filter`` is also generalised (if
+   modified at all)::
 
-           if          b(x)  = Inst(C)   <=   b'(x)  = Inst(C')
-           and         b(z') = Pbc(set)  <=   b'(z') = Pbc(set')
+       if          b(x)  = Inst(C)   <=   b'(x)  = Inst(C')
+       and         b(z') = Pbc(set)  <=   b'(z') = Pbc(set')
 
-           then  lookup_filter(b(z'), C) <= lookup_filter(b'(z'), C')
+       then  lookup_filter(b(z'), C) <= lookup_filter(b'(z'), C')
 
-       Proof:
+   Proof:
 
-           Call respectively *m* and *m'* the subsets of potential bound
-           method objects of *set* and *set'*, as above.  Call *l* the
-           subset of *m* as computed by ``lookup_filter``, i.e.: *l*
-           contains all objects ``D.f`` of *m* for strict subclasses
-           ``D`` of ``C``, plus the single ``B.g`` coming for the most
-           derived non-strict superclass ``B>=C`` which appears in *m*.
-           (Note that as *m* is regular, it cannot actually contain
-           several potential bound method objects with the same class.)
-           Similarly for *l'* computed from *m'* and ``C'``.
+       Call respectively *m* and *m'* the subsets of potential bound
+       method objects of *set* and *set'*, as above.  Call *l* the
+       subset of *m* as computed by ``lookup_filter``, i.e.: *l*
+       contains all objects ``D.f`` of *m* for strict subclasses ``D``
+       of ``C``, plus the single ``B.g`` coming for the most derived
+       non-strict superclass ``B>=C`` which appears in *m*.  (Note that
+       as *m* is regular, it cannot actually contain several potential
+       bound method objects with the same class.)  Similarly for *l'*
+       computed from *m'* and ``C'``.
 
-           By hypothesis, *m* is contained in *m'*, but we need to check
-           that *l* is contained in *l'*.  This is where we will use the
-           fact that *m* is downwards-closed.  Let ``D.f`` be an element
-           of *l*.
+       By hypothesis, *m* is contained in *m'*, but we need to check
+       that *l* is contained in *l'*.  This is where we will use the
+       fact that *m* is downwards-closed.  Let ``D.f`` be an element of
+       *l*.
 
-           Case 1: if ``D`` is a strict subclass of ``C``, then it is
-           also a strict subclass of ``C'``.  In this case, ``D.f``,
-           which also belong to *m* and thus to *m'*, also belongs to
-           *l'*.  Graphically::
+       Case 1: if ``D`` is a strict subclass of ``C``, then it is also a
+       strict subclass of ``C'``.  In this case, ``D.f``, which also
+       belong to *m* and thus to *m'*, also belongs to *l'*.
+       Graphically::
 
                                C'
                              / | \
@@ -1499,23 +1495,23 @@ Proof:
                        /  |  \
                       D1  D2  D3
 
-           (In this diagram, as far as they correspond to real methods,
-           potential bound method objects ``D1.f1``, ``D2.f2`` and
-           ``D3.f3`` all belong to both *l* and *l'*.  The family *l'*
-           additionally contains ``C.g``, ``E2.h2`` and ``E3.h3``.  Both
-           families *l* and *l'* also contain one extra item coming from
-           the second part of their construction rule.)
+       (In this diagram, as far as they correspond to real methods,
+       potential bound method objects ``D1.f1``, ``D2.f2`` and ``D3.f3``
+       all belong to both *l* and *l'*.  The family *l'* additionally
+       contains ``C.g``, ``E2.h2`` and ``E3.h3``.  Both families *l* and
+       *l'* also contain one extra item coming from the second part of
+       their construction rule.)
 
-           Case 2: ``D`` is instead to most derived non-strict
-           superclass of ``C`` which appears in *m*; assume that ``D``
-           is still a strict subclass of ``C'``.  In this case, ``D.f``
-           belongs to *l'* as previously.  (For example, if there is a
-           ``C.g`` in *m*, then ``D = C`` and as seen in the above
-           diagram ``C.g`` is indeed in *l'*.)
+       Case 2: ``D`` is instead to most derived non-strict superclass of
+       ``C`` which appears in *m*; assume that ``D`` is still a strict
+       subclass of ``C'``.  In this case, ``D.f`` belongs to *l'* as
+       previously.  (For example, if there is a ``C.g`` in *m*, then ``D
+       = C`` and as seen in the above diagram ``C.g`` is indeed in
+       *l'*.)
 
-           Case 3: ``D`` is still the most derived non-strict superclass
-           of ``C`` which appears in *m*, but this time ``D`` is not a
-           strict subclass of ``C'``.  The situation is as follows::
+       Case 3: ``D`` is still the most derived non-strict superclass of
+       ``C`` which appears in *m*, but this time ``D`` is not a strict
+       subclass of ``C'``.  The situation is as follows::
 
                                D
                                |
@@ -1523,17 +1519,17 @@ Proof:
                                |
                                C
 
-           where extra intermediate classes could be present too.  To be
-           able to conclude that ``D.f`` is in *l'*, we now have to
-           prove that ``D`` is also the most derived non-strict
-           superclass of ``C'`` that appears in *m'*.  Ab absurdo,
-           assume that this is not the case.  Then there is a class
-           ``B``, strict superclass of ``C'`` but strict subclass of
-           ``D``, such that *m'* contains an element ``B.g``.  But *m*
-           contains ``D.f`` and it is downwards-closed, so it must also
-           contain ``B.g``.  This contradicts the original hypothesis on
-           ``D``: this ``B`` would be another more derived superclass of
-           ``C`` that appears in *m*.  QED.
+       where extra intermediate classes could be present too.  To be
+       able to conclude that ``D.f`` is in *l'*, we now have to prove
+       that ``D`` is also the most derived non-strict superclass of
+       ``C'`` that appears in *m'*.  Ab absurdo, assume that this is not
+       the case.  Then there is a class ``B``, strict superclass of
+       ``C'`` but strict subclass of ``D``, such that *m'* contains an
+       element ``B.g``.  But *m* contains ``D.f`` and it is
+       downwards-closed, so it must also contain ``B.g``.  This
+       contradicts the original hypothesis on ``D``: this ``B`` would be
+       another more derived superclass of ``C`` that appears in *m*.
+       QED.
 
 
 Termination
@@ -1610,128 +1606,125 @@ Proof:
 
 1. The final state *(b_n, E_n)* is sound.
 
-       The proof is based on the fact that the "effect" of any rule only
-       depends on the annotation of its input and auxiliary variables.
-       This "effect" is to merge some bindings and/or add some
-       identifications; it can formalised by saying that ``r( (b,E) ) =
-       (b,E) union (bf,Ef)`` for a certain *(bf,Ef)* that contains only
-       the new bindings and identifications.
+   The proof is based on the fact that the "effect" of any rule only
+   depends on the annotation of its input and auxiliary variables.  This
+   "effect" is to merge some bindings and/or add some identifications;
+   it can formalised by saying that ``r( (b,E) ) = (b,E) union (bf,Ef)``
+   for a certain *(bf,Ef)* that contains only the new bindings and
+   identifications.
 
-       More precisely, let *r* be a rule.  Let *V_r* be the set of input
-       and auxiliary variables of *r*, i.e.::
+   More precisely, let *r* be a rule.  Let *V_r* be the set of input and
+   auxiliary variables of *r*, i.e.::
 
-           V_r = { v | r in Rules_v }
+       V_r = { v | r in Rules_v }
 
-       Let *(b,E)* be a state.  Then there exists a state *(bf,Ef)*
-       representing the "effect" of the rule on *(b,E)* as follows:
+   Let *(b,E)* be a state.  Then there exists a state *(bf,Ef)*
+   representing the "effect" of the rule on *(b,E)* as follows:
 
-           r( (b,E) )   = (b,E)   union (bf,Ef)
+       r( (b,E) )   = (b,E)   union (bf,Ef)
 
-       and the same *(bf,Ef)* works for any *(b',E')* which is equal to
-       *(b,E)* on *V_r*::
+   and the same *(bf,Ef)* works for any *(b',E')* which is equal to
+   *(b,E)* on *V_r*::
 
-           r( (b',E') ) = (b',E') union (bf,Ef)
+       r( (b',E') ) = (b',E') union (bf,Ef)
 
-       This is easily verified on a case-by-case basis for each kind of
-       rule presented above.  The details are left to the reader.
+   This is easily verified on a case-by-case basis for each kind of rule
+   presented above.  The details are left to the reader.
 
-       To show the proposition, we proceed by induction on *i* to show
-       that each of the meta-states *(S_i, b_i, E_i)* has the following
-       property: for each rule *r* which is not in *S_i* we have ``r(
-       (b_i, E_i) ) = (b_i, E_i)``.  The result will follow from this
-       claim because the final *S_n* is empty.
+   To show the proposition, we proceed by induction on *i* to show that
+   each of the meta-states *(S_i, b_i, E_i)* has the following property:
+   for each rule *r* which is not in *S_i* we have ``r( (b_i, E_i) ) =
+   (b_i, E_i)``.  The result will follow from this claim because the
+   final *S_n* is empty.
 
-       The claim is trivially true for ``i=0``.  Let us assume that it
-       holds for some ``i<n`` and prove it for ``i+1``: let *r* be a
-       rule not in *S_i+1*.  By definition of *S_i+1*, the
-       input/auxiliary variables of *r* have the same bindings at the
-       steps ``i`` and ``i+1``, i.e. *(b_i, E_i)* is equal to *(b_i+1,
-       E_i+1)* on *V_r*.  Let *(bf,Ef)* be the effect of *r* on *(b_i,
-       E_i)* as above.  We have::
+   The claim is trivially true for ``i=0``.  Let us assume that it holds
+   for some ``i<n`` and prove it for ``i+1``: let *r* be a rule not in
+   *S_i+1*.  By definition of *S_i+1*, the input/auxiliary variables of
+   *r* have the same bindings at the steps ``i`` and ``i+1``,
+   i.e. *(b_i, E_i)* is equal to *(b_i+1, E_i+1)* on *V_r*.  Let
+   *(bf,Ef)* be the effect of *r* on *(b_i, E_i)* as above.  We have::
 
-           r( (b_i,   E_i) )   = (b_i,   E_i)   union (bf,Ef)
-           r( (b_i+1, E_i+1) ) = (b_i+1, E_i+1) union (bf,Ef)
+       r( (b_i,   E_i) )   = (b_i,   E_i)   union (bf,Ef)
+       r( (b_i+1, E_i+1) ) = (b_i+1, E_i+1) union (bf,Ef)
 
-       Case 1: *r* is in *S_i*.  As it is not in *S_i+1* it must be
-       precisely *r_i*.  In this case ``r( (b_i, E_i) ) = (b_i+1,
-       E_i+1)``, so that::
+   Case 1: *r* is in *S_i*.  As it is not in *S_i+1* it must be
+   precisely *r_i*.  In this case ``r( (b_i, E_i) ) = (b_i+1, E_i+1)``,
+   so that::
 
-           r( (b_i+1, E_i+1) ) = (b_i+1, E_i+1) union (bf,Ef)
-                               = r( (b_i, E_i) ) union (bf,Ef)
-                               = (b_i, E_i) union (bf,Ef) union (bf,Ef)
-                               = (b_i, E_i) union (bf,Ef)
-                               = r( (b_i, E_i) )
-                               = (b_i+1, E_i+1).
+       r( (b_i+1, E_i+1) ) = (b_i+1, E_i+1) union (bf,Ef)
+                           = r( (b_i, E_i) ) union (bf,Ef)
+                           = (b_i, E_i) union (bf,Ef) union (bf,Ef)
+                           = (b_i, E_i) union (bf,Ef)
+                           = r( (b_i, E_i) )
+                           = (b_i+1, E_i+1).
 
-       which concludes the induction step.
+   which concludes the induction step.
 
-       Case 2: *r* is not in *S_i*.  By induction hypothesis ``(b_i,
-       E_i) = r( (b_i, E_i) )``.
+   Case 2: *r* is not in *S_i*.  By induction hypothesis ``(b_i, E_i) =
+   r( (b_i, E_i) )``.
 
-           (b_i, E_i) = (b_i, E_i) union (bf,Ef)
-           (b_i, E_i) >= (bf,Ef)
-           (b_i+1, E_i+1) >= (b_i, E_i) >= (bf,Ef)
-           (b_i+1, E_i+1) = (b_i+1, E_i+1) union (bf,Ef)
-           (b_i+1, E_i+1) = r( (b_i+1, E_i+1) ).
+       (b_i, E_i) = (b_i, E_i) union (bf,Ef)
+       (b_i, E_i) >= (bf,Ef)
+       (b_i+1, E_i+1) >= (b_i, E_i) >= (bf,Ef)
+       (b_i+1, E_i+1) = (b_i+1, E_i+1) union (bf,Ef)
+       (b_i+1, E_i+1) = r( (b_i+1, E_i+1) ).
 
-       This concludes the proof.
+   This concludes the proof.
 
 2. *(b_n, E_n)* is the minimum of all sound non-degenerated states.
 
-       Let *(bs,Es)* be any sound non-degenerated state such that
-       ``(b_0, E_0) <= (bs,Es)``.  We will show by induction that for
-       each ``i<=n`` we have ``(b_i, E_i) <= (bs,Es)``.  The conclusion
-       follows from the case ``i=n``.
+   Let *(bs,Es)* be any sound non-degenerated state such that ``(b_0,
+   E_0) <= (bs,Es)``.  We will show by induction that for each ``i<=n``
+   we have ``(b_i, E_i) <= (bs,Es)``.  The conclusion follows from the
+   case ``i=n``.
 
-       The claim holds for ``i=0`` by hypothesis.  Let us assume that it
-       is true for some ``i<n`` and prove it for ``i+1``.  We need to
-       consider separate cases for each of the kind of rules that *r_i*
-       can be.  We only show a few representative examples and leave the
-       complete proof to the reader.  These example show why it is a key
-       point that *(bs,Es)* is not degenerated: most rules no longer
-       apply if an annotation degenerates to ``Top``, but continue to
-       apply if it is generalised to anything below ``Top``.  The
-       general idea is to turn each rule into a step of the complete
-       proof, showing that if a sound state is at least as general as
-       ``(b_i, E_i)`` then it must be at least as general as ``(b_i+1,
-       E_i+1)``.
+   The claim holds for ``i=0`` by hypothesis.  Let us assume that it is
+   true for some ``i<n`` and prove it for ``i+1``.  We need to consider
+   separate cases for each of the kind of rules that *r_i* can be.  We
+   only show a few representative examples and leave the complete proof
+   to the reader.  These example show why it is a key point that
+   *(bs,Es)* is not degenerated: most rules no longer apply if an
+   annotation degenerates to ``Top``, but continue to apply if it is
+   generalised to anything below ``Top``.  The general idea is to turn
+   each rule into a step of the complete proof, showing that if a sound
+   state is at least as general as ``(b_i, E_i)`` then it must be at
+   least as general as ``(b_i+1, E_i+1)``.
 
-       Example 1.  The rule *r_i* is::
+   Example 1.  The rule *r_i* is::
 
-              z=add(x,y), b(x)=Int, Bool<=b(y)<=Int
-           ------------------------------------------------------
-                    b' = b with (z->Int)
+          z=add(x,y), b(x)=Int, Bool<=b(y)<=Int
+       ------------------------------------------------------
+                b' = b with (z->Int)
 
-       In this example, assuming that the guards are satisfied, *b_i+1*
-       is *b_i* with ``z->Int``.  We must show that ``bs(z) >= Int``.
-       We know from ``(b_i, E_i) <= (bs,Es)`` that ``bs(x) >= Int`` and
-       ``bs(y) >= Bool``.  As *bs* is not degenerated, we have more
-       precisely ``bs(x) = Int, Bool <= bs(y) <= Int``.  Moreover, by
-       definition ``r( (bs,Es) ) = (bs,Es)``.  We conclude that ``bs(z)
-       = Int``.
+   In this example, assuming that the guards are satisfied, *b_i+1* is
+   *b_i* with ``z->Int``.  We must show that ``bs(z) >= Int``.  We know
+   from ``(b_i, E_i) <= (bs,Es)`` that ``bs(x) >= Int`` and ``bs(y) >=
+   Bool``.  As *bs* is not degenerated, we have more precisely ``bs(x) =
+   Int, Bool <= bs(y) <= Int``.  Moreover, by definition ``r( (bs,Es) )
+   = (bs,Es)``.  We conclude that ``bs(z) = Int``.
 
-       Example 2.  The rule *r_i* is::
+   Example 2.  The rule *r_i* is::
 
-              y = phi(x)
-           ----------------------------------------
-                    merge b(x) => y
+          y = phi(x)
+       ----------------------------------------
+                merge b(x) => y
 
-       We must show that ``bs(y) >= b_i+1(y)``.  We need to subdivide
-       this example in two cases: either ``b(x)`` and ``b(y)`` are both
-       ``List`` annotations or not.
+   We must show that ``bs(y) >= b_i+1(y)``.  We need to subdivide this
+   example in two cases: either ``b(x)`` and ``b(y)`` are both ``List``
+   annotations or not.
 
-       If they are not, we know that ``b_i+1(y) = b_i(y) \/ b_i(x)`` and
-       ``bs(y) >= b_i(y)``, so that we must show that ``bs(y) >=
-       b_i(x)``.  We know that ``r( (bs,Es) ) = (bs,Es)`` so that
-       ``bs(y) = bs(x) \/ bs(y)``, i.e. ``bs(y) >= bs(x)``.  We conclude
-       by noting that ``bs(x) >= b_i(x)``.
+   If they are not, we know that ``b_i+1(y) = b_i(y) \/ b_i(x)`` and
+   ``bs(y) >= b_i(y)``, so that we must show that ``bs(y) >= b_i(x)``.
+   We know that ``r( (bs,Es) ) = (bs,Es)`` so that ``bs(y) = bs(x) \/
+   bs(y)``, i.e. ``bs(y) >= bs(x)``.  We conclude by noting that ``bs(x)
+   >= b_i(x)``.
 
-       On the other hand, if ``b(x) = List(v)`` and ``b(y) = List(w)``,
-       then *b_i+1* is *b_i* but *E_i+1* is *E_i* with ``v~w``.  We must
-       show that ``(v~w) in Es``.  As *(bs,Es)* is at least as general
-       as *(b_i, E_i)* but not degenerated we know that ``bs(x) =
-       List(v)`` and ``bs(y) = List(w)`` as well.  Again, because ``r(
-       (bs,Es) ) = (bs,Es)`` we conclude that ``(v~w) in Es``.
+   On the other hand, if ``b(x) = List(v)`` and ``b(y) = List(w)``, then
+   *b_i+1* is *b_i* but *E_i+1* is *E_i* with ``v~w``.  We must show
+   that ``(v~w) in Es``.  As *(bs,Es)* is at least as general as *(b_i,
+   E_i)* but not degenerated we know that ``bs(x) = List(v)`` and
+   ``bs(y) = List(w)`` as well.  Again, because ``r( (bs,Es) ) =
+   (bs,Es)`` we conclude that ``(v~w) in Es``.
 
 
 Complexity
@@ -1924,9 +1917,9 @@ the annotator is not the central subject of the present report, so we
 will only skim it and refer to the reference documentation when
 appropriate.
 
-The main difficulty with turning annotated flow graphs into C code is
-that the RPython definition is still quite large, in the sense that an
-important fraction of the built-in data structures of Python, and the
+The main difficulty with turning annotated flow graphs into, say, C code
+is that the RPython definition is still quite large, in the sense that
+an important fraction of the built-in data structures of Python, and the
 methods on them, are supported -- sometimes requiring highly non-trivial
 implementations, in a polymorphic way.  Various approaches have been
 tried out, including writing a lot of template C code that gets filled
@@ -1934,12 +1927,18 @@ with concrete types.
 
 The approach eventually selected is different.  We proceed in two steps:
 
-* the annotated graphs are rewritten so that each RPython-level
+* the RTyper_ rewrites the annotated graphs so that each RPython-level
   operation is replaced by one or a few low-level operations (or a call
   to a helper for more complex operations);
 
-* the low-level flow graphs thus obtained are easy to handle in a
-  back-end -- we can currently turn them into either C or LLVM_ code.
+* a back-end generates code for the target language and environment
+  based on the low-level flow graphs thus obtained.
+
+We can currently generate C-like low-level flow graphs and turn them
+into either C or LLVM_ code; or experimentally, PowerPC machine code or
+JavaScript_.  If we go through slightly less low-level flow graphs
+instead, we can also interface with an experimental back-end generating
+Squeak_ and in the future Java and/or .NET.
 
 
 RTyper
@@ -1952,12 +1951,28 @@ consistent low-level family of flow graphs by assuming that the
 annotation state is sound.  It is described in more details in the
 `RPython typer`_ reference.
 
+
+Low-level flow graphs
+*********************
+
+The purpose of the RTyper is to produce control flow graphs that contain
+a different set of variables and operations.  At this level, the
+variables are typed, and the operations between them are constrained to
+be well-typed.  The exact set of types and operations depends on the
+target environment's language; currently, we have defined two such sets:
+
+* lltype XXX
+
+* ootype XXX
+
+
+
 A noteworthy point of the RTyper is that for each operation that has no
 obvious C-level equivalent, we write a helper function in Python; each
 usage of the operation in the source (high-level) annotated flow graph
 is replaced by a call to this function.  The function in question is
 implemented in terms of "simpler" operations.  The function is then fed
-back into the flow object space and the annotator and the RTyper itself
+back into the flow object space and the annotator and the RTyper itself,
 so that it gets turned into another low-level control flow graph.  At
 this point, the annotator runs with a different set of default
 specialisations: it allows several copies of the helper functions to be
@@ -1965,13 +1980,15 @@ automatically built, one for each low-level type of its arguments.  We
 do this by default at this level because of the intended purpose of
 these helpers: they are usually methods of a polymorphic container.
 
-This approach shows that our annotator is versatile enough to accommodate
-different kinds of sub-languages at different levels: it is
+This approach shows that our annotator is versatile enough to
+accommodate different kinds of sub-languages at different levels: it is
 straightforward to adapt it for the so-called "low-level Python"
 language in which we constrain ourselves to write the low-level
 operation helpers.  Automatic specialisation was a key point here; the
 resulting language feels like a basic C++ without any type or template
 declarations.
+
+
 
 
 Generating C code
@@ -1983,8 +2000,8 @@ memory.  The last step is to turn them into an external representation
 like C source code.
 
 This step is theoretically straightforward, if messy in practice for
-various reasons including the limitations, constrains and irregularities
-of the C language.
+various reasons including the limitations, constraints and
+irregularities of the C language.
 
 The `GenC back-end`_ works again in two steps:
 
@@ -2037,5 +2054,7 @@ been a nightmare
 .. _LLVM: http://llvm.cs.uiuc.edu/
 .. _`RPython typer`: translation.html#rpython-typer
 .. _`GenC back-end`: translation.html#genc
+.. _JavaScript: http://www.ecma-international.org/publications/standards/Ecma-262.htm
+.. _Squeak: http://www.squeak.org/
 
 .. include:: _ref.txt
