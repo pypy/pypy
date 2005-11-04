@@ -1961,11 +1961,65 @@ variables are typed, and the operations between them are constrained to
 be well-typed.  The exact set of types and operations depends on the
 target environment's language; currently, we have defined two such sets:
 
-* lltype XXX
+* lltype_: a set of C-like types.  Besides primitives (integers,
+  characters, and so on) it contains structures, arrays, functions and
+  "opaque" (i.e. externally-defined) types.  All the non-primitive types
+  can only be manipulated via pointers.  Memory management is still
+  partially implicit: the back-end is responsible for inserting either
+  reference counting or other forms of garbage collecting for some kinds
+  of structures and arrays.  Structures can directly contain
+  substructures as fields, a feature that we use to implement instances
+  in the presence of subclassing -- an instance of a class *B* is a
+  structure whose first field is a substructure corresponding to the
+  parent class *A*.
 
-* ootype XXX
+  The operations are: arithmetic operations between primitives, pointer
+  casts, reading/writing a field from/to a structure via a pointer, and
+  reading/writing an array item via a pointer to the array.
+
+* ootype: a set of low-level but object-oriented types.  It mostly
+  contains classes and instances and ways to manipulate them, as needed
+  for RPython.
+
+  Besides the same arithmetic operations between primitives, the
+  operations are: creating instances, calling methods, accessing the
+  fields of instances, and some limited amount of run-time class
+  inspection.
 
 
+Representations
+***************
+
+While the back-end only sees the typed variables and operations in the
+resulting flow graphs, the RTyper uses internally a powerful
+abstraction: *representation* objects.  The representations are
+responsible for mapping the RPython-level types, as produced by the
+annotator, to the low-level types.
+
+One representation is created for each used annotation.  The
+representation maps a low-level type to each annotation in a way that
+depends on information dicovered by the annotator.  For example, the
+representation of ``Inst`` annotations are responsible for building the
+low-level type -- nested structures and vtable pointers, in the case of
+lltype_.  In addition,the representation objects' central role is to
+know precisely how, on a case-by-case basis, to turn the high-level
+RPython operations into operations on the low-level type -- e.g. how to
+map the ``getattr`` operation to the appropriate "fishing" of a field
+within nested substructures.
+
+As another example, the annotator records which RPython lists are
+resized after their creations, and which ones are not.  This allows the
+RTyper to select one of two different representations for each list
+annotation: the resizeable lists need an extra indirection level when
+implemented as C arrays, while the fixed-size lists can be implemented
+more efficiently.  A more extreme example is that lists that are
+discovered to be the result of a ``range()`` call and never modified get
+a very compact representation whose low-level type only stores the start
+and the end of the range of numbers.
+
+
+Helpers and LLPython
+********************
 
 A noteworthy point of the RTyper is that for each operation that has no
 obvious C-level equivalent, we write a helper function in Python; each
@@ -1989,21 +2043,26 @@ resulting language feels like a basic C++ without any type or template
 declarations.
 
 
-
-
-Generating C code
-~~~~~~~~~~~~~~~~~
+The back-ends
+~~~~~~~~~~~~~
 
 So far, all data structures (flow graphs, prebuilt constants...) 
 manipulated by the translation process only existed as objects in
-memory.  The last step is to turn them into an external representation
-like C source code.
-
-This step is theoretically straightforward, if messy in practice for
+memory.  The last step is to turn them into an external representation.
+This step, while basically straightforward, is messy in practice for
 various reasons including the limitations, constraints and
-irregularities of the C language.
+irregularities of the target language (particularly so if it is C).
+Additionally, the back-end is responsible for aspects like memory
+management and exception model, as well as for generating alternate
+styles of code for different execution models like coroutines.
 
-The `GenC back-end`_ works again in two steps:
+We will give as an example an overview of the `GenC back-end`_.  The
+`LLVM back-end`_ works at the same level.  The (undocumented) Squeak
+back-end takes ootyped graphs instead, as described above, and faces
+different problems (e.g. the graphs have unstructured control flow, so
+they are difficult to render in a language with no ``goto`` equivalent).
+
+The C back-end works itself again in two steps:
 
 * it first collects recursively all functions (i.e. their low-level flow
   graphs) and all prebuilt data structures, remembering all "struct" C
@@ -2054,7 +2113,10 @@ been a nightmare
 .. _LLVM: http://llvm.cs.uiuc.edu/
 .. _`RPython typer`: translation.html#rpython-typer
 .. _`GenC back-end`: translation.html#genc
+.. _`LLVM back-end`: translation.html#llvm
 .. _JavaScript: http://www.ecma-international.org/publications/standards/Ecma-262.htm
 .. _Squeak: http://www.squeak.org/
+.. _lltype: translation.html#low-level-types
+.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 
 .. include:: _ref.txt
