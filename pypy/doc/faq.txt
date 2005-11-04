@@ -50,6 +50,23 @@ moment) put in ``/tmp/usession-*/testing_1/testing_1.c``.  Of course,
 all the function and stuff indirectly used by your ``entry_point()``
 function has to be RPython_.
 
+Why isn't there a simpler way of doing that?
+--------------------------------------------
+
+One answer is that "officially speaking" supporting this is not a goal
+of the PyPy project (RPython is essentially an implementation detail).
+
+A better answer might be that when the target of compilation turns out
+not to be RPython, working out *why* can be very difficult, and
+working on the annotator to make these messages clearly, even if it's
+possible, it would take time away from other development tasks.
+
+It's not that writing RPython is difficult, but if there was some kind
+of rpythonc compiling tool there would be much more temptation to try
+to compile arbitrary, pre-existing Python programs and this is fairly
+unlikely to work (to start, there is very little in the way of an
+"RPython standard library").
+
 
 Compiling to other languages
 ============================================================
