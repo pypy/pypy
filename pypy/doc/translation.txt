@@ -578,12 +578,12 @@ integers or pointers.  All the "container" data structures (struct and array)
 are allocated in the heap, and they are always manipulated via pointers.
 (There is no equivalent to the C notion of local variable of a ``struct`` type.)
 
-Here is a quick tour::
+Here is a quick tour:
 
     >>> from pypy.rpython.lltypesystem.lltype import *
 
 Here are a few primitive low-level types, and the typeOf() function to figure
-them out::
+them out:
 
     >>> Signed
     <Signed>
@@ -595,7 +595,7 @@ them out::
     <Char>
 
 Let's say that we want to build a type "point", which is a structure with two
-integer fields "x" and "y"::
+integer fields "x" and "y":
 
     >>> POINT = GcStruct('point', ('x', Signed), ('y', Signed))
     >>> POINT
@@ -628,13 +628,13 @@ target platform; but as we have just seen its Python implementation in
 testing, interactive exploring, etc.
 
 The argument to ``malloc()`` is the structure type directly, but it returns a
-pointer to the structure, as ``typeOf()`` tells you::
+pointer to the structure, as ``typeOf()`` tells you:
 
     >>> typeOf(p)
     <* GcStruct point { x: Signed, y: Signed }>
 
 For the purpose of creating structures with pointers to other structures, we can
-declare pointer types explicitly::
+declare pointer types explicitly:
 
     >>> typeOf(p) == Ptr(POINT)
     True

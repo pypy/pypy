@@ -2062,6 +2062,8 @@ back-end takes ootyped graphs instead, as described above, and faces
 different problems (e.g. the graphs have unstructured control flow, so
 they are difficult to render in a language with no ``goto`` equivalent).
 
+.. _`Generating C code`:
+
 The C back-end works itself again in two steps:
 
 * it first collects recursively all functions (i.e. their low-level flow
