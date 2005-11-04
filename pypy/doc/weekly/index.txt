@@ -1,5 +1,10 @@
-"This week in PyPy" stuff
--------------------------
+===================
+"This week in PyPy"
+===================
+
+Generalities
+============
+
 
 I (mwh) am going to write a summary of what's been happening in
 pypy-land each week.  To help me along, please add (append) things
@@ -20,3 +25,10 @@ I'll run through the file, write up the the best bits, send that to
 pypy-dev, copy the log file to log.YEAR-MONTH-DAY and make a new one.
 
 Thanks in advance!
+
+Archive
+=======
+
+ * `Week ending 2005-11-04`_
+
+.. _`Week ending 2005-11-04`: summary-2005-11-04.html
