@@ -241,6 +241,78 @@ into low-level ones, generating (e.g.) C source code for a C compiler,
 and invoking the C compiler to actually produce the executable.
 
 
+Motivating our architecture
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Before we start, we need a word of motivation to explain the reasons
+behind the rather complicated architecture that we describe in the
+sequel.
+
+First of all, the overall picture of PyPy as described in our
+architecture_ web page is as follows: PyPy is an interpreter for the
+complete Python language, but it is itself written in the RPython
+subset.  This is done in order to allow our analysis toolchain to apply
+to PyPy itself.  Indeed, the primary goal is to allow us to implement
+the full Python language only once, as an interpreter, and derive
+interesting tools from it; doing so requires this interpreter to be
+analysable, hence the existence RPython.  The RPython language and our
+whole toolchain, despite their potential attraction, are so far meant as
+an internal detail of the PyPy project.  The programs that we are
+deriving or plan to derive from PyPy include versions that run on very
+diverse platforms (from C to Java/.NET to Smalltalk), and also versions
+with modified execution models (from microthreads/coroutines to
+just-in-time compilers).  This is why we have split the process in
+numerous interrelated phases, each at its own abstraction level.  By
+enabling changes to the appropriate level, this opens the door to a wide
+range of retargetings of various kinds.
+
+Focusing on the analysis toolchain again, here is how the existence of
+each component is justified (see below for *how* each component reaches
+the claimed goals):
+
+* the `Flow Object Space`_ is a short but generic plug-in component for
+  the Python interpreter of PyPy (an abstract domain, more precisely).
+  This means that it is independent of most language details.  Changes
+  in syntax or in bytecode format or opcode semantics only need to be
+  implemented once, in the standard Python interpreter.  In effect, the
+  Flow Object Space enables an interpreter for *any* language to work as
+  a front-end for the rest of the toolchain.
+
+* the `Annotator`_ is performing type inference.  This part is best
+  implemented separately from other parts because it is based on a
+  fixpoint research algorithm.  It is mostly this part that defines and
+  restricts what RPython exactly is.  After annotation, the control flow
+  graphs still contain all the original relatively-high-level RPython
+  operations; the inferred information is only used in the next step.
+
+* the `RTyper`_ is the first component involved in `Code Generation`_.
+  By itself, it does not emit any source code: it only replaces all
+  RPython-level operations with lower-level operations in all control
+  flow graphs.  Each replacement is based on the type information
+  collected by the annotator.  In some sense the RTyper is the central
+  bridge between the analysed program, written in RPython, and the
+  target language and platform, which has different and usually
+  lower-level operations, requirements and libraries.  This RTyper is
+  written in a modular way that allows it to be retargeted to various
+  environments: for example, to target C-like languages we produce
+  graphs that contain C-like operations, e.g.  pointer manipulations; on
+  the other hand, to target OO languages we need to produce graphs with
+  operations like method calls.
+
+* at the end, a back-end is responsible for generating actual source
+  code from the flow graphs it receives.  Given that the flow graphs are
+  already at the correct level, the only remaining problems are at the
+  level of difficulties with or limitations of the target language.
+  This part depends strongly on the details of the target language, so
+  little code can be shared between the different back-ends (even
+  between back-ends inputting the same low-level flow graphs, e.g. the C
+  and the LLVM_ back-ends).  The back-end is also responsible for
+  integrating with some of the most platform-dependent aspects like
+  memory management and exception model, as well as for generating
+  alternate styles of code for different execution models like
+  coroutines.
+
+
 Flow Object Space
 ===========================================
 
@@ -367,7 +439,7 @@ also responsible for handling the ``is_true`` operation.
 A normal recorder simply appends the space operations to the block from
 which it comes from.  However, when it sees an ``is_true`` operation, it
 creates and schedules two special blocks (one for the outcome ``True``
-and one for the outcome ``False``) which don't have an associated frame
+and one for the outcome ``False``) which do not have an associated frame
 state.  The previous block is linked to the two new blocks with
 conditional exits.  At this point, abstract interpretation stops (i.e.
 an exception is raised to interrupt the engine).
@@ -1840,7 +1912,7 @@ For annotation to terminate -- and anyway for translation to a low-level
 language like C to have any chance of being reasonably straightforward
 to do -- it is up to the user program to satisfy such a condition.  (It
 is similar to, but more "global" than, the flow object space's
-restriction to terminate only if fed functions that don't obviously go
+restriction to terminate only if fed functions that do not obviously go
 into infinite loops.)
 
 
@@ -1870,8 +1942,8 @@ The approach eventually selected is different.  We proceed in two steps:
   back-end -- we can currently turn them into either C or LLVM_ code.
 
 
-The RPython typer
-~~~~~~~~~~~~~~~~~
+RTyper
+~~~~~~~~~~
 
 The first step is called "RTyping" or "specialising" as it turns general
 high-level operations into low-level C-like operations specialised for
