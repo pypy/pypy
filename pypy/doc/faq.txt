@@ -58,8 +58,8 @@ of the PyPy project (RPython is essentially an implementation detail).
 
 A better answer might be that when the target of compilation turns out
 not to be RPython, working out *why* can be very difficult, and
-working on the annotator to make these messages clearly, even if it's
-possible, it would take time away from other development tasks.
+working on the annotator to make these messages clearer -- even if
+possible -- would take time away from other development tasks.
 
 It's not that writing RPython is difficult, but if there was some kind
 of rpythonc compiling tool there would be much more temptation to try
