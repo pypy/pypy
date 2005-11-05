@@ -736,7 +736,7 @@ class date(object):
         if isinstance(year, str):
             # Pickle support
             self = object.__new__(cls)
-            self.__setstate((year,))
+            self.__setstate(year)
             return self
         _check_date_fields(year, month, day)
         self = object.__new__(cls)
@@ -972,10 +972,9 @@ class date(object):
         yhi, ylo = divmod(self.__year, 256)
         return ("%c%c%c%c" % (yhi, ylo, self.__month, self.__day), )
 
-    def __setstate(self, t):
-        assert isinstance(t, tuple) and len(t) == 1, `t`
-        string = t[0]
-        assert len(string) == 4
+    def __setstate(self, string):
+        if len(string) != 4 or not (1 <= ord(string[2]) <= 12):
+            raise TypeError("not enough arguments")
         yhi, ylo, self.__month, self.__day = map(ord, string)
         self.__year = yhi * 256 + ylo
 
@@ -1098,7 +1097,7 @@ class time(object):
         self = object.__new__(cls)
         if isinstance(hour, str):
             # Pickle support
-            self.__setstate((hour, minute or None))
+            self.__setstate(hour, minute or None)
             return self
         _check_tzinfo_arg(tzinfo)
         _check_time_fields(hour, minute, second, microsecond)
@@ -1336,18 +1335,13 @@ class time(object):
         else:
             return (basestate, self._tzinfo)
 
-    def __setstate(self, state):
-        assert isinstance(state, tuple)
-        assert 1 <= len(state) <= 2
-        string = state[0]
-        assert len(string) == 6
+    def __setstate(self, string, tzinfo):
+        if len(string) != 6 or ord(string[0]) >= 24:
+            raise TypeError("an integer is required")
         self.__hour, self.__minute, self.__second, us1, us2, us3 = \
                                                             map(ord, string)
         self.__microsecond = (((us1 << 8) | us2) << 8) | us3
-        if len(state) == 1:
-            self._tzinfo = None
-        else:
-            self._tzinfo = state[1]
+        self._tzinfo = tzinfo
 
     def __reduce__(self):
         return (time, self.__getstate())
@@ -1368,7 +1362,7 @@ class datetime(date):
         if isinstance(year, str):
             # Pickle support
             self = date.__new__(cls, year[:4])
-            self.__setstate((year, month))
+            self.__setstate(year, month)
             return self
         _check_tzinfo_arg(tzinfo)
         _check_time_fields(hour, minute, second, microsecond)
@@ -1632,7 +1626,7 @@ class datetime(date):
     def __eq__(self, other):
         if isinstance(other, datetime):
             return self.__cmp(other) == 0
-        elif hasattr(other, "timetuple"):
+        elif hasattr(other, "timetuple") and not isinstance(other, date):
             return NotImplemented
         else:
             return False
@@ -1640,7 +1634,7 @@ class datetime(date):
     def __ne__(self, other):
         if isinstance(other, datetime):
             return self.__cmp(other) != 0
-        elif hasattr(other, "timetuple"):
+        elif hasattr(other, "timetuple") and not isinstance(other, date):
             return NotImplemented
         else:
             return True
@@ -1648,7 +1642,7 @@ class datetime(date):
     def __le__(self, other):
         if isinstance(other, datetime):
             return self.__cmp(other) <= 0
-        elif hasattr(other, "timetuple"):
+        elif hasattr(other, "timetuple") and not isinstance(other, date):
             return NotImplemented
         else:
             _cmperror(self, other)
@@ -1656,7 +1650,7 @@ class datetime(date):
     def __lt__(self, other):
         if isinstance(other, datetime):
             return self.__cmp(other) < 0
-        elif hasattr(other, "timetuple"):
+        elif hasattr(other, "timetuple") and not isinstance(other, date):
             return NotImplemented
         else:
             _cmperror(self, other)
@@ -1664,7 +1658,7 @@ class datetime(date):
     def __ge__(self, other):
         if isinstance(other, datetime):
             return self.__cmp(other) >= 0
-        elif hasattr(other, "timetuple"):
+        elif hasattr(other, "timetuple") and not isinstance(other, date):
             return NotImplemented
         else:
             _cmperror(self, other)
@@ -1672,7 +1666,7 @@ class datetime(date):
     def __gt__(self, other):
         if isinstance(other, datetime):
             return self.__cmp(other) > 0
-        elif hasattr(other, "timetuple"):
+        elif hasattr(other, "timetuple") and not isinstance(other, date):
             return NotImplemented
         else:
             _cmperror(self, other)
@@ -1775,19 +1769,12 @@ class datetime(date):
         else:
             return (basestate, self._tzinfo)
 
-    def __setstate(self, state):
-        assert isinstance(state, tuple)
-        assert 1 <= len(state) <= 2
-        string = state[0]
-        assert len(string) == 10
+    def __setstate(self, string, tzinfo):
         (yhi, ylo, self.__month, self.__day, self.__hour,
          self.__minute, self.__second, us1, us2, us3) = map(ord, string)
         self.__year = yhi * 256 + ylo
         self.__microsecond = (((us1 << 8) | us2) << 8) | us3
-        if len(state) == 1:
-            self._tzinfo = None
-        else:
-            self._tzinfo = state[1]
+        self._tzinfo = tzinfo
 
     def __reduce__(self):
         return (self.__class__, self.__getstate())
