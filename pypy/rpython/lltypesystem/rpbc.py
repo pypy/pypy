@@ -157,7 +157,8 @@ class MethodOfFrozenPBCRepr(Repr):
         hop2.args_s[0] = self.s_im_self   # make the 1st arg stand for 'im_self'
         hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
         if isinstance(hop2.args_v[0], Constant):
-            hop2.args_v[0] = hop.inputarg(self, 0)
+            boundmethod = hop2.args_v[0].value
+            hop2.args_v[0] = Constant(boundmethod.im_self)
         if call_args:
             hop2.swap_fst_snd_args()
             _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
