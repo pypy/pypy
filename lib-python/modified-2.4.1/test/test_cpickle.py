@@ -96,7 +96,7 @@ def test_main():
         cPickleTests,
         cPicklePicklerTests,
         cPickleListPicklerTests,
-        cPickleFastPicklerTests
+        # XXX undocumented, not supported by PyPy: cPickleFastPicklerTests
     )
 
 if __name__ == "__main__":
