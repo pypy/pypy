@@ -345,7 +345,8 @@ class TranslationDriver(SimpleTaskEngine):
     from_targetspec = staticmethod(from_targetspec)
 
     def prereq_checkpt_rtype(self):
-        assert_rtyper_not_imported()
+        assert 'pypy.rpython.rmodel' not in sys.modules, (
+            "cannot fork because the rtyper has already been imported")
 
     # checkpointing support
     def _event(self, kind, goal, func):
@@ -361,4 +362,7 @@ class TranslationDriver(SimpleTaskEngine):
                     unixcheckpoint.restartable_point(auto='run')
 
 
-from pypy.translator.tool.util import mkexename, assert_rtyper_not_imported
+def mkexename(name):
+    if sys.platform == 'win32':
+        name = os.path.normpath(name + '.exe')
+    return name
