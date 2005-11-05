@@ -23,17 +23,22 @@ def debug(msg):
 
 # __________  Entry point  __________
 
+def select_space(n):
+    if n == 1:
+        return space1, w_entry_point_1
+    else:
+        return space2, w_entry_point_2
+
 def entry_point(argv):
     debug("entry point starting") 
     for arg in argv: 
         debug(" argv -> " + arg)
     if len(argv) > 1 and argv[1] == "--space2":
         del argv[1]
-        space = space2
-        w_entry_point = w_entry_point_2
+        n = 2
     else:
-        space = space1
-        w_entry_point = w_entry_point_1
+        n = 1
+    space, w_entry_point = select_space(n)
     try:
         w_executable = space.wrap(argv[0])
         w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
@@ -99,18 +104,7 @@ def target(driver, args):
                          translating=True,
                          usemodules=usemodules,
                          geninterp=geninterp)
-    space2 = StdObjSpace(nofaking=True,
-                         compiler="ast", # interpreter/astcompiler
-                         translating=True,
-                         usemodules=usemodules,
-                         geninterp=geninterp)
-
-    space1.setattr(space1.getbuiltinmodule('sys'),
-                   space1.wrap('pypy_space'),
-                   space1.wrap(1))
-    space2.setattr(space2.getbuiltinmodule('sys'),
-                   space2.wrap('pypy_space'),
-                   space2.wrap(2))
+    space2 = None
 
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')
@@ -118,14 +112,10 @@ def target(driver, args):
     space1.exec_(open(filename).read(), w_dict, w_dict)
     w_entry_point_1 = space1.getitem(w_dict, space1.wrap('entry_point'))
 
-    w_dict = space2.newdict([])
-    space2.exec_(open(filename).read(), w_dict, w_dict)
-    w_entry_point_2 = space2.getitem(w_dict, space2.wrap('entry_point'))
+    w_entry_point_2 = None
 
     # sanity-check: call the entry point
     res = entry_point(["pypy", "app_basic_example.py"])
-    assert res == 0
-    res = entry_point(["pypy", "--space2", "app_basic_example.py"])
     assert res == 0
 
     return entry_point, None, PyPyAnnotatorPolicy()
