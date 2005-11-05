@@ -163,7 +163,9 @@ above, CPython's decision to use a garbage collector based on
 reference counting is reflected throughout the source.  In the
 implementation code of PyPy, it is not, and in fact the standard
 interpreter can currently be compiled to use a reference counted
-scheme or the Boehm GC [BOEHM]_.
+scheme or the Boehm GC [BOEHM]_.  We also have an experimental
+framework for developing custom exact GCs [GC]_, but it is not yet
+integrated with the low-level translation back-ends.
 
 XXX Start documentation and link to it from here.
 
@@ -212,6 +214,8 @@ References
 
 .. [CODG] `Coding Guide`_, PyPy documentation, 2003-2005
 
+.. [GC] `Garbage Collection`_, PyPy documentation, 2005
+
 .. [OBJS] `Object Spaces`_, PyPy documentation, 2003-2005
 
 .. [STK] `Stackless Python`_, a Python implementation that does not use
@@ -220,6 +224,7 @@ References
 .. _`standard interpreter`: architecture.html#standard-interpreter
 .. _`Architecture Overview`: architecture.html
 .. _`Coding Guide`: coding-guide.html
+.. _`Garbage Collection`: garbage_collection.html
 .. _`Object Spaces`: objspace.html
 .. _`Stackless Python`: http://www.stackless.com
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
