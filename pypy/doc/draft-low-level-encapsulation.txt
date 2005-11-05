@@ -65,7 +65,7 @@ complete freedom to decide about this aspect.  This constrasts with
 CPython where the decision to use reference counting is reflected tens
 or even hundreds of times in each C source file in the codebase.
 
-As described in `XXX`_, producing a Python implementation from the
+As described in [#]_, producing a Python implementation from the
 source of our standard interpreter involves various stages: the
 initialization code is run, the resulting code is annotated, typed and
 finally translated.  By the nature of the task, the encapsulation of
@@ -73,8 +73,6 @@ finally translated.  By the nature of the task, the encapsulation of
 process.  At the coarsest level, the selection of target platform
 involves writing a new backend -- still a significant task, but much
 much easier than writing a complete implementation of Python!
-
-.. _`XXX`: http://www.example.com
 
 Other aspects affect different levels, as their needs require.  The
 remainder of this section describes a few aspects that we have
@@ -110,13 +108,15 @@ interpreter a given object is "from" -- and this is not possible in
 CPython largely because of the memory overhead that adding a 'interp'
 pointer to all Python objects would create.
 
-Because all of our implementation code manipulates an object space
-instance, the situation of multiple interpreters is handled entirely
-automatically.  If there is only one space instance, it is regarded as a
-pre-constructed constant and the space object pointer (though not all of
-its contents) disappears from the produced source.  If there are two or
-more such instances, a 'space' attribute will be automatically added to
-all application objects, the best of both worlds.
+In PyPy, all of our implementation code manipulates an explicit object
+space instance, so that the situation of multiple interpreters is
+handled entirely automatically.  If there is only one space instance, it
+is regarded as a pre-constructed constant and the space object pointer
+(though not its non-constant contents) disappears from the produced
+source.  If there are two or more such instances, a 'space' attribute
+will be automatically added to all application objects (or more
+precisely, it will not be removed by the translation process), the best
+of both worlds.
 
 
 Concurrency
@@ -134,9 +134,17 @@ performance on multi-processor machines.
 
 PyPy will offer the opportunity to experiment with different models,
 although currently we only offer a version with no thread support and
-another with a GIL-like model.
+another with a GIL-like model.  (We also plan to support soon "green"
+software-only threads in the Stackless model described above, but
+obviously this would not solve the multi-processor scalability issue.)
 
-XXX Could speculatively waffle here easily enough.
+The future work in this direction is to collect the numerous possible
+approaches that have between thought out along the years and
+e.g. presented on the CPython development mailing list.  Most of them
+have never been tried out in CPython, for lack of necessary resources.
+A number of them are clearly easy to try out in PyPy, at least in an
+experimental version that would allow its costs to be assessed -- for
+example, various forms of object-level locking.
 
 
 Memory Management
@@ -186,8 +194,15 @@ have had in enscapsulating implementation aspects justifies the
 approach we have taken.
 
 
-.. [#] "standard interpreter" in this context means the code which
-       implements the interpreter and the standard object space.
+References
+==========
 
 .. [#] http://www.stackless.com
 
+.. [#] `standard interpreter`_ in this context means the code which
+       implements the interpreter and the standard object space.
+
+.. [#] `PyPy - Architecture Overview`_
+
+.. _`standard interpreter`: architecture.html#standard-interpreter
+.. _`PyPy - Architecture Overview`: architecture.html
