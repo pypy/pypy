@@ -131,10 +131,10 @@ class JS(object):   # JS = Javascript
         #    codewriter.append(llexterns_functions)
 
         entry_point= c.value._obj
-        graph      = self.db.obj2node[entry_point].graph
-        startblock = graph.startblock
+        self.graph = self.db.obj2node[entry_point].graph
+        startblock = self.graph.startblock
         args       = ','.join(['arguments[%d]' % i for i,v in enumerate(startblock.inputargs)])
-        self.wrappertemplate = "load('%s'); print(%s%s(%%s))" % (self.filename, pypy_prefix, graph.name)
+        self.wrappertemplate = "load('%s'); print(%s%s(%%s))" % (self.filename, pypy_prefix, self.graph.name)
 
         #codewriter.newline()
         #codewriter.comment("Wrapper code for the Javascript CLI", 0)
