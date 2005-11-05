@@ -28,7 +28,7 @@ Background
 ==========
 
 One of the better known significant modifications to CPython are
-Christian Tismer's "stackless" patches [#]_, which allow for far more
+Christian Tismer's "stackless" patches [STK]_, which allow for far more
 flexible control flow than the typical function call/return supported by
 CPython.  Originally implemented as a series of invasive patches,
 Christian found that maintaining these patches as CPython itself was
@@ -65,7 +65,10 @@ complete freedom to decide about this aspect.  This constrasts with
 CPython where the decision to use reference counting is reflected tens
 or even hundreds of times in each C source file in the codebase.
 
-As described in [#]_, producing a Python implementation from the
+.. [#] `standard interpreter`_ in this context means the code which
+       implements the interpreter and the standard object space.
+
+As described in [ARCH]_, producing a Python implementation from the
 source of our standard interpreter involves various stages: the
 initialization code is run, the resulting code is annotated, typed and
 finally translated.  By the nature of the task, the encapsulation of
@@ -89,6 +92,8 @@ approach.
 
 XXX More!
 
+XXX Start documenting it and link to it from here!
+
 
 Multiple Interpreters
 ---------------------
@@ -109,14 +114,15 @@ CPython largely because of the memory overhead that adding a 'interp'
 pointer to all Python objects would create.
 
 In PyPy, all of our implementation code manipulates an explicit object
-space instance, so that the situation of multiple interpreters is
-handled entirely automatically.  If there is only one space instance, it
-is regarded as a pre-constructed constant and the space object pointer
-(though not its non-constant contents) disappears from the produced
-source.  If there are two or more such instances, a 'space' attribute
-will be automatically added to all application objects (or more
-precisely, it will not be removed by the translation process), the best
-of both worlds.
+space instance, as described in [CODG]_.  Ideally, the situation of
+multiple interpreters is thus handled automatically: if there is only
+one space instance, it is regarded as a pre-constructed constant and the
+space object pointer (though not its non-constant contents) disappears
+from the produced source, i.e. both from function arguments and local
+variables and from instance fields.  If there are two or more such
+instances, a 'space' attribute will be automatically added to all
+application objects (or more precisely, it will not be removed by the
+translation process), the best of both worlds.
 
 
 Concurrency
@@ -138,6 +144,8 @@ another with a GIL-like model.  (We also plan to support soon "green"
 software-only threads in the Stackless model described above, but
 obviously this would not solve the multi-processor scalability issue.)
 
+XXX Start documentation and link to it from here.
+
 The future work in this direction is to collect the numerous possible
 approaches that have between thought out along the years and
 e.g. presented on the CPython development mailing list.  Most of them
@@ -155,9 +163,9 @@ above, CPython's decision to use a garbage collector based on
 reference counting is reflected throughout the source.  In the
 implementation code of PyPy, it is not, and in fact the standard
 interpreter can currently be compiled to use a reference counted
-scheme or Boehm's `garbage collector for C`_.
+scheme or the Boehm GC [BOEHM]_.
 
-.. _`garbage collector for C`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+XXX Start documentation and link to it from here.
 
 Another advantage of the aspect oriented approach shows itself most
 clearly with this memory management aspect: that of correctness.
@@ -177,12 +185,12 @@ Evaluation Strategy
 -------------------
 
 Possibly the most radical aspect to tinker with is the evaluation
-strategy.  The thunk object space wraps the standard object space to
-allow the production of "lazily computed objects", objects whose
-values are only calculated when needed, and to allow the global and
-total replacement of one object with another.  The thunk object space
-is mostly meant as an example of what our approach can acheive -- the
-combination of side-effects and lazy evaluation is not easy to
+strategy.  The thunk object space [OBJS]_ wraps the standard object
+space to allow the production of "lazily computed objects", objects
+whose values are only calculated when needed, and to allow the global
+and total replacement of one object with another.  The thunk object
+space is mostly meant as an example of what our approach can acheive --
+the combination of side-effects and lazy evaluation is not easy to
 understand.
 
 
@@ -197,12 +205,21 @@ approach we have taken.
 References
 ==========
 
-.. [#] http://www.stackless.com
+.. [ARCH] `Architecture Overview`_, PyPy documentation, 2003-2005
 
-.. [#] `standard interpreter`_ in this context means the code which
-       implements the interpreter and the standard object space.
+.. [BOEHM] `Boehm-Demers-Weiser garbage collector`_, a garbage collector
+           for C and C++, Hans Boehm, 1988-2004
 
-.. [#] `PyPy - Architecture Overview`_
+.. [CODG] `Coding Guide`_, PyPy documentation, 2003-2005
+
+.. [OBJS] `Object Spaces`_, PyPy documentation, 2003-2005
+
+.. [STK] `Stackless Python`_, a Python implementation that does not use
+         the C stack, Christian Tismer, 1999-2004
 
 .. _`standard interpreter`: architecture.html#standard-interpreter
-.. _`PyPy - Architecture Overview`: architecture.html
+.. _`Architecture Overview`: architecture.html
+.. _`Coding Guide`: coding-guide.html
+.. _`Object Spaces`: objspace.html
+.. _`Stackless Python`: http://www.stackless.com
+.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
