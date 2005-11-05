@@ -2,6 +2,7 @@ from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 import py
 from os   import system
 from cgi  import parse_qs
+from sys  import platform
 from time import sleep
 from pypy.translator.js.log import log
 log = log.browsertest
@@ -9,12 +10,20 @@ log = log.browsertest
 
 class config:
 
-    #XXX remove this hardcoding (currently OSX only)
-    browser = ('/Applications/Firefox.app/Contents/MacOS/', 'firefox-bin')
+    #XXX refactor this into using the webbrowser module 
+    #    (http://docs.python.org/lib/module-webbrowser.html)
+    if platform == 'darwin':
+        browser = ('/Applications/Firefox.app/Contents/MacOS/', 'firefox-bin')
 
-    #XXX Safari does not accept a http://... format, it still thinks it's a file://...
-    #browser = ('/Applications/Safari.app/Contents/MacOS/', 'Safari')
+        #XXX Safari does not accept a http://... format, it still thinks it's a file://...
+        #browser = ('/Applications/Safari.app/Contents/MacOS/', 'Safari')
 
+    elif platform == 'linux2':
+        browser = ('/usr/bin/', 'firefox')
+
+    else:   #win32...
+        browser = ('', 'firefox-bin')
+        
     http_port = 10001
 
     html_page = """<html>
@@ -46,9 +55,6 @@ class config:
 </body>
 </html>"""
 
-    #issue a GET after one second
-    #note: 0 second did not work probably because the GET would
-    #      be received before the refresh socket was closed (or so)
     refresh_page = """<html>
 <head>
 <meta http-equiv="refresh" content="0">
@@ -148,7 +154,7 @@ def jstest(jsfilename, jstestcase):
         driver = BrowserTest()
         driver.start_server(config.http_port)
 
-        cmd = '%s%s http://localhost:%d &' % (browser_path, browser_exe, config.http_port)
+        cmd = '"%s%s" http://localhost:%d &' % (browser_path, browser_exe, config.http_port)
         log(cmd)
         system(cmd)
 
