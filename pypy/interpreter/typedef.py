@@ -22,6 +22,10 @@ class TypeDef:
         self.acceptable_as_base_class = True
         # xxx used by faking
         self.fakedcpytype = None
+        # xxx fix the names of the methods to match what app-level expects
+        for key, value in rawdict.items():
+            if isinstance(value, interp2app):
+                value.name = key
 
     def _freeze_(self):
         # hint for the annotator: track individual constant instances of TypeDef
