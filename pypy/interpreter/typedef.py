@@ -200,12 +200,16 @@ def unknown_objclass_getter(space):
     raise OperationError(space.w_TypeError,
                          space.wrap("generic property has no __objclass__"))
 
-def make_objclass_getter(func, cls):
+def make_objclass_getter(func, cls, cache={}):
     if hasattr(func, 'im_func'):
         assert not cls or cls is func.im_class
         cls = func.im_class
     if not cls:
         return unknown_objclass_getter, cls
+    try:
+        return cache[cls]
+    except KeyError:
+        pass
     miniglobals = {}
     if isinstance(cls, str):
         assert cls.startswith('<'),"pythontype typecheck should begin with <"
@@ -219,7 +223,9 @@ def make_objclass_getter(func, cls):
             return %s
         \n""" % (typeexpr,)
     exec compile2(source) in miniglobals
-    return miniglobals['objclass_getter'], cls
+    res = miniglobals['objclass_getter'], cls
+    cache[cls] = res
+    return res
 
 class GetSetProperty(Wrappable):
     def __init__(self, fget, fset=None, fdel=None, doc=None, cls=None):
