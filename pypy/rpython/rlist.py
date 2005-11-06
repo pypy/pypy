@@ -497,25 +497,23 @@ def ll_append(l, newitem):
 def ll_prepend(l, newitem):
     length = l.length
     _ll_list_resize_ge(l, length+1)
-    i = length
     items = l.items
-    i1 = i+1
-    while i >= 0:
-        items[i1] = items[i]
-        i1 = i
-        i -= 1
+    dst = length
+    while dst > 0:
+        src = dst - 1
+        items[dst] = items[src]
+        dst = src
     items[0] = newitem
 
 def ll_insert_nonneg(l, index, newitem):
     length = l.length
     _ll_list_resize_ge(l, length+1)
     items = l.items
-    i = length
-    i1 = i+1
-    while i >= index:
-        items[i1] = items[i]
-        i1 = i
-        i -= 1
+    dst = length
+    while dst > index:
+        src = dst - 1
+        items[dst] = items[src]
+        dst = src
     items[index] = newitem
 
 def dum_checkidx(): pass

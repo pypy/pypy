@@ -344,6 +344,23 @@ def test_insert_pop():
     res = interpret(dummyfn, ())#, view=True)
     assert res == 42
 
+def test_insert_bug():
+    def dummyfn(n):
+        l = [1]
+        l = l[:]
+        l.pop(0)
+        if n < 0:
+            l.insert(0, 42)
+        else:
+            l.insert(n, 42)
+        return l
+    res = interpret(dummyfn, [0])
+    assert res.ll_length() == 1
+    assert res.ll_items()[0] == 42
+    res = interpret(dummyfn, [-1])
+    assert res.ll_length() == 1
+    assert res.ll_items()[0] == 42
+
 def test_inst_pop():
     class A:
         pass
