@@ -40,3 +40,12 @@ class AppTestTraceBackAttributes:
         dictdescr = type.__dict__['__dict__']
         raises(TypeError, dictdescr.__get__, 5)
         raises(TypeError, dictdescr.__set__, 5, d)
+
+    def test_descr_member_descriptor(self):
+        class X(object):
+            __slots__ = ['x']
+        member = X.x
+        assert member.__name__ == 'x'
+        assert member.__objclass__ is X
+        raises((TypeError, AttributeError), "member.__name__ = 'x'")
+        raises((TypeError, AttributeError), "member.__objclass__ = X")

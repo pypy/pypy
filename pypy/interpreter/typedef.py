@@ -307,7 +307,7 @@ class Member(Wrappable):
         w_obj.setslotvalue(self.index, None)
 
 Member.typedef = TypeDef(
-    "Member",
+    "member_descriptor",
     __get__ = interp2app(Member.descr_member_get.im_func,
                          unwrap_spec = [ObjSpace,
                                         Member, W_Root, W_Root]),
@@ -317,6 +317,8 @@ Member.typedef = TypeDef(
     __delete__ = interp2app(Member.descr_member_del.im_func,
                             unwrap_spec = [ObjSpace,
                                            Member, W_Root]),
+    __name__ = interp_attrproperty('name', cls=Member),
+    __objclass__ = interp_attrproperty_w('w_cls', cls=Member),
     )
 
 # ____________________________________________________________
