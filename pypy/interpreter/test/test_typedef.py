@@ -49,3 +49,11 @@ class AppTestTraceBackAttributes:
         assert member.__objclass__ is X
         raises((TypeError, AttributeError), "member.__name__ = 'x'")
         raises((TypeError, AttributeError), "member.__objclass__ = X")
+
+    def test_descr_getsetproperty(self):
+        from types import FrameType
+        assert FrameType.f_lineno.__name__ == 'f_lineno'
+        assert FrameType.f_lineno.__objclass__ is FrameType
+        class A(object):
+            pass
+        assert A.__dict__['__dict__'].__name__ == '__dict__'

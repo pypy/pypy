@@ -18,14 +18,18 @@ class TypeDef:
         self.hasdict = '__dict__' in rawdict
         if __base is not None:
             self.hasdict |= __base.hasdict
-        self.rawdict = rawdict
+        self.rawdict = {}
         self.acceptable_as_base_class = True
         # xxx used by faking
         self.fakedcpytype = None
+        self.add_entries(**rawdict)
+
+    def add_entries(self, **rawdict):
         # xxx fix the names of the methods to match what app-level expects
         for key, value in rawdict.items():
-            if isinstance(value, interp2app):
+            if isinstance(value, (interp2app, GetSetProperty)):
                 value.name = key
+        self.rawdict.update(rawdict)
 
     def _freeze_(self):
         # hint for the annotator: track individual constant instances of TypeDef
@@ -149,13 +153,11 @@ def _buildusercls(cls, hasdict, wants_slots):
 def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
     if func is None:
         return None
-    if hasattr(func, 'im_func'):
-        assert not cls or cls is func.im_class
-        cls = func.im_class
-        func = func.im_func
-    if not cls:
-        #print "UNCHECKED", func.__module__ or '?', func.__name__
+    if cls is None:
         return func
+    if hasattr(func, 'im_func'):
+        assert func.im_class is cls
+        func = func.im_func
 
     miniglobals = {
          func.__name__: func,
@@ -194,10 +196,35 @@ def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
     exec compile2(source) in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]    
 
+def unknown_objclass_getter(space):
+    raise OperationError(space.w_TypeError,
+                         space.wrap("generic property has no __objclass__"))
+
+def make_objclass_getter(func, cls):
+    if hasattr(func, 'im_func'):
+        assert not cls or cls is func.im_class
+        cls = func.im_class
+    if not cls:
+        return unknown_objclass_getter, cls
+    miniglobals = {}
+    if isinstance(cls, str):
+        assert cls.startswith('<'),"pythontype typecheck should begin with <"
+        cls_name = cls[1:]
+        typeexpr = "space.w_%s" % cls_name
+    else:
+        miniglobals['cls'] = cls
+        typeexpr = "space.gettypeobject(cls.typedef)"
+    source = """if 1:
+        def objclass_getter(space):
+            return %s
+        \n""" % (typeexpr,)
+    exec compile2(source) in miniglobals
+    return miniglobals['objclass_getter'], cls
 
 class GetSetProperty(Wrappable):
     def __init__(self, fget, fset=None, fdel=None, doc=None, cls=None):
         "NOT_RPYTHON: initialization-time only"
+        objclass_getter, cls = make_objclass_getter(fget, cls)
         fget = make_descr_typecheck_wrapper(fget, cls=cls) 
         fset = make_descr_typecheck_wrapper(fset, ('w_value',), cls=cls)
         fdel = make_descr_typecheck_wrapper(fdel, cls=cls) 
@@ -205,6 +232,8 @@ class GetSetProperty(Wrappable):
         self.fset = fset
         self.fdel = fdel
         self.doc = doc
+        self.name = '<generic property>'
+        self.objclass_getter = objclass_getter
 
     def descr_property_get(space, property, w_obj, w_cls=None):
         """property.__get__(obj[, type]) -> value
@@ -235,18 +264,8 @@ class GetSetProperty(Wrappable):
                                  space.wrap("cannot delete attribute"))
         fdel(space, w_obj)
 
-GetSetProperty.typedef = TypeDef(
-    "GetSetProperty",
-    __get__ = interp2app(GetSetProperty.descr_property_get.im_func,
-                         unwrap_spec = [ObjSpace,
-                                        GetSetProperty, W_Root, W_Root]),
-    __set__ = interp2app(GetSetProperty.descr_property_set.im_func,
-                         unwrap_spec = [ObjSpace,
-                                        GetSetProperty, W_Root, W_Root]),
-    __delete__ = interp2app(GetSetProperty.descr_property_del.im_func,
-                            unwrap_spec = [ObjSpace,
-                                           GetSetProperty, W_Root]),
-    )
+    def descr_get_objclass(space, property):
+        return property.objclass_getter(space)
 
 def interp_attrproperty(name, cls):
     "NOT_RPYTHON: initialization-time only"
@@ -264,6 +283,22 @@ def interp_attrproperty_w(name, cls):
             return w_value 
 
     return GetSetProperty(fget, cls=cls)
+
+GetSetProperty.typedef = TypeDef(
+    "getset_descriptor",
+    __get__ = interp2app(GetSetProperty.descr_property_get.im_func,
+                         unwrap_spec = [ObjSpace,
+                                        GetSetProperty, W_Root, W_Root]),
+    __set__ = interp2app(GetSetProperty.descr_property_set.im_func,
+                         unwrap_spec = [ObjSpace,
+                                        GetSetProperty, W_Root, W_Root]),
+    __delete__ = interp2app(GetSetProperty.descr_property_del.im_func,
+                            unwrap_spec = [ObjSpace,
+                                           GetSetProperty, W_Root]),
+    __name__ = interp_attrproperty('name', cls=GetSetProperty),
+    __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
+    )
+
 
 class Member(Wrappable):
     """For slots."""

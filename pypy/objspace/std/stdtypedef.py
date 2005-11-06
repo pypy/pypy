@@ -37,6 +37,7 @@ def descr_del_dict(space, w_obj): # blame CPython for the existence of this one
     w_obj.setdict(space, space.newdict([]))
 
 std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict)
+std_dict_descr.name = '__dict__'
 
 def newmethod(descr_new, unwrap_spec=None):
     "NOT_RPYTHON: initialization-time only."
