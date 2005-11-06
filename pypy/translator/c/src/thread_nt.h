@@ -224,4 +224,22 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 		/* XXX complain? */;
 }
 
+/************************************************************/
+
+/* Thread-local storage */
+#define RPyThreadTLS	DWORD
+
+char *RPyThreadTLS_Create(RPyThreadTLS *result)
+{
+	*result = TlsAlloc();
+	if (*result == TLS_OUT_OF_INDEXES)
+		return "out of thread-local storage indexes";
+	else
+		return NULL;
+}
+
+#define RPyThreadTLS_Get(key)		TlsGetValue(key)
+#define RPyThreadTLS_Set(key, value)	TlsSetValue(key, value)
+
+
 #endif /* PYPY_NOT_MAIN_FILE */

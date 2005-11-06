@@ -20,22 +20,81 @@ void LL_stack_unwind(void)
 #endif
 }
 
+long _LL_stack_growing_direction(char *parent)
+{
+	char local;
+	if (parent == NULL)
+		return _LL_stack_growing_direction(&local);
+	else
+		return &local - parent;
+}
+
 int LL_stack_too_big(void)
 {
-  char local;
-  long result;
-  static char *stack_base_pointer = NULL;
+	char local;
+	long diff;
+	char *baseptr;
+	static volatile char *stack_base_pointer = NULL;
+	static long stack_min = 0;
+	static long stack_max = 0;
+	static RPyThreadTLS stack_base_pointer_key;
+	/* Check that the stack is less than MAX_STACK_SIZE bytes bigger
+	   than the value recorded in stack_base_pointer.  The base
+	   pointer is updated to the current value if it is still NULL
+	   or if we later find a &local that is below it.  The real
+	   stack base pointer is stored in thread-local storage, but we
+	   try to minimize its overhead by keeping a local copy in
+	   stack_pointer_pointer. */
 
-  if( stack_base_pointer == NULL )
-	  stack_base_pointer = &local;
+	diff = &local - stack_base_pointer;
+	if (stack_min < diff && diff < stack_max) {
+		/* common case: we are still in the same thread as last time
+		   we checked, and still in the allowed part of the stack */
+		return 0;
+	}
 
-  /* compute the difference between local variable and
-   * and a stack origin pointer
-   */
-  result = &local - stack_base_pointer;
-  if (-MAX_STACK_SIZE < result && result < MAX_STACK_SIZE){
-    return 0;
-  }
-  return 1;
+	if (stack_min == stack_max /* == 0 */) {
+		/* not initialized */
+		/* XXX We assume that initialization is performed early,
+		   when there is still only one thread running.  This
+		   allows us to ignore race conditions here */
+		char *errmsg = RPyThreadTLS_Create(&stack_base_pointer_key);
+		if (errmsg) {
+			/* XXX should we exit the process? */
+			fprintf(stderr, "Internal PyPy error: %s\n", errmsg);
+			return 1;
+		}
+		if (_LL_stack_growing_direction(NULL) > 0)
+			stack_max = MAX_STACK_SIZE;
+		else
+			stack_min = -MAX_STACK_SIZE;
+	}
+
+	baseptr = (char *) RPyThreadTLS_Get(stack_base_pointer_key);
+	if (baseptr != NULL) {
+		diff = &local - baseptr;
+		if (stack_min < diff && diff < stack_max) {
+			/* within bounds */
+			stack_base_pointer = baseptr;
+			return 0;
+		}
+
+		if ((stack_min == 0 && diff < 0) ||
+		    (stack_max == 0 && diff > 0)) {
+			/* we underflowed the stack, which means that
+			   the initial estimation of the stack base must
+			   be revised (see below) */
+		}
+		else {
+			return 1;   /* stack overflow */
+		}
+	}
+
+	/* update the stack base pointer to the current value */
+	baseptr = &local;
+	RPyThreadTLS_Set(stack_base_pointer_key, baseptr);
+	stack_base_pointer = baseptr;
+	return 0;
 }
+
 #endif
