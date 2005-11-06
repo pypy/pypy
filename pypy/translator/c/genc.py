@@ -11,6 +11,7 @@ from pypy.rpython.rmodel import getfunctionptr
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.locality.calltree import CallTree
+from pypy.translator.c.support import log
 
 class CBuilder(object):
     c_source_filename = None
@@ -236,6 +237,7 @@ class SourceGenerator:
         return self.namespace.uniquename(name[:-2]) + '.c'
 
     def makefile(self, name):
+        log.writing(name)
         filepath = self.path.join(name)
         if name.endswith('.c'):
             self.extrafiles.append(filepath)
