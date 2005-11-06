@@ -979,11 +979,18 @@ else:
             f.close()
 
         def copyfile(source, target):
-            file(target, "w").write(file(source).read())
+            f = file(source)
+            data = f.read()
+            f.close()
+            f = file(target, "w")
+            f.write(data)
+            f.close()
 
         def order_sections(fname):
             sep = "\n##SECTION##\n"
-            txt = file(fname).read()
+            f = file(fname)
+            txt = f.read()
+            f.close()
             pieces = txt.split(sep)
             prelude = pieces.pop(0)
             postlude = pieces.pop()
@@ -997,7 +1004,9 @@ else:
             lis.sort()
             lis = [prelude] + [func for head, func in lis] + [postlude]
             txt = sep.join(lis)
-            file(fname, "w").write(txt)
+            f = file(fname, "w")
+            f.write(txt)
+            f.close()
 
         def makekey(txt, uniqueno):
             dic = {}
@@ -1394,7 +1403,9 @@ class memfile(object):
             try:
                 data = self._storage[name].getvalue()
             except IndexError:
-                data = file(name).read()
+                f = file(name)
+                data = f.read()
+                f.close()
             self._storage[name] = StringIO.StringIO(data)
         else:
             raise ValueError, "mode %s not supported" % mode
@@ -1481,7 +1492,9 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
             del __builtin__.set
             del __builtin__.frozenset
     out.close()
-    newsrc = _file(tmpname).read()
+    f = _file(tmpname)
+    newsrc = f.read()
+    f.close()
     code = py.code.Source(newsrc).compile()
     dic = {'__name__': modname}
     exec code in dic

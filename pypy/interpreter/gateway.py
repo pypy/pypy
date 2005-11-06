@@ -718,6 +718,7 @@ if __name__ == "__main__":
             print >> f, newsrc
             print >> f, "from pypy._cache import known_code"
             print >> f, "known_code[%r] = %s" % (key, initfunc.__name__)
+            f.close()
         w_glob = initfunc(space)
         return w_glob
     build_applevelinterp_dict = classmethod(build_applevelinterp_dict)
@@ -745,7 +746,8 @@ if __name__ == "__main__":
                 try:
                     pth.remove()
                 except: pass
-            file(str(ini), "w").write("""\
+            f = file(str(ini), "w")
+            f.write("""\
 # This folder acts as a cache for code snippets which have been
 # compiled by compile_as_module().
 # It will get a new entry for every piece of code that has
@@ -777,6 +779,7 @@ if __name__ == "__main__":
 
 del harakiri
 """ % GI_VERSION)
+            f.close()
         import pypy._cache
         cls.known_code = pypy._cache.known_code
         cls._setup_done = True
