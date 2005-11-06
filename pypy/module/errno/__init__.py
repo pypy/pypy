@@ -20,7 +20,7 @@ class Module(MixedModule):
     interpleveldefs = {"errorcode": "interp_errno.get_errorcode(space)"}
     
 for name in dir(errno):
-    if name in ["__name__", "__doc__", "errorcode"]:
+    if name.startswith('__') or name in Module.interpleveldefs:
         continue
     Module.interpleveldefs[name] = ("space.wrap(%s)" %
                                     (getattr(errno, name), ))
