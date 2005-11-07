@@ -4,26 +4,12 @@ from os   import system
 from cgi  import parse_qs
 from sys  import platform
 from time import sleep
+from webbrowser import open as webbrowser_open
 from pypy.translator.js.log import log
 log = log.browsertest
 
 
 class config:
-
-    #XXX refactor this into using the webbrowser module 
-    #    (http://docs.python.org/lib/module-webbrowser.html)
-    if platform == 'darwin':
-        browser = ('/Applications/Firefox.app/Contents/MacOS/', 'firefox-bin')
-
-        #XXX Safari does not accept a http://... format, it still thinks it's a file://...
-        #browser = ('/Applications/Safari.app/Contents/MacOS/', 'Safari')
-
-    elif platform == 'linux2':
-        browser = ('/usr/bin/', 'firefox')
-
-    else:   #win32...
-        browser = ('', 'firefox-bin')
-        
     http_port = 10001
 
     html_page = """<html>
@@ -78,7 +64,7 @@ class TestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         global do_status
         log('do_GET path', self.path)
-        if self.path != "/":
+        if self.path != "/test.html":
             self.send_error(404, "File not found")
             return
         jstestcase = jstest.jstestcase
@@ -92,7 +78,7 @@ class TestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         global do_status
         log('do_POST path', self.path)
-        if self.path != "/":
+        if self.path != "/test.html":
             self.send_error(404, "File not found")
             return
         form = parse_qs(self.rfile.read(int(self.headers['content-length'])))
@@ -146,17 +132,9 @@ def jstest(jsfilename, jstestcase):
     try:
         driver
     except:
-        browser_path, browser_exe = config.browser
-        cmd = 'killall %(browser_exe)s 2>&1 2>/dev/null' % locals()
-        log(cmd)
-        system(cmd)
-
         driver = BrowserTest()
         driver.start_server(config.http_port)
-
-        cmd = '"%s%s" http://localhost:%d &' % (browser_path, browser_exe, config.http_port)
-        log(cmd)
-        system(cmd)
+        webbrowser_open('http://localhost:%d/test.html' % config.http_port)
 
     result = driver.get_result()
     return result
