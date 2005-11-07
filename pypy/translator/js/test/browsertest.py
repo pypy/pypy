@@ -14,23 +14,20 @@ class config:
 
     html_page = """<html>
 <head>
-<title>%(jsfilename)s</title>
 <script type="text/javascript">
 %(jscode)s
-</script>
-<script type="text/javascript">
-    function runTest() {
-        var result = undefined;
-        try {
-            result = %(jstestcase)s;
-        } catch (e) {
-            //result = 'Exception("' + e.toString() + '")'
-            result = 'undefined'
-        }
-        var resultform = document.forms['resultform'];
-        resultform.result.value = result;
-        resultform.submit();
-    };
+
+function runTest() {
+    var result = undefined;
+    try {
+        result = %(jstestcase)s;
+    } catch (e) {
+        result = 'Exception("' + e + '")'
+    }
+    var resultform = document.forms['resultform'];
+    resultform.result.value = result;
+    resultform.submit();
+};
 </script>
 </head>
 <body onload="runTest()">
@@ -46,7 +43,11 @@ class config:
 <meta http-equiv="refresh" content="0">
 </head>
 <body>
-refresh after %(jsfilename)s
+<pre>
+// %(jsfilename)s
+
+%(jscode)s
+</pre>
 </body>
 </html>"""
 
@@ -54,6 +55,7 @@ refresh after %(jsfilename)s
 class TestCase(object):
     def __init__(self, jsfilename, jstestcase):
         self.jsfilename = jsfilename
+        self.jscode     = open(jsfilename).read()
         self.jstestcase = jstestcase
         self.result     = None
 
@@ -63,35 +65,31 @@ class TestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         global do_status
-        log('do_GET path', self.path)
         if self.path != "/test.html":
             self.send_error(404, "File not found")
             return
+        jsfilename = jstest.jsfilename
         jstestcase = jstest.jstestcase
-        jsfilename = str(jstest.jsfilename)
-        jscode     = open(jsfilename).read()
+        jscode     = jstest.jscode
         html_page  = config.html_page % locals()
-        log('do_GET sends', jsfilename)
         self.serve_data('text/html', html_page)
         do_status = 'do_GET'
 
     def do_POST(self):
         global do_status
-        log('do_POST path', self.path)
         if self.path != "/test.html":
             self.send_error(404, "File not found")
             return
         form = parse_qs(self.rfile.read(int(self.headers['content-length'])))
         jstest.result = form['result'][0]
-        log('do_POST received result', jstest.result)
 
         #we force a page refresh here because of two reason:
         # 1. we don't have the next testcase ready yet
         # 2. browser should ask again when we do have a test
         jsfilename = jstest.jsfilename
+        jscode     = jstest.jscode
         refresh_page = config.refresh_page % locals()
         self.serve_data('text/html', refresh_page)
-        log('do_POST sends refresh page')
         do_status = 'do_POST'
 
     def serve_data(self, content_type, data):
@@ -106,7 +104,6 @@ class BrowserTest(object):
     """The browser driver"""
 
     def start_server(self, port):
-        log('BrowserTest.start_server')
         server_address = ('', port)
         self.httpd = HTTPServer(server_address, TestHandler)
 
@@ -114,20 +111,15 @@ class BrowserTest(object):
         global do_status
         do_status = None
         while do_status != 'do_GET':
-            log('waiting for do_GET')
             self.httpd.handle_request()
         while do_status != 'do_POST':
-            log('waiting for do_POST')
             self.httpd.handle_request()
-        while not jstest.result:
-            log('waiting for result')
-            sleep(1.0)
         return jstest.result
 
 
 def jstest(jsfilename, jstestcase):
     global driver, jstest
-    jstest = TestCase(jsfilename, jstestcase)
+    jstest = TestCase(str(jsfilename), str(jstestcase))
 
     try:
         driver

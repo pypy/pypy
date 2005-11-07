@@ -271,6 +271,7 @@ class OpWriter(object):
         targetvar  = self.db.repr_arg(op.result)
         argrefs    = self.db.repr_arg_multi(op_args[1:])
         none_label = self.node.blockindex[link.target]
+        no_exception = (none_label, link)
 
         exceptions = []
         for exit in self.block.exits[1:]:
@@ -278,10 +279,10 @@ class OpWriter(object):
             exception_match  = self.db.translator.rtyper.getexceptiondata().ll_exception_match.__name__
             exception_ref    = self.db.obj2node[exit.llexitcase._obj].get_ref()
             exception_target = self.node.blockindex[exit.target]
-            exception        = (exception_match, exception_ref, exception_target)
+            exception        = (exception_match, exception_ref, exception_target, exit)
             exceptions.append(exception)
 
-        self.codewriter.call(targetvar, functionref, argrefs, none_label, exceptions)
+        self.codewriter.call(targetvar, functionref, argrefs, no_exception, exceptions)
 
     def malloc(self, op): 
         arg_type = op.args[0].value

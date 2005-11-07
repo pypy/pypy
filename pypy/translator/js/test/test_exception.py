@@ -42,7 +42,7 @@ def DONTtest_simple1():
     assert f(0) == fn(0)
     assert f(1) == fn(1)
 
-def DONTtest_simple2():
+def test_simple2():
     def fn(n):
         lst = range(10)
         try:
@@ -81,7 +81,7 @@ def DONTtest_simple3():
     assert f(1) == fn(1)
     assert f(2) == fn(2)
 
-def DONTtest_pass_exc():
+def test_pass_exc():
     def fn(n):
         lst = range(10)
         try:
@@ -194,7 +194,7 @@ def DONTtest_try_raise_choose():
     for i in [-1, 0, 1, 2]:
         assert f(i) == i
 
-def DONTtest_two_exceptionsB():
+def test_two_exceptionsB():
     def fn1():
         raise Exception
     def fn2():

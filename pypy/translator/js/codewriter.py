@@ -78,7 +78,7 @@ class CodeWriter(object):
             self.append('block = ' + str(block))
             self.append('break')
 
-    def _phi(self, targetblock, exit):
+    def _phi(self, exit):
         for i, exitarg in enumerate(exit.args):
             dest = str(exit.target.inputargs[i])
             src = str(self.js.db.repr_arg(exitarg))
@@ -92,19 +92,19 @@ class CodeWriter(object):
                 self.append('%s = %s' % (dest, src))
 
     def br_uncond(self, block, exit): 
-        self._phi(block, exit)
+        self._phi(exit)
         self._goto_block(block)
         self.skip_closeblock()
 
     def br(self, cond, block_false, exit_false, block_true, exit_true):
         self.append('if (%s) {' % cond)
         self.indent_more()
-        self._phi(block_true, exit_true)
+        self._phi(exit_true)
         self._goto_block(block_true)
         self.indent_less()
         self.append('} else {')
         self.indent_more()
-        self._phi(block_false, exit_false)
+        self._phi(exit_false)
         self._goto_block(block_false)
         self.indent_less()
         self.append('}')
@@ -156,24 +156,27 @@ class CodeWriter(object):
     def neg(self, targetvar, source):
         self.append('%(targetvar)s = -%(source)s' % locals())
         
-    def call(self, targetvar, functionref, argrefs, label=None, exceptions=[]):
+    def call(self, targetvar, functionref, argrefs, no_exception=None, exceptions=[]):
         args = ", ".join(argrefs)
 
         if not exceptions:
-            assert label is None
+            assert no_exception is None
             self.append('%s = %s(%s)' % (targetvar, functionref, args))
         else:
-            assert label is not None
+            assert no_exception is not None
+            no_exception_label, no_exception_exit = no_exception
             self.append('try {')
             self.indent_more()
-            self._goto_block(label)
+            self.append('%s = %s(%s)' % (targetvar, functionref, args))
+            self._phi(no_exception_exit)
+            self._goto_block(no_exception_label)
             self.indent_less()
             
             self.append('} catch (e) {')
             self.indent_more()
             catch_all = False
             for i, exception in enumerate(exceptions):
-                exception_match, exception_ref, exception_target = exception
+                exception_match, exception_ref, exception_target, exit = exception
                 if i:
                     else_ = 'else '
                 else:
@@ -185,6 +188,7 @@ class CodeWriter(object):
                     matcher   = 'if (%s(e.typeptr, %s) == true) ' % (exception_match, exception_ref)
                 self.append('%s%s{' % (else_, matcher))
                 self.indent_more()
+                self._phi(exit)
                 self._goto_block(exception_target)
                 self.indent_less()
                 self.append('}')

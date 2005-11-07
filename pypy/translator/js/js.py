@@ -140,8 +140,8 @@ class JS(object):   # JS = Javascript
         #codewriter.comment("Wrapper code for the Javascript CLI", 0)
         #codewriter.newline()
         #codewriter.append(self.wrappercode, 0)
-        codewriter.newline()
-        codewriter.comment("EOF")
+        #codewriter.newline()
+        #codewriter.comment("EOF")
         f.close()
 
         log('Written:', self.filename)
