@@ -7,7 +7,7 @@
   Spent some time trying to have "pypy-c py.py" work.  We are still left in
   the dark of incomprehensible geninterplevel crashes caused by subtle
   differences between the most internal types of CPython and pypy-c, like
-  <type 'method-wrapper'> (10 bonus points to anyone who knows that this
+  <type 'method-wrapper'> (10 bonus points to anyone who knows what this
   is).
 
 2005-11-06/07  mwh
