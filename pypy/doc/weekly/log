@@ -9,3 +9,10 @@
   differences between the most internal types of CPython and pypy-c, like
   <type 'method-wrapper'> (10 bonus points to anyone who knows that this
   is).
+
+2005-11-06/07  mwh
+
+  Fun with targetmultiplespaces -- problems specializing space.wrap
+  when it's not effectively a global function due to the constant-ness
+  of the 'space'.
+
