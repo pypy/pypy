@@ -88,7 +88,9 @@ class CodeWriter(object):
                 src = 'true'
             elif src == 'None':
                 src = 'undefined'
-            if dest != src:
+            if dest != src and not dest.startswith('etype_'):
+                if dest.startswith('evalue_') and src.startswith('last_exc_value_'):
+                    src = 'e'   #i.e. the caught exception
                 self.append('%s = %s' % (dest, src))
 
     def br_uncond(self, block, exit): 

@@ -22,7 +22,7 @@ function runTest() {
     try {
         result = %(jstestcase)s;
     } catch (e) {
-        result = 'Exception("' + e + '")'
+        result = "Exception('" + e.toSource() + "')"
     }
     var resultform = document.forms['resultform'];
     resultform.result.value = result;

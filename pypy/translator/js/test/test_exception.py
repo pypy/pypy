@@ -22,7 +22,7 @@ def getitem(l, i):  #LookupError, KeyError
         raise IndexError
     return l[i]
 
-def DONTtest_simple1():
+def test_simple1():
     def raise_(i):
         if i:
             raise TestException()

@@ -49,5 +49,6 @@ class compile_function(object):
         elif s == 'undefined':
             res = None
         else:
+            log('javascript result:', s)
             res = eval(s)
         return res

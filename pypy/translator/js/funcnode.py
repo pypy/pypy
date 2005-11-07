@@ -43,8 +43,6 @@ class FuncNode(ConstantLLVMNode):
     def writeimpl(self, codewriter):
         graph = self.graph
         log.writeimpl(graph.name)
-        nextblock = graph.startblock
-        args = graph.startblock.inputargs 
         blocks = [x for x in flatten(graph) if isinstance(x, Block)]
         self.blockindex= {}
         for i, block in enumerate(blocks):
