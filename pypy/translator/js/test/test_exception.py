@@ -22,7 +22,7 @@ def getitem(l, i):  #LookupError, KeyError
         raise IndexError
     return l[i]
 
-def test_simple1():
+def DONTtest_simple1():
     def raise_(i):
         if i:
             raise TestException()
@@ -42,7 +42,7 @@ def test_simple1():
     assert f(0) == fn(0)
     assert f(1) == fn(1)
 
-def test_simple2():
+def DONTtest_simple2():
     def fn(n):
         lst = range(10)
         try:
@@ -55,7 +55,7 @@ def test_simple2():
     assert f( 0) == fn( 0)
     assert f(10) == fn(10)
 
-def test_simple3():
+def DONTtest_simple3():
     def raise_(i):
         if i == 0:
             raise TestException()
@@ -81,7 +81,7 @@ def test_simple3():
     assert f(1) == fn(1)
     assert f(2) == fn(2)
 
-def test_pass_exc():
+def DONTtest_pass_exc():
     def fn(n):
         lst = range(10)
         try:
@@ -94,7 +94,7 @@ def test_pass_exc():
     assert f( 0) == fn( 0)
     assert f(10) == fn(10)
 
-def test_reraise1():
+def DONTtest_reraise1():
     def fn(n):
         lst = range(10)
         try:
@@ -107,7 +107,7 @@ def test_reraise1():
     assert f( 0) == fn( 0)
     py.test.raises(Exception, "f(10)")
 
-def test_reraise2():
+def DONTtest_reraise2():
     def fn(n):
         lst = range(10)
         try:
@@ -120,7 +120,7 @@ def test_reraise2():
     assert f( 0) == fn( 0)
     py.test.raises(Exception, "f(10)")
 
-def test_simple_exception():
+def DONTtest_simple_exception():
     def fn(n):
         lst = range(10)
         try:
@@ -134,7 +134,7 @@ def test_simple_exception():
     for i in range(10, 20):
         assert f(i) == fn(i)
 
-def test_two_exceptionsA():
+def DONTtest_two_exceptionsA():
     def fn(n):
         lst = range(10)
         try:
@@ -150,7 +150,7 @@ def test_two_exceptionsA():
     for i in range(10, 20):
         assert f(i) == fn(i)
 
-def test_catch_base_exception():
+def DONTtest_catch_base_exception():
     def fn(n):
         lst = range(10)
         try:
@@ -164,7 +164,7 @@ def test_catch_base_exception():
     for i in range(10, 20):
         assert f(i) == fn(i)
 
-def test_catches():
+def DONTtest_catches():
     def raises(i):
         if i == 3:
             raise MyException, 12
@@ -189,12 +189,12 @@ def test_catches():
     assert f(6) == fn(6)
     assert f(13) == fn(13)
 
-def test_try_raise_choose():
+def DONTtest_try_raise_choose():
     f = compile_function(try_raise_choose, [int])
     for i in [-1, 0, 1, 2]:
         assert f(i) == i
 
-def test_two_exceptionsB():
+def DONTtest_two_exceptionsB():
     def fn1():
         raise Exception
     def fn2():
@@ -215,7 +215,7 @@ def test_two_exceptionsB():
     f = compile_function(two_exceptionsB, [])
     assert f() == two_exceptionsB()
             
-def test_raise_outside_testfn():
+def DONTtest_raise_outside_testfn():
     def raiser(n):
         if n < 0:
             raise ValueError("hello")
