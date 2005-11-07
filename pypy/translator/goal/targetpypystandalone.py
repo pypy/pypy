@@ -83,8 +83,6 @@ def target(driver, args):
 
     usemodules = []
     if options.thread:
-        print "threads unsupported right now: need thread-safe stack_too_big"
-        raise SystemExit        
         usemodules.append('thread')
         
     space = StdObjSpace(nofaking=True,
