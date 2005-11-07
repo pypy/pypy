@@ -1,3 +1,11 @@
 2005-11-04  mwh
 
   I wrote the first "This Week in PyPy".
+
+2005-11-06  arigo
+
+  Spent some time trying to have "pypy-c py.py" work.  We are still left in
+  the dark of incomprehensible geninterplevel crashes caused by subtle
+  differences between the most internal types of CPython and pypy-c, like
+  <type 'method-wrapper'> (10 bonus points to anyone who knows that this
+  is).
