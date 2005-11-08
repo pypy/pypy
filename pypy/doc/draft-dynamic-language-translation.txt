@@ -1907,7 +1907,64 @@ As the annotator only sees frozen ``self`` constants with
 Narrowing
 ***********************
 
-XXX
+Conditional branching has sometimes the effect of "narrowing" the
+annotation of the variables involved in the check.  For example::
+
+    if isinstance(obj, MySubClass):
+        ...positive case...
+    else:
+        ...negative case...
+
+In the basic block at the beginning of the positive case, the input
+block variable corresponding to the source-level ``obj`` variable is
+annotated as ``Inst(MySubClass)``.  Similarily, in::
+
+    if x > y:
+        ...positive case...
+    else:
+        ...negative case...
+
+If *y* is annotated as ``NonNegInt``, then the annotation corresponding
+to *x* is narrowed from (typically) ``Int`` to ``NonNegInt``.
+
+This is implemented by introducing an extended family of annotations for
+boolean values::
+
+    Bool(v_1: (t_1, f_1), v_2: (t_2, f_2), ...)
+
+where the *v_n* are variables and *t_n* and *f_n* are annotations.  The
+result of a check is typically annotated with such a thing.  The meaning
+of the annotation is as follows: if the run-time value of the boolean is
+True, then we know that each variable *v_n* has an annotation at most as
+general as *t_n*; and if the boolean is False, then each variable *v_n*
+has an annotation at most as general as *f_n*.  This information is
+propagated from the check operation to the exit of the block via such an
+extended ``Bool`` annotation, and the conditional exit logic uses it to
+trim the annotation it propagates.
+
+More formally, one of the rules for (say) the comparison operation
+``greater_than`` is::
+
+         z=greater_than(x,y), b(x)=Int, b(y)=NonNegInt
+      ------------------------------------------------------
+               b' = b with (z -> Bool(x: (NonNegInt, Int)))
+
+Then if *v_cond* is a boolean variable used as the exit condition of a
+block, we can describe the above process as being based on a more
+complicated "phi" rule.  For each variable *x* that exits the current
+block along the "positive" link and enters the next block as a variable
+*y*, we have::
+
+         y=phi(x), b(v_cond)=Bool(... x: (t,f) ...)
+      ----------------------------------------------------
+               merge (b(x) /\ t) => y
+
+and similarly with *f* along the "negative" link.  Here ``/\`` stands
+for the intersection operation in the annotation lattice.
+
+It is possible to define an appropriate lattice structure that includes
+the extended ``Bool`` annotations and show that all soundness properties
+described above still hold.
 
 
 Termination with non-static aspects
