@@ -2,6 +2,20 @@
        Compiling dynamic language implementations
 ============================================================
 
+:Abstract: We present PyPy's analysis and compilation toolchain,
+           which is used to translate RPython programs like PyPy's
+           standard interpreter into stand-alone efficient
+           executables.  Modern dynamic languages pause difficulties
+           to program analysis; we will debate them and motivate our
+           basic approach.  We give an extended theoretical description
+           of our toolchain and its rather complicated design.  This
+           design is justified by our flexibility goals: we can target
+           a wide range of run-time platforms, inserting the necessary
+           low-level details (e.g. memory management) as part of the
+           translation process; and for each target we can experiment
+           with a number of additional translation aspects like
+           execution models (e.g. green microthreads and coroutines).
+
 .. contents::
 .. sectnum::
 
@@ -1888,6 +1902,12 @@ As the annotator only sees frozen ``self`` constants with
 ``not_computed_yet=False``, it annotates this attribute as
 ``Bool(const=False)`` and never follows the call to
 ``compute_result()``.
+
+
+Narrowing
+***********************
+
+XXX
 
 
 Termination with non-static aspects
