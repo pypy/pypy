@@ -218,7 +218,7 @@ class Database(object):
         # llvm requires a . when using e notation
         if "e" in repr and "." not in repr:
             repr = repr.replace("e", ".0e")
-        elif repr in ["inf", "nan"]:
+        elif repr in ["inf", "nan"] or 'INF' in repr or 'IND' in repr:
             # Need hex repr
             import struct
             packed = struct.pack("d", value)

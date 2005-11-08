@@ -16,6 +16,7 @@ class config:
 <head>
 <script type="text/javascript">
 %(jscode)s
+// code for running the unittest...
 
 function runTest() {
     var result = undefined;
@@ -44,8 +45,8 @@ function runTest() {
 </head>
 <body>
 <pre>
-// %(jsfilename)s
-
+// filename: %(jsfilename)s
+// testcase: %(jstestcase)s
 %(jscode)s
 </pre>
 </body>
@@ -87,6 +88,7 @@ class TestHandler(BaseHTTPRequestHandler):
         # 1. we don't have the next testcase ready yet
         # 2. browser should ask again when we do have a test
         jsfilename = jstest.jsfilename
+        jstestcase = jstest.jstestcase
         jscode     = jstest.jscode
         refresh_page = config.refresh_page % locals()
         self.serve_data('text/html', refresh_page)
