@@ -5,7 +5,7 @@
 :Abstract: We present PyPy's analysis and compilation toolchain,
            which is used to translate RPython programs like PyPy's
            standard interpreter into stand-alone efficient
-           executables.  Modern dynamic languages pause difficulties
+           executables.  Modern dynamic languages pose difficulties
            to program analysis; we will debate them and motivate our
            basic approach.  We give an extended theoretical description
            of our toolchain and its rather complicated design.  This
