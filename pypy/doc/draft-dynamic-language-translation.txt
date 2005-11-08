@@ -166,7 +166,9 @@ spaces in front of the real one, as in the `Thunk Object Space`_ which adds
 lazy evaluation of objects.
 
 Note that the term "object space" has already been reused for other
-dynamic language implementations, e.g. XXX for Perl 6.
+dynamic language implementations, e.g. such as this post
+http://www.nntp.perl.org/group/perl.perl6.compiler/1107 on the Perl 6
+compiler mailing list.
 
 
 Abstract interpretation
