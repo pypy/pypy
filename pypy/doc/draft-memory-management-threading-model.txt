@@ -1,0 +1,177 @@
+==========================================================================================
+Memory management and threading models as translation aspects -- solutions and challenges
+==========================================================================================
+
+.. contents::
+.. sectnum::
+
+Abstract
+=========
+
+One of the goals of the PyPy project is it to have the memory and threading
+model flexible and changeable without having to touch the interpreter
+everywhere.  This document describes the current state of the implementation of
+memory object model, automatic memory management and threading models as well
+as possible future developments.
+
+XXX
+
+Background
+===========
+
+The main emphasis of the PyPy project is that of integration: we want to make
+changing memory management and threading techniques possible while at the same
+time influencing the interpreter as little as possible. It is not the current
+goal to optimize the current approaches in extreme ways rather to produce solid
+implementations and to provide an environment where experiments with
+fundamentally different ways to implement these things is possible and
+reasonably easy. 
+
+XXX
+
+The low level object model
+===========================
+
+  - low level object model, data structures current layouts (also a word on the
+    example of cached functions with PBC argument?)
+  - how we deal with id hashes
+  - probably describe in more detail the possibilies to completely change the
+    representation of objects, etc.
+
+XXX how detailed does this need to be described here? 
+
+Automatic Memory Management Implementations
+============================================
+
+The whole implementation of the PyPy interpreter assumes automatic memory
+management, e.g. automatic reclamation of memory that is no longer used. The
+whole analysis toolchain also assumes that memory management is being taken
+care of. Only the backends have to concern themselves with that issue. For
+backends that target environments that have their own garbage collector, like
+Smalltalk or Javascript, this is not an issue. For other targets like C and
+LLVM the backend has to produce code that uses some sort of garbage collection.
+
+This approach has several advantages. It makes it possible to target different
+platforms, with and without integrated garbage collection. Furthermore the
+interpreter implementation is not complicated by the need to do explicit memory
+management everywhere. Even more important the backend can optimize the memory
+handling to fit a certain situation (like a machine with very restricted
+memory) or completely replace the memory management technique or memory model
+with a different one without having to change interpreter code. Additionally
+the backend can use information  
+
+Using the Boehm garbage collector
+-----------------------------------
+
+At the moment there are two different garbage collectors implemented in the C
+backend (which is the most complete backend right now). One of them uses the
+existing Boehm-Demers-Weiser garbage collector [BOEHM]_. For every memory
+allocating operation in a low level flow graph the C backend introduzes a call
+to a function of the boehm collector which returns a suitable amount of memory.
+Since the C backends has a lot of information avaiable about the data structure
+being allocated it can choose the memory allocation function out of the Boehm
+API that fits best. For example for objects that do not contain references to
+other objects (e.g. strings) there is a special allocating function that
+signals to the collector that it does not need to consider this memory when
+tracing pointers.
+
+XXX
+
+XXX maybe describe disadvantages of boehm, like conservativity, we could do
+better...?
+
+Using a simple reference counting garbage collector
+-----------------------------------------------------
+
+The other implemented garbage collector is a simple reference counting scheme.
+The C backend inserts a reference count field into every structure that is
+handled by the garbage collector and puts increment and decrement operations
+for this reference count into suitable places in the resulting C code. After
+every reference decrement operations a check is performed whether the reference
+count has dropped to zero. If this is the case the memory of the object will be
+reclaimed after the references counts of the objects the original object
+references are decremented as well.
+
+XXX: do we mention that our incref/decref placement is dumb? or do we assume
+that it will be improved until the review?
+
+The current reference counting implementation has a drawback: it cannot deal
+with circular references, which is a fundamental flaw of reference counting
+memory management schemes. CPython solves this problem by having special code
+that handles circular garbage which PyPy lacks at the moment. This problem has
+to be addressed in the future to make the reference counting scheme a viable
+garbage collector. (XXX should we rather not mention this?)
+
+Finalization and weak references
+---------------------------------
+
+XXX
+
+
+Simple escape analysis to remove memory allocation
+---------------------------------------------------
+
+We implemented also a technique to prevent some amount of memory allocation.
+Sometimes it is possible to deduce from the flow graphs that an object lives
+exactly as long as the stack frame of the function where it is allocated in.
+This happens if no pointer to the object is stored into another object and if
+no pointer to the object is returned from the function. If this is the case and
+if the size of the object is known in advance the object can be allocated on
+the stack. To achieve this, the object is "exploded", that means that for every
+element of the structure a new variable is generated that is handed around in
+the graph. Reads from elements of the structure are removed and just replaced
+by one of the variables, writes by assignements to same.
+
+XXX
+  
+Threading Model Implementations
+============================================
+
+XXX nice introductory paragraph
+
+No threading
+-------------
+
+XXX 
+
+Threading with a Global Interpreter Lock
+------------------------------------------
+
+XXX describe what's there
+
+todo:
+GIL release around system calls
+maybe a locking threading model around space operations
+
+Stackless C code
+-----------------
+
+XXX
+
+
+Open Challenges
+================
+
+XXX
+
+open challenges for phase 2:
+
+  - more clever incref/decref policy
+  - more sophisticated structure inlining ?  possibly
+  - full GC hooks? (we have started a framework for GC construction, only simulated for now)
+  - exact GC needs -- control over low-level machine code
+  - green threads?
+
+
+Conclusion
+===========
+
+XXX nice concluding paragraphs
+
+
+References
+===========
+
+.. [BOEHM] `Boehm-Demers-Weiser garbage collector`_, a garbage collector
+           for C and C++, Hans Boehm, 1988-2004
+.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
