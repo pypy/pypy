@@ -30,30 +30,33 @@ class W_Thunk(baseobjspace.W_Root, object):
     def __init__(w_self, w_callable, args):
         w_self.w_callable = w_callable
         w_self.args = args
-
-# special marker to say that w_self has not been computed yet
-w_NOT_COMPUTED_THUNK = W_Thunk(None, None)
-W_Thunk.w_thunkalias = w_NOT_COMPUTED_THUNK
+        w_self.w_thunkalias = w_self   # special marker for not-computed-yet
 
 
-def force(space, w_self):
-    w_alias = w_self.w_thunkalias
-    while w_alias is not None:
-        if w_alias is w_NOT_COMPUTED_THUNK:
-            assert isinstance(w_self, W_Thunk)
-            w_callable = w_self.w_callable
-            args       = w_self.args
-            if w_callable is None or args is None:
-                raise OperationError(space.w_RuntimeError,
-                                 space.wrap("thunk is already being computed"))
-            w_self.w_callable = None
-            w_self.args       = None
-            w_alias = space.call_args(w_callable, args)
-            # XXX detect circular w_alias result
-            w_self.w_thunkalias = w_alias
-        w_self = w_alias
-        w_alias = w_self.w_thunkalias
-    return w_self
+def _force_thunk(space, w_self):
+    if not isinstance(w_self, W_Thunk):
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("cyclic thunk chain"))
+    w_callable = w_self.w_callable
+    args       = w_self.args
+    if w_callable is None or args is None:
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("thunk is already being computed"))
+    w_self.w_callable = None
+    w_self.args       = None
+    w_alias = space.call_args(w_callable, args)
+    # XXX detect circular w_alias result
+    w_self.w_thunkalias = w_alias
+    return w_alias
+
+def force(space, w_obj):
+    while True:
+        w_alias = w_obj.w_thunkalias
+        if w_alias is None:
+            return w_obj
+        if w_alias is w_obj:  # detect the special marker for not-computed-yet
+            w_alias = _force_thunk(space, w_alias)
+        w_obj = w_alias
 
 def thunk(w_callable, __args__):
     return W_Thunk(w_callable, __args__)
