@@ -93,7 +93,7 @@ language while keeping to the spirit of `No Declarations`_, i.e. without
 imposing that the program be written in a static way in which these
 declarative-looking statements would actually *be* declarations?
 
-The approach of PyPy is, first of all, to perform analysis on live
+The approach of [PyPy]_ is, first of all, to perform analysis on live
 programs in memory instead of dead source files.  This means that the
 program to analyse is first fully imported and initialised, and once it
 has reached a state that is deemed advanced enough, we limit the amount of
@@ -147,8 +147,6 @@ interpreter for unsupported features (e.g. [Psyco]_).  The above
 argumentation should have shown why we think that being similarly able
 to fall back to regular interpretation for parts that cannot be
 understood is a central feature of the analysis of dynamic languages.
-
-.. [Psyco] http://psyco.sourceforge.net/ or the `ACM SIGPLAN 2004 paper`_.
 
 
 Concrete and abstract interpretation
@@ -264,23 +262,22 @@ Before we start, we need a word of motivation to explain the reasons
 behind the rather complicated architecture that we describe in the
 sequel.
 
-First of all, the overall picture of PyPy as described in our
-architecture_ web page is as follows: PyPy is an interpreter for the
-complete Python language, but it is itself written in the RPython
-subset.  This is done in order to allow our analysis toolchain to apply
-to PyPy itself.  Indeed, the primary goal is to allow us to implement
-the full Python language only once, as an interpreter, and derive
-interesting tools from it; doing so requires this interpreter to be
-analysable, hence the existence RPython.  The RPython language and our
-whole toolchain, despite their potential attraction, are so far meant as
-an internal detail of the PyPy project.  The programs that we are
-deriving or plan to derive from PyPy include versions that run on very
-diverse platforms (from C to Java/.NET to Smalltalk), and also versions
-with modified execution models (from microthreads/coroutines to
-just-in-time compilers).  This is why we have split the process in
-numerous interrelated phases, each at its own abstraction level.  By
-enabling changes to the appropriate level, this opens the door to a wide
-range of retargetings of various kinds.
+First of all, the overall picture of PyPy as described in [ARCH]_ is as
+follows: PyPy is an interpreter for the complete Python language, but it
+is itself written in the RPython subset.  This is done in order to allow
+our analysis toolchain to apply to PyPy itself.  Indeed, the primary
+goal is to allow us to implement the full Python language only once, as
+an interpreter, and derive interesting tools from it; doing so requires
+this interpreter to be analysable, hence the existence RPython.  The
+RPython language and our whole toolchain, despite their potential
+attraction, are so far meant as an internal detail of the PyPy project.
+The programs that we are deriving or plan to derive from PyPy include
+versions that run on very diverse platforms (from C to Java/.NET to
+Smalltalk), and also versions with modified execution models (from
+microthreads/coroutines to just-in-time compilers).  This is why we have
+split the process in numerous interrelated phases, each at its own
+abstraction level.  By enabling changes to the appropriate level, this
+opens the door to a wide range of retargetings of various kinds.
 
 Focusing on the analysis toolchain again, here is how the existence of
 each component is justified (see below for *how* each component reaches
@@ -761,7 +758,6 @@ appear in a ``getattr`` or ``setattr`` operation; no other name will
 play a role during annotation.
 
 .. _`precise description`: objspace.html#the-flow-model
-.. _`SSA`: http://en.wikipedia.org/wiki/Static_single_assignment_form
 
 
 Annotation model
@@ -2171,17 +2167,103 @@ provided in another C file.
 
 
 Conclusion
-===============
-
-XXX looks like a general approach for dynamic language translation
-
-XXX static analysis is delicate; dynamic analysis interesting potential
-
-XXX tests are good, otherwise translating the whole of PyPy would have
-been a nightmare
+========================================================================
 
 
-.. _architecture: architecture.html
+We have presented a flexible static analysis and compilation toolchain
+that is suitable for a restricted subset of Python called RPython.
+
+Our approach to static analysis does not work for the full dynamic
+Python language.  This is not what we are trying to achieve anyway.  We
+have argued against the existence or usefulness of such a tool for
+sufficiently dynamic languages.  Instead, PyPy contains a complete
+interpreter for the full Python language, itself written in RPython.
+
+On the other hand, our approach seems to be general enough to insert a
+variety of low-level aspects during successive phases of the translation
+and target a number of quite different languages and platforms.  It is
+thus a tool that can be used to compile portable RPython programs to all
+of these platforms.  As described in more details in [LLA]_, the still
+high level of abstraction of RPython is an important factor in hiding
+the platform-specific details as well as the particular needs of a
+program in term of execution model.
+
+We have presented a detailed model of the Annotator_, which is our
+central analysis component.  This model is regular enough, with an
+abstract interpretation basis.  This is why it can be easily extended or
+even -- in our opinion -- quickly adapted to perform type inference on
+any other language with related properties.
+
+We have given a short overview of the RTyper_, which is our central
+cross-level translation component.  This overview should have given some
+hints about how we use variations of the RTyper to target very different
+platforms.  In addition, the basic principles of the RTyper are again
+regular enough to allow it to be easy extended to support a larger
+RPython language or even adapted to different but related languages,
+like the Annotator.
+
+
+Static analysis
+~~~~~~~~~~~~~~~
+
+Static analysis is and remains slightly fragile in the sense that the
+input program must be globally consistent (a typing mistake could yield
+to the propagation through the whole program of the ``Top`` annotation).
+This is also a reason why we believe that dynamic analysis is ultimately
+more powerful.
+
+In PyPy, our short-term future work is to focus on using the translation
+toolchain presented here to generate a modified low-level version of the
+same full Python interpreter.  This modified version will drive a
+just-in-time specialisation process, in the sense of providing a
+description of full Python that will not be directly executed, but
+specialised for the particular user Python program.
+
+As of October 2005, we are only starting the work in this direction.
+The details are not fleshed out nor documented yet, but the [Psyco]_
+project has already given a proof of concept.
+
+
+Test-driven development
+~~~~~~~~~~~~~~~~~~~~~~~
+
+As a conclusion, we should insist on the importance of test-driven
+development.  The complete Annotator and RTyper have been built in this
+way, by writing small test cases covering each aspect even before
+implementing that aspect.  This has proven essential, specially because
+of the absence of medium-sized RPython program: we have jumped directly
+from small tests and examples to the full PyPy interpreter, which is
+about 50'000 lines of code.  Any problem or limitation of the Annotator
+discovered in this way was added back as a small test.  Actually, PyPy
+pushes the RPython specification quite far in some areas (like how to
+build a family of subclasses in such a way that specific attributes
+remain attached to each subclass independently), so that a part of the
+time spent debugging our toolchain turned out to be actually caused by
+non-obvious typing mistakes in the RPython source of PyPy.
+
+The toolchain is now better at diagnosing where a typing mistake is,
+mostly because it will complain on the first appearance of the
+degenerated ``Top`` annotation.  This was not possible until recently,
+because the ``Top`` annotation was an essential fall-back while the
+toolchain itself was being developed.  But now, under the condition that
+the analysed RPython program is itself extensively tested -- a common
+theme of our approach -- our toolchain should be robust enough and give
+useful location information about typing mistakes.
+
+
+See also
+~~~~~~~~
+
+.. [ARCH] `Architecture Overview`_, PyPy documentation
+
+.. [LLA] `Encapsulating low-level implementation aspects`_, PyPy
+         documentation
+
+.. [Psyco] http://psyco.sourceforge.net/ or the `ACM SIGPLAN 2004 paper`_.
+
+.. [PyPy] http://codespeak.net/pypy/
+
+
 .. _`Thunk Object Space`: objspace.html#the-thunk-object-space
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`formal definition`: http://en.wikipedia.org/wiki/Abstract_interpretation
@@ -2191,6 +2273,7 @@ been a nightmare
 .. _`Standard Object Space`: objspace.html#the-standard-object-space
 .. _`ACM SIGPLAN 2004 paper`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Hindley-Milner`: http://en.wikipedia.org/wiki/Hindley-Milner_type_inference
+.. _SSA: http://en.wikipedia.org/wiki/Static_single_assignment_form
 .. _LLVM: http://llvm.cs.uiuc.edu/
 .. _`RPython typer`: translation.html#rpython-typer
 .. _`GenC back-end`: translation.html#genc
@@ -2198,5 +2281,7 @@ been a nightmare
 .. _JavaScript: http://www.ecma-international.org/publications/standards/Ecma-262.htm
 .. _Squeak: http://www.squeak.org/
 .. _lltype: translation.html#low-level-types
+.. _`Architecture Overview`: architecture.html
+.. _`Encapsulating low-level implementation aspects`: draft-low-level-encapsulation.html
 
 .. include:: _ref.txt
