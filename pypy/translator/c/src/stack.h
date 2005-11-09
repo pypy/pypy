@@ -47,7 +47,7 @@ int LL_stack_too_big(void)
 	   stack_pointer_pointer. */
 
 	diff = &local - stack_base_pointer;
-	if (stack_min < diff && diff < stack_max) {
+	if (stack_min <= diff && diff <= stack_max) {
 		/* common case: we are still in the same thread as last time
 		   we checked, and still in the allowed part of the stack */
 		return 0;
@@ -73,7 +73,7 @@ int LL_stack_too_big(void)
 	baseptr = (char *) RPyThreadTLS_Get(stack_base_pointer_key);
 	if (baseptr != NULL) {
 		diff = &local - baseptr;
-		if (stack_min < diff && diff < stack_max) {
+		if (stack_min <= diff && diff <= stack_max) {
 			/* within bounds */
 			stack_base_pointer = baseptr;
 			return 0;
