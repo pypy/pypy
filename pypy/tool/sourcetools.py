@@ -101,8 +101,11 @@ def getsource(object):
     find the parameters of formatting generated methods and
     functions.
     """
-    src = inspect.getsource(object)
     name = inspect.getfile(object)
+    if hasattr(name, '__source__'):
+        src = str(name.__source__)
+    else:
+        src = inspect.getsource(object)
     if hasattr(name, "__sourceargs__"):
         return src % name.__sourceargs__
     return src
