@@ -146,7 +146,72 @@ maybe a locking threading model around space operations
 Stackless C code
 -----------------
 
-XXX
+"Stackless" C code is C code that only uses a bounded amount of the
+space in the C stack, and that can more generally obtain explicit
+control of its own stack.  This is generally known as "continuations",
+or "continuation-passing style" code, although in our case we will limit
+ourselves to single-shot continuations, i.e. continuations that are
+captured and subsequently only resumed once.
+
+The technique we have implemented is based on an old but recurring idea
+of emulating this style via exceptions: a specific program point can
+generate a pseudo-exception whose purpose is to unwind the whole C stack
+in a restartable way.  More precisely, the "unwind" exception has the
+effect of saving the C stack into the heap, in a compact and explicit
+format, as described below.  It is then possible to resume only the
+innermost (most recent) frame of the saved stack -- allowing unlimited
+recursion on OSes that limit the size of the C stack -- or to resume a
+different previously-saved C stack altogether, thus implementing
+coroutines.
+
+In our case, exception handling is always explicit: the C backend always
+puts after each call site a cheap check to detect if the callee exited
+normally or generated an exception.  So when compiling functions in
+stackless mode, the generated exception handling code special-cases the
+new "unwind" exception.  This exception causes the current function to
+respond by saving its local variables to a heap structure (a linked list
+of records, one per stack frame) and then propagating the exception
+outwards.  Eventually, at the end of the frame chain, the outermost
+function is a manually-written dispatcher that catches the "unwind"
+exception.
+
+At this point, the whole C stack is stored away in the heap.  This is a
+very interesting state in itself, because precisely there is no C stack
+left.  It allows us to write in a portable way all the algorithms that
+normally require machine-specific instructions to inspect the stack,
+e.g. garbage collectors.
+
+To continue execution, the dispatcher can resume either the freshly
+saved or a completely different stack.  Moreover, it can resume directly
+the innermost (most recent) saved frame in the heap chain, without
+having to resume all intermediate frames first.  This not only makes
+stack switches fast, but it also allows the frame to continue to run on
+top of a clean C stack.  When that frame eventually exits normally, it
+returns to the dispatcher, which then invokes the previous (parent)
+saved frame, and so on.  In this model, the C stack can be considered as
+a cache for the heap-based saved frame.  When we run out of C stack
+space, we flush the cache.  When the cache is empty, we fill it with the
+next item from the heap.
+
+To give the translated program some amount of control over the
+heap-based stack structures and over the top-level dispatcher that jumps
+between them, there are a few "external" functions directly implemented
+in C.  These functions provide an elementary interface on top of which
+useful abstractions can be implemented, like:
+
+* coroutines: explicitly switching code, similar to Greenlets_.
+
+* "tasklets": cooperatively-scheduled microthreads, as introduced in
+  `Stackless Python`_.
+
+* implicitly-scheduled microthreads, also known as green threads.
+
+An important property of the changes in all the generated C functions is
+to be written in a way that almost does not degrade their performance in
+the non-exceptional case.  Most optimisations performed by C compilers,
+like register allocation, continue to work...
+
+XXX insert dot graph here
 
 
 Open Challenges
@@ -175,3 +240,6 @@ References
 .. [BOEHM] `Boehm-Demers-Weiser garbage collector`_, a garbage collector
            for C and C++, Hans Boehm, 1988-2004
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+
+.. _Greenlets: http://codespeak.net/py/current/doc/greenlet.html
+.. _`Stackless Python`: http://www.stackless.com
