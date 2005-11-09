@@ -2207,10 +2207,10 @@ Static analysis
 ~~~~~~~~~~~~~~~
 
 Static analysis is and remains slightly fragile in the sense that the
-input program must be globally consistent (a typing mistake could yield
-to the propagation through the whole program of the ``Top`` annotation).
-This is also a reason why we believe that dynamic analysis is ultimately
-more powerful.
+input program must be globally consistent (inconsistent types, even
+locally, could yield to the propagation through the whole program of the
+``Top`` annotation).  This is also a reason why we believe that dynamic
+analysis is ultimately more powerful.
 
 In PyPy, our short-term future work is to focus on using the translation
 toolchain presented here to generate a modified low-level version of the
@@ -2239,16 +2239,16 @@ pushes the RPython specification quite far in some areas (like how to
 build a family of subclasses in such a way that specific attributes
 remain attached to each subclass independently), so that a part of the
 time spent debugging our toolchain turned out to be actually caused by
-non-obvious typing mistakes in the RPython source of PyPy.
+non-obvious type inconsistencies in the RPython source of PyPy.
 
-The toolchain is now better at diagnosing where a typing mistake is,
-mostly because it will complain on the first appearance of the
-degenerated ``Top`` annotation.  This was not possible until recently,
-because the ``Top`` annotation was an essential fall-back while the
-toolchain itself was being developed.  But now, under the condition that
-the analysed RPython program is itself extensively tested -- a common
-theme of our approach -- our toolchain should be robust enough and give
-useful location information about typing mistakes.
+The toolchain is now better at diagnosing where such typing errors
+really are, mostly because it will complain on the first appearance of
+the degenerated ``Top`` annotation.  This was not possible until
+recently, because the ``Top`` annotation was an essential fall-back
+while the toolchain itself was being developed.  But now, under the
+condition that the analysed RPython program is itself extensively tested
+-- a common theme of our approach -- our toolchain should be robust
+enough and give useful information about error locations.
 
 
 See also
