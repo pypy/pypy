@@ -2,9 +2,10 @@ import py, os
 from pypy.translator.translator import Translator
 from pypy.translator.js.js import JS
 from pypy.translator.js.test.browsertest import jstest
+from pypy.translator.js import conftest
 from pypy.translator.js.log import log
 log = log.runtest
-use_browsertest = True
+use_browsertest = conftest.option.jsbrowser
 
 
 def _CLI_is_on_path():
