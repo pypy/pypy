@@ -85,14 +85,43 @@ successfully enscapsulated.
 Stacklessness
 -------------
 
-The stackless modifications are mostly implemented in the C backend
-but also change the low-level graphs in small ways.  The total changes
-vonly required about 300 lines of source, vindicating our abstract
-approach.
+The stackless modifications are mostly implemented in the C backend,
+with a single extra flow graph operations to influence some detail of
+the generated C code.  The total changes only required about 300 lines
+of source, vindicating our abstract approach.
 
-XXX More!
+In stackless mode, the C backend generates functions answering to a
+special "unwind" exception: when this exception goes through a stack
+frame, the function saves away its local variables into the heap.  By
+propagating the exception through the whole stack, the latter gets
+entierely moved to the heap.  The stack can then be resumed by just
+re-entering the innermost (most recent) frame: all previous (older)
+frames can continue to live in the heap and be resumed only when their
+callees return.  In this way, unlimited recursion is possible even on
+OSes that limit the size of the C stack.  Alternatively, a different
+stack can be resumed, which implements software-switching (coroutines,
+or green threads if scheduling is implicit).  We reobtain in this way
+all major benefits of the original "stackless" patches.  More generally,
+we are able to compile any RPython program into a C program that can
+explicitly control its C stack.
+
+This effect requires a number of changes in each and every C function
+that would be extremely tedious to write by hand: checking for the
+"unwind" exception, saving away precisely the currently active local
+variables, and when re-entering the function check which variables are
+being restored and which call site is resumed.  There are moreover a
+couple of global tables assisting the process.  The key point is that we
+can fine-tune all these interactions freely, without having to rewrite
+the whole code all the time but only modifying the C backend.  So far,
+this allowed us to find a style that does not hinder the compiler
+optimisations and so has only a minor impact on performance (10%) in the
+non-exceptional case.
 
 XXX Start documenting it and link to it from here!
+
+Also note that the fact that the C stack can be fully saved into the
+heap can tremendously simplify the life of garbage collection: after a
+stack unwind, there are no stack roots left.
 
 
 Multiple Interpreters
