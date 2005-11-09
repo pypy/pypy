@@ -249,7 +249,7 @@ class DescrOperation:
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__rpow__')
-            if (not space.is_w(w_left_src, w_right_src)
+            if (w_left_src is not w_right_src    # XXX see binop_impl
                 and space.is_true(space.issubtype(w_typ2, w_typ1))):
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
@@ -342,7 +342,7 @@ class DescrOperation:
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__coerce__')
-            if (not space.is_w(w_left_src, w_right_src)
+            if (w_left_src is not w_right_src    # XXX see binop_impl
                 and space.is_true(space.issubtype(w_typ2, w_typ1))):
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
@@ -400,7 +400,7 @@ def _cmp(space, w_obj1, w_obj2):
         w_right_impl = None
     else:
         w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__cmp__')
-        if (not space.is_w(w_right_src, w_left_src)
+        if (w_left_src is not w_right_src    # XXX see binop_impl
             and space.is_true(space.issubtype(w_typ2, w_typ1))):
             w_obj1, w_obj2 = w_obj2, w_obj1
             w_left_impl, w_right_impl = w_right_impl, w_left_impl
@@ -442,7 +442,13 @@ def _make_binop_impl(symbol, specialnames):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
-            if (not space.is_w(w_right_src, w_left_src)
+            # the logic to decide if the reverse operation should be tried
+            # before the direct one is very obscure.  For now, and for
+            # sanity reasons, we just compare the two places where the
+            # __xxx__ and __rxxx__ methods where found by identity.
+            # Note that space.is_w() is potentially not happy if one of them
+            # is None (e.g. with the thunk space)...
+            if (w_left_src is not w_right_src    # XXX
                 and space.is_true(space.issubtype(w_typ2, w_typ1))):
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
@@ -471,7 +477,7 @@ def _make_comparison_impl(symbol, specialnames):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
-            if (not space.is_w(w_right_src, w_left_src)
+            if (w_left_src is not w_right_src    # XXX see binop_impl
                 and space.is_true(space.issubtype(w_typ2, w_typ1))):
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl

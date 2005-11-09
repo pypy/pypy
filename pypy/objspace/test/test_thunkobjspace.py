@@ -70,3 +70,9 @@ class AppTest_Thunk:
             return x
         x = thunk(f)
         raises(RuntimeError, 'x+1')
+
+    def test_is_thunk(self):
+        def f():
+            pass
+        assert is_thunk(thunk(f))
+        assert not is_thunk(42)

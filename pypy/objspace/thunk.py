@@ -64,7 +64,7 @@ app_thunk = gateway.interp2app(thunk, unwrap_spec=[baseobjspace.W_Root,
                                                    argument.Arguments])
 
 def is_thunk(space, w_obj):
-    return space.newbool(w_obj.w_thunkalias is w_NOT_COMPUTED_THUNK)
+    return space.newbool(w_obj.w_thunkalias is w_obj)
 app_is_thunk = gateway.interp2app(is_thunk)
 
 def become(space, w_target, w_source):
