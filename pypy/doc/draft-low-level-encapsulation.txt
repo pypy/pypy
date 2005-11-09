@@ -114,7 +114,7 @@ couple of global tables assisting the process.  The key point is that we
 can fine-tune all these interactions freely, without having to rewrite
 the whole code all the time but only modifying the C backend.  So far,
 this allowed us to find a style that does not hinder the compiler
-optimisations and so has only a minor impact on performance (10%) in the
+optimisations and so has only a minor impact on performance in the
 non-exceptional case.
 
 XXX Start documenting it and link to it from here!
@@ -223,6 +223,70 @@ and total replacement of one object with another.  The thunk object
 space is mostly meant as an example of what our approach can acheive --
 the combination of side-effects and lazy evaluation is not easy to
 understand.
+
+
+Experimental results
+====================
+
+All the aspects described in the previous chapter have been successfully
+implemented and are available since the release 0.7 or 0.8 of PyPy.
+
+We have conducted preliminary experimental measures of the performance
+impact of enabling each of these features in the compiled PyPy
+interpreter.  We present below the current results as of October 2005.
+Most figures appear to vary from machine to machine.  Given that the
+generated code is large (it produce a binary of 5.6MB on a Linux
+Pentium), there might be locality and code ordering issues that cause
+important cache effects.
+
+We have not particularly optimised any of these aspects yet.  Our goal
+is primarily to prove that the whole approach is worthwhile, and rely on
+future work and push for external contributions to implement
+state-of-the-art techniques in each of these domains.
+
+Stacklessness
+
+    Producing Stackless-style C code currently means that all the
+    functions of the PyPy interpreter use the new style.  The current
+    performance impact is to make PyPy slower by 10% to 20% depending on
+    the application program being interpreted.  A couple of
+    optimisations are possible to should reduce this figure a bit.  In
+    particular, leaf functions of the call graph -- and more generally
+    all functions that never call any other function that may raise the
+    "unwind" exception -- do not have to be generated as Stackless-style
+    C code.  We expect the rest of the performance impact to be mainly
+    caused by the increase of size of the generated executable (+XXX%).
+
+Multiple Interpreters
+
+    No experimental data available so far.  We are working on removing a
+    minor technical restriction that prevents our translation toolchain
+    from handling this case.
+
+Memory Management
+
+    The [Boehm] GC is well-optimised and produces excellent results.  By
+    comparison, using reference counting instead makes the interpreter
+    twice as slow.  This is almost certainly due to the naive approach
+    to reference counting used so far, which updates the counter far
+    more often than theoretically necessary; we also still have a lot of
+    objects that would theoretically not need a reference counter,
+    either because they are short-lived or because we can prove that
+    they are "owned" by another object and can share its lifetime.  In
+    the long run, it will be interesting to see how far this figure can
+    be reduced, given past experiences with CPython which seem to show
+    that reference counting is a viable idea for Python interpreters.
+
+Concurrency
+
+    No experimental data available so far.  Just enabling threads
+    currently creates an overhead that hides the real costs of locking.
+
+Evaluation Strategy
+
+    When translated to C code, the Thunk object space has a global
+    performance impact of 5%.  The executable is 12% bigger (probably
+    due to the arguably excessive inlining we perform).
 
 
 Conclusion
