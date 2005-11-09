@@ -3,13 +3,13 @@ import sys
 from pypy.objspace.flow.model import Block, Constant, Variable, Link
 from pypy.objspace.flow.model import flatten, mkentrymap, traverse, last_exception
 from pypy.rpython.lltypesystem import lltype
-from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.js.node import Node
 from pypy.translator.js.opwriter import OpWriter
 from pypy.translator.js.log import log 
 log = log.funcnode
 
 
-class FuncNode(ConstantLLVMNode):
+class FuncNode(Node):
     def __init__(self, db, value):
         self.db = db
         self.value = value
@@ -77,7 +77,6 @@ class FuncNode(ConstantLLVMNode):
 
     def write_block_branches(self, codewriter, block):
         if block.exitswitch == Constant(last_exception):
-            #codewriter.comment('FuncNode(ConstantLLVMNode) *last_exception* write_block_branches @%s@' % str(block.exits))
             return
         if len(block.exits) == 1:
             codewriter.br_uncond(self.blockindex[block.exits[0].target], block.exits[0])

@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 
 _nodename_count = {}
 
-class LLVMNode(object):
+class Node(object):
     def reset_nodename_count():
         global _nodename_count
         _nodename_count = {}
@@ -30,12 +30,6 @@ class LLVMNode(object):
     def setup(self):
         pass
 
-    # __________________ before "implementation" ____________________
-    #def writedatatypedecl(self, codewriter):
-    #    """ write out declare names of data types 
-    #        (structs/arrays/function pointers)
-    #    """
-
     def writeglobalconstants(self, codewriter):
         """ write out global values.  """
 
@@ -46,16 +40,11 @@ class LLVMNode(object):
     def writeimpl(self, codewriter):
         """ write function implementations. """ 
 
-
-class ConstantLLVMNode(LLVMNode):
-    def get_ref(self):
-        """ Returns a reference as used for operations in blocks. """        
-        return self.ref
-
+    # __________________ output "constant's data"  ____________________
     def constantvalue(self):
         """ Returns the constant representation for this node. """
         return []
-
+    
     def writeglobalconstants(self, codewriter):
         p, c = lltype.parentlink(self.value)
         if p is None:

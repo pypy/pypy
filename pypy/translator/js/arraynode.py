@@ -1,11 +1,11 @@
 import py
 from pypy.rpython.lltypesystem import lltype
-from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.js.node import Node
 from pypy.translator.js.log import log
 log = log.structnode
 
 
-class ArrayNode(ConstantLLVMNode):
+class ArrayNode(Node):
     """ An arraynode.  Elements can be
     a primitive,
     a struct,

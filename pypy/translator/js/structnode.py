@@ -1,5 +1,5 @@
 import py
-from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.js.node import Node
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.js.log import log
 log = log.structnode 
@@ -11,7 +11,7 @@ def _rename_reserved_keyword(name):
     return name
 
 
-class StructNode(ConstantLLVMNode):
+class StructNode(Node):
     """ A struct constant.  Can simply contain
     a primitive,
     a struct,
@@ -90,6 +90,7 @@ class StructNode(ConstantLLVMNode):
             #s = "({%s})" % ", ".join(["%s:%s" % var for var in vars])
             line = "%s.%s = %s" % (self.ref, name, value)
             lines.append(line)
+        log('constantvalue',lines)
         return lines
 
         #values = self._getvalues()

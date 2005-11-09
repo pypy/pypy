@@ -43,12 +43,17 @@ class compile_function(object):
             cmd = 'echo "%s" | js 2>&1' % wrappercode
             log(cmd)
             s   = os.popen(cmd).read().strip()
+
         if s == 'false':
             res = False
         elif s == 'true':
             res = True
         elif s == 'undefined':
             res = None
+        elif s == 'inf':
+            res = 1e300 * 1e300
+        elif s == 'NaN':
+            res = (1e300 * 1e300) / (1e300 * 1e300)
         else:
             log('javascript result:', s)
             res = eval(s)

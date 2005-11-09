@@ -2,7 +2,7 @@ import py
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rmodel import inputconst, getfunctionptr
-from pypy.translator.js.extfuncnode import ExternalFuncNode
+#from pypy.translator.js.extfuncnode import ExternalFuncNode
 from pypy.translator.js.log import log 
 log = log.opwriter
 
@@ -257,7 +257,8 @@ class OpWriter(object):
             op_args = [opname] + op_args
             functionref = op_args[0]
             if functionref in extfunctions:
-                ExternalFuncNode.used_external_functions[functionref] = True
+                #ExternalFuncNode.used_external_functions[functionref] = True
+                log('external function', functionref)
             else:
                 msg = "exception raising operation %s not found" %(op.opname,)
                 self.codewriter.comment('XXX: Error: ' + msg)

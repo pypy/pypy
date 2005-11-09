@@ -1,8 +1,8 @@
-from pypy.translator.js.node import LLVMNode, ConstantLLVMNode
+from pypy.translator.js.node import Node
 from pypy.rpython.lltypesystem import lltype
 
 
-class OpaqueNode(ConstantLLVMNode):
+class OpaqueNode(Node):
     def __init__(self, db, value):
         self.db = db
         self.value = value

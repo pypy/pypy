@@ -2,11 +2,9 @@
 import sys
 
 from pypy.translator.js.funcnode import FuncNode
-from pypy.translator.js.extfuncnode import ExternalFuncNode
 from pypy.translator.js.structnode import StructNode, StructVarsizeNode
 from pypy.translator.js.arraynode import ArrayNode, StrArrayNode, VoidArrayNode
 from pypy.translator.js.opaquenode import OpaqueNode
-from pypy.translator.js.node import ConstantLLVMNode
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.translator.js.log import log 
@@ -35,10 +33,11 @@ class Database(object):
     def create_constant_node(self, type_, value):
         node = None
         if isinstance(type_, lltype.FuncType):
-            if getattr(value._callable, "suggested_primitive", False):
-                node = ExternalFuncNode(self, value)
-            else:
-                node = FuncNode(self, value)
+            node = FuncNode(self, value)
+            #if getattr(value._callable, "suggested_primitive", False):
+            #    node = ExternalFuncNode(self, value)
+            #else:
+            #    node = FuncNode(self, value)
 
         elif isinstance(type_, lltype.Struct):
             if type_._arrayfld:
@@ -148,7 +147,7 @@ class Database(object):
                 if node is None:
                     return 'null'
                 else:
-                    return node.get_ref()
+                    return node.ref #get_ref()
         else:
             assert isinstance(arg, Variable)
             return str(arg)
@@ -191,7 +190,7 @@ class Database(object):
                 return None, "null"
 
             node = self.obj2node[value]
-            return node, node.get_ref()
+            return node, node.ref #node.get_ref()
 
         elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):
             node = self.obj2node[value]

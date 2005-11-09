@@ -17,7 +17,7 @@ import py
 from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
-from pypy.translator.js.node import LLVMNode
+from pypy.translator.js.node import Node
 from pypy.translator.js.database import Database 
 from pypy.translator.js.codewriter import CodeWriter
 from pypy.translator.js.log import log
@@ -27,7 +27,7 @@ class JS(object):   # JS = Javascript
     def __init__(self, translator, function=None, debug=False):
         self.db = Database(translator)
         self.translator = translator
-        LLVMNode.reset_nodename_count()
+        Node.reset_nodename_count()
         #extfuncnode.ExternalFuncNode.used_external_functions = {}
         self.debug = debug # for debug we create comments of every operation that may be executed
         if debug:
