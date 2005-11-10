@@ -567,7 +567,7 @@ Geninterp
 Introducing `Dynamic merging`_ can be seen as a practical move: it does
 not, in practice, prevent even large functions from being analysed reasonably
 quickly, and it is useful to simplify the flow graphs of some functions.
-This is specially true for functions that are themselves automatically
+This is especially true for functions that are themselves automatically
 generated.
 
 In the PyPy interpreter, for convenience, some of the core functionality
@@ -2243,8 +2243,8 @@ Test-driven development
 As a conclusion, we should insist on the importance of test-driven
 development.  The complete Annotator and RTyper have been built in this
 way, by writing small test cases covering each aspect even before
-implementing that aspect.  This has proven essential, specially because
-of the absence of medium-sized RPython program: we have jumped directly
+implementing that aspect.  This has proven essential, especially because
+of the absence of medium-sized RPython programs: we have jumped directly
 from small tests and examples to the full PyPy interpreter, which is
 about 50'000 lines of code.  Any problem or limitation of the Annotator
 discovered in this way was added back as a small test.  Actually, PyPy
