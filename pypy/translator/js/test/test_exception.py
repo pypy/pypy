@@ -164,7 +164,7 @@ def test_catch_base_exception():
     for i in range(10, 20):
         assert f(i) == fn(i)
 
-def DONTtest_catches():
+def DONTtest_catches(): #issue empty Object mallocs
     def raises(i):
         if i == 3:
             raise MyException, 12

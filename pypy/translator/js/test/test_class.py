@@ -22,15 +22,15 @@ class TestClass(object):
         f = compile_function(llvmsnippet.class_simple2, [int])
         assert f(2) == 10
 
-    def DONTtest_inherit1(self):
+    def DONTtest_inherit1(self):    #unknown issue
         f = compile_function(llvmsnippet.class_inherit1, [])
         assert f() == 11
 
-    def DONTtest_inherit2(self):
+    def DONTtest_inherit2(self):    #issue v200 is not a function
         f = compile_function(llvmsnippet.class_inherit2, [])
         assert f() == 1
 
-    def DONTtest_method_of_base_class(self):
+    def DONTtest_method_of_base_class(self):    #issue v??? is not a function
         f = compile_function(llvmsnippet.method_of_base_class, [])
         assert f() == 14
 
@@ -38,11 +38,11 @@ class TestClass(object):
         f = compile_function(llvmsnippet.attribute_from_base_class, [])
         assert f() == 4
 
-    def DONTtest_direct_call_of_virtual_method(self):
+    def DONTtest_direct_call_of_virtual_method(self):   #issue v??? is not a function
         f = compile_function(llvmsnippet.direct_call_of_virtual_method, [])
         assert f() == 14
 
-    def DONTtest_flow_type(self):
+    def test_flow_type(self):
         f = compile_function(llvmsnippet.flow_type, [])
         assert f() == 16
 
@@ -56,7 +56,7 @@ class TestClass(object):
         assert f(True) == 1
         assert f(False) == 2
 
-    def DONTtest_global_instance(self):
+    def DONTtest_global_instance(self): #issue unknown
         f = compile_function(llvmsnippet.global_instance, [int])
         assert f(-1) == llvmsnippet.global_instance(-1)
         for i in range(20):
@@ -68,7 +68,7 @@ class TestClass(object):
         f = compile_function(llvmsnippet.testgetset, [int])
         assert f(15) == 25
 
-    def DONTtest_call_degrading_func(self):
+    def test_call_degrading_func(self):
         f = compile_function(llvmsnippet.call_degrading_func, [bool])
         assert f(True) == llvmsnippet.call_degrading_func(True)
         assert f(False) == llvmsnippet.call_degrading_func(False)

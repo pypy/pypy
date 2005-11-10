@@ -41,7 +41,7 @@ def test_struct_constant2():
     f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
-def DONTtest_struct_constant3():
+def test_struct_constant3():
     structs = []
     cur = S
     for n in range(20):
@@ -73,7 +73,7 @@ def test_struct_constant4():
     f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
-def DONTtest_struct_constant5():
+def test_struct_constant5():
     SPTR = lltype.GcStruct('sptr', ('a', lltype.Signed), ('b', S))
     STEST = lltype.GcStruct('test', ('sptr', lltype.Ptr(SPTR)))
     s = lltype.malloc(STEST)
@@ -86,7 +86,7 @@ def DONTtest_struct_constant5():
     f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
-def DONTtest_struct_constant6():
+def test_struct_constant6():
     U = lltype.Struct('inlined', ('z', lltype.Signed))
     T = lltype.GcStruct('subtest', ('y', lltype.Signed))
     S = lltype.GcStruct('test', ('x', lltype.Ptr(T)), ('u', U), ('p', lltype.Ptr(U)))
@@ -101,7 +101,7 @@ def DONTtest_struct_constant6():
     f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
-def DONTtest_aliasing():
+def DONTtest_aliasing():    #issue looks like empty Object mallocs
     B = lltype.Struct('B', ('x', lltype.Signed))
     A = lltype.Array(B)
     global_a = lltype.malloc(A, 5, immortal=True)
@@ -113,7 +113,7 @@ def DONTtest_aliasing():
     assert f(2) == 0
     assert f(3) == 17
 
-def DONTtest_aliasing2():
+def DONTtest_aliasing2():   #issue mallocs
     B = lltype.Struct('B', ('x', lltype.Signed))
     A = lltype.Array(B)
     C = lltype.Struct('C', ('x', lltype.Signed), ('bptr', lltype.Ptr(B)))
@@ -150,7 +150,7 @@ def test_array_constant2():
     f = compile_function(array_constant, [])
     assert f() == array_constant()
 
-def DONTtest_array_constant3():
+def DONTtest_array_constant3(): #malloc issue
     A = lltype.GcArray(('x', lltype.Signed))
     a = lltype.malloc(A, 3)
     a[0].x = 100
@@ -173,7 +173,7 @@ def test_struct_array1():
     f = compile_function(array_constant, [])
     assert f() == array_constant()
 
-def DONTtest_struct_array2():
+def test_struct_array2():
     A = lltype.Array(lltype.Signed)
     STEST = lltype.GcStruct('test', ('a', lltype.Signed), ('b', A))
     s = lltype.malloc(STEST, 2)
@@ -185,7 +185,7 @@ def DONTtest_struct_array2():
     f = compile_function(array_constant, [])
     assert f() == array_constant()
 
-def DONTtest_struct_array3():
+def test_struct_array3():
     A = lltype.Array(lltype.Signed)
     STEST = lltype.GcStruct('test', ('a', lltype.Signed), ('b', A))
     SBASE = lltype.GcStruct('base', ('p', lltype.Ptr(STEST)))

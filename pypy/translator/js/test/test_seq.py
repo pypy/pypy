@@ -22,7 +22,7 @@ class TestLLVMArray(object):
         assert f(2) == 13
         assert f(3) == 3
 
-    def DONTtest_array_add(self):
+    def DONTtest_array_add(self):   #unknown issue
         f = compile_function(llvmsnippet.array_add, [int, int, int, int, int])
         assert f(1,2,3,4,0) == 1
         assert f(1,2,3,4,1) == 2
@@ -37,21 +37,21 @@ class TestLLVMArray(object):
         f = compile_function(llvmsnippet.bool_array, [])
         assert f() == 1
 
-    def DONTtest_array_arg(self):
+    def DONTtest_array_arg(self):   #unknown issue
         f = compile_function(llvmsnippet.array_arg, [int])
         assert f(5) == 0
 
-    def DONTtest_array_len(self):
+    def DONTtest_array_len(self):   #unknown issue
         f = compile_function(llvmsnippet.array_len, [])
         assert f() == 10
 
-    def DONTtest_array_append(self):
+    def DONTtest_array_append(self):    #unknown issue
         f = compile_function(llvmsnippet.array_append, [int])
         for i in range(3):
             assert f(i) == 0
         assert f(3) == 10
 
-    def DONTtest_array_reverse(self):
+    def DONTtest_array_reverse(self):   #unknown issue
         f = compile_function(llvmsnippet.array_reverse, [int])
         assert f(0) == 1
         assert f(1) == 0
@@ -77,7 +77,7 @@ class TestLLVMArray(object):
         for i in range(18):
             assert f(i) == i
 
-    def DONTtest_access_global_array(self):
+    def DONTtest_access_global_array(self): #issue with incorrect array order
         f = compile_function(llvmsnippet.access_global_array, [int, int, int])
         for i in range(5):
             for j in range(5):
@@ -86,7 +86,7 @@ class TestLLVMArray(object):
             for j in range(5):
                 assert f(i, j, 0) == i + j
 
-    def DONTtest_circular_list(self):
+    def DONTtest_circular_list(self):   #unkjown issue
         f = compile_function(llvmsnippet.circular_list, [int])
         assert f(0) == 0
         assert f(1) == 1
