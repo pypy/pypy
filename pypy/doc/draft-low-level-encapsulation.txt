@@ -248,14 +248,10 @@ Stacklessness
 
     Producing Stackless-style C code currently means that all the
     functions of the PyPy interpreter use the new style.  The current
-    performance impact is to make PyPy slower by 10% to 20% depending on
-    the application program being interpreted.  A couple of
-    optimisations are possible to should reduce this figure a bit.  In
-    particular, leaf functions of the call graph -- and more generally
-    all functions that never call any other function that may raise the
-    "unwind" exception -- do not have to be generated as Stackless-style
-    C code.  We expect the rest of the performance impact to be mainly
-    caused by the increase of size of the generated executable (+XXX%).
+    performance impact is to make PyPy slower by about 10%.  A couple of
+    minor pending optimisations could reduce this figure a bit.  We
+    expect the rest of the performance impact to be mainly caused by the
+    increase of size of the generated executable (+20%).
 
 Multiple Interpreters
 
