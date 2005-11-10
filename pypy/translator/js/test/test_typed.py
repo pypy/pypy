@@ -253,7 +253,7 @@ def DONTtest_stringformatting():    #issue also blocked block
     f = compile_function(wrapper, [int])
     assert f(42)
 
-def DONTtest_str2int():
+def DONTtest_str2int(): #issue with empty Object malloc
     def fn(i):
         return str(i)
     def wrapper(i):
@@ -270,7 +270,7 @@ def test_int_invert():
     for i in range(-15, 15):
         assert f(i) == fn(i)
 
-def XXXtest_uint_invert():
+def DONTtest_uint_invert(): #issue with ~i
     def fn(i):
         inverted = ~i
         inverted -= sys.maxint
@@ -298,14 +298,14 @@ def test_float_abs():
     for i in (-100.1 -50.2, -0.0, 0.0, 25.3, 50.4):
         assert f(i) == float_abs_(i)
 
-def DONTtest_cast_to_int():
+def test_cast_to_int():
     def casting(v):
         return int(ord(chr(v)))
     f = compile_function(casting, [int])
     for ii in range(255):
         assert f(ii) == ii
 
-def DONTtest_char_comparisions():
+def DONTtest_char_comparisons():    #issue with illegal cast syntax
     def comps(v):
         x = chr(v)
         res = 0
