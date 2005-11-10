@@ -1,0 +1,26 @@
+digraph mul_graph {
+    node [shape="octagon", color="black", fillcolor="white", style="filled"];
+    subgraph mul {
+        mul [shape="box", label="mul\ndef mul(x, y):\l    if x == 0:\l        return 0\l    return mul(x - 1, y) + y\l", fillcolor="green"];
+        mul_r [label="Are we resuming?", color="blue"];
+        mul_0 [label="inputargs: x_0 y_0\n\nv79 = int_eq(x_0, (0))\l\lexitswitch: v79"];
+        mul_1 [shape="ellipse", label="is the stack too big?", color="blue"]
+        mul_2 [shape="box", label="mul_2(Block )\ninputargs: v193\n\nreturn v193", fillcolor="green"];
+        mul_3 [label="inputargs: x_0 y_0\n\nv81 = int_sub(x_0, (1))\lv82 = direct_call((<* fn mul>), v81, y_0)\l\lis the stack being unwound?"];
+        mul_4 [shape="ellipse", label="store x_0 and y_0 on the heap\nunwind the stack", color="blue"];
+        mul_5 [shape="box", label="inputargs: v82 y_0\n\nv83 = int_add(v82, y_0)\l"];
+        mul_r3 [shape="ellipse", label="load saved variables x_0 and y_0", color="blue"];
+        mul_s3 [shape="ellipse", label="save x_0 and y_0 to the heap\lcontinue unwinding", color="blue"];
+        mul -> mul_r [label="startblock", style="dashed"];
+        mul_r -> mul_0 [label="No: x_0 y_0", style="dashed"];
+        mul_r -> mul_r3 [label="Yes" style="dashed"];
+        mul_r3 -> mul_3 [label="x_0 y_0", style="dashed"];
+        mul_0 -> mul_1 [label="False: x_0 y_0", style="dotted"];
+        mul_0 -> mul_2 [label="True: (0)", style="dotted"];
+        mul_1 -> mul_3 [label="No: x_0 y_0", style="dotted"];
+        mul_1 -> mul_4 [label="Yes", style="dotted"];
+        mul_3 -> mul_5 [label="No: v82 x_0", style="solid"];
+        mul_3 -> mul_s3 [label="Yes: x_0 y_0"];
+        mul_5 -> mul_2 [label="v83"];
+    }
+}
