@@ -144,7 +144,7 @@ class for a given function as requiring memoization.)
 This approach is derived from dynamic analysis techniques that can
 support unrestricted dynamic languages by falling back to a regular
 interpreter for unsupported features (e.g. [Psyco]_).  The above
-argumentation should have shown why we think that being similarly able
+arguments should have shown why we think that being similarly able
 to fall back to regular interpretation for parts that cannot be
 understood is a central feature of the analysis of dynamic languages.
 
@@ -291,7 +291,7 @@ the claimed goals):
   Flow Object Space enables an interpreter for *any* language to work as
   a front-end for the rest of the toolchain.
 
-* the `Annotator`_ is performing type inference.  This part is best
+* the `Annotator`_ performs type inference.  This part is best
   implemented separately from other parts because it is based on a
   fixpoint search algorithm.  It is mostly this part that defines and
   restricts what RPython exactly is.  After annotation, the control flow
@@ -299,7 +299,7 @@ the claimed goals):
   operations; the inferred information is only used in the next step.
 
 * the `RTyper`_ is the first component involved in `Code Generation`_.
-  By itself, it does not emit any source code: it only replaces all
+  It does not emit any source code itself: it only replaces all
   RPython-level operations with lower-level operations in all control
   flow graphs.  Each replacement is based on the type information
   collected by the annotator.  In some sense the RTyper is the central
@@ -312,18 +312,18 @@ the claimed goals):
   the other hand, to target OO languages we need to produce graphs with
   operations like method calls.
 
-* at the end, a back-end is responsible for generating actual source
-  code from the flow graphs it receives.  Given that the flow graphs are
-  already at the correct level, the only remaining problems are at the
-  level of difficulties with or limitations of the target language.
-  This part depends strongly on the details of the target language, so
-  little code can be shared between the different back-ends (even
-  between back-ends inputting the same low-level flow graphs, e.g. the C
-  and the LLVM_ back-ends).  The back-end is also responsible for
-  integrating with some of the most platform-dependent aspects like
-  memory management and exception model, as well as for generating
-  alternate styles of code for different execution models like
-  coroutines.
+* in the end, a translation back-end is responsible for generating
+  actual source code from the flow graphs it receives.  Given that the
+  flow graphs are already at the correct level, the only remaining
+  problems are at the level of difficulties with or limitations of the
+  target language.  This part depends strongly on the details of the
+  target language, so little code can be shared between the different
+  back-ends (even between back-ends taking as input the same low-level
+  flow graphs, e.g. the C and the LLVM_ back-ends).  The back-end is
+  also responsible for integrating with some of the most
+  platform-dependent aspects like memory management and exception
+  model, as well as for generating alternate styles of code for
+  different execution models like coroutines.
 
 
 Flow Object Space
@@ -343,7 +343,7 @@ have run/resume methods which embed the interpretation loop and invoke
 the hooks at the appropriate times.
 
 The Flow Object Space in our current design is responsible of
-constructing a flow graph for a single function using abstract
+constructing the control flow graph for a single function using abstract
 interpretation.  The domain on which the Flow Space operates comprises
 variables and constant objects. They are stored as such in the frame
 objects without problems because by design the interpreter engine treats
@@ -435,7 +435,7 @@ In theory, this would require continuation support at the language level
 so that we can pretend that ``is_true`` returns twice into the engine,
 once for each possible answer, so that the Flow Space can record both
 outcomes.  Without proper continuations in Python, we have implemented a
-more explicit scheme (describe below) where the execution context and
+more explicit scheme (described below) where the execution context and
 the object space collaborate to emulate this effect.  (The approach is
 related to the one used in [Psyco]_, where regular continuations would
 be entirely impractical due to the need of huge amounts of them -- as
@@ -485,7 +485,7 @@ itself.  When the engine replays the execution from the root of the
 tree, the intermediate recorders check (for consistency) that the same
 operations as the ones already recorded are issued again, ending in a
 call to ``is_true``; at this point, the replaying recorder gives the
-answer corresponding to the branch to follow, and switch to the next
+answer corresponding to the branch to follow, and switches to the next
 recorder in the chain.
 
 .. [#] "eggs, eggs, eggs, eggs and spam" -- references to Monthy Python
@@ -565,7 +565,7 @@ Geninterp
 ~~~~~~~~~
 
 Introducing `Dynamic merging`_ can be seen as a practical move: it does
-not, in practice, prevent even large functions to be analysed reasonably
+not, in practice, prevent even large functions from being analysed reasonably
 quickly, and it is useful to simplify the flow graphs of some functions.
 This is specially true for functions that are themselves automatically
 generated.
@@ -632,15 +632,15 @@ Annotator
 The annotator is the type inference part of our toolchain.  The
 annotator infers *types* in the following sense: given a program
 considered as a family of control flow graphs, it assigns to each
-variable of each graph a so-called *annotation*, which describes what
-are the possible run-time objects that this variable will contain.  Note
+variable of each graph a so-called *annotation*, which describes
+the possible run-time objects that this variable can contain.  Note
 that in the literature such an annotation is usually called a type, but
 we prefer to avoid this terminology to avoid confusion with the Python
 notion of the concrete type of an object.  An annotation is a set of
-possible values, and this set is not always exactly the set of all
+possible values, and such a set is not always the set of all
 objects of a specific Python type.
 
-We will first expose a simplified, static model of how the annotator
+We will first describe a simplified, static model of how the annotator
 works, and then hint at some differences between the model and the
 reality.
 
@@ -656,7 +656,7 @@ argument is given a user-specified annotation.
 
 The goal of the annotator is to find the most precise annotation that
 can be given to each variable of all control flow graphs while
-respecting constraints imposed by the operations in which these variables
+respecting the constraints imposed by the operations in which these variables
 are involved.
 
 More precisely, it is usually possible to deduce information about the
@@ -695,10 +695,10 @@ following blocks, and so on.  This process continues until a fixpoint is
 reached.
 
 We can consider that all variables are initially assigned the "bottom"
-annotation corresponding to an empty set of possible run-time values.
+annotation corresponding to the empty set of possible run-time values.
 Annotations can only ever be generalised, and the model is simple enough
 to show that there is no infinite chain of generalisation, so that this
-process necessarily terminates, as we will show in the sequel.
+process necessarily terminates.
 
 
 Flow graph model
@@ -1316,12 +1316,12 @@ of ``v_C.attr`` variables for both.
 Calls
 ~~~~~
 
-A call in the user program turns into a ``simplecall`` operation whose
+A call in the user program turns into a ``simple_call`` operation whose
 first argument is the object to call.  Here is the corresponding rule --
 regrouping all cases because a single ``Pbc(set)`` annotation could mix
 several kinds of callables::
 
-         z=simplecall(x,y1,...,yn), b(x)=Pbc(set)
+         z=simple_call(x,y1,...,yn), b(x)=Pbc(set)
       ---------------------------------------------------------------------
            for each c in set:
                if c is a function:
@@ -1523,7 +1523,7 @@ Proof:
        *l'* also contain one extra item coming from the second part of
        their construction rule.)
 
-       Case 2: ``D`` is instead to most derived non-strict superclass of
+       Case 2: ``D`` is instead the most derived non-strict superclass of
        ``C`` which appears in *m*; assume that ``D`` is still a strict
        subclass of ``C'``.  In this case, ``D.f`` belongs to *l'* as
        previously.  (For example, if there is a ``C.g`` in *m*, then ``D
@@ -1640,7 +1640,7 @@ Proof:
        V_r = { v | r in Rules_v }
 
    Let *(b,E)* be a state.  Then there exists a state *(bf,Ef)*
-   representing the "effect" of the rule on *(b,E)* as follows:
+   representing the "effect" of the rule on *(b,E)* as follows::
 
        r( (b,E) )   = (b,E)   union (bf,Ef)
 
