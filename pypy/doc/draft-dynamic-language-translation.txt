@@ -1240,8 +1240,8 @@ these variables:
   relation *E* identifies some of these variables as follows: if an
   attribute ``attr`` is found to belong to a base class ``C``, then all
   variables ``v_D.attr`` for all subclasses ``D`` of ``C`` are
-  identified with ``v_C.attr``.  This ensures that the instances of the
-  subclasses are all given the same generic attribute defined in ``C``.
+  identified with ``v_C.attr``.  This ensures that the instances of all
+  the subclasses are given the same generic attribute defined in ``C``.
 
 Formally::
 
@@ -1259,7 +1259,17 @@ Formally::
                merge b(z) => v_C.attr
 
 Note the similarity with the ``getitem`` and ``setitem`` of lists, in
-particular the usage of the auxiliary variable *z'*.
+particular the usage of the auxiliary variable *z'*.  Also note that we
+still allow real bound methods to be handled and passed around in the
+way that is quite unique to Python: if ``meth`` is the name of a method
+of *x*, then ``y = x.meth`` is allowed, and the object *y* can be passed
+around and stored in data structures.  However, in our case we do not
+allow such objects to be stored directly back into other instances (it
+is the purpose of the check in the rule for ``setattr``).  This would
+create a confusion between class-level and instance-level attributes in
+a subsequent ``getattr``.  It is a limitation of our annotator to not
+distinguish these two levels -- there is only one set of ``v_C.attr``
+variables for both.
 
 The purpose of ``lookup_filter`` is to avoid losing precision in method
 calls.  Indeed, if ``attr`` names a method of the class ``C`` then the
@@ -1298,39 +1308,29 @@ objects:
   or a superclass of ``C``, we select the ones whose class is the most
   derived class thus represented.  In other words, if ``C`` inherits
   from ``B`` which inherits from ``A``, then potential bound method
-  objects ``A.f`` would be included in the *newset* only if there is no
-  ``B.g`` or ``C.h`` in *m*.
-
-Finally, note that we still allow real bound methods to be handled and
-passed around in the way that is quite unique to Python: if ``meth`` is
-the name of a method of *x*, then ``y = x.meth`` is allowed, and the
-object *y* can be passed around and stored in data structures.  However,
-we do not allow such objects to be stored directly back into other
-instances (it is the purpose of the check in the rule for ``setattr``).
-This would create a confusion between class-level and instance-level
-attributes in a subsequent ``getattr``.  It is a limitation of our
-annotator to not distinguish these two levels -- there is only one set
-of ``v_C.attr`` variables for both.
+  objects ``A.f`` would be included in the *newset* if and only if there
+  is no ``B.g`` or ``C.h`` in *m*.
 
 
 Calls
 ~~~~~
 
-A call in the user program turns into a ``simple_call`` operation whose
-first argument is the object to call.  Here is the corresponding rule --
-regrouping all cases because a single ``Pbc(set)`` annotation could mix
-several kinds of callables::
+A call in the user program is represented by a ``simple_call`` operation
+whose first argument is the object to call.  Here is the corresponding
+rule -- regrouping all cases because a single ``Pbc(set)`` annotation
+could theoretically mix several kinds of callables::
 
-         z=simple_call(x,y1,...,yn), b(x)=Pbc(set)
+         z=simple_call(x,y1,...,yn) | z', b(x)=Pbc(set)
       ---------------------------------------------------------------------
            for each c in set:
                if c is a function:
-                   E' = E union (z ~ returnvar_c)
+                   E' = E union (z' ~ returnvar_c)
+                   b' = b with (z->b(z'))
                    merge b(y1) => arg_c_1
                    ...
                    merge b(yn) => arg_c_n
                if c is a class:
-                   let f = c.__init__
+                   let f = c.__init__    # the constructor
                    merge Inst(c) => z
                    merge Inst(c) => arg_f_1
                    merge b(y1) => arg_f_2
@@ -1338,7 +1338,8 @@ several kinds of callables::
                    merge b(yn) => arg_f_(n+1)
                if c is a method:
                    let class.f = c
-                   E' = E union (z ~ returnvar_f)
+                   E' = E union (z' ~ returnvar_f)
+                   b' = b with (z->b(z'))
                    merge Inst(class) => arg_f_1
                    merge b(y1) => arg_f_2
                    ...
@@ -1367,12 +1368,13 @@ mathematically-minded reader.
 Generalisation
 **************
 
-We first have to check that each rule can only turn a state *(b,E)* into
-a state *(b',E')* that is either identical or more general.  Clearly,
-*E'* can only be generalised -- applying a rule can only add new
-identifications, not remove existing ones.  What is left to check is
-that the annotation ``b(v)`` of each variable, when modified, can only
-become more general.  We prove it in the following order:
+We first have to check that during the annotation process each rule can
+only turn a state *(b,E)* into a state *(b',E')* that is either
+identical or more general.  Clearly, *E'* can only be generalised --
+applying a rule can only add new identifications, not remove existing
+ones.  What is left to check is that the annotation ``b(v)`` of each
+variable, when modified, can only become more general (i.e. be
+increased, in the lattice order).  We prove it in the following order:
 
 1. the annotations of the input variables of blocks;
 
@@ -1388,9 +1390,10 @@ Proof:
 1. Input variables of blocks
 
    The annotation of these variables are only modified by the ``phi``
-   rule, which is based on ``merge``.  The ``merge`` operation trivially
-   guarantees the property of generalisation because it is based on the
-   union operator ``\/`` of the lattice.
+   and ``simple_call`` rules, which are based on ``merge``.  The
+   ``merge`` operation trivially guarantees the property of
+   generalisation because it is based on the union operator ``\/`` of
+   the lattice.
 
 2. Auxiliary variables of operations
 
@@ -1420,12 +1423,13 @@ Proof:
 
    To prove our claim, first note that none of these input and result
    variables is ever identified with any other variable via *E*: indeed,
-   the rules described above only identify auxiliary variables and
-   attribute-of-class variables with each other.  It means that the only
-   way the result variable *z* of an operation can be modified is
-   directly by the rule or rules specific to that operation.  This
-   allows us to check the property of generalisation on a case-by-case
-   basis.
+   the rules described above only identify auxiliary variables or
+   attribute-of-class variables with each other (the variables that
+   appear in ``List`` annotations are always auxiliary variables too).
+   It means that the only way the result variable *z* of an operation
+   can be modified is directly by the rule or rules specific to that
+   operation.  This allows us to check the property of generalisation on
+   a case-by-case basis.
 
    Most cases are easy to check.  Cases like ``b' = b with (z->b(z'))``
    are based on point 2 above.  The only non-trivial case is in the rule
