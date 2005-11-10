@@ -1081,3 +1081,10 @@ ul.auto-toc {
 div.section {
   margin-top: 1.0em ;
 }    
+
+div.abstract {
+  margin: 2em 4em }
+
+div.abstract p.topic-title {
+  font-weight: bold ;
+  text-align: center }
