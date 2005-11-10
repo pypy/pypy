@@ -26,7 +26,7 @@ class TestGenLLVM(object):
         assert f(1) == 12
         assert f(0) == 13
 
-    def DONTtest_ackermann(self):
+    def test_ackermann(self):
         f = compile_function(llvmsnippet.ackermann, [int, int])
         for i in range(7):  #>7 js error: too much recursion?!?
             assert f(0, i) == i + 1
@@ -34,16 +34,16 @@ class TestGenLLVM(object):
             assert f(2, i) == 2 * i + 3
             assert f(3, i) == 2 ** (i + 3) - 3
 
-    def DONTtest_calling(self):
+    def test_calling(self):
         f = compile_function(llvmsnippet.calling1, [int])
         assert f(10) == 1
 
-    def DONTtest_call_default_arguments(self):
+    def test_call_default_arguments(self):
         f = compile_function(llvmsnippet.call_default_arguments, [int, int])
         for i in range(3):
             assert f(i + 3, i) == llvmsnippet.call_default_arguments(i + 3, i)
 
-    def DONTtest_call_list_default_argument(self):
+    def DONTtest_call_list_default_argument(self):  #issue unknown
         f = compile_function(llvmsnippet.call_list_default_argument, [int])
         for i in range(20):
             assert f(i) == llvmsnippet.call_list_default_argument(i)
@@ -65,7 +65,7 @@ class TestFloat(object):
 
 
 class TestString(object):
-    def DONTtest_f2(self):
+    def DONTtest_f2(self):  #issue with empty Object mallocs
         f = compile_function(llvmsnippet.string_f2, [int, int])
         assert chr(f(1, 0)) == "a"
 
@@ -78,7 +78,7 @@ class TestPBC(object):
         assert f(2) == 6
         assert f(3) == 8
 
-    def DONTtest_pbc_function2(self):
+    def DONTtest_pbc_function2(self):   #issue with empty Object mallocs
         f = compile_function(llvmsnippet.pbc_function2, [int])
         assert f(0) == 13
         assert f(1) == 15

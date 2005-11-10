@@ -13,8 +13,7 @@ class FuncNode(Node):
     def __init__(self, db, value):
         self.db = db
         self.value = value
-        pypy_prefix     = '' #pypy_
-        self.ref   = self.make_ref(pypy_prefix, value.graph.name)
+        self.ref   = db.namespace.uniquename(value.graph.name)
         self.graph = value.graph
 
     def __str__(self):
@@ -40,9 +39,9 @@ class FuncNode(Node):
         assert self.graph, "cannot traverse"
         traverse(visit, self.graph)
 
-    def writeimpl(self, codewriter):
+    def write_implementation(self, codewriter):
         graph = self.graph
-        log.writeimpl(graph.name)
+        log.writeimplemention(graph.name)
         blocks = [x for x in flatten(graph) if isinstance(x, Block)]
         self.blockindex= {}
         for i, block in enumerate(blocks):
@@ -95,7 +94,7 @@ class FuncNode(Node):
         for op_index, op in enumerate(block.operations):
             if op_index == last_op_index:
                 #could raise an exception and should therefor have a function
-                #implementation that can be invoked by the llvm-code.
+                #implementation that can be invoked by the outputed code.
                 invoke_prefix = 'invoke:'
                 assert not op.opname.startswith(invoke_prefix)
                 op.opname = invoke_prefix + op.opname

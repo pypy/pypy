@@ -1,6 +1,7 @@
 
 import sys
 
+from pypy.translator.js.support import JavascriptNameManager
 from pypy.translator.js.funcnode import FuncNode
 from pypy.translator.js.structnode import StructNode, StructVarsizeNode
 from pypy.translator.js.arraynode import ArrayNode, StrArrayNode, VoidArrayNode
@@ -27,6 +28,7 @@ class Database(object):
         self.obj2node = {}
         self._pendingsetup = []
         self._tmpcount = 1
+        self.namespace = JavascriptNameManager()
 
     #_______setting up and preperation______________________________
 
@@ -34,10 +36,6 @@ class Database(object):
         node = None
         if isinstance(type_, lltype.FuncType):
             node = FuncNode(self, value)
-            #if getattr(value._callable, "suggested_primitive", False):
-            #    node = ExternalFuncNode(self, value)
-            #else:
-            #    node = FuncNode(self, value)
 
         elif isinstance(type_, lltype.Struct):
             if type_._arrayfld:
@@ -147,7 +145,7 @@ class Database(object):
                 if node is None:
                     return 'null'
                 else:
-                    return node.ref #get_ref()
+                    return node.ref
         else:
             assert isinstance(arg, Variable)
             return str(arg)
@@ -190,11 +188,11 @@ class Database(object):
                 return None, "null"
 
             node = self.obj2node[value]
-            return node, node.ref #node.get_ref()
+            return node, node.ref #node.get _ref()
 
         elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):
             node = self.obj2node[value]
-            return node, node.constantvalue()
+            return node, node.ref #node.constantvalue()
 
         assert False, "%s not supported" % (type(value))
 
@@ -214,7 +212,7 @@ class Database(object):
 
     def float_to_str(self, value):
         repr = "%f" % value
-        # llvm requires a . when using e notation
+        # javascript requires a . when using e notation
         if "e" in repr and "." not in repr:
             repr = repr.replace("e", ".0e")
         elif repr in ["inf", "nan"] or 'INF' in repr or 'IND' in repr:
@@ -244,21 +242,23 @@ class Database(object):
             repr = str(ord(value))
         elif type_ is lltype.Float:
             repr = self.float_to_str(value)
+        elif type_ is lltype.Void:
+            repr = "undefined"
         else:
             repr = str(value)
         return repr
 
     # __________________________________________________________
     # Other helpers
-
-    def is_function_ptr(self, arg):
-        if isinstance(arg, (Constant, Variable)): 
-            arg = arg.concretetype 
-            if isinstance(arg, lltype.Ptr):
-                if isinstance(arg.TO, lltype.FuncType):
-                    return True
-        return False
-     
-    def get_childref(self, parent, child):
-        node = self.obj2node[parent]
-        return node.get_childref(child)
+    #
+    #def is_function_ptr(self, arg):
+    #    if isinstance(arg, (Constant, Variable)): 
+    #        arg = arg.concretetype 
+    #        if isinstance(arg, lltype.Ptr):
+    #            if isinstance(arg.TO, lltype.FuncType):
+    #                return True
+    #    return False
+    # 
+    #def get_childref(self, parent, child):
+    #    node = self.obj2node[parent]
+    #    return node.get_childref(child)

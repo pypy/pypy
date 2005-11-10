@@ -66,7 +66,7 @@ def test_is():
     result = fn()
     assert result == False
 
-def DONTtest_nones():
+def test_nones():
     a = [None] * 4
     def nones():        
         a.append(None)
@@ -75,88 +75,89 @@ def DONTtest_nones():
     result = fn()
     assert result == 4
 
-def DONTtest_str_compare():
-    def testfn(i, j):
+def DONTtest_str_compare(): #issue with skipped/incorrect cast sbyte -> ubyte
+    def testfn_eq(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] == s2[j]
-    fn = compile_function(testfn, [int, int])
+    fn = compile_function(testfn_eq, [int, int])
     for i in range(2):
         for j in range(6):
             res = fn(i, j)
-            assert res == testfn(i, j)
+            assert res == testfn_eq(i, j)
 
-    def testfn(i, j):
+    def testfn_ne(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] != s2[j]
-    fn = compile_function(testfn, [int, int])
+    fn = compile_function(testfn_ne, [int, int])
     for i in range(2):
         for j in range(6):
             res = fn(i, j)
-            assert res == testfn(i, j)
+            assert res == testfn_ne(i, j)
 
-    def testfn(i, j):
+    def testfn_lt(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] < s2[j]
-    fn = compile_function(testfn, [int, int])
+    fn = compile_function(testfn_lt, [int, int])
     for i in range(2):
         for j in range(6):
             res = fn(i, j)
-            assert res == testfn(i, j)
+            assert res == testfn_lt(i, j)
 
-    def testfn(i, j):
+    def testfn_le(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] <= s2[j]
-    fn = compile_function(testfn, [int, int])
+    fn = compile_function(testfn_le, [int, int])
     for i in range(2):
         for j in range(6):
             res = fn(i, j)
-            assert res == testfn(i, j)
+            assert res == testfn_le(i, j)
 
-    def testfn(i, j):
+    def testfn_gt(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] > s2[j]
-    fn = compile_function(testfn, [int, int])
+    fn = compile_function(testfn_gt, [int, int])
     for i in range(2):
         for j in range(6):
             res = fn(i, j)
-            assert res == testfn(i, j)
+            assert res == testfn_gt(i, j)
 
-    def testfn(i, j):
+    def testfn_ge(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
         return s1[i] >= s2[j]
-    fn = compile_function(testfn, [int, int])
+    fn = compile_function(testfn_ge, [int, int])
     for i in range(2):
         for j in range(6):
             res = fn(i, j)
-            assert res == testfn(i, j)
+            assert res == testfn_ge(i, j)
 
-def DONTtest_str_methods():
-    def testfn(i, j):
+def test_str_methods():
+    def testfn_startswith(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
         return s1[i].startswith(s2[j])
-    fn = compile_function(testfn, [int, int])
+    fn = compile_function(testfn_startswith, [int, int])
     for i in range(2):
         for j in range(9):
             res = fn(i, j)
-            assert res == testfn(i, j)
-    def testfn(i, j):
+            assert res == testfn_startswith(i, j)
+
+    def testfn_endswith(i, j):
         s1 = ['one', 'two']
         s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
         return s1[i].endswith(s2[j])
-    fn = compile_function(testfn, [int, int])
+    fn = compile_function(testfn_endswith, [int, int])
     for i in range(2):
         for j in range(9):
             res = fn(i, j)
-            assert res == testfn(i, j)
+            assert res == testfn_endswith(i, j)
 
-def DONTtest_str_join():
+def DONTtest_str_join():    #issue unknown
     def testfn(i, j):
         s1 = [ '', ',', ' and ']
         s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
@@ -208,9 +209,7 @@ def test_unichr_unichr():
             assert res == f(i, ord(l[j]))
 
 # floats 
-def DONTtest_float_operations(): 
-    #llvm rem operation working starting llvm1.6")    
-    #see: http://llvm.cs.uiuc.edu/bugs/show_bug.cgi?id=611
+def DONTtest_float_operations():    #issue is blocked block
     def func(x, y): 
         z = x + y / 2.1 * x 
         z = z % 60.0
@@ -244,7 +243,7 @@ def test_constant_return_disagreement():
     res = compile_function(fn, [])()
     assert res == 0
 
-def DONTtest_stringformatting():
+def DONTtest_stringformatting():    #issue also blocked block
     def fn(i):
         return "you said %d, you did" % i
     def wrapper(i):
@@ -271,7 +270,7 @@ def test_int_invert():
     for i in range(-15, 15):
         assert f(i) == fn(i)
 
-def DONTtest_uint_invert():
+def XXXtest_uint_invert():
     def fn(i):
         inverted = ~i
         inverted -= sys.maxint

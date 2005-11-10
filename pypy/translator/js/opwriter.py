@@ -2,7 +2,6 @@ import py
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rmodel import inputconst, getfunctionptr
-#from pypy.translator.js.extfuncnode import ExternalFuncNode
 from pypy.translator.js.log import log 
 log = log.opwriter
 
@@ -190,9 +189,11 @@ class OpWriter(object):
         " works for all casts "
         assert len(op.args) == 1
         targetvar = self.db.repr_arg(op.result)
-        targettype = self.db.repr_arg_type(op.result)
+        #targettype = self.db.repr_arg_type(op.result)
+        targettype = self.db.repr_concretetype(op.result.concretetype)
         fromvar = self.db.repr_arg(op.args[0])
-        fromtype = self.db.repr_arg_type(op.args[0])
+        #fromtype = self.db.repr_arg_type(op.args[0])
+        fromtype = self.db.repr_concretetype(op.args[0].concretetype)
         intermediate = self.db.repr_tmpvar()
         self.codewriter.cast(intermediate, fromtype, fromvar, "ubyte")
         self.codewriter.cast(targetvar, "ubyte", intermediate, targettype)
@@ -281,7 +282,7 @@ class OpWriter(object):
         for exit in self.block.exits[1:]:
             assert issubclass(exit.exitcase, Exception)
             exception_match  = self.db.translator.rtyper.getexceptiondata().ll_exception_match.__name__
-            exception_ref    = self.db.obj2node[exit.llexitcase._obj].get_ref()
+            exception_ref    = self.db.obj2node[exit.llexitcase._obj].ref #get _ref()
             exception_target = self.node.blockindex[exit.target]
             exception        = (exception_match, exception_ref, exception_target, exit)
             exceptions.append(exception)
@@ -312,7 +313,8 @@ class OpWriter(object):
         targettype = 'undefined' #self.db.repr_arg_type(op.result)
         if targettype != "void" and \
             not targetvar.startswith('etype_'):
-            self.codewriter.append('%s = %s.%s' % (targetvar, struct, op.args[1].value)) #XXX move to codewriter
+            f = self.db.namespace.ensure_non_reserved(op.args[1].value)
+            self.codewriter.append('%s = %s.%s' % (targetvar, struct, f)) #XXX move to codewriter
         else:
             self._skipped(op)
  
@@ -322,7 +324,8 @@ class OpWriter(object):
         targetvar = self.db.repr_arg(op.result)
         #targettype = self.db.repr_arg_type(op.result)
         #assert targettype != "void"
-        self.codewriter.append('%s = %s.%s' % (targetvar, struct, op.args[1].value)) #XXX move to codewriter
+        f = self.db.namespace.ensure_non_reserved(op.args[1].value)
+        self.codewriter.append('%s = %s.%s' % (targetvar, struct, f)) #XXX move to codewriter
         #self.codewriter.getelementptr(targetvar, structtype, struct, ("uint", index))        
          
     def setfield(self, op): 
@@ -330,7 +333,8 @@ class OpWriter(object):
         valuevar = self.db.repr_arg(op.args[2])
         valuetype = 'undefined'  #XXX how to get to this when no longer keep track of type
         if valuetype != "void":
-            self.codewriter.append('%s.%s = %s' % (struct, op.args[1].value, valuevar)) #XXX move to codewriter
+            f = self.db.namespace.ensure_non_reserved(op.args[1].value)
+            self.codewriter.append('%s.%s = %s' % (struct, f, valuevar)) #XXX move to codewriter
         else:
             self._skipped(op)
 

@@ -9,7 +9,7 @@ from pypy.rpython import rarithmetic
 
 S = lltype.Struct("base", ('a', lltype.Signed), ('b', lltype.Signed))
 
-def DONTtest_struct_constant1():
+def test_struct_constant1():
     P = lltype.GcStruct("s",
                         ('signed', lltype.Signed),
                         ('unsigned', lltype.Unsigned),
@@ -28,7 +28,7 @@ def DONTtest_struct_constant1():
     f = compile_function(struct_constant, [])
     assert f() == struct_constant()
 
-def DONTtest_struct_constant2():
+def test_struct_constant2():
     S2 = lltype.GcStruct("struct2", ('a', lltype.Signed), ('s1', S), ('s2', S))
 
     s = lltype.malloc(S2)

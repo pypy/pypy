@@ -45,7 +45,6 @@ function runTest() {
 </head>
 <body>
 <pre>
-// filename: %(jsfilename)s
 // testcase: %(jstestcase)s
 %(jscode)s
 </pre>

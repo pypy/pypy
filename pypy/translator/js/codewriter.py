@@ -45,9 +45,6 @@ class CodeWriter(object):
     def comment(self, line):
         self.append("// " + line)
 
-    def llvm(self, line):
-        self.comment("LLVM " + line)
-
     def newline(self):
         self.append("")
 
@@ -63,10 +60,6 @@ class CodeWriter(object):
         self.indent_less()
         self.indent_less()
         self.skip_closeblock(False)
-
-    def globalinstance(self, lines=[]):
-        for line in lines:
-            self.append(line)
 
     def declare(self, decl):
         self.append(decl)
@@ -112,13 +105,6 @@ class CodeWriter(object):
         self.append('}')
         self.skip_closeblock()
 
-    #def switch(self, intty, cond, defaultdest, value_label):
-    #    labels = ''
-    #    for value, label in value_label:
-    #        labels += ' %s %s, label %s' % (intty, value, label)
-    #    self.llvm("switch %s %s, label %s [%s ]"
-    #                % (intty, cond, defaultdest, labels))
-
     def openfunc(self, decl, funcnode, blocks): 
         self.decl     = decl
         self.funcnode = funcnode
@@ -132,7 +118,6 @@ class CodeWriter(object):
             for op in block.operations:
                 targetvar = self.js.db.repr_arg(op.result)
                 usedvars[targetvar] = True
-        self.newline()
         self.append("function %s {" % self.decl)
         self.indent_more()
         if usedvars:
@@ -147,6 +132,7 @@ class CodeWriter(object):
         self.append("}")
         self.indent_less()
         self.append("};")
+        self.newline()
 
     def ret(self, ref=''): 
         self.append("return " + ref)
@@ -216,7 +202,8 @@ class CodeWriter(object):
         elif targettype in ('bool',):
             self.append("%(targetvar)s = %(fromvar)s == 0" % locals())
         else:
-            self.llvm("%(targetvar)s = cast %(fromtype)s %(fromvar)s to %(targettype)s" % locals())
+            self.comment("next line should be: %(targetvar)s = cast %(fromtype)s %(fromvar)s to %(targettype)s" % locals())
+            self.append("%(targetvar)s = %(fromvar)s" % locals())
 
     def malloc(self, targetvar, type_):
         self.append('%(targetvar)s = new %(type_)s()' % locals())
@@ -224,7 +211,7 @@ class CodeWriter(object):
     def getelementptr(self, targetvar, type, typevar, *indices):
         res = "%(targetvar)s = getelementptr %(type)s %(typevar)s, word 0, " % locals()
         res += ", ".join(["%s %s" % (t, i) for t, i in indices])
-        self.llvm(res)
+        self.comment(res)
 
         #res = "%(targetvar)s = %(typevar)s" % locals()
         #res += ''.join(['[%s]' % i for t, i in indices])

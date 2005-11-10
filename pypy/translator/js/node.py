@@ -1,51 +1,18 @@
 from pypy.rpython.lltypesystem import lltype
 
 
-_nodename_count = {}
-
 class Node(object):
-    def reset_nodename_count():
-        global _nodename_count
-        _nodename_count = {}
-    reset_nodename_count = staticmethod(reset_nodename_count)
-
-    def make_name(self, name):
-        " helper for creating names"
-        if " " in name or "<" in name: 
-            name = '"%s"' % name
-        name = name.replace('.', '_')
-
-        global _nodename_count 
-        if name in _nodename_count:
-            postfix = '_%d' % _nodename_count[name]
-            _nodename_count[name] += 1
-        else:
-            postfix = ''
-            _nodename_count[name] = 1
-        return name + postfix
-
-    def make_ref(self, prefix, name):
-        return self.make_name(prefix + name)
-
     def setup(self):
-        pass
+        """ sets node.ref and calls database prepare_* methods """
 
-    def writeglobalconstants(self, codewriter):
-        """ write out global values.  """
-
-    def writedecl(self, codewriter):
-        """ write function forward declarations. """ 
-
-    # __________________ after "implementation" ____________________
-    def writeimpl(self, codewriter):
+    def write_implementation(self, codewriter):
         """ write function implementations. """ 
 
-    # __________________ output "constant's data"  ____________________
-    def constantvalue(self):
-        """ Returns the constant representation for this node. """
-        return []
-    
-    def writeglobalconstants(self, codewriter):
-        p, c = lltype.parentlink(self.value)
-        if p is None:
-            codewriter.globalinstance( self.constantvalue() )
+    def write_forward_struct_declaration(self, codewriter):
+        """ write forward declarations for global data. """ 
+
+    def write_global_array(self, codewriter):
+        """ write out global array data.  """
+        
+    def write_global_struct(self, codewriter):
+        """ write out global struct data.  """
