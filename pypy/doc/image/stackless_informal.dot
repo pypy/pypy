@@ -11,7 +11,7 @@ digraph mul_graph {
         mul_4 [shape="ellipse", label="store y and z on the heap\nstart unwinding the stack", color="blue"];
         mul_5 [shape="box", label="result = p + y"];
         mul_r3 [shape="ellipse", label="load saved variables y and z\lfrom the heap", color="blue"];
-        mul_s3 [shape="ellipse", label="save x and y to the heap\lcontinue unwinding", color="blue"];
+        mul_s3 [shape="ellipse", label="save y and z to the heap\lcontinue unwinding", color="blue"];
         mul -> mul_r [label="startblock"];
         mul_r -> mul_0 [label="No: x  y"];
         mul_r -> mul_r3 [label="Yes: (ignore input args)"];
