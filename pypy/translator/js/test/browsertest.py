@@ -23,7 +23,11 @@ function runTest() {
     try {
         result = %(jstestcase)s;
     } catch (e) {
-        result = "Exception('" + e.toSource() + "')"
+        try {
+            result = "raise Exception('" + e.toSource() + "')";
+        } catch (dummy) {
+            result = "raise Exception('unknown')";
+        }
     }
     var resultform = document.forms['resultform'];
     resultform.result.value = result;
