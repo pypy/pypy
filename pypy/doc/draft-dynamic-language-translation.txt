@@ -5,12 +5,14 @@
 :Abstract: We present PyPy's analysis and compilation toolchain,
            which is used to translate RPython programs like PyPy's
            standard interpreter into stand-alone efficient
-           executables.  Modern dynamic languages pose difficulties
-           to program analysis; we will debate them and motivate our
-           basic approach.  We give an extended theoretical description
-           of our toolchain and its rather complicated design.  This
-           design is justified by our flexibility goals: we can target
-           a wide range of run-time platforms, inserting the necessary
+           executables.
+
+           Modern dynamic languages pose difficulties to
+           program analysis; we debate them and introduce our
+           basic approach.  We then give an extended theoretical
+           description of our toolchain and its design, motivated by
+           advanced flexibility goals: we can indeed target a wide
+           range of run-time platforms, inserting the necessary
            low-level details (e.g. memory management) as part of the
            translation process; and for each target we can experiment
            with a number of additional translation aspects like
