@@ -16,12 +16,13 @@ from pypy.translator.js.node import Node
 from pypy.translator.js.database import Database 
 from pypy.translator.js.codewriter import CodeWriter
 from pypy.translator.js.log import log
-
+from pypy.translator.js import conftest
 
 class JS(object):   # JS = Javascript
-    def __init__(self, translator, entrypoint=None):
+    def __init__(self, translator, entrypoint=None, stackless=False):
         self.db = Database(translator)
         self.entrypoint = entrypoint or translator.entrypoint
+        self.stackless = stackless or conftest.option.jsstackless
 
     def write_source(self):
         func = self.entrypoint
@@ -63,7 +64,14 @@ class JS(object):   # JS = Javascript
         codewriter.newline()
         for node in self.db.getnodes():
             node.write_global_struct(codewriter)
+        codewriter.newline()
 
+        if self.stackless:
+            codewriter.comment("Global data for stackless feature")
+            codewriter.newline()
+            codewriter.append("slp_frame_stack_top = null")
+            codewriter.append("slp_resume_block    = 0")
+            codewriter.newline()
         f.close()
 
         entry_point= c.value._obj

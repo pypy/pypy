@@ -48,11 +48,11 @@ class CodeWriter(object):
     def newline(self):
         self.append("")
 
-    def openblock(self, name):
+    def openblock(self, blocknum):
         self.indent_more()
-        self.append("case %d:" % name)
+        self.append("case %d:" % blocknum)
         self.indent_more()
-        self._currentblock = name
+        self._currentblocknum = blocknum
 
     def closeblock(self):
         if not self._skip_closeblock:
@@ -64,11 +64,11 @@ class CodeWriter(object):
     def declare(self, decl):
         self.append(decl)
 
-    def _goto_block(self, block):
-        if block == self._currentblock + 1:
+    def _goto_block(self, blocknum):
+        if blocknum == self._currentblocknum + 1:
             self._skip_closeblock = True
         else:
-            self.append('block = ' + str(block))
+            self.append('block = ' + str(blocknum))
             self.append('break')
 
     def _phi(self, exit):
@@ -86,21 +86,21 @@ class CodeWriter(object):
                     src = 'e'   #i.e. the caught exception
                 self.append('%s = %s' % (dest, src))
 
-    def br_uncond(self, block, exit): 
+    def br_uncond(self, blocknum, exit): 
         self._phi(exit)
-        self._goto_block(block)
+        self._goto_block(blocknum)
         self.skip_closeblock()
 
-    def br(self, cond, block_false, exit_false, block_true, exit_true):
+    def br(self, cond, blocknum_false, exit_false, blocknum_true, exit_true):
         self.append('if (%s) {' % cond)
         self.indent_more()
         self._phi(exit_true)
-        self._goto_block(block_true)
+        self._goto_block(blocknum_true)
         self.indent_less()
         self.append('} else {')
         self.indent_more()
         self._phi(exit_false)
-        self._goto_block(block_false)
+        self._goto_block(blocknum_false)
         self.indent_less()
         self.append('}')
         self.skip_closeblock()
@@ -109,29 +109,59 @@ class CodeWriter(object):
         self.decl     = decl
         self.funcnode = funcnode
         self.blocks   = blocks
-        usedvars      = {}  #XXX could probably be limited to inputvars
+        self._save_blocknum   = len(blocks)+1000
+        self._resume_blocknum = len(blocks)+1001
+        self._usedvars = {}
+        paramstr = decl.split('(')[1][:-1]
+        for param in paramstr.split(','):
+            param = param.strip()
+            if param:
+                self._usedvars[param] = True
         for block in blocks:
             if block != blocks[0]:  #don't double startblock inputargs
                 for inputarg in block.inputargs:
                     targetvar = self.js.db.repr_arg(inputarg)
-                    usedvars[targetvar] = True
+                    self._usedvars[targetvar] = True
             for op in block.operations:
                 targetvar = self.js.db.repr_arg(op.result)
-                usedvars[targetvar] = True
+                self._usedvars[targetvar] = True
+
         self.append("function %s {" % self.decl)
         self.indent_more()
-        if usedvars:
-            self.append("var %s" % ', '.join(usedvars.keys()))
-        self.append("for (var block = 0;;) {")
+        if self._usedvars:
+            self.append("var %s" % ', '.join(self._usedvars.keys()))
+            
+        if self.js.stackless:
+            initial_block = "slp_frame_stack_top ? %d : 0" % self._resume_blocknum
+        else:
+            initial_block = '0'
+
+        self.append("for (block = %s;;) {" % initial_block)
         self.indent_more()
         self.append("switch (block) {")
 
     def closefunc(self): 
-        self.append("}")
+        if self.js.stackless:   #save&restore all local variable for now
+            self.openblock(self._save_blocknum)
+            self.comment('save block for stackless feature')
+            self.append('slp_frame_stack_top = new Array(slp_resume_block, %s)' % ', '.join(self._usedvars.keys()))
+            self.append('return undefined')
+            self.skip_closeblock()
+            self.closeblock()
+
+            self.openblock(self._resume_blocknum)
+            self.comment('resume block for stackless feature')
+            self.append('block = slp_frame_stack_top[0]')
+            for i, k in enumerate(self._usedvars.keys()):
+                self.append('%s = slp_frame_stack_top[%d]' % (k, i+1))
+            self.append('slp_frame_stack_top = null')
+            self.closeblock()
+
+        self.append("}")    #end of switch
         self.indent_less()
-        self.append("}")
+        self.append("}")    #end of forever (block) loop
         self.indent_less()
-        self.append("};")
+        self.append("};")   #end of function
         self.newline()
 
     def ret(self, ref=''): 
