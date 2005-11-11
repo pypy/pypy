@@ -33,7 +33,8 @@ only of Python but of most modern dynamic languages:
 * The driving force is not minimalistic elegance.  It is a balance between
   elegance and practicality, and rather un-minimalistic -- the feature
   sets built into languages tend to be relatively large and growing
-  (to some extent, depending on the language).
+  (to some extent, depending on the community driving the evolution of
+  the language).
 
 * High abstractions and theoretically powerful low-level primitives are
   generally ruled out in favour of a larger number of features that try to
@@ -41,12 +42,12 @@ only of Python but of most modern dynamic languages:
   these languages as mere libraries on top of some simpler (unspecified)
   language.
 
-* Implementation-wise, language design is no longer driven by a desire
-  to enable high performance; any feature straightforward enough to
-  achieve with an interpreter is a candidate for being accepted.  As a
-  result, compilation and most kinds of static inference are made
-  impossible due to this dynamism (or at best tedious, due to the
-  complexity of the language).
+* Language design is no longer driven by a desire to enable high
+  performance; any feature straightforward enough to implement in an
+  interpreter is a candidate for being accepted.  As a result,
+  compilation and most kinds of static inference are made impossible due
+  to this dynamism (or at best tedious, due to the complexity of the
+  language).
 
 
 No Declarations
@@ -65,18 +66,19 @@ other module executing an ``import`` statement.  Any such statement --
 class construction or module import -- can be executed at any time during
 the execution of a program.
 
-This point of view should help explain why an analysis of a program is
-theoretically impossible: there is no declared structure.  The program
-could for example build a class in completely different ways based on the
-results of NP-complete computations or external factors.  This is not just
-a theoretical possibility but a regularly used feature: for example, the
-standard Python module ``os.py`` provides some OS-independent interface to
-OS-specific system calls, by importing internal OS-specific modules and
-completing it with substitute functions, as needed by the OS on which
-``os.py`` turns out to be executed.  Many large Python projects use custom
-import mechanisms to control exactly how and from where each module is
-loaded, by tampering with import hooks or just emulating parts of the
-``import`` statement manually.
+This point of view should help explain why analysis of a program is
+theoretically impossible: there is no declared structure to analyse.
+The program could for example build a class in completely different ways
+based on the results of NP-complete computations or external factors.
+This is not just a theoretical possibility but a regularly used feature:
+for example, the standard Python module ``os.py`` provides some
+OS-independent interface to OS-specific system calls, by importing
+internal OS-specific modules and completing it with substitute
+functions, as needed by the OS on which ``os.py`` turns out to be
+executed.  Many large Python projects use custom import mechanisms to
+control exactly how and from where each module is loaded, by tampering
+with import hooks or just emulating parts of the ``import`` statement
+manually.
 
 In addition, there are of course classical (and only partially true)
 arguments against compiling dynamic languages (there is an ``eval``
@@ -137,9 +139,7 @@ that a new function could reach the particular variable mentioned above,
 the analysis tool itself will invoke the class-building code in
 `interpreter/gateway.py`_ as part of the inference process.  This
 triggers the building of the necessary wrapper class, implicitly
-extending the set of classes that need to be analysed.  (This is
-essentially done by a hint that marks the code building the wrapper
-class for a given function as requiring memoization.)
+extending the set of classes that need to be analysed.
 
 This approach is derived from dynamic analysis techniques that can
 support unrestricted dynamic languages by falling back to a regular
@@ -178,9 +178,8 @@ spaces in front of the real one, as in the `Thunk Object Space`_ which adds
 lazy evaluation of objects.
 
 Note that the term "object space" has already been reused for other
-dynamic language implementations, e.g. such as this post
-http://www.nntp.perl.org/group/perl.perl6.compiler/1107 on the Perl 6
-compiler mailing list.
+dynamic language implementations, e.g. such as this `post on the Perl 6
+compiler mailing list`_.
 
 
 Abstract interpretation
@@ -268,12 +267,12 @@ is itself written in the RPython subset.  This is done in order to allow
 our analysis toolchain to apply to PyPy itself.  Indeed, the primary
 goal is to allow us to implement the full Python language only once, as
 an interpreter, and derive interesting tools from it; doing so requires
-this interpreter to be analysable, hence the existence RPython.  The
-RPython language and our whole toolchain, despite their potential
-attraction, are so far meant as an internal detail of the PyPy project.
-The programs that we are deriving or plan to derive from PyPy include
-versions that run on very diverse platforms (from C to Java/.NET to
-Smalltalk), and also versions with modified execution models (from
+this interpreter to be amenable to analysis, hence the existence of
+RPython.  The RPython language and our whole toolchain, despite their
+potential attraction, are so far meant as an internal detail of the PyPy
+project.  The programs that we are deriving or plan to derive from PyPy
+include versions that run on very diverse platforms (from C to Java/.NET
+to Smalltalk), and also versions with modified execution models (from
 microthreads/coroutines to just-in-time compilers).  This is why we have
 split the process in numerous interrelated phases, each at its own
 abstraction level.  By enabling changes to the appropriate level, this
@@ -284,12 +283,13 @@ each component is justified (see below for *how* each component reaches
 the claimed goals):
 
 * the `Flow Object Space`_ is a short but generic plug-in component for
-  the Python interpreter of PyPy (an abstract domain, more precisely).
-  This means that it is independent of most language details.  Changes
-  in syntax or in bytecode format or opcode semantics only need to be
-  implemented once, in the standard Python interpreter.  In effect, the
-  Flow Object Space enables an interpreter for *any* language to work as
-  a front-end for the rest of the toolchain.
+  the Python interpreter of PyPy: it builds control flow graphs of
+  functions by recording the operations issued by the *unmodified*
+  interpreter.  This means that it is independent of most language
+  details.  Changes in syntax or in bytecode format or opcode semantics
+  only need to be implemented once, in the standard Python interpreter.
+  In effect, the Flow Object Space enables an interpreter for *any*
+  language to work as a front-end for the rest of the toolchain.
 
 * the `Annotator`_ performs type inference.  This part is best
   implemented separately from other parts because it is based on a
@@ -342,12 +342,12 @@ each bytecode, allowing a trace of the execution to be gathered.  Frames
 have run/resume methods which embed the interpretation loop and invoke
 the hooks at the appropriate times.
 
-The Flow Object Space in our current design is responsible of
-constructing the control flow graph for a single function using abstract
-interpretation.  The domain on which the Flow Space operates comprises
-variables and constant objects. They are stored as such in the frame
-objects without problems because by design the interpreter engine treats
-them as black boxes.
+One of our Object Spaces is the Flow Object Space, or "Flow Space" for
+short.  It role is to construct the control flow graph for a single
+function using abstract interpretation.  The domain on which the Flow
+Space operates comprises variables and constant objects. They are stored
+as such in the frame objects without problems because by design the
+interpreter engine treats them as black boxes.
 
 
 Construction of flow graphs
@@ -457,12 +457,12 @@ state.  The previous block is linked to the two new blocks with
 conditional exits.  At this point, abstract interpretation stops (i.e.
 an exception is raised to interrupt the engine).
 
-The special blocks have no frame state, and cannot be used to setup a
-frame: indeed, unlike normal blocks, which correspond to the state of
-the engine between the execution of two bytecode, special blocks
-correspond to a call to ``is_true`` issued the engine.  The details of
-the engine state (internal call stack and local variables) are not
-available at this point.
+The special blocks have no frame state and thus cannot be used to setup
+a fresh frame.  The reason is that while normal blocks correspond to the
+state of the engine between the execution of two bytecodes, the special
+blocks correspond to a call to ``is_true`` issued by the engine.  The
+details of the engine state (internal call stack and local variables)
+are not available at this point.
 
 However, it is still possible to put the engine back into the state
 where it was calling ``is_true``.  This is what occurs later on, when
@@ -570,19 +570,19 @@ quickly, and it is useful to simplify the flow graphs of some functions.
 This is especially true for functions that are themselves automatically
 generated.
 
-In the PyPy interpreter, for convenience, some of the core functionality
-has been written as application-level Python code, which means that the
-interpreter will consider some core operations as calls to further
-application-level code.  This has, of course, a performance hit due to
-the interpretation overhead.  To minimise this overhead, we
-automatically turn some of this application-level code into
-interpreter-level code, as follows.  Consider the following trivial
-example function at application-level::
+In the PyPy interpreter, for convenience, some of the more complex core
+functionalities are not directly implemented in the interpreter.  They
+are written as "application-level" Python code, i.e. helper code that
+needs to be interpreted just like the rest of the user program.  This
+has, of course, a performance hit due to the interpretation overhead.
+To minimise this overhead, we automatically turn some of this
+application-level code into interpreter-level code, as follows.
+Consider the following trivial example function at application-level::
 
     def f_app(n):
         return n+1
 
-Interpreting it, the engine just issues an ``add`` operation on the
+Interpreting it, the engine just issues an ``add`` operation to the
 object space, which means that it is mostly equivalent to the following
 interpreter-level function::
 
@@ -649,7 +649,7 @@ Static model
 ~~~~~~~~~~~~
 
 The annotator can be considered as taking as input a finite family of
-functions calling each other, and working mainly on the control flow
+functions calling each other, and working on the control flow
 graphs of each of these functions as built by the `Flow Object Space`_.
 Additionally, for a particular "entry point" function, each input
 argument is given a user-specified annotation.
@@ -889,7 +889,7 @@ We should mention (but ignore for the sequel) that all annotations also
 have a variant where they stand for a single known object; this
 information is used in constant propagation.  In addition, we have left
 out a number of other annotations that are irrelevant for the basic
-description of the annotator, and straightforward to handle.  The
+description of the annotator XXX WHICH ONES, and straightforward to handle.  The
 complete list is defined and documented in `pypy/annotation/model.py`_
 and described in the `annotator reference documentation`_.
 
@@ -1034,26 +1034,26 @@ tracks a small set of rules that can possibly apply.  Only these
   This also includes the cases where *x* is the auxiliary variable
   of an operation (see `Flow graph model`_).
 
-These rules and metarules favour a forward propagation: the rule
+These rules and metarule favour a forward propagation: the rule
 corresponding to an operation in a flow graph typically modifies the
 binding of the operation's result variable which is used in a following
 operation in the same block, thus scheduling the following operation's
 rule for consideration.  The actual process is very similar to -- and
 actually implemented as -- abstract interpretation on the flow graphs,
 considering each operation in turn in the order they appear in the
-block.  Effects that are not local to a block trigger a rescheduling of
-the whole block instead of single operations.
+block.  Then for simplicity we reschedule whole blocks instead of single
+operations.
 
 
 Mutable objects
 ~~~~~~~~~~~~~~~
 
 Tracking mutable objects is the difficult part of our approach.  RPython
-contains three types of mutable objects that need special care: lists
-(Python's vectors), dictionaries (mappings), and instances of
-user-defined classes.  The current section focuses on lists;
-dictionaries are similar.  `Classes and instances`_ will be described in
-their own section.
+contains two types of mutable objects that need special care: lists
+(Python's vectors) and instances of user-defined classes.  The current
+section focuses on lists.  `Classes and instances`_ will be described in
+their own section.  (The complete definition of RPython also allows for
+dictionaries, which are similar to lists.)
 
 For lists, we try to derive a homogeneous annotation for all items of the
 list.  In other words, RPython does not support heterogeneous lists.  The
@@ -1112,6 +1112,9 @@ rule::
       --------------------------------------------
                E' = E union (z'~v)
                b' = b with (z->b(z'))
+
+XXX EXPLAIN why not directly z->b(v)
+XXX MENTION that E stands for "read_locations"
 
 If you consider the definition of `merge`_ again, you will notice
 that merging two different lists (for example, two lists that come from
@@ -1337,10 +1340,10 @@ could theoretically mix several kinds of callables::
                    ...
                    merge b(yn) => arg_f_(n+1)
                if c is a method:
-                   let class.f = c
+                   c is of the form cls.f
                    E' = E union (z' ~ returnvar_f)
                    b' = b with (z->b(z'))
-                   merge Inst(class) => arg_f_1
+                   merge Inst(cls) => arg_f_1
                    merge b(y1) => arg_f_2
                    ...
                    merge b(yn) => arg_f_(n+1)
@@ -1432,8 +1435,8 @@ Proof:
    a case-by-case basis.
 
    Most cases are easy to check.  Cases like ``b' = b with (z->b(z'))``
-   are based on point 2 above.  The only non-trivial case is in the rule
-   for ``getattr``::
+   where *z'* is an auxiliary variable are based on point 2 above.  The
+   only non-trivial case is in the rule for ``getattr``::
 
        b' = b with (z->lookup_filter(b(z'), C))
 
@@ -1788,8 +1791,8 @@ imposing the annotations at selected interface boundaries and annotating
 each part independently.
 
 
-Non-static aspects
-~~~~~~~~~~~~~~~~~~
+Non-static aspects and extensions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In practice, the annotation is much less "static" than the theoretical
 model presented above.  All functions and classes are discovered while
@@ -1942,14 +1945,14 @@ boolean values::
     Bool(v_1: (t_1, f_1), v_2: (t_2, f_2), ...)
 
 where the *v_n* are variables and *t_n* and *f_n* are annotations.  The
-result of a check is typically annotated with such a thing.  The meaning
-of the annotation is as follows: if the run-time value of the boolean is
-True, then we know that each variable *v_n* has an annotation at most as
-general as *t_n*; and if the boolean is False, then each variable *v_n*
-has an annotation at most as general as *f_n*.  This information is
-propagated from the check operation to the exit of the block via such an
-extended ``Bool`` annotation, and the conditional exit logic uses it to
-trim the annotation it propagates.
+result of a check is typically annotated with such an extended ``Bool``.
+The meaning of the annotation is as follows: if the run-time value of
+the boolean is True, then we know that each variable *v_n* has an
+annotation at most as general as *t_n*; and if the boolean is False,
+then each variable *v_n* has an annotation at most as general as *f_n*.
+This information is propagated from the check operation to the exit of
+the block via such an extended ``Bool`` annotation, and the conditional
+exit logic uses it to trim the annotation it propagates.
 
 More formally, one of the rules for (say) the comparison operation
 ``greater_than`` is::
@@ -1973,7 +1976,8 @@ for the intersection operation in the annotation lattice.
 
 It is possible to define an appropriate lattice structure that includes
 the extended ``Bool`` annotations and show that all soundness properties
-described above still hold.
+described above still hold.  A tricky point to get right is to XXX extended
+``Bool`` and constants and Generalization
 
 
 Termination with non-static aspects
@@ -2005,6 +2009,7 @@ the annotator is not the central subject of the present report, so we
 will only skim it and refer to the reference documentation when
 appropriate.
 
+XXX REFACTOR PARAGRAPH
 The main difficulty with turning annotated flow graphs into, say, C code
 is that the RPython definition is still quite large, in the sense that
 an important fraction of the built-in data structures of Python, and the
@@ -2032,12 +2037,13 @@ Squeak_ and in the future Java and/or .NET.
 RTyper
 ~~~~~~~~~~
 
-The first step is called "RTyping" or "specialising" as it turns general
-high-level operations into low-level C-like operations specialised for
-the types derived by the annotator.  This process produces a globally
-consistent low-level family of flow graphs by assuming that the
+The first step is called "RTyping", short for "RPython low-level
+typing".  It turns general high-level operations into low-level C-like
+operations between variables with C-like types.  This process is driven
+by the information computed by the annotator, and it produces a globally
+consistent family of low-level flow graphs by assuming that the
 annotation state is sound.  It is described in more details in the
-`RPython typer`_ reference.
+RTyper reference [TR]_.
 
 
 Low-level flow graphs
@@ -2186,6 +2192,7 @@ Conclusion
 We have presented a flexible static analysis and compilation toolchain
 that is suitable for a restricted subset of Python called RPython.
 
+XXX TOO NEGATIVE
 Our approach to static analysis does not work for the full dynamic
 Python language.  This is not what we are trying to achieve anyway.  We
 have argued against the existence or usefulness of such a tool for
@@ -2202,7 +2209,7 @@ the platform-specific details as well as the particular needs of a
 program in term of execution model.
 
 We have presented a detailed model of the Annotator_, which is our
-central analysis component.  This model is regular enough, with an
+central analysis component.  This model is quite regular, with an
 abstract interpretation basis.  This is why it can be easily extended or
 even -- in our opinion -- quickly adapted to perform type inference on
 any other language with related properties.
@@ -2216,8 +2223,8 @@ RPython language or even adapted to different but related languages,
 like the Annotator.
 
 
-Static analysis
-~~~~~~~~~~~~~~~
+Limits of Static analysis
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Static analysis is and remains slightly fragile in the sense that the
 input program must be globally consistent (inconsistent types, even
@@ -2240,61 +2247,98 @@ project has already given a proof of concept.
 Test-driven development
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-As a conclusion, we should insist on the importance of test-driven
+As a conclusion, we should reiterate the importance of test-driven
 development.  The complete Annotator and RTyper have been built in this
 way, by writing small test cases covering each aspect even before
 implementing that aspect.  This has proven essential, especially because
 of the absence of medium-sized RPython programs: we have jumped directly
 from small tests and examples to the full PyPy interpreter, which is
 about 50'000 lines of code.  Any problem or limitation of the Annotator
-discovered in this way was added back as a small test.  Actually, PyPy
-pushes the RPython specification quite far in some areas (like how to
-build a family of subclasses in such a way that specific attributes
-remain attached to each subclass independently), so that a part of the
-time spent debugging our toolchain turned out to be actually caused by
-non-obvious type inconsistencies in the RPython source of PyPy.
+discovered in this way was added back as a small test.
 
-The toolchain is now better at diagnosing where such typing errors
-really are, mostly because it will complain on the first appearance of
-the degenerated ``Top`` annotation.  This was not possible until
-recently, because the ``Top`` annotation was an essential fall-back
-while the toolchain itself was being developed.  But now, under the
-condition that the analysed RPython program is itself extensively tested
--- a common theme of our approach -- our toolchain should be robust
-enough and give useful information about error locations.
+To help locate typing errors in the source RPython program, the
+Annotator can complain on the first appearance of the degenerated
+``Top`` annotation.  This was not possible until recently, because the
+``Top`` annotation was an essential fall-back while the toolchain itself
+was being developed.  But now, under the condition that the analysed
+RPython program is itself extensively tested -- a common theme of our
+approach -- our toolchain should be robust enough and give useful
+information about error locations.
 
 
 See also
-~~~~~~~~
+========================================================================
 
-.. [ARCH] `Architecture Overview`_, PyPy documentation
+Main references:
 
-.. [LLA] `Encapsulating low-level implementation aspects`_, PyPy
-         documentation
+.. [ARCH] Architecture Overview, PyPy documentation.
+          http://codespeak.net/pypy/dist/pypy/doc/architecture.html
 
-.. [Psyco] http://psyco.sourceforge.net/ or the `ACM SIGPLAN 2004 paper`_.
+.. [TR] Translation, PyPy documentation.
+        http://codespeak.net/pypy/dist/pypy/doc/translation.html
+
+.. [LLA] Encapsulating low-level implementation aspects, PyPy
+         documentation.
+         http://codespeak.net/pypy/dist/pypy/doc/draft-low-level-encapsulation.html
+
+.. [Psyco] Home page: http://psyco.sourceforge.net.  Paper:
+           Representation-Based Just-In-Time Specialization and the
+           Psyco Prototype for Python, ACM SIGPLAN PEPM'04, August 24-26, 2004,
+           Verona, Italy.
+           http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 
 .. [PyPy] http://codespeak.net/pypy/
 
+Glossary and links mentioned in the text:
 
+* Abstract interpretation: http://en.wikipedia.org/wiki/Abstract_interpretation
+
+* Flow Object Space: see `Object Space`_.
+
+* GenC back-end: see [TR]_.
+
+* Hindley-Milner type inference: http://en.wikipedia.org/wiki/Hindley-Milner_type_inference
+
+* JavaScript: http://www.ecma-international.org/publications/standards/Ecma-262.htm
+
+* Lattice: http://en.wikipedia.org/wiki/Lattice_%28order%29
+
+* LLVM (Low-Level Virtual Machine): http://llvm.cs.uiuc.edu/
+
+* Low-level Types: see [TR]_.
+
+* Object Space: http://codespeak.net/pypy/dist/pypy/doc/objspace.html
+
+* Perl 6 compiler mailing list post: http://www.nntp.perl.org/group/perl.perl6.compiler/1107
+
+* RTyper (RPython Low-level Typer): see [TR]_.
+
+* Squeak: http://www.squeak.org/
+
+* SSA (Static Single Assignment): http://en.wikipedia.org/wiki/Static_single_assignment_form
+
+* Standard Object Space: see `Object Space`_.
+
+* Thunk Object Space: see `Object Space`_.
+
+
+.. _`Object Space`: objspace.html
 .. _`Thunk Object Space`: objspace.html#the-thunk-object-space
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`formal definition`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _lattice: http://en.wikipedia.org/wiki/Lattice_%28order%29
 .. _`join-semilattice`: http://en.wikipedia.org/wiki/Semilattice
-.. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`Standard Object Space`: objspace.html#the-standard-object-space
 .. _`ACM SIGPLAN 2004 paper`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Hindley-Milner`: http://en.wikipedia.org/wiki/Hindley-Milner_type_inference
 .. _SSA: http://en.wikipedia.org/wiki/Static_single_assignment_form
 .. _LLVM: http://llvm.cs.uiuc.edu/
-.. _`RPython typer`: translation.html#rpython-typer
+.. _`RTyper reference`: translation.html#rpython-typer
 .. _`GenC back-end`: translation.html#genc
 .. _`LLVM back-end`: translation.html#llvm
 .. _JavaScript: http://www.ecma-international.org/publications/standards/Ecma-262.htm
 .. _Squeak: http://www.squeak.org/
 .. _lltype: translation.html#low-level-types
-.. _`Architecture Overview`: architecture.html
-.. _`Encapsulating low-level implementation aspects`: draft-low-level-encapsulation.html
+.. _`post on the Perl 6 compiler mailing list`: http://www.nntp.perl.org/group/perl.perl6.compiler/1107
 
 .. include:: _ref.txt
