@@ -8,7 +8,9 @@ Generalities
 
 I (mwh) am going to write a summary of what's been happening in
 pypy-land each week.  To help me along, please add (append) things
-worth mentioning to the file ``log`` in this directory.
+worth mentioning to the file `log`_ in this directory.
+
+.. _`log`: log
 
 To be most helpful, please say who you are, roughly when you're adding
 things and mention where in the #pypy logs relavent discussion can be
@@ -31,4 +33,18 @@ Archive
 
  * `Week ending 2005-11-04`_
 
+   - Release of PyPy 0.8.0
+   - Import Analysis
+   - A RPythonC tool?
+   - PyPy-sync
+
+ * `Week ending 2005-11-11`_
+
+   - pypy-c py.py
+   - Multiple Spaces
+   - SomePBC-refactoring
+   - Draft-Dynamic-...
+   - Gtbg Sprint in December
+
 .. _`Week ending 2005-11-04`: summary-2005-11-04.html
+.. _`Week ending 2005-11-11`: summary-2005-11-11.html
