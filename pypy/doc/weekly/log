@@ -16,3 +16,8 @@
   when it's not effectively a global function due to the constant-ness
   of the 'space'.
 
+2005-11-07 arigo
+
+  We started a branch to clean up the SomePBC class in the annotator.
+  The planning for this refactoring is described in
+  pypy/doc/discussion/somepbc-refactoring-plan.txt.
