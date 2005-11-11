@@ -89,7 +89,7 @@ Draft-Dynamic-...
 =================
 
 It's not linked from anywhere on the website (yet...) but the report
-that will become "Delieverable 05.1":
+that will become "Deliverable 05.1":
 
    http://codespeak.net/pypy/dist/pypy/doc/draft-dynamic-language-translation.html
 
