@@ -129,7 +129,47 @@ simple approach which does not track objects accros function boundaries only
 works well in the presence of function inlining.
 
 XXX
-  
+
+A general garbage collection framework
+--------------------------------------
+
+(XXX I have no idea whether/how detailed this should be described here. It kind
+of fits the "solutions for memory models", though)
+
+In addition to the garbage collectors implemented in the C backend we have also
+started writing a more general toolkit for implementing exact garbage
+collectors in Python. The general idea is to express the garbage collection
+algorithms in Python as well and translate them as part of the translation
+process to C code (or whatever the intended platform is).
+
+To be able to access memory in a low level manner there are special ``Address``
+objects that behave like pointers to memory and can be manipulated accordingly:
+it is possible to read/write to the location they point to a variety of data
+types and to do pointer arithmetic.  These objects are translated to real
+pointers and the appropriate operations. When run on top of CPython there is a
+*memory simulator* that makes the address objects behave like they were
+accessing real memory. In addition the memory simulator contains a number of
+consistency checks that expose common memory handling errors like dangling
+pointers, uninitialized memory, etc.
+
+At the moment we have three simple garbage collectors implemented for this
+framework: a simple copying collector, a mark-and-sweep collector and a
+deferred reference counting collector. These garbage collectors are working on
+top of the memory simulator at the moment it is not yet possible to translate
+PyPy to C with them, though. This is due to the fact that it is not easy to
+find the root pointers that reside on the C stack because the C stack layout is
+heavily platform dependent and because of the possibility of roots that are not
+only on the stack but also in registers (which would give a problem for moving
+garbage collectors).
+
+There are several possible solutions for this problem: One
+of them is to not use C compilers to generate machine code so that the stack
+frame layout can be controlled by us. This is one of the tasks that need to be
+tackled in phase 2 as generating assembly directly is needed anyway for a
+just-in-time compiler. The other possibility (which would be much easier to
+implement) is to move all the data away from the stack to the heap, as
+described below in section XXXXX.
+
 Threading Model Implementations
 ============================================
 
