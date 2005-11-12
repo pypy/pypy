@@ -58,7 +58,8 @@ management everywhere. Even more important the backend can optimize the memory
 handling to fit a certain situation (like a machine with very restricted
 memory) or completely replace the memory management technique or memory model
 with a different one without having to change interpreter code. Additionally
-the backend can use information  
+the backend can use information that was inferred by the rest of the toolchain
+to improve the quality of memory management. 
 
 Using the Boehm garbage collector
 -----------------------------------
@@ -66,25 +67,26 @@ Using the Boehm garbage collector
 At the moment there are two different garbage collectors implemented in the C
 backend (which is the most complete backend right now). One of them uses the
 existing Boehm-Demers-Weiser garbage collector [BOEHM]_. For every memory
-allocating operation in a low level flow graph the C backend introduzes a call
+allocating operation in a low level flow graph the C backend introduces a call
 to a function of the boehm collector which returns a suitable amount of memory.
 Since the C backends has a lot of information avaiable about the data structure
 being allocated it can choose the memory allocation function out of the Boehm
 API that fits best. For example for objects that do not contain references to
-other objects (e.g. strings) there is a special allocating function that
+other objects (e.g. strings) there is a special allocation function that
 signals to the collector that it does not need to consider this memory when
 tracing pointers.
 
-XXX
-
-XXX maybe describe disadvantages of boehm, like conservativity, we could do
-better...?
+Using the Boehm collector has disadvantages as well. Its problems stem from the
+fact that the Boehm collector is conservative which means that it has to
+consider every word in memory to be a potential pointer. Since PyPy's toolchain
+has complete knowledge of the placement of data in memory we can generate an
+exact garbage collector that considers only pointers.
 
 Using a simple reference counting garbage collector
 -----------------------------------------------------
 
 The other implemented garbage collector is a simple reference counting scheme.
-The C backend inserts a reference count field into every structure that is
+The C backend inserts a reference count field into every structure that has to be
 handled by the garbage collector and puts increment and decrement operations
 for this reference count into suitable places in the resulting C code. After
 every reference decrement operations a check is performed whether the reference
@@ -92,26 +94,26 @@ count has dropped to zero. If this is the case the memory of the object will be
 reclaimed after the references counts of the objects the original object
 references are decremented as well.
 
-XXX: do we mention that our incref/decref placement is dumb? or do we assume
-that it will be improved until the review?
+The current placement of reference counter updates is far from optimal: The
+reference counts are updated much more often than theoretically necessary (e.g.
+sometimes a counter is increased and then immediately decreased again).
+Furthermore some more analysis could show that some objects don't need a
+reference counter at all because they either have a very short, foreseeable
+life-time or because they live exactly as long as another object.
 
-The current reference counting implementation has a drawback: it cannot deal
-with circular references, which is a fundamental flaw of reference counting
-memory management schemes. CPython solves this problem by having special code
-that handles circular garbage which PyPy lacks at the moment. This problem has
-to be addressed in the future to make the reference counting scheme a viable
-garbage collector. (XXX should we rather not mention this?)
-
-Finalization and weak references
----------------------------------
-
-XXX
-
+Another drawback of the current reference counting implementation is that it
+cannot deal with circular references, which is a fundamental flaw of reference
+counting memory management schemes in general. CPython solves this problem by
+having special code that handles circular garbage which PyPy lacks at the
+moment. This problem has to be addressed in the future to make the reference
+counting scheme a viable garbage collector. Since reference counting is quite
+succesfully used by CPython it will be interesting to see how far it can be
+optimized for PyPy.
 
 Simple escape analysis to remove memory allocation
 ---------------------------------------------------
 
-We implemented also a technique to prevent some amount of memory allocation.
+We also implemented a technique to prevent some amount of memory allocation.
 Sometimes it is possible to deduce from the flow graphs that an object lives
 exactly as long as the stack frame of the function where it is allocated in.
 This happens if no pointer to the object is stored into another object and if
@@ -121,6 +123,10 @@ the stack. To achieve this, the object is "exploded", that means that for every
 element of the structure a new variable is generated that is handed around in
 the graph. Reads from elements of the structure are removed and just replaced
 by one of the variables, writes by assignements to same.
+
+Since quite a lot of objects are allocated in small "helper" functions this
+simple approach which does not track objects accros function boundaries only
+works well in the presence of function inlining.
 
 XXX
   
@@ -132,16 +138,27 @@ XXX nice introductory paragraph
 No threading
 -------------
 
-XXX 
+By default multi-threading is not supported at all, which gives some small
+benefits for single-threaded applications since even for single-threaded
+applications some overhead is there if threading-capabilities are built into
+the interpreter.
 
 Threading with a Global Interpreter Lock
 ------------------------------------------
 
-XXX describe what's there
+At the moment there is one non-trivial threading model implemented. It follows
+the threading implementation of CPython and thus uses a global interpreter
+lock. This lock prevents that any two threads can interpret python code at any
+time. The global interpreter lock is released around calls to blocking I/O functions. 
+This approach has a number of advantages: it gives very little runtime penalty
+for single-threaded applications, makes many of the common uses for threading
+possible and is relatively easy to implement and maintain. It has the
+disadvantages that multiple threads cannot be distributed accros multiple
+proccessors (XXX is this really a major point? it is repeated very often which
+of course does not make it true).
 
-todo:
-GIL release around system calls
-maybe a locking threading model around space operations
+XXX GIL release around system calls (how do we mention that here? as if it was
+already implemented?)
 
 Stackless C code
 -----------------
@@ -211,7 +228,7 @@ to be written in a way that almost does not degrade their performance in
 the non-exceptional case.  Most optimisations performed by C compilers,
 like register allocation, continue to work...
 
-XXX insert dot graph here
+.. image:: image/stackless_informal.png
 
 
 Open Challenges
@@ -221,11 +238,13 @@ XXX
 
 open challenges for phase 2:
 
-  - more clever incref/decref policy
+  - more clever incref/decref policy, circularity detector
   - more sophisticated structure inlining ?  possibly
   - full GC hooks? (we have started a framework for GC construction, only simulated for now)
   - exact GC needs -- control over low-level machine code
-  - green threads?
+  - Finalization and weak references
+  - green threads? 
+  - threading model with various granularities of locking
 
 
 Conclusion
