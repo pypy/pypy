@@ -812,6 +812,19 @@ def getrev(path):
         # "unknown" for them
         return 'unknown'  
 
+def getexecutable(_cache={}):
+    execpath = pypydir.join('bin', 'pypy-c')
+    if not _cache:
+        text = execpath.sysexec('-c', 
+            'import sys; print sys.version; print sys.pypy_translation_info')
+        lines = text.split('\n')
+        assert len(lines) == 3 and lines[2] == ''
+        assert lines[1].startswith('{') and lines[1].endswith('}')
+        info = eval(lines[1])
+        info['version'] = lines[0]
+        _cache.update(info)
+    return execpath, _cache
+
 class RunFileExternal(py.test.collect.Module): 
     def __init__(self, name, parent, regrtest): 
         super(RunFileExternal, self).__init__(name, parent) 
@@ -893,9 +906,9 @@ class ReallyRunFileExternal(py.test.Item):
         
         TIMEOUT = gettimeout()
         if option.use_compiled:
-            python = pypydir.join('bin', 'pypy-c')
+            execpath, info = getexecutable()
             cmd = "%s %s %s %s" %(
-                python, 
+                execpath, 
                 regrrun, regrrun_verbosity, fspath.purebasename)
             print cmd
         else:
@@ -963,11 +976,14 @@ class ReallyRunFileExternal(py.test.Item):
         result = Result()
         fspath = regrtest.getfspath() 
         result['fspath'] = str(fspath) 
+        result['pypy-revision'] = getrev(pypydir) 
         if option.use_compiled:
-            #Please fix this, breaks the report table
-            result['pypy-revision'] = '%s compiled' % getrev(pypydir)
-        else: 
-            result['pypy-revision'] = getrev(pypydir) 
+            execpath, info = getexecutable()
+            result['executable'] = execpath.basename
+            for key, value in info.items():
+                result['executable-%s' % key] = str(value)
+        else:
+            result['executable'] = 'py.py'
         result['options'] = regrtest.getoptions() 
         result['timeout'] = gettimeout()
         result['startdate'] = time.ctime()
