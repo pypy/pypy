@@ -5,6 +5,7 @@ Implementation of the interpreter-level default import logic.
 import sys, os, stat
 
 from pypy.interpreter.module import Module
+from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.eval import Code
@@ -262,6 +263,19 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         w_mod = space.sys.getmodule(modulename) 
         if w_mod is not None:
             return w_mod
+        # Examin importhooks (PEP302) before doing the import
+        if w_path is not None:
+            w_loader  = find_module(space, w_modulename, w_path) 
+        else:
+            w_loader  = find_module(space, w_modulename, space.w_None)
+        if not space.is_w(w_loader, space.w_None):
+            w_mod = space.call_method(w_loader, "load_module", w_modulename)
+            #w_mod_ = check_sys_modules(space, w_modulename)
+            if w_mod is not None and w_parent is not None:
+                space.setattr(w_parent, w(partname), w_mod)
+
+            return w_mod
+        
         
         if w_path is not None:
             for path in space.unpackiterable(w_path):
@@ -519,3 +533,50 @@ def write_compiled_module(space, co, cpathname, mtime):
             os.unlink(cpathname)
         except OSError:
             pass
+
+
+app = gateway.applevel(
+r"""    
+# Implement pep302
+
+IMP_HOOK = 9
+
+def find_module(fullname,  path):
+    import sys
+    meta_path = sys.meta_path
+    for hook in meta_path:
+		loader = hook.find_module(fullname,  path)
+		if loader:
+			return loader
+    if path != None and type(path) == str:
+       pass
+       # XXX Check for frozen modules ?
+    if path == None:
+       # XXX Check frozen
+       path = sys.path
+    path_hooks = sys.path_hooks
+    importer_cache = sys.path_importer_cache 
+    importer = None
+    for p in path:
+        if importer_cache.get(p,None):
+            importer = importer_cache.get(p)
+        else:
+            importer_cache[p] = None
+            for hook in path_hooks:
+                try:
+                    importer = hook(p)
+                except ImportError:
+                    pass
+                else:
+                    break
+            if importer:
+                importer_cache[p] = importer
+        if importer:
+            loader = importer.find_module(fullname)
+            if loader:
+                return loader
+     #no hooks match - do normal import
+    """) 
+
+find_module = app.interphook('find_module')
+
