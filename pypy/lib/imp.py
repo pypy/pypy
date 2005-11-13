@@ -16,6 +16,9 @@ C_BUILTIN       = 6
 PY_FROZEN       = 7
 PY_CODERESOURCE = 8
 
+import new
+import sys, os
+
 def get_magic():
     """Return the magic number for .pyc or .pyo files."""
     return 'm\xf2\r\n'     # XXX hard-coded: the magic of Python 2.4.1
@@ -34,7 +37,6 @@ def find_module(name, path=None):
     The module name cannot contain '.'; to search for a submodule of a
     package, pass the submodule name and the package's __path__.
     """
-    import sys, os
     if path is None:
         if name in sys.builtin_module_names:
             return (None, name, ('', '', C_BUILTIN))
@@ -53,7 +55,6 @@ def load_module(name, file, filename, description):
     """Load a module, given information returned by find_module().
     The module name must include the full package name, if any.
     """
-    import sys, os
     suffix, mode, type = description
 
     if type == PY_SOURCE:
@@ -101,7 +102,6 @@ def load_compiled(name, pathname, file=None):
     return run_module(name, pathname, co)
 
 def run_module(name, pathname, co):
-    import sys
     module = sys.modules.setdefault(name, new_module(name))
     module.__name__ = name
     module.__doc__ = None
@@ -118,12 +118,10 @@ def new_module(name):
     """Create a new module.  Do not enter it in sys.modules.
     The module name must include the full package name, if any.
     """
-    import new
     return new.module(name)
 
 
 def init_builtin(name):
-    import sys
     if name not in sys.builtin_module_names:
         return None
     if name in sys.modules:
@@ -135,7 +133,6 @@ def init_frozen(name):
     return None
 
 def is_builtin(name):
-    import sys
     if name in sys.builtin_module_names:
         return -1   # cannot be initialized again
     else:
