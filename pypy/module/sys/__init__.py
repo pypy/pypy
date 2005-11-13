@@ -59,7 +59,10 @@ class Module(MixedModule):
 
         'displayhook'           : 'hook.displayhook', 
         '__displayhook__'       : 'hook.__displayhook__', 
-    }
+        'meta_path'             : 'space.wrap([])',
+        'path_hooks'            : 'space.wrap([])',
+        'path_importer_cache'   : 'space.wrap({})',
+}
     appleveldefs = {
         #'displayhook'           : 'app.displayhook', 
         #'__displayhook__'       : 'app.__displayhook__', 
