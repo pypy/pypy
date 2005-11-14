@@ -242,9 +242,6 @@ class OpWriter(object):
         targetvar = self.db.repr_arg(op.result)
         functionref = self.db.repr_arg(op_args[0])
         argrefs = self.db.repr_arg_multi(op_args[1:])
-        if functionref == 'll_stack_check': #XXX what to do here?
-            self.codewriter.comment('Skipping: %s = %s()' % (targetvar, functionref))
-            return
         self.codewriter.call(targetvar, functionref, argrefs)
 
     def invoke(self, op):
@@ -316,6 +313,7 @@ class OpWriter(object):
             f = self.db.namespace.ensure_non_reserved(op.args[1].value)
             self.codewriter.append('%s = %s.%s' % (targetvar, struct, f)) #XXX move to codewriter
         else:
+            self.codewriter.comment('getfield')
             self._skipped(op)
  
     def getsubstruct(self, op): 
@@ -336,6 +334,7 @@ class OpWriter(object):
             f = self.db.namespace.ensure_non_reserved(op.args[1].value)
             self.codewriter.append('%s.%s = %s' % (struct, f, valuevar)) #XXX move to codewriter
         else:
+            self.codewriter.comment('setfield')
             self._skipped(op)
 
     def getarrayitem(self, op):        
@@ -351,6 +350,7 @@ class OpWriter(object):
             #self.codewriter.load(targetvar, targettype, tmpvar)
             self.codewriter.load(targetvar, array, (index,))
         else:
+            self.codewriter.comment('getarrayitem')
             self._skipped(op)
 
     def getarraysubstruct(self, op):        
@@ -375,6 +375,7 @@ class OpWriter(object):
             #self.codewriter.store(valuetype, valuevar, tmpvar) 
             self.codewriter.store(array, (index,), valuevar)
         else:
+            self.codewriter.comment('setarrayitem')
             self._skipped(op)
 
     def getarraysize(self, op):
@@ -385,3 +386,7 @@ class OpWriter(object):
         #targettype = self.db.repr_arg_type(op.result)
         #self.codewriter.load(targetvar, targettype, tmpvar)
         self.codewriter.append('%s = %s.length' % (targetvar, array)) #XXX move to codewriter
+
+    #Stackless
+    def yield_current_frame_to_caller(self, op):
+        self._skipped(op)

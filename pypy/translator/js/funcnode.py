@@ -112,3 +112,11 @@ class FuncNode(Node):
         assert len(block.inputargs) == 2
         codewriter.throw( str(block.inputargs[1]) )
         codewriter.skip_closeblock()
+
+
+class ExternalFuncNode(Node):
+    def __init__(self, db, value):
+        self.db = db
+        self.value = value
+        self.ref   = db.namespace.uniquename(value.graph.name)
+        self.graph = value.graph

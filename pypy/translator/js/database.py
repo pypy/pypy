@@ -2,7 +2,7 @@
 import sys
 
 from pypy.translator.js.support import JavascriptNameManager
-from pypy.translator.js.funcnode import FuncNode
+from pypy.translator.js.funcnode import FuncNode, ExternalFuncNode
 from pypy.translator.js.structnode import StructNode, StructVarsizeNode
 from pypy.translator.js.arraynode import ArrayNode, StrArrayNode, VoidArrayNode
 from pypy.translator.js.opaquenode import OpaqueNode
@@ -35,7 +35,11 @@ class Database(object):
     def create_constant_node(self, type_, value):
         node = None
         if isinstance(type_, lltype.FuncType):
-            node = FuncNode(self, value)
+            if getattr(value._callable, "suggested_primitive", False):
+                log('suggested_primitive (external function)', value.graph.name)
+                node = ExternalFuncNode(self, value)
+            else:
+                node = FuncNode(self, value)
 
         elif isinstance(type_, lltype.Struct):
             if type_._arrayfld:

@@ -17,19 +17,18 @@ def _CLI_is_on_path():
 
 
 class compile_function(object):
-    def __init__(self, function, annotation, view=False):
+    def __init__(self, function, annotation, stackless=False, view=False):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
         t = Translator(function)
         a = t.annotate(annotation)
-        a.simplify()
         t.specialize()
         t.backend_optimizations(inline_threshold=0, mallocs=False)
         #t.backend_optimizations()
         if view:
             t.view()
-        self.js = JS(t, function)
+        self.js = JS(t, function, stackless)
         self.js.write_source()
 
     def __call__(self, *kwds):

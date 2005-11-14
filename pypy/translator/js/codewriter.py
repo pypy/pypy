@@ -52,7 +52,7 @@ class CodeWriter(object):
         self.indent_more()
         self.append("case %d:" % blocknum)
         self.indent_more()
-        self._currentblocknum = blocknum
+        self._current_blocknum = blocknum
 
     def closeblock(self):
         if not self._skip_closeblock:
@@ -65,7 +65,7 @@ class CodeWriter(object):
         self.append(decl)
 
     def _goto_block(self, blocknum):
-        if blocknum == self._currentblocknum + 1:
+        if blocknum == self._current_blocknum + 1:
             self._skip_closeblock = True
         else:
             self.append('block = ' + str(blocknum))
@@ -109,8 +109,9 @@ class CodeWriter(object):
         self.decl     = decl
         self.funcnode = funcnode
         self.blocks   = blocks
-        self._save_blocknum   = len(blocks)+1000
-        self._resume_blocknum = len(blocks)+1001
+        self._savehandler_blocknum   = 1000
+        self._resumehandler_blocknum = 1001
+        self._resume_blocknum        = 2000
         self._usedvars = {}
         paramstr = decl.split('(')[1][:-1]
         for param in paramstr.split(','):
@@ -132,7 +133,7 @@ class CodeWriter(object):
             self.append("var %s" % ', '.join(self._usedvars.keys()))
             
         if self.js.stackless:
-            initial_block = "slp_frame_stack_top ? %d : 0" % self._resume_blocknum
+            initial_block = "slp_frame_stack_top ? %d : 0" % self._resumehandler_blocknum
         else:
             initial_block = '0'
 
@@ -142,18 +143,18 @@ class CodeWriter(object):
 
     def closefunc(self): 
         if self.js.stackless:   #save&restore all local variable for now
-            self.openblock(self._save_blocknum)
+            self.openblock(self._savehandler_blocknum)
             self.comment('save block for stackless feature')
             self.append('slp_frame_stack_top = new Array(slp_resume_block, %s)' % ', '.join(self._usedvars.keys()))
             self.append('return undefined')
             self.skip_closeblock()
             self.closeblock()
 
-            self.openblock(self._resume_blocknum)
+            self.openblock(self._resumehandler_blocknum)
             self.comment('resume block for stackless feature')
-            self.append('block = slp_frame_stack_top[0]')
+            self.append('%-19s = slp_frame_stack_top[0]' % 'block')
             for i, k in enumerate(self._usedvars.keys()):
-                self.append('%s = slp_frame_stack_top[%d]' % (k, i+1))
+                self.append('%-19s = slp_frame_stack_top[%d]' % (k, i+1))
             self.append('slp_frame_stack_top = null')
             self.closeblock()
 
@@ -180,6 +181,12 @@ class CodeWriter(object):
         if not exceptions:
             assert no_exception is None
             self.append('%s = %s(%s)' % (targetvar, functionref, args))
+            if self.js.stackless:
+                self.append('if (slp_frame_stack_bottom) { slp_resume_block = %d; block = %d; break; }' % (self._resume_blocknum, self._savehandler_blocknum))
+                self.indent_less()
+                self.append('case %d:' % self._resume_blocknum)
+                self.indent_more()
+                self._resume_blocknum += 1
         else:
             assert no_exception is not None
             no_exception_label, no_exception_exit = no_exception

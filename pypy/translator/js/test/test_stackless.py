@@ -1,33 +1,20 @@
 import py
 
-from pypy.translator.translator import Translator
-from pypy.translator.tool.cbuild import build_executable
-from pypy.annotation.model import SomeList, SomeString
-from pypy.annotation.listdef import ListDef
 from pypy.rpython.rstack import stack_unwind, stack_frames_depth, stack_too_big
 from pypy.rpython.rstack import yield_current_frame_to_caller
-import os
+from pypy.translator.js.test.runtest import compile_function
+from pypy.translator.js import conftest
 
 def wrap_stackless_function(fn):
-    def entry_point(argv):
-        os.write(1, str(fn())+"\n")
-        return 0
-
-    t = Translator(entry_point)
-    s_list_of_strings = SomeList(ListDef(None, SomeString()))
-    s_list_of_strings.listdef.resize()
-    ann = t.annotate([s_list_of_strings])
-    t.specialize()
-    cbuilder = t.cbuilder(standalone=True)
-    cbuilder.stackless = True
-    cbuilder.generate_source()
-    cbuilder.compile()
-    return cbuilder.cmdexec('')
+    jsfn = compile_function(fn, [], stackless=True)
+    return str(jsfn()) + "\n"
 
 # ____________________________________________________________
 
 def test_stack_depth():
-    py.test.skip("stackless not implemented yet")
+    if not conftest.option.jsstackless:
+        py.test.skip("stackless disabled (enable with py.test --stackless)")
+
     def g1():
         "just to check Void special cases around the code"
     def g2(ignored):
@@ -50,7 +37,9 @@ def test_stack_depth():
     assert data.strip() == '10'
 
 def test_stack_withptr():
-    py.test.skip("stackless not implemented yet")
+    if not conftest.option.jsstackless:
+        py.test.skip("stackless disabled (enable with py.test --stackless)")
+
     def f(n):
         if n > 0:
             res = f(n-1)
@@ -67,7 +56,9 @@ def test_stack_withptr():
     assert data.strip() == '10'
 
 def test_stackless_manytimes():
-    py.test.skip("stackless not implemented yet")
+    if not conftest.option.jsstackless:
+        py.test.skip("stackless disabled (enable with py.test --stackless)")
+
     def f(n):
         if n > 0:
             stack_frames_depth()
@@ -85,7 +76,9 @@ def test_stackless_manytimes():
     assert data.strip() == '100'
 
 def test_stackless_arguments():
-    py.test.skip("stackless not implemented yet")
+    if not conftest.option.jsstackless:
+        py.test.skip("stackless disabled (enable with py.test --stackless)")
+
     def f(n, d, t):
         if n > 0:
             res = f(n-1, d, t)
@@ -103,7 +96,9 @@ def test_stackless_arguments():
 
 
 def test_stack_too_big():
-    py.test.skip("stackless not implemented yet")
+    if not conftest.option.jsstackless:
+        py.test.skip("stackless disabled (enable with py.test --stackless)")
+
     def f1():
         return stack_too_big()
     def f2():
@@ -128,7 +123,9 @@ def test_stack_too_big():
 
 
 def test_stack_unwind():
-    py.test.skip("stackless not implemented yet")
+    if not conftest.option.jsstackless:
+        py.test.skip("stackless disabled (enable with py.test --stackless)")
+
     def f():
         stack_unwind()
         return 42
@@ -137,7 +134,9 @@ def test_stack_unwind():
     assert int(data.strip()) == 42
 
 def test_auto_stack_unwind():
-    py.test.skip("stackless not implemented yet")
+    if not conftest.option.jsstackless:
+        py.test.skip("stackless disabled (enable with py.test --stackless)")
+
     def f(n):
         if n == 1:
             return 1
@@ -150,7 +149,8 @@ def test_auto_stack_unwind():
 
 
 def test_yield_frame():
-    py.test.skip("stackless not implemented yet")
+    if not conftest.option.jsstackless:
+        py.test.skip("stackless disabled (enable with py.test --stackless)")
 
     def g(lst):
         lst.append(2)

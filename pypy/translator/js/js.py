@@ -8,6 +8,7 @@ reference material:
 '''
 
 import py
+import os
 
 from pypy.rpython.rmodel import inputconst, getfunctionptr
 from pypy.rpython.lltypesystem import lltype
@@ -17,6 +18,12 @@ from pypy.translator.js.database import Database
 from pypy.translator.js.codewriter import CodeWriter
 from pypy.translator.js.log import log
 from pypy.translator.js import conftest
+
+def _path_join(root_path, *paths):
+    path = root_path
+    for p in paths:
+        path = os.path.join(path, p)
+    return path
 
 class JS(object):   # JS = Javascript
     def __init__(self, translator, entrypoint=None, stackless=False):
@@ -67,11 +74,12 @@ class JS(object):   # JS = Javascript
         codewriter.newline()
 
         if self.stackless:
-            codewriter.comment("Global data for stackless feature")
-            codewriter.newline()
-            codewriter.append("slp_frame_stack_top = null")
-            codewriter.append("slp_resume_block    = 0")
-            codewriter.newline()
+            s = 'll_stackless.js'
+        else:
+            s = 'stack.js'
+        src_filename = _path_join(os.path.dirname(__file__), 'src', s)
+        f.write(open(src_filename).read())
+
         f.close()
 
         entry_point= c.value._obj
