@@ -92,8 +92,34 @@ would be similarly easy to switch to another implementation.
 ID hashes
 ---------
 
-XXX
-- how we deal with id hashes
+XXX motivate the presence of this example
+
+One of the peculiarities of PyPy's approach is that live objects are analyzed
+by our translation toolchain. This leads to the presence of instances of user
+classes that were built before the translation started. These are called
+prebuilt-constants (PBCs for short). During rtyping these instances have to be
+converted to the low level model. One of the problems with doing this is that
+the standard hash implementation of Python is take the id of an object, which
+is just the memory address. If a PBC is stored in a dictionary the memory
+address of the original object is used as a key. If the dictionary is also
+built before the translation process starts then the conversion of the
+dictionary together with its keys is problematic: after the conversion the PBCs
+that are used as keys have a different memory addresses and are therefore no
+longer found in the dictionary.
+
+To prevent this the following strategy is used: for every class with instances
+that are hashed somewhere in the program (either when storing them in a
+dictionary or by calling the hash function) an extra field is introduced in the
+structure used for the instances of that class. For PBCs of such a class this
+field is used to store the memory address of the original object, new objects
+have this field initialized to zero. The hash function for instances of such a
+class stores the object's memory address in this field if it is zero. The
+return value of the hash function is the content of the field. This means that
+instances of such a class that are converted PBCs retain the hash values they
+had before the conversion whereas new objects of the class have their memory
+address as hash values. Therefor the structural integrity of dictionaries with
+PBC keys is conserved during conversion. This might of course lead to hash
+collisions but in practice these should be rare.
 
 Cached functions with PBC arguments
 ------------------------------------
@@ -109,6 +135,7 @@ Changing the representation of an object completely
 XXX
 probably describe in more detail the possibilies to completely change the
 representation of objects, etc.
+
 
 Automatic Memory Management Implementations
 ============================================
