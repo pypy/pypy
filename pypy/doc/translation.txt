@@ -1006,7 +1006,7 @@ Overview
 --------
 Similar to the task of GenC, GenLLVM translates a flow graph to low level LLVM
 bytecode.  GenLLVM requires annotation and the `RPython Typer`_ pass, to modify
-the annontated flow graph to replace operations with lower-level equivalents
+the annotated flow graph to replace operations with lower-level equivalents
 which are suitable to be easily translated to LLVM bytecode.
 
 History
