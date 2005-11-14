@@ -371,16 +371,17 @@ translating the flow graph to LLVM code
 +++++++++++++++++++++++++++++++++++++++
 
 To translate for LLVM (`low level virtual machine`_) you must first have `LLVM
-installed with the CVS version`_ - the `how to install LLVM`_ provides some
-helpful hints.  Please note that you do not need the CFrontend to compile, make
+installed with version 1.6`_ - the `how to install LLVM`_ provides some helpful
+hints.  Please note that you do not need the CFrontend to compile, make
 tools-only.
 
 The LLVM backend is still experimental.  However, it is very close to C backend
-functionality.  Calling compiled LLVM code from CPython is more restrictive
-than the C backend - the return type and the arguments of the entry function
-must be ints, floats or bools.  The emphasis of the LLVM backend is to compile
-standalone executables - please see the pypy/translator/llvm/demo directory for
-examples.
+functionality.  At the point of writing, it is missing a few essential
+operations, stackless support and threading support.  Calling compiled LLVM
+code from CPython is more restrictive than the C backend - the return type and
+the arguments of the entry function must be ints, floats or bools.  The
+emphasis of the LLVM backend is to compile standalone executables - please see
+the pypy/translator/llvm/demo directory for examples.
 
 Here is a simple example to try::
 
@@ -624,7 +625,7 @@ conferences such as EuroPython or Pycon.
 .. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
 .. _`how to install LLVM`: http://llvm.cs.uiuc.edu/docs/GettingStarted.html
 .. _`LLVM mailing list`: http://mail.cs.uiuc.edu/mailman/listinfo/llvmdev
-.. _`LLVM installed with the CVS version`: http://llvm.cs.uiuc.edu/releases
+.. _`LLVM installed with version 1.6`: http://llvm.cs.uiuc.edu/releases
 
 
 .. _Dot Graphviz:           http://www.research.att.com/sw/tools/graphviz/
