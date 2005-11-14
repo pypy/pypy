@@ -32,13 +32,83 @@ XXX
 The low level object model
 ===========================
 
-  - low level object model, data structures current layouts (also a word on the
-    example of cached functions with PBC argument?)
-  - how we deal with id hashes
-  - probably describe in more detail the possibilies to completely change the
-    representation of objects, etc.
+XXX proper references to translation.txt and dynamic-language-translation
 
-XXX how detailed does this need to be described here? 
+One important part of the translation process is *rtyping*. Before that step
+all objects in our flow graphs are still regular python objects. During rtyping
+they are transformed into objects that match the model of the specific target
+platform. For C this model consists of a set of C-like types like structures,
+arrays and functions in addition to primitive types (integers, characters,
+floating point numbers). This multi-stage approach gives a lot of flexibility
+how a certain object is represented at C level. 
+
+In the following the structures used to represent user classes are described.
+There is one "vtable" per user class, with the following structure: A root
+class "object" has::
+
+    struct object_vtable {
+        struct object_vtable* parenttypeptr;
+        RuntimeTypeInfo * rtti;
+        Signed subclassrange_min;
+        Signed subclassrange_max;
+        array { char } * name;
+        struct object * instantiate();
+    }
+
+The structure memebers ``subclassrange_min`` and ``subclassrange_max`` are used
+for subclass checking. Every other class X, with parent Y, has the structure::
+
+    struct vtable_X {
+        struct vtable_Y super;   // inlined
+        ...                      // extra class attributes
+    }
+
+The type of the instances is::
+
+   struct object {       // for the root class
+       struct object_vtable* typeptr;
+   }
+
+   struct X {
+       struct Y super;   // inlined
+       ...               // extra instance attributes
+   }
+
+
+XXX low level object model, data structures current layouts
+
+Subclass checking
+-----------------
+
+The way we do subclass checking is a good example of the flexibility provided
+by our approach: in the beginning we were using a naive linear lookup
+algorithm. Since subclass checking is quite common (it is also used to check
+whether an object is an instance of a certain class) we wanted to replace it
+with the more efficient relative numbering algorithm. This was a matter of just
+changing the appropriate code of the rtyping process, calculating the class-ids
+during rtyping and inserting the necessary fields into the class structure. It
+would be similarly easy to switch to another implementation.
+
+ID hashes
+---------
+
+XXX
+- how we deal with id hashes
+
+Cached functions with PBC arguments
+------------------------------------
+
+XXX
+(also a word on the
+example of cached functions with PBC argument?)
+
+
+Changing the representation of an object completely
+---------------------------------------------------
+
+XXX
+probably describe in more detail the possibilies to completely change the
+representation of objects, etc.
 
 Automatic Memory Management Implementations
 ============================================
