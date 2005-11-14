@@ -156,22 +156,25 @@ def generate_llfile(db, extern_decls, support_functions, debug=False):
     from pypy.translator.c import extfunc
     src_path = path_join(os.path.dirname(extfunc.__file__), "src")
 
-    for f in ["ll_os", "ll_math", "ll_time", "ll_strtod", "stack"]:
+    for f in ["ll_os", "ll_math", "ll_time", "ll_strtod", "thread", "stack"]:
         add(path_join(src_path, f + ".h"))
 
     for f in include_files:
         s = open(f).read()
-        if f.find('genexterns.c') > 0:
+
+        # XXX this is getting a tad (even more) ridiculous
+        for name in ["ll_osdefs.h", "thread_pthread.h"]:
+            include_str = '#include "%s"' % name
+            if s.find(include_str) >= 0:
+                s2 = open(path_join(src_path, name)).read()
+                s = s.replace(include_str, s2)
+
+        if f.find('genexterns.c') >= 0:
             if sys.platform == 'darwin':
                 python_h = '"/System/Library/Frameworks/Python.framework/Versions/2.3/include/python2.3/Python.h"'
             else:
                 python_h = '<python2.3/Python.h>'
             s = s.replace('__PYTHON_H__', python_h)
-
-        elif f.find("ll_os") > 0:
-            # XXX this is getting a tad ridiculous
-            ll_osdefs = open(path_join(src_path, "ll_osdefs.h")).read()
-            s = s.replace('#include "ll_osdefs.h"', ll_osdefs)
             
         ccode.append(s)
     ccode = "".join(ccode)
