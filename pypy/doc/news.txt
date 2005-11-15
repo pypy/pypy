@@ -9,6 +9,19 @@
 .. _Python: http://www.python.org/doc/current/ref/ref.html
 .. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
 
+PyPy Sprint in Göteborg 7th - 11th December 2005 
+=================================================
+
+The next PyPy sprint is scheduled to be in December 2005 in Götheborg.
+Its main focus is heading towards phase 2, which means JIT work,
+alternate threading models and logic programming (but there are also
+other possible topics).  We'll give newcomer-friendly introductions.
+Read more in `the announcement`_, and see who's currently planning to
+attend on the `people page`_.
+
+.. _`the announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2005/announcement.html
+.. _`people page`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/gothenburg-2005/people.txt
+
 PyPy release 0.8.0
 =================== 
 
