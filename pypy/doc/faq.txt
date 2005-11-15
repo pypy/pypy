@@ -25,7 +25,7 @@ completely. If the error is persistent and still annoys you after this
 treatment please send us a bug report (or even better, a fix :-)
 
 
-Using the PyPy translator
+Using the PyPy translation tool chain
 ============================================================
 
 How do I compile PyPy?
