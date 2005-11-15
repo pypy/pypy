@@ -20,10 +20,6 @@ PyPy issue trackers
 
 * `development bug/feature tracker`_ for filing bugs and feature requests. 
 
-* `EU milestone/issue tracking`_ for organizing work on EU-project milestones and deliverables 
-
-.. _`EU milestone/issue tracking`: https://codespeak.net/issue/pypy-eu/ 
-
 .. _`development bug/feature tracker`: https://codespeak.net/issue/pypy-dev/ 
 
 IRC Channel #pypy on freenode
