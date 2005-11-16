@@ -8,8 +8,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
-from pypy.translator.llvm.module.extfunction import extdeclarations, \
-     extfunctions, dependencies
+from pypy.translator.llvm.module.support import extdeclarations, extfunctions
 from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
@@ -61,7 +60,6 @@ class GenLLVM(object):
     
         # reset counters
         LLVMNode.nodename_count = {}    
-        extfuncnode.ExternalFuncNode.used_external_functions = {}
 
         # create and set internals
         self.db = Database(self, translator)
@@ -76,7 +74,6 @@ class GenLLVM(object):
         # the logging flag is for logging information statistics in the build
         # process
         self.logging = logging
-
 
     def gen_llvm_source(self, func=None):
 
@@ -104,13 +101,12 @@ class GenLLVM(object):
         self._print_node_stats()
 
         # create ll file from c code 
-        using_external_functions = self.setup_externs(extern_decls)
+        self.setup_externs(extern_decls)
         self._checkpoint('setup_externs')
     
         # write external function headers
-        if using_external_functions:
-            codewriter.header_comment('External Function Headers')
-            codewriter.append(self.llexterns_header)
+        codewriter.header_comment('External Function Headers')
+        codewriter.append(self.llexterns_header)
 
         codewriter.header_comment("Type Declarations")
 
@@ -149,30 +145,33 @@ class GenLLVM(object):
         codewriter.header_comment("Function Implementation")
 
         # write external function implementations
-        if using_external_functions:
-            codewriter.header_comment('External Function Implementation')
-            codewriter.append(self.llexterns_functions)
+        codewriter.header_comment('External Function Implementation')
+        codewriter.append(self.llexterns_functions)
 
         self._checkpoint('write external functions')
 
         # write exception implementaions
         codewriter.append(self.exceptionpolicy.llvmcode(self.entrynode))
 
-        # write all node implementations
+        # write support implementations
         for key, (deps, impl) in extfunctions.items():
             print key
             if key in ["%main_noargs", "%main"]:
                 continue
             codewriter.append(impl)
+        self._checkpoint('write support implentations')
 
+        # write all node implementations
         for typ_decl in self.db.getnodes():
             typ_decl.writeimpl(codewriter)
         self._checkpoint('write node implementations')
 
+        # write entry point if there is one
         self.write_entry_point(codewriter)
-        self._checkpoint('write support implentations')
-
         codewriter.comment("End of file")
+
+        self._checkpoint('done')
+
         return filename
     
     def get_entry_point(self, func):
@@ -186,15 +185,11 @@ class GenLLVM(object):
         return c.value._obj, func.func_name
 
     def setup_externs(self, extern_decls):
-        extern_funcs = extfuncnode.ExternalFuncNode.used_external_functions
-        using_external_functions = extern_funcs.keys() != []
-
         # we cache the llexterns to make tests run faster
-        if using_external_functions and self.llexterns_header is None:
+        if self.llexterns_header is None:
             assert self.llexterns_functions is None
             self.llexterns_header, self.llexterns_functions = \
                                    generate_llfile(self.db, extern_decls)
-        return using_external_functions
 
     def create_codewrite(self, func_name):
         # prevent running the same function twice in a test
@@ -218,8 +213,13 @@ class GenLLVM(object):
                 codewriter.append(l)
 
     def write_entry_point(self, codewriter):
-        # XXX we need to create our own main() that calls the actual entry_point function
-        entryfunc_name = self.entrynode.getdecl().split('%pypy_', 1)[1].split('(')[0]
+        # XXX we need to create our own main() that calls the actual
+        # entry_point function
+        entryfunc_name = self.entrynode.getdecl().split('%pypy_', 1)[1]
+        entryfunc_name = entryfunc_name.split('(')[0]
+        print entryfunc_name
+        if entryfunc_name not in ["main_noargs", "main"]:
+            return
         llcode = extfunctions["%" + entryfunc_name][1]        
         codewriter.append(llcode)
 

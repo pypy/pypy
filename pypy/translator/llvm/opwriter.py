@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
-from pypy.translator.llvm.module.extfunction import extfunctions
+from pypy.translator.llvm.module.support import extfunctions
 from pypy.translator.llvm.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm.log import log 
 log = log.opwriter
