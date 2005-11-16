@@ -265,26 +265,28 @@ class TranslationDriver(SimpleTaskEngine):
                                ['?backendopt', 'rtype'], 
                                "LLInterpreting")
 
-    def task_source_llvm(self): # xxx messy
+    def task_source_llvm(self):
         translator = self.translator
         opts = self.options
         if translator.annotator is None:
-            raise ValueError, "function has to be annotated."
+            raise ValueError, "llvm requires annotation."
+
         from pypy.translator.llvm import genllvm
+
+        # XXX Need more options for policies/llvm-backendoptions here?
+        gc_opts = self.options.gc
         self.llvmgen = genllvm.GenLLVM(translator, 
-                                       genllvm.GcPolicy.new(opts.gc), 
+                                       genllvm.GcPolicy.new(gc_opts), 
                                        genllvm.ExceptionPolicy.new(None))
-        self.llvm_filename = self.llvmgen.gen_llvm_source()
-        self.log.info("written: %s" % (self.llvm_filename,))
+        llvm_filename = self.llvmgen.gen_llvm_source()
+        self.log.info("written: %s" % (llvm_filename,))
     #
     task_source_llvm = taskdef(task_source_llvm, 
                                ['backendopt', 'rtype'], 
                                "Generating llvm source")
 
-    def task_compile_llvm(self): # xxx messy
-        self.c_entryp = self.llvmgen.create_module(self.llvm_filename,
-                                                   standalone=self.standalone,
-                                                   exe_name = 'pypy-llvm')
+    def task_compile_llvm(self):
+        self.c_entryp = self.llvmgen.compile_llvm_source(exe_name='pypy-llvm')
         if self.standalone:
             import shutil
             exename = mkexename(self.c_entryp)
