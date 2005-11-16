@@ -36,6 +36,9 @@ class PyObjMaker:
                                #   objects
         self.debugstack = ()  # linked list of nested nameof()
         self.wrappers = {}    # {'pycfunctionvariable': ('name', 'wrapperfn')}
+        self.import_hints = {}
+        if translator:
+            self.import_hints = translator.import_hints
 
     def nameof(self, obj, debug=None):
         if debug:
@@ -96,6 +99,7 @@ class PyObjMaker:
         self.initcode_python(name, repr(value))
         return name
 
+    # old version kept for reference
     def nameof_module(self, value):
         assert value is os or not hasattr(value, "__file__") or \
                not (value.__file__.endswith('.pyc') or
@@ -105,7 +109,37 @@ class PyObjMaker:
         name = self.uniquename('mod%s'%value.__name__)
         self.initcode_python(name, "__import__(%r)" % (value.__name__,))
         return name
-        
+
+    # try to build valid imports for external stuff        
+    def nameof_module(self, value):
+        easy = value is os or not hasattr(value, "__file__") or \
+               not (value.__file__.endswith('.pyc') or
+                    value.__file__.endswith('.py') or
+                    value.__file__.endswith('.pyo'))
+        name = self.uniquename('mod%s'%value.__name__)
+        if not easy:
+            self.initcode.append('######## warning ########')
+            self.initcode.append('## %r is not a builtin module (probably :)' %value)
+        access = "__import__(%r)" % value.__name__
+        # this is an inlined version of my_import, see sect. 2.1 of the python docs
+        for submodule in value.__name__.split('.')[1:]:
+            access += '.' + submodule
+        self.initcode_python(name, access)
+        return name
+
+    def _import_module(self, modname):
+        mod = __import__(modname)
+        for submodule in modname.split('.')[1:]:
+            mod = getattr(mod, submodule)
+        return mod
+
+    def _find_in_module(self, obj, mod):
+        if hasattr(obj, '__name__') and obj.__name__ in mod.__dict__:
+            return obj.__name__
+        for key, value in mod.__dict__.iteritems():
+            if value is obj:
+                return key
+        raise ImportError, 'object %r cannot be found in %r' % (obj, mod)
 
     def nameof_int(self, value):
         if value >= 0:
@@ -164,6 +198,9 @@ class PyObjMaker:
         assert self.translator is not None, (
             "the Translator must be specified to build a PyObject "
             "wrapper for %r" % (func,))
+        # shortcut imports
+        if func in self.import_hints:
+            return self.import_function(func)
         # look for skipped functions
         if self.translator.frozen:
             if func not in self.translator.flowgraphs:
@@ -178,6 +215,15 @@ class PyObjMaker:
         pycfunctionobj = self.uniquename('gfunc_' + func.__name__)
         self.wrappers[pycfunctionobj] = func.__name__, self.getvalue(fwrapper)
         return pycfunctionobj
+
+    def import_function(self, func):
+        name = self.uniquename('impfunc_' + func.__name__)
+        modulestr = self.import_hints[func] or func.__module__
+        module = self._import_module(modulestr)
+        modname = self.nameof(module)
+        obname = self._find_in_module(func, module)
+        self.initcode_python(name, '%s.%s' % (modname, obname))
+        return name
 
     def nameof_staticmethod(self, sm):
         # XXX XXX XXXX
@@ -216,6 +262,8 @@ class PyObjMaker:
         return False
 
     def nameof_instance(self, instance):
+        if instance in self.import_hints:
+            return self.import_instance(instance)
         klass = instance.__class__
         if issubclass(klass, LowLevelType):
             raise Exception, 'nameof_LowLevelType(%r)' % (instance,)
@@ -252,6 +300,16 @@ class PyObjMaker:
         self.later(initinstance())
         return name
 
+    def import_instance(self, inst):
+        klass = inst.__class__
+        name = self.uniquename('impinst_' + klass.__name__)
+        modulestr = self.import_hints[inst] or klass.__module__
+        module = self._import_module(modulestr)
+        modname = self.nameof(module)
+        obname = self._find_in_module(func, module)
+        self.initcode_python(name, '%s.%s' % (modname, obname))
+        return name
+
     def nameof_builtin_function_or_method(self, func):
         if func.__self__ is None:
             # builtin function
@@ -283,6 +341,8 @@ class PyObjMaker:
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r should never be reached" % (cls,)
 
+        if cls in self.import_hints:
+            return self.import_classobj(cls)
         metaclass = "type"
         if issubclass(cls, Exception):
             # if cls.__module__ == 'exceptions':
@@ -337,6 +397,15 @@ class PyObjMaker:
         return name
 
     nameof_class = nameof_classobj   # for Python 2.2
+
+    def import_classobj(self, cls):
+        name = self.uniquename('impcls_' + cls.__name__)
+        modulestr = self.import_hints[cls] or cls.__module__
+        module = self._import_module(modulestr)
+        modname = self.nameof(module)
+        obname = self._find_in_module(cls, module)
+        self.initcode_python(name, '%s.%s' % (modname, obname))
+        return name
 
     typename_mapping = {
         InstanceType: 'types.InstanceType',

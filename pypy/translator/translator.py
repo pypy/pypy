@@ -19,12 +19,14 @@ class Translator(object):
 
     def __init__(self, func=None, verbose=False, simplifying=True,
                  do_imports_immediately=True,
-                 builtins_can_raise_exceptions=False):
+                 builtins_can_raise_exceptions=False,
+                 import_hints={}):
         self.entrypoint = func
         self.verbose = verbose
         self.simplifying = simplifying
         self.builtins_can_raise_exceptions = builtins_can_raise_exceptions
         self.do_imports_immediately = do_imports_immediately
+        self.import_hints = import_hints
         self.clear()
 
     def clear(self):

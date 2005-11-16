@@ -162,7 +162,10 @@ class Stats:
 
     def consider_dict_delitem(self, dic):
         return dic
-            
+
+# this dictionary can be extended by extension writers
+DEFINED_SOMEOBJECTS = { sys: True,
+                        }
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
@@ -304,8 +307,6 @@ class Bookkeeper:
         if hasattr(x, 'im_self') and x.im_self is None:
             x = x.im_func
             assert not hasattr(x, 'im_self')
-        if x is sys: # special case constant sys to someobject
-            return SomeObject()
         tp = type(x)
         if tp is bool:
             result = SomeBool()
@@ -350,8 +351,12 @@ class Bookkeeper:
                 for ek, ev in x.iteritems():
                     result.dictdef.generalize_key(self.immutablevalue(ek))
                     result.dictdef.generalize_value(self.immutablevalue(ev))
+        elif ishashable(x) and x in DEFINED_SOMEOBJECTS: # sys by default
+            return SomeObject()
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (x.__module__, x.__name__))
+        elif tp in DEFINED_SOMEOBJECTS:
+            return SomeObject()
         elif tp in EXTERNAL_TYPE_ANALYZERS:
             result = SomeExternalObject(tp)
         elif isinstance(x, lltype._ptr):
