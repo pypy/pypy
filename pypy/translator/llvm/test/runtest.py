@@ -26,7 +26,8 @@ def compile_function(function, annotation, **kwds):
     if v < MINIMUM_LLVM_VERSION:
         py.test.skip("llvm version not up-to-date (found %.1f, should be >= %.1f)" % (v, MINIMUM_LLVM_VERSION))
 
-    mod = compile_module(function, annotation, optimize=optimize_tests, **kwds)
+    mod = compile_module(function, annotation, optimize=optimize_tests,
+                         logging=False, **kwds)
     return getattr(mod, 'pypy_' + function.func_name + "_wrapper")
 
 def compile_module_function(function, annotation, **kwds):

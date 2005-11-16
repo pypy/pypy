@@ -40,7 +40,7 @@ class FuncNode(ConstantLLVMNode):
         self.graph = value.graph
 
         self.db.genllvm.exceptionpolicy.transform(self.db.translator, self.graph)
-        remove_exception_mallocs(self.db.translator, self.graph, self.ref)
+        #remove_exception_mallocs(self.db.translator, self.graph, self.ref)
         #merge_mallocs(self.db.translator, self.graph, self.ref)
 
         remove_double_links(self.db.translator, self.graph)

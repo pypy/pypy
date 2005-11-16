@@ -9,8 +9,21 @@ from pypy.translator.llvm.codewriter import DEFAULT_CCONV
 
 from pypy.tool.udir import udir
 
+support_functions = [
+    "%raisePyExc_IOError",
+    "%raisePyExc_ValueError",
+    "%raisePyExc_OverflowError",
+    "%raisePyExc_ZeroDivisionError",
+    "%raisePyExc_RuntimeError",
+    "%prepare_ZeroDivisionError",
+    "%prepare_OverflowError",
+    "%prepare_ValueError",
+    "%RPyString_FromString",
+    "%RPyString_AsString",
+    "%RPyString_Size"]
 
 def get_ll(ccode, function_names):
+    function_names += support_functions
     filename = str(udir.join("ccode.c"))
     f = open(filename, "w")
     f.write(ccode)
@@ -126,7 +139,7 @@ def path_join(root_path, *paths):
         path = os.path.join(path, p)
     return path
 
-def generate_llfile(db, extern_decls, support_functions, debug=False):
+def generate_llfile(db, extern_decls):
     ccode = []
     function_names = []
 
@@ -179,4 +192,4 @@ def generate_llfile(db, extern_decls, support_functions, debug=False):
         ccode.append(s)
     ccode = "".join(ccode)
 
-    return get_ll(ccode, function_names + support_functions)
+    return get_ll(ccode, function_names)

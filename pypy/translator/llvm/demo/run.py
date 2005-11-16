@@ -18,7 +18,7 @@ def c():
     f()
 
 def l(name):
-    exe_path = compile_module(entry_point, [], standalone=True, exe_name=name)
+    exe_path = compile_module(entry_point, [], exe_name=name)
     print 'Running standalone (llvm-based) executable:'
     print exe_path
     os.system(exe_path)

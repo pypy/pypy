@@ -22,6 +22,11 @@ class CodeWriter(object):
         else:
             self.append(line)
 
+    def header_comment(self, s):
+        self.newline()
+        self.comment(s)
+        self.newline()
+
     def newline(self):
         self.append("")
 

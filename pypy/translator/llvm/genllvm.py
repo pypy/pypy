@@ -17,56 +17,227 @@ from pypy.translator.llvm.exception import ExceptionPolicy
 from pypy.translator.translator import Translator
 from pypy.translator.llvm.log import log
 
-function_count = {}
-llexterns_header = llexterns_functions = None
+# keep for propersity sake 
+"""run_pypy-llvm.sh [aug 29th 2005]
+before slotifying: 350Mb
+after  slotifying: 300Mb, 35 minutes until the .ll file is fully written.
+STATS (1, "<class 'pypy.translator.llvm.arraynode.VoidArrayTypeNode'>")
+STATS (1, "<class 'pypy.translator.llvm.opaquenode.OpaqueTypeNode'>")
+STATS (9, "<class 'pypy.translator.llvm.structnode.StructVarsizeTypeNode'>")
+STATS (46, "<class 'pypy.translator.llvm.extfuncnode.ExternalFuncNode'>")
+STATS (52, "<class 'pypy.translator.llvm.arraynode.ArrayTypeNode'>")
+STATS (189, "<class 'pypy.translator.llvm.arraynode.VoidArrayNode'>")
+STATS (819, "<class 'pypy.translator.llvm.opaquenode.OpaqueNode'>")
+STATS (1250, "<class 'pypy.translator.llvm.funcnode.FuncTypeNode'>")
+STATS (1753, "<class 'pypy.translator.llvm.structnode.StructTypeNode'>")
+STATS (5896, "<class 'pypy.translator.llvm.funcnode.FuncNode'>")
+STATS (24013, "<class 'pypy.translator.llvm.arraynode.ArrayNode'>")
+STATS (25411, "<class 'pypy.translator.llvm.structnode.StructVarsizeNode'>")
+STATS (26210, "<class 'pypy.translator.llvm.arraynode.StrArrayNode'>")
+STATS (268884, "<class 'pypy.translator.llvm.structnode.StructNode'>")
 
+init took 00m00s
+setup_all took 08m14s
+setup_all externs took 00m00s
+generate_ll took 00m02s
+write externs type declarations took 00m00s
+write data type declarations took 00m02s
+write global constants took 09m49s
+write function prototypes took 00m00s
+write declarations took 00m03s
+write implementations took 01m54s
+write support functions took 00m00s
+write external functions took 00m00s
+"""
 
 class GenLLVM(object):
 
-    def __init__(self, translator, gcpolicy=None, exceptionpolicy=None, debug=False):
+    # see open_file() below
+    function_count = {}
+    llexterns_header = llexterns_functions = None
+
+    def __init__(self, translator, gcpolicy=None, exceptionpolicy=None,
+                 debug=False, logging=True):
     
         # reset counters
         LLVMNode.nodename_count = {}    
-        self.db = Database(self, translator)
-        self.translator = translator
-        self.gcpolicy = gcpolicy
-        self.exceptionpolicy = exceptionpolicy
         extfuncnode.ExternalFuncNode.used_external_functions = {}
-        self.debug = debug # for debug we create comments of every operation that may be executed
-        if debug:
-            translator.checkgraphs()
+
+        # create and set internals
+        self.db = Database(self, translator)
+        self.gcpolicy = gcpolicy
+        self.translator = translator
+        self.exceptionpolicy = exceptionpolicy
+
+        # the debug flag is for creating comments of every operation
+        # that may be executed
+        self.debug = debug 
+
+        # the logging flag is for logging information statistics in the build
+        # process
+        self.logging = logging
+
+
+    def gen_llvm_source(self, func=None):
+
+        self._checkpoint()
+
+        # get entry point
+        entry_point, func_name = self.get_entry_point(func)
+        self._checkpoint('get_entry_point')
+
+        # open file & create codewriter
+        codewriter, filename = self.create_codewrite(func_name)
+        self._checkpoint('open file and create codewriter')
+
+        # set up all nodes
+        self.db.setup_all()
+        self.entrynode = self.db.set_entrynode(entry_point)
+        self._checkpoint('setup_all first pass')
+
+        # post set up nodes 
+        extern_decls = post_setup_externs(self.db)
+        self.translator.rtyper.specialize_more_blocks()
+        self.db.setup_all()
+        self._checkpoint('setup_all second pass')
+
+        self._print_node_stats()
+
+        # create ll file from c code 
+        using_external_functions = self.setup_externs(extern_decls)
+        self._checkpoint('setup_externs')
+    
+        # write external function headers
+        if using_external_functions:
+            codewriter.header_comment('External Function Headers')
+            codewriter.append(self.llexterns_header)
+
+        codewriter.header_comment("Type Declarations")
+
+        # write extern type declarations
+        self.write_extern_decls(codewriter, extern_decls)
+        self._checkpoint('write externs type declarations')
+
+        # write node type declarations
+        for typ_decl in self.db.getnodes():
+            typ_decl.writedatatypedecl(codewriter)
+        self._checkpoint('write data type declarations')
+
+        codewriter.header_comment("Global Data")
+
+        # write pbcs
+        for typ_decl in self.db.getnodes():
+            typ_decl.writeglobalconstants(codewriter)
+        self._checkpoint('write global constants')
+
+        codewriter.header_comment("Function Prototypes")
+
+        # write external protos
+        codewriter.append(extdeclarations)
+
+        # write garbage collection protos
+        codewriter.append(self.gcpolicy.declarations())
+
+        # write node protos
+        for typ_decl in self.db.getnodes():
+            typ_decl.writedecl(codewriter)
+
+        self._checkpoint('write function prototypes')
+
+        codewriter.startimpl()
+
+        codewriter.header_comment("Function Implementation")
+
+        # write external function implementations
+        if using_external_functions:
+            codewriter.header_comment('External Function Implementation')
+            codewriter.append(self.llexterns_functions)
+
+        self._checkpoint('write external functions')
+
+        # write exception implementaions
+        codewriter.append(self.exceptionpolicy.llvmcode(self.entrynode))
+
+        # write all node implementations
+        for key, (deps, impl) in extfunctions.items():
+            print key
+            if key in ["%main_noargs", "%main"]:
+                continue
+            codewriter.append(impl)
+
+        for typ_decl in self.db.getnodes():
+            typ_decl.writeimpl(codewriter)
+        self._checkpoint('write node implementations')
+
+        self.write_entry_point(codewriter)
+        self._checkpoint('write support implentations')
+
+        codewriter.comment("End of file")
+        return filename
+    
+    def get_entry_point(self, func):
+        if func is None:
+            func = self.translator.entrypoint
+        self.entrypoint = func
+
+        ptr = getfunctionptr(self.translator, func)
+        c = inputconst(lltype.typeOf(ptr), ptr)
+        self.db.prepare_arg_value(c)
+        return c.value._obj, func.func_name
+
+    def setup_externs(self, extern_decls):
+        extern_funcs = extfuncnode.ExternalFuncNode.used_external_functions
+        using_external_functions = extern_funcs.keys() != []
+
+        # we cache the llexterns to make tests run faster
+        if using_external_functions and self.llexterns_header is None:
+            assert self.llexterns_functions is None
+            self.llexterns_header, self.llexterns_functions = \
+                                   generate_llfile(self.db, extern_decls)
+        return using_external_functions
+
+    def create_codewrite(self, func_name):
+        # prevent running the same function twice in a test
+        if func_name in self.function_count:
+            postfix = '_%d' % self.function_count[func_name]
+            self.function_count[func_name] += 1
+        else:
+            postfix = ''
+            self.function_count[func_name] = 1
+        filename = udir.join(func_name + postfix).new(ext='.ll')
+        f = open(str(filename), 'w')
+        return CodeWriter(f, self), filename
+
+    def write_extern_decls(self, codewriter, extern_decls):        
+        for c_name, obj in extern_decls:
+            if isinstance(obj, lltype.LowLevelType):
+                if isinstance(obj, lltype.Ptr):
+                    obj = obj.TO
+
+                l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
+                codewriter.append(l)
+
+    def write_entry_point(self, codewriter):
+        # XXX we need to create our own main() that calls the actual entry_point function
+        entryfunc_name = self.entrynode.getdecl().split('%pypy_', 1)[1].split('(')[0]
+        llcode = extfunctions["%" + entryfunc_name][1]        
+        codewriter.append(llcode)
 
     def _checkpoint(self, msg=None):
-        if self.debug:
-            if msg:
-                t = (time.time() - self.starttime)
-                log('\t%s took %02dm%02ds' % (msg, t/60, t%60))
-            else:
-                log('GenLLVM:')
-            self.starttime = time.time()
+        if not self.logging:
+            return
+        if msg:
+            t = (time.time() - self.starttime)
+            log('\t%s took %02dm%02ds' % (msg, t/60, t%60))
+        else:
+            log('GenLLVM:')
+        self.starttime = time.time()
 
     def _print_node_stats(self):
-        """run_pypy-llvm.sh [aug 29th 2005]
-        before slotifying: 350Mb
-        after  slotifying: 300Mb, 35 minutes until the .ll file is fully written.
-        STATS (1, "<class 'pypy.translator.llvm.arraynode.VoidArrayTypeNode'>")
-        STATS (1, "<class 'pypy.translator.llvm.opaquenode.OpaqueTypeNode'>")
-        STATS (9, "<class 'pypy.translator.llvm.structnode.StructVarsizeTypeNode'>")
-        STATS (46, "<class 'pypy.translator.llvm.extfuncnode.ExternalFuncNode'>")
-        STATS (52, "<class 'pypy.translator.llvm.arraynode.ArrayTypeNode'>")
-        STATS (189, "<class 'pypy.translator.llvm.arraynode.VoidArrayNode'>")
-        STATS (819, "<class 'pypy.translator.llvm.opaquenode.OpaqueNode'>")
-        STATS (1250, "<class 'pypy.translator.llvm.funcnode.FuncTypeNode'>")
-        STATS (1753, "<class 'pypy.translator.llvm.structnode.StructTypeNode'>")
-        STATS (5896, "<class 'pypy.translator.llvm.funcnode.FuncNode'>")
-        STATS (24013, "<class 'pypy.translator.llvm.arraynode.ArrayNode'>")
-        STATS (25411, "<class 'pypy.translator.llvm.structnode.StructVarsizeNode'>")
-        STATS (26210, "<class 'pypy.translator.llvm.arraynode.StrArrayNode'>")
-        STATS (268884, "<class 'pypy.translator.llvm.structnode.StructNode'>")
-        """
-        return #disable node stats output
-        if not self.debug:
-            return
+        # disable node stats output
+        if not self.logging: 
+            return 
+
         nodecount = {}
         for node in self.db.getnodes():
             typ = type(node)
@@ -79,167 +250,32 @@ class GenLLVM(object):
         for s in stats:
             log('STATS %s' % str(s))
 
-    def gen_llvm_source(self, func=None):
-        """
-        init took 00m00s
-        setup_all took 08m14s
-        setup_all externs took 00m00s
-        generate_ll took 00m02s
-        write externs type declarations took 00m00s
-        write data type declarations took 00m02s
-        write global constants took 09m49s
-        write function prototypes took 00m00s
-        write declarations took 00m03s
-        write implementations took 01m54s
-        write support functions took 00m00s
-        write external functions took 00m00s
-        """
-        self._checkpoint()
+def genllvm(translator, gcpolicy=None, exceptionpolicy=None,
+            log_source=False, optimize=True, exe_name=None, logging=False):
 
-        if func is None:
-            func = self.translator.entrypoint
-        self.entrypoint = func
-
-        ptr = getfunctionptr(self.translator, func)
-        c = inputconst(lltype.typeOf(ptr), ptr)
-        entry_point = c.value._obj
-        self.db.prepare_arg_value(c)
-        self._checkpoint('init')
-
-        # set up all nodes
-        self.db.setup_all()
-        self.entrynode = self.db.set_entrynode(entry_point)
-        entryfunc_name = self.entrynode.getdecl().split('%', 1)[1].split('(')[0]
-        self._checkpoint('setup_all')
-
-        # post set up externs
-        extern_decls = post_setup_externs(self.db)
-        self.translator.rtyper.specialize_more_blocks()
-        self.db.setup_all()
-        using_external_functions = extfuncnode.ExternalFuncNode.used_external_functions.keys() != []
-        self._print_node_stats()
-        self._checkpoint('setup_all externs')
-
-        support_functions = "%raisePyExc_IOError %raisePyExc_ValueError "\
-                            "%raisePyExc_OverflowError %raisePyExc_ZeroDivisionError "\
-                            "%raisePyExc_RuntimeError "\
-                            "%prepare_ZeroDivisionError %prepare_OverflowError %prepare_ValueError "\
-                            "%RPyString_FromString %RPyString_AsString %RPyString_Size".split()
-
-        global llexterns_header, llexterns_functions
-        if llexterns_header is None and using_external_functions:
-            llexterns_header, llexterns_functions = generate_llfile(self.db, extern_decls, support_functions, self.debug)
-            self._checkpoint('generate_ll')
- 
-        # prevent running the same function twice in a test
-        if func.func_name in function_count:
-            postfix = '_%d' % function_count[func.func_name]
-            function_count[func.func_name] += 1
-        else:
-            postfix = ''
-            function_count[func.func_name] = 1
-        filename = udir.join(func.func_name + postfix).new(ext='.ll')
-        f = open(str(filename),'w')
-        codewriter = CodeWriter(f, self)
-        comment = codewriter.comment
-        nl = codewriter.newline
-
-        if using_external_functions:
-            nl(); comment("External Function Declarations") ; nl()
-            codewriter.append(llexterns_header)
-
-        nl(); comment("Type Declarations"); nl()
-        for c_name, obj in extern_decls:
-            if isinstance(obj, lltype.LowLevelType):
-                if isinstance(obj, lltype.Ptr):
-                    obj = obj.TO
-                l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
-                codewriter.append(l)
-        self._checkpoint('write externs type declarations')
-
-        for typ_decl in self.db.getnodes():
-            typ_decl.writedatatypedecl(codewriter)
-        self._checkpoint('write data type declarations')
-
-        nl(); comment("Global Data") ; nl()
-        for typ_decl in self.db.getnodes():
-            typ_decl.writeglobalconstants(codewriter)
-        self._checkpoint('write global constants')
-
-        nl(); comment("Function Prototypes") ; nl()
-        codewriter.append(extdeclarations)
-        codewriter.append(self.gcpolicy.declarations())
-        self._checkpoint('write function prototypes')
-
-        for typ_decl in self.db.getnodes():
-            typ_decl.writedecl(codewriter)
-        self._checkpoint('write declarations')
-
-        nl(); comment("Function Implementation") 
-        codewriter.startimpl()
-        
-        for typ_decl in self.db.getnodes():
-            typ_decl.writeimpl(codewriter)
-        self._checkpoint('write implementations')
-
-        codewriter.append(self.exceptionpolicy.llvmcode(self.entrynode))
-
-        # XXX we need to create our own main() that calls the actual entry_point function
-        if entryfunc_name == 'pypy_entry_point': #XXX just to get on with translate_pypy
-            extfuncnode.ExternalFuncNode.used_external_functions['%main'] = True
-
-        elif entryfunc_name == 'pypy_main_noargs': #XXX just to get on with bpnn & richards
-            extfuncnode.ExternalFuncNode.used_external_functions['%main_noargs'] = True
-
-        for f in support_functions:
-            extfuncnode.ExternalFuncNode.used_external_functions[f] = True
-
-        depdone = {}
-        for funcname,value in extfuncnode.ExternalFuncNode.used_external_functions.iteritems():
-            deps = dependencies(funcname,[])
-            deps.reverse()
-            for dep in deps:
-                if dep not in depdone:
-                    if dep in extfunctions: #else external function that is shared with genc
-                        codewriter.append(extfunctions[dep][1])
-                    depdone[dep] = True
-        self._checkpoint('write support functions')
-        
-        if using_external_functions:
-            nl(); comment("External Function Implementation") ; nl()
-            codewriter.append(llexterns_functions)
-        self._checkpoint('write external functions')
-
-        comment("End of file") ; nl()
-        return filename
-
-    def create_module(self,
-                      filename,
-                      really_compile=True,
-                      standalone=False,
-                      optimize=True,
-                      exe_name=None):
-
-        if standalone:
-            return build_llvm_module.make_module_from_llvm(self, filename,
-                                                           optimize=optimize,
-                                                           exe_name=exe_name)
-        else:
-            postfix = ''
-            basename = filename.purebasename + '_wrapper' + postfix + '.pyx'
-            pyxfile = filename.new(basename = basename)
-            write_pyx_wrapper(self, pyxfile)    
-            return build_llvm_module.make_module_from_llvm(self, filename,
-                                                           pyxfile=pyxfile,
-                                                           optimize=optimize)
-
-
-def genllvm(translator, gcpolicy=None, exceptionpolicy=None, log_source=False, **kwds):
-    gen = GenLLVM(translator, GcPolicy.new(gcpolicy), ExceptionPolicy.new(exceptionpolicy))
+    gen = GenLLVM(translator,
+                  GcPolicy.new(gcpolicy),
+                  ExceptionPolicy.new(exceptionpolicy),
+                  logging=logging)
     filename = gen.gen_llvm_source()
+
     if log_source:
         log(open(filename).read())
-    return gen.create_module(filename, **kwds)
+
+    if exe_name is not None:
+        # standalone
+        return build_llvm_module.make_module_from_llvm(gen, filename,
+                                                       optimize=optimize,
+                                                       exe_name=exe_name)
+    else:
+        # use pyrex to create module for CPython
+        postfix = ''
+        basename = filename.purebasename + '_wrapper' + postfix + '.pyx'
+        pyxfile = filename.new(basename = basename)
+        write_pyx_wrapper(gen, pyxfile)    
+        return build_llvm_module.make_module_from_llvm(gen, filename,
+                                                       pyxfile=pyxfile,
+                                                       optimize=optimize)
 
 def compile_module(function, annotation, view=False, **kwds):
     t = Translator(function)
@@ -247,10 +283,13 @@ def compile_module(function, annotation, view=False, **kwds):
     a.simplify()
     t.specialize()
     t.backend_optimizations(ssa_form=False)
-    if view:    #note: this is without policy transforms
+    
+    # note: this is without policy transforms
+    if view:
         t.view()
     return genllvm(t, **kwds)
 
 def compile_function(function, annotation, **kwds):
+    """ Helper - which get the compiled module from CPython. """
     mod = compile_module(function, annotation, **kwds)
     return getattr(mod, 'pypy_' + function.func_name + "_wrapper")
