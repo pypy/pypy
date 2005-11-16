@@ -27,6 +27,8 @@ SIMPLE_OPTIMIZATION_SWITCHES = (" ".join([
 
     # clean up disgusting code
     "-simplifycfg",
+
+    "-verify",
     ]))
 
 flags = os.popen("gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1").read()[17:-1].split()

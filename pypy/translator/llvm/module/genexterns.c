@@ -24,4 +24,7 @@ void RPYTHON_RAISE_OSERROR(int error);
 //the placeholder in the next line gets replaced by the actual python.h path
 #include __PYTHON_H__
 
+// overflows/zeros/values raising operations
+__RAISING_OP__
+
 // Append some genc files here manually from python

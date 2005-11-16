@@ -163,9 +163,8 @@ def generate_llfile(db, extern_decls):
                 predeclarefn(c_name, db.repr_name(obj._obj))
 
     include_files = []
-    add = include_files.append 
+    add = include_files.append
     add(path_join(os.path.dirname(__file__), "module", "genexterns.c"))
-
     from pypy.translator.c import extfunc
     src_path = path_join(os.path.dirname(extfunc.__file__), "src")
 
@@ -176,6 +175,12 @@ def generate_llfile(db, extern_decls):
         s = open(f).read()
 
         # XXX this is getting a tad (even more) ridiculous
+        if s.find('__RAISING_OP__') >= 0:
+            s2 = open(path_join(os.path.dirname(__file__),
+                                "module",
+                                "raisingop.h")).read()
+            s = s.replace('__RAISING_OP__', s2)
+            
         for name in ["ll_osdefs.h", "thread_pthread.h"]:
             include_str = '#include "%s"' % name
             if s.find(include_str) >= 0:

@@ -73,32 +73,65 @@ def test_abs_int_ovf():
 ############################
 
 def test_int_overflow():
-    py.test.skip("ovf operator exception not implemented")
-    fn = compile_function(snippet.add_func, [int])
-    raises(OverflowError, fn, sys.maxint)
+    def fn(i):
+        try:
+            return snippet.add_func(i)
+        except OverflowError:
+            return 123
+    f = compile_function(fn, [int])
+    assert f(10) == 11
+    assert f(sys.maxint) == 123
 
 def test_int_div_ovf_zer():
-    py.test.skip("ovf_zer operator exception not implemented")
-    fn = compile_function(snippet.div_func, [int])
-    raises(OverflowError, fn, -1)
-    raises(ZeroDivisionError, fn, 0)
+    def fn(i):
+        try:
+            return snippet.div_func(i)
+        except OverflowError:
+            return 123
+        except ZeroDivisionError:
+            return 1234
+        
+    fn = compile_function(fn, [int])
+    assert fn(-1) == 123
+    assert fn(0) == 1234
 
 def test_int_mod_ovf_zer():
-    py.test.skip("ovf_zer operator exception not implemented")
-    fn = compile_function(snippet.mod_func, [int])
-    raises(OverflowError, fn, -1)
-    raises(ZeroDivisionError, fn, 0)
+    def fn(i):
+        try:
+            return snippet.mod_func(i)
+        except OverflowError:
+            return 123
+        except ZeroDivisionError:
+            return 1234
+            
+    fn = compile_function(fn, [int])
+    assert fn(0) == 1234
+    assert fn(1) == 123
 
 def test_int_rshift_val():
-    py.test.skip("val operator exception not implemented")
-    fn = compile_function(snippet.rshift_func, [int])
-    raises(ValueError, fn, -1)
+    def fn(i):
+        try:
+            return snippet.rshift_func(i)
+        except ValueError:
+            return 123
+        
+    f = compile_function(fn, [int])
+    assert f(0) == -sys.maxint - 1
+    assert f(-1) == 123
 
 def test_int_lshift_ovf_val():
-    py.test.skip("ovf_val operator exception not implemented")
-    fn = compile_function(snippet.lshift_func, [int])
-    raises(ValueError, fn, -1)
-    raises(OverflowError, fn, 1)
+    def fn(i):
+        try:
+            return snippet.lshift_func(i)
+        except ValueError:
+            return 123
+        except OverflowError:
+            return 1234
+        
+    f = compile_function(fn, [int])
+    assert f(0) == -sys.maxint-1
+    assert f(-1) == 123
+    assert f(1) == 1234
 
 def test_uint_arith():
     py.test.skip("zer operator exception not implemented")
@@ -113,7 +146,6 @@ def test_uint_arith():
         assert f(i) == fn(i)
 
 def test_int_add_ovf():
-    py.test.skip("ovf operator exception not implemented")
     def add_func(i):
         try:
             return ovfcheck(i + 1)
@@ -126,23 +158,23 @@ def test_int_add_ovf():
     assert f(sys.maxint) == 123
 
 def test_int_sub_ovf():
-    py.test.skip("ovf operator exception not implemented")
     def sub_func(i):
         try:
-            return ovfcheck(i - 1)
+            return ovfcheck(i - 2)
         except OverflowError:
             return 123
     f = compile_function(sub_func, [int])
     assert f(0) == sub_func(0)
-    assert f(0) == 1
     assert f(sys.maxint) == sub_func(sys.maxint)
-    assert f(sys.maxint) == 123
+    assert f(-sys.maxint) == 123
 
-def test_shift_with_overflow():
-    py.test.skip("shift operator exception not implemented")
-    shl = compile_function(llvmsnippet.shiftleft, [int, int])
-    shr = compile_function(llvmsnippet.shiftright, [int, int])
-    for i in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
-        for j in [1, 2, 3, 100000, 2000000, sys.maxint - 1]:
-            assert shl(i, j) == i << j
-            assert shr(i, j) == i >> j
+def test_int_mul_ovf():
+    def mul_func(i):
+        try:
+            return ovfcheck(i * 100)
+        except OverflowError:
+            return 123
+    f = compile_function(mul_func, [int])
+    assert f(0) == mul_func(0)
+    assert f(567) == mul_func(567)
+    assert f(sys.maxint) == 123

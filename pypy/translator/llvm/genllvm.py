@@ -8,7 +8,8 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
-from pypy.translator.llvm.module.support import extdeclarations, extfunctions
+from pypy.translator.llvm.module.support import extdeclarations,  \
+      extfunctions, entry_functions
 from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
@@ -16,7 +17,7 @@ from pypy.translator.llvm.exception import ExceptionPolicy
 from pypy.translator.translator import Translator
 from pypy.translator.llvm.log import log
 
-# keep for propersity sake 
+# XXX for propersity sake 
 """run_pypy-llvm.sh [aug 29th 2005]
 before slotifying: 350Mb
 after  slotifying: 300Mb, 35 minutes until the .ll file is fully written.
@@ -154,10 +155,7 @@ class GenLLVM(object):
         codewriter.append(self.exceptionpolicy.llvmcode(self.entrynode))
 
         # write support implementations
-        for key, (deps, impl) in extfunctions.items():
-            print key
-            if key in ["%main_noargs", "%main"]:
-                continue
+        for impl in extfunctions.values():
             codewriter.append(impl)
         self._checkpoint('write support implentations')
 
@@ -171,8 +169,25 @@ class GenLLVM(object):
         codewriter.comment("End of file")
 
         self._checkpoint('done')
-
+        self.filename = filename
         return filename
+    
+    def compile_llvm_source(self, optimize=True, exe_name=None):
+        assert hasattr(self, "filename")
+        if exe_name is not None:
+            # standalone
+            return build_llvm_module.make_module_from_llvm(self, self.filename,
+                                                           optimize=optimize,
+                                                           exe_name=exe_name)
+        else:
+            # use pyrex to create module for CPython
+            postfix = ''
+            basename = self.filename.purebasename + '_wrapper' + postfix + '.pyx'
+            pyxfile = self.filename.new(basename = basename)
+            write_pyx_wrapper(self, pyxfile)    
+            return build_llvm_module.make_module_from_llvm(self, self.filename,
+                                                           pyxfile=pyxfile,
+                                                           optimize=optimize)
     
     def get_entry_point(self, func):
         if func is None:
@@ -216,12 +231,10 @@ class GenLLVM(object):
         # XXX we need to create our own main() that calls the actual
         # entry_point function
         entryfunc_name = self.entrynode.getdecl().split('%pypy_', 1)[1]
-        entryfunc_name = entryfunc_name.split('(')[0]
-        print entryfunc_name
-        if entryfunc_name not in ["main_noargs", "main"]:
-            return
-        llcode = extfunctions["%" + entryfunc_name][1]        
-        codewriter.append(llcode)
+        entryfunc_name = entryfunc_name.split('(')[0]        
+        llcode = entry_functions.get(entryfunc_name, None)
+        if llcode:
+            codewriter.append(llcode)
 
     def _checkpoint(self, msg=None):
         if not self.logging:
@@ -251,7 +264,7 @@ class GenLLVM(object):
             log('STATS %s' % str(s))
 
 def genllvm(translator, gcpolicy=None, exceptionpolicy=None,
-            log_source=False, optimize=True, exe_name=None, logging=False):
+            log_source=False, logging=False, **kwds):
 
     gen = GenLLVM(translator,
                   GcPolicy.new(gcpolicy),
@@ -262,20 +275,7 @@ def genllvm(translator, gcpolicy=None, exceptionpolicy=None,
     if log_source:
         log(open(filename).read())
 
-    if exe_name is not None:
-        # standalone
-        return build_llvm_module.make_module_from_llvm(gen, filename,
-                                                       optimize=optimize,
-                                                       exe_name=exe_name)
-    else:
-        # use pyrex to create module for CPython
-        postfix = ''
-        basename = filename.purebasename + '_wrapper' + postfix + '.pyx'
-        pyxfile = filename.new(basename = basename)
-        write_pyx_wrapper(gen, pyxfile)    
-        return build_llvm_module.make_module_from_llvm(gen, filename,
-                                                       pyxfile=pyxfile,
-                                                       optimize=optimize)
+    return gen.compile_llvm_source(**kwds)
 
 def compile_module(function, annotation, view=False, **kwds):
     t = Translator(function)

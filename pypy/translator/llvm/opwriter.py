@@ -135,7 +135,7 @@ class OpWriter(object):
     keepalive = _skipped
 
     def int_abs(self, op):
-        functionref = '%' + op.opname
+        functionref = '%pypyop_' + op.opname
         ExternalFuncNode.used_external_functions[functionref] = True
         self.codewriter.call(self.db.repr_arg(op.result),
                              self.db.repr_arg_type(op.result),
@@ -297,17 +297,12 @@ class OpWriter(object):
 
         if op.opname == 'invoke:direct_call':
             functionref = self.db.repr_arg(op_args[0])
-        else:   #operation
+
+        else:
+            # operation - provided by genexterns 
             opname = op.opname.split(':',1)[1]
-            op_args = ['%' + opname] + op_args
+            op_args = ['%pypyop_' + opname] + op_args
             functionref = op_args[0]
-            if functionref in extfunctions:
-                ExternalFuncNode.used_external_functions[functionref] = True
-            else:
-                msg = "exception raising operation %s not found" %(op.opname,)
-                self.codewriter.comment('XXX: Error: ' + msg)
-                # XXX commented out for testing
-                #assert functionref in extfunctions, msg
         
         assert len(op_args) >= 1
         # at least one label and one exception label
