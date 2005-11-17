@@ -8,8 +8,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
-from pypy.translator.llvm.module.support import extdeclarations,  \
-      extfunctions, entry_functions
+from pypy.translator.llvm.module.support import extdeclarations, extfunctions
 from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
@@ -155,8 +154,7 @@ class GenLLVM(object):
         codewriter.append(self.exceptionpolicy.llvmcode(self.entrynode))
 
         # write support implementations
-        for impl in extfunctions.values():
-            codewriter.append(impl)
+        codewriter.append(extfunctions)
         self._checkpoint('write support implentations')
 
         # write all node implementations
@@ -165,7 +163,6 @@ class GenLLVM(object):
         self._checkpoint('write node implementations')
 
         # write entry point if there is one
-        self.write_entry_point(codewriter)
         codewriter.comment("End of file")
 
         self._checkpoint('done')
@@ -226,15 +223,6 @@ class GenLLVM(object):
 
                 l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
                 codewriter.append(l)
-
-    def write_entry_point(self, codewriter):
-        # XXX we need to create our own main() that calls the actual
-        # entry_point function
-        entryfunc_name = self.entrynode.getdecl().split('%pypy_', 1)[1]
-        entryfunc_name = entryfunc_name.split('(')[0]        
-        llcode = entry_functions.get(entryfunc_name, None)
-        if llcode:
-            codewriter.append(llcode)
 
     def _checkpoint(self, msg=None):
         if not self.logging:

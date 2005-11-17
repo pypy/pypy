@@ -20,7 +20,9 @@ support_functions = [
     "%prepare_ValueError",
     "%RPyString_FromString",
     "%RPyString_AsString",
-    "%RPyString_Size"]
+    "%RPyString_Size",
+    "%RPyExceptionOccurred",
+    ]
 
 def get_ll(ccode, function_names):
     function_names += support_functions
@@ -47,6 +49,11 @@ def get_ll(ccode, function_names):
     # strip declares that are in funcnames
     for line in llcode.split('\n'):
 
+        # For some reason gcc introduces this and then we cant resolve it
+        # XXX Get rid of this - when got more time on our hands
+        if line.find("__main") >= 1:
+           continue
+
         # get rid of any of the structs that llvm-gcc introduces to struct types
         line = line.replace("%struct.", "%")
 
@@ -62,9 +69,9 @@ def get_ll(ccode, function_names):
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
            if line.find("internal") == -1:
-                #internal = ''
-                internal = 'internal '
-                line = '%s%s %s' % (internal, DEFAULT_CCONV, line,)
+                if funcname != "%main":
+                    internal = 'internal '
+                    line = '%s%s %s' % (internal, DEFAULT_CCONV, line,)
         ll_lines.append(line)
 
     # patch calls to function that we just declared fastcc
@@ -92,20 +99,6 @@ def get_ll(ccode, function_names):
         decl, impl = llcode.split('implementation')
     except:
         raise "Can't compile external function code (llcode.c): ERROR:", llcode
-    impl += """;functions that should return a bool according to
-    ; pypy/rpython/extfunctable.py  , but C doesn't have bools!
-
-internal fastcc bool %LL_os_isatty(int %fd) {
-    %t = call fastcc int %LL_os_isatty(int %fd)
-    %b = cast int %t to bool
-    ret bool %b
-}
-internal fastcc bool %LL_stack_too_big() {
-    %t = call fastcc int %LL_stack_too_big()
-    %b = cast int %t to bool
-    ret bool %b
-}
-    """
     return decl, impl
 
 
@@ -142,13 +135,25 @@ def path_join(root_path, *paths):
 def generate_llfile(db, extern_decls):
     ccode = []
     function_names = []
-
+        
     def predeclarefn(c_name, llname):
+        print llname
         function_names.append(llname)
         assert llname[0] == "%"
         llname = llname[1:]
         assert '\n' not in llname
         ccode.append('#define\t%s\t%s\n' % (c_name, llname))
+
+    # special case name entry_point XXX bit underhand
+    for k, v in db.obj2node.items():
+        try:
+            if isinstance(lltype.typeOf(k), lltype.FuncType):
+                if k._name == "entry_point":
+                    predeclarefn("entry_point", v.get_ref())
+                    ccode.append('#define ENTRY_POINT_DEFINED 1\n\n')
+                    break
+        except TypeError, exc:
+            pass
 
     for c_name, obj in extern_decls:
         if isinstance(obj, lltype.LowLevelType):
@@ -162,39 +167,47 @@ def generate_llfile(db, extern_decls):
             if isinstance(lltype.typeOf(obj._obj), lltype.FuncType):
                 predeclarefn(c_name, db.repr_name(obj._obj))
 
-    include_files = []
-    add = include_files.append
-    add(path_join(os.path.dirname(__file__), "module", "genexterns.c"))
+    # start building our source
+    src = open(path_join(os.path.dirname(__file__),
+                         "module",
+                         "genexterns.c")).read()
+
+    # set python version to include
+    if sys.platform == 'darwin':
+        python_h = '"/System/Library/Frameworks/Python.framework/Versions/2.3/include/python2.3/Python.h"'
+    else:
+        python_h = '<python2.3/Python.h>'
+    src = src.replace('__PYTHON_H__', python_h)
+               
+    # add our raising ops
+    s = open(path_join(os.path.dirname(__file__),
+                       "module",
+                       "raisingop.h")).read()
+    src = src.replace('__RAISING_OPS__', s)
+                    
+    
     from pypy.translator.c import extfunc
     src_path = path_join(os.path.dirname(extfunc.__file__), "src")
 
-    for f in ["ll_os", "ll_math", "ll_time", "ll_strtod", "thread", "stack"]:
-        add(path_join(src_path, f + ".h"))
-
+    include_files = [path_join(src_path, f + ".h") for f in
+                        ["ll_os", "ll_math", "ll_time",
+                         "ll_strtod", "thread", "stack"]]
+    
+    includes = []
     for f in include_files:
         s = open(f).read()
 
-        # XXX this is getting a tad (even more) ridiculous
-        if s.find('__RAISING_OP__') >= 0:
-            s2 = open(path_join(os.path.dirname(__file__),
-                                "module",
-                                "raisingop.h")).read()
-            s = s.replace('__RAISING_OP__', s2)
-            
+        # XXX this is getting a tad (even more) ridiculous            
         for name in ["ll_osdefs.h", "thread_pthread.h"]:
             include_str = '#include "%s"' % name
             if s.find(include_str) >= 0:
                 s2 = open(path_join(src_path, name)).read()
                 s = s.replace(include_str, s2)
 
-        if f.find('genexterns.c') >= 0:
-            if sys.platform == 'darwin':
-                python_h = '"/System/Library/Frameworks/Python.framework/Versions/2.3/include/python2.3/Python.h"'
-            else:
-                python_h = '<python2.3/Python.h>'
-            s = s.replace('__PYTHON_H__', python_h)
-            
-        ccode.append(s)
-    ccode = "".join(ccode)
+        includes.append(s)
 
+    src = src.replace('__INCLUDE_FILES__', "".join(includes))
+    ccode.append(src)
+    ccode = "".join(ccode)
+    
     return get_ll(ccode, function_names)

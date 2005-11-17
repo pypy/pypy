@@ -24,10 +24,10 @@ import math
 import time
 import os, time
 
+import rrandom as random
+
 # XXX the Translator needs the plain Python version of random.py:
 import autopath
-from pypy.lib import random
-
 PRINT_IT = False
 
 random.seed(0)
@@ -193,57 +193,37 @@ class NN:
                 print 'error %f' % error
             i += 1
 
-def demo():
-    # Teach network XOR function
-    pat = [
-        [[0,0], [0]],
-        [[0,1], [1]],
-        [[1,0], [1]],
-        [[1,1], [0]]
-    ]
-
-    # create a network with two input, two hidden, and two output nodes
-    n = NN(2, 3, 1)
-    # train it with some patterns
-    n.train(pat, 2000)
-    # test it
-    n.xtest(pat)
-    return 0
-#_________________________________________________________
-
-from pypy.translator.llvm.genllvm import compile_function
-import py
-
-def test_demo():
-    py.log.setconsumer("genllvm", py.log.STDOUT)
-    py.log.setconsumer("genllvm database prepare", None)
-    f = compile_function(demo, [])
-
-    print 'Running...'
+def entry_point(args):
     T = time.time()
-    for i in range(30):
-        f()
-    t1 = time.time() - T
-    print "that took", t1
 
-    T = time.time()
-    for i in range(30):
-        demo()
-    t2 = time.time() - T
-    print "compared to", t2
-    print "a speed-up of", t2/t1
-    
-def main_noargs():
-    T = time.time()
     os.write(1, 'Running...\n')
 
     for i in range(50):
-        demo()
+
+        # Teach network XOR function
+        pat = [
+            [[0,0], [0]],
+            [[0,1], [1]],
+            [[1,0], [1]],
+            [[1,1], [0]]
+        ]
+
+        # create a network with two input, two hidden, and two output nodes
+        n = NN(2, 3, 1)
+        # train it with some patterns
+        n.train(pat, 2000)
+        # test it
+        n.xtest(pat)
 
     t1 = time.time() - T
     os.write(1, 'That took... %d msecs \n' % int(t1 * 1000))
+
     return 0
+
+#_________________________________________________________
+
+from pypy.translator.llvm.genllvm import compile_function
     
 if __name__ == "__main__":
     from pypy.translator.llvm.demo.run import run
-    run(main_noargs, "bpnn")
+    run(entry_point, "bpnn")

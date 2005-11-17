@@ -2,23 +2,20 @@ import py
 import os
 import sys
 
+from pypy.annotation.model import SomeList, SomeString
+from pypy.annotation.listdef import ListDef
+
 from pypy.translator.llvm.genllvm import compile_module
 from pypy.translator.translator import Translator
 
 def p():
     print 'Running on top of CPython:'
-    entry_point()
-
-def c():
-    print "Running genc'd version on top of CPython:"
-    t = Translator(entry_point)    
-    a = t.annotate([])
-    t.specialize()
-    f = t.ccompile()
-    f()
+    entry_point([])
 
 def l(name):
-    exe_path = compile_module(entry_point, [], exe_name=name)
+    s_list_of_strings = SomeList(ListDef(None, SomeString()))
+    s_list_of_strings.listdef.resize()
+    exe_path = compile_module(entry_point, [s_list_of_strings], exe_name=name)
     print 'Running standalone (llvm-based) executable:'
     print exe_path
     os.system(exe_path)
@@ -32,14 +29,10 @@ def run(ep, name="go"):
         if sys.argv[1] == "p":
             p()
             run_all = False
-        elif sys.argv[1] == "c":
-            c()
-            run_all = False
         elif sys.argv[1] == "l":
             l(name)
             run_all = False
             
     if run_all:
         l(name)
-        c()
         p()

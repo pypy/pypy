@@ -13,27 +13,26 @@ declare ccc void %llvm.memset(sbyte*, ubyte, uint, uint)
 declare ccc void %llvm.memcpy(sbyte*, sbyte*, uint, uint)
 """
 
-extfunctions = {}
-
-extfunctions["%RPyString_AsString"] = """
+extfunctions = """
 internal fastcc sbyte* %RPyString_AsString(%RPyString* %structstring) {
     %source1ptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 1
     %source1 = cast [0 x sbyte]* %source1ptr to sbyte*
     ret sbyte* %source1
 }
 
-"""
-
-extfunctions["%RPyString_Size"] = """
 internal fastcc int %RPyString_Size(%RPyString* %structstring) {
     %sizeptr = getelementptr %RPyString* %structstring, int 0, uint 1, uint 0
     %size = load int* %sizeptr
     ret int %size
 }
 
-"""
+internal fastcc int %RPyExceptionOccurred() {
+    %tmp.0 = load %RPYTHON_EXCEPTION_VTABLE** %last_exception_type
+    %bool_res = setne %RPYTHON_EXCEPTION_VTABLE* %tmp.0, null
+    %res = cast bool %bool_res to int
+    ret int %res
+}
 
-extfunctions["%RPyString_FromString"] = """
 internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     %lenu      = call ccc uint %strlen(sbyte* %s)
     %len       = cast uint %lenu to int
@@ -46,10 +45,6 @@ internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     ret %RPyString* %rpy
 }
 
-"""
-
-# abs functions
-extfunctions["%pypyop_int_abs"] = """
 internal fastcc int %pypyop_int_abs(int %x) {
 block0:
     %cond1 = setge int %x, 0
@@ -62,9 +57,7 @@ return_block:
     ret int %result
 }
 
-"""
 
-extfunctions["%pypyop_float_abs"] = """
 internal fastcc double %pypyop_float_abs(double %x) {
 block0:
     %cond1 = setge double %x, 0.0
@@ -77,12 +70,25 @@ return_block:
     ret double %result
 }
 
+;; functions that should return a bool according to
+;; pypy/rpython/extfunctable.py  , but C doesn't have bools!
+
+internal fastcc bool %LL_os_isatty(int %fd) {
+    %t = call fastcc int %LL_os_isatty(int %fd)
+    %b = cast int %t to bool
+    ret bool %b
+}
+internal fastcc bool %LL_stack_too_big() {
+    %t = call fastcc int %LL_stack_too_big()
+    %b = cast int %t to bool
+    ret bool %b
+}
 """
 
 
 # prepare exceptions
 for exc in "ZeroDivisionError OverflowError ValueError".split():
-    extfunctions["%%prepare_%(exc)s" % locals()] = """
+    extfunctions += """
 internal fastcc void %%prepare_%(exc)s() {
     %%exception_value = cast %%structtype.%(exc)s* %%structinstance.%(exc)s to %%RPYTHON_EXCEPTION*
     %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
@@ -93,11 +99,9 @@ internal fastcc void %%prepare_%(exc)s() {
 }
 """ % locals()
 
-
-# prepare and raise exceptions (%msg not used right now!)
 for exc in "IOError ZeroDivisionError " \
            "OverflowError ValueError RuntimeError".split():
-    extfunctions["%%raisePyExc_%(exc)s" % locals()] = """
+    extfunctions += """
 internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
     %%exception_value = cast %%structtype.%(exc)s* %%structinstance.%(exc)s to %%RPYTHON_EXCEPTION*
     %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
@@ -107,41 +111,4 @@ internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
     call fastcc void %%unwind()
     ret void
 }
-""" % locals()
-
-# main functions to be moved to genexterns
-# XXX rewrite these in C
-entry_functions = {}
-
-entry_functions["main_noargs"] = """
-int %main(int %argc, sbyte** %argv) {
-    store int 0, int* %GC_all_interior_pointers
-    %ret  = call fastcc int %pypy_main_noargs()
-    ret int %ret
-}
-"""
-
-entry_functions["entry_point"] = """
-int %main(int %argc, sbyte** %argv) {
-entry:
-    store int 0, int* %GC_all_interior_pointers
-    %pypy_argv = call fastcc %RPyListOfString* %pypy__RPyListOfString_New__Signed(int %argc)
-    br label %no_exit
-
-no_exit:
-    %indvar = phi uint [ %indvar.next, %no_exit ], [ 0, %entry ]
-    %i.0.0 = cast uint %indvar to int
-    %tmp.8 = getelementptr sbyte** %argv, uint %indvar
-    %tmp.9 = load sbyte** %tmp.8
-    %rpy = call fastcc %RPyString* %RPyString_FromString(sbyte* %tmp.9)
-    call fastcc void %pypy__RPyListOfString_SetItem__listPtr_Signed_rpy_stringPtr(%RPyListOfString* %pypy_argv, int %i.0.0, %RPyString* %rpy)
-    %inc = add int %i.0.0, 1
-    %tmp.2 = setlt int %inc, %argc
-    %indvar.next = add uint %indvar, 1
-    br bool %tmp.2, label %no_exit, label %loopexit
-
-loopexit:
-    %ret  = call fastcc int %pypy_entry_point(%RPyListOfString* %pypy_argv)
-    ret int %ret
-}
-"""
+""" % locals() 

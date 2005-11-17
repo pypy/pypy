@@ -360,7 +360,9 @@ def schedule():
 
 class Richards:
 
-    iterations = 750
+    def __init__(self, iterations):
+        assert isinstance(iterations, int)
+        self.iterations = iterations
 
     def run(self):
         for i in xrange(self.iterations):
@@ -389,9 +391,7 @@ class Richards:
             
             schedule()
 
-            if taskWorkArea.holdCount == 9297 and taskWorkArea.qpktCount == 23246:
-                os.write(1, "iteration %d\n" % i)
-            else:
+            if taskWorkArea.holdCount != 9297 or taskWorkArea.qpktCount != 23246:
                 return False
 
         return True
@@ -399,28 +399,35 @@ class Richards:
 class FailedRun(Exception):
     pass
 
-def entry_point():
-    r = Richards()
+def entry_point(args):
+    os.write(1, "  \n")
+    if len(args) > 2:
+        os.write(1, "command line: richards [iterations]\n")
+        return 2
+
+    iterations = 50
+    if len(args) == 2:
+        iterations = int(args[1])
+    
+    os.write(1, "Richards benchmark starting... %s \n" % iterations)
+
+    r = Richards(iterations)
     if not r:
         raise FailedRun
-    startTime = time.time()
+    start_time = time.time()
     result = r.run()
-    endTime = time.time()
-    return result, startTime, endTime
+    endtime = time.time()
 
-def main_noargs():
-    os.write(1, "Richards benchmark starting... \n")
-    result, startTime, endTime = entry_point()
     if not result:
         os.write(1, "Incorrect results!\n")
         return 1
-    os.write(1, "finished.\n")
-    total_s = endTime - startTime
-    os.write(1, "\nTotal time for %d iterations: %d msecs\n" %(Richards.iterations, int(1000 * total_s)))
-    os.write(1, "Average time for iterations: %d ms\n" % (int(total_s * 1000)/Richards.iterations))
-    return 0
 
+    total_s = endtime - start_time
+    os.write(1, "\nTotal time for %d iterations: %d msecs\n" %(iterations, int(1000 * total_s)))
+    os.write(1, "Average time for iterations: %d ms\n" % (int(total_s * 1000)/iterations))
+    return 0
+    
 if __name__ == "__main__":
     import autopath
     from pypy.translator.llvm.demo.run import run
-    run(main_noargs, "richards")
+    run(entry_point, "richards")
