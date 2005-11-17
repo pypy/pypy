@@ -206,10 +206,10 @@ def test_struct_opaque():
     S = lltype.GcStruct('s', ('a', lltype.Signed), ('r', PRTTI))
     s = lltype.malloc(S)
     s.a = 42
-    def array_constant():
+    def struct_opaque():
         return s.a
-    f = compile_function(array_constant, [])
-    assert f() == array_constant()
+    f = compile_function(struct_opaque, [])
+    assert f() == struct_opaque()
 
 def test_floats():
     " test pbc of floats "
