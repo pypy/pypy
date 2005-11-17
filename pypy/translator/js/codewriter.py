@@ -145,17 +145,22 @@ class CodeWriter(object):
         if self.js.stackless:   #save&restore all local variable for now
             self.openblock(self._savehandler_blocknum)
             self.comment('save block for stackless feature')
-            self.append('slp_frame_stack_top = new Array(slp_resume_block, %s)' % ', '.join(self._usedvars.keys()))
-            self.append('return undefined')
+            usedvars = ', '.join(self._usedvars.keys())
+            self.append('slp_frame_stack_bottom.f_back = slp_new_frame(0, new Array(slp_function, slp_resume_block, slp_targetvar, %s))' % usedvars)    #XXX what should state (here 0) really be?
+            self.append('slp_frame_stack_bottom        = slp_frame_stack_bottom.f_back')
+            self.comment('and unwind')
+            self.append('return')
             self.skip_closeblock()
             self.closeblock()
 
             self.openblock(self._resumehandler_blocknum)
             self.comment('resume block for stackless feature')
-            self.append('%-19s = slp_frame_stack_top[0]' % 'block')
+            self.append('%-19s = slp_frame_stack_top.resume_data[1]' % 'block')
+            self.append('%-19s = slp_frame_stack_top.resume_data[2]' % 'slp_targetvar')
             for i, k in enumerate(self._usedvars.keys()):
-                self.append('%-19s = slp_frame_stack_top[%d]' % (k, i+1))
+                self.append('%-19s = slp_frame_stack_top.resume_data[%d]' % (k, i+3))
             self.append('slp_frame_stack_top = null')
+            self.append('eval(slp_targetvar + " = slp_return_value")')
             self.closeblock()
 
         self.append("}")    #end of switch
@@ -180,18 +185,23 @@ class CodeWriter(object):
 
         if not exceptions:
             assert no_exception is None
-            self.append('%s = %s(%s)' % (targetvar, functionref, args))
             if self.js.stackless:
-                self.append('if (slp_frame_stack_bottom) { slp_resume_block = %d; block = %d; break; }' % (self._resume_blocknum, self._savehandler_blocknum))
+                self.append('%s = %s(%s)' % (targetvar, functionref, args))
+                self.append('if (slp_frame_stack_bottom) { slp_function = %s; slp_targetvar = "%s"; block = %d; slp_resume_block = %d; break; }' %
+                    (functionref, targetvar, self._savehandler_blocknum, self._resume_blocknum))
                 self.indent_less()
                 self.append('case %d:' % self._resume_blocknum)
                 self.indent_more()
                 self._resume_blocknum += 1
+            else:
+                self.append('%s = %s(%s)' % (targetvar, functionref, args))
         else:
             assert no_exception is not None
             no_exception_label, no_exception_exit = no_exception
             self.append('try {')
             self.indent_more()
+            if self.js.stackless:
+                self.comment('TODO: stackless andf exceptions handling')
             self.append('%s = %s(%s)' % (targetvar, functionref, args))
             self._phi(no_exception_exit)
             self._goto_block(no_exception_label)

@@ -1,46 +1,23 @@
 // Stackless helper data and code
 
-slp_frame_stack_top    = null
-slp_frame_stack_bottom = null
-slp_resume_block       = 0
+slp_frame_stack_top    = null;
+slp_frame_stack_bottom = null;
+slp_resume_block       = 0;
+
+// slp_restart_substate   = undefined; // XXX do we really need this?
+slp_return_value       = undefined;
+slp_targetvar          = undefined;
+slp_function           = undefined;
 
 function ll_stack_too_big() {
     return false; // XXX TODO use call depth here!
 }
 
-/*
-#define STANDALONE_ENTRY_POINT   slp_standalone_entry_point
-
-
-typedef struct slp_frame_s {
-  struct slp_frame_s *f_back;
-  int state;
-} slp_frame_t;
-
-typedef struct {
-  slp_frame_t header;
-  void* p0;
-} slp_frame_1ptr_t;
-
-struct slp_state_decoding_entry_s {
-  void *function;
-  int signature;
-};
-
-#include "slp_defs.h"
-
-// implementations
-
-// int slp_restart_substate;
-// long slp_retval_long;
-// double slp_retval_double;
-// void *slp_retval_voidptr;
-*/
-
-function slp_new_frame(state) {
+function slp_new_frame(state, resume_data) {
   f        = new Object();
   f.f_back = null;
   f.state  = state;
+  f.resume_data = resume_data;
   return f;
 }
 
@@ -51,7 +28,7 @@ function ll_stackless_stack_unwind() {
         slp_frame_stack_top = slp_frame_stack_bottom = slp_new_frame(0);
     }
 }
-ll_stack_unwind = ll_stackless_stack_unwind
+ll_stack_unwind = ll_stackless_stack_unwind;    // alias (XXX really need both?)
 
 function    slp_return_current_frame_to_caller() {
   var   result = slp_frame_stack_top;
@@ -61,7 +38,7 @@ function    slp_return_current_frame_to_caller() {
 }
 
 function slp_end_of_yielding_function() {
-  slp_frame_stack_top = slp_retval_voidptr;
+  slp_frame_stack_top = slp_return_value;
   return null;
 }
 
@@ -86,7 +63,7 @@ function ll_stackless_switch(c) {
 	slp_frame_stack_top = slp_frame_stack_bottom = f;
 	return null;
 }
-ll_stackless_switch__frame_stack_topPtr = ll_stackless_switch
+ll_stackless_switch__frame_stack_topPtr = ll_stackless_switch;  // alias (XXX really need both?)
 
 // example function for testing
 
@@ -104,72 +81,54 @@ function ll_stackless_stack_frames_depth() {
     }
 }
 
-/*
-#include "slp_state_decoding.h"
+function slp_main_loop() {
+    while (true) {
+        slp_frame_stack_bottom = null;
+        pending = slp_frame_stack_top;
 
-void slp_main_loop(void)
-{
-  int state, signature;
-  slp_frame_t* pending;
-  slp_frame_t* back;
-  void* fn;
+        while (true) {
+            f_back      = pending.f_back;
 
-  while (1)
-    {
-      slp_frame_stack_bottom = null;
-      pending = slp_frame_stack_top;
+            // state     = pending.state;
+            // fn        = slp_state_decoding_table[state].function;
+            // signature = slp_state_decoding_table[state].signature;
+            // if (fn) {
+            //     slp_restart_substate = 0;
+            // } else {
+            //     slp_restart_substate = signature;
+            //     state    -= signature;
+            //     fn        = slp_state_decoding_table[state].function;
+            //     signature = slp_state_decoding_table[state].signature;
+            // }
 
-      while (1)
-        {
-          back = pending.f_back;
-          state = pending.state;
-          fn = slp_state_decoding_table[state].function;
-          signature = slp_state_decoding_table[state].signature;
-          if (fn != null)
-            slp_restart_substate = 0;
-          else
-            {
-              slp_restart_substate = signature;
-              state -= signature;
-              fn = slp_state_decoding_table[state].function;
-              signature = slp_state_decoding_table[state].signature;
-            }
+            // Call back into the function...
+            // Ignoring parameters because they get initialized in the function anyway!
+            slp_return_value = pending.slp_function();
 
-          switch (signature) {
-
-#include "slp_signatures.h"
-
-	  }
-
-          free(pending);  // consumed by the previous call
-          if (slp_frame_stack_top)
-            break;
-          if (!back)
-            return;
-          pending = back;
-          slp_frame_stack_top = pending;
+            if (slp_frame_stack_top)
+                break;
+            if (!f_back)
+                return;
+            pending = f_back;
+            slp_frame_stack_top = pending;
         }
-      // slp_frame_stack_bottom is usually non-null here, apart from
-      // when returning from switch()
-      if (slp_frame_stack_bottom)
-        {
-          assert(slp_frame_stack_bottom.f_back == null);
-          slp_frame_stack_bottom.f_back = back;
-        }
+        
+        // slp_frame_stack_bottom is usually non-null here, apart from
+        // when returning from switch()
+        if (slp_frame_stack_bottom)
+            slp_frame_stack_bottom.f_back = f_back;
     }
 }
 
-int slp_standalone_entry_point(RPyListOfString *argv)
-{
-	int result;
-	result = PYPY_STANDALONE(argv);
-	if (slp_frame_stack_bottom) {
-		slp_main_loop();
-		result = (int) slp_retval_long;
-	}
-	return result;
+function slp_standalone_entry_point() {
+    var result = fn();  //XXX hardcoded for now
+    if (slp_frame_stack_bottom) {
+        // if the stack unwound we need to run the dispatch loop
+        // to retrieve the actual result
+        slp_main_loop();
+        result = slp_return_value;
+    }
+    return result;
 }
-*/
 
 // End of Stackless helper data and code
-
