@@ -891,9 +891,11 @@ We should mention (but ignore for the sequel) that all annotations also
 have a variant where they stand for a single known object; this
 information is used in constant propagation.  In addition, we have left
 out a number of other annotations that are irrelevant for the basic
-description of the annotator XXX WHICH ONES, and straightforward to handle.  The
-complete list is defined and documented in `pypy/annotation/model.py`_
-and described in the `annotator reference documentation`_.
+description of the annotator and straightforward to handle:
+``Dictionary``, ``Tuple``, ``Float``, ``UnicodePoint``, ``Iterator``,
+etc.  The complete list is defined and documented in
+`pypy/annotation/model.py`_ and described in the `annotator reference
+documentation`_ [TR]_.
 
 .. _`annotator reference documentation`: translation.html#annotator
 
@@ -1115,8 +1117,13 @@ rule::
                E' = E union (z'~v)
                b' = b with (z->b(z'))
 
-XXX EXPLAIN why not directly z->b(v)
-XXX MENTION that E stands for "read_locations"
+We cannot directly set ``z->b(v)`` because that would be an "illegal"
+use of a binding, in the sense explained above: it would defeat the
+metarule for rescheduling the rule when ``b(v)`` is modified.  (In the
+source code, the same effect is actually achieved by recording on a
+case-by-case basis at which locations the binding ``b(v)`` has been
+read; in the theory we use the equivalence relation *E* to make this
+notion explicit.)
 
 If you consider the definition of `merge`_ again, you will notice
 that merging two different lists (for example, two lists that come from
@@ -1978,8 +1985,14 @@ for the intersection operation in the annotation lattice.
 
 It is possible to define an appropriate lattice structure that includes
 the extended ``Bool`` annotations and show that all soundness properties
-described above still hold.  A tricky point to get right is to XXX extended
-``Bool`` and constants and Generalization
+described above still hold.  (The tricky point is to get the rules to
+still respect the Generalisation_ property if we also have constant
+annotations, as mentioned at the end of the `Annotation model`_.  It
+requires constant ``Bool`` annotations -- i.e. known to be True or known
+to be False -- that are nevertheless extended as above, even though it
+seems redundant, just in case the annotation needs to be generalized to
+a non-constant extended annotation.  See for example
+``builtin_isinstance()`` in `pypy/annotation/builtin.py`_.)
 
 
 Termination with non-static aspects
@@ -2011,14 +2024,16 @@ the annotator is not the central subject of the present report, so we
 will only skim it and refer to the reference documentation when
 appropriate.
 
-XXX REFACTOR PARAGRAPH
 The main difficulty with turning annotated flow graphs into, say, C code
-is that the RPython definition is still quite large, in the sense that
-an important fraction of the built-in data structures of Python, and the
-methods on them, are supported -- sometimes requiring highly non-trivial
-implementations, in a polymorphic way.  Various approaches have been
-tried out, including writing a lot of template C code that gets filled
-with concrete types.
+is that the RPython definition is still quite large.  It supports a lot
+of the built-in data structures of Python, with most of their methods.
+Some of these data structures require either tedious or non-trivial
+implementations (e.g. dictionaries).  Additionally, to use the type
+information computed by the annotator, we need some kind of polymorphic
+implementation (e.g. dictionaries with integer keys are not the same as
+dictionaries with string keys).  Various approaches have been tried out,
+including writing a lot of template C code that gets filled with
+concrete types.
 
 The approach eventually selected is different.  We proceed in two steps:
 
@@ -2192,16 +2207,13 @@ Conclusion
 
 
 We have presented a flexible static analysis and compilation toolchain
-that is suitable for a restricted subset of Python called RPython.
+that is suitable for a restricted subset of Python called RPython.  (We
+have also argued against the existence or usefulness of such a tool for
+full Python or any sufficiently dynamic language; instead, PyPy contains
+a complete interpreter for the full Python language, itself written in
+RPython.)
 
-XXX TOO NEGATIVE
-Our approach to static analysis does not work for the full dynamic
-Python language.  This is not what we are trying to achieve anyway.  We
-have argued against the existence or usefulness of such a tool for
-sufficiently dynamic languages.  Instead, PyPy contains a complete
-interpreter for the full Python language, itself written in RPython.
-
-On the other hand, our approach seems to be general enough to insert a
+Our approach seems to be general enough to insert a
 variety of low-level aspects during successive phases of the translation
 and target a number of quite different languages and platforms.  It is
 thus a tool that can be used to compile portable RPython programs to all

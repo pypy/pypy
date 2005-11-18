@@ -4,6 +4,7 @@
 .. _`annotation/`:
 .. _`pypy/annotation`: ../../pypy/annotation
 .. _`annotation/binaryop.py`: ../../pypy/annotation/binaryop.py
+.. _`pypy/annotation/builtin.py`: ../../pypy/annotation/builtin.py
 .. _`pypy/annotation/model.py`: ../../pypy/annotation/model.py
 .. _`doc/`: ../../pypy/doc
 .. _`doc/revreport/`: ../../pypy/doc/revreport
