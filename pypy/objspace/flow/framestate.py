@@ -1,4 +1,4 @@
-from pypy.interpreter.pyframe import PyFrame, ControlFlowException
+from pypy.interpreter.pyframe import PyFrame, SuspendedUnroller
 from pypy.interpreter.error import OperationError
 from pypy.rpython.objectmodel import instantiate
 from pypy.objspace.flow.model import *
@@ -118,7 +118,7 @@ def union(w1, w2):
     if isinstance(w1, Constant) and isinstance(w2, Constant):
         if w1 == w2:
             return w1
-        # ControlFlowException represent stack unrollers in the stack.
+        # SuspendedUnrollers represent stack unrollers in the stack.
         # They should not be merged because they will be unwrapped.
         # This is needed for try:except: and try:finally:, though
         # it makes the control flow a bit larger by duplicating the
@@ -149,7 +149,7 @@ class SpecTag(object):
 # We have to flatten out the state of the frame into a list of
 # Variables and Constants.  This is done above by collecting the
 # locals and the items on the value stack, but the latter may contain
-# ControlFlowExceptions.  We have to handle these specially, because
+# SuspendedUnroller.  We have to handle these specially, because
 # some of them hide references to more Variables and Constants.
 # The trick is to flatten ("pickle") them into the list so that the
 # extra Variables show up directly in the list too.
@@ -165,12 +165,12 @@ def recursively_flatten(space, lst):
     while i < len(lst):
         item = lst[i]
         if not (isinstance(item, Constant) and
-                isinstance(item.value, ControlFlowException)):
+                isinstance(item.value, SuspendedUnroller)):
             i += 1
         else:
-            unroller = item.value
-            vars = unroller.state_unpack_variables(space)
-            key = unroller.__class__, len(vars)
+            flowexc = item.value.flowexc
+            vars = flowexc.state_unpack_variables(space)
+            key = flowexc.__class__, len(vars)
             try:
                 tag = PICKLE_TAGS[key]
             except:
@@ -182,9 +182,9 @@ def recursively_unflatten(space, lst):
     for i in range(len(lst)-1, -1, -1):
         item = lst[i]
         if item in UNPICKLE_TAGS:
-            unrollerclass, argcount = UNPICKLE_TAGS[item]
+            flowexcclass, argcount = UNPICKLE_TAGS[item]
             arguments = lst[i+1: i+1+argcount]
             del lst[i+1: i+1+argcount]
-            unroller = instantiate(unrollerclass)
-            unroller.state_pack_variables(space, *arguments)
-            lst[i] = Constant(unroller)
+            flowexc = instantiate(flowexcclass)
+            flowexc.state_pack_variables(space, *arguments)
+            lst[i] = flowexc.wrap(space)

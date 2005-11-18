@@ -401,7 +401,7 @@ class ExceptBlock(FrameBlock):
             # the stack setup is slightly different than in CPython:
             # instead of the traceback, we store the unroller object,
             # wrapped.
-            frame.valuestack.push(frame.space.wrap(unroller))
+            frame.valuestack.push(unroller.wrap(frame.space))
             frame.valuestack.push(operationerr.w_value)
             frame.valuestack.push(operationerr.w_type)
             frame.next_instr = self.handlerposition   # jump to the handler
@@ -428,7 +428,7 @@ class FinallyBlock(FrameBlock):
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
         self.cleanupstack(frame)
-        frame.valuestack.push(frame.space.wrap(unroller))
+        frame.valuestack.push(unroller.wrap(frame.space))
         frame.valuestack.push(frame.space.w_None)
         frame.valuestack.push(frame.space.w_None)
         frame.next_instr = self.handlerposition   # jump to the handler
@@ -438,7 +438,7 @@ class FinallyBlock(FrameBlock):
 ### Internal exceptions that change the control flow ###
 ### and (typically) unroll the block stack           ###
 
-class ControlFlowException(Exception, baseobjspace.BaseWrappable):
+class ControlFlowException(Exception):
     """Abstract base class for interpreter-level exceptions that
     instruct the interpreter to change the control flow and the
     block stack.
@@ -469,12 +469,20 @@ class ControlFlowException(Exception, baseobjspace.BaseWrappable):
         # could occur e.g. when a BREAK_LOOP is not actually within a loop
         raise BytecodeCorruption, "block stack exhausted"
 
+    def wrap(self, space):
+        return space.wrap(SuspendedUnroller(self))
+
     # for the flow object space, a way to "pickle" and "unpickle" the
     # ControlFlowException by enumerating the Variables it contains.
     def state_unpack_variables(self, space):
         return []     # by default, overridden below
     def state_pack_variables(self, space, *values_w):
         assert len(values_w) == 0
+
+class SuspendedUnroller(baseobjspace.Wrappable):
+    """A wrappable box around a ControlFlowException."""
+    def __init__(self, flowexc):
+        self.flowexc = flowexc
 
 class SApplicationException(ControlFlowException):
     """Unroll the stack because of an application-level exception

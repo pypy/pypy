@@ -4,8 +4,7 @@
 """
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import \
-     BaseWrappable, Wrappable, W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2
 from pypy.rpython.objectmodel import instantiate
@@ -172,7 +171,7 @@ def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
         check = "space.is_true(space.isinstance(obj, space.w_%s))" % cls_name
     else:
         cls_name = cls.__name__
-        if issubclass(cls, BaseWrappable):
+        if issubclass(cls, Wrappable):
             unwrap =  "space.interpclass_w(w_obj)"
         else:
             unwrap = "w_obj"

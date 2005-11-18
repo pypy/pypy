@@ -16,7 +16,7 @@ class TestBuiltinCode:
         def d(self, w_boo):
             pass
         code = gateway.BuiltinCode(d, unwrap_spec= ['self',
-                                                   gateway.W_Root], self_type=gateway.BaseWrappable)
+                                                   gateway.W_Root], self_type=gateway.Wrappable)
         assert code.signature() == (['self', 'boo'], None, None)
         def e(space, w_x, w_y, __args__):
             pass

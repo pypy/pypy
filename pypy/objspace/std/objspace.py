@@ -1,5 +1,5 @@
 from pypy.objspace.std.register_all import register_all
-from pypy.interpreter.baseobjspace import ObjSpace, BaseWrappable
+from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.rpython.objectmodel import instantiate
@@ -250,7 +250,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, list):
             wrappeditems = [self.wrap(item) for item in x]
             return W_ListObject(self, wrappeditems)
-        if isinstance(x, BaseWrappable):
+        if isinstance(x, Wrappable):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
@@ -293,7 +293,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     wrap_exception_cls._annspecialcase_ = "override:wrap_exception_cls"
         
     def unwrap(self, w_obj):
-        if isinstance(w_obj, BaseWrappable):
+        if isinstance(w_obj, Wrappable):
             return w_obj
         if isinstance(w_obj, W_Object):
             return w_obj.unwrap()

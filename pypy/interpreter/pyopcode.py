@@ -380,9 +380,9 @@ class PyInterpFrame(pyframe.PyFrame):
         f.valuestack.pop()   # ignore the exception value
         w_unroller = f.valuestack.pop()
         unroller = f.space.interpclass_w(w_unroller)
-        if unroller is not None:
+        if isinstance(unroller, pyframe.SuspendedUnroller):
             # re-raise the unroller, if any
-            raise unroller
+            raise unroller.flowexc
 
     def BUILD_CLASS(f):
         w_methodsdict = f.valuestack.pop()

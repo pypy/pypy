@@ -15,7 +15,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, BaseWrappable
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
 from pypy.interpreter.argument import Arguments
 from pypy.tool.sourcetools import NiceCompile, compile2
@@ -57,7 +57,7 @@ class Signature:
 class UnwrapSpecRecipe:
     "NOT_RPYTHON"
 
-    bases_order = [BaseWrappable, W_Root, ObjSpace, Arguments, object]
+    bases_order = [Wrappable, W_Root, ObjSpace, Arguments, object]
 
     def dispatch(self, meth_family, el, orig_sig, new_sig):
         if isinstance(el, str):
@@ -85,7 +85,7 @@ class UnwrapSpecRecipe:
     def check_function(self, (func, cls), orig_sig, app_sig):
         self.check(cls, orig_sig, app_sig)
         
-    def check__BaseWrappable(self, el, orig_sig, app_sig):
+    def check__Wrappable(self, el, orig_sig, app_sig):
         name = el.__name__
         argname = orig_sig.next_arg()
         assert not argname.startswith('w_'), (
@@ -161,7 +161,7 @@ class UnwrapSpecRecipe:
         emit_sig.through_scope_w += 1
         emit_sig.run_args.append("self.%s_arg%d" % (name,cur))
 
-    def emit__BaseWrappable(self, el, orig_sig, emit_sig):
+    def emit__Wrappable(self, el, orig_sig, emit_sig):
         name = el.__name__
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
@@ -374,7 +374,7 @@ class BuiltinCode(eval.Code):
         # It is a list of types or singleton objects:
         #  baseobjspace.ObjSpace is used to specify the space argument
         #  baseobjspace.W_Root is for wrapped arguments to keep wrapped
-        #  baseobjspace.BaseWrappable subclasses imply interpclass_w and a typecheck
+        #  baseobjspace.Wrappable subclasses imply interpclass_w and a typecheck
         #  argument.Arguments is for a final rest arguments Arguments object
         # 'args_w' for unpacktuple applied to rest arguments
         # 'w_args' for rest arguments passed as wrapped tuple

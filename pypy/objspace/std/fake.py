@@ -173,7 +173,7 @@ class CPythonFakeFrame(eval.Frame):
             raise
         return self.space.wrap(result)
 
-class EvenMoreObscureWrapping(baseobjspace.BaseWrappable):
+class EvenMoreObscureWrapping(baseobjspace.Wrappable):
     def __init__(self, val):
         self.val = val
     def __spacebind__(self, space):

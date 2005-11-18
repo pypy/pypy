@@ -31,11 +31,11 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         return annmodel.SomeInstance(clsdef)    
 
     def specialize__wrap(pol, bookkeeper, mod, spaceop, func, args, mono):
-        from pypy.interpreter.baseobjspace import BaseWrappable
+        from pypy.interpreter.baseobjspace import Wrappable
         ignore, args_w = args.flatten()
         typ = args_w[1].knowntype
-        if issubclass(typ, BaseWrappable):
-            typ = BaseWrappable
+        if issubclass(typ, Wrappable):
+            typ = Wrappable
         return (func, typ), args
     
     def attach_lookup(pol, t, attr):

@@ -7,11 +7,10 @@ from pypy.tool.cache import Cache
 from pypy.rpython.rarithmetic import r_uint, intmask
 import os
 
-__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
-           'W_Root']
+__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
 
-class W_Root:
+class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
     def getdict(self):
@@ -59,14 +58,11 @@ class W_Root:
     def identity_hash(self, space):
         return space.wrap(intmask(hash(self))) #space.id(self)
 
-class BaseWrappable(W_Root):
-    """A subclass of BaseWrappable is an internal, interpreter-level class
+class Wrappable(W_Root):
+    """A subclass of Wrappable is an internal, interpreter-level class
     that can nevertheless be exposed at application-level by space.wrap()."""
     def __spacebind__(self, space):
         return self
-
-class Wrappable(BaseWrappable, object):
-    """Same as BaseWrappable, just new-style instead."""
 
 
 class InternalSpaceCache(Cache):
@@ -396,7 +392,7 @@ class ObjSpace(object):
          If w_obj is a wrapped internal interpreter class instance unwrap to it,
          otherwise return None
         """
-        if isinstance(w_obj, BaseWrappable):
+        if isinstance(w_obj, Wrappable):
             return w_obj
         return None
 
