@@ -125,8 +125,7 @@ Cached functions with PBC arguments
 ------------------------------------
 
 XXX
-(also a word on the
-example of cached functions with PBC argument?)
+(also a word on the example of cached functions with PBC argument?)
 
 
 Changing the representation of an object completely
