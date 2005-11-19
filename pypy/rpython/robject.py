@@ -53,10 +53,8 @@ def make_operation(opname, cls=PyObjRepr):
     def rtype_op(_, hop):
         vlist = hop.inputargs(*([pyobj_repr]*hop.nb_args))
         hop.exception_is_here()
-        if isinstance(hop.r_result, VoidRepr):
-            hop.genop(opname, vlist)
-        else:
-            v = hop.genop(opname, vlist, resulttype=pyobj_repr)
+        v = hop.genop(opname, vlist, resulttype=pyobj_repr)
+        if not isinstance(hop.r_result, VoidRepr):
             return hop.llops.convertvar(v, pyobj_repr, hop.r_result)
 
     funcname = 'rtype_' + opname
