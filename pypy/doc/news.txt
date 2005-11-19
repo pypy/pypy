@@ -12,7 +12,7 @@
 PyPy Sprint in Göteborg 7th - 11th December 2005 
 =================================================
 
-The next PyPy sprint is scheduled to be in December 2005 in Götheborg.
+The next PyPy sprint is scheduled to be in December 2005 in Göteborg.
 Its main focus is heading towards phase 2, which means JIT work,
 alternate threading models and logic programming (but there are also
 other possible topics).  We'll give newcomer-friendly introductions.
