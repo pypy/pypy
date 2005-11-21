@@ -39,7 +39,7 @@ pypy-llvm is the closest to CPython performance we've gotten yet
 of operations that can raise exceptions is now shared with the genc
 backend, reducing duplication and maintence overhead.  Basically this
 means that the LLVM backend is and should remain compatible with the default
-pypy-c build (no threads, Boehm GC and no stackless features).
+pypy-c build (no threads, only the Boehm GC and no stackless features).
 
 There was also progress on the JavaScript backend, mainly focussed on
 adding some of the stackless features currently sported by the C backend.
