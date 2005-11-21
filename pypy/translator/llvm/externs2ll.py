@@ -137,7 +137,6 @@ def generate_llfile(db, extern_decls):
     function_names = []
         
     def predeclarefn(c_name, llname):
-        print llname
         function_names.append(llname)
         assert llname[0] == "%"
         llname = llname[1:]
@@ -164,8 +163,9 @@ def generate_llfile(db, extern_decls):
             c = inputconst(lltype.typeOf(funcptr), funcptr)
             predeclarefn(c_name, db.repr_arg(c))
         elif isinstance(lltype.typeOf(obj), lltype.Ptr):
-            if isinstance(lltype.typeOf(obj._obj), lltype.FuncType):
-                predeclarefn(c_name, db.repr_name(obj._obj))
+            predeclarefn(c_name, db.obj2node[obj._obj].ref)
+        else:
+            assert False, "unhandled extern_decls %s %s %s" % (c_name, type(obj), obj)
 
     # start building our source
     src = open(path_join(os.path.dirname(__file__),
@@ -190,8 +190,8 @@ def generate_llfile(db, extern_decls):
     src_path = path_join(os.path.dirname(extfunc.__file__), "src")
 
     include_files = [path_join(src_path, f + ".h") for f in
-                        ["ll_os", "ll_math", "ll_time",
-                         "ll_strtod", "thread", "stack"]]
+                        ["thread", "ll_os", "ll_math", "ll_time",
+                         "ll_strtod", "ll_thread", "stack"]]
     
     includes = []
     for f in include_files:

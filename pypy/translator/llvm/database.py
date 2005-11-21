@@ -8,7 +8,8 @@ from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode
 from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
      VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
-from pypy.translator.llvm.opaquenode import OpaqueNode, OpaqueTypeNode
+from pypy.translator.llvm.opaquenode import OpaqueNode, OpaqueTypeNode, \
+     ExtOpaqueTypeNode
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Constant, Variable
             
@@ -83,7 +84,7 @@ class Database(object):
                 r += "\ndump_pbcs %s (%s)\n" \
                      "getref -> %s \n" \
                      "pbcref -> %s \n" % (v, k, ref, pbc_ref)
-            return r
+        return r
     
     #_______setting up and preperation______________________________
 
@@ -151,7 +152,10 @@ class Database(object):
                 self.addpending(type_, ArrayTypeNode(self, type_))
 
         elif isinstance(type_, lltype.OpaqueType):
-            self.addpending(type_, OpaqueTypeNode(self, type_))            
+            if hasattr(type_, '_exttypeinfo'):
+                self.addpending(type_, ExtOpaqueTypeNode(self, type_))            
+            else:
+                self.addpending(type_, OpaqueTypeNode(self, type_))
 
         else:
             assert False, "need to prepare typerepr %s %s" % (type_, type(type_))

@@ -1,5 +1,7 @@
 from pypy.translator.llvm.node import ConstantLLVMNode
 from pypy.translator.llvm.log import log 
+from pypy.translator.c.extfunc import EXTERNALS
+
 log = log.extfuncnode
 
 class ExternalFuncNode(ConstantLLVMNode):
@@ -10,8 +12,9 @@ class ExternalFuncNode(ConstantLLVMNode):
         self.value = value
         name = value._callable.__name__
         assert name.startswith("ll")
-        name = "LL" + name[2:] 
-        self.ref = self.make_ref("%", name)
+
+        mapped_name = EXTERNALS[value._callable]
+        self.ref = self.make_ref("%", mapped_name)
         self.used_external_functions[self.ref] = True
 
     def getdecl(self):

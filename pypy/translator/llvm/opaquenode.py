@@ -18,6 +18,9 @@ class OpaqueTypeNode(LLVMNode):
     def writedatatypedecl(self, codewriter):
         codewriter.append("%s = type opaque*" % self.ref)
 
+class ExtOpaqueTypeNode(OpaqueTypeNode):
+    def writedatatypedecl(self, codewriter):
+        pass
 
 class OpaqueNode(ConstantLLVMNode):
     def __init__(self, db, value):

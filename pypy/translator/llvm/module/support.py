@@ -83,6 +83,12 @@ internal fastcc bool %LL_stack_too_big() {
     %b = cast int %t to bool
     ret bool %b
 }
+internal fastcc bool %LL_thread_acquirelock(%RPyOpaque_ThreadLock* %lock, bool %waitflag) {
+    %waitint = cast bool %waitflag to int
+    %t = call fastcc int %LL_thread_acquirelock(%RPyOpaque_ThreadLock* %lock, int %waitint)
+    %b = cast int %t to bool
+    ret bool %b
+}
 """
 
 
@@ -112,3 +118,16 @@ internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
     ret void
 }
 """ % locals() 
+
+extfunctions += """
+internal fastcc void %raisePyExc_thread_error(sbyte* %msg) {
+    %exception_value = cast %structtype.error* %structinstance.error to %RPYTHON_EXCEPTION*
+    %tmp             = getelementptr %RPYTHON_EXCEPTION* %exception_value, int 0, uint 0
+    %exception_type  = load %RPYTHON_EXCEPTION_VTABLE** %tmp
+    store %RPYTHON_EXCEPTION_VTABLE* %exception_type, %RPYTHON_EXCEPTION_VTABLE** %last_exception_type
+    store %RPYTHON_EXCEPTION* %exception_value, %RPYTHON_EXCEPTION** %last_exception_value
+    call fastcc void %unwind()
+    ret void
+}
+"""
+
