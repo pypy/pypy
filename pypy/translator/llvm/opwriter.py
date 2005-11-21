@@ -1,6 +1,5 @@
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
-from pypy.translator.llvm.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm.log import log 
 log = log.opwriter
 
@@ -135,7 +134,6 @@ class OpWriter(object):
 
     def int_abs(self, op):
         functionref = '%pypyop_' + op.opname
-        ExternalFuncNode.used_external_functions[functionref] = True
         self.codewriter.call(self.db.repr_arg(op.result),
                              self.db.repr_arg_type(op.result),
                              functionref,
