@@ -43,8 +43,7 @@ else:
         return r + ' null'
 
     def _nonoderesult(self, node):
-        decl = node.getdecl()
-        returntype, name = decl.split(' ', 1)
+        returntype, name, dummy = node.getdecl_parts()
         noresult = self._noresult(returntype)
         return noresult
 

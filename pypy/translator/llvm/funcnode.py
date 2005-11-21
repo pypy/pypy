@@ -122,8 +122,7 @@ class FuncNode(ConstantLLVMNode):
     
     # ______________________________________________________________________
     # writing helpers for entry points
-
-    def getdecl(self):
+    def getdecl_parts(self):
         startblock = self.graph.startblock
         returnblock = self.graph.returnblock
         startblock_inputargs = [a for a in startblock.inputargs
@@ -132,10 +131,12 @@ class FuncNode(ConstantLLVMNode):
         inputargs = self.db.repr_arg_multi(startblock_inputargs)
         inputargtypes = self.db.repr_arg_type_multi(startblock_inputargs)
         returntype = self.db.repr_arg_type(self.graph.returnblock.inputargs[0])
-        result = "%s %s" % (returntype, self.ref)
         args = ["%s %s" % item for item in zip(inputargtypes, inputargs)]
-        result += "(%s)" % ", ".join(args)
-        return result 
+        return returntype, self.ref, args
+
+    def getdecl(self):
+        returntype, ref, args = self.getdecl_parts()
+        return "%s %s(%s)" % (returntype, ref, ", ".join(args))
 
     def write_block(self, codewriter, block):
         self.write_block_phi_nodes(codewriter, block)

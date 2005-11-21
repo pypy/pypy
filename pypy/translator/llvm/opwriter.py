@@ -287,7 +287,8 @@ class OpWriter(object):
 
     def last_exception_type_ptr(self, op):
         e = self.db.translator.rtyper.getexceptiondata()
-        lltype_of_exception_type = ('%structtype.' + e.lltype_of_exception_type.TO.__name__ + '*')
+        # XXX Can we use database?
+        lltype_of_exception_type = ('%structtype_' + e.lltype_of_exception_type.TO.__name__ + '*')
         self.codewriter.load('%'+str(op.result), lltype_of_exception_type, '%last_exception_type')
 
     def invoke(self, op):
@@ -326,10 +327,12 @@ class OpWriter(object):
 
         e = self.db.translator.rtyper.getexceptiondata()
         ll_exception_match       = '%pypy_' + e.ll_exception_match.__name__
-        lltype_of_exception_type = ('%structtype.' +
+
+        # XXX Can we use database?
+        lltype_of_exception_type = ('%structtype_' +
                                     e.lltype_of_exception_type.TO.__name__
                                     + '*')
-        lltype_of_exception_value = ('%structtype.' +
+        lltype_of_exception_value = ('%structtype_' +
                                     e.lltype_of_exception_value.TO.__name__
                                     + '*')
 

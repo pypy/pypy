@@ -12,7 +12,7 @@ class StructTypeNode(LLVMNode):
         assert isinstance(struct, lltype.Struct)
         self.db = db
         self.struct = struct
-        prefix = '%structtype.'
+        prefix = '%structtype_'
         name = self.struct._name
         self.ref = self.make_ref(prefix, name)
         self.name = self.ref[len(prefix):]
@@ -41,7 +41,7 @@ class StructVarsizeTypeNode(StructTypeNode):
 
     def __init__(self, db, struct): 
         super(StructVarsizeTypeNode, self).__init__(db, struct)
-        prefix = '%new.varsizestruct.'
+        prefix = '%new_varsizestruct_'
         self.constructor_ref = self.make_ref(prefix, self.name)
         self.constructor_decl = "%s * %s(%s %%len)" % \
                                 (self.ref,
@@ -91,7 +91,7 @@ class StructNode(ConstantLLVMNode):
         self.db = db
         self.value = value
         self.structtype = self.value._TYPE
-        prefix = '%structinstance.'
+        prefix = '%structinstance_'
         name = str(value).split()[1]
         self.ref = self.make_ref(prefix, name)
         self._get_ref_cache = None

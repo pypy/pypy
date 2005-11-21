@@ -91,25 +91,11 @@ internal fastcc bool %LL_thread_acquirelock(%RPyOpaque_ThreadLock* %lock, bool %
 }
 """
 
+def write_raise_exc(c_name, exc_repr, codewriter):
 
-# prepare exceptions
-for exc in "ZeroDivisionError OverflowError ValueError".split():
-    extfunctions += """
-internal fastcc void %%prepare_%(exc)s() {
-    %%exception_value = cast %%structtype.%(exc)s* %%structinstance.%(exc)s to %%RPYTHON_EXCEPTION*
-    %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
-    %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
-    store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
-    store %%RPYTHON_EXCEPTION* %%exception_value, %%RPYTHON_EXCEPTION** %%last_exception_value
-    ret void
-}
-""" % locals()
-
-for exc in "IOError ZeroDivisionError " \
-           "OverflowError ValueError RuntimeError".split():
-    extfunctions += """
-internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
-    %%exception_value = cast %%structtype.%(exc)s* %%structinstance.%(exc)s to %%RPYTHON_EXCEPTION*
+    l = """
+internal fastcc void %%raise%s(sbyte* %%msg) {
+    %%exception_value = cast %s to %%RPYTHON_EXCEPTION*
     %%tmp             = getelementptr %%RPYTHON_EXCEPTION* %%exception_value, int 0, uint 0
     %%exception_type  = load %%RPYTHON_EXCEPTION_VTABLE** %%tmp
     store %%RPYTHON_EXCEPTION_VTABLE* %%exception_type, %%RPYTHON_EXCEPTION_VTABLE** %%last_exception_type
@@ -117,17 +103,6 @@ internal fastcc void %%raisePyExc_%(exc)s(sbyte* %%msg) {
     call fastcc void %%unwind()
     ret void
 }
-""" % locals() 
-
-extfunctions += """
-internal fastcc void %raisePyExc_thread_error(sbyte* %msg) {
-    %exception_value = cast %structtype.error* %structinstance.error to %RPYTHON_EXCEPTION*
-    %tmp             = getelementptr %RPYTHON_EXCEPTION* %exception_value, int 0, uint 0
-    %exception_type  = load %RPYTHON_EXCEPTION_VTABLE** %tmp
-    store %RPYTHON_EXCEPTION_VTABLE* %exception_type, %RPYTHON_EXCEPTION_VTABLE** %last_exception_type
-    store %RPYTHON_EXCEPTION* %exception_value, %RPYTHON_EXCEPTION** %last_exception_value
-    call fastcc void %unwind()
-    ret void
-}
-"""
+""" % (c_name, exc_repr)
+    codewriter.append(l)
 

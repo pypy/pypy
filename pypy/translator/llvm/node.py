@@ -11,7 +11,7 @@ class LLVMNode(object):
             name = '"%s"' % name
             
         if name in self.nodename_count:
-            postfix = '.%d' % self.nodename_count[name]
+            postfix = '_%d' % self.nodename_count[name]
             self.nodename_count[name] += 1
         else:
             postfix = ''

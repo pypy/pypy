@@ -221,7 +221,7 @@ class Database(object):
 
     def setup_all(self):
         while self._pendingsetup: 
-            node = self._pendingsetup.pop()
+            node = self._pendingsetup.pop(0)
             #log.settingup(node)
             node.setup()
 

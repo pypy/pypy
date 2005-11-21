@@ -26,8 +26,8 @@ class ArrayTypeNode(LLVMNode):
         else:
             name += str(arraytype)
 
-        self.ref = self.make_ref('%arraytype.', name)
-        self.constructor_ref = self.make_ref('%new.array.', name)
+        self.ref = self.make_ref('%arraytype_', name)
+        self.constructor_ref = self.make_ref('%new_array_', name)
         self.constructor_decl = "%s * %s(%s %%len)" % \
                                 (self.ref,
                                  self.constructor_ref,
@@ -66,7 +66,7 @@ class VoidArrayTypeNode(LLVMNode):
         assert isinstance(array, lltype.Array)
         self.db = db
         self.array = array
-        self.ref = "%arraytype.Void"
+        self.ref = "%arraytype_Void"
 
     def writedatatypedecl(self, codewriter):
         td = "%s = type { %s }" % (self.ref, self.db.get_machine_word())

@@ -8,9 +8,10 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
 from pypy.translator.llvm.codewriter import CodeWriter
 from pypy.translator.llvm import extfuncnode
-from pypy.translator.llvm.module.support import extdeclarations, extfunctions
+from pypy.translator.llvm.module.support import \
+     extdeclarations, extfunctions, write_raise_exc
 from pypy.translator.llvm.node import LLVMNode
-from pypy.translator.llvm.externs2ll import post_setup_externs, generate_llfile
+from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.exception import ExceptionPolicy
 from pypy.translator.translator import Translator
@@ -79,28 +80,28 @@ class GenLLVM(object):
 
         self._checkpoint()
 
+        # set up externs nodes
+        extern_decls = setup_externs(self.db)
+        self.translator.rtyper.specialize_more_blocks()
+        self.db.setup_all()
+        self._checkpoint('setup_all externs')
+        
         # get entry point
         entry_point, func_name = self.get_entry_point(func)
         self._checkpoint('get_entry_point')
-
-        # open file & create codewriter
-        codewriter, filename = self.create_codewrite(func_name)
-        self._checkpoint('open file and create codewriter')
-
+        
         # set up all nodes
         self.db.setup_all()
         self.entrynode = self.db.set_entrynode(entry_point)
         self._checkpoint('setup_all first pass')
 
-        # post set up nodes 
-        extern_decls = post_setup_externs(self.db)
-        self.translator.rtyper.specialize_more_blocks()
-        self.db.setup_all()
-        self._checkpoint('setup_all second pass')
-
         self._print_node_stats()
 
-        # create ll file from c code 
+        # open file & create codewriter
+        codewriter, filename = self.create_codewrite(func_name)
+        self._checkpoint('open file and create codewriter')
+
+        # create ll file from c code
         self.setup_externs(extern_decls)
         self._checkpoint('setup_externs')
     
@@ -147,6 +148,7 @@ class GenLLVM(object):
         # write external function implementations
         codewriter.header_comment('External Function Implementation')
         codewriter.append(self.llexterns_functions)
+        self.write_extern_impls(codewriter, extern_decls)
 
         self._checkpoint('write external functions')
 
@@ -201,7 +203,9 @@ class GenLLVM(object):
         if self.llexterns_header is None:
             assert self.llexterns_functions is None
             self.llexterns_header, self.llexterns_functions = \
-                                   generate_llfile(self.db, extern_decls)
+                                   generate_llfile(self.db,
+                                                   extern_decls,
+                                                   self.entrynode)
 
     def create_codewrite(self, func_name):
         # prevent running the same function twice in a test
@@ -223,6 +227,13 @@ class GenLLVM(object):
 
                 l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
                 codewriter.append(l)
+  
+    def write_extern_impls(self, codewriter, extern_decls):
+        for c_name, obj in extern_decls:
+            if c_name.startswith("RPyExc_"):
+                c_name = c_name[1:]
+                exc_repr = self.db.repr_constant(obj)[1]
+                write_raise_exc(c_name, exc_repr, codewriter)
 
     def _checkpoint(self, msg=None):
         if not self.logging:

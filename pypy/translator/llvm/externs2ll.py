@@ -15,9 +15,7 @@ support_functions = [
     "%raisePyExc_OverflowError",
     "%raisePyExc_ZeroDivisionError",
     "%raisePyExc_RuntimeError",
-    "%prepare_ZeroDivisionError",
-    "%prepare_OverflowError",
-    "%prepare_ValueError",
+    "%raisePyExc_thread_error",
     "%RPyString_FromString",
     "%RPyString_AsString",
     "%RPyString_Size",
@@ -101,8 +99,7 @@ def get_ll(ccode, function_names):
         raise "Can't compile external function code (llcode.c): ERROR:", llcode
     return decl, impl
 
-
-def post_setup_externs(db):
+def setup_externs(db):
     rtyper = db.translator.rtyper
     from pypy.translator.c.extfunc import predeclare_all
 
@@ -125,14 +122,13 @@ def post_setup_externs(db):
 
     return decls
 
-
 def path_join(root_path, *paths):
     path = root_path
     for p in paths:
         path = os.path.join(path, p)
     return path
 
-def generate_llfile(db, extern_decls):
+def generate_llfile(db, extern_decls, entrynode):
     ccode = []
     function_names = []
         
@@ -147,8 +143,8 @@ def generate_llfile(db, extern_decls):
     for k, v in db.obj2node.items():
         try:
             if isinstance(lltype.typeOf(k), lltype.FuncType):
-                if k._name == "entry_point":
-                    predeclarefn("entry_point", v.get_ref())
+                if v == entrynode and k._name == "entry_point":
+                    predeclarefn("__ENTRY_POINT__", v.get_ref())
                     ccode.append('#define ENTRY_POINT_DEFINED 1\n\n')
                     break
         except TypeError, exc:
@@ -163,7 +159,11 @@ def generate_llfile(db, extern_decls):
             c = inputconst(lltype.typeOf(funcptr), funcptr)
             predeclarefn(c_name, db.repr_arg(c))
         elif isinstance(lltype.typeOf(obj), lltype.Ptr):
-            predeclarefn(c_name, db.obj2node[obj._obj].ref)
+            if c_name.startswith("RPyExc_"):
+                c_name = c_name[1:]
+                ccode.append("void raise%s(char *);\n" % c_name)
+            else:
+                predeclarefn(c_name, db.obj2node[obj._obj].ref)                
         else:
             assert False, "unhandled extern_decls %s %s %s" % (c_name, type(obj), obj)
 

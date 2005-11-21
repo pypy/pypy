@@ -128,7 +128,7 @@ def make_module_from_llvm(genllvm, llvmfile, pyxfile=None, optimize=True, exe_na
         try:
             try:
                 for cmd in cmds:
-                    #log.build(cmd)
+                    log.build(cmd)
                     cmdexec(cmd)
                 if pyxfile:
                     make_c_from_pyxfile(pyxfile)
