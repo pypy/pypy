@@ -43,6 +43,12 @@ class LLVMNode(object):
     def writeimpl(self, codewriter):
         """ write function implementations. """ 
 
+    # ______________________________________________________________________
+    # pre entry-point setup
+
+    def writesetupcode(self, codewriter):
+        pass
+
 class ConstantLLVMNode(LLVMNode):
     __slots__ = "".split()
 
@@ -65,3 +71,5 @@ class ConstantLLVMNode(LLVMNode):
         p, c = lltype.parentlink(self.value)
         if p is None:
             codewriter.globalinstance(self.ref, self.constantvalue())
+        
+

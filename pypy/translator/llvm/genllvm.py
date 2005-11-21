@@ -148,16 +148,14 @@ class GenLLVM(object):
         # write external function implementations
         codewriter.header_comment('External Function Implementation')
         codewriter.append(self.llexterns_functions)
+        codewriter.append(extfunctions)
         self.write_extern_impls(codewriter, extern_decls)
-
-        self._checkpoint('write external functions')
+        self.write_setup_impl(codewriter)
+        
+        self._checkpoint('write support implentations')
 
         # write exception implementaions
         codewriter.append(self.exceptionpolicy.llvmcode(self.entrynode))
-
-        # write support implementations
-        codewriter.append(extfunctions)
-        self._checkpoint('write support implentations')
 
         # write all node implementations
         for typ_decl in self.db.getnodes():
@@ -234,6 +232,15 @@ class GenLLVM(object):
                 c_name = c_name[1:]
                 exc_repr = self.db.repr_constant(obj)[1]
                 write_raise_exc(c_name, exc_repr, codewriter)
+
+    def write_setup_impl(self, codewriter):
+        open_decl =  "sbyte* %LLVM_RPython_StartupCode()"
+        codewriter.openfunc(open_decl)
+        for node in self.db.getnodes():
+            node.writesetupcode(codewriter)
+
+        codewriter.ret("sbyte*", "null")
+        codewriter.closefunc()
 
     def _checkpoint(self, msg=None):
         if not self.logging:

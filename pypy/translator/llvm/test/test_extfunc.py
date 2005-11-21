@@ -441,7 +441,6 @@ def test_start_new_thread():
     assert res == 42
 
 def test_prebuilt_lock():
-    py.test.skip("WIP")    
     import thread
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
     lock0 = thread.allocate_lock()
@@ -454,8 +453,8 @@ def test_prebuilt_lock():
         return ok
     f = compile_function(fn, [int])
     res = f(0)
-    assert res is True
+    assert res == True
     res = f(1)
-    assert res is False
+    assert res == False
 
 # end of tests taken from c backend

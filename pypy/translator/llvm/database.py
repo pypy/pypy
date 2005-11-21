@@ -8,8 +8,8 @@ from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode
 from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
      VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
-from pypy.translator.llvm.opaquenode import OpaqueNode, OpaqueTypeNode, \
-     ExtOpaqueTypeNode
+from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
+     OpaqueTypeNode, ExtOpaqueTypeNode
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Constant, Variable
             
@@ -111,7 +111,10 @@ class Database(object):
                 node = ArrayNode(self, value)
 
         elif isinstance(type_, lltype.OpaqueType):
-            node = OpaqueNode(self, value)
+            if hasattr(type_, '_exttypeinfo'):
+                node = ExtOpaqueNode(self, value)
+            else:
+                node = OpaqueNode(self, value)
 
         assert node is not None, "%s not supported" % (type_)
         return node
@@ -294,10 +297,15 @@ class Database(object):
             ref = node.get_pbcref(toptr)
             return node, "%s %s" % (toptr, ref)
 
-        elif isinstance(type_, lltype.Array) or isinstance(type_, lltype.Struct):
+        elif isinstance(type_, (lltype.Array, lltype.Struct)):
             node = self.obj2node[value]
             return node, node.constantvalue()
 
+        elif isinstance(type_, lltype.OpaqueType):
+            node = self.obj2node[value]
+            if isinstance(node, ExtOpaqueNode):
+                return node, node.constantvalue()
+                
         assert False, "%s not supported" % (type(value))
 
     def repr_tmpvar(self): 

@@ -55,7 +55,7 @@ class ExternalFuncNode(ConstantLLVMNode):
             "%s %s" % (typ_, name)
             for typ_, name in zip(argtypes, argrefs)])
         
-        open_decl =  "%s %s(%s)" % (rettype, self.ref, arg_desription)
+        open_decl = "%s %s(%s)" % (rettype, self.ref, arg_desription)
         codewriter.openfunc(open_decl)
         
         returnval = self.db.repr_tmpvar()

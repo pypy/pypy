@@ -132,8 +132,7 @@ class StructNode(ConstantLLVMNode):
                 found = True
                 break
             pos += 1
-        #Structure types require uint constants!
-        #see: http://llvm.cs.uiuc.edu/docs/LangRef.html#i_getelementptr
+
         return "getelementptr(%s* %s, int 0, uint %s)" %(
             self.get_typerepr(),
             self.get_ref(),

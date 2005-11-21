@@ -4,6 +4,7 @@ char *RPyString_AsString(RPyString*);
 int RPyString_Size(RPyString*);
 RPyString *RPyString_FromString(char *);
 int RPyExceptionOccurred(void);
+char* LLVM_RPython_StartupCode(void);
 
 #define RPyRaiseSimpleException(exctype, errormsg) raise##exctype(errormsg)
 
@@ -28,14 +29,32 @@ __RAISING_OPS__
 // append some genc files here manually from python
 __INCLUDE_FILES__
 
-#ifdef ENTRY_POINT_DEFINED
+// setup code for ThreadLock Opaque types
+char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
+				      int initially_locked) {
+
+  struct RPyOpaque_ThreadLock tmp = RPyOpaque_INITEXPR_ThreadLock;
+  memcpy(lock, &tmp, sizeof(struct RPyOpaque_ThreadLock));
+
+  if (!RPyThreadLockInit(lock)) {
+    return "Thread lock init error";
+  }
+  if ((initially_locked) && !RPyThreadAcquireLock(lock, 1)) {
+    return "Cannot acquire thread lock at init";
+  }
+  return NULL;
+}
 
 extern GC_all_interior_pointers;
 
+char *LLVM_RPython_StartupCode();
+
 char *RPython_StartupCode() {
   GC_all_interior_pointers = 0;
-  return NULL;
+  return LLVM_RPython_StartupCode();
 }
+
+#ifdef ENTRY_POINT_DEFINED
 
 int __ENTRY_POINT__(RPyListOfString *);
 
@@ -71,6 +90,16 @@ int main(int argc, char *argv[])
  error:
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
     return 1;
+}
+
+#else
+
+int Pyrex_RPython_StartupCode() {
+  char *error = RPython_StartupCode();
+  if (error != NULL) {
+    return 0;
+  }
+  return 1;
 }
 
 #endif /* ENTRY_POINT_DEFINED */

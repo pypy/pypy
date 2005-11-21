@@ -20,6 +20,7 @@ support_functions = [
     "%RPyString_AsString",
     "%RPyString_Size",
     "%RPyExceptionOccurred",
+    "%LLVM_RPython_StartupCode",
     ]
 
 def get_ll(ccode, function_names):
@@ -67,7 +68,7 @@ def get_ll(ccode, function_names):
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
            if line.find("internal") == -1:
-                if funcname != "%main":
+                if funcname not in ["%main", "%Pyrex_RPython_StartupCode"]:
                     internal = 'internal '
                     line = '%s%s %s' % (internal, DEFAULT_CCONV, line,)
         ll_lines.append(line)
