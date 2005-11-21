@@ -31,7 +31,7 @@ def update_llvm():
 
 def compile(backend):
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
-    os.system('python translate_pypy.py targetpypystandalone --backend=%(backend)s --text --batch 2>&1' % locals())
+    os.system('python translate_pypy.py --backend=%(backend)s --text --batch targetpypystandalone 2>&1' % locals())
 
     os.chdir(homedir + '/projects/pypy-dist')
     try:
