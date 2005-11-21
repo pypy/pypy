@@ -70,25 +70,6 @@ return_block:
     ret double %result
 }
 
-;; functions that should return a bool according to
-;; pypy/rpython/extfunctable.py  , but C doesn't have bools!
-
-internal fastcc bool %LL_os_isatty(int %fd) {
-    %t = call fastcc int %LL_os_isatty(int %fd)
-    %b = cast int %t to bool
-    ret bool %b
-}
-internal fastcc bool %LL_stack_too_big() {
-    %t = call fastcc int %LL_stack_too_big()
-    %b = cast int %t to bool
-    ret bool %b
-}
-internal fastcc bool %LL_thread_acquirelock(%RPyOpaque_ThreadLock* %lock, bool %waitflag) {
-    %waitint = cast bool %waitflag to int
-    %t = call fastcc int %LL_thread_acquirelock(%RPyOpaque_ThreadLock* %lock, int %waitint)
-    %b = cast int %t to bool
-    ret bool %b
-}
 """
 
 def write_raise_exc(c_name, exc_repr, codewriter):

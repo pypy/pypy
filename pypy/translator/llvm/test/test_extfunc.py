@@ -390,7 +390,6 @@ def test_lock():
     assert res
 
 def test_simple_start_new_thread():
-    py.test.skip("WIP")    
     import thread
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
     class Arg:
@@ -419,7 +418,6 @@ def test_simple_start_new_thread():
     assert res == 42
 
 def test_start_new_thread():
-    py.test.skip("WIP")    
     import thread
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
     class Arg:
