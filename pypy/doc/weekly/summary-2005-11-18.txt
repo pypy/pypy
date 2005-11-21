@@ -36,7 +36,7 @@ week, including a recommendation to upgrade to the newly released LLVM
 1.6.  This gives slightly better performance, meaning that a new
 pypy-llvm is the closest to CPython performance we've gotten yet
 (still about 8 times slower, mind).  The main change is that the list
-of operations that raise can exceptions is now shared with the genc
+of operations that can raise exceptions is now shared with the genc
 backend, reducing duplication and maintence overhead.
 
 There was also progress on the JavaScript backend, mainly focussed on
