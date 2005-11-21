@@ -46,5 +46,12 @@ Archive
    - Draft-Dynamic-...
    - Gtbg Sprint in December
 
+ * `Week ending 2005-11-18`_
+
+   - SomePBC-refactoring
+   - Backend progress
+
 .. _`Week ending 2005-11-04`: summary-2005-11-04.html
 .. _`Week ending 2005-11-11`: summary-2005-11-11.html
+.. _`Week ending 2005-11-18`: summary-2005-11-18.html
+
