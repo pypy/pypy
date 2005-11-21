@@ -242,6 +242,36 @@ def test_raise_outside_testfn():
     finally:
         restore_magic(saved)
 
+def test_miss_base():
+
+    class A(Exception):
+        pass
+
+    class B(A):
+        pass
+
+    def raise_exception(n):
+        if n == 1: raise A
+        elif n == 0: raise B
+        
+    def fn(n):
+        ok = False
+        try:
+            raise_exception(n)
+        except B, exc:
+            ok = True
+        return ok
+    
+    f = compile_function(fn, [int])
+    res = False
+    assert fn(0)
+    try:
+        f(1)
+    except:
+        res = True
+    assert res
+    assert not f(2)
+
 def no_magic():
     import __builtin__
     try:
