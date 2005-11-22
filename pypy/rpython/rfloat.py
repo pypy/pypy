@@ -10,6 +10,7 @@ from pypy.rpython.rstr import string_repr
 from pypy.rpython import rstr
 from pypy.rpython.rmodel import log
 
+import math
 
 class __extend__(annmodel.SomeFloat):
     def rtyper_makerepr(self, rtyper):
@@ -105,7 +106,10 @@ class __extend__(FloatRepr):
         return float(value)
 
     def get_ll_eq_function(self):
-        return None 
+        return None
+
+    def get_ll_hash_function(self):
+        return ll_hash_float
 
     def rtype_is_true(_, hop):
         vlist = hop.inputargs(Float)
@@ -133,7 +137,27 @@ class __extend__(FloatRepr):
         from pypy.rpython.module.ll_strtod import ll_strtod_formatd
         return ll_strtod_formatd(percent_f, f)
 
+    def rtype_hash(_, hop):
+        v_flt, = hop.inputargs(float_repr)
+        return hop.gendirectcall(ll_hash_float, v_flt)
+
 percent_f = string_repr.convert_const("%f")
+
+TAKE_NEXT = float(2**31)
+
+def ll_hash_float(f):
+    """
+    this implementation is identical to the CPython implementation,
+    despite the fact that the integer case is not treated, specially.
+    This should be special-cased in W_FloatObject.
+    In the low-level case, floats cannot be used with ints in dicts, anyway.
+    """
+    v, expo = math.frexp(f)
+    v *= TAKE_NEXT
+    hipart = int(v)
+    v = (v - float(hipart)) * TAKE_NEXT
+    x = hipart + int(v) + (expo << 15)
+    return x
 #
 # _________________________ Conversions _________________________
 

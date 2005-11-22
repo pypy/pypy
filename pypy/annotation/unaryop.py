@@ -189,6 +189,9 @@ class __extend__(SomeFloat):
             return getbookkeeper().immutablevalue(bool(self.const))
         return SomeBool()
 
+    def hash(flt):
+        return SomeInteger()
+
 class __extend__(SomeInteger):
 
     def invert(self):

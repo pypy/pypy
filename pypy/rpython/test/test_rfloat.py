@@ -54,3 +54,9 @@ def test_float2str():
 
     res = interpret(fn, [1.5])
     assert float(''.join(res.chars)) == 1.5
+
+def test_hash():
+    def fn(f):
+        return hash(f)
+    res = interpret(fn, [1.5])
+    assert res == hash(1.5)
