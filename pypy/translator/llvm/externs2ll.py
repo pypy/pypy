@@ -105,6 +105,7 @@ def setup_externs(db):
     from pypy.translator.c.extfunc import predeclare_all
 
     # hacks to make predeclare_all work
+    # XXX Rationalise this
     db.standalone = True
     db.externalfuncs = {}
     decls = list(predeclare_all(db, rtyper))
@@ -129,7 +130,7 @@ def path_join(root_path, *paths):
         path = os.path.join(path, p)
     return path
 
-def generate_llfile(db, extern_decls, entrynode):
+def generate_llfile(db, extern_decls, entrynode, standalone):
     ccode = []
     function_names = []
         
@@ -144,7 +145,7 @@ def generate_llfile(db, extern_decls, entrynode):
     for k, v in db.obj2node.items():
         try:
             if isinstance(lltype.typeOf(k), lltype.FuncType):
-                if v == entrynode and k._name == "entry_point":
+                if v == entrynode and standalone:
                     predeclarefn("__ENTRY_POINT__", v.get_ref())
                     ccode.append('#define ENTRY_POINT_DEFINED 1\n\n')
                     break

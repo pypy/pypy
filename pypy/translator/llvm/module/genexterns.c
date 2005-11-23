@@ -45,16 +45,28 @@ char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
   return NULL;
 }
 
-extern GC_all_interior_pointers;
+#include <gc/gc.h>
+#define USING_BOEHM_GC
 
 char *LLVM_RPython_StartupCode();
 
-char *RPython_StartupCode() {
-  GC_all_interior_pointers = 0;
-  return LLVM_RPython_StartupCode();
+char *pypy_malloc(unsigned int size) {
+  // use the macros luke
+  return GC_MALLOC(size);
+}
+
+char *pypy_malloc_atomic(unsigned int size) {
+  return GC_MALLOC_ATOMIC(size);
 }
 
 #ifdef ENTRY_POINT_DEFINED
+
+extern GC_all_interior_pointers;
+char *RPython_StartupCode() {
+  GC_all_interior_pointers = 0;
+  GC_INIT();
+  return LLVM_RPython_StartupCode();
+}
 
 int __ENTRY_POINT__(RPyListOfString *);
 
@@ -93,8 +105,16 @@ int main(int argc, char *argv[])
 }
 
 #else
+extern GC_all_interior_pointers;
+
+char *RPython_StartupCode() {
+  GC_all_interior_pointers = 0;
+  GC_INIT();
+  return LLVM_RPython_StartupCode();
+}
 
 int Pyrex_RPython_StartupCode() {
+
   char *error = RPython_StartupCode();
   if (error != NULL) {
     return 0;

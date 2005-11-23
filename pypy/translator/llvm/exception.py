@@ -19,7 +19,7 @@ then:
     ret sbyte* %%tmp.4
 
 else:
-    %%tmp.8  = call ccc sbyte* %%GC_malloc(uint %%nbytes)
+    %%tmp.8  = call ccc sbyte* %%pypy_malloc(uint %%nbytes)
     ret sbyte* %%tmp.8
 }
 ''' % (RINGBUFFER_ENTRY_MAXSIZE, RINGBUGGER_OVERSIZE, RINGBUGGER_SIZE-1)

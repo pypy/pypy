@@ -53,11 +53,7 @@ class BoehmGcPolicy(GcPolicy):
         return ['gc', 'pthread'] # XXX on windows?
 
     def declarations(self):
-        return '''
-declare ccc sbyte* %GC_malloc(uint)
-declare ccc sbyte* %GC_malloc_atomic(uint)
-%GC_all_interior_pointers = external global int
-'''
+        return ''
 
     def malloc(self, targetvar, type_, size, is_atomic, word, uword):
         s = str(size)
@@ -67,7 +63,7 @@ declare ccc sbyte* %GC_malloc_atomic(uint)
         t = '''
 %%malloc.Size%(cnt)s  = getelementptr %(type_)s* null, %(uword)s %(s)s
 %%malloc.SizeU%(cnt)s = cast %(type_)s* %%malloc.Size%(cnt)s to %(uword)s
-%%malloc.Ptr%(cnt)s   = call ccc sbyte* %%GC_malloc%(atomic)s(%(uword)s %%malloc.SizeU%(cnt)s)
+%%malloc.Ptr%(cnt)s   = call fastcc sbyte* %%pypy_malloc%(atomic)s(%(uword)s %%malloc.SizeU%(cnt)s)
 %(targetvar)s = cast sbyte* %%malloc.Ptr%(cnt)s to %(type_)s*
 ''' % locals()
         if is_atomic:

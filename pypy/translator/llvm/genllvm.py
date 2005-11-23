@@ -17,46 +17,13 @@ from pypy.translator.llvm.exception import ExceptionPolicy
 from pypy.translator.translator import Translator
 from pypy.translator.llvm.log import log
 
-# XXX for propersity sake 
-"""run_pypy-llvm.sh [aug 29th 2005]
-before slotifying: 350Mb
-after  slotifying: 300Mb, 35 minutes until the .ll file is fully written.
-STATS (1, "<class 'pypy.translator.llvm.arraynode.VoidArrayTypeNode'>")
-STATS (1, "<class 'pypy.translator.llvm.opaquenode.OpaqueTypeNode'>")
-STATS (9, "<class 'pypy.translator.llvm.structnode.StructVarsizeTypeNode'>")
-STATS (46, "<class 'pypy.translator.llvm.extfuncnode.ExternalFuncNode'>")
-STATS (52, "<class 'pypy.translator.llvm.arraynode.ArrayTypeNode'>")
-STATS (189, "<class 'pypy.translator.llvm.arraynode.VoidArrayNode'>")
-STATS (819, "<class 'pypy.translator.llvm.opaquenode.OpaqueNode'>")
-STATS (1250, "<class 'pypy.translator.llvm.funcnode.FuncTypeNode'>")
-STATS (1753, "<class 'pypy.translator.llvm.structnode.StructTypeNode'>")
-STATS (5896, "<class 'pypy.translator.llvm.funcnode.FuncNode'>")
-STATS (24013, "<class 'pypy.translator.llvm.arraynode.ArrayNode'>")
-STATS (25411, "<class 'pypy.translator.llvm.structnode.StructVarsizeNode'>")
-STATS (26210, "<class 'pypy.translator.llvm.arraynode.StrArrayNode'>")
-STATS (268884, "<class 'pypy.translator.llvm.structnode.StructNode'>")
-
-init took 00m00s
-setup_all took 08m14s
-setup_all externs took 00m00s
-generate_ll took 00m02s
-write externs type declarations took 00m00s
-write data type declarations took 00m02s
-write global constants took 09m49s
-write function prototypes took 00m00s
-write declarations took 00m03s
-write implementations took 01m54s
-write support functions took 00m00s
-write external functions took 00m00s
-"""
-
 class GenLLVM(object):
 
     # see open_file() below
     function_count = {}
     llexterns_header = llexterns_functions = None
 
-    def __init__(self, translator, gcpolicy=None, exceptionpolicy=None,
+    def __init__(self, translator, gcpolicy, exceptionpolicy, standalone,
                  debug=False, logging=True):
     
         # reset counters
@@ -64,9 +31,11 @@ class GenLLVM(object):
 
         # create and set internals
         self.db = Database(self, translator)
-        self.gcpolicy = gcpolicy
+
+        self.gcpolicy = GcPolicy.new(gcpolicy)
+        self.standalone = standalone
         self.translator = translator
-        self.exceptionpolicy = exceptionpolicy
+        self.exceptionpolicy = ExceptionPolicy.new(exceptionpolicy)
 
         # the debug flag is for creating comments of every operation
         # that may be executed
@@ -76,35 +45,58 @@ class GenLLVM(object):
         # process
         self.logging = logging
 
-    def gen_llvm_source(self, func=None):
+        self.source_generated = False
 
+    def gen_llvm_source(self, func=None):
         self._checkpoint()
 
+        codewriter = self.setup(func)
+
+        # write top part of llvm file
+        self.write_headers(codewriter)
+
+        codewriter.startimpl()
+
+        # write bottom part of llvm file
+        self.write_implementations(codewriter)
+
+        self.source_generated = True
+        self._checkpoint('done')
+        return self.filename
+
+    def setup(self, func):
+        """ setup all nodes
+            create c file for externs
+            create ll file for c file
+            create codewriter """
+
         # set up externs nodes
-        extern_decls = setup_externs(self.db)
+        self.extern_decls = setup_externs(self.db)
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
         self._checkpoint('setup_all externs')
         
         # get entry point
-        entry_point, func_name = self.get_entry_point(func)
+        entry_point = self.get_entry_point(func)
         self._checkpoint('get_entry_point')
         
         # set up all nodes
         self.db.setup_all()
         self.entrynode = self.db.set_entrynode(entry_point)
-        self._checkpoint('setup_all first pass')
+        self._checkpoint('setup_all all nodes')
 
         self._print_node_stats()
 
-        # open file & create codewriter
-        codewriter, filename = self.create_codewrite(func_name)
-        self._checkpoint('open file and create codewriter')
-
         # create ll file from c code
-        self.setup_externs(extern_decls)
+        self.generate_ll_externs()
         self._checkpoint('setup_externs')
+
+        # open file & create codewriter
+        codewriter, self.filename = self.create_codewriter()
+        self._checkpoint('open file and create codewriter')        
+        return codewriter
     
+    def write_headers(self, codewriter):
         # write external function headers
         codewriter.header_comment('External Function Headers')
         codewriter.append(self.llexterns_header)
@@ -112,7 +104,7 @@ class GenLLVM(object):
         codewriter.header_comment("Type Declarations")
 
         # write extern type declarations
-        self.write_extern_decls(codewriter, extern_decls)
+        self.write_extern_decls(codewriter)
         self._checkpoint('write externs type declarations')
 
         # write node type declarations
@@ -141,15 +133,14 @@ class GenLLVM(object):
 
         self._checkpoint('write function prototypes')
 
-        codewriter.startimpl()
-
+    def write_implementations(self, codewriter):
         codewriter.header_comment("Function Implementation")
 
         # write external function implementations
         codewriter.header_comment('External Function Implementation')
         codewriter.append(self.llexterns_functions)
         codewriter.append(extfunctions)
-        self.write_extern_impls(codewriter, extern_decls)
+        self.write_extern_impls(codewriter)
         self.write_setup_impl(codewriter)
         
         self._checkpoint('write support implentations')
@@ -164,27 +155,6 @@ class GenLLVM(object):
 
         # write entry point if there is one
         codewriter.comment("End of file")
-
-        self._checkpoint('done')
-        self.filename = filename
-        return filename
-    
-    def compile_llvm_source(self, optimize=True, exe_name=None):
-        assert hasattr(self, "filename")
-        if exe_name is not None:
-            # standalone
-            return build_llvm_module.make_module_from_llvm(self, self.filename,
-                                                           optimize=optimize,
-                                                           exe_name=exe_name)
-        else:
-            # use pyrex to create module for CPython
-            postfix = ''
-            basename = self.filename.purebasename + '_wrapper' + postfix + '.pyx'
-            pyxfile = self.filename.new(basename = basename)
-            write_pyx_wrapper(self, pyxfile)    
-            return build_llvm_module.make_module_from_llvm(self, self.filename,
-                                                           pyxfile=pyxfile,
-                                                           optimize=optimize)
     
     def get_entry_point(self, func):
         if func is None:
@@ -194,40 +164,42 @@ class GenLLVM(object):
         ptr = getfunctionptr(self.translator, func)
         c = inputconst(lltype.typeOf(ptr), ptr)
         self.db.prepare_arg_value(c)
-        return c.value._obj, func.func_name
+        self.entry_func_name = func.func_name
+        return c.value._obj 
 
-    def setup_externs(self, extern_decls):
-        # we cache the llexterns to make tests run faster
+    def generate_ll_externs(self):
+        # we only cache the llexterns to make tests run faster
         if self.llexterns_header is None:
             assert self.llexterns_functions is None
             self.llexterns_header, self.llexterns_functions = \
                                    generate_llfile(self.db,
-                                                   extern_decls,
-                                                   self.entrynode)
+                                                   self.extern_decls,
+                                                   self.entrynode,
+                                                   self.standalone)
 
-    def create_codewrite(self, func_name):
+    def create_codewriter(self):
         # prevent running the same function twice in a test
-        if func_name in self.function_count:
-            postfix = '_%d' % self.function_count[func_name]
-            self.function_count[func_name] += 1
+        if self.entry_func_name in self.function_count:
+            postfix = '_%d' % self.function_count[self.entry_func_name]
+            self.function_count[self.entry_func_name] += 1
         else:
             postfix = ''
-            self.function_count[func_name] = 1
-        filename = udir.join(func_name + postfix).new(ext='.ll')
+            self.function_count[self.entry_func_name] = 1
+        filename = udir.join(self.entry_func_name + postfix).new(ext='.ll')
         f = open(str(filename), 'w')
         return CodeWriter(f, self), filename
 
-    def write_extern_decls(self, codewriter, extern_decls):        
-        for c_name, obj in extern_decls:
+    def write_extern_decls(self, codewriter):        
+        for c_name, obj in self.extern_decls:
             if isinstance(obj, lltype.LowLevelType):
                 if isinstance(obj, lltype.Ptr):
                     obj = obj.TO
 
                 l = "%%%s = type %s" % (c_name, self.db.repr_type(obj))
                 codewriter.append(l)
-  
-    def write_extern_impls(self, codewriter, extern_decls):
-        for c_name, obj in extern_decls:
+                
+    def write_extern_impls(self, codewriter):
+        for c_name, obj in self.extern_decls:
             if c_name.startswith("RPyExc_"):
                 c_name = c_name[1:]
                 exc_repr = self.db.repr_constant(obj)[1]
@@ -242,6 +214,34 @@ class GenLLVM(object):
         codewriter.ret("sbyte*", "null")
         codewriter.closefunc()
 
+    def compile_llvm_source(self, optimize=True,
+                            exe_name=None, return_fn=False):
+        assert self.source_generated
+
+        assert hasattr(self, "filename")
+        if exe_name is not None:
+            assert self.standalone
+            assert not return_fn
+            return build_llvm_module.make_module_from_llvm(self, self.filename,
+                                                           optimize=optimize,
+                                                           exe_name=exe_name)
+        else:
+            assert not self.standalone
+
+            # use pyrex to create module for CPython
+            postfix = ''
+            basename = self.filename.purebasename + '_wrapper' + postfix + '.pyx'
+            pyxfile = self.filename.new(basename = basename)
+            write_pyx_wrapper(self, pyxfile)    
+            res = build_llvm_module.make_module_from_llvm(self, self.filename,
+                                                          pyxfile=pyxfile,
+                                                          optimize=optimize)
+            wrap_fun = getattr(res, 'pypy_' + self.entry_func_name + "_wrapper")
+            if return_fn:
+                return wrap_fun
+
+            return res, wrap_fun
+        
     def _checkpoint(self, msg=None):
         if not self.logging:
             return
@@ -269,13 +269,11 @@ class GenLLVM(object):
         for s in stats:
             log('STATS %s' % str(s))
 
-def genllvm(translator, gcpolicy=None, exceptionpolicy=None,
+def genllvm(translator, gcpolicy=None, exceptionpolicy=None, standalone=False,
             log_source=False, logging=False, **kwds):
 
-    gen = GenLLVM(translator,
-                  GcPolicy.new(gcpolicy),
-                  ExceptionPolicy.new(exceptionpolicy),
-                  logging=logging)
+    gen = GenLLVM(translator, gcpolicy, exceptionpolicy,
+                  standalone, logging=logging)
     filename = gen.gen_llvm_source()
 
     if log_source:
@@ -283,7 +281,7 @@ def genllvm(translator, gcpolicy=None, exceptionpolicy=None,
 
     return gen.compile_llvm_source(**kwds)
 
-def compile_module(function, annotation, view=False, **kwds):
+def genllvm_compile(function, annotation, view=False, **kwds):
     t = Translator(function)
     a = t.annotate(annotation)
     a.simplify()
@@ -297,5 +295,4 @@ def compile_module(function, annotation, view=False, **kwds):
 
 def compile_function(function, annotation, **kwds):
     """ Helper - which get the compiled module from CPython. """
-    mod = compile_module(function, annotation, **kwds)
-    return getattr(mod, 'pypy_' + function.func_name + "_wrapper")
+    return compile_module(function, annotation, return_fn=True, **kwds)

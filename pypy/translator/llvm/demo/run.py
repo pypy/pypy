@@ -5,7 +5,7 @@ import sys
 from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.listdef import ListDef
 
-from pypy.translator.llvm.genllvm import compile_module
+from pypy.translator.llvm.genllvm import genllvm_compile
 from pypy.translator.translator import Translator
 
 def p():
@@ -15,7 +15,8 @@ def p():
 def l(name):
     s_list_of_strings = SomeList(ListDef(None, SomeString()))
     s_list_of_strings.listdef.resize()
-    exe_path = compile_module(entry_point, [s_list_of_strings], exe_name=name)
+    exe_path = genllvm_compile(entry_point, [s_list_of_strings],
+                               exe_name=name, standalone=True)
     print 'Running standalone (llvm-based) executable:'
     print exe_path
     os.system(exe_path)

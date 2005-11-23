@@ -1,7 +1,7 @@
 import sys
 import py
 
-from pypy.translator.llvm.test.runtest import compile_module_function
+from pypy.translator.llvm.test.runtest import compile_test
 
 def test_GC_malloc(): 
     #XXX how to get to gcpolicy?
@@ -16,7 +16,7 @@ def test_GC_malloc():
             x += l[2]
             i += 1
         return x
-    mod,f = compile_module_function(tuple_getitem, [int])
+    mod, f = compile_test(tuple_getitem, [int])
     n = 5000
     result = tuple_getitem(n)
     assert f(n) == result

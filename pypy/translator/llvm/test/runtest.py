@@ -1,5 +1,5 @@
 import py
-from pypy.translator.llvm.genllvm import compile_module
+from pypy.translator.llvm.genllvm import genllvm_compile
 
 optimize_tests = False
 MINIMUM_LLVM_VERSION = 1.6
@@ -18,26 +18,23 @@ def llvm_version():
     v = int(v) / 10.0
     return v
 
-def compile_function(function, annotation, **kwds):
+def llvm_test():
     if not llvm_is_on_path():
         py.test.skip("llvm not found")
-
+        return False
     v = llvm_version()
     if v < MINIMUM_LLVM_VERSION:
-        py.test.skip("llvm version not up-to-date (found %.1f, should be >= %.1f)" % (v, MINIMUM_LLVM_VERSION))
+        py.test.skip("llvm version not up-to-date (found "
+                     "%.1f, should be >= %.1f)" % (v, MINIMUM_LLVM_VERSION))
+        return False
+    return True
 
-    mod = compile_module(function, annotation, optimize=optimize_tests,
-                         logging=False, **kwds)
-    return getattr(mod, 'pypy_' + function.func_name + "_wrapper")
+def compile_test(function, annotation, **kwds):
+    if llvm_test():        
+        return genllvm_compile(function, annotation, optimize=optimize_tests,
+                               logging=False, **kwds)
 
-def compile_module_function(function, annotation, **kwds):
-    if not llvm_is_on_path():
-        py.test.skip("llvm not found")
+def compile_function(function, annotation, **kwds):
+    if llvm_test():
+        return compile_test(function, annotation, return_fn=True, **kwds)
 
-    v, minimum = llvm_version(), 1.6
-    if v < minimum:
-        py.test.skip("llvm version not up-to-date (found %.1f, should be >= %.1f)" % (v, minimum))
-        
-    mod = compile_module(function, annotation, **kwds)
-    f = getattr(mod, 'pypy_' + function.func_name + "_wrapper")
-    return mod, f

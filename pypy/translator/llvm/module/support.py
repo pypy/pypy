@@ -57,7 +57,6 @@ return_block:
     ret int %result
 }
 
-
 internal fastcc double %pypyop_float_abs(double %x) {
 block0:
     %cond1 = setge double %x, 0.0
