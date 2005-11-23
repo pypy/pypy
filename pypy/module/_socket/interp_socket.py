@@ -76,8 +76,8 @@ else:
     def socket_strerror(errno):
         try:
             return os.strerror(errno)
-        except TypeError:
-            return errno
+        except ValueError:
+            return "socket error %d" % (errno,)
 
 def wrap_socketerror(space, e):
     assert isinstance(e, socket.error)

@@ -45,7 +45,7 @@ class Bootstrapper:
         except OperationError, e:
             if not e.match(space, space.w_SystemExit):
                 ident = thread.get_ident()
-                where = 'thread %d started by' % ident
+                where = 'thread %d started by ' % ident
                 e.write_unraisable(space, where, w_callable)
             e.clear(space)
 

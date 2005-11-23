@@ -581,7 +581,7 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         elif _name not in ['is_', 'id','type','issubtype',
                            # not really to be defined in DescrOperation
                            'ord']:
-            raise Exception, "missing def for operation%s" % _name
+            raise Exception, "missing def for operation %s" % _name
             
             
 

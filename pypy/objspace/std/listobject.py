@@ -51,9 +51,7 @@ def getitem__List_Slice(space, w_list, w_slice):
     length = len(w_list.wrappeditems)
     start, stop, step, slicelength = w_slice.indices4(length)
     assert slicelength >= 0
-    if step == 1 and stop >= start >= 0:
-        assert stop >= 0
-        assert start >= 0
+    if step == 1 and 0 <= start <= stop:
         return W_ListObject(space, w_list.wrappeditems[start:stop])
     w_res = W_ListObject(space, [None] * slicelength)
     items_w = w_list.wrappeditems

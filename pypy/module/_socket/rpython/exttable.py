@@ -7,6 +7,7 @@ from pypy.module._socket.rpython import rsocket
 from pypy.rpython.extfunctable import declare, declaretype, declareptrtype
 from pypy.rpython.extfunctable import standardexceptions
 from pypy.annotation.model import SomeTuple, SomeInteger, SomeString
+from pypy.annotation import classdef
 
 module = 'pypy.module._socket.rpython.ll__socket'
 
@@ -45,3 +46,4 @@ declare(_socket.htonl, int, '%s/htonl' % module)
 
 # XXX a bit hackish
 standardexceptions[_socket.error] = True
+classdef.FORCE_ATTRIBUTES_INTO_CLASSES[_socket.error] = {'errno': SomeInteger()}
