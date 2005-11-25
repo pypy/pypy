@@ -58,6 +58,7 @@ Archive
    - Sprint preparation
    - PyPy spreads
    - Whither pypy-sync meetings?
+   - Resource consumption
 
 .. _`Week ending 2005-11-04`: summary-2005-11-04.html
 .. _`Week ending 2005-11-11`: summary-2005-11-11.html

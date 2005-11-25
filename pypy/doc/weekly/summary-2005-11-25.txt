@@ -51,7 +51,7 @@ The weekly pypy-sync meeting singularly failed to happen this week.
 Resource consumption
 ====================
 
-As part of being funded, we have to keep track of the resources we use
+As part of being EU-funded, we have to keep track of the resources we use
 and have a slightly unusual problem: we haven't spent enough time or
 money in the first half of the project, and have to find something to
 do about this...
