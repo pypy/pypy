@@ -21,31 +21,38 @@ repository since the last summary (not quite a week).
 SomePBC-refactoring
 ===================
 
-We attacked the RTyper quite a lot.
+We attacked the RTyper quite a lot, which meant staring at some of the
+most obscure code in the codebase, and made substantial but incomplete
+progress (currently about 60% of the rtyper tests pass).  We're
+optimistic that the majority of work is done on the branch, but there
+may be many strange details to cope with before translate_pypy runs
+again.
+
+
+Sprint Preparation
+==================
+
+The next sprint is only two and a bit weeks away -- it's definitely
+time to be buying flights and booking accomodation if you're going to
+be there :)
 
 
 LLVM progress
 =============
 
-Richard (nearly?) implemented threading in the LLVM backend.
-
-
-Sprint preparation
-==================
-
-Göteborg approaches.
+Richard implemented threading in the LLVM backend, bringing another
+feature that was previously pypy-c only in.  Stacklessness next?
 
 
 PyPy spreads
 ============
 
-Christian consulted in America.
-
-
-Whither pypy-sync meetings?
-===========================
-
-The weekly pypy-sync meeting singularly failed to happen this week.
+Christian returned from America where he'd been consulting for a
+company implementing some systems in RPython which had been
+implemented in Java, and after some effort beating the Java versions
+for performance.  This company had found out about PyPy and RPython
+from reading our mailing lists -- a nice example of how open
+development processes can work (and even make you money!).
 
 
 Resource consumption
