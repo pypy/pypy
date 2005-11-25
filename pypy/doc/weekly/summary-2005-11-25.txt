@@ -32,9 +32,9 @@ again.
 Sprint Preparation
 ==================
 
-The next sprint is only two and a bit weeks away -- it's definitely
-time to be buying flights and booking accomodation if you're going to
-be there :)
+The next sprint is less than two weeks away -- it's definitely time to
+be buying flights and booking accomodation if you're going to be there
+:)
 
 
 LLVM progress
