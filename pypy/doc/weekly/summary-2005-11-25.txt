@@ -33,7 +33,7 @@ Richard (nearly?) implemented threading in the LLVM backend.
 Sprint preparation
 ==================
 
-GÃ¶teborg approaches.
+Göteborg approaches.
 
 
 PyPy spreads
