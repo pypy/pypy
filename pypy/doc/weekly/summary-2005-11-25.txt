@@ -55,3 +55,30 @@ As part of being EU-funded, we have to keep track of the resources we use
 and have a slightly unusual problem: we haven't spent enough time or
 money in the first half of the project, and have to find something to
 do about this...
+
+
+PyPy at conferences
+===================
+
+All three talks on PyPy that we submitted to PyCon were accepted, so
+there will be talks from 
+
+ - Michael and Christian on the current state of PyPy (whatever that
+   may be at the time :),
+
+ - Holger and Armin on the architecture and future of PyPy, and 
+
+ - Bea and Holger on the methodology of PyPy and the issues around
+   being EU funded.
+
+Further to that, two papers were accepted for the Chaos Communication
+Congress in Berlin over the new year were accepted:
+
+   http://events.ccc.de/congress/2005/fahrplan/events/585.en.html
+   http://events.ccc.de/congress/2005/fahrplan/events/586.en.html
+
+Again, one talk is on the technology of PyPy and the other on
+methodology/business issues.
+
+So if you're going to a Python or hacker conference any time soon,
+you're likely to hear about PyPy :)
