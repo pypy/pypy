@@ -1,0 +1,48 @@
+=======================
+  This Week in PyPy 4
+=======================
+
+Introduction
+============
+
+This is the fourth of what will hopefully be many summaries of what's
+been going on in the world of PyPy in the last week.  I'd still like
+to remind people that when something worth summarizing happens to
+recommend if for "This Week in PyPy" as mentioned on:
+
+    http://codespeak.net/pypy/dist/pypy/doc/weekly/
+
+where you can also find old summaries.
+
+There were about 50 commits to the pypy section of codespeak's
+repository since the last summary (not quite a week).
+
+
+SomePBC-refactoring
+===================
+
+We attacked the RTyper quite a lot.
+
+
+LLVM progress
+=============
+
+Richard (nearly?) implemented threading in the LLVM backend.
+
+
+Sprint preparation
+==================
+
+Göteborg approaches.
+
+
+PyPy spreads
+============
+
+Christian consulted in America.
+
+
+Whither pypy-sync meetings?
+===========================
+
+The weekly pypy-sync meeting singularly failed to happen this week.
